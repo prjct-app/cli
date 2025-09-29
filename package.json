@@ -1,0 +1,44 @@
+{
+  "name": "@prjct/cli",
+  "version": "0.1.0",
+  "description": "AI-integrated project management for indie hackers - works with Claude Code, Cursor, and Warp",
+  "main": "core/index.js",
+  "bin": {
+    "prjct": "./bin/prjct"
+  },
+  "scripts": {
+    "install-global": "./install.sh",
+    "test": "echo 'No tests configured'"
+  },
+  "keywords": [
+    "project-management",
+    "indie-hacker",
+    "ai-assistant",
+    "claude-code",
+    "cursor",
+    "warp",
+    "productivity"
+  ],
+  "author": "prjct.dev",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^11.0.0",
+    "chalk": "^4.1.2",
+    "ora": "^5.4.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/prjct-cli"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/prjct-cli/issues"
+  },
+  "homepage": "https://prjct.dev",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
