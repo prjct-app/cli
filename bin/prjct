@@ -1,0 +1,52 @@
+#!/usr/bin/env node
+const commands = require('../core/commands');
+const args = process.argv.slice(2);
+
+async function main() {
+    const command = args[0];
+    const params = args.slice(1).join(' ');
+
+    let result;
+    switch(command) {
+        case 'init':
+            result = await commands.init();
+            break;
+        case 'now':
+            result = await commands.now(params || null);
+            break;
+        case 'done':
+            result = await commands.done();
+            break;
+        case 'ship':
+            result = await commands.ship(params);
+            break;
+        case 'next':
+            result = await commands.next();
+            break;
+        case 'idea':
+            result = await commands.idea(params);
+            break;
+        case 'recap':
+            result = await commands.recap();
+            break;
+        case 'progress':
+            result = await commands.progress(params || 'week');
+            break;
+        case 'stuck':
+            result = await commands.stuck(params);
+            break;
+        case 'context':
+            result = await commands.context();
+            break;
+        default:
+            result = {
+                success: false,
+                message: `Unknown command: ${command}\n\nAvailable commands:\n  init, now, done, ship, next, idea, recap, progress, stuck, context`
+            };
+    }
+
+    console.log(result.message);
+    process.exit(result.success ? 0 : 1);
+}
+
+main().catch(console.error);

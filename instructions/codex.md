@@ -1,4 +1,4 @@
-# prjct Commands for OpenAI Codex / GitHub Copilot
+# prjct Commands for OpenAI Codex / GitHub OpenAI Codex
 
 When users type `/p:` commands, execute these actions using file operations.
 

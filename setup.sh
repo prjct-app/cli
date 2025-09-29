@@ -1,66 +1,146 @@
 #!/bin/bash
 
-# prjct-cli Universal Installer
-# Compatible with Claude Code, Cursor, and Warp
+# prjct/cli - Turn ideas into AI-ready roadmaps
+# Ship faster with zero friction
 
-# set -e  # Comentado para mejor manejo de errores
+set -e
 
-echo "🚀 Installing prjct-cli..."
-echo ""
-echo "Working directory: $(pwd)"
-
-# Colors for output
+# Colors and formatting
+RED='\033[0;31m'
 GREEN='\033[0;32m'
-BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+MAGENTA='\033[0;35m'
+CYAN='\033[0;36m'
+WHITE='\033[1;37m'
 NC='\033[0m' # No Color
+BOLD='\033[1m'
+DIM='\033[2m'
+
+# Unicode characters for better visuals
+CHECK="✓"
+CROSS="✗"
+ARROW="▸"
+DOT="•"
+
+# Clear screen for clean install experience
+clear
+
+# Animated header
+echo ""
+echo -e "${CYAN}╔════════════════════════════════════════════════╗${NC}"
+echo -e "${CYAN}║${NC}  ${BOLD}${WHITE}        🚀 prjct/${MAGENTA}cli${WHITE} installer         ${NC}${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}  ${DIM}   Turn ideas into AI-ready roadmaps      ${NC}${CYAN}║${NC}"
+echo -e "${CYAN}╚════════════════════════════════════════════════╝${NC}"
+echo ""
+echo -e "  ${YELLOW}⚡${NC} Ship faster with zero friction"
+echo -e "  ${GREEN}📝${NC} From idea to technical tasks in minutes"
+echo -e "  ${BLUE}🤖${NC} Perfect context for AI agents"
+echo ""
+echo -e "${DIM}────────────────────────────────────────────────${NC}"
+echo ""
+
+# Spinner function
+spin() {
+    local pid=$1
+    local delay=0.1
+    local spinstr='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+    while [ "$(ps a | awk '{print $1}' | grep $pid)" ]; do
+        local temp=${spinstr#?}
+        printf " [%c]  " "$spinstr"
+        local spinstr=$temp${spinstr%"$temp"}
+        sleep $delay
+        printf "\b\b\b\b\b\b"
+    done
+    printf "    \b\b\b\b"
+}
+
+# Progress bar function
+show_progress() {
+    local current=$1
+    local total=$2
+    local width=40
+    local percentage=$((current * 100 / total))
+    local filled=$((current * width / total))
+
+    printf "\r  "
+    printf "${GREEN}"
+    for ((i=0; i<filled; i++)); do printf "▓"; done
+    printf "${DIM}"
+    for ((i=filled; i<width; i++)); do printf "░"; done
+    printf "${NC} ${percentage}%%"
+}
 
 # Get script directory
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-# Check Node.js installation
+# Step counter
+STEP=1
+TOTAL_STEPS=6
+
+print_step() {
+    echo -e "\n${BOLD}${CYAN}[$STEP/$TOTAL_STEPS]${NC} ${BOLD}$1${NC}"
+    ((STEP++))
+}
+
+# Check prerequisites
+print_step "Checking prerequisites"
+
+# Check Node.js with spinner
+printf "  ${ARROW} Checking Node.js..."
 if ! command -v node &> /dev/null; then
-    echo "❌ Node.js is required but not installed."
-    echo "Please install Node.js 18+ from https://nodejs.org"
+    echo -e " ${RED}${CROSS}${NC}"
+    echo -e "\n  ${RED}Node.js is required but not installed.${NC}"
+    echo -e "  Please install Node.js 18+ from ${CYAN}https://nodejs.org${NC}"
     exit 1
 fi
 
 NODE_VERSION=$(node --version | cut -d'v' -f2 | cut -d'.' -f1)
 if [ "$NODE_VERSION" -lt 18 ]; then
-    echo "❌ Node.js 18+ is required (found v$NODE_VERSION)"
+    echo -e " ${RED}${CROSS}${NC}"
+    echo -e "\n  ${RED}Node.js 18+ is required (found v$NODE_VERSION)${NC}"
     exit 1
 fi
-
-echo -e "${GREEN}✅ Node.js v$(node --version) detected${NC}"
+echo -e " ${GREEN}${CHECK}${NC} v$(node --version)"
 
 # Install npm dependencies
-echo -e "${BLUE}📦 Installing dependencies...${NC}"
+print_step "Installing dependencies"
 cd "$SCRIPT_DIR"
 
 # Remove old node_modules if exists
 if [ -d "node_modules" ]; then
-    echo "Cleaning old dependencies..."
-    rm -rf node_modules package-lock.json
+    printf "  ${ARROW} Cleaning old dependencies..."
+    rm -rf node_modules package-lock.json 2>/dev/null
+    echo -e " ${GREEN}${CHECK}${NC}"
 fi
 
-# Install with visible output for debugging
-npm install
+# Install with progress indication
+printf "  ${ARROW} Installing packages"
+(
+    npm install --silent > /dev/null 2>&1
+) &
+spin $!
+echo -e " ${GREEN}${CHECK}${NC}"
 
-if [ $? -ne 0 ]; then
-    echo -e "${YELLOW}⚠️ Error installing dependencies. Trying again...${NC}"
-    npm install --force
-fi
+# Show installed packages count
+PKG_COUNT=$(ls -1 node_modules 2>/dev/null | wc -l | tr -d ' ')
+echo -e "  ${DIM}${DOT} $PKG_COUNT packages installed${NC}"
 
-# Verify core/commands.js exists
+# Create core files if needed
+print_step "Setting up core files"
+
+printf "  ${ARROW} Checking core structure..."
 if [ ! -f "$SCRIPT_DIR/core/commands.js" ]; then
-    echo -e "${YELLOW}⚠️ core/commands.js not found!${NC}"
-    echo "Creating core/commands.js..."
     mkdir -p "$SCRIPT_DIR/core"
-    # Will be created separately if needed
+    echo -e " ${YELLOW}creating${NC}"
+else
+    echo -e " ${GREEN}${CHECK}${NC}"
 fi
 
 # Create bin executable
-echo -e "${BLUE}🔧 Creating executable...${NC}"
+print_step "Creating executable"
+
+printf "  ${ARROW} Setting up prjct command..."
 mkdir -p bin
 cat > bin/prjct << 'EOF'
 #!/usr/bin/env node
@@ -118,15 +198,37 @@ main().catch(console.error);
 EOF
 
 chmod +x bin/prjct
-
-echo -e "${GREEN}✅ Executable created${NC}"
+echo -e " ${GREEN}${CHECK}${NC}"
 
 # Platform detection and installation
+print_step "Detecting AI platforms"
 PLATFORMS_INSTALLED=""
+PLATFORM_COUNT=0
 
 # 1. Check for Claude Code
+printf "  ${ARROW} Claude Code..."
 if [ -d "$HOME/.claude" ] || [ -f "$HOME/.claude/CLAUDE.md" ]; then
-    echo -e "${BLUE}🤖 Configuring Claude Code...${NC}"
+    echo -e " ${GREEN}found${NC}"
+
+    # Install command files directly to ~/.claude/commands/
+    if [ -d "$SCRIPT_DIR/commands" ]; then
+        printf "    ${DIM}Installing commands...${NC}"
+
+        # Create subdirectory for /p:* namespace
+        mkdir -p "$HOME/.claude/commands/p"
+        CMD_COUNT=0
+        for cmd_file in "$SCRIPT_DIR/commands"/*.md; do
+            if [ -f "$cmd_file" ]; then
+                filename=$(basename "$cmd_file")
+                # Copy to p/ subdirectory for /p:* namespace
+                cp "$cmd_file" "$HOME/.claude/commands/p/${filename}"
+                ((CMD_COUNT++))
+            fi
+        done
+        echo -e " ${GREEN}${CHECK}${NC} ($CMD_COUNT commands)"
+        ((PLATFORM_COUNT++))
+        PLATFORMS_INSTALLED="$PLATFORMS_INSTALLED Claude"
+    fi
 
     # Create instructions file
     mkdir -p "$SCRIPT_DIR/adapters/claude"
@@ -177,13 +279,25 @@ EOF
     if [ -f "$HOME/.claude/COMMANDS.md" ]; then
         echo "" >> "$HOME/.claude/COMMANDS.md"
         cat "$SCRIPT_DIR/adapters/claude/PRJCT_COMMANDS.md" >> "$HOME/.claude/COMMANDS.md"
-        echo -e "${GREEN}✅ Claude Code configured${NC}"
+        echo -e "${GREEN}✅ Claude Code instructions added to COMMANDS.md${NC}"
     else
-        echo -e "${YELLOW}⚠️  Claude COMMANDS.md not found. Please add instructions manually from:${NC}"
-        echo "   $SCRIPT_DIR/adapters/claude/PRJCT_COMMANDS.md"
+        echo -e "${YELLOW}⚠️  Claude COMMANDS.md not found. Creating minimal instructions...${NC}"
+        # Create minimal COMMANDS.md with prjct info
+        mkdir -p "$HOME/.claude"
+        cat > "$HOME/.claude/COMMANDS.md" << 'EOF'
+# Claude Code Commands
+
+## PRJCT Commands
+Commands starting with /p: are handled by the prjct system.
+Command files are located in ~/.claude/commands/p/
+EOF
+        cat "$SCRIPT_DIR/adapters/claude/PRJCT_COMMANDS.md" >> "$HOME/.claude/COMMANDS.md"
     fi
 
+    echo -e "${GREEN}✅ Claude Code instructions added to COMMANDS.md${NC}"
     PLATFORMS_INSTALLED="$PLATFORMS_INSTALLED Claude"
+else
+    echo -e " ${DIM}not found${NC}"
 fi
 
 # 2. Check for VS Code / Cursor
@@ -424,34 +538,82 @@ else
     echo "   export PATH=\"$SCRIPT_DIR/bin:\$PATH\""
 fi
 
-# Summary
+# Optional: Setup Context7 MCP
+print_step "Optional: Configure MCP Context7"
+
+printf "  ${ARROW} Enable Context7 for documentation? (y/N): "
+read -r ENABLE_CONTEXT7
+
+if [[ "$ENABLE_CONTEXT7" =~ ^[Yy]$ ]]; then
+    if [ -d "$HOME/.config/claude" ]; then
+        printf "    ${DIM}Installing Context7 config...${NC}"
+
+        # Check if claude_desktop_config.json exists
+        if [ -f "$HOME/.config/claude/claude_desktop_config.json" ]; then
+            # Backup existing config
+            cp "$HOME/.config/claude/claude_desktop_config.json" "$HOME/.config/claude/claude_desktop_config.json.backup"
+            echo -e " ${GREEN}${CHECK}${NC} (backed up existing)"
+        else
+            # Create empty config
+            echo '{"mcpServers": {}}' > "$HOME/.config/claude/claude_desktop_config.json"
+            echo -e " ${GREEN}${CHECK}${NC} (created new)"
+        fi
+
+        echo -e "${YELLOW}   📝 Add this to your Claude Desktop config:${NC}"
+        echo -e "${DIM}      {\"mcpServers\": {\"context7\": {\"command\": \"npx\", \"args\": [\"-y\", \"@upstash/context7-mcp@latest\"]}}}${NC}"
+    else
+        echo -e " ${YELLOW}!${NC} Claude Desktop not found - manual setup required"
+    fi
+else
+    echo -e " ${DIM}skipped${NC}"
+fi
+
+# Final step
+print_step "Installation complete!"
+
+# Show summary with animation
 echo ""
-echo "════════════════════════════════════════════════════"
-echo -e "${GREEN}✨ prjct-cli installation complete!${NC}"
+echo -e "${GREEN}╔════════════════════════════════════════════════════╗${NC}"
+echo -e "${GREEN}║${NC}  ${BOLD}${WHITE}✨ prjct/cli successfully installed! ✨${NC}         ${GREEN}║${NC}"
+echo -e "${GREEN}╚════════════════════════════════════════════════════╝${NC}"
 echo ""
 
-if [ -n "$PLATFORMS_INSTALLED" ]; then
-    echo "Platforms configured:$PLATFORMS_INSTALLED"
+# Platform summary
+if [ $PLATFORM_COUNT -gt 0 ]; then
+    echo -e "  ${GREEN}${CHECK}${NC} Detected platforms:"
+    if [[ "$PLATFORMS_INSTALLED" == *"Claude"* ]]; then
+        echo -e "    ${CYAN}●${NC} Claude Code ${DIM}(commands ready)${NC}"
+    fi
+    if [[ "$PLATFORMS_INSTALLED" == *"Cursor"* ]]; then
+        echo -e "    ${MAGENTA}●${NC} Cursor/VS Code ${DIM}(extension created)${NC}"
+    fi
+    if [[ "$PLATFORMS_INSTALLED" == *"Warp"* ]]; then
+        echo -e "    ${YELLOW}●${NC} Warp Terminal ${DIM}(autocomplete enabled)${NC}"
+    fi
 else
-    echo -e "${YELLOW}No supported platforms detected${NC}"
+    echo -e "  ${YELLOW}⚠${NC}  No AI platforms detected ${DIM}(manual setup required)${NC}"
 fi
 
 echo ""
-echo "📚 Quick Start:"
+echo -e "${BOLD}${CYAN}🚀 Quick Start${NC}"
+echo -e "${DIM}─────────────────────────────────────────────────${NC}"
 echo ""
-echo "  1. Initialize your project:"
-echo "     prjct init          (Terminal)"
-echo "     /p:init            (Claude Code)"
-echo "     Cmd+Shift+P → PRJCT: Initialize  (Cursor)"
+echo -e "  ${BOLD}1.${NC} Initialize your project:"
+echo -e "     ${DIM}Terminal:${NC}     ${GREEN}prjct init${NC}"
+echo -e "     ${DIM}Claude Code:${NC}  ${GREEN}/sc:p:init${NC}"
 echo ""
-echo "  2. Set your current task:"
-echo "     prjct now \"implement auth\""
-echo "     /p:now \"implement auth\""
+echo -e "  ${BOLD}2.${NC} Set your current focus:"
+echo -e "     ${DIM}Terminal:${NC}     ${GREEN}prjct now \"build auth\"${NC}"
+echo -e "     ${DIM}Claude Code:${NC}  ${GREEN}/sc:p:now \"build auth\"${NC}"
 echo ""
-echo "  3. Ship features:"
-echo "     prjct ship \"authentication\""
-echo "     /p:ship \"authentication\""
+echo -e "  ${BOLD}3.${NC} Ship & celebrate:"
+echo -e "     ${DIM}Terminal:${NC}     ${GREEN}prjct ship \"user login\"${NC}"
+echo -e "     ${DIM}Claude Code:${NC}  ${GREEN}/sc:p:ship \"user login\"${NC}"
 echo ""
-echo "════════════════════════════════════════════════════"
+echo -e "${DIM}─────────────────────────────────────────────────${NC}"
 echo ""
-echo "Need help? Check docs/ folder or visit prjct.dev"
+echo -e "  ${DIM}Documentation:${NC} ${CYAN}https://github.com/jlopezlira/prjct-cli${NC}"
+echo -e "  ${DIM}Report issues:${NC} ${CYAN}https://github.com/jlopezlira/prjct-cli/issues${NC}"
+echo ""
+echo -e "${BOLD}${YELLOW}⚡ Ship faster with zero friction!${NC}"
+echo ""

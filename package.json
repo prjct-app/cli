@@ -8,7 +8,11 @@
   },
   "scripts": {
     "install-global": "./install.sh",
-    "test": "echo 'No tests configured'"
+    "test": "echo 'No tests configured'",
+    "landing:dev": "cd landing && npm run dev",
+    "landing:build": "cd landing && npm run build",
+    "landing:preview": "cd landing && npm run preview",
+    "landing:install": "cd landing && npm install"
   },
   "keywords": [
     "project-management",
