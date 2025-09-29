@@ -9,6 +9,7 @@ First off, **THANK YOU** for considering contributing to prjct-cli. This project
 We're building something different here. No corporate ceremonies, no 47-step PR processes, no gatekeeping. Just builders helping builders ship better and faster.
 
 **What we value:**
+
 - 🚀 **Ship fast** - Perfect is the enemy of done
 - 💡 **Ideas over process** - Got a cool idea? Let's talk about it
 - 🤝 **Be cool** - We're all here to help each other
@@ -17,7 +18,9 @@ We're building something different here. No corporate ceremonies, no 47-step PR 
 ## 🛠️ Ways to Contribute
 
 ### 1. 🐛 Found a Bug?
+
 No worries, it happens! Open an issue with:
+
 - What you were trying to do
 - What actually happened
 - Your environment (Claude Code, Codex, Terminal, etc.)
@@ -26,7 +29,9 @@ No worries, it happens! Open an issue with:
 **Pro tip:** If you can fix it yourself, even better! See the PR section below.
 
 ### 2. 💡 Have an Idea?
+
 We LOVE ideas! Open an issue titled `[IDEA] Your awesome idea` and tell us:
+
 - The problem you're trying to solve
 - How you think it could work
 - Why it would help other indie hackers
@@ -34,14 +39,18 @@ We LOVE ideas! Open an issue titled `[IDEA] Your awesome idea` and tell us:
 Don't worry about having all the details figured out. We can brainstorm together!
 
 ### 3. 📝 Want to Improve Docs?
+
 Documentation is super important! If something confused you, it probably confused others too. Feel free to:
+
 - Fix typos (yes, even one typo is worth a PR!)
 - Add examples
 - Clarify confusing parts
 - Add your own tips and tricks
 
 ### 4. 🎨 UI/UX Improvements?
+
 The landing page could always be better! If you have ideas for:
+
 - Better copy
 - Cooler animations
 - Clearer explanations
@@ -50,11 +59,13 @@ The landing page could always be better! If you have ideas for:
 Just open a PR or issue. We're not precious about it!
 
 ### 5. 🤖 New AI Agent Support?
+
 Want to add support for another AI assistant? Awesome! Check out the agent detection system in `core/agent-detector.js` and follow the pattern.
 
 ## 📋 Quick Contribution Guide
 
 ### Step 1: Fork & Clone
+
 ```bash
 # Fork on GitHub first, then:
 git clone https://github.com/YOUR_USERNAME/prjct-cli
@@ -62,6 +73,7 @@ cd prjct-cli
 ```
 
 ### Step 2: Create a Branch
+
 ```bash
 # Name it something descriptive
 git checkout -b add-cursor-support
@@ -72,13 +84,16 @@ git checkout -b improve-docs
 ```
 
 ### Step 3: Make Your Changes
+
 Do your thing! Remember:
+
 - Keep it simple
 - Follow the existing code style (roughly)
 - Test it with at least one AI agent
 - Have fun with it
 
 ### Step 4: Test It
+
 ```bash
 # For CLI commands
 ./test-agent-detection.js
@@ -92,6 +107,7 @@ cd landing && npm run dev
 ```
 
 ### Step 5: Commit
+
 ```bash
 # Be descriptive but don't overthink it
 git add .
@@ -103,6 +119,7 @@ git commit -m "docs: add examples for complex tasks"
 ```
 
 **Commit format** (loosely):
+
 - `feat:` - New feature
 - `fix:` - Bug fix
 - `docs:` - Documentation
@@ -112,11 +129,13 @@ git commit -m "docs: add examples for complex tasks"
 - `chore:` - Maintenance
 
 ### Step 6: Push & PR
+
 ```bash
 git push origin your-branch-name
 ```
 
 Then open a PR on GitHub with:
+
 - **Title**: What you did
 - **Description**: Why you did it (can be super brief)
 - **Screenshots**: If it's visual
@@ -125,6 +144,7 @@ Then open a PR on GitHub with:
 ## 🚫 What NOT to Do
 
 Please don't:
+
 - Add heavy dependencies without discussion
 - Change core philosophy (zero friction, single task focus, celebration)
 - Add complex configuration or settings
@@ -138,6 +158,7 @@ Just ask! Open an issue with `[QUESTION]` in the title. We're friendly, I promis
 ## 🎉 Recognition
 
 Every contributor gets:
+
 - Their name in the Contributors section
 - Eternal gratitude from indie hackers everywhere
 - Good karma for helping builders ship faster
@@ -175,6 +196,7 @@ cd ~/.prjct-cli
 ```
 
 The uninstaller will:
+
 - Safely remove all components
 - Offer to backup or preserve your project data
 - Clean up shell configurations

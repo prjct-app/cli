@@ -20,14 +20,18 @@ prjct is a **100% local, privacy-first** project management tool. We take your p
 ## How prjct Works
 
 ### Local Storage Only
+
 All your data is stored locally on your machine in a `.prjct` folder within your project directory. This data never leaves your computer unless you explicitly choose to version control it with git or share it through your own means.
 
 ### No Network Requests
+
 prjct itself makes **ZERO** network requests. The only network activity comes from:
+
 - Your AI assistant (Claude Code, Cursor, etc.) - governed by their respective privacy policies
 - Git operations if you choose to version control your `.prjct` folder
 
 ### Your Data is YOURS
+
 - You have complete control over your data
 - You can delete it anytime by removing the `.prjct` folder
 - You can backup, move, or share it as you see fit
@@ -36,12 +40,14 @@ prjct itself makes **ZERO** network requests. The only network activity comes fr
 ## AI Assistant Integration
 
 While prjct doesn't collect data, it works within AI assistants like:
+
 - Claude Code
 - Cursor
 - OpenAI Codex
 - Warp Code
 
 These AI services have their own privacy policies. When you use prjct commands, the AI assistant processes them according to their respective terms. We recommend reviewing:
+
 - [Claude's Privacy Policy](https://www.anthropic.com/privacy)
 - [Cursor's Privacy Policy](https://cursor.sh/privacy)
 - Your specific AI assistant's privacy terms
@@ -49,6 +55,7 @@ These AI services have their own privacy policies. When you use prjct commands, 
 ## Open Source Transparency
 
 prjct is fully open source. You can:
+
 - Review all code on [GitHub](https://github.com/jlopezlira/prjct-cli)
 - Verify there's no data collection
 - Fork and modify it for your needs
@@ -57,6 +64,7 @@ prjct is fully open source. You can:
 ## Website Privacy
 
 Our landing page (prjct.dev) is a static site hosted on GitHub Pages:
+
 - No cookies are set
 - No analytics are collected
 - No user data is stored
@@ -65,6 +73,7 @@ Our landing page (prjct.dev) is a static site hosted on GitHub Pages:
 ## Data Security
 
 Since all data is local:
+
 - Security depends on your machine's security
 - Use disk encryption for sensitive projects
 - Follow your organization's security policies
@@ -81,6 +90,7 @@ prjct is a developer tool not intended for children under 13. We don't knowingly
 ## Your Rights
 
 With prjct, you have complete rights to your data:
+
 - **Access**: Your data is in plain text files
 - **Modify**: Edit any file directly
 - **Delete**: Remove the `.prjct` folder
@@ -97,4 +107,4 @@ For privacy questions, please open an issue on our [GitHub repository](https://g
 
 ---
 
-*This privacy policy is effective as of January 2025 and was created to be transparent about our commitment to your privacy, even though we literally don't collect anything.*
+_This privacy policy is effective as of January 2025 and was created to be transparent about our commitment to your privacy, even though we literally don't collect anything._

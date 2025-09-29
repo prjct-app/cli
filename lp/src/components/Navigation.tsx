@@ -1,130 +1,137 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Menu, X, Home, BookOpen, Terminal as TerminalIcon, HelpCircle, Zap, Github } from 'lucide-react'
+import {
+  Menu,
+  X,
+  Home,
+  BookOpen,
+  Terminal as TerminalIcon,
+  HelpCircle,
+  Zap,
+  Github,
+} from 'lucide-react'
 import { PrjctLogo } from './Logo'
 
 interface NavItem {
- label: string
- path: string
- icon: React.ReactNode
+  label: string
+  path: string
+  icon: React.ReactNode
 }
 
 const navItems: NavItem[] = [
- { label: 'Home', path: '/', icon: <Home className="w-4 h-4" /> },
- { label: 'Documentation', path: '/docs', icon: <BookOpen className="w-4 h-4" /> },
- { label: 'Commands', path: '/commands', icon: <TerminalIcon className="w-4 h-4" /> },
- { label: 'Workflows', path: '/workflows', icon: <Zap className="w-4 h-4" /> },
- { label: 'FAQ', path: '/faq', icon: <HelpCircle className="w-4 h-4" /> },
+  { label: 'Home', path: '/', icon: <Home className="h-4 w-4" /> },
+  { label: 'Documentation', path: '/docs', icon: <BookOpen className="h-4 w-4" /> },
+  { label: 'Commands', path: '/commands', icon: <TerminalIcon className="h-4 w-4" /> },
+  { label: 'Workflows', path: '/workflows', icon: <Zap className="h-4 w-4" /> },
+  { label: 'FAQ', path: '/faq', icon: <HelpCircle className="h-4 w-4" /> },
 ]
 
 export const Navigation = () => {
- const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
- const location = useLocation()
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const location = useLocation()
 
- const isActive = (path: string) => {
-  if (path === '/' && location.pathname !== '/') return false
-  return location.pathname === path || (path !== '/' && location.pathname.startsWith(path))
- }
+  const isActive = (path: string) => {
+    if (path === '/' && location.pathname !== '/') return false
+    return location.pathname === path || (path !== '/' && location.pathname.startsWith(path))
+  }
 
- return (
-  <header className="sticky top-0 z-50 backdrop-blur-md bg-background/80 border-b border-border">
-   <div className="container mx-auto px-4">
-    <div className="flex justify-between items-center h-16">
-     {/* Logo */}
-     <Link to="/" className="flex items-center">
-      <PrjctLogo size="sm" />
-     </Link>
+  return (
+    <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-md">
+      <div className="container mx-auto px-4">
+        <div className="flex h-16 items-center justify-between">
+          {/* Logo */}
+          <Link to="/" className="flex items-center">
+            <PrjctLogo size="sm" />
+          </Link>
 
-     {/* Desktop Navigation */}
-     <nav className="hidden md:flex items-center gap-6">
-      {navItems.map((item) => (
-       <Link
-        key={item.path}
-        to={item.path}
-        className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all ${isActive(item.path)
-          ? 'text-primary bg-primary/10'
-          : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-         }`}
-       >
-        {item.icon}
-        <span>{item.label}</span>
-       </Link>
-      ))}
-     </nav>
+          {/* Desktop Navigation */}
+          <nav className="hidden items-center gap-6 md:flex">
+            {navItems.map((item) => (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`flex items-center gap-2 rounded-lg px-3 py-2 transition-all ${
+                  isActive(item.path)
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+                }`}
+              >
+                {item.icon}
+                <span>{item.label}</span>
+              </Link>
+            ))}
+          </nav>
 
-     {/* Right side - GitHub & Mobile Menu */}
-     <div className="flex items-center gap-3">
-      <motion.a
-       href="https://github.com/jlopezlira/prjct-cli"
-       target="_blank"
-       rel="noopener noreferrer"
-       initial={{ opacity: 0, y: -20 }}
-       animate={{ opacity: 1, y: 0 }}
-       transition={{ duration: 0.5 }}
-       className="p-2 rounded-xl hover:bg-muted transition-all"
-       aria-label="GitHub repository"
-      >
-       <Github className="w-5 h-5" />
-      </motion.a>
+          {/* Right side - GitHub & Mobile Menu */}
+          <div className="flex items-center gap-3">
+            <motion.a
+              href="https://github.com/jlopezlira/prjct-cli"
+              target="_blank"
+              rel="noopener noreferrer"
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="rounded-xl p-2 transition-all hover:bg-muted"
+              aria-label="GitHub repository"
+            >
+              <Github className="h-5 w-5" />
+            </motion.a>
 
-      {/* Mobile Menu Button */}
-      <button
-       className="md:hidden p-2 rounded-xl hover:bg-muted transition-all"
-       onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-       aria-label="Toggle mobile menu"
-      >
-       {isMobileMenuOpen ? (
-        <X className="w-5 h-5" />
-       ) : (
-        <Menu className="w-5 h-5" />
-       )}
-      </button>
-     </div>
-    </div>
+            {/* Mobile Menu Button */}
+            <button
+              className="rounded-xl p-2 transition-all hover:bg-muted md:hidden"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              aria-label="Toggle mobile menu"
+            >
+              {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+          </div>
+        </div>
 
-    {/* Mobile Menu */}
-    <AnimatePresence>
-     {isMobileMenuOpen && (
-      <motion.nav
-       initial={{ opacity: 0, height: 0 }}
-       animate={{ opacity: 1, height: 'auto' }}
-       exit={{ opacity: 0, height: 0 }}
-       transition={{ duration: 0.2 }}
-       className="md:hidden border-t border-border"
-      >
-       <div className="py-4 space-y-2">
-        {navItems.map((item) => (
-         <Link
-          key={item.path}
-          to={item.path}
-          onClick={() => setIsMobileMenuOpen(false)}
-          className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${isActive(item.path)
-            ? 'text-primary bg-primary/10'
-            : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-           }`}
-         >
-          {item.icon}
-          <span>{item.label}</span>
-         </Link>
-        ))}
+        {/* Mobile Menu */}
+        <AnimatePresence>
+          {isMobileMenuOpen && (
+            <motion.nav
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+              className="border-t border-border md:hidden"
+            >
+              <div className="space-y-2 py-4">
+                {navItems.map((item) => (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className={`flex items-center gap-3 rounded-lg px-4 py-3 transition-all ${
+                      isActive(item.path)
+                        ? 'bg-primary/10 text-primary'
+                        : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+                    }`}
+                  >
+                    {item.icon}
+                    <span>{item.label}</span>
+                  </Link>
+                ))}
 
-        {/* GitHub Link in Mobile */}
-        <a
-         href="https://github.com/jlopezlira/prjct-cli"
-         target="_blank"
-         rel="noopener noreferrer"
-         onClick={() => setIsMobileMenuOpen(false)}
-         className="flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-muted-foreground hover:text-foreground hover:bg-muted/50 border-t border-border mt-2 pt-4"
-        >
-         <Github className="w-5 h-5" />
-         <span>GitHub</span>
-        </a>
-       </div>
-      </motion.nav>
-     )}
-    </AnimatePresence>
-   </div>
-  </header>
- )
+                {/* GitHub Link in Mobile */}
+                <a
+                  href="https://github.com/jlopezlira/prjct-cli"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="mt-2 flex items-center gap-3 rounded-lg border-t border-border px-4 py-3 pt-4 text-muted-foreground transition-all hover:bg-muted/50 hover:text-foreground"
+                >
+                  <Github className="h-5 w-5" />
+                  <span>GitHub</span>
+                </a>
+              </div>
+            </motion.nav>
+          )}
+        </AnimatePresence>
+      </div>
+    </header>
+  )
 }

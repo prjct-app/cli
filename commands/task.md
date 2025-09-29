@@ -1,19 +1,22 @@
 ---
 allowed-tools: [Read, Write, Edit, TodoWrite, Bash, Glob]
-description: "Break down and execute complex tasks systematically"
+description: 'Break down and execute complex tasks systematically'
 ---
 
 # /p:task - Complex Task Execution
 
 ## Purpose
+
 Handle complex features by breaking them down, executing systematically, and tracking progress. No overwhelm.
 
 ## Usage
+
 ```
 /p:task <description>
 ```
 
 ## Execution
+
 1. Analyze task complexity
 2. Break into 3-7 subtasks automatically
 3. Create execution plan in `.prjct/planning/tasks/`
@@ -23,12 +26,14 @@ Handle complex features by breaking them down, executing systematically, and tra
 ## Implementation
 
 **Task breakdown**:
+
 - Identify main components needed
 - Order by dependencies
 - Estimate time for each
 - Create actionable subtasks
 
 **Example breakdown**:
+
 ```
 /p:task "implement user authentication"
 
@@ -61,12 +66,14 @@ Handle complex features by breaking them down, executing systematically, and tra
 ```
 
 **Progress tracking**:
+
 - Real-time status updates
 - Save progress between sessions
 - Resume interrupted tasks
 - Log to `.prjct/memory/context.jsonl`
 
 **Response format**:
+
 ```
 ✅ Task completed: User authentication
 
@@ -82,6 +89,7 @@ Handle complex features by breaking them down, executing systematically, and tra
 ```
 
 ## Features
+
 - Automatic task decomposition
 - Progress persistence
 - Time tracking

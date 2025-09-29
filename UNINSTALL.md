@@ -14,19 +14,23 @@ cd ~/.prjct-cli
 The uninstaller will remove the following components:
 
 ### 1. Installation Directory
+
 - `~/.prjct-cli/` - The main installation directory containing all prjct-cli files
 
 ### 2. Command Line Tools
+
 - `~/.local/bin/prjct` - The symlink for the `prjct` command
 - Any npm global installations of `@prjct/cli`
 
 ### 3. Shell Configuration
+
 - PATH modifications in:
   - `~/.zshrc` (for Zsh users)
   - `~/.bashrc` (for Bash users)
   - `~/.profile` (fallback)
 
 ### 4. AI Assistant Integration
+
 - `~/.claude/commands/p/` - Claude Code command files
 - MCP server configurations (if applicable)
 
@@ -35,18 +39,21 @@ The uninstaller will remove the following components:
 The uninstaller will detect any `.prjct/` directories in your projects and offer three options:
 
 ### Option 1: Keep All Data (Recommended)
+
 - **Default choice**
 - Preserves all `.prjct/` directories in your projects
 - You can manually delete them later if needed
 - Best if you might reinstall prjct-cli
 
 ### Option 2: Backup Before Removal
+
 - Creates a backup at `~/prjct-backup-[date]`
 - Each project's `.prjct/` data is saved with the project name
 - Original `.prjct/` directories are then removed
 - Good for archiving your project history
 
 ### Option 3: Permanent Deletion
+
 - **⚠️ IRREVERSIBLE ACTION**
 - Permanently deletes all `.prjct/` directories
 - Requires typing `DELETE` to confirm

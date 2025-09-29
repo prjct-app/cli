@@ -1,19 +1,22 @@
 ---
 allowed-tools: [Read, Grep, Bash, Edit]
-description: "Quick troubleshooting and automatic fixes"
+description: 'Quick troubleshooting and automatic fixes'
 ---
 
 # /p:fix - Quick Fix & Troubleshooting
 
 ## Purpose
+
 Instantly diagnose and fix common issues. Get unstuck in seconds, not minutes.
 
 ## Usage
+
 ```
 /p:fix [error message or description]
 ```
 
 ## Execution
+
 1. Analyze error type (syntax/type/runtime/build)
 2. Search for error patterns in codebase
 3. Apply automatic fix if safe and obvious
@@ -23,6 +26,7 @@ Instantly diagnose and fix common issues. Get unstuck in seconds, not minutes.
 ## Common Fixes
 
 **Auto-fixable**:
+
 - Missing semicolons, brackets, quotes
 - Import statements for undefined variables
 - Package.json dependencies
@@ -30,6 +34,7 @@ Instantly diagnose and fix common issues. Get unstuck in seconds, not minutes.
 - Linting issues
 
 **Guided fixes**:
+
 - Null/undefined errors → Add null checks
 - Module not found → Install package or fix path
 - Build failures → Check configs and deps
@@ -38,6 +43,7 @@ Instantly diagnose and fix common issues. Get unstuck in seconds, not minutes.
 ## Implementation
 
 **Error detection**:
+
 ```bash
 # Check for common issues
 - npm run lint 2>&1
@@ -47,6 +53,7 @@ Instantly diagnose and fix common issues. Get unstuck in seconds, not minutes.
 ```
 
 **Response format for auto-fix**:
+
 ```
 🔧 Fixed automatically!
 
@@ -58,6 +65,7 @@ File: components/UserForm.tsx:1
 ```
 
 **Response format for guided fix**:
+
 ```
 🔍 Issue identified: Cannot read property 'id' of undefined
 
@@ -73,6 +81,7 @@ Apply with: /p:fix apply
 ```
 
 ## Smart Features
+
 - Learns from previous fixes
 - Suggests preventive measures
 - Links to relevant documentation

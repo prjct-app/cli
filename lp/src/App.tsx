@@ -13,30 +13,30 @@ import { BestPractices } from './pages/docs/BestPractices'
 import { MCPIntegration } from './pages/docs/MCPIntegration'
 
 function App() {
- return (
-  <Router>
-   <div className="min-h-screen bg-background text-foreground transition-colors">
-    <Navigation />
+  return (
+    <Router>
+      <div className="min-h-screen bg-background text-foreground transition-colors">
+        <Navigation />
 
-    <main>
-     <Routes>
-      <Route path="/" element={<Home />} />
-      <Route path="/docs" element={<Documentation />} />
-      <Route path="/docs/quick-start" element={<QuickStart />} />
-      <Route path="/docs/philosophy" element={<Philosophy />} />
-      <Route path="/docs/git-integration" element={<GitIntegration />} />
-      <Route path="/docs/best-practices" element={<BestPractices />} />
-      <Route path="/docs/mcp-integration" element={<MCPIntegration />} />
-      <Route path="/commands" element={<Commands />} />
-      <Route path="/workflows" element={<Workflows />} />
-      <Route path="/faq" element={<FAQPage />} />
-     </Routes>
-    </main>
+        <main>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/docs" element={<Documentation />} />
+            <Route path="/docs/quick-start" element={<QuickStart />} />
+            <Route path="/docs/philosophy" element={<Philosophy />} />
+            <Route path="/docs/git-integration" element={<GitIntegration />} />
+            <Route path="/docs/best-practices" element={<BestPractices />} />
+            <Route path="/docs/mcp-integration" element={<MCPIntegration />} />
+            <Route path="/commands" element={<Commands />} />
+            <Route path="/workflows" element={<Workflows />} />
+            <Route path="/faq" element={<FAQPage />} />
+          </Routes>
+        </main>
 
-    <Footer />
-   </div>
-  </Router>
- )
+        <Footer />
+      </div>
+    </Router>
+  )
 }
 
 export default App

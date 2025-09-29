@@ -9,6 +9,8 @@
   "scripts": {
     "install-global": "./install.sh",
     "test": "echo 'No tests configured'",
+    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,css,md}\"",
+    "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,json,css,md}\"",
     "landing:dev": "cd landing && npm run dev",
     "landing:build": "cd landing && npm run build",
     "landing:preview": "cd landing && npm run preview",
@@ -26,12 +28,14 @@
   "author": "prjct.dev",
   "license": "MIT",
   "dependencies": {
-    "commander": "^11.0.0",
     "chalk": "^4.1.2",
+    "commander": "^11.0.0",
     "ora": "^5.4.1"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "prettier": "^3.6.2",
+    "prettier-plugin-tailwindcss": "^0.6.14",
     "typescript": "^5.0.0"
   },
   "repository": {
