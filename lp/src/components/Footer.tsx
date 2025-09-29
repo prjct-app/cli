@@ -1,18 +1,19 @@
 import { Github, Globe, Twitter } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { PrjctLogo } from './Logo'
 
 export const Footer = () => {
   return (
-    <footer className="border-t border-border px-4 py-12">
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-8 flex items-start justify-between gap-8">
+    <footer className="border-t border-border px-6 py-12">
+      <div className="container mx-auto max-w-6xl">
+        <div className="flex flex-col gap-8 md:flex-row md:justify-between">
           {/* Logo and Description */}
-          <div>
+          <div className="md:w-1/4">
             <PrjctLogo size="sm" />
           </div>
 
           {/* Resources */}
-          <div>
+          <div className="md:w-1/4">
             <h3 className="mb-4 font-semibold">Resources</h3>
             <div className="space-y-2">
               <a
@@ -37,25 +38,21 @@ export const Footer = () => {
           </div>
 
           {/* Legal */}
-          <div>
+          <div className="md:w-1/4">
             <h3 className="mb-4 font-semibold">Legal</h3>
             <div className="space-y-2">
-              <a
-                href="https://github.com/jlopezlira/prjct-cli/blob/main/TERMS.md"
-                target="_blank"
-                rel="noopener noreferrer"
+              <Link
+                to="/terms"
                 className="block text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
                 Terms of Use
-              </a>
-              <a
-                href="https://github.com/jlopezlira/prjct-cli/blob/main/PRIVACY.md"
-                target="_blank"
-                rel="noopener noreferrer"
+              </Link>
+              <Link
+                to="/privacy"
                 className="block text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
                 Privacy Policy
-              </a>
+              </Link>
               <a
                 href="https://github.com/jlopezlira/prjct-cli/blob/main/LICENSE"
                 target="_blank"
@@ -68,7 +65,7 @@ export const Footer = () => {
           </div>
 
           {/* Social Links */}
-          <div className="flex items-center gap-6">
+          <div className="flex gap-6 md:w-1/4 md:justify-end">
             <a
               href="https://github.com/jlopezlira/prjct-cli"
               target="_blank"
@@ -100,19 +97,14 @@ export const Footer = () => {
         </div>
 
         {/* Disclaimer */}
-        <div className="my-8 rounded-lg bg-muted/50 p-4">
+        <div className="mt-8 rounded-lg bg-muted/50 p-4 md:mt-12">
           <p className="text-center text-xs text-muted-foreground">
             <strong>DISCLAIMER:</strong> This software is provided "as is" without warranty of any
             kind. We are not responsible for any damages or losses arising from the use of this
             software. Use at your own risk. By using prjct, you agree to our{' '}
-            <a
-              href="https://github.com/jlopezlira/prjct-cli/blob/main/TERMS.md"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline hover:text-foreground"
-            >
+            <Link to="/terms" className="underline hover:text-foreground">
               Terms of Use.
-            </a>
+            </Link>
           </p>
         </div>
       </div>
