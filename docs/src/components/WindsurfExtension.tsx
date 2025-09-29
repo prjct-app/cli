@@ -3,12 +3,10 @@ import { useRef } from 'react'
 import {
   BarChart3,
   Target,
-  Zap,
   Bell,
   Clock,
   TrendingUp,
   Sparkles,
-  ChevronRight,
   Code2,
   Activity
 } from 'lucide-react'

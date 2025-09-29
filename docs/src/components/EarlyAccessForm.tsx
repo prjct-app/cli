@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Github, ArrowRight, Users, Sparkles } from 'lucide-react'
+import { Github, ArrowRight } from 'lucide-react'
 
 const EarlyAccessForm = () => {
   const githubIssueUrl = 'https://github.com/jlopezlira/prjct-cli/issues/new?labels=Windsurf+Extension&title=Early+Access+Request&body=I%27m+interested+in+early+access+to+the+Windsurf+Extension!'
