@@ -3,16 +3,12 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import './index.css'
 
-// Set dark mode by default
-if (!localStorage.getItem('theme')) {
-  localStorage.setItem('theme', 'dark')
-  document.documentElement.classList.add('dark')
-} else if (localStorage.getItem('theme') === 'dark') {
-  document.documentElement.classList.add('dark')
-}
+// Force dark mode only - no light mode support
+document.documentElement.classList.add('dark')
+localStorage.setItem('theme', 'dark')
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
+ <React.StrictMode>
+  <App />
+ </React.StrictMode>,
 )

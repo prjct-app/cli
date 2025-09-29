@@ -1,6 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  darkMode: 'class',
+  darkMode: 'selector', // Dark mode only via selector (always applied)
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
@@ -41,6 +41,38 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // Catppuccin Mocha Colors
+        cat: {
+          // Accent colors
+          rosewater: "#f5e0dc",
+          flamingo: "#f2cdcd",
+          pink: "#f5c2e7",
+          mauve: "#cba6f7",
+          red: "#f38ba8",
+          maroon: "#eba0ac",
+          peach: "#fab387",
+          yellow: "#f9e2af",
+          green: "#a6e3a1",
+          teal: "#94e2d5",
+          sky: "#89dceb",
+          sapphire: "#74c7ec",
+          blue: "#89b4fa",
+          lavender: "#b4befe",
+          // Text colors
+          text: "#cdd6f4",
+          subtext1: "#bac2de",
+          subtext0: "#a6adc8",
+          // Surface colors
+          overlay2: "#9399b2",
+          overlay1: "#7f849c",
+          overlay0: "#6c7086",
+          surface2: "#585b70",
+          surface1: "#45475a",
+          surface0: "#313244",
+          base: "#1e1e2e",
+          mantle: "#181825",
+          crust: "#11111b",
+        },
       },
       animation: {
         'glow': 'glow 2s ease-in-out infinite alternate',
@@ -50,8 +82,8 @@ export default {
       },
       keyframes: {
         glow: {
-          '0%': { textShadow: '0 0 10px rgba(147, 51, 234, 0.5), 0 0 20px rgba(147, 51, 234, 0.3)' },
-          '100%': { textShadow: '0 0 20px rgba(147, 51, 234, 0.8), 0 0 30px rgba(147, 51, 234, 0.5)' }
+          '0%': { textShadow: '0 0 10px rgba(203, 166, 247, 0.5), 0 0 20px rgba(203, 166, 247, 0.3)' },  /* mauve */
+          '100%': { textShadow: '0 0 20px rgba(203, 166, 247, 0.8), 0 0 30px rgba(203, 166, 247, 0.5)' }
         },
         float: {
           '0%, 100%': { transform: 'translateY(0)' },
