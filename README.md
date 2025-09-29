@@ -118,27 +118,265 @@ prjct recap                # Show progress
 
 > Warp AI also understands `/p:` commands in the terminal
 
-## 🎯 Commands
+## 🎯 ¿Qué Comando Usar Cuando...?
 
-| Command | Description | Example |
-| **Core Commands** | | |
-| `init` | Create .prjct/ structure with templates | `/p:init` |
-| `now [task]` | Set or show current focus | `/p:now "add payments"` |
-| `done` | Mark current task as complete | `/p:done` |
-| `ship <feature>` | Ship feature with celebration 🎉 | `/p:ship "checkout flow"` |
-| `next` | Display priority queue | `/p:next` |
-| `idea <text>` | Quick capture to ideas.md | `/p:idea "add AI search"` |
-| `recap` | Show project summary | `/p:recap` |
-| `progress [period]` | Display metrics (day/week/month) | `/p:progress week` |
-| `stuck <issue>` | Get contextual help | `/p:stuck "CORS error"` |
-| `context` | Display project info and recent actions | `/p:context` |
-| **Power Commands** 🚀 | | |
-| `analyze` | Auto-analyze repository | `/p:analyze` |
-| `git [action]` | Smart git operations | `/p:git commit` |
-| `fix [error]` | Quick troubleshooting | `/p:fix "undefined error"` |
-| `test [type]` | Run & auto-fix tests | `/p:test` |
-| `task <description>` | Break down complex tasks | `/p:task "build auth"` |
-| `roadmap [action]` | Strategic planning | `/p:roadmap add "AI feature"` |
+### 🆕 **"Tengo una nueva idea o feature no planeada"**
+```bash
+# Opción 1: Solo capturar la idea para no olvidarla
+/p:idea "agregar modo oscuro al dashboard"
+→ 💡 Se guarda en ideas.md para revisar después
+
+# Opción 2: Agregarla al roadmap para planificarla
+/p:roadmap add "implementar modo oscuro"
+→ 📋 Se prioriza automáticamente en el roadmap
+
+# Opción 3: Empezar a trabajar en ella AHORA
+/p:now "implementar modo oscuro en dashboard"
+→ 🎯 Se establece como tu tarea actual (solo puedes tener UNA)
+```
+
+### ✅ **"Terminé lo que estaba haciendo"**
+```bash
+# Marcar tarea como completada
+/p:done
+→ ✅ Limpia tu foco actual y sugiere la siguiente tarea
+
+# Si es una feature importante, CELEBRARLA
+/p:ship "sistema de autenticación OAuth"
+→ 🚀 Se registra como un WIN con celebración 🎉
+```
+
+### 🤔 **"No sé qué hacer" o "¿En qué estaba?"**
+```bash
+/p:recap
+→ 📊 Muestra TODO: tarea actual, progreso, shipped, roadmap
+
+/p:next
+→ 📋 Muestra tu cola de tareas priorizadas
+
+/p:context
+→ 📚 Info del proyecto y acciones recientes
+```
+
+### 🆘 **"Estoy atorado con un problema"**
+```bash
+/p:stuck "CORS error en API calls"
+→ 💡 Soluciones contextuales basadas en tu proyecto
+
+/p:fix "TypeError: undefined is not a function"
+→ 🔧 Auto-diagnóstico y posibles soluciones
+```
+
+### 📊 **"Quiero ver mi progreso"**
+```bash
+/p:progress week
+→ 📈 Métricas semanales: shipped, velocidad, trends
+
+/p:progress month
+→ 📊 Vista mensual con estadísticas detalladas
+```
+
+### 💻 **"Necesito hacer commit/push"**
+```bash
+/p:git
+→ 📝 Genera mensaje inteligente y hace commit
+
+/p:git push
+→ 🚀 Commit + push a origin
+
+/p:git sync
+→ 🔄 Pull + commit + push (sincronización completa)
+```
+
+## 📖 Referencia Completa de Comandos
+
+### Comandos Core (Esenciales) 🎯
+| Comando | ¿Cuándo usarlo? | ¿Qué hace? | Output Ejemplo |
+|---------|-----------------|------------|----------------|
+| `/p:init` | Al empezar un nuevo proyecto | Crea estructura `.prjct/` completa | `✅ Project initialized!` |
+| `/p:now [task]` | Para establecer tu foco actual | Define UNA sola tarea activa | `🎯 Current: implement auth` |
+| `/p:done` | Al terminar tu tarea actual | Marca como completa y limpia foco | `✅ Task complete! Next: API integration` |
+| `/p:ship <feature>` | Al completar algo importante | Celebra y registra el WIN | `🚀 SHIPPED: User auth! 🎉` |
+| `/p:recap` | Para ver overview completo | Muestra progreso y estado actual | `📊 3 shipped, 1 active, 5 queued` |
+
+### Comandos de Planificación 📋
+| Comando | ¿Cuándo usarlo? | ¿Qué hace? | Output Ejemplo |
+|---------|-----------------|------------|----------------|
+| `/p:idea <text>` | Cuando se te ocurre algo | Captura rápida sin interrumpir | `💡 Idea captured!` |
+| `/p:roadmap` | Ver plan estratégico | Muestra roadmap completo | `🚀 Sprint: 23% complete` |
+| `/p:roadmap add` | Agregar nueva feature | Prioriza automáticamente | `✅ Added: Priority #3` |
+| `/p:next` | Ver qué sigue | Lista tareas priorizadas | `1. Fix auth bug 2. Add tests` |
+| `/p:task <complex>` | Desglosar tarea compleja | Divide en subtareas manejables | `📋 Split into 5 subtasks` |
+
+### Comandos de Desarrollo 🛠️
+| Comando | ¿Cuándo usarlo? | ¿Qué hace? | Output Ejemplo |
+|---------|-----------------|------------|----------------|
+| `/p:analyze` | Entender el proyecto | Análisis automático del repo | `🔍 Tech: Node.js, 45 files` |
+| `/p:git` | Hacer commit rápido | Mensaje inteligente + commit | `✅ feat: add auth system` |
+| `/p:test` | Ejecutar tests | Run + auto-fix simple errors | `✅ 42 passing, 2 fixed` |
+| `/p:fix <error>` | Resolver errores | Diagnóstico y soluciones | `🔧 Solution: check null first` |
+
+### Comandos de Métricas 📊
+| Comando | ¿Cuándo usarlo? | ¿Qué hace? | Output Ejemplo |
+|---------|-----------------|------------|----------------|
+| `/p:progress` | Ver productividad | Métricas de la semana | `📈 7 shipped, velocity: 1.4/day` |
+| `/p:context` | Info del proyecto | Estado actual y contexto | `📚 Sprint 3, Day 12, 67% done` |
+| `/p:stuck <issue>` | Cuando necesitas ayuda | Soluciones contextuales | `💡 Try: npm install cors` |
+
+## 🔄 Flujos de Trabajo Completos
+
+### 🌟 **Mi Primer Día con prjct**
+```bash
+# 1. Inicializar estructura
+/p:init
+→ ✅ Proyecto configurado con estructura .prjct/
+
+# 2. Analizar el repositorio
+/p:analyze
+→ 🔍 Detectado: Node.js, React, 45 archivos
+
+# 3. Ver o crear roadmap
+/p:roadmap
+→ 📋 Roadmap vacío, usa /p:roadmap add
+
+# 4. Establecer primera tarea
+/p:now "configurar entorno de desarrollo"
+→ 🎯 Foco actual establecido
+
+# 5. Al terminar, celebrar
+/p:done
+→ ✅ Tarea completada
+
+/p:ship "environment configured"
+→ 🚀 First WIN recorded! 🎉
+```
+
+### 💼 **Daily Work Session**
+```bash
+# Morning: See where I am
+/p:recap
+→ 📊 Overview: 1 active, 3 in queue, 5 shipped this week
+
+# Confirm or change focus
+/p:now
+→ 🎯 Current: implement payment system
+
+# During work
+/p:stuck "Stripe webhook not working"
+→ 💡 Solution: Verify endpoint URL and secrets
+
+/p:idea "add transaction logs"
+→ 💡 Idea saved for later
+
+# At end of day
+/p:done
+→ ✅ Payment system completed
+
+/p:git
+→ 📝 Commit: feat: add Stripe payment system
+
+/p:progress
+→ 📈 Today: 1 shipped, velocity maintaining
+```
+
+### 🏗️ **Complex Feature Management**
+```bash
+# 1. Break down the large feature
+/p:task "complete notification system"
+→ 📋 Broken down into 5 subtasks:
+   [1/5] Design event architecture
+   [2/5] Implement WebSockets
+   [3/5] Create notification UI
+   [4/5] User preference system
+   [5/5] Testing and documentation
+
+# 2. Work on each subtask
+/p:now "design event architecture"
+→ 🎯 Subtask 1 active
+
+# 3. Complete one by one
+/p:done
+→ ✅ Subtask 1 complete, next: WebSockets
+
+/p:now "implement WebSockets"
+→ 🎯 Subtask 2 active
+
+# 4. When all complete, celebrate big
+/p:ship "complete notification system"
+→ 🚀 MEGA WIN: Notification system complete! 🎉🎊
+```
+
+### 🚀 **Sprint Planning con Roadmap**
+```bash
+# View current roadmap
+/p:roadmap
+→ 📋 Current sprint: 45% completed
+
+# Add new prioritized features
+/p:roadmap add "two-factor authentication"
+→ ✅ Added as priority #2
+
+/p:roadmap add "Slack integration"
+→ ✅ Added as priority #5
+
+# Complete roadmap items
+/p:roadmap complete "payment system"
+→ ✅ Marked as completed, progress: 67%
+
+# View next priority
+/p:roadmap next
+→ 📍 Next: two-factor authentication
+```
+
+## ❓ FAQ - Frequently Asked Questions
+
+### **"What happens if I use `/p:now` without finishing the previous task?"**
+The previous task gets REPLACED. prjct uses a "single focus" philosophy - only ONE active task at a time. If you need to switch context, use `/p:done` first.
+
+### **"Can I work on multiple tasks simultaneously?"**
+NO by design. prjct forces focus on a single task. If you need to temporarily switch, use `/p:done` and then `/p:now` with the new task.
+
+### **"What's the difference between `/p:done` and `/p:ship`?"**
+- `/p:done` = Complete current task and clear focus
+- `/p:ship` = Celebrate an important FEATURE (not all tasks are features)
+```bash
+/p:done                    # "I finished fixing that bug"
+/p:ship "new dashboard"    # "LAUNCHED THE NEW DASHBOARD!" 🎉
+```
+
+### **"How do I modify something in the roadmap?"**
+```bash
+/p:roadmap                 # View everything
+/p:roadmap add "feature"   # Add new
+/p:roadmap complete "item" # Mark as done
+/p:roadmap next           # View next priority
+```
+
+### **"Can I undo a command?"**
+There's no automatic "undo", but you can:
+- Manually edit files in `.prjct/`
+- Use `/p:now` to change current task
+- Files are simple markdown, easy to edit
+
+### **"What happens with my data?"**
+- EVERYTHING is stored locally in `.prjct/`
+- No data leaves your machine
+- You can version `.prjct/` with git if you want
+- Backup = copy the `.prjct/` folder
+
+### **"How do I migrate from Jira/Trello/etc?"**
+You don't need to migrate anything. Simply:
+```bash
+/p:init                           # Start fresh
+/p:roadmap add "current feature"  # Add what you're working on
+/p:now "today's task"            # Start working
+```
+
+### **"Does it work with teams?"**
+prjct is designed for indie hackers and solopreneurs. For teams, each developer can have their own `.prjct/` or share one via git.
+
+### **"Can I customize the commands?"**
+Commands are standardized to maintain simplicity. But files in `.prjct/` are markdown - you can edit them however you want.
 
 ## 📂 File Structure
 
