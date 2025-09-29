@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # prjct/cli - Turn ideas into AI-ready roadmaps
-# Usage: curl -fsSL https://jlopezlira.github.io/prjct-cli/install.sh | bash
+# Usage: curl -fsSL https://prjct.app/install.sh | bash
 
 set -e
 

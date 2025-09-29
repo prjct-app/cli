@@ -29,7 +29,7 @@ const faqs = [
   },
   {
     question: "How do I get started?",
-    answer: "One command: curl -sSL https://jlopezlira.github.io/prjct-cli/install.sh | bash. Then just type /p:init in your AI assistant to initialize your first project. The AI will guide you through everything else."
+    answer: "One command: curl -sSL https://prjct.app/install.sh | bash. Then just type /p:init in your AI assistant to initialize your first project. The AI will guide you through everything else."
   },
   {
     question: "What makes this different from Jira or Linear?",

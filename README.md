@@ -34,7 +34,7 @@ Each agent gets optimized output:
 
 ### Option 1: Quick Install (Recommended)
 ```bash
-curl -fsSL https://jlopezlira.github.io/prjct-cli/install.sh | bash
+curl -fsSL https://prjct.app/install.sh | bash
 ```
 
 ### Option 2: Clone from GitHub
