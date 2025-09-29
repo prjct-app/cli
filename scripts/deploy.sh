@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Deployment script for prjct-cli to Vercel
-# This is a private, non-open source project
+# Deployment script for prjct-cli to GitHub
+# This script helps prepare and push updates
 
 set -e
 
@@ -12,65 +12,53 @@ BLUE='\033[0;34m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-echo -e "${BLUE}🚀 Deploying prjct-cli to Vercel...${NC}"
+echo -e "${BLUE}🚀 Preparing prjct-cli for GitHub deployment...${NC}"
 
-# Check if Vercel CLI is installed
-if ! command -v vercel &> /dev/null; then
-    echo -e "${RED}Error: Vercel CLI is not installed${NC}"
-    echo "Install with: npm i -g vercel"
+# Make sure we're in git repo
+if ! git rev-parse --git-dir > /dev/null 2>&1; then
+    echo -e "${RED}Error: Not in a git repository${NC}"
     exit 1
 fi
 
-# Create build package
-echo -e "${YELLOW}📦 Creating deployment package...${NC}"
+# Make install script executable
+echo -e "${YELLOW}🔧 Making install script executable...${NC}"
+chmod +x docs/install.sh
 
-# Create temp directory for build
-BUILD_DIR="/tmp/prjct-build-$(date +%s)"
-mkdir -p "$BUILD_DIR"
-
-# Copy necessary files
-cp -r api "$BUILD_DIR/"
-cp -r core "$BUILD_DIR/"
-cp -r adapters "$BUILD_DIR/"
-cp -r templates "$BUILD_DIR/"
-cp package.json "$BUILD_DIR/"
-cp vercel.json "$BUILD_DIR/"
-
-# Create minimal package.json for Vercel
-cat > "$BUILD_DIR/package.json" <<EOF
-{
-  "name": "prjct-cli-server",
-  "version": "1.0.0",
-  "private": true,
-  "dependencies": {
-    "tar": "^6.1.0"
-  },
-  "engines": {
-    "node": ">=14.0.0"
-  }
-}
-EOF
-
-# Deploy to Vercel
-cd "$BUILD_DIR"
-
-echo -e "${YELLOW}🌐 Deploying to Vercel...${NC}"
-
-# Deploy with production flag
-if [ "$1" = "production" ]; then
-    vercel --prod --yes
-else
-    vercel --yes
+# Check if there are changes
+if [[ -n $(git status -s) ]]; then
+    echo -e "${YELLOW}📝 Uncommitted changes found${NC}"
+    echo -e "${BLUE}Current status:${NC}"
+    git status -s
+    echo ""
+    echo -n "Do you want to commit these changes? (y/N): "
+    read -r response
+    if [[ "$response" =~ ^[Yy]$ ]]; then
+        echo -n "Enter commit message: "
+        read -r message
+        git add .
+        git commit -m "$message"
+    fi
 fi
 
-# Cleanup
-cd - > /dev/null
-rm -rf "$BUILD_DIR"
+# Push to GitHub
+echo -e "${BLUE}📤 Pushing to GitHub...${NC}"
+git push origin main
 
-echo -e "${GREEN}✅ Deployment complete!${NC}"
+echo -e "${GREEN}✅ Code pushed to GitHub!${NC}"
 echo ""
-echo -e "${BLUE}Installation URL:${NC}"
-echo -e "  ${GREEN}curl -fsSL https://prjct-cli.vercel.app/install.sh | bash${NC}"
+echo -e "${YELLOW}⚠️  GitHub Pages Deployment:${NC}"
+echo -e "   1. Go to: ${BLUE}https://github.com/jlopezlira/prjct-cli/settings/pages${NC}"
+echo -e "   2. Set Source: ${GREEN}Deploy from a branch${NC}"
+echo -e "   3. Set Branch: ${GREEN}main${NC}"
+echo -e "   4. Set Folder: ${GREEN}/docs${NC}"
+echo -e "   5. Click ${GREEN}Save${NC}"
 echo ""
-echo -e "${BLUE}Website:${NC}"
-echo -e "  ${GREEN}https://prjct-cli.vercel.app${NC}"
+echo -e "${BLUE}📋 Or use GitHub Actions (already configured):${NC}"
+echo -e "   1. Go to: ${BLUE}Settings → Pages${NC}"
+echo -e "   2. Set Source: ${GREEN}GitHub Actions${NC}"
+echo ""
+echo -e "${GREEN}✨ Your site will be available at:${NC}"
+echo -e "   ${BLUE}https://jlopezlira.github.io/prjct-cli${NC}"
+echo ""
+echo -e "${GREEN}📦 Installation command:${NC}"
+echo -e "   ${BLUE}curl -fsSL https://jlopezlira.github.io/prjct-cli/install.sh | bash${NC}"

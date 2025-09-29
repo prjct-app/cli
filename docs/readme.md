@@ -78,7 +78,7 @@
 ### Installation
 ```bash
 # One-time global setup
-curl -sSL https://github.com/yourusername/prjct-cli/install.sh | bash
+curl -sSL https://github.com/jlopezlira/prjct-cli/install.sh | bash
 
 # What it does:
 # 1. Installs MCP servers globally
@@ -284,7 +284,7 @@ Velocity: [features/week]
 
 ## Support & Documentation
 
-- **GitHub**: github.com/yourusername/prjct-cli
+- **GitHub**: github.com/jlopezlira/prjct-cli
 - **Discord**: Community support
 - **Twitter**: @prjctcli for updates
 - **Email**: support@prjct.dev

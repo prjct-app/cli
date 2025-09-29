@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>prjct-cli - AI Project Management for Indie Hackers</title>
+    <meta name="description" content="AI-integrated project management for indie hackers. Ship fast, stay focused, no ceremonies.">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            text-align: center;
+            padding: 60px 20px;
+        }
+        h1 {
+            font-size: 3.5rem;
+            margin-bottom: 1rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .tagline {
+            font-size: 1.5rem;
+            opacity: 0.9;
+            margin-bottom: 2rem;
+        }
+        .badges {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 3rem;
+        }
+        .badge {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.9rem;
+        }
+        .install-section {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 2rem;
+            margin-bottom: 3rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .install-title {
+            font-size: 1.8rem;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+        .install-options {
+            display: grid;
+            gap: 2rem;
+            margin-bottom: 1rem;
+        }
+        .install-option {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 1.5rem;
+            border-radius: 10px;
+        }
+        .install-option h3 {
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .install-command {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 1rem;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            position: relative;
+            overflow-x: auto;
+            margin: 0.5rem 0;
+        }
+        .copy-btn {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .copy-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin: 3rem 0;
+        }
+        .feature {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2rem;
+            border-radius: 10px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+        .feature-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+        .feature-desc {
+            opacity: 0.9;
+        }
+        .commands-section {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 2rem;
+            border-radius: 15px;
+            margin: 3rem 0;
+        }
+        .commands-section h2 {
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+        .command-grid {
+            display: grid;
+            gap: 1rem;
+        }
+        .command-item {
+            display: grid;
+            grid-template-columns: 200px 1fr;
+            gap: 1rem;
+            padding: 0.8rem;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 5px;
+        }
+        .command-name {
+            font-family: monospace;
+            font-weight: bold;
+        }
+        .github-section {
+            text-align: center;
+            margin: 3rem 0;
+            padding: 2rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+        }
+        .github-link {
+            display: inline-block;
+            background: white;
+            color: #764ba2;
+            padding: 1rem 2rem;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: transform 0.3s;
+        }
+        .github-link:hover {
+            transform: scale(1.05);
+        }
+        footer {
+            text-align: center;
+            padding: 2rem;
+            opacity: 0.8;
+        }
+        @media (max-width: 768px) {
+            h1 { font-size: 2rem; }
+            .tagline { font-size: 1.1rem; }
+            .features { grid-template-columns: 1fr; }
+            .command-item {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚀 prjct-cli</h1>
+            <p class="tagline">AI-Integrated Project Management for Indie Hackers</p>
+            <div class="badges">
+                <span class="badge">MIT License</span>
+                <span class="badge">Open Source</span>
+                <span class="badge">v1.0.0</span>
+            </div>
+        </header>
+
+        <section class="install-section">
+            <h2 class="install-title">⚡ Quick Installation</h2>
+            <div class="install-options">
+                <div class="install-option">
+                    <h3>
+                        <span>📦</span>
+                        <span>Option 1: One-Line Install (Recommended)</span>
+                    </h3>
+                    <div class="install-command">
+                        curl -fsSL https://jlopezlira.github.io/prjct-cli/install.sh | bash
+                        <button class="copy-btn" onclick="copyCommand(this, 'curl -fsSL https://jlopezlira.github.io/prjct-cli/install.sh | bash')">📋 Copy</button>
+                    </div>
+                    <p style="margin-top: 0.5rem; opacity: 0.8;">Automatically installs and configures everything</p>
+                </div>
+
+                <div class="install-option">
+                    <h3>
+                        <span>🔧</span>
+                        <span>Option 2: Clone from GitHub</span>
+                    </h3>
+                    <div class="install-command">
+                        git clone https://github.com/jlopezlira/prjct-cli.git
+                        <button class="copy-btn" onclick="copyCommand(this, 'git clone https://github.com/jlopezlira/prjct-cli.git')">📋 Copy</button>
+                    </div>
+                    <div class="install-command">
+                        cd prjct-cli && ./setup.sh
+                        <button class="copy-btn" onclick="copyCommand(this, 'cd prjct-cli && ./setup.sh')">📋 Copy</button>
+                    </div>
+                    <p style="margin-top: 0.5rem; opacity: 0.8;">For developers who want to explore the code</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="features">
+            <div class="feature">
+                <div class="feature-icon">🎯</div>
+                <div class="feature-title">Zero Friction</div>
+                <div class="feature-desc">Integrates seamlessly into your AI-powered workflow</div>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🤖</div>
+                <div class="feature-title">AI Commands</div>
+                <div class="feature-desc">Use /p: commands directly in Claude, ChatGPT, or Cursor</div>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">📊</div>
+                <div class="feature-title">Progress Tracking</div>
+                <div class="feature-desc">Track what you ship, not story points</div>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🏆</div>
+                <div class="feature-title">Ship & Celebrate</div>
+                <div class="feature-desc">Built-in celebration for every feature you ship</div>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">💾</div>
+                <div class="feature-title">Local First</div>
+                <div class="feature-desc">Your data stays on your machine, always</div>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">⚙️</div>
+                <div class="feature-title">MCP Integration</div>
+                <div class="feature-desc">Native Model Context Protocol support</div>
+            </div>
+        </section>
+
+        <section class="commands-section">
+            <h2>📝 Available Commands</h2>
+            <div class="command-grid">
+                <div class="command-item">
+                    <span class="command-name">/p:init</span>
+                    <span>Initialize a new project</span>
+                </div>
+                <div class="command-item">
+                    <span class="command-name">/p:now [task]</span>
+                    <span>Set or show current focus</span>
+                </div>
+                <div class="command-item">
+                    <span class="command-name">/p:done</span>
+                    <span>Mark current task complete</span>
+                </div>
+                <div class="command-item">
+                    <span class="command-name">/p:ship &lt;feature&gt;</span>
+                    <span>Ship and celebrate a feature 🎉</span>
+                </div>
+                <div class="command-item">
+                    <span class="command-name">/p:idea &lt;text&gt;</span>
+                    <span>Capture ideas quickly</span>
+                </div>
+                <div class="command-item">
+                    <span class="command-name">/p:recap</span>
+                    <span>Show project progress</span>
+                </div>
+                <div class="command-item">
+                    <span class="command-name">/p:stuck &lt;issue&gt;</span>
+                    <span>Get contextual help</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="github-section">
+            <h2>🌟 Open Source Project</h2>
+            <p style="margin-bottom: 1.5rem;">Contribute, star, or fork on GitHub</p>
+            <a href="https://github.com/jlopezlira/prjct-cli" class="github-link">
+                View on GitHub →
+            </a>
+        </section>
+
+        <footer>
+            <p>Built for indie hackers who ship, not managers who meet.</p>
+            <p style="margin-top: 0.5rem;">© 2024 prjct-cli | MIT License</p>
+        </footer>
+    </div>
+
+    <script>
+        function copyCommand(button, command) {
+            navigator.clipboard.writeText(command).then(() => {
+                const originalText = button.textContent;
+                button.textContent = '✅ Copied!';
+                setTimeout(() => {
+                    button.textContent = originalText;
+                }, 2000);
+            });
+        }
+    </script>
+</body>
+</html>

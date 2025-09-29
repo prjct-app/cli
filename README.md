@@ -4,13 +4,19 @@
 
 Works with **Claude Code**, **OpenAI Codex/GitHub Copilot**, and **Warp Terminal**.
 
-## ⚡ Quick Install
+## ⚡ Installation
 
+### Option 1: Quick Install (Recommended)
 ```bash
-curl -fsSL https://prjct-cli.vercel.app/install.sh | bash
+curl -fsSL https://jlopezlira.github.io/prjct-cli/install.sh | bash
 ```
 
-> **Note:** This is a private tool, not open source. Installation requires authentication.
+### Option 2: Clone from GitHub
+```bash
+git clone https://github.com/jlopezlira/prjct-cli
+cd prjct-cli
+./setup.sh
+```
 
 > The installer will:
 > - Install to `~/.prjct-cli/`
