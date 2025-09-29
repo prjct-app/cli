@@ -4,7 +4,7 @@ import { useState } from 'react'
 
 export const Hero = () => {
   const [copied, setCopied] = useState(false)
-  const installCommand = "curl -fsSL https://prjct.app/install.sh | bash"
+  const installCommand = "curl -fsSL https://www.prjct.app/install.sh | bash"
 
   const copyToClipboard = async () => {
     await navigator.clipboard.writeText(installCommand)
@@ -68,7 +68,7 @@ export const Hero = () => {
             className="flex items-center gap-3 bg-card hover:bg-accent text-foreground px-8 py-4 rounded-xl font-medium border border-border transition-all duration-200 hover:scale-105"
           >
             <Terminal className="w-5 h-5" />
-            <code className="font-mono text-sm">curl -fsSL https://prjct.app/install.sh | bash</code>
+            <code className="font-mono text-sm">curl -fsSL https://www.prjct.app/install.sh | bash</code>
             {copied ? (
               <Check className="w-5 h-5 text-green-600" />
             ) : (
