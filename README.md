@@ -7,6 +7,29 @@ Works with **Claude Code**, **OpenAI Codex/GitHub OpenAI Codex**, and **Warp Ter
 [![OpenAI Codex Compatible](https://img.shields.io/badge/OpenAI%20Codex-Compatible-00a67e)](AGENTS.md)
 [![Claude Code Ready](https://img.shields.io/badge/Claude%20Code-Ready-6366f1)](CLAUDE.md)
 
+## 🤖 Intelligent Agent Detection
+
+**prjct-cli automatically detects and adapts to your environment** - No configuration needed!
+
+The system intelligently identifies whether you're using:
+- **Claude Code** → Rich markdown, MCP integration, interactive features
+- **OpenAI Codex** → Structured output for sandboxed environments
+- **Terminal/CLI** → ANSI colors, progress spinners, native experience
+
+### How It Works
+```javascript
+// Automatic detection strategies:
+1. Environment Variables (CLAUDE_AGENT, CODEX_AGENT)
+2. Configuration Files (AGENTS.md, CLAUDE.md)
+3. Runtime Capabilities (MCP availability)
+4. Filesystem Characteristics (sandboxed paths)
+```
+
+Each agent gets optimized output:
+- **Claude**: `✅ **Task complete!** Ready for the next challenge?`
+- **Codex**: `[SUCCESS] Task complete. NEXT: Use /p:next`
+- **Terminal**: `✅ Task complete! → Use prjct next`
+
 ## ⚡ Installation
 
 ### Option 1: Quick Install (Recommended)
@@ -26,6 +49,7 @@ cd prjct-cli
 > - Configure AI assistant integration (MCP)
 > - Set up the `prjct` command
 > - Create project structure in `.prjct/`
+> - Auto-detect your environment (Claude/Codex/Terminal)
 
 ## 📱 Platform Usage
 

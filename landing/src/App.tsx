@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { Moon, Sun } from 'lucide-react'
 import { Hero } from './components/Hero'
 import { Features } from './components/Features'
+import { Compatibility } from './components/Compatibility'
 import { Terminal } from './components/Terminal'
 import { ForIndies } from './components/ForIndies'
 import { FAQ } from './components/FAQ'
@@ -48,6 +49,7 @@ function App() {
       <Hero />
       <Terminal />
       <Features />
+      <Compatibility />
       <ForIndies />
       <FAQ />
       <Footer />

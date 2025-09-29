@@ -1,23 +1,46 @@
 const fs = require('fs').promises;
 const path = require('path');
+const agentDetector = require('./agent-detector');
 
-// Try to load chalk, but work without it if not available
-let chalk;
-try {
-    chalk = require('chalk');
-} catch (e) {
-    // Fallback if chalk is not available
-    chalk = {
-        green: (str) => str,
-        blue: (str) => str,
-        yellow: (str) => str,
-        red: (str) => str
-    };
-}
+// Dynamic agent loading
+let Agent;
+let agentInstance;
 
 class PrjctCommands {
     constructor() {
         this.prjctDir = '.prjct';
+        this.agent = null;
+        this.agentInfo = null;
+    }
+
+    /**
+     * Initialize agent detection and load appropriate adapter
+     */
+    async initializeAgent() {
+        if (this.agent) return this.agent;
+
+        // Detect which agent is running
+        this.agentInfo = await agentDetector.detect();
+
+        // Log detection result for debugging
+        console.debug(`[prjct] Detected agent: ${this.agentInfo.name} (${this.agentInfo.type})`);
+
+        // Load appropriate agent adapter
+        switch (this.agentInfo.type) {
+            case 'claude':
+                Agent = require('./agents/claude-agent');
+                break;
+            case 'codex':
+                Agent = require('./agents/codex-agent');
+                break;
+            case 'terminal':
+            default:
+                Agent = require('./agents/terminal-agent');
+                break;
+        }
+
+        this.agent = new Agent();
+        return this.agent;
     }
 
     async ensureProjectDir(projectPath) {
@@ -28,6 +51,7 @@ class PrjctCommands {
 
     async init(projectPath = process.cwd()) {
         try {
+            await this.initializeAgent();
             const dir = await this.ensureProjectDir(projectPath);
 
             // Create initial files
@@ -40,109 +64,144 @@ class PrjctCommands {
             };
 
             for (const [filename, content] of Object.entries(files)) {
-                await fs.writeFile(path.join(dir, filename), content);
+                await this.agent.writeFile(path.join(dir, filename), content);
+            }
+
+            // Create agent marker file based on detected agent
+            if (this.agentInfo.type === 'codex') {
+                // Create marker for Codex detection
+                await this.agent.writeFile(
+                    path.join(projectPath, '.prjct-agent'),
+                    `codex:${this.agentInfo.name}`
+                );
+            } else if (this.agentInfo.type === 'claude') {
+                // Create marker for Claude detection
+                await this.agent.writeFile(
+                    path.join(projectPath, '.prjct-agent'),
+                    `claude:${this.agentInfo.name}`
+                );
             }
 
             // Detect project type
             const projectInfo = await this.detectProjectType(projectPath);
 
+            const message = `Initializing prjct for ${this.agentInfo.name}...\n` +
+                          `Created .prjct/ structure\n` +
+                          `Detected: ${projectInfo}\n` +
+                          `Ready! Start with ${this.agentInfo.config.commandPrefix}now "your first task"`;
+
             return {
                 success: true,
-                message: `🚀 Initializing prjct...\n✅ Created .prjct/ structure\n📊 Detected: ${projectInfo}\nReady! Start with /p:now "your first task"`
+                message: this.agent.formatResponse(message, 'celebrate')
             };
         } catch (error) {
+            await this.initializeAgent();
             return {
                 success: false,
-                message: `❌ Error: ${error.message}`
+                message: this.agent.formatResponse(error.message, 'error')
             };
         }
     }
 
     async now(task = null, projectPath = process.cwd()) {
         try {
+            await this.initializeAgent();
             const nowFile = path.join(projectPath, this.prjctDir, 'now.md');
 
             if (!task) {
                 // Read current task
-                const content = await fs.readFile(nowFile, 'utf-8');
+                const content = await this.agent.readFile(nowFile);
                 const lines = content.split('\n');
                 const currentTask = lines[0].replace('# NOW: ', '').replace('# NOW', 'None');
+
                 return {
                     success: true,
-                    message: `📍 Current focus: ${currentTask}`
+                    message: this.agent.formatResponse(`Current focus: ${currentTask}`, 'focus')
                 };
             }
 
             // Set new task
-            const content = `# NOW: ${task}\nStarted: ${new Date().toISOString()}\n\n## Task\n${task}\n\n## Notes\n\n`;
-            await fs.writeFile(nowFile, content);
+            const content = `# NOW: ${task}\nStarted: ${this.agent.getTimestamp()}\n\n## Task\n${task}\n\n## Notes\n\n`;
+            await this.agent.writeFile(nowFile, content);
 
             // Log to memory
-            await this.logToMemory(projectPath, 'now', { task, timestamp: new Date().toISOString() });
+            await this.logToMemory(projectPath, 'now', { task, timestamp: this.agent.getTimestamp() });
 
             return {
                 success: true,
-                message: `📍 Focus set: ${task}`
+                message: this.agent.formatResponse(`Focus set: ${task}`, 'focus') +
+                        '\n' + this.agent.suggestNextAction('taskSet')
             };
         } catch (error) {
+            await this.initializeAgent();
             return {
                 success: false,
-                message: `❌ Error: ${error.message}`
+                message: this.agent.formatResponse(error.message, 'error')
             };
         }
     }
 
     async done(projectPath = process.cwd()) {
         try {
+            await this.initializeAgent();
             const nowFile = path.join(projectPath, this.prjctDir, 'now.md');
             const nextFile = path.join(projectPath, this.prjctDir, 'next.md');
 
             // Get current task
-            const content = await fs.readFile(nowFile, 'utf-8');
+            const content = await this.agent.readFile(nowFile);
             const currentTask = content.split('\n')[0].replace('# NOW: ', '');
 
             if (currentTask === '# NOW' || !currentTask) {
                 return {
                     success: false,
-                    message: '⚠️ No current task to complete'
+                    message: this.agent.formatResponse('No current task to complete', 'warning')
                 };
             }
 
             // Clear current task
-            await fs.writeFile(nowFile, '# NOW\n\nNo current task. Use `/p:now` to set focus.\n');
+            await this.agent.writeFile(nowFile, '# NOW\n\nNo current task. Use `/p:now` to set focus.\n');
 
             // Log completion
-            await this.logToMemory(projectPath, 'done', { task: currentTask, timestamp: new Date().toISOString() });
+            await this.logToMemory(projectPath, 'done', { task: currentTask, timestamp: this.agent.getTimestamp() });
 
             // Check if there are next tasks
-            const nextContent = await fs.readFile(nextFile, 'utf-8');
+            const nextContent = await this.agent.readFile(nextFile);
             const hasNext = nextContent.includes('- ');
+
+            const message = `Task complete: ${currentTask}`;
+            const suggestion = this.agent.suggestNextAction('taskCompleted');
 
             return {
                 success: true,
-                message: `✅ Task complete: ${currentTask}\n${hasNext ? 'Check /p:next for queued tasks' : 'Ready to ship? Use /p:ship if this is a feature'}`
+                message: this.agent.formatResponse(message, 'success') + '\n' + suggestion
             };
         } catch (error) {
+            await this.initializeAgent();
             return {
                 success: false,
-                message: `❌ Error: ${error.message}`
+                message: this.agent.formatResponse(error.message, 'error')
             };
         }
     }
 
     async ship(feature, projectPath = process.cwd()) {
         try {
+            await this.initializeAgent();
+
             if (!feature) {
                 return {
                     success: false,
-                    message: '⚠️ Please specify a feature name: /p:ship "feature name"'
+                    message: this.agent.formatResponse(
+                        `Please specify a feature name: ${this.agentInfo.config.commandPrefix}ship "feature name"`,
+                        'warning'
+                    )
                 };
             }
 
             const shippedFile = path.join(projectPath, this.prjctDir, 'shipped.md');
 
             // Read current content
-            let content = await fs.readFile(shippedFile, 'utf-8');
+            let content = await this.agent.readFile(shippedFile);
 
             // Get current week
             const week = this.getWeekNumber(new Date());
@@ -159,65 +218,79 @@ class PrjctCommands {
             const insertIndex = content.indexOf(weekHeader) + weekHeader.length + 1;
             content = content.slice(0, insertIndex) + entry + content.slice(insertIndex);
 
-            await fs.writeFile(shippedFile, content);
+            await this.agent.writeFile(shippedFile, content);
 
             // Count total shipped
             const totalShipped = (content.match(/✅/g) || []).length;
 
             // Log to memory
-            await this.logToMemory(projectPath, 'ship', { feature, timestamp: new Date().toISOString() });
+            await this.logToMemory(projectPath, 'ship', { feature, timestamp: this.agent.getTimestamp() });
 
             // Calculate velocity
             const daysSinceLastShip = await this.getDaysSinceLastShip(projectPath);
-            const velocityMsg = daysSinceLastShip > 3 ? '\nKeep the momentum going!' : '\nYou\'re on fire! 🔥';
+            const velocityMsg = daysSinceLastShip > 3 ? 'Keep the momentum going!' : 'You\'re on fire! 🔥';
+
+            const message = `SHIPPED! ${feature}\nTotal shipped: ${totalShipped}\n${velocityMsg}`;
 
             return {
                 success: true,
-                message: `🚀 SHIPPED! 🎉\n\n${feature}\nTotal shipped: ${totalShipped}${velocityMsg}`
+                message: this.agent.formatResponse(message, 'celebrate') + '\n' +
+                        this.agent.suggestNextAction('featureShipped')
             };
         } catch (error) {
+            await this.initializeAgent();
             return {
                 success: false,
-                message: `❌ Error: ${error.message}`
+                message: this.agent.formatResponse(error.message, 'error')
             };
         }
     }
 
     async next(projectPath = process.cwd()) {
         try {
+            await this.initializeAgent();
             const nextFile = path.join(projectPath, this.prjctDir, 'next.md');
-            const content = await fs.readFile(nextFile, 'utf-8');
+            const content = await this.agent.readFile(nextFile);
 
             // Parse tasks
             const tasks = content.split('\n')
                 .filter(line => line.startsWith('- '))
-                .map((line, index) => `${index + 1}. ${line.replace('- ', '')}`);
+                .map(line => line.replace('- ', ''));
 
             if (tasks.length === 0) {
                 return {
                     success: true,
-                    message: '📋 Queue is empty. Add tasks with /p:idea or focus on shipping!'
+                    message: this.agent.formatResponse(
+                        `Queue is empty. Add tasks with ${this.agentInfo.config.commandPrefix}idea or focus on shipping!`,
+                        'info'
+                    )
                 };
             }
 
             return {
                 success: true,
-                message: `📋 Next up:\n${tasks.join('\n')}\n\nUse /p:now to start the next task`
+                message: this.agent.formatTaskList(tasks)
             };
         } catch (error) {
+            await this.initializeAgent();
             return {
                 success: false,
-                message: `❌ Error: ${error.message}`
+                message: this.agent.formatResponse(error.message, 'error')
             };
         }
     }
 
     async idea(text, projectPath = process.cwd()) {
         try {
+            await this.initializeAgent();
+
             if (!text) {
                 return {
                     success: false,
-                    message: '⚠️ Please provide an idea: /p:idea "your idea"'
+                    message: this.agent.formatResponse(
+                        `Please provide an idea: ${this.agentInfo.config.commandPrefix}idea "your idea"`,
+                        'warning'
+                    )
                 };
             }
 
@@ -226,35 +299,46 @@ class PrjctCommands {
 
             // Add to ideas
             const entry = `- ${text} _(${new Date().toLocaleDateString()})_\n`;
-            await fs.appendFile(ideasFile, entry);
+            const ideasContent = await this.agent.readFile(ideasFile);
+            await this.agent.writeFile(ideasFile, ideasContent + entry);
 
             // Optionally add to next queue if it looks actionable
+            let addedToQueue = false;
             if (text.match(/^(implement|add|create|fix|update|build)/i)) {
-                await fs.appendFile(nextFile, `- ${text}\n`);
+                const nextContent = await this.agent.readFile(nextFile);
+                await this.agent.writeFile(nextFile, nextContent + `- ${text}\n`);
+                addedToQueue = true;
             }
 
             // Log to memory
-            await this.logToMemory(projectPath, 'idea', { text, timestamp: new Date().toISOString() });
+            await this.logToMemory(projectPath, 'idea', { text, timestamp: this.agent.getTimestamp() });
+
+            const message = `Idea captured: "${text}"` +
+                          (addedToQueue ? `\nAlso added to ${this.agentInfo.config.commandPrefix}next queue` : '');
 
             return {
                 success: true,
-                message: `💡 Idea captured!\n"${text}"\n${text.match(/^(implement|add|create|fix|update|build)/i) ? 'Also added to /p:next queue' : ''}`
+                message: this.agent.formatResponse(message, 'idea') + '\n' +
+                        this.agent.suggestNextAction('ideaCaptured')
             };
         } catch (error) {
+            await this.initializeAgent();
             return {
                 success: false,
-                message: `❌ Error: ${error.message}`
+                message: this.agent.formatResponse(error.message, 'error')
             };
         }
     }
 
     async recap(projectPath = process.cwd()) {
         try {
+            await this.initializeAgent();
+
             // Read all files
-            const nowFile = await fs.readFile(path.join(projectPath, this.prjctDir, 'now.md'), 'utf-8');
-            const shippedFile = await fs.readFile(path.join(projectPath, this.prjctDir, 'shipped.md'), 'utf-8');
-            const nextFile = await fs.readFile(path.join(projectPath, this.prjctDir, 'next.md'), 'utf-8');
-            const ideasFile = await fs.readFile(path.join(projectPath, this.prjctDir, 'ideas.md'), 'utf-8');
+            const nowFile = await this.agent.readFile(path.join(projectPath, this.prjctDir, 'now.md'));
+            const shippedFile = await this.agent.readFile(path.join(projectPath, this.prjctDir, 'shipped.md'));
+            const nextFile = await this.agent.readFile(path.join(projectPath, this.prjctDir, 'next.md'));
+            const ideasFile = await this.agent.readFile(path.join(projectPath, this.prjctDir, 'ideas.md'));
 
             // Parse current task
             const currentTask = nowFile.split('\n')[0].replace('# NOW: ', '').replace('# NOW', 'None');
@@ -264,35 +348,45 @@ class PrjctCommands {
             const queuedCount = (nextFile.match(/^- /gm) || []).length;
             const ideasCount = (ideasFile.match(/^- /gm) || []).length;
 
-            // Get this week's features
-            const week = this.getWeekNumber(new Date());
-            const year = new Date().getFullYear();
-            const weekHeader = `Week ${week}, ${year}`;
-            const weekShipped = shippedFile.includes(weekHeader)
-                ? (shippedFile.split(weekHeader)[1]?.split('##')[0]?.match(/✅/g) || []).length
-                : 0;
+            // Get recent activity
+            const memoryFile = path.join(projectPath, this.prjctDir, 'memory.jsonl');
+            let recentActivity = '';
+            try {
+                const memory = await this.agent.readFile(memoryFile);
+                const lines = memory.trim().split('\n').filter(l => l);
+                recentActivity = lines.slice(-3).map(l => {
+                    const entry = JSON.parse(l);
+                    return `• ${entry.action}: ${entry.data.task || entry.data.feature || entry.data.text || ''}`;
+                }).join('\n');
+            } catch (e) {
+                // Memory file might not exist yet
+            }
 
-            const motivation = shippedCount === 0 ? 'Time to ship your first feature!' :
-                             weekShipped >= 3 ? 'You\'re crushing it! 🔥' :
-                             weekShipped >= 1 ? 'Good progress! Keep going!' :
-                             'Let\'s get back to shipping!';
+            const recapData = {
+                currentTask,
+                shippedCount,
+                queuedCount,
+                ideasCount,
+                recentActivity
+            };
 
             return {
                 success: true,
-                message: `📊 Project Recap\n\n🎯 Current: ${currentTask}\n📦 Shipped: ${shippedCount} features total (${weekShipped} this week)\n📝 Queued: ${queuedCount} tasks\n💡 Ideas: ${ideasCount}\n\n${motivation}`
+                message: this.agent.formatRecap(recapData)
             };
         } catch (error) {
+            await this.initializeAgent();
             return {
                 success: false,
-                message: `❌ Error: ${error.message}`
+                message: this.agent.formatResponse(error.message, 'error')
             };
         }
     }
 
     async progress(period = 'week', projectPath = process.cwd()) {
         try {
-            const shippedFile = await fs.readFile(path.join(projectPath, this.prjctDir, 'shipped.md'), 'utf-8');
-            const memoryFile = path.join(projectPath, this.prjctDir, 'memory.jsonl');
+            await this.initializeAgent();
+            const shippedFile = await this.agent.readFile(path.join(projectPath, this.prjctDir, 'shipped.md'));
 
             // Parse shipped features by date
             const features = [];
@@ -319,89 +413,83 @@ class PrjctCommands {
 
             // Calculate velocity
             const velocity = periodFeatures.length / periodDays;
-            const trend = velocity >= 0.5 ? '📈' : velocity >= 0.2 ? '➡️' : '📉';
+            const previousVelocity = 0.3; // Baseline expectation
+
+            const motivationalMessage = velocity >= 0.5 ? 'Excellent momentum!' :
+                                      velocity >= 0.2 ? 'Good steady pace!' :
+                                      'Time to ship more features!';
+
+            const progressData = {
+                period,
+                count: periodFeatures.length,
+                velocity,
+                previousVelocity,
+                recentFeatures: periodFeatures.slice(0, 3).map(f => `• ${f.name}`).join('\n'),
+                motivationalMessage
+            };
 
             return {
                 success: true,
-                message: `📈 Progress Report (${period})\n\n✅ Shipped: ${periodFeatures.length} features\n⚡ Velocity: ${velocity.toFixed(2)} features/day\n${trend} Trend: ${velocity >= 0.5 ? 'Excellent!' : velocity >= 0.2 ? 'Good pace' : 'Time to accelerate'}\n\nRecent features:\n${periodFeatures.slice(0, 5).map(f => `• ${f.name}`).join('\n')}`
+                message: this.agent.formatProgress(progressData)
             };
         } catch (error) {
+            await this.initializeAgent();
             return {
                 success: false,
-                message: `❌ Error: ${error.message}`
+                message: this.agent.formatResponse(error.message, 'error')
             };
         }
     }
 
     async stuck(issue, projectPath = process.cwd()) {
         try {
+            await this.initializeAgent();
+
             if (!issue) {
                 return {
                     success: false,
-                    message: '⚠️ Please describe what you\'re stuck on: /p:stuck "issue description"'
+                    message: this.agent.formatResponse(
+                        `Please describe what you're stuck on: ${this.agentInfo.config.commandPrefix}stuck "issue description"`,
+                        'warning'
+                    )
                 };
             }
 
             // Log the issue
-            await this.logToMemory(projectPath, 'stuck', { issue, timestamp: new Date().toISOString() });
+            await this.logToMemory(projectPath, 'stuck', { issue, timestamp: this.agent.getTimestamp() });
 
-            // Provide contextual help
-            let help = '🤔 Let\'s work through this:\n\n';
-
-            if (issue.match(/error|bug|crash/i)) {
-                help += '🔍 Debugging steps:\n';
-                help += '1. Check error message details\n';
-                help += '2. Isolate the problem area\n';
-                help += '3. Test with minimal code\n';
-                help += '4. Search for similar issues\n';
-            } else if (issue.match(/design|architecture|structure/i)) {
-                help += '🏗️ Design approach:\n';
-                help += '1. Define clear requirements\n';
-                help += '2. Start with simplest solution\n';
-                help += '3. Iterate and refactor\n';
-                help += '4. Don\'t over-engineer\n';
-            } else if (issue.match(/performance|slow|optimize/i)) {
-                help += '⚡ Performance strategy:\n';
-                help += '1. Measure first (profile)\n';
-                help += '2. Identify bottlenecks\n';
-                help += '3. Optimize critical path\n';
-                help += '4. Cache when possible\n';
-            } else {
-                help += '💡 General approach:\n';
-                help += '1. Break it into smaller tasks\n';
-                help += '2. Tackle the easiest part first\n';
-                help += '3. Build momentum\n';
-                help += '4. Ask for help if needed\n';
-            }
-
-            help += '\nNeed more specific help? Provide more details about the issue.';
+            // Get contextual help from agent
+            const helpContent = this.agent.getHelpContent(issue);
 
             return {
                 success: true,
-                message: help
+                message: helpContent + '\n' + this.agent.suggestNextAction('stuck')
             };
         } catch (error) {
+            await this.initializeAgent();
             return {
                 success: false,
-                message: `❌ Error: ${error.message}`
+                message: this.agent.formatResponse(error.message, 'error')
             };
         }
     }
 
     async context(projectPath = process.cwd()) {
         try {
+            await this.initializeAgent();
+
             // Detect project info
             const projectInfo = await this.detectProjectType(projectPath);
 
             // Get current state
-            const nowFile = await fs.readFile(path.join(projectPath, this.prjctDir, 'now.md'), 'utf-8');
+            const nowFile = await this.agent.readFile(path.join(projectPath, this.prjctDir, 'now.md'));
             const currentTask = nowFile.split('\n')[0].replace('# NOW: ', '').replace('# NOW', 'None');
 
             // Read recent memory
             const memoryFile = path.join(projectPath, this.prjctDir, 'memory.jsonl');
             let recentActions = [];
             try {
-                const memory = await fs.readFile(memoryFile, 'utf-8');
+                const memory = await this.agent.readFile(memoryFile);
                 const lines = memory.trim().split('\n').filter(l => l);
                 recentActions = lines.slice(-5).map(l => {
                     const entry = JSON.parse(l);
@@ -411,14 +499,22 @@ class PrjctCommands {
                 // Memory file might not exist yet
             }
 
+            const contextInfo = `Project Context\n\n` +
+                              `Agent: ${this.agentInfo.name}\n` +
+                              `Project: ${projectInfo}\n` +
+                              `Current: ${currentTask}\n\n` +
+                              `Recent actions:\n${recentActions.join('\n') || '• No recent actions'}\n\n` +
+                              `Use ${this.agentInfo.config.commandPrefix}recap for full progress report`;
+
             return {
                 success: true,
-                message: `📋 Project Context\n\n🏗️ Project: ${projectInfo}\n📍 Current: ${currentTask}\n\n📜 Recent actions:\n${recentActions.join('\n') || '• No recent actions'}\n\nUse /p:recap for full progress report`
+                message: this.agent.formatResponse(contextInfo, 'info')
             };
         } catch (error) {
+            await this.initializeAgent();
             return {
                 success: false,
-                message: `❌ Error: ${error.message}`
+                message: this.agent.formatResponse(error.message, 'error')
             };
         }
     }
@@ -458,8 +554,9 @@ class PrjctCommands {
 
     async getDaysSinceLastShip(projectPath) {
         try {
+            await this.initializeAgent();
             const memoryFile = path.join(projectPath, this.prjctDir, 'memory.jsonl');
-            const memory = await fs.readFile(memoryFile, 'utf-8');
+            const memory = await this.agent.readFile(memoryFile);
             const lines = memory.trim().split('\n').filter(l => l);
 
             for (let i = lines.length - 1; i >= 0; i--) {
@@ -477,9 +574,17 @@ class PrjctCommands {
     }
 
     async logToMemory(projectPath, action, data) {
+        await this.initializeAgent();
         const memoryFile = path.join(projectPath, this.prjctDir, 'memory.jsonl');
         const entry = JSON.stringify({ action, data, timestamp: new Date().toISOString() }) + '\n';
-        await fs.appendFile(memoryFile, entry);
+
+        try {
+            const existingContent = await this.agent.readFile(memoryFile);
+            await this.agent.writeFile(memoryFile, existingContent + entry);
+        } catch (e) {
+            // File doesn't exist, create it
+            await this.agent.writeFile(memoryFile, entry);
+        }
     }
 }
 

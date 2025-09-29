@@ -31,12 +31,30 @@ export const Hero = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.1 }}
-          className="text-xl md:text-2xl text-muted-foreground mb-8 max-w-3xl mx-auto"
+          className="text-xl md:text-2xl text-muted-foreground mb-4 max-w-3xl mx-auto"
         >
           Turn ideas into AI-ready roadmaps.
           <br />
           Ship faster with zero friction.
         </motion.p>
+
+        {/* Agent Compatibility Badge */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.15 }}
+          className="flex items-center justify-center gap-3 mb-8"
+        >
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
+            Claude Code
+          </span>
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-500/10 text-green-500 border border-green-500/20">
+            OpenAI Codex
+          </span>
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-500/10 text-blue-500 border border-blue-500/20">
+            Terminal/CLI
+          </span>
+        </motion.div>
 
         {/* CTA Buttons */}
         <motion.div
@@ -84,8 +102,15 @@ export const Hero = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.5 }}
-        className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto mt-20"
+        className="grid grid-cols-1 md:grid-cols-4 gap-8 max-w-5xl mx-auto mt-20"
       >
+        <div className="text-center">
+          <div className="mb-4">
+            <div className="text-4xl font-bold">🤖</div>
+          </div>
+          <h3 className="font-semibold mb-2">Smart Detection</h3>
+          <p className="text-sm text-muted-foreground">Auto-adapts to your AI environment</p>
+        </div>
         <div className="text-center">
           <div className="mb-4">
             <div className="text-4xl font-bold">📝</div>
@@ -95,7 +120,7 @@ export const Hero = () => {
         </div>
         <div className="text-center">
           <div className="mb-4">
-            <div className="text-4xl font-bold">🤖</div>
+            <div className="text-4xl font-bold">🚀</div>
           </div>
           <h3 className="font-semibold mb-2">AI-Ready Tasks</h3>
           <p className="text-sm text-muted-foreground">Perfect context for AI agents</p>

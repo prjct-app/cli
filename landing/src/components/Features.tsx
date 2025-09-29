@@ -8,10 +8,17 @@ import {
   Rocket,
   Terminal,
   Brain,
-  Sparkles
+  Sparkles,
+  Cpu
 } from 'lucide-react'
 
 const features = [
+  {
+    icon: Cpu,
+    title: 'Smart Agent Detection',
+    description: 'Automatically detects Claude Code, OpenAI Codex, or Terminal. Zero config, perfect output every time.',
+    highlight: true
+  },
   {
     icon: Bot,
     title: 'AI Native',
@@ -89,11 +96,18 @@ export const Features = () => {
               viewport={{ once: true }}
               className="group"
             >
-              <div className="h-full p-6 bg-card border border-border rounded-2xl hover:shadow-xl transition-all duration-300 hover:scale-[1.02] hover:bg-accent">
-                <div className="inline-flex p-3 rounded-xl bg-muted mb-4 group-hover:bg-accent transition-colors">
-                  <feature.icon className="w-6 h-6 text-foreground" />
+              <div className={`h-full p-6 bg-card border ${feature.highlight ? 'border-primary' : 'border-border'} rounded-2xl hover:shadow-xl transition-all duration-300 hover:scale-[1.02] hover:bg-accent ${feature.highlight ? 'ring-1 ring-primary/20' : ''}`}>
+                <div className={`inline-flex p-3 rounded-xl ${feature.highlight ? 'bg-primary/10' : 'bg-muted'} mb-4 group-hover:bg-accent transition-colors`}>
+                  <feature.icon className={`w-6 h-6 ${feature.highlight ? 'text-primary' : 'text-foreground'}`} />
                 </div>
-                <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
+                <h3 className="text-xl font-semibold mb-2">
+                  {feature.title}
+                  {feature.highlight && (
+                    <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary/10 text-primary">
+                      NEW
+                    </span>
+                  )}
+                </h3>
                 <p className="text-muted-foreground">
                   {feature.description}
                 </p>
