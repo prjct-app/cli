@@ -9,6 +9,7 @@ import { ForIndies } from './components/ForIndies'
 import { FAQ } from './components/FAQ'
 import { Footer } from './components/Footer'
 import { PrjctLogo } from './components/Logo'
+import WindsurfExtension from './components/WindsurfExtension'
 
 function App() {
   const [isDark, setIsDark] = useState(() => {
@@ -44,12 +45,12 @@ function App() {
           )}
         </motion.button>
       </header>
-
       {/* Main Content */}
       <Hero />
       <Terminal />
       <Features />
       <Compatibility />
+      <WindsurfExtension />
       <ForIndies />
       <FAQ />
       <Footer />
