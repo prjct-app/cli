@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Copy, Check, Terminal, Star } from 'lucide-react'
+import { Copy, Check, Terminal, Star, Sparkles, ArrowRight } from 'lucide-react'
 import { useState } from 'react'
 
 export const Hero = () => {
@@ -61,7 +61,7 @@ export const Hero = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.3 }}
-          className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16"
+          className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8"
         >
           <button
             onClick={copyToClipboard}
@@ -83,6 +83,37 @@ export const Hero = () => {
           >
             <Star className="w-5 h-5" />
             Start Using
+          </a>
+        </motion.div>
+
+        {/* Windsurf Extension CTA */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.35 }}
+          className="flex justify-center mb-16"
+        >
+          <a
+            href="#windsurf-extension"
+            onClick={(e) => {
+              e.preventDefault()
+              document.querySelector('.windsurf-extension-section')?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+              })
+            }}
+            className="group inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/30 hover:border-purple-500/50 transition-all duration-300 hover:scale-105"
+          >
+            <motion.div
+              animate={{ rotate: [0, 10, -10, 0] }}
+              transition={{ duration: 2, repeat: Infinity, repeatDelay: 1 }}
+            >
+              <Sparkles className="w-5 h-5 text-purple-500" />
+            </motion.div>
+            <span className="font-medium bg-gradient-to-r from-purple-500 to-blue-500 bg-clip-text text-transparent">
+              Windsurf Extension Coming Soon
+            </span>
+            <ArrowRight className="w-4 h-4 text-purple-500 group-hover:translate-x-1 transition-transform" />
           </a>
         </motion.div>
 

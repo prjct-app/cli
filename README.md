@@ -51,6 +51,26 @@ cd prjct-cli
 > - Create project structure in `.prjct/`
 > - Auto-detect your environment (Claude/Codex/Terminal)
 
+## 🗑️ Uninstallation
+
+To completely remove prjct-cli from your system:
+
+```bash
+cd ~/.prjct-cli
+./uninstall.sh
+```
+
+The uninstaller will:
+- **Safely remove** all prjct-cli components
+- **Offer options** for your project data:
+  - Keep all `.prjct/` directories (recommended)
+  - Back up before removal
+  - Permanently delete (requires confirmation)
+- **Clean up** shell configuration and paths
+- **Remove** Claude Code commands
+
+> ⚠️ **WARNING**: Uninstallation is irreversible. The script will ask for confirmation before removing anything.
+
 ## 📱 Platform Usage
 
 ### Claude Code

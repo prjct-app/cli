@@ -89,11 +89,11 @@ export const Footer = () => {
               <Twitter className="w-5 h-5" />
             </a>
             <a
-              href="https://github.com/jlopezlira/prjct-cli"
+              href="https://jlopezlira.dev"
               target="_blank"
               rel="noopener noreferrer"
               className="text-muted-foreground hover:text-foreground transition-colors"
-              aria-label="GitHub"
+              aria-label="Made by JJ"
             >
               <Globe className="w-5 h-5" />
             </a>

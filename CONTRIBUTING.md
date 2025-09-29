@@ -160,8 +160,27 @@ prjct-cli/
 ├── adapters/           # AI platform adapters
 ├── landing/            # Landing page (React + Vite)
 ├── docs/              # Documentation
+├── install.sh         # Installation script
+├── uninstall.sh       # Clean uninstallation script
 └── .prjct/           # Your actual project data
 ```
+
+## 🧹 Uninstallation
+
+If you need to remove prjct-cli:
+
+```bash
+cd ~/.prjct-cli
+./uninstall.sh
+```
+
+The uninstaller will:
+- Safely remove all components
+- Offer to backup or preserve your project data
+- Clean up shell configurations
+- Require confirmation before any destructive action
+
+See [UNINSTALL.md](UNINSTALL.md) for detailed information.
 
 ## 🚀 Release Process
 
