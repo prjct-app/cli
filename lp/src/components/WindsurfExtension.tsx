@@ -49,6 +49,7 @@ const WindsurfExtension = () => {
     <section
       ref={containerRef}
       className="windsurf-extension-section relative overflow-hidden px-6 py-24"
+      style={{ position: 'relative' }}
     >
       {/* Background Gradient Effects */}
       <div className="absolute inset-0 -z-10">

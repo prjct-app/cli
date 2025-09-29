@@ -11,6 +11,8 @@ import { Philosophy } from './pages/docs/Philosophy'
 import { GitIntegration } from './pages/docs/GitIntegration'
 import { BestPractices } from './pages/docs/BestPractices'
 import { MCPIntegration } from './pages/docs/MCPIntegration'
+import { Terms } from './pages/Terms'
+import { Privacy } from './pages/Privacy'
 
 function App() {
   return (
@@ -30,6 +32,8 @@ function App() {
             <Route path="/commands" element={<Commands />} />
             <Route path="/workflows" element={<Workflows />} />
             <Route path="/faq" element={<FAQPage />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/privacy" element={<Privacy />} />
           </Routes>
         </main>
 
