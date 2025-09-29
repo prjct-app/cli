@@ -29,36 +29,31 @@ jobs:
         with:
           node-version: '18'
           cache: 'npm'
-          cache-dependency-path: 'docs/package-lock.json'
+          cache-dependency-path: 'lp/package-lock.json'
 
       - name: Install dependencies
         run: |
-          cd docs
+          cd lp
           npm ci || npm install
 
       - name: Build landing page
         run: |
-          cd docs
+          cd lp
           npm run build
+          # The build output is now in /docs directory
 
       - name: Prepare deployment directory
         run: |
-          # Move built files to a temporary directory
+          # Copy the built files from docs directory
           mkdir -p ./deploy
-          # Copy the built files from docs/dist
-          if [ -d "docs/dist" ]; then
-            cp -r docs/dist/* ./deploy/
-          else
-            # If no dist directory, copy docs directly
-            cp -r docs/* ./deploy/
-          fi
+          cp -r docs/* ./deploy/
           # Make sure install.sh is executable
           if [ -f "./deploy/install.sh" ]; then
             chmod +x ./deploy/install.sh
           fi
           # Ensure CNAME file is in deployment directory
-          if [ -f "docs/CNAME" ]; then
-            cp docs/CNAME ./deploy/
+          if [ -f "lp/CNAME" ]; then
+            cp lp/CNAME ./deploy/
           fi
 
       - name: Setup Pages
