@@ -1,12 +1,15 @@
 # Node dependencies
 node_modules/
 **/node_modules/
+lp/node_modules/
 
 # Build outputs
 dist/
 **/dist/
 build/
 **/build/
+# Keep docs folder for GitHub Pages
+!docs/
 out/
 coverage/
 *.tsbuildinfo
