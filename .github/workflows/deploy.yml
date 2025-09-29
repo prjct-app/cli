@@ -29,20 +29,37 @@ jobs:
         with:
           node-version: '18'
           cache: 'npm'
-          cache-dependency-path: 'landing/package-lock.json'
+          cache-dependency-path: 'docs/package-lock.json'
 
       - name: Install dependencies
         run: |
-          cd landing
+          cd docs
           npm ci || npm install
 
       - name: Build landing page
         run: |
-          cd landing
+          cd docs
           npm run build
 
-      - name: Make install script executable
-        run: chmod +x docs/install.sh
+      - name: Prepare deployment directory
+        run: |
+          # Move built files to a temporary directory
+          mkdir -p ./deploy
+          # Copy the built files from docs/dist
+          if [ -d "docs/dist" ]; then
+            cp -r docs/dist/* ./deploy/
+          else
+            # If no dist directory, copy docs directly
+            cp -r docs/* ./deploy/
+          fi
+          # Make sure install.sh is executable
+          if [ -f "./deploy/install.sh" ]; then
+            chmod +x ./deploy/install.sh
+          fi
+          # Ensure CNAME file is in deployment directory
+          if [ -f "docs/CNAME" ]; then
+            cp docs/CNAME ./deploy/
+          fi
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -50,7 +67,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './docs'
+          path: './deploy'
 
       - name: Deploy to GitHub Pages
         id: deployment
