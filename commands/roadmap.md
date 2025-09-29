@@ -1,14 +1,16 @@
 ---
 allowed-tools: [Read, Write, Edit, TodoWrite]
-description: "Strategic planning and feature roadmap management"
+description: 'Strategic planning and feature roadmap management'
 ---
 
 # /p:roadmap - Strategic Planning
 
 ## Purpose
+
 Plan features, track strategic progress, and stay aligned with goals. Zero PM overhead.
 
 ## Usage
+
 ```
 /p:roadmap [show|add|complete|next]
 ```
@@ -18,46 +20,56 @@ Default: show
 ## Execution
 
 ### `/p:roadmap` or `/p:roadmap show`
+
 Display current roadmap with progress
 
 ### `/p:roadmap add <feature>`
+
 Add feature to roadmap with smart prioritization
 
 ### `/p:roadmap complete <feature>`
+
 Mark feature as shipped and celebrate
 
 ### `/p:roadmap next`
+
 Show next priority item to work on
 
 ## Implementation
 
 **Roadmap structure** in `.prjct/planning/roadmap.md`:
+
 ```markdown
 # Product Roadmap
 
 ## 🚀 Current Sprint (Week X)
+
 - [x] User authentication
 - [ ] Dashboard redesign
 - [ ] API optimization
 
 ## 📅 Next Up
+
 - [ ] Real-time notifications
 - [ ] Data export feature
 - [ ] Mobile responsive design
 
 ## 🌟 Future Vision
+
 - [ ] AI recommendations
 - [ ] Team collaboration
 - [ ] Analytics dashboard
 ```
 
 **Smart prioritization**:
+
 - Impact vs effort matrix
 - User value scoring
 - Technical dependencies
 - Strategic alignment
 
 **Response format for show**:
+
 ```
 📍 PRODUCT ROADMAP
 
@@ -80,6 +92,7 @@ Show next priority item to work on
 ```
 
 **Response format for add**:
+
 ```
 ✅ Added to roadmap: "Payment integration"
 
@@ -92,6 +105,7 @@ Show next priority item to work on
 ```
 
 ## Features
+
 - Visual progress tracking
 - Smart prioritization
 - Sprint management

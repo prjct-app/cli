@@ -1,19 +1,22 @@
 ---
 allowed-tools: [Read, Write, Edit, TodoWrite]
-description: "Ship a feature and celebrate the win"
+description: 'Ship a feature and celebrate the win'
 ---
 
 # /p:ship - Ship Feature
 
 ## Purpose
+
 Mark a feature as shipped and celebrate the achievement. Tracks velocity and progress.
 
 ## Usage
+
 ```
 /p:ship <feature description>
 ```
 
 ## Execution
+
 1. Add feature to `.prjct/progress/shipped.md` under current week
 2. Update `.prjct/progress/metrics.md` with statistics
 3. Update `.prjct/core/context.md` with latest achievement
@@ -23,6 +26,7 @@ Mark a feature as shipped and celebrate the achievement. Tracks velocity and pro
 ## Implementation
 
 1. **Get current week**:
+
    ```javascript
    const week = getISOWeek(new Date())
    const year = new Date().getFullYear()
@@ -31,6 +35,7 @@ Mark a feature as shipped and celebrate the achievement. Tracks velocity and pro
 2. **Update progress/shipped.md**:
    - Find or create section for current week
    - Add feature with timestamp and context links
+
    ```markdown
    ## Week [WEEK], [YEAR]
 
@@ -51,6 +56,7 @@ Mark a feature as shipped and celebrate the achievement. Tracks velocity and pro
    - Next focus suggestions
 
 5. **Log to memory/context.jsonl**:
+
    ```json
    {
      "action": "ship",
@@ -62,7 +68,8 @@ Mark a feature as shipped and celebrate the achievement. Tracks velocity and pro
    }
    ```
 
-5. **Celebration response**:
+6. **Celebration response**:
+
    ```
    🚀 SHIPPED: [feature]
 
@@ -74,6 +81,7 @@ Mark a feature as shipped and celebrate the achievement. Tracks velocity and pro
    ```
 
 ## Motivation Messages
+
 - First ship: "🎉 First feature shipped! You're on fire!"
 - 5+ this week: "🔥 5 features this week! Incredible pace!"
 - 10+ total: "🏆 Double digits! You're crushing it!"

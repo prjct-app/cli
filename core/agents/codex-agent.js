@@ -3,124 +3,124 @@
  * Implements prjct commands for OpenAI Codex environment
  */
 
-const fs = require('fs').promises;
-const path = require('path');
+const fs = require('fs').promises
+const path = require('path')
 
 class CodexAgent {
-    constructor() {
-        this.name = 'OpenAI Codex';
-        this.type = 'codex';
+  constructor() {
+    this.name = 'OpenAI Codex'
+    this.type = 'codex'
+  }
+
+  /**
+   * Format response for Codex with structured output
+   * Codex runs in sandboxed environments, so we use clear text formatting
+   */
+  formatResponse(message, type = 'info') {
+    const prefixes = {
+      success: '[SUCCESS]',
+      error: '[ERROR]',
+      warning: '[WARNING]',
+      info: '[INFO]',
+      celebrate: '[SHIPPED]',
+      ship: '[FEATURE]',
+      focus: '[FOCUS]',
+      idea: '[IDEA]',
+      progress: '[PROGRESS]',
+      task: '[TASK]',
     }
 
-    /**
-     * Format response for Codex with structured output
-     * Codex runs in sandboxed environments, so we use clear text formatting
-     */
-    formatResponse(message, type = 'info') {
-        const prefixes = {
-            success: '[SUCCESS]',
-            error: '[ERROR]',
-            warning: '[WARNING]',
-            info: '[INFO]',
-            celebrate: '[SHIPPED]',
-            ship: '[FEATURE]',
-            focus: '[FOCUS]',
-            idea: '[IDEA]',
-            progress: '[PROGRESS]',
-            task: '[TASK]'
-        };
+    const prefix = prefixes[type] || prefixes.info
 
-        const prefix = prefixes[type] || prefixes.info;
+    // Structured output for Codex
+    return `${prefix} ${message}`
+  }
 
-        // Structured output for Codex
-        return `${prefix} ${message}`;
+  /**
+   * Read file using native fs (Codex doesn't have MCP)
+   */
+  async readFile(filePath) {
+    try {
+      return await fs.readFile(filePath, 'utf8')
+    } catch (error) {
+      throw new Error(`Failed to read file ${filePath}: ${error.message}`)
+    }
+  }
+
+  /**
+   * Write file using native fs
+   */
+  async writeFile(filePath, content) {
+    try {
+      await fs.writeFile(filePath, content, 'utf8')
+    } catch (error) {
+      throw new Error(`Failed to write file ${filePath}: ${error.message}`)
+    }
+  }
+
+  /**
+   * List directory contents
+   */
+  async listDirectory(dirPath) {
+    try {
+      return await fs.readdir(dirPath)
+    } catch (error) {
+      throw new Error(`Failed to list directory ${dirPath}: ${error.message}`)
+    }
+  }
+
+  /**
+   * Check if file exists
+   */
+  async fileExists(filePath) {
+    try {
+      await fs.access(filePath)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  /**
+   * Create directory
+   */
+  async createDirectory(dirPath) {
+    try {
+      await fs.mkdir(dirPath, { recursive: true })
+    } catch (error) {
+      throw new Error(`Failed to create directory ${dirPath}: ${error.message}`)
+    }
+  }
+
+  /**
+   * Get current timestamp in ISO format
+   */
+  getTimestamp() {
+    return new Date().toISOString()
+  }
+
+  /**
+   * Format task list with structured output
+   */
+  formatTaskList(tasks) {
+    if (!tasks || tasks.length === 0) {
+      return this.formatResponse('No tasks in queue', 'info')
     }
 
-    /**
-     * Read file using native fs (Codex doesn't have MCP)
-     */
-    async readFile(filePath) {
-        try {
-            return await fs.readFile(filePath, 'utf8');
-        } catch (error) {
-            throw new Error(`Failed to read file ${filePath}: ${error.message}`);
-        }
-    }
+    let output = 'TASK QUEUE:\n'
+    output += '===========\n'
+    tasks.forEach((task, index) => {
+      output += `  ${index + 1}. ${task}\n`
+    })
 
-    /**
-     * Write file using native fs
-     */
-    async writeFile(filePath, content) {
-        try {
-            await fs.writeFile(filePath, content, 'utf8');
-        } catch (error) {
-            throw new Error(`Failed to write file ${filePath}: ${error.message}`);
-        }
-    }
+    return output
+  }
 
-    /**
-     * List directory contents
-     */
-    async listDirectory(dirPath) {
-        try {
-            return await fs.readdir(dirPath);
-        } catch (error) {
-            throw new Error(`Failed to list directory ${dirPath}: ${error.message}`);
-        }
-    }
-
-    /**
-     * Check if file exists
-     */
-    async fileExists(filePath) {
-        try {
-            await fs.access(filePath);
-            return true;
-        } catch {
-            return false;
-        }
-    }
-
-    /**
-     * Create directory
-     */
-    async createDirectory(dirPath) {
-        try {
-            await fs.mkdir(dirPath, { recursive: true });
-        } catch (error) {
-            throw new Error(`Failed to create directory ${dirPath}: ${error.message}`);
-        }
-    }
-
-    /**
-     * Get current timestamp in ISO format
-     */
-    getTimestamp() {
-        return new Date().toISOString();
-    }
-
-    /**
-     * Format task list with structured output
-     */
-    formatTaskList(tasks) {
-        if (!tasks || tasks.length === 0) {
-            return this.formatResponse('No tasks in queue', 'info');
-        }
-
-        let output = 'TASK QUEUE:\n';
-        output += '===========\n';
-        tasks.forEach((task, index) => {
-            output += `  ${index + 1}. ${task}\n`;
-        });
-
-        return output;
-    }
-
-    /**
-     * Format recap with structured output
-     */
-    formatRecap(data) {
-        const output = `
+  /**
+   * Format recap with structured output
+   */
+  formatRecap(data) {
+    const output = `
 PROJECT RECAP
 =============
 
@@ -132,19 +132,23 @@ Ideas Captured: ${data.ideasCount}
 ${data.recentActivity ? 'Recent Activity:\n' + data.recentActivity : ''}
 
 Status: ${data.shippedCount > 0 ? 'Productive' : 'Getting Started'}
-        `.trim();
+        `.trim()
 
-        return output;
-    }
+    return output
+  }
 
-    /**
-     * Format progress report
-     */
-    formatProgress(data) {
-        const trend = data.velocity > data.previousVelocity ? 'UP' :
-                     data.velocity < data.previousVelocity ? 'DOWN' : 'STEADY';
+  /**
+   * Format progress report
+   */
+  formatProgress(data) {
+    const trend =
+      data.velocity > data.previousVelocity
+        ? 'UP'
+        : data.velocity < data.previousVelocity
+          ? 'DOWN'
+          : 'STEADY'
 
-        const output = `
+    const output = `
 PROGRESS REPORT (${data.period.toUpperCase()})
 =====================================
 
@@ -155,18 +159,18 @@ Trend: ${trend}
 ${data.recentFeatures ? 'Recent Features:\n' + data.recentFeatures : ''}
 
 ${data.motivationalMessage}
-        `.trim();
+        `.trim()
 
-        return output;
-    }
+    return output
+  }
 
-    /**
-     * Get help content based on issue type
-     * Structured format for Codex readability
-     */
-    getHelpContent(issue) {
-        const helps = {
-            debugging: `
+  /**
+   * Get help content based on issue type
+   * Structured format for Codex readability
+   */
+  getHelpContent(issue) {
+    const helps = {
+      debugging: `
 DEBUGGING STRATEGY:
 ===================
 1. ISOLATE - Comment out code until error disappears
@@ -175,7 +179,7 @@ DEBUGGING STRATEGY:
 4. RESEARCH - Search for exact error message
 5. BREAK - Take a walk, fresh perspective helps
             `,
-            design: `
+      design: `
 DESIGN APPROACH:
 ================
 1. START SIMPLE - Basic version first
@@ -184,7 +188,7 @@ DESIGN APPROACH:
 4. PATTERNS - Look for similar solutions
 5. VALIDATE - Show mockup before building
             `,
-            performance: `
+      performance: `
 PERFORMANCE STRATEGY:
 ====================
 1. MEASURE FIRST - Profile before optimizing
@@ -193,7 +197,7 @@ PERFORMANCE STRATEGY:
 4. LAZY LOAD - Defer non-critical work
 5. MONITOR - Track improvements
             `,
-            default: `
+      default: `
 GENERAL STRATEGY:
 ================
 1. BREAK IT DOWN - Divide into smaller tasks
@@ -201,56 +205,56 @@ GENERAL STRATEGY:
 3. TEST OFTEN - Verify each step works
 4. DOCUMENT - Write down what you learn
 5. SHIP IT - Perfect is the enemy of done
-            `
-        };
-
-        const helpType = Object.keys(helps).find(key =>
-            issue.toLowerCase().includes(key)
-        ) || 'default';
-
-        return helps[helpType];
+            `,
     }
 
-    /**
-     * Suggest next action based on context
-     * Clear, actionable suggestions for Codex
-     */
-    suggestNextAction(context) {
-        const suggestions = {
-            taskCompleted: 'NEXT: Check task queue with /p:next',
-            featureShipped: 'NEXT: Set new focus with /p:now [task]',
-            ideaCaptured: 'NEXT: Start working with /p:now [task]',
-            initialized: 'NEXT: Set first task with /p:now "your first task"',
-            stuck: 'NEXT: Break down problem with /p:idea for each step'
-        };
+    const helpType =
+      Object.keys(helps).find((key) => issue.toLowerCase().includes(key)) || 'default'
 
-        return suggestions[context] || 'NEXT: What would you like to work on?';
+    return helps[helpType]
+  }
+
+  /**
+   * Suggest next action based on context
+   * Clear, actionable suggestions for Codex
+   */
+  suggestNextAction(context) {
+    const suggestions = {
+      taskCompleted: 'NEXT: Check task queue with /p:next',
+      featureShipped: 'NEXT: Set new focus with /p:now [task]',
+      ideaCaptured: 'NEXT: Start working with /p:now [task]',
+      initialized: 'NEXT: Set first task with /p:now "your first task"',
+      stuck: 'NEXT: Break down problem with /p:idea for each step',
     }
 
-    /**
-     * Handle sandboxed environment limitations
-     */
-    async ensureSandboxCompatibility() {
-        // Check if we're in a sandboxed environment
-        const isSandboxed = process.cwd().includes('/sandbox/') ||
-                           process.cwd().includes('/tmp/') ||
-                           process.env.CODEX_SANDBOX;
+    return suggestions[context] || 'NEXT: What would you like to work on?'
+  }
 
-        if (isSandboxed) {
-            // Ensure we use relative paths within sandbox
-            return {
-                sandboxed: true,
-                basePath: process.cwd(),
-                restrictions: ['no-network', 'limited-filesystem']
-            };
-        }
+  /**
+   * Handle sandboxed environment limitations
+   */
+  async ensureSandboxCompatibility() {
+    // Check if we're in a sandboxed environment
+    const isSandboxed =
+      process.cwd().includes('/sandbox/') ||
+      process.cwd().includes('/tmp/') ||
+      process.env.CODEX_SANDBOX
 
-        return {
-            sandboxed: false,
-            basePath: process.cwd(),
-            restrictions: []
-        };
+    if (isSandboxed) {
+      // Ensure we use relative paths within sandbox
+      return {
+        sandboxed: true,
+        basePath: process.cwd(),
+        restrictions: ['no-network', 'limited-filesystem'],
+      }
     }
+
+    return {
+      sandboxed: false,
+      basePath: process.cwd(),
+      restrictions: [],
+    }
+  }
 }
 
-module.exports = CodexAgent;
+module.exports = CodexAgent

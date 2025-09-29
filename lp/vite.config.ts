@@ -12,8 +12,8 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: undefined,
-      }
-    }
+      },
+    },
   },
   resolve: {
     alias: {

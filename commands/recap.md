@@ -1,19 +1,22 @@
 ---
 allowed-tools: [Read, Glob]
-description: "Show project status overview"
+description: 'Show project status overview'
 ---
 
 # /p:recap - Project Recap
 
 ## Purpose
+
 Display a comprehensive overview of project status and progress.
 
 ## Usage
+
 ```
 /p:recap
 ```
 
 ## Execution
+
 1. Read current task from `.prjct/core/now.md`
 2. Aggregate metrics from `.prjct/progress/metrics.md`
 3. Count shipped features from `.prjct/progress/shipped.md`
@@ -32,6 +35,7 @@ Display a comprehensive overview of project status and progress.
    - **Memory Layer**: Decision history, learnings
 
 2. **Enhanced response format**:
+
    ```
    📊 PROJECT RECAP
    ━━━━━━━━━━━━━━━━━━━
@@ -73,6 +77,7 @@ Display a comprehensive overview of project status and progress.
    - Empty queue: "🎆 Time to dream bigger!"
 
 ## Visual Elements
+
 - Use progress bars for completion
 - Show week-over-week trends
 - Highlight achievements

@@ -1,19 +1,22 @@
 ---
 allowed-tools: [Read, Write, Edit]
-description: "Display and manage priority queue"
+description: 'Display and manage priority queue'
 ---
 
 # /p:next - Priority Queue
 
 ## Purpose
+
 Display the prioritized queue of upcoming tasks.
 
 ## Usage
+
 ```
 /p:next
 ```
 
 ## Execution
+
 1. Read `.prjct/core/next.md`
 2. Display numbered list of pending tasks with context
 3. Show task count and suggest next action
@@ -32,6 +35,7 @@ Display the prioritized queue of upcoming tasks.
    - Link to analysis/repo-summary.md for technical context
 
 3. **Response format**:
+
    ```
    📋 Priority Queue ([count] tasks):
 
@@ -47,6 +51,7 @@ Display the prioritized queue of upcoming tasks.
    ```
 
    Or if empty:
+
    ```
    📋 Queue is empty!
 
@@ -61,6 +66,7 @@ Display the prioritized queue of upcoming tasks.
    ```
 
 ## Tips
+
 - Keep queue short (5-10 items)
 - Most important tasks first
 - Review and reprioritize regularly

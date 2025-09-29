@@ -12,11 +12,13 @@ Works with **Claude Code**, **OpenAI Codex/GitHub OpenAI Codex**, and **Warp Ter
 **prjct-cli automatically detects and adapts to your environment** - No configuration needed!
 
 The system intelligently identifies whether you're using:
+
 - **Claude Code** → Rich markdown, MCP integration, interactive features
 - **OpenAI Codex** → Structured output for sandboxed environments
 - **Terminal/CLI** → ANSI colors, progress spinners, native experience
 
 ### How It Works
+
 ```javascript
 // Automatic detection strategies:
 1. Environment Variables (CLAUDE_AGENT, CODEX_AGENT)
@@ -26,6 +28,7 @@ The system intelligently identifies whether you're using:
 ```
 
 Each agent gets optimized output:
+
 - **Claude**: `✅ **Task complete!** Ready for the next challenge?`
 - **Codex**: `[SUCCESS] Task complete. NEXT: Use /p:next`
 - **Terminal**: `✅ Task complete! → Use prjct next`
@@ -33,11 +36,13 @@ Each agent gets optimized output:
 ## ⚡ Installation
 
 ### Option 1: Quick Install (Recommended)
+
 ```bash
 curl -fsSL https://prjct.app/install.sh | bash
 ```
 
 ### Option 2: Clone from GitHub
+
 ```bash
 git clone https://github.com/jlopezlira/prjct-cli
 cd prjct-cli
@@ -45,6 +50,7 @@ cd prjct-cli
 ```
 
 > The installer will:
+>
 > - Install to `~/.prjct-cli/`
 > - Configure AI assistant integration (MCP)
 > - Set up the `prjct` command
@@ -61,6 +67,7 @@ cd ~/.prjct-cli
 ```
 
 The uninstaller will:
+
 - **Safely remove** all prjct-cli components
 - **Offer options** for your project data:
   - Keep all `.prjct/` directories (recommended)
@@ -74,6 +81,7 @@ The uninstaller will:
 ## 📱 Platform Usage
 
 ### Claude Code
+
 ```
 # Core Commands
 /p:init                    # Initialize project
@@ -108,6 +116,7 @@ The repository includes `AGENTS.md` for full OpenAI Codex compatibility.
 > **Setup**: Authorize the Codex GitHub app for your organization, and Codex will automatically detect the AGENTS.md configuration.
 
 ### Warp Terminal
+
 ```bash
 prjct init                 # Initialize project
 prjct now "implement auth"  # Set current task
@@ -121,6 +130,7 @@ prjct recap                # Show progress
 ## 🎯 ¿Qué Comando Usar Cuando...?
 
 ### 🆕 **"Tengo una nueva idea o feature no planeada"**
+
 ```bash
 # Opción 1: Solo capturar la idea para no olvidarla
 /p:idea "agregar modo oscuro al dashboard"
@@ -136,6 +146,7 @@ prjct recap                # Show progress
 ```
 
 ### ✅ **"Terminé lo que estaba haciendo"**
+
 ```bash
 # Marcar tarea como completada
 /p:done
@@ -147,6 +158,7 @@ prjct recap                # Show progress
 ```
 
 ### 🤔 **"No sé qué hacer" o "¿En qué estaba?"**
+
 ```bash
 /p:recap
 → 📊 Muestra TODO: tarea actual, progreso, shipped, roadmap
@@ -159,6 +171,7 @@ prjct recap                # Show progress
 ```
 
 ### 🆘 **"Estoy atorado con un problema"**
+
 ```bash
 /p:stuck "CORS error en API calls"
 → 💡 Soluciones contextuales basadas en tu proyecto
@@ -168,6 +181,7 @@ prjct recap                # Show progress
 ```
 
 ### 📊 **"Quiero ver mi progreso"**
+
 ```bash
 /p:progress week
 → 📈 Métricas semanales: shipped, velocidad, trends
@@ -177,6 +191,7 @@ prjct recap                # Show progress
 ```
 
 ### 💻 **"Necesito hacer commit/push"**
+
 ```bash
 /p:git
 → 📝 Genera mensaje inteligente y hace commit
@@ -191,41 +206,46 @@ prjct recap                # Show progress
 ## 📖 Referencia Completa de Comandos
 
 ### Comandos Core (Esenciales) 🎯
-| Comando | ¿Cuándo usarlo? | ¿Qué hace? | Output Ejemplo |
-|---------|-----------------|------------|----------------|
-| `/p:init` | Al empezar un nuevo proyecto | Crea estructura `.prjct/` completa | `✅ Project initialized!` |
-| `/p:now [task]` | Para establecer tu foco actual | Define UNA sola tarea activa | `🎯 Current: implement auth` |
-| `/p:done` | Al terminar tu tarea actual | Marca como completa y limpia foco | `✅ Task complete! Next: API integration` |
-| `/p:ship <feature>` | Al completar algo importante | Celebra y registra el WIN | `🚀 SHIPPED: User auth! 🎉` |
-| `/p:recap` | Para ver overview completo | Muestra progreso y estado actual | `📊 3 shipped, 1 active, 5 queued` |
+
+| Comando             | ¿Cuándo usarlo?                | ¿Qué hace?                         | Output Ejemplo                            |
+| ------------------- | ------------------------------ | ---------------------------------- | ----------------------------------------- |
+| `/p:init`           | Al empezar un nuevo proyecto   | Crea estructura `.prjct/` completa | `✅ Project initialized!`                 |
+| `/p:now [task]`     | Para establecer tu foco actual | Define UNA sola tarea activa       | `🎯 Current: implement auth`              |
+| `/p:done`           | Al terminar tu tarea actual    | Marca como completa y limpia foco  | `✅ Task complete! Next: API integration` |
+| `/p:ship <feature>` | Al completar algo importante   | Celebra y registra el WIN          | `🚀 SHIPPED: User auth! 🎉`               |
+| `/p:recap`          | Para ver overview completo     | Muestra progreso y estado actual   | `📊 3 shipped, 1 active, 5 queued`        |
 
 ### Comandos de Planificación 📋
-| Comando | ¿Cuándo usarlo? | ¿Qué hace? | Output Ejemplo |
-|---------|-----------------|------------|----------------|
-| `/p:idea <text>` | Cuando se te ocurre algo | Captura rápida sin interrumpir | `💡 Idea captured!` |
-| `/p:roadmap` | Ver plan estratégico | Muestra roadmap completo | `🚀 Sprint: 23% complete` |
-| `/p:roadmap add` | Agregar nueva feature | Prioriza automáticamente | `✅ Added: Priority #3` |
-| `/p:next` | Ver qué sigue | Lista tareas priorizadas | `1. Fix auth bug 2. Add tests` |
-| `/p:task <complex>` | Desglosar tarea compleja | Divide en subtareas manejables | `📋 Split into 5 subtasks` |
+
+| Comando             | ¿Cuándo usarlo?          | ¿Qué hace?                     | Output Ejemplo                 |
+| ------------------- | ------------------------ | ------------------------------ | ------------------------------ |
+| `/p:idea <text>`    | Cuando se te ocurre algo | Captura rápida sin interrumpir | `💡 Idea captured!`            |
+| `/p:roadmap`        | Ver plan estratégico     | Muestra roadmap completo       | `🚀 Sprint: 23% complete`      |
+| `/p:roadmap add`    | Agregar nueva feature    | Prioriza automáticamente       | `✅ Added: Priority #3`        |
+| `/p:next`           | Ver qué sigue            | Lista tareas priorizadas       | `1. Fix auth bug 2. Add tests` |
+| `/p:task <complex>` | Desglosar tarea compleja | Divide en subtareas manejables | `📋 Split into 5 subtasks`     |
 
 ### Comandos de Desarrollo 🛠️
-| Comando | ¿Cuándo usarlo? | ¿Qué hace? | Output Ejemplo |
-|---------|-----------------|------------|----------------|
-| `/p:analyze` | Entender el proyecto | Análisis automático del repo | `🔍 Tech: Node.js, 45 files` |
-| `/p:git` | Hacer commit rápido | Mensaje inteligente + commit | `✅ feat: add auth system` |
-| `/p:test` | Ejecutar tests | Run + auto-fix simple errors | `✅ 42 passing, 2 fixed` |
-| `/p:fix <error>` | Resolver errores | Diagnóstico y soluciones | `🔧 Solution: check null first` |
+
+| Comando          | ¿Cuándo usarlo?      | ¿Qué hace?                   | Output Ejemplo                  |
+| ---------------- | -------------------- | ---------------------------- | ------------------------------- |
+| `/p:analyze`     | Entender el proyecto | Análisis automático del repo | `🔍 Tech: Node.js, 45 files`    |
+| `/p:git`         | Hacer commit rápido  | Mensaje inteligente + commit | `✅ feat: add auth system`      |
+| `/p:test`        | Ejecutar tests       | Run + auto-fix simple errors | `✅ 42 passing, 2 fixed`        |
+| `/p:fix <error>` | Resolver errores     | Diagnóstico y soluciones     | `🔧 Solution: check null first` |
 
 ### Comandos de Métricas 📊
-| Comando | ¿Cuándo usarlo? | ¿Qué hace? | Output Ejemplo |
-|---------|-----------------|------------|----------------|
-| `/p:progress` | Ver productividad | Métricas de la semana | `📈 7 shipped, velocity: 1.4/day` |
-| `/p:context` | Info del proyecto | Estado actual y contexto | `📚 Sprint 3, Day 12, 67% done` |
-| `/p:stuck <issue>` | Cuando necesitas ayuda | Soluciones contextuales | `💡 Try: npm install cors` |
+
+| Comando            | ¿Cuándo usarlo?        | ¿Qué hace?               | Output Ejemplo                    |
+| ------------------ | ---------------------- | ------------------------ | --------------------------------- |
+| `/p:progress`      | Ver productividad      | Métricas de la semana    | `📈 7 shipped, velocity: 1.4/day` |
+| `/p:context`       | Info del proyecto      | Estado actual y contexto | `📚 Sprint 3, Day 12, 67% done`   |
+| `/p:stuck <issue>` | Cuando necesitas ayuda | Soluciones contextuales  | `💡 Try: npm install cors`        |
 
 ## 🔄 Flujos de Trabajo Completos
 
 ### 🌟 **Mi Primer Día con prjct**
+
 ```bash
 # 1. Inicializar estructura
 /p:init
@@ -252,6 +272,7 @@ prjct recap                # Show progress
 ```
 
 ### 💼 **Daily Work Session**
+
 ```bash
 # Morning: See where I am
 /p:recap
@@ -280,6 +301,7 @@ prjct recap                # Show progress
 ```
 
 ### 🏗️ **Complex Feature Management**
+
 ```bash
 # 1. Break down the large feature
 /p:task "complete notification system"
@@ -307,6 +329,7 @@ prjct recap                # Show progress
 ```
 
 ### 🚀 **Sprint Planning con Roadmap**
+
 ```bash
 # View current roadmap
 /p:roadmap
@@ -331,20 +354,25 @@ prjct recap                # Show progress
 ## ❓ FAQ - Frequently Asked Questions
 
 ### **"What happens if I use `/p:now` without finishing the previous task?"**
+
 The previous task gets REPLACED. prjct uses a "single focus" philosophy - only ONE active task at a time. If you need to switch context, use `/p:done` first.
 
 ### **"Can I work on multiple tasks simultaneously?"**
+
 NO by design. prjct forces focus on a single task. If you need to temporarily switch, use `/p:done` and then `/p:now` with the new task.
 
 ### **"What's the difference between `/p:done` and `/p:ship`?"**
+
 - `/p:done` = Complete current task and clear focus
 - `/p:ship` = Celebrate an important FEATURE (not all tasks are features)
+
 ```bash
 /p:done                    # "I finished fixing that bug"
 /p:ship "new dashboard"    # "LAUNCHED THE NEW DASHBOARD!" 🎉
 ```
 
 ### **"How do I modify something in the roadmap?"**
+
 ```bash
 /p:roadmap                 # View everything
 /p:roadmap add "feature"   # Add new
@@ -353,19 +381,24 @@ NO by design. prjct forces focus on a single task. If you need to temporarily sw
 ```
 
 ### **"Can I undo a command?"**
+
 There's no automatic "undo", but you can:
+
 - Manually edit files in `.prjct/`
 - Use `/p:now` to change current task
 - Files are simple markdown, easy to edit
 
 ### **"What happens with my data?"**
+
 - EVERYTHING is stored locally in `.prjct/`
 - No data leaves your machine
 - You can version `.prjct/` with git if you want
 - Backup = copy the `.prjct/` folder
 
 ### **"How do I migrate from Jira/Trello/etc?"**
+
 You don't need to migrate anything. Simply:
+
 ```bash
 /p:init                           # Start fresh
 /p:roadmap add "current feature"  # Add what you're working on
@@ -373,14 +406,17 @@ You don't need to migrate anything. Simply:
 ```
 
 ### **"Does it work with teams?"**
+
 prjct is designed for indie hackers and solopreneurs. For teams, each developer can have their own `.prjct/` or share one via git.
 
 ### **"Can I customize the commands?"**
+
 Commands are standardized to maintain simplicity. But files in `.prjct/` are markdown - you can edit them however you want.
 
 ## 📂 File Structure
 
 ### New Layered Architecture 🏗️
+
 ```
 .prjct/
 ├── 🎯 core/        # Current focus & priorities
@@ -402,7 +438,9 @@ Commands are standardized to maintain simplicity. But files in `.prjct/` are mar
 ```
 
 ### Migration from Old Structure
+
 If you have an existing flat `.prjct/` structure, run:
+
 ```bash
 ./migrate.sh  # Automatic migration to layered structure
 ```

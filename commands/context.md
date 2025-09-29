@@ -1,19 +1,22 @@
 ---
 allowed-tools: [Read, Glob, Bash]
-description: "Show project context and recent activity"
+description: 'Show project context and recent activity'
 ---
 
 # /p:context - Project Context
 
 ## Purpose
+
 Display project context including type, current task, and recent activity.
 
 ## Usage
+
 ```
 /p:context
 ```
 
 ## Execution
+
 1. Aggregate context from all project layers
 2. Reference analysis for technical context
 3. Show current task and planning alignment
@@ -36,6 +39,7 @@ Display project context including type, current task, and recent activity.
    - Decision history from memory layer
 
 3. **Comprehensive response format**:
+
    ```
    🌍 PROJECT CONTEXT
    ━━━━━━━━━━━━━━━━━━━━━━━

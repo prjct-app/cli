@@ -25,6 +25,7 @@ No additional setup is required. The presence of AGENTS.md at the repository roo
 ## Compatibility
 
 This adapter is designed to work in:
+
 - OpenAI Codex cloud containers
 - GitHub Codex integrations
 - Local Codex development environments
@@ -32,6 +33,7 @@ This adapter is designed to work in:
 ## Testing
 
 To verify the adapter is working:
+
 1. Open a repository with Codex
 2. Run `/p:init` to initialize the project structure
 3. Test other commands like `/p:now`, `/p:done`, `/p:ship`
@@ -39,6 +41,7 @@ To verify the adapter is working:
 ## Cross-Platform Support
 
 The prjct-cli system supports multiple AI assistants:
+
 - **OpenAI Codex** (via AGENTS.md)
 - **Claude Code** (via CLAUDE.md)
 - **Warp Terminal** (via shell integration)

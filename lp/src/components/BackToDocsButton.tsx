@@ -12,9 +12,9 @@ export const BackToDocsButton = () => {
     >
       <Link
         to="/docs"
-        className="inline-flex items-center gap-2 px-4 py-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg transition-all"
+        className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-muted-foreground transition-all hover:bg-muted/50 hover:text-foreground"
       >
-        <ArrowLeft className="w-4 h-4" />
+        <ArrowLeft className="h-4 w-4" />
         <span>Back to Documentation</span>
       </Link>
     </motion.div>

@@ -1,19 +1,22 @@
 ---
 allowed-tools: [Read, Write, Edit, MultiEdit, Bash, Glob, TodoWrite]
-description: "Initialize prjct project structure in current directory"
+description: 'Initialize prjct project structure in current directory'
 ---
 
 # /p:init - Initialize Project
 
 ## Purpose
+
 Initialize a new prjct structure in the current project directory.
 
 ## Usage
+
 ```
 /p:init
 ```
 
 ## Execution
+
 1. Create layered `.prjct/` directory structure
 2. Initialize organized files in appropriate layers
 3. Set up initial templates with project context
@@ -21,15 +24,18 @@ Initialize a new prjct structure in the current project directory.
 5. Confirm initialization success
 
 ## Implementation
+
 When this command is triggered:
 
 1. **Create layered directory structure**:
+
    ```bash
    mkdir -p .prjct/{core,progress,planning,analysis,memory}
    ```
 
 2. **Initialize core files**:
    - **core/now.md**:
+
      ```markdown
      # NOW: No current task
 
@@ -37,6 +43,7 @@ When this command is triggered:
      ```
 
    - **core/next.md**:
+
      ```markdown
      # NEXT - Priority Queue
 
@@ -44,16 +51,20 @@ When this command is triggered:
      ```
 
    - **core/context.md**:
+
      ```markdown
      # Project Context
 
      ## Overview
+
      [Auto-generated from `/p:analyze`]
 
      ## Current Focus
+
      [Link to current task in now.md]
 
      ## Key Information
+
      - **Repository**: [auto-detected]
      - **Tech Stack**: [auto-detected]
      - **Architecture**: [auto-detected]
@@ -61,6 +72,7 @@ When this command is triggered:
 
 3. **Initialize progress tracking**:
    - **progress/shipped.md**:
+
      ```markdown
      # SHIPPED - Completed Features
 
@@ -70,43 +82,53 @@ When this command is triggered:
      ```
 
    - **progress/metrics.md**:
+
      ```markdown
      # Progress Metrics
 
      ## This Week
+
      - **Shipped**: 0 features
      - **Active**: 0 tasks
      - **Planned**: 0 items
 
      ## Historical
+
      [Auto-updated by commands]
      ```
 
 4. **Initialize planning layer**:
    - **planning/ideas.md**:
+
      ```markdown
      # IDEAS - Brain Dump
 
      Capture ideas quickly with `/p:idea <text>`
 
      ## Backlog
+
      - [ ] [Ideas will appear here]
 
      ## Someday/Maybe
+
      - [ ] [Future ideas]
      ```
 
    - **planning/roadmap.md**:
+
      ```markdown
      # Roadmap
 
      ## Current Sprint
+
      [Active items from next.md]
 
      ## Upcoming
+
      [Planned features and improvements]
 
      ## Long-term Vision
+
      [Strategic goals and objectives]
      ```
 
@@ -123,6 +145,7 @@ When this command is triggered:
    Execute `/p:analyze` to populate initial project context
 
 8. **Provide success message**:
+
    ```
    🚀 prjct initialized with layered structure!
 
@@ -143,6 +166,7 @@ When this command is triggered:
    ```
 
 ## Error Handling
+
 - Check if `.prjct/` already exists
 - Warn if overwriting existing files
 - Provide recovery suggestions on failure

@@ -1,19 +1,22 @@
 ---
 allowed-tools: [Read, Write, Edit, TodoWrite]
-description: "Complete current task and clear focus"
+description: 'Complete current task and clear focus'
 ---
 
 # /p:done - Complete Current Task
 
 ## Purpose
+
 Mark the current task as complete and clear your focus for the next task.
 
 ## Usage
+
 ```
 /p:done
 ```
 
 ## Execution
+
 1. Read current task from `.prjct/core/now.md`
 2. Calculate task duration
 3. Update `.prjct/core/now.md` and `.prjct/core/context.md`
@@ -28,12 +31,14 @@ Mark the current task as complete and clear your focus for the next task.
    - Calculate duration
 
 2. **Clear core/now.md**:
+
    ```markdown
    # NOW: No current task
 
    Start a new task with `/p:now [task description]`
 
    ## Context
+
    - **Analysis**: See `.prjct/analysis/repo-summary.md`
    - **Planning**: See `.prjct/planning/roadmap.md`
    - **Progress**: See `.prjct/progress/metrics.md`
@@ -51,6 +56,7 @@ Mark the current task as complete and clear your focus for the next task.
 
 5. **Log completion**:
    Log to `.prjct/memory/context.jsonl`:
+
    ```json
    {
      "action": "done",
@@ -68,6 +74,7 @@ Mark the current task as complete and clear your focus for the next task.
    - Suggest starting it
 
 7. **Response format**:
+
    ```
    ✅ Task completed: [task]
    Duration: [time]
@@ -78,6 +85,7 @@ Mark the current task as complete and clear your focus for the next task.
    ```
 
    Or if no next task:
+
    ```
    ✅ Task completed: [task]
    Duration: [time]
@@ -91,5 +99,6 @@ Mark the current task as complete and clear your focus for the next task.
    ```
 
 ## Error Handling
+
 - Handle case when no current task exists
 - Provide helpful message if now.md is already empty

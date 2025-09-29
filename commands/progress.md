@@ -1,14 +1,16 @@
 ---
 allowed-tools: [Read, Glob]
-description: "Show progress metrics for specified period"
+description: 'Show progress metrics for specified period'
 ---
 
 # /p:progress - Progress Metrics
 
 ## Purpose
+
 Display detailed progress metrics and trends for a specified time period.
 
 ## Usage
+
 ```
 /p:progress [day|week|month]
 ```
@@ -16,6 +18,7 @@ Display detailed progress metrics and trends for a specified time period.
 Default: week
 
 ## Execution
+
 1. Read from `.prjct/progress/shipped.md` for shipped features
 2. Aggregate metrics from `.prjct/progress/metrics.md`
 3. Calculate velocity and trends across layers
@@ -36,6 +39,7 @@ Default: week
    - **Memory Layer**: Decision impact, learning velocity
 
 3. **Enhanced response format**:
+
    ```
    📈 PROGRESS - This Week
    ━━━━━━━━━━━━━━━━━━━━━━━
@@ -77,7 +81,6 @@ Default: week
    - 📈 Improving
    - ➡️ Steady
    - 📉 Declining
-   
 5. **Motivational insights**:
    - "You're 40% more productive than last week!"
    - "On track to ship 10 features this week!"

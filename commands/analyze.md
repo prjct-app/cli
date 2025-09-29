@@ -1,19 +1,22 @@
 ---
 allowed-tools: [Read, Grep, Glob, Bash, TodoWrite]
-description: "Analyze current repository and generate comprehensive project summary"
+description: 'Analyze current repository and generate comprehensive project summary'
 ---
 
 # /p:analyze - Repository Analysis
 
 ## Purpose
+
 Automatically analyze the current codebase and generate a comprehensive summary of the repository including technologies, architecture, and project structure.
 
 ## Usage
+
 ```
 /p:analyze
 ```
 
 ## Execution
+
 1. **Scan project structure** - Analyze directories and file types
 2. **Identify technologies** - Detect frameworks, languages, tools
 3. **Analyze architecture** - Understand project organization and patterns
@@ -25,6 +28,7 @@ Automatically analyze the current codebase and generate a comprehensive summary 
 When this command is triggered:
 
 1. **Create analysis directory**:
+
    ```bash
    mkdir -p .prjct/analysis
    ```
@@ -48,32 +52,38 @@ When this command is triggered:
    - Identify configuration files
 
 5. **Generate comprehensive report**:
+
    ```markdown
    # Repository Analysis Report
 
    ## Project Overview
+
    - **Name**: [Detected from package.json or directory name]
    - **Type**: [Web app, Library, CLI tool, etc.]
    - **Primary Language**: [JavaScript, Python, Go, etc.]
    - **Framework**: [React, Express, FastAPI, etc.]
 
    ## Structure Analysis
+
    - **Total Files**: [count]
    - **Main Directories**: [list]
    - **Entry Points**: [main files]
 
    ## Technologies Detected
+
    - **Languages**: [list with percentages]
    - **Frameworks**: [list]
    - **Tools**: [build tools, testing, etc.]
    - **Dependencies**: [key dependencies]
 
    ## Architecture
+
    - **Pattern**: [MVC, Component-based, etc.]
    - **File Organization**: [description]
    - **Key Components**: [main modules/components]
 
    ## Recommendations
+
    - [Suggestions for improvements]
    - [Best practices to consider]
 
@@ -111,6 +121,7 @@ When this command is triggered:
 ```
 
 ## Error Handling
+
 - Handle projects without clear package managers
 - Gracefully handle large repositories (>1000 files)
 - Provide meaningful analysis even for minimal projects

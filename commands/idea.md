@@ -1,19 +1,22 @@
 ---
 allowed-tools: [Read, Write, Edit]
-description: "Capture ideas quickly to brain dump"
+description: 'Capture ideas quickly to brain dump'
 ---
 
 # /p:idea - Capture Ideas
 
 ## Purpose
+
 Quickly capture ideas, thoughts, and potential tasks without breaking flow.
 
 ## Usage
+
 ```
 /p:idea <text>
 ```
 
 ## Execution
+
 1. Append idea to `.prjct/planning/ideas.md` with timestamp and categorization
 2. If actionable, also add to `.prjct/core/next.md` and update roadmap
 3. Update planning metrics and context
@@ -22,8 +25,10 @@ Quickly capture ideas, thoughts, and potential tasks without breaking flow.
 ## Implementation
 
 1. **Append to planning/ideas.md**:
+
    ```markdown
    ## Backlog
+
    - [timestamp] [idea text]
      - Category: [auto-detected: feature/bug/improvement/research]
      - Priority: [auto-assessed: high/medium/low]
@@ -34,6 +39,7 @@ Quickly capture ideas, thoughts, and potential tasks without breaking flow.
    Action verbs: implement, add, fix, create, update, refactor, optimize, investigate
 
    If actionable, also append to core/next.md:
+
    ```markdown
    - [ ] [idea text]
      - Source: planning/ideas.md
@@ -45,6 +51,7 @@ Quickly capture ideas, thoughts, and potential tasks without breaking flow.
    - Update planning metrics
 
 4. **Log to memory/context.jsonl**:
+
    ```json
    {
      "action": "idea",
@@ -59,21 +66,24 @@ Quickly capture ideas, thoughts, and potential tasks without breaking flow.
    }
    ```
 
-4. **Response format**:
+5. **Response format**:
+
    ```
    💡 Idea captured: [idea]
-   
+
    ✅ Also added to task queue!
    ```
-   
+
    Or:
+
    ```
    💡 Idea captured: [idea]
-   
+
    Review all ideas in .prjct/ideas.md
    ```
 
 ## Best Practices
+
 - Capture first, organize later
 - Don't overthink - just dump
 - Review ideas weekly

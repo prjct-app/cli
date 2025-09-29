@@ -5,7 +5,9 @@ Execute these commands when users type `/p:` in Warp terminal.
 ## Command Execution
 
 ### `/p:init`
+
 Initialize project tracking:
+
 ```bash
 mkdir -p .prjct
 cp ~/.prjct-cli/templates/* .prjct/
@@ -14,7 +16,9 @@ echo "🚀 Project initialized with .prjct/ structure"
 ```
 
 ### `/p:now [task]`
+
 Focus management:
+
 ```bash
 if [ -z "$1" ]; then
   # Show current
@@ -28,7 +32,9 @@ fi
 ```
 
 ### `/p:done`
+
 Complete current task:
+
 ```bash
 task=$(head -n1 .prjct/now.md | sed 's/# NOW: //')
 echo "# NOW" > .prjct/now.md
@@ -38,7 +44,9 @@ echo "✅ Task complete: $task"
 ```
 
 ### `/p:ship <feature>`
+
 Ship feature with celebration:
+
 ```bash
 week=$(date +%V)
 year=$(date +%Y)
@@ -57,7 +65,9 @@ echo "Keep shipping! You're on fire! 🔥"
 ```
 
 ### `/p:next`
+
 Show task queue:
+
 ```bash
 if [ -s .prjct/next.md ]; then
   echo "📋 Next up:"
@@ -68,7 +78,9 @@ fi
 ```
 
 ### `/p:idea <text>`
+
 Capture idea:
+
 ```bash
 echo "- $1 _($(date +%Y-%m-%d))_" >> .prjct/ideas.md
 
@@ -82,7 +94,9 @@ fi
 ```
 
 ### `/p:recap`
+
 Project summary:
+
 ```bash
 current=$(head -n1 .prjct/now.md | sed 's/# NOW: //')
 shipped=$(grep -c "✅" .prjct/shipped.md 2>/dev/null || echo 0)
@@ -105,7 +119,9 @@ fi
 ```
 
 ### `/p:progress [period]`
+
 Show progress metrics:
+
 ```bash
 period=${1:-week}
 case $period in
@@ -131,7 +147,9 @@ fi
 ```
 
 ### `/p:stuck <issue>`
+
 Contextual help:
+
 ```bash
 case "$1" in
   *error*|*bug*)
@@ -166,7 +184,9 @@ esac
 ```
 
 ### `/p:context`
+
 Show project context:
+
 ```bash
 # Detect project type
 if [ -f package.json ]; then
@@ -193,13 +213,16 @@ tail -n 5 .prjct/memory.jsonl | jq -r '"\(.action): \(.task // .feature // .text
 ## Terminal Integration
 
 For Warp's AI to recognize these commands, they should be:
+
 1. Executed as shell commands
 2. Return clear text output
 3. Use emoji for visual feedback
 4. Keep output concise
 
 ## File Structure
+
 All project data stored in `.prjct/` directory:
+
 - Portable between machines
 - Git-friendly (can commit or ignore)
 - Simple text formats

@@ -1,19 +1,22 @@
 ---
 allowed-tools: [Read]
-description: "Get help when stuck on a problem"
+description: 'Get help when stuck on a problem'
 ---
 
 # /p:stuck - Get Unstuck
 
 ## Purpose
+
 Provide contextual help and suggestions when stuck on a problem.
 
 ## Usage
+
 ```
 /p:stuck <issue description>
 ```
 
 ## Execution
+
 1. Analyze the issue type and context
 2. Reference project layers for additional context
 3. Provide relevant debugging steps or approach
@@ -33,41 +36,44 @@ Provide contextual help and suggestions when stuck on a problem.
 2. **Response patterns**:
 
    **For bugs/errors**:
+
    ```
    🔍 Debugging approach for: [issue]
-   
+
    1. 📋 Check error message/logs
    2. 🧑‍💻 Isolate the problem
    3. 🧪 Test smallest case
    4. 🔄 Try known working state
    5. 📚 Check documentation
-   
+
    💡 Quick fix: [specific suggestion]
    ```
 
    **For design/architecture**:
+
    ```
    🎨 Design approach for: [issue]
-   
+
    1. 📝 Define requirements clearly
    2. 🎯 Identify constraints
    3. 🧩 Sketch possible solutions
    4. ⚖️ Evaluate trade-offs
    5. 🌱 Start with MVP
-   
+
    💡 Consider: [pattern/approach]
    ```
 
    **For performance**:
+
    ```
    ⚡ Performance approach for: [issue]
-   
+
    1. 📊 Measure first (profile)
    2. 🎯 Find bottlenecks
    3. 🍎 Pick low-hanging fruit
    4. 🔄 Cache what you can
    5. 🏎️ Optimize critical path
-   
+
    💡 Try: [optimization technique]
    ```
 
@@ -79,6 +85,7 @@ Provide contextual help and suggestions when stuck on a problem.
    - **Progress Layer**: Check `.prjct/progress/metrics.md` for capacity considerations
 
 4. **Break it down**:
+
    ```
    🧩 Let's break this into smaller tasks:
 
@@ -96,6 +103,7 @@ Provide contextual help and suggestions when stuck on a problem.
 
 5. **Log insights**:
    Save problem-solving approach to `.prjct/memory/context.jsonl`:
+
    ```json
    {
      "action": "stuck",

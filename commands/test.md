@@ -1,14 +1,16 @@
 ---
 allowed-tools: [Bash, Read, Edit, Glob]
-description: "Run tests and auto-fix simple failures"
+description: 'Run tests and auto-fix simple failures'
 ---
 
 # /p:test - Smart Test Execution
 
 ## Purpose
+
 Run tests, show failures clearly, and auto-fix obvious issues. Ship with confidence.
 
 ## Usage
+
 ```
 /p:test [all|unit|e2e|failed]
 ```
@@ -16,6 +18,7 @@ Run tests, show failures clearly, and auto-fix obvious issues. Ship with confide
 Default: all
 
 ## Execution
+
 1. Detect test runner (jest/vitest/mocha/pytest)
 2. Run tests with appropriate command
 3. Parse and display results with clarity
@@ -25,6 +28,7 @@ Default: all
 ## Implementation
 
 **Test detection**:
+
 ```bash
 # Auto-detect test command from package.json or config
 - npm test / npm run test
@@ -34,12 +38,14 @@ Default: all
 ```
 
 **Auto-fixable issues**:
+
 - Snapshot updates → Update automatically
 - Timeout errors → Increase timeout
 - Import errors → Fix imports
 - Expected vs received → Show diff clearly
 
 **Response format for success**:
+
 ```
 ✅ All tests passing!
 
@@ -55,6 +61,7 @@ Default: all
 ```
 
 **Response format for failures**:
+
 ```
 ❌ 3 tests failing
 
@@ -73,12 +80,14 @@ Default: all
 ```
 
 **Quick commands**:
+
 - `/p:test` - Run all tests
 - `/p:test failed` - Re-run only failed tests
 - `/p:test watch` - Run in watch mode
 - `/p:test fix` - Apply available auto-fixes
 
 ## Features
+
 - Smart failure detection
 - Clear error messages
 - Auto-fix common issues
