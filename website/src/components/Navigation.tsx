@@ -10,6 +10,7 @@ import {
   HelpCircle,
   Zap,
   Github,
+  GitBranch,
 } from 'lucide-react'
 import { PrjctLogo } from './Logo'
 
@@ -24,6 +25,7 @@ const navItems: NavItem[] = [
   { label: 'Documentation', path: '/docs', icon: <BookOpen className="h-4 w-4" /> },
   { label: 'Commands', path: '/commands', icon: <TerminalIcon className="h-4 w-4" /> },
   { label: 'Workflows', path: '/workflows', icon: <Zap className="h-4 w-4" /> },
+  { label: 'Changelog', path: '/changelog', icon: <GitBranch className="h-4 w-4" /> },
   { label: 'FAQ', path: '/faq', icon: <HelpCircle className="h-4 w-4" /> },
 ]
 

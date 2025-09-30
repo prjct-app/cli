@@ -4,6 +4,10 @@ const { promisify } = require('util')
 const { exec: execCallback } = require('child_process')
 const exec = promisify(execCallback)
 const agentDetector = require('./agent-detector')
+const pathManager = require('./path-manager')
+const configManager = require('./config-manager')
+const authorDetector = require('./author-detector')
+const migrator = require('./migrator')
 
 // Try to load animations for enhanced output
 let animations
@@ -19,9 +23,9 @@ let agentInstance
 
 class PrjctCommands {
   constructor() {
-    this.prjctDir = '.prjct'
     this.agent = null
     this.agentInfo = null
+    this.currentAuthor = null
   }
 
   /**
@@ -154,52 +158,91 @@ class PrjctCommands {
     return this.agent
   }
 
-  async ensureProjectDir(projectPath) {
-    const dir = path.join(projectPath, this.prjctDir)
-    await fs.mkdir(dir, { recursive: true })
-    return dir
+  /**
+   * Ensure author information is loaded
+   */
+  async ensureAuthor() {
+    if (this.currentAuthor) return this.currentAuthor
+    this.currentAuthor = await authorDetector.detectAuthorForLogs()
+    return this.currentAuthor
+  }
+
+  /**
+   * Get the global project path for a project
+   * Ensures migration if needed
+   */
+  async getGlobalProjectPath(projectPath) {
+    // Check if migration is needed
+    if (await migrator.needsMigration(projectPath)) {
+      throw new Error('Project needs migration. Run /p:migrate first.')
+    }
+
+    // Get project ID from config
+    const projectId = await configManager.getProjectId(projectPath)
+
+    // Ensure global structure exists
+    await pathManager.ensureProjectStructure(projectId)
+
+    return pathManager.getGlobalProjectPath(projectId)
+  }
+
+  /**
+   * Get file path in global structure
+   */
+  async getFilePath(projectPath, layer, filename) {
+    const projectId = await configManager.getProjectId(projectPath)
+    return pathManager.getFilePath(projectId, layer, filename)
   }
 
   async init(projectPath = process.cwd()) {
     try {
       await this.initializeAgent()
-      const dir = await this.ensureProjectDir(projectPath)
 
-      // Create initial files
+      // Check if project is already initialized
+      if (await configManager.isConfigured(projectPath)) {
+        return {
+          success: false,
+          message: this.agent.formatResponse('Project already initialized!', 'warning'),
+        }
+      }
+
+      // Detect author
+      const author = await authorDetector.detect()
+
+      // Create config file
+      const config = await configManager.createConfig(projectPath, author)
+
+      // Get project ID and ensure global structure
+      const projectId = config.projectId
+      await pathManager.ensureProjectStructure(projectId)
+
+      // Create initial files in global structure
       const files = {
-        'now.md': '# NOW\n\nNo current task. Use `/p:now` to set focus.\n',
-        'next.md': '# NEXT\n\n## Priority Queue\n\n',
-        'shipped.md': '# SHIPPED 🚀\n\n',
-        'ideas.md': '# IDEAS 💡\n\n## Brain Dump\n\n',
-        'memory.jsonl': '',
+        'core/now.md': '# NOW\n\nNo current task. Use `/p:now` to set focus.\n',
+        'core/next.md': '# NEXT\n\n## Priority Queue\n\n',
+        'core/context.md': '# CONTEXT\n\n',
+        'progress/shipped.md': '# SHIPPED 🚀\n\n',
+        'progress/metrics.md': '# METRICS\n\n',
+        'planning/ideas.md': '# IDEAS 💡\n\n## Brain Dump\n\n',
+        'planning/roadmap.md': '# ROADMAP\n\n',
+        'memory/context.jsonl': '',
       }
 
-      for (const [filename, content] of Object.entries(files)) {
-        await this.agent.writeFile(path.join(dir, filename), content)
-      }
-
-      // Create agent marker file based on detected agent
-      if (this.agentInfo.type === 'codex') {
-        // Create marker for Codex detection
-        await this.agent.writeFile(
-          path.join(projectPath, '.prjct-agent'),
-          `codex:${this.agentInfo.name}`
-        )
-      } else if (this.agentInfo.type === 'claude') {
-        // Create marker for Claude detection
-        await this.agent.writeFile(
-          path.join(projectPath, '.prjct-agent'),
-          `claude:${this.agentInfo.name}`
-        )
+      const globalPath = pathManager.getGlobalProjectPath(projectId)
+      for (const [filePath, content] of Object.entries(files)) {
+        await this.agent.writeFile(path.join(globalPath, filePath), content)
       }
 
       // Detect project type
       const projectInfo = await this.detectProjectType(projectPath)
 
+      const displayPath = pathManager.getDisplayPath(globalPath)
       const message =
-        `Initializing prjct for ${this.agentInfo.name}...\n` +
-        `Created .prjct/ structure\n` +
-        `Detected: ${projectInfo}\n` +
+        `Initializing prjct v0.2.0 for ${this.agentInfo.name}...\n` +
+        `✅ Created global structure at ${displayPath}\n` +
+        `✅ Created prjct.config.json\n` +
+        `👤 Author: ${authorDetector.formatAuthor(author)}\n` +
+        `📋 Project: ${projectInfo}\n\n` +
         `Ready! Start with ${this.agentInfo.config.commandPrefix}now "your first task"`
 
       return {
@@ -218,7 +261,9 @@ class PrjctCommands {
   async now(task = null, projectPath = process.cwd()) {
     try {
       await this.initializeAgent()
-      const nowFile = path.join(projectPath, this.prjctDir, 'now.md')
+      await this.ensureAuthor()
+
+      const nowFile = await this.getFilePath(projectPath, 'core', 'now.md')
 
       if (!task) {
         // Read current task
@@ -262,13 +307,16 @@ class PrjctCommands {
 
       await this.agent.writeFile(nowFile, contentWithBranch)
 
-      // Log to memory with branch info
+      // Log to memory with author and branch info
       const memoryData = {
         task,
         timestamp: this.agent.getTimestamp(),
         branch: branchResult.success ? branchName : null
       }
       await this.logToMemory(projectPath, 'now', memoryData)
+
+      // Update config lastSync
+      await configManager.updateLastSync(projectPath)
 
       return {
         success: true,
@@ -989,8 +1037,15 @@ ${diagram}
 
   async logToMemory(projectPath, action, data) {
     await this.initializeAgent()
-    const memoryFile = path.join(projectPath, this.prjctDir, 'memory.jsonl')
-    const entry = JSON.stringify({ action, data, timestamp: new Date().toISOString() }) + '\n'
+    await this.ensureAuthor()
+
+    const memoryFile = await this.getFilePath(projectPath, 'memory', 'context.jsonl')
+    const entry = JSON.stringify({
+      action,
+      author: this.currentAuthor,
+      data,
+      timestamp: new Date().toISOString()
+    }) + '\n'
 
     try {
       const existingContent = await this.agent.readFile(memoryFile)
