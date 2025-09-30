@@ -2,8 +2,78 @@
 
 # prjct/cli - Turn ideas into AI-ready roadmaps
 # Usage: curl -fsSL https://prjct.app/install.sh | bash
+# Options:
+#   --force      Force reinstall even if up to date
+#   --dev        Install from development branch
+#   --silent     Silent mode (no interactive prompts)
+#   -y, --yes    Auto-accept all prompts
+#   --help, -h   Show this help message
 
 set -e
+
+# Show help if requested
+show_help() {
+    echo "prjct/cli installer"
+    echo ""
+    echo "Usage:"
+    echo "  curl -fsSL https://prjct.app/install.sh | bash [OPTIONS]"
+    echo "  bash install.sh [OPTIONS]"
+    echo ""
+    echo "Options:"
+    echo "  --force      Force reinstall even if up to date"
+    echo "  --dev        Install from development branch"
+    echo "  --silent     Silent mode (minimal output)"
+    echo "  -y, --yes    Auto-accept all prompts"
+    echo "  --help, -h   Show this help message"
+    echo ""
+    echo "Examples:"
+    echo "  # Normal installation"
+    echo "  curl -fsSL https://prjct.app/install.sh | bash"
+    echo ""
+    echo "  # Force reinstall"
+    echo "  curl -fsSL https://prjct.app/install.sh | bash -s -- --force"
+    echo ""
+    echo "  # Auto-accept all prompts"
+    echo "  curl -fsSL https://prjct.app/install.sh | bash -s -- -y"
+    exit 0
+}
+
+# Parse arguments
+FORCE_INSTALL=false
+DEV_MODE=false
+SILENT_MODE=false
+AUTO_ACCEPT=false
+
+for arg in "$@"; do
+    case $arg in
+        --help|-h)
+            show_help
+            ;;
+        --force)
+            FORCE_INSTALL=true
+            shift
+            ;;
+        --dev)
+            DEV_MODE=true
+            shift
+            ;;
+        --silent)
+            SILENT_MODE=true
+            shift
+            ;;
+        -y|--yes)
+            AUTO_ACCEPT=true
+            shift
+            ;;
+        *)
+            ;;
+    esac
+done
+
+# Detect if being run in a pipe
+if [ ! -t 0 ]; then
+    AUTO_ACCEPT=true
+fi
 
 # Colors and formatting
 RED='\033[0;31m'
@@ -26,18 +96,26 @@ DOT="•"
 # Clear for clean experience
 clear
 
-# Animated header
+# ASCII art logo and header
 echo ""
-echo -e "${CYAN}╔════════════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║${NC}  ${BOLD}${WHITE}        🚀 prjct/${MAGENTA}cli${WHITE} installer         ${NC}${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}  ${DIM}   Turn ideas into AI-ready roadmaps      ${NC}${CYAN}║${NC}"
-echo -e "${CYAN}╚════════════════════════════════════════════════╝${NC}"
+echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${CYAN}║${NC}                                                                       ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}   ${BOLD}${CYAN}██████╗ ██████╗      ██╗ ██████╗████████╗${NC}    ${MAGENTA}🚀${NC}                  ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}   ${BOLD}${CYAN}██╔══██╗██╔══██╗     ██║██╔════╝╚══██╔══╝${NC}                         ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}   ${BOLD}${CYAN}██████╔╝██████╔╝     ██║██║        ██║${NC}   ${DIM}/ cli${NC}                   ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}   ${BOLD}${CYAN}██╔═══╝ ██╔══██╗██   ██║██║        ██║${NC}                            ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}   ${BOLD}${CYAN}██║     ██║  ██║╚█████╔╝╚██████╗   ██║${NC}                            ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}   ${BOLD}${CYAN}╚═╝     ╚═╝  ╚═╝ ╚════╝  ╚═════╝   ╚═╝${NC}   ${BOLD}${WHITE}v${FINAL_VERSION:-0.1.0}${NC}          ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}                                                                       ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}            ${DIM}Turn ideas into AI-ready roadmaps${NC}                         ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}                                                                       ${CYAN}║${NC}"
+echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
-echo -e "  ${YELLOW}⚡${NC} Ship faster with zero friction"
-echo -e "  ${GREEN}📝${NC} From idea to technical tasks in minutes"
-echo -e "  ${BLUE}🤖${NC} Perfect context for AI agents"
+echo -e "  ${YELLOW}⚡${NC} ${BOLD}Ship faster${NC} with zero friction"
+echo -e "  ${GREEN}📝${NC} ${BOLD}From idea to technical tasks${NC} in minutes"
+echo -e "  ${BLUE}🤖${NC} ${BOLD}Perfect context${NC} for AI agents"
 echo ""
-echo -e "${DIM}────────────────────────────────────────────────${NC}"
+echo -e "${DIM}─────────────────────────────────────────────────────────────────────────${NC}"
 echo ""
 
 # Spinner function
@@ -66,6 +144,15 @@ print_step() {
 
 # Installation directory
 INSTALL_DIR="$HOME/.prjct-cli"
+
+# Version check function
+get_version() {
+    if [ -f "$1/package.json" ]; then
+        grep -o '"version":[[:space:]]*"[^"]*"' "$1/package.json" | head -1 | cut -d'"' -f4
+    else
+        echo "unknown"
+    fi
+}
 
 # Check prerequisites
 print_step "Checking prerequisites"
@@ -101,20 +188,75 @@ echo -e " ${GREEN}${CHECK}${NC} $(git --version | cut -d' ' -f3)"
 print_step "Downloading prjct/cli"
 
 if [ -d "$INSTALL_DIR" ]; then
-    printf "  ${ARROW} Updating existing installation"
+    # Check current version
+    CURRENT_VERSION=$(get_version "$INSTALL_DIR")
+    printf "  ${ARROW} Found existing installation"
+    echo -e " ${DIM}(v${CURRENT_VERSION})${NC}"
+
+    # Fetch latest version from remote
+    printf "  ${ARROW} Checking for updates..."
     cd "$INSTALL_DIR"
+    git fetch origin main --quiet > /dev/null 2>&1
+
+    # Get remote version
+    TEMP_DIR=$(mktemp -d)
+    git show origin/main:package.json > "$TEMP_DIR/package.json" 2>/dev/null
+    REMOTE_VERSION=$(get_version "$TEMP_DIR")
+    rm -rf "$TEMP_DIR"
+
+    if [ "$CURRENT_VERSION" = "$REMOTE_VERSION" ] && [ "$FORCE_INSTALL" = false ]; then
+        echo -e " ${GREEN}${CHECK}${NC} Already up to date (v${CURRENT_VERSION})"
+
+        # Ask if they want to reinstall anyway
+        if [ "$AUTO_ACCEPT" = false ]; then
+            echo ""
+            read -p "  Do you want to reinstall anyway? (y/N): " -n 1 -r
+            echo ""
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                echo -e "\n${GREEN}✨ You're all set! Happy shipping! 🚀${NC}"
+                exit 0
+            fi
+        else
+            echo -e "\n${GREEN}✨ You're all set! Happy shipping! 🚀${NC}"
+            exit 0
+        fi
+    elif [ "$CURRENT_VERSION" = "$REMOTE_VERSION" ] && [ "$FORCE_INSTALL" = true ]; then
+        echo -e " ${YELLOW}!${NC} Force reinstalling (v${CURRENT_VERSION})"
+    else
+        echo -e " ${YELLOW}Update available!${NC}"
+        echo -e "    Current: v${CURRENT_VERSION}"
+        echo -e "    Latest:  v${REMOTE_VERSION}"
+
+        if [ "$AUTO_ACCEPT" = false ]; then
+            echo ""
+            read -p "  Update to v${REMOTE_VERSION}? (Y/n): " -n 1 -r
+            echo ""
+            if [[ $REPLY =~ ^[Nn]$ ]]; then
+                echo -e "\n${YELLOW}Update cancelled.${NC}"
+                exit 0
+            fi
+        else
+            echo -e "  ${DIM}Auto-updating...${NC}"
+        fi
+    fi
+
+    # Perform update
+    printf "  ${ARROW} Updating prjct/cli"
     (
         git pull origin main --quiet > /dev/null 2>&1
     ) &
     spin $!
-    echo -e " ${GREEN}${CHECK}${NC}"
+    echo -e " ${GREEN}${CHECK}${NC} Updated to v${REMOTE_VERSION}"
 else
     printf "  ${ARROW} Cloning repository"
     (
         git clone https://github.com/jlopezlira/prjct-cli.git "$INSTALL_DIR" --quiet > /dev/null 2>&1
     ) &
     spin $!
-    echo -e " ${GREEN}${CHECK}${NC}"
+
+    # Get installed version
+    NEW_VERSION=$(get_version "$INSTALL_DIR")
+    echo -e " ${GREEN}${CHECK}${NC} Installed v${NEW_VERSION}"
     cd "$INSTALL_DIR"
 fi
 
@@ -152,7 +294,7 @@ if [ -d "$HOME/.claude" ]; then
                 filename=$(basename "$cmd_file")
                 # Copy to p/ subdirectory for /p:* namespace
                 cp "$cmd_file" "$HOME/.claude/commands/p/${filename}"
-                ((CMD_COUNT++)
+                ((CMD_COUNT++))
             fi
         done
         echo -e " ${GREEN}${CHECK}${NC} ($CMD_COUNT commands)"
@@ -193,11 +335,25 @@ fi
 mkdir -p "$HOME/.local/bin"
 ln -sf "$INSTALL_DIR/bin/prjct" "$HOME/.local/bin/prjct" 2>/dev/null || true
 
+# Get final installed version for display
+FINAL_VERSION=$(get_version "$INSTALL_DIR")
+
 # Success message with animation
 echo ""
-echo -e "${GREEN}╔════════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║${NC}  ${BOLD}${WHITE}🎉 prjct/cli installed successfully! 🎉${NC}         ${GREEN}║${NC}"
-echo -e "${GREEN}╚════════════════════════════════════════════════════╝${NC}"
+echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${GREEN}║${NC}                                                                       ${GREEN}║${NC}"
+echo -e "${GREEN}║${NC}           ${BOLD}${GREEN}✅ Installation Complete!${NC}                                  ${GREEN}║${NC}"
+echo -e "${GREEN}║${NC}                                                                       ${GREEN}║${NC}"
+echo -e "${GREEN}║${NC}   ${BOLD}${CYAN}██████╗ ██████╗      ██╗ ██████╗████████╗${NC}    ${GREEN}🎉${NC}                  ${GREEN}║${NC}"
+echo -e "${GREEN}║${NC}   ${BOLD}${CYAN}██╔══██╗██╔══██╗     ██║██╔════╝╚══██╔══╝${NC}                         ${GREEN}║${NC}"
+echo -e "${GREEN}║${NC}   ${BOLD}${CYAN}██████╔╝██████╔╝     ██║██║        ██║${NC}   ${DIM}/ cli${NC}                   ${GREEN}║${NC}"
+echo -e "${GREEN}║${NC}   ${BOLD}${CYAN}██╔═══╝ ██╔══██╗██   ██║██║        ██║${NC}                            ${GREEN}║${NC}"
+echo -e "${GREEN}║${NC}   ${BOLD}${CYAN}██║     ██║  ██║╚█████╔╝╚██████╗   ██║${NC}                            ${GREEN}║${NC}"
+echo -e "${GREEN}║${NC}   ${BOLD}${CYAN}╚═╝     ╚═╝  ╚═╝ ╚════╝  ╚═════╝   ╚═╝${NC}                            ${GREEN}║${NC}"
+echo -e "${GREEN}║${NC}                                                                       ${GREEN}║${NC}"
+echo -e "${GREEN}║${NC}                    ${BOLD}${WHITE}Version ${FINAL_VERSION}${NC} installed                           ${GREEN}║${NC}"
+echo -e "${GREEN}║${NC}                                                                       ${GREEN}║${NC}"
+echo -e "${GREEN}╚═══════════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
 # Quick start guide

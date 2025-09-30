@@ -1,233 +1,400 @@
 #!/bin/bash
 
-# prjct-cli installer
-# Open Source Project - MIT License
-# Repository: https://github.com/jlopezlira/prjct-cli
+# prjct/cli - Turn ideas into AI-ready roadmaps
+# Usage: curl -fsSL https://prjct.app/install.sh | bash
+# Options:
+#   --force      Force reinstall even if up to date
+#   --dev        Install from development branch
+#   --silent     Silent mode (no interactive prompts)
+#   -y, --yes    Auto-accept all prompts
+#   --help, -h   Show this help message
 
 set -e
 
-# Colors for output
+# Show help if requested
+show_help() {
+    echo "prjct/cli installer"
+    echo ""
+    echo "Usage:"
+    echo "  curl -fsSL https://prjct.app/install.sh | bash [OPTIONS]"
+    echo "  bash install.sh [OPTIONS]"
+    echo ""
+    echo "Options:"
+    echo "  --force      Force reinstall even if up to date"
+    echo "  --dev        Install from development branch"
+    echo "  --silent     Silent mode (minimal output)"
+    echo "  -y, --yes    Auto-accept all prompts"
+    echo "  --help, -h   Show this help message"
+    echo ""
+    echo "Examples:"
+    echo "  # Normal installation"
+    echo "  curl -fsSL https://prjct.app/install.sh | bash"
+    echo ""
+    echo "  # Force reinstall"
+    echo "  curl -fsSL https://prjct.app/install.sh | bash -s -- --force"
+    echo ""
+    echo "  # Auto-accept all prompts"
+    echo "  curl -fsSL https://prjct.app/install.sh | bash -s -- -y"
+    exit 0
+}
+
+# Parse arguments
+FORCE_INSTALL=false
+DEV_MODE=false
+SILENT_MODE=false
+AUTO_ACCEPT=false
+
+for arg in "$@"; do
+    case $arg in
+        --help|-h)
+            show_help
+            ;;
+        --force)
+            FORCE_INSTALL=true
+            shift
+            ;;
+        --dev)
+            DEV_MODE=true
+            shift
+            ;;
+        --silent)
+            SILENT_MODE=true
+            shift
+            ;;
+        -y|--yes)
+            AUTO_ACCEPT=true
+            shift
+            ;;
+        *)
+            ;;
+    esac
+done
+
+# Detect if being run in a pipe
+if [ ! -t 0 ]; then
+    AUTO_ACCEPT=true
+fi
+
+# Colors and formatting
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-PURPLE='\033[0;35m'
-NC='\033[0m' # No Color
+MAGENTA='\033[0;35m'
+CYAN='\033[0;36m'
+WHITE='\033[1;37m'
+NC='\033[0m'
+BOLD='\033[1m'
+DIM='\033[2m'
 
-# Configuration
-INSTALL_DIR="$HOME/.prjct-cli"
-BIN_DIR="/usr/local/bin"
-GITHUB_USER="jlopezlira"
-GITHUB_REPO="prjct-cli"
-GITHUB_URL="https://github.com/${GITHUB_USER}/${GITHUB_REPO}"
+# Unicode characters
+CHECK="✓"
+CROSS="✗"
+ARROW="▸"
+DOT="•"
 
-# Banner
-echo -e "${PURPLE}╔══════════════════════════════════════╗${NC}"
-echo -e "${PURPLE}║       ${BLUE}Installing prjct-cli${PURPLE}          ║${NC}"
-echo -e "${PURPLE}║   ${GREEN}AI Project Management Tool${PURPLE}        ║${NC}"
-echo -e "${PURPLE}╚══════════════════════════════════════╝${NC}"
+# Clear for clean experience
+clear
+
+# ASCII art logo and header
+echo ""
+echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${CYAN}║${NC}                                                                       ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}   ${BOLD}${CYAN}██████╗ ██████╗      ██╗ ██████╗████████╗${NC}    ${MAGENTA}🚀${NC}                  ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}   ${BOLD}${CYAN}██╔══██╗██╔══██╗     ██║██╔════╝╚══██╔══╝${NC}                         ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}   ${BOLD}${CYAN}██████╔╝██████╔╝     ██║██║        ██║${NC}   ${DIM}/ cli${NC}                   ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}   ${BOLD}${CYAN}██╔═══╝ ██╔══██╗██   ██║██║        ██║${NC}                            ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}   ${BOLD}${CYAN}██║     ██║  ██║╚█████╔╝╚██████╗   ██║${NC}                            ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}   ${BOLD}${CYAN}╚═╝     ╚═╝  ╚═╝ ╚════╝  ╚═════╝   ╚═╝${NC}   ${BOLD}${WHITE}v${FINAL_VERSION:-0.1.0}${NC}          ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}                                                                       ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}            ${DIM}Turn ideas into AI-ready roadmaps${NC}                         ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}                                                                       ${CYAN}║${NC}"
+echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════════════╝${NC}"
+echo ""
+echo -e "  ${YELLOW}⚡${NC} ${BOLD}Ship faster${NC} with zero friction"
+echo -e "  ${GREEN}📝${NC} ${BOLD}From idea to technical tasks${NC} in minutes"
+echo -e "  ${BLUE}🤖${NC} ${BOLD}Perfect context${NC} for AI agents"
+echo ""
+echo -e "${DIM}─────────────────────────────────────────────────────────────────────────${NC}"
 echo ""
 
-# Function to check if a command exists
-command_exists() {
-    command -v "$1" >/dev/null 2>&1
-}
-
-# Function to get OS type
-get_os() {
-    case "$(uname -s)" in
-        Linux*)     echo "Linux";;
-        Darwin*)    echo "Mac";;
-        CYGWIN*)    echo "Windows";;
-        MINGW*)     echo "Windows";;
-        *)          echo "Unknown";;
-    esac
-}
-
-OS_TYPE=$(get_os)
-echo -e "${BLUE}ℹ️  Detected OS:${NC} $OS_TYPE"
-
-# Check for required dependencies
-echo -e "${YELLOW}📋 Checking requirements...${NC}"
-
-MISSING_DEPS=()
-
-if ! command_exists node; then
-    MISSING_DEPS+=("Node.js")
-fi
-
-if ! command_exists npm; then
-    MISSING_DEPS+=("npm")
-fi
-
-if [ ${#MISSING_DEPS[@]} -ne 0 ]; then
-    echo -e "${RED}❌ Missing required dependencies:${NC}"
-    for dep in "${MISSING_DEPS[@]}"; do
-        echo -e "   ${RED}•${NC} $dep"
+# Spinner function
+spin() {
+    local pid=$1
+    local delay=0.1
+    local spinstr='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+    while [ "$(ps a | awk '{print $1}' | grep $pid)" ]; do
+        local temp=${spinstr#?}
+        printf " [%c]  " "$spinstr"
+        local spinstr=$temp${spinstr%"$temp"}
+        sleep $delay
+        printf "\b\b\b\b\b\b"
     done
-    echo ""
-    echo -e "${YELLOW}Please install Node.js first:${NC}"
-    echo -e "   ${BLUE}https://nodejs.org${NC}"
+    printf "    \b\b\b\b"
+}
+
+# Step counter
+STEP=1
+TOTAL_STEPS=5
+
+print_step() {
+    echo -e "\n${BOLD}${CYAN}[$STEP/$TOTAL_STEPS]${NC} ${BOLD}$1${NC}"
+    ((STEP++))
+}
+
+# Installation directory
+INSTALL_DIR="$HOME/.prjct-cli"
+
+# Version check function
+get_version() {
+    if [ -f "$1/package.json" ]; then
+        grep -o '"version":[[:space:]]*"[^"]*"' "$1/package.json" | head -1 | cut -d'"' -f4
+    else
+        echo "unknown"
+    fi
+}
+
+# Check prerequisites
+print_step "Checking prerequisites"
+
+# Check Node.js
+printf "  ${ARROW} Checking Node.js..."
+if ! command -v node &> /dev/null; then
+    echo -e " ${RED}${CROSS}${NC}"
+    echo -e "\n  ${RED}Node.js is required but not installed.${NC}"
+    echo -e "  Install from: ${CYAN}https://nodejs.org${NC}"
     exit 1
 fi
 
-echo -e "${GREEN}✅ All requirements met${NC}"
+NODE_VERSION=$(node --version | cut -d'v' -f2 | cut -d'.' -f1)
+if [ "$NODE_VERSION" -lt 18 ]; then
+    echo -e " ${RED}${CROSS}${NC}"
+    echo -e "\n  ${RED}Node.js 18+ is required (found v$NODE_VERSION)${NC}"
+    exit 1
+fi
+echo -e " ${GREEN}${CHECK}${NC} $(node --version)"
 
-# Check if already installed
+# Check Git
+printf "  ${ARROW} Checking Git..."
+if ! command -v git &> /dev/null; then
+    echo -e " ${RED}${CROSS}${NC}"
+    echo -e "\n  ${RED}Git is required but not installed.${NC}"
+    echo -e "  Install from: ${CYAN}https://git-scm.com${NC}"
+    exit 1
+fi
+echo -e " ${GREEN}${CHECK}${NC} $(git --version | cut -d' ' -f3)"
+
+# Clone or update repository
+print_step "Downloading prjct/cli"
+
 if [ -d "$INSTALL_DIR" ]; then
-    echo -e "${YELLOW}⚠️  Found existing installation${NC}"
-    echo -n "Do you want to update/reinstall? (y/N): "
-    read -r response
-    if [[ ! "$response" =~ ^[Yy]$ ]]; then
-        echo -e "${YELLOW}Installation cancelled${NC}"
-        exit 0
-    fi
-    echo -e "${YELLOW}📦 Backing up existing installation...${NC}"
-    rm -rf "$INSTALL_DIR.backup"
-    mv "$INSTALL_DIR" "$INSTALL_DIR.backup"
-fi
+    # Check current version
+    CURRENT_VERSION=$(get_version "$INSTALL_DIR")
+    printf "  ${ARROW} Found existing installation"
+    echo -e " ${DIM}(v${CURRENT_VERSION})${NC}"
 
-# Download and install
-echo -e "${BLUE}📥 Downloading prjct-cli...${NC}"
+    # Fetch latest version from remote
+    printf "  ${ARROW} Checking for updates..."
+    cd "$INSTALL_DIR"
+    git fetch origin main --quiet > /dev/null 2>&1
 
-if command_exists git; then
-    # Prefer git clone for better experience
-    echo -e "${GREEN}Using git clone...${NC}"
-    git clone "$GITHUB_URL.git" "$INSTALL_DIR" --depth=1 --quiet
-else
-    # Fallback to downloading archive
-    echo -e "${GREEN}Downloading archive...${NC}"
-    TEMP_FILE=$(mktemp)
-    curl -fsSL "${GITHUB_URL}/archive/main.tar.gz" -o "$TEMP_FILE"
+    # Get remote version
+    TEMP_DIR=$(mktemp -d)
+    git show origin/main:package.json > "$TEMP_DIR/package.json" 2>/dev/null
+    REMOTE_VERSION=$(get_version "$TEMP_DIR")
+    rm -rf "$TEMP_DIR"
 
-    echo -e "${BLUE}📂 Extracting files...${NC}"
-    mkdir -p "$INSTALL_DIR"
-    tar -xzf "$TEMP_FILE" -C "$INSTALL_DIR" --strip-components=1
-    rm -f "$TEMP_FILE"
-fi
+    if [ "$CURRENT_VERSION" = "$REMOTE_VERSION" ] && [ "$FORCE_INSTALL" = false ]; then
+        echo -e " ${GREEN}${CHECK}${NC} Already up to date (v${CURRENT_VERSION})"
 
-# Install dependencies
-echo -e "${BLUE}📚 Installing dependencies...${NC}"
-cd "$INSTALL_DIR"
-npm install --production --silent 2>/dev/null || npm install --production
-
-# Create executable wrapper
-echo -e "${BLUE}🔧 Setting up command...${NC}"
-mkdir -p "$INSTALL_DIR/bin"
-
-cat > "$INSTALL_DIR/bin/prjct" <<'EOF'
-#!/usr/bin/env node
-const path = require('path');
-const cli = require(path.join(__dirname, '..', 'core', 'cli.js'));
-cli.run();
-EOF
-
-chmod +x "$INSTALL_DIR/bin/prjct"
-
-# Install command globally
-echo -e "${BLUE}🔗 Installing prjct command...${NC}"
-
-# Try to install in system bin
-if [ -w "$BIN_DIR" ] || [ -w "/usr/local" ]; then
-    # Try without sudo first
-    if ln -sf "$INSTALL_DIR/bin/prjct" "$BIN_DIR/prjct" 2>/dev/null; then
-        COMMAND_PATH="$BIN_DIR/prjct"
-    else
-        # Need sudo
-        echo -e "${YELLOW}Need sudo access to install globally${NC}"
-        sudo ln -sf "$INSTALL_DIR/bin/prjct" "$BIN_DIR/prjct"
-        COMMAND_PATH="$BIN_DIR/prjct"
-    fi
-else
-    # Install in user's bin directory
-    USER_BIN="$HOME/.local/bin"
-    mkdir -p "$USER_BIN"
-    ln -sf "$INSTALL_DIR/bin/prjct" "$USER_BIN/prjct"
-    COMMAND_PATH="$USER_BIN/prjct"
-
-    # Add to PATH if not already there
-    ADD_PATH=false
-    if [[ ":$PATH:" != *":$USER_BIN:"* ]]; then
-        ADD_PATH=true
-    fi
-
-    if [ "$ADD_PATH" = true ]; then
-        echo -e "${YELLOW}📝 Adding $USER_BIN to PATH...${NC}"
-
-        # Add to appropriate shell config
-        if [ -f "$HOME/.zshrc" ]; then
-            echo "export PATH=\"$USER_BIN:\$PATH\"" >> "$HOME/.zshrc"
-            SHELL_CONFIG="$HOME/.zshrc"
-        elif [ -f "$HOME/.bashrc" ]; then
-            echo "export PATH=\"$USER_BIN:\$PATH\"" >> "$HOME/.bashrc"
-            SHELL_CONFIG="$HOME/.bashrc"
+        # Ask if they want to reinstall anyway
+        if [ "$AUTO_ACCEPT" = false ]; then
+            echo ""
+            read -p "  Do you want to reinstall anyway? (y/N): " -n 1 -r
+            echo ""
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                echo -e "\n${GREEN}✨ You're all set! Happy shipping! 🚀${NC}"
+                exit 0
+            fi
         else
-            echo "export PATH=\"$USER_BIN:\$PATH\"" >> "$HOME/.profile"
-            SHELL_CONFIG="$HOME/.profile"
+            echo -e "\n${GREEN}✨ You're all set! Happy shipping! 🚀${NC}"
+            exit 0
         fi
+    elif [ "$CURRENT_VERSION" = "$REMOTE_VERSION" ] && [ "$FORCE_INSTALL" = true ]; then
+        echo -e " ${YELLOW}!${NC} Force reinstalling (v${CURRENT_VERSION})"
+    else
+        echo -e " ${YELLOW}Update available!${NC}"
+        echo -e "    Current: v${CURRENT_VERSION}"
+        echo -e "    Latest:  v${REMOTE_VERSION}"
 
-        echo -e "${YELLOW}⚠️  PATH updated in $SHELL_CONFIG${NC}"
-        echo -e "${YELLOW}   Run: ${GREEN}source $SHELL_CONFIG${NC}"
+        if [ "$AUTO_ACCEPT" = false ]; then
+            echo ""
+            read -p "  Update to v${REMOTE_VERSION}? (Y/n): " -n 1 -r
+            echo ""
+            if [[ $REPLY =~ ^[Nn]$ ]]; then
+                echo -e "\n${YELLOW}Update cancelled.${NC}"
+                exit 0
+            fi
+        else
+            echo -e "  ${DIM}Auto-updating...${NC}"
+        fi
     fi
+
+    # Perform update
+    printf "  ${ARROW} Updating prjct/cli"
+    (
+        git pull origin main --quiet > /dev/null 2>&1
+    ) &
+    spin $!
+    echo -e " ${GREEN}${CHECK}${NC} Updated to v${REMOTE_VERSION}"
+else
+    printf "  ${ARROW} Cloning repository"
+    (
+        git clone https://github.com/jlopezlira/prjct-cli.git "$INSTALL_DIR" --quiet > /dev/null 2>&1
+    ) &
+    spin $!
+
+    # Get installed version
+    NEW_VERSION=$(get_version "$INSTALL_DIR")
+    echo -e " ${GREEN}${CHECK}${NC} Installed v${NEW_VERSION}"
+    cd "$INSTALL_DIR"
 fi
 
-# Setup MCP integration for AI assistants
-echo -e "${BLUE}🤖 Configuring AI assistant integration...${NC}"
+# Run setup script
+print_step "Running setup"
 
-# Create MCP config directory
-MCP_DIR="$HOME/.config/claude-code"
-mkdir -p "$MCP_DIR"
+printf "  ${ARROW} Installing components"
+chmod +x setup.sh
+(
+    ./setup.sh > /tmp/prjct-setup.log 2>&1
+) &
+spin $!
 
-# Create MCP server configuration
-cat > "$MCP_DIR/prjct-mcp.json" <<EOF
-{
-  "mcpServers": {
-    "prjct": {
-      "command": "node",
-      "args": ["$INSTALL_DIR/adapters/mcp/server.js"],
-      "env": {
-        "PRJCT_HOME": "$INSTALL_DIR",
-        "PRJCT_DATA": "$HOME/.prjct"
-      }
-    }
-  }
-}
-EOF
-
-echo -e "${GREEN}✅ MCP integration configured${NC}"
-
-# Clean up backup if everything succeeded
-if [ -d "$INSTALL_DIR.backup" ]; then
-    rm -rf "$INSTALL_DIR.backup"
+if [ $? -eq 0 ]; then
+    echo -e " ${GREEN}${CHECK}${NC}"
+else
+    echo -e " ${RED}${CROSS}${NC}"
+    echo -e "\n  ${RED}Setup failed. Check /tmp/prjct-setup.log for details${NC}"
+    exit 1
 fi
 
-# Success message
+# Install Claude Code commands
+print_step "Configuring AI platforms"
+
+# Claude Code detection
+printf "  ${ARROW} Claude Code..."
+if [ -d "$HOME/.claude" ]; then
+    # Copy command files to p/ subdirectory for /p: namespace
+    if [ -d "$INSTALL_DIR/commands" ]; then
+        # Create subdirectory for /p:* namespace
+        mkdir -p "$HOME/.claude/commands/p"
+        CMD_COUNT=0
+        for cmd_file in "$INSTALL_DIR/commands"/*.md; do
+            if [ -f "$cmd_file" ]; then
+                filename=$(basename "$cmd_file")
+                # Copy to p/ subdirectory for /p:* namespace
+                cp "$cmd_file" "$HOME/.claude/commands/p/${filename}"
+                ((CMD_COUNT++))
+            fi
+        done
+        echo -e " ${GREEN}${CHECK}${NC} ($CMD_COUNT commands)"
+    else
+        echo -e " ${YELLOW}!${NC} (commands not found)"
+    fi
+else
+    echo -e " ${DIM}not found${NC}"
+fi
+
+# Configure PATH
+print_step "Setting up environment"
+
+# Detect shell
+printf "  ${ARROW} Configuring shell..."
+if [ -n "$ZSH_VERSION" ]; then
+    SHELL_CONFIG="$HOME/.zshrc"
+    SHELL_NAME="zsh"
+elif [ -n "$BASH_VERSION" ]; then
+    SHELL_CONFIG="$HOME/.bashrc"
+    SHELL_NAME="bash"
+else
+    SHELL_CONFIG="$HOME/.profile"
+    SHELL_NAME="sh"
+fi
+
+# Add to PATH
+if ! grep -q "prjct-cli/bin" "$SHELL_CONFIG" 2>/dev/null; then
+    echo "" >> "$SHELL_CONFIG"
+    echo "# prjct/cli" >> "$SHELL_CONFIG"
+    echo "export PATH=\"\$HOME/.prjct-cli/bin:\$PATH\"" >> "$SHELL_CONFIG"
+    echo -e " ${GREEN}${CHECK}${NC} ($SHELL_NAME)"
+else
+    echo -e " ${GREEN}${CHECK}${NC} (already configured)"
+fi
+
+# Create symlink
+mkdir -p "$HOME/.local/bin"
+ln -sf "$INSTALL_DIR/bin/prjct" "$HOME/.local/bin/prjct" 2>/dev/null || true
+
+# Get final installed version for display
+FINAL_VERSION=$(get_version "$INSTALL_DIR")
+
+# Success message with animation
 echo ""
-echo -e "${GREEN}╔══════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║    🎉 prjct-cli installed successfully!   ║${NC}"
-echo -e "${GREEN}╚══════════════════════════════════════════╝${NC}"
-echo ""
-echo -e "${BLUE}📍 Installation Summary:${NC}"
-echo -e "   • Installed to: ${GREEN}$INSTALL_DIR${NC}"
-echo -e "   • Command path: ${GREEN}$COMMAND_PATH${NC}"
-echo -e "   • MCP config:   ${GREEN}$MCP_DIR/prjct-mcp.json${NC}"
-echo ""
-echo -e "${BLUE}🚀 Getting Started:${NC}"
-echo -e "   1. Initialize a project:  ${GREEN}prjct init${NC}"
-echo -e "   2. Use in AI assistants:  ${GREEN}/p:${NC} commands"
-echo ""
-echo -e "${BLUE}📚 Available Commands:${NC}"
-echo -e "   ${GREEN}/p:now${NC}    - Set current task"
-echo -e "   ${GREEN}/p:done${NC}   - Complete task"
-echo -e "   ${GREEN}/p:ship${NC}   - Ship a feature"
-echo -e "   ${GREEN}/p:recap${NC}  - Show progress"
-echo ""
-echo -e "${BLUE}📖 Documentation:${NC}"
-echo -e "   ${GREEN}$GITHUB_URL${NC}"
+echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${GREEN}║${NC}                                                                       ${GREEN}║${NC}"
+echo -e "${GREEN}║${NC}           ${BOLD}${GREEN}✅ Installation Complete!${NC}                                  ${GREEN}║${NC}"
+echo -e "${GREEN}║${NC}                                                                       ${GREEN}║${NC}"
+echo -e "${GREEN}║${NC}   ${BOLD}${CYAN}██████╗ ██████╗      ██╗ ██████╗████████╗${NC}    ${GREEN}🎉${NC}                  ${GREEN}║${NC}"
+echo -e "${GREEN}║${NC}   ${BOLD}${CYAN}██╔══██╗██╔══██╗     ██║██╔════╝╚══██╔══╝${NC}                         ${GREEN}║${NC}"
+echo -e "${GREEN}║${NC}   ${BOLD}${CYAN}██████╔╝██████╔╝     ██║██║        ██║${NC}   ${DIM}/ cli${NC}                   ${GREEN}║${NC}"
+echo -e "${GREEN}║${NC}   ${BOLD}${CYAN}██╔═══╝ ██╔══██╗██   ██║██║        ██║${NC}                            ${GREEN}║${NC}"
+echo -e "${GREEN}║${NC}   ${BOLD}${CYAN}██║     ██║  ██║╚█████╔╝╚██████╗   ██║${NC}                            ${GREEN}║${NC}"
+echo -e "${GREEN}║${NC}   ${BOLD}${CYAN}╚═╝     ╚═╝  ╚═╝ ╚════╝  ╚═════╝   ╚═╝${NC}                            ${GREEN}║${NC}"
+echo -e "${GREEN}║${NC}                                                                       ${GREEN}║${NC}"
+echo -e "${GREEN}║${NC}                    ${BOLD}${WHITE}Version ${FINAL_VERSION}${NC} installed                           ${GREEN}║${NC}"
+echo -e "${GREEN}║${NC}                                                                       ${GREEN}║${NC}"
+echo -e "${GREEN}╚═══════════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
-# Check if need to restart shell
-if [ "$ADD_PATH" = true ]; then
-    echo -e "${YELLOW}⚠️  Remember to restart your terminal or run:${NC}"
-    echo -e "   ${GREEN}source $SHELL_CONFIG${NC}"
+# Quick start guide
+echo -e "${BOLD}${CYAN}🚀 Quick Start${NC}"
+echo -e "${DIM}─────────────────────────────────────────────────${NC}"
+echo ""
+
+# Show commands based on detected platforms
+if [ -d "$HOME/.claude" ]; then
+    echo -e "  ${BOLD}Claude Code Commands:${NC}"
+    echo -e "    ${GREEN}/p-init${NC}     ${DIM}Initialize project${NC}"
+    echo -e "    ${GREEN}/p-now${NC}      ${DIM}Set current task${NC}"
+    echo -e "    ${GREEN}/p-ship${NC}     ${DIM}Ship & celebrate${NC}"
+    echo ""
 fi
+
+echo -e "  ${BOLD}Terminal Commands:${NC}"
+echo -e "    ${GREEN}prjct init${NC}     ${DIM}Initialize project${NC}"
+echo -e "    ${GREEN}prjct now${NC}      ${DIM}Set current task${NC}"
+echo -e "    ${GREEN}prjct ship${NC}     ${DIM}Ship & celebrate${NC}"
+
+echo ""
+echo -e "${DIM}─────────────────────────────────────────────────${NC}"
+echo ""
+
+# Next steps
+echo -e "${BOLD}${YELLOW}⚡ Next Steps${NC}"
+echo ""
+echo -e "  1. ${DIM}Reload your terminal:${NC}"
+echo -e "     ${CYAN}source $SHELL_CONFIG${NC}"
+echo ""
+echo -e "  2. ${DIM}Initialize your project:${NC}"
+echo -e "     ${CYAN}cd your-project && prjct init${NC}"
+echo ""
+echo -e "  3. ${DIM}Start shipping:${NC}"
+echo -e "     ${CYAN}prjct now \"build awesome feature\"${NC}"
+echo ""
+echo -e "${DIM}─────────────────────────────────────────────────${NC}"
+echo ""
+echo -e "  ${DIM}Documentation:${NC} ${CYAN}https://github.com/jlopezlira/prjct-cli${NC}"
+echo -e "  ${DIM}Report issues:${NC} ${CYAN}https://github.com/jlopezlira/prjct-cli/issues${NC}"
+echo ""
+echo -e "${BOLD}${MAGENTA}Happy shipping! 🚀${NC}"
+echo ""

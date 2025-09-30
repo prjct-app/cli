@@ -39,11 +39,11 @@ export const PrjctLogo = ({ showText = true, size = 'md' }: PrjctLogoProps) => {
       className={cn('flex items-center gap-2', containerTextSize[size])}
       data-testid="prjct-logo"
     >
-      <div className="relative">
-        <div className="fancy-border"></div>
+      <div className="relative isolate overflow-visible">
+        <div className="fancy-border pointer-events-none"></div>
         <div
           className={cn(
-            'relative flex items-center justify-center rounded-lg border border-border bg-foreground text-background shadow-sm',
+            'relative z-10 flex items-center justify-center rounded-lg border border-border bg-foreground text-background shadow-sm',
             logoSize[size]
           )}
           data-testid="prjct-logo-icon"

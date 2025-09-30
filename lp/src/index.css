@@ -48,7 +48,7 @@
 /* Fancy animated border for logo */
 .fancy-border {
   position: absolute;
-  inset: -2px;
+  inset: -3px;
   border-radius: 10px;
   background: linear-gradient(
     45deg,
@@ -59,9 +59,10 @@
     #ff3d00
   );
   background-size: 400% 400%;
-  z-index: -1;
+  z-index: 0;
   animation: borderAnimation 8s ease infinite;
-  filter: blur(3px);
+  filter: blur(4px);
+  opacity: 0.8;
 }
 
 @keyframes borderAnimation {

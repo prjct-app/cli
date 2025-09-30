@@ -35,13 +35,38 @@ Each agent gets optimized output:
 
 ## ⚡ Installation
 
-### Option 1: Quick Install (Recommended)
+### Quick Install (Recommended)
 
 ```bash
 curl -fsSL https://prjct.app/install.sh | bash
 ```
 
-### Option 2: Clone from GitHub
+#### Installation Options
+
+```bash
+# Force reinstall (even if up to date)
+curl -fsSL https://prjct.app/install.sh | bash -s -- --force
+
+# Auto-accept all prompts (unattended installation)
+curl -fsSL https://prjct.app/install.sh | bash -s -- -y
+
+# Install from development branch
+curl -fsSL https://prjct.app/install.sh | bash -s -- --dev
+
+# Show help
+curl -fsSL https://prjct.app/install.sh | bash -s -- --help
+```
+
+### Version Management
+
+The installer automatically:
+- **Detects existing installations** and checks for updates
+- **Compares versions** between local and remote
+- **Prompts for updates** when newer versions are available
+- **Shows current version** during installation
+- **Supports force reinstall** with `--force` flag
+
+### Manual Installation
 
 ```bash
 git clone https://github.com/jlopezlira/prjct-cli
@@ -49,13 +74,16 @@ cd prjct-cli
 ./setup.sh
 ```
 
-> The installer will:
->
-> - Install to `~/.prjct-cli/`
-> - Configure AI assistant integration (MCP)
-> - Set up the `prjct` command
-> - Create project structure in `.prjct/`
-> - Auto-detect your environment (Claude/Codex/Terminal)
+### What the Installer Does
+
+- ✅ **Installs to** `~/.prjct-cli/`
+- ✅ **Checks prerequisites** (Node.js 18+, Git)
+- ✅ **Version management** with automatic update detection
+- ✅ **Configures AI assistant integration** (MCP)
+- ✅ **Sets up the** `prjct` **command**
+- ✅ **Creates project structure** in `.prjct/`
+- ✅ **Auto-detects your environment** (Claude/Codex/Terminal)
+- ✅ **Configures shell** (bash/zsh) automatically
 
 ## 🗑️ Uninstallation
 
@@ -127,174 +155,174 @@ prjct recap                # Show progress
 
 > Warp AI also understands `/p:` commands in the terminal
 
-## 🎯 ¿Qué Comando Usar Cuando...?
+## 🎯 Which Command to Use When...?
 
-### 🆕 **"Tengo una nueva idea o feature no planeada"**
+### 🆕 **"I have a new idea or unplanned feature"**
 
 ```bash
-# Opción 1: Solo capturar la idea para no olvidarla
-/p:idea "agregar modo oscuro al dashboard"
-→ 💡 Se guarda en ideas.md para revisar después
+# Option 1: Just capture the idea so you don't forget
+/p:idea "add dark mode to dashboard"
+→ 💡 Saved to ideas.md for later review
 
-# Opción 2: Agregarla al roadmap para planificarla
-/p:roadmap add "implementar modo oscuro"
-→ 📋 Se prioriza automáticamente en el roadmap
+# Option 2: Add it to the roadmap for planning
+/p:roadmap add "implement dark mode"
+→ 📋 Automatically prioritized in roadmap
 
-# Opción 3: Empezar a trabajar en ella AHORA
-/p:now "implementar modo oscuro en dashboard"
-→ 🎯 Se establece como tu tarea actual (solo puedes tener UNA)
+# Option 3: Start working on it NOW
+/p:now "implement dark mode in dashboard"
+→ 🎯 Set as your current task (you can only have ONE)
 ```
 
-### ✅ **"Terminé lo que estaba haciendo"**
+### ✅ **"I finished what I was doing"**
 
 ```bash
-# Marcar tarea como completada
+# Mark task as complete
 /p:done
-→ ✅ Limpia tu foco actual y sugiere la siguiente tarea
+→ ✅ Clears your current focus and suggests next task
 
-# Si es una feature importante, CELEBRARLA
-/p:ship "sistema de autenticación OAuth"
-→ 🚀 Se registra como un WIN con celebración 🎉
+# If it's an important feature, CELEBRATE it
+/p:ship "OAuth authentication system"
+→ 🚀 Recorded as a WIN with celebration 🎉
 ```
 
-### 🤔 **"No sé qué hacer" o "¿En qué estaba?"**
+### 🤔 **"I don't know what to do" or "What was I working on?"**
 
 ```bash
 /p:recap
-→ 📊 Muestra TODO: tarea actual, progreso, shipped, roadmap
+→ 📊 Shows EVERYTHING: current task, progress, shipped, roadmap
 
 /p:next
-→ 📋 Muestra tu cola de tareas priorizadas
+→ 📋 Shows your prioritized task queue
 
 /p:context
-→ 📚 Info del proyecto y acciones recientes
+→ 📚 Project info and recent actions
 ```
 
-### 🆘 **"Estoy atorado con un problema"**
+### 🆘 **"I'm stuck on a problem"**
 
 ```bash
-/p:stuck "CORS error en API calls"
-→ 💡 Soluciones contextuales basadas en tu proyecto
+/p:stuck "CORS error in API calls"
+→ 💡 Contextual solutions based on your project
 
 /p:fix "TypeError: undefined is not a function"
-→ 🔧 Auto-diagnóstico y posibles soluciones
+→ 🔧 Auto-diagnosis and possible solutions
 ```
 
-### 📊 **"Quiero ver mi progreso"**
+### 📊 **"I want to see my progress"**
 
 ```bash
 /p:progress week
-→ 📈 Métricas semanales: shipped, velocidad, trends
+→ 📈 Weekly metrics: shipped, velocity, trends
 
 /p:progress month
-→ 📊 Vista mensual con estadísticas detalladas
+→ 📊 Monthly view with detailed statistics
 ```
 
-### 🧹 **"Necesito limpiar el código"**
+### 🧹 **"I need to clean up the code"**
 
 ```bash
 /p:cleanup
-→ 🧹 Limpieza básica de archivos temporales y logs
+→ 🧹 Basic cleanup of temp files and logs
 
 /p:cleanup-advanced --type code
-→ 🗑️ Elimina console.logs, código comentado, imports sin usar
+→ 🗑️ Remove console.logs, commented code, unused imports
 
 /p:cleanup-advanced --aggressive
-→ ⚡ Limpieza profunda con optimización de dependencias
+→ ⚡ Deep cleanup with dependency optimization
 ```
 
-### 🎨 **"Necesito diseñar antes de codear"**
+### 🎨 **"I need to design before coding"**
 
 ```bash
-/p:design "sistema de autenticación" --type architecture
-→ 🏗️ Genera diseño de arquitectura con diagramas ASCII
+/p:design "authentication system" --type architecture
+→ 🏗️ Generate architecture design with ASCII diagrams
 
-/p:design "API de usuarios" --type api
-→ 📋 Diseña endpoints REST/GraphQL con especificaciones
+/p:design "user API" --type api
+→ 📋 Design REST/GraphQL endpoints with specifications
 
 /p:design "dashboard" --type component
-→ 🧩 Diseña jerarquía de componentes UI
+→ 🧩 Design UI component hierarchy
 
-/p:design "base de datos" --type database
-→ 📊 Diseña esquemas y relaciones de base de datos
+/p:design "database" --type database
+→ 📊 Design schemas and database relationships
 ```
 
-### 💻 **"Necesito hacer commit/push"**
+### 💻 **"I need to commit/push"**
 
 ```bash
 /p:git
-→ 📝 Genera mensaje inteligente y hace commit
+→ 📝 Generates smart commit message and commits
 
 /p:git push
-→ 🚀 Commit + push a origin
+→ 🚀 Commit + push to origin
 
 /p:git sync
-→ 🔄 Pull + commit + push (sincronización completa)
+→ 🔄 Pull + commit + push (complete sync)
 ```
 
-## 📖 Referencia Completa de Comandos
+## 📖 Complete Command Reference
 
-### Comandos Core (Esenciales) 🎯
+### Core Commands (Essential) 🎯
 
-| Comando             | ¿Cuándo usarlo?                | ¿Qué hace?                         | Output Ejemplo                            |
+| Command             | When to use?                   | What does it do?                  | Example Output                            |
 | ------------------- | ------------------------------ | ---------------------------------- | ----------------------------------------- |
-| `/p:init`           | Al empezar un nuevo proyecto   | Crea estructura `.prjct/` completa | `✅ Project initialized!`                 |
-| `/p:now [task]`     | Para establecer tu foco actual | Define UNA sola tarea activa       | `🎯 Current: implement auth`              |
-| `/p:done`           | Al terminar tu tarea actual    | Marca como completa y limpia foco  | `✅ Task complete! Next: API integration` |
-| `/p:ship <feature>` | Al completar algo importante   | Celebra y registra el WIN          | `🚀 SHIPPED: User auth! 🎉`               |
-| `/p:recap`          | Para ver overview completo     | Muestra progreso y estado actual   | `📊 3 shipped, 1 active, 5 queued`        |
+| `/p:init`           | Starting a new project         | Creates complete `.prjct/` structure | `✅ Project initialized!`                 |
+| `/p:now [task]`     | To set your current focus      | Defines ONE single active task    | `🎯 Current: implement auth`              |
+| `/p:done`           | When finishing current task    | Marks complete and clears focus   | `✅ Task complete! Next: API integration` |
+| `/p:ship <feature>` | When completing something big  | Celebrates and records the WIN    | `🚀 SHIPPED: User auth! 🎉`               |
+| `/p:recap`          | To see complete overview       | Shows progress and current state  | `📊 3 shipped, 1 active, 5 queued`        |
 
-### Comandos de Planificación 📋
+### Planning Commands 📋
 
-| Comando             | ¿Cuándo usarlo?          | ¿Qué hace?                     | Output Ejemplo                 |
-| ------------------- | ------------------------ | ------------------------------ | ------------------------------ |
-| `/p:idea <text>`    | Cuando se te ocurre algo | Captura rápida sin interrumpir | `💡 Idea captured!`            |
-| `/p:roadmap`        | Ver plan estratégico     | Muestra roadmap completo       | `🚀 Sprint: 23% complete`      |
-| `/p:roadmap add`    | Agregar nueva feature    | Prioriza automáticamente       | `✅ Added: Priority #3`        |
-| `/p:next`           | Ver qué sigue            | Lista tareas priorizadas       | `1. Fix auth bug 2. Add tests` |
-| `/p:task <complex>` | Desglosar tarea compleja | Divide en subtareas manejables | `📋 Split into 5 subtasks`     |
+| Command             | When to use?            | What does it do?               | Example Output                 |
+| ------------------- | ----------------------- | ------------------------------ | ------------------------------ |
+| `/p:idea <text>`    | When you have an idea   | Quick capture without interrupting | `💡 Idea captured!`            |
+| `/p:roadmap`        | View strategic plan     | Shows complete roadmap         | `🚀 Sprint: 23% complete`      |
+| `/p:roadmap add`    | Add new feature         | Automatically prioritizes      | `✅ Added: Priority #3`        |
+| `/p:next`           | See what's next         | Lists prioritized tasks        | `1. Fix auth bug 2. Add tests` |
+| `/p:task <complex>` | Break down complex task | Divides into manageable subtasks | `📋 Split into 5 subtasks`     |
 
-### Comandos de Desarrollo 🛠️
+### Development Commands 🛠️
 
-| Comando          | ¿Cuándo usarlo?      | ¿Qué hace?                   | Output Ejemplo                  |
-| ---------------- | -------------------- | ---------------------------- | ------------------------------- |
-| `/p:analyze`     | Entender el proyecto | Análisis automático del repo | `🔍 Tech: Node.js, 45 files`    |
-| `/p:git`         | Hacer commit rápido  | Mensaje inteligente + commit | `✅ feat: add auth system`      |
-| `/p:test`        | Ejecutar tests       | Run + auto-fix simple errors | `✅ 42 passing, 2 fixed`        |
-| `/p:fix <error>` | Resolver errores     | Diagnóstico y soluciones     | `🔧 Solution: check null first` |
+| Command          | When to use?           | What does it do?              | Example Output                  |
+| ---------------- | ---------------------- | ----------------------------- | ------------------------------- |
+| `/p:analyze`     | Understand the project | Automatic repo analysis       | `🔍 Tech: Node.js, 45 files`    |
+| `/p:git`         | Quick commit           | Smart message + commit        | `✅ feat: add auth system`      |
+| `/p:test`        | Run tests              | Run + auto-fix simple errors  | `✅ 42 passing, 2 fixed`        |
+| `/p:fix <error>` | Solve errors           | Diagnosis and solutions       | `🔧 Solution: check null first` |
 
-### Comandos de Métricas 📊
+### Metrics Commands 📊
 
-| Comando            | ¿Cuándo usarlo?        | ¿Qué hace?               | Output Ejemplo                    |
-| ------------------ | ---------------------- | ------------------------ | --------------------------------- |
-| `/p:progress`      | Ver productividad      | Métricas de la semana    | `📈 7 shipped, velocity: 1.4/day` |
-| `/p:context`       | Info del proyecto      | Estado actual y contexto | `📚 Sprint 3, Day 12, 67% done`   |
-| `/p:stuck <issue>` | Cuando necesitas ayuda | Soluciones contextuales  | `💡 Try: npm install cors`        |
+| Command            | When to use?            | What does it do?              | Example Output                    |
+| ------------------ | ----------------------- | ----------------------------- | --------------------------------- |
+| `/p:progress`      | View productivity       | Weekly metrics                | `📈 7 shipped, velocity: 1.4/day` |
+| `/p:context`       | Project info            | Current state and context     | `📚 Sprint 3, Day 12, 67% done`   |
+| `/p:stuck <issue>` | When you need help      | Contextual solutions          | `💡 Try: npm install cors`        |
 
-## 🔄 Flujos de Trabajo Completos
+## 🔄 Complete Workflows
 
-### 🌟 **Mi Primer Día con prjct**
+### 🌟 **My First Day with prjct**
 
 ```bash
-# 1. Inicializar estructura
+# 1. Initialize structure
 /p:init
-→ ✅ Proyecto configurado con estructura .prjct/
+→ ✅ Project configured with .prjct/ structure
 
-# 2. Analizar el repositorio
+# 2. Analyze the repository
 /p:analyze
-→ 🔍 Detectado: Node.js, React, 45 archivos
+→ 🔍 Detected: Node.js, React, 45 files
 
-# 3. Ver o crear roadmap
+# 3. View or create roadmap
 /p:roadmap
-→ 📋 Roadmap vacío, usa /p:roadmap add
+→ 📋 Empty roadmap, use /p:roadmap add
 
-# 4. Establecer primera tarea
-/p:now "configurar entorno de desarrollo"
-→ 🎯 Foco actual establecido
+# 4. Set first task
+/p:now "setup development environment"
+→ 🎯 Current focus set
 
-# 5. Al terminar, celebrar
+# 5. When done, celebrate
 /p:done
-→ ✅ Tarea completada
+→ ✅ Task completed
 
 /p:ship "environment configured"
 → 🚀 First WIN recorded! 🎉
@@ -357,7 +385,7 @@ prjct recap                # Show progress
 → 🚀 MEGA WIN: Notification system complete! 🎉🎊
 ```
 
-### 🚀 **Sprint Planning con Roadmap**
+### 🚀 **Sprint Planning with Roadmap**
 
 ```bash
 # View current roadmap

@@ -68,7 +68,7 @@ export const Compatibility = () => {
           className="mb-16 text-center"
         >
           <h2 className="mb-4 text-4xl font-bold md:text-5xl">
-            Works <span className="hunt-glow">Everywhere</span> You Code
+            <span className="hunt-glow">Works</span> <span className="hunt-glow">Everywhere</span> You Code
           </h2>
           <p className="mx-auto max-w-3xl text-xl text-muted-foreground">
             Intelligent agent detection adapts output for your environment. No configuration needed
