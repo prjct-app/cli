@@ -9,7 +9,7 @@
   "arrowParens": "always",
   "endOfLine": "lf",
   "plugins": ["prettier-plugin-tailwindcss"],
-  "tailwindConfig": "./lp/tailwind.config.js",
+  "tailwindConfig": "./website/tailwind.config.js",
   "overrides": [
     {
       "files": "*.md",

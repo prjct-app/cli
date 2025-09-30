@@ -98,8 +98,8 @@ Do your thing! Remember:
 # For CLI commands
 ./test-agent-detection.js
 
-# For landing page
-cd landing && npm run dev
+# For website
+cd website && npm run dev
 
 # Try your changes with your AI
 /p:init
@@ -177,12 +177,14 @@ prjct-cli/
 │   ├── agent-detector.js # Agent detection magic
 │   ├── agents/          # Agent adapters
 │   └── commands.js      # Command implementations
-├── commands/            # Command docs/definitions
-├── adapters/           # AI platform adapters
-├── landing/            # Landing page (React + Vite)
-├── docs/              # Documentation
-├── install.sh         # Installation script
-├── uninstall.sh       # Clean uninstallation script
+├── src/                 # Source code
+│   ├── commands/        # Command docs/definitions
+│   ├── adapters/       # AI platform adapters
+│   ├── templates/      # File templates
+│   └── instructions/   # Agent instructions
+├── website/            # Website (React + Vite)
+├── scripts/           # Installation & deployment scripts
+├── docs/              # GitHub Pages (generated)
 └── .prjct/           # Your actual project data
 ```
 

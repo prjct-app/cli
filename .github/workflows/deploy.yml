@@ -29,16 +29,16 @@ jobs:
         with:
           node-version: '18'
           cache: 'npm'
-          cache-dependency-path: 'lp/package-lock.json'
+          cache-dependency-path: 'website/package-lock.json'
 
       - name: Install dependencies
         run: |
-          cd lp
+          cd website
           npm ci || npm install
 
-      - name: Build landing page
+      - name: Build website
         run: |
-          cd lp
+          cd website
           npm run build
           # The build output is now in /docs directory
 
@@ -49,8 +49,8 @@ jobs:
           cp -r docs/* ./deploy/
 
           # Copy the latest install.sh to deployment directory
-          if [ -f "./install.sh" ]; then
-            cp ./install.sh ./deploy/install.sh
+          if [ -f "./scripts/install.sh" ]; then
+            cp ./scripts/install.sh ./deploy/install.sh
             echo "✅ Copied updated install.sh to deployment directory"
           fi
 
@@ -62,8 +62,8 @@ jobs:
           # Ensure CNAME file is in deployment directory (now in public)
           if [ -f "docs/CNAME" ]; then
             echo "CNAME already in docs directory"
-          elif [ -f "lp/public/CNAME" ]; then
-            cp lp/public/CNAME ./deploy/
+          elif [ -f "website/public/CNAME" ]; then
+            cp website/public/CNAME ./deploy/
           fi
 
       - name: Setup Pages
