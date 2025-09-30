@@ -1,20 +1,20 @@
 {
   "name": "@prjct/cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "AI-integrated project management for indie hackers - works with Claude Code, Cursor, and Warp",
   "main": "core/index.js",
   "bin": {
     "prjct": "./bin/prjct"
   },
   "scripts": {
-    "install-global": "./install.sh",
+    "install-global": "./scripts/install.sh",
     "test": "echo 'No tests configured'",
-    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,css,md}\"",
-    "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,json,css,md}\"",
-    "landing:dev": "cd landing && npm run dev",
-    "landing:build": "cd landing && npm run build",
-    "landing:preview": "cd landing && npm run preview",
-    "landing:install": "cd landing && npm install"
+    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,css,md}\" --config .config/.prettierrc --ignore-path .config/.prettierignore",
+    "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,json,css,md}\" --config .config/.prettierrc --ignore-path .config/.prettierignore",
+    "website:dev": "cd website && npm run dev",
+    "website:build": "cd website && npm run build",
+    "website:preview": "cd website && npm run preview",
+    "website:install": "cd website && npm install"
   },
   "keywords": [
     "project-management",
