@@ -96,26 +96,24 @@ DOT="•"
 # Clear for clean experience
 clear
 
-# ASCII art logo and header
+# Clean header with Catppuccin colors
 echo ""
-echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║${NC}                                                                       ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}   ${BOLD}${CYAN}██████╗ ██████╗      ██╗ ██████╗████████╗${NC}    ${MAGENTA}🚀${NC}                  ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}   ${BOLD}${CYAN}██╔══██╗██╔══██╗     ██║██╔════╝╚══██╔══╝${NC}                         ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}   ${BOLD}${CYAN}██████╔╝██████╔╝     ██║██║        ██║${NC}   ${DIM}/ cli${NC}                   ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}   ${BOLD}${CYAN}██╔═══╝ ██╔══██╗██   ██║██║        ██║${NC}                            ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}   ${BOLD}${CYAN}██║     ██║  ██║╚█████╔╝╚██████╗   ██║${NC}                            ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}   ${BOLD}${CYAN}╚═╝     ╚═╝  ╚═╝ ╚════╝  ╚═════╝   ╚═╝${NC}   ${BOLD}${WHITE}v${FINAL_VERSION:-0.1.0}${NC}          ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}                                                                       ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}            ${DIM}Turn ideas into AI-ready roadmaps${NC}                         ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}                                                                       ${CYAN}║${NC}"
-echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
-echo -e "  ${YELLOW}⚡${NC} ${BOLD}Ship faster${NC} with zero friction"
-echo -e "  ${GREEN}📝${NC} ${BOLD}From idea to technical tasks${NC} in minutes"
-echo -e "  ${BLUE}🤖${NC} ${BOLD}Perfect context${NC} for AI agents"
+echo -e "   ${BOLD}${CYAN}██████╗ ██████╗      ██╗ ██████╗████████╗${NC}"
+echo -e "   ${BOLD}${CYAN}██╔══██╗██╔══██╗     ██║██╔════╝╚══██╔══╝${NC}"
+echo -e "   ${BOLD}${CYAN}██████╔╝██████╔╝     ██║██║        ██║${NC}"
+echo -e "   ${BOLD}${CYAN}██╔═══╝ ██╔══██╗██   ██║██║        ██║${NC}"
+echo -e "   ${BOLD}${CYAN}██║     ██║  ██║╚█████╔╝╚██████╗   ██║${NC}"
+echo -e "   ${BOLD}${CYAN}╚═╝     ╚═╝  ╚═╝ ╚════╝  ╚═════╝   ╚═╝${NC}"
 echo ""
-echo -e "${DIM}─────────────────────────────────────────────────────────────────────────${NC}"
+echo -e "   ${BOLD}${CYAN}prjct${NC}${MAGENTA}/${NC}${GREEN}cli${NC}  ${DIM}${WHITE}v${FINAL_VERSION:-0.1.0}${NC}"
+echo ""
+echo -e "   ${DIM}Turn ideas into AI-ready roadmaps${NC}"
+echo ""
+echo -e "   ${YELLOW}⚡${NC} Ship faster with zero friction"
+echo -e "   ${GREEN}📝${NC} From idea to technical tasks in minutes"
+echo -e "   ${BLUE}🤖${NC} Perfect context for AI agents"
+echo ""
 echo ""
 
 # Spinner function
@@ -338,22 +336,19 @@ ln -sf "$INSTALL_DIR/bin/prjct" "$HOME/.local/bin/prjct" 2>/dev/null || true
 # Get final installed version for display
 FINAL_VERSION=$(get_version "$INSTALL_DIR")
 
-# Success message with animation
+# Success message - clean style
 echo ""
-echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║${NC}                                                                       ${GREEN}║${NC}"
-echo -e "${GREEN}║${NC}           ${BOLD}${GREEN}✅ Installation Complete!${NC}                                  ${GREEN}║${NC}"
-echo -e "${GREEN}║${NC}                                                                       ${GREEN}║${NC}"
-echo -e "${GREEN}║${NC}   ${BOLD}${CYAN}██████╗ ██████╗      ██╗ ██████╗████████╗${NC}    ${GREEN}🎉${NC}                  ${GREEN}║${NC}"
-echo -e "${GREEN}║${NC}   ${BOLD}${CYAN}██╔══██╗██╔══██╗     ██║██╔════╝╚══██╔══╝${NC}                         ${GREEN}║${NC}"
-echo -e "${GREEN}║${NC}   ${BOLD}${CYAN}██████╔╝██████╔╝     ██║██║        ██║${NC}   ${DIM}/ cli${NC}                   ${GREEN}║${NC}"
-echo -e "${GREEN}║${NC}   ${BOLD}${CYAN}██╔═══╝ ██╔══██╗██   ██║██║        ██║${NC}                            ${GREEN}║${NC}"
-echo -e "${GREEN}║${NC}   ${BOLD}${CYAN}██║     ██║  ██║╚█████╔╝╚██████╗   ██║${NC}                            ${GREEN}║${NC}"
-echo -e "${GREEN}║${NC}   ${BOLD}${CYAN}╚═╝     ╚═╝  ╚═╝ ╚════╝  ╚═════╝   ╚═╝${NC}                            ${GREEN}║${NC}"
-echo -e "${GREEN}║${NC}                                                                       ${GREEN}║${NC}"
-echo -e "${GREEN}║${NC}                    ${BOLD}${WHITE}Version ${FINAL_VERSION}${NC} installed                           ${GREEN}║${NC}"
-echo -e "${GREEN}║${NC}                                                                       ${GREEN}║${NC}"
-echo -e "${GREEN}╚═══════════════════════════════════════════════════════════════════════╝${NC}"
+echo ""
+echo -e "   ${GREEN}✅${NC} ${BOLD}Installation Complete!${NC} ${GREEN}🎉${NC}"
+echo ""
+echo -e "   ${BOLD}${CYAN}██████╗ ██████╗      ██╗ ██████╗████████╗${NC}"
+echo -e "   ${BOLD}${CYAN}██╔══██╗██╔══██╗     ██║██╔════╝╚══██╔══╝${NC}"
+echo -e "   ${BOLD}${CYAN}██████╔╝██████╔╝     ██║██║        ██║${NC}"
+echo -e "   ${BOLD}${CYAN}██╔═══╝ ██╔══██╗██   ██║██║        ██║${NC}"
+echo -e "   ${BOLD}${CYAN}██║     ██║  ██║╚█████╔╝╚██████╗   ██║${NC}"
+echo -e "   ${BOLD}${CYAN}╚═╝     ╚═╝  ╚═╝ ╚════╝  ╚═════╝   ╚═╝${NC}"
+echo ""
+echo -e "   ${BOLD}${CYAN}prjct${NC}${MAGENTA}/${NC}${GREEN}cli${NC}  ${DIM}${WHITE}v${FINAL_VERSION} installed${NC}"
 echo ""
 
 # Quick start guide
