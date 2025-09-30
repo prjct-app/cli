@@ -51,9 +51,11 @@ jobs:
           if [ -f "./deploy/install.sh" ]; then
             chmod +x ./deploy/install.sh
           fi
-          # Ensure CNAME file is in deployment directory
-          if [ -f "lp/CNAME" ]; then
-            cp lp/CNAME ./deploy/
+          # Ensure CNAME file is in deployment directory (now in public)
+          if [ -f "docs/CNAME" ]; then
+            echo "CNAME already in docs directory"
+          elif [ -f "lp/public/CNAME" ]; then
+            cp lp/public/CNAME ./deploy/
           fi
 
       - name: Setup Pages
