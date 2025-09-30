@@ -39,14 +39,17 @@ export const PrjctLogo = ({ showText = true, size = 'md' }: PrjctLogoProps) => {
       className={cn('flex items-center gap-2', containerTextSize[size])}
       data-testid="prjct-logo"
     >
-      <div
-        className={cn(
-          'relative flex items-center justify-center rounded-lg border border-border bg-foreground text-background shadow-sm',
-          logoSize[size]
-        )}
-        data-testid="prjct-logo-icon"
-      >
-        <p className={cn('mb-0.5 inline-block font-bold leading-none', textSize[size])}>p/</p>
+      <div className="relative">
+        <div className="fancy-border"></div>
+        <div
+          className={cn(
+            'relative flex items-center justify-center rounded-lg border border-border bg-foreground text-background shadow-sm',
+            logoSize[size]
+          )}
+          data-testid="prjct-logo-icon"
+        >
+          <p className={cn('mb-0.5 inline-block font-bold leading-none', textSize[size])}>p/</p>
+        </div>
       </div>
       {showText && (
         <span className={cn(brandTextSize[size], 'font-bold text-foreground')}>prjct</span>

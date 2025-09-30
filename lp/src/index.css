@@ -45,6 +45,41 @@
   animation: smooth-rainbow 8s linear infinite;
 }
 
+/* Fancy animated border for logo */
+.fancy-border {
+  position: absolute;
+  inset: -2px;
+  background: linear-gradient(
+    45deg,
+    #cba6f7,
+    #b4befe,
+    #89b4fa,
+    #74c7ec,
+    #94e2d5,
+    #a6e3a1,
+    #f9e2af,
+    #fab387,
+    #cba6f7
+  );
+  background-size: 300% 300%;
+  animation: gradient-rotate 4s ease infinite;
+  border-radius: 0.5rem;
+  opacity: 0.8;
+  filter: blur(2px);
+}
+
+@keyframes gradient-rotate {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
 @keyframes smooth-rainbow {
   0% {
     text-shadow:
