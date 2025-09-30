@@ -1,5 +1,5 @@
 ---
-allowed-tools: [Bash]
+allowed-tools: [Read, Glob]
 description: 'Show progress metrics for specified period'
 ---
 
@@ -19,13 +19,12 @@ Default: week
 
 ## Execution
 
-Execute the command silently and show only the final result:
+1. Read from `.prjct/progress/shipped.md` for shipped features
+2. Aggregate metrics from `.prjct/progress/metrics.md`
+3. Calculate velocity and trends across layers
+4. Cross-reference with planning and analysis layers
+5. Display comprehensive progress indicators
 
-```bash
-prjct progress [period]
-```
-
-The command handles all file operations internally. Show only the final message.
 ## Implementation
 
 1. **Parse timeframe**:

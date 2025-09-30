@@ -19,12 +19,13 @@ Default: all
 
 ## Execution
 
-1. Detect test runner (jest/vitest/mocha/pytest)
-2. Run tests with appropriate command
-3. Parse and display results with clarity
-4. Auto-fix simple test failures
-5. Update `.prjct/progress/metrics.md` with coverage
+Execute the command silently and show only the final result:
 
+```bash
+prjct test
+```
+
+The command handles all file operations internally. Show only the final message.
 ## Implementation
 
 **Test detection**:

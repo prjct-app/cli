@@ -1,5 +1,5 @@
 ---
-allowed-tools: [Bash]
+allowed-tools: [Read, Write, Edit]
 description: 'Display and manage priority queue'
 ---
 
@@ -17,13 +17,11 @@ Display the prioritized queue of upcoming tasks.
 
 ## Execution
 
-Execute the command silently and show only the final result:
+1. Read `.prjct/core/next.md`
+2. Display numbered list of pending tasks with context
+3. Show task count and suggest next action
+4. Reference related planning and progress layers
 
-```bash
-prjct next
-```
-
-The command handles all file operations internally. Show only the final message.
 ## Implementation
 
 1. **Read core/next.md**:

@@ -1,6 +1,6 @@
 import { CommandGuide } from '../components/CommandGuide'
 import { motion } from 'framer-motion'
-import { Terminal, Zap, GitBranch, Target, Lightbulb, BarChart3 } from 'lucide-react'
+import { Terminal, Zap, GitBranch, Target, Lightbulb, BarChart3, Sparkles, Palette, Code2 } from 'lucide-react'
 
 const commandCategories = [
   {
@@ -21,6 +21,26 @@ const commandCategories = [
       { cmd: '/p:roadmap', desc: 'View strategic roadmap' },
       { cmd: '/p:roadmap add', desc: 'Add feature to roadmap' },
       { cmd: '/p:task <feature>', desc: 'Break down complex tasks' },
+    ],
+  },
+  {
+    title: 'Design & Architecture',
+    icon: <Palette className="h-5 w-5" />,
+    commands: [
+      { cmd: '/p:design <target> --type', desc: 'Create system designs with diagrams' },
+      { cmd: '/p:design --architecture', desc: 'Design system architecture' },
+      { cmd: '/p:design --api', desc: 'Design REST/GraphQL APIs' },
+      { cmd: '/p:design --database', desc: 'Design database schemas' },
+    ],
+  },
+  {
+    title: 'Code Quality',
+    icon: <Code2 className="h-5 w-5" />,
+    commands: [
+      { cmd: '/p:cleanup', desc: 'Clean temporary files and old entries' },
+      { cmd: '/p:cleanup-advanced --type', desc: 'Remove dead code by type' },
+      { cmd: '/p:cleanup-advanced --aggressive', desc: 'Deep clean with analysis' },
+      { cmd: '/p:cleanup-advanced --imports', desc: 'Optimize and clean imports' },
     ],
   },
   {

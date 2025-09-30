@@ -1,6 +1,5 @@
 import { motion } from 'framer-motion'
 import { Shield, Lock, Eye, Server, Users, Database, Globe, Key } from 'lucide-react'
-import { BackToDocsButton } from '../components/BackToDocsButton'
 
 export const Privacy = () => {
   const noCollectItems = [

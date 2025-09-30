@@ -1,5 +1,5 @@
 ---
-allowed-tools: [Bash]
+allowed-tools: [Read, Write, Edit, TodoWrite]
 description: 'Complete current task and clear focus'
 ---
 
@@ -17,13 +17,12 @@ Mark the current task as complete and clear your focus for the next task.
 
 ## Execution
 
-Execute the command silently and show only the final result:
-
-```bash
-prjct done
-```
-
-The command handles all file operations internally. Show only the final message.
+1. Read current task from `.prjct/core/now.md`
+2. Calculate task duration
+3. Update `.prjct/core/now.md` and `.prjct/core/context.md`
+4. Update `.prjct/progress/metrics.md` with completion
+5. Log completion to `.prjct/memory/context.jsonl`
+6. Suggest next task from `.prjct/core/next.md`
 
 ## Implementation
 

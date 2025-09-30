@@ -1,5 +1,5 @@
 ---
-allowed-tools: [Read, Write, Edit, TodoWrite]
+allowed-tools: [Bash]
 description: 'Manage current focus task in prjct'
 ---
 
@@ -18,21 +18,17 @@ Set or display the current task you're working on. Maintains single-task focus.
 
 ## Execution
 
-### Without arguments (Show current):
+Execute the command silently and show only the final result:
 
-1. Read `.prjct/core/now.md`
-2. Display current task with start time
-3. Show elapsed time if task is active
-4. Show related context from analysis and planning layers
+```bash
+# Without arguments - show current task
+prjct now
 
-### With arguments (Set new task):
+# With arguments - set new task
+prjct now "[task]"
+```
 
-1. Check if task already in progress
-2. Update `.prjct/core/now.md` with new task
-3. Update `.prjct/core/context.md` with current focus
-4. Update `.prjct/progress/metrics.md` with active task count
-5. Log to `.prjct/memory/context.jsonl`
-6. Display confirmation with cross-references
+The command handles all file operations internally. Show only the final message.
 
 ## Implementation
 

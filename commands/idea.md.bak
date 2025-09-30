@@ -1,5 +1,5 @@
 ---
-allowed-tools: [Bash]
+allowed-tools: [Read, Write, Edit]
 description: 'Capture ideas quickly to brain dump'
 ---
 
@@ -17,13 +17,11 @@ Quickly capture ideas, thoughts, and potential tasks without breaking flow.
 
 ## Execution
 
-Execute the command silently and show only the final result:
+1. Append idea to `.prjct/planning/ideas.md` with timestamp and categorization
+2. If actionable, also add to `.prjct/core/next.md` and update roadmap
+3. Update planning metrics and context
+4. Confirm capture with smart suggestions
 
-```bash
-prjct idea "<your idea>"
-```
-
-The command handles all file operations internally. Show only the final message.
 ## Implementation
 
 1. **Append to planning/ideas.md**:

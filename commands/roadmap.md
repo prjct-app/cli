@@ -19,22 +19,13 @@ Default: show
 
 ## Execution
 
-### `/p:roadmap` or `/p:roadmap show`
+Execute the command silently and show only the final result:
 
-Display current roadmap with progress
+```bash
+prjct roadmap
+```
 
-### `/p:roadmap add <feature>`
-
-Add feature to roadmap with smart prioritization
-
-### `/p:roadmap complete <feature>`
-
-Mark feature as shipped and celebrate
-
-### `/p:roadmap next`
-
-Show next priority item to work on
-
+The command handles all file operations internally. Show only the final message.
 ## Implementation
 
 **Roadmap structure** in `.prjct/planning/roadmap.md`:

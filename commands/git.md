@@ -19,32 +19,13 @@ Default: commit
 
 ## Execution
 
-### `/p:git` or `/p:git commit`
+Execute the command silently and show only the final result:
 
-1. Run `git status` to see changes
-2. Analyze changes to generate smart commit message
-3. Stage all changes with `git add -A`
-4. Commit with generated message
-5. Log to `.prjct/memory/context.jsonl`
+```bash
+prjct git <operation>
+```
 
-### `/p:git push`
-
-1. Commit any pending changes first
-2. Push to current branch
-3. Show deployment status if applicable
-
-### `/p:git status`
-
-1. Show clean git status with emoji indicators
-2. Suggest next logical action
-
-### `/p:git sync`
-
-1. Pull latest changes
-2. Commit local changes if any
-3. Push to remote
-4. Handle merge conflicts if needed
-
+The command handles all file operations internally. Show only the final message.
 ## Implementation
 
 **Smart commit message generation**:

@@ -1,5 +1,5 @@
 ---
-allowed-tools: [Bash]
+allowed-tools: [Read]
 description: 'Get help when stuck on a problem'
 ---
 
@@ -17,13 +17,13 @@ Provide contextual help and suggestions when stuck on a problem.
 
 ## Execution
 
-Execute the command silently and show only the final result:
+1. Analyze the issue type and context
+2. Reference project layers for additional context
+3. Provide relevant debugging steps or approach
+4. Suggest breaking into smaller tasks
+5. Log insights to memory layer
+6. Offer encouragement and next steps
 
-```bash
-prjct stuck "<issue>"
-```
-
-The command handles all file operations internally. Show only the final message.
 ## Implementation
 
 1. **Issue categorization**:

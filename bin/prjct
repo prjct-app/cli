@@ -38,10 +38,65 @@ async function main() {
         case 'context':
             result = await commands.context();
             break;
+        case 'cleanup':
+            result = await commands.cleanup();
+            break;
+        case 'cleanup-advanced':
+            // Parse options from command line
+            const cleanupOptions = {};
+            const cleanupArgs = args.slice(1);
+            let cleanupTarget = '.';
+
+            for (let i = 0; i < cleanupArgs.length; i++) {
+                if (cleanupArgs[i] === '--type') {
+                    cleanupOptions.type = cleanupArgs[++i];
+                } else if (cleanupArgs[i] === '--aggressive') {
+                    cleanupOptions.aggressive = true;
+                } else if (cleanupArgs[i] === '--dry-run') {
+                    cleanupOptions.dryRun = true;
+                } else if (!cleanupArgs[i].startsWith('--')) {
+                    cleanupTarget = cleanupArgs[i];
+                }
+            }
+
+            result = await commands.cleanupAdvanced(cleanupTarget, cleanupOptions);
+            break;
+        case 'design':
+            // Parse design options
+            const designOptions = {};
+            const designArgs = args.slice(1);
+            let designTarget = '';
+
+            for (let i = 0; i < designArgs.length; i++) {
+                if (designArgs[i] === '--type') {
+                    designOptions.type = designArgs[++i];
+                } else if (designArgs[i] === '--format') {
+                    designOptions.format = designArgs[++i];
+                } else if (!designArgs[i].startsWith('--')) {
+                    // Collect all non-flag arguments as the target
+                    const targetParts = [];
+                    while (i < designArgs.length && !designArgs[i].startsWith('--')) {
+                        targetParts.push(designArgs[i]);
+                        i++;
+                    }
+                    i--; // Step back one since the loop will increment
+                    designTarget = targetParts.join(' ');
+                }
+            }
+
+            if (!designTarget) {
+                result = {
+                    success: false,
+                    message: 'Please specify what to design: prjct design "authentication system"'
+                };
+            } else {
+                result = await commands.design(designTarget, designOptions);
+            }
+            break;
         default:
             result = {
                 success: false,
-                message: `Unknown command: ${command}\n\nAvailable commands:\n  init, now, done, ship, next, idea, recap, progress, stuck, context`
+                message: `Unknown command: ${command}\n\nAvailable commands:\n  init, now, done, ship, next, idea, recap, progress, stuck, context\n  cleanup, cleanup-advanced, design`
             };
     }
 
