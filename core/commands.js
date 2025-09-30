@@ -1,5 +1,8 @@
 const fs = require('fs').promises
 const path = require('path')
+const { promisify } = require('util')
+const { exec: execCallback } = require('child_process')
+const exec = promisify(execCallback)
 const agentDetector = require('./agent-detector')
 
 // Try to load animations for enhanced output
@@ -19,6 +22,106 @@ class PrjctCommands {
     this.prjctDir = '.prjct'
     this.agent = null
     this.agentInfo = null
+  }
+
+  /**
+   * Generate semantic branch name from task description
+   */
+  generateBranchName(task) {
+    // Detect branch type based on keywords
+    let branchType = 'chore'
+
+    const taskLower = task.toLowerCase()
+
+    if (taskLower.match(/^(add|implement|create|build|feature|new)/)) {
+      branchType = 'feat'
+    } else if (taskLower.match(/^(fix|resolve|repair|correct|bug|issue)/)) {
+      branchType = 'fix'
+    } else if (taskLower.match(/^(refactor|improve|optimize|enhance|cleanup|clean)/)) {
+      branchType = 'refactor'
+    } else if (taskLower.match(/^(document|docs|readme|update doc)/)) {
+      branchType = 'docs'
+    } else if (taskLower.match(/^(test|testing|spec|add test)/)) {
+      branchType = 'test'
+    } else if (taskLower.match(/^(style|format|lint)/)) {
+      branchType = 'style'
+    } else if (taskLower.match(/^(deploy|release|ci|cd|config)/)) {
+      branchType = 'chore'
+    }
+
+    // Clean and format the task description
+    const cleanDescription = task
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '') // Remove special characters
+      .replace(/\s+/g, '-') // Replace spaces with hyphens
+      .replace(/-+/g, '-') // Replace multiple hyphens with single
+      .replace(/^-|-$/g, '') // Remove leading/trailing hyphens
+      .slice(0, 50) // Limit length
+
+    return `${branchType}/${cleanDescription}`
+  }
+
+  /**
+   * Execute git command with error handling
+   */
+  async execGitCommand(command, cwd = process.cwd()) {
+    try {
+      const { stdout, stderr } = await exec(command, { cwd })
+      return { success: true, stdout: stdout.trim(), stderr: stderr.trim() }
+    } catch (error) {
+      return { success: false, error: error.message }
+    }
+  }
+
+  /**
+   * Check if current directory is a git repository
+   */
+  async isGitRepo(projectPath = process.cwd()) {
+    const result = await this.execGitCommand('git rev-parse --is-inside-work-tree', projectPath)
+    return result.success && result.stdout === 'true'
+  }
+
+  /**
+   * Create and switch to a new git branch
+   */
+  async createAndSwitchBranch(branchName, projectPath = process.cwd()) {
+    // Check if it's a git repo
+    if (!await this.isGitRepo(projectPath)) {
+      return { success: false, message: 'Not a git repository' }
+    }
+
+    // Check for uncommitted changes
+    const statusResult = await this.execGitCommand('git status --porcelain', projectPath)
+    if (statusResult.stdout) {
+      // Has uncommitted changes, stash them
+      await this.execGitCommand('git stash push -m "Auto-stash before branch creation"', projectPath)
+    }
+
+    // Check if branch already exists
+    const branchExists = await this.execGitCommand(`git show-ref --verify --quiet refs/heads/${branchName}`, projectPath)
+
+    if (branchExists.success) {
+      // Branch exists, just switch to it
+      const switchResult = await this.execGitCommand(`git checkout ${branchName}`, projectPath)
+      if (!switchResult.success) {
+        return { success: false, message: `Failed to switch to existing branch: ${branchName}` }
+      }
+      return { success: true, message: `Switched to existing branch: ${branchName}`, existed: true }
+    }
+
+    // Create and switch to new branch
+    const createResult = await this.execGitCommand(`git checkout -b ${branchName}`, projectPath)
+
+    if (!createResult.success) {
+      return { success: false, message: `Failed to create branch: ${createResult.error}` }
+    }
+
+    // Pop stash if we stashed earlier
+    if (statusResult.stdout) {
+      await this.execGitCommand('git stash pop', projectPath)
+    }
+
+    return { success: true, message: `Created and switched to new branch: ${branchName}`, existed: false }
   }
 
   /**
@@ -129,17 +232,49 @@ class PrjctCommands {
         }
       }
 
-      // Set new task
-      const content = `# NOW: ${task}\nStarted: ${this.agent.getTimestamp()}\n\n## Task\n${task}\n\n## Notes\n\n`
-      await this.agent.writeFile(nowFile, content)
+      // Generate branch name
+      const branchName = this.generateBranchName(task)
 
-      // Log to memory
-      await this.logToMemory(projectPath, 'now', { task, timestamp: this.agent.getTimestamp() })
+      // Try to create and switch to the branch
+      let branchMessage = ''
+      const branchResult = await this.createAndSwitchBranch(branchName, projectPath)
+
+      if (branchResult.success) {
+        if (branchResult.existed) {
+          branchMessage = `\n🔄 Switched to existing branch: ${branchName}`
+        } else {
+          branchMessage = `\n🌿 Created and switched to branch: ${branchName}`
+        }
+      } else if (branchResult.message === 'Not a git repository') {
+        // Not a git repo, silently continue without branch creation
+        branchMessage = ''
+      } else {
+        // Git operation failed, log warning but continue
+        branchMessage = `\n⚠️ Could not create branch: ${branchResult.message}`
+      }
+
+      // Set new task with branch info if available
+      let contentWithBranch = `# NOW: ${task}\nStarted: ${this.agent.getTimestamp()}\n`
+      if (branchResult.success) {
+        contentWithBranch += `Branch: ${branchName}\n`
+      }
+      contentWithBranch += `\n## Task\n${task}\n\n## Notes\n\n`
+
+      await this.agent.writeFile(nowFile, contentWithBranch)
+
+      // Log to memory with branch info
+      const memoryData = {
+        task,
+        timestamp: this.agent.getTimestamp(),
+        branch: branchResult.success ? branchName : null
+      }
+      await this.logToMemory(projectPath, 'now', memoryData)
 
       return {
         success: true,
         message:
           this.agent.formatResponse(`Focus set: ${task}`, 'focus') +
+          branchMessage +
           '\n' +
           this.agent.suggestNextAction('taskSet'),
       }
