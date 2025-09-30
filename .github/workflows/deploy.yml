@@ -47,10 +47,18 @@ jobs:
           # Copy the built files from docs directory
           mkdir -p ./deploy
           cp -r docs/* ./deploy/
+
+          # Copy the latest install.sh to deployment directory
+          if [ -f "./install.sh" ]; then
+            cp ./install.sh ./deploy/install.sh
+            echo "✅ Copied updated install.sh to deployment directory"
+          fi
+
           # Make sure install.sh is executable
           if [ -f "./deploy/install.sh" ]; then
             chmod +x ./deploy/install.sh
           fi
+
           # Ensure CNAME file is in deployment directory (now in public)
           if [ -f "docs/CNAME" ]; then
             echo "CNAME already in docs directory"
