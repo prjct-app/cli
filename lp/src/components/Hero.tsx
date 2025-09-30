@@ -94,7 +94,7 @@ export const Hero = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.35 }}
-          className="mb-16 flex justify-center"
+          className="mb-8 flex justify-center"
         >
           <a
             href="#windsurf-extension"
@@ -120,11 +120,34 @@ export const Hero = () => {
           </a>
         </motion.div>
 
+        {/* Product Hunt Badge */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.4 }}
+          className="mb-16 flex justify-center"
+        >
+          <a
+            href="https://www.producthunt.com/products/prjct-cli?embed=true&utm_source=badge-featured&utm_medium=badge&utm_source=badge-prjct-cli"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="transition-transform hover:scale-105"
+          >
+            <img
+              src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1021356&theme=dark&t=1759203826693"
+              alt="prjct/cli - Ship faster with Claude Code, Codex and Warp | Product Hunt"
+              style={{ width: '250px', height: '54px' }}
+              width="250"
+              height="54"
+            />
+          </a>
+        </motion.div>
+
         {/* Tagline */}
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.4 }}
+          transition={{ duration: 0.6, delay: 0.45 }}
           className="text-muted-foreground"
         >
           From idea to technical tasks in minutes. Let AI handle the execution.
@@ -135,7 +158,7 @@ export const Hero = () => {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.5 }}
+        transition={{ duration: 0.6, delay: 0.55 }}
         className="mx-auto mt-20 grid max-w-5xl grid-cols-1 gap-8 md:grid-cols-4"
       >
         <div className="text-center">

@@ -26,7 +26,9 @@ export const Home = () => {
           viewport={{ once: true }}
           className="mx-auto max-w-4xl text-center"
         >
-          <h2 className="mb-6 text-3xl font-bold md:text-4xl">Ready to Ship Faster?</h2>
+          <h2 className="mb-6 text-3xl font-bold md:text-4xl">
+            Ready to <span className="hunt-glow">Ship</span> Faster?
+          </h2>
           <p className="mb-8 text-xl text-muted-foreground">
             Join thousands of indie hackers who ship features, not meetings
           </p>
