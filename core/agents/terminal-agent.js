@@ -6,10 +6,21 @@
 const fs = require('fs').promises
 const path = require('path')
 
-// Try to load chalk for colored output
+// Try to load chalk and animations for colored output
 let chalk
+let animations
+
 try {
   chalk = require('chalk')
+
+  // Try to use Catppuccin colors first
+  if (chalk.supportsColor && chalk.supportsColor.has16m) {
+    // Terminal supports 16 million colors, use Catppuccin palette
+    animations = require('../animations')
+  } else {
+    // Fallback to basic colors for better compatibility
+    animations = require('../animations-simple')
+  }
 } catch (e) {
   // Fallback if chalk is not available
   chalk = {
@@ -22,6 +33,7 @@ try {
     bold: (str) => str,
     dim: (str) => str,
   }
+  animations = null
 }
 
 class TerminalAgent {
@@ -34,6 +46,50 @@ class TerminalAgent {
    * Format response for terminal with ANSI colors and emojis
    */
   formatResponse(message, type = 'info') {
+    // Use animations module if available
+    if (animations) {
+      // Check if message contains cleanup data
+      if (type === 'success' && message.includes('Cleanup complete')) {
+        // Parse the cleanup data from the message
+        const filesMatch = message.match(/Files removed: (\d+)/)
+        const tasksMatch = message.match(/Tasks archived: (\d+)/)
+        const spaceMatch = message.match(/Space freed: ([\d.]+)/)
+
+        if (filesMatch && tasksMatch && spaceMatch) {
+          return animations.formatCleanup(
+            parseInt(filesMatch[1]),
+            parseInt(tasksMatch[1]),
+            parseFloat(spaceMatch[1])
+          )
+        }
+      }
+
+      switch(type) {
+        case 'success':
+          return animations.formatSuccess(message)
+        case 'error':
+          return animations.formatError(message)
+        case 'ship':
+          return animations.formatShip(message, 1)
+        case 'focus':
+          return animations.formatFocus(message, new Date().toISOString())
+        case 'idea':
+          return animations.formatIdea(message)
+        default:
+          // Use Catppuccin colors for other types
+          const emojis = {
+            warning: '⚠️',
+            info: 'ℹ️',
+            celebrate: '🎉',
+            progress: '📊',
+            task: '📝',
+          }
+          const emoji = emojis[type] || '💬'
+          return `${emoji} ${animations.colors.text(message)}`
+      }
+    }
+
+    // Fallback to basic formatting
     const emojis = {
       success: '✅',
       error: '❌',
@@ -138,6 +194,19 @@ class TerminalAgent {
       return this.formatResponse('No tasks in queue', 'info')
     }
 
+    // Use animations module if available
+    if (animations) {
+      let output = animations.colors.primary.bold('\n📋 Task Queue\n')
+      output += animations.colors.dim('─'.repeat(40)) + '\n'
+
+      tasks.forEach((task, index) => {
+        output += animations.colors.task(`  ${index + 1}.`) + ` ${animations.colors.text(task)}\n`
+      })
+
+      return output
+    }
+
+    // Fallback to basic chalk
     let output = chalk.bold('\n📋 Task Queue\n')
     output += chalk.dim('─'.repeat(40)) + '\n'
 
@@ -152,6 +221,12 @@ class TerminalAgent {
    * Format recap with colored output
    */
   formatRecap(data) {
+    // Use animations module if available
+    if (animations) {
+      return animations.formatRecap(data)
+    }
+
+    // Fallback to basic chalk
     let output = '\n' + chalk.bold('📊 Project Recap\n')
     output += chalk.dim('─'.repeat(40)) + '\n\n'
 
@@ -175,6 +250,36 @@ class TerminalAgent {
    * Format progress report
    */
   formatProgress(data) {
+    // Use animations module if available
+    if (animations) {
+      const trend =
+        data.velocity > data.previousVelocity
+          ? '📈'
+          : data.velocity < data.previousVelocity
+            ? '📉'
+            : '➡️'
+
+      const divider = animations.colors.primary('━'.repeat(40))
+
+      let output = '\n' + divider + '\n'
+      output += animations.colors.primary.bold(`📊 PROGRESS REPORT - ${data.period.toUpperCase()}\n`)
+      output += divider + '\n\n'
+
+      output += animations.colors.text('Features Shipped: ') + animations.colors.success.bold(data.count) + '\n'
+      output += animations.colors.text('Velocity: ') + animations.colors.info.bold(data.velocity.toFixed(1) + ' features/day') + ' ' + trend + '\n'
+
+      if (data.recentFeatures) {
+        output += '\n' + animations.colors.primary.bold('Recent Wins:\n')
+        output += data.recentFeatures
+      }
+
+      output += '\n' + divider
+      output += '\n' + animations.colors.celebrate(data.motivationalMessage || '🚀 Keep shipping!')
+
+      return output
+    }
+
+    // Fallback to basic chalk
     const trend =
       data.velocity > data.previousVelocity
         ? '📈'
@@ -203,6 +308,51 @@ class TerminalAgent {
    * Get help content based on issue type
    */
   getHelpContent(issue) {
+    // Use animations module if available
+    if (animations) {
+      const c = animations.colors
+      const helps = {
+        debugging: `
+${c.error.bold('🔍 Debugging Strategy:')}
+  ${c.secondary('1.')} ${c.text.bold('Isolate')} - Comment out code until error disappears
+  ${c.secondary('2.')} ${c.text.bold('Log')} - Add console.log at key points
+  ${c.secondary('3.')} ${c.text.bold('Simplify')} - Create minimal reproduction
+  ${c.secondary('4.')} ${c.text.bold('Research')} - Search for exact error message
+  ${c.secondary('5.')} ${c.text.bold('Break')} - Take a walk, fresh perspective helps!
+              `,
+        design: `
+${c.primary.bold('🎨 Design Approach:')}
+  ${c.secondary('1.')} ${c.text.bold('Start Simple')} - Basic version first
+  ${c.secondary('2.')} ${c.text.bold('User First')} - What problem does this solve?
+  ${c.secondary('3.')} ${c.text.bold('Iterate')} - Ship v1, improve based on feedback
+  ${c.secondary('4.')} ${c.text.bold('Patterns')} - Look for similar solutions
+  ${c.secondary('5.')} ${c.text.bold('Validate')} - Show mockup before building
+              `,
+        performance: `
+${c.warning.bold('⚡ Performance Strategy:')}
+  ${c.secondary('1.')} ${c.text.bold('Measure First')} - Profile before optimizing
+  ${c.secondary('2.')} ${c.text.bold('Biggest Wins')} - Focus on slowest parts
+  ${c.secondary('3.')} ${c.text.bold('Cache')} - Store expensive computations
+  ${c.secondary('4.')} ${c.text.bold('Lazy Load')} - Defer non-critical work
+  ${c.secondary('5.')} ${c.text.bold('Monitor')} - Track improvements
+              `,
+        default: `
+${c.idea.bold('💡 General Strategy:')}
+  ${c.secondary('1.')} ${c.text.bold('Break It Down')} - Divide into smaller tasks
+  ${c.secondary('2.')} ${c.text.bold('Start Small')} - Implement simplest part first
+  ${c.secondary('3.')} ${c.text.bold('Test Often')} - Verify each step works
+  ${c.secondary('4.')} ${c.text.bold('Document')} - Write down what you learn
+  ${c.secondary('5.')} ${c.text.bold('Ship It')} - Perfect is the enemy of done
+              `,
+      }
+
+      const helpType =
+        Object.keys(helps).find((key) => issue.toLowerCase().includes(key)) || 'default'
+
+      return helps[helpType]
+    }
+
+    // Fallback to basic chalk
     const helps = {
       debugging: `
 ${chalk.bold('🔍 Debugging Strategy:')}
@@ -248,6 +398,33 @@ ${chalk.bold('💡 General Strategy:')}
    * Suggest next action based on context
    */
   suggestNextAction(context) {
+    // Use animations module if available
+    if (animations) {
+      const c = animations.colors
+      const suggestions = {
+        taskCompleted:
+          c.dim('→ Ready for the next challenge? Use ') +
+          c.success('prjct next') +
+          c.dim(' to see your queue!'),
+        featureShipped:
+          c.dim('→ Awesome! Take a moment to celebrate, then ') +
+          c.ship('prjct now') +
+          c.dim(' for next focus!'),
+        ideaCaptured:
+          c.dim('→ Great idea! Use ') +
+          c.idea('prjct now') +
+          c.dim(' to start working on it!'),
+        initialized: c.dim('→ All set! Start with ') + c.primary('prjct now "your first task"'),
+        stuck:
+          c.dim('→ You got this! Break it down with ') +
+          c.focus('prjct idea') +
+          c.dim(' for each step'),
+      }
+
+      return suggestions[context] || c.dim('→ What would you like to work on next?')
+    }
+
+    // Fallback to basic chalk
     const suggestions = {
       taskCompleted:
         chalk.dim('→ Ready for the next challenge? Use ') +
@@ -286,11 +463,17 @@ ${chalk.bold('💡 General Strategy:')}
   showSpinner(message) {
     if (!process.stdout.isTTY) return
 
-    const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+    // Use animations module if available
+    const frames = animations?.frames?.loading || ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
     let i = 0
 
+    const formattedMessage = animations
+      ? animations.colors.text(message)
+      : message
+
     const interval = setInterval(() => {
-      process.stdout.write(`\r${frames[i]} ${message}`)
+      const frame = animations?.colors?.primary(frames[i]) || frames[i]
+      process.stdout.write(`\r${frame} ${formattedMessage}`)
       i = (i + 1) % frames.length
     }, 80)
 

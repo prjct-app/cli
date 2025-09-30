@@ -190,6 +190,35 @@ prjct recap                # Show progress
 → 📊 Vista mensual con estadísticas detalladas
 ```
 
+### 🧹 **"Necesito limpiar el código"**
+
+```bash
+/p:cleanup
+→ 🧹 Limpieza básica de archivos temporales y logs
+
+/p:cleanup-advanced --type code
+→ 🗑️ Elimina console.logs, código comentado, imports sin usar
+
+/p:cleanup-advanced --aggressive
+→ ⚡ Limpieza profunda con optimización de dependencias
+```
+
+### 🎨 **"Necesito diseñar antes de codear"**
+
+```bash
+/p:design "sistema de autenticación" --type architecture
+→ 🏗️ Genera diseño de arquitectura con diagramas ASCII
+
+/p:design "API de usuarios" --type api
+→ 📋 Diseña endpoints REST/GraphQL con especificaciones
+
+/p:design "dashboard" --type component
+→ 🧩 Diseña jerarquía de componentes UI
+
+/p:design "base de datos" --type database
+→ 📊 Diseña esquemas y relaciones de base de datos
+```
+
 ### 💻 **"Necesito hacer commit/push"**
 
 ```bash

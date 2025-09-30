@@ -1,5 +1,5 @@
 ---
-allowed-tools: [Bash]
+allowed-tools: [Read, Write, Edit, TodoWrite]
 description: 'Ship a feature and celebrate the win'
 ---
 
@@ -17,13 +17,11 @@ Mark a feature as shipped and celebrate the achievement. Tracks velocity and pro
 
 ## Execution
 
-Execute the command silently and show only the final result:
-
-```bash
-prjct ship "<feature description>"
-```
-
-The command handles all file operations internally. Show only the celebration message.
+1. Add feature to `.prjct/progress/shipped.md` under current week
+2. Update `.prjct/progress/metrics.md` with statistics
+3. Update `.prjct/core/context.md` with latest achievement
+4. Log to `.prjct/memory/context.jsonl`
+5. Celebrate with emojis and encouragement
 
 ## Implementation
 

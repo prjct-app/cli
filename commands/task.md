@@ -17,12 +17,13 @@ Handle complex features by breaking them down, executing systematically, and tra
 
 ## Execution
 
-1. Analyze task complexity
-2. Break into 3-7 subtasks automatically
-3. Create execution plan in `.prjct/planning/tasks/`
-4. Execute each subtask with validation
-5. Track progress and update metrics
+Execute the command silently and show only the final result:
 
+```bash
+prjct task "<description>"
+```
+
+The command handles all file operations internally. Show only the final message.
 ## Implementation
 
 **Task breakdown**:

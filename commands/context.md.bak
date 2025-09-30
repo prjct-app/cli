@@ -1,5 +1,5 @@
 ---
-allowed-tools: [Bash]
+allowed-tools: [Read, Glob, Bash]
 description: 'Show project context and recent activity'
 ---
 
@@ -17,13 +17,12 @@ Display project context including type, current task, and recent activity.
 
 ## Execution
 
-Execute the command silently and show only the final result:
+1. Aggregate context from all project layers
+2. Reference analysis for technical context
+3. Show current task and planning alignment
+4. Display recent activity from memory layer
+5. Provide cross-layer insights and suggestions
 
-```bash
-prjct context
-```
-
-The command handles all file operations internally. Show only the final message.
 ## Implementation
 
 1. **Layer aggregation**:

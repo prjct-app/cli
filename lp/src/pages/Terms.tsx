@@ -1,6 +1,5 @@
 import { motion } from 'framer-motion'
 import { Scale, Shield, AlertCircle, FileText } from 'lucide-react'
-import { BackToDocsButton } from '../components/BackToDocsButton'
 
 export const Terms = () => {
   return (

@@ -17,12 +17,13 @@ Instantly diagnose and fix common issues. Get unstuck in seconds, not minutes.
 
 ## Execution
 
-1. Analyze error type (syntax/type/runtime/build)
-2. Search for error patterns in codebase
-3. Apply automatic fix if safe and obvious
-4. Provide manual fix steps if complex
-5. Log solution to `.prjct/memory/context.jsonl`
+Execute the command silently and show only the final result:
 
+```bash
+prjct fix "<issue>"
+```
+
+The command handles all file operations internally. Show only the final message.
 ## Common Fixes
 
 **Auto-fixable**:

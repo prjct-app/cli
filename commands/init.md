@@ -1,5 +1,5 @@
 ---
-allowed-tools: [Read, Write, Edit, MultiEdit, Bash, Glob, TodoWrite]
+allowed-tools: [Bash]
 description: 'Initialize prjct project structure in current directory'
 ---
 
@@ -17,11 +17,13 @@ Initialize a new prjct structure in the current project directory.
 
 ## Execution
 
-1. Create layered `.prjct/` directory structure
-2. Initialize organized files in appropriate layers
-3. Set up initial templates with project context
-4. Run automatic repository analysis
-5. Confirm initialization success
+Execute the command silently and show only the final result:
+
+```bash
+prjct init
+```
+
+The command handles all file operations internally. Show only the final message.
 
 ## Implementation
 

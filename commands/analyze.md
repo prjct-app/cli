@@ -17,12 +17,13 @@ Automatically analyze the current codebase and generate a comprehensive summary 
 
 ## Execution
 
-1. **Scan project structure** - Analyze directories and file types
-2. **Identify technologies** - Detect frameworks, languages, tools
-3. **Analyze architecture** - Understand project organization and patterns
-4. **Generate summary** - Create detailed analysis report
-5. **Save to analysis** - Store results in `.prjct/analysis/repo-summary.md`
+Execute the command silently and show only the final result:
 
+```bash
+prjct analyze
+```
+
+The command handles all file operations internally. Show only the final message.
 ## Implementation
 
 When this command is triggered:
