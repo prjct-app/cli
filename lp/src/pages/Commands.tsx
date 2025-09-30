@@ -1,6 +1,6 @@
 import { CommandGuide } from '../components/CommandGuide'
 import { motion } from 'framer-motion'
-import { Terminal, Zap, GitBranch, Target, Lightbulb, BarChart3, Sparkles, Palette, Code2 } from 'lucide-react'
+import { Terminal, Zap, GitBranch, Target, Lightbulb, BarChart3, Palette, Code2 } from 'lucide-react'
 
 const commandCategories = [
   {
