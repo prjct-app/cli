@@ -122,15 +122,59 @@ async function main() {
                     installOptions.editor = installArgs[++i];
                 } else if (installArgs[i] === '--create-templates') {
                     installOptions.createTemplates = true;
+                } else if (installArgs[i] === '--no-interactive') {
+                    installOptions.interactive = false;
                 }
             }
 
             result = await commands.install(installOptions);
             break;
+        case 'analyze':
+            // Parse analyze options
+            const analyzeOptions = {};
+            const analyzeArgs = args.slice(1);
+
+            for (let i = 0; i < analyzeArgs.length; i++) {
+                if (analyzeArgs[i] === '--sync') {
+                    analyzeOptions.sync = true;
+                } else if (analyzeArgs[i] === '--report-only') {
+                    analyzeOptions.reportOnly = true;
+                }
+            }
+
+            result = await commands.analyze(analyzeOptions);
+            break;
         default:
             result = {
                 success: false,
-                message: `Unknown command: ${command}\n\nAvailable commands:\n  init, now, done, ship, next, idea, recap, progress, stuck, context\n  cleanup, cleanup-advanced, design, migrate-all, install`
+                message: `Unknown command: ${command}
+
+Available commands:
+  Core workflow:
+    init              Initialize prjct in current project
+    now [task]        Set or show current task
+    done              Complete current task
+    ship <feature>    Ship and celebrate a feature
+    next              Show priority queue
+    idea <text>       Capture an idea
+    recap             Show project overview
+    progress [period] Show progress metrics
+    stuck <issue>     Get help with a problem
+    context           Show project context
+
+  Advanced:
+    cleanup           Clean up .prjct structure
+    cleanup-advanced  Advanced cleanup with options
+    design [target]   Design system/architecture
+    analyze           Analyze codebase and sync state
+    migrate-all       Migrate all legacy projects
+    install           Install commands to AI editors
+
+  Install options:
+    --force           Force update existing commands
+    --editor <name>   Install to specific editor (claude|cursor|codex|windsurf)
+    --no-interactive  Skip interactive selection, install to all
+    --create-templates Create templates from existing commands`
             };
     }
 

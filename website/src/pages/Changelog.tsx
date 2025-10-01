@@ -25,11 +25,156 @@ export const Changelog = () => {
           </p>
         </motion.div>
 
-        {/* Version 0.2.0 */}
+        {/* Unreleased - Coming Soon */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.1 }}
+          className="mb-16"
+        >
+          <div className="flex items-center gap-4 mb-6">
+            <h2 className="text-3xl font-bold">Unreleased</h2>
+            <span className="px-3 py-1 bg-cat-blue text-white text-sm font-medium rounded-full">
+              Coming Soon
+            </span>
+          </div>
+
+          {/* Intelligent Codebase Analysis */}
+          <div className="space-y-6">
+            <div className="p-6 bg-muted/20 rounded-2xl">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
+                  <CheckCircle className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold mb-2">Intelligent Codebase Analysis & Sync</h3>
+                  <p className="text-muted-foreground mb-3">
+                    Auto-detect implemented features and sync project state. Perfect for teams working without cloud storage.
+                  </p>
+
+                  <div className="space-y-3 mb-4">
+                    <div className="p-3 bg-background/50 rounded-lg border border-border">
+                      <code className="text-cat-mauve text-sm">/p:analyze</code>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Analyze codebase and detect implemented commands/features
+                      </p>
+                    </div>
+
+                    <div className="p-3 bg-background/50 rounded-lg border border-border">
+                      <code className="text-cat-mauve text-sm">/p:analyze --sync</code>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Automatically update .prjct/ files with real implementation state
+                      </p>
+                    </div>
+                  </div>
+
+                  <ul className="space-y-2 text-sm text-muted-foreground">
+                    <li>• Auto-execution during <code className="text-cat-mauve">/p:init</code> when cloning repos with existing code</li>
+                    <li>• Detects implemented commands by scanning source files</li>
+                    <li>• Extracts completed features from git history, dependencies, and directory structure</li>
+                    <li>• Automatically updates <code className="text-cat-mauve">next.md</code> by marking completed tasks</li>
+                    <li>• Adds detected features to <code className="text-cat-mauve">shipped.md</code></li>
+                    <li>• Generates detailed analysis reports in <code className="text-cat-mauve">analysis/repo-summary.md</code></li>
+                    <li>• Prevents duplicate work across team members</li>
+                    <li>• Real project status visibility without cloud sync</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.section>
+
+        {/* Version 0.2.1 */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="mb-16"
+        >
+          <div className="flex items-center gap-4 mb-6">
+            <h2 className="text-3xl font-bold">v0.2.1</h2>
+            <span className="px-3 py-1 bg-primary text-primary-foreground text-sm font-medium rounded-full">
+              Latest
+            </span>
+            <span className="text-muted-foreground">September 30, 2025</span>
+          </div>
+
+          {/* Key Features */}
+          <div className="space-y-6">
+            {/* Multi-Editor Support */}
+            <div className="p-6 bg-muted/20 rounded-2xl">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
+                  <CheckCircle className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold mb-2">Multi-Editor Command Installation</h3>
+                  <p className="text-muted-foreground mb-3">
+                    Automatic slash command deployment across AI editors with seamless synchronization.
+                  </p>
+                  <ul className="space-y-2 text-sm text-muted-foreground">
+                    <li>• <code className="text-cat-mauve">prjct install</code> command for all detected editors</li>
+                    <li>• Support for Claude Code, Cursor AI, and Codeium</li>
+                    <li>• Template-based command system in <code className="text-cat-mauve">~/.prjct-cli/templates/</code></li>
+                    <li>• Automatic installation during <code className="text-cat-mauve">prjct init</code></li>
+                    <li>• Cross-editor data synchronization through global architecture</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Global Migration */}
+            <div className="p-6 bg-muted/20 rounded-2xl">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
+                  <Database className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold mb-2">Global Migration System</h3>
+                  <p className="text-muted-foreground mb-3">
+                    Migrate all legacy projects on your machine with a single command.
+                  </p>
+                  <ul className="space-y-2 text-sm text-muted-foreground">
+                    <li>• <code className="text-cat-mauve">prjct migrate-all</code> finds and migrates all legacy projects</li>
+                    <li>• Scans common directories: <code className="text-cat-mauve">~/Projects</code>, <code className="text-cat-mauve">~/Documents</code>, etc.</li>
+                    <li>• Optional <code className="text-cat-mauve">--deep-scan</code> for entire home directory</li>
+                    <li>• <code className="text-cat-mauve">--dry-run</code> to preview changes</li>
+                    <li>• <code className="text-cat-mauve">--remove-legacy</code> to clean up after migration</li>
+                    <li>• Progress tracking and comprehensive reports</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Repository Reorganization */}
+            <div className="p-6 bg-muted/20 rounded-2xl">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
+                  <Wrench className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold mb-2">Repository Structure Reorganization</h3>
+                  <p className="text-muted-foreground mb-3">
+                    Cleaner project structure with better organization and clarity.
+                  </p>
+                  <ul className="space-y-2 text-sm text-muted-foreground">
+                    <li>• Source code moved to <code className="text-cat-mauve">src/</code> directory</li>
+                    <li>• Scripts organized in <code className="text-cat-mauve">scripts/</code></li>
+                    <li>• Configuration in <code className="text-cat-mauve">.config/</code></li>
+                    <li>• Renamed <code className="text-cat-mauve">lp/</code> to <code className="text-cat-mauve">website/</code> for clarity</li>
+                    <li>• Added <code className="text-cat-mauve">templates/commands/</code> for command distribution</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.section>
+
+        {/* Version 0.2.0 */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.3 }}
           className="mb-16"
         >
           <div className="flex items-center gap-4 mb-6">
@@ -215,7 +360,7 @@ export const Changelog = () => {
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
+          transition={{ duration: 0.6, delay: 0.4 }}
           className="mb-16"
         >
           <div className="flex items-center gap-4 mb-6">
@@ -257,7 +402,7 @@ export const Changelog = () => {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
+          transition={{ duration: 0.6, delay: 0.5 }}
           className="p-8 bg-gradient-to-br from-primary/10 to-transparent rounded-2xl border border-primary/20 text-center"
         >
           <h3 className="text-2xl font-bold mb-2">Stay Updated</h3>

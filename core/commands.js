@@ -10,6 +10,7 @@ const authorDetector = require('./author-detector')
 const migrator = require('./migrator')
 const commandInstaller = require('./command-installer')
 const sessionManager = require('./session-manager')
+const analyzer = require('./analyzer')
 const { VERSION } = require('./version')
 
 // Try to load animations for enhanced output
@@ -313,11 +314,36 @@ class PrjctCommands {
       // Detect project type
       const projectInfo = await this.detectProjectType(projectPath)
 
-      // Install commands to detected editors
-      const installResult = await commandInstaller.installToAll(false)
+      // Install commands to detected editors with interactive selection
+      const installResult = await this.install({ force: false, interactive: true })
       const editorsInstalled = installResult.success
-        ? `\n🤖 Commands installed to: ${installResult.editors.join(', ')}`
+        ? `\n🤖 Commands installed to: ${installResult.message.split('Editors: ')[1]?.split('\n')[0] || 'selected editors'}`
         : ''
+
+      // Auto-analyze if project has existing code
+      let analysisMessage = ''
+      const hasExistingCode = await this.detectExistingCode(projectPath)
+
+      if (hasExistingCode) {
+        try {
+          console.log('🔍 Analyzing existing codebase...')
+          const analysisResult = await this.analyze({
+            sync: true,
+            silent: true
+          }, projectPath)
+
+          if (analysisResult.success && analysisResult.syncResults) {
+            const sync = analysisResult.syncResults
+            analysisMessage = `\n\n📊 Analysis Complete:\n` +
+              `✅ Found ${analysisResult.analysis.commands.length} commands, ${analysisResult.analysis.features.length} features\n` +
+              (sync.tasksMarkedComplete > 0 ? `✅ Synced ${sync.tasksMarkedComplete} completed tasks\n` : '') +
+              (sync.featuresAdded > 0 ? `✅ Added ${sync.featuresAdded} features to shipped.md\n` : '')
+          }
+        } catch (error) {
+          // Analysis failed, but don't block initialization
+          console.error('[prjct] Analysis warning:', error.message)
+        }
+      }
 
       const displayPath = pathManager.getDisplayPath(globalPath)
       const message =
@@ -327,6 +353,7 @@ class PrjctCommands {
         `👤 Author: ${authorDetector.formatAuthor(author)}\n` +
         `📋 Project: ${projectInfo}` +
         editorsInstalled +
+        analysisMessage +
         `\n\nReady! Start with ${this.agentInfo.config.commandPrefix}now "your first task"`
 
       return {
@@ -1667,7 +1694,8 @@ ${diagram}
       const {
         force = false,
         editor = null,
-        createTemplates = false
+        createTemplates = false,
+        interactive = true
       } = options
 
       // Create templates if requested
@@ -1681,13 +1709,62 @@ ${diagram}
         }
       }
 
+      // Detect available editors
+      const detection = await commandInstaller.detectEditors(process.cwd())
+      const detectedEditors = Object.entries(detection)
+        .filter(([_, info]) => info.detected)
+
+      if (detectedEditors.length === 0) {
+        return {
+          success: false,
+          message: this.agent.formatResponse('No AI editors detected on this system', 'error')
+        }
+      }
+
       // Install commands
       let installResult
+
       if (editor) {
-        // Install to specific editor
+        // Install to specific editor via command line
         installResult = await commandInstaller.installToEditor(editor, force)
+      } else if (interactive && detectedEditors.length > 1) {
+        // Show interactive selection if multiple editors detected
+        const inquirer = require('inquirer')
+
+        console.log('\n🤖 Detected AI editors on your system:\n')
+
+        const choices = detectedEditors.map(([key, info]) => ({
+          name: `${commandInstaller.editors[key].name} → ${info.path}`,
+          value: key,
+          checked: true // Default to all checked
+        }))
+
+        const answers = await inquirer.prompt([
+          {
+            type: 'checkbox',
+            name: 'selectedEditors',
+            message: 'Select editors to install commands:',
+            choices,
+            validate: (answer) => {
+              if (answer.length < 1) {
+                return 'You must choose at least one editor.'
+              }
+              return true
+            }
+          }
+        ])
+
+        if (answers.selectedEditors.length === 0) {
+          return {
+            success: false,
+            message: this.agent.formatResponse('No editors selected', 'error')
+          }
+        }
+
+        // Install to selected editors
+        installResult = await commandInstaller.installToSelected(answers.selectedEditors, force)
       } else {
-        // Install to all detected editors
+        // Install to all detected editors (non-interactive or single editor)
         installResult = await commandInstaller.installToAll(force)
       }
 
@@ -1704,6 +1781,177 @@ ${diagram}
         success: false,
         message: this.agent.formatResponse(`Installation failed: ${error.message}`, 'error')
       }
+    }
+  }
+
+  /**
+   * Analyze codebase and optionally sync with .prjct/ state
+   */
+  async analyze(options = {}, projectPath = process.cwd()) {
+    try {
+      await this.initializeAgent()
+
+      const {
+        sync = false,
+        reportOnly = false,
+        silent = false
+      } = options
+
+      if (!silent) {
+        console.log('🔍 Analyzing codebase...')
+      }
+
+      // Run analysis
+      const analysis = await analyzer.analyzeProject(projectPath)
+
+      // Generate summary stats
+      const summary = {
+        commandsFound: analysis.commands.length,
+        featuresFound: analysis.features.length,
+        technologies: analysis.technologies.join(', '),
+        fileCount: analysis.structure.fileCount,
+        hasGit: analysis.gitHistory.hasGit
+      }
+
+      // Sync with .prjct/ if requested
+      let syncResults = null
+      if (sync && !reportOnly) {
+        const globalProjectPath = await this.getGlobalProjectPath(projectPath)
+        syncResults = await analyzer.syncWithPrjctFiles(globalProjectPath)
+      }
+
+      // Generate output message
+      let message = ''
+
+      if (silent) {
+        // Return minimal summary for init
+        message = `Found ${summary.commandsFound} commands, ${summary.featuresFound} features`
+      } else if (reportOnly) {
+        // Just show the report
+        message = this.formatAnalysisReport(summary, analysis)
+      } else if (sync) {
+        // Show sync results
+        message = this.formatAnalysisWithSync(summary, syncResults)
+      } else {
+        // Show full report
+        message = this.formatAnalysisReport(summary, analysis)
+      }
+
+      return {
+        success: true,
+        message: this.agent.formatResponse(message, 'info'),
+        analysis,
+        syncResults
+      }
+
+    } catch (error) {
+      await this.initializeAgent()
+      return {
+        success: false,
+        message: this.agent.formatResponse(`Analysis failed: ${error.message}`, 'error')
+      }
+    }
+  }
+
+  /**
+   * Format analysis report for display
+   */
+  formatAnalysisReport(summary, analysis) {
+    return `
+🔍 Codebase Analysis Complete
+
+📊 Project Overview:
+• Technologies: ${summary.technologies || 'Not detected'}
+• Total Files: ~${summary.fileCount}
+• Git Repository: ${summary.hasGit ? '✅ Yes' : '❌ No'}
+
+🛠️ Implemented Commands: ${summary.commandsFound}
+${analysis.commands.slice(0, 10).map(cmd => `  • /p:${cmd}`).join('\n')}
+${analysis.commands.length > 10 ? `  ... and ${analysis.commands.length - 10} more` : ''}
+
+✨ Detected Features: ${summary.featuresFound}
+${analysis.features.slice(0, 5).map(f => `  • ${f}`).join('\n')}
+${analysis.features.length > 5 ? `  ... and ${analysis.features.length - 5} more` : ''}
+
+📝 Full report saved to: analysis/repo-summary.md
+
+💡 Use /p:analyze --sync to sync with .prjct/ files
+`
+  }
+
+  /**
+   * Format analysis with sync results
+   */
+  formatAnalysisWithSync(summary, syncResults) {
+    return `
+🔍 Analysis & Sync Complete
+
+📊 Detected:
+✅ ${summary.commandsFound} implemented commands
+✅ ${summary.featuresFound} completed features
+
+📝 Synchronized:
+${syncResults.nextMdUpdated ? `✅ Updated next.md (${syncResults.tasksMarkedComplete} tasks marked complete)` : '• next.md (no changes)'}
+${syncResults.shippedMdUpdated ? `✅ Updated shipped.md (${syncResults.featuresAdded} features added)` : '• shipped.md (no changes)'}
+✅ Created analysis/repo-summary.md
+
+💡 Next: Use /p:next to see remaining tasks
+`
+  }
+
+  /**
+   * Detect if project has existing code (for auto-analyze during init)
+   */
+  async detectExistingCode(projectPath) {
+    try {
+      // Check for package.json with dependencies
+      const packagePath = path.join(projectPath, 'package.json')
+      try {
+        const content = await fs.readFile(packagePath, 'utf-8')
+        const pkg = JSON.parse(content)
+
+        // If has dependencies, likely has code
+        if (pkg.dependencies && Object.keys(pkg.dependencies).length > 0) {
+          return true
+        }
+      } catch {
+        // No package.json or parse error, continue checking
+      }
+
+      // Check for git commits
+      try {
+        const { stdout } = await exec('git rev-list --count HEAD', { cwd: projectPath })
+        const commitCount = parseInt(stdout.trim())
+        if (commitCount > 0) {
+          return true
+        }
+      } catch {
+        // Not a git repo or no commits
+      }
+
+      // Count code files
+      const entries = await fs.readdir(projectPath)
+      const codeExtensions = ['.js', '.ts', '.jsx', '.tsx', '.py', '.go', '.rs', '.rb', '.java']
+
+      let codeFileCount = 0
+      for (const entry of entries) {
+        // Skip node_modules and hidden files
+        if (entry.startsWith('.') || entry === 'node_modules') {
+          continue
+        }
+
+        const ext = path.extname(entry)
+        if (codeExtensions.includes(ext)) {
+          codeFileCount++
+        }
+      }
+
+      // If has 5+ code files, consider it has existing code
+      return codeFileCount >= 5
+
+    } catch (error) {
+      // Error detecting, assume no existing code
+      return false
     }
   }
 }

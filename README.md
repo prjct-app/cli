@@ -1,4 +1,15 @@
-# 🚀 prjct-cli
+```
+   (ﾉ◕ヮ◕)ﾉ*:･ﾟ✧
+   ██████╗ ██████╗      ██╗ ██████╗████████╗
+   ██╔══██╗██╔══██╗     ██║██╔════╝╚══██╔══╝
+   ██████╔╝██████╔╝     ██║██║        ██║
+   ██╔═══╝ ██╔══██╗██   ██║██║        ██║
+   ██║     ██║  ██║╚█████╔╝╚██████╗   ██║
+   ╚═╝     ╚═╝  ╚═╝ ╚════╝  ╚═════╝   ╚═╝
+   prjct/cli
+```
+
+**Ship fast, stay focused, no BS.**
 
 **AI-integrated project management for indie hackers** - Ship fast, stay focused, no ceremonies.
 
@@ -56,6 +67,38 @@ curl -fsSL https://prjct.app/install.sh | bash -s -- --dev
 # Show help
 curl -fsSL https://prjct.app/install.sh | bash -s -- --help
 ```
+
+### Editor Command Installation
+
+After initial installation, `prjct` can install commands to your AI editors:
+
+```bash
+# Interactive installation (default) - select which editors to use
+prjct install
+
+# Non-interactive - install to all detected editors
+prjct install --no-interactive
+
+# Install to specific editor only
+prjct install --editor claude
+prjct install --editor cursor
+prjct install --editor codex
+prjct install --editor windsurf
+
+# Force update existing commands
+prjct install --force
+
+# Create templates from existing commands
+prjct install --create-templates
+```
+
+**Detected Editors:**
+- **Claude Code**: `~/.claude/commands/p/`
+- **Cursor AI**: `~/.cursor/commands/p/`
+- **OpenAI Codex**: `{project}/AGENTS.md`
+- **Windsurf/Codeium**: `{project}/.windsurf/workflows/`
+
+The interactive mode (default) will show checkboxes to select which editors to install to, optimizing for your actual workflow.
 
 ### Version Management
 
@@ -267,6 +310,28 @@ prjct recap                # Show progress
 → 🔄 Pull + commit + push (complete sync)
 ```
 
+### 🔍 **"I cloned the repo or someone else pushed changes"**
+
+```bash
+# After cloning a repo with existing code
+git clone repo && cd repo
+/p:init
+→ 🔍 Auto-analyzes existing code and syncs state
+→ ✅ Shows real tasks remaining (not all from scratch)
+
+# After pulling changes from teammates
+git pull
+/p:analyze --sync
+→ 🔍 Re-analyzes codebase
+→ ✅ Syncs with newly implemented features
+→ 📊 Updates next.md and shipped.md automatically
+
+# Just want to see what's implemented (no sync)
+/p:analyze
+→ 📊 Shows commands, features, and technologies detected
+→ 📝 Creates analysis/repo-summary.md report
+```
+
 ## 📖 Complete Command Reference
 
 ### Core Commands (Essential) 🎯
@@ -291,12 +356,13 @@ prjct recap                # Show progress
 
 ### Development Commands 🛠️
 
-| Command          | When to use?           | What does it do?              | Example Output                  |
-| ---------------- | ---------------------- | ----------------------------- | ------------------------------- |
-| `/p:analyze`     | Understand the project | Automatic repo analysis       | `🔍 Tech: Node.js, 45 files`    |
-| `/p:git`         | Quick commit           | Smart message + commit        | `✅ feat: add auth system`      |
-| `/p:test`        | Run tests              | Run + auto-fix simple errors  | `✅ 42 passing, 2 fixed`        |
-| `/p:fix <error>` | Solve errors           | Diagnosis and solutions       | `🔧 Solution: check null first` |
+| Command              | When to use?              | What does it do?                      | Example Output                        |
+| -------------------- | ------------------------- | ------------------------------------- | ------------------------------------- |
+| `/p:analyze`         | Understand project state  | Auto-analyze & sync with real code    | `🔍 14 commands, 8 features detected` |
+| `/p:analyze --sync`  | After git pull or clone   | Sync .prjct/ with implemented code    | `✅ Synced 5 tasks, 3 features`       |
+| `/p:git`             | Quick commit              | Smart message + commit                | `✅ feat: add auth system`            |
+| `/p:test`            | Run tests                 | Run + auto-fix simple errors          | `✅ 42 passing, 2 fixed`              |
+| `/p:fix <error>`     | Solve errors              | Diagnosis and solutions               | `🔧 Solution: check null first`       |
 
 ### Metrics Commands 📊
 
@@ -311,13 +377,15 @@ prjct recap                # Show progress
 ### 🌟 **My First Day with prjct**
 
 ```bash
-# 1. Initialize structure
+# 1. Initialize structure (auto-analyzes if code exists)
 /p:init
 → ✅ Project configured with .prjct/ structure
+→ 🔍 Auto-analyzed existing code (if any)
+→ ✅ Synced state with implemented features
 
-# 2. Analyze the repository
-/p:analyze
-→ 🔍 Detected: Node.js, React, 45 files
+# 2. Check what's already done vs what's left
+/p:recap
+→ 📊 Shows: current status, shipped features, real remaining tasks
 
 # 3. View or create roadmap
 /p:roadmap

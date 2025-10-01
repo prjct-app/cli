@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-09-30
+
+### Added
+- **Intelligent Codebase Analysis & Sync** - Auto-detect implemented features and sync project state
+  - `/p:analyze` command to analyze codebase and detect implemented commands/features
+  - `/p:analyze --sync` to automatically update `.prjct/` files with real implementation state
+  - Auto-execution during `/p:init` when cloning repos with existing code
+  - Detects implemented commands by scanning `bin/prjct` and `core/commands.js`
+  - Detects completed features from:
+    - Git commit history (feat:, ship:, feature: prefixes)
+    - Package.json dependencies (major frameworks and libraries)
+    - Directory structure (auth/, api/, dashboard/, etc.)
+  - Automatically updates `next.md` by marking completed tasks
+  - Automatically adds detected features to `shipped.md`
+  - Generates detailed analysis reports in `analysis/repo-summary.md`
+  - Prevents duplicate work when multiple developers work on same codebase
+  - Provides real project status visibility across team members
+  - Zero-configuration sync for better collaboration without cloud storage
+
+- **Interactive Editor Selection** - Choose which AI editors to install commands to
+  - Interactive checkbox UI during `prjct install` and `prjct init`
+  - Detects all installed editors (Claude Code, Cursor, Codex, Windsurf)
+  - Shows installation paths for each detected editor
+  - Allows users to select only the editors they use
+  - `--no-interactive` flag to install to all detected editors without prompts
+  - Optimizes installation by avoiding unnecessary editor installations
+
+### Changed
+- **Updated branding** - New header design with kaomoji (ﾉ◕ヮ◕)ﾉ*:･ﾟ✧
+  - Refreshed README.md header with fun, friendly design
+  - Updated installer (scripts/install.sh) to match new branding
+  - Consistent visual identity across documentation and installation experience
+
 ## [0.2.1] - 2025-09-30
 
 ### Added
