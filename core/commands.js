@@ -406,7 +406,8 @@ class PrjctCommands {
       await this.logToMemory(projectPath, 'task_started', memoryData)
 
       // Update author activity
-      await configManager.updateAuthorActivity(projectPath, currentAuthor)
+      const projectId = await configManager.getProjectId(projectPath)
+      await configManager.updateAuthorActivity(projectId, currentAuthor)
 
       // Update config lastSync
       await configManager.updateLastSync(projectPath)
@@ -480,7 +481,8 @@ class PrjctCommands {
       })
 
       // Update author activity
-      await configManager.updateAuthorActivity(projectPath, currentAuthor)
+      const projectId = await configManager.getProjectId(projectPath)
+      await configManager.updateAuthorActivity(projectId, currentAuthor)
 
       // Check if there are next tasks
       const nextContent = await this.agent.readFile(nextFile)

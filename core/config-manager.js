@@ -49,6 +49,64 @@ class ConfigManager {
   }
 
   /**
+   * Read the global project configuration file
+   * Contains authors array and other system data
+   *
+   * @param {string} projectId - Project identifier
+   * @returns {Promise<Object|null>} - Configuration object or null if not found
+   */
+  async readGlobalConfig(projectId) {
+    try {
+      const configPath = pathManager.getGlobalProjectConfigPath(projectId)
+      const content = await fs.readFile(configPath, 'utf-8')
+      return JSON.parse(content)
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * Write the global project configuration file
+   *
+   * @param {string} projectId - Project identifier
+   * @param {Object} config - Configuration object
+   * @returns {Promise<void>}
+   */
+  async writeGlobalConfig(projectId, config) {
+    const configPath = pathManager.getGlobalProjectConfigPath(projectId)
+    const configDir = pathManager.getGlobalProjectPath(projectId)
+
+    // Ensure global project directory exists
+    await fs.mkdir(configDir, { recursive: true })
+
+    const content = JSON.stringify(config, null, 2)
+    await fs.writeFile(configPath, content + '\n', 'utf-8')
+  }
+
+  /**
+   * Ensure global config exists, create if not
+   *
+   * @param {string} projectId - Project identifier
+   * @returns {Promise<Object>} - Global configuration
+   */
+  async ensureGlobalConfig(projectId) {
+    let globalConfig = await this.readGlobalConfig(projectId)
+
+    if (!globalConfig) {
+      const now = new Date().toISOString()
+      globalConfig = {
+        projectId,
+        authors: [],
+        version: VERSION,
+        lastSync: now
+      }
+      await this.writeGlobalConfig(projectId, globalConfig)
+    }
+
+    return globalConfig
+  }
+
+  /**
    * Create a new project configuration
    *
    * @param {string} projectPath - Path to the project
@@ -61,10 +119,17 @@ class ConfigManager {
     const displayPath = pathManager.getDisplayPath(globalPath)
     const now = new Date().toISOString()
 
-    const config = {
-      version: VERSION,
+    // Local config (minimal, only project metadata)
+    const localConfig = {
       projectId,
-      dataPath: displayPath,
+      dataPath: displayPath
+    }
+
+    await this.writeConfig(projectPath, localConfig)
+
+    // Global config (includes all system data)
+    const globalConfig = {
+      projectId,
       authors: [
         {
           name: author.name || 'Unknown',
@@ -74,52 +139,46 @@ class ConfigManager {
           lastActivity: now
         }
       ],
+      version: VERSION,
       created: now,
       lastSync: now
     }
 
-    await this.writeConfig(projectPath, config)
-    return config
+    await this.writeGlobalConfig(projectId, globalConfig)
+
+    return localConfig
   }
 
   /**
-   * Update the lastSync timestamp
+   * Update the lastSync timestamp in global config
    *
    * @param {string} projectPath - Path to the project
    * @returns {Promise<void>}
    */
   async updateLastSync(projectPath) {
-    const config = await this.readConfig(projectPath)
-    if (config) {
-      config.lastSync = new Date().toISOString()
-      await this.writeConfig(projectPath, config)
+    const projectId = await this.getProjectId(projectPath)
+    const globalConfig = await this.readGlobalConfig(projectId)
+    if (globalConfig) {
+      globalConfig.lastSync = new Date().toISOString()
+      await this.writeGlobalConfig(projectId, globalConfig)
     }
   }
 
   /**
-   * Validate a configuration object
+   * Validate a local configuration object
+   * Local config only contains project metadata (projectId, dataPath)
+   * All system data (version, created, lastSync, authors) is in global config
    *
    * @param {Object} config - Configuration to validate
    * @returns {boolean} - True if valid
    */
   validateConfig(config) {
     if (!config) return false
-    if (!config.version) return false
     if (!config.projectId) return false
     if (!config.dataPath) return false
 
-    // Support both old (author) and new (authors) formats
-    if (config.authors) {
-      if (!Array.isArray(config.authors) || config.authors.length === 0) return false
-      if (!config.authors[0].name) return false
-    } else if (config.author) {
-      if (!config.author.name) return false
-    } else {
-      return false
-    }
-
-    if (!config.created) return false
-    if (!config.lastSync) return false
+    // Legacy support: old configs with version/created/lastSync/authors are still valid
+    // Migration will move them to global config
     return true
   }
 
@@ -175,40 +234,36 @@ class ConfigManager {
 
   /**
    * Find an author in the authors array by github username
+   * Reads from GLOBAL config
    *
-   * @param {string} projectPath - Path to the project
+   * @param {string} projectId - Project identifier
    * @param {string} githubUsername - GitHub username to search for
    * @returns {Promise<Object|null>} - Author object or null if not found
    */
-  async findAuthor(projectPath, githubUsername) {
-    const config = await this.readConfig(projectPath)
-    if (!config || !config.authors) return null
+  async findAuthor(projectId, githubUsername) {
+    const globalConfig = await this.readGlobalConfig(projectId)
+    if (!globalConfig || !globalConfig.authors) return null
 
-    return config.authors.find(a => a.github === githubUsername) || null
+    return globalConfig.authors.find(a => a.github === githubUsername) || null
   }
 
   /**
    * Add a new author to the authors array
+   * Writes to GLOBAL config
    *
-   * @param {string} projectPath - Path to the project
+   * @param {string} projectId - Project identifier
    * @param {Object} author - Author information {name, email, github}
    * @returns {Promise<void>}
    */
-  async addAuthor(projectPath, author) {
-    const config = await this.readConfig(projectPath)
-    if (!config) return
-
-    // Ensure authors array exists
-    if (!config.authors) {
-      config.authors = []
-    }
+  async addAuthor(projectId, author) {
+    const globalConfig = await this.ensureGlobalConfig(projectId)
 
     // Check if author already exists
-    const exists = config.authors.some(a => a.github === author.github)
+    const exists = globalConfig.authors.some(a => a.github === author.github)
     if (exists) return
 
     const now = new Date().toISOString()
-    config.authors.push({
+    globalConfig.authors.push({
       name: author.name || 'Unknown',
       email: author.email || '',
       github: author.github || '',
@@ -216,31 +271,32 @@ class ConfigManager {
       lastActivity: now
     })
 
-    config.lastSync = now
-    await this.writeConfig(projectPath, config)
+    globalConfig.lastSync = now
+    await this.writeGlobalConfig(projectId, globalConfig)
   }
 
   /**
    * Update author's last activity timestamp
+   * Updates GLOBAL config
    *
-   * @param {string} projectPath - Path to the project
+   * @param {string} projectId - Project identifier
    * @param {string} githubUsername - GitHub username
    * @returns {Promise<void>}
    */
-  async updateAuthorActivity(projectPath, githubUsername) {
-    const config = await this.readConfig(projectPath)
-    if (!config || !config.authors) return
+  async updateAuthorActivity(projectId, githubUsername) {
+    const globalConfig = await this.readGlobalConfig(projectId)
+    if (!globalConfig || !globalConfig.authors) return
 
-    const author = config.authors.find(a => a.github === githubUsername)
+    const author = globalConfig.authors.find(a => a.github === githubUsername)
     if (author) {
       author.lastActivity = new Date().toISOString()
-      config.lastSync = author.lastActivity
-      await this.writeConfig(projectPath, config)
+      globalConfig.lastSync = author.lastActivity
+      await this.writeGlobalConfig(projectId, globalConfig)
     }
   }
 
   /**
-   * Get current author for session (detect or get from config)
+   * Get current author for session (detect or get from global config)
    *
    * @param {string} projectPath - Path to the project
    * @returns {Promise<string>} - GitHub username of current author
@@ -249,8 +305,9 @@ class ConfigManager {
     const authorDetector = require('./author-detector')
     const author = await authorDetector.detect()
 
-    // Add author to config if not exists
-    await this.addAuthor(projectPath, author)
+    // Get project ID and add author to global config if not exists
+    const projectId = await this.getProjectId(projectPath)
+    await this.addAuthor(projectId, author)
 
     return author.github || author.name || 'Unknown'
   }
@@ -268,6 +325,7 @@ class ConfigManager {
 
   /**
    * Get configuration with defaults
+   * Returns LOCAL config only (projectId, dataPath)
    *
    * @param {string} projectPath - Path to the project
    * @returns {Promise<Object>} - Configuration with defaults
@@ -278,24 +336,11 @@ class ConfigManager {
       return config
     }
 
-    // Return minimal defaults
+    // Return minimal defaults (local config format)
     const projectId = pathManager.generateProjectId(projectPath)
-    const now = new Date().toISOString()
     return {
-      version: VERSION,
       projectId,
-      dataPath: pathManager.getDisplayPath(pathManager.getGlobalProjectPath(projectId)),
-      authors: [
-        {
-          name: 'Unknown',
-          email: '',
-          github: '',
-          firstContribution: now,
-          lastActivity: now
-        }
-      ],
-      created: now,
-      lastSync: now
+      dataPath: pathManager.getDisplayPath(pathManager.getGlobalProjectPath(projectId))
     }
   }
 }
