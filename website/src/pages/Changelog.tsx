@@ -42,7 +42,7 @@ export const Changelog = () => {
           <p className="text-muted-foreground">No unreleased features at this time. Check back soon!</p>
         </motion.section>
 
-        {/* Version 0.3.0 */}
+        {/* Version 0.3.1 */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -50,10 +50,48 @@ export const Changelog = () => {
           className="mb-16"
         >
           <div className="flex items-center gap-4 mb-6">
-            <h2 className="text-3xl font-bold">v0.3.0</h2>
+            <h2 className="text-3xl font-bold">v0.3.1</h2>
             <span className="px-3 py-1 bg-primary text-primary-foreground text-sm font-medium rounded-full">
               Latest
             </span>
+            <span className="text-muted-foreground">October 1, 2025</span>
+          </div>
+
+          {/* Installation Path Fix */}
+          <div className="space-y-6 mb-6">
+            <div className="p-6 bg-muted/20 rounded-2xl">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-lg bg-cat-green/20 flex items-center justify-center flex-shrink-0">
+                  <Wrench className="w-5 h-5 text-cat-green" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold mb-2">Installation Path Resolution Fix</h3>
+                  <p className="text-muted-foreground mb-3">
+                    Fixed critical installation error that prevented users from installing prjct-cli via curl.
+                  </p>
+
+                  <ul className="space-y-2 text-sm text-muted-foreground">
+                    <li>• Fixed "setup.sh: No such file or directory" error during installation (<a href="https://github.com/jlopezlira/prjct-cli/issues/11" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">#11</a>)</li>
+                    <li>• Corrected path resolution in <code className="text-cat-mauve">docs/install.sh</code>, <code className="text-cat-mauve">scripts/install.sh</code>, and <code className="text-cat-mauve">scripts/setup.sh</code></li>
+                    <li>• Added verification tests in <code className="text-cat-mauve">tests/verify-install-paths.sh</code></li>
+                    <li>• Added comprehensive documentation in <code className="text-cat-mauve">tests/INSTALL_PATH_FIX.md</code></li>
+                    <li>• Thanks to <a href="https://github.com/danrocha" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">@danrocha</a> for reporting the issue</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.section>
+
+        {/* Version 0.3.0 */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.3 }}
+          className="mb-16"
+        >
+          <div className="flex items-center gap-4 mb-6">
+            <h2 className="text-3xl font-bold">v0.3.0</h2>
             <span className="text-muted-foreground">September 30, 2025</span>
           </div>
 
