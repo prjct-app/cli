@@ -42,6 +42,14 @@ jobs:
           npm run build
           # The build output is now in /docs directory
 
+      - name: Copy install.sh to docs
+        run: |
+          if [ -f "website/public/install.sh" ]; then
+            cp website/public/install.sh docs/install.sh
+            chmod +x docs/install.sh
+            echo "✅ Copied install.sh to docs/"
+          fi
+
       - name: Commit build output to repository
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
