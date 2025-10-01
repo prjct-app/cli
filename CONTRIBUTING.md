@@ -171,22 +171,75 @@ Every contributor gets:
 
 ## 🏗️ Project Structure Quick Guide
 
+### Development Repository Structure
 ```
-prjct-cli/
-├── core/                 # Core logic
-│   ├── agent-detector.js # Agent detection magic
-│   ├── agents/          # Agent adapters
-│   └── commands.js      # Command implementations
-├── src/                 # Source code
-│   ├── commands/        # Command docs/definitions
-│   ├── adapters/       # AI platform adapters
-│   ├── templates/      # File templates
-│   └── instructions/   # Agent instructions
-├── website/            # Website (React + Vite)
-├── scripts/           # Installation & deployment scripts
-├── docs/              # GitHub Pages (generated)
-└── .prjct/           # Your actual project data
+prjct-cli/                           # Development repository
+├── core/                            # Core logic & functionality
+│   ├── agent-detector.js           # Agent detection system
+│   ├── author-detector.js          # Git/GitHub author detection
+│   ├── config-manager.js           # Configuration management
+│   ├── migrator.js                 # v0.1.0 → v0.2.0 migration
+│   ├── path-manager.js             # Path resolution & project IDs
+│   ├── commands.js                 # Command implementations
+│   └── agents/                     # Agent adapters (Claude, Codex, Terminal)
+├── src/                            # Source code & resources
+│   ├── commands/                   # Command documentation
+│   ├── adapters/                   # AI platform adapters
+│   ├── templates/                  # File templates
+│   ├── instructions/               # Agent instructions
+│   └── mcp/                        # MCP server definitions
+├── website/                        # Landing page (React + Vite)
+├── scripts/                        # Installation & deployment
+├── tests/                          # Test files
+├── .config/                        # Configuration files
+├── docs/                           # GitHub Pages (generated from website/)
+└── .prjct/                         # Development project data
+    └── prjct.config.json          # Points to global storage
 ```
+
+### Global Installation Structure (v0.2.1)
+```
+~/.prjct-cli/                        # Global installation directory
+└── projects/
+    └── abc123def456/                # Project ID (hash of project path)
+        ├── core/                    # Core project files
+        │   ├── now.md              # Current task
+        │   ├── next.md             # Priority queue
+        │   └── context.md          # Project context
+        ├── progress/                # Progress tracking
+        │   ├── shipped.md          # Completed features
+        │   └── metrics.md          # Performance metrics
+        ├── planning/                # Planning documents
+        │   ├── ideas.md            # Brain dump
+        │   └── roadmap.md          # Project roadmap
+        ├── analysis/                # Analysis results
+        │   └── repo-summary.md     # Repository summary
+        └── memory/                  # Decision history
+            ├── context.jsonl       # Action log
+            └── decisions.jsonl     # Decision record
+```
+
+### User Project Structure (v0.2.1)
+```
+/path/to/user-project/               # User's actual project
+├── .prjct/                         # Local prjct directory
+│   └── prjct.config.json          # Config pointing to global storage
+├── src/                            # Project source code
+├── tests/                          # Project tests
+└── ...                             # Other project files
+```
+
+### Migration from v0.1.0 to v0.2.1
+
+The v0.2.1 update moves all project data from local `.prjct/` directories to a centralized global location. This allows:
+- Multiple projects to be managed from a single location
+- Easier backup and synchronization
+- Better organization with layered data structure
+- No cluttering of project repositories
+
+**Automatic Migration**: Run `prjct migrate-all` to automatically find and migrate all projects on your machine.
+
+**Manual Migration**: For individual projects, the migration happens automatically on first command after v0.2.1 installation.
 
 ## 🧹 Uninstallation
 

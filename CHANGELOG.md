@@ -7,6 +7,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2025-09-30
+
+### Added
+- **Multi-Editor Command Installation** - Automatic slash command deployment across AI editors
+  - `prjct install` command to install/update commands in all detected editors
+  - Automatic detection of Claude Code, Cursor AI, and Codeium installations
+  - Template-based command system in `~/.prjct-cli/templates/commands/`
+  - Commands automatically installed during `prjct init`
+  - Support for `--force`, `--editor`, and `--create-templates` flags
+  - Cross-editor data synchronization through global architecture
+  - Installation verification and detailed reports
+
+- **Global Migration System** - Automatic migration for all projects on user's machine
+  - `prjct migrate-all` command to find and migrate all legacy projects
+  - Scans common project directories: `~/Projects`, `~/Documents`, `~/Developer`, etc.
+  - Optional `--deep-scan` flag to scan entire home directory
+  - Optional `--remove-legacy` flag to clean up old `.prjct/` directories after migration
+  - Optional `--dry-run` flag to preview changes without making them
+  - Progress tracking with real-time updates during migration
+  - Comprehensive summary report with statistics and results
+
+- **Automated Project Discovery**
+  - `findAllProjects()` method to recursively search for `.prjct/` directories
+  - Intelligent directory skipping (node_modules, .git, dist, build, etc.)
+  - Configurable recursion depth for safety
+  - Handles permission errors gracefully
+
+- **Bulk Migration Support**
+  - `migrateAll()` method to process multiple projects in batch
+  - Per-project validation and error handling
+  - Continues on individual project failures
+  - Detailed error reporting for failed migrations
+  - Preserves 100% of data during migration (files and directories)
+
+### Changed
+- **Multi-Editor Support**
+  - Updated command templates to use global architecture paths
+  - Modified `prjct init` to automatically detect and install commands
+  - Enhanced command-installer.js with editor-specific logic
+  - Standardized command format across all supported editors
+
+- **Repository Structure Reorganization**
+  - Moved source code to `src/` directory
+  - Moved scripts to `scripts/` directory
+  - Moved configuration to `.config/` directory
+  - Renamed `lp/` to `website/` for clarity
+  - Renamed `test/` to `tests/` for consistency
+  - Removed `.serena/` integration (unused)
+  - Cleaned up backup files and duplicates
+  - Added `templates/commands/` for command distribution
+
+- **Documentation Updates**
+  - Updated CONTRIBUTING.md with new repository structure
+  - Added detailed migration documentation
+  - Documented v0.2.1 global structure and multi-editor support
+  - Added automatic migration instructions
+  - Updated README.md with Cursor and Codeium support
+  - Enhanced MIGRATION.md with command installation instructions
+
+- **CLI Interface**
+  - Added `install` command to CLI entry point for manual command installation
+  - Added `migrate-all` command to CLI entry point
+  - Added help text for new migration and installation commands
+  - Improved command error messages
+  - Enhanced init command with automatic editor installation
+
+### Fixed
+- Added missing `getGlobalBasePath()` method to path-manager.js
+- Improved error handling in migration system
+- Fixed paths in GitHub Actions workflow after reorganization
+- Updated Prettier configuration paths after reorganization
+
 ## [0.2.0] - 2025-09-30
 
 ### 🚨 BREAKING CHANGES

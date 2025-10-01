@@ -1,6 +1,6 @@
 {
   "name": "@prjct/cli",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "AI-integrated project management for indie hackers - works with Claude Code, Cursor, and Warp",
   "main": "core/index.js",
   "bin": {
@@ -40,10 +40,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/prjct-cli"
+    "url": "https://github.com/jlopezlira/prjct-cli"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/prjct-cli/issues"
+    "url": "https://github.com/jlopezlira/prjct-cli/issues"
   },
   "homepage": "https://prjct.dev",
   "engines": {
