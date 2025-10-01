@@ -42,7 +42,7 @@ export const Changelog = () => {
           <p className="text-muted-foreground">No unreleased features at this time. Check back soon!</p>
         </motion.section>
 
-        {/* Version 0.3.2 */}
+        {/* Version 0.4.0 */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -50,10 +50,130 @@ export const Changelog = () => {
           className="mb-16"
         >
           <div className="flex items-center gap-4 mb-6">
-            <h2 className="text-3xl font-bold">v0.3.2</h2>
+            <h2 className="text-3xl font-bold">v0.4.0</h2>
             <span className="px-3 py-1 bg-primary text-primary-foreground text-sm font-medium rounded-full">
               Latest
             </span>
+            <span className="text-muted-foreground">October 1, 2025</span>
+          </div>
+
+          {/* Interactive Workflow System */}
+          <div className="space-y-6 mb-6">
+            <div className="relative isolate overflow-visible">
+              <div className="fancy-border pointer-events-none"></div>
+              <div className="relative z-10 p-6 bg-black rounded-2xl border border-border">
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
+                    <CheckCircle className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold mb-2">Interactive Workflow System</h3>
+                    <p className="text-muted-foreground mb-3">
+                      Intelligent agent workflows with user-guided capability installation. Workflows detect missing capabilities and prompt users for decisions instead of auto-skipping steps.
+                    </p>
+
+                  <ul className="space-y-2 text-sm text-muted-foreground">
+                    <li>• <strong>Adaptive Workflows</strong>: Detect missing capabilities and prompt user for install/skip/continue/pause decisions</li>
+                    <li>• <strong>Smart Recommendations</strong>: Stack-aware tool suggestions (React → Vitest, Vue → Vitest, Angular → Jest)</li>
+                    <li>• <strong>Installation Tracking</strong>: Every tool installation becomes a visible, tracked workflow task with duration</li>
+                    <li>• <strong>Interactive Prompts</strong>: Never auto-skips steps - always asks user for decisions</li>
+                    <li>• <strong>Capability Detection</strong>: Automatically detects design systems, test frameworks, and documentation tools</li>
+                    <li>• <strong>Auto-Configuration</strong>: Installed tools are automatically configured with framework-specific settings</li>
+                    <li>• <strong>Workflow Types</strong>: UI, API, Bug Fix, Refactor, and Feature workflows with specialized agent assignments</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            </div>
+
+            {/* New Core Modules */}
+            <div className="p-6 bg-muted/20 rounded-2xl">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
+                  <Plus className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold mb-2">New Core Modules</h3>
+                  <ul className="space-y-2 text-sm text-muted-foreground">
+                    <li>• <code className="text-cat-mauve">core/workflow-engine.js</code>: Orchestrates adaptive workflows with step management</li>
+                    <li>• <code className="text-cat-mauve">core/workflow-rules.js</code>: Defines workflow pipelines by task type</li>
+                    <li>• <code className="text-cat-mauve">core/workflow-prompts.js</code>: Interactive prompting engine with stack detection</li>
+                    <li>• <code className="text-cat-mauve">core/capability-installer.js</code>: Handles tool installation, configuration, and verification</li>
+                    <li>• <code className="text-cat-mauve">core/project-capabilities.js</code>: Detects existing project capabilities (design/test/docs)</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Enhanced Commands */}
+            <div className="p-6 bg-muted/20 rounded-2xl">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
+                  <Wrench className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold mb-2">Enhanced Commands</h3>
+                  <ul className="space-y-2 text-sm text-muted-foreground">
+                    <li>• <code className="text-cat-mauve">workflowRespond(choice)</code>: Handle user responses to workflow prompts</li>
+                    <li>• Enhanced <code className="text-cat-mauve">done()</code>: Checks for prompts, advances workflows intelligently</li>
+                    <li>• Enhanced <code className="text-cat-mauve">idea()</code>: Auto-initializes workflows for actionable tasks</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Technical Details */}
+          <details className="mt-8 p-6 bg-muted/10 rounded-2xl cursor-pointer">
+            <summary className="text-lg font-semibold mb-4">Technical Details</summary>
+            <div className="space-y-6 text-sm">
+              <div>
+                <h4 className="font-bold text-cat-green mb-2">Stack Detection</h4>
+                <ul className="space-y-1 text-muted-foreground ml-6">
+                  <li>• Identifies React/Vue/Angular, TypeScript, bundler (Vite/Webpack/esbuild)</li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className="font-bold text-cat-green mb-2">Tool Recommendations</h4>
+                <ul className="space-y-1 text-muted-foreground ml-6">
+                  <li>• React + TS → Vitest + Testing Library</li>
+                  <li>• Vue → Vitest + @vue/test-utils</li>
+                  <li>• Angular → Jest + @types/jest</li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className="font-bold text-cat-green mb-2">Auto-Configuration</h4>
+                <ul className="space-y-1 text-muted-foreground ml-6">
+                  <li>• Creates config files (vitest.config.js, jest.config.js, jsdoc.json)</li>
+                  <li>• Updates package.json scripts</li>
+                  <li>• Verifies installation success</li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className="font-bold text-cat-yellow mb-2">Workflow Behavior Changes</h4>
+                <ul className="space-y-1 text-muted-foreground ml-6">
+                  <li>• Before: Missing capability → auto-skip step</li>
+                  <li>• After: Missing capability → prompt user → track installation → continue</li>
+                  <li>• Duration tracking: Installation tasks show completion time (e.g., "1.2 min")</li>
+                  <li>• All workflow steps tracked with status, duration, and metadata</li>
+                </ul>
+              </div>
+            </div>
+          </details>
+        </motion.section>
+
+        {/* Version 0.3.2 */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.3 }}
+          className="mb-16"
+        >
+          <div className="flex items-center gap-4 mb-6">
+            <h2 className="text-3xl font-bold">v0.3.2</h2>
             <span className="text-muted-foreground">October 1, 2025</span>
           </div>
 
@@ -89,7 +209,7 @@ export const Changelog = () => {
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
+          transition={{ duration: 0.6, delay: 0.4 }}
           className="mb-16"
         >
           <div className="flex items-center gap-4 mb-6">
@@ -127,7 +247,7 @@ export const Changelog = () => {
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
+          transition={{ duration: 0.6, delay: 0.5 }}
           className="mb-16"
         >
           <div className="flex items-center gap-4 mb-6">
@@ -227,7 +347,7 @@ export const Changelog = () => {
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
+          transition={{ duration: 0.6, delay: 0.6 }}
           className="mb-16"
         >
           <div className="flex items-center gap-4 mb-6">
@@ -310,7 +430,7 @@ export const Changelog = () => {
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
+          transition={{ duration: 0.6, delay: 0.7 }}
           className="mb-16"
         >
           <div className="flex items-center gap-4 mb-6">
@@ -496,7 +616,7 @@ export const Changelog = () => {
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.4 }}
+          transition={{ duration: 0.6, delay: 0.8 }}
           className="mb-16"
         >
           <div className="flex items-center gap-4 mb-6">
@@ -538,7 +658,7 @@ export const Changelog = () => {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.5 }}
+          transition={{ duration: 0.6, delay: 0.9 }}
           className="p-8 bg-gradient-to-br from-primary/10 to-transparent rounded-2xl border border-primary/20 text-center"
         >
           <h3 className="text-2xl font-bold mb-2">Stay Updated</h3>

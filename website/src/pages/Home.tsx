@@ -46,6 +46,24 @@ export const Home = () => {
               View Documentation
             </Link>
           </div>
+
+          {/* Product Hunt */}
+          <div className="mt-8 flex justify-center">
+            <a
+              href="https://www.producthunt.com/products/prjct-cli?embed=true&utm_source=badge-featured&utm_medium=badge&utm_source=badge-prjct-cli"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="transition-transform hover:scale-105"
+            >
+              <img
+                src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1021356&theme=dark&t=1759203826693"
+                alt="prjct/cli - Ship faster with Claude Code, Codex and Warp | Product Hunt"
+                style={{ width: '250px', height: '54px' }}
+                width="250"
+                height="54"
+              />
+            </a>
+          </div>
         </motion.div>
       </section>
     </>

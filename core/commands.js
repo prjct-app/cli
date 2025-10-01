@@ -499,6 +499,93 @@ class PrjctCommands {
         duration = `${hours}h ${minutes}m`
       }
 
+      // Check for active workflow
+      const workflowEngine = require('./workflow-engine')
+      const corePath = path.dirname(nowFile)
+      const dataPath = path.dirname(corePath)
+      const workflow = await workflowEngine.load(dataPath)
+
+      if (workflow && workflow.active) {
+        // Store completed step name before advancing
+        const completedStep = workflow.steps[workflow.current].name
+
+        // Workflow: advance to next step
+        const nextStep = await workflowEngine.next(dataPath)
+
+        // Log step completion
+        await this.logToMemory(projectPath, 'workflow_step_completed', {
+          task: currentTask,
+          step: completedStep,
+          timestamp: completedAt,
+          startedAt,
+          completedAt,
+          duration,
+          author: currentAuthor
+        })
+
+        if (!nextStep) {
+          // Workflow complete
+          await this.agent.writeFile(nowFile, '# NOW\n\nNo current task. Use `/p:now` to set focus.\n')
+          await workflowEngine.clear(dataPath)
+
+          const projectId = await configManager.getProjectId(projectPath)
+          await configManager.updateAuthorActivity(projectId, currentAuthor)
+
+          return {
+            success: true,
+            message: this.agent.formatResponse(`Workflow complete: ${currentTask}`, 'success'),
+          }
+        }
+
+        // Check if next step needs prompting
+        if (nextStep.needsPrompt) {
+          const workflowPrompts = require('./workflow-prompts')
+          const promptInfo = await workflowPrompts.buildPrompt(nextStep, workflow.caps, projectPath)
+
+          // Save state before prompting
+          const projectId = await configManager.getProjectId(projectPath)
+          await configManager.updateAuthorActivity(projectId, currentAuthor)
+
+          return {
+            success: true,
+            message: this.agent.formatResponse(`Step complete: ${completedStep}`, 'success') +
+                     '\n\n' + promptInfo.message + '\n\n' +
+                     'Reply with your choice (1-4) to continue workflow.',
+            needsPrompt: true,
+            promptInfo,
+            workflow,
+            nextStep
+          }
+        }
+
+        // Update now.md with next step
+        const nowMd = `# NOW: ${currentTask}
+Started: ${new Date().toISOString()}
+
+## Task
+${currentTask}
+
+## Workflow Step
+${nextStep.action}
+
+## Agent
+${nextStep.agent}
+
+## Notes
+
+`
+        await this.agent.writeFile(nowFile, nowMd)
+
+        const projectId = await configManager.getProjectId(projectPath)
+        await configManager.updateAuthorActivity(projectId, currentAuthor)
+
+        return {
+          success: true,
+          message: this.agent.formatResponse(`Step done → ${nextStep.name}: ${nextStep.action} (${nextStep.agent})`, 'success'),
+        }
+      }
+
+      // No workflow: normal completion
       await this.agent.writeFile(nowFile, '# NOW\n\nNo current task. Use `/p:now` to set focus.\n')
 
       await this.logToMemory(projectPath, 'task_completed', {
