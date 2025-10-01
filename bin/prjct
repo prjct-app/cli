@@ -93,10 +93,44 @@ async function main() {
                 result = await commands.design(designTarget, designOptions);
             }
             break;
+        case 'migrate-all':
+            // Parse migration options
+            const migrateOptions = {};
+            const migrateArgs = args.slice(1);
+
+            for (let i = 0; i < migrateArgs.length; i++) {
+                if (migrateArgs[i] === '--deep-scan') {
+                    migrateOptions.deepScan = true;
+                } else if (migrateArgs[i] === '--remove-legacy') {
+                    migrateOptions.removeLegacy = true;
+                } else if (migrateArgs[i] === '--dry-run') {
+                    migrateOptions.dryRun = true;
+                }
+            }
+
+            result = await commands.migrateAll(migrateOptions);
+            break;
+        case 'install':
+            // Parse installation options
+            const installOptions = {};
+            const installArgs = args.slice(1);
+
+            for (let i = 0; i < installArgs.length; i++) {
+                if (installArgs[i] === '--force') {
+                    installOptions.force = true;
+                } else if (installArgs[i] === '--editor') {
+                    installOptions.editor = installArgs[++i];
+                } else if (installArgs[i] === '--create-templates') {
+                    installOptions.createTemplates = true;
+                }
+            }
+
+            result = await commands.install(installOptions);
+            break;
         default:
             result = {
                 success: false,
-                message: `Unknown command: ${command}\n\nAvailable commands:\n  init, now, done, ship, next, idea, recap, progress, stuck, context\n  cleanup, cleanup-advanced, design`
+                message: `Unknown command: ${command}\n\nAvailable commands:\n  init, now, done, ship, next, idea, recap, progress, stuck, context\n  cleanup, cleanup-advanced, design, migrate-all, install`
             };
     }
 

@@ -8,6 +8,8 @@ const pathManager = require('./path-manager')
 const configManager = require('./config-manager')
 const authorDetector = require('./author-detector')
 const migrator = require('./migrator')
+const commandInstaller = require('./command-installer')
+const sessionManager = require('./session-manager')
 
 // Try to load animations for enhanced output
 let animations
@@ -236,14 +238,21 @@ class PrjctCommands {
       // Detect project type
       const projectInfo = await this.detectProjectType(projectPath)
 
+      // Install commands to detected editors
+      const installResult = await commandInstaller.installToAll(false)
+      const editorsInstalled = installResult.success
+        ? `\n🤖 Commands installed to: ${installResult.editors.join(', ')}`
+        : ''
+
       const displayPath = pathManager.getDisplayPath(globalPath)
       const message =
-        `Initializing prjct v0.2.0 for ${this.agentInfo.name}...\n` +
+        `Initializing prjct v0.2.1 for ${this.agentInfo.name}...\n` +
         `✅ Created global structure at ${displayPath}\n` +
         `✅ Created prjct.config.json\n` +
         `👤 Author: ${authorDetector.formatAuthor(author)}\n` +
-        `📋 Project: ${projectInfo}\n\n` +
-        `Ready! Start with ${this.agentInfo.config.commandPrefix}now "your first task"`
+        `📋 Project: ${projectInfo}` +
+        editorsInstalled +
+        `\n\nReady! Start with ${this.agentInfo.config.commandPrefix}now "your first task"`
 
       return {
         success: true,
@@ -395,46 +404,47 @@ class PrjctCommands {
         }
       }
 
-      const shippedFile = path.join(projectPath, this.prjctDir, 'shipped.md')
+      // Get project config to use session-based storage
+      const config = await configManager.loadConfig(projectPath)
 
-      // Read current content
-      let content = await this.agent.readFile(shippedFile)
+      if (config && config.projectId) {
+        // Use session-based storage (new architecture)
+        const week = this.getWeekNumber(new Date())
+        const year = new Date().getFullYear()
+        const weekHeader = `## Week ${week}, ${year}`
 
-      // Get current week
-      const week = this.getWeekNumber(new Date())
-      const year = new Date().getFullYear()
-      const weekHeader = `## Week ${week}, ${year}`
+        const entry = `${weekHeader}\n- ✅ **${feature}** _(${new Date().toLocaleString()})_\n\n`
 
-      // Add week header if not exists
-      if (!content.includes(weekHeader)) {
-        content += `\n${weekHeader}\n`
-      }
+        try {
+          await sessionManager.appendToSession(config.projectId, entry, 'shipped.md')
+        } catch (error) {
+          console.error('Session write failed, falling back to legacy:', error.message)
+          return await this._shipLegacy(feature, projectPath)
+        }
 
-      // Add feature
-      const entry = `- ✅ **${feature}** _(${new Date().toLocaleString()})_\n`
-      const insertIndex = content.indexOf(weekHeader) + weekHeader.length + 1
-      content = content.slice(0, insertIndex) + entry + content.slice(insertIndex)
+        // Get total shipped across all sessions (last 30 days for performance)
+        const recentShips = await sessionManager.getRecentLogs(config.projectId, 30, 'shipped.md')
+        const totalShipped = recentShips.match(/✅/g)?.length || 1
 
-      await this.agent.writeFile(shippedFile, content)
+        // Log to memory
+        await this.logToMemory(projectPath, 'ship', { feature, timestamp: this.agent.getTimestamp() })
 
-      // Count total shipped
-      const totalShipped = (content.match(/✅/g) || []).length
+        // Calculate velocity
+        const daysSinceLastShip = await this.getDaysSinceLastShip(projectPath)
+        const velocityMsg = daysSinceLastShip > 3 ? 'Keep the momentum going!' : "You're on fire! 🔥"
 
-      // Log to memory
-      await this.logToMemory(projectPath, 'ship', { feature, timestamp: this.agent.getTimestamp() })
+        const message = `SHIPPED! ${feature}\nTotal shipped: ${totalShipped}\n${velocityMsg}`
 
-      // Calculate velocity
-      const daysSinceLastShip = await this.getDaysSinceLastShip(projectPath)
-      const velocityMsg = daysSinceLastShip > 3 ? 'Keep the momentum going!' : "You're on fire! 🔥"
-
-      const message = `SHIPPED! ${feature}\nTotal shipped: ${totalShipped}\n${velocityMsg}`
-
-      return {
-        success: true,
-        message:
-          this.agent.formatResponse(message, 'celebrate') +
-          '\n' +
-          this.agent.suggestNextAction('featureShipped'),
+        return {
+          success: true,
+          message:
+            this.agent.formatResponse(message, 'celebrate') +
+            '\n' +
+            this.agent.suggestNextAction('featureShipped'),
+        }
+      } else {
+        // Fallback to legacy storage for non-migrated projects
+        return await this._shipLegacy(feature, projectPath)
       }
     } catch (error) {
       await this.initializeAgent()
@@ -442,6 +452,54 @@ class PrjctCommands {
         success: false,
         message: this.agent.formatResponse(error.message, 'error'),
       }
+    }
+  }
+
+  /**
+   * Legacy ship method for non-migrated projects
+   * @private
+   */
+  async _shipLegacy(feature, projectPath) {
+    const shippedFile = path.join(projectPath, this.prjctDir, 'shipped.md')
+
+    // Read current content
+    let content = await this.agent.readFile(shippedFile)
+
+    // Get current week
+    const week = this.getWeekNumber(new Date())
+    const year = new Date().getFullYear()
+    const weekHeader = `## Week ${week}, ${year}`
+
+    // Add week header if not exists
+    if (!content.includes(weekHeader)) {
+      content += `\n${weekHeader}\n`
+    }
+
+    // Add feature
+    const entry = `- ✅ **${feature}** _(${new Date().toLocaleString()})_\n`
+    const insertIndex = content.indexOf(weekHeader) + weekHeader.length + 1
+    content = content.slice(0, insertIndex) + entry + content.slice(insertIndex)
+
+    await this.agent.writeFile(shippedFile, content)
+
+    // Count total shipped
+    const totalShipped = (content.match(/✅/g) || []).length
+
+    // Log to memory
+    await this.logToMemory(projectPath, 'ship', { feature, timestamp: this.agent.getTimestamp() })
+
+    // Calculate velocity
+    const daysSinceLastShip = await this.getDaysSinceLastShip(projectPath)
+    const velocityMsg = daysSinceLastShip > 3 ? 'Keep the momentum going!' : "You're on fire! 🔥"
+
+    const message = `SHIPPED! ${feature}\nTotal shipped: ${totalShipped}\n${velocityMsg}`
+
+    return {
+      success: true,
+      message:
+        this.agent.formatResponse(message, 'celebrate') +
+        '\n' +
+        this.agent.suggestNextAction('featureShipped'),
     }
   }
 
@@ -539,38 +597,59 @@ class PrjctCommands {
 
       // Read all files
       const nowFile = await this.agent.readFile(path.join(projectPath, this.prjctDir, 'now.md'))
-      const shippedFile = await this.agent.readFile(
-        path.join(projectPath, this.prjctDir, 'shipped.md')
-      )
       const nextFile = await this.agent.readFile(path.join(projectPath, this.prjctDir, 'next.md'))
       const ideasFile = await this.agent.readFile(path.join(projectPath, this.prjctDir, 'ideas.md'))
 
       // Parse current task
       const currentTask = nowFile.split('\n')[0].replace('# NOW: ', '').replace('# NOW', 'None')
 
-      // Count metrics
-      const shippedCount = (shippedFile.match(/✅/g) || []).length
+      // Count queue and ideas
       const queuedCount = (nextFile.match(/^- /gm) || []).length
       const ideasCount = (ideasFile.match(/^- /gm) || []).length
 
-      // Get recent activity
-      const memoryFile = path.join(projectPath, this.prjctDir, 'memory.jsonl')
+      // Get project config to use session-based data
+      const config = await configManager.loadConfig(projectPath)
+      let shippedCount = 0
       let recentActivity = ''
-      try {
-        const memory = await this.agent.readFile(memoryFile)
-        const lines = memory
-          .trim()
-          .split('\n')
-          .filter((l) => l)
-        recentActivity = lines
+
+      if (config && config.projectId) {
+        // Use session-based data (new architecture)
+        // Get shipped count from recent sessions (last 30 days)
+        const recentShips = await this.getHistoricalData(projectPath, 'month', 'shipped.md')
+        shippedCount = (recentShips.match(/✅/g) || []).length
+
+        // Get recent activity from session logs
+        const recentLogs = await this.getRecentLogs(projectPath, 7)
+        recentActivity = recentLogs
           .slice(-3)
-          .map((l) => {
-            const entry = JSON.parse(l)
+          .map((entry) => {
             return `• ${entry.action}: ${entry.data.task || entry.data.feature || entry.data.text || ''}`
           })
           .join('\n')
-      } catch (e) {
-        // Memory file might not exist yet
+      } else {
+        // Fallback to legacy data
+        const shippedFile = await this.agent.readFile(
+          path.join(projectPath, this.prjctDir, 'shipped.md')
+        )
+        shippedCount = (shippedFile.match(/✅/g) || []).length
+
+        const memoryFile = path.join(projectPath, this.prjctDir, 'memory.jsonl')
+        try {
+          const memory = await this.agent.readFile(memoryFile)
+          const lines = memory
+            .trim()
+            .split('\n')
+            .filter((l) => l)
+          recentActivity = lines
+            .slice(-3)
+            .map((l) => {
+              const entry = JSON.parse(l)
+              return `• ${entry.action}: ${entry.data.task || entry.data.feature || entry.data.text || ''}`
+            })
+            .join('\n')
+        } catch (e) {
+          // Memory file might not exist yet
+        }
       }
 
       const recapData = {
@@ -597,13 +676,13 @@ class PrjctCommands {
   async progress(period = 'week', projectPath = process.cwd()) {
     try {
       await this.initializeAgent()
-      const shippedFile = await this.agent.readFile(
-        path.join(projectPath, this.prjctDir, 'shipped.md')
-      )
+
+      // Get historical data from sessions
+      const shippedData = await this.getHistoricalData(projectPath, period, 'shipped.md')
 
       // Parse shipped features by date
       const features = []
-      const lines = shippedFile.split('\n')
+      const lines = shippedData.split('\n')
 
       for (const line of lines) {
         if (line.includes('✅')) {
@@ -617,7 +696,7 @@ class PrjctCommands {
         }
       }
 
-      // Filter by period
+      // Filter by period (sessions should already handle this, but double-check)
       const now = new Date()
       const periodDays = period === 'day' ? 1 : period === 'week' ? 7 : period === 'month' ? 30 : 7
       const cutoff = new Date(now.getTime() - periodDays * 24 * 60 * 60 * 1000)
@@ -940,21 +1019,32 @@ ${diagram}
       const nowFile = await this.agent.readFile(path.join(projectPath, this.prjctDir, 'now.md'))
       const currentTask = nowFile.split('\n')[0].replace('# NOW: ', '').replace('# NOW', 'None')
 
-      // Read recent memory
-      const memoryFile = path.join(projectPath, this.prjctDir, 'memory.jsonl')
+      // Get project config to use session-based data
+      const config = await configManager.loadConfig(projectPath)
       let recentActions = []
-      try {
-        const memory = await this.agent.readFile(memoryFile)
-        const lines = memory
-          .trim()
-          .split('\n')
-          .filter((l) => l)
-        recentActions = lines.slice(-5).map((l) => {
-          const entry = JSON.parse(l)
+
+      if (config && config.projectId) {
+        // Use session-based logs (new architecture)
+        const recentLogs = await this.getRecentLogs(projectPath, 7)
+        recentActions = recentLogs.slice(-5).map((entry) => {
           return `• ${entry.action}: ${entry.data.task || entry.data.feature || entry.data.text || ''}`
         })
-      } catch (e) {
-        // Memory file might not exist yet
+      } else {
+        // Fallback to legacy memory file
+        const memoryFile = path.join(projectPath, this.prjctDir, 'memory.jsonl')
+        try {
+          const memory = await this.agent.readFile(memoryFile)
+          const lines = memory
+            .trim()
+            .split('\n')
+            .filter((l) => l)
+          recentActions = lines.slice(-5).map((l) => {
+            const entry = JSON.parse(l)
+            return `• ${entry.action}: ${entry.data.task || entry.data.feature || entry.data.text || ''}`
+          })
+        } catch (e) {
+          // Memory file might not exist yet
+        }
       }
 
       const contextInfo =
@@ -1039,6 +1129,36 @@ ${diagram}
     await this.initializeAgent()
     await this.ensureAuthor()
 
+    // Get project config to use session-based logging
+    const config = await configManager.loadConfig(projectPath)
+
+    if (config && config.projectId) {
+      // Use session-based logging (new architecture)
+      const entry = {
+        action,
+        author: this.currentAuthor,
+        data,
+        timestamp: new Date().toISOString()
+      }
+
+      try {
+        await sessionManager.writeToSession(config.projectId, entry, 'context.jsonl')
+      } catch (error) {
+        console.error('Session logging failed, falling back to legacy:', error.message)
+        // Fallback to legacy if session fails
+        await this._logToMemoryLegacy(projectPath, action, data)
+      }
+    } else {
+      // Fallback to legacy logging for non-migrated projects
+      await this._logToMemoryLegacy(projectPath, action, data)
+    }
+  }
+
+  /**
+   * Legacy logging method (fallback)
+   * @private
+   */
+  async _logToMemoryLegacy(projectPath, action, data) {
     const memoryFile = await this.getFilePath(projectPath, 'memory', 'context.jsonl')
     const entry = JSON.stringify({
       action,
@@ -1053,6 +1173,108 @@ ${diagram}
     } catch (e) {
       // File doesn't exist, create it
       await this.agent.writeFile(memoryFile, entry)
+    }
+  }
+
+  /**
+   * Get historical data from sessions
+   * Consolidates data from multiple sessions based on time period
+   *
+   * @param {string} projectPath - Project path
+   * @param {string} period - Time period: 'day', 'week', 'month', 'all'
+   * @param {string} filename - File to read from sessions (default: 'context.jsonl')
+   * @returns {Promise<Array<Object>>} - Consolidated entries
+   */
+  async getHistoricalData(projectPath, period = 'week', filename = 'context.jsonl') {
+    const config = await configManager.loadConfig(projectPath)
+
+    if (!config || !config.projectId) {
+      // Legacy project, read from single file
+      return await this._getHistoricalDataLegacy(projectPath, filename)
+    }
+
+    const toDate = new Date()
+    let fromDate = new Date()
+    const isMarkdown = filename.endsWith('.md')
+
+    switch (period) {
+      case 'day':
+      case 'today':
+        // Just today
+        if (isMarkdown) {
+          const sessionPath = await pathManager.getCurrentSessionPath(config.projectId)
+          const filePath = path.join(sessionPath, filename)
+          try {
+            return await fs.readFile(filePath, 'utf-8')
+          } catch {
+            return ''
+          }
+        }
+        return await sessionManager.readCurrentSession(config.projectId, filename)
+
+      case 'week':
+        fromDate.setDate(fromDate.getDate() - 7)
+        break
+
+      case 'month':
+        fromDate.setMonth(fromDate.getMonth() - 1)
+        break
+
+      case 'all':
+        // Get all sessions (limited to last year for performance)
+        fromDate.setFullYear(fromDate.getFullYear() - 1)
+        break
+
+      default:
+        // Default to week
+        fromDate.setDate(fromDate.getDate() - 7)
+    }
+
+    // Use appropriate method based on file type
+    if (isMarkdown) {
+      return await sessionManager.readMarkdownRange(config.projectId, fromDate, toDate, filename)
+    } else {
+      return await sessionManager.readSessionRange(config.projectId, fromDate, toDate, filename)
+    }
+  }
+
+  /**
+   * Get historical data from legacy single-file structure
+   * @private
+   */
+  async _getHistoricalDataLegacy(projectPath, filename) {
+    const filePath = await this.getFilePath(projectPath, 'memory', filename)
+
+    try {
+      const content = await this.agent.readFile(filePath)
+      const lines = content.split('\n').filter(line => line.trim())
+      return lines.map(line => {
+        try {
+          return JSON.parse(line)
+        } catch {
+          return null
+        }
+      }).filter(Boolean)
+    } catch {
+      return []
+    }
+  }
+
+  /**
+   * Get recent logs with session support
+   *
+   * @param {string} projectPath - Project path
+   * @param {number} days - Number of days to look back
+   * @returns {Promise<Array<Object>>} - Recent log entries
+   */
+  async getRecentLogs(projectPath, days = 7) {
+    const config = await configManager.loadConfig(projectPath)
+
+    if (config && config.projectId) {
+      return await sessionManager.getRecentLogs(config.projectId, days)
+    } else {
+      // Legacy: just read all from single file
+      return await this._getHistoricalDataLegacy(projectPath, 'context.jsonl')
     }
   }
 
@@ -1179,6 +1401,97 @@ ${diagram}
       return {
         success: false,
         message: this.agent.formatResponse(`Cleanup failed: ${error.message}`, 'error')
+      }
+    }
+  }
+
+  async migrateAll(options = {}) {
+    try {
+      await this.initializeAgent()
+
+      const {
+        deepScan = false,
+        removeLegacy = false,
+        dryRun = false
+      } = options
+
+      // Progress callback
+      const onProgress = (update) => {
+        if (update.phase === 'scanning') {
+          console.log(`🔍 ${update.message}`)
+        } else if (update.phase === 'checking' || update.phase === 'migrating') {
+          console.log(`   ${update.message}`)
+        }
+      }
+
+      // Run migration
+      const summary = await migrator.migrateAll({
+        deepScan,
+        removeLegacy,
+        dryRun,
+        onProgress
+      })
+
+      // Generate and display report
+      const report = migrator.generateMigrationSummary(summary)
+
+      return {
+        success: summary.success,
+        message: report,
+        summary
+      }
+    } catch (error) {
+      await this.initializeAgent()
+      return {
+        success: false,
+        message: this.agent.formatResponse(`Global migration failed: ${error.message}`, 'error')
+      }
+    }
+  }
+
+  async install(options = {}) {
+    try {
+      await this.initializeAgent()
+
+      const {
+        force = false,
+        editor = null,
+        createTemplates = false
+      } = options
+
+      // Create templates if requested
+      if (createTemplates) {
+        const templateResult = await commandInstaller.createTemplates()
+        if (!templateResult.success) {
+          return {
+            success: false,
+            message: this.agent.formatResponse(templateResult.message, 'error')
+          }
+        }
+      }
+
+      // Install commands
+      let installResult
+      if (editor) {
+        // Install to specific editor
+        installResult = await commandInstaller.installToEditor(editor, force)
+      } else {
+        // Install to all detected editors
+        installResult = await commandInstaller.installToAll(force)
+      }
+
+      // Generate report
+      const report = commandInstaller.generateReport(installResult)
+
+      return {
+        success: installResult.success,
+        message: this.agent.formatResponse(report, installResult.success ? 'celebrate' : 'error')
+      }
+    } catch (error) {
+      await this.initializeAgent()
+      return {
+        success: false,
+        message: this.agent.formatResponse(`Installation failed: ${error.message}`, 'error')
       }
     }
   }

@@ -1,6 +1,6 @@
-# Migration Guide: v0.1.0 → v0.2.0
+# Migration Guide: v0.1.0 → v0.2.1
 
-**🚨 Breaking Change**: prjct-cli v0.2.0 introduces a new data storage architecture that requires migration.
+**🚨 Breaking Change**: prjct-cli v0.2.0+ introduces a new data storage architecture and multi-editor command installation that requires migration.
 
 ## ⚠️ IMPORTANT: Zero Data Loss Guarantee
 
@@ -27,7 +27,7 @@ your-project/
 └── package.json
 ```
 
-### After (v0.2.0)
+### After (v0.2.1)
 ```
 your-project/
 ├── .prjct/
@@ -36,21 +36,28 @@ your-project/
 └── package.json
 
 ~/.prjct-cli/
-└── projects/
-    └── abc123def456/     # Project ID (hash of path)
-        ├── core/
-        │   ├── now.md
-        │   ├── next.md
-        │   └── context.md
-        ├── progress/
-        │   ├── shipped.md
-        │   └── metrics.md
-        ├── planning/
-        │   ├── ideas.md
-        │   └── roadmap.md
-        ├── analysis/
-        └── memory/
-            └── context.jsonl
+├── projects/
+│   └── abc123def456/     # Project ID (hash of path)
+│       ├── core/
+│       │   ├── now.md
+│       │   ├── next.md
+│       │   └── context.md
+│       ├── progress/
+│       │   ├── shipped.md
+│       │   └── metrics.md
+│       ├── planning/
+│       │   ├── ideas.md
+│       │   └── roadmap.md
+│       ├── analysis/
+│       │   └── repo-summary.md
+│       └── memory/
+│           └── context.jsonl
+└── templates/
+    └── commands/         # Command templates for multi-editor sync
+
+~/.claude/commands/p/     # Claude Code slash commands
+~/.cursor/commands/p/     # Cursor AI slash commands
+~/.codeium/commands/p/    # Codeium slash commands
 ```
 
 ## Why This Change?
@@ -94,6 +101,14 @@ Every operation logs who did it (via GitHub username or git config). Prepares fo
 
 ### 5. 🗂️ Better Organization
 Layered structure (core, progress, planning, analysis, memory) makes data management cleaner and more scalable.
+
+### 6. 🤖 Multi-Editor Support (v0.2.1+)
+Commands are now automatically installed across multiple AI editors:
+- **Claude Code** (`~/.claude/commands/p/`)
+- **Cursor AI** (`~/.cursor/commands/p/`)
+- **Codeium** (`~/.codeium/commands/p/`)
+
+All editors share the same global data structure, enabling seamless workflow switching between editors.
 
 ## Migration Methods
 
@@ -144,6 +159,24 @@ rm -rf .prjct
 # This creates:
 # - prjct.config.json in project
 # - Global structure in ~/.prjct-cli/projects/[id]/
+# - Commands installed to all detected editors
+```
+
+### Method 4: Command Installation Only (v0.2.1+)
+
+If you've already migrated but need to install/update commands:
+
+```bash
+# Install commands to all detected editors
+prjct install
+
+# Options:
+prjct install --force              # Update existing commands
+prjct install --editor claude      # Install to specific editor only
+prjct install --create-templates   # Create template files first
+
+# Verify installation
+prjct install --dry-run            # See what would be installed
 ```
 
 ## Migration Process Details
@@ -435,7 +468,7 @@ If you encounter issues:
 1. Check this guide first
 2. Review [CHANGELOG.md](CHANGELOG.md) for detailed changes
 3. Run `/p:status` to diagnose
-4. Open an issue: https://github.com/yourusername/prjct-cli/issues
+4. Open an issue: https://github.com/jlopezlira/prjct-cli/issues
 5. Include:
    - Output of `/p:status`
    - Contents of `.prjct/prjct.config.json` (if exists)

@@ -153,7 +153,7 @@ export const Changelog = () => {
                 Read Migration Guide
               </Link>
               <a
-                href="https://github.com/yourusername/prjct-cli"
+                href="https://github.com/jlopezlira/prjct-cli"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-6 py-3 bg-muted/50 rounded-lg font-medium hover:bg-muted transition-colors"
@@ -266,7 +266,7 @@ export const Changelog = () => {
           </p>
           <div className="flex flex-wrap justify-center gap-4">
             <a
-              href="https://github.com/yourusername/prjct-cli/releases"
+              href="https://github.com/jlopezlira/prjct-cli/releases"
               target="_blank"
               rel="noopener noreferrer"
               className="px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
@@ -274,7 +274,7 @@ export const Changelog = () => {
               View All Releases
             </a>
             <a
-              href="https://github.com/yourusername/prjct-cli"
+              href="https://github.com/jlopezlira/prjct-cli"
               target="_blank"
               rel="noopener noreferrer"
               className="px-6 py-3 bg-muted/50 rounded-lg font-medium hover:bg-muted transition-colors"

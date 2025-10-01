@@ -11,7 +11,7 @@ const os = require('os')
  * - Manage paths between local project and global storage
  * - Ensure directory structures exist
  *
- * @version 0.2.0
+ * @version 0.2.1
  */
 class PathManager {
   constructor() {
@@ -31,6 +31,15 @@ class PathManager {
     const absolutePath = path.resolve(projectPath)
     const hash = crypto.createHash('sha256').update(absolutePath).digest('hex')
     return hash.substring(0, 12) // Use first 12 chars for readability
+  }
+
+  /**
+   * Get the base global storage path
+   *
+   * @returns {string} - Path to global base directory (~/.prjct-cli)
+   */
+  getGlobalBasePath() {
+    return this.globalBaseDir
   }
 
   /**
@@ -129,7 +138,122 @@ class PathManager {
     // Create tasks subdirectory in planning
     await fs.mkdir(path.join(projectPath, 'planning', 'tasks'), { recursive: true })
 
+    // Create sessions directory for temporal fragmentation
+    await fs.mkdir(path.join(projectPath, 'sessions'), { recursive: true })
+
     return projectPath
+  }
+
+  /**
+   * Get session directory path for a specific date
+   * Creates hierarchical structure: sessions/YYYY/MM/DD/
+   *
+   * @param {string} projectId - The project identifier
+   * @param {Date} date - Date for the session (defaults to today)
+   * @returns {string} - Path to session directory
+   */
+  getSessionPath(projectId, date = new Date()) {
+    const year = date.getFullYear().toString()
+    const month = (date.getMonth() + 1).toString().padStart(2, '0')
+    const day = date.getDate().toString().padStart(2, '0')
+
+    return path.join(
+      this.getGlobalProjectPath(projectId),
+      'sessions',
+      year,
+      month,
+      day
+    )
+  }
+
+  /**
+   * Get current session directory path (today)
+   *
+   * @param {string} projectId - The project identifier
+   * @returns {string} - Path to today's session directory
+   */
+  getCurrentSessionPath(projectId) {
+    return this.getSessionPath(projectId, new Date())
+  }
+
+  /**
+   * Ensure session directory exists for a specific date
+   *
+   * @param {string} projectId - The project identifier
+   * @param {Date} date - Date for the session (defaults to today)
+   * @returns {Promise<string>} - Path to session directory
+   */
+  async ensureSessionPath(projectId, date = new Date()) {
+    const sessionPath = this.getSessionPath(projectId, date)
+    await fs.mkdir(sessionPath, { recursive: true })
+    return sessionPath
+  }
+
+  /**
+   * List all session dates for a project
+   *
+   * @param {string} projectId - The project identifier
+   * @param {number} year - Optional year filter
+   * @param {number} month - Optional month filter (1-12)
+   * @returns {Promise<Array<{year: string, month: string, day: string, path: string}>>} - Array of session info
+   */
+  async listSessions(projectId, year = null, month = null) {
+    const sessionsDir = path.join(this.getGlobalProjectPath(projectId), 'sessions')
+    const sessions = []
+
+    try {
+      const years = await fs.readdir(sessionsDir, { withFileTypes: true })
+
+      for (const yearEntry of years) {
+        if (!yearEntry.isDirectory()) continue
+        if (year && yearEntry.name !== year.toString()) continue
+
+        const yearPath = path.join(sessionsDir, yearEntry.name)
+        const months = await fs.readdir(yearPath, { withFileTypes: true })
+
+        for (const monthEntry of months) {
+          if (!monthEntry.isDirectory()) continue
+          if (month && monthEntry.name !== month.toString().padStart(2, '0')) continue
+
+          const monthPath = path.join(yearPath, monthEntry.name)
+          const days = await fs.readdir(monthPath, { withFileTypes: true })
+
+          for (const dayEntry of days) {
+            if (!dayEntry.isDirectory()) continue
+
+            sessions.push({
+              year: yearEntry.name,
+              month: monthEntry.name,
+              day: dayEntry.name,
+              path: path.join(monthPath, dayEntry.name),
+              date: new Date(`${yearEntry.name}-${monthEntry.name}-${dayEntry.name}`)
+            })
+          }
+        }
+      }
+
+      // Sort by date descending (most recent first)
+      sessions.sort((a, b) => b.date - a.date)
+      return sessions
+    } catch {
+      return []
+    }
+  }
+
+  /**
+   * Get sessions within a date range
+   *
+   * @param {string} projectId - The project identifier
+   * @param {Date} fromDate - Start date (inclusive)
+   * @param {Date} toDate - End date (inclusive, defaults to today)
+   * @returns {Promise<Array>} - Array of session info within range
+   */
+  async getSessionsInRange(projectId, fromDate, toDate = new Date()) {
+    const allSessions = await this.listSessions(projectId)
+
+    return allSessions.filter(session => {
+      return session.date >= fromDate && session.date <= toDate
+    })
   }
 
   /**

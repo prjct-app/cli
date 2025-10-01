@@ -2,7 +2,7 @@
 
 **AI-integrated project management for indie hackers** - Ship fast, stay focused, no ceremonies.
 
-Works with **Claude Code**, **OpenAI Codex/GitHub OpenAI Codex**, and **Warp Terminal**.
+Works with **Claude Code**, **Cursor AI**, **Codeium**, **OpenAI Codex**, and **Warp Terminal**.
 
 [![OpenAI Codex Compatible](https://img.shields.io/badge/OpenAI%20Codex-Compatible-00a67e)](AGENTS.md)
 [![Claude Code Ready](https://img.shields.io/badge/Claude%20Code-Ready-6366f1)](CLAUDE.md)
@@ -78,6 +78,9 @@ cd prjct-cli
 
 - ✅ **Installs to** `~/.prjct-cli/`
 - ✅ **Checks prerequisites** (Node.js 18+, Git)
+- ✅ **Detects AI editors** (Claude Code, Cursor, Codeium)
+- ✅ **Installs slash commands** to all detected editors
+- ✅ **Creates global structure** for cross-editor data sharing
 - ✅ **Version management** with automatic update detection
 - ✅ **Configures AI assistant integration** (MCP)
 - ✅ **Sets up the** `prjct` **command**
@@ -108,7 +111,9 @@ The uninstaller will:
 
 ## 📱 Platform Usage
 
-### Claude Code
+### Claude Code / Cursor AI / Codeium
+
+All three editors support the same slash commands through automatic installation:
 
 ```
 # Core Commands
@@ -118,7 +123,7 @@ The uninstaller will:
 /p:ship "authentication"   # Ship feature
 /p:recap                   # Show progress
 
-# New Power Commands 🚀
+# Power Commands 🚀
 /p:analyze                 # Auto-analyze codebase
 /p:git                     # Smart git commit & push
 /p:fix "error msg"         # Quick troubleshooting
@@ -126,6 +131,8 @@ The uninstaller will:
 /p:task "complex feature"  # Break down & execute
 /p:roadmap                 # Strategic planning
 ```
+
+**Multi-Editor Workflow**: Switch between Claude Code, Cursor, and Codeium seamlessly - all commands access the same global data in `~/.prjct-cli/projects/`.
 
 ### OpenAI Codex / GitHub OpenAI Codex
 
