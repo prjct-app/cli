@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import './index.css'
 
-// Force dark mode only - no light mode support
+
 document.documentElement.classList.add('dark')
 localStorage.setItem('theme', 'dark')
 

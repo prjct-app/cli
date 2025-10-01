@@ -38,9 +38,9 @@ export default {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
-        // Catppuccin Mocha Colors
+
         cat: {
-          // Accent colors
+
           rosewater: '#f5e0dc',
           flamingo: '#f2cdcd',
           pink: '#f5c2e7',
@@ -55,11 +55,11 @@ export default {
           sapphire: '#74c7ec',
           blue: '#89b4fa',
           lavender: '#b4befe',
-          // Text colors
+
           text: '#cdd6f4',
           subtext1: '#bac2de',
           subtext0: '#a6adc8',
-          // Surface colors
+
           overlay2: '#9399b2',
           overlay1: '#7f849c',
           overlay0: '#6c7086',
