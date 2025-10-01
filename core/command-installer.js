@@ -32,19 +32,19 @@ class CommandInstaller {
       },
       codex: {
         name: 'OpenAI Codex',
-        commandsPath: null, // Will be set to {project}/AGENTS.md
+        commandsPath: path.join(this.homeDir, '.codex', 'instructions.md'),
         configPath: path.join(this.homeDir, '.codex'),
-        format: 'agents-md', // Single AGENTS.md file
+        format: 'agents-md', // Single instructions.md file
         detected: false,
-        projectBased: true
+        projectBased: false
       },
       windsurf: {
         name: 'Windsurf/Codeium',
-        commandsPath: null, // Will be set to {project}/.windsurf/workflows
-        configPath: path.join(this.homeDir, '.codeium', 'windsurf'),
+        commandsPath: path.join(this.homeDir, '.windsurf', 'workflows'),
+        configPath: path.join(this.homeDir, '.windsurf'),
         format: 'workflows', // *.md workflows
         detected: false,
-        projectBased: true
+        projectBased: false
       }
     }
 
@@ -59,9 +59,7 @@ class CommandInstaller {
    */
   setProjectPath(projectPath) {
     this.projectPath = projectPath
-
-    this.editors.codex.commandsPath = path.join(projectPath, 'AGENTS.md')
-    this.editors.windsurf.commandsPath = path.join(projectPath, '.windsurf', 'workflows')
+    // codex and windsurf use global paths defined in constructor
   }
 
   /**
@@ -83,9 +81,7 @@ class CommandInstaller {
 
         let commandPath = editor.commandsPath
         if (!commandPath && editor.projectBased) {
-          commandPath = key === 'codex'
-            ? path.join(this.projectPath, 'AGENTS.md')
-            : path.join(this.projectPath, '.windsurf', 'workflows')
+          commandPath = path.join(this.projectPath, 'AGENTS.md')
         }
 
         results[key] = { detected: true, path: commandPath, format: editor.format }
@@ -577,6 +573,22 @@ This command uses the global prjct architecture:
       return `❌ Installation failed: ${results.message}`
     }
 
+    // Handle single editor installation (installToEditor returns different format)
+    if (results.editor && !results.editors) {
+      const lines = [
+        '✅ Command Installation Complete!',
+        '',
+        `📦 Editor: ${results.editor}`,
+        `📝 Commands installed: ${results.installed}`,
+        `🔄 Commands updated: ${results.updated}`,
+        `⊘ Commands skipped: ${results.skipped}`,
+        '',
+        '💡 Commands are now available in your editor!'
+      ]
+      return lines.join('\n')
+    }
+
+    // Handle multiple editors installation (installToSelected/installToAll)
     const lines = [
       '✅ Command Installation Complete!',
       '',
@@ -599,6 +611,110 @@ This command uses the global prjct architecture:
     lines.push('💡 Commands are now available in all detected editors!')
 
     return lines.join('\n')
+  }
+
+  /**
+   * Install Context7 MCP configuration for all detected editors
+   * @returns {Promise<Object>} Installation results
+   */
+  async installContext7MCP() {
+    const results = {
+      success: true,
+      editors: [],
+      details: {}
+    }
+
+    const mcpConfigTemplate = path.join(__dirname, '..', 'templates', 'mcp-config.json')
+    const mcpConfig = JSON.parse(await fs.readFile(mcpConfigTemplate, 'utf-8'))
+
+    try {
+      // 1. Claude Code: ~/.config/claude/claude_desktop_config.json
+      if (this.editors.claude.detected) {
+        const claudeConfigDir = path.join(this.homeDir, '.config', 'claude')
+        const claudeConfigFile = path.join(claudeConfigDir, 'claude_desktop_config.json')
+
+        await fs.mkdir(claudeConfigDir, { recursive: true })
+
+        let config = {}
+        if (await this.fileExists(claudeConfigFile)) {
+          const content = await fs.readFile(claudeConfigFile, 'utf-8')
+          config = JSON.parse(content)
+        }
+
+        // Merge Context7 into existing config
+        config.mcpServers = config.mcpServers || {}
+        config.mcpServers.context7 = mcpConfig.mcpServers.context7
+
+        await fs.writeFile(claudeConfigFile, JSON.stringify(config, null, 2), 'utf-8')
+        results.editors.push('Claude Code')
+        results.details.claude = { success: true, path: claudeConfigFile }
+      }
+
+      // 2. Cursor: ~/.cursor/mcp.json
+      if (this.editors.cursor.detected) {
+        const cursorMcpFile = path.join(this.homeDir, '.cursor', 'mcp.json')
+        await fs.mkdir(path.dirname(cursorMcpFile), { recursive: true })
+
+        let config = {}
+        if (await this.fileExists(cursorMcpFile)) {
+          const content = await fs.readFile(cursorMcpFile, 'utf-8')
+          config = JSON.parse(content)
+        }
+
+        config.mcpServers = config.mcpServers || {}
+        config.mcpServers.context7 = mcpConfig.mcpServers.context7
+
+        await fs.writeFile(cursorMcpFile, JSON.stringify(config, null, 2), 'utf-8')
+        results.editors.push('Cursor')
+        results.details.cursor = { success: true, path: cursorMcpFile }
+      }
+
+      // 3. Windsurf: ~/.windsurf/mcp.json
+      if (this.editors.windsurf.detected) {
+        const windsurfMcpFile = path.join(this.homeDir, '.windsurf', 'mcp.json')
+        await fs.mkdir(path.dirname(windsurfMcpFile), { recursive: true })
+
+        let config = {}
+        if (await this.fileExists(windsurfMcpFile)) {
+          const content = await fs.readFile(windsurfMcpFile, 'utf-8')
+          config = JSON.parse(content)
+        }
+
+        config.mcpServers = config.mcpServers || {}
+        config.mcpServers.context7 = mcpConfig.mcpServers.context7
+
+        await fs.writeFile(windsurfMcpFile, JSON.stringify(config, null, 2), 'utf-8')
+        results.editors.push('Windsurf')
+        results.details.windsurf = { success: true, path: windsurfMcpFile }
+      }
+
+      // 4. Codex: Add MCP instructions to ~/.codex/instructions.md
+      if (this.editors.codex.detected) {
+        const codexInstructions = this.editors.codex.commandsPath
+
+        let content = ''
+        if (await this.fileExists(codexInstructions)) {
+          content = await fs.readFile(codexInstructions, 'utf-8')
+        }
+
+        // Add MCP section if not present
+        if (!content.includes('## MCP Integration')) {
+          const mcpSection = `\n\n## MCP Integration\n\nThe system integrates with MCP servers:\n\n- **Context7**: Library documentation lookup\n- **Filesystem**: Direct file manipulation\n- **Memory**: Persistent decision storage\n- **Sequential**: Deep reasoning for complex problems\n\n### Using Context7\n\nFor any library or framework questions, use Context7 MCP to lookup official documentation:\n\n\`\`\`\n# Example: Get React hooks documentation\nUse Context7 to lookup React hooks patterns before implementing\n\`\`\`\n`
+          content += mcpSection
+          await fs.writeFile(codexInstructions, content, 'utf-8')
+        }
+
+        results.editors.push('Codex')
+        results.details.codex = { success: true, path: codexInstructions }
+      }
+
+      results.message = `Context7 MCP installed for: ${results.editors.join(', ')}`
+    } catch (error) {
+      results.success = false
+      results.message = `Context7 installation failed: ${error.message}`
+    }
+
+    return results
   }
 }
 

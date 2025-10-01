@@ -76,7 +76,7 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # Step counter
 STEP=1
-TOTAL_STEPS=6
+TOTAL_STEPS=5
 
 print_step() {
     echo -e "\n${BOLD}${CYAN}[$STEP/$TOTAL_STEPS]${NC} ${BOLD}$1${NC}"
@@ -536,36 +536,6 @@ if [ -w "$INSTALL_DIR" ]; then
 else
     echo -e "${YELLOW}⚠️  Cannot install globally. To use prjct command, add to PATH:${NC}"
     echo "   export PATH=\"$SCRIPT_DIR/bin:\$PATH\""
-fi
-
-# Optional: Setup Context7 MCP
-print_step "Optional: Configure MCP Context7"
-
-printf "  ${ARROW} Enable Context7 for documentation? (y/N): "
-read -r ENABLE_CONTEXT7
-
-if [[ "$ENABLE_CONTEXT7" =~ ^[Yy]$ ]]; then
-    if [ -d "$HOME/.config/claude" ]; then
-        printf "    ${DIM}Installing Context7 config...${NC}"
-
-        # Check if claude_desktop_config.json exists
-        if [ -f "$HOME/.config/claude/claude_desktop_config.json" ]; then
-            # Backup existing config
-            cp "$HOME/.config/claude/claude_desktop_config.json" "$HOME/.config/claude/claude_desktop_config.json.backup"
-            echo -e " ${GREEN}${CHECK}${NC} (backed up existing)"
-        else
-            # Create empty config
-            echo '{"mcpServers": {}}' > "$HOME/.config/claude/claude_desktop_config.json"
-            echo -e " ${GREEN}${CHECK}${NC} (created new)"
-        fi
-
-        echo -e "${YELLOW}   📝 Add this to your Claude Desktop config:${NC}"
-        echo -e "${DIM}      {\"mcpServers\": {\"context7\": {\"command\": \"npx\", \"args\": [\"-y\", \"@upstash/context7-mcp@latest\"]}}}${NC}"
-    else
-        echo -e " ${YELLOW}!${NC} Claude Desktop not found - manual setup required"
-    fi
-else
-    echo -e " ${DIM}skipped${NC}"
 fi
 
 # Final step
