@@ -1,156 +1,209 @@
 ---
-allowed-tools: [Read, Write, Edit, MultiEdit, Bash, Glob, TodoWrite]
-description: "Initialize prjct project structure in current directory"
+allowed-tools: [Read, Write, Bash, Glob]
+description: "Initialize prjct project with global architecture"
 ---
-
-## Global Architecture
-This command uses the global prjct architecture:
-- Data stored in: `~/.prjct-cli/projects/{id}/`
-- Config stored in: `{project}/.prjct/prjct.config.json`
-- Commands synchronized across all editors
-
-
 
 # /p:init - Initialize Project
 
 ## Purpose
-Initialize a new prjct structure in the current project directory.
+Initialize a new prjct project using global architecture with centralized data storage.
+
+## Global Architecture
+This command creates:
+- **Global data directory**: `~/.prjct-cli/projects/{id}/` (shared across editors)
+- **Local config file**: `.prjct/prjct.config.json` (links to global data)
+- **Synchronized commands**: Available in Claude Code, Cursor, Windsurf
 
 ## Usage
 ```
 /p:init
 ```
 
-## Execution
-1. Create layered `.prjct/` directory structure
-2. Initialize organized files in appropriate layers
-3. Set up initial templates with project context
-4. Run automatic repository analysis
-5. Confirm initialization success
-
 ## Implementation
-When this command is triggered:
 
-1. **Create layered directory structure**:
-   ```bash
-   mkdir -p .prjct/{core,progress,planning,analysis,memory}
-   ```
+When this command is executed in Claude Code:
 
-2. **Initialize core files**:
-   - **core/now.md**:
-     ```markdown
-     # NOW: No current task
+### 1. Generate Project ID
+```bash
+# Generate unique ID from project path hash
+PROJECT_PATH="$(pwd)"
+PROJECT_ID=$(echo -n "$PROJECT_PATH" | shasum -a 256 | cut -c1-12)
+```
 
-     Start a new task with `/p:now [task description]`
-     ```
+### 2. Create Global Directory Structure
+```bash
+# Create global data directory
+mkdir -p ~/.prjct-cli/projects/$PROJECT_ID/{core,progress,planning,analysis,memory}
+```
 
-   - **core/next.md**:
-     ```markdown
-     # NEXT - Priority Queue
+### 3. Create Local Configuration
+```bash
+# Create local config directory
+mkdir -p .prjct
 
-     Add tasks here that should be done after the current task.
-     ```
+# Get author info from git
+AUTHOR_NAME=$(git config user.name 2>/dev/null || echo "Unknown")
+AUTHOR_EMAIL=$(git config user.email 2>/dev/null || echo "unknown@example.com")
 
-   - **core/context.md**:
-     ```markdown
-     # Project Context
+# Create config file linking to global data
+cat > .prjct/prjct.config.json << EOF
+{
+  "version": "0.3.0",
+  "projectId": "$PROJECT_ID",
+  "dataPath": "~/.prjct-cli/projects/$PROJECT_ID",
+  "author": {
+    "name": "$AUTHOR_NAME",
+    "email": "$AUTHOR_EMAIL"
+  },
+  "createdAt": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+}
+EOF
+```
 
-     ## Overview
-     [Auto-generated from `/p:analyze`]
+### 4. Initialize Core Files (in global directory)
 
-     ## Current Focus
-     [Link to current task in now.md]
+**~/.prjct-cli/projects/{id}/core/now.md**:
+```markdown
+# NOW: No current task
 
-     ## Key Information
-     - **Repository**: [auto-detected]
-     - **Tech Stack**: [auto-detected]
-     - **Architecture**: [auto-detected]
-     ```
+Start a new task with `/p:now [task description]`
+```
 
-3. **Initialize progress tracking**:
-   - **progress/shipped.md**:
-     ```markdown
-     # SHIPPED - Completed Features
+**~/.prjct-cli/projects/{id}/core/next.md**:
+```markdown
+# NEXT - Priority Queue
 
-     ## Week [CURRENT_WEEK], [YEAR]
+Add tasks here that should be done after the current task.
+```
 
-     _Ship features with `/p:ship <feature>`_
-     ```
+**~/.prjct-cli/projects/{id}/core/context.md**:
+```markdown
+# Project Context
 
-   - **progress/metrics.md**:
-     ```markdown
-     # Progress Metrics
+## Overview
+[Auto-generated from `/p:analyze`]
 
-     ## This Week
-     - **Shipped**: 0 features
-     - **Active**: 0 tasks
-     - **Planned**: 0 items
+## Current Focus
+[Link to current task in now.md]
 
-     ## Historical
-     [Auto-updated by commands]
-     ```
+## Key Information
+- **Repository**: [auto-detected]
+- **Tech Stack**: [auto-detected]
+- **Architecture**: [auto-detected]
+```
 
-4. **Initialize planning layer**:
-   - **planning/ideas.md**:
-     ```markdown
-     # IDEAS - Brain Dump
+### 5. Initialize Progress Tracking
 
-     Capture ideas quickly with `/p:idea <text>`
+**~/.prjct-cli/projects/{id}/progress/shipped.md**:
+```markdown
+# SHIPPED - Completed Features
 
-     ## Backlog
-     - [ ] [Ideas will appear here]
+## Week [CURRENT_WEEK], [YEAR]
 
-     ## Someday/Maybe
-     - [ ] [Future ideas]
-     ```
+_Ship features with `/p:ship <feature>`_
+```
 
-   - **planning/roadmap.md**:
-     ```markdown
-     # Roadmap
+**~/.prjct-cli/projects/{id}/progress/metrics.md**:
+```markdown
+# Progress Metrics
 
-     ## Current Sprint
-     [Active items from next.md]
+## This Week
+- **Shipped**: 0 features
+- **Active**: 0 tasks
+- **Planned**: 0 items
 
-     ## Upcoming
-     [Planned features and improvements]
+## Historical
+[Auto-updated by commands]
+```
 
-     ## Long-term Vision
-     [Strategic goals and objectives]
-     ```
+### 6. Initialize Planning Layer
 
-5. **Initialize analysis layer**:
-   - **analysis/** (will be populated by `/p:analyze`)
-   - Auto-run repository analysis on first init
+**~/.prjct-cli/projects/{id}/planning/ideas.md**:
+```markdown
+# IDEAS - Brain Dump
 
-6. **Initialize memory layer**:
-   - **memory/decisions.jsonl**: Empty JSONL for decision history
-   - **memory/learnings.jsonl**: Empty JSONL for project learnings
-   - **memory/context.jsonl**: Empty JSONL for historical context
+Capture ideas quickly with `/p:idea <text>`
 
-7. **Run automatic analysis**:
-   Execute `/p:analyze` to populate initial project context
+## Backlog
+- [ ] [Ideas will appear here]
 
-8. **Provide success message**:
-   ```
-   🚀 prjct initialized with layered structure!
+## Someday/Maybe
+- [ ] [Future ideas]
+```
 
-   ## Structure Created:
-   📁 .prjct/
-   ├── 🎯 core/        (Current focus & priorities)
-   ├── 📈 progress/    (Shipped features & metrics)
-   ├── 🗺️  planning/    (Ideas, roadmap, backlog)
-   ├── 🔍 analysis/    (Repository insights)
-   └── 🧠 memory/      (Decision history)
+**~/.prjct-cli/projects/{id}/planning/roadmap.md**:
+```markdown
+# Roadmap
 
-   ## Quick Start:
-   - `/p:analyze` - Analyze this repository
-   - `/p:now [task]` - Set current focus
-   - `/p:ship <feature>` - Ship & celebrate
-   - `/p:roadmap` - Plan ahead
-   - `/p:recap` - See progress
-   ```
+## Current Sprint
+[Active items from next.md]
+
+## Upcoming
+[Planned features and improvements]
+
+## Long-term Vision
+[Strategic goals and objectives]
+```
+
+### 7. Initialize Memory Layer
+
+Create empty JSONL files for historical tracking:
+- **memory/context.jsonl**: Activity log with timestamps
+- **memory/decisions.jsonl**: Decision history (not used yet)
+
+### 8. Log Initialization
+
+Add initialization record to memory:
+```jsonl
+{"timestamp":"2025-10-01T09:00:00Z","action":"init","author":"Name","projectPath":"/path/to/project","projectId":"abc123def456"}
+```
+
+### 9. Success Message
+
+```
+✅ Project initialized with global architecture!
+
+📂 Configuration:
+   Local:  .prjct/prjct.config.json
+   Global: ~/.prjct-cli/projects/{id}/
+
+🗂️  Global Structure Created:
+   ├── 🎯 core/        Current focus & priorities
+   ├── 📈 progress/    Shipped features & metrics
+   ├── 🗺️  planning/    Ideas, roadmap, backlog
+   ├── 🔍 analysis/    Repository insights
+   └── 🧠 memory/      Activity log & decisions
+
+🚀 Quick Start:
+   /p:analyze     Analyze this repository
+   /p:now [task]  Set current focus
+   /p:ship <name> Ship & celebrate
+   /p:roadmap     Plan ahead
+   /p:recap       See progress
+
+💡 Multi-Editor Support:
+   Claude Code: Commands available as /p:*
+   Cursor:      Commands available as /p:*
+   Windsurf:    Commands available as /p:*
+   Terminal:    Use `prjct` command
+
+🌍 Global Data:
+   Share ~/.prjct-cli/projects/ directory with your team
+   Each developer uses their preferred editor
+   Everyone sees the same progress and context
+```
 
 ## Error Handling
-- Check if `.prjct/` already exists
-- Warn if overwriting existing files
-- Provide recovery suggestions on failure
+
+- **If .prjct/ exists**: Warn that project may already be initialized
+- **If git not available**: Use generic author info
+- **If global directory creation fails**: Show error and suggest manual creation
+- **If config write fails**: Check permissions on .prjct/ directory
+
+## Notes
+
+- Project ID is deterministic based on project path
+- Same project path always gets same ID
+- Global data enables cross-editor synchronization
+- Local config is minimal (just links to global data)
+- Works for solo developers and small teams (2-5 people)
