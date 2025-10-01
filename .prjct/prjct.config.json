@@ -1,16 +1,4 @@
 {
-  "version": "0.3.0",
   "projectId": "3a5667a5dedb",
-  "dataPath": "~/.prjct-cli/projects/3a5667a5dedb",
-  "authors": [
-    {
-      "name": "JJ",
-      "email": "jlopezlira@gmail.com",
-      "github": "jlopezlira",
-      "firstContribution": "2025-10-01T01:20:29.720Z",
-      "lastActivity": "2025-10-01T01:20:29.720Z"
-    }
-  ],
-  "created": "2025-10-01T01:20:29.720Z",
-  "lastSync": "2025-10-01T01:20:29.720Z"
+  "dataPath": "~/.prjct-cli/projects/3a5667a5dedb"
 }

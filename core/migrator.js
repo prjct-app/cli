@@ -5,18 +5,19 @@ const configManager = require('./config-manager')
 const authorDetector = require('./author-detector')
 
 /**
- * Migrator - Handles migration from v0.1.0 to v0.2.1
+ * Migrator - Handles migrations between versions
  *
  * Migration process:
- * 1. Detect legacy .prjct directory
+ * 1. Detect legacy .prjct directory (v0.1.0 → v0.2.x)
  * 2. Detect author information
  * 3. Create prjct.config.json
  * 4. Create global directory structure
  * 5. Copy all files to global location
- * 6. Validate migration
- * 7. Optionally remove local .prjct
+ * 6. Move authors/version/created/lastSync to global config (v0.2.x → v0.3.0)
+ * 7. Validate migration
+ * 8. Optionally remove local .prjct
  *
- * @version 0.2.1
+ * @version 0.3.0
  */
 class Migrator {
   /**
@@ -39,7 +40,7 @@ class Migrator {
   }
 
   /**
-   * Migrate config from 0.2.x to 0.3.0 (author → authors array)
+   * Migrate config from 0.2.x to 0.3.0 (move authors to global config)
    *
    * @param {string} projectPath - Path to the project
    * @returns {Promise<Object>} - Migration result
@@ -53,38 +54,57 @@ class Migrator {
     }
 
     try {
-      const config = await configManager.readConfig(projectPath)
-      if (!config) {
+      const localConfig = await configManager.readConfig(projectPath)
+      if (!localConfig) {
         result.message = 'No config found'
         return result
       }
 
-      result.oldVersion = config.version
+      result.oldVersion = localConfig.version
+      const projectId = localConfig.projectId
 
-      // Check if already has authors array
-      if (config.authors && Array.isArray(config.authors)) {
+      // Check if global config already exists with authors
+      const globalConfig = await configManager.readGlobalConfig(projectId)
+      if (globalConfig && globalConfig.authors && globalConfig.authors.length > 0) {
+        // Already migrated, just clean up local config
+        const needsCleanup = localConfig.authors || localConfig.author ||
+                            localConfig.version || localConfig.created || localConfig.lastSync
+
+        if (needsCleanup) {
+          // Remove all fields that should be in global config
+          delete localConfig.authors
+          delete localConfig.author
+          delete localConfig.version
+          delete localConfig.created
+          delete localConfig.lastSync
+          await configManager.writeConfig(projectPath, localConfig)
+        }
         result.success = true
-        result.message = 'Already using authors array format'
+        result.message = 'Authors already in global config, cleaned up local config'
         return result
       }
 
-      // Convert single author to authors array
-      if (config.author) {
-        const now = new Date().toISOString()
-        config.authors = [
+      // Prepare authors array for global config
+      let authors = []
+      const now = new Date().toISOString()
+
+      if (localConfig.authors && Array.isArray(localConfig.authors)) {
+        // Already has authors array, move to global
+        authors = localConfig.authors
+      } else if (localConfig.author) {
+        // Convert single author to authors array
+        authors = [
           {
-            name: config.author.name || 'Unknown',
-            email: config.author.email || '',
-            github: config.author.github || '',
-            firstContribution: config.created || now,
-            lastActivity: config.lastSync || now
+            name: localConfig.author.name || 'Unknown',
+            email: localConfig.author.email || '',
+            github: localConfig.author.github || '',
+            firstContribution: localConfig.created || now,
+            lastActivity: localConfig.lastSync || now
           }
         ]
-        delete config.author
       } else {
-        // No author info, create empty array
-        const now = new Date().toISOString()
-        config.authors = [
+        // No author info, create default
+        authors = [
           {
             name: 'Unknown',
             email: '',
@@ -95,15 +115,26 @@ class Migrator {
         ]
       }
 
-      // Update version
-      config.version = '0.3.0'
-      config.lastSync = new Date().toISOString()
+      // Create/update global config with authors and system data
+      const newGlobalConfig = {
+        projectId,
+        authors,
+        version: '0.3.0',
+        created: localConfig.created || now,
+        lastSync: now
+      }
+      await configManager.writeGlobalConfig(projectId, newGlobalConfig)
 
-      // Write updated config
-      await configManager.writeConfig(projectPath, config)
+      // Clean up local config - remove all fields that belong in global
+      delete localConfig.authors
+      delete localConfig.author
+      delete localConfig.version
+      delete localConfig.created
+      delete localConfig.lastSync
+      await configManager.writeConfig(projectPath, localConfig)
 
       result.success = true
-      result.message = 'Config migrated from 0.2.x to 0.3.0'
+      result.message = `Migrated ${authors.length} author(s) to global config`
       return result
     } catch (error) {
       result.message = `Migration failed: ${error.message}`
