@@ -42,7 +42,6 @@ async function main() {
             result = await commands.cleanup();
             break;
         case 'cleanup-advanced':
-            // Parse options from command line
             const cleanupOptions = {};
             const cleanupArgs = args.slice(1);
             let cleanupTarget = '.';
@@ -62,7 +61,6 @@ async function main() {
             result = await commands.cleanupAdvanced(cleanupTarget, cleanupOptions);
             break;
         case 'design':
-            // Parse design options
             const designOptions = {};
             const designArgs = args.slice(1);
             let designTarget = '';
@@ -94,7 +92,6 @@ async function main() {
             }
             break;
         case 'migrate-all':
-            // Parse migration options
             const migrateOptions = {};
             const migrateArgs = args.slice(1);
 
@@ -111,7 +108,6 @@ async function main() {
             result = await commands.migrateAll(migrateOptions);
             break;
         case 'install':
-            // Parse installation options
             const installOptions = {};
             const installArgs = args.slice(1);
 
@@ -130,7 +126,6 @@ async function main() {
             result = await commands.install(installOptions);
             break;
         case 'analyze':
-            // Parse analyze options
             const analyzeOptions = {};
             const analyzeArgs = args.slice(1);
 

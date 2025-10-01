@@ -232,5 +232,5 @@ export const Philosophy = () => {
  )
 }
 
-// Add missing import
+
 import { CheckCircle } from 'lucide-react'
