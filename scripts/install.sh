@@ -283,11 +283,11 @@ print_step "Configuring AI platforms"
 printf "  ${ARROW} Claude Code..."
 if [ -d "$HOME/.claude" ]; then
     # Copy command files to p/ subdirectory for /p: namespace
-    if [ -d "$INSTALL_DIR/commands" ]; then
+    if [ -d "$INSTALL_DIR/templates/commands" ]; then
         # Create subdirectory for /p:* namespace
         mkdir -p "$HOME/.claude/commands/p"
         CMD_COUNT=0
-        for cmd_file in "$INSTALL_DIR/commands"/*.md; do
+        for cmd_file in "$INSTALL_DIR/templates/commands"/*.md; do
             if [ -f "$cmd_file" ]; then
                 filename=$(basename "$cmd_file")
                 # Copy to p/ subdirectory for /p:* namespace
