@@ -34,6 +34,10 @@ pnpm-debug.log*
 .DS_Store
 .idea/
 .vscode/
+.windsurf/
+
+# Obsolete directories
+src/
 
 # Temporary files
 .cache/

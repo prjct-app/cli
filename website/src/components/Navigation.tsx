@@ -49,19 +49,26 @@ export const Navigation = () => {
 
           {/* Desktop Navigation */}
           <nav className="hidden items-center gap-6 md:flex">
-            {navItems.map((item) => (
-              <Link
+            {navItems.map((item, index) => (
+              <motion.div
                 key={item.path}
-                to={item.path}
-                className={`flex items-center gap-2 rounded-lg px-3 py-2 transition-all ${
-                  isActive(item.path)
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-                }`}
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                whileHover={{ scale: 1.05 }}
               >
-                {item.icon}
-                <span>{item.label}</span>
-              </Link>
+                <Link
+                  to={item.path}
+                  className={`flex items-center gap-2 rounded-lg px-3 py-2 transition-all ${
+                    isActive(item.path)
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+                  }`}
+                >
+                  {item.icon}
+                  <span>{item.label}</span>
+                </Link>
+              </motion.div>
             ))}
           </nav>
 

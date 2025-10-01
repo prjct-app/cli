@@ -2,6 +2,41 @@
 
 This file provides guidance to OpenAI Codex and other AI assistants when working with this repository.
 
+## How Codex Uses prjct Commands
+
+OpenAI Codex does not support custom slash commands. Instead:
+
+1. **User speaks naturally**: "set my current task to implement authentication"
+2. **Codex interprets context**: Understands this is a prjct command from AGENTS.md
+3. **Codex executes CLI**: Runs `prjct now "implement authentication"`
+4. **CLI operates on global data**: Reads/writes `~/.prjct-cli/projects/{id}/`
+
+**Syntax for Codex**: `prjct <command> [arguments]`
+
+Examples:
+- `prjct now "build login page"`
+- `prjct ship "user authentication"`
+- `prjct idea "add dark mode"`
+
+## MCP Server Integration
+
+**Context7 MCP is ALWAYS available** for library documentation and framework patterns:
+
+- **Purpose**: Official library documentation lookup
+- **Usage**: Automatic when importing libraries or asking about frameworks
+- **Examples**: React hooks, Vue composition API, Next.js patterns, Express middleware
+
+**When to use Context7**:
+- Implementing features with external libraries
+- Framework-specific questions (React, Vue, Angular, Next.js)
+- API documentation lookup
+- Best practices for libraries
+
+**Other MCP Servers**:
+- **Filesystem**: Direct file manipulation (always available)
+- **Memory**: Persistent decision storage (always available)
+- **Sequential**: Deep reasoning for complex problems (always available)
+
 ## prjct Project Management Commands
 
 This project uses **prjct-cli** for AI-integrated project management. All commands operate on global data stored in `~/.prjct-cli/projects/{project-id}/` while keeping a minimal configuration file in the project at `.prjct/prjct.config.json`.
@@ -383,6 +418,120 @@ Run tests and maintain test coverage tracking.
 2. Analyze results
 3. Update metrics
 4. Suggest improvements
+
+---
+
+### /p:design
+**Design system architecture, APIs, and component interfaces**
+
+Create technical designs with visual diagrams and implementation guides for system architecture, APIs, components, databases, and user flows.
+
+**Usage**: `/p:design [target] [--type architecture|api|component|database|flow] [--format diagram|spec|code|all]`
+
+**Implementation**:
+1. Parse design target and type (architecture, api, component, database, flow)
+2. Generate appropriate ASCII diagrams and visual representations
+3. Create technical specifications with technology stack and patterns
+4. Generate implementation templates and interfaces
+5. Save designs to `~/.prjct-cli/projects/{id}/designs/` directory
+6. Display formatted design with overview, specs, and implementation guide
+7. Link designs to tasks and track implementation progress
+
+**Response Format**:
+```
+🎨 ✨ Design Complete! ✨ 🎨
+
+📐 Design: [Target Name]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🏗️ Architecture Overview:
+[ASCII diagram or description]
+
+📋 Technical Specifications:
+• Technology Stack: [stack details]
+• Design Patterns: [patterns used]
+• Key Components: [component list]
+
+📦 Implementation Guide:
+1. Set up project structure
+2. Implement core models
+3. Build API endpoints
+4. Create UI components
+
+📁 Files Created:
+• .prjct/designs/[target]-architecture.md
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ Design ready for implementation!
+
+💡 Next: /p:now "Implement [target]"
+```
+
+---
+
+### /p:cleanup
+**Advanced code cleanup and optimization**
+
+Remove dead code, optimize imports, clean project structure, analyze unused dependencies, and clean up temporary files. Comprehensive cleanup with backup capabilities.
+
+**Usage**: `/p:cleanup [target] [--type code|imports|files|deps|memory|all] [--safe|--aggressive] [--dry-run]`
+
+**Implementation**:
+1. Read `.prjct/prjct.config.json` for project ID and author
+2. Parse cleanup arguments (target, type, mode)
+3. Create backup to `~/.prjct-cli/projects/{id}/backups/{timestamp}/` before aggressive cleanup
+4. Execute cleanup by type:
+   - **code**: Remove console.logs, commented code, dead code
+   - **imports**: Remove unused imports, organize imports
+   - **files**: Remove temp files, empty files, backups
+   - **deps**: Analyze and remove unused npm dependencies
+   - **memory**: Archive old memory entries (>30 days) to `~/.prjct-cli/projects/{id}/memory/archive/`
+   - **all**: All cleanup types
+5. Validate syntax after changes (JavaScript/TypeScript)
+6. Log all changes to `~/.prjct-cli/projects/{id}/memory/cleanup-log.jsonl`
+7. Log action with author to context.jsonl
+8. Display cleanup results with metrics
+
+**Response Format**:
+```
+🧹 ✨ Cleanup Complete! ✨ 🧹
+
+📊 Cleanup Results:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🗑️ Dead Code Removed:
+• Console.logs: {count} statements
+• Commented code: {count} blocks
+• Unused functions: {count}
+
+📦 Imports Optimized:
+• Unused imports: {count} removed
+• Files organized: {count}
+
+📁 Files Cleaned:
+• Temp files: {count} removed
+• Empty files: {count} removed
+• Space freed: {size} MB
+
+📚 Dependencies:
+• Unused packages: {count} removed
+• Size reduced: {size} MB
+
+📦 Archived:
+• Memory entries: {count} (older than 30 days)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✨ Your project is clean and optimized!
+
+💡 Tip: Run with --dry-run first to preview changes
+```
+
+**Safety Measures**:
+- Create backup before aggressive cleanup
+- Log all changes to cleanup-log.jsonl
+- Validate syntax after modifications
+- Skip files with uncommitted git changes
+- Provide --dry-run option to preview
 
 ---
 

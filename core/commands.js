@@ -1765,7 +1765,7 @@ ${diagram}
       if (editor) {
         installResult = await commandInstaller.installToEditor(editor, force)
       } else if (interactive && detectedEditors.length > 1) {
-        const inquirer = require('inquirer')
+        const inquirer = await import('inquirer')
 
         console.log('\n🤖 Detected AI editors on your system:\n')
 
@@ -1775,7 +1775,7 @@ ${diagram}
           checked: true
         }))
 
-        const answers = await inquirer.prompt([
+        const answers = await inquirer.default.prompt([
           {
             type: 'checkbox',
             name: 'selectedEditors',
@@ -1802,7 +1802,15 @@ ${diagram}
         installResult = await commandInstaller.installToAll(force)
       }
 
-      const report = commandInstaller.generateReport(installResult)
+      // Always install Context7 MCP after commands installation
+      const mcpResult = await commandInstaller.installContext7MCP()
+
+      let report = commandInstaller.generateReport(installResult)
+      if (mcpResult.success && mcpResult.editors.length > 0) {
+        report += '\n\n🔌 Context7 MCP Enabled\n'
+        report += `   Editors: ${mcpResult.editors.join(', ')}\n`
+        report += '   📚 Library documentation now available automatically'
+      }
 
       return {
         success: installResult.success,
