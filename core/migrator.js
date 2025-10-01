@@ -26,7 +26,89 @@ class Migrator {
    * @returns {Promise<boolean>} - True if migration needed
    */
   async needsMigration(projectPath) {
-    return await configManager.needsMigration(projectPath)
+    const structureMigration = await configManager.needsMigration(projectPath)
+    if (structureMigration) return true
+
+    // Check if config needs version migration (0.2.x → 0.3.0)
+    const config = await configManager.readConfig(projectPath)
+    if (config && config.version && config.version.startsWith('0.2.')) {
+      return true
+    }
+
+    return false
+  }
+
+  /**
+   * Migrate config from 0.2.x to 0.3.0 (author → authors array)
+   *
+   * @param {string} projectPath - Path to the project
+   * @returns {Promise<Object>} - Migration result
+   */
+  async migrateConfigTo030(projectPath) {
+    const result = {
+      success: false,
+      message: '',
+      oldVersion: null,
+      newVersion: '0.3.0'
+    }
+
+    try {
+      const config = await configManager.readConfig(projectPath)
+      if (!config) {
+        result.message = 'No config found'
+        return result
+      }
+
+      result.oldVersion = config.version
+
+      // Check if already has authors array
+      if (config.authors && Array.isArray(config.authors)) {
+        result.success = true
+        result.message = 'Already using authors array format'
+        return result
+      }
+
+      // Convert single author to authors array
+      if (config.author) {
+        const now = new Date().toISOString()
+        config.authors = [
+          {
+            name: config.author.name || 'Unknown',
+            email: config.author.email || '',
+            github: config.author.github || '',
+            firstContribution: config.created || now,
+            lastActivity: config.lastSync || now
+          }
+        ]
+        delete config.author
+      } else {
+        // No author info, create empty array
+        const now = new Date().toISOString()
+        config.authors = [
+          {
+            name: 'Unknown',
+            email: '',
+            github: '',
+            firstContribution: now,
+            lastActivity: now
+          }
+        ]
+      }
+
+      // Update version
+      config.version = '0.3.0'
+      config.lastSync = new Date().toISOString()
+
+      // Write updated config
+      await configManager.writeConfig(projectPath, config)
+
+      result.success = true
+      result.message = 'Config migrated from 0.2.x to 0.3.0'
+      return result
+    } catch (error) {
+      result.message = `Migration failed: ${error.message}`
+      return result
+    }
   }
 
   /**
@@ -115,19 +197,38 @@ class Migrator {
       other: 0
     }
 
+    const validLayers = ['core', 'progress', 'planning', 'analysis', 'memory', 'sessions']
     const entries = await fs.readdir(legacyPath, { withFileTypes: true })
 
     for (const entry of entries) {
       const sourcePath = path.join(legacyPath, entry.name)
 
+      // Skip config file and backup files
+      if (entry.name === 'prjct.config.json' || entry.name.endsWith('.old')) {
+        continue
+      }
+
       if (entry.isDirectory()) {
-        // Handle subdirectories (e.g., tasks/, designs/)
-        const destPath = path.join(globalPath, 'planning', entry.name)
-        const count = await this.copyDirectory(sourcePath, destPath)
-        fileCount += count
-        layerCounts.planning += count
+        // Check if this is a layer directory (v0.2.0+ structure)
+        if (validLayers.includes(entry.name)) {
+          // Copy entire layer directory to global location
+          const destPath = path.join(globalPath, entry.name)
+          const count = await this.copyDirectory(sourcePath, destPath)
+          fileCount += count
+          if (layerCounts.hasOwnProperty(entry.name)) {
+            layerCounts[entry.name] += count
+          } else {
+            layerCounts.other += count
+          }
+        } else {
+          // Other subdirectories go to planning/ (legacy behavior)
+          const destPath = path.join(globalPath, 'planning', entry.name)
+          const count = await this.copyDirectory(sourcePath, destPath)
+          fileCount += count
+          layerCounts.planning += count
+        }
       } else {
-        // Map file to appropriate layer
+        // Map loose files to appropriate layer (v0.1.0 structure)
         const mapping = this.mapLegacyFile(entry.name)
         const destPath = path.join(globalPath, mapping.layer, mapping.filename)
 
@@ -196,11 +297,35 @@ class Migrator {
   }
 
   /**
+   * Cleanup legacy directories while preserving config
+   * Removes: analysis/, core/, memory/, planning/, progress/, sessions/
+   * Keeps: prjct.config.json
+   *
+   * @param {string} projectPath - Path to the project
+   * @returns {Promise<void>}
+   * @private
+   */
+  async cleanupLegacyDirectories(projectPath) {
+    const legacyPath = pathManager.getLegacyPrjctPath(projectPath)
+    const layersToRemove = ['analysis', 'core', 'memory', 'planning', 'progress', 'sessions']
+
+    for (const layer of layersToRemove) {
+      const layerPath = path.join(legacyPath, layer)
+      try {
+        await fs.rm(layerPath, { recursive: true, force: true })
+      } catch {
+        // Ignore if directory doesn't exist
+      }
+    }
+  }
+
+  /**
    * Perform the complete migration process
    *
    * @param {string} projectPath - Path to the project
    * @param {Object} options - Migration options
-   * @param {boolean} options.removeLegacy - Remove legacy .prjct after migration
+   * @param {boolean} options.removeLegacy - Remove legacy .prjct after migration completely
+   * @param {boolean} options.cleanupLegacy - Remove legacy directories but keep config
    * @param {boolean} options.dryRun - Simulate migration without making changes
    * @returns {Promise<Object>} - Migration result
    */
@@ -217,15 +342,26 @@ class Migrator {
     }
 
     try {
-      // Step 1: Check if migration is needed
-      const needsMigration = await this.needsMigration(projectPath)
-      if (!needsMigration) {
+      // Step 1: Check if this is a version migration (0.2.x → 0.3.0)
+      const config = await configManager.readConfig(projectPath)
+      if (config && config.version && config.version.startsWith('0.2.')) {
+        const versionMigration = await this.migrateConfigTo030(projectPath)
+        result.success = versionMigration.success
+        result.projectId = config.projectId
+        result.filesCopied = 0
+        result.issues = versionMigration.success ? [] : [versionMigration.message]
+        return result
+      }
+
+      // Step 2: Check if structural migration is needed (legacy .prjct → global)
+      const needsStructuralMigration = await configManager.needsMigration(projectPath)
+      if (!needsStructuralMigration) {
         result.success = false
         result.issues.push('No migration needed - either no legacy structure or already migrated')
         return result
       }
 
-      // Step 2: Detect author information
+      // Step 3: Detect author information
       result.author = await authorDetector.detect()
 
       // Step 3: Generate project ID
@@ -262,10 +398,15 @@ class Migrator {
         return result
       }
 
-      // Step 8: Optionally remove legacy directory
+      // Step 8: Optionally remove legacy directory completely
       if (options.removeLegacy) {
         await fs.rm(legacyPath, { recursive: true, force: true })
         result.legacyRemoved = true
+      }
+      // Or cleanup legacy directories selectively (keep config only)
+      else if (options.cleanupLegacy) {
+        await this.cleanupLegacyDirectories(projectPath)
+        result.legacyCleaned = true
       }
 
       result.success = true
@@ -366,11 +507,11 @@ class Migrator {
    * Find all projects with .prjct directories on the user's machine
    *
    * @param {Object} options - Search options
-   * @param {boolean} options.deepScan - Scan entire home directory (slower)
+   * @param {boolean} options.deepScan - Scan entire home directory (default: true for automatic migration)
    * @returns {Promise<Array<string>>} - Array of project paths
    */
   async findAllProjects(options = {}) {
-    const { deepScan = false } = options
+    const { deepScan = true } = options
     const projectDirs = []
     const os = require('os')
 
@@ -450,7 +591,8 @@ class Migrator {
    *
    * @param {Object} options - Migration options
    * @param {boolean} options.deepScan - Scan entire home directory
-   * @param {boolean} options.removeLegacy - Remove legacy .prjct after migration
+   * @param {boolean} options.removeLegacy - Remove legacy .prjct after migration completely
+   * @param {boolean} options.cleanupLegacy - Remove legacy directories but keep config
    * @param {boolean} options.dryRun - Simulate migration without making changes
    * @param {boolean} options.interactive - Ask for confirmation before each migration
    * @param {Function} options.onProgress - Callback for progress updates
@@ -460,6 +602,7 @@ class Migrator {
     const {
       deepScan = false,
       removeLegacy = false,
+      cleanupLegacy = false,
       dryRun = false,
       interactive = false,
       onProgress = null
@@ -544,6 +687,7 @@ class Migrator {
 
             const migrationResult = await this.migrate(projectPath, {
               removeLegacy,
+              cleanupLegacy,
               dryRun
             })
 

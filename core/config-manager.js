@@ -1,5 +1,6 @@
 const fs = require('fs').promises
 const pathManager = require('./path-manager')
+const { VERSION } = require('./version')
 
 /**
  * ConfigManager - Manages prjct.config.json files
@@ -58,18 +59,23 @@ class ConfigManager {
     const projectId = pathManager.generateProjectId(projectPath)
     const globalPath = pathManager.getGlobalProjectPath(projectId)
     const displayPath = pathManager.getDisplayPath(globalPath)
+    const now = new Date().toISOString()
 
     const config = {
-      version: '0.2.0',
+      version: VERSION,
       projectId,
       dataPath: displayPath,
-      author: {
-        name: author.name || 'Unknown',
-        email: author.email || '',
-        github: author.github || ''
-      },
-      created: new Date().toISOString(),
-      lastSync: new Date().toISOString()
+      authors: [
+        {
+          name: author.name || 'Unknown',
+          email: author.email || '',
+          github: author.github || '',
+          firstContribution: now,
+          lastActivity: now
+        }
+      ],
+      created: now,
+      lastSync: now
     }
 
     await this.writeConfig(projectPath, config)
@@ -101,22 +107,56 @@ class ConfigManager {
     if (!config.version) return false
     if (!config.projectId) return false
     if (!config.dataPath) return false
-    if (!config.author || !config.author.name) return false
+
+    // Support both old (author) and new (authors) formats
+    if (config.authors) {
+      if (!Array.isArray(config.authors) || config.authors.length === 0) return false
+      if (!config.authors[0].name) return false
+    } else if (config.author) {
+      if (!config.author.name) return false
+    } else {
+      return false
+    }
+
     if (!config.created) return false
     if (!config.lastSync) return false
     return true
   }
 
   /**
-   * Check if a project needs migration (has legacy structure but no config)
+   * Check if a project needs migration
+   * Migration is needed if:
+   * - Has legacy .prjct/ structure
+   * - AND either no config exists OR files not yet in global location
    *
    * @param {string} projectPath - Path to the project
    * @returns {Promise<boolean>} - True if migration needed
    */
   async needsMigration(projectPath) {
     const hasLegacy = await pathManager.hasLegacyStructure(projectPath)
+    if (!hasLegacy) return false
+
     const hasConfig = await pathManager.hasConfig(projectPath)
-    return hasLegacy && !hasConfig
+
+    // If no config, definitely needs migration
+    if (!hasConfig) return true
+
+    // If config exists, check if files are actually in global location
+    const config = await this.readConfig(projectPath)
+    if (!config || !config.projectId) return true
+
+    const globalPath = pathManager.getGlobalProjectPath(config.projectId)
+    const fs = require('fs').promises
+    const path = require('path')
+
+    try {
+      // Check if global location has files (not just empty directories)
+      const coreFiles = await fs.readdir(path.join(globalPath, 'core'))
+      return coreFiles.length === 0 // Needs migration if core is empty
+    } catch {
+      // Global directory doesn't exist or is inaccessible - needs migration
+      return true
+    }
   }
 
   /**
@@ -134,22 +174,85 @@ class ConfigManager {
   }
 
   /**
-   * Update author information in config
+   * Find an author in the authors array by github username
    *
    * @param {string} projectPath - Path to the project
-   * @param {Object} author - New author information
+   * @param {string} githubUsername - GitHub username to search for
+   * @returns {Promise<Object|null>} - Author object or null if not found
+   */
+  async findAuthor(projectPath, githubUsername) {
+    const config = await this.readConfig(projectPath)
+    if (!config || !config.authors) return null
+
+    return config.authors.find(a => a.github === githubUsername) || null
+  }
+
+  /**
+   * Add a new author to the authors array
+   *
+   * @param {string} projectPath - Path to the project
+   * @param {Object} author - Author information {name, email, github}
    * @returns {Promise<void>}
    */
-  async updateAuthor(projectPath, author) {
+  async addAuthor(projectPath, author) {
     const config = await this.readConfig(projectPath)
-    if (config) {
-      config.author = {
-        ...config.author,
-        ...author
-      }
-      config.lastSync = new Date().toISOString()
+    if (!config) return
+
+    // Ensure authors array exists
+    if (!config.authors) {
+      config.authors = []
+    }
+
+    // Check if author already exists
+    const exists = config.authors.some(a => a.github === author.github)
+    if (exists) return
+
+    const now = new Date().toISOString()
+    config.authors.push({
+      name: author.name || 'Unknown',
+      email: author.email || '',
+      github: author.github || '',
+      firstContribution: now,
+      lastActivity: now
+    })
+
+    config.lastSync = now
+    await this.writeConfig(projectPath, config)
+  }
+
+  /**
+   * Update author's last activity timestamp
+   *
+   * @param {string} projectPath - Path to the project
+   * @param {string} githubUsername - GitHub username
+   * @returns {Promise<void>}
+   */
+  async updateAuthorActivity(projectPath, githubUsername) {
+    const config = await this.readConfig(projectPath)
+    if (!config || !config.authors) return
+
+    const author = config.authors.find(a => a.github === githubUsername)
+    if (author) {
+      author.lastActivity = new Date().toISOString()
+      config.lastSync = author.lastActivity
       await this.writeConfig(projectPath, config)
     }
+  }
+
+  /**
+   * Get current author for session (detect or get from config)
+   *
+   * @param {string} projectPath - Path to the project
+   * @returns {Promise<string>} - GitHub username of current author
+   */
+  async getCurrentAuthor(projectPath) {
+    const authorDetector = require('./author-detector')
+    const author = await authorDetector.detect()
+
+    // Add author to config if not exists
+    await this.addAuthor(projectPath, author)
+
+    return author.github || author.name || 'Unknown'
   }
 
   /**
@@ -177,17 +280,22 @@ class ConfigManager {
 
     // Return minimal defaults
     const projectId = pathManager.generateProjectId(projectPath)
+    const now = new Date().toISOString()
     return {
-      version: '0.2.0',
+      version: VERSION,
       projectId,
       dataPath: pathManager.getDisplayPath(pathManager.getGlobalProjectPath(projectId)),
-      author: {
-        name: 'Unknown',
-        email: '',
-        github: ''
-      },
-      created: new Date().toISOString(),
-      lastSync: new Date().toISOString()
+      authors: [
+        {
+          name: 'Unknown',
+          email: '',
+          github: '',
+          firstContribution: now,
+          lastActivity: now
+        }
+      ],
+      created: now,
+      lastSync: now
     }
   }
 }
