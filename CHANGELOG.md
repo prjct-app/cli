@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2025-10-01
+
+### Fixed
+- **Installation Path Resolution Error** - Fixed "setup.sh: No such file or directory" error during installation (#11)
+  - Corrected path resolution in installation scripts (docs/install.sh, scripts/install.sh, scripts/setup.sh)
+  - Added verification tests in `tests/verify-install-paths.sh`
+  - Added comprehensive documentation in `tests/INSTALL_PATH_FIX.md`
+  - Thanks to [@danrocha](https://github.com/danrocha) for reporting the issue
+
 ## [0.3.0] - 2025-09-30
 
 ### Added
