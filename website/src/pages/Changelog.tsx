@@ -42,7 +42,7 @@ export const Changelog = () => {
           <p className="text-muted-foreground">No unreleased features at this time. Check back soon!</p>
         </motion.section>
 
-        {/* Version 0.3.1 */}
+        {/* Version 0.3.2 */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -50,10 +50,50 @@ export const Changelog = () => {
           className="mb-16"
         >
           <div className="flex items-center gap-4 mb-6">
-            <h2 className="text-3xl font-bold">v0.3.1</h2>
+            <h2 className="text-3xl font-bold">v0.3.2</h2>
             <span className="px-3 py-1 bg-primary text-primary-foreground text-sm font-medium rounded-full">
               Latest
             </span>
+            <span className="text-muted-foreground">October 1, 2025</span>
+          </div>
+
+          {/* Interactive Installation Compatibility */}
+          <div className="space-y-6 mb-6">
+            <div className="p-6 bg-muted/20 rounded-2xl">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-lg bg-cat-green/20 flex items-center justify-center flex-shrink-0">
+                  <Wrench className="w-5 h-5 text-cat-green" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold mb-2">Interactive Installation Compatibility</h3>
+                  <p className="text-muted-foreground mb-3">
+                    Fixed interactive editor selection failing due to inquirer library ESM compatibility issues.
+                  </p>
+
+                  <ul className="space-y-2 text-sm text-muted-foreground">
+                    <li>• Replaced inquirer v12 with prompts v2.4.2 for better CommonJS compatibility</li>
+                    <li>• Fixed "inquirer.prompt is not a function" and "createPromptModule is not a function" errors</li>
+                    <li>• inquirer v12 required complex ESM dynamic imports that were causing runtime failures</li>
+                    <li>• prompts provides simpler API with native CommonJS support</li>
+                    <li>• Reduced package count from 68 to 40 dependencies</li>
+                    <li>• Interactive UI now works reliably across all Node.js versions</li>
+                    <li>• Updated <code className="text-cat-mauve">scripts/interactive-install.js</code> and <code className="text-cat-mauve">core/command-installer.js</code></li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.section>
+
+        {/* Version 0.3.1 */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.3 }}
+          className="mb-16"
+        >
+          <div className="flex items-center gap-4 mb-6">
+            <h2 className="text-3xl font-bold">v0.3.1</h2>
             <span className="text-muted-foreground">October 1, 2025</span>
           </div>
 

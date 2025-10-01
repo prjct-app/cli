@@ -1,6 +1,6 @@
 {
   "name": "@prjct/cli",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "AI-integrated project management for indie hackers - works with Claude Code, Cursor, and Warp",
   "main": "core/index.js",
   "bin": {
@@ -30,8 +30,8 @@
   "dependencies": {
     "chalk": "^4.1.2",
     "commander": "^11.0.0",
-    "inquirer": "^12.9.6",
-    "ora": "^5.4.1"
+    "ora": "^5.4.1",
+    "prompts": "^2.4.2"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
