@@ -36,23 +36,11 @@ jobs:
           cd website
           npm ci || npm install
 
-      - name: Sync install.sh to website/public
-        run: |
-          cp scripts/install.sh website/public/install.sh
-          chmod +x website/public/install.sh
-          echo "✅ Synced install.sh from scripts/ to website/public/"
-
       - name: Build website
         run: |
           cd website
           npm run build
-          # The build output is now in /docs directory
-
-      - name: Copy install.sh to docs
-        run: |
-          cp scripts/install.sh docs/install.sh
-          chmod +x docs/install.sh
-          echo "✅ Copied install.sh from scripts/ to docs/"
+          # Build script automatically copies install.sh and setup.sh to docs/
 
       - name: Commit build output to repository
         run: |
@@ -64,21 +52,10 @@ jobs:
 
       - name: Prepare deployment directory
         run: |
-          # Copy the built files from docs directory
+          # Copy the built files from docs directory (includes install.sh and setup.sh)
           mkdir -p ./deploy
           cp -r docs/* ./deploy/
-
-          # Copy the latest install.sh from scripts/ to deployment directory
-          cp scripts/install.sh ./deploy/install.sh
-          chmod +x ./deploy/install.sh
-          echo "✅ Copied install.sh from scripts/ to deployment directory"
-
-          # Ensure CNAME file is in deployment directory (now in public)
-          if [ -f "docs/CNAME" ]; then
-            echo "CNAME already in docs directory"
-          elif [ -f "website/public/CNAME" ]; then
-            cp website/public/CNAME ./deploy/
-          fi
+          echo "✅ Deployment directory prepared with all assets including install.sh and setup.sh"
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
