@@ -8,8 +8,6 @@ import {
   BookOpen,
   Terminal as TerminalIcon,
   HelpCircle,
-  Zap,
-  Github,
   GitBranch,
   Star,
   Sparkles,
