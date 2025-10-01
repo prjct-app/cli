@@ -262,9 +262,9 @@ fi
 print_step "Running setup"
 
 printf "  ${ARROW} Installing components"
-chmod +x setup.sh
+chmod +x scripts/setup.sh
 (
-    ./setup.sh > /tmp/prjct-setup.log 2>&1
+    ./scripts/setup.sh > /tmp/prjct-setup.log 2>&1
 ) &
 spin $!
 
