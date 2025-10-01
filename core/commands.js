@@ -10,6 +10,7 @@ const authorDetector = require('./author-detector')
 const migrator = require('./migrator')
 const commandInstaller = require('./command-installer')
 const sessionManager = require('./session-manager')
+const { VERSION } = require('./version')
 
 // Try to load animations for enhanced output
 let animations
@@ -28,6 +29,7 @@ class PrjctCommands {
     this.agent = null
     this.agentInfo = null
     this.currentAuthor = null
+    this.prjctDir = '.prjct'
   }
 
   /**
@@ -132,6 +134,7 @@ class PrjctCommands {
 
   /**
    * Initialize agent detection and load appropriate adapter
+   * Also handles automatic global migration on first run
    */
   async initializeAgent() {
     if (this.agent) return this.agent
@@ -157,7 +160,51 @@ class PrjctCommands {
     }
 
     this.agent = new Agent()
+
+    // Run automatic global migration if needed (only once)
+    await this.checkAndRunAutoMigration()
+
     return this.agent
+  }
+
+  /**
+   * Check if automatic migration is needed and run it transparently
+   * This runs only once per installation using a flag file
+   */
+  async checkAndRunAutoMigration() {
+    try {
+      const flagPath = path.join(pathManager.getGlobalBasePath(), '.auto-migrated')
+
+      // Check if already migrated
+      try {
+        await fs.access(flagPath)
+        return // Already migrated, skip
+      } catch {
+        // Flag doesn't exist, need to migrate
+      }
+
+      // Run silent migration in background
+      const summary = await migrator.migrateAll({
+        deepScan: true,
+        removeLegacy: false,
+        cleanupLegacy: true,
+        dryRun: false,
+        onProgress: null // Silent mode
+      })
+
+      // Create flag file to mark as migrated
+      await fs.mkdir(pathManager.getGlobalBasePath(), { recursive: true })
+      await fs.writeFile(flagPath, JSON.stringify({
+        migratedAt: new Date().toISOString(),
+        version: VERSION,
+        projectsFound: summary.totalFound,
+        projectsMigrated: summary.successfullyMigrated
+      }), 'utf-8')
+
+    } catch (error) {
+      // Migration errors should not block user commands
+      console.error('[prjct] Auto-migration error (non-blocking):', error.message)
+    }
   }
 
   /**
@@ -211,29 +258,57 @@ class PrjctCommands {
       // Detect author
       const author = await authorDetector.detect()
 
-      // Create config file
-      const config = await configManager.createConfig(projectPath, author)
+      // Check if there are legacy files to migrate first
+      const hasLegacy = await pathManager.hasLegacyStructure(projectPath)
+      let migrationPerformed = false
 
-      // Get project ID and ensure global structure
+      if (hasLegacy) {
+        // Create config first (needed for migration)
+        const config = await configManager.createConfig(projectPath, author)
+        const projectId = config.projectId
+        await pathManager.ensureProjectStructure(projectId)
+
+        // Migrate legacy files to global location
+        try {
+          const migrationResult = await migrator.migrate(projectPath, {
+            removeLegacy: false,
+            cleanupLegacy: true,  // This will cleanup after migration
+            dryRun: false
+          })
+          migrationPerformed = migrationResult.success
+        } catch (error) {
+          console.error('[prjct] Migration warning:', error.message)
+        }
+      }
+
+      // If no migration was performed, create config and initial files
+      if (!migrationPerformed) {
+        const config = await configManager.createConfig(projectPath, author)
+        const projectId = config.projectId
+        await pathManager.ensureProjectStructure(projectId)
+
+        // Create initial files in global structure
+        const files = {
+          'core/now.md': '# NOW\n\nNo current task. Use `/p:now` to set focus.\n',
+          'core/next.md': '# NEXT\n\n## Priority Queue\n\n',
+          'core/context.md': '# CONTEXT\n\n',
+          'progress/shipped.md': '# SHIPPED 🚀\n\n',
+          'progress/metrics.md': '# METRICS\n\n',
+          'planning/ideas.md': '# IDEAS 💡\n\n## Brain Dump\n\n',
+          'planning/roadmap.md': '# ROADMAP\n\n',
+          'memory/context.jsonl': '',
+        }
+
+        const globalPath = pathManager.getGlobalProjectPath(projectId)
+        for (const [filePath, content] of Object.entries(files)) {
+          await this.agent.writeFile(path.join(globalPath, filePath), content)
+        }
+      }
+
+      // Get final config and project ID for display
+      const config = await configManager.readConfig(projectPath)
       const projectId = config.projectId
-      await pathManager.ensureProjectStructure(projectId)
-
-      // Create initial files in global structure
-      const files = {
-        'core/now.md': '# NOW\n\nNo current task. Use `/p:now` to set focus.\n',
-        'core/next.md': '# NEXT\n\n## Priority Queue\n\n',
-        'core/context.md': '# CONTEXT\n\n',
-        'progress/shipped.md': '# SHIPPED 🚀\n\n',
-        'progress/metrics.md': '# METRICS\n\n',
-        'planning/ideas.md': '# IDEAS 💡\n\n## Brain Dump\n\n',
-        'planning/roadmap.md': '# ROADMAP\n\n',
-        'memory/context.jsonl': '',
-      }
-
       const globalPath = pathManager.getGlobalProjectPath(projectId)
-      for (const [filePath, content] of Object.entries(files)) {
-        await this.agent.writeFile(path.join(globalPath, filePath), content)
-      }
 
       // Detect project type
       const projectInfo = await this.detectProjectType(projectPath)
@@ -246,7 +321,7 @@ class PrjctCommands {
 
       const displayPath = pathManager.getDisplayPath(globalPath)
       const message =
-        `Initializing prjct v0.2.1 for ${this.agentInfo.name}...\n` +
+        `Initializing prjct v${VERSION} for ${this.agentInfo.name}...\n` +
         `✅ Created global structure at ${displayPath}\n` +
         `✅ Created prjct.config.json\n` +
         `👤 Author: ${authorDetector.formatAuthor(author)}\n` +
@@ -316,13 +391,22 @@ class PrjctCommands {
 
       await this.agent.writeFile(nowFile, contentWithBranch)
 
-      // Log to memory with author and branch info
+      // Get current author
+      const currentAuthor = await configManager.getCurrentAuthor(projectPath)
+
+      // Log to memory with author, branch info, and start time
+      const startedAt = this.agent.getTimestamp()
       const memoryData = {
         task,
-        timestamp: this.agent.getTimestamp(),
-        branch: branchResult.success ? branchName : null
+        timestamp: startedAt,
+        startedAt,
+        branch: branchResult.success ? branchName : null,
+        author: currentAuthor
       }
-      await this.logToMemory(projectPath, 'now', memoryData)
+      await this.logToMemory(projectPath, 'task_started', memoryData)
+
+      // Update author activity
+      await configManager.updateAuthorActivity(projectPath, currentAuthor)
 
       // Update config lastSync
       await configManager.updateLastSync(projectPath)
@@ -347,12 +431,13 @@ class PrjctCommands {
   async done(projectPath = process.cwd()) {
     try {
       await this.initializeAgent()
-      const nowFile = path.join(projectPath, this.prjctDir, 'now.md')
-      const nextFile = path.join(projectPath, this.prjctDir, 'next.md')
+      const nowFile = await this.getFilePath(projectPath, 'core', 'now.md')
+      const nextFile = await this.getFilePath(projectPath, 'core', 'next.md')
 
-      // Get current task
+      // Get current task and parse started time
       const content = await this.agent.readFile(nowFile)
-      const currentTask = content.split('\n')[0].replace('# NOW: ', '')
+      const lines = content.split('\n')
+      const currentTask = lines[0].replace('# NOW: ', '')
 
       if (currentTask === '# NOW' || !currentTask) {
         return {
@@ -361,14 +446,41 @@ class PrjctCommands {
         }
       }
 
+      // Extract started time from content
+      let startedAt = null
+      const startedLine = lines.find(line => line.startsWith('Started:'))
+      if (startedLine) {
+        startedAt = startedLine.replace('Started: ', '').trim()
+      }
+
+      // Get current author
+      const currentAuthor = await configManager.getCurrentAuthor(projectPath)
+
+      // Calculate duration if we have start time
+      const completedAt = this.agent.getTimestamp()
+      let duration = null
+      if (startedAt) {
+        const ms = new Date(completedAt) - new Date(startedAt)
+        const hours = Math.floor(ms / 3600000)
+        const minutes = Math.floor((ms % 3600000) / 60000)
+        duration = `${hours}h ${minutes}m`
+      }
+
       // Clear current task
       await this.agent.writeFile(nowFile, '# NOW\n\nNo current task. Use `/p:now` to set focus.\n')
 
-      // Log completion
-      await this.logToMemory(projectPath, 'done', {
+      // Log completion with time tracking
+      await this.logToMemory(projectPath, 'task_completed', {
         task: currentTask,
-        timestamp: this.agent.getTimestamp(),
+        timestamp: completedAt,
+        startedAt,
+        completedAt,
+        duration,
+        author: currentAuthor
       })
+
+      // Update author activity
+      await configManager.updateAuthorActivity(projectPath, currentAuthor)
 
       // Check if there are next tasks
       const nextContent = await this.agent.readFile(nextFile)
@@ -405,7 +517,7 @@ class PrjctCommands {
       }
 
       // Get project config to use session-based storage
-      const config = await configManager.loadConfig(projectPath)
+      const config = await configManager.readConfig(projectPath)
 
       if (config && config.projectId) {
         // Use session-based storage (new architecture)
@@ -460,7 +572,7 @@ class PrjctCommands {
    * @private
    */
   async _shipLegacy(feature, projectPath) {
-    const shippedFile = path.join(projectPath, this.prjctDir, 'shipped.md')
+    const shippedFile = await this.getFilePath(projectPath, 'progress', 'shipped.md')
 
     // Read current content
     let content = await this.agent.readFile(shippedFile)
@@ -506,7 +618,7 @@ class PrjctCommands {
   async next(projectPath = process.cwd()) {
     try {
       await this.initializeAgent()
-      const nextFile = path.join(projectPath, this.prjctDir, 'next.md')
+      const nextFile = await this.getFilePath(projectPath, 'core', 'next.md')
       const content = await this.agent.readFile(nextFile)
 
       // Parse tasks
@@ -552,8 +664,8 @@ class PrjctCommands {
         }
       }
 
-      const ideasFile = path.join(projectPath, this.prjctDir, 'ideas.md')
-      const nextFile = path.join(projectPath, this.prjctDir, 'next.md')
+      const ideasFile = await this.getFilePath(projectPath, 'planning', 'ideas.md')
+      const nextFile = await this.getFilePath(projectPath, 'core', 'next.md')
 
       // Add to ideas
       const entry = `- ${text} _(${new Date().toLocaleDateString()})_\n`
@@ -595,10 +707,14 @@ class PrjctCommands {
     try {
       await this.initializeAgent()
 
-      // Read all files
-      const nowFile = await this.agent.readFile(path.join(projectPath, this.prjctDir, 'now.md'))
-      const nextFile = await this.agent.readFile(path.join(projectPath, this.prjctDir, 'next.md'))
-      const ideasFile = await this.agent.readFile(path.join(projectPath, this.prjctDir, 'ideas.md'))
+      // Read all files from global structure
+      const nowFilePath = await this.getFilePath(projectPath, 'core', 'now.md')
+      const nextFilePath = await this.getFilePath(projectPath, 'core', 'next.md')
+      const ideasFilePath = await this.getFilePath(projectPath, 'planning', 'ideas.md')
+
+      const nowFile = await this.agent.readFile(nowFilePath)
+      const nextFile = await this.agent.readFile(nextFilePath)
+      const ideasFile = await this.agent.readFile(ideasFilePath)
 
       // Parse current task
       const currentTask = nowFile.split('\n')[0].replace('# NOW: ', '').replace('# NOW', 'None')
@@ -608,7 +724,7 @@ class PrjctCommands {
       const ideasCount = (ideasFile.match(/^- /gm) || []).length
 
       // Get project config to use session-based data
-      const config = await configManager.loadConfig(projectPath)
+      const config = await configManager.readConfig(projectPath)
       let shippedCount = 0
       let recentActivity = ''
 
@@ -627,13 +743,12 @@ class PrjctCommands {
           })
           .join('\n')
       } else {
-        // Fallback to legacy data
-        const shippedFile = await this.agent.readFile(
-          path.join(projectPath, this.prjctDir, 'shipped.md')
-        )
+        // Fallback to reading from global structure
+        const shippedFilePath = await this.getFilePath(projectPath, 'progress', 'shipped.md')
+        const shippedFile = await this.agent.readFile(shippedFilePath)
         shippedCount = (shippedFile.match(/✅/g) || []).length
 
-        const memoryFile = path.join(projectPath, this.prjctDir, 'memory.jsonl')
+        const memoryFile = await this.getFilePath(projectPath, 'memory', 'memory.jsonl')
         try {
           const memory = await this.agent.readFile(memoryFile)
           const lines = memory
@@ -703,6 +818,9 @@ class PrjctCommands {
 
       const periodFeatures = features.filter((f) => f.date >= cutoff)
 
+      // Get time metrics from memory logs
+      const timeMetrics = await this.getTimeMetrics(projectPath, period)
+
       // Calculate velocity
       const velocity = periodFeatures.length / periodDays
       const previousVelocity = 0.3 // Baseline expectation
@@ -724,6 +842,7 @@ class PrjctCommands {
           .map((f) => `• ${f.name}`)
           .join('\n'),
         motivationalMessage,
+        timeMetrics, // Add time metrics
       }
 
       return {
@@ -735,6 +854,95 @@ class PrjctCommands {
       return {
         success: false,
         message: this.agent.formatResponse(error.message, 'error'),
+      }
+    }
+  }
+
+  /**
+   * Get time metrics from task completion logs
+   *
+   * @param {string} projectPath - Path to the project
+   * @param {string} period - Period ('day', 'week', 'month')
+   * @returns {Promise<Object>} - Time metrics
+   */
+  async getTimeMetrics(projectPath, period) {
+    try {
+      const periodDays = period === 'day' ? 1 : period === 'week' ? 7 : period === 'month' ? 30 : 7
+      const logs = await sessionManager.getRecentLogs(await configManager.getProjectId(projectPath), periodDays, 'context.jsonl')
+
+      // Filter task completion logs with duration
+      const completedTasks = logs.filter(log => log.type === 'task_completed' && log.data?.duration)
+
+      if (completedTasks.length === 0) {
+        return {
+          totalTime: 'N/A',
+          avgDuration: 'N/A',
+          tasksCompleted: 0,
+          longestTask: 'N/A',
+          shortestTask: 'N/A',
+          byAuthor: {}
+        }
+      }
+
+      // Parse durations to minutes
+      const parseDuration = (duration) => {
+        const match = duration.match(/(\d+)h (\d+)m/)
+        if (!match) return 0
+        return parseInt(match[1]) * 60 + parseInt(match[2])
+      }
+
+      const durations = completedTasks.map(t => parseDuration(t.data.duration))
+      const totalMinutes = durations.reduce((sum, d) => sum + d, 0)
+      const avgMinutes = Math.round(totalMinutes / durations.length)
+
+      // Find longest/shortest
+      const sortedDurations = [...durations].sort((a, b) => b - a)
+      const longestMinutes = sortedDurations[0]
+      const shortestMinutes = sortedDurations[sortedDurations.length - 1]
+
+      // Format time
+      const formatTime = (minutes) => {
+        const h = Math.floor(minutes / 60)
+        const m = minutes % 60
+        return `${h}h ${m}m`
+      }
+
+      // Calculate time by author
+      const byAuthor = {}
+      completedTasks.forEach(task => {
+        const author = task.data?.author || task.author || 'Unknown'
+        if (!byAuthor[author]) {
+          byAuthor[author] = {
+            tasks: 0,
+            totalMinutes: 0
+          }
+        }
+        byAuthor[author].tasks++
+        byAuthor[author].totalMinutes += parseDuration(task.data.duration)
+      })
+
+      // Format author stats
+      Object.keys(byAuthor).forEach(author => {
+        byAuthor[author].totalTime = formatTime(byAuthor[author].totalMinutes)
+        byAuthor[author].avgTime = formatTime(Math.round(byAuthor[author].totalMinutes / byAuthor[author].tasks))
+      })
+
+      return {
+        totalTime: formatTime(totalMinutes),
+        avgDuration: formatTime(avgMinutes),
+        tasksCompleted: completedTasks.length,
+        longestTask: formatTime(longestMinutes),
+        shortestTask: formatTime(shortestMinutes),
+        byAuthor
+      }
+    } catch (error) {
+      return {
+        totalTime: 'N/A',
+        avgDuration: 'N/A',
+        tasksCompleted: 0,
+        longestTask: 'N/A',
+        shortestTask: 'N/A',
+        byAuthor: {}
       }
     }
   }
@@ -1016,11 +1224,12 @@ ${diagram}
       const projectInfo = await this.detectProjectType(projectPath)
 
       // Get current state
-      const nowFile = await this.agent.readFile(path.join(projectPath, this.prjctDir, 'now.md'))
+      const nowFilePath = await this.getFilePath(projectPath, 'core', 'now.md')
+      const nowFile = await this.agent.readFile(nowFilePath)
       const currentTask = nowFile.split('\n')[0].replace('# NOW: ', '').replace('# NOW', 'None')
 
       // Get project config to use session-based data
-      const config = await configManager.loadConfig(projectPath)
+      const config = await configManager.readConfig(projectPath)
       let recentActions = []
 
       if (config && config.projectId) {
@@ -1030,8 +1239,8 @@ ${diagram}
           return `• ${entry.action}: ${entry.data.task || entry.data.feature || entry.data.text || ''}`
         })
       } else {
-        // Fallback to legacy memory file
-        const memoryFile = path.join(projectPath, this.prjctDir, 'memory.jsonl')
+        // Fallback to reading from global structure
+        const memoryFile = await this.getFilePath(projectPath, 'memory', 'memory.jsonl')
         try {
           const memory = await this.agent.readFile(memoryFile)
           const lines = memory
@@ -1130,7 +1339,7 @@ ${diagram}
     await this.ensureAuthor()
 
     // Get project config to use session-based logging
-    const config = await configManager.loadConfig(projectPath)
+    const config = await configManager.readConfig(projectPath)
 
     if (config && config.projectId) {
       // Use session-based logging (new architecture)
@@ -1186,7 +1395,7 @@ ${diagram}
    * @returns {Promise<Array<Object>>} - Consolidated entries
    */
   async getHistoricalData(projectPath, period = 'week', filename = 'context.jsonl') {
-    const config = await configManager.loadConfig(projectPath)
+    const config = await configManager.readConfig(projectPath)
 
     if (!config || !config.projectId) {
       // Legacy project, read from single file
@@ -1268,7 +1477,7 @@ ${diagram}
    * @returns {Promise<Array<Object>>} - Recent log entries
    */
   async getRecentLogs(projectPath, days = 7) {
-    const config = await configManager.loadConfig(projectPath)
+    const config = await configManager.readConfig(projectPath)
 
     if (config && config.projectId) {
       return await sessionManager.getRecentLogs(config.projectId, days)

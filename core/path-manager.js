@@ -63,6 +63,17 @@ class PathManager {
   }
 
   /**
+   * Get the global config file path for a project
+   * This file stores authors and other system data that shouldn't be versioned
+   *
+   * @param {string} projectId - The project identifier
+   * @returns {string} - Path to ~/.prjct-cli/projects/{id}/project.json
+   */
+  getGlobalProjectConfigPath(projectId) {
+    return path.join(this.getGlobalProjectPath(projectId), 'project.json')
+  }
+
+  /**
    * Get the legacy .prjct directory path
    *
    * @param {string} projectPath - Path to the project

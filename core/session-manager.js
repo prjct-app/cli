@@ -1,6 +1,7 @@
 const fs = require('fs').promises
 const path = require('path')
 const pathManager = require('./path-manager')
+const { VERSION } = require('./version')
 
 /**
  * SessionManager - Manages temporal fragmentation of logs and progress data
@@ -370,7 +371,7 @@ class SessionManager {
         lastActivity: new Date().toISOString(),
         entryCount: 0,
         shipCount: 0,
-        version: '0.2.1'
+        version: VERSION
       }
       await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2), 'utf-8')
       this.sessionMetadataCache.set(sessionPath, metadata)
