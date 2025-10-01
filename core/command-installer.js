@@ -424,29 +424,49 @@ For detailed implementation, see prjct-cli documentation.
   }
 
   /**
-   * Install commands to all detected editors
+   * Install commands to selected editors
+   * @param {string[]} selectedEditors - Array of editor keys to install to
    * @param {boolean} forceUpdate - Force update existing commands
-   * @returns {Promise<Object>} Installation results for all editors
+   * @returns {Promise<Object>} Installation results for selected editors
    */
-  async installToAll(forceUpdate = false) {
+  async installToSelected(selectedEditors, forceUpdate = false) {
     // Set project path for project-based editors (Codex, Windsurf)
     await this.detectEditors(this.projectPath)
 
     const results = {}
-    const detectedEditors = Object.entries(this.editors)
-      .filter(([_, editor]) => editor.detected)
+    const installedTo = []
 
-    if (detectedEditors.length === 0) {
-      return {
-        success: false,
-        message: 'No AI editors detected',
-        results: {}
+    for (const editorKey of selectedEditors) {
+      const editor = this.editors[editorKey]
+
+      if (!editor) {
+        results[editorKey] = {
+          success: false,
+          message: `Unknown editor: ${editorKey}`
+        }
+        continue
+      }
+
+      if (!editor.detected) {
+        results[editorKey] = {
+          success: false,
+          message: `${editor.name} not detected on this system`
+        }
+        continue
+      }
+
+      results[editorKey] = await this.installToEditor(editorKey, forceUpdate)
+      if (results[editorKey].success) {
+        installedTo.push(editor.name)
       }
     }
 
-    // Install to all detected editors (cumulative, not exclusive)
-    for (const [key, editor] of detectedEditors) {
-      results[key] = await this.installToEditor(key, forceUpdate)
+    if (installedTo.length === 0) {
+      return {
+        success: false,
+        message: 'No editors were successfully installed to',
+        results
+      }
     }
 
     const totalInstalled = Object.values(results)
@@ -456,11 +476,33 @@ For detailed implementation, see prjct-cli documentation.
 
     return {
       success: true,
-      editors: detectedEditors.map(([_, e]) => e.name),
+      editors: installedTo,
       totalInstalled,
       totalUpdated,
       results
     }
+  }
+
+  /**
+   * Install commands to all detected editors
+   * @param {boolean} forceUpdate - Force update existing commands
+   * @returns {Promise<Object>} Installation results for all editors
+   */
+  async installToAll(forceUpdate = false) {
+    const detection = await this.detectEditors(this.projectPath)
+    const detectedEditors = Object.entries(detection)
+      .filter(([_, info]) => info.detected)
+      .map(([key, _]) => key)
+
+    if (detectedEditors.length === 0) {
+      return {
+        success: false,
+        message: 'No AI editors detected',
+        results: {}
+      }
+    }
+
+    return await this.installToSelected(detectedEditors, forceUpdate)
   }
 
   /**
