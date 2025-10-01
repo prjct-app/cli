@@ -39,8 +39,26 @@ export const Changelog = () => {
             </span>
           </div>
 
+          <p className="text-muted-foreground">No unreleased features at this time. Check back soon!</p>
+        </motion.section>
+
+        {/* Version 0.3.0 */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="mb-16"
+        >
+          <div className="flex items-center gap-4 mb-6">
+            <h2 className="text-3xl font-bold">v0.3.0</h2>
+            <span className="px-3 py-1 bg-primary text-primary-foreground text-sm font-medium rounded-full">
+              Latest
+            </span>
+            <span className="text-muted-foreground">September 30, 2025</span>
+          </div>
+
           {/* Intelligent Codebase Analysis */}
-          <div className="space-y-6">
+          <div className="space-y-6 mb-6">
             <div className="p-6 bg-muted/20 rounded-2xl">
               <div className="flex items-start gap-4">
                 <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
@@ -81,6 +99,49 @@ export const Changelog = () => {
                 </div>
               </div>
             </div>
+
+            {/* Interactive Editor Selection */}
+            <div className="p-6 bg-muted/20 rounded-2xl">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
+                  <Users className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold mb-2">Interactive Editor Selection</h3>
+                  <p className="text-muted-foreground mb-3">
+                    Choose which AI editors to install commands to via interactive checkboxes
+                  </p>
+                  <ul className="space-y-2 text-sm text-muted-foreground">
+                    <li>• Interactive checkbox UI during <code className="text-cat-mauve">prjct install</code> and <code className="text-cat-mauve">prjct init</code></li>
+                    <li>• Detects all installed editors (Claude Code, Cursor, Codex, Windsurf)</li>
+                    <li>• Shows installation paths for each detected editor</li>
+                    <li>• Allows users to select only the editors they use</li>
+                    <li>• <code className="text-cat-mauve">--no-interactive</code> flag to install to all detected editors without prompts</li>
+                    <li>• Optimizes installation by avoiding unnecessary editor installations</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Updated Branding */}
+            <div className="p-6 bg-muted/20 rounded-2xl">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
+                  <Wrench className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold mb-2">Updated Branding</h3>
+                  <p className="text-muted-foreground mb-3">
+                    New header design with kaomoji (ﾉ◕ヮ◕)ﾉ*:･ﾟ✧
+                  </p>
+                  <ul className="space-y-2 text-sm text-muted-foreground">
+                    <li>• Refreshed README.md header with fun, friendly design</li>
+                    <li>• Updated installer (scripts/install.sh) to match new branding</li>
+                    <li>• Consistent visual identity across documentation and installation experience</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
           </div>
         </motion.section>
 
@@ -88,14 +149,11 @@ export const Changelog = () => {
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
+          transition={{ duration: 0.6, delay: 0.3 }}
           className="mb-16"
         >
           <div className="flex items-center gap-4 mb-6">
             <h2 className="text-3xl font-bold">v0.2.1</h2>
-            <span className="px-3 py-1 bg-primary text-primary-foreground text-sm font-medium rounded-full">
-              Latest
-            </span>
             <span className="text-muted-foreground">September 30, 2025</span>
           </div>
 
