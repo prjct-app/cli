@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Copy, Check, Terminal, Star, Sparkles, ArrowRight } from 'lucide-react'
+import { Copy, Check, Terminal, Sparkles, ArrowRight } from 'lucide-react'
 import { useState } from 'react'
 import { Button, Badge } from './ui'
 
@@ -15,13 +15,13 @@ export const Hero = () => {
 
   return (
     <section className="flex min-h-screen flex-col items-center justify-center bg-background">
-      <div className="mx-auto max-w-6xl text-center">
+      <div className="mx-auto max-w-6xl text-center space-y-8">
         {/* Title */}
         <motion.h1
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="mb-6 text-6xl font-bold tracking-tight md:text-8xl"
+          className="text-6xl font-bold tracking-tight md:text-8xl"
         >
           prjct/<span className="hunt-glow">cli</span>
         </motion.h1>
@@ -31,7 +31,7 @@ export const Hero = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.1 }}
-          className="mx-auto mb-4 max-w-3xl text-xl text-muted-foreground md:text-2xl"
+          className="mx-auto max-w-3xl text-xl text-muted-foreground md:text-2xl"
         >
           Turn ideas into AI-ready roadmaps.
           <br />
@@ -43,7 +43,7 @@ export const Hero = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.15 }}
-          className="mb-8 flex flex-wrap items-center justify-center gap-2"
+          className="flex flex-wrap items-center justify-center gap-2"
         >
           <Badge variant="primary" size="sm">
             Claude Code
@@ -67,85 +67,48 @@ export const Hero = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.3 }}
-          className="mb-8 flex flex-col items-center justify-center gap-4 sm:flex-row"
+          className="flex flex-col items-center justify-center gap-4 sm:flex-row"
         >
-          <Button
-            variant="secondary"
-            size="lg"
-            onClick={copyToClipboard}
-            leftIcon={<Terminal className="h-5 w-5" />}
-            rightIcon={
-              copied ? <Check className="h-5 w-5 text-cat-green" /> : <Copy className="h-5 w-5" />
-            }
-          >
-            <code className="font-mono text-sm">
-              curl -fsSL https://www.prjct.app/install.sh | bash
-            </code>
-          </Button>
-          <Button
-            variant="primary"
-            size="lg"
-            as="a"
-            href="https://github.com/jlopezlira/prjct-cli"
-            target="_blank"
-            rel="noopener noreferrer"
-            leftIcon={<Star className="h-5 w-5" />}
-          >
-            Start Using
-          </Button>
+          <div className="relative isolate overflow-visible">
+            <div className="fancy-border pointer-events-none"></div>
+            <Button
+              variant="secondary"
+              size="lg"
+              onClick={copyToClipboard}
+              leftIcon={<Terminal className="h-5 w-5" />}
+              rightIcon={
+                copied ? <Check className="h-5 w-5 text-cat-green" /> : <Copy className="h-5 w-5" />
+              }
+              className="relative z-10"
+            >
+              <code className="font-mono text-sm">
+                curl -fsSL https://www.prjct.app/install.sh | bash
+              </code>
+            </Button>
+          </div>
         </motion.div>
 
-        {/* Windsurf Extension CTA */}
+        {/* Interactive Workflows Badge */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.35 }}
-          className="mb-8 flex justify-center"
+          className="flex justify-center"
         >
           <a
-            href="#windsurf-extension"
-            onClick={(e) => {
-              e.preventDefault()
-              document.querySelector('.windsurf-extension-section')?.scrollIntoView({
-                behavior: 'smooth',
-                block: 'start',
-              })
-            }}
-            className="from-cat-light-mauve/20 to-cat-light-sapphire/20 hover:border-cat-light-mauve/80 group inline-flex items-center gap-2 rounded-full border-2 border-cat-mauve/30 bg-gradient-to-r from-purple-500/10 to-blue-500/10 px-6 py-3 transition-all duration-300 hover:scale-105 hover:border-cat-mauve/50"
+            href="/workflows-guide"
+            className="group inline-flex items-center gap-2 rounded-full border-2 border-primary/40 bg-gradient-to-r from-primary/20 to-primary/5 px-6 py-2.5 transition-all duration-300 hover:scale-105 hover:border-primary/60 hover:shadow-lg hover:shadow-primary/20"
           >
             <motion.div
-              animate={{ rotate: [0, 10, -10, 0] }}
-              transition={{ duration: 2, repeat: Infinity, repeatDelay: 1 }}
+              animate={{ scale: [1, 1.2, 1] }}
+              transition={{ duration: 2, repeat: Infinity, repeatDelay: 0.5 }}
             >
-              <Sparkles className="h-5 w-5 text-cat-mauve" />
+              <Sparkles className="h-4 w-4 text-primary" />
             </motion.div>
-            <span className="bg-gradient-to-r from-purple-500 to-blue-500 bg-clip-text font-medium text-transparent">
-              Windsurf Extension Coming Soon
+            <span className="text-base font-semibold text-foreground">
+              New: Interactive Workflow System
             </span>
-            <ArrowRight className="h-4 w-4 text-cat-mauve transition-transform group-hover:translate-x-1" />
-          </a>
-        </motion.div>
-
-        {/* Product Hunt Badge */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.4 }}
-          className="mb-16 flex justify-center"
-        >
-          <a
-            href="https://www.producthunt.com/products/prjct-cli?embed=true&utm_source=badge-featured&utm_medium=badge&utm_source=badge-prjct-cli"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="transition-transform hover:scale-105"
-          >
-            <img
-              src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1021356&theme=dark&t=1759203826693"
-              alt="prjct/cli - Ship faster with Claude Code, Codex and Warp | Product Hunt"
-              style={{ width: '250px', height: '54px' }}
-              width="250"
-              height="54"
-            />
+            <ArrowRight className="h-4 w-4 text-primary transition-transform group-hover:translate-x-1" />
           </a>
         </motion.div>
 
@@ -153,8 +116,8 @@ export const Hero = () => {
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.45 }}
-          className="text-muted-foreground"
+          transition={{ duration: 0.6, delay: 0.4 }}
+          className="text-base text-muted-foreground"
         >
           From idea to technical tasks in minutes. Solo or with your team. Let AI handle the execution.
         </motion.p>
@@ -164,8 +127,8 @@ export const Hero = () => {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.55 }}
-        className="mx-auto mt-20 grid max-w-5xl grid-cols-1 gap-8 md:grid-cols-4"
+        transition={{ duration: 0.6, delay: 0.45 }}
+        className="mx-auto mt-16 grid max-w-5xl grid-cols-1 gap-8 md:grid-cols-4"
       >
         <div className="text-center">
           <div className="mb-4">
@@ -195,6 +158,37 @@ export const Hero = () => {
           <h3 className="mb-2 font-semibold">Zero Friction</h3>
           <p className="text-sm text-muted-foreground">No tickets, no sprints, just ship</p>
         </div>
+      </motion.div>
+
+      {/* Windsurf Extension CTA */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.5 }}
+        className="mt-12 flex justify-center"
+      >
+        <a
+          href="#windsurf-extension"
+          onClick={(e) => {
+            e.preventDefault()
+            document.querySelector('.windsurf-extension-section')?.scrollIntoView({
+              behavior: 'smooth',
+              block: 'start',
+            })
+          }}
+          className="group inline-flex items-center gap-2 rounded-full border-2 border-cat-mauve/40 bg-gradient-to-r from-purple-500/15 to-blue-500/15 px-6 py-2.5 transition-all duration-300 hover:scale-105 hover:border-cat-mauve/60 hover:shadow-lg hover:shadow-purple-500/20"
+        >
+          <motion.div
+            animate={{ rotate: [0, 10, -10, 0] }}
+            transition={{ duration: 2, repeat: Infinity, repeatDelay: 1 }}
+          >
+            <Sparkles className="h-4 w-4 text-cat-mauve" />
+          </motion.div>
+          <span className="bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-base font-semibold text-transparent">
+            Windsurf Extension Coming Soon
+          </span>
+          <ArrowRight className="h-4 w-4 text-cat-mauve transition-transform group-hover:translate-x-1" />
+        </a>
       </motion.div>
     </section>
   )

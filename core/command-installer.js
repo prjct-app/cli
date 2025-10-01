@@ -474,6 +474,60 @@ For detailed implementation, see prjct-cli documentation.
   }
 
   /**
+   * Interactive installation with user selection using prompts
+   * @param {boolean} forceUpdate - Force update existing commands
+   * @returns {Promise<Object>} Installation results
+   */
+  async interactiveInstall(forceUpdate = false) {
+    const prompts = require('prompts')
+
+    // Detect all editors
+    const detected = await this.detectEditors(this.projectPath)
+
+    // Create choices for prompts
+    const availableEditors = Object.entries(detected)
+      .filter(([_, info]) => info.detected)
+      .map(([key, info]) => ({
+        title: `${this.editors[key].name} (${info.path})`,
+        value: key,
+        selected: true // Pre-select all detected editors
+      }))
+
+    if (availableEditors.length === 0) {
+      return {
+        success: false,
+        message: 'No AI editors detected on this system.\n\nSupported editors:\n  • Claude Code (~/.claude)\n  • Cursor AI (~/.cursor)\n  • Windsurf/Codeium (~/.windsurf)\n  • OpenAI Codex (~/.codex)',
+        editors: [],
+        results: {}
+      }
+    }
+
+    // Show interactive selection prompt
+    const response = await prompts({
+      type: 'multiselect',
+      name: 'selectedEditors',
+      message: 'Select AI editors to install commands to:',
+      choices: availableEditors,
+      min: 1,
+      hint: '- Space to select. Return to submit',
+      instructions: false
+    })
+
+    // Check if user cancelled
+    if (!response.selectedEditors || response.selectedEditors.length === 0) {
+      return {
+        success: false,
+        message: 'Installation cancelled by user',
+        editors: [],
+        results: {}
+      }
+    }
+
+    // Install to selected editors
+    return await this.installToSelected(response.selectedEditors, forceUpdate)
+  }
+
+  /**
    * Update command content to use global architecture
    * @param {string} content - Original command content
    * @returns {string} Updated content

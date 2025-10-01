@@ -5,6 +5,7 @@ import { Home } from './pages/Home'
 import { Documentation } from './pages/Documentation'
 import { Commands } from './pages/Commands'
 import { Workflows } from './pages/Workflows'
+import { WorkflowsGuide } from './pages/WorkflowsGuide'
 import { FAQPage } from './pages/FAQPage'
 import { QuickStart } from './pages/docs/QuickStart'
 import { Philosophy } from './pages/docs/Philosophy'
@@ -32,6 +33,7 @@ function App() {
             <Route path="/docs/mcp-integration" element={<MCPIntegration />} />
             <Route path="/commands" element={<Commands />} />
             <Route path="/workflows" element={<Workflows />} />
+            <Route path="/workflows-guide" element={<WorkflowsGuide />} />
             <Route path="/faq" element={<FAQPage />} />
             <Route path="/changelog" element={<Changelog />} />
             <Route path="/terms" element={<Terms />} />

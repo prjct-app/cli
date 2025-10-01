@@ -106,7 +106,7 @@ echo -e "   ${BOLD}${CYAN}██████╔╝██████╔╝     �
 echo -e "   ${BOLD}${CYAN}██╔═══╝ ██╔══██╗██   ██║██║        ██║${NC}"
 echo -e "   ${BOLD}${CYAN}██║     ██║  ██║╚█████╔╝╚██████╗   ██║${NC}"
 echo -e "   ${BOLD}${CYAN}╚═╝     ╚═╝  ╚═╝ ╚════╝  ╚═════╝   ╚═╝${NC}"
-echo -e "   ${BOLD}${CYAN}prjct${NC}${MAGENTA}/${NC}${GREEN}cli${NC}  ${DIM}${WHITE}v0.3.0${NC}"
+echo -e "   ${BOLD}${CYAN}prjct${NC}${MAGENTA}/${NC}${GREEN}cli${NC}  ${DIM}${WHITE}v0.3.1${NC}"
 echo ""
 echo -e "   ${DIM}Turn ideas into AI-ready roadmaps${NC}"
 echo ""
@@ -263,6 +263,7 @@ print_step "Running setup"
 
 printf "  ${ARROW} Installing components"
 chmod +x scripts/setup.sh
+[ -f scripts/interactive-install.js ] && chmod +x scripts/interactive-install.js
 (
     ./scripts/setup.sh > /tmp/prjct-setup.log 2>&1
 ) &
@@ -276,31 +277,68 @@ else
     exit 1
 fi
 
-# Install Claude Code commands
+# Install commands to AI editors
 print_step "Configuring AI platforms"
 
-# Claude Code detection
-printf "  ${ARROW} Claude Code..."
-if [ -d "$HOME/.claude" ]; then
-    # Copy command files to p/ subdirectory for /p: namespace
-    if [ -d "$INSTALL_DIR/templates/commands" ]; then
-        # Create subdirectory for /p:* namespace
-        mkdir -p "$HOME/.claude/commands/p"
-        CMD_COUNT=0
-        for cmd_file in "$INSTALL_DIR/templates/commands"/*.md; do
-            if [ -f "$cmd_file" ]; then
-                filename=$(basename "$cmd_file")
-                # Copy to p/ subdirectory for /p:* namespace
-                cp "$cmd_file" "$HOME/.claude/commands/p/${filename}"
-                ((CMD_COUNT++))
-            fi
-        done
-        echo -e " ${GREEN}${CHECK}${NC} ($CMD_COUNT commands)"
+cd "$INSTALL_DIR"
+
+# Check if we should use interactive mode
+if [ "$AUTO_ACCEPT" = false ]; then
+    # Interactive mode: Let user select editors
+    printf "  ${ARROW} Launching interactive editor selection...\n"
+
+    # Run interactive installer with Node.js
+    INSTALL_OUTPUT=$(node scripts/interactive-install.js 2>&1)
+    INSTALL_EXIT=$?
+
+    if [ $INSTALL_EXIT -eq 0 ]; then
+        # Parse JSON result from between markers
+        RESULT_JSON=$(echo "$INSTALL_OUTPUT" | sed -n '/__RESULT_START__/,/__RESULT_END__/p' | grep -v '__RESULT_')
+
+        # Extract summary info
+        EDITORS_INSTALLED=$(echo "$RESULT_JSON" | grep -o '"editors":\s*\[[^]]*\]' | sed 's/"editors":\s*\[\(.*\)\]/\1/' | tr -d '"' | tr ',' ' ')
+        TOTAL_INSTALLED=$(echo "$RESULT_JSON" | grep -o '"totalInstalled":\s*[0-9]*' | grep -o '[0-9]*')
+
+        echo ""
+        echo -e "  ${GREEN}${CHECK}${NC} Commands installed successfully!"
+        echo -e "  ${GREEN}📦${NC} Editors: ${CYAN}${EDITORS_INSTALLED}${NC}"
+        echo -e "  ${GREEN}📝${NC} Commands: ${CYAN}${TOTAL_INSTALLED}${NC}"
     else
-        echo -e " ${YELLOW}!${NC} (commands not found)"
+        echo -e "  ${RED}${CROSS}${NC} Installation failed"
+        echo "$INSTALL_OUTPUT" | grep -v '__RESULT_'
+        exit 1
     fi
 else
-    echo -e " ${DIM}not found${NC}"
+    # Non-interactive mode: Install to all detected editors
+    printf "  ${ARROW} Auto-installing to all detected editors...\n"
+
+    INSTALL_RESULT=$(node -e "
+        const installer = require('./core/command-installer');
+        installer.installToAll(false).then(result => {
+            console.log('__RESULT_START__');
+            console.log(JSON.stringify(result));
+            console.log('__RESULT_END__');
+            process.exit(result.success ? 0 : 1);
+        }).catch(err => {
+            console.error(err.message);
+            process.exit(1);
+        });
+    " 2>&1)
+
+    INSTALL_EXIT=$?
+
+    if [ $INSTALL_EXIT -eq 0 ]; then
+        # Parse result
+        RESULT_JSON=$(echo "$INSTALL_RESULT" | sed -n '/__RESULT_START__/,/__RESULT_END__/p' | grep -v '__RESULT_')
+        EDITORS_INSTALLED=$(echo "$RESULT_JSON" | grep -o '"editors":\s*\[[^]]*\]' | sed 's/"editors":\s*\[\(.*\)\]/\1/' | tr -d '"' | tr ',' ' ')
+        TOTAL_INSTALLED=$(echo "$RESULT_JSON" | grep -o '"totalInstalled":\s*[0-9]*' | grep -o '[0-9]*')
+
+        echo -e "  ${GREEN}${CHECK}${NC} Installed to: ${CYAN}${EDITORS_INSTALLED}${NC}"
+        echo -e "  ${GREEN}📝${NC} Commands: ${CYAN}${TOTAL_INSTALLED}${NC}"
+    else
+        echo -e "  ${RED}${CROSS}${NC} Auto-installation failed"
+        echo "$INSTALL_RESULT"
+    fi
 fi
 
 # Configure PATH
@@ -359,9 +397,9 @@ echo ""
 # Show commands based on detected platforms
 if [ -d "$HOME/.claude" ]; then
     echo -e "  ${BOLD}Claude Code Commands:${NC}"
-    echo -e "    ${GREEN}/p-init${NC}     ${DIM}Initialize project${NC}"
-    echo -e "    ${GREEN}/p-now${NC}      ${DIM}Set current task${NC}"
-    echo -e "    ${GREEN}/p-ship${NC}     ${DIM}Ship & celebrate${NC}"
+    echo -e "    ${GREEN}/p:init${NC}     ${DIM}Initialize project${NC}"
+    echo -e "    ${GREEN}/p:now${NC}      ${DIM}Set current task${NC}"
+    echo -e "    ${GREEN}/p:ship${NC}     ${DIM}Ship & celebrate${NC}"
     echo ""
 fi
 

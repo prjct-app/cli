@@ -11,6 +11,8 @@ import {
   Zap,
   Github,
   GitBranch,
+  Star,
+  Sparkles,
 } from 'lucide-react'
 import { PrjctLogo } from './Logo'
 
@@ -24,7 +26,7 @@ const navItems: NavItem[] = [
   { label: 'Home', path: '/', icon: <Home className="h-4 w-4" /> },
   { label: 'Documentation', path: '/docs', icon: <BookOpen className="h-4 w-4" /> },
   { label: 'Commands', path: '/commands', icon: <TerminalIcon className="h-4 w-4" /> },
-  { label: 'Workflows', path: '/workflows', icon: <Zap className="h-4 w-4" /> },
+  { label: 'Workflows', path: '/workflows-guide', icon: <Sparkles className="h-4 w-4" /> },
   { label: 'Changelog', path: '/changelog', icon: <GitBranch className="h-4 w-4" /> },
   { label: 'FAQ', path: '/faq', icon: <HelpCircle className="h-4 w-4" /> },
 ]
@@ -81,10 +83,24 @@ export const Navigation = () => {
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              className="rounded-xl p-2 transition-all hover:bg-muted"
-              aria-label="GitHub repository"
+              className="hidden items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 transition-all hover:bg-muted hover:border-primary/50 md:flex"
             >
-              <Github className="h-5 w-5" />
+              <Star className="h-4 w-4" />
+              <span className="text-sm font-medium">Star on GitHub</span>
+            </motion.a>
+
+            {/* Mobile GitHub Icon */}
+            <motion.a
+              href="https://github.com/jlopezlira/prjct-cli"
+              target="_blank"
+              rel="noopener noreferrer"
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="rounded-xl p-2 transition-all hover:bg-muted md:hidden"
+              aria-label="Star on GitHub"
+            >
+              <Star className="h-5 w-5" />
             </motion.a>
 
             {/* Mobile Menu Button */}
@@ -133,8 +149,8 @@ export const Navigation = () => {
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="mt-2 flex items-center gap-3 rounded-lg border-t border-border px-4 py-3 pt-4 text-muted-foreground transition-all hover:bg-muted/50 hover:text-foreground"
                 >
-                  <Github className="h-5 w-5" />
-                  <span>GitHub</span>
+                  <Star className="h-5 w-5" />
+                  <span>Star on GitHub</span>
                 </a>
               </div>
             </motion.nav>
