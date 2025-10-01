@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2025-10-01
+
+### Added
+- **Interactive Workflow System** - Intelligent agent workflows with user-guided capability installation
+  - **Adaptive Workflows**: Workflows detect missing capabilities and prompt user for decisions
+  - **Smart Recommendations**: Stack-aware tool suggestions (React → Vitest, Vue → Vitest, Angular → Jest)
+  - **Installation Tracking**: Every tool installation becomes a visible, tracked workflow task
+  - **Interactive Prompts**: Never auto-skips steps - always asks user (install/skip/continue/pause)
+  - **Capability Detection**: Automatically detects design systems, test frameworks, and documentation tools
+  - **Auto-Configuration**: Installed tools are automatically configured with framework-specific settings
+  - **Workflow Types**: UI, API, Bug Fix, Refactor, and Feature workflows with specialized agent assignments
+
+- **New Core Modules**:
+  - `core/workflow-engine.js`: Orchestrates adaptive workflows with step management
+  - `core/workflow-rules.js`: Defines workflow pipelines by task type
+  - `core/workflow-prompts.js`: Interactive prompting engine with stack detection
+  - `core/capability-installer.js`: Handles tool installation, configuration, and verification
+  - `core/project-capabilities.js`: Detects existing project capabilities (design/test/docs)
+
+- **New Commands**:
+  - `workflowRespond(choice)`: Handle user responses to workflow prompts
+  - Enhanced `done()`: Checks for prompts, advances workflows intelligently
+  - Enhanced `idea()`: Auto-initializes workflows for actionable tasks
+
+### Changed
+- **Workflow Behavior**: Transformed from auto-skip to interactive prompting
+  - Before: Missing capability → auto-skip step
+  - After: Missing capability → prompt user → track installation → continue
+- **Step Tracking**: All workflow steps now tracked with status, duration, and metadata
+- **Installation Visibility**: Tool installations appear as first-class workflow tasks
+
+### Technical Details
+- **Stack Detection**: Identifies React/Vue/Angular, TypeScript, bundler (Vite/Webpack/esbuild)
+- **Tool Recommendations**:
+  - React + TS → Vitest + Testing Library
+  - Vue → Vitest + @vue/test-utils
+  - Angular → Jest + @types/jest
+- **Auto-Configuration**:
+  - Creates config files (vitest.config.js, jest.config.js, jsdoc.json)
+  - Updates package.json scripts
+  - Verifies installation success
+- **Duration Tracking**: Installation tasks show completion time (e.g., "1.2 min")
+
 ## [0.3.2] - 2025-10-01
 
 ### Fixed
