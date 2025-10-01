@@ -32,7 +32,7 @@ class CodexAgent {
 
     const prefix = prefixes[type] || prefixes.info
 
-    // Structured output for Codex
+
     return `${prefix} ${message}`
   }
 
@@ -234,14 +234,14 @@ GENERAL STRATEGY:
    * Handle sandboxed environment limitations
    */
   async ensureSandboxCompatibility() {
-    // Check if we're in a sandboxed environment
+
     const isSandboxed =
       process.cwd().includes('/sandbox/') ||
       process.cwd().includes('/tmp/') ||
       process.env.CODEX_SANDBOX
 
     if (isSandboxed) {
-      // Ensure we use relative paths within sandbox
+
       return {
         sandboxed: true,
         basePath: process.cwd(),

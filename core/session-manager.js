@@ -37,7 +37,6 @@ class SessionManager {
     const sessionPath = await pathManager.ensureSessionPath(projectId)
     this.currentSessionCache.set(cacheKey, sessionPath)
 
-    // Initialize session metadata if not exists
     await this._ensureSessionMetadata(sessionPath)
 
     return sessionPath
@@ -61,11 +60,9 @@ class SessionManager {
       const existing = await fs.readFile(filePath, 'utf-8')
       await fs.writeFile(filePath, existing + logLine, 'utf-8')
     } catch {
-      // File doesn't exist, create it
       await fs.writeFile(filePath, logLine, 'utf-8')
     }
 
-    // Update session metadata
     await this._updateSessionMetadata(sessionPath, {
       lastActivity: new Date().toISOString(),
       entryCount: await this._getFileLineCount(filePath)
@@ -88,7 +85,6 @@ class SessionManager {
       const existing = await fs.readFile(filePath, 'utf-8')
       await fs.writeFile(filePath, existing + content, 'utf-8')
     } catch {
-      // File doesn't exist, create it with header if it's shipped.md
       let initialContent = ''
       if (filename === 'shipped.md') {
         initialContent = '# SHIPPED 🚀\n\n'
@@ -139,14 +135,12 @@ class SessionManager {
         const content = await fs.readFile(filePath, 'utf-8')
         const entries = this._parseJsonLines(content)
 
-        // Add session date to each entry for context
         entries.forEach(entry => {
           entry._sessionDate = session.date
         })
 
         allEntries.push(...entries)
       } catch {
-        // Session file doesn't exist, skip
         continue
       }
     }
@@ -267,7 +261,6 @@ class SessionManager {
     const entries = this._parseJsonLines(content)
     const sessionGroups = new Map()
 
-    // Group entries by date
     for (const entry of entries) {
       const date = new Date(entry.timestamp || entry.data?.timestamp || Date.now())
       const dateKey = this._getDateKey(date)
@@ -278,7 +271,6 @@ class SessionManager {
       sessionGroups.get(dateKey).push(entry)
     }
 
-    // Write each group to its session
     let migratedCount = 0
     for (const [dateKey, groupEntries] of sessionGroups) {
       const [year, month, day] = dateKey.split('-')
@@ -291,7 +283,6 @@ class SessionManager {
 
       migratedCount += groupEntries.length
 
-      // Create session metadata
       await this._ensureSessionMetadata(sessionPath)
       await this._updateSessionMetadata(sessionPath, {
         entryCount: groupEntries.length,
@@ -313,9 +304,6 @@ class SessionManager {
    * @private
    */
   async _migrateLegacyMarkdown(projectId, content, sessionFilename) {
-    // For markdown files, we need to parse entries with dates
-    // This is more complex and depends on format
-    // For now, put everything in current session as fallback
     const sessionPath = await this.getCurrentSession(projectId)
     const filePath = path.join(sessionPath, sessionFilename)
 
@@ -404,7 +392,6 @@ class SessionManager {
       try {
         entries.push(JSON.parse(line))
       } catch {
-        // Skip malformed lines
       }
     }
 
@@ -443,9 +430,6 @@ class SessionManager {
     return `${year}-${month}-${day}`
   }
 
-  /**
-   * Clear cache (for testing or session rotation)
-   */
   clearCache() {
     this.currentSessionCache.clear()
     this.sessionMetadataCache.clear()

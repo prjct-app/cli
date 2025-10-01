@@ -31,7 +31,7 @@ function getVersion() {
     return cachedVersion
   } catch (error) {
     console.error('Failed to read version from package.json:', error.message)
-    return '0.0.0' // Fallback version
+    return '0.0.0'
   }
 }
 
@@ -42,7 +42,7 @@ function getVersion() {
  */
 function getPackageInfo() {
   if (!cachedPackageJson) {
-    getVersion() // This will populate cachedPackageJson
+    getVersion()
   }
   return cachedPackageJson
 }
@@ -80,7 +80,6 @@ function isCompatible(configVersion) {
   const [currentMajor, currentMinor] = current.split('.').map(Number)
   const [configMajor, configMinor] = configVersion.split('.').map(Number)
 
-  // Same major and minor version = compatible
   return currentMajor === configMajor && currentMinor === configMinor
 }
 
@@ -96,7 +95,6 @@ function needsMigration(fromVersion, toVersion = null) {
   return compareVersions(fromVersion, target) < 0
 }
 
-// Export version as constant for convenience
 const VERSION = getVersion()
 
 module.exports = {

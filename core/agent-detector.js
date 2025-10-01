@@ -22,12 +22,10 @@ class AgentDetector {
    * @returns {Object} Agent information
    */
   async detect() {
-    // Return cached result if already detected
     if (this.detectedAgent) {
       return this.detectedAgent
     }
 
-    // Try each detection method
     for (const method of this.detectionMethods) {
       const result = await method()
       if (result) {
@@ -36,7 +34,6 @@ class AgentDetector {
       }
     }
 
-    // Default to terminal if no specific agent detected
     this.detectedAgent = this.getTerminalAgent()
     return this.detectedAgent
   }
@@ -45,17 +42,14 @@ class AgentDetector {
    * Detect agent by environment variables
    */
   async detectByEnvironmentVariables() {
-    // Check for OpenAI Codex specific variables
     if (process.env.CODEX_AGENT || process.env.OPENAI_CODEX) {
       return this.getCodexAgent()
     }
 
-    // Check for Claude specific variables
     if (process.env.CLAUDE_AGENT || process.env.ANTHROPIC_CLAUDE) {
       return this.getClaudeAgent()
     }
 
-    // Check for GitHub Codespaces (often used with Codex)
     if (process.env.CODESPACES) {
       return this.getCodexAgent()
     }
@@ -69,20 +63,16 @@ class AgentDetector {
   async detectByConfigFiles() {
     const projectRoot = process.cwd()
 
-    // Check for AGENTS.md (OpenAI Codex marker)
     if (fs.existsSync(path.join(projectRoot, 'AGENTS.md'))) {
-      // Also check if we're NOT in Claude environment
       if (!fs.existsSync(path.join(projectRoot, '.claude'))) {
         return this.getCodexAgent()
       }
     }
 
-    // Check for CLAUDE.md (Claude Code marker)
     if (fs.existsSync(path.join(projectRoot, 'CLAUDE.md'))) {
       return this.getClaudeAgent()
     }
 
-    // Check for .claude directory
     if (fs.existsSync(path.join(process.env.HOME || '', '.claude'))) {
       return this.getClaudeAgent()
     }
@@ -94,17 +84,13 @@ class AgentDetector {
    * Detect agent by runtime capabilities
    */
   async detectByRuntimeCapabilities() {
-    // Check for MCP (Model Context Protocol) - Claude specific
     try {
-      // Try to detect MCP availability
       if (global.mcp || process.env.MCP_AVAILABLE) {
         return this.getClaudeAgent()
       }
     } catch (e) {
-      // MCP not available
     }
 
-    // Check if running in a container (common for Codex)
     if (this.isRunningInContainer()) {
       return this.getCodexAgent()
     }
@@ -116,12 +102,10 @@ class AgentDetector {
    * Detect agent by filesystem characteristics
    */
   async detectByFileSystem() {
-    // Check for sandboxed paths (Codex characteristic)
     if (process.cwd().includes('/sandbox/') || process.cwd().includes('/tmp/codex/')) {
       return this.getCodexAgent()
     }
 
-    // Check for Claude workspace patterns
     if (process.cwd().includes('/.claude/') || process.cwd().includes('/claude-workspace/')) {
       return this.getClaudeAgent()
     }
@@ -133,19 +117,16 @@ class AgentDetector {
    * Check if running in a container
    */
   isRunningInContainer() {
-    // Check for Docker
     if (fs.existsSync('/.dockerenv')) {
       return true
     }
 
-    // Check for container-specific cgroup
     try {
       const cgroup = fs.readFileSync('/proc/self/cgroup', 'utf8')
       if (cgroup.includes('docker') || cgroup.includes('containerd')) {
         return true
       }
     } catch (e) {
-      // Not in container or can't read cgroup
     }
 
     return false
@@ -265,5 +246,4 @@ class AgentDetector {
   }
 }
 
-// Export singleton instance
 module.exports = new AgentDetector()

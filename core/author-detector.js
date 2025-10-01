@@ -41,13 +41,11 @@ class AuthorDetector {
    * @returns {Promise<string|null>} - GitHub username or null
    */
   async detectGitHubUsername() {
-    // Try 'gh' command first
     let result = await this.execCommand('gh api user --jq .login')
     if (result.success && result.output) {
       return result.output
     }
 
-    // Try alternative: get from git config (github.user)
     result = await this.execCommand('git config --global github.user')
     if (result.success && result.output) {
       return result.output
@@ -88,19 +86,15 @@ class AuthorDetector {
       github: null
     }
 
-    // Priority 1: Try GitHub CLI for username
     author.github = await this.detectGitHubUsername()
 
-    // Priority 2: Try git config for name and email
     author.name = await this.detectGitName()
     author.email = await this.detectGitEmail()
 
-    // Fallback: Use github username as name if no git name
     if (!author.name && author.github) {
       author.name = author.github
     }
 
-    // Fallback: Use "Unknown" if still no name
     if (!author.name) {
       author.name = 'Unknown'
     }
@@ -117,17 +111,14 @@ class AuthorDetector {
   async detectAuthorForLogs() {
     const author = await this.detect()
 
-    // Prefer GitHub username for collaboration
     if (author.github) {
       return author.github
     }
 
-    // Fallback to git name
     if (author.name && author.name !== 'Unknown') {
       return author.name
     }
 
-    // Last resort
     return 'unknown'
   }
 

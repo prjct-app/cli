@@ -15,7 +15,6 @@ class CommandInstaller {
     this.homeDir = os.homedir()
     this.projectPath = process.cwd()
 
-    // Editor configurations
     this.editors = {
       claude: {
         name: 'Claude Code',
@@ -49,7 +48,6 @@ class CommandInstaller {
       }
     }
 
-    // Template directories
     this.templatesDir = path.join(__dirname, '..', 'templates', 'commands')
     this.agentsTemplateDir = path.join(__dirname, '..', 'templates', 'agents')
     this.workflowsTemplateDir = path.join(__dirname, '..', 'templates', 'workflows')
@@ -62,7 +60,6 @@ class CommandInstaller {
   setProjectPath(projectPath) {
     this.projectPath = projectPath
 
-    // Update paths for project-based editors
     this.editors.codex.commandsPath = path.join(projectPath, 'AGENTS.md')
     this.editors.windsurf.commandsPath = path.join(projectPath, '.windsurf', 'workflows')
   }
@@ -84,7 +81,6 @@ class CommandInstaller {
         await fs.access(editor.configPath)
         editor.detected = true
 
-        // Set actual command path for results
         let commandPath = editor.commandsPath
         if (!commandPath && editor.projectBased) {
           commandPath = key === 'codex'
@@ -111,7 +107,6 @@ class CommandInstaller {
       const files = await fs.readdir(this.templatesDir)
       return files.filter(f => f.endsWith('.md'))
     } catch (error) {
-      // Templates directory doesn't exist yet, return default commands
       return [
         'init.md',
         'now.md',
@@ -141,15 +136,12 @@ class CommandInstaller {
     const templatePath = path.join(this.agentsTemplateDir, 'AGENTS.md')
 
     try {
-      // Try to read template
       return await fs.readFile(templatePath, 'utf-8')
     } catch {
-      // If template doesn't exist, generate from existing AGENTS.md or create basic one
       const existingPath = path.join(this.projectPath, 'AGENTS.md')
       try {
         return await fs.readFile(existingPath, 'utf-8')
       } catch {
-        // Create basic AGENTS.md
         return `# AGENTS.md - OpenAI Codex Configuration
 
 This file provides guidance to OpenAI Codex when working with this repository.
@@ -196,10 +188,8 @@ See complete command documentation in the prjct-cli repository.
     const templatePath = path.join(this.workflowsTemplateDir, `${commandName}.md`)
 
     try {
-      // Try to read template
       return await fs.readFile(templatePath, 'utf-8')
     } catch {
-      // Generate basic workflow
       const invocableName = `p:${commandName}`
       return `---
 title: prjct ${commandName}
@@ -239,7 +229,6 @@ For detailed implementation, see prjct-cli documentation.
     }
 
     try {
-      // Handle different editor formats
       switch (editor.format) {
         case 'slash-commands':
           return await this.installSlashCommands(editorKey, forceUpdate)
@@ -267,10 +256,8 @@ For detailed implementation, see prjct-cli documentation.
   async installSlashCommands(editorKey, forceUpdate) {
     const editor = this.editors[editorKey]
 
-    // Ensure commands directory exists
     await fs.mkdir(editor.commandsPath, { recursive: true })
 
-    // Get command files
     const commandFiles = await this.getCommandFiles()
     const installed = []
     const skipped = []
@@ -280,7 +267,6 @@ For detailed implementation, see prjct-cli documentation.
       const targetPath = path.join(editor.commandsPath, filename)
       const templatePath = path.join(this.templatesDir, filename)
 
-      // Check if command already exists
       const exists = await this.fileExists(targetPath)
 
       if (exists && !forceUpdate) {
@@ -288,25 +274,20 @@ For detailed implementation, see prjct-cli documentation.
         continue
       }
 
-      // Read template or use source from Claude Code
       let content
       try {
         content = await fs.readFile(templatePath, 'utf-8')
       } catch {
-        // Template doesn't exist, try to copy from Claude Code
         const claudePath = path.join(this.editors.claude.commandsPath, filename)
         try {
           content = await fs.readFile(claudePath, 'utf-8')
-          // Update content to use global architecture
           content = this.updateCommandForGlobalArchitecture(content)
         } catch {
-          // Skip if neither template nor source exists
           skipped.push(filename)
           continue
         }
       }
 
-      // Write command file
       await fs.writeFile(targetPath, content, 'utf-8')
 
       if (exists) {
@@ -334,7 +315,6 @@ For detailed implementation, see prjct-cli documentation.
     const editor = this.editors[editorKey]
     const targetPath = editor.commandsPath
 
-    // Check if AGENTS.md already exists
     const exists = await this.fileExists(targetPath)
 
     if (exists && !forceUpdate) {
@@ -349,10 +329,8 @@ For detailed implementation, see prjct-cli documentation.
       }
     }
 
-    // Generate AGENTS.md content
     const content = await this.generateAgentsMd()
 
-    // Write AGENTS.md
     await fs.writeFile(targetPath, content, 'utf-8')
 
     return {
@@ -376,10 +354,8 @@ For detailed implementation, see prjct-cli documentation.
   async installWorkflows(editorKey, forceUpdate) {
     const editor = this.editors[editorKey]
 
-    // Ensure workflows directory exists
     await fs.mkdir(editor.commandsPath, { recursive: true })
 
-    // Get command names (without .md extension)
     const commandFiles = await this.getCommandFiles()
     const commandNames = commandFiles.map(f => f.replace('.md', ''))
 
@@ -391,7 +367,6 @@ For detailed implementation, see prjct-cli documentation.
       const filename = `p_${commandName}.md` // e.g., p_now.md
       const targetPath = path.join(editor.commandsPath, filename)
 
-      // Check if workflow already exists
       const exists = await this.fileExists(targetPath)
 
       if (exists && !forceUpdate) {
@@ -399,10 +374,8 @@ For detailed implementation, see prjct-cli documentation.
         continue
       }
 
-      // Generate workflow content
       const content = await this.generateWorkflow(commandName)
 
-      // Write workflow file
       await fs.writeFile(targetPath, content, 'utf-8')
 
       if (exists) {
@@ -430,7 +403,6 @@ For detailed implementation, see prjct-cli documentation.
    * @returns {Promise<Object>} Installation results for selected editors
    */
   async installToSelected(selectedEditors, forceUpdate = false) {
-    // Set project path for project-based editors (Codex, Windsurf)
     await this.detectEditors(this.projectPath)
 
     const results = {}
@@ -511,13 +483,11 @@ For detailed implementation, see prjct-cli documentation.
    * @returns {string} Updated content
    */
   updateCommandForGlobalArchitecture(content) {
-    // Replace local .prjct references with global architecture notes
     let updated = content.replace(
       /\.prjct\//g,
       '~/.prjct-cli/projects/{id}/'
     )
 
-    // Add note about global architecture if not present
     if (!content.includes('Global Architecture')) {
       const frontmatter = content.match(/^---[\s\S]*?---/m)
       if (frontmatter) {
@@ -557,10 +527,8 @@ This command uses the global prjct architecture:
    */
   async createTemplates() {
     try {
-      // Ensure templates directory exists
       await fs.mkdir(this.templatesDir, { recursive: true })
 
-      // Get source commands from Claude Code if available
       const claudeCommandsPath = this.editors.claude.commandsPath
       const hasClaudeCommands = await this.fileExists(claudeCommandsPath)
 
@@ -571,7 +539,6 @@ This command uses the global prjct architecture:
         }
       }
 
-      // Copy commands to templates
       const files = await fs.readdir(claudeCommandsPath)
       const mdFiles = files.filter(f => f.endsWith('.md'))
 
@@ -580,7 +547,6 @@ This command uses the global prjct architecture:
         const sourcePath = path.join(claudeCommandsPath, filename)
         const targetPath = path.join(this.templatesDir, filename)
 
-        // Read, update, and write
         const content = await fs.readFile(sourcePath, 'utf-8')
         const updated = this.updateCommandForGlobalArchitecture(content)
 
@@ -620,7 +586,6 @@ This command uses the global prjct architecture:
       ''
     ]
 
-    // Details per editor
     for (const [key, result] of Object.entries(results.results)) {
       if (result.success) {
         lines.push(`${this.editors[key].name}:`)

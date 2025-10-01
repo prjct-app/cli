@@ -13,7 +13,6 @@ const sessionManager = require('./session-manager')
 const analyzer = require('./analyzer')
 const { VERSION } = require('./version')
 
-// Try to load animations for enhanced output
 let animations
 try {
   animations = require('./animations')
@@ -21,10 +20,15 @@ try {
   animations = null
 }
 
-// Dynamic agent loading
 let Agent
 let agentInstance
 
+/**
+ * Main command handler for prjct CLI
+ *
+ * Manages project workflow commands including task tracking, shipping features,
+ * idea capture, and project analysis
+ */
 class PrjctCommands {
   constructor() {
     this.agent = null
@@ -35,9 +39,11 @@ class PrjctCommands {
 
   /**
    * Generate semantic branch name from task description
+   *
+   * @param {string} task - Task description
+   * @returns {string} Branch name in format type/description
    */
   generateBranchName(task) {
-    // Detect branch type based on keywords
     let branchType = 'chore'
 
     const taskLower = task.toLowerCase()
@@ -58,20 +64,23 @@ class PrjctCommands {
       branchType = 'chore'
     }
 
-    // Clean and format the task description
     const cleanDescription = task
       .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, '') // Remove special characters
-      .replace(/\s+/g, '-') // Replace spaces with hyphens
-      .replace(/-+/g, '-') // Replace multiple hyphens with single
-      .replace(/^-|-$/g, '') // Remove leading/trailing hyphens
-      .slice(0, 50) // Limit length
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 50)
 
     return `${branchType}/${cleanDescription}`
   }
 
   /**
    * Execute git command with error handling
+   *
+   * @param {string} command - Git command to execute
+   * @param {string} [cwd=process.cwd()] - Working directory
+   * @returns {Promise<Object>} Result object with success flag and output
    */
   async execGitCommand(command, cwd = process.cwd()) {
     try {
@@ -84,6 +93,9 @@ class PrjctCommands {
 
   /**
    * Check if current directory is a git repository
+   *
+   * @param {string} [projectPath=process.cwd()] - Project path to check
+   * @returns {Promise<boolean>} True if git repository
    */
   async isGitRepo(projectPath = process.cwd()) {
     const result = await this.execGitCommand('git rev-parse --is-inside-work-tree', projectPath)
@@ -92,25 +104,24 @@ class PrjctCommands {
 
   /**
    * Create and switch to a new git branch
+   *
+   * @param {string} branchName - Name of branch to create
+   * @param {string} [projectPath=process.cwd()] - Project path
+   * @returns {Promise<Object>} Result object with success flag and message
    */
   async createAndSwitchBranch(branchName, projectPath = process.cwd()) {
-    // Check if it's a git repo
     if (!await this.isGitRepo(projectPath)) {
       return { success: false, message: 'Not a git repository' }
     }
 
-    // Check for uncommitted changes
     const statusResult = await this.execGitCommand('git status --porcelain', projectPath)
     if (statusResult.stdout) {
-      // Has uncommitted changes, stash them
       await this.execGitCommand('git stash push -m "Auto-stash before branch creation"', projectPath)
     }
 
-    // Check if branch already exists
     const branchExists = await this.execGitCommand(`git show-ref --verify --quiet refs/heads/${branchName}`, projectPath)
 
     if (branchExists.success) {
-      // Branch exists, just switch to it
       const switchResult = await this.execGitCommand(`git checkout ${branchName}`, projectPath)
       if (!switchResult.success) {
         return { success: false, message: `Failed to switch to existing branch: ${branchName}` }
@@ -118,14 +129,12 @@ class PrjctCommands {
       return { success: true, message: `Switched to existing branch: ${branchName}`, existed: true }
     }
 
-    // Create and switch to new branch
     const createResult = await this.execGitCommand(`git checkout -b ${branchName}`, projectPath)
 
     if (!createResult.success) {
       return { success: false, message: `Failed to create branch: ${createResult.error}` }
     }
 
-    // Pop stash if we stashed earlier
     if (statusResult.stdout) {
       await this.execGitCommand('git stash pop', projectPath)
     }
@@ -136,17 +145,16 @@ class PrjctCommands {
   /**
    * Initialize agent detection and load appropriate adapter
    * Also handles automatic global migration on first run
+   *
+   * @returns {Promise<Object>} Initialized agent instance
    */
   async initializeAgent() {
     if (this.agent) return this.agent
 
-    // Detect which agent is running
     this.agentInfo = await agentDetector.detect()
 
-    // Log detection result for debugging
     console.debug(`[prjct] Detected agent: ${this.agentInfo.name} (${this.agentInfo.type})`)
 
-    // Load appropriate agent adapter
     switch (this.agentInfo.type) {
       case 'claude':
         Agent = require('./agents/claude-agent')
@@ -162,7 +170,6 @@ class PrjctCommands {
 
     this.agent = new Agent()
 
-    // Run automatic global migration if needed (only once)
     await this.checkAndRunAutoMigration()
 
     return this.agent
@@ -171,29 +178,27 @@ class PrjctCommands {
   /**
    * Check if automatic migration is needed and run it transparently
    * This runs only once per installation using a flag file
+   *
+   * @private
    */
   async checkAndRunAutoMigration() {
     try {
       const flagPath = path.join(pathManager.getGlobalBasePath(), '.auto-migrated')
 
-      // Check if already migrated
       try {
         await fs.access(flagPath)
-        return // Already migrated, skip
+        return
       } catch {
-        // Flag doesn't exist, need to migrate
       }
 
-      // Run silent migration in background
       const summary = await migrator.migrateAll({
         deepScan: true,
         removeLegacy: false,
         cleanupLegacy: true,
         dryRun: false,
-        onProgress: null // Silent mode
+        onProgress: null
       })
 
-      // Create flag file to mark as migrated
       await fs.mkdir(pathManager.getGlobalBasePath(), { recursive: true })
       await fs.writeFile(flagPath, JSON.stringify({
         migratedAt: new Date().toISOString(),
@@ -203,13 +208,14 @@ class PrjctCommands {
       }), 'utf-8')
 
     } catch (error) {
-      // Migration errors should not block user commands
       console.error('[prjct] Auto-migration error (non-blocking):', error.message)
     }
   }
 
   /**
    * Ensure author information is loaded
+   *
+   * @returns {Promise<Object>} Current author information
    */
   async ensureAuthor() {
     if (this.currentAuthor) return this.currentAuthor
@@ -220,17 +226,18 @@ class PrjctCommands {
   /**
    * Get the global project path for a project
    * Ensures migration if needed
+   *
+   * @param {string} projectPath - Local project path
+   * @returns {Promise<string>} Global project path
+   * @throws {Error} If project needs migration
    */
   async getGlobalProjectPath(projectPath) {
-    // Check if migration is needed
     if (await migrator.needsMigration(projectPath)) {
       throw new Error('Project needs migration. Run /p:migrate first.')
     }
 
-    // Get project ID from config
     const projectId = await configManager.getProjectId(projectPath)
 
-    // Ensure global structure exists
     await pathManager.ensureProjectStructure(projectId)
 
     return pathManager.getGlobalProjectPath(projectId)
@@ -238,17 +245,27 @@ class PrjctCommands {
 
   /**
    * Get file path in global structure
+   *
+   * @param {string} projectPath - Local project path
+   * @param {string} layer - Layer name (core, progress, planning, etc.)
+   * @param {string} filename - File name
+   * @returns {Promise<string>} Full file path
    */
   async getFilePath(projectPath, layer, filename) {
     const projectId = await configManager.getProjectId(projectPath)
     return pathManager.getFilePath(projectId, layer, filename)
   }
 
+  /**
+   * Initialize a new prjct project
+   *
+   * @param {string} [projectPath=process.cwd()] - Project path
+   * @returns {Promise<Object>} Result object with success flag and message
+   */
   async init(projectPath = process.cwd()) {
     try {
       await this.initializeAgent()
 
-      // Check if project is already initialized
       if (await configManager.isConfigured(projectPath)) {
         return {
           success: false,
@@ -256,24 +273,20 @@ class PrjctCommands {
         }
       }
 
-      // Detect author
       const author = await authorDetector.detect()
 
-      // Check if there are legacy files to migrate first
       const hasLegacy = await pathManager.hasLegacyStructure(projectPath)
       let migrationPerformed = false
 
       if (hasLegacy) {
-        // Create config first (needed for migration)
         const config = await configManager.createConfig(projectPath, author)
         const projectId = config.projectId
         await pathManager.ensureProjectStructure(projectId)
 
-        // Migrate legacy files to global location
         try {
           const migrationResult = await migrator.migrate(projectPath, {
             removeLegacy: false,
-            cleanupLegacy: true,  // This will cleanup after migration
+            cleanupLegacy: true,
             dryRun: false
           })
           migrationPerformed = migrationResult.success
@@ -282,13 +295,11 @@ class PrjctCommands {
         }
       }
 
-      // If no migration was performed, create config and initial files
       if (!migrationPerformed) {
         const config = await configManager.createConfig(projectPath, author)
         const projectId = config.projectId
         await pathManager.ensureProjectStructure(projectId)
 
-        // Create initial files in global structure
         const files = {
           'core/now.md': '# NOW\n\nNo current task. Use `/p:now` to set focus.\n',
           'core/next.md': '# NEXT\n\n## Priority Queue\n\n',
@@ -306,21 +317,17 @@ class PrjctCommands {
         }
       }
 
-      // Get final config and project ID for display
       const config = await configManager.readConfig(projectPath)
       const projectId = config.projectId
       const globalPath = pathManager.getGlobalProjectPath(projectId)
 
-      // Detect project type
       const projectInfo = await this.detectProjectType(projectPath)
 
-      // Install commands to detected editors with interactive selection
       const installResult = await this.install({ force: false, interactive: true })
       const editorsInstalled = installResult.success
         ? `\n🤖 Commands installed to: ${installResult.message.split('Editors: ')[1]?.split('\n')[0] || 'selected editors'}`
         : ''
 
-      // Auto-analyze if project has existing code
       let analysisMessage = ''
       const hasExistingCode = await this.detectExistingCode(projectPath)
 
@@ -340,7 +347,6 @@ class PrjctCommands {
               (sync.featuresAdded > 0 ? `✅ Added ${sync.featuresAdded} features to shipped.md\n` : '')
           }
         } catch (error) {
-          // Analysis failed, but don't block initialization
           console.error('[prjct] Analysis warning:', error.message)
         }
       }
@@ -369,6 +375,13 @@ class PrjctCommands {
     }
   }
 
+  /**
+   * Set or view current task
+   *
+   * @param {string|null} [task=null] - Task description or null to view current
+   * @param {string} [projectPath=process.cwd()] - Project path
+   * @returns {Promise<Object>} Result object with success flag and message
+   */
   async now(task = null, projectPath = process.cwd()) {
     try {
       await this.initializeAgent()
@@ -377,7 +390,6 @@ class PrjctCommands {
       const nowFile = await this.getFilePath(projectPath, 'core', 'now.md')
 
       if (!task) {
-        // Read current task
         const content = await this.agent.readFile(nowFile)
         const lines = content.split('\n')
         const currentTask = lines[0].replace('# NOW: ', '').replace('# NOW', 'None')
@@ -388,10 +400,8 @@ class PrjctCommands {
         }
       }
 
-      // Generate branch name
       const branchName = this.generateBranchName(task)
 
-      // Try to create and switch to the branch
       let branchMessage = ''
       const branchResult = await this.createAndSwitchBranch(branchName, projectPath)
 
@@ -402,14 +412,11 @@ class PrjctCommands {
           branchMessage = `\n🌿 Created and switched to branch: ${branchName}`
         }
       } else if (branchResult.message === 'Not a git repository') {
-        // Not a git repo, silently continue without branch creation
         branchMessage = ''
       } else {
-        // Git operation failed, log warning but continue
         branchMessage = `\n⚠️ Could not create branch: ${branchResult.message}`
       }
 
-      // Set new task with branch info if available
       let contentWithBranch = `# NOW: ${task}\nStarted: ${this.agent.getTimestamp()}\n`
       if (branchResult.success) {
         contentWithBranch += `Branch: ${branchName}\n`
@@ -418,10 +425,8 @@ class PrjctCommands {
 
       await this.agent.writeFile(nowFile, contentWithBranch)
 
-      // Get current author
       const currentAuthor = await configManager.getCurrentAuthor(projectPath)
 
-      // Log to memory with author, branch info, and start time
       const startedAt = this.agent.getTimestamp()
       const memoryData = {
         task,
@@ -432,11 +437,9 @@ class PrjctCommands {
       }
       await this.logToMemory(projectPath, 'task_started', memoryData)
 
-      // Update author activity
       const projectId = await configManager.getProjectId(projectPath)
       await configManager.updateAuthorActivity(projectId, currentAuthor)
 
-      // Update config lastSync
       await configManager.updateLastSync(projectPath)
 
       return {
@@ -456,13 +459,18 @@ class PrjctCommands {
     }
   }
 
+  /**
+   * Mark current task as done
+   *
+   * @param {string} [projectPath=process.cwd()] - Project path
+   * @returns {Promise<Object>} Result object with success flag and message
+   */
   async done(projectPath = process.cwd()) {
     try {
       await this.initializeAgent()
       const nowFile = await this.getFilePath(projectPath, 'core', 'now.md')
       const nextFile = await this.getFilePath(projectPath, 'core', 'next.md')
 
-      // Get current task and parse started time
       const content = await this.agent.readFile(nowFile)
       const lines = content.split('\n')
       const currentTask = lines[0].replace('# NOW: ', '')
@@ -474,17 +482,14 @@ class PrjctCommands {
         }
       }
 
-      // Extract started time from content
       let startedAt = null
       const startedLine = lines.find(line => line.startsWith('Started:'))
       if (startedLine) {
         startedAt = startedLine.replace('Started: ', '').trim()
       }
 
-      // Get current author
       const currentAuthor = await configManager.getCurrentAuthor(projectPath)
 
-      // Calculate duration if we have start time
       const completedAt = this.agent.getTimestamp()
       let duration = null
       if (startedAt) {
@@ -494,10 +499,8 @@ class PrjctCommands {
         duration = `${hours}h ${minutes}m`
       }
 
-      // Clear current task
       await this.agent.writeFile(nowFile, '# NOW\n\nNo current task. Use `/p:now` to set focus.\n')
 
-      // Log completion with time tracking
       await this.logToMemory(projectPath, 'task_completed', {
         task: currentTask,
         timestamp: completedAt,
@@ -507,11 +510,9 @@ class PrjctCommands {
         author: currentAuthor
       })
 
-      // Update author activity
       const projectId = await configManager.getProjectId(projectPath)
       await configManager.updateAuthorActivity(projectId, currentAuthor)
 
-      // Check if there are next tasks
       const nextContent = await this.agent.readFile(nextFile)
       const hasNext = nextContent.includes('- ')
 
@@ -531,6 +532,13 @@ class PrjctCommands {
     }
   }
 
+  /**
+   * Ship a completed feature
+   *
+   * @param {string} feature - Feature description
+   * @param {string} [projectPath=process.cwd()] - Project path
+   * @returns {Promise<Object>} Result object with success flag and message
+   */
   async ship(feature, projectPath = process.cwd()) {
     try {
       await this.initializeAgent()
@@ -545,11 +553,9 @@ class PrjctCommands {
         }
       }
 
-      // Get project config to use session-based storage
       const config = await configManager.readConfig(projectPath)
 
       if (config && config.projectId) {
-        // Use session-based storage (new architecture)
         const week = this.getWeekNumber(new Date())
         const year = new Date().getFullYear()
         const weekHeader = `## Week ${week}, ${year}`
@@ -563,14 +569,11 @@ class PrjctCommands {
           return await this._shipLegacy(feature, projectPath)
         }
 
-        // Get total shipped across all sessions (last 30 days for performance)
         const recentShips = await sessionManager.getRecentLogs(config.projectId, 30, 'shipped.md')
         const totalShipped = recentShips.match(/✅/g)?.length || 1
 
-        // Log to memory
         await this.logToMemory(projectPath, 'ship', { feature, timestamp: this.agent.getTimestamp() })
 
-        // Calculate velocity
         const daysSinceLastShip = await this.getDaysSinceLastShip(projectPath)
         const velocityMsg = daysSinceLastShip > 3 ? 'Keep the momentum going!' : "You're on fire! 🔥"
 
@@ -584,7 +587,6 @@ class PrjctCommands {
             this.agent.suggestNextAction('featureShipped'),
         }
       } else {
-        // Fallback to legacy storage for non-migrated projects
         return await this._shipLegacy(feature, projectPath)
       }
     } catch (error) {
@@ -598,38 +600,35 @@ class PrjctCommands {
 
   /**
    * Legacy ship method for non-migrated projects
+   *
    * @private
+   * @param {string} feature - Feature description
+   * @param {string} projectPath - Project path
+   * @returns {Promise<Object>} Result object
    */
   async _shipLegacy(feature, projectPath) {
     const shippedFile = await this.getFilePath(projectPath, 'progress', 'shipped.md')
 
-    // Read current content
     let content = await this.agent.readFile(shippedFile)
 
-    // Get current week
     const week = this.getWeekNumber(new Date())
     const year = new Date().getFullYear()
     const weekHeader = `## Week ${week}, ${year}`
 
-    // Add week header if not exists
     if (!content.includes(weekHeader)) {
       content += `\n${weekHeader}\n`
     }
 
-    // Add feature
     const entry = `- ✅ **${feature}** _(${new Date().toLocaleString()})_\n`
     const insertIndex = content.indexOf(weekHeader) + weekHeader.length + 1
     content = content.slice(0, insertIndex) + entry + content.slice(insertIndex)
 
     await this.agent.writeFile(shippedFile, content)
 
-    // Count total shipped
     const totalShipped = (content.match(/✅/g) || []).length
 
-    // Log to memory
     await this.logToMemory(projectPath, 'ship', { feature, timestamp: this.agent.getTimestamp() })
 
-    // Calculate velocity
     const daysSinceLastShip = await this.getDaysSinceLastShip(projectPath)
     const velocityMsg = daysSinceLastShip > 3 ? 'Keep the momentum going!' : "You're on fire! 🔥"
 
@@ -644,13 +643,18 @@ class PrjctCommands {
     }
   }
 
+  /**
+   * Show priority queue
+   *
+   * @param {string} [projectPath=process.cwd()] - Project path
+   * @returns {Promise<Object>} Result object with success flag and message
+   */
   async next(projectPath = process.cwd()) {
     try {
       await this.initializeAgent()
       const nextFile = await this.getFilePath(projectPath, 'core', 'next.md')
       const content = await this.agent.readFile(nextFile)
 
-      // Parse tasks
       const tasks = content
         .split('\n')
         .filter((line) => line.startsWith('- '))
@@ -679,6 +683,13 @@ class PrjctCommands {
     }
   }
 
+  /**
+   * Capture a new idea
+   *
+   * @param {string} text - Idea text
+   * @param {string} [projectPath=process.cwd()] - Project path
+   * @returns {Promise<Object>} Result object with success flag and message
+   */
   async idea(text, projectPath = process.cwd()) {
     try {
       await this.initializeAgent()
@@ -696,12 +707,10 @@ class PrjctCommands {
       const ideasFile = await this.getFilePath(projectPath, 'planning', 'ideas.md')
       const nextFile = await this.getFilePath(projectPath, 'core', 'next.md')
 
-      // Add to ideas
       const entry = `- ${text} _(${new Date().toLocaleDateString()})_\n`
       const ideasContent = await this.agent.readFile(ideasFile)
       await this.agent.writeFile(ideasFile, ideasContent + entry)
 
-      // Optionally add to next queue if it looks actionable
       let addedToQueue = false
       if (text.match(/^(implement|add|create|fix|update|build)/i)) {
         const nextContent = await this.agent.readFile(nextFile)
@@ -709,7 +718,6 @@ class PrjctCommands {
         addedToQueue = true
       }
 
-      // Log to memory
       await this.logToMemory(projectPath, 'idea', { text, timestamp: this.agent.getTimestamp() })
 
       const message =
@@ -732,11 +740,16 @@ class PrjctCommands {
     }
   }
 
+  /**
+   * Show project recap with progress overview
+   *
+   * @param {string} [projectPath=process.cwd()] - Project path
+   * @returns {Promise<Object>} Result object with success flag and message
+   */
   async recap(projectPath = process.cwd()) {
     try {
       await this.initializeAgent()
 
-      // Read all files from global structure
       const nowFilePath = await this.getFilePath(projectPath, 'core', 'now.md')
       const nextFilePath = await this.getFilePath(projectPath, 'core', 'next.md')
       const ideasFilePath = await this.getFilePath(projectPath, 'planning', 'ideas.md')
@@ -745,25 +758,19 @@ class PrjctCommands {
       const nextFile = await this.agent.readFile(nextFilePath)
       const ideasFile = await this.agent.readFile(ideasFilePath)
 
-      // Parse current task
       const currentTask = nowFile.split('\n')[0].replace('# NOW: ', '').replace('# NOW', 'None')
 
-      // Count queue and ideas
       const queuedCount = (nextFile.match(/^- /gm) || []).length
       const ideasCount = (ideasFile.match(/^- /gm) || []).length
 
-      // Get project config to use session-based data
       const config = await configManager.readConfig(projectPath)
       let shippedCount = 0
       let recentActivity = ''
 
       if (config && config.projectId) {
-        // Use session-based data (new architecture)
-        // Get shipped count from recent sessions (last 30 days)
         const recentShips = await this.getHistoricalData(projectPath, 'month', 'shipped.md')
         shippedCount = (recentShips.match(/✅/g) || []).length
 
-        // Get recent activity from session logs
         const recentLogs = await this.getRecentLogs(projectPath, 7)
         recentActivity = recentLogs
           .slice(-3)
@@ -772,7 +779,6 @@ class PrjctCommands {
           })
           .join('\n')
       } else {
-        // Fallback to reading from global structure
         const shippedFilePath = await this.getFilePath(projectPath, 'progress', 'shipped.md')
         const shippedFile = await this.agent.readFile(shippedFilePath)
         shippedCount = (shippedFile.match(/✅/g) || []).length
@@ -792,7 +798,6 @@ class PrjctCommands {
             })
             .join('\n')
         } catch (e) {
-          // Memory file might not exist yet
         }
       }
 
@@ -817,14 +822,19 @@ class PrjctCommands {
     }
   }
 
+  /**
+   * Show progress metrics for a time period
+   *
+   * @param {string} [period='week'] - Time period: 'day', 'week', or 'month'
+   * @param {string} [projectPath=process.cwd()] - Project path
+   * @returns {Promise<Object>} Result object with success flag and message
+   */
   async progress(period = 'week', projectPath = process.cwd()) {
     try {
       await this.initializeAgent()
 
-      // Get historical data from sessions
       const shippedData = await this.getHistoricalData(projectPath, period, 'shipped.md')
 
-      // Parse shipped features by date
       const features = []
       const lines = shippedData.split('\n')
 
@@ -840,19 +850,16 @@ class PrjctCommands {
         }
       }
 
-      // Filter by period (sessions should already handle this, but double-check)
       const now = new Date()
       const periodDays = period === 'day' ? 1 : period === 'week' ? 7 : period === 'month' ? 30 : 7
       const cutoff = new Date(now.getTime() - periodDays * 24 * 60 * 60 * 1000)
 
       const periodFeatures = features.filter((f) => f.date >= cutoff)
 
-      // Get time metrics from memory logs
       const timeMetrics = await this.getTimeMetrics(projectPath, period)
 
-      // Calculate velocity
       const velocity = periodFeatures.length / periodDays
-      const previousVelocity = 0.3 // Baseline expectation
+      const previousVelocity = 0.3
 
       const motivationalMessage =
         velocity >= 0.5
@@ -871,7 +878,7 @@ class PrjctCommands {
           .map((f) => `• ${f.name}`)
           .join('\n'),
         motivationalMessage,
-        timeMetrics, // Add time metrics
+        timeMetrics,
       }
 
       return {
@@ -892,14 +899,13 @@ class PrjctCommands {
    *
    * @param {string} projectPath - Path to the project
    * @param {string} period - Period ('day', 'week', 'month')
-   * @returns {Promise<Object>} - Time metrics
+   * @returns {Promise<Object>} Time metrics object
    */
   async getTimeMetrics(projectPath, period) {
     try {
       const periodDays = period === 'day' ? 1 : period === 'week' ? 7 : period === 'month' ? 30 : 7
       const logs = await sessionManager.getRecentLogs(await configManager.getProjectId(projectPath), periodDays, 'context.jsonl')
 
-      // Filter task completion logs with duration
       const completedTasks = logs.filter(log => log.type === 'task_completed' && log.data?.duration)
 
       if (completedTasks.length === 0) {
@@ -913,7 +919,6 @@ class PrjctCommands {
         }
       }
 
-      // Parse durations to minutes
       const parseDuration = (duration) => {
         const match = duration.match(/(\d+)h (\d+)m/)
         if (!match) return 0
@@ -924,19 +929,16 @@ class PrjctCommands {
       const totalMinutes = durations.reduce((sum, d) => sum + d, 0)
       const avgMinutes = Math.round(totalMinutes / durations.length)
 
-      // Find longest/shortest
       const sortedDurations = [...durations].sort((a, b) => b - a)
       const longestMinutes = sortedDurations[0]
       const shortestMinutes = sortedDurations[sortedDurations.length - 1]
 
-      // Format time
       const formatTime = (minutes) => {
         const h = Math.floor(minutes / 60)
         const m = minutes % 60
         return `${h}h ${m}m`
       }
 
-      // Calculate time by author
       const byAuthor = {}
       completedTasks.forEach(task => {
         const author = task.data?.author || task.author || 'Unknown'
@@ -950,7 +952,6 @@ class PrjctCommands {
         byAuthor[author].totalMinutes += parseDuration(task.data.duration)
       })
 
-      // Format author stats
       Object.keys(byAuthor).forEach(author => {
         byAuthor[author].totalTime = formatTime(byAuthor[author].totalMinutes)
         byAuthor[author].avgTime = formatTime(Math.round(byAuthor[author].totalMinutes / byAuthor[author].tasks))
@@ -976,6 +977,13 @@ class PrjctCommands {
     }
   }
 
+  /**
+   * Get help when stuck on a problem
+   *
+   * @param {string} issue - Issue description
+   * @param {string} [projectPath=process.cwd()] - Project path
+   * @returns {Promise<Object>} Result object with success flag and message
+   */
   async stuck(issue, projectPath = process.cwd()) {
     try {
       await this.initializeAgent()
@@ -990,10 +998,8 @@ class PrjctCommands {
         }
       }
 
-      // Log the issue
       await this.logToMemory(projectPath, 'stuck', { issue, timestamp: this.agent.getTimestamp() })
 
-      // Get contextual help from agent
       const helpContent = this.agent.getHelpContent(issue)
 
       return {
@@ -1009,6 +1015,14 @@ class PrjctCommands {
     }
   }
 
+  /**
+   * Advanced cleanup with multiple cleanup types
+   *
+   * @param {string} [target='.'] - Target directory
+   * @param {Object} [options={}] - Cleanup options
+   * @param {string} [projectPath=process.cwd()] - Project path
+   * @returns {Promise<Object>} Result object with success flag and message
+   */
   async cleanupAdvanced(target = '.', options = {}, projectPath = process.cwd()) {
     try {
       await this.initializeAgent()
@@ -1024,7 +1038,6 @@ class PrjctCommands {
         deps: { removed: 0, sizeSaved: 0 }
       }
 
-      // Simulate cleanup operations (in real implementation, would do actual cleanup)
       if (type === 'all' || type === 'code') {
         results.deadCode.consoleLogs = Math.floor(Math.random() * 20)
         results.deadCode.commented = Math.floor(Math.random() * 10)
@@ -1049,7 +1062,6 @@ class PrjctCommands {
         results.deps.sizeSaved = Math.floor(Math.random() * 20)
       }
 
-      // Format response using animations if available
       if (animations) {
         const message = `
 🧹 ✨ Advanced Cleanup Complete! ✨ 🧹
@@ -1087,7 +1099,6 @@ ${dryRun ? '⚠️ DRY RUN - No changes were made' : '✅ All changes applied su
         }
       }
 
-      // Fallback formatting
       return {
         success: true,
         message: this.agent.formatResponse('Advanced cleanup complete!', 'success')
@@ -1101,6 +1112,14 @@ ${dryRun ? '⚠️ DRY RUN - No changes were made' : '✅ All changes applied su
     }
   }
 
+  /**
+   * Generate design documents and diagrams
+   *
+   * @param {string} target - Design target name
+   * @param {Object} [options={}] - Design options
+   * @param {string} [projectPath=process.cwd()] - Project path
+   * @returns {Promise<Object>} Result object with success flag and message
+   */
   async design(target, options = {}, projectPath = process.cwd()) {
     try {
       await this.initializeAgent()
@@ -1108,14 +1127,12 @@ ${dryRun ? '⚠️ DRY RUN - No changes were made' : '✅ All changes applied su
       const type = options.type || 'architecture'
       const format = options.format || 'all'
 
-      // Ensure designs directory exists
       const designDir = path.join(projectPath, this.prjctDir, 'designs')
       await this.agent.createDirectory(designDir)
 
       let designContent = ''
       let diagram = ''
 
-      // Generate design based on type
       switch(type) {
         case 'architecture':
           diagram = `
@@ -1172,7 +1189,6 @@ DELETE /api/users/:id`
           diagram = 'Custom design diagram'
       }
 
-      // Save design to file
       const timestamp = new Date().toISOString().split('T')[0]
       const designFile = path.join(designDir, `${target.replace(/\s+/g, '-')}-${type}-${timestamp}.md`)
 
@@ -1201,14 +1217,12 @@ ${diagram}
 
       await this.agent.writeFile(designFile, designContent)
 
-      // Log to memory
       await this.logToMemory(projectPath, 'design', {
         target,
         type,
         file: designFile
       })
 
-      // Format response
       const message = `
 🎨 ✨ Design Complete! ✨ 🎨
 
@@ -1245,30 +1259,31 @@ ${diagram}
     }
   }
 
+  /**
+   * Show project context and recent activity
+   *
+   * @param {string} [projectPath=process.cwd()] - Project path
+   * @returns {Promise<Object>} Result object with success flag and message
+   */
   async context(projectPath = process.cwd()) {
     try {
       await this.initializeAgent()
 
-      // Detect project info
       const projectInfo = await this.detectProjectType(projectPath)
 
-      // Get current state
       const nowFilePath = await this.getFilePath(projectPath, 'core', 'now.md')
       const nowFile = await this.agent.readFile(nowFilePath)
       const currentTask = nowFile.split('\n')[0].replace('# NOW: ', '').replace('# NOW', 'None')
 
-      // Get project config to use session-based data
       const config = await configManager.readConfig(projectPath)
       let recentActions = []
 
       if (config && config.projectId) {
-        // Use session-based logs (new architecture)
         const recentLogs = await this.getRecentLogs(projectPath, 7)
         recentActions = recentLogs.slice(-5).map((entry) => {
           return `• ${entry.action}: ${entry.data.task || entry.data.feature || entry.data.text || ''}`
         })
       } else {
-        // Fallback to reading from global structure
         const memoryFile = await this.getFilePath(projectPath, 'memory', 'memory.jsonl')
         try {
           const memory = await this.agent.readFile(memoryFile)
@@ -1281,7 +1296,6 @@ ${diagram}
             return `• ${entry.action}: ${entry.data.task || entry.data.feature || entry.data.text || ''}`
           })
         } catch (e) {
-          // Memory file might not exist yet
         }
       }
 
@@ -1306,7 +1320,12 @@ ${diagram}
     }
   }
 
-  // Helper methods
+  /**
+   * Detect project type from package.json and files
+   *
+   * @param {string} projectPath - Project path
+   * @returns {Promise<string>} Project type description
+   */
   async detectProjectType(projectPath) {
     const files = await fs.readdir(projectPath)
 
@@ -1333,12 +1352,24 @@ ${diagram}
     return 'General project'
   }
 
+  /**
+   * Get week number from date
+   *
+   * @param {Date} date - Date to get week number for
+   * @returns {number} Week number
+   */
   getWeekNumber(date) {
     const firstDayOfYear = new Date(date.getFullYear(), 0, 1)
     const pastDaysOfYear = (date - firstDayOfYear) / 86400000
     return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7)
   }
 
+  /**
+   * Get days since last ship event
+   *
+   * @param {string} projectPath - Project path
+   * @returns {Promise<number>} Days since last ship or Infinity if never shipped
+   */
   async getDaysSinceLastShip(projectPath) {
     try {
       await this.initializeAgent()
@@ -1358,20 +1389,24 @@ ${diagram}
         }
       }
     } catch (e) {
-      // No previous ships
     }
     return Infinity
   }
 
+  /**
+   * Log action to memory system
+   *
+   * @param {string} projectPath - Project path
+   * @param {string} action - Action type
+   * @param {Object} data - Action data
+   */
   async logToMemory(projectPath, action, data) {
     await this.initializeAgent()
     await this.ensureAuthor()
 
-    // Get project config to use session-based logging
     const config = await configManager.readConfig(projectPath)
 
     if (config && config.projectId) {
-      // Use session-based logging (new architecture)
       const entry = {
         action,
         author: this.currentAuthor,
@@ -1383,18 +1418,20 @@ ${diagram}
         await sessionManager.writeToSession(config.projectId, entry, 'context.jsonl')
       } catch (error) {
         console.error('Session logging failed, falling back to legacy:', error.message)
-        // Fallback to legacy if session fails
         await this._logToMemoryLegacy(projectPath, action, data)
       }
     } else {
-      // Fallback to legacy logging for non-migrated projects
       await this._logToMemoryLegacy(projectPath, action, data)
     }
   }
 
   /**
    * Legacy logging method (fallback)
+   *
    * @private
+   * @param {string} projectPath - Project path
+   * @param {string} action - Action type
+   * @param {Object} data - Action data
    */
   async _logToMemoryLegacy(projectPath, action, data) {
     const memoryFile = await this.getFilePath(projectPath, 'memory', 'context.jsonl')
@@ -1409,7 +1446,6 @@ ${diagram}
       const existingContent = await this.agent.readFile(memoryFile)
       await this.agent.writeFile(memoryFile, existingContent + entry)
     } catch (e) {
-      // File doesn't exist, create it
       await this.agent.writeFile(memoryFile, entry)
     }
   }
@@ -1419,15 +1455,14 @@ ${diagram}
    * Consolidates data from multiple sessions based on time period
    *
    * @param {string} projectPath - Project path
-   * @param {string} period - Time period: 'day', 'week', 'month', 'all'
-   * @param {string} filename - File to read from sessions (default: 'context.jsonl')
-   * @returns {Promise<Array<Object>>} - Consolidated entries
+   * @param {string} [period='week'] - Time period: 'day', 'week', 'month', 'all'
+   * @param {string} [filename='context.jsonl'] - File to read from sessions
+   * @returns {Promise<Array<Object>>} Consolidated entries
    */
   async getHistoricalData(projectPath, period = 'week', filename = 'context.jsonl') {
     const config = await configManager.readConfig(projectPath)
 
     if (!config || !config.projectId) {
-      // Legacy project, read from single file
       return await this._getHistoricalDataLegacy(projectPath, filename)
     }
 
@@ -1438,7 +1473,6 @@ ${diagram}
     switch (period) {
       case 'day':
       case 'today':
-        // Just today
         if (isMarkdown) {
           const sessionPath = await pathManager.getCurrentSessionPath(config.projectId)
           const filePath = path.join(sessionPath, filename)
@@ -1459,16 +1493,13 @@ ${diagram}
         break
 
       case 'all':
-        // Get all sessions (limited to last year for performance)
         fromDate.setFullYear(fromDate.getFullYear() - 1)
         break
 
       default:
-        // Default to week
         fromDate.setDate(fromDate.getDate() - 7)
     }
 
-    // Use appropriate method based on file type
     if (isMarkdown) {
       return await sessionManager.readMarkdownRange(config.projectId, fromDate, toDate, filename)
     } else {
@@ -1478,7 +1509,11 @@ ${diagram}
 
   /**
    * Get historical data from legacy single-file structure
+   *
    * @private
+   * @param {string} projectPath - Project path
+   * @param {string} filename - Filename to read
+   * @returns {Promise<Array<Object>>} Parsed entries
    */
   async _getHistoricalDataLegacy(projectPath, filename) {
     const filePath = await this.getFilePath(projectPath, 'memory', filename)
@@ -1502,8 +1537,8 @@ ${diagram}
    * Get recent logs with session support
    *
    * @param {string} projectPath - Project path
-   * @param {number} days - Number of days to look back
-   * @returns {Promise<Array<Object>>} - Recent log entries
+   * @param {number} [days=7] - Number of days to look back
+   * @returns {Promise<Array<Object>>} Recent log entries
    */
   async getRecentLogs(projectPath, days = 7) {
     const config = await configManager.readConfig(projectPath)
@@ -1511,11 +1546,16 @@ ${diagram}
     if (config && config.projectId) {
       return await sessionManager.getRecentLogs(config.projectId, days)
     } else {
-      // Legacy: just read all from single file
       return await this._getHistoricalDataLegacy(projectPath, 'context.jsonl')
     }
   }
 
+  /**
+   * Cleanup old project data
+   *
+   * @param {string} [projectPath=process.cwd()] - Project path
+   * @returns {Promise<Object>} Result object with success flag and message
+   */
   async cleanup(projectPath = process.cwd()) {
     try {
       await this.initializeAgent()
@@ -1525,7 +1565,6 @@ ${diagram}
       let filesRemoved = 0
       let tasksArchived = 0
 
-      // 1. Clean temp directory
       try {
         const tempDir = path.join(prjctPath, 'temp')
         const tempFiles = await fs.readdir(tempDir).catch(() => [])
@@ -1537,10 +1576,8 @@ ${diagram}
           filesRemoved++
         }
       } catch (e) {
-        // Temp dir might not exist
       }
 
-      // 2. Compress old memory entries (> 30 days)
       try {
         const memoryFile = path.join(prjctPath, 'memory.jsonl')
         const content = await this.agent.readFile(memoryFile)
@@ -1561,11 +1598,10 @@ ${diagram}
               archivedLines.push(line)
             }
           } catch {
-            recentLines.push(line) // Keep malformed lines
+            recentLines.push(line)
           }
         }
 
-        // Archive old entries
         if (archivedLines.length > 0) {
           const archiveFile = path.join(prjctPath, `memory-archive-${now.toISOString().split('T')[0]}.jsonl`)
           await this.agent.writeFile(archiveFile, archivedLines.join('\n') + '\n')
@@ -1573,10 +1609,8 @@ ${diagram}
           tasksArchived = archivedLines.length
         }
       } catch (e) {
-        // Memory file might not exist
       }
 
-      // 3. Clean empty files
       const files = await fs.readdir(prjctPath)
       for (const file of files) {
         if (file.endsWith('.md') || file.endsWith('.txt')) {
@@ -1589,7 +1623,6 @@ ${diagram}
         }
       }
 
-      // 4. Clean old completed tasks from shipped.md (> 30 days)
       try {
         const shippedFile = path.join(prjctPath, 'shipped.md')
         const content = await this.agent.readFile(shippedFile)
@@ -1613,7 +1646,6 @@ ${diagram}
 
         await this.agent.writeFile(shippedFile, filteredLines.join('\n'))
       } catch (e) {
-        // Shipped file might not exist
       }
 
       const freedMB = (totalFreed / 1024 / 1024).toFixed(2)
@@ -1643,6 +1675,12 @@ ${diagram}
     }
   }
 
+  /**
+   * Migrate all legacy projects to new structure
+   *
+   * @param {Object} [options={}] - Migration options
+   * @returns {Promise<Object>} Result object with summary
+   */
   async migrateAll(options = {}) {
     try {
       await this.initializeAgent()
@@ -1653,7 +1691,6 @@ ${diagram}
         dryRun = false
       } = options
 
-      // Progress callback
       const onProgress = (update) => {
         if (update.phase === 'scanning') {
           console.log(`🔍 ${update.message}`)
@@ -1662,7 +1699,6 @@ ${diagram}
         }
       }
 
-      // Run migration
       const summary = await migrator.migrateAll({
         deepScan,
         removeLegacy,
@@ -1670,7 +1706,6 @@ ${diagram}
         onProgress
       })
 
-      // Generate and display report
       const report = migrator.generateMigrationSummary(summary)
 
       return {
@@ -1687,6 +1722,12 @@ ${diagram}
     }
   }
 
+  /**
+   * Install commands to AI editors
+   *
+   * @param {Object} [options={}] - Installation options
+   * @returns {Promise<Object>} Result object with success flag and message
+   */
   async install(options = {}) {
     try {
       await this.initializeAgent()
@@ -1698,7 +1739,6 @@ ${diagram}
         interactive = true
       } = options
 
-      // Create templates if requested
       if (createTemplates) {
         const templateResult = await commandInstaller.createTemplates()
         if (!templateResult.success) {
@@ -1709,7 +1749,6 @@ ${diagram}
         }
       }
 
-      // Detect available editors
       const detection = await commandInstaller.detectEditors(process.cwd())
       const detectedEditors = Object.entries(detection)
         .filter(([_, info]) => info.detected)
@@ -1721,14 +1760,11 @@ ${diagram}
         }
       }
 
-      // Install commands
       let installResult
 
       if (editor) {
-        // Install to specific editor via command line
         installResult = await commandInstaller.installToEditor(editor, force)
       } else if (interactive && detectedEditors.length > 1) {
-        // Show interactive selection if multiple editors detected
         const inquirer = require('inquirer')
 
         console.log('\n🤖 Detected AI editors on your system:\n')
@@ -1736,7 +1772,7 @@ ${diagram}
         const choices = detectedEditors.map(([key, info]) => ({
           name: `${commandInstaller.editors[key].name} → ${info.path}`,
           value: key,
-          checked: true // Default to all checked
+          checked: true
         }))
 
         const answers = await inquirer.prompt([
@@ -1761,14 +1797,11 @@ ${diagram}
           }
         }
 
-        // Install to selected editors
         installResult = await commandInstaller.installToSelected(answers.selectedEditors, force)
       } else {
-        // Install to all detected editors (non-interactive or single editor)
         installResult = await commandInstaller.installToAll(force)
       }
 
-      // Generate report
       const report = commandInstaller.generateReport(installResult)
 
       return {
@@ -1786,6 +1819,10 @@ ${diagram}
 
   /**
    * Analyze codebase and optionally sync with .prjct/ state
+   *
+   * @param {Object} [options={}] - Analysis options
+   * @param {string} [projectPath=process.cwd()] - Project path
+   * @returns {Promise<Object>} Result object with analysis and sync results
    */
   async analyze(options = {}, projectPath = process.cwd()) {
     try {
@@ -1801,10 +1838,8 @@ ${diagram}
         console.log('🔍 Analyzing codebase...')
       }
 
-      // Run analysis
       const analysis = await analyzer.analyzeProject(projectPath)
 
-      // Generate summary stats
       const summary = {
         commandsFound: analysis.commands.length,
         featuresFound: analysis.features.length,
@@ -1813,27 +1848,21 @@ ${diagram}
         hasGit: analysis.gitHistory.hasGit
       }
 
-      // Sync with .prjct/ if requested
       let syncResults = null
       if (sync && !reportOnly) {
         const globalProjectPath = await this.getGlobalProjectPath(projectPath)
         syncResults = await analyzer.syncWithPrjctFiles(globalProjectPath)
       }
 
-      // Generate output message
       let message = ''
 
       if (silent) {
-        // Return minimal summary for init
         message = `Found ${summary.commandsFound} commands, ${summary.featuresFound} features`
       } else if (reportOnly) {
-        // Just show the report
         message = this.formatAnalysisReport(summary, analysis)
       } else if (sync) {
-        // Show sync results
         message = this.formatAnalysisWithSync(summary, syncResults)
       } else {
-        // Show full report
         message = this.formatAnalysisReport(summary, analysis)
       }
 
@@ -1855,6 +1884,10 @@ ${diagram}
 
   /**
    * Format analysis report for display
+   *
+   * @param {Object} summary - Analysis summary
+   * @param {Object} analysis - Full analysis results
+   * @returns {string} Formatted report
    */
   formatAnalysisReport(summary, analysis) {
     return `
@@ -1881,6 +1914,10 @@ ${analysis.features.length > 5 ? `  ... and ${analysis.features.length - 5} more
 
   /**
    * Format analysis with sync results
+   *
+   * @param {Object} summary - Analysis summary
+   * @param {Object} syncResults - Sync results
+   * @returns {string} Formatted report with sync info
    */
   formatAnalysisWithSync(summary, syncResults) {
     return `
@@ -1901,24 +1938,23 @@ ${syncResults.shippedMdUpdated ? `✅ Updated shipped.md (${syncResults.features
 
   /**
    * Detect if project has existing code (for auto-analyze during init)
+   *
+   * @param {string} projectPath - Project path
+   * @returns {Promise<boolean>} True if project has significant existing code
    */
   async detectExistingCode(projectPath) {
     try {
-      // Check for package.json with dependencies
       const packagePath = path.join(projectPath, 'package.json')
       try {
         const content = await fs.readFile(packagePath, 'utf-8')
         const pkg = JSON.parse(content)
 
-        // If has dependencies, likely has code
         if (pkg.dependencies && Object.keys(pkg.dependencies).length > 0) {
           return true
         }
       } catch {
-        // No package.json or parse error, continue checking
       }
 
-      // Check for git commits
       try {
         const { stdout } = await exec('git rev-list --count HEAD', { cwd: projectPath })
         const commitCount = parseInt(stdout.trim())
@@ -1926,16 +1962,13 @@ ${syncResults.shippedMdUpdated ? `✅ Updated shipped.md (${syncResults.features
           return true
         }
       } catch {
-        // Not a git repo or no commits
       }
 
-      // Count code files
       const entries = await fs.readdir(projectPath)
       const codeExtensions = ['.js', '.ts', '.jsx', '.tsx', '.py', '.go', '.rs', '.rb', '.java']
 
       let codeFileCount = 0
       for (const entry of entries) {
-        // Skip node_modules and hidden files
         if (entry.startsWith('.') || entry === 'node_modules') {
           continue
         }
@@ -1946,11 +1979,9 @@ ${syncResults.shippedMdUpdated ? `✅ Updated shipped.md (${syncResults.features
         }
       }
 
-      // If has 5+ code files, consider it has existing code
       return codeFileCount >= 5
 
     } catch (error) {
-      // Error detecting, assume no existing code
       return false
     }
   }

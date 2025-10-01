@@ -5,7 +5,7 @@
 
 const chalk = require('chalk');
 
-// Use basic chalk colors for better compatibility
+
 const colors = {
   success: chalk.green,
   error: chalk.red,
@@ -24,7 +24,7 @@ const colors = {
   dim: chalk.gray,
 };
 
-// ASCII art frames for animations
+
 const frames = {
   rocket: [
     '     🚀     ',
@@ -77,7 +77,7 @@ const frames = {
   ],
 };
 
-// Cool ASCII art banners
+
 const banners = {
   ship: `
 ╔════════════════════════════════════════════╗
@@ -105,7 +105,7 @@ ${colors.focus.bold('   🎯 FOCUS MODE 🎯   ')}
 ${colors.focus('━━━━━━━━━━━━━━━━━━━━━━━')}`,
 };
 
-// Animation functions
+
 async function animate(frames, duration = 100) {
   for (const frame of frames) {
     process.stdout.write('\r' + frame);
@@ -157,7 +157,7 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// Format functions with simple colors
+
 function formatShip(feature, count) {
   const banner = banners.ship;
   const stats = `

@@ -50,13 +50,11 @@ class CodebaseAnalyzer {
       const binPath = path.join(this.projectPath, 'bin', 'prjct')
       const content = await fs.readFile(binPath, 'utf-8')
 
-      // Parse switch cases to find commands
       const caseMatches = content.matchAll(/case\s+'([^']+)':/g)
       for (const match of caseMatches) {
         commands.push(match[1])
       }
 
-      // Also check commands.js for method definitions
       const commandsPath = path.join(this.projectPath, 'core', 'commands.js')
       if (await this.fileExists(commandsPath)) {
         const commandsContent = await fs.readFile(commandsPath, 'utf-8')
@@ -64,7 +62,6 @@ class CodebaseAnalyzer {
 
         for (const match of methodMatches) {
           const methodName = match[1]
-          // Filter out internal methods
           if (!methodName.startsWith('_') &&
               methodName !== 'constructor' &&
               methodName !== 'initializeAgent' &&
@@ -86,19 +83,15 @@ class CodebaseAnalyzer {
   async detectCompletedFeatures() {
     const features = []
 
-    // 1. Check git commits for "feat:" or "ship:" prefixes
     const gitFeatures = await this.extractFeaturesFromGit()
     features.push(...gitFeatures)
 
-    // 2. Check package.json for major dependencies (indicate features)
     const packageFeatures = await this.extractFeaturesFromPackageJson()
     features.push(...packageFeatures)
 
-    // 3. Check directory structure for feature modules
     const structureFeatures = await this.extractFeaturesFromStructure()
     features.push(...structureFeatures)
 
-    // Remove duplicates
     return [...new Set(features)]
   }
 
@@ -109,7 +102,6 @@ class CodebaseAnalyzer {
     const features = []
 
     try {
-      // Get commits with feat: or ship: prefix
       const { stdout } = await exec(
         'git log --all --pretty=format:"%s" --grep="^feat:" --grep="^ship:" --grep="^feature:" -i',
         { cwd: this.projectPath }
@@ -118,7 +110,6 @@ class CodebaseAnalyzer {
       if (stdout) {
         const commits = stdout.split('\n')
         for (const commit of commits) {
-          // Extract feature name from commit message
           const match = commit.match(/^(?:feat|ship|feature):\s*(.+)/i)
           if (match) {
             features.push(match[1].trim())
@@ -126,7 +117,6 @@ class CodebaseAnalyzer {
         }
       }
     } catch (error) {
-      // Git might not be initialized or no commits yet
     }
 
     return features
@@ -145,7 +135,6 @@ class CodebaseAnalyzer {
 
       const deps = { ...pkg.dependencies, ...pkg.devDependencies }
 
-      // Map major dependencies to features
       const featureMap = {
         'express': 'REST API server',
         'next': 'Next.js application',
@@ -165,7 +154,6 @@ class CodebaseAnalyzer {
         }
       }
     } catch (error) {
-      // No package.json or parse error
     }
 
     return features
@@ -180,7 +168,6 @@ class CodebaseAnalyzer {
     try {
       const entries = await fs.readdir(this.projectPath, { withFileTypes: true })
 
-      // Check for common feature directories
       const featureDirs = {
         'auth': 'Authentication system',
         'api': 'API endpoints',
@@ -202,7 +189,6 @@ class CodebaseAnalyzer {
         }
       }
     } catch (error) {
-      // Error reading directory
     }
 
     return features
@@ -227,7 +213,6 @@ class CodebaseAnalyzer {
         if (entry.isDirectory()) {
           structure.directories.push(entry.name)
 
-          // Check for common structure indicators
           if (entry.name === 'test' || entry.name === 'tests' || entry.name === '__tests__') {
             structure.hasTests = true
           }
@@ -237,7 +222,6 @@ class CodebaseAnalyzer {
         }
       }
 
-      // Check for CI/CD
       const ciFiles = ['.github/workflows', '.gitlab-ci.yml', 'jenkins', '.circleci']
       for (const ciFile of ciFiles) {
         if (await this.fileExists(path.join(this.projectPath, ciFile))) {
@@ -246,11 +230,9 @@ class CodebaseAnalyzer {
         }
       }
 
-      // Count total files (rough estimate)
       structure.fileCount = await this.countFiles(this.projectPath)
 
     } catch (error) {
-      // Error analyzing structure
     }
 
     return structure
@@ -269,22 +251,18 @@ class CodebaseAnalyzer {
     }
 
     try {
-      // Check if git repo exists
       await exec('git rev-parse --git-dir', { cwd: this.projectPath })
       history.hasGit = true
 
-      // Get commit count
       const { stdout: countOut } = await exec('git rev-list --count HEAD', { cwd: this.projectPath })
       history.totalCommits = parseInt(countOut.trim()) || 0
 
-      // Get contributors
       const { stdout: contributorsOut } = await exec(
         'git log --format="%an" | sort -u',
         { cwd: this.projectPath }
       )
       history.contributors = contributorsOut.trim().split('\n').filter(Boolean)
 
-      // Get first and last commit dates
       const { stdout: firstOut } = await exec(
         'git log --reverse --format="%ai" --max-count=1',
         { cwd: this.projectPath }
@@ -298,7 +276,6 @@ class CodebaseAnalyzer {
       history.lastCommit = lastOut.trim()
 
     } catch (error) {
-      // Not a git repo or git not available
       history.hasGit = false
     }
 
@@ -312,7 +289,6 @@ class CodebaseAnalyzer {
     const technologies = []
 
     try {
-      // Check package.json
       const packagePath = path.join(this.projectPath, 'package.json')
       if (await this.fileExists(packagePath)) {
         const content = await fs.readFile(packagePath, 'utf-8')
@@ -330,7 +306,6 @@ class CodebaseAnalyzer {
         if (deps['fastify']) technologies.push('Fastify')
       }
 
-      // Check for other languages
       const entries = await fs.readdir(this.projectPath)
 
       if (entries.some(f => f.endsWith('.py'))) technologies.push('Python')
@@ -340,7 +315,6 @@ class CodebaseAnalyzer {
       if (entries.some(f => f.endsWith('.java'))) technologies.push('Java')
 
     } catch (error) {
-      // Error detecting technologies
     }
 
     return [...new Set(technologies)]
@@ -358,19 +332,16 @@ class CodebaseAnalyzer {
     }
 
     try {
-      // Update next.md - mark implemented commands as completed
       syncResults.tasksMarkedComplete = await this.updateNextMd(globalProjectPath)
       if (syncResults.tasksMarkedComplete > 0) {
         syncResults.nextMdUpdated = true
       }
 
-      // Update shipped.md - add detected features
       syncResults.featuresAdded = await this.updateShippedMd(globalProjectPath)
       if (syncResults.featuresAdded > 0) {
         syncResults.shippedMdUpdated = true
       }
 
-      // Create analysis report
       await this.createAnalysisReport(globalProjectPath)
 
     } catch (error) {
@@ -401,17 +372,14 @@ class CodebaseAnalyzer {
       const newLines = []
 
       for (const line of lines) {
-        // Check if line is a task
         if (line.startsWith('- ') && !line.includes('✅')) {
           const taskText = line.substring(2).toLowerCase()
 
-          // Check if task mentions an implemented command
           const isImplemented = implementedCommands.some(cmd =>
             taskText.includes(cmd) || taskText.includes(`/p:${cmd}`)
           )
 
           if (isImplemented) {
-            // Mark as completed
             newLines.push(line.replace('- ', '- ✅ ') + ' _(auto-detected)_')
             tasksMarkedComplete++
             modified = true
@@ -449,18 +417,15 @@ class CodebaseAnalyzer {
 
       let content = await fs.readFile(shippedPath, 'utf-8')
 
-      // Get current week header
       const now = new Date()
       const week = this.getWeekNumber(now)
       const year = now.getFullYear()
       const weekHeader = `## Week ${week}, ${year}`
 
-      // Add week header if not exists
       if (!content.includes(weekHeader)) {
         content += `\n${weekHeader}\n`
       }
 
-      // Add detected features that aren't already listed
       for (const feature of this.analysis.features) {
         if (!content.includes(feature)) {
           const entry = `- ✅ **${feature}** _(auto-detected on ${now.toLocaleDateString()})_\n`
@@ -602,7 +567,6 @@ _This report was auto-generated by prjct analyze_
       const entries = await fs.readdir(dirPath, { withFileTypes: true })
 
       for (const entry of entries) {
-        // Skip node_modules and hidden directories
         if (entry.name.startsWith('.') || entry.name === 'node_modules') {
           continue
         }
@@ -618,7 +582,6 @@ _This report was auto-generated by prjct analyze_
         }
       }
     } catch {
-      // Ignore errors
     }
 
     return count
