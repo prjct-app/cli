@@ -1763,42 +1763,13 @@ ${diagram}
       let installResult
 
       if (editor) {
+        // Install to specific editor
         installResult = await commandInstaller.installToEditor(editor, force)
-      } else if (interactive && detectedEditors.length > 1) {
-        const inquirer = await import('inquirer')
-
-        console.log('\n🤖 Detected AI editors on your system:\n')
-
-        const choices = detectedEditors.map(([key, info]) => ({
-          name: `${commandInstaller.editors[key].name} → ${info.path}`,
-          value: key,
-          checked: true
-        }))
-
-        const answers = await inquirer.default.prompt([
-          {
-            type: 'checkbox',
-            name: 'selectedEditors',
-            message: 'Select editors to install commands:',
-            choices,
-            validate: (answer) => {
-              if (answer.length < 1) {
-                return 'You must choose at least one editor.'
-              }
-              return true
-            }
-          }
-        ])
-
-        if (answers.selectedEditors.length === 0) {
-          return {
-            success: false,
-            message: this.agent.formatResponse('No editors selected', 'error')
-          }
-        }
-
-        installResult = await commandInstaller.installToSelected(answers.selectedEditors, force)
+      } else if (interactive) {
+        // Interactive mode: use new interactiveInstall method
+        installResult = await commandInstaller.interactiveInstall(force)
       } else {
+        // Non-interactive mode: install to all detected editors
         installResult = await commandInstaller.installToAll(force)
       }
 

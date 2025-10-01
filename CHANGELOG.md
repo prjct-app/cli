@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2] - 2025-10-01
+
+### Fixed
+- **Interactive Installation Compatibility** - Fixed interactive editor selection failing due to inquirer ESM compatibility issues
+  - Replaced inquirer v12 with prompts v2.4.2 for better CommonJS compatibility
+  - inquirer v12 required complex ESM dynamic imports causing "prompt is not a function" errors
+  - prompts provides simpler API with native CommonJS support
+  - Reduced package count from 68 to 40 dependencies
+  - Fixed "inquirer.prompt is not a function" and "createPromptModule is not a function" errors
+  - Interactive UI now works reliably across all Node.js versions
+  - Updated `scripts/interactive-install.js` and `core/command-installer.js` to use prompts
+
 ## [0.3.1] - 2025-10-01
 
 ### Fixed
