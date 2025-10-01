@@ -36,6 +36,12 @@ jobs:
           cd website
           npm ci || npm install
 
+      - name: Sync install.sh to website/public
+        run: |
+          cp scripts/install.sh website/public/install.sh
+          chmod +x website/public/install.sh
+          echo "✅ Synced install.sh from scripts/ to website/public/"
+
       - name: Build website
         run: |
           cd website
@@ -44,11 +50,9 @@ jobs:
 
       - name: Copy install.sh to docs
         run: |
-          if [ -f "website/public/install.sh" ]; then
-            cp website/public/install.sh docs/install.sh
-            chmod +x docs/install.sh
-            echo "✅ Copied install.sh to docs/"
-          fi
+          cp scripts/install.sh docs/install.sh
+          chmod +x docs/install.sh
+          echo "✅ Copied install.sh from scripts/ to docs/"
 
       - name: Commit build output to repository
         run: |
@@ -64,16 +68,10 @@ jobs:
           mkdir -p ./deploy
           cp -r docs/* ./deploy/
 
-          # Copy the latest install.sh to deployment directory
-          if [ -f "./scripts/install.sh" ]; then
-            cp ./scripts/install.sh ./deploy/install.sh
-            echo "✅ Copied updated install.sh to deployment directory"
-          fi
-
-          # Make sure install.sh is executable
-          if [ -f "./deploy/install.sh" ]; then
-            chmod +x ./deploy/install.sh
-          fi
+          # Copy the latest install.sh from scripts/ to deployment directory
+          cp scripts/install.sh ./deploy/install.sh
+          chmod +x ./deploy/install.sh
+          echo "✅ Copied install.sh from scripts/ to deployment directory"
 
           # Ensure CNAME file is in deployment directory (now in public)
           if [ -f "docs/CNAME" ]; then
