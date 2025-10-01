@@ -84,8 +84,8 @@ const terminalConfigs = [
         delay: 600,
       },
       {
-        cmd: '/p:roadmap add "monitoring dashboard"',
-        output: '✅ Added to roadmap\n📍 Priority: High\n⚡ Effort: 2-3 days',
+        cmd: '/p:roadmap',
+        output: '🚀 Current Sprint (45% done):\n  ✅ Core API\n  🔄 Rate limiting\n  ⏳ Monitoring dashboard',
         delay: 700,
       },
       {
@@ -105,7 +105,7 @@ const terminalConfigs = [
         delay: 700,
       },
       {
-        cmd: '/p:git commit "rate limiting"',
+        cmd: '/p:git',
         output:
           '📝 Commit: feat: add Redis rate limiting\n🌿 Branch: feature/rate-limit\n✅ 5 files changed',
         delay: 800,
@@ -128,7 +128,7 @@ const terminalConfigs = [
         delay: 700,
       },
       {
-        cmd: '/p:roadmap show',
+        cmd: '/p:roadmap',
         output:
           '🚀 Current Sprint (67% done):\n  ✅ Core commands\n  ✅ AI integrations\n  🔄 Documentation\n  ⏳ Package publishing',
         delay: 900,

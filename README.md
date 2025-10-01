@@ -11,7 +11,7 @@
 
 **Ship fast, stay focused, no BS.**
 
-**AI-integrated project management for indie hackers** - Ship fast, stay focused, no ceremonies.
+**AI-integrated project management for indie hackers and small teams** - Ship fast, stay focused, no ceremonies.
 
 Works with **Claude Code**, **Cursor AI**, **Codeium**, **OpenAI Codex**, and **Warp Terminal**.
 
@@ -168,7 +168,7 @@ All three editors support the same slash commands through automatic installation
 
 # Power Commands 🚀
 /p:analyze                 # Auto-analyze codebase
-/p:git                     # Smart git commit & push
+/p:git                     # Smart git commit with context
 /p:fix "error msg"         # Quick troubleshooting
 /p:test                    # Run & fix tests
 /p:task "complex feature"  # Break down & execute
@@ -205,132 +205,42 @@ prjct recap                # Show progress
 
 > Warp AI also understands `/p:` commands in the terminal
 
-## 🎯 Which Command to Use When...?
+## 🎯 Quick Command Guide
 
-### 🆕 **"I have a new idea or unplanned feature"**
+**New idea or feature:**
+- `/p:idea "add dark mode"` - Quick capture
+- `/p:now "implement dark mode"` - Start working now
 
-```bash
-# Option 1: Just capture the idea so you don't forget
-/p:idea "add dark mode to dashboard"
-→ 💡 Saved to ideas.md for later review
+**Finished working:**
+- `/p:done` - Mark complete, clear focus
+- `/p:ship "feature name"` - Celebrate important milestones
 
-# Option 2: Add it to the roadmap for planning
-/p:roadmap add "implement dark mode"
-→ 📋 Automatically prioritized in roadmap
+**Lost context:**
+- `/p:recap` - Complete overview
+- `/p:next` - View task queue
 
-# Option 3: Start working on it NOW
-/p:now "implement dark mode in dashboard"
-→ 🎯 Set as your current task (you can only have ONE)
-```
+**Need help:**
+- `/p:stuck "error description"` - Get contextual solutions
+- `/p:fix "error message"` - Auto-diagnosis
 
-### ✅ **"I finished what I was doing"**
+**Track progress:**
+- `/p:progress week` - Weekly metrics
+- `/p:context` - Project info
 
-```bash
-# Mark task as complete
-/p:done
-→ ✅ Clears your current focus and suggests next task
+**Code quality:**
+- `/p:cleanup` - Basic cleanup
+- `/p:cleanup --type code` - Remove dead code, unused imports
+- `/p:design "component" --type architecture` - Design before coding
 
-# If it's an important feature, CELEBRATE it
-/p:ship "OAuth authentication system"
-→ 🚀 Recorded as a WIN with celebration 🎉
-```
+**Version control:**
+- `/p:git` - Smart commit
+- `/p:git push` - Commit + push
 
-### 🤔 **"I don't know what to do" or "What was I working on?"**
+**After cloning/pulling:**
+- `/p:analyze` - Auto-analyze codebase
+- `/p:analyze --sync` - Sync with implemented features
 
-```bash
-/p:recap
-→ 📊 Shows EVERYTHING: current task, progress, shipped, roadmap
-
-/p:next
-→ 📋 Shows your prioritized task queue
-
-/p:context
-→ 📚 Project info and recent actions
-```
-
-### 🆘 **"I'm stuck on a problem"**
-
-```bash
-/p:stuck "CORS error in API calls"
-→ 💡 Contextual solutions based on your project
-
-/p:fix "TypeError: undefined is not a function"
-→ 🔧 Auto-diagnosis and possible solutions
-```
-
-### 📊 **"I want to see my progress"**
-
-```bash
-/p:progress week
-→ 📈 Weekly metrics: shipped, velocity, trends
-
-/p:progress month
-→ 📊 Monthly view with detailed statistics
-```
-
-### 🧹 **"I need to clean up the code"**
-
-```bash
-/p:cleanup
-→ 🧹 Basic cleanup of temp files and logs
-
-/p:cleanup-advanced --type code
-→ 🗑️ Remove console.logs, commented code, unused imports
-
-/p:cleanup-advanced --aggressive
-→ ⚡ Deep cleanup with dependency optimization
-```
-
-### 🎨 **"I need to design before coding"**
-
-```bash
-/p:design "authentication system" --type architecture
-→ 🏗️ Generate architecture design with ASCII diagrams
-
-/p:design "user API" --type api
-→ 📋 Design REST/GraphQL endpoints with specifications
-
-/p:design "dashboard" --type component
-→ 🧩 Design UI component hierarchy
-
-/p:design "database" --type database
-→ 📊 Design schemas and database relationships
-```
-
-### 💻 **"I need to commit/push"**
-
-```bash
-/p:git
-→ 📝 Generates smart commit message and commits
-
-/p:git push
-→ 🚀 Commit + push to origin
-
-/p:git sync
-→ 🔄 Pull + commit + push (complete sync)
-```
-
-### 🔍 **"I cloned the repo or someone else pushed changes"**
-
-```bash
-# After cloning a repo with existing code
-git clone repo && cd repo
-/p:init
-→ 🔍 Auto-analyzes existing code and syncs state
-→ ✅ Shows real tasks remaining (not all from scratch)
-
-# After pulling changes from teammates
-git pull
-/p:analyze --sync
-→ 🔍 Re-analyzes codebase
-→ ✅ Syncs with newly implemented features
-→ 📊 Updates next.md and shipped.md automatically
-
-# Just want to see what's implemented (no sync)
-/p:analyze
-→ 📊 Shows commands, features, and technologies detected
-→ 📝 Creates analysis/repo-summary.md report
-```
+> 💡 **Tip:** Visit [prjct.app/commands](https://prjct.app/commands) for interactive command guide
 
 ## 📖 Complete Command Reference
 
@@ -372,178 +282,36 @@ git pull
 | `/p:context`       | Project info            | Current state and context     | `📚 Sprint 3, Day 12, 67% done`   |
 | `/p:stuck <issue>` | When you need help      | Contextual solutions          | `💡 Try: npm install cors`        |
 
-## 🔄 Complete Workflows
+## 🔄 Common Workflows
 
-### 🌟 **My First Day with prjct**
+**First day:** `/p:init` → `/p:recap` → `/p:now "first task"`
 
-```bash
-# 1. Initialize structure (auto-analyzes if code exists)
-/p:init
-→ ✅ Project configured with .prjct/ structure
-→ 🔍 Auto-analyzed existing code (if any)
-→ ✅ Synced state with implemented features
+**Daily session:** `/p:recap` → Work → `/p:done` → `/p:git` → `/p:progress`
 
-# 2. Check what's already done vs what's left
-/p:recap
-→ 📊 Shows: current status, shipped features, real remaining tasks
+**Complex features:** `/p:task "feature"` → Break into subtasks → `/p:now` each → `/p:ship` when complete
 
-# 3. View or create roadmap
-/p:roadmap
-→ 📋 Empty roadmap, use /p:roadmap add
+**Sprint planning:** `/p:roadmap` → Add features → `/p:now` top priority → `/p:ship` → `/p:roadmap next`
 
-# 4. Set first task
-/p:now "setup development environment"
-→ 🎯 Current focus set
+> 📚 **More workflows:** Visit [prjct.app/workflows](https://prjct.app/workflows) for detailed examples
 
-# 5. When done, celebrate
-/p:done
-→ ✅ Task completed
+## ❓ FAQ
 
-/p:ship "environment configured"
-→ 🚀 First WIN recorded! 🎉
-```
+**Can I work on multiple tasks?**
+No, by design. Single-focus philosophy. Use `/p:done` before switching.
 
-### 💼 **Daily Work Session**
+**Difference between `/p:done` and `/p:ship`?**
+`/p:done` clears focus. `/p:ship` celebrates important features with metrics.
 
-```bash
-# Morning: See where I am
-/p:recap
-→ 📊 Overview: 1 active, 3 in queue, 5 shipped this week
+**Where is my data stored?**
+Everything is local in `.prjct/` directory. Never leaves your machine.
 
-# Confirm or change focus
-/p:now
-→ 🎯 Current: implement payment system
+**Does it work with teams?**
+Designed for indie hackers. For teams, each dev has their own `.prjct/` or shares via git.
 
-# During work
-/p:stuck "Stripe webhook not working"
-→ 💡 Solution: Verify endpoint URL and secrets
+**How do I migrate from Jira/Trello?**
+No migration needed. Just `/p:init` and start working.
 
-/p:idea "add transaction logs"
-→ 💡 Idea saved for later
-
-# At end of day
-/p:done
-→ ✅ Payment system completed
-
-/p:git
-→ 📝 Commit: feat: add Stripe payment system
-
-/p:progress
-→ 📈 Today: 1 shipped, velocity maintaining
-```
-
-### 🏗️ **Complex Feature Management**
-
-```bash
-# 1. Break down the large feature
-/p:task "complete notification system"
-→ 📋 Broken down into 5 subtasks:
-   [1/5] Design event architecture
-   [2/5] Implement WebSockets
-   [3/5] Create notification UI
-   [4/5] User preference system
-   [5/5] Testing and documentation
-
-# 2. Work on each subtask
-/p:now "design event architecture"
-→ 🎯 Subtask 1 active
-
-# 3. Complete one by one
-/p:done
-→ ✅ Subtask 1 complete, next: WebSockets
-
-/p:now "implement WebSockets"
-→ 🎯 Subtask 2 active
-
-# 4. When all complete, celebrate big
-/p:ship "complete notification system"
-→ 🚀 MEGA WIN: Notification system complete! 🎉🎊
-```
-
-### 🚀 **Sprint Planning with Roadmap**
-
-```bash
-# View current roadmap
-/p:roadmap
-→ 📋 Current sprint: 45% completed
-
-# Add new prioritized features
-/p:roadmap add "two-factor authentication"
-→ ✅ Added as priority #2
-
-/p:roadmap add "Slack integration"
-→ ✅ Added as priority #5
-
-# Complete roadmap items
-/p:roadmap complete "payment system"
-→ ✅ Marked as completed, progress: 67%
-
-# View next priority
-/p:roadmap next
-→ 📍 Next: two-factor authentication
-```
-
-## ❓ FAQ - Frequently Asked Questions
-
-### **"What happens if I use `/p:now` without finishing the previous task?"**
-
-The previous task gets REPLACED. prjct uses a "single focus" philosophy - only ONE active task at a time. If you need to switch context, use `/p:done` first.
-
-### **"Can I work on multiple tasks simultaneously?"**
-
-NO by design. prjct forces focus on a single task. If you need to temporarily switch, use `/p:done` and then `/p:now` with the new task.
-
-### **"What's the difference between `/p:done` and `/p:ship`?"**
-
-- `/p:done` = Complete current task and clear focus
-- `/p:ship` = Celebrate an important FEATURE (not all tasks are features)
-
-```bash
-/p:done                    # "I finished fixing that bug"
-/p:ship "new dashboard"    # "LAUNCHED THE NEW DASHBOARD!" 🎉
-```
-
-### **"How do I modify something in the roadmap?"**
-
-```bash
-/p:roadmap                 # View everything
-/p:roadmap add "feature"   # Add new
-/p:roadmap complete "item" # Mark as done
-/p:roadmap next           # View next priority
-```
-
-### **"Can I undo a command?"**
-
-There's no automatic "undo", but you can:
-
-- Manually edit files in `.prjct/`
-- Use `/p:now` to change current task
-- Files are simple markdown, easy to edit
-
-### **"What happens with my data?"**
-
-- EVERYTHING is stored locally in `.prjct/`
-- No data leaves your machine
-- You can version `.prjct/` with git if you want
-- Backup = copy the `.prjct/` folder
-
-### **"How do I migrate from Jira/Trello/etc?"**
-
-You don't need to migrate anything. Simply:
-
-```bash
-/p:init                           # Start fresh
-/p:roadmap add "current feature"  # Add what you're working on
-/p:now "today's task"            # Start working
-```
-
-### **"Does it work with teams?"**
-
-prjct is designed for indie hackers and solopreneurs. For teams, each developer can have their own `.prjct/` or share one via git.
-
-### **"Can I customize the commands?"**
-
-Commands are standardized to maintain simplicity. But files in `.prjct/` are markdown - you can edit them however you want.
+> 💬 **More questions?** Check [prjct.app/faq](https://prjct.app/faq) or [open an issue](https://github.com/jlopezlira/prjct-cli/issues)
 
 ## 📂 File Structure
 

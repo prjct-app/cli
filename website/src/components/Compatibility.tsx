@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Check, Cpu, Bot, Terminal } from 'lucide-react'
+import { Check, Cpu, Bot, Terminal, Code2, Wind } from 'lucide-react'
 
 const agents = [
   {
@@ -19,6 +19,44 @@ const agents = [
       'CLAUDE.md configuration',
       'MCP availability check',
       '/.claude/ directory',
+    ],
+  },
+  {
+    name: 'Cursor',
+    icon: Code2,
+    color: 'text-primary',
+    bgColor: 'bg-primary/10',
+    borderColor: 'border-primary/20',
+    features: [
+      'Slash command support',
+      'Global data sharing',
+      'AI-native integration',
+      'Cross-editor sync',
+    ],
+    detection: [
+      '/.cursor/ directory',
+      'Cursor-specific paths',
+      'Command detection',
+      'Editor environment',
+    ],
+  },
+  {
+    name: 'Windsurf',
+    icon: Wind,
+    color: 'text-cat-sapphire',
+    bgColor: 'bg-cat-sapphire/10',
+    borderColor: 'border-cat-sapphire/20',
+    features: [
+      'Workflow integration',
+      'AI cascade support',
+      'Project-based config',
+      'Codeium powered',
+    ],
+    detection: [
+      '/.windsurf/ directory',
+      'Workflow files',
+      'Codeium integration',
+      'Project detection',
     ],
   },
   {
@@ -43,9 +81,9 @@ const agents = [
   {
     name: 'Terminal/CLI',
     icon: Terminal,
-    color: 'text-cat-sapphire',
-    bgColor: 'bg-cat-sapphire/10',
-    borderColor: 'border-cat-sapphire/20',
+    color: 'text-cat-mauve',
+    bgColor: 'bg-cat-mauve/10',
+    borderColor: 'border-cat-mauve/20',
     features: [
       'ANSI colors via chalk',
       'Progress spinners',
@@ -76,7 +114,7 @@ export const Compatibility = () => {
           </p>
         </motion.div>
 
-        <div className="mb-16 grid grid-cols-1 gap-8 md:grid-cols-3">
+        <div className="mb-16 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {agents.map((agent, index) => (
             <motion.div
               key={index}
@@ -129,28 +167,45 @@ export const Compatibility = () => {
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.3 }}
           viewport={{ once: true }}
-          className="rounded-2xl border border-border bg-card p-8 text-center"
+          className="rounded-2xl border border-border bg-card p-8"
         >
-          <h3 className="mb-4 text-2xl font-bold">How Agent Detection Works</h3>
-          <div className="mx-auto grid max-w-4xl grid-cols-1 gap-6 md:grid-cols-4">
-            <div className="text-center">
-              <div className="mb-2 text-3xl font-bold">1</div>
-              <p className="text-sm text-muted-foreground">Environment variables checked</p>
+          <h3 className="mb-8 text-center text-2xl font-bold">How Agent Detection Works</h3>
+          <div className="mx-auto flex max-w-4xl flex-col items-center gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="flex flex-col items-center text-center md:flex-1">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-xl font-bold text-primary">
+                1
+              </div>
+              <p className="text-sm font-medium">Environment variables checked</p>
             </div>
-            <div className="text-center">
-              <div className="mb-2 text-3xl font-bold">2</div>
-              <p className="text-sm text-muted-foreground">Configuration files scanned</p>
+
+            <div className="hidden text-2xl text-muted-foreground md:block md:mt-4">→</div>
+
+            <div className="flex flex-col items-center text-center md:flex-1">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-xl font-bold text-primary">
+                2
+              </div>
+              <p className="text-sm font-medium">Configuration files scanned</p>
             </div>
-            <div className="text-center">
-              <div className="mb-2 text-3xl font-bold">3</div>
-              <p className="text-sm text-muted-foreground">Runtime capabilities tested</p>
+
+            <div className="hidden text-2xl text-muted-foreground md:block md:mt-4">→</div>
+
+            <div className="flex flex-col items-center text-center md:flex-1">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-xl font-bold text-primary">
+                3
+              </div>
+              <p className="text-sm font-medium">Runtime capabilities tested</p>
             </div>
-            <div className="text-center">
-              <div className="mb-2 text-3xl font-bold">4</div>
-              <p className="text-sm text-muted-foreground">Optimal output delivered</p>
+
+            <div className="hidden text-2xl text-muted-foreground md:block md:mt-4">→</div>
+
+            <div className="flex flex-col items-center text-center md:flex-1">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-cat-green/10 text-xl font-bold text-cat-green">
+                ✓
+              </div>
+              <p className="text-sm font-medium">Optimal output delivered</p>
             </div>
           </div>
-          <p className="mt-6 text-muted-foreground">
+          <p className="mt-8 text-center text-muted-foreground">
             Each agent receives perfectly formatted output for their environment. Zero config,
             maximum productivity.
           </p>

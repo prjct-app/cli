@@ -22,7 +22,7 @@ const faqs = [
   {
     question: 'How do I modify or remove something from the roadmap?',
     answer:
-      "Use: /p:roadmap to see everything, /p:roadmap add 'feature' to add new items, /p:roadmap complete 'item' to mark as done. To delete or modify, directly edit the .prjct/planning/roadmap.md file - it's simple markdown.",
+      "Use /p:roadmap to view your strategic plan. To add, modify, or remove items, directly edit the .prjct/planning/roadmap.md file - it's simple markdown. The roadmap is designed to be manually curated for strategic planning.",
   },
   {
     question: 'Can I undo a command?',
@@ -37,17 +37,17 @@ const faqs = [
   {
     question: 'How do I migrate from Jira/Trello/Linear?',
     answer:
-      "You don't need to migrate anything. Simply: /p:init to start fresh, /p:roadmap add to add your current features, /p:now for today's task. prjct doesn't import external data - you start clean and focused.",
+      "You don't need to migrate anything. Simply: /p:init to start fresh, then edit .prjct/planning/roadmap.md to add your current features, /p:now for today's task. prjct doesn't import external data - you start clean and focused.",
   },
   {
     question: 'Does it work with teams or is it only for indies?',
     answer:
-      'Designed for indie hackers and solopreneurs. For small teams: each dev can have their own local .prjct/, or share one via git. For large teams: better use enterprise tools. prjct is for shipping fast, not ceremonies.',
+      'Works great for both solo developers and small teams (2-5 people). Global architecture at ~/.prjct-cli/projects/ enables team collaboration: share the directory via git, each developer uses their preferred editor (Claude, Cursor, Windsurf), and everyone sees the same context and progress. For larger teams, consider enterprise tools.',
   },
   {
     question: 'What if I have many ideas at the same time?',
     answer:
-      "Use /p:idea 'your idea' to quickly capture without losing focus. All are saved in ideas.md. Later you can review with /p:recap and promote the best ones to /p:roadmap add. The system is designed for frictionless quick capture.",
+      "Use /p:idea 'your idea' to quickly capture without losing focus. All are saved in ideas.md. Later you can review with /p:recap and promote the best ones to your roadmap by editing roadmap.md. The system is designed for frictionless quick capture.",
   },
   {
     question: 'How do I know which command to use for each situation?',

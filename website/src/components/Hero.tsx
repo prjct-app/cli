@@ -43,16 +43,22 @@ export const Hero = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.15 }}
-          className="mb-8 flex items-center justify-center gap-3"
+          className="mb-8 flex flex-wrap items-center justify-center gap-2"
         >
           <Badge variant="primary" size="sm">
             Claude Code
+          </Badge>
+          <Badge variant="primary" size="sm">
+            Cursor
           </Badge>
           <Badge variant="success" size="sm">
             OpenAI Codex
           </Badge>
           <Badge variant="info" size="sm">
-            Terminal/CLI
+            Windsurf
+          </Badge>
+          <Badge variant="info" size="sm">
+            Terminal
           </Badge>
         </motion.div>
 
@@ -150,7 +156,7 @@ export const Hero = () => {
           transition={{ duration: 0.6, delay: 0.45 }}
           className="text-muted-foreground"
         >
-          From idea to technical tasks in minutes. Let AI handle the execution.
+          From idea to technical tasks in minutes. Solo or with your team. Let AI handle the execution.
         </motion.p>
       </div>
 
@@ -165,22 +171,22 @@ export const Hero = () => {
           <div className="mb-4">
             <div className="text-4xl font-bold">🤖</div>
           </div>
-          <h3 className="mb-2 font-semibold">Smart Detection</h3>
-          <p className="text-sm text-muted-foreground">Auto-adapts to your AI environment</p>
+          <h3 className="mb-2 font-semibold">Smart Agent Detection</h3>
+          <p className="text-sm text-muted-foreground">Auto-detects Claude, Codex, Cursor, Windsurf</p>
         </div>
         <div className="text-center">
           <div className="mb-4">
-            <div className="text-4xl font-bold">📝</div>
+            <div className="text-4xl font-bold">🌍</div>
           </div>
-          <h3 className="mb-2 font-semibold">Idea to Roadmap</h3>
-          <p className="text-sm text-muted-foreground">Transform ideas into technical tasks</p>
+          <h3 className="mb-2 font-semibold">Global Architecture</h3>
+          <p className="text-sm text-muted-foreground">Shared data across editors in ~/.prjct-cli/</p>
         </div>
         <div className="text-center">
           <div className="mb-4">
-            <div className="text-4xl font-bold">🚀</div>
+            <div className="text-4xl font-bold">✨</div>
           </div>
-          <h3 className="mb-2 font-semibold">AI-Ready Tasks</h3>
-          <p className="text-sm text-muted-foreground">Perfect context for AI agents</p>
+          <h3 className="mb-2 font-semibold">MCP Integration</h3>
+          <p className="text-sm text-muted-foreground">Context7 docs, library patterns built-in</p>
         </div>
         <div className="text-center">
           <div className="mb-4">
