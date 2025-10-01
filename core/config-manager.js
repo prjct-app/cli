@@ -41,7 +41,6 @@ class ConfigManager {
     const configPath = pathManager.getLocalConfigPath(projectPath)
     const configDir = pathManager.getLegacyPrjctPath(projectPath)
 
-    // Ensure .prjct directory exists
     await fs.mkdir(configDir, { recursive: true })
 
     const content = JSON.stringify(config, null, 2)
@@ -76,7 +75,6 @@ class ConfigManager {
     const configPath = pathManager.getGlobalProjectConfigPath(projectId)
     const configDir = pathManager.getGlobalProjectPath(projectId)
 
-    // Ensure global project directory exists
     await fs.mkdir(configDir, { recursive: true })
 
     const content = JSON.stringify(config, null, 2)
@@ -119,7 +117,6 @@ class ConfigManager {
     const displayPath = pathManager.getDisplayPath(globalPath)
     const now = new Date().toISOString()
 
-    // Local config (minimal, only project metadata)
     const localConfig = {
       projectId,
       dataPath: displayPath
@@ -127,7 +124,6 @@ class ConfigManager {
 
     await this.writeConfig(projectPath, localConfig)
 
-    // Global config (includes all system data)
     const globalConfig = {
       projectId,
       authors: [
@@ -177,8 +173,6 @@ class ConfigManager {
     if (!config.projectId) return false
     if (!config.dataPath) return false
 
-    // Legacy support: old configs with version/created/lastSync/authors are still valid
-    // Migration will move them to global config
     return true
   }
 
@@ -197,10 +191,8 @@ class ConfigManager {
 
     const hasConfig = await pathManager.hasConfig(projectPath)
 
-    // If no config, definitely needs migration
     if (!hasConfig) return true
 
-    // If config exists, check if files are actually in global location
     const config = await this.readConfig(projectPath)
     if (!config || !config.projectId) return true
 
@@ -209,11 +201,9 @@ class ConfigManager {
     const path = require('path')
 
     try {
-      // Check if global location has files (not just empty directories)
       const coreFiles = await fs.readdir(path.join(globalPath, 'core'))
-      return coreFiles.length === 0 // Needs migration if core is empty
+      return coreFiles.length === 0
     } catch {
-      // Global directory doesn't exist or is inaccessible - needs migration
       return true
     }
   }
@@ -258,7 +248,6 @@ class ConfigManager {
   async addAuthor(projectId, author) {
     const globalConfig = await this.ensureGlobalConfig(projectId)
 
-    // Check if author already exists
     const exists = globalConfig.authors.some(a => a.github === author.github)
     if (exists) return
 
@@ -305,7 +294,6 @@ class ConfigManager {
     const authorDetector = require('./author-detector')
     const author = await authorDetector.detect()
 
-    // Get project ID and add author to global config if not exists
     const projectId = await this.getProjectId(projectPath)
     await this.addAuthor(projectId, author)
 
@@ -336,7 +324,6 @@ class ConfigManager {
       return config
     }
 
-    // Return minimal defaults (local config format)
     const projectId = pathManager.generateProjectId(projectPath)
     return {
       projectId,

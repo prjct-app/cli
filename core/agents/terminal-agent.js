@@ -6,23 +6,23 @@
 const fs = require('fs').promises
 const path = require('path')
 
-// Try to load chalk and animations for colored output
+
 let chalk
 let animations
 
 try {
   chalk = require('chalk')
 
-  // Try to use Catppuccin colors first
+
   if (chalk.supportsColor && chalk.supportsColor.has16m) {
-    // Terminal supports 16 million colors, use Catppuccin palette
+
     animations = require('../animations')
   } else {
-    // Fallback to basic colors for better compatibility
+
     animations = require('../animations-simple')
   }
 } catch (e) {
-  // Fallback if chalk is not available
+
   chalk = {
     green: (str) => str,
     blue: (str) => str,
@@ -46,11 +46,11 @@ class TerminalAgent {
    * Format response for terminal with ANSI colors and emojis
    */
   formatResponse(message, type = 'info') {
-    // Use animations module if available
+
     if (animations) {
-      // Check if message contains cleanup data
+
       if (type === 'success' && message.includes('Cleanup complete')) {
-        // Parse the cleanup data from the message
+
         const filesMatch = message.match(/Files removed: (\d+)/)
         const tasksMatch = message.match(/Tasks archived: (\d+)/)
         const spaceMatch = message.match(/Space freed: ([\d.]+)/)
@@ -76,7 +76,7 @@ class TerminalAgent {
         case 'idea':
           return animations.formatIdea(message)
         default:
-          // Use Catppuccin colors for other types
+
           const emojis = {
             warning: '⚠️',
             info: 'ℹ️',
@@ -89,7 +89,7 @@ class TerminalAgent {
       }
     }
 
-    // Fallback to basic formatting
+
     const emojis = {
       success: '✅',
       error: '❌',
@@ -119,7 +119,7 @@ class TerminalAgent {
     const emoji = emojis[type] || emojis.info
     const color = colors[type] || colors.info
 
-    // Colored output for terminal
+
     return `${emoji} ${color(message)}`
   }
 
@@ -194,7 +194,7 @@ class TerminalAgent {
       return this.formatResponse('No tasks in queue', 'info')
     }
 
-    // Use animations module if available
+
     if (animations) {
       let output = animations.colors.primary.bold('\n📋 Task Queue\n')
       output += animations.colors.dim('─'.repeat(40)) + '\n'
@@ -206,7 +206,7 @@ class TerminalAgent {
       return output
     }
 
-    // Fallback to basic chalk
+
     let output = chalk.bold('\n📋 Task Queue\n')
     output += chalk.dim('─'.repeat(40)) + '\n'
 
@@ -221,12 +221,12 @@ class TerminalAgent {
    * Format recap with colored output
    */
   formatRecap(data) {
-    // Use animations module if available
+
     if (animations) {
       return animations.formatRecap(data)
     }
 
-    // Fallback to basic chalk
+
     let output = '\n' + chalk.bold('📊 Project Recap\n')
     output += chalk.dim('─'.repeat(40)) + '\n\n'
 
@@ -250,7 +250,7 @@ class TerminalAgent {
    * Format progress report
    */
   formatProgress(data) {
-    // Use animations module if available
+
     if (animations) {
       const trend =
         data.velocity > data.previousVelocity
@@ -279,7 +279,7 @@ class TerminalAgent {
       return output
     }
 
-    // Fallback to basic chalk
+
     const trend =
       data.velocity > data.previousVelocity
         ? '📈'
@@ -308,7 +308,7 @@ class TerminalAgent {
    * Get help content based on issue type
    */
   getHelpContent(issue) {
-    // Use animations module if available
+
     if (animations) {
       const c = animations.colors
       const helps = {
@@ -352,7 +352,7 @@ ${c.idea.bold('💡 General Strategy:')}
       return helps[helpType]
     }
 
-    // Fallback to basic chalk
+
     const helps = {
       debugging: `
 ${chalk.bold('🔍 Debugging Strategy:')}
@@ -398,7 +398,7 @@ ${chalk.bold('💡 General Strategy:')}
    * Suggest next action based on context
    */
   suggestNextAction(context) {
-    // Use animations module if available
+
     if (animations) {
       const c = animations.colors
       const suggestions = {
@@ -424,7 +424,7 @@ ${chalk.bold('💡 General Strategy:')}
       return suggestions[context] || c.dim('→ What would you like to work on next?')
     }
 
-    // Fallback to basic chalk
+
     const suggestions = {
       taskCompleted:
         chalk.dim('→ Ready for the next challenge? Use ') +
@@ -463,7 +463,7 @@ ${chalk.bold('💡 General Strategy:')}
   showSpinner(message) {
     if (!process.stdout.isTTY) return
 
-    // Use animations module if available
+
     const frames = animations?.frames?.loading || ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
     let i = 0
 

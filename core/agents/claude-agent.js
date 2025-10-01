@@ -31,7 +31,7 @@ class ClaudeAgent {
 
     const emoji = emojis[type] || emojis.info
 
-    // Rich markdown formatting for Claude
+
     return `${emoji} **${message}**`
   }
 
@@ -40,12 +40,12 @@ class ClaudeAgent {
    */
   async readFile(filePath) {
     try {
-      // If MCP is available, use it
+
       if (global.mcp && global.mcp.filesystem) {
         return await global.mcp.filesystem.read(filePath)
       }
     } catch (e) {
-      // Fallback to native fs
+
     }
 
     return await fs.readFile(filePath, 'utf8')
@@ -56,12 +56,12 @@ class ClaudeAgent {
    */
   async writeFile(filePath, content) {
     try {
-      // If MCP is available, use it
+
       if (global.mcp && global.mcp.filesystem) {
         return await global.mcp.filesystem.write(filePath, content)
       }
     } catch (e) {
-      // Fallback to native fs
+
     }
 
     await fs.writeFile(filePath, content, 'utf8')
@@ -76,7 +76,7 @@ class ClaudeAgent {
         return await global.mcp.filesystem.list(dirPath)
       }
     } catch (e) {
-      // Fallback to native fs
+
     }
 
     return await fs.readdir(dirPath)

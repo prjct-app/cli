@@ -30,7 +30,7 @@ class Migrator {
     const structureMigration = await configManager.needsMigration(projectPath)
     if (structureMigration) return true
 
-    // Check if config needs version migration (0.2.x → 0.3.0)
+
     const config = await configManager.readConfig(projectPath)
     if (config && config.version && config.version.startsWith('0.2.')) {
       return true
@@ -63,15 +63,15 @@ class Migrator {
       result.oldVersion = localConfig.version
       const projectId = localConfig.projectId
 
-      // Check if global config already exists with authors
+
       const globalConfig = await configManager.readGlobalConfig(projectId)
       if (globalConfig && globalConfig.authors && globalConfig.authors.length > 0) {
-        // Already migrated, just clean up local config
+
         const needsCleanup = localConfig.authors || localConfig.author ||
                             localConfig.version || localConfig.created || localConfig.lastSync
 
         if (needsCleanup) {
-          // Remove all fields that should be in global config
+
           delete localConfig.authors
           delete localConfig.author
           delete localConfig.version
@@ -84,15 +84,15 @@ class Migrator {
         return result
       }
 
-      // Prepare authors array for global config
+
       let authors = []
       const now = new Date().toISOString()
 
       if (localConfig.authors && Array.isArray(localConfig.authors)) {
-        // Already has authors array, move to global
+
         authors = localConfig.authors
       } else if (localConfig.author) {
-        // Convert single author to authors array
+
         authors = [
           {
             name: localConfig.author.name || 'Unknown',
@@ -103,7 +103,7 @@ class Migrator {
           }
         ]
       } else {
-        // No author info, create default
+
         authors = [
           {
             name: 'Unknown',
@@ -115,7 +115,7 @@ class Migrator {
         ]
       }
 
-      // Create/update global config with authors and system data
+
       const newGlobalConfig = {
         projectId,
         authors,
@@ -125,7 +125,7 @@ class Migrator {
       }
       await configManager.writeGlobalConfig(projectId, newGlobalConfig)
 
-      // Clean up local config - remove all fields that belong in global
+
       delete localConfig.authors
       delete localConfig.author
       delete localConfig.version
@@ -180,32 +180,32 @@ class Migrator {
    * @private
    */
   mapLegacyFile(filename) {
-    // Core layer
+
     if (filename === 'now.md' || filename === 'next.md' || filename === 'context.md') {
       return { layer: 'core', filename }
     }
 
-    // Progress layer
+
     if (filename === 'shipped.md' || filename === 'metrics.md') {
       return { layer: 'progress', filename }
     }
 
-    // Planning layer
+
     if (filename === 'ideas.md' || filename === 'roadmap.md') {
       return { layer: 'planning', filename }
     }
 
-    // Memory layer
+
     if (filename === 'memory.jsonl' || filename === 'context.jsonl' || filename === 'decisions.jsonl') {
       return { layer: 'memory', filename }
     }
 
-    // Analysis layer
+
     if (filename === 'repo-summary.md') {
       return { layer: 'analysis', filename }
     }
 
-    // Default to root of global structure for unknown files
+
     return { layer: '.', filename }
   }
 
@@ -234,15 +234,15 @@ class Migrator {
     for (const entry of entries) {
       const sourcePath = path.join(legacyPath, entry.name)
 
-      // Skip config file and backup files
+
       if (entry.name === 'prjct.config.json' || entry.name.endsWith('.old')) {
         continue
       }
 
       if (entry.isDirectory()) {
-        // Check if this is a layer directory (v0.2.0+ structure)
+
         if (validLayers.includes(entry.name)) {
-          // Copy entire layer directory to global location
+
           const destPath = path.join(globalPath, entry.name)
           const count = await this.copyDirectory(sourcePath, destPath)
           fileCount += count
@@ -252,25 +252,25 @@ class Migrator {
             layerCounts.other += count
           }
         } else {
-          // Other subdirectories go to planning/ (legacy behavior)
+
           const destPath = path.join(globalPath, 'planning', entry.name)
           const count = await this.copyDirectory(sourcePath, destPath)
           fileCount += count
           layerCounts.planning += count
         }
       } else {
-        // Map loose files to appropriate layer (v0.1.0 structure)
+
         const mapping = this.mapLegacyFile(entry.name)
         const destPath = path.join(globalPath, mapping.layer, mapping.filename)
 
-        // Ensure destination directory exists
+
         await fs.mkdir(path.dirname(destPath), { recursive: true })
 
-        // Copy file
+
         await fs.copyFile(sourcePath, destPath)
         fileCount++
 
-        // Update layer count
+
         if (mapping.layer === '.') {
           layerCounts.other++
         } else {
@@ -292,14 +292,14 @@ class Migrator {
   async validateMigration(projectId) {
     const issues = []
 
-    // Check if global project directory exists
+
     const exists = await pathManager.projectExists(projectId)
     if (!exists) {
       issues.push('Global project directory not found')
       return { valid: false, issues }
     }
 
-    // Check if essential directories exist
+
     const globalPath = pathManager.getGlobalProjectPath(projectId)
     const requiredLayers = ['core', 'progress', 'planning', 'analysis', 'memory']
 
@@ -311,7 +311,7 @@ class Migrator {
       }
     }
 
-    // Check if at least some files exist
+
     try {
       const coreFiles = await fs.readdir(path.join(globalPath, 'core'))
       if (coreFiles.length === 0) {
@@ -345,7 +345,7 @@ class Migrator {
       try {
         await fs.rm(layerPath, { recursive: true, force: true })
       } catch {
-        // Ignore if directory doesn't exist
+
       }
     }
   }
@@ -373,7 +373,7 @@ class Migrator {
     }
 
     try {
-      // Step 1: Check if this is a version migration (0.2.x → 0.3.0)
+
       const config = await configManager.readConfig(projectPath)
       if (config && config.version && config.version.startsWith('0.2.')) {
         const versionMigration = await this.migrateConfigTo030(projectPath)
@@ -384,7 +384,7 @@ class Migrator {
         return result
       }
 
-      // Step 2: Check if structural migration is needed (legacy .prjct → global)
+
       const needsStructuralMigration = await configManager.needsMigration(projectPath)
       if (!needsStructuralMigration) {
         result.success = false
@@ -392,27 +392,27 @@ class Migrator {
         return result
       }
 
-      // Step 3: Detect author information
+
       result.author = await authorDetector.detect()
 
-      // Step 3: Generate project ID
+
       const projectId = pathManager.generateProjectId(projectPath)
       result.projectId = projectId
 
       if (options.dryRun) {
-        // Simulate migration
+
         result.success = true
         result.issues.push('DRY RUN - No changes were made')
         return result
       }
 
-      // Step 4: Create global directory structure
+
       await pathManager.ensureProjectStructure(projectId)
 
-      // Step 5: Create prjct.config.json
+
       result.config = await configManager.createConfig(projectPath, result.author)
 
-      // Step 6: Migrate files
+
       const legacyPath = pathManager.getLegacyPrjctPath(projectPath)
       const globalPath = pathManager.getGlobalProjectPath(projectId)
 
@@ -420,7 +420,7 @@ class Migrator {
       result.filesCopied = migrationStats.fileCount
       result.layerCounts = migrationStats.layerCounts
 
-      // Step 7: Validate migration
+
       const validation = await this.validateMigration(projectId)
       result.issues = validation.issues
 
@@ -429,12 +429,12 @@ class Migrator {
         return result
       }
 
-      // Step 8: Optionally remove legacy directory completely
+
       if (options.removeLegacy) {
         await fs.rm(legacyPath, { recursive: true, force: true })
         result.legacyRemoved = true
       }
-      // Or cleanup legacy directories selectively (keep config only)
+
       else if (options.cleanupLegacy) {
         await this.cleanupLegacyDirectories(projectPath)
         result.legacyCleaned = true
@@ -546,12 +546,12 @@ class Migrator {
     const projectDirs = []
     const os = require('os')
 
-    // Define search paths
+
     let searchPaths = []
     if (deepScan) {
       searchPaths = [os.homedir()]
     } else {
-      // Common project locations
+
       const commonDirs = ['Projects', 'Documents', 'Developer', 'Code', 'dev', 'workspace', 'repos', 'src']
       searchPaths = commonDirs
         .map(dir => path.join(os.homedir(), dir))
@@ -565,7 +565,7 @@ class Migrator {
         })
     }
 
-    // Helper to check if path should be skipped
+
     const shouldSkip = (dirName) => {
       const skipDirs = [
         'node_modules',
@@ -583,21 +583,21 @@ class Migrator {
       return skipDirs.includes(dirName) || (dirName.startsWith('.') && dirName !== '.prjct')
     }
 
-    // Recursive search function
+
     const searchDirectory = async (dirPath, depth = 0) => {
-      // Limit recursion depth for safety
+
       if (depth > 10) return
 
       try {
         const entries = await fs.readdir(dirPath, { withFileTypes: true })
 
-        // Check if this directory contains .prjct
+
         if (entries.some(entry => entry.name === '.prjct' && entry.isDirectory())) {
           projectDirs.push(dirPath)
           return // Don't search subdirectories if we found a project
         }
 
-        // Search subdirectories
+
         for (const entry of entries) {
           if (entry.isDirectory() && !shouldSkip(entry.name)) {
             const subPath = path.join(dirPath, entry.name)
@@ -605,11 +605,11 @@ class Migrator {
           }
         }
       } catch (error) {
-        // Skip directories we can't access
+
       }
     }
 
-    // Search all paths
+
     for (const searchPath of searchPaths) {
       await searchDirectory(searchPath)
     }
@@ -652,7 +652,7 @@ class Migrator {
     }
 
     try {
-      // Find all projects
+
       if (onProgress) onProgress({ phase: 'scanning', message: 'Searching for projects...' })
       const projectPaths = await this.findAllProjects({ deepScan })
       summary.totalFound = projectPaths.length
@@ -662,7 +662,7 @@ class Migrator {
         return summary
       }
 
-      // Check each project's status
+
       for (let i = 0; i < projectPaths.length; i++) {
         const projectPath = projectPaths[i]
         const projectName = path.basename(projectPath)
@@ -690,7 +690,7 @@ class Migrator {
             projectInfo.reason = status.status === 'migrated' ? 'Already migrated' : 'Not initialized'
             summary.alreadyMigrated++
           } else if (status.needsMigration) {
-            // Skip if interactive and user doesn't confirm
+
             if (interactive && onProgress) {
               const shouldMigrate = await onProgress({
                 phase: 'confirm',
@@ -706,7 +706,7 @@ class Migrator {
               }
             }
 
-            // Migrate the project
+
             if (onProgress) {
               onProgress({
                 phase: 'migrating',
@@ -788,7 +788,7 @@ class Migrator {
       lines.push('')
     }
 
-    // Summary statistics
+
     lines.push(`🔍 Found: ${summary.totalFound} projects`)
     lines.push(`✅ Successfully migrated: ${summary.successfullyMigrated}`)
     lines.push(`⏭️  Already migrated: ${summary.alreadyMigrated}`)
@@ -800,7 +800,7 @@ class Migrator {
     }
     lines.push('')
 
-    // List migrated projects
+
     if (summary.successfullyMigrated > 0) {
       lines.push('✅ Successfully Migrated:')
       summary.projects
@@ -812,7 +812,7 @@ class Migrator {
       lines.push('')
     }
 
-    // List errors
+
     if (summary.errors.length > 0) {
       lines.push('❌ Errors:')
       summary.errors.forEach(error => {
@@ -822,7 +822,7 @@ class Migrator {
       lines.push('')
     }
 
-    // Success message or next steps
+
     if (summary.success && summary.successfullyMigrated > 0) {
       lines.push('🎉 All projects migrated successfully!')
       lines.push(`📍 Global data location: ${pathManager.getGlobalBasePath()}`)

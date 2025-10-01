@@ -5,15 +5,15 @@
 
 const chalk = require('chalk');
 
-// Force color support for better compatibility
+
 if (!chalk.supportsColor) {
   chalk.level = 3; // Full RGB color support
   process.env.FORCE_COLOR = '3';
 }
 
-// Catppuccin Mocha palette
+
 const catppuccin = {
-  // Base colors
+
   rosewater: '#f5e0dc',
   flamingo: '#f2cdcd',
   pink: '#f5c2e7',
@@ -29,7 +29,7 @@ const catppuccin = {
   blue: '#89b4fa',
   lavender: '#b4befe',
 
-  // Neutral colors
+
   text: '#cdd6f4',
   subtext1: '#bac2de',
   subtext0: '#a6adc8',
@@ -44,7 +44,7 @@ const catppuccin = {
   crust: '#11111b',
 };
 
-// Create chalk colors
+
 const colors = {
   success: chalk.hex(catppuccin.green),
   error: chalk.hex(catppuccin.red),
@@ -63,7 +63,7 @@ const colors = {
   dim: chalk.hex(catppuccin.overlay1),
 };
 
-// ASCII art frames for animations
+
 const frames = {
   rocket: [
     '     🚀     ',
@@ -116,7 +116,7 @@ const frames = {
   ],
 };
 
-// Cool ASCII art banners
+
 const banners = {
   ship: `
 ╔════════════════════════════════════════════╗
@@ -144,7 +144,7 @@ ${colors.focus.bold('   🎯 FOCUS MODE 🎯   ')}
 ${colors.focus('━━━━━━━━━━━━━━━━━━━━━━━')}`,
 };
 
-// Animation functions
+
 async function animate(frames, duration = 100) {
   for (const frame of frames) {
     process.stdout.write('\r' + frame);
@@ -196,7 +196,7 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// Format functions with Catppuccin colors
+
 function formatShip(feature, count) {
   const banner = banners.ship;
   const stats = `

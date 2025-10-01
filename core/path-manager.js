@@ -139,17 +139,14 @@ class PathManager {
 
     const projectPath = this.getGlobalProjectPath(projectId)
 
-    // Create layered structure
     const layers = ['core', 'progress', 'planning', 'analysis', 'memory']
 
     for (const layer of layers) {
       await fs.mkdir(path.join(projectPath, layer), { recursive: true })
     }
 
-    // Create tasks subdirectory in planning
     await fs.mkdir(path.join(projectPath, 'planning', 'tasks'), { recursive: true })
 
-    // Create sessions directory for temporal fragmentation
     await fs.mkdir(path.join(projectPath, 'sessions'), { recursive: true })
 
     return projectPath
@@ -243,7 +240,6 @@ class PathManager {
         }
       }
 
-      // Sort by date descending (most recent first)
       sessions.sort((a, b) => b.date - a.date)
       return sessions
     } catch {
@@ -262,9 +258,7 @@ class PathManager {
   async getSessionsInRange(projectId, fromDate, toDate = new Date()) {
     const allSessions = await this.listSessions(projectId)
 
-    return allSessions.filter(session => {
-      return session.date >= fromDate && session.date <= toDate
-    })
+    return allSessions.filter(session => session.date >= fromDate && session.date <= toDate)
   }
 
   /**
