@@ -1,6 +1,5 @@
 #!/bin/bash
 
-# PRJCT CLI for Warp Terminal
 prjct() {
     local PRJCT_DIR=".prjct"
     local CMD="$1"
@@ -67,7 +66,6 @@ prjct() {
     esac
 }
 
-# Add autocomplete
 _prjct_completions() {
     local cur="${COMP_WORDS[COMP_CWORD]}"
     local commands="init now done ship recap next idea progress stuck context"
