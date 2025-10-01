@@ -106,7 +106,7 @@ echo -e "   ${BOLD}${CYAN}██████╔╝██████╔╝     �
 echo -e "   ${BOLD}${CYAN}██╔═══╝ ██╔══██╗██   ██║██║        ██║${NC}"
 echo -e "   ${BOLD}${CYAN}██║     ██║  ██║╚█████╔╝╚██████╗   ██║${NC}"
 echo -e "   ${BOLD}${CYAN}╚═╝     ╚═╝  ╚═╝ ╚════╝  ╚═════╝   ╚═╝${NC}"
-echo -e "   ${BOLD}${CYAN}prjct${NC}${MAGENTA}/${NC}${GREEN}cli${NC}  ${DIM}${WHITE}v${FINAL_VERSION:-0.1.0}${NC}"
+echo -e "   ${BOLD}${CYAN}prjct${NC}${MAGENTA}/${NC}${GREEN}cli${NC}  ${DIM}${WHITE}v0.3.0${NC}"
 echo ""
 echo -e "   ${DIM}Turn ideas into AI-ready roadmaps${NC}"
 echo ""
