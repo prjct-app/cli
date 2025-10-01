@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**prjct-cli** is an AI-integrated project management framework designed for indie hackers and solopreneurs. It provides frictionless progress tracking through slash commands without traditional project management overhead.
+**prjct-cli** is an AI-integrated project management framework designed for indie hackers, solopreneurs, and small collaborative teams (2-5 people). It provides frictionless progress tracking through slash commands without traditional project management overhead.
 
 ## Architecture
 
@@ -68,7 +68,7 @@ All commands use the `/p:*` syntax in Claude Code. When executed, they:
 ### Code Quality
 
 - `/p:cleanup` - Basic cleanup of temp files and old entries
-- `/p:cleanup-advanced --type` - Advanced code cleanup (code|imports|files|deps|all)
+- `/p:cleanup --type code` - Advanced code cleanup (code|imports|files|deps|all)
 
 ### Progress Commands
 
@@ -90,7 +90,7 @@ All commands use the `/p:*` syntax in Claude Code. When executed, they:
 - `/p:roadmap` - Strategic planning
 - `/p:fix` - Quick troubleshooting
 
-**Total: 19 Commands**
+**Total: 18 Commands**
 
 ## Initialization Process
 

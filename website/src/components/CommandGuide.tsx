@@ -39,11 +39,6 @@ const scenarios: Scenario[] = [
         output: '💡 Idea saved to ideas.md',
       },
       {
-        command: '/p:roadmap add "dark mode"',
-        description: 'Add it to the strategic plan',
-        output: '📋 Added as priority #3',
-      },
-      {
         command: '/p:now "implement dark mode"',
         description: 'Start working on it NOW',
         output: '🎯 Current task set',
@@ -134,25 +129,15 @@ const scenarios: Scenario[] = [
   },
   {
     id: 'git-commit',
-    title: 'I need to commit/push changes',
+    title: 'I need to commit changes',
     icon: GitBranch,
     description: 'Save changes to git quickly',
     commands: [
       {
         command: '/p:git',
-        description: 'Commit with smart message',
-        output: '✅ feat: add payment system',
+        description: 'Smart git operations with context',
+        output: '✅ feat: add payment system\n📝 3 files changed\n🌿 Ready for push',
         preferred: true,
-      },
-      {
-        command: '/p:git push',
-        description: 'Commit + push to origin',
-        output: '🚀 Pushed to origin/main',
-      },
-      {
-        command: '/p:git sync',
-        description: 'Full pull + commit + push',
-        output: '🔄 Synchronized with remote',
       },
     ],
   },
@@ -283,7 +268,7 @@ export const CommandGuide = () => {
                 <tr className="border-b">
                   <td className="py-3 pr-4">I have a new idea</td>
                   <td className="py-3 pr-4 font-mono text-primary">/p:idea</td>
-                  <td className="py-3 font-mono text-muted-foreground">/p:roadmap add, /p:now</td>
+                  <td className="py-3 font-mono text-muted-foreground">/p:now to start</td>
                 </tr>
                 <tr className="border-b">
                   <td className="py-3 pr-4">Want to start something</td>

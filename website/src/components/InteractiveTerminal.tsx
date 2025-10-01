@@ -41,8 +41,8 @@ const workflows: Workflow[] = [
       {
         command: '/p:roadmap',
         description: 'View the roadmap (empty at start)',
-        output: '📋 Roadmap empty\nUse /p:roadmap add "feature" to start planning',
-        tip: 'You can add features with /p:roadmap add',
+        output: '📋 Roadmap empty\nEdit .prjct/planning/roadmap.md to add features',
+        tip: 'You can manually edit roadmap.md to add features',
       },
       {
         command: '/p:now "setup development environment"',

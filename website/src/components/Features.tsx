@@ -39,6 +39,12 @@ const features = [
       'AI remembers your tech stack, architecture decisions, and progress across sessions.',
   },
   {
+    icon: Sparkles,
+    title: 'MCP Integration',
+    description:
+      'Built-in Model Context Protocol support. Context7 for docs, automatic library patterns, framework integration.',
+  },
+  {
     icon: Terminal,
     title: 'Simple Commands',
     description:
@@ -57,9 +63,9 @@ const features = [
   },
   {
     icon: GitBranch,
-    title: 'Task Context',
+    title: 'Global Architecture',
     description:
-      'Each task maintains perfect context for AI agents. No more explaining what to do.',
+      'Data stored globally in ~/.prjct-cli/projects/ - switch between editors seamlessly with shared context.',
   },
   {
     icon: Rocket,
@@ -68,9 +74,9 @@ const features = [
   },
   {
     icon: Sparkles,
-    title: 'Made for Indies',
+    title: 'Solo to Team',
     description:
-      'Built for indie hackers, solopreneurs, and developers who ship fast and hate ceremonies.',
+      'Perfect for indie hackers and small teams (2-5 people). Global architecture enables seamless collaboration.',
   },
 ]
 

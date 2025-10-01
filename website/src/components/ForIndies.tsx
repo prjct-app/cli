@@ -15,8 +15,8 @@ const audiences = [
   },
   {
     icon: Briefcase,
-    title: 'Solopreneurs',
-    description: 'Keep context between coding sessions. Never lose momentum on your side projects.',
+    title: 'Small Teams',
+    description: 'Share global context across 2-5 developers. Everyone sees progress, each uses their preferred editor.',
   },
   {
     icon: Cpu,
@@ -38,7 +38,7 @@ export const ForIndies = () => {
         <>
           No project managers. No scrum masters. No ceremonies.
           <br />
-          Just you, your AI, and shipping features that matter.
+          Solo or with your team, just you, your AI, and shipping features that matter.
         </>
       }
       centered

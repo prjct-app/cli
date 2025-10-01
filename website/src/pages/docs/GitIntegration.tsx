@@ -6,21 +6,9 @@ export const GitIntegration = () => {
  const commands = [
   {
    command: '/p:git',
-   description: 'Smart commit with auto-generated message',
-   example: '✅ feat: add user authentication system',
-   details: 'Analyzes your changes and creates meaningful commit messages following conventional commits'
-  },
-  {
-   command: '/p:git push',
-   description: 'Commit and push to remote',
-   example: '🚀 Pushed to origin/main',
-   details: 'Combines commit with automatic push to your configured remote branch'
-  },
-  {
-   command: '/p:git sync',
-   description: 'Pull, commit, and push',
-   example: '🔄 Synchronized with remote',
-   details: 'Full sync workflow: pulls latest changes, commits your work, and pushes'
+   description: 'Smart git operations with context',
+   example: '✅ feat: add user authentication system\n📝 3 files changed\n🌿 Ready for push',
+   details: 'Analyzes your changes and creates meaningful commit messages following conventional commits. Provides context about changes and prepares code for manual push when ready.'
   }
  ]
 
@@ -42,8 +30,8 @@ export const GitIntegration = () => {
   },
   {
    icon: <CheckCircle className="w-5 h-5" />,
-   title: "Conflict Prevention",
-   description: "Sync command helps prevent merge conflicts by pulling before pushing"
+   title: "Context-Aware Changes",
+   description: "Provides detailed summary of changed files and prepares code for your git workflow"
   }
  ]
 
@@ -154,15 +142,16 @@ export const GitIntegration = () => {
         <div className="text-gray-400">→ ✅ Task completed</div>
        </div>
        <div className="bg-black/50 rounded-lg p-4 font-mono text-sm">
-        <div className="text-gray-300"># Commit with smart message</div>
+        <div className="text-gray-300"># Commit with smart message and context</div>
         <div><span className="text-cat-teal">$</span> /p:git</div>
         <div className="text-gray-400">→ 📝 Analyzing changes...</div>
         <div className="text-gray-400">→ ✅ Committed: feat: add payment processing</div>
+        <div className="text-gray-400">→ 📊 Files: 8 changed, +342 lines</div>
        </div>
        <div className="bg-black/50 rounded-lg p-4 font-mono text-sm">
-        <div className="text-gray-300"># Push to remote</div>
-        <div><span className="text-cat-teal">$</span> /p:git push</div>
-        <div className="text-gray-400">→ 🚀 Pushed to origin/main</div>
+        <div className="text-gray-300"># Push to remote manually when ready</div>
+        <div><span className="text-cat-teal">$</span> git push</div>
+        <div className="text-gray-400">→ Use standard git commands for push/pull</div>
        </div>
       </div>
      </div>
@@ -172,11 +161,9 @@ export const GitIntegration = () => {
       <h3 className="text-xl font-semibold mb-4">Team Collaboration Flow</h3>
       <div className="space-y-3">
        <div className="bg-black/50 rounded-lg p-4 font-mono text-sm">
-        <div className="text-gray-300"># Start your day - sync with team</div>
-        <div><span className="text-cat-teal">$</span> /p:git sync</div>
-        <div className="text-gray-400">→ 🔄 Pulling latest changes...</div>
-        <div className="text-gray-400">→ ✅ Your changes committed</div>
-        <div className="text-gray-400">→ 🚀 Pushed to remote</div>
+        <div className="text-gray-300"># Start your day - sync with team using git</div>
+        <div><span className="text-cat-teal">$</span> git pull</div>
+        <div className="text-gray-400">→ 🔄 Get latest team changes</div>
        </div>
        <div className="bg-black/50 rounded-lg p-4 font-mono text-sm">
         <div className="text-gray-300"># Work on your tasks</div>
@@ -184,9 +171,11 @@ export const GitIntegration = () => {
         <div className="text-gray-400">→ 🎯 Focus on your task</div>
        </div>
        <div className="bg-black/50 rounded-lg p-4 font-mono text-sm">
-        <div className="text-gray-300"># Share progress regularly</div>
-        <div><span className="text-cat-teal">$</span> /p:git push</div>
-        <div className="text-gray-400">→ Keep team updated</div>
+        <div className="text-gray-300"># Commit and share progress</div>
+        <div><span className="text-cat-teal">$</span> /p:git</div>
+        <div className="text-gray-400">→ ✅ Smart commit with context</div>
+        <div><span className="text-cat-teal">$</span> git push</div>
+        <div className="text-gray-400">→ 🚀 Share with team</div>
        </div>
       </div>
      </div>

@@ -36,11 +36,11 @@ const commandCategories = [
         cmd: '/p:now [task]',
         desc: 'Set or show current task',
         platforms: {
-          claude: '/p:now "your task"',
-          codex: 'prjct now "your task"',
-          windsurf: 'p:now "your task"',
-          cursor: '/p:now "your task"',
-          terminal: 'prjct now "your task"',
+          claude: '/p:now "implement authentication system"',
+          codex: 'prjct now "implement authentication system"',
+          windsurf: 'p:now "implement authentication system"',
+          cursor: '/p:now "implement authentication system"',
+          terminal: 'prjct now "implement authentication system"',
         },
       },
       {
@@ -69,11 +69,11 @@ const commandCategories = [
         cmd: '/p:ship <feature>',
         desc: 'Ship and celebrate a feature',
         platforms: {
-          claude: '/p:ship "authentication"',
-          codex: 'prjct ship "authentication"',
-          windsurf: 'p:ship "authentication"',
-          cursor: '/p:ship "authentication"',
-          terminal: 'prjct ship "authentication"',
+          claude: '/p:ship "user authentication system"',
+          codex: 'prjct ship "user authentication system"',
+          windsurf: 'p:ship "user authentication system"',
+          cursor: '/p:ship "user authentication system"',
+          terminal: 'prjct ship "user authentication system"',
         },
       },
     ],
@@ -93,6 +93,28 @@ const commandCategories = [
           terminal: 'prjct idea "add dark mode"',
         },
       },
+      {
+        cmd: '/p:roadmap',
+        desc: 'Show or update strategic roadmap',
+        platforms: {
+          claude: '/p:roadmap',
+          codex: 'prjct roadmap',
+          windsurf: 'p:roadmap',
+          cursor: '/p:roadmap',
+          terminal: 'prjct roadmap',
+        },
+      },
+      {
+        cmd: '/p:task <description>',
+        desc: 'Break down and execute complex tasks',
+        platforms: {
+          claude: '/p:task "implement authentication"',
+          codex: 'prjct task "implement authentication"',
+          windsurf: 'p:task "implement authentication"',
+          cursor: '/p:task "implement authentication"',
+          terminal: 'prjct task "implement authentication"',
+        },
+      },
     ],
   },
   {
@@ -100,14 +122,14 @@ const commandCategories = [
     icon: <Palette className="h-5 w-5" />,
     commands: [
       {
-        cmd: '/p:design <target> --type',
-        desc: 'Create system designs with diagrams',
+        cmd: '/p:design [target] --type architecture|api|component|database|flow',
+        desc: 'Design system architecture, APIs, and component interfaces',
         platforms: {
-          claude: '/p:design "auth system" --type architecture',
-          codex: 'prjct design "auth system" --type architecture',
-          windsurf: 'p:design "auth system" --type architecture',
-          cursor: '/p:design "auth system" --type architecture',
-          terminal: 'prjct design "auth system" --type architecture',
+          claude: '/p:design authentication --type architecture',
+          codex: 'prjct design authentication --type architecture',
+          windsurf: 'p:design authentication --type architecture',
+          cursor: '/p:design authentication --type architecture',
+          terminal: 'prjct design authentication --type architecture',
         },
       },
     ],
@@ -118,7 +140,7 @@ const commandCategories = [
     commands: [
       {
         cmd: '/p:cleanup',
-        desc: 'Basic cleanup of temp files',
+        desc: 'Clean up temp files and old entries',
         platforms: {
           claude: '/p:cleanup',
           codex: 'prjct cleanup',
@@ -128,14 +150,14 @@ const commandCategories = [
         },
       },
       {
-        cmd: '/p:cleanup-advanced --type',
-        desc: 'Advanced code cleanup and optimization',
+        cmd: '/p:cleanup --type code',
+        desc: 'Remove dead code and unused imports',
         platforms: {
-          claude: '/p:cleanup-advanced --type code',
-          codex: 'prjct cleanup-advanced --type code',
-          windsurf: 'p:cleanup-advanced --type code',
-          cursor: '/p:cleanup-advanced --type code',
-          terminal: 'prjct cleanup-advanced --type code',
+          claude: '/p:cleanup --type code',
+          codex: 'prjct cleanup --type code',
+          windsurf: 'p:cleanup --type code',
+          cursor: '/p:cleanup --type code',
+          terminal: 'prjct cleanup --type code',
         },
       },
     ],
@@ -146,7 +168,7 @@ const commandCategories = [
     commands: [
       {
         cmd: '/p:recap',
-        desc: 'Overview of progress',
+        desc: 'Show project overview with progress',
         platforms: {
           claude: '/p:recap',
           codex: 'prjct recap',
@@ -157,7 +179,7 @@ const commandCategories = [
       },
       {
         cmd: '/p:progress [period]',
-        desc: 'Show progress metrics',
+        desc: 'Show progress metrics for specified period',
         platforms: {
           claude: '/p:progress week',
           codex: 'prjct progress week',
@@ -168,7 +190,7 @@ const commandCategories = [
       },
       {
         cmd: '/p:context',
-        desc: 'Show project context',
+        desc: 'Show project context and recent activity',
         platforms: {
           claude: '/p:context',
           codex: 'prjct context',
@@ -184,19 +206,41 @@ const commandCategories = [
     icon: <HelpCircle className="h-5 w-5" />,
     commands: [
       {
-        cmd: '/p:stuck <issue>',
-        desc: 'Get help with problems',
+        cmd: '/p:init',
+        desc: 'Initialize prjct in current project',
         platforms: {
-          claude: '/p:stuck "CORS error in API"',
-          codex: 'prjct stuck "CORS error in API"',
-          windsurf: 'p:stuck "CORS error in API"',
-          cursor: '/p:stuck "CORS error in API"',
-          terminal: 'prjct stuck "CORS error in API"',
+          claude: '/p:init',
+          codex: 'prjct init',
+          windsurf: 'p:init',
+          cursor: '/p:init',
+          terminal: 'prjct init',
+        },
+      },
+      {
+        cmd: '/p:stuck <issue description>',
+        desc: 'Get contextual help with problems',
+        platforms: {
+          claude: '/p:stuck "CORS error in API calls"',
+          codex: 'prjct stuck "CORS error in API calls"',
+          windsurf: 'p:stuck "CORS error in API calls"',
+          cursor: '/p:stuck "CORS error in API calls"',
+          terminal: 'prjct stuck "CORS error in API calls"',
+        },
+      },
+      {
+        cmd: '/p:fix [error]',
+        desc: 'Quick troubleshooting and automatic fixes',
+        platforms: {
+          claude: '/p:fix "undefined is not a function"',
+          codex: 'prjct fix "undefined is not a function"',
+          windsurf: 'p:fix "undefined is not a function"',
+          cursor: '/p:fix "undefined is not a function"',
+          terminal: 'prjct fix "undefined is not a function"',
         },
       },
       {
         cmd: '/p:analyze',
-        desc: 'Analyze repository',
+        desc: 'Analyze repository and sync tasks',
         platforms: {
           claude: '/p:analyze',
           codex: 'prjct analyze',
@@ -205,15 +249,38 @@ const commandCategories = [
           terminal: 'prjct analyze',
         },
       },
+    ],
+  },
+  {
+    title: 'Version Control',
+    icon: <Github className="h-5 w-5" />,
+    commands: [
       {
-        cmd: '/p:init',
-        desc: 'Initialize project',
+        cmd: '/p:git',
+        desc: 'Smart git operations with context',
         platforms: {
-          claude: '/p:init',
-          codex: 'prjct init',
-          windsurf: 'p:init',
-          cursor: '/p:init',
-          terminal: 'prjct init',
+          claude: '/p:git',
+          codex: 'prjct git',
+          windsurf: 'p:git',
+          cursor: '/p:git',
+          terminal: 'prjct git',
+        },
+      },
+    ],
+  },
+  {
+    title: 'Testing',
+    icon: <Rocket className="h-5 w-5" />,
+    commands: [
+      {
+        cmd: '/p:test',
+        desc: 'Run tests and auto-fix simple failures',
+        platforms: {
+          claude: '/p:test',
+          codex: 'prjct test',
+          windsurf: 'p:test',
+          cursor: '/p:test',
+          terminal: 'prjct test',
         },
       },
     ],
@@ -239,7 +306,7 @@ export const Commands = () => {
           </div>
           <h1 className="mb-6 text-5xl font-bold md:text-6xl">All prjct Commands</h1>
           <p className="mx-auto mb-8 max-w-2xl text-xl text-muted-foreground">
-            19 commands, unified across 5 platforms
+            18 commands, unified across 5 platforms
           </p>
 
           {/* Global Platform Selector */}
