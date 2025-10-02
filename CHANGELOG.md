@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Coming Soon
+- **Windows Compatibility** - Native Windows support
+  - PowerShell and CMD command execution
+  - Windows path handling (`%USERPROFILE%\.prjct-cli\`)
+  - Windows-specific installation scripts
+  - Cross-platform file operations
+  - Windows Terminal integration
+
+## [0.4.3] - 2025-10-02
+
+### Added
+- **Automatic Editor Command Updates** - Commands auto-update when npm package is updated
+  - New `core/editors-config.js` tracks which editors user has installed commands to
+  - Stores editor selections in `~/.prjct-cli/config/installed-editors.json`
+  - Post-install hook (`scripts/post-install.js`) auto-updates commands after `npm update -g prjct-cli`
+  - Ensures version consistency across all configured editors (Claude, Cursor, Windsurf, Codex)
+  - No manual reinstallation needed - updates happen automatically
+  - Respects user's original editor choices from initial setup
+
+- **GitHub Packages Support** - Dual registry publication for better reliability
+  - Package now published to both npm and GitHub Packages automatically
+  - GitHub Actions workflow updated to publish to both registries in parallel
+  - Added comprehensive GitHub Packages documentation (`docs/GITHUB_PACKAGES.md`)
+  - Includes `.npmrc.example` for easy local configuration
+  - Provides fallback option if npm registry is unavailable
+  - Free hosting for public repositories with automatic authentication
+
+### Changed
+- **Installation Documentation** - Updated README with dual installation options
+  - Primary: npm registry (recommended for most users)
+  - Alternative: GitHub Packages (for advanced users or npm fallback)
+  - Clear instructions for both installation methods
+
+### Technical Details
+- **Editor Tracking**: Configuration saved after successful command installation
+- **Post-Install Hook**: Runs only for global installations, skips for local/dev installs
+- **Version Detection**: Compares current version with last installed version
+- **Force Update**: Automatically updates commands when version changes
+- **Parallel Publication**: npm and GitHub Packages jobs run simultaneously for faster releases
+
 ## [0.4.2] - 2025-10-02
 
 ### Fixed
@@ -20,14 +60,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Fixed Badge component import casing (badge → Badge)
   - Removed obsolete install.sh and setup.sh copying from build script
   - Cleaner and faster website builds
-
-### Coming Soon
-- **Windows Compatibility** - Native Windows support
-  - PowerShell and CMD command execution
-  - Windows path handling (`%USERPROFILE%\.prjct-cli\`)
-  - Windows-specific installation scripts
-  - Cross-platform file operations
-  - Windows Terminal integration
 
 ## [0.4.1] - 2025-10-01
 

@@ -1,15 +1,17 @@
 {
   "name": "prjct-cli",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "AI-integrated project management for indie hackers - works with Claude Code, Cursor, and Warp",
   "main": "core/index.js",
   "bin": {
     "prjct": "./bin/prjct"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
   },
   "scripts": {
+    "postinstall": "node scripts/post-install.js",
     "install-global": "./scripts/install.sh",
     "test": "echo 'No tests configured'",
     "lint": "eslint \"**/*.js\" --ignore-pattern \"node_modules/**\" --ignore-pattern \"website/**\"",
@@ -66,6 +68,7 @@
     "templates/",
     "scripts/install.sh",
     "scripts/verify-installation.sh",
+    "scripts/post-install.js",
     "LICENSE",
     "README.md",
     "CHANGELOG.md",
