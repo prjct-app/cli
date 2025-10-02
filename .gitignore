@@ -37,7 +37,7 @@ pnpm-debug.log*
 .windsurf/
 
 # Obsolete directories
-src/
+# Note: Do NOT ignore website/src/ - it contains the website source code!
 
 # Temporary files
 .cache/

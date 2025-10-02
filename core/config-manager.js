@@ -96,7 +96,7 @@ class ConfigManager {
         projectId,
         authors: [],
         version: VERSION,
-        lastSync: now
+        lastSync: now,
       }
       await this.writeGlobalConfig(projectId, globalConfig)
     }
@@ -119,7 +119,7 @@ class ConfigManager {
 
     const localConfig = {
       projectId,
-      dataPath: displayPath
+      dataPath: displayPath,
     }
 
     await this.writeConfig(projectPath, localConfig)
@@ -132,12 +132,12 @@ class ConfigManager {
           email: author.email || '',
           github: author.github || '',
           firstContribution: now,
-          lastActivity: now
-        }
+          lastActivity: now,
+        },
       ],
       version: VERSION,
       created: now,
-      lastSync: now
+      lastSync: now,
     }
 
     await this.writeGlobalConfig(projectId, globalConfig)
@@ -257,7 +257,7 @@ class ConfigManager {
       email: author.email || '',
       github: author.github || '',
       firstContribution: now,
-      lastActivity: now
+      lastActivity: now,
     })
 
     globalConfig.lastSync = now
@@ -327,7 +327,7 @@ class ConfigManager {
     const projectId = pathManager.generateProjectId(projectPath)
     return {
       projectId,
-      dataPath: pathManager.getDisplayPath(pathManager.getGlobalProjectPath(projectId))
+      dataPath: pathManager.getDisplayPath(pathManager.getGlobalProjectPath(projectId)),
     }
   }
 }

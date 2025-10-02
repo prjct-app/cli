@@ -158,39 +158,67 @@ Add initialization record to memory:
 {"timestamp":"2025-10-01T09:00:00Z","action":"init","author":"Name","projectPath":"/path/to/project","projectId":"abc123def456"}
 ```
 
-### 9. Success Message
+### 9. Success Message (Conversational Onboarding)
 
 ```
-✅ Project initialized with global architecture!
+✅ Your project is ready!
 
-📂 Configuration:
-   Local:  .prjct/prjct.config.json
-   Global: ~/.prjct-cli/projects/{id}/
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🗂️  Global Structure Created:
-   ├── 🎯 core/        Current focus & priorities
-   ├── 📈 progress/    Shipped features & metrics
-   ├── 🗺️  planning/    Ideas, roadmap, backlog
-   ├── 🔍 analysis/    Repository insights
-   └── 🧠 memory/      Activity log & decisions
+💬 Let me show you around...
 
-🚀 Quick Start:
-   /p:analyze     Analyze this repository
-   /p:now [task]  Set current focus
-   /p:ship <name> Ship & celebrate
-   /p:roadmap     Plan ahead
-   /p:recap       See progress
+You don't need to memorize commands.
+Just talk to me naturally!
 
-💡 Multi-Editor Support:
-   Claude Code: Commands available as /p:*
-   Cursor:      Commands available as /p:*
-   Windsurf:    Commands available as /p:*
-   Terminal:    Use `prjct` command
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🌍 Global Data:
-   Share ~/.prjct-cli/projects/ directory with your team
-   Each developer uses their preferred editor
-   Everyone sees the same progress and context
+🎯 To start working:
+
+   Say: "I want to start building the login page"
+   Or:  /p:now "build login page"
+
+   → I'll track your focus and time
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ When you finish something:
+
+   Say: "I'm done" or "finished that"
+   Or:  /p:done
+
+   → I'll celebrate and suggest what's next
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 To ship a feature:
+
+   Say: "ship the authentication system"
+   Or:  /p:ship "authentication system"
+
+   → I'll track your velocity and wins
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💡 Have ideas? Just say:
+
+   "I have an idea about dark mode"
+   "What should I work on next?"
+   "Show me my progress"
+   "I'm stuck on async state"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🆘 Need help anytime?
+
+   Type: /p:help
+
+   → I'll show you all options in plain language
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Ready to start? Tell me what you want to build first!
+
+(Or type /p:help to see all options)
 ```
 
 ## Error Handling

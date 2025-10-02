@@ -1,0 +1,244 @@
+name: Test Installation Methods
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test-homebrew:
+    name: Test Homebrew Installation
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Test Homebrew installation (dry-run)
+        run: |
+          echo "Testing Homebrew formula syntax..."
+          brew tap-new test/prjct
+          cp Formula/prjct.rb "$(brew --repository)/Library/Taps/test/homebrew-prjct/Formula/"
+          brew audit --strict test/prjct/prjct
+
+      - name: Test formula installation (local)
+        run: |
+          # Install from local formula
+          brew install --build-from-source Formula/prjct.rb
+
+      - name: Verify installation
+        run: |
+          which prjct
+          prjct --version || echo "Command executed (no version flag yet)"
+
+      - name: Test basic commands
+        run: |
+          # Test that binary runs without errors
+          prjct 2>&1 | grep -q "Available commands" || exit 1
+
+  test-bun:
+    name: Test Bun Installation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Test Bun installation script
+        run: |
+          # Make script executable
+          chmod +x scripts/install-bun.sh
+
+          # Run installation (non-interactive)
+          export AUTO_ACCEPT=true
+          bash scripts/install-bun.sh
+
+      - name: Verify installation
+        run: |
+          export PATH="$HOME/.prjct-cli/bin:$PATH"
+          which prjct || echo "Symlink check"
+          ls -la ~/.prjct-cli/bin/prjct
+
+      - name: Test basic commands
+        run: |
+          export PATH="$HOME/.prjct-cli/bin:$PATH"
+          ~/.prjct-cli/bin/prjct 2>&1 | grep -q "Available commands" || exit 1
+
+      - name: Test Bun scripts
+        run: |
+          cd ~/.prjct-cli
+          bun run bun:dev --help || true
+
+  test-npm:
+    name: Test npm Installation
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18, 20, 22]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Test npm installation (local)
+        run: |
+          npm install
+          npm link
+
+      - name: Verify installation
+        run: |
+          which prjct
+          prjct 2>&1 | grep -q "Available commands" || exit 1
+
+      - name: Test package.json scripts
+        run: |
+          npm run format:check || echo "Formatter check"
+
+  test-install-script:
+    name: Test Install Script
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Test install script (dry-run simulation)
+        run: |
+          chmod +x scripts/install.sh
+
+          # Test script syntax
+          bash -n scripts/install.sh
+
+          # Test with auto-accept flag
+          export AUTO_ACCEPT=true
+          bash scripts/install.sh -y
+
+      - name: Verify installation
+        run: |
+          export PATH="$HOME/.prjct-cli/bin:$PATH"
+          which prjct || ls -la ~/.prjct-cli/bin/prjct
+
+      - name: Test setup script
+        run: |
+          cd ~/.prjct-cli
+          chmod +x scripts/setup.sh
+          bash scripts/setup.sh
+
+  test-cross-compatibility:
+    name: Test Cross-Method Compatibility
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Test that both runtimes work
+        run: |
+          # Install with npm
+          npm install
+
+          # Test with Node.js
+          node bin/prjct 2>&1 | grep -q "Available commands" || exit 1
+
+          # Test with Bun
+          bun run bin/prjct 2>&1 | grep -q "Available commands" || exit 1
+
+      - name: Test Bun-specific features
+        run: |
+          # Test bunfig.toml is valid
+          bun install --dry-run
+
+  test-verification:
+    name: Test Installation Verification
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install globally via npm
+        run: |
+          npm install -g .
+
+      - name: Run verification tests
+        run: |
+          # Test all core commands exist
+          prjct 2>&1 | grep -q "init"
+          prjct 2>&1 | grep -q "now"
+          prjct 2>&1 | grep -q "done"
+          prjct 2>&1 | grep -q "ship"
+          prjct 2>&1 | grep -q "next"
+          prjct 2>&1 | grep -q "idea"
+
+      - name: Test dependencies are installed
+        run: |
+          # Check that required deps are available
+          node -e "require('chalk')"
+          node -e "require('commander')"
+          node -e "require('ora')"
+          node -e "require('prompts')"
+
+  report-results:
+    name: Report Test Results
+    runs-on: ubuntu-latest
+    needs: [test-homebrew, test-bun, test-npm, test-install-script, test-cross-compatibility, test-verification]
+    if: always()
+
+    steps:
+      - name: Check test results
+        run: |
+          echo "Test Results Summary:"
+          echo "- Homebrew: ${{ needs.test-homebrew.result }}"
+          echo "- Bun: ${{ needs.test-bun.result }}"
+          echo "- npm: ${{ needs.test-npm.result }}"
+          echo "- Install Script: ${{ needs.test-install-script.result }}"
+          echo "- Cross-compatibility: ${{ needs.test-cross-compatibility.result }}"
+          echo "- Verification: ${{ needs.test-verification.result }}"
+
+          # Fail if any test failed
+          if [ "${{ needs.test-homebrew.result }}" != "success" ] || \
+             [ "${{ needs.test-bun.result }}" != "success" ] || \
+             [ "${{ needs.test-npm.result }}" != "success" ] || \
+             [ "${{ needs.test-install-script.result }}" != "success" ] || \
+             [ "${{ needs.test-cross-compatibility.result }}" != "success" ] || \
+             [ "${{ needs.test-verification.result }}" != "success" ]; then
+            echo "❌ Some tests failed"
+            exit 1
+          fi
+
+          echo "✅ All installation methods tested successfully!"

@@ -9,8 +9,13 @@
   "scripts": {
     "install-global": "./scripts/install.sh",
     "test": "echo 'No tests configured'",
+    "lint": "eslint \"**/*.js\" --ignore-pattern \"node_modules/**\" --ignore-pattern \"website/**\"",
+    "lint:fix": "eslint \"**/*.js\" --fix --ignore-pattern \"node_modules/**\" --ignore-pattern \"website/**\"",
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,css,md}\" --config .config/.prettierrc --ignore-path .config/.prettierignore",
     "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,json,css,md}\" --config .config/.prettierrc --ignore-path .config/.prettierignore",
+    "bun:install": "bun install --production",
+    "bun:dev": "bun run bin/prjct",
+    "bun:test": "bun test",
     "website:dev": "cd website && npm run dev",
     "website:build": "cd website && npm run build",
     "website:preview": "cd website && npm run preview",
@@ -35,6 +40,11 @@
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "eslint": "^8.57.1",
+    "eslint-config-standard": "^17.1.0",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-n": "^16.6.2",
+    "eslint-plugin-promise": "^6.6.0",
     "prettier": "^3.6.2",
     "prettier-plugin-tailwindcss": "^0.6.14",
     "typescript": "^5.0.0"
@@ -48,6 +58,13 @@
   },
   "homepage": "https://prjct.dev",
   "engines": {
-    "node": ">=18.0.0"
-  }
+    "node": ">=18.0.0",
+    "bun": ">=1.0.0"
+  },
+  "trustedDependencies": [
+    "chalk",
+    "commander",
+    "ora",
+    "prompts"
+  ]
 }

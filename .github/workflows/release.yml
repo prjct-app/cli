@@ -1,0 +1,128 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Create tarball
+        run: |
+          # Create tarball excluding unnecessary files
+          tar -czf prjct-cli-${{ steps.get_version.outputs.VERSION }}.tar.gz \
+            --exclude='.git' \
+            --exclude='node_modules' \
+            --exclude='website/node_modules' \
+            --exclude='.github' \
+            --exclude='*.log' \
+            .
+
+      - name: Generate checksums
+        run: |
+          sha256sum prjct-cli-${{ steps.get_version.outputs.VERSION }}.tar.gz > checksums.txt
+          cat checksums.txt
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            prjct-cli-${{ steps.get_version.outputs.VERSION }}.tar.gz
+            checksums.txt
+          body: |
+            ## Installation
+
+            ### Homebrew
+            ```bash
+            brew tap jlopezlira/prjct
+            brew install prjct
+            ```
+
+            ### Bun
+            ```bash
+            curl -fsSL https://prjct.dev/install-bun.sh | bash
+            ```
+
+            ### npm
+            ```bash
+            npm install -g @prjct/cli@${{ steps.get_version.outputs.VERSION }}
+            ```
+
+            ### Direct download
+            ```bash
+            curl -fsSL https://prjct.dev/install.sh | bash
+            ```
+
+            ## What's Changed
+            See [CHANGELOG.md](https://github.com/jlopezlira/prjct-cli/blob/main/CHANGELOG.md) for details.
+
+            ## SHA256 Checksums
+            ```
+            $(cat checksums.txt)
+            ```
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  update-formula:
+    name: Update Homebrew Formula
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout homebrew-prjct repo
+        uses: actions/checkout@v4
+        with:
+          repository: jlopezlira/homebrew-prjct
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-prjct
+
+      - name: Get version and checksum
+        id: release_info
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+          # Download the release tarball to calculate checksum
+          TARBALL_URL="https://github.com/jlopezlira/prjct-cli/archive/refs/tags/v${VERSION}.tar.gz"
+          curl -fsSL "$TARBALL_URL" -o prjct-cli.tar.gz
+          SHA256=$(sha256sum prjct-cli.tar.gz | cut -d' ' -f1)
+          echo "SHA256=$SHA256" >> $GITHUB_OUTPUT
+
+      - name: Update Formula
+        run: |
+          cd homebrew-prjct
+          sed -i "s|url \".*\"|url \"https://github.com/jlopezlira/prjct-cli/archive/refs/tags/v${{ steps.release_info.outputs.VERSION }}.tar.gz\"|" Formula/prjct.rb
+          sed -i "s|sha256 \".*\"|sha256 \"${{ steps.release_info.outputs.SHA256 }}\"|" Formula/prjct.rb
+
+      - name: Commit and push changes
+        run: |
+          cd homebrew-prjct
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add Formula/prjct.rb
+          git commit -m "Update prjct to v${{ steps.release_info.outputs.VERSION }}"
+          git push

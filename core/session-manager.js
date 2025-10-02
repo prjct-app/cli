@@ -65,7 +65,7 @@ class SessionManager {
 
     await this._updateSessionMetadata(sessionPath, {
       lastActivity: new Date().toISOString(),
-      entryCount: await this._getFileLineCount(filePath)
+      entryCount: await this._getFileLineCount(filePath),
     })
   }
 
@@ -93,7 +93,7 @@ class SessionManager {
     }
 
     await this._updateSessionMetadata(sessionPath, {
-      lastActivity: new Date().toISOString()
+      lastActivity: new Date().toISOString(),
     })
   }
 
@@ -223,7 +223,7 @@ class SessionManager {
       activeDays,
       totalEntries,
       totalShips,
-      averageEntriesPerDay: activeDays > 0 ? Math.round(totalEntries / activeDays) : 0
+      averageEntriesPerDay: activeDays > 0 ? Math.round(totalEntries / activeDays) : 0,
     }
   }
 
@@ -248,7 +248,7 @@ class SessionManager {
       return {
         success: false,
         message: `Migration failed: ${error.message}`,
-        entriesMigrated: 0
+        entriesMigrated: 0,
       }
     }
   }
@@ -287,7 +287,7 @@ class SessionManager {
       await this._updateSessionMetadata(sessionPath, {
         entryCount: groupEntries.length,
         migrated: true,
-        migratedAt: new Date().toISOString()
+        migratedAt: new Date().toISOString(),
       })
     }
 
@@ -295,7 +295,7 @@ class SessionManager {
       success: true,
       message: `Migrated ${migratedCount} entries to ${sessionGroups.size} sessions`,
       entriesMigrated: migratedCount,
-      sessionsCreated: sessionGroups.size
+      sessionsCreated: sessionGroups.size,
     }
   }
 
@@ -311,14 +311,14 @@ class SessionManager {
 
     await this._updateSessionMetadata(sessionPath, {
       migrated: true,
-      migratedAt: new Date().toISOString()
+      migratedAt: new Date().toISOString(),
     })
 
     return {
       success: true,
       message: 'Migrated markdown content to current session',
       entriesMigrated: 1,
-      sessionsCreated: 1
+      sessionsCreated: 1,
     }
   }
 
@@ -359,7 +359,7 @@ class SessionManager {
         lastActivity: new Date().toISOString(),
         entryCount: 0,
         shipCount: 0,
-        version: VERSION
+        version: VERSION,
       }
       await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2), 'utf-8')
       this.sessionMetadataCache.set(sessionPath, metadata)

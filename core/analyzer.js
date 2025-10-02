@@ -34,7 +34,7 @@ class CodebaseAnalyzer {
       features: await this.detectCompletedFeatures(),
       structure: await this.detectProjectStructure(),
       gitHistory: await this.scanGitHistory(),
-      technologies: await this.detectTechnologies()
+      technologies: await this.detectTechnologies(),
     }
 
     return this.analysis
@@ -104,7 +104,7 @@ class CodebaseAnalyzer {
     try {
       const { stdout } = await exec(
         'git log --all --pretty=format:"%s" --grep="^feat:" --grep="^ship:" --grep="^feature:" -i',
-        { cwd: this.projectPath }
+        { cwd: this.projectPath },
       )
 
       if (stdout) {
@@ -136,16 +136,16 @@ class CodebaseAnalyzer {
       const deps = { ...pkg.dependencies, ...pkg.devDependencies }
 
       const featureMap = {
-        'express': 'REST API server',
-        'next': 'Next.js application',
-        'react': 'React frontend',
-        'vue': 'Vue application',
-        'typescript': 'TypeScript support',
-        'jest': 'Testing framework',
-        'prisma': 'Database ORM',
-        'mongoose': 'MongoDB integration',
-        'stripe': 'Payment processing',
-        'passport': 'Authentication system'
+        express: 'REST API server',
+        next: 'Next.js application',
+        react: 'React frontend',
+        vue: 'Vue application',
+        typescript: 'TypeScript support',
+        jest: 'Testing framework',
+        prisma: 'Database ORM',
+        mongoose: 'MongoDB integration',
+        stripe: 'Payment processing',
+        passport: 'Authentication system',
       }
 
       for (const [dep, feature] of Object.entries(featureMap)) {
@@ -169,15 +169,15 @@ class CodebaseAnalyzer {
       const entries = await fs.readdir(this.projectPath, { withFileTypes: true })
 
       const featureDirs = {
-        'auth': 'Authentication system',
-        'api': 'API endpoints',
-        'admin': 'Admin panel',
-        'dashboard': 'Dashboard interface',
-        'payment': 'Payment integration',
-        'notifications': 'Notification system',
-        'chat': 'Chat functionality',
-        'search': 'Search feature',
-        'analytics': 'Analytics tracking'
+        auth: 'Authentication system',
+        api: 'API endpoints',
+        admin: 'Admin panel',
+        dashboard: 'Dashboard interface',
+        payment: 'Payment integration',
+        notifications: 'Notification system',
+        chat: 'Chat functionality',
+        search: 'Search feature',
+        analytics: 'Analytics tracking',
       }
 
       for (const entry of entries) {
@@ -203,7 +203,7 @@ class CodebaseAnalyzer {
       hasDocs: false,
       hasCI: false,
       fileCount: 0,
-      directories: []
+      directories: [],
     }
 
     try {
@@ -231,7 +231,6 @@ class CodebaseAnalyzer {
       }
 
       structure.fileCount = await this.countFiles(this.projectPath)
-
     } catch (error) {
     }
 
@@ -247,7 +246,7 @@ class CodebaseAnalyzer {
       contributors: [],
       firstCommit: null,
       lastCommit: null,
-      hasGit: false
+      hasGit: false,
     }
 
     try {
@@ -259,22 +258,21 @@ class CodebaseAnalyzer {
 
       const { stdout: contributorsOut } = await exec(
         'git log --format="%an" | sort -u',
-        { cwd: this.projectPath }
+        { cwd: this.projectPath },
       )
       history.contributors = contributorsOut.trim().split('\n').filter(Boolean)
 
       const { stdout: firstOut } = await exec(
         'git log --reverse --format="%ai" --max-count=1',
-        { cwd: this.projectPath }
+        { cwd: this.projectPath },
       )
       history.firstCommit = firstOut.trim()
 
       const { stdout: lastOut } = await exec(
         'git log --format="%ai" --max-count=1',
-        { cwd: this.projectPath }
+        { cwd: this.projectPath },
       )
       history.lastCommit = lastOut.trim()
-
     } catch (error) {
       history.hasGit = false
     }
@@ -298,12 +296,12 @@ class CodebaseAnalyzer {
 
         const deps = { ...pkg.dependencies, ...pkg.devDependencies }
 
-        if (deps['typescript']) technologies.push('TypeScript')
-        if (deps['react']) technologies.push('React')
-        if (deps['next']) technologies.push('Next.js')
-        if (deps['vue']) technologies.push('Vue.js')
-        if (deps['express']) technologies.push('Express')
-        if (deps['fastify']) technologies.push('Fastify')
+        if (deps.typescript) technologies.push('TypeScript')
+        if (deps.react) technologies.push('React')
+        if (deps.next) technologies.push('Next.js')
+        if (deps.vue) technologies.push('Vue.js')
+        if (deps.express) technologies.push('Express')
+        if (deps.fastify) technologies.push('Fastify')
       }
 
       const entries = await fs.readdir(this.projectPath)
@@ -313,7 +311,6 @@ class CodebaseAnalyzer {
       if (entries.some(f => f.endsWith('.rs'))) technologies.push('Rust')
       if (entries.some(f => f.endsWith('.rb'))) technologies.push('Ruby')
       if (entries.some(f => f.endsWith('.java'))) technologies.push('Java')
-
     } catch (error) {
     }
 
@@ -328,7 +325,7 @@ class CodebaseAnalyzer {
       nextMdUpdated: false,
       shippedMdUpdated: false,
       tasksMarkedComplete: 0,
-      featuresAdded: 0
+      featuresAdded: 0,
     }
 
     try {
@@ -343,7 +340,6 @@ class CodebaseAnalyzer {
       }
 
       await this.createAnalysisReport(globalProjectPath)
-
     } catch (error) {
       console.error('[analyzer] Error syncing with .prjct files:', error.message)
     }
@@ -364,7 +360,7 @@ class CodebaseAnalyzer {
         return 0
       }
 
-      let content = await fs.readFile(nextPath, 'utf-8')
+      const content = await fs.readFile(nextPath, 'utf-8')
       const lines = content.split('\n')
       const implementedCommands = this.analysis.commands.map(c => c.toLowerCase())
 
@@ -376,7 +372,7 @@ class CodebaseAnalyzer {
           const taskText = line.substring(2).toLowerCase()
 
           const isImplemented = implementedCommands.some(cmd =>
-            taskText.includes(cmd) || taskText.includes(`/p:${cmd}`)
+            taskText.includes(cmd) || taskText.includes(`/p:${cmd}`),
           )
 
           if (isImplemented) {
@@ -394,7 +390,6 @@ class CodebaseAnalyzer {
       if (modified) {
         await fs.writeFile(nextPath, newLines.join('\n'), 'utf-8')
       }
-
     } catch (error) {
       console.error('[analyzer] Error updating next.md:', error.message)
     }
@@ -438,7 +433,6 @@ class CodebaseAnalyzer {
       if (featuresAdded > 0) {
         await fs.writeFile(shippedPath, content, 'utf-8')
       }
-
     } catch (error) {
       console.error('[analyzer] Error updating shipped.md:', error.message)
     }
@@ -497,12 +491,14 @@ ${features.map(f => `- ${f}`).join('\n') || '_(none detected)_'}
 
 ## 📜 Git History
 
-${gitHistory.hasGit ? `
+${gitHistory.hasGit
+? `
 - **Total Commits:** ${gitHistory.totalCommits}
 - **Contributors:** ${gitHistory.contributors.join(', ')}
 - **First Commit:** ${gitHistory.firstCommit}
 - **Last Commit:** ${gitHistory.lastCommit}
-` : '_Not a git repository_'}
+`
+: '_Not a git repository_'}
 
 ## 💡 Recommendations
 
@@ -577,7 +573,7 @@ _This report was auto-generated by prjct analyze_
           count += await this.countFiles(
             path.join(dirPath, entry.name),
             maxDepth,
-            currentDepth + 1
+            currentDepth + 1,
           )
         }
       }

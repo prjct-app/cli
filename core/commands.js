@@ -21,7 +21,6 @@ try {
 }
 
 let Agent
-let agentInstance
 
 /**
  * Main command handler for prjct CLI
@@ -196,7 +195,7 @@ class PrjctCommands {
         removeLegacy: false,
         cleanupLegacy: true,
         dryRun: false,
-        onProgress: null
+        onProgress: null,
       })
 
       await fs.mkdir(pathManager.getGlobalBasePath(), { recursive: true })
@@ -204,9 +203,8 @@ class PrjctCommands {
         migratedAt: new Date().toISOString(),
         version: VERSION,
         projectsFound: summary.totalFound,
-        projectsMigrated: summary.successfullyMigrated
+        projectsMigrated: summary.successfullyMigrated,
       }), 'utf-8')
-
     } catch (error) {
       console.error('[prjct] Auto-migration error (non-blocking):', error.message)
     }
@@ -287,7 +285,7 @@ class PrjctCommands {
           const migrationResult = await migrator.migrate(projectPath, {
             removeLegacy: false,
             cleanupLegacy: true,
-            dryRun: false
+            dryRun: false,
           })
           migrationPerformed = migrationResult.success
         } catch (error) {
@@ -336,12 +334,12 @@ class PrjctCommands {
           console.log('🔍 Analyzing existing codebase...')
           const analysisResult = await this.analyze({
             sync: true,
-            silent: true
+            silent: true,
           }, projectPath)
 
           if (analysisResult.success && analysisResult.syncResults) {
             const sync = analysisResult.syncResults
-            analysisMessage = `\n\n📊 Analysis Complete:\n` +
+            analysisMessage = '\n\n📊 Analysis Complete:\n' +
               `✅ Found ${analysisResult.analysis.commands.length} commands, ${analysisResult.analysis.features.length} features\n` +
               (sync.tasksMarkedComplete > 0 ? `✅ Synced ${sync.tasksMarkedComplete} completed tasks\n` : '') +
               (sync.featuresAdded > 0 ? `✅ Added ${sync.featuresAdded} features to shipped.md\n` : '')
@@ -355,7 +353,7 @@ class PrjctCommands {
       const message =
         `Initializing prjct v${VERSION} for ${this.agentInfo.name}...\n` +
         `✅ Created global structure at ${displayPath}\n` +
-        `✅ Created prjct.config.json\n` +
+        '✅ Created prjct.config.json\n' +
         `👤 Author: ${authorDetector.formatAuthor(author)}\n` +
         `📋 Project: ${projectInfo}` +
         editorsInstalled +
@@ -433,7 +431,7 @@ class PrjctCommands {
         timestamp: startedAt,
         startedAt,
         branch: branchResult.success ? branchName : null,
-        author: currentAuthor
+        author: currentAuthor,
       }
       await this.logToMemory(projectPath, 'task_started', memoryData)
 
@@ -520,7 +518,7 @@ class PrjctCommands {
           startedAt,
           completedAt,
           duration,
-          author: currentAuthor
+          author: currentAuthor,
         })
 
         if (!nextStep) {
@@ -554,7 +552,7 @@ class PrjctCommands {
             needsPrompt: true,
             promptInfo,
             workflow,
-            nextStep
+            nextStep,
           }
         }
 
@@ -594,14 +592,13 @@ ${nextStep.agent}
         startedAt,
         completedAt,
         duration,
-        author: currentAuthor
+        author: currentAuthor,
       })
 
       const projectId = await configManager.getProjectId(projectPath)
       await configManager.updateAuthorActivity(projectId, currentAuthor)
 
-      const nextContent = await this.agent.readFile(nextFile)
-      const hasNext = nextContent.includes('- ')
+      await this.agent.readFile(nextFile)
 
       const message = `Task complete: ${currentTask}`
       const suggestion = this.agent.suggestNextAction('taskCompleted')
@@ -635,7 +632,7 @@ ${nextStep.agent}
           success: false,
           message: this.agent.formatResponse(
             `Please specify a feature name: ${this.agentInfo.config.commandPrefix}ship "feature name"`,
-            'warning'
+            'warning',
           ),
         }
       }
@@ -752,7 +749,7 @@ ${nextStep.agent}
           success: true,
           message: this.agent.formatResponse(
             `Queue is empty. Add tasks with ${this.agentInfo.config.commandPrefix}idea or focus on shipping!`,
-            'info'
+            'info',
           ),
         }
       }
@@ -786,7 +783,7 @@ ${nextStep.agent}
           success: false,
           message: this.agent.formatResponse(
             `Please provide an idea: ${this.agentInfo.config.commandPrefix}idea "your idea"`,
-            'warning'
+            'warning',
           ),
         }
       }
@@ -1002,7 +999,7 @@ ${nextStep.agent}
           tasksCompleted: 0,
           longestTask: 'N/A',
           shortestTask: 'N/A',
-          byAuthor: {}
+          byAuthor: {},
         }
       }
 
@@ -1032,7 +1029,7 @@ ${nextStep.agent}
         if (!byAuthor[author]) {
           byAuthor[author] = {
             tasks: 0,
-            totalMinutes: 0
+            totalMinutes: 0,
           }
         }
         byAuthor[author].tasks++
@@ -1050,7 +1047,7 @@ ${nextStep.agent}
         tasksCompleted: completedTasks.length,
         longestTask: formatTime(longestMinutes),
         shortestTask: formatTime(shortestMinutes),
-        byAuthor
+        byAuthor,
       }
     } catch (error) {
       return {
@@ -1059,7 +1056,7 @@ ${nextStep.agent}
         tasksCompleted: 0,
         longestTask: 'N/A',
         shortestTask: 'N/A',
-        byAuthor: {}
+        byAuthor: {},
       }
     }
   }
@@ -1080,7 +1077,7 @@ ${nextStep.agent}
           success: false,
           message: this.agent.formatResponse(
             `Please describe what you're stuck on: ${this.agentInfo.config.commandPrefix}stuck "issue description"`,
-            'warning'
+            'warning',
           ),
         }
       }
@@ -1110,7 +1107,7 @@ ${nextStep.agent}
    * @param {string} [projectPath=process.cwd()] - Project path
    * @returns {Promise<Object>} Result object with success flag and message
    */
-  async cleanupAdvanced(target = '.', options = {}, projectPath = process.cwd()) {
+  async cleanupAdvanced(_target = '.', options = {}, _projectPath = process.cwd()) {
     try {
       await this.initializeAgent()
 
@@ -1118,11 +1115,11 @@ ${nextStep.agent}
       const mode = options.aggressive ? 'aggressive' : 'safe'
       const dryRun = options.dryRun || false
 
-      let results = {
+      const results = {
         deadCode: { consoleLogs: 0, commented: 0, unused: 0 },
         imports: { removed: 0, organized: 0 },
         files: { temp: 0, empty: 0, spaceFeed: 0 },
-        deps: { removed: 0, sizeSaved: 0 }
+        deps: { removed: 0, sizeSaved: 0 },
       }
 
       if (type === 'all' || type === 'code') {
@@ -1182,19 +1179,19 @@ ${dryRun ? '⚠️ DRY RUN - No changes were made' : '✅ All changes applied su
 
         return {
           success: true,
-          message
+          message,
         }
       }
 
       return {
         success: true,
-        message: this.agent.formatResponse('Advanced cleanup complete!', 'success')
+        message: this.agent.formatResponse('Advanced cleanup complete!', 'success'),
       }
     } catch (error) {
       await this.initializeAgent()
       return {
         success: false,
-        message: this.agent.formatResponse(error.message, 'error')
+        message: this.agent.formatResponse(error.message, 'error'),
       }
     }
   }
@@ -1212,7 +1209,6 @@ ${dryRun ? '⚠️ DRY RUN - No changes were made' : '✅ All changes applied su
       await this.initializeAgent()
 
       const type = options.type || 'architecture'
-      const format = options.format || 'all'
 
       const designDir = path.join(projectPath, this.prjctDir, 'designs')
       await this.agent.createDirectory(designDir)
@@ -1220,7 +1216,7 @@ ${dryRun ? '⚠️ DRY RUN - No changes were made' : '✅ All changes applied su
       let designContent = ''
       let diagram = ''
 
-      switch(type) {
+      switch (type) {
         case 'architecture':
           diagram = `
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
@@ -1307,7 +1303,7 @@ ${diagram}
       await this.logToMemory(projectPath, 'design', {
         target,
         type,
-        file: designFile
+        file: designFile,
       })
 
       const message = `
@@ -1335,13 +1331,13 @@ ${diagram}
 
       return {
         success: true,
-        message
+        message,
       }
     } catch (error) {
       await this.initializeAgent()
       return {
         success: false,
-        message: this.agent.formatResponse(error.message, 'error')
+        message: this.agent.formatResponse(error.message, 'error'),
       }
     }
   }
@@ -1387,7 +1383,7 @@ ${diagram}
       }
 
       const contextInfo =
-        `Project Context\n\n` +
+        'Project Context\n\n' +
         `Agent: ${this.agentInfo.name}\n` +
         `Project: ${projectInfo}\n` +
         `Current: ${currentTask}\n\n` +
@@ -1421,10 +1417,10 @@ ${diagram}
         const pkg = JSON.parse(await fs.readFile(path.join(projectPath, 'package.json'), 'utf-8'))
         const deps = { ...pkg.dependencies, ...pkg.devDependencies }
 
-        if (deps['next']) return 'Next.js project'
-        if (deps['react']) return 'React project'
-        if (deps['vue']) return 'Vue project'
-        if (deps['express']) return 'Express project'
+        if (deps.next) return 'Next.js project'
+        if (deps.react) return 'React project'
+        if (deps.vue) return 'Vue project'
+        if (deps.express) return 'Express project'
         return 'Node.js project'
       } catch (e) {
         return 'Node.js project'
@@ -1498,7 +1494,7 @@ ${diagram}
         action,
         author: this.currentAuthor,
         data,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       }
 
       try {
@@ -1526,7 +1522,7 @@ ${diagram}
       action,
       author: this.currentAuthor,
       data,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     }) + '\n'
 
     try {
@@ -1554,7 +1550,7 @@ ${diagram}
     }
 
     const toDate = new Date()
-    let fromDate = new Date()
+    const fromDate = new Date()
     const isMarkdown = filename.endsWith('.md')
 
     switch (period) {
@@ -1737,27 +1733,27 @@ ${diagram}
 
       const freedMB = (totalFreed / 1024 / 1024).toFixed(2)
 
-      const message = `🧹 Cleanup complete!\n` +
+      const message = '🧹 Cleanup complete!\n' +
         `• Files removed: ${filesRemoved}\n` +
         `• Tasks archived: ${tasksArchived}\n` +
         `• Space freed: ${freedMB} MB\n` +
-        `\n✨ Your project is clean and lean!`
+        '\n✨ Your project is clean and lean!'
 
       await this.logToMemory(projectPath, 'cleanup', {
         filesRemoved,
         tasksArchived,
-        spaceFeed: freedMB
+        spaceFeed: freedMB,
       })
 
       return {
         success: true,
-        message: this.agent.formatResponse(message, 'success')
+        message: this.agent.formatResponse(message, 'success'),
       }
     } catch (error) {
       await this.initializeAgent()
       return {
         success: false,
-        message: this.agent.formatResponse(`Cleanup failed: ${error.message}`, 'error')
+        message: this.agent.formatResponse(`Cleanup failed: ${error.message}`, 'error'),
       }
     }
   }
@@ -1775,7 +1771,7 @@ ${diagram}
       const {
         deepScan = false,
         removeLegacy = false,
-        dryRun = false
+        dryRun = false,
       } = options
 
       const onProgress = (update) => {
@@ -1790,7 +1786,7 @@ ${diagram}
         deepScan,
         removeLegacy,
         dryRun,
-        onProgress
+        onProgress,
       })
 
       const report = migrator.generateMigrationSummary(summary)
@@ -1798,13 +1794,13 @@ ${diagram}
       return {
         success: summary.success,
         message: report,
-        summary
+        summary,
       }
     } catch (error) {
       await this.initializeAgent()
       return {
         success: false,
-        message: this.agent.formatResponse(`Global migration failed: ${error.message}`, 'error')
+        message: this.agent.formatResponse(`Global migration failed: ${error.message}`, 'error'),
       }
     }
   }
@@ -1823,7 +1819,7 @@ ${diagram}
         force = false,
         editor = null,
         createTemplates = false,
-        interactive = true
+        interactive = true,
       } = options
 
       if (createTemplates) {
@@ -1831,7 +1827,7 @@ ${diagram}
         if (!templateResult.success) {
           return {
             success: false,
-            message: this.agent.formatResponse(templateResult.message, 'error')
+            message: this.agent.formatResponse(templateResult.message, 'error'),
           }
         }
       }
@@ -1843,7 +1839,7 @@ ${diagram}
       if (detectedEditors.length === 0) {
         return {
           success: false,
-          message: this.agent.formatResponse('No AI editors detected on this system', 'error')
+          message: this.agent.formatResponse('No AI editors detected on this system', 'error'),
         }
       }
 
@@ -1872,13 +1868,13 @@ ${diagram}
 
       return {
         success: installResult.success,
-        message: this.agent.formatResponse(report, installResult.success ? 'celebrate' : 'error')
+        message: this.agent.formatResponse(report, installResult.success ? 'celebrate' : 'error'),
       }
     } catch (error) {
       await this.initializeAgent()
       return {
         success: false,
-        message: this.agent.formatResponse(`Installation failed: ${error.message}`, 'error')
+        message: this.agent.formatResponse(`Installation failed: ${error.message}`, 'error'),
       }
     }
   }
@@ -1897,7 +1893,7 @@ ${diagram}
       const {
         sync = false,
         reportOnly = false,
-        silent = false
+        silent = false,
       } = options
 
       if (!silent) {
@@ -1911,7 +1907,7 @@ ${diagram}
         featuresFound: analysis.features.length,
         technologies: analysis.technologies.join(', '),
         fileCount: analysis.structure.fileCount,
-        hasGit: analysis.gitHistory.hasGit
+        hasGit: analysis.gitHistory.hasGit,
       }
 
       let syncResults = null
@@ -1936,14 +1932,13 @@ ${diagram}
         success: true,
         message: this.agent.formatResponse(message, 'info'),
         analysis,
-        syncResults
+        syncResults,
       }
-
     } catch (error) {
       await this.initializeAgent()
       return {
         success: false,
-        message: this.agent.formatResponse(`Analysis failed: ${error.message}`, 'error')
+        message: this.agent.formatResponse(`Analysis failed: ${error.message}`, 'error'),
       }
     }
   }
@@ -2046,7 +2041,6 @@ ${syncResults.shippedMdUpdated ? `✅ Updated shipped.md (${syncResults.features
       }
 
       return codeFileCount >= 5
-
     } catch (error) {
       return false
     }

@@ -4,7 +4,6 @@
  */
 
 const fs = require('fs').promises
-const path = require('path')
 
 class CodexAgent {
   constructor() {
@@ -31,7 +30,6 @@ class CodexAgent {
     }
 
     const prefix = prefixes[type] || prefixes.info
-
 
     return `${prefix} ${message}`
   }
@@ -234,14 +232,12 @@ GENERAL STRATEGY:
    * Handle sandboxed environment limitations
    */
   async ensureSandboxCompatibility() {
-
     const isSandboxed =
       process.cwd().includes('/sandbox/') ||
       process.cwd().includes('/tmp/') ||
       process.env.CODEX_SANDBOX
 
     if (isSandboxed) {
-
       return {
         sandboxed: true,
         basePath: process.cwd(),

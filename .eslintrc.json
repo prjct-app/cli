@@ -1,0 +1,12 @@
+{
+  "extends": "standard",
+  "env": {
+    "node": true,
+    "es2021": true
+  },
+  "rules": {
+    "no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+    "space-before-function-paren": ["error", "never"],
+    "comma-dangle": ["error", "always-multiline"]
+  }
+}

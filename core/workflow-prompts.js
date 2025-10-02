@@ -12,18 +12,18 @@ class WorkflowPrompts {
       design: {
         tools: ['Figma plugin', 'Storybook', 'Design tokens'],
         install: 'npx storybook@latest init',
-        reason: 'Component documentation and design system'
+        reason: 'Component documentation and design system',
       },
       test: {
         tools: this.getTestRecommendation(projectInfo),
         install: this.getTestInstallCommand(projectInfo),
-        reason: 'Quality assurance and regression prevention'
+        reason: 'Quality assurance and regression prevention',
       },
       docs: {
         tools: ['JSDoc', 'TypeDoc', 'Docusaurus'],
         install: 'npm install -D jsdoc',
-        reason: 'API documentation and code examples'
-      }
+        reason: 'API documentation and code examples',
+      },
     }
 
     return recommendations[stepName] || null
@@ -97,7 +97,7 @@ class WorkflowPrompts {
         framework: this.detectFramework(deps),
         typescript: 'typescript' in deps,
         bundler: this.detectBundler(deps),
-        runtime: this.detectRuntime(deps)
+        runtime: this.detectRuntime(deps),
       }
     } catch {
       return { framework: 'node', typescript: false }
@@ -137,7 +137,7 @@ class WorkflowPrompts {
       return {
         message: `⚠️  Step "${step.name}" requires ${step.needs} capability\n\nOptions:\n1. Skip this step\n2. Continue without ${step.needs}\n3. Pause workflow`,
         options: ['skip', 'continue', 'pause'],
-        recommendation: null
+        recommendation: null,
       }
     }
 
@@ -147,14 +147,14 @@ class WorkflowPrompts {
       message: `⚠️  Missing ${step.needs} capability for "${step.name}" step\n\n` +
                `📋 Recommended: ${toolsList}\n` +
                `💡 Reason: ${rec.reason}\n\n` +
-               `Options:\n` +
+               'Options:\n' +
                `1. Install recommended (${rec.install})\n` +
-               `2. Skip this step\n` +
+               '2. Skip this step\n' +
                `3. Continue without ${step.needs}\n` +
-               `4. Pause workflow`,
+               '4. Pause workflow',
       options: ['install', 'skip', 'continue', 'pause'],
       recommendation: rec,
-      stack
+      stack,
     }
   }
 
@@ -184,7 +184,7 @@ class WorkflowPrompts {
       type: 'install',
       install: recommendation.install,
       capability: step.needs,
-      reason: recommendation.reason
+      reason: recommendation.reason,
     }
   }
 }
