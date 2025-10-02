@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { GitBranch, AlertTriangle, Plus, Wrench, Trash2, Shield, Users, Database, CheckCircle } from 'lucide-react'
+import { GitBranch, AlertTriangle, Plus, Wrench, Trash2, Shield, Users, Database, CheckCircle, Monitor } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { VersionHeader } from '@/components/changelog/VersionHeader'
 import { FeatureCard } from '@/components/changelog/FeatureCard'
@@ -42,7 +42,20 @@ export const Changelog = () => {
             </span>
           </div>
 
-          <p className="text-muted-foreground">No unreleased features at this time. Check back soon!</p>
+          <div className="space-y-6">
+            <FeatureCard
+              icon={Monitor}
+              title="Windows Compatibility"
+              description="Native Windows support for prjct-cli"
+              bullets={[
+                '• PowerShell and CMD command execution',
+                <>• Windows path handling (<code className="text-cat-mauve">%USERPROFILE%\.prjct-cli\</code>)</>,
+                '• Windows-specific installation scripts',
+                '• Cross-platform file operations',
+                '• Windows Terminal integration'
+              ]}
+            />
+          </div>
         </motion.section>
 
         {/* Version 0.4.1 */}
