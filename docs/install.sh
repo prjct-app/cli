@@ -96,6 +96,41 @@ DOT="•"
 # Clear for clean experience
 clear
 
+# Check for alternative installation methods
+if command -v brew &> /dev/null && [ "$AUTO_ACCEPT" = false ]; then
+    echo ""
+    echo -e "${CYAN}${BOLD}⚡ Faster installation available!${NC}"
+    echo ""
+    echo -e "  Homebrew is installed. You can use:"
+    echo -e "  ${GREEN}brew tap jlopezlira/prjct && brew install prjct${NC}"
+    echo ""
+    read -p "  Continue with this installer instead? (Y/n): " -n 1 -r
+    echo ""
+    if [[ $REPLY =~ ^[Nn]$ ]]; then
+        echo -e "${YELLOW}Installation cancelled.${NC}"
+        echo -e "Run: ${CYAN}brew tap jlopezlira/prjct && brew install prjct${NC}"
+        exit 0
+    fi
+    echo ""
+fi
+
+if command -v bun &> /dev/null && [ "$AUTO_ACCEPT" = false ]; then
+    echo ""
+    echo -e "${CYAN}${BOLD}⚡ Lightning-fast installation available!${NC}"
+    echo ""
+    echo -e "  Bun is installed. You can use:"
+    echo -e "  ${GREEN}curl -fsSL https://prjct.dev/install-bun.sh | bash${NC}"
+    echo ""
+    read -p "  Continue with this installer instead? (Y/n): " -n 1 -r
+    echo ""
+    if [[ $REPLY =~ ^[Nn]$ ]]; then
+        echo -e "${YELLOW}Installation cancelled.${NC}"
+        echo -e "Run: ${CYAN}curl -fsSL https://prjct.dev/install-bun.sh | bash${NC}"
+        exit 0
+    fi
+    echo ""
+fi
+
 # Clean header with Catppuccin colors
 echo ""
 echo ""
