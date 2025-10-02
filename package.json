@@ -13,9 +13,6 @@
     "lint:fix": "eslint \"**/*.js\" --fix --ignore-pattern \"node_modules/**\" --ignore-pattern \"website/**\"",
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,css,md}\" --config .config/.prettierrc --ignore-path .config/.prettierignore",
     "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,json,css,md}\" --config .config/.prettierrc --ignore-path .config/.prettierignore",
-    "bun:install": "bun install --production",
-    "bun:dev": "bun run bin/prjct",
-    "bun:test": "bun test",
     "website:dev": "cd website && npm run dev",
     "website:build": "cd website && npm run build",
     "website:preview": "cd website && npm run preview",
@@ -58,8 +55,7 @@
   },
   "homepage": "https://prjct.dev",
   "engines": {
-    "node": ">=18.0.0",
-    "bun": ">=1.0.0"
+    "node": ">=18.0.0"
   },
   "trustedDependencies": [
     "chalk",
