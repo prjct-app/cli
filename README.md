@@ -48,23 +48,6 @@ Each agent gets optimized output:
 
 Choose the installation method that works best for you:
 
-### Homebrew (Recommended for macOS)
-
-```bash
-brew tap jlopezlira/prjct
-brew install prjct
-```
-
-**Benefits**: Automatic updates via `brew upgrade`, clean uninstall, system integration.
-
-### Bun (Lightning Fast)
-
-```bash
-curl -fsSL https://prjct.dev/install-bun.sh | bash
-```
-
-**Benefits**: 10x faster than npm, modern JavaScript runtime, zero-config.
-
 ### npm/Node.js
 
 ```bash
