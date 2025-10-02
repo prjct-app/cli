@@ -1,7 +1,7 @@
 {
   "name": "prjct-cli",
-  "version": "0.4.10",
-  "description": "AI-integrated project management for indie hackers - works with Claude Code, Cursor, and Warp",
+  "version": "0.5.0",
+  "description": "Built for Claude - Ship fast, track progress, stay focused. Developer momentum tool for indie hackers.",
   "main": "core/index.js",
   "bin": {
     "prjct": "./bin/prjct"
@@ -25,13 +25,16 @@
     "website:install": "cd website && npm install"
   },
   "keywords": [
-    "project-management",
-    "indie-hacker",
-    "ai-assistant",
     "claude-code",
-    "cursor",
-    "warp",
-    "productivity"
+    "claude-desktop",
+    "developer-momentum",
+    "indie-hacker",
+    "ship-fast",
+    "ai-assistant",
+    "productivity",
+    "developer-tools",
+    "no-bs",
+    "focus"
   ],
   "author": "prjct.dev",
   "license": "MIT",

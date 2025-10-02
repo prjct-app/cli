@@ -28,8 +28,10 @@ Automatically analyze the current codebase and generate a comprehensive summary 
 1. **Scan project structure** - Analyze directories and file types
 2. **Identify technologies** - Detect frameworks, languages, tools
 3. **Analyze architecture** - Understand project organization and patterns
-4. **Generate summary** - Create detailed analysis report
-5. **Save to analysis** - Store results in `.prjct/analysis/repo-summary.md`
+4. **Git integration** - Validate repository state against claims
+5. **Detect required agents** - Determine which specialists are needed
+6. **Generate summary** - Create detailed analysis report
+7. **Save to analysis** - Store results in `.prjct/analysis/repo-summary.md`
 
 ## Implementation
 
@@ -121,8 +123,137 @@ When this command is triggered:
 - `/p:now "implement feature X"` - Set current focus
 ```
 
+## Git Integration
+
+When analyzing the repository, also integrate git information:
+
+1. **Check if git repository**:
+   ```javascript
+   const gitIntegration = require('../core/git-integration')
+   const isGit = await gitIntegration.isGitRepo()
+   ```
+
+2. **Get git statistics**:
+   ```javascript
+   const gitStats = await gitIntegration.getGitStats()
+   ```
+
+3. **Include in analysis report**:
+   - Last commit information
+   - Working directory status
+   - Total commits
+   - Contributors
+   - Branch information
+
+4. **Validation baseline**:
+   - Last commit = source of truth
+   - Working directory changes = unverified work
+   - Use for validating user claims later
+
+## Agent Detection
+
+Based on the project analysis, determine which AI agents should be generated:
+
+### Base Agents (Always)
+- **PM**: Project Manager - Always needed
+- **UX**: UX Designer - Always needed
+- **FE**: Frontend Engineer - Always needed
+- **BE**: Backend Engineer - Always needed
+- **QA**: QA Engineer - Always needed
+- **Scribe**: Documentation - Always needed
+
+### Conditional Agents
+
+**Security Agent** - Generate if:
+- Project type is 'web' or 'webapp'
+- Authentication detected (JWT, OAuth, sessions)
+- Has API endpoints
+- Security-sensitive data handling
+
+**DevOps Agent** - Generate if:
+- Dockerfile or docker-compose.yml found
+- Kubernetes configs found (k8s/, *.yaml with apiVersion)
+- CI/CD configs (`.github/workflows/`, `.gitlab-ci.yml`, `Jenkinsfile`)
+- Deployment scripts detected
+
+**Mobile Agent** - Generate if:
+- React Native detected (`react-native` in package.json)
+- Flutter detected (`pubspec.yaml`)
+- Expo detected (`expo` in package.json)
+- Ionic detected (`@ionic` in package.json)
+
+**Data Science Agent** - Generate if:
+- ML libraries (`tensorflow`, `pytorch`, `scikit-learn`)
+- Data libraries (`pandas`, `numpy`)
+- Jupyter notebooks (`.ipynb` files)
+- Data pipeline files
+
+## Updated Analysis Report Format
+
+```markdown
+# Repository Analysis Report
+
+**Generated**: [timestamp]
+**Project**: [name]
+
+## Project Overview
+- **Type**: [Web app, CLI tool, Library, etc.]
+- **Primary Language**: [JavaScript, Python, Go, etc.]
+- **Framework**: [React, Express, FastAPI, etc.]
+
+## Git Status
+- **Repository**: [Yes/No]
+- **Last Commit**: [hash] "[message]" ([time ago])
+- **Author**: [name]
+- **Total Commits**: [count]
+- **Contributors**: [list]
+- **Current Branch**: [branch name]
+
+## Working Directory
+- **Status**: [Clean / Has changes]
+- **Modified Files**: [count]
+- **New Files**: [count]
+- **Deleted Files**: [count]
+
+⚠️ **Validation Note**: Last commit is the source of truth. Use this to validate user claims about completed work.
+
+## Stack Detection
+- **Languages**: [list with file counts]
+- **Frameworks**: [list]
+- **Build Tools**: [Vite, Webpack, etc.]
+- **Package Manager**: [npm, yarn, pnpm, pip, etc.]
+- **Dependencies**: [count] packages
+
+## Architecture
+- **Pattern**: [MVC, Feature-based, Microservices, etc.]
+- **Structure**: [description of directory organization]
+- **Entry Points**: [main files]
+- **Key Directories**: [list]
+
+## Recommended Agents
+✅ **Base Agents** (6): PM, UX, FE, BE, QA, Scribe
+✅ **Additional Agents**: [List conditional agents with reason]
+
+Example:
+- Security (web app with authentication detected)
+- DevOps (Docker + GitHub Actions found)
+
+## Analysis Details
+- **Total Files**: [count]
+- **Code Files**: [count]
+- **Test Files**: [count]
+- **Config Files**: [count]
+
+## Next Steps
+1. Run `/p:init` to generate agents based on this analysis
+2. Use `/p:now "task"` to start working
+3. Use `/p:sync` to update agents when stack changes
+```
+
 ## Error Handling
 - Handle projects without clear package managers
 - Gracefully handle large repositories (>1000 files)
 - Provide meaningful analysis even for minimal projects
 - Skip binary files and common ignore patterns
+- Handle non-git repositories (skip git section)
+- Handle repositories without commits (note in report)

@@ -19,10 +19,7 @@ import {
 
 const platforms = [
   { id: 'claude', label: 'Claude Code', icon: <Code2 className="h-4 w-4" /> },
-  { id: 'codex', label: 'OpenAI Codex', icon: <Sparkles className="h-4 w-4" /> },
-  { id: 'windsurf', label: 'Windsurf', icon: <Wind className="h-4 w-4" /> },
-  { id: 'cursor', label: 'Cursor', icon: <Cpu className="h-4 w-4" /> },
-  { id: 'terminal', label: 'Terminal', icon: <Terminal className="h-4 w-4" /> },
+  { id: 'terminal', label: 'Terminal (Limited)', icon: <Terminal className="h-4 w-4" /> },
 ] as const
 
 type PlatformId = (typeof platforms)[number]['id']
@@ -37,9 +34,6 @@ const commandCategories = [
         desc: 'Set or show current task',
         platforms: {
           claude: '/p:now "implement authentication system"',
-          codex: 'prjct now "implement authentication system"',
-          windsurf: 'p:now "implement authentication system"',
-          cursor: '/p:now "implement authentication system"',
           terminal: 'prjct now "implement authentication system"',
         },
       },
@@ -48,9 +42,6 @@ const commandCategories = [
         desc: 'Show priority queue',
         platforms: {
           claude: '/p:next',
-          codex: 'prjct next',
-          windsurf: 'p:next',
-          cursor: '/p:next',
           terminal: 'prjct next',
         },
       },
@@ -59,9 +50,6 @@ const commandCategories = [
         desc: 'Complete current task',
         platforms: {
           claude: '/p:done',
-          codex: 'prjct done',
-          windsurf: 'p:done',
-          cursor: '/p:done',
           terminal: 'prjct done',
         },
       },
@@ -70,9 +58,6 @@ const commandCategories = [
         desc: 'Ship and celebrate a feature',
         platforms: {
           claude: '/p:ship "user authentication system"',
-          codex: 'prjct ship "user authentication system"',
-          windsurf: 'p:ship "user authentication system"',
-          cursor: '/p:ship "user authentication system"',
           terminal: 'prjct ship "user authentication system"',
         },
       },
@@ -87,9 +72,6 @@ const commandCategories = [
         desc: 'Capture ideas quickly',
         platforms: {
           claude: '/p:idea "add dark mode"',
-          codex: 'prjct idea "add dark mode"',
-          windsurf: 'p:idea "add dark mode"',
-          cursor: '/p:idea "add dark mode"',
           terminal: 'prjct idea "add dark mode"',
         },
       },
@@ -98,9 +80,6 @@ const commandCategories = [
         desc: 'Show or update strategic roadmap',
         platforms: {
           claude: '/p:roadmap',
-          codex: 'prjct roadmap',
-          windsurf: 'p:roadmap',
-          cursor: '/p:roadmap',
           terminal: 'prjct roadmap',
         },
       },
@@ -109,9 +88,6 @@ const commandCategories = [
         desc: 'Break down and execute complex tasks',
         platforms: {
           claude: '/p:task "implement authentication"',
-          codex: 'prjct task "implement authentication"',
-          windsurf: 'p:task "implement authentication"',
-          cursor: '/p:task "implement authentication"',
           terminal: 'prjct task "implement authentication"',
         },
       },
@@ -126,9 +102,6 @@ const commandCategories = [
         desc: 'Design system architecture, APIs, and component interfaces',
         platforms: {
           claude: '/p:design authentication --type architecture',
-          codex: 'prjct design authentication --type architecture',
-          windsurf: 'p:design authentication --type architecture',
-          cursor: '/p:design authentication --type architecture',
           terminal: 'prjct design authentication --type architecture',
         },
       },
@@ -143,9 +116,6 @@ const commandCategories = [
         desc: 'Clean up temp files and old entries',
         platforms: {
           claude: '/p:cleanup',
-          codex: 'prjct cleanup',
-          windsurf: 'p:cleanup',
-          cursor: '/p:cleanup',
           terminal: 'prjct cleanup',
         },
       },
@@ -154,9 +124,6 @@ const commandCategories = [
         desc: 'Remove dead code and unused imports',
         platforms: {
           claude: '/p:cleanup --type code',
-          codex: 'prjct cleanup --type code',
-          windsurf: 'p:cleanup --type code',
-          cursor: '/p:cleanup --type code',
           terminal: 'prjct cleanup --type code',
         },
       },
@@ -171,9 +138,6 @@ const commandCategories = [
         desc: 'Show project overview with progress',
         platforms: {
           claude: '/p:recap',
-          codex: 'prjct recap',
-          windsurf: 'p:recap',
-          cursor: '/p:recap',
           terminal: 'prjct recap',
         },
       },
@@ -182,9 +146,6 @@ const commandCategories = [
         desc: 'Show progress metrics for specified period',
         platforms: {
           claude: '/p:progress week',
-          codex: 'prjct progress week',
-          windsurf: 'p:progress week',
-          cursor: '/p:progress week',
           terminal: 'prjct progress week',
         },
       },
@@ -193,9 +154,6 @@ const commandCategories = [
         desc: 'Show project context and recent activity',
         platforms: {
           claude: '/p:context',
-          codex: 'prjct context',
-          windsurf: 'p:context',
-          cursor: '/p:context',
           terminal: 'prjct context',
         },
       },
@@ -210,9 +168,6 @@ const commandCategories = [
         desc: 'Initialize prjct in current project',
         platforms: {
           claude: '/p:init',
-          codex: 'prjct init',
-          windsurf: 'p:init',
-          cursor: '/p:init',
           terminal: 'prjct init',
         },
       },
@@ -221,9 +176,6 @@ const commandCategories = [
         desc: 'Get contextual help with problems',
         platforms: {
           claude: '/p:stuck "CORS error in API calls"',
-          codex: 'prjct stuck "CORS error in API calls"',
-          windsurf: 'p:stuck "CORS error in API calls"',
-          cursor: '/p:stuck "CORS error in API calls"',
           terminal: 'prjct stuck "CORS error in API calls"',
         },
       },
@@ -232,9 +184,6 @@ const commandCategories = [
         desc: 'Quick troubleshooting and automatic fixes',
         platforms: {
           claude: '/p:fix "undefined is not a function"',
-          codex: 'prjct fix "undefined is not a function"',
-          windsurf: 'p:fix "undefined is not a function"',
-          cursor: '/p:fix "undefined is not a function"',
           terminal: 'prjct fix "undefined is not a function"',
         },
       },
@@ -243,9 +192,6 @@ const commandCategories = [
         desc: 'Analyze repository and sync tasks',
         platforms: {
           claude: '/p:analyze',
-          codex: 'prjct analyze',
-          windsurf: 'p:analyze',
-          cursor: '/p:analyze',
           terminal: 'prjct analyze',
         },
       },
@@ -260,9 +206,6 @@ const commandCategories = [
         desc: 'Smart git operations with context',
         platforms: {
           claude: '/p:git',
-          codex: 'prjct git',
-          windsurf: 'p:git',
-          cursor: '/p:git',
           terminal: 'prjct git',
         },
       },
@@ -277,9 +220,6 @@ const commandCategories = [
         desc: 'Run tests and auto-fix simple failures',
         platforms: {
           claude: '/p:test',
-          codex: 'prjct test',
-          windsurf: 'p:test',
-          cursor: '/p:test',
           terminal: 'prjct test',
         },
       },
@@ -306,7 +246,7 @@ export const Commands = () => {
           </div>
           <h1 className="mb-6 text-5xl font-bold md:text-6xl">All prjct Commands</h1>
           <p className="mx-auto mb-4 max-w-2xl text-xl text-muted-foreground">
-            18 commands, unified across 5 platforms
+            18 commands, built for Claude Code
           </p>
 
           {/* Natural Language Callout */}
@@ -325,7 +265,7 @@ export const Commands = () => {
                   💬 Don't Memorize - Just Talk!
                 </h3>
                 <p className="mb-3 text-sm text-muted-foreground">
-                  You don't need to memorize these commands. Just talk naturally in Claude Code, Cursor, or Windsurf:
+                  You don't need to memorize these commands. Just talk naturally in Claude Code:
                 </p>
                 <div className="space-y-1 text-sm">
                   <div className="flex items-center gap-2 text-muted-foreground">

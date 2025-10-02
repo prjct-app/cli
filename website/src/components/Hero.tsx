@@ -16,11 +16,26 @@ export const Hero = () => {
   return (
     <section className="flex min-h-screen flex-col items-center justify-center bg-background">
       <div className="mx-auto max-w-6xl text-center space-y-8">
+        {/* Built for Claude Badge */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="flex justify-center"
+        >
+          <Badge variant="primary" size="md" className="text-base px-4 py-2 text-orange-500 border-orange-500 bg-orange-500/10">
+            <p className="flex items-center gap-2">
+              <img src="/claude.png" alt="Claude Code - Claude Desktop" className="size-6" />
+              Built for Claude Code - Claude Desktop
+            </p>
+          </Badge>
+        </motion.div>
+
         {/* Title */}
         <motion.h1
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: 0.6, delay: 0.1 }}
           className="text-6xl font-bold tracking-tight md:text-8xl"
         >
           prjct/<span className="hunt-glow">cli</span>
@@ -30,37 +45,23 @@ export const Hero = () => {
         <motion.p
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.1 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
           className="mx-auto max-w-3xl text-xl text-muted-foreground md:text-2xl"
         >
-          Turn ideas into AI-ready roadmaps.
+          Ship fast, track progress, stay focused.
           <br />
-          Ship faster with zero friction.
+          Developer momentum tool for indie hackers and small teams.
         </motion.p>
 
-        {/* Agent Compatibility Badge */}
-        <motion.div
+        {/* Tagline */}
+        <motion.p
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.15 }}
-          className="flex flex-wrap items-center justify-center gap-2"
+          transition={{ duration: 0.6, delay: 0.25 }}
+          className="text-muted-foreground"
         >
-          <Badge variant="primary" size="sm">
-            Claude Code
-          </Badge>
-          <Badge variant="primary" size="sm">
-            Cursor
-          </Badge>
-          <Badge variant="success" size="sm">
-            OpenAI Codex
-          </Badge>
-          <Badge variant="info" size="sm">
-            Windsurf
-          </Badge>
-          <Badge variant="info" size="sm">
-            Terminal
-          </Badge>
-        </motion.div>
+          No extra costs • No BS • Just ship it
+        </motion.p>
 
         {/* CTA Buttons */}
         <motion.div
@@ -69,7 +70,7 @@ export const Hero = () => {
           transition={{ duration: 0.6, delay: 0.3 }}
           className="flex flex-col items-center justify-center gap-4 sm:flex-row"
         >
-          <div className="relative isolate overflow-visible">
+          <div className="relative isolate overflow-visible ">
             <div className="fancy-border pointer-events-none"></div>
             <Button
               variant="secondary"
@@ -88,38 +89,14 @@ export const Hero = () => {
           </div>
         </motion.div>
 
-        {/* Interactive Workflows Badge */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.35 }}
-          className="flex justify-center"
-        >
-          <a
-            href="/workflows-guide"
-            className="group inline-flex items-center gap-2 rounded-full border-2 border-primary/40 bg-gradient-to-r from-primary/20 to-primary/5 px-6 py-2.5 transition-all duration-300 hover:scale-105 hover:border-primary/60 hover:shadow-lg hover:shadow-primary/20"
-          >
-            <motion.div
-              animate={{ scale: [1, 1.2, 1] }}
-              transition={{ duration: 2, repeat: Infinity, repeatDelay: 0.5 }}
-            >
-              <Sparkles className="h-4 w-4 text-primary" />
-            </motion.div>
-            <span className="text-base font-semibold text-foreground">
-              New: Interactive Workflow System
-            </span>
-            <ArrowRight className="h-4 w-4 text-primary transition-transform group-hover:translate-x-1" />
-          </a>
-        </motion.div>
-
         {/* Tagline */}
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.4 }}
-          className="text-base text-muted-foreground"
+          transition={{ duration: 0.6, delay: 0.35 }}
+          className="text-base text-muted-foreground max-w-2xl mx-auto"
         >
-          From idea to technical tasks in minutes. Solo or with your team. Let AI handle the execution.
+          Not a PM tool. Not Jira. Just <code className="px-1.5 py-0.5 bg-primary/10 rounded text-primary">/p:now</code> → work → <code className="px-1.5 py-0.5 bg-primary/10 rounded text-primary">/p:done</code> → <code className="px-1.5 py-0.5 bg-primary/10 rounded text-primary">/p:ship</code> → celebrate.
         </motion.p>
       </div>
 
@@ -127,36 +104,36 @@ export const Hero = () => {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.45 }}
+        transition={{ duration: 0.6, delay: 0.4 }}
         className="mx-auto mt-16 grid max-w-5xl grid-cols-1 gap-8 md:grid-cols-4"
       >
         <div className="text-center">
           <div className="mb-4">
             <div className="text-4xl font-bold">🤖</div>
           </div>
-          <h3 className="mb-2 font-semibold">Smart Agent Detection</h3>
-          <p className="text-sm text-muted-foreground">Auto-detects Claude, Codex, Cursor, Windsurf</p>
+          <h3 className="mb-2 font-semibold">Dynamic AI Agents</h3>
+          <p className="text-sm text-muted-foreground">PM, Frontend, Backend, UX, QA, Scribe+</p>
         </div>
         <div className="text-center">
           <div className="mb-4">
-            <div className="text-4xl font-bold">🌍</div>
+            <div className="text-4xl font-bold">🔗</div>
           </div>
-          <h3 className="mb-2 font-semibold">Global Architecture</h3>
-          <p className="text-sm text-muted-foreground">Shared data across editors in ~/.prjct-cli/</p>
+          <h3 className="mb-2 font-semibold">Native MCP</h3>
+          <p className="text-sm text-muted-foreground">Context7, Sequential, Magic, Playwright</p>
         </div>
         <div className="text-center">
           <div className="mb-4">
-            <div className="text-4xl font-bold">✨</div>
+            <div className="text-4xl font-bold">✅</div>
           </div>
-          <h3 className="mb-2 font-semibold">MCP Integration</h3>
-          <p className="text-sm text-muted-foreground">Context7 docs, library patterns built-in</p>
+          <h3 className="mb-2 font-semibold">Git Validation</h3>
+          <p className="text-sm text-muted-foreground">Last commit = source of truth</p>
         </div>
         <div className="text-center">
           <div className="mb-4">
-            <div className="text-4xl font-bold">⚡</div>
+            <div className="text-4xl font-bold">💬</div>
           </div>
-          <h3 className="mb-2 font-semibold">Zero Friction</h3>
-          <p className="text-sm text-muted-foreground">No tickets, no sprints, just ship</p>
+          <h3 className="mb-2 font-semibold">p. Trigger</h3>
+          <p className="text-sm text-muted-foreground">"p. I'm done" → /p:done (zero memorization)</p>
         </div>
       </motion.div>
 

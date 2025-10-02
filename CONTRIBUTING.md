@@ -23,7 +23,7 @@ No worries, it happens! Open an issue with:
 
 - What you were trying to do
 - What actually happened
-- Your environment (Claude Code, Codex, Terminal, etc.)
+- Your environment (Claude Code, Claude Desktop, or Terminal)
 - Any error messages
 
 **Pro tip:** If you can fix it yourself, even better! See the PR section below.
@@ -76,7 +76,7 @@ cd prjct-cli
 
 ```bash
 # Name it something descriptive
-git checkout -b add-cursor-support
+git checkout -b add-new-feature
 # or
 git checkout -b fix-ship-command
 # or
@@ -181,7 +181,7 @@ prjct-cli/                           # Development repository
 │   ├── migrator.js                 # v0.1.0 → v0.2.0 migration
 │   ├── path-manager.js             # Path resolution & project IDs
 │   ├── commands.js                 # Command implementations
-│   └── agents/                     # Agent adapters (Claude, Codex, Terminal)
+│   └── agents/                     # Agent adapters (Claude + Terminal fallback)
 ├── src/                            # Source code & resources
 │   ├── commands/                   # Command documentation
 │   ├── adapters/                   # AI platform adapters

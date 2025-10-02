@@ -5,64 +5,59 @@ import { Section } from './ui'
 
 const faqs = [
   {
-    question: 'What happens if I use /p:now without finishing the previous task?',
+    question: 'Why Claude-only? What about Cursor/Windsurf?',
     answer:
-      "The previous task gets REPLACED automatically. prjct uses a 'single focus' philosophy - you can only have ONE active task at a time. If you need to switch context, use /p:done first to complete the current task, then /p:now with the new task.",
+      "By focusing 100% on Claude, we deliver features that would be IMPOSSIBLE with multi-platform support:\n\n1. Dynamic AI Agents (requires Claude's agent system)\n2. Native MCP Integration (Claude-native protocol)\n3. Git Validation (needs tight Claude integration)\n4. Natural Language (leverages Claude's understanding)\n5. 50-60% less code = faster features & bug fixes\n\nThis isn't a limitation - it's a strategic decision that makes prjct-cli better for developers who ship fast. Works with your existing Claude plan (free or paid) - no extra tokens or API keys needed.",
   },
   {
-    question: "What's the difference between /p:done and /p:ship?",
+    question: 'Is this a project management tool?',
     answer:
-      "/p:done = Complete current task and clear your focus. Used for any task.\n/p:ship = Celebrate an important FEATURE. Used when you complete something significant that deserves celebration. Example: /p:done for 'fix bug' vs /p:ship 'new payment system' 🎉",
+      "NO. prjct-cli is a DEVELOPER MOMENTUM TOOL for indie hackers and small teams (2-5 devs).\n\nWhat it IS: Ship fast, track progress, stay focused, celebrate wins.\n\nWhat it's NOT: No Jira, no sprint planning, no story points, no burndown charts, no ceremonies, no meetings.\n\nPhilosophy: /p:now → work → /p:done → /p:ship → celebrate. Just ship it, no BS.",
+  },
+  {
+    question: "I prefer Cursor/Windsurf. Can't you add them back?",
+    answer:
+      "We deliberately chose NOT to support multi-platform:\n\n• No extra costs - works with your existing Claude plan (free or paid)\n• No token management - uses your current Claude access\n• Better AI (latest Claude 3.5 Sonnet vs older models)\n• Enables impossible features (agents, MCP, git validation)\n• 50-60% less code = better quality & faster features\n\nYou can stay on v0.4.10 if needed, but you'll miss out on superpowers. Give Claude Code a try - it works with what you already have.",
   },
   {
     question: 'Can I work on multiple tasks simultaneously?',
     answer:
-      'NO by design. prjct enforces focus on a single task to maximize productivity. If you need to temporarily switch context, use /p:done to close the current one and /p:now for the new one. For complex tasks, use /p:task to break them down into manageable subtasks.',
+      'NO by design. prjct enforces SINGLE FOCUS to maximize developer momentum. If you need to switch context, use /p:done first, then /p:now for the new task. This is intentional - multitasking kills productivity.',
   },
   {
-    question: 'How do I modify or remove something from the roadmap?',
+    question: "What's the difference between /p:done and /p:ship?",
     answer:
-      "Use /p:roadmap to view your strategic plan. To add, modify, or remove items, directly edit the .prjct/planning/roadmap.md file - it's simple markdown. The roadmap is designed to be manually curated for strategic planning.",
-  },
-  {
-    question: 'Can I undo a command?',
-    answer:
-      "There's no automatic 'undo', but you can: 1) Manually edit files in .prjct/ (they're simple markdown), 2) Use /p:now to change current task, 3) Files have history if you use git. Everything is transparent and editable.",
+      "/p:done = Finish ANY task and clear focus.\n/p:ship = Celebrate a FEATURE you shipped.\n\nExample:\n• /p:done for 'fix typo in README'\n• /p:ship 'authentication system' 🎉\n\nShipping is special - it deserves celebration!",
   },
   {
     question: 'What happens with my data? Where is it stored?',
     answer:
-      "EVERYTHING is stored locally in .prjct/ within your project. No data leaves your machine. You can: version it with git, backup by copying the folder, manually edit it (it's markdown), or delete it whenever you want.",
+      "EVERYTHING is local in ~/.prjct-cli/projects/{your-project-id}/\n\n• No cloud tracking\n• No data mining\n• No telemetry\n• No BS\n\nYou own your data. Version it with git, backup it, edit it manually (it's markdown), or delete it anytime.",
   },
   {
-    question: 'How do I migrate from Jira/Trello/Linear?',
+    question: 'Does it work with teams or only solo developers?',
     answer:
-      "You don't need to migrate anything. Simply: /p:init to start fresh, then edit .prjct/planning/roadmap.md to add your current features, /p:now for today's task. prjct doesn't import external data - you start clean and focused.",
+      'Perfect for:\n\n✅ Solo indie hackers\n✅ Small teams (2-5 devs)\n\n❌ NOT for large enterprises (use proper PM tools)\n\nTeam workflow:\n1. Share ~/.prjct-cli/projects/ via git\n2. Everyone uses Claude Code or Desktop\n3. Same context, same progress, zero meetings\n\nFor >5 devs, you need enterprise tools with proper PM.',
   },
   {
-    question: 'Does it work with teams or is it only for indies?',
+    question: 'How do I migrate from Jira/Linear/Trello?',
     answer:
-      'Works great for both solo developers and small teams (2-5 people). Global architecture at ~/.prjct-cli/projects/ enables team collaboration: share the directory via git, each developer uses their preferred editor (Claude, Cursor, Windsurf), and everyone sees the same context and progress. For larger teams, consider enterprise tools.',
+      "You DON'T migrate. Start fresh:\n\n1. /p:init to initialize\n2. Edit roadmap.md with your current features\n3. /p:now for today's task\n4. Ship, don't plan\n\nprjct is anti-PM. Leave the ceremony behind, just ship.",
+  },
+  {
+    question: 'Can I use prjct without Claude?',
+    answer:
+      "Yes, but with VERY limited features (Terminal mode only):\n\n✅ Basic commands work\n❌ No AI agents\n❌ No MCP integration\n❌ No git validation\n❌ No natural language\n\nWorks with your existing Claude plan (free or paid). Just use what you already have for the full experience.",
   },
   {
     question: 'What if I have many ideas at the same time?',
     answer:
-      "Use /p:idea 'your idea' to quickly capture without losing focus. All are saved in ideas.md. Later you can review with /p:recap and promote the best ones to your roadmap by editing roadmap.md. The system is designed for frictionless quick capture.",
-  },
-  {
-    question: 'How do I know which command to use for each situation?',
-    answer:
-      "Simple rule: /p:now to work, /p:done to finish, /p:ship to celebrate, /p:idea to capture, /p:recap when you're lost. The visual guide above shows you exactly which command to use in each common situation.",
+      "Use /p:idea 'your idea' for frictionless capture without losing focus. All ideas saved to ideas.md.\n\nReview later with /p:recap and promote the best ones to roadmap.md. The system is designed for quick capture, not planning sessions.",
   },
   {
     question: 'Can I customize commands or add new ones?',
     answer:
-      'Base commands are standardized to maintain simplicity. But: 1) .prjct/ files are markdown - edit them however you want, 2) You can fork the repo and add custom commands, 3) Each command is a .md file that defines its behavior.',
-  },
-  {
-    question: 'Do I need to know how to code to use prjct?',
-    answer:
-      "You don't need to code to use the commands. But prjct is designed for developers - it assumes you're building software. If you don't code, commands still work but will be more useful for technical projects.",
+      'Base commands are standardized for simplicity. But:\n\n1. All files are markdown - edit them however you want\n2. Fork the repo and add custom commands\n3. Each command is a .md file in ~/.claude/commands/p/\n\nCustomize locally, but core commands stay simple by design.',
   },
 ]
 

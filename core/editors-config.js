@@ -3,14 +3,14 @@ const path = require('path')
 const os = require('os')
 
 /**
- * EditorsConfig - Manages installed editors tracking configuration
+ * EditorsConfig - Manages Claude installation tracking
  *
- * Tracks which AI editors user has installed prjct commands to,
+ * Tracks prjct commands installation in Claude (Code + Desktop),
  * enabling automatic updates when npm package is updated.
  *
  * Config location: ~/.prjct-cli/config/installed-editors.json
  *
- * @version 0.4.2
+ * @version 0.5.0
  */
 class EditorsConfig {
   constructor() {
@@ -31,7 +31,7 @@ class EditorsConfig {
   }
 
   /**
-   * Load installed editors configuration
+   * Load installation configuration
    * @returns {Promise<Object|null>} Configuration object or null if not found
    */
   async loadConfig() {
@@ -48,21 +48,20 @@ class EditorsConfig {
   }
 
   /**
-   * Save installed editors configuration
-   * @param {string[]} editors - Array of editor keys (e.g., ['claude', 'cursor'])
-   * @param {Object} paths - Object mapping editor keys to installation paths
+   * Save installation configuration
    * @param {string} version - Current prjct-cli version
+   * @param {string} claudePath - Path to Claude commands directory
    * @returns {Promise<boolean>} Success status
    */
-  async saveConfig(editors, paths, version) {
+  async saveConfig(version, claudePath) {
     try {
       await this.ensureConfigDir()
 
       const config = {
         version,
-        editors,
+        editor: 'claude',
         lastInstall: new Date().toISOString(),
-        paths,
+        path: claudePath,
       }
 
       await fs.writeFile(
@@ -76,53 +75,6 @@ class EditorsConfig {
       console.error('[editors-config] Error saving config:', error.message)
       return false
     }
-  }
-
-  /**
-   * Get tracked editors from configuration
-   * @returns {Promise<string[]>} Array of editor keys
-   */
-  async getTrackedEditors() {
-    const config = await this.loadConfig()
-    return config ? config.editors : []
-  }
-
-  /**
-   * Remove an editor from tracked list
-   * @param {string} editorKey - Editor key to remove
-   * @returns {Promise<boolean>} Success status
-   */
-  async removeTrackedEditor(editorKey) {
-    try {
-      const config = await this.loadConfig()
-      if (!config) return false
-
-      // Remove from editors array
-      config.editors = config.editors.filter(e => e !== editorKey)
-
-      // Remove from paths object
-      if (config.paths && config.paths[editorKey]) {
-        delete config.paths[editorKey]
-      }
-
-      // Save updated config
-      await fs.mkdir(this.configDir, { recursive: true })
-      await fs.writeFile(this.configPath, JSON.stringify(config, null, 2), 'utf-8')
-
-      return true
-    } catch (error) {
-      console.error('[editors-config] Error removing tracked editor:', error.message)
-      return false
-    }
-  }
-
-  /**
-   * Get editor paths from configuration
-   * @returns {Promise<Object>} Object mapping editor keys to paths
-   */
-  async getEditorPaths() {
-    const config = await this.loadConfig()
-    return config ? config.paths : {}
   }
 
   /**

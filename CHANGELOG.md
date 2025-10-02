@@ -7,6 +7,106 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Copy Simplification for Creators** - Made all text stupidly simple to understand
+  - Updated `README.md` to speak to creators and small teams, not just developers:
+    - Changed "indie hackers" → "solo creators and founders"
+    - Changed "developer momentum" → "track progress, not meetings"
+    - Simplified technical jargon:
+      - "Git validation" → "Checks your actual code changes"
+      - "MCP Integration" → "AI tools that help you code"
+      - "Dynamic AI Agents" → "Smart AI helpers"
+    - Made benefits easier to understand for non-technical creators
+  - Updated `website/src/components/InteractiveTerminal.tsx` examples:
+    - "implement user authentication" → "build login feature"
+    - "JWT token not validating" → "login not working"
+    - "API rate limiting" → "prevent spam requests"
+    - "Design notification architecture" → "Design how notifications will work"
+    - "Setup WebSocket server" → "Setup real-time messaging"
+  - Added explanatory comments to `website/src/lib/utils.ts`:
+    - Simple explanation of what `cn()` function does
+    - Real-world examples for creators
+
+### Added
+- **p. Trigger System** - Zero memorization interface for prjct context
+  - Simple prefix `p.` signals prjct context (e.g., "p. analiza esto")
+  - Works in any language: English, Spanish, German, etc.
+  - Auto-validates `.prjct/prjct.config.json` before execution
+  - Context-aware: Only works in prjct directories
+  - Provides friendly error when not in prjct project
+  - Implemented via CLAUDE.md instructions (no SDK needed)
+  - Zero API keys, zero additional costs
+
+- **Natural Language Context Validation** - Conversational responses when context is missing
+  - Automatic context validation before command execution
+  - Friendly guidance instead of technical errors
+  - Multi-language intent detection (English, Spanish, etc.)
+  - Works natively in Claude Code and Claude Desktop
+
+### Changed
+- **Natural Language System** - Enhanced with p. trigger and context validation
+  - Updated `CLAUDE.md` with complete p. trigger detection logic
+  - Added context validation examples and patterns
+  - Implemented semantic intent understanding (Claude's native LLM capability)
+  - Updated `templates/commands/done.md` with context validation docs
+  - Updated `templates/examples/natural-language-examples.md`:
+    - Added Example 11: p. Trigger (zero memorization)
+    - Added Example 12: p. Trigger multi-language
+    - Added Example 13: p. Trigger without project
+    - Added Example 14: All three ways work (p. | /p: | natural)
+    - Added examples for missing context scenarios (Example 2b, 3b)
+    - Updated implementation notes (no SDK approach)
+  - Created `docs/p-trigger.md` - Complete p. trigger documentation
+
+- **Website Alignment** - Updated all components to show p. trigger as primary interface
+  - `website/src/components/Hero.tsx`:
+    - Updated p. Trigger feature description
+    - Changed badge to "Built for Claude Code - Claude Desktop"
+    - Restored Windsurf Extension CTA with scroll-to-section functionality
+    - Added Sparkles and ArrowRight animated icons
+  - `website/src/components/Features.tsx`:
+    - Updated p. Trigger feature to show natural language first
+  - `website/src/components/CommandGuide.tsx`:
+    - Added p. trigger examples to all 6 scenarios (preferred option)
+    - Updated Quick Decision Matrix to show p. trigger format
+    - All examples now follow: `"p. [natural language]"` → `/p:command` pattern
+    - Demonstrates zero memorization approach throughout
+
+- **Windsurf Extension Preview Section** - Added complete Windsurf extension roadmap to homepage
+  - `website/src/components/WindsurfExtension.tsx`:
+    - Full section with hero, features grid, timeline, and early access form
+    - Development timeline (Oct 2025 - Feb 2026)
+    - 4 key features: Real-time Metrics, Focus Mode, Velocity Tracking, Smart Notifications
+    - Progress bar showing 10% completion (validation phase)
+    - Scroll target for Hero CTA (`.windsurf-extension-section`)
+  - `website/src/components/WindsurfPreview.tsx`:
+    - Interactive mockup of Windsurf extension UI
+    - Kanban-style roadmap with drag & drop
+    - AI Task Generator and PRJCT Control Center
+    - Project Rules management interface
+  - `website/src/components/EarlyAccessForm.tsx`:
+    - GitHub issue-based waitlist signup
+    - Animated with framer-motion
+    - Purple/blue gradient theme
+  - `website/src/pages/Home.tsx`:
+    - Added WindsurfExtension between Features and ClaudeSuperpowers
+    - Maintains page flow and user journey
+
+### Fixed
+- **🐛 Natural Language Context Bug** - Fixed error messages when context is missing
+  - Before: "⏺ No hay tarea activa en este momento..." (technical error)
+  - After: "✨ You're not working on anything right now! Want to start something?" (conversational)
+  - Affects ALL commands: /p:done, /p:ship, /p:stuck, /p:idea, /p:now
+  - Claude automatically validates and provides friendly guidance
+
+### Technical Implementation
+- **Zero External Dependencies** - All functionality via CLAUDE.md
+  - No SDK required (initially considered but removed)
+  - Uses Claude Code's native session (zero API keys)
+  - Simple file reads for context validation
+  - Works identically in Claude Code and Claude Desktop
+  - No additional costs for users
+
 ### Coming Soon
 - **Windows Compatibility** - Native Windows support
   - PowerShell and CMD command execution
@@ -14,6 +114,165 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Windows-specific installation scripts
   - Cross-platform file operations
   - Windows Terminal integration
+
+## [0.5.0] - 2025-10-02
+
+### 🚨 BREAKING CHANGES
+
+- **100% Claude-Focused Architecture** - Removed support for all non-Claude environments
+  - ❌ **Removed**: OpenAI Codex support
+  - ❌ **Removed**: Cursor AI support
+  - ❌ **Removed**: Windsurf/Codeium support
+  - ✅ **Supported**: Claude Code (primary)
+  - ✅ **Supported**: Claude Desktop (secondary)
+
+- **Simplified Installation** - Now installs only to `~/.claude/`
+  - Single editor detection (Claude only)
+  - Removed multi-editor selection workflow
+  - Removed editor-specific adapters and formatters
+
+- **Deleted Files**:
+  - `core/agents/codex-agent.js` - OpenAI Codex adapter
+  - `core/agents/terminal-agent.js` - Terminal fallback
+  - `AGENTS.md` - Legacy Codex configuration
+  - `templates/workflows/` - Windsurf workflow templates
+
+- **Rewritten Modules** (breaking API changes):
+  - `command-installer.js` - Now Claude-only (208 lines, was 800+)
+  - `editors-config.js` - Simplified to single editor (160 lines, was 205)
+  - `agent-detector.js` - Claude detection only (183 lines, was 250)
+
+### 🚀 Why This Change? (Built for Claude - Ship Fast, No BS)
+
+**prjct-cli is now a developer momentum tool, NOT a project management tool.**
+
+**The Philosophy:**
+- Ship fast, stay focused, no BS
+- For indie hackers and small teams (2-5 devs)
+- No Jira, no ceremonies, no bureaucracy
+- Just `/p:now` → work → `/p:done` → `/p:ship` → celebrate
+
+**By focusing 100% on Claude, we unlocked superpowers:**
+
+1. **🤖 Dynamic AI Agents**
+   - Auto-generated specialists (PM, Frontend, Backend, UX, QA, Scribe, Security, DevOps, Mobile, Data)
+   - Context-aware activation based on your project stack
+   - Impossible to build with multi-platform support
+
+2. **🔗 Native MCP Integration**
+   - Context7 - Automatic library documentation
+   - Sequential - Deep reasoning for complex problems
+   - Magic - UI component generation from patterns
+   - Playwright - Browser automation and E2E testing
+   - MCP is Claude-native, can't replicate elsewhere
+
+3. **✅ Git Validation**
+   - Last commit as source of truth
+   - Validates completed work against actual changes
+   - Prevents empty task completions
+   - Requires tight Claude integration
+
+4. **💬 Natural Language**
+   - Talk naturally in any language, no command memorization
+   - "I'm done" → `/p:done`, "ship this" → `/p:ship`
+   - Leverages Claude's language understanding
+
+5. **⚡ Technical Benefits**
+   - **50-60% less code** (800+ lines → 228 lines in command-installer alone)
+   - Faster features and bug fixes
+   - Proper testing of everything we support
+   - Honest compatibility (only claim what works)
+
+**Migration Path:**
+- **Using Claude?** → `npm update -g prjct-cli` (you're all set!)
+- **Using Cursor/Windsurf/Codex?** → Switch to Claude Code (free) or stay on v0.4.10
+- **See [MIGRATION.md](MIGRATION.md) for complete upgrade guide**
+
+**This isn't a limitation - it's a strategic decision that makes prjct-cli better for developers who ship fast.**
+
+### Added
+- **Dynamic AI Agent System** - Automatic generation of specialized AI agents based on project stack
+  - **GitIntegration Module** (`core/git-integration.js`)
+    - Repository validation and state tracking
+    - Last commit as source of truth for validation
+    - Working directory status monitoring
+    - User claim validation against commit history
+    - Comprehensive git statistics and reporting
+
+  - **AgentGenerator Module** (`core/agent-generator.js`)
+    - Dynamic agent creation based on project analysis
+    - Project-specific context injection into agent templates
+    - Intelligent conditional agent detection
+    - Agent update and synchronization capabilities
+    - Support for both base and conditional agents
+
+  - **Base AI Agents** (Always Generated)
+    - PM (Project Manager) - Task coordination and breakdown
+    - FE (Frontend Engineer) - UI/UX, React, components, state management
+    - BE (Backend Engineer) - APIs, database, SOLID principles
+    - UX (UX Designer) - User experience, accessibility, design systems
+    - QA (QA Engineer) - Testing strategy and automation
+    - Scribe (Documentation) - Technical writing and changelog management
+
+  - **Conditional AI Agents** (Generated Based on Project Stack)
+    - DevOps - Docker, CI/CD, infrastructure (when Docker/CI/CD detected)
+    - Security - OWASP, threat modeling (when web app or auth detected)
+    - Mobile - React Native, Flutter (when mobile frameworks detected)
+    - Data - ML, data pipelines (when ML libraries detected)
+
+  - **Scribe Agent Workflows**
+    - Automatic documentation on `/p:done` completion
+    - Feature documentation on `/p:ship` deployment
+    - Git-based change detection for documentation scope
+    - User confirmation workflow before saving documentation
+    - Task docs saved to `analysis/task-docs/`
+    - Feature docs saved to `analysis/feature-docs/`
+
+- **Enhanced `/p:analyze` Command**
+  - Git repository integration and validation
+  - Last commit information and statistics
+  - Working directory status tracking
+  - Validation baseline for user claims
+  - Conditional agent detection based on stack
+  - Comprehensive project analysis report with git stats
+  - Agent recommendation system
+
+- **Enhanced `/p:init` Command**
+  - Automatic agent generation after project analysis
+  - Git-integrated analysis workflow
+  - Project-specific agent context injection
+  - Smart agent selection based on detected stack
+  - Agents stored in `~/.claude/agents/` directory
+
+- **New `/p:sync` Command**
+  - Re-analyze project for stack changes
+  - Update existing agents with new project context
+  - Add newly required agents based on stack evolution
+  - Remove obsolete agents with user confirmation
+  - Comprehensive sync reporting and logging
+
+### Changed
+- **Agent Architecture** - 100% Claude-focused (Claude Code + Claude Desktop)
+  - Agents stored in `~/.claude/agents/` directory
+  - Markdown format with YAML frontmatter (Claude native)
+  - Project-specific naming: `p_agent_[type].md`
+  - Dynamic context injection from project analysis
+  - Limited expertise per agent (focused specialization)
+
+### Technical Details
+- **10 Agent Templates** in `templates/agents/`
+  - 6 base templates (always generated)
+  - 4 conditional templates (stack-dependent)
+  - Each template includes project context placeholders
+  - Specialized tools and color coding per agent type
+  - Defined expertise boundaries and trigger keywords
+
+- **Git Integration Features**
+  - Commit validation and claim verification
+  - Working directory change tracking
+  - Unverified work identification
+  - Comprehensive git statistics
+  - Multi-contributor support
 
 ## [0.4.10] - 2025-10-02
 

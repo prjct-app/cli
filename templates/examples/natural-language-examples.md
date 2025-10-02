@@ -1,8 +1,10 @@
 # Natural Language Examples
 
-Real-world examples showing how the **semantic intent detection** works.
+Real-world examples showing how **Claude Code** handles natural language with context validation.
 
-> **Important**: These are examples, not the only valid phrases! The LLM understands intent semantically, so users can express themselves in countless ways.
+> **Important**: These are examples, not the only valid phrases! Claude understands intent semantically, so users can express themselves in countless ways.
+
+> **Note**: All examples show how **Claude Code automatically validates context** and provides conversational responses when context is missing.
 
 ## Example 1: Starting a Task
 
@@ -34,7 +36,9 @@ Need help? Say "I'm stuck" or use /p:stuck
 
 ---
 
-## Example 2: Completing a Task
+## Example 2: Completing a Task (WITH Active Task)
+
+**Context:** User has an active task in `core/now.md`
 
 **User says (any of these work):**
 - "I'm done"
@@ -43,9 +47,10 @@ Need help? Say "I'm stuck" or use /p:stuck
 - "all done with this"
 - "completed it"
 
-**Claude Code understands:**
-- Intent: User finished their current work
-- Command: `/p:done`
+**Claude Code checks:**
+- Project exists: ✅
+- Active task exists: ✅
+- Context valid: Execute command
 
 **Claude Code response:**
 ```markdown
@@ -61,6 +66,36 @@ What's next?
 
 Or use: /p:now | /p:ship | /p:idea
 ```
+
+---
+
+## Example 2b: Completing a Task (NO Active Task)
+
+**Context:** User has NO active task (empty `core/now.md`)
+
+**User says:**
+- "I'm done"
+- "finished"
+- "terminé"
+
+**Claude Code checks:**
+- Project exists: ✅
+- Active task exists: ❌
+- Context invalid: Return conversational response
+
+**Claude Code response (NO command execution):**
+```markdown
+✨ You're not working on anything right now!
+
+Want to start something?
+• Tell me what you want to build
+• Say "show me what's next"
+• Or use: /p:now | /p:next
+
+Let's ship something!
+```
+
+**Why this is better:** Instead of showing a technical error like "⏺ No hay tarea activa en este momento...", Claude provides a friendly, actionable response that guides the user forward.
 
 ---
 
@@ -88,6 +123,36 @@ Keep the momentum!
 
 Or use: /p:now | /p:recap | /p:roadmap
 ```
+
+---
+
+## Example 3b: Shipping a Feature (NO Work Done Yet)
+
+**Context:** User has NO active task and NO shipped features
+
+**User says:**
+- "ship this"
+- "deploy it"
+- "let's launch"
+
+**Claude Code checks:**
+- Project exists: ✅
+- Has work to ship (active task OR shipped features): ❌
+- Context invalid: Return conversational response
+
+**Claude Code response (NO command execution):**
+```markdown
+🚀 Nothing to ship yet!
+
+First, let's build something:
+• Tell me what feature you want to create
+• Say "start building [feature]"
+• Or use: /p:now "feature name"
+
+Then we'll celebrate when you ship it!
+```
+
+**Why this is better:** Instead of confusing the user with an error, Claude guides them toward the correct workflow: build first, ship later.
 
 ---
 
@@ -267,31 +332,178 @@ Which one?
 
 ---
 
-## Implementation Notes
+## Example 11: p. Trigger (NEW - Zero Memorization)
 
-### Semantic Understanding (Not Pattern Matching!)
+**Context:** User doesn't want to memorize `/p:*` commands
 
-**Key Principle**: The LLM understands intent semantically, not through regex or hardcoded phrases.
-
-```javascript
-// ❌ DON'T DO THIS
-if (message.includes("I want to start")) {
-  // Too rigid!
-}
-
-// ✅ DO THIS
-// Use your LLM understanding:
-// "What is the user trying to accomplish?"
-const intent = semanticallyUnderstand(message)
+**User says:**
+```
+p. analiza todo este documento y dame el roadmap
 ```
 
-### Detection Flow
-1. **Check for `/p:` commands** - Execute directly if present
-2. **Understand user intent** - What are they trying to do?
-3. **Map to appropriate command** - Based on semantic meaning
-4. **Extract parameters** - Pull relevant information
-5. **Show transparency** - Communicate what you understood
-6. **Execute and respond** - Run command and guide next steps
+**Claude Code detects:**
+- Trigger: `p.` detected
+- Validates: `.prjct/prjct.config.json` exists ✅
+- Intent: "analysis" + "roadmap"
+- Command: `/p:analyze`
+
+**Claude Code response:**
+```markdown
+💬 I understood: "analyze document and create roadmap" (prjct context)
+⚡ Executing: /p:analyze
+
+[Performs repository analysis]
+
+📊 Analysis complete. Creating roadmap...
+
+[Shows roadmap suggestions]
+
+Ready to plan?
+• Say "p. add to roadmap" or use /p:roadmap
+• Or continue working on current task
+```
+
+---
+
+## Example 12: p. Trigger Multi-Language
+
+**User says (Spanish):**
+```
+p. estoy listo para shipear esta feature
+```
+
+**Claude Code detects:**
+- Trigger: `p.` detected
+- Validates: Project exists ✅
+- Intent: "ship" (detected from "shipear")
+- Command: `/p:ship`
+
+**Claude Code response:**
+```markdown
+💬 I understood: "ready to ship this feature" (prjct context)
+⚡ Executing: /p:ship
+
+What feature did you ship?
+• Tell me the feature name
+• Or use: /p:ship "feature name"
+```
+
+---
+
+## Example 13: p. Trigger Without Project
+
+**Context:** User tries p. trigger in non-prjct directory
+
+**User says:**
+```
+p. muéstrame mi progreso
+```
+
+**Claude Code checks:**
+- Trigger: `p.` detected
+- Validates: `.prjct/prjct.config.json` NOT found ❌
+
+**Claude Code response (NO command execution):**
+```markdown
+🎯 No prjct project here!
+
+This doesn't look like a prjct directory.
+
+Want to initialize?
+• Say "initialize prjct" or "set up project"
+• Or use: /p:init
+
+Then you can track progress with p. commands!
+```
+
+**Why this is better:** The `p.` trigger is **context-aware** - it only works in prjct directories, preventing accidental execution.
+
+---
+
+## Example 14: All Three Ways Work
+
+**Scenario:** User can choose their preferred style
+
+**Option 1 - p. Trigger (easiest):**
+```
+User: "p. terminé"
+Claude: Detects completion intent → /p:done
+```
+
+**Option 2 - Direct slash command:**
+```
+User: "/p:done"
+Claude: Executes directly
+```
+
+**Option 3 - Natural language:**
+```
+User: "I'm done"
+Claude: Detects intent → /p:done
+```
+
+**All three execute the same command!** Users pick what feels natural to them.
+
+---
+
+## Implementation Notes
+
+### How Claude Code Handles Natural Language
+
+**Key Principle**: Claude Code (and Claude Desktop) automatically handle intent detection, context validation, and conversational responses through **CLAUDE.md instructions**. No SDK needed!
+
+**How it works:**
+
+1. **CLAUDE.md is automatically read** - Both Claude Code and Desktop read this file for context
+2. **Claude understands intent naturally** - As an LLM, Claude semantically understands what users want
+3. **Simple file checks validate context** - Read `core/now.md`, check if `.prjct/prjct.config.json` exists
+4. **Conversational responses when context missing** - Friendly guidance instead of errors
+5. **Multi-language support** - Works in any language Claude understands
+
+**Implementation:**
+
+```javascript
+// NO SDK NEEDED - Just use Claude Code's native capabilities:
+
+// 1. Detect p. trigger or natural language intent
+if (message.startsWith('p. ')) {
+  // Check if prjct project exists
+  const configExists = await Read('.prjct/prjct.config.json')
+  if (!configExists) {
+    return "🎯 No prjct project here! Run /p:init first."
+  }
+  // Extract intent from rest of message
+  const intent = message.slice(3).trim()
+  // Continue with semantic understanding...
+}
+
+// 2. Validate context before execution
+if (command === 'done') {
+  const nowContent = await Read('core/now.md')
+  if (!nowContent || nowContent.trim() === '') {
+    return conversationalResponse() // Friendly guidance
+  }
+}
+
+// 3. Execute command with transparency
+console.log(`💬 I understood: "${intent}"`)
+console.log(`⚡ Executing: /p:${command} ${params}`)
+```
+
+### Detection Flow (Natural)
+1. **Check for p. trigger** - Highest priority
+   - If starts with `p.` → Check if `.prjct/prjct.config.json` exists
+   - If exists → Extract intent from rest of message
+   - If not exists → Return "No prjct project" message
+2. **Parse user input** - Direct slash command or natural language?
+3. **Understand intent semantically** - What does the user want to do?
+4. **Validate context** - Simple file reads to check prerequisites
+5. **Respond**:
+   - Context missing → Provide conversational guidance
+   - Context valid → Execute command with transparency
+   - No command intent → Normal conversation
+6. **Show transparency** - Always communicate what you understood
+7. **Execute and guide** - Run command and suggest next steps
 
 ### Transparency Format
 Always show what you understood:

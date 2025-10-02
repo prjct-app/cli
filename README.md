@@ -9,40 +9,31 @@
    prjct/cli
 ```
 
-**Ship fast, stay focused, no BS.**
+**Ship fast, track progress, stay focused.**
 
-**AI-integrated project management for indie hackers and small teams** - Ship fast, stay focused, no ceremonies.
+Developer momentum tool for indie hackers and small teams.
 
-Works with **Claude Code**, **Cursor AI**, **Codeium**, **OpenAI Codex**, and **Warp Terminal**.
-
-[![OpenAI Codex Compatible](https://img.shields.io/badge/OpenAI%20Codex-Compatible-00a67e)](AGENTS.md)
 [![Claude Code Ready](https://img.shields.io/badge/Claude%20Code-Ready-6366f1)](CLAUDE.md)
+[![Claude Desktop Compatible](https://img.shields.io/badge/Claude%20Desktop-Compatible-6366f1)]()
 
-## 🤖 Intelligent Agent Detection
+## 🤖 Claude-Native Architecture
 
-**prjct-cli automatically detects and adapts to your environment** - No configuration needed!
+**prjct-cli is purpose-built for Claude's unique capabilities:**
 
-The system intelligently identifies whether you're using:
+- **Dynamic AI Agents** - Auto-generated specialists based on your stack
+- **MCP Integration** - Native Model Context Protocol support
+- **Slash Commands** - `/p:*` commands in Claude Code and Desktop
+- **Git Validation** - Last commit as source of truth
+- **Natural Language** - Talk naturally, commands adapt
 
-- **Claude Code** → Rich markdown, MCP integration, interactive features
-- **OpenAI Codex** → Structured output for sandboxed environments
-- **Terminal/CLI** → ANSI colors, progress spinners, native experience
+### Why Claude-Only?
 
-### How It Works
+We chose to focus 100% on Claude to deliver:
 
-```javascript
-// Automatic detection strategies:
-1. Environment Variables (CLAUDE_AGENT, CODEX_AGENT)
-2. Configuration Files (AGENTS.md, CLAUDE.md)
-3. Runtime Capabilities (MCP availability)
-4. Filesystem Characteristics (sandboxed paths)
-```
-
-Each agent gets optimized output:
-
-- **Claude**: `✅ **Task complete!** Ready for the next challenge?`
-- **Codex**: `[SUCCESS] Task complete. NEXT: Use /p:next`
-- **Terminal**: `✅ Task complete! → Use prjct next`
+- **Deep Integration** - Leverage Claude's agent system and MCP
+- **Better Quality** - Optimized for Claude's strengths
+- **Simpler Codebase** - No multi-platform compromises
+- **Honest Compatibility** - We only support what we can validate
 
 ## ⚡ Installation
 
@@ -105,13 +96,10 @@ prjct install --force
 prjct install --create-templates
 ```
 
-**Detected Editors:**
-- **Claude Code**: `~/.claude/commands/p/`
-- **Cursor AI**: `~/.cursor/commands/p/`
-- **OpenAI Codex**: `{project}/AGENTS.md`
-- **Windsurf/Codeium**: `{project}/.windsurf/workflows/`
+**Installation Location:**
+- **Claude Code & Claude Desktop**: `~/.claude/commands/p/`
 
-The interactive mode (default) will show checkboxes to select which editors to install to, optimizing for your actual workflow.
+Commands are automatically detected and installed to Claude.
 
 ### Version Management
 
@@ -134,14 +122,14 @@ cd prjct-cli
 
 - ✅ **Installs to** `~/.prjct-cli/`
 - ✅ **Checks prerequisites** (Node.js 18+, Git)
-- ✅ **Detects AI editors** (Claude Code, Cursor, Codeium)
-- ✅ **Installs slash commands** to all detected editors
-- ✅ **Creates global structure** for cross-editor data sharing
+- ✅ **Detects Claude** (Code or Desktop)
+- ✅ **Installs slash commands** to `~/.claude/commands/p/`
+- ✅ **Creates global structure** in `~/.prjct-cli/`
 - ✅ **Version management** with automatic update detection
-- ✅ **Configures AI assistant integration** (MCP)
+- ✅ **Configures MCP integration** (Context7, Sequential, Magic, Playwright)
 - ✅ **Sets up the** `prjct` **command**
 - ✅ **Creates project structure** in `.prjct/`
-- ✅ **Auto-detects your environment** (Claude/Codex/Terminal)
+- ✅ **Auto-detects your environment** (Claude or Terminal fallback)
 - ✅ **Configures shell** (bash/zsh) automatically
 
 ## 🗑️ Uninstallation
@@ -190,11 +178,83 @@ Instead of:                      Just say:
 
 **Available in:** 🇺🇸 English • 🇪🇸 Spanish
 
+## 🚀 Built for Claude - Ship Fast, No BS
+
+### Track Progress, Not Meetings
+
+**prjct-cli helps you ship products fast.** Built for creators and small teams who prefer coding over meetings.
+
+**What it does:**
+- ✅ Track what you're working on
+- ✅ See what you've shipped
+- ✅ Stay focused on one thing
+- ✅ No meetings needed
+
+**What it doesn't do:**
+- ❌ Not like Jira or ClickUp
+- ❌ No sprint planning
+- ❌ No story points
+- ❌ No charts or reports
+- ❌ No meetings
+
+**Philosophy: Just Ship It**
+
+```
+/p:now "build auth"     → Focus
+work work work          → Ship
+/p:done                 → Next
+/p:ship "authentication" → Celebrate
+```
+
+No planning sessions. No standups. No retrospectives. Just **ship fast, track progress, stay focused**.
+
+**Who uses this:**
+
+- 🎯 **Solo creators** - Build products without project management overhead
+- 👥 **Small teams** (2-5 people) - Coordinate without meetings
+- 🚀 **Product builders** - Ship features fast
+- 💪 **Makers** - Focus on building, not planning
+
+### Why 100% Claude-Focused?
+
+**This isn't a limitation - it's a superpower.**
+
+By focusing exclusively on Claude Code and Claude Desktop, we can build features that would be impossible with multi-platform support:
+
+**🤖 Smart AI Helpers**
+- Get help from specialized AI assistants (for frontend, backend, UX, security, etc.)
+- They activate automatically when you need them
+- Works with Claude's AI system
+
+**🔗 AI Tools Built-In**
+- Context7 - Gets documentation for any library automatically
+- Sequential - Helps solve complex problems
+- Magic - Creates UI components for you
+- Playwright - Tests your app in a real browser
+
+**✅ Code Change Verification**
+- Checks your actual code changes
+- Makes sure you actually completed what you said
+- No fake progress
+
+**💬 Talk Naturally**
+- Just describe what you want to do
+- Works in any language
+- No commands to memorize
+
+**Why it works better:**
+- ⚡ **Simpler code** - Faster to add features and fix bugs
+- 🎯 **Built for Claude** - Uses Claude's special features
+- 💯 **Everything tested** - We only support what actually works
+- 🤝 **Honest about compatibility** - We tell you what works and what doesn't
+
+**See [MIGRATION.md](MIGRATION.md) for v0.5.0 upgrade guide.**
+
 ## 📱 Platform Usage
 
-### Claude Code / Cursor AI / Codeium
+### Claude Code & Claude Desktop
 
-All three editors support the same slash commands through automatic installation:
+Built exclusively for Claude with native slash commands:
 
 ```
 # Core Commands (or just talk naturally!)
@@ -213,25 +273,9 @@ All three editors support the same slash commands through automatic installation
 /p:roadmap                 # Strategic planning
 ```
 
-**Multi-Editor Workflow**: Switch between Claude Code, Cursor, and Codeium seamlessly - all commands access the same global data in `~/.prjct-cli/projects/`.
+All data is stored in `~/.prjct-cli/projects/` and shared seamlessly between Claude Code and Claude Desktop.
 
-### OpenAI Codex / GitHub OpenAI Codex
-
-The repository includes `AGENTS.md` for full OpenAI Codex compatibility.
-
-```
-# Codex automatically reads AGENTS.md for guidance
-/p:init                    # Creates .prjct/ structure
-/p:now "add API endpoint"  # Updates current focus
-/p:ship "REST API"         # Celebrates shipped feature
-/p:progress week           # Shows weekly metrics
-/p:context                 # Show project context
-/p:recap                   # Display project overview
-```
-
-> **Setup**: Authorize the Codex GitHub app for your organization, and Codex will automatically detect the AGENTS.md configuration.
-
-### Warp Terminal
+### Terminal / CLI (Fallback)
 
 ```bash
 prjct init                 # Initialize project
@@ -241,7 +285,7 @@ prjct ship "authentication" # Ship feature
 prjct recap                # Show progress
 ```
 
-> Warp AI also understands `/p:` commands in the terminal
+> **Note**: Terminal mode works but has limited features (no AI agents, MCP, or natural language). **We strongly recommend Claude Code** for the full experience.
 
 ## 🎯 Quick Command Guide
 
@@ -401,14 +445,117 @@ If you have an existing flat `.prjct/` structure, run:
 
 ## 🛠️ Requirements
 
-- Node.js 18+
-- One of: Claude Code, OpenAI Codex, Cursor, VS Code, or Warp Terminal
+- **Node.js 18+** - Required for CLI operation
+- **Claude Code or Claude Desktop** - Recommended for full features (100% free)
+- **Terminal/CLI** - Fallback mode (limited features)
 
-### AI Assistant Configuration
+### What You Get
 
-- **OpenAI Codex**: AGENTS.md file (included)
-- **Claude Code**: CLAUDE.md file (included)
-- **Warp Terminal**: Shell integration (via setup.sh)
+**With Claude Code/Desktop (Recommended):**
+- ✅ Smart AI helpers for different tasks
+- ✅ AI tools that help you code
+- ✅ Checks your actual code changes
+- ✅ Talk naturally - no commands to memorize
+- ✅ Use slash commands (`/p:*`) in Claude
+- ✅ Everything works
+
+**With Terminal/CLI Only:**
+- ⚠️ Basic commands work (`prjct now`, `prjct done`, etc.)
+- ❌ No AI helpers
+- ❌ No AI tools
+- ❌ Can't talk naturally
+- ❌ Doesn't check code changes
+- ❌ Many features missing
+
+**Claude Code is free - get it at https://claude.ai/code**
+
+## ❓ FAQ
+
+### Why Claude-only? What about Cursor/Windsurf?
+
+**TL;DR**: By focusing 100% on Claude, we deliver features that would be impossible with multi-platform support.
+
+**The Long Answer:**
+
+Starting with v0.5.0, prjct-cli only supports Claude Code and Claude Desktop. This isn't a limitation - **it's a strategic decision that makes the tool better**.
+
+**What We Gain:**
+
+1. **🤖 Smart AI Helpers** - Get specialized help (for frontend, backend, UX, security, etc.) that activates automatically. Only works with Claude's AI system.
+
+2. **🔗 AI Tools Built-In** - Gets library docs automatically, helps solve complex problems, creates UI components, and tests your app in a browser. Only works with Claude.
+
+3. **✅ Code Change Verification** - Checks your actual code changes to make sure you completed what you said. Needs Claude to work.
+
+4. **💬 Talk Naturally** - Just describe what you want - works in any language. Uses Claude's language understanding.
+
+5. **⚡ Simpler Code** - Less code = faster features, faster bug fixes, better quality.
+
+6. **💯 Everything Tested** - We only support what actually works and what we can test.
+
+**But What About...**
+
+**"I prefer Cursor/Windsurf"**
+
+We get it! But consider:
+- **Claude Code is free** (Cursor/Windsurf require paid plans for AI features)
+- **Better AI** (latest Claude 3.5 Sonnet, no rate limits)
+- **prjct-cli features** are designed specifically for Claude
+
+Give Claude Code a try - you might prefer it! And if not, you can stay on v0.4.10 (last multi-editor version), though we don't recommend it.
+
+**"This feels limiting"**
+
+It's actually the opposite. By specializing, we can:
+- Build features impossible with multi-platform (agents, MCP, git validation)
+- Ship updates 2x faster (less code to maintain)
+- Deliver higher quality (proper testing of everything we support)
+
+**"What about my team?"**
+
+prjct-cli is designed for **creators and small teams** (1-5 people) who ship fast.
+
+For best results, standardize your team on Claude Code (it's free for everyone). Consistent tools = better collaboration.
+
+**"Is this a money grab?"**
+
+**No.** Claude Code is **100% free**. There's zero financial incentive.
+
+This decision is purely **technical** - to build the best possible tool for developers who ship fast.
+
+**"Will you add back multi-editor support?"**
+
+**No.** This was a deliberate architectural decision for v0.5.0, not a temporary change.
+
+However, **v0.4.10 still exists** if you need multi-editor support. You can lock to that version with:
+
+```bash
+npm install -g prjct-cli@0.4.10
+```
+
+Just know you'll miss all the new features (agents, MCP, git validation, natural language).
+
+### Can I work on multiple tasks?
+
+No, by design. Single-focus philosophy. Use `/p:done` before switching.
+
+### Difference between `/p:done` and `/p:ship`?
+
+`/p:done` clears focus. `/p:ship` celebrates important features with metrics.
+
+### Where is my data stored?
+
+Everything is local in `~/.prjct-cli/projects/{id}/`. Never leaves your machine.
+
+### Does it work with teams?
+
+Designed for indie hackers. For teams, each dev has their own `.prjct/` or shares via git.
+
+### How do I migrate from Jira/Trello?
+
+No migration needed. Just `/p:init` and start working.
+
+> 💬 **More questions?** Check [MIGRATION.md](MIGRATION.md) or [open an issue](https://github.com/jlopezlira/prjct-cli/issues)
 
 ## 🤝 Contributing
 

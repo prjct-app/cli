@@ -1,4 +1,257 @@
-# Migration Guide: v0.1.0 → v0.2.1
+# Migration Guide
+
+Jump to your migration path:
+- [**v0.4.x → v0.5.0** (Upgrading to Build for Claude)](#upgrading-to-build-for-claude-v050) 🆕
+- [v0.1.0 → v0.2.1 (Data Architecture Change)](#v010--v021-data-architecture-change)
+
+---
+
+# Upgrading to Build for Claude (v0.5.0)
+
+**Ship fast, no BS** - prjct-cli is now 100% Claude-focused.
+
+## 🚨 Breaking Change
+
+Starting with v0.5.0, prjct-cli **only supports Claude Code and Claude Desktop**. Support for Cursor, Windsurf, and OpenAI Codex has been removed.
+
+## What Changed?
+
+### Why Claude-Only?
+
+We chose to focus 100% on Claude because:
+
+1. **🚀 Better Quality** - Optimize for Claude's unique capabilities (MCP, agents, natural language)
+2. **⚡ Faster Development** - 50-60% less code = faster features and bug fixes
+3. **🎯 Deeper Integration** - Leverage Claude-specific features we can't replicate elsewhere
+4. **💯 Honest Compatibility** - We only support what we can properly test and validate
+
+**This isn't a limitation - it's a superpower.** By focusing on one platform, we can build features that would be impossible with multi-platform support.
+
+### Removed Editor Support
+
+- ❌ **Cursor AI** - No longer supported
+- ❌ **Windsurf/Codeium** - No longer supported
+- ❌ **OpenAI Codex** - No longer supported
+- ✅ **Claude Code** - Primary platform (free)
+- ✅ **Claude Desktop** - Fully supported
+- ⚠️ **Terminal CLI** - Fallback mode only (limited features)
+
+## Migration Path
+
+### ✅ If You're Using Claude Code or Claude Desktop
+
+**You're all set!** Just update to v0.5.0:
+
+```bash
+npm update -g prjct-cli
+```
+
+Your existing `.prjct/` data is fully compatible. Nothing changes for you except **better features**:
+- 🤖 Dynamic AI agents (PM, Frontend, Backend, UX, QA, Scribe, Security, DevOps, Mobile, Data)
+- 🔗 Native MCP integration (Context7, Sequential, Magic, Playwright)
+- ✅ Git validation (last commit as source of truth)
+- 💬 Natural language commands (talk naturally, no memorization)
+
+### ⚠️ If You're Using Cursor, Windsurf, or OpenAI Codex
+
+You have two options:
+
+#### Option 1: Switch to Claude (Recommended)
+
+Claude Code is **free** and works exactly like Cursor:
+
+1. **Install Claude Code**
+   - Visit https://claude.ai/code
+   - Download and install (100% free)
+
+2. **Update prjct-cli**
+   ```bash
+   npm update -g prjct-cli
+   ```
+
+3. **Install commands**
+   ```bash
+   prjct install
+   # Detects Claude automatically, installs /p:* commands
+   ```
+
+4. **Done!** 🎉
+   - All your `.prjct/` data works exactly the same
+   - Same commands, same workflow
+   - **PLUS**: AI agents, MCP, git validation, natural language
+
+**Why Switch?**
+- Claude Code is **free** (no paid tier needed)
+- Better AI (latest Claude 3.5 Sonnet)
+- prjct-cli features designed specifically for Claude
+- No rate limits or usage restrictions
+
+#### Option 2: Stay on v0.4.10 (Not Recommended)
+
+Lock to the last multi-editor version:
+
+```bash
+npm install -g prjct-cli@0.4.10
+```
+
+**⚠️ Downsides:**
+- ❌ No new features
+- ❌ No bug fixes
+- ❌ No security updates
+- ❌ Missing: AI agents, MCP, git validation, natural language
+
+**We strongly recommend switching to Claude instead.**
+
+## What's New in v0.5.0?
+
+This isn't just removing support - it's a **massive upgrade** for Claude users:
+
+### 🤖 Dynamic AI Agents
+
+Auto-generated specialists for your stack. Activated automatically based on context:
+
+- **PM** - Planning and coordination (`/p:analyze`, `/p:roadmap`)
+- **Frontend** - React, Vue, UI components (UI-related commands)
+- **Backend** - APIs, databases, services (backend commands)
+- **UX** - User experience and accessibility (design commands)
+- **QA** - Testing and quality assurance (`/p:test`)
+- **Scribe** - Documentation and release notes (`/p:ship`, `/p:git`)
+- **Security** - Security analysis and best practices
+- **DevOps** - Deployment and infrastructure
+- **Mobile** - Mobile development patterns
+- **Data** - Data analysis and insights
+
+### 🔗 MCP Integration
+
+Native Model Context Protocol support (always enabled):
+
+- **Context7** - Automatic library documentation (React, Vue, Next.js, etc.)
+- **Sequential** - Deep reasoning for complex problems
+- **Magic** - UI component generation from patterns
+- **Playwright** - Browser automation and E2E testing
+
+### ✅ Git Validation
+
+Last commit as source of truth:
+
+```bash
+/p:done
+# ✅ Validates completion against actual git changes
+# 🚨 Warns if no files changed
+# 📊 Shows what was actually modified
+```
+
+### 💬 Natural Language
+
+Talk naturally instead of memorizing commands (English + Spanish):
+
+```
+"I want to start building auth" → /p:now
+"I'm done" → /p:done
+"ship this" → /p:ship
+"I'm stuck on this error" → /p:stuck
+```
+
+## Breaking Changes
+
+### Removed Files
+
+- `core/agents/codex-agent.js`
+- `core/agents/terminal-agent.js`
+- `AGENTS.md`
+- `templates/workflows/` (entire directory)
+
+### Changed APIs
+
+If you're building on top of prjct-cli:
+
+**`command-installer.js`**
+```javascript
+// ❌ Old (v0.4.x)
+installer.detectEditors() // Multi-editor
+installer.installToSelected(['claude', 'cursor'])
+
+// ✅ New (v0.5.0)
+installer.detectClaude() // Claude-only
+installer.installCommands() // Claude-only
+```
+
+**`agent-detector.js`**
+```javascript
+// ❌ Old (v0.4.x)
+detector.setAgent('codex')
+detector.setAgent('cursor')
+
+// ✅ New (v0.5.0)
+detector.setAgent('claude') // Claude only
+detector.setAgent('terminal') // Fallback
+```
+
+## FAQ
+
+### Can I use prjct-cli without Claude?
+
+Yes, but with **very limited functionality**. The CLI works in Terminal mode as fallback, but you'll miss:
+
+- ❌ Dynamic AI agents
+- ❌ MCP integration
+- ❌ Natural language commands
+- ❌ Slash commands in your editor
+- ❌ Git validation features
+
+**We strongly recommend Claude Code (it's free!)** to get the full experience.
+
+### What if I prefer Cursor/Windsurf?
+
+We get it! But consider:
+
+- **Claude Code is free** (Cursor/Windsurf require paid plans for AI features)
+- **Better AI** (latest Claude 3.5 Sonnet, no limits)
+- **prjct-cli is designed for Claude** (MCP, agents, slash commands are Claude-native)
+
+Give Claude Code a try - you might prefer it. And if not, you can stay on v0.4.10 (though we don't recommend it).
+
+### Will you add back Cursor/Windsurf support?
+
+**No.** This was a deliberate architectural decision, not temporary.
+
+By focusing 100% on Claude:
+- ⚡ Ship features 2x faster (50% less code)
+- 🎯 Build deeper integrations (MCP, agents, git validation)
+- 💯 Deliver better quality (proper testing)
+- 🤝 Be honest about compatibility
+
+### Is this a money grab?
+
+**No.** Claude Code is **free**. There's zero financial incentive.
+
+This decision is purely **technical** - to build a better tool for developers who ship fast.
+
+### What about teams using different editors?
+
+prjct-cli is designed for **indie hackers and small teams** (1-5 devs).
+
+Teams work best when standardized on the same tools. We recommend Claude Code for everyone.
+
+### Can I contribute support for other editors?
+
+**No.** Multi-editor PRs won't be accepted - it defeats the v0.5.0 architecture.
+
+However, you're welcome to **fork v0.4.10** and maintain multi-editor support yourself.
+
+## Getting Help
+
+- **Issues**: https://github.com/jlopezlira/prjct-cli/issues
+- **Discussions**: https://github.com/jlopezlira/prjct-cli/discussions
+- **Website**: https://prjct.dev
+
+---
+
+**Built for Claude - Ship fast, no BS** 🚀
+
+---
+
+# v0.1.0 → v0.2.1 (Data Architecture Change)
 
 **🚨 Breaking Change**: prjct-cli v0.2.0+ introduces a new data storage architecture and multi-editor command installation that requires migration.
 

@@ -14,69 +14,57 @@ import { Section, Card, IconBox, Badge } from './ui'
 
 const features = [
   {
-    icon: Cpu,
-    title: 'Smart Agent Detection',
+    icon: Bot,
+    title: 'Dynamic AI Agents',
     description:
-      'Automatically detects Claude Code, OpenAI Codex, or Terminal. Zero config, perfect output every time.',
+      'Auto-generated specialists (PM, Frontend, Backend, UX, QA, Scribe+) that understand your project context.',
     highlight: true,
   },
   {
-    icon: Bot,
-    title: 'AI Native',
-    description:
-      'Your AI understands exactly what to build next. No context lost between sessions.',
-  },
-  {
-    icon: Zap,
-    title: 'Zero Friction',
-    description:
-      'From idea to roadmap to shipped features. No project management BS, just pure execution.',
-  },
-  {
-    icon: Brain,
-    title: 'Context Memory',
-    description:
-      'AI remembers your tech stack, architecture decisions, and progress across sessions.',
-  },
-  {
     icon: Sparkles,
-    title: 'MCP Integration',
+    title: 'Native MCP',
     description:
-      'Built-in Model Context Protocol support. Context7 for docs, automatic library patterns, framework integration.',
+      'Context7, Sequential, Magic, Playwright integration. Claude-native protocol for real-time context.',
+  },
+  {
+    icon: GitBranch,
+    title: 'Git Validation',
+    description:
+      'Last commit = source of truth. No empty claims, just real work validated against actual changes.',
   },
   {
     icon: Terminal,
-    title: 'Simple Commands',
+    title: 'p. Trigger - Zero Memorization',
     description:
-      'Just /p: commands in your AI chat. Turn ideas into actionable technical tasks instantly.',
+      '"p. I\'m done" → /p:done | "p. start building auth" → /p:now | "p. ship this" → /p:ship. Works in any language.',
+  },
+  {
+    icon: Zap,
+    title: 'Ship Fast',
+    description:
+      '/p:now → work → /p:done → /p:ship → celebrate. No ceremonies, no meetings, just execution.',
   },
   {
     icon: Trophy,
-    title: 'Ship & Celebrate',
+    title: 'Developer Momentum',
     description:
-      'Track real progress. Celebrate wins and shipped features, not story points or velocity.',
+      'NOT a PM tool. Track real progress and celebrate shipped features, not story points.',
+  },
+  {
+    icon: Brain,
+    title: 'Focus Mode',
+    description:
+      'One task at a time. Stay focused on what matters: shipping features that work.',
   },
   {
     icon: Shield,
     title: 'Local First',
-    description: 'Your ideas, your code, your machine. No cloud tracking, no data mining.',
-  },
-  {
-    icon: GitBranch,
-    title: 'Global Architecture',
-    description:
-      'Data stored globally in ~/.prjct-cli/projects/ - switch between editors seamlessly with shared context.',
+    description: 'Your code, your machine. No cloud tracking, no data mining, no BS.',
   },
   {
     icon: Rocket,
     title: 'Instant Setup',
-    description: 'One curl command. Start shipping in minutes. Works with any AI assistant.',
-  },
-  {
-    icon: Sparkles,
-    title: 'Solo to Team',
-    description:
-      'Perfect for indie hackers and small teams (2-5 people). Global architecture enables seamless collaboration.',
+    description: 'npm install -g prjct-cli. Start shipping in 60 seconds with Claude.',
   },
 ]
 
@@ -87,10 +75,10 @@ export const Features = () => {
       className="bg-muted/30"
       title={
         <>
-          Built for <span className="hunt-glow">Shipping</span>
+          Developer <span className="hunt-glow">Superpowers</span>
         </>
       }
-      subtitle="Convert ideas into technical roadmaps that AI agents can execute"
+      subtitle="Built for Claude - Ship fast, stay focused, no BS"
       centered
       maxWidth="7xl"
     >
