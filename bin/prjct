@@ -8,6 +8,9 @@ async function main() {
 
     let result;
     switch(command) {
+        case 'start':
+            result = await commands.start();
+            break;
         case 'init':
             result = await commands.init();
             break;
@@ -107,23 +110,23 @@ async function main() {
 
             result = await commands.migrateAll(migrateOptions);
             break;
-        case 'install':
-            const installOptions = {};
-            const installArgs = args.slice(1);
+        case 'setup':
+            const setupOptions = {};
+            const setupArgs = args.slice(1);
 
-            for (let i = 0; i < installArgs.length; i++) {
-                if (installArgs[i] === '--force') {
-                    installOptions.force = true;
-                } else if (installArgs[i] === '--editor') {
-                    installOptions.editor = installArgs[++i];
-                } else if (installArgs[i] === '--create-templates') {
-                    installOptions.createTemplates = true;
-                } else if (installArgs[i] === '--no-interactive') {
-                    installOptions.interactive = false;
+            for (let i = 0; i < setupArgs.length; i++) {
+                if (setupArgs[i] === '--force') {
+                    setupOptions.force = true;
+                } else if (setupArgs[i] === '--editor') {
+                    setupOptions.editor = setupArgs[++i];
+                } else if (setupArgs[i] === '--create-templates') {
+                    setupOptions.createTemplates = true;
+                } else if (setupArgs[i] === '--no-interactive') {
+                    setupOptions.interactive = false;
                 }
             }
 
-            result = await commands.install(installOptions);
+            result = await commands.setup(setupOptions);
             break;
         case 'analyze':
             const analyzeOptions = {};
@@ -139,6 +142,15 @@ async function main() {
 
             result = await commands.analyze(analyzeOptions);
             break;
+        case '--version':
+        case '-v':
+        case 'version':
+            const packageJson = require('../package.json');
+            result = {
+                success: true,
+                message: `prjct-cli v${packageJson.version}`
+            };
+            break;
         case '--help':
         case '-h':
         case 'help':
@@ -146,6 +158,10 @@ async function main() {
             result = {
                 success: true,
                 message: `Available commands:
+  Setup:
+    start             First-time setup (install commands to editors)
+    setup             Reconfigure editor installations
+
   Core workflow:
     init              Initialize prjct in current project
     now [task]        Set or show current task
@@ -164,9 +180,8 @@ async function main() {
     design [target]   Design system/architecture
     analyze           Analyze codebase and sync state
     migrate-all       Migrate all legacy projects
-    install           Install commands to AI editors
 
-  Install options:
+  Setup options:
     --force           Force update existing commands
     --editor <name>   Install to specific editor (claude|cursor|codex|windsurf)
     --no-interactive  Skip interactive selection, install to all
@@ -179,6 +194,10 @@ async function main() {
                 message: `Unknown command: ${command}
 
 Available commands:
+  Setup:
+    start             First-time setup (install commands to editors)
+    setup             Reconfigure editor installations
+
   Core workflow:
     init              Initialize prjct in current project
     now [task]        Set or show current task
@@ -197,9 +216,8 @@ Available commands:
     design [target]   Design system/architecture
     analyze           Analyze codebase and sync state
     migrate-all       Migrate all legacy projects
-    install           Install commands to AI editors
 
-  Install options:
+  Setup options:
     --force           Force update existing commands
     --editor <name>   Install to specific editor (claude|cursor|codex|windsurf)
     --no-interactive  Skip interactive selection, install to all

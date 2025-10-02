@@ -250,6 +250,31 @@ class PrjctCommands {
   }
 
   /**
+   * Auto-initialize project if not configured
+   * Shows warning and runs init automatically
+   *
+   * @param {string} projectPath - Local project path
+   * @returns {Promise<{success: boolean, message?: string}>} Success or init result
+   */
+  async ensureProjectInit(projectPath) {
+    if (await configManager.isConfigured(projectPath)) {
+      return { success: true }
+    }
+
+    const chalk = require('chalk')
+    console.log(chalk.yellow('⚠️  Project not initialized'))
+    console.log(chalk.cyan('🔧 Running prjct init...\n'))
+
+    const initResult = await this.init(projectPath)
+    if (!initResult.success) {
+      return initResult
+    }
+
+    console.log(chalk.green('✅ Project initialized!\n'))
+    return { success: true }
+  }
+
+  /**
    * Get the global project path for a project
    * Ensures migration if needed
    *
@@ -413,6 +438,12 @@ class PrjctCommands {
       await this.initializeAgent()
       await this.ensureAuthor()
 
+      // Auto-init if not configured
+      const initCheck = await this.ensureProjectInit(projectPath)
+      if (!initCheck.success) {
+        return initCheck
+      }
+
       const nowFile = await this.getFilePath(projectPath, 'core', 'now.md')
 
       if (!task) {
@@ -494,6 +525,13 @@ class PrjctCommands {
   async done(projectPath = process.cwd()) {
     try {
       await this.initializeAgent()
+
+      // Auto-init if not configured
+      const initCheck = await this.ensureProjectInit(projectPath)
+      if (!initCheck.success) {
+        return initCheck
+      }
+
       const nowFile = await this.getFilePath(projectPath, 'core', 'now.md')
       const nextFile = await this.getFilePath(projectPath, 'core', 'next.md')
 
@@ -655,6 +693,12 @@ ${nextStep.agent}
     try {
       await this.initializeAgent()
 
+      // Auto-init if not configured
+      const initCheck = await this.ensureProjectInit(projectPath)
+      if (!initCheck.success) {
+        return initCheck
+      }
+
       if (!feature) {
         return {
           success: false,
@@ -764,6 +808,13 @@ ${nextStep.agent}
   async next(projectPath = process.cwd()) {
     try {
       await this.initializeAgent()
+
+      // Auto-init if not configured
+      const initCheck = await this.ensureProjectInit(projectPath)
+      if (!initCheck.success) {
+        return initCheck
+      }
+
       const nextFile = await this.getFilePath(projectPath, 'core', 'next.md')
       const content = await this.agent.readFile(nextFile)
 
@@ -805,6 +856,12 @@ ${nextStep.agent}
   async idea(text, projectPath = process.cwd()) {
     try {
       await this.initializeAgent()
+
+      // Auto-init if not configured
+      const initCheck = await this.ensureProjectInit(projectPath)
+      if (!initCheck.success) {
+        return initCheck
+      }
 
       if (!text) {
         return {
@@ -861,6 +918,12 @@ ${nextStep.agent}
   async recap(projectPath = process.cwd()) {
     try {
       await this.initializeAgent()
+
+      // Auto-init if not configured
+      const initCheck = await this.ensureProjectInit(projectPath)
+      if (!initCheck.success) {
+        return initCheck
+      }
 
       const nowFilePath = await this.getFilePath(projectPath, 'core', 'now.md')
       const nextFilePath = await this.getFilePath(projectPath, 'core', 'next.md')
@@ -1100,6 +1163,12 @@ ${nextStep.agent}
     try {
       await this.initializeAgent()
 
+      // Auto-init if not configured
+      const initCheck = await this.ensureProjectInit(projectPath)
+      if (!initCheck.success) {
+        return initCheck
+      }
+
       if (!issue) {
         return {
           success: false,
@@ -1236,9 +1305,23 @@ ${dryRun ? '⚠️ DRY RUN - No changes were made' : '✅ All changes applied su
     try {
       await this.initializeAgent()
 
+      // Verify project is initialized
+      if (!await configManager.isConfigured(projectPath)) {
+        return {
+          success: false,
+          message: this.agent.formatResponse(
+            `Project not initialized. Run ${this.agentInfo.config.commandPrefix}init first.`,
+            'warning'
+          ),
+        }
+      }
+
       const type = options.type || 'architecture'
 
-      const designDir = path.join(projectPath, this.prjctDir, 'designs')
+      // Use global architecture
+      const projectId = await configManager.getProjectId(projectPath)
+      const globalPath = pathManager.getGlobalProjectPath(projectId)
+      const designDir = path.join(globalPath, 'analysis', 'designs')
       await this.agent.createDirectory(designDir)
 
       let designContent = ''
@@ -1380,6 +1463,12 @@ ${diagram}
     try {
       await this.initializeAgent()
 
+      // Auto-init if not configured
+      const initCheck = await this.ensureProjectInit(projectPath)
+      if (!initCheck.success) {
+        return initCheck
+      }
+
       const projectInfo = await this.detectProjectType(projectPath)
 
       const nowFilePath = await this.getFilePath(projectPath, 'core', 'now.md')
@@ -1484,7 +1573,11 @@ ${diagram}
   async getDaysSinceLastShip(projectPath) {
     try {
       await this.initializeAgent()
-      const memoryFile = path.join(projectPath, this.prjctDir, 'memory.jsonl')
+
+      // Use global architecture
+      const projectId = await configManager.getProjectId(projectPath)
+      const globalPath = pathManager.getGlobalProjectPath(projectId)
+      const memoryFile = path.join(globalPath, 'memory', 'context.jsonl')
       const memory = await this.agent.readFile(memoryFile)
       const lines = memory
         .trim()
@@ -1670,14 +1763,28 @@ ${diagram}
   async cleanup(projectPath = process.cwd()) {
     try {
       await this.initializeAgent()
-      const prjctPath = path.join(projectPath, this.prjctDir)
+
+      // Verify project is initialized
+      if (!await configManager.isConfigured(projectPath)) {
+        return {
+          success: false,
+          message: this.agent.formatResponse(
+            `Project not initialized. Run ${this.agentInfo.config.commandPrefix}init first.`,
+            'warning'
+          ),
+        }
+      }
+
+      // Use global architecture
+      const projectId = await configManager.getProjectId(projectPath)
+      const globalPath = pathManager.getGlobalProjectPath(projectId)
 
       let totalFreed = 0
       let filesRemoved = 0
       let tasksArchived = 0
 
       try {
-        const tempDir = path.join(prjctPath, 'temp')
+        const tempDir = path.join(globalPath, 'temp')
         const tempFiles = await fs.readdir(tempDir).catch(() => [])
         for (const file of tempFiles) {
           const filePath = path.join(tempDir, file)
@@ -1690,7 +1797,7 @@ ${diagram}
       }
 
       try {
-        const memoryFile = path.join(prjctPath, 'memory.jsonl')
+        const memoryFile = path.join(globalPath, 'memory', 'context.jsonl')
         const content = await this.agent.readFile(memoryFile)
         const lines = content.split('\n').filter(line => line.trim())
         const now = new Date()
@@ -1714,7 +1821,7 @@ ${diagram}
         }
 
         if (archivedLines.length > 0) {
-          const archiveFile = path.join(prjctPath, `memory-archive-${now.toISOString().split('T')[0]}.jsonl`)
+          const archiveFile = path.join(globalPath, 'memory', `archive-${now.toISOString().split('T')[0]}.jsonl`)
           await this.agent.writeFile(archiveFile, archivedLines.join('\n') + '\n')
           await this.agent.writeFile(memoryFile, recentLines.join('\n') + '\n')
           tasksArchived = archivedLines.length
@@ -1722,10 +1829,10 @@ ${diagram}
       } catch (e) {
       }
 
-      const files = await fs.readdir(prjctPath)
+      const files = await fs.readdir(globalPath)
       for (const file of files) {
         if (file.endsWith('.md') || file.endsWith('.txt')) {
-          const filePath = path.join(prjctPath, file)
+          const filePath = path.join(globalPath, file)
           const stats = await fs.stat(filePath)
           if (stats.size === 0) {
             await fs.unlink(filePath)
@@ -1735,7 +1842,7 @@ ${diagram}
       }
 
       try {
-        const shippedFile = path.join(prjctPath, 'shipped.md')
+        const shippedFile = path.join(globalPath, 'progress', 'shipped.md')
         const content = await this.agent.readFile(shippedFile)
         const lines = content.split('\n')
         const now = new Date()
@@ -1834,12 +1941,109 @@ ${diagram}
   }
 
   /**
-   * Install commands to AI editors
+   * First-time setup - Install commands to AI editors with ASCII art welcome
+   *
+   * @returns {Promise<Object>} Result object with success flag and message
+   */
+  async start() {
+    try {
+      await this.initializeAgent()
+
+      // Check if already configured
+      const editorsConfig = require('./editors-config')
+      const configExists = await editorsConfig.configExists()
+
+      if (configExists) {
+        return {
+          success: false,
+          message: this.agent.formatResponse(
+            'prjct is already set up!\n\nTo reconfigure editors: prjct setup',
+            'warning'
+          ),
+        }
+      }
+
+      // ASCII Art
+      const chalk = require('chalk')
+      console.log(
+        chalk.cyan(`
+   ___  ____    _ ____ _____
+  / _ \\|  _ \\  | / ___|_   _|
+ | |_| | |_) |_| | |     | |
+ |  __/|  _ <| | | |___  | |
+ | |   | |_) | | |\\____| | |
+ |_|   |____/|_| |       |_|
+    `)
+      )
+
+      console.log(chalk.cyan('\n📦 Welcome to prjct-cli!\n'))
+
+      // Detect editors
+      const commandInstaller = require('./command-installer')
+      const detection = await commandInstaller.detectEditors()
+      const detectedEditors = Object.entries(detection).filter(([_, info]) => info.detected)
+
+      if (detectedEditors.length === 0) {
+        return {
+          success: false,
+          message: this.agent.formatResponse(
+            'No AI editors detected.\n\nSupported: Claude Code, Cursor, Windsurf',
+            'error'
+          ),
+        }
+      }
+
+      console.log(chalk.cyan('🔍 Detected AI editors:'))
+      detectedEditors.forEach(([key, info]) => {
+        console.log(chalk.green(`  [✓] ${info.name} (${info.path})`))
+      })
+      console.log('')
+
+      // Interactive selection
+      const installResult = await commandInstaller.interactiveInstall(false)
+
+      if (!installResult.success) {
+        return {
+          success: false,
+          message: this.agent.formatResponse(installResult.message || 'Setup failed', 'error'),
+        }
+      }
+
+      // Install Context7 MCP
+      const mcpResult = await commandInstaller.installContext7MCP()
+
+      // Success message
+      let message = `✅ Commands installed in: ${installResult.editors.join(', ')}\n`
+
+      if (mcpResult.success && mcpResult.editors.length > 0) {
+        message += `\n🔌 Context7 MCP enabled in: ${mcpResult.editors.join(', ')}`
+      }
+
+      message += '\n\n✨ prjct is ready to use!'
+      message += '\n\nNext steps:'
+      message += '\n  cd your-project/'
+      message += '\n  prjct init'
+
+      return {
+        success: true,
+        message: this.agent.formatResponse(message, 'celebrate'),
+      }
+    } catch (error) {
+      await this.initializeAgent()
+      return {
+        success: false,
+        message: this.agent.formatResponse(`Setup failed: ${error.message}`, 'error'),
+      }
+    }
+  }
+
+  /**
+   * Setup/reconfigure commands in AI editors
    *
    * @param {Object} [options={}] - Installation options
    * @returns {Promise<Object>} Result object with success flag and message
    */
-  async install(options = {}) {
+  async setup(options = {}) {
     try {
       await this.initializeAgent()
 
