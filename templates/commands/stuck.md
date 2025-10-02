@@ -1,123 +1,48 @@
 ---
 allowed-tools: [Read]
-description: "Get help when stuck on a problem"
+description: "Get unstuck"
 ---
 
-## Global Architecture
-This command uses the global prjct architecture:
-- Data stored in: `~/.prjct-cli/projects/{id}/`
-- Config stored in: `{project}/.prjct/prjct.config.json`
-- Commands synchronized across all editors
-
-
-
-# /p:stuck - Get Unstuck
-
-## Purpose
-Provide contextual help and suggestions when stuck on a problem.
+# /p:stuck
 
 ## Usage
 ```
-/p:stuck <issue description>
+/p:stuck <issue>
 ```
 
 ## Execution
-1. Analyze the issue type and context
-2. Reference project layers for additional context
-3. Provide relevant debugging steps or approach
-4. Suggest breaking into smaller tasks
-5. Log insights to memory layer
-6. Offer encouragement and next steps
 
-## Implementation
-
-1. **Issue categorization**:
-   - **Bug/Error**: Debugging steps
-   - **Design/Architecture**: Design approaches
-   - **Performance**: Optimization strategies
-   - **Feature**: Implementation breakdown
-   - **General**: Problem-solving framework
-
-2. **Response patterns**:
-
-   **For bugs/errors**:
-   ```
-   🔍 Debugging approach for: [issue]
-   
-   1. 📋 Check error message/logs
-   2. 🧑‍💻 Isolate the problem
-   3. 🧪 Test smallest case
-   4. 🔄 Try known working state
-   5. 📚 Check documentation
-   
-   💡 Quick fix: [specific suggestion]
-   ```
-
-   **For design/architecture**:
-   ```
-   🎨 Design approach for: [issue]
-   
-   1. 📝 Define requirements clearly
-   2. 🎯 Identify constraints
-   3. 🧩 Sketch possible solutions
-   4. ⚖️ Evaluate trade-offs
-   5. 🌱 Start with MVP
-   
-   💡 Consider: [pattern/approach]
-   ```
-
-   **For performance**:
-   ```
-   ⚡ Performance approach for: [issue]
-   
-   1. 📊 Measure first (profile)
-   2. 🎯 Find bottlenecks
-   3. 🍎 Pick low-hanging fruit
-   4. 🔄 Cache what you can
-   5. 🏎️ Optimize critical path
-   
-   💡 Try: [optimization technique]
-   ```
-
-3. **Context integration**:
-   Reference relevant layers for additional insights:
-   - **Analysis Layer**: Check `.prjct/analysis/repo-summary.md` for technical context
-   - **Planning Layer**: Review `.prjct/planning/roadmap.md` for strategic context
-   - **Memory Layer**: Search `.prjct/memory/context.jsonl` for similar past issues
-   - **Progress Layer**: Check `.prjct/progress/metrics.md` for capacity considerations
-
-4. **Break it down**:
-   ```
-   🧩 Let's break this into smaller tasks:
-
-   1. [Subtask 1] - 15 min
-   2. [Subtask 2] - 30 min
-   3. [Subtask 3] - 15 min
-
-   Start with #1: /p:now "[subtask 1]"
-
-   📂 Context available:
-   - Technical: .prjct/analysis/repo-summary.md
-   - Strategic: .prjct/planning/roadmap.md
-   - Historical: .prjct/memory/context.jsonl
-   ```
-
-5. **Log insights**:
-   Save problem-solving approach to `.prjct/memory/context.jsonl`:
+1. Detect issue type (bug/design/perf/feature)
+2. Check context:
+   - `~/.prjct-cli/projects/{id}/analysis/repo-summary.md`
+   - `~/.prjct-cli/projects/{id}/memory/context.jsonl`
+3. Log to `memory/context.jsonl`:
    ```json
-   {
-     "action": "stuck",
-     "issue": "[issue_description]",
-     "category": "[bug|design|performance|feature|general]",
-     "approach": "[debugging_strategy]",
-     "timestamp": "[ISO]",
-     "layer": "memory",
-     "resolution_status": "in_progress"
-   }
+   {"action":"stuck","issue":"[desc]","category":"[type]","approach":"[steps]","status":"in_progress"}
    ```
 
-6. **Encouragement**:
-   - "Every expert was once stuck here too!"
-   - "This is a learning opportunity!"
-   - "You're closer than you think!"
-   - "Take a break, come back fresh!"
+4. Response by type:
+
+   **Bug**: `🔍 1. Check logs 2. Isolate problem 3. Search error`
+
+   **Design**: `🎨 1. Define requirements 2. Start simple 3. Ship MVP`
+
+   **Performance**: `⚡ 1. Profile first 2. Fix slowest 3. Cache operations`
+
+   **Default**: `💡 1. Break into tasks 2. Start smallest 3. Ship it`
+
+5. Suggest breakdown + next actions:
+   ```
+   💡 [Type-specific guidance above]
+
+   Let's break it down:
+   1. [subtask 1] (~15min)
+   2. [subtask 2] (~30min)
+
+   Ready to start?
+   • "start the first part" → Begin small
+   • "add these as tasks" → Queue them
+   • "think more" → Capture ideas
+
+   Or: /p:now "[first subtask]" | /p:task | /p:idea
+   ```

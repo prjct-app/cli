@@ -3,14 +3,12 @@
  * Using Catppuccin color palette
  */
 
-const chalk = require('chalk');
-
+const chalk = require('chalk')
 
 if (!chalk.supportsColor) {
-  chalk.level = 3; // Full RGB color support
-  process.env.FORCE_COLOR = '3';
+  chalk.level = 3 // Full RGB color support
+  process.env.FORCE_COLOR = '3'
 }
-
 
 const catppuccin = {
 
@@ -29,7 +27,6 @@ const catppuccin = {
   blue: '#89b4fa',
   lavender: '#b4befe',
 
-
   text: '#cdd6f4',
   subtext1: '#bac2de',
   subtext0: '#a6adc8',
@@ -42,8 +39,7 @@ const catppuccin = {
   base: '#1e1e2e',
   mantle: '#181825',
   crust: '#11111b',
-};
-
+}
 
 const colors = {
   success: chalk.hex(catppuccin.green),
@@ -61,8 +57,7 @@ const colors = {
   text: chalk.hex(catppuccin.text),
   subtext: chalk.hex(catppuccin.subtext1),
   dim: chalk.hex(catppuccin.overlay1),
-};
-
+}
 
 const frames = {
   rocket: [
@@ -114,8 +109,7 @@ const frames = {
     '🎆',
     '🎇',
   ],
-};
-
+}
 
 const banners = {
   ship: `
@@ -142,88 +136,86 @@ ${colors.focus('🧹 ✨ Cleanup Magic ✨ 🧹')}`,
 ${colors.focus('━━━━━━━━━━━━━━━━━━━━━━━')}
 ${colors.focus.bold('   🎯 FOCUS MODE 🎯   ')}
 ${colors.focus('━━━━━━━━━━━━━━━━━━━━━━━')}`,
-};
-
+}
 
 async function animate(frames, duration = 100) {
   for (const frame of frames) {
-    process.stdout.write('\r' + frame);
-    await sleep(duration);
+    process.stdout.write('\r' + frame)
+    await sleep(duration)
   }
-  process.stdout.write('\r' + ' '.repeat(30) + '\r');
+  process.stdout.write('\r' + ' '.repeat(30) + '\r')
 }
 
 async function typeWriter(text, delay = 30) {
   for (let i = 0; i <= text.length; i++) {
-    process.stdout.write('\r' + text.slice(0, i) + (i < text.length ? '▋' : ''));
-    await sleep(delay);
+    process.stdout.write('\r' + text.slice(0, i) + (i < text.length ? '▋' : ''))
+    await sleep(delay)
   }
-  process.stdout.write('\n');
+  process.stdout.write('\n')
 }
 
 async function progressBar(duration = 1000, label = 'Processing') {
-  const steps = 20;
-  const stepDuration = duration / steps;
+  const steps = 20
+  const stepDuration = duration / steps
 
   for (let i = 0; i <= steps; i++) {
-    const percent = Math.round((i / steps) * 100);
-    const filled = '▓'.repeat(i);
-    const empty = '░'.repeat(steps - i);
-    const bar = `${colors.dim(label)} [${colors.primary(filled)}${colors.dim(empty)}] ${colors.text(percent + '%')}`;
-    process.stdout.write('\r' + bar);
-    await sleep(stepDuration);
+    const percent = Math.round((i / steps) * 100)
+    const filled = '▓'.repeat(i)
+    const empty = '░'.repeat(steps - i)
+    const bar = `${colors.dim(label)} [${colors.primary(filled)}${colors.dim(empty)}] ${colors.text(percent + '%')}`
+    process.stdout.write('\r' + bar)
+    await sleep(stepDuration)
   }
-  process.stdout.write('\n');
+  process.stdout.write('\n')
 }
 
 async function sparkle(message) {
-  const sparkles = ['✨', '⭐', '💫', '🌟'];
-  let output = '';
+  const sparkles = ['✨', '⭐', '💫', '🌟']
+  let output = ''
 
   for (let i = 0; i < 3; i++) {
-    const spark = sparkles[Math.floor(Math.random() * sparkles.length)];
-    output = `${spark} ${message} ${spark}`;
-    process.stdout.write('\r' + output);
-    await sleep(200);
-    process.stdout.write('\r' + ' '.repeat(output.length));
-    await sleep(100);
+    const spark = sparkles[Math.floor(Math.random() * sparkles.length)]
+    output = `${spark} ${message} ${spark}`
+    process.stdout.write('\r' + output)
+    await sleep(200)
+    process.stdout.write('\r' + ' '.repeat(output.length))
+    await sleep(100)
   }
 
-  console.log(output);
+  console.log(output)
 }
 
 function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise(resolve => setTimeout(resolve, ms))
 }
 
-
 function formatShip(feature, count) {
-  const banner = banners.ship;
+  const banner = banners.ship
   const stats = `
 ${colors.text('Feature:')} ${colors.ship.bold(feature)}
 ${colors.text('Total shipped:')} ${colors.success.bold(count)}
 ${colors.text('Velocity:')} ${colors.celebrate('🔥 On fire!')}
-  `;
+  `
 
-  return banner + stats;
+  return banner + stats
 }
 
 function formatFocus(task, timestamp) {
-  const banner = banners.focus;
+  const banner = banners.focus
   const info = `
 ${colors.text('Current task:')} ${colors.focus.bold(task)}
 ${colors.dim('Started:')} ${colors.subtext(timestamp)}
-  `;
+  `
 
-  return banner + info;
+  return banner + info
 }
 
 function formatSuccess(message) {
-  return `${colors.success('✅')} ${colors.text(message)}`;
+  return `${colors.success('✅')} ${colors.text(message)}`
 }
 
 function formatError(message) {
-  return `${colors.error('❌')} ${colors.text(message)}`;
+  return `${colors.error('❌')} ${colors.text(message)}`
 }
 
 function formatIdea(idea) {
@@ -233,7 +225,7 @@ ${colors.text('―'.repeat(30))}
 ${colors.subtext(idea)}
 ${colors.text('―'.repeat(30))}
 ${colors.dim('Added to your ideas backlog')}
-  `;
+  `
 }
 
 function formatCleanup(filesRemoved, tasksArchived, spaceFeed) {
@@ -245,11 +237,11 @@ ${colors.text('📦 Tasks archived:')} ${colors.success.bold(tasksArchived)}
 ${colors.text('💾 Space freed:')} ${colors.success.bold(spaceFeed + ' MB')}
 
 ${colors.celebrate('✨ Your project is clean and lean!')}
-  `;
+  `
 }
 
 function formatRecap(data) {
-  const divider = colors.primary('━'.repeat(40));
+  const divider = colors.primary('━'.repeat(40))
 
   return `
 ${divider}
@@ -263,7 +255,7 @@ ${colors.text('💡 Ideas captured:')} ${colors.idea.bold(data.ideasCount)}
 
 ${divider}
 ${colors.dim('Keep shipping! 🚀')}
-  `;
+  `
 }
 
 module.exports = {
@@ -282,4 +274,4 @@ module.exports = {
   formatCleanup,
   formatRecap,
   catppuccin,
-};
+}

@@ -11,7 +11,7 @@ class CapabilityInstaller {
   /**
    * Install capability and create tracking task
    */
-  async install(capability, recommendation, dataPath) {
+  async install(capability, recommendation, _dataPath) {
     const command = recommendation.install
     const startTime = Date.now()
 
@@ -28,14 +28,14 @@ class CapabilityInstaller {
         command,
         duration: durationMin,
         output: stdout,
-        errors: stderr || null
+        errors: stderr || null,
       }
     } catch (error) {
       return {
         success: false,
         capability,
         command,
-        error: error.message
+        error: error.message,
       }
     }
   }
@@ -47,7 +47,7 @@ class CapabilityInstaller {
     const configs = {
       test: () => this.configureTest(projectPath),
       design: () => this.configureDesign(projectPath),
-      docs: () => this.configureDocs(projectPath)
+      docs: () => this.configureDocs(projectPath),
     }
 
     if (configs[capability]) {
@@ -152,17 +152,17 @@ export default defineConfig({
         source: {
           include: ['src'],
           includePattern: '.+\\\\.js(doc|x)?$',
-          excludePattern: '(node_modules|docs)'
+          excludePattern: '(node_modules|docs)',
         },
         opts: {
           destination: './docs',
-          recurse: true
-        }
+          recurse: true,
+        },
       }
 
       await fs.writeFile(
         path.join(projectPath, 'jsdoc.json'),
-        JSON.stringify(config, null, 2)
+        JSON.stringify(config, null, 2),
       )
 
       // Add docs script

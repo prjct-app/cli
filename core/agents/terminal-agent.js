@@ -4,8 +4,6 @@
  */
 
 const fs = require('fs').promises
-const path = require('path')
-
 
 let chalk
 let animations
@@ -13,16 +11,12 @@ let animations
 try {
   chalk = require('chalk')
 
-
   if (chalk.supportsColor && chalk.supportsColor.has16m) {
-
     animations = require('../animations')
   } else {
-
     animations = require('../animations-simple')
   }
 } catch (e) {
-
   chalk = {
     green: (str) => str,
     blue: (str) => str,
@@ -46,11 +40,8 @@ class TerminalAgent {
    * Format response for terminal with ANSI colors and emojis
    */
   formatResponse(message, type = 'info') {
-
     if (animations) {
-
       if (type === 'success' && message.includes('Cleanup complete')) {
-
         const filesMatch = message.match(/Files removed: (\d+)/)
         const tasksMatch = message.match(/Tasks archived: (\d+)/)
         const spaceMatch = message.match(/Space freed: ([\d.]+)/)
@@ -59,12 +50,12 @@ class TerminalAgent {
           return animations.formatCleanup(
             parseInt(filesMatch[1]),
             parseInt(tasksMatch[1]),
-            parseFloat(spaceMatch[1])
+            parseFloat(spaceMatch[1]),
           )
         }
       }
 
-      switch(type) {
+      switch (type) {
         case 'success':
           return animations.formatSuccess(message)
         case 'error':
@@ -75,8 +66,7 @@ class TerminalAgent {
           return animations.formatFocus(message, new Date().toISOString())
         case 'idea':
           return animations.formatIdea(message)
-        default:
-
+        default: {
           const emojis = {
             warning: '⚠️',
             info: 'ℹ️',
@@ -86,9 +76,9 @@ class TerminalAgent {
           }
           const emoji = emojis[type] || '💬'
           return `${emoji} ${animations.colors.text(message)}`
+        }
       }
     }
-
 
     const emojis = {
       success: '✅',
@@ -118,7 +108,6 @@ class TerminalAgent {
 
     const emoji = emojis[type] || emojis.info
     const color = colors[type] || colors.info
-
 
     return `${emoji} ${color(message)}`
   }
@@ -194,7 +183,6 @@ class TerminalAgent {
       return this.formatResponse('No tasks in queue', 'info')
     }
 
-
     if (animations) {
       let output = animations.colors.primary.bold('\n📋 Task Queue\n')
       output += animations.colors.dim('─'.repeat(40)) + '\n'
@@ -205,7 +193,6 @@ class TerminalAgent {
 
       return output
     }
-
 
     let output = chalk.bold('\n📋 Task Queue\n')
     output += chalk.dim('─'.repeat(40)) + '\n'
@@ -221,11 +208,9 @@ class TerminalAgent {
    * Format recap with colored output
    */
   formatRecap(data) {
-
     if (animations) {
       return animations.formatRecap(data)
     }
-
 
     let output = '\n' + chalk.bold('📊 Project Recap\n')
     output += chalk.dim('─'.repeat(40)) + '\n\n'
@@ -250,7 +235,6 @@ class TerminalAgent {
    * Format progress report
    */
   formatProgress(data) {
-
     if (animations) {
       const trend =
         data.velocity > data.previousVelocity
@@ -278,7 +262,6 @@ class TerminalAgent {
 
       return output
     }
-
 
     const trend =
       data.velocity > data.previousVelocity
@@ -308,7 +291,6 @@ class TerminalAgent {
    * Get help content based on issue type
    */
   getHelpContent(issue) {
-
     if (animations) {
       const c = animations.colors
       const helps = {
@@ -351,7 +333,6 @@ ${c.idea.bold('💡 General Strategy:')}
 
       return helps[helpType]
     }
-
 
     const helps = {
       debugging: `
@@ -398,7 +379,6 @@ ${chalk.bold('💡 General Strategy:')}
    * Suggest next action based on context
    */
   suggestNextAction(context) {
-
     if (animations) {
       const c = animations.colors
       const suggestions = {
@@ -423,7 +403,6 @@ ${chalk.bold('💡 General Strategy:')}
 
       return suggestions[context] || c.dim('→ What would you like to work on next?')
     }
-
 
     const suggestions = {
       taskCompleted:
@@ -462,7 +441,6 @@ ${chalk.bold('💡 General Strategy:')}
    */
   showSpinner(message) {
     if (!process.stdout.isTTY) return
-
 
     const frames = animations?.frames?.loading || ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
     let i = 0

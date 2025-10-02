@@ -16,7 +16,7 @@ class ProjectCapabilities {
     return {
       design: await this.hasDesign(projectPath),
       test: await this.hasTest(projectPath),
-      docs: await this.hasDocs(projectPath)
+      docs: await this.hasDocs(projectPath),
     }
   }
 

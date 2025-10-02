@@ -4,7 +4,6 @@
  */
 
 const fs = require('fs').promises
-const path = require('path')
 
 class ClaudeAgent {
   constructor() {
@@ -13,7 +12,7 @@ class ClaudeAgent {
   }
 
   /**
-   * Format response for Claude Code with rich markdown and emojis
+   * Format response - minimal, actionable
    */
   formatResponse(message, type = 'info') {
     const emojis = {
@@ -29,10 +28,7 @@ class ClaudeAgent {
       task: '📝',
     }
 
-    const emoji = emojis[type] || emojis.info
-
-
-    return `${emoji} **${message}**`
+    return `${emojis[type] || emojis.info} ${message}`
   }
 
   /**
@@ -40,7 +36,6 @@ class ClaudeAgent {
    */
   async readFile(filePath) {
     try {
-
       if (global.mcp && global.mcp.filesystem) {
         return await global.mcp.filesystem.read(filePath)
       }
@@ -56,7 +51,6 @@ class ClaudeAgent {
    */
   async writeFile(filePath, content) {
     try {
-
       if (global.mcp && global.mcp.filesystem) {
         return await global.mcp.filesystem.write(filePath, content)
       }
@@ -109,124 +103,147 @@ class ClaudeAgent {
   }
 
   /**
-   * Format task list with rich formatting
+   * Format task list - data only
    */
   formatTaskList(tasks) {
     if (!tasks || tasks.length === 0) {
-      return this.formatResponse('No tasks in queue', 'info')
+      return '📋 No tasks queued'
     }
 
-    let output = '📋 **Task Queue**\n\n'
-    tasks.forEach((task, index) => {
-      output += `${index + 1}. ${task}\n`
-    })
-
-    return output
+    return '📋 Queue:\n' + tasks.map((t, i) => `${i + 1}. ${t}`).join('\n')
   }
 
   /**
-   * Format recap with rich formatting
+   * Format recap - metrics only
    */
   formatRecap(data) {
-    const output = `
-📊 **Project Recap**
+    return `📊 Recap
 
-🎯 **Current Task**: ${data.currentTask || 'None'}
-🚀 **Shipped Features**: ${data.shippedCount} total
-📝 **Queued Tasks**: ${data.queuedCount}
-💡 **Ideas Captured**: ${data.ideasCount}
-
-${data.recentActivity ? '**Recent Activity**:\n' + data.recentActivity : ''}
-
-_Keep shipping! Every feature counts!_ 💪
-        `.trim()
-
-    return output
+🎯 Current: ${data.currentTask || 'None'}
+🚀 Shipped: ${data.shippedCount}
+📝 Queue: ${data.queuedCount}
+💡 Ideas: ${data.ideasCount}
+${data.recentActivity ? '\n' + data.recentActivity : ''}`
   }
 
   /**
-   * Format progress report
+   * Format progress - data only
    */
   formatProgress(data) {
     const trend =
-      data.velocity > data.previousVelocity
-        ? '📈'
-        : data.velocity < data.previousVelocity
-          ? '📉'
-          : '➡️'
+      data.velocity > data.previousVelocity ? '📈' : data.velocity < data.previousVelocity ? '📉' : '➡️'
 
-    const output = `
-📊 **Progress Report** (${data.period})
+    return `📊 ${data.period}
 
-**Features Shipped**: ${data.count}
-**Velocity**: ${data.velocity.toFixed(1)} features/day ${trend}
-
-${data.recentFeatures ? '**Recent Wins**:\n' + data.recentFeatures : ''}
-
-${data.motivationalMessage}
-        `.trim()
-
-    return output
+Shipped: ${data.count}
+Velocity: ${data.velocity.toFixed(1)}/day ${trend}
+${data.recentFeatures || ''}`
   }
 
   /**
-   * Get help content based on issue type
+   * Get help - actionable steps only
    */
   getHelpContent(issue) {
     const helps = {
-      debugging: `
-🔍 **Debugging Strategy**:
-1. **Isolate**: Comment out code until error disappears
-2. **Log**: Add console.log at key points
-3. **Simplify**: Create minimal reproduction
-4. **Research**: Search for exact error message
-5. **Break**: Take a walk, fresh perspective helps!
-            `,
-      design: `
-🎨 **Design Approach**:
-1. **Start Simple**: Basic version first
-2. **User First**: What problem does this solve?
-3. **Iterate**: Ship v1, improve based on feedback
-4. **Patterns**: Look for similar solutions
-5. **Validate**: Show mockup before building
-            `,
-      performance: `
-⚡ **Performance Strategy**:
-1. **Measure First**: Profile before optimizing
-2. **Biggest Wins**: Focus on slowest parts
-3. **Cache**: Store expensive computations
-4. **Lazy Load**: Defer non-critical work
-5. **Monitor**: Track improvements
-            `,
-      default: `
-💡 **General Strategy**:
-1. **Break It Down**: Divide into smaller tasks
-2. **Start Small**: Implement simplest part first
-3. **Test Often**: Verify each step works
-4. **Document**: Write down what you learn
-5. **Ship It**: Perfect is the enemy of done
-            `,
+      debugging: '🔍 1. Isolate code causing error\n2. Add logs at key points\n3. Search exact error message',
+      design: '🎨 1. Define problem clearly\n2. Start with simplest solution\n3. Ship MVP, iterate',
+      performance:
+        '⚡ 1. Profile/measure first\n2. Optimize slowest parts\n3. Cache expensive operations',
+      default: '💡 1. Break into smaller tasks\n2. Start with simplest part\n3. Ship it',
     }
 
-    const helpType =
-      Object.keys(helps).find((key) => issue.toLowerCase().includes(key)) || 'default'
-
+    const helpType = Object.keys(helps).find((key) => issue.toLowerCase().includes(key)) || 'default'
     return helps[helpType]
   }
 
   /**
-   * Suggest next action based on context
+   * Suggest next action - conversational prompts
    */
   suggestNextAction(context) {
     const suggestions = {
-      taskCompleted: '💡 Ready for the next challenge? Use `/p:next` to see your queue!',
-      featureShipped: '🎉 Awesome! Take a moment to celebrate, then `/p:now` for next focus!',
-      ideaCaptured: '💭 Great idea! Use `/p:now` to start working on it!',
-      initialized: '🚀 All set! Start with `/p:now "your first task"`',
-      stuck: '💪 You got this! Break it down with `/p:idea` for each step',
+      taskCompleted: `What's next?
+• "start [task]" → Begin working
+• "ship feature" → Track & celebrate
+• "add idea" → Brainstorm
+
+Or: /p:now | /p:ship | /p:idea`,
+
+      featureShipped: `Keep the momentum!
+• "start next task" → Keep building
+• "see progress" → View stats
+• "plan ahead" → Strategic thinking
+
+Or: /p:now | /p:recap | /p:roadmap`,
+
+      ideaCaptured: `Ready to start?
+• "start this" → Begin now
+• "plan more" → Keep brainstorming
+• "see ideas" → View backlog
+
+Or: /p:now | /p:idea | /p:recap`,
+
+      initialized: `Ready to start? Tell me what you want to build!
+
+Or type /p:help to see all options`,
+
+      stuck: `Let's break it down:
+• "start the first part"
+• "add as tasks"
+• "think more"
+
+Or: /p:now | /p:task | /p:idea`,
     }
 
-    return suggestions[context] || '→ What would you like to work on next?'
+    return suggestions[context] || `What would you like to do?
+
+Type /p:help to see all options`
+  }
+
+  /**
+   * Detect user intent from natural language
+   */
+  detectIntent(message) {
+    const msg = message.toLowerCase()
+
+    // Start/begin task
+    if (/^(start|empez|begin|quiero|want|let'?s|voy)/i.test(msg)) {
+      return { intent: 'start', command: 'now' }
+    }
+
+    // Complete task
+    if (/^(done|termin|finish|acab|complete|listo|ya)/i.test(msg)) {
+      return { intent: 'complete', command: 'done' }
+    }
+
+    // Ship feature
+    if (/^(ship|deploy|launch|public)/i.test(msg)) {
+      return { intent: 'ship', command: 'ship' }
+    }
+
+    // Capture idea
+    if (/^(idea|think|thought|ocurr|tengo)/i.test(msg)) {
+      return { intent: 'idea', command: 'idea' }
+    }
+
+    // View status/progress
+    if (
+      /(show|see|view|muestra|ver).*(progress|status|recap|avance)/i.test(msg) ||
+      /^(progress|status|recap|avance)/i.test(msg)
+    ) {
+      return { intent: 'status', command: 'recap' }
+    }
+
+    // Stuck/help
+    if (/^(stuck|help|ayud|atascado|perdido)/i.test(msg)) {
+      return { intent: 'stuck', command: 'stuck' }
+    }
+
+    // View queue/next
+    if (/(what|que).*(next|sigue|after|despues)/i.test(msg) || /^(next|sigue)/i.test(msg)) {
+      return { intent: 'next', command: 'next' }
+    }
+
+    return { intent: 'unknown', command: null }
   }
 }
 

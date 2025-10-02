@@ -21,14 +21,14 @@ class CommandInstaller {
         commandsPath: path.join(this.homeDir, '.claude', 'commands', 'p'),
         configPath: path.join(this.homeDir, '.claude'),
         format: 'slash-commands', // *.md with frontmatter
-        detected: false
+        detected: false,
       },
       cursor: {
         name: 'Cursor AI',
         commandsPath: path.join(this.homeDir, '.cursor', 'commands', 'p'),
         configPath: path.join(this.homeDir, '.cursor'),
         format: 'slash-commands', // *.md with frontmatter
-        detected: false
+        detected: false,
       },
       codex: {
         name: 'OpenAI Codex',
@@ -36,7 +36,7 @@ class CommandInstaller {
         configPath: path.join(this.homeDir, '.codex'),
         format: 'agents-md', // Single instructions.md file
         detected: false,
-        projectBased: false
+        projectBased: false,
       },
       windsurf: {
         name: 'Windsurf/Codeium',
@@ -44,8 +44,8 @@ class CommandInstaller {
         configPath: path.join(this.homeDir, '.windsurf'),
         format: 'workflows', // *.md workflows
         detected: false,
-        projectBased: false
-      }
+        projectBased: false,
+      },
     }
 
     this.templatesDir = path.join(__dirname, '..', 'templates', 'commands')
@@ -119,7 +119,7 @@ class CommandInstaller {
         'task.md',
         'git.md',
         'fix.md',
-        'test.md'
+        'test.md',
       ]
     }
   }
@@ -235,13 +235,13 @@ For detailed implementation, see prjct-cli documentation.
         default:
           return {
             success: false,
-            message: `Unknown format: ${editor.format}`
+            message: `Unknown format: ${editor.format}`,
           }
       }
     } catch (error) {
       return {
         success: false,
-        message: `Installation failed for ${editor.name}: ${error.message}`
+        message: `Installation failed for ${editor.name}: ${error.message}`,
       }
     }
   }
@@ -300,7 +300,7 @@ For detailed implementation, see prjct-cli documentation.
       installed: installed.length,
       updated: updated.length,
       skipped: skipped.length,
-      details: { installed, updated, skipped }
+      details: { installed, updated, skipped },
     }
   }
 
@@ -321,7 +321,7 @@ For detailed implementation, see prjct-cli documentation.
         installed: 0,
         updated: 0,
         skipped: 1,
-        details: { installed: [], updated: [], skipped: ['AGENTS.md'] }
+        details: { installed: [], updated: [], skipped: ['AGENTS.md'] },
       }
     }
 
@@ -339,8 +339,8 @@ For detailed implementation, see prjct-cli documentation.
       details: {
         installed: exists ? [] : ['AGENTS.md'],
         updated: exists ? ['AGENTS.md'] : [],
-        skipped: []
-      }
+        skipped: [],
+      },
     }
   }
 
@@ -388,7 +388,7 @@ For detailed implementation, see prjct-cli documentation.
       installed: installed.length,
       updated: updated.length,
       skipped: skipped.length,
-      details: { installed, updated, skipped }
+      details: { installed, updated, skipped },
     }
   }
 
@@ -410,7 +410,7 @@ For detailed implementation, see prjct-cli documentation.
       if (!editor) {
         results[editorKey] = {
           success: false,
-          message: `Unknown editor: ${editorKey}`
+          message: `Unknown editor: ${editorKey}`,
         }
         continue
       }
@@ -418,7 +418,7 @@ For detailed implementation, see prjct-cli documentation.
       if (!editor.detected) {
         results[editorKey] = {
           success: false,
-          message: `${editor.name} not detected on this system`
+          message: `${editor.name} not detected on this system`,
         }
         continue
       }
@@ -433,7 +433,7 @@ For detailed implementation, see prjct-cli documentation.
       return {
         success: false,
         message: 'No editors were successfully installed to',
-        results
+        results,
       }
     }
 
@@ -447,7 +447,7 @@ For detailed implementation, see prjct-cli documentation.
       editors: installedTo,
       totalInstalled,
       totalUpdated,
-      results
+      results,
     }
   }
 
@@ -466,7 +466,7 @@ For detailed implementation, see prjct-cli documentation.
       return {
         success: false,
         message: 'No AI editors detected',
-        results: {}
+        results: {},
       }
     }
 
@@ -490,7 +490,7 @@ For detailed implementation, see prjct-cli documentation.
       .map(([key, info]) => ({
         title: `${this.editors[key].name} (${info.path})`,
         value: key,
-        selected: true // Pre-select all detected editors
+        selected: true, // Pre-select all detected editors
       }))
 
     if (availableEditors.length === 0) {
@@ -498,7 +498,7 @@ For detailed implementation, see prjct-cli documentation.
         success: false,
         message: 'No AI editors detected on this system.\n\nSupported editors:\n  • Claude Code (~/.claude)\n  • Cursor AI (~/.cursor)\n  • Windsurf/Codeium (~/.windsurf)\n  • OpenAI Codex (~/.codex)',
         editors: [],
-        results: {}
+        results: {},
       }
     }
 
@@ -510,7 +510,7 @@ For detailed implementation, see prjct-cli documentation.
       choices: availableEditors,
       min: 1,
       hint: '- Space to select. Return to submit',
-      instructions: false
+      instructions: false,
     })
 
     // Check if user cancelled
@@ -519,7 +519,7 @@ For detailed implementation, see prjct-cli documentation.
         success: false,
         message: 'Installation cancelled by user',
         editors: [],
-        results: {}
+        results: {},
       }
     }
 
@@ -535,7 +535,7 @@ For detailed implementation, see prjct-cli documentation.
   updateCommandForGlobalArchitecture(content) {
     let updated = content.replace(
       /\.prjct\//g,
-      '~/.prjct-cli/projects/{id}/'
+      '~/.prjct-cli/projects/{id}/',
     )
 
     if (!content.includes('Global Architecture')) {
@@ -585,7 +585,7 @@ This command uses the global prjct architecture:
       if (!hasClaudeCommands) {
         return {
           success: false,
-          message: 'No source commands found. Claude Code commands directory not detected.'
+          message: 'No source commands found. Claude Code commands directory not detected.',
         }
       }
 
@@ -607,12 +607,12 @@ This command uses the global prjct architecture:
       return {
         success: true,
         message: `Created ${copied} command templates`,
-        count: copied
+        count: copied,
       }
     } catch (error) {
       return {
         success: false,
-        message: `Template creation failed: ${error.message}`
+        message: `Template creation failed: ${error.message}`,
       }
     }
   }
@@ -637,7 +637,7 @@ This command uses the global prjct architecture:
         `🔄 Commands updated: ${results.updated}`,
         `⊘ Commands skipped: ${results.skipped}`,
         '',
-        '💡 Commands are now available in your editor!'
+        '💡 Commands are now available in your editor!',
       ]
       return lines.join('\n')
     }
@@ -649,7 +649,7 @@ This command uses the global prjct architecture:
       `📦 Editors: ${results.editors.join(', ')}`,
       `📝 Commands installed: ${results.totalInstalled}`,
       `🔄 Commands updated: ${results.totalUpdated}`,
-      ''
+      '',
     ]
 
     for (const [key, result] of Object.entries(results.results)) {
@@ -675,7 +675,7 @@ This command uses the global prjct architecture:
     const results = {
       success: true,
       editors: [],
-      details: {}
+      details: {},
     }
 
     const mcpConfigTemplate = path.join(__dirname, '..', 'templates', 'mcp-config.json')
@@ -753,7 +753,7 @@ This command uses the global prjct architecture:
 
         // Add MCP section if not present
         if (!content.includes('## MCP Integration')) {
-          const mcpSection = `\n\n## MCP Integration\n\nThe system integrates with MCP servers:\n\n- **Context7**: Library documentation lookup\n- **Filesystem**: Direct file manipulation\n- **Memory**: Persistent decision storage\n- **Sequential**: Deep reasoning for complex problems\n\n### Using Context7\n\nFor any library or framework questions, use Context7 MCP to lookup official documentation:\n\n\`\`\`\n# Example: Get React hooks documentation\nUse Context7 to lookup React hooks patterns before implementing\n\`\`\`\n`
+          const mcpSection = '\n\n## MCP Integration\n\nThe system integrates with MCP servers:\n\n- **Context7**: Library documentation lookup\n- **Filesystem**: Direct file manipulation\n- **Memory**: Persistent decision storage\n- **Sequential**: Deep reasoning for complex problems\n\n### Using Context7\n\nFor any library or framework questions, use Context7 MCP to lookup official documentation:\n\n```\n# Example: Get React hooks documentation\nUse Context7 to lookup React hooks patterns before implementing\n```\n'
           content += mcpSection
           await fs.writeFile(codexInstructions, content, 'utf-8')
         }

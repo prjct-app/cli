@@ -46,11 +46,40 @@ Each agent gets optimized output:
 
 ## ⚡ Installation
 
-### Quick Install (Recommended)
+Choose the installation method that works best for you:
+
+### Homebrew (Recommended for macOS)
+
+```bash
+brew tap jlopezlira/prjct
+brew install prjct
+```
+
+**Benefits**: Automatic updates via `brew upgrade`, clean uninstall, system integration.
+
+### Bun (Lightning Fast)
+
+```bash
+curl -fsSL https://prjct.dev/install-bun.sh | bash
+```
+
+**Benefits**: 10x faster than npm, modern JavaScript runtime, zero-config.
+
+### npm/Node.js
+
+```bash
+npm install -g @prjct/cli
+```
+
+**Benefits**: Standard npm ecosystem, works everywhere Node.js runs.
+
+### Quick Install Script (Cross-platform)
 
 ```bash
 curl -fsSL https://prjct.app/install.sh | bash
 ```
+
+**Benefits**: Works on any Unix-like system, automatic platform detection.
 
 #### Installation Options
 
@@ -67,6 +96,8 @@ curl -fsSL https://prjct.app/install.sh | bash -s -- --dev
 # Show help
 curl -fsSL https://prjct.app/install.sh | bash -s -- --help
 ```
+
+> **Note**: For detailed installation instructions, troubleshooting, and platform-specific guidance, see [INSTALL.md](docs/INSTALL.md).
 
 ### Editor Command Installation
 

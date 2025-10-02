@@ -170,7 +170,7 @@ class PathManager {
       'sessions',
       year,
       month,
-      day
+      day,
     )
   }
 
@@ -234,7 +234,7 @@ class PathManager {
               month: monthEntry.name,
               day: dayEntry.name,
               path: path.join(monthPath, dayEntry.name),
-              date: new Date(`${yearEntry.name}-${monthEntry.name}-${dayEntry.name}`)
+              date: new Date(`${yearEntry.name}-${monthEntry.name}-${dayEntry.name}`),
             })
           }
         }

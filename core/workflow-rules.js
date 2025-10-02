@@ -12,13 +12,13 @@ module.exports = {
       action: 'Create component design',
       required: false,
       needs: 'design',
-      prompt: true
+      prompt: true,
     },
     {
       name: 'dev',
       agent: 'frontend',
       action: 'Implement component',
-      required: true
+      required: true,
     },
     {
       name: 'test',
@@ -27,7 +27,7 @@ module.exports = {
       required: false,
       needs: 'test',
       retry: 3,
-      prompt: true
+      prompt: true,
     },
     {
       name: 'docs',
@@ -35,8 +35,8 @@ module.exports = {
       action: 'Document component',
       required: false,
       needs: 'docs',
-      prompt: true
-    }
+      prompt: true,
+    },
   ],
 
   // API Endpoint workflow
@@ -45,7 +45,7 @@ module.exports = {
       name: 'dev',
       agent: 'backend',
       action: 'Implement endpoint',
-      required: true
+      required: true,
     },
     {
       name: 'test',
@@ -54,7 +54,7 @@ module.exports = {
       required: false,
       needs: 'test',
       retry: 3,
-      prompt: true
+      prompt: true,
     },
     {
       name: 'docs',
@@ -62,8 +62,8 @@ module.exports = {
       action: 'Document API',
       required: false,
       needs: 'docs',
-      prompt: true
-    }
+      prompt: true,
+    },
   ],
 
   // Bug Fix workflow
@@ -72,13 +72,13 @@ module.exports = {
       name: 'analyze',
       agent: 'analyzer',
       action: 'Analyze bug',
-      required: true
+      required: true,
     },
     {
       name: 'fix',
       agent: 'auto',
       action: 'Fix bug',
-      required: true
+      required: true,
     },
     {
       name: 'test',
@@ -87,8 +87,8 @@ module.exports = {
       required: false,
       needs: 'test',
       retry: 3,
-      prompt: true
-    }
+      prompt: true,
+    },
   ],
 
   // Refactor workflow
@@ -97,7 +97,7 @@ module.exports = {
       name: 'refactor',
       agent: 'refactorer',
       action: 'Refactor code',
-      required: true
+      required: true,
     },
     {
       name: 'test',
@@ -106,8 +106,8 @@ module.exports = {
       required: false,
       needs: 'test',
       retry: 3,
-      prompt: true
-    }
+      prompt: true,
+    },
   ],
 
   // Feature workflow (complete feature)
@@ -118,13 +118,13 @@ module.exports = {
       action: 'Design feature',
       required: false,
       needs: 'design',
-      prompt: true
+      prompt: true,
     },
     {
       name: 'dev',
       agent: 'auto',
       action: 'Implement feature',
-      required: true
+      required: true,
     },
     {
       name: 'test',
@@ -133,7 +133,7 @@ module.exports = {
       required: false,
       needs: 'test',
       retry: 3,
-      prompt: true
+      prompt: true,
     },
     {
       name: 'docs',
@@ -141,7 +141,7 @@ module.exports = {
       action: 'Document feature',
       required: false,
       needs: 'docs',
-      prompt: true
-    }
-  ]
+      prompt: true,
+    },
+  ],
 }

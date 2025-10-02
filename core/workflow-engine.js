@@ -30,7 +30,7 @@ class WorkflowEngine {
       index,
       status: 'pending',
       skipped: false,
-      needsPrompt: !s.required && s.prompt && !caps[s.needs]
+      needsPrompt: !s.required && s.prompt && !caps[s.needs],
     }))
 
     // Track which capabilities are missing
@@ -46,7 +46,7 @@ class WorkflowEngine {
       missingCapabilities,
       current: 0,
       active: true,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
     }
 
     await this.save(workflow, dataPath)
@@ -122,7 +122,7 @@ class WorkflowEngine {
       ...installTask,
       index: currentIndex,
       status: 'in_progress',
-      insertedAt: new Date().toISOString()
+      insertedAt: new Date().toISOString(),
     })
 
     // Reindex all subsequent steps
@@ -167,9 +167,9 @@ class WorkflowEngine {
       steps: wf.steps.map(s => ({
         name: s.name,
         status: s.status,
-        agent: s.agent
+        agent: s.agent,
       })),
-      skipped: wf.skipped
+      skipped: wf.skipped,
     }
   }
 

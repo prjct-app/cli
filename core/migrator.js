@@ -30,7 +30,6 @@ class Migrator {
     const structureMigration = await configManager.needsMigration(projectPath)
     if (structureMigration) return true
 
-
     const config = await configManager.readConfig(projectPath)
     if (config && config.version && config.version.startsWith('0.2.')) {
       return true
@@ -50,7 +49,7 @@ class Migrator {
       success: false,
       message: '',
       oldVersion: null,
-      newVersion: '0.3.0'
+      newVersion: '0.3.0',
     }
 
     try {
@@ -63,15 +62,12 @@ class Migrator {
       result.oldVersion = localConfig.version
       const projectId = localConfig.projectId
 
-
       const globalConfig = await configManager.readGlobalConfig(projectId)
       if (globalConfig && globalConfig.authors && globalConfig.authors.length > 0) {
-
         const needsCleanup = localConfig.authors || localConfig.author ||
                             localConfig.version || localConfig.created || localConfig.lastSync
 
         if (needsCleanup) {
-
           delete localConfig.authors
           delete localConfig.author
           delete localConfig.version
@@ -84,47 +80,41 @@ class Migrator {
         return result
       }
 
-
       let authors = []
       const now = new Date().toISOString()
 
       if (localConfig.authors && Array.isArray(localConfig.authors)) {
-
         authors = localConfig.authors
       } else if (localConfig.author) {
-
         authors = [
           {
             name: localConfig.author.name || 'Unknown',
             email: localConfig.author.email || '',
             github: localConfig.author.github || '',
             firstContribution: localConfig.created || now,
-            lastActivity: localConfig.lastSync || now
-          }
+            lastActivity: localConfig.lastSync || now,
+          },
         ]
       } else {
-
         authors = [
           {
             name: 'Unknown',
             email: '',
             github: '',
             firstContribution: now,
-            lastActivity: now
-          }
+            lastActivity: now,
+          },
         ]
       }
-
 
       const newGlobalConfig = {
         projectId,
         authors,
         version: '0.3.0',
         created: localConfig.created || now,
-        lastSync: now
+        lastSync: now,
       }
       await configManager.writeGlobalConfig(projectId, newGlobalConfig)
-
 
       delete localConfig.authors
       delete localConfig.author
@@ -180,31 +170,25 @@ class Migrator {
    * @private
    */
   mapLegacyFile(filename) {
-
     if (filename === 'now.md' || filename === 'next.md' || filename === 'context.md') {
       return { layer: 'core', filename }
     }
-
 
     if (filename === 'shipped.md' || filename === 'metrics.md') {
       return { layer: 'progress', filename }
     }
 
-
     if (filename === 'ideas.md' || filename === 'roadmap.md') {
       return { layer: 'planning', filename }
     }
-
 
     if (filename === 'memory.jsonl' || filename === 'context.jsonl' || filename === 'decisions.jsonl') {
       return { layer: 'memory', filename }
     }
 
-
     if (filename === 'repo-summary.md') {
       return { layer: 'analysis', filename }
     }
-
 
     return { layer: '.', filename }
   }
@@ -225,7 +209,7 @@ class Migrator {
       planning: 0,
       analysis: 0,
       memory: 0,
-      other: 0
+      other: 0,
     }
 
     const validLayers = ['core', 'progress', 'planning', 'analysis', 'memory', 'sessions']
@@ -234,42 +218,34 @@ class Migrator {
     for (const entry of entries) {
       const sourcePath = path.join(legacyPath, entry.name)
 
-
       if (entry.name === 'prjct.config.json' || entry.name.endsWith('.old')) {
         continue
       }
 
       if (entry.isDirectory()) {
-
         if (validLayers.includes(entry.name)) {
-
           const destPath = path.join(globalPath, entry.name)
           const count = await this.copyDirectory(sourcePath, destPath)
           fileCount += count
-          if (layerCounts.hasOwnProperty(entry.name)) {
+          if (Object.prototype.hasOwnProperty.call(layerCounts, entry.name)) {
             layerCounts[entry.name] += count
           } else {
             layerCounts.other += count
           }
         } else {
-
           const destPath = path.join(globalPath, 'planning', entry.name)
           const count = await this.copyDirectory(sourcePath, destPath)
           fileCount += count
           layerCounts.planning += count
         }
       } else {
-
         const mapping = this.mapLegacyFile(entry.name)
         const destPath = path.join(globalPath, mapping.layer, mapping.filename)
 
-
         await fs.mkdir(path.dirname(destPath), { recursive: true })
-
 
         await fs.copyFile(sourcePath, destPath)
         fileCount++
-
 
         if (mapping.layer === '.') {
           layerCounts.other++
@@ -292,13 +268,11 @@ class Migrator {
   async validateMigration(projectId) {
     const issues = []
 
-
     const exists = await pathManager.projectExists(projectId)
     if (!exists) {
       issues.push('Global project directory not found')
       return { valid: false, issues }
     }
-
 
     const globalPath = pathManager.getGlobalProjectPath(projectId)
     const requiredLayers = ['core', 'progress', 'planning', 'analysis', 'memory']
@@ -311,7 +285,6 @@ class Migrator {
       }
     }
 
-
     try {
       const coreFiles = await fs.readdir(path.join(globalPath, 'core'))
       if (coreFiles.length === 0) {
@@ -323,7 +296,7 @@ class Migrator {
 
     return {
       valid: issues.length === 0,
-      issues
+      issues,
     }
   }
 
@@ -369,11 +342,10 @@ class Migrator {
       config: null,
       author: null,
       issues: [],
-      dryRun: options.dryRun || false
+      dryRun: options.dryRun || false,
     }
 
     try {
-
       const config = await configManager.readConfig(projectPath)
       if (config && config.version && config.version.startsWith('0.2.')) {
         const versionMigration = await this.migrateConfigTo030(projectPath)
@@ -384,7 +356,6 @@ class Migrator {
         return result
       }
 
-
       const needsStructuralMigration = await configManager.needsMigration(projectPath)
       if (!needsStructuralMigration) {
         result.success = false
@@ -392,26 +363,20 @@ class Migrator {
         return result
       }
 
-
       result.author = await authorDetector.detect()
-
 
       const projectId = pathManager.generateProjectId(projectPath)
       result.projectId = projectId
 
       if (options.dryRun) {
-
         result.success = true
         result.issues.push('DRY RUN - No changes were made')
         return result
       }
 
-
       await pathManager.ensureProjectStructure(projectId)
 
-
       result.config = await configManager.createConfig(projectPath, result.author)
-
 
       const legacyPath = pathManager.getLegacyPrjctPath(projectPath)
       const globalPath = pathManager.getGlobalProjectPath(projectId)
@@ -419,7 +384,6 @@ class Migrator {
       const migrationStats = await this.migrateFiles(legacyPath, globalPath)
       result.filesCopied = migrationStats.fileCount
       result.layerCounts = migrationStats.layerCounts
-
 
       const validation = await this.validateMigration(projectId)
       result.issues = validation.issues
@@ -429,20 +393,16 @@ class Migrator {
         return result
       }
 
-
       if (options.removeLegacy) {
         await fs.rm(legacyPath, { recursive: true, force: true })
         result.legacyRemoved = true
-      }
-
-      else if (options.cleanupLegacy) {
+      } else if (options.cleanupLegacy) {
         await this.cleanupLegacyDirectories(projectPath)
         result.legacyCleaned = true
       }
 
       result.success = true
       return result
-
     } catch (error) {
       result.success = false
       result.issues.push(`Migration error: ${error.message}`)
@@ -530,7 +490,7 @@ class Migrator {
       hasLegacy,
       hasConfig,
       needsMigration,
-      version: hasConfig ? '0.2.0' : hasLegacy ? '0.1.0' : 'none'
+      version: hasConfig ? '0.2.0' : hasLegacy ? '0.1.0' : 'none',
     }
   }
 
@@ -546,12 +506,10 @@ class Migrator {
     const projectDirs = []
     const os = require('os')
 
-
     let searchPaths = []
     if (deepScan) {
       searchPaths = [os.homedir()]
     } else {
-
       const commonDirs = ['Projects', 'Documents', 'Developer', 'Code', 'dev', 'workspace', 'repos', 'src']
       searchPaths = commonDirs
         .map(dir => path.join(os.homedir(), dir))
@@ -565,7 +523,6 @@ class Migrator {
         })
     }
 
-
     const shouldSkip = (dirName) => {
       const skipDirs = [
         'node_modules',
@@ -578,25 +535,21 @@ class Migrator {
         '.vscode',
         '.idea',
         'vendor',
-        '__pycache__'
+        '__pycache__',
       ]
       return skipDirs.includes(dirName) || (dirName.startsWith('.') && dirName !== '.prjct')
     }
 
-
-    const searchDirectory = async (dirPath, depth = 0) => {
-
+    const searchDirectory = async(dirPath, depth = 0) => {
       if (depth > 10) return
 
       try {
         const entries = await fs.readdir(dirPath, { withFileTypes: true })
 
-
         if (entries.some(entry => entry.name === '.prjct' && entry.isDirectory())) {
           projectDirs.push(dirPath)
           return // Don't search subdirectories if we found a project
         }
-
 
         for (const entry of entries) {
           if (entry.isDirectory() && !shouldSkip(entry.name)) {
@@ -608,7 +561,6 @@ class Migrator {
 
       }
     }
-
 
     for (const searchPath of searchPaths) {
       await searchDirectory(searchPath)
@@ -636,7 +588,7 @@ class Migrator {
       cleanupLegacy = false,
       dryRun = false,
       interactive = false,
-      onProgress = null
+      onProgress = null,
     } = options
 
     const summary = {
@@ -648,11 +600,10 @@ class Migrator {
       skipped: 0,
       projects: [],
       errors: [],
-      dryRun
+      dryRun,
     }
 
     try {
-
       if (onProgress) onProgress({ phase: 'scanning', message: 'Searching for projects...' })
       const projectPaths = await this.findAllProjects({ deepScan })
       summary.totalFound = projectPaths.length
@@ -661,7 +612,6 @@ class Migrator {
         summary.success = true
         return summary
       }
-
 
       for (let i = 0; i < projectPaths.length; i++) {
         const projectPath = projectPaths[i]
@@ -672,7 +622,7 @@ class Migrator {
             phase: 'checking',
             message: `Checking ${projectName} (${i + 1}/${projectPaths.length})`,
             current: i + 1,
-            total: projectPaths.length
+            total: projectPaths.length,
           })
         }
 
@@ -682,7 +632,7 @@ class Migrator {
           const projectInfo = {
             path: projectPath,
             name: projectName,
-            status: status.status
+            status: status.status,
           }
 
           if (status.status === 'migrated' || status.status === 'new') {
@@ -690,12 +640,11 @@ class Migrator {
             projectInfo.reason = status.status === 'migrated' ? 'Already migrated' : 'Not initialized'
             summary.alreadyMigrated++
           } else if (status.needsMigration) {
-
             if (interactive && onProgress) {
               const shouldMigrate = await onProgress({
                 phase: 'confirm',
                 message: `Migrate ${projectName}?`,
-                projectPath
+                projectPath,
               })
               if (!shouldMigrate) {
                 projectInfo.result = 'skipped'
@@ -706,20 +655,19 @@ class Migrator {
               }
             }
 
-
             if (onProgress) {
               onProgress({
                 phase: 'migrating',
                 message: `Migrating ${projectName}...`,
                 current: i + 1,
-                total: projectPaths.length
+                total: projectPaths.length,
               })
             }
 
             const migrationResult = await this.migrate(projectPath, {
               removeLegacy,
               cleanupLegacy,
-              dryRun
+              dryRun,
             })
 
             projectInfo.projectId = migrationResult.projectId
@@ -736,7 +684,7 @@ class Migrator {
               summary.errors.push({
                 project: projectName,
                 path: projectPath,
-                issues: migrationResult.issues
+                issues: migrationResult.issues,
               })
             }
           }
@@ -747,25 +695,24 @@ class Migrator {
           summary.errors.push({
             project: projectName,
             path: projectPath,
-            issues: [error.message]
+            issues: [error.message],
           })
           summary.projects.push({
             path: projectPath,
             name: projectName,
             result: 'failed',
-            errors: [error.message]
+            errors: [error.message],
           })
         }
       }
 
       summary.success = summary.failed === 0
       return summary
-
     } catch (error) {
       summary.success = false
       summary.errors.push({
         project: 'global',
-        issues: [error.message]
+        issues: [error.message],
       })
       return summary
     }
@@ -788,7 +735,6 @@ class Migrator {
       lines.push('')
     }
 
-
     lines.push(`🔍 Found: ${summary.totalFound} projects`)
     lines.push(`✅ Successfully migrated: ${summary.successfullyMigrated}`)
     lines.push(`⏭️  Already migrated: ${summary.alreadyMigrated}`)
@@ -799,7 +745,6 @@ class Migrator {
       lines.push(`❌ Failed: ${summary.failed}`)
     }
     lines.push('')
-
 
     if (summary.successfullyMigrated > 0) {
       lines.push('✅ Successfully Migrated:')
@@ -812,7 +757,6 @@ class Migrator {
       lines.push('')
     }
 
-
     if (summary.errors.length > 0) {
       lines.push('❌ Errors:')
       summary.errors.forEach(error => {
@@ -821,7 +765,6 @@ class Migrator {
       })
       lines.push('')
     }
-
 
     if (summary.success && summary.successfullyMigrated > 0) {
       lines.push('🎉 All projects migrated successfully!')

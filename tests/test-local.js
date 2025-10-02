@@ -17,8 +17,8 @@ const mockAgent = {
   name: 'Terminal/CLI',
   type: 'terminal',
   config: {
-    commandPrefix: 'prjct'
-  }
+    commandPrefix: 'prjct',
+  },
 }
 
 async function runTest(command, args) {

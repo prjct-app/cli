@@ -19,7 +19,7 @@ async function testAgentDetection() {
   console.log(`✅ Detected Agent: ${detected.name}`)
   console.log(`   Type: ${detected.type}`)
   console.log(`   Command Prefix: ${detected.config.commandPrefix}`)
-  console.log(`   Capabilities:`)
+  console.log('   Capabilities:')
   console.log(`   - MCP: ${detected.capabilities.mcp}`)
   console.log(`   - Markdown: ${detected.capabilities.markdown}`)
   console.log(`   - Colors: ${detected.capabilities.colors}`)
@@ -32,7 +32,7 @@ async function testAgentDetection() {
   // Test Claude
   agentDetector.reset()
   const claude = agentDetector.setAgent('claude')
-  console.log(`\n✅ Claude Code:`)
+  console.log('\n✅ Claude Code:')
   console.log(`   Response Style: ${claude.config.responseStyle}`)
   console.log(`   Has MCP: ${claude.capabilities.mcp}`)
   console.log(`   Config File: ${claude.config.configFile}`)
@@ -40,7 +40,7 @@ async function testAgentDetection() {
   // Test Codex
   agentDetector.reset()
   const codex = agentDetector.setAgent('codex')
-  console.log(`\n✅ OpenAI Codex:`)
+  console.log('\n✅ OpenAI Codex:')
   console.log(`   Response Style: ${codex.config.responseStyle}`)
   console.log(`   Sandboxed: ${codex.environment.sandboxed}`)
   console.log(`   Config File: ${codex.config.configFile}`)
@@ -48,7 +48,7 @@ async function testAgentDetection() {
   // Test Terminal
   agentDetector.reset()
   const terminal = agentDetector.setAgent('terminal')
-  console.log(`\n✅ Terminal/CLI:`)
+  console.log('\n✅ Terminal/CLI:')
   console.log(`   Response Style: ${terminal.config.responseStyle}`)
   console.log(`   Colors: ${terminal.capabilities.colors}`)
   console.log(`   Command Prefix: ${terminal.config.commandPrefix}`)
@@ -61,7 +61,7 @@ async function testAgentDetection() {
   process.env.CODEX_AGENT = 'true'
   agentDetector.reset()
   const envCodex = await agentDetector.detect()
-  console.log(`\n✅ With CODEX_AGENT=true:`)
+  console.log('\n✅ With CODEX_AGENT=true:')
   console.log(`   Detected: ${envCodex.name}`)
   delete process.env.CODEX_AGENT
 
@@ -69,7 +69,7 @@ async function testAgentDetection() {
   process.env.CLAUDE_AGENT = 'true'
   agentDetector.reset()
   const envClaude = await agentDetector.detect()
-  console.log(`\n✅ With CLAUDE_AGENT=true:`)
+  console.log('\n✅ With CLAUDE_AGENT=true:')
   console.log(`   Detected: ${envClaude.name}`)
   delete process.env.CLAUDE_AGENT
 

@@ -103,5 +103,5 @@ module.exports = {
   getPackageInfo,
   compareVersions,
   isCompatible,
-  needsMigration
+  needsMigration,
 }

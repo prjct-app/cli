@@ -25,12 +25,12 @@ class AuthorDetector {
       const { stdout } = await exec(command, { timeout: 5000 })
       return {
         success: true,
-        output: stdout.trim()
+        output: stdout.trim(),
       }
     } catch (error) {
       return {
         success: false,
-        output: ''
+        output: '',
       }
     }
   }
@@ -83,7 +83,7 @@ class AuthorDetector {
     const author = {
       name: null,
       email: null,
-      github: null
+      github: null,
     }
 
     author.github = await this.detectGitHubUsername()
@@ -158,7 +158,7 @@ class AuthorDetector {
       hasGit,
       author,
       isComplete: !!(author.github || (author.name !== 'Unknown' && author.email)),
-      recommendations: this._getRecommendations(hasGitHub, hasGit, author)
+      recommendations: this._getRecommendations(hasGitHub, hasGit, author),
     }
   }
 
