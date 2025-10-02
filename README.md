@@ -310,7 +310,7 @@ prjct recap                # Show progress
 - `/p:analyze` - Auto-analyze codebase
 - `/p:analyze --sync` - Sync with implemented features
 
-> 💡 **Tip:** Visit [prjct.dev/commands](https://prjct.dev/commands) for interactive command guide or [prjct.dev/workflows-guide](https://prjct.dev/workflows-guide) for step-by-step examples
+> 💡 **Tip:** Visit [prjct.app/commands](https://prjct.app/commands) for interactive command guide or [prjct.app/workflows-guide](https://prjct.app/workflows-guide) for step-by-step examples
 
 ## 📖 Complete Command Reference
 
@@ -362,7 +362,7 @@ prjct recap                # Show progress
 
 **Sprint planning:** `/p:roadmap` → Add features → `/p:now` top priority → `/p:ship` → `/p:roadmap next`
 
-> 📚 **More workflows:** Visit [prjct.dev/workflows-guide](https://prjct.dev/workflows-guide) for detailed interactive examples
+> 📚 **More workflows:** Visit [prjct.app/workflows-guide](https://prjct.app/workflows-guide) for detailed interactive examples
 
 ## ❓ FAQ
 
@@ -381,7 +381,7 @@ Designed for creators and small teams (2-5 people). Each member has their own lo
 **How do I migrate from Jira/Trello?**
 No migration needed. Just `/p:init` and start working.
 
-> 💬 **More questions?** Check [prjct.dev/faq](https://prjct.dev/faq) or [open an issue](https://github.com/jlopezlira/prjct-cli/issues)
+> 💬 **More questions?** Check [prjct.app/faq](https://prjct.app/faq) or [open an issue](https://github.com/jlopezlira/prjct-cli/issues)
 
 ## 📂 File Structure
 

@@ -243,7 +243,7 @@ However, you're welcome to **fork v0.4.10** and maintain multi-editor support yo
 
 - **Issues**: https://github.com/jlopezlira/prjct-cli/issues
 - **Discussions**: https://github.com/jlopezlira/prjct-cli/discussions
-- **Website**: https://prjct.dev
+- **Website**: https://prjct.app
 
 ---
 

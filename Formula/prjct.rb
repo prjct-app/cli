@@ -1,6 +1,6 @@
 class Prjct < Formula
   desc "AI-integrated project management for indie hackers"
-  homepage "https://prjct.dev"
+  homepage "https://prjct.app"
   url "https://github.com/jlopezlira/prjct-cli/archive/refs/tags/v0.4.0.tar.gz"
   sha256 "" # Will be updated by release workflow
   license "MIT"

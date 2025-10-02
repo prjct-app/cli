@@ -59,7 +59,7 @@ jobs:
 
             ### Direct download
             ```bash
-            curl -fsSL https://prjct.dev/install.sh | bash
+            curl -fsSL https://prjct.app/install.sh | bash
             ```
 
             ## What's Changed
