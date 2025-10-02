@@ -4,20 +4,30 @@ AI assistant guidance for prjct-cli.
 
 ## Talk Naturally
 
-You don't need to memorize commands. Just talk:
+**You don't need to memorize commands** - just describe what you want to do!
 
-**Natural Language**:
-- "I want to start building the login page"
-- "I'm done with that"
-- "ship the authentication system"
-- "what should I work on next?"
+The AI assistant uses **semantic understanding** to map your intent to commands. Works in **any language** the LLM understands (primarily English and Spanish).
 
-**Or use commands**:
-- `/p:now "task"` or `prjct now "task"`
-- `/p:done` or `prjct done`
-- `/p:ship "feature"` or `prjct ship "feature"`
+**Examples:**
+```
+Intent: Start working on something
+→ "I want to build the login page"
+→ "Let me work on authentication"
+→ "Voy a hacer el dashboard"
+→ Command: /p:now
 
-The system understands both!
+Intent: Finished current work
+→ "I'm done" | "finished" | "terminé" | "completed"
+→ Command: /p:done
+
+Intent: Ship a feature
+→ "ship this" | "deploy it" | "ready to launch"
+→ Command: /p:ship
+```
+
+**Both work simultaneously:**
+- Talk naturally: "I want to start building auth"
+- Use commands directly: `/p:now "building auth"`
 
 ## Architecture
 
@@ -85,6 +95,65 @@ memory/      # context.jsonl
 - Command alternatives if you prefer
 
 **Zero memorization needed** - just describe what you want!
+
+## Natural Language Detection
+
+The AI assistant uses **semantic understanding** to map user intent to commands.
+
+### How It Works
+
+**You're an LLM** - use your natural language understanding, not pattern matching!
+
+1. **Check if direct command**: Does message start with `/p:`? → Execute directly
+2. **Understand user intent**: What is the user trying to accomplish?
+3. **Map to appropriate command**: Based on semantic meaning
+4. **Extract parameters**: Pull relevant information from the message
+5. **Show transparency**: Always say what you understood and what you'll execute
+
+### Command Intent Map
+
+| User Intent | Command | Examples of Natural Expression |
+|-------------|---------|-------------------------------|
+| Start/focus on task | `/p:now` | "let me work on X", "starting the API", "voy a hacer X" |
+| Finished current work | `/p:done` | "done", "finished", "terminé", "completed", "listo" |
+| Ship/deploy feature | `/p:ship` | "ship this", "deploy X", "it's ready", "let's launch" |
+| Capture an idea | `/p:idea` | "I have an idea", "what if we...", "tengo una idea" |
+| Check progress/status | `/p:recap` | "show progress", "how am I doing", "muéstrame el avance" |
+| Stuck on problem | `/p:stuck` | "I'm stuck", "help with X", "estoy atascado" |
+| What to work on next | `/p:next` | "what's next", "qué sigue", "what should I do" |
+
+**Key principle**: If you understand what the user wants, map it to the right command. Don't rely on exact phrase matching.
+
+### Example Flow
+
+**User:** "I want to start building the login page"
+
+**Your Reasoning:**
+- Intent detected: User wants to begin working on something
+- Appropriate command: `/p:now`
+- Parameter to extract: "building the login page"
+
+**Your Response:**
+```
+💬 I understood: "start working on building the login page"
+⚡ Executing: /p:now "building the login page"
+
+✅ Starting task: building the login page
+
+What's next?
+• Say "I'm done" when finished
+• Or: /p:done
+```
+
+### Works in Any Language
+
+If you understand the user's intent in **any language**, execute the command:
+- English: "I want to start the API"
+- Spanish: "Quiero empezar con la autenticación"
+- Casual: "gonna work on that login thing"
+- Formal: "I shall commence development of the authentication module"
+
+All map to: `/p:now`
 
 ## Implementation
 

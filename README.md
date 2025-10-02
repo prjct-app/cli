@@ -183,6 +183,31 @@ The uninstaller will:
 
 > ⚠️ **WARNING**: Uninstallation is irreversible. The script will ask for confirmation before removing anything.
 
+## 💬 Talk Naturally - Zero Memorization
+
+**You don't need to memorize commands.** Just talk to your AI assistant naturally!
+
+The system detects your intent in **English** and **Spanish** and maps it to the right command:
+
+```
+✨ Natural Language Examples:
+
+Instead of:                      Just say:
+/p:now "implement auth"    →     "I want to start building the auth system"
+/p:done                    →     "I'm done" or "finished"
+/p:ship "feature"          →     "ship the authentication"
+/p:stuck "error"           →     "I'm stuck on this error"
+/p:idea "add feature"      →     "I have an idea about dark mode"
+```
+
+**How it works:**
+- Type `/p:help` for an interactive guide with natural language options
+- Every command response suggests what to do next
+- System guides you conversationally - no guessing needed
+- Gradually learn commands while talking naturally
+
+**Available in:** 🇺🇸 English • 🇪🇸 Spanish
+
 ## 📱 Platform Usage
 
 ### Claude Code / Cursor AI / Codeium
@@ -190,7 +215,7 @@ The uninstaller will:
 All three editors support the same slash commands through automatic installation:
 
 ```
-# Core Commands
+# Core Commands (or just talk naturally!)
 /p:init                    # Initialize project
 /p:now "implement auth"    # Set current task
 /p:done                    # Complete task
@@ -271,7 +296,7 @@ prjct recap                # Show progress
 - `/p:analyze` - Auto-analyze codebase
 - `/p:analyze --sync` - Sync with implemented features
 
-> 💡 **Tip:** Visit [prjct.app/commands](https://prjct.app/commands) for interactive command guide
+> 💡 **Tip:** Visit [prjct.dev/commands](https://prjct.dev/commands) for interactive command guide or [prjct.dev/workflows-guide](https://prjct.dev/workflows-guide) for step-by-step examples
 
 ## 📖 Complete Command Reference
 
@@ -323,7 +348,7 @@ prjct recap                # Show progress
 
 **Sprint planning:** `/p:roadmap` → Add features → `/p:now` top priority → `/p:ship` → `/p:roadmap next`
 
-> 📚 **More workflows:** Visit [prjct.app/workflows](https://prjct.app/workflows) for detailed examples
+> 📚 **More workflows:** Visit [prjct.dev/workflows-guide](https://prjct.dev/workflows-guide) for detailed interactive examples
 
 ## ❓ FAQ
 
@@ -342,7 +367,7 @@ Designed for indie hackers. For teams, each dev has their own `.prjct/` or share
 **How do I migrate from Jira/Trello?**
 No migration needed. Just `/p:init` and start working.
 
-> 💬 **More questions?** Check [prjct.app/faq](https://prjct.app/faq) or [open an issue](https://github.com/jlopezlira/prjct-cli/issues)
+> 💬 **More questions?** Check [prjct.dev/faq](https://prjct.dev/faq) or [open an issue](https://github.com/jlopezlira/prjct-cli/issues)
 
 ## 📂 File Structure
 
