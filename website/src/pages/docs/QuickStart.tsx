@@ -131,7 +131,7 @@ export const QuickStart = () => {
        <div className="text-gray-400 mt-2">→ 🎯 Current task set: implement user authentication</div>
       </div>
       <p className="text-muted-foreground">
-       You're now tracking your work! Say "I'm done" when finished, or "ship this feature" to celebrate.
+       You're now tracking your work! Say "p. I'm done" when finished, or "p. ship this feature" to celebrate.
       </p>
      </div>
     </motion.section>

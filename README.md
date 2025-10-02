@@ -1,5 +1,4 @@
 ```
-   (ﾉ◕ヮ◕)ﾉ*:･ﾟ✧
    ██████╗ ██████╗      ██╗ ██████╗████████╗
    ██╔══██╗██╔══██╗     ██║██╔════╝╚══██╔══╝
    ██████╔╝██████╔╝     ██║██║        ██║
@@ -74,32 +73,20 @@ For easier installation from GitHub Packages, see [GitHub Packages Setup](docs/G
 
 ### Editor Command Installation
 
-After initial installation, `prjct` can install commands to your AI editors:
+After initial installation, `prjct` automatically installs slash commands to Claude:
 
 ```bash
-# Interactive installation (default) - select which editors to use
+# Interactive installation (recommended)
 prjct install
-
-# Non-interactive - install to all detected editors
-prjct install --no-interactive
-
-# Install to specific editor only
-prjct install --editor claude
-prjct install --editor cursor
-prjct install --editor codex
-prjct install --editor windsurf
 
 # Force update existing commands
 prjct install --force
-
-# Create templates from existing commands
-prjct install --create-templates
 ```
 
 **Installation Location:**
 - **Claude Code & Claude Desktop**: `~/.claude/commands/p/`
 
-Commands are automatically detected and installed to Claude.
+All 18 slash commands (`/p:*`) are automatically installed to Claude Code and Claude Desktop.
 
 ### Version Management
 
@@ -153,30 +140,31 @@ The uninstaller will:
 
 > ⚠️ **WARNING**: Uninstallation is irreversible. The script will ask for confirmation before removing anything.
 
-## 💬 Talk Naturally - Zero Memorization
+## 💬 p. Trigger - Zero Memorization
 
-**You don't need to memorize commands.** Just talk to your AI assistant naturally!
+**You don't need to memorize commands.** Just use the `p.` prefix and talk naturally!
 
-The system detects your intent in **English** and **Spanish** and maps it to the right command:
+The system detects your intent and maps it to the right command - **works in any language**:
 
 ```
-✨ Natural Language Examples:
+✨ Natural Language with p. Trigger:
 
 Instead of:                      Just say:
-/p:now "implement auth"    →     "I want to start building the auth system"
-/p:done                    →     "I'm done" or "finished"
-/p:ship "feature"          →     "ship the authentication"
-/p:stuck "error"           →     "I'm stuck on this error"
-/p:idea "add feature"      →     "I have an idea about dark mode"
+/p:now "implement auth"    →     "p. I want to start building the auth system"
+/p:done                    →     "p. I'm done" or "p. finished"
+/p:ship "feature"          →     "p. ship the authentication"
+/p:stuck "error"           →     "p. I'm stuck on this error"
+/p:idea "add feature"      →     "p. I have an idea about dark mode"
 ```
 
 **How it works:**
-- Type `/p:help` for an interactive guide with natural language options
+- Simple `p.` prefix signals prjct context
+- Works in English, Spanish, German, French - any language
+- System detects intent and executes the right command
+- Auto-validates you're in a prjct project before execution
 - Every command response suggests what to do next
-- System guides you conversationally - no guessing needed
-- Gradually learn commands while talking naturally
 
-**Available in:** 🇺🇸 English • 🇪🇸 Spanish
+**Available in:** Any language - powered by Claude's natural language understanding
 
 ## 🚀 Built for Claude - Ship Fast, No BS
 
@@ -385,10 +373,10 @@ No, by design. Single-focus philosophy. Use `/p:done` before switching.
 `/p:done` clears focus. `/p:ship` celebrates important features with metrics.
 
 **Where is my data stored?**
-Everything is local in `.prjct/` directory. Never leaves your machine.
+Everything is local in `~/.prjct-cli/projects/{id}/`. Never leaves your machine.
 
 **Does it work with teams?**
-Designed for indie hackers. For teams, each dev has their own `.prjct/` or shares via git.
+Designed for creators and small teams (2-5 people). Each member has their own local data in `~/.prjct-cli/projects/{id}/`, with shared `.prjct/prjct.config.json` in the repo for project identification.
 
 **How do I migrate from Jira/Trello?**
 No migration needed. Just `/p:init` and start working.
@@ -446,7 +434,7 @@ If you have an existing flat `.prjct/` structure, run:
 ## 🛠️ Requirements
 
 - **Node.js 18+** - Required for CLI operation
-- **Claude Code or Claude Desktop** - Recommended for full features (100% free)
+- **Claude Code or Claude Desktop** - Recommended for full features (works with free tier or Pro)
 - **Terminal/CLI** - Fallback mode (limited features)
 
 ### What You Get
@@ -467,7 +455,7 @@ If you have an existing flat `.prjct/` structure, run:
 - ❌ Doesn't check code changes
 - ❌ Many features missing
 
-**Claude Code is free - get it at https://claude.ai/code**
+**Get Claude Code at https://claude.ai/code** - Works with whatever subscription you have (free tier or Pro). No extra costs, tokens, or API keys to configure.
 
 ## ❓ FAQ
 
@@ -498,9 +486,9 @@ Starting with v0.5.0, prjct-cli only supports Claude Code and Claude Desktop. Th
 **"I prefer Cursor/Windsurf"**
 
 We get it! But consider:
-- **Claude Code is free** (Cursor/Windsurf require paid plans for AI features)
-- **Better AI** (latest Claude 3.5 Sonnet, no rate limits)
-- **prjct-cli features** are designed specifically for Claude
+- **No extra setup** - Works with whatever Claude subscription you have (free tier or Pro)
+- **Better AI** - Latest Claude 3.5 Sonnet (Cursor/Windsurf use older models)
+- **prjct-cli features** - Designed specifically for Claude's capabilities
 
 Give Claude Code a try - you might prefer it! And if not, you can stay on v0.4.10 (last multi-editor version), though we don't recommend it.
 
@@ -515,13 +503,13 @@ It's actually the opposite. By specializing, we can:
 
 prjct-cli is designed for **creators and small teams** (1-5 people) who ship fast.
 
-For best results, standardize your team on Claude Code (it's free for everyone). Consistent tools = better collaboration.
+For best results, standardize your team on Claude Code. Consistent tools = better collaboration. Works with whatever Claude subscription each team member has.
 
 **"Is this a money grab?"**
 
-**No.** Claude Code is **100% free**. There's zero financial incentive.
+**No.** There's zero financial incentive. prjct-cli works with whatever Claude subscription you have (free tier or Pro) - no extra costs, no tokens to buy, no API keys to configure.
 
-This decision is purely **technical** - to build the best possible tool for developers who ship fast.
+This decision is purely **technical** - to build the best possible tool for developers who ship fast by leveraging Claude's unique capabilities.
 
 **"Will you add back multi-editor support?"**
 
@@ -549,7 +537,7 @@ Everything is local in `~/.prjct-cli/projects/{id}/`. Never leaves your machine.
 
 ### Does it work with teams?
 
-Designed for indie hackers. For teams, each dev has their own `.prjct/` or shares via git.
+Designed for creators and small teams (2-5 people). Each member has their own local data in `~/.prjct-cli/projects/{id}/`, with shared `.prjct/prjct.config.json` in the repo for project identification.
 
 ### How do I migrate from Jira/Trello?
 
