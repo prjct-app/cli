@@ -5,69 +5,57 @@ This guide explains how to completely remove prjct-cli from your system.
 ## Quick Uninstall
 
 ```bash
-cd ~/.prjct-cli
-./uninstall.sh
+# Uninstall the npm package
+npm uninstall -g prjct-cli
+
+# Remove user data (optional)
+rm -rf ~/.prjct-cli
 ```
 
 ## What Gets Removed
 
-The uninstaller will remove the following components:
+### 1. npm Package
 
-### 1. Installation Directory
+```bash
+npm uninstall -g prjct-cli
+```
 
-- `~/.prjct-cli/` - The main installation directory containing all prjct-cli files
+This removes:
+- The globally installed `prjct` command
+- All CLI executables and core files
+- npm package cache
 
-### 2. Command Line Tools
+### 2. User Data Directory (Optional)
 
-- `~/.local/bin/prjct` - The symlink for the `prjct` command
-- Any npm global installations of `@prjct/cli`
+```bash
+rm -rf ~/.prjct-cli
+```
 
-### 3. Shell Configuration
+This removes:
+- `~/.prjct-cli/projects/` - All your project data
+- `~/.prjct-cli/config/` - Configuration and cache files
 
-- PATH modifications in:
-  - `~/.zshrc` (for Zsh users)
-  - `~/.bashrc` (for Bash users)
-  - `~/.profile` (fallback)
+### 3. AI Assistant Integration
 
-### 4. AI Assistant Integration
+If you installed editor commands with `prjct install`:
 
-- `~/.claude/commands/p/` - Claude Code command files
-- MCP server configurations (if applicable)
+- `~/.claude/commands/p/` - Claude Code slash commands
+- `~/.cursor/commands/p/` - Cursor AI commands
+- `~/.codeium/commands/p/` - Codeium commands
+- `~/.windsurf/commands/p/` - Windsurf commands
 
-## Project Data Options
+## Project Data (Local Config)
 
-The uninstaller will detect any `.prjct/` directories in your projects and offer three options:
+Each project has a small config file at `.prjct/prjct.config.json` that references the global data.
 
-### Option 1: Keep All Data (Recommended)
+**To remove from a specific project:**
 
-- **Default choice**
-- Preserves all `.prjct/` directories in your projects
-- You can manually delete them later if needed
-- Best if you might reinstall prjct-cli
+```bash
+cd /path/to/your/project
+rm -rf .prjct
+```
 
-### Option 2: Backup Before Removal
-
-- Creates a backup at `~/prjct-backup-[date]`
-- Each project's `.prjct/` data is saved with the project name
-- Original `.prjct/` directories are then removed
-- Good for archiving your project history
-
-### Option 3: Permanent Deletion
-
-- **⚠️ IRREVERSIBLE ACTION**
-- Permanently deletes all `.prjct/` directories
-- Requires typing `DELETE` to confirm
-- Cannot be undone - use with extreme caution
-
-## Safety Features
-
-The uninstaller includes multiple safety measures:
-
-1. **Detection Phase**: Shows exactly what will be removed before any action
-2. **Confirmation Required**: Must type `yes` to proceed (not just y/n)
-3. **Data Protection**: Project data requires separate confirmation
-4. **Double Confirmation**: Destructive actions require typing specific words
-5. **Graceful Exit**: Cancel at any point preserves everything
+**Important**: This only removes the local config, not your actual project data in `~/.prjct-cli/projects/`
 
 ## What Is NOT Removed
 
@@ -78,29 +66,28 @@ The uninstaller does NOT remove:
 - Node.js or other system dependencies
 - Other tools or configurations
 
-## Manual Uninstall
+## Complete Removal
 
-If you prefer to uninstall manually:
+To remove everything including data and editor commands:
 
 ```bash
-# 1. Remove installation directory
+# 1. Uninstall npm package
+npm uninstall -g prjct-cli
+
+# 2. Remove all user data
 rm -rf ~/.prjct-cli
 
-# 2. Remove symlink
-rm -f ~/.local/bin/prjct
-
-# 3. Remove Claude Code commands
+# 3. Remove editor commands
 rm -rf ~/.claude/commands/p
+rm -rf ~/.cursor/commands/p
+rm -rf ~/.codeium/commands/p
+rm -rf ~/.windsurf/commands/p
 
-# 4. Edit your shell config file and remove these lines:
-# # prjct/cli
-# export PATH="$HOME/.prjct-cli/bin:$PATH"
-
-# 5. (Optional) Remove project data
+# 4. (Optional) Remove local project configs
 # Find all .prjct directories:
 find ~ -type d -name ".prjct" -maxdepth 5
 
-# Remove specific project data:
+# Remove specific project config:
 rm -rf /path/to/project/.prjct
 ```
 
@@ -109,40 +96,36 @@ rm -rf /path/to/project/.prjct
 To reinstall prjct-cli after uninstalling:
 
 ```bash
-curl -fsSL https://prjct.app/install.sh | bash
+npm install -g prjct-cli
 ```
 
-Your project data (if preserved) will be immediately available with the new installation.
+If you preserved `~/.prjct-cli/`, your project data will be immediately available with the new installation.
 
 ## Troubleshooting
 
-### Uninstaller Not Found
+### Verify Complete Removal
 
-If the uninstaller script is not in your installation:
+Check if prjct is still installed:
 
 ```bash
-# Download the latest uninstaller
-curl -fsSL https://raw.githubusercontent.com/jlopezlira/prjct-cli/main/uninstall.sh -o uninstall.sh
-chmod +x uninstall.sh
-./uninstall.sh
+# Check npm global packages
+npm list -g prjct-cli
+
+# Check command availability
+which prjct
+
+# Check user data
+ls -la ~/.prjct-cli
 ```
 
 ### Permission Errors
 
-If you encounter permission errors:
+If you encounter permission errors with npm:
 
 ```bash
-# Run with appropriate permissions
-sudo ./uninstall.sh
+# May need sudo on some systems
+sudo npm uninstall -g prjct-cli
 ```
-
-### Incomplete Removal
-
-If some components remain after uninstalling:
-
-1. Check for lingering PATH entries in your shell config
-2. Verify npm global packages: `npm list -g @prjct/cli`
-3. Look for Claude Code commands: `ls ~/.claude/commands/p/`
 
 ## Support
 

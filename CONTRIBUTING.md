@@ -246,16 +246,12 @@ The v0.2.1 update moves all project data from local `.prjct/` directories to a c
 If you need to remove prjct-cli:
 
 ```bash
-cd ~/.prjct-cli
-./uninstall.sh
+# Uninstall the npm package
+npm uninstall -g prjct-cli
+
+# Optionally remove user data
+rm -rf ~/.prjct-cli
 ```
-
-The uninstaller will:
-
-- Safely remove all components
-- Offer to backup or preserve your project data
-- Clean up shell configurations
-- Require confirmation before any destructive action
 
 See [UNINSTALL.md](UNINSTALL.md) for detailed information.
 
