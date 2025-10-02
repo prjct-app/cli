@@ -139,6 +139,40 @@ async function main() {
 
             result = await commands.analyze(analyzeOptions);
             break;
+        case '--help':
+        case '-h':
+        case 'help':
+        case undefined:
+            result = {
+                success: true,
+                message: `Available commands:
+  Core workflow:
+    init              Initialize prjct in current project
+    now [task]        Set or show current task
+    done              Complete current task
+    ship <feature>    Ship and celebrate a feature
+    next              Show priority queue
+    idea <text>       Capture an idea
+    recap             Show project overview
+    progress [period] Show progress metrics
+    stuck <issue>     Get help with a problem
+    context           Show project context
+
+  Advanced:
+    cleanup           Clean up .prjct structure
+    cleanup-advanced  Advanced cleanup with options
+    design [target]   Design system/architecture
+    analyze           Analyze codebase and sync state
+    migrate-all       Migrate all legacy projects
+    install           Install commands to AI editors
+
+  Install options:
+    --force           Force update existing commands
+    --editor <name>   Install to specific editor (claude|cursor|codex|windsurf)
+    --no-interactive  Skip interactive selection, install to all
+    --create-templates Create templates from existing commands`
+            };
+            break;
         default:
             result = {
                 success: false,
