@@ -403,6 +403,7 @@ For detailed implementation, see prjct-cli documentation.
 
     const results = {}
     const installedTo = []
+    const successfulEditors = []
 
     for (const editorKey of selectedEditors) {
       const editor = this.editors[editorKey]
@@ -426,6 +427,7 @@ For detailed implementation, see prjct-cli documentation.
       results[editorKey] = await this.installToEditor(editorKey, forceUpdate)
       if (results[editorKey].success) {
         installedTo.push(editor.name)
+        successfulEditors.push(editorKey)
       }
     }
 
@@ -441,6 +443,11 @@ For detailed implementation, see prjct-cli documentation.
       .reduce((sum, r) => sum + (r.installed || 0), 0)
     const totalUpdated = Object.values(results)
       .reduce((sum, r) => sum + (r.updated || 0), 0)
+
+    // Save editor selections to config (only on successful new installations, not updates)
+    if (!forceUpdate && successfulEditors.length > 0) {
+      await this.saveEditorConfig(successfulEditors)
+    }
 
     return {
       success: true,
@@ -665,6 +672,36 @@ This command uses the global prjct architecture:
     lines.push('💡 Commands are now available in all detected editors!')
 
     return lines.join('\n')
+  }
+
+  /**
+   * Save editor configuration to track installed editors
+   * @param {string[]} editors - Array of successfully installed editor keys
+   * @returns {Promise<void>}
+   */
+  async saveEditorConfig(editors) {
+    try {
+      const editorsConfig = require('./editors-config')
+      const packageJson = require('../package.json')
+
+      // Build paths object
+      const paths = {}
+      for (const editorKey of editors) {
+        const editor = this.editors[editorKey]
+        if (editor) {
+          paths[editorKey] = editor.commandsPath
+        }
+      }
+
+      await editorsConfig.saveConfig(
+        editors,
+        paths,
+        packageJson.version,
+      )
+    } catch (error) {
+      // Don't fail installation if config save fails
+      console.error('[command-installer] Error saving editor config:', error.message)
+    }
   }
 
   /**

@@ -1,4 +1,4 @@
-name: Publish to npm
+name: Publish Package
 
 on:
   push:
@@ -7,8 +7,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  publish:
-    name: Publish Package to npm
+  publish-npm:
+    name: Publish to npm Registry
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -18,7 +18,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js for npm
         uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -56,24 +56,68 @@ jobs:
 
       - name: Publish to npm
         run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Verify publication
+      - name: Verify npm publication
         run: |
           sleep 10
           VERSION=${{ steps.get_version.outputs.version }}
           npm view prjct-cli@$VERSION version
           echo "✅ Successfully published prjct-cli@$VERSION to npm"
 
+  publish-gpr:
+    name: Publish to GitHub Package Registry
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js for GPR
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://npm.pkg.github.com'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Extract version from tag
+        id: get_version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/v}
+          else
+            VERSION=$(node -p "require('./package.json').version")
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Publishing version: $VERSION to GitHub Packages"
+
+      - name: Publish to GitHub Packages
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Create publication summary
         run: |
           VERSION=${{ steps.get_version.outputs.version }}
-          echo "### 📦 npm Publication Success" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Publication Success" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Package:** prjct-cli" >> $GITHUB_STEP_SUMMARY
           echo "**Version:** $VERSION" >> $GITHUB_STEP_SUMMARY
-          echo "**Registry:** https://www.npmjs.com/package/prjct-cli" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "#### Installation" >> $GITHUB_STEP_SUMMARY
+          echo "#### npm Registry" >> $GITHUB_STEP_SUMMARY
+          echo "https://www.npmjs.com/package/prjct-cli" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
           echo "npm install -g prjct-cli@$VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "#### GitHub Packages" >> $GITHUB_STEP_SUMMARY
+          echo "https://github.com/jlopezlira/prjct-cli/packages" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "npm install -g @jlopezlira/prjct-cli@$VERSION --registry=https://npm.pkg.github.com" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY

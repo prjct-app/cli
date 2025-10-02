@@ -46,6 +46,8 @@ Each agent gets optimized output:
 
 ## ⚡ Installation
 
+### From npm (Recommended)
+
 Install prjct-cli globally using npm:
 
 ```bash
@@ -64,6 +66,16 @@ pnpm add -g prjct-cli
 # Using bun
 bun install -g prjct-cli
 ```
+
+### From GitHub Packages
+
+You can also install from GitHub Packages:
+
+```bash
+npm install -g @jlopezlira/prjct-cli --registry=https://npm.pkg.github.com
+```
+
+For easier installation from GitHub Packages, see [GitHub Packages Setup](docs/GITHUB_PACKAGES.md).
 
 **Requirements**: Node.js 18 or higher
 

@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { GitBranch, AlertTriangle, Plus, Wrench, Trash2, Shield, Users, Database, CheckCircle, Monitor, Bug } from 'lucide-react'
+import { GitBranch, AlertTriangle, Plus, Wrench, Trash2, Shield, Users, Database, CheckCircle, Monitor, Bug, RefreshCw, Package } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { VersionHeader } from '@/components/changelog/VersionHeader'
 import { FeatureCard } from '@/components/changelog/FeatureCard'
@@ -42,17 +42,81 @@ export const Changelog = () => {
             </span>
           </div>
 
-          <p className="text-muted-foreground">No unreleased features at this time. Check back soon!</p>
+          <div className="space-y-6">
+            <FeatureCard
+              icon={Monitor}
+              title="Windows Compatibility"
+              description="Native Windows support in development"
+              bullets={[
+                '• PowerShell and CMD command execution',
+                <>• Windows path handling (<code className="text-cat-mauve">%USERPROFILE%\.prjct-cli\</code>)</>,
+                '• Windows-specific installation scripts',
+                '• Cross-platform file operations',
+                '• Windows Terminal integration'
+              ]}
+            />
+          </div>
         </motion.section>
 
-        {/* Version 0.4.2 */}
+        {/* Version 0.4.3 */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}
           className="mb-16"
         >
-          <VersionHeader version="v0.4.2" date="October 2, 2025" isLatest />
+          <VersionHeader version="v0.4.3" date="October 2, 2025" isLatest />
+
+          <div className="space-y-6 mb-6">
+            <FeatureCard
+              icon={RefreshCw}
+              title="Automatic Editor Command Updates"
+              description="Commands auto-update when npm package is updated"
+              bullets={[
+                <>• New <code className="text-cat-mauve">core/editors-config.js</code> tracks installed editors</>,
+                <>• Stores selections in <code className="text-cat-mauve">~/.prjct-cli/config/installed-editors.json</code></>,
+                <>• Post-install hook auto-updates after <code className="text-cat-mauve">npm update -g prjct-cli</code></>,
+                '• Ensures version consistency across all editors (Claude, Cursor, Windsurf, Codex)',
+                '• No manual reinstallation needed - updates happen automatically',
+                "• Respects user's original editor choices from initial setup"
+              ]}
+            />
+
+            <FeatureCard
+              icon={Package}
+              title="GitHub Packages Support"
+              description="Dual registry publication for better reliability"
+              bullets={[
+                '• Package published to both npm and GitHub Packages automatically',
+                '• GitHub Actions workflow updated for parallel publication',
+                <>• Comprehensive docs in <code className="text-cat-mauve">docs/GITHUB_PACKAGES.md</code></>,
+                <>• Includes <code className="text-cat-mauve">.npmrc.example</code> for easy configuration</>,
+                '• Provides fallback option if npm registry is unavailable',
+                '• Free hosting for public repositories with automatic authentication'
+              ]}
+            />
+          </div>
+
+          <TechnicalDetails
+            title="Technical Implementation"
+            details={[
+              'Editor Tracking: Configuration saved after successful installation',
+              'Post-Install Hook: Runs only for global installs, skips local/dev',
+              'Version Detection: Compares current with last installed version',
+              'Force Update: Automatically updates commands when version changes',
+              'Parallel Publication: npm and GitHub Packages jobs run simultaneously'
+            ]}
+          />
+        </motion.section>
+
+        {/* Version 0.4.2 */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.3 }}
+          className="mb-16"
+        >
+          <VersionHeader version="v0.4.2" date="October 2, 2025" />
 
           <div className="space-y-6 mb-6">
             <FeatureCard
@@ -75,19 +139,6 @@ export const Changelog = () => {
                 '• Fixed Badge component import casing (badge → Badge)',
                 '• Removed obsolete install.sh and setup.sh copying from build script',
                 '• Cleaner and faster website builds'
-              ]}
-            />
-
-            <FeatureCard
-              icon={Monitor}
-              title="Windows Compatibility (Coming Soon)"
-              description="Native Windows support in development"
-              bullets={[
-                '• PowerShell and CMD command execution',
-                <>• Windows path handling (<code className="text-cat-mauve">%USERPROFILE%\.prjct-cli\</code>)</>,
-                '• Windows-specific installation scripts',
-                '• Cross-platform file operations',
-                '• Windows Terminal integration'
               ]}
             />
           </div>
