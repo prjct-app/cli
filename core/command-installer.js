@@ -444,8 +444,8 @@ For detailed implementation, see prjct-cli documentation.
     const totalUpdated = Object.values(results)
       .reduce((sum, r) => sum + (r.updated || 0), 0)
 
-    // Save editor selections to config (only on successful new installations, not updates)
-    if (!forceUpdate && successfulEditors.length > 0) {
+    // Always save editor selections to config for tracking updates
+    if (successfulEditors.length > 0) {
       await this.saveEditorConfig(successfulEditors)
     }
 
@@ -806,6 +806,119 @@ This command uses the global prjct architecture:
     }
 
     return results
+  }
+
+  /**
+   * Uninstall commands from a specific editor
+   * @param {string} editorKey - Editor identifier (claude, cursor, codex, windsurf)
+   * @returns {Promise<Object>} Uninstallation result
+   */
+  async uninstallFromEditor(editorKey) {
+    const editor = this.editors[editorKey]
+
+    if (!editor) {
+      return { success: false, editor: editorKey, message: `Unknown editor: ${editorKey}` }
+    }
+
+    try {
+      switch (editor.format) {
+        case 'slash-commands':
+          // Remove the /p commands directory
+          await fs.rm(editor.commandsPath, { recursive: true, force: true })
+          return {
+            success: true,
+            editor: editor.name,
+            path: editor.commandsPath,
+            message: `Removed slash commands from ${editor.name}`,
+          }
+
+        case 'agents-md':
+          // Remove AGENTS.md if it exists
+          const exists = await this.fileExists(editor.commandsPath)
+          if (exists) {
+            await fs.unlink(editor.commandsPath)
+          }
+          return {
+            success: true,
+            editor: editor.name,
+            path: editor.commandsPath,
+            message: `Removed AGENTS.md from ${editor.name}`,
+          }
+
+        case 'workflows':
+          // Remove all p_*.md workflow files
+          try {
+            const files = await fs.readdir(editor.commandsPath)
+            const prjctWorkflows = files.filter(f => f.startsWith('p_') && f.endsWith('.md'))
+
+            for (const file of prjctWorkflows) {
+              await fs.unlink(path.join(editor.commandsPath, file))
+            }
+
+            return {
+              success: true,
+              editor: editor.name,
+              path: editor.commandsPath,
+              removed: prjctWorkflows.length,
+              message: `Removed ${prjctWorkflows.length} workflows from ${editor.name}`,
+            }
+          } catch (error) {
+            // Directory might not exist, that's ok
+            return {
+              success: true,
+              editor: editor.name,
+              message: `No workflows found in ${editor.name}`,
+            }
+          }
+
+        default:
+          return {
+            success: false,
+            editor: editor.name,
+            message: `Unknown format: ${editor.format}`,
+          }
+      }
+    } catch (error) {
+      return {
+        success: false,
+        editor: editor.name,
+        message: `Uninstall failed: ${error.message}`,
+      }
+    }
+  }
+
+  /**
+   * Uninstall commands from all tracked editors
+   * @returns {Promise<Object>} Uninstallation results
+   */
+  async uninstallFromAll() {
+    const editorsConfig = require('./editors-config')
+    const trackedEditors = await editorsConfig.getTrackedEditors()
+
+    if (trackedEditors.length === 0) {
+      return {
+        success: true,
+        message: 'No editors tracked, nothing to uninstall',
+        results: {},
+      }
+    }
+
+    const results = {}
+    const successfulEditors = []
+
+    for (const editorKey of trackedEditors) {
+      results[editorKey] = await this.uninstallFromEditor(editorKey)
+      if (results[editorKey].success) {
+        successfulEditors.push(this.editors[editorKey]?.name || editorKey)
+      }
+    }
+
+    return {
+      success: true,
+      editors: successfulEditors,
+      totalRemoved: successfulEditors.length,
+      results,
+    }
   }
 }
 

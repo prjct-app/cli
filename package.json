@@ -12,6 +12,7 @@
   },
   "scripts": {
     "postinstall": "node scripts/post-install.js",
+    "preuninstall": "node scripts/preuninstall.js",
     "install-global": "./scripts/install.sh",
     "test": "echo 'No tests configured'",
     "lint": "eslint \"**/*.js\" --ignore-pattern \"node_modules/**\" --ignore-pattern \"website/**\"",
@@ -69,6 +70,7 @@
     "scripts/install.sh",
     "scripts/verify-installation.sh",
     "scripts/post-install.js",
+    "scripts/preuninstall.js",
     "LICENSE",
     "README.md",
     "CHANGELOG.md",

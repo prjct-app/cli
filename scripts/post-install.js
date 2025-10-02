@@ -34,8 +34,36 @@ async function main() {
     const configExists = await editorsConfig.configExists()
 
     if (!configExists) {
-      // First-time install, no editors tracked yet
-      // User will configure editors during `prjct init` or `prjct install`
+      // First-time install - auto-detect and install to all editors
+      console.log(chalk.cyan('\n🔍 First-time installation detected...\n'))
+
+      // Load command installer
+      const commandInstaller = require('../core/command-installer')
+
+      // Detect available editors
+      const detected = await commandInstaller.detectEditors()
+      const detectedEditors = Object.entries(detected)
+        .filter(([_, info]) => info.detected)
+        .map(([key, _]) => key)
+
+      if (detectedEditors.length === 0) {
+        // No editors detected, user will install manually later
+        console.log(chalk.yellow('ℹ️  No AI editors detected'))
+        console.log(chalk.gray('   Run `prjct install` when you set up Claude Code, Cursor, or Windsurf\n'))
+        return
+      }
+
+      console.log(chalk.cyan(`📦 Installing commands to: ${detectedEditors.map(k => commandInstaller.editors[k]?.name || k).join(', ')}\n`))
+
+      // Install to all detected editors
+      const results = await commandInstaller.installToAll(false)
+
+      if (results.success) {
+        console.log(chalk.green(`✅ Commands installed in: ${results.editors.join(', ')}`))
+        console.log(chalk.gray(`   Commands installed: ${results.totalInstalled}`))
+        console.log(chalk.cyan(`\n✨ prjct-cli ${currentVersion} is ready!\n`))
+      }
+
       return
     }
 
