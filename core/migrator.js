@@ -510,7 +510,7 @@ class Migrator {
     if (deepScan) {
       searchPaths = [os.homedir()]
     } else {
-      const commonDirs = ['Projects', 'Documents', 'Developer', 'Code', 'dev', 'workspace', 'repos', 'src']
+      const commonDirs = ['Projects', 'Documents', 'Developer', 'Code', 'dev', 'workspace', 'repos', 'src', 'Apps']
       searchPaths = commonDirs
         .map(dir => path.join(os.homedir(), dir))
         .filter(dirPath => {

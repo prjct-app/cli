@@ -15,6 +15,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Cross-platform file operations
   - Windows Terminal integration
 
+## [0.4.5] - 2025-10-02
+
+### Added
+- **`prjct start` Command** - First-time setup with interactive editor selection
+  - Beautiful ASCII art welcome message
+  - Auto-detects installed AI editors (Claude Code, Cursor, Windsurf)
+  - Interactive prompt to choose which editors to install commands to
+  - Replaces confusing `prjct install` command with clearer naming
+  - Only runs once (blocks if already configured, suggests `prjct setup` to reconfigure)
+
+- **Auto-Initialization** - Commands auto-run `prjct init` when needed
+  - All core commands (now, done, ship, next, idea, recap, stuck, context) check initialization
+  - Shows warning and runs init automatically if project not configured
+  - Zero friction - users don't need to remember to run init first
+  - Seamless workflow: `cd project/ && prjct now "task"` just works
+
+### Changed
+- **Simplified Installation Flow**
+  - `npm install -g prjct-cli` → Shows welcome message, tells user to run `prjct start`
+  - `prjct start` → Interactive setup (first-time only)
+  - `prjct init` → Initialize project (links to global data)
+  - `prjct setup` → Reconfigure editors (replaces old `prjct install`)
+  - `npm update -g prjct-cli` → Auto-updates commands in tracked editors
+
+- **Post-Install Behavior**
+  - Removed auto-installation on npm install (was non-interactive and confusing)
+  - First install shows: `Run: prjct start to get started`
+  - Updates auto-update commands in previously selected editors
+  - Cleaner, more predictable behavior
+
+### Fixed
+- **Critical Bug Fixes** - All commands now enforce global architecture correctly
+  - `/p:design` now creates designs in global `analysis/designs/` instead of local `.prjct/designs/`
+  - `/p:cleanup` now operates on global project data instead of local `.prjct/`
+  - `getDaysSinceLastShip()` now reads from global `memory/context.jsonl` instead of local
+  - All commands verify project is initialized before execution
+  - Prevents creation of invalid local `.prjct/` structures
+  - **Fixed post-install.js** - `currentVersion` now declared before use (prevents ReferenceError)
+  - **Added 'Apps' directory** to migration scanner for better project detection
+
+### Technical Details
+- **New Commands**:
+  - `start()` - First-time setup with ASCII art and interactive editor selection
+  - `setup()` - Renamed from `install()` for clarity
+  - `ensureProjectInit()` - Helper function for auto-initialization
+- **Global Architecture**: All commands now use `pathManager.getGlobalProjectPath(projectId)`
+  - design(), cleanup(), getDaysSinceLastShip() fully migrated
+  - Prevents LOCAL .prjct/ creation
+  - Requires project initialization before command execution
+- **Auto-Init Integration**: now(), done(), ship(), next(), idea(), recap(), stuck(), context() all auto-initialize
+- **Migration Enhancement**: Added ~/Apps to common directories scan
+- **Post-Install Fix**: currentVersion variable properly declared at function start
+
 ## [0.4.4] - 2025-10-02
 
 ### Added
@@ -39,7 +92,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Automatic Data Migration** - Seamless upgrade from v0.1.0 to v0.4.4
   - Post-install hook automatically detects legacy `.prjct/` projects
   - Migrates data from local structure to new global architecture (`~/.prjct-cli/projects/{id}/`)
-  - Scans common project directories (Projects, Documents, Developer, Code, etc.)
+  - Scans common project directories (Projects, Documents, Developer, Code, **Apps**)
   - Preserves all project data during migration (now, next, shipped, ideas, memory)
   - Cleans up legacy directories while keeping config for compatibility
   - No user intervention required - migration happens automatically on update
@@ -51,23 +104,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Ensures tracking happens even during force updates
   - Enables reliable auto-updates across all configured editors
 
+### Fixed
+- **Global Architecture Enforcement** - All commands now enforce global architecture correctly
+  - `/p:design` now creates designs in global `analysis/designs/` instead of local `.prjct/designs/`
+  - `/p:cleanup` now operates on global project data instead of local `.prjct/`
+  - `getDaysSinceLastShip()` now reads from global `memory/context.jsonl` instead of local
+  - All commands verify project is initialized before execution
+  - Prevents creation of invalid local `.prjct/` structures
+  - **Fixed post-install.js** - `currentVersion` now declared before use (prevents ReferenceError)
+  - **Added 'Apps' directory** to migration scanner for better project detection
+
 ### Technical Details
 - **Post-Install Hook**: Runs after `npm install -g prjct-cli` or `npm update -g prjct-cli`
   - First install: Auto-detects editors and installs commands
   - Updates: Checks version change and auto-updates commands in tracked editors
   - **Migration**: Automatically detects and migrates legacy projects from v0.1.0
   - Silent operation with debug mode via `DEBUG=1` environment variable
+  - **Fixed**: currentVersion variable now properly declared at function start
+  - **Enhanced**: Better error handling with debug logging
 - **Pre-Uninstall Hook**: Runs before `npm uninstall -g prjct-cli`
   - Reads tracking config to find all installed editors
   - Removes command directories from each editor
   - Cleans up tracking configuration
   - Fails gracefully to not block uninstall
 - **Migration System**: Automatic upgrade path from v0.1.0 to v0.4.4
-  - Scans common project directories (fast, non-intrusive)
+  - Scans common project directories including **~/Apps** (fast, non-intrusive)
   - Migrates local `.prjct/` to global `~/.prjct-cli/projects/{id}/`
   - Preserves all data: core, progress, planning, analysis, memory layers
   - Cleans legacy directories while keeping compatibility config
   - Zero data loss, seamless upgrade experience
+- **Global Architecture**: All commands now use `pathManager.getGlobalProjectPath(projectId)`
+  - design(), cleanup(), getDaysSinceLastShip() fully migrated
+  - Prevents LOCAL .prjct/ creation
+  - Requires project initialization before command execution
 
 ## [0.4.3] - 2025-10-02
 
