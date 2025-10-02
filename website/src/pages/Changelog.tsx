@@ -1,6 +1,9 @@
 import { motion } from 'framer-motion'
 import { GitBranch, AlertTriangle, Plus, Wrench, Trash2, Shield, Users, Database, CheckCircle } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { VersionHeader } from '@/components/changelog/VersionHeader'
+import { FeatureCard } from '@/components/changelog/FeatureCard'
+import { TechnicalDetails } from '@/components/changelog/TechnicalDetails'
 
 export const Changelog = () => {
   return (
@@ -42,18 +45,86 @@ export const Changelog = () => {
           <p className="text-muted-foreground">No unreleased features at this time. Check back soon!</p>
         </motion.section>
 
-        {/* Version 0.4.0 */}
+        {/* Version 0.4.1 */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}
           className="mb-16"
         >
+          <VersionHeader version="v0.4.1" date="October 1, 2025" isLatest />
+
+          <div className="space-y-6 mb-6">
+            <FeatureCard
+              icon={Plus}
+              title="Automatic Update Detection"
+              description="Built-in update checker that notifies users when new versions are available"
+              bullets={[
+                '• Checks npm registry every 24 hours for new versions',
+                '• Non-blocking background check during command execution',
+                '• Formatted notification with update command',
+                '• Shows only once per session to avoid notification spam',
+                '• Respects 24-hour cache to minimize npm registry requests'
+              ]}
+            />
+
+            <FeatureCard
+              icon={Shield}
+              title="Automated npm Publication"
+              description="GitHub Actions workflow for automatic npm publishing with OIDC security"
+              bullets={[
+                '• Triggered on version tags (v*)',
+                '• Automatic version verification against package.json',
+                '• Provenance publishing with npm attestation',
+                '• OIDC Trusted Publisher authentication (no tokens)',
+                '• Post-publication verification',
+                '• Publication summary in GitHub Actions'
+              ]}
+            />
+
+            <FeatureCard
+              icon={Wrench}
+              title="Simplified Installation"
+              description="npm is now the primary and recommended installation method"
+              bullets={[
+                <>• Single installation method: <code className="text-cat-mauve">npm install -g prjct-cli</code></>,
+                '• Removed Homebrew and Bun installation scripts',
+                '• Cleaner package with optimized file inclusion',
+                '• Reduced package size: 104.6 KB (71 files)'
+              ]}
+            />
+
+            <FeatureCard
+              icon={Database}
+              title="Package Structure Fixes"
+              bullets={[
+                <>• Added <code className="text-cat-mauve">files</code> field to control package contents</>,
+                <>• Created <code className="text-cat-mauve">.npmignore</code> for development file exclusion</>,
+                <>• Proper global data directory separation (<code className="text-cat-mauve">~/.prjct-cli/</code> for data only)</>,
+                '• Fixed CI/CD tests to verify CLI functionality instead of individual modules'
+              ]}
+            />
+          </div>
+
+          <TechnicalDetails
+            details={[
+              <>• <strong>Update Checker</strong>: <code className="text-cat-mauve">core/update-checker.js</code> with semantic version comparison</>,
+              <>• <strong>Cache Management</strong>: Update checks cached for 24 hours in <code className="text-cat-mauve">~/.prjct-cli/config/update-cache.json</code></>,
+              <>• <strong>Architecture</strong>: Clean separation between npm installation and user data</>,
+              <>• <strong>GitHub Actions</strong>: <code className="text-cat-mauve">.github/workflows/publish-npm.yml</code> for automated publication</>
+            ]}
+          />
+        </motion.section>
+
+        {/* Version 0.4.0 */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.3 }}
+          className="mb-16"
+        >
           <div className="flex items-center gap-4 mb-6">
             <h2 className="text-3xl font-bold">v0.4.0</h2>
-            <span className="px-3 py-1 bg-primary text-primary-foreground text-sm font-medium rounded-full">
-              Latest
-            </span>
             <span className="text-muted-foreground">October 1, 2025</span>
           </div>
 
@@ -72,18 +143,18 @@ export const Changelog = () => {
                       Intelligent agent workflows with user-guided capability installation. Workflows detect missing capabilities and prompt users for decisions instead of auto-skipping steps.
                     </p>
 
-                  <ul className="space-y-2 text-sm text-muted-foreground">
-                    <li>• <strong>Adaptive Workflows</strong>: Detect missing capabilities and prompt user for install/skip/continue/pause decisions</li>
-                    <li>• <strong>Smart Recommendations</strong>: Stack-aware tool suggestions (React → Vitest, Vue → Vitest, Angular → Jest)</li>
-                    <li>• <strong>Installation Tracking</strong>: Every tool installation becomes a visible, tracked workflow task with duration</li>
-                    <li>• <strong>Interactive Prompts</strong>: Never auto-skips steps - always asks user for decisions</li>
-                    <li>• <strong>Capability Detection</strong>: Automatically detects design systems, test frameworks, and documentation tools</li>
-                    <li>• <strong>Auto-Configuration</strong>: Installed tools are automatically configured with framework-specific settings</li>
-                    <li>• <strong>Workflow Types</strong>: UI, API, Bug Fix, Refactor, and Feature workflows with specialized agent assignments</li>
-                  </ul>
+                    <ul className="space-y-2 text-sm text-muted-foreground">
+                      <li>• <strong>Adaptive Workflows</strong>: Detect missing capabilities and prompt user for install/skip/continue/pause decisions</li>
+                      <li>• <strong>Smart Recommendations</strong>: Stack-aware tool suggestions (React → Vitest, Vue → Vitest, Angular → Jest)</li>
+                      <li>• <strong>Installation Tracking</strong>: Every tool installation becomes a visible, tracked workflow task with duration</li>
+                      <li>• <strong>Interactive Prompts</strong>: Never auto-skips steps - always asks user for decisions</li>
+                      <li>• <strong>Capability Detection</strong>: Automatically detects design systems, test frameworks, and documentation tools</li>
+                      <li>• <strong>Auto-Configuration</strong>: Installed tools are automatically configured with framework-specific settings</li>
+                      <li>• <strong>Workflow Types</strong>: UI, API, Bug Fix, Refactor, and Feature workflows with specialized agent assignments</li>
+                    </ul>
+                  </div>
                 </div>
               </div>
-            </div>
             </div>
 
             {/* New Core Modules */}
