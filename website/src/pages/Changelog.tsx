@@ -98,7 +98,6 @@ export const Changelog = () => {
           </div>
 
           <TechnicalDetails
-            title="Technical Implementation"
             details={[
               'Editor Tracking: Configuration saved after successful installation',
               'Post-Install Hook: Runs only for global installs, skips local/dev',
