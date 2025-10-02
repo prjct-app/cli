@@ -57,6 +57,12 @@ jobs:
 
       - name: Run verification tests
         run: |
+          # Test CLI is available
+          which prjct
+
+          # Test CLI runs and shows help
+          prjct --help 2>&1 | grep -q "Available commands"
+
           # Test all core commands exist
           prjct 2>&1 | grep -q "init"
           prjct 2>&1 | grep -q "now"
@@ -65,13 +71,7 @@ jobs:
           prjct 2>&1 | grep -q "next"
           prjct 2>&1 | grep -q "idea"
 
-      - name: Test dependencies are installed
-        run: |
-          # Check that required deps are available
-          node -e "require('chalk')"
-          node -e "require('commander')"
-          node -e "require('ora')"
-          node -e "require('prompts')"
+          echo "✅ CLI installed and all commands verified"
 
   report-results:
     name: Report Test Results

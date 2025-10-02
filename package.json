@@ -1,10 +1,13 @@
 {
-  "name": "@prjct/cli",
+  "name": "prjct-cli",
   "version": "0.4.0",
   "description": "AI-integrated project management for indie hackers - works with Claude Code, Cursor, and Warp",
   "main": "core/index.js",
   "bin": {
     "prjct": "./bin/prjct"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "install-global": "./scripts/install.sh",
@@ -57,6 +60,17 @@
   "engines": {
     "node": ">=18.0.0"
   },
+  "files": [
+    "bin/",
+    "core/",
+    "templates/",
+    "scripts/install.sh",
+    "scripts/verify-installation.sh",
+    "LICENSE",
+    "README.md",
+    "CHANGELOG.md",
+    "CLAUDE.md"
+  ],
   "trustedDependencies": [
     "chalk",
     "commander",
