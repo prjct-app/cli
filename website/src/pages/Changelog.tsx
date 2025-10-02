@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { GitBranch, AlertTriangle, Plus, Wrench, Trash2, Shield, Users, Database, CheckCircle, Monitor, Bug, RefreshCw, Package, Sparkles } from 'lucide-react'
+import { GitBranch, AlertTriangle, Plus, Wrench, Trash2, Shield, Users, Database, CheckCircle, Monitor, Bug, RefreshCw, Package, Sparkles, ArrowRightLeft } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { VersionHeader } from '@/components/changelog/VersionHeader'
 import { FeatureCard } from '@/components/changelog/FeatureCard'
@@ -58,30 +58,16 @@ export const Changelog = () => {
           </div>
         </motion.section>
 
-        {/* Version 0.4.3 */}
+        {/* Version 0.4.4 */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}
           className="mb-16"
         >
-          <VersionHeader version="v0.4.3" date="October 2, 2025" isLatest />
+          <VersionHeader version="v0.4.4" date="October 2, 2025" isLatest />
 
           <div className="space-y-6 mb-6">
-            <FeatureCard
-              icon={RefreshCw}
-              title="Automatic Editor Command Updates"
-              description="Commands auto-update when npm package is updated"
-              bullets={[
-                <>• New <code className="text-cat-mauve">core/editors-config.js</code> tracks installed editors</>,
-                <>• Stores selections in <code className="text-cat-mauve">~/.prjct-cli/config/installed-editors.json</code></>,
-                <>• Post-install hook auto-updates after <code className="text-cat-mauve">npm update -g prjct-cli</code></>,
-                '• Ensures version consistency across all editors (Claude, Cursor, Windsurf, Codex)',
-                '• No manual reinstallation needed - updates happen automatically',
-                "• Respects user's original editor choices from initial setup"
-              ]}
-            />
-
             <FeatureCard
               icon={Sparkles}
               title="Auto-Installation on First Install"
@@ -110,6 +96,59 @@ export const Changelog = () => {
             />
 
             <FeatureCard
+              icon={ArrowRightLeft}
+              title="Automatic Data Migration"
+              description="Seamless upgrade from v0.1.0 to v0.4.4 - zero data loss"
+              bullets={[
+                '• Automatically detects legacy .prjct/ projects during update',
+                <>• Migrates to new global architecture <code className="text-cat-mauve">~/.prjct-cli/projects/&#123;id&#125;/</code></>,
+                '• Scans common project directories (Projects, Documents, Developer, Code)',
+                '• Preserves all data: core, progress, planning, analysis, memory layers',
+                '• Cleans legacy directories while keeping config for compatibility',
+                <>• Uses battle-tested <code className="text-cat-mauve">core/migrator.js</code> system</>,
+                '• No user intervention required - happens automatically on npm update'
+              ]}
+            />
+          </div>
+
+          <TechnicalDetails
+            details={[
+              'Post-Install Hook: Auto-detects and installs to all AI editors on first install',
+              'Pre-Uninstall Hook: Removes slash commands and tracking config before uninstall',
+              'Migration System: Automatically detects and migrates legacy v0.1.0 projects',
+              'Improved Tracking: installToSelected() now always saves editor config',
+              'Version Detection: Compares current with last installed version',
+              'Force Update: Automatically updates commands when version changes',
+              'Data Preservation: Zero data loss during migration, all layers preserved'
+            ]}
+          />
+        </motion.section>
+
+        {/* Version 0.4.3 */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.3 }}
+          className="mb-16"
+        >
+          <VersionHeader version="v0.4.3" date="October 2, 2025" />
+
+          <div className="space-y-6 mb-6">
+            <FeatureCard
+              icon={RefreshCw}
+              title="Automatic Editor Command Updates"
+              description="Commands auto-update when npm package is updated"
+              bullets={[
+                <>• New <code className="text-cat-mauve">core/editors-config.js</code> tracks installed editors</>,
+                <>• Stores selections in <code className="text-cat-mauve">~/.prjct-cli/config/installed-editors.json</code></>,
+                <>• Post-install hook auto-updates after <code className="text-cat-mauve">npm update -g prjct-cli</code></>,
+                '• Ensures version consistency across all editors (Claude, Cursor, Windsurf, Codex)',
+                '• No manual reinstallation needed - updates happen automatically',
+                "• Respects user's original editor choices from initial setup"
+              ]}
+            />
+
+            <FeatureCard
               icon={Package}
               title="GitHub Packages Support"
               description="Dual registry publication for better reliability"
@@ -127,11 +166,8 @@ export const Changelog = () => {
           <TechnicalDetails
             details={[
               'Editor Tracking: Configuration saved after all successful installations',
-              'Post-Install Hook: Auto-detects and installs to all AI editors on first install',
-              'Pre-Uninstall Hook: Removes slash commands and tracking config before uninstall',
               'Version Detection: Compares current with last installed version',
               'Force Update: Automatically updates commands when version changes',
-              'Improved Tracking: installToSelected() now always saves editor config',
               'Parallel Publication: npm and GitHub Packages jobs run simultaneously'
             ]}
           />
@@ -141,7 +177,7 @@ export const Changelog = () => {
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
+          transition={{ duration: 0.6, delay: 0.4 }}
           className="mb-16"
         >
           <VersionHeader version="v0.4.2" date="October 2, 2025" />

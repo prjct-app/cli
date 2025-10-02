@@ -15,6 +15,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Cross-platform file operations
   - Windows Terminal integration
 
+## [0.4.4] - 2025-10-02
+
+### Added
+- **Automatic Editor Command Updates** - Commands auto-update when npm package is updated
+  - New `core/editors-config.js` tracks which editors user has installed commands to
+  - Stores editor selections in `~/.prjct-cli/config/installed-editors.json`
+  - Post-install hook (`scripts/post-install.js`) auto-updates commands after `npm update -g prjct-cli`
+  - **Auto-installation on first install** - Detects AI editors and installs commands automatically
+  - Ensures version consistency across all configured editors (Claude, Cursor, Windsurf, Codex)
+  - No manual reinstallation needed - updates happen automatically
+  - Respects user's original editor choices from initial setup
+
+- **Automatic Cleanup on Uninstall** - Clean uninstallation removes all traces
+  - New `scripts/preuninstall.js` runs before `npm uninstall -g prjct-cli`
+  - Automatically removes commands from all tracked editors
+  - Deletes tracking configuration from `~/.prjct-cli/config/`
+  - Added `uninstallFromEditor()` and `uninstallFromAll()` methods to command installer
+  - Added `deleteConfig()` method to editors config
+  - Prevents orphaned commands when package is uninstalled
+  - Clean exit even if cleanup fails (doesn't block uninstall)
+
+- **Automatic Data Migration** - Seamless upgrade from v0.1.0 to v0.4.4
+  - Post-install hook automatically detects legacy `.prjct/` projects
+  - Migrates data from local structure to new global architecture (`~/.prjct-cli/projects/{id}/`)
+  - Scans common project directories (Projects, Documents, Developer, Code, etc.)
+  - Preserves all project data during migration (now, next, shipped, ideas, memory)
+  - Cleans up legacy directories while keeping config for compatibility
+  - No user intervention required - migration happens automatically on update
+  - Uses existing battle-tested `core/migrator.js` system
+
+### Changed
+- **Improved Command Tracking** - Always track editor installations for better update management
+  - Modified `installToSelected()` to always save editor config (removed `!forceUpdate` restriction)
+  - Ensures tracking happens even during force updates
+  - Enables reliable auto-updates across all configured editors
+
+### Technical Details
+- **Post-Install Hook**: Runs after `npm install -g prjct-cli` or `npm update -g prjct-cli`
+  - First install: Auto-detects editors and installs commands
+  - Updates: Checks version change and auto-updates commands in tracked editors
+  - **Migration**: Automatically detects and migrates legacy projects from v0.1.0
+  - Silent operation with debug mode via `DEBUG=1` environment variable
+- **Pre-Uninstall Hook**: Runs before `npm uninstall -g prjct-cli`
+  - Reads tracking config to find all installed editors
+  - Removes command directories from each editor
+  - Cleans up tracking configuration
+  - Fails gracefully to not block uninstall
+- **Migration System**: Automatic upgrade path from v0.1.0 to v0.4.4
+  - Scans common project directories (fast, non-intrusive)
+  - Migrates local `.prjct/` to global `~/.prjct-cli/projects/{id}/`
+  - Preserves all data: core, progress, planning, analysis, memory layers
+  - Cleans legacy directories while keeping compatibility config
+  - Zero data loss, seamless upgrade experience
+
 ## [0.4.3] - 2025-10-02
 
 ### Added
