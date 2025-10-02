@@ -1965,18 +1965,24 @@ ${diagram}
 
       // ASCII Art
       const chalk = require('chalk')
-      console.log(
-        chalk.cyan(`
-   ___  ____    _ ____ _____
-  / _ \\|  _ \\  | / ___|_   _|
- | |_| | |_) |_| | |     | |
- |  __/|  _ <| | | |___  | |
- | |   | |_) | | |\\____| | |
- |_|   |____/|_| |       |_|
-    `)
-      )
+      console.log('')
+      console.log('')
+      console.log(chalk.bold.magenta('   (ﾉ◕ヮ◕)ﾉ*:･ﾟ✧'))
+      console.log(chalk.bold.cyan('   ██████╗ ██████╗      ██╗ ██████╗████████╗'))
+      console.log(chalk.bold.cyan('   ██╔══██╗██╔══██╗     ██║██╔════╝╚══██╔══╝'))
+      console.log(chalk.bold.blue('   ██████╔╝██████╔╝     ██║██║        ██║'))
+      console.log(chalk.bold.blue('   ██╔═══╝ ██╔══██╗██   ██║██║        ██║'))
+      console.log(chalk.bold.magenta('   ██║     ██║  ██║╚█████╔╝╚██████╗   ██║'))
+      console.log(chalk.bold.magenta('   ╚═╝     ╚═╝  ╚═╝ ╚════╝  ╚═════╝   ╚═╝'))
+      console.log('')
+      console.log(chalk.dim.white('   Turn ideas into AI-ready roadmaps'))
+      console.log('')
+      console.log(chalk.yellow('   ⚡ Ship faster with zero friction'))
+      console.log(chalk.green('   📝 From idea to technical tasks in minutes'))
+      console.log(chalk.cyan('   🤖 Perfect context for AI agents'))
+      console.log('')
 
-      console.log(chalk.cyan('\n📦 Welcome to prjct-cli!\n'))
+      console.log(chalk.bold.magenta('📦 Setup - Install Commands to AI Editors\n'))
 
       // Detect editors
       const commandInstaller = require('./command-installer')
@@ -1995,7 +2001,8 @@ ${diagram}
 
       console.log(chalk.cyan('🔍 Detected AI editors:'))
       detectedEditors.forEach(([key, info]) => {
-        console.log(chalk.green(`  [✓] ${info.name} (${info.path})`))
+        const editorName = commandInstaller.editors[key]?.name || key
+        console.log(chalk.green(`  [✓] ${editorName} (${info.path})`))
       })
       console.log('')
 

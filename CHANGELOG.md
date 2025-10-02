@@ -15,7 +15,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Cross-platform file operations
   - Windows Terminal integration
 
-## [0.4.5] - 2025-10-02
+## [0.4.7] - 2025-10-02
+
+### Fixed
+- **`prjct start` ASCII Art** - Restored beautiful Catppuccin-inspired colors
+  - Original design from install.sh with (ﾉ◕ヮ◕)ﾉ*:･ﾟ✧
+  - Vibrant magenta, cyan, and blue gradient for logo
+  - Clean, professional look with value propositions
+  - Better visual hierarchy and branding
+- **`prjct start` Display Bug** - Fixed editor names showing as "undefined"
+  - Now correctly displays editor names (Claude Code, Cursor, etc.)
+  - Uses `commandInstaller.editors[key].name` to get proper editor names
+
+## [0.4.6] - 2025-10-02
 
 ### Added
 - **`prjct start` Command** - First-time setup with interactive editor selection
