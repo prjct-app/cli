@@ -1,6 +1,6 @@
 {
   "name": "prjct-cli",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "AI-integrated project management for indie hackers - works with Claude Code, Cursor, and Warp",
   "main": "core/index.js",
   "bin": {
