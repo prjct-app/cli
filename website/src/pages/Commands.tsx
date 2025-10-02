@@ -10,8 +10,6 @@ import {
   Palette,
   HelpCircle,
   Code2,
-  Cpu,
-  Wind,
   Sparkles,
   Rocket,
   Github,
@@ -270,11 +268,11 @@ export const Commands = () => {
                 <div className="space-y-1 text-sm">
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <span className="text-primary">→</span>
-                    <span>"I want to start building the login page"</span>
+                    <span>"p. I want to start building the login page"</span>
                   </div>
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <span className="text-primary">→</span>
-                    <span>"I'm done" or "ship this feature"</span>
+                    <span>"p. I'm done" or "p. ship this feature"</span>
                   </div>
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <span className="text-primary">→</span>

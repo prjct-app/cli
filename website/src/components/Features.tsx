@@ -8,7 +8,6 @@ import {
   Terminal,
   Brain,
   Sparkles,
-  Cpu,
 } from 'lucide-react'
 import { Section, Card, IconBox, Badge } from './ui'
 

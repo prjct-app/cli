@@ -7,7 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Corrected Claude Subscription Messaging** - Clarified honest pricing throughout
+  - Updated `website/src/pages/Changelog.tsx`:
+    - Changed "Claude Code is 100% free" → "Works with whatever Claude subscription you have (free tier or Pro)"
+    - Added clarity: "No extra costs or tokens required - just install and use with your existing Claude access"
+  - Updated `website/src/components/FAQ.tsx`:
+    - Replaced misleading "100% free" claims with accurate subscription info
+    - Emphasized "no extra setup", "no token management", "no API keys to configure"
+  - Updated `README.md`:
+    - Changed "100% free" → "works with free tier or Pro"
+    - Added clarity about zero additional costs beyond existing Claude subscription
+    - Explained Claude has free tier but isn't completely free
+    - **Editor Installation**: Removed multi-editor references (Cursor, Windsurf, Codex) - now shows Claude-only installation
+    - **Natural Language Section**: Renamed to "p. Trigger - Zero Memorization" and updated all examples to show p. prefix
+    - **Alignment**: All examples now consistently show "p. I want..." format
+    - **Data Storage**: Fixed inconsistent paths - changed `.prjct/` → `~/.prjct-cli/projects/{id}/` for accuracy
+    - **Team Workflow**: Updated to reflect global architecture with local data and shared config
+    - **FAQ Sections**: Both quick and detailed FAQs now aligned with global architecture
+  - **Why This Matters**: Being honest about costs builds trust - prjct-cli doesn't require extra payments, but Claude itself has subscription tiers
+
+- **Fixed TypeScript Errors** - Removed unused imports across website components
+  - Fixed `website/src/pages/Changelog.tsx`: Added missing `MessageSquare` import
+  - Fixed `website/src/components/Features.tsx`: Removed unused `Cpu` import
+  - Fixed `website/src/pages/Commands.tsx`: Removed unused `Cpu`, `Wind` imports
+  - Fixed `website/src/components/WindsurfExtension.tsx`: Removed unused `Zap`, `ChevronRight` imports
+  - Fixed `website/src/components/WindsurfPreview.tsx`: Removed unused `ArrowRight`, `GitBranch`, `PlayCircle`, `Layers`, `ChevronRight` imports
+  - Website now compiles without TypeScript errors
+
 ### Changed
+- **Website Alignment with p. Trigger** - ALL website components now show p. trigger correctly
+  - Updated `website/src/components/Features.tsx`:
+    - Changed "p. Trigger" description to show multiple examples
+    - '"p. I\'m done" → /p:done | "p. start building auth" → /p:now | "p. ship this" → /p:ship'
+  - Updated `website/src/components/ClaudeSuperpowers.tsx`:
+    - Changed "Natural Language" → "p. Trigger - Zero Memorization"
+    - All examples now show p. prefix: "p. I'm done", "p. start building auth", "p. ship this feature"
+  - Updated `website/src/pages/Commands.tsx`:
+    - Natural language examples now include p. trigger
+    - "p. I want to start building the login page", "p. I'm done", "p. ship this feature"
+  - Updated `website/src/pages/docs/QuickStart.tsx`:
+    - Changed examples to use p. trigger
+    - "p. I'm done" when finished, "p. ship this feature" to celebrate
+
 - **Copy Simplification for Creators** - Made all text stupidly simple to understand
   - Updated `README.md` to speak to creators and small teams, not just developers:
     - Changed "indie hackers" → "solo creators and founders"

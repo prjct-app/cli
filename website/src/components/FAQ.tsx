@@ -7,7 +7,7 @@ const faqs = [
   {
     question: 'Why Claude-only? What about Cursor/Windsurf?',
     answer:
-      "By focusing 100% on Claude, we deliver features that would be IMPOSSIBLE with multi-platform support:\n\n1. Dynamic AI Agents (requires Claude's agent system)\n2. Native MCP Integration (Claude-native protocol)\n3. Git Validation (needs tight Claude integration)\n4. Natural Language (leverages Claude's understanding)\n5. 50-60% less code = faster features & bug fixes\n\nThis isn't a limitation - it's a strategic decision that makes prjct-cli better for developers who ship fast. Works with your existing Claude plan (free or paid) - no extra tokens or API keys needed.",
+      "By focusing 100% on Claude, we deliver features that would be IMPOSSIBLE with multi-platform support:\n\n1. Dynamic AI Agents (requires Claude's agent system)\n2. Native MCP Integration (Claude-native protocol)\n3. Git Validation (needs tight Claude integration)\n4. Natural Language (leverages Claude's understanding)\n5. 50-60% less code = faster features & bug fixes\n\nThis isn't a limitation - it's a strategic decision that makes prjct-cli better for developers who ship fast. Works with whatever Claude subscription you have (free tier or Pro) - no extra costs, tokens, or API keys to configure.",
   },
   {
     question: 'Is this a project management tool?',
@@ -17,7 +17,7 @@ const faqs = [
   {
     question: "I prefer Cursor/Windsurf. Can't you add them back?",
     answer:
-      "We deliberately chose NOT to support multi-platform:\n\n• No extra costs - works with your existing Claude plan (free or paid)\n• No token management - uses your current Claude access\n• Better AI (latest Claude 3.5 Sonnet vs older models)\n• Enables impossible features (agents, MCP, git validation)\n• 50-60% less code = better quality & faster features\n\nYou can stay on v0.4.10 if needed, but you'll miss out on superpowers. Give Claude Code a try - it works with what you already have.",
+      "We deliberately chose NOT to support multi-platform:\n\n• No extra setup - works with whatever Claude subscription you have (free tier or Pro)\n• No token management - uses your current Claude access and limits\n• Better AI (latest Claude 3.5 Sonnet vs older models)\n• Enables impossible features (agents, MCP, git validation)\n• 50-60% less code = better quality & faster features\n\nYou can stay on v0.4.10 if needed, but you'll miss out on superpowers. Give Claude Code a try - just install and use with your existing Claude access.",
   },
   {
     question: 'Can I work on multiple tasks simultaneously?',
@@ -47,7 +47,7 @@ const faqs = [
   {
     question: 'Can I use prjct without Claude?',
     answer:
-      "Yes, but with VERY limited features (Terminal mode only):\n\n✅ Basic commands work\n❌ No AI agents\n❌ No MCP integration\n❌ No git validation\n❌ No natural language\n\nWorks with your existing Claude plan (free or paid). Just use what you already have for the full experience.",
+      "Yes, but with VERY limited features (Terminal mode only):\n\n✅ Basic commands work\n❌ No AI agents\n❌ No MCP integration\n❌ No git validation\n❌ No natural language\n\nFor the full experience, use Claude Code or Desktop with whatever subscription you have (free tier or Pro). No extra setup required.",
   },
   {
     question: 'What if I have many ideas at the same time?',
