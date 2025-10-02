@@ -112,12 +112,26 @@ export const QuickStart = () => {
        </div>
        <h3 className="text-xl font-semibold">Start Your First Task</h3>
       </div>
+      <div className="p-4 bg-primary/10 rounded-lg border-2 border-primary/30 mb-3">
+       <p className="text-sm font-semibold mb-2 flex items-center gap-2">
+        <Zap className="w-4 h-4 text-primary" />
+        💬 Talk Naturally (Recommended)
+       </p>
+       <div className="bg-black rounded-lg p-3 font-mono text-sm mb-2">
+        <div className="text-gray-400">Just talk to your AI assistant:</div>
+        <div className="text-cat-peach mt-1">"I want to start building user authentication"</div>
+       </div>
+       <p className="text-xs text-muted-foreground">
+        The system detects your intent and maps it to the right command automatically.
+       </p>
+      </div>
       <div className="bg-black rounded-lg p-4 font-mono text-sm">
+       <div className="text-gray-400 mb-1">Or use commands directly:</div>
        <div><span className="text-cat-teal">$</span> /p:now "implement user authentication"</div>
        <div className="text-gray-400 mt-2">→ 🎯 Current task set: implement user authentication</div>
       </div>
       <p className="text-muted-foreground">
-       You're now tracking your work! Use <code>/p:done</code> when you finish, and <code>/p:ship</code> to celebrate features.
+       You're now tracking your work! Say "I'm done" when finished, or "ship this feature" to celebrate.
       </p>
      </div>
     </motion.section>
@@ -167,7 +181,7 @@ export const QuickStart = () => {
        <ArrowRight className="w-4 h-4" />
       </Link>
       <Link
-       to="/workflows"
+       to="/workflows-guide"
        className="inline-flex items-center gap-2 px-6 py-3 border border-border rounded-lg hover:bg-muted transition-all"
       >
        See Workflows

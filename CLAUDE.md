@@ -42,13 +42,157 @@ The system operates as an AI Assistant Enhancement Framework using:
 └── prjct.config.json  # Links to global data
 ```
 
+## Natural Language System
+
+**prjct-cli includes a conversational interface** - users can talk naturally instead of memorizing commands!
+
+### Semantic Intent Detection
+
+As an LLM, you understand context and intent naturally. When users describe what they want to do, **map their intent to the appropriate command** based on semantic understanding, not pattern matching.
+
+**Command Intent Map:**
+
+| User Intent | Command | What It Does |
+|-------------|---------|--------------|
+| Wants to start/focus on a task | `/p:now` | Sets current working task |
+| Finished/completed current work | `/p:done` | Marks task complete, suggests next |
+| Ready to ship/deploy a feature | `/p:ship` | Celebrates shipped feature |
+| Has an idea to capture | `/p:idea` | Saves idea to backlog |
+| Wants to see progress/status | `/p:recap` | Shows overview of all work |
+| Stuck on a problem | `/p:stuck` | Provides contextual help |
+| Wants to know what's next | `/p:next` | Shows priority queue |
+| Needs general help | `/p:help` | Interactive guide |
+
+**Works in any language** - if you understand the user's intent, execute the command!
+
+**Examples (many ways to express same intent):**
+```
+All of these mean /p:now:
+"I want to start building auth"
+"Let me work on the login page"
+"Voy a hacer la autenticación"
+"Starting the API now"
+"Quiero empezar con el dashboard"
+
+All of these mean /p:done:
+"I'm done" | "finished" | "terminé" | "completed" | "listo"
+
+All of these mean /p:ship:
+"ship this" | "deploy it" | "it's ready" | "let's launch"
+```
+
+### Conversational Responses
+
+Every command response includes:
+- ✅ **Action confirmation** with clear result
+- 💬 **Natural language prompts** for next steps
+- 🎯 **Command alternatives** for power users
+- 📋 **Contextual suggestions** based on project state
+
+**Example Response:**
+```markdown
+✅ Task complete: implement authentication (2h 15m)
+
+What's next?
+• "start next task" → Begin working
+• "ship this feature" → Track & celebrate
+• "add new idea" → Brainstorm
+
+Or use: /p:now | /p:ship | /p:idea
+```
+
+## Implementation for Claude Code
+
+### How to Handle Natural Language
+
+When you receive a message from the user:
+
+**Step 1: Check if it's a direct command**
+```javascript
+if (message.startsWith('/p:')) {
+  return executeCommand(message)
+}
+```
+
+**Step 2: Understand the user's intent semantically**
+```javascript
+// You're an LLM - use your understanding of context
+// Ask yourself: "What is the user trying to do?"
+
+const intent = understandIntent(message) // Use semantic understanding
+
+// Common intents:
+// - Start a task → /p:now
+// - Finish current work → /p:done
+// - Ship/deploy something → /p:ship
+// - Save an idea → /p:idea
+// - Check status → /p:recap
+// - Get help → /p:stuck
+// - See what's next → /p:next
+
+if (intent.command) {
+  // Extract relevant parameters from the message
+  const params = extractRelevantInfo(message)
+
+  // Show transparency
+  console.log(`💬 I understood: "${intent.description}"`)
+  console.log(`⚡ Executing: /p:${intent.command} ${params}`)
+
+  return executeCommand(intent.command, params)
+}
+```
+
+**Step 3: Provide conversational response**
+```javascript
+// Always suggest natural next steps
+✅ [What you did]
+
+What's next?
+• [Natural language option 1]
+• [Natural language option 2]
+
+Or use: [relevant commands]
+```
+
+### Complete Example
+
+**User Input:** "I want to start building the authentication system"
+
+**Your Analysis:**
+- Intent: User wants to start working on something
+- Command: `/p:now`
+- Parameter: "building the authentication system"
+
+**Your Response:**
+```
+💬 I understood: "start working on building the authentication system"
+⚡ Executing: /p:now "building the authentication system"
+
+🎯 Working on: building the authentication system
+Started: 2:30 PM
+
+When you're done:
+• Say "I'm done" or "finished"
+• Or: /p:done
+
+Need help? Say "I'm stuck" or use /p:stuck
+```
+
+### Key Principles
+
+1. **Trust your understanding** - You're an LLM, not a regex parser
+2. **Any language works** - English, Spanish, or any language you understand
+3. **Variations are fine** - Users can express intent in infinite ways
+4. **Show transparency** - Always say what you understood and what you'll execute
+5. **Be conversational** - Guide users naturally toward next actions
+
 ## Command System for Claude Code
 
 All commands use the `/p:*` syntax in Claude Code. When executed, they:
 1. Read `.prjct/prjct.config.json` to get the project ID
 2. Operate on files in `~/.prjct-cli/projects/{id}/`
 3. Update relevant markdown files atomically
-4. Return formatted responses with emojis
+4. Return formatted responses with conversational prompts
 
 ### Work Commands
 

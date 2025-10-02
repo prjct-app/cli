@@ -305,9 +305,45 @@ export const Commands = () => {
             <span className="text-sm font-medium text-primary">Complete Command Reference</span>
           </div>
           <h1 className="mb-6 text-5xl font-bold md:text-6xl">All prjct Commands</h1>
-          <p className="mx-auto mb-8 max-w-2xl text-xl text-muted-foreground">
+          <p className="mx-auto mb-4 max-w-2xl text-xl text-muted-foreground">
             18 commands, unified across 5 platforms
           </p>
+
+          {/* Natural Language Callout */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="mx-auto mb-8 max-w-3xl rounded-2xl border-2 border-primary/30 bg-gradient-to-r from-primary/10 to-primary/5 p-6"
+          >
+            <div className="flex items-start gap-4">
+              <div className="rounded-lg bg-primary/20 p-2 text-primary">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div className="flex-1 text-left">
+                <h3 className="mb-2 text-lg font-semibold text-foreground">
+                  💬 Don't Memorize - Just Talk!
+                </h3>
+                <p className="mb-3 text-sm text-muted-foreground">
+                  You don't need to memorize these commands. Just talk naturally in Claude Code, Cursor, or Windsurf:
+                </p>
+                <div className="space-y-1 text-sm">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <span className="text-primary">→</span>
+                    <span>"I want to start building the login page"</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <span className="text-primary">→</span>
+                    <span>"I'm done" or "ship this feature"</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <span className="text-primary">→</span>
+                    <span>Try <code className="rounded bg-muted px-1 py-0.5 text-primary">/p:help</code> for an interactive guide</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
 
           {/* Global Platform Selector */}
           <div className="mx-auto flex w-fit flex-wrap justify-center gap-2 rounded-lg border border-border bg-background/50 p-1">

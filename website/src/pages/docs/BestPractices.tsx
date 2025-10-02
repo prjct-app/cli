@@ -9,23 +9,23 @@ export const BestPractices = () => {
    category: "Daily Habits",
    tips: [
     {
-     title: "Start with /p:recap",
-     description: "Begin each day by checking where you left off",
+     title: "Start with 'show my progress'",
+     description: "Begin each day by saying 'show my progress' or use /p:recap",
      why: "Instant context without searching through tickets or notes"
     },
     {
      title: "One task at a time",
-     description: "Use /p:now for a single focus, complete it before moving on",
+     description: "Say 'I want to start [task]' or use /p:now for single focus",
      why: "Deep work beats multitasking every time"
     },
     {
      title: "Capture ideas immediately",
-     description: "Use /p:idea the moment inspiration strikes",
+     description: "Say 'I have an idea about...' or use /p:idea",
      why: "Never lose a thought while maintaining focus"
     },
     {
      title: "Ship daily",
-     description: "Use /p:ship at least once a day, even for small wins",
+     description: "Say 'ship [feature]' or use /p:ship at least once a day",
      why: "Momentum compounds - celebrate progress"
     }
    ]
@@ -36,7 +36,7 @@ export const BestPractices = () => {
    tips: [
     {
      title: "Break down complex features",
-     description: "Use /p:task to split large features into subtasks",
+     description: "Say 'break this down' or use /p:task to split large features",
      why: "Manageable chunks = consistent progress"
     },
     {
@@ -46,12 +46,12 @@ export const BestPractices = () => {
     },
     {
      title: "Complete before switching",
-     description: "Always /p:done before /p:now with new task",
+     description: "Say 'I'm done' before starting new tasks",
      why: "Clean transitions prevent lost work"
     },
     {
      title: "Review your queue weekly",
-     description: "Check /p:next and /p:roadmap every Monday",
+     description: "Say 'what's next?' or use /p:next every Monday",
      why: "Stay aligned with your goals"
     }
    ]
@@ -61,8 +61,8 @@ export const BestPractices = () => {
    category: "Productivity Boosters",
    tips: [
     {
-     title: "Use /p:stuck early",
-     description: "Don't waste hours - get help after 15 minutes stuck",
+     title: "Get help when stuck",
+     description: "Say 'I'm stuck on...' after 15 minutes - don't waste hours",
      why: "Fresh perspective beats prolonged frustration"
     },
     {
@@ -87,12 +87,12 @@ export const BestPractices = () => {
  const antiPatterns = [
   {
    bad: "Working on multiple tasks simultaneously",
-   good: "Focus on one task until completion",
+   good: "Focus on one task - say 'I want to start [task]' only when ready",
    icon: <AlertCircle className="w-5 h-5 text-cat-red" />
   },
   {
-   bad: "Skipping /p:done and jumping to new tasks",
-   good: "Always complete current task first",
+   bad: "Jumping to new tasks without finishing",
+   good: "Always say 'I'm done' before starting something new",
    icon: <AlertCircle className="w-5 h-5 text-cat-red" />
   },
   {
