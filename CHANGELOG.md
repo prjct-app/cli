@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2025-10-02
+
+### Fixed
+- **Analyzer Compatibility** - Fixed ENOENT error when running `/p:init` in non-prjct projects
+  - Added validation to check if `bin/prjct` exists before reading
+  - Analyzer now works correctly in any project type (React, Vue, etc.)
+  - No longer throws "no such file or directory" error for normal projects
+  - Maintains full functionality for prjct-cli development projects
+
+- **Website Build Process** - Improved build script and component imports
+  - Fixed Badge component import casing (badge → Badge)
+  - Removed obsolete install.sh and setup.sh copying from build script
+  - Cleaner and faster website builds
+
+### Coming Soon
+- **Windows Compatibility** - Native Windows support
+  - PowerShell and CMD command execution
+  - Windows path handling (`%USERPROFILE%\.prjct-cli\`)
+  - Windows-specific installation scripts
+  - Cross-platform file operations
+  - Windows Terminal integration
+
 ## [0.4.1] - 2025-10-01
 
 ### Added

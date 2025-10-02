@@ -48,11 +48,15 @@ class CodebaseAnalyzer {
 
     try {
       const binPath = path.join(this.projectPath, 'bin', 'prjct')
-      const content = await fs.readFile(binPath, 'utf-8')
 
-      const caseMatches = content.matchAll(/case\s+'([^']+)':/g)
-      for (const match of caseMatches) {
-        commands.push(match[1])
+      // Only try to read bin/prjct if it exists (for prjct-cli projects)
+      if (await this.fileExists(binPath)) {
+        const content = await fs.readFile(binPath, 'utf-8')
+
+        const caseMatches = content.matchAll(/case\s+'([^']+)':/g)
+        for (const match of caseMatches) {
+          commands.push(match[1])
+        }
       }
 
       const commandsPath = path.join(this.projectPath, 'core', 'commands.js')
