@@ -1,0 +1,45 @@
+# Development and configuration files
+.github/
+.config/
+.prjct/
+.claude/
+website/
+docs/development/
+
+# Test files
+test/
+tests/
+*.test.js
+*.spec.js
+
+# Build and development tools
+.eslintrc.json
+.eslintignore
+bunfig.toml
+
+# Formula (only for Homebrew)
+Formula/
+
+# Alternative installation scripts (not needed for npm)
+scripts/install-brew.sh
+scripts/install-bun.sh
+scripts/migrate.sh
+scripts/deploy.sh
+scripts/setup.sh
+scripts/uninstall.sh
+scripts/interactive-install.js
+scripts/verify-methods.sh
+
+# Editor and OS files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Logs and temporary files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
