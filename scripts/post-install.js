@@ -81,34 +81,6 @@ async function main() {
     // Update version in config
     await editorsConfig.updateVersion(currentVersion)
 
-    // Auto-migrate legacy projects (v0.1.0 → v0.4.4)
-    try {
-      console.log(chalk.cyan('\n🔍 Checking for legacy projects to migrate...\n'))
-
-      const migrator = require('../core/migrator')
-
-      // Quick scan of common directories (not entire home directory)
-      const summary = await migrator.migrateAll({
-        deepScan: false,        // Only scan common dirs (fast)
-        removeLegacy: false,    // Keep legacy dirs for safety
-        cleanupLegacy: true,    // Remove old dirs but keep config
-        dryRun: false,          // Actually perform migration
-        interactive: false      // No user prompts during npm install
-      })
-
-      if (summary.successfullyMigrated > 0) {
-        console.log(chalk.green(`✅ Migrated ${summary.successfullyMigrated} legacy project(s) to new structure`))
-        console.log(chalk.gray(`   Data location: ~/.prjct-cli/projects/`))
-      } else if (summary.totalFound > 0 && summary.alreadyMigrated === summary.totalFound) {
-        console.log(chalk.gray('ℹ️  All projects already using new structure'))
-      }
-    } catch (migrationError) {
-      // Don't block install if migration fails
-      if (process.env.DEBUG) {
-        console.error(chalk.yellow('[post-install] Migration warning:'), migrationError.message)
-      }
-    }
-
     console.log(chalk.cyan(`\n✨ prjct-cli ${currentVersion} is ready!\n`))
 
   } catch (error) {

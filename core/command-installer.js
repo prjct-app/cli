@@ -481,15 +481,83 @@ For detailed implementation, see prjct-cli documentation.
   }
 
   /**
+   * Uninstall commands from a specific editor
+   * @param {string} editorKey - Editor key (claude, cursor, windsurf, codex)
+   * @returns {Promise<Object>} Uninstall result
+   */
+  async uninstallFromEditor(editorKey) {
+    const chalk = require('chalk')
+    const editorsConfig = require('./editors-config')
+
+    const editor = this.editors[editorKey]
+    if (!editor) {
+      return {
+        success: false,
+        message: `Unknown editor: ${editorKey}`,
+      }
+    }
+
+    try {
+      // Delete commands from editor
+      const commandsPath = editor.path
+      const fs = require('fs').promises
+
+      // Get list of prjct commands
+      const commands = ['init', 'now', 'done', 'ship', 'next', 'idea', 'recap', 'progress', 'stuck', 'context',
+        'cleanup', 'design', 'task', 'git', 'test', 'roadmap', 'fix', 'analyze']
+
+      let deletedCount = 0
+
+      for (const command of commands) {
+        const commandFile = path.join(commandsPath, `p:${command}.md`)
+        try {
+          await fs.unlink(commandFile)
+          deletedCount++
+        } catch {
+          // Command file doesn't exist, skip
+        }
+      }
+
+      // Remove editor from tracked list
+      await editorsConfig.removeTrackedEditor(editorKey)
+
+      console.log(chalk.yellow(`🗑️  Removed ${deletedCount} commands from ${editor.name}`))
+
+      return {
+        success: true,
+        message: `Removed commands from ${editor.name}`,
+        deleted: deletedCount,
+      }
+    } catch (error) {
+      console.error(chalk.red(`❌ Error removing commands from ${editor.name}:`), error.message)
+      return {
+        success: false,
+        message: `Failed to remove commands: ${error.message}`,
+      }
+    }
+  }
+
+  /**
    * Interactive installation with user selection using prompts
-   * @param {boolean} forceUpdate - Force update existing commands
+   * @param {boolean} allowUninstall - Allow uninstalling editors
    * @returns {Promise<Object>} Installation results
    */
-  async interactiveInstall(forceUpdate = false) {
+  async interactiveInstall(allowUninstall = false) {
     const prompts = require('prompts')
+    const editorsConfig = require('./editors-config')
 
     // Detect all editors
     const detected = await this.detectEditors(this.projectPath)
+
+    // Get currently installed editors if allowUninstall
+    let installedEditors = []
+    if (allowUninstall) {
+      try {
+        installedEditors = await editorsConfig.getTrackedEditors()
+      } catch {
+        // No editors installed yet
+      }
+    }
 
     // Create choices for prompts
     const availableEditors = Object.entries(detected)
@@ -497,7 +565,8 @@ For detailed implementation, see prjct-cli documentation.
       .map(([key, info]) => ({
         title: `${this.editors[key].name} (${info.path})`,
         value: key,
-        selected: true, // Pre-select all detected editors
+        // Pre-select if allowUninstall and already installed, otherwise select all
+        selected: allowUninstall ? installedEditors.includes(key) : true,
       }))
 
     if (availableEditors.length === 0) {
@@ -513,15 +582,15 @@ For detailed implementation, see prjct-cli documentation.
     const response = await prompts({
       type: 'multiselect',
       name: 'selectedEditors',
-      message: 'Select AI editors to install commands to:',
+      message: allowUninstall ? 'Select AI editors (uncheck to remove):' : 'Select AI editors to install commands to:',
       choices: availableEditors,
-      min: 1,
+      min: allowUninstall ? 0 : 1, // Allow 0 selections if uninstalling
       hint: '- Space to select. Return to submit',
       instructions: false,
     })
 
     // Check if user cancelled
-    if (!response.selectedEditors || response.selectedEditors.length === 0) {
+    if (response.selectedEditors === undefined) {
       return {
         success: false,
         message: 'Installation cancelled by user',
@@ -530,8 +599,28 @@ For detailed implementation, see prjct-cli documentation.
       }
     }
 
-    // Install to selected editors
-    return await this.installToSelected(response.selectedEditors, forceUpdate)
+    const selectedEditors = response.selectedEditors || []
+
+    // If allowUninstall, handle editors that were deselected
+    if (allowUninstall) {
+      const deselectedEditors = installedEditors.filter(e => !selectedEditors.includes(e))
+
+      for (const editorKey of deselectedEditors) {
+        await this.uninstallFromEditor(editorKey)
+      }
+    }
+
+    // Install to selected editors (or return success if none selected)
+    if (selectedEditors.length === 0) {
+      return {
+        success: true,
+        message: 'All editors removed',
+        editors: [],
+        results: {},
+      }
+    }
+
+    return await this.installToSelected(selectedEditors, true) // Force update
   }
 
   /**

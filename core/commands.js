@@ -192,8 +192,6 @@ class PrjctCommands {
 
     this.agent = new Agent()
 
-    await this.checkAndRunAutoMigration()
-
     // Check for updates in background (non-blocking)
     this.checkAndNotifyUpdates().catch(() => {
       // Fail silently - don't interrupt workflow
@@ -316,41 +314,46 @@ class PrjctCommands {
   async init(projectPath = process.cwd()) {
     try {
       await this.initializeAgent()
-
-      if (await configManager.isConfigured(projectPath)) {
-        return {
-          success: false,
-          message: this.agent.formatResponse('Project already initialized!', 'warning'),
-        }
-      }
-
       const author = await authorDetector.detect()
 
-      const hasLegacy = await pathManager.hasLegacyStructure(projectPath)
-      let migrationPerformed = false
+      // Check if local config exists
+      const isConfigured = await configManager.isConfigured(projectPath)
+      let projectId
+      let existingLocalData = null
+      let fusionPerformed = false
 
-      if (hasLegacy) {
-        const config = await configManager.createConfig(projectPath, author)
-        const projectId = config.projectId
-        await pathManager.ensureProjectStructure(projectId)
+      if (isConfigured) {
+        // Use existing ID from local config
+        const existingConfig = await configManager.readConfig(projectPath)
+        projectId = existingConfig.projectId
+        console.log(`🔄 Using existing project ID: ${projectId}`)
 
+        // Check if there's local data to merge
+        const localPrjctPath = path.join(projectPath, '.prjct')
         try {
-          const migrationResult = await migrator.migrate(projectPath, {
-            removeLegacy: false,
-            cleanupLegacy: true,
-            dryRun: false,
-          })
-          migrationPerformed = migrationResult.success
+          const localFiles = await fs.readdir(localPrjctPath)
+          if (localFiles.length > 1) { // More than just prjct.config.json
+            existingLocalData = await this.collectLocalData(localPrjctPath)
+          }
         } catch (error) {
-          console.error('[prjct] Migration warning:', error.message)
+          // No local data to merge
         }
+      } else {
+        // Generate new ID based on path hash
+        const config = await configManager.createConfig(projectPath, author)
+        projectId = config.projectId
+        console.log(`✨ Created new project ID: ${projectId}`)
       }
 
-      if (!migrationPerformed) {
-        const config = await configManager.createConfig(projectPath, author)
-        const projectId = config.projectId
-        await pathManager.ensureProjectStructure(projectId)
+      // Ensure global structure exists
+      await pathManager.ensureProjectStructure(projectId)
+      const globalPath = pathManager.getGlobalProjectPath(projectId)
 
+      // Check if global data exists
+      const globalExists = await this.checkGlobalDataExists(globalPath)
+
+      if (!globalExists) {
+        // Create fresh global structure
         const files = {
           'core/now.md': '# NOW\n\nNo current task. Use `/p:now` to set focus.\n',
           'core/next.md': '# NEXT\n\n## Priority Queue\n\n',
@@ -362,54 +365,44 @@ class PrjctCommands {
           'memory/context.jsonl': '',
         }
 
-        const globalPath = pathManager.getGlobalProjectPath(projectId)
         for (const [filePath, content] of Object.entries(files)) {
           await this.agent.writeFile(path.join(globalPath, filePath), content)
         }
+        console.log('✅ Created global structure')
+      } else {
+        console.log('✅ Using existing global data')
       }
 
-      const config = await configManager.readConfig(projectPath)
-      const projectId = config.projectId
-      const globalPath = pathManager.getGlobalProjectPath(projectId)
+      // Merge local data if exists
+      if (existingLocalData) {
+        console.log('🔄 Merging local data with global...')
+        await this.mergeProjectData(existingLocalData, globalPath)
+        fusionPerformed = true
+      }
+
+      // Clean up local data (keep only prjct.config.json)
+      await this.cleanupLocalData(projectPath)
 
       const projectInfo = await this.detectProjectType(projectPath)
-
-      const installResult = await this.install({ force: false, interactive: true })
-      const editorsInstalled = installResult.success
-        ? `\n🤖 Commands installed to: ${installResult.message.split('Editors: ')[1]?.split('\n')[0] || 'selected editors'}`
-        : ''
 
       let analysisMessage = ''
       const hasExistingCode = await this.detectExistingCode(projectPath)
 
       if (hasExistingCode) {
-        try {
-          console.log('🔍 Analyzing existing codebase...')
-          const analysisResult = await this.analyze({
-            sync: true,
-            silent: true,
-          }, projectPath)
-
-          if (analysisResult.success && analysisResult.syncResults) {
-            const sync = analysisResult.syncResults
-            analysisMessage = '\n\n📊 Analysis Complete:\n' +
-              `✅ Found ${analysisResult.analysis.commands.length} commands, ${analysisResult.analysis.features.length} features\n` +
-              (sync.tasksMarkedComplete > 0 ? `✅ Synced ${sync.tasksMarkedComplete} completed tasks\n` : '') +
-              (sync.featuresAdded > 0 ? `✅ Added ${sync.featuresAdded} features to shipped.md\n` : '')
-          }
-        } catch (error) {
-          console.error('[prjct] Analysis warning:', error.message)
-        }
+        // Instead of silently analyzing, prompt the AI agent to run /p:analyze workflow
+        analysisMessage = '\n\n📊 Existing codebase detected!\n' +
+          `\n💡 Run ${this.agentInfo.config.commandPrefix}analyze to analyze your project and sync tasks`
       }
 
       const displayPath = pathManager.getDisplayPath(globalPath)
+      const fusionMessage = fusionPerformed ? '\n🔄 Merged local data with global' : ''
       const message =
         `Initializing prjct v${VERSION} for ${this.agentInfo.name}...\n` +
-        `✅ Created global structure at ${displayPath}\n` +
-        '✅ Created prjct.config.json\n' +
+        `✅ Project ID: ${projectId}\n` +
+        `✅ Global data: ${displayPath}\n` +
         `👤 Author: ${authorDetector.formatAuthor(author)}\n` +
         `📋 Project: ${projectInfo}` +
-        editorsInstalled +
+        fusionMessage +
         analysisMessage +
         `\n\nReady! Start with ${this.agentInfo.config.commandPrefix}now "your first task"`
 
@@ -423,6 +416,270 @@ class PrjctCommands {
         success: false,
         message: this.agent.formatResponse(error.message, 'error'),
       }
+    }
+  }
+
+  /**
+   * Check if global data exists for a project
+   *
+   * @param {string} globalPath - Global project path
+   * @returns {Promise<boolean>} True if global data exists
+   * @private
+   */
+  async checkGlobalDataExists(globalPath) {
+    try {
+      const nowFile = path.join(globalPath, 'core', 'now.md')
+      await fs.access(nowFile)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  /**
+   * Collect all data from local .prjct directory
+   *
+   * @param {string} localPrjctPath - Path to local .prjct directory
+   * @returns {Promise<Object>} Object with local data organized by category
+   * @private
+   */
+  async collectLocalData(localPrjctPath) {
+    const data = {
+      core: {},
+      progress: {},
+      planning: {},
+      memory: {},
+    }
+
+    try {
+      // Collect core files
+      const coreFiles = ['now.md', 'next.md', 'context.md']
+      for (const file of coreFiles) {
+        try {
+          const filePath = path.join(localPrjctPath, file)
+          data.core[file] = await this.agent.readFile(filePath)
+        } catch {
+          // File doesn't exist locally
+        }
+      }
+
+      // Collect progress files
+      const progressFiles = ['shipped.md', 'metrics.md']
+      for (const file of progressFiles) {
+        try {
+          const filePath = path.join(localPrjctPath, file)
+          data.progress[file] = await this.agent.readFile(filePath)
+        } catch {
+          // File doesn't exist locally
+        }
+      }
+
+      // Collect planning files
+      const planningFiles = ['ideas.md', 'roadmap.md']
+      for (const file of planningFiles) {
+        try {
+          const filePath = path.join(localPrjctPath, file)
+          data.planning[file] = await this.agent.readFile(filePath)
+        } catch {
+          // File doesn't exist locally
+        }
+      }
+
+      // Collect memory
+      try {
+        const memoryPath = path.join(localPrjctPath, 'memory.jsonl')
+        data.memory['context.jsonl'] = await this.agent.readFile(memoryPath)
+      } catch {
+        // Memory doesn't exist locally
+      }
+    } catch (error) {
+      console.error('[prjct] Error collecting local data:', error.message)
+    }
+
+    return data
+  }
+
+  /**
+   * Merge local project data with global data
+   *
+   * @param {Object} localData - Local data collected from .prjct
+   * @param {string} globalPath - Global project path
+   * @returns {Promise<void>}
+   * @private
+   */
+  async mergeProjectData(localData, globalPath) {
+    try {
+      // Merge core files
+      for (const [filename, localContent] of Object.entries(localData.core)) {
+        if (!localContent) continue
+
+        const globalFilePath = path.join(globalPath, 'core', filename)
+        let globalContent = ''
+        try {
+          globalContent = await this.agent.readFile(globalFilePath)
+        } catch {
+          // Global file doesn't exist yet
+        }
+
+        const merged = this.intelligentMerge(localContent, globalContent, filename)
+        await this.agent.writeFile(globalFilePath, merged)
+      }
+
+      // Merge progress files
+      for (const [filename, localContent] of Object.entries(localData.progress)) {
+        if (!localContent) continue
+
+        const globalFilePath = path.join(globalPath, 'progress', filename)
+        let globalContent = ''
+        try {
+          globalContent = await this.agent.readFile(globalFilePath)
+        } catch {
+          // Global file doesn't exist yet
+        }
+
+        const merged = this.intelligentMerge(localContent, globalContent, filename)
+        await this.agent.writeFile(globalFilePath, merged)
+      }
+
+      // Merge planning files
+      for (const [filename, localContent] of Object.entries(localData.planning)) {
+        if (!localContent) continue
+
+        const globalFilePath = path.join(globalPath, 'planning', filename)
+        let globalContent = ''
+        try {
+          globalContent = await this.agent.readFile(globalFilePath)
+        } catch {
+          // Global file doesn't exist yet
+        }
+
+        const merged = this.intelligentMerge(localContent, globalContent, filename)
+        await this.agent.writeFile(globalFilePath, merged)
+      }
+
+      // Merge memory (chronologically)
+      if (localData.memory['context.jsonl']) {
+        const globalMemoryPath = path.join(globalPath, 'memory', 'context.jsonl')
+        let globalMemory = ''
+        try {
+          globalMemory = await this.agent.readFile(globalMemoryPath)
+        } catch {
+          // Global memory doesn't exist yet
+        }
+
+        const merged = this.mergeMemory(localData.memory['context.jsonl'], globalMemory)
+        await this.agent.writeFile(globalMemoryPath, merged)
+      }
+    } catch (error) {
+      console.error('[prjct] Error merging data:', error.message)
+    }
+  }
+
+  /**
+   * Intelligent merge of markdown content
+   *
+   * @param {string} localContent - Content from local file
+   * @param {string} globalContent - Content from global file
+   * @param {string} filename - Name of the file being merged
+   * @returns {string} Merged content
+   * @private
+   */
+  intelligentMerge(localContent, globalContent, filename) {
+    // If global is empty, use local
+    if (!globalContent || globalContent.trim() === '' || globalContent.includes('No current task')) {
+      return localContent
+    }
+
+    // If local is empty, use global
+    if (!localContent || localContent.trim() === '') {
+      return globalContent
+    }
+
+    // For now.md, prefer local (most recent)
+    if (filename === 'now.md') {
+      return localContent
+    }
+
+    // For shipped.md, next.md, ideas.md, roadmap.md - combine unique entries
+    const localLines = localContent.split('\n').filter((l) => l.trim())
+    const globalLines = globalContent.split('\n').filter((l) => l.trim())
+
+    // Keep header from global
+    const header = globalLines[0] || localLines[0]
+
+    // Combine unique content (skip headers and empty lines)
+    const allLines = [...globalLines.slice(1), ...localLines.slice(1)]
+    const uniqueLines = [...new Set(allLines)]
+
+    return [header, '', ...uniqueLines].join('\n')
+  }
+
+  /**
+   * Merge memory.jsonl files chronologically
+   *
+   * @param {string} localMemory - Local memory content
+   * @param {string} globalMemory - Global memory content
+   * @returns {string} Merged memory sorted by timestamp
+   * @private
+   */
+  mergeMemory(localMemory, globalMemory) {
+    if (!globalMemory) return localMemory
+    if (!localMemory) return globalMemory
+
+    const localEntries = localMemory.split('\n').filter((l) => l.trim())
+    const globalEntries = globalMemory.split('\n').filter((l) => l.trim())
+
+    const allEntries = [...globalEntries, ...localEntries].map((entry) => {
+      try {
+        return JSON.parse(entry)
+      } catch {
+        return null
+      }
+    }).filter(Boolean)
+
+    // Sort by timestamp
+    allEntries.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+
+    // Remove duplicates
+    const unique = []
+    const seen = new Set()
+    for (const entry of allEntries) {
+      const key = `${entry.timestamp}-${entry.action}`
+      if (!seen.has(key)) {
+        seen.add(key)
+        unique.push(entry)
+      }
+    }
+
+    return unique.map((e) => JSON.stringify(e)).join('\n')
+  }
+
+  /**
+   * Clean up local .prjct directory, keeping only prjct.config.json
+   *
+   * @param {string} projectPath - Project path
+   * @returns {Promise<void>}
+   * @private
+   */
+  async cleanupLocalData(projectPath) {
+    try {
+      const localPrjctPath = path.join(projectPath, '.prjct')
+      const files = await fs.readdir(localPrjctPath, { withFileTypes: true })
+
+      for (const file of files) {
+        if (file.name === 'prjct.config.json') continue
+
+        const filePath = path.join(localPrjctPath, file.name)
+        if (file.isDirectory()) {
+          await fs.rm(filePath, { recursive: true, force: true })
+        } else {
+          await fs.unlink(filePath)
+        }
+      }
+
+      console.log('🧹 Cleaned up local data - only prjct.config.json remains')
+    } catch (error) {
+      console.error('[prjct] Warning: Could not clean up local data:', error.message)
     }
   }
 
@@ -1949,20 +2206,6 @@ ${diagram}
     try {
       await this.initializeAgent()
 
-      // Check if already configured
-      const editorsConfig = require('./editors-config')
-      const configExists = await editorsConfig.configExists()
-
-      if (configExists) {
-        return {
-          success: false,
-          message: this.agent.formatResponse(
-            'prjct is already set up!\n\nTo reconfigure editors: prjct setup',
-            'warning'
-          ),
-        }
-      }
-
       // ASCII Art
       const chalk = require('chalk')
       console.log('')
@@ -2006,8 +2249,8 @@ ${diagram}
       })
       console.log('')
 
-      // Interactive selection
-      const installResult = await commandInstaller.interactiveInstall(false)
+      // Interactive selection (allow uninstall = true)
+      const installResult = await commandInstaller.interactiveInstall(true)
 
       if (!installResult.success) {
         return {

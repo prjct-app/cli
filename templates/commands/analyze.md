@@ -9,6 +9,9 @@ This command uses the global prjct architecture:
 - Config stored in: `{project}/.prjct/prjct.config.json`
 - Commands synchronized across all editors
 
+## Agent Workflow
+This command activates the AI agent workflow for comprehensive project analysis. When you run `/p:analyze`, you as the AI agent should follow the complete workflow instructions below to provide deep analysis of the codebase.
+
 
 
 # /p:analyze - Repository Analysis
