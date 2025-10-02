@@ -193,7 +193,7 @@ export const Privacy = () => {
           <h2 className="mb-6 text-3xl font-bold">Website Privacy</h2>
           <div className="rounded-lg bg-muted/20 p-6">
             <p className="mb-3 text-muted-foreground">
-              Our landing page (prjct.dev) is a static site hosted on GitHub Pages:
+              Our landing page (prjct.app) is a static site hosted on GitHub Pages:
             </p>
             <ul className="space-y-1 text-muted-foreground">
               <li>• No cookies are set</li>

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # prjct-cli Homebrew Installation Script
-# Usage: curl -fsSL https://prjct.dev/install-brew.sh | bash
+# Usage: curl -fsSL https://prjct.app/install-brew.sh | bash
 
 set -e
 

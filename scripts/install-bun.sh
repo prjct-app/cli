@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # prjct-cli Bun Installation Script
-# Usage: curl -fsSL https://prjct.dev/install-bun.sh | bash
+# Usage: curl -fsSL https://prjct.app/install-bun.sh | bash
 
 set -e
 
@@ -58,7 +58,7 @@ if ! command -v bun &> /dev/null; then
         echo -e "${RED}${CROSS}${NC} Bun is required for this installation method"
         echo ""
         echo -e "Alternatives:"
-        echo -e "  ${CYAN}curl -fsSL https://prjct.dev/install.sh | bash${NC}  ${DIM}# Node.js${NC}"
+        echo -e "  ${CYAN}curl -fsSL https://prjct.app/install.sh | bash${NC}  ${DIM}# Node.js${NC}"
         echo -e "  ${CYAN}brew install prjct${NC}                               ${DIM}# Homebrew${NC}"
         exit 1
     fi
