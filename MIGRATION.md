@@ -114,13 +114,13 @@ All editors share the same global data structure, enabling seamless workflow swi
 
 ### Method 1: Automatic Migration (Recommended)
 
-The installer will detect v0.1.0 projects and offer automatic migration:
+Update to the latest version and the CLI will detect v0.1.0 projects and offer automatic migration:
 
 ```bash
-# Update to v0.2.0
-curl -fsSL https://prjct.app/install.sh | bash
+# Update to latest version
+npm update -g prjct-cli
 
-# The installer will:
+# The CLI will:
 # 1. Detect existing .prjct directories
 # 2. Prompt for migration
 # 3. Migrate all data automatically
@@ -400,8 +400,7 @@ If something goes wrong and you need to rollback:
 ```bash
 # 1. The .prjct directory is kept by default during migration
 #    If you still have it, just downgrade:
-npm uninstall -g @prjct/cli
-npm install -g @prjct/cli@0.1.0
+npm install -g prjct-cli@0.1.0
 
 # 2. If .prjct was removed, copy back from global:
 cp -r ~/.prjct-cli/projects/[project-id]/* ./.prjct/

@@ -71,10 +71,10 @@ export const QuickStart = () => {
        <h3 className="text-xl font-semibold">Install prjct</h3>
       </div>
       <div className="bg-black rounded-lg p-4 font-mono text-sm">
-       <div><span className="text-cat-teal">$</span> curl -fsSL https://www.prjct.app/install.sh | bash</div>
+       <div><span className="text-cat-teal">$</span> npm install -g prjct-cli</div>
       </div>
       <p className="text-muted-foreground">
-       This installs prjct globally on your system and makes it available for all your projects.
+       This installs prjct globally on your system and makes it available for all your projects. Requires Node.js 18+.
       </p>
      </div>
 
