@@ -13,7 +13,7 @@
  * 4. Delete tracking configuration
  * 5. Clean exit (don't block uninstall)
  *
- * @version 0.4.3
+ * @version 0.4.4
  */
 
 const chalk = require('chalk')

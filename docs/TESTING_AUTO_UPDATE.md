@@ -53,7 +53,7 @@ npm install -g prjct-cli@latest
 ✅ Commands installed in: Claude Code, Cursor
    Commands installed: 36
 
-✨ prjct-cli 0.4.3 is ready!
+✨ prjct-cli 0.4.4 is ready!
 ```
 
 **Verification**:
@@ -66,7 +66,7 @@ ls ~/.cursor/commands/p/    # Should have: init.md, now.md, done.md, etc.
 cat ~/.prjct-cli/config/installed-editors.json
 # Should show:
 # {
-#   "version": "0.4.3",
+#   "version": "0.4.4",
 #   "editors": ["claude", "cursor"],
 #   "lastInstall": "2025-10-02T...",
 #   "paths": {
@@ -116,7 +116,7 @@ mv ~/.cursor_backup ~/.cursor
 **Setup**:
 ```bash
 # Install previous version first
-npm install -g prjct-cli@0.4.2
+npm install -g prjct-cli@0.4.4
 
 # Verify commands are installed
 ls ~/.claude/commands/p/
@@ -140,14 +140,14 @@ npm install -g prjct-cli@latest
 ✅ Updated commands in: Claude Code, Cursor
    Commands updated: 18
 
-✨ prjct-cli 0.4.3 is ready!
+✨ prjct-cli 0.4.4 is ready!
 ```
 
 **Verification**:
 ```bash
 # Check version was updated in config
 cat ~/.prjct-cli/config/installed-editors.json | grep version
-# Should show: "version": "0.4.3"
+# Should show: "version": "0.4.4"
 
 # Check command files were updated
 cat ~/.claude/commands/p/help.md
@@ -160,13 +160,13 @@ cat ~/.claude/commands/p/help.md
 **Setup**:
 ```bash
 # Install version 0.4.3
-npm install -g prjct-cli@0.4.3
+npm install -g prjct-cli@0.4.4
 ```
 
 **Test**:
 ```bash
 # Reinstall same version
-npm install -g prjct-cli@0.4.3
+npm install -g prjct-cli@0.4.4
 ```
 
 **Expected Output**:
@@ -388,6 +388,116 @@ npm uninstall -g prjct-cli
 npm install -g prjct-cli@latest
 ```
 
+## Testing Data Migration
+
+### Test Scenario 8: Legacy Project Migration (v0.1.0 → v0.4.4)
+
+**Setup**:
+```bash
+# Create a legacy v0.1.0 project structure
+mkdir -p ~/Projects/test-legacy-project
+cd ~/Projects/test-legacy-project
+
+# Create old .prjct/ structure
+mkdir -p .prjct
+echo "# Current Task" > .prjct/now.md
+echo "# Next Tasks" > .prjct/next.md
+echo "# Shipped Features" > .prjct/shipped.md
+echo "# Ideas" > .prjct/ideas.md
+echo '{"timestamp":"2025-01-01","action":"test"}' > .prjct/memory.jsonl
+
+# Verify legacy structure exists
+ls -la .prjct/
+```
+
+**Test**:
+```bash
+# Update to v0.4.4 (from any previous version)
+npm update -g prjct-cli
+```
+
+**Expected Output**:
+```
+🔄 Updating prjct commands in configured editors...
+
+✅ Updated commands in: Claude Code, Cursor
+   Commands updated: 18
+
+🔍 Checking for legacy projects to migrate...
+
+✅ Migrated 1 legacy project(s) to new structure
+   Data location: ~/.prjct-cli/projects/
+
+✨ prjct-cli 0.4.4 is ready!
+```
+
+**Verification**:
+```bash
+# Check global structure was created
+ls ~/.prjct-cli/projects/
+
+# Find project ID
+cat ~/Projects/test-legacy-project/.prjct/prjct.config.json
+# Should show:
+# {
+#   "projectId": "abc123...",
+#   "dataPath": "~/.prjct-cli/projects/abc123..."
+# }
+
+# Verify data was migrated to global location
+PROJECT_ID=$(jq -r .projectId ~/Projects/test-legacy-project/.prjct/prjct.config.json)
+ls ~/.prjct-cli/projects/$PROJECT_ID/
+# Should show: core/ progress/ planning/ analysis/ memory/
+
+# Verify files were migrated correctly
+cat ~/.prjct-cli/projects/$PROJECT_ID/core/now.md
+cat ~/.prjct-cli/projects/$PROJECT_ID/progress/shipped.md
+cat ~/.prjct-cli/projects/$PROJECT_ID/planning/ideas.md
+cat ~/.prjct-cli/projects/$PROJECT_ID/memory/context.jsonl
+
+# Verify legacy directories were cleaned up
+ls ~/Projects/test-legacy-project/.prjct/
+# Should show ONLY: prjct.config.json
+# Old directories (now.md, shipped.md, etc.) should be gone
+```
+
+### Test Scenario 9: Multiple Legacy Projects
+
+**Setup**:
+```bash
+# Create multiple legacy projects
+for project in project-a project-b project-c; do
+  mkdir -p ~/Projects/$project/.prjct
+  echo "# Task for $project" > ~/Projects/$project/.prjct/now.md
+  echo "# Shipped in $project" > ~/Projects/$project/.prjct/shipped.md
+done
+```
+
+**Test**:
+```bash
+npm update -g prjct-cli
+```
+
+**Expected Output**:
+```
+🔍 Checking for legacy projects to migrate...
+
+✅ Migrated 3 legacy project(s) to new structure
+   Data location: ~/.prjct-cli/projects/
+```
+
+**Verification**:
+```bash
+# Check all projects were migrated
+ls ~/.prjct-cli/projects/
+# Should show 3 project directories
+
+# Verify each has config
+for project in project-a project-b project-c; do
+  cat ~/Projects/$project/.prjct/prjct.config.json | jq .projectId
+done
+```
+
 ## Success Criteria
 
 ✅ **First Install**: Commands auto-install to detected editors
@@ -397,3 +507,6 @@ npm install -g prjct-cli@latest
 ✅ **Idempotent**: Multiple installs of same version don't break anything
 ✅ **Manual Install**: Tracking updates when using `prjct install`
 ✅ **Clean State**: No orphaned files after uninstall
+✅ **Data Migration**: Legacy v0.1.0 projects automatically migrate to v0.4.4
+✅ **Preserve Data**: All project data preserved during migration (no data loss)
+✅ **Clean Migration**: Legacy directories cleaned while keeping config for compatibility
