@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { GitBranch, AlertTriangle, Plus, Wrench, Trash2, Shield, Users, Database, CheckCircle, Monitor } from 'lucide-react'
+import { GitBranch, AlertTriangle, Plus, Wrench, Trash2, Shield, Users, Database, CheckCircle, Monitor, Bug } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { VersionHeader } from '@/components/changelog/VersionHeader'
 import { FeatureCard } from '@/components/changelog/FeatureCard'
@@ -42,11 +42,46 @@ export const Changelog = () => {
             </span>
           </div>
 
-          <div className="space-y-6">
+          <p className="text-muted-foreground">No unreleased features at this time. Check back soon!</p>
+        </motion.section>
+
+        {/* Version 0.4.2 */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="mb-16"
+        >
+          <VersionHeader version="v0.4.2" date="October 2, 2025" isLatest />
+
+          <div className="space-y-6 mb-6">
+            <FeatureCard
+              icon={Bug}
+              title="Analyzer Compatibility Fix"
+              description="Fixed ENOENT error when running /p:init in non-prjct projects"
+              bullets={[
+                '• Added validation to check if bin/prjct exists before reading',
+                '• Analyzer now works correctly in any project type (React, Vue, etc.)',
+                '• No longer throws "no such file or directory" error',
+                '• Maintains full functionality for prjct-cli development projects'
+              ]}
+            />
+
+            <FeatureCard
+              icon={Wrench}
+              title="Website Build Improvements"
+              description="Improved build script and component imports"
+              bullets={[
+                '• Fixed Badge component import casing (badge → Badge)',
+                '• Removed obsolete install.sh and setup.sh copying from build script',
+                '• Cleaner and faster website builds'
+              ]}
+            />
+
             <FeatureCard
               icon={Monitor}
-              title="Windows Compatibility"
-              description="Native Windows support for prjct-cli"
+              title="Windows Compatibility (Coming Soon)"
+              description="Native Windows support in development"
               bullets={[
                 '• PowerShell and CMD command execution',
                 <>• Windows path handling (<code className="text-cat-mauve">%USERPROFILE%\.prjct-cli\</code>)</>,
@@ -62,10 +97,10 @@ export const Changelog = () => {
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
+          transition={{ duration: 0.6, delay: 0.3 }}
           className="mb-16"
         >
-          <VersionHeader version="v0.4.1" date="October 1, 2025" isLatest />
+          <VersionHeader version="v0.4.1" date="October 1, 2025" />
 
           <div className="space-y-6 mb-6">
             <FeatureCard
