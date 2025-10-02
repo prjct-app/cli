@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { GitBranch, AlertTriangle, Plus, Wrench, Trash2, Shield, Users, Database, CheckCircle, Monitor, Bug, RefreshCw, Package } from 'lucide-react'
+import { GitBranch, AlertTriangle, Plus, Wrench, Trash2, Shield, Users, Database, CheckCircle, Monitor, Bug, RefreshCw, Package, Sparkles } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { VersionHeader } from '@/components/changelog/VersionHeader'
 import { FeatureCard } from '@/components/changelog/FeatureCard'
@@ -83,6 +83,33 @@ export const Changelog = () => {
             />
 
             <FeatureCard
+              icon={Sparkles}
+              title="Auto-Installation on First Install"
+              description="Zero-configuration setup - detects and installs to all AI editors automatically"
+              bullets={[
+                '• Auto-detects Claude Code, Cursor, Windsurf, and Codex',
+                '• Installs commands to all detected editors automatically',
+                '• Creates tracking configuration from the start',
+                '• No manual `prjct install` needed after global npm install',
+                '• Graceful handling when no editors are detected'
+              ]}
+            />
+
+            <FeatureCard
+              icon={Trash2}
+              title="Automatic Cleanup on Uninstall"
+              description="Clean uninstallation removes all traces"
+              bullets={[
+                <>• New <code className="text-cat-mauve">scripts/preuninstall.js</code> runs before uninstall</>,
+                <>• Removes commands from <code className="text-cat-mauve">~/.claude/</code>, <code className="text-cat-mauve">~/.cursor/</code>, <code className="text-cat-mauve">~/.windsurf/</code></>,
+                '• Deletes tracking configuration',
+                '• Prevents orphaned commands when package is uninstalled',
+                <>• Added <code className="text-cat-mauve">uninstallFromEditor()</code> and <code className="text-cat-mauve">uninstallFromAll()</code> methods</>,
+                '• Clean exit even if cleanup fails (doesn\'t block uninstall)'
+              ]}
+            />
+
+            <FeatureCard
               icon={Package}
               title="GitHub Packages Support"
               description="Dual registry publication for better reliability"
@@ -99,10 +126,12 @@ export const Changelog = () => {
 
           <TechnicalDetails
             details={[
-              'Editor Tracking: Configuration saved after successful installation',
-              'Post-Install Hook: Runs only for global installs, skips local/dev',
+              'Editor Tracking: Configuration saved after all successful installations',
+              'Post-Install Hook: Auto-detects and installs to all AI editors on first install',
+              'Pre-Uninstall Hook: Removes slash commands and tracking config before uninstall',
               'Version Detection: Compares current with last installed version',
               'Force Update: Automatically updates commands when version changes',
+              'Improved Tracking: installToSelected() now always saves editor config',
               'Parallel Publication: npm and GitHub Packages jobs run simultaneously'
             ]}
           />

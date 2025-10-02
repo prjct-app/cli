@@ -155,6 +155,24 @@ class EditorsConfig {
       return false
     }
   }
+
+  /**
+   * Delete configuration file
+   * Used during uninstallation to clean up tracking data
+   * @returns {Promise<boolean>} Success status
+   */
+  async deleteConfig() {
+    try {
+      const exists = await this.configExists()
+      if (exists) {
+        await fs.unlink(this.configFile)
+      }
+      return true
+    } catch (error) {
+      console.error('[editors-config] Error deleting config:', error.message)
+      return false
+    }
+  }
 }
 
 module.exports = new EditorsConfig()

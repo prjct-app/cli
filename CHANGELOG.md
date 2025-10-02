@@ -22,9 +22,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - New `core/editors-config.js` tracks which editors user has installed commands to
   - Stores editor selections in `~/.prjct-cli/config/installed-editors.json`
   - Post-install hook (`scripts/post-install.js`) auto-updates commands after `npm update -g prjct-cli`
+  - **Auto-installation on first install** - Detects AI editors and installs commands automatically
   - Ensures version consistency across all configured editors (Claude, Cursor, Windsurf, Codex)
   - No manual reinstallation needed - updates happen automatically
   - Respects user's original editor choices from initial setup
+
+- **Automatic Cleanup on Uninstall** - Clean uninstallation removes all traces
+  - New `scripts/preuninstall.js` runs before `npm uninstall -g prjct-cli`
+  - Automatically removes commands from all tracked editors
+  - Deletes tracking configuration from `~/.prjct-cli/config/`
+  - Added `uninstallFromEditor()` and `uninstallFromAll()` methods to command installer
+  - Added `deleteConfig()` method to editors config
+  - Prevents orphaned commands when package is uninstalled
+  - Clean exit even if cleanup fails (doesn't block uninstall)
 
 - **GitHub Packages Support** - Dual registry publication for better reliability
   - Package now published to both npm and GitHub Packages automatically
@@ -40,9 +50,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Alternative: GitHub Packages (for advanced users or npm fallback)
   - Clear instructions for both installation methods
 
+- **Command Installer Improvements**
+  - `installToSelected()` now always saves editor config (removed force-update restriction)
+  - Better tracking ensures updates work correctly even for force updates
+  - Improved error handling and reporting
+
 ### Technical Details
-- **Editor Tracking**: Configuration saved after successful command installation
-- **Post-Install Hook**: Runs only for global installations, skips for local/dev installs
+- **Editor Tracking**: Configuration saved after all successful command installations
+- **Post-Install Hook**:
+  - Runs only for global installations, skips for local/dev installs
+  - Auto-detects and installs to all AI editors on first install
+  - Auto-updates commands when version changes
+- **Pre-Uninstall Hook**:
+  - Runs only for global uninstallations
+  - Removes slash commands from `~/.claude/`, `~/.cursor/`, `~/.windsurf/`
+  - Removes AGENTS.md from `~/.codex/` if present
+  - Deletes tracking configuration
 - **Version Detection**: Compares current version with last installed version
 - **Force Update**: Automatically updates commands when version changes
 - **Parallel Publication**: npm and GitHub Packages jobs run simultaneously for faster releases
