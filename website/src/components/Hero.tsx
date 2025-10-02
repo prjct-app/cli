@@ -5,7 +5,7 @@ import { Button, Badge } from './ui'
 
 export const Hero = () => {
   const [copied, setCopied] = useState(false)
-  const installCommand = 'curl -fsSL https://www.prjct.app/install.sh | bash'
+  const installCommand = 'npm install -g prjct-cli'
 
   const copyToClipboard = async () => {
     await navigator.clipboard.writeText(installCommand)
@@ -82,7 +82,7 @@ export const Hero = () => {
               className="relative z-10"
             >
               <code className="font-mono text-sm">
-                curl -fsSL https://www.prjct.app/install.sh | bash
+                npm install -g prjct-cli
               </code>
             </Button>
           </div>

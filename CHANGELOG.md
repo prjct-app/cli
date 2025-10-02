@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2025-01-XX
+
+### Added
+- **Automatic Update Detection** - Built-in update checker that notifies users of new versions
+  - Checks npm registry every 24 hours for new versions
+  - Non-blocking background check during command execution
+  - Formatted notification with update command
+  - Shows only once per session to avoid notification spam
+  - Respects 24-hour cache to minimize npm registry requests
+
+- **Automated npm Publication** - GitHub Actions workflow for automatic npm publishing
+  - Triggered on version tags (v*)
+  - Automatic version verification against package.json
+  - Provenance publishing with npm attestation
+  - Post-publication verification
+  - Publication summary in GitHub Actions
+
+### Changed
+- **Installation Method** - npm is now the primary and recommended installation method
+  - Simplified to single installation method: `npm install -g prjct-cli`
+  - Removed Homebrew and Bun installation scripts
+  - Cleaner package with optimized file inclusion
+  - Reduced package size: 104.6 KB (71 files)
+
+### Fixed
+- **Package Structure** - Improved npm package configuration
+  - Added `files` field to control package contents
+  - Created `.npmignore` for development file exclusion
+  - Proper global data directory separation (`~/.prjct-cli/` for data only)
+  - Fixed CI/CD tests to verify CLI functionality instead of individual modules
+
+### Technical Details
+- **Update Checker**: `core/update-checker.js` with semantic version comparison
+- **Cache Management**: Update checks cached for 24 hours in `~/.prjct-cli/config/update-cache.json`
+- **Architecture**: Clean separation between npm installation (`/opt/homebrew/lib/node_modules/prjct-cli/`) and user data (`~/.prjct-cli/`)
+- **GitHub Actions**: `.github/workflows/publish-npm.yml` for automated npm publication
+
 ## [0.4.0] - 2025-10-01
 
 ### Added

@@ -46,41 +46,28 @@ Each agent gets optimized output:
 
 ## ⚡ Installation
 
-Choose the installation method that works best for you:
-
-### npm/Node.js
+Install prjct-cli globally using npm:
 
 ```bash
-npm install -g @prjct/cli
+npm install -g prjct-cli
 ```
 
-**Benefits**: Standard npm ecosystem, works everywhere Node.js runs.
-
-### Quick Install Script (Cross-platform)
+**Alternative package managers**:
 
 ```bash
-curl -fsSL https://prjct.app/install.sh | bash
+# Using yarn
+yarn global add prjct-cli
+
+# Using pnpm
+pnpm add -g prjct-cli
+
+# Using bun
+bun install -g prjct-cli
 ```
 
-**Benefits**: Works on any Unix-like system, automatic platform detection.
+**Requirements**: Node.js 18 or higher
 
-#### Installation Options
-
-```bash
-# Force reinstall (even if up to date)
-curl -fsSL https://prjct.app/install.sh | bash -s -- --force
-
-# Auto-accept all prompts (unattended installation)
-curl -fsSL https://prjct.app/install.sh | bash -s -- -y
-
-# Install from development branch
-curl -fsSL https://prjct.app/install.sh | bash -s -- --dev
-
-# Show help
-curl -fsSL https://prjct.app/install.sh | bash -s -- --help
-```
-
-> **Note**: For detailed installation instructions, troubleshooting, and platform-specific guidance, see [INSTALL.md](docs/INSTALL.md).
+> **Note**: The CLI automatically detects updates and notifies you when a new version is available. Simply run `npm update -g prjct-cli` to upgrade.
 
 ### Editor Command Installation
 

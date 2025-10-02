@@ -11,6 +11,7 @@ const migrator = require('./migrator')
 const commandInstaller = require('./command-installer')
 const sessionManager = require('./session-manager')
 const analyzer = require('./analyzer')
+const UpdateChecker = require('./update-checker')
 const { VERSION } = require('./version')
 
 let animations
@@ -34,6 +35,28 @@ class PrjctCommands {
     this.agentInfo = null
     this.currentAuthor = null
     this.prjctDir = '.prjct'
+    this.updateChecker = new UpdateChecker()
+    this.updateNotificationShown = false
+  }
+
+  /**
+   * Check for updates and show notification (non-blocking)
+   * Only shows once per session
+   */
+  async checkAndNotifyUpdates() {
+    if (this.updateNotificationShown) {
+      return
+    }
+
+    try {
+      const notification = await this.updateChecker.getUpdateNotification()
+      if (notification) {
+        console.log(notification)
+        this.updateNotificationShown = true
+      }
+    } catch (error) {
+      // Fail silently - don't interrupt user workflow
+    }
   }
 
   /**
@@ -170,6 +193,11 @@ class PrjctCommands {
     this.agent = new Agent()
 
     await this.checkAndRunAutoMigration()
+
+    // Check for updates in background (non-blocking)
+    this.checkAndNotifyUpdates().catch(() => {
+      // Fail silently - don't interrupt workflow
+    })
 
     return this.agent
   }
