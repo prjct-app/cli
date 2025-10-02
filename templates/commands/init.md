@@ -151,17 +151,75 @@ Create empty JSONL files for historical tracking:
 - **memory/context.jsonl**: Activity log with timestamps
 - **memory/decisions.jsonl**: Decision history (not used yet)
 
-### 8. Log Initialization
+### 8. Run Project Analysis
+
+Execute `/p:analyze` to understand the project:
+
+```javascript
+// This should execute the analyze command internally
+// The AI will:
+// 1. Scan project structure
+// 2. Detect stack and frameworks
+// 3. Check git status
+// 4. Determine which agents are needed
+// 5. Save analysis to .prjct/analysis/repo-summary.md
+```
+
+### 9. Generate AI Agents
+
+Based on the analysis, generate specialized AI agents:
+
+```javascript
+const agentGenerator = require('../core/agent-generator')
+const analysis = await readAnalysisFile('.prjct/analysis/repo-summary.md')
+
+// Generate all required agents
+const generatedAgents = await agentGenerator.generateAll(analysis)
+
+// Agents are created in ~/.claude/agents/
+// They are immediately available in Claude Code and Claude Desktop
+```
+
+**Generated Agents**:
+- **Base** (always): PM, UX, FE, BE, QA, Scribe (6 agents)
+- **Conditional** (based on project):
+  - Security (if web app or has auth)
+  - DevOps (if Docker/CI/CD detected)
+  - Mobile (if React Native/Flutter detected)
+  - Data (if ML/data science detected)
+
+### 10. Log Initialization
 
 Add initialization record to memory:
 ```jsonl
-{"timestamp":"2025-10-01T09:00:00Z","action":"init","author":"Name","projectPath":"/path/to/project","projectId":"abc123def456"}
+{"timestamp":"2025-10-01T09:00:00Z","action":"init","author":"Name","projectPath":"/path/to/project","projectId":"abc123def456","agents":["pm","ux","fe","be","qa","scribe","security"]}
 ```
 
-### 9. Success Message (Conversational Onboarding)
+### 11. Success Message (Conversational Onboarding)
 
 ```
 ✅ Your project is ready!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📦 Project Analysis Complete
+
+Project: [PROJECT_NAME]
+Type: [PROJECT_TYPE]
+Stack: [DETECTED_STACK]
+
+🤖 AI Agents Generated ([COUNT] specialists)
+
+✅ PM - Project coordination
+✅ UX - Design & user experience
+✅ FE - Frontend development
+✅ BE - Backend development
+✅ QA - Testing & quality
+✅ Scribe - Documentation
+[+ conditional agents if detected]
+
+These agents are now available in Claude and will provide
+specialized expertise for your project tasks.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

@@ -23,7 +23,7 @@ export const Footer = () => {
           <div className="lg:col-span-2">
             <PrjctLogo size="sm" />
             <p className="mt-4 max-w-xs text-sm text-muted-foreground">
-              AI-integrated project management for indie hackers. Ship fast, stay focused, no ceremonies.
+              Developer momentum tool for indie hackers and small teams. Ship fast, stay focused, no BS.
             </p>
             <div className="mt-6 flex items-center gap-1 text-xs text-muted-foreground">
               <Heart className="h-3 w-3 text-cat-red" />

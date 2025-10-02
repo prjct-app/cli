@@ -46,6 +46,35 @@ The system operates as an AI Assistant Enhancement Framework using:
 
 **prjct-cli includes a conversational interface** - users can talk naturally instead of memorizing commands!
 
+### p. Trigger Detection
+
+**NEW: Simple prefix trigger** - Users can start messages with `p.` to signal prjct context:
+
+**How it works:**
+1. User starts message with `p.` → You check if `.prjct/prjct.config.json` exists
+2. If exists → Detect intent from rest of message → Execute appropriate `/p:*` command
+3. If not exists → Respond: "No prjct project here. Run /p:init first."
+
+**Examples:**
+```
+"p. analiza todo este documento" → Detect "analysis" intent → /p:analyze
+"p. estoy listo para shipear" → Detect "ship" intent → /p:ship
+"p. muéstrame progreso semanal" → Detect "progress" intent → /p:progress week
+"p. empiezo con auth" → Detect "start task" intent → /p:now "auth"
+"p. terminé" → Detect "done" intent → /p:done
+```
+
+**Why this is useful:**
+- ✅ **Zero memorization** - No need to remember `/p:*` commands
+- ✅ **Multi-project** - Only works in prjct directories
+- ✅ **Natural** - "p. [what you want]" is intuitive
+- ✅ **Any language** - Works in English, Spanish, etc.
+
+**Detection priority:**
+1. Check for `p.` prefix first
+2. Then check for `/p:*` slash command
+3. Finally check for natural language without prefix
+
 ### Semantic Intent Detection
 
 As an LLM, you understand context and intent naturally. When users describe what they want to do, **map their intent to the appropriate command** based on semantic understanding, not pattern matching.
@@ -101,11 +130,11 @@ What's next?
 Or use: /p:now | /p:ship | /p:idea
 ```
 
-## Implementation for Claude Code
+## Implementation for Claude Code & Desktop
 
 ### How to Handle Natural Language
 
-When you receive a message from the user:
+When you receive a message from the user, follow these steps to provide the natural language experience:
 
 **Step 1: Check if it's a direct command**
 ```javascript
@@ -142,7 +171,46 @@ if (intent.command) {
 }
 ```
 
-**Step 3: Provide conversational response**
+**Step 3: Validate context before execution**
+```javascript
+// Before executing commands, check prerequisites:
+
+// For /p:done:
+if (command === 'done') {
+  const nowContent = await Read('core/now.md')
+  if (!nowContent || nowContent.trim() === '') {
+    return conversationalResponse(`
+✨ You're not working on anything right now!
+
+Want to start something?
+• Tell me what you want to build
+• Say "show me what's next"
+• Or use: /p:now | /p:next
+
+Let's ship something!`)
+  }
+}
+
+// For /p:ship:
+if (command === 'ship') {
+  const nowContent = await Read('core/now.md')
+  const shippedContent = await Read('progress/shipped.md')
+  if ((!nowContent || nowContent.trim() === '') &&
+      (!shippedContent || shippedContent.trim() === '')) {
+    return conversationalResponse(`
+🚀 Nothing to ship yet!
+
+First, let's build something:
+• Tell me what feature you want to create
+• Say "start building [feature]"
+• Or use: /p:now "feature name"
+
+Then we'll celebrate when you ship it!`)
+  }
+}
+```
+
+**Step 4: Provide conversational response**
 ```javascript
 // Always suggest natural next steps
 ✅ [What you did]
@@ -178,6 +246,43 @@ When you're done:
 Need help? Say "I'm stuck" or use /p:stuck
 ```
 
+### Context Validation Examples
+
+**Missing Active Task:**
+
+User: "done"
+You check: `core/now.md` is empty
+Your response:
+```
+✨ You're not working on anything right now!
+
+Want to start something?
+• Tell me what you want to build
+• Say "show me what's next"
+• Or use: /p:now | /p:next
+
+Let's ship something!
+```
+
+**Valid Context:**
+
+User: "I'm done"
+You check: `core/now.md` has content ✅
+Your response:
+```
+💬 I understood: "task completion"
+⚡ Executing: /p:done
+
+✅ Task complete: building authentication (2h 15m)
+
+What's next?
+• "start next task" → Begin working
+• "ship this feature" → Track & celebrate
+• "add new idea" → Brainstorm
+
+Or use: /p:now | /p:ship | /p:idea
+```
+
 ### Key Principles
 
 1. **Trust your understanding** - You're an LLM, not a regex parser
@@ -185,6 +290,7 @@ Need help? Say "I'm stuck" or use /p:stuck
 3. **Variations are fine** - Users can express intent in infinite ways
 4. **Show transparency** - Always say what you understood and what you'll execute
 5. **Be conversational** - Guide users naturally toward next actions
+6. **Validate context** - Check prerequisites before executing commands
 
 ## Command System for Claude Code
 

@@ -34,15 +34,20 @@ const scenarios: Scenario[] = [
     description: "Wasn't planned but I want to work on it",
     commands: [
       {
+        command: 'p. I want to add dark mode',
+        description: 'Natural language (captures idea)',
+        output: '💡 Idea saved to ideas.md',
+        preferred: true,
+      },
+      {
         command: '/p:idea "add dark mode"',
-        description: 'Just capture it to not forget',
+        description: 'Direct command to capture',
         output: '💡 Idea saved to ideas.md',
       },
       {
         command: '/p:now "implement dark mode"',
         description: 'Start working on it NOW',
         output: '🎯 Current task set',
-        preferred: true,
       },
     ],
   },
@@ -53,10 +58,15 @@ const scenarios: Scenario[] = [
     description: 'How do I mark it complete and what comes next?',
     commands: [
       {
-        command: '/p:done',
-        description: 'Mark task as completed',
+        command: 'p. I\'m done',
+        description: 'Natural language (zero memorization)',
         output: '✅ Complete! Next: API integration',
         preferred: true,
+      },
+      {
+        command: '/p:done',
+        description: 'Direct slash command',
+        output: '✅ Complete! Next: API integration',
       },
       {
         command: '/p:ship "authentication system"',
@@ -72,20 +82,20 @@ const scenarios: Scenario[] = [
     description: "Lost context or don't know where to start",
     commands: [
       {
-        command: '/p:recap',
-        description: 'See complete project overview',
+        command: 'p. show me my progress',
+        description: 'Natural language',
         output: '📊 Current: auth | Shipped: 5 | Queue: 3',
         preferred: true,
+      },
+      {
+        command: '/p:recap',
+        description: 'Complete project overview',
+        output: '📊 Current: auth | Shipped: 5 | Queue: 3',
       },
       {
         command: '/p:next',
         description: 'View prioritized task queue',
         output: '1. Fix auth bug\n2. Add tests\n3. Update docs',
-      },
-      {
-        command: '/p:context',
-        description: 'Project info and recent actions',
-        output: '📚 Sprint 3, Day 12, 67% complete',
       },
     ],
   },
@@ -96,10 +106,15 @@ const scenarios: Scenario[] = [
     description: "Have an error or don't know how to solve something",
     commands: [
       {
-        command: '/p:stuck "CORS error in API"',
-        description: 'Get contextual solutions',
+        command: 'p. stuck on CORS error',
+        description: 'Natural language',
         output: '💡 Solution: Add cors middleware\nnpm install cors',
         preferred: true,
+      },
+      {
+        command: '/p:stuck "CORS error in API"',
+        description: 'Direct command',
+        output: '💡 Solution: Add cors middleware\nnpm install cors',
       },
       {
         command: '/p:fix "undefined is not a function"',
@@ -115,10 +130,15 @@ const scenarios: Scenario[] = [
     description: 'How am I doing? What have I achieved?',
     commands: [
       {
+        command: 'p. show me my progress this week',
+        description: 'Natural language (any timeframe)',
+        output: '📈 Shipped: 7 | Velocity: 1.4/day | Trend: ↗️',
+        preferred: true,
+      },
+      {
         command: '/p:progress week',
         description: 'Weekly metrics',
         output: '📈 Shipped: 7 | Velocity: 1.4/day | Trend: ↗️',
-        preferred: true,
       },
       {
         command: '/p:progress month',
@@ -134,10 +154,15 @@ const scenarios: Scenario[] = [
     description: 'Save changes to git quickly',
     commands: [
       {
-        command: '/p:git',
-        description: 'Smart git operations with context',
+        command: 'p. commit these changes',
+        description: 'Natural language (smart context)',
         output: '✅ feat: add payment system\n📝 3 files changed\n🌿 Ready for push',
         preferred: true,
+      },
+      {
+        command: '/p:git',
+        description: 'Direct slash command',
+        output: '✅ feat: add payment system\n📝 3 files changed\n🌿 Ready for push',
       },
     ],
   },
@@ -267,38 +292,38 @@ export const CommandGuide = () => {
               <tbody>
                 <tr className="border-b">
                   <td className="py-3 pr-4">I have a new idea</td>
-                  <td className="py-3 pr-4 font-mono text-primary">/p:idea</td>
-                  <td className="py-3 font-mono text-muted-foreground">/p:now to start</td>
+                  <td className="py-3 pr-4 font-mono text-primary">p. [your idea]</td>
+                  <td className="py-3 font-mono text-muted-foreground">/p:idea | /p:now</td>
                 </tr>
                 <tr className="border-b">
                   <td className="py-3 pr-4">Want to start something</td>
-                  <td className="py-3 pr-4 font-mono text-primary">/p:now</td>
-                  <td className="py-3 font-mono text-muted-foreground">/p:next to see options</td>
+                  <td className="py-3 pr-4 font-mono text-primary">p. start [task]</td>
+                  <td className="py-3 font-mono text-muted-foreground">/p:now | /p:next</td>
                 </tr>
                 <tr className="border-b">
                   <td className="py-3 pr-4">Finished my task</td>
-                  <td className="py-3 pr-4 font-mono text-primary">/p:done</td>
-                  <td className="py-3 font-mono text-muted-foreground">/p:ship if important</td>
+                  <td className="py-3 pr-4 font-mono text-primary">p. I'm done</td>
+                  <td className="py-3 font-mono text-muted-foreground">/p:done | /p:ship</td>
                 </tr>
                 <tr className="border-b">
                   <td className="py-3 pr-4">Don't know what to do</td>
-                  <td className="py-3 pr-4 font-mono text-primary">/p:recap</td>
-                  <td className="py-3 font-mono text-muted-foreground">/p:next, /p:roadmap</td>
+                  <td className="py-3 pr-4 font-mono text-primary">p. show progress</td>
+                  <td className="py-3 font-mono text-muted-foreground">/p:recap | /p:next</td>
                 </tr>
                 <tr className="border-b">
                   <td className="py-3 pr-4">Have an error</td>
-                  <td className="py-3 pr-4 font-mono text-primary">/p:stuck</td>
-                  <td className="py-3 font-mono text-muted-foreground">/p:fix for auto-fix</td>
+                  <td className="py-3 pr-4 font-mono text-primary">p. stuck on [error]</td>
+                  <td className="py-3 font-mono text-muted-foreground">/p:stuck | /p:fix</td>
                 </tr>
                 <tr className="border-b">
                   <td className="py-3 pr-4">Want to plan</td>
-                  <td className="py-3 pr-4 font-mono text-primary">/p:roadmap</td>
-                  <td className="py-3 font-mono text-muted-foreground">/p:task to break down</td>
+                  <td className="py-3 pr-4 font-mono text-primary">p. create roadmap</td>
+                  <td className="py-3 font-mono text-muted-foreground">/p:roadmap | /p:task</td>
                 </tr>
                 <tr>
                   <td className="py-3 pr-4">Need metrics</td>
-                  <td className="py-3 pr-4 font-mono text-primary">/p:progress</td>
-                  <td className="py-3 font-mono text-muted-foreground">/p:recap for overview</td>
+                  <td className="py-3 pr-4 font-mono text-primary">p. show progress</td>
+                  <td className="py-3 font-mono text-muted-foreground">/p:progress | /p:recap</td>
                 </tr>
               </tbody>
             </table>

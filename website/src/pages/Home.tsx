@@ -2,9 +2,9 @@ import { Link } from 'react-router-dom'
 import { Hero } from '../components/Hero'
 import { Terminal } from '../components/Terminal'
 import { Features } from '../components/Features'
-import { Compatibility } from '../components/Compatibility'
-import { ForIndies } from '../components/ForIndies'
 import WindsurfExtension from '../components/WindsurfExtension'
+import { ClaudeSuperpowers } from '../components/ClaudeSuperpowers'
+import { ForIndies } from '../components/ForIndies'
 import { motion } from 'framer-motion'
 
 export const Home = () => {
@@ -13,8 +13,8 @@ export const Home = () => {
       <Hero />
       <Terminal />
       <Features />
-      <Compatibility />
       <WindsurfExtension />
+      <ClaudeSuperpowers />
       <ForIndies />
 
       {/* Call to Action Section */}
@@ -30,7 +30,7 @@ export const Home = () => {
             Ready to <span className="hunt-glow">Ship</span> Faster?
           </h2>
           <p className="mb-8 text-xl text-muted-foreground">
-            Join thousands of indie hackers who ship features, not meetings
+            Join indie hackers and small teams who ship features, not meetings
           </p>
           <div className="flex flex-col justify-center gap-4 sm:flex-row">
             <a
@@ -57,7 +57,7 @@ export const Home = () => {
             >
               <img
                 src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1021356&theme=dark&t=1759203826693"
-                alt="prjct/cli - Ship faster with Claude Code, Codex and Warp | Product Hunt"
+                alt="prjct/cli - Built for Claude - Ship Fast, No BS | Product Hunt"
                 style={{ width: '250px', height: '54px' }}
                 width="250"
                 height="54"

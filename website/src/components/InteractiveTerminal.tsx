@@ -74,19 +74,19 @@ const workflows: Workflow[] = [
         command: '/p:recap',
         description: 'Check overall status when starting',
         output:
-          '📊 PROJECT RECAP\n━━━━━━━━━━━━━\n🎯 Current: implement user auth\n📈 This week: 5 shipped\n📋 Queue: 3 tasks\n🔥 Velocity: 1.2 features/day',
+          '📊 PROJECT RECAP\n━━━━━━━━━━━━━\n🎯 Current: build login feature\n📈 This week: 5 shipped\n📋 Queue: 3 tasks\n🔥 Velocity: 1.2 features/day',
         tip: 'Start each day with /p:recap',
       },
       {
         command: '/p:now',
         description: 'Confirm current task',
-        output: '🎯 Current task: implement user authentication\n⏱️ Active for: 2 hours 15 minutes',
+        output: '🎯 Current task: build login feature\n⏱️ Active for: 2 hours 15 minutes',
       },
       {
-        command: '/p:stuck "JWT token not validating"',
+        command: '/p:stuck "login not working"',
         description: 'Get help with a problem',
         output:
-          '💡 Solutions for JWT validation:\n1. Check token expiration settings\n2. Verify secret key matches\n3. Ensure proper middleware order\n4. Try: console.log(decoded) to debug',
+          '💡 Solutions for login issues:\n1. Check if password is correct\n2. Make sure user exists in database\n3. Check if session is being saved\n4. Try: console.log(user) to debug',
         tip: 'Describe your problem specifically',
       },
       {
@@ -98,13 +98,13 @@ const workflows: Workflow[] = [
         command: '/p:done',
         description: "Complete today's task",
         output:
-          '✅ Task completed: implement user authentication\n⏱️ Duration: 4 hours 30 minutes\n\nSuggested next: API rate limiting',
+          '✅ Task completed: build login feature\n⏱️ Duration: 4 hours 30 minutes\n\nSuggested next: prevent spam requests',
       },
       {
         command: '/p:git',
         description: 'Commit with smart message',
         output:
-          '📝 Analyzing changes...\n✅ Committed: feat: add JWT authentication system\n📊 Files: 8 changed, +342 lines',
+          '📝 Analyzing changes...\n✅ Committed: feat: add login system\n📊 Files: 8 changed, +342 lines',
         tip: 'Generates commit messages automatically',
       },
       {
@@ -125,25 +125,25 @@ const workflows: Workflow[] = [
         command: '/p:task "build notification system"',
         description: 'Break down into manageable subtasks',
         output:
-          '📋 Task breakdown:\n[1/5] Design notification architecture\n[2/5] Setup WebSocket server\n[3/5] Create notification UI components\n[4/5] Implement user preferences\n[5/5] Add tests and documentation\n\n🚀 Ready to execute step by step',
+          '📋 Task breakdown:\n[1/5] Design how notifications will work\n[2/5] Setup real-time messaging\n[3/5] Create notification popup\n[4/5] Add user settings\n[5/5] Test everything\n\n🚀 Ready to execute step by step',
         tip: 'Automatically divides complex tasks',
       },
       {
-        command: '/p:now "design notification architecture"',
+        command: '/p:now "design how notifications will work"',
         description: 'Work on first subtask',
         output:
-          '🎯 Current: design notification architecture\n📍 Step 1 of 5 in notification system',
+          '🎯 Current: design how notifications will work\n📍 Step 1 of 5 in notification system',
       },
       {
         command: '/p:done',
         description: 'Complete subtask 1',
         output:
-          '✅ Subtask 1 complete!\n📊 Progress: 20% of notification system\n\n💡 Next: Setup WebSocket server',
+          '✅ Subtask 1 complete!\n📊 Progress: 20% of notification system\n\n💡 Next: Setup real-time messaging',
       },
       {
-        command: '/p:now "setup WebSocket server"',
+        command: '/p:now "setup real-time messaging"',
         description: 'Next subtask',
-        output: '🎯 Current: setup WebSocket server\n📍 Step 2 of 5',
+        output: '🎯 Current: setup real-time messaging\n📍 Step 2 of 5',
       },
       {
         command: '/p:test',

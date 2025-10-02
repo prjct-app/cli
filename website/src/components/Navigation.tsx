@@ -22,7 +22,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: 'Home', path: '/', icon: <Home className="h-4 w-4" /> },
-  { label: 'Documentation', path: '/docs', icon: <BookOpen className="h-4 w-4" /> },
+  { label: 'Docs', path: '/docs', icon: <BookOpen className="h-4 w-4" /> },
   { label: 'Commands', path: '/commands', icon: <TerminalIcon className="h-4 w-4" /> },
   { label: 'Workflows', path: '/workflows', icon: <Sparkles className="h-4 w-4" /> },
   { label: 'Changelog', path: '/changelog', icon: <GitBranch className="h-4 w-4" /> },
@@ -48,7 +48,7 @@ export const Navigation = () => {
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden items-center gap-6 md:flex">
+          <nav className="hidden items-center gap-4 lg:flex">
             {navItems.map((item, index) => (
               <motion.div
                 key={item.path}
@@ -59,11 +59,10 @@ export const Navigation = () => {
               >
                 <Link
                   to={item.path}
-                  className={`flex items-center gap-2 rounded-lg px-3 py-2 transition-all ${
-                    isActive(item.path)
+                  className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-all ${isActive(item.path)
                       ? 'bg-primary/10 text-primary'
                       : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-                  }`}
+                    }`}
                 >
                   {item.icon}
                   <span>{item.label}</span>
@@ -81,29 +80,15 @@ export const Navigation = () => {
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              className="hidden items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 transition-all hover:bg-muted hover:border-primary/50 md:flex"
+              className="hidden items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 transition-all hover:bg-muted hover:border-primary/50 lg:flex"
             >
               <Star className="h-4 w-4" />
               <span className="text-sm font-medium">Star on GitHub</span>
             </motion.a>
 
-            {/* Mobile GitHub Icon */}
-            <motion.a
-              href="https://github.com/jlopezlira/prjct-cli"
-              target="_blank"
-              rel="noopener noreferrer"
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              className="rounded-xl p-2 transition-all hover:bg-muted md:hidden"
-              aria-label="Star on GitHub"
-            >
-              <Star className="h-5 w-5" />
-            </motion.a>
-
             {/* Mobile Menu Button */}
             <button
-              className="rounded-xl p-2 transition-all hover:bg-muted md:hidden"
+              className="rounded-xl p-2 transition-all hover:bg-muted lg:hidden"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               aria-label="Toggle mobile menu"
             >
@@ -120,7 +105,7 @@ export const Navigation = () => {
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
               transition={{ duration: 0.2 }}
-              className="border-t border-border md:hidden"
+              className="border-t border-border lg:hidden"
             >
               <div className="space-y-2 py-4">
                 {navItems.map((item) => (
@@ -128,11 +113,10 @@ export const Navigation = () => {
                     key={item.path}
                     to={item.path}
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className={`flex items-center gap-3 rounded-lg px-4 py-3 transition-all ${
-                      isActive(item.path)
+                    className={`flex items-center gap-3 rounded-lg px-4 py-3 transition-all ${isActive(item.path)
                         ? 'bg-primary/10 text-primary'
                         : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-                    }`}
+                      }`}
                   >
                     {item.icon}
                     <span>{item.label}</span>
@@ -145,9 +129,9 @@ export const Navigation = () => {
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="mt-2 flex items-center gap-3 rounded-lg border-t border-border px-4 py-3 pt-4 text-muted-foreground transition-all hover:bg-muted/50 hover:text-foreground"
+                  className="flex items-center gap-3 rounded-lg px-4 py-3 text-muted-foreground transition-all hover:bg-muted/50 hover:text-foreground"
                 >
-                  <Star className="h-5 w-5" />
+                  <Star className="h-4 w-4" />
                   <span>Star on GitHub</span>
                 </a>
               </div>
