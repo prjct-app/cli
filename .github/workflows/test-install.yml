@@ -55,6 +55,8 @@ jobs:
           node-version: '18'
 
       - name: Test install script (dry-run simulation)
+        env:
+          TERM: xterm-256color
         run: |
           chmod +x scripts/install.sh
 
@@ -66,11 +68,15 @@ jobs:
           bash scripts/install.sh -y
 
       - name: Verify installation
+        env:
+          TERM: xterm-256color
         run: |
           export PATH="$HOME/.prjct-cli/bin:$PATH"
           which prjct || ls -la ~/.prjct-cli/bin/prjct
 
       - name: Test setup script
+        env:
+          TERM: xterm-256color
         run: |
           cd ~/.prjct-cli
           chmod +x scripts/setup.sh
