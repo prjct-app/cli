@@ -88,6 +88,35 @@ class EditorsConfig {
   }
 
   /**
+   * Remove an editor from tracked list
+   * @param {string} editorKey - Editor key to remove
+   * @returns {Promise<boolean>} Success status
+   */
+  async removeTrackedEditor(editorKey) {
+    try {
+      const config = await this.loadConfig()
+      if (!config) return false
+
+      // Remove from editors array
+      config.editors = config.editors.filter(e => e !== editorKey)
+
+      // Remove from paths object
+      if (config.paths && config.paths[editorKey]) {
+        delete config.paths[editorKey]
+      }
+
+      // Save updated config
+      await fs.mkdir(this.configDir, { recursive: true })
+      await fs.writeFile(this.configPath, JSON.stringify(config, null, 2), 'utf-8')
+
+      return true
+    } catch (error) {
+      console.error('[editors-config] Error removing tracked editor:', error.message)
+      return false
+    }
+  }
+
+  /**
    * Get editor paths from configuration
    * @returns {Promise<Object>} Object mapping editor keys to paths
    */

@@ -15,6 +15,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Cross-platform file operations
   - Windows Terminal integration
 
+## [0.4.10] - 2025-10-02
+
+### Changed
+- **Agent Workflow Initialization** - `prjct init` now properly initializes AI agent workflows
+  - When existing codebase detected, prompts user to run `/p:analyze`
+  - Enables AI agents to follow complete analysis workflow
+  - Provides proper workflow context for comprehensive project analysis
+  - Replaced silent programmatic analysis with workflow-driven approach
+
+### Fixed
+- **Analysis Workflow** - AI agents now receive proper instructions during project initialization
+  - Removed silent `analyze()` call that bypassed agent workflows
+  - Agent workflows now activate when user runs `/p:analyze` command
+  - Ensures agents follow complete analysis instructions from workflow templates
+
+## [0.4.9] - 2025-10-02
+
+### Added
+- **Editor Uninstallation** - `prjct start` now allows removing editors
+  - Interactive checkbox selection shows currently installed editors
+  - Uncheck an editor to remove all prjct commands from it
+  - Automatically cleans up `~/.prjct-cli/config/installed-editors.json`
+  - User has full control over which editors have prjct commands
+
+### Changed
+- **`prjct start` Never Blocks** - Removed "already set up" error
+  - Can run `prjct start` anytime to reconfigure editors
+  - Shows beautiful ASCII art every time
+  - User decides which editors to keep/remove
+
+### Fixed
+- **Interactive Prompts** - Better UX for editor selection
+  - Pre-selects currently installed editors
+  - Clear message: "Select AI editors (uncheck to remove)"
+  - Allows selecting 0 editors (removes all)
+
+## [0.4.8] - 2025-10-02
+
+### Added
+- **Intelligent Project Initialization** - `prjct init` now works seamlessly in all scenarios
+  - Preserves existing project IDs when re-initializing
+  - Automatically merges local data with global structure
+  - Smart fusion of markdown files (now.md, next.md, shipped.md, ideas.md)
+  - Chronological merging of memory/context.jsonl entries
+  - Cleans up local `.prjct/` directory, keeping only `prjct.config.json`
+  - Multiple developers can initialize the same project without conflicts
+
+### Fixed
+- **Auto-Migration Removed** - Disabled intrusive automatic migration
+  - Migration no longer runs automatically during `prjct init` or any command
+  - Users can run `prjct migrate-all` manually if needed
+  - Removes blocking behavior that prevented normal usage
+  - Cleaner, non-intrusive installation and update experience
+
+### Changed
+- **`prjct init` Never Blocks** - Removed "already initialized" error
+  - Always allows re-initialization with intelligent data fusion
+  - Global architecture enables multi-developer workflows
+
 ## [0.4.7] - 2025-10-02
 
 ### Fixed
