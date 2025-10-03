@@ -41,7 +41,7 @@ export const Privacy = () => {
           <h2 className="mb-4 text-3xl font-bold">Overview</h2>
           <p className="text-xl">
             prjct is a <span className="font-bold text-cat-green">100% local, privacy-first</span>{' '}
-            project management tool. We take your privacy seriously - in fact, we don't collect ANY
+            developer momentum tool. We take your privacy seriously - in fact, we don't collect ANY
             of your data.
           </p>
         </motion.div>

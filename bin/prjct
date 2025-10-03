@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 const commands = require('../core/commands');
+const registry = require('../core/command-registry');
 const args = process.argv.slice(2);
 
 async function main() {
@@ -142,6 +143,12 @@ async function main() {
 
             result = await commands.analyze(analyzeOptions);
             break;
+        case 'sync':
+            result = await commands.sync();
+            break;
+        case 'workflow':
+            result = await commands.workflow();
+            break;
         case '--version':
         case '-v':
         case 'version':
@@ -155,74 +162,82 @@ async function main() {
         case '-h':
         case 'help':
         case undefined:
+            // Generate help message from registry
+            const categories = registry.getCategories();
+            const categorizedCommands = {};
+
+            // Group commands by category
+            registry.getTerminalCommands().forEach(cmd => {
+                if (!categorizedCommands[cmd.category]) {
+                    categorizedCommands[cmd.category] = [];
+                }
+                categorizedCommands[cmd.category].push(cmd);
+            });
+
+            let helpMessage = 'Available commands:\n';
+
+            // Display commands by category
+            Object.entries(categorizedCommands).forEach(([categoryKey, cmds]) => {
+                const categoryInfo = categories[categoryKey];
+                helpMessage += `\n  ${categoryInfo.title}:\n`;
+
+                cmds.forEach(cmd => {
+                    const params = cmd.params ? ` ${cmd.params}` : '';
+                    const spacing = ' '.repeat(Math.max(18 - cmd.name.length - params.length, 1));
+                    helpMessage += `    ${cmd.name}${params}${spacing}${cmd.description}\n`;
+                });
+            });
+
+            const stats = registry.getStats();
+            helpMessage += `\nTotal: ${stats.implemented} implemented / ${stats.total} total commands`;
+
             result = {
                 success: true,
-                message: `Available commands:
-  Setup:
-    start             First-time setup (install commands to editors)
-    setup             Reconfigure editor installations
-
-  Core workflow:
-    init              Initialize prjct in current project
-    now [task]        Set or show current task
-    done              Complete current task
-    ship <feature>    Ship and celebrate a feature
-    next              Show priority queue
-    idea <text>       Capture an idea
-    recap             Show project overview
-    progress [period] Show progress metrics
-    stuck <issue>     Get help with a problem
-    context           Show project context
-
-  Advanced:
-    cleanup           Clean up .prjct structure
-    cleanup-advanced  Advanced cleanup with options
-    design [target]   Design system/architecture
-    analyze           Analyze codebase and sync state
-    migrate-all       Migrate all legacy projects
-
-  Setup options:
-    --force           Force update existing commands
-    --editor <name>   Install to specific editor (claude|cursor|codex|windsurf)
-    --no-interactive  Skip interactive selection, install to all
-    --create-templates Create templates from existing commands`
+                message: helpMessage
             };
             break;
         default:
-            result = {
-                success: false,
-                message: `Unknown command: ${command}
+            // Check if command exists in registry but not implemented
+            const registryCmd = registry.getByName(command);
 
-Available commands:
-  Setup:
-    start             First-time setup (install commands to editors)
-    setup             Reconfigure editor installations
+            if (registryCmd && !registryCmd.implemented) {
+                result = {
+                    success: false,
+                    message: `Command '${command}' exists but is not yet implemented.
+Check the roadmap or contribute: https://github.com/your-org/prjct-cli
 
-  Core workflow:
-    init              Initialize prjct in current project
-    now [task]        Set or show current task
-    done              Complete current task
-    ship <feature>    Ship and celebrate a feature
-    next              Show priority queue
-    idea <text>       Capture an idea
-    recap             Show project overview
-    progress [period] Show progress metrics
-    stuck <issue>     Get help with a problem
-    context           Show project context
+Use 'prjct --help' to see all available commands.`
+                };
+            } else {
+                // Generate error message with available commands from registry
+                const categories = registry.getCategories();
+                const categorizedCommands = {};
 
-  Advanced:
-    cleanup           Clean up .prjct structure
-    cleanup-advanced  Advanced cleanup with options
-    design [target]   Design system/architecture
-    analyze           Analyze codebase and sync state
-    migrate-all       Migrate all legacy projects
+                registry.getTerminalCommands().forEach(cmd => {
+                    if (!categorizedCommands[cmd.category]) {
+                        categorizedCommands[cmd.category] = [];
+                    }
+                    categorizedCommands[cmd.category].push(cmd);
+                });
 
-  Setup options:
-    --force           Force update existing commands
-    --editor <name>   Install to specific editor (claude|cursor|codex|windsurf)
-    --no-interactive  Skip interactive selection, install to all
-    --create-templates Create templates from existing commands`
-            };
+                let errorMessage = `Unknown command: ${command}\n\nAvailable commands:\n`;
+
+                Object.entries(categorizedCommands).forEach(([categoryKey, cmds]) => {
+                    const categoryInfo = categories[categoryKey];
+                    errorMessage += `\n  ${categoryInfo.title}:\n`;
+
+                    cmds.forEach(cmd => {
+                        const params = cmd.params ? ` ${cmd.params}` : '';
+                        const spacing = ' '.repeat(Math.max(18 - cmd.name.length - params.length, 1));
+                        errorMessage += `    ${cmd.name}${params}${spacing}${cmd.description}\n`;
+                    });
+                });
+
+                result = {
+                    success: false,
+                    message: errorMessage
+                };
+            }
     }
 
     console.log(result.message);

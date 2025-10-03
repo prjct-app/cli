@@ -10,39 +10,27 @@ description: "Get unstuck"
 /p:stuck <issue>
 ```
 
-## Execution
+## Flow
+1. Detect: issue type (bug/design/perf/feature)
+2. Check: context from analysis + memory
+3. Provide: type-specific guidance
+4. Suggest: breakdown + next actions
+5. Log: `memory/context.jsonl`
 
-1. Detect issue type (bug/design/perf/feature)
-2. Check context:
-   - `~/.prjct-cli/projects/{id}/analysis/repo-summary.md`
-   - `~/.prjct-cli/projects/{id}/memory/context.jsonl`
-3. Log to `memory/context.jsonl`:
-   ```json
-   {"action":"stuck","issue":"[desc]","category":"[type]","approach":"[steps]","status":"in_progress"}
-   ```
+## Guidance by Type
+- **Bug**: 🔍 Check logs → Isolate → Search error
+- **Design**: 🎨 Define requirements → Start simple → Ship MVP
+- **Performance**: ⚡ Profile first → Fix slowest → Cache ops
+- **Default**: 💡 Break into tasks → Start smallest → Ship it
 
-4. Response by type:
+## Response
+```
+💡 {type_guidance}
 
-   **Bug**: `🔍 1. Check logs 2. Isolate problem 3. Search error`
+Let's break it down:
+1. {subtask} (~{time})
+2. {subtask} (~{time})
 
-   **Design**: `🎨 1. Define requirements 2. Start simple 3. Ship MVP`
+/p:now "{first}" | /p:task
+```
 
-   **Performance**: `⚡ 1. Profile first 2. Fix slowest 3. Cache operations`
-
-   **Default**: `💡 1. Break into tasks 2. Start smallest 3. Ship it`
-
-5. Suggest breakdown + next actions:
-   ```
-   💡 [Type-specific guidance above]
-
-   Let's break it down:
-   1. [subtask 1] (~15min)
-   2. [subtask 2] (~30min)
-
-   Ready to start?
-   • "start the first part" → Begin small
-   • "add these as tasks" → Queue them
-   • "think more" → Capture ideas
-
-   Or: /p:now "[first subtask]" | /p:task | /p:idea
-   ```

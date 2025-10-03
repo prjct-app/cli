@@ -11,16 +11,24 @@ const os = require('os')
  * @version 0.5.0
  */
 class AgentGenerator {
-  constructor() {
+  constructor(projectId = null) {
     this.templatesDir = path.join(__dirname, '..', 'templates', 'agents')
-    this.outputDir = path.join(os.homedir(), '.claude', 'agents')
+    this.projectId = projectId
+
+    // Agents are stored in global project directory, not Claude's agents
+    if (projectId) {
+      this.outputDir = path.join(os.homedir(), '.prjct-cli', 'projects', projectId, 'agents')
+    } else {
+      // Fallback for backwards compatibility (will be deprecated)
+      this.outputDir = path.join(os.homedir(), '.prjct-cli', 'agents')
+    }
 
     // Base agents (always generated)
-    this.baseAgents = ['pm', 'ux', 'fe', 'be', 'qa', 'scribe']
+    this.baseAgents = ['coordinator', 'ux', 'fe', 'be', 'qa', 'scribe']
 
     // Agent colors for visual distinction
     this.agentColors = {
-      pm: 'cyan',
+      coordinator: 'cyan',
       ux: 'purple',
       fe: 'orange',
       be: 'yellow',
@@ -150,7 +158,8 @@ class AgentGenerator {
     content += this.generateProjectContext(type, analysis)
 
     // Write agent file
-    const outputPath = path.join(this.outputDir, `p_agent_${type}.md`)
+    await fs.mkdir(this.outputDir, { recursive: true })
+    const outputPath = path.join(this.outputDir, `${type}.md`)
     await fs.writeFile(outputPath, content, 'utf-8')
   }
 
@@ -461,10 +470,10 @@ class AgentGenerator {
     // Check which agents currently exist
     try {
       const files = await fs.readdir(this.outputDir)
-      const agentFiles = files.filter(f => f.startsWith('p_agent_') && f.endsWith('.md'))
+      const agentFiles = files.filter(f => f.endsWith('.md') && !f.startsWith('.'))
 
       for (const file of agentFiles) {
-        const type = file.replace('p_agent_', '').replace('.md', '')
+        const type = file.replace('.md', '')
 
         try {
           await this.generateAgent(type, analysis)
@@ -493,10 +502,10 @@ class AgentGenerator {
 
     try {
       const files = await fs.readdir(this.outputDir)
-      const agentFiles = files.filter(f => f.startsWith('p_agent_') && f.endsWith('.md'))
+      const agentFiles = files.filter(f => f.endsWith('.md') && !f.startsWith('.'))
 
       for (const file of agentFiles) {
-        const type = file.replace('p_agent_', '').replace('.md', '')
+        const type = file.replace('.md', '')
 
         if (!requiredAgents.includes(type)) {
           const filePath = path.join(this.outputDir, file)
@@ -513,4 +522,4 @@ class AgentGenerator {
   }
 }
 
-module.exports = new AgentGenerator()
+module.exports = AgentGenerator

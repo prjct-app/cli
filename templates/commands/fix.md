@@ -1,87 +1,48 @@
 ---
-allowed-tools: [Read, Grep, Bash, Edit]
-description: "Quick troubleshooting and automatic fixes"
+allowed-tools: [Read, Bash, Edit]
+description: "Quick troubleshooting and fixes"
 ---
 
-## Global Architecture
-This command uses the global prjct architecture:
-- Data stored in: `~/.prjct-cli/projects/{id}/`
-- Config stored in: `{project}/.prjct/prjct.config.json`
-- Commands synchronized across all editors
-
-
-
-# /p:fix - Quick Fix & Troubleshooting
-
-## Purpose
-Instantly diagnose and fix common issues. Get unstuck in seconds, not minutes.
+# /p:fix
 
 ## Usage
 ```
-/p:fix [error message or description]
+/p:fix              # Diagnose current issue
+/p:fix [error]      # Fix specific error
 ```
 
-## Execution
-1. Analyze error type (syntax/type/runtime/build)
-2. Search for error patterns in codebase
-3. Apply automatic fix if safe and obvious
-4. Provide manual fix steps if complex
-5. Log solution to `.prjct/memory/context.jsonl`
+## Flow
+1. Read: `core/now.md` → get context
+2. Parse: error message OR diagnose current state
+3. Detect: common patterns (deps, config, syntax, tests)
+4. Apply: automatic fix OR suggest solution
+5. Verify: test fix works
+6. Log: `memory/context.jsonl`
 
 ## Common Fixes
+- **Dependencies**: `npm install` missing packages
+- **Config**: Fix malformed JSON/YAML
+- **Syntax**: ESLint/Prettier auto-fix
+- **Tests**: Update snapshots, fix imports
+- **Git**: Resolve merge conflicts
 
-**Auto-fixable**:
-- Missing semicolons, brackets, quotes
-- Import statements for undefined variables
-- Package.json dependencies
-- Simple type errors
-- Linting issues
+## Response (auto-fixed)
+```
+✅ Fixed: {error_type}
 
-**Guided fixes**:
-- Null/undefined errors → Add null checks
-- Module not found → Install package or fix path
-- Build failures → Check configs and deps
-- Test failures → Show diff and fix approach
+{fix_details}
 
-## Implementation
-
-**Error detection**:
-```bash
-# Check for common issues
-- npm run lint 2>&1
-- npm run typecheck 2>&1
-- Check recent git changes
-- Analyze error stack trace
+Verify: {command_to_test}
 ```
 
-**Response format for auto-fix**:
+## Response (manual)
 ```
-🔧 Fixed automatically!
+🔍 Diagnosed: {issue}
 
-Problem: Missing import for useState
-Solution: Added import from 'react'
-File: components/UserForm.tsx:1
+Suggested fixes:
+1. {fix_option_1}
+2. {fix_option_2}
 
-✅ Error resolved - continue working!
-```
-
-**Response format for guided fix**:
-```
-🔍 Issue identified: Cannot read property 'id' of undefined
-
-📍 Location: services/auth.js:45
-🐛 Cause: user might be null
-
-💡 Quick fix:
-if (!user?.id) {
-  return null;
-}
-
-Apply with: /p:fix apply
+/p:done after fixing
 ```
 
-## Smart Features
-- Learns from previous fixes
-- Suggests preventive measures
-- Links to relevant documentation
-- Tracks fix patterns in memory

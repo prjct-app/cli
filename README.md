@@ -198,7 +198,7 @@ No planning sessions. No standups. No retrospectives. Just **ship fast, track pr
 
 **Who uses this:**
 
-- 🎯 **Solo creators** - Build products without project management overhead
+- 🎯 **Solo creators** - Build products without meetings or BS overhead
 - 👥 **Small teams** (2-5 people) - Coordinate without meetings
 - 🚀 **Product builders** - Ship features fast
 - 💪 **Makers** - Focus on building, not planning

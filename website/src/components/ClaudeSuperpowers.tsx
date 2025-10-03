@@ -10,7 +10,7 @@ const superpowers = [
     borderColor: 'border-primary/20',
     description: 'Auto-generated specialists that understand your project',
     features: [
-      'PM Agent - Task breakdown & planning',
+      'Coordinator - Progress tracking & shipping',
       'Frontend Agent - UI/UX implementation',
       'Backend Agent - API & infrastructure',
       'QA Agent - Testing & validation',

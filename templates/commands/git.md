@@ -1,79 +1,52 @@
 ---
-allowed-tools: [Bash, Read, Grep, Glob]
-description: "Smart git operations with auto-generated commit messages"
+allowed-tools: [Bash, Read, Write]
+description: "Smart git operations with context"
 ---
 
-## Global Architecture
-This command uses the global prjct architecture:
-- Data stored in: `~/.prjct-cli/projects/{id}/`
-- Config stored in: `{project}/.prjct/prjct.config.json`
-- Commands synchronized across all editors
-
-
-
-# /p:git - Smart Git Operations
-
-## Purpose
-Execute git operations with intelligent commit messages and automatic best practices. No thinking required.
+# /p:git
 
 ## Usage
 ```
-/p:git [commit|push|status|sync]
+/p:git commit       # Smart commit with metadata
+/p:git push         # Push with verification
+/p:git sync         # Pull, rebase, push
+/p:git undo         # Undo last commit
 ```
 
-Default: commit
+## Flow: commit
+1. Read: `core/now.md` → get task context
+2. Git: `add .` → stage changes
+3. Create: commit message with prjct metadata
+4. Commit: with message
+5. Log: `memory/context.jsonl`
 
-## Execution
+## Flow: push
+1. Git: `status` → verify clean
+2. Git: `push` with branch tracking
+3. Handle: errors (upstream, conflicts)
 
-### `/p:git` or `/p:git commit`
-1. Run `git status` to see changes
-2. Analyze changes to generate smart commit message
-3. Stage all changes with `git add -A`
-4. Commit with generated message
-5. Log to `.prjct/memory/context.jsonl`
+## Flow: sync
+1. Git: `pull --rebase`
+2. Resolve: conflicts if any
+3. Git: `push`
 
-### `/p:git push`
-1. Commit any pending changes first
-2. Push to current branch
-3. Show deployment status if applicable
-
-### `/p:git status`
-1. Show clean git status with emoji indicators
-2. Suggest next logical action
-
-### `/p:git sync`
-1. Pull latest changes
-2. Commit local changes if any
-3. Push to remote
-4. Handle merge conflicts if needed
-
-## Implementation
-
-**Smart commit message generation**:
-- Analyze file changes to determine type (feat/fix/docs/refactor)
-- Extract meaningful description from changes
-- Add emoji for visual clarity
-- Include file scope when relevant
-
-**Example messages**:
-- "✨ feat: Add user authentication system"
-- "🐛 fix: Resolve null pointer in auth middleware"
-- "📝 docs: Update API documentation"
-- "♻️ refactor: Simplify database connection logic"
-
-**Response format**:
+## Commit Message Format
 ```
-✅ Changes committed!
+{type}: {description}
 
-📝 Message: feat: Add user authentication
-📊 Files: 3 changed, +150 lines
-🔄 Branch: main
+Agent: {agent}
+Dev: @{github_dev}
 
-💡 Next: /p:git push to deploy
+Generated-by: prjct/cli
+Co-Authored-By: @{github_dev}
 ```
 
-## Best Practices
-- Always pulls before pushing
-- Auto-stages all changes
-- Generates conventional commit messages
-- Tracks in project memory for context
+## Response
+```
+✅ Git {operation}
+
+{operation_details}
+
+/p:ship | /p:status
+```
+

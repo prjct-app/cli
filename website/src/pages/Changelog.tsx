@@ -4,10 +4,23 @@ import { Link } from 'react-router-dom'
 import { VersionHeader } from '@/components/changelog/VersionHeader'
 import { FeatureCard } from '@/components/changelog/FeatureCard'
 import { TechnicalDetails } from '@/components/changelog/TechnicalDetails'
+import { DateSection } from '@/components/changelog/DateSection'
+import { TimelineNav } from '@/components/changelog/TimelineNav'
 
 export const Changelog = () => {
+  // Timeline navigation items
+  const timelineItems = [
+    { id: 'oct-3-2025', date: 'Oct 3, 2025', releaseCount: 1 },
+    { id: 'oct-2-2025', date: 'Oct 2, 2025', releaseCount: 7 },
+    { id: 'oct-1-2025', date: 'Oct 1, 2025', releaseCount: 4 },
+    { id: 'sep-30-2025', date: 'Sep 30, 2025', releaseCount: 3 }
+  ]
+
   return (
     <div className="min-h-screen py-20 px-4">
+      {/* Timeline Navigation */}
+      <TimelineNav items={timelineItems} />
+
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <motion.div
@@ -28,14 +41,258 @@ export const Changelog = () => {
           </p>
         </motion.div>
 
-        {/* Version 0.5.0 - Claude-Only Decision */}
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.1 }}
-          className="mb-16"
-        >
-          <VersionHeader version="v0.5.0" date="October 2025" isLatest />
+        {/* October 3, 2025 - 1 release */}
+        <DateSection id="oct-3-2025" date="October 3, 2025" releaseCount={1}>
+          {/* Version 0.6.0 - Philosophy Transformation */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-16"
+          >
+            <VersionHeader version="v0.6.0" isLatest />
+
+            <div className="space-y-6 mb-6">
+              <FeatureCard
+                icon={Sparkles}
+                title="Philosophy Transformation"
+                description="Complete rebrand from PM tool to developer momentum tool for indie hackers and solo builders"
+                bullets={[
+                  '• Eliminated ALL "project management" language from entire codebase',
+                  '• New messaging: "Just Ship. No BS" for creators, not managers',
+                  '• Updated CLAUDE.md: "developer momentum tool for solo builders, indie hackers, and small teams (2-5 people)"',
+                  '• Rewrote AGENTS.md (165→143 lines): "NOT project management. NO sprints, story points, ceremonies, or meetings"',
+                  '• Website transformation: Hero, Features, ClaudeSuperpowers, Privacy - all copy now creator-focused',
+                  '• Zero "PM" or "project management" references (except as critique of traditional tools)'
+                ]}
+              />
+
+              <FeatureCard
+                icon={Users}
+                title="Agent System Redesign"
+                description='Renamed PM agent → Coordinator ("Progress Coordinator" for shipping features, not managing people)'
+                bullets={[
+                  '• Renamed pm.template.md → coordinator.template.md (85→35 lines, 58% reduction)',
+                  '• Role change: "Project Manager" → "Progress Coordinator"',
+                  '• Focus: Task breakdown/planning → Progress tracking & shipping features',
+                  '• Updated core/agent-generator.js baseAgents: "pm" → "coordinator"',
+                  '• Philosophy: "SHIP features and track progress, not manage people or run meetings"',
+                  '• ⚠️ Breaking: Existing projects need /p:sync to regenerate agents'
+                ]}
+              />
+
+              <FeatureCard
+                icon={Package}
+                title="Template Optimization"
+                description="46.5% reduction in agent template verbosity (540 → 289 lines total)"
+                bullets={[
+                  '• Strategy: Instructions + placeholders instead of verbose pre-filled content',
+                  '• scribe.template.md: 96→30 lines (69% reduction - biggest!)',
+                  '• coordinator.template.md: 85→35 lines (58%)',
+                  '• qa.template.md: 55→28 lines (49%)',
+                  '• fe, be, ux, devops, mobile, data, security: All optimized to 28 lines',
+                  '• Benefit: Agents load faster, consume fewer tokens, maintain clarity'
+                ]}
+              />
+            </div>
+
+            <TechnicalDetails
+              details={[
+                'Breaking Change: Agent naming (pm → coordinator) requires /p:sync for existing projects',
+                'Template Reduction: 540 → 289 lines (46.5% overall)',
+                'Website: All PM references removed - creator-focused messaging throughout',
+                'Philosophy: Complete transformation to "Just Ship. No BS" for indie hackers',
+                'Documentation: CLAUDE.md, README.md, AGENTS.md all updated with new messaging'
+              ]}
+            />
+          </motion.section>
+        </DateSection>
+
+        {/* October 2, 2025 - 7 releases */}
+        <DateSection id="oct-2-2025" date="October 2, 2025" releaseCount={7}>
+          {/* Version 0.5.3 - Registry & Documentation Fixes */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-16"
+          >
+            <VersionHeader version="v0.5.3" />
+
+          <div className="space-y-6 mb-6">
+            <FeatureCard
+              icon={Wrench}
+              title="Website Build Fixes"
+              description="Fixed ES module compatibility for browser - command registry now loads correctly"
+              bullets={[
+                '• Created ES module version at website/src/data/command-registry.ts',
+                '• Converted module.exports to export default for browser compatibility',
+                '• Replaced require() with ES6 import in Components.tsx',
+                '• Added proper TypeScript type annotations',
+                '• Removed all TypeScript any types for better type safety'
+              ]}
+            />
+
+            <FeatureCard
+              icon={CheckCircle}
+              title="Documentation Accuracy"
+              description="Updated Getting Started guide with correct installation flow"
+              bullets={[
+                '• Step 1: npm install -g prjct-cli (global installation)',
+                '• Step 2: prjct start (setup Claude Code integration)',
+                '• Step 3: /p:init (initialize project)',
+                '• Step 4: /p:now (start working)',
+                '• Fixed missing npm install and prjct start steps'
+              ]}
+            />
+          </div>
+
+          <TechnicalDetails
+            details={[
+              'ES Module Conversion: CommonJS → ES6 for browser compatibility',
+              'TypeScript Types: Added interfaces for Command, CategoryInfo, CommandUsage',
+              'Type Safety: Removed all implicit any types',
+              'Build Success: Website compiles without errors',
+              'Documentation: Updated Getting Started section with complete flow'
+            ]}
+          />
+          </motion.section>
+
+          {/* Version 0.5.2 - Command Registry & Workflow */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-16"
+          >
+            <VersionHeader version="v0.5.2" />
+
+            <div className="space-y-6 mb-6">
+              <FeatureCard
+                icon={Database}
+                title="Command Registry System"
+                description="Single source of truth for all prjct commands (core/command-registry.js)"
+                bullets={[
+                  '• All 25 commands defined in single location with metadata',
+                  '• Category system (work, planning, design, quality, progress, help, git, testing, setup)',
+                  '• Implementation status tracking (19 implemented, 6 planned)',
+                  '• Platform availability (Claude Code vs Terminal)',
+                  '• Template file mapping',
+                  '• Helper functions for filtering, querying, and statistics'
+                ]}
+              />
+
+              <FeatureCard
+                icon={ArrowRightLeft}
+                title="Complete Workflow System Integration"
+                description="Automated task orchestration with AI workflow agents"
+                bullets={[
+                  '• Auto-initialization: Workflows activate automatically when using /p:idea "implement [feature]"',
+                  '• Task Classification: Automatic detection of workflow type (ui, api, bug, refactor, feature)',
+                  '• Capability Detection: Detects design system, test framework, docs system',
+                  '• Interactive Prompts: Asks user to choose tools when capabilities are missing',
+                  '• Step Progression: Each /p:done advances to next workflow step',
+                  '• Agent Assignment: Each step assigned to appropriate specialist agent',
+                  '• Workflow Status: New /p:workflow command shows progress and remaining steps'
+                ]}
+              />
+
+              <FeatureCard
+                icon={CheckCircle}
+                title="/p:sync Command Implementation"
+                description="Sync project state and update workflow agents"
+                bullets={[
+                  '• Re-analyzes project with /p:analyze (silent mode)',
+                  '• Generates/updates workflow agents in global project directory',
+                  '• Creates base agents: pm, ux, fe, be, qa, scribe',
+                  '• Creates conditional agents: security, devops, mobile, data (based on stack)',
+                  '• Logs sync action to memory/context.jsonl',
+                  '• Shows summary and agents path'
+                ]}
+              />
+            </div>
+
+            <TechnicalDetails
+              details={[
+                'Command Registry: 430 lines, complete command metadata in core/command-registry.js',
+                'Workflow Storage: ~/.prjct-cli/projects/{id}/workflow/state.json',
+                'Agents Storage: ~/.prjct-cli/projects/{id}/agents/',
+                '5 workflow types with specialized step sequences',
+                '10 agent types: pm, ux, fe, be, qa, scribe, security, devops, mobile, data',
+                'Automated validation: scripts/validate-commands.js'
+              ]}
+            />
+          </motion.section>
+
+          {/* Version 0.5.1 - Critical Fix */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-16"
+          >
+            <VersionHeader version="v0.5.1" />
+
+            <div className="space-y-6 mb-6">
+              <FeatureCard
+                icon={Wrench}
+                title="Critical: prjct start Command Error"
+                description="Fixed 'commandInstaller.detectEditors is not a function' error"
+                bullets={[
+                  '• Root Cause: v0.5.0 refactored command-installer.js to Claude-only architecture',
+                  '• Refactored start() function to use detectClaude() instead of detectEditors()',
+                  '• Replaced interactiveInstall() with installCommands()',
+                  '• Removed multi-editor logic (Cursor, Windsurf references)',
+                  '• Updated messaging to be Claude-only with download link',
+                  '• Simplified setup() function with installation status checking',
+                  '• Added --force flag support for reinstallation'
+                ]}
+              />
+
+              <FeatureCard
+                icon={MessageSquare}
+                title="Corrected Claude Subscription Messaging"
+                description="Clarified honest pricing throughout"
+                bullets={[
+                  '• Changed "Claude Code is 100% free" → "Works with whatever Claude subscription you have"',
+                  '• Added clarity: "No extra costs or tokens required"',
+                  '• Emphasized "no extra setup", "no token management", "no API keys to configure"',
+                  '• Updated README.md, website components, and FAQ sections',
+                  '• Being honest about costs builds trust'
+                ]}
+              />
+
+              <FeatureCard
+                icon={CheckCircle}
+                title="Fixed TypeScript Errors"
+                description="Removed unused imports across website components"
+                bullets={[
+                  '• Fixed website/src/pages/Changelog.tsx: Added missing MessageSquare import',
+                  '• Fixed website/src/components/Features.tsx: Removed unused Cpu import',
+                  '• Fixed website/src/pages/Commands.tsx: Removed unused Cpu, Wind imports',
+                  '• Website now compiles without TypeScript errors'
+                ]}
+              />
+            </div>
+
+            <TechnicalDetails
+              details={[
+                'Command Installation: Successfully installs all 21 /p:* commands to ~/.claude/commands/p/',
+                'Editor Installation: Removed multi-editor references',
+                'Subscription Messaging: Accurate throughout all documentation',
+                'TypeScript Compilation: Zero errors'
+              ]}
+            />
+          </motion.section>
+
+          {/* Version 0.5.0 - Claude-Only Decision */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-16"
+          >
+            <VersionHeader version="v0.5.0" />
 
           {/* Post-Mortem: Why Claude-Only */}
           <div className="mb-8 p-8 bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl border-2 border-primary/20">
@@ -209,14 +466,14 @@ export const Changelog = () => {
           </div>
         </motion.section>
 
-        {/* Version 0.4.4 */}
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="mb-16"
-        >
-          <VersionHeader version="v0.4.4" date="October 2, 2025" isLatest />
+          {/* Version 0.4.4 */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-16"
+          >
+            <VersionHeader version="v0.4.4" />
 
           <div className="space-y-6 mb-6">
             <FeatureCard
@@ -275,14 +532,14 @@ export const Changelog = () => {
           />
         </motion.section>
 
-        {/* Version 0.4.3 */}
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-          className="mb-16"
-        >
-          <VersionHeader version="v0.4.3" date="October 2, 2025" />
+          {/* Version 0.4.3 */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-16"
+          >
+            <VersionHeader version="v0.4.3" />
 
           <div className="space-y-6 mb-6">
             <FeatureCard
@@ -324,14 +581,14 @@ export const Changelog = () => {
           />
         </motion.section>
 
-        {/* Version 0.4.2 */}
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.4 }}
-          className="mb-16"
-        >
-          <VersionHeader version="v0.4.2" date="October 2, 2025" />
+          {/* Version 0.4.2 */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-16"
+          >
+            <VersionHeader version="v0.4.2" />
 
           <div className="space-y-6 mb-6">
             <FeatureCard
@@ -357,16 +614,19 @@ export const Changelog = () => {
               ]}
             />
           </div>
-        </motion.section>
+          </motion.section>
+        </DateSection>
 
-        {/* Version 0.4.1 */}
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-          className="mb-16"
-        >
-          <VersionHeader version="v0.4.1" date="October 1, 2025" />
+        {/* October 1, 2025 - 4 releases */}
+        <DateSection id="oct-1-2025" date="October 1, 2025" releaseCount={4}>
+          {/* Version 0.4.1 */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-16"
+          >
+            <VersionHeader version="v0.4.1" />
 
           <div className="space-y-6 mb-6">
             <FeatureCard
@@ -430,17 +690,14 @@ export const Changelog = () => {
           />
         </motion.section>
 
-        {/* Version 0.4.0 */}
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-          className="mb-16"
-        >
-          <div className="flex items-center gap-4 mb-6">
-            <h2 className="text-3xl font-bold">v0.4.0</h2>
-            <span className="text-muted-foreground">October 1, 2025</span>
-          </div>
+          {/* Version 0.4.0 */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-16"
+          >
+            <VersionHeader version="v0.4.0" />
 
           {/* Interactive Workflow System */}
           <div className="space-y-6 mb-6">
@@ -550,17 +807,14 @@ export const Changelog = () => {
           </details>
         </motion.section>
 
-        {/* Version 0.3.2 */}
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-          className="mb-16"
-        >
-          <div className="flex items-center gap-4 mb-6">
-            <h2 className="text-3xl font-bold">v0.3.2</h2>
-            <span className="text-muted-foreground">October 1, 2025</span>
-          </div>
+          {/* Version 0.3.2 */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-16"
+          >
+            <VersionHeader version="v0.3.2" />
 
           {/* Interactive Installation Compatibility */}
           <div className="space-y-6 mb-6">
@@ -590,17 +844,14 @@ export const Changelog = () => {
           </div>
         </motion.section>
 
-        {/* Version 0.3.1 */}
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.4 }}
-          className="mb-16"
-        >
-          <div className="flex items-center gap-4 mb-6">
-            <h2 className="text-3xl font-bold">v0.3.1</h2>
-            <span className="text-muted-foreground">October 1, 2025</span>
-          </div>
+          {/* Version 0.3.1 */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-16"
+          >
+            <VersionHeader version="v0.3.1" />
 
           {/* Installation Path Fix */}
           <div className="space-y-6 mb-6">
@@ -626,19 +877,19 @@ export const Changelog = () => {
               </div>
             </div>
           </div>
-        </motion.section>
+          </motion.section>
+        </DateSection>
 
-        {/* Version 0.3.0 */}
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.5 }}
-          className="mb-16"
-        >
-          <div className="flex items-center gap-4 mb-6">
-            <h2 className="text-3xl font-bold">v0.3.0</h2>
-            <span className="text-muted-foreground">September 30, 2025</span>
-          </div>
+        {/* September 30, 2025 - 3 releases */}
+        <DateSection id="sep-30-2025" date="September 30, 2025" releaseCount={3}>
+          {/* Version 0.3.0 */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-16"
+          >
+            <VersionHeader version="v0.3.0" />
 
           {/* Intelligent Codebase Analysis */}
           <div className="space-y-6 mb-6">
@@ -728,17 +979,14 @@ export const Changelog = () => {
           </div>
         </motion.section>
 
-        {/* Version 0.2.1 */}
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.6 }}
-          className="mb-16"
-        >
-          <div className="flex items-center gap-4 mb-6">
-            <h2 className="text-3xl font-bold">v0.2.1</h2>
-            <span className="text-muted-foreground">September 30, 2025</span>
-          </div>
+          {/* Version 0.2.1 */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-16"
+          >
+            <VersionHeader version="v0.2.1" />
 
           {/* Key Features */}
           <div className="space-y-6">
@@ -811,20 +1059,14 @@ export const Changelog = () => {
           </div>
         </motion.section>
 
-        {/* Version 0.2.0 */}
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.7 }}
-          className="mb-16"
-        >
-          <div className="flex items-center gap-4 mb-6">
-            <h2 className="text-3xl font-bold">v0.2.0</h2>
-            <span className="px-3 py-1 bg-cat-red text-white text-sm font-medium rounded-full">
-              Breaking Change
-            </span>
-            <span className="text-muted-foreground">September 30, 2025</span>
-          </div>
+          {/* Version 0.2.0 */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-16"
+          >
+            <VersionHeader version="v0.2.0" />
 
           {/* Breaking Changes Alert */}
           <div className="mb-8 p-6 bg-cat-red/10 border-2 border-cat-red/30 rounded-2xl">
@@ -995,49 +1237,42 @@ export const Changelog = () => {
               </div>
             </div>
           </details>
-        </motion.section>
+          </motion.section>
 
-        {/* Version 0.1.0 */}
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.8 }}
-          className="mb-16"
-        >
-          <div className="flex items-center gap-4 mb-6">
-            <h2 className="text-3xl font-bold">v0.1.0</h2>
-            <span className="px-3 py-1 bg-primary text-primary-foreground text-sm font-medium rounded-full">
-              Initial Release
-            </span>
-            <span className="text-muted-foreground">January 2024</span>
-          </div>
+          {/* Version 0.1.0 */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-16"
+          >
+            <VersionHeader version="v0.1.0" />
 
-          <div className="p-6 bg-muted/20 rounded-2xl">
-            <h3 className="text-xl font-bold mb-4">Initial Release Features</h3>
-            <div className="grid md:grid-cols-2 gap-4 text-sm">
-              <div>
-                <h4 className="font-semibold mb-2">Core Commands</h4>
-                <ul className="space-y-1 text-muted-foreground">
-                  <li>• /p:init - Initialize project</li>
-                  <li>• /p:now - Set current task</li>
-                  <li>• /p:done - Complete task</li>
-                  <li>• /p:ship - Celebrate wins</li>
-                  <li>• /p:recap - Project overview</li>
-                </ul>
-              </div>
-              <div>
-                <h4 className="font-semibold mb-2">Features</h4>
-                <ul className="space-y-1 text-muted-foreground">
-                  <li>• AI-integrated workflow</li>
-                  <li>• Claude Code support</li>
-                  <li>• OpenAI Codex support</li>
-                  <li>• Terminal compatibility</li>
-                  <li>• Automatic environment detection</li>
-                </ul>
+            <div className="space-y-6 mb-6">
+              <div className="p-6 bg-muted/20 rounded-2xl">
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
+                    <Sparkles className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold mb-2">Initial Release</h3>
+                    <p className="text-muted-foreground mb-3">
+                      First public release of prjct-cli - AI-integrated developer momentum tool
+                    </p>
+                    <ul className="space-y-2 text-sm text-muted-foreground">
+                      <li>• AI-integrated developer momentum tool</li>
+                      <li>• Support for Claude Code, OpenAI Codex, and Terminal</li>
+                      <li>• Core commands: init, now, done, ship, recap, and more</li>
+                      <li>• MCP integration for AI assistants</li>
+                      <li>• Automatic environment detection</li>
+                      <li>• Project structure in <code className="text-cat-mauve">.prjct/</code> directory</li>
+                    </ul>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        </motion.section>
+          </motion.section>
+        </DateSection>
 
         {/* Stay Updated */}
         <motion.div

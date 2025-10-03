@@ -11,6 +11,7 @@ import { Philosophy } from './pages/docs/Philosophy'
 import { GitIntegration } from './pages/docs/GitIntegration'
 import { BestPractices } from './pages/docs/BestPractices'
 import { MCPIntegration } from './pages/docs/MCPIntegration'
+import { Migration } from './pages/docs/Migration'
 import { Terms } from './pages/Terms'
 import { Privacy } from './pages/Privacy'
 import { Changelog } from './pages/Changelog'
@@ -30,6 +31,7 @@ function App() {
             <Route path="/docs/git-integration" element={<GitIntegration />} />
             <Route path="/docs/best-practices" element={<BestPractices />} />
             <Route path="/docs/mcp-integration" element={<MCPIntegration />} />
+            <Route path="/docs/migration" element={<Migration />} />
             <Route path="/commands" element={<Commands />} />
             <Route path="/workflows" element={<WorkflowsGuide />} />
             <Route path="/faq" element={<FAQPage />} />
