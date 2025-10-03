@@ -15,6 +15,32 @@ import {
   Github,
 } from 'lucide-react'
 
+// Import command registry - SINGLE SOURCE OF TRUTH
+import registry from '../data/command-registry'
+
+// Types for command registry
+interface CommandUsage {
+  claude: string | null
+  terminal: string | null
+}
+
+interface Command {
+  name: string
+  category: string
+  description: string
+  usage: CommandUsage
+  params: string | null
+  implemented: boolean
+  hasTemplate: boolean
+  icon: string
+}
+
+interface CategoryInfo {
+  title: string
+  icon: string
+  description: string
+}
+
 const platforms = [
   { id: 'claude', label: 'Claude Code', icon: <Code2 className="h-4 w-4" /> },
   { id: 'terminal', label: 'Terminal (Limited)', icon: <Terminal className="h-4 w-4" /> },
@@ -22,208 +48,47 @@ const platforms = [
 
 type PlatformId = (typeof platforms)[number]['id']
 
-const commandCategories = [
-  {
-    title: 'Work Commands',
-    icon: <Target className="h-5 w-5" />,
-    commands: [
-      {
-        cmd: '/p:now [task]',
-        desc: 'Set or show current task',
+// Icon mapping
+const iconComponents = {
+  Target: Target,
+  Lightbulb: Lightbulb,
+  Palette: Palette,
+  Zap: Zap,
+  BarChart3: BarChart3,
+  HelpCircle: HelpCircle,
+  Github: Github,
+  Rocket: Rocket,
+  Terminal: Terminal,
+}
+
+// Generate command categories from registry
+const commandCategories = (Object.entries(registry.getCategories()) as [string, CategoryInfo][])
+  .filter(([categoryKey]) => {
+    // Filter categories that have Claude commands
+    const cmds = registry.getByCategory(categoryKey)
+    return cmds.some((cmd: Command) => cmd.usage.claude !== null)
+  })
+  .map(([categoryKey, categoryInfo]) => {
+    const IconComponent = iconComponents[categoryInfo.icon as keyof typeof iconComponents] || HelpCircle
+    const categoryCommands = registry
+      .getByCategory(categoryKey)
+      .filter((cmd: Command) => cmd.usage.claude !== null) // Only show Claude-available commands
+
+    return {
+      title: categoryInfo.title,
+      icon: <IconComponent className="h-5 w-5" />,
+      commands: categoryCommands.map((cmd: Command) => ({
+        cmd: `/p:${cmd.name}${cmd.params ? ` ${cmd.params}` : ''}`,
+        desc: cmd.description,
         platforms: {
-          claude: '/p:now "implement authentication system"',
-          terminal: 'prjct now "implement authentication system"',
+          claude: cmd.usage.claude || `Not available in Claude`,
+          terminal: cmd.usage.terminal || `Not available in terminal`,
         },
-      },
-      {
-        cmd: '/p:next',
-        desc: 'Show priority queue',
-        platforms: {
-          claude: '/p:next',
-          terminal: 'prjct next',
-        },
-      },
-      {
-        cmd: '/p:done',
-        desc: 'Complete current task',
-        platforms: {
-          claude: '/p:done',
-          terminal: 'prjct done',
-        },
-      },
-      {
-        cmd: '/p:ship <feature>',
-        desc: 'Ship and celebrate a feature',
-        platforms: {
-          claude: '/p:ship "user authentication system"',
-          terminal: 'prjct ship "user authentication system"',
-        },
-      },
-    ],
-  },
-  {
-    title: 'Planning Commands',
-    icon: <Lightbulb className="h-5 w-5" />,
-    commands: [
-      {
-        cmd: '/p:idea <text>',
-        desc: 'Capture ideas quickly',
-        platforms: {
-          claude: '/p:idea "add dark mode"',
-          terminal: 'prjct idea "add dark mode"',
-        },
-      },
-      {
-        cmd: '/p:roadmap',
-        desc: 'Show or update strategic roadmap',
-        platforms: {
-          claude: '/p:roadmap',
-          terminal: 'prjct roadmap',
-        },
-      },
-      {
-        cmd: '/p:task <description>',
-        desc: 'Break down and execute complex tasks',
-        platforms: {
-          claude: '/p:task "implement authentication"',
-          terminal: 'prjct task "implement authentication"',
-        },
-      },
-    ],
-  },
-  {
-    title: 'Design & Architecture',
-    icon: <Palette className="h-5 w-5" />,
-    commands: [
-      {
-        cmd: '/p:design [target] --type architecture|api|component|database|flow',
-        desc: 'Design system architecture, APIs, and component interfaces',
-        platforms: {
-          claude: '/p:design authentication --type architecture',
-          terminal: 'prjct design authentication --type architecture',
-        },
-      },
-    ],
-  },
-  {
-    title: 'Code Quality',
-    icon: <Zap className="h-5 w-5" />,
-    commands: [
-      {
-        cmd: '/p:cleanup',
-        desc: 'Clean up temp files and old entries',
-        platforms: {
-          claude: '/p:cleanup',
-          terminal: 'prjct cleanup',
-        },
-      },
-      {
-        cmd: '/p:cleanup --type code',
-        desc: 'Remove dead code and unused imports',
-        platforms: {
-          claude: '/p:cleanup --type code',
-          terminal: 'prjct cleanup --type code',
-        },
-      },
-    ],
-  },
-  {
-    title: 'Progress Commands',
-    icon: <BarChart3 className="h-5 w-5" />,
-    commands: [
-      {
-        cmd: '/p:recap',
-        desc: 'Show project overview with progress',
-        platforms: {
-          claude: '/p:recap',
-          terminal: 'prjct recap',
-        },
-      },
-      {
-        cmd: '/p:progress [period]',
-        desc: 'Show progress metrics for specified period',
-        platforms: {
-          claude: '/p:progress week',
-          terminal: 'prjct progress week',
-        },
-      },
-      {
-        cmd: '/p:context',
-        desc: 'Show project context and recent activity',
-        platforms: {
-          claude: '/p:context',
-          terminal: 'prjct context',
-        },
-      },
-    ],
-  },
-  {
-    title: 'Help Commands',
-    icon: <HelpCircle className="h-5 w-5" />,
-    commands: [
-      {
-        cmd: '/p:init',
-        desc: 'Initialize prjct in current project',
-        platforms: {
-          claude: '/p:init',
-          terminal: 'prjct init',
-        },
-      },
-      {
-        cmd: '/p:stuck <issue description>',
-        desc: 'Get contextual help with problems',
-        platforms: {
-          claude: '/p:stuck "CORS error in API calls"',
-          terminal: 'prjct stuck "CORS error in API calls"',
-        },
-      },
-      {
-        cmd: '/p:fix [error]',
-        desc: 'Quick troubleshooting and automatic fixes',
-        platforms: {
-          claude: '/p:fix "undefined is not a function"',
-          terminal: 'prjct fix "undefined is not a function"',
-        },
-      },
-      {
-        cmd: '/p:analyze',
-        desc: 'Analyze repository and sync tasks',
-        platforms: {
-          claude: '/p:analyze',
-          terminal: 'prjct analyze',
-        },
-      },
-    ],
-  },
-  {
-    title: 'Version Control',
-    icon: <Github className="h-5 w-5" />,
-    commands: [
-      {
-        cmd: '/p:git',
-        desc: 'Smart git operations with context',
-        platforms: {
-          claude: '/p:git',
-          terminal: 'prjct git',
-        },
-      },
-    ],
-  },
-  {
-    title: 'Testing',
-    icon: <Rocket className="h-5 w-5" />,
-    commands: [
-      {
-        cmd: '/p:test',
-        desc: 'Run tests and auto-fix simple failures',
-        platforms: {
-          claude: '/p:test',
-          terminal: 'prjct test',
-        },
-      },
-    ],
-  },
-]
+        implemented: cmd.implemented,
+      })),
+    }
+  })
+  .filter((category) => category.commands.length > 0)
 
 export const Commands = () => {
   const [activePlatform, setActivePlatform] = useState<PlatformId>('claude')
@@ -244,7 +109,7 @@ export const Commands = () => {
           </div>
           <h1 className="mb-6 text-5xl font-bold md:text-6xl">All prjct Commands</h1>
           <p className="mx-auto mb-4 max-w-2xl text-xl text-muted-foreground">
-            18 commands, built for Claude Code
+            {registry.getStats().implemented} implemented / {registry.getStats().total} total commands, built for Claude Code
           </p>
 
           {/* Natural Language Callout */}
@@ -289,11 +154,10 @@ export const Commands = () => {
               <button
                 key={platform.id}
                 onClick={() => setActivePlatform(platform.id)}
-                className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all ${
-                  activePlatform === platform.id
+                className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all ${activePlatform === platform.id
                     ? 'bg-primary text-primary-foreground shadow-sm'
                     : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-                }`}
+                  }`}
               >
                 {platform.icon}
                 <span className="whitespace-nowrap">{platform.label}</span>
@@ -320,7 +184,7 @@ export const Commands = () => {
                   <h2 className="text-xl font-semibold">{category.title}</h2>
                 </div>
                 <div className="space-y-4">
-                  {category.commands.map((command) => (
+                  {category.commands.map((command: any) => (
                     <div key={command.cmd} className="flex flex-col gap-2">
                       <span className="text-sm text-muted-foreground">{command.desc}</span>
                       <motion.code

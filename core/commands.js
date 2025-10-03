@@ -4,6 +4,7 @@ const { promisify } = require('util')
 const { exec: execCallback } = require('child_process')
 const exec = promisify(execCallback)
 const agentDetector = require('./agent-detector')
+const agentGenerator = require('./agent-generator')
 const pathManager = require('./path-manager')
 const configManager = require('./config-manager')
 const authorDetector = require('./author-detector')
@@ -11,6 +12,8 @@ const migrator = require('./migrator')
 const commandInstaller = require('./command-installer')
 const sessionManager = require('./session-manager')
 const analyzer = require('./analyzer')
+const workflowEngine = require('./workflow-engine')
+const workflowPrompts = require('./workflow-prompts')
 const UpdateChecker = require('./update-checker')
 const { VERSION } = require('./version')
 
@@ -1130,6 +1133,9 @@ ${nextStep.agent}
         }
       }
 
+      const config = await configManager.readConfig(projectPath)
+      const globalProjectPath = pathManager.getProjectRoot(config.projectId)
+
       const ideasFile = await this.getFilePath(projectPath, 'planning', 'ideas.md')
       const nextFile = await this.getFilePath(projectPath, 'core', 'next.md')
 
@@ -1138,17 +1144,41 @@ ${nextStep.agent}
       await this.agent.writeFile(ideasFile, ideasContent + entry)
 
       let addedToQueue = false
+      let workflowCreated = false
+      let workflowType = null
+
       if (text.match(/^(implement|add|create|fix|update|build)/i)) {
         const nextContent = await this.agent.readFile(nextFile)
         await this.agent.writeFile(nextFile, nextContent + `- ${text}\n`)
         addedToQueue = true
+
+        // Auto-detect workflow type and initialize workflow
+        workflowType = workflowEngine.classify(text)
+        if (workflowType) {
+          try {
+            const workflow = await workflowEngine.init(text, workflowType, globalProjectPath)
+            workflowCreated = !!workflow
+          } catch (error) {
+            console.warn('⚠️  Could not initialize workflow:', error.message)
+          }
+        }
       }
 
-      await this.logToMemory(projectPath, 'idea', { text, timestamp: this.agent.getTimestamp() })
+      await this.logToMemory(projectPath, 'idea', {
+        text,
+        timestamp: this.agent.getTimestamp(),
+        workflow: workflowCreated ? workflowType : null,
+      })
 
-      const message =
-        `Idea captured: "${text}"` +
-        (addedToQueue ? `\nAlso added to ${this.agentInfo.config.commandPrefix}next queue` : '')
+      let message = `Idea captured: "${text}"`
+      if (addedToQueue) {
+        message += `\nAlso added to ${this.agentInfo.config.commandPrefix}next queue`
+      }
+      if (workflowCreated) {
+        message += `\n\n🔄 Workflow initialized: ${workflowType}`
+        message += `\nUse ${this.agentInfo.config.commandPrefix}workflow to see steps`
+        message += `\nStart with ${this.agentInfo.config.commandPrefix}now to begin working`
+      }
 
       return {
         success: true,
@@ -2224,54 +2254,55 @@ ${diagram}
       console.log(chalk.cyan('   🤖 Perfect context for AI agents'))
       console.log('')
 
-      console.log(chalk.bold.magenta('📦 Setup - Install Commands to AI Editors\n'))
+      console.log(chalk.bold.magenta('📦 Setup - Install Commands to Claude\n'))
 
-      // Detect editors
+      // Detect Claude
       const commandInstaller = require('./command-installer')
-      const detection = await commandInstaller.detectEditors()
-      const detectedEditors = Object.entries(detection).filter(([_, info]) => info.detected)
+      const claudeDetected = await commandInstaller.detectClaude()
 
-      if (detectedEditors.length === 0) {
+      if (!claudeDetected) {
         return {
           success: false,
           message: this.agent.formatResponse(
-            'No AI editors detected.\n\nSupported: Claude Code, Cursor, Windsurf',
+            'Claude not detected.\n\nPlease install Claude Code or Claude Desktop first.\n\nVisit: https://claude.ai/download',
             'error'
           ),
         }
       }
 
-      console.log(chalk.cyan('🔍 Detected AI editors:'))
-      detectedEditors.forEach(([key, info]) => {
-        const editorName = commandInstaller.editors[key]?.name || key
-        console.log(chalk.green(`  [✓] ${editorName} (${info.path})`))
-      })
+      console.log(chalk.green('✓ Claude detected'))
       console.log('')
 
-      // Interactive selection (allow uninstall = true)
-      const installResult = await commandInstaller.interactiveInstall(true)
+      // Install commands
+      console.log(chalk.cyan('Installing /p:* commands...'))
+      const installResult = await commandInstaller.installCommands()
 
       if (!installResult.success) {
         return {
           success: false,
-          message: this.agent.formatResponse(installResult.message || 'Setup failed', 'error'),
+          message: this.agent.formatResponse(
+            `Installation failed: ${installResult.error || 'Unknown error'}`,
+            'error'
+          ),
         }
       }
 
-      // Install Context7 MCP
-      const mcpResult = await commandInstaller.installContext7MCP()
-
       // Success message
-      let message = `✅ Commands installed in: ${installResult.editors.join(', ')}\n`
+      const installedCount = installResult.installed?.length || 0
+      const errorCount = installResult.errors?.length || 0
 
-      if (mcpResult.success && mcpResult.editors.length > 0) {
-        message += `\n🔌 Context7 MCP enabled in: ${mcpResult.editors.join(', ')}`
+      let message = `✅ Successfully installed ${installedCount} commands to Claude\n`
+      message += `   Location: ${installResult.path}\n`
+
+      if (errorCount > 0) {
+        message += `\n⚠️  ${errorCount} command(s) had issues during installation`
       }
 
       message += '\n\n✨ prjct is ready to use!'
       message += '\n\nNext steps:'
       message += '\n  cd your-project/'
       message += '\n  prjct init'
+      message += '\n\nℹ️  Context7 MCP is automatically available in Claude'
 
       return {
         success: true,
@@ -2296,60 +2327,72 @@ ${diagram}
     try {
       await this.initializeAgent()
 
-      const {
-        force = false,
-        editor = null,
-        createTemplates = false,
-        interactive = true,
-      } = options
+      const { force = false } = options
 
-      if (createTemplates) {
-        const templateResult = await commandInstaller.createTemplates()
-        if (!templateResult.success) {
-          return {
-            success: false,
-            message: this.agent.formatResponse(templateResult.message, 'error'),
-          }
-        }
-      }
+      // Detect Claude
+      const commandInstaller = require('./command-installer')
+      const claudeDetected = await commandInstaller.detectClaude()
 
-      const detection = await commandInstaller.detectEditors(process.cwd())
-      const detectedEditors = Object.entries(detection)
-        .filter(([_, info]) => info.detected)
-
-      if (detectedEditors.length === 0) {
+      if (!claudeDetected) {
         return {
           success: false,
-          message: this.agent.formatResponse('No AI editors detected on this system', 'error'),
+          message: this.agent.formatResponse(
+            'Claude not detected. Please install Claude Code or Claude Desktop first.',
+            'error'
+          ),
         }
       }
 
-      let installResult
+      // Check current installation status
+      const status = await commandInstaller.checkInstallation()
 
-      if (editor) {
-        // Install to specific editor
-        installResult = await commandInstaller.installToEditor(editor, force)
-      } else if (interactive) {
-        // Interactive mode: use new interactiveInstall method
-        installResult = await commandInstaller.interactiveInstall(force)
-      } else {
-        // Non-interactive mode: install to all detected editors
-        installResult = await commandInstaller.installToAll(force)
+      if (status.installed && !force) {
+        const chalk = require('chalk')
+        let report = chalk.green('✓ Commands already installed\n')
+        report += chalk.dim(`  Location: ${status.path}\n`)
+        report += chalk.dim(`  Commands: ${status.commands.length}\n`)
+        report += '\nUse --force to reinstall'
+
+        return {
+          success: true,
+          message: this.agent.formatResponse(report, 'info'),
+        }
       }
 
-      // Always install Context7 MCP after commands installation
-      const mcpResult = await commandInstaller.installContext7MCP()
+      // Install or reinstall commands
+      const installResult = force
+        ? await commandInstaller.updateCommands()
+        : await commandInstaller.installCommands()
 
-      let report = commandInstaller.generateReport(installResult)
-      if (mcpResult.success && mcpResult.editors.length > 0) {
-        report += '\n\n🔌 Context7 MCP Enabled\n'
-        report += `   Editors: ${mcpResult.editors.join(', ')}\n`
-        report += '   📚 Library documentation now available automatically'
+      if (!installResult.success) {
+        return {
+          success: false,
+          message: this.agent.formatResponse(
+            `Installation failed: ${installResult.error || 'Unknown error'}`,
+            'error'
+          ),
+        }
       }
+
+      // Generate report
+      const installedCount = installResult.installed?.length || 0
+      const errorCount = installResult.errors?.length || 0
+
+      let report = `✅ Successfully ${force ? 'reinstalled' : 'installed'} ${installedCount} commands\n`
+      report += `   Location: ${installResult.path}\n`
+
+      if (errorCount > 0) {
+        report += `\n⚠️  ${errorCount} command(s) had issues\n`
+        installResult.errors.forEach(err => {
+          report += `   - ${err.file}: ${err.error}\n`
+        })
+      }
+
+      report += '\n📚 Context7 MCP is automatically available in Claude'
 
       return {
-        success: installResult.success,
-        message: this.agent.formatResponse(report, installResult.success ? 'celebrate' : 'error'),
+        success: true,
+        message: this.agent.formatResponse(report, 'celebrate'),
       }
     } catch (error) {
       await this.initializeAgent()
@@ -2476,6 +2519,175 @@ ${syncResults.shippedMdUpdated ? `✅ Updated shipped.md (${syncResults.features
 
 💡 Next: Use /p:next to see remaining tasks
 `
+  }
+
+  /**
+   * Sync project state and update AI agents
+   * Re-analyzes the project and regenerates workflow agents in global project directory
+   *
+   * @param {string} [projectPath=process.cwd()] - Project directory path
+   * @returns {Promise<Object>} Result with success status and message
+   */
+  async sync(projectPath = process.cwd()) {
+    try {
+      await this.initializeAgent()
+
+      // Get project ID from config
+      const config = await configManager.readConfig(projectPath)
+      if (!config || !config.projectId) {
+        return {
+          success: false,
+          message: this.agent.formatResponse(
+            'Project not initialized. Run /p:init first.',
+            'error',
+          ),
+        }
+      }
+
+      console.log('🔄 Syncing project state...\n')
+
+      // Step 1: Re-run project analysis
+      const analysisResult = await this.analyze({ silent: true }, projectPath)
+
+      if (!analysisResult.success) {
+        return {
+          success: false,
+          message: this.agent.formatResponse(`Sync failed: ${analysisResult.message}`, 'error'),
+        }
+      }
+
+      const { analysis } = analysisResult
+      const summary = {
+        commandsFound: analysis.commands.length,
+        featuresFound: analysis.features.length,
+      }
+
+      console.log('📊 Analysis Complete')
+      console.log(`   ✅ ${summary.commandsFound} commands detected`)
+      console.log(`   ✅ ${summary.featuresFound} features implemented\n`)
+
+      // Step 2: Generate/update all agents in project directory
+      const AgentGenerator = agentGenerator
+      const generator = new AgentGenerator(config.projectId)
+
+      const generatedAgents = await generator.generateAll(analysis)
+
+      // Step 3: Log sync action to memory
+      await this.logAction(projectPath, 'sync', {
+        commandsDetected: summary.commandsFound,
+        featuresDetected: summary.featuresFound,
+        agentsGenerated: generatedAgents.length,
+        agents: generatedAgents,
+      })
+
+      const agentsPath = path.join(
+        pathManager.getProjectRoot(config.projectId),
+        'agents',
+      )
+
+      const message = `
+🔄 Sync Complete
+
+📊 Project State:
+   ✅ ${summary.commandsFound} commands detected
+   ✅ ${summary.featuresFound} features implemented
+
+🤖 Workflow Agents:
+   ✨ Generated ${generatedAgents.length} agents in ${agentsPath}
+   ${generatedAgents.map(a => `✅ ${a.toUpperCase()}`).join('\n   ')}
+
+💡 Agents ready for workflow task assignment!
+`
+
+      return {
+        success: true,
+        message: this.agent.formatResponse(message, 'success'),
+        generatedAgents,
+      }
+    } catch (error) {
+      await this.initializeAgent()
+      return {
+        success: false,
+        message: this.agent.formatResponse(`Sync failed: ${error.message}`, 'error'),
+      }
+    }
+  }
+
+  /**
+   * Show workflow status
+   *
+   * @param {string} [projectPath=process.cwd()] - Project path
+   * @returns {Promise<Object>} Result object with success flag and message
+   */
+  async workflow(projectPath = process.cwd()) {
+    try {
+      await this.initializeAgent()
+
+      // Auto-init if not configured
+      const initCheck = await this.ensureProjectInit(projectPath)
+      if (!initCheck.success) {
+        return initCheck
+      }
+
+      const config = await configManager.readConfig(projectPath)
+      const globalProjectPath = pathManager.getProjectRoot(config.projectId)
+
+      const workflow = await workflowEngine.load(globalProjectPath)
+
+      if (!workflow || !workflow.active) {
+        return {
+          success: true,
+          message: this.agent.formatResponse(
+            `No active workflow.\n\nStart one with ${this.agentInfo.config.commandPrefix}idea "implement [feature]"`,
+            'info',
+          ),
+        }
+      }
+
+      const currentStep = workflow.steps[workflow.current]
+      const completedSteps = workflow.steps.slice(0, workflow.current)
+      const remainingSteps = workflow.steps.slice(workflow.current + 1)
+
+      let message = `🔄 Workflow: ${workflow.type}\n`
+      message += `📋 Task: ${workflow.task}\n\n`
+
+      if (completedSteps.length > 0) {
+        message += `✅ Completed:\n`
+        completedSteps.forEach((step) => {
+          message += `   - ${step.name}: ${step.action} (${step.agent})\n`
+        })
+        message += '\n'
+      }
+
+      message += `🎯 Current Step:\n`
+      message += `   - ${currentStep.name}: ${currentStep.action} (${currentStep.agent})\n`
+      if (currentStep.required) {
+        message += `   Required: Yes\n`
+      }
+      message += '\n'
+
+      if (remainingSteps.length > 0) {
+        message += `⏳ Remaining:\n`
+        remainingSteps.forEach((step) => {
+          message += `   - ${step.name}: ${step.action} (${step.agent})\n`
+        })
+        message += '\n'
+      }
+
+      message += `Progress: ${workflow.current + 1}/${workflow.steps.length} steps`
+
+      return {
+        success: true,
+        message: this.agent.formatResponse(message, 'info'),
+        workflow,
+      }
+    } catch (error) {
+      await this.initializeAgent()
+      return {
+        success: false,
+        message: this.agent.formatResponse(`Workflow status failed: ${error.message}`, 'error'),
+      }
+    }
   }
 
   /**

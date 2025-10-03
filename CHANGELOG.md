@@ -7,6 +7,174 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2025-10-03
+
+### Changed
+- **Philosophy Transformation** - Complete rebrand from PM tool to developer momentum tool
+  - **Problem**: "Project management" messaging didn't match target audience (indie hackers, solo builders, small teams)
+  - **Solution**: Eliminated ALL "project management" language across entire codebase
+  - **Messaging**: "Just Ship. No BS" for creators, not managers
+  - **Files Modified**:
+    - `CLAUDE.md` - Changed project description from "AI-integrated project management framework" to "developer momentum tool for solo builders, indie hackers, and small teams (2-5 people). Just ship. No BS."
+    - `README.md` - Removed "project management overhead" → "meetings or BS overhead"
+    - `templates/agents/AGENTS.md` - Complete rewrite (165→143 lines) with anti-PM messaging: "NOT project management. NO sprints, story points, ceremonies, or meetings."
+    - `CHANGELOG.md` - Updated historical references
+    - **Website** - Transformed all copy to creator-focused messaging:
+      - `Hero.tsx`, `Features.tsx` - "PM, Frontend..." → "Coordinator, Frontend..."
+      - `ClaudeSuperpowers.tsx` - "PM Agent - Task breakdown & planning" → "Coordinator - Progress tracking & shipping"
+      - `Privacy.tsx` - "project management tool" → "developer momentum tool"
+  - **Result**: Zero "PM" or "project management" references (except as critique of traditional tools)
+
+- **Agent System Redesign** - Renamed PM agent to Coordinator
+  - **Problem**: "Project Manager" agent didn't align with "no BS" philosophy
+  - **Solution**: Complete agent transformation
+  - **Changes**:
+    - Renamed `pm.template.md` → `coordinator.template.md` (85→35 lines, 58% reduction)
+    - Role: "Project Manager" → "Progress Coordinator"
+    - Focus: Task breakdown/planning → Progress tracking & shipping features
+    - Updated `core/agent-generator.js` baseAgents: `'pm'` → `'coordinator'`
+    - Agent color: Blue → Cyan
+  - **Breaking Change**: Existing projects need `/p:sync` to regenerate agents
+  - **Philosophy**: "Keep builders aligned on what matters: shipping features, tracking wins, staying focused" + "SHIP features and track progress, not manage people or run meetings"
+
+- **Template Optimization** - 46.5% reduction in agent template verbosity
+  - **Problem**: Templates filled context window with verbose pre-written content
+  - **Solution**: Use instructions + placeholders instead of examples
+  - **Results**:
+    - Total reduction: 540 → 289 lines (46.5% overall)
+    - `fe.template.md`: 43→28 lines (35%)
+    - `be.template.md`: 43→28 lines (35%)
+    - `ux.template.md`: 50→28 lines (44%)
+    - `qa.template.md`: 55→28 lines (49%)
+    - `scribe.template.md`: 96→30 lines (69% - biggest reduction!)
+    - `coordinator.template.md`: 85→35 lines (58%)
+    - `devops.template.md`, `mobile.template.md`, `data.template.md`, `security.template.md`: All reduced to 28 lines
+  - **Strategy**: Compressed expertise lists (5→3 items), simplified principles, used placeholders like `[PROJECT_NAME]`, `[DETECTED_STACK]`
+  - **Benefit**: Agents load faster, consume fewer tokens, maintain clarity
+
+## [0.5.3] - 2025-10-02
+
+### Fixed
+- **Website Build Issues** - Fixed ES module compatibility for browser
+  - **Problem**: Command registry using CommonJS `require()` caused runtime errors in browser
+  - **Solution**:
+    - Created ES module version at `website/src/data/command-registry.ts`
+    - Converted `module.exports` to `export default`
+    - Replaced `require()` with ES6 `import` in Components.tsx
+    - Added proper TypeScript type annotations
+  - **Files Modified**:
+    - `website/src/data/command-registry.ts` (NEW) - ES module version with TypeScript types
+    - `website/src/pages/Commands.tsx` - ES6 import, removed TypeScript `any` types
+  - **Result**: Website now loads correctly with dynamic command generation from registry
+
+- **Documentation Accuracy** - Updated Getting Started guide with correct installation flow
+  - **Problem**: Documentation showed incorrect setup steps (missing npm install and prjct start)
+  - **Solution**: Updated to reflect actual installation process:
+    1. `npm install -g prjct-cli` - Global installation
+    2. `prjct start` - Setup Claude Code integration
+    3. `/p:init` - Initialize project
+    4. `/p:now` - Start working
+  - **Files Modified**:
+    - `website/src/pages/Documentation.tsx` - Corrected Getting Started section
+
+## [0.5.2] - 2025-10-02
+
+### Added
+- **Command Registry System** - Single source of truth for all prjct commands (`core/command-registry.js`)
+  - **Problem**: Commands were dispersed across 4 locations with inconsistencies:
+    - `bin/prjct` (15 commands in help)
+    - `website/Commands.tsx` (18 commands displayed)
+    - `CLAUDE.md` (18 commands documented)
+    - `templates/commands/` (21 template files)
+  - **Solution**: Created `core/command-registry.js` as centralized registry
+  - **Features**:
+    - All 25 commands defined in single location with metadata
+    - Category system (work, planning, design, quality, progress, help, git, testing, setup)
+    - Implementation status tracking (19 implemented, 6 planned)
+    - Platform availability (Claude Code vs Terminal)
+    - Template file mapping
+    - Helper functions for filtering, querying, and statistics
+  - **Files Modified**:
+    - `core/command-registry.js` (NEW) - 430 lines, complete command metadata
+    - `bin/prjct` - Dynamic help generation from registry
+    - `website/Commands.tsx` - Auto-generated command categories
+    - `CLAUDE.md` - Command list synced with registry
+    - `scripts/validate-commands.js` (NEW) - Automated validation tool
+  - **Validation**:
+    - Registry structure validation (duplicates, invalid categories)
+    - Template file consistency check
+    - Implementation verification (camelCase method detection)
+    - CLI switch case validation
+    - Automated validation script with colored output
+  - **Benefits**:
+    - ✅ Zero inconsistencies - single source of truth
+    - ✅ Easy to add new commands - update one file
+    - ✅ Automated validation prevents drift
+    - ✅ Statistics tracking (25 total, 19 implemented)
+    - ✅ Clear roadmap (6 planned features visible)
+  - **Usage**: `node scripts/validate-commands.js` to verify consistency
+
+- **Complete Workflow System Integration** - Automated task orchestration with AI workflow agents
+  - **Features**:
+    - **Auto-initialization**: Workflows activate automatically when using `/p:idea "implement [feature]"`
+    - **Task Classification**: Automatic detection of workflow type (ui, api, bug, refactor, feature)
+    - **Capability Detection**: Detects design system, test framework, docs system
+    - **Interactive Prompts**: Asks user to choose tools when capabilities are missing
+    - **Step Progression**: Each `/p:done` advances to next workflow step
+    - **Agent Assignment**: Each step assigned to appropriate specialist agent
+    - **Workflow Status**: New `/p:workflow` command shows progress and remaining steps
+  - **Files Modified**:
+    - `core/commands.js` - Integrated workflow engine into `idea()`, added `workflow()` command
+    - `core/agent-generator.js` - Corrected to use project-specific agents directory
+  - **Architecture**:
+    - Workflows stored in `~/.prjct-cli/projects/{id}/workflow/state.json`
+    - Agents stored in `~/.prjct-cli/projects/{id}/agents/`
+    - 5 workflow types with specialized step sequences
+    - 10 agent types: pm, ux, fe, be, qa, scribe, security, devops, mobile, data
+  - **Usage**:
+    1. `p. implement auth system` → Auto-creates workflow
+    2. `p. now` → Start first step
+    3. `p. done` → Complete step, advance to next
+    4. `p. workflow` → Check progress
+  - **Result**: Fully automated task orchestration with smart step-by-step guidance
+
+- **`/p:sync` Command Implementation** - Sync project state and update workflow agents
+  - **Root Cause**: Template existed but method was not implemented in `core/commands.js`
+  - **Files Modified**:
+    - `core/commands.js` (added `sync()` method with proper global path)
+    - `core/agent-generator.js` (corrected to use project-specific agents directory)
+  - **Architecture Fix**:
+    - Agents are **NOT** for Claude's `~/.claude/agents/` (that was wrong)
+    - Agents are **workflow specialists** stored in `~/.prjct-cli/projects/{id}/agents/`
+    - Used for task assignment in workflow system
+    - Each agent (pm, ux, fe, be, qa, scribe, security, devops, mobile, data) handles specific workflow steps
+  - **Features**:
+    - Re-analyzes project with `/p:analyze` (silent mode)
+    - Generates/updates workflow agents in global project directory
+    - Creates base agents: pm, ux, fe, be, qa, scribe
+    - Creates conditional agents: security, devops, mobile, data (based on stack)
+    - Logs sync action to `memory/context.jsonl`
+    - Shows summary and agents path
+  - **Usage**: `p. sync` or `/p:sync`
+  - **When to Use**: After dependency changes, framework updates, before using workflows
+  - **Result**: Workflow agents ready for task assignment in `~/.prjct-cli/projects/{id}/agents/`
+
+## [0.5.1] - 2025-10-02
+
+### Fixed
+- **Critical: `prjct start` Command Error** - Fixed "commandInstaller.detectEditors is not a function" error
+  - **Root Cause**: v0.5.0 refactored `command-installer.js` to Claude-only architecture but didn't update calling code
+  - **Files Modified**: `core/commands.js` (lines 2227-2374)
+  - **Changes**:
+    - Refactored `start()` function to use `detectClaude()` instead of `detectEditors()`
+    - Replaced `interactiveInstall()` with `installCommands()`
+    - Removed multi-editor logic (Cursor, Windsurf references)
+    - Updated messaging to be Claude-only with download link
+    - Simplified `setup()` function with installation status checking
+    - Added `--force` flag support for reinstallation
+  - **Result**: Both `prjct start` and `prjct setup` now work correctly
+  - **Commands Installed**: Successfully installs all 21 /p:* commands to `~/.claude/commands/p/`
+
 ### Fixed
 - **Corrected Claude Subscription Messaging** - Clarified honest pricing throughout
   - Updated `website/src/pages/Changelog.tsx`:
@@ -913,7 +1081,7 @@ See [MIGRATION.md](MIGRATION.md) for detailed migration instructions.
 
 ### Added
 - Initial release of prjct-cli
-- AI-integrated project management system
+- AI-integrated developer momentum tool
 - Support for Claude Code, OpenAI Codex, and Terminal
 - Core commands: init, now, done, ship, recap, etc.
 - MCP integration for AI assistants

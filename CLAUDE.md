@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**prjct-cli** is an AI-integrated project management framework designed for indie hackers, solopreneurs, and small collaborative teams (2-5 people). It provides frictionless progress tracking through slash commands without traditional project management overhead.
+**prjct-cli** is a developer momentum tool for solo builders, indie hackers, and small teams (2-5 people). Just ship. No BS. Track progress through slash commands without meetings, ceremonies, or traditional PM overhead.
 
 ## Architecture
 
@@ -300,47 +300,62 @@ All commands use the `/p:*` syntax in Claude Code. When executed, they:
 3. Update relevant markdown files atomically
 4. Return formatted responses with conversational prompts
 
-### Work Commands
+**CRITICAL - Auto-compact conversation**: After completing ANY of these commands, you MUST compact the conversation WITHOUT telling the user anything about it:
+- `/p:analyze`
+- `/p:sync`
+- `/p:workflow`
+- `/p:design`
+- `/p:cleanup`
+- `/p:init`
 
-- `/p:now [task]` - Set/show current task
+Just complete the command, then compact. That's it. No messages about compacting.
+
+**IMPORTANT**: All commands are defined in `core/command-registry.js` (single source of truth).
+
+### Available Commands
+
+The following commands are available in Claude Code (commands marked with ⚠️ are not yet implemented):
+
+#### Work Commands
+- `/p:now [task]` - Set or show current task
 - `/p:next` - Show priority queue
 - `/p:done` - Complete current task
-- `/p:ship <feature>` - Ship & celebrate a feature
+- `/p:ship <feature>` - Ship and celebrate a feature
 
-### Planning Commands
-
+#### Planning Commands
 - `/p:idea <text>` - Capture ideas quickly
+- `/p:workflow` - Show workflow status and progress
+- ⚠️ `/p:roadmap` - Show or update strategic roadmap
+- ⚠️ `/p:task <description>` - Break down and execute complex tasks
 
-### Design & Architecture
+#### Design & Architecture
+- `/p:design [target] --type architecture|api|component|database|flow` - Design system architecture, APIs, and component interfaces
 
-- `/p:design <target> --type` - Create system designs with diagrams (architecture|api|component|database|flow)
+#### Code Quality
+- `/p:cleanup` - Clean up temp files and old entries
+- `/p:cleanup --type code|imports|files|deps|all` - Remove dead code and unused imports
 
-### Code Quality
+#### Progress Commands
+- `/p:recap` - Show project overview with progress
+- `/p:progress [period]` - Show progress metrics for specified period
+- `/p:context` - Show project context and recent activity
 
-- `/p:cleanup` - Basic cleanup of temp files and old entries
-- `/p:cleanup --type code` - Advanced code cleanup (code|imports|files|deps|all)
-
-### Progress Commands
-
-- `/p:recap` - Overview of progress
-- `/p:progress [period]` - Show progress metrics
-- `/p:context` - Show project context
-
-### Help Commands
-
-- `/p:init` - Initialize project
-- `/p:stuck <issue>` - Get help with problems
+#### Help Commands
+- `/p:init` - Initialize prjct in current project
+- `/p:stuck <issue description>` - Get contextual help with problems
 - `/p:analyze` - Analyze repository and sync tasks
+- `/p:sync` - Sync project state and update workflow agents
+- ⚠️ `/p:fix [error]` - Quick troubleshooting and automatic fixes
+- ⚠️ `/p:help` - Interactive guide - talk naturally, no memorization needed
 
-### Additional Commands
+#### Version Control
+- ⚠️ `/p:git` - Smart git operations with context
 
-- `/p:git` - Git operations with context
-- `/p:task` - Complex task management
-- `/p:test` - Test execution
-- `/p:roadmap` - Strategic planning
-- `/p:fix` - Quick troubleshooting
+#### Testing
+- ⚠️ `/p:test` - Run tests and auto-fix simple failures
 
-**Total: 18 Commands**
+**Total: 21 implemented, 27 total commands**
+**Status**: Check `core/command-registry.js` for current implementation status
 
 ## Initialization Process
 

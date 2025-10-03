@@ -16,7 +16,7 @@ const features = [
     icon: Bot,
     title: 'Dynamic AI Agents',
     description:
-      'Auto-generated specialists (PM, Frontend, Backend, UX, QA, Scribe+) that understand your project context.',
+      'Auto-generated specialists (Coordinator, Frontend, Backend, UX, QA, Scribe+) that understand your project context.',
     highlight: true,
   },
   {

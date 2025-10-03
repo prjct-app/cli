@@ -105,24 +105,44 @@ export const Documentation = () => {
           <h2 className="mb-6 text-3xl font-bold">Getting Started</h2>
           <div className="space-y-6">
             <div>
-              <h3 className="mb-3 text-xl font-semibold">1. Install prjct</h3>
+              <h3 className="mb-3 text-xl font-semibold">1. Install prjct globally</h3>
               <div className="rounded-lg bg-black p-4 font-mono text-sm">
-                <span className="text-cat-teal">$</span> curl -fsSL https://www.prjct.app/install.sh
-                | bash
+                <span className="text-cat-teal">$</span> npm install -g prjct-cli
               </div>
             </div>
             <div>
-              <h3 className="mb-3 text-xl font-semibold">2. Initialize your project</h3>
+              <h3 className="mb-3 text-xl font-semibold">2. Setup Claude Code integration</h3>
               <div className="rounded-lg bg-black p-4 font-mono text-sm">
-                <span className="text-cat-teal">$</span> /p:init
+                <span className="text-cat-teal">$</span> prjct start
               </div>
+              <p className="mt-2 text-sm text-muted-foreground">
+                This installs all /p:* commands in Claude Code (one-time setup)
+              </p>
             </div>
             <div>
-              <h3 className="mb-3 text-xl font-semibold">3. Start shipping</h3>
+              <h3 className="mb-3 text-xl font-semibold">3. Initialize your project</h3>
               <div className="rounded-lg bg-black p-4 font-mono text-sm">
-                <span className="text-cat-teal">$</span> /p:now "build awesome feature"
+                <span className="text-cat-teal">/p:init</span>
               </div>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Run this in Claude Code, or just say: "p. initialize this project"
+              </p>
             </div>
+            <div>
+              <h3 className="mb-3 text-xl font-semibold">4. Start shipping</h3>
+              <div className="rounded-lg bg-black p-4 font-mono text-sm">
+                <span className="text-cat-teal">/p:now</span> "build awesome feature"
+              </div>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Or just say: "p. I want to build an awesome feature"
+              </p>
+            </div>
+          </div>
+          <div className="mt-6 rounded-lg border border-primary/30 bg-primary/5 p-4">
+            <p className="text-sm">
+              💬 <strong>Natural language works too!</strong> Just start your message with "p." and
+              describe what you want to do. No need to memorize commands.
+            </p>
           </div>
         </motion.div>
 

@@ -112,7 +112,7 @@ export const Hero = () => {
             <div className="text-4xl font-bold">🤖</div>
           </div>
           <h3 className="mb-2 font-semibold">Dynamic AI Agents</h3>
-          <p className="text-sm text-muted-foreground">PM, Frontend, Backend, UX, QA, Scribe+</p>
+          <p className="text-sm text-muted-foreground">Coordinator, Frontend, Backend, UX, QA, Scribe+</p>
         </div>
         <div className="text-center">
           <div className="mb-4">

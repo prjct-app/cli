@@ -1,5 +1,5 @@
 ---
-allowed-tools: [Read, Write, Edit, TodoWrite]
+allowed-tools: [Read, Write]
 description: "Manage current focus task"
 ---
 
@@ -7,29 +7,25 @@ description: "Manage current focus task"
 
 ## Usage
 ```
-/p:now              # Show current
-/p:now [task]       # Set focus
+/p:now              # Show
+/p:now [task]       # Set
 ```
 
-## Execution
+## Flow
 
-**Show**: Read `~/.prjct-cli/projects/{id}/core/now.md`, display task + elapsed time
+**Show**: Read `core/now.md` → display task + elapsed
 
 **Set**:
-1. Update `core/now.md` with task + timestamp
-2. Update `core/context.md`, `progress/metrics.md`
-3. Log to `memory/context.jsonl`:
-   ```json
-   {"action":"now","task":"[task]","timestamp":"[ISO]","previous":"[old]","layer":"core"}
-   ```
-4. Response:
-   ```
-   🎯 Working on: [task description]
-   Started: [time]
+1. Write: `core/now.md` with task + timestamp
+2. Update: `core/context.md`, `progress/metrics.md`
+3. Log: `memory/context.jsonl`
 
-   When you're done:
-   • "I'm done" or "finished"
-   • Or type: /p:done
+## Response
+```
+🎯 {task}
+Started: {time}
 
-   Need help? Say "I'm stuck" or use /p:stuck
-   ```
+Done? → /p:done
+Stuck? → /p:stuck
+```
+

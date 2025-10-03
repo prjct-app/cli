@@ -1,6 +1,6 @@
 {
   "name": "prjct-cli",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Built for Claude - Ship fast, track progress, stay focused. Developer momentum tool for indie hackers.",
   "main": "core/index.js",
   "bin": {
@@ -15,6 +15,7 @@
     "preuninstall": "node scripts/preuninstall.js",
     "install-global": "./scripts/install.sh",
     "test": "echo 'No tests configured'",
+    "validate": "node scripts/validate-commands.js",
     "lint": "eslint \"**/*.js\" --ignore-pattern \"node_modules/**\" --ignore-pattern \"website/**\"",
     "lint:fix": "eslint \"**/*.js\" --fix --ignore-pattern \"node_modules/**\" --ignore-pattern \"website/**\"",
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,css,md}\" --config .config/.prettierrc --ignore-path .config/.prettierignore",
