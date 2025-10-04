@@ -1,4 +1,4 @@
-import { Github, Globe, Twitter, Shield, Code2, Heart, ExternalLink, BookOpen } from 'lucide-react'
+import { Mail, Globe, Twitter, Shield, Heart, BookOpen } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { PrjctLogo } from './Logo'
 
@@ -73,44 +73,29 @@ export const Footer = () => {
             </ul>
           </div>
 
-          {/* Resources */}
+          {/* Contact */}
           <div>
             <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-foreground/80">
-              <Code2 className="h-4 w-4" />
-              Develop
+              <Mail className="h-4 w-4" />
+              Contact
             </h3>
             <ul className="space-y-3">
               <li>
                 <a
-                  href="https://github.com/jlopezlira/prjct-cli"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href="mailto:jlopezlira@gmail.com"
                   className="flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-cat-blue"
                 >
-                  GitHub
-                  <ExternalLink className="h-3 w-3" />
+                  Email Support
                 </a>
               </li>
               <li>
                 <a
-                  href="https://github.com/jlopezlira/prjct-cli/issues"
+                  href="https://jlopezlira.dev"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-cat-blue"
                 >
-                  Issues
-                  <ExternalLink className="h-3 w-3" />
-                </a>
-              </li>
-              <li>
-                <a
-                  href="https://github.com/jlopezlira/prjct-cli/discussions"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-cat-blue"
-                >
-                  Discussions
-                  <ExternalLink className="h-3 w-3" />
+                  JJ's Website
                 </a>
               </li>
             </ul>
@@ -139,17 +124,6 @@ export const Footer = () => {
                   Terms of Use
                 </Link>
               </li>
-              <li>
-                <a
-                  href="https://github.com/jlopezlira/prjct-cli/blob/main/LICENSE"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-cat-yellow"
-                >
-                  MIT License
-                  <ExternalLink className="h-3 w-3" />
-                </a>
-              </li>
             </ul>
           </div>
         </div>
@@ -164,15 +138,6 @@ export const Footer = () => {
 
             {/* Social Links */}
             <div className="flex items-center gap-4">
-              <a
-                href="https://github.com/jlopezlira/prjct-cli"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-lg bg-muted/50 p-2 text-muted-foreground transition-all hover:bg-muted hover:text-foreground"
-                aria-label="GitHub"
-              >
-                <Github className="h-4 w-4" />
-              </a>
               <a
                 href="https://twitter.com/jlopezlira"
                 target="_blank"
@@ -190,6 +155,13 @@ export const Footer = () => {
                 aria-label="Personal Website"
               >
                 <Globe className="h-4 w-4" />
+              </a>
+              <a
+                href="mailto:jlopezlira@gmail.com"
+                className="rounded-lg bg-muted/50 p-2 text-muted-foreground transition-all hover:bg-muted hover:text-foreground"
+                aria-label="Email"
+              >
+                <Mail className="h-4 w-4" />
               </a>
             </div>
 

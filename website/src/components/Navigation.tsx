@@ -8,8 +8,6 @@ import {
   BookOpen,
   Terminal as TerminalIcon,
   HelpCircle,
-  GitBranch,
-  Star,
   Sparkles,
   Zap,
 } from 'lucide-react'
@@ -73,21 +71,8 @@ export const Navigation = () => {
             ))}
           </nav>
 
-          {/* Right side - GitHub & Mobile Menu */}
+          {/* Right side - Mobile Menu */}
           <div className="flex items-center gap-3">
-            <motion.a
-              href="https://github.com/jlopezlira/prjct-cli"
-              target="_blank"
-              rel="noopener noreferrer"
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              className="hidden items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 transition-all hover:border-primary/50 hover:bg-muted lg:flex"
-            >
-              <Star className="h-4 w-4" />
-              <span className="text-sm font-medium">Star on GitHub</span>
-            </motion.a>
-
             {/* Mobile Menu Button */}
             <button
               className="rounded-xl p-2 transition-all hover:bg-muted lg:hidden"
@@ -125,18 +110,6 @@ export const Navigation = () => {
                     <span>{item.label}</span>
                   </Link>
                 ))}
-
-                {/* GitHub Link in Mobile */}
-                <a
-                  href="https://github.com/jlopezlira/prjct-cli"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex items-center gap-3 rounded-lg px-4 py-3 text-muted-foreground transition-all hover:bg-muted/50 hover:text-foreground"
-                >
-                  <Star className="h-4 w-4" />
-                  <span>Star on GitHub</span>
-                </a>
               </div>
             </motion.nav>
           )}
