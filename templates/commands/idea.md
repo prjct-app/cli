@@ -13,9 +13,16 @@ description: 'Quick idea capture'
 
 ## Flow
 
-1. Append: `planning/ideas.md` with timestamp
-2. If actionable → add to `core/next.md`
-3. Log: `memory/context.jsonl`
+1. **Append to session**: `planning/sessions/{YYYY-MM}/{YYYY-MM-DD}.jsonl`
+2. **Update index**: Append to `planning/ideas.md` (keep only last 30 days)
+3. If actionable → add to `core/next.md`
+4. **Archive old**: If ideas.md > 30 days, move to `planning/archive/ideas-{YYYY-MM}.md`
+
+## Session Log Format
+
+```jsonl
+{"ts":"2025-10-04T16:00:00Z","type":"idea_add","idea":"{text}","actionable":{true/false},"priority":"{high/med/low}"}
+```
 
 ## Response
 

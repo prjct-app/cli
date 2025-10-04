@@ -73,23 +73,56 @@ The system operates as an AI Assistant Enhancement Framework using:
 
 ### Global Structure
 
+**Session-Based Architecture** - Prevents performance issues with large files (4000+ tasks/day).
+
 ```
 ~/.prjct-cli/projects/{id}/
-├── core/           # Current focus and priorities
+├── core/           # Current focus and priorities (always small)
 │   ├── now.md      # Single current task
-│   ├── next.md     # Priority queue
-│   └── context.md  # Project context
+│   ├── next.md     # Priority queue (max 100 tasks)
+│   └── context.md  # Project context summary
 ├── progress/       # Completed work
-│   ├── shipped.md  # Shipped features
-│   └── metrics.md  # Progress tracking
+│   ├── shipped.md  # Recent ships (last 30 days only)
+│   ├── metrics.md  # Aggregated metrics summary
+│   ├── sessions/   # Daily session logs (JSONL)
+│   │   └── 2025-10/
+│   │       ├── 2025-10-04.jsonl
+│   │       └── 2025-10-05.jsonl
+│   └── archive/    # Monthly archives
+│       └── shipped-2025-10.md
 ├── planning/       # Future planning
-│   ├── ideas.md    # Brainstorm backlog
-│   └── roadmap.md  # Strategic planning
+│   ├── ideas.md    # Active ideas (last 30 days)
+│   ├── roadmap.md  # Active roadmap (lightweight index)
+│   ├── sessions/   # Daily planning sessions (JSONL)
+│   │   └── 2025-10/
+│   │       ├── 2025-10-04.jsonl
+│   │       └── 2025-10-05.jsonl
+│   └── archive/    # Monthly archives
+│       ├── roadmap-2025-10.md
+│       └── ideas-2025-10.md
 ├── analysis/       # Technical analysis
 │   └── repo-summary.md
 └── memory/         # Decision history
-    └── context.jsonl
+    ├── context.jsonl          # Global decisions (append-only)
+    └── sessions/              # Daily context (structured)
+        └── 2025-10/
+            └── 2025-10-04.jsonl
 ```
+
+**Session Format (JSONL)** - One JSON object per line, append-only:
+
+```jsonl
+{"ts":"2025-10-04T14:30:00Z","type":"feature_add","name":"auth","tasks":5,"impact":"high","effort":"6h"}
+{"ts":"2025-10-04T15:00:00Z","type":"task_start","task":"JWT middleware","agent":"be","estimate":"2h"}
+{"ts":"2025-10-04T17:15:00Z","type":"task_complete","task":"JWT middleware","duration":"2h15m"}
+{"ts":"2025-10-04T18:00:00Z","type":"feature_ship","name":"auth","tasks_done":5,"total_time":"6h"}
+```
+
+**Auto-Archive Rules:**
+- Index files (roadmap.md, shipped.md) keep only last 30 days
+- Sessions older than 30 days → moved to archive/
+- Queries across time: read relevant session files
+- Performance: commands only read current index + today's session
 
 ### Local Configuration
 

@@ -70,7 +70,35 @@ npm test || yarn test || pnpm test
 
 Auto-commit with metadata and push
 
-### Step 8: Recommend Compact
+### Step 8: Log to Session
+
+Append to `progress/sessions/{YYYY-MM}/{YYYY-MM-DD}.jsonl`:
+
+```jsonl
+{"ts":"2025-10-04T18:00:00Z","type":"feature_ship","name":"{feature}","tasks_done":{N},"duration":"{Xh}","agent":"{agent}","version":"{X.Y.Z}"}
+```
+
+### Step 9: Update Index
+
+Prepend to `progress/shipped.md` (keep only last 30 days):
+
+```markdown
+## 2025-10-04
+- ✅ {feature_name} ({Xh}, {N} tasks, v{X.Y.Z})
+```
+
+If shipped.md has entries > 30 days old, archive to `progress/archive/shipped-{YYYY-MM}.md`
+
+### Step 10: Update Roadmap
+
+Mark feature as complete in `planning/roadmap.md`:
+
+```markdown
+## Completed
+- [x] {feature_name} - Shipped 2025-10-04
+```
+
+### Step 11: Recommend Compact
 
 Suggest compacting conversation after ship
 

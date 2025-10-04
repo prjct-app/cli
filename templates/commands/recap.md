@@ -14,9 +14,20 @@ description: 'Project context and status overview'
 
 ## Flow
 
-1. Read: all data layers (core, progress, planning, analysis, memory)
-2. Aggregate: project overview + metrics + recent activity
-3. Display: comprehensive context and status
+1. **Read indexes**: Recent data from core/, progress/, planning/ (last 30 days)
+2. **Read sessions**: Last 7 days from all session directories
+3. **Aggregate**: Metrics from sessions (features added, tasks done, ships)
+4. **Display**: Comprehensive context and status
+
+## Session Queries
+
+```javascript
+// Aggregate last 7 days activity
+const recentSessions = await readSessions('*/sessions', -7, 'now')
+const shipped = recentSessions.filter(s => s.type === 'feature_ship').length
+const tasksComplete = recentSessions.filter(s => s.type === 'task_complete').length
+const velocity = shipped / 7 // features per day
+```
 
 ## Response
 
