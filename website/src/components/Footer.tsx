@@ -62,6 +62,14 @@ export const Footer = () => {
                   FAQ
                 </Link>
               </li>
+              <li>
+                <Link
+                  to="/changelog"
+                  className="flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-cat-green"
+                >
+                  Changelog
+                </Link>
+              </li>
             </ul>
           </div>
 
