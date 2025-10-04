@@ -57,7 +57,7 @@ async function runTest(command, args) {
 }
 
 // Parse arguments
-const [,, command, ...args] = process.argv
+const [, , command, ...args] = process.argv
 
 if (!command) {
   console.log(`

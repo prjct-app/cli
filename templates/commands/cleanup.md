@@ -1,16 +1,18 @@
 ---
 allowed-tools: [Read, Edit, Bash]
-description: "Code cleanup and optimization"
+description: 'Code cleanup and optimization'
 ---
 
 # /p:cleanup
 
 ## Usage
+
 ```
 /p:cleanup [--type code|imports|files|deps|all] [--dry-run]
 ```
 
 ## Flow
+
 1. Parse: type + mode
 2. Backup: create if needed
 3. Execute: cleanup by type
@@ -18,6 +20,7 @@ description: "Code cleanup and optimization"
 5. Log: `memory/cleanup-log.jsonl`
 
 ## Types
+
 - **code**: Remove console.logs, commented code, dead code
 - **imports**: Remove unused, organize imports
 - **files**: Remove temp files, empty files
@@ -25,6 +28,7 @@ description: "Code cleanup and optimization"
 - **all**: All cleanup types
 
 ## Response
+
 ```
 🧹 Cleanup complete!
 
@@ -36,4 +40,3 @@ description: "Code cleanup and optimization"
 
 /p:test | /p:ship
 ```
-

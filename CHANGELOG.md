@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.6.0] - 2025-10-03
 
 ### Changed
+
 - **Philosophy Transformation** - Complete rebrand from PM tool to developer momentum tool
   - **Problem**: "Project management" messaging didn't match target audience (indie hackers, solo builders, small teams)
   - **Solution**: Eliminated ALL "project management" language across entire codebase
@@ -55,6 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.5.3] - 2025-10-02
 
 ### Fixed
+
 - **Website Build Issues** - Fixed ES module compatibility for browser
   - **Problem**: Command registry using CommonJS `require()` caused runtime errors in browser
   - **Solution**:
@@ -80,6 +82,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.5.2] - 2025-10-02
 
 ### Added
+
 - **Command Registry System** - Single source of truth for all prjct commands (`core/command-registry.js`)
   - **Problem**: Commands were dispersed across 4 locations with inconsistencies:
     - `bin/prjct` (15 commands in help)
@@ -162,6 +165,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.5.1] - 2025-10-02
 
 ### Fixed
+
 - **Critical: `prjct start` Command Error** - Fixed "commandInstaller.detectEditors is not a function" error
   - **Root Cause**: v0.5.0 refactored `command-installer.js` to Claude-only architecture but didn't update calling code
   - **Files Modified**: `core/commands.js` (lines 2227-2374)
@@ -173,9 +177,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Simplified `setup()` function with installation status checking
     - Added `--force` flag support for reinstallation
   - **Result**: Both `prjct start` and `prjct setup` now work correctly
-  - **Commands Installed**: Successfully installs all 21 /p:* commands to `~/.claude/commands/p/`
+  - **Commands Installed**: Successfully installs all 21 /p:\* commands to `~/.claude/commands/p/`
 
 ### Fixed
+
 - **Corrected Claude Subscription Messaging** - Clarified honest pricing throughout
   - Updated `website/src/pages/Changelog.tsx`:
     - Changed "Claude Code is 100% free" → "Works with whatever Claude subscription you have (free tier or Pro)"
@@ -204,6 +209,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Website now compiles without TypeScript errors
 
 ### Changed
+
 - **Website Alignment with p. Trigger** - ALL website components now show p. trigger correctly
   - Updated `website/src/components/Features.tsx`:
     - Changed "p. Trigger" description to show multiple examples
@@ -238,6 +244,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Real-world examples for creators
 
 ### Added
+
 - **p. Trigger System** - Zero memorization interface for prjct context
   - Simple prefix `p.` signals prjct context (e.g., "p. analiza esto")
   - Works in any language: English, Spanish, German, etc.
@@ -254,6 +261,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Works natively in Claude Code and Claude Desktop
 
 ### Changed
+
 - **Natural Language System** - Enhanced with p. trigger and context validation
   - Updated `CLAUDE.md` with complete p. trigger detection logic
   - Added context validation examples and patterns
@@ -271,7 +279,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Website Alignment** - Updated all components to show p. trigger as primary interface
   - `website/src/components/Hero.tsx`:
     - Updated p. Trigger feature description
-    - Changed badge to "Built for Claude Code - Claude Desktop"
+    - Changed badge to "Built for Claude Code"
     - Restored Windsurf Extension CTA with scroll-to-section functionality
     - Added Sparkles and ArrowRight animated icons
   - `website/src/components/Features.tsx`:
@@ -303,6 +311,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Maintains page flow and user journey
 
 ### Fixed
+
 - **🐛 Natural Language Context Bug** - Fixed error messages when context is missing
   - Before: "⏺ No hay tarea activa en este momento..." (technical error)
   - After: "✨ You're not working on anything right now! Want to start something?" (conversational)
@@ -310,6 +319,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Claude automatically validates and provides friendly guidance
 
 ### Technical Implementation
+
 - **Zero External Dependencies** - All functionality via CLAUDE.md
   - No SDK required (initially considered but removed)
   - Uses Claude Code's native session (zero API keys)
@@ -318,6 +328,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - No additional costs for users
 
 ### Coming Soon
+
 - **Windows Compatibility** - Native Windows support
   - PowerShell and CMD command execution
   - Windows path handling (`%USERPROFILE%\.prjct-cli\`)
@@ -357,6 +368,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **prjct-cli is now a developer momentum tool, NOT a project management tool.**
 
 **The Philosophy:**
+
 - Ship fast, stay focused, no BS
 - For indie hackers and small teams (2-5 devs)
 - No Jira, no ceremonies, no bureaucracy
@@ -394,6 +406,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
    - Honest compatibility (only claim what works)
 
 **Migration Path:**
+
 - **Using Claude?** → `npm update -g prjct-cli` (you're all set!)
 - **Using Cursor/Windsurf/Codex?** → Switch to Claude Code (free) or stay on v0.4.10
 - **See [MIGRATION.md](MIGRATION.md) for complete upgrade guide**
@@ -401,6 +414,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **This isn't a limitation - it's a strategic decision that makes prjct-cli better for developers who ship fast.**
 
 ### Added
+
 - **Dynamic AI Agent System** - Automatic generation of specialized AI agents based on project stack
   - **GitIntegration Module** (`core/git-integration.js`)
     - Repository validation and state tracking
@@ -462,6 +476,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Comprehensive sync reporting and logging
 
 ### Changed
+
 - **Agent Architecture** - 100% Claude-focused (Claude Code + Claude Desktop)
   - Agents stored in `~/.claude/agents/` directory
   - Markdown format with YAML frontmatter (Claude native)
@@ -470,6 +485,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Limited expertise per agent (focused specialization)
 
 ### Technical Details
+
 - **10 Agent Templates** in `templates/agents/`
   - 6 base templates (always generated)
   - 4 conditional templates (stack-dependent)
@@ -487,6 +503,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.4.10] - 2025-10-02
 
 ### Changed
+
 - **Agent Workflow Initialization** - `prjct init` now properly initializes AI agent workflows
   - When existing codebase detected, prompts user to run `/p:analyze`
   - Enables AI agents to follow complete analysis workflow
@@ -494,6 +511,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Replaced silent programmatic analysis with workflow-driven approach
 
 ### Fixed
+
 - **Analysis Workflow** - AI agents now receive proper instructions during project initialization
   - Removed silent `analyze()` call that bypassed agent workflows
   - Agent workflows now activate when user runs `/p:analyze` command
@@ -502,6 +520,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.4.9] - 2025-10-02
 
 ### Added
+
 - **Editor Uninstallation** - `prjct start` now allows removing editors
   - Interactive checkbox selection shows currently installed editors
   - Uncheck an editor to remove all prjct commands from it
@@ -509,12 +528,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - User has full control over which editors have prjct commands
 
 ### Changed
+
 - **`prjct start` Never Blocks** - Removed "already set up" error
   - Can run `prjct start` anytime to reconfigure editors
   - Shows beautiful ASCII art every time
   - User decides which editors to keep/remove
 
 ### Fixed
+
 - **Interactive Prompts** - Better UX for editor selection
   - Pre-selects currently installed editors
   - Clear message: "Select AI editors (uncheck to remove)"
@@ -523,6 +544,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.4.8] - 2025-10-02
 
 ### Added
+
 - **Intelligent Project Initialization** - `prjct init` now works seamlessly in all scenarios
   - Preserves existing project IDs when re-initializing
   - Automatically merges local data with global structure
@@ -532,6 +554,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Multiple developers can initialize the same project without conflicts
 
 ### Fixed
+
 - **Auto-Migration Removed** - Disabled intrusive automatic migration
   - Migration no longer runs automatically during `prjct init` or any command
   - Users can run `prjct migrate-all` manually if needed
@@ -539,6 +562,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Cleaner, non-intrusive installation and update experience
 
 ### Changed
+
 - **`prjct init` Never Blocks** - Removed "already initialized" error
   - Always allows re-initialization with intelligent data fusion
   - Global architecture enables multi-developer workflows
@@ -546,8 +570,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.4.7] - 2025-10-02
 
 ### Fixed
+
 - **`prjct start` ASCII Art** - Restored beautiful Catppuccin-inspired colors
-  - Original design from install.sh with (ﾉ◕ヮ◕)ﾉ*:･ﾟ✧
+  - Original design from install.sh with (ﾉ◕ヮ◕)ﾉ\*:･ﾟ✧
   - Vibrant magenta, cyan, and blue gradient for logo
   - Clean, professional look with value propositions
   - Better visual hierarchy and branding
@@ -558,6 +583,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.4.6] - 2025-10-02
 
 ### Added
+
 - **`prjct start` Command** - First-time setup with interactive editor selection
   - Beautiful ASCII art welcome message
   - Auto-detects installed AI editors (Claude Code, Cursor, Windsurf)
@@ -572,6 +598,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Seamless workflow: `cd project/ && prjct now "task"` just works
 
 ### Changed
+
 - **Simplified Installation Flow**
   - `npm install -g prjct-cli` → Shows welcome message, tells user to run `prjct start`
   - `prjct start` → Interactive setup (first-time only)
@@ -586,6 +613,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Cleaner, more predictable behavior
 
 ### Fixed
+
 - **Critical Bug Fixes** - All commands now enforce global architecture correctly
   - `/p:design` now creates designs in global `analysis/designs/` instead of local `.prjct/designs/`
   - `/p:cleanup` now operates on global project data instead of local `.prjct/`
@@ -596,6 +624,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Added 'Apps' directory** to migration scanner for better project detection
 
 ### Technical Details
+
 - **New Commands**:
   - `start()` - First-time setup with ASCII art and interactive editor selection
   - `setup()` - Renamed from `install()` for clarity
@@ -611,6 +640,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.4.4] - 2025-10-02
 
 ### Added
+
 - **Automatic Editor Command Updates** - Commands auto-update when npm package is updated
   - New `core/editors-config.js` tracks which editors user has installed commands to
   - Stores editor selections in `~/.prjct-cli/config/installed-editors.json`
@@ -639,12 +669,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Uses existing battle-tested `core/migrator.js` system
 
 ### Changed
+
 - **Improved Command Tracking** - Always track editor installations for better update management
   - Modified `installToSelected()` to always save editor config (removed `!forceUpdate` restriction)
   - Ensures tracking happens even during force updates
   - Enables reliable auto-updates across all configured editors
 
 ### Fixed
+
 - **Global Architecture Enforcement** - All commands now enforce global architecture correctly
   - `/p:design` now creates designs in global `analysis/designs/` instead of local `.prjct/designs/`
   - `/p:cleanup` now operates on global project data instead of local `.prjct/`
@@ -655,6 +687,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Added 'Apps' directory** to migration scanner for better project detection
 
 ### Technical Details
+
 - **Post-Install Hook**: Runs after `npm install -g prjct-cli` or `npm update -g prjct-cli`
   - First install: Auto-detects editors and installs commands
   - Updates: Checks version change and auto-updates commands in tracked editors
@@ -681,6 +714,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.4.3] - 2025-10-02
 
 ### Added
+
 - **Automatic Editor Command Updates** - Commands auto-update when npm package is updated
   - New `core/editors-config.js` tracks which editors user has installed commands to
   - Stores editor selections in `~/.prjct-cli/config/installed-editors.json`
@@ -708,6 +742,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Free hosting for public repositories with automatic authentication
 
 ### Changed
+
 - **Installation Documentation** - Updated README with dual installation options
   - Primary: npm registry (recommended for most users)
   - Alternative: GitHub Packages (for advanced users or npm fallback)
@@ -719,6 +754,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Improved error handling and reporting
 
 ### Technical Details
+
 - **Editor Tracking**: Configuration saved after all successful command installations
 - **Post-Install Hook**:
   - Runs only for global installations, skips for local/dev installs
@@ -736,6 +772,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.4.2] - 2025-10-02
 
 ### Fixed
+
 - **Analyzer Compatibility** - Fixed ENOENT error when running `/p:init` in non-prjct projects
   - Added validation to check if `bin/prjct` exists before reading
   - Analyzer now works correctly in any project type (React, Vue, etc.)
@@ -750,6 +787,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.4.1] - 2025-10-01
 
 ### Added
+
 - **Automatic Update Detection** - Built-in update checker that notifies users of new versions
   - Checks npm registry every 24 hours for new versions
   - Non-blocking background check during command execution
@@ -758,13 +796,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Respects 24-hour cache to minimize npm registry requests
 
 - **Automated npm Publication** - GitHub Actions workflow for automatic npm publishing
-  - Triggered on version tags (v*)
+  - Triggered on version tags (v\*)
   - Automatic version verification against package.json
   - Provenance publishing with npm attestation
   - Post-publication verification
   - Publication summary in GitHub Actions
 
 ### Changed
+
 - **Installation Method** - npm is now the primary and recommended installation method
   - Simplified to single installation method: `npm install -g prjct-cli`
   - Removed Homebrew and Bun installation scripts
@@ -772,6 +811,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Reduced package size: 104.6 KB (71 files)
 
 ### Fixed
+
 - **Package Structure** - Improved npm package configuration
   - Added `files` field to control package contents
   - Created `.npmignore` for development file exclusion
@@ -779,6 +819,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Fixed CI/CD tests to verify CLI functionality instead of individual modules
 
 ### Technical Details
+
 - **Update Checker**: `core/update-checker.js` with semantic version comparison
 - **Cache Management**: Update checks cached for 24 hours in `~/.prjct-cli/config/update-cache.json`
 - **Architecture**: Clean separation between npm installation (`/opt/homebrew/lib/node_modules/prjct-cli/`) and user data (`~/.prjct-cli/`)
@@ -787,6 +828,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.4.0] - 2025-10-01
 
 ### Added
+
 - **Interactive Workflow System** - Intelligent agent workflows with user-guided capability installation
   - **Adaptive Workflows**: Workflows detect missing capabilities and prompt user for decisions
   - **Smart Recommendations**: Stack-aware tool suggestions (React → Vitest, Vue → Vitest, Angular → Jest)
@@ -809,6 +851,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Enhanced `idea()`: Auto-initializes workflows for actionable tasks
 
 ### Changed
+
 - **Workflow Behavior**: Transformed from auto-skip to interactive prompting
   - Before: Missing capability → auto-skip step
   - After: Missing capability → prompt user → track installation → continue
@@ -816,6 +859,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Installation Visibility**: Tool installations appear as first-class workflow tasks
 
 ### Technical Details
+
 - **Stack Detection**: Identifies React/Vue/Angular, TypeScript, bundler (Vite/Webpack/esbuild)
 - **Tool Recommendations**:
   - React + TS → Vitest + Testing Library
@@ -830,6 +874,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.3.2] - 2025-10-01
 
 ### Fixed
+
 - **Interactive Installation Compatibility** - Fixed interactive editor selection failing due to inquirer ESM compatibility issues
   - Replaced inquirer v12 with prompts v2.4.2 for better CommonJS compatibility
   - inquirer v12 required complex ESM dynamic imports causing "prompt is not a function" errors
@@ -842,6 +887,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.3.1] - 2025-10-01
 
 ### Fixed
+
 - **Installation Path Resolution Error** - Fixed "setup.sh: No such file or directory" error during installation (#11)
   - Corrected path resolution in installation scripts (docs/install.sh, scripts/install.sh, scripts/setup.sh)
   - Added verification tests in `tests/verify-install-paths.sh`
@@ -851,6 +897,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.3.0] - 2025-09-30
 
 ### Added
+
 - **Intelligent Codebase Analysis & Sync** - Auto-detect implemented features and sync project state
   - `/p:analyze` command to analyze codebase and detect implemented commands/features
   - `/p:analyze --sync` to automatically update `.prjct/` files with real implementation state
@@ -876,7 +923,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Optimizes installation by avoiding unnecessary editor installations
 
 ### Changed
-- **Updated branding** - New header design with kaomoji (ﾉ◕ヮ◕)ﾉ*:･ﾟ✧
+
+- **Updated branding** - New header design with kaomoji (ﾉ◕ヮ◕)ﾉ\*:･ﾟ✧
   - Refreshed README.md header with fun, friendly design
   - Updated installer (scripts/install.sh) to match new branding
   - Consistent visual identity across documentation and installation experience
@@ -884,6 +932,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.1] - 2025-09-30
 
 ### Added
+
 - **Multi-Editor Command Installation** - Automatic slash command deployment across AI editors
   - `prjct install` command to install/update commands in all detected editors
   - Automatic detection of Claude Code, Cursor AI, and Codeium installations
@@ -916,6 +965,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Preserves 100% of data during migration (files and directories)
 
 ### Changed
+
 - **Multi-Editor Support**
   - Updated command templates to use global architecture paths
   - Modified `prjct init` to automatically detect and install commands
@@ -948,6 +998,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Enhanced init command with automatic editor installation
 
 ### Fixed
+
 - Added missing `getGlobalBasePath()` method to path-manager.js
 - Improved error handling in migration system
 - Fixed paths in GitHub Actions workflow after reorganization
@@ -981,6 +1032,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Automatic detection via GitHub CLI or git config
 
 ### Added
+
 - **Global Data Storage System**
   - Project data stored in `~/.prjct-cli/projects/[hash-id]/`
   - Prevents bundle size inflation and accidental commits to git
@@ -1029,6 +1081,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Auto-accept mode when running through pipe (curl)
 
 ### Changed
+
 - **Data Location**: Moved from `.prjct/` to `~/.prjct-cli/projects/[id]/`
 - **Memory Logs**: Now include `author` field in all entries
 - **File Structure**: Organized into layers (core, progress, planning, analysis, memory)
@@ -1036,13 +1089,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **All Commands**: Updated to use global paths and track authorship
 
 ### Removed
+
 - Local `.prjct/` directory usage (replaced with global storage)
 - Legacy flat file structure (replaced with layered architecture)
 
 ### Migration Guide
+
 See [MIGRATION.md](MIGRATION.md) for detailed migration instructions.
 
 **Quick Migration**:
+
 ```bash
 # Projects will auto-detect migration need
 # Run init to trigger migration
@@ -1055,12 +1111,14 @@ See [MIGRATION.md](MIGRATION.md) for detailed migration instructions.
 ### Breaking Change Impact
 
 **For Individuals**:
+
 - ✅ One-time migration required (automatic, zero data loss)
 - ✅ Cleaner repositories (no `.prjct/` bloat)
 - ✅ No accidental commits of personal work logs
 - ✅ Better privacy for your productivity tracking
 
 **For Teams**:
+
 - ✅ Share `.prjct/prjct.config.json` for coordination
 - ✅ Each member tracks privately with author info
 - ✅ No exposure of individual work patterns
@@ -1068,18 +1126,21 @@ See [MIGRATION.md](MIGRATION.md) for detailed migration instructions.
 - ✅ Perfect for open source, remote teams, consulting
 
 **For Projects**:
+
 - ✅ Git Repositories: `.prjct/` safely removed after migration
 - ✅ CI/CD Pipelines: No changes needed - data fully external
 - ✅ Bundle Size: Zero impact from prjct tracking
 - ✅ Collaboration: Non-intrusive team workflow ready
 
 ### Fixed
+
 - Arithmetic operation syntax error in command counting (from previous unreleased)
 - Version detection for existing installations (from previous unreleased)
 
 ## [0.1.0] - 2024-01-XX
 
 ### Added
+
 - Initial release of prjct-cli
 - AI-integrated developer momentum tool
 - Support for Claude Code, OpenAI Codex, and Terminal

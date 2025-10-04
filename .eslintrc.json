@@ -1,12 +1,10 @@
 {
-  "extends": "standard",
+  "extends": ["standard", "prettier"],
   "env": {
     "node": true,
     "es2021": true
   },
   "rules": {
-    "no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
-    "space-before-function-paren": ["error", "never"],
-    "comma-dangle": ["error", "always-multiline"]
+    "no-unused-vars": ["error", { "argsIgnorePattern": "^_" }]
   }
 }

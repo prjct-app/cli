@@ -1,4 +1,4 @@
-import { Badge } from "@/components/ui/Badge"
+import { Badge } from '@/components/ui/Badge'
 
 interface VersionHeaderProps {
   version: string
@@ -7,11 +7,9 @@ interface VersionHeaderProps {
 
 export function VersionHeader({ version, isLatest = false }: VersionHeaderProps) {
   return (
-    <div className="flex items-center gap-3 mb-6">
+    <div className="mb-6 flex items-center gap-3">
       <h2 className="text-3xl font-bold">{version}</h2>
-      {isLatest && (
-        <Badge className="bg-cat-green text-cat-base">Latest</Badge>
-      )}
+      {isLatest && <Badge className="bg-cat-green text-cat-base">Latest</Badge>}
     </div>
   )
 }

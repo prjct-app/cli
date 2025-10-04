@@ -54,7 +54,7 @@ async function validateTemplates() {
   allCommands.forEach((cmd) => {
     if (cmd.hasTemplate && !templateFiles.includes(cmd.name)) {
       errors.push(
-        `Command '${cmd.name}' has hasTemplate=true but no template file exists at templates/commands/${cmd.name}.md`,
+        `Command '${cmd.name}' has hasTemplate=true but no template file exists at templates/commands/${cmd.name}.md`
       )
     }
   })
@@ -63,12 +63,10 @@ async function validateTemplates() {
   templateFiles.forEach((filename) => {
     const cmd = registry.getByName(filename)
     if (!cmd) {
-      errors.push(
-        `Template file '${filename}.md' exists but has no entry in command registry`,
-      )
+      errors.push(`Template file '${filename}.md' exists but has no entry in command registry`)
     } else if (!cmd.hasTemplate) {
       errors.push(
-        `Template file '${filename}.md' exists but command has hasTemplate=false in registry`,
+        `Template file '${filename}.md' exists but command has hasTemplate=false in registry`
       )
     }
   })
@@ -113,7 +111,7 @@ async function validateImplementation() {
       const methodPattern = new RegExp(`async\\s+${methodName}\\s*\\(`, 'i')
       if (!commandsContent.match(methodPattern)) {
         errors.push(
-          `Command '${cmd.name}' has implemented=true but no method found in core/commands.js (expected: ${methodName})`,
+          `Command '${cmd.name}' has implemented=true but no method found in core/commands.js (expected: ${methodName})`
         )
       }
     }
@@ -124,9 +122,7 @@ async function validateImplementation() {
     if (cmd.usage.terminal && cmd.implemented) {
       const switchPattern = new RegExp(`case\\s+['"\`]${cmd.name}['"\`]:`, 'i')
       if (!binContent.match(switchPattern)) {
-        errors.push(
-          `Command '${cmd.name}' is implemented but missing switch case in bin/prjct`,
-        )
+        errors.push(`Command '${cmd.name}' is implemented but missing switch case in bin/prjct`)
       }
     }
   })
@@ -135,7 +131,7 @@ async function validateImplementation() {
   allCommands.forEach((cmd) => {
     if (!cmd.implemented && cmd.hasTemplate) {
       warnings.push(
-        `Command '${cmd.name}' has template but is not yet implemented (this is OK for future features)`,
+        `Command '${cmd.name}' has template but is not yet implemented (this is OK for future features)`
       )
     }
   })
@@ -164,10 +160,10 @@ async function validateRegistry() {
 
   // Separate warnings from errors
   const errors = validation.issues.filter(
-    (issue) => !issue.includes('Commands with templates but not implemented'),
+    (issue) => !issue.includes('Commands with templates but not implemented')
   )
   const warnings = validation.issues.filter((issue) =>
-    issue.includes('Commands with templates but not implemented'),
+    issue.includes('Commands with templates but not implemented')
   )
 
   if (errors.length === 0) {

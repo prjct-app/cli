@@ -15,6 +15,7 @@ import { Migration } from './pages/docs/Migration'
 import { Terms } from './pages/Terms'
 import { Privacy } from './pages/Privacy'
 import { Changelog } from './pages/Changelog'
+import { WindsurfExtensionPage } from './pages/WindsurfExtensionPage'
 
 function App() {
   return (
@@ -36,6 +37,7 @@ function App() {
             <Route path="/workflows" element={<WorkflowsGuide />} />
             <Route path="/faq" element={<FAQPage />} />
             <Route path="/changelog" element={<Changelog />} />
+            <Route path="/windsurf-extension" element={<WindsurfExtensionPage />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/privacy" element={<Privacy />} />
           </Routes>

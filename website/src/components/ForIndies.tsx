@@ -16,7 +16,8 @@ const audiences = [
   {
     icon: Briefcase,
     title: 'Small Teams',
-    description: 'Share global context across 2-5 developers. Everyone sees progress, each uses their preferred editor.',
+    description:
+      'Share global context across 2-5 developers. Everyone sees progress, each uses their preferred editor.',
   },
   {
     icon: Cpu,

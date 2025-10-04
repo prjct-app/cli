@@ -1,5 +1,8 @@
 import { motion } from 'framer-motion'
 import { Check, Bot, Zap, GitBranch, MessageSquare, Sparkles, Shield, Rocket } from 'lucide-react'
+import { typography, spacing, borders } from '../lib/typography-system'
+import { animationPresets } from '../lib/animation-variants'
+import { cn } from '../lib/utils'
 
 const superpowers = [
   {
@@ -17,7 +20,8 @@ const superpowers = [
       'Scribe Agent - Documentation',
       'Security, DevOps, Mobile, Data specialists',
     ],
-    impossible: 'Requires Claude\'s agent system - impossible to replicate with multi-platform support',
+    impossible:
+      "Requires Claude's agent system - impossible to replicate with multi-platform support",
   },
   {
     name: 'Native MCP Integration',
@@ -34,7 +38,7 @@ const superpowers = [
       'Real-time context sharing',
       'Zero-config activation',
     ],
-    impossible: 'MCP is Claude-native - can\'t replicate with other platforms',
+    impossible: "MCP is Claude-native - can't replicate with other platforms",
   },
   {
     name: 'Git Validation',
@@ -62,13 +66,13 @@ const superpowers = [
     description: 'Talk naturally with p. prefix',
     features: [
       '"p. I\'m done" → /p:done',
-      '"p. start building auth" → /p:now',
-      '"p. ship this feature" → /p:ship',
+      '"p. add auth feature" → /p:feature',
+      '"p. ship this" → /p:ship',
       'Works in English, Spanish, any language',
       'Intent detection, not pattern matching',
       'No commands to memorize',
     ],
-    impossible: 'Leverages Claude\'s language understanding - not possible elsewhere',
+    impossible: "Leverages Claude's language understanding - not possible elsewhere",
   },
 ]
 
@@ -101,22 +105,19 @@ const technicalBenefits = [
 
 export const ClaudeSuperpowers = () => {
   return (
-    <section id="superpowers" className="px-4 py-20 bg-surface">
+    <section id="superpowers" className="bg-surface px-4 py-20">
       <div className="mx-auto max-w-7xl">
         {/* Header */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          viewport={{ once: true }}
-          className="mb-16 text-center"
+          {...animationPresets.standard}
+          className={cn('text-center', spacing.headerMarginLarge)}
         >
-          <h2 className="mb-4 text-4xl font-bold md:text-5xl">
+          <h2 className={cn(typography.sectionTitle, spacing.elementMargin)}>
             <span className="hunt-glow">Superpowers</span> Unlocked by Claude
           </h2>
-          <p className="mx-auto max-w-3xl text-xl text-muted-foreground">
+          <p className={cn(typography.sectionSubtitle, 'mx-auto max-w-3xl')}>
             By focusing 100% on Claude, we deliver features that would be{' '}
-            <span className="text-primary font-semibold">impossible</span> with multi-platform
+            <span className="font-semibold text-primary">impossible</span> with multi-platform
             support.
           </p>
         </motion.div>
@@ -124,15 +125,9 @@ export const ClaudeSuperpowers = () => {
         {/* Main Superpowers Grid */}
         <div className="mb-16 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-2">
           {superpowers.map((superpower, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-              viewport={{ once: true }}
-            >
+            <motion.div key={index} {...animationPresets.stagger(index)}>
               <div
-                className={`h-full border bg-card p-8 ${superpower.borderColor} rounded-2xl hover:shadow-lg transition-shadow`}
+                className={`h-full border bg-card p-8 ${superpower.borderColor} rounded-2xl transition-shadow hover:shadow-lg`}
               >
                 {/* Header */}
                 <div className="mb-6 flex items-start gap-4">
@@ -140,16 +135,18 @@ export const ClaudeSuperpowers = () => {
                     <superpower.icon className={`h-8 w-8 ${superpower.color}`} />
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-2xl font-bold mb-2">{superpower.name}</h3>
-                    <p className="text-sm text-muted-foreground">{superpower.description}</p>
+                    <h3 className={cn(typography.cardTitleLarge, spacing.elementMarginSmall)}>
+                      {superpower.name}
+                    </h3>
+                    <p className={typography.muted}>{superpower.description}</p>
                   </div>
                 </div>
 
                 {/* Features */}
-                <div className="mb-6">
-                  <ul className="space-y-2">
+                <div className={spacing.elementMarginLarge}>
+                  <ul className={spacing.stackTight}>
                     {superpower.features.map((feature, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm">
+                      <li key={i} className={cn('flex items-start gap-2', typography.bodySmall)}>
                         <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-cat-green" />
                         <span>{feature}</span>
                       </li>
@@ -158,8 +155,8 @@ export const ClaudeSuperpowers = () => {
                 </div>
 
                 {/* Why Impossible Without Claude */}
-                <div className="border-t border-border pt-4">
-                  <p className="text-xs text-muted-foreground italic">
+                <div className={cn(borders.default, 'border-t pt-4')}>
+                  <p className={cn(typography.mutedSmall, 'italic')}>
                     💡 <span className="font-medium">Why Claude-only:</span> {superpower.impossible}
                   </p>
                 </div>
@@ -170,13 +167,17 @@ export const ClaudeSuperpowers = () => {
 
         {/* Technical Benefits */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-          viewport={{ once: true }}
-          className="rounded-2xl border border-border bg-card p-8 mb-16"
+          {...animationPresets.standardWithDelay(0.3)}
+          className={cn(
+            borders.rounded,
+            borders.default,
+            'mb-16 bg-card',
+            spacing.cardPaddingLarge
+          )}
         >
-          <h3 className="mb-8 text-center text-2xl font-bold">Technical Benefits</h3>
+          <h3 className={cn(typography.subsectionTitle, 'text-center', spacing.elementMarginLarge)}>
+            Technical Benefits
+          </h3>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
             {technicalBenefits.map((benefit, index) => (
               <div key={index} className="text-center">
@@ -185,9 +186,13 @@ export const ClaudeSuperpowers = () => {
                     <benefit.icon className="h-6 w-6 text-primary" />
                   </div>
                 </div>
-                <h4 className="mb-2 font-semibold">{benefit.title}</h4>
-                <p className="mb-1 text-sm text-muted-foreground">{benefit.description}</p>
-                <p className="text-xs text-primary font-mono">{benefit.detail}</p>
+                <h4 className={cn(typography.cardTitleSmall, spacing.elementMarginSmall)}>
+                  {benefit.title}
+                </h4>
+                <p className={cn(typography.muted, spacing.elementMarginSmall)}>
+                  {benefit.description}
+                </p>
+                <p className={cn(typography.codeSmall, 'text-primary')}>{benefit.detail}</p>
               </div>
             ))}
           </div>
@@ -195,36 +200,33 @@ export const ClaudeSuperpowers = () => {
 
         {/* Philosophy Statement */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.4 }}
-          viewport={{ once: true }}
-          className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10 p-8 text-center"
+          {...animationPresets.standardWithDelay(0.4)}
+          className={cn(
+            borders.rounded,
+            borders.primary,
+            'bg-gradient-to-br from-primary/5 to-primary/10 text-center',
+            spacing.cardPaddingLarge
+          )}
         >
-          <h3 className="mb-4 text-2xl font-bold">
+          <h3 className={cn(typography.subsectionTitle, spacing.elementMargin)}>
             This Isn't a Limitation — It's a <span className="hunt-glow">Strategic Decision</span>
           </h3>
-          <p className="mx-auto max-w-3xl text-lg text-muted-foreground mb-6">
+          <p
+            className={cn(
+              typography.sectionSubtitleSmall,
+              'mx-auto max-w-3xl',
+              spacing.elementMarginLarge
+            )}
+          >
             By specializing in Claude, we can build features that would be impossible with
             multi-platform support. Every line of code is optimized for one thing:{' '}
-            <span className="text-primary font-semibold">
-              helping you ship fast with Claude
-            </span>
-            .
+            <span className="font-semibold text-primary">helping you ship fast with Claude</span>.
           </p>
-          <div className="flex flex-wrap justify-center gap-4 text-sm">
-            <div className="rounded-full bg-background px-4 py-2">
-              🚀 Ship faster
-            </div>
-            <div className="rounded-full bg-background px-4 py-2">
-              🎯 Deeper integrations
-            </div>
-            <div className="rounded-full bg-background px-4 py-2">
-              💯 Better quality
-            </div>
-            <div className="rounded-full bg-background px-4 py-2">
-              🤝 Honest compatibility
-            </div>
+          <div className={cn('flex flex-wrap justify-center gap-4', typography.bodySmall)}>
+            <div className="rounded-full bg-background px-4 py-2">🚀 Ship faster</div>
+            <div className="rounded-full bg-background px-4 py-2">🎯 Deeper integrations</div>
+            <div className="rounded-full bg-background px-4 py-2">💯 Better quality</div>
+            <div className="rounded-full bg-background px-4 py-2">🤝 Honest compatibility</div>
           </div>
         </motion.div>
       </div>

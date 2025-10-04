@@ -2,7 +2,6 @@ import { Link } from 'react-router-dom'
 import { Hero } from '../components/Hero'
 import { Terminal } from '../components/Terminal'
 import { Features } from '../components/Features'
-import WindsurfExtension from '../components/WindsurfExtension'
 import { ClaudeSuperpowers } from '../components/ClaudeSuperpowers'
 import { ForIndies } from '../components/ForIndies'
 import { motion } from 'framer-motion'
@@ -13,7 +12,6 @@ export const Home = () => {
       <Hero />
       <Terminal />
       <Features />
-      <WindsurfExtension />
       <ClaudeSuperpowers />
       <ForIndies />
 

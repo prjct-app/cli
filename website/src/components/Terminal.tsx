@@ -8,26 +8,25 @@ const terminalConfigs = [
     commands: [
       { cmd: '/p:init', output: '✅ Project initialized in .prjct/', delay: 500 },
       {
-        cmd: '/p:idea "AI-powered code review tool"',
-        output: '💡 Idea captured: AI code review platform',
+        cmd: '/p:feature "AI-powered code review tool"',
+        output:
+          '✨ Value Analysis:\n• Impact: HIGH\n• Effort: 12h\n• Tasks: 5\n• Timing: Start now',
+        delay: 900,
+      },
+      {
+        cmd: '/p:done',
+        output: '✅ Task complete: Setup Next.js + TypeScript\n💡 Next: GitHub OAuth integration',
+        delay: 800,
+      },
+      {
+        cmd: '/p:done',
+        output: '✅ Task complete: GitHub OAuth\n💡 Next: AI review engine',
         delay: 700,
       },
       {
-        cmd: '/p:roadmap',
-        output:
-          '📋 Generated roadmap:\n  1. Setup Next.js + TypeScript + Tailwind\n  2. GitHub OAuth integration\n  3. AI review engine with GPT-4\n  4. PR webhook processing\n  5. Dashboard & analytics\n  6. Deploy to Vercel',
-        delay: 1200,
-      },
-      {
-        cmd: '/p:task "implement GitHub OAuth"',
-        output:
-          '📋 Breaking down task:\n  [1/4] Create OAuth app settings\n  [2/4] Setup NextAuth.js\n  [3/4] Add callback handlers\n  [4/4] Test auth flow\n🚀 Executing...',
-        delay: 1000,
-      },
-      {
-        cmd: '/p:done && /p:ship "GitHub authentication"',
-        output: '✅ Task complete!\n🚀 SHIPPED: GitHub OAuth integration!',
-        delay: 800,
+        cmd: '/p:ship "AI code review platform"',
+        output: '🚀 SHIPPED: AI Code Review Platform!\n🎉 Feature complete with 5 tasks',
+        delay: 900,
       },
       {
         cmd: '/p:progress week',
@@ -38,35 +37,29 @@ const terminalConfigs = [
     ],
   },
   {
-    name: 'Cursor - Mobile App',
+    name: 'Claude Code - Mobile App',
     commands: [
       {
-        cmd: '/p:now "setup React Native"',
-        output: '🎯 Current task: setup React Native with Expo',
-        delay: 600,
-      },
-      {
-        cmd: '/p:analyze',
+        cmd: '/p:init',
         output:
-          '🔍 Codebase Analysis:\n• Components: 12 created\n• Coverage: 78%\n• Tech debt: Low\n• Next priority: Navigation',
+          '✅ Project initialized in .prjct/\n🔍 Analyzing...\n• Stack: React Native + Expo\n• Components: 12 created',
         delay: 900,
       },
       {
-        cmd: '/p:task "implement navigation"',
+        cmd: '/p:feature "implement navigation system"',
         output:
-          '📋 Task breakdown:\n  [1/3] Install React Navigation\n  [2/3] Create tab navigator\n  [3/3] Setup deep linking\n🚀 Starting execution...',
+          '✨ Value Analysis:\n• Impact: HIGH\n• Effort: 4h\n• Tasks: 3\n  1. Install React Navigation\n  2. Create tab navigator\n  3. Setup deep linking',
         delay: 1000,
       },
       {
-        cmd: '/p:test',
-        output:
-          '🧪 Running tests:\n  ✅ Unit tests: 42 passing\n  ✅ Integration: 8 passing\n  ✅ E2E: 3 passing\nAll tests passed!',
-        delay: 800,
+        cmd: '/p:done',
+        output: '✅ Task complete: React Navigation installed\n💡 Next: Create tab navigator',
+        delay: 700,
       },
       {
         cmd: '/p:ship "navigation system"',
-        output: '🚀 SHIPPED: Complete navigation with deep linking!',
-        delay: 700,
+        output: '🚀 SHIPPED: Complete navigation with deep linking!\n🎉 All 3 tasks complete',
+        delay: 800,
       },
       {
         cmd: '/p:next',
@@ -76,21 +69,16 @@ const terminalConfigs = [
     ],
   },
   {
-    name: 'Warp - API Service',
+    name: 'Claude Code - API Service',
     commands: [
       {
-        cmd: '/p:idea "serverless API with rate limiting"',
-        output: '💡 Captured: Scalable API service idea',
-        delay: 600,
-      },
-      {
-        cmd: '/p:roadmap',
-        output: '🚀 Current Sprint (45% done):\n  ✅ Core API\n  🔄 Rate limiting\n  ⏳ Monitoring dashboard',
+        cmd: '/p:feature "serverless API with rate limiting"',
+        output: '✨ Value Analysis:\n• Impact: HIGH\n• Effort: 8h\n• Tasks: 4\n• Timing: Start now',
         delay: 700,
       },
       {
-        cmd: '/p:now "implement rate limiting"',
-        output: '🎯 Current: Redis-based rate limiting',
+        cmd: '/p:done',
+        output: '✅ Task complete: Core API structure\n💡 Next: Implement rate limiting',
         delay: 600,
       },
       {
@@ -100,49 +88,43 @@ const terminalConfigs = [
         delay: 900,
       },
       {
-        cmd: '/p:fix',
-        output: '🔧 Fixed: Added connection pool with retry\n✅ Redis connected successfully',
+        cmd: '/p:done',
+        output: '🔧 Fixed: Added connection pool with retry\n✅ Redis rate limiting working',
         delay: 700,
       },
       {
-        cmd: '/p:git',
+        cmd: '/p:ship "rate limiting system"',
         output:
-          '📝 Commit: feat: add Redis rate limiting\n🌿 Branch: feature/rate-limit\n✅ 5 files changed',
-        delay: 800,
+          '🚀 SHIPPED: Serverless API with Rate Limiting!\n🎉 4 tasks complete\n📊 Ready for production',
+        delay: 900,
       },
       {
         cmd: '/p:recap',
         output:
-          '📊 Project Overview:\n🚀 Shipped: 8 features\n🎯 Current: Monitoring setup\n📈 Velocity: 2.1 features/week\n✨ Momentum: High',
+          '📊 Project Overview:\n🚀 Shipped: 9 features\n🎯 Current: None (ready for next)\n📈 Velocity: 2.1 features/week\n✨ Momentum: High',
         delay: 1000,
       },
     ],
   },
   {
-    name: 'AI Assistant - CLI Tool',
+    name: 'Claude Code - CLI Tool',
     commands: [
       {
-        cmd: '/p:context',
+        cmd: '/p:recap',
         output:
-          '📚 Project: prjct-cli\n🛠 Stack: Node.js, TypeScript\n🎯 Phase: Beta testing\n👥 Users: 127 active',
+          '📊 PROJECT RECAP\n━━━━━━━━━━━━━\n🎯 Current: None (ready for next feature)\n📈 This week: 8 shipped\n🔥 Velocity: 1.6 features/day',
         delay: 700,
       },
       {
-        cmd: '/p:roadmap',
+        cmd: '/p:feature "comprehensive documentation"',
         output:
-          '🚀 Current Sprint (67% done):\n  ✅ Core commands\n  ✅ AI integrations\n  🔄 Documentation\n  ⏳ Package publishing',
-        delay: 900,
-      },
-      {
-        cmd: '/p:task "write comprehensive docs"',
-        output:
-          '📋 Documentation tasks:\n  [1/5] Command reference\n  [2/5] Installation guide\n  [3/5] API examples\n  [4/5] Video tutorials\n  [5/5] FAQ section\n🚀 Generating...',
+          '✨ Value Analysis:\n• Impact: HIGH (adoption)\n• Effort: 6h\n• Tasks: 5\n  1. Command reference\n  2. Installation guide\n  3. API examples\n  4. Video tutorials\n  5. FAQ section',
         delay: 1000,
       },
       {
         cmd: '/p:progress month',
         output:
-          '📊 Monthly Stats:\n• Features shipped: 23\n• Tasks completed: 87\n• Ideas captured: 42\n• Velocity trend: ↗️ +15%',
+          '📊 Monthly Stats:\n• Features shipped: 24\n• Tasks completed: 92\n• Features added: 18\n• Velocity trend: ↗️ +15%',
         delay: 800,
       },
       {

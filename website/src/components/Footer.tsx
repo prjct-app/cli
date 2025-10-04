@@ -1,13 +1,4 @@
-import {
-  Github,
-  Globe,
-  Twitter,
-  Shield,
-  Code2,
-  Heart,
-  ExternalLink,
-  BookOpen
-} from 'lucide-react'
+import { Github, Globe, Twitter, Shield, Code2, Heart, ExternalLink, BookOpen } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { PrjctLogo } from './Logo'
 
@@ -23,7 +14,8 @@ export const Footer = () => {
           <div className="lg:col-span-2">
             <PrjctLogo size="sm" />
             <p className="mt-4 max-w-xs text-sm text-muted-foreground">
-              Developer momentum tool for indie hackers and small teams. Ship fast, stay focused, no BS.
+              Developer momentum tool for indie hackers and small teams. Ship fast, stay focused, no
+              BS.
             </p>
             <div className="mt-6 flex items-center gap-1 text-xs text-muted-foreground">
               <Heart className="h-3 w-3 text-cat-red" />
@@ -195,9 +187,7 @@ export const Footer = () => {
 
             {/* Made by */}
             <p className="text-sm text-muted-foreground">
-              Made with{' '}
-              <span className="text-cat-red">♥</span>{' '}
-              by{' '}
+              Made with <span className="text-cat-red">♥</span> by{' '}
               <a
                 href="https://jlopezlira.dev"
                 target="_blank"
@@ -213,9 +203,9 @@ export const Footer = () => {
         {/* Disclaimer */}
         <div className="border-t border-border/30 py-6">
           <p className="text-center text-xs leading-relaxed text-muted-foreground/70">
-            <strong className="font-medium">DISCLAIMER:</strong> This software is provided "as is" without warranty of any kind.
-            We are not responsible for any damages or losses arising from the use of this software.
-            Use at your own risk. By using prjct, you agree to our{' '}
+            <strong className="font-medium">DISCLAIMER:</strong> This software is provided "as is"
+            without warranty of any kind. We are not responsible for any damages or losses arising
+            from the use of this software. Use at your own risk. By using prjct, you agree to our{' '}
             <Link to="/terms" className="underline underline-offset-2 hover:text-foreground/80">
               Terms of Use
             </Link>

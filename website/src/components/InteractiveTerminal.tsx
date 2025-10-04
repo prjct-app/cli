@@ -21,46 +21,41 @@ const workflows: Workflow[] = [
   {
     id: 'first-day',
     title: 'My First Day with prjct',
-    description: 'Initial setup and first task',
+    description: 'Initial setup and first feature',
     emoji: '🌟',
     steps: [
       {
         command: '/p:init',
-        description: 'Initialize project structure',
+        description: 'Initialize project structure (includes automatic analysis)',
         output:
-          '✅ Project initialized in .prjct/\n📁 Created: core, progress, planning, analysis, memory',
-        tip: 'You only need to do this ONCE per project',
+          '✅ Project initialized in .prjct/\n📁 Created: core, progress, planning, analysis, memory\n🔍 Analyzing repository...\n• Language: JavaScript/Node.js\n• Tech: React, Express, MongoDB',
+        tip: '/p:init automatically analyzes your project - no need to run /p:analyze separately',
       },
       {
-        command: '/p:analyze',
-        description: 'Automatically analyze the repository',
+        command: '/p:feature "setup development environment"',
+        description: 'Add your first feature with value analysis',
         output:
-          '🔍 Repository Analysis:\n• Language: JavaScript/Node.js\n• Files: 45 total\n• Tech: React, Express, MongoDB\n• Architecture: MVC pattern detected',
-        tip: 'Automatically detects your tech stack',
-      },
-      {
-        command: '/p:roadmap',
-        description: 'View the roadmap (empty at start)',
-        output: '📋 Roadmap empty\nEdit .prjct/planning/roadmap.md to add features',
-        tip: 'You can manually edit roadmap.md to add features',
-      },
-      {
-        command: '/p:now "setup development environment"',
-        description: 'Set your first task',
-        output:
-          '🎯 Current task set: setup development environment\n⏱️ Started: 2024-01-15 09:00 AM',
-        tip: 'You can only have ONE active task at a time',
+          '✨ Value Analysis:\n• Impact: HIGH (foundation)\n• Effort: 2h\n• Tasks: 3\n  1. Install dependencies\n  2. Configure environment\n  3. Test setup\n\n🚀 Auto-starting task 1...',
+        tip: 'Features automatically create and start tasks',
       },
       {
         command: '/p:done',
-        description: 'Complete the task',
-        output: "✅ Task completed in 45 minutes!\nGreat start! What's next?",
+        description: 'Complete first task',
+        output:
+          '✅ Task complete: Install dependencies\n💡 Auto-starting next: Configure environment',
+        tip: 'Tasks auto-progress to the next one',
       },
       {
-        command: '/p:ship "dev environment ready"',
-        description: 'Celebrate your first achievement',
-        output: '🚀 SHIPPED: dev environment ready!\n🎉 Your first WIN! Keep the momentum going!',
-        tip: 'Use /p:ship for important features',
+        command: '/p:done',
+        description: 'Complete remaining tasks',
+        output: '✅ All tasks complete!\n🎉 Feature ready to ship!',
+      },
+      {
+        command: '/p:ship "dev environment"',
+        description: 'Ship your first feature',
+        output:
+          '🚀 SHIPPED: Development Environment!\n🎉 Your first WIN! Keep the momentum going!\n\n💡 Tip: Use /p:feature for your next addition',
+        tip: 'Celebrate with /p:ship when a feature is complete',
       },
     ],
   },
@@ -74,89 +69,81 @@ const workflows: Workflow[] = [
         command: '/p:recap',
         description: 'Check overall status when starting',
         output:
-          '📊 PROJECT RECAP\n━━━━━━━━━━━━━\n🎯 Current: build login feature\n📈 This week: 5 shipped\n📋 Queue: 3 tasks\n🔥 Velocity: 1.2 features/day',
+          '📊 PROJECT RECAP\n━━━━━━━━━━━━━\n🎯 Current: authentication feature (task 2/4)\n📈 This week: 5 shipped\n📋 Next features: 2 in queue\n🔥 Velocity: 1.2 features/day',
         tip: 'Start each day with /p:recap',
       },
       {
-        command: '/p:now',
-        description: 'Confirm current task',
-        output: '🎯 Current task: build login feature\n⏱️ Active for: 2 hours 15 minutes',
+        command: '/p:done',
+        description: 'Complete current task and auto-progress',
+        output: '✅ Task complete: Build login UI\n💡 Auto-starting next: Add session management',
+        tip: 'Tasks auto-progress within a feature',
       },
       {
-        command: '/p:stuck "login not working"',
+        command: '/p:stuck "session not persisting"',
         description: 'Get help with a problem',
         output:
-          '💡 Solutions for login issues:\n1. Check if password is correct\n2. Make sure user exists in database\n3. Check if session is being saved\n4. Try: console.log(user) to debug',
-        tip: 'Describe your problem specifically',
-      },
-      {
-        command: '/p:idea "add OAuth providers"',
-        description: 'Capture idea without losing focus',
-        output: '💡 Idea captured: add OAuth providers\n📝 Saved to ideas.md for later review',
+          '💡 Solutions for session issues:\n1. Check cookie settings (httpOnly, secure)\n2. Verify session store configuration\n3. Make sure secret key is set\n4. Try: app.use(session({ resave: false }))',
+        tip: 'Describe your problem specifically for better help',
       },
       {
         command: '/p:done',
-        description: "Complete today's task",
+        description: 'Complete all remaining tasks',
         output:
-          '✅ Task completed: build login feature\n⏱️ Duration: 4 hours 30 minutes\n\nSuggested next: prevent spam requests',
+          '✅ All tasks complete!\n⏱️ Feature duration: 4 hours 30 minutes\n\n🎉 Authentication feature ready to ship!',
       },
       {
-        command: '/p:git',
-        description: 'Commit with smart message',
+        command: '/p:ship "authentication system"',
+        description: 'Ship completed feature',
         output:
-          '📝 Analyzing changes...\n✅ Committed: feat: add login system\n📊 Files: 8 changed, +342 lines',
-        tip: 'Generates commit messages automatically',
+          '🚀 SHIPPED: Authentication System!\n📊 4 tasks completed\n✅ Lint: passed\n✅ Tests: 12 passing\n📝 Changelog updated\n\n💡 Next: /p:feature or /p:next',
+        tip: '/p:ship runs complete workflow: lint, test, docs, version, commit, push',
       },
       {
         command: '/p:progress',
         description: "View today's progress",
         output:
-          "📈 Today's Progress:\n• Completed: 1 major feature\n• Time focused: 4h 30m\n• Velocity trend: ↗️ improving\n• Week total: 6 features shipped",
+          "📈 Today's Progress:\n• Shipped: 1 major feature\n• Tasks completed: 4\n• Time focused: 4h 30m\n• Velocity trend: ↗️ improving\n• Week total: 6 features",
       },
     ],
   },
   {
     id: 'complex-feature',
     title: 'Complex Feature',
-    description: 'Break down and execute a large feature',
+    description: 'Build large feature with automatic task breakdown',
     emoji: '🏗️',
     steps: [
       {
-        command: '/p:task "build notification system"',
-        description: 'Break down into manageable subtasks',
+        command: '/p:feature "build notification system"',
+        description: 'Add complex feature with value analysis',
         output:
-          '📋 Task breakdown:\n[1/5] Design how notifications will work\n[2/5] Setup real-time messaging\n[3/5] Create notification popup\n[4/5] Add user settings\n[5/5] Test everything\n\n🚀 Ready to execute step by step',
-        tip: 'Automatically divides complex tasks',
-      },
-      {
-        command: '/p:now "design how notifications will work"',
-        description: 'Work on first subtask',
-        output:
-          '🎯 Current: design how notifications will work\n📍 Step 1 of 5 in notification system',
+          '✨ Value Analysis:\n• Impact: HIGH (user engagement)\n• Effort: 12h\n• Timing: Start now\n\nTasks (max 5):\n  1. Design notification architecture\n  2. Setup real-time messaging (WebSocket)\n  3. Create notification UI component\n  4. Add user notification settings\n  5. Test and optimize performance\n\n🚀 Auto-starting task 1...',
+        tip: 'Features automatically break down into max 5 tasks',
       },
       {
         command: '/p:done',
-        description: 'Complete subtask 1',
+        description: 'Complete task 1, auto-start task 2',
         output:
-          '✅ Subtask 1 complete!\n📊 Progress: 20% of notification system\n\n💡 Next: Setup real-time messaging',
+          '✅ Task complete: Design notification architecture\n📊 Progress: 20% (1/5)\n💡 Auto-starting next: Setup real-time messaging',
+        tip: 'Tasks auto-progress - no manual switching needed',
       },
       {
-        command: '/p:now "setup real-time messaging"',
-        description: 'Next subtask',
-        output: '🎯 Current: setup real-time messaging\n📍 Step 2 of 5',
+        command: '/p:done',
+        description: 'Complete task 2',
+        output:
+          '✅ Task complete: WebSocket messaging working\n📊 Progress: 40% (2/5)\n💡 Auto-starting next: Create notification UI',
       },
       {
-        command: '/p:test',
-        description: 'Run tests',
+        command: '/p:done',
+        description: 'Complete remaining tasks',
         output:
-          '🧪 Running tests...\n✅ Unit tests: 24 passing\n✅ Integration: 5 passing\n🔧 Auto-fixed: 2 linting errors\n\nAll tests green!',
+          '✅ All 5 tasks complete!\n⏱️ Total time: 2 days\n📈 Impact: HIGH\n\n🎉 Notification System ready to ship!',
       },
       {
-        command: '/p:ship "notification system complete"',
-        description: 'Celebrate complete feature',
+        command: '/p:ship "notification system"',
+        description: 'Ship complete feature with automated workflow',
         output:
-          '🚀 MEGA SHIP: Notification System!\n🎉🎊 5 subtasks completed\n⏱️ Total time: 2 days\n📈 Impact: High\n\n🏆 This is a HUGE win! Take a moment to celebrate!',
-        tip: 'Celebrate important achievements',
+          '🚀 SHIPPED: Notification System!\n\nWorkflow completed:\n  ✅ Lint: passed\n  ✅ Tests: 24 passing\n  ✅ Docs: updated\n  ✅ Version: 1.2.0 → 1.3.0\n  ✅ CHANGELOG: updated\n  ✅ Git: committed + pushed\n\n🏆 5 tasks • 2 days • HIGH impact\n💡 Recommendation: Compact conversation now',
+        tip: '/p:ship automates: lint → test → docs → version → changelog → commit → push',
       },
     ],
   },

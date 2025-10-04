@@ -11,6 +11,7 @@ import {
   GitBranch,
   Star,
   Sparkles,
+  Zap,
 } from 'lucide-react'
 import { PrjctLogo } from './Logo'
 
@@ -25,6 +26,7 @@ const navItems: NavItem[] = [
   { label: 'Docs', path: '/docs', icon: <BookOpen className="h-4 w-4" /> },
   { label: 'Commands', path: '/commands', icon: <TerminalIcon className="h-4 w-4" /> },
   { label: 'Workflows', path: '/workflows', icon: <Sparkles className="h-4 w-4" /> },
+  { label: 'Windsurf Extension', path: '/windsurf-extension', icon: <Zap className="h-4 w-4" /> },
   { label: 'Changelog', path: '/changelog', icon: <GitBranch className="h-4 w-4" /> },
   { label: 'FAQ', path: '/faq', icon: <HelpCircle className="h-4 w-4" /> },
 ]
@@ -59,10 +61,11 @@ export const Navigation = () => {
               >
                 <Link
                   to={item.path}
-                  className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-all ${isActive(item.path)
+                  className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-all ${
+                    isActive(item.path)
                       ? 'bg-primary/10 text-primary'
                       : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-                    }`}
+                  }`}
                 >
                   {item.icon}
                   <span>{item.label}</span>
@@ -80,7 +83,7 @@ export const Navigation = () => {
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              className="hidden items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 transition-all hover:bg-muted hover:border-primary/50 lg:flex"
+              className="hidden items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 transition-all hover:border-primary/50 hover:bg-muted lg:flex"
             >
               <Star className="h-4 w-4" />
               <span className="text-sm font-medium">Star on GitHub</span>
@@ -113,10 +116,11 @@ export const Navigation = () => {
                     key={item.path}
                     to={item.path}
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className={`flex items-center gap-3 rounded-lg px-4 py-3 transition-all ${isActive(item.path)
+                    className={`flex items-center gap-3 rounded-lg px-4 py-3 transition-all ${
+                      isActive(item.path)
                         ? 'bg-primary/10 text-primary'
                         : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-                      }`}
+                    }`}
                   >
                     {item.icon}
                     <span>{item.label}</span>

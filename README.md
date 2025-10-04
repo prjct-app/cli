@@ -84,6 +84,7 @@ prjct install --force
 ```
 
 **Installation Location:**
+
 - **Claude Code & Claude Desktop**: `~/.claude/commands/p/`
 
 All 18 slash commands (`/p:*`) are automatically installed to Claude Code and Claude Desktop.
@@ -91,6 +92,7 @@ All 18 slash commands (`/p:*`) are automatically installed to Claude Code and Cl
 ### Version Management
 
 The installer automatically:
+
 - **Detects existing installations** and checks for updates
 - **Compares versions** between local and remote
 - **Prompts for updates** when newer versions are available
@@ -119,27 +121,6 @@ cd prjct-cli
 - ✅ **Auto-detects your environment** (Claude or Terminal fallback)
 - ✅ **Configures shell** (bash/zsh) automatically
 
-## 🗑️ Uninstallation
-
-To completely remove prjct-cli from your system:
-
-```bash
-cd ~/.prjct-cli
-./uninstall.sh
-```
-
-The uninstaller will:
-
-- **Safely remove** all prjct-cli components
-- **Offer options** for your project data:
-  - Keep all `.prjct/` directories (recommended)
-  - Back up before removal
-  - Permanently delete (requires confirmation)
-- **Clean up** shell configuration and paths
-- **Remove** Claude Code commands
-
-> ⚠️ **WARNING**: Uninstallation is irreversible. The script will ask for confirmation before removing anything.
-
 ## 💬 p. Trigger - Zero Memorization
 
 **You don't need to memorize commands.** Just use the `p.` prefix and talk naturally!
@@ -158,6 +139,7 @@ Instead of:                      Just say:
 ```
 
 **How it works:**
+
 - Simple `p.` prefix signals prjct context
 - Works in English, Spanish, German, French - any language
 - System detects intent and executes the right command
@@ -173,12 +155,14 @@ Instead of:                      Just say:
 **prjct-cli helps you ship products fast.** Built for creators and small teams who prefer coding over meetings.
 
 **What it does:**
+
 - ✅ Track what you're working on
 - ✅ See what you've shipped
 - ✅ Stay focused on one thing
 - ✅ No meetings needed
 
 **What it doesn't do:**
+
 - ❌ Not like Jira or ClickUp
 - ❌ No sprint planning
 - ❌ No story points
@@ -210,27 +194,32 @@ No planning sessions. No standups. No retrospectives. Just **ship fast, track pr
 By focusing exclusively on Claude Code and Claude Desktop, we can build features that would be impossible with multi-platform support:
 
 **🤖 Smart AI Helpers**
+
 - Get help from specialized AI assistants (for frontend, backend, UX, security, etc.)
 - They activate automatically when you need them
 - Works with Claude's AI system
 
 **🔗 AI Tools Built-In**
+
 - Context7 - Gets documentation for any library automatically
 - Sequential - Helps solve complex problems
 - Magic - Creates UI components for you
 - Playwright - Tests your app in a real browser
 
 **✅ Code Change Verification**
+
 - Checks your actual code changes
 - Makes sure you actually completed what you said
 - No fake progress
 
 **💬 Talk Naturally**
+
 - Just describe what you want to do
 - Works in any language
 - No commands to memorize
 
 **Why it works better:**
+
 - ⚡ **Simpler code** - Faster to add features and fix bugs
 - 🎯 **Built for Claude** - Uses Claude's special features
 - 💯 **Everything tested** - We only support what actually works
@@ -278,35 +267,43 @@ prjct recap                # Show progress
 ## 🎯 Quick Command Guide
 
 **New idea or feature:**
+
 - `/p:idea "add dark mode"` - Quick capture
 - `/p:now "implement dark mode"` - Start working now
 
 **Finished working:**
+
 - `/p:done` - Mark complete, clear focus
 - `/p:ship "feature name"` - Celebrate important milestones
 
 **Lost context:**
+
 - `/p:recap` - Complete overview
 - `/p:next` - View task queue
 
 **Need help:**
+
 - `/p:stuck "error description"` - Get contextual solutions
 - `/p:fix "error message"` - Auto-diagnosis
 
 **Track progress:**
+
 - `/p:progress week` - Weekly metrics
 - `/p:context` - Project info
 
 **Code quality:**
+
 - `/p:cleanup` - Basic cleanup
 - `/p:cleanup --type code` - Remove dead code, unused imports
 - `/p:design "component" --type architecture` - Design before coding
 
 **Version control:**
+
 - `/p:git` - Smart commit
 - `/p:git push` - Commit + push
 
 **After cloning/pulling:**
+
 - `/p:analyze` - Auto-analyze codebase
 - `/p:analyze --sync` - Sync with implemented features
 
@@ -316,41 +313,41 @@ prjct recap                # Show progress
 
 ### Core Commands (Essential) 🎯
 
-| Command             | When to use?                   | What does it do?                  | Example Output                            |
-| ------------------- | ------------------------------ | ---------------------------------- | ----------------------------------------- |
-| `/p:init`           | Starting a new project         | Creates complete `.prjct/` structure | `✅ Project initialized!`                 |
-| `/p:now [task]`     | To set your current focus      | Defines ONE single active task    | `🎯 Current: implement auth`              |
-| `/p:done`           | When finishing current task    | Marks complete and clears focus   | `✅ Task complete! Next: API integration` |
-| `/p:ship <feature>` | When completing something big  | Celebrates and records the WIN    | `🚀 SHIPPED: User auth! 🎉`               |
-| `/p:recap`          | To see complete overview       | Shows progress and current state  | `📊 3 shipped, 1 active, 5 queued`        |
+| Command             | When to use?                  | What does it do?                     | Example Output                            |
+| ------------------- | ----------------------------- | ------------------------------------ | ----------------------------------------- |
+| `/p:init`           | Starting a new project        | Creates complete `.prjct/` structure | `✅ Project initialized!`                 |
+| `/p:now [task]`     | To set your current focus     | Defines ONE single active task       | `🎯 Current: implement auth`              |
+| `/p:done`           | When finishing current task   | Marks complete and clears focus      | `✅ Task complete! Next: API integration` |
+| `/p:ship <feature>` | When completing something big | Celebrates and records the WIN       | `🚀 SHIPPED: User auth! 🎉`               |
+| `/p:recap`          | To see complete overview      | Shows progress and current state     | `📊 3 shipped, 1 active, 5 queued`        |
 
 ### Planning Commands 📋
 
-| Command             | When to use?            | What does it do?               | Example Output                 |
-| ------------------- | ----------------------- | ------------------------------ | ------------------------------ |
+| Command             | When to use?            | What does it do?                   | Example Output                 |
+| ------------------- | ----------------------- | ---------------------------------- | ------------------------------ |
 | `/p:idea <text>`    | When you have an idea   | Quick capture without interrupting | `💡 Idea captured!`            |
-| `/p:roadmap`        | View strategic plan     | Shows complete roadmap         | `🚀 Sprint: 23% complete`      |
-| `/p:roadmap add`    | Add new feature         | Automatically prioritizes      | `✅ Added: Priority #3`        |
-| `/p:next`           | See what's next         | Lists prioritized tasks        | `1. Fix auth bug 2. Add tests` |
-| `/p:task <complex>` | Break down complex task | Divides into manageable subtasks | `📋 Split into 5 subtasks`     |
+| `/p:roadmap`        | View strategic plan     | Shows complete roadmap             | `🚀 Sprint: 23% complete`      |
+| `/p:roadmap add`    | Add new feature         | Automatically prioritizes          | `✅ Added: Priority #3`        |
+| `/p:next`           | See what's next         | Lists prioritized tasks            | `1. Fix auth bug 2. Add tests` |
+| `/p:task <complex>` | Break down complex task | Divides into manageable subtasks   | `📋 Split into 5 subtasks`     |
 
 ### Development Commands 🛠️
 
-| Command              | When to use?              | What does it do?                      | Example Output                        |
-| -------------------- | ------------------------- | ------------------------------------- | ------------------------------------- |
-| `/p:analyze`         | Understand project state  | Auto-analyze & sync with real code    | `🔍 14 commands, 8 features detected` |
-| `/p:analyze --sync`  | After git pull or clone   | Sync .prjct/ with implemented code    | `✅ Synced 5 tasks, 3 features`       |
-| `/p:git`             | Quick commit              | Smart message + commit                | `✅ feat: add auth system`            |
-| `/p:test`            | Run tests                 | Run + auto-fix simple errors          | `✅ 42 passing, 2 fixed`              |
-| `/p:fix <error>`     | Solve errors              | Diagnosis and solutions               | `🔧 Solution: check null first`       |
+| Command             | When to use?             | What does it do?                   | Example Output                        |
+| ------------------- | ------------------------ | ---------------------------------- | ------------------------------------- |
+| `/p:analyze`        | Understand project state | Auto-analyze & sync with real code | `🔍 14 commands, 8 features detected` |
+| `/p:analyze --sync` | After git pull or clone  | Sync .prjct/ with implemented code | `✅ Synced 5 tasks, 3 features`       |
+| `/p:git`            | Quick commit             | Smart message + commit             | `✅ feat: add auth system`            |
+| `/p:test`           | Run tests                | Run + auto-fix simple errors       | `✅ 42 passing, 2 fixed`              |
+| `/p:fix <error>`    | Solve errors             | Diagnosis and solutions            | `🔧 Solution: check null first`       |
 
 ### Metrics Commands 📊
 
-| Command            | When to use?            | What does it do?              | Example Output                    |
-| ------------------ | ----------------------- | ----------------------------- | --------------------------------- |
-| `/p:progress`      | View productivity       | Weekly metrics                | `📈 7 shipped, velocity: 1.4/day` |
-| `/p:context`       | Project info            | Current state and context     | `📚 Sprint 3, Day 12, 67% done`   |
-| `/p:stuck <issue>` | When you need help      | Contextual solutions          | `💡 Try: npm install cors`        |
+| Command            | When to use?       | What does it do?          | Example Output                    |
+| ------------------ | ------------------ | ------------------------- | --------------------------------- |
+| `/p:progress`      | View productivity  | Weekly metrics            | `📈 7 shipped, velocity: 1.4/day` |
+| `/p:context`       | Project info       | Current state and context | `📚 Sprint 3, Day 12, 67% done`   |
+| `/p:stuck <issue>` | When you need help | Contextual solutions      | `💡 Try: npm install cors`        |
 
 ## 🔄 Common Workflows
 
@@ -407,14 +404,6 @@ No migration needed. Just `/p:init` and start working.
     └── decisions.jsonl   # Decision history
 ```
 
-### Migration from Old Structure
-
-If you have an existing flat `.prjct/` structure, run:
-
-```bash
-./migrate.sh  # Automatic migration to layered structure
-```
-
 ## 🎨 Philosophy
 
 - **Zero friction**: Commands within your existing workflow
@@ -440,6 +429,7 @@ If you have an existing flat `.prjct/` structure, run:
 ### What You Get
 
 **With Claude Code/Desktop (Recommended):**
+
 - ✅ Smart AI helpers for different tasks
 - ✅ AI tools that help you code
 - ✅ Checks your actual code changes
@@ -448,6 +438,7 @@ If you have an existing flat `.prjct/` structure, run:
 - ✅ Everything works
 
 **With Terminal/CLI Only:**
+
 - ⚠️ Basic commands work (`prjct now`, `prjct done`, etc.)
 - ❌ No AI helpers
 - ❌ No AI tools
@@ -486,6 +477,7 @@ Starting with v0.5.0, prjct-cli only supports Claude Code and Claude Desktop. Th
 **"I prefer Cursor/Windsurf"**
 
 We get it! But consider:
+
 - **No extra setup** - Works with whatever Claude subscription you have (free tier or Pro)
 - **Better AI** - Latest Claude 3.5 Sonnet (Cursor/Windsurf use older models)
 - **prjct-cli features** - Designed specifically for Claude's capabilities
@@ -495,6 +487,7 @@ Give Claude Code a try - you might prefer it! And if not, you can stay on v0.4.1
 **"This feels limiting"**
 
 It's actually the opposite. By specializing, we can:
+
 - Build features impossible with multi-platform (agents, MCP, git validation)
 - Ship updates 2x faster (less code to maintain)
 - Deliver higher quality (proper testing of everything we support)

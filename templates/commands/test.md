@@ -1,16 +1,18 @@
 ---
 allowed-tools: [Bash, Read, Edit]
-description: "Run tests with auto-fix"
+description: 'Run tests with auto-fix'
 ---
 
 # /p:test
 
 ## Usage
+
 ```
 /p:test [all|unit|e2e|failed|fix]  # Default: all
 ```
 
 ## Flow
+
 1. Detect: test runner (jest/vitest/pytest/etc)
 2. Run: tests with appropriate command
 3. Parse: results
@@ -18,6 +20,7 @@ description: "Run tests with auto-fix"
 5. Update: coverage in `progress/metrics.md`
 
 ## Response (success)
+
 ```
 ✅ All tests passing!
 
@@ -33,6 +36,7 @@ description: "Run tests with auto-fix"
 ```
 
 ## Response (failures)
+
 ```
 ❌ {N} tests failing
 
@@ -42,4 +46,3 @@ description: "Run tests with auto-fix"
 
 📊 Summary: {passed}/{total} ({X}%)
 ```
-

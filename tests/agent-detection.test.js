@@ -9,7 +9,7 @@
  * @version 0.5.0
  */
 
-const agentDetector = require('../core/agent-detector')
+const agentDetector = require('../core/infrastructure/agent-detector')
 
 async function testClaudeDetection() {
   console.log('🧪 Testing prjct-cli Claude Detection System\n')
@@ -41,7 +41,9 @@ async function testClaudeDetection() {
     console.log('   Detection Signals:')
     console.log(`   - CLAUDE_AGENT env: ${!!process.env.CLAUDE_AGENT}`)
     console.log(`   - MCP available: ${!!global.mcp || !!process.env.MCP_AVAILABLE}`)
-    console.log(`   - .claude directory: ${require('fs').existsSync(require('path').join(require('os').homedir(), '.claude'))}`)
+    console.log(
+      `   - .claude directory: ${require('fs').existsSync(require('path').join(require('os').homedir(), '.claude'))}`
+    )
   }
 
   // Test 3: Force Claude agent
@@ -96,7 +98,7 @@ async function testClaudeDetection() {
   console.log('-'.repeat(30))
 
   try {
-    const ClaudeAgent = require('../core/agents/claude-agent')
+    const ClaudeAgent = require('../core/infrastructure/agents/claude-agent')
     const claudeAdapter = new ClaudeAgent()
 
     console.log('\n✅ Claude Adapter:')

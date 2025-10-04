@@ -40,7 +40,6 @@ export default {
         },
 
         cat: {
-
           rosewater: '#f5e0dc',
           flamingo: '#f2cdcd',
           pink: '#f5c2e7',
@@ -101,6 +100,13 @@ export default {
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
+        // Common gradient presets
+        'gradient-primary': 'linear-gradient(to right, rgb(147 51 234), rgb(59 130 246))', // purple-600 to blue-600
+        'gradient-primary-light': 'linear-gradient(to right, rgb(168 85 247), rgb(96 165 250))', // purple-500 to blue-500
+        'gradient-primary-br':
+          'linear-gradient(to bottom right, rgba(168 85 247 / 0.05), rgba(96 165 250 / 0.05))',
+        'gradient-primary-br-medium':
+          'linear-gradient(to bottom right, rgba(168 85 247 / 0.1), rgba(96 165 250 / 0.1))',
       },
     },
   },

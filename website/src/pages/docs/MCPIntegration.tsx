@@ -1,355 +1,441 @@
 import { motion } from 'framer-motion'
-import { Bot, Code2, Settings, Sparkles, FileText, Database, Brain, CheckCircle } from 'lucide-react'
+import {
+  Bot,
+  FileText,
+  Database,
+  Brain,
+  CheckCircle,
+  Sparkles,
+  Zap,
+  Code2,
+  Settings,
+} from 'lucide-react'
 import { BackToDocsButton } from '../../components/BackToDocsButton'
 
 export const MCPIntegration = () => {
- const assistants = [
-  {
-   name: "Claude Code",
-   icon: <Brain className="w-6 h-6" />,
-   description: "Anthropic's official AI coding assistant",
-   configFile: "CLAUDE.md",
-   features: [
-    "Native /p: command support",
-    "MCP server integration",
-    "Context-aware suggestions",
-    "Automatic file management"
-   ]
-  },
-  {
-   name: "Cursor",
-   icon: <Code2 className="w-6 h-6" />,
-   description: "AI-powered code editor",
-   configFile: "AGENTS.md",
-   features: [
-    "Integrated terminal commands",
-    "Smart code completion",
-    "Project context awareness",
-    "Multi-file operations"
-   ]
-  },
-  {
-   name: "OpenAI Codex",
-   icon: <Bot className="w-6 h-6" />,
-   description: "GitHub Copilot and ChatGPT",
-   configFile: "AGENTS.md",
-   features: [
-    "Command execution via chat",
-    "Code generation with context",
-    "Natural language to commands",
-    "Integrated workflow support"
-   ]
-  },
-  {
-   name: "Warp Terminal",
-   icon: <Sparkles className="w-6 h-6" />,
-   description: "AI-powered terminal",
-   configFile: "Shell integration",
-   features: [
-    "Command suggestions",
-    "Natural language queries",
-    "Workflow automation",
-    "Smart completions"
-   ]
-  }
- ]
+  const mcpServers = [
+    {
+      name: 'Context7 MCP',
+      icon: <Brain className="h-5 w-5" />,
+      status: 'ALWAYS ENABLED',
+      statusColor: 'text-cat-green',
+      purpose: 'Official library documentation',
+      usage: 'Automatic docs for React, Vue, Next.js, Express, any npm package',
+      features: [
+        'Auto-activates when importing libraries',
+        'Version-specific documentation',
+        'Code examples included',
+        'Framework-specific patterns',
+      ],
+    },
+    {
+      name: 'Filesystem MCP',
+      icon: <FileText className="h-5 w-5" />,
+      status: 'ALWAYS ENABLED',
+      statusColor: 'text-cat-green',
+      purpose: 'Direct file manipulation',
+      usage: 'Read, write, and manage project files',
+      features: [
+        'Global data in ~/.prjct-cli/',
+        'Local config in .prjct/',
+        'Atomic file operations',
+        'Automatic backups',
+      ],
+    },
+    {
+      name: 'Memory MCP',
+      icon: <Database className="h-5 w-5" />,
+      status: 'ALWAYS ENABLED',
+      statusColor: 'text-cat-green',
+      purpose: 'Persistent decision storage',
+      usage: 'Track decisions, context, and history',
+      features: [
+        'Decision logging',
+        'Context preservation',
+        'History tracking',
+        'Author attribution',
+      ],
+    },
+    {
+      name: 'Sequential MCP',
+      icon: <Settings className="h-5 w-5" />,
+      status: 'ALWAYS ENABLED',
+      statusColor: 'text-cat-green',
+      purpose: 'Deep reasoning for complex problems',
+      usage: 'Multi-step analysis and problem solving',
+      features: [
+        'Complex problem breakdown',
+        'Step-by-step reasoning',
+        'Architecture planning',
+        'Design decisions',
+      ],
+    },
+  ]
 
- const mcpServers = [
-  {
-   name: "Filesystem MCP",
-   icon: <FileText className="w-5 h-5" />,
-   purpose: "Direct file manipulation",
-   usage: "Read, write, and manage .prjct/ files"
-  },
-  {
-   name: "Memory MCP",
-   icon: <Database className="w-5 h-5" />,
-   purpose: "Persistent decision storage",
-   usage: "Track decisions, context, and history"
-  },
-  {
-   name: "Context7 MCP",
-   icon: <Brain className="w-5 h-5" />,
-   purpose: "Library documentation",
-   usage: "Access up-to-date framework docs"
-  },
-  {
-   name: "Sequential MCP",
-   icon: <Settings className="w-5 h-5" />,
-   purpose: "Complex problem solving",
-   usage: "Multi-step reasoning and analysis"
-  }
- ]
+  const benefits = [
+    {
+      icon: <Sparkles className="h-6 w-6" />,
+      title: 'Zero Configuration',
+      description: 'All MCP servers work out of the box - no setup required',
+    },
+    {
+      icon: <Zap className="h-6 w-6" />,
+      title: 'Context7 Integration',
+      description: 'Official library docs available automatically when you code',
+    },
+    {
+      icon: <Brain className="h-6 w-6" />,
+      title: 'Deep Integration',
+      description: 'Claude-native protocol enables features impossible with other platforms',
+    },
+    {
+      icon: <Code2 className="h-6 w-6" />,
+      title: 'Natural Language',
+      description: 'p. trigger works seamlessly thanks to MCP infrastructure',
+    },
+  ]
 
- return (
-  <div className="min-h-screen py-20 px-4">
-   <div className="max-w-4xl mx-auto">
-    {/* Back Button */}
-    <BackToDocsButton />
+  return (
+    <div className="min-h-screen px-4 py-20">
+      <div className="mx-auto max-w-4xl">
+        {/* Back Button */}
+        <BackToDocsButton />
 
-    {/* Header */}
-    <motion.div
-     initial={{ opacity: 0, y: 20 }}
-     animate={{ opacity: 1, y: 0 }}
-     transition={{ duration: 0.6 }}
-     className="mb-12"
-    >
-     <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full mb-6">
-      <Bot className="w-4 h-4 text-primary" />
-      <span className="text-sm font-medium text-primary">AI Assistant Setup</span>
-     </div>
-     <h1 className="text-5xl md:text-6xl font-bold mb-6">
-      MCP Integration
-     </h1>
-     <p className="text-xl text-muted-foreground">
-      Configure prjct to work seamlessly with your favorite AI assistant
-      using the Model Context Protocol (MCP).
-     </p>
-    </motion.div>
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="mb-12"
+        >
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2">
+            <Bot className="h-4 w-4 text-primary" />
+            <span className="text-sm font-medium text-primary">Claude Code Integration</span>
+          </div>
+          <h1 className="mb-6 text-5xl font-bold md:text-6xl">MCP Integration</h1>
+          <p className="text-xl text-muted-foreground">
+            prjct leverages Claude's Model Context Protocol (MCP) for deep integration. All servers
+            work automatically - zero configuration required.
+          </p>
+        </motion.div>
 
-    {/* What is MCP */}
-    <motion.section
-     initial={{ opacity: 0, y: 20 }}
-     animate={{ opacity: 1, y: 0 }}
-     transition={{ duration: 0.6, delay: 0.1 }}
-     className="mb-16 p-8 bg-muted/20 rounded-2xl"
-    >
-     <h2 className="text-2xl font-bold mb-4">What is MCP?</h2>
-     <p className="text-muted-foreground mb-4">
-      Model Context Protocol (MCP) is a standard that allows AI assistants to interact
-      with external tools and services. prjct uses MCP to enable AI assistants to:
-     </p>
-     <ul className="space-y-2">
-      <li className="flex items-center gap-2">
-       <CheckCircle className="w-5 h-5 text-cat-green" />
-       <span>Execute /p: commands directly</span>
-      </li>
-      <li className="flex items-center gap-2">
-       <CheckCircle className="w-5 h-5 text-cat-green" />
-       <span>Read and write project files</span>
-      </li>
-      <li className="flex items-center gap-2">
-       <CheckCircle className="w-5 h-5 text-cat-green" />
-       <span>Maintain context across sessions</span>
-      </li>
-      <li className="flex items-center gap-2">
-       <CheckCircle className="w-5 h-5 text-cat-green" />
-       <span>Access documentation and help</span>
-      </li>
-     </ul>
-    </motion.section>
+        {/* Claude Code Only Notice */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.1 }}
+          className="mb-16 rounded-2xl border-2 border-primary/30 bg-primary/10 p-6"
+        >
+          <h2 className="mb-4 flex items-center gap-2 text-2xl font-bold">
+            <CheckCircle className="h-6 w-6 text-primary" />
+            Built for Claude Code
+          </h2>
+          <p className="mb-4 text-muted-foreground">
+            prjct is designed exclusively for Claude Code to deliver features that would be
+            impossible with multi-platform support. MCP integration is a key part of this strategy.
+          </p>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-cat-green" />
+              <span>Works with your existing Claude subscription (free or Pro)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-cat-green" />
+              <span>No extra costs, tokens, or API keys required</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-cat-green" />
+              <span>All MCP servers enabled automatically</span>
+            </div>
+          </div>
+        </motion.section>
 
-    {/* Supported Assistants */}
-    <motion.section
-     initial={{ opacity: 0, y: 20 }}
-     animate={{ opacity: 1, y: 0 }}
-     transition={{ duration: 0.6, delay: 0.2 }}
-     className="mb-16"
-    >
-     <h2 className="text-3xl font-bold mb-8">Supported AI Assistants</h2>
-     <div className="grid md:grid-cols-2 gap-6">
-      {assistants.map((assistant, index) => (
-       <motion.div
-        key={assistant.name}
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: index * 0.1 }}
-        className="border border-border rounded-2xl p-6 hover:border-primary/50 transition-colors"
-       >
-        <div className="flex items-start gap-4 mb-4">
-         <div className="p-3 rounded-lg bg-primary/10 text-primary">
-          {assistant.icon}
-         </div>
-         <div>
-          <h3 className="text-xl font-semibold">{assistant.name}</h3>
-          <p className="text-sm text-muted-foreground">{assistant.description}</p>
-         </div>
-        </div>
-        <div className="mb-4">
-         <span className="text-sm font-medium text-primary">Config: </span>
-         <code className="text-sm bg-muted px-2 py-1 rounded">{assistant.configFile}</code>
-        </div>
-        <ul className="space-y-1">
-         {assistant.features.map((feature) => (
-          <li key={feature} className="text-sm text-muted-foreground flex items-center gap-2">
-           <span className="text-primary">•</span> {feature}
-          </li>
-         ))}
-        </ul>
-       </motion.div>
-      ))}
-     </div>
-    </motion.section>
+        {/* What is MCP */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="mb-16 rounded-2xl bg-muted/20 p-8"
+        >
+          <h2 className="mb-4 text-2xl font-bold">What is MCP?</h2>
+          <p className="mb-4 text-muted-foreground">
+            Model Context Protocol (MCP) is Claude's native protocol for AI-tool integration. prjct
+            uses MCP to enable deep, Claude-native features:
+          </p>
+          <ul className="space-y-2">
+            <li className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-cat-green" />
+              <span>Execute /p:* commands seamlessly</span>
+            </li>
+            <li className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-cat-green" />
+              <span>Access official library documentation (Context7)</span>
+            </li>
+            <li className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-cat-green" />
+              <span>Persistent memory and decision tracking</span>
+            </li>
+            <li className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-cat-green" />
+              <span>Deep reasoning for complex problems (Sequential)</span>
+            </li>
+            <li className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-cat-green" />
+              <span>Natural language (p. trigger) support</span>
+            </li>
+          </ul>
+        </motion.section>
 
-    {/* MCP Servers */}
-    <motion.section
-     initial={{ opacity: 0, y: 20 }}
-     animate={{ opacity: 1, y: 0 }}
-     transition={{ duration: 0.6, delay: 0.3 }}
-     className="mb-16"
-    >
-     <h2 className="text-3xl font-bold mb-8">MCP Servers</h2>
-     <p className="text-muted-foreground mb-6">
-      prjct integrates with multiple MCP servers to provide comprehensive functionality:
-     </p>
-     <div className="space-y-4">
-      {mcpServers.map((server, index) => (
-       <motion.div
-        key={server.name}
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.5, delay: index * 0.05 }}
-        className="flex gap-4 p-4 bg-muted/20 rounded-xl"
-       >
-        <div className="p-2 rounded-lg bg-primary/10 text-primary">
-         {server.icon}
-        </div>
-        <div className="flex-1">
-         <h3 className="font-semibold">{server.name}</h3>
-         <p className="text-sm text-muted-foreground">{server.purpose}</p>
-         <p className="text-sm text-primary/80 mt-1">{server.usage}</p>
-        </div>
-       </motion.div>
-      ))}
-     </div>
-    </motion.section>
+        {/* MCP Servers */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.3 }}
+          className="mb-16"
+        >
+          <h2 className="mb-4 text-3xl font-bold">MCP Servers</h2>
+          <p className="mb-6 text-muted-foreground">
+            All servers work automatically - no configuration needed:
+          </p>
+          <div className="space-y-4">
+            {mcpServers.map((server, index) => (
+              <motion.div
+                key={server.name}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                className="rounded-2xl border border-border p-6 transition-colors hover:border-primary/50"
+              >
+                <div className="mb-4 flex items-start gap-4">
+                  <div className="rounded-lg bg-primary/10 p-3 text-primary">{server.icon}</div>
+                  <div className="flex-1">
+                    <div className="mb-2 flex items-center justify-between">
+                      <h3 className="text-xl font-semibold">{server.name}</h3>
+                      <span className={`text-sm font-bold ${server.statusColor}`}>
+                        {server.status}
+                      </span>
+                    </div>
+                    <p className="mb-3 text-sm text-muted-foreground">{server.purpose}</p>
+                    <p className="mb-4 text-sm text-primary/80">{server.usage}</p>
+                    <div className="space-y-1">
+                      {server.features.map((feature) => (
+                        <div
+                          key={feature}
+                          className="flex items-center gap-2 text-sm text-muted-foreground"
+                        >
+                          <span className="text-primary">•</span> {feature}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </motion.section>
 
-    {/* Configuration Steps */}
-    <motion.section
-     initial={{ opacity: 0, y: 20 }}
-     animate={{ opacity: 1, y: 0 }}
-     transition={{ duration: 0.6, delay: 0.4 }}
-     className="mb-16"
-    >
-     <h2 className="text-3xl font-bold mb-8">Configuration</h2>
+        {/* Context7 Highlight */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.4 }}
+          className="mb-16 rounded-2xl bg-gradient-to-r from-primary/20 to-primary/10 p-8"
+        >
+          <div className="flex items-start gap-4">
+            <div className="rounded-lg bg-primary/20 p-3 text-primary">
+              <Brain className="h-8 w-8" />
+            </div>
+            <div>
+              <h2 className="mb-3 text-2xl font-bold">Context7: Game Changer</h2>
+              <p className="mb-4 text-muted-foreground">
+                Context7 MCP provides official library documentation automatically when you code. No
+                searching, no outdated docs, no context switching.
+              </p>
+              <div className="mb-4 space-y-2">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5 text-cat-green" />
+                  <span className="text-sm">Auto-activates when importing libraries</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5 text-cat-green" />
+                  <span className="text-sm">
+                    Works with React, Vue, Next.js, Express, any npm package
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5 text-cat-green" />
+                  <span className="text-sm">Version-specific docs and code examples</span>
+                </div>
+              </div>
+              <div className="rounded-lg bg-black p-4 font-mono text-sm">
+                <div className="text-gray-400">// You're coding with React hooks</div>
+                <div className="mt-1 text-cat-teal">import &#123; useState &#125; from 'react'</div>
+                <div className="mt-2 text-gray-400">
+                  → Context7 automatically provides official React docs
+                </div>
+                <div className="text-gray-400">→ No manual searching required</div>
+              </div>
+            </div>
+          </div>
+        </motion.section>
 
-     {/* Claude Code Setup */}
-     <div className="mb-8 p-6 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 rounded-2xl">
-      <h3 className="text-xl font-semibold mb-4">Claude Code Setup</h3>
-      <ol className="space-y-4">
-       <li className="flex gap-3">
-        <span className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold flex-shrink-0">
-         1
-        </span>
-        <div>
-         <p className="font-medium">CLAUDE.md is already included</p>
-         <p className="text-sm text-muted-foreground">The configuration file is pre-installed in your project</p>
-        </div>
-       </li>
-       <li className="flex gap-3">
-        <span className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold flex-shrink-0">
-         2
-        </span>
-        <div>
-         <p className="font-medium">Commands work automatically</p>
-         <p className="text-sm text-muted-foreground">Just type /p: commands in Claude Code</p>
-        </div>
-       </li>
-      </ol>
-     </div>
+        {/* Usage Examples */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.5 }}
+          className="mb-16"
+        >
+          <h2 className="mb-8 text-3xl font-bold">Usage Examples</h2>
+          <div className="space-y-4">
+            <div className="rounded-xl bg-black p-6">
+              <div className="mb-3 font-semibold text-gray-300">Natural Language (p. trigger)</div>
+              <div className="space-y-2 font-mono text-sm">
+                <div className="text-gray-400">You: "p. I want to build user authentication"</div>
+                <div className="text-cat-teal">
+                  Claude: Running /p:feature "user authentication"...
+                </div>
+                <div className="text-gray-400">→ ✨ Value analysis complete</div>
+                <div className="text-gray-400">→ 📋 5 tasks created</div>
+                <div className="text-gray-400">→ 🚀 Auto-starting task 1</div>
+              </div>
+            </div>
 
-     {/* Other Assistants Setup */}
-     <div className="p-6 bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-2xl">
-      <h3 className="text-xl font-semibold mb-4">Other AI Assistants</h3>
-      <ol className="space-y-4">
-       <li className="flex gap-3">
-        <span className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold flex-shrink-0">
-         1
-        </span>
-        <div>
-         <p className="font-medium">Copy AGENTS.md to your project</p>
-         <p className="text-sm text-muted-foreground">Contains instructions for the AI assistant</p>
-        </div>
-       </li>
-       <li className="flex gap-3">
-        <span className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold flex-shrink-0">
-         2
-        </span>
-        <div>
-         <p className="font-medium">Reference in your AI tool</p>
-         <p className="text-sm text-muted-foreground">Point your assistant to the AGENTS.md file</p>
-        </div>
-       </li>
-       <li className="flex gap-3">
-        <span className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold flex-shrink-0">
-         3
-        </span>
-        <div>
-         <p className="font-medium">Start using /p: commands</p>
-         <p className="text-sm text-muted-foreground">Commands will be executed through the AI</p>
-        </div>
-       </li>
-      </ol>
-     </div>
-    </motion.section>
+            <div className="rounded-xl bg-black p-6">
+              <div className="mb-3 font-semibold text-gray-300">Direct Commands</div>
+              <div className="space-y-2 font-mono text-sm">
+                <div className="text-gray-400">You: /p:init</div>
+                <div className="text-cat-teal">Claude: Initializing project...</div>
+                <div className="text-gray-400">
+                  → ✅ Created ~/.prjct-cli/projects/&#123;id&#125;/
+                </div>
+                <div className="text-gray-400">→ 🔍 Analyzing codebase (Context7 active)</div>
+                <div className="text-gray-400">→ 📁 Structure ready</div>
+              </div>
+            </div>
 
-    {/* Usage Examples */}
-    <motion.section
-     initial={{ opacity: 0, y: 20 }}
-     animate={{ opacity: 1, y: 0 }}
-     transition={{ duration: 0.6, delay: 0.5 }}
-     className="mb-16"
-    >
-     <h2 className="text-3xl font-bold mb-8">Usage Examples</h2>
-     <div className="space-y-4">
-      <div className="p-4 bg-black rounded-xl">
-       <div className="text-gray-300 mb-2"># With Claude Code</div>
-       <div className="font-mono text-sm">
-        <div className="text-gray-400">You: "Initialize prjct in this project"</div>
-        <div className="text-cat-teal mt-2">Claude: Running /p:init...</div>
-        <div className="text-gray-400">→ ✅ Project initialized with layered structure</div>
-       </div>
+            <div className="rounded-xl bg-black p-6">
+              <div className="mb-3 font-semibold text-gray-300">Complete Workflow</div>
+              <div className="space-y-2 font-mono text-sm">
+                <div className="text-gray-400">You: /p:ship "payment processing"</div>
+                <div className="text-cat-teal">Claude: Running complete workflow...</div>
+                <div className="text-gray-400">→ ✅ Lint: passed</div>
+                <div className="text-gray-400">→ ✅ Tests: 18 passing</div>
+                <div className="text-gray-400">→ ✅ Docs: updated</div>
+                <div className="text-gray-400">→ ✅ Version: 1.3.0 → 1.4.0</div>
+                <div className="text-gray-400">→ ✅ Git: committed + pushed</div>
+              </div>
+            </div>
+          </div>
+        </motion.section>
+
+        {/* Setup */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.6 }}
+          className="mb-16"
+        >
+          <h2 className="mb-8 text-3xl font-bold">Setup</h2>
+          <div className="space-y-4">
+            <div className="flex gap-4 rounded-xl bg-muted/20 p-6">
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary font-bold text-primary-foreground">
+                1
+              </div>
+              <div>
+                <p className="mb-1 font-semibold">Install prjct globally</p>
+                <code className="rounded bg-black px-3 py-1.5 text-sm text-cat-teal">
+                  npm install -g prjct-cli
+                </code>
+              </div>
+            </div>
+
+            <div className="flex gap-4 rounded-xl bg-muted/20 p-6">
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary font-bold text-primary-foreground">
+                2
+              </div>
+              <div>
+                <p className="mb-1 font-semibold">Setup Claude Code integration</p>
+                <code className="rounded bg-black px-3 py-1.5 text-sm text-cat-teal">
+                  prjct start
+                </code>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Installs all /p:* commands (one-time setup)
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-4 rounded-xl bg-muted/20 p-6">
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary font-bold text-primary-foreground">
+                3
+              </div>
+              <div>
+                <p className="mb-1 font-semibold">Initialize your project</p>
+                <code className="rounded bg-black px-3 py-1.5 text-sm text-cat-teal">/p:init</code>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Run in Claude Code - MCP servers activate automatically
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-4 rounded-xl border border-primary/20 bg-primary/5 p-6">
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-cat-green text-white">
+                <CheckCircle className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="mb-1 font-semibold">You're ready!</p>
+                <p className="text-sm text-muted-foreground">
+                  All MCP servers work automatically. Start using p. trigger or /p:* commands.
+                </p>
+              </div>
+            </div>
+          </div>
+        </motion.section>
+
+        {/* Benefits */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.7 }}
+          className="mb-16"
+        >
+          <h2 className="mb-8 text-3xl font-bold">Why MCP Matters</h2>
+          <div className="grid gap-6 md:grid-cols-2">
+            {benefits.map((benefit, index) => (
+              <motion.div
+                key={benefit.title}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                className="rounded-xl bg-muted/20 p-6"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="rounded-lg bg-primary/10 p-2 text-primary">{benefit.icon}</div>
+                  <div>
+                    <h3 className="mb-2 font-semibold">{benefit.title}</h3>
+                    <p className="text-sm text-muted-foreground">{benefit.description}</p>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </motion.section>
+
+        {/* Final Note */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.8 }}
+          className="rounded-2xl bg-gradient-to-r from-primary/20 to-primary/10 p-8 text-center"
+        >
+          <h2 className="mb-4 text-2xl font-bold">Claude-Native = Better Experience</h2>
+          <p className="mx-auto max-w-2xl text-muted-foreground">
+            By focusing 100% on Claude Code, prjct delivers MCP integration that would be impossible
+            with multi-platform support. Every feature is optimized for one thing: helping you ship
+            fast with Claude.
+          </p>
+        </motion.section>
       </div>
-
-      <div className="p-4 bg-black rounded-xl">
-       <div className="text-gray-300 mb-2"># With ChatGPT</div>
-       <div className="font-mono text-sm">
-        <div className="text-gray-400">You: "Set my current task to implement auth"</div>
-        <div className="text-cat-teal mt-2">GPT: I'll set that using prjct: /p:now "implement auth"</div>
-        <div className="text-gray-400">→ 🎯 Current task set</div>
-       </div>
-      </div>
-
-      <div className="p-4 bg-black rounded-xl">
-       <div className="text-gray-300 mb-2"># With Cursor</div>
-       <div className="font-mono text-sm">
-        <div className="text-gray-400">You: "Complete task and commit"</div>
-        <div className="text-cat-teal mt-2">Cursor: /p:done && /p:git</div>
-        <div className="text-gray-400">→ ✅ Task completed</div>
-        <div className="text-gray-400">→ 📝 Changes committed</div>
-       </div>
-      </div>
-     </div>
-    </motion.section>
-
-    {/* Benefits */}
-    <motion.section
-     initial={{ opacity: 0, y: 20 }}
-     animate={{ opacity: 1, y: 0 }}
-     transition={{ duration: 0.6, delay: 0.6 }}
-     className="p-8 bg-gradient-to-r from-primary/20 to-primary/10 rounded-2xl text-center"
-    >
-     <h2 className="text-2xl font-bold mb-4">Why Use MCP Integration?</h2>
-     <div className="grid md:grid-cols-2 gap-4 text-left max-w-2xl mx-auto">
-      <div className="flex items-center gap-2">
-       <Sparkles className="w-5 h-5 text-primary" />
-       <span>Natural language to commands</span>
-      </div>
-      <div className="flex items-center gap-2">
-       <Sparkles className="w-5 h-5 text-primary" />
-       <span>Automatic context awareness</span>
-      </div>
-      <div className="flex items-center gap-2">
-       <Sparkles className="w-5 h-5 text-primary" />
-       <span>Seamless workflow integration</span>
-      </div>
-      <div className="flex items-center gap-2">
-       <Sparkles className="w-5 h-5 text-primary" />
-       <span>No manual command memorization</span>
-      </div>
-     </div>
-    </motion.section>
-   </div>
-  </div>
- )
+    </div>
+  )
 }

@@ -1,11 +1,12 @@
 ---
 allowed-tools: []
-description: "Interactive guide"
+description: 'Interactive guide'
 ---
 
 # /p:help
 
 ## Response
+
 ```
 🎯 What do you want to do?
 
@@ -35,4 +36,3 @@ description: "Interactive guide"
 
 💬 Talk naturally - I understand both!
 ```
-

@@ -12,3 +12,6 @@ export type { SectionProps } from './Section'
 
 export { IconBox } from './IconBox'
 export type { IconBoxProps } from './IconBox'
+
+export { FeatureCard } from './FeatureCard'
+export type { FeatureCardProps } from './FeatureCard'

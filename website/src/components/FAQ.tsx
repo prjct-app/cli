@@ -12,7 +12,7 @@ const faqs = [
   {
     question: 'Is this a project management tool?',
     answer:
-      "NO. prjct-cli is a DEVELOPER MOMENTUM TOOL for indie hackers and small teams (2-5 devs).\n\nWhat it IS: Ship fast, track progress, stay focused, celebrate wins.\n\nWhat it's NOT: No Jira, no sprint planning, no story points, no burndown charts, no ceremonies, no meetings.\n\nPhilosophy: /p:now → work → /p:done → /p:ship → celebrate. Just ship it, no BS.",
+      "NO. prjct-cli is a DEVELOPER MOMENTUM TOOL for indie hackers and small teams (2-5 devs).\n\nWhat it IS: Ship fast, track progress, stay focused, celebrate wins.\n\nWhat it's NOT: No Jira, no sprint planning, no story points, no burndown charts, no ceremonies, no meetings.\n\nPhilosophy: /p:feature → work → /p:done → /p:ship → celebrate. Just ship it, no BS.",
   },
   {
     question: "I prefer Cursor/Windsurf. Can't you add them back?",
@@ -47,12 +47,12 @@ const faqs = [
   {
     question: 'Can I use prjct without Claude?',
     answer:
-      "Yes, but with VERY limited features (Terminal mode only):\n\n✅ Basic commands work\n❌ No AI agents\n❌ No MCP integration\n❌ No git validation\n❌ No natural language\n\nFor the full experience, use Claude Code or Desktop with whatever subscription you have (free tier or Pro). No extra setup required.",
+      'Yes, but with VERY limited features (Terminal mode only):\n\n✅ Basic commands work\n❌ No AI agents\n❌ No MCP integration\n❌ No git validation\n❌ No natural language\n\nFor the full experience, use Claude Code or Desktop with whatever subscription you have (free tier or Pro). No extra setup required.',
   },
   {
-    question: 'What if I have many ideas at the same time?',
+    question: 'What if I have many features to build?',
     answer:
-      "Use /p:idea 'your idea' for frictionless capture without losing focus. All ideas saved to ideas.md.\n\nReview later with /p:recap and promote the best ones to roadmap.md. The system is designed for quick capture, not planning sessions.",
+      'Use /p:feature for each one with automatic value analysis and task breakdown. Features are added to your roadmap with effort/impact analysis.\n\nThe system helps you prioritize: do now vs defer vs blocked. Review with /p:recap and start top priority with /p:feature. Designed for strategic planning, not just idea capture.',
   },
   {
     question: 'Can I customize commands or add new ones?',
