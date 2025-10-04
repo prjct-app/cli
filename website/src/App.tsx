@@ -14,6 +14,7 @@ import { MCPIntegration } from './pages/docs/MCPIntegration'
 import { Migration } from './pages/docs/Migration'
 import { Terms } from './pages/Terms'
 import { Privacy } from './pages/Privacy'
+import { AIPolicy } from './pages/AIPolicy'
 import { Changelog } from './pages/Changelog'
 import { WindsurfExtensionPage } from './pages/WindsurfExtensionPage'
 import { SpeedInsights } from '@vercel/speed-insights/react';
@@ -42,6 +43,7 @@ function App() {
             <Route path="/windsurf-extension" element={<WindsurfExtensionPage />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/privacy" element={<Privacy />} />
+            <Route path="/ai-policy" element={<AIPolicy />} />
           </Routes>
         </main>
 

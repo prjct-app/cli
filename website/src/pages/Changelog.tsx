@@ -26,6 +26,7 @@ import { TimelineNav } from '@/components/changelog/TimelineNav'
 export const Changelog = () => {
   // Timeline navigation items
   const timelineItems = [
+    { id: 'oct-4-2025', date: 'Oct 4, 2025', releaseCount: 1 },
     { id: 'oct-3-2025', date: 'Oct 3, 2025', releaseCount: 1 },
     { id: 'oct-2-2025', date: 'Oct 2, 2025', releaseCount: 7 },
     { id: 'oct-1-2025', date: 'Oct 1, 2025', releaseCount: 4 },
@@ -56,6 +57,82 @@ export const Changelog = () => {
           </p>
         </motion.div>
 
+        {/* October 4, 2025 - 1 release */}
+        <DateSection id="oct-4-2025" date="October 4, 2025" releaseCount={1}>
+          {/* BREAKING CHANGE - No Longer Open Source */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-16"
+          >
+            <VersionHeader version="v0.7.0" isLatest />
+
+            <div className="mb-6 space-y-6">
+              <FeatureCard
+                variant="fancy"
+                contentLayout="horizontal"
+                icon={AlertTriangle}
+                title="No Longer Open Source"
+                description="prjct is now proprietary software. FREE tier remains available forever."
+                bullets={[
+                  '• Repository made private due to AI agent privacy concerns and terms of use compliance',
+                  '• **FREE tier**: Available to all users indefinitely with full core features',
+                  '• **PRO tier**: Optional paid upgrade with additional features (coming soon)',
+                  '• Migration to Vercel for better deployment and hosting',
+                  '• Contact: jlopezlira@gmail.com or jlopezlira.dev',
+                ]}
+              />
+
+              <FeatureCard
+                variant="simple"
+                contentLayout="horizontal"
+                icon={Shield}
+                title="User Safety Improvements"
+                description="Enhanced user control and transparency"
+                bullets={[
+                  '• **Plan Mode**: All commands now require explicit user confirmation before execution',
+                  '• No automatic actions without user approval',
+                  '• Clear presentation of what will be done before doing it',
+                  '• Protects users from unintended changes',
+                ]}
+              />
+
+              <FeatureCard
+                variant="simple"
+                contentLayout="horizontal"
+                icon={Package}
+                title="Website Updates"
+                description="Removed all GitHub repository links and updated contact information"
+                bullets={[
+                  '• Removed all GitHub repository links from website',
+                  '• Added contact section with email and website',
+                  '• Updated Terms of Use with proprietary license',
+                  '• Updated Privacy Policy for Vercel hosting',
+                  '• Removed open source transparency section',
+                ]}
+              />
+            </div>
+
+            <TechnicalDetails
+              details={[
+                <div key="why">
+                  <strong>Why this change?</strong>
+                  <p className="mt-2 text-sm">
+                    We believe in building honest products. As an agentic AI tool that processes your code and interacts with AI services, we want to be transparent: we're not certain about potential conflicts with third-party terms of service, especially AI provider policies.
+                  </p>
+                  <p className="mt-2 text-sm">
+                    Rather than risk affecting our users or violating terms we don't fully understand, we've chosen to make the codebase private. This lets us develop responsibly while we clarify these concerns.
+                  </p>
+                  <p className="mt-2 text-sm font-semibold">
+                    The FREE tier remains available to everyone, forever. We're committed to transparency and doing right by our users.
+                  </p>
+                </div>,
+              ]}
+            />
+          </motion.section>
+        </DateSection>
+
         {/* October 3, 2025 - 1 release */}
         <DateSection id="oct-3-2025" date="October 3, 2025" releaseCount={1}>
           {/* Version 0.6.0 - Philosophy Transformation */}
@@ -65,7 +142,7 @@ export const Changelog = () => {
             transition={{ duration: 0.6 }}
             className="mb-16"
           >
-            <VersionHeader version="v0.6.0" isLatest />
+            <VersionHeader version="v0.6.0" />
 
             <div className="mb-6 space-y-6">
               <FeatureCard

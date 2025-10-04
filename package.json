@@ -1,10 +1,10 @@
 {
   "name": "prjct-cli",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Built for Claude - Ship fast, track progress, stay focused. Developer momentum tool for indie hackers.",
   "main": "core/index.js",
   "bin": {
-    "prjct": "./bin/prjct"
+    "prjct": "bin/prjct"
   },
   "publishConfig": {
     "access": "public",
@@ -55,7 +55,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/jlopezlira/prjct-cli"
+    "url": "git+https://github.com/jlopezlira/prjct-cli.git"
   },
   "bugs": {
     "url": "https://github.com/jlopezlira/prjct-cli/issues"
