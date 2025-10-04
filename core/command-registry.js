@@ -37,29 +37,47 @@ const COMMANDS = [
     ],
   },
 
-  // 2. Agentic Idea Evaluation
+  // 2. Feature with Roadmap (NEW - replaces idea)
+  {
+    name: 'feature',
+    category: 'core',
+    description: 'Add feature with value analysis, roadmap, and task breakdown',
+    usage: {
+      claude: '/p:feature "add unit testing"',
+      terminal: 'prjct feature "add unit testing"',
+    },
+    params: '<description>',
+    implemented: true,
+    hasTemplate: true,
+    icon: 'Package',
+    requiresInit: true,
+    blockingRules: null,
+    features: [
+      'Value analysis (impact/effort/timing)',
+      'Auto roadmap generation',
+      'Task breakdown (max 5)',
+      'Auto-start first task',
+      'Timing recommendations',
+    ],
+  },
+
+  // DEPRECATED: Use /p:feature instead
   {
     name: 'idea',
-    category: 'core',
-    description: 'AI-powered idea evaluation with risk assessment',
+    category: 'deprecated',
+    description: '[DEPRECATED] Use /p:feature instead',
     usage: {
-      claude: '/p:idea "add dark mode"',
-      terminal: 'prjct idea "add dark mode"',
+      claude: null,
+      terminal: null,
     },
     params: '<text>',
-    implemented: false, // Needs agentic enhancement
+    implemented: false,
     hasTemplate: true,
     icon: 'Lightbulb',
     requiresInit: true,
     blockingRules: null,
-    features: [
-      'Risk assessment (low/medium/high)',
-      'Time estimation',
-      'Task breakdown',
-      'Optimal timing recommendation',
-      'ASCII decision tree',
-      'Interactive keep/discard',
-    ],
+    deprecated: true,
+    replacedBy: 'feature',
   },
 
   // 3. Strategic Roadmap
@@ -209,36 +227,41 @@ const COMMANDS = [
       terminal: 'prjct ship "user authentication"',
     },
     params: '<feature>',
-    implemented: false, // Needs Git integration
+    implemented: true, // Complete automated workflow
     hasTemplate: true,
     icon: 'Rocket',
     requiresInit: true,
     blockingRules: null,
     features: [
-      'Auto-generates commit message',
-      'Adds "Generated-by: prjct/cli" footer',
-      'Interactive push confirmation',
-      'Moves to shipped.md',
-      'Completion metadata tracking',
+      'Lint checks (non-blocking)',
+      'Run tests (non-blocking)',
+      'Update docs',
+      'Update version',
+      'Update CHANGELOG',
+      'Git commit + push',
+      'Recommend compact',
     ],
   },
 
   // ===== OPTIONAL COMMANDS (Advanced features) =====
+
+  // DEPRECATED: Workflow is now automatic in /p:ship
   {
     name: 'workflow',
-    category: 'optional',
-    description: 'Cascading agentic workflow for complex tasks',
+    category: 'deprecated',
+    description: '[DEPRECATED] Workflow is now automatic in /p:ship',
     usage: {
-      claude: '/p:workflow',
-      terminal: 'prjct workflow',
+      claude: null,
+      terminal: null,
     },
     params: null,
-    implemented: true,
+    implemented: false,
     hasTemplate: true,
     icon: 'GitBranch',
     requiresInit: true,
     blockingRules: null,
-    isOptional: true,
+    deprecated: true,
+    replacedBy: 'ship',
   },
   {
     name: 'design',

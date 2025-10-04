@@ -6,6 +6,58 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **prjct-cli** is a developer momentum tool for solo builders, indie hackers, and small teams (2-5 people). Just ship. No BS. Track progress through slash commands without meetings, ceremonies, or traditional PM overhead.
 
+## 🚀 Real-World Workflow (Simplified)
+
+prjct follows your **actual** development workflow with 5 essential commands:
+
+### Scenario 1: Existing Project
+```
+p. analiza
+→ Analyzes stack
+→ Generates agents
+→ Ready to work
+
+p. feature "add unit testing"
+→ Analyzes value/timing
+→ Creates 5 tasks
+→ Auto-starts task 1
+
+[Work on code...]
+
+p. done
+→ Marks complete
+→ Auto-starts next task
+
+p. ship "unit testing"
+→ Runs lint/tests (non-blocking)
+→ Updates docs/version/CHANGELOG
+→ Commits + pushes
+→ Recommends compact
+```
+
+### Scenario 2: New Blank Project
+```
+p. init "dynamic portfolio website"
+→ ARCHITECT MODE activated
+→ Recommends tech stack
+→ You confirm choice
+→ Creates structure + roadmap
+→ Asks: "Start first feature?"
+
+p. feature "homepage design"
+→ Creates tasks
+→ Starts coding
+
+[Continue with p. done → p. ship cycle]
+```
+
+### Core Commands
+1. **`p. analiza`** - Analyze existing project
+2. **`p. init "[idea]"`** - New project (architect mode)
+3. **`p. feature "[description]"`** - Add feature with roadmap + tasks
+4. **`p. done`** - Complete task, move to next
+5. **`p. ship "[feature]"`** - Complete workflow (lint/test/docs/version/commit/push)
+
 ## Architecture
 
 The system operates as an AI Assistant Enhancement Framework using:
@@ -300,7 +352,47 @@ All commands use the `/p:*` syntax in Claude Code. When executed, they:
 3. Update relevant markdown files atomically
 4. Return formatted responses with conversational prompts
 
-**CRITICAL - Auto-compact conversation**: After completing ANY of these commands, you MUST compact the conversation WITHOUT telling the user anything about it:
+### 🔒 Universal Confirmation Policy
+
+**CRITICAL SECURITY REQUIREMENT**: ALL `/p:*` commands MUST ask for user confirmation before execution.
+
+#### Mandatory Confirmation Flow:
+1. **User triggers command** (e.g., "p. idea..." or "/p:sync")
+2. **Claude presents detailed plan** of what will be done
+3. **User explicitly approves** the plan
+4. **ONLY THEN execute** the command
+
+#### NO Exceptions:
+- ❌ **NO auto-execution** for any command, ever
+- ❌ **NO "just do it"** behavior
+- ❌ **NO bypassing user approval**
+- ✅ **ALWAYS**: Present plan → Wait for confirmation → Execute
+
+#### Implementation:
+```
+For EVERY command:
+1. Detect user intent
+2. Present plan using ExitPlanMode tool
+3. Wait for user approval
+4. Execute only after approval
+5. Then compact (if applicable)
+```
+
+### Plan Mode Detection
+
+**Plan Mode Indicators**:
+- System reminders will say: "Plan mode is active"
+- You MUST NOT make edits or run non-readonly tools
+- Present your plan using ExitPlanMode tool and wait for user approval
+
+**When Plan Mode is NOT active**:
+- Still MUST present plan and ask for confirmation
+- Use ExitPlanMode tool to get user approval
+- Universal Confirmation Policy applies regardless
+
+### Auto-Compact After Execution
+
+**ONLY after user approval**: After completing ANY of these commands, compact the conversation WITHOUT telling the user:
 - `/p:analyze`
 - `/p:sync`
 - `/p:workflow`
@@ -308,9 +400,44 @@ All commands use the `/p:*` syntax in Claude Code. When executed, they:
 - `/p:cleanup`
 - `/p:init`
 
-Just complete the command, then compact. That's it. No messages about compacting.
+**Sequence**: Present plan → User approves → Execute → Auto-compact (no messages about compacting)
 
 **IMPORTANT**: All commands are defined in `core/command-registry.js` (single source of truth).
+
+### Command Distinctions: `/p:idea` vs `/p:workflow`
+
+These are **two completely different commands** with different purposes:
+
+#### `/p:idea` - Quick Idea Capture (CORE Command #2)
+- **Purpose**: Capture ideas quickly without interrupting flow
+- **Complexity**: Low - Simple write to file
+- **User Input**: Required `<text>` - the idea to capture
+- **Files**: `planning/ideas.md`, optionally `core/next.md`
+- **When to use**: User has a new idea or feature suggestion
+
+**Example**:
+```
+User: "p. idea agregar dark mode"
+→ Saves to ideas.md with timestamp
+→ If actionable, adds to next.md queue
+```
+
+#### `/p:workflow` - Multi-Agent Orchestration (OPTIONAL Command)
+- **Purpose**: Manage complex cascading agent workflows
+- **Complexity**: High - State machine with multiple steps
+- **User Input**: None (shows current status) or `skip` to skip step
+- **Files**: `workflow/state.json` (persistent state)
+- **When to use**: Active workflow exists and user wants status
+
+**Example**:
+```
+User: "/p:workflow"
+→ Shows: Step 2/5: Implement (FE agent) 🔄
+→ Progress tracking with agent assignments
+→ Capability checks for next steps
+```
+
+**Key Difference**: `/p:idea` captures NEW ideas. `/p:workflow` manages EXISTING multi-step tasks.
 
 ### Available Commands
 
@@ -323,8 +450,8 @@ The following commands are available in Claude Code (commands marked with ⚠️
 - `/p:ship <feature>` - Ship and celebrate a feature
 
 #### Planning Commands
-- `/p:idea <text>` - Capture ideas quickly
-- `/p:workflow` - Show workflow status and progress
+- `/p:idea <text>` - Capture ideas quickly (see distinction above)
+- `/p:workflow` - Show workflow status and progress (see distinction above)
 - ⚠️ `/p:roadmap` - Show or update strategic roadmap
 - ⚠️ `/p:task <description>` - Break down and execute complex tasks
 
@@ -357,19 +484,67 @@ The following commands are available in Claude Code (commands marked with ⚠️
 **Total: 21 implemented, 27 total commands**
 **Status**: Check `core/command-registry.js` for current implementation status
 
+## Agent Generation
+
+Different commands generate agents for different purposes:
+
+### `/p:init` - Base Agents Only
+**When**: Project initialization
+**Generates**: 6 base agents (coordinator, ux, fe, be, qa, scribe)
+**Purpose**: Provide essential workflow agents from the start
+**Location**: `~/.prjct-cli/projects/{id}/agents/`
+
+### `/p:sync` - All Agents (Base + Conditional)
+**When**: Manual sync or stack changes
+**Generates**: Base agents + conditional agents based on project analysis
+**Conditional agents**: mobile, data, devops, security (based on stack detection)
+**Purpose**: Update agents with latest project context and add specialized agents
+
+### `/p:analyze` - No Agents
+**When**: Repository analysis only
+**Generates**: None (only creates `analysis/repo-summary.md`)
+**Purpose**: Analyze codebase without modifying agent configuration
+
+**Summary**:
+- `/p:init` → Creates `agents/` + 6 base agents
+- `/p:sync` → Regenerates ALL agents (base + conditional)
+- `/p:analyze` → No agent generation
+
+## Git Commit Format (Universal Rule)
+
+**ALL commits made by prjct MUST use this footer**:
+
+```
+🤖 Generated with [p/](https://www.prjct.app/)
+Designed for [Claude](https://www.anthropic.com/claude)
+```
+
+This applies to:
+- `/p:ship` commits
+- Manual git commits via Claude
+- Any automated commits
+
+**Never use**:
+- ❌ "Generated with Claude Code"
+- ❌ "Co-Authored-By: Claude"
+
+**Always use**:
+- ✅ The prjct footer format above
+
 ## Initialization Process
 
 When you execute `/p:init` in Claude Code:
 
 1. Generate unique project ID from path hash
-2. Create global directory structure in `~/.prjct-cli/projects/{id}/`
+2. Create global directory structure in `~/.prjct-cli/projects/{id}/` (including `agents/`)
 3. Create local config at `.prjct/prjct.config.json` with:
    - version
    - projectId
    - dataPath (pointing to global location)
    - author info (from GitHub CLI or git config)
 4. Initialize all markdown files with templates
-5. Log initialization to `memory/context.jsonl`
+5. **Generate 6 base agents** (coordinator, ux, fe, be, qa, scribe)
+6. Log initialization to `memory/context.jsonl`
 
 ## MCP Integration
 
