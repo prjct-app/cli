@@ -1,150 +1,132 @@
-#!/usr/bin/env node
+import { describe, it, expect, beforeEach } from 'vitest'
+import agentDetector from '../core/infrastructure/agent-detector.js'
 
 /**
- * Test script for Claude agent detection system
+ * Test suite for Claude agent detection system
  * 100% Claude-focused architecture
  *
- * Run: node tests/agent-detection.test.js
- *
- * @version 0.5.0
+ * @version 0.7.0
  */
 
-const agentDetector = require('../core/infrastructure/agent-detector')
+describe('Agent Detection System', () => {
+  beforeEach(() => {
+    agentDetector.reset()
+  })
 
-async function testClaudeDetection() {
-  console.log('🧪 Testing prjct-cli Claude Detection System\n')
-  console.log('='.repeat(50))
+  describe('Auto-Detection', () => {
+    it('should detect an agent', async () => {
+      const detected = await agentDetector.detect()
 
-  // Test 1: Auto-detection
-  console.log('\n📍 Test 1: Auto-Detection')
-  console.log('-'.repeat(30))
+      expect(detected).toBeDefined()
+      expect(detected.name).toBeDefined()
+      expect(detected.type).toBeDefined()
+      expect(detected.config).toBeDefined()
+      expect(detected.capabilities).toBeDefined()
+    })
 
-  const detected = await agentDetector.detect()
-  console.log(`✅ Detected Agent: ${detected.name}`)
-  console.log(`   Type: ${detected.type}`)
-  console.log(`   Command Prefix: ${detected.config.commandPrefix}`)
-  console.log('   Capabilities:')
-  console.log(`   - MCP: ${detected.capabilities.mcp}`)
-  console.log(`   - Markdown: ${detected.capabilities.markdown}`)
-  console.log(`   - Colors: ${detected.capabilities.colors}`)
-  console.log(`   - Interactive: ${detected.capabilities.interactive}`)
-  console.log(`   - Agents: ${detected.capabilities.agents}`)
+    it('should have valid capabilities', async () => {
+      const detected = await agentDetector.detect()
 
-  // Test 2: Claude environment checks
-  console.log('\n📍 Test 2: Claude Environment Checks')
-  console.log('-'.repeat(30))
+      expect(detected.capabilities).toHaveProperty('mcp')
+      expect(detected.capabilities).toHaveProperty('markdown')
+      expect(detected.capabilities).toHaveProperty('colors')
+      expect(detected.capabilities).toHaveProperty('interactive')
+      expect(detected.capabilities).toHaveProperty('agents')
+    })
 
-  const isClaude = agentDetector.isClaudeEnvironment()
-  console.log(`\n✅ Is Claude Environment: ${isClaude}`)
+    it('should have valid config', async () => {
+      const detected = await agentDetector.detect()
 
-  if (isClaude) {
-    console.log('   Detection Signals:')
-    console.log(`   - CLAUDE_AGENT env: ${!!process.env.CLAUDE_AGENT}`)
-    console.log(`   - MCP available: ${!!global.mcp || !!process.env.MCP_AVAILABLE}`)
-    console.log(
-      `   - .claude directory: ${require('fs').existsSync(require('path').join(require('os').homedir(), '.claude'))}`
-    )
-  }
+      expect(detected.config).toHaveProperty('commandPrefix')
+      expect(detected.config).toHaveProperty('responseStyle')
+    })
+  })
 
-  // Test 3: Force Claude agent
-  console.log('\n📍 Test 3: Force Claude Agent')
-  console.log('-'.repeat(30))
+  describe('Claude Environment Detection', () => {
+    it('should detect Claude environment', () => {
+      const isClaude = agentDetector.isClaudeEnvironment()
+      expect(typeof isClaude).toBe('boolean')
+    })
 
-  agentDetector.reset()
-  const claude = agentDetector.setAgent('claude')
-  console.log('\n✅ Claude Code + Desktop:')
-  console.log(`   Response Style: ${claude.config.responseStyle}`)
-  console.log(`   Has MCP: ${claude.capabilities.mcp}`)
-  console.log(`   Config File: ${claude.config.configFile}`)
-  console.log(`   Commands Dir: ${claude.config.commandsDir}`)
-  console.log(`   Agents Dir: ${claude.config.agentsDir}`)
+    it('should have detection methods', () => {
+      expect(typeof agentDetector.isClaude).toBe('function')
+      expect(typeof agentDetector.isTerminal).toBe('function')
+    })
+  })
 
-  // Test 4: Terminal fallback
-  console.log('\n📍 Test 4: Terminal Fallback')
-  console.log('-'.repeat(30))
+  describe('Force Agent Selection', () => {
+    it('should allow setting Claude agent', () => {
+      const claude = agentDetector.setAgent('claude')
 
-  agentDetector.reset()
-  const terminal = agentDetector.setAgent('terminal')
-  console.log('\n✅ Terminal/CLI (Fallback):')
-  console.log(`   Response Style: ${terminal.config.responseStyle}`)
-  console.log(`   Colors: ${terminal.capabilities.colors}`)
-  console.log(`   Command Prefix: ${terminal.config.commandPrefix}`)
-  console.log(`   Agents Support: ${terminal.capabilities.agents}`)
+      expect(claude).toBeDefined()
+      expect(claude.type).toBe('claude')
+      expect(claude.capabilities.mcp).toBe(true)
+      expect(claude.config.responseStyle).toBe('rich')
+    })
 
-  // Test 5: Environment variable detection
-  console.log('\n📍 Test 5: Environment Variable Detection')
-  console.log('-'.repeat(30))
+    it('should allow setting terminal agent', () => {
+      const terminal = agentDetector.setAgent('terminal')
 
-  // Simulate Claude environment
-  process.env.CLAUDE_AGENT = 'true'
-  agentDetector.reset()
-  const envClaude = await agentDetector.detect()
-  console.log('\n✅ With CLAUDE_AGENT=true:')
-  console.log(`   Detected: ${envClaude.name}`)
-  console.log(`   Type: ${envClaude.type}`)
-  delete process.env.CLAUDE_AGENT
+      expect(terminal).toBeDefined()
+      expect(terminal.type).toBe('terminal')
+      expect(terminal.capabilities.agents).toBe(false)
+      expect(terminal.config.commandPrefix).toBe('prjct')
+    })
+  })
 
-  // Simulate MCP environment
-  process.env.MCP_AVAILABLE = 'true'
-  agentDetector.reset()
-  const mcpClaude = await agentDetector.detect()
-  console.log('\n✅ With MCP_AVAILABLE=true:')
-  console.log(`   Detected: ${mcpClaude.name}`)
-  console.log(`   Has MCP: ${mcpClaude.capabilities.mcp}`)
-  delete process.env.MCP_AVAILABLE
+  describe('Environment Variable Detection', () => {
+    it('should detect CLAUDE_AGENT env variable', async () => {
+      process.env.CLAUDE_AGENT = 'true'
+      agentDetector.reset()
 
-  // Test 6: Claude agent adapter
-  console.log('\n📍 Test 6: Claude Agent Adapter')
-  console.log('-'.repeat(30))
+      const detected = await agentDetector.detect()
+      expect(detected.type).toBe('claude')
 
-  try {
-    const ClaudeAgent = require('../core/infrastructure/agents/claude-agent')
-    const claudeAdapter = new ClaudeAgent()
+      delete process.env.CLAUDE_AGENT
+    })
 
-    console.log('\n✅ Claude Adapter:')
-    console.log(`   Success: ${claudeAdapter.formatResponse('Feature shipped!', 'success')}`)
-    console.log(`   Error: ${claudeAdapter.formatResponse('Build failed', 'error')}`)
-    console.log(`   Info: ${claudeAdapter.formatResponse('Processing...', 'info')}`)
-  } catch (error) {
-    console.error('❌ Error loading Claude adapter:', error.message)
-  }
+    it('should detect MCP_AVAILABLE env variable', async () => {
+      process.env.MCP_AVAILABLE = 'true'
+      agentDetector.reset()
 
-  // Test 7: Commands integration
-  console.log('\n📍 Test 7: Commands Integration')
-  console.log('-'.repeat(30))
+      const detected = await agentDetector.detect()
+      expect(detected.capabilities.mcp).toBe(true)
 
-  try {
-    const commands = require('../core/commands')
+      delete process.env.MCP_AVAILABLE
+    })
+  })
 
-    // This will trigger agent detection
-    await commands.initializeAgent()
+  describe('Helper Methods', () => {
+    it('should provide isClaude() helper', async () => {
+      await agentDetector.detect()
+      const result = agentDetector.isClaude()
+      expect(typeof result).toBe('boolean')
+    })
 
-    console.log('✅ Commands module initialized with Claude detection')
-    console.log(`   Agent: ${commands.agentInfo ? commands.agentInfo.name : 'Not detected'}`)
-    console.log(`   Agent Type: ${commands.agentInfo ? commands.agentInfo.type : 'N/A'}`)
-  } catch (error) {
-    console.error('❌ Error in commands integration:', error.message)
-  }
+    it('should provide isTerminal() helper', async () => {
+      await agentDetector.detect()
+      const result = agentDetector.isTerminal()
+      expect(typeof result).toBe('boolean')
+    })
 
-  // Test 8: isClaude() and isTerminal() helpers
-  console.log('\n📍 Test 8: Helper Methods')
-  console.log('-'.repeat(30))
+    it('should have opposite results for isClaude and isTerminal', async () => {
+      await agentDetector.detect()
+      const isClaude = agentDetector.isClaude()
+      const isTerminal = agentDetector.isTerminal()
 
-  agentDetector.reset()
-  await agentDetector.detect()
+      // Either Claude OR Terminal, not both
+      expect(isClaude !== isTerminal).toBe(true)
+    })
+  })
 
-  console.log(`\n✅ isClaude(): ${agentDetector.isClaude()}`)
-  console.log(`   isTerminal(): ${agentDetector.isTerminal()}`)
+  describe('Reset Functionality', () => {
+    it('should reset agent detection', async () => {
+      await agentDetector.detect()
+      agentDetector.reset()
 
-  console.log('\n' + '='.repeat(50))
-  console.log('✅ Claude Detection Tests Complete!')
-  console.log('\nTo test with different environments:')
-  console.log('  export CLAUDE_AGENT=true      # Force Claude detection')
-  console.log('  export MCP_AVAILABLE=true     # Simulate MCP environment')
-  console.log('  export ANTHROPIC_CLAUDE=true  # Alternative Claude detection')
-  console.log('  (no export)                   # Terminal/CLI fallback')
-  console.log('\n🚀 Built for Claude - Ship fast, no BS')
-}
-
-// Run tests
-testClaudeDetection().catch(console.error)
+      // After reset, detecting again should work
+      const detected = await agentDetector.detect()
+      expect(detected).toBeDefined()
+    })
+  })
+})
