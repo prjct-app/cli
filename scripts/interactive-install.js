@@ -10,7 +10,7 @@
  */
 
 const prompts = require('prompts')
-const installer = require('../core/command-installer')
+const installer = require('../core/infrastructure/command-installer')
 
 async function main() {
   try {
@@ -63,7 +63,7 @@ async function main() {
       console.log(`  ${result.path}`)
       console.log('')
       console.log('Commands installed:')
-      result.installed.forEach(cmd => {
+      result.installed.forEach((cmd) => {
         console.log(`  • /p:${cmd}`)
       })
       console.log('')

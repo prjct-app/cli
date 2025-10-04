@@ -18,11 +18,11 @@ export const DateSection = ({ id, date, releaseCount, children }: DateSectionPro
       className="mb-20"
     >
       {/* Date Header */}
-      <div className="sticky top-4 z-10 mb-8 pb-4 bg-background/95 backdrop-blur-sm border-b border-border">
+      <div className="sticky top-4 z-10 mb-8 border-b border-border bg-background/95 pb-4 backdrop-blur-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
-              <Calendar className="w-5 h-5 text-primary" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/20">
+              <Calendar className="h-5 w-5 text-primary" />
             </div>
             <div>
               <h2 className="text-2xl font-bold">{date}</h2>
@@ -35,9 +35,7 @@ export const DateSection = ({ id, date, releaseCount, children }: DateSectionPro
       </div>
 
       {/* Versions for this date */}
-      <div className="space-y-16">
-        {children}
-      </div>
+      <div className="space-y-16">{children}</div>
     </motion.section>
   )
 }

@@ -1,7 +1,9 @@
 # Installation Path Fix Documentation
 
 ## Issue
+
 Users reported the following error during installation:
+
 ```
 [3/5] Running setup
   ▸ Installing componentschmod: setup.sh: No such file or directory
@@ -12,9 +14,11 @@ Users reported the following error during installation:
 The installation process had two path-related issues:
 
 ### Issue 1: Incorrect reference in install.sh
+
 The `install.sh` script (in both `scripts/` and `docs/` directories) was trying to execute `./setup.sh` from the installation directory root, but the file is actually located at `scripts/setup.sh`.
 
 **Before:**
+
 ```bash
 cd "$INSTALL_DIR"  # Changes to ~/.prjct-cli
 
@@ -24,9 +28,11 @@ chmod +x setup.sh        # ❌ Looking for setup.sh in current directory
 ```
 
 ### Issue 2: Incorrect SCRIPT_DIR in setup.sh
+
 The `scripts/setup.sh` file was setting `SCRIPT_DIR` to point to the `scripts/` directory itself, but then trying to access files that are in the project root (like `package.json`, `core/`, `bin/`).
 
 **Before:**
+
 ```bash
 # Get script directory
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -39,6 +45,7 @@ npm install       # ❌ But package.json is in parent directory!
 ## Solution
 
 ### Fix 1: Update install.sh path references
+
 Changed both `scripts/install.sh` and `docs/install.sh` to reference the correct path:
 
 ```bash
@@ -50,6 +57,7 @@ chmod +x scripts/setup.sh        # ✅ Correct path
 ```
 
 ### Fix 2: Update SCRIPT_DIR in setup.sh
+
 Changed `scripts/setup.sh` to set `SCRIPT_DIR` to the project root (parent of scripts/):
 
 ```bash
@@ -88,6 +96,7 @@ A comprehensive verification script has been added at `tests/verify-install-path
 7. ✅ Both install.sh files remain identical
 
 Run the test:
+
 ```bash
 ./tests/verify-install-paths.sh
 ```
@@ -95,6 +104,7 @@ Run the test:
 ## Impact
 
 This fix resolves the installation failure that users experienced. The installation will now:
+
 1. Successfully find and execute `scripts/setup.sh`
 2. Correctly identify the project root directory
 3. Access all required resources (package.json, core/, bin/, etc.)

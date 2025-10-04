@@ -1,15 +1,17 @@
 ---
 allowed-tools: [Read, Write]
-description: "Start task with agent assignment"
+description: 'Start task with agent assignment'
 ---
 
 # /p:build
 
 ## Validation
+
 - Blocks if: `core/now.md` has active task
 - Error: "Complete current task first. Use /p:done"
 
 ## Flow
+
 1. Parse: task desc OR queue # (1-5)
 2. Detect: `TaskSchema.detectAgent(task)` + complexity
 3. Get: GitHub dev from `git config user.name` + remote
@@ -17,6 +19,7 @@ description: "Start task with agent assignment"
 5. Write: `core/now.md` with frontmatter
 
 ## Frontmatter
+
 ```yaml
 ---
 id: task-{timestamp}
@@ -30,6 +33,7 @@ started: {iso_timestamp}
 ```
 
 ## Response
+
 ```
 🎯 {task}
 {agent_icon} {agent_name}
@@ -38,4 +42,3 @@ Complexity: {level}
 
 /p:done when finished
 ```
-

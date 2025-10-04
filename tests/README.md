@@ -22,12 +22,14 @@ tests/
 Script to test prjct-cli commands locally without full installation.
 
 **Usage:**
+
 ```bash
 # From project root
 node tests/test-local.js [command] [arguments]
 ```
 
 **Examples:**
+
 ```bash
 node tests/test-local.js recap
 node tests/test-local.js now "My test task"
@@ -36,6 +38,7 @@ node tests/test-local.js next
 ```
 
 **Features:**
+
 - Mocks terminal agent for testing
 - Executes commands directly without installation
 - Simplified output for debugging
@@ -46,11 +49,13 @@ node tests/test-local.js next
 ### fixtures/package.bak.json
 
 Test package.json used for:
+
 - Testing stack detection (React, Jest, etc.)
 - Verifying capability recommendations
 - Testing interactive workflow system
 
 **Usage in tests:**
+
 ```javascript
 const testPackage = require('./fixtures/package.bak.json')
 // Use for stack detection mocking
@@ -59,21 +64,25 @@ const testPackage = require('./fixtures/package.bak.json')
 ## Running Tests
 
 ### Unit Tests
+
 ```bash
 npm test
 ```
 
 ### Agent Detection Tests
+
 ```bash
 node tests/agent-detection.test.js
 ```
 
 ### Installation Verification
+
 ```bash
 ./tests/verify-install-paths.sh
 ```
 
 ### Local Command Testing
+
 ```bash
 node tests/test-local.js [command]
 ```
@@ -88,6 +97,7 @@ node tests/test-local.js [command]
 ## Test Coverage
 
 Current test coverage includes:
+
 - ✅ Agent detection (Claude Code, Cursor, Windsurf, etc.)
 - ✅ Installation path verification
 - ✅ Local command execution

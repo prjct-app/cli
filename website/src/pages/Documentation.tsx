@@ -131,7 +131,7 @@ export const Documentation = () => {
             <div>
               <h3 className="mb-3 text-xl font-semibold">4. Start shipping</h3>
               <div className="rounded-lg bg-black p-4 font-mono text-sm">
-                <span className="text-cat-teal">/p:now</span> "build awesome feature"
+                <span className="text-cat-teal">/p:feature</span> "build awesome feature"
               </div>
               <p className="mt-2 text-sm text-muted-foreground">
                 Or just say: "p. I want to build an awesome feature"

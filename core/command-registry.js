@@ -20,20 +20,21 @@ const COMMANDS = [
     category: 'core',
     description: 'Deep project analysis and initialization',
     usage: {
-      claude: '/p:init',
-      terminal: 'prjct init',
+      claude: '/p:init "[idea]"',
+      terminal: 'prjct init "[idea]"',
     },
-    params: null,
+    params: '[idea]',
     implemented: true,
     hasTemplate: true,
     icon: 'Zap',
     requiresInit: false,
     blockingRules: null,
     features: [
-      'Analyzes codebase structure',
-      'Reviews docs and GitHub',
-      'Generates project summary',
-      'Creates initial roadmap',
+      'Architect mode for blank projects',
+      'Auto tech stack recommendation',
+      'Project structure generation',
+      'Initial roadmap creation',
+      'Analyzes existing codebases',
     ],
   },
 
@@ -55,7 +56,7 @@ const COMMANDS = [
     features: [
       'Value analysis (impact/effort/timing)',
       'Auto roadmap generation',
-      'Task breakdown (max 5)',
+      'Task breakdown',
       'Auto-start first task',
       'Timing recommendations',
     ],
@@ -240,6 +241,52 @@ const COMMANDS = [
       'Update CHANGELOG',
       'Git commit + push',
       'Recommend compact',
+    ],
+  },
+
+  // 10. Bug Tracking
+  {
+    name: 'bug',
+    category: 'core',
+    description: 'Report and track bugs with priority',
+    usage: {
+      claude: '/p:bug "login button not working"',
+      terminal: 'prjct bug "login button not working"',
+    },
+    params: '<description>',
+    implemented: true,
+    hasTemplate: true,
+    icon: 'Bug',
+    requiresInit: true,
+    blockingRules: null,
+    features: [
+      'Auto-detect severity (critical/high/medium/low)',
+      'Priority placement in next.md',
+      'Bug tracking in memory',
+      'Quick bug resolution workflow',
+    ],
+  },
+
+  // 11. Architect Execute
+  {
+    name: 'architect',
+    category: 'core',
+    description: 'Execute architect plan and generate code',
+    usage: {
+      claude: '/p:architect execute',
+      terminal: 'prjct architect execute',
+    },
+    params: 'execute',
+    implemented: true,
+    hasTemplate: false,
+    icon: 'Hammer',
+    requiresInit: true,
+    blockingRules: null,
+    features: [
+      'Reads architect-session.md plan',
+      'Generates code structure',
+      'Uses Context7 for documentation',
+      'Language-agnostic implementation',
     ],
   },
 
@@ -482,7 +529,7 @@ const registry = {
     const notImplemented = COMMANDS.filter((c) => c.hasTemplate && !c.implemented)
     if (notImplemented.length > 0) {
       issues.push(
-        `Commands with templates but not implemented: ${notImplemented.map((c) => c.name).join(', ')}`,
+        `Commands with templates but not implemented: ${notImplemented.map((c) => c.name).join(', ')}`
       )
     }
 
@@ -491,7 +538,7 @@ const registry = {
     const invalidCategories = COMMANDS.filter((c) => !validCategories.includes(c.category))
     if (invalidCategories.length > 0) {
       issues.push(
-        `Invalid categories: ${invalidCategories.map((c) => `${c.name}:${c.category}`).join(', ')}`,
+        `Invalid categories: ${invalidCategories.map((c) => `${c.name}:${c.category}`).join(', ')}`
       )
     }
 
@@ -518,35 +565,9 @@ const registry = {
 
   /**
    * Get commands with blocking rules
+   * NOTE: Blocking rules are now handled by Claude reading templates, not deterministic code
    */
   getWithBlockingRules: () => COMMANDS.filter((c) => c.blockingRules !== null),
-
-  /**
-   * Check if command can execute based on blocking rules
-   */
-  canExecute: (commandName, context = {}) => {
-    const command = COMMANDS.find((c) => c.name === commandName)
-    if (!command) return { allowed: false, message: 'Command not found' }
-    if (!command.blockingRules) return { allowed: true }
-
-    // Example context checks - should be implemented per command
-    const { hasActiveTask, hasContent } = context
-
-    if (commandName === 'build' && hasActiveTask) {
-      return { allowed: false, message: command.blockingRules.message }
-    }
-    if (commandName === 'done' && !hasContent) {
-      return { allowed: false, message: command.blockingRules.message }
-    }
-    if (commandName === 'next' && hasActiveTask) {
-      return {
-        allowed: true,
-        warning: 'You have an active task. Complete it with /p:done first.',
-      }
-    }
-
-    return { allowed: true }
-  },
 
   /**
    * Get statistics
@@ -568,7 +589,7 @@ const registry = {
         ...acc,
         [cat]: COMMANDS.filter((c) => c.category === cat).length,
       }),
-      {},
+      {}
     ),
   }),
 }

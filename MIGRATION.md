@@ -1,6 +1,7 @@
 # Migration Guide
 
 Jump to your migration path:
+
 - [**v0.4.x → v0.5.0** (Upgrading to Build for Claude)](#upgrading-to-build-for-claude-v050) 🆕
 - [v0.1.0 → v0.2.1 (Data Architecture Change)](#v010--v021-data-architecture-change)
 
@@ -47,6 +48,7 @@ npm update -g prjct-cli
 ```
 
 Your existing `.prjct/` data is fully compatible. Nothing changes for you except **better features**:
+
 - 🤖 Dynamic AI agents (PM, Frontend, Backend, UX, QA, Scribe, Security, DevOps, Mobile, Data)
 - 🔗 Native MCP integration (Context7, Sequential, Magic, Playwright)
 - ✅ Git validation (last commit as source of truth)
@@ -65,11 +67,13 @@ Claude Code is **free** and works exactly like Cursor:
    - Download and install (100% free)
 
 2. **Update prjct-cli**
+
    ```bash
    npm update -g prjct-cli
    ```
 
 3. **Install commands**
+
    ```bash
    prjct install
    # Detects Claude automatically, installs /p:* commands
@@ -81,6 +85,7 @@ Claude Code is **free** and works exactly like Cursor:
    - **PLUS**: AI agents, MCP, git validation, natural language
 
 **Why Switch?**
+
 - Claude Code is **free** (no paid tier needed)
 - Better AI (latest Claude 3.5 Sonnet)
 - prjct-cli features designed specifically for Claude
@@ -95,6 +100,7 @@ npm install -g prjct-cli@0.4.10
 ```
 
 **⚠️ Downsides:**
+
 - ❌ No new features
 - ❌ No bug fixes
 - ❌ No security updates
@@ -166,6 +172,7 @@ Talk naturally instead of memorizing commands (English + Spanish):
 If you're building on top of prjct-cli:
 
 **`command-installer.js`**
+
 ```javascript
 // ❌ Old (v0.4.x)
 installer.detectEditors() // Multi-editor
@@ -177,6 +184,7 @@ installer.installCommands() // Claude-only
 ```
 
 **`agent-detector.js`**
+
 ```javascript
 // ❌ Old (v0.4.x)
 detector.setAgent('codex')
@@ -216,6 +224,7 @@ Give Claude Code a try - you might prefer it. And if not, you can stay on v0.4.1
 **No.** This was a deliberate architectural decision, not temporary.
 
 By focusing 100% on Claude:
+
 - ⚡ Ship features 2x faster (50% less code)
 - 🎯 Build deeper integrations (MCP, agents, git validation)
 - 💯 Deliver better quality (proper testing)
@@ -258,6 +267,7 @@ However, you're welcome to **fork v0.4.10** and maintain multi-editor support yo
 ## ⚠️ IMPORTANT: Zero Data Loss Guarantee
 
 **This is a RELOCATION, not a deletion**:
+
 - ✅ **ALL your data is preserved** - Every file, every log entry, every timestamp
 - ✅ **Complete history maintained** - Nothing is lost or modified
 - ✅ **Reversible process** - Can rollback if needed (`.prjct/` kept by default)
@@ -268,6 +278,7 @@ However, you're welcome to **fork v0.4.10** and maintain multi-editor support yo
 ## What Changed?
 
 ### Before (v0.1.0)
+
 ```
 your-project/
 ├── .prjct/
@@ -281,6 +292,7 @@ your-project/
 ```
 
 ### After (v0.2.1)
+
 ```
 your-project/
 ├── .prjct/
@@ -316,12 +328,15 @@ your-project/
 ## Why This Change?
 
 ### 1. 🚫 No Bundle Size Inflation
+
 Your project data no longer bloats your repository. Keep your repos lean and fast.
 
 ### 2. 🔒 Privacy & Security
+
 Work logs, personal notes, and progress tracking stay on YOUR machine. Never accidentally commit sensitive workflow data.
 
 ### 3. 🤝 Collaboration-Ready (Non-Intrusive)
+
 **Designed for team collaboration WITHOUT exposing personal data**:
 
 - **What gets shared** (via git): `prjct.config.json` - Just project metadata
@@ -334,6 +349,7 @@ Work logs, personal notes, and progress tracking stay on YOUR machine. Never acc
   - Personal productivity patterns
 
 **Example Team Workflow**:
+
 ```bash
 # Alice commits prjct.config.json
 git add .prjct/prjct.config.json
@@ -350,13 +366,17 @@ git pull
 ```
 
 ### 4. 📊 Author Tracking
+
 Every operation logs who did it (via GitHub username or git config). Prepares for future multi-user features while keeping data local.
 
 ### 5. 🗂️ Better Organization
+
 Layered structure (core, progress, planning, analysis, memory) makes data management cleaner and more scalable.
 
 ### 6. 🤖 Multi-Editor Support (v0.2.1+)
+
 Commands are now automatically installed across multiple AI editors:
+
 - **Claude Code** (`~/.claude/commands/p/`)
 - **Cursor AI** (`~/.cursor/commands/p/`)
 - **Codeium** (`~/.codeium/commands/p/`)
@@ -444,6 +464,7 @@ prjct install --dry-run            # See what would be installed
 ✅ **File structure** - Directory hierarchy and organization maintained
 
 **🔒 Migration Validation**:
+
 - Automatic file count verification (source vs destination)
 - Content integrity checks
 - Structure validation
@@ -487,6 +508,7 @@ After migration, you'll have a new file in your project root:
 ```
 
 **Fields**:
+
 - `projectId`: Unique identifier (hash of project path)
 - `dataPath`: Where your data is stored globally
 - `author`: Detected from GitHub CLI or git config
@@ -527,6 +549,7 @@ git config --global github.user "yourusername"
 ### What To Do
 
 1. **Verify Migration (Critical Step)**:
+
    ```bash
    /p:recap    # Should show ALL your shipped features and current task
    /p:next     # Should show your queued tasks
@@ -544,6 +567,7 @@ git config --global github.user "yourusername"
 2. **Configure Git (Important for Collaboration)**:
 
    **For Team Projects (Recommended)**:
+
    ```bash
    # COMMIT .prjct/prjct.config.json for collaboration
    git add .prjct/prjct.config.json
@@ -555,6 +579,7 @@ git config --global github.user "yourusername"
    ```
 
    **For Personal Projects**:
+
    ```bash
    # IGNORE .prjct/prjct.config.json to keep it private
    echo ".prjct/prjct.config.json" >> .gitignore
@@ -575,6 +600,7 @@ git config --global github.user "yourusername"
    - Your memory logs
 
 3. **Remove Legacy .prjct** (optional, only after verification):
+
    ```bash
    # ONLY do this after confirming ALL data is in new location
    # Verify first!
@@ -685,6 +711,7 @@ Yes! Each project gets its own unique ID based on its path. You can migrate all 
 ### What if I work on multiple machines?
 
 Currently, data is machine-local (`~/.prjct-cli/`). For multi-machine workflows:
+
 - Option 1: Use git to sync `prjct.config.json` (contains data location)
 - Option 2: Wait for future cloud sync features (planned)
 
@@ -695,6 +722,7 @@ Currently, data is machine-local (`~/.prjct-cli/`). For multi-machine workflows:
 The new architecture is specifically designed for **non-intrusive collaboration**:
 
 **How It Works**:
+
 1. Commit `.prjct/prjct.config.json` to git (just project metadata, no personal data)
 2. Each team member runs `/p:init` after pulling
 3. Everyone gets their own `~/.prjct-cli/projects/[id]/` with their author info
@@ -702,12 +730,14 @@ The new architecture is specifically designed for **non-intrusive collaboration*
 5. Optional future features could aggregate anonymous metrics
 
 **What This Enables**:
+
 - Team coordination without exposing individual work patterns
 - Author tracking for future collaboration features
 - Each developer maintains personal productivity tracking
 - No accidental exposure of sensitive workflow data
 
 **Perfect For**:
+
 - Open source projects (contributors track privately)
 - Remote teams (personal velocity stays private)
 - Consulting (client work tracking without exposure)

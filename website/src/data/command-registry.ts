@@ -8,7 +8,7 @@
  * - CLAUDE.md (AI assistant instructions)
  * - scripts/validate-commands.js (validation)
  *
- * @version 0.5.0
+ * @version 0.6.0 - Simplified workflow (5 core commands)
  */
 
 const COMMANDS = [
@@ -55,66 +55,27 @@ const COMMANDS = [
   {
     name: 'ship',
     category: 'work',
-    description: 'Ship and celebrate a feature',
+    description: 'Complete workflow: lint, test, docs, version, changelog, commit, push',
     usage: {
-      claude: '/p:ship "user authentication system"',
-      terminal: 'prjct ship "user authentication system"',
+      claude: '/p:ship "user authentication"',
+      terminal: 'prjct ship "user authentication"',
     },
     params: '<feature>',
     implemented: true,
     hasTemplate: true,
-    icon: 'Target',
+    icon: 'Rocket',
   },
 
-  // ===== PLANNING COMMANDS =====
+  // ===== CORE WORKFLOW COMMANDS =====
   {
-    name: 'idea',
-    category: 'planning',
-    description: 'Capture ideas quickly',
+    name: 'feature',
+    category: 'core',
+    description: 'Add feature with value analysis, roadmap, and task breakdown',
     usage: {
-      claude: '/p:idea "add dark mode"',
-      terminal: 'prjct idea "add dark mode"',
-    },
-    params: '<text>',
-    implemented: true,
-    hasTemplate: true,
-    icon: 'Lightbulb',
-  },
-  {
-    name: 'roadmap',
-    category: 'planning',
-    description: 'Show or update strategic roadmap',
-    usage: {
-      claude: '/p:roadmap',
-      terminal: 'prjct roadmap',
-    },
-    params: null,
-    implemented: false,
-    hasTemplate: true,
-    icon: 'Lightbulb',
-  },
-  {
-    name: 'task',
-    category: 'planning',
-    description: 'Break down and execute complex tasks',
-    usage: {
-      claude: '/p:task "implement authentication"',
-      terminal: 'prjct task "implement authentication"',
+      claude: '/p:feature "add unit testing"',
+      terminal: 'prjct feature "add unit testing"',
     },
     params: '<description>',
-    implemented: false,
-    hasTemplate: true,
-    icon: 'Lightbulb',
-  },
-  {
-    name: 'workflow',
-    category: 'planning',
-    description: 'Show workflow status and progress',
-    usage: {
-      claude: '/p:workflow',
-      terminal: 'prjct workflow',
-    },
-    params: null,
     implemented: true,
     hasTemplate: true,
     icon: 'Lightbulb',
@@ -208,15 +169,15 @@ const COMMANDS = [
   {
     name: 'init',
     category: 'help',
-    description: 'Initialize prjct in current project',
+    description: 'Initialize prjct (with architect mode for blank projects)',
     usage: {
-      claude: '/p:init',
-      terminal: 'prjct init',
+      claude: '/p:init "[idea]"',
+      terminal: 'prjct init "[idea]"',
     },
-    params: null,
+    params: '["idea"]',
     implemented: true,
     hasTemplate: true,
-    icon: 'HelpCircle',
+    icon: 'Zap',
   },
   {
     name: 'stuck',
@@ -365,10 +326,10 @@ const CATEGORIES = {
     icon: 'Target',
     description: 'Core workflow commands for task management',
   },
-  planning: {
-    title: 'Planning Commands',
+  core: {
+    title: 'Core Workflow',
     icon: 'Lightbulb',
-    description: 'Strategic planning and task organization',
+    description: 'Essential commands for the simplified workflow',
   },
   design: {
     title: 'Design & Architecture',
@@ -473,7 +434,7 @@ const registry = {
     const notImplemented = COMMANDS.filter((c) => c.hasTemplate && !c.implemented)
     if (notImplemented.length > 0) {
       issues.push(
-        `Commands with templates but not implemented: ${notImplemented.map((c) => c.name).join(', ')}`,
+        `Commands with templates but not implemented: ${notImplemented.map((c) => c.name).join(', ')}`
       )
     }
 
@@ -482,7 +443,7 @@ const registry = {
     const invalidCategories = COMMANDS.filter((c) => !validCategories.includes(c.category))
     if (invalidCategories.length > 0) {
       issues.push(
-        `Invalid categories: ${invalidCategories.map((c) => `${c.name}:${c.category}`).join(', ')}`,
+        `Invalid categories: ${invalidCategories.map((c) => `${c.name}:${c.category}`).join(', ')}`
       )
     }
 
@@ -507,7 +468,7 @@ const registry = {
         ...acc,
         [cat]: COMMANDS.filter((c) => c.category === cat).length,
       }),
-      {},
+      {}
     ),
   }),
 }

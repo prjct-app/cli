@@ -1,244 +1,350 @@
 import { motion } from 'framer-motion'
-import { GitBranch, GitCommit, GitPullRequest, Sparkles, CheckCircle } from 'lucide-react'
+import { GitBranch, GitCommit, Sparkles, CheckCircle, Rocket, Zap } from 'lucide-react'
 import { BackToDocsButton } from '../../components/BackToDocsButton'
 
 export const GitIntegration = () => {
- const commands = [
-  {
-   command: '/p:git',
-   description: 'Smart git operations with context',
-   example: '✅ feat: add user authentication system\n📝 3 files changed\n🌿 Ready for push',
-   details: 'Analyzes your changes and creates meaningful commit messages following conventional commits. Provides context about changes and prepares code for manual push when ready.'
-  }
- ]
+  const features = [
+    {
+      icon: <Rocket className="h-5 w-5" />,
+      title: 'Automated Shipping Workflow',
+      description:
+        '/p:ship automates the complete workflow: lint → test → docs → version → changelog → commit → push',
+    },
+    {
+      icon: <CheckCircle className="h-5 w-5" />,
+      title: 'Last Commit Validation',
+      description:
+        'Tasks are validated against actual code changes - no empty claims or false progress',
+    },
+    {
+      icon: <GitCommit className="h-5 w-5" />,
+      title: 'Smart Commit Messages',
+      description:
+        'Auto-generated commits with metadata: agent, time, complexity, and conventional format',
+    },
+    {
+      icon: <GitBranch className="h-5 w-5" />,
+      title: 'Branch Awareness',
+      description: 'Works with your current branch automatically - no need to specify or switch',
+    },
+  ]
 
- const features = [
-  {
-   icon: <Sparkles className="w-5 h-5" />,
-   title: "Smart Commit Messages",
-   description: "AI analyzes your changes and generates meaningful commit messages following best practices"
-  },
-  {
-   icon: <GitCommit className="w-5 h-5" />,
-   title: "Conventional Commits",
-   description: "Automatically formats commits as feat:, fix:, docs:, style:, refactor:, test:, chore:"
-  },
-  {
-   icon: <GitPullRequest className="w-5 h-5" />,
-   title: "Branch Awareness",
-   description: "Works with your current branch, no need to specify or switch"
-  },
-  {
-   icon: <CheckCircle className="w-5 h-5" />,
-   title: "Context-Aware Changes",
-   description: "Provides detailed summary of changed files and prepares code for your git workflow"
-  }
- ]
+  return (
+    <div className="min-h-screen px-4 py-20">
+      <div className="mx-auto max-w-4xl">
+        {/* Back Button */}
+        <BackToDocsButton />
 
- return (
-  <div className="min-h-screen py-20 px-4">
-   <div className="max-w-4xl mx-auto">
-    {/* Back Button */}
-    <BackToDocsButton />
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="mb-12"
+        >
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2">
+            <GitBranch className="h-4 w-4 text-primary" />
+            <span className="text-sm font-medium text-primary">Version Control</span>
+          </div>
+          <h1 className="mb-6 text-5xl font-bold md:text-6xl">Git Integration</h1>
+          <p className="text-xl text-muted-foreground">
+            Automated Git workflow that validates real progress and ships features with intelligent
+            commits - all built into /p:ship.
+          </p>
+        </motion.div>
 
-    {/* Header */}
-    <motion.div
-     initial={{ opacity: 0, y: 20 }}
-     animate={{ opacity: 1, y: 0 }}
-     transition={{ duration: 0.6 }}
-     className="mb-12"
-    >
-     <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full mb-6">
-      <GitBranch className="w-4 h-4 text-primary" />
-      <span className="text-sm font-medium text-primary">Version Control</span>
-     </div>
-     <h1 className="text-5xl md:text-6xl font-bold mb-6">
-      Git Integration
-     </h1>
-     <p className="text-xl text-muted-foreground">
-      Smart commits and version control that understands your code changes
-      and generates meaningful messages automatically.
-     </p>
-    </motion.div>
+        {/* Features */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.1 }}
+          className="mb-16"
+        >
+          <h2 className="mb-8 text-3xl font-bold">Features</h2>
+          <div className="grid gap-6 md:grid-cols-2">
+            {features.map((feature, index) => (
+              <motion.div
+                key={feature.title}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                className="rounded-2xl bg-muted/20 p-6"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="rounded-lg bg-primary/10 p-2 text-primary">{feature.icon}</div>
+                  <div>
+                    <h3 className="mb-2 font-semibold">{feature.title}</h3>
+                    <p className="text-sm text-muted-foreground">{feature.description}</p>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </motion.section>
 
-    {/* Features */}
-    <motion.section
-     initial={{ opacity: 0, y: 20 }}
-     animate={{ opacity: 1, y: 0 }}
-     transition={{ duration: 0.6, delay: 0.1 }}
-     className="mb-16"
-    >
-     <h2 className="text-3xl font-bold mb-8">Features</h2>
-     <div className="grid md:grid-cols-2 gap-6">
-      {features.map((feature, index) => (
-       <motion.div
-        key={feature.title}
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: index * 0.1 }}
-        className="p-6 bg-muted/20 rounded-2xl"
-       >
-        <div className="flex items-start gap-4">
-         <div className="p-2 rounded-lg bg-primary/10 text-primary">
-          {feature.icon}
-         </div>
-         <div>
-          <h3 className="font-semibold mb-2">{feature.title}</h3>
-          <p className="text-sm text-muted-foreground">{feature.description}</p>
-         </div>
-        </div>
-       </motion.div>
-      ))}
-     </div>
-    </motion.section>
+        {/* The /p:ship Command */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="mb-16"
+        >
+          <h2 className="mb-8 text-3xl font-bold">The /p:ship Command</h2>
+          <div className="rounded-2xl border border-border p-6 transition-colors hover:border-primary/50">
+            <div className="mb-4">
+              <code className="font-mono text-lg text-primary">/p:ship "feature name"</code>
+              <p className="mt-2 text-muted-foreground">
+                Complete automated workflow for shipping features
+              </p>
+            </div>
 
-    {/* Commands */}
-    <motion.section
-     initial={{ opacity: 0, y: 20 }}
-     animate={{ opacity: 1, y: 0 }}
-     transition={{ duration: 0.6, delay: 0.2 }}
-     className="mb-16"
-    >
-     <h2 className="text-3xl font-bold mb-8">Commands</h2>
-     <div className="space-y-6">
-      {commands.map((cmd, index) => (
-       <motion.div
-        key={cmd.command}
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.5, delay: index * 0.1 }}
-        className="border border-border rounded-2xl p-6 hover:border-primary/50 transition-colors"
-       >
-        <div className="mb-4">
-         <code className="text-lg font-mono text-primary">{cmd.command}</code>
-         <p className="text-muted-foreground mt-2">{cmd.description}</p>
-        </div>
-        <div className="bg-black rounded-lg p-4 font-mono text-sm mb-4">
-         <span className="text-cat-teal">$</span> {cmd.command}
-         <div className="text-gray-400 mt-2">→ {cmd.example}</div>
-        </div>
-        <p className="text-sm text-muted-foreground">{cmd.details}</p>
-       </motion.div>
-      ))}
-     </div>
-    </motion.section>
+            <div className="mb-4 rounded-lg bg-muted/30 p-4">
+              <p className="mb-3 text-sm font-semibold">Automated Steps:</p>
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-cat-green" />
+                  <span>1. Run lint checks (non-blocking)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-cat-green" />
+                  <span>2. Execute tests (non-blocking)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-cat-green" />
+                  <span>3. Update documentation</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-cat-green" />
+                  <span>4. Bump version (patch/minor)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-cat-green" />
+                  <span>5. Update CHANGELOG.md</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-cat-green" />
+                  <span>6. Create Git commit with metadata</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-cat-green" />
+                  <span>7. Push to remote automatically</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <span>8. Recommend conversation compact</span>
+                </div>
+              </div>
+            </div>
 
-    {/* Workflow Examples */}
-    <motion.section
-     initial={{ opacity: 0, y: 20 }}
-     animate={{ opacity: 1, y: 0 }}
-     transition={{ duration: 0.6, delay: 0.3 }}
-     className="mb-16"
-    >
-     <h2 className="text-3xl font-bold mb-8">Common Workflows</h2>
+            <div className="rounded-lg bg-black p-4 font-mono text-sm">
+              <span className="text-cat-teal">$</span> /p:ship "authentication system"
+              <div className="mt-2 text-gray-400">
+                <div>🚀 Shipping: authentication system</div>
+                <div className="mt-1"> ✅ Lint: passed</div>
+                <div> ✅ Tests: 24 passing</div>
+                <div> ✅ Docs: updated</div>
+                <div> ✅ Version: 1.2.0 → 1.3.0</div>
+                <div> ✅ CHANGELOG: updated</div>
+                <div> ✅ Git: committed + pushed</div>
+              </div>
+            </div>
+          </div>
 
-     {/* Daily Commit Flow */}
-     <div className="mb-8 p-6 bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-2xl">
-      <h3 className="text-xl font-semibold mb-4">Daily Commit Flow</h3>
-      <div className="space-y-3">
-       <div className="bg-black/50 rounded-lg p-4 font-mono text-sm">
-        <div className="text-gray-300"># After completing a feature</div>
-        <div><span className="text-cat-teal">$</span> /p:done</div>
-        <div className="text-gray-400">→ ✅ Task completed</div>
-       </div>
-       <div className="bg-black/50 rounded-lg p-4 font-mono text-sm">
-        <div className="text-gray-300"># Commit with smart message and context</div>
-        <div><span className="text-cat-teal">$</span> /p:git</div>
-        <div className="text-gray-400">→ 📝 Analyzing changes...</div>
-        <div className="text-gray-400">→ ✅ Committed: feat: add payment processing</div>
-        <div className="text-gray-400">→ 📊 Files: 8 changed, +342 lines</div>
-       </div>
-       <div className="bg-black/50 rounded-lg p-4 font-mono text-sm">
-        <div className="text-gray-300"># Push to remote manually when ready</div>
-        <div><span className="text-cat-teal">$</span> git push</div>
-        <div className="text-gray-400">→ Use standard git commands for push/pull</div>
-       </div>
+          <div className="mt-4 rounded-lg border border-primary/20 bg-primary/5 p-4">
+            <p className="text-sm text-muted-foreground">
+              <strong className="text-foreground">💡 Non-blocking tests:</strong> If tests or lint
+              fail, /p:ship shows the errors but doesn't block. You decide if it's acceptable to
+              ship. This prevents infinite "fix → test → fail" loops.
+            </p>
+          </div>
+        </motion.section>
+
+        {/* Commit Message Format */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.3 }}
+          className="mb-16"
+        >
+          <h2 className="mb-8 text-3xl font-bold">Smart Commit Messages</h2>
+          <p className="mb-6 text-muted-foreground">
+            prjct automatically generates structured commits with full metadata:
+          </p>
+
+          <div className="mb-6 rounded-lg bg-black p-4 font-mono text-sm">
+            <div className="text-cat-green">feat: add user authentication system</div>
+            <div className="mt-2 text-gray-400">
+              <div>Agent: Backend</div>
+              <div>Dev: @yourusername</div>
+              <div>Complexity: medium</div>
+              <div>Time: 4h 30m</div>
+              <div className="mt-2">
+                🤖 Generated with <span className="text-primary">[p/](https://www.prjct.app/)</span>
+              </div>
+              <div>
+                Designed for{' '}
+                <span className="text-primary">[Claude](https://www.anthropic.com/claude)</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <h3 className="mb-3 font-semibold">Conventional Commit Types:</h3>
+            <div className="flex items-center gap-4 rounded-lg bg-muted/20 p-4">
+              <code className="text-cat-green">feat:</code>
+              <span>New feature or enhancement</span>
+            </div>
+            <div className="flex items-center gap-4 rounded-lg bg-muted/20 p-4">
+              <code className="text-cat-sapphire">fix:</code>
+              <span>Bug fix or correction</span>
+            </div>
+            <div className="flex items-center gap-4 rounded-lg bg-muted/20 p-4">
+              <code className="text-cat-yellow">refactor:</code>
+              <span>Code restructuring without behavior change</span>
+            </div>
+            <div className="flex items-center gap-4 rounded-lg bg-muted/20 p-4">
+              <code className="text-cat-peach">docs:</code>
+              <span>Documentation updates</span>
+            </div>
+            <div className="flex items-center gap-4 rounded-lg bg-muted/20 p-4">
+              <code className="text-cat-teal">test:</code>
+              <span>Test additions or updates</span>
+            </div>
+          </div>
+        </motion.section>
+
+        {/* Workflow Examples */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.4 }}
+          className="mb-16"
+        >
+          <h2 className="mb-8 text-3xl font-bold">Real Workflows</h2>
+
+          {/* Solo Developer Flow */}
+          <div className="mb-8 rounded-2xl bg-gradient-to-r from-green-500/10 to-emerald-500/10 p-6">
+            <h3 className="mb-4 text-xl font-semibold">Solo Developer Flow</h3>
+            <div className="space-y-3">
+              <div className="rounded-lg bg-black/50 p-4 font-mono text-sm">
+                <div className="text-gray-300"># Add a new feature</div>
+                <div>
+                  <span className="text-cat-teal">$</span> /p:feature "payment processing"
+                </div>
+                <div className="text-gray-400">→ ✨ Value analysis + 5 tasks created</div>
+              </div>
+              <div className="rounded-lg bg-black/50 p-4 font-mono text-sm">
+                <div className="text-gray-300"># Complete tasks as you work</div>
+                <div>
+                  <span className="text-cat-teal">$</span> /p:done
+                </div>
+                <div className="text-gray-400">→ ✅ Task 1 complete, auto-starting task 2</div>
+              </div>
+              <div className="rounded-lg bg-black/50 p-4 font-mono text-sm">
+                <div className="text-gray-300"># Ship when ready - automates everything</div>
+                <div>
+                  <span className="text-cat-teal">$</span> /p:ship "payment processing"
+                </div>
+                <div className="text-gray-400">→ 🚀 Complete workflow + auto-pushed to remote</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Team Collaboration Flow */}
+          <div className="rounded-2xl bg-gradient-to-r from-blue-500/10 to-indigo-500/10 p-6">
+            <h3 className="mb-4 text-xl font-semibold">Team Collaboration Flow</h3>
+            <div className="space-y-3">
+              <div className="rounded-lg bg-black/50 p-4 font-mono text-sm">
+                <div className="text-gray-300"># Sync with team manually</div>
+                <div>
+                  <span className="text-cat-teal">$</span> git pull
+                </div>
+                <div className="text-gray-400">→ 🔄 Get latest changes</div>
+              </div>
+              <div className="rounded-lg bg-black/50 p-4 font-mono text-sm">
+                <div className="text-gray-300"># Add your feature</div>
+                <div>
+                  <span className="text-cat-teal">$</span> /p:feature "API endpoint"
+                </div>
+                <div className="text-gray-400">→ ✨ Feature created with tasks</div>
+              </div>
+              <div className="rounded-lg bg-black/50 p-4 font-mono text-sm">
+                <div className="text-gray-300"># Complete and ship - auto-pushes</div>
+                <div>
+                  <span className="text-cat-teal">$</span> /p:done
+                </div>
+                <div>
+                  <span className="text-cat-teal">$</span> /p:ship "API endpoint"
+                </div>
+                <div className="text-gray-400">→ 🚀 Workflow complete + pushed to remote</div>
+              </div>
+            </div>
+          </div>
+        </motion.section>
+
+        {/* Git Validation */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.5 }}
+          className="mb-16"
+        >
+          <h2 className="mb-8 text-3xl font-bold">Git Validation</h2>
+          <div className="rounded-2xl bg-muted/20 p-6">
+            <div className="flex items-start gap-4">
+              <div className="rounded-lg bg-primary/10 p-3 text-primary">
+                <Zap className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="mb-3 text-lg font-semibold">Last Commit as Source of Truth</h3>
+                <p className="mb-4 text-muted-foreground">
+                  prjct validates your progress against actual Git commits - no fake progress or
+                  empty claims.
+                </p>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="mt-0.5 h-4 w-4 text-cat-green" />
+                    <span>Tasks are linked to real code changes</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="mt-0.5 h-4 w-4 text-cat-green" />
+                    <span>Automatic diff analysis validates completion</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="mt-0.5 h-4 w-4 text-cat-green" />
+                    <span>Branch-aware context for accurate tracking</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="mt-0.5 h-4 w-4 text-cat-green" />
+                    <span>Commit messages integrated into progress reports</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </motion.section>
+
+        {/* Configuration */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.6 }}
+          className="rounded-2xl bg-muted/20 p-6"
+        >
+          <h2 className="mb-4 text-2xl font-bold">Configuration</h2>
+          <p className="mb-4 text-muted-foreground">
+            prjct works seamlessly with your existing Git setup. Zero additional configuration
+            required.
+          </p>
+          <div className="space-y-2 text-sm">
+            <p>✓ Uses your configured git user and email</p>
+            <p>✓ Works with any remote (GitHub, GitLab, Bitbucket)</p>
+            <p>✓ Respects your .gitignore patterns</p>
+            <p>✓ Compatible with git hooks and CI/CD pipelines</p>
+            <p>✓ Automatic push after successful /p:ship</p>
+          </div>
+        </motion.section>
       </div>
-     </div>
-
-     {/* Collaborative Flow */}
-     <div className="p-6 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 rounded-2xl">
-      <h3 className="text-xl font-semibold mb-4">Team Collaboration Flow</h3>
-      <div className="space-y-3">
-       <div className="bg-black/50 rounded-lg p-4 font-mono text-sm">
-        <div className="text-gray-300"># Start your day - sync with team using git</div>
-        <div><span className="text-cat-teal">$</span> git pull</div>
-        <div className="text-gray-400">→ 🔄 Get latest team changes</div>
-       </div>
-       <div className="bg-black/50 rounded-lg p-4 font-mono text-sm">
-        <div className="text-gray-300"># Work on your tasks</div>
-        <div><span className="text-cat-teal">$</span> /p:now "implement API endpoint"</div>
-        <div className="text-gray-400">→ 🎯 Focus on your task</div>
-       </div>
-       <div className="bg-black/50 rounded-lg p-4 font-mono text-sm">
-        <div className="text-gray-300"># Commit and share progress</div>
-        <div><span className="text-cat-teal">$</span> /p:git</div>
-        <div className="text-gray-400">→ ✅ Smart commit with context</div>
-        <div><span className="text-cat-teal">$</span> git push</div>
-        <div className="text-gray-400">→ 🚀 Share with team</div>
-       </div>
-      </div>
-     </div>
-    </motion.section>
-
-    {/* Commit Message Examples */}
-    <motion.section
-     initial={{ opacity: 0, y: 20 }}
-     animate={{ opacity: 1, y: 0 }}
-     transition={{ duration: 0.6, delay: 0.4 }}
-     className="mb-16"
-    >
-     <h2 className="text-3xl font-bold mb-8">Smart Commit Examples</h2>
-     <p className="text-muted-foreground mb-6">
-      prjct analyzes your changes and generates conventional commit messages:
-     </p>
-     <div className="space-y-3">
-      <div className="flex items-center gap-4 p-4 bg-muted/20 rounded-lg">
-       <code className="text-cat-green">feat:</code>
-       <span>add user authentication system with JWT tokens</span>
-      </div>
-      <div className="flex items-center gap-4 p-4 bg-muted/20 rounded-lg">
-       <code className="text-cat-sapphire">fix:</code>
-       <span>resolve memory leak in WebSocket connection handler</span>
-      </div>
-      <div className="flex items-center gap-4 p-4 bg-muted/20 rounded-lg">
-       <code className="text-cat-yellow">refactor:</code>
-       <span>simplify database connection logic</span>
-      </div>
-      <div className="flex items-center gap-4 p-4 bg-muted/20 rounded-lg">
-       <code className="text-cat-mauve">style:</code>
-       <span>update button styles for better accessibility</span>
-      </div>
-      <div className="flex items-center gap-4 p-4 bg-muted/20 rounded-lg">
-       <code className="text-cat-peach">docs:</code>
-       <span>update README with new installation instructions</span>
-      </div>
-      <div className="flex items-center gap-4 p-4 bg-muted/20 rounded-lg">
-       <code className="text-cat-teal">test:</code>
-       <span>add unit tests for payment processing module</span>
-      </div>
-     </div>
-    </motion.section>
-
-    {/* Configuration */}
-    <motion.section
-     initial={{ opacity: 0, y: 20 }}
-     animate={{ opacity: 1, y: 0 }}
-     transition={{ duration: 0.6, delay: 0.5 }}
-     className="p-6 bg-muted/20 rounded-2xl"
-    >
-     <h2 className="text-2xl font-bold mb-4">Configuration</h2>
-     <p className="text-muted-foreground mb-4">
-      prjct works with your existing git configuration. No additional setup required.
-     </p>
-     <div className="space-y-2 text-sm">
-      <p>✓ Uses your configured git user and email</p>
-      <p>✓ Works with any remote (GitHub, GitLab, Bitbucket)</p>
-      <p>✓ Respects your .gitignore patterns</p>
-      <p>✓ Compatible with git hooks and CI/CD</p>
-     </div>
-    </motion.section>
-   </div>
-  </div>
- )
+    </div>
+  )
 }

@@ -1,16 +1,18 @@
 ---
 allowed-tools: [Read, Write, TodoWrite]
-description: "Break down complex tasks"
+description: 'Break down complex tasks'
 ---
 
 # /p:task
 
 ## Usage
+
 ```
 /p:task <description>
 ```
 
 ## Flow
+
 1. Analyze: task complexity
 2. Break down: into 3-7 subtasks
 3. Create: execution plan
@@ -18,6 +20,7 @@ description: "Break down complex tasks"
 5. Track: progress in `planning/tasks/`
 
 ## Response
+
 ```
 📋 Task Plan: {description}
 
@@ -32,4 +35,3 @@ Est total: {total_time}
 [1/{N}] {subtask}... ✅
 [2/{N}] {subtask}... 🔄
 ```
-

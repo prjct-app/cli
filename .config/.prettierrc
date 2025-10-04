@@ -8,8 +8,7 @@
   "bracketSpacing": true,
   "arrowParens": "always",
   "endOfLine": "lf",
-  "plugins": ["prettier-plugin-tailwindcss"],
-  "tailwindConfig": "./website/tailwind.config.js",
+  "plugins": [],
   "overrides": [
     {
       "files": "*.md",

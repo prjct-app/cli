@@ -12,11 +12,14 @@ import {
   BookOpen,
   Terminal,
 } from 'lucide-react'
+import { typography, spacing, borders } from '../lib/typography-system'
+import { animationPresets } from '../lib/animation-variants'
+import { cn } from '../lib/utils'
 
 interface Scenario {
   id: string
   title: string
-  icon: any
+  icon: React.ReactNode
   description: string
   commands: {
     command: string
@@ -29,24 +32,24 @@ interface Scenario {
 const scenarios: Scenario[] = [
   {
     id: 'new-idea',
-    title: 'I have a new idea or unplanned feature',
+    title: 'I have a new feature to build',
     icon: Lightbulb,
-    description: "Wasn't planned but I want to work on it",
+    description: 'Want to add value analysis, roadmap, and task breakdown',
     commands: [
       {
-        command: 'p. I want to add dark mode',
-        description: 'Natural language (captures idea)',
-        output: '💡 Idea saved to ideas.md',
+        command: 'p. add dark mode support',
+        description: 'Natural language (full feature workflow)',
+        output: '✨ Value: high | Tasks: 5 | Estimated: 4h',
         preferred: true,
       },
       {
-        command: '/p:idea "add dark mode"',
-        description: 'Direct command to capture',
-        output: '💡 Idea saved to ideas.md',
+        command: '/p:feature "add dark mode"',
+        description: 'Direct command for feature workflow',
+        output: '✨ Value: high | Tasks: 5 | Estimated: 4h',
       },
       {
         command: '/p:now "implement dark mode"',
-        description: 'Start working on it NOW',
+        description: 'Start working without analysis',
         output: '🎯 Current task set',
       },
     ],
@@ -58,7 +61,7 @@ const scenarios: Scenario[] = [
     description: 'How do I mark it complete and what comes next?',
     commands: [
       {
-        command: 'p. I\'m done',
+        command: "p. I'm done",
         description: 'Natural language (zero memorization)',
         output: '✅ Complete! Next: API integration',
         preferred: true,
@@ -182,33 +185,28 @@ export const CommandGuide = () => {
     <section className="px-4 py-20">
       <div className="mx-auto max-w-7xl">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          viewport={{ once: true }}
-          className="mb-12 text-center"
+          {...animationPresets.standard}
+          className={cn('text-center', spacing.headerMargin)}
         >
-          <h2 className="mb-4 text-4xl font-bold md:text-5xl">
+          <h2 className={cn(typography.sectionTitle, spacing.elementMargin)}>
             Which Command Should I Use When...?
           </h2>
-          <p className="text-xl text-muted-foreground">
-            Find the perfect command for every situation
-          </p>
+          <p className={typography.sectionSubtitle}>Find the perfect command for every situation</p>
         </motion.div>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {scenarios.map((scenario, index) => (
             <motion.div
               key={scenario.id}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-              viewport={{ once: true }}
-              className={`cursor-pointer rounded-2xl border p-6 transition-all hover:shadow-lg ${
+              {...animationPresets.stagger(index)}
+              className={cn(
+                'cursor-pointer transition-all hover:shadow-lg',
+                borders.rounded,
+                spacing.cardPadding,
                 selectedScenario === scenario.id
                   ? 'border-primary bg-primary/5'
-                  : 'border-border hover:border-primary/50'
-              }`}
+                  : cn(borders.default, 'hover:border-primary/50')
+              )}
               onClick={() =>
                 setSelectedScenario(selectedScenario === scenario.id ? null : scenario.id)
               }
@@ -218,8 +216,12 @@ export const CommandGuide = () => {
                   <scenario.icon className="h-6 w-6" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="mb-2 text-lg font-semibold">{scenario.title}</h3>
-                  <p className="mb-4 text-sm text-muted-foreground">{scenario.description}</p>
+                  <h3 className={cn(typography.cardTitleSmall, spacing.elementMarginSmall)}>
+                    {scenario.title}
+                  </h3>
+                  <p className={cn(typography.muted, spacing.elementMargin)}>
+                    {scenario.description}
+                  </p>
 
                   {selectedScenario === scenario.id && (
                     <motion.div
@@ -235,14 +237,26 @@ export const CommandGuide = () => {
                           }`}
                         >
                           {cmd.preferred && (
-                            <div className="mb-2 flex items-center gap-1 text-xs text-primary">
+                            <div
+                              className={cn(
+                                'flex items-center gap-1',
+                                typography.mutedSmall,
+                                'text-primary',
+                                spacing.elementMarginSmall
+                              )}
+                            >
                               <Zap className="h-3 w-3" />
                               <span>Recommended</span>
                             </div>
                           )}
-                          <div className="mb-2 flex items-center justify-between">
+                          <div
+                            className={cn(
+                              'flex items-center justify-between',
+                              spacing.elementMarginSmall
+                            )}
+                          >
                             <code
-                              className="cursor-pointer font-mono text-sm hover:text-primary"
+                              className={cn(typography.code, 'cursor-pointer hover:text-primary')}
                               onClick={(e) => {
                                 e.stopPropagation()
                                 handleCopyCommand(cmd.command)
@@ -251,11 +265,20 @@ export const CommandGuide = () => {
                               {cmd.command}
                             </code>
                             {copiedCommand === cmd.command && (
-                              <span className="text-xs text-cat-green">Copied!</span>
+                              <span className={cn(typography.mutedSmall, 'text-cat-green')}>
+                                Copied!
+                              </span>
                             )}
                           </div>
-                          <p className="mb-2 text-xs text-muted-foreground">{cmd.description}</p>
-                          <div className="rounded bg-black/50 p-2 font-mono text-xs text-cat-teal">
+                          <p className={cn(typography.mutedSmall, spacing.elementMarginSmall)}>
+                            {cmd.description}
+                          </p>
+                          <div
+                            className={cn(
+                              'rounded bg-black/50 p-2 text-cat-teal',
+                              typography.codeSmall
+                            )}
+                          >
                             → {cmd.output}
                           </div>
                         </div>
@@ -270,18 +293,21 @@ export const CommandGuide = () => {
 
         {/* Quick Reference Matrix */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          viewport={{ once: true }}
-          className="mt-16 rounded-2xl bg-muted/20 p-8"
+          {...animationPresets.standard}
+          className={cn('mt-16 bg-muted/20', borders.rounded, spacing.cardPaddingLarge)}
         >
-          <h3 className="mb-6 flex items-center gap-2 text-2xl font-bold">
+          <h3
+            className={cn(
+              typography.subsectionTitle,
+              'flex items-center gap-2',
+              spacing.elementMarginLarge
+            )}
+          >
             <Terminal className="h-6 w-6" />
             Quick Decision Matrix
           </h3>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className={cn('w-full', typography.bodySmall)}>
               <thead>
                 <tr className="border-b">
                   <th className="py-2 pr-4 text-left">Situation</th>
@@ -291,39 +317,59 @@ export const CommandGuide = () => {
               </thead>
               <tbody>
                 <tr className="border-b">
-                  <td className="py-3 pr-4">I have a new idea</td>
-                  <td className="py-3 pr-4 font-mono text-primary">p. [your idea]</td>
-                  <td className="py-3 font-mono text-muted-foreground">/p:idea | /p:now</td>
+                  <td className="py-3 pr-4">I have a new feature</td>
+                  <td className={cn('py-3 pr-4 text-primary', typography.code)}>
+                    p. add [feature]
+                  </td>
+                  <td className={cn('py-3 text-muted-foreground', typography.code)}>
+                    /p:feature | /p:now
+                  </td>
                 </tr>
                 <tr className="border-b">
                   <td className="py-3 pr-4">Want to start something</td>
-                  <td className="py-3 pr-4 font-mono text-primary">p. start [task]</td>
-                  <td className="py-3 font-mono text-muted-foreground">/p:now | /p:next</td>
+                  <td className={cn('py-3 pr-4 text-primary', typography.code)}>p. start [task]</td>
+                  <td className={cn('py-3 text-muted-foreground', typography.code)}>
+                    /p:now | /p:next
+                  </td>
                 </tr>
                 <tr className="border-b">
                   <td className="py-3 pr-4">Finished my task</td>
-                  <td className="py-3 pr-4 font-mono text-primary">p. I'm done</td>
-                  <td className="py-3 font-mono text-muted-foreground">/p:done | /p:ship</td>
+                  <td className={cn('py-3 pr-4 text-primary', typography.code)}>p. I'm done</td>
+                  <td className={cn('py-3 text-muted-foreground', typography.code)}>
+                    /p:done | /p:ship
+                  </td>
                 </tr>
                 <tr className="border-b">
                   <td className="py-3 pr-4">Don't know what to do</td>
-                  <td className="py-3 pr-4 font-mono text-primary">p. show progress</td>
-                  <td className="py-3 font-mono text-muted-foreground">/p:recap | /p:next</td>
+                  <td className={cn('py-3 pr-4 text-primary', typography.code)}>
+                    p. show progress
+                  </td>
+                  <td className={cn('py-3 text-muted-foreground', typography.code)}>
+                    /p:recap | /p:next
+                  </td>
                 </tr>
                 <tr className="border-b">
                   <td className="py-3 pr-4">Have an error</td>
-                  <td className="py-3 pr-4 font-mono text-primary">p. stuck on [error]</td>
-                  <td className="py-3 font-mono text-muted-foreground">/p:stuck | /p:fix</td>
+                  <td className={cn('py-3 pr-4 text-primary', typography.code)}>
+                    p. stuck on [error]
+                  </td>
+                  <td className={cn('py-3 text-muted-foreground', typography.code)}>/p:stuck</td>
                 </tr>
                 <tr className="border-b">
-                  <td className="py-3 pr-4">Want to plan</td>
-                  <td className="py-3 pr-4 font-mono text-primary">p. create roadmap</td>
-                  <td className="py-3 font-mono text-muted-foreground">/p:roadmap | /p:task</td>
+                  <td className="py-3 pr-4">Ready to ship</td>
+                  <td className={cn('py-3 pr-4 text-primary', typography.code)}>p. ship this</td>
+                  <td className={cn('py-3 text-muted-foreground', typography.code)}>
+                    /p:ship [feature]
+                  </td>
                 </tr>
                 <tr>
                   <td className="py-3 pr-4">Need metrics</td>
-                  <td className="py-3 pr-4 font-mono text-primary">p. show progress</td>
-                  <td className="py-3 font-mono text-muted-foreground">/p:progress | /p:recap</td>
+                  <td className={cn('py-3 pr-4 text-primary', typography.code)}>
+                    p. show progress
+                  </td>
+                  <td className={cn('py-3 text-muted-foreground', typography.code)}>
+                    /p:progress | /p:recap
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -331,13 +377,7 @@ export const CommandGuide = () => {
         </motion.div>
 
         {/* Workflow Examples */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          viewport={{ once: true }}
-          className="mt-12 text-center"
-        >
+        <motion.div {...animationPresets.standard} className="mt-12 text-center">
           <Link
             to="/workflows"
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-primary-foreground transition hover:opacity-90"

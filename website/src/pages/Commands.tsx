@@ -69,7 +69,8 @@ const commandCategories = (Object.entries(registry.getCategories()) as [string, 
     return cmds.some((cmd: Command) => cmd.usage.claude !== null)
   })
   .map(([categoryKey, categoryInfo]) => {
-    const IconComponent = iconComponents[categoryInfo.icon as keyof typeof iconComponents] || HelpCircle
+    const IconComponent =
+      iconComponents[categoryInfo.icon as keyof typeof iconComponents] || HelpCircle
     const categoryCommands = registry
       .getByCategory(categoryKey)
       .filter((cmd: Command) => cmd.usage.claude !== null) // Only show Claude-available commands
@@ -109,7 +110,8 @@ export const Commands = () => {
           </div>
           <h1 className="mb-6 text-5xl font-bold md:text-6xl">All prjct Commands</h1>
           <p className="mx-auto mb-4 max-w-2xl text-xl text-muted-foreground">
-            {registry.getStats().implemented} implemented / {registry.getStats().total} total commands, built for Claude Code
+            {registry.getStats().implemented} implemented / {registry.getStats().total} total
+            commands, built for Claude Code
           </p>
 
           {/* Natural Language Callout */}
@@ -141,7 +143,10 @@ export const Commands = () => {
                   </div>
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <span className="text-primary">→</span>
-                    <span>Try <code className="rounded bg-muted px-1 py-0.5 text-primary">/p:help</code> for an interactive guide</span>
+                    <span>
+                      Try <code className="rounded bg-muted px-1 py-0.5 text-primary">/p:help</code>{' '}
+                      for an interactive guide
+                    </span>
                   </div>
                 </div>
               </div>
@@ -154,10 +159,11 @@ export const Commands = () => {
               <button
                 key={platform.id}
                 onClick={() => setActivePlatform(platform.id)}
-                className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all ${activePlatform === platform.id
+                className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all ${
+                  activePlatform === platform.id
                     ? 'bg-primary text-primary-foreground shadow-sm'
                     : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-                  }`}
+                }`}
               >
                 {platform.icon}
                 <span className="whitespace-nowrap">{platform.label}</span>
@@ -184,7 +190,7 @@ export const Commands = () => {
                   <h2 className="text-xl font-semibold">{category.title}</h2>
                 </div>
                 <div className="space-y-4">
-                  {category.commands.map((command: any) => (
+                  {category.commands.map((command: Command) => (
                     <div key={command.cmd} className="flex flex-col gap-2">
                       <span className="text-sm text-muted-foreground">{command.desc}</span>
                       <motion.code

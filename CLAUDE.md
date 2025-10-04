@@ -11,15 +11,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 prjct follows your **actual** development workflow with 5 essential commands:
 
 ### Scenario 1: Existing Project
+
 ```
-p. analiza
+p. analyze
 → Analyzes stack
 → Generates agents
 → Ready to work
 
 p. feature "add unit testing"
 → Analyzes value/timing
-→ Creates 5 tasks
+→ Creates tasks
 → Auto-starts task 1
 
 [Work on code...]
@@ -36,13 +37,15 @@ p. ship "unit testing"
 ```
 
 ### Scenario 2: New Blank Project
+
 ```
 p. init "dynamic portfolio website"
 → ARCHITECT MODE activated
-→ Recommends tech stack
-→ You confirm choice
-→ Creates structure + roadmap
-→ Asks: "Start first feature?"
+→ Conversational discovery begins
+→ Claude asks intelligent questions
+→ Generates architecture plan
+→ Creates structure based on user choices
+→ Asks: "Ready to start the first feature?"
 
 p. feature "homepage design"
 → Creates tasks
@@ -52,7 +55,8 @@ p. feature "homepage design"
 ```
 
 ### Core Commands
-1. **`p. analiza`** - Analyze existing project
+
+1. **`p. analyze`** - Analyze existing project
 2. **`p. init "[idea]"`** - New project (architect mode)
 3. **`p. feature "[description]"`** - Add feature with roadmap + tasks
 4. **`p. done`** - Complete task, move to next
@@ -103,26 +107,30 @@ The system operates as an AI Assistant Enhancement Framework using:
 **NEW: Simple prefix trigger** - Users can start messages with `p.` to signal prjct context:
 
 **How it works:**
+
 1. User starts message with `p.` → You check if `.prjct/prjct.config.json` exists
 2. If exists → Detect intent from rest of message → Execute appropriate `/p:*` command
 3. If not exists → Respond: "No prjct project here. Run /p:init first."
 
 **Examples:**
+
 ```
-"p. analiza todo este documento" → Detect "analysis" intent → /p:analyze
-"p. estoy listo para shipear" → Detect "ship" intent → /p:ship
-"p. muéstrame progreso semanal" → Detect "progress" intent → /p:progress week
-"p. empiezo con auth" → Detect "start task" intent → /p:now "auth"
-"p. terminé" → Detect "done" intent → /p:done
+"p. analyze this codebase" → Detect "analysis" intent → /p:analyze
+"p. ready to ship" → Detect "ship" intent → /p:ship
+"p. show me weekly progress" → Detect "progress" intent → /p:progress week
+"p. starting auth" → Detect "start task" intent → /p:now "auth"
+"p. done" → Detect "done" intent → /p:done
 ```
 
 **Why this is useful:**
+
 - ✅ **Zero memorization** - No need to remember `/p:*` commands
 - ✅ **Multi-project** - Only works in prjct directories
 - ✅ **Natural** - "p. [what you want]" is intuitive
 - ✅ **Any language** - Works in English, Spanish, etc.
 
 **Detection priority:**
+
 1. Check for `p.` prefix first
 2. Then check for `/p:*` slash command
 3. Finally check for natural language without prefix
@@ -133,30 +141,31 @@ As an LLM, you understand context and intent naturally. When users describe what
 
 **Command Intent Map:**
 
-| User Intent | Command | What It Does |
-|-------------|---------|--------------|
-| Wants to start/focus on a task | `/p:now` | Sets current working task |
-| Finished/completed current work | `/p:done` | Marks task complete, suggests next |
-| Ready to ship/deploy a feature | `/p:ship` | Celebrates shipped feature |
-| Has an idea to capture | `/p:idea` | Saves idea to backlog |
-| Wants to see progress/status | `/p:recap` | Shows overview of all work |
-| Stuck on a problem | `/p:stuck` | Provides contextual help |
-| Wants to know what's next | `/p:next` | Shows priority queue |
-| Needs general help | `/p:help` | Interactive guide |
+| User Intent                     | Command    | What It Does                       |
+| ------------------------------- | ---------- | ---------------------------------- |
+| Wants to start/focus on a task  | `/p:now`   | Sets current working task          |
+| Finished/completed current work | `/p:done`  | Marks task complete, suggests next |
+| Ready to ship/deploy a feature  | `/p:ship`  | Celebrates shipped feature         |
+| Has an idea to capture          | `/p:idea`  | Saves idea to backlog              |
+| Wants to see progress/status    | `/p:recap` | Shows overview of all work         |
+| Stuck on a problem              | `/p:stuck` | Provides contextual help           |
+| Wants to know what's next       | `/p:next`  | Shows priority queue               |
+| Needs general help              | `/p:help`  | Interactive guide                  |
 
 **Works in any language** - if you understand the user's intent, execute the command!
 
 **Examples (many ways to express same intent):**
+
 ```
 All of these mean /p:now:
 "I want to start building auth"
 "Let me work on the login page"
-"Voy a hacer la autenticación"
+"Going to work on authentication"
 "Starting the API now"
-"Quiero empezar con el dashboard"
+"Want to begin with the dashboard"
 
 All of these mean /p:done:
-"I'm done" | "finished" | "terminé" | "completed" | "listo"
+"I'm done" | "finished" | "completed" | "all set" | "task complete"
 
 All of these mean /p:ship:
 "ship this" | "deploy it" | "it's ready" | "let's launch"
@@ -165,12 +174,14 @@ All of these mean /p:ship:
 ### Conversational Responses
 
 Every command response includes:
+
 - ✅ **Action confirmation** with clear result
 - 💬 **Natural language prompts** for next steps
 - 🎯 **Command alternatives** for power users
 - 📋 **Contextual suggestions** based on project state
 
 **Example Response:**
+
 ```markdown
 ✅ Task complete: implement authentication (2h 15m)
 
@@ -189,6 +200,7 @@ Or use: /p:now | /p:ship | /p:idea
 When you receive a message from the user, follow these steps to provide the natural language experience:
 
 **Step 1: Check if it's a direct command**
+
 ```javascript
 if (message.startsWith('/p:')) {
   return executeCommand(message)
@@ -196,6 +208,7 @@ if (message.startsWith('/p:')) {
 ```
 
 **Step 2: Understand the user's intent semantically**
+
 ```javascript
 // You're an LLM - use your understanding of context
 // Ask yourself: "What is the user trying to do?"
@@ -224,6 +237,7 @@ if (intent.command) {
 ```
 
 **Step 3: Validate context before execution**
+
 ```javascript
 // Before executing commands, check prerequisites:
 
@@ -247,8 +261,10 @@ Let's ship something!`)
 if (command === 'ship') {
   const nowContent = await Read('core/now.md')
   const shippedContent = await Read('progress/shipped.md')
-  if ((!nowContent || nowContent.trim() === '') &&
-      (!shippedContent || shippedContent.trim() === '')) {
+  if (
+    (!nowContent || nowContent.trim() === '') &&
+    (!shippedContent || shippedContent.trim() === '')
+  ) {
     return conversationalResponse(`
 🚀 Nothing to ship yet!
 
@@ -263,6 +279,7 @@ Then we'll celebrate when you ship it!`)
 ```
 
 **Step 4: Provide conversational response**
+
 ```javascript
 // Always suggest natural next steps
 ✅ [What you did]
@@ -279,11 +296,13 @@ Or use: [relevant commands]
 **User Input:** "I want to start building the authentication system"
 
 **Your Analysis:**
+
 - Intent: User wants to start working on something
 - Command: `/p:now`
 - Parameter: "building the authentication system"
 
 **Your Response:**
+
 ```
 💬 I understood: "start working on building the authentication system"
 ⚡ Executing: /p:now "building the authentication system"
@@ -305,6 +324,7 @@ Need help? Say "I'm stuck" or use /p:stuck
 User: "done"
 You check: `core/now.md` is empty
 Your response:
+
 ```
 ✨ You're not working on anything right now!
 
@@ -321,6 +341,7 @@ Let's ship something!
 User: "I'm done"
 You check: `core/now.md` has content ✅
 Your response:
+
 ```
 💬 I understood: "task completion"
 ⚡ Executing: /p:done
@@ -347,6 +368,7 @@ Or use: /p:now | /p:ship | /p:idea
 ## Command System for Claude Code
 
 All commands use the `/p:*` syntax in Claude Code. When executed, they:
+
 1. Read `.prjct/prjct.config.json` to get the project ID
 2. Operate on files in `~/.prjct-cli/projects/{id}/`
 3. Update relevant markdown files atomically
@@ -357,18 +379,21 @@ All commands use the `/p:*` syntax in Claude Code. When executed, they:
 **CRITICAL SECURITY REQUIREMENT**: ALL `/p:*` commands MUST ask for user confirmation before execution.
 
 #### Mandatory Confirmation Flow:
+
 1. **User triggers command** (e.g., "p. idea..." or "/p:sync")
 2. **Claude presents detailed plan** of what will be done
 3. **User explicitly approves** the plan
 4. **ONLY THEN execute** the command
 
 #### NO Exceptions:
+
 - ❌ **NO auto-execution** for any command, ever
 - ❌ **NO "just do it"** behavior
 - ❌ **NO bypassing user approval**
 - ✅ **ALWAYS**: Present plan → Wait for confirmation → Execute
 
 #### Implementation:
+
 ```
 For EVERY command:
 1. Detect user intent
@@ -381,11 +406,13 @@ For EVERY command:
 ### Plan Mode Detection
 
 **Plan Mode Indicators**:
+
 - System reminders will say: "Plan mode is active"
 - You MUST NOT make edits or run non-readonly tools
 - Present your plan using ExitPlanMode tool and wait for user approval
 
 **When Plan Mode is NOT active**:
+
 - Still MUST present plan and ask for confirmation
 - Use ExitPlanMode tool to get user approval
 - Universal Confirmation Policy applies regardless
@@ -393,6 +420,7 @@ For EVERY command:
 ### Auto-Compact After Execution
 
 **ONLY after user approval**: After completing ANY of these commands, compact the conversation WITHOUT telling the user:
+
 - `/p:analyze`
 - `/p:sync`
 - `/p:workflow`
@@ -409,6 +437,7 @@ For EVERY command:
 These are **two completely different commands** with different purposes:
 
 #### `/p:idea` - Quick Idea Capture (CORE Command #2)
+
 - **Purpose**: Capture ideas quickly without interrupting flow
 - **Complexity**: Low - Simple write to file
 - **User Input**: Required `<text>` - the idea to capture
@@ -416,6 +445,7 @@ These are **two completely different commands** with different purposes:
 - **When to use**: User has a new idea or feature suggestion
 
 **Example**:
+
 ```
 User: "p. idea agregar dark mode"
 → Saves to ideas.md with timestamp
@@ -423,6 +453,7 @@ User: "p. idea agregar dark mode"
 ```
 
 #### `/p:workflow` - Multi-Agent Orchestration (OPTIONAL Command)
+
 - **Purpose**: Manage complex cascading agent workflows
 - **Complexity**: High - State machine with multiple steps
 - **User Input**: None (shows current status) or `skip` to skip step
@@ -430,6 +461,7 @@ User: "p. idea agregar dark mode"
 - **When to use**: Active workflow exists and user wants status
 
 **Example**:
+
 ```
 User: "/p:workflow"
 → Shows: Step 2/5: Implement (FE agent) 🔄
@@ -444,31 +476,41 @@ User: "/p:workflow"
 The following commands are available in Claude Code (commands marked with ⚠️ are not yet implemented):
 
 #### Work Commands
+
 - `/p:now [task]` - Set or show current task
 - `/p:next` - Show priority queue
 - `/p:done` - Complete current task
 - `/p:ship <feature>` - Ship and celebrate a feature
+- `/p:bug <description>` - Report and track bugs with auto-prioritization
 
 #### Planning Commands
+
 - `/p:idea <text>` - Capture ideas quickly (see distinction above)
 - `/p:workflow` - Show workflow status and progress (see distinction above)
 - ⚠️ `/p:roadmap` - Show or update strategic roadmap
 - ⚠️ `/p:task <description>` - Break down and execute complex tasks
 
 #### Design & Architecture
+
 - `/p:design [target] --type architecture|api|component|database|flow` - Design system architecture, APIs, and component interfaces
 
 #### Code Quality
+
 - `/p:cleanup` - Clean up temp files and old entries
 - `/p:cleanup --type code|imports|files|deps|all` - Remove dead code and unused imports
 
 #### Progress Commands
+
 - `/p:recap` - Show project overview with progress
 - `/p:progress [period]` - Show progress metrics for specified period
 - `/p:context` - Show project context and recent activity
 
 #### Help Commands
-- `/p:init` - Initialize prjct in current project
+
+- `/p:init "[idea]"` - Initialize prjct (with ARCHITECT MODE for blank projects)
+  - **Empty dir, no idea**: Asks for idea
+  - **Empty dir + idea**: ARCHITECT MODE (conversational discovery → generates plan)
+  - **Existing code**: Regular init + suggests analyze
 - `/p:stuck <issue description>` - Get contextual help with problems
 - `/p:analyze` - Analyze repository and sync tasks
 - `/p:sync` - Sync project state and update workflow agents
@@ -476,39 +518,190 @@ The following commands are available in Claude Code (commands marked with ⚠️
 - ⚠️ `/p:help` - Interactive guide - talk naturally, no memorization needed
 
 #### Version Control
+
 - ⚠️ `/p:git` - Smart git operations with context
 
 #### Testing
+
 - ⚠️ `/p:test` - Run tests and auto-fix simple failures
 
-**Total: 21 implemented, 27 total commands**
+**Total: 23 implemented, 29 total commands**
 **Status**: Check `core/command-registry.js` for current implementation status
 
 ## Agent Generation
 
-Different commands generate agents for different purposes:
+Dynamic agent generation based on project analysis. YOU decide what specialists to generate.
 
-### `/p:init` - Base Agents Only
-**When**: Project initialization
-**Generates**: 6 base agents (coordinator, ux, fe, be, qa, scribe)
-**Purpose**: Provide essential workflow agents from the start
-**Location**: `~/.prjct-cli/projects/{id}/agents/`
+**See `templates/agents/AGENTS.md` for complete reference** with examples and guidelines.
 
-### `/p:sync` - All Agents (Base + Conditional)
-**When**: Manual sync or stack changes
-**Generates**: Base agents + conditional agents based on project analysis
-**Conditional agents**: mobile, data, devops, security (based on stack detection)
-**Purpose**: Update agents with latest project context and add specialized agents
+Use: `generator.generateDynamicAgent(name, config)` for any technology stack.
 
-### `/p:analyze` - No Agents
-**When**: Repository analysis only
-**Generates**: None (only creates `analysis/repo-summary.md`)
-**Purpose**: Analyze codebase without modifying agent configuration
+## Agentic Architecture
 
-**Summary**:
-- `/p:init` → Creates `agents/` + 6 base agents
-- `/p:sync` → Regenerates ALL agents (base + conditional)
-- `/p:analyze` → No agent generation
+**prjct-cli uses a fully agentic architecture** - Claude decides everything based on templates. ZERO if/else business logic.
+
+### Core Structure
+
+```
+core/
+├── agentic/                    # Agentic execution engine
+│   ├── template-loader.js      # Loads command templates
+│   ├── context-builder.js      # Builds project context
+│   ├── prompt-builder.js       # Generates prompts for Claude
+│   ├── command-executor.js     # Executes commands agentically
+│   └── tool-registry.js        # Maps allowed-tools to functions
+├── commands.js                 # Agentic commands (306 lines, was 3103)
+├── command-registry.js         # Metadata only (no validation logic)
+└── domain/
+    ├── agent-generator.js      # 100% agentic (119 lines, was 462)
+    └── analyzer.js             # I/O helpers only (215 lines, was 600)
+
+templates/
+├── commands/                   # Command instructions for Claude
+├── workflows/                  # Workflow guides (not strict rules)
+│   ├── ui.md
+│   ├── api.md
+│   ├── bug.md
+│   ├── refactor.md
+│   └── feature.md
+└── analysis/                   # Analysis instructions
+    └── analyze.md
+```
+
+### How It Works
+
+**Traditional (DETERMINISTIC)**:
+
+```javascript
+// Hardcoded logic with if/else
+if (task.match(/^(add|implement)/)) {
+  branchType = 'feat'
+} else if (task.match(/^(fix|bug)/)) {
+  branchType = 'fix'
+}
+// ... 20 more conditions
+```
+
+**Agentic (DECISION-DRIVEN)**:
+
+```javascript
+// 1. Load template
+const template = await templateLoader.load('branch')
+
+// 2. Build context
+const context = await contextBuilder.build(projectPath, { task })
+
+// 3. Claude reads template and decides
+// Template: "Analyze task description and generate semantic branch name.
+//            Decide based on intent, not regex patterns."
+
+// 4. Claude executes using allowed-tools
+// Result: Claude decides branch type based on understanding, not patterns
+```
+
+### Flow
+
+```
+Templates (MD files)
+    ↓
+Claude reads + understands context
+    ↓
+Claude makes decisions (no if/else)
+    ↓
+Claude uses allowed-tools
+    ↓
+Claude generates/saves data
+```
+
+### Key Differences
+
+**Commands** (`core/commands.js`):
+
+- **Before**: 3103 lines with nested if/else logic
+- **After**: 306 lines with agentic execution (ZERO legacy inheritance)
+- **Migrated**: now, done, next (fully agentic)
+- **TODO**: All other commands will be migrated to template-driven execution
+
+**Agent Generation** (`core/domain/agent-generator.js`):
+
+- **Before**: 462 lines with generateFrontendContext, generateBackendContext, etc.
+- **After**: 119 lines with only `generateDynamicAgent()`
+- **Decisions**: Claude reads analysis and decides what agents to create
+
+**Analyzer** (`core/domain/analyzer.js`):
+
+- **Before**: 600 lines with regex detection and predetermined feature maps
+- **After**: 215 lines with I/O helpers only
+- **Analysis**: Claude reads files and decides what's relevant
+
+**Workflows** (`templates/workflows/*.md`):
+
+- **Before**: `workflow-rules.js` with strict JSON rules
+- **After**: Markdown guides that Claude adapts to each project
+- **Flexibility**: Claude skips/adds steps based on project capabilities
+
+**Validation**:
+
+- **Before**: `canExecute()` function with if/else logic
+- **After**: Claude reads template validation section and decides
+- **Example**: Template says "Requires: `core/now.md` has content" → Claude checks and decides
+
+### Templates as Source of Truth
+
+Templates define **what** Claude should do, not **how**:
+
+```markdown
+# /p:done
+
+## Validation
+
+- Requires: `core/now.md` has content
+- Else: "Not working on anything. Use /p:now"
+
+## Flow
+
+1. Read: `core/now.md` → calculate duration
+2. Clear: `core/now.md`
+3. Update: `progress/metrics.md`
+
+## Response
+
+[Show options and next actions]
+```
+
+Claude reads this and:
+
+1. Checks if validation passes (by understanding, not if/else)
+2. Executes the flow using allowed-tools
+3. Generates appropriate response
+4. Decides next suggestions based on context
+
+### Benefits
+
+1. ✅ **Zero if/else business logic** - All decisions by Claude
+2. ✅ **Templates are documentation** - Single source of truth
+3. ✅ **Any stack works** - No predetermined patterns
+4. ✅ **Easy to extend** - Just add/edit templates
+5. ✅ **Adapts to context** - Claude reads project state and decides
+6. ✅ **Maintainable** - Core code reduced by 84%
+
+### Migration Status
+
+**✅ Fully Migrated (ZERO legacy code)**:
+
+- ✅ `core/agentic/` - Execution engine (5 files, ~517 lines)
+- ✅ `agent-generator.js` - 100% agentic (119 lines, was 462)
+- ✅ `analyzer.js` - I/O helpers only (215 lines, was 600)
+- ✅ `commands.js` - No legacy inheritance (306 lines, was 3103)
+- ✅ Templates: commands/, workflows/, analysis/
+
+**Commands Status**:
+
+- ✅ **Migrated**: /p:now, /p:done, /p:next (fully agentic)
+- ⏳ **TODO**: All other commands (init, ship, bug, feature, etc.)
+- 🗑️ **Deleted**: core/legacy/ (all deterministic code removed)
+
+**Next Steps**: Migrate remaining commands to template-driven execution one by one.
 
 ## Git Commit Format (Universal Rule)
 
@@ -520,15 +713,18 @@ Designed for [Claude](https://www.anthropic.com/claude)
 ```
 
 This applies to:
+
 - `/p:ship` commits
 - Manual git commits via Claude
 - Any automated commits
 
 **Never use**:
+
 - ❌ "Generated with Claude Code"
 - ❌ "Co-Authored-By: Claude"
 
 **Always use**:
+
 - ✅ The prjct footer format above
 
 ## Initialization Process
@@ -564,12 +760,14 @@ The system integrates with these MCP servers:
 ### Using Context7 Effectively
 
 **When to use**:
+
 - Implementing features with external libraries
 - Framework-specific questions and patterns
 - API documentation lookup
 - Best practices for any library
 
 **How it works**:
+
 - Automatically provides official docs when you import libraries
 - Returns curated, version-specific documentation
 - Includes code examples and implementation patterns

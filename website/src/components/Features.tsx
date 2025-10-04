@@ -10,6 +10,8 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { Section, Card, IconBox, Badge } from './ui'
+import { typography, spacing } from '../lib/typography-system'
+import { cn } from '../lib/utils'
 
 const features = [
   {
@@ -35,13 +37,13 @@ const features = [
     icon: Terminal,
     title: 'p. Trigger - Zero Memorization',
     description:
-      '"p. I\'m done" → /p:done | "p. start building auth" → /p:now | "p. ship this" → /p:ship. Works in any language.',
+      '"p. I\'m done" → /p:done | "p. add feature X" → /p:feature | "p. ship this" → /p:ship. Works in any language.',
   },
   {
     icon: Zap,
-    title: 'Ship Fast',
+    title: '5 Essential Commands',
     description:
-      '/p:now → work → /p:done → /p:ship → celebrate. No ceremonies, no meetings, just execution.',
+      '/p:feature → work → /p:done → /p:ship → celebrate. Complete workflow in 5 commands, zero BS.',
   },
   {
     icon: Trophy,
@@ -52,8 +54,7 @@ const features = [
   {
     icon: Brain,
     title: 'Focus Mode',
-    description:
-      'One task at a time. Stay focused on what matters: shipping features that work.',
+    description: 'One task at a time. Stay focused on what matters: shipping features that work.',
   },
   {
     icon: Shield,
@@ -98,7 +99,7 @@ export const Features = () => {
                 className={`h-6 w-6 ${feature.highlight ? 'text-primary' : 'text-foreground'}`}
               />
             </IconBox>
-            <h3 className="mb-2 text-xl font-semibold">
+            <h3 className={cn(typography.cardTitle, spacing.elementMarginSmall)}>
               {feature.title}
               {feature.highlight && (
                 <Badge variant="primary" size="sm" className="ml-2">
@@ -106,7 +107,7 @@ export const Features = () => {
                 </Badge>
               )}
             </h3>
-            <p className="text-muted-foreground">{feature.description}</p>
+            <p className={typography.muted}>{feature.description}</p>
           </Card>
         ))}
       </div>

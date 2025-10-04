@@ -1,17 +1,19 @@
 ---
 allowed-tools: [Read, Write, Bash]
-description: "Initialize prjct project (with architect mode for blank projects)"
+description: 'Initialize prjct project (with architect mode for blank projects)'
 ---
 
 # /p:init
 
 ## Usage
+
 ```
 /p:init                    # Existing project
 /p:init "[idea]"          # New blank project (architect mode)
 ```
 
 ## Flow: Existing Project
+
 1. Generate: project ID from path hash
 2. Create: `~/.prjct-cli/projects/{id}/` structure (including `agents/`)
 3. Write: `.prjct/prjct.config.json`
@@ -20,6 +22,7 @@ description: "Initialize prjct project (with architect mode for blank projects)"
 6. Log: `memory/context.jsonl`
 
 ## Flow: Blank Project (Architect Mode)
+
 1. Generate: project ID
 2. Activate: ARCHITECT role
 3. Analyze: idea/requirements
@@ -31,6 +34,7 @@ description: "Initialize prjct project (with architect mode for blank projects)"
 9. Ask: "¿Empezamos con la primera feature?"
 
 ## Directory Structure
+
 ```
 ~/.prjct-cli/projects/{id}/
 ├── core/          # now.md, next.md, context.md
@@ -42,6 +46,7 @@ description: "Initialize prjct project (with architect mode for blank projects)"
 ```
 
 ## Config Format
+
 ```json
 {
   "version": "0.6.0",
@@ -56,6 +61,7 @@ description: "Initialize prjct project (with architect mode for blank projects)"
 ```
 
 ## Response: Existing Project
+
 ```
 ✅ prjct initialized!
 
@@ -70,6 +76,7 @@ Listo para trabajar! ¿Qué feature agregamos?
 ```
 
 ## Response: Blank Project
+
 ```
 ✅ prjct initialized!
 
@@ -94,4 +101,3 @@ Which option? (or describe your preference)
 
 /p:feature | /p:ship
 ```
-

@@ -1,16 +1,18 @@
 ---
 allowed-tools: [Read]
-description: "KPI dashboard with ASCII graphics"
+description: 'KPI dashboard with ASCII graphics'
 ---
 
 # /p:status
 
 ## Flow
+
 1. Read: all core files + progress files
 2. Calculate: metrics (sprint %, tasks complete, days since ship, etc.)
 3. Render: `ASCIIGraphics.createDashboard(data)`
 
 ## Data Structure
+
 ```js
 {
   sprintProgress: (complete / total) * 100,
@@ -24,6 +26,7 @@ description: "KPI dashboard with ASCII graphics"
 ```
 
 ## Output (Catppuccin Mocha)
+
 ```
 ┌─ Project Status ────────────────┐
 │ Sprint Progress  [████░] 80%    │
@@ -37,4 +40,3 @@ description: "KPI dashboard with ASCII graphics"
 ```
 
 **Colors**: Mauve borders, Teal progress, Sapphire highlights, Green/Yellow/Red for status
-

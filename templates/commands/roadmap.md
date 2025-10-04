@@ -1,22 +1,25 @@
 ---
 allowed-tools: [Read, Write]
-description: "Strategic roadmap management"
+description: 'Strategic roadmap management'
 ---
 
 # /p:roadmap
 
 ## Usage
+
 ```
 /p:roadmap [show|add|complete|next]  # Default: show
 ```
 
 ## Flow
+
 1. Parse: action (show/add/complete/next)
 2. Read: `planning/roadmap.md`
 3. Execute: based on action
 4. Update: roadmap file if needed
 
 ## Response (show)
+
 ```
 📍 PRODUCT ROADMAP
 
@@ -35,4 +38,3 @@ description: "Strategic roadmap management"
 
 /p:now "{next_feature}"
 ```
-

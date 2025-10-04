@@ -21,6 +21,7 @@ npm uninstall -g prjct-cli
 ```
 
 This removes:
+
 - The globally installed `prjct` command
 - All CLI executables and core files
 - npm package cache
@@ -32,6 +33,7 @@ rm -rf ~/.prjct-cli
 ```
 
 This removes:
+
 - `~/.prjct-cli/projects/` - All your project data
 - `~/.prjct-cli/config/` - Configuration and cache files
 

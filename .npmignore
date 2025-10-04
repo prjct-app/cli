@@ -21,14 +21,9 @@ bunfig.toml
 Formula/
 
 # Alternative installation scripts (not needed for npm)
-scripts/install-brew.sh
-scripts/install-bun.sh
-scripts/migrate.sh
 scripts/deploy.sh
 scripts/setup.sh
-scripts/uninstall.sh
 scripts/interactive-install.js
-scripts/verify-methods.sh
 
 # Editor and OS files
 .vscode/
@@ -43,3 +38,11 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .npm
+
+# Development summaries
+*SUMMARY.md
+REFACTOR-SUMMARY.md
+SESSION-SUMMARY.md
+CLEANUP-SUMMARY.md
+MIGRATION-STATUS.md
+CORE-AUDIT.md

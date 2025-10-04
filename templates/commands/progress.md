@@ -1,22 +1,25 @@
 ---
 allowed-tools: [Read]
-description: "Progress metrics for period"
+description: 'Progress metrics for period'
 ---
 
 # /p:progress
 
 ## Usage
+
 ```
 /p:progress [day|week|month]  # Default: week
 ```
 
 ## Flow
+
 1. Parse: timeframe (day/week/month)
 2. Read: `progress/shipped.md` + `progress/metrics.md`
 3. Calculate: velocity, trends, quality
 4. Display: detailed metrics
 
 ## Response
+
 ```
 📈 PROGRESS - This {period}
 ━━━━━━━━━━━━━━━━━━━━━
@@ -34,4 +37,3 @@ Recent ships:
 
 /p:ship | /p:status
 ```
-

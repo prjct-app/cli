@@ -172,6 +172,7 @@ Every contributor gets:
 ## 🏗️ Project Structure Quick Guide
 
 ### Development Repository Structure
+
 ```
 prjct-cli/                           # Development repository
 ├── core/                            # Core logic & functionality
@@ -198,6 +199,7 @@ prjct-cli/                           # Development repository
 ```
 
 ### Global Installation Structure (v0.2.1)
+
 ```
 ~/.prjct-cli/                        # Global installation directory
 └── projects/
@@ -220,6 +222,7 @@ prjct-cli/                           # Development repository
 ```
 
 ### User Project Structure (v0.2.1)
+
 ```
 /path/to/user-project/               # User's actual project
 ├── .prjct/                         # Local prjct directory
@@ -232,6 +235,7 @@ prjct-cli/                           # Development repository
 ### Migration from v0.1.0 to v0.2.1
 
 The v0.2.1 update moves all project data from local `.prjct/` directories to a centralized global location. This allows:
+
 - Multiple projects to be managed from a single location
 - Easier backup and synchronization
 - Better organization with layered data structure

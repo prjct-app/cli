@@ -1,247 +1,177 @@
 #!/usr/bin/env node
-const commands = require('../core/commands');
-const registry = require('../core/command-registry');
-const args = process.argv.slice(2);
+
+/**
+ * prjct CLI - 100% Agentic Entry Point
+ *
+ * Uses command-registry as single source of truth.
+ * Zero hardcoded logic - all commands resolved dynamically.
+ */
+
+const PrjctCommands = require('../core/commands')
+const registry = require('../core/command-registry')
 
 async function main() {
-    const command = args[0];
-    const params = args.slice(1).join(' ');
+  const [commandName, ...rawArgs] = process.argv.slice(2)
 
-    let result;
-    switch(command) {
-        case 'start':
-            result = await commands.start();
-            break;
-        case 'init':
-            result = await commands.init();
-            break;
-        case 'now':
-            result = await commands.now(params || null);
-            break;
-        case 'done':
-            result = await commands.done();
-            break;
-        case 'ship':
-            result = await commands.ship(params);
-            break;
-        case 'next':
-            result = await commands.next();
-            break;
-        case 'idea':
-            result = await commands.idea(params);
-            break;
-        case 'recap':
-            result = await commands.recap();
-            break;
-        case 'progress':
-            result = await commands.progress(params || 'week');
-            break;
-        case 'stuck':
-            result = await commands.stuck(params);
-            break;
-        case 'context':
-            result = await commands.context();
-            break;
-        case 'cleanup':
-            result = await commands.cleanup();
-            break;
-        case 'cleanup-advanced':
-            const cleanupOptions = {};
-            const cleanupArgs = args.slice(1);
-            let cleanupTarget = '.';
+  // === SPECIAL COMMANDS (version, help) ===
 
-            for (let i = 0; i < cleanupArgs.length; i++) {
-                if (cleanupArgs[i] === '--type') {
-                    cleanupOptions.type = cleanupArgs[++i];
-                } else if (cleanupArgs[i] === '--aggressive') {
-                    cleanupOptions.aggressive = true;
-                } else if (cleanupArgs[i] === '--dry-run') {
-                    cleanupOptions.dryRun = true;
-                } else if (!cleanupArgs[i].startsWith('--')) {
-                    cleanupTarget = cleanupArgs[i];
-                }
-            }
+  if (['-v', '--version', 'version'].includes(commandName)) {
+    const packageJson = require('../package.json')
+    console.log(`prjct-cli v${packageJson.version}`)
+    process.exit(0)
+  }
 
-            result = await commands.cleanupAdvanced(cleanupTarget, cleanupOptions);
-            break;
-        case 'design':
-            const designOptions = {};
-            const designArgs = args.slice(1);
-            let designTarget = '';
+  if (['-h', '--help', 'help', undefined].includes(commandName)) {
+    displayHelp()
+    process.exit(0)
+  }
 
-            for (let i = 0; i < designArgs.length; i++) {
-                if (designArgs[i] === '--type') {
-                    designOptions.type = designArgs[++i];
-                } else if (designArgs[i] === '--format') {
-                    designOptions.format = designArgs[++i];
-                } else if (!designArgs[i].startsWith('--')) {
-                    // Collect all non-flag arguments as the target
-                    const targetParts = [];
-                    while (i < designArgs.length && !designArgs[i].startsWith('--')) {
-                        targetParts.push(designArgs[i]);
-                        i++;
-                    }
-                    i--; // Step back one since the loop will increment
-                    designTarget = targetParts.join(' ');
-                }
-            }
+  // === DYNAMIC COMMAND EXECUTION ===
 
-            if (!designTarget) {
-                result = {
-                    success: false,
-                    message: 'Please specify what to design: prjct design "authentication system"'
-                };
-            } else {
-                result = await commands.design(designTarget, designOptions);
-            }
-            break;
-        case 'migrate-all':
-            const migrateOptions = {};
-            const migrateArgs = args.slice(1);
+  try {
+    // 1. Find command in registry
+    const cmd = registry.getByName(commandName)
 
-            for (let i = 0; i < migrateArgs.length; i++) {
-                if (migrateArgs[i] === '--deep-scan') {
-                    migrateOptions.deepScan = true;
-                } else if (migrateArgs[i] === '--remove-legacy') {
-                    migrateOptions.removeLegacy = true;
-                } else if (migrateArgs[i] === '--dry-run') {
-                    migrateOptions.dryRun = true;
-                }
-            }
-
-            result = await commands.migrateAll(migrateOptions);
-            break;
-        case 'setup':
-            const setupOptions = {};
-            const setupArgs = args.slice(1);
-
-            for (let i = 0; i < setupArgs.length; i++) {
-                if (setupArgs[i] === '--force') {
-                    setupOptions.force = true;
-                } else if (setupArgs[i] === '--editor') {
-                    setupOptions.editor = setupArgs[++i];
-                } else if (setupArgs[i] === '--create-templates') {
-                    setupOptions.createTemplates = true;
-                } else if (setupArgs[i] === '--no-interactive') {
-                    setupOptions.interactive = false;
-                }
-            }
-
-            result = await commands.setup(setupOptions);
-            break;
-        case 'analyze':
-            const analyzeOptions = {};
-            const analyzeArgs = args.slice(1);
-
-            for (let i = 0; i < analyzeArgs.length; i++) {
-                if (analyzeArgs[i] === '--sync') {
-                    analyzeOptions.sync = true;
-                } else if (analyzeArgs[i] === '--report-only') {
-                    analyzeOptions.reportOnly = true;
-                }
-            }
-
-            result = await commands.analyze(analyzeOptions);
-            break;
-        case 'sync':
-            result = await commands.sync();
-            break;
-        case 'workflow':
-            result = await commands.workflow();
-            break;
-        case '--version':
-        case '-v':
-        case 'version':
-            const packageJson = require('../package.json');
-            result = {
-                success: true,
-                message: `prjct-cli v${packageJson.version}`
-            };
-            break;
-        case '--help':
-        case '-h':
-        case 'help':
-        case undefined:
-            // Generate help message from registry
-            const categories = registry.getCategories();
-            const categorizedCommands = {};
-
-            // Group commands by category
-            registry.getTerminalCommands().forEach(cmd => {
-                if (!categorizedCommands[cmd.category]) {
-                    categorizedCommands[cmd.category] = [];
-                }
-                categorizedCommands[cmd.category].push(cmd);
-            });
-
-            let helpMessage = 'Available commands:\n';
-
-            // Display commands by category
-            Object.entries(categorizedCommands).forEach(([categoryKey, cmds]) => {
-                const categoryInfo = categories[categoryKey];
-                helpMessage += `\n  ${categoryInfo.title}:\n`;
-
-                cmds.forEach(cmd => {
-                    const params = cmd.params ? ` ${cmd.params}` : '';
-                    const spacing = ' '.repeat(Math.max(18 - cmd.name.length - params.length, 1));
-                    helpMessage += `    ${cmd.name}${params}${spacing}${cmd.description}\n`;
-                });
-            });
-
-            const stats = registry.getStats();
-            helpMessage += `\nTotal: ${stats.implemented} implemented / ${stats.total} total commands`;
-
-            result = {
-                success: true,
-                message: helpMessage
-            };
-            break;
-        default:
-            // Check if command exists in registry but not implemented
-            const registryCmd = registry.getByName(command);
-
-            if (registryCmd && !registryCmd.implemented) {
-                result = {
-                    success: false,
-                    message: `Command '${command}' exists but is not yet implemented.
-Check the roadmap or contribute: https://github.com/your-org/prjct-cli
-
-Use 'prjct --help' to see all available commands.`
-                };
-            } else {
-                // Generate error message with available commands from registry
-                const categories = registry.getCategories();
-                const categorizedCommands = {};
-
-                registry.getTerminalCommands().forEach(cmd => {
-                    if (!categorizedCommands[cmd.category]) {
-                        categorizedCommands[cmd.category] = [];
-                    }
-                    categorizedCommands[cmd.category].push(cmd);
-                });
-
-                let errorMessage = `Unknown command: ${command}\n\nAvailable commands:\n`;
-
-                Object.entries(categorizedCommands).forEach(([categoryKey, cmds]) => {
-                    const categoryInfo = categories[categoryKey];
-                    errorMessage += `\n  ${categoryInfo.title}:\n`;
-
-                    cmds.forEach(cmd => {
-                        const params = cmd.params ? ` ${cmd.params}` : '';
-                        const spacing = ' '.repeat(Math.max(18 - cmd.name.length - params.length, 1));
-                        errorMessage += `    ${cmd.name}${params}${spacing}${cmd.description}\n`;
-                    });
-                });
-
-                result = {
-                    success: false,
-                    message: errorMessage
-                };
-            }
+    if (!cmd) {
+      console.error(`Unknown command: ${commandName}`)
+      console.error(`\nUse 'prjct --help' to see available commands.`)
+      process.exit(1)
     }
 
-    console.log(result.message);
-    process.exit(result.success ? 0 : 1);
+    // 2. Check if deprecated (before checking implemented)
+    if (cmd.deprecated) {
+      console.error(`Command '${commandName}' is deprecated.`)
+      if (cmd.replacedBy) {
+        console.error(`Use 'prjct ${cmd.replacedBy}' instead.`)
+      }
+      process.exit(1)
+    }
+
+    // 3. Check if implemented
+    if (!cmd.implemented) {
+      console.error(`Command '${commandName}' exists but is not yet implemented.`)
+      console.error(`Check the roadmap or contribute: https://github.com/jlopezlira/prjct-cli`)
+      console.error(`\nUse 'prjct --help' to see available commands.`)
+      process.exit(1)
+    }
+
+    // 4. Parse arguments based on command definition
+    const { parsedArgs, options } = parseCommandArgs(cmd, rawArgs)
+
+    // 5. Instantiate commands handler
+    const commands = new PrjctCommands()
+
+    // 6. Execute command
+    let result
+
+    // Commands with special option handling
+    if (commandName === 'design') {
+      const target = parsedArgs.join(' ')
+      result = await commands.design(target, options)
+    } else if (commandName === 'analyze') {
+      result = await commands.analyze(options)
+    } else if (commandName === 'cleanup') {
+      result = await commands.cleanup(options)
+    } else if (commandName === 'progress') {
+      const period = parsedArgs[0] || 'week'
+      result = await commands.progress(period)
+    } else if (commandName === 'build') {
+      const taskOrNumber = parsedArgs.join(' ')
+      result = await commands.build(taskOrNumber)
+    } else {
+      // Standard commands (most common case)
+      const param = parsedArgs.join(' ') || null
+      result = await commands[commandName](param)
+    }
+
+    // 7. Display result
+    if (result && result.message) {
+      console.log(result.message)
+    }
+
+    process.exit(result && result.success ? 0 : 1)
+  } catch (error) {
+    console.error('Error:', error.message)
+    if (process.env.DEBUG) {
+      console.error(error.stack)
+    }
+    process.exit(1)
+  }
 }
 
-main().catch(console.error);
+/**
+ * Parse command arguments dynamically
+ */
+function parseCommandArgs(cmd, rawArgs) {
+  const parsedArgs = []
+  const options = {}
+
+  for (let i = 0; i < rawArgs.length; i++) {
+    const arg = rawArgs[i]
+
+    if (arg.startsWith('--')) {
+      // Handle flags
+      const flagName = arg.slice(2)
+
+      // Check if next arg is a value (doesn't start with --)
+      if (i + 1 < rawArgs.length && !rawArgs[i + 1].startsWith('--')) {
+        options[flagName] = rawArgs[++i]
+      } else {
+        options[flagName] = true
+      }
+    } else {
+      parsedArgs.push(arg)
+    }
+  }
+
+  return { parsedArgs, options }
+}
+
+/**
+ * Display help using registry
+ */
+function displayHelp() {
+  const categories = registry.getCategories()
+  const categorizedCommands = {}
+
+  // Group commands by category (exclude deprecated)
+  registry.getTerminalCommands().forEach((cmd) => {
+    if (cmd.deprecated) return
+
+    if (!categorizedCommands[cmd.category]) {
+      categorizedCommands[cmd.category] = []
+    }
+    categorizedCommands[cmd.category].push(cmd)
+  })
+
+  console.log('prjct - Developer momentum tool for solo builders')
+  console.log('\nAvailable commands:\n')
+
+  // Display commands by category
+  Object.entries(categorizedCommands).forEach(([categoryKey, cmds]) => {
+    const categoryInfo = categories[categoryKey]
+    console.log(`  ${categoryInfo.title}:`)
+
+    cmds.forEach((cmd) => {
+      const params = cmd.params ? ` ${cmd.params}` : ''
+      const spacing = ' '.repeat(Math.max(20 - cmd.name.length - params.length, 1))
+      const impl = cmd.implemented ? '' : ' (not implemented)'
+      console.log(`    ${cmd.name}${params}${spacing}${cmd.description}${impl}`)
+    })
+
+    console.log('')
+  })
+
+  const stats = registry.getStats()
+  console.log(`Total: ${stats.implemented} implemented / ${stats.total} commands`)
+  console.log('\nFor more info: https://prjct.app')
+}
+
+// Run CLI
+main().catch((error) => {
+  console.error('Fatal error:', error.message)
+  if (process.env.DEBUG) {
+    console.error(error.stack)
+  }
+  process.exit(1)
+})
