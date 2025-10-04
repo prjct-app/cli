@@ -11,6 +11,7 @@ import {
   Zap,
   BookOpen,
   Terminal,
+  LucideIcon,
 } from 'lucide-react'
 import { typography, spacing, borders } from '../lib/typography-system'
 import { animationPresets } from '../lib/animation-variants'
@@ -19,7 +20,7 @@ import { cn } from '../lib/utils'
 interface Scenario {
   id: string
   title: string
-  icon: React.ReactNode
+  icon: LucideIcon
   description: string
   commands: {
     command: string

@@ -41,6 +41,16 @@ interface CategoryInfo {
   description: string
 }
 
+interface CategoryCommand {
+  cmd: string
+  desc: string
+  platforms: {
+    claude: string
+    terminal: string
+  }
+  implemented: boolean
+}
+
 const platforms = [
   { id: 'claude', label: 'Claude Code', icon: <Code2 className="h-4 w-4" /> },
   { id: 'terminal', label: 'Terminal (Limited)', icon: <Terminal className="h-4 w-4" /> },
@@ -190,7 +200,7 @@ export const Commands = () => {
                   <h2 className="text-xl font-semibold">{category.title}</h2>
                 </div>
                 <div className="space-y-4">
-                  {category.commands.map((command: Command) => (
+                  {category.commands.map((command: CategoryCommand) => (
                     <div key={command.cmd} className="flex flex-col gap-2">
                       <span className="text-sm text-muted-foreground">{command.desc}</span>
                       <motion.code
