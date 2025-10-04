@@ -1,6 +1,7 @@
 {
-  "buildCommand": "cd website && npm run build",
+  "buildCommand": "npm --prefix website install && npm --prefix website run build",
   "outputDirectory": "website/dist",
+  "installCommand": "npm --prefix website install",
   "rewrites": [
     {
       "source": "/(.*)",
