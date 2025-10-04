@@ -23,8 +23,29 @@ description: 'Value analysis + roadmap + task breakdown + auto-start'
 1. Analyze value (impact/effort/timing)
 2. Position in roadmap
 3. Break down into logical tasks (as many as needed)
-4. Write to `core/next.md`
-5. Auto-start first task
+4. **Write to session**: Append to `planning/sessions/{YYYY-MM}/{YYYY-MM-DD}.jsonl`
+5. **Update index**: Add to `planning/roadmap.md` (lightweight, last 30 days only)
+6. **Queue tasks**: Write to `core/next.md`
+7. Auto-start first task
+
+## Session Log Format
+
+Append to `planning/sessions/{YYYY-MM}/{YYYY-MM-DD}.jsonl`:
+
+```jsonl
+{"ts":"2025-10-04T14:30:00Z","type":"feature_add","name":"{feature}","tasks":{N},"impact":"{high/med/low}","effort":"{Xh}","status":"queued"}
+```
+
+## Index Update
+
+Append to `planning/roadmap.md` (keep only last 30 days):
+
+```markdown
+## Queued
+- [ ] {feature_name} ({N} tasks, {Xh} estimated) - Added 2025-10-04
+```
+
+If roadmap.md > 30 days old entries, archive them to `planning/archive/roadmap-{YYYY-MM}.md`
 
 ## Value Analysis
 
