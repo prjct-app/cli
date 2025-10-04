@@ -16,7 +16,7 @@ class CommandInstaller {
     this.homeDir = os.homedir()
     this.claudeCommandsPath = path.join(this.homeDir, '.claude', 'commands', 'p')
     this.claudeConfigPath = path.join(this.homeDir, '.claude')
-    this.templatesDir = path.join(__dirname, '..', 'templates', 'commands')
+    this.templatesDir = path.join(__dirname, '..', '..', 'templates', 'commands')
   }
 
   /**
