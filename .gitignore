@@ -8,8 +8,8 @@ dist/
 **/dist/
 build/
 **/build/
-# Keep docs folder for GitHub Pages
-!docs/
+docs/
+website/dist/
 out/
 coverage/
 *.tsbuildinfo
