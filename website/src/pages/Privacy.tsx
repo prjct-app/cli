@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Shield, Lock, Eye, Server, Users, Database, Globe, Key } from 'lucide-react'
+import { Shield, Lock, Eye, Server, Users, Database, Key } from 'lucide-react'
 
 export const Privacy = () => {
   const noCollectItems = [
