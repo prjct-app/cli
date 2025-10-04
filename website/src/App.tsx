@@ -16,6 +16,8 @@ import { Terms } from './pages/Terms'
 import { Privacy } from './pages/Privacy'
 import { Changelog } from './pages/Changelog'
 import { WindsurfExtensionPage } from './pages/WindsurfExtensionPage'
+import { SpeedInsights } from '@vercel/speed-insights/react';
+import { Analytics } from '@vercel/analytics/react';
 
 function App() {
   return (
@@ -45,6 +47,8 @@ function App() {
 
         <Footer />
       </div>
+      <SpeedInsights />
+      <Analytics />
     </Router>
   )
 }
