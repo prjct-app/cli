@@ -2,6 +2,8 @@ const fs = require('fs').promises
 const path = require('path')
 const crypto = require('crypto')
 const os = require('os')
+const dateHelper = require('../utils/date-helper')
+const fileHelper = require('../utils/file-helper')
 
 /**
  * PathManager - Manages project paths between local and global storage
@@ -90,13 +92,8 @@ class PathManager {
    * @returns {Promise<boolean>} - True if legacy directory exists
    */
   async hasLegacyStructure(projectPath) {
-    try {
-      const legacyPath = this.getLegacyPrjctPath(projectPath)
-      await fs.access(legacyPath)
-      return true
-    } catch {
-      return false
-    }
+    const legacyPath = this.getLegacyPrjctPath(projectPath)
+    return await fileHelper.dirExists(legacyPath)
   }
 
   /**
@@ -106,13 +103,8 @@ class PathManager {
    * @returns {Promise<boolean>} - True if config exists
    */
   async hasConfig(projectPath) {
-    try {
-      const configPath = this.getLocalConfigPath(projectPath)
-      await fs.access(configPath)
-      return true
-    } catch {
-      return false
-    }
+    const configPath = this.getLocalConfigPath(projectPath)
+    return await fileHelper.fileExists(configPath)
   }
 
   /**
@@ -122,9 +114,9 @@ class PathManager {
    * @returns {Promise<void>}
    */
   async ensureGlobalStructure() {
-    await fs.mkdir(this.globalBaseDir, { recursive: true })
-    await fs.mkdir(this.globalProjectsDir, { recursive: true })
-    await fs.mkdir(this.globalConfigDir, { recursive: true })
+    await fileHelper.ensureDir(this.globalBaseDir)
+    await fileHelper.ensureDir(this.globalProjectsDir)
+    await fileHelper.ensureDir(this.globalConfigDir)
   }
 
   /**
@@ -142,12 +134,11 @@ class PathManager {
     const layers = ['core', 'progress', 'planning', 'analysis', 'memory']
 
     for (const layer of layers) {
-      await fs.mkdir(path.join(projectPath, layer), { recursive: true })
+      await fileHelper.ensureDir(path.join(projectPath, layer))
     }
 
-    await fs.mkdir(path.join(projectPath, 'planning', 'tasks'), { recursive: true })
-
-    await fs.mkdir(path.join(projectPath, 'sessions'), { recursive: true })
+    await fileHelper.ensureDir(path.join(projectPath, 'planning', 'tasks'))
+    await fileHelper.ensureDir(path.join(projectPath, 'sessions'))
 
     return projectPath
   }
@@ -161,9 +152,7 @@ class PathManager {
    * @returns {string} - Path to session directory
    */
   getSessionPath(projectId, date = new Date()) {
-    const year = date.getFullYear().toString()
-    const month = (date.getMonth() + 1).toString().padStart(2, '0')
-    const day = date.getDate().toString().padStart(2, '0')
+    const { year, month, day } = dateHelper.getYearMonthDay(date)
 
     return path.join(this.getGlobalProjectPath(projectId), 'sessions', year, month, day)
   }
@@ -187,7 +176,7 @@ class PathManager {
    */
   async ensureSessionPath(projectId, date = new Date()) {
     const sessionPath = this.getSessionPath(projectId, date)
-    await fs.mkdir(sessionPath, { recursive: true })
+    await fileHelper.ensureDir(sessionPath)
     return sessionPath
   }
 
@@ -289,13 +278,8 @@ class PathManager {
    * @returns {Promise<boolean>} - True if project exists
    */
   async projectExists(projectId) {
-    try {
-      const projectPath = this.getGlobalProjectPath(projectId)
-      await fs.access(projectPath)
-      return true
-    } catch {
-      return false
-    }
+    const projectPath = this.getGlobalProjectPath(projectId)
+    return await fileHelper.dirExists(projectPath)
   }
 
   /**
