@@ -27,7 +27,6 @@ const navItems: NavItem[] = [
   { label: 'Commands', path: '/commands', icon: <TerminalIcon className="h-4 w-4" /> },
   { label: 'Workflows', path: '/workflows', icon: <Sparkles className="h-4 w-4" /> },
   { label: 'Windsurf Extension', path: '/windsurf-extension', icon: <Zap className="h-4 w-4" /> },
-  { label: 'Changelog', path: '/changelog', icon: <GitBranch className="h-4 w-4" /> },
   { label: 'FAQ', path: '/faq', icon: <HelpCircle className="h-4 w-4" /> },
 ]
 
@@ -50,7 +49,7 @@ export const Navigation = () => {
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden items-center gap-4 lg:flex">
+          <nav className="hidden items-center gap-4 lg:flex w-full">
             {navItems.map((item, index) => (
               <motion.div
                 key={item.path}
