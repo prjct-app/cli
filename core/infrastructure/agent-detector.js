@@ -79,6 +79,7 @@ class AgentDetector {
     return {
       type: 'claude',
       name: 'Claude (Code + Desktop)',
+      isSupported: true,
       capabilities: {
         mcp: true,
         filesystem: 'mcp',
@@ -112,6 +113,7 @@ class AgentDetector {
     return {
       type: 'terminal',
       name: 'Terminal/CLI',
+      isSupported: true,
       capabilities: {
         mcp: false,
         filesystem: 'native',
