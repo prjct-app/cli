@@ -16,7 +16,6 @@
  * - Sprint 4 (3 SETUP): start, setup, migrateAll
  */
 
-const fs = require('fs').promises
 const path = require('path')
 
 const commandExecutor = require('./agentic/command-executor')
@@ -29,6 +28,9 @@ const agentDetector = require('./infrastructure/agent-detector')
 const migrator = require('./infrastructure/migrator')
 const UpdateChecker = require('./infrastructure/update-checker')
 const { VERSION } = require('./utils/version')
+const dateHelper = require('./utils/date-helper')
+const jsonlHelper = require('./utils/jsonl-helper')
+const fileHelper = require('./utils/file-helper')
 
 /**
  * Agentic Commands - Template-driven execution
@@ -114,13 +116,13 @@ class PrjctCommands {
       const memoryPath = pathManager.getFilePath(projectId, 'memory', 'context.jsonl')
 
       const entry = {
-        timestamp: new Date().toISOString(),
+        timestamp: dateHelper.getTimestamp(),
         action,
         data,
         author: author.name,
       }
 
-      await fs.appendFile(memoryPath, JSON.stringify(entry) + '\n', 'utf-8')
+      await jsonlHelper.appendJsonLine(memoryPath, entry)
     } catch (error) {
       // Non-critical - don't fail the command
     }
@@ -149,7 +151,7 @@ class PrjctCommands {
 
         await this.logToMemory(projectPath, 'task_started', {
           task,
-          timestamp: new Date().toISOString(),
+          timestamp: dateHelper.getTimestamp(),
         })
         return { success: true, task }
       } else {
@@ -203,11 +205,7 @@ class PrjctCommands {
       let duration = ''
       if (startedMatch) {
         const started = new Date(startedMatch[1])
-        const now = new Date()
-        const diff = now - started
-        const hours = Math.floor(diff / (1000 * 60 * 60))
-        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
-        duration = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`
+        duration = dateHelper.calculateDuration(started)
       }
 
       // Clear now.md
@@ -223,7 +221,7 @@ class PrjctCommands {
       await this.logToMemory(projectPath, 'task_completed', {
         task,
         duration,
-        timestamp: new Date().toISOString(),
+        timestamp: dateHelper.getTimestamp(),
       })
       return { success: true, task, duration }
     } catch (error) {
@@ -397,7 +395,7 @@ class PrjctCommands {
    */
   async _detectEmptyDirectory(projectPath) {
     try {
-      const entries = await fs.readdir(projectPath)
+      const entries = await fileHelper.listFiles(projectPath)
       const meaningfulFiles = entries.filter(
         (name) =>
           !name.startsWith('.') &&
@@ -429,7 +427,7 @@ class PrjctCommands {
         'main.rs',
         'main.py',
       ]
-      const entries = await fs.readdir(projectPath)
+      const entries = await fileHelper.listFiles(projectPath)
 
       return entries.some((name) => codePatterns.includes(name))
     } catch {
@@ -490,7 +488,7 @@ class PrjctCommands {
       await this.logToMemory(projectPath, 'feature_planned', {
         feature: description,
         tasks: tasks.length,
-        timestamp: new Date().toISOString(),
+        timestamp: dateHelper.getTimestamp(),
       })
 
       console.log('✅ Feature roadmap created!\n')
@@ -588,7 +586,7 @@ class PrjctCommands {
       await this.logToMemory(projectPath, 'bug_reported', {
         bug: description,
         severity,
-        timestamp: new Date().toISOString(),
+        timestamp: dateHelper.getTimestamp(),
       })
 
       console.log('✅ Bug tracked!\n')
@@ -692,7 +690,7 @@ class PrjctCommands {
       await this.logToMemory(projectPath, 'feature_shipped', {
         feature,
         version: newVersion,
-        timestamp: new Date().toISOString(),
+        timestamp: dateHelper.getTimestamp(),
       })
 
       console.log('\n🎉 Feature shipped successfully!\n')
@@ -744,12 +742,12 @@ class PrjctCommands {
   async _bumpVersion(projectPath) {
     try {
       const pkgPath = path.join(projectPath, 'package.json')
-      const pkg = JSON.parse(await fs.readFile(pkgPath, 'utf-8'))
+      const pkg = await fileHelper.readJson(pkgPath, {})
       const oldVersion = pkg.version || '0.0.0'
       const [major, minor, patch] = oldVersion.split('.').map(Number)
       const newVersion = `${major}.${minor}.${patch + 1}`
       pkg.version = newVersion
-      await fs.writeFile(pkgPath, JSON.stringify(pkg, null, 2) + '\n')
+      await fileHelper.writeJson(pkgPath, pkg)
       return newVersion
     } catch {
       return '0.0.1'
@@ -763,17 +761,12 @@ class PrjctCommands {
   async _updateChangelog(feature, version, projectPath) {
     try {
       const changelogPath = path.join(projectPath, 'CHANGELOG.md')
-      let changelog = ''
-      try {
-        changelog = await fs.readFile(changelogPath, 'utf-8')
-      } catch {
-        changelog = '# Changelog\n\n'
-      }
+      const changelog = await fileHelper.readFile(changelogPath, '# Changelog\n\n')
 
-      const entry = `## [${version}] - ${new Date().toISOString().split('T')[0]}\n\n### Added\n- ${feature}\n\n`
+      const entry = `## [${version}] - ${dateHelper.formatDate(new Date())}\n\n### Added\n- ${feature}\n\n`
       const updated = changelog.replace('# Changelog\n\n', `# Changelog\n\n${entry}`)
 
-      await fs.writeFile(changelogPath, updated)
+      await fileHelper.writeFile(changelogPath, updated)
     } catch (error) {
       console.error('   Warning: Could not update CHANGELOG')
     }
@@ -834,12 +827,8 @@ class PrjctCommands {
       let recentActivity = []
 
       try {
-        const memoryContent = await fs.readFile(memoryPath, 'utf-8')
-        const entries = memoryContent.split('\n').filter((line) => line.trim())
-        recentActivity = entries
-          .slice(-10)
-          .reverse()
-          .map((line) => JSON.parse(line))
+        const entries = await jsonlHelper.readJsonLines(memoryPath)
+        recentActivity = entries.slice(-10).reverse()
       } catch {
         recentActivity = []
       }
@@ -904,7 +893,7 @@ class PrjctCommands {
       console.log('• /p:analyze → Update stack analysis')
       console.log('• /p:feature → Add new feature')
 
-      await this.logToMemory(projectPath, 'context_viewed', { timestamp: new Date().toISOString() })
+      await this.logToMemory(projectPath, 'context_viewed', { timestamp: dateHelper.getTimestamp() })
 
       return { success: true }
     } catch (error) {
@@ -1014,7 +1003,7 @@ class PrjctCommands {
       await this.logToMemory(projectPath, 'recap_viewed', {
         shipped: shippedFeatures.length,
         tasks: nextTasks,
-        timestamp: new Date().toISOString(),
+        timestamp: dateHelper.getTimestamp(),
       })
 
       return {
@@ -1123,7 +1112,7 @@ class PrjctCommands {
       await this.logToMemory(projectPath, 'help_requested', {
         issue,
         stack: detectedStack,
-        timestamp: new Date().toISOString(),
+        timestamp: dateHelper.getTimestamp(),
       })
 
       return { success: true, issue, stack: detectedStack }
@@ -1162,7 +1151,7 @@ class PrjctCommands {
         'planning',
         'designs'
       )
-      await fs.mkdir(designsPath, { recursive: true })
+      await fileHelper.ensureDir(designsPath)
 
       // Generate design document based on type
       let designContent = ''
@@ -1188,7 +1177,7 @@ class PrjctCommands {
       // Save design document
       const designFileName = `${designType}-${designTarget.toLowerCase().replace(/\s+/g, '-')}.md`
       const designFilePath = path.join(designsPath, designFileName)
-      await fs.writeFile(designFilePath, designContent)
+      await fileHelper.writeFile(designFilePath, designContent)
 
       console.log('✅ Design document created!\n')
       console.log(`📄 Location: planning/designs/${designFileName}\n`)
@@ -1200,7 +1189,7 @@ class PrjctCommands {
       await this.logToMemory(projectPath, 'design_created', {
         type: designType,
         target: designTarget,
-        timestamp: new Date().toISOString(),
+        timestamp: dateHelper.getTimestamp(),
       })
 
       return {
@@ -1596,12 +1585,11 @@ Process flow for ${target}.
       // Clean old memory entries (keep last 100)
       const memoryPath = pathManager.getFilePath(projectId, 'memory', 'context.jsonl')
       try {
-        const memoryContent = await fs.readFile(memoryPath, 'utf-8')
-        const entries = memoryContent.split('\n').filter((line) => line.trim())
+        const entries = await jsonlHelper.readJsonLines(memoryPath)
 
         if (entries.length > 100) {
           const kept = entries.slice(-100)
-          await fs.writeFile(memoryPath, kept.join('\n') + '\n')
+          await jsonlHelper.writeJsonLines(memoryPath, kept)
           cleaned.push(`Memory: ${entries.length - 100} old entries removed`)
         } else {
           cleaned.push('Memory: No cleanup needed')
@@ -1663,7 +1651,7 @@ Process flow for ${target}.
 
       await this.logToMemory(projectPath, 'cleanup_performed', {
         items: cleaned.length,
-        timestamp: new Date().toISOString(),
+        timestamp: dateHelper.getTimestamp(),
       })
 
       return { success: true, cleaned }
@@ -1694,17 +1682,17 @@ Process flow for ${target}.
 
       // Calculate time range
       const now = new Date()
-      let startDate = new Date()
+      let startDate
 
       switch (period) {
         case 'day':
-          startDate.setDate(now.getDate() - 1)
+          startDate = dateHelper.getDaysAgo(1)
           break
         case 'week':
-          startDate.setDate(now.getDate() - 7)
+          startDate = dateHelper.getDaysAgo(7)
           break
         case 'month':
-          startDate.setMonth(now.getMonth() - 1)
+          startDate = dateHelper.getDaysAgo(30)
           break
         case 'all':
           startDate = new Date(0) // Beginning of time
@@ -1714,11 +1702,7 @@ Process flow for ${target}.
       // Read memory and filter by period
       let entries = []
       try {
-        const memoryContent = await fs.readFile(memoryPath, 'utf-8')
-        const allEntries = memoryContent
-          .split('\n')
-          .filter((line) => line.trim())
-          .map((line) => JSON.parse(line))
+        const allEntries = await jsonlHelper.readJsonLines(memoryPath)
 
         entries = allEntries.filter((entry) => {
           const entryDate = new Date(entry.timestamp)
@@ -1777,7 +1761,7 @@ Process flow for ${target}.
       await this.logToMemory(projectPath, 'progress_viewed', {
         period,
         metrics,
-        timestamp: new Date().toISOString(),
+        timestamp: dateHelper.getTimestamp(),
       })
 
       return { success: true, period, metrics }
@@ -1820,7 +1804,7 @@ Process flow for ${target}.
       console.log('• /p:status → See implementation status')
 
       await this.logToMemory(projectPath, 'roadmap_viewed', {
-        timestamp: new Date().toISOString(),
+        timestamp: dateHelper.getTimestamp(),
       })
 
       return { success: true, content: roadmapContent }
@@ -1956,7 +1940,7 @@ Status: ⏸️  Planned
       await this.logToMemory(projectPath, 'status_viewed', {
         stats,
         health: health.score,
-        timestamp: new Date().toISOString(),
+        timestamp: dateHelper.getTimestamp(),
       })
 
       return { success: true, stats, health }
@@ -2098,7 +2082,7 @@ Agent: ${agent}
         complexity: complexity.level,
         estimate,
         agent,
-        timestamp: new Date().toISOString(),
+        timestamp: dateHelper.getTimestamp(),
       })
 
       return { success: true, task, complexity, estimate, agent }
@@ -2244,7 +2228,7 @@ Agent: ${agent}
 
       // Log to memory
       await this.logToMemory(projectPath, 'repository_analyzed', {
-        timestamp: new Date().toISOString(),
+        timestamp: dateHelper.getTimestamp(),
         fileCount: analysisData.fileCount,
         gitCommits: analysisData.gitStats.totalCommits,
       })
@@ -2410,7 +2394,7 @@ Agent: ${agent}
 
       // Step 4: Log to memory
       await this.logToMemory(projectPath, 'agents_generated', {
-        timestamp: new Date().toISOString(),
+        timestamp: dateHelper.getTimestamp(),
         agents: generatedAgents,
         count: generatedAgents.length,
       })
