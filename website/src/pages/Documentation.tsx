@@ -146,38 +146,28 @@ export const Documentation = () => {
           </div>
         </motion.div>
 
-        {/* Resources */}
+        {/* Contact & Support */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.4 }}
           className="mt-12 text-center"
         >
-          <h2 className="mb-6 text-2xl font-bold">Additional Resources</h2>
+          <h2 className="mb-6 text-2xl font-bold">Need Help?</h2>
           <div className="flex flex-wrap justify-center gap-4">
             <a
-              href="https://github.com/jlopezlira/prjct-cli"
+              href="mailto:jlopezlira@gmail.com"
               className="rounded-lg border border-border px-6 py-3 transition-all hover:bg-muted"
-              target="_blank"
-              rel="noopener noreferrer"
             >
-              GitHub Repository →
+              Email Support →
             </a>
             <a
-              href="https://github.com/jlopezlira/prjct-cli/issues"
+              href="https://jlopezlira.dev"
               className="rounded-lg border border-border px-6 py-3 transition-all hover:bg-muted"
               target="_blank"
               rel="noopener noreferrer"
             >
-              Report Issues →
-            </a>
-            <a
-              href="https://github.com/jlopezlira/prjct-cli/blob/main/CONTRIBUTING.md"
-              className="rounded-lg border border-border px-6 py-3 transition-all hover:bg-muted"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Contributing Guide →
+              Contact Developer →
             </a>
           </div>
         </motion.div>

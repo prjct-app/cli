@@ -10,6 +10,7 @@ import {
   HelpCircle,
   Sparkles,
   Zap,
+  Clock,
 } from 'lucide-react'
 import { PrjctLogo } from './Logo'
 
@@ -26,6 +27,7 @@ const navItems: NavItem[] = [
   { label: 'Workflows', path: '/workflows', icon: <Sparkles className="h-4 w-4" /> },
   { label: 'Windsurf Extension', path: '/windsurf-extension', icon: <Zap className="h-4 w-4" /> },
   { label: 'FAQ', path: '/faq', icon: <HelpCircle className="h-4 w-4" /> },
+  { label: 'Changelog', path: '/changelog', icon: <Clock className="h-4 w-4" /> },
 ]
 
 export const Navigation = () => {
@@ -39,7 +41,7 @@ export const Navigation = () => {
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-md">
-      <div className="container mx-auto px-6">
+      <div className="container mx-auto max-w-7xl px-6">
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center">
@@ -47,7 +49,7 @@ export const Navigation = () => {
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden items-center gap-4 lg:flex w-full">
+          <nav className="hidden items-center gap-4 lg:flex">
             {navItems.map((item, index) => (
               <motion.div
                 key={item.path}
