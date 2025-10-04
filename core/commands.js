@@ -2511,51 +2511,272 @@ Agent: ${agent}
     return agents
   }
 
+  /**
+   * First-time setup - Install commands to editors
+   */
   async start() {
-    return this._notImplemented('start')
+    const commandInstaller = require('./infrastructure/command-installer')
+
+    console.log('🚀 Setting up prjct for Claude...\n')
+
+    // Check if Claude is installed
+    const status = await commandInstaller.checkInstallation()
+
+    if (!status.claudeDetected) {
+      return {
+        success: false,
+        message:
+          '❌ Claude not detected.\n\nPlease install Claude Code or Claude Desktop first:\n' +
+          '  - Claude Code: https://claude.com/code\n' +
+          '  - Claude Desktop: https://claude.com/desktop',
+      }
+    }
+
+    // Install commands
+    console.log('📦 Installing /p:* commands...')
+    const result = await commandInstaller.installCommands()
+
+    if (!result.success) {
+      return {
+        success: false,
+        message: `❌ Installation failed: ${result.error}`,
+      }
+    }
+
+    console.log(`\n✅ Installed ${result.installed.length} commands to:\n   ${result.path}`)
+
+    if (result.errors.length > 0) {
+      console.log(`\n⚠️  ${result.errors.length} errors:`)
+      result.errors.forEach((e) => console.log(`   - ${e.file}: ${e.error}`))
+    }
+
+    console.log('\n🎉 Setup complete!')
+    console.log('\nNext steps:')
+    console.log('  1. Open Claude Code or Claude Desktop')
+    console.log('  2. Navigate to your project')
+    console.log('  3. Run: /p:init')
+
+    return {
+      success: true,
+      message: '',
+    }
   }
 
-  async setup() {
-    return this._notImplemented('setup')
+  /**
+   * Reconfigure editor installations
+   */
+  async setup(options = {}) {
+    const commandInstaller = require('./infrastructure/command-installer')
+
+    console.log('🔧 Reconfiguring prjct...\n')
+
+    if (options.force) {
+      console.log('🗑️  Removing existing installation...')
+      await commandInstaller.uninstallCommands()
+    }
+
+    // Reinstall commands
+    console.log('📦 Installing /p:* commands...')
+    const result = await commandInstaller.updateCommands()
+
+    if (!result.success) {
+      return {
+        success: false,
+        message: `❌ Setup failed: ${result.error}`,
+      }
+    }
+
+    console.log(`\n✅ Installed ${result.installed.length} commands`)
+
+    if (result.errors.length > 0) {
+      console.log(`\n⚠️  ${result.errors.length} errors:`)
+      result.errors.forEach((e) => console.log(`   - ${e.file}: ${e.error}`))
+    }
+
+    console.log('\n🎉 Setup complete!')
+
+    return {
+      success: true,
+      message: '',
+    }
   }
 
-  async migrateAll() {
-    return this._notImplemented('migrateAll')
+  /**
+   * Migrate all legacy projects
+   */
+  async migrateAll(options = {}) {
+    const fs = require('fs').promises
+    const path = require('path')
+
+    console.log('🔄 Scanning for legacy prjct projects...\n')
+
+    const homeDir = require('os').homedir()
+    const globalRoot = path.join(homeDir, '.prjct-cli', 'projects')
+
+    // Get all project IDs
+    let projectIds = []
+    try {
+      const dirs = await fs.readdir(globalRoot)
+      projectIds = dirs.filter((d) => !d.startsWith('.'))
+    } catch (error) {
+      return {
+        success: false,
+        message: '❌ No prjct projects found',
+      }
+    }
+
+    console.log(`📁 Found ${projectIds.length} projects in global storage\n`)
+
+    const migrated = []
+    const failed = []
+    const skipped = []
+
+    for (const projectId of projectIds) {
+      const globalProjectPath = path.join(globalRoot, projectId)
+
+      // Read global config to get project path
+      const globalConfig = await configManager.readGlobalConfig(projectId)
+      if (!globalConfig || !globalConfig.projectPath) {
+        skipped.push({ projectId, reason: 'No project path in config' })
+        continue
+      }
+
+      const projectPath = globalConfig.projectPath
+
+      // Check if needs migration
+      if (!(await migrator.needsMigration(projectPath))) {
+        skipped.push({ projectId, reason: 'Already migrated' })
+        continue
+      }
+
+      console.log(`🔄 Migrating: ${projectPath}`)
+
+      try {
+        const result = await migrator.migrate(projectPath, options)
+
+        if (result.success) {
+          migrated.push({ projectId, path: projectPath })
+          console.log(`   ✅ ${result.message}`)
+        } else {
+          failed.push({ projectId, path: projectPath, error: result.message })
+          console.log(`   ❌ ${result.message}`)
+        }
+      } catch (error) {
+        failed.push({ projectId, path: projectPath, error: error.message })
+        console.log(`   ❌ ${error.message}`)
+      }
+
+      console.log('')
+    }
+
+    // Summary
+    console.log('\n📊 Migration Summary:')
+    console.log(`   ✅ Migrated: ${migrated.length}`)
+    console.log(`   ⏭️  Skipped: ${skipped.length}`)
+    console.log(`   ❌ Failed: ${failed.length}`)
+
+    if (failed.length > 0) {
+      console.log('\n❌ Failed migrations:')
+      failed.forEach((f) => console.log(`   - ${f.path}: ${f.error}`))
+    }
+
+    return {
+      success: failed.length === 0,
+      message: '',
+    }
   }
 
-  async workflow() {
-    return this._notImplemented('workflow')
-  }
+  /**
+   * Execute architect plan and generate code
+   */
+  async architect(action = 'execute', projectPath = process.cwd()) {
+    if (action !== 'execute') {
+      return {
+        success: false,
+        message: '❌ Invalid action. Use: /p:architect execute',
+      }
+    }
 
-  async architectExecute() {
-    return this._notImplemented('architectExecute')
-  }
+    try {
+      const initResult = await this.ensureProjectInit(projectPath)
+      if (!initResult.success) return initResult
 
-  _notImplemented(commandName) {
-    console.log(`❌ /p:${commandName} not yet migrated to agentic architecture`)
-    console.log('\nMigrated commands (18 total):')
-    console.log('\n  Sprint 1 - CRITICAL (9 commands):')
-    console.log('  • /p:init - Initialize project')
-    console.log('  • /p:analyze - Analyze repository')
-    console.log('  • /p:sync - Generate agents')
-    console.log('  • /p:feature - Add feature with roadmap')
-    console.log('  • /p:bug - Report and track bugs')
-    console.log('  • /p:now - Set current task')
-    console.log('  • /p:done - Complete task')
-    console.log('  • /p:next - Show queue')
-    console.log('  • /p:ship - Ship feature')
-    console.log('\n  Sprint 2 - IMPORTANT (4 commands):')
-    console.log('  • /p:context - Show project context')
-    console.log('  • /p:recap - Show progress overview')
-    console.log('  • /p:stuck - Get contextual help')
-    console.log('  • /p:design - Design architecture/API/components')
-    console.log('\n  Sprint 3 - OPTIONAL (5 commands):')
-    console.log('  • /p:cleanup - Clean temp files and old entries')
-    console.log('  • /p:progress - Show metrics for period')
-    console.log('  • /p:roadmap - Show roadmap with ASCII')
-    console.log('  • /p:status - KPI dashboard with ASCII graphics')
-    console.log('  • /p:build - Start task with agent assignment')
-    return { success: false, message: `Command ${commandName} not yet migrated` }
+      console.log('🏗️  Architect Mode - Code Generation\n')
+
+      const globalPath = await this.getGlobalProjectPath(projectPath)
+      const architectSession = require('./domain/architect-session')
+
+      // Check if there's a completed plan
+      const planPath = path.join(globalPath, 'planning', 'architect-session.md')
+
+      let planContent
+      try {
+        planContent = await fileHelper.readFile(planPath)
+      } catch (error) {
+        return {
+          success: false,
+          message:
+            '❌ No architect plan found.\n\n' +
+            'Create a plan first:\n' +
+            '  1. Run /p:init in an empty directory\n' +
+            '  2. Answer the discovery questions\n' +
+            '  3. Plan will be auto-generated\n' +
+            '  4. Then run /p:architect execute',
+        }
+      }
+
+      if (!planContent || planContent.trim() === '') {
+        return {
+          success: false,
+          message: '❌ Architect plan is empty',
+        }
+      }
+
+      console.log('📋 Reading architect plan...\n')
+
+      // Extract key information from plan
+      const ideaMatch = planContent.match(/## Project Idea\n(.+)/s)
+      const stackMatch = planContent.match(/\*\*Stack:\*\*\n([\s\S]+?)\n\n/)
+      const stepsMatch = planContent.match(/\*\*Implementation Steps:\*\*\n([\s\S]+?)\n\n/)
+
+      const idea = ideaMatch ? ideaMatch[1].split('\n')[0].trim() : 'Unknown project'
+      const stack = stackMatch ? stackMatch[1] : 'Not specified'
+      const steps = stepsMatch ? stepsMatch[1] : 'Not specified'
+
+      console.log(`📝 Project: ${idea}`)
+      console.log(`\n🔧 Stack:\n${stack}`)
+      console.log(`\n📋 Implementation Steps:\n${steps}`)
+
+      console.log('\n' + '='.repeat(60))
+      console.log('🤖 READY TO GENERATE CODE')
+      console.log('='.repeat(60))
+
+      console.log(
+        '\nThe architect plan is ready. Claude will now:\n' +
+          '  1. Read the architectural plan\n' +
+          '  2. Use Context7 for official documentation\n' +
+          '  3. Generate project structure\n' +
+          '  4. Create starter files with boilerplate\n'
+      )
+
+      console.log('\n💡 This command shows the plan.')
+      console.log('   For code generation, Claude Code will read this plan')
+      console.log('   and generate the structure automatically.\n')
+
+      await this.logToMemory(projectPath, 'architect_executed', {
+        timestamp: dateHelper.getTimestamp(),
+        idea,
+      })
+
+      return {
+        success: true,
+        plan: planContent,
+        idea,
+      }
+    } catch (error) {
+      console.error('❌ Error:', error.message)
+      return { success: false, error: error.message }
+    }
   }
 }
 

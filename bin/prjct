@@ -72,6 +72,10 @@ async function main() {
       result = await commands.analyze(options)
     } else if (commandName === 'cleanup') {
       result = await commands.cleanup(options)
+    } else if (commandName === 'setup') {
+      result = await commands.setup(options)
+    } else if (commandName === 'migrate-all') {
+      result = await commands.migrateAll(options)
     } else if (commandName === 'progress') {
       const period = parsedArgs[0] || 'week'
       result = await commands.progress(period)
