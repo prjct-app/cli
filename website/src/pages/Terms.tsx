@@ -39,11 +39,11 @@ export const Terms = () => {
           </section>
 
           <section className="mb-8">
-            <h2 className="mb-4 text-2xl font-bold">2. MIT License</h2>
+            <h2 className="mb-4 text-2xl font-bold">2. License and Usage</h2>
             <p className="text-muted-foreground">
-              prjct is distributed under the MIT License. This means you are free to use, copy,
-              modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
-              subject to the conditions of the MIT License.
+              prjct is proprietary software. You are granted a license to use the Software for
+              personal and commercial purposes. The FREE tier is available to all users indefinitely.
+              Additional PRO features may be available through optional paid upgrades.
             </p>
           </section>
 
@@ -117,15 +117,7 @@ export const Terms = () => {
           </section>
 
           <section className="mb-8">
-            <h2 className="mb-4 text-2xl font-bold">9. Open Source Contributions</h2>
-            <p className="text-muted-foreground">
-              If you contribute to prjct through GitHub or other means, you agree that your
-              contributions will be licensed under the same MIT License as the original Software.
-            </p>
-          </section>
-
-          <section className="mb-8">
-            <h2 className="mb-4 text-2xl font-bold">10. Indemnification</h2>
+            <h2 className="mb-4 text-2xl font-bold">9. Indemnification</h2>
             <p className="text-muted-foreground">
               You agree to indemnify and hold harmless the creators and contributors of prjct from
               any claims, damages, losses, liabilities, and expenses arising from your use of the
@@ -134,24 +126,31 @@ export const Terms = () => {
           </section>
 
           <section className="mb-8">
-            <h2 className="mb-4 text-2xl font-bold">11. Governing Law</h2>
+            <h2 className="mb-4 text-2xl font-bold">10. Governing Law</h2>
             <p className="text-muted-foreground">
-              These Terms shall be governed by and construed in accordance with the laws applicable
-              to open source software, without regard to conflict of law principles.
+              These Terms shall be governed by and construed in accordance with applicable laws,
+              without regard to conflict of law principles.
             </p>
           </section>
 
           <section className="mb-8">
-            <h2 className="mb-4 text-2xl font-bold">12. Contact</h2>
+            <h2 className="mb-4 text-2xl font-bold">11. Contact</h2>
             <p className="text-muted-foreground">
-              For questions about these Terms of Use, please open an issue on our{' '}
+              For questions about these Terms of Use, please contact us at{' '}
               <a
-                href="https://github.com/jlopezlira/prjct-cli/issues"
+                href="mailto:jlopezlira@gmail.com"
+                className="text-primary underline hover:no-underline"
+              >
+                jlopezlira@gmail.com
+              </a>{' '}
+              or visit{' '}
+              <a
+                href="https://jlopezlira.dev"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-primary underline hover:no-underline"
               >
-                GitHub repository
+                jlopezlira.dev
               </a>
               .
             </p>

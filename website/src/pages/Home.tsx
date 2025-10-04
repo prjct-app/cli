@@ -31,17 +31,17 @@ export const Home = () => {
             Join indie hackers and small teams who ship features, not meetings
           </p>
           <div className="flex flex-col justify-center gap-4 sm:flex-row">
-            <a
-              href="https://github.com/jlopezlira/prjct-cli"
+            <Link
+              to="/docs"
               className="rounded-lg bg-primary px-8 py-3 text-primary-foreground transition-all hover:opacity-90"
             >
               Get Started →
-            </a>
+            </Link>
             <Link
-              to="/docs"
+              to="/commands"
               className="rounded-lg border border-border px-8 py-3 transition-all hover:bg-muted"
             >
-              View Documentation
+              View Commands
             </Link>
           </div>
 

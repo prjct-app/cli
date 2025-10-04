@@ -153,36 +153,6 @@ export const Privacy = () => {
           </div>
         </motion.div>
 
-        {/* Open Source Transparency */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.5 }}
-          className="mt-12"
-        >
-          <h2 className="mb-6 flex items-center gap-2 text-3xl font-bold">
-            <Globe className="h-8 w-8" />
-            Open Source Transparency
-          </h2>
-          <p className="mb-4 text-muted-foreground">prjct is fully open source. You can:</p>
-          <ul className="space-y-2 text-muted-foreground">
-            <li>
-              • Review all code on{' '}
-              <a
-                href="https://github.com/jlopezlira/prjct-cli"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary underline hover:no-underline"
-              >
-                GitHub
-              </a>
-            </li>
-            <li>• Verify there's no data collection</li>
-            <li>• Fork and modify it for your needs</li>
-            <li>• Contribute improvements</li>
-          </ul>
-        </motion.div>
-
         {/* Website Privacy */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -193,16 +163,16 @@ export const Privacy = () => {
           <h2 className="mb-6 text-3xl font-bold">Website Privacy</h2>
           <div className="rounded-lg bg-muted/20 p-6">
             <p className="mb-3 text-muted-foreground">
-              Our landing page (prjct.app) is a static site hosted on GitHub Pages:
+              Our landing page (prjct.app) is hosted on Vercel:
             </p>
             <ul className="space-y-1 text-muted-foreground">
-              <li>• No cookies are set</li>
-              <li>• No analytics are collected</li>
-              <li>• No user data is stored</li>
+              <li>• Minimal cookies for site functionality</li>
+              <li>• Vercel Analytics may collect basic usage data</li>
+              <li>• No personal data is stored by us</li>
               <li>
-                • GitHub Pages may collect basic access logs per their{' '}
+                • Vercel may collect basic access logs per their{' '}
                 <a
-                  href="https://docs.github.com/en/site-policy/privacy-policies/github-privacy-statement"
+                  href="https://vercel.com/legal/privacy-policy"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-primary underline hover:no-underline"
@@ -211,6 +181,16 @@ export const Privacy = () => {
                 </a>
               </li>
             </ul>
+            <p className="mt-4 text-sm text-muted-foreground">
+              For any privacy concerns, contact us at{' '}
+              <a
+                href="mailto:jlopezlira@gmail.com"
+                className="text-primary underline hover:no-underline"
+              >
+                jlopezlira@gmail.com
+              </a>
+              .
+            </p>
           </div>
         </motion.div>
 
