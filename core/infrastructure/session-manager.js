@@ -2,6 +2,9 @@ const fs = require('fs').promises
 const path = require('path')
 const pathManager = require('./path-manager')
 const { VERSION } = require('../utils/version')
+const dateHelper = require('../utils/date-helper')
+const jsonlHelper = require('../utils/jsonl-helper')
+const fileHelper = require('../utils/file-helper')
 
 /**
  * SessionManager - Manages temporal fragmentation of logs and progress data
@@ -54,18 +57,11 @@ class SessionManager {
     const sessionPath = await this.getCurrentSession(projectId)
     const filePath = path.join(sessionPath, filename)
 
-    const logLine = JSON.stringify(entry) + '\n'
-
-    try {
-      const existing = await fs.readFile(filePath, 'utf-8')
-      await fs.writeFile(filePath, existing + logLine, 'utf-8')
-    } catch {
-      await fs.writeFile(filePath, logLine, 'utf-8')
-    }
+    await jsonlHelper.appendJsonLine(filePath, entry)
 
     await this._updateSessionMetadata(sessionPath, {
-      lastActivity: new Date().toISOString(),
-      entryCount: await this._getFileLineCount(filePath),
+      lastActivity: dateHelper.getTimestamp(),
+      entryCount: await jsonlHelper.countJsonLines(filePath),
     })
   }
 
@@ -81,19 +77,15 @@ class SessionManager {
     const sessionPath = await this.getCurrentSession(projectId)
     const filePath = path.join(sessionPath, filename)
 
-    try {
-      const existing = await fs.readFile(filePath, 'utf-8')
-      await fs.writeFile(filePath, existing + content, 'utf-8')
-    } catch {
-      let initialContent = ''
-      if (filename === 'shipped.md') {
-        initialContent = '# SHIPPED 🚀\n\n'
-      }
-      await fs.writeFile(filePath, initialContent + content, 'utf-8')
+    const exists = await fileHelper.fileExists(filePath)
+    if (!exists && filename === 'shipped.md') {
+      await fileHelper.writeFile(filePath, '# SHIPPED 🚀\n\n' + content)
+    } else {
+      await fileHelper.appendToFile(filePath, content)
     }
 
     await this._updateSessionMetadata(sessionPath, {
-      lastActivity: new Date().toISOString(),
+      lastActivity: dateHelper.getTimestamp(),
     })
   }
 
@@ -108,12 +100,7 @@ class SessionManager {
     const sessionPath = await this.getCurrentSession(projectId)
     const filePath = path.join(sessionPath, filename)
 
-    try {
-      const content = await fs.readFile(filePath, 'utf-8')
-      return this._parseJsonLines(content)
-    } catch {
-      return []
-    }
+    return await jsonlHelper.readJsonLines(filePath)
   }
 
   /**
@@ -131,18 +118,13 @@ class SessionManager {
 
     for (const session of sessions) {
       const filePath = path.join(session.path, filename)
-      try {
-        const content = await fs.readFile(filePath, 'utf-8')
-        const entries = this._parseJsonLines(content)
+      const entries = await jsonlHelper.readJsonLines(filePath)
 
-        entries.forEach((entry) => {
-          entry._sessionDate = session.date
-        })
+      entries.forEach((entry) => {
+        entry._sessionDate = session.date
+      })
 
-        allEntries.push(...entries)
-      } catch {
-        continue
-      }
+      allEntries.push(...entries)
     }
 
     return allEntries
@@ -163,15 +145,12 @@ class SessionManager {
 
     for (const session of sessions) {
       const filePath = path.join(session.path, filename)
-      try {
-        const content = await fs.readFile(filePath, 'utf-8')
-        if (content.trim()) {
-          allContent.push(
-            `## Session: ${session.year}-${session.month}-${session.day}\n\n${content}`
-          )
-        }
-      } catch {
-        continue
+      const content = await fileHelper.readFile(filePath, '')
+
+      if (content.trim()) {
+        allContent.push(
+          `## Session: ${session.year}-${session.month}-${session.day}\n\n${content}`
+        )
       }
     }
 
@@ -188,8 +167,7 @@ class SessionManager {
    */
   async getRecentLogs(projectId, days = 7, filename = 'context.jsonl') {
     const toDate = new Date()
-    const fromDate = new Date()
-    fromDate.setDate(fromDate.getDate() - days)
+    const fromDate = dateHelper.getDaysAgo(days)
 
     return await this.readSessionRange(projectId, fromDate, toDate, filename)
   }
@@ -239,7 +217,7 @@ class SessionManager {
    */
   async migrateLegacyLogs(projectId, legacyFilePath, sessionFilename) {
     try {
-      const content = await fs.readFile(legacyFilePath, 'utf-8')
+      const content = await fileHelper.readFile(legacyFilePath)
 
       if (sessionFilename.endsWith('.jsonl')) {
         return await this._migrateLegacyJsonl(projectId, content, sessionFilename)
@@ -260,12 +238,12 @@ class SessionManager {
    * @private
    */
   async _migrateLegacyJsonl(projectId, content, sessionFilename) {
-    const entries = this._parseJsonLines(content)
+    const entries = jsonlHelper.parseJsonLines(content)
     const sessionGroups = new Map()
 
     for (const entry of entries) {
       const date = new Date(entry.timestamp || entry.data?.timestamp || Date.now())
-      const dateKey = this._getDateKey(date)
+      const dateKey = dateHelper.getDateKey(date)
 
       if (!sessionGroups.has(dateKey)) {
         sessionGroups.set(dateKey, [])
@@ -280,8 +258,7 @@ class SessionManager {
       const sessionPath = await pathManager.ensureSessionPath(projectId, date)
       const filePath = path.join(sessionPath, sessionFilename)
 
-      const content = groupEntries.map((e) => JSON.stringify(e)).join('\n') + '\n'
-      await fs.writeFile(filePath, content, 'utf-8')
+      await jsonlHelper.writeJsonLines(filePath, groupEntries)
 
       migratedCount += groupEntries.length
 
@@ -289,7 +266,7 @@ class SessionManager {
       await this._updateSessionMetadata(sessionPath, {
         entryCount: groupEntries.length,
         migrated: true,
-        migratedAt: new Date().toISOString(),
+        migratedAt: dateHelper.getTimestamp(),
       })
     }
 
@@ -309,11 +286,11 @@ class SessionManager {
     const sessionPath = await this.getCurrentSession(projectId)
     const filePath = path.join(sessionPath, sessionFilename)
 
-    await fs.writeFile(filePath, content, 'utf-8')
+    await fileHelper.writeFile(filePath, content)
 
     await this._updateSessionMetadata(sessionPath, {
       migrated: true,
-      migratedAt: new Date().toISOString(),
+      migratedAt: dateHelper.getTimestamp(),
     })
 
     return {
@@ -335,14 +312,11 @@ class SessionManager {
       return this.sessionMetadataCache.get(sessionPath)
     }
 
-    try {
-      const content = await fs.readFile(metadataPath, 'utf-8')
-      const metadata = JSON.parse(content)
+    const metadata = await fileHelper.readJson(metadataPath, null)
+    if (metadata) {
       this.sessionMetadataCache.set(sessionPath, metadata)
-      return metadata
-    } catch {
-      return null
     }
+    return metadata
   }
 
   /**
@@ -352,18 +326,16 @@ class SessionManager {
   async _ensureSessionMetadata(sessionPath) {
     const metadataPath = path.join(sessionPath, 'session-meta.json')
 
-    try {
-      await fs.access(metadataPath)
-    } catch {
-      // Create initial metadata
+    const exists = await fileHelper.fileExists(metadataPath)
+    if (!exists) {
       const metadata = {
-        created: new Date().toISOString(),
-        lastActivity: new Date().toISOString(),
+        created: dateHelper.getTimestamp(),
+        lastActivity: dateHelper.getTimestamp(),
         entryCount: 0,
         shipCount: 0,
         version: VERSION,
       }
-      await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2), 'utf-8')
+      await fileHelper.writeJson(metadataPath, metadata)
       this.sessionMetadataCache.set(sessionPath, metadata)
     }
   }
@@ -377,39 +349,9 @@ class SessionManager {
     Object.assign(metadata, updates)
 
     const metadataPath = path.join(sessionPath, 'session-meta.json')
-    await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2), 'utf-8')
+    await fileHelper.writeJson(metadataPath, metadata)
 
     this.sessionMetadataCache.set(sessionPath, metadata)
-  }
-
-  /**
-   * Parse JSONL content
-   * @private
-   */
-  _parseJsonLines(content) {
-    const lines = content.split('\n').filter((line) => line.trim())
-    const entries = []
-
-    for (const line of lines) {
-      try {
-        entries.push(JSON.parse(line))
-      } catch {}
-    }
-
-    return entries
-  }
-
-  /**
-   * Get line count from file
-   * @private
-   */
-  async _getFileLineCount(filePath) {
-    try {
-      const content = await fs.readFile(filePath, 'utf-8')
-      return content.split('\n').filter((line) => line.trim()).length
-    } catch {
-      return 0
-    }
   }
 
   /**
@@ -417,7 +359,7 @@ class SessionManager {
    * @private
    */
   _getTodayKey() {
-    return this._getDateKey(new Date())
+    return dateHelper.getTodayKey()
   }
 
   /**
@@ -425,10 +367,7 @@ class SessionManager {
    * @private
    */
   _getDateKey(date) {
-    const year = date.getFullYear()
-    const month = (date.getMonth() + 1).toString().padStart(2, '0')
-    const day = date.getDate().toString().padStart(2, '0')
-    return `${year}-${month}-${day}`
+    return dateHelper.getDateKey(date)
   }
 
   clearCache() {
