@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Hero } from '../components/Hero'
 import { Terminal } from '../components/Terminal'
+import { HowItWorks } from '../components/HowItWorks'
 import { Features } from '../components/Features'
 import { ClaudeSuperpowers } from '../components/ClaudeSuperpowers'
 import { ForIndies } from '../components/ForIndies'
@@ -11,6 +12,7 @@ export const Home = () => {
     <>
       <Hero />
       <Terminal />
+      <HowItWorks />
       <Features />
       <ClaudeSuperpowers />
       <ForIndies />

@@ -8,11 +8,11 @@
  * - CLAUDE.md (AI assistant instructions)
  * - scripts/validate-commands.js (validation)
  *
- * @version 0.6.0 - Simplified workflow with 9 core commands
+ * @version 0.8.0 - Conversational interface with zero memorization
  */
 
 const COMMANDS = [
-  // ===== CORE WORKFLOW COMMANDS (9 essential) =====
+  // ===== CORE WORKFLOW COMMANDS (13 essential) =====
 
   // 1. Initialize
   {
@@ -267,7 +267,55 @@ const COMMANDS = [
     ],
   },
 
-  // 11. Architect Execute
+  // 11. Ask - Intent to Action
+  {
+    name: 'ask',
+    category: 'core',
+    description: 'Conversational intent to action translator',
+    usage: {
+      claude: '/p:ask "what you want to do"',
+      terminal: 'prjct ask "what you want to do"',
+    },
+    params: '<description>',
+    implemented: true,
+    hasTemplate: true,
+    icon: 'MessageCircle',
+    requiresInit: false, // Can work before init to guide setup
+    blockingRules: null,
+    features: [
+      'Natural language understanding',
+      'Recommends command flow',
+      'Educational explanations',
+      'Interactive confirmation',
+      'Works in any language',
+    ],
+  },
+
+  // 12. Suggest - Context-Aware Recommendations
+  {
+    name: 'suggest',
+    category: 'core',
+    description: 'Context-aware next steps suggestions',
+    usage: {
+      claude: '/p:suggest',
+      terminal: 'prjct suggest',
+    },
+    params: null,
+    implemented: true,
+    hasTemplate: true,
+    icon: 'Lightbulb',
+    requiresInit: true,
+    blockingRules: null,
+    features: [
+      'Analyzes project state',
+      'Recommends actions',
+      'Urgency detection',
+      'Momentum tracking',
+      'Personalized suggestions',
+    ],
+  },
+
+  // 13. Architect Execute
   {
     name: 'architect',
     category: 'core',
@@ -446,7 +494,7 @@ const CATEGORIES = {
   core: {
     title: 'Core Workflow',
     icon: 'Zap',
-    description: '9 essential commands for daily development workflow',
+    description: '13 essential commands for daily development workflow',
     order: 1,
   },
   optional: {

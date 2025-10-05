@@ -8,7 +8,8 @@ description: 'Value analysis + roadmap + task breakdown + auto-start'
 ## Usage
 
 ```
-/p:feature "<description>"
+/p:feature "<description>"    # Direct description
+/p:feature                     # Interactive mode with templates
 ```
 
 ## What It Does
@@ -17,6 +18,131 @@ description: 'Value analysis + roadmap + task breakdown + auto-start'
 2. **Roadmap**: Positioning in project roadmap
 3. **Task breakdown**: Smart breakdown into logical tasks
 4. **Auto-start**: First task starts automatically
+
+## Interactive Mode (No Parameters)
+
+When executed without parameters, `/p:feature` enters interactive mode with quick start templates.
+
+### Response: Interactive Mode
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💡 WHAT FEATURE DO YOU WANT TO ADD?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+You can describe freely or choose a template:
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 QUICK START TEMPLATES:
+
+1. 🎨 UI/UX Improvements
+   Examples:
+   • "add dark mode"
+   • "redesign dashboard"
+   • "improve mobile responsiveness"
+   • "add animations and transitions"
+
+2. ⚡ Performance Optimization
+   Examples:
+   • "optimize page load time"
+   • "reduce memory leaks"
+   • "implement code splitting"
+   • "improve API response time"
+
+3. 🔐 Features & Functionality
+   Examples:
+   • "implement user authentication"
+   • "add payment system"
+   • "create admin dashboard"
+   • "implement real-time notifications"
+
+4. 🧪 Quality & Testing
+   Examples:
+   • "add unit tests"
+   • "implement E2E testing"
+   • "add error tracking"
+   • "improve code coverage"
+
+5. 🐛 Bug Fixes & Refactoring
+   Examples:
+   • "refactor authentication flow"
+   • "fix memory leaks"
+   • "clean up deprecated code"
+   • "improve error handling"
+
+6. 📚 Documentation & DevX
+   Examples:
+   • "add API documentation"
+   • "create onboarding guide"
+   • "improve developer setup"
+   • "add code examples"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💬 HOW TO USE:
+
+Choose a number (1-6) or just describe what you want:
+  "I want to add authentication"
+  "Need to optimize performance"
+  "3" (shows feature examples)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+What feature do you want to add?
+```
+
+### Template Category Deep Dive
+
+If user selects a category number (1-6):
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{CATEGORY_ICON} {CATEGORY_NAME}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Common features in this category:
+
+{template_options_with_descriptions}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Choose one or describe your own:
+```
+
+**Example for Performance (Category 2):**
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚡ PERFORMANCE OPTIMIZATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Common features in this category:
+
+1. "Optimize page load time"
+   → Bundle analysis, lazy loading, CDN setup
+   Impact: HIGH | Effort: 6-8h
+
+2. "Reduce memory leaks"
+   → Profiling, cleanup, optimization
+   Impact: HIGH | Effort: 4-6h
+
+3. "Implement code splitting"
+   → Route-based, component-based splitting
+   Impact: MEDIUM | Effort: 3-4h
+
+4. "Improve API response time"
+   → Caching, query optimization, CDN
+   Impact: HIGH | Effort: 6-10h
+
+5. "Optimize rendering performance"
+   → React.memo, useMemo, virtualization
+   Impact: MEDIUM | Effort: 4-6h
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Choose a number or describe your specific need:
+```
 
 ## Flow
 

@@ -183,9 +183,105 @@ export const Commands = () => {
         </motion.div>
       </section>
 
-      {/* Command Categories */}
+      {/* Start Here Section */}
       <section className="px-4 py-12">
         <div className="mx-auto max-w-7xl">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-12 rounded-3xl border-2 border-primary/30 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-8 md:p-12"
+          >
+            <div className="mb-6 flex items-center gap-3">
+              <div className="rounded-xl bg-primary p-3">
+                <Sparkles className="h-6 w-6 text-primary-foreground" />
+              </div>
+              <h2 className="text-3xl font-bold">🎯 Start Here - No Memorization Needed</h2>
+            </div>
+            <p className="mb-8 text-lg text-muted-foreground">
+              You only need these 3 commands. Everything else? Just talk naturally.
+            </p>
+
+            <div className="grid gap-6 md:grid-cols-3">
+              <div className="rounded-2xl border border-cat-mauve/30 bg-gradient-to-br from-cat-mauve/10 to-transparent p-6">
+                <div className="mb-3 flex items-center gap-2">
+                  <HelpCircle className="h-5 w-5 text-cat-mauve" />
+                  <h3 className="font-semibold text-foreground">I need help</h3>
+                </div>
+                <code className="mb-3 block rounded-lg bg-black/30 px-3 py-2 text-sm text-cat-teal">
+                  /p:help
+                </code>
+                <p className="text-sm text-muted-foreground">
+                  Contextual guide that adapts to your project state. Different help for different
+                  situations.
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-cat-green/30 bg-gradient-to-br from-cat-green/10 to-transparent p-6">
+                <div className="mb-3 flex items-center gap-2">
+                  <Lightbulb className="h-5 w-5 text-cat-green" />
+                  <h3 className="font-semibold text-foreground">I want to...</h3>
+                </div>
+                <code className="mb-3 block rounded-lg bg-black/30 px-3 py-2 text-sm text-cat-teal">
+                  /p:ask "what you want"
+                </code>
+                <p className="text-sm text-muted-foreground">
+                  Translates your intent into action. Explains each step. Works in any language.
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-cat-peach/30 bg-gradient-to-br from-cat-peach/10 to-transparent p-6">
+                <div className="mb-3 flex items-center gap-2">
+                  <Target className="h-5 w-5 text-cat-peach" />
+                  <h3 className="font-semibold text-foreground">What should I do?</h3>
+                </div>
+                <code className="mb-3 block rounded-lg bg-black/30 px-3 py-2 text-sm text-cat-teal">
+                  /p:suggest
+                </code>
+                <p className="text-sm text-muted-foreground">
+                  Smart recommendations based on your momentum, queue, and recent activity.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-8 rounded-2xl bg-muted/30 p-6">
+              <p className="mb-3 text-sm font-semibold text-foreground">
+                💬 Or just talk naturally:
+              </p>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="flex items-start gap-2">
+                  <span className="text-primary">→</span>
+                  <code className="flex-1 text-sm text-muted-foreground">
+                    "p. I want to optimize performance"
+                  </code>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-primary">→</span>
+                  <code className="flex-1 text-sm text-muted-foreground">"p. I'm done"</code>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-primary">→</span>
+                  <code className="flex-1 text-sm text-muted-foreground">
+                    "p. what should I work on?"
+                  </code>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-primary">→</span>
+                  <code className="flex-1 text-sm text-muted-foreground">
+                    "p. ship this feature"
+                  </code>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+
+          <div className="mb-8 text-center">
+            <h3 className="mb-2 text-2xl font-semibold">Advanced Reference</h3>
+            <p className="text-muted-foreground">
+              For power users who prefer direct commands (totally optional)
+            </p>
+          </div>
+
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {commandCategories.map((category, index) => (
               <motion.div

@@ -7,6 +7,119 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2025-10-05
+
+### Added
+
+- **3-Tier Guided Workflow System** - Zero memorization interface for confused users
+  - **`/p:help`** - Contextual interactive guide that adapts to project state
+    - 5 different response contexts (Not initialized, Empty queue, Has active task, Has queue, Lost/confused)
+    - Shows relevant options based on current situation
+    - Educational approach with examples
+  - **`/p:ask`** - Intent to action translator with explanations
+    - Natural language understanding for any intent
+    - Recommends appropriate command flows with reasoning
+    - Works in any language (English, Spanish, etc.)
+    - Educational responses explain the "why" behind each recommendation
+    - Intent categories: Feature Development, Performance, Bug Fixing, Design, Lost/Confused
+  - **`/p:suggest`** - Context-aware smart recommendations
+    - Analyzes project state (active tasks, queue, velocity, momentum)
+    - Detects patterns: stuck tasks, losing momentum, over-planning, ready to work
+    - Provides urgency levels and actionable next steps
+    - Scenario-based suggestions with clear actions
+  - Updated from 9 to 13 core commands
+  - Version bumped to 0.7.0 → 0.8.0
+
+- **Enhanced Feature Templates** - Quick start templates for common workflows
+  - 6 interactive template categories: UI/UX, Performance, Features, Quality, Bugs, Docs
+  - Each category includes examples and natural language alternatives
+  - Integrated into `/p:feature` command for faster feature initialization
+
+- **Enhanced Onboarding** - Conversational first-time experience
+  - Updated `/p:init` with "What do you want to do first?" section
+  - 5 clear options with examples and natural language alternatives
+  - Guides users to appropriate commands based on their needs
+
+### Changed
+
+- **Website Transformation** - Complete shift from "memorize commands" to "conversational/agentic"
+
+  - **Hero Section** (`Hero.tsx`)
+    - Changed layout from centered to 60/40 asymmetric grid (better space utilization on LG screens)
+    - Updated messaging: "Just talk: 'p. I want to add auth' → Claude handles the rest"
+    - Added 3 conversational example cards showing real usage patterns
+    - Removed sequential command flow in favor of natural language examples
+    - Better visual hierarchy with left column (60%) for main content, right column (40%) for examples
+
+  - **Terminal Demo** (`Terminal.tsx`)
+    - Replaced 4 rotating examples with single comprehensive flow
+    - Shows complete journey: Installation → Setup → Usage → Progress → Shipping
+    - Demonstrates real `p.` trigger usage throughout
+    - Improved timing: 3500ms between steps (was 1500ms) for better comprehension
+    - 12s restart delay (was 10s) for proper reading time
+    - Title: "See It In Action - From installation to shipping"
+
+  - **How It Works Section** (`HowItWorks.tsx`)
+    - New 3-step visual flow: Talk Naturally → Claude Understands → You Ship
+    - Removed misleading chat-style UI examples (product is terminal-only)
+    - Clean, honest representation of terminal-based workflow
+    - Icon-based visual guide with examples
+
+  - **Command Guide** (`CommandGuide.tsx`)
+    - Added 2 priority scenarios at top:
+      - "I'm new/lost/don't know what to do" → `/p:help`, `/p:ask`, `/p:suggest`
+      - "I know what I want but not how to do it" → `/p:ask` (preferred)
+    - Updated Quick Decision Matrix to prioritize help commands
+    - All examples show `p.` trigger as preferred option with `/p:*` alternatives
+
+  - **Commands Page** (`Commands.tsx`)
+    - Added prominent "Start Here - No Memorization Needed" section
+    - Highlights 3 essential commands: `/p:help`, `/p:ask`, `/p:suggest`
+    - Moved all specific commands to "Advanced Reference" section
+    - Clear message: "You only need these 3 commands. Everything else? Just talk naturally."
+
+- **Command Registry Updates** (`command-registry.js`)
+  - Added `ask` and `suggest` to core commands
+  - Updated version from 0.7.0 to 0.8.0
+  - Increased core command count from 9 to 13
+  - Enhanced metadata for new help system commands
+
+- **Documentation Updates** (`CLAUDE.md`)
+  - Added complete "Guided Workflow System" section
+  - Documented 3-tier help architecture with examples
+  - Updated natural language system philosophy
+  - Added context validation patterns and examples
+
+### Philosophy Shift
+
+This release represents a fundamental shift in how users interact with prjct:
+
+**Before (0.7.x)**: "Learn these sequential commands: `/p:feature → /p:done → /p:ship`"
+**After (0.8.0)**: "Just talk: `p. I want to add auth` → Claude handles the rest"
+
+The 3-tier help system solves the core user frustration: **users know WHAT they want but don't know HOW to execute it**. Now they don't need to - they just describe their intent and the system guides them.
+
+### Technical Details
+
+- **New Templates**:
+  - `templates/commands/ask.md` - Intent translation with educational responses
+  - `templates/commands/suggest.md` - Context-aware recommendations
+  - Updated `templates/commands/help.md` - Contextual interactive guide
+  - Updated `templates/commands/init.md` - Conversational onboarding
+  - Updated `templates/commands/feature.md` - Interactive mode with templates
+
+- **Website Optimization**:
+  - Hero grid: `lg:grid-cols-5` with `lg:col-span-3` (60%) + `lg:col-span-2` (40%)
+  - Terminal timing: 3500ms step delay, 12s restart delay
+  - Removed chat UI mockups to avoid false expectations
+  - Consistent `p.` trigger examples throughout
+
+- **User Experience**:
+  - Zero memorization required for basic usage
+  - Natural language works in any language (English, Spanish, etc.)
+  - Context-aware help adapts to project state
+  - Educational responses explain the "why" behind recommendations
+
 ## [0.7.3] - 2025-10-05
 
 ### Added
