@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { Navigation } from '../../components/Navigation'
 
@@ -118,11 +119,17 @@ describe('Navigation Component', () => {
     expect(discordButton).toHaveAttribute('rel', 'noopener noreferrer')
   })
 
-  it('should render Discord CTA in mobile menu', () => {
+  it('should render Discord CTA in mobile menu', async () => {
+    const user = userEvent.setup()
     renderWithRouter()
 
-    const joinDiscordLink = screen.getByText('Join Discord Server').closest('a')
-    expect(joinDiscordLink).toHaveAttribute('href', 'https://discord.gg/5aqtMDUz6')
+    // First, open the mobile menu
+    const menuButton = screen.getByLabelText('Toggle mobile menu')
+    await user.click(menuButton)
+
+    // Wait for the mobile menu to appear and find the Discord link
+    const joinDiscordLink = await screen.findByText('Join Discord Server')
+    expect(joinDiscordLink.closest('a')).toHaveAttribute('href', 'https://discord.gg/5aqtMDUz6')
   })
 })
 

@@ -50,9 +50,10 @@ describe('Hero Component', () => {
   it('should display workflow commands in subtitle', () => {
     render(<Hero />)
 
-    // The subtitle should show the workflow
-    expect(screen.getByText('/p:feature')).toBeInTheDocument()
-    expect(screen.getByText('/p:done')).toBeInTheDocument()
-    expect(screen.getByText('/p:ship')).toBeInTheDocument()
+    // The subtitle should show natural language examples with p. trigger
+    expect(screen.getByText(/p\. I want to add auth/i)).toBeInTheDocument()
+    expect(screen.getByText(/p\. I want to add dark mode/i)).toBeInTheDocument()
+    expect(screen.getByText(/p\. I'm done/i)).toBeInTheDocument()
+    expect(screen.getByText(/p\. help/i)).toBeInTheDocument()
   })
 })

@@ -19,7 +19,7 @@ describe('EarlyAccessForm Component', () => {
     render(<EarlyAccessForm />)
 
     expect(
-      screen.getByText(/Be among the first to experience visual project metrics/i)
+      screen.getByText(/Be among the first to experience visual project metrics in your editor/i)
     ).toBeInTheDocument()
   })
 
@@ -35,7 +35,7 @@ describe('EarlyAccessForm Component', () => {
     const user = userEvent.setup()
     render(<EarlyAccessForm />)
 
-    const requestButton = screen.getByRole('button', { name: /Request Early Access/i })
+    const requestButton = screen.getByRole('button', { name: /Request Early Access on GitHub/i })
     await user.click(requestButton)
 
     expect(window.open).toHaveBeenCalledWith(
@@ -49,7 +49,7 @@ describe('EarlyAccessForm Component', () => {
     const user = userEvent.setup()
     render(<EarlyAccessForm />)
 
-    const requestButton = screen.getByRole('button', { name: /Request Early Access/i })
+    const requestButton = screen.getByRole('button', { name: /Request Early Access on GitHub/i })
     await user.click(requestButton)
 
     const calledUrl = (window.open as any).mock.calls[0][0]
@@ -60,7 +60,7 @@ describe('EarlyAccessForm Component', () => {
   it('should have accessible button', () => {
     render(<EarlyAccessForm />)
 
-    const button = screen.getByRole('button', { name: /Request Early Access/i })
+    const button = screen.getByRole('button', { name: /Request Early Access on GitHub/i })
     expect(button).toBeInTheDocument()
     expect(button).toBeEnabled()
   })
@@ -76,7 +76,24 @@ describe('EarlyAccessForm Component', () => {
   it('should display call to action button text', () => {
     render(<EarlyAccessForm />)
 
-    const button = screen.getByRole('button', { name: /Request Early Access/i })
+    const button = screen.getByRole('button', { name: /Request Early Access on GitHub/i })
     expect(button).toBeInTheDocument()
+  })
+
+  it('should display early access benefits', () => {
+    render(<EarlyAccessForm />)
+
+    // Check for the three benefits displayed
+    expect(screen.getByText(/Beta Access/i)).toBeInTheDocument()
+    expect(screen.getByText(/Shape Features/i)).toBeInTheDocument()
+    expect(screen.getByText(/Lifetime Updates/i)).toBeInTheDocument()
+  })
+
+  it('should show description for each benefit', () => {
+    render(<EarlyAccessForm />)
+
+    expect(screen.getByText(/Try before public launch/i)).toBeInTheDocument()
+    expect(screen.getByText(/Your feedback matters/i)).toBeInTheDocument()
+    expect(screen.getByText(/All future improvements/i)).toBeInTheDocument()
   })
 })
