@@ -50,10 +50,14 @@ describe('Hero Component', () => {
   it('should display workflow commands in subtitle', () => {
     render(<Hero />)
 
-    // The subtitle should show natural language examples with p. trigger
+    // The subtitle and right column should show natural language examples with p. trigger
     expect(screen.getByText(/p\. I want to add auth/i)).toBeInTheDocument()
     expect(screen.getByText(/p\. I want to add dark mode/i)).toBeInTheDocument()
-    expect(screen.getByText(/p\. I'm done/i)).toBeInTheDocument()
+    
+    // Multiple instances are fine - just verify at least one exists
+    const doneTriggers = screen.getAllByText(/p\. I'm done/i)
+    expect(doneTriggers.length).toBeGreaterThan(0)
+    
     expect(screen.getByText(/p\. help/i)).toBeInTheDocument()
   })
 })
