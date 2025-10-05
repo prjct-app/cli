@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.3] - 2025-10-05
+
+### Added
+
+- **Comprehensive Testing Documentation** - Complete testing guide and setup documentation
+  - **TESTING.md** - Full testing guide with:
+    - Quick start commands for running tests
+    - Vitest workspace architecture (core + website)
+    - Detailed configuration for both Node.js and React environments
+    - Testing best practices and examples
+    - CI/CD integration documentation
+    - Troubleshooting guide
+    - Complete command reference
+  - **README.md Testing Section** - Quick reference with:
+    - Quick start commands
+    - Test suites overview (Core CLI + Website)
+    - CI/CD automation status
+    - Link to comprehensive TESTING.md guide
+  - **Documentation Quality**: Professional-grade testing documentation for contributors and developers
+  - **Coverage**: Documents all 283 tests across both core and website projects
+
+### Technical Details
+
+- **Testing Stack**: Vitest with workspace configuration for dual environments
+- **Core Tests** (Node.js): 179 tests for agentic system, commands, and utilities
+- **Website Tests** (React): 104 tests with Testing Library for components
+- **CI/CD**: GitHub Actions workflow with parallel test execution
+- **Coverage**: V8 coverage provider with HTML reports
+
 ## [0.6.0] - 2025-10-03
 
 ### Changed

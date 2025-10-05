@@ -14,6 +14,8 @@ Developer momentum tool for indie hackers and small teams.
 
 [![Claude Code Ready](https://img.shields.io/badge/Claude%20Code-Ready-6366f1)](CLAUDE.md)
 [![Claude Desktop Compatible](https://img.shields.io/badge/Claude%20Desktop-Compatible-6366f1)]()
+[![Tests](https://github.com/jlopezlira/prjct-cli/actions/workflows/test.yml/badge.svg)](https://github.com/jlopezlira/prjct-cli/actions/workflows/test.yml)
+[![Website Build](https://img.shields.io/badge/website-deployed-success)](https://prjct.app)
 
 ## 🤖 Claude-Native Architecture
 
@@ -360,6 +362,36 @@ prjct recap                # Show progress
 **Sprint planning:** `/p:roadmap` → Add features → `/p:now` top priority → `/p:ship` → `/p:roadmap next`
 
 > 📚 **More workflows:** Visit [prjct.app/workflows-guide](https://prjct.app/workflows-guide) for detailed interactive examples
+
+## 🧪 Testing
+
+prjct-cli uses **Vitest** with comprehensive test coverage for both the CLI core and website.
+
+### Quick Start
+
+```bash
+# Run all tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Generate coverage report
+npm run test:coverage
+```
+
+### Test Suites
+
+- **Core CLI** (Node.js) - Agentic system, commands, and utilities
+- **Website** (React + TypeScript) - Component tests with Testing Library
+
+### CI/CD
+
+Tests run automatically on every push and pull request via GitHub Actions.
+
+[![Tests](https://github.com/jlopezlira/prjct-cli/actions/workflows/test.yml/badge.svg)](https://github.com/jlopezlira/prjct-cli/actions/workflows/test.yml)
+
+> 📖 **Full testing guide:** See [TESTING.md](TESTING.md) for detailed documentation, configuration, and best practices.
 
 ## ❓ FAQ
 
