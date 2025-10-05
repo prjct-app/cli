@@ -1,4 +1,3 @@
-const fs = require('fs').promises
 const path = require('path')
 const pathManager = require('./path-manager')
 const { VERSION } = require('../utils/version')

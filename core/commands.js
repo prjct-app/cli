@@ -2632,8 +2632,6 @@ Agent: ${agent}
     const skipped = []
 
     for (const projectId of projectIds) {
-      const globalProjectPath = path.join(globalRoot, projectId)
-
       // Read global config to get project path
       const globalConfig = await configManager.readGlobalConfig(projectId)
       if (!globalConfig || !globalConfig.projectPath) {
@@ -2704,7 +2702,6 @@ Agent: ${agent}
       console.log('🏗️  Architect Mode - Code Generation\n')
 
       const globalPath = await this.getGlobalProjectPath(projectPath)
-      const architectSession = require('./domain/architect-session')
 
       // Check if there's a completed plan
       const planPath = path.join(globalPath, 'planning', 'architect-session.md')
