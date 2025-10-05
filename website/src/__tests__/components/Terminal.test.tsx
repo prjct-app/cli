@@ -1,11 +1,6 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { Terminal } from '../../components/Terminal'
-
-// Mock WorkflowMap component since it might have complex dependencies
-vi.mock('../../components/WorkflowMap', () => ({
-  default: () => <div data-testid="workflow-map">Workflow Map</div>,
-}))
 
 describe('Terminal Component', () => {
   it('should render terminal component', () => {
@@ -15,11 +10,11 @@ describe('Terminal Component', () => {
     expect(container.querySelector('[class*="rounded"]')).toBeInTheDocument()
   })
 
-  it('should show workflow visualization', () => {
+  it('should show terminal title', () => {
     render(<Terminal />)
 
-    // WorkflowMap should be rendered (mocked)
-    expect(screen.getByTestId('workflow-map')).toBeInTheDocument()
+    // Terminal should show the flow title
+    expect(screen.getByText(/Complete Flow/i)).toBeInTheDocument()
   })
 
   it('should render with styling', () => {
