@@ -126,6 +126,13 @@ echo -e " ${GREEN}${CHECK}${NC}"
 PKG_COUNT=$(ls -1 node_modules 2>/dev/null | wc -l | tr -d ' ')
 echo -e "  ${DIM}${DOT} $PKG_COUNT packages installed${NC}"
 
+# Show setup complete confirmation
+echo ""
+echo -e "${GREEN}╔══════════════════════════════════════╗${NC}"
+echo -e "${GREEN}║${NC}  ${BOLD}${WHITE}✨ Setup Complete! ✨${NC}          ${GREEN}║${NC}"
+echo -e "${GREEN}╚══════════════════════════════════════╝${NC}"
+echo ""
+
 # Create core files if needed
 print_step "Setting up core files"
 

@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.1] - 2025-10-05
+
+### Fixed
+
+- **Critical Installation Bug** - Fixed incorrect path in `install.sh` line 315
+  - Changed `./core/command-installer` → `./core/infrastructure/command-installer`
+  - Resolves "Cannot find module" error during installation
+
+- **Missing Method Error** - Added `installToAll()` method to command-installer
+  - Implements method called by install.sh line 316
+  - Acts as alias for `installCommands()` for backward compatibility
+
+- **Commands Not Auto-Updating** - Implemented automatic command synchronization
+  - After `git pull`, commands in `~/.claude/commands/p/` now update automatically
+  - Added visual confirmation: "Commands synchronized ✓"
+
+- **Missing Visual Confirmation** - Added ASCII confirmation in setup.sh
+  - Displays "✨ Setup Complete! ✨" after successful npm install
+  - Clear feedback that installation succeeded
+
+### Added
+
+- **Update Script** - New `scripts/update.sh` for easy updates
+  - Single command to update prjct-cli: `npm run update`
+  - Handles: git pull → npm install → command updates
+  - Visual progress indicators and confirmation
+
+- **Enhanced Logging** - Improved updateCommands() with visual feedback
+  - Shows "🔄 Updating commands with latest templates..."
+  - Displays "✅ Updated X commands" on success
+
+### Changed
+
+- **Installation Flow** - Simplified and more reliable
+  - Auto-updates commands after git pull (no manual reinstall needed)
+  - Single npm install (eliminated duplication)
+  - Clear visual feedback at each step
+
 ## [0.8.0] - 2025-10-05
 
 ### Added

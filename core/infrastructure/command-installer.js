@@ -200,6 +200,20 @@ class CommandInstaller {
    */
   async updateCommands() {
     // Simply reinstall - will overwrite with latest templates
+    console.log('🔄 Updating commands with latest templates...')
+    const result = await this.installCommands()
+    if (result.success) {
+      console.log(`✅ Updated ${result.installed.length} commands`)
+    }
+    return result
+  }
+
+  /**
+   * Install to all detected editors (alias for installCommands)
+   * @param {boolean} interactive - Whether to show interactive prompts
+   * @returns {Promise<Object>} Installation results
+   */
+  async installToAll(interactive = false) {
     return await this.installCommands()
   }
 
