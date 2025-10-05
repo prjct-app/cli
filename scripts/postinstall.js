@@ -14,7 +14,6 @@
  * @version 0.8.2
  */
 
-const fs = require('fs')
 const path = require('path')
 const installer = require('../core/infrastructure/command-installer')
 const migrator = require('../core/infrastructure/migrator')
