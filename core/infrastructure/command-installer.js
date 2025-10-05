@@ -239,6 +239,201 @@ class CommandInstaller {
       return false
     }
   }
+
+  /**
+   * Sync commands - intelligent update that detects and removes orphans
+   * @returns {Promise<Object>} Sync results with added, updated, removed counts
+   */
+  async syncCommands() {
+    const claudeDetected = await this.detectClaude()
+
+    if (!claudeDetected) {
+      return {
+        success: false,
+        error: 'Claude not detected',
+        added: 0,
+        updated: 0,
+        removed: 0,
+      }
+    }
+
+    try {
+      // Ensure commands directory exists
+      await fs.mkdir(this.claudeCommandsPath, { recursive: true })
+
+      // Get current state
+      const templateFiles = await this.getCommandFiles()
+      let installedFiles = []
+
+      try {
+        installedFiles = await fs.readdir(this.claudeCommandsPath)
+        installedFiles = installedFiles.filter((f) => f.endsWith('.md'))
+      } catch {
+        // Directory doesn't exist yet
+        installedFiles = []
+      }
+
+      const results = {
+        success: true,
+        added: 0,
+        updated: 0,
+        removed: 0,
+        errors: [],
+      }
+
+      // Detect new and updated files
+      for (const file of templateFiles) {
+        try {
+          const sourcePath = path.join(this.templatesDir, file)
+          const destPath = path.join(this.claudeCommandsPath, file)
+
+          // Check if file exists in installed location
+          const exists = installedFiles.includes(file)
+
+          if (!exists) {
+            // New file
+            const content = await fs.readFile(sourcePath, 'utf-8')
+            await fs.writeFile(destPath, content, 'utf-8')
+            results.added++
+          } else {
+            // Check if updated (compare modification time or content)
+            const sourceStats = await fs.stat(sourcePath)
+            const destStats = await fs.stat(destPath)
+
+            if (sourceStats.mtime > destStats.mtime) {
+              // Updated file
+              const content = await fs.readFile(sourcePath, 'utf-8')
+              await fs.writeFile(destPath, content, 'utf-8')
+              results.updated++
+            }
+          }
+        } catch (error) {
+          results.errors.push({ file, error: error.message })
+        }
+      }
+
+      // Detect and remove orphaned files
+      const orphans = installedFiles.filter((file) => !templateFiles.includes(file))
+
+      for (const orphan of orphans) {
+        try {
+          const orphanPath = path.join(this.claudeCommandsPath, orphan)
+          await fs.unlink(orphanPath)
+          results.removed++
+        } catch (error) {
+          results.errors.push({ file: orphan, error: error.message })
+        }
+      }
+
+      return results
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+        added: 0,
+        updated: 0,
+        removed: 0,
+      }
+    }
+  }
+
+  /**
+   * Install or update global CLAUDE.md configuration
+   * @returns {Promise<Object>} Result with success status and action taken
+   */
+  async installGlobalConfig() {
+    const claudeDetected = await this.detectClaude()
+
+    if (!claudeDetected) {
+      return {
+        success: false,
+        error: 'Claude not detected',
+        action: 'skipped',
+      }
+    }
+
+    try {
+      // Ensure ~/.claude directory exists
+      const claudeDir = path.join(require('os').homedir(), '.claude')
+      await fs.mkdir(claudeDir, { recursive: true })
+
+      const globalConfigPath = path.join(claudeDir, 'CLAUDE.md')
+      const templatePath = path.join(__dirname, '../../templates/global/CLAUDE.md')
+
+      // Read template content
+      const templateContent = await fs.readFile(templatePath, 'utf-8')
+
+      // Check if global config already exists
+      let existingContent = ''
+      let fileExists = false
+
+      try {
+        existingContent = await fs.readFile(globalConfigPath, 'utf-8')
+        fileExists = true
+      } catch {
+        // File doesn't exist, will create new
+        fileExists = false
+      }
+
+      if (!fileExists) {
+        // Create new file with full template
+        await fs.writeFile(globalConfigPath, templateContent, 'utf-8')
+        return {
+          success: true,
+          action: 'created',
+          path: globalConfigPath,
+        }
+      } else {
+        // File exists - perform intelligent merge
+        const startMarker = '<!-- prjct:start - DO NOT REMOVE THIS MARKER -->'
+        const endMarker = '<!-- prjct:end - DO NOT REMOVE THIS MARKER -->'
+
+        // Check if markers exist in existing file
+        const hasMarkers =
+          existingContent.includes(startMarker) && existingContent.includes(endMarker)
+
+        if (!hasMarkers) {
+          // No markers - append prjct section at the end
+          const updatedContent = existingContent + '\n\n' + templateContent
+          await fs.writeFile(globalConfigPath, updatedContent, 'utf-8')
+          return {
+            success: true,
+            action: 'appended',
+            path: globalConfigPath,
+          }
+        } else {
+          // Markers exist - replace content between markers
+          const beforeMarker = existingContent.substring(
+            0,
+            existingContent.indexOf(startMarker)
+          )
+          const afterMarker = existingContent.substring(
+            existingContent.indexOf(endMarker) + endMarker.length
+          )
+
+          // Extract prjct section from template
+          const prjctSection = templateContent.substring(
+            templateContent.indexOf(startMarker),
+            templateContent.indexOf(endMarker) + endMarker.length
+          )
+
+          const updatedContent = beforeMarker + prjctSection + afterMarker
+          await fs.writeFile(globalConfigPath, updatedContent, 'utf-8')
+          return {
+            success: true,
+            action: 'updated',
+            path: globalConfigPath,
+          }
+        }
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message,
+        action: 'failed',
+      }
+    }
+  }
 }
 
 module.exports = new CommandInstaller()

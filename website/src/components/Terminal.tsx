@@ -1,6 +1,5 @@
 import { motion } from 'framer-motion'
-import { useState, useEffect } from 'react'
-import WorkflowMap from './WorkflowMap'
+import { useState, useEffect, useRef } from 'react'
 
 const terminalConfigs = [
   {
@@ -8,8 +7,9 @@ const terminalConfigs = [
     commands: [
       {
         cmd: 'npm install -g prjct-cli',
-        output: '📦 Installing prjct-cli...\n✅ Installed successfully!',
-        delay: 800,
+        output:
+          '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🚀 Setting up prjct-cli...\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n[1/5] Detecting Claude Code...\n✓ Claude Code found\n\n[2/5] Installing commands to ~/.claude...\n✓ 25 commands installed\n\n[3/5] Installing global configuration...\n✓ Created ~/.claude/CLAUDE.md\n\n[4/5] Checking for legacy projects...\nNo legacy projects found\n\n[5/5] Installation complete!\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n   ██████╗ ██████╗      ██╗ ██████╗████████╗\n   ██╔══██╗██╔══██╗     ██║██╔════╝╚══██╔══╝\n   ██████╔╝██████╔╝     ██║██║        ██║\n   ██╔═══╝ ██╔══██╗██   ██║██║        ██║\n   ██║     ██║  ██║╚█████╔╝╚██████╗   ██║\n   ╚═╝     ╚═╝  ╚═╝ ╚════╝  ╚═════╝   ╚═╝\n\n   prjct/cli  v0.8.2 installed\n\n   ⚡ Ship faster with zero friction\n   📝 From idea to technical tasks in minutes\n   🤖 Perfect context for AI agents\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n🚀 Quick Start\n─────────────────────────────────────────────────\n\n  1. Initialize your project:\n     cd your-project && prjct init\n\n  2. Set your current focus:\n     prjct now "build auth"\n\n  3. Ship & celebrate:\n     prjct ship "user login"\n\n─────────────────────────────────────────────────\n\nHappy shipping! 🚀',
+        delay: 2000,
       },
       {
         cmd: 'cd my-saas-app',
@@ -64,15 +64,28 @@ const terminalConfigs = [
   },
 ]
 
-export const Terminal = () => {
+// Extracted terminal content without section wrapper
+export const TerminalContent = () => {
   const [currentLine, setCurrentLine] = useState(0)
   const [displayedCommands, setDisplayedCommands] = useState<
     (typeof terminalConfigs)[0]['commands']
   >([])
   const [isTyping, setIsTyping] = useState(false)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
 
   const currentTerminal = terminalConfigs[0]
   const commands = currentTerminal.commands
+
+  // Auto-scroll to bottom when new command is added
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      const container = scrollContainerRef.current
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior: 'smooth',
+      })
+    }
+  }, [displayedCommands])
 
   useEffect(() => {
     if (currentLine < commands.length) {
@@ -98,75 +111,49 @@ export const Terminal = () => {
   }, [currentLine, commands])
 
   return (
-    <section className="bg-muted/20 px-4 py-20">
-      <div className="mx-auto max-w-6xl">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          viewport={{ once: true }}
-          className="mb-12 text-center"
-        >
-          <h2 className="mb-4 text-4xl font-bold md:text-5xl">See It In Action</h2>
-          <p className="text-lg text-muted-foreground">
-            From installation to shipping - the complete flow
-          </p>
-        </motion.div>
-
-        {/* Workflow Map - Mind Map Visualization */}
-        <WorkflowMap />
-
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          whileInView={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6 }}
-          viewport={{ once: true }}
-          className="rounded-2xl border border-gray-800 bg-black p-8 shadow-2xl"
-        >
-          <div className="mb-6 flex items-center gap-2">
-            <div className="h-3 w-3 rounded-full bg-cat-maroon" />
-            <div className="h-3 w-3 rounded-full bg-cat-yellow" />
-            <div className="h-3 w-3 rounded-full bg-cat-green" />
-            <span className="ml-4 font-mono text-sm text-gray-400">{currentTerminal.name}</span>
-          </div>
-
-          <div className="space-y-3 font-mono text-sm md:text-base">
-            {displayedCommands.map((command, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.3 }}
-              >
-                <div className="text-gray-400">
-                  <span className="text-cat-teal">$</span> {command.cmd}
-                </div>
-                <div className="ml-4 mt-1 text-gray-300">{command.output}</div>
-              </motion.div>
-            ))}
-            {isTyping && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="text-gray-400"
-              >
-                <span className="text-cat-teal">$</span>
-                <span className="ml-1 inline-block h-4 w-2 animate-pulse bg-cat-teal" />
-              </motion.div>
-            )}
-          </div>
-        </motion.div>
-
-        <div className="mt-12 text-center">
-          <a
-            href="https://github.com/jlopezlira/prjct-cli"
-            className="inline-flex items-center gap-2 text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <span>See Projects in Action</span>
-            <span>→</span>
-          </a>
-        </div>
+    <div className="rounded-2xl border border-gray-800 bg-black shadow-2xl">
+      {/* Terminal header */}
+      <div className="flex items-center gap-2 border-b border-gray-800 px-8 py-4">
+        <div className="h-3 w-3 rounded-full bg-cat-maroon" />
+        <div className="h-3 w-3 rounded-full bg-cat-yellow" />
+        <div className="h-3 w-3 rounded-full bg-cat-green" />
+        <span className="ml-4 font-mono text-sm text-gray-400">{currentTerminal.name}</span>
       </div>
-    </section>
+
+      {/* Terminal content with scroll */}
+      <div
+        ref={scrollContainerRef}
+        className="max-h-[65vh] space-y-3 overflow-y-auto p-8 font-mono text-sm md:text-base"
+      >
+        {displayedCommands.map((command, index) => (
+          <motion.div
+            key={index}
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <div className="text-gray-400">
+              <span className="text-cat-teal">$</span> {command.cmd}
+            </div>
+            <div className="ml-4 mt-1 whitespace-pre-wrap text-gray-300">{command.output}</div>
+          </motion.div>
+        ))}
+        {isTyping && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-gray-400"
+          >
+            <span className="text-cat-teal">$</span>
+            <span className="ml-1 inline-block h-4 w-2 animate-pulse bg-cat-teal" />
+          </motion.div>
+        )}
+      </div>
+    </div>
   )
+}
+
+// Original Terminal component (kept for backward compatibility)
+export const Terminal = () => {
+  return <TerminalContent />
 }

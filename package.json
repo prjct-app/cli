@@ -1,6 +1,6 @@
 {
   "name": "prjct-cli",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "Built for Claude - Ship fast, track progress, stay focused. Developer momentum tool for indie hackers.",
   "main": "core/index.js",
   "bin": {
@@ -11,6 +11,7 @@
     "registry": "https://registry.npmjs.org"
   },
   "scripts": {
+    "postinstall": "node scripts/postinstall.js",
     "install-global": "./scripts/install.sh",
     "update": "./scripts/update.sh",
     "test": "vitest run --workspace=vitest.workspace.js",
@@ -74,6 +75,7 @@
     "bin/",
     "core/",
     "templates/",
+    "scripts/postinstall.js",
     "scripts/install.sh",
     "LICENSE",
     "README.md",

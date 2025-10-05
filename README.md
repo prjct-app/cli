@@ -73,23 +73,27 @@ For easier installation from GitHub Packages, see [GitHub Packages Setup](docs/G
 
 > **Note**: The CLI automatically detects updates and notifies you when a new version is available. Simply run `npm update -g prjct-cli` to upgrade.
 
-### Editor Command Installation
+### Auto-Setup (NEW in v0.8.2)
 
-After initial installation, `prjct` automatically installs slash commands to Claude:
+After `npm install -g prjct-cli`, setup runs automatically:
+
+- ✅ Installs `/p:*` commands to `~/.claude`
+- ✅ Migrates legacy projects to global storage
+- ✅ Syncs commands (removes orphans, adds new ones)
+- ✅ Shows beautiful ASCII art with quick start
+
+**That's it!** No manual setup required.
+
+If you need to reconfigure later:
 
 ```bash
-# Interactive installation (recommended)
-prjct install
-
-# Force update existing commands
-prjct install --force
+prjct setup          # Reconfigure and sync commands
+prjct setup --force  # Force reinstall all commands
 ```
 
-**Installation Location:**
+**Installation Location**: `~/.claude/commands/p/`
 
-- **Claude Code & Claude Desktop**: `~/.claude/commands/p/`
-
-All 18 slash commands (`/p:*`) are automatically installed to Claude Code and Claude Desktop.
+All 25+ slash commands (`/p:*`) are automatically installed to Claude Code and Claude Desktop.
 
 ### Version Management
 

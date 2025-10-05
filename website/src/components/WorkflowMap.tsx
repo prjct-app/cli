@@ -2,7 +2,7 @@ import { motion } from 'framer-motion'
 
 const WorkflowMap = () => {
   return (
-    <section className="px-4 py-20">
+    <section className="px-4 py-20 max-w-6xl mx-auto">
       <div className="mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -11,9 +11,9 @@ const WorkflowMap = () => {
           viewport={{ once: true }}
           className="mb-16 text-center"
         >
-          <h2 className="mb-4 text-3xl font-bold md:text-4xl">Your Workflow, Simplified</h2>
+          <h3 className="mb-4 text-2xl font-bold md:text-3xl">Core Workflow</h3>
           <p className="text-lg text-muted-foreground">
-            From idea to shipped feature - no project management overhead
+            Five essential commands - zero overhead
           </p>
         </motion.div>
 

@@ -2593,12 +2593,75 @@ Agent: ${agent}
       result.errors.forEach((e) => console.log(`   - ${e.file}: ${e.error}`))
     }
 
-    console.log('\n🎉 Setup complete!')
+    // Install global configuration
+    console.log('\n📝 Installing global configuration...')
+    const configResult = await commandInstaller.installGlobalConfig()
+
+    if (configResult.success) {
+      if (configResult.action === 'created') {
+        console.log('✅ Created ~/.claude/CLAUDE.md')
+      } else if (configResult.action === 'updated') {
+        console.log('✅ Updated ~/.claude/CLAUDE.md')
+      } else if (configResult.action === 'appended') {
+        console.log('✅ Added prjct config to ~/.claude/CLAUDE.md')
+      }
+    } else {
+      console.log(`⚠️  ${configResult.error}`)
+    }
+
+    console.log('\n🎉 Setup complete!\n')
+
+    // Show beautiful ASCII art
+    this.showAsciiArt()
 
     return {
       success: true,
       message: '',
     }
+  }
+
+  /**
+   * Show beautiful ASCII art with quick start
+   */
+  showAsciiArt() {
+    const chalk = require('chalk')
+
+    console.log(chalk.cyan('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'))
+    console.log('')
+    console.log(chalk.bold.cyan('   ██████╗ ██████╗      ██╗ ██████╗████████╗'))
+    console.log(chalk.bold.cyan('   ██╔══██╗██╔══██╗     ██║██╔════╝╚══██╔══╝'))
+    console.log(chalk.bold.cyan('   ██████╔╝██████╔╝     ██║██║        ██║'))
+    console.log(chalk.bold.cyan('   ██╔═══╝ ██╔══██╗██   ██║██║        ██║'))
+    console.log(chalk.bold.cyan('   ██║     ██║  ██║╚█████╔╝╚██████╗   ██║'))
+    console.log(chalk.bold.cyan('   ╚═╝     ╚═╝  ╚═╝ ╚════╝  ╚═════╝   ╚═╝'))
+    console.log('')
+    console.log(`   ${chalk.bold.cyan('prjct')}${chalk.magenta('/')}${chalk.green('cli')}  ${chalk.dim.white('v' + VERSION + ' installed')}`)
+    console.log('')
+    console.log(`   ${chalk.yellow('⚡')} Ship faster with zero friction`)
+    console.log(`   ${chalk.green('📝')} From idea to technical tasks in minutes`)
+    console.log(`   ${chalk.cyan('🤖')} Perfect context for AI agents`)
+    console.log('')
+    console.log(chalk.cyan('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'))
+    console.log('')
+    console.log(chalk.bold.cyan('🚀 Quick Start'))
+    console.log(chalk.dim('─────────────────────────────────────────────────'))
+    console.log('')
+    console.log(`  ${chalk.bold('1.')} Initialize your project:`)
+    console.log(`     ${chalk.green('cd your-project && prjct init')}`)
+    console.log('')
+    console.log(`  ${chalk.bold('2.')} Set your current focus:`)
+    console.log(`     ${chalk.green('prjct now "build auth"')}`)
+    console.log('')
+    console.log(`  ${chalk.bold('3.')} Ship & celebrate:`)
+    console.log(`     ${chalk.green('prjct ship "user login"')}`)
+    console.log('')
+    console.log(chalk.dim('─────────────────────────────────────────────────'))
+    console.log('')
+    console.log(`  ${chalk.dim('Documentation:')} ${chalk.cyan('https://prjct.app')}`)
+    console.log(`  ${chalk.dim('Report issues:')} ${chalk.cyan('https://github.com/jlopezlira/prjct-cli/issues')}`)
+    console.log('')
+    console.log(chalk.bold.magenta('Happy shipping! 🚀'))
+    console.log('')
   }
 
   /**
