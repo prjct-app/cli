@@ -6,22 +6,26 @@ import * as matchers from '@testing-library/jest-dom/matchers'
 expect.extend(matchers)
 
 // Mock IntersectionObserver for framer-motion
-global.IntersectionObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-  root: null,
-  rootMargin: '',
-  thresholds: [],
-  takeRecords: vi.fn(),
-}))
+globalThis.IntersectionObserver = class IntersectionObserver {
+  observe = vi.fn()
+  unobserve = vi.fn()
+  disconnect = vi.fn()
+  root = null
+  rootMargin = ''
+  thresholds = []
+  takeRecords = vi.fn()
+
+  constructor() {}
+} as unknown as typeof IntersectionObserver
 
 // Mock ResizeObserver for framer-motion
-global.ResizeObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-}))
+globalThis.ResizeObserver = class ResizeObserver {
+  observe = vi.fn()
+  unobserve = vi.fn()
+  disconnect = vi.fn()
+
+  constructor() {}
+} as unknown as typeof ResizeObserver
 
 // Cleanup after each test
 afterEach(() => {

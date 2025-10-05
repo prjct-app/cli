@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import userEvent from '@testing-library/user-event'
 import { Navigation } from '../../components/Navigation'
 
 const renderWithRouter = (initialRoute = '/') => {
@@ -103,7 +102,6 @@ describe('Navigation Component', () => {
   it('should not highlight home when on other paths', () => {
     renderWithRouter('/docs')
 
-    const homeLink = screen.getByText('Home').closest('a')
     const docsLink = screen.getByText('Docs').closest('a')
 
     // Docs should be highlighted, not home
