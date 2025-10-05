@@ -7,6 +7,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.2] - 2025-10-05
+
+### Changed
+
+- **BREAKING: npm-only installation** - Simplified installation to npm-only
+  - ✅ Single command: `npm install -g prjct-cli`
+  - ✅ Automatic setup via postinstall hook
+  - ✅ Auto-migration of legacy projects
+  - ✅ Beautiful ASCII art on installation
+  - ⚠️ `curl -fsSL https://prjct.app/install.sh` now deprecated (shows migration message)
+
+### Added
+
+- **Automatic Post-Install Setup** (`scripts/postinstall.js`)
+  - Runs automatically after `npm install -g prjct-cli`
+  - Detects global vs local installation
+  - Installs/syncs commands to `~/.claude/commands/p/`
+  - Migrates legacy projects automatically
+  - Shows beautiful ASCII art with quick start guide
+
+- **Intelligent Command Sync** (`syncCommands()` in `command-installer.js`)
+  - Detects new commands and installs them
+  - Detects updated commands and refreshes them
+  - **Detects orphaned commands and removes them** (e.g., context.md, stuck.md)
+  - Reports: "✓ 2 nuevos, 5 actualizados, 2 eliminados"
+
+- **Beautiful ASCII Art** (`showAsciiArt()` in `commands.js`)
+  - Displays after `prjct setup` completion
+  - Shows prjct logo with colors
+  - Includes quick start guide
+  - Links to documentation
+
+- **Global Configuration** (`~/.claude/CLAUDE.md`)
+  - Automatically installs/updates global configuration for Claude Code
+  - Provides context for ALL `/p:*` commands across any prjct project
+  - Intelligent merge: preserves user content, updates only prjct section
+  - Includes path resolution rules, file structure, commit format, validation patterns
+  - Installed during `npm install -g prjct-cli` and `prjct setup`
+  - Single source of truth - no need to repeat in 25 command templates
+
+### Fixed
+
+- **Orphaned Commands Cleanup** - Removed deprecated commands
+  - Deleted `context.md` (replaced by context tracking in core)
+  - Deleted `stuck.md` (functionality merged into /p:ask)
+  - Total commands: 27 → 25 (cleaned up)
+
+- **Context Preservation** - All projects now use global storage
+  - Legacy projects in `.prjct/` automatically migrated to `~/.prjct-cli/projects/{id}/`
+  - Only `prjct.config.json` (2KB) remains in project directory
+  - Prevents context loss on updates
+
+### Documentation
+
+- Updated README.md with new installation flow
+- Added "Auto-Setup (NEW in v0.8.2)" section
+- Simplified installation instructions
+- Deprecated manual installation methods
+
 ## [0.8.1] - 2025-10-05
 
 ### Fixed

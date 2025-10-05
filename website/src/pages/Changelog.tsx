@@ -26,7 +26,7 @@ import { TimelineNav } from '@/components/changelog/TimelineNav'
 export const Changelog = () => {
   // Timeline navigation items
   const timelineItems = [
-    { id: 'oct-5-2025', date: 'Oct 5, 2025', releaseCount: 3 },
+    { id: 'oct-5-2025', date: 'Oct 5, 2025', releaseCount: 4 },
     { id: 'oct-4-2025', date: 'Oct 4, 2025', releaseCount: 3 },
     { id: 'oct-3-2025', date: 'Oct 3, 2025', releaseCount: 1 },
     { id: 'oct-2-2025', date: 'Oct 2, 2025', releaseCount: 7 },
@@ -58,8 +58,109 @@ export const Changelog = () => {
           </p>
         </motion.div>
 
-        {/* October 5, 2025 - 3 releases */}
-        <DateSection id="oct-5-2025" date="October 5, 2025" releaseCount={3}>
+        {/* October 5, 2025 - 4 releases */}
+        <DateSection id="oct-5-2025" date="October 5, 2025" releaseCount={4}>
+          {/* Version 0.8.2 - npm-only Installation */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-16"
+          >
+            <VersionHeader version="v0.8.2" isLatest />
+
+            <div className="mb-6 space-y-6">
+              <FeatureCard
+                variant="fancy"
+                contentLayout="horizontal"
+                icon={Package}
+                title="npm-only Installation"
+                description="Simplified installation to single npm command - zero manual setup required"
+                bullets={[
+                  '• **Single command**: `npm install -g prjct-cli` - that\'s it!',
+                  '• **Automatic setup** via postinstall hook - installs commands to ~/.claude',
+                  '• **Auto-migration** of legacy projects to global storage',
+                  '• **Beautiful ASCII art** on installation with quick start guide',
+                  '• **Deprecated curl install**: `curl -fsSL https://prjct.app/install.sh` now shows migration message',
+                ]}
+              />
+
+              <FeatureCard
+                variant="simple"
+                contentLayout="horizontal"
+                icon={Sparkles}
+                title="Automatic Post-Install Setup"
+                description="New postinstall.js script runs automatically after npm install"
+                bullets={[
+                  '• **Detects global vs local** installation (skips for local dev)',
+                  '• **Installs/syncs commands** to `~/.claude/commands/p/`',
+                  '• **Migrates legacy projects** automatically (deep scan optional)',
+                  '• **Shows ASCII art** with prjct logo and quick start guide',
+                  '• **Zero user intervention** - everything happens automatically',
+                ]}
+              />
+
+              <FeatureCard
+                variant="simple"
+                contentLayout="horizontal"
+                icon={RefreshCw}
+                title="Intelligent Command Sync"
+                description="New syncCommands() method detects and removes orphaned commands"
+                bullets={[
+                  '• **Detects new commands** and installs them automatically',
+                  '• **Detects updated commands** and refreshes them (by modification time)',
+                  '• **Detects orphaned commands** and removes them (e.g., context.md, stuck.md)',
+                  '• **Reports changes**: "✓ 2 nuevos, 5 actualizados, 2 eliminados"',
+                  '• Keeps ~/.claude/commands/p/ synchronized with latest templates',
+                ]}
+              />
+
+              <FeatureCard
+                variant="simple"
+                contentLayout="horizontal"
+                icon={Sparkles}
+                title="Beautiful ASCII Art in Setup"
+                description="prjct setup now shows the beautiful ASCII logo"
+                bullets={[
+                  '• **prjct logo** with colorful ASCII art',
+                  '• **Quick start guide** with 3 essential commands',
+                  '• **Links to documentation** and issue reporting',
+                  '• Shows after `prjct setup` completion',
+                  '• Consistent branding across all installation methods',
+                ]}
+              />
+
+              <FeatureCard
+                variant="simple"
+                contentLayout="horizontal"
+                icon={Database}
+                title="Global Configuration (~/.claude/CLAUDE.md)"
+                description="Automatic installation of global context for all /p:* commands"
+                bullets={[
+                  '• **Auto-installs** `~/.claude/CLAUDE.md` with prjct configuration',
+                  '• **Intelligent merge**: preserves user content, updates only prjct section',
+                  '• **Path resolution rules**: how to resolve paths to global storage',
+                  '• **Single source of truth**: no need to repeat in 25 command templates',
+                  '• Includes file structure, commit format, validation patterns, error handling',
+                  '• Claude Code reads this automatically across ALL projects',
+                ]}
+              />
+            </div>
+
+            <TechnicalDetails
+              details={[
+                'Breaking Change: install.sh deprecated - now shows migration message to use npm',
+                'Postinstall Hook: scripts/postinstall.js runs automatically after npm install -g',
+                'Command Sync: syncCommands() in command-installer.js with orphan detection',
+                'ASCII Art: showAsciiArt() method in commands.js with chalk colors',
+                'Global Config: installGlobalConfig() in command-installer.js with marker-based merge',
+                'Cleanup: Removed context.md and stuck.md orphaned commands (27 → 25 total)',
+                'Context Preservation: All projects now use global storage in ~/.prjct-cli/projects/{id}/',
+                'Documentation: Updated README.md with "Auto-Setup (NEW in v0.8.2)" section',
+              ]}
+            />
+          </motion.section>
+
           {/* Version 0.8.1 - Installation & Auto-Update Fixes */}
           <motion.section
             initial={{ opacity: 0, y: 20 }}
@@ -67,7 +168,7 @@ export const Changelog = () => {
             transition={{ duration: 0.6 }}
             className="mb-16"
           >
-            <VersionHeader version="v0.8.1" isLatest />
+            <VersionHeader version="v0.8.1" />
 
             <div className="mb-6 space-y-6">
               <FeatureCard
@@ -135,7 +236,7 @@ export const Changelog = () => {
             transition={{ duration: 0.6 }}
             className="mb-16"
           >
-            <VersionHeader version="v0.8.0" isLatest />
+            <VersionHeader version="v0.8.0" />
 
             <div className="mb-6 space-y-6">
               <FeatureCard

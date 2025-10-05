@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Hero } from '../components/Hero'
-import { Terminal } from '../components/Terminal'
+import { TerminalCTA } from '../components/TerminalCTA'
+import WorkflowMap from '../components/WorkflowMap'
 import { HowItWorks } from '../components/HowItWorks'
 import { Features } from '../components/Features'
 import { ClaudeSuperpowers } from '../components/ClaudeSuperpowers'
@@ -11,7 +12,8 @@ export const Home = () => {
   return (
     <>
       <Hero />
-      <Terminal />
+      <TerminalCTA />
+      <WorkflowMap />
       <HowItWorks />
       <Features />
       <ClaudeSuperpowers />

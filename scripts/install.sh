@@ -1,13 +1,37 @@
 #!/bin/bash
 
-# prjct/cli - Turn ideas into AI-ready roadmaps
-# Usage: curl -fsSL https://prjct.app/install.sh | bash
-# Options:
-#   --force      Force reinstall even if up to date
-#   --dev        Install from development branch
-#   --silent     Silent mode (no interactive prompts)
-#   -y, --yes    Auto-accept all prompts
-#   --help, -h   Show this help message
+# ⚠️ DEPRECATED: This installation method is deprecated
+# Use npm instead: npm install -g prjct-cli
+#
+# This script is kept for backward compatibility only.
+
+# Colors
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+GREEN='\033[0;32m'
+NC='\033[0m'
+
+echo ""
+echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${YELLOW}⚠️  This installation method is DEPRECATED${NC}"
+echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo ""
+echo -e "Please use npm instead:"
+echo ""
+echo -e "  ${GREEN}npm install -g prjct-cli${NC}"
+echo ""
+echo -e "Benefits of npm installation:"
+echo -e "  • ${CYAN}Automatic setup${NC} - No manual configuration needed"
+echo -e "  • ${CYAN}Auto-migration${NC} - Legacy projects migrated automatically"
+echo -e "  • ${CYAN}Beautiful ASCII art${NC} - See the installation success"
+echo -e "  • ${CYAN}Easy updates${NC} - Just npm update -g prjct-cli"
+echo ""
+echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo ""
+exit 1
+
+# Original install.sh preserved below (not executed)
+# ------------------------------------------------
 
 set -e
 
