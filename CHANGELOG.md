@@ -28,6 +28,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Documentation Quality**: Professional-grade testing documentation for contributors and developers
   - **Coverage**: Documents all 283 tests across both core and website projects
 
+### Fixed
+
+- **Lint Errors** - Removed 3 unused variables to pass ESLint
+  - Removed unused `globalProjectPath` in commands.js
+  - Removed unused `architectSession` require in commands.js
+  - Removed unused `fs` import in session-manager.js
+
 ### Technical Details
 
 - **Testing Stack**: Vitest with workspace configuration for dual environments
@@ -35,6 +42,81 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Website Tests** (React): 104 tests with Testing Library for components
 - **CI/CD**: GitHub Actions workflow with parallel test execution
 - **Coverage**: V8 coverage provider with HTML reports
+
+## [0.7.2] - 2025-10-04
+
+### Fixed
+
+- **Vercel Deployment Configuration** - Fixed deployment build and configuration
+  - Updated vercel build commands to use npm prefix syntax
+  - Moved and simplified vercel.json config
+  - Added Vercel deployment config and removed CNAME file
+  - Fixed build output directory configuration
+
+### Changed
+
+- **Version Bump** - Updated from 0.7.1 to 0.7.2
+
+## [0.7.1] - 2025-10-04
+
+### Added
+
+- **Command Implementation Status** - Added setup and migrate-all commands
+  - Marked roadmap, status, and build commands as implemented in registry
+  - Added isSupported flag to agent detection for Claude and Terminal agents
+  - Better clarity on which commands are available in each environment
+
+## [0.7.0] - 2025-10-04
+
+### Added
+
+- **Vercel Analytics Integration** - Added Vercel Analytics and Speed Insights tracking
+  - Real-time performance monitoring for website
+  - User analytics and insights
+  - Speed metrics tracking
+
+- **AI Policy Page** - New dedicated page for AI usage policies
+  - Redesigned footer layout with AI Policy link
+  - Clear transparency about AI integration
+  - Updated navigation structure
+
+### Changed
+
+- **Repository Privacy** - Transitioned from open source to proprietary
+  - Removed all GitHub repository links from website
+  - Removed open source references
+  - Updated Terms of Use with proprietary license
+  - Repository made private due to AI agent privacy concerns and terms of use compliance
+  - FREE tier remains available to all users indefinitely
+  - Contact: jlopezlira@gmail.com or jlopezlira.dev
+
+- **Deployment Migration** - Migrated from GitHub Pages to Vercel
+  - Better build performance and CDN
+  - Automatic deployments
+  - Improved website hosting
+
+- **Workflow Simplification** - Reduced to 5 essential commands
+  - Streamlined developer experience
+  - Clearer command structure
+  - Focus on core functionality
+
+- **Documentation Updates**
+  - Added session-based architecture documentation with auto-archiving
+  - JSONL logs for better performance
+  - Moved Changelog link from header to footer
+
+### Fixed
+
+- **TypeScript Build Errors** - Resolved all TypeScript errors in website build
+  - Removed unused Globe import from Privacy.tsx
+  - Fixed type errors across components
+
+### Technical Details
+
+- **Session Architecture**: JSONL-based logging with auto-archiving after 30 days
+- **Deployment**: Vercel platform with automatic builds
+- **Analytics**: Vercel Analytics + Speed Insights integration
+- **Privacy**: Repository now private, free tier remains available
 
 ## [0.6.0] - 2025-10-03
 

@@ -26,7 +26,8 @@ import { TimelineNav } from '@/components/changelog/TimelineNav'
 export const Changelog = () => {
   // Timeline navigation items
   const timelineItems = [
-    { id: 'oct-4-2025', date: 'Oct 4, 2025', releaseCount: 1 },
+    { id: 'oct-5-2025', date: 'Oct 5, 2025', releaseCount: 1 },
+    { id: 'oct-4-2025', date: 'Oct 4, 2025', releaseCount: 3 },
     { id: 'oct-3-2025', date: 'Oct 3, 2025', releaseCount: 1 },
     { id: 'oct-2-2025', date: 'Oct 2, 2025', releaseCount: 7 },
     { id: 'oct-1-2025', date: 'Oct 1, 2025', releaseCount: 4 },
@@ -57,16 +58,141 @@ export const Changelog = () => {
           </p>
         </motion.div>
 
-        {/* October 4, 2025 - 1 release */}
-        <DateSection id="oct-4-2025" date="October 4, 2025" releaseCount={1}>
-          {/* BREAKING CHANGE - No Longer Open Source */}
+        {/* October 5, 2025 - 1 release */}
+        <DateSection id="oct-5-2025" date="October 5, 2025" releaseCount={1}>
+          {/* Version 0.7.3 - Testing Documentation */}
           <motion.section
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
             className="mb-16"
           >
-            <VersionHeader version="v0.7.0" isLatest />
+            <VersionHeader version="v0.7.3" isLatest />
+
+            <div className="mb-6 space-y-6">
+              <FeatureCard
+                variant="fancy"
+                contentLayout="horizontal"
+                icon={CheckCircle}
+                title="Comprehensive Testing Documentation"
+                description="Complete testing guide and setup documentation for contributors and developers"
+                bullets={[
+                  '• **TESTING.md**: Full testing guide with quick start, architecture, and best practices',
+                  '• **Vitest Workspace**: Dual environment setup (Node.js core + React website)',
+                  '• **283 Tests**: 179 tests for core CLI + 104 tests for website components',
+                  '• **CI/CD Integration**: GitHub Actions workflow with parallel test execution',
+                  '• **Coverage Reports**: V8 coverage provider with interactive HTML reports',
+                  '• **README.md Section**: Quick reference with testing commands and CI/CD status',
+                ]}
+              />
+
+              <FeatureCard
+                variant="simple"
+                contentLayout="horizontal"
+                icon={Package}
+                title="Testing Stack"
+                description="Professional-grade testing infrastructure for both environments"
+                bullets={[
+                  '• **Core Tests** (Node.js): Agentic system, commands, and utilities',
+                  '• **Website Tests** (React): Component tests with Testing Library',
+                  '• **Workspace Config**: vitest.workspace.js for multi-project testing',
+                  '• **Troubleshooting Guide**: Common issues and solutions documented',
+                  '• **Command Reference**: Complete testing commands for all scenarios',
+                ]}
+              />
+            </div>
+
+            <TechnicalDetails
+              details={[
+                'Testing Stack: Vitest with workspace configuration for dual environments',
+                'Core Tests: 179 tests covering agentic engine, commands, and domain logic',
+                'Website Tests: 104 tests for React components with Testing Library',
+                'CI/CD: GitHub Actions with parallel jobs for core, website, lint, and build',
+                'Coverage: V8 provider with text, JSON, and HTML reports',
+                'Documentation: TESTING.md (comprehensive) + README.md section (quick reference)',
+              ]}
+            />
+          </motion.section>
+        </DateSection>
+
+        {/* October 4, 2025 - 3 releases */}
+        <DateSection id="oct-4-2025" date="October 4, 2025" releaseCount={3}>
+          {/* Version 0.7.2 - Vercel Deployment Fixes */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-16"
+          >
+            <VersionHeader version="v0.7.2" />
+
+            <div className="mb-6 space-y-6">
+              <FeatureCard
+                variant="simple"
+                contentLayout="horizontal"
+                icon={Wrench}
+                title="Vercel Deployment Configuration"
+                description="Fixed deployment build and configuration issues"
+                bullets={[
+                  '• Updated vercel build commands to use npm prefix syntax',
+                  '• Moved and simplified vercel.json config',
+                  '• Added Vercel deployment config and removed CNAME file',
+                  '• Fixed build output directory configuration',
+                ]}
+              />
+            </div>
+
+            <TechnicalDetails
+              details={[
+                'Version Bump: Updated from 0.7.1 to 0.7.2',
+                'Deployment: Fixed Vercel build configuration',
+                'Build: Corrected npm prefix commands for monorepo structure',
+              ]}
+            />
+          </motion.section>
+
+          {/* Version 0.7.1 - Command Status */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-16"
+          >
+            <VersionHeader version="v0.7.1" />
+
+            <div className="mb-6 space-y-6">
+              <FeatureCard
+                variant="simple"
+                contentLayout="horizontal"
+                icon={CheckCircle}
+                title="Command Implementation Status"
+                description="Added setup and migrate-all commands to registry"
+                bullets={[
+                  '• Marked roadmap, status, and build commands as implemented',
+                  '• Added isSupported flag to agent detection',
+                  '• Better clarity on which commands are available in Claude vs Terminal',
+                  '• Improved command registry with platform-specific support flags',
+                ]}
+              />
+            </div>
+
+            <TechnicalDetails
+              details={[
+                'Command Registry: Added isSupported flag for Claude and Terminal agents',
+                'Platform Support: Clear indicators for command availability',
+                'Implementation Status: Accurate tracking of completed commands',
+              ]}
+            />
+          </motion.section>
+
+          {/* Version 0.7.0 - Repository Privacy & Vercel Migration */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-16"
+          >
+            <VersionHeader version="v0.7.0" />
 
             <div className="mb-6 space-y-6">
               <FeatureCard
