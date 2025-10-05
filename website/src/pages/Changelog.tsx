@@ -26,7 +26,7 @@ import { TimelineNav } from '@/components/changelog/TimelineNav'
 export const Changelog = () => {
   // Timeline navigation items
   const timelineItems = [
-    { id: 'oct-5-2025', date: 'Oct 5, 2025', releaseCount: 1 },
+    { id: 'oct-5-2025', date: 'Oct 5, 2025', releaseCount: 2 },
     { id: 'oct-4-2025', date: 'Oct 4, 2025', releaseCount: 3 },
     { id: 'oct-3-2025', date: 'Oct 3, 2025', releaseCount: 1 },
     { id: 'oct-2-2025', date: 'Oct 2, 2025', releaseCount: 7 },
@@ -58,8 +58,73 @@ export const Changelog = () => {
           </p>
         </motion.div>
 
-        {/* October 5, 2025 - 1 release */}
-        <DateSection id="oct-5-2025" date="October 5, 2025" releaseCount={1}>
+        {/* October 5, 2025 - 2 releases */}
+        <DateSection id="oct-5-2025" date="October 5, 2025" releaseCount={2}>
+          {/* Version 0.8.0 - Conversational Interface */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-16"
+          >
+            <VersionHeader version="v0.8.0" isLatest />
+
+            <div className="mb-6 space-y-6">
+              <FeatureCard
+                variant="fancy"
+                contentLayout="horizontal"
+                icon={MessageSquare}
+                title="3-Tier Guided Workflow System"
+                description="Zero memorization interface - just talk naturally and get guided to the right commands"
+                bullets={[
+                  '• **`/p:help`**: Contextual guide that adapts to your project state (5 different contexts)',
+                  '• **`/p:ask`**: Intent to action translator - describe what you want, get command recommendations',
+                  '• **`/p:suggest`**: Smart recommendations based on project velocity and momentum patterns',
+                  '• Works in any language (English, Spanish, etc.) with natural language understanding',
+                  '• Educational responses explain the "why" behind each recommendation',
+                  '• Updated from 9 to 13 core commands for better usability',
+                ]}
+              />
+
+              <FeatureCard
+                variant="simple"
+                contentLayout="horizontal"
+                icon={Sparkles}
+                title="Website Transformation"
+                description="Complete UX redesign from 'memorize commands' to 'just talk naturally'"
+                bullets={[
+                  '• **Hero Section**: 60/40 layout with conversational examples instead of command sequences',
+                  '• **Terminal Demo**: Single comprehensive flow from install to ship with better timing',
+                  '• **How It Works**: 3-step visual guide (Talk → Claude Understands → You Ship)',
+                  '• **Command Guide**: Natural language first approach with `p.` trigger examples',
+                  '• **Commands Page**: "Start Here" section prioritizing help over reference',
+                ]}
+              />
+
+              <FeatureCard
+                variant="simple"
+                contentLayout="horizontal"
+                icon={CheckCircle}
+                title="Enhanced Templates & Onboarding"
+                description="Quick start templates and conversational first-time experience"
+                bullets={[
+                  '• **Feature Templates**: 6 categories (UI/UX, Performance, Features, Quality, Bugs, Docs)',
+                  '• **Conversational Init**: "What do you want to do first?" with 5 clear options',
+                  '• **Natural Language Examples**: Every command shows `p.` trigger alternatives',
+                ]}
+              />
+            </div>
+
+            <TechnicalDetails
+              details={[
+                'Philosophy Shift: Before "Learn commands: /p:feature → /p:done → /p:ship" | After "Just talk: p. I want to add auth → Claude handles the rest"',
+                'New Templates: ask.md (intent translation), suggest.md (smart recommendations), updated help.md, init.md, feature.md',
+                'Website Optimization: Hero grid 60/40, Terminal timing 3500ms steps, removed chat UI mockups, consistent p. trigger examples',
+                'Core UX Principle: Users know WHAT they want but not HOW to do it → Now they just describe intent and get guided',
+              ]}
+            />
+          </motion.section>
+
           {/* Version 0.7.3 - Testing Documentation */}
           <motion.section
             initial={{ opacity: 0, y: 20 }}
@@ -67,7 +132,7 @@ export const Changelog = () => {
             transition={{ duration: 0.6 }}
             className="mb-16"
           >
-            <VersionHeader version="v0.7.3" isLatest />
+            <VersionHeader version="v0.7.3" />
 
             <div className="mb-6 space-y-6">
               <FeatureCard

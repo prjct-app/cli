@@ -32,9 +32,57 @@ interface Scenario {
 
 const scenarios: Scenario[] = [
   {
+    id: 'new-lost',
+    title: "I'm new / lost / don't know what to do",
+    icon: HelpCircle,
+    description: 'First time using prjct or feeling confused',
+    commands: [
+      {
+        command: 'p. help',
+        description: 'Natural language - Contextual guide adapts to your state',
+        output: '🎯 Analyzed your project → Showing relevant options',
+        preferred: true,
+      },
+      {
+        command: '/p:help',
+        description: 'Direct command - Interactive contextual help',
+        output: '💡 Here\'s what you can do based on your current state...',
+      },
+      {
+        command: '/p:suggest',
+        description: 'Smart recommendations based on momentum',
+        output: '📊 Analysis: 5 tasks waiting → Suggests: /p:next',
+      },
+    ],
+  },
+  {
+    id: 'know-what-not-how',
+    title: 'I know what I want but not how to do it',
+    icon: Lightbulb,
+    description: 'Have an idea but unsure which commands to use',
+    commands: [
+      {
+        command: 'p. I want to optimize performance',
+        description: 'Natural language - Claude understands intent',
+        output: '💡 Analyzing → /p:feature → Breakdown tasks → Auto-start',
+        preferred: true,
+      },
+      {
+        command: '/p:ask "improve performance"',
+        description: 'Intent to action translator with explanations',
+        output: '🎯 Recommended flow: /p:feature → /p:build → /p:done',
+      },
+      {
+        command: '/p:suggest',
+        description: 'If you\'re completely lost',
+        output: '📊 Personalized next steps based on your context',
+      },
+    ],
+  },
+  {
     id: 'new-idea',
     title: 'I have a new feature to build',
-    icon: Lightbulb,
+    icon: Zap,
     description: 'Want to add value analysis, roadmap, and task breakdown',
     commands: [
       {
@@ -76,30 +124,6 @@ const scenarios: Scenario[] = [
         command: '/p:ship "authentication system"',
         description: 'If it is an important feature',
         output: '🚀 SHIPPED! Authentication system 🎉',
-      },
-    ],
-  },
-  {
-    id: 'lost-context',
-    title: "Don't know what to do or what I was working on",
-    icon: HelpCircle,
-    description: "Lost context or don't know where to start",
-    commands: [
-      {
-        command: 'p. show me my progress',
-        description: 'Natural language',
-        output: '📊 Current: auth | Shipped: 5 | Queue: 3',
-        preferred: true,
-      },
-      {
-        command: '/p:recap',
-        description: 'Complete project overview',
-        output: '📊 Current: auth | Shipped: 5 | Queue: 3',
-      },
-      {
-        command: '/p:next',
-        description: 'View prioritized task queue',
-        output: '1. Fix auth bug\n2. Add tests\n3. Update docs',
       },
     ],
   },
@@ -317,6 +341,22 @@ export const CommandGuide = () => {
                 </tr>
               </thead>
               <tbody>
+                <tr className="border-b bg-primary/5">
+                  <td className="py-3 pr-4 font-semibold">I'm new/lost</td>
+                  <td className={cn('py-3 pr-4 text-primary', typography.code)}>p. help</td>
+                  <td className={cn('py-3 text-muted-foreground', typography.code)}>
+                    /p:help | /p:suggest
+                  </td>
+                </tr>
+                <tr className="border-b bg-primary/5">
+                  <td className="py-3 pr-4 font-semibold">I want to... (but don't know how)</td>
+                  <td className={cn('py-3 pr-4 text-primary', typography.code)}>
+                    p. I want [intent]
+                  </td>
+                  <td className={cn('py-3 text-muted-foreground', typography.code)}>
+                    /p:ask "[intent]"
+                  </td>
+                </tr>
                 <tr className="border-b">
                   <td className="py-3 pr-4">I have a new feature</td>
                   <td className={cn('py-3 pr-4 text-primary', typography.code)}>
@@ -327,13 +367,6 @@ export const CommandGuide = () => {
                   </td>
                 </tr>
                 <tr className="border-b">
-                  <td className="py-3 pr-4">Want to start something</td>
-                  <td className={cn('py-3 pr-4 text-primary', typography.code)}>p. start [task]</td>
-                  <td className={cn('py-3 text-muted-foreground', typography.code)}>
-                    /p:now | /p:next
-                  </td>
-                </tr>
-                <tr className="border-b">
                   <td className="py-3 pr-4">Finished my task</td>
                   <td className={cn('py-3 pr-4 text-primary', typography.code)}>p. I'm done</td>
                   <td className={cn('py-3 text-muted-foreground', typography.code)}>
@@ -341,12 +374,10 @@ export const CommandGuide = () => {
                   </td>
                 </tr>
                 <tr className="border-b">
-                  <td className="py-3 pr-4">Don't know what to do</td>
-                  <td className={cn('py-3 pr-4 text-primary', typography.code)}>
-                    p. show progress
-                  </td>
+                  <td className="py-3 pr-4">Don't know what to do next</td>
+                  <td className={cn('py-3 pr-4 text-primary', typography.code)}>p. what next</td>
                   <td className={cn('py-3 text-muted-foreground', typography.code)}>
-                    /p:recap | /p:next
+                    /p:suggest | /p:next
                   </td>
                 </tr>
                 <tr className="border-b">

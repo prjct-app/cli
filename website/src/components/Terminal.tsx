@@ -4,134 +4,61 @@ import WorkflowMap from './WorkflowMap'
 
 const terminalConfigs = [
   {
-    name: 'Claude Code - SaaS MVP',
+    name: 'Complete Flow - From Install to Ship',
     commands: [
-      { cmd: '/p:init', output: '✅ Project initialized in .prjct/', delay: 500 },
       {
-        cmd: '/p:feature "AI-powered code review tool"',
-        output:
-          '✨ Value Analysis:\n• Impact: HIGH\n• Effort: 12h\n• Tasks: 5\n• Timing: Start now',
-        delay: 900,
-      },
-      {
-        cmd: '/p:done',
-        output: '✅ Task complete: Setup Next.js + TypeScript\n💡 Next: GitHub OAuth integration',
+        cmd: 'npm install -g prjct-cli',
+        output: '📦 Installing prjct-cli...\n✅ Installed successfully!',
         delay: 800,
       },
       {
-        cmd: '/p:done',
-        output: '✅ Task complete: GitHub OAuth\n💡 Next: AI review engine',
-        delay: 700,
+        cmd: 'cd my-saas-app',
+        output: '',
+        delay: 300,
       },
       {
-        cmd: '/p:ship "AI code review platform"',
-        output: '🚀 SHIPPED: AI Code Review Platform!\n🎉 Feature complete with 5 tasks',
-        delay: 900,
-      },
-      {
-        cmd: '/p:progress week',
+        cmd: 'prjct init',
         output:
-          '📊 This Week:\n• Shipped: 3 features\n• Velocity: 1.2 features/day\n• On track: Yes ✅',
-        delay: 600,
-      },
-    ],
-  },
-  {
-    name: 'Claude Code - Mobile App',
-    commands: [
-      {
-        cmd: '/p:init',
-        output:
-          '✅ Project initialized in .prjct/\n🔍 Analyzing...\n• Stack: React Native + Expo\n• Components: 12 created',
-        delay: 900,
-      },
-      {
-        cmd: '/p:feature "implement navigation system"',
-        output:
-          '✨ Value Analysis:\n• Impact: HIGH\n• Effort: 4h\n• Tasks: 3\n  1. Install React Navigation\n  2. Create tab navigator\n  3. Setup deep linking',
+          '✅ prjct initialized!\n📁 Data: ~/.prjct-cli/projects/abc123\n📊 Analyzing stack...\n🤖 Agents: 6 generated',
         delay: 1000,
       },
       {
-        cmd: '/p:done',
-        output: '✅ Task complete: React Navigation installed\n💡 Next: Create tab navigator',
-        delay: 700,
+        cmd: '',
+        output: '\n💬 Talk to Claude Code in your editor...',
+        delay: 500,
       },
       {
-        cmd: '/p:ship "navigation system"',
-        output: '🚀 SHIPPED: Complete navigation with deep linking!\n🎉 All 3 tasks complete',
-        delay: 800,
+        cmd: '# In Claude Code:',
+        output: '',
+        delay: 400,
       },
       {
-        cmd: '/p:next',
-        output: '📋 Priority Queue:\n  1. Push notifications\n  2. Offline mode\n  3. Dark theme',
-        delay: 600,
-      },
-    ],
-  },
-  {
-    name: 'Claude Code - API Service',
-    commands: [
-      {
-        cmd: '/p:feature "serverless API with rate limiting"',
-        output: '✨ Value Analysis:\n• Impact: HIGH\n• Effort: 8h\n• Tasks: 4\n• Timing: Start now',
-        delay: 700,
-      },
-      {
-        cmd: '/p:done',
-        output: '✅ Task complete: Core API structure\n💡 Next: Implement rate limiting',
-        delay: 600,
-      },
-      {
-        cmd: '/p:stuck "Redis connection timeout"',
+        cmd: 'p. I want to add user authentication',
         output:
-          '💡 Solution:\n• Check Redis URL format\n• Add connection pooling\n• Set timeout to 5000ms\n• Use connection retry logic',
+          '💡 I understand: Implementing authentication\n📊 Analyzing value...\n\n✨ Value Analysis:\n  • Impact: HIGH (core feature)\n  • Effort: 8h\n  • Timing: Start now\n\n📋 Tasks created:\n  1. Setup auth provider (Clerk/Auth0)\n  2. Implement login/signup UI\n  3. Add protected routes\n  4. Session management\n  5. Testing\n\n🎯 Started: Task 1 - Setup auth provider\n⏱️  Time tracking: ON',
+        delay: 1500,
+      },
+      {
+        cmd: '# ...work on tasks...',
+        output: '',
+        delay: 400,
+      },
+      {
+        cmd: 'p. I\'m done',
+        output:
+          '✅ Task complete: Setup auth provider (2h 15m)\n💡 Auto-starting next: Implement login/signup UI\n🎯 Progress: 20% (1/5 tasks)',
         delay: 900,
       },
       {
-        cmd: '/p:done',
-        output: '🔧 Fixed: Added connection pool with retry\n✅ Redis rate limiting working',
-        delay: 700,
+        cmd: '# ...complete remaining tasks...',
+        output: '',
+        delay: 400,
       },
       {
-        cmd: '/p:ship "rate limiting system"',
+        cmd: 'p. ship this',
         output:
-          '🚀 SHIPPED: Serverless API with Rate Limiting!\n🎉 4 tasks complete\n📊 Ready for production',
-        delay: 900,
-      },
-      {
-        cmd: '/p:recap',
-        output:
-          '📊 Project Overview:\n🚀 Shipped: 9 features\n🎯 Current: None (ready for next)\n📈 Velocity: 2.1 features/week\n✨ Momentum: High',
-        delay: 1000,
-      },
-    ],
-  },
-  {
-    name: 'Claude Code - CLI Tool',
-    commands: [
-      {
-        cmd: '/p:recap',
-        output:
-          '📊 PROJECT RECAP\n━━━━━━━━━━━━━\n🎯 Current: None (ready for next feature)\n📈 This week: 8 shipped\n🔥 Velocity: 1.6 features/day',
-        delay: 700,
-      },
-      {
-        cmd: '/p:feature "comprehensive documentation"',
-        output:
-          '✨ Value Analysis:\n• Impact: HIGH (adoption)\n• Effort: 6h\n• Tasks: 5\n  1. Command reference\n  2. Installation guide\n  3. API examples\n  4. Video tutorials\n  5. FAQ section',
-        delay: 1000,
-      },
-      {
-        cmd: '/p:progress month',
-        output:
-          '📊 Monthly Stats:\n• Features shipped: 24\n• Tasks completed: 92\n• Features added: 18\n• Velocity trend: ↗️ +15%',
-        delay: 800,
-      },
-      {
-        cmd: '/p:ship "beta version"',
-        output:
-          '🚀 SHIPPED: prjct-cli v0.9.0-beta!\n🎉 Celebration mode activated!\n📈 127 developers using it!',
-        delay: 900,
+          '🚀 SHIPPING: User Authentication\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n✅ Lint: Passed\n✅ Tests: Passed\n📝 Updating CHANGELOG...\n🌿 Git: Committed & pushed\n\n🎉 SHIPPED: User Authentication!\n📊 5 tasks complete | 7h 45m total\n\nMomentum: Keep shipping! 🔥',
+        delay: 1200,
       },
     ],
   },
@@ -139,13 +66,12 @@ const terminalConfigs = [
 
 export const Terminal = () => {
   const [currentLine, setCurrentLine] = useState(0)
-  const [currentTerminalIndex, setCurrentTerminalIndex] = useState(0)
   const [displayedCommands, setDisplayedCommands] = useState<
     (typeof terminalConfigs)[0]['commands']
   >([])
   const [isTyping, setIsTyping] = useState(false)
 
-  const currentTerminal = terminalConfigs[currentTerminalIndex]
+  const currentTerminal = terminalConfigs[0]
   const commands = currentTerminal.commands
 
   useEffect(() => {
@@ -159,7 +85,7 @@ export const Terminal = () => {
             setIsTyping(false)
           }, commands[currentLine].delay)
         },
-        currentLine === 0 ? 1000 : 2000
+        currentLine === 0 ? 1000 : 3500 // More time between steps
       )
 
       return () => clearTimeout(timer)
@@ -167,8 +93,7 @@ export const Terminal = () => {
       setTimeout(() => {
         setDisplayedCommands([])
         setCurrentLine(0)
-        setCurrentTerminalIndex((prev) => (prev + 1) % terminalConfigs.length)
-      }, 15000) // Wait 15 seconds before cycling to next terminal
+      }, 12000) // Wait 12 seconds before restarting
     }
   }, [currentLine, commands])
 
@@ -182,7 +107,10 @@ export const Terminal = () => {
           viewport={{ once: true }}
           className="mb-12 text-center"
         >
-          <h2 className="mb-4 text-4xl font-bold md:text-5xl">How It Works</h2>
+          <h2 className="mb-4 text-4xl font-bold md:text-5xl">See It In Action</h2>
+          <p className="text-lg text-muted-foreground">
+            From installation to shipping - the complete flow
+          </p>
         </motion.div>
 
         {/* Workflow Map - Mind Map Visualization */}

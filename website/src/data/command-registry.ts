@@ -8,7 +8,7 @@
  * - CLAUDE.md (AI assistant instructions)
  * - scripts/validate-commands.js (validation)
  *
- * @version 0.6.0 - Simplified workflow (5 core commands)
+ * @version 0.8.0 - Conversational interface with zero memorization
  */
 
 const COMMANDS = [

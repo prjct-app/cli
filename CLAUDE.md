@@ -504,6 +504,213 @@ User: "/p:workflow"
 
 **Key Difference**: `/p:idea` captures NEW ideas. `/p:workflow` manages EXISTING multi-step tasks.
 
+## Guided Workflow System
+
+**NEW: Enhanced usability for confused users** - The biggest user frustration is knowing WHAT they want but not HOW to do it with prjct.
+
+### The Problem
+
+Users frequently ask:
+- "How do I start?"
+- "What command should I use?"
+- "I want to improve performance, but how?"
+- "What should I do next?"
+
+They have clear **INTENT** but struggle with **EXECUTION**.
+
+### The Solution: 3-Tier Help System
+
+#### Tier 1: `/p:help` - Contextual Interactive Guide
+
+**Purpose**: Adapts to user's current state and provides relevant guidance
+
+**Behavior**:
+- Reads project state (active task, queue, last ship, etc.)
+- Shows different help based on context:
+  - Not initialized → Guides setup
+  - Empty queue → Suggests adding features
+  - Active task → Shows completion options
+  - Has queue → Recommends starting work
+  - Lost/confused → Comprehensive guide
+
+**Example**:
+```
+User in state: "No active task, 5 tasks in queue"
+
+/p:help shows:
+→ Start working (recommended)
+→ See priority queue
+→ Add new feature
+→ Check progress
+
+With examples and natural language alternatives
+```
+
+#### Tier 2: `/p:ask` - Intent to Action Translator
+
+**Purpose**: Translate vague natural language intent into specific command flows
+
+**Behavior**:
+- User describes what they want in natural language
+- Claude analyzes intent and context
+- Recommends step-by-step command flow
+- Explains WHY each command
+- Offers interactive confirmation
+- Educational - teaches the system
+
+**Example**:
+```
+User: /p:ask "I want to improve performance and fix memory leaks"
+
+Claude responds:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎯 I understand: performance optimization + memory leak fixes
+
+📊 YOUR CONTEXT:
+  • No active task
+  • 3 tasks in queue
+  • Last ship: 2 days ago
+
+💡 RECOMMENDED FLOW:
+
+1. /p:feature "optimize performance and memory leaks"
+   → Value analysis (Impact: HIGH, Effort: 8h)
+   → Task breakdown:
+     • Setup profiler
+     • Identify memory leaks
+     • Optimize re-renders
+     • Code splitting
+     • Measure improvements
+
+2. /p:build 1 → Start with profiling
+
+3. /p:done → After each task
+
+4. /p:ship "performance optimization"
+
+✨ WHY THIS FLOW:
+→ /p:feature: Analyzes value first, creates roadmap
+→ /p:build: Focus on one task, track time
+→ /p:done: Register progress, maintain momentum
+→ /p:ship: Commit + celebrate win
+
+Ready to start?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+**Key Features**:
+- Works in any language (English, Spanish, etc.)
+- No execution until user confirms
+- Shows command + natural language alternatives
+- Educational explanations
+- Contextual (checks project state first)
+
+#### Tier 3: `/p:suggest` - Smart Recommendations
+
+**Purpose**: Analyze project state and suggest next best actions
+
+**Behavior**:
+- Reads all project state files
+- Calculates metrics (velocity, days since ship, queue size, etc.)
+- Detects patterns (stuck task, losing momentum, over-planning, etc.)
+- Provides urgency-based recommendations
+- Motivational but honest
+
+**Scenarios Detected**:
+1. **Ready to work** → Suggests starting top priority task
+2. **Long-running task** → Checks if stuck, suggests help
+3. **No ships recently** → Urgency alert, suggests shipping something small
+4. **Empty queue** → Suggests planning (feature/analyze/roadmap)
+5. **High velocity** → Positive reinforcement, quality suggestions
+6. **Queue too large** → Warns about over-planning, suggests executing
+
+**Example**:
+```
+User: /p:suggest
+
+Claude analyzes:
+- No active task
+- 8 tasks in queue
+- Last ship: 5 days ago
+- Velocity: 0.4 features/week
+
+Response:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💡 PERSONALIZED SUGGESTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 ANALYSIS:
+  • 5 days since last ship ⚠️
+  • Queue: 8 tasks
+  • Velocity: Low
+
+🔥 URGENT: Momentum is dropping!
+
+🎯 RECOMMENDATIONS:
+
+1. ⚡ SHIP SOMETHING TODAY
+   → /p:next (find quick win)
+   → /p:build {easiest task}
+   → /p:done → /p:ship SAME DAY
+
+2. 🎯 STOP PLANNING, START DOING
+   → 8 tasks is too many
+   → Ship > Plan
+
+3. 💡 MAINTAIN MOMENTUM
+   → Ship every 1-2 days
+   → Small wins > Big tasks
+
+Momentum = Motivation. Let's ship! 🚀
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+### Enhanced Onboarding
+
+**After `/p:init`**: Conversational "What do you want to do first?" section
+- 5 clear options with examples
+- Natural language alternatives
+- No overwhelming command lists
+- Guides to action immediately
+
+**After `/p:feature` (no params)**: Interactive template mode
+- 6 categories (UI/UX, Performance, Features, Quality, Bugs, Docs)
+- Examples for each category
+- Impact/effort estimates
+- User can describe freely OR choose template
+
+### Integration with Natural Language System
+
+All help commands work seamlessly with the "p." trigger and natural language detection:
+
+```
+User: "p. I don't know what to do"
+→ Detects confusion → Executes /p:suggest
+
+User: "p. how do I start?"
+→ Detects help need → Executes /p:help
+
+User: "p. I want to optimize performance"
+→ Detects feature intent → Shows /p:ask flow OR /p:feature
+```
+
+### Key Principles
+
+1. **Never leave users confused** - Always provide clear next steps
+2. **Educational, not prescriptive** - Teach the system while guiding
+3. **Contextual, not generic** - Different help for different states
+4. **Natural language first** - Commands as alternative, not requirement
+5. **Momentum-focused** - Push toward action, not endless planning
+
+### Success Metrics
+
+After using the guided system, users should:
+- ✅ Know exactly what command to use
+- ✅ Understand WHY that command
+- ✅ Feel confident to proceed
+- ✅ Learn the system through use
+- ✅ Never feel stuck or frustrated
+
 ### Available Commands
 
 The following commands are available in Claude Code (commands marked with ⚠️ are not yet implemented):
@@ -544,11 +751,21 @@ The following commands are available in Claude Code (commands marked with ⚠️
   - **Empty dir, no idea**: Asks for idea
   - **Empty dir + idea**: ARCHITECT MODE (conversational discovery → generates plan)
   - **Existing code**: Regular init + suggests analyze
+- `/p:help` - Interactive contextual guide (adapts to project state)
+- `/p:ask "<what you want to do>"` - Conversational intent to action translator
+  - Natural language understanding
+  - Recommends command flow with explanations
+  - Works in any language
+  - Educational and interactive
+- `/p:suggest` - Context-aware next steps suggestions
+  - Analyzes project state and momentum
+  - Detects urgencies and patterns
+  - Personalized recommendations
+  - Helps maintain momentum
 - `/p:stuck <issue description>` - Get contextual help with problems
 - `/p:analyze` - Analyze repository and sync tasks
 - `/p:sync` - Sync project state and update workflow agents
 - ⚠️ `/p:fix [error]` - Quick troubleshooting and automatic fixes
-- ⚠️ `/p:help` - Interactive guide - talk naturally, no memorization needed
 
 #### Version Control
 
@@ -558,7 +775,7 @@ The following commands are available in Claude Code (commands marked with ⚠️
 
 - ⚠️ `/p:test` - Run tests and auto-fix simple failures
 
-**Total: 23 implemented, 29 total commands**
+**Total: 26 implemented, 30 total commands** (✅ +3 new: /p:help, /p:ask, /p:suggest)
 **Status**: Check `core/command-registry.js` for current implementation status
 
 ## Agent Generation

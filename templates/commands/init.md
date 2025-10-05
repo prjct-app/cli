@@ -70,9 +70,61 @@ description: 'Initialize prjct project (with architect mode for blank projects)'
 📊 Analysis: {stack_summary}
 🤖 Agents: {N} agents generated
 
-Listo para trabajar! ¿Qué feature agregamos?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎯 WHAT DO YOU WANT TO DO FIRST?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-/p:feature | /p:analyze
+Choose your path:
+
+1. 🚀 Add a new feature
+   Tell me what you want to build!
+
+   Examples:
+   • "add user authentication"
+   • "implement dark mode"
+   • "optimize performance"
+
+   → /p:feature "{description}"
+
+2. 🐛 Fix a bug
+   Describe what's broken
+
+   Example:
+   • "login button not working"
+
+   → /p:bug "{description}"
+
+3. 🔍 Analyze deeper
+   Discover TODOs and improvements
+
+   → /p:analyze
+
+4. 📊 See current status
+   View what's in your project
+
+   → /p:status (visual dashboard)
+   → /p:recap (detailed overview)
+
+5. 💡 Not sure yet?
+   Get personalized suggestions
+
+   → /p:suggest
+   → /p:help
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💬 OR JUST TELL ME:
+
+You can talk naturally:
+  "I want to add authentication"
+  "Help me fix this performance issue"
+  "What should I do?"
+
+I understand! No need to memorize commands.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Let's ship something! 🚀
 ```
 
 ## Response: Blank Project
@@ -80,24 +132,79 @@ Listo para trabajar! ¿Qué feature agregamos?
 ```
 ✅ prjct initialized!
 
-📐 ARCHITECT MODE
+📐 ARCHITECT MODE ACTIVATED
 
 Your idea: "{idea}"
 
-Recommended stack:
-  Option 1: Next.js + TypeScript + Tailwind (⭐ Recommended)
-  Option 2: React + Vite + shadcn/ui
-  Option 3: Vue 3 + Nuxt
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Which option? (or describe your preference)
+🎨 TECH STACK RECOMMENDATIONS:
+
+Based on your idea, I recommend:
+
+  ⭐ Option 1: Next.js + TypeScript + Tailwind
+     → Best for: Full-stack apps, SEO, modern UI
+     → Why: Fast, scalable, great DX
+
+  Option 2: React + Vite + shadcn/ui
+     → Best for: SPAs, rapid prototyping
+     → Why: Lightweight, flexible
+
+  Option 3: Vue 3 + Nuxt
+     → Best for: Progressive apps, content sites
+     → Why: Easy learning curve, performant
+
+  Custom: Tell me your preference
+     → Any stack works with prjct!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Which option works for you? (1, 2, 3, or describe your choice)
 
 [After user confirms:]
 
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 ✅ Structure created!
+
+📁 Project: {path}
+📦 Stack: {chosen_stack}
 📋 Initial roadmap: {N} features
-🤖 Agents: generated
+🤖 Agents: {N} specialists generated
 
-¿Empezamos con la primera feature?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎯 WHAT'S NEXT?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-/p:feature | /p:ship
+Your roadmap is ready! You can:
+
+1. 🚀 Start with first feature (RECOMMENDED)
+   → /p:feature "{first_feature}"
+   I'll break it down and we'll start building
+
+2. 📊 See your roadmap
+   → /p:roadmap
+   View all planned features
+
+3. 🔍 Review project structure
+   → /p:recap
+   See what was created
+
+4. 💡 Modify the plan
+   Just tell me:
+   "I also want to add {feature}"
+   "Let's do {different_feature} first"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💬 REMEMBER:
+
+You can talk naturally! Just tell me what you want:
+  "Start with authentication"
+  "Show me the roadmap"
+  "I want to add another feature"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Ready to start building? 🚀
 ```
