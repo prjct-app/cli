@@ -26,7 +26,7 @@ import { TimelineNav } from '@/components/changelog/TimelineNav'
 export const Changelog = () => {
   // Timeline navigation items
   const timelineItems = [
-    { id: 'oct-5-2025', date: 'Oct 5, 2025', releaseCount: 2 },
+    { id: 'oct-5-2025', date: 'Oct 5, 2025', releaseCount: 3 },
     { id: 'oct-4-2025', date: 'Oct 4, 2025', releaseCount: 3 },
     { id: 'oct-3-2025', date: 'Oct 3, 2025', releaseCount: 1 },
     { id: 'oct-2-2025', date: 'Oct 2, 2025', releaseCount: 7 },
@@ -58,8 +58,76 @@ export const Changelog = () => {
           </p>
         </motion.div>
 
-        {/* October 5, 2025 - 2 releases */}
-        <DateSection id="oct-5-2025" date="October 5, 2025" releaseCount={2}>
+        {/* October 5, 2025 - 3 releases */}
+        <DateSection id="oct-5-2025" date="October 5, 2025" releaseCount={3}>
+          {/* Version 0.8.1 - Installation & Auto-Update Fixes */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-16"
+          >
+            <VersionHeader version="v0.8.1" isLatest />
+
+            <div className="mb-6 space-y-6">
+              <FeatureCard
+                variant="fancy"
+                contentLayout="horizontal"
+                icon={Bug}
+                title="Critical Installation Bug Fixes"
+                description="Fixed installation and auto-update issues preventing command synchronization"
+                bullets={[
+                  '• **Fixed incorrect path** in `install.sh` line 315: `./core/command-installer` → `./core/infrastructure/command-installer`',
+                  '• **Added missing method** `installToAll()` to command-installer.js - resolves "is not a function" error',
+                  '• **Auto-update commands** after git pull - commands in `~/.claude/commands/p/` now synchronize automatically',
+                  '• **Visual confirmation** - Added "✨ Setup Complete! ✨" ASCII box in setup.sh',
+                  '• Resolves issue where old command versions persisted after npm/git updates',
+                ]}
+              />
+
+              <FeatureCard
+                variant="simple"
+                contentLayout="horizontal"
+                icon={RefreshCw}
+                title="New Update Script"
+                description="Standalone update script for easy version updates"
+                bullets={[
+                  '• **New `scripts/update.sh`** - Single command to update prjct-cli: `npm run update`',
+                  '• Handles complete update flow: git pull → npm install → command updates',
+                  '• Visual progress indicators and confirmation messages',
+                  '• Auto-synchronizes commands with latest templates',
+                  '• Enhanced logging with 🔄 and ✅ indicators',
+                ]}
+              />
+
+              <FeatureCard
+                variant="simple"
+                contentLayout="horizontal"
+                icon={Wrench}
+                title="Installation Flow Improvements"
+                description="Simplified and more reliable installation process"
+                bullets={[
+                  '• **Auto-updates commands** after git pull (no manual reinstall needed)',
+                  '• **Single npm install** (eliminated duplication)',
+                  '• **Clear visual feedback** at each step',
+                  '• **Proper module resolution** with correct paths',
+                  '• Updated version displays to v0.8.1',
+                ]}
+              />
+            </div>
+
+            <TechnicalDetails
+              details={[
+                'Installation Fix: Corrected module path resolution in install.sh',
+                'Command Sync: Automatic command updates after git pull with visual confirmation',
+                'Update Script: New npm run update script for complete update workflow',
+                'Enhanced Logging: Improved updateCommands() with visual feedback (🔄/✅)',
+                'Method Addition: installToAll() implemented as alias for installCommands()',
+                'Version Update: All hardcoded versions updated to v0.8.1',
+              ]}
+            />
+          </motion.section>
+
           {/* Version 0.8.0 - Conversational Interface */}
           <motion.section
             initial={{ opacity: 0, y: 20 }}

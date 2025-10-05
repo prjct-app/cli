@@ -105,7 +105,7 @@ echo -e "   ${BOLD}${CYAN}██████╔╝██████╔╝     �
 echo -e "   ${BOLD}${CYAN}██╔═══╝ ██╔══██╗██   ██║██║        ██║${NC}"
 echo -e "   ${BOLD}${CYAN}██║     ██║  ██║╚█████╔╝╚██████╗   ██║${NC}"
 echo -e "   ${BOLD}${CYAN}╚═╝     ╚═╝  ╚═╝ ╚════╝  ╚═════╝   ╚═╝${NC}"
-echo -e "   ${BOLD}${CYAN}prjct${NC}${MAGENTA}/${NC}${GREEN}cli${NC}  ${DIM}${WHITE}v0.3.1${NC}"
+echo -e "   ${BOLD}${CYAN}prjct${NC}${MAGENTA}/${NC}${GREEN}cli${NC}  ${DIM}${WHITE}v0.8.1${NC}"
 echo ""
 echo -e "   ${DIM}Turn ideas into AI-ready roadmaps${NC}"
 echo ""
@@ -244,6 +244,18 @@ if [ -d "$INSTALL_DIR" ]; then
     ) &
     spin $!
     echo -e " ${GREEN}${CHECK}${NC} Updated to v${REMOTE_VERSION}"
+
+    # Auto-update commands after git pull
+    printf "  ${ARROW} Updating commands"
+    (
+        cd "$INSTALL_DIR"
+        node -e "
+            const installer = require('./core/infrastructure/command-installer');
+            installer.updateCommands();
+        " > /dev/null 2>&1
+    ) &
+    spin $!
+    echo -e " ${GREEN}${CHECK}${NC} Commands synchronized"
 else
     printf "  ${ARROW} Cloning repository"
     (
@@ -312,7 +324,7 @@ else
     printf "  ${ARROW} Auto-installing to all detected editors...\n"
 
     INSTALL_RESULT=$(node -e "
-        const installer = require('./core/command-installer');
+        const installer = require('./core/infrastructure/command-installer');
         installer.installToAll(false).then(result => {
             console.log('__RESULT_START__');
             console.log(JSON.stringify(result));
