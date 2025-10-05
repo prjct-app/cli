@@ -1,4 +1,4 @@
-import { Mail, Globe, Twitter, Heart } from 'lucide-react'
+import { Mail, Globe, Twitter, Heart, MessageCircle } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { PrjctLogo } from './Logo'
 
@@ -123,6 +123,15 @@ export const Footer = () => {
           <div>
             <h3 className="mb-4 text-sm font-semibold text-foreground">Connect</h3>
             <div className="flex gap-3">
+              <a
+                href="https://discord.gg/5aqtMDUz6"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-r from-purple-500/20 to-blue-500/20 text-purple-500 transition-all hover:from-purple-500/30 hover:to-blue-500/30"
+                aria-label="Discord Server"
+              >
+                <MessageCircle className="h-5 w-5" />
+              </a>
               <a
                 href="https://twitter.com/jlopezlira"
                 target="_blank"

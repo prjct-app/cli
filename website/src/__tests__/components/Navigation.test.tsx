@@ -32,6 +32,7 @@ describe('Navigation Component', () => {
     expect(screen.getByText('Windsurf Extension')).toBeInTheDocument()
     expect(screen.getByText('FAQ')).toBeInTheDocument()
     expect(screen.getByText('Changelog')).toBeInTheDocument()
+    expect(screen.getByText('Discord')).toBeInTheDocument()
   })
 
   it('should highlight active route', () => {
@@ -106,6 +107,22 @@ describe('Navigation Component', () => {
 
     // Docs should be highlighted, not home
     expect(docsLink).toHaveClass('text-primary')
+  })
+
+  it('should render Discord CTA button with correct link', () => {
+    renderWithRouter()
+
+    const discordButton = screen.getByText('Discord').closest('a')
+    expect(discordButton).toHaveAttribute('href', 'https://discord.gg/5aqtMDUz6')
+    expect(discordButton).toHaveAttribute('target', '_blank')
+    expect(discordButton).toHaveAttribute('rel', 'noopener noreferrer')
+  })
+
+  it('should render Discord CTA in mobile menu', () => {
+    renderWithRouter()
+
+    const joinDiscordLink = screen.getByText('Join Discord Server').closest('a')
+    expect(joinDiscordLink).toHaveAttribute('href', 'https://discord.gg/5aqtMDUz6')
   })
 })
 
