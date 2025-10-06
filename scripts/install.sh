@@ -9,22 +9,59 @@
 YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 GREEN='\033[0;32m'
+RED='\033[0;31m'
+BOLD='\033[1m'
+DIM='\033[2m'
 NC='\033[0m'
+
+# Check if legacy installation exists
+LEGACY_DIR="$HOME/.prjct-cli"
+HAS_LEGACY=false
+LEGACY_VERSION="unknown"
+
+if [ -d "$LEGACY_DIR" ]; then
+  # Check if it's a git clone (legacy curl install)
+  if [ -d "$LEGACY_DIR/.git" ]; then
+    HAS_LEGACY=true
+    if [ -f "$LEGACY_DIR/package.json" ]; then
+      LEGACY_VERSION=$(grep -o '"version":[[:space:]]*"[^"]*"' "$LEGACY_DIR/package.json" | head -1 | cut -d'"' -f4)
+    fi
+  fi
+fi
 
 echo ""
 echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${YELLOW}⚠️  This installation method is DEPRECATED${NC}"
 echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
-echo -e "Please use npm instead:"
-echo ""
-echo -e "  ${GREEN}npm install -g prjct-cli${NC}"
-echo ""
-echo -e "Benefits of npm installation:"
-echo -e "  • ${CYAN}Automatic setup${NC} - No manual configuration needed"
-echo -e "  • ${CYAN}Auto-migration${NC} - Legacy projects migrated automatically"
-echo -e "  • ${CYAN}Beautiful ASCII art${NC} - See the installation success"
+
+if [ "$HAS_LEGACY" = true ]; then
+  echo -e "${RED}⚠️  Legacy curl installation detected!${NC}"
+  echo ""
+  echo -e "   ${DIM}Version: ${LEGACY_VERSION}${NC}"
+  echo -e "   ${DIM}Location: ~/.prjct-cli/${NC}"
+  echo ""
+  echo -e "${CYAN}Migration Required:${NC}"
+  echo ""
+  echo -e "  1. ${BOLD}Install via npm:${NC}"
+  echo -e "     ${GREEN}npm install -g prjct-cli${NC}"
+  echo ""
+  echo -e "  2. ${BOLD}Automatic cleanup:${NC}"
+  echo -e "     ${DIM}Legacy installation will be cleaned automatically${NC}"
+  echo -e "     ${DIM}Your project data will be preserved${NC}"
+  echo ""
+else
+  echo -e "${CYAN}Please install using npm:${NC}"
+  echo ""
+  echo -e "  ${GREEN}npm install -g prjct-cli${NC}"
+  echo ""
+fi
+
+echo -e "${BOLD}Benefits of npm installation:${NC}"
+echo -e "  • ${CYAN}Automatic cleanup${NC} - Removes old curl installations"
+echo -e "  • ${CYAN}Data preservation${NC} - Your projects are migrated safely"
 echo -e "  • ${CYAN}Easy updates${NC} - Just npm update -g prjct-cli"
+echo -e "  • ${CYAN}Proper versioning${NC} - npm handles everything"
 echo ""
 echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""

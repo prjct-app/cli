@@ -56,14 +56,14 @@ export const Changelog = () => {
 
         {/* October 6, 2025 - 1 release */}
         <DateSection id="oct-6-2025" date="October 6, 2025" releaseCount={1}>
-          {/* Version 0.8.7 - Timestamp System & Template Optimization */}
+          {/* Version 0.8.8 - Timestamps, Templates, Legacy Cleanup & Windows */}
           <motion.section
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
             className="mb-16"
           >
-            <VersionHeader version="v0.8.7" isLatest />
+            <VersionHeader version="v0.8.8" isLatest />
 
             <div className="mb-6 space-y-6">
               <FeatureCard
@@ -81,7 +81,7 @@ export const Changelog = () => {
               />
 
               <FeatureCard
-                variant="simple"
+                variant="fancy"
                 contentLayout="horizontal"
                 icon={Sparkles}
                 title="Templates got 70% smaller (and faster)"
@@ -91,6 +91,35 @@ export const Changelog = () => {
                   '• Converted all Spanish to English',
                   '• Preserved 100% of decision-making logic',
                   '• Faster processing, lower token usage',
+                ]}
+              />
+
+              <FeatureCard
+                variant="fancy"
+                contentLayout="horizontal"
+                icon={RefreshCw}
+                title="Old curl installs? We clean them up for you"
+                description="If you installed via curl before v0.8.2, we automatically migrate you to npm."
+                bullets={[
+                  '• Detects legacy ~/.prjct-cli/ from old curl install.sh',
+                  '• Migrates your project data safely to npm location',
+                  '• Removes old installation files (bin/, core/, templates/)',
+                  '• Cleans shell PATH entries (bash/zsh/PowerShell)',
+                  '• Zero manual steps - happens on first run after npm install',
+                ]}
+              />
+
+              <FeatureCard
+                variant="simple"
+                contentLayout="horizontal"
+                icon={Package}
+                title="Windows works now"
+                description="Full cross-platform support for Windows users"
+                bullets={[
+                  '• PowerShell profile cleanup (not bash/zsh)',
+                  '• Platform detection via process.platform',
+                  '• Command installer already cross-platform',
+                  '• All core features work on Windows',
                 ]}
               />
 
@@ -105,6 +134,19 @@ export const Changelog = () => {
                   '• Templates updated: feature, ship, now, build, idea',
                   '• No more hardcoded example dates',
                   '• Duration calculations finally accurate',
+                ]}
+              />
+
+              <FeatureCard
+                variant="simple"
+                contentLayout="horizontal"
+                icon={MessageSquare}
+                title="100% English codebase"
+                description="Removed all Spanish from docs and code"
+                bullets={[
+                  '• All JSDoc comments now in English',
+                  '• Template examples converted to English',
+                  '• Files fixed: setup.js, postinstall.js, AGENTS.md',
                 ]}
               />
             </div>

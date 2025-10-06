@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.8.7] - 2025-10-06
+## [0.8.8] - 2025-10-06
 
 ### Added
 
@@ -24,6 +24,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - ✅ Preserved 100% of business logic and decision-making patterns
   - ✅ Removed verbose examples, success criteria, redundant explanations
   - 📊 Impact: Faster LLM processing, lower token usage, clearer instructions
+
+- **Legacy installation cleanup** - Automatic detection and removal of curl-based installations
+  - ✅ Detects legacy `~/.prjct-cli/` from curl install.sh (pre-v0.8.2)
+  - ✅ Migrates project data to npm global location automatically
+  - ✅ Removes legacy installation files (bin/, core/, templates/, etc.)
+  - ✅ Preserves user data (projects/ directory migrated safely)
+  - ✅ Cleans up shell PATH entries (bash/zsh/PowerShell)
+  - ✅ Removes legacy symlinks on Unix systems
+  - 🎯 **Impact**: Users on old curl installations automatically migrate to npm
+  - 🔧 **Windows compatible**: Handles PowerShell profiles, skips Unix-only operations
 
 ### Changed
 
@@ -46,6 +56,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Clarified that timestamps come from system clock, not LLM
   - Added inline comments explaining ISO format and YYYY-MM-DD format
 
+- **install.sh deprecation** - Enhanced messaging with legacy detection
+  - Now detects if user has legacy curl installation
+  - Shows version and location of legacy install
+  - Provides clear migration instructions
+  - Explains automatic cleanup process
+
+- **All Spanish removed from codebase** - 100% English documentation
+  - Updated all JSDoc comments to English
+  - Removed Spanish examples from templates
+  - Fixed: setup.js, postinstall.js, AGENTS.md
+
 ### Fixed
 
 - **Session date accuracy** - All session files now use correct system date
@@ -53,6 +74,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Now: System clock provides accurate timestamps via GetTimestamp() tool
   - Duration calculations now accurate
   - Progress tracking and analytics now reliable
+
+- **Windows compatibility** - Full cross-platform support
+  - Legacy installer detector works on Windows
+  - Platform detection via `process.platform === 'win32'`
+  - PowerShell profile cleanup (instead of bash/zsh)
+  - Skips symlink cleanup on Windows (Unix-only feature)
+  - Cross-platform path handling with `os.homedir()` and `path.join()`
+  - Command installer already works on Windows (no changes needed)
 
 ## [0.8.6] - 2025-10-05
 

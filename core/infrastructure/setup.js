@@ -1,28 +1,29 @@
 const { execSync } = require('child_process')
 const installer = require('./command-installer')
 const migrator = require('./migrator')
+const legacyDetector = require('./legacy-installer-detector')
 const editorsConfig = require('./editors-config')
 const { VERSION } = require('../utils/version')
 
 /**
  * Setup Module - Core installation logic
  *
- * Ejecuta TODO el setup necesario para prjct-cli:
- * 1. Instalar Claude Code CLI si falta
- * 2. Sincronizar comandos a ~/.claude/commands/p/
- * 3. Instalar configuración global ~/.claude/CLAUDE.md
- * 4. Migrar proyectos legacy automáticamente
- * 5. Guardar versión en editors-config
+ * Executes ALL setup needed for prjct-cli:
+ * 1. Detect and clean legacy installation (curl-based)
+ * 2. Install Claude Code CLI if missing
+ * 3. Sync commands to ~/.claude/commands/p/
+ * 4. Install global config ~/.claude/CLAUDE.md
+ * 5. Migrate legacy projects automatically
+ * 6. Save version in editors-config
  *
- * Este módulo es llamado desde:
- * - core/index.js (en primer uso del CLI)
- * - scripts/postinstall.js (si npm scripts están habilitados)
+ * This module is called from:
+ * - core/index.js (on first CLI use)
+ * - scripts/postinstall.js (if npm scripts are enabled)
  *
- * @version 0.8.5
+ * @version 0.8.8
  */
 
 // Colors
-const CYAN = '\x1b[36m'
 const GREEN = '\x1b[32m'
 const YELLOW = '\x1b[33m'
 const MAGENTA = '\x1b[35m'
@@ -67,11 +68,21 @@ async function installClaudeCode() {
  */
 async function run() {
   const results = {
+    legacyCleaned: false,
+    legacyProjectsMigrated: 0,
     claudeInstalled: false,
     commandsAdded: 0,
     commandsUpdated: 0,
     configAction: null,
     projectsMigrated: 0
+  }
+
+  // Step 0: Detect and clean legacy curl installation
+  const needsLegacyCleanup = await legacyDetector.needsCleanup()
+  if (needsLegacyCleanup) {
+    const cleanupResult = await legacyDetector.performCleanup({ verbose: true })
+    results.legacyCleaned = cleanupResult.success
+    results.legacyProjectsMigrated = cleanupResult.steps.projectsMigrated
   }
 
   // Step 1: Ensure Claude Code CLI is installed
@@ -133,6 +144,13 @@ function showResults(results) {
   console.log('')
 
   // Show what was done
+  if (results.legacyCleaned) {
+    console.log(`   ${GREEN}✓${NC} Legacy curl installation cleaned up`)
+    if (results.legacyProjectsMigrated > 0) {
+      console.log(`   ${GREEN}✓${NC} ${results.legacyProjectsMigrated} project(s) migrated from legacy`)
+    }
+  }
+
   if (results.claudeInstalled) {
     console.log(`   ${GREEN}✓${NC} Claude Code CLI installed`)
   } else {
