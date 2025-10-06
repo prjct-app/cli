@@ -21,8 +21,6 @@ class SessionManager {
   constructor() {
     this.currentSessionCache = new Map() // Cache current session paths
     this.sessionMetadataCache = new Map() // Cache session metadata
-    this.maxCacheDays = 7 // Keep only last 7 days to prevent memory leaks
-    this.lastCacheCleanup = Date.now()
   }
 
   /**
@@ -32,21 +30,14 @@ class SessionManager {
    * @returns {Promise<string>} - Path to today's session directory
    */
   async getCurrentSession(projectId) {
-    // Periodic cache cleanup to prevent memory leaks
-    this._cleanupExpiredCache()
-
     const cacheKey = `${projectId}-${this._getTodayKey()}`
 
     if (this.currentSessionCache.has(cacheKey)) {
-      const cached = this.currentSessionCache.get(cacheKey)
-      return cached.path
+      return this.currentSessionCache.get(cacheKey)
     }
 
     const sessionPath = await pathManager.ensureSessionPath(projectId)
-    this.currentSessionCache.set(cacheKey, {
-      path: sessionPath,
-      timestamp: Date.now(),
-    })
+    this.currentSessionCache.set(cacheKey, sessionPath)
 
     await this._ensureSessionMetadata(sessionPath)
 
@@ -378,53 +369,9 @@ class SessionManager {
     return dateHelper.getDateKey(date)
   }
 
-  /**
-   * Clean up expired cache entries to prevent memory leaks
-   * Runs automatically every 24h or manually
-   * @private
-   */
-  _cleanupExpiredCache() {
-    const now = Date.now()
-    const oneDayMs = 24 * 60 * 60 * 1000
-
-    // Only run cleanup once per day
-    if (now - this.lastCacheCleanup < oneDayMs) {
-      return
-    }
-
-    const cutoffTime = now - this.maxCacheDays * oneDayMs
-
-    // Clean up session cache
-    for (const [key, value] of this.currentSessionCache.entries()) {
-      if (value.timestamp && value.timestamp < cutoffTime) {
-        this.currentSessionCache.delete(key)
-      }
-    }
-
-    // Clean up metadata cache (remove old entries)
-    let deletedCount = 0
-    for (const [key, value] of this.sessionMetadataCache.entries()) {
-      if (value && value.lastActivity) {
-        const activityTime = new Date(value.lastActivity).getTime()
-        if (activityTime < cutoffTime) {
-          this.sessionMetadataCache.delete(key)
-          deletedCount++
-        }
-      }
-    }
-
-    this.lastCacheCleanup = now
-
-    // Log cleanup in debug mode
-    if (process.env.PRJCT_DEBUG && deletedCount > 0) {
-      console.log(`[SessionManager] Cleaned up ${deletedCount} expired cache entries`)
-    }
-  }
-
   clearCache() {
     this.currentSessionCache.clear()
     this.sessionMetadataCache.clear()
-    this.lastCacheCleanup = Date.now()
   }
 }
 

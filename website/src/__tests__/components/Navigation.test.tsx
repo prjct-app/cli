@@ -29,9 +29,7 @@ describe('Navigation Component', () => {
     expect(screen.getByText('Docs')).toBeInTheDocument()
     expect(screen.getByText('Commands')).toBeInTheDocument()
     expect(screen.getByText('Workflows')).toBeInTheDocument()
-    // prjct/pro has special rendering with chip badge
-    expect(screen.getByText('prjct/', { exact: false })).toBeInTheDocument()
-    expect(screen.getByText('pro')).toBeInTheDocument()
+    expect(screen.getByText('Windsurf Extension')).toBeInTheDocument()
     expect(screen.getByText('FAQ')).toBeInTheDocument()
     expect(screen.getByText('Changelog')).toBeInTheDocument()
     expect(screen.getByText('Discord')).toBeInTheDocument()
@@ -138,7 +136,7 @@ const navItems = [
   { label: 'Docs', path: '/docs' },
   { label: 'Commands', path: '/commands' },
   { label: 'Workflows', path: '/workflows' },
-  { label: 'prjct/pro', path: '/pro' },
+  { label: 'Windsurf Extension', path: '/windsurf-extension' },
   { label: 'FAQ', path: '/faq' },
   { label: 'Changelog', path: '/changelog' },
 ]

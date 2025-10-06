@@ -1,10 +1,10 @@
 import { motion, useScroll, useTransform } from 'framer-motion'
 import { useRef } from 'react'
 import { BarChart3, Target, Bell, TrendingUp, Sparkles, Code2, Activity } from 'lucide-react'
-import ProPreview from './ProPreview'
+import WindsurfPreview from './WindsurfPreview'
 import EarlyAccessForm from './EarlyAccessForm'
 
-const ProExtension = () => {
+const WindsurfExtension = () => {
   const containerRef = useRef<HTMLDivElement>(null)
   const { scrollYProgress } = useScroll({
     target: containerRef,
@@ -48,7 +48,7 @@ const ProExtension = () => {
   return (
     <section
       ref={containerRef}
-      className="pro-extension-section relative overflow-hidden px-6 py-24"
+      className="windsurf-extension-section relative overflow-hidden px-6 py-24"
     >
       {/* Background Gradient Effects */}
       <div className="absolute inset-0 -z-10">
@@ -83,13 +83,13 @@ const ProExtension = () => {
           {/* Main Title */}
           <h1 className="mb-6 text-5xl font-bold md:text-6xl">
             <span className="bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-              prjct/pro
+              Windsurf Extension
             </span>
           </h1>
 
           <p className="mx-auto mb-8 max-w-2xl text-xl text-muted-foreground">
-            Extension + Cloud + Team features. Track progress, celebrate wins, and collaborate
-            without meetings — right in your editor. Launching February 2026.
+            Visual metrics for your shipping momentum. Track progress, celebrate wins, and stay
+            focused — right in your editor. Launching February 2026.
           </p>
 
           {/* Integration Badges */}
@@ -143,7 +143,7 @@ const ProExtension = () => {
           viewport={{ once: true }}
           className="mb-20"
         >
-          <ProPreview />
+          <WindsurfPreview />
         </motion.div>
 
         {/* Timeline */}
@@ -259,4 +259,4 @@ const ProExtension = () => {
   )
 }
 
-export default ProExtension
+export default WindsurfExtension

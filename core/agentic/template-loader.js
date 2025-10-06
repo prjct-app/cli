@@ -11,7 +11,6 @@ class TemplateLoader {
   constructor() {
     this.templatesDir = path.join(__dirname, '..', '..', 'templates', 'commands')
     this.cache = new Map()
-    this.maxCacheSize = 50 // Limit cache to prevent memory leaks
   }
 
   /**
@@ -30,13 +29,6 @@ class TemplateLoader {
     try {
       const rawContent = await fs.readFile(templatePath, 'utf-8')
       const parsed = this.parseFrontmatter(rawContent)
-
-      // Implement LRU cache eviction to prevent memory leaks
-      if (this.cache.size >= this.maxCacheSize) {
-        // Remove oldest entry (first key in Map)
-        const firstKey = this.cache.keys().next().value
-        this.cache.delete(firstKey)
-      }
 
       // Cache result
       this.cache.set(commandName, parsed)

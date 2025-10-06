@@ -43,16 +43,11 @@ class UpdateChecker {
       const req = https.request(options, (res) => {
         let data = ''
 
-        // Define event handlers with cleanup to prevent memory leaks
-        const onData = (chunk) => {
+        res.on('data', (chunk) => {
           data += chunk
-        }
+        })
 
-        const onEnd = () => {
-          // Clean up event listeners to prevent memory leaks
-          res.removeListener('data', onData)
-          res.removeListener('end', onEnd)
-
+        res.on('end', () => {
           try {
             if (res.statusCode === 200) {
               const packageData = JSON.parse(data)
@@ -63,27 +58,17 @@ class UpdateChecker {
           } catch (error) {
             reject(error)
           }
-        }
-
-        res.on('data', onData)
-        res.on('end', onEnd)
+        })
       })
 
-      const onError = (error) => {
-        // Clean up error listener to prevent memory leaks
-        req.removeListener('error', onError)
+      req.on('error', (error) => {
         reject(error)
-      }
+      })
 
-      const onTimeout = () => {
-        // Clean up timeout listener to prevent memory leaks
-        req.removeListener('timeout', onTimeout)
+      req.setTimeout(5000, () => {
         req.destroy()
         reject(new Error('Request timeout'))
-      }
-
-      req.on('error', onError)
-      req.setTimeout(5000, onTimeout)
+      })
 
       req.end()
     })
