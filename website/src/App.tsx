@@ -16,7 +16,7 @@ import { Terms } from './pages/Terms'
 import { Privacy } from './pages/Privacy'
 import { AIPolicy } from './pages/AIPolicy'
 import { Changelog } from './pages/Changelog'
-import { WindsurfExtensionPage } from './pages/WindsurfExtensionPage'
+import { ProPage } from './pages/ProPage'
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { Analytics } from '@vercel/analytics/react';
 
@@ -40,7 +40,7 @@ function App() {
             <Route path="/workflows" element={<WorkflowsGuide />} />
             <Route path="/faq" element={<FAQPage />} />
             <Route path="/changelog" element={<Changelog />} />
-            <Route path="/windsurf-extension" element={<WindsurfExtensionPage />} />
+            <Route path="/pro" element={<ProPage />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/ai-policy" element={<AIPolicy />} />
