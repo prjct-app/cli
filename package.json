@@ -1,6 +1,6 @@
 {
   "name": "prjct-cli",
-  "version": "0.8.2",
+  "version": "0.8.6",
   "description": "Built for Claude - Ship fast, track progress, stay focused. Developer momentum tool for indie hackers.",
   "main": "core/index.js",
   "bin": {
@@ -12,6 +12,7 @@
   },
   "scripts": {
     "postinstall": "node scripts/postinstall.js",
+    "update-commands": "node -e \"const installer = require('./core/infrastructure/command-installer'); installer.syncCommands().then(r => console.log('Commands updated:', r)).catch(e => console.error('Error:', e.message))\"",
     "install-global": "./scripts/install.sh",
     "update": "./scripts/update.sh",
     "test": "vitest run --workspace=vitest.workspace.js",

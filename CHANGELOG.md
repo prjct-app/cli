@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.6] - 2025-10-05
+
+### Fixed
+
+- **Critical: Command update system** - Fixed command synchronization to ALWAYS update to latest version
+  - ✅ Removed mtime comparison (was causing commands to stay outdated)
+  - ✅ ALWAYS overwrites existing commands with latest templates
+  - ✅ Guarantees all clients get updated commands on `npm update`
+  - ✅ Preserves legacy commands (removed: always 0)
+  - 🐛 **Bug fixed**: `now.md`, `done.md` and other commands now update correctly across all client installations
+
+- **Setup architecture redesigned** - Dual-defense strategy for reliable setup
+  - ✅ First-use setup check in `bin/prjct` (guaranteed execution)
+  - ✅ Optional postinstall optimization (when scripts enabled)
+  - ✅ Works in CI/CD environments with `--ignore-scripts`
+  - ✅ Version tracking via `editors-config.js`
+  - ✅ Zero manual steps required
+
+### Changed
+
+- **Command sync behavior** (`syncCommands()`)
+  - Previous: Compared mtime, only updated if source newer → ❌ Unreliable
+  - Now: ALWAYS overwrites existing commands → ✅ Always latest version
+  - Preserves legacy/custom commands not in templates
+  - Result: `{ added: X, updated: Y, removed: 0 }`
+
+- **Setup flow**
+  - Centralized all logic in `core/infrastructure/setup.js`
+  - `bin/prjct` checks version on every execution
+  - `scripts/postinstall.js` simplified to optional helper
+  - Auto-setup triggers on version mismatch or first use
+
+### Technical
+
+- Reduced `scripts/postinstall.js` from 250 → 69 lines
+- Created `core/infrastructure/setup.js` (167 lines) - single source of truth
+- Modified `bin/prjct` to include version check (34 lines)
+- Removed `.setup-complete` marker (using JSON version tracking instead)
+
 ## [0.8.2] - 2025-10-05
 
 ### Changed

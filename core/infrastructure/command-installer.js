@@ -280,7 +280,7 @@ class CommandInstaller {
         errors: [],
       }
 
-      // Detect new and updated files
+      // Install/update all template files (always overwrite)
       for (const file of templateFiles) {
         try {
           const sourcePath = path.join(this.templatesDir, file)
@@ -289,40 +289,23 @@ class CommandInstaller {
           // Check if file exists in installed location
           const exists = installedFiles.includes(file)
 
+          // Read and write (always overwrite to ensure latest version)
+          const content = await fs.readFile(sourcePath, 'utf-8')
+          await fs.writeFile(destPath, content, 'utf-8')
+
           if (!exists) {
-            // New file
-            const content = await fs.readFile(sourcePath, 'utf-8')
-            await fs.writeFile(destPath, content, 'utf-8')
             results.added++
           } else {
-            // Check if updated (compare modification time or content)
-            const sourceStats = await fs.stat(sourcePath)
-            const destStats = await fs.stat(destPath)
-
-            if (sourceStats.mtime > destStats.mtime) {
-              // Updated file
-              const content = await fs.readFile(sourcePath, 'utf-8')
-              await fs.writeFile(destPath, content, 'utf-8')
-              results.updated++
-            }
+            results.updated++
           }
         } catch (error) {
           results.errors.push({ file, error: error.message })
         }
       }
 
-      // Detect and remove orphaned files
-      const orphans = installedFiles.filter((file) => !templateFiles.includes(file))
-
-      for (const orphan of orphans) {
-        try {
-          const orphanPath = path.join(this.claudeCommandsPath, orphan)
-          await fs.unlink(orphanPath)
-          results.removed++
-        } catch (error) {
-          results.errors.push({ file: orphan, error: error.message })
-        }
-      }
+      // Note: We do NOT remove orphaned files
+      // Legacy commands from older versions are preserved
+      // to avoid breaking existing workflows
 
       return results
     } catch (error) {

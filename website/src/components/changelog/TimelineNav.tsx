@@ -78,16 +78,17 @@ export const TimelineNav = ({ items }: TimelineNavProps) => {
             className="sticky top-0 z-50 border-b border-border bg-background/95 shadow-lg backdrop-blur-md xl:hidden"
           >
             {/* Scroll Container with Snap */}
-            <div
-              ref={scrollContainerRef}
-              className="scrollbar-hide overflow-x-auto scroll-smooth"
-              style={{ scrollSnapType: 'x mandatory' }}
-            >
+            <div className="relative">
               {/* Fade Indicators */}
               <div className="pointer-events-none absolute bottom-0 left-0 top-0 z-10 w-8 bg-gradient-to-r from-background/95 to-transparent" />
               <div className="pointer-events-none absolute bottom-0 right-0 top-0 z-10 w-8 bg-gradient-to-l from-background/95 to-transparent" />
-
-              <div className="flex min-w-max items-center gap-3 px-6 py-4">
+              
+              <div
+                ref={scrollContainerRef}
+                className="scrollbar-hide overflow-x-auto scroll-smooth"
+                style={{ scrollSnapType: 'x mandatory', touchAction: 'pan-x' }}
+              >
+                <div className="flex min-w-max items-center gap-3 px-6 py-4">
                 {/* Timeline Items - Larger touch targets */}
                 {items.map((item, index) => {
                   const isActive = item.id === activeId
@@ -164,6 +165,7 @@ export const TimelineNav = ({ items }: TimelineNavProps) => {
                   </div>
                 </div>
               </div>
+              </div>
             </div>
 
             {/* Progress Bar */}
@@ -189,7 +191,7 @@ export const TimelineNav = ({ items }: TimelineNavProps) => {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -50 }}
             transition={{ duration: 0.6, ease: 'easeOut' }}
-            className="fixed left-8 top-1/2 z-50 hidden -translate-y-1/2 xl:block"
+            className="fixed left-8 top-32 z-50 xl:block hidden"
           >
             <div className="min-w-[256px] rounded-2xl border border-border bg-background/90 p-4 shadow-2xl backdrop-blur-md">
               {/* Header */}
@@ -200,24 +202,32 @@ export const TimelineNav = ({ items }: TimelineNavProps) => {
 
               {/* Timeline Items */}
               <div className="relative">
-                {/* Connecting Line - starts after first dot, ends before last dot */}
-                <div
-                  className="absolute left-[11px] top-[28px] w-px bg-border"
-                  style={{ height: 'calc(100% - 52px)' }}
-                />
+                {/* Connecting Line - connects between dots, not through them */}
+                {items.length > 1 && (
+                  <>
+                    <div
+                      className="absolute left-[11px] w-px bg-border"
+                      style={{ 
+                        top: '28px', // Start after first dot (mt-1: 4px + h-6: 24px)
+                        bottom: '28px' // End before last dot
+                      }}
+                    />
 
-                {/* Active Progress Line */}
-                <motion.div
-                  className="absolute left-[11px] top-[28px] w-px bg-primary shadow-sm"
-                  initial={{ height: 0 }}
-                  animate={{
-                    height:
-                      items.length > 1
-                        ? `calc((100% - 52px) * ${items.findIndex((item) => item.id === activeId) / (items.length - 1)})`
-                        : '0px',
-                  }}
-                  transition={{ duration: 0.3, ease: 'easeOut' }}
-                />
+                    {/* Active Progress Line */}
+                    <motion.div
+                      className="absolute left-[11px] w-px bg-primary shadow-sm"
+                      style={{ top: '28px' }}
+                      initial={{ height: 0 }}
+                      animate={{
+                        height:
+                          items.length > 1
+                            ? `calc((100% - 56px) * ${items.findIndex((item) => item.id === activeId) / (items.length - 1)})`
+                            : '0px',
+                      }}
+                      transition={{ duration: 0.3, ease: 'easeOut' }}
+                    />
+                  </>
+                )}
 
                 <div className="relative space-y-4">
                   {items.map((item, index) => {
