@@ -1,4 +1,7 @@
 const fs = require('fs').promises
+const fsSync = require('fs')
+const readline = require('readline')
+const path = require('path')
 
 /**
  * JSONL Helper - Centralized JSONL parsing and writing
@@ -190,6 +193,134 @@ async function isJsonLinesEmpty(filePath) {
   return count === 0
 }
 
+/**
+ * Read JSONL file with streaming (memory-efficient for large files)
+ * Only reads last N lines instead of loading entire file
+ *
+ * @param {string} filePath - Path to JSONL file
+ * @param {number} maxLines - Maximum lines to read (default: 1000)
+ * @returns {Promise<Array<Object>>} - Array of parsed objects (last N lines)
+ */
+async function readJsonLinesStreaming(filePath, maxLines = 1000) {
+  try {
+    const fileStream = fsSync.createReadStream(filePath)
+    const rl = readline.createInterface({
+      input: fileStream,
+      crlfDelay: Infinity,
+    })
+
+    const lines = []
+
+    for await (const line of rl) {
+      if (line.trim()) {
+        try {
+          lines.push(JSON.parse(line))
+        } catch {
+          // Skip malformed lines
+        }
+
+        // Keep only last maxLines
+        if (lines.length > maxLines) {
+          lines.shift()
+        }
+      }
+    }
+
+    return lines
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return []
+    }
+    throw error
+  }
+}
+
+/**
+ * Get file size in MB
+ *
+ * @param {string} filePath - Path to file
+ * @returns {Promise<number>} - File size in MB
+ */
+async function getFileSizeMB(filePath) {
+  try {
+    const stats = await fs.stat(filePath)
+    return stats.size / (1024 * 1024)
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return 0
+    }
+    throw error
+  }
+}
+
+/**
+ * Rotate JSONL file if it exceeds size limit
+ * Moves large file to archive with timestamp
+ *
+ * @param {string} filePath - Path to JSONL file
+ * @param {number} maxSizeMB - Maximum size in MB before rotation (default: 10)
+ * @returns {Promise<boolean>} - True if rotated, false if not needed
+ */
+async function rotateJsonLinesIfNeeded(filePath, maxSizeMB = 10) {
+  const sizeMB = await getFileSizeMB(filePath)
+
+  if (sizeMB < maxSizeMB) {
+    return false // No rotation needed
+  }
+
+  // Generate archive filename with timestamp
+  const timestamp = new Date().toISOString().split('T')[0] // YYYY-MM-DD
+  const dir = path.dirname(filePath)
+  const ext = path.extname(filePath)
+  const base = path.basename(filePath, ext)
+  const archivePath = path.join(dir, `${base}-${timestamp}${ext}`)
+
+  // Move file to archive
+  await fs.rename(filePath, archivePath)
+
+  console.log(`📦 Rotated ${path.basename(filePath)} (${sizeMB.toFixed(1)}MB) → ${path.basename(archivePath)}`)
+
+  return true
+}
+
+/**
+ * Append JSON line with automatic rotation
+ * Checks file size before append and rotates if needed
+ *
+ * @param {string} filePath - Path to JSONL file
+ * @param {Object} object - Object to append
+ * @param {number} maxSizeMB - Maximum size before rotation (default: 10)
+ * @returns {Promise<void>}
+ */
+async function appendJsonLineWithRotation(filePath, object, maxSizeMB = 10) {
+  // Rotate if needed (before appending)
+  await rotateJsonLinesIfNeeded(filePath, maxSizeMB)
+
+  // Append normally
+  await appendJsonLine(filePath, object)
+}
+
+/**
+ * Warn if file is large before reading
+ * Returns size and whether it's considered large
+ *
+ * @param {string} filePath - Path to file
+ * @param {number} warnThresholdMB - Threshold in MB to warn (default: 50)
+ * @returns {Promise<{sizeMB: number, isLarge: boolean}>}
+ */
+async function checkFileSizeWarning(filePath, warnThresholdMB = 50) {
+  const sizeMB = await getFileSizeMB(filePath)
+  const isLarge = sizeMB > warnThresholdMB
+
+  if (isLarge) {
+    console.warn(
+      `⚠️  Large file detected: ${path.basename(filePath)} (${sizeMB.toFixed(1)}MB). Reading may use significant memory.`
+    )
+  }
+
+  return { sizeMB, isLarge }
+}
+
 module.exports = {
   parseJsonLines,
   stringifyJsonLines,
@@ -203,4 +334,10 @@ module.exports = {
   getFirstJsonLines,
   mergeJsonLines,
   isJsonLinesEmpty,
+  // NEW: Memory-efficient functions
+  readJsonLinesStreaming,
+  getFileSizeMB,
+  rotateJsonLinesIfNeeded,
+  appendJsonLineWithRotation,
+  checkFileSizeWarning,
 }

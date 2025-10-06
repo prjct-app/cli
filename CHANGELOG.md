@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Memory-efficient file operations** - Real fixes for large file handling
+  - ✅ Streaming reads for JSONL files >50MB (limits to last 1000 lines)
+  - ✅ Automatic file rotation when JSONL exceeds 10MB
+  - ✅ File size warnings before reading large files
+  - ✅ `/p:cleanup --memory` command for disk usage analysis
+  - 📊 Impact: Prevents high RAM usage when reading large context.jsonl files
+  - 🔧 Automatic rotation prevents unbounded file growth
+
+### Changed
+
+- **session-manager.js** - Now uses streaming reads and automatic rotation
+  - Files >50MB: Stream only last 1000 lines instead of loading entire file
+  - context.jsonl: Auto-rotates at 10MB (moves to context-YYYY-MM-DD.jsonl)
+  - Prevents "out of memory" errors during /p:recap on large projects
+
 ## [0.8.6] - 2025-10-05
 
 ### Fixed
