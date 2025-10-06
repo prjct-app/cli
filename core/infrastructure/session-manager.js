@@ -56,7 +56,8 @@ class SessionManager {
     const sessionPath = await this.getCurrentSession(projectId)
     const filePath = path.join(sessionPath, filename)
 
-    await jsonlHelper.appendJsonLine(filePath, entry)
+    // Use automatic rotation to prevent large files (>10MB)
+    await jsonlHelper.appendJsonLineWithRotation(filePath, entry, 10)
 
     await this._updateSessionMetadata(sessionPath, {
       lastActivity: dateHelper.getTimestamp(),
@@ -90,15 +91,26 @@ class SessionManager {
 
   /**
    * Read logs from current session
+   * Uses streaming for large files (>50MB)
    *
    * @param {string} projectId - The project identifier
    * @param {string} filename - Source filename (default: context.jsonl)
+   * @param {number} maxLines - Max lines to read for large files (default: 1000)
    * @returns {Promise<Array<Object>>} - Array of parsed log entries
    */
-  async readCurrentSession(projectId, filename = 'context.jsonl') {
+  async readCurrentSession(projectId, filename = 'context.jsonl', maxLines = 1000) {
     const sessionPath = await this.getCurrentSession(projectId)
     const filePath = path.join(sessionPath, filename)
 
+    // Check file size and warn if large
+    const { isLarge } = await jsonlHelper.checkFileSizeWarning(filePath, 50)
+
+    if (isLarge) {
+      // Use streaming for large files
+      return await jsonlHelper.readJsonLinesStreaming(filePath, maxLines)
+    }
+
+    // Use normal read for small files
     return await jsonlHelper.readJsonLines(filePath)
   }
 

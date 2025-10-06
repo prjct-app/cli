@@ -1126,6 +1126,81 @@ class PrjctCommands {
    * /p:design - Design system architecture, APIs, and components
    * AGENTIC EXECUTION
    */
+  /**
+   * Memory cleanup helper
+   * Rotates large JSONL files, archives old sessions, reports disk usage
+   * @private
+   */
+  async _cleanupMemory(projectPath) {
+    const projectId = await configManager.getProjectId(projectPath)
+    const globalPath = pathManager.getGlobalProjectPath(projectId)
+
+    console.log('📊 Analyzing disk usage...\n')
+
+    const results = {
+      rotated: [],
+      archived: [],
+      totalSize: 0,
+      freedSpace: 0,
+    }
+
+    // 1. Check and rotate large JSONL files
+    const jsonlFiles = [
+      pathManager.getFilePath(projectId, 'memory', 'context.jsonl'),
+      pathManager.getFilePath(projectId, 'progress', 'shipped.md'),
+      pathManager.getFilePath(projectId, 'planning', 'ideas.md'),
+    ]
+
+    for (const filePath of jsonlFiles) {
+      try {
+        const sizeMB = await jsonlHelper.getFileSizeMB(filePath)
+        if (sizeMB > 0) {
+          results.totalSize += sizeMB
+
+          const rotated = await jsonlHelper.rotateJsonLinesIfNeeded(filePath, 10)
+          if (rotated) {
+            results.rotated.push(path.basename(filePath))
+            results.freedSpace += sizeMB
+          }
+        }
+      } catch (error) {
+        // File doesn't exist, skip
+      }
+    }
+
+    // 2. Report disk usage
+    console.log('💾 Disk Usage Report:\n')
+    console.log(`   Total size: ${results.totalSize.toFixed(2)}MB`)
+    console.log(`   Rotated files: ${results.rotated.length}`)
+
+    if (results.rotated.length > 0) {
+      console.log(`   Freed space: ${results.freedSpace.toFixed(2)}MB\n`)
+      results.rotated.forEach((file) => console.log(`   ✓ ${file}`))
+    } else {
+      console.log('   ✓ No rotation needed - all files under 10MB\n')
+    }
+
+    // 3. Suggestions
+    console.log('\n💡 Recommendations:\n')
+    console.log('   1. Claude Code: Compact conversation regularly')
+    console.log('   2. Exclude from Spotlight: System Settings → Privacy')
+    console.log('   3. Clear npm cache: npm cache clean --force\n')
+
+    return { success: true, results }
+  }
+
+  /**
+   * Internal cleanup helper for memory during normal cleanup
+   * @private
+   */
+  async _cleanupMemoryInternal(projectPath) {
+    const projectId = await configManager.getProjectId(projectPath)
+
+    // Silently rotate large files
+    const memoryPath = pathManager.getFilePath(projectId, 'memory', 'context.jsonl')
+    await jsonlHelper.rotateJsonLinesIfNeeded(memoryPath, 10)
+  }
+
   async design(target = null, options = {}, projectPath = process.cwd()) {
     try {
       const initResult = await this.ensureProjectInit(projectPath)
@@ -1575,6 +1650,13 @@ Process flow for ${target}.
       const initResult = await this.ensureProjectInit(projectPath)
       if (!initResult.success) return initResult
 
+      const isMemoryMode = _options.memory === true || _options.type === 'memory'
+
+      if (isMemoryMode) {
+        console.log('🧹 Memory cleanup...\n')
+        return await this._cleanupMemory(projectPath)
+      }
+
       console.log('🧹 Cleaning up project...\n')
 
       const context = await contextBuilder.build(projectPath)
@@ -1648,6 +1730,8 @@ Process flow for ${target}.
 
       console.log('✅ Cleanup complete!\n')
       cleaned.forEach((item) => console.log(`   • ${item}`))
+
+      await this._cleanupMemoryInternal(projectPath)
 
       await this.logToMemory(projectPath, 'cleanup_performed', {
         items: cleaned.length,
