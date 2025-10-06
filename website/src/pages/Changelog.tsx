@@ -22,12 +22,12 @@ import { TimelineNav } from '@/components/changelog/TimelineNav'
 export const Changelog = () => {
   // Timeline navigation items
   const timelineItems = [
+    { id: 'oct-6-2025', date: 'Oct 6, 2025', releaseCount: 1 },
     { id: 'oct-5-2025', date: 'Oct 5, 2025', releaseCount: 5 },
     { id: 'oct-4-2025', date: 'Oct 4, 2025', releaseCount: 3 },
     { id: 'oct-3-2025', date: 'Oct 3, 2025', releaseCount: 1 },
     { id: 'oct-2-2025', date: 'Oct 2, 2025', releaseCount: 7 },
     { id: 'oct-1-2025', date: 'Oct 1, 2025', releaseCount: 4 },
-    { id: 'sep-30-2025', date: 'Sep 30, 2025', releaseCount: 3 },
   ]
 
   return (
@@ -54,6 +54,63 @@ export const Changelog = () => {
           </p>
         </motion.div>
 
+        {/* October 6, 2025 - 1 release */}
+        <DateSection id="oct-6-2025" date="October 6, 2025" releaseCount={1}>
+          {/* Version 0.8.7 - Timestamp System & Template Optimization */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-16"
+          >
+            <VersionHeader version="v0.8.7" isLatest />
+
+            <div className="mb-6 space-y-6">
+              <FeatureCard
+                variant="fancy"
+                contentLayout="horizontal"
+                icon={Bug}
+                title="Your tasks said January 1st when it's October"
+                description="The LLM can't tell time. So we taught it to ask."
+                bullets={[
+                  '• Before: Tasks showing January 1st dates in October (wat?)',
+                  '• Why: LLM knowledge cutoff is January 2025 - it literally doesn\'t know what day it is',
+                  '• Now: New GetTimestamp() tools give LLM real system time',
+                  '• Result: Session files use correct dates, analytics actually work',
+                ]}
+              />
+
+              <FeatureCard
+                variant="simple"
+                contentLayout="horizontal"
+                icon={Sparkles}
+                title="Templates got 70% smaller (and faster)"
+                description="Top 7 templates: 2006 lines → 605 lines. Same logic, way less fluff."
+                bullets={[
+                  '• Cut verbose examples LLM doesn\'t need',
+                  '• Converted all Spanish to English',
+                  '• Preserved 100% of decision-making logic',
+                  '• Faster processing, lower token usage',
+                ]}
+              />
+
+              <FeatureCard
+                variant="simple"
+                contentLayout="horizontal"
+                icon={CheckCircle}
+                title="Every template screams: USE SYSTEM TIME"
+                description="Added timestamp-rule to all command frontmatter"
+                bullets={[
+                  '• CLAUDE.md now has a giant warning at the top',
+                  '• Templates updated: feature, ship, now, build, idea',
+                  '• No more hardcoded example dates',
+                  '• Duration calculations finally accurate',
+                ]}
+              />
+            </div>
+          </motion.section>
+        </DateSection>
+
         {/* October 5, 2025 - 5 releases */}
         <DateSection id="oct-5-2025" date="October 5, 2025" releaseCount={5}>
           {/* Version 0.8.6 - Command Update Fix */}
@@ -63,7 +120,7 @@ export const Changelog = () => {
             transition={{ duration: 0.6 }}
             className="mb-16"
           >
-            <VersionHeader version="v0.8.6" isLatest />
+            <VersionHeader version="v0.8.6" />
 
             <div className="mb-6 space-y-6">
               <FeatureCard

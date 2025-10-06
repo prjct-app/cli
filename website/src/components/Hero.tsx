@@ -79,7 +79,7 @@ export const Hero = () => {
               animate={{ opacity: 1, y: 0 }}
               className="flex flex-col items-center gap-4 sm:flex-row lg:items-start"
             >
-              <div className="relative isolate overflow-visible">
+              <div className="relative isolate overflow-visible w-2/3">
                 <div className="fancy-border pointer-events-none"></div>
                 <Button
                   variant="secondary"
@@ -89,7 +89,7 @@ export const Hero = () => {
                   rightIcon={
                     copied ? <Check className="h-5 w-5 text-cat-green" /> : <Copy className="h-5 w-5" />
                   }
-                  className="relative z-10"
+                  className="relative z-10 w-full"
                 >
                   <code className={typography.code}>npm install -g prjct-cli</code>
                 </Button>
