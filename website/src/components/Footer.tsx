@@ -11,7 +11,7 @@ export const Footer = () => {
         {/* Top Section - Logo & Description */}
         <div className="mb-12 text-center">
           <div className="inline-block">
-            <PrjctLogo size="md" />
+            <PrjctLogo size="lg" showText={false} />
           </div>
           <p className="mx-auto mt-6 max-w-md text-sm text-muted-foreground">
             Developer momentum tool for indie hackers and small teams. Ship fast, stay focused, no BS.

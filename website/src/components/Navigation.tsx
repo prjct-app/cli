@@ -11,9 +11,9 @@ import {
   Sparkles,
   Zap,
   Clock,
-  MessageCircle,
 } from 'lucide-react'
 import { PrjctLogo } from './Logo'
+import { ProductHuntButton } from './ProductHuntButton'
 
 interface NavItem {
   label: string
@@ -46,7 +46,7 @@ export const Navigation = () => {
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center">
-            <PrjctLogo size="sm" />
+            <PrjctLogo size="sm" showText={false} />
           </Link>
 
           {/* Desktop Navigation */}
@@ -74,21 +74,12 @@ export const Navigation = () => {
             ))}
           </nav>
 
-          {/* Right side - Discord CTA & Mobile Menu */}
+          {/* Right side - PH CTA & Mobile Menu */}
           <div className="flex items-center gap-3">
-            {/* Discord CTA - Desktop */}
-            <motion.a
-              href="https://discord.gg/5aqtMDUz6"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hidden items-center gap-2 rounded-xl bg-gradient-to-r from-purple-500 to-blue-500 px-4 py-2 text-sm font-medium text-white transition-all hover:from-purple-600 hover:to-blue-600 lg:inline-flex"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              aria-label="Join Discord Server"
-            >
-              <MessageCircle className="h-4 w-4" />
-              <span>Discord</span>
-            </motion.a>
+            {/* PH CTA - Desktop */}
+            <div className="hidden lg:inline-flex">
+              <ProductHuntButton variant="desktop" />
+            </div>
 
             {/* Mobile Menu Button */}
             <button
@@ -128,17 +119,11 @@ export const Navigation = () => {
                   </Link>
                 ))}
                 
-                {/* Discord CTA - Mobile */}
-                <a
-                  href="https://discord.gg/5aqtMDUz6"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex items-center gap-3 rounded-lg bg-gradient-to-r from-purple-500 to-blue-500 px-4 py-3 font-medium text-white transition-all hover:from-purple-600 hover:to-blue-600"
-                >
-                  <MessageCircle className="h-4 w-4" />
-                  <span>Join Discord Server</span>
-                </a>
+                {/* PH CTA - Mobile */}
+                <ProductHuntButton 
+                  variant="mobile" 
+                  onClick={() => setIsMobileMenuOpen(false)} 
+                />
               </div>
             </motion.nav>
           )}

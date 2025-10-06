@@ -9,6 +9,7 @@ const path = require('path')
 const { promisify } = require('util')
 const { exec: execCallback } = require('child_process')
 const exec = promisify(execCallback)
+const dateHelper = require('../utils/date-helper')
 
 class ToolRegistry {
   constructor() {
@@ -17,6 +18,9 @@ class ToolRegistry {
       Write: this.write.bind(this),
       Bash: this.bash.bind(this),
       Exec: this.bash.bind(this), // Alias
+      GetTimestamp: this.getTimestamp.bind(this),
+      GetDate: this.getDate.bind(this),
+      GetDateTime: this.getDateTime.bind(this),
     }
   }
 
@@ -110,6 +114,37 @@ class ToolRegistry {
       return await fs.readdir(dirPath)
     } catch {
       return []
+    }
+  }
+
+  /**
+   * Get current system timestamp (ISO format)
+   * LLM MUST use this instead of generating timestamps
+   * @returns {Promise<string>} ISO timestamp (e.g., "2025-10-07T14:30:00.000Z")
+   */
+  async getTimestamp() {
+    return dateHelper.getTimestamp()
+  }
+
+  /**
+   * Get current system date (YYYY-MM-DD)
+   * LLM MUST use this instead of generating dates
+   * @returns {Promise<string>} Date string (e.g., "2025-10-07")
+   */
+  async getDate() {
+    return dateHelper.getTodayKey()
+  }
+
+  /**
+   * Get current system date/time components
+   * @returns {Promise<Object>} Date components {timestamp, date, year, month, day}
+   */
+  async getDateTime() {
+    const now = new Date()
+    return {
+      timestamp: dateHelper.getTimestamp(),
+      date: dateHelper.getTodayKey(),
+      ...dateHelper.getYearMonthDay(now),
     }
   }
 }

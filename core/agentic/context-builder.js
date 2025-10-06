@@ -41,9 +41,10 @@ class ContextBuilder {
       // Command parameters
       params: commandParams,
 
-      // Timestamps
-      timestamp: new Date().toISOString(),
-      date: new Date().toLocaleString(),
+      // System timestamps (ALWAYS use these, NEVER generate timestamps)
+      // LLM does not know current date/time - these are from system clock
+      timestamp: new Date().toISOString(), // ISO format: "2025-10-07T14:30:00.000Z"
+      date: new Date().toISOString().split('T')[0], // YYYY-MM-DD: "2025-10-07"
     }
   }
 

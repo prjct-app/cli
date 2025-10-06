@@ -7,22 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.7] - 2025-10-06
+
 ### Added
 
-- **Memory-efficient file operations** - Real fixes for large file handling
-  - ✅ Streaming reads for JSONL files >50MB (limits to last 1000 lines)
-  - ✅ Automatic file rotation when JSONL exceeds 10MB
-  - ✅ File size warnings before reading large files
-  - ✅ `/p:cleanup --memory` command for disk usage analysis
-  - 📊 Impact: Prevents high RAM usage when reading large context.jsonl files
-  - 🔧 Automatic rotation prevents unbounded file growth
+- **System timestamp tools** - LLM now gets real date/time from system instead of guessing
+  - ✅ `GetTimestamp()` tool - Returns ISO timestamp from system clock
+  - ✅ `GetDate()` tool - Returns YYYY-MM-DD from system clock
+  - ✅ `GetDateTime()` tool - Returns full date/time object with components
+  - 🐛 **Bug fixed**: Tasks no longer show January 1st dates when it's October
+  - 📊 Impact: Session files now use correct dates, analytics work properly
+
+- **Template optimization** - Phase 1 complete: Top 7 critical templates optimized
+  - ✅ Reduced from 2006 → 605 lines (69.8% reduction, saved 1401 lines)
+  - ✅ All templates now in English only (removed Spanish examples)
+  - ✅ Preserved 100% of business logic and decision-making patterns
+  - ✅ Removed verbose examples, success criteria, redundant explanations
+  - 📊 Impact: Faster LLM processing, lower token usage, clearer instructions
 
 ### Changed
 
-- **session-manager.js** - Now uses streaming reads and automatic rotation
-  - Files >50MB: Stream only last 1000 lines instead of loading entire file
-  - context.jsonl: Auto-rotates at 10MB (moves to context-YYYY-MM-DD.jsonl)
-  - Prevents "out of memory" errors during /p:recap on large projects
+- **Critical timestamp rule in CLAUDE.md** - Added prominent warning about LLM timestamp limitations
+  - LLM knowledge cutoff is January 2025, cannot generate accurate timestamps
+  - All templates now include `timestamp-rule` in frontmatter
+  - Templates updated: feature.md, ship.md, now.md, build.md, idea.md
+  - Hardcoded example dates replaced with GetTimestamp()/GetDate() tool calls
+
+- **Templates optimized** (Phase 1 - Top 7)
+  - suggest.md: 555 → 96 lines (82.7% reduction)
+  - ask.md: 386 → 73 lines (81.1% reduction)
+  - help.md: 348 → 90 lines (74.1% reduction)
+  - feature.md: 239 → 93 lines (61.1% reduction)
+  - init.md: 210 → 113 lines (46.2% reduction)
+  - ship.md: 148 → 79 lines (46.6% reduction)
+  - migrate-all.md: 120 → 61 lines (49.2% reduction)
+
+- **context-builder.js** - Enhanced timestamp documentation
+  - Clarified that timestamps come from system clock, not LLM
+  - Added inline comments explaining ISO format and YYYY-MM-DD format
+
+### Fixed
+
+- **Session date accuracy** - All session files now use correct system date
+  - Previously: LLM generated timestamps (often January 1st)
+  - Now: System clock provides accurate timestamps via GetTimestamp() tool
+  - Duration calculations now accurate
+  - Progress tracking and analytics now reliable
 
 ## [0.8.6] - 2025-10-05
 

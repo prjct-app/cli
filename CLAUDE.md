@@ -6,6 +6,40 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **prjct-cli** is a developer momentum tool for solo builders, indie hackers, and small teams (2-5 people). Just ship. No BS. Track progress through slash commands without meetings, ceremonies, or traditional PM overhead.
 
+## ⚠️ CRITICAL: Timestamp Management
+
+**LLM DOES NOT KNOW CURRENT DATE/TIME** - Your knowledge cutoff is January 2025, and you cannot generate accurate timestamps.
+
+### Timestamp Tools (MUST USE)
+
+**ALWAYS use these tools for ALL timestamps and dates:**
+
+- `GetTimestamp()` → Returns current system time in ISO format (e.g., "2025-10-07T14:30:00.000Z")
+- `GetDate()` → Returns current date in YYYY-MM-DD format (e.g., "2025-10-07")
+- `GetDateTime()` → Returns object with timestamp, date, year, month, day
+
+### Rules
+
+1. **NEVER generate timestamps manually** - All dates like "2025-10-04" or "2025-01-01" are WRONG
+2. **ALWAYS call GetTimestamp()** when writing to session files (*.jsonl)
+3. **ALWAYS call GetDate()** when adding entries to index files (shipped.md, roadmap.md, ideas.md)
+4. **Templates have `timestamp-rule`** in frontmatter - READ AND FOLLOW IT
+5. **Session files are organized by date** - Use system date to determine correct file path
+
+### Example (CORRECT)
+
+```jsonl
+{"ts":"{GetTimestamp()}","type":"feature_add","name":"auth","tasks":5}
+```
+
+### Example (WRONG - DO NOT DO THIS)
+
+```jsonl
+{"ts":"2025-10-04T14:30:00Z","type":"feature_add","name":"auth","tasks":5}
+```
+
+**Why this matters**: Without system timestamps, all session data shows January 1st dates, making analytics and progress tracking completely broken.
+
 ## 🚀 Real-World Workflow (Simplified)
 
 prjct follows your **actual** development workflow with 5 essential commands:
