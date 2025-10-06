@@ -32,7 +32,7 @@ describe('Navigation Component', () => {
     expect(screen.getByText('Windsurf Extension')).toBeInTheDocument()
     expect(screen.getByText('FAQ')).toBeInTheDocument()
     expect(screen.getByText('Changelog')).toBeInTheDocument()
-    expect(screen.getByText('Discord')).toBeInTheDocument()
+    expect(screen.getByText('Leave a Review')).toBeInTheDocument()
   })
 
   it('should highlight active route', () => {
@@ -109,24 +109,24 @@ describe('Navigation Component', () => {
     expect(docsLink).toHaveClass('text-primary')
   })
 
-  it('should render Discord CTA button with correct link', () => {
+  it('should render Product Hunt Review CTA button with correct link', () => {
     renderWithRouter()
 
-    const discordButton = screen.getByText('Discord').closest('a')
-    expect(discordButton).toHaveAttribute('href', 'https://discord.gg/5aqtMDUz6')
-    expect(discordButton).toHaveAttribute('target', '_blank')
-    expect(discordButton).toHaveAttribute('rel', 'noopener noreferrer')
+    const reviewButton = screen.getByText('Leave a Review').closest('a')
+    expect(reviewButton).toHaveAttribute('href', 'https://www.producthunt.com/products/prjct-cli/reviews/new?utm_source=my-products')
+    expect(reviewButton).toHaveAttribute('target', '_blank')
+    expect(reviewButton).toHaveAttribute('rel', 'noopener noreferrer')
   })
 
-  it('should have Discord CTA link in mobile menu', () => {
+  it('should have Product Hunt Review CTA link in mobile menu', () => {
     renderWithRouter()
 
-    // Check that Discord link exists (even if not visible until menu opens)
-    const discordLinks = screen.getAllByRole('link', { name: /discord/i })
-    const mobileDiscordLink = discordLinks.find((link) =>
-      link.getAttribute('href')?.includes('discord.gg')
+    // Check that Product Hunt Review link exists (even if not visible until menu opens)
+    const reviewLinks = screen.getAllByRole('link', { name: /review/i })
+    const mobileReviewLink = reviewLinks.find((link) =>
+      link.getAttribute('href')?.includes('producthunt.com')
     )
-    expect(mobileDiscordLink).toBeDefined()
+    expect(mobileReviewLink).toBeDefined()
   })
 })
 
