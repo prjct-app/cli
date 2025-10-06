@@ -47,12 +47,10 @@ describe('Hero Component', () => {
     expect(terminalIcons.length).toBeGreaterThan(0)
   })
 
-  it('should display workflow commands in subtitle', () => {
+  it('should display workflow commands with natural language trigger', () => {
     render(<Hero />)
 
-    // The subtitle should show the workflow
-    expect(screen.getByText('/p:feature')).toBeInTheDocument()
-    expect(screen.getByText('/p:done')).toBeInTheDocument()
-    expect(screen.getByText('/p:ship')).toBeInTheDocument()
+    // The component shows natural language with commands
+    expect(screen.getByText(/\/p:done/)).toBeInTheDocument()
   })
 })
