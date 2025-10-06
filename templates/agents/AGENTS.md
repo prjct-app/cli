@@ -167,13 +167,13 @@ Semantic understanding, not pattern matching.
 
 | Intent     | Command    | Examples                                     |
 | ---------- | ---------- | -------------------------------------------- |
-| Start task | `/p:now`   | "work on X", "starting API", "voy a hacer X" |
-| Finish     | `/p:done`  | "done", "finished", "terminé", "listo"       |
+| Start task | `/p:now`   | "work on X", "starting API", "begin auth"    |
+| Finish     | `/p:done`  | "done", "finished", "completed", "all set"   |
 | Ship       | `/p:ship`  | "ship this", "deploy X", "it's ready"        |
 | Idea       | `/p:idea`  | "I have an idea", "what if we..."            |
 | Progress   | `/p:recap` | "show progress", "how am I doing"            |
 | Stuck      | `/p:stuck` | "I'm stuck", "help with X"                   |
-| Next       | `/p:next`  | "what's next", "qué sigue"                   |
+| Next       | `/p:next`  | "what's next", "show queue", "priority list" |
 
 **Any language works** - if you understand intent, execute the command.
 

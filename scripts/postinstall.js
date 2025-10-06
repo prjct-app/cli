@@ -3,13 +3,13 @@
 /**
  * Post-install hook for prjct-cli (OPTIONAL)
  *
- * Intenta ejecutar setup si npm scripts están habilitados.
- * Si falla o no se ejecuta, no hay problema - el setup se ejecutará
- * automáticamente en el primer uso del CLI (como Astro, Vite, etc.)
+ * Attempts to run setup if npm scripts are enabled.
+ * If it fails or doesn't run, no problem - setup will run
+ * automatically on first CLI use (like Astro, Vite, etc.)
  *
- * Este hook es una optimización pero NO es crítico.
+ * This hook is an optimization but NOT critical.
  *
- * @version 0.8.5
+ * @version 0.8.8
  */
 
 const path = require('path')
