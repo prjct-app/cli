@@ -6,10 +6,6 @@
 
 const PrjctCommands = require('./commands')
 const registry = require('./command-registry')
-const memoryMonitor = require('./utils/memory-monitor')
-
-// Start memory monitoring if enabled (PRJCT_DEBUG_MEMORY=1)
-memoryMonitor.start()
 
 async function main() {
   const [commandName, ...rawArgs] = process.argv.slice(2)
@@ -173,15 +169,10 @@ function displayHelp() {
 }
 
 // Run CLI
-main()
-  .catch((error) => {
-    console.error('Fatal error:', error.message)
-    if (process.env.DEBUG) {
-      console.error(error.stack)
-    }
-    process.exit(1)
-  })
-  .finally(() => {
-    // Stop memory monitoring on exit
-    memoryMonitor.stop()
-  })
+main().catch((error) => {
+  console.error('Fatal error:', error.message)
+  if (process.env.DEBUG) {
+    console.error(error.stack)
+  }
+  process.exit(1)
+})

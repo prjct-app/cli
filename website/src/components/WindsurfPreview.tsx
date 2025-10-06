@@ -17,7 +17,7 @@ import {
   Bot,
 } from 'lucide-react'
 
-const ProPreview = () => {
+const WindsurfPreview = () => {
   const roadmapItems = [
     {
       title: 'Authentication System',
@@ -360,4 +360,4 @@ const ProPreview = () => {
   )
 }
 
-export default ProPreview
+export default WindsurfPreview

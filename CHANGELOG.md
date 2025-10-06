@@ -7,20 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-
-- **Website: Rebranded "Windsurf Extension" to "prjct/pro"**
-  - Renamed navigation label from "Windsurf Extension" to "prjct/pro"
-  - Added gradient chip badge for "pro" in navigation (purple-to-blue gradient)
-  - Updated route from `/windsurf-extension` to `/pro`
-  - Renamed component files: `WindsurfExtensionPage.tsx` → `ProPage.tsx`, `WindsurfExtension.tsx` → `ProExtension.tsx`, `WindsurfPreview.tsx` → `ProPreview.tsx`
-  - Updated messaging to emphasize: Extension IS the Pro version
-  - Clear positioning: Free tier = "prjct/cli" (terminal only), Pro tier = "prjct/pro" (extension + cloud + team)
-  - Clarified Pro features: Cloud sync, multi-device, team collaboration, encrypted storage
-  - Works with both VS Code and Windsurf (not Windsurf-only)
-  - Updated unit tests: Navigation.test.tsx to reflect new branding
-  - All tests passing: 285 tests (22 test files) ✅
-
 ## [0.8.6] - 2025-10-05
 
 ### Fixed
