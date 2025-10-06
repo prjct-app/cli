@@ -210,10 +210,9 @@ class CommandInstaller {
 
   /**
    * Install to all detected editors (alias for installCommands)
-   * @param {boolean} interactive - Whether to show interactive prompts
    * @returns {Promise<Object>} Installation results
    */
-  async installToAll(interactive = false) {
+  async installToAll() {
     return await this.installCommands()
   }
 

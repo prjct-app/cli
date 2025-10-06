@@ -1,6 +1,11 @@
 import { defineWorkspace } from 'vitest/config'
+import { existsSync } from 'fs'
+import { join } from 'path'
 
-export default defineWorkspace([
+// Check if website dependencies are installed
+const websiteDepsInstalled = existsSync(join(process.cwd(), 'website', 'node_modules'))
+
+const projects = [
   // Core project (Node.js environment)
   {
     test: {
@@ -15,6 +20,11 @@ export default defineWorkspace([
       globals: true,
     },
   },
-  // Website project (jsdom environment)
-  './website',
-])
+]
+
+// Only include website project if dependencies are installed
+if (websiteDepsInstalled) {
+  projects.push('./website')
+}
+
+export default defineWorkspace(projects)

@@ -27,6 +27,9 @@ globalThis.ResizeObserver = class ResizeObserver {
   constructor() {}
 } as unknown as typeof ResizeObserver
 
+// Mock Element.prototype.scrollTo for Terminal component
+Element.prototype.scrollTo = vi.fn()
+
 // Cleanup after each test
 afterEach(() => {
   cleanup()
