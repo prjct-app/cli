@@ -111,7 +111,7 @@ declare global {
   }
 }
 
-export const WindsurfExtensionPage = () => {
+export const ProPage = () => {
   const [isAnnual, setIsAnnual] = useState(false)
   const tiers = getTiers(isAnnual)
 
@@ -177,37 +177,24 @@ export const WindsurfExtensionPage = () => {
 
             <h1 className="mb-6 text-5xl font-bold md:text-7xl">
               <span className="bg-gradient-to-r from-purple-600 via-blue-600 to-purple-600 bg-clip-text text-transparent">
-                Windsurf Extension
+                prjct/pro
               </span>
             </h1>
 
             <p className="mx-auto mb-4 max-w-3xl text-2xl font-bold text-foreground md:text-3xl">
-              See your ships. Track momentum. Stay focused.
+              Extension + Cloud + Team Features
             </p>
 
-            <p className="mx-auto mb-6 max-w-3xl text-base text-muted-foreground md:text-lg">
-              VS Code/Windsurf extension that shows what matters: what shipped today, what you're
-              working on, your streak. No kanban BS. No task cards. No meetings. Just ship.
-            </p>
-
-            {/* Why Windsurf Extension */}
-            <p className="mx-auto mb-10 max-w-2xl text-sm text-muted-foreground/80">
-              Why "Windsurf Extension"? Because we love{' '}
-              <a
-                href="https://windsurf.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-purple-500 underline decoration-purple-500/30 underline-offset-2 transition-colors hover:text-purple-400 hover:decoration-purple-400/50"
-              >
-                Windsurf
-              </a>
-              . Works with VS Code too.
+            <p className="mx-auto mb-10 max-w-3xl text-base text-muted-foreground md:text-lg">
+              The Pro version with VS Code/Windsurf extension. Track what shipped today, what you're
+              working on, and your momentum. Cloud sync keeps your data safe across devices. Team features
+              let you collaborate without meetings. No kanban BS. Just ship.
             </p>
 
             {/* Integration Badges */}
             <div className="mb-6 flex flex-wrap items-center justify-center gap-4 text-sm">
               <Badge variant="default" size="md" icon={<Code2 className="h-4 w-4" />}>
-                Windsurf & VS Code
+                VS Code & Windsurf
               </Badge>
               <Badge variant="success" size="md" icon={<Check className="h-4 w-4" />}>
                 Requires prjct/cli
@@ -227,8 +214,8 @@ export const WindsurfExtensionPage = () => {
         {/* Features Section */}
         <div className="mb-24">
           <SectionHeader
-            title="Everything in Your Editor"
-            subtitle="Track ships and momentum without leaving VS Code or Windsurf"
+            title="Pro Features in Your Editor"
+            subtitle="Extension + Cloud sync + Team collaboration. All in VS Code or Windsurf."
             gradient
           />
 
@@ -254,7 +241,7 @@ export const WindsurfExtensionPage = () => {
         >
           <h2 className="mb-4 text-center text-3xl font-bold">Free vs Pro</h2>
           <p className="mb-8 text-center text-muted-foreground">
-            CLI is free forever. Extension adds visual tracking in your editor.
+            CLI is free forever. Pro adds extension, cloud sync, and team features.
           </p>
 
           {/* Billing Toggle */}
@@ -338,8 +325,7 @@ export const WindsurfExtensionPage = () => {
                     </h3>
 
                     <p className="mx-auto mb-6 max-w-md text-muted-foreground">
-                      Get early access to the extension. Track ships, focus, and momentum directly
-                      in VS Code/Windsurf.
+                      Get early access to prjct/pro. Extension + cloud + team features for VS Code and Windsurf.
                     </p>
 
                     {/* Tally Button */}
@@ -527,7 +513,7 @@ export const WindsurfExtensionPage = () => {
         >
           <h2 className="mb-4 text-3xl font-bold">Stop Managing. Start Shipping.</h2>
           <p className="mb-8 text-lg text-muted-foreground">
-            CLI is free. Extension launches Q1 2026. No ceremonies, no BS, just momentum.
+            CLI is free. prjct/pro launches Q1 2026. No ceremonies, no BS, just momentum.
           </p>
           <div className="flex flex-col justify-center gap-4 sm:flex-row">
             <a

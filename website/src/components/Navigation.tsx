@@ -12,6 +12,7 @@ import {
   Zap,
   Clock,
   MessageCircle,
+  Star,
 } from 'lucide-react'
 import { PrjctLogo } from './Logo'
 
@@ -26,7 +27,7 @@ const navItems: NavItem[] = [
   { label: 'Docs', path: '/docs', icon: <BookOpen className="h-4 w-4" /> },
   { label: 'Commands', path: '/commands', icon: <TerminalIcon className="h-4 w-4" /> },
   { label: 'Workflows', path: '/workflows', icon: <Sparkles className="h-4 w-4" /> },
-  { label: 'Windsurf Extension', path: '/windsurf-extension', icon: <Zap className="h-4 w-4" /> },
+  { label: 'prjct/pro', path: '/pro', icon: <Zap className="h-4 w-4" /> },
   { label: 'FAQ', path: '/faq', icon: <HelpCircle className="h-4 w-4" /> },
   { label: 'Changelog', path: '/changelog', icon: <Clock className="h-4 w-4" /> },
 ]
@@ -68,14 +69,37 @@ export const Navigation = () => {
                   }`}
                 >
                   {item.icon}
-                  <span>{item.label}</span>
+                  {item.path === '/pro' ? (
+                    <span className="flex items-center gap-1">
+                      prjct/
+                      <span className="inline-flex items-center rounded-full bg-gradient-to-r from-purple-500 to-blue-500 px-2 py-0.5 text-xs font-semibold text-white shadow-sm">
+                        pro
+                      </span>
+                    </span>
+                  ) : (
+                    <span>{item.label}</span>
+                  )}
                 </Link>
               </motion.div>
             ))}
           </nav>
 
-          {/* Right side - Discord CTA & Mobile Menu */}
+          {/* Right side - Product Hunt, Discord & Mobile Menu */}
           <div className="flex items-center gap-3">
+            {/* Product Hunt CTA - Desktop */}
+            <motion.a
+              href="https://www.producthunt.com/products/prjct-cli/reviews?feed=single"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden items-center gap-2 rounded-xl border border-orange-500/30 bg-gradient-to-r from-orange-500/10 to-orange-600/10 px-4 py-2 text-sm font-medium text-orange-500 transition-all hover:border-orange-500/50 hover:from-orange-500/20 hover:to-orange-600/20 lg:inline-flex"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              aria-label="Review on Product Hunt"
+            >
+              <Star className="h-4 w-4" />
+              <span>Review us</span>
+            </motion.a>
+
             {/* Discord CTA - Desktop */}
             <motion.a
               href="https://discord.gg/5aqtMDUz6"
@@ -124,10 +148,31 @@ export const Navigation = () => {
                     }`}
                   >
                     {item.icon}
-                    <span>{item.label}</span>
+                    {item.path === '/pro' ? (
+                      <span className="flex items-center gap-1.5">
+                        prjct/
+                        <span className="inline-flex items-center rounded-full bg-gradient-to-r from-purple-500 to-blue-500 px-2.5 py-0.5 text-xs font-semibold text-white shadow-sm">
+                          pro
+                        </span>
+                      </span>
+                    ) : (
+                      <span>{item.label}</span>
+                    )}
                   </Link>
                 ))}
-                
+
+                {/* Product Hunt CTA - Mobile */}
+                <a
+                  href="https://www.producthunt.com/products/prjct-cli/reviews?feed=single"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex items-center gap-3 rounded-lg border border-orange-500/30 bg-gradient-to-r from-orange-500/10 to-orange-600/10 px-4 py-3 font-medium text-orange-500 transition-all hover:border-orange-500/50 hover:from-orange-500/20 hover:to-orange-600/20"
+                >
+                  <Star className="h-4 w-4" />
+                  <span>Review us on Product Hunt</span>
+                </a>
+
                 {/* Discord CTA - Mobile */}
                 <a
                   href="https://discord.gg/5aqtMDUz6"
