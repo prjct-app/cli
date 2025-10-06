@@ -4,8 +4,10 @@ import {
   AlertTriangle,
   Plus,
   Wrench,
+  Trash2,
   Shield,
   Users,
+  Database,
   CheckCircle,
   Bug,
   RefreshCw,
@@ -14,8 +16,10 @@ import {
   ArrowRightLeft,
   MessageSquare,
 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { VersionHeader } from '@/components/changelog/VersionHeader'
 import { FeatureCard } from '@/components/ui/FeatureCard'
+import { TechnicalDetails } from '@/components/changelog/TechnicalDetails'
 import { DateSection } from '@/components/changelog/DateSection'
 import { TimelineNav } from '@/components/changelog/TimelineNav'
 
@@ -307,10 +311,10 @@ export const Changelog = () => {
                 title="We closed the code (here's why)"
                 description="Hard decision. But it's the honest one."
                 bullets={[
-                  '• The reality: AI tools + code access = murky legal territory',
-                  '• The risk: We don\'t fully understand AI provider terms of service',
-                  '• The decision: Close the code until we\'re 100% sure we\'re not putting you at risk',
-                  '• FREE forever: Core features stay free. Always.',
+                  '• **The reality**: AI tools + code access = murky legal territory',
+                  '• **The risk**: We don\'t fully understand AI provider terms of service',
+                  '• **The decision**: Close the code until we\'re 100% sure we\'re not putting you at risk',
+                  '• **FREE forever**: Core features stay free. Always.',
                   '• We\'d rather protect you than look open-source-cool',
                 ]}
               />
@@ -350,9 +354,9 @@ export const Changelog = () => {
                 title="We're not a PM tool"
                 description="Killed all 'project management' language. This is for builders, not managers."
                 bullets={[
-                  '• What we realized: You don\'t need a project manager. You need to ship.',
-                  '• What we changed: Deleted every "PM", "sprint", "story point" reference',
-                  '• New vibe: "Just Ship. No BS" - for solo builders and small teams',
+                  '• **What we realized**: You don\'t need a project manager. You need to ship.',
+                  '• **What we changed**: Deleted every "PM", "sprint", "story point" reference',
+                  '• **New vibe**: "Just Ship. No BS" - for solo builders and small teams',
                   '• If you want meetings and ceremonies, use Jira',
                 ]}
               />
@@ -783,6 +787,518 @@ export const Changelog = () => {
                 <strong>v0.3.x → v0.2.0:</strong> Installation fixes, dependency updates, path resolutions, and other technical improvements. Nothing you needed to care about.
               </p>
             </div>
+          </motion.section>
+
+          {/* Version 0.1.0 */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-16"
+          >
+            <VersionHeader version="v0.3.1" />
+
+            {/* Installation Path Fix */}
+            <div className="mb-6 space-y-6">
+              <div className="rounded-2xl bg-muted/20 p-6">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-cat-green/20">
+                    <Wrench className="h-5 w-5 text-cat-green" />
+                  </div>
+                  <div>
+                    <h3 className="mb-2 text-xl font-bold">Installation Path Resolution Fix</h3>
+                    <p className="mb-3 text-muted-foreground">
+                      Fixed critical installation error that prevented users from installing
+                      prjct-cli via curl.
+                    </p>
+
+                    <ul className="space-y-2 text-sm text-muted-foreground">
+                      <li>
+                        • Fixed "setup.sh: No such file or directory" error during installation (
+                        <a
+                          href="https://github.com/jlopezlira/prjct-cli/issues/11"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline"
+                        >
+                          #11
+                        </a>
+                        )
+                      </li>
+                      <li>
+                        • Corrected path resolution in{' '}
+                        <code className="text-cat-mauve">docs/install.sh</code>,{' '}
+                        <code className="text-cat-mauve">scripts/install.sh</code>, and{' '}
+                        <code className="text-cat-mauve">scripts/setup.sh</code>
+                      </li>
+                      <li>
+                        • Added verification tests in{' '}
+                        <code className="text-cat-mauve">tests/verify-install-paths.sh</code>
+                      </li>
+                      <li>
+                        • Added comprehensive documentation in{' '}
+                        <code className="text-cat-mauve">tests/INSTALL_PATH_FIX.md</code>
+                      </li>
+                      <li>
+                        • Thanks to{' '}
+                        <a
+                          href="https://github.com/danrocha"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline"
+                        >
+                          @danrocha
+                        </a>{' '}
+                        for reporting the issue
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.section>
+        </DateSection>
+
+        {/* September 30, 2025 - 3 releases */}
+        <DateSection id="sep-30-2025" date="September 30, 2025" releaseCount={3}>
+          {/* Version 0.3.0 */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-16"
+          >
+            <VersionHeader version="v0.3.0" />
+
+            {/* Intelligent Codebase Analysis */}
+            <div className="mb-6 space-y-6">
+              <div className="rounded-2xl bg-muted/20 p-6">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary/20">
+                    <CheckCircle className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="mb-2 text-xl font-bold">Intelligent Codebase Analysis & Sync</h3>
+                    <p className="mb-3 text-muted-foreground">
+                      Auto-detect implemented features and sync project state. Perfect for teams
+                      working without cloud storage.
+                    </p>
+
+                    <div className="mb-4 space-y-3">
+                      <div className="rounded-lg border border-border bg-background/50 p-3">
+                        <code className="text-sm text-cat-mauve">/p:analyze</code>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Analyze codebase and detect implemented commands/features
+                        </p>
+                      </div>
+
+                      <div className="rounded-lg border border-border bg-background/50 p-3">
+                        <code className="text-sm text-cat-mauve">/p:analyze --sync</code>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Automatically update .prjct/ files with real implementation state
+                        </p>
+                      </div>
+                    </div>
+
+                    <ul className="space-y-2 text-sm text-muted-foreground">
+                      <li>
+                        • Auto-execution during <code className="text-cat-mauve">/p:init</code> when
+                        cloning repos with existing code
+                      </li>
+                      <li>• Detects implemented commands by scanning source files</li>
+                      <li>
+                        • Extracts completed features from git history, dependencies, and directory
+                        structure
+                      </li>
+                      <li>
+                        • Automatically updates <code className="text-cat-mauve">next.md</code> by
+                        marking completed tasks
+                      </li>
+                      <li>
+                        • Adds detected features to{' '}
+                        <code className="text-cat-mauve">shipped.md</code>
+                      </li>
+                      <li>
+                        • Generates detailed analysis reports in{' '}
+                        <code className="text-cat-mauve">analysis/repo-summary.md</code>
+                      </li>
+                      <li>• Prevents duplicate work across team members</li>
+                      <li>• Real project status visibility without cloud sync</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {/* Interactive Editor Selection */}
+              <div className="rounded-2xl bg-muted/20 p-6">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary/20">
+                    <Users className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="mb-2 text-xl font-bold">Interactive Editor Selection</h3>
+                    <p className="mb-3 text-muted-foreground">
+                      Choose which AI editors to install commands to via interactive checkboxes
+                    </p>
+                    <ul className="space-y-2 text-sm text-muted-foreground">
+                      <li>
+                        • Interactive checkbox UI during{' '}
+                        <code className="text-cat-mauve">prjct install</code> and{' '}
+                        <code className="text-cat-mauve">prjct init</code>
+                      </li>
+                      <li>
+                        • Detects all installed editors (Claude Code, Cursor, Codex, Windsurf)
+                      </li>
+                      <li>• Shows installation paths for each detected editor</li>
+                      <li>• Allows users to select only the editors they use</li>
+                      <li>
+                        • <code className="text-cat-mauve">--no-interactive</code> flag to install
+                        to all detected editors without prompts
+                      </li>
+                      <li>• Optimizes installation by avoiding unnecessary editor installations</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {/* Updated Branding */}
+              <div className="rounded-2xl bg-muted/20 p-6">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary/20">
+                    <Wrench className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="mb-2 text-xl font-bold">Updated Branding</h3>
+                    <p className="mb-3 text-muted-foreground">
+                      New header design with kaomoji (ﾉ◕ヮ◕)ﾉ*:･ﾟ✧
+                    </p>
+                    <ul className="space-y-2 text-sm text-muted-foreground">
+                      <li>• Refreshed README.md header with fun, friendly design</li>
+                      <li>• Updated installer (scripts/install.sh) to match new branding</li>
+                      <li>
+                        • Consistent visual identity across documentation and installation
+                        experience
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.section>
+
+          {/* Version 0.2.1 */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-16"
+          >
+            <VersionHeader version="v0.2.1" />
+
+            {/* Key Features */}
+            <div className="space-y-6">
+              {/* Multi-Editor Support */}
+              <div className="rounded-2xl bg-muted/20 p-6">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary/20">
+                    <CheckCircle className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="mb-2 text-xl font-bold">Multi-Editor Command Installation</h3>
+                    <p className="mb-3 text-muted-foreground">
+                      Automatic slash command deployment across AI editors with seamless
+                      synchronization.
+                    </p>
+                    <ul className="space-y-2 text-sm text-muted-foreground">
+                      <li>
+                        • <code className="text-cat-mauve">prjct install</code> command for all
+                        detected editors
+                      </li>
+                      <li>• Support for Claude Code, Cursor AI, and Codeium</li>
+                      <li>
+                        • Template-based command system in{' '}
+                        <code className="text-cat-mauve">~/.prjct-cli/templates/</code>
+                      </li>
+                      <li>
+                        • Automatic installation during{' '}
+                        <code className="text-cat-mauve">prjct init</code>
+                      </li>
+                      <li>• Cross-editor data synchronization through global architecture</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {/* Global Migration */}
+              <div className="rounded-2xl bg-muted/20 p-6">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary/20">
+                    <Database className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="mb-2 text-xl font-bold">Global Migration System</h3>
+                    <p className="mb-3 text-muted-foreground">
+                      Migrate all legacy projects on your machine with a single command.
+                    </p>
+                    <ul className="space-y-2 text-sm text-muted-foreground">
+                      <li>
+                        • <code className="text-cat-mauve">prjct migrate-all</code> finds and
+                        migrates all legacy projects
+                      </li>
+                      <li>
+                        • Scans common directories:{' '}
+                        <code className="text-cat-mauve">~/Projects</code>,{' '}
+                        <code className="text-cat-mauve">~/Documents</code>, etc.
+                      </li>
+                      <li>
+                        • Optional <code className="text-cat-mauve">--deep-scan</code> for entire
+                        home directory
+                      </li>
+                      <li>
+                        • <code className="text-cat-mauve">--dry-run</code> to preview changes
+                      </li>
+                      <li>
+                        • <code className="text-cat-mauve">--remove-legacy</code> to clean up after
+                        migration
+                      </li>
+                      <li>• Progress tracking and comprehensive reports</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {/* Repository Reorganization */}
+              <div className="rounded-2xl bg-muted/20 p-6">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary/20">
+                    <Wrench className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="mb-2 text-xl font-bold">Repository Structure Reorganization</h3>
+                    <p className="mb-3 text-muted-foreground">
+                      Cleaner project structure with better organization and clarity.
+                    </p>
+                    <ul className="space-y-2 text-sm text-muted-foreground">
+                      <li>
+                        • Source code moved to <code className="text-cat-mauve">src/</code>{' '}
+                        directory
+                      </li>
+                      <li>
+                        • Scripts organized in <code className="text-cat-mauve">scripts/</code>
+                      </li>
+                      <li>
+                        • Configuration in <code className="text-cat-mauve">.config/</code>
+                      </li>
+                      <li>
+                        • Renamed <code className="text-cat-mauve">lp/</code> to{' '}
+                        <code className="text-cat-mauve">website/</code> for clarity
+                      </li>
+                      <li>
+                        • Added <code className="text-cat-mauve">templates/commands/</code> for
+                        command distribution
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.section>
+
+          {/* Version 0.2.0 */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-16"
+          >
+            <VersionHeader version="v0.2.0" />
+
+            {/* Breaking Changes Alert */}
+            <div className="mb-8 rounded-2xl border-2 border-cat-red/30 bg-cat-red/10 p-6">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="mt-1 h-6 w-6 flex-shrink-0 text-cat-red" />
+                <div>
+                  <h3 className="mb-2 text-xl font-bold text-cat-red">Data Relocation Required</h3>
+                  <p className="mb-4 text-muted-foreground">
+                    <strong className="text-foreground">Important:</strong> This is a DATA
+                    RELOCATION, not deletion. ALL your data is preserved and moved to a better
+                    location.
+                  </p>
+                  <ul className="space-y-2 text-sm">
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-cat-green" />
+                      <span>100% data preservation - every file, log, and timestamp</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-cat-green" />
+                      <span>Automatic migration with validation</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-cat-green" />
+                      <span>Reversible process (.prjct/ kept as backup by default)</span>
+                    </li>
+                  </ul>
+                  <Link
+                    to="/docs/migration"
+                    className="mt-4 inline-flex items-center gap-2 font-medium text-cat-red hover:underline"
+                  >
+                    Read Migration Guide →
+                  </Link>
+                </div>
+              </div>
+            </div>
+
+            {/* Key Changes */}
+            <div className="space-y-6">
+              {/* Collaboration Feature */}
+              <div className="rounded-2xl bg-muted/20 p-6">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary/20">
+                    <Users className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="mb-2 text-xl font-bold">Collaboration-Ready Architecture</h3>
+                    <p className="mb-3 text-muted-foreground">
+                      Designed for teams WITHOUT exposing personal data. Work together while keeping
+                      your velocity and notes private.
+                    </p>
+                    <ul className="space-y-2 text-sm text-muted-foreground">
+                      <li>
+                        • <code className="text-cat-mauve">.prjct/prjct.config.json</code> in
+                        project (safe to commit)
+                      </li>
+                      <li>
+                        • Personal logs stay in{' '}
+                        <code className="text-cat-mauve">~/.prjct-cli/</code> (never committed)
+                      </li>
+                      <li>• Author tracking enables future collaboration features</li>
+                      <li>• Perfect for open source, remote teams, consulting</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {/* Data Storage */}
+              <div className="rounded-2xl bg-muted/20 p-6">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary/20">
+                    <Database className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="mb-2 text-xl font-bold">Global Data Storage</h3>
+                    <p className="mb-3 text-muted-foreground">
+                      Project data moved from <code className="text-cat-mauve">.prjct/</code> to{' '}
+                      <code className="text-cat-mauve">~/.prjct-cli/projects/[id]/</code>
+                    </p>
+                    <ul className="space-y-2 text-sm text-muted-foreground">
+                      <li>• Prevents bundle size inflation</li>
+                      <li>• No accidental commits of personal work logs</li>
+                      <li>• Better privacy for productivity tracking</li>
+                      <li>• Layered structure: core, progress, planning, analysis, memory</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {/* Author Tracking */}
+              <div className="rounded-2xl bg-muted/20 p-6">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary/20">
+                    <Shield className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="mb-2 text-xl font-bold">Author Detection & Tracking</h3>
+                    <p className="mb-3 text-muted-foreground">
+                      All operations now include author information for collaboration readiness.
+                    </p>
+                    <ul className="space-y-2 text-sm text-muted-foreground">
+                      <li>
+                        • Auto-detection via GitHub CLI (
+                        <code className="text-cat-mauve">gh api user</code>)
+                      </li>
+                      <li>• Fallback to git config for name and email</li>
+                      <li>• Every log entry includes author field</li>
+                      <li>• Prepares for multi-user collaboration features</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Migration Guide CTA */}
+            <div className="mt-8 rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/20 to-primary/5 p-6">
+              <h3 className="mb-2 text-xl font-bold">Need to Migrate?</h3>
+              <p className="mb-4 text-muted-foreground">
+                Migrating from v0.1.0 is simple and safe. Zero data loss guaranteed.
+              </p>
+              <div className="flex flex-wrap gap-4">
+                <Link
+                  to="/docs/migration"
+                  className="rounded-lg bg-primary px-6 py-3 font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                >
+                  Read Migration Guide
+                </Link>
+                <a
+                  href="https://github.com/jlopezlira/prjct-cli"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-lg bg-muted/50 px-6 py-3 font-medium transition-colors hover:bg-muted"
+                >
+                  View on GitHub
+                </a>
+              </div>
+            </div>
+
+            {/* Technical Details */}
+            <details className="mt-8 cursor-pointer rounded-2xl bg-muted/10 p-6">
+              <summary className="mb-4 text-lg font-semibold">
+                Technical Details & Full Changelog
+              </summary>
+              <div className="space-y-6 text-sm">
+                {/* Added */}
+                <div>
+                  <h4 className="mb-2 flex items-center gap-2 font-bold text-cat-green">
+                    <Plus className="h-4 w-4" />
+                    Added
+                  </h4>
+                  <ul className="ml-6 space-y-1 text-muted-foreground">
+                    <li>
+                      • New core modules: path-manager, config-manager, author-detector, migrator
+                    </li>
+                    <li>• Automatic migration system with integrity validation</li>
+                    <li>• Project configuration system (prjct.config.json)</li>
+                    <li>• Layered global storage structure</li>
+                    <li>• Author tracking in all memory logs</li>
+                  </ul>
+                </div>
+
+                {/* Changed */}
+                <div>
+                  <h4 className="mb-2 flex items-center gap-2 font-bold text-cat-yellow">
+                    <Wrench className="h-4 w-4" />
+                    Changed
+                  </h4>
+                  <ul className="ml-6 space-y-1 text-muted-foreground">
+                    <li>• Data location: .prjct/ → ~/.prjct-cli/projects/[id]/</li>
+                    <li>• Memory logs now include author field</li>
+                    <li>• File structure organized into layers</li>
+                    <li>• Initialization creates global structure and config</li>
+                  </ul>
+                </div>
+
+                {/* Removed */}
+                <div>
+                  <h4 className="mb-2 flex items-center gap-2 font-bold text-cat-red">
+                    <Trash2 className="h-4 w-4" />
+                    Removed
+                  </h4>
+                  <ul className="ml-6 space-y-1 text-muted-foreground">
+                    <li>• Local .prjct/ directory usage (replaced with global storage)</li>
+                    <li>• Legacy flat file structure (replaced with layered architecture)</li>
+                  </ul>
+                </div>
+              </div>
+            </details>
           </motion.section>
 
           {/* Version 0.1.0 */}
