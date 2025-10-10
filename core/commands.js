@@ -1133,7 +1133,6 @@ class PrjctCommands {
    */
   async _cleanupMemory(projectPath) {
     const projectId = await configManager.getProjectId(projectPath)
-    const globalPath = pathManager.getGlobalProjectPath(projectId)
 
     console.log('📊 Analyzing disk usage...\n')
 
