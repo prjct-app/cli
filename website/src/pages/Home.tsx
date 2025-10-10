@@ -50,7 +50,7 @@ export const Home = () => {
           </div>
 
           {/* Product Hunt */}
-          <div className="mt-8 flex justify-center">
+          <div className="mt-8 flex flex-col items-center justify-center gap-4">
             <a
               href="https://www.producthunt.com/products/prjct-cli?embed=true&utm_source=badge-featured&utm_medium=badge&utm_source=badge-prjct-cli"
               target="_blank"
@@ -62,6 +62,19 @@ export const Home = () => {
                 alt="prjct/cli - Built for Claude - Ship Fast, No BS | Product Hunt"
                 style={{ width: '250px', height: '54px' }}
                 width="250"
+                height="54"
+              />
+            </a>
+            <a
+              href="https://startupfa.me/s/prjctcli?utm_source=www.prjct.app"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="transition-transform hover:scale-105"
+            >
+              <img
+                src="https://startupfa.me/badges/featured-badge.webp"
+                alt="prjct/cli - Featured on Startup Fame"
+                width="171"
                 height="54"
               />
             </a>
