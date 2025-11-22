@@ -22,6 +22,7 @@ import { TimelineNav } from '@/components/changelog/TimelineNav'
 export const Changelog = () => {
   // Timeline navigation items
   const timelineItems = [
+    { id: 'nov-22-2025', date: 'Nov 22, 2025', releaseCount: 1 },
     { id: 'oct-6-2025', date: 'Oct 6, 2025', releaseCount: 1 },
     { id: 'oct-5-2025', date: 'Oct 5, 2025', releaseCount: 5 },
     { id: 'oct-4-2025', date: 'Oct 4, 2025', releaseCount: 3 },
@@ -54,6 +55,94 @@ export const Changelog = () => {
           </p>
         </motion.div>
 
+        {/* November 22, 2025 - 1 release */}
+        <DateSection id="nov-22-2025" date="November 22, 2025" releaseCount={1}>
+          {/* Version 0.9.1 - Command Registry Refactor & Context Optimization */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-16"
+          >
+            <VersionHeader version="v0.9.1" isLatest />
+
+            <div className="mb-6 space-y-6">
+              <FeatureCard
+                variant="fancy"
+                contentLayout="horizontal"
+                icon={Sparkles}
+                title="Revolutionary Task Stack System - Pause & Resume ANY task"
+                description="The biggest workflow improvement yet. Handle interruptions naturally."
+                bullets={[
+                  '• NEW: /p:pause - Pause any task instantly when interrupted',
+                  '• NEW: /p:resume - Pick up exactly where you left off',
+                  '• Multiple tasks can be paused simultaneously',
+                  '• Context preserved perfectly - never lose your flow',
+                  '• Tracks active vs paused time for accurate metrics',
+                ]}
+              />
+
+              <FeatureCard
+                variant="fancy"
+                contentLayout="horizontal"
+                icon={RefreshCw}
+                title="Mandatory Agent Routing - Every task gets an expert"
+                description="ALL tasks now run through specialized AI agents. No exceptions."
+                bullets={[
+                  '• 100% agent coverage - every task assigned to a specialist',
+                  '• Context filtering reduces token usage by 70-90%',
+                  '• Each agent only sees relevant files for their domain',
+                  '• Frontend agent skips backend files, backend skips CSS, etc.',
+                  '• Faster, more accurate, cheaper to run',
+                ]}
+              />
+
+              <FeatureCard
+                variant="fancy"
+                contentLayout="horizontal"
+                icon={Package}
+                title="Architecture Generator powered by enterprise methodologies"
+                description="Transform ideas into complete technical specs using proven frameworks"
+                bullets={[
+                  '• NEW: /p:idea "build a CRM" → Complete architecture',
+                  '• Uses DDD (Domain-Driven Design), JTBD (Jobs to be Done), Contract-First API',
+                  '• 8-phase process: Discovery → User Flows → Domain → API → Architecture → Data → Stack → Roadmap',
+                  '• Generates database schemas, API specs, tech recommendations',
+                  '• MVP-focused with 4-week sprint roadmaps',
+                ]}
+              />
+
+              <FeatureCard
+                variant="simple"
+                contentLayout="horizontal"
+                icon={CheckCircle}
+                title="Command Consolidation - Less commands, more power"
+                description="Merged similar commands for a cleaner, more intuitive interface"
+                bullets={[
+                  '• /p:work replaces /p:now + /p:build (unified task management)',
+                  '• /p:dash replaces status + recap + progress + roadmap (4→1)',
+                  '• /p:help absorbs ask + suggest + stuck (smarter context help)',
+                  '• 30% fewer commands, 100% more functionality',
+                ]}
+              />
+
+              <FeatureCard
+                variant="simple"
+                contentLayout="horizontal"
+                icon={Bug}
+                title="Intelligent Memory Management"
+                description="Handles massive projects without slowing down"
+                bullets={[
+                  '• New JSONL helper for efficient large file operations',
+                  '• Session-based architecture prevents memory leaks',
+                  '• Legacy installation detector cleans old curl installs',
+                  '• 84% reduction in core code (3103 → 306 lines)',
+                ]}
+              />
+            </div>
+          </motion.section>
+        </DateSection>
+
         {/* October 6, 2025 - 1 release */}
         <DateSection id="oct-6-2025" date="October 6, 2025" releaseCount={1}>
           {/* Version 0.8.8 - Timestamps, Templates, Legacy Cleanup & Windows */}
@@ -63,7 +152,7 @@ export const Changelog = () => {
             transition={{ duration: 0.6 }}
             className="mb-16"
           >
-            <VersionHeader version="v0.8.8" isLatest />
+            <VersionHeader version="v0.8.8" />
 
             <div className="mb-6 space-y-6">
               <FeatureCard
