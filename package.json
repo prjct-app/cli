@@ -44,6 +44,7 @@
   "license": "MIT",
   "dependencies": {
     "chalk": "^4.1.2",
+    "glob": "^10.3.10",
     "prompts": "^2.4.2"
   },
   "devDependencies": {

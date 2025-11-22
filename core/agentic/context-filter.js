@@ -9,9 +9,7 @@
 
 const fs = require('fs').promises;
 const path = require('path');
-const glob = require('glob');
-const { promisify } = require('util');
-const globAsync = promisify(glob);
+const { glob } = require('glob');
 
 class ContextFilter {
   constructor() {
@@ -445,14 +443,20 @@ class ContextFilter {
 
       // Execute glob searches
       for (const pattern of globPatterns) {
-        const matches = await globAsync(pattern, {
+        const matches = await glob(pattern, {
           cwd: projectPath,
           ignore: patterns.exclude,
           nodir: true,
           follow: false
         });
 
-        files.push(...matches);
+        // Ensure matches is always an array (glob v10+ returns array, but be defensive)
+        if (Array.isArray(matches)) {
+          files.push(...matches);
+        } else if (matches) {
+          // Convert iterable to array if needed
+          files.push(...Array.from(matches));
+        }
       }
 
       // Remove duplicates and sort
