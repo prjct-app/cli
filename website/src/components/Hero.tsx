@@ -24,7 +24,7 @@ export const Hero = () => {
           {/* Left Column - Main Content (3/5 = 60%) */}
           <div className="space-y-8 text-center lg:col-span-3 lg:text-left">
             {/* Built for Claude Badge */}
-            <motion.div {...animationPresets.hero} className="flex justify-center lg:justify-start">
+            <motion.div {...animationPresets.hero} className="flex justify-center gap-2 lg:justify-start">
               <Badge
                 variant="primary"
                 size="md"
@@ -36,6 +36,19 @@ export const Hero = () => {
                 <p className="flex items-center gap-2">
                   <img src="/claude.png" alt="Claude Code" className="size-6" />
                   Built for Claude Code
+                </p>
+              </Badge>
+              <Badge
+                variant="primary"
+                size="md"
+                className={cn(
+                  typography.body,
+                  'border-cat-green bg-cat-green/10 px-4 py-2 text-cat-green'
+                )}
+              >
+                <p className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4" />
+                  v0.9.0
                 </p>
               </Badge>
             </motion.div>
@@ -57,9 +70,9 @@ export const Hero = () => {
               animate={{ opacity: 1, y: 0 }}
               className={cn(typography.sectionSubtitle, 'md:text-2xl')}
             >
-              Ship fast, track progress, stay focused.
+              Ship fast. Handle interruptions. Never lose context.
               <br />
-              Developer momentum tool for indie hackers and small teams.
+              Just 13 commands for your entire workflow.
             </motion.p>
 
             {/* Tagline */}
@@ -122,28 +135,28 @@ export const Hero = () => {
 
             <div className="space-y-3">
               <div className="rounded-2xl border border-cat-mauve/20 bg-gradient-to-br from-cat-mauve/5 to-transparent p-5">
-                <p className={cn(typography.mutedSmall, 'mb-2')}>When you want to start:</p>
+                <p className={cn(typography.mutedSmall, 'mb-2')}>When interrupted:</p>
                 <code className={cn(typography.code, 'block text-cat-teal')}>
-                  p. I want to add dark mode
+                  p. meeting in 5, pause this
                 </code>
                 <p className={cn(typography.mutedSmall, 'mt-3 text-cat-overlay0')}>
-                  → Claude analyzes, breaks down tasks, starts working
+                  <span className="text-cat-green font-semibold">NEW!</span> → Pauses task, preserves context
                 </p>
               </div>
 
               <div className="rounded-2xl border border-cat-green/20 bg-gradient-to-br from-cat-green/5 to-transparent p-5">
-                <p className={cn(typography.mutedSmall, 'mb-2')}>When you're done:</p>
-                <code className={cn(typography.code, 'block text-cat-teal')}>p. I'm done</code>
+                <p className={cn(typography.mutedSmall, 'mb-2')}>When you return:</p>
+                <code className={cn(typography.code, 'block text-cat-teal')}>p. I'm back, continue</code>
                 <p className={cn(typography.mutedSmall, 'mt-3 text-cat-overlay0')}>
-                  → Marks complete, moves to next, tracks progress
+                  <span className="text-cat-green font-semibold">NEW!</span> → Resume exactly where you left off
                 </p>
               </div>
 
               <div className="rounded-2xl border border-cat-peach/20 bg-gradient-to-br from-cat-peach/5 to-transparent p-5">
-                <p className={cn(typography.mutedSmall, 'mb-2')}>When you're lost:</p>
-                <code className={cn(typography.code, 'block text-cat-teal')}>p. help</code>
+                <p className={cn(typography.mutedSmall, 'mb-2')}>Turn idea into architecture:</p>
+                <code className={cn(typography.code, 'block text-cat-teal')}>p. build a SaaS dashboard</code>
                 <p className={cn(typography.mutedSmall, 'mt-3 text-cat-overlay0')}>
-                  → Contextual guide adapts to your current state
+                  <span className="text-cat-green font-semibold">NEW!</span> → Full tech stack, APIs, roadmap
                 </p>
               </div>
             </div>
@@ -165,39 +178,39 @@ export const Hero = () => {
         <div className="grid grid-cols-2 gap-6 md:grid-cols-4 md:gap-8">
           <div className="text-center">
             <div className="mb-4">
+              <div className="text-4xl font-bold">⏸️</div>
+            </div>
+            <h3 className={cn(typography.cardTitleSmall, spacing.elementMarginSmall)}>
+              Pause/Resume
+            </h3>
+            <p className={typography.muted}>Handle interruptions without losing context</p>
+          </div>
+          <div className="text-center">
+            <div className="mb-4">
+              <div className="text-4xl font-bold">🧠</div>
+            </div>
+            <h3 className={cn(typography.cardTitleSmall, spacing.elementMarginSmall)}>
+              Intelligent Ideas
+            </h3>
+            <p className={typography.muted}>Ideas → Complete architectures</p>
+          </div>
+          <div className="text-center">
+            <div className="mb-4">
               <div className="text-4xl font-bold">🤖</div>
             </div>
             <h3 className={cn(typography.cardTitleSmall, spacing.elementMarginSmall)}>
-              Dynamic AI Agents
+              Dynamic Agents
             </h3>
-            <p className={typography.muted}>Coordinator, Frontend, Backend, UX, QA, Scribe+</p>
-          </div>
-          <div className="text-center">
-            <div className="mb-4">
-              <div className="text-4xl font-bold">🔗</div>
-            </div>
-            <h3 className={cn(typography.cardTitleSmall, spacing.elementMarginSmall)}>
-              Native MCP
-            </h3>
-            <p className={typography.muted}>Context7, Sequential, Magic, Playwright</p>
-          </div>
-          <div className="text-center">
-            <div className="mb-4">
-              <div className="text-4xl font-bold">✅</div>
-            </div>
-            <h3 className={cn(typography.cardTitleSmall, spacing.elementMarginSmall)}>
-              Git Validation
-            </h3>
-            <p className={typography.muted}>Last commit = source of truth</p>
+            <p className={typography.muted}>Auto-generates for your stack</p>
           </div>
           <div className="text-center">
             <div className="mb-4">
               <div className="text-4xl font-bold">💬</div>
             </div>
             <h3 className={cn(typography.cardTitleSmall, spacing.elementMarginSmall)}>
-              p. Trigger
+              Natural Language
             </h3>
-            <p className={typography.muted}>"p. I'm done" → /p:done (zero memorization)</p>
+            <p className={typography.muted}>Just talk, works in any language</p>
           </div>
         </div>
       </motion.div>

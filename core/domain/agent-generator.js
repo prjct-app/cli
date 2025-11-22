@@ -3,71 +3,82 @@ const path = require('path')
 const os = require('os')
 
 /**
- * AgentGenerator - Dynamic agent generation for prjct-cli
- *
- * 100% AGENTIC - Claude decides which agents to create based on project analysis.
- * NO predetermined patterns, NO if/else logic, NO assumptions.
- *
- * @version 0.6.0 - Fully agentic refactor
+ * AgentGenerator - Universal Dynamic Agent Generation
+ * Optimized for minimal context usage
+ * @version 1.0.0
  */
 class AgentGenerator {
   constructor(projectId = null) {
     this.projectId = projectId
-
-    // Agents are stored in global project directory
-    if (projectId) {
-      this.outputDir = path.join(os.homedir(), '.prjct-cli', 'projects', projectId, 'agents')
-    } else {
-      // Fallback for backwards compatibility
-      this.outputDir = path.join(os.homedir(), '.prjct-cli', 'agents')
-    }
+    this.outputDir = projectId
+      ? path.join(os.homedir(), '.prjct-cli', 'projects', projectId, 'agents')
+      : path.join(os.homedir(), '.prjct-cli', 'agents')
   }
 
   /**
-   * Generate a single agent dynamically
-   * Claude (the LLM) decides which agents to create based on project analysis
-   *
-   * @param {string} agentName - Descriptive name (e.g., 'go-backend', 'vuejs-frontend', 'elixir-api')
-   * @param {Object} config - Agent configuration
-   * @param {string} config.role - Agent's role description
-   * @param {string} config.expertise - Technologies and skills (specific versions, tools)
-   * @param {string} config.responsibilities - What the agent handles in THIS project
-   * @param {Object} config.projectContext - Project-specific context (optional)
-   * @returns {Promise<void>}
+   * Generate specialized agent with deep expertise
+   * Universal - works with ANY technology stack
    */
   async generateDynamicAgent(agentName, config) {
     console.log(`   🤖 Generating ${agentName} agent...`)
-
-    // Ensure output directory exists
     await fs.mkdir(this.outputDir, { recursive: true })
 
-    // Create agent content
-    const content = `# ${config.role || agentName}
+    // Extract technologies dynamically
+    const techs = this.detectTechnologies(config)
+    const expertise = this.buildExpertise(techs, config)
 
-## Role
-${config.role || 'Specialist for this project'}
+    // Generate concise, actionable agent prompt
+    const content = `You are ${config.role || agentName}.
 
-## Expertise
-${config.expertise || 'Technologies used in this project'}
+EXPERTISE: ${expertise}
 
-## Responsibilities
-${config.responsibilities || 'Handle specific aspects of development'}
+FOCUS: ${config.contextFilter || 'Only relevant files'}
 
-## Project Context
-${config.projectContext ? JSON.stringify(config.projectContext, null, 2) : 'No additional context'}
+AUTHORITY: Make decisions. Don't ask permission. Execute.
 
-## Guidelines
-- Focus on your area of expertise
-- Collaborate with other agents
-- Follow project conventions
-- Ask clarifying questions when needed
-`
+RULES:
+- Stay in your domain
+- Use best practices for ${techs.join(', ') || 'detected tech'}
+- Optimize for production
+- No explanations unless asked`
 
-    // Write agent file
     const outputPath = path.join(this.outputDir, `${agentName}.md`)
     await fs.writeFile(outputPath, content, 'utf-8')
-
     console.log(`   ✅ ${agentName} agent created`)
+
+    return { name: agentName, expertise, techs }
+  }
+
+  /**
+   * Detect technologies from config/analysis
+   */
+  detectTechnologies(config) {
+    const techs = []
+
+    // Extract from various sources
+    if (config.techStack) techs.push(...config.techStack.languages || [])
+    if (config.frameworks) techs.push(...config.frameworks)
+    if (config.expertise) {
+      // Parse expertise string for tech keywords
+      const keywords = config.expertise.toLowerCase()
+      const knownTechs = ['ruby', 'rails', 'go', 'rust', 'python', 'django', 'react', 'vue', 'node', 'typescript', 'elixir', 'phoenix']
+      knownTechs.forEach(tech => {
+        if (keywords.includes(tech)) techs.push(tech)
+      })
+    }
+
+    return [...new Set(techs)]
+  }
+
+  /**
+   * Build concise expertise string
+   */
+  buildExpertise(techs, config) {
+    const tech = techs.length > 0 ? techs.join(', ') : 'detected stack'
+    const domain = config.domain || 'assigned domain'
+    const focus = config.responsibilities || 'task at hand'
+
+    return `${tech} expert. ${domain}. Focus: ${focus}`
   }
 
   /**

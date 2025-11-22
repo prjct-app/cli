@@ -120,9 +120,15 @@ export const Commands = () => {
           </div>
           <h1 className="mb-6 text-5xl font-bold md:text-6xl">All prjct Commands</h1>
           <p className="mx-auto mb-4 max-w-2xl text-xl text-muted-foreground">
+            Simplified to {registry.getStats().core} essential commands •
             {registry.getStats().implemented} implemented / {registry.getStats().total} total
-            commands, built for Claude Code
           </p>
+          <div className="mx-auto max-w-2xl">
+            <span className="inline-flex items-center gap-2 rounded-full bg-cat-green/20 px-3 py-1 text-sm font-medium text-cat-green">
+              <Sparkles className="h-3 w-3" />
+              v0.9.0: Now with pause/resume &amp; intelligent architecture from ideas
+            </span>
+          </div>
 
           {/* Natural Language Callout */}
           <motion.div
@@ -196,79 +202,117 @@ export const Commands = () => {
               <div className="rounded-xl bg-primary p-3">
                 <Sparkles className="h-6 w-6 text-primary-foreground" />
               </div>
-              <h2 className="text-3xl font-bold">🎯 Start Here - No Memorization Needed</h2>
+              <h2 className="text-3xl font-bold">🚀 Start Here - Essential Workflow (v0.9.0)</h2>
             </div>
             <p className="mb-8 text-lg text-muted-foreground">
-              You only need these 3 commands. Everything else? Just talk naturally.
+              Just 5 commands for your entire workflow. Handle interruptions, ship features, never lose context.
             </p>
+
+            {/* Core Workflow Commands */}
+            <div className="mb-8">
+              <h3 className="mb-4 text-lg font-semibold">Core Daily Workflow:</h3>
+              <div className="grid gap-4 md:grid-cols-5">
+                <div className="rounded-xl border border-cat-green/30 bg-gradient-to-br from-cat-green/10 to-transparent p-4">
+                  <code className="mb-2 block text-sm font-bold text-cat-green">/p:work</code>
+                  <p className="text-xs text-muted-foreground">Start or show current task</p>
+                </div>
+                <div className="rounded-xl border border-cat-mauve/30 bg-gradient-to-br from-cat-mauve/10 to-transparent p-4">
+                  <code className="mb-2 block text-sm font-bold text-cat-mauve">/p:pause</code>
+                  <p className="text-xs text-muted-foreground">Handle interruptions</p>
+                </div>
+                <div className="rounded-xl border border-cat-blue/30 bg-gradient-to-br from-cat-blue/10 to-transparent p-4">
+                  <code className="mb-2 block text-sm font-bold text-cat-blue">/p:resume</code>
+                  <p className="text-xs text-muted-foreground">Continue paused task</p>
+                </div>
+                <div className="rounded-xl border border-cat-peach/30 bg-gradient-to-br from-cat-peach/10 to-transparent p-4">
+                  <code className="mb-2 block text-sm font-bold text-cat-peach">/p:done</code>
+                  <p className="text-xs text-muted-foreground">Complete current task</p>
+                </div>
+                <div className="rounded-xl border border-cat-red/30 bg-gradient-to-br from-cat-red/10 to-transparent p-4">
+                  <code className="mb-2 block text-sm font-bold text-cat-red">/p:ship</code>
+                  <p className="text-xs text-muted-foreground">Ship &amp; celebrate</p>
+                </div>
+              </div>
+            </div>
 
             <div className="grid gap-6 md:grid-cols-3">
               <div className="rounded-2xl border border-cat-mauve/30 bg-gradient-to-br from-cat-mauve/10 to-transparent p-6">
                 <div className="mb-3 flex items-center gap-2">
                   <HelpCircle className="h-5 w-5 text-cat-mauve" />
-                  <h3 className="font-semibold text-foreground">I need help</h3>
+                  <h3 className="font-semibold text-foreground">Turn Ideas into Architecture</h3>
                 </div>
                 <code className="mb-3 block rounded-lg bg-black/30 px-3 py-2 text-sm text-cat-teal">
-                  /p:help
+                  /p:idea "build a CRM"
                 </code>
                 <p className="text-sm text-muted-foreground">
-                  Contextual guide that adapts to your project state. Different help for different
-                  situations.
+                  <span className="font-semibold text-cat-green">NEW!</span> Transforms simple ideas into complete technical architectures with tech stack, APIs, and roadmap.
                 </p>
               </div>
 
               <div className="rounded-2xl border border-cat-green/30 bg-gradient-to-br from-cat-green/10 to-transparent p-6">
                 <div className="mb-3 flex items-center gap-2">
-                  <Lightbulb className="h-5 w-5 text-cat-green" />
-                  <h3 className="font-semibold text-foreground">I want to...</h3>
+                  <BarChart3 className="h-5 w-5 text-cat-green" />
+                  <h3 className="font-semibold text-foreground">Unified Dashboard</h3>
                 </div>
                 <code className="mb-3 block rounded-lg bg-black/30 px-3 py-2 text-sm text-cat-teal">
-                  /p:ask "what you want"
+                  /p:dash
                 </code>
                 <p className="text-sm text-muted-foreground">
-                  Translates your intent into action. Explains each step. Works in any language.
+                  <span className="font-semibold text-cat-green">NEW!</span> All your status, progress, and roadmap in one view. Multiple display modes.
                 </p>
               </div>
 
               <div className="rounded-2xl border border-cat-peach/30 bg-gradient-to-br from-cat-peach/10 to-transparent p-6">
                 <div className="mb-3 flex items-center gap-2">
                   <Target className="h-5 w-5 text-cat-peach" />
-                  <h3 className="font-semibold text-foreground">What should I do?</h3>
+                  <h3 className="font-semibold text-foreground">Contextual Help</h3>
                 </div>
                 <code className="mb-3 block rounded-lg bg-black/30 px-3 py-2 text-sm text-cat-teal">
-                  /p:suggest
+                  /p:help
                 </code>
                 <p className="text-sm text-muted-foreground">
-                  Smart recommendations based on your momentum, queue, and recent activity.
+                  Intelligent guide that adapts to your current state. Shows different help based on context.
                 </p>
               </div>
             </div>
 
             <div className="mt-8 rounded-2xl bg-muted/30 p-6">
               <p className="mb-3 text-sm font-semibold text-foreground">
-                💬 Or just talk naturally:
+                💬 Or just talk naturally (works in any language):
               </p>
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="flex items-start gap-2">
                   <span className="text-primary">→</span>
                   <code className="flex-1 text-sm text-muted-foreground">
-                    "p. I want to optimize performance"
+                    "p. someone's calling, pause this"
                   </code>
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="text-primary">→</span>
-                  <code className="flex-1 text-sm text-muted-foreground">"p. I'm done"</code>
+                  <code className="flex-1 text-sm text-muted-foreground">"p. I'm back, let's continue"</code>
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="text-primary">→</span>
                   <code className="flex-1 text-sm text-muted-foreground">
-                    "p. what should I work on?"
+                    "p. build a SaaS dashboard"
                   </code>
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="text-primary">→</span>
                   <code className="flex-1 text-sm text-muted-foreground">
-                    "p. ship this feature"
+                    "p. show me the dashboard"
+                  </code>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-primary">→</span>
+                  <code className="flex-1 text-sm text-muted-foreground">
+                    "p. I'm done with this task"
+                  </code>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-primary">→</span>
+                  <code className="flex-1 text-sm text-muted-foreground">
+                    "p. ship the auth feature"
                   </code>
                 </div>
               </div>

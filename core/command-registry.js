@@ -8,7 +8,7 @@
  * - CLAUDE.md (AI assistant instructions)
  * - scripts/validate-commands.js (validation)
  *
- * @version 0.8.0 - Conversational interface with zero memorization
+ * @version 0.9.0 - Simplified commands with pause/resume and intelligent idea development
  */
 
 const COMMANDS = [
@@ -38,7 +38,33 @@ const COMMANDS = [
     ],
   },
 
-  // 2. Feature with Roadmap (NEW - replaces idea)
+  // 2. Idea Development - Transform ideas into complete architectures
+  {
+    name: 'idea',
+    category: 'core',
+    description: 'Transform ideas into complete technical architectures',
+    usage: {
+      claude: '/p:idea "build a CRM with AI"',
+      terminal: 'prjct idea "build a CRM with AI"',
+    },
+    params: '<description>',
+    implemented: true,
+    hasTemplate: true,
+    icon: 'Lightbulb',
+    requiresInit: true,
+    blockingRules: null,
+    features: [
+      'Simple ideas → Quick capture',
+      'Complex ideas → Full architecture',
+      'Interactive discovery process',
+      'Tech stack recommendation',
+      'Complete roadmap generation',
+      'Database schema design',
+      'API specification',
+    ],
+  },
+
+  // 3. Feature with Roadmap
   {
     name: 'feature',
     category: 'core',
@@ -62,113 +88,79 @@ const COMMANDS = [
     ],
   },
 
-  // DEPRECATED: Use /p:feature instead
+  // 4. Work - Unified task management (replaces now + build)
   {
-    name: 'idea',
-    category: 'deprecated',
-    description: '[DEPRECATED] Use /p:feature instead',
-    usage: {
-      claude: null,
-      terminal: null,
-    },
-    params: '<text>',
-    implemented: false,
-    hasTemplate: true,
-    icon: 'Lightbulb',
-    requiresInit: true,
-    blockingRules: null,
-    deprecated: true,
-    replacedBy: 'feature',
-  },
-
-  // 3. Strategic Roadmap
-  {
-    name: 'roadmap',
+    name: 'work',
     category: 'core',
-    description: 'Strategic planning with ASCII logic maps',
+    description: 'Show current or start new task',
     usage: {
-      claude: '/p:roadmap',
-      terminal: 'prjct roadmap',
+      claude: '/p:work ["task"]',
+      terminal: 'prjct work ["task"]',
     },
-    params: null,
-    implemented: true,
-    hasTemplate: true,
-    icon: 'Map',
-    requiresInit: true,
-    blockingRules: null,
-    features: [
-      'ASCII logic maps (not mermaid)',
-      'Shows approved ideas',
-      'Implementation status',
-      'Dependencies visualization',
-    ],
-  },
-
-  // 4. Status Dashboard
-  {
-    name: 'status',
-    category: 'core',
-    description: 'KPI dashboard with ASCII graphics',
-    usage: {
-      claude: '/p:status',
-      terminal: 'prjct status',
-    },
-    params: null,
-    implemented: true,
-    hasTemplate: true,
-    icon: 'BarChart3',
-    requiresInit: true,
-    blockingRules: null,
-    features: [
-      'ASCII progress bars',
-      'Task completion metrics',
-      'Current focus display',
-      'Time tracking',
-      'Visual KPI dashboard',
-    ],
-  },
-
-  // 5. Current Task
-  {
-    name: 'now',
-    category: 'core',
-    description: 'Show current working task',
-    usage: {
-      claude: '/p:now',
-      terminal: 'prjct now',
-    },
-    params: null,
+    params: '[task]',
     implemented: true,
     hasTemplate: true,
     icon: 'Target',
     requiresInit: true,
     blockingRules: null,
+    features: [
+      'No params → Show current task',
+      'With task → Start new task',
+      'Auto agent assignment',
+      'Supports task numbers',
+      'Replaces /p:now and /p:build',
+    ],
   },
 
-  // 6. Build (Start Task)
+  // 5. Pause - Pause active task
   {
-    name: 'build',
+    name: 'pause',
     category: 'core',
-    description: 'Start task with agent assignment and tracking',
+    description: 'Pause active task to handle interruption',
     usage: {
-      claude: '/p:build "implement auth"',
-      terminal: 'prjct build "implement auth"',
+      claude: '/p:pause ["reason"]',
+      terminal: 'prjct pause ["reason"]',
     },
-    params: '<task> | [1-5]',
+    params: '[reason]',
+    implemented: true,
+    hasTemplate: true,
+    icon: 'Pause',
+    requiresInit: true,
+    blockingRules: {
+      check: 'Active task exists',
+      message: 'No active task to pause',
+    },
+    features: [
+      'Preserves task context',
+      'Optional pause reason',
+      'Tracks paused duration',
+      'Allows multiple paused tasks',
+    ],
+  },
+
+  // 6. Resume - Resume paused task
+  {
+    name: 'resume',
+    category: 'core',
+    description: 'Resume most recently paused task',
+    usage: {
+      claude: '/p:resume [task_id]',
+      terminal: 'prjct resume [task_id]',
+    },
+    params: '[task_id]',
     implemented: true,
     hasTemplate: true,
     icon: 'Play',
     requiresInit: true,
     blockingRules: {
-      check: 'now.md must be empty',
-      message: 'Complete current task with /p:done first',
+      check: 'Paused tasks exist',
+      message: 'No paused tasks to resume',
     },
     features: [
-      'Agent assignment (auto or manual)',
-      'GitHub dev tracking',
-      'Time estimation by complexity',
-      'Start time tracking',
-      'Moves to now.md with metadata',
+      'Resume last paused',
+      'Resume specific task',
+      'Resume by number',
+      'Calculates active time',
     ],
   },
 
@@ -267,97 +259,77 @@ const COMMANDS = [
     ],
   },
 
-  // 11. Ask - Intent to Action
+  // 11. Dashboard - Unified project view (replaces status, recap, progress, roadmap)
   {
-    name: 'ask',
+    name: 'dash',
     category: 'core',
-    description: 'Conversational intent to action translator',
+    description: 'Unified dashboard - status, progress, and roadmap',
     usage: {
-      claude: '/p:ask "what you want to do"',
-      terminal: 'prjct ask "what you want to do"',
+      claude: '/p:dash [view]',
+      terminal: 'prjct dash [view]',
     },
-    params: '<description>',
+    params: '[week|month|roadmap|compact]',
     implemented: true,
     hasTemplate: true,
-    icon: 'MessageCircle',
-    requiresInit: false, // Can work before init to guide setup
+    icon: 'BarChart3',
+    requiresInit: true,
     blockingRules: null,
     features: [
-      'Natural language understanding',
-      'Recommends command flow',
-      'Educational explanations',
-      'Interactive confirmation',
-      'Works in any language',
+      'Project overview',
+      'Weekly/monthly progress',
+      'Roadmap view',
+      'ASCII graphics',
+      'Replaces 4 commands',
     ],
   },
 
-  // 12. Suggest - Context-Aware Recommendations
+  // 12. Help - Enhanced contextual help (absorbs ask, suggest, stuck)
   {
-    name: 'suggest',
+    name: 'help',
     category: 'core',
-    description: 'Context-aware next steps suggestions',
+    description: 'Contextual help and guidance',
     usage: {
-      claude: '/p:suggest',
-      terminal: 'prjct suggest',
+      claude: '/p:help [topic]',
+      terminal: 'prjct help [topic]',
+    },
+    params: '[topic]',
+    implemented: true,
+    hasTemplate: true,
+    icon: 'HelpCircle',
+    requiresInit: false,
+    blockingRules: null,
+    features: [
+      'Context-aware suggestions',
+      'Intent to action translator',
+      'Problem solving guidance',
+      'Absorbs ask/suggest/stuck',
+    ],
+  },
+
+  // 13. Sync - Sync project state
+  {
+    name: 'sync',
+    category: 'core',
+    description: 'Sync project state and update workflow agents',
+    usage: {
+      claude: '/p:sync',
+      terminal: 'prjct sync',
     },
     params: null,
     implemented: true,
     hasTemplate: true,
-    icon: 'Lightbulb',
+    icon: 'RefreshCw',
     requiresInit: true,
     blockingRules: null,
     features: [
-      'Analyzes project state',
-      'Recommends actions',
-      'Urgency detection',
-      'Momentum tracking',
-      'Personalized suggestions',
-    ],
-  },
-
-  // 13. Architect Execute
-  {
-    name: 'architect',
-    category: 'core',
-    description: 'Execute architect plan and generate code',
-    usage: {
-      claude: '/p:architect execute',
-      terminal: 'prjct architect execute',
-    },
-    params: 'execute',
-    implemented: true,
-    hasTemplate: false,
-    icon: 'Hammer',
-    requiresInit: true,
-    blockingRules: null,
-    features: [
-      'Reads architect-session.md plan',
-      'Generates code structure',
-      'Uses Context7 for documentation',
-      'Language-agnostic implementation',
+      'Syncs project state',
+      'Updates dynamic agents',
+      'Refreshes context',
     ],
   },
 
   // ===== OPTIONAL COMMANDS (Advanced features) =====
 
-  // DEPRECATED: Workflow is now automatic in /p:ship
-  {
-    name: 'workflow',
-    category: 'deprecated',
-    description: '[DEPRECATED] Workflow is now automatic in /p:ship',
-    usage: {
-      claude: null,
-      terminal: null,
-    },
-    params: null,
-    implemented: false,
-    hasTemplate: true,
-    icon: 'GitBranch',
-    requiresInit: true,
-    blockingRules: null,
-    deprecated: true,
-    replacedBy: 'ship',
-  },
   {
     name: 'design',
     category: 'optional',
@@ -391,22 +363,6 @@ const COMMANDS = [
     isOptional: true,
   },
   {
-    name: 'stuck',
-    category: 'optional',
-    description: 'Get contextual help with problems',
-    usage: {
-      claude: '/p:stuck "CORS error in API calls"',
-      terminal: 'prjct stuck "CORS error in API calls"',
-    },
-    params: '<issue description>',
-    implemented: true,
-    hasTemplate: true,
-    icon: 'HelpCircle',
-    requiresInit: true,
-    blockingRules: null,
-    isOptional: true,
-  },
-  {
     name: 'analyze',
     category: 'optional',
     description: 'Analyze repository and sync tasks',
@@ -418,22 +374,6 @@ const COMMANDS = [
     implemented: true,
     hasTemplate: true,
     icon: 'Search',
-    requiresInit: true,
-    blockingRules: null,
-    isOptional: true,
-  },
-  {
-    name: 'sync',
-    category: 'optional',
-    description: 'Sync project state and update workflow agents',
-    usage: {
-      claude: '/p:sync',
-      terminal: 'prjct sync',
-    },
-    params: null,
-    implemented: true,
-    hasTemplate: true,
-    icon: 'RefreshCw',
     requiresInit: true,
     blockingRules: null,
     isOptional: true,
@@ -494,7 +434,7 @@ const CATEGORIES = {
   core: {
     title: 'Core Workflow',
     icon: 'Zap',
-    description: '13 essential commands for daily development workflow',
+    description: '13 essential commands for daily development workflow (simplified)',
     order: 1,
   },
   optional: {
