@@ -1,34 +1,17 @@
 ---
 allowed-tools: [Read, Write, Bash, TodoWrite]
-description: 'Sync project state and generate dynamic agents'
+description: 'Sync state + generate agents'
 ---
 
 # /p:sync
 
 ## Flow
+1. Execute `/p:analyze`
+2. Read `analysis/repo-summary.md`
+3. Generate agents per technology → `agents/`
+4. Log to memory
 
-1. Run: `/p:analyze` → get current state
-2. **Read**: `analysis/repo-summary.md`
-3. **Generate**: Dynamic agents for each technology
-4. Log: changes to `memory/context.jsonl`
-
-## Agent Generation
-
-**See `templates/agents/AGENTS.md` for complete reference** with examples and guidelines.
-
-Use `generator.generateDynamicAgent(name, config)` for each specialist.
+Use: `generateDynamicAgent(name, config)`
 
 ## Response
-
-```
-🔄 Sync complete!
-
-🤖 Agents Generated:
-• {agent_name_1} - {role}
-• {agent_name_2} - {role}
-
-📋 Based on: analysis/repo-summary.md
-💡 See templates/agents/AGENTS.md for generation reference
-
-/p:context
-```
+`🔄 Synced | Generated: {agents} | Next: /p:context`

@@ -1,30 +1,16 @@
 ---
 allowed-tools: [Read, Write]
-description: 'Complete task, clear focus'
+description: 'Complete task'
 ---
 
 # /p:done
 
-## Validation
-
-- Requires: `.prjct/prjct.config.json` exists
-- Requires: `core/now.md` has content
-- Else: "Not working on anything. Use /p:now or /p:next"
+## Check
+Requires: `core/now.md` has content
 
 ## Flow
-
-1. Read: `core/now.md` → calculate duration
-2. Clear: `core/now.md`
-3. Update: `progress/metrics.md`, `core/context.md`
-4. Log: `memory/context.jsonl`
+1. Read `core/now.md` → calculate duration
+2. Clear now.md → Update metrics → Log
 
 ## Response
-
-```
-✅ {task} ({duration})
-
-Next?
-• "start {task}" → work
-• "ship {feature}" → celebrate
-• /p:now | /p:ship
-```
+`✅ {task} ({duration}) | Next: /p:now or /p:ship`

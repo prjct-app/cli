@@ -1,45 +1,92 @@
 /**
  * Command Executor
- * Executes commands using templates - Claude decides everything
- * ZERO if/else business logic
+ * WITH MANDATORY AGENT ASSIGNMENT
+ * Every task MUST use a specialized agent
  */
 
 const templateLoader = require('./template-loader')
 const contextBuilder = require('./context-builder')
 const promptBuilder = require('./prompt-builder')
 const toolRegistry = require('./tool-registry')
+const MandatoryAgentRouter = require('./agent-router')
+const ContextFilter = require('./context-filter')
 
 class CommandExecutor {
+  constructor() {
+    this.agentRouter = new MandatoryAgentRouter()
+    this.contextFilter = new ContextFilter()
+  }
+
   /**
-   * Execute a command agentically
-   * @param {string} commandName - Command name (e.g., 'now', 'done')
-   * @param {Object} params - Command parameters
-   * @param {string} projectPath - Project path
-   * @returns {Promise<Object>} Execution result
+   * Execute command with MANDATORY agent assignment
    */
   async execute(commandName, params, projectPath) {
     try {
       // 1. Load template
       const template = await templateLoader.load(commandName)
 
-      // 2. Build context
-      const context = await contextBuilder.build(projectPath, params)
+      // 2. Build FULL context (before filtering)
+      const fullContext = await contextBuilder.build(projectPath, params)
 
-      // 3. Load current state
+      // 3. Check if command requires agent
+      const requiresAgent = template.metadata?.['required-agent'] ||
+                           this.isTaskCommand(commandName)
+
+      let context = fullContext
+      let assignedAgent = null
+
+      if (requiresAgent) {
+        // 4. MANDATORY: Assign specialized agent
+        const task = {
+          description: params.task || params.description || commandName,
+          type: commandName
+        }
+
+        const agentAssignment = await this.agentRouter.executeTask(
+          task,
+          fullContext,
+          projectPath
+        )
+
+        assignedAgent = agentAssignment.agent
+
+        // 5. Filter context for this specific agent (70-90% reduction)
+        const filtered = await this.contextFilter.filterForAgent(
+          assignedAgent,
+          task,
+          projectPath,
+          fullContext
+        )
+
+        context = {
+          ...filtered,
+          agent: assignedAgent,
+          originalSize: fullContext.files?.length || 0,
+          filteredSize: filtered.files?.length || 0,
+          reduction: filtered.metrics?.reductionPercent || 0
+        }
+      }
+
+      // 6. Load state with filtered context
       const state = await contextBuilder.loadState(context)
 
-      // 4. Build prompt for Claude
-      const prompt = promptBuilder.build(template, context, state)
+      // 7. Build prompt with agent assignment
+      const prompt = promptBuilder.build(template, context, state, assignedAgent)
 
-      // 5. Execute (in real implementation, this would call Claude)
-      // For now, we return structured data that Claude can work with
+      // 8. Log agent usage
+      if (assignedAgent) {
+        console.log(`🤖 Task assigned to: ${assignedAgent.name}`)
+        console.log(`📉 Context reduced by: ${context.reduction}%`)
+      }
+
       return {
         success: true,
         template,
         context,
         state,
         prompt,
-        // In production: result from Claude's execution
+        assignedAgent,
+        contextReduction: context.reduction
       }
     } catch (error) {
       return {
@@ -47,6 +94,14 @@ class CommandExecutor {
         error: error.message,
       }
     }
+  }
+
+  /**
+   * Check if command is task-related
+   */
+  isTaskCommand(commandName) {
+    const taskCommands = ['work', 'now', 'build', 'feature', 'bug', 'done']
+    return taskCommands.includes(commandName)
   }
 
   /**

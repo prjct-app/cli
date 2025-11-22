@@ -8,65 +8,61 @@
  * - CLAUDE.md (AI assistant instructions)
  * - scripts/validate-commands.js (validation)
  *
- * @version 0.8.0 - Conversational interface with zero memorization
+ * @version 0.9.0 - Simplified commands with pause/resume and intelligent idea development
  */
 
 const COMMANDS = [
-  // ===== WORK COMMANDS =====
+  // ===== CORE WORKFLOW COMMANDS (13 essential) =====
+
+  // 1. Initialize
   {
-    name: 'now',
-    category: 'work',
-    description: 'Set or show current task',
+    name: 'init',
+    category: 'core',
+    description: 'Deep project analysis and initialization',
     usage: {
-      claude: '/p:now "implement authentication system"',
-      terminal: 'prjct now "implement authentication system"',
+      claude: '/p:init "[idea]"',
+      terminal: 'prjct init "[idea]"',
     },
-    params: '[task]',
+    params: '[idea]',
     implemented: true,
     hasTemplate: true,
-    icon: 'Target',
-  },
-  {
-    name: 'next',
-    category: 'work',
-    description: 'Show priority queue',
-    usage: {
-      claude: '/p:next',
-      terminal: 'prjct next',
-    },
-    params: null,
-    implemented: true,
-    hasTemplate: true,
-    icon: 'Target',
-  },
-  {
-    name: 'done',
-    category: 'work',
-    description: 'Complete current task',
-    usage: {
-      claude: '/p:done',
-      terminal: 'prjct done',
-    },
-    params: null,
-    implemented: true,
-    hasTemplate: true,
-    icon: 'Target',
-  },
-  {
-    name: 'ship',
-    category: 'work',
-    description: 'Complete workflow: lint, test, docs, version, changelog, commit, push',
-    usage: {
-      claude: '/p:ship "user authentication"',
-      terminal: 'prjct ship "user authentication"',
-    },
-    params: '<feature>',
-    implemented: true,
-    hasTemplate: true,
-    icon: 'Rocket',
+    icon: 'Zap',
+    requiresInit: false,
+    features: [
+      'Architect mode for blank projects',
+      'Auto tech stack recommendation',
+      'Project structure generation',
+      'Initial roadmap creation',
+      'Analyzes existing codebases',
+    ],
   },
 
-  // ===== CORE WORKFLOW COMMANDS =====
+  // 2. Idea Development - Transform ideas into complete architectures
+  {
+    name: 'idea',
+    category: 'core',
+    description: 'Transform ideas into complete technical architectures',
+    usage: {
+      claude: '/p:idea "build a CRM with AI"',
+      terminal: 'prjct idea "build a CRM with AI"',
+    },
+    params: '<description>',
+    implemented: true,
+    hasTemplate: true,
+    icon: 'Lightbulb',
+    requiresInit: true,
+    features: [
+      'Simple ideas → Quick capture',
+      'Complex ideas → Full architecture',
+      'Interactive discovery process',
+      'Tech stack recommendation',
+      'Complete roadmap generation',
+      'Database schema design',
+      'API specification',
+    ],
+  },
+
+  // 3. Feature with Roadmap
   {
     name: 'feature',
     category: 'core',
@@ -78,149 +74,218 @@ const COMMANDS = [
     params: '<description>',
     implemented: true,
     hasTemplate: true,
-    icon: 'Lightbulb',
+    icon: 'Package',
+    requiresInit: true,
+    features: [
+      'Value analysis (impact/effort/timing)',
+      'Auto roadmap generation',
+      'Task breakdown',
+      'Auto-start first task',
+      'Timing recommendations',
+    ],
   },
 
-  // ===== DESIGN & ARCHITECTURE =====
+  // 4. Work - Unified task management (replaces now + build)
   {
-    name: 'design',
-    category: 'design',
-    description: 'Design system architecture, APIs, and component interfaces',
+    name: 'work',
+    category: 'core',
+    description: 'Show current or start new task',
     usage: {
-      claude: '/p:design authentication --type architecture',
-      terminal: 'prjct design authentication --type architecture',
+      claude: '/p:work ["task"]',
+      terminal: 'prjct work ["task"]',
     },
-    params: '[target] --type architecture|api|component|database|flow',
+    params: '[task]',
     implemented: true,
     hasTemplate: true,
-    icon: 'Palette',
+    icon: 'Target',
+    requiresInit: true,
+    features: [
+      'No params → Show current task',
+      'With task → Start new task',
+      'Auto agent assignment',
+      'Supports task numbers',
+      'Replaces /p:now and /p:build',
+    ],
   },
 
-  // ===== CODE QUALITY =====
+  // 5. Pause - Pause active task
   {
-    name: 'cleanup',
-    category: 'quality',
-    description: 'Clean up temp files and old entries',
+    name: 'pause',
+    category: 'core',
+    description: 'Pause active task to handle interruption',
     usage: {
-      claude: '/p:cleanup',
-      terminal: 'prjct cleanup',
+      claude: '/p:pause ["reason"]',
+      terminal: 'prjct pause ["reason"]',
+    },
+    params: '[reason]',
+    implemented: true,
+    hasTemplate: true,
+    icon: 'Pause',
+    requiresInit: true,
+    features: [
+      'Preserves task context',
+      'Optional pause reason',
+      'Tracks paused duration',
+      'Allows multiple paused tasks',
+    ],
+  },
+
+  // 6. Resume - Resume paused task
+  {
+    name: 'resume',
+    category: 'core',
+    description: 'Resume most recently paused task',
+    usage: {
+      claude: '/p:resume [task_id]',
+      terminal: 'prjct resume [task_id]',
+    },
+    params: '[task_id]',
+    implemented: true,
+    hasTemplate: true,
+    icon: 'Play',
+    requiresInit: true,
+    features: [
+      'Resume last paused',
+      'Resume specific task',
+      'Resume by number',
+      'Calculates active time',
+    ],
+  },
+
+  // 7. Next Tasks
+  {
+    name: 'next',
+    category: 'core',
+    description: 'Show top 5 non-blocking priority tasks',
+    usage: {
+      claude: '/p:next',
+      terminal: 'prjct next',
     },
     params: null,
     implemented: true,
     hasTemplate: true,
-    icon: 'Zap',
-  },
-  {
-    name: 'cleanup-advanced',
-    category: 'quality',
-    description: 'Remove dead code and unused imports',
-    usage: {
-      claude: '/p:cleanup --type code',
-      terminal: 'prjct cleanup --type code',
-    },
-    params: '--type code|imports|files|deps|all',
-    implemented: true,
-    hasTemplate: false,
-    icon: 'Zap',
+    icon: 'List',
+    requiresInit: true,
+    features: [
+      'Filters out blocked tasks',
+      'Shows top 5 by priority',
+      'Numbered 1-5 for quick selection',
+      'Warns if active task exists',
+    ],
   },
 
-  // ===== PROGRESS COMMANDS =====
+  // 8. Complete Task
   {
-    name: 'recap',
-    category: 'progress',
-    description: 'Show project overview with progress',
+    name: 'done',
+    category: 'core',
+    description: 'Mark current task as complete',
     usage: {
-      claude: '/p:recap',
-      terminal: 'prjct recap',
+      claude: '/p:done',
+      terminal: 'prjct done',
     },
     params: null,
+    implemented: true,
+    hasTemplate: true,
+    icon: 'CheckCircle',
+    requiresInit: true,
+  },
+
+  // 9. Ship Feature
+  {
+    name: 'ship',
+    category: 'core',
+    description: 'Commit, push, and celebrate shipped feature',
+    usage: {
+      claude: '/p:ship "user authentication"',
+      terminal: 'prjct ship "user authentication"',
+    },
+    params: '<feature>',
+    implemented: true,
+    hasTemplate: true,
+    icon: 'Rocket',
+    requiresInit: true,
+    features: [
+      'Lint checks (non-blocking)',
+      'Run tests (non-blocking)',
+      'Update docs',
+      'Update version',
+      'Update CHANGELOG',
+      'Git commit + push',
+      'Recommend compact',
+    ],
+  },
+
+  // 10. Bug Tracking
+  {
+    name: 'bug',
+    category: 'core',
+    description: 'Report and track bugs with priority',
+    usage: {
+      claude: '/p:bug "login button not working"',
+      terminal: 'prjct bug "login button not working"',
+    },
+    params: '<description>',
+    implemented: true,
+    hasTemplate: true,
+    icon: 'Bug',
+    requiresInit: true,
+    features: [
+      'Auto-detect severity (critical/high/medium/low)',
+      'Priority placement in next.md',
+      'Bug tracking in memory',
+      'Quick bug resolution workflow',
+    ],
+  },
+
+  // 11. Dashboard - Unified project view (replaces status, recap, progress, roadmap)
+  {
+    name: 'dash',
+    category: 'core',
+    description: 'Unified dashboard - status, progress, and roadmap',
+    usage: {
+      claude: '/p:dash [view]',
+      terminal: 'prjct dash [view]',
+    },
+    params: '[week|month|roadmap|compact]',
     implemented: true,
     hasTemplate: true,
     icon: 'BarChart3',
-  },
-  {
-    name: 'progress',
-    category: 'progress',
-    description: 'Show progress metrics for specified period',
-    usage: {
-      claude: '/p:progress week',
-      terminal: 'prjct progress week',
-    },
-    params: '[period]',
-    implemented: true,
-    hasTemplate: true,
-    icon: 'BarChart3',
-  },
-  {
-    name: 'context',
-    category: 'progress',
-    description: 'Show project context and recent activity',
-    usage: {
-      claude: '/p:context',
-      terminal: 'prjct context',
-    },
-    params: null,
-    implemented: true,
-    hasTemplate: true,
-    icon: 'BarChart3',
+    requiresInit: true,
+    features: [
+      'Project overview',
+      'Weekly/monthly progress',
+      'Roadmap view',
+      'ASCII graphics',
+      'Replaces 4 commands',
+    ],
   },
 
-  // ===== HELP COMMANDS =====
+  // 12. Help - Enhanced contextual help (absorbs ask, suggest, stuck)
   {
-    name: 'init',
-    category: 'help',
-    description: 'Initialize prjct (with architect mode for blank projects)',
+    name: 'help',
+    category: 'core',
+    description: 'Contextual help and guidance',
     usage: {
-      claude: '/p:init "[idea]"',
-      terminal: 'prjct init "[idea]"',
+      claude: '/p:help [topic]',
+      terminal: 'prjct help [topic]',
     },
-    params: '["idea"]',
-    implemented: true,
-    hasTemplate: true,
-    icon: 'Zap',
-  },
-  {
-    name: 'stuck',
-    category: 'help',
-    description: 'Get contextual help with problems',
-    usage: {
-      claude: '/p:stuck "CORS error in API calls"',
-      terminal: 'prjct stuck "CORS error in API calls"',
-    },
-    params: '<issue description>',
+    params: '[topic]',
     implemented: true,
     hasTemplate: true,
     icon: 'HelpCircle',
+    requiresInit: false,
+    features: [
+      'Context-aware suggestions',
+      'Intent to action translator',
+      'Problem solving guidance',
+      'Absorbs ask/suggest/stuck',
+    ],
   },
-  {
-    name: 'fix',
-    category: 'help',
-    description: 'Quick troubleshooting and automatic fixes',
-    usage: {
-      claude: '/p:fix "undefined is not a function"',
-      terminal: 'prjct fix "undefined is not a function"',
-    },
-    params: '[error]',
-    implemented: false,
-    hasTemplate: true,
-    icon: 'HelpCircle',
-  },
-  {
-    name: 'analyze',
-    category: 'help',
-    description: 'Analyze repository and sync tasks',
-    usage: {
-      claude: '/p:analyze',
-      terminal: 'prjct analyze',
-    },
-    params: null,
-    implemented: true,
-    hasTemplate: true,
-    icon: 'HelpCircle',
-  },
+
+  // 13. Sync - Sync project state
   {
     name: 'sync',
-    category: 'help',
+    category: 'core',
     description: 'Sync project state and update workflow agents',
     usage: {
       claude: '/p:sync',
@@ -229,53 +294,63 @@ const COMMANDS = [
     params: null,
     implemented: true,
     hasTemplate: true,
-    icon: 'HelpCircle',
-  },
-  {
-    name: 'help',
-    category: 'help',
-    description: 'Interactive guide - talk naturally, no memorization needed',
-    usage: {
-      claude: '/p:help',
-      terminal: 'prjct help',
-    },
-    params: null,
-    implemented: false,
-    hasTemplate: true,
-    icon: 'HelpCircle',
+    icon: 'RefreshCw',
+    requiresInit: true,
+    features: [
+      'Syncs project state',
+      'Updates dynamic agents',
+      'Refreshes context',
+    ],
   },
 
-  // ===== VERSION CONTROL =====
+  // ===== OPTIONAL COMMANDS (Advanced features) =====
   {
-    name: 'git',
-    category: 'git',
-    description: 'Smart git operations with context',
+    name: 'design',
+    category: 'optional',
+    description: 'Design system architecture, APIs, and components',
     usage: {
-      claude: '/p:git',
-      terminal: 'prjct git',
+      claude: '/p:design authentication --type architecture',
+      terminal: 'prjct design authentication --type architecture',
+    },
+    params: '[target] --type architecture|api|component|database|flow',
+    implemented: true,
+    hasTemplate: true,
+    icon: 'Palette',
+    requiresInit: true,
+    isOptional: true,
+  },
+  {
+    name: 'cleanup',
+    category: 'optional',
+    description: 'Clean up temp files, old entries, and unused code',
+    usage: {
+      claude: '/p:cleanup --type code|imports|files|deps|all',
+      terminal: 'prjct cleanup --type code|imports|files|deps|all',
+    },
+    params: '[--type code|imports|files|deps|all] [--dry-run]',
+    implemented: true,
+    hasTemplate: true,
+    icon: 'Trash2',
+    requiresInit: true,
+    isOptional: true,
+  },
+  {
+    name: 'analyze',
+    category: 'optional',
+    description: 'Analyze repository and sync tasks',
+    usage: {
+      claude: '/p:analyze',
+      terminal: 'prjct analyze',
     },
     params: null,
-    implemented: false,
+    implemented: true,
     hasTemplate: true,
-    icon: 'Github',
+    icon: 'Search',
+    requiresInit: true,
+    isOptional: true,
   },
 
-  // ===== TESTING =====
-  {
-    name: 'test',
-    category: 'testing',
-    description: 'Run tests and auto-fix simple failures',
-    usage: {
-      claude: '/p:test',
-      terminal: 'prjct test',
-    },
-    params: null,
-    implemented: false,
-    hasTemplate: true,
-    icon: 'Rocket',
-  },
-
-  // ===== SETUP COMMANDS =====
+  // ===== SETUP COMMANDS (Not part of daily workflow) =====
   {
     name: 'start',
     category: 'setup',
@@ -288,189 +363,60 @@ const COMMANDS = [
     implemented: true,
     hasTemplate: false,
     icon: 'Terminal',
+    requiresInit: false,
   },
   {
     name: 'setup',
     category: 'setup',
     description: 'Reconfigure editor installations',
     usage: {
-      claude: null,
+      claude: '/p:setup',
       terminal: 'prjct setup [--force] [--editor <name>]',
     },
     params: '[--force] [--editor <name>]',
     implemented: true,
-    hasTemplate: false,
-    icon: 'Terminal',
+    hasTemplate: true,
+    icon: 'Settings',
+    requiresInit: false,
   },
   {
     name: 'migrate-all',
     category: 'setup',
     description: 'Migrate all legacy projects',
     usage: {
-      claude: null,
+      claude: '/p:migrate-all',
       terminal: 'prjct migrate-all [--deep-scan] [--remove-legacy] [--dry-run]',
     },
     params: '[--deep-scan] [--remove-legacy] [--dry-run]',
     implemented: true,
-    hasTemplate: false,
-    icon: 'Terminal',
+    hasTemplate: true,
+    icon: 'Database',
+    requiresInit: false,
   },
-]
+];
 
 /**
  * Category metadata
  */
 const CATEGORIES = {
-  work: {
-    title: 'Work Commands',
-    icon: 'Target',
-    description: 'Core workflow commands for task management',
-  },
   core: {
     title: 'Core Workflow',
-    icon: 'Lightbulb',
-    description: 'Essential commands for the simplified workflow',
-  },
-  design: {
-    title: 'Design & Architecture',
-    icon: 'Palette',
-    description: 'System design and architecture planning',
-  },
-  quality: {
-    title: 'Code Quality',
     icon: 'Zap',
-    description: 'Code cleanup and quality improvements',
+    description: '13 essential commands for daily development workflow (simplified)',
+    order: 1,
   },
-  progress: {
-    title: 'Progress Commands',
-    icon: 'BarChart3',
-    description: 'Track progress and view metrics',
-  },
-  help: {
-    title: 'Help Commands',
-    icon: 'HelpCircle',
-    description: 'Setup, troubleshooting, and assistance',
-  },
-  git: {
-    title: 'Version Control',
-    icon: 'Github',
-    description: 'Git operations and version control',
-  },
-  testing: {
-    title: 'Testing',
-    icon: 'Rocket',
-    description: 'Test execution and validation',
+  optional: {
+    title: 'Optional Commands',
+    icon: 'Package',
+    description: 'Advanced features for specialized workflows',
+    order: 2,
   },
   setup: {
     title: 'Setup',
     icon: 'Terminal',
-    description: 'Installation and configuration',
+    description: 'Installation and configuration (not for daily use)',
+    order: 3,
   },
-}
+};
 
-/**
- * Helper functions
- */
-const registry = {
-  /**
-   * Get all commands
-   */
-  getAll: () => COMMANDS,
-
-  /**
-   * Get command by name
-   */
-  getByName: (name: string) => COMMANDS.find((c) => c.name === name),
-
-  /**
-   * Get commands by category
-   */
-  getByCategory: (category: string) => COMMANDS.filter((c) => c.category === category),
-
-  /**
-   * Get all implemented commands
-   */
-  getAllImplemented: () => COMMANDS.filter((c) => c.implemented),
-
-  /**
-   * Get all commands with templates
-   */
-  getAllWithTemplates: () => COMMANDS.filter((c) => c.hasTemplate),
-
-  /**
-   * Get commands available in Claude Code
-   */
-  getClaudeCommands: () => COMMANDS.filter((c) => c.usage.claude !== null),
-
-  /**
-   * Get commands available in terminal
-   */
-  getTerminalCommands: () => COMMANDS.filter((c) => c.usage.terminal !== null),
-
-  /**
-   * Get all categories
-   */
-  getCategories: () => CATEGORIES,
-
-  /**
-   * Get category metadata
-   */
-  getCategory: (category: string) => CATEGORIES[category as keyof typeof CATEGORIES],
-
-  /**
-   * Validate command registry
-   */
-  validate: () => {
-    const issues = []
-
-    // Check for duplicate names
-    const names = COMMANDS.map((c) => c.name)
-    const duplicates = names.filter((name, index) => names.indexOf(name) !== index)
-    if (duplicates.length > 0) {
-      issues.push(`Duplicate command names: ${duplicates.join(', ')}`)
-    }
-
-    // Check for commands with templates but not implemented
-    const notImplemented = COMMANDS.filter((c) => c.hasTemplate && !c.implemented)
-    if (notImplemented.length > 0) {
-      issues.push(
-        `Commands with templates but not implemented: ${notImplemented.map((c) => c.name).join(', ')}`
-      )
-    }
-
-    // Check for invalid categories
-    const validCategories = Object.keys(CATEGORIES)
-    const invalidCategories = COMMANDS.filter((c) => !validCategories.includes(c.category))
-    if (invalidCategories.length > 0) {
-      issues.push(
-        `Invalid categories: ${invalidCategories.map((c) => `${c.name}:${c.category}`).join(', ')}`
-      )
-    }
-
-    return {
-      valid: issues.length === 0,
-      issues,
-    }
-  },
-
-  /**
-   * Get statistics
-   */
-  getStats: () => ({
-    total: COMMANDS.length,
-    implemented: COMMANDS.filter((c) => c.implemented).length,
-    withTemplates: COMMANDS.filter((c) => c.hasTemplate).length,
-    claudeOnly: COMMANDS.filter((c) => c.usage.claude && !c.usage.terminal).length,
-    terminalOnly: COMMANDS.filter((c) => !c.usage.claude && c.usage.terminal).length,
-    both: COMMANDS.filter((c) => c.usage.claude && c.usage.terminal).length,
-    byCategory: Object.keys(CATEGORIES).reduce(
-      (acc, cat) => ({
-        ...acc,
-        [cat]: COMMANDS.filter((c) => c.category === cat).length,
-      }),
-      {}
-    ),
-  }),
-}
-
-export default registry
+export { COMMANDS, CATEGORIES };

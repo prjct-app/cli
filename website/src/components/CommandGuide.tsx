@@ -11,6 +11,8 @@ import {
   Zap,
   BookOpen,
   Terminal,
+  Pause,
+  Play,
   LucideIcon,
 } from 'lucide-react'
 import { typography, spacing, borders } from '../lib/typography-system'
@@ -49,9 +51,9 @@ const scenarios: Scenario[] = [
         output: '💡 Here\'s what you can do based on your current state...',
       },
       {
-        command: '/p:suggest',
-        description: 'Smart recommendations based on momentum',
-        output: '📊 Analysis: 5 tasks waiting → Suggests: /p:next',
+        command: '/p:dash',
+        description: 'See complete project overview',
+        output: '📊 Dashboard: Current task | Queue | Progress | Roadmap',
       },
     ],
   },
@@ -62,20 +64,20 @@ const scenarios: Scenario[] = [
     description: 'Have an idea but unsure which commands to use',
     commands: [
       {
-        command: 'p. I want to optimize performance',
-        description: 'Natural language - Claude understands intent',
-        output: '💡 Analyzing → /p:feature → Breakdown tasks → Auto-start',
+        command: 'p. I want to build a CRM',
+        description: 'Natural language - Develop complete architecture',
+        output: '🏗️ Generating: Tech stack | API specs | Database | Roadmap',
         preferred: true,
       },
       {
-        command: '/p:ask "improve performance"',
-        description: 'Intent to action translator with explanations',
-        output: '🎯 Recommended flow: /p:feature → /p:build → /p:done',
+        command: '/p:idea "build CRM with AI"',
+        description: 'Transform idea into complete technical architecture',
+        output: '📁 Created: planning/architectures/{id}/ with full specs',
       },
       {
-        command: '/p:suggest',
-        description: 'If you\'re completely lost',
-        output: '📊 Personalized next steps based on your context',
+        command: '/p:help ask: "optimize performance"',
+        description: 'Ask specific questions',
+        output: '🎯 Recommended flow: /p:feature → /p:work → /p:done',
       },
     ],
   },
@@ -97,9 +99,33 @@ const scenarios: Scenario[] = [
         output: '✨ Value: high | Tasks: 5 | Estimated: 4h',
       },
       {
-        command: '/p:now "implement dark mode"',
-        description: 'Start working without analysis',
-        output: '🎯 Current task set',
+        command: '/p:work "implement dark mode"',
+        description: 'Start working immediately',
+        output: '🎯 Task started | Agent: fe | Complexity: moderate',
+      },
+    ],
+  },
+  {
+    id: 'interrupted',
+    title: "I got interrupted and need to switch tasks",
+    icon: Pause,
+    description: 'Handle urgent tasks without losing context',
+    commands: [
+      {
+        command: 'p. pause',
+        description: 'Pause current task to handle interruption',
+        output: '⏸️ Paused: implement auth | Active time: 45m',
+        preferred: true,
+      },
+      {
+        command: '/p:pause "urgent bug"',
+        description: 'Pause with reason for context',
+        output: '⏸️ Paused: implement auth | Reason: urgent bug',
+      },
+      {
+        command: '/p:resume',
+        description: 'Resume where you left off',
+        output: '▶️ Resumed: implement auth | Paused for: 30m',
       },
     ],
   },
@@ -118,7 +144,7 @@ const scenarios: Scenario[] = [
       {
         command: '/p:done',
         description: 'Direct slash command',
-        output: '✅ Complete! Next: API integration',
+        output: '✅ Complete! Paused tasks: 2 | Next in queue: API',
       },
       {
         command: '/p:ship "authentication system"',
@@ -140,14 +166,14 @@ const scenarios: Scenario[] = [
         preferred: true,
       },
       {
-        command: '/p:stuck "CORS error in API"',
-        description: 'Direct command',
+        command: '/p:help stuck: "CORS error"',
+        description: 'Direct command with problem context',
         output: '💡 Solution: Add cors middleware\nnpm install cors',
       },
       {
-        command: '/p:fix "undefined is not a function"',
-        description: 'Auto-diagnose errors',
-        output: '🔧 Check: null/undefined before calling',
+        command: '/p:help',
+        description: 'General help based on context',
+        output: '📊 Detected: Error in console → Suggesting debugging steps',
       },
     ],
   },
@@ -158,39 +184,44 @@ const scenarios: Scenario[] = [
     description: 'How am I doing? What have I achieved?',
     commands: [
       {
-        command: 'p. show me my progress this week',
-        description: 'Natural language (any timeframe)',
-        output: '📈 Shipped: 7 | Velocity: 1.4/day | Trend: ↗️',
+        command: 'p. show me my progress',
+        description: 'Natural language - Full dashboard',
+        output: '📊 Sprint: 80% | Tasks: 12/15 | Last ship: 2d ago',
         preferred: true,
       },
       {
-        command: '/p:progress week',
-        description: 'Weekly metrics',
-        output: '📈 Shipped: 7 | Velocity: 1.4/day | Trend: ↗️',
+        command: '/p:dash',
+        description: 'Complete project dashboard',
+        output: '📊 Current | Queue | Progress | Roadmap | Metrics',
       },
       {
-        command: '/p:progress month',
-        description: 'Complete monthly view',
-        output: '📊 Features: 23 | Tasks: 87 | Ideas: 42',
+        command: '/p:dash week',
+        description: 'Weekly progress view',
+        output: '📈 Shipped: 7 | Velocity: 1.4/day | Trend: ↗️',
       },
     ],
   },
   {
-    id: 'git-commit',
-    title: 'I need to commit changes',
-    icon: GitBranch,
-    description: 'Save changes to git quickly',
+    id: 'whats-current',
+    title: 'What am I working on?',
+    icon: Play,
+    description: 'Check current task or start new work',
     commands: [
       {
-        command: 'p. commit these changes',
-        description: 'Natural language (smart context)',
-        output: '✅ feat: add payment system\n📝 3 files changed\n🌿 Ready for push',
+        command: 'p. what am I doing',
+        description: 'Natural language - Show current',
+        output: '🎯 implement auth | Started: 45m ago | Agent: be',
         preferred: true,
       },
       {
-        command: '/p:git',
-        description: 'Direct slash command',
-        output: '✅ feat: add payment system\n📝 3 files changed\n🌿 Ready for push',
+        command: '/p:work',
+        description: 'Show current task',
+        output: '🎯 implement auth | Active: 45m | Paused tasks: 2',
+      },
+      {
+        command: '/p:work "new feature"',
+        description: 'Start new task',
+        output: '🚀 Started: new feature | Previous task paused',
       },
     ],
   },
@@ -329,7 +360,7 @@ export const CommandGuide = () => {
             )}
           >
             <Terminal className="h-6 w-6" />
-            Quick Decision Matrix
+            Quick Decision Matrix (v0.9.0 - Simplified)
           </h3>
           <div className="overflow-x-auto">
             <table className={cn('w-full', typography.bodySmall)}>
@@ -345,25 +376,48 @@ export const CommandGuide = () => {
                   <td className="py-3 pr-4 font-semibold">I'm new/lost</td>
                   <td className={cn('py-3 pr-4 text-primary', typography.code)}>p. help</td>
                   <td className={cn('py-3 text-muted-foreground', typography.code)}>
-                    /p:help | /p:suggest
+                    /p:help | /p:dash
                   </td>
                 </tr>
                 <tr className="border-b bg-primary/5">
-                  <td className="py-3 pr-4 font-semibold">I want to... (but don't know how)</td>
+                  <td className="py-3 pr-4 font-semibold">I have an idea</td>
                   <td className={cn('py-3 pr-4 text-primary', typography.code)}>
-                    p. I want [intent]
+                    p. idea [description]
                   </td>
                   <td className={cn('py-3 text-muted-foreground', typography.code)}>
-                    /p:ask "[intent]"
+                    /p:idea "build CRM"
                   </td>
                 </tr>
                 <tr className="border-b">
-                  <td className="py-3 pr-4">I have a new feature</td>
+                  <td className="py-3 pr-4">What am I working on?</td>
                   <td className={cn('py-3 pr-4 text-primary', typography.code)}>
-                    p. add [feature]
+                    p. work
                   </td>
                   <td className={cn('py-3 text-muted-foreground', typography.code)}>
-                    /p:feature | /p:now
+                    /p:work
+                  </td>
+                </tr>
+                <tr className="border-b">
+                  <td className="py-3 pr-4">Start new task</td>
+                  <td className={cn('py-3 pr-4 text-primary', typography.code)}>
+                    p. work "task"
+                  </td>
+                  <td className={cn('py-3 text-muted-foreground', typography.code)}>
+                    /p:work "task" | /p:work 1
+                  </td>
+                </tr>
+                <tr className="border-b bg-primary/5">
+                  <td className="py-3 pr-4 font-semibold">Got interrupted</td>
+                  <td className={cn('py-3 pr-4 text-primary', typography.code)}>p. pause</td>
+                  <td className={cn('py-3 text-muted-foreground', typography.code)}>
+                    /p:pause "reason"
+                  </td>
+                </tr>
+                <tr className="border-b bg-primary/5">
+                  <td className="py-3 pr-4 font-semibold">Resume previous work</td>
+                  <td className={cn('py-3 pr-4 text-primary', typography.code)}>p. resume</td>
+                  <td className={cn('py-3 text-muted-foreground', typography.code)}>
+                    /p:resume | /p:resume 2
                   </td>
                 </tr>
                 <tr className="border-b">
@@ -374,10 +428,10 @@ export const CommandGuide = () => {
                   </td>
                 </tr>
                 <tr className="border-b">
-                  <td className="py-3 pr-4">Don't know what to do next</td>
-                  <td className={cn('py-3 pr-4 text-primary', typography.code)}>p. what next</td>
+                  <td className="py-3 pr-4">What's next?</td>
+                  <td className={cn('py-3 pr-4 text-primary', typography.code)}>p. next</td>
                   <td className={cn('py-3 text-muted-foreground', typography.code)}>
-                    /p:suggest | /p:next
+                    /p:next | /p:help
                   </td>
                 </tr>
                 <tr className="border-b">
@@ -385,26 +439,64 @@ export const CommandGuide = () => {
                   <td className={cn('py-3 pr-4 text-primary', typography.code)}>
                     p. stuck on [error]
                   </td>
-                  <td className={cn('py-3 text-muted-foreground', typography.code)}>/p:stuck</td>
+                  <td className={cn('py-3 text-muted-foreground', typography.code)}>
+                    /p:help stuck: "error"
+                  </td>
                 </tr>
                 <tr className="border-b">
                   <td className="py-3 pr-4">Ready to ship</td>
                   <td className={cn('py-3 pr-4 text-primary', typography.code)}>p. ship this</td>
                   <td className={cn('py-3 text-muted-foreground', typography.code)}>
-                    /p:ship [feature]
+                    /p:ship "feature"
                   </td>
                 </tr>
                 <tr>
-                  <td className="py-3 pr-4">Need metrics</td>
+                  <td className="py-3 pr-4">See progress</td>
                   <td className={cn('py-3 pr-4 text-primary', typography.code)}>
-                    p. show progress
+                    p. dashboard
                   </td>
                   <td className={cn('py-3 text-muted-foreground', typography.code)}>
-                    /p:progress | /p:recap
+                    /p:dash | /p:dash week
                   </td>
                 </tr>
               </tbody>
             </table>
+          </div>
+        </motion.div>
+
+        {/* New Features Highlight */}
+        <motion.div
+          {...animationPresets.standard}
+          className={cn('mt-12 bg-primary/5', borders.rounded, spacing.cardPaddingLarge)}
+        >
+          <h3 className={cn(typography.subsectionTitle, spacing.elementMarginLarge)}>
+            ✨ New in v0.9.0: Simplified & More Powerful
+          </h3>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div>
+              <h4 className={cn(typography.cardTitleSmall, 'text-primary')}>
+                🔄 Pause/Resume
+              </h4>
+              <p className={typography.mutedSmall}>
+                Handle interruptions naturally. Pause your work, deal with urgent tasks, then resume where you left off.
+              </p>
+            </div>
+            <div>
+              <h4 className={cn(typography.cardTitleSmall, 'text-primary')}>
+                🏗️ Intelligent Ideas
+              </h4>
+              <p className={typography.mutedSmall}>
+                Transform ideas into complete architectures with tech stack, API specs, and roadmap.
+              </p>
+            </div>
+            <div>
+              <h4 className={cn(typography.cardTitleSmall, 'text-primary')}>
+                📊 Unified Commands
+              </h4>
+              <p className={typography.mutedSmall}>
+                Fewer commands, more power. work = now+build, dash = 4 commands, help = 3 commands.
+              </p>
+            </div>
           </div>
         </motion.div>
 

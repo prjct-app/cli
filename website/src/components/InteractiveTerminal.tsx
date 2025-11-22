@@ -66,11 +66,11 @@ const workflows: Workflow[] = [
     emoji: '💼',
     steps: [
       {
-        command: '/p:recap',
-        description: 'Check overall status when starting',
+        command: '/p:dash',
+        description: 'Check unified dashboard when starting',
         output:
-          '📊 PROJECT RECAP\n━━━━━━━━━━━━━\n🎯 Current: authentication feature (task 2/4)\n📈 This week: 5 shipped\n📋 Next features: 2 in queue\n🔥 Velocity: 1.2 features/day',
-        tip: 'Start each day with /p:recap',
+          '📊 PROJECT DASHBOARD\n━━━━━━━━━━━━━\n🎯 Current: authentication feature (task 2/4)\n⏸️ Paused: 1 task\n📈 This week: 5 shipped\n📋 Next: 3 in queue\n🔥 Velocity: 1.2 features/day',
+        tip: 'Start each day with /p:dash',
       },
       {
         command: '/p:done',
@@ -99,10 +99,57 @@ const workflows: Workflow[] = [
         tip: '/p:ship runs complete workflow: lint, test, docs, version, commit, push',
       },
       {
-        command: '/p:progress',
-        description: "View today's progress",
+        command: '/p:dash week',
+        description: "View weekly progress",
         output:
-          "📈 Today's Progress:\n• Shipped: 1 major feature\n• Tasks completed: 4\n• Time focused: 4h 30m\n• Velocity trend: ↗️ improving\n• Week total: 6 features",
+          "📊 WEEKLY PROGRESS\n━━━━━━━━━━━━━━\n✅ Completed: 12 tasks\n🚀 Shipped: 6 features\n⏱️ Focus time: 28h 30m\n📈 Velocity: ↗️ improving\n⏸️ Interruptions: 3 pauses",
+      },
+    ],
+  },
+  {
+    id: 'interruptions',
+    title: 'Handle Interruptions (v0.9.0)',
+    description: 'New pause/resume system for real-world workflow',
+    emoji: '⏸️',
+    steps: [
+      {
+        command: '/p:work "implement API endpoint"',
+        description: 'Start working on a task',
+        output:
+          '🎯 Working on: implement API endpoint\nStarted: 2:30 PM\nAgent: backend-agent\n\nFocus on this task. Use /p:done when complete.',
+        tip: 'v0.9.0: /p:work replaces /p:now and /p:build',
+      },
+      {
+        command: '/p:pause "urgent meeting"',
+        description: 'Handle an interruption without losing context',
+        output:
+          '⏸️ Task paused: implement API endpoint\nReason: urgent meeting\nDuration worked: 45 minutes\n\n✅ Context preserved for later resumption',
+        tip: 'NEW in v0.9.0: Never lose context again',
+      },
+      {
+        command: '/p:work "quick bug fix"',
+        description: 'Start a different urgent task',
+        output:
+          '🎯 Working on: quick bug fix\nStarted: 3:15 PM\nAgent: qa-agent\n\n📋 Note: 1 task paused (implement API endpoint)',
+      },
+      {
+        command: '/p:done',
+        description: 'Complete the bug fix',
+        output:
+          '✅ Task complete: quick bug fix\nDuration: 20 minutes\n\n⏸️ You have 1 paused task. Use /p:resume to continue.',
+      },
+      {
+        command: '/p:resume',
+        description: 'Resume the paused task exactly where you left off',
+        output:
+          '▶️ Resumed: implement API endpoint\nPaused duration: 1 hour 5 minutes\nPrevious work: 45 minutes\n\n💡 Continuing from where you left off...',
+        tip: 'Resume maintains full context and timing',
+      },
+      {
+        command: '/p:done',
+        description: 'Complete the original task',
+        output:
+          '✅ Task complete: implement API endpoint\nTotal time: 2 hours 15 minutes\nActive time: 1 hour 10 minutes\n\n🎯 Ready for next task. Use /p:next to see priorities.',
       },
     ],
   },

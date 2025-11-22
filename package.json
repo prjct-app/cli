@@ -1,6 +1,6 @@
 {
   "name": "prjct-cli",
-  "version": "0.8.8",
+  "version": "0.9.1",
   "description": "Built for Claude - Ship fast, track progress, stay focused. Developer momentum tool for indie hackers.",
   "main": "core/index.js",
   "bin": {

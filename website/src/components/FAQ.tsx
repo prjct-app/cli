@@ -5,6 +5,11 @@ import { Section } from './ui'
 
 const faqs = [
   {
+    question: "What's new in v0.9.0?",
+    answer:
+      "MASSIVE simplification and real-world improvements:\n\n✨ SIMPLIFIED: 13 core commands (down from 23)\n✨ PAUSE/RESUME: Handle interruptions without losing context\n✨ INTELLIGENT IDEAS: /p:idea transforms simple ideas into complete architectures\n✨ UNIFIED COMMANDS: /p:work (replaces now+build), /p:dash (replaces 4 commands)\n✨ NATURAL LANGUAGE: Just talk - 'p. someone's calling, pause this'\n\nThe biggest update yet. Less rigid, more human, still ships fast.",
+  },
+  {
     question: 'Why Claude-only? What about Cursor/Windsurf?',
     answer:
       "By focusing 100% on Claude, we deliver features that would be IMPOSSIBLE with multi-platform support:\n\n1. Dynamic AI Agents (requires Claude's agent system)\n2. Native MCP Integration (Claude-native protocol)\n3. Git Validation (needs tight Claude integration)\n4. Natural Language (leverages Claude's understanding)\n5. 50-60% less code = faster features & bug fixes\n\nThis isn't a limitation - it's a strategic decision that makes prjct-cli better for developers who ship fast. Works with whatever Claude subscription you have (free tier or Pro) - no extra costs, tokens, or API keys to configure.",
@@ -12,7 +17,7 @@ const faqs = [
   {
     question: 'Is this a project management tool?',
     answer:
-      "NO. prjct-cli is a DEVELOPER MOMENTUM TOOL for indie hackers and small teams (2-5 devs).\n\nWhat it IS: Ship fast, track progress, stay focused, celebrate wins.\n\nWhat it's NOT: No Jira, no sprint planning, no story points, no burndown charts, no ceremonies, no meetings.\n\nPhilosophy: /p:feature → work → /p:done → /p:ship → celebrate. Just ship it, no BS.",
+      "NO. prjct-cli is a DEVELOPER MOMENTUM TOOL for indie hackers and small teams (2-5 devs).\n\nWhat it IS: Ship fast, track progress, stay focused, celebrate wins.\n\nWhat it's NOT: No Jira, no sprint planning, no story points, no burndown charts, no ceremonies, no meetings.\n\nv0.9.0 workflow (just 5 commands!):\n• /p:work - Start or show task\n• /p:pause - Handle interruptions\n• /p:resume - Continue task\n• /p:done - Complete task\n• /p:ship - Ship & celebrate\n\nJust ship it, no BS. Now simpler than ever.",
   },
   {
     question: "I prefer Cursor/Windsurf. Can't you add them back?",
@@ -22,7 +27,7 @@ const faqs = [
   {
     question: 'Can I work on multiple tasks simultaneously?',
     answer:
-      'NO by design. prjct enforces SINGLE FOCUS to maximize developer momentum. If you need to switch context, use /p:done first, then /p:now for the new task. This is intentional - multitasking kills productivity.',
+      'YES with v0.9.0! Use the new pause/resume system:\n\n• /p:pause - Pause current task (handles interruptions)\n• /p:resume - Continue where you left off\n• Multiple paused tasks supported\n• Never lose context again\n\nExample: Working on auth → meeting interruption → /p:pause "meeting" → later /p:resume → continue auth.\n\nYou still maintain SINGLE FOCUS (one active task), but now handle real-world interruptions gracefully.',
   },
   {
     question: "What's the difference between /p:done and /p:ship?",
@@ -42,7 +47,7 @@ const faqs = [
   {
     question: 'How do I migrate from Jira/Linear/Trello?',
     answer:
-      "You DON'T migrate. Start fresh:\n\n1. /p:init to initialize\n2. Edit roadmap.md with your current features\n3. /p:now for today's task\n4. Ship, don't plan\n\nprjct is anti-PM. Leave the ceremony behind, just ship.",
+      "You DON'T migrate. Start fresh:\n\n1. /p:init to initialize\n2. /p:idea for turning ideas into architectures\n3. /p:work to start your first task\n4. Ship, don't plan\n\nprjct is anti-PM. Leave the ceremony behind, just ship.",
   },
   {
     question: 'Can I use prjct without Claude?',
@@ -52,7 +57,7 @@ const faqs = [
   {
     question: 'What if I have many features to build?',
     answer:
-      'Use /p:feature for each one with automatic value analysis and task breakdown. Features are added to your roadmap with effort/impact analysis.\n\nThe system helps you prioritize: do now vs defer vs blocked. Review with /p:recap and start top priority with /p:feature. Designed for strategic planning, not just idea capture.',
+      'v0.9.0 introduces intelligent planning:\n\n• /p:idea "build a CRM" - Transforms ideas into COMPLETE technical architectures\n• /p:feature "add auth" - Value analysis + automatic task breakdown\n• /p:dash - Unified dashboard shows everything (replaces 4 old commands)\n\nThe new /p:idea is magical: it generates tech stack, API design, database schema, and roadmap from a simple description. Perfect for turning vague ideas into actionable plans.\n\nReview priorities with /p:next, start with /p:work. Strategic planning, simplified.',
   },
   {
     question: 'Can I customize commands or add new ones?',

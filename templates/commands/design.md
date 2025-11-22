@@ -1,38 +1,15 @@
 ---
 allowed-tools: [Read, Write]
-description: 'Design architecture and APIs'
+description: 'Design systems'
 ---
 
 # /p:design
 
-## Usage
-
-```
-/p:design [target] [--type architecture|api|component|database|flow]
-```
+## Types
+architecture | api | component | database | flow
 
 ## Flow
-
-1. Parse: target + type
-2. Generate: ASCII diagrams
-3. Create: specifications
-4. Save: `designs/{target}-{type}.md`
-
-## Types
-
-- **architecture**: System design, components, data flow
-- **api**: Endpoint specs, schemas, auth
-- **component**: Interfaces, props, state
-- **database**: Schema, relationships, indexes
-- **flow**: User journeys, workflows
+Parse → Generate ASCII diagrams → Specs → Save `designs/{target}-{type}.md`
 
 ## Response
-
-```
-🎨 Design complete!
-
-📐 {target} - {type}
-📄 Saved: designs/{target}-{type}.md
-
-/p:now "Implement {target}"
-```
+`🎨 {target} design | Saved: designs/{target}-{type}.md`

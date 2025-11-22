@@ -6,59 +6,69 @@
 
 class PromptBuilder {
   /**
-   * Build execution prompt for Claude
-   * @param {Object} template - Template from template-loader
-   * @param {Object} context - Context from context-builder
-   * @param {Object} state - Current state from context-builder
-   * @returns {string} Prompt for Claude
+   * Build concise prompt - only essentials
    */
-  build(template, context, state) {
+  build(template, context, state, agent = null) {
     const parts = []
 
-    // 1. Command instructions from template
-    parts.push('# Command Instructions\n')
-    parts.push(template.content)
-    parts.push('\n')
+    // Agent assignment (if applicable)
+    if (agent) {
+      parts.push(`AGENT: ${agent.name}\n`)
+      parts.push(`CONTEXT: ${context.filteredSize || 'all'} files (${context.reduction || 0}% reduced)\n\n`)
+    }
 
-    // 2. Allowed tools
+    // Core instruction (concise)
+    parts.push(`TASK: ${template.frontmatter.description}\n`)
+
+    // Tools (inline)
     if (template.frontmatter['allowed-tools']) {
-      parts.push('## Allowed Tools\n')
-      parts.push(`You can use: ${template.frontmatter['allowed-tools'].join(', ')}\n\n`)
+      parts.push(`TOOLS: ${template.frontmatter['allowed-tools'].join(', ')}\n`)
     }
 
-    // 3. Project context
-    parts.push('## Project Context\n')
-    parts.push(`- Project ID: ${context.projectId}\n`)
-    parts.push(`- Timestamp: ${context.timestamp}\n`)
-    parts.push('\n')
-
-    // 4. Current state (only non-null files)
-    parts.push('## Current State\n')
-    for (const [key, content] of Object.entries(state)) {
-      if (content && content.trim()) {
-        parts.push(`### ${key}\n`)
-        parts.push('```\n')
-        parts.push(content)
-        parts.push('\n```\n\n')
-      }
+    // Critical parameters only
+    if (context.params?.task || context.params?.description) {
+      parts.push(`INPUT: ${context.params.task || context.params.description}\n`)
     }
 
-    // 5. Command parameters
-    if (Object.keys(context.params).length > 0) {
-      parts.push('## Parameters\n')
-      for (const [key, value] of Object.entries(context.params)) {
-        parts.push(`- ${key}: ${value}\n`)
-      }
+    parts.push('\n---\n')
+
+    // Template (only the flow section, skip verbose explanations)
+    const flowMatch = template.content.match(/## Flow([\s\S]*?)(?=##|$)/)
+    if (flowMatch) {
+      parts.push(flowMatch[0])
+    } else {
+      // Fallback to full template if no flow section
+      parts.push(template.content)
+    }
+
+    // Current state (only if exists and relevant)
+    const relevantState = this.filterRelevantState(state)
+    if (relevantState) {
+      parts.push('\nSTATE:\n')
+      parts.push(relevantState)
       parts.push('\n')
     }
 
-    // 6. Final instruction
-    parts.push('## Execute\n')
-    parts.push('Based on the instructions above, execute the command.\n')
-    parts.push('Use ONLY the allowed tools.\n')
-    parts.push('Make decisions based on context - do not follow rigid if/else rules.\n')
+    // Simple execution directive
+    parts.push('\nEXECUTE: Follow flow. Use tools. Decide.\n')
 
     return parts.join('')
+  }
+
+  /**
+   * Filter only relevant state data
+   */
+  filterRelevantState(state) {
+    if (!state || Object.keys(state).length === 0) return null
+
+    const relevant = []
+    for (const [key, content] of Object.entries(state)) {
+      if (content && content.trim() && content.length < 500) {
+        relevant.push(`${key}: ${content.substring(0, 200)}`)
+      }
+    }
+
+    return relevant.length > 0 ? relevant.join('\n') : null
   }
 
   /**
