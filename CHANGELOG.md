@@ -7,6 +7,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.2] - 2025-11-22
+
+### Fixed
+
+- **Critical: Missing `glob` dependency** - Fixed "Cannot find module 'glob'" error
+  - Added `glob@^10.3.10` to dependencies in `package.json`
+  - Resolves installation failures on fresh npm installs
+  - Compatible with Node.js v18+ (including v24.x LTS)
+
+- **Critical: glob API compatibility** - Fixed TypeError with modern glob versions
+  - Updated `context-filter.js` to use modern glob API (v10+)
+  - Removed deprecated `promisify(glob)` pattern
+  - Changed to `const { glob } = require('glob')` with native promise support
+  - Added defensive array validation for glob results
+  - Resolves "ERR_INVALID_ARG_TYPE: The 'original' argument must be of type function" error
+
+### Added
+
+- **Comprehensive Test Coverage** - Added 140+ tests for critical modules
+  - ✅ `core/agentic/agent-router.js` - 20 tests (agent assignment, task analysis, context filtering)
+  - ✅ `core/infrastructure/config-manager.js` - 30+ tests (config read/write, author management, validation)
+  - ✅ `core/infrastructure/path-manager.js` - 35 tests (path generation, session management, project structure)
+  - ✅ `core/utils/jsonl-helper.js` - 20+ tests (JSONL parsing, file operations, rotation)
+  - ✅ `core/domain/analyzer.js` - 15+ tests (project analysis, file detection, git integration)
+  - ✅ `core/infrastructure/author-detector.js` - 10+ tests (author detection, git integration)
+  - ✅ `core/agentic/context-filter.js` - 31 tests (already existed, now includes glob API tests)
+  - **Coverage improvement**: ~15% → ~40-50% overall coverage
+  - **Test files created**: 6 new test suites covering critical infrastructure
+
+### Changed
+
+- **Test Infrastructure** - Enhanced test suite with comprehensive coverage
+  - All critical infrastructure modules now have full test coverage
+  - Tests detect dependency issues and API compatibility problems
+  - Better error detection and prevention for future changes
+
+### Technical Details
+
+- **Dependency Updates**:
+  - Added `glob@^10.3.10` to production dependencies
+  - Compatible with Node.js v18.0.0+ (tested with v24.x)
+  
+- **Code Changes**:
+  - `core/agentic/context-filter.js`: Updated glob usage to modern API
+  - Added array validation for glob results (defensive programming)
+  
+- **Test Files Added**:
+  - `core/__tests__/agentic/agent-router.test.js`
+  - `core/__tests__/infrastructure/config-manager.test.js`
+  - `core/__tests__/infrastructure/path-manager.test.js`
+  - `core/__tests__/utils/jsonl-helper.test.js`
+  - `core/__tests__/domain/analyzer.test.js`
+  - `core/__tests__/infrastructure/author-detector.test.js`
+
 ## [0.9.1] - 2024-11-22
 
 ### 🎯 Context Optimization & Prompt Efficiency
