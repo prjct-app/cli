@@ -6,7 +6,6 @@ import {
   CheckCircle,
   HelpCircle,
   BarChart3,
-  GitBranch,
   AlertCircle,
   Zap,
   BookOpen,
