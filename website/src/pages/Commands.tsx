@@ -16,7 +16,19 @@ import {
 } from 'lucide-react'
 
 // Import command registry - SINGLE SOURCE OF TRUTH
-import registry from '../data/command-registry'
+import { COMMANDS, CATEGORIES } from '../data/command-registry'
+
+// Create registry object with methods
+const registry = {
+  getCategories: () => CATEGORIES,
+  getByCategory: (categoryKey: string) =>
+    COMMANDS.filter(cmd => cmd.category === categoryKey),
+  getStats: () => ({
+    core: COMMANDS.filter(cmd => cmd.category === 'core').length,
+    implemented: COMMANDS.filter(cmd => cmd.implemented).length,
+    total: COMMANDS.length,
+  }),
+}
 
 // Types for command registry
 interface CommandUsage {
