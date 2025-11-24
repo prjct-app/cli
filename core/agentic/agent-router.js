@@ -10,12 +10,34 @@
 const fs = require('fs').promises;
 const path = require('path');
 const AgentGenerator = require('../domain/agent-generator');
+const configManager = require('../infrastructure/config-manager');
+const TaskAnalyzer = require('../domain/task-analyzer');
+const AgentMatcher = require('../domain/agent-matcher');
+const SmartCache = require('../domain/smart-cache');
+const AgentValidator = require('../domain/agent-validator');
 
 class MandatoryAgentRouter {
   constructor() {
-    this.agentGenerator = new AgentGenerator();
-    this.agentCache = new Map();
+    this.agentGenerator = null; // Will be initialized with projectId
+    this.agentCache = null; // SmartCache instance
     this.usageLog = [];
+    this.projectId = null;
+    this.taskAnalyzer = null;
+    this.agentMatcher = new AgentMatcher();
+    this.agentValidator = new AgentValidator();
+  }
+
+  /**
+   * Initialize with project context
+   * @param {string} projectPath - Path to the project
+   */
+  async initialize(projectPath) {
+    this.projectId = await configManager.getProjectId(projectPath);
+    this.agentGenerator = new AgentGenerator(this.projectId);
+    this.agentCache = new SmartCache(this.projectId);
+    await this.agentCache.initialize();
+    this.taskAnalyzer = new TaskAnalyzer(projectPath);
+    await this.taskAnalyzer.initialize();
   }
 
   /**
@@ -23,11 +45,16 @@ class MandatoryAgentRouter {
    * @throws {Error} If no agent can be assigned
    */
   async executeTask(task, context, projectPath) {
-    // STEP 1: Analyze task to determine required expertise
-    const taskAnalysis = this.analyzeTask(task);
+    // Initialize if needed
+    if (!this.agentGenerator) {
+      await this.initialize(projectPath);
+    }
 
-    // STEP 2: Select or generate specialized agent (MANDATORY)
-    const agent = await this.assignAgent(taskAnalysis, context);
+    // STEP 1: Deep semantic task analysis (NEW)
+    const taskAnalysis = await this.taskAnalyzer.analyzeTask(task);
+
+    // STEP 2: Select or generate specialized agent (MANDATORY) - with intelligent matching
+    const agent = await this.assignAgent(taskAnalysis, context, projectPath);
 
     // STEP 3: Validate agent assignment
     if (!agent || !agent.name) {
@@ -44,8 +71,9 @@ class MandatoryAgentRouter {
       taskAnalysis
     );
 
-    // STEP 5: Log agent usage for tracking
+    // STEP 5: Log agent usage for tracking and learning
     this.logAgentUsage(task, agent, filteredContext);
+    this.agentMatcher.recordSuccess(agent, taskAnalysis, true); // Learn from assignment
 
     // STEP 6: Return agent with filtered context
     return {
@@ -62,145 +90,241 @@ class MandatoryAgentRouter {
 
   /**
    * Analyze task to determine what type of expertise is needed
+   * DEPRECATED: Now uses TaskAnalyzer for deep semantic analysis
+   * Kept for backward compatibility
    */
-  analyzeTask(task) {
+  async analyzeTask(task, projectPath = null) {
     const description = task.description?.toLowerCase() || '';
     const type = task.type?.toLowerCase() || '';
 
-    // Keywords for different domains
-    const patterns = {
-      frontend: [
-        'component', 'ui', 'react', 'vue', 'angular', 'style',
-        'css', 'layout', 'responsive', 'user interface', 'frontend'
-      ],
-      backend: [
-        'api', 'server', 'endpoint', 'route', 'middleware',
-        'auth', 'authentication', 'jwt', 'session', 'backend'
-      ],
-      database: [
-        'database', 'query', 'migration', 'schema', 'model',
-        'sql', 'postgres', 'mysql', 'mongo', 'index'
-      ],
-      devops: [
-        'deploy', 'docker', 'kubernetes', 'ci/cd', 'pipeline',
-        'build', 'ship', 'release', 'production'
-      ],
-      qa: [
-        'test', 'bug', 'error', 'fix', 'debug', 'issue',
-        'quality', 'coverage', 'unit test', 'integration'
-      ],
-      architecture: [
-        'design', 'architecture', 'pattern', 'structure',
-        'refactor', 'organize', 'plan', 'feature'
-      ]
-    };
-
-    // Detect primary domain
-    let detectedDomain = 'generalist';
-    let confidence = 0;
-    let matchedKeywords = [];
-
-    for (const [domain, keywords] of Object.entries(patterns)) {
-      const matches = keywords.filter(keyword =>
-        description.includes(keyword) || type.includes(keyword)
-      );
-
-      if (matches.length > confidence) {
-        confidence = matches.length;
-        detectedDomain = domain;
-        matchedKeywords = matches;
+    // Get project technologies for better matching
+    let projectTech = null
+    if (projectPath) {
+      try {
+        const TechDetector = require('../domain/tech-detector');
+        const detector = new TechDetector(projectPath);
+        projectTech = await detector.detectAll();
+      } catch (error) {
+        // If detection fails, continue with keyword-based analysis
       }
     }
 
-    // Detect technology stack
-    const techStack = this.detectTechnology(task, description);
+    // Semantic patterns - broader, more flexible
+    const patterns = {
+      frontend: [
+        'component', 'ui', 'user interface', 'frontend', 'client',
+        'style', 'css', 'layout', 'responsive', 'design',
+        'page', 'view', 'template', 'render', 'display'
+      ],
+      backend: [
+        'api', 'server', 'endpoint', 'route', 'middleware',
+        'auth', 'authentication', 'authorization', 'jwt', 'session',
+        'backend', 'service', 'controller', 'handler'
+      ],
+      database: [
+        'database', 'db', 'query', 'migration', 'schema', 'model',
+        'sql', 'data', 'table', 'collection', 'index', 'relation'
+      ],
+      devops: [
+        'deploy', 'deployment', 'docker', 'kubernetes', 'k8s',
+        'ci/cd', 'pipeline', 'build', 'ship', 'release',
+        'production', 'infrastructure', 'container', 'orchestration'
+      ],
+      qa: [
+        'test', 'testing', 'bug', 'error', 'fix', 'debug', 'issue',
+        'quality', 'coverage', 'unit test', 'integration test',
+        'e2e', 'spec', 'assertion', 'validation'
+      ],
+      architecture: [
+        'design', 'architecture', 'pattern', 'structure',
+        'refactor', 'refactoring', 'organize', 'plan',
+        'feature', 'system', 'module', 'component design'
+      ]
+    };
+
+    // If we have project tech, enhance patterns with actual technologies
+    if (projectTech) {
+      // Add detected frontend frameworks to frontend patterns
+      const frontendTech = [
+        ...projectTech.frameworks.filter(f => ['react', 'vue', 'angular', 'svelte', 'next', 'nuxt'].includes(f.toLowerCase())),
+        ...projectTech.buildTools.filter(t => ['vite', 'webpack'].includes(t.toLowerCase()))
+      ];
+      if (frontendTech.length > 0) {
+        patterns.frontend.push(...frontendTech.map(t => t.toLowerCase()));
+      }
+
+      // Add detected backend frameworks to backend patterns
+      const backendTech = projectTech.frameworks.filter(f => 
+        ['express', 'fastify', 'django', 'flask', 'rails', 'phoenix'].includes(f.toLowerCase())
+      );
+      if (backendTech.length > 0) {
+        patterns.backend.push(...backendTech.map(t => t.toLowerCase()));
+      }
+    }
+
+    // Detect primary domain
+    const { detectedDomain, matchedKeywords, confidence } = this.detectDomain(description, type, patterns);
 
     return {
       domain: detectedDomain,
-      confidence: confidence > 0 ? (confidence / 3) : 0.3, // confidence score
+      confidence: confidence > 0 ? Math.min(confidence / 3, 1.0) : 0.3,
       matchedKeywords,
-      techStack,
       reason: `Detected ${detectedDomain} task based on: ${matchedKeywords.join(', ')}`,
-      alternatives: this.getSimilarDomains(detectedDomain)
+      alternatives: this.getSimilarDomains(detectedDomain),
+      projectTechnologies: projectTech
     };
   }
 
   /**
-   * Detect specific technologies mentioned or implied
+   * Detect domain based on patterns
    */
-  detectTechnology(task, description) {
-    const technologies = {
-      languages: [],
-      frameworks: [],
-      databases: [],
-      tools: []
+  detectDomain(description, type, patterns) {
+    // Simple domain detection based on keywords
+    const matches = Object.entries(patterns).map(([domain, keywords]) => {
+      const found = keywords.filter(keyword =>
+        description.includes(keyword) || type.includes(keyword)
+      );
+      return { domain, keywords: found, count: found.length };
+    });
+
+    // Sort by count descending
+    const sorted = matches.sort((a, b) => b.count - a.count);
+    const bestMatch = sorted[0];
+
+    if (bestMatch && bestMatch.count > 0) {
+      return {
+        detectedDomain: bestMatch.domain,
+        matchedKeywords: bestMatch.keywords,
+        confidence: bestMatch.count
+      };
+    }
+
+    return {
+      detectedDomain: 'generalist',
+      matchedKeywords: [],
+      confidence: 0.5
     };
-
-    // Language detection
-    const languages = [
-      'javascript', 'typescript', 'python', 'ruby', 'go',
-      'rust', 'java', 'csharp', 'php', 'elixir', 'swift'
-    ];
-
-    const frameworks = [
-      'react', 'vue', 'angular', 'express', 'django', 'rails',
-      'spring', 'laravel', 'phoenix', 'gin', 'fastapi', 'nextjs'
-    ];
-
-    const databases = [
-      'postgres', 'mysql', 'mongodb', 'redis', 'elasticsearch',
-      'dynamodb', 'firebase', 'supabase', 'sqlite'
-    ];
-
-    // Check for each technology
-    languages.forEach(lang => {
-      if (description.includes(lang)) {
-        technologies.languages.push(lang);
-      }
-    });
-
-    frameworks.forEach(fw => {
-      if (description.includes(fw)) {
-        technologies.frameworks.push(fw);
-      }
-    });
-
-    databases.forEach(db => {
-      if (description.includes(db)) {
-        technologies.databases.push(db);
-      }
-    });
-
-    return technologies;
   }
 
   /**
    * Assign the best agent for the task
-   * Creates a new one if needed
+   * IMPROVED: Uses intelligent matching with scoring
    */
-  async assignAgent(taskAnalysis, context) {
-    const { domain, techStack } = taskAnalysis;
-
-    // Check cache first
-    const cacheKey = `${domain}-${techStack.languages.join('-')}`;
-    if (this.agentCache.has(cacheKey)) {
-      return this.agentCache.get(cacheKey);
+  async assignAgent(taskAnalysis, context, projectPath, overrideAgent = null) {
+    // Respect override
+    if (overrideAgent) {
+      const existing = await this.agentGenerator.loadAgent(overrideAgent);
+      if (existing) {
+        return existing;
+      }
+      return this.generateSpecializedAgent(overrideAgent, {}, context);
     }
 
-    // Generate specialized agent based on detection
-    const agent = await this.generateSpecializedAgent(domain, techStack, context);
+    const primaryDomain = taskAnalysis.primaryDomain;
+    const projectTech = taskAnalysis.projectTechnologies || {};
+
+    // Generate cache key with tech stack
+    const techStack = {
+      languages: projectTech.languages || [],
+      frameworks: projectTech.frameworks || []
+    };
+    const cacheKey = this.agentCache.generateKey(this.projectId, primaryDomain, techStack);
+
+    // Check smart cache first
+    const cached = await this.agentCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    // STEP 1: Load all existing agents
+    const allAgents = await this.agentGenerator.loadAllAgents();
+
+    // STEP 2: Use intelligent matching to find best agent
+    const match = this.agentMatcher.findBestAgent(allAgents, taskAnalysis);
+
+    if (match && match.score > 0.5) {
+      // Good match found - use it
+      await this.agentCache.set(cacheKey, match.agent);
+      return match.agent;
+    }
+
+    // STEP 3: Try to load domain-specific agent
+    const agentType = this.getAgentTypeForDomain(primaryDomain);
+    const existingAgent = await this.agentGenerator.loadAgent(agentType);
+    
+    if (existingAgent) {
+      await this.agentCache.set(cacheKey, existingAgent);
+      return existingAgent;
+    }
+
+    // STEP 4: Validate before generating new agent
+    const config = {
+      domain: primaryDomain,
+      projectContext: context.projectSummary || context.projectContext || '',
+      expertise: this.buildExpertiseFromTech(projectTech, primaryDomain)
+    };
+
+    const validation = this.agentValidator.validateBeforeGeneration(
+      agentType,
+      config,
+      allAgents
+    );
+
+    if (!validation.valid && validation.similarAgent) {
+      // Similar agent exists - use it instead
+      await this.agentCache.set(cacheKey, validation.similarAgent);
+      return validation.similarAgent;
+    }
+
+    // STEP 5: Generate new agent only if validated
+    const agent = await this.generateSpecializedAgent(primaryDomain, techStack, context);
+    
+    // Validate after generation
+    const postValidation = this.agentValidator.validateAfterGeneration(agent);
+    if (!postValidation.valid) {
+      console.warn(`⚠️  Agent validation issues: ${postValidation.issues.join(', ')}`);
+    }
 
     // Cache for reuse
-    this.agentCache.set(cacheKey, agent);
+    await this.agentCache.set(cacheKey, agent);
 
     return agent;
   }
 
   /**
-   * Generate a specialized agent for the detected domain and tech
+   * Build expertise string from tech stack
    */
-  async generateSpecializedAgent(domain, techStack, context) {
-    // Map domain to agent type
+  buildExpertiseFromTech(projectTech, domain) {
+    const parts = []
+
+    if (projectTech.languages && projectTech.languages.length > 0) {
+      parts.push(projectTech.languages.join(', '))
+    }
+
+    if (projectTech.frameworks && projectTech.frameworks.length > 0) {
+      const relevantFrameworks = projectTech.frameworks.filter(f => {
+        const fLower = f.toLowerCase()
+        if (domain === 'frontend') {
+          return ['react', 'vue', 'angular', 'svelte', 'next', 'nuxt'].some(tech => fLower.includes(tech))
+        }
+        if (domain === 'backend') {
+          return ['express', 'fastify', 'django', 'flask', 'rails', 'phoenix'].some(tech => fLower.includes(tech))
+        }
+        return true
+      })
+      if (relevantFrameworks.length > 0) {
+        parts.push(relevantFrameworks.join(', '))
+      }
+    }
+
+    return parts.join(', ') || `${domain} development`
+  }
+
+  /**
+   * Get agent type name for a domain
+   * @private
+   */
+  getAgentTypeForDomain(domain) {
     const agentTypes = {
       frontend: 'frontend-specialist',
       backend: 'backend-specialist',
@@ -210,85 +334,43 @@ class MandatoryAgentRouter {
       architecture: 'architect',
       generalist: 'full-stack'
     };
-
-    const agentType = agentTypes[domain] || 'full-stack';
-
-    // Generate with detected technologies
-    const config = {
-      domain,
-      techStack,
-      projectContext: context.projectSummary || '',
-      bestPractices: await this.getBestPractices(domain, techStack)
-    };
-
-    return this.agentGenerator.generateDynamicAgent(agentType, config);
+    return agentTypes[domain] || 'full-stack';
   }
 
   /**
-   * Get best practices for the domain and tech stack
+   * Find similar agent from existing agents
+   * DEPRECATED: Now uses AgentMatcher for intelligent matching
+   * @private
    */
-  async getBestPractices(domain, techStack) {
-    const practices = [];
+  findSimilarAgent(allAgents, domain, taskAnalysis) {
+    // Use AgentMatcher instead
+    const match = this.agentMatcher.findBestAgent(allAgents, taskAnalysis);
+    return match ? match.agent : null;
+  }
 
-    // Domain-specific best practices
-    const domainPractices = {
-      frontend: [
-        'Component composition over inheritance',
-        'State management patterns',
-        'Responsive design principles',
-        'Accessibility standards',
-        'Performance optimization (lazy loading, memoization)'
-      ],
-      backend: [
-        'RESTful API design principles',
-        'Authentication and authorization patterns',
-        'Error handling and logging',
-        'Rate limiting and caching',
-        'Database connection pooling'
-      ],
-      database: [
-        'Normalization principles',
-        'Index optimization',
-        'Query performance tuning',
-        'Transaction management',
-        'Backup and recovery strategies'
-      ],
-      devops: [
-        'CI/CD pipeline best practices',
-        'Container orchestration',
-        'Infrastructure as Code',
-        'Monitoring and alerting',
-        'Security scanning'
-      ],
-      qa: [
-        'Test pyramid (unit, integration, e2e)',
-        'Test coverage standards',
-        'Mocking and stubbing',
-        'Performance testing',
-        'Security testing'
-      ]
+  /**
+   * Generate a specialized agent for the detected domain
+   * Only called when no existing agent is found
+   */
+  async generateSpecializedAgent(domain, techStack, context) {
+    // Map domain to agent type
+    const agentType = this.getAgentTypeForDomain(domain);
+
+    // Generate with minimal config - let the Agent figure it out
+    const config = {
+      domain,
+      projectContext: context.projectSummary || context.projectContext || '',
+      // No hardcoded best practices passed here
     };
 
-    practices.push(...(domainPractices[domain] || []));
-
-    // Technology-specific practices
-    if (techStack.languages.includes('javascript') || techStack.languages.includes('typescript')) {
-      practices.push('ES6+ features', 'Async/await patterns', 'Module system');
-    }
-
-    if (techStack.frameworks.includes('react')) {
-      practices.push('Hooks patterns', 'Context API', 'Component lifecycle');
-    }
-
-    if (techStack.languages.includes('ruby')) {
-      practices.push('Ruby idioms', 'Metaprogramming carefully', 'Convention over configuration');
-    }
-
-    if (techStack.languages.includes('go')) {
-      practices.push('Goroutines and channels', 'Error handling patterns', 'Interface design');
-    }
-
-    return practices;
+    // Generate the agent file
+    await this.agentGenerator.generateDynamicAgent(agentType, config);
+    
+    // Load it immediately so we return the full agent object
+    const agent = await this.agentGenerator.loadAgent(agentType);
+    
+    // If loading failed, return minimal object
+    return agent || { name: agentType, content: '', domain };
   }
 
   /**
@@ -349,31 +431,18 @@ class MandatoryAgentRouter {
   filterFiles(files, pattern) {
     return files.filter(file => {
       // Check if file should be excluded
-      for (const exclude of pattern.exclude) {
-        if (file.includes(exclude)) return false;
-      }
+      const isExcluded = pattern.exclude.some(exclude => file.includes(exclude));
+      if (isExcluded) return false;
 
       // Check if file matches include patterns
       if (pattern.include.length > 0) {
-        let matches = false;
-        for (const include of pattern.include) {
-          if (file.includes(include)) {
-            matches = true;
-            break;
-          }
-        }
-        if (!matches) return false;
+        const isIncluded = pattern.include.some(include => file.includes(include));
+        if (!isIncluded) return false;
       }
 
       // Check extensions if specified
       if (pattern.extensions.length > 0) {
-        let hasValidExtension = false;
-        for (const ext of pattern.extensions) {
-          if (file.endsWith(ext)) {
-            hasValidExtension = true;
-            break;
-          }
-        }
+        const hasValidExtension = pattern.extensions.some(ext => file.endsWith(ext));
         if (!hasValidExtension) return false;
       }
 
@@ -467,13 +536,11 @@ class MandatoryAgentRouter {
     });
 
     // Find most used agent
-    let maxUsage = 0;
-    for (const [agent, count] of Object.entries(stats.byAgent)) {
-      if (count > maxUsage) {
-        maxUsage = count;
-        stats.mostUsedAgent = agent;
-      }
-    }
+    const mostUsed = Object.entries(stats.byAgent).reduce((max, [agent, count]) => {
+      return count > max.count ? { agent, count } : max;
+    }, { agent: null, count: 0 });
+
+    stats.mostUsedAgent = mostUsed.agent;
 
     return stats;
   }

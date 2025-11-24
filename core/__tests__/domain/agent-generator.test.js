@@ -6,13 +6,8 @@ import path from 'path'
 
 describe('Agent Generator', () => {
   const testProjectId = 'test-agent-gen-' + Date.now()
-  let generator
-  let agentsDir
-
-  beforeEach(() => {
-    generator = new AgentGenerator(testProjectId)
-    agentsDir = path.join(os.homedir(), '.prjct-cli', 'projects', testProjectId, 'agents')
-  })
+  const agentsDir = path.join(os.homedir(), '.prjct-cli', 'projects', testProjectId, 'agents')
+  const generator = new AgentGenerator(testProjectId)
 
   afterEach(async () => {
     // Cleanup test files
@@ -66,13 +61,10 @@ describe('Agent Generator', () => {
 
       const content = await fs.readFile(path.join(agentsDir, 'backend-agent.md'), 'utf-8')
 
-      expect(content).toContain('# Backend Developer')
-      expect(content).toContain('## Role')
-      expect(content).toContain('Backend Developer')
-      expect(content).toContain('## Expertise')
-      expect(content).toContain('Node.js, Express, PostgreSQL')
-      expect(content).toContain('## Responsibilities')
-      expect(content).toContain('API development and database management')
+      expect(content).toContain('# AGENT: BACKEND-AGENT')
+      expect(content).toContain('Role: Backend Developer')
+      expect(content).toContain('## META-INSTRUCTION')
+      // Expertise and Responsibilities are now part of the context or analysis instructions
     })
 
     it('should include project context in agent file', async () => {
@@ -88,7 +80,7 @@ describe('Agent Generator', () => {
 
       const content = await fs.readFile(path.join(agentsDir, 'context-agent.md'), 'utf-8')
 
-      expect(content).toContain('## Project Context')
+      expect(content).toContain('## PROJECT CONTEXT')
       expect(content).toContain('framework')
       expect(content).toContain('React')
       expect(content).toContain('version')
@@ -102,10 +94,10 @@ describe('Agent Generator', () => {
 
       const content = await fs.readFile(path.join(agentsDir, 'minimal-agent.md'), 'utf-8')
 
-      expect(content).toContain('# Minimal Role')
-      expect(content).toContain('Technologies used in this project')
-      expect(content).toContain('Handle specific aspects of development')
-      expect(content).toContain('No additional context')
+      expect(content).toContain('# AGENT: MINIMAL-AGENT')
+      expect(content).toContain('## META-INSTRUCTION')
+      expect(content).toContain('ANALYZE the provided PROJECT CONTEXT')
+      expect(content).toContain('No specific project context provided')
     })
 
     it('should create output directory if not exists', async () => {
@@ -149,7 +141,7 @@ describe('Agent Generator', () => {
 
       const content = await fs.readFile(path.join(agentsDir, 'fallback-agent.md'), 'utf-8')
 
-      expect(content).toContain('# fallback-agent')
+      expect(content).toContain('# AGENT: FALLBACK-AGENT')
     })
   })
 
@@ -251,17 +243,17 @@ describe('Agent Generator', () => {
       await generator.generateDynamicAgent('remove-me', { role: 'Remove' })
 
       // Verify they exist
-      let agents = await generator.listAgents()
-      expect(agents).toHaveLength(2)
+      const initialAgents = await generator.listAgents()
+      expect(initialAgents).toHaveLength(2)
 
       // Cleanup obsolete
       const removed = await generator.cleanupObsoleteAgents(['keep-me'])
       expect(removed).toContain('remove-me')
 
       // Verify cleanup
-      agents = await generator.listAgents()
-      expect(agents).toHaveLength(1)
-      expect(agents).toContain('keep-me')
+      const finalAgents = await generator.listAgents()
+      expect(finalAgents).toHaveLength(1)
+      expect(finalAgents).toContain('keep-me')
     })
 
     it('should handle agent file content correctly', async () => {
@@ -278,19 +270,20 @@ describe('Agent Generator', () => {
       const content = await fs.readFile(path.join(agentsDir, 'full-agent.md'), 'utf-8')
 
       // Should have all sections
-      expect(content).toContain('# Full Stack Developer')
-      expect(content).toContain('## Role')
-      expect(content).toContain('## Expertise')
-      expect(content).toContain('## Responsibilities')
-      expect(content).toContain('## Project Context')
-      expect(content).toContain('## Guidelines')
+      expect(content).toContain('# AGENT: FULL-AGENT')
+      expect(content).toContain('Role: Full Stack Developer')
+      expect(content).toContain('## META-INSTRUCTION')
+      expect(content).toContain('## DOMAIN AUTHORITY')
+      expect(content).toContain('## DYNAMIC STANDARDS')
+      expect(content).toContain('## ORCHESTRATION PROTOCOL')
+      expect(content).toContain('## PROJECT CONTEXT')
 
-      // Should have all content
-      expect(content).toContain('Full Stack Developer')
-      expect(content).toContain('React, Node.js, PostgreSQL, Docker')
-      expect(content).toContain('Build and deploy full stack applications')
+      // Should have context content
       expect(content).toContain('MERN')
       expect(content).toContain('AWS')
+      
+      // Should NOT have hardcoded tech lists anymore
+      // expect(content).toContain('React, Node.js, PostgreSQL, Docker') // This is no longer explicitly listed in EXPERTISE section as that section is gone
     })
   })
 })

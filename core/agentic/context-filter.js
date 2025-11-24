@@ -25,10 +25,31 @@ class ContextFilter {
 
   /**
    * Main entry point - filters context based on agent and task
+   * IMPROVED: Supports pre-estimated files for lazy loading
    */
   async filterForAgent(agent, task, projectPath, fullContext = {}) {
     const startTime = Date.now();
 
+    // If files were pre-estimated (lazy loading), use them
+    if (fullContext.estimatedFiles && fullContext.estimatedFiles.length > 0) {
+      const filteredFiles = fullContext.estimatedFiles;
+      
+      const metrics = this.calculateMetrics(
+        fullContext.fileCount || filteredFiles.length,
+        filteredFiles.length,
+        startTime
+      );
+
+      return {
+        files: filteredFiles,
+        patterns: { preEstimated: true },
+        metrics,
+        agent: agent.name,
+        filtered: true
+      };
+    }
+
+    // Fallback to traditional filtering if no pre-estimation
     // Determine what files this agent needs
     const relevantPatterns = await this.determineRelevantPatterns(
       agent,
@@ -268,93 +289,29 @@ class ContextFilter {
 
   /**
    * Detect technologies used in the project
+   * NOW USES TechDetector - NO HARDCODING
    */
   async detectProjectTechnologies(projectPath) {
-    const detected = new Set();
-
     try {
-      // Check package.json for JS/TS projects
-      const packageJsonPath = path.join(projectPath, 'package.json');
-      if (await this.fileExists(packageJsonPath)) {
-        const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf8'));
+      const TechDetector = require('../domain/tech-detector');
+      const detector = new TechDetector(projectPath);
+      const tech = await detector.detectAll();
 
-        // Check dependencies
-        const deps = {
-          ...packageJson.dependencies,
-          ...packageJson.devDependencies
-        };
+      // Convert to array of all detected technologies
+      const all = [
+        ...tech.languages,
+        ...tech.frameworks,
+        ...tech.tools,
+        ...tech.databases,
+        ...tech.buildTools,
+        ...tech.testFrameworks
+      ];
 
-        // Detect frameworks
-        if (deps.react) detected.add('react');
-        if (deps.vue) detected.add('vue');
-        if (deps['@angular/core']) detected.add('angular');
-        if (deps.express) detected.add('express');
-        if (deps.next) detected.add('nextjs');
-        if (deps.fastify) detected.add('fastify');
-
-        // Language
-        if (deps.typescript) detected.add('typescript');
-        else detected.add('javascript');
-      }
-
-      // Check Gemfile for Ruby projects
-      const gemfilePath = path.join(projectPath, 'Gemfile');
-      if (await this.fileExists(gemfilePath)) {
-        detected.add('ruby');
-        const gemfile = await fs.readFile(gemfilePath, 'utf8');
-        if (gemfile.includes('rails')) detected.add('rails');
-      }
-
-      // Check requirements.txt or setup.py for Python
-      const requirementsPath = path.join(projectPath, 'requirements.txt');
-      const setupPyPath = path.join(projectPath, 'setup.py');
-      if (await this.fileExists(requirementsPath) || await this.fileExists(setupPyPath)) {
-        detected.add('python');
-
-        if (await this.fileExists(requirementsPath)) {
-          const requirements = await fs.readFile(requirementsPath, 'utf8');
-          if (requirements.includes('django')) detected.add('django');
-          if (requirements.includes('fastapi')) detected.add('fastapi');
-          if (requirements.includes('flask')) detected.add('flask');
-        }
-      }
-
-      // Check go.mod for Go projects
-      const goModPath = path.join(projectPath, 'go.mod');
-      if (await this.fileExists(goModPath)) {
-        detected.add('go');
-      }
-
-      // Check Cargo.toml for Rust
-      const cargoPath = path.join(projectPath, 'Cargo.toml');
-      if (await this.fileExists(cargoPath)) {
-        detected.add('rust');
-      }
-
-      // Check mix.exs for Elixir
-      const mixPath = path.join(projectPath, 'mix.exs');
-      if (await this.fileExists(mixPath)) {
-        detected.add('elixir');
-      }
-
-      // Check for Java/Maven/Gradle
-      const pomPath = path.join(projectPath, 'pom.xml');
-      const gradlePath = path.join(projectPath, 'build.gradle');
-      if (await this.fileExists(pomPath) || await this.fileExists(gradlePath)) {
-        detected.add('java');
-      }
-
-      // Check composer.json for PHP
-      const composerPath = path.join(projectPath, 'composer.json');
-      if (await this.fileExists(composerPath)) {
-        detected.add('php');
-      }
-
+      return Array.from(new Set(all)); // Remove duplicates
     } catch (error) {
       console.error('Error detecting technologies:', error.message);
+      return [];
     }
-
-    return Array.from(detected);
   }
 
   /**
@@ -463,13 +420,16 @@ class ContextFilter {
       const uniqueFiles = [...new Set(files)].sort();
 
       // Limit to reasonable number
-      const maxFiles = 100;
+      const maxFiles = 300;
       if (uniqueFiles.length > maxFiles) {
         console.log(`Limiting context to ${maxFiles} most relevant files`);
         return uniqueFiles.slice(0, maxFiles);
       }
 
-      return uniqueFiles;
+      // Expand context with related files
+      const expandedFiles = await this.expandContext(uniqueFiles);
+
+      return expandedFiles.slice(0, maxFiles);
 
     } catch (error) {
       console.error('Error loading files:', error.message);
@@ -532,6 +492,46 @@ class ContextFilter {
     } catch {
       return false;
     }
+  }
+
+  /**
+   * Expand context with related files (tests, styles, etc.)
+   */
+  async expandContext(files) {
+    const expanded = new Set(files);
+
+    for (const file of files) {
+      const ext = path.extname(file);
+      const basename = path.basename(file, ext);
+      const dirname = path.dirname(file);
+
+      // 1. Look for test files
+      const testPatterns = [
+        path.join(dirname, `${basename}.test${ext}`),
+        path.join(dirname, `${basename}.spec${ext}`),
+        path.join(dirname, '__tests__', `${basename}.test${ext}`),
+        path.join(dirname, 'tests', `${basename}.test${ext}`)
+      ];
+
+      // 2. Look for style files (for UI components)
+      const stylePatterns = [
+        path.join(dirname, `${basename}.css`),
+        path.join(dirname, `${basename}.scss`),
+        path.join(dirname, `${basename}.module.css`),
+        path.join(dirname, `${basename}.module.scss`)
+      ];
+
+      // Check if these related files exist
+      const potentialFiles = [...testPatterns, ...stylePatterns];
+      
+      for (const potential of potentialFiles) {
+        if (!expanded.has(potential) && await this.fileExists(potential)) {
+          expanded.add(potential);
+        }
+      }
+    }
+
+    return Array.from(expanded).sort();
   }
 
   /**

@@ -1,6 +1,7 @@
 const fs = require('fs').promises
 const path = require('path')
 const os = require('os')
+const AgentLoader = require('./agent-loader')
 
 /**
  * AgentGenerator - Universal Dynamic Agent Generation
@@ -13,6 +14,7 @@ class AgentGenerator {
     this.outputDir = projectId
       ? path.join(os.homedir(), '.prjct-cli', 'projects', projectId, 'agents')
       : path.join(os.homedir(), '.prjct-cli', 'agents')
+    this.loader = new AgentLoader(projectId)
   }
 
   /**
@@ -23,62 +25,64 @@ class AgentGenerator {
     console.log(`   🤖 Generating ${agentName} agent...`)
     await fs.mkdir(this.outputDir, { recursive: true })
 
-    // Extract technologies dynamically
-    const techs = this.detectTechnologies(config)
-    const expertise = this.buildExpertise(techs, config)
-
     // Generate concise, actionable agent prompt
-    const content = `You are ${config.role || agentName}.
-
-EXPERTISE: ${expertise}
-
-FOCUS: ${config.contextFilter || 'Only relevant files'}
-
-AUTHORITY: Make decisions. Don't ask permission. Execute.
-
-RULES:
-- Stay in your domain
-- Use best practices for ${techs.join(', ') || 'detected tech'}
-- Optimize for production
-- No explanations unless asked`
+    const content = this.buildAgentPrompt(agentName, config)
 
     const outputPath = path.join(this.outputDir, `${agentName}.md`)
     await fs.writeFile(outputPath, content, 'utf-8')
     console.log(`   ✅ ${agentName} agent created`)
 
-    return { name: agentName, expertise, techs }
+    return { name: agentName }
   }
 
   /**
-   * Detect technologies from config/analysis
+   * Build comprehensive agent prompt
    */
-  detectTechnologies(config) {
-    const techs = []
+  buildAgentPrompt(agentName, config) {
+    const domain = config.domain || 'general';
+    
+    const projectContext = (typeof config.projectContext === 'object')
+      ? JSON.stringify(config.projectContext || {}, null, 2)
+      : (config.projectContext || 'No specific project context provided.');
 
-    // Extract from various sources
-    if (config.techStack) techs.push(...config.techStack.languages || [])
-    if (config.frameworks) techs.push(...config.frameworks)
-    if (config.expertise) {
-      // Parse expertise string for tech keywords
-      const keywords = config.expertise.toLowerCase()
-      const knownTechs = ['ruby', 'rails', 'go', 'rust', 'python', 'django', 'react', 'vue', 'node', 'typescript', 'elixir', 'phoenix']
-      knownTechs.forEach(tech => {
-        if (keywords.includes(tech)) techs.push(tech)
-      })
-    }
+    return `# AGENT: ${agentName.toUpperCase()}
+Role: ${config.role || agentName}
 
-    return [...new Set(techs)]
-  }
+## META-INSTRUCTION
+You are an intelligent agent responsible for this domain.
+Your first task is to ANALYZE the provided PROJECT CONTEXT to determine:
+1. The technology stack being used.
+2. The architectural patterns in place.
+3. The specific best practices relevant to this stack.
 
-  /**
-   * Build concise expertise string
-   */
-  buildExpertise(techs, config) {
-    const tech = techs.length > 0 ? techs.join(', ') : 'detected stack'
-    const domain = config.domain || 'assigned domain'
-    const focus = config.responsibilities || 'task at hand'
+## DOMAIN AUTHORITY
+You are the owner of the ${domain} domain.
+You have full authority to make technical decisions within this scope.
 
-    return `${tech} expert. ${domain}. Focus: ${focus}`
+## DYNAMIC STANDARDS
+Instead of following a hardcoded list, you must:
+- **DETECT**: Identify the languages, frameworks, and tools from the file extensions and content.
+- **ADAPT**: Adopt the persona of a Senior Engineer specializing in the detected stack.
+- **ENFORCE**: Apply the idiomatic best practices, naming conventions, and patterns of that stack.
+
+## ORCHESTRATION PROTOCOL
+1. **ANALYZE**: Read the context. Determine the stack.
+2. **PLAN**: Create a plan that fits the detected architecture.
+3. **EXECUTE**: Implement using the detected tools and patterns.
+4. **VERIFY**: Ensure code matches the project's existing style.
+
+## PROJECT CONTEXT
+${projectContext}
+
+## CONTEXT FOCUS
+${config.contextFilter || 'Only relevant files'}
+
+## RULES
+- Stay in your domain (${domain})
+- Do not assume a specific stack until you see the code.
+- Optimize for production.
+- No explanations unless asked.
+`;
   }
 
   /**
@@ -123,6 +127,33 @@ RULES:
     } catch {
       return []
     }
+  }
+
+  /**
+   * Load an agent from its file
+   * CRITICAL: This is how agents are actually used in prompts
+   * @param {string} agentName - Name of the agent (without .md extension)
+   * @returns {Promise<Object|null>} - Agent object with name, content, role, domain, skills, or null if not found
+   */
+  async loadAgent(agentName) {
+    return await this.loader.loadAgent(agentName)
+  }
+
+  /**
+   * Load all agents for the project
+   * @returns {Promise<Array<Object>>} - Array of agent objects
+   */
+  async loadAllAgents() {
+    return await this.loader.loadAllAgents()
+  }
+
+  /**
+   * Check if an agent exists
+   * @param {string} agentName - Name of the agent
+   * @returns {Promise<boolean>} - True if agent file exists
+   */
+  async agentExists(agentName) {
+    return await this.loader.agentExists(agentName)
   }
 }
 
