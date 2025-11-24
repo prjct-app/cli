@@ -10,11 +10,13 @@ const promptBuilder = require('./prompt-builder')
 const toolRegistry = require('./tool-registry')
 const MandatoryAgentRouter = require('./agent-router')
 const ContextFilter = require('./context-filter')
+const ContextEstimator = require('../domain/context-estimator')
 
 class CommandExecutor {
   constructor() {
     this.agentRouter = new MandatoryAgentRouter()
     this.contextFilter = new ContextFilter()
+    this.contextEstimator = null
   }
 
   /**
@@ -25,45 +27,74 @@ class CommandExecutor {
       // 1. Load template
       const template = await templateLoader.load(commandName)
 
-      // 2. Build FULL context (before filtering)
-      const fullContext = await contextBuilder.build(projectPath, params)
+      // 2. Build METADATA context only (lazy loading - no file reads yet)
+      const metadataContext = await contextBuilder.build(projectPath, params)
 
-      // 3. Check if command requires agent
-      const requiresAgent = template.metadata?.['required-agent'] ||
-                           this.isTaskCommand(commandName)
+      // 3. CRITICAL: Force agent assignment for ALL task-related commands
+      const requiresAgent = template.metadata?.['required-agent'] !== false &&
+                           (template.metadata?.['required-agent'] === true ||
+                            this.isTaskCommand(commandName) ||
+                            this.shouldUseAgent(commandName))
 
-      let context = fullContext
+      let context = metadataContext
       let assignedAgent = null
 
+      // MANDATORY: Assign specialized agent for task commands
       if (requiresAgent) {
-        // 4. MANDATORY: Assign specialized agent
+        // 4. Create task object for analysis
         const task = {
           description: params.task || params.description || commandName,
           type: commandName
         }
 
+        // 5. LAZY CONTEXT: Analyze task FIRST, then estimate files needed
+        // This avoids reading all files before knowing what we need
         const agentAssignment = await this.agentRouter.executeTask(
           task,
-          fullContext,
+          metadataContext, // Only metadata, no files yet
           projectPath
         )
 
         assignedAgent = agentAssignment.agent
+        const taskAnalysis = agentAssignment.taskAnalysis
 
-        // 5. Filter context for this specific agent (70-90% reduction)
+        // Validate agent was assigned
+        if (!assignedAgent || !assignedAgent.name) {
+          throw new Error(
+            `CRITICAL: Failed to assign agent for command "${commandName}". ` +
+            `System requires ALL task commands to use specialized agents.`
+          )
+        }
+
+        // 6. PRE-FILTER: Estimate which files are needed BEFORE reading
+        if (!this.contextEstimator) {
+          this.contextEstimator = new ContextEstimator()
+        }
+
+        const estimatedFiles = await this.contextEstimator.estimateFiles(
+          taskAnalysis,
+          projectPath
+        )
+
+        // 7. Build context ONLY with estimated files (lazy loading)
         const filtered = await this.contextFilter.filterForAgent(
           assignedAgent,
           task,
           projectPath,
-          fullContext
+          {
+            ...metadataContext,
+            estimatedFiles, // Pre-filtered file list
+            fileCount: estimatedFiles.length
+          }
         )
 
         context = {
           ...filtered,
           agent: assignedAgent,
-          originalSize: fullContext.files?.length || 0,
+          originalSize: estimatedFiles.length, // Estimated, not actual full size
           filteredSize: filtered.files?.length || 0,
-          reduction: filtered.metrics?.reductionPercent || 0
+          reduction: filtered.metrics?.reductionPercent || 0,
+          lazyLoaded: true // Flag indicating lazy loading was used
         }
       }
 
@@ -100,8 +131,25 @@ class CommandExecutor {
    * Check if command is task-related
    */
   isTaskCommand(commandName) {
-    const taskCommands = ['work', 'now', 'build', 'feature', 'bug', 'done']
+    const taskCommands = [
+      'work', 'now', 'build', 'feature', 'bug', 'done',
+      'task', 'design', 'cleanup', 'fix', 'test'
+    ]
     return taskCommands.includes(commandName)
+  }
+
+  /**
+   * Determine if command should use an agent
+   * Expanded list of commands that benefit from agent specialization
+   */
+  shouldUseAgent(commandName) {
+    // Commands that should ALWAYS use agents
+    const agentCommands = [
+      'work', 'now', 'build', 'feature', 'bug', 'done',
+      'task', 'design', 'cleanup', 'fix', 'test',
+      'sync', 'analyze' // These analyze/modify code, need specialization
+    ]
+    return agentCommands.includes(commandName)
   }
 
   /**

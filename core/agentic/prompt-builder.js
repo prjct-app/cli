@@ -7,13 +7,45 @@
 class PromptBuilder {
   /**
    * Build concise prompt - only essentials
+   * CRITICAL: Includes full agent content if agent is provided
    */
   build(template, context, state, agent = null) {
     const parts = []
 
     // Agent assignment (if applicable)
+    // CRITICAL: Include full agent content, not just name
     if (agent) {
-      parts.push(`AGENT: ${agent.name}\n`)
+      parts.push(`# AGENT ASSIGNMENT\n`)
+      parts.push(`Agent: ${agent.name}\n`)
+      
+      // Include role if available
+      if (agent.role) {
+        parts.push(`Role: ${agent.role}\n`)
+      }
+      
+      // Include domain if available
+      if (agent.domain) {
+        parts.push(`Domain: ${agent.domain}\n`)
+      }
+      
+      // Include skills if available
+      if (agent.skills && agent.skills.length > 0) {
+        parts.push(`Skills: ${agent.skills.join(', ')}\n`)
+      }
+      
+      parts.push(`\n## AGENT INSTRUCTIONS\n`)
+      
+      // CRITICAL: Include full agent content
+      // This is the specialized knowledge for this project
+      if (agent.content) {
+        parts.push(agent.content)
+        parts.push(`\n`)
+      } else if (agent.name) {
+        // Fallback if content not loaded
+        parts.push(`You are the ${agent.name} agent for this project.\n`)
+        parts.push(`Apply your specialized expertise to complete the task.\n\n`)
+      }
+      
       parts.push(`CONTEXT: ${context.filteredSize || 'all'} files (${context.reduction || 0}% reduced)\n\n`)
     }
 
@@ -48,6 +80,9 @@ class PromptBuilder {
       parts.push(relevantState)
       parts.push('\n')
     }
+
+    // Enforcement (Strict Mode)
+    parts.push(this.buildEnforcement());
 
     // Simple execution directive
     parts.push('\nEXECUTE: Follow flow. Use tools. Decide.\n')
@@ -90,6 +125,21 @@ class PromptBuilder {
     parts.push(`- ID: ${context.projectId}\n\n`)
 
     return parts.join('')
+  }
+
+  /**
+   * Build enforcement section
+   * Forces Claude to follow the process strictly
+   */
+  buildEnforcement() {
+    return `
+## PROCESS ENFORCEMENT
+1. FOLLOW the Flow strictly. Do not skip steps.
+2. USE the allowed tools only.
+3. IF you are stuck, use the "Ask" tool or stop.
+4. DO NOT hallucinate files or commands.
+5. ALWAYS verify your changes.
+`;
   }
 }
 

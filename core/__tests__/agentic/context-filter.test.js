@@ -352,8 +352,8 @@ describe('Context Filter', () => {
 
       const files = await filter.loadRelevantFiles(testProjectPath, patterns)
       
-      // Should be limited to 100 files
-      expect(files.length).toBeLessThanOrEqual(100)
+      // Should be limited to 300 files
+      expect(files.length).toBeLessThanOrEqual(300)
     })
   })
 

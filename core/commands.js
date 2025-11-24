@@ -1133,7 +1133,6 @@ class PrjctCommands {
    */
   async _cleanupMemory(projectPath) {
     const projectId = await configManager.getProjectId(projectPath)
-    const globalPath = pathManager.getGlobalProjectPath(projectId)
 
     console.log('📊 Analyzing disk usage...\n')
 
@@ -2474,7 +2473,7 @@ Agent: ${agent}
       const AgentGenerator = require('./domain/agent-generator')
       const generator = new AgentGenerator(projectId)
 
-      const generatedAgents = await this._generateAgentsFromAnalysis(summaryContent, generator)
+      const generatedAgents = await this._generateAgentsFromAnalysis(summaryContent, generator, projectPath)
 
       // Step 4: Log to memory
       await this.logToMemory(projectPath, 'agents_generated', {
@@ -2506,91 +2505,118 @@ Agent: ${agent}
 
   /**
    * Generate agents dynamically from analysis summary
-   * Claude decides based on what technologies are detected
+   * 100% DYNAMIC - Uses TechDetector, NO HARDCODING
+   * Claude decides based on actual detected technologies
    * @private
    */
-  async _generateAgentsFromAnalysis(summaryContent, generator) {
+  async _generateAgentsFromAnalysis(summaryContent, generator, projectPath) {
     const agents = []
+    const TechDetector = require('./domain/tech-detector')
+    const detector = new TechDetector(projectPath)
+    const tech = await detector.detectAll()
 
-    // Parse summary to identify technologies
-    // Simple detection based on sections (NOT predetermined patterns)
+    // Generate agents based on ACTUAL detected technologies
+    // No assumptions, no hardcoding - just what we found
 
-    // Detect languages/frameworks from summary
-    const hasJavaScript =
-      summaryContent.includes('JavaScript') || summaryContent.includes('TypeScript')
-    const hasNextJS = summaryContent.includes('Next.js')
-    const hasVite = summaryContent.includes('Vite')
-    const hasReact = summaryContent.includes('react')
-    const hasRust = summaryContent.includes('Rust')
-    const hasGo = summaryContent.includes('Go')
-    const hasPython = summaryContent.includes('Python')
-    const hasDocker = summaryContent.includes('Docker')
+    // Frontend agents - if we have frontend frameworks
+    const frontendFrameworks = tech.frameworks.filter(f => 
+      ['react', 'vue', 'angular', 'svelte', 'next', 'nuxt', 'sveltekit', 'remix'].includes(f.toLowerCase())
+    )
+    const frontendBuildTools = tech.buildTools.filter(t => 
+      ['vite', 'webpack', 'rollup', 'esbuild'].includes(t.toLowerCase())
+    )
 
-    // Generate agents based on detected stack
-    // Each agent is specific to THIS project's stack
-
-    if (hasJavaScript || hasNextJS || hasVite) {
+    if (frontendFrameworks.length > 0 || frontendBuildTools.length > 0 || tech.languages.includes('JavaScript') || tech.languages.includes('TypeScript')) {
+      const frameworkList = frontendFrameworks.length > 0 
+        ? frontendFrameworks.join(', ')
+        : (frontendBuildTools.length > 0 ? frontendBuildTools.join(', ') : 'JavaScript/TypeScript')
+      
       await generator.generateDynamicAgent('frontend-specialist', {
         role: 'Frontend Development Specialist',
-        expertise: `${hasNextJS ? 'Next.js' : hasVite ? 'Vite' : 'JavaScript/TypeScript'}, ${hasReact ? 'React' : 'Modern JavaScript frameworks'}`,
-        responsibilities:
-          'Handle UI components, state management, routing, and frontend architecture',
+        expertise: `${frameworkList}, ${tech.languages.filter(l => ['JavaScript', 'TypeScript'].includes(l)).join(' or ') || 'Modern JavaScript'}`,
+        responsibilities: 'Handle UI components, state management, routing, and frontend architecture',
         projectContext: {
-          detectedFramework: hasNextJS ? 'Next.js' : hasVite ? 'Vite + React' : 'JavaScript',
+          detectedFrameworks: frontendFrameworks,
+          buildTools: frontendBuildTools,
+          languages: tech.languages.filter(l => ['JavaScript', 'TypeScript'].includes(l))
         },
       })
       agents.push('frontend-specialist')
     }
 
-    if (hasRust) {
-      await generator.generateDynamicAgent('rust-developer', {
-        role: 'Rust Development Specialist',
-        expertise: 'Rust, Cargo, performance optimization, memory safety',
-        responsibilities:
-          'Handle Rust codebase, performance-critical components, systems programming',
-        projectContext: { language: 'Rust' },
+    // Backend agents - if we have backend frameworks or languages
+    const backendFrameworks = tech.frameworks.filter(f => 
+      ['express', 'fastify', 'koa', 'hapi', 'nest', 'django', 'flask', 'fastapi', 'rails', 'phoenix', 'laravel'].includes(f.toLowerCase())
+    )
+    const backendLanguages = tech.languages.filter(l => 
+      ['Go', 'Rust', 'Python', 'Ruby', 'Elixir', 'Java', 'PHP'].includes(l)
+    )
+
+    if (backendFrameworks.length > 0 || backendLanguages.length > 0) {
+      const agentName = backendLanguages.length > 0 
+        ? `${backendLanguages[0].toLowerCase()}-developer`
+        : 'backend-specialist'
+      
+      const expertise = backendFrameworks.length > 0
+        ? backendFrameworks.join(', ')
+        : backendLanguages.join(', ')
+
+      await generator.generateDynamicAgent(agentName, {
+        role: `${backendLanguages[0] || 'Backend'} Development Specialist`,
+        expertise,
+        responsibilities: 'Handle backend services, API development, server logic',
+        projectContext: {
+          detectedFrameworks: backendFrameworks,
+          languages: backendLanguages
+        },
       })
-      agents.push('rust-developer')
+      agents.push(agentName)
     }
 
-    if (hasGo) {
-      await generator.generateDynamicAgent('go-developer', {
-        role: 'Go Development Specialist',
-        expertise: 'Go, Go modules, concurrency, backend services',
-        responsibilities: 'Handle Go codebase, backend services, API development',
-        projectContext: { language: 'Go' },
+    // Database specialist - if we have database tools
+    if (tech.databases.length > 0) {
+      await generator.generateDynamicAgent('database-specialist', {
+        role: 'Database Specialist',
+        expertise: tech.databases.join(', '),
+        responsibilities: 'Handle database design, queries, migrations, data modeling',
+        projectContext: {
+          databases: tech.databases
+        },
       })
-      agents.push('go-developer')
+      agents.push('database-specialist')
     }
 
-    if (hasPython) {
-      await generator.generateDynamicAgent('python-developer', {
-        role: 'Python Development Specialist',
-        expertise: 'Python, pip, Django/Flask, data processing',
-        responsibilities: 'Handle Python codebase, backend logic, data processing',
-        projectContext: { language: 'Python' },
-      })
-      agents.push('python-developer')
-    }
-
-    if (hasDocker) {
+    // DevOps specialist - if we have DevOps tools
+    if (tech.tools.some(t => ['Docker', 'Kubernetes', 'Terraform'].includes(t))) {
       await generator.generateDynamicAgent('devops-specialist', {
         role: 'DevOps & Infrastructure Specialist',
-        expertise: 'Docker, Docker Compose, containerization, deployment',
+        expertise: tech.tools.filter(t => ['Docker', 'Kubernetes', 'Terraform'].includes(t)).join(', '),
         responsibilities: 'Handle containerization, deployment, infrastructure setup',
-        projectContext: { hasDocker: true },
+        projectContext: {
+          tools: tech.tools
+        },
       })
       agents.push('devops-specialist')
     }
 
-    // Always generate a QA specialist if we have code
-    await generator.generateDynamicAgent('qa-specialist', {
-      role: 'Quality Assurance Specialist',
-      expertise: 'Testing frameworks, test automation, quality metrics',
-      responsibilities: 'Handle testing strategy, test creation, quality assurance',
-      projectContext: { role: 'QA' },
-    })
-    agents.push('qa-specialist')
+    // QA specialist - always generate if we have test frameworks or any code
+    if (tech.testFrameworks.length > 0 || tech.languages.length > 0) {
+      const testExpertise = tech.testFrameworks.length > 0
+        ? tech.testFrameworks.join(', ')
+        : 'Testing frameworks, test automation'
+
+      await generator.generateDynamicAgent('qa-specialist', {
+        role: 'Quality Assurance Specialist',
+        expertise: testExpertise,
+        responsibilities: 'Handle testing strategy, test creation, quality assurance',
+        projectContext: {
+          testFrameworks: tech.testFrameworks,
+          languages: tech.languages,
+          role: 'QA'
+        },
+      })
+      agents.push('qa-specialist')
+    }
 
     return agents
   }
