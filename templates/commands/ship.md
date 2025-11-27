@@ -2,9 +2,17 @@
 allowed-tools: [Read, Write, Bash, GetTimestamp, GetDate]
 description: 'Ship feature workflow'
 timestamp-rule: 'GetTimestamp() and GetDate() for timestamps'
+think-triggers: [git_decision, report_complete]
 ---
 
 # /p:ship
+
+## Think First
+Before shipping, verify:
+1. Are there uncommitted changes to include?
+2. What version bump is needed (patch/minor/major)?
+3. Is the feature actually complete?
+4. Should tests run first?
 
 ## Workflow (non-blocking)
 1. Lint → Tests → Docs update

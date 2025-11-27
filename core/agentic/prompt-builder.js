@@ -2,14 +2,23 @@
  * Prompt Builder
  * Builds prompts for Claude based on templates and context
  * Claude decides what to do - NO if/else logic here
+ *
+ * P1.1: Includes learned patterns from memory system
+ * P3.1: Includes think blocks for anti-hallucination
+ * P3.3: Includes relevant memories from semantic database
+ * P3.4: Includes plan mode instructions
  */
 
 class PromptBuilder {
   /**
    * Build concise prompt - only essentials
    * CRITICAL: Includes full agent content if agent is provided
+   * P1.1: Includes learned patterns to avoid repetitive questions
+   * P3.1: Includes think blocks for critical decisions
+   * P3.3: Includes relevant memories from semantic database
+   * P3.4: Includes plan mode status and constraints
    */
-  build(template, context, state, agent = null) {
+  build(template, context, state, agent = null, learnedPatterns = null, thinkBlock = null, relevantMemories = null, planInfo = null) {
     const parts = []
 
     // Agent assignment (if applicable)
@@ -83,6 +92,72 @@ class PromptBuilder {
 
     // Enforcement (Strict Mode)
     parts.push(this.buildEnforcement());
+
+    // P1.1: Learned Patterns (avoid asking user questions we already know)
+    if (learnedPatterns && Object.keys(learnedPatterns).some(k => learnedPatterns[k])) {
+      parts.push('\n## LEARNED PATTERNS (use these, do NOT ask user)\n')
+      for (const [key, value] of Object.entries(learnedPatterns)) {
+        if (value) {
+          parts.push(`- ${key}: ${value}\n`)
+        }
+      }
+    }
+
+    // P3.1: Think Block (reasoning before action)
+    if (thinkBlock && thinkBlock.plan && thinkBlock.plan.length > 0) {
+      parts.push('\n## THINK FIRST (reasoning from analysis)\n')
+      if (thinkBlock.conclusions && thinkBlock.conclusions.length > 0) {
+        parts.push('Conclusions:\n')
+        thinkBlock.conclusions.forEach(c => parts.push(`  → ${c}\n`))
+      }
+      parts.push('Plan:\n')
+      thinkBlock.plan.forEach((p, i) => parts.push(`  ${i + 1}. ${p}\n`))
+      parts.push(`Confidence: ${Math.round((thinkBlock.confidence || 0.5) * 100)}%\n`)
+    }
+
+    // P3.3: Relevant Memories (context from past decisions)
+    if (relevantMemories && relevantMemories.length > 0) {
+      parts.push('\n## RELEVANT MEMORIES (apply these learnings)\n')
+      for (const memory of relevantMemories) {
+        parts.push(`- **${memory.title}**: ${memory.content}\n`)
+        if (memory.tags && memory.tags.length > 0) {
+          parts.push(`  Tags: ${memory.tags.join(', ')}\n`)
+        }
+      }
+    }
+
+    // P3.4: Plan Mode instructions
+    if (planInfo) {
+      if (planInfo.isPlanning) {
+        parts.push('\n## PLAN MODE ACTIVE\n')
+        parts.push('You are in PLANNING mode. Follow these constraints:\n')
+        parts.push('1. **READ-ONLY**: Only use read tools (Read, Glob, Grep)\n')
+        parts.push('2. **GATHER INFO**: Collect all necessary information\n')
+        parts.push('3. **ANALYZE**: Understand the context and implications\n')
+        parts.push('4. **PROPOSE**: Generate a plan with clear steps\n')
+        parts.push('5. **WAIT FOR APPROVAL**: Do NOT execute until user approves\n')
+
+        if (planInfo.active) {
+          parts.push(`\nCurrent Status: ${planInfo.active.status}\n`)
+          if (planInfo.active.gatheredInfo?.length > 0) {
+            parts.push(`Info gathered: ${planInfo.active.gatheredInfo.length} items\n`)
+          }
+        }
+      }
+
+      if (planInfo.requiresApproval) {
+        parts.push('\n## APPROVAL REQUIRED\n')
+        parts.push('This command is DESTRUCTIVE. You MUST:\n')
+        parts.push('1. Show exactly what will change\n')
+        parts.push('2. List affected files/resources\n')
+        parts.push('3. Ask for explicit user confirmation (y/n)\n')
+        parts.push('4. Only proceed after approval\n')
+      }
+
+      if (planInfo.allowedTools) {
+        parts.push(`\nAllowed tools: ${planInfo.allowedTools.join(', ')}\n`)
+      }
+    }
 
     // Simple execution directive
     parts.push('\nEXECUTE: Follow flow. Use tools. Decide.\n')

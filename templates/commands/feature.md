@@ -2,9 +2,17 @@
 allowed-tools: [Read, Write, Bash, GetTimestamp, GetDate]
 description: 'Value analysis + roadmap + task breakdown + auto-start'
 timestamp-rule: 'GetTimestamp() and GetDate() for ALL timestamps'
+think-triggers: [explore_to_edit, complex_analysis]
 ---
 
 # /p:feature
+
+## Think First
+Before creating feature, analyze:
+1. Is this a simple or complex feature?
+2. What files/components will be affected?
+3. Are there dependencies or blockers?
+4. Should I create a /p:spec first?
 
 ## Flow
 
