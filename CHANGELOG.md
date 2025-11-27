@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.10.4] - 2025-11-27
+
+### Fixed
+
+- **Commands Module Export** - Fixed `require('./commands').sync is not a function` error
+  - Module now exports singleton instance for direct use
+  - Class still available via `require('./commands').PrjctCommands`
+  - Enables Claude to call commands directly: `require('./commands').sync()`
+
 ## [0.10.3] - 2025-11-27
 
 ### Fixed
