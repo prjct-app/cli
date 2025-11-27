@@ -389,8 +389,16 @@ class PrjctCommands {
         console.log('  Custom: Describe your preferred stack\n')
         console.log('Which option do you prefer? (Respond to continue setup)')
 
+        // Update global CLAUDE.md with latest instructions
+        const commandInstaller = require('./infrastructure/command-installer')
+        await commandInstaller.installGlobalConfig()
+
         return { success: true, mode: 'architect', projectId, idea }
       }
+
+      // Update global CLAUDE.md with latest instructions (fallback for any case)
+      const commandInstaller = require('./infrastructure/command-installer')
+      await commandInstaller.installGlobalConfig()
 
       return { success: true, projectId }
     } catch (error) {
@@ -2352,6 +2360,13 @@ Agent: ${agent}
       const projectId = await configManager.getProjectId(projectPath)
       await contextSync.generateLocalContext(projectPath, projectId)
 
+      // Update global CLAUDE.md with latest instructions
+      const commandInstaller = require('./infrastructure/command-installer')
+      const globalConfigResult = await commandInstaller.installGlobalConfig()
+      if (globalConfigResult.success) {
+        console.log('📝 Updated ~/.claude/CLAUDE.md')
+      }
+
       console.log('✅ Analysis complete!\n')
       console.log('📄 Full report: analysis/repo-summary.md')
       console.log('📝 Context: ~/.prjct-cli/projects/' + projectId + '/CLAUDE.md\n')
@@ -2522,6 +2537,13 @@ Agent: ${agent}
       // Generate dynamic context for Claude
       const contextSync = require('./context-sync')
       await contextSync.generateLocalContext(projectPath, projectId)
+
+      // Update global CLAUDE.md with latest instructions
+      const commandInstaller = require('./infrastructure/command-installer')
+      const globalConfigResult = await commandInstaller.installGlobalConfig()
+      if (globalConfigResult.success) {
+        console.log('📝 Updated ~/.claude/CLAUDE.md')
+      }
 
       console.log('\n✅ Sync complete!\n')
       console.log(`🤖 Agents Generated: ${generatedAgents.length}`)
