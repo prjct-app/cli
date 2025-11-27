@@ -21,6 +21,7 @@ const path = require('path')
 const commandExecutor = require('./agentic/command-executor')
 const contextBuilder = require('./agentic/context-builder')
 const toolRegistry = require('./agentic/tool-registry')
+const memorySystem = require('./agentic/memory-system')
 const pathManager = require('./infrastructure/path-manager')
 const configManager = require('./infrastructure/config-manager')
 const authorDetector = require('./infrastructure/author-detector')
@@ -306,6 +307,7 @@ class PrjctCommands {
       const globalPath = pathManager.getGlobalProjectPath(projectId)
 
       // Create base files
+      // P1.1: Added patterns.json for Layered Memory System
       const baseFiles = {
         'core/now.md': '# NOW\n\nNo current task. Use `/p:now` to set focus.\n',
         'core/next.md': '# NEXT\n\n## Priority Queue\n\n',
@@ -314,7 +316,15 @@ class PrjctCommands {
         'progress/metrics.md': '# METRICS\n\n',
         'planning/ideas.md': '# IDEAS 💡\n\n## Brain Dump\n\n',
         'planning/roadmap.md': '# ROADMAP\n\n',
+        'planning/specs/.gitkeep': '# Specs directory - created by /p:spec\n',
         'memory/context.jsonl': '',
+        'memory/patterns.json': JSON.stringify({
+          version: 1,
+          decisions: {},
+          preferences: {},
+          workflows: {},
+          counters: {}
+        }, null, 2),
       }
 
       for (const [filePath, content] of Object.entries(baseFiles)) {
@@ -692,6 +702,27 @@ class PrjctCommands {
         version: newVersion,
         timestamp: dateHelper.getTimestamp(),
       })
+
+      // P1.1: Learn patterns from this ship
+      const config = await configManager.getConfig(projectPath)
+      const projectId = config.projectId
+
+      // Record shipping workflow patterns
+      await memorySystem.learnDecision(projectId, 'commit_footer', 'prjct', 'ship')
+
+      // Track if tests were run (for quick_ship pattern learning)
+      if (testResult.success) {
+        await memorySystem.recordDecision(projectId, 'test_before_ship', 'true', 'ship')
+      }
+
+      // Record workflow if it's a quick ship (small changes)
+      const isQuickShip = !lintResult.success || !testResult.success
+      if (isQuickShip) {
+        await memorySystem.recordWorkflow(projectId, 'quick_ship', {
+          description: 'Ship without full checks',
+          feature_type: feature.toLowerCase().includes('doc') ? 'docs' : 'other'
+        })
+      }
 
       console.log('\n🎉 Feature shipped successfully!\n')
       console.log('💡 Recommendation: Compact conversation now')
@@ -2316,8 +2347,14 @@ Agent: ${agent}
         gitCommits: analysisData.gitStats.totalCommits,
       })
 
+      // Generate dynamic context for Claude
+      const contextSync = require('./context-sync')
+      const projectId = await configManager.getProjectId(projectPath)
+      await contextSync.generateLocalContext(projectPath, projectId)
+
       console.log('✅ Analysis complete!\n')
-      console.log('📄 Full report: analysis/repo-summary.md\n')
+      console.log('📄 Full report: analysis/repo-summary.md')
+      console.log('📝 Context: ~/.prjct-cli/projects/' + projectId + '/CLAUDE.md\n')
       console.log('Next steps:')
       console.log('• /p:sync → Generate agents based on stack')
       console.log('• /p:feature → Add a new feature')
@@ -2482,11 +2519,16 @@ Agent: ${agent}
         count: generatedAgents.length,
       })
 
+      // Generate dynamic context for Claude
+      const contextSync = require('./context-sync')
+      await contextSync.generateLocalContext(projectPath, projectId)
+
       console.log('\n✅ Sync complete!\n')
       console.log(`🤖 Agents Generated: ${generatedAgents.length}`)
       generatedAgents.forEach((agent) => {
         console.log(`   • ${agent}`)
       })
+      console.log('📝 Context: ~/.prjct-cli/projects/' + projectId + '/CLAUDE.md')
       console.log('\n📋 Based on: analysis/repo-summary.md')
       console.log('💡 See templates/agents/AGENTS.md for reference\n')
       console.log('Next steps:')

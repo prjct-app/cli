@@ -5,6 +5,23 @@ This section provides global context for all `/p:*` commands across any prjct pr
 
 **Auto-managed by prjct-cli** - This section is automatically updated when you install or update prjct.
 
+## 🤖 Project Context (OBLIGATORIO)
+
+**ANTES de trabajar en un proyecto prjct, LEE el contexto del proyecto:**
+
+1. Lee `.prjct/prjct.config.json` → obtén `projectId`
+2. Lee `~/.prjct-cli/projects/{projectId}/CLAUDE.md` → contexto dinámico del proyecto
+3. Para detalles de implementación, lee los archivos en `agents/`
+
+El archivo `CLAUDE.md` del proyecto contiene:
+- Stack detectado del proyecto
+- Agentes disponibles (varían por proyecto)
+- Tarea actual
+- Cola de prioridades
+- Rutas a documentación detallada
+
+**Si no existe CLAUDE.md**: Sugiere ejecutar `/p:sync` para generarlo.
+
 ## 🎯 Path Resolution for ALL /p:* Commands
 
 **CRITICAL**: Every `/p:*` command operates on **global storage**, NOT local files.
