@@ -5,22 +5,92 @@ This section provides global context for all `/p:*` commands across any prjct pr
 
 **Auto-managed by prjct-cli** - This section is automatically updated when you install or update prjct.
 
-## 🤖 Project Context (OBLIGATORIO)
+## 🚀 Quick Command Reference
 
-**ANTES de trabajar en un proyecto prjct, LEE el contexto del proyecto:**
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `/p:sync` | Analyze project & generate agents | Run first in any project |
+| `/p:now [task]` | Set current focus | `/p:now "implement auth"` |
+| `/p:done` | Complete current task | After finishing work |
+| `/p:next` | Show priority queue | See what's pending |
+| `/p:ship [feature]` | Ship & celebrate | `/p:ship "user login"` |
+| `/p:feature [desc]` | Add feature to roadmap | `/p:feature "dark mode"` |
+| `/p:idea [text]` | Quick idea capture | `/p:idea "add caching"` |
+| `/p:recap` | Project overview | Status check |
+| `/p:progress` | Show metrics | Weekly/monthly stats |
 
-1. Lee `.prjct/prjct.config.json` → obtén `projectId`
-2. Lee `~/.prjct-cli/projects/{projectId}/CLAUDE.md` → contexto dinámico del proyecto
-3. Para detalles de implementación, lee los archivos en `agents/`
+## 🎯 Recommended Workflow
 
-El archivo `CLAUDE.md` del proyecto contiene:
-- Stack detectado del proyecto
-- Agentes disponibles (varían por proyecto)
-- Tarea actual
-- Cola de prioridades
-- Rutas a documentación detallada
+```
+1. /p:sync          → Analyze project, generate agents
+2. /p:feature       → Plan what to build
+3. /p:now           → Start working
+4. [code...]        → Do the actual work
+5. /p:done          → Mark complete
+6. /p:ship          → Celebrate & commit
+```
 
-**Si no existe CLAUDE.md**: Sugiere ejecutar `/p:sync` para generarlo.
+## 🤖 Project Context (CRITICAL)
+
+**BEFORE working on any prjct project, READ the project context:**
+
+1. Read `.prjct/prjct.config.json` → get `projectId`
+2. Read `~/.prjct-cli/projects/{projectId}/CLAUDE.md` → dynamic project context
+
+The project CLAUDE.md contains:
+- Tech stack (languages, frameworks, dependencies)
+- Project structure (directories)
+- Available agents with their expertise
+- Current task and priority queue
+- Recent git activity
+- Active roadmap features
+
+**If CLAUDE.md doesn't exist**: Suggest running `/p:sync` to generate it.
+
+## 📋 Common Usage Patterns
+
+### Starting Work on a Project
+```
+User: "p. sync"
+→ Analyze repo, generate agents, create context
+→ Now Claude knows: stack, structure, agents available
+```
+
+### Adding a New Feature
+```
+User: "p. feature add user authentication"
+→ Creates roadmap entry with tasks
+→ Analyzes impact and effort
+→ Suggests starting first task
+```
+
+### Daily Development Flow
+```
+User: "p. now implement login form"
+→ Sets current focus
+→ [User works on code]
+User: "p. done"
+→ Marks complete, suggests next task
+User: "p. ship authentication"
+→ Commits, celebrates, updates metrics
+```
+
+### Quick Idea Capture
+```
+User: "p. idea we should add dark mode later"
+→ Saves to ideas.md
+→ Doesn't interrupt current work
+```
+
+## ⚠️ Anti-Patterns (What NOT to Do)
+
+| ❌ Don't | ✅ Do Instead |
+|----------|---------------|
+| Write to `.prjct/` folder | Write to `~/.prjct-cli/projects/{id}/` |
+| Skip reading project context | Always read CLAUDE.md first |
+| Execute without projectId | Check `.prjct/prjct.config.json` exists |
+| Hardcode file paths | Use projectId to construct paths |
+| Ignore agents | Use specialized agents for their domains |
 
 ## 🎯 Path Resolution for ALL /p:* Commands
 
@@ -28,10 +98,10 @@ El archivo `CLAUDE.md` del proyecto contiene:
 
 ### Resolution Steps:
 
-1. **Detect prjct project**: Check if `.prjct/prjct.config.json` exists in current working directory
-2. **Read config**: Extract `projectId` from `.prjct/prjct.config.json`
+1. **Detect prjct project**: Check if `.prjct/prjct.config.json` exists
+2. **Read config**: Extract `projectId` from config
 3. **Construct base path**: `~/.prjct-cli/projects/{projectId}/`
-4. **Resolve all file operations**: All paths in command templates are relative to base path
+4. **Resolve all file operations**: Paths are relative to base path
 
 ### Examples:
 
@@ -41,75 +111,61 @@ Actual path:  ~/.prjct-cli/projects/{projectId}/core/now.md
 
 Template says: "Read: memory/context.jsonl"
 Actual path:  ~/.prjct-cli/projects/{projectId}/memory/context.jsonl
-
-Template says: "Update: progress/shipped.md"
-Actual path:  ~/.prjct-cli/projects/{projectId}/progress/shipped.md
 ```
 
 ### Validation Rules:
 
 - ❌ **NEVER** write to `.prjct/core/now.md` (local project directory)
 - ❌ **NEVER** write to `./core/now.md` (current working directory)
-- ✅ **ALWAYS** write to `~/.prjct-cli/projects/{projectId}/core/now.md` (global storage)
+- ✅ **ALWAYS** write to `~/.prjct-cli/projects/{projectId}/core/now.md`
 
 ### When NOT in prjct Project:
 
-If `.prjct/prjct.config.json` doesn't exist in current directory:
+If `.prjct/prjct.config.json` doesn't exist:
 - Respond: "No prjct project detected. Initialize first with `/p:init`"
 - Do NOT execute the command
 - Do NOT create files
 
 ## 📁 File Structure
 
-All prjct data lives in global storage with session-based architecture:
+All prjct data lives in global storage:
 
 ```
 ~/.prjct-cli/projects/{projectId}/
-├── core/                 # Current focus (always small)
-│   ├── now.md           # Single current task
-│   ├── next.md          # Priority queue (max 100 tasks)
-│   └── context.md       # Project context summary
-├── progress/            # Completed work
-│   ├── shipped.md       # Recent ships (last 30 days)
-│   ├── metrics.md       # Aggregated metrics
-│   ├── sessions/        # Daily session logs (JSONL)
-│   │   └── 2025-10/
-│   │       └── 2025-10-05.jsonl
-│   └── archive/         # Monthly archives
-│       └── shipped-2025-10.md
-├── planning/            # Future planning
-│   ├── ideas.md         # Active ideas (last 30 days)
-│   ├── roadmap.md       # Active roadmap (lightweight)
-│   ├── sessions/        # Daily planning sessions (JSONL)
-│   │   └── 2025-10/
-│   │       └── 2025-10-05.jsonl
-│   └── archive/         # Monthly archives
-│       └── roadmap-2025-10.md
-├── analysis/            # Technical analysis
-│   └── repo-summary.md
-├── memory/              # Decision history
-│   ├── context.jsonl    # Global decisions (append-only)
-│   └── sessions/        # Daily context (structured)
-│       └── 2025-10/
-│           └── 2025-10-05.jsonl
-└── agents/              # Dynamic AI agents
-    ├── coordinator.md
-    ├── ux.md
-    ├── fe.md
-    ├── be.md
-    ├── qa.md
-    └── scribe.md
+├── CLAUDE.md            # ⭐ READ THIS FIRST - Rich project context
+├── core/                # Current focus
+│   ├── now.md          # Single current task
+│   └── next.md         # Priority queue
+├── progress/           # Completed work
+│   ├── shipped.md      # Recent ships
+│   └── metrics.md      # Aggregated metrics
+├── planning/           # Future planning
+│   ├── ideas.md        # Quick ideas
+│   └── roadmap.md      # Feature roadmap
+├── analysis/           # Technical analysis
+│   └── repo-summary.md # Full repo analysis
+├── memory/             # Decision history
+│   └── context.jsonl   # Append-only log
+└── agents/             # ⭐ Specialized AI agents
+    ├── fe.md           # Frontend specialist
+    ├── be.md           # Backend specialist
+    └── ...             # More based on stack
 ```
 
-### Session Format (JSONL):
+## 🤖 Using Agents Effectively
 
-One JSON object per line, append-only:
+When project has specialized agents:
 
-```jsonl
-{"ts":"2025-10-05T14:30:00Z","type":"feature_add","name":"auth","tasks":5,"impact":"high","effort":"6h"}
-{"ts":"2025-10-05T15:00:00Z","type":"task_start","task":"JWT middleware","agent":"be","estimate":"2h"}
-{"ts":"2025-10-05T17:15:00Z","type":"task_complete","task":"JWT middleware","duration":"2h15m"}
-{"ts":"2025-10-05T18:00:00Z","type":"feature_ship","name":"auth","tasks_done":5,"total_time":"6h"}
+1. **Read agent file** before working in that domain
+2. **Follow agent patterns** for code style and architecture
+3. **Agent expertise** is in CLAUDE.md summary
+
+Example:
+```
+Task: "implement React component"
+→ Check CLAUDE.md for frontend agent
+→ Read agents/fe.md for React patterns
+→ Follow detected conventions
 ```
 
 ## 🤖 Git Commit Format
@@ -125,107 +181,53 @@ Designed for [Claude](https://www.anthropic.com/claude)
 - ❌ "Generated with Claude Code"
 - ❌ "Co-Authored-By: Claude"
 
-**Always use:**
-- ✅ The prjct footer format above
-
-## 👤 Author Detection
-
-All operations include author information. Detection order:
-
-1. **GitHub CLI**: `gh api user` (preferred)
-   - Provides: name, email, username, avatarUrl
-2. **Git Config**: Fallback if GitHub CLI not available
-   - `git config user.name`
-   - `git config user.email`
-3. **Default**: If both fail
-   - name: "Unknown"
-   - email: "unknown@localhost"
-
-Every log entry in `memory/context.jsonl` includes author field.
-
 ## ⚠️ Common Validation Patterns
 
-### Before Executing /p:done:
+### Before /p:done:
 ```javascript
-// Check if there's an active task
 const nowContent = await Read('~/.prjct-cli/projects/{projectId}/core/now.md')
 if (!nowContent || nowContent.trim() === '') {
   return "Not working on anything. Use /p:now to start a task."
 }
 ```
 
-### Before Executing /p:ship:
+### Before /p:ship:
 ```javascript
-// Check if there's something to ship
-const shippedContent = await Read('~/.prjct-cli/projects/{projectId}/progress/shipped.md')
 const nowContent = await Read('~/.prjct-cli/projects/{projectId}/core/now.md')
-if ((!nowContent || nowContent.trim() === '') &&
-    (!shippedContent || shippedContent.trim() === '')) {
+if (!nowContent || nowContent.trim() === '') {
   return "Nothing to ship yet. Build something first with /p:now."
 }
 ```
 
-### Reading Project Config:
-```javascript
-// Always read config first
-const configPath = '.prjct/prjct.config.json'
-const configContent = await Read(configPath)
-const config = JSON.parse(configContent)
-const projectId = config.projectId
-const basePath = `~/.prjct-cli/projects/${projectId}/`
-```
-
 ## 🔧 Error Handling
 
-### File Not Found:
-- If `core/now.md` doesn't exist when reading → return empty state
-- If `core/next.md` doesn't exist → return "No tasks in queue"
-- Always check file existence before operations
-
-### Invalid JSON:
-- If config file is corrupted → suggest running `/p:init` again
-- Log error to `memory/context.jsonl` for debugging
-
-### Permission Issues:
-- If can't write to `~/.prjct-cli/` → check directory permissions
-- Suggest: `chmod -R u+w ~/.prjct-cli/`
-
-## 📊 Performance Guidelines
-
-### Archive Rules:
-- Index files (roadmap.md, shipped.md) keep only last 30 days
-- Sessions older than 30 days → automatically moved to archive/
-- When querying across time: read relevant session files from archive/
-- Commands only read current index + today's session for performance
-
-### File Size Limits:
-- `core/now.md`: Single task only (< 1KB)
-- `core/next.md`: Max 100 tasks (< 50KB)
-- `progress/shipped.md`: Last 30 days only (auto-archive older)
-- Session files: One file per day, JSONL format for efficient appending
+| Error | Solution |
+|-------|----------|
+| File not found | Return empty state, don't fail |
+| Invalid JSON config | Suggest `/p:init` again |
+| Permission denied | Suggest `chmod -R u+w ~/.prjct-cli/` |
+| No project detected | Suggest `/p:init` |
 
 ## 🎯 Command Execution Flow
 
 Standard pattern for all `/p:*` commands:
 
-1. **Validate environment**: Check `.prjct/prjct.config.json` exists
+1. **Validate**: Check `.prjct/prjct.config.json` exists
 2. **Read config**: Extract projectId
-3. **Construct paths**: Build all file paths using base path
-4. **Execute operations**: Read/write files in global storage
-5. **Log action**: Append to `memory/context.jsonl` with timestamp and author
-6. **Return response**: Formatted response with next action suggestions
+3. **Read context**: Load `~/.prjct-cli/projects/{id}/CLAUDE.md`
+4. **Execute**: Read/write files in global storage
+5. **Log**: Append to `memory/context.jsonl`
+6. **Respond**: Formatted response with next action suggestions
 
 ## 📚 Additional Context
 
 - **Website**: https://prjct.app
 - **Documentation**: https://prjct.app/docs
-- **Repository**: Private (proprietary software)
 - **Support**: jlopezlira@gmail.com
-- **Version**: Auto-updated with prjct-cli
 
 ---
 
 **Last updated**: Auto-managed by prjct-cli
-**Config version**: 0.8.2
+**Config version**: 0.10.5
 
 <!-- prjct:end - DO NOT REMOVE THIS MARKER -->
