@@ -15,18 +15,14 @@
     "update-commands": "node -e \"const installer = require('./core/infrastructure/command-installer'); installer.syncCommands().then(r => console.log('Commands updated:', r)).catch(e => console.error('Error:', e.message))\"",
     "install-global": "./scripts/install.sh",
     "update": "./scripts/update.sh",
-    "test": "vitest run --workspace=vitest.workspace.js",
-    "test:watch": "vitest --workspace=vitest.workspace.js",
-    "test:coverage": "vitest run --coverage --workspace=vitest.workspace.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "validate": "node scripts/validate-commands.js",
-    "lint": "eslint \"**/*.js\" --ignore-pattern \"node_modules/**\" --ignore-pattern \"website/**\"",
-    "lint:fix": "eslint \"**/*.js\" --fix --ignore-pattern \"node_modules/**\" --ignore-pattern \"website/**\"",
+    "lint": "eslint . --ignore-pattern node_modules",
+    "lint:fix": "eslint . --fix --ignore-pattern node_modules",
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,css,md}\" --config .config/.prettierrc --ignore-path .config/.prettierignore",
-    "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,json,css,md}\" --config .config/.prettierrc --ignore-path .config/.prettierignore",
-    "website:dev": "cd website && npm run dev",
-    "website:build": "cd website && npm run build",
-    "website:preview": "cd website && npm run preview",
-    "website:install": "cd website && npm install"
+    "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,json,css,md}\" --config .config/.prettierrc --ignore-path .config/.prettierignore"
   },
   "keywords": [
     "claude-code",
@@ -48,7 +44,6 @@
     "prompts": "^2.4.2"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
     "@vitest/coverage-v8": "^3.2.4",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^10.1.8",
@@ -56,10 +51,7 @@
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-n": "^16.6.2",
     "eslint-plugin-promise": "^6.6.0",
-    "jsdom": "^27.0.0",
     "prettier": "^3.6.2",
-    "prettier-plugin-tailwindcss": "^0.6.14",
-    "typescript": "^5.0.0",
     "vitest": "^3.2.4"
   },
   "repository": {

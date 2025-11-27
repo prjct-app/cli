@@ -88,6 +88,31 @@ const COMMANDS = [
     ],
   },
 
+  // 3.5. Spec-Driven Development (P1.2)
+  {
+    name: 'spec',
+    category: 'core',
+    description: 'Create detailed specifications for complex features',
+    usage: {
+      claude: '/p:spec "Dark Mode"',
+      terminal: 'prjct spec "Dark Mode"',
+    },
+    params: '[feature]',
+    implemented: true,
+    hasTemplate: true,
+    icon: 'FileText',
+    requiresInit: true,
+    blockingRules: null,
+    features: [
+      'Requirements documentation',
+      'Design decisions tracking',
+      'Tasks broken into 20-30min chunks',
+      'User approval workflow',
+      'Auto-add tasks to queue on approve',
+      'Integrates with /p:feature',
+    ],
+  },
+
   // 4. Work - Unified task management (replaces now + build)
   {
     name: 'work',
@@ -345,6 +370,29 @@ const COMMANDS = [
     requiresInit: true,
     blockingRules: null,
     isOptional: true,
+  },
+  {
+    name: 'spec',
+    category: 'optional',
+    description: 'Spec-driven development for complex features',
+    usage: {
+      claude: '/p:spec "Dark Mode"',
+      terminal: 'prjct spec "Dark Mode"',
+    },
+    params: '[feature_name]',
+    implemented: true,
+    hasTemplate: true,
+    icon: 'FileText',
+    requiresInit: true,
+    blockingRules: null,
+    isOptional: true,
+    features: [
+      'Clear requirements before coding',
+      'Design decisions documented',
+      'Tasks broken into 20-30 min chunks',
+      'User approval before starting',
+      'Auto-adds tasks to queue on approval',
+    ],
   },
   {
     name: 'cleanup',

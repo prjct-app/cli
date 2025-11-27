@@ -2,6 +2,8 @@
  * Tool Registry
  * Maps allowed-tools from templates to actual functions
  * Simple I/O operations - NO business logic, NO if/else
+ *
+ * P3.2: Added parallelization hints for multi-tool execution
  */
 
 const fs = require('fs').promises
@@ -22,6 +24,36 @@ class ToolRegistry {
       GetDate: this.getDate.bind(this),
       GetDateTime: this.getDateTime.bind(this),
     }
+
+    // P3.2: Parallelization hints
+    // Used by parallel-tools.js to optimize execution
+    this.parallelHints = {
+      Read: { parallel: true, category: 'read' },
+      Write: { parallel: false, category: 'write' },
+      Bash: { parallel: false, category: 'execute' },
+      Exec: { parallel: false, category: 'execute' },
+      GetTimestamp: { parallel: true, category: 'read' },
+      GetDate: { parallel: true, category: 'read' },
+      GetDateTime: { parallel: true, category: 'read' },
+    }
+  }
+
+  /**
+   * P3.2: Check if tool can be parallelized
+   * @param {string} toolName
+   * @returns {boolean}
+   */
+  canParallelize(toolName) {
+    return this.parallelHints[toolName]?.parallel ?? false
+  }
+
+  /**
+   * P3.2: Get tool category (read/write/execute)
+   * @param {string} toolName
+   * @returns {string}
+   */
+  getCategory(toolName) {
+    return this.parallelHints[toolName]?.category ?? 'unknown'
   }
 
   /**
