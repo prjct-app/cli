@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.10.6] - 2025-11-27
+
+### Enhanced
+
+- **Global CLAUDE.md Template** - Improved to help Claude use prjct-cli better
+  - Quick command reference table with examples
+  - Recommended workflow (sync → feature → now → done → ship)
+  - Common usage patterns with examples
+  - Anti-patterns table (what NOT to do)
+  - Using agents effectively section
+  - Simplified file structure overview
+  - Error handling table
+
 ## [0.10.5] - 2025-11-27
 
 ### Enhanced
