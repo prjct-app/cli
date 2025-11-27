@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.10.3] - 2025-11-27
+
+### Fixed
+
+- **Global CLAUDE.md Auto-Update** - Now updates `~/.claude/CLAUDE.md` on every sync/analyze/init
+  - `/p:sync`: Updates global config after generating agents
+  - `/p:analyze`: Updates global config after analysis
+  - `/p:init`: Updates global config for all init modes
+  - Ensures Claude always has latest prjct instructions
+
 ## [0.10.2] - 2025-11-27
 
 ### Added
