@@ -4,7 +4,7 @@
  * This file is required by bin/prjct after setup verification
  */
 
-const PrjctCommands = require('./commands')
+const { PrjctCommands } = require('./commands')
 const registry = require('./command-registry')
 
 async function main() {

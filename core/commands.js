@@ -3014,4 +3014,10 @@ Agent: ${agent}
   }
 }
 
-module.exports = PrjctCommands
+// Export both class and singleton instance
+// Class for CLI (new PrjctCommands())
+// Instance for direct use (require('./commands').sync())
+const instance = new PrjctCommands()
+
+module.exports = instance
+module.exports.PrjctCommands = PrjctCommands
