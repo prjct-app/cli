@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.10.5] - 2025-11-27
+
+### Enhanced
+
+- **Rich Project Context** - CLAUDE.md now includes comprehensive project info
+  - Quick reference table (project, stack, files, commits, contributors)
+  - Full tech stack details (languages, frameworks, dependencies)
+  - Project structure (directories)
+  - Agent summaries with roles and expertise
+  - Current task and priority queue (top 5)
+  - Active roadmap features
+  - Recent ideas (top 3)
+  - Git activity (last 5 commits)
+  - Deep dive section with file paths for detailed info
+
+- **Reduced LLM Context Overhead** - Claude gets all key info in one file instead of reading multiple
+
 ## [0.10.4] - 2025-11-27
 
 ### Fixed
