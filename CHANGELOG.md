@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.10.2] - 2025-11-27
+
+### Added
+
+- **Dynamic Project Context for Claude** - Claude now actually uses generated agents and project context
+  - New `core/context-sync.js` module generates project-specific CLAUDE.md
+  - Context file stored in global storage: `~/.prjct-cli/projects/{projectId}/CLAUDE.md`
+  - Auto-generates on `/p:sync`, `/p:analyze`, and `/p:init`
+  - Reads ALL agents dynamically (agents vary per project)
+  - Extracts: stack, current task, priority queue, active features
+  - Instructions added to global CLAUDE.md template for Claude to read project context
+
+### Changed
+
+- **`/p:sync` Command** - Now generates dynamic project context after syncing agents
+- **`/p:analyze` Command** - Now generates dynamic project context after analysis
+- **Global CLAUDE.md Template** - Added instructions for Claude to read project-specific context
+  - New "🤖 Project Context (OBLIGATORIO)" section
+  - Instructs Claude to read `~/.prjct-cli/projects/{projectId}/CLAUDE.md` before working
+
+### Technical Details
+
+- **New Files**:
+  - `core/context-sync.js` (~140 lines) - Context generation with dynamic agent reading
+
+- **Modified Files**:
+  - `core/commands.js` - Added context sync calls to sync() and analyze()
+  - `templates/global/CLAUDE.md` - Added project context reading instructions
+
+- **Architecture Decision**: Context lives in global storage (NOT in repo) to avoid being overwritten by commits
+
 ## [0.10.1] - 2025-11-24
 
 ### Added
