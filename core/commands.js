@@ -32,6 +32,7 @@ const { VERSION } = require('./utils/version')
 const dateHelper = require('./utils/date-helper')
 const jsonlHelper = require('./utils/jsonl-helper')
 const fileHelper = require('./utils/file-helper')
+const out = require('./utils/output')
 
 /**
  * Agentic Commands - Template-driven execution
@@ -73,15 +74,11 @@ class PrjctCommands {
       return { success: true }
     }
 
-    console.log('⚠️  Project not initialized')
-    console.log('🔧 Running prjct init...\n')
-
+    out.spin('initializing project...')
     const initResult = await this.init(null, projectPath)
     if (!initResult.success) {
       return initResult
     }
-
-    console.log('✅ Project initialized!\n')
     return { success: true }
   }
 
@@ -145,10 +142,7 @@ class PrjctCommands {
         const nowContent = `# NOW\n\n**${task}**\n\nStarted: ${new Date().toLocaleString()}\n`
         await toolRegistry.get('Write')(context.paths.now, nowContent)
 
-        console.log(`🎯 Working on: ${task}`)
-        console.log(`Started: ${new Date().toLocaleTimeString()}\n`)
-        console.log('Done? → /p:done')
-        console.log('Stuck? → /p:stuck')
+        out.done(`${task} (started)`)
 
         await this.logToMemory(projectPath, 'task_started', {
           task,
@@ -160,18 +154,18 @@ class PrjctCommands {
         const nowContent = await toolRegistry.get('Read')(context.paths.now)
 
         if (!nowContent || nowContent.includes('No current task')) {
-          console.log('✨ Not working on anything')
-          console.log('\nStart something:')
-          console.log('• /p:now "task description"')
-          console.log('• /p:next (see queue)')
+          out.warn('no active task')
           return { success: true, message: 'No active task' }
         }
 
-        console.log(nowContent)
+        // Extract task name for minimal output
+        const taskMatch = nowContent.match(/\*\*(.+?)\*\*/)
+        const currentTask = taskMatch ? taskMatch[1] : 'unknown'
+        out.done(`working on: ${currentTask}`)
         return { success: true, content: nowContent }
       }
     } catch (error) {
-      console.error('❌ Error:', error.message)
+      out.fail(error.message)
       return { success: false, error: error.message }
     }
   }
@@ -190,11 +184,7 @@ class PrjctCommands {
 
       // Validate: must have active task
       if (!nowContent || nowContent.includes('No current task') || nowContent.trim() === '# NOW') {
-        console.log('✨ Not working on anything right now!')
-        console.log('\nStart something:')
-        console.log('• "start [task]" → begin working')
-        console.log('• /p:now "task" → set focus')
-        console.log('• /p:next → see queue')
+        out.warn('no active task')
         return { success: true, message: 'No active task to complete' }
       }
 
@@ -213,11 +203,7 @@ class PrjctCommands {
       const emptyNow = '# NOW\n\nNo current task. Use `/p:now` to set focus.\n'
       await toolRegistry.get('Write')(context.paths.now, emptyNow)
 
-      console.log(`✅ Task complete: ${task}${duration ? ` (${duration})` : ''}`)
-      console.log("\nWhat's next?")
-      console.log('• "start next task" → Begin working')
-      console.log('• "ship this feature" → Track & celebrate')
-      console.log('• /p:now | /p:ship')
+      out.done(`${task}${duration ? ` (${duration})` : ''}`)
 
       await this.logToMemory(projectPath, 'task_completed', {
         task,
@@ -226,7 +212,7 @@ class PrjctCommands {
       })
       return { success: true, task, duration }
     } catch (error) {
-      console.error('❌ Error:', error.message)
+      out.fail(error.message)
       return { success: false, error: error.message }
     }
   }
@@ -244,27 +230,17 @@ class PrjctCommands {
       const nextContent = await toolRegistry.get('Read')(context.paths.next)
 
       if (!nextContent || nextContent.trim() === '# NEXT\n\n## Priority Queue') {
-        console.log('📋 Queue is empty!')
-        console.log('\nAdd tasks:')
-        console.log('• /p:feature "description" → Add feature with roadmap')
-        console.log('• /p:bug "description" → Report bug')
+        out.warn('queue empty')
         return { success: true, message: 'Queue is empty' }
       }
 
-      // Check if there's an active task
-      const nowContent = await toolRegistry.get('Read')(context.paths.now)
-      if (nowContent && !nowContent.includes('No current task')) {
-        console.log('⚠️  You have an active task. Complete it with /p:done first.\n')
-      }
-
-      console.log(nextContent)
-      console.log('\nStart a task:')
-      console.log('• /p:build "task name" → Start task with tracking')
-      console.log('• /p:build 1 → Start first task')
+      // Count tasks for minimal output
+      const taskCount = (nextContent.match(/^- \[/gm) || []).length
+      out.done(`${taskCount} task${taskCount !== 1 ? 's' : ''} queued`)
 
       return { success: true, content: nextContent }
     } catch (error) {
-      console.error('❌ Error:', error.message)
+      out.fail(error.message)
       return { success: false, error: error.message }
     }
   }
@@ -286,12 +262,11 @@ class PrjctCommands {
       const isConfigured = await configManager.isConfigured(projectPath)
 
       if (isConfigured) {
-        console.log('⚠️  Project already initialized')
-        console.log('Use /p:sync to regenerate agents or /p:analyze to update analysis')
+        out.warn('already initialized')
         return { success: false, message: 'Already initialized' }
       }
 
-      console.log(`✨ Initializing prjct v${VERSION}...\n`)
+      out.spin('initializing...')
 
       // Detect author from git
       const author = await authorDetector.detect()
@@ -300,7 +275,7 @@ class PrjctCommands {
       const config = await configManager.createConfig(projectPath, author)
       const projectId = config.projectId
 
-      console.log(`📁 Project ID: ${projectId}`)
+      out.spin('creating structure...')
 
       // Ensure global structure exists
       await pathManager.ensureProjectStructure(projectId)
@@ -331,7 +306,6 @@ class PrjctCommands {
         await toolRegistry.get('Write')(path.join(globalPath, filePath), content)
       }
 
-      console.log(`✅ Global structure created: ${pathManager.getDisplayPath(globalPath)}`)
 
       // Detect project state
       const isEmpty = await this._detectEmptyDirectory(projectPath)
@@ -339,21 +313,13 @@ class PrjctCommands {
 
       // MODE 1: Existing project
       if (hasCode || !isEmpty) {
-        console.log('\n📊 Existing project detected - analyzing...\n')
-
-        // Run analysis
+        out.spin('analyzing project...')
         const analysisResult = await this.analyze({}, projectPath)
 
         if (analysisResult.success) {
-          // Run sync to generate agents
+          out.spin('generating agents...')
           await this.sync(projectPath)
-
-          console.log('\n✅ prjct initialized!\n')
-          console.log('Ready to work! What feature shall we add?')
-          console.log('\nNext steps:')
-          console.log('• /p:feature → Add a feature')
-          console.log('• /p:now → Start working on something')
-
+          out.done('initialized')
           return { success: true, mode: 'existing', projectId }
         }
       }
@@ -361,38 +327,20 @@ class PrjctCommands {
       // MODE 2 & 3: Blank project
       if (isEmpty && !hasCode) {
         if (!idea) {
-          // MODE 3: No idea provided
-          console.log('\n📐 Blank project - ARCHITECT MODE available\n')
-          console.log('Provide your project idea to activate architect mode:')
-          console.log('Example: /p:init "dynamic portfolio website"\n')
-          console.log('Or analyze an existing project by adding code first.')
-
+          out.done('blank project - provide idea for architect mode')
           return { success: true, mode: 'blank_no_idea', projectId }
         }
 
         // MODE 2: ARCHITECT MODE
-        console.log('\n📐 ARCHITECT MODE ACTIVATED\n')
-        console.log(`Your idea: "${idea}"\n`)
-
-        // Save architect session
+        out.spin('architect mode...')
         const sessionPath = path.join(globalPath, 'planning', 'architect-session.md')
         const sessionContent = `# Architect Session\n\n## Idea\n${idea}\n\n## Status\nInitialized - awaiting stack recommendation\n\nGenerated: ${new Date().toLocaleString()}\n`
         await toolRegistry.get('Write')(sessionPath, sessionContent)
 
-        console.log('🤖 Analyzing your idea and recommending tech stack...\n')
-        console.log('Recommended stacks:')
-        console.log(
-          '  Option 1: Next.js + TypeScript + Tailwind (⭐ Recommended for modern web apps)'
-        )
-        console.log('  Option 2: React + Vite + shadcn/ui (Fast, minimal)')
-        console.log('  Option 3: Vue 3 + Nuxt (Great DX)')
-        console.log('  Custom: Describe your preferred stack\n')
-        console.log('Which option do you prefer? (Respond to continue setup)')
-
-        // Update global CLAUDE.md with latest instructions
         const commandInstaller = require('./infrastructure/command-installer')
         await commandInstaller.installGlobalConfig()
 
+        out.done('architect mode ready')
         return { success: true, mode: 'architect', projectId, idea }
       }
 
@@ -400,9 +348,10 @@ class PrjctCommands {
       const commandInstaller = require('./infrastructure/command-installer')
       await commandInstaller.installGlobalConfig()
 
+      out.done('initialized')
       return { success: true, projectId }
     } catch (error) {
-      console.error('❌ Error:', error.message)
+      out.fail(error.message)
       return { success: false, error: error.message }
     }
   }
@@ -467,30 +416,16 @@ class PrjctCommands {
       if (!initResult.success) return initResult
 
       if (!description) {
-        console.log('❌ Feature description required')
-        console.log('Usage: /p:feature "description"')
+        out.fail('description required')
         return { success: false, error: 'Description required' }
       }
 
-      console.log(`✨ Creating feature roadmap: ${description}\n`)
+      out.spin(`planning ${description}...`)
 
       const context = await contextBuilder.build(projectPath, { description })
 
-      // Value analysis (simplified - Claude would do deeper analysis)
-      console.log('📊 Value Analysis:')
-      console.log(`   • Feature: ${description}`)
-      console.log('   • Impact: Analyzing...')
-      console.log('   • Effort: Estimating...')
-      console.log('   • Timing: Evaluating...\n')
-
-      // Task breakdown (Claude would generate based on feature complexity)
+      // Task breakdown
       const tasks = this._breakdownFeatureTasks(description)
-
-      console.log('📋 Task Breakdown:')
-      tasks.forEach((task, i) => {
-        console.log(`   ${i + 1}. ${task}`)
-      })
-      console.log('')
 
       // Write to next.md
       const nextContent =
@@ -509,14 +444,11 @@ class PrjctCommands {
         timestamp: dateHelper.getTimestamp(),
       })
 
-      console.log('✅ Feature roadmap created!\n')
-      console.log('Ready to start?')
-      console.log(`• /p:now "${tasks[0]}" → Start first task`)
-      console.log('• /p:next → See all tasks')
+      out.done(`${tasks.length} tasks created`)
 
       return { success: true, feature: description, tasks }
     } catch (error) {
-      console.error('❌ Error:', error.message)
+      out.fail(error.message)
       return { success: false, error: error.message }
     }
   }
@@ -570,22 +502,14 @@ class PrjctCommands {
       if (!initResult.success) return initResult
 
       if (!description) {
-        console.log('❌ Bug description required')
-        console.log('Usage: /p:bug "description"')
+        out.fail('bug description required')
         return { success: false, error: 'Description required' }
       }
 
-      console.log(`🐛 Reporting bug: ${description}\n`)
+      out.spin('tracking bug...')
 
       const context = await contextBuilder.build(projectPath, { description })
-
-      // Auto-detect severity (simplified - Claude would do deeper analysis)
       const severity = this._detectBugSeverity(description)
-
-      console.log(`📊 Severity: ${severity.toUpperCase()}`)
-      console.log(
-        `   Priority: ${severity === 'critical' ? 'URGENT' : severity === 'high' ? 'High' : 'Normal'}\n`
-      )
 
       // Add to next.md with priority
       const nextContent =
@@ -607,14 +531,11 @@ class PrjctCommands {
         timestamp: dateHelper.getTimestamp(),
       })
 
-      console.log('✅ Bug tracked!\n')
-      console.log('Next steps:')
-      console.log('• /p:now "fix bug" → Start fixing')
-      console.log('• /p:next → See all tasks')
+      out.done(`bug [${severity}] tracked`)
 
       return { success: true, bug: description, severity }
     } catch (error) {
-      console.error('❌ Error:', error.message)
+      out.fail(error.message)
       return { success: false, error: error.message }
     }
   }
@@ -663,39 +584,27 @@ class PrjctCommands {
         }
       }
 
-      console.log(`🚀 Shipping: ${feature}\n`)
+      out.spin(`shipping ${feature}...`)
 
-      // Step 1: Lint (non-blocking)
-      console.log('1️⃣ Running lint checks...')
+      // Step 1: Lint
       const lintResult = await this._runLint(projectPath)
-      console.log(`   ${lintResult.success ? '✅' : '⚠️'} Lint: ${lintResult.message}`)
 
-      // Step 2: Tests (non-blocking)
-      console.log('2️⃣ Running tests...')
+      // Step 2: Tests
+      out.spin('running tests...')
       const testResult = await this._runTests(projectPath)
-      console.log(`   ${testResult.success ? '✅' : '⚠️'} Tests: ${testResult.message}`)
 
-      // Step 3-5: Update docs, version, changelog
-      console.log('3️⃣ Updating documentation...')
-      console.log('   ✅ Docs updated')
-
-      console.log('4️⃣ Bumping version...')
+      // Step 3-5: Version + changelog
+      out.spin('updating version...')
       const newVersion = await this._bumpVersion(projectPath)
-      console.log(`   ✅ Version: ${newVersion}`)
-
-      console.log('5️⃣ Updating CHANGELOG...')
       await this._updateChangelog(feature, newVersion, projectPath)
-      console.log('   ✅ CHANGELOG updated')
 
       // Step 6-7: Git commit + push
-      console.log('6️⃣ Creating git commit...')
+      out.spin('committing...')
       const commitResult = await this._createShipCommit(feature, projectPath)
-      console.log(`   ${commitResult.success ? '✅' : '⚠️'} ${commitResult.message}`)
 
       if (commitResult.success) {
-        console.log('7️⃣ Pushing to remote...')
-        const pushResult = await this._gitPush(projectPath)
-        console.log(`   ${pushResult.success ? '✅' : '⚠️'} ${pushResult.message}`)
+        out.spin('pushing...')
+        await this._gitPush(projectPath)
       }
 
       // Log to memory and shipped.md
@@ -732,16 +641,11 @@ class PrjctCommands {
         })
       }
 
-      console.log('\n🎉 Feature shipped successfully!\n')
-      console.log('💡 Recommendation: Compact conversation now')
-      console.log('   (Keeps context clean for next feature)\n')
-      console.log('Next:')
-      console.log('• /p:feature → Add new feature')
-      console.log('• /p:recap → See progress')
+      out.done(`v${newVersion} shipped`)
 
       return { success: true, feature, version: newVersion }
     } catch (error) {
-      console.error('❌ Error:', error.message)
+      out.fail(error.message)
       return { success: false, error: error.message }
     }
   }
@@ -851,92 +755,28 @@ class PrjctCommands {
       const initResult = await this.ensureProjectInit(projectPath)
       if (!initResult.success) return initResult
 
-      console.log('📋 Project Context\n')
-
+      out.spin('loading context...')
       const context = await contextBuilder.build(projectPath)
 
-      // Read current state files
       const nowContent = await toolRegistry.get('Read')(context.paths.now)
       const nextContent = await toolRegistry.get('Read')(context.paths.next)
-      const analysisContent = await toolRegistry.get('Read')(context.paths.analysis)
 
-      // Read memory (last 10 entries)
-      const projectId = await configManager.getProjectId(projectPath)
-      const memoryPath = pathManager.getFilePath(projectId, 'memory', 'context.jsonl')
-      let recentActivity = []
-
-      try {
-        const entries = await jsonlHelper.readJsonLines(memoryPath)
-        recentActivity = entries.slice(-10).reverse()
-      } catch {
-        recentActivity = []
-      }
-
-      // Display context
-      console.log('## Current Focus')
+      // Extract summary
+      let task = 'none'
       if (nowContent && !nowContent.includes('No current task')) {
         const taskMatch = nowContent.match(/\*\*(.+?)\*\*/)
-        const task = taskMatch ? taskMatch[1] : 'Active task'
-        console.log(`🎯 ${task}\n`)
-      } else {
-        console.log('   No active task\n')
+        task = taskMatch ? taskMatch[1] : 'active'
       }
 
-      // Show next queue summary
-      console.log('## Priority Queue')
-      const nextLines = nextContent
-        ?.split('\n')
-        .filter((line) => line.trim() && !line.startsWith('#'))
-      if (nextLines && nextLines.length > 0) {
-        console.log(`   ${nextLines.length} tasks in queue`)
-        nextLines.slice(0, 3).forEach((line) => console.log(`   ${line}`))
-        if (nextLines.length > 3) console.log(`   ... +${nextLines.length - 3} more`)
-      } else {
-        console.log('   Queue is empty')
-      }
-      console.log('')
-
-      // Show stack summary
-      console.log('## Tech Stack')
-      if (analysisContent) {
-        const stackMatch = analysisContent.match(/## Stack Detected\n([\s\S]*?)\n##/)
-        if (stackMatch) {
-          const stackLines = stackMatch[1]
-            .split('\n')
-            .filter((line) => line.includes('**'))
-            .slice(0, 5)
-          stackLines.forEach((line) => {
-            const cleaned = line.replace(/###/g, '').replace(/\*\*/g, '').trim()
-            if (cleaned) console.log(`   ${cleaned}`)
-          })
-        }
-      } else {
-        console.log('   Run /p:analyze to detect stack')
-      }
-      console.log('')
-
-      // Show recent activity
-      console.log('## Recent Activity')
-      if (recentActivity.length > 0) {
-        recentActivity.slice(0, 5).forEach((entry) => {
-          const time = new Date(entry.timestamp).toLocaleString()
-          const action = entry.action.replace(/_/g, ' ')
-          console.log(`   • ${action} - ${time}`)
-        })
-      } else {
-        console.log('   No recent activity')
-      }
-
-      console.log('\n💡 Next steps:')
-      console.log('• /p:recap → See full progress overview')
-      console.log('• /p:analyze → Update stack analysis')
-      console.log('• /p:feature → Add new feature')
+      const nextLines = nextContent?.split('\n').filter((line) => line.trim() && !line.startsWith('#')) || []
+      const queueCount = nextLines.length
 
       await this.logToMemory(projectPath, 'context_viewed', { timestamp: dateHelper.getTimestamp() })
 
+      out.done(`task: ${task} | queue: ${queueCount}`)
       return { success: true }
     } catch (error) {
-      console.error('❌ Error:', error.message)
+      out.fail(error.message)
       return { success: false, error: error.message }
     }
   }
@@ -950,94 +790,17 @@ class PrjctCommands {
       const initResult = await this.ensureProjectInit(projectPath)
       if (!initResult.success) return initResult
 
-      console.log('📊 Project Recap\n')
-
+      out.spin('loading recap...')
       const context = await contextBuilder.build(projectPath)
 
-      // Read shipped features
       const shippedContent = await toolRegistry.get('Read')(context.paths.shipped)
-      const shippedFeatures =
-        shippedContent
-          ?.split('##')
-          .filter((section) => section.trim() && !section.includes('SHIPPED 🚀')) || []
+      const shippedFeatures = shippedContent?.split('##').filter((s) => s.trim() && !s.includes('SHIPPED')) || []
 
-      // Read current state
-      const nowContent = await toolRegistry.get('Read')(context.paths.now)
       const nextContent = await toolRegistry.get('Read')(context.paths.next)
+      const nextTasks = nextContent?.split('\n').filter((l) => l.match(/^\d+\./) || l.includes('[ ]')).length || 0
+
       const ideasContent = await toolRegistry.get('Read')(context.paths.ideas)
-
-      // Count tasks
-      const nextTasks =
-        nextContent
-          ?.split('\n')
-          .filter((line) => line.trim().match(/^\d+\./) || line.includes('[ ]')).length || 0
-
-      const ideas =
-        ideasContent
-          ?.split('##')
-          .filter(
-            (section) =>
-              section.trim() && !section.includes('IDEAS 💡') && !section.includes('Brain Dump')
-          ).length || 0
-
-      // Display recap
-      console.log('═══════════════════════════════════════════════════')
-      console.log(`  Shipped: ${shippedFeatures.length} features`)
-      console.log(`  In Queue: ${nextTasks} tasks`)
-      console.log(`  Ideas: ${ideas} captured`)
-      console.log('═══════════════════════════════════════════════════\n')
-
-      // Show shipped features
-      if (shippedFeatures.length > 0) {
-        console.log('## 🚀 Shipped Features\n')
-        shippedFeatures
-          .slice(-5)
-          .reverse()
-          .forEach((feature, i) => {
-            const lines = feature.trim().split('\n')
-            const title = lines[0].trim()
-            const shipped = lines
-              .find((l) => l.includes('Shipped:'))
-              ?.replace('Shipped:', '')
-              .trim()
-            console.log(`   ${i + 1}. ${title} ${shipped ? `(${shipped})` : ''}`)
-          })
-        if (shippedFeatures.length > 5) {
-          console.log(`\n   ... +${shippedFeatures.length - 5} more in progress/shipped.md`)
-        }
-        console.log('')
-      } else {
-        console.log('## 🚀 Shipped Features\n   None yet - ship your first feature!\n')
-      }
-
-      // Show current focus
-      console.log('## 🎯 Current Focus\n')
-      if (nowContent && !nowContent.includes('No current task')) {
-        const taskMatch = nowContent.match(/\*\*(.+?)\*\*/)
-        const task = taskMatch ? taskMatch[1] : 'Active task'
-        console.log(`   Working on: ${task}`)
-      } else {
-        console.log('   No active task')
-      }
-      console.log('')
-
-      // Show next priorities
-      if (nextTasks > 0) {
-        console.log('## 📋 Next Priorities\n')
-        const taskLines = nextContent
-          .split('\n')
-          .filter((line) => line.trim().match(/^\d+\./) || line.includes('[ ]'))
-          .slice(0, 3)
-
-        taskLines.forEach((line) => console.log(`   ${line.trim()}`))
-        if (nextTasks > 3) console.log(`\n   ... +${nextTasks - 3} more tasks`)
-        console.log('')
-      }
-
-      console.log('💡 Next steps:')
-      console.log('• /p:feature → Add new feature')
-      console.log('• /p:now → Start working on something')
-      console.log('• /p:ship → Ship completed work')
+      const ideas = ideasContent?.split('##').filter((s) => s.trim() && !s.includes('IDEAS') && !s.includes('Brain')).length || 0
 
       await this.logToMemory(projectPath, 'recap_viewed', {
         shipped: shippedFeatures.length,
@@ -1045,12 +808,10 @@ class PrjctCommands {
         timestamp: dateHelper.getTimestamp(),
       })
 
-      return {
-        success: true,
-        stats: { shipped: shippedFeatures.length, tasks: nextTasks, ideas },
-      }
+      out.done(`shipped: ${shippedFeatures.length} | queue: ${nextTasks} | ideas: ${ideas}`)
+      return { success: true, stats: { shipped: shippedFeatures.length, tasks: nextTasks, ideas } }
     } catch (error) {
-      console.error('❌ Error:', error.message)
+      out.fail(error.message)
       return { success: false, error: error.message }
     }
   }
@@ -1065,92 +826,27 @@ class PrjctCommands {
       if (!initResult.success) return initResult
 
       if (!issue) {
-        console.log('❌ Issue description required')
-        console.log('Usage: /p:stuck "description of problem"')
-        console.log('\nExample: /p:stuck "CORS error in API calls"')
+        out.fail('issue description required')
         return { success: false, error: 'Issue description required' }
       }
 
-      console.log(`🆘 Getting help: ${issue}\n`)
+      out.spin('logging issue...')
 
-      let detectedStack = 'your project'
-
-      // 100% AGENTIC: Use analyzer for raw data
-      // Claude decides what's relevant, no hardcoded categorization
       const analyzer = require('./domain/analyzer')
       analyzer.init(projectPath)
       const packageJson = await analyzer.readPackageJson()
-      // Use project name or generic fallback
-      detectedStack = packageJson?.name || 'your project'
+      const detectedStack = packageJson?.name || 'project'
 
-      // Provide contextual help based on issue type
-      console.log('💡 Contextual Help:\n')
-
-      const issueLower = issue.toLowerCase()
-
-      // Common issue patterns
-      if (issueLower.includes('cors')) {
-        console.log('## CORS Issue Detected\n')
-        console.log('Common solutions for CORS errors:')
-        console.log('1. Add CORS headers in your backend')
-        // REMOVED: Hardcoded Next.js check
-        // Claude will provide framework-specific help based on detected tech
-        console.log('4. Check if credentials are being sent')
-        console.log('5. Verify allowed origins match exactly\n')
-      } else if (issueLower.includes('test') || issueLower.includes('failing')) {
-        console.log('## Test Issues\n')
-        console.log('Debug steps:')
-        console.log('1. Run tests in watch mode: npm test -- --watch')
-        console.log('2. Check test environment setup')
-        console.log('3. Verify mocks are correct')
-        console.log('4. Check async handling\n')
-      } else if (issueLower.includes('build') || issueLower.includes('compile')) {
-        console.log('## Build/Compile Issues\n')
-        console.log('Debug steps:')
-        console.log('1. Clear cache and node_modules')
-        console.log('2. Check TypeScript errors: npm run type-check')
-        console.log('3. Verify all dependencies are installed')
-        console.log('4. Check for circular dependencies\n')
-      } else if (issueLower.includes('deploy') || issueLower.includes('production')) {
-        console.log('## Deployment Issues\n')
-        console.log('Debug steps:')
-        console.log('1. Check environment variables')
-        console.log('2. Verify build succeeds locally')
-        console.log('3. Check logs in deployment platform')
-        console.log('4. Verify node version matches\n')
-      } else {
-        console.log('## General Debugging Steps\n')
-        console.log(`For ${detectedStack}:`)
-        console.log('1. Check error logs and stack traces')
-        console.log('2. Search error message in docs')
-        console.log('3. Verify configuration files')
-        console.log('4. Test in isolation (minimal reproduction)')
-        console.log('5. Check recent changes (git diff)\n')
-      }
-
-      console.log('📚 Resources:')
-      console.log(`• Stack Overflow: Search "${issue}"`)
-      console.log(`• GitHub Issues: Search in ${detectedStack} repo`)
-      if (detectedStack !== 'your project') {
-        console.log(`• Official Docs: ${detectedStack} documentation`)
-      }
-      console.log('• Claude Code: Ask Claude for specific help with code\n')
-
-      console.log('💬 Still stuck?')
-      console.log('• Share error logs with Claude')
-      console.log('• Create minimal reproduction')
-      console.log('• /p:context → Review project state')
-
-      // Log to memory
       await this.logToMemory(projectPath, 'help_requested', {
         issue,
         stack: detectedStack,
         timestamp: dateHelper.getTimestamp(),
       })
 
+      out.done(`issue logged: ${issue.slice(0, 40)}`)
       return { success: true, issue, stack: detectedStack }
     } catch (error) {
-      console.error('❌ Error:', error.message)
+      out.fail(error.message)
       return { success: false, error: error.message }
     }
   }
@@ -1167,16 +863,7 @@ class PrjctCommands {
   async _cleanupMemory(projectPath) {
     const projectId = await configManager.getProjectId(projectPath)
 
-    console.log('📊 Analyzing disk usage...\n')
-
-    const results = {
-      rotated: [],
-      archived: [],
-      totalSize: 0,
-      freedSpace: 0,
-    }
-
-    // 1. Check and rotate large JSONL files
+    const results = { rotated: [], totalSize: 0, freedSpace: 0 }
     const jsonlFiles = [
       pathManager.getFilePath(projectId, 'memory', 'context.jsonl'),
       pathManager.getFilePath(projectId, 'progress', 'shipped.md'),
@@ -1188,35 +875,16 @@ class PrjctCommands {
         const sizeMB = await jsonlHelper.getFileSizeMB(filePath)
         if (sizeMB > 0) {
           results.totalSize += sizeMB
-
           const rotated = await jsonlHelper.rotateJsonLinesIfNeeded(filePath, 10)
           if (rotated) {
             results.rotated.push(path.basename(filePath))
             results.freedSpace += sizeMB
           }
         }
-      } catch (error) {
-        // File doesn't exist, skip
+      } catch {
+        // skip
       }
     }
-
-    // 2. Report disk usage
-    console.log('💾 Disk Usage Report:\n')
-    console.log(`   Total size: ${results.totalSize.toFixed(2)}MB`)
-    console.log(`   Rotated files: ${results.rotated.length}`)
-
-    if (results.rotated.length > 0) {
-      console.log(`   Freed space: ${results.freedSpace.toFixed(2)}MB\n`)
-      results.rotated.forEach((file) => console.log(`   ✓ ${file}`))
-    } else {
-      console.log('   ✓ No rotation needed - all files under 10MB\n')
-    }
-
-    // 3. Suggestions
-    console.log('\n💡 Recommendations:\n')
-    console.log('   1. Claude Code: Compact conversation regularly')
-    console.log('   2. Exclude from Spotlight: System Settings → Privacy')
-    console.log('   3. Clear npm cache: npm cache clean --force\n')
 
     return { success: true, results }
   }
@@ -1242,14 +910,12 @@ class PrjctCommands {
       const validTypes = ['architecture', 'api', 'component', 'database', 'flow']
 
       if (!validTypes.includes(designType)) {
-        console.log(`❌ Invalid design type: ${designType}`)
-        console.log(`Valid types: ${validTypes.join(', ')}`)
+        out.fail(`invalid type: ${designType}`)
         return { success: false, error: 'Invalid design type' }
       }
 
       const designTarget = target || 'system'
-
-      console.log(`🎨 Designing ${designType}: ${designTarget}\n`)
+      out.spin(`designing ${designType}...`)
 
       // Create designs directory if it doesn't exist
       const projectId = await configManager.getProjectId(projectPath)
@@ -1286,27 +952,16 @@ class PrjctCommands {
       const designFilePath = path.join(designsPath, designFileName)
       await fileHelper.writeFile(designFilePath, designContent)
 
-      console.log('✅ Design document created!\n')
-      console.log(`📄 Location: planning/designs/${designFileName}\n`)
-      console.log('💡 Next steps:')
-      console.log('• Review and refine the design')
-      console.log('• /p:feature → Implement the design')
-      console.log('• Share with team for feedback')
-
       await this.logToMemory(projectPath, 'design_created', {
         type: designType,
         target: designTarget,
         timestamp: dateHelper.getTimestamp(),
       })
 
-      return {
-        success: true,
-        designPath: designFilePath,
-        type: designType,
-        target: designTarget,
-      }
+      out.done(`${designType} design created`)
+      return { success: true, designPath: designFilePath, type: designType, target: designTarget }
     } catch (error) {
-      console.error('❌ Error:', error.message)
+      out.fail(error.message)
       return { success: false, error: error.message }
     }
   }
@@ -1685,11 +1340,13 @@ Process flow for ${target}.
       const isMemoryMode = _options.memory === true || _options.type === 'memory'
 
       if (isMemoryMode) {
-        console.log('🧹 Memory cleanup...\n')
-        return await this._cleanupMemory(projectPath)
+        out.spin('cleaning memory...')
+        const result = await this._cleanupMemory(projectPath)
+        out.done('memory cleaned')
+        return result
       }
 
-      console.log('🧹 Cleaning up project...\n')
+      out.spin('cleaning up...')
 
       const context = await contextBuilder.build(projectPath)
       const projectId = await configManager.getProjectId(projectPath)
@@ -1760,9 +1417,6 @@ Process flow for ${target}.
         cleaned.push('Queue: No file found')
       }
 
-      console.log('✅ Cleanup complete!\n')
-      cleaned.forEach((item) => console.log(`   • ${item}`))
-
       await this._cleanupMemoryInternal(projectPath)
 
       await this.logToMemory(projectPath, 'cleanup_performed', {
@@ -1770,9 +1424,10 @@ Process flow for ${target}.
         timestamp: dateHelper.getTimestamp(),
       })
 
+      out.done(`${cleaned.length} items cleaned`)
       return { success: true, cleaned }
     } catch (error) {
-      console.error('❌ Error:', error.message)
+      out.fail(error.message)
       return { success: false, error: error.message }
     }
   }
@@ -1787,102 +1442,35 @@ Process flow for ${target}.
       if (!initResult.success) return initResult
 
       const validPeriods = ['day', 'week', 'month', 'all']
-      if (!validPeriods.includes(period)) {
-        period = 'week'
-      }
+      if (!validPeriods.includes(period)) period = 'week'
 
-      console.log(`📈 Progress Report (${period})\n`)
+      out.spin(`loading ${period} progress...`)
 
       const projectId = await configManager.getProjectId(projectPath)
       const memoryPath = pathManager.getFilePath(projectId, 'memory', 'context.jsonl')
 
-      // Calculate time range
-      const now = new Date()
-      let startDate
+      const startDate = period === 'day' ? dateHelper.getDaysAgo(1) :
+                        period === 'week' ? dateHelper.getDaysAgo(7) :
+                        period === 'month' ? dateHelper.getDaysAgo(30) : new Date(0)
 
-      switch (period) {
-        case 'day':
-          startDate = dateHelper.getDaysAgo(1)
-          break
-        case 'week':
-          startDate = dateHelper.getDaysAgo(7)
-          break
-        case 'month':
-          startDate = dateHelper.getDaysAgo(30)
-          break
-        case 'all':
-          startDate = new Date(0) // Beginning of time
-          break
-      }
-
-      // Read memory and filter by period
       let entries = []
       try {
         const allEntries = await jsonlHelper.readJsonLines(memoryPath)
+        entries = allEntries.filter((e) => new Date(e.timestamp) >= startDate)
+      } catch { entries = [] }
 
-        entries = allEntries.filter((entry) => {
-          const entryDate = new Date(entry.timestamp)
-          return entryDate >= startDate
-        })
-      } catch {
-        entries = []
-      }
-
-      // Calculate metrics
       const metrics = {
-        tasksStarted: entries.filter((e) => e.action === 'task_started').length,
         tasksCompleted: entries.filter((e) => e.action === 'task_completed').length,
-        featuresPlanned: entries.filter((e) => e.action === 'feature_planned').length,
         featuresShipped: entries.filter((e) => e.action === 'feature_shipped').length,
-        bugsReported: entries.filter((e) => e.action === 'bug_reported').length,
-        designsCreated: entries.filter((e) => e.action === 'design_created').length,
-        helpRequested: entries.filter((e) => e.action === 'help_requested').length,
         totalActions: entries.length,
       }
 
-      // Display metrics
-      console.log('═══════════════════════════════════════════════════')
-      console.log(
-        `  Period: ${period} (${startDate.toLocaleDateString()} - ${now.toLocaleDateString()})`
-      )
-      console.log('═══════════════════════════════════════════════════\n')
+      await this.logToMemory(projectPath, 'progress_viewed', { period, metrics, timestamp: dateHelper.getTimestamp() })
 
-      console.log('## Activity Summary\n')
-      console.log(`   Total Actions: ${metrics.totalActions}`)
-      console.log(`   Tasks Started: ${metrics.tasksStarted}`)
-      console.log(`   Tasks Completed: ${metrics.tasksCompleted}`)
-      console.log(`   Features Planned: ${metrics.featuresPlanned}`)
-      console.log(`   Features Shipped: ${metrics.featuresShipped}`)
-      console.log(`   Bugs Reported: ${metrics.bugsReported}`)
-      console.log(`   Designs Created: ${metrics.designsCreated}`)
-      console.log(`   Help Requested: ${metrics.helpRequested}\n`)
-
-      // Completion rate
-      if (metrics.tasksStarted > 0) {
-        const completionRate = Math.round((metrics.tasksCompleted / metrics.tasksStarted) * 100)
-        console.log(`## Completion Rate: ${completionRate}%\n`)
-      }
-
-      // Velocity
-      const daysInPeriod =
-        period === 'day' ? 1 : period === 'week' ? 7 : period === 'month' ? 30 : 365
-      const tasksPerDay = (metrics.tasksCompleted / daysInPeriod).toFixed(1)
-      console.log(`## Velocity: ${tasksPerDay} tasks/day\n`)
-
-      console.log('💡 Actions:')
-      console.log('• /p:recap → See shipped features')
-      console.log('• /p:context → View current state')
-      console.log('• /p:progress day|week|month|all → Change period')
-
-      await this.logToMemory(projectPath, 'progress_viewed', {
-        period,
-        metrics,
-        timestamp: dateHelper.getTimestamp(),
-      })
-
+      out.done(`${period}: ${metrics.tasksCompleted} tasks | ${metrics.featuresShipped} shipped`)
       return { success: true, period, metrics }
     } catch (error) {
-      console.error('❌ Error:', error.message)
+      out.fail(error.message)
       return { success: false, error: error.message }
     }
   }
@@ -1896,36 +1484,24 @@ Process flow for ${target}.
       const initResult = await this.ensureProjectInit(projectPath)
       if (!initResult.success) return initResult
 
-      console.log('🗺️  Project Roadmap\n')
-
+      out.spin('loading roadmap...')
       const context = await contextBuilder.build(projectPath)
-
-      // Read roadmap content
       const roadmapContent = await toolRegistry.get('Read')(context.paths.roadmap)
 
       if (!roadmapContent || roadmapContent.trim() === '# ROADMAP') {
-        console.log('📝 No roadmap yet. Add features to build roadmap:\n')
-        console.log('Example roadmap structure:')
-        console.log(this._generateRoadmapTemplate())
-        console.log('\n💡 Use /p:feature to add features')
-        console.log('   Features are automatically added to roadmap')
+        out.warn('no roadmap yet')
         return { success: true, message: 'No roadmap' }
       }
 
-      // Display roadmap
-      console.log(roadmapContent)
+      // Count features in roadmap
+      const features = (roadmapContent.match(/##/g) || []).length
 
-      console.log('\n💡 Actions:')
-      console.log('• /p:feature → Add new feature to roadmap')
-      console.log('• /p:status → See implementation status')
+      await this.logToMemory(projectPath, 'roadmap_viewed', { timestamp: dateHelper.getTimestamp() })
 
-      await this.logToMemory(projectPath, 'roadmap_viewed', {
-        timestamp: dateHelper.getTimestamp(),
-      })
-
+      out.done(`${features} features in roadmap`)
       return { success: true, content: roadmapContent }
     } catch (error) {
-      console.error('❌ Error:', error.message)
+      out.fail(error.message)
       return { success: false, error: error.message }
     }
   }

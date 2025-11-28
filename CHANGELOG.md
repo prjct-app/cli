@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.10.8] - 2025-11-28
+
+### Added
+
+- **Minimal Output System** - New `core/utils/output.js` module for clean, minimal CLI output
+  - `spin(msg)` - Spinner animation while working
+  - `done(msg)` - Single-line success output (✓)
+  - `fail(msg)` - Single-line error output (✗)
+  - `warn(msg)` - Single-line warning output (⚠)
+
+### Changed
+
+- **Reduced CLI Verbosity** - All major commands now show spinner + 1 line result instead of verbose multi-line output
+  - `/p:now` - Shows only task name and status
+  - `/p:done` - Shows task and duration in one line
+  - `/p:next` - Shows queue count only
+  - `/p:ship` - Spinner during steps, single line result with version
+  - `/p:feature` - Shows task count created
+  - `/p:init` - Spinner during initialization, minimal completion message
+  - `/p:bug` - Shows severity in one line
+  - `/p:context` - Shows task and queue summary
+  - `/p:recap` - Shows shipped/queue/ideas counts
+  - `/p:stuck` - Logs issue with minimal output
+  - `/p:design` - Shows design type created
+  - `/p:cleanup` - Shows items cleaned count
+  - `/p:progress` - Shows period metrics summary
+  - `/p:roadmap` - Shows features count
+
+### Improved
+
+- **Resource Efficiency** - Reduced terminal output significantly, consuming less resources
+- **Cleaner UX** - Focus on essential information, no verbose step-by-step logs
+
 ## [0.10.7] - 2025-11-27
 
 ### Fixed
