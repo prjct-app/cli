@@ -9,7 +9,7 @@
 
 const fs = require('fs').promises
 const path = require('path')
-const TechDetector = require('./tech-detector')
+const analyzer = require('./analyzer')
 const configManager = require('../infrastructure/config-manager')
 const pathManager = require('../infrastructure/path-manager')
 
@@ -17,7 +17,6 @@ class TaskAnalyzer {
   constructor(projectPath) {
     this.projectPath = projectPath
     this.projectId = null
-    this.techDetector = null
     this.taskHistory = null
   }
 
@@ -26,17 +25,21 @@ class TaskAnalyzer {
    */
   async initialize() {
     this.projectId = await configManager.getProjectId(this.projectPath)
-    this.techDetector = new TechDetector(this.projectPath)
+    analyzer.init(this.projectPath)
     await this.loadTaskHistory()
   }
 
   /**
    * Deep semantic analysis of a task
+   *
+   * 100% AGENTIC: No hardcoded patterns. Uses task description
+   * and historical patterns only. Claude decides domain relevance.
+   *
    * @param {Object} task - Task object {description, type}
    * @returns {Promise<Object>} Analysis result
    */
   async analyzeTask(task) {
-    if (!this.techDetector) {
+    if (!this.projectId) {
       await this.initialize()
     }
 
@@ -44,109 +47,68 @@ class TaskAnalyzer {
     const type = (task.type || '').toLowerCase()
     const fullText = `${description} ${type}`.trim()
 
-    // Get project technologies
-    const projectTech = await this.techDetector.detectAll()
+    // Get raw project data (no categorization)
+    const projectData = {
+      packageJson: await analyzer.readPackageJson(),
+      extensions: await analyzer.getFileExtensions(),
+      directories: await analyzer.listDirectories(),
+      configFiles: await analyzer.listConfigFiles()
+    }
 
-    // Multi-domain detection
-    const domains = this.detectDomains(fullText, projectTech)
-
-    // Semantic understanding
-    const semantic = this.analyzeSemantics(fullText, projectTech)
+    // Semantic understanding (intent-based, not keyword-based)
+    const semantic = this.analyzeSemantics(fullText)
 
     // Historical patterns
     const historical = await this.analyzeHistory(fullText)
 
     // Complexity estimation
-    const complexity = this.estimateComplexity(fullText, domains)
+    const complexity = this.estimateComplexity(fullText)
 
-    // Combine all signals
-    const primaryDomain = this.selectPrimaryDomain(domains, semantic, historical)
-    const confidence = this.calculateConfidence(domains, semantic, historical)
+    // Primary domain from history and intent (not hardcoded patterns)
+    const primaryDomain = this.selectPrimaryDomain(semantic, historical)
+    const confidence = this.calculateConfidence(semantic, historical)
 
     return {
       primaryDomain,
-      domains, // All detected domains
       confidence,
       semantic,
       historical,
       complexity,
-      projectTechnologies: projectTech,
-      matchedKeywords: domains[primaryDomain]?.keywords || [],
-      reason: this.buildReason(primaryDomain, domains, semantic, historical),
-      alternatives: this.getAlternatives(primaryDomain, domains)
+      projectData, // Raw data for Claude to analyze
+      matchedKeywords: [], // No keyword matching - Claude decides
+      reason: this.buildReason(primaryDomain, semantic, historical),
+      alternatives: ['full-stack', 'generalist']
     }
   }
 
   /**
-   * Detect multiple domains from task description
+   * Domain detection removed - 100% AGENTIC
+   *
+   * NO hardcoded keyword lists or framework categorization.
+   * Claude analyzes the task description and project context
+   * to determine the appropriate domain.
+   *
+   * This method is kept for backward compatibility but returns empty.
+   * Use analyzeTask() which provides raw data for Claude.
    */
-  detectDomains(text, projectTech) {
-    const domains = {}
-
-    // Enhanced patterns with project context
-    const patterns = {
-      frontend: [
-        'component', 'ui', 'user interface', 'frontend', 'client',
-        'style', 'css', 'layout', 'responsive', 'design',
-        'page', 'view', 'template', 'render', 'display',
-        'button', 'form', 'input', 'modal', 'dialog',
-        ...(projectTech.frameworks.filter(f => ['react', 'vue', 'angular', 'svelte', 'next', 'nuxt'].includes(f.toLowerCase())).map(f => f.toLowerCase()))
-      ],
-      backend: [
-        'api', 'server', 'endpoint', 'route', 'middleware',
-        'auth', 'authentication', 'authorization', 'jwt', 'session',
-        'backend', 'service', 'controller', 'handler',
-        'database', 'query', 'model', 'schema',
-        ...(projectTech.frameworks.filter(f => ['express', 'fastify', 'django', 'flask', 'rails', 'phoenix'].includes(f.toLowerCase())).map(f => f.toLowerCase()))
-      ],
-      database: [
-        'database', 'db', 'query', 'migration', 'schema', 'model',
-        'sql', 'data', 'table', 'collection', 'index', 'relation',
-        'postgres', 'mysql', 'mongodb', 'redis'
-      ],
-      devops: [
-        'deploy', 'deployment', 'docker', 'kubernetes', 'k8s',
-        'ci/cd', 'pipeline', 'build', 'ship', 'release',
-        'production', 'infrastructure', 'container', 'orchestration'
-      ],
-      qa: [
-        'test', 'testing', 'bug', 'error', 'fix', 'debug', 'issue',
-        'quality', 'coverage', 'unit test', 'integration test',
-        'e2e', 'spec', 'assertion', 'validation'
-      ],
-      architecture: [
-        'design', 'architecture', 'pattern', 'structure',
-        'refactor', 'refactoring', 'organize', 'plan',
-        'feature', 'system', 'module', 'component design'
-      ]
-    }
-
-    // Score each domain
-    for (const [domain, keywords] of Object.entries(patterns)) {
-      const matches = keywords.filter(keyword => text.includes(keyword))
-      if (matches.length > 0) {
-        domains[domain] = {
-          keywords: matches,
-          count: matches.length,
-          score: matches.length + (matches.length > 2 ? 1 : 0) // Bonus for multiple matches
-        }
-      }
-    }
-
-    return domains
+  detectDomains(text) {
+    // No hardcoded patterns - Claude decides domain
+    return {}
   }
 
   /**
-   * Semantic analysis - understand intent, not just keywords
+   * Semantic analysis - understand intent
+   *
+   * Only detects basic intent (create, fix, improve, test).
+   * Claude handles detailed domain analysis.
    */
-  analyzeSemantics(text, projectTech) {
+  analyzeSemantics(text) {
     const semantic = {
       intent: null,
-      requiresMultipleAgents: false,
-      complexity: 'medium'
+      requiresMultipleAgents: false
     }
 
-    // Detect intent patterns
+    // Detect basic intent patterns (these are universal, not tech-specific)
     if (text.match(/\b(create|add|build|implement|make)\b/)) {
       semantic.intent = 'create'
     } else if (text.match(/\b(fix|repair|debug|resolve)\b/)) {
@@ -157,18 +119,8 @@ class TaskAnalyzer {
       semantic.intent = 'test'
     }
 
-    // Detect multi-agent requirements
-    if (text.match(/\b(api|endpoint).*\b(test|spec)\b/) || 
-        text.match(/\b(test|spec).*\b(api|endpoint)\b/)) {
-      semantic.requiresMultipleAgents = true
-      semantic.agents = ['backend', 'qa']
-    }
-
-    if (text.match(/\b(component|ui).*\b(test|spec)\b/) ||
-        text.match(/\b(test|spec).*\b(component|ui)\b/)) {
-      semantic.requiresMultipleAgents = true
-      semantic.agents = ['frontend', 'qa']
-    }
+    // No hardcoded multi-agent detection
+    // Claude decides if multiple agents are needed based on context
 
     return semantic
   }
@@ -210,71 +162,61 @@ class TaskAnalyzer {
   }
 
   /**
-   * Estimate task complexity
+   * Estimate task complexity based on intent words
    */
-  estimateComplexity(text, domains) {
-    let complexity = 'medium'
-
-    // Complexity indicators
-    const simpleIndicators = ['add', 'create', 'simple', 'basic']
-    const complexIndicators = ['refactor', 'optimize', 'architecture', 'migration', 'redesign']
+  estimateComplexity(text) {
+    // Simple complexity indicators (universal, not tech-specific)
+    const simpleIndicators = ['add', 'create', 'simple', 'basic', 'small']
+    const complexIndicators = ['refactor', 'optimize', 'architecture', 'migration', 'redesign', 'overhaul']
 
     const simpleCount = simpleIndicators.filter(ind => text.includes(ind)).length
     const complexCount = complexIndicators.filter(ind => text.includes(ind)).length
 
     if (complexCount > simpleCount) {
-      complexity = 'high'
+      return 'high'
     } else if (simpleCount > 0 && complexCount === 0) {
-      complexity = 'low'
+      return 'low'
     }
 
-    // Multiple domains = more complex
-    if (Object.keys(domains).length > 1) {
-      complexity = 'high'
-    }
-
-    return complexity
+    return 'medium'
   }
 
   /**
-   * Select primary domain from all signals
+   * Select primary domain from history and semantics
+   *
+   * 100% AGENTIC: No keyword matching. Uses only:
+   * - Historical patterns from past tasks
+   * - Basic intent detection
+   * Claude decides actual domain based on project context.
    */
-  selectPrimaryDomain(domains, semantic, historical) {
-    // Priority: historical > semantic > keyword matching
-    if (historical.suggestedDomain && historical.confidence > 0.7) {
+  selectPrimaryDomain(semantic, historical) {
+    // Priority: historical > default
+    if (historical && historical.suggestedDomain && historical.confidence > 0.7) {
       return historical.suggestedDomain
     }
 
-    if (semantic.agents && semantic.agents.length > 0) {
-      return semantic.agents[0] // Primary agent for multi-agent tasks
+    // Map intent to suggested domain (loose mapping, Claude refines)
+    if (semantic && semantic.intent === 'test') {
+      return 'qa'
     }
 
-    // Find domain with highest score
-    const sorted = Object.entries(domains)
-      .sort((a, b) => b[1].score - a[1].score)
-
-    return sorted.length > 0 ? sorted[0][0] : 'generalist'
+    // Default: generalist (Claude decides based on context)
+    return 'generalist'
   }
 
   /**
-   * Calculate confidence in domain selection
+   * Calculate confidence based on available signals
    */
-  calculateConfidence(domains, semantic, historical) {
+  calculateConfidence(semantic, historical) {
     let confidence = 0.5 // Base confidence
 
-    // Boost from keyword matches
-    const primaryDomain = this.selectPrimaryDomain(domains, semantic, historical)
-    if (domains[primaryDomain]) {
-      confidence += domains[primaryDomain].score * 0.1
-    }
-
     // Boost from historical patterns
-    if (historical.confidence > 0) {
+    if (historical && historical.confidence > 0) {
       confidence += historical.confidence * 0.3
     }
 
     // Boost from semantic understanding
-    if (semantic.intent) {
+    if (semantic && semantic.intent) {
       confidence += 0.1
     }
 
@@ -284,31 +226,18 @@ class TaskAnalyzer {
   /**
    * Build human-readable reason
    */
-  buildReason(primaryDomain, domains, semantic, historical) {
+  buildReason(primaryDomain, semantic, historical) {
     const parts = []
 
-    if (historical.suggestedDomain && historical.confidence > 0.7) {
-      parts.push(`Historical pattern: similar tasks used ${primaryDomain}`)
+    if (historical && historical.suggestedDomain && historical.confidence > 0.7) {
+      parts.push(`Historical: similar tasks used ${primaryDomain}`)
     }
 
-    if (domains[primaryDomain]) {
-      parts.push(`Keywords: ${domains[primaryDomain].keywords.join(', ')}`)
-    }
-
-    if (semantic.intent) {
+    if (semantic && semantic.intent) {
       parts.push(`Intent: ${semantic.intent}`)
     }
 
-    return parts.join(' | ') || `Detected ${primaryDomain} domain`
-  }
-
-  /**
-   * Get alternative domains
-   */
-  getAlternatives(primaryDomain, domains) {
-    return Object.keys(domains)
-      .filter(d => d !== primaryDomain)
-      .sort((a, b) => domains[b].score - domains[a].score)
+    return parts.join(' | ') || 'Claude will analyze task in context'
   }
 
   /**

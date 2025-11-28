@@ -1073,19 +1073,15 @@ class PrjctCommands {
 
       console.log(`🆘 Getting help: ${issue}\n`)
 
-      const context = await contextBuilder.build(projectPath, { issue })
-
-      // Read analysis to understand stack
-      const analysisContent = await toolRegistry.get('Read')(context.paths.analysis)
       let detectedStack = 'your project'
 
-      if (analysisContent) {
-        if (analysisContent.includes('Next.js')) detectedStack = 'Next.js'
-        else if (analysisContent.includes('React')) detectedStack = 'React'
-        else if (analysisContent.includes('Rust')) detectedStack = 'Rust'
-        else if (analysisContent.includes('Go')) detectedStack = 'Go'
-        else if (analysisContent.includes('Python')) detectedStack = 'Python'
-      }
+      // 100% AGENTIC: Use analyzer for raw data
+      // Claude decides what's relevant, no hardcoded categorization
+      const analyzer = require('./domain/analyzer')
+      analyzer.init(projectPath)
+      const packageJson = await analyzer.readPackageJson()
+      // Use project name or generic fallback
+      detectedStack = packageJson?.name || 'your project'
 
       // Provide contextual help based on issue type
       console.log('💡 Contextual Help:\n')
@@ -1097,10 +1093,8 @@ class PrjctCommands {
         console.log('## CORS Issue Detected\n')
         console.log('Common solutions for CORS errors:')
         console.log('1. Add CORS headers in your backend')
-        if (detectedStack === 'Next.js') {
-          console.log('2. Use Next.js API routes as proxy')
-          console.log('3. Configure next.config.js rewrites')
-        }
+        // REMOVED: Hardcoded Next.js check
+        // Claude will provide framework-specific help based on detected tech
         console.log('4. Check if credentials are being sent')
         console.log('5. Verify allowed origins match exactly\n')
       } else if (issueLower.includes('test') || issueLower.includes('failing')) {
@@ -2569,118 +2563,32 @@ Agent: ${agent}
 
   /**
    * Generate agents dynamically from analysis summary
-   * 100% DYNAMIC - Uses TechDetector, NO HARDCODING
-   * Claude decides based on actual detected technologies
+   * 100% AGENTIC - Uses analyzer for raw data, Claude decides
+   * NO hardcoded categorization or framework lists
    * @private
    */
   async _generateAgentsFromAnalysis(summaryContent, generator, projectPath) {
     const agents = []
-    const TechDetector = require('./domain/tech-detector')
-    const detector = new TechDetector(projectPath)
-    const tech = await detector.detectAll()
 
-    // Generate agents based on ACTUAL detected technologies
-    // No assumptions, no hardcoding - just what we found
+    // 100% AGENTIC: Get raw project data, let Claude decide
+    const analyzer = require('./domain/analyzer')
+    analyzer.init(projectPath)
 
-    // Frontend agents - if we have frontend frameworks
-    const frontendFrameworks = tech.frameworks.filter(f => 
-      ['react', 'vue', 'angular', 'svelte', 'next', 'nuxt', 'sveltekit', 'remix'].includes(f.toLowerCase())
-    )
-    const frontendBuildTools = tech.buildTools.filter(t => 
-      ['vite', 'webpack', 'rollup', 'esbuild'].includes(t.toLowerCase())
-    )
-
-    if (frontendFrameworks.length > 0 || frontendBuildTools.length > 0 || tech.languages.includes('JavaScript') || tech.languages.includes('TypeScript')) {
-      const frameworkList = frontendFrameworks.length > 0 
-        ? frontendFrameworks.join(', ')
-        : (frontendBuildTools.length > 0 ? frontendBuildTools.join(', ') : 'JavaScript/TypeScript')
-      
-      await generator.generateDynamicAgent('frontend-specialist', {
-        role: 'Frontend Development Specialist',
-        expertise: `${frameworkList}, ${tech.languages.filter(l => ['JavaScript', 'TypeScript'].includes(l)).join(' or ') || 'Modern JavaScript'}`,
-        responsibilities: 'Handle UI components, state management, routing, and frontend architecture',
-        projectContext: {
-          detectedFrameworks: frontendFrameworks,
-          buildTools: frontendBuildTools,
-          languages: tech.languages.filter(l => ['JavaScript', 'TypeScript'].includes(l))
-        },
-      })
-      agents.push('frontend-specialist')
+    const projectData = {
+      packageJson: await analyzer.readPackageJson(),
+      extensions: await analyzer.getFileExtensions(),
+      directories: await analyzer.listDirectories(),
+      configFiles: await analyzer.listConfigFiles(),
+      analysisSummary: summaryContent,
+      projectPath
     }
 
-    // Backend agents - if we have backend frameworks or languages
-    const backendFrameworks = tech.frameworks.filter(f => 
-      ['express', 'fastify', 'koa', 'hapi', 'nest', 'django', 'flask', 'fastapi', 'rails', 'phoenix', 'laravel'].includes(f.toLowerCase())
-    )
-    const backendLanguages = tech.languages.filter(l => 
-      ['Go', 'Rust', 'Python', 'Ruby', 'Elixir', 'Java', 'PHP'].includes(l)
-    )
+    // Let the generator decide what agents to create
+    // It reads templates/agents/AGENTS.md and decides based on actual project
+    const generatedAgents = await generator.generateAgentsFromTech(projectData)
 
-    if (backendFrameworks.length > 0 || backendLanguages.length > 0) {
-      const agentName = backendLanguages.length > 0 
-        ? `${backendLanguages[0].toLowerCase()}-developer`
-        : 'backend-specialist'
-      
-      const expertise = backendFrameworks.length > 0
-        ? backendFrameworks.join(', ')
-        : backendLanguages.join(', ')
-
-      await generator.generateDynamicAgent(agentName, {
-        role: `${backendLanguages[0] || 'Backend'} Development Specialist`,
-        expertise,
-        responsibilities: 'Handle backend services, API development, server logic',
-        projectContext: {
-          detectedFrameworks: backendFrameworks,
-          languages: backendLanguages
-        },
-      })
-      agents.push(agentName)
-    }
-
-    // Database specialist - if we have database tools
-    if (tech.databases.length > 0) {
-      await generator.generateDynamicAgent('database-specialist', {
-        role: 'Database Specialist',
-        expertise: tech.databases.join(', '),
-        responsibilities: 'Handle database design, queries, migrations, data modeling',
-        projectContext: {
-          databases: tech.databases
-        },
-      })
-      agents.push('database-specialist')
-    }
-
-    // DevOps specialist - if we have DevOps tools
-    if (tech.tools.some(t => ['Docker', 'Kubernetes', 'Terraform'].includes(t))) {
-      await generator.generateDynamicAgent('devops-specialist', {
-        role: 'DevOps & Infrastructure Specialist',
-        expertise: tech.tools.filter(t => ['Docker', 'Kubernetes', 'Terraform'].includes(t)).join(', '),
-        responsibilities: 'Handle containerization, deployment, infrastructure setup',
-        projectContext: {
-          tools: tech.tools
-        },
-      })
-      agents.push('devops-specialist')
-    }
-
-    // QA specialist - always generate if we have test frameworks or any code
-    if (tech.testFrameworks.length > 0 || tech.languages.length > 0) {
-      const testExpertise = tech.testFrameworks.length > 0
-        ? tech.testFrameworks.join(', ')
-        : 'Testing frameworks, test automation'
-
-      await generator.generateDynamicAgent('qa-specialist', {
-        role: 'Quality Assurance Specialist',
-        expertise: testExpertise,
-        responsibilities: 'Handle testing strategy, test creation, quality assurance',
-        projectContext: {
-          testFrameworks: tech.testFrameworks,
-          languages: tech.languages,
-          role: 'QA'
-        },
-      })
-      agents.push('qa-specialist')
-    }
+    // Return agent names
+    generatedAgents.forEach(agent => agents.push(agent.name || agent))
 
     return agents
   }

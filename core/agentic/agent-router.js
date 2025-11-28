@@ -15,6 +15,7 @@ const TaskAnalyzer = require('../domain/task-analyzer');
 const AgentMatcher = require('../domain/agent-matcher');
 const SmartCache = require('../domain/smart-cache');
 const AgentValidator = require('../domain/agent-validator');
+const log = require('../utils/logger');
 
 class MandatoryAgentRouter {
   constructor() {
@@ -90,119 +91,24 @@ class MandatoryAgentRouter {
 
   /**
    * Analyze task to determine what type of expertise is needed
-   * DEPRECATED: Now uses TaskAnalyzer for deep semantic analysis
-   * Kept for backward compatibility
+   *
+   * 100% AGENTIC: Delegates to TaskAnalyzer which uses templates.
+   * NO hardcoded patterns or keyword lists.
    */
   async analyzeTask(task, projectPath = null) {
-    const description = task.description?.toLowerCase() || '';
-    const type = task.type?.toLowerCase() || '';
-
-    // Get project technologies for better matching
-    let projectTech = null
-    if (projectPath) {
-      try {
-        const TechDetector = require('../domain/tech-detector');
-        const detector = new TechDetector(projectPath);
-        projectTech = await detector.detectAll();
-      } catch (error) {
-        // If detection fails, continue with keyword-based analysis
-      }
+    // Use TaskAnalyzer for semantic analysis (template-driven)
+    if (this.taskAnalyzer) {
+      return await this.taskAnalyzer.analyzeTask(task);
     }
 
-    // Semantic patterns - broader, more flexible
-    const patterns = {
-      frontend: [
-        'component', 'ui', 'user interface', 'frontend', 'client',
-        'style', 'css', 'layout', 'responsive', 'design',
-        'page', 'view', 'template', 'render', 'display'
-      ],
-      backend: [
-        'api', 'server', 'endpoint', 'route', 'middleware',
-        'auth', 'authentication', 'authorization', 'jwt', 'session',
-        'backend', 'service', 'controller', 'handler'
-      ],
-      database: [
-        'database', 'db', 'query', 'migration', 'schema', 'model',
-        'sql', 'data', 'table', 'collection', 'index', 'relation'
-      ],
-      devops: [
-        'deploy', 'deployment', 'docker', 'kubernetes', 'k8s',
-        'ci/cd', 'pipeline', 'build', 'ship', 'release',
-        'production', 'infrastructure', 'container', 'orchestration'
-      ],
-      qa: [
-        'test', 'testing', 'bug', 'error', 'fix', 'debug', 'issue',
-        'quality', 'coverage', 'unit test', 'integration test',
-        'e2e', 'spec', 'assertion', 'validation'
-      ],
-      architecture: [
-        'design', 'architecture', 'pattern', 'structure',
-        'refactor', 'refactoring', 'organize', 'plan',
-        'feature', 'system', 'module', 'component design'
-      ]
-    };
-
-    // If we have project tech, enhance patterns with actual technologies
-    if (projectTech) {
-      // Add detected frontend frameworks to frontend patterns
-      const frontendTech = [
-        ...projectTech.frameworks.filter(f => ['react', 'vue', 'angular', 'svelte', 'next', 'nuxt'].includes(f.toLowerCase())),
-        ...projectTech.buildTools.filter(t => ['vite', 'webpack'].includes(t.toLowerCase()))
-      ];
-      if (frontendTech.length > 0) {
-        patterns.frontend.push(...frontendTech.map(t => t.toLowerCase()));
-      }
-
-      // Add detected backend frameworks to backend patterns
-      const backendTech = projectTech.frameworks.filter(f => 
-        ['express', 'fastify', 'django', 'flask', 'rails', 'phoenix'].includes(f.toLowerCase())
-      );
-      if (backendTech.length > 0) {
-        patterns.backend.push(...backendTech.map(t => t.toLowerCase()));
-      }
-    }
-
-    // Detect primary domain
-    const { detectedDomain, matchedKeywords, confidence } = this.detectDomain(description, type, patterns);
-
+    // Fallback: Return minimal analysis, let Claude decide in prompt
     return {
-      domain: detectedDomain,
-      confidence: confidence > 0 ? Math.min(confidence / 3, 1.0) : 0.3,
-      matchedKeywords,
-      reason: `Detected ${detectedDomain} task based on: ${matchedKeywords.join(', ')}`,
-      alternatives: this.getSimilarDomains(detectedDomain),
-      projectTechnologies: projectTech
-    };
-  }
-
-  /**
-   * Detect domain based on patterns
-   */
-  detectDomain(description, type, patterns) {
-    // Simple domain detection based on keywords
-    const matches = Object.entries(patterns).map(([domain, keywords]) => {
-      const found = keywords.filter(keyword =>
-        description.includes(keyword) || type.includes(keyword)
-      );
-      return { domain, keywords: found, count: found.length };
-    });
-
-    // Sort by count descending
-    const sorted = matches.sort((a, b) => b.count - a.count);
-    const bestMatch = sorted[0];
-
-    if (bestMatch && bestMatch.count > 0) {
-      return {
-        detectedDomain: bestMatch.domain,
-        matchedKeywords: bestMatch.keywords,
-        confidence: bestMatch.count
-      };
-    }
-
-    return {
-      detectedDomain: 'generalist',
+      domain: 'generalist',
+      confidence: 0.5,
       matchedKeywords: [],
-      confidence: 0.5
+      reason: 'Using generalist - Claude will analyze task in context',
+      alternatives: ['full-stack'],
+      projectTechnologies: null
     };
   }
 
@@ -282,7 +188,7 @@ class MandatoryAgentRouter {
     // Validate after generation
     const postValidation = this.agentValidator.validateAfterGeneration(agent);
     if (!postValidation.valid) {
-      console.warn(`⚠️  Agent validation issues: ${postValidation.issues.join(', ')}`);
+      log.warn(`Agent validation issues: ${postValidation.issues.join(', ')}`);
     }
 
     // Cache for reuse
@@ -293,28 +199,27 @@ class MandatoryAgentRouter {
 
   /**
    * Build expertise string from tech stack
+   *
+   * 100% AGENTIC: No hardcoded framework lists.
+   * Returns ALL tech, Claude decides what's relevant.
    */
   buildExpertiseFromTech(projectTech, domain) {
     const parts = []
 
+    // Include ALL languages - no filtering
     if (projectTech.languages && projectTech.languages.length > 0) {
       parts.push(projectTech.languages.join(', '))
     }
 
+    // Include ALL frameworks - Claude decides relevance
+    // NO hardcoded lists like ['react', 'vue', 'angular']
     if (projectTech.frameworks && projectTech.frameworks.length > 0) {
-      const relevantFrameworks = projectTech.frameworks.filter(f => {
-        const fLower = f.toLowerCase()
-        if (domain === 'frontend') {
-          return ['react', 'vue', 'angular', 'svelte', 'next', 'nuxt'].some(tech => fLower.includes(tech))
-        }
-        if (domain === 'backend') {
-          return ['express', 'fastify', 'django', 'flask', 'rails', 'phoenix'].some(tech => fLower.includes(tech))
-        }
-        return true
-      })
-      if (relevantFrameworks.length > 0) {
-        parts.push(relevantFrameworks.join(', '))
-      }
+      parts.push(projectTech.frameworks.join(', '))
+    }
+
+    // Include tools if present
+    if (projectTech.tools && projectTech.tools.length > 0) {
+      parts.push(projectTech.tools.join(', '))
     }
 
     return parts.join(', ') || `${domain} development`
@@ -375,51 +280,23 @@ class MandatoryAgentRouter {
 
   /**
    * Filter context to only what's relevant for this agent
+   *
+   * 100% AGENTIC: No hardcoded directory/extension lists.
+   * Only excludes universal noise (node_modules, .git, dist).
+   * Claude decides relevance based on task.
    */
   async filterContextForAgent(agent, fullContext, taskAnalysis) {
-    const { domain } = taskAnalysis;
+    // Universal exclusions that apply to ALL projects
+    const universalExclusions = ['node_modules', '.git', 'dist', 'build', '.next', 'target', 'vendor'];
 
-    // Define what each agent type should see
-    const contextPatterns = {
-      frontend: {
-        include: ['components', 'views', 'styles', 'pages', 'layouts'],
-        exclude: ['node_modules', 'dist', 'build', 'migrations'],
-        extensions: ['.jsx', '.tsx', '.vue', '.css', '.scss', '.styled.js']
-      },
-      backend: {
-        include: ['routes', 'controllers', 'services', 'middleware', 'api'],
-        exclude: ['node_modules', 'dist', 'public', 'styles'],
-        extensions: ['.js', '.ts', '.py', '.rb', '.go', '.java']
-      },
-      database: {
-        include: ['models', 'migrations', 'schemas', 'seeds', 'queries'],
-        exclude: ['node_modules', 'public', 'styles', 'components'],
-        extensions: ['.sql', '.js', '.ts', '.rb', '.py']
-      },
-      devops: {
-        include: ['.github', '.gitlab', 'docker', 'k8s', 'terraform'],
-        exclude: ['node_modules', 'src', 'public'],
-        extensions: ['.yml', '.yaml', '.dockerfile', '.sh', '.tf']
-      },
-      qa: {
-        include: ['tests', 'spec', '__tests__', 'test'],
-        exclude: ['node_modules', 'dist', 'build'],
-        extensions: ['.test.js', '.spec.js', '.test.ts', '.spec.ts']
-      }
-    };
-
-    const pattern = contextPatterns[domain] || {
-      include: [],
-      exclude: ['node_modules', 'dist', 'build'],
-      extensions: []
-    };
-
-    // Filter the context based on patterns
+    // Filter only universal noise - let Claude decide the rest
     const filtered = {
       ...fullContext,
-      files: this.filterFiles(fullContext.files || [], pattern),
-      relevantOnly: true,
-      filterApplied: domain
+      files: (fullContext.files || []).filter(file =>
+        !universalExclusions.some(exc => file.includes(exc))
+      ),
+      relevantOnly: false, // Claude decides relevance, not us
+      filterApplied: 'universal-only'
     };
 
     return filtered;
@@ -498,25 +375,20 @@ class MandatoryAgentRouter {
       const logEntry = JSON.stringify(usage) + '\n';
       await fs.appendFile(logPath, logEntry);
     } catch (error) {
-      // Log errors silently, don't break execution
-      console.error('Failed to log agent usage:', error.message);
+      log.error('Failed to log agent usage:', error.message);
     }
   }
 
   /**
    * Get similar domains for fallback
+   *
+   * 100% AGENTIC: Returns generic fallback.
+   * Claude determines domain relationships based on context.
    */
   getSimilarDomains(domain) {
-    const similarities = {
-      frontend: ['fullstack', 'ui/ux'],
-      backend: ['fullstack', 'api', 'services'],
-      database: ['backend', 'data'],
-      devops: ['infrastructure', 'platform'],
-      qa: ['testing', 'quality'],
-      architecture: ['design', 'planning']
-    };
-
-    return similarities[domain] || ['generalist'];
+    // No hardcoded domain relationships
+    // Claude decides what's similar based on actual project context
+    return ['full-stack', 'generalist'];
   }
 
   /**

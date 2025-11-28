@@ -5,6 +5,7 @@
 
 const path = require('path');
 const fs = require('fs').promises;
+const log = require('../utils/logger');
 
 class TaskStack {
   constructor(projectPath) {
@@ -168,7 +169,7 @@ class TaskStack {
       try {
         entries.push(JSON.parse(line));
       } catch (error) {
-        console.error('Error parsing stack line:', error);
+        log.error('Error parsing stack line:', error.message);
       }
     }
 

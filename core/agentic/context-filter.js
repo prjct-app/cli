@@ -10,17 +10,14 @@
 const fs = require('fs').promises;
 const path = require('path');
 const { glob } = require('glob');
+const log = require('../utils/logger');
 
 class ContextFilter {
   constructor() {
-    // Technology-specific file patterns
-    this.techPatterns = this.initializeTechPatterns();
-
-    // Task-based filtering rules
-    this.taskPatterns = this.initializeTaskPatterns();
-
     // Cache for file analysis
     this.fileCache = new Map();
+    // NO HARDCODED PATTERNS - Everything is agentic
+    // Claude decides what files are needed based on analysis
   }
 
   /**
@@ -63,330 +60,121 @@ class ContextFilter {
       relevantPatterns
     );
 
-    // Calculate reduction metrics
-    const metrics = this.calculateMetrics(
-      fullContext.fileCount || 1000, // estimate if not provided
-      filteredFiles.length,
-      startTime
-    );
+      // Calculate reduction metrics
+      const metrics = this.calculateMetrics(
+        fullContext.fileCount || 1000, // estimate if not provided
+        filteredFiles.length,
+        startTime
+      );
 
-    return {
-      files: filteredFiles,
-      patterns: relevantPatterns,
-      metrics,
-      agent: agent.name,
-      filtered: true
-    };
+      return {
+        files: filteredFiles,
+        patterns: {
+          detectedTech: relevantPatterns.detectedTech,
+          projectStructure: relevantPatterns.projectStructure,
+          agentic: true // Flag indicating this was agentic, not hardcoded
+        },
+        metrics,
+        agent: agent.name,
+        filtered: true
+      };
   }
 
   /**
-   * Initialize technology-specific patterns
+   * REMOVED: initializeTechPatterns() and initializeTaskPatterns()
+   * 
+   * These were hardcoded patterns that limited Claude's knowledge.
+   * Now everything is agentic - Claude decides what files are needed
+   * based on the actual project analysis, not predetermined patterns.
+   * 
+   * The ContextEstimator provides file suggestions, and Claude
+   * uses those along with the project analysis to decide what to load.
    */
-  initializeTechPatterns() {
-    return {
-      // Languages
-      javascript: {
-        extensions: ['.js', '.mjs', '.cjs'],
-        directories: ['src', 'lib', 'utils'],
-        exclude: ['node_modules', 'dist', 'build']
-      },
-      typescript: {
-        extensions: ['.ts', '.tsx', '.d.ts'],
-        directories: ['src', 'lib', 'types'],
-        exclude: ['node_modules', 'dist', 'build']
-      },
-      python: {
-        extensions: ['.py', '.pyx'],
-        directories: ['src', 'lib', 'app'],
-        exclude: ['__pycache__', 'venv', '.env']
-      },
-      ruby: {
-        extensions: ['.rb', '.rake'],
-        directories: ['app', 'lib', 'config'],
-        exclude: ['vendor', 'tmp', 'log']
-      },
-      go: {
-        extensions: ['.go'],
-        directories: ['pkg', 'cmd', 'internal'],
-        exclude: ['vendor', 'bin']
-      },
-      rust: {
-        extensions: ['.rs'],
-        directories: ['src', 'lib'],
-        exclude: ['target', 'dist']
-      },
-      java: {
-        extensions: ['.java'],
-        directories: ['src/main/java', 'src/test/java'],
-        exclude: ['target', 'build', '.gradle']
-      },
-      php: {
-        extensions: ['.php'],
-        directories: ['src', 'app', 'lib'],
-        exclude: ['vendor', 'cache']
-      },
-      elixir: {
-        extensions: ['.ex', '.exs'],
-        directories: ['lib', 'web', 'apps'],
-        exclude: ['_build', 'deps', 'cover']
-      },
-
-      // Frameworks
-      react: {
-        extensions: ['.jsx', '.tsx', '.js', '.ts'],
-        directories: ['components', 'pages', 'hooks', 'contexts'],
-        patterns: ['**/components/**', '**/pages/**', '**/hooks/**'],
-        exclude: ['node_modules', 'build', 'dist']
-      },
-      vue: {
-        extensions: ['.vue', '.js', '.ts'],
-        directories: ['components', 'views', 'stores'],
-        patterns: ['**/*.vue', '**/components/**'],
-        exclude: ['node_modules', 'dist']
-      },
-      angular: {
-        extensions: ['.ts', '.html', '.scss'],
-        directories: ['src/app'],
-        patterns: ['**/*.component.ts', '**/*.service.ts'],
-        exclude: ['node_modules', 'dist']
-      },
-      rails: {
-        extensions: ['.rb', '.erb', '.haml'],
-        directories: ['app', 'config', 'db'],
-        patterns: ['app/**/*.rb', 'config/**/*.rb'],
-        exclude: ['tmp', 'log', 'vendor']
-      },
-      django: {
-        extensions: ['.py', '.html'],
-        directories: ['apps', 'templates', 'static'],
-        patterns: ['**/*.py', 'templates/**'],
-        exclude: ['venv', '__pycache__', 'media']
-      },
-      express: {
-        extensions: ['.js', '.ts'],
-        directories: ['routes', 'controllers', 'middleware'],
-        patterns: ['routes/**', 'controllers/**'],
-        exclude: ['node_modules', 'public']
-      },
-      fastapi: {
-        extensions: ['.py'],
-        directories: ['app', 'api', 'routers'],
-        patterns: ['app/**/*.py', 'api/**/*.py'],
-        exclude: ['venv', '__pycache__']
-      },
-
-      // Databases
-      postgres: {
-        extensions: ['.sql', '.plpgsql'],
-        directories: ['migrations', 'schemas', 'functions'],
-        patterns: ['**/*.sql', 'migrations/**'],
-        exclude: []
-      },
-      mongodb: {
-        extensions: ['.js', '.ts', '.json'],
-        directories: ['models', 'schemas'],
-        patterns: ['models/**', 'schemas/**'],
-        exclude: []
-      },
-      mysql: {
-        extensions: ['.sql'],
-        directories: ['migrations', 'schemas'],
-        patterns: ['**/*.sql'],
-        exclude: []
-      }
-    };
-  }
-
-  /**
-   * Initialize task-based patterns
-   */
-  initializeTaskPatterns() {
-    return {
-      api: {
-        include: ['routes', 'controllers', 'middleware', 'api'],
-        patterns: ['**/api/**', '**/routes/**', '**/controllers/**'],
-        focus: 'backend logic and endpoints'
-      },
-      ui: {
-        include: ['components', 'pages', 'views', 'styles'],
-        patterns: ['**/components/**', '**/pages/**', '**/*.css', '**/*.scss'],
-        focus: 'user interface and styling'
-      },
-      database: {
-        include: ['models', 'migrations', 'schemas', 'db'],
-        patterns: ['**/models/**', '**/migrations/**', '**/*.sql'],
-        focus: 'data layer and persistence'
-      },
-      testing: {
-        include: ['test', 'tests', 'spec', '__tests__'],
-        patterns: ['**/*.test.*', '**/*.spec.*', '**/test/**'],
-        focus: 'test files and test utilities'
-      },
-      configuration: {
-        include: ['config', 'env', 'settings'],
-        patterns: ['**/config/**', '**/.env*', '**/*config.*'],
-        focus: 'configuration and environment'
-      },
-      deployment: {
-        include: ['.github', '.gitlab', 'docker', 'k8s'],
-        patterns: ['Dockerfile*', '**/*.yml', '**/*.yaml', '.github/**'],
-        focus: 'CI/CD and deployment'
-      },
-      documentation: {
-        include: ['docs', 'README'],
-        patterns: ['**/*.md', 'docs/**', 'README*'],
-        focus: 'documentation files'
-      }
-    };
-  }
 
   /**
    * Determine which patterns to use based on agent and task
+   *
+   * 100% AGENTIC: Uses analyzer for I/O, no hardcoded tech detection.
+   * Claude decides what files matter based on actual project analysis.
    */
   async determineRelevantPatterns(agent, task, projectPath) {
+    const analyzer = require('../domain/analyzer');
+    analyzer.init(projectPath);
+
+    // Get REAL file extensions from project (not assumed)
+    const realExtensions = await analyzer.getFileExtensions();
+
+    // Get REAL directory structure (not assumed)
+    const projectStructure = await analyzer.listDirectories();
+
+    // Get config files that exist (not hardcoded list)
+    const configFiles = await analyzer.listConfigFiles();
+
+    // Build patterns from ACTUAL project data
     const patterns = {
       include: [],
-      exclude: [],
-      extensions: [],
-      specific: []
+      exclude: ['node_modules', '.git', 'dist', 'build', 'coverage', '.next', '.nuxt', 'target', 'vendor'],
+      realExtensions, // Actual extensions found in project
+      projectStructure, // Actual directories
+      configFiles // Actual config files
     };
-
-    // Detect technologies in the project
-    const detectedTech = await this.detectProjectTechnologies(projectPath);
-
-    // Add patterns based on detected technologies
-    detectedTech.forEach(tech => {
-      if (this.techPatterns[tech]) {
-        const techPattern = this.techPatterns[tech];
-        patterns.extensions.push(...(techPattern.extensions || []));
-        patterns.include.push(...(techPattern.directories || []));
-        patterns.exclude.push(...(techPattern.exclude || []));
-        patterns.specific.push(...(techPattern.patterns || []));
-      }
-    });
-
-    // Add patterns based on task type
-    const taskType = this.detectTaskType(task);
-    if (this.taskPatterns[taskType]) {
-      const taskPattern = this.taskPatterns[taskType];
-      patterns.include.push(...(taskPattern.include || []));
-      patterns.specific.push(...(taskPattern.patterns || []));
-    }
-
-    // Add agent-specific patterns
-    const agentPatterns = this.getAgentSpecificPatterns(agent);
-    patterns.include.push(...agentPatterns.include);
-    patterns.exclude.push(...agentPatterns.exclude);
-
-    // Remove duplicates
-    patterns.include = [...new Set(patterns.include)];
-    patterns.exclude = [...new Set(patterns.exclude)];
-    patterns.extensions = [...new Set(patterns.extensions)];
-    patterns.specific = [...new Set(patterns.specific)];
 
     return patterns;
   }
 
   /**
-   * Detect technologies used in the project
-   * NOW USES TechDetector - NO HARDCODING
+   * Detect actual project structure (no assumptions)
    */
-  async detectProjectTechnologies(projectPath) {
+  async detectProjectStructure(projectPath) {
     try {
-      const TechDetector = require('../domain/tech-detector');
-      const detector = new TechDetector(projectPath);
-      const tech = await detector.detectAll();
-
-      // Convert to array of all detected technologies
-      const all = [
-        ...tech.languages,
-        ...tech.frameworks,
-        ...tech.tools,
-        ...tech.databases,
-        ...tech.buildTools,
-        ...tech.testFrameworks
-      ];
-
-      return Array.from(new Set(all)); // Remove duplicates
-    } catch (error) {
-      console.error('Error detecting technologies:', error.message);
+      const entries = await fs.readdir(projectPath, { withFileTypes: true });
+      const directories = entries
+        .filter(e => e.isDirectory() && !e.name.startsWith('.'))
+        .map(e => e.name);
+      return directories;
+    } catch {
       return [];
     }
   }
 
   /**
-   * Detect task type from description
+   * Detect technologies used in the project
+   *
+   * 100% AGENTIC: Uses analyzer for raw data.
+   * No categorization - Claude decides what's relevant.
    */
-  detectTaskType(task) {
-    const description = (task.description || '').toLowerCase();
+  async detectProjectTechnologies(projectPath) {
+    try {
+      const analyzer = require('../domain/analyzer');
+      analyzer.init(projectPath);
 
-    if (description.includes('api') || description.includes('endpoint')) {
-      return 'api';
+      // Return raw data for Claude to analyze
+      return {
+        extensions: await analyzer.getFileExtensions(),
+        directories: await analyzer.listDirectories(),
+        configFiles: await analyzer.listConfigFiles()
+      };
+    } catch (error) {
+      log.error('Error detecting project data:', error.message);
+      return { extensions: {}, directories: [], configFiles: [] };
     }
-    if (description.includes('ui') || description.includes('component') || description.includes('style')) {
-      return 'ui';
-    }
-    if (description.includes('database') || description.includes('migration') || description.includes('schema')) {
-      return 'database';
-    }
-    if (description.includes('test') || description.includes('spec')) {
-      return 'testing';
-    }
-    if (description.includes('deploy') || description.includes('docker') || description.includes('ci')) {
-      return 'deployment';
-    }
-    if (description.includes('config') || description.includes('env')) {
-      return 'configuration';
-    }
-    if (description.includes('docs') || description.includes('readme')) {
-      return 'documentation';
-    }
-
-    return 'general';
   }
 
   /**
-   * Get agent-specific patterns
+   * REMOVED: detectTaskType() - was hardcoded pattern matching
+   * 
+   * Task type detection is now agentic - Claude analyzes the task
+   * description and project context to determine what files are needed.
+   * No hardcoded keyword matching.
    */
-  getAgentSpecificPatterns(agent) {
-    const agentType = (agent.type || agent.name || '').toLowerCase();
 
-    const patterns = {
-      'frontend': {
-        include: ['components', 'pages', 'views', 'styles', 'public'],
-        exclude: ['backend', 'api', 'server', 'database']
-      },
-      'backend': {
-        include: ['api', 'routes', 'controllers', 'services', 'middleware'],
-        exclude: ['components', 'styles', 'public']
-      },
-      'database': {
-        include: ['models', 'schemas', 'migrations', 'db'],
-        exclude: ['components', 'styles', 'public', 'static']
-      },
-      'devops': {
-        include: ['.github', '.gitlab', 'docker', 'k8s', 'terraform'],
-        exclude: ['src', 'app', 'components']
-      },
-      'qa': {
-        include: ['test', 'tests', 'spec', '__tests__', 'cypress'],
-        exclude: ['src', 'app', 'public']
-      }
-    };
-
-    // Find matching pattern
-    for (const [key, pattern] of Object.entries(patterns)) {
-      if (agentType.includes(key)) {
-        return pattern;
-      }
-    }
-
-    // Default pattern
-    return {
-      include: [],
-      exclude: ['node_modules', 'vendor', 'dist', 'build', '.git']
-    };
-  }
+  /**
+   * REMOVED: getAgentSpecificPatterns() - was hardcoded agent patterns
+   * 
+   * Agent-specific file selection is now agentic - each agent
+   * has instructions in its template that tell Claude what files
+   * are relevant. No hardcoded assumptions about agent types.
+   */
 
   /**
    * Load only relevant files based on patterns
@@ -422,7 +210,7 @@ class ContextFilter {
       // Limit to reasonable number
       const maxFiles = 300;
       if (uniqueFiles.length > maxFiles) {
-        console.log(`Limiting context to ${maxFiles} most relevant files`);
+        log.debug(`Limiting context to ${maxFiles} files`);
         return uniqueFiles.slice(0, maxFiles);
       }
 
@@ -432,34 +220,52 @@ class ContextFilter {
       return expandedFiles.slice(0, maxFiles);
 
     } catch (error) {
-      console.error('Error loading files:', error.message);
+      log.error('Error loading files:', error.message);
       return [];
     }
   }
 
   /**
    * Build glob patterns from pattern configuration
+   *
+   * 100% AGENTIC: Uses REAL extensions from project, not hardcoded mapping.
+   * No language→extension assumptions.
    */
   buildGlobPatterns(patterns) {
     const globs = [];
 
-    // Add specific patterns
-    globs.push(...patterns.specific);
+    // Use REAL extensions found in project (no hardcoded mapping)
+    if (patterns.realExtensions && Object.keys(patterns.realExtensions).length > 0) {
+      // Get extensions that actually exist in this project
+      const extensions = Object.keys(patterns.realExtensions)
+        .filter(ext => ext.startsWith('.')) // Only valid extensions
+        .slice(0, 20); // Limit to top 20 most common
 
-    // Add extension-based patterns
-    if (patterns.extensions.length > 0) {
-      const extPattern = `**/*{${patterns.extensions.join(',')}}`;
-      globs.push(extPattern);
+      if (extensions.length > 0) {
+        globs.push(`**/*{${extensions.join(',')}}`);
+      }
     }
 
-    // Add directory patterns
-    patterns.include.forEach(dir => {
-      globs.push(`${dir}/**/*`);
-    });
+    // Use REAL project structure (no assumptions)
+    if (patterns.projectStructure && patterns.projectStructure.length > 0) {
+      patterns.projectStructure.forEach(dir => {
+        // Exclude universal noise directories
+        if (!patterns.exclude.includes(dir)) {
+          globs.push(`${dir}/**/*`);
+        }
+      });
+    }
 
-    // Default pattern if none specified
+    // Include REAL config files that exist (not hardcoded list)
+    if (patterns.configFiles && patterns.configFiles.length > 0) {
+      patterns.configFiles.forEach(file => {
+        globs.push(file);
+      });
+    }
+
+    // Fallback: if no patterns detected, include all source-like files
     if (globs.length === 0) {
-      globs.push('**/*.{js,ts,jsx,tsx,py,rb,go,java,php}');
+      globs.push('**/*');
     }
 
     return globs;
@@ -540,8 +346,7 @@ class ContextFilter {
   getStatistics() {
     return {
       cachedFiles: this.fileCache.size,
-      supportedTechnologies: Object.keys(this.techPatterns).length,
-      taskTypes: Object.keys(this.taskPatterns).length
+      agentic: true // All filtering is now agentic, no hardcoded patterns
     };
   }
 }
