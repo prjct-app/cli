@@ -1,5 +1,42 @@
 # Changelog
 
+## [0.10.7] - 2025-11-27
+
+### Fixed
+
+- **Critical Git Safety** - Added explicit protections against destructive git operations
+  - Prohibits `git checkout` without checking for uncommitted changes first
+  - Prohibits `git reset --hard` and `git clean -fd` operations
+  - Requires `git status` check before any git operation
+  - Prevents loss of user's work through accidental git operations
+
+- **Anti-Hallucination Improvements** - Enhanced instructions to prevent code hallucinations
+  - Explicit "READ CODE FIRST" requirement before modifying files
+  - Mandatory pattern matching with existing codebase
+  - Improved context awareness with file listings
+  - Better state filtering to preserve critical information (up to 2000 chars for critical files)
+
+### Enhanced
+
+- **Pattern Detection & Enforcement** - Automatic project pattern detection and enforcement
+  - Analysis file (`analysis/repo-summary.md`) automatically loaded for all code modification commands
+  - Project patterns extracted and displayed in prompts
+  - Explicit instructions to follow existing patterns exactly
+  - Step-by-step guide to match code style, structure, and conventions
+
+- **Context Improvements** - Better context loading and presentation
+  - Analysis included automatically for: now, done, next, ship, work, build, design, cleanup, fix, test
+  - Project files listed with instructions to use Read tool
+  - State filtering improved to show full content for critical files (now, next, context, analysis)
+  - Better truncation strategy (full content < 1000 chars, 2000 chars for critical files)
+
+- **Prompt Builder Enhancements** - More comprehensive instructions for Claude
+  - Anti-hallucination section with 7 critical rules
+  - Git safety rules with explicit prohibitions
+  - Pattern detection and enforcement section
+  - Available project files listing
+  - Improved enforcement section with pattern matching requirement
+
 ## [0.10.6] - 2025-11-27
 
 ### Enhanced

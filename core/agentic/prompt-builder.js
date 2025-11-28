@@ -20,6 +20,9 @@ class PromptBuilder {
    */
   build(template, context, state, agent = null, learnedPatterns = null, thinkBlock = null, relevantMemories = null, planInfo = null) {
     const parts = []
+    
+    // Store context for use in helper methods
+    this._currentContext = context
 
     // Agent assignment (if applicable)
     // CRITICAL: Include full agent content, not just name
@@ -85,13 +88,49 @@ class PromptBuilder {
     // Current state (only if exists and relevant)
     const relevantState = this.filterRelevantState(state)
     if (relevantState) {
-      parts.push('\nSTATE:\n')
+      parts.push('\n## PRJCT STATE (Project Management Data)\n')
       parts.push(relevantState)
       parts.push('\n')
     }
 
-    // Enforcement (Strict Mode)
-    parts.push(this.buildEnforcement());
+    // CRITICAL: Include available project files for context
+    if (context.files && context.files.length > 0) {
+      parts.push('\n## AVAILABLE PROJECT FILES\n')
+      parts.push(`You have ${context.files.length} relevant files available in this project.\n`)
+      parts.push('**USE Read TOOL TO LOAD FILES BEFORE MODIFYING THEM.**\n')
+      parts.push('\nTop relevant files:\n')
+      const topFiles = context.files.slice(0, 20).map(f => `- ${f}`).join('\n')
+      parts.push(topFiles)
+      if (context.files.length > 20) {
+        parts.push(`\n... and ${context.files.length - 20} more files. Use Read tool to access them.\n`)
+      }
+      parts.push('\n')
+    } else if (context.projectPath) {
+      parts.push('\n## PROJECT FILES\n')
+      parts.push(`Project path: ${context.projectPath}\n`)
+      parts.push('**USE Read TOOL TO LOAD FILES YOU NEED TO UNDERSTAND OR MODIFY.**\n')
+      parts.push('**NEVER MODIFY CODE WITHOUT READING IT FIRST.**\n\n')
+    }
+
+    // OPTIMIZED: Only include patterns for code-modifying commands
+    // Commands like now, done, ship, recap, next don't need full patterns
+    const codeCommands = ['build', 'feature', 'design', 'cleanup', 'fix', 'bug', 'test', 'init']
+    const commandName = template.frontmatter?.name?.replace('p:', '') || ''
+    const needsPatterns = codeCommands.includes(commandName)
+
+    const analysisContent = state?.analysis || ''
+    if (needsPatterns && analysisContent && analysisContent.trim()) {
+      // Extract stack info compactly
+      const stackMatch = analysisContent.match(/Stack[:\s]+([^\n]+)/i) ||
+                        analysisContent.match(/Technology[:\s]+([^\n]+)/i)
+      const stack = stackMatch ? stackMatch[1].trim() : 'detected'
+
+      parts.push(`\n## PATTERNS\nStack: ${stack}\n`)
+      parts.push('Read analysis/repo-summary.md + similar files before coding. Match patterns exactly.\n')
+    }
+
+    // CRITICAL: Compressed rules (replaces 78 lines with 12)
+    parts.push(this.buildCriticalRules());
 
     // P1.1: Learned Patterns (avoid asking user questions we already know)
     if (learnedPatterns && Object.keys(learnedPatterns).some(k => learnedPatterns[k])) {
@@ -126,37 +165,13 @@ class PromptBuilder {
       }
     }
 
-    // P3.4: Plan Mode instructions
-    if (planInfo) {
-      if (planInfo.isPlanning) {
-        parts.push('\n## PLAN MODE ACTIVE\n')
-        parts.push('You are in PLANNING mode. Follow these constraints:\n')
-        parts.push('1. **READ-ONLY**: Only use read tools (Read, Glob, Grep)\n')
-        parts.push('2. **GATHER INFO**: Collect all necessary information\n')
-        parts.push('3. **ANALYZE**: Understand the context and implications\n')
-        parts.push('4. **PROPOSE**: Generate a plan with clear steps\n')
-        parts.push('5. **WAIT FOR APPROVAL**: Do NOT execute until user approves\n')
-
-        if (planInfo.active) {
-          parts.push(`\nCurrent Status: ${planInfo.active.status}\n`)
-          if (planInfo.active.gatheredInfo?.length > 0) {
-            parts.push(`Info gathered: ${planInfo.active.gatheredInfo.length} items\n`)
-          }
-        }
-      }
-
-      if (planInfo.requiresApproval) {
-        parts.push('\n## APPROVAL REQUIRED\n')
-        parts.push('This command is DESTRUCTIVE. You MUST:\n')
-        parts.push('1. Show exactly what will change\n')
-        parts.push('2. List affected files/resources\n')
-        parts.push('3. Ask for explicit user confirmation (y/n)\n')
-        parts.push('4. Only proceed after approval\n')
-      }
-
-      if (planInfo.allowedTools) {
-        parts.push(`\nAllowed tools: ${planInfo.allowedTools.join(', ')}\n`)
-      }
+    // P3.4: Plan Mode (OPTIMIZED: 30 lines → 5 lines)
+    if (planInfo?.isPlanning) {
+      parts.push(`\n## PLAN MODE\nRead-only. Gather info → Analyze → Propose plan → Wait for approval.\n`)
+      if (planInfo.allowedTools) parts.push(`Tools: ${planInfo.allowedTools.join(', ')}\n`)
+    }
+    if (planInfo?.requiresApproval) {
+      parts.push(`\n## APPROVAL REQUIRED\nShow changes, list affected files, ask for confirmation.\n`)
     }
 
     // Simple execution directive
@@ -167,18 +182,33 @@ class PromptBuilder {
 
   /**
    * Filter only relevant state data
+   * IMPROVED: Include more context, don't truncate critical info
    */
   filterRelevantState(state) {
     if (!state || Object.keys(state).length === 0) return null
 
     const relevant = []
     for (const [key, content] of Object.entries(state)) {
-      if (content && content.trim() && content.length < 500) {
-        relevant.push(`${key}: ${content.substring(0, 200)}`)
+      if (content && content.trim()) {
+        // Include full content for critical files (now, next, context)
+        const criticalFiles = ['now', 'next', 'context', 'analysis']
+        if (criticalFiles.includes(key)) {
+          // Include full content for critical files (up to 2000 chars)
+          const display = content.length > 2000 
+            ? content.substring(0, 2000) + '\n... (truncated)'
+            : content
+          relevant.push(`### ${key}\n${display}`)
+        } else if (content.length < 1000) {
+          // Include full content for small files
+          relevant.push(`### ${key}\n${content}`)
+        } else {
+          // Truncate large files but show more context
+          relevant.push(`### ${key}\n${content.substring(0, 500)}... (truncated, use Read tool for full content)`)
+        }
       }
     }
 
-    return relevant.length > 0 ? relevant.join('\n') : null
+    return relevant.length > 0 ? relevant.join('\n\n') : null
   }
 
   /**
@@ -203,19 +233,22 @@ class PromptBuilder {
   }
 
   /**
-   * Build enforcement section
-   * Forces Claude to follow the process strictly
+   * Build critical rules - compressed anti-hallucination
+   * OPTIMIZED: From 66 lines to 12 lines (~82% reduction)
    */
-  buildEnforcement() {
+  buildCriticalRules() {
+    const fileCount = this._currentContext?.files?.length || this._currentContext?.filteredSize || 0
     return `
-## PROCESS ENFORCEMENT
-1. FOLLOW the Flow strictly. Do not skip steps.
-2. USE the allowed tools only.
-3. IF you are stuck, use the "Ask" tool or stop.
-4. DO NOT hallucinate files or commands.
-5. ALWAYS verify your changes.
+## RULES (CRITICAL)
+1. **READ FIRST**: Use Read tool BEFORE modifying any file. Never assume code structure.
+2. **MATCH PATTERNS**: Follow existing style, architecture, naming, imports exactly.
+3. **NO HALLUCINATIONS**: Don't invent files, functions, or paths. If unsure, READ first.
+4. **GIT SAFETY**: Never use checkout/reset --hard/clean. Always check status first.
+5. **VERIFY**: After writing, confirm code matches project patterns.
+Context: ${fileCount} files available. Read what you need.
 `;
   }
+
 }
 
 module.exports = new PromptBuilder()

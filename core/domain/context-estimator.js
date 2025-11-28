@@ -9,6 +9,7 @@
 
 const path = require('path')
 const { glob } = require('glob')
+const log = require('../utils/logger')
 
 class ContextEstimator {
   /**
@@ -50,65 +51,43 @@ class ContextEstimator {
 
   /**
    * Get file patterns for a domain
+   *
+   * 100% AGENTIC: Uses REAL project data, not hardcoded patterns.
+   * No domain-specific assumptions or language→extension mapping.
    */
-  getPatternsForDomain(domain, projectTech) {
+  getPatternsForDomain(domain, projectData) {
     const patterns = {
       include: [],
       extensions: [],
-      exclude: ['node_modules', 'dist', 'build', '.git']
+      exclude: ['node_modules', 'dist', 'build', '.git', '.next', 'target', 'vendor', 'coverage']
     }
 
-    switch (domain) {
-      case 'frontend':
-        patterns.include = ['src', 'components', 'pages', 'views', 'app']
-        patterns.extensions = ['.tsx', '.jsx', '.vue', '.svelte', '.css', '.scss', '.styled.js']
-        
-        // Add framework-specific patterns
-        if (projectTech.frameworks) {
-          if (projectTech.frameworks.some(f => f.toLowerCase().includes('next'))) {
-            patterns.include.push('pages', 'app', 'components')
-          }
-          if (projectTech.frameworks.some(f => f.toLowerCase().includes('react'))) {
-            patterns.extensions.push('.tsx', '.jsx')
-          }
-        }
-        break
-
-      case 'backend':
-        patterns.include = ['src', 'lib', 'api', 'routes', 'controllers', 'services', 'app']
-        patterns.extensions = ['.js', '.ts', '.py', '.rb', '.go', '.rs']
-        
-        // Framework-specific
-        if (projectTech.frameworks) {
-          if (projectTech.frameworks.some(f => f.toLowerCase().includes('express'))) {
-            patterns.include.push('routes', 'middleware', 'controllers')
-          }
-          if (projectTech.frameworks.some(f => f.toLowerCase().includes('django'))) {
-            patterns.include.push('views', 'urls', 'models')
-          }
-        }
-        break
-
-      case 'database':
-        patterns.include = ['migrations', 'models', 'schemas', 'db', 'database']
-        patterns.extensions = ['.sql', '.js', '.ts', '.rb', '.py']
-        break
-
-      case 'qa':
-        patterns.include = ['tests', '__tests__', 'spec', 'test']
-        patterns.extensions = ['.test.js', '.test.ts', '.spec.js', '.spec.ts']
-        break
-
-      case 'devops':
-        patterns.include = ['.github', '.gitlab', 'docker', 'k8s', 'kubernetes', 'terraform']
-        patterns.extensions = ['.yml', '.yaml', '.dockerfile', '.sh', '.tf']
-        break
-
-      default:
-        // General - include common source directories
-        patterns.include = ['src', 'lib', 'app']
-        patterns.extensions = ['.js', '.ts', '.jsx', '.tsx', '.py', '.rb']
+    // Use REAL extensions from project (if provided in projectData)
+    if (projectData && projectData.extensions) {
+      // projectData.extensions is {'.js': 45, '.ts': 23, ...}
+      patterns.extensions = Object.keys(projectData.extensions)
+        .filter(ext => ext.startsWith('.'))
+        .slice(0, 15); // Top 15 extensions
     }
+
+    // Use REAL directories from project (if provided in projectData)
+    if (projectData && projectData.directories) {
+      patterns.include = projectData.directories.filter(dir =>
+        !patterns.exclude.includes(dir)
+      );
+    }
+
+    // If no real data available, use minimal universal fallback
+    if (patterns.extensions.length === 0) {
+      patterns.extensions = ['*']; // All files
+    }
+
+    if (patterns.include.length === 0) {
+      patterns.include = ['.']; // Root directory
+    }
+
+    // NO domain-specific hardcoding
+    // Claude decides what files matter based on actual analysis
 
     return patterns
   }
@@ -157,7 +136,7 @@ class ContextEstimator {
       // Remove duplicates and sort
       return [...new Set(files)].sort()
     } catch (error) {
-      console.error('Error finding files:', error.message)
+      log.error('Error finding files:', error.message)
       return []
     }
   }

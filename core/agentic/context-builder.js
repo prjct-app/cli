@@ -168,29 +168,38 @@ class ContextBuilder {
   async loadStateForCommand(context, commandName) {
     // Command-specific file requirements
     // Minimizes context window usage
+    // CRITICAL: Always include 'analysis' for pattern detection
     const commandFileMap = {
       // Core workflow
-      'now': ['now', 'next'],
-      'done': ['now', 'next', 'metrics'],
-      'next': ['next'],
+      'now': ['now', 'next', 'analysis'],
+      'done': ['now', 'next', 'metrics', 'analysis'],
+      'next': ['next', 'analysis'],
 
       // Progress
-      'ship': ['now', 'shipped', 'metrics'],
-      'recap': ['shipped', 'metrics', 'now'],
-      'progress': ['shipped', 'metrics'],
+      'ship': ['now', 'shipped', 'metrics', 'analysis'],
+      'recap': ['shipped', 'metrics', 'now', 'analysis'],
+      'progress': ['shipped', 'metrics', 'analysis'],
 
       // Planning
-      'idea': ['ideas', 'next'],
-      'feature': ['roadmap', 'next', 'ideas'],
-      'roadmap': ['roadmap'],
-      'spec': ['roadmap', 'next', 'specs'],
+      'idea': ['ideas', 'next', 'analysis'],
+      'feature': ['roadmap', 'next', 'ideas', 'analysis'],
+      'roadmap': ['roadmap', 'analysis'],
+      'spec': ['roadmap', 'next', 'specs', 'analysis'],
 
       // Analysis
       'analyze': ['analysis', 'context'],
       'sync': ['analysis', 'context', 'now'],
 
+      // Code modification commands - ALWAYS need analysis for patterns
+      'work': ['now', 'next', 'analysis', 'context'],
+      'build': ['now', 'next', 'analysis', 'context'],
+      'design': ['analysis', 'context'],
+      'cleanup': ['analysis', 'context'],
+      'fix': ['analysis', 'context'],
+      'test': ['analysis', 'context'],
+
       // All files (fallback)
-      'default': null // null means load all
+      'default': ['analysis'] // Always include analysis even for unknown commands
     }
 
     const requiredFiles = commandFileMap[commandName] || commandFileMap.default

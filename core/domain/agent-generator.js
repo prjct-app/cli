@@ -2,6 +2,7 @@ const fs = require('fs').promises
 const path = require('path')
 const os = require('os')
 const AgentLoader = require('./agent-loader')
+const log = require('../utils/logger')
 
 /**
  * AgentGenerator - Universal Dynamic Agent Generation
@@ -22,7 +23,7 @@ class AgentGenerator {
    * Universal - works with ANY technology stack
    */
   async generateDynamicAgent(agentName, config) {
-    console.log(`   🤖 Generating ${agentName} agent...`)
+    log.debug(`Generating ${agentName} agent...`)
     await fs.mkdir(this.outputDir, { recursive: true })
 
     // Generate concise, actionable agent prompt
@@ -30,9 +31,59 @@ class AgentGenerator {
 
     const outputPath = path.join(this.outputDir, `${agentName}.md`)
     await fs.writeFile(outputPath, content, 'utf-8')
-    console.log(`   ✅ ${agentName} agent created`)
+    log.debug(`${agentName} agent created`)
 
     return { name: agentName }
+  }
+
+  /**
+   * Generate agents from tech analysis - 100% AGENTIC
+   * Claude decides what agents are needed based on actual project tech
+   * NO HARDCODED LISTS - reads analysis and decides
+   */
+  async generateAgentsFromTech(context) {
+    const { detectedTech, analysisSummary, projectPath } = context
+    const agents = []
+    
+    // Read agent generation template - Claude will use this to decide
+    const templatePath = path.join(__dirname, '../../templates/agents/AGENTS.md')
+    let agentTemplate = ''
+    try {
+      agentTemplate = await fs.readFile(templatePath, 'utf-8')
+    } catch {
+      // Fallback if template doesn't exist
+      agentTemplate = 'Generate agents based on detected technologies'
+    }
+    
+    // Build context for Claude to decide
+    // Pass full tech info, let Claude categorize and decide what agents are needed
+    const techSummary = {
+      languages: detectedTech.languages || [],
+      frameworks: detectedTech.frameworks || [],
+      buildTools: detectedTech.buildTools || [],
+      testFrameworks: detectedTech.testFrameworks || [],
+      databases: detectedTech.databases || [],
+      tools: detectedTech.tools || [],
+      allDependencies: detectedTech.allDependencies || []
+    }
+    
+    // For now, generate basic agents based on what we detected
+    // But this should be replaced with Claude decision-making
+    // TODO: Make this fully agentic by having Claude read the template and decide
+    
+    // Temporary: Generate agents for detected domains (agentic, not hardcoded)
+    // Claude will eventually decide this based on template
+    if (techSummary.languages.length > 0 || techSummary.frameworks.length > 0) {
+      // Generate a general development agent
+      await this.generateDynamicAgent('developer', {
+        role: 'Development Specialist',
+        domain: 'general',
+        projectContext: techSummary
+      })
+      agents.push('developer')
+    }
+    
+    return agents.map(name => ({ name }))
   }
 
   /**
@@ -104,11 +155,11 @@ ${config.contextFilter || 'Only relevant files'}
           const filePath = path.join(this.outputDir, file)
           await fs.unlink(filePath)
           removed.push(type)
-          console.log(`   🗑️  ${type.toUpperCase()} agent removed (no longer needed)`)
+          log.debug(`${type} agent removed`)
         }
       }
     } catch (error) {
-      console.error('Error during cleanup:', error.message)
+      log.error('Agent cleanup failed:', error.message)
     }
 
     return removed

@@ -12,6 +12,7 @@ const fs = require('fs').promises
 const path = require('path')
 const os = require('os')
 const crypto = require('crypto')
+const log = require('../utils/logger')
 
 class SmartCache {
   constructor(projectId = null) {
@@ -69,7 +70,7 @@ class SmartCache {
 
     // Persist to disk (async, don't wait)
     this.persistToDisk().catch(err => {
-      console.error('Cache persist error:', err.message)
+      log.error('Cache persist error:', err.message)
     })
   }
 
