@@ -459,36 +459,13 @@ class PrjctCommands {
    * @private
    */
   _breakdownFeatureTasks(description) {
-    // Simplified breakdown - Claude would analyze and create appropriate tasks
-    const lowerDesc = description.toLowerCase()
-
-    if (lowerDesc.includes('test')) {
-      return [
-        'Setup testing framework configuration',
-        'Write tests for core utilities',
-        'Write tests for components/modules',
-        'Add CI/CD test runner',
-        'Update docs with testing guide',
-      ]
-    }
-
-    if (lowerDesc.includes('auth') || lowerDesc.includes('login')) {
-      return [
-        'Design authentication flow',
-        'Implement backend authentication API',
-        'Implement frontend login/signup UI',
-        'Add session management',
-        'Test authentication flow',
-      ]
-    }
-
-    // Default breakdown
+    // AGENTIC: Claude analyzes and creates tasks via templates/analysis/task-breakdown.md
+    // This returns a placeholder - real breakdown happens in template execution
     return [
-      `Research and design ${description}`,
+      `Analyze and plan: ${description}`,
       'Implement core functionality',
-      'Add tests and validation',
-      'Update documentation',
-      'Review and refine',
+      'Test and validate',
+      'Document changes',
     ]
   }
 
@@ -546,20 +523,8 @@ class PrjctCommands {
    * @private
    */
   _detectBugSeverity(description) {
-    const lowerDesc = description.toLowerCase()
-
-    if (
-      lowerDesc.includes('crash') ||
-      lowerDesc.includes('broken') ||
-      lowerDesc.includes('not working')
-    ) {
-      return 'critical'
-    }
-
-    if (lowerDesc.includes('error') || lowerDesc.includes('fail') || lowerDesc.includes('bug')) {
-      return 'high'
-    }
-
+    // AGENTIC: Claude assesses severity via templates/analysis/bug-severity.md
+    // Returns default - real assessment happens in template execution
     return 'medium'
   }
 
@@ -971,68 +936,8 @@ class PrjctCommands {
    * @private
    */
   _generateArchitectureDesign(target, projectPath) {
-    const projectName = path.basename(projectPath)
-    return `# Architecture Design: ${target}
-
-**Project**: ${projectName}
-**Created**: ${new Date().toLocaleString()}
-**Type**: System Architecture
-
-## Overview
-
-High-level architecture design for ${target}.
-
-## Components
-
-### Core Components
-1. **Component A**
-   - Responsibility: [Define responsibility]
-   - Dependencies: [List dependencies]
-   - Interfaces: [Define interfaces]
-
-2. **Component B**
-   - Responsibility: [Define responsibility]
-   - Dependencies: [List dependencies]
-   - Interfaces: [Define interfaces]
-
-## Data Flow
-
-\`\`\`
-[User] → [Frontend] → [API Gateway] → [Backend Services] → [Database]
-                                    ↓
-                              [Cache Layer]
-\`\`\`
-
-## Technology Stack
-
-- **Frontend**: [Framework/Library]
-- **Backend**: [Framework/Runtime]
-- **Database**: [Type/System]
-- **Deployment**: [Platform/Method]
-
-## Design Decisions
-
-### Decision 1: [Title]
-- **Context**: [Why this decision is needed]
-- **Options**: [Alternatives considered]
-- **Choice**: [What was chosen]
-- **Rationale**: [Why this choice]
-
-## Implementation Plan
-
-1. [ ] Setup project structure
-2. [ ] Implement core components
-3. [ ] Add integration layer
-4. [ ] Testing and validation
-5. [ ] Documentation
-
-## Notes
-
-[Additional notes, constraints, assumptions]
-
----
-*This is a living document. Update as design evolves.*
-`
+    // AGENTIC: Claude generates via templates/design/architecture.md
+    return `# Architecture Design: ${target}\n\n*Use templates/design/architecture.md for full design*\n`
   }
 
   /**
@@ -1040,79 +945,8 @@ High-level architecture design for ${target}.
    * @private
    */
   _generateApiDesign(target) {
-    return `# API Design: ${target}
-
-**Created**: ${new Date().toLocaleString()}
-**Type**: API Specification
-
-## Endpoints
-
-### GET /api/${target.toLowerCase()}
-**Description**: Retrieve ${target}
-
-**Request**:
-\`\`\`
-GET /api/${target.toLowerCase()}?limit=10&offset=0
-\`\`\`
-
-**Response** (200 OK):
-\`\`\`json
-{
-  "data": [],
-  "meta": {
-    "total": 0,
-    "limit": 10,
-    "offset": 0
-  }
-}
-\`\`\`
-
-### POST /api/${target.toLowerCase()}
-**Description**: Create new ${target}
-
-**Request**:
-\`\`\`json
-{
-  "name": "string",
-  "description": "string"
-}
-\`\`\`
-
-**Response** (201 Created):
-\`\`\`json
-{
-  "id": "string",
-  "name": "string",
-  "description": "string",
-  "createdAt": "ISO8601"
-}
-\`\`\`
-
-## Error Handling
-
-\`\`\`json
-{
-  "error": {
-    "code": "ERROR_CODE",
-    "message": "Human-readable message",
-    "details": {}
-  }
-}
-\`\`\`
-
-## Authentication
-
-- **Method**: Bearer Token
-- **Header**: \`Authorization: Bearer <token>\`
-
-## Rate Limiting
-
-- **Limit**: 100 requests/minute
-- **Headers**: \`X-RateLimit-Limit\`, \`X-RateLimit-Remaining\`
-
----
-*Update this specification as API evolves.*
-`
+    // AGENTIC: Claude generates via templates/design/api.md
+    return `# API Design: ${target}\n\n*Use templates/design/api.md for full design*\n`
   }
 
   /**
@@ -1120,79 +954,8 @@ GET /api/${target.toLowerCase()}?limit=10&offset=0
    * @private
    */
   _generateComponentDesign(target) {
-    return `# Component Design: ${target}
-
-**Created**: ${new Date().toLocaleString()}
-**Type**: Component Specification
-
-## Overview
-
-Component for ${target} functionality.
-
-## Props/Interface
-
-\`\`\`typescript
-interface ${target}Props {
-  // Define props
-  id?: string
-  className?: string
-  onAction?: (data: any) => void
-}
-\`\`\`
-
-## State
-
-\`\`\`typescript
-interface ${target}State {
-  // Define internal state
-  loading: boolean
-  data: any[]
-  error: Error | null
-}
-\`\`\`
-
-## Component Structure
-
-\`\`\`
-${target}/
-├── index.ts          # Barrel export
-├── ${target}.tsx     # Main component
-├── ${target}.test.tsx # Tests
-├── ${target}.styles.ts # Styles
-└── types.ts          # Type definitions
-\`\`\`
-
-## Usage Example
-
-\`\`\`tsx
-import { ${target} } from '@/components/${target}'
-
-function App() {
-  return (
-    <${target}
-      id="example"
-      onAction={(data) => console.log(data)}
-    />
-  )
-}
-\`\`\`
-
-## Dependencies
-
-- React
-- [Other libraries]
-
-## Implementation Notes
-
-1. [ ] Setup component structure
-2. [ ] Implement core logic
-3. [ ] Add styling
-4. [ ] Write tests
-5. [ ] Document usage
-
----
-*Component design is iterative. Update as needed.*
-`
+    // AGENTIC: Claude generates via templates/design/component.md
+    return `# Component Design: ${target}\n\n*Use templates/design/component.md for full design*\n`
   }
 
   /**
@@ -1200,68 +963,8 @@ function App() {
    * @private
    */
   _generateDatabaseDesign(target) {
-    return `# Database Design: ${target}
-
-**Created**: ${new Date().toLocaleString()}
-**Type**: Database Schema
-
-## Schema
-
-### Table: ${target.toLowerCase()}
-
-\`\`\`sql
-CREATE TABLE ${target.toLowerCase()} (
-  id SERIAL PRIMARY KEY,
-  name VARCHAR(255) NOT NULL,
-  description TEXT,
-  status VARCHAR(50) DEFAULT 'active',
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-\`\`\`
-
-## Indexes
-
-\`\`\`sql
-CREATE INDEX idx_${target.toLowerCase()}_status ON ${target.toLowerCase()}(status);
-CREATE INDEX idx_${target.toLowerCase()}_created_at ON ${target.toLowerCase()}(created_at);
-\`\`\`
-
-## Relationships
-
-- **Related Tables**: [List related tables]
-- **Foreign Keys**: [Define foreign keys]
-
-## Queries
-
-### Common Queries
-
-\`\`\`sql
--- Get active records
-SELECT * FROM ${target.toLowerCase()} WHERE status = 'active';
-
--- Get recent records
-SELECT * FROM ${target.toLowerCase()}
-ORDER BY created_at DESC
-LIMIT 10;
-\`\`\`
-
-## Migrations
-
-1. [ ] Create initial schema
-2. [ ] Add indexes
-3. [ ] Setup relationships
-4. [ ] Add constraints
-
-## Notes
-
-- Consider partitioning for large datasets
-- Add audit logging if needed
-- Implement soft deletes
-
----
-*Database design should evolve with requirements.*
-`
+    // AGENTIC: Claude generates via templates/design/database.md
+    return `# Database Design: ${target}\n\n*Use templates/design/database.md for full design*\n`
   }
 
   /**
@@ -1269,63 +972,8 @@ LIMIT 10;
    * @private
    */
   _generateFlowDesign(target) {
-    return `# Flow Design: ${target}
-
-**Created**: ${new Date().toLocaleString()}
-**Type**: Process Flow
-
-## Flow Overview
-
-Process flow for ${target}.
-
-## Steps
-
-\`\`\`
-1. [User Action/Trigger]
-   ↓
-2. [Validation]
-   ↓
-3. [Processing]
-   ↓
-4. [Side Effects]
-   ↓
-5. [Response/Completion]
-\`\`\`
-
-## Detailed Flow
-
-### Step 1: Initial Action
-- **Input**: [What triggers this]
-- **Validation**: [What gets checked]
-- **Output**: [What proceeds]
-
-### Step 2: Processing
-- **Actions**: [What happens]
-- **Dependencies**: [What's needed]
-- **Side Effects**: [What changes]
-
-### Step 3: Completion
-- **Success**: [What happens on success]
-- **Failure**: [What happens on failure]
-- **Notifications**: [Who gets notified]
-
-## Error Handling
-
-- **Error Type 1**: [Recovery strategy]
-- **Error Type 2**: [Recovery strategy]
-
-## Rollback Strategy
-
-[How to undo if needed]
-
-## Monitoring
-
-- **Metrics**: [What to track]
-- **Alerts**: [When to alert]
-
----
-*Document edge cases and special scenarios.*
-`
+    // AGENTIC: Claude generates via templates/design/flow.md
+    return `# Flow Design: ${target}\n\n*Use templates/design/flow.md for full design*\n`
   }
 
   /**
@@ -1661,30 +1309,13 @@ Status: ⏸️  Planned
    * @private
    */
   _calculateHealth(stats) {
-    let score = 50 // Base score
-
-    // Active task is good
-    if (stats.activeTask) score += 20
-
-    // Having tasks but not too many
-    if (stats.tasksInQueue > 0 && stats.tasksInQueue < 15) score += 15
-    if (stats.tasksInQueue >= 15) score -= 5 // Too many tasks
-
-    // Shipped features is great
-    score += Math.min(20, stats.featuresShipped * 5)
-
-    // Ideas are good but not critical
-    score += Math.min(10, stats.ideasCaptured * 2)
-
-    score = Math.max(0, Math.min(100, score))
-
-    let message = ''
-    if (score >= 80) message = '🟢 Excellent - Great momentum!'
-    else if (score >= 60) message = '🟡 Good - Keep shipping!'
-    else if (score >= 40) message = '🟠 Fair - Need more activity'
-    else message = '🔴 Low - Time to get started!'
-
-    return { score, message }
+    // AGENTIC: Claude evaluates health via templates/analysis/health.md
+    // Simple calculation - real assessment happens in template execution
+    const hasActivity = stats.activeTask || stats.featuresShipped > 0
+    return {
+      score: hasActivity ? 70 : 50,
+      message: hasActivity ? '🟢 Active' : '🟡 Ready to start',
+    }
   }
 
   /**
@@ -1789,39 +1420,9 @@ Agent: ${agent}
    * @private
    */
   _detectComplexity(task) {
-    const lowerTask = task.toLowerCase()
-
-    // Type detection
-    let type = 'general'
-    if (lowerTask.includes('fix') || lowerTask.includes('bug')) type = 'bugfix'
-    else if (lowerTask.includes('test')) type = 'testing'
-    else if (lowerTask.includes('refactor')) type = 'refactoring'
-    else if (lowerTask.includes('implement') || lowerTask.includes('add')) type = 'feature'
-    else if (lowerTask.includes('design')) type = 'design'
-
-    // Complexity indicators
-    const complexityIndicators = {
-      high: ['architecture', 'redesign', 'migration', 'integration', 'authentication', 'database'],
-      medium: ['api', 'component', 'service', 'endpoint', 'feature'],
-      low: ['fix', 'update', 'modify', 'adjust', 'tweak'],
-    }
-
-    let level = 'medium'
-    let hours = 4
-
-    for (const [levelKey, indicators] of Object.entries(complexityIndicators)) {
-      if (indicators.some((indicator) => lowerTask.includes(indicator))) {
-        level = levelKey
-        break
-      }
-    }
-
-    // Estimate hours
-    if (level === 'high') hours = 8
-    else if (level === 'medium') hours = 4
-    else hours = 2
-
-    return { level, hours, type }
+    // AGENTIC: Claude analyzes complexity via templates/analysis/complexity.md
+    // Returns default - real analysis happens in template execution
+    return { level: 'medium', hours: 4, type: 'feature' }
   }
 
   /**
@@ -1829,32 +1430,8 @@ Agent: ${agent}
    * @private
    */
   _autoAssignAgent(task) {
-    const lowerTask = task.toLowerCase()
-
-    if (
-      lowerTask.includes('ui') ||
-      lowerTask.includes('component') ||
-      lowerTask.includes('frontend')
-    ) {
-      return 'frontend-specialist'
-    }
-    if (
-      lowerTask.includes('api') ||
-      lowerTask.includes('backend') ||
-      lowerTask.includes('database')
-    ) {
-      return 'backend-specialist'
-    }
-    if (lowerTask.includes('test')) {
-      return 'qa-specialist'
-    }
-    if (lowerTask.includes('design') || lowerTask.includes('architecture')) {
-      return 'architect'
-    }
-    if (lowerTask.includes('deploy') || lowerTask.includes('docker')) {
-      return 'devops-specialist'
-    }
-
+    // AGENTIC: Agent assignment handled by agent-router.js with semantic analysis
+    // Returns default - real routing happens via MandatoryAgentRouter
     return 'generalist'
   }
 

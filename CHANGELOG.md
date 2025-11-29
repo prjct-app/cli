@@ -1,5 +1,58 @@
 # Changelog
 
+## [0.10.11] - 2025-11-29
+
+### Refactored - 100% Agentic System
+
+Complete elimination of procedural keyword-based logic. Claude now decides everything via templates:
+
+- **Templates Created (12 new files)**
+  - `templates/analysis/complexity.md` - Replaces `_detectComplexity()` keyword lists
+  - `templates/analysis/task-breakdown.md` - Replaces `_breakdownFeatureTasks()` hardcoded patterns
+  - `templates/analysis/bug-severity.md` - Replaces `_detectBugSeverity()` keyword detection
+  - `templates/analysis/health.md` - Replaces `_calculateHealth()` scoring logic
+  - `templates/analysis/intent.md` - Replaces `analyzeSemantics()` regex patterns
+  - `templates/design/architecture.md` - Architecture design guidance for Claude
+  - `templates/design/api.md` - API design guidance for Claude
+  - `templates/design/component.md` - Component design guidance for Claude
+  - `templates/design/database.md` - Database design guidance for Claude
+  - `templates/design/flow.md` - User flow design guidance for Claude
+  - `templates/architect/discovery.md` - Discovery phase template
+  - `templates/architect/phases.md` - Phase selection template
+
+- **commands.js** - Simplified 11 helper methods
+  - `_breakdownFeatureTasks()` - Returns placeholder, Claude generates via template
+  - `_detectBugSeverity()` - Returns 'medium', Claude assesses via template
+  - `_calculateHealth()` - Simple activity check, Claude evaluates via template
+  - `_detectComplexity()` - Returns default, Claude analyzes via template
+  - `_autoAssignAgent()` - Returns 'generalist', routing via agent-router.js
+  - `_generateArchitectureDesign()` - 60 → 2 lines
+  - `_generateApiDesign()` - 75 → 2 lines
+  - `_generateComponentDesign()` - 75 → 2 lines
+  - `_generateDatabaseDesign()` - 65 → 2 lines
+  - `_generateFlowDesign()` - 58 → 2 lines
+
+- **architecture-generator.js** - Reduced from 561 to 93 lines (83% reduction)
+  - Removed all phase-specific generation logic
+  - Claude generates content via architect templates
+
+- **task-analyzer.js** - Simplified semantic analysis
+  - `analyzeSemantics()` - Removed all regex patterns
+  - `estimateComplexity()` - Removed keyword lists
+  - `detectDomains()` - Returns empty, Claude decides domain
+
+### Fixed
+
+- **prompt-builder.test.js** - Updated 3 tests to match compressed format
+  - Tests now expect `## FILES:` instead of `AVAILABLE PROJECT FILES`
+  - Tests now expect `## PROJECT:` instead of `PROJECT FILES`
+
+### Impact
+- Zero keyword-based logic remaining
+- All decisions delegated to Claude via templates
+- Easier to extend (just add/edit templates)
+- More accurate analysis (semantic understanding vs pattern matching)
+
 ## [0.10.10] - 2025-11-28
 
 ### Refactored - Agentic Architecture Optimization

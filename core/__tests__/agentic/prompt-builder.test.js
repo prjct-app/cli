@@ -143,7 +143,9 @@ describe('PromptBuilder', () => {
 
       const prompt = builder.build(template, context, state)
 
-      expect(prompt).toContain('AVAILABLE PROJECT FILES')
+      // OPTIMIZED: New compressed format uses ## FILES:
+      expect(prompt).toContain('## FILES:')
+      expect(prompt).toContain('3 available')
       expect(prompt).toContain('file1.js')
       expect(prompt).toContain('Read')
     })
@@ -159,7 +161,8 @@ describe('PromptBuilder', () => {
 
       const prompt = builder.build(template, context, state)
 
-      expect(prompt).toContain('PROJECT FILES')
+      // OPTIMIZED: New compressed format uses ## PROJECT:
+      expect(prompt).toContain('## PROJECT:')
       expect(prompt).toContain('/test/project')
     })
   })
@@ -188,7 +191,8 @@ describe('PromptBuilder', () => {
       expect(prompt).toContain('TOOLS:')
       expect(prompt).toContain('Flow')
       expect(prompt).toContain('RULES (CRITICAL)')
-      expect(prompt).toContain('AVAILABLE PROJECT FILES')
+      // OPTIMIZED: New compressed format uses ## FILES:
+      expect(prompt).toContain('## FILES:')
     })
 
     it('should be concise (under 2000 chars for simple prompt)', () => {
