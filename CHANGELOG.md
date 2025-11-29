@@ -1,5 +1,77 @@
 # Changelog
 
+## [0.10.10] - 2025-11-28
+
+### Refactored - Agentic Architecture Optimization
+
+Major refactoring to make prjct-cli truly agentic with 70% context reduction:
+
+- **CLAUDE.md** - Reduced from 1,079 to 204 lines (81% reduction)
+  - Removed verbose examples and implementation pseudocode
+  - Kept only critical rules and command reference
+  - Cleaner, more focused instructions for Claude
+
+- **Templates Expanded to Executable Specs**
+  - `done.md`: 24 → 138 lines with step-by-step instructions
+  - `ship.md`: 36 → 257 lines with full decision trees
+  - `feature.md`: 35 → 276 lines with value analysis flow
+  - `sync.md`: 72 → 263 lines with agent generation rules
+
+- **patterns.md** - Simplified from 207 to 61 lines (70% reduction)
+  - Removed verbose SOLID explanations
+  - Focused on detection steps and output format
+
+- **prompt-builder.js** - Conditional injection for efficiency
+  - Agents only injected for code-modifying commands
+  - Pattern summary extraction (800 bytes vs 6KB)
+  - File list compressed (5 files vs 20)
+
+### Impact
+- Context per command: ~54KB → ~18KB (67% reduction)
+- Templates now executable specifications with:
+  - Explicit paths and variables
+  - Decision trees with IF/ELSE
+  - Error handling at each step
+  - JSONL format specifications
+  - Concrete examples
+
+## [0.10.9] - 2025-11-28
+
+### Added
+
+- **Code Pattern Detection & Enforcement** - New system to detect and enforce code patterns
+  - `templates/analysis/patterns.md` - Template for detecting SOLID, DRY, naming conventions
+  - Detects design patterns: Factory, Singleton, Observer, Repository, Strategy
+  - Identifies anti-patterns: God classes, spaghetti code, copy-paste, magic numbers
+  - Extracts conventions: naming, style, async patterns, error handling
+  - Generates recommendations with specific file locations and fixes
+
+### Enhanced
+
+- **`/p:sync` Command** - Now includes pattern analysis
+  - Samples 5-10 source files across directories
+  - Detects SOLID compliance with evidence
+  - Extracts naming and style conventions
+  - Flags anti-patterns with severity (HIGH/MEDIUM/LOW)
+  - Saves analysis to `analysis/patterns.md`
+  - Updates CLAUDE.md with patterns summary
+
+- **Context Builder** - Added `codePatterns` path for pattern detection
+  - All code-modifying commands now load patterns automatically
+  - Commands: now, build, feature, design, cleanup, fix, test, spec, work
+
+- **Prompt Builder** - Includes patterns in code generation prompts
+  - Full patterns file included for code-modifying commands
+  - Explicit instruction: "ALL new code MUST respect these patterns"
+  - Anti-pattern prevention: "NO anti-patterns allowed"
+
+### Impact
+
+- New code automatically follows project conventions
+- Anti-patterns detected and flagged before they're introduced
+- Better code quality, performance, and scalability
+- Reduced technical debt from day one
+
 ## [0.10.8] - 2025-11-28
 
 ### Added

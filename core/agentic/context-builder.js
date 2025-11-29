@@ -67,6 +67,7 @@ class ContextBuilder {
         memory: pathManager.getFilePath(projectId, 'memory', 'context.jsonl'),
         patterns: pathManager.getFilePath(projectId, 'memory', 'patterns.json'),
         analysis: pathManager.getFilePath(projectId, 'analysis', 'repo-summary.md'),
+        codePatterns: pathManager.getFilePath(projectId, 'analysis', 'patterns.md'),
       },
 
       // Command parameters
@@ -168,10 +169,10 @@ class ContextBuilder {
   async loadStateForCommand(context, commandName) {
     // Command-specific file requirements
     // Minimizes context window usage
-    // CRITICAL: Always include 'analysis' for pattern detection
+    // CRITICAL: Include 'codePatterns' for ALL code-modifying commands
     const commandFileMap = {
       // Core workflow
-      'now': ['now', 'next', 'analysis'],
+      'now': ['now', 'next', 'analysis', 'codePatterns'],
       'done': ['now', 'next', 'metrics', 'analysis'],
       'next': ['next', 'analysis'],
 
@@ -182,24 +183,24 @@ class ContextBuilder {
 
       // Planning
       'idea': ['ideas', 'next', 'analysis'],
-      'feature': ['roadmap', 'next', 'ideas', 'analysis'],
+      'feature': ['roadmap', 'next', 'ideas', 'analysis', 'codePatterns'],
       'roadmap': ['roadmap', 'analysis'],
-      'spec': ['roadmap', 'next', 'specs', 'analysis'],
+      'spec': ['roadmap', 'next', 'specs', 'analysis', 'codePatterns'],
 
       // Analysis
-      'analyze': ['analysis', 'context'],
-      'sync': ['analysis', 'context', 'now'],
+      'analyze': ['analysis', 'context', 'codePatterns'],
+      'sync': ['analysis', 'context', 'now', 'codePatterns'],
 
-      // Code modification commands - ALWAYS need analysis for patterns
-      'work': ['now', 'next', 'analysis', 'context'],
-      'build': ['now', 'next', 'analysis', 'context'],
-      'design': ['analysis', 'context'],
-      'cleanup': ['analysis', 'context'],
-      'fix': ['analysis', 'context'],
-      'test': ['analysis', 'context'],
+      // Code modification commands - ALWAYS need codePatterns
+      'work': ['now', 'next', 'analysis', 'context', 'codePatterns'],
+      'build': ['now', 'next', 'analysis', 'context', 'codePatterns'],
+      'design': ['analysis', 'context', 'codePatterns'],
+      'cleanup': ['analysis', 'context', 'codePatterns'],
+      'fix': ['analysis', 'context', 'codePatterns'],
+      'test': ['analysis', 'context', 'codePatterns'],
 
-      // All files (fallback)
-      'default': ['analysis'] // Always include analysis even for unknown commands
+      // All files (fallback) - include codePatterns for any code work
+      'default': ['analysis', 'codePatterns']
     }
 
     const requiredFiles = commandFileMap[commandName] || commandFileMap.default

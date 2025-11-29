@@ -24,41 +24,18 @@ class PromptBuilder {
     // Store context for use in helper methods
     this._currentContext = context
 
-    // Agent assignment (if applicable)
-    // CRITICAL: Include full agent content, not just name
-    if (agent) {
-      parts.push(`# AGENT ASSIGNMENT\n`)
-      parts.push(`Agent: ${agent.name}\n`)
-      
-      // Include role if available
-      if (agent.role) {
-        parts.push(`Role: ${agent.role}\n`)
-      }
-      
-      // Include domain if available
-      if (agent.domain) {
-        parts.push(`Domain: ${agent.domain}\n`)
-      }
-      
-      // Include skills if available
-      if (agent.skills && agent.skills.length > 0) {
-        parts.push(`Skills: ${agent.skills.join(', ')}\n`)
-      }
-      
-      parts.push(`\n## AGENT INSTRUCTIONS\n`)
-      
-      // CRITICAL: Include full agent content
-      // This is the specialized knowledge for this project
-      if (agent.content) {
-        parts.push(agent.content)
-        parts.push(`\n`)
-      } else if (agent.name) {
-        // Fallback if content not loaded
-        parts.push(`You are the ${agent.name} agent for this project.\n`)
-        parts.push(`Apply your specialized expertise to complete the task.\n\n`)
-      }
-      
-      parts.push(`CONTEXT: ${context.filteredSize || 'all'} files (${context.reduction || 0}% reduced)\n\n`)
+    // Agent assignment (CONDITIONAL - only for code-modifying commands)
+    // Commands like done, ship, recap, next don't need specialized agents
+    const commandName = template.frontmatter?.name?.replace('p:', '') || ''
+    const agentCommands = ['now', 'build', 'feature', 'design', 'fix', 'bug', 'test', 'work', 'cleanup', 'spec']
+    const needsAgent = agentCommands.includes(commandName)
+
+    if (agent && needsAgent) {
+      // COMPRESSED: Only essential agent info (500 bytes vs 3-5KB)
+      parts.push(`# AGENT: ${agent.name}\n`)
+      if (agent.role) parts.push(`Role: ${agent.role}\n`)
+      if (agent.skills?.length) parts.push(`Skills: ${agent.skills.join(', ')}\n`)
+      parts.push(`\nApply specialized expertise. Read agent file for details if needed.\n\n`)
     }
 
     // Core instruction (concise)
@@ -93,30 +70,31 @@ class PromptBuilder {
       parts.push('\n')
     }
 
-    // CRITICAL: Include available project files for context
-    if (context.files && context.files.length > 0) {
-      parts.push('\n## AVAILABLE PROJECT FILES\n')
-      parts.push(`You have ${context.files.length} relevant files available in this project.\n`)
-      parts.push('**USE Read TOOL TO LOAD FILES BEFORE MODIFYING THEM.**\n')
-      parts.push('\nTop relevant files:\n')
-      const topFiles = context.files.slice(0, 20).map(f => `- ${f}`).join('\n')
-      parts.push(topFiles)
-      if (context.files.length > 20) {
-        parts.push(`\n... and ${context.files.length - 20} more files. Use Read tool to access them.\n`)
-      }
-      parts.push('\n')
+    // COMPRESSED: File list (5 files vs 20, saves ~400 bytes)
+    if (context.files?.length > 0) {
+      const top5 = context.files.slice(0, 5).join(', ')
+      parts.push(`\n## FILES: ${context.files.length} available. Top: ${top5}\n`)
+      parts.push('Read BEFORE modifying. Use Glob/Grep to find more.\n\n')
     } else if (context.projectPath) {
-      parts.push('\n## PROJECT FILES\n')
-      parts.push(`Project path: ${context.projectPath}\n`)
-      parts.push('**USE Read TOOL TO LOAD FILES YOU NEED TO UNDERSTAND OR MODIFY.**\n')
-      parts.push('**NEVER MODIFY CODE WITHOUT READING IT FIRST.**\n\n')
+      parts.push(`\n## PROJECT: ${context.projectPath}\nRead files before modifying.\n\n`)
     }
 
     // OPTIMIZED: Only include patterns for code-modifying commands
-    // Commands like now, done, ship, recap, next don't need full patterns
-    const codeCommands = ['build', 'feature', 'design', 'cleanup', 'fix', 'bug', 'test', 'init']
-    const commandName = template.frontmatter?.name?.replace('p:', '') || ''
+    // Commands like done, ship, recap, next don't need full patterns
+    const codeCommands = ['now', 'build', 'feature', 'design', 'cleanup', 'fix', 'bug', 'test', 'init', 'spec', 'work']
     const needsPatterns = codeCommands.includes(commandName)
+
+    // Include code patterns analysis for code-modifying commands
+    // COMPRESSED: Extract only conventions and anti-patterns (800 bytes max vs 6KB)
+    const codePatternsContent = state?.codePatterns || ''
+    if (needsPatterns && codePatternsContent && codePatternsContent.trim()) {
+      const patternSummary = this.extractPatternSummary(codePatternsContent)
+      if (patternSummary) {
+        parts.push('\n## CODE PATTERNS\n')
+        parts.push(patternSummary)
+        parts.push('\nFull patterns: Read analysis/patterns.md\n')
+      }
+    }
 
     const analysisContent = state?.analysis || ''
     if (needsPatterns && analysisContent && analysisContent.trim()) {
@@ -125,8 +103,10 @@ class PromptBuilder {
                         analysisContent.match(/Technology[:\s]+([^\n]+)/i)
       const stack = stackMatch ? stackMatch[1].trim() : 'detected'
 
-      parts.push(`\n## PATTERNS\nStack: ${stack}\n`)
-      parts.push('Read analysis/repo-summary.md + similar files before coding. Match patterns exactly.\n')
+      parts.push(`\n## STACK\nStack: ${stack}\n`)
+      if (!codePatternsContent) {
+        parts.push('Read analysis/repo-summary.md + similar files before coding. Match patterns exactly.\n')
+      }
     }
 
     // CRITICAL: Compressed rules (replaces 78 lines with 12)
@@ -190,8 +170,8 @@ class PromptBuilder {
     const relevant = []
     for (const [key, content] of Object.entries(state)) {
       if (content && content.trim()) {
-        // Include full content for critical files (now, next, context)
-        const criticalFiles = ['now', 'next', 'context', 'analysis']
+        // Include full content for critical files (now, next, context, patterns)
+        const criticalFiles = ['now', 'next', 'context', 'analysis', 'codePatterns']
         if (criticalFiles.includes(key)) {
           // Include full content for critical files (up to 2000 chars)
           const display = content.length > 2000 
@@ -230,6 +210,38 @@ class PromptBuilder {
     parts.push(`- ID: ${context.projectId}\n\n`)
 
     return parts.join('')
+  }
+
+  /**
+   * Extract pattern summary from full patterns content
+   * OPTIMIZED: Returns only conventions + high-priority anti-patterns (800 bytes max)
+   */
+  extractPatternSummary(content) {
+    if (!content) return null
+
+    const parts = []
+
+    // Extract conventions section
+    const conventionsMatch = content.match(/## Conventions[\s\S]*?(?=##|$)/i)
+    if (conventionsMatch) {
+      // Compress to key lines only
+      const conventions = conventionsMatch[0]
+        .split('\n')
+        .filter(line => line.includes(':') || line.startsWith('-'))
+        .slice(0, 6)
+        .join('\n')
+      if (conventions) parts.push(conventions)
+    }
+
+    // Extract high priority anti-patterns only
+    const antiPatternsMatch = content.match(/### High Priority[\s\S]*?(?=###|##|$)/i)
+    if (antiPatternsMatch) {
+      const antiPatterns = antiPatternsMatch[0].substring(0, 300)
+      parts.push('\nAvoid:\n' + antiPatterns)
+    }
+
+    const result = parts.join('\n').substring(0, 800)
+    return result || null
   }
 
   /**
