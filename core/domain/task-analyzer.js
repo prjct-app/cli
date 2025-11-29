@@ -98,31 +98,16 @@ class TaskAnalyzer {
 
   /**
    * Semantic analysis - understand intent
-   *
-   * Only detects basic intent (create, fix, improve, test).
-   * Claude handles detailed domain analysis.
+   * AGENTIC: Claude uses templates/analysis/intent.md for detailed analysis
+   * This returns minimal structure - Claude determines actual intent
    */
   analyzeSemantics(text) {
-    const semantic = {
-      intent: null,
-      requiresMultipleAgents: false
+    // AGENTIC: Return structure only, Claude analyzes via template
+    return {
+      intent: null, // Claude determines via templates/analysis/intent.md
+      requiresMultipleAgents: false, // Claude decides based on context
+      text: text, // Pass text for Claude to analyze
     }
-
-    // Detect basic intent patterns (these are universal, not tech-specific)
-    if (text.match(/\b(create|add|build|implement|make)\b/)) {
-      semantic.intent = 'create'
-    } else if (text.match(/\b(fix|repair|debug|resolve)\b/)) {
-      semantic.intent = 'fix'
-    } else if (text.match(/\b(improve|optimize|enhance|refactor)\b/)) {
-      semantic.intent = 'improve'
-    } else if (text.match(/\b(test|verify|validate)\b/)) {
-      semantic.intent = 'test'
-    }
-
-    // No hardcoded multi-agent detection
-    // Claude decides if multiple agents are needed based on context
-
-    return semantic
   }
 
   /**
@@ -162,22 +147,12 @@ class TaskAnalyzer {
   }
 
   /**
-   * Estimate task complexity based on intent words
+   * Estimate task complexity
+   * AGENTIC: Claude uses templates/analysis/complexity.md for real estimation
+   * This returns default - Claude determines actual complexity
    */
   estimateComplexity(text) {
-    // Simple complexity indicators (universal, not tech-specific)
-    const simpleIndicators = ['add', 'create', 'simple', 'basic', 'small']
-    const complexIndicators = ['refactor', 'optimize', 'architecture', 'migration', 'redesign', 'overhaul']
-
-    const simpleCount = simpleIndicators.filter(ind => text.includes(ind)).length
-    const complexCount = complexIndicators.filter(ind => text.includes(ind)).length
-
-    if (complexCount > simpleCount) {
-      return 'high'
-    } else if (simpleCount > 0 && complexCount === 0) {
-      return 'low'
-    }
-
+    // AGENTIC: Return default, Claude analyzes via templates/analysis/complexity.md
     return 'medium'
   }
 
