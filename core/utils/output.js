@@ -1,24 +1,39 @@
 /**
  * Minimal Output System for prjct-cli
  * Spinner while working → Single line result
+ * With ⚡ prjct branding
  */
 
 const chalk = require('chalk')
+const branding = require('./branding')
 
-const FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
-const SPEED = 80
+const FRAMES = branding.spinner.frames
+const SPEED = branding.spinner.speed
 
 let interval = null
 let frame = 0
 
 const truncate = (s, max = 50) => (s && s.length > max ? s.slice(0, max - 1) + '…' : s || '')
-const clear = () => process.stdout.write('\r' + ' '.repeat(70) + '\r')
+const clear = () => process.stdout.write('\r' + ' '.repeat(80) + '\r')
 
 const out = {
+  // Branding: Show header at start
+  start() {
+    console.log(branding.cli.header())
+    return this
+  },
+
+  // Branding: Show footer at end
+  end() {
+    console.log(branding.cli.footer())
+    return this
+  },
+
+  // Branded spinner: ⚡ prjct ⠋ message...
   spin(msg) {
     this.stop()
     interval = setInterval(() => {
-      process.stdout.write(`\r${chalk.cyan(FRAMES[frame++ % 10])} ${truncate(msg, 55)}`)
+      process.stdout.write(`\r${branding.cli.spin(frame++, truncate(msg, 45))}`)
     }, SPEED)
     return this
   },

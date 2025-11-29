@@ -6,6 +6,7 @@
 
 const { PrjctCommands } = require('./commands')
 const registry = require('./command-registry')
+const out = require('./utils/output')
 
 async function main() {
   const [commandName, ...rawArgs] = process.argv.slice(2)
@@ -25,6 +26,9 @@ async function main() {
 
   // === DYNAMIC COMMAND EXECUTION ===
 
+  // Show branding header
+  out.start()
+
   try {
     // 1. Find command in registry
     const cmd = registry.getByName(commandName)
@@ -32,6 +36,7 @@ async function main() {
     if (!cmd) {
       console.error(`Unknown command: ${commandName}`)
       console.error(`\nUse 'prjct --help' to see available commands.`)
+      out.end()
       process.exit(1)
     }
 
@@ -41,6 +46,7 @@ async function main() {
       if (cmd.replacedBy) {
         console.error(`Use 'prjct ${cmd.replacedBy}' instead.`)
       }
+      out.end()
       process.exit(1)
     }
 
@@ -49,6 +55,7 @@ async function main() {
       console.error(`Command '${commandName}' exists but is not yet implemented.`)
       console.error(`Check the roadmap or contribute: https://github.com/jlopezlira/prjct-cli`)
       console.error(`\nUse 'prjct --help' to see available commands.`)
+      out.end()
       process.exit(1)
     }
 
@@ -90,12 +97,16 @@ async function main() {
       console.log(result.message)
     }
 
+    // Show branding footer
+    out.end()
     process.exit(result && result.success ? 0 : 1)
   } catch (error) {
     console.error('Error:', error.message)
     if (process.env.DEBUG) {
       console.error(error.stack)
     }
+    // Show branding footer even on error
+    out.end()
     process.exit(1)
   }
 }

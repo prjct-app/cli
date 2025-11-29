@@ -1925,6 +1925,15 @@ Agent: ${agent} (${Math.round(confidence * 100)}% confidence)
       console.log(`⚠️  ${configResult.error}`)
     }
 
+    // Install status line for Claude Code
+    console.log('\n⚡ Installing status line...')
+    const statusLineResult = await this.installStatusLine()
+    if (statusLineResult.success) {
+      console.log('✅ Status line configured')
+    } else {
+      console.log(`⚠️  ${statusLineResult.error}`)
+    }
+
     console.log('\n🎉 Setup complete!\n')
 
     // Show beautiful ASCII art
@@ -1933,6 +1942,69 @@ Agent: ${agent} (${Math.round(confidence * 100)}% confidence)
     return {
       success: true,
       message: '',
+    }
+  }
+
+  /**
+   * Install status line script and configure settings.json
+   */
+  async installStatusLine() {
+    const fs = require('fs')
+    const path = require('path')
+    const os = require('os')
+
+    try {
+      const claudeDir = path.join(os.homedir(), '.claude')
+      const settingsPath = path.join(claudeDir, 'settings.json')
+      const statusLinePath = path.join(claudeDir, 'prjct-statusline.sh')
+
+      // Copy status line script
+      const scriptContent = `#!/bin/bash
+# prjct Status Line for Claude Code
+# Shows ⚡ prjct with animated spinner when command is running
+
+# Read JSON context from stdin (provided by Claude Code)
+read -r json
+
+# Spinner frames
+frames=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
+
+# Calculate frame based on time (changes every 80ms)
+frame=$(($(date +%s%N 2>/dev/null || echo 0) / 80000000 % 10))
+
+# Check if prjct command is running
+running_file="$HOME/.prjct-cli/.running"
+
+if [ -f "$running_file" ]; then
+  task=$(cat "$running_file" 2>/dev/null || echo "working")
+  echo "⚡ prjct \${frames[$frame]} $task"
+else
+  echo "⚡ prjct"
+fi
+`
+      fs.writeFileSync(statusLinePath, scriptContent, { mode: 0o755 })
+
+      // Update settings.json
+      let settings = {}
+      if (fs.existsSync(settingsPath)) {
+        try {
+          settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'))
+        } catch {
+          // Invalid JSON, start fresh
+        }
+      }
+
+      // Set status line configuration
+      settings.statusLine = {
+        type: 'command',
+        command: statusLinePath
+      }
+
+      fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2))
+
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: error.message }
     }
   }
 

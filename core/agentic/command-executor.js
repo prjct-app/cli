@@ -15,6 +15,9 @@
  * Source: Claude Code, Devin, Augment Code patterns
  */
 
+const fs = require('fs')
+const path = require('path')
+const os = require('os')
 const templateLoader = require('./template-loader')
 const contextBuilder = require('./context-builder')
 const promptBuilder = require('./prompt-builder')
@@ -32,6 +35,9 @@ const groundTruth = require('./ground-truth')
 const thinkBlocks = require('./think-blocks')
 const parallelTools = require('./parallel-tools')
 const planMode = require('./plan-mode')
+
+// Running file for status line integration
+const RUNNING_FILE = path.join(os.homedir(), '.prjct-cli', '.running')
 // P3.5, P3.6, P3.7: DELEGATED TO CLAUDE CODE
 // - semantic-search → Claude Code has Grep/Glob with semantic understanding
 // - code-intelligence → Claude Code has native LSP integration
@@ -45,15 +51,47 @@ class CommandExecutor {
   }
 
   /**
+   * Signal that a command is running (for status line)
+   */
+  signalStart(commandName) {
+    try {
+      const dir = path.dirname(RUNNING_FILE)
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true })
+      }
+      fs.writeFileSync(RUNNING_FILE, `/p:${commandName}`)
+    } catch {
+      // Silently ignore - status line is optional
+    }
+  }
+
+  /**
+   * Signal that command has finished (for status line)
+   */
+  signalEnd() {
+    try {
+      if (fs.existsSync(RUNNING_FILE)) {
+        fs.unlinkSync(RUNNING_FILE)
+      }
+    } catch {
+      // Silently ignore - status line is optional
+    }
+  }
+
+  /**
    * Execute command with MANDATORY agent assignment
    */
   async execute(commandName, params, projectPath) {
+    // Signal start for status line
+    this.signalStart(commandName)
+
     // Context for loop detection
     const loopContext = params.task || params.description || ''
 
     // Check if we're in a loop BEFORE attempting
     if (loopDetector.shouldEscalate(commandName, loopContext)) {
       const escalation = loopDetector.getEscalationInfo(commandName, loopContext)
+      this.signalEnd()
       return {
         success: false,
         error: escalation.message,
@@ -73,6 +111,7 @@ class CommandExecutor {
       // 2.5. VALIDATE: Pre-flight checks with specific errors
       const validation = await validate(commandName, metadataContext)
       if (!validation.valid) {
+        this.signalEnd()
         return {
           success: false,
           error: formatError(validation),
@@ -267,6 +306,9 @@ class CommandExecutor {
       // Record successful attempt
       loopDetector.recordSuccess(commandName, loopContext)
 
+      // Signal end for status line
+      this.signalEnd()
+
       return {
         success: true,
         template,
@@ -334,6 +376,9 @@ class CommandExecutor {
         // - Native LSP for code intelligence
       }
     } catch (error) {
+      // Signal end for status line
+      this.signalEnd()
+
       // Record failed attempt for loop detection
       const attemptInfo = loopDetector.recordAttempt(commandName, loopContext, {
         success: false,
