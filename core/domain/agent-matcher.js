@@ -1,217 +1,103 @@
 /**
- * AgentMatcher - Intelligent Agent Matching with Scoring
- * 
- * Matches tasks to agents using multi-factor scoring:
- * - Agent skills and capabilities
- * - Historical success rates
- * - Project technologies
- * - Task complexity
- * 
- * @version 1.0.0
+ * AgentMatcher - Orchestration Only
+ *
+ * AGENTIC: All matching decisions made by Claude via templates/agent-assignment.md
+ * JS only orchestrates: format data, pass to Claude, return result
+ *
+ * NO scoring logic, NO algorithms, NO hardcoded weights
+ *
+ * @version 2.0.0
  */
+
+const fs = require('fs').promises
+const path = require('path')
 
 class AgentMatcher {
   constructor() {
-    this.historyCache = new Map()
+    this.historyPath = null
   }
 
   /**
-   * Find best agent for a task using intelligent scoring
-   * @param {Array<Object>} availableAgents - All available agents
-   * @param {Object} taskAnalysis - Task analysis result
-   * @returns {Object|null} Best matching agent with score
+   * Set history path for logging
+   * ORCHESTRATION: Path setup only
    */
-  findBestAgent(availableAgents, taskAnalysis) {
-    if (!availableAgents || availableAgents.length === 0) {
-      return null
-    }
-
-    // Score each agent
-    const scored = availableAgents.map(agent => {
-      const score = this.scoreAgent(agent, taskAnalysis)
-      return { agent, score }
-    })
-
-    // Sort by score descending
-    scored.sort((a, b) => b.score - a.score)
-
-    // Return best match if score is above threshold
-    const best = scored[0]
-    if (best && best.score > 0.3) {
-      return {
-        agent: best.agent,
-        score: best.score,
-        alternatives: scored.slice(1, 3).map(s => ({
-          agent: s.agent,
-          score: s.score
-        }))
-      }
-    }
-
-    return null
+  setHistoryPath(projectId) {
+    this.historyPath = path.join(
+      process.env.HOME,
+      '.prjct-cli',
+      'projects',
+      projectId,
+      'agent-history.jsonl'
+    )
   }
 
   /**
-   * Score an agent for a specific task
-   * Multi-factor scoring system
+   * Format agents for Claude
+   * ORCHESTRATION: Data formatting only
    */
-  scoreAgent(agent, taskAnalysis) {
-    let score = 0
-
-    // Factor 1: Domain Match (40% weight)
-    const domainScore = this.scoreDomainMatch(agent, taskAnalysis)
-    score += domainScore * 0.4
-
-    // Factor 2: Skills Match (30% weight)
-    const skillsScore = this.scoreSkillsMatch(agent, taskAnalysis)
-    score += skillsScore * 0.3
-
-    // Factor 3: Historical Success (20% weight)
-    const historyScore = this.scoreHistoricalSuccess(agent, taskAnalysis)
-    score += historyScore * 0.2
-
-    // Factor 4: Complexity Match (10% weight)
-    const complexityScore = this.scoreComplexityMatch(agent, taskAnalysis)
-    score += complexityScore * 0.1
-
-    return Math.min(score, 1.0)
+  formatAgentsForTemplate(agents) {
+    return agents.map(a => ({
+      name: a.name,
+      domain: a.domain || 'general',
+      hasContent: !!a.content
+    }))
   }
 
   /**
-   * Score domain match
+   * Format task for Claude
+   * ORCHESTRATION: Data formatting only
    */
-  scoreDomainMatch(agent, taskAnalysis) {
-    const agentDomain = agent.domain || ''
-    const taskDomain = taskAnalysis.primaryDomain || ''
-
-    // Exact match
-    if (agentDomain === taskDomain) {
-      return 1.0
+  formatTaskForTemplate(task) {
+    return {
+      description: typeof task === 'string' ? task : task.description,
+      type: task.type || 'unknown'
     }
-
-    // Partial match (agent name contains domain)
-    if (agent.name && agent.name.includes(taskDomain)) {
-      return 0.7
-    }
-
-    // Check alternatives
-    if (taskAnalysis.alternatives && taskAnalysis.alternatives.includes(agentDomain)) {
-      return 0.5
-    }
-
-    return 0.1
   }
 
   /**
-   * Score skills match
+   * Record agent usage
+   * ORCHESTRATION: File I/O only
    */
-  scoreSkillsMatch(agent, taskAnalysis) {
-    if (!agent.skills || agent.skills.length === 0) {
-      return 0.2 // Generic agent penalty
+  async recordUsage(agent, task) {
+    if (!this.historyPath) return
+
+    try {
+      const entry = JSON.stringify({
+        timestamp: new Date().toISOString(),
+        agent: agent.name || agent,
+        task: typeof task === 'string' ? task : task.description
+      }) + '\n'
+
+      await fs.appendFile(this.historyPath, entry)
+    } catch {
+      // Silent fail
     }
-
-    const projectTech = taskAnalysis.projectTechnologies || {}
-    const allTech = [
-      ...(projectTech.languages || []),
-      ...(projectTech.frameworks || []),
-      ...(projectTech.tools || [])
-    ]
-
-    // Count matching skills
-    const matchingSkills = agent.skills.filter(skill => {
-      const skillLower = skill.toLowerCase()
-      return allTech.some(tech => tech.toLowerCase().includes(skillLower) || 
-                                  skillLower.includes(tech.toLowerCase()))
-    })
-
-    if (matchingSkills.length === 0) {
-      return 0.1 // No matching skills
-    }
-
-    // Score based on match ratio
-    const matchRatio = matchingSkills.length / Math.max(agent.skills.length, allTech.length)
-    return Math.min(matchRatio * 2, 1.0) // Boost for good matches
   }
 
   /**
-   * Score historical success
+   * Load usage history
+   * ORCHESTRATION: File I/O only
    */
-  scoreHistoricalSuccess(agent, taskAnalysis) {
-    // TODO: Load from persistent history
-    // For now, return neutral score
-    const cacheKey = `${agent.name}-${taskAnalysis.primaryDomain}`
-    const history = this.historyCache.get(cacheKey)
+  async loadHistory() {
+    if (!this.historyPath) return []
 
-    if (history) {
-      // Success rate from history
-      return history.successRate || 0.5
+    try {
+      const content = await fs.readFile(this.historyPath, 'utf-8')
+      return content
+        .split('\n')
+        .filter(Boolean)
+        .map(line => {
+          try {
+            return JSON.parse(line)
+          } catch {
+            return null
+          }
+        })
+        .filter(Boolean)
+    } catch {
+      return []
     }
-
-    return 0.5 // Neutral - no history
-  }
-
-  /**
-   * Score complexity match
-   */
-  scoreComplexityMatch(agent, taskAnalysis) {
-    const taskComplexity = taskAnalysis.complexity || 'medium'
-    
-    // Generic agents are better for simple tasks
-    // Specialized agents are better for complex tasks
-    const isGeneric = !agent.skills || agent.skills.length === 0
-
-    if (taskComplexity === 'low' && isGeneric) {
-      return 0.8
-    }
-
-    if (taskComplexity === 'high' && !isGeneric) {
-      return 0.9
-    }
-
-    return 0.5 // Neutral
-  }
-
-  /**
-   * Record agent success for learning
-   */
-  recordSuccess(agent, taskAnalysis, success = true) {
-    const cacheKey = `${agent.name}-${taskAnalysis.primaryDomain}`
-    const history = this.historyCache.get(cacheKey) || {
-      attempts: 0,
-      successes: 0,
-      successRate: 0.5
-    }
-
-    history.attempts++
-    if (success) {
-      history.successes++
-    }
-    history.successRate = history.successes / history.attempts
-
-    this.historyCache.set(cacheKey, history)
-  }
-
-  /**
-   * Get match explanation
-   */
-  explainMatch(match) {
-    if (!match) {
-      return 'No suitable agent found'
-    }
-
-    const reasons = []
-
-    if (match.score > 0.8) {
-      reasons.push('Excellent match')
-    } else if (match.score > 0.6) {
-      reasons.push('Good match')
-    } else {
-      reasons.push('Acceptable match')
-    }
-
-    return reasons.join(', ')
   }
 }
 
 module.exports = AgentMatcher
-
