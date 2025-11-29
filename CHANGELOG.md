@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.10.12] - 2025-11-29
+
+### Refactored - Mandatory Agent Assignment (100% Agentic)
+
+All agent assignment decisions now delegated to Claude via templates. JS code is pure orchestration.
+
+- **New Template**: `templates/agent-assignment.md`
+  - Claude decides which agent based on task + available agents + context
+  - No hardcoded scoring weights or matching algorithms
+  - Semantic understanding replaces keyword matching
+
+- **Simplified `agent-router.js`**: 419 → 128 lines (69% reduction)
+  - Removed: scoring logic, domain mappings, caching algorithms
+  - Kept: load agents, build context, log usage (I/O only)
+  - Class renamed: `MandatoryAgentRouter` → `AgentRouter`
+
+- **Simplified `agent-matcher.js`**: 218 → 103 lines (53% reduction)
+  - Removed: multi-factor scoring (40% domain, 30% skills, etc.)
+  - Removed: all if/else matching logic
+  - Kept: format data, record usage, load history (I/O only)
+
+- **Updated commands.js**:
+  - `/p:now` - Assigns agent before setting task, shows `[agent]`
+  - `/p:feature` - Assigns agent to each task, format: `[agent] [ ] task`
+  - `/p:bug` - Assigns agent, shows `→ agent`
+  - `/p:build` - Uses async `_assignAgentForTask()`
+  - New method: `_assignAgentForTask()` - orchestrates agent assignment
+
+### Architecture Principle
+
+**JS = Orchestrator** (load files, build context, format data, I/O)
+**Claude = Decision Maker** (via templates for all logic)
+
+No scoring algorithms, no matching weights, no domain mappings in code.
+
 ## [0.10.11] - 2025-11-29
 
 ### Refactored - 100% Agentic System

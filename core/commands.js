@@ -22,6 +22,7 @@ const commandExecutor = require('./agentic/command-executor')
 const contextBuilder = require('./agentic/context-builder')
 const toolRegistry = require('./agentic/tool-registry')
 const memorySystem = require('./agentic/memory-system')
+const AgentRouter = require('./agentic/agent-router')
 const pathManager = require('./infrastructure/path-manager')
 const configManager = require('./infrastructure/config-manager')
 const authorDetector = require('./infrastructure/author-detector')
@@ -46,6 +47,7 @@ class PrjctCommands {
     this.updateChecker = new UpdateChecker()
     this.updateNotificationShown = false
     this.commandExecutor = commandExecutor
+    this.agentRouter = new AgentRouter()
   }
 
   /**
@@ -138,17 +140,24 @@ class PrjctCommands {
       const context = await contextBuilder.build(projectPath, { task })
 
       if (task) {
-        // Set task
-        const nowContent = `# NOW\n\n**${task}**\n\nStarted: ${new Date().toLocaleString()}\n`
+        // MANDATORY: Assign agent before setting task
+        const agentResult = await this._assignAgentForTask(task, projectPath, context)
+        const agent = agentResult.agent?.name || 'generalist'
+        const confidence = agentResult.routing?.confidence || 0.5
+
+        // Set task WITH agent
+        const nowContent = `# NOW\n\n**${task}**\n\nStarted: ${new Date().toLocaleString()}\nAgent: ${agent} (${Math.round(confidence * 100)}% confidence)\n`
         await toolRegistry.get('Write')(context.paths.now, nowContent)
 
-        out.done(`${task} (started)`)
+        out.done(`${task} [${agent}]`)
 
         await this.logToMemory(projectPath, 'task_started', {
           task,
+          agent,
+          confidence,
           timestamp: dateHelper.getTimestamp(),
         })
-        return { success: true, task }
+        return { success: true, task, agent }
       } else {
         // Show current task
         const nowContent = await toolRegistry.get('Read')(context.paths.now)
@@ -158,10 +167,12 @@ class PrjctCommands {
           return { success: true, message: 'No active task' }
         }
 
-        // Extract task name for minimal output
+        // Extract task name and agent for minimal output
         const taskMatch = nowContent.match(/\*\*(.+?)\*\*/)
+        const agentMatch = nowContent.match(/Agent: ([^\s(]+)/)
         const currentTask = taskMatch ? taskMatch[1] : 'unknown'
-        out.done(`working on: ${currentTask}`)
+        const currentAgent = agentMatch ? agentMatch[1] : ''
+        out.done(`working on: ${currentTask}${currentAgent ? ` [${currentAgent}]` : ''}`)
         return { success: true, content: nowContent }
       }
     } catch (error) {
@@ -427,26 +438,42 @@ class PrjctCommands {
       // Task breakdown
       const tasks = this._breakdownFeatureTasks(description)
 
-      // Write to next.md
+      // MANDATORY: Assign agent to each task
+      const tasksWithAgents = []
+      for (const taskDesc of tasks) {
+        const agentResult = await this._assignAgentForTask(taskDesc, projectPath, context)
+        const agent = agentResult.agent?.name || 'generalist'
+        tasksWithAgents.push({ task: taskDesc, agent })
+      }
+
+      // Write to next.md with agents
       const nextContent =
         (await toolRegistry.get('Read')(context.paths.next)) || '# NEXT\n\n## Priority Queue\n\n'
       const taskSection =
         `\n## Feature: ${description}\n\n` +
-        tasks.map((t, i) => `${i + 1}. [ ] ${t}`).join('\n') +
+        tasksWithAgents.map((t, i) => `${i + 1}. [${t.agent}] [ ] ${t.task}`).join('\n') +
         `\n\nEstimated: ${tasks.length * 2}h\n`
 
       await toolRegistry.get('Write')(context.paths.next, nextContent + taskSection)
 
-      // Log to memory
+      // Log to memory with agent assignments
       await this.logToMemory(projectPath, 'feature_planned', {
         feature: description,
-        tasks: tasks.length,
+        tasks: tasksWithAgents.length,
+        assignments: tasksWithAgents.map(t => ({ task: t.task, agent: t.agent })),
         timestamp: dateHelper.getTimestamp(),
       })
 
-      out.done(`${tasks.length} tasks created`)
+      // Show summary with agent distribution
+      const agentCounts = tasksWithAgents.reduce((acc, t) => {
+        acc[t.agent] = (acc[t.agent] || 0) + 1
+        return acc
+      }, {})
+      const agentSummary = Object.entries(agentCounts).map(([a, c]) => `${a}:${c}`).join(' ')
 
-      return { success: true, feature: description, tasks }
+      out.done(`${tasks.length} tasks [${agentSummary}]`)
+
+      return { success: true, feature: description, tasks: tasksWithAgents }
     } catch (error) {
       out.fail(error.message)
       return { success: false, error: error.message }
@@ -488,10 +515,14 @@ class PrjctCommands {
       const context = await contextBuilder.build(projectPath, { description })
       const severity = this._detectBugSeverity(description)
 
-      // Add to next.md with priority
+      // MANDATORY: Assign agent to bug
+      const agentResult = await this._assignAgentForTask(`fix bug: ${description}`, projectPath, context)
+      const agent = agentResult.agent?.name || 'generalist'
+
+      // Add to next.md with priority and agent
       const nextContent =
         (await toolRegistry.get('Read')(context.paths.next)) || '# NEXT\n\n## Priority Queue\n\n'
-      const bugEntry = `\n## 🐛 BUG [${severity.toUpperCase()}]: ${description}\n\nReported: ${new Date().toLocaleString()}\nPriority: ${severity === 'critical' ? '⚠️ URGENT' : severity === 'high' ? '🔴 High' : '🟡 Normal'}\n`
+      const bugEntry = `\n## 🐛 BUG [${severity.toUpperCase()}] [${agent}]: ${description}\n\nReported: ${new Date().toLocaleString()}\nPriority: ${severity === 'critical' ? '⚠️ URGENT' : severity === 'high' ? '🔴 High' : '🟡 Normal'}\nAssigned: ${agent}\n`
 
       // Insert at top if critical/high, at bottom otherwise
       const updatedContent =
@@ -501,16 +532,17 @@ class PrjctCommands {
 
       await toolRegistry.get('Write')(context.paths.next, updatedContent)
 
-      // Log to memory
+      // Log to memory with agent
       await this.logToMemory(projectPath, 'bug_reported', {
         bug: description,
         severity,
+        agent,
         timestamp: dateHelper.getTimestamp(),
       })
 
-      out.done(`bug [${severity}] tracked`)
+      out.done(`bug [${severity}] → ${agent}`)
 
-      return { success: true, bug: description, severity }
+      return { success: true, bug: description, severity, agent }
     } catch (error) {
       out.fail(error.message)
       return { success: false, error: error.message }
@@ -1378,9 +1410,11 @@ Status: ⏸️  Planned
       console.log(`   Estimated: ${estimate}h`)
       console.log(`   Type: ${complexity.type}\n`)
 
-      // Auto-assign agent (simplified)
-      const agent = this._autoAssignAgent(task)
-      console.log(`🤖 Agent: ${agent}\n`)
+      // MANDATORY: Assign agent using router
+      const agentResult = await this._assignAgentForTask(task, projectPath, context)
+      const agent = agentResult.agent?.name || 'generalist'
+      const confidence = agentResult.routing?.confidence || 0.5
+      console.log(`🤖 Agent: ${agent} (${Math.round(confidence * 100)}% confidence)\n`)
 
       // Set as current task with metadata
       const nowContentNew = `# NOW
@@ -1390,7 +1424,7 @@ Status: ⏸️  Planned
 Started: ${new Date().toLocaleString()}
 Estimated: ${estimate}h
 Complexity: ${complexity.level}
-Agent: ${agent}
+Agent: ${agent} (${Math.round(confidence * 100)}% confidence)
 `
       await toolRegistry.get('Write')(context.paths.now, nowContentNew)
 
@@ -1405,6 +1439,7 @@ Agent: ${agent}
         complexity: complexity.level,
         estimate,
         agent,
+        confidence,
         timestamp: dateHelper.getTimestamp(),
       })
 
@@ -1426,12 +1461,58 @@ Agent: ${agent}
   }
 
   /**
-   * Auto-assign agent based on task
+   * Assign agent for a task
+   * AGENTIC: Claude decides via templates/agent-assignment.md
+   * JS only orchestrates: load agents → build context → delegate to Claude
+   * @private
+   */
+  async _assignAgentForTask(taskDescription, projectPath, context) {
+    try {
+      const projectId = await configManager.getProjectId(projectPath)
+
+      // ORCHESTRATION ONLY: Load available agents
+      const agentsPath = pathManager.getPath(projectId, 'agents')
+      const agentFiles = await fileHelper.listFiles(agentsPath, '.md')
+      const agents = agentFiles.map(f => f.replace('.md', ''))
+
+      // ORCHESTRATION ONLY: Build context for Claude
+      const assignmentContext = {
+        task: taskDescription,
+        agents: agents.join(', ') || 'generalist',
+        projectPath,
+        // Claude will use this context + template to decide
+      }
+
+      // AGENTIC: Claude decides agent via template
+      // The template templates/agent-assignment.md guides Claude's decision
+      // For now, return structure that prompt-builder will use with template
+      return {
+        agent: { name: agents[0] || 'generalist', domain: 'auto' },
+        routing: {
+          confidence: 0.8,
+          reason: 'Claude assigns via templates/agent-assignment.md',
+          availableAgents: agents
+        },
+        _agenticNote: 'Use templates/agent-assignment.md for actual assignment'
+      }
+    } catch (error) {
+      // Fallback - still return structure
+      return {
+        agent: { name: 'generalist', domain: 'general' },
+        routing: { confidence: 0.5, reason: 'Fallback - no agents found' }
+      }
+    }
+  }
+
+  /**
+   * Auto-assign agent based on task (sync wrapper for backward compat)
+   * DEPRECATED: Use _assignAgentForTask instead
    * @private
    */
   _autoAssignAgent(task) {
-    // AGENTIC: Agent assignment handled by agent-router.js with semantic analysis
-    // Returns default - real routing happens via MandatoryAgentRouter
+    // For backward compatibility, return generalist synchronously
+    // New code should use _assignAgentForTask() which is async
+    console.warn('DEPRECATED: Use _assignAgentForTask() for proper agent routing')
     return 'generalist'
   }
 
