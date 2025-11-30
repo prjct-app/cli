@@ -1,16 +1,19 @@
 /**
  * Command Executor
- * WITH MANDATORY AGENT ASSIGNMENT
- * Every task MUST use a specialized agent
+ * 100% AGENTIC - Claude decides agent assignment via Task tool
  *
- * OPTIMIZATION (P0.2): Explicit Validation
- * - Pre-flight checks before execution
- * - Specific error messages, never generic failures
- * - Actionable suggestions in every error
+ * NO if/else logic for agent selection here.
+ * Claude reads templates/agentic/agent-routing.md and delegates via Task tool.
  *
- * P3.4: Plan Mode + Approval Flow
- * - Separates planning from execution
- * - Requires approval for destructive commands
+ * JS only:
+ * - Loads templates
+ * - Builds context
+ * - Returns prompt for Claude
+ *
+ * Claude:
+ * - Reads agent-routing.md
+ * - Decides best agent for task
+ * - Delegates via Task(subagent_type='general-purpose', prompt='Read: path/to/agent.md...')
  *
  * Source: Claude Code, Devin, Augment Code patterns
  */
@@ -22,9 +25,8 @@ const templateLoader = require('./template-loader')
 const contextBuilder = require('./context-builder')
 const promptBuilder = require('./prompt-builder')
 const toolRegistry = require('./tool-registry')
-const MandatoryAgentRouter = require('./agent-router')
-const ContextFilter = require('./context-filter')
-const ContextEstimator = require('../domain/context-estimator')
+// REMOVED: MandatoryAgentRouter, ContextFilter, ContextEstimator
+// Agent assignment is 100% agentic - Claude decides via templates
 const { validate, formatError } = require('./validation-rules')
 const loopDetector = require('./loop-detector')
 const chainOfThought = require('./chain-of-thought')
@@ -45,9 +47,8 @@ const RUNNING_FILE = path.join(os.homedir(), '.prjct-cli', '.running')
 
 class CommandExecutor {
   constructor() {
-    this.agentRouter = new MandatoryAgentRouter()
-    this.contextFilter = new ContextFilter()
-    this.contextEstimator = null
+    // 100% AGENTIC: No agent router here
+    // Claude decides agent assignment via templates and Task tool
   }
 
   /**
@@ -173,72 +174,18 @@ class CommandExecutor {
         }
       }
 
-      // 3. CRITICAL: Force agent assignment for ALL task-related commands
-      const requiresAgent = template.metadata?.['required-agent'] !== false &&
-                           (template.metadata?.['required-agent'] === true ||
-                            this.isTaskCommand(commandName) ||
-                            this.shouldUseAgent(commandName))
-
+      // 3. AGENTIC: Claude decides agent assignment via templates
+      // NO if/else logic here - templates instruct Claude to use Task tool
+      // See templates/agentic/agent-routing.md for routing rules
       let context = metadataContext
-      let assignedAgent = null
 
-      // MANDATORY: Assign specialized agent for task commands
-      if (requiresAgent) {
-        // 4. Create task object for analysis
-        const task = {
-          description: params.task || params.description || commandName,
-          type: commandName
-        }
-
-        // 5. LAZY CONTEXT: Analyze task FIRST, then estimate files needed
-        // This avoids reading all files before knowing what we need
-        const agentAssignment = await this.agentRouter.executeTask(
-          task,
-          metadataContext, // Only metadata, no files yet
-          projectPath
-        )
-
-        assignedAgent = agentAssignment.agent
-        const taskAnalysis = agentAssignment.taskAnalysis
-
-        // Validate agent was assigned
-        if (!assignedAgent || !assignedAgent.name) {
-          throw new Error(
-            `CRITICAL: Failed to assign agent for command "${commandName}". ` +
-            `System requires ALL task commands to use specialized agents.`
-          )
-        }
-
-        // 6. PRE-FILTER: Estimate which files are needed BEFORE reading
-        if (!this.contextEstimator) {
-          this.contextEstimator = new ContextEstimator()
-        }
-
-        const estimatedFiles = await this.contextEstimator.estimateFiles(
-          taskAnalysis,
-          projectPath
-        )
-
-        // 7. Build context ONLY with estimated files (lazy loading)
-        const filtered = await this.contextFilter.filterForAgent(
-          assignedAgent,
-          task,
-          projectPath,
-          {
-            ...metadataContext,
-            estimatedFiles, // Pre-filtered file list
-            fileCount: estimatedFiles.length
-          }
-        )
-
-        context = {
-          ...filtered,
-          agent: assignedAgent,
-          originalSize: estimatedFiles.length, // Estimated, not actual full size
-          filteredSize: filtered.files?.length || 0,
-          reduction: filtered.metrics?.reductionPercent || 0,
-          lazyLoaded: true // Flag indicating lazy loading was used
-        }
+      // Provide agent info to context so Claude can delegate
+      context = {
+        ...context,
+        agentsPath: path.join(os.homedir(), '.prjct-cli', 'projects', metadataContext.projectId || '', 'agents'),
+        agentRoutingPath: path.join(__dirname, '..', '..', 'templates', 'agentic', 'agent-routing.md'),
+        // Flag: Claude must delegate to subagent via Task tool
+        agenticDelegation: true
       }
 
       // 6. Load state with filtered context
@@ -285,7 +232,7 @@ class CommandExecutor {
         )
       }
 
-      // 9. Build prompt with agent assignment, learned patterns, think blocks, memories, AND plan mode
+      // 9. Build prompt - NO agent assignment here, Claude decides via templates
       const planInfo = {
         isPlanning: requiresPlanning || isInPlanningMode,
         requiresApproval: isDestructive && !params.approved,
@@ -295,13 +242,11 @@ class CommandExecutor {
           template.frontmatter['allowed-tools'] || []
         )
       }
-      const prompt = promptBuilder.build(template, context, state, assignedAgent, learnedPatterns, thinkBlock, relevantMemories, planInfo)
+      // Agent is null - Claude assigns via Task tool using agent-routing.md
+      const prompt = promptBuilder.build(template, context, state, null, learnedPatterns, thinkBlock, relevantMemories, planInfo)
 
-      // 8. Log agent usage
-      if (assignedAgent) {
-        console.log(`🤖 Task assigned to: ${assignedAgent.name}`)
-        console.log(`📉 Context reduced by: ${context.reduction}%`)
-      }
+      // Log agentic mode
+      console.log(`🤖 Agentic delegation enabled - Claude will assign agent via Task tool`)
 
       // Record successful attempt
       loopDetector.recordSuccess(commandName, loopContext)
@@ -315,8 +260,10 @@ class CommandExecutor {
         context,
         state,
         prompt,
-        assignedAgent,
-        contextReduction: context.reduction,
+        // AGENTIC: No pre-assigned agent - Claude delegates via Task tool
+        agenticDelegation: true,
+        agentsPath: context.agentsPath,
+        agentRoutingPath: context.agentRoutingPath,
         reasoning, // Chain of thought results
         thinkBlock, // Think blocks (P3.1)
         groundTruth: groundTruthResult, // Ground truth verification (P1.3)
@@ -406,30 +353,9 @@ class CommandExecutor {
     }
   }
 
-  /**
-   * Check if command is task-related
-   */
-  isTaskCommand(commandName) {
-    const taskCommands = [
-      'work', 'now', 'build', 'feature', 'bug', 'done',
-      'task', 'design', 'cleanup', 'fix', 'test'
-    ]
-    return taskCommands.includes(commandName)
-  }
-
-  /**
-   * Determine if command should use an agent
-   * Expanded list of commands that benefit from agent specialization
-   */
-  shouldUseAgent(commandName) {
-    // Commands that should ALWAYS use agents
-    const agentCommands = [
-      'work', 'now', 'build', 'feature', 'bug', 'done',
-      'task', 'design', 'cleanup', 'fix', 'test',
-      'sync', 'analyze' // These analyze/modify code, need specialization
-    ]
-    return agentCommands.includes(commandName)
-  }
+  // REMOVED: isTaskCommand() and shouldUseAgent()
+  // Agent assignment is now 100% agentic - Claude decides via templates
+  // See templates/agentic/agent-routing.md
 
   /**
    * Execute tool with permission check

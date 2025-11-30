@@ -1,10 +1,47 @@
 ---
-allowed-tools: [Read, Write, Bash]
+allowed-tools: [Read, Write, Bash, Task, Glob]
 description: 'Value analysis + roadmap + task breakdown + auto-start'
 timestamp-rule: 'GetTimestamp() and GetDate() for ALL timestamps'
 ---
 
 # /p:feature - Add Feature to Roadmap
+
+## Agent Delegation (REQUIRED)
+
+Before executing any code-related task, delegate to a specialist agent:
+
+### Step 0: Assign Agent
+
+1. **List agents**: `Glob("~/.prjct-cli/projects/{projectId}/agents/*.md")`
+2. **Read routing**: `Read("templates/agentic/agent-routing.md")`
+3. **Analyze task**: Determine domain (frontend, backend, testing, etc.)
+4. **Select agent**: Match task to best agent
+5. **Delegate via Task tool** (pass reference, NOT content):
+
+```
+Task(
+  subagent_type: 'general-purpose',
+  prompt: '
+    ## Agent Assignment
+    Read and apply: ~/.prjct-cli/projects/{projectId}/agents/{agent-name}.md
+
+    ## Task
+    {feature description}
+
+    ## Context
+    - Project: {projectPath}
+    - Feature: {feature}
+
+    ## Flow
+    1. Read agent file FIRST
+    2. Apply agent expertise
+    3. Execute task
+    4. Return results
+  '
+)
+```
+
+**CRITICAL:** Pass file PATH, not content. Subagent reads it (~200 bytes vs 3-5KB).
 
 ## Context Variables
 - `{projectId}`: From `.prjct/prjct.config.json`

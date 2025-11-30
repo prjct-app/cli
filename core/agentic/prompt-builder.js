@@ -7,9 +7,65 @@
  * P3.1: Includes think blocks for anti-hallucination
  * P3.3: Includes relevant memories from semantic database
  * P3.4: Includes plan mode instructions
+ * P4.1: Includes quality checklists (Claude decides which to apply)
  */
 
+const fs = require('fs')
+const path = require('path')
+
 class PromptBuilder {
+  constructor() {
+    this._checklistsCache = null
+    this._checklistRoutingCache = null
+  }
+
+  /**
+   * Load quality checklists from templates/checklists/
+   * Returns checklist content - Claude decides which to apply
+   * NO if/else logic here - just load and provide
+   */
+  loadChecklists() {
+    if (this._checklistsCache) return this._checklistsCache
+
+    const checklistsDir = path.join(__dirname, '..', '..', 'templates', 'checklists')
+    const checklists = {}
+
+    try {
+      if (fs.existsSync(checklistsDir)) {
+        const files = fs.readdirSync(checklistsDir).filter(f => f.endsWith('.md'))
+        for (const file of files) {
+          const name = file.replace('.md', '')
+          const content = fs.readFileSync(path.join(checklistsDir, file), 'utf-8')
+          checklists[name] = content
+        }
+      }
+    } catch (err) {
+      // Silent fail - checklists are optional enhancement
+    }
+
+    this._checklistsCache = checklists
+    return checklists
+  }
+
+  /**
+   * Load checklist routing template
+   * Claude reads this to decide which checklists to apply
+   */
+  loadChecklistRouting() {
+    if (this._checklistRoutingCache) return this._checklistRoutingCache
+
+    const routingPath = path.join(__dirname, '..', '..', 'templates', 'agentic', 'checklist-routing.md')
+
+    try {
+      if (fs.existsSync(routingPath)) {
+        this._checklistRoutingCache = fs.readFileSync(routingPath, 'utf-8')
+      }
+    } catch (err) {
+      // Silent fail
+    }
+
+    return this._checklistRoutingCache || null
+  }
   /**
    * Build concise prompt - only essentials
    * CRITICAL: Includes full agent content if agent is provided
@@ -152,6 +208,22 @@ class PromptBuilder {
     }
     if (planInfo?.requiresApproval) {
       parts.push(`\n## APPROVAL REQUIRED\nShow changes, list affected files, ask for confirmation.\n`)
+    }
+
+    // P4.1: Quality Checklists (Claude decides which to apply)
+    // Only for code-modifying commands that benefit from quality gates
+    const checklistCommands = ['now', 'build', 'feature', 'design', 'fix', 'bug', 'cleanup', 'spec', 'work']
+    if (checklistCommands.includes(commandName)) {
+      const routing = this.loadChecklistRouting()
+      const checklists = this.loadChecklists()
+
+      if (routing && Object.keys(checklists).length > 0) {
+        parts.push('\n## QUALITY CHECKLISTS\n')
+        parts.push('Apply relevant checklists based on task. Read checklist-routing.md for guidance.\n')
+        parts.push(`Available: ${Object.keys(checklists).join(', ')}\n`)
+        parts.push('Path: templates/checklists/{name}.md\n')
+        parts.push('Use Read tool to load checklists you determine are relevant.\n')
+      }
     }
 
     // Simple execution directive

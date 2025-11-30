@@ -55,8 +55,14 @@ p. ship       → Lint/test/commit/push
 
 When message starts with `p.`:
 1. Check `.prjct/prjct.config.json` exists
-2. If exists → Detect intent → Execute `/p:*` command
-3. If not exists → "No prjct project. Run /p:init first."
+2. Detect intent from message
+3. **USE SlashCommand tool** to execute the command
+
+⚠️ **CRITICAL** - Always use SlashCommand, never work directly:
+- ✅ `SlashCommand("/p:feature add dark mode")`
+- ❌ Directly creating files without the command
+
+If no project: "No prjct project. Run /p:init first."
 
 ### Intent Map
 
@@ -201,3 +207,42 @@ Use: `generator.generateDynamicAgent(name, config)`
 4. **Confirm before executing** - Always show plan first
 5. **Log actions** - Append to memory/context.jsonl
 6. **Suggest next actions** - Maintain user momentum
+
+## Output Philosophy
+
+**Task completion responses MUST be concise (< 4 lines):**
+
+Format:
+```
+✅ [What was done]
+
+Files: [count] | Modified: [key file]
+Next: [action]
+```
+
+**NEVER include in task summaries:**
+- Tables listing files
+- "Created Files" / "Modified Files" sections
+- "How It Works" explanations
+- Code snippets or implementation details
+- Detailed breakdowns of what was done
+
+**Example (GOOD):**
+```
+✅ Agentic checklists integrated
+
+Files: 11 created | Modified: prompt-builder.js
+Next: /p:ship or test with /p:now
+```
+
+**Example (BAD):**
+```
+Created Files:
+| File | Purpose |
+|------|---------|
+| x.md | Does X  |
+...
+
+How It Works:
+Claude reads → decides → applies...
+```

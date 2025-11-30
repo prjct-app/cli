@@ -1,5 +1,44 @@
 # Changelog
 
+## [0.10.14] - 2025-11-29
+
+### Refactored - 100% Agentic Subagent Delegation via Task Tool
+
+Claude now delegates to specialist agents using the Task tool with efficient reference passing.
+
+- **`command-executor.js`** - Eliminated all if/else agent assignment logic
+  - Removed: `MandatoryAgentRouter`, `ContextFilter`, `ContextEstimator`
+  - Removed: `isTaskCommand()`, `shouldUseAgent()` methods
+  - JS only loads templates and context, Claude decides everything
+  - Added: `agentsPath` and `agentRoutingPath` to context for Claude
+
+- **Templates updated with Agent Delegation section**:
+  - `feature.md` - Added Task + Glob tools, agent delegation instructions
+  - `bug.md` - Added Task + Glob tools, agent delegation instructions
+  - `task.md` - Added Task + Glob tools, agent delegation instructions
+
+- **`agent-routing.md`** - Added efficient Task tool invocation
+  - Pass file PATH (~200 bytes), not content (3-5KB)
+  - Subagent reads agent file itself
+  - Reduced context bloat by 95%
+
+### Architecture
+
+```
+Usuario: "p. feature mejorar UX"
+    ↓
+Claude lee agent-routing.md → decide: "ux-ui"
+    ↓
+Claude: Task(prompt='Read: path/agents/ux-ui.md + Task: mejorar UX')
+    ↓
+Subagente: Lee archivo → aplica expertise → ejecuta
+```
+
+**Benefits:**
+- 95% reduction in prompt size for delegation
+- Lower hallucination risk
+- True 100% agentic - JS is pure orchestration
+
 ## [0.10.12] - 2025-11-29
 
 ### Refactored - Mandatory Agent Assignment (100% Agentic)
