@@ -1,9 +1,35 @@
 ---
-allowed-tools: [Read, Write, TodoWrite]
+allowed-tools: [Read, Write, TodoWrite, Task, Glob]
 description: 'Break down complex tasks'
 ---
 
 # /p:task
+
+## Agent Delegation (REQUIRED)
+
+Before executing task, delegate to specialist agent:
+
+1. **List agents**: `Glob("~/.prjct-cli/projects/{projectId}/agents/*.md")`
+2. **Analyze task domain**: Match to agent expertise
+3. **Delegate via Task tool**:
+
+```
+Task(
+  subagent_type: 'general-purpose',
+  prompt: '
+    ## Agent
+    Read: ~/.prjct-cli/projects/{projectId}/agents/{agent}.md
+
+    ## Task
+    {task description}
+
+    ## Flow
+    1. Read agent file
+    2. Apply expertise
+    3. Execute task
+  '
+)
+```
 
 ## Usage
 

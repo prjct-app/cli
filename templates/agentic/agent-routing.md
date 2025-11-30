@@ -57,17 +57,49 @@ Consider these agent specializations:
 3. Consider secondary areas
 4. Choose agent with best expertise match
 
-## Output
+## How to Invoke (EFFICIENT)
 
-Return the recommended agent with reasoning:
+After deciding the best agent, **delegate via Task tool with REFERENCE, not content**:
 
-```json
-{
-  "agent": "recommended-agent-type",
-  "reasoning": "why this agent is best for the task",
-  "confidence": "high|medium|low",
-  "alternatives": ["other agents that could help"]
-}
+```
+Task(
+  subagent_type: 'general-purpose',
+  prompt: '
+    ## Agent Assignment
+    Read and apply: ~/.prjct-cli/projects/{projectId}/agents/{agent-name}.md
+
+    ## Task
+    {task description}
+
+    ## Context
+    - Project: {projectPath}
+    - Files affected: {file list if known}
+
+    ## Flow
+    1. Read agent file FIRST
+    2. Apply agent expertise and patterns
+    3. Execute task following agent guidelines
+    4. Return results
+  '
+)
+```
+
+### Why References, Not Content
+
+| Approach | Prompt Size | Issue |
+|----------|-------------|-------|
+| ❌ Inject content | 3-5KB | Bloats context, increases hallucinations |
+| ✅ Pass reference | ~200 bytes | Subagent reads what it needs |
+
+**CRITICAL:** The subagent reads the agent file itself. You do NOT need to read and inject the content.
+
+## Output (After Delegation)
+
+After Task tool returns, summarize:
+
+```
+✅ Delegated to: {agent-name}
+Result: {brief summary from subagent}
 ```
 
 ## Rules
@@ -75,4 +107,5 @@ Return the recommended agent with reasoning:
 - **Task-driven, not tech-driven** - Focus on what needs to be done
 - **Context matters** - Same tech can mean different things in different projects
 - **Be flexible** - One project's "backend" might be another's "full-stack"
+- **Pass PATH, not CONTENT** - Let subagent read the agent file
 - **Explain your reasoning** - Don't just pick, justify
