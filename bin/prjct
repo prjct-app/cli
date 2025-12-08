@@ -9,6 +9,14 @@
 const { VERSION } = require('../core/utils/version')
 const editorsConfig = require('../core/infrastructure/editors-config')
 
+// Check for special subcommands that bypass normal CLI
+const args = process.argv.slice(2)
+if (args[0] === 'dev') {
+  // Launch prjct dev environment
+  require('./dev.js')
+  process.exitCode = 0
+} else {
+
 // Ensure setup has run for this version
 ;(async function ensureSetup() {
   try {
@@ -32,3 +40,5 @@ const editorsConfig = require('../core/infrastructure/editors-config')
   // Continue to main CLI logic
   require('../core/index')
 })()
+
+} // end else

@@ -427,6 +427,71 @@ const COMMANDS = [
     isOptional: true,
   },
 
+  // ===== SNAPSHOT COMMANDS (Undo/Redo Support) =====
+  {
+    name: 'undo',
+    category: 'optional',
+    description: 'Revert to previous snapshot',
+    usage: {
+      claude: '/p:undo',
+      terminal: 'prjct undo',
+    },
+    params: null,
+    implemented: true,
+    hasTemplate: true,
+    icon: 'RotateCcw',
+    requiresInit: true,
+    blockingRules: null,
+    isOptional: true,
+    features: [
+      'Git-based snapshots',
+      'Preserves redo history',
+      'Non-destructive',
+    ],
+  },
+  {
+    name: 'redo',
+    category: 'optional',
+    description: 'Redo previously undone changes',
+    usage: {
+      claude: '/p:redo',
+      terminal: 'prjct redo',
+    },
+    params: null,
+    implemented: true,
+    hasTemplate: true,
+    icon: 'RotateCw',
+    requiresInit: true,
+    blockingRules: null,
+    isOptional: true,
+    features: [
+      'Only available after undo',
+      'Restores undone state',
+      'Clears on new snapshot',
+    ],
+  },
+  {
+    name: 'history',
+    category: 'optional',
+    description: 'View snapshot history',
+    usage: {
+      claude: '/p:history',
+      terminal: 'prjct history',
+    },
+    params: null,
+    implemented: true,
+    hasTemplate: true,
+    icon: 'Clock',
+    requiresInit: true,
+    blockingRules: null,
+    isOptional: true,
+    features: [
+      'Shows all snapshots',
+      'Current position indicator',
+      'Redo availability count',
+    ],
+  },
+
   // ===== SETUP COMMANDS (Not part of daily workflow) =====
   {
     name: 'start',

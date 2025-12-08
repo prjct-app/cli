@@ -11,6 +11,7 @@ timestamp-rule: 'GetTimestamp() and GetDate() for ALL timestamps'
 - `{globalPath}`: `~/.prjct-cli/projects/{projectId}`
 - `{shippedPath}`: `{globalPath}/progress/shipped.md`
 - `{memoryPath}`: `{globalPath}/memory/context.jsonl`
+- `{snapshotDir}`: `{globalPath}/snapshots`
 - `{feature}`: User-provided feature name
 
 ## Step 1: Read Config
@@ -187,6 +188,48 @@ Single line (JSONL):
 {"timestamp":"{GetTimestamp()}","action":"feature_shipped","feature":"{feature}","version":"{newVersion}"}
 ```
 
+## Step 11: Create Snapshot (Undo/Redo Support)
+
+This creates a snapshot for the undo/redo system.
+
+### Initialize Snapshot Directory
+BASH: `mkdir -p {snapshotDir}`
+
+### Check if Git Repo Exists
+BASH: `ls {snapshotDir}/.git 2>/dev/null || echo "INIT_NEEDED"`
+
+IF output contains "INIT_NEEDED":
+  BASH: `cd {snapshotDir} && git init && git config user.email "prjct@local" && git config user.name "prjct-snapshots" && git commit --allow-empty -m "init: snapshot system"`
+
+### Copy Changed Files to Snapshot
+BASH: `git diff --name-only HEAD~1 2>/dev/null || git diff --name-only`
+CAPTURE as {changedFiles}
+
+For each file in {changedFiles}:
+  - Source: `{projectPath}/{file}`
+  - Destination: `{snapshotDir}/{file}`
+  - Create parent directories if needed
+  - Copy file content
+
+### Commit Snapshot
+BASH: `cd {snapshotDir} && git add -A && git commit -m "Ship: {feature} (v{newVersion})" 2>/dev/null || echo "NO_CHANGES"`
+
+### Get Snapshot Hash
+BASH: `cd {snapshotDir} && git rev-parse --short HEAD`
+CAPTURE as {snapshotHash}
+
+### Clear Redo Stack (new snapshot invalidates redo)
+WRITE: `{snapshotDir}/redo-stack.json`
+Content: `[]`
+
+### Log Snapshot
+APPEND to: `{snapshotDir}/manifest.jsonl`
+
+Single line (JSONL):
+```json
+{"type":"snapshot","hash":"{snapshotHash}","message":"Ship: {feature}","version":"{newVersion}","timestamp":"{GetTimestamp()}"}
+```
+
 ## Output
 
 SUCCESS:
@@ -197,11 +240,12 @@ Version: {currentVersion} → {newVersion}
 Lint: {lintStatus}
 Tests: {testStatus}
 Commit: {commitHash}
+Snapshot: {snapshotHash}
 
 Next:
+• /p:undo - Revert this ship if needed
 • /p:feature - Plan next feature
 • /p:recap - See progress
-• compact - Clean up conversation
 ```
 
 ## Error Handling

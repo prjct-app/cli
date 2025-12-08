@@ -4,13 +4,21 @@
   "description": "Built for Claude - Ship fast, track progress, stay focused. Developer momentum tool for indie hackers.",
   "main": "core/index.js",
   "bin": {
-    "prjct": "bin/prjct"
+    "prjct": "bin/prjct",
+    "prjct-dev": "bin/dev.js",
+    "prjct-serve": "bin/serve.js"
   },
+  "workspaces": [
+    "packages/*"
+  ],
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org"
   },
   "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "serve": "turbo run dev --filter=@prjct/server --filter=@prjct/web",
     "postinstall": "node scripts/postinstall.js",
     "update-commands": "node -e \"const installer = require('./core/infrastructure/command-installer'); installer.syncCommands().then(r => console.log('Commands updated:', r)).catch(e => console.error('Error:', e.message))\"",
     "install-global": "./scripts/install.sh",
@@ -44,6 +52,7 @@
     "prompts": "^2.4.2"
   },
   "devDependencies": {
+    "turbo": "^2.3.0",
     "@vitest/coverage-v8": "^3.2.4",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^10.1.8",
@@ -62,6 +71,7 @@
     "url": "https://github.com/jlopezlira/prjct-cli/issues"
   },
   "homepage": "https://prjct.app",
+  "packageManager": "npm@10.2.4",
   "engines": {
     "node": ">=18.0.0"
   },
@@ -79,5 +89,8 @@
   "trustedDependencies": [
     "chalk",
     "prompts"
-  ]
+  ],
+  "overrides": {
+    "esbuild": "^0.25.0"
+  }
 }
