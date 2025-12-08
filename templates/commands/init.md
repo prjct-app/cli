@@ -1,9 +1,15 @@
 ---
 allowed-tools: [Read, Write, Bash]
 description: 'Initialize prjct'
+timestamp-rule: 'GetTimestamp() for all timestamps'
 ---
 
 # /p:init
+
+## Context Variables
+- `{projectId}`: Generated unique ID (12 chars hex)
+- `{globalPath}`: `~/.prjct-cli/projects/{projectId}`
+- `{cwd}`: Current working directory (repository path)
 
 ## Flow
 
@@ -15,6 +21,28 @@ description: 'Initialize prjct'
 
 ## Config
 `.prjct/prjct.config.json`: version, projectId, dataPath, author
+
+## Step: Create project.json (REQUIRED)
+
+This file is the source of truth for the web dashboard. It maps projectId → repoPath.
+
+### Determine Project Name
+- Try package.json → `name` field
+- Try Cargo.toml → `[package] name`
+- Try pyproject.toml → `[project] name`
+- Fallback to directory name (last segment of current path)
+
+WRITE: `{globalPath}/project.json`
+
+```json
+{
+  "projectId": "{projectId}",
+  "repoPath": "{cwd}",
+  "name": "{projectName}",
+  "createdAt": "{GetTimestamp()}",
+  "lastSync": "{GetTimestamp()}"
+}
+```
 
 ## Response
 `✅ Init | {stack} | {N} agents | Next: /p:feature or /p:help`
@@ -31,4 +59,3 @@ description: 'Initialize prjct'
 💬 REMEMBER: Talk naturally! "Start with auth" / "Show roadmap" / "Add another feature"
 
 Ready to start building? 🚀
-```
