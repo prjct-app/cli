@@ -181,7 +181,31 @@ IF exists:
 
   WRITE: `{globalPath}/CLAUDE.md`
 
-## Step 6: Log to Memory
+## Step 6: Update project.json
+
+This file is the source of truth for the web dashboard. It maps projectId → repoPath.
+
+### Determine Project Name
+- Try package.json → `name` field
+- Try Cargo.toml → `[package] name`
+- Try pyproject.toml → `[project] name`
+- Fallback to directory name (last segment of current path)
+
+WRITE: `{globalPath}/project.json`
+
+```json
+{
+  "projectId": "{projectId}",
+  "repoPath": "{cwd}",
+  "name": "{projectName}",
+  "createdAt": "{existingCreatedAt || GetTimestamp()}",
+  "lastSync": "{GetTimestamp()}"
+}
+```
+
+NOTE: If project.json already exists, preserve `createdAt` field. Always update `lastSync`.
+
+## Step 7: Log to Memory
 
 APPEND to: `{memoryPath}`
 
