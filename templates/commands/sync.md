@@ -198,12 +198,21 @@ WRITE: `{globalPath}/project.json`
   "projectId": "{projectId}",
   "repoPath": "{cwd}",
   "name": "{projectName}",
+  "techStack": ["{primaryLanguage}", "{primaryFramework}", ...],
   "createdAt": "{existingCreatedAt || GetTimestamp()}",
   "lastSync": "{GetTimestamp()}"
 }
 ```
 
-NOTE: If project.json already exists, preserve `createdAt` field. Always update `lastSync`.
+### techStack Array Rules
+- Max 4 items for display in dashboard cards
+- Order by relevance: primary language → framework → tools
+- Examples:
+  - Node.js + React: `["TypeScript", "React", "Node.js", "Vitest"]`
+  - Python Django: `["Python", "Django", "PostgreSQL"]`
+  - CLI tool: `["Node.js", "CLI", "CommonJS"]`
+
+NOTE: If project.json already exists, preserve `createdAt` field. Always update `lastSync` and `techStack`.
 
 ## Step 7: Log to Memory
 
