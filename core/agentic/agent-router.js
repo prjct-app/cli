@@ -1,11 +1,8 @@
 /**
- * Agent Router - Orchestration Only
+ * Agent Router
+ * Orchestrates agent loading and context building for Claude delegation.
  *
- * AGENTIC: All decisions made by Claude via templates/agent-assignment.md
- * JS only orchestrates: load agents, build context, delegate to Claude
- *
- * NO scoring logic, NO matching algorithms, NO hardcoded mappings
- *
+ * @module agentic/agent-router
  * @version 2.0.0
  */
 
@@ -14,15 +11,22 @@ const path = require('path')
 const configManager = require('../infrastructure/config-manager')
 const pathManager = require('../infrastructure/path-manager')
 
+/**
+ * Routes tasks to specialized agents based on Claude's decisions.
+ * Handles agent loading, context building, and usage logging.
+ */
 class AgentRouter {
   constructor() {
+    /** @type {string|null} */
     this.projectId = null
+    /** @type {string|null} */
     this.agentsPath = null
   }
 
   /**
-   * Initialize with project context
-   * ORCHESTRATION: Just sets up paths
+   * Initialize router with project context
+   *
+   * @param {string} projectPath - Path to the project
    */
   async initialize(projectPath) {
     this.projectId = await configManager.getProjectId(projectPath)
@@ -31,7 +35,8 @@ class AgentRouter {
 
   /**
    * Load all available agents from project
-   * ORCHESTRATION: File I/O only, no logic
+   *
+   * @returns {Promise<Array<{name: string, content: string}>>} Available agents
    */
   async loadAvailableAgents() {
     try {
@@ -56,8 +61,9 @@ class AgentRouter {
   }
 
   /**
-   * Get agent names list
-   * ORCHESTRATION: Simple extraction
+   * Get list of available agent names
+   *
+   * @returns {Promise<string[]>} Agent names
    */
   async getAgentNames() {
     const agents = await this.loadAvailableAgents()
@@ -65,8 +71,10 @@ class AgentRouter {
   }
 
   /**
-   * Load specific agent by name
-   * ORCHESTRATION: File I/O only
+   * Load a specific agent by name
+   *
+   * @param {string} name - Agent name (without .md extension)
+   * @returns {Promise<{name: string, content: string}|null>} Agent or null
    */
   async loadAgent(name) {
     try {
@@ -79,10 +87,11 @@ class AgentRouter {
   }
 
   /**
-   * Build context for agent assignment
-   * ORCHESTRATION: Data gathering only
+   * Build context for Claude to decide agent assignment
    *
-   * Claude uses this context + templates/agent-assignment.md to decide
+   * @param {string|Object} task - Task description or object
+   * @param {string} projectPath - Project path
+   * @returns {Promise<Object>} Assignment context for Claude
    */
   async buildAssignmentContext(task, projectPath) {
     const agents = await this.getAgentNames()
@@ -98,8 +107,11 @@ class AgentRouter {
   }
 
   /**
-   * Log agent usage
-   * ORCHESTRATION: File I/O only
+   * Log agent usage to JSONL file
+   *
+   * @param {string|Object} task - Task description
+   * @param {string|Object} agent - Agent used
+   * @param {string} projectPath - Project path (unused, kept for API compat)
    */
   async logUsage(task, agent, projectPath) {
     try {

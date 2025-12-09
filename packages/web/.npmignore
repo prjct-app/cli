@@ -1,0 +1,8 @@
+# Build artifacts
+.next/
+node_modules/
+tsconfig.tsbuildinfo
+
+# Dev files
+*.log
+.DS_Store

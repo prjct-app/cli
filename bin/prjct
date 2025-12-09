@@ -15,6 +15,10 @@ if (args[0] === 'dev') {
   // Launch prjct dev environment
   require('./dev.js')
   process.exitCode = 0
+} else if (args[0] === 'web' || args[0] === 'serve') {
+  // Launch prjct web server
+  require('./serve.js')
+  process.exitCode = 0
 } else {
 
 // Ensure setup has run for this version
