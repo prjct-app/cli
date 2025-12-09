@@ -124,7 +124,7 @@
 
 /* Terminal styles */
 .xterm {
-  padding: 8px;
+  padding: 8px 4px;
 }
 
 .xterm-viewport {

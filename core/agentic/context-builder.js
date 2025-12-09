@@ -1,20 +1,19 @@
 /**
  * Context Builder
- * Builds project context for Claude to make decisions
- * NO if/else logic - just data collection
+ * Builds project context for Claude with smart caching.
  *
- * OPTIMIZATION (P0.1): Smart Context Caching
- * - Parallel file reads with Promise.all()
- * - Session-based caching to avoid redundant reads
- * - Selective loading based on command needs
- *
- * Source: Windsurf, Cursor patterns
+ * @module agentic/context-builder
+ * @version 0.1
  */
 
 const fs = require('fs').promises
 const pathManager = require('../infrastructure/path-manager')
 const configManager = require('../infrastructure/config-manager')
 
+/**
+ * Builds and caches project context for Claude decisions.
+ * Features parallel reads, selective loading, and anti-hallucination mtime checks.
+ */
 class ContextBuilder {
   constructor() {
     // Session cache - cleared between commands or after timeout

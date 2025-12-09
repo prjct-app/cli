@@ -1,19 +1,9 @@
 /**
  * Layered Memory System
- * Three-tier memory for learning user patterns and preferences
+ * Three-tier memory for learning user patterns and preferences.
  *
- * OPTIMIZATION (P1.1): Pattern-Based Decision Making
- * - Tier 1: Session memory (current command context)
- * - Tier 2: Patterns (recurring decisions/preferences)
- * - Tier 3: History (append-only JSONL for audit)
- *
- * P3.3: Enhanced with semantic tags and CRUD operations
- * - Semantic tags for categorization
- * - Auto-memory from user decisions
- * - Relevance-based retrieval
- * - CRUD operations (create/update/delete)
- *
- * Source: Windsurf create_memory, Augment remember patterns
+ * @module agentic/memory-system
+ * @version 3.3
  */
 
 const fs = require('fs').promises
@@ -21,7 +11,8 @@ const path = require('path')
 const pathManager = require('../infrastructure/path-manager')
 
 /**
- * P3.3: Semantic tags for memory categorization
+ * Semantic tags for memory categorization
+ * @enum {string}
  */
 const MEMORY_TAGS = {
   // Code preferences
@@ -46,17 +37,21 @@ const MEMORY_TAGS = {
   AGENT_PREFERENCE: 'agent_preference'
 }
 
+/**
+ * Three-tier memory system for learning user patterns.
+ * Tier 1: Session (ephemeral), Tier 2: Patterns (persistent), Tier 3: History (JSONL)
+ */
 class MemorySystem {
   constructor() {
-    // Session memory (in-process, cleared on restart)
+    /** @type {Map<string, {value: any, timestamp: number}>} */
     this._sessionMemory = new Map()
-
-    // Pattern cache (loaded from disk)
+    /** @type {Object|null} */
     this._patterns = null
+    /** @type {boolean} */
     this._patternsLoaded = false
-
-    // P3.3: Memories database (semantic tagged)
+    /** @type {Object|null} */
     this._memories = null
+    /** @type {boolean} */
     this._memoriesLoaded = false
   }
 

@@ -1,28 +1,31 @@
 /**
  * Prompt Builder
- * Builds prompts for Claude based on templates and context
- * Claude decides what to do - NO if/else logic here
+ * Builds prompts for Claude based on templates and context.
+ * Claude decides what to do - NO if/else logic here.
  *
- * P1.1: Includes learned patterns from memory system
- * P3.1: Includes think blocks for anti-hallucination
- * P3.3: Includes relevant memories from semantic database
- * P3.4: Includes plan mode instructions
- * P4.1: Includes quality checklists (Claude decides which to apply)
+ * @module agentic/prompt-builder
+ * @version 4.1
  */
 
 const fs = require('fs')
 const path = require('path')
 
+/**
+ * Builds prompts for Claude using templates, context, and learned patterns.
+ * Supports plan mode, think blocks, and quality checklists.
+ */
 class PromptBuilder {
   constructor() {
+    /** @type {Object<string, string>|null} */
     this._checklistsCache = null
+    /** @type {string|null} */
     this._checklistRoutingCache = null
   }
 
   /**
    * Load quality checklists from templates/checklists/
-   * Returns checklist content - Claude decides which to apply
-   * NO if/else logic here - just load and provide
+   *
+   * @returns {Object<string, string>} Map of checklist name to content
    */
   loadChecklists() {
     if (this._checklistsCache) return this._checklistsCache
@@ -48,8 +51,9 @@ class PromptBuilder {
   }
 
   /**
-   * Load checklist routing template
-   * Claude reads this to decide which checklists to apply
+   * Load checklist routing template for Claude to decide which checklists apply
+   *
+   * @returns {string|null} Routing template content or null if not found
    */
   loadChecklistRouting() {
     if (this._checklistRoutingCache) return this._checklistRoutingCache
@@ -67,12 +71,17 @@ class PromptBuilder {
     return this._checklistRoutingCache || null
   }
   /**
-   * Build concise prompt - only essentials
-   * CRITICAL: Includes full agent content if agent is provided
-   * P1.1: Includes learned patterns to avoid repetitive questions
-   * P3.1: Includes think blocks for critical decisions
-   * P3.3: Includes relevant memories from semantic database
-   * P3.4: Includes plan mode status and constraints
+   * Build a complete prompt for Claude from template, context, and enhancements
+   *
+   * @param {Object} template - Template with frontmatter and content
+   * @param {Object} context - Project context (projectPath, projectId, files, params)
+   * @param {Object} state - Current prjct state (now, next, analysis, etc.)
+   * @param {Object|null} [agent] - Specialized agent config (name, role, skills)
+   * @param {Object|null} [learnedPatterns] - User preferences from memory system
+   * @param {Object|null} [thinkBlock] - Reasoning block (plan, conclusions, confidence)
+   * @param {Array|null} [relevantMemories] - Past decisions from semantic database
+   * @param {Object|null} [planInfo] - Plan mode status (isPlanning, requiresApproval)
+   * @returns {string} Complete prompt ready for Claude
    */
   build(template, context, state, agent = null, learnedPatterns = null, thinkBlock = null, relevantMemories = null, planInfo = null) {
     const parts = []
@@ -233,8 +242,10 @@ class PromptBuilder {
   }
 
   /**
-   * Filter only relevant state data
-   * IMPROVED: Include more context, don't truncate critical info
+   * Filter state data to include only relevant portions for the prompt
+   *
+   * @param {Object} state - Full prjct state object
+   * @returns {string|null} Formatted relevant state or null if empty
    */
   filterRelevantState(state) {
     if (!state || Object.keys(state).length === 0) return null
@@ -264,10 +275,10 @@ class PromptBuilder {
   }
 
   /**
-   * Build analysis prompt
-   * Used for tasks that need Claude to analyze before acting
-   * @param {string} analysisType - Type of analysis
-   * @param {Object} context - Context
+   * Build an analysis prompt for pre-action investigation tasks
+   *
+   * @param {string} analysisType - Type of analysis (e.g., 'patterns', 'stack')
+   * @param {Object} context - Project context with projectPath and projectId
    * @returns {string} Analysis prompt
    */
   buildAnalysis(analysisType, context) {
@@ -285,8 +296,10 @@ class PromptBuilder {
   }
 
   /**
-   * Extract pattern summary from full patterns content
-   * OPTIMIZED: Returns only conventions + high-priority anti-patterns (800 bytes max)
+   * Extract compressed pattern summary (conventions + high-priority anti-patterns)
+   *
+   * @param {string} content - Full patterns file content
+   * @returns {string|null} Compressed summary (max 800 bytes) or null
    */
   extractPatternSummary(content) {
     if (!content) return null
@@ -317,8 +330,9 @@ class PromptBuilder {
   }
 
   /**
-   * Build critical rules - compressed anti-hallucination
-   * OPTIMIZED: From 66 lines to 12 lines (~82% reduction)
+   * Build critical anti-hallucination rules section
+   *
+   * @returns {string} Formatted rules block
    */
   buildCriticalRules() {
     const fileCount = this._currentContext?.files?.length || this._currentContext?.filteredSize || 0

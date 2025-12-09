@@ -1,12 +1,18 @@
 /**
  * Template Loader
- * Loads command templates with frontmatter parsing
- * Templates define what Claude should do - NO if/else logic
+ * Loads and parses command templates with frontmatter.
+ *
+ * @module agentic/template-loader
+ * @version 1.0.0
  */
 
 const fs = require('fs').promises
 const path = require('path')
 
+/**
+ * Loads command templates from templates/commands/ with caching.
+ * Parses YAML-like frontmatter for metadata extraction.
+ */
 class TemplateLoader {
   constructor() {
     this.templatesDir = path.join(__dirname, '..', '..', 'templates', 'commands')

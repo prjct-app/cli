@@ -1,15 +1,18 @@
 /**
- * Agent Detection Module for prjct-cli
+ * Agent Detector
+ * Detects Claude Code and Claude Desktop environments.
  *
- * 100% Claude-focused architecture
- * Detects Claude Code and Claude Desktop environments
- *
+ * @module infrastructure/agent-detector
  * @version 0.5.0
  */
 
 const fs = require('fs')
 const path = require('path')
 
+/**
+ * Detects the current execution environment (Claude or Terminal).
+ * Provides appropriate capabilities and configuration for each environment.
+ */
 class AgentDetector {
   constructor() {
     this.detectedAgent = null

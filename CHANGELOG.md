@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.11.5] - 2025-12-09
+
+### Fixed - Production Server Mode
+
+Critical bug fix: `prjct serve` now runs in production mode instead of development mode.
+
+- **Server Mode** - Changed from dev to production
+  - Default port: 3000 → 9472 (avoids conflicts)
+  - Mode: `npm run dev` → `npm run start:prod` with `NODE_ENV=production`
+  - Auto-build on first run if `.next/` doesn't exist
+  - All features now work correctly (were broken in dev mode)
+
+- **packages/web/package.json** - Added `start:prod` script
+
 ## [0.11.0] - 2025-12-08
 
 ### Added - Web Application & Server Components

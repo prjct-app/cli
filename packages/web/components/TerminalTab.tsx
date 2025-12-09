@@ -75,7 +75,7 @@ export function TerminalTab({ session, projectDir, isActive }: TerminalTabProps)
 
   return (
     <div
-      className="absolute inset-0 bg-[#0a0a0f] px-4 py-2"
+      className="absolute inset-0 bg-[#0a0a0f] px-2 py-2"
       style={{ display: isActive ? 'block' : 'none' }}
     >
       <div ref={containerRef} className="h-full w-full" />

@@ -1,21 +1,9 @@
 /**
  * Command Executor
- * 100% AGENTIC - Claude decides agent assignment via Task tool
+ * Orchestrates command execution with agentic delegation.
  *
- * NO if/else logic for agent selection here.
- * Claude reads templates/agentic/agent-routing.md and delegates via Task tool.
- *
- * JS only:
- * - Loads templates
- * - Builds context
- * - Returns prompt for Claude
- *
- * Claude:
- * - Reads agent-routing.md
- * - Decides best agent for task
- * - Delegates via Task(subagent_type='general-purpose', prompt='Read: path/to/agent.md...')
- *
- * Source: Claude Code, Devin, Augment Code patterns
+ * @module agentic/command-executor
+ * @version 3.4
  */
 
 const fs = require('fs')
@@ -45,14 +33,17 @@ const RUNNING_FILE = path.join(os.homedir(), '.prjct-cli', '.running')
 // - code-intelligence → Claude Code has native LSP integration
 // - browser-preview → Claude Code can use Bash directly
 
+/**
+ * Orchestrates prjct command execution.
+ * Handles template loading, context building, validation, and agentic delegation.
+ */
 class CommandExecutor {
-  constructor() {
-    // 100% AGENTIC: No agent router here
-    // Claude decides agent assignment via templates and Task tool
-  }
+  constructor() {}
 
   /**
    * Signal that a command is running (for status line)
+   *
+   * @param {string} commandName - Name of the running command
    */
   signalStart(commandName) {
     try {
@@ -80,7 +71,12 @@ class CommandExecutor {
   }
 
   /**
-   * Execute command with MANDATORY agent assignment
+   * Execute a prjct command with full agentic delegation
+   *
+   * @param {string} commandName - Command to execute (e.g., 'now', 'ship')
+   * @param {Object} params - Command parameters
+   * @param {string} projectPath - Path to the project
+   * @returns {Promise<Object>} Execution result with prompt, context, helpers
    */
   async execute(commandName, params, projectPath) {
     // Signal start for status line
@@ -378,12 +374,12 @@ class CommandExecutor {
   }
 
   /**
-   * Simple execution for direct tool access
-   * Used by legacy commands during migration
+   * Simple execution for direct tool access (legacy migration helper)
+   *
    * @param {string} commandName - Command name
-   * @param {Function} executionFn - Function that uses tools
+   * @param {Function} executionFn - Function receiving (tools, context)
    * @param {string} projectPath - Project path
-   * @returns {Promise<Object>}
+   * @returns {Promise<Object>} Result with success flag
    */
   async executeSimple(commandName, executionFn, projectPath) {
     try {

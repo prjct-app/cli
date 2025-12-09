@@ -6,6 +6,11 @@
 website/
 docs/development/
 
+# Packages - exclude dev files
+packages/*/node_modules/
+packages/*/.next/
+packages/*/tsconfig.tsbuildinfo
+
 # Test files
 test/
 tests/

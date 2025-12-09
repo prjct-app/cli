@@ -1,3 +1,11 @@
+/**
+ * Session Manager
+ * Manages temporal fragmentation of logs and progress data.
+ *
+ * @module infrastructure/session-manager
+ * @version 0.2.1
+ */
+
 const path = require('path')
 const pathManager = require('./path-manager')
 const { VERSION } = require('../utils/version')
@@ -6,16 +14,8 @@ const jsonlHelper = require('../utils/jsonl-helper')
 const fileHelper = require('../utils/file-helper')
 
 /**
- * SessionManager - Manages temporal fragmentation of logs and progress data
- *
- * Handles:
- * - Daily session creation and rotation
- * - Writing logs to date-specific directories
- * - Reading historical data across multiple sessions
- * - Session consolidation and queries
- * - Automatic migration from legacy single-file logs
- *
- * @version 0.2.1
+ * Manages daily sessions for logs and progress data.
+ * Handles rotation, historical queries, and legacy migration.
  */
 class SessionManager {
   constructor() {

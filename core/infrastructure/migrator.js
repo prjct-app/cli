@@ -1,3 +1,11 @@
+/**
+ * Migrator
+ * Handles migrations between prjct versions and structures.
+ *
+ * @module infrastructure/migrator
+ * @version 0.3.0
+ */
+
 const fs = require('fs').promises
 const path = require('path')
 const pathManager = require('./path-manager')
@@ -5,19 +13,8 @@ const configManager = require('./config-manager')
 const authorDetector = require('./author-detector')
 
 /**
- * Migrator - Handles migrations between versions
- *
- * Migration process:
- * 1. Detect legacy .prjct directory (v0.1.0 → v0.2.x)
- * 2. Detect author information
- * 3. Create prjct.config.json
- * 4. Create global directory structure
- * 5. Copy all files to global location
- * 6. Move authors/version/created/lastSync to global config (v0.2.x → v0.3.0)
- * 7. Validate migration
- * 8. Optionally remove local .prjct
- *
- * @version 0.3.0
+ * Handles version migrations and project structure updates.
+ * Supports legacy → global storage migration and config version upgrades.
  */
 class Migrator {
   /**
