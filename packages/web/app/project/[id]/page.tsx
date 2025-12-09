@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, use, useCallback } from 'react'
+import { useState, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { useProject, useDeleteProject } from '@/hooks/useProjects'
 import { TerminalTabsProvider, useTerminalTabs } from '@/context/TerminalTabsContext'
@@ -41,8 +41,7 @@ import {
   Activity,
   History,
   Undo2,
-  Redo2,
-  Plus
+  Redo2
 } from 'lucide-react'
 
 // Commands ordered by real developer workflow
@@ -73,8 +72,6 @@ function ProjectPageContent({ projectId, project }: { projectId: string; project
 
   const {
     sessions,
-    activeSessionId,
-    createSession,
     sendCommandToActive,
     getActiveSession
   } = useTerminalTabs()
@@ -82,10 +79,6 @@ function ProjectPageContent({ projectId, project }: { projectId: string; project
   const activeSession = getActiveSession()
   const hasActiveSessions = sessions.length > 0
   const isActiveConnected = activeSession?.isConnected ?? false
-
-  const handleNewSession = useCallback(() => {
-    createSession()
-  }, [createSession])
 
   return (
     <div className="h-full">
@@ -102,13 +95,13 @@ function ProjectPageContent({ projectId, project }: { projectId: string; project
             </div>
 
             <div className="flex-1 flex flex-col gap-1 overflow-auto py-3">
-              {/* New Terminal button - always creates new */}
+              {/* Stats button - navigates to stats page */}
               <CommandButton
-                cmd="New terminal"
-                icon={Plus}
-                tip="New"
+                cmd="Project stats"
+                icon={BarChart3}
+                tip="Stats"
                 disabled={false}
-                onClick={handleNewSession}
+                onClick={() => router.push(`/project/${projectId}/stats`)}
               />
               <div className="border-b border-border w-8 my-2 mx-auto" />
 
@@ -178,6 +171,7 @@ function ProjectPageContent({ projectId, project }: { projectId: string; project
             </div>
           </main>
         </div>
+
       </TooltipProvider>
     </div>
   )
