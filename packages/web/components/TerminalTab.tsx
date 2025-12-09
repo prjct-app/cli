@@ -35,6 +35,7 @@ export function TerminalTab({ session, projectDir, isActive }: TerminalTabProps)
     disconnect,
     sendInput,
     focusTerminal,
+    fit,
   } = useClaudeTerminal({
     sessionId: session.id,
     projectDir,
@@ -56,6 +57,16 @@ export function TerminalTab({ session, projectDir, isActive }: TerminalTabProps)
       })
     }
   }, []) // Empty deps - run only on mount
+
+  // Re-fit terminal when tab becomes active (fixes resize issues when tab was hidden)
+  useEffect(() => {
+    if (isActive && hasInitializedRef.current) {
+      // Use requestAnimationFrame to ensure container is fully visible
+      requestAnimationFrame(() => {
+        fit()
+      })
+    }
+  }, [isActive, fit])
 
   // Register sendInput and focusTerminal for this session
   useEffect(() => {

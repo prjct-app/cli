@@ -204,10 +204,25 @@ app.prepare().then(() => {
 
     const ptyProcess = session.pty
 
+    // Output buffering for smooth terminal rendering
+    // Batches PTY output and flushes every 16ms (one animation frame)
+    const outputBuffer: string[] = []
+    let flushTimer: NodeJS.Timeout | null = null
+    const BATCH_MS = 16
+
+    const flushBuffer = () => {
+      if (outputBuffer.length > 0 && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'output', data: outputBuffer.join('') }))
+        outputBuffer.length = 0
+      }
+      flushTimer = null
+    }
+
     // Register data handler FIRST before sending any commands
     const dataHandler = ptyProcess.onData((data: string) => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'output', data }))
+      outputBuffer.push(data)
+      if (!flushTimer) {
+        flushTimer = setTimeout(flushBuffer, BATCH_MS)
       }
     })
 
@@ -247,6 +262,11 @@ app.prepare().then(() => {
 
     ws.on('close', () => {
       console.log(`[WS] PTY connection closed: ${sessionId}`)
+      // Clear buffer flush timer
+      if (flushTimer) {
+        clearTimeout(flushTimer)
+        flushTimer = null
+      }
       dataHandler.dispose()
       exitHandler.dispose()
     })

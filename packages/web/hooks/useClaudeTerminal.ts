@@ -89,6 +89,9 @@ export function useClaudeTerminal(options: UseClaudeTerminalOptions) {
   const reconnectAttemptsRef = useRef(0)
   const intentionalDisconnectRef = useRef(false)
   const currentSessionIdRef = useRef<string | null>(null)
+  const resizeObserverRef = useRef<ResizeObserver | null>(null)
+  const outputBufferRef = useRef<string[]>([])
+  const flushScheduledRef = useRef(false)
 
   const [isConnected, setIsConnected] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -122,7 +125,10 @@ export function useClaudeTerminal(options: UseClaudeTerminalOptions) {
       fontFamily: '"JetBrains Mono", "Fira Code", monospace',
       fontSize: 14,
       lineHeight: 1.2,
-      theme: initialTheme
+      theme: initialTheme,
+      // Performance optimizations
+      scrollback: 5000,
+      smoothScrollDuration: 0,  // Instant scroll for better performance
     })
 
     const fitAddon = new FitAddon()
@@ -138,26 +144,27 @@ export function useClaudeTerminal(options: UseClaudeTerminalOptions) {
     fitAddonRef.current = fitAddon
     containerRef.current = container
 
-    // Handle window resize
-    const handleResize = () => {
-      if (fitAddonRef.current) {
-        fitAddonRef.current.fit()
+    // Use ResizeObserver for better resize handling (works with container, not just window)
+    const resizeObserver = new ResizeObserver(() => {
+      if (fitAddonRef.current && containerRef.current) {
+        // Only fit if container has dimensions (not hidden)
+        if (containerRef.current.offsetWidth > 0 && containerRef.current.offsetHeight > 0) {
+          fitAddonRef.current.fit()
 
-        // Send resize to server
-        if (wsRef.current?.readyState === WebSocket.OPEN && terminalRef.current) {
-          wsRef.current.send(JSON.stringify({
-            type: 'resize',
-            cols: terminalRef.current.cols,
-            rows: terminalRef.current.rows
-          }))
+          // Send resize to server
+          if (wsRef.current?.readyState === WebSocket.OPEN && terminalRef.current) {
+            wsRef.current.send(JSON.stringify({
+              type: 'resize',
+              cols: terminalRef.current.cols,
+              rows: terminalRef.current.rows
+            }))
+          }
         }
       }
-    }
+    })
 
-    window.addEventListener('resize', handleResize)
-
-    // Note: cleanup is handled by the component unmount, not here
-    // The terminal persists for the lifetime of the TerminalTab component
+    resizeObserver.observe(container)
+    resizeObserverRef.current = resizeObserver
   }, [])
 
   // Clear reconnect timeout
@@ -238,13 +245,28 @@ export function useClaudeTerminal(options: UseClaudeTerminalOptions) {
         }
       }
 
+      // Flush buffered output using requestAnimationFrame for smooth rendering
+      const flushOutput = () => {
+        if (outputBufferRef.current.length > 0 && terminalRef.current) {
+          const combined = outputBufferRef.current.join('')
+          terminalRef.current.write(combined)
+          outputBufferRef.current = []
+        }
+        flushScheduledRef.current = false
+      }
+
       ws.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data)
 
           switch (message.type) {
             case 'output':
-              terminalRef.current?.write(message.data)
+              // Buffer output and flush on next animation frame for smooth rendering
+              outputBufferRef.current.push(message.data)
+              if (!flushScheduledRef.current) {
+                flushScheduledRef.current = true
+                requestAnimationFrame(flushOutput)
+              }
               break
 
             case 'connected':
@@ -261,8 +283,12 @@ export function useClaudeTerminal(options: UseClaudeTerminalOptions) {
               break
           }
         } catch {
-          // Raw data, write directly
-          terminalRef.current?.write(event.data)
+          // Raw data, write directly (also buffered)
+          outputBufferRef.current.push(event.data)
+          if (!flushScheduledRef.current) {
+            flushScheduledRef.current = true
+            requestAnimationFrame(flushOutput)
+          }
         }
       }
 
@@ -347,6 +373,25 @@ export function useClaudeTerminal(options: UseClaudeTerminalOptions) {
     }
   }, [])
 
+  // Fit terminal to container (useful when tab becomes visible)
+  const fit = useCallback(() => {
+    if (fitAddonRef.current && containerRef.current) {
+      // Only fit if container has dimensions (not hidden)
+      if (containerRef.current.offsetWidth > 0 && containerRef.current.offsetHeight > 0) {
+        fitAddonRef.current.fit()
+
+        // Send resize to server
+        if (wsRef.current?.readyState === WebSocket.OPEN && terminalRef.current) {
+          wsRef.current.send(JSON.stringify({
+            type: 'resize',
+            cols: terminalRef.current.cols,
+            rows: terminalRef.current.rows
+          }))
+        }
+      }
+    }
+  }, [])
+
   // Cleanup on unmount - empty deps to run only on unmount
   useEffect(() => {
     return () => {
@@ -357,6 +402,10 @@ export function useClaudeTerminal(options: UseClaudeTerminalOptions) {
       if (wsRef.current) {
         wsRef.current.close()
       }
+      // Cleanup ResizeObserver
+      if (resizeObserverRef.current) {
+        resizeObserverRef.current.disconnect()
+      }
     }
   }, []) // Empty deps - run cleanup only on unmount
 
@@ -366,6 +415,7 @@ export function useClaudeTerminal(options: UseClaudeTerminalOptions) {
     disconnect,
     sendInput,
     focusTerminal,
+    fit,
     isConnected,
     isLoading,
     isReconnecting,
