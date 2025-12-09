@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.11.0] - 2025-12-08
+
+### Added - Web Application & Server Components
+
+Major release introducing the prjct web application with Next.js.
+
+- **Web Application** - Full Next.js web interface for prjct
+  - Project stats API implementation
+  - Enhanced UI components
+  - Terminal functionality in browser
+
+- **Server Components** - New server infrastructure
+  - Project management endpoints
+  - Stats API for metrics and analytics
+
+- **UI Enhancements**
+  - Improved project management interface
+  - Enhanced terminal integration
+
 ## [0.10.14] - 2025-11-29
 
 ### Refactored - 100% Agentic Subagent Delegation via Task Tool
