@@ -142,6 +142,8 @@ export function ActivityTimeline({ timeline, className }: ActivityTimelineProps)
                   const Icon = getEventIcon(event.type)
                   const e = event as Record<string, unknown>
 
+                  const duration = typeof e.duration === 'string' ? e.duration : null
+
                   return (
                     <div
                       key={i}
@@ -168,9 +170,9 @@ export function ActivityTimeline({ timeline, className }: ActivityTimelineProps)
                       </span>
 
                       {/* Duration if available */}
-                      {e.duration && (
+                      {duration && (
                         <span className="text-[10px] text-muted-foreground shrink-0">
-                          {e.duration as string}
+                          {duration}
                         </span>
                       )}
                     </div>

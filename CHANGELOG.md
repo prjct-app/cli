@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.11.6] - 2025-12-09
+
+### Fixed - Terminal Responsive & Performance Issues
+
+Bug fixes for terminal UX issues when resizing browser and handling large output.
+
+- **Resize Bug Fixed** - Terminal no longer gets stuck at ~100px² when resizing browser
+  - Replaced `window.addEventListener('resize')` with `ResizeObserver`
+  - Added dimension validation before fitting (handles hidden tabs correctly)
+  - Added proper cleanup on unmount
+  - Added re-fit on tab activation
+
+- **Performance Improvements** - Terminal now handles large output smoothly
+  - Added client-side output buffering with `requestAnimationFrame`
+  - Added server-side PTY output buffering (16ms batch window)
+  - Added terminal config optimizations (`scrollback: 5000`, `smoothScrollDuration: 0`)
+
+- **Files Modified**:
+  - `packages/web/hooks/useClaudeTerminal.ts` - ResizeObserver, output batching, fit function
+  - `packages/web/components/TerminalTab.tsx` - Re-fit on tab activation
+  - `packages/web/server.ts` - PTY output buffering
+
 ## [0.11.5] - 2025-12-09
 
 ### Fixed - Production Server Mode

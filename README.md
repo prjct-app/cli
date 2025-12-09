@@ -17,6 +17,34 @@ Developer momentum tool for indie hackers and small teams.
 [![Tests](https://github.com/jlopezlira/prjct-cli/actions/workflows/test.yml/badge.svg)](https://github.com/jlopezlira/prjct-cli/actions/workflows/test.yml)
 [![Website Build](https://img.shields.io/badge/website-deployed-success)](https://prjct.app)
 
+> **New to prjct?** You don't need to memorize commands. Just use `p.` and talk naturally:
+> - `p. start working on user auth`
+> - `p. I'm done`
+> - `p. ship the authentication`
+
+## 💬 p. Trigger - Zero Memorization
+
+**You don't need to memorize commands.** Just use the `p.` prefix and talk naturally!
+
+The system detects your intent and maps it to the right command - **works in any language**:
+
+```
+Instead of:                      Just say:
+/p:now "implement auth"    →     "p. I want to start building the auth system"
+/p:done                    →     "p. I'm done" or "p. finished"
+/p:ship "feature"          →     "p. ship the authentication"
+/p:stuck "error"           →     "p. I'm stuck on this error"
+/p:idea "add feature"      →     "p. I have an idea about dark mode"
+```
+
+**How it works:**
+
+- Simple `p.` prefix signals prjct context
+- Works in English, Spanish, German, French - any language
+- System detects intent and executes the right command
+- Auto-validates you're in a prjct project before execution
+- Every command response suggests what to do next
+
 ## 🤖 Claude-Native Architecture
 
 **prjct-cli is purpose-built for Claude's unique capabilities:**
@@ -127,32 +155,60 @@ cd prjct-cli
 - ✅ **Auto-detects your environment** (Claude or Terminal fallback)
 - ✅ **Configures shell** (bash/zsh) automatically
 
-## 💬 p. Trigger - Zero Memorization
+## ⚡ 5-Minute Quick Start
 
-**You don't need to memorize commands.** Just use the `p.` prefix and talk naturally!
+Get productive with prjct-cli in under 5 minutes.
 
-The system detects your intent and maps it to the right command - **works in any language**:
+### Step 1: Initialize Your Project
 
-```
-✨ Natural Language with p. Trigger:
-
-Instead of:                      Just say:
-/p:now "implement auth"    →     "p. I want to start building the auth system"
-/p:done                    →     "p. I'm done" or "p. finished"
-/p:ship "feature"          →     "p. ship the authentication"
-/p:stuck "error"           →     "p. I'm stuck on this error"
-/p:idea "add feature"      →     "p. I have an idea about dark mode"
+```bash
+cd your-project
 ```
 
-**How it works:**
+In Claude Code or Claude Desktop:
+```
+/p:init
+```
 
-- Simple `p.` prefix signals prjct context
-- Works in English, Spanish, German, French - any language
-- System detects intent and executes the right command
-- Auto-validates you're in a prjct project before execution
-- Every command response suggests what to do next
+Or just say: `p. initialize this project`
 
-**Available in:** Any language - powered by Claude's natural language understanding
+### Step 2: Start Your First Task
+
+```
+/p:now "implement user login"
+```
+
+Or naturally: `p. I want to start working on user login`
+
+### Step 3: Work on Your Task
+
+Just code! prjct tracks your focus.
+
+### Step 4: Complete Your Task
+
+```
+/p:done
+```
+
+Or naturally: `p. finished`
+
+### Step 5: Ship It!
+
+```
+/p:ship "user authentication"
+```
+
+Or naturally: `p. ship the authentication`
+
+**That's it!** You now know the core workflow.
+
+### What's Next?
+
+- `/p:recap` - See your progress
+- `/p:help` - Get contextual guidance
+- `/p:idea "something cool"` - Capture ideas without interrupting
+
+> **Pro tip:** You don't need to memorize commands. Just use `p.` and describe what you want!
 
 ## 🚀 Built for Claude - Ship Fast, No BS
 

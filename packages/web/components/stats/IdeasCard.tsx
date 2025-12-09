@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 
 interface Idea {
   title: string
-  impact?: 'HIGH' | 'MEDIUM' | 'LOW'
+  impact?: string
 }
 
 interface IdeasCardProps {
