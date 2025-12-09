@@ -102,8 +102,8 @@ export function useClaudeTerminal(options: UseClaudeTerminalOptions) {
     }
   }, [resolvedTheme])
 
-  // Initialize terminal
-  const initTerminal = useCallback(async (container: HTMLDivElement) => {
+  // Initialize terminal - returns Promise<void>
+  const initTerminal = useCallback(async (container: HTMLDivElement): Promise<void> => {
     if (terminalRef.current) return
 
     // Dynamic imports for client-side only
@@ -156,11 +156,8 @@ export function useClaudeTerminal(options: UseClaudeTerminalOptions) {
 
     window.addEventListener('resize', handleResize)
 
-    return () => {
-      window.removeEventListener('resize', handleResize)
-      term.dispose()
-      terminalRef.current = null
-    }
+    // Note: cleanup is handled by the component unmount, not here
+    // The terminal persists for the lifetime of the TerminalTab component
   }, [])
 
   // Clear reconnect timeout
@@ -343,22 +340,32 @@ export function useClaudeTerminal(options: UseClaudeTerminalOptions) {
     }
   }, [])
 
-  // Cleanup on unmount
+  // Focus terminal
+  const focusTerminal = useCallback(() => {
+    if (terminalRef.current) {
+      terminalRef.current.focus()
+    }
+  }, [])
+
+  // Cleanup on unmount - empty deps to run only on unmount
   useEffect(() => {
     return () => {
       intentionalDisconnectRef.current = true
-      clearReconnectTimeout()
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current)
+      }
       if (wsRef.current) {
         wsRef.current.close()
       }
     }
-  }, [clearReconnectTimeout])
+  }, []) // Empty deps - run cleanup only on unmount
 
   return {
     initTerminal,
     connect,
     disconnect,
     sendInput,
+    focusTerminal,
     isConnected,
     isLoading,
     isReconnecting,

@@ -71,12 +71,12 @@ export function SessionsChart() {
     return (
       <Card>
         <CardHeader className="flex flex-col items-stretch space-y-0 border-b p-0 sm:flex-row">
-          <div className="flex flex-1 flex-col justify-center gap-1 px-6 py-5 sm:py-6">
+          <div className="flex flex-1 flex-col justify-center gap-1 px-4 py-3 sm:px-5 sm:py-4">
             <CardTitle>Session Activity</CardTitle>
             <CardDescription>Loading...</CardDescription>
           </div>
         </CardHeader>
-        <CardContent className="px-2 sm:p-6">
+        <CardContent className="px-2 sm:p-4">
           <div className="h-[250px] flex items-center justify-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
           </div>
@@ -88,7 +88,7 @@ export function SessionsChart() {
   return (
     <Card>
       <CardHeader className="flex flex-col items-stretch space-y-0 border-b p-0 sm:flex-row">
-        <div className="flex flex-1 flex-col justify-center gap-1 px-6 py-5 sm:py-6">
+        <div className="flex flex-1 flex-col justify-center gap-1 px-4 py-3 sm:px-5 sm:py-4">
           <CardTitle>Session Activity</CardTitle>
           <CardDescription>
             Last 90 days across all projects
@@ -100,7 +100,7 @@ export function SessionsChart() {
               <button
                 key={key}
                 data-active={activeChart === key}
-                className="relative z-30 flex flex-1 flex-col justify-center gap-1 border-t px-6 py-4 text-left even:border-l data-[active=true]:bg-muted/50 sm:border-l sm:border-t-0 sm:px-8 sm:py-6"
+                className="relative z-30 flex flex-1 flex-col justify-center gap-1 border-t px-4 py-3 text-left even:border-l data-[active=true]:bg-muted/50 sm:border-l sm:border-t-0 sm:px-6 sm:py-4"
                 onClick={() => setActiveChart(key)}
               >
                 <span className="text-xs text-muted-foreground">
@@ -114,7 +114,7 @@ export function SessionsChart() {
           })}
         </div>
       </CardHeader>
-      <CardContent className="px-2 sm:p-6">
+      <CardContent className="px-2 sm:p-4">
         {chartData.length === 0 ? (
           <div className="h-[250px] flex items-center justify-center text-muted-foreground">
             No session data yet

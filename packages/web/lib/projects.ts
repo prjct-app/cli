@@ -11,6 +11,7 @@ import { promisify } from 'util'
 const execAsync = promisify(exec)
 
 export const GLOBAL_STORAGE = join(homedir(), '.prjct-cli', 'projects')
+export const TRASH_PATH = join(homedir(), '.prjct-cli', '.trash')
 
 // Cache for project paths (projectId -> real path)
 const projectPathCache = new Map<string, string>()
@@ -71,7 +72,7 @@ export function extractProjectPath(claudeMd: string): string | null {
 }
 
 /**
- * Get all projects
+ * Get all projects with rich metadata
  */
 export async function getProjects() {
   if (projectPathCache.size === 0) {
@@ -84,19 +85,25 @@ export async function getProjects() {
     const dirs = await fs.readdir(GLOBAL_STORAGE)
 
     for (const projectId of dirs) {
+      // Skip hidden directories like .trash
+      if (projectId.startsWith('.')) continue
+
       const storagePath = join(GLOBAL_STORAGE, projectId)
 
       // Try project.json first (source of truth)
       let name: string = projectId
       let repoPath: string | null = null
+      let techStack: string[] = []
 
       try {
         const projectJsonPath = join(storagePath, 'project.json')
         const projectJson = JSON.parse(await fs.readFile(projectJsonPath, 'utf-8'))
         name = projectJson.name || projectId
         repoPath = projectJson.repoPath || null
+        techStack = projectJson.techStack || []
       } catch {
-        // Fallback to CLAUDE.md
+        // Fallback to CLAUDE.md for name/repoPath only
+        // techStack comes from project.json (populated by /p:sync)
         try {
           const claudeMd = await fs.readFile(join(storagePath, 'CLAUDE.md'), 'utf-8')
           const nameMatch = claudeMd.match(/# (.+) - Project Context/)
@@ -110,17 +117,143 @@ export async function getProjects() {
         }
       }
 
+      // Get current task
+      let currentTask: string | null = null
+      try {
+        const nowContent = await fs.readFile(join(storagePath, 'core', 'now.md'), 'utf-8')
+        // Skip headers like "# NOW", "# Current Task" and find the actual task content
+        // Look for **bold text** (task description) or first non-header, non-metadata line
+        const boldMatch = nowContent.match(/\*\*([^*]+)\*\*/)
+        if (boldMatch && boldMatch[1].trim() && !boldMatch[1].includes(':')) {
+          currentTask = boldMatch[1].trim()
+        } else {
+          // Find first content line that's not a header, metadata, or empty
+          const lines = nowContent.split('\n')
+          for (const line of lines) {
+            const trimmed = line.trim()
+            // Skip headers, empty lines, metadata lines (key: value), and "No active/current task" messages
+            if (trimmed &&
+                !trimmed.startsWith('#') &&
+                !trimmed.toLowerCase().includes('no active task') &&
+                !trimmed.toLowerCase().includes('no current task') &&
+                !trimmed.match(/^(Feature|Started|Status|Agent):/i) &&
+                !trimmed.startsWith('**') &&
+                !trimmed.startsWith('-')) {
+              currentTask = trimmed
+              break
+            }
+          }
+        }
+        // Truncate if too long
+        if (currentTask && currentTask.length > 60) {
+          currentTask = currentTask.substring(0, 57) + '...'
+        }
+      } catch {}
+
+      // Get session status and last activity
+      let hasActiveSession = false
+      let lastActivity: string | null = null
+
+      // Try current session first
+      try {
+        const sessionPath = join(storagePath, 'sessions', 'current.json')
+        const sessionData = JSON.parse(await fs.readFile(sessionPath, 'utf-8'))
+        hasActiveSession = sessionData.status === 'active'
+        lastActivity = sessionData.startedAt || sessionData.updatedAt
+      } catch {}
+
+      // If no session, get last modified time from key files
+      if (!lastActivity) {
+        const filesToCheck = [
+          join(storagePath, 'core', 'now.md'),
+          join(storagePath, 'core', 'next.md'),
+          join(storagePath, 'planning', 'ideas.md'),
+          join(storagePath, 'progress', 'shipped.md'),
+          join(storagePath, 'memory', 'context.jsonl'),
+          join(storagePath, 'CLAUDE.md')
+        ]
+
+        let latestMtime = 0
+        for (const filePath of filesToCheck) {
+          try {
+            const stat = await fs.stat(filePath)
+            if (stat.mtimeMs > latestMtime) {
+              latestMtime = stat.mtimeMs
+            }
+          } catch {}
+        }
+
+        if (latestMtime > 0) {
+          lastActivity = new Date(latestMtime).toISOString()
+        }
+      }
+
+      // Count ideas and next tasks
+      let ideasCount = 0
+      let nextTasksCount = 0
+      try {
+        const ideasContent = await fs.readFile(join(storagePath, 'planning', 'ideas.md'), 'utf-8')
+        ideasCount = (ideasContent.match(/^- /gm) || []).length
+      } catch {}
+      try {
+        const nextContent = await fs.readFile(join(storagePath, 'core', 'next.md'), 'utf-8')
+        nextTasksCount = (nextContent.match(/^- /gm) || []).length
+      } catch {}
+
+      // Find favicon/icon in project repo
+      let iconPath: string | null = null
+      if (repoPath) {
+        const iconPatterns = [
+          'public/favicon.ico',
+          'public/favicon.svg',
+          'public/icon.svg',
+          'public/icon.png',
+          'public/logo.svg',
+          'public/logo.png',
+          'app/favicon.ico',
+          'app/icon.svg',
+          'app/icon.png',
+          'favicon.ico',
+          'favicon.svg'
+        ]
+        for (const pattern of iconPatterns) {
+          try {
+            const fullPath = join(repoPath, pattern)
+            await fs.access(fullPath)
+            iconPath = fullPath
+            break
+          } catch {}
+        }
+      }
+
       projects.push({
         id: projectId,
         name,
         path: repoPath || storagePath,
         repoPath,
-        storagePath
+        storagePath,
+        currentTask,
+        hasActiveSession,
+        lastActivity,
+        ideasCount,
+        nextTasksCount,
+        techStack,
+        iconPath
       })
     }
   } catch {
     // Storage directory doesn't exist
   }
+
+  // Sort by lastActivity (most recent first), then by name
+  projects.sort((a, b) => {
+    if (a.lastActivity && b.lastActivity) {
+      return new Date(b.lastActivity).getTime() - new Date(a.lastActivity).getTime()
+    }
+    if (a.lastActivity) return -1
+    if (b.lastActivity) return 1
+    return a.name.localeCompare(b.name)
+  })
 
   return projects
 }
@@ -175,6 +308,62 @@ export async function getProject(projectId: string) {
       currentTask = await fs.readFile(nowPath, 'utf-8')
     } catch {}
 
+    // Extract stats from claudeMd Quick Reference table
+    let version: string | null = null
+    let stack: string | null = null
+    let filesCount: string | null = null
+    let commitsCount: string | null = null
+    let techStack: string[] = []
+
+    // Parse version from | **Version** | 0.10.13 |
+    const versionMatch = claudeMd.match(/\*\*Version\*\*\s*\|\s*([^\n|]+)/)
+    if (versionMatch) version = versionMatch[1].trim()
+
+    // Parse stack from | **Stack** | Node.js CLI (CommonJS) |
+    const stackMatch = claudeMd.match(/\*\*Stack\*\*\s*\|\s*([^\n|]+)/)
+    if (stackMatch) stack = stackMatch[1].trim()
+
+    // Parse files from | **Files** | 130+ |
+    const filesMatch = claudeMd.match(/\*\*Files\*\*\s*\|\s*([^\n|]+)/)
+    if (filesMatch) filesCount = filesMatch[1].trim()
+
+    // Parse commits from | **Commits** | 175 |
+    const commitsMatch = claudeMd.match(/\*\*Commits\*\*\s*\|\s*([^\n|]+)/)
+    if (commitsMatch) commitsCount = commitsMatch[1].trim()
+
+    // Get techStack from project.json
+    try {
+      const projectJsonPath = join(storagePath, 'project.json')
+      const projectJson = JSON.parse(await fs.readFile(projectJsonPath, 'utf-8'))
+      techStack = projectJson.techStack || []
+    } catch {}
+
+    // Find favicon/icon in project repo
+    let iconPath: string | null = null
+    if (repoPath) {
+      const iconPatterns = [
+        'public/favicon.ico',
+        'public/favicon.svg',
+        'public/icon.svg',
+        'public/icon.png',
+        'public/logo.svg',
+        'public/logo.png',
+        'app/favicon.ico',
+        'app/icon.svg',
+        'app/icon.png',
+        'favicon.ico',
+        'favicon.svg'
+      ]
+      for (const pattern of iconPatterns) {
+        try {
+          const fullPath = join(repoPath, pattern)
+          await fs.access(fullPath)
+          iconPath = fullPath
+          break
+        } catch {}
+      }
+    }
+
     return {
       id: projectId,
       name,
@@ -183,11 +372,48 @@ export async function getProject(projectId: string) {
       storagePath,
       claudeMd,
       currentSession,
-      currentTask
+      currentTask,
+      // Parsed stats
+      version,
+      stack,
+      filesCount,
+      commitsCount,
+      techStack,
+      iconPath
     }
   } catch {
     return null
   }
+}
+
+/**
+ * Move project to trash (soft delete)
+ */
+export async function moveToTrash(projectId: string) {
+  const sourcePath = join(GLOBAL_STORAGE, projectId)
+  const trashPath = join(TRASH_PATH, projectId)
+
+  // Verify source exists
+  try {
+    await fs.access(sourcePath)
+  } catch {
+    throw new Error(`Project ${projectId} not found`)
+  }
+
+  // Create trash directory if it doesn't exist
+  await fs.mkdir(TRASH_PATH, { recursive: true })
+
+  // Move to trash
+  await fs.rename(sourcePath, trashPath)
+
+  // Write deletion metadata
+  const deletedAt = new Date().toISOString()
+  await fs.writeFile(
+    join(trashPath, '.deleted'),
+    JSON.stringify({ deletedAt, projectId })
+  )
+
+  return { trashedAt: deletedAt }
 }
 
 /**

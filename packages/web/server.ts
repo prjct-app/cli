@@ -19,6 +19,7 @@ interface Session {
   pty: IPty
   projectDir: string
   createdAt: Date
+  hasStartedClaude: boolean  // Track if claude command was sent
 }
 
 const sessions = new Map<string, Session>()
@@ -50,13 +51,12 @@ function createSession(sessionId: string, projectDir: string): { pty: IPty; isNe
   sessions.set(sessionId, {
     pty: ptyProcess,
     projectDir,
-    createdAt: new Date()
+    createdAt: new Date(),
+    hasStartedClaude: false
   })
 
-  // Auto-start Claude Code CLI only for NEW sessions
-  setTimeout(() => {
-    ptyProcess.write('claude\r')
-  }, 500)
+  // NOTE: Don't auto-start claude here - let the WebSocket handler do it
+  // once the client is connected and ready to receive output
 
   return { pty: ptyProcess, isNew: true }
 }
@@ -193,22 +193,34 @@ app.prepare().then(() => {
       extWs.isAlive = true
     })
 
-    const ptyProcess = getSession(sessionId)
+    const session = sessions.get(sessionId)
 
-    if (!ptyProcess) {
+    if (!session) {
       console.log(`[WS] Session not found: ${sessionId}`)
       ws.send(JSON.stringify({ type: 'error', message: 'Session not found' }))
       ws.close()
       return
     }
 
-    ws.send(JSON.stringify({ type: 'connected', sessionId }))
+    const ptyProcess = session.pty
 
+    // Register data handler FIRST before sending any commands
     const dataHandler = ptyProcess.onData((data: string) => {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'output', data }))
       }
     })
+
+    ws.send(JSON.stringify({ type: 'connected', sessionId }))
+
+    // Auto-start Claude CLI only once, when first client connects
+    if (!session.hasStartedClaude) {
+      session.hasStartedClaude = true
+      console.log(`[WS] Starting Claude CLI for session: ${sessionId}`)
+      setTimeout(() => {
+        ptyProcess.write('claude\r')
+      }, 200)  // Small delay to ensure client is ready
+    }
 
     const exitHandler = ptyProcess.onExit(({ exitCode }) => {
       if (ws.readyState === WebSocket.OPEN) {
