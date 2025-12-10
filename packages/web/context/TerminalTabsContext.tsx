@@ -4,7 +4,7 @@
  * Terminal Tabs Context - Manage multiple terminal sessions
  */
 
-import { createContext, useContext, useCallback, useState, useRef, ReactNode } from 'react'
+import { createContext, useContext, useCallback, useState, useRef, useEffect, ReactNode } from 'react'
 
 export interface TerminalSession {
   id: string
@@ -107,6 +107,51 @@ export function TerminalTabsProvider({ children, projectId }: { children: ReactN
       if (focusFn) focusFn()
     }
   }, [activeSessionId, sessions])
+
+  // Check if any session is connected
+  const hasConnectedSessions = sessions.some(s => s.isConnected)
+
+  // Prevent page unload when terminal sessions are active
+  useEffect(() => {
+    if (!hasConnectedSessions) return
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      // Modern browsers require returnValue to be set
+      e.returnValue = 'You have active terminal sessions. Are you sure you want to leave?'
+      return e.returnValue
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [hasConnectedSessions])
+
+  // Prevent back/forward navigation when terminal sessions are active
+  useEffect(() => {
+    if (!hasConnectedSessions) return
+
+    // Push a state to history so we can intercept back navigation
+    const currentPath = window.location.pathname + window.location.search
+    window.history.pushState({ terminalActive: true }, '', currentPath)
+
+    const handlePopState = (e: PopStateEvent) => {
+      // User pressed back/forward
+      const confirmLeave = window.confirm(
+        'You have active terminal sessions. Leaving will terminate them. Are you sure?'
+      )
+
+      if (!confirmLeave) {
+        // Cancel navigation by pushing state back
+        window.history.pushState({ terminalActive: true }, '', currentPath)
+      }
+      // If confirmed, let the navigation happen naturally
+    }
+
+    window.addEventListener('popstate', handlePopState)
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+    }
+  }, [hasConnectedSessions])
 
   return (
     <TerminalTabsContext.Provider value={{
