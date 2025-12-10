@@ -2,14 +2,23 @@
 allowed-tools: [Read, Write, Bash]
 description: 'Set or show current task with session tracking'
 timestamp-rule: 'GetTimestamp() for ALL timestamps'
+architecture: 'JSON-first - Write to data/*.json, views are generated'
 ---
 
 # /p:now - Current Task with Session Tracking
 
+## Architecture: JSON-First
+
+**Source of Truth**: `data/state.json`
+**Generated View**: `views/now.md` (auto-generated, do not edit directly)
+
+All writes go to JSON. After writing, run `prjct generate-views --project={projectId}` to regenerate MD views.
+
 ## Context Variables
 - `{projectId}`: From `.prjct/prjct.config.json`
 - `{globalPath}`: `~/.prjct-cli/projects/{projectId}`
-- `{nowPath}`: `{globalPath}/core/now.md`
+- `{dataPath}`: `{globalPath}/data`
+- `{statePath}`: `{dataPath}/state.json`
 - `{sessionPath}`: `{globalPath}/sessions/current.json`
 - `{memoryPath}`: `{globalPath}/memory/context.jsonl`
 - `{task}`: User-provided task (optional)
@@ -25,15 +34,19 @@ IF file not found:
 
 ## Step 2: Check Current State
 
-### Check for active session
+### Read state.json (source of truth)
+READ: `{statePath}`
+
+IF file exists:
+  PARSE as JSON
+  EXTRACT: {currentTask} from state.currentTask
+
+### Check for active session (legacy support)
 READ: `{sessionPath}`
 
 IF file exists:
   PARSE as JSON
-  EXTRACT: {currentTask}, {status}, {startedAt}, {duration}
-
-### Check now.md
-READ: `{nowPath}`
+  EXTRACT: {session.task}, {session.status}, {session.startedAt}, {session.duration}
 
 ## Step 3: Handle Cases
 
@@ -91,7 +104,25 @@ IF {task} is provided:
   GENERATE: {sessionId} = "sess_" + 8 random alphanumeric chars
   SET: {startedAt} = GetTimestamp()
 
-  ### Create session JSON
+  ### Write state.json (SOURCE OF TRUTH)
+  READ: `{statePath}` (or create default if not exists)
+
+  UPDATE state.json:
+  ```json
+  {
+    "currentTask": {
+      "id": "task_{8_random_chars}",
+      "description": "{task}",
+      "startedAt": "{startedAt}",
+      "sessionId": "{sessionId}"
+    },
+    "lastUpdated": "{startedAt}"
+  }
+  ```
+
+  WRITE: `{statePath}`
+
+  ### Create session JSON (for detailed tracking)
   WRITE: `{sessionPath}`
   Content:
   ```json
@@ -117,17 +148,10 @@ IF {task} is provided:
   }
   ```
 
-  ### Update now.md (legacy support)
-  WRITE: `{nowPath}`
-  Content:
-  ```markdown
-  # NOW
+  ### Generate views (auto-regenerate MD from JSON)
+  BASH: `cd {projectRoot} && npx prjct-generate-views --project={projectId}`
 
-  **{task}**
-
-  Started: {startedAt}
-  Session: {sessionId}
-  ```
+  Note: This regenerates views/now.md from data/state.json automatically.
 
   ### Log to memory
   APPEND to: `{memoryPath}`

@@ -73,61 +73,61 @@ function normalizeCurrentTask(stats: StatsResult): NormalizedCurrentTask | null 
     return {
       task: stats.state.currentTask.description,
       startedAt: stats.state.currentTask.startedAt,
-      agent: stats.state.currentTask.agent,
-      estimatedDuration: stats.state.currentTask.estimatedDuration,
-      pausedAt: stats.state.currentTask.pausedAt,
-      pauseReason: stats.state.currentTask.pauseReason,
+      // Simplified - removed legacy fields not in new schema
     }
   }
   return stats.legacyStats?.currentTask ?? null
 }
 
 function normalizeQueue(stats: StatsResult): NormalizedQueueItem[] {
-  if (stats.state?.queue) {
-    return stats.state.queue.map(q => ({
-      task: q.description,
-      priority: q.priority,
-      estimatedDuration: q.estimatedDuration,
-    }))
+  if (stats.queue?.tasks) {
+    return stats.queue.tasks
+      .filter(t => !t.completed)
+      .map(q => ({
+        task: q.description,
+        priority: q.priority,
+      }))
   }
   return stats.legacyStats?.queue ?? []
 }
 
 function normalizeRoadmap(stats: StatsResult): NormalizedRoadmap | null {
-  if (stats.roadmap.length > 0) {
-    const completed = stats.roadmap.filter(f =>
+  const features = stats.roadmap?.features ?? []
+  if (features.length > 0) {
+    const completed = features.filter(f =>
       f.status === 'shipped' || f.status === 'completed'
     ).length
 
     return {
-      phases: stats.roadmap.map(f => ({
+      phases: features.map(f => ({
         name: f.name,
         progress: f.status === 'shipped' || f.status === 'completed' ? 100 :
-                  f.status === 'in_progress' ? 50 : 0,
+                  f.status === 'active' ? 50 : 0,
         features: f.tasks.map(t => ({
           name: t.description,
           status: t.completed ? 'completed' : 'pending'
         }))
       })),
-      progress: Math.round((completed / stats.roadmap.length) * 100)
+      progress: Math.round((completed / features.length) * 100)
     }
   }
   return stats.legacyStats?.roadmap ?? null
 }
 
 function normalizeShipped(stats: StatsResult): NormalizedShip[] {
-  return stats.shipped.map(s => ({
-    name: s.description,
+  const items = stats.shipped?.items ?? []
+  return items.map(s => ({
+    name: s.name,
     date: s.shippedAt,
-    duration: s.duration,
   }))
 }
 
 function normalizeIdeas(stats: StatsResult): NormalizedIdea[] {
-  return stats.ideas
+  const ideas = stats.ideas?.ideas ?? []
+  return ideas
     .filter(i => i.status === 'pending')
     .map(i => ({
-      title: i.content,
+      title: i.text,
       impact: i.priority.toUpperCase()
     }))
 }
@@ -143,30 +143,29 @@ function normalizeAgents(stats: StatsResult): NormalizedAgent[] {
 }
 
 function normalizeTimeline(stats: StatsResult): TimelineEvent[] {
-  if (stats.state?.recentActivity) {
-    return stats.state.recentActivity.map(a => ({
+  if (stats.metrics?.recentActivity?.length) {
+    return stats.metrics.recentActivity.map((a: { timestamp: string; description: string; action?: string }) => ({
       ts: a.timestamp,
-      type: a.type,
+      type: a.action || 'task_completed',
       task: a.description,
-      duration: a.duration,
     }))
   }
   return stats.legacyStats?.timeline ?? []
 }
 
 function getVelocity(stats: StatsResult): number {
-  if (stats.state?.stats?.velocity) {
-    return parseFloat(stats.state.stats.velocity) || 0
+  if (stats.metrics?.velocity?.tasksPerDay) {
+    return stats.metrics.velocity.tasksPerDay
   }
   return stats.legacyStats?.metrics?.velocity?.tasksPerDay ?? 0
 }
 
 function getTotalShips(stats: StatsResult): number {
-  return stats.shipped.length || stats.legacyStats?.summary?.totalShipsEver || 0
+  return stats.shipped?.items?.length ?? stats.legacyStats?.summary?.totalShipsEver ?? 0
 }
 
 function getTasksCompleted(stats: StatsResult): number {
-  return stats.state?.stats?.tasksToday ?? stats.legacyStats?.metrics?.tasksCompleted ?? 0
+  return stats.metrics?.currentSprint?.tasksCompleted ?? stats.legacyStats?.metrics?.tasksCompleted ?? 0
 }
 
 interface PageProps {
@@ -187,12 +186,12 @@ export default async function ProjectStatsPage({ params }: PageProps) {
   }
 
   // Compute derived values using service functions
-  const streak = calculateStreak(stats.state)
+  const streak = calculateStreak(stats.metrics)
   const healthScore = calculateHealthScore(stats)
   const velocity = getVelocity(stats)
   const velocityChange = getVelocityChange(velocity)
   const insightMessage = getInsightMessage(stats, streak)
-  const weeklyVelocityData = getWeeklyVelocityData(stats.state?.recentActivity ?? [])
+  const weeklyVelocityData = getWeeklyVelocityData(stats.metrics)
 
   // Normalize data for components
   const currentTask = normalizeCurrentTask(stats)

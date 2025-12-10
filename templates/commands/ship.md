@@ -2,14 +2,22 @@
 allowed-tools: [Read, Write, Bash]
 description: 'Ship feature with automated workflow'
 timestamp-rule: 'GetTimestamp() and GetDate() for ALL timestamps'
+architecture: 'JSON-first - Write to data/*.json, views are generated'
 ---
 
 # /p:ship - Ship Feature Workflow
 
+## Architecture: JSON-First
+
+**Source of Truth**: `data/shipped.json`, `data/roadmap.json`
+**Generated Views**: `views/shipped.md`, `views/roadmap.md` (auto-generated)
+
 ## Context Variables
 - `{projectId}`: From `.prjct/prjct.config.json`
 - `{globalPath}`: `~/.prjct-cli/projects/{projectId}`
-- `{shippedPath}`: `{globalPath}/progress/shipped.md`
+- `{dataPath}`: `{globalPath}/data`
+- `{shippedPath}`: `{dataPath}/shipped.json`
+- `{roadmapPath}`: `{dataPath}/roadmap.json`
 - `{memoryPath}`: `{globalPath}/memory/context.jsonl`
 - `{snapshotDir}`: `{globalPath}/snapshots`
 - `{feature}`: User-provided feature name
@@ -144,51 +152,82 @@ IF contains "rejected" OR contains "failed":
 IF contains "no upstream":
   BASH: `git push -u origin HEAD`
 
-## Step 8: Log to Session
+## Step 8: Update Shipped (JSON)
 
-GET: {date} = GetDate()
-EXTRACT: {yearMonth} = YYYY-MM from {date}
+SET: {now} = GetTimestamp()
+GENERATE: {shipId} = "ship_" + 8 random alphanumeric chars
 
-ENSURE directory exists:
-BASH: `mkdir -p {globalPath}/progress/sessions/{yearMonth}`
+READ: `{shippedPath}` (or create default if not exists)
 
-APPEND to: `{globalPath}/progress/sessions/{yearMonth}/{date}.jsonl`
-
-Single line (JSONL):
+Default structure:
 ```json
-{"ts":"{GetTimestamp()}","type":"feature_ship","name":"{feature}","version":"{newVersion}","lint":"{lintStatus}","tests":"{testStatus}"}
+{
+  "items": [],
+  "lastUpdated": ""
+}
 ```
 
-## Step 9: Update Shipped Index
+### Get changes from git
+BASH: `git log --oneline -5`
+CAPTURE commit messages as {changes}
 
-READ: `{shippedPath}` (create if not exists)
-
-### Format New Entry
-
-```markdown
-## {GetDate()} - {feature}
-- Version: {newVersion}
-- Lint: {lintStatus} | Tests: {testStatus}
+### Create shipped item
+```json
+{
+  "id": "{shipId}",
+  "name": "{feature}",
+  "version": "{newVersion}",
+  "type": "feature",
+  "changes": [{changes as array}],
+  "metrics": {
+    "lintStatus": "{lintStatus}",
+    "testStatus": "{testStatus}"
+  },
+  "shippedAt": "{now}"
+}
 ```
 
-INSERT at top (after # Shipped header)
-
-### Archive Old Entries
-IF file has entries older than 30 days:
-  MOVE old entries to: `{globalPath}/progress/archive/shipped-{yearMonth}.md`
+### Update shipped.json
+```json
+{
+  "items": [
+    {new shipped item},
+    ...existing items
+  ],
+  "lastUpdated": "{now}"
+}
+```
 
 WRITE: `{shippedPath}`
 
-## Step 10: Log to Memory
+## Step 9: Update Roadmap Status (JSON)
+
+READ: `{roadmapPath}`
+
+### Find matching feature and update status
+For feature matching {feature}:
+  Set status = "shipped"
+  Set shippedAt = "{now}"
+  Set version = "{newVersion}"
+
+WRITE: `{roadmapPath}`
+
+## Step 10: Generate Views
+
+BASH: `cd {projectRoot} && npx prjct-generate-views --project={projectId}`
+
+Note: This regenerates views/shipped.md, views/roadmap.md from JSON automatically.
+
+## Step 11: Log to Memory
 
 APPEND to: `{memoryPath}`
 
 Single line (JSONL):
 ```json
-{"timestamp":"{GetTimestamp()}","action":"feature_shipped","feature":"{feature}","version":"{newVersion}"}
+{"timestamp":"{now}","action":"feature_shipped","shipId":"{shipId}","feature":"{feature}","version":"{newVersion}"}
 ```
 
-## Step 11: Create Snapshot (Undo/Redo Support)
+## Step 12: Create Snapshot (Undo/Redo Support)
 
 This creates a snapshot for the undo/redo system.
 

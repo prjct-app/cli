@@ -23,18 +23,18 @@ export async function GET(
       // Use new JSON loader (fast path)
       const jsonData = await loadUnifiedJsonData(projectId)
 
-      // Convert to stats-compatible format
+      // Convert to stats-compatible format using new architecture
       return NextResponse.json({
         success: true,
         version: 'v2',
         data: {
           currentTask: jsonData.state?.currentTask || null,
-          queue: jsonData.state?.queue || [],
-          stats: jsonData.state?.stats || { tasksToday: 0, tasksThisWeek: 0, streak: 0, velocity: '0', avgDuration: '0' },
+          queue: jsonData.queue?.tasks?.filter(t => !t.completed) || [],
+          metrics: jsonData.metrics || null,
           agents: jsonData.agents,
-          ideas: jsonData.ideas,
-          roadmap: jsonData.roadmap,
-          shipped: jsonData.shipped,
+          ideas: jsonData.ideas?.ideas || [],
+          roadmap: jsonData.roadmap?.features || [],
+          shipped: jsonData.shipped?.items || [],
           analysis: jsonData.analysis,
           outcomes: jsonData.outcomes,
           insights: jsonData.insights

@@ -1,12 +1,14 @@
 {
   "name": "prjct-cli",
-  "version": "0.11.6",
+  "version": "0.12.0",
   "description": "Built for Claude - Ship fast, track progress, stay focused. Developer momentum tool for indie hackers.",
   "main": "core/index.ts",
   "bin": {
     "prjct": "bin/prjct",
     "prjct-dev": "bin/dev.js",
-    "prjct-serve": "bin/serve.js"
+    "prjct-serve": "bin/serve.js",
+    "prjct-generate-views": "bin/generate-views.js",
+    "prjct-migrate": "bin/migrate-to-json.js"
   },
   "workspaces": [
     "packages/*"

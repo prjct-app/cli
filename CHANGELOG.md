@@ -1,5 +1,41 @@
 # Changelog
 
+## [0.12.0] - 2025-12-10
+
+### Added - JSON-First Architecture (Zero Data Loss)
+
+Major refactor: JSON is now source of truth. Claude reads/writes JSON, MD views are auto-generated.
+
+- **New Data Flow**
+  - `data/*.json` - Source of truth (Claude reads/writes)
+  - `views/*.md` - Auto-generated from JSON (Claude does NOT write MD)
+  - Web app reads JSON directly (no regex parsing)
+
+- **LLM-Based Migration** (`/api/migrate`)
+  - OpenRouter Claude-3.5-haiku extracts structured data from legacy MD
+  - Comprehensive pattern extraction rules for ZERO data loss
+  - Migrates: state, queue, ideas, roadmap, shipped, metrics, project
+
+- **Enriched Schemas** (capturing ALL data from MD)
+  - `shipped.json`: Added `agent`, `description`, `codeSnippets[]`, `commit{hash,message}`
+  - `queue.json`: Added `agent`, `groupName`, `groupId` per task
+  - `ideas.json`: Added `source`, `sourceFiles[]`, `stack{}`, `modules[]`, `roles[]`, `risks[]`
+  - `roadmap.json`: Added `duration{}`, `taskCount`, `agent`, `sprintName`, `completedDate`
+
+- **View Generator** (`bin/generate-views.js`)
+  - Generates MD from JSON for Claude context
+  - Templates: now.md, next.md, ideas.md, roadmap.md, shipped.md
+
+- **Files Added**:
+  - `packages/web/lib/services/migration.server.ts` - LLM migration service
+  - `packages/web/app/api/migrate/route.ts` - Migration API endpoint
+  - `core/view-generator.ts` - View generation from JSON
+  - `bin/generate-views.js` - CLI for view generation
+
+- **Files Modified**:
+  - `core/schemas/*.ts` - All schemas with enriched fields
+  - `packages/web/lib/json-loader.ts` - Types synced with schemas
+
 ## [0.11.6] - 2025-12-09
 
 ### Fixed - Terminal Responsive & Performance Issues
