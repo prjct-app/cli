@@ -100,7 +100,20 @@ app.prepare().then(() => {
     // Handle session creation directly in server (bypasses API route isolation)
     if (url.pathname === '/api/claude/sessions' && req.method === 'POST') {
       let body = ''
-      req.on('data', chunk => { body += chunk })
+      let bodySize = 0
+      const MAX_BODY_SIZE = 1024 * 1024 // 1MB limit
+
+      req.on('data', chunk => {
+        bodySize += chunk.length
+        if (bodySize > MAX_BODY_SIZE) {
+          res.statusCode = 413
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ success: false, error: 'Request body too large' }))
+          req.destroy()
+          return
+        }
+        body += chunk
+      })
       req.on('end', () => {
         try {
           const { sessionId, projectDir } = JSON.parse(body)
@@ -171,9 +184,16 @@ app.prepare().then(() => {
     })
   }, HEARTBEAT_INTERVAL)
 
-  // Cleanup on server close
+  // Cleanup on WSS close
   wss.on('close', () => {
     clearInterval(heartbeatInterval)
+  })
+
+  // Cleanup on server close
+  server.on('close', () => {
+    clearInterval(heartbeatInterval)
+    // Kill all active sessions
+    sessions.forEach((_, sessionId) => killSession(sessionId))
   })
 
   server.on('upgrade', (request, socket, head) => {

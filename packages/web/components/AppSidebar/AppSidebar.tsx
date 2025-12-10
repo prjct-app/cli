@@ -7,81 +7,130 @@ import {
   Settings,
   HelpCircle,
   Menu,
+  PanelLeft,
 } from 'lucide-react'
 import { Logo } from '@/components/Logo'
 import { cn } from '@/lib/utils'
 import { useState, useEffect } from 'react'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 const navItems = [
   { href: '/', icon: LayoutDashboard, label: 'Dashboard' },
 ]
 
-function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+function SidebarContent({
+  onNavigate,
+  isCollapsed = false,
+  onToggleCollapse
+}: {
+  onNavigate?: () => void
+  isCollapsed?: boolean
+  onToggleCollapse?: () => void
+}) {
   const pathname = usePathname()
 
   return (
     <>
       {/* Header */}
-      <div className="flex h-14 items-center justify-between px-3 border-b border-border">
+      <div className={cn(
+        "flex h-14 items-center border-b border-border",
+        isCollapsed ? "justify-center px-2" : "justify-between px-3"
+      )}>
         <Link href="/" onClick={onNavigate}>
-          <Logo size="xs" showText rounded />
+          <Logo size="xs" showText={!isCollapsed} rounded />
         </Link>
+        {onToggleCollapse && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={onToggleCollapse}
+                className="h-8 w-8 rounded-md flex items-center justify-center text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              >
+                <PanelLeft className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              {isCollapsed ? "Expand" : "Collapse"}
+            </TooltipContent>
+          </Tooltip>
+        )}
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto py-4 px-3">
+      <nav className={cn("flex-1 overflow-y-auto py-4", isCollapsed ? "px-2" : "px-3")}>
         <div className="space-y-1">
           {navItems.map(({ href, icon: Icon, label }) => {
             const isActive = pathname === href || (href !== '/' && pathname.startsWith(href))
-            return (
+            const linkContent = (
               <Link
                 key={href}
                 href={href}
                 onClick={onNavigate}
                 className={cn(
-                  'flex items-center gap-3 rounded-md px-3 py-2.5 transition-colors min-h-[44px]',
+                  'flex items-center rounded-md transition-colors min-h-[44px]',
+                  isCollapsed ? 'justify-center px-2' : 'gap-3 px-3',
+                  'py-2.5',
                   isActive
                     ? 'bg-accent text-accent-foreground'
                     : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                 )}
               >
                 <Icon className="h-5 w-5 shrink-0" />
-                <span className="text-sm font-medium">{label}</span>
+                {!isCollapsed && <span className="text-sm font-medium">{label}</span>}
               </Link>
             )
+
+            if (isCollapsed) {
+              return (
+                <Tooltip key={href}>
+                  <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
+                  <TooltipContent side="right">{label}</TooltipContent>
+                </Tooltip>
+              )
+            }
+            return linkContent
           })}
         </div>
       </nav>
 
       {/* Footer */}
-      <div className="border-t border-border p-3 space-y-1">
-        <Link
-          href="/settings"
-          onClick={onNavigate}
-          className={cn(
-            'flex items-center gap-3 rounded-md px-3 py-2.5 transition-colors min-h-[44px]',
-            pathname === '/settings'
-              ? 'bg-accent text-accent-foreground'
-              : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-          )}
-        >
-          <Settings className="h-5 w-5 shrink-0" />
-          <span className="text-sm font-medium">Settings</span>
-        </Link>
-        <Link
-          href="/help"
-          onClick={onNavigate}
-          className={cn(
-            'flex items-center gap-3 rounded-md px-3 py-2.5 transition-colors min-h-[44px]',
-            pathname === '/help'
-              ? 'bg-accent text-accent-foreground'
-              : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-          )}
-        >
-          <HelpCircle className="h-5 w-5 shrink-0" />
-          <span className="text-sm font-medium">Need help?</span>
-        </Link>
+      <div className={cn("border-t border-border space-y-1", isCollapsed ? "p-2" : "p-3")}>
+        {[
+          { href: '/settings', icon: Settings, label: 'Settings' },
+          { href: '/help', icon: HelpCircle, label: 'Need help?' }
+        ].map(({ href, icon: Icon, label }) => {
+          const isActive = pathname === href
+          const linkContent = (
+            <Link
+              key={href}
+              href={href}
+              onClick={onNavigate}
+              className={cn(
+                'flex items-center rounded-md transition-colors min-h-[44px]',
+                isCollapsed ? 'justify-center px-2' : 'gap-3 px-3',
+                'py-2.5',
+                isActive
+                  ? 'bg-accent text-accent-foreground'
+                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+              )}
+            >
+              <Icon className="h-5 w-5 shrink-0" />
+              {!isCollapsed && <span className="text-sm font-medium">{label}</span>}
+            </Link>
+          )
+
+          if (isCollapsed) {
+            return (
+              <Tooltip key={href}>
+                <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
+                <TooltipContent side="right">{label}</TooltipContent>
+              </Tooltip>
+            )
+          }
+          return linkContent
+        })}
       </div>
     </>
   )
@@ -90,6 +139,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 export function AppSidebar() {
   const [isOpen, setIsOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const [isCollapsed, setIsCollapsed] = useState(false)
 
   // Detect mobile on mount and resize
   useEffect(() => {
@@ -120,10 +170,16 @@ export function AppSidebar() {
     )
   }
 
-  // Desktop: Static sidebar
+  // Desktop: Collapsible sidebar
   return (
-    <aside className="hidden md:flex h-full w-60 flex-col border-r border-border bg-card">
-      <SidebarContent />
+    <aside className={cn(
+      "hidden md:flex h-full flex-col border-r border-border bg-card transition-all duration-200",
+      isCollapsed ? "w-14" : "w-60"
+    )}>
+      <SidebarContent
+        isCollapsed={isCollapsed}
+        onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
+      />
     </aside>
   )
 }

@@ -474,11 +474,13 @@ DESCRIPTION EXTRACTION:
   }
 
   // Generate views from new JSON files
+  // Fire and forget - don't block request to prevent OOM from subprocess spawning
   let viewsGenerated = false
   if (allSuccess) {
     try {
-      // Try to run the generate-views CLI command
-      await execAsync(`bun ${join(PRJCT_CLI_PATH, 'bin', 'generate-views.js')} --project=${projectId}`)
+      const child = exec(`bun ${join(PRJCT_CLI_PATH, 'bin', 'generate-views.js')} --project=${projectId}`)
+      child.on('error', (err) => console.error('[Views] Generation error:', err))
+      child.unref() // Allow parent to exit independently
       viewsGenerated = true
       results.push({ file: 'views', success: true })
     } catch (viewError) {
