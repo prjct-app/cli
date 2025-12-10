@@ -14,13 +14,22 @@ import {
   hasJsonState,
   type UnifiedJsonData,
   type StateJson,
+  type QueueJson,
+  type MetricsJson,
   type ProjectInsights,
-  type RecentActivity
 } from '@/lib/json-loader'
 import { getProjectStats as getLegacyStats, type ProjectStats } from '@/lib/parse-prjct-files'
 import { getProjects } from './projects.server'
 
-export type { UnifiedJsonData, StateJson, ProjectInsights }
+export type { UnifiedJsonData, StateJson, QueueJson, MetricsJson, ProjectInsights }
+
+// Activity type for recent activity tracking
+export interface RecentActivity {
+  timestamp: string
+  type: string
+  description?: string
+  duration?: string
+}
 
 const execAsync = promisify(exec)
 
@@ -61,6 +70,8 @@ export const getGlobalStats = cache(async (): Promise<GlobalStats> => {
  */
 export interface StatsResult {
   state: StateJson | null
+  queue: QueueJson | null
+  metrics: MetricsJson | null
   insights: ProjectInsights
   agents: UnifiedJsonData['agents']
   ideas: UnifiedJsonData['ideas']
@@ -82,11 +93,13 @@ const DEFAULT_INSIGHTS: ProjectInsights = {
 
 const EMPTY_STATS_RESULT: StatsResult = {
   state: null,
+  queue: null,
+  metrics: null,
   insights: DEFAULT_INSIGHTS,
   agents: [],
-  ideas: [],
-  roadmap: [],
-  shipped: [],
+  ideas: null,
+  roadmap: null,
+  shipped: null,
   outcomes: [],
   hasData: false,
   isLegacy: false
@@ -102,6 +115,8 @@ export const getStats = cache(async (projectId: string): Promise<StatsResult> =>
     const jsonData = await loadUnifiedJsonData(projectId)
     return {
       state: jsonData.state,
+      queue: jsonData.queue,
+      metrics: jsonData.metrics,
       insights: jsonData.insights,
       agents: jsonData.agents,
       ideas: jsonData.ideas,
@@ -133,15 +148,13 @@ export const getStats = cache(async (projectId: string): Promise<StatsResult> =>
 })
 
 /**
- * Calculate streak from recent activity (pure function, no mutation)
+ * Calculate streak from metrics (pure function, no mutation)
  */
-export function calculateStreak(state: StateJson | null): number {
-  if (!state?.recentActivity?.length) return 0
+export function calculateStreak(metrics: MetricsJson | null): number {
+  if (!metrics?.recentActivity?.length) return 0
 
   const activityDates = new Set(
-    state.recentActivity
-      .filter(a => a.type === 'task_completed')
-      .map(a => new Date(a.timestamp).toISOString().split('T')[0])
+    metrics.recentActivity.map((a: { timestamp: string }) => new Date(a.timestamp).toISOString().split('T')[0])
   )
 
   const today = new Date()
@@ -189,7 +202,9 @@ export function getInsightMessage(stats: StatsResult, streak: number): string {
   if (stats.state?.currentTask) return `Working on: ${stats.state.currentTask.description}`
   if (streak >= 7) return `${streak} day streak! You're on fire! 🔥`
   if (streak >= 3) return `${streak} day streak - keep it going!`
-  if (stats.state?.queue?.length) return `${stats.state.queue.length} tasks in queue`
+
+  const queueLength = stats.queue?.tasks?.filter(t => !t.completed).length ?? 0
+  if (queueLength > 0) return `${queueLength} tasks in queue`
   return 'Ready to start working'
 }
 
@@ -204,10 +219,10 @@ export function getVelocityChange(velocity: number): number {
 }
 
 /**
- * Get weekly velocity data from recent activity (last 7 days)
+ * Get weekly velocity data from metrics (last 7 days)
  */
-export function getWeeklyVelocityData(recentActivity: RecentActivity[]): number[] {
-  if (!recentActivity?.length) return []
+export function getWeeklyVelocityData(metrics: MetricsJson | null): number[] {
+  if (!metrics?.recentActivity?.length) return []
 
   const today = new Date()
 
@@ -216,8 +231,8 @@ export function getWeeklyVelocityData(recentActivity: RecentActivity[]): number[
     date.setDate(date.getDate() - (6 - i))
     const dateStr = date.toISOString().split('T')[0]
 
-    return recentActivity.filter(e =>
-      e.timestamp?.startsWith(dateStr) && e.type === 'task_completed'
+    return metrics.recentActivity.filter((e: { timestamp: string }) =>
+      e.timestamp?.startsWith(dateStr)
     ).length
   })
 }

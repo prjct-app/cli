@@ -2,9 +2,18 @@
 allowed-tools: [Read, Write, Bash, Glob, Grep]
 description: 'Sync state + generate agents + detect patterns'
 timestamp-rule: 'GetTimestamp() for all timestamps'
+architecture: 'JSON-first - Write to data/*.json, views are generated'
 ---
 
 # /p:sync - Sync Project State
+
+## Architecture: JSON-First
+
+This command:
+1. Analyzes the repository
+2. Generates agents
+3. Updates `data/project.json` (source of truth)
+4. Regenerates all MD views from JSON
 
 ## Context Variables
 - `{projectId}`: From `.prjct/prjct.config.json`
@@ -181,7 +190,7 @@ IF exists:
 
   WRITE: `{globalPath}/CLAUDE.md`
 
-## Step 6: Update project.json
+## Step 6: Update project.json (in data/)
 
 This file is the source of truth for the web dashboard. It maps projectId → repoPath.
 
@@ -191,7 +200,7 @@ This file is the source of truth for the web dashboard. It maps projectId → re
 - Try pyproject.toml → `[project] name`
 - Fallback to directory name (last segment of current path)
 
-WRITE: `{globalPath}/project.json`
+WRITE: `{globalPath}/data/project.json`
 
 ```json
 {
@@ -214,7 +223,23 @@ WRITE: `{globalPath}/project.json`
 
 NOTE: If project.json already exists, preserve `createdAt` field. Always update `lastSync` and `techStack`.
 
-## Step 7: Log to Memory
+Also write to root for backwards compatibility:
+WRITE: `{globalPath}/project.json` (same content)
+
+## Step 7: Generate Views from JSON
+
+Regenerate all MD views from the JSON source of truth:
+
+BASH: `cd {projectRoot} && npx prjct-generate-views --project={projectId}`
+
+This ensures:
+- views/now.md reflects data/state.json
+- views/next.md reflects data/queue.json
+- views/ideas.md reflects data/ideas.json
+- views/roadmap.md reflects data/roadmap.json
+- views/shipped.md reflects data/shipped.json
+
+## Step 8: Log to Memory
 
 APPEND to: `{memoryPath}`
 

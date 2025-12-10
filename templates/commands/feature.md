@@ -2,9 +2,15 @@
 allowed-tools: [Read, Write, Bash, Task, Glob]
 description: 'Value analysis + roadmap + task breakdown + auto-start'
 timestamp-rule: 'GetTimestamp() and GetDate() for ALL timestamps'
+architecture: 'JSON-first - Write to data/*.json, views are generated'
 ---
 
 # /p:feature - Add Feature to Roadmap
+
+## Architecture: JSON-First
+
+**Source of Truth**: `data/roadmap.json`, `data/queue.json`, `data/state.json`
+**Generated Views**: `views/roadmap.md`, `views/next.md`, `views/now.md` (auto-generated)
 
 ## Agent Delegation (REQUIRED)
 
@@ -46,9 +52,10 @@ Task(
 ## Context Variables
 - `{projectId}`: From `.prjct/prjct.config.json`
 - `{globalPath}`: `~/.prjct-cli/projects/{projectId}`
-- `{roadmapPath}`: `{globalPath}/planning/roadmap.md`
-- `{nextPath}`: `{globalPath}/core/next.md`
-- `{nowPath}`: `{globalPath}/core/now.md`
+- `{dataPath}`: `{globalPath}/data`
+- `{roadmapPath}`: `{dataPath}/roadmap.json`
+- `{queuePath}`: `{dataPath}/queue.json`
+- `{statePath}`: `{dataPath}/state.json`
 - `{memoryPath}`: `{globalPath}/memory/context.jsonl`
 - `{feature}`: User-provided feature description
 
@@ -142,90 +149,157 @@ For feature "add user authentication":
 
 GENERATE: {tasks} = list of task descriptions
 
-## Step 5: Update Roadmap
+## Step 5: Update Roadmap (JSON)
 
-READ: `{roadmapPath}` (create if not exists)
+READ: `{roadmapPath}` (or create default if not exists)
 
-### Format New Entry
-
-```markdown
-## {GetDate()} - {feature}
-- Impact: {impact} | Effort: {effort}
-- Tasks: {taskCount}
-- Status: active
-
-### Tasks
-1. [ ] {task1}
-2. [ ] {task2}
-...
+Default structure:
+```json
+{
+  "features": [],
+  "backlog": [],
+  "lastUpdated": ""
+}
 ```
 
-INSERT at top (after # Roadmap header)
+### Generate Feature ID
+GENERATE: {featureId} = "feat_" + 8 random alphanumeric chars
+SET: {now} = GetTimestamp()
 
-### Archive Old Entries
-IF entries older than 30 days exist:
-  MOVE to: `{globalPath}/planning/archive/roadmap-{yearMonth}.md`
+### Create Feature Entry
+```json
+{
+  "id": "{featureId}",
+  "name": "{feature}",
+  "impact": "{impact}",
+  "effort": "{effort}",
+  "status": "active",
+  "progress": 0,
+  "tasks": [
+    {
+      "id": "task_{8_random}",
+      "description": "{task1}",
+      "completed": false,
+      "createdAt": "{now}"
+    },
+    {
+      "id": "task_{8_random}",
+      "description": "{task2}",
+      "completed": false,
+      "createdAt": "{now}"
+    }
+    ...
+  ],
+  "createdAt": "{now}"
+}
+```
+
+### Update roadmap.json
+```json
+{
+  "features": [
+    {new feature entry},
+    ...existing features
+  ],
+  "backlog": [...existing],
+  "lastUpdated": "{now}"
+}
+```
 
 WRITE: `{roadmapPath}`
 
-## Step 6: Update Priority Queue
+## Step 6: Update Priority Queue (JSON)
 
-READ: `{nextPath}` (create if not exists)
+READ: `{queuePath}` (or create default if not exists)
+
+Default structure:
+```json
+{
+  "tasks": [],
+  "lastUpdated": ""
+}
+```
 
 ### Add Tasks to Queue
-
 For each task in {tasks}:
-  APPEND to next.md:
-  ```markdown
-  - [ ] {task} (from: {feature})
-  ```
+```json
+{
+  "id": "task_{8_random}",
+  "description": "{task}",
+  "priority": "medium",
+  "featureId": "{featureId}",
+  "completed": false,
+  "createdAt": "{now}"
+}
+```
 
-WRITE: `{nextPath}`
+### Update queue.json
+```json
+{
+  "tasks": [
+    ...new tasks,
+    ...existing tasks
+  ],
+  "lastUpdated": "{now}"
+}
+```
 
-## Step 7: Auto-Start First Task
+WRITE: `{queuePath}`
 
-READ: `{nowPath}`
+## Step 7: Auto-Start First Task (JSON)
 
-IF empty OR contains "No current task":
+READ: `{statePath}` (or create default)
+
+IF currentTask is null:
   ### Start First Task
   {firstTask} = first item from {tasks}
+  GENERATE: {sessionId} = "sess_" + 8 random alphanumeric chars
 
-  WRITE: `{nowPath}`
-  ```markdown
-  # NOW
-
-  **{firstTask}**
-
-  Feature: {feature}
-  Started: {GetTimestamp()}
+  ### Update state.json
+  ```json
+  {
+    "currentTask": {
+      "id": "task_{8_random}",
+      "description": "{firstTask}",
+      "startedAt": "{now}",
+      "sessionId": "{sessionId}",
+      "featureId": "{featureId}"
+    },
+    "lastUpdated": "{now}"
+  }
   ```
 
+  WRITE: `{statePath}`
   {autoStarted} = true
 ELSE:
   {autoStarted} = false
 
-## Step 8: Log to Session
+## Step 8: Generate Views
+
+BASH: `cd {projectRoot} && npx prjct-generate-views --project={projectId}`
+
+Note: This regenerates views/roadmap.md, views/next.md, views/now.md from JSON automatically.
+
+## Step 9: Log to Memory
 
 GET: {date} = GetDate()
 EXTRACT: {yearMonth} = YYYY-MM from {date}
 
 ENSURE directory:
-BASH: `mkdir -p {globalPath}/planning/sessions/{yearMonth}`
+BASH: `mkdir -p {globalPath}/memory/sessions/{yearMonth}`
 
-APPEND to: `{globalPath}/planning/sessions/{yearMonth}/{date}.jsonl`
+APPEND to: `{globalPath}/memory/sessions/{yearMonth}/{date}.jsonl`
 
 Single line (JSONL):
 ```json
-{"ts":"{GetTimestamp()}","type":"feature_add","name":"{feature}","tasks":{taskCount},"impact":"{impact}","effort":"{effort}"}
+{"ts":"{now}","type":"feature_add","featureId":"{featureId}","name":"{feature}","tasks":{taskCount},"impact":"{impact}","effort":"{effort}"}
 ```
-
-## Step 9: Log to Memory
 
 APPEND to: `{memoryPath}`
 
 Single line (JSONL):
 ```json
-{"timestamp":"{GetTimestamp()}","action":"feature_added","feature":"{feature}","tasks":{taskCount}}
+{"timestamp":"{now}","action":"feature_added","featureId":"{featureId}","feature":"{feature}","tasks":{taskCount}}
 ```
 
 ## Output

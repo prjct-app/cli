@@ -2,18 +2,28 @@
 allowed-tools: [Read, Write, Bash]
 description: 'Complete current task with session metrics'
 timestamp-rule: 'GetTimestamp() for all timestamps'
+architecture: 'JSON-first - Write to data/*.json, views are generated'
 ---
 
 # /p:done - Complete Current Task with Session Metrics
 
+## Architecture: JSON-First
+
+**Source of Truth**: `data/state.json`, `data/queue.json`, `data/metrics.json`
+**Generated Views**: `views/now.md`, `views/next.md` (auto-generated)
+
+All writes go to JSON. After writing, views are auto-regenerated.
+
 ## Context Variables
 - `{projectId}`: From `.prjct/prjct.config.json`
 - `{globalPath}`: `~/.prjct-cli/projects/{projectId}`
-- `{nowPath}`: `{globalPath}/core/now.md`
+- `{dataPath}`: `{globalPath}/data`
+- `{statePath}`: `{dataPath}/state.json`
+- `{queuePath}`: `{dataPath}/queue.json`
+- `{metricsJsonPath}`: `{dataPath}/metrics.json`
 - `{sessionPath}`: `{globalPath}/sessions/current.json`
 - `{archiveDir}`: `{globalPath}/sessions/archive`
 - `{memoryPath}`: `{globalPath}/memory/context.jsonl`
-- `{metricsPath}`: `{globalPath}/progress/metrics.md`
 
 ## Step 1: Read Config
 
@@ -26,18 +36,23 @@ IF file not found:
 
 ## Step 2: Check Session State
 
-### Try structured session first
+### Read state.json (source of truth)
+READ: `{statePath}`
+
+IF file exists AND has currentTask:
+  EXTRACT: {task} = state.currentTask
+  GOTO Step 3 (Session Completion)
+
+### Try structured session (for detailed metrics)
 READ: `{sessionPath}`
 
 IF file exists:
   PARSE as JSON
   EXTRACT: {session} object
-  GOTO Step 3 (Session Completion)
+ELSE:
+  CREATE session from state.currentTask data
 
-### Fallback to legacy now.md
-READ: `{nowPath}`
-
-IF empty OR contains "No current task":
+IF no currentTask in state.json:
   OUTPUT: "⚠️ No active task to complete. Use /p:now to start one."
   STOP
 
@@ -100,48 +115,77 @@ BASH: `mkdir -p {archiveDir}/{yearMonth}`
 WRITE: `{archiveDir}/{yearMonth}/{session.id}.json`
 Content: Updated session object from Step 3
 
-## Step 5: Clear Current Session
+## Step 5: Clear Current State (JSON)
 
-DELETE: `{sessionPath}`
+### Clear state.json (SOURCE OF TRUTH)
+READ: `{statePath}`
 
-OR WRITE empty state:
+UPDATE state.json:
+```json
+{
+  "currentTask": null,
+  "lastUpdated": "{now}"
+}
+```
+
+WRITE: `{statePath}`
+
+### Clear session.json
 WRITE: `{sessionPath}`
 Content:
 ```json
 {}
 ```
 
-## Step 6: Update Legacy now.md
+## Step 6: Update Metrics (JSON)
 
-WRITE: `{nowPath}`
-Content:
-```markdown
-# NOW
+READ: `{metricsJsonPath}` (or create default if not exists)
 
-No current task. Use `/p:now` to set focus.
+### Update metrics.json
+```json
+{
+  "velocity": {
+    "tasksPerDay": {calculated},
+    "avgTaskDuration": {calculated}
+  },
+  "allTime": {
+    "totalTasks": {increment by 1},
+    "totalTime": {add duration},
+    "daysActive": {recalculate}
+  },
+  "recentTasks": [
+    {
+      "task": "{session.task}",
+      "duration": {duration},
+      "completedAt": "{now}",
+      "metrics": {
+        "filesChanged": {filesChanged},
+        "linesAdded": {linesAdded},
+        "linesRemoved": {linesRemoved},
+        "commits": {commits}
+      }
+    },
+    ...existing recent tasks (keep last 10)
+  ],
+  "lastUpdated": "{now}"
+}
 ```
 
-## Step 7: Log to Memory
+WRITE: `{metricsJsonPath}`
+
+## Step 7: Generate Views
+
+BASH: `cd {projectRoot} && npx prjct-generate-views --project={projectId}`
+
+Note: This regenerates views/now.md, views/next.md from JSON automatically.
+
+## Step 8: Log to Memory
 
 APPEND to: `{memoryPath}`
 
 Single line (JSONL format):
 ```json
 {"timestamp":"{now}","action":"session_completed","sessionId":"{session.id}","task":"{session.task}","duration":{duration},"metrics":{"files":{filesChanged},"added":{linesAdded},"removed":{linesRemoved},"commits":{commits}}}
-```
-
-## Step 8: Update Metrics Summary
-
-READ: `{metricsPath}` (create if not exists)
-
-### Append Daily Entry
-GET: {date} = YYYY-MM-DD from {now}
-
-INSERT or UPDATE entry for {date}:
-```markdown
-### {date}
-- **{session.task}** ({durationFormatted})
-  - Files: {filesChanged} | +{linesAdded}/-{linesRemoved} | Commits: {commits}
 ```
 
 ## Output

@@ -12,7 +12,9 @@ import type { IPty } from 'node-pty'
 
 const dev = process.env.NODE_ENV !== 'production'
 const hostname = 'localhost'
-const port = parseInt(process.env.PORT || '9472', 10)
+// Dev: 9471, Prod: 9472 (allows running both simultaneously for testing)
+const defaultPort = dev ? 9471 : 9472
+const port = parseInt(process.env.PORT || String(defaultPort), 10)
 
 // PTY Sessions stored in server memory
 interface Session {
