@@ -8,6 +8,7 @@ import { TerminalTabs } from '@/components/TerminalTabs'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,8 +42,11 @@ import {
   Activity,
   History,
   Undo2,
-  Redo2
+  Redo2,
+  Command,
+  X
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 // Commands ordered by real developer workflow
 const WORKFLOW_COMMANDS = [
@@ -64,11 +68,77 @@ const WORKFLOW_COMMANDS = [
 
 const COMMAND_GROUPS = ['work', 'session', 'plan', 'ship', 'status', 'recovery'] as const
 
+// Command sidebar content - shared between desktop and mobile
+function CommandSidebarContent({
+  projectId,
+  project,
+  isActiveConnected,
+  sendCommandToActive,
+  onCommandClick
+}: {
+  projectId: string
+  project: { name?: string; iconPath?: string | null }
+  isActiveConnected: boolean
+  sendCommandToActive: (cmd: string) => void
+  onCommandClick?: () => void
+}) {
+  const router = useRouter()
+
+  const handleCommand = (cmd: string) => {
+    sendCommandToActive(cmd)
+    onCommandClick?.()
+  }
+
+  return (
+    <>
+      <div className="h-14 flex items-center justify-center border-b border-border w-full">
+        <ProjectAvatar
+          projectId={projectId}
+          name={project.name || projectId}
+          iconPath={project.iconPath}
+        />
+      </div>
+
+      <div className="flex-1 flex flex-col gap-1 overflow-auto py-3">
+        {/* Stats button - navigates to stats page */}
+        <CommandButton
+          cmd="Project stats"
+          icon={BarChart3}
+          tip="Stats"
+          disabled={false}
+          onClick={() => {
+            router.push(`/project/${projectId}/stats`)
+            onCommandClick?.()
+          }}
+        />
+        <div className="border-b border-border w-8 my-2 mx-auto" />
+
+        {COMMAND_GROUPS.map((group, groupIndex) => (
+          <div key={group} className="flex flex-col items-center">
+            {WORKFLOW_COMMANDS.filter(c => c.group === group).map(({ cmd, icon, tip }) => (
+              <CommandButton
+                key={cmd}
+                cmd={cmd}
+                icon={icon}
+                tip={tip}
+                disabled={!isActiveConnected}
+                onClick={() => handleCommand(cmd)}
+              />
+            ))}
+            {groupIndex < COMMAND_GROUPS.length - 1 && (
+              <div className="border-b border-border w-8 my-2" />
+            )}
+          </div>
+        ))}
+      </div>
+    </>
+  )
+}
+
 // Inner component that uses the terminal context
 function ProjectPageContent({ projectId, project }: { projectId: string; project: NonNullable<ReturnType<typeof useProject>['data']> }) {
   const router = useRouter()
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const deleteMutation = useDeleteProject()
+  const [commandSheetOpen, setCommandSheetOpen] = useState(false)
 
   const {
     sessions,
@@ -84,74 +154,56 @@ function ProjectPageContent({ projectId, project }: { projectId: string; project
     <div className="h-full">
       <TooltipProvider>
         <div className="flex h-full">
-          {/* Sidebar */}
-          <aside className="w-14 border-r border-border flex flex-col bg-card/50 items-center">
-            <div className="h-14 flex items-center justify-center border-b border-border w-full">
-              <ProjectAvatar
-                projectId={projectId}
-                name={project.name || projectId}
-                iconPath={project.iconPath}
-              />
-            </div>
-
-            <div className="flex-1 flex flex-col gap-1 overflow-auto py-3">
-              {/* Stats button - navigates to stats page */}
-              <CommandButton
-                cmd="Project stats"
-                icon={BarChart3}
-                tip="Stats"
-                disabled={false}
-                onClick={() => router.push(`/project/${projectId}/stats`)}
-              />
-              <div className="border-b border-border w-8 my-2 mx-auto" />
-
-              {COMMAND_GROUPS.map((group, groupIndex) => (
-                <div key={group} className="flex flex-col items-center">
-                  {WORKFLOW_COMMANDS.filter(c => c.group === group).map(({ cmd, icon, tip }) => (
-                    <CommandButton
-                      key={cmd}
-                      cmd={cmd}
-                      icon={icon}
-                      tip={tip}
-                      disabled={!isActiveConnected}
-                      onClick={() => sendCommandToActive(cmd)}
-                    />
-                  ))}
-                  {groupIndex < COMMAND_GROUPS.length - 1 && (
-                    <div className="border-b border-border w-8 my-2" />
-                  )}
-                </div>
-              ))}
-            </div>
+          {/* Desktop Sidebar - hidden on mobile */}
+          <aside className="hidden md:flex w-14 border-r border-border flex-col bg-card/50 items-center">
+            <CommandSidebarContent
+              projectId={projectId}
+              project={project}
+              isActiveConnected={isActiveConnected}
+              sendCommandToActive={sendCommandToActive}
+            />
           </aside>
 
           {/* Main */}
-          <main className="flex-1 flex flex-col">
-            <header className="h-14 flex items-center justify-between px-4 border-b border-border bg-card">
-              <div className="flex items-center gap-4">
-                <div className="flex flex-col">
+          <main className="flex-1 flex flex-col min-w-0">
+            {/* Header - Responsive */}
+            <header className="h-auto md:h-14 flex flex-col md:flex-row md:items-center justify-between px-3 md:px-4 py-2 md:py-0 border-b border-border bg-card gap-2">
+              {/* Mobile: Add padding for hamburger menu */}
+              <div className="flex items-center gap-3 pl-12 md:pl-0">
+                {/* Mobile: Show project avatar */}
+                <div className="md:hidden">
+                  <ProjectAvatar
+                    projectId={projectId}
+                    name={project.name || projectId}
+                    iconPath={project.iconPath}
+                    size="sm"
+                  />
+                </div>
+                <div className="flex flex-col min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold leading-tight">{project.name || projectId}</span>
+                    <span className="font-bold leading-tight truncate">{project.name || projectId}</span>
                     {project.version && (
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-mono">
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-mono shrink-0">
                         v{project.version}
                       </Badge>
                     )}
                   </div>
                   {project.repoPath && (
-                    <span className="text-xs text-muted-foreground leading-tight flex items-center gap-1">
-                      <FolderGit2 className="w-3 h-3" />
-                      {formatPath(project.repoPath)}
+                    <span className="text-xs text-muted-foreground leading-tight flex items-center gap-1 truncate">
+                      <FolderGit2 className="w-3 h-3 shrink-0" />
+                      <span className="truncate">{formatPath(project.repoPath)}</span>
                     </span>
                   )}
                 </div>
                 {hasActiveSessions && (
-                  <Badge variant="outline" className="text-green-500 border-green-500/50">
+                  <Badge variant="outline" className="text-green-500 border-green-500/50 shrink-0">
                     {sessions.filter(s => s.isConnected).length} active
                   </Badge>
                 )}
               </div>
-              <div className="flex items-center gap-4">
+
+              {/* Desktop only: metadata and tech stack */}
+              <div className="hidden md:flex items-center gap-4">
                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
                   {project.stack && <span>{project.stack}</span>}
                   {project.filesCount && (
@@ -166,12 +218,86 @@ function ProjectPageContent({ projectId, project }: { projectId: string; project
             </header>
 
             {/* Terminal tabs area */}
-            <div className="flex-1">
+            <div className="flex-1 min-h-0">
               <TerminalTabs projectDir={project.repoPath || project.path || '/tmp'} />
             </div>
           </main>
         </div>
 
+        {/* Mobile: Floating Action Button for commands */}
+        <div className="md:hidden fixed bottom-4 right-4 z-50">
+          <Sheet open={commandSheetOpen} onOpenChange={setCommandSheetOpen}>
+            <SheetTrigger asChild>
+              <button
+                className={cn(
+                  "h-14 w-14 rounded-full shadow-lg flex items-center justify-center transition-all",
+                  isActiveConnected
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                    : "bg-muted text-muted-foreground"
+                )}
+                aria-label="Open commands"
+              >
+                <Command className="h-6 w-6" />
+              </button>
+            </SheetTrigger>
+            <SheetContent side="bottom" className="h-[70vh] rounded-t-2xl px-0">
+              <div className="flex flex-col h-full">
+                <div className="px-4 pb-2 border-b border-border">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold">Commands</h3>
+                    <Badge variant={isActiveConnected ? "default" : "secondary"}>
+                      {isActiveConnected ? "Connected" : "Disconnected"}
+                    </Badge>
+                  </div>
+                </div>
+
+                {/* Command grid for mobile */}
+                <div className="flex-1 overflow-auto p-4">
+                  <div className="grid grid-cols-4 gap-3">
+                    {/* Stats button */}
+                    <button
+                      onClick={() => {
+                        router.push(`/project/${projectId}/stats`)
+                        setCommandSheetOpen(false)
+                      }}
+                      className="flex flex-col items-center gap-1.5 p-3 rounded-lg hover:bg-accent transition-colors"
+                    >
+                      <div className="h-10 w-10 rounded-full bg-accent flex items-center justify-center">
+                        <BarChart3 className="h-5 w-5" />
+                      </div>
+                      <span className="text-xs text-muted-foreground">Stats</span>
+                    </button>
+
+                    {WORKFLOW_COMMANDS.map(({ cmd, icon: Icon, tip }) => (
+                      <button
+                        key={cmd}
+                        onClick={() => {
+                          sendCommandToActive(cmd)
+                          setCommandSheetOpen(false)
+                        }}
+                        disabled={!isActiveConnected}
+                        className={cn(
+                          "flex flex-col items-center gap-1.5 p-3 rounded-lg transition-colors",
+                          isActiveConnected
+                            ? "hover:bg-accent"
+                            : "opacity-50 cursor-not-allowed"
+                        )}
+                      >
+                        <div className={cn(
+                          "h-10 w-10 rounded-full flex items-center justify-center",
+                          isActiveConnected ? "bg-accent" : "bg-muted"
+                        )}>
+                          <Icon className="h-5 w-5" />
+                        </div>
+                        <span className="text-xs text-muted-foreground">{tip}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
       </TooltipProvider>
     </div>
   )
@@ -195,16 +321,16 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 
   if (!project) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center space-y-4">
+      <div className="flex items-center justify-center h-full p-4">
+        <div className="text-center space-y-4 max-w-sm">
           <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto">
             <AlertTriangle className="w-8 h-8 text-muted-foreground" />
           </div>
           <div>
             <h2 className="text-lg font-medium">Project not found</h2>
-            <p className="text-sm text-muted-foreground mt-1">ID: {projectId}</p>
+            <p className="text-sm text-muted-foreground mt-1 break-all">ID: {projectId}</p>
           </div>
-          <div className="flex gap-2 justify-center">
+          <div className="flex flex-col sm:flex-row gap-2 justify-center">
             <Button variant="outline" onClick={() => router.push('/')}>
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Dashboard
@@ -216,7 +342,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
           </div>
 
           <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-            <AlertDialogContent>
+            <AlertDialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg">
               <AlertDialogHeader>
                 <AlertDialogTitle className="flex items-center gap-2">
                   <AlertTriangle className="w-5 h-5 text-destructive" />
@@ -225,15 +351,17 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                 <AlertDialogDescription>
                   This will move the project storage to trash.
                   <br />
-                  <span className="text-muted-foreground text-sm">ID: {projectId}</span>
+                  <span className="text-muted-foreground text-sm break-all">ID: {projectId}</span>
                 </AlertDialogDescription>
               </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel disabled={deleteMutation.isPending}>Cancel</AlertDialogCancel>
+              <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+                <AlertDialogCancel disabled={deleteMutation.isPending} className="w-full sm:w-auto">
+                  Cancel
+                </AlertDialogCancel>
                 <AlertDialogAction
                   onClick={() => deleteMutation.mutate(projectId, { onSuccess: () => router.push('/') })}
                   disabled={deleteMutation.isPending}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90 w-full sm:w-auto"
                 >
                   {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
                 </AlertDialogAction>

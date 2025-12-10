@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { loadUnifiedJsonData, hasJsonState } from '@/lib/json-loader'
 import { getProjectStats, getRawProjectFiles } from '@/lib/parse-prjct-files'
 
 export async function GET(
@@ -15,7 +16,33 @@ export async function GET(
   }
 
   try {
-    // Get both parsed stats AND raw files
+    // Check if JSON files exist (new format)
+    const hasJson = await hasJsonState(projectId)
+
+    if (hasJson) {
+      // Use new JSON loader (fast path)
+      const jsonData = await loadUnifiedJsonData(projectId)
+
+      // Convert to stats-compatible format
+      return NextResponse.json({
+        success: true,
+        version: 'v2',
+        data: {
+          currentTask: jsonData.state?.currentTask || null,
+          queue: jsonData.state?.queue || [],
+          stats: jsonData.state?.stats || { tasksToday: 0, tasksThisWeek: 0, streak: 0, velocity: '0', avgDuration: '0' },
+          agents: jsonData.agents,
+          ideas: jsonData.ideas,
+          roadmap: jsonData.roadmap,
+          shipped: jsonData.shipped,
+          analysis: jsonData.analysis,
+          outcomes: jsonData.outcomes,
+          insights: jsonData.insights
+        }
+      })
+    }
+
+    // Fallback to legacy markdown parsing
     const [stats, raw] = await Promise.all([
       getProjectStats(projectId),
       getRawProjectFiles(projectId)
@@ -23,8 +50,9 @@ export async function GET(
 
     return NextResponse.json({
       success: true,
+      version: 'v1-legacy',
       data: stats,
-      raw  // Raw markdown files for direct rendering
+      raw
     })
   } catch (error) {
     console.error('[API] Error getting project stats:', error)

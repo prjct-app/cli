@@ -13,8 +13,9 @@
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts",
-    "dev": "tsup src/index.ts --format esm --dts --watch",
+    "build": "bun build src/index.ts --outdir ./dist --target bun && bun run build:types",
+    "build:types": "tsc --emitDeclarationOnly --declaration --outDir dist",
+    "dev": "bun build src/index.ts --outdir ./dist --target bun --watch",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src"
   },
@@ -22,8 +23,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "esbuild": "^0.25.0",
-    "tsup": "^8.0.2",
+    "@types/bun": "latest",
     "typescript": "^5.4.5"
   }
 }

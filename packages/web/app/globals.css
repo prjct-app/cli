@@ -119,6 +119,44 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* Prevent pull-to-refresh on mobile */
+    overscroll-behavior: none;
+    /* Prevent text selection on touch devices for UI elements */
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Safe areas for notched devices (iPhone X+, etc) */
+  html {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  /* Smooth scrolling with momentum on iOS */
+  .overflow-auto,
+  .overflow-y-auto,
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Hide scrollbars while preserving functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Better touch targets for small buttons */
+  .touch-target-sm {
+    min-height: 36px;
+    min-width: 36px;
+  }
+  .touch-target-md {
+    min-height: 44px;
+    min-width: 44px;
   }
 }
 

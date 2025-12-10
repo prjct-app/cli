@@ -8,6 +8,29 @@ on:
   workflow_dispatch:
 
 jobs:
+  test-bun:
+    name: Test Bun Installation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Test bun installation (local)
+        run: |
+          bun install
+          bun link
+
+      - name: Verify installation
+        run: |
+          which prjct
+          prjct 2>&1 | grep -q "Available commands" || exit 1
+
   test-npm:
     name: Test npm Installation
     runs-on: ubuntu-latest
@@ -46,14 +69,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: '18'
+          bun-version: latest
 
-      - name: Install globally via npm
+      - name: Install globally via bun
         run: |
-          npm install -g .
+          bun install
+          bun link
 
       - name: Run verification tests
         run: |
@@ -76,18 +100,20 @@ jobs:
   report-results:
     name: Report Test Results
     runs-on: ubuntu-latest
-    needs: [test-npm, test-verification]
+    needs: [test-bun, test-npm, test-verification]
     if: always()
 
     steps:
       - name: Check test results
         run: |
           echo "Test Results Summary:"
+          echo "- Bun: ${{ needs.test-bun.result }}"
           echo "- npm: ${{ needs.test-npm.result }}"
           echo "- Verification: ${{ needs.test-verification.result }}"
 
           # Fail if any test failed
-          if [ "${{ needs.test-npm.result }}" != "success" ] || \
+          if [ "${{ needs.test-bun.result }}" != "success" ] || \
+             [ "${{ needs.test-npm.result }}" != "success" ] || \
              [ "${{ needs.test-verification.result }}" != "success" ]; then
             echo "❌ Some tests failed"
             exit 1

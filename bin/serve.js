@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 
 /**
  * prjct serve - Start the web server
@@ -6,16 +6,21 @@
  * Launches the prjct web interface with Claude Code CLI integration.
  * Uses your existing Claude subscription via PTY - no API costs!
  *
- * Auto-installs dependencies on first run.
+ * Smart dependency management:
+ * - Tracks installed version in .prjct-web-state.json
+ * - Only installs when version changes or node_modules missing
+ * - Reuses existing prjct-web server if already running on port
  */
 
-const { spawn, spawnSync } = require('child_process')
+const { spawn, spawnSync, execSync } = require('child_process')
 const path = require('path')
 const fs = require('fs')
 
 const packagesDir = path.join(__dirname, '..', 'packages')
 const sharedDir = path.join(packagesDir, 'shared')
 const webDir = path.join(packagesDir, 'web')
+const prjctDir = path.join(require('os').homedir(), '.prjct-cli')
+const stateFile = path.join(prjctDir, '.prjct-web-state.json')
 
 // Parse arguments
 const args = process.argv.slice(2)
@@ -30,26 +35,123 @@ if (!fs.existsSync(webDir)) {
   process.exit(1)
 }
 
-// Check if dependencies are installed
-const sharedNodeModules = path.join(sharedDir, 'node_modules')
-const webNodeModules = path.join(webDir, 'node_modules')
-const needsSharedInstall = fs.existsSync(sharedDir) && !fs.existsSync(sharedNodeModules)
-const needsWebInstall = !fs.existsSync(webNodeModules)
+/**
+ * Read the current state file
+ */
+function readState() {
+  try {
+    if (fs.existsSync(stateFile)) {
+      return JSON.parse(fs.readFileSync(stateFile, 'utf8'))
+    }
+  } catch {
+    // Ignore errors, return empty state
+  }
+  return {}
+}
 
-if (needsSharedInstall || needsWebInstall) {
+/**
+ * Write state file
+ */
+function writeState(state) {
+  try {
+    // Ensure ~/.prjct-cli directory exists
+    if (!fs.existsSync(prjctDir)) {
+      fs.mkdirSync(prjctDir, { recursive: true })
+    }
+    fs.writeFileSync(stateFile, JSON.stringify(state, null, 2))
+  } catch {
+    // Ignore write errors
+  }
+}
+
+/**
+ * Get package.json version and hash of dependencies
+ */
+function getPackageInfo(pkgPath) {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(pkgPath, 'package.json'), 'utf8'))
+    const deps = JSON.stringify(pkg.dependencies || {}) + JSON.stringify(pkg.devDependencies || {})
+    // Simple hash of dependencies
+    let hash = 0
+    for (let i = 0; i < deps.length; i++) {
+      const char = deps.charCodeAt(i)
+      hash = ((hash << 5) - hash) + char
+      hash = hash & hash // Convert to 32bit integer
+    }
+    return { version: pkg.version, depsHash: hash.toString(16) }
+  } catch {
+    return { version: '0.0.0', depsHash: '0' }
+  }
+}
+
+/**
+ * Check if dependencies need to be installed
+ */
+function needsInstall(pkgDir, stateKey) {
+  const nodeModules = path.join(pkgDir, 'node_modules')
+
+  // If node_modules doesn't exist, definitely need install
+  if (!fs.existsSync(nodeModules)) {
+    return { needed: true, reason: 'node_modules not found' }
+  }
+
+  const state = readState()
+  const pkgInfo = getPackageInfo(pkgDir)
+  const savedInfo = state[stateKey]
+
+  // If no saved state, need install to track
+  if (!savedInfo) {
+    return { needed: true, reason: 'first time tracking' }
+  }
+
+  // If version changed, need install
+  if (savedInfo.version !== pkgInfo.version) {
+    return { needed: true, reason: `version changed: ${savedInfo.version} → ${pkgInfo.version}` }
+  }
+
+  // If dependencies hash changed, need install
+  if (savedInfo.depsHash !== pkgInfo.depsHash) {
+    return { needed: true, reason: 'dependencies changed' }
+  }
+
+  return { needed: false }
+}
+
+/**
+ * Update state after successful install
+ */
+function markInstalled(pkgDir, stateKey) {
+  const state = readState()
+  const pkgInfo = getPackageInfo(pkgDir)
+  state[stateKey] = {
+    version: pkgInfo.version,
+    depsHash: pkgInfo.depsHash,
+    installedAt: new Date().toISOString()
+  }
+  writeState(state)
+}
+
+// Check if dependencies need installation
+const sharedCheck = fs.existsSync(sharedDir) ? needsInstall(sharedDir, 'shared') : { needed: false }
+const webCheck = needsInstall(webDir, 'web')
+
+if (sharedCheck.needed || webCheck.needed) {
+  const reasons = []
+  if (sharedCheck.needed) reasons.push(`shared: ${sharedCheck.reason}`)
+  if (webCheck.needed) reasons.push(`web: ${webCheck.reason}`)
+
   console.log(`
 ╔═══════════════════════════════════════════════════════════╗
 ║                                                           ║
-║   ⚡ prjct - First Time Setup                            ║
+║   ⚡ prjct - Dependency Update                           ║
 ║                                                           ║
-║   Installing web dependencies...                          ║
-║   This only happens once.                                 ║
+║   ${reasons.join(', ').substring(0, 45).padEnd(45)}       ║
 ║                                                           ║
 ╚═══════════════════════════════════════════════════════════╝
 `)
 
-  // Install shared dependencies first (if exists)
-  if (needsSharedInstall) {
+  // Install shared dependencies first (if needed)
+  if (sharedCheck.needed) {
     console.log('📦 Installing packages/shared dependencies...')
     const sharedInstall = spawnSync('npm', ['install'], {
       cwd: sharedDir,
@@ -73,10 +175,12 @@ if (needsSharedInstall || needsWebInstall) {
     if (sharedBuild.status !== 0) {
       console.error('⚠️  Warning: Failed to build shared package')
     }
+
+    markInstalled(sharedDir, 'shared')
   }
 
-  // Install web dependencies
-  if (needsWebInstall) {
+  // Install web dependencies (if needed)
+  if (webCheck.needed) {
     console.log('📦 Installing packages/web dependencies...')
     const webInstall = spawnSync('npm', ['install'], {
       cwd: webDir,
@@ -88,55 +192,133 @@ if (needsSharedInstall || needsWebInstall) {
       console.error('❌ Failed to install web dependencies')
       process.exit(1)
     }
+
+    markInstalled(webDir, 'web')
   }
 
-  console.log('✅ Dependencies installed!\n')
+  console.log('✅ Dependencies ready!\n')
+} else {
+  console.log('✅ Dependencies up to date\n')
 }
 
-// Kill any process using the port
-function killPort(portToKill) {
+/**
+ * Check if process on port is a prjct-web server
+ */
+function isPrjctWebProcess(pid) {
   try {
     if (process.platform === 'win32') {
-      // Windows
-      const result = spawnSync('netstat', ['-ano'], { shell: true, encoding: 'utf8' })
-      const lines = result.stdout.split('\n')
-      for (const line of lines) {
-        if (line.includes(`:${portToKill}`) && line.includes('LISTENING')) {
-          const parts = line.trim().split(/\s+/)
-          const pid = parts[parts.length - 1]
-          if (pid && pid !== '0') {
-            spawnSync('taskkill', ['/F', '/PID', pid], { shell: true })
-          }
-        }
-      }
-    } else {
-      // macOS / Linux
-      const result = spawnSync('lsof', ['-ti', `:${portToKill}`], {
+      const result = spawnSync('wmic', ['process', 'where', `processid=${pid}`, 'get', 'commandline'], {
         shell: true,
         encoding: 'utf8',
       })
-      const pids = result.stdout.trim().split('\n').filter(Boolean)
-      for (const pid of pids) {
-        spawnSync('kill', ['-9', pid], { shell: true })
-      }
+      return result.stdout.includes('server.ts') || result.stdout.includes('prjct')
+    } else {
+      // macOS / Linux - check process command line
+      const result = spawnSync('ps', ['-p', pid, '-o', 'command='], {
+        shell: true,
+        encoding: 'utf8',
+      })
+      const cmd = result.stdout.trim()
+      return cmd.includes('server.ts') || cmd.includes('prjct') || cmd.includes('next')
     }
   } catch {
-    // Ignore errors - port might not be in use
+    return false
   }
 }
 
-// Kill port if occupied
-const checkPort = spawnSync('lsof', ['-ti', `:${port}`], {
-  shell: true,
-  encoding: 'utf8',
-})
+/**
+ * Get PIDs using a port
+ */
+function getPortPids(portToCheck) {
+  try {
+    if (process.platform === 'win32') {
+      const result = spawnSync('netstat', ['-ano'], { shell: true, encoding: 'utf8' })
+      const pids = []
+      const lines = result.stdout.split('\n')
+      for (const line of lines) {
+        if (line.includes(`:${portToCheck}`) && line.includes('LISTENING')) {
+          const parts = line.trim().split(/\s+/)
+          const pid = parts[parts.length - 1]
+          if (pid && pid !== '0') pids.push(pid)
+        }
+      }
+      return pids
+    } else {
+      const result = spawnSync('lsof', ['-ti', `:${portToCheck}`], {
+        shell: true,
+        encoding: 'utf8',
+      })
+      return result.stdout.trim().split('\n').filter(Boolean)
+    }
+  } catch {
+    return []
+  }
+}
 
-if (checkPort.stdout.trim()) {
-  console.log(`⚠️  Port ${port} is in use. Killing existing process...`)
-  killPort(port)
-  // Small delay to ensure port is released
-  spawnSync('sleep', ['1'], { shell: true })
-  console.log(`✅ Port ${port} freed\n`)
+/**
+ * Kill specific PIDs
+ */
+function killPids(pids) {
+  for (const pid of pids) {
+    try {
+      if (process.platform === 'win32') {
+        spawnSync('taskkill', ['/F', '/PID', pid], { shell: true })
+      } else {
+        spawnSync('kill', ['-9', pid], { shell: true })
+      }
+    } catch {
+      // Ignore individual kill errors
+    }
+  }
+}
+
+/**
+ * Open URL in browser
+ */
+function openBrowser(url) {
+  const openCmd =
+    process.platform === 'darwin'
+      ? 'open'
+      : process.platform === 'win32'
+        ? 'start'
+        : 'xdg-open'
+  spawn(openCmd, [url], { shell: true, detached: true }).unref()
+}
+
+// Check if port is in use and handle accordingly
+const portPids = getPortPids(port)
+let serverAlreadyRunning = false
+
+if (portPids.length > 0) {
+  // Check if it's a prjct-web server
+  const isPrjctWeb = portPids.some(pid => isPrjctWebProcess(pid))
+
+  if (isPrjctWeb) {
+    console.log(`
+╔═══════════════════════════════════════════════════════════╗
+║                                                           ║
+║   ⚡ prjct - Server Already Running                      ║
+║                                                           ║
+║   Found existing prjct-web on port ${port}                 ║
+║   Opening browser...                                      ║
+║                                                           ║
+╚═══════════════════════════════════════════════════════════╝
+`)
+    openBrowser(`http://localhost:${port}`)
+    serverAlreadyRunning = true
+  } else {
+    // Not a prjct-web process, ask before killing
+    console.log(`⚠️  Port ${port} is in use by another process.`)
+    console.log(`   PIDs: ${portPids.join(', ')}`)
+    console.log(`   Stopping to avoid killing unrelated processes.`)
+    console.log(`   Use --port=XXXX to specify a different port.`)
+    process.exit(1)
+  }
+}
+
+// If server is already running, we're done - just opened browser above
+if (serverAlreadyRunning) {
+  process.exit(0)
 }
 
 console.log(`
@@ -144,7 +326,7 @@ console.log(`
 ║                                                           ║
 ║   ⚡ prjct - Developer Momentum                          ║
 ║                                                           ║
-║   Production server ready                                 ║
+║   Starting production server...                           ║
 ║                                                           ║
 ║   Web:     http://localhost:${port}                         ║
 ║                                                           ║
@@ -153,7 +335,7 @@ console.log(`
 ╚═══════════════════════════════════════════════════════════╝
 `)
 
-// Build for production if needed (first run)
+// Build for production if needed (first run or .next missing)
 const nextDir = path.join(webDir, '.next')
 if (!fs.existsSync(nextDir)) {
   console.log('🔨 Building for production (first run)...\n')
@@ -179,13 +361,7 @@ const web = spawn('npm', ['run', 'start:prod'], {
 
 // Open browser after a short delay
 setTimeout(() => {
-  const openCmd =
-    process.platform === 'darwin'
-      ? 'open'
-      : process.platform === 'win32'
-        ? 'start'
-        : 'xdg-open'
-  spawn(openCmd, [`http://localhost:${port}`], { shell: true })
+  openBrowser(`http://localhost:${port}`)
 }, 3000)
 
 // Handle shutdown

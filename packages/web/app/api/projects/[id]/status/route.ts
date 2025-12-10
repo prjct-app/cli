@@ -12,7 +12,7 @@ export async function GET(
   try {
     const status = await getProjectStatus(id)
     return NextResponse.json({ success: true, data: status })
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { success: false, error: 'Failed to get status' },
       { status: 500 }

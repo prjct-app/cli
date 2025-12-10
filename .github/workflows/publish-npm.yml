@@ -18,19 +18,24 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js for npm
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Node.js for npm publish
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
-        run: npm install
+        run: bun install
 
       - name: Run tests
         run: |
-          npm run lint || echo "Linting completed"
-          npm run format:check || echo "Format check completed"
+          bun run lint || echo "Linting completed"
+          bun run format:check || echo "Format check completed"
 
       - name: Extract version from tag
         id: get_version
@@ -77,14 +82,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js for GPR
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Node.js for GPR publish
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           registry-url: 'https://npm.pkg.github.com'
 
       - name: Install dependencies
-        run: npm install
+        run: bun install
 
       - name: Extract version from tag
         id: get_version
@@ -113,6 +123,8 @@ jobs:
           echo "#### npm Registry" >> $GITHUB_STEP_SUMMARY
           echo "https://www.npmjs.com/package/prjct-cli" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "bun install -g prjct-cli@$VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "# or" >> $GITHUB_STEP_SUMMARY
           echo "npm install -g prjct-cli@$VERSION" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
