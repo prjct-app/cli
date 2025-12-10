@@ -33,8 +33,14 @@ function createSession(sessionId: string, projectDir: string): { pty: IPty; isNe
     return { pty: existing.pty, isNew: false }
   }
 
-  const shell = process.platform === 'win32' ? 'cmd.exe' : 'bash'
-  const args = process.platform === 'win32' ? [] : ['-l']
+  // Use user's default shell (zsh, bash, etc.) - respects $SHELL env var
+  const shell = process.platform === 'win32'
+    ? 'cmd.exe'
+    : process.env.SHELL || '/bin/zsh'
+
+  // -l for login shell (loads .zshrc, .bashrc, etc.)
+  // -i for interactive shell (enables job control, aliases)
+  const args = process.platform === 'win32' ? [] : ['-l', '-i']
 
   const ptyProcess = pty.spawn(shell, args, {
     name: 'xterm-256color',
@@ -44,7 +50,9 @@ function createSession(sessionId: string, projectDir: string): { pty: IPty; isNe
     env: {
       ...process.env,
       TERM: 'xterm-256color',
-      COLORTERM: 'truecolor'
+      COLORTERM: 'truecolor',
+      // Ensure shell knows it's interactive
+      SHELL: shell
     }
   })
 

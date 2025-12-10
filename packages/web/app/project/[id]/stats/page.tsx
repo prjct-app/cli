@@ -1,206 +1,248 @@
-'use client'
-
-import { use, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
-import { useProject } from '@/hooks/useProjects'
-import { useProjectStats } from '@/hooks/useProjectStats'
-import { Button } from '@/components/ui/button'
-import { ArrowLeft } from 'lucide-react'
+import { notFound } from 'next/navigation'
+import {
+  getStats,
+  getInsightMessage,
+  calculateStreak,
+  calculateHealthScore,
+  getVelocityChange,
+  getWeeklyVelocityData,
+  type StatsResult
+} from '@/lib/services/stats.server'
+import { getProject } from '@/lib/services/projects.server'
 import type { TimelineEvent } from '@/lib/parse-prjct-files'
 
-import {
-  BentoGrid,
-  BentoCardSkeleton,
-  HeroSection,
-  NowCard,
-  VelocityCard,
-  StreakCard,
-  QueueCard,
-  ShipsCard,
-  IdeasCard,
-  AgentsCard,
-  RoadmapCard,
-  ActivityTimeline,
-} from '@/components/stats'
+import { BentoGrid } from '@/components/BentoGrid'
+import { HeroSection } from '@/components/HeroSection'
+import { NowCard } from '@/components/NowCard'
+import { VelocityCard } from '@/components/VelocityCard'
+import { StreakCard } from '@/components/StreakCard'
+import { QueueCard } from '@/components/QueueCard'
+import { ShipsCard } from '@/components/ShipsCard'
+import { IdeasCard } from '@/components/IdeasCard'
+import { AgentsCard } from '@/components/AgentsCard'
+import { RoadmapCard } from '@/components/RoadmapCard'
+import { ActivityTimeline } from '@/components/ActivityTimeline'
 
-// Calculate streak from timeline
-function calculateStreak(timeline: TimelineEvent[]): number {
-  if (!timeline.length) return 0
-  const dates = new Set(timeline.map(e => e.ts?.split('T')[0]).filter(Boolean))
-  let streak = 0
-  const today = new Date()
-  for (let i = 0; i < 30; i++) {
-    const date = new Date(today)
-    date.setDate(date.getDate() - i)
-    const dateStr = date.toISOString().split('T')[0]
-    if (dates.has(dateStr)) streak++
-    else if (i > 0) break
+// Types for normalized component data
+interface NormalizedCurrentTask {
+  task: string
+  startedAt?: string
+  agent?: string
+  estimatedDuration?: string
+  pausedAt?: string
+  pauseReason?: string
+}
+
+interface NormalizedQueueItem {
+  task: string
+  priority?: 'low' | 'medium' | 'high' | 'critical' | number
+  estimatedDuration?: string
+}
+
+interface NormalizedShip {
+  name: string
+  date: string
+  duration?: string
+}
+
+interface NormalizedIdea {
+  title: string
+  impact?: string
+}
+
+interface NormalizedAgent {
+  name: string
+  description?: string
+  successRate?: number
+  tasksCompleted?: number
+  bestFor?: string[]
+}
+
+interface NormalizedRoadmap {
+  phases: Array<{
+    name: string
+    progress: number
+    features?: Array<{ name: string; status: string }>
+  }>
+  progress: number
+}
+
+// Data normalization functions
+function normalizeCurrentTask(stats: StatsResult): NormalizedCurrentTask | null {
+  if (stats.state?.currentTask) {
+    return {
+      task: stats.state.currentTask.description,
+      startedAt: stats.state.currentTask.startedAt,
+      agent: stats.state.currentTask.agent,
+      estimatedDuration: stats.state.currentTask.estimatedDuration,
+      pausedAt: stats.state.currentTask.pausedAt,
+      pauseReason: stats.state.currentTask.pauseReason,
+    }
   }
-  return streak
+  return stats.legacyStats?.currentTask ?? null
 }
 
-// Health score (0-100)
-function getHealthScore(stats: any): number {
-  if (!stats) return 0
-  const velocity = stats?.metrics?.velocity?.tasksPerDay || 0
-  const hasCurrentTask = !!stats?.currentTask
-  const queueSize = stats?.queue?.length || 0
-  const recentActivity = stats?.timeline?.slice(0, 7).length || 0
-
-  let score = 0
-  score += Math.min(30, velocity * 15)
-  score += hasCurrentTask ? 20 : 0
-  score += queueSize > 0 && queueSize < 15 ? 20 : queueSize === 0 ? 5 : 10
-  score += Math.min(30, recentActivity * 5)
-
-  return Math.min(100, Math.round(score))
+function normalizeQueue(stats: StatsResult): NormalizedQueueItem[] {
+  if (stats.state?.queue) {
+    return stats.state.queue.map(q => ({
+      task: q.description,
+      priority: q.priority,
+      estimatedDuration: q.estimatedDuration,
+    }))
+  }
+  return stats.legacyStats?.queue ?? []
 }
 
-// Contextual insight message
-function getInsightMessage(stats: any, streak: number): string {
-  if (!stats) return ''
+function normalizeRoadmap(stats: StatsResult): NormalizedRoadmap | null {
+  if (stats.roadmap.length > 0) {
+    const completed = stats.roadmap.filter(f =>
+      f.status === 'shipped' || f.status === 'completed'
+    ).length
 
-  const velocity = stats?.metrics?.velocity?.tasksPerDay || 0
-  const hasCurrentTask = !!stats?.currentTask
-  const queueSize = stats?.queue?.length || 0
-  const shipsCount = stats?.summary?.totalShipsEver || 0
-
-  if (hasCurrentTask && streak > 3) return 'Killing it. Keep the momentum.'
-  if (hasCurrentTask) return 'Good focus. Ship when ready.'
-  if (queueSize === 0) return 'Queue empty. Time to plan the next feature.'
-  if (velocity > 2) return 'Fast pace. Watch for burnout.'
-  if (shipsCount === 0) return 'No ships yet. Start small, ship fast.'
-  if (streak === 0) return 'Get back in the flow. Start something.'
-  return 'Steady progress. Pick the next task.'
+    return {
+      phases: stats.roadmap.map(f => ({
+        name: f.name,
+        progress: f.status === 'shipped' || f.status === 'completed' ? 100 :
+                  f.status === 'in_progress' ? 50 : 0,
+        features: f.tasks.map(t => ({
+          name: t.description,
+          status: t.completed ? 'completed' : 'pending'
+        }))
+      })),
+      progress: Math.round((completed / stats.roadmap.length) * 100)
+    }
+  }
+  return stats.legacyStats?.roadmap ?? null
 }
 
-// Calculate velocity change (simulated)
-function getVelocityChange(velocity: number): number {
-  return velocity > 2 ? 15 : velocity > 1 ? 5 : velocity > 0 ? 0 : -10
+function normalizeShipped(stats: StatsResult): NormalizedShip[] {
+  return stats.shipped.map(s => ({
+    name: s.description,
+    date: s.shippedAt,
+    duration: s.duration,
+  }))
 }
 
-// Get weekly velocity data from timeline
-function getWeeklyVelocityData(timeline: TimelineEvent[]): number[] {
-  const today = new Date()
-  const counts: number[] = []
+function normalizeIdeas(stats: StatsResult): NormalizedIdea[] {
+  return stats.ideas
+    .filter(i => i.status === 'pending')
+    .map(i => ({
+      title: i.content,
+      impact: i.priority.toUpperCase()
+    }))
+}
 
-  for (let i = 6; i >= 0; i--) {
-    const date = new Date(today)
-    date.setDate(date.getDate() - i)
-    const dateStr = date.toISOString().split('T')[0]
+function normalizeAgents(stats: StatsResult): NormalizedAgent[] {
+  return stats.agents.map(a => ({
+    name: a.name,
+    description: a.description,
+    successRate: a.successRate,
+    tasksCompleted: a.tasksCompleted,
+    bestFor: a.bestFor,
+  }))
+}
 
-    const count = timeline.filter(e => {
-      if (!e.ts) return false
-      return e.ts.startsWith(dateStr) && e.type === 'task_complete'
-    }).length
+function normalizeTimeline(stats: StatsResult): TimelineEvent[] {
+  if (stats.state?.recentActivity) {
+    return stats.state.recentActivity.map(a => ({
+      ts: a.timestamp,
+      type: a.type,
+      task: a.description,
+      duration: a.duration,
+    }))
+  }
+  return stats.legacyStats?.timeline ?? []
+}
 
-    counts.push(count)
+function getVelocity(stats: StatsResult): number {
+  if (stats.state?.stats?.velocity) {
+    return parseFloat(stats.state.stats.velocity) || 0
+  }
+  return stats.legacyStats?.metrics?.velocity?.tasksPerDay ?? 0
+}
+
+function getTotalShips(stats: StatsResult): number {
+  return stats.shipped.length || stats.legacyStats?.summary?.totalShipsEver || 0
+}
+
+function getTasksCompleted(stats: StatsResult): number {
+  return stats.state?.stats?.tasksToday ?? stats.legacyStats?.metrics?.tasksCompleted ?? 0
+}
+
+interface PageProps {
+  params: Promise<{ id: string }>
+}
+
+export default async function ProjectStatsPage({ params }: PageProps) {
+  const { id: projectId } = await params
+
+  // Fetch data directly on server - no API calls
+  const [project, stats] = await Promise.all([
+    getProject(projectId),
+    getStats(projectId)
+  ])
+
+  if (!stats.hasData) {
+    notFound()
   }
 
-  return counts
-}
+  // Compute derived values using service functions
+  const streak = calculateStreak(stats.state)
+  const healthScore = calculateHealthScore(stats)
+  const velocity = getVelocity(stats)
+  const velocityChange = getVelocityChange(velocity)
+  const insightMessage = getInsightMessage(stats, streak)
+  const weeklyVelocityData = getWeeklyVelocityData(stats.state?.recentActivity ?? [])
 
-function LoadingSkeleton() {
+  // Normalize data for components
+  const currentTask = normalizeCurrentTask(stats)
+  const queue = normalizeQueue(stats)
+  const roadmap = normalizeRoadmap(stats)
+  const shipped = normalizeShipped(stats)
+  const ideas = normalizeIdeas(stats)
+  const agents = normalizeAgents(stats)
+  const timeline = normalizeTimeline(stats)
+  const totalShips = getTotalShips(stats)
+  const tasksCompleted = getTasksCompleted(stats)
+
   return (
-    <div className="p-8 space-y-8">
-      <div className="flex items-start gap-6">
-        <div className="h-20 w-20 rounded-full bg-muted animate-pulse" />
-        <div className="space-y-3">
-          <div className="h-16 w-32 bg-muted rounded animate-pulse" />
-          <div className="h-4 w-48 bg-muted rounded animate-pulse" />
-        </div>
+    <div className="flex h-full flex-col p-4 md:p-8 overflow-auto">
+      {/* Mobile: Add padding for hamburger menu */}
+      <div className="pl-10 md:pl-0">
+        <HeroSection
+          projectId={projectId}
+          projectName={project?.name ?? projectId}
+          tasksCompleted={tasksCompleted}
+          healthScore={healthScore}
+          velocity={velocity}
+          velocityChange={velocityChange}
+          insightMessage={insightMessage}
+          timeline={timeline}
+        />
       </div>
-      <BentoGrid>
-        <BentoCardSkeleton size="2x2" />
-        <BentoCardSkeleton size="1x1" />
-        <BentoCardSkeleton size="2x2" />
-        <BentoCardSkeleton size="1x1" />
-        <BentoCardSkeleton size="1x2" />
-        <BentoCardSkeleton size="1x2" />
-        <BentoCardSkeleton size="1x1" />
-        <BentoCardSkeleton size="1x1" />
-      </BentoGrid>
-    </div>
-  )
-}
 
-export default function ProjectStatsPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id: projectId } = use(params)
-  const router = useRouter()
-
-  const { data: project, isLoading: projectLoading } = useProject(projectId)
-  const { data, isLoading: statsLoading } = useProjectStats(projectId)
-  const stats = data?.stats
-
-  const streak = useMemo(() => calculateStreak(stats?.timeline || []), [stats?.timeline])
-  const healthScore = useMemo(() => getHealthScore(stats), [stats])
-  const insightMessage = useMemo(() => getInsightMessage(stats, streak), [stats, streak])
-  const velocity = stats?.metrics?.velocity?.tasksPerDay || 0
-  const velocityChange = useMemo(() => getVelocityChange(velocity), [velocity])
-  const weeklyVelocityData = useMemo(() => getWeeklyVelocityData(stats?.timeline || []), [stats?.timeline])
-
-  if (projectLoading || statsLoading) {
-    return <LoadingSkeleton />
-  }
-
-  if (!project || !stats) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center space-y-4">
-          <p className="text-4xl text-muted-foreground">404</p>
-          <Button variant="ghost" onClick={() => router.back()}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
-          </Button>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="flex h-full flex-col p-8 overflow-auto">
-      {/* Hero Section */}
-      <HeroSection
-        projectId={projectId}
-        projectName={project.name || projectId}
-        tasksCompleted={stats.metrics.tasksCompleted}
-        healthScore={healthScore}
-        velocity={velocity}
-        velocityChange={velocityChange}
-        insightMessage={insightMessage}
-        timeline={stats.timeline}
-      />
-
-      {/* Bento Grid */}
-      <BentoGrid className="mt-8">
-        {/* Row 1: NOW (2x2), VELOCITY (1x1), ROADMAP (2x2) */}
-        <NowCard currentTask={stats.currentTask} />
+      {/* Bento Grid - Server Components */}
+      <BentoGrid className="mt-6 md:mt-8">
+        <NowCard currentTask={currentTask} />
         <VelocityCard
           tasksPerDay={velocity}
           weeklyData={weeklyVelocityData}
           change={velocityChange}
         />
-        <RoadmapCard roadmap={stats.roadmap} />
-
-        {/* STREAK under VELOCITY */}
+        <RoadmapCard roadmap={roadmap} />
         <StreakCard streak={streak} />
-
-        {/* Row 2: QUEUE (1x2), SHIPS (1x2), IDEAS (1x1), AGENTS (1x1) */}
-        <QueueCard queue={stats.queue || []} />
-        <ShipsCard
-          ships={stats.shipped || []}
-          totalShips={stats.summary?.totalShipsEver || 0}
-        />
-        <IdeasCard ideas={stats.ideas?.pending || []} />
-        <AgentsCard agents={stats.agents || []} />
+        <QueueCard queue={queue} />
+        <ShipsCard ships={shipped} totalShips={totalShips} />
+        <IdeasCard ideas={ideas} />
+        <AgentsCard agents={agents} />
       </BentoGrid>
 
-      {/* Activity Timeline */}
-      <div className="mt-8">
-        <ActivityTimeline timeline={stats.timeline || []} />
+      {/* Activity Timeline - Client Component */}
+      <div className="mt-6 md:mt-8">
+        <ActivityTimeline timeline={timeline} />
       </div>
 
-      <div className="h-8" />
+      <div className="h-6 md:h-8" />
     </div>
   )
 }

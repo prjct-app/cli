@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { queryPresets } from '@/lib/query-config'
+import { deleteProject as deleteProjectAction } from '@/lib/actions/projects'
 
 export interface Project {
   id: string
@@ -53,18 +54,17 @@ export function useProject(projectId: string | null) {
   })
 }
 
-// Hook for deleting a project
+// Hook for deleting a project (uses Server Action)
 export function useDeleteProject() {
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: async (projectId: string) => {
-      const res = await fetch(`/api/projects/${projectId}/delete`, { method: 'POST' })
-      if (!res.ok) {
-        const error = await res.json()
-        throw new Error(error.error || 'Failed to delete project')
+      const result = await deleteProjectAction(projectId)
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to delete project')
       }
-      return res.json()
+      return result
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] })

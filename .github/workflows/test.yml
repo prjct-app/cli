@@ -7,66 +7,30 @@ on:
     branches: [main]
 
 jobs:
-  test-core:
-    name: Test Core (Node.js CLI)
+  test:
+    name: Test (Bun)
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: '20'
-          cache: 'npm'
+          bun-version: latest
 
       - name: Install dependencies
-        run: npm ci
+        run: bun install
 
-      - name: Run core tests
-        run: npm test -- --reporter=verbose
+      - name: Rebuild native modules
+        run: npm rebuild node-pty
+
+      - name: Run tests
+        run: bun test --reporter=verbose
 
       - name: Generate coverage report
-        run: npm run test:coverage
-
-      - name: Upload core coverage
-        uses: actions/upload-artifact@v4
-        with:
-          name: core-coverage
-          path: coverage/
-
-  test-website:
-    name: Test Website (React + TypeScript)
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install root dependencies
-        run: npm ci
-
-      - name: Install website dependencies
-        run: npm run website:install
-
-      - name: Run website tests
-        run: npm --prefix website test
-
-      - name: Generate website coverage
-        run: npm --prefix website run test:coverage
-
-      - name: Upload website coverage
-        uses: actions/upload-artifact@v4
-        with:
-          name: website-coverage
-          path: website/coverage/
+        run: bun test --coverage
 
   lint:
     name: Lint
@@ -76,43 +40,35 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: '20'
-          cache: 'npm'
+          bun-version: latest
 
       - name: Install dependencies
-        run: npm ci
+        run: bun install
 
       - name: Run linter
-        run: npm run lint
+        run: bun run lint
 
-  build-website:
-    name: Build Website
+  build:
+    name: Build
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: '20'
-          cache: 'npm'
+          bun-version: latest
 
-      - name: Install root dependencies
-        run: npm ci
+      - name: Install dependencies
+        run: bun install
 
-      - name: Install website dependencies
-        run: npm run website:install
+      - name: Rebuild native modules
+        run: npm rebuild node-pty
 
-      - name: Build website
-        run: npm run website:build
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: website-build
-          path: website/dist/
+      - name: Build packages
+        run: bun run build

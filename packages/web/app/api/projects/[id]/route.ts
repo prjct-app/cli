@@ -20,7 +20,7 @@ export async function GET(
     }
 
     return NextResponse.json({ success: true, data: project })
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { success: false, error: 'Failed to get project' },
       { status: 500 }

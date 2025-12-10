@@ -66,25 +66,25 @@ We chose to focus 100% on Claude to deliver:
 
 ## ⚡ Installation
 
-### From npm (Recommended)
+### Using Bun (Recommended)
 
-Install prjct-cli globally using npm:
+prjct-cli is built with Bun for maximum performance:
 
 ```bash
-npm install -g prjct-cli
+bun install -g prjct-cli
 ```
 
-**Alternative package managers**:
+### Alternative Package Managers
 
 ```bash
+# Using npm
+npm install -g prjct-cli
+
 # Using yarn
 yarn global add prjct-cli
 
 # Using pnpm
 pnpm add -g prjct-cli
-
-# Using bun
-bun install -g prjct-cli
 ```
 
 ### From GitHub Packages
@@ -97,7 +97,7 @@ npm install -g @jlopezlira/prjct-cli --registry=https://npm.pkg.github.com
 
 For easier installation from GitHub Packages, see [GitHub Packages Setup](docs/GITHUB_PACKAGES.md).
 
-**Requirements**: Node.js 18 or higher
+**Requirements**: Bun 1.0+ or Node.js 18+
 
 > **Note**: The CLI automatically detects updates and notifies you when a new version is available. Simply run `npm update -g prjct-cli` to upgrade.
 

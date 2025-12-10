@@ -7,7 +7,7 @@ export async function GET() {
   try {
     const sessions = listSessions()
     return NextResponse.json({ success: true, data: sessions })
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { success: false, error: 'Failed to list sessions' },
       { status: 500 }

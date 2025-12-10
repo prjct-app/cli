@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 
 /**
  * prjct CLI entry point
@@ -6,8 +6,8 @@
  * Auto-setup on first use (like Astro, Vite, etc.)
  */
 
-const { VERSION } = require('../core/utils/version')
-const editorsConfig = require('../core/infrastructure/editors-config')
+const { VERSION } = require('../core/utils/version.ts')
+const editorsConfig = require('../core/infrastructure/editors-config.ts').default
 
 // Check for special subcommands that bypass normal CLI
 const args = process.argv.slice(2)
@@ -31,7 +31,7 @@ if (args[0] === 'dev') {
       console.log('🔧 One-time setup (v' + VERSION + ')...')
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n')
 
-      const setup = require('../core/infrastructure/setup')
+      const setup = require('../core/infrastructure/setup.ts').default
       await setup.run()
 
       console.log('✓ Setup complete!\n')
@@ -42,7 +42,7 @@ if (args[0] === 'dev') {
   }
 
   // Continue to main CLI logic
-  require('../core/index')
+  require('../core/index.ts')
 })()
 
 } // end else
