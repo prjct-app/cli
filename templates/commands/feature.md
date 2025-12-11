@@ -2,15 +2,16 @@
 allowed-tools: [Read, Write, Bash, Task, Glob]
 description: 'Value analysis + roadmap + task breakdown + auto-start'
 timestamp-rule: 'GetTimestamp() and GetDate() for ALL timestamps'
-architecture: 'JSON-first - Write to data/*.json, views are generated'
+architecture: 'MD-first - MD files are source of truth'
 ---
 
 # /p:feature - Add Feature to Roadmap
 
-## Architecture: JSON-First
+## Architecture: MD-First
 
-**Source of Truth**: `data/roadmap.json`, `data/queue.json`, `data/state.json`
-**Generated Views**: `views/roadmap.md`, `views/next.md`, `views/now.md` (auto-generated)
+**Source of Truth**: `planning/roadmap.md`, `core/next.md`, `core/now.md`
+
+MD files are the source of truth. Write directly to MD files.
 
 ## Agent Delegation (REQUIRED)
 
@@ -52,10 +53,9 @@ Task(
 ## Context Variables
 - `{projectId}`: From `.prjct/prjct.config.json`
 - `{globalPath}`: `~/.prjct-cli/projects/{projectId}`
-- `{dataPath}`: `{globalPath}/data`
-- `{roadmapPath}`: `{dataPath}/roadmap.json`
-- `{queuePath}`: `{dataPath}/queue.json`
-- `{statePath}`: `{dataPath}/state.json`
+- `{roadmapPath}`: `{globalPath}/planning/roadmap.md`
+- `{nextPath}`: `{globalPath}/core/next.md`
+- `{nowPath}`: `{globalPath}/core/now.md`
 - `{memoryPath}`: `{globalPath}/memory/context.jsonl`
 - `{feature}`: User-provided feature description
 
@@ -149,138 +149,137 @@ For feature "add user authentication":
 
 GENERATE: {tasks} = list of task descriptions
 
-## Step 5: Update Roadmap (JSON)
+## Step 5: Update Roadmap (MD)
 
 READ: `{roadmapPath}` (or create default if not exists)
 
 Default structure:
-```json
-{
-  "features": [],
-  "backlog": [],
-  "lastUpdated": ""
-}
+```markdown
+# Roadmap
+
+## Active
+
+_No active features_
+
+## Planned
+
+_No planned features_
+
+## Shipped
+
+_Nothing shipped yet_
 ```
 
 ### Generate Feature ID
 GENERATE: {featureId} = "feat_" + 8 random alphanumeric chars
 SET: {now} = GetTimestamp()
 
-### Create Feature Entry
-```json
-{
-  "id": "{featureId}",
-  "name": "{feature}",
-  "impact": "{impact}",
-  "effort": "{effort}",
-  "status": "active",
-  "progress": 0,
-  "tasks": [
-    {
-      "id": "task_{8_random}",
-      "description": "{task1}",
-      "completed": false,
-      "createdAt": "{now}"
-    },
-    {
-      "id": "task_{8_random}",
-      "description": "{task2}",
-      "completed": false,
-      "createdAt": "{now}"
-    }
-    ...
-  ],
-  "createdAt": "{now}"
-}
-```
+### Update roadmap.md
 
-### Update roadmap.json
-```json
-{
-  "features": [
-    {new feature entry},
-    ...existing features
-  ],
-  "backlog": [...existing],
-  "lastUpdated": "{now}"
-}
+Parse existing content and add new feature under "## Active" section:
+
+```markdown
+# Roadmap
+
+## Active
+
+### {feature}
+- **ID**: {featureId}
+- **Impact**: {impact}
+- **Effort**: {effort}
+- **Started**: {now}
+- **Tasks**:
+  - [ ] {task1}
+  - [ ] {task2}
+  - [ ] {task3}
+  ...
+
+{...existing active features}
+
+## Planned
+
+{...existing planned features}
+
+## Shipped
+
+{...existing shipped features}
 ```
 
 WRITE: `{roadmapPath}`
 
-## Step 6: Update Priority Queue (JSON)
+## Step 6: Update Priority Queue (MD)
 
-READ: `{queuePath}` (or create default if not exists)
+READ: `{nextPath}` (or create default if not exists)
 
 Default structure:
-```json
-{
-  "tasks": [],
-  "lastUpdated": ""
-}
+```markdown
+# Next
+
+## High Priority
+
+_No high priority tasks_
+
+## Normal Priority
+
+_No tasks in queue_
+
+## Low Priority
+
+_No low priority tasks_
 ```
 
 ### Add Tasks to Queue
-For each task in {tasks}:
-```json
-{
-  "id": "task_{8_random}",
-  "description": "{task}",
-  "priority": "medium",
-  "featureId": "{featureId}",
-  "completed": false,
-  "createdAt": "{now}"
-}
+
+For each task in {tasks}, add to appropriate priority section:
+
+```markdown
+# Next
+
+## High Priority
+
+{if high priority tasks}
+
+## Normal Priority
+
+- [ ] {task1} @{featureId}
+- [ ] {task2} @{featureId}
+...
+
+{...existing tasks}
+
+## Low Priority
+
+{...existing low priority tasks}
 ```
 
-### Update queue.json
-```json
-{
-  "tasks": [
-    ...new tasks,
-    ...existing tasks
-  ],
-  "lastUpdated": "{now}"
-}
-```
+WRITE: `{nextPath}`
 
-WRITE: `{queuePath}`
+## Step 7: Auto-Start First Task (MD)
 
-## Step 7: Auto-Start First Task (JSON)
+READ: `{nowPath}`
 
-READ: `{statePath}` (or create default)
-
-IF currentTask is null:
+IF file is empty OR contains "_No active task_":
   ### Start First Task
   {firstTask} = first item from {tasks}
   GENERATE: {sessionId} = "sess_" + 8 random alphanumeric chars
 
-  ### Update state.json
-  ```json
-  {
-    "currentTask": {
-      "id": "task_{8_random}",
-      "description": "{firstTask}",
-      "startedAt": "{now}",
-      "sessionId": "{sessionId}",
-      "featureId": "{featureId}"
-    },
-    "lastUpdated": "{now}"
-  }
+  ### Update now.md
+  ```markdown
+  # NOW
+
+  **{firstTask}**
+
+  Started: {now}
+  Session: {sessionId}
+  Feature: {featureId}
   ```
 
-  WRITE: `{statePath}`
+  WRITE: `{nowPath}`
   {autoStarted} = true
 ELSE:
   {autoStarted} = false
 
-## Step 8: Generate Views
-
-BASH: `cd {projectRoot} && npx prjct-generate-views --project={projectId}`
-
-Note: This regenerates views/roadmap.md, views/next.md, views/now.md from JSON automatically.
-
-## Step 9: Log to Memory
+## Step 8: Log to Memory
 
 GET: {date} = GetDate()
 EXTRACT: {yearMonth} = YYYY-MM from {date}

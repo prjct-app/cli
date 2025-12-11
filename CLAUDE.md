@@ -28,18 +28,30 @@ p. done       → Mark complete, next task
 p. ship       → Lint/test/commit/push
 ```
 
-## Architecture
+## Architecture: MD-First
+
+**MD files are the source of truth.** No JSON data files - all state is stored directly in Markdown.
 
 ### Global Storage
 ```
 ~/.prjct-cli/projects/{id}/
-├── core/           # now.md, next.md, context.md
-├── progress/       # shipped.md, metrics.md, sessions/
-├── planning/       # ideas.md, roadmap.md, sessions/
+├── core/           # now.md (current task), next.md (queue)
+├── progress/       # shipped.md, sessions/
+├── planning/       # ideas.md, roadmap.md
 ├── analysis/       # repo-summary.md
-├── memory/         # context.jsonl, sessions/
-└── agents/         # Generated specialists
+├── memory/         # context.jsonl (append-only logs)
+├── agents/         # Generated specialists
+└── project.json    # Metadata only (name, repoPath, techStack)
 ```
+
+### Key Files (Source of Truth)
+| File | Purpose |
+|------|---------|
+| `core/now.md` | Current task state |
+| `core/next.md` | Task queue |
+| `planning/ideas.md` | Ideas backlog |
+| `planning/roadmap.md` | Feature roadmap |
+| `progress/shipped.md` | Shipped features |
 
 ### Local Config
 ```

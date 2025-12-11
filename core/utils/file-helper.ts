@@ -67,6 +67,17 @@ export async function writeFile(filePath: string, content: string): Promise<void
 }
 
 /**
+ * Atomic write - writes to temp file then renames (prevents partial writes)
+ */
+export async function atomicWrite(filePath: string, content: string): Promise<void> {
+  const dir = path.dirname(filePath)
+  await fs.mkdir(dir, { recursive: true })
+  const tempPath = `${filePath}.${Date.now()}.tmp`
+  await fs.writeFile(tempPath, content, 'utf-8')
+  await fs.rename(tempPath, filePath)
+}
+
+/**
  * Append to text file
  */
 export async function appendToFile(filePath: string, content: string): Promise<void> {
@@ -245,6 +256,7 @@ export default {
   writeJson,
   readFile,
   writeFile,
+  atomicWrite,
   fileExists,
   ensureDir,
   deleteFile,

@@ -44,7 +44,8 @@ import {
   Undo2,
   Redo2,
   Command,
-  X
+  X,
+  RefreshCw
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -110,6 +111,15 @@ function CommandSidebarContent({
             router.push(`/project/${projectId}/stats`)
             onCommandClick?.()
           }}
+        />
+        {/* Sync button - prominent, always visible */}
+        <CommandButton
+          cmd="p. sync"
+          icon={RefreshCw}
+          tip="Sync"
+          disabled={!isActiveConnected}
+          onClick={() => handleCommand('p. sync')}
+          variant="primary"
         />
         <div className="border-b border-border w-8 my-2 mx-auto" />
 
@@ -266,6 +276,29 @@ function ProjectPageContent({ projectId, project }: { projectId: string; project
                         <BarChart3 className="h-5 w-5" />
                       </div>
                       <span className="text-xs text-muted-foreground">Stats</span>
+                    </button>
+
+                    {/* Sync button - prominent */}
+                    <button
+                      onClick={() => {
+                        sendCommandToActive('p. sync')
+                        setCommandSheetOpen(false)
+                      }}
+                      disabled={!isActiveConnected}
+                      className={cn(
+                        "flex flex-col items-center gap-1.5 p-3 rounded-lg transition-colors",
+                        isActiveConnected
+                          ? "hover:bg-primary/10"
+                          : "opacity-50 cursor-not-allowed"
+                      )}
+                    >
+                      <div className={cn(
+                        "h-10 w-10 rounded-full flex items-center justify-center",
+                        isActiveConnected ? "bg-primary text-primary-foreground" : "bg-muted"
+                      )}>
+                        <RefreshCw className="h-5 w-5" />
+                      </div>
+                      <span className="text-xs text-primary font-medium">Sync</span>
                     </button>
 
                     {WORKFLOW_COMMANDS.map(({ cmd, icon: Icon, tip }) => (

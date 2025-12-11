@@ -1,5 +1,48 @@
 # Changelog
 
+## [0.13.0] - 2025-12-10
+
+### Deep Sync + Cleanup migrations
+
+Major update: Deep git analysis, removed external API dependencies, MD-first architecture.
+
+- **Deep Sync (`/p:sync`)**
+  - Full git analysis: `git status`, `git log`, `git diff`, `git branch`
+  - Auto-detect completed tasks from commit messages
+  - Sync ALL MD files: now.md, next.md, shipped.md, ideas.md, roadmap.md
+  - Update project.json with real stats (fileCount, commitCount, version)
+  - Update CLAUDE.md Quick Reference table with current data
+  - Infer current task from uncommitted changes
+
+- **Sync Button in Project Detail**
+  - Prominent primary-colored button in sidebar
+  - Always visible for easy access
+  - Mobile support in command grid
+
+- **Removed External Dependencies**
+  - Removed OpenAI/OpenRouter API key management
+  - Removed migration service (no longer needed)
+  - Removed settings API route
+  - Cleaned up web package dependencies
+
+- **Ship Workflow Improvements**
+  - Language agnostic versioning (package.json, Cargo.toml, pyproject.toml, VERSION)
+  - CHANGELOG.md generation is now MANDATORY
+  - Auto-runs deep sync after shipping
+  - prjct signature in commits
+
+- **Files Removed**:
+  - `packages/web/app/api/settings/route.ts`
+  - `packages/web/app/api/migrate/route.ts`
+  - `packages/web/lib/services/migration.server.ts`
+  - `packages/web/components/MigrationGate/`
+
+- **Files Modified**:
+  - `templates/commands/sync.md` - Complete rewrite for deep analysis
+  - `templates/commands/ship.md` - Language agnostic, mandatory changelog
+  - `packages/web/app/settings/page.tsx` - Removed API keys section
+  - `packages/web/app/project/[id]/page.tsx` - Added Sync button
+
 ## [0.12.0] - 2025-12-10
 
 ### Added - JSON-First Architecture (Zero Data Loss)

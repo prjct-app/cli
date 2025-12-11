@@ -1,10 +1,15 @@
 ---
 allowed-tools: [Read, Write, Bash]
-description: 'Pause current session'
+description: 'Pause current session with reason'
 timestamp-rule: 'GetTimestamp() for all timestamps'
+architecture: 'MD-first - MD files are source of truth'
 ---
 
 # /p:pause - Pause Current Session
+
+## Architecture: MD-First
+
+**Source of Truth**: `core/now.md`, `sessions/current.json`
 
 ## Context Variables
 - `{projectId}`: From `.prjct/prjct.config.json`
@@ -12,6 +17,27 @@ timestamp-rule: 'GetTimestamp() for all timestamps'
 - `{sessionPath}`: `{globalPath}/sessions/current.json`
 - `{nowPath}`: `{globalPath}/core/now.md`
 - `{memoryPath}`: `{globalPath}/memory/context.jsonl`
+- `{reason}`: User-provided reason (optional)
+
+## Pause Reasons
+
+When pausing, capture WHY to enable blocker tracking:
+
+| Reason | Meaning | Dashboard Impact |
+|--------|---------|------------------|
+| `blocked` | Waiting on external dependency | Shows in Blockers list |
+| `switch` | Switching to higher priority task | Context switch metric |
+| `break` | Taking a break | Normal pause |
+| `research` | Need to investigate more | Research time tracked |
+
+If no reason provided, ask:
+```
+Why are you pausing?
+1. blocked - Waiting on something external
+2. switch - Starting a different task
+3. break - Taking a break
+4. research - Need to investigate
+```
 
 ## Step 1: Read Config
 
@@ -40,6 +66,7 @@ IF {session.status} == "paused":
 
   Paused: {elapsed} ago
   Duration so far: {session.duration}
+  Reason: {session.pauseReason}
 
   /p:resume to continue | /p:done to complete
   ```
@@ -49,7 +76,17 @@ IF {session.status} != "active":
   OUTPUT: "⚠️ No active session to pause."
   STOP
 
-## Step 3: Calculate Duration So Far
+## Step 3: Get Pause Reason
+
+IF {reason} not provided:
+  ASK user to select reason (blocked, switch, break, research)
+  OR auto-detect "break" as default
+
+IF {reason} == "blocked":
+  ASK for blocker note: "What's blocking you?"
+  SET: {blockerNote} = user response
+
+## Step 4: Calculate Duration So Far
 
 SET: {now} = GetTimestamp()
 
@@ -60,7 +97,7 @@ For each event in {session.timeline}:
 SET: {duration} = total active seconds
 SET: {durationFormatted} = format as "Xh Ym" or "Xm"
 
-## Step 4: Update Session
+## Step 5: Update Session
 
 UPDATE {session}:
 ```json
@@ -71,12 +108,14 @@ UPDATE {session}:
   "status": "paused",
   "startedAt": "{session.startedAt}",
   "pausedAt": "{now}",
+  "pauseReason": "{reason}",
+  "pauseNote": "{blockerNote}",
   "completedAt": null,
   "duration": {duration},
   "metrics": {session.metrics},
   "timeline": [
     ...{session.timeline},
-    {"type": "pause", "at": "{now}"}
+    {"type": "pause", "at": "{now}", "reason": "{reason}", "note": "{blockerNote}"}
   ]
 }
 ```
@@ -84,7 +123,7 @@ UPDATE {session}:
 WRITE: `{sessionPath}`
 Content: Updated session JSON
 
-## Step 5: Update Legacy now.md
+## Step 6: Update now.md (SOURCE OF TRUTH)
 
 WRITE: `{nowPath}`
 Content:
@@ -96,16 +135,18 @@ Content:
 Started: {session.startedAt}
 Paused: {now}
 Duration: {durationFormatted}
+Reason: {reason}
 Session: {session.id}
+{IF blockerNote: Note: {blockerNote}}
 ```
 
-## Step 6: Log to Memory
+## Step 7: Log to Memory
 
 APPEND to: `{memoryPath}`
 
 Single line (JSONL):
 ```json
-{"timestamp":"{now}","action":"session_paused","sessionId":"{session.id}","task":"{session.task}","duration":{duration}}
+{"timestamp":"{now}","action":"session_paused","sessionId":"{session.id}","task":"{session.task}","duration":{duration},"reason":"{reason}","note":"{blockerNote}"}
 ```
 
 ## Output
@@ -116,6 +157,8 @@ SUCCESS:
 
 Session: {session.id}
 Active time: {durationFormatted}
+Reason: {reason}
+{IF blockerNote: Note: {blockerNote}}
 
 Next:
 • /p:resume - Continue this task
@@ -134,22 +177,10 @@ Next:
 
 ## Examples
 
-### Example 1: Pause Active Session
-**Session:**
-```json
-{
-  "id": "sess_abc12345",
-  "task": "implement auth",
-  "status": "active",
-  "startedAt": "2025-12-07T10:00:00.000Z",
-  "timeline": [
-    {"type": "start", "at": "2025-12-07T10:00:00.000Z"}
-  ]
-}
-```
-
-**Current time:** 12:30 PM
-**Duration:** 2h 30m
+### Example 1: Pause with Blocked Reason
+**Input:** `/p:pause blocked`
+**Prompt:** "What's blocking you?"
+**User:** "Waiting for API credentials from vendor"
 
 **Output:**
 ```
@@ -157,26 +188,55 @@ Next:
 
 Session: sess_abc12345
 Active time: 2h 30m
+Reason: blocked
+Note: Waiting for API credentials from vendor
 
 Next:
 • /p:resume - Continue this task
 • /p:now <task> - Start different task
-• /p:done - Complete without resuming
 ```
 
-### Example 2: Already Paused
+### Example 2: Quick Break
+**Input:** `/p:pause break`
+
 **Output:**
 ```
-⏸️ Already paused: implement auth
+⏸️ Paused: implement auth
 
-Paused: 15m ago
-Duration so far: 2h 30m
+Session: sess_abc12345
+Active time: 2h 30m
+Reason: break
 
-/p:resume to continue | /p:done to complete
+Next:
+• /p:resume - Continue this task
 ```
 
-### Example 3: No Active Session
+### Example 3: Context Switch
+**Input:** `/p:pause switch`
+
 **Output:**
 ```
-⚠️ No active session to pause. Use /p:now to start one.
+⏸️ Paused: implement auth
+
+Session: sess_abc12345
+Active time: 2h 30m
+Reason: switch
+
+Next:
+• /p:now <task> - Start the urgent task
+```
+
+### Example 4: No Reason (Interactive)
+**Input:** `/p:pause`
+
+**Output:**
+```
+Why are you pausing?
+
+1. blocked - Waiting on something external
+2. switch - Starting a different task
+3. break - Taking a break
+4. research - Need to investigate
+
+Select [1-4]:
 ```

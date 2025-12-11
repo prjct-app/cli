@@ -264,15 +264,25 @@ export async function getProjects() {
 export async function getProject(projectId: string) {
   const storagePath = join(GLOBAL_STORAGE, projectId)
 
-  // 1. Try to read from project.json (source of truth)
+  // 1. Try to read from project.json (source of truth for dashboard)
   let repoPath: string | null = null
   let name: string = projectId
+  let version: string | null = null
+  let stack: string | null = null
+  let filesCount: string | null = null
+  let commitsCount: string | null = null
+  let techStack: string[] = []
 
   try {
     const projectJsonPath = join(storagePath, 'project.json')
     const projectJson = JSON.parse(await fs.readFile(projectJsonPath, 'utf-8'))
     repoPath = projectJson.repoPath || null
     name = projectJson.name || projectId
+    version = projectJson.version || null
+    stack = projectJson.stack || null
+    filesCount = projectJson.fileCount ? String(projectJson.fileCount) : null
+    commitsCount = projectJson.commitCount ? String(projectJson.commitCount) : null
+    techStack = projectJson.techStack || []
   } catch {
     // project.json doesn't exist - fallback to scan
     if (projectPathCache.size === 0) {
@@ -308,35 +318,26 @@ export async function getProject(projectId: string) {
       currentTask = await fs.readFile(nowPath, 'utf-8')
     } catch {}
 
-    // Extract stats from claudeMd Quick Reference table
-    let version: string | null = null
-    let stack: string | null = null
-    let filesCount: string | null = null
-    let commitsCount: string | null = null
-    let techStack: string[] = []
+    // Fallback: Extract stats from claudeMd Quick Reference table if not from project.json
+    if (!version) {
+      const versionMatch = claudeMd.match(/\*\*Version\*\*\s*\|\s*([^\n|]+)/)
+      if (versionMatch) version = versionMatch[1].trim()
+    }
 
-    // Parse version from | **Version** | 0.10.13 |
-    const versionMatch = claudeMd.match(/\*\*Version\*\*\s*\|\s*([^\n|]+)/)
-    if (versionMatch) version = versionMatch[1].trim()
+    if (!stack) {
+      const stackMatch = claudeMd.match(/\*\*Stack\*\*\s*\|\s*([^\n|]+)/)
+      if (stackMatch) stack = stackMatch[1].trim()
+    }
 
-    // Parse stack from | **Stack** | Node.js CLI (CommonJS) |
-    const stackMatch = claudeMd.match(/\*\*Stack\*\*\s*\|\s*([^\n|]+)/)
-    if (stackMatch) stack = stackMatch[1].trim()
+    if (!filesCount) {
+      const filesMatch = claudeMd.match(/\*\*Files\*\*\s*\|\s*([^\n|]+)/)
+      if (filesMatch) filesCount = filesMatch[1].trim()
+    }
 
-    // Parse files from | **Files** | 130+ |
-    const filesMatch = claudeMd.match(/\*\*Files\*\*\s*\|\s*([^\n|]+)/)
-    if (filesMatch) filesCount = filesMatch[1].trim()
-
-    // Parse commits from | **Commits** | 175 |
-    const commitsMatch = claudeMd.match(/\*\*Commits\*\*\s*\|\s*([^\n|]+)/)
-    if (commitsMatch) commitsCount = commitsMatch[1].trim()
-
-    // Get techStack from project.json
-    try {
-      const projectJsonPath = join(storagePath, 'project.json')
-      const projectJson = JSON.parse(await fs.readFile(projectJsonPath, 'utf-8'))
-      techStack = projectJson.techStack || []
-    } catch {}
+    if (!commitsCount) {
+      const commitsMatch = claudeMd.match(/\*\*Commits\*\*\s*\|\s*([^\n|]+)/)
+      if (commitsMatch) commitsCount = commitsMatch[1].trim()
+    }
 
     // Find favicon/icon in project repo
     let iconPath: string | null = null
