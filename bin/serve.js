@@ -334,7 +334,7 @@ if (!fs.existsSync(nextDir)) {
 }
 
 // Start web server in production mode
-const web = spawn('npm', ['run', 'start:prod'], {
+const web = spawn('npm', ['run', 'start'], {
   cwd: webDir,
   stdio: 'inherit',
   shell: true,
