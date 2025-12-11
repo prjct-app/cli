@@ -2,26 +2,38 @@
 allowed-tools: [Read, Write, Bash]
 description: 'Set or show current task with session tracking'
 timestamp-rule: 'GetTimestamp() for ALL timestamps'
-architecture: 'JSON-first - Write to data/*.json, views are generated'
+architecture: 'MD-first - MD files are source of truth'
 ---
 
 # /p:now - Current Task with Session Tracking
 
-## Architecture: JSON-First
+## Architecture: MD-First
 
-**Source of Truth**: `data/state.json`
-**Generated View**: `views/now.md` (auto-generated, do not edit directly)
+**Source of Truth**: `core/now.md`
 
-All writes go to JSON. After writing, run `prjct generate-views --project={projectId}` to regenerate MD views.
+MD files are the source of truth. Write directly to MD files.
 
 ## Context Variables
 - `{projectId}`: From `.prjct/prjct.config.json`
 - `{globalPath}`: `~/.prjct-cli/projects/{projectId}`
-- `{dataPath}`: `{globalPath}/data`
-- `{statePath}`: `{dataPath}/state.json`
+- `{nowPath}`: `{globalPath}/core/now.md`
 - `{sessionPath}`: `{globalPath}/sessions/current.json`
 - `{memoryPath}`: `{globalPath}/memory/context.jsonl`
 - `{task}`: User-provided task (optional)
+- `{estimate}`: User-provided time estimate (optional, e.g., "2h", "30m", "1d")
+
+## Estimate Format
+
+Estimates use simple duration format:
+- `30m` - 30 minutes
+- `2h` - 2 hours
+- `1d` - 1 day (8 hours)
+- `2h30m` - 2 hours 30 minutes
+
+If no estimate provided, gently remind:
+```
+💡 Tip: Add estimate next time with /p:now "task" 2h
+```
 
 ## Step 1: Read Config
 
@@ -34,14 +46,17 @@ IF file not found:
 
 ## Step 2: Check Current State
 
-### Read state.json (source of truth)
-READ: `{statePath}`
+### Read now.md (source of truth)
+READ: `{nowPath}`
 
-IF file exists:
-  PARSE as JSON
-  EXTRACT: {currentTask} from state.currentTask
+IF file exists AND has content:
+  PARSE MD format:
+  - Look for `**Task description**` (bold text = current task)
+  - Look for `Started: {timestamp}`
+  - Look for `Session: {sessionId}`
+  EXTRACT: {currentTask}, {startedAt}, {sessionId}
 
-### Check for active session (legacy support)
+### Check for active session (for detailed tracking)
 READ: `{sessionPath}`
 
 IF file exists:
@@ -104,23 +119,30 @@ IF {task} is provided:
   GENERATE: {sessionId} = "sess_" + 8 random alphanumeric chars
   SET: {startedAt} = GetTimestamp()
 
-  ### Write state.json (SOURCE OF TRUTH)
-  READ: `{statePath}` (or create default if not exists)
+  ### Write now.md (SOURCE OF TRUTH)
 
-  UPDATE state.json:
-  ```json
-  {
-    "currentTask": {
-      "id": "task_{8_random_chars}",
-      "description": "{task}",
-      "startedAt": "{startedAt}",
-      "sessionId": "{sessionId}"
-    },
-    "lastUpdated": "{startedAt}"
-  }
+  WRITE: `{nowPath}`
+
+  IF {estimate} provided:
+  ```markdown
+  # NOW
+
+  **{task}**
+
+  Started: {startedAt}
+  Session: {sessionId}
+  Estimate: {estimate}
   ```
 
-  WRITE: `{statePath}`
+  ELSE (no estimate):
+  ```markdown
+  # NOW
+
+  **{task}**
+
+  Started: {startedAt}
+  Session: {sessionId}
+  ```
 
   ### Create session JSON (for detailed tracking)
   WRITE: `{sessionPath}`
@@ -135,6 +157,8 @@ IF {task} is provided:
     "pausedAt": null,
     "completedAt": null,
     "duration": 0,
+    "estimate": "{estimate OR null}",
+    "estimateSeconds": {estimateInSeconds OR null},
     "metrics": {
       "filesChanged": 0,
       "linesAdded": 0,
@@ -148,26 +172,48 @@ IF {task} is provided:
   }
   ```
 
-  ### Generate views (auto-regenerate MD from JSON)
-  BASH: `cd {projectRoot} && npx prjct-generate-views --project={projectId}`
-
-  Note: This regenerates views/now.md from data/state.json automatically.
+  ### Convert estimate to seconds
+  IF {estimate} provided:
+    - "30m" → 1800 seconds
+    - "2h" → 7200 seconds
+    - "1d" → 28800 seconds (8 hours)
+    - "2h30m" → 9000 seconds
 
   ### Log to memory
   APPEND to: `{memoryPath}`
   Single line (JSONL):
+
+  IF {estimate} provided:
+  ```json
+  {"timestamp":"{startedAt}","action":"session_started","sessionId":"{sessionId}","task":"{task}","estimate":"{estimate}","estimateSeconds":{estimateInSeconds}}
+  ```
+
+  ELSE:
   ```json
   {"timestamp":"{startedAt}","action":"session_started","sessionId":"{sessionId}","task":"{task}"}
   ```
 
 ## Output
 
-SUCCESS (new task):
+SUCCESS (new task with estimate):
 ```
 🎯 {task}
 
 Session: {sessionId}
 Started: now
+Estimate: {estimate}
+
+/p:done when finished | /p:pause to take a break
+```
+
+SUCCESS (new task without estimate):
+```
+🎯 {task}
+
+Session: {sessionId}
+Started: now
+
+💡 Tip: Add estimate next time with /p:now "task" 2h
 
 /p:done when finished | /p:pause to take a break
 ```
@@ -195,7 +241,7 @@ Status: active
 /p:done to complete | /p:pause to pause
 ```
 
-### Example 2: Start New Task
+### Example 2: Start New Task (without estimate)
 ```
 User: /p:now "Add login form"
 Output:
@@ -203,6 +249,21 @@ Output:
 
 Session: sess_xyz98765
 Started: now
+
+💡 Tip: Add estimate next time with /p:now "task" 2h
+
+/p:done when finished | /p:pause to take a break
+```
+
+### Example 2b: Start New Task (with estimate)
+```
+User: /p:now "Add login form" 2h
+Output:
+🎯 Add login form
+
+Session: sess_xyz98765
+Started: now
+Estimate: 2h
 
 /p:done when finished | /p:pause to take a break
 ```

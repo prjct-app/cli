@@ -21,6 +21,7 @@ import { ShipsCard } from '@/components/ShipsCard'
 import { IdeasCard } from '@/components/IdeasCard'
 import { AgentsCard } from '@/components/AgentsCard'
 import { RoadmapCard } from '@/components/RoadmapCard'
+import { BlockersCard } from '@/components/BlockersCard'
 import { ActivityTimeline } from '@/components/ActivityTimeline'
 
 // Types for normalized component data
@@ -118,7 +119,7 @@ function normalizeShipped(stats: StatsResult): NormalizedShip[] {
   const items = stats.shipped?.items ?? []
   return items.map(s => ({
     name: s.name,
-    date: s.shippedAt,
+    date: s.shippedAt || s.date || new Date().toISOString(),
   }))
 }
 
@@ -128,7 +129,7 @@ function normalizeIdeas(stats: StatsResult): NormalizedIdea[] {
     .filter(i => i.status === 'pending')
     .map(i => ({
       title: i.text,
-      impact: i.priority.toUpperCase()
+      impact: i.priority?.toUpperCase() || 'MEDIUM'
     }))
 }
 
@@ -144,10 +145,10 @@ function normalizeAgents(stats: StatsResult): NormalizedAgent[] {
 
 function normalizeTimeline(stats: StatsResult): TimelineEvent[] {
   if (stats.metrics?.recentActivity?.length) {
-    return stats.metrics.recentActivity.map((a: { timestamp: string; description: string; action?: string }) => ({
+    return stats.metrics.recentActivity.map(a => ({
       ts: a.timestamp,
-      type: a.action || 'task_completed',
-      task: a.description,
+      type: a.action || a.type || 'task_completed',
+      task: a.description || '',
     }))
   }
   return stats.legacyStats?.timeline ?? []
@@ -204,6 +205,9 @@ export default async function ProjectStatsPage({ params }: PageProps) {
   const totalShips = getTotalShips(stats)
   const tasksCompleted = getTasksCompleted(stats)
 
+  // Extract insights
+  const { estimateAccuracy, blockers } = stats.insights
+
   return (
     <div className="flex h-full flex-col p-4 md:p-8 overflow-auto">
       {/* Mobile: Add padding for hamburger menu */}
@@ -227,11 +231,13 @@ export default async function ProjectStatsPage({ params }: PageProps) {
           tasksPerDay={velocity}
           weeklyData={weeklyVelocityData}
           change={velocityChange}
+          estimateAccuracy={estimateAccuracy}
         />
         <RoadmapCard roadmap={roadmap} />
         <StreakCard streak={streak} />
         <QueueCard queue={queue} />
         <ShipsCard ships={shipped} totalShips={totalShips} />
+        <BlockersCard blockers={blockers} />
         <IdeasCard ideas={ideas} />
         <AgentsCard agents={agents} />
       </BentoGrid>

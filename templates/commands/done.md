@@ -2,28 +2,37 @@
 allowed-tools: [Read, Write, Bash]
 description: 'Complete current task with session metrics'
 timestamp-rule: 'GetTimestamp() for all timestamps'
-architecture: 'JSON-first - Write to data/*.json, views are generated'
+architecture: 'MD-first - MD files are source of truth'
 ---
 
 # /p:done - Complete Current Task with Session Metrics
 
-## Architecture: JSON-First
+## Architecture: MD-First
 
-**Source of Truth**: `data/state.json`, `data/queue.json`, `data/metrics.json`
-**Generated Views**: `views/now.md`, `views/next.md` (auto-generated)
+**Source of Truth**: `core/now.md`, `core/next.md`, `progress/shipped.md`
 
-All writes go to JSON. After writing, views are auto-regenerated.
+MD files are the source of truth. Write directly to MD files.
 
 ## Context Variables
 - `{projectId}`: From `.prjct/prjct.config.json`
 - `{globalPath}`: `~/.prjct-cli/projects/{projectId}`
-- `{dataPath}`: `{globalPath}/data`
-- `{statePath}`: `{dataPath}/state.json`
-- `{queuePath}`: `{dataPath}/queue.json`
-- `{metricsJsonPath}`: `{dataPath}/metrics.json`
+- `{nowPath}`: `{globalPath}/core/now.md`
+- `{nextPath}`: `{globalPath}/core/next.md`
 - `{sessionPath}`: `{globalPath}/sessions/current.json`
 - `{archiveDir}`: `{globalPath}/sessions/archive`
 - `{memoryPath}`: `{globalPath}/memory/context.jsonl`
+
+## Accuracy Calculation
+
+When task had an estimate, calculate accuracy:
+- `{accuracy}` = 100 - |((actual - estimate) / estimate) * 100|
+- Cap accuracy at 100% (can't be more than 100%)
+- If actual < estimate: bonus (under-budget)
+- If actual > estimate: penalty (over-budget)
+
+**Example:**
+- Estimate: 2h (7200s), Actual: 2h 15m (8100s)
+- Accuracy = 100 - |((8100-7200)/7200)*100| = 100 - 12.5 = 87.5%
 
 ## Step 1: Read Config
 
@@ -36,11 +45,16 @@ IF file not found:
 
 ## Step 2: Check Session State
 
-### Read state.json (source of truth)
-READ: `{statePath}`
+### Read now.md (source of truth)
+READ: `{nowPath}`
 
-IF file exists AND has currentTask:
-  EXTRACT: {task} = state.currentTask
+IF file exists AND has task content:
+  PARSE MD format:
+  - Look for `**Task description**` (bold text = current task)
+  - Look for `Started: {timestamp}`
+  - Look for `Session: {sessionId}`
+  - Look for `Estimate: {estimate}` (optional)
+  EXTRACT: {task}, {startedAt}, {sessionId}, {estimate}
   GOTO Step 3 (Session Completion)
 
 ### Try structured session (for detailed metrics)
@@ -50,9 +64,9 @@ IF file exists:
   PARSE as JSON
   EXTRACT: {session} object
 ELSE:
-  CREATE session from state.currentTask data
+  CREATE session from now.md data
 
-IF no currentTask in state.json:
+IF no task in now.md:
   OUTPUT: "⚠️ No active task to complete. Use /p:now to start one."
   STOP
 
@@ -78,6 +92,15 @@ PARSE output for:
   - {linesAdded}: insertions
   - {linesRemoved}: deletions
 
+### Calculate Accuracy (if estimate exists)
+IF {session.estimateSeconds} exists AND > 0:
+  {accuracy} = 100 - Math.abs(((duration - estimateSeconds) / estimateSeconds) * 100)
+  {accuracy} = Math.max(0, Math.min(100, {accuracy}))  // Cap between 0-100
+  {accuracyLabel} = accuracy >= 80 ? "✅" : accuracy >= 50 ? "⚠️" : "❌"
+ELSE:
+  {accuracy} = null
+  {accuracyLabel} = null
+
 ### Update Session Object
 ```json
 {
@@ -89,6 +112,9 @@ PARSE output for:
   "pausedAt": null,
   "completedAt": "{now}",
   "duration": {duration},
+  "estimate": "{session.estimate}",
+  "estimateSeconds": {session.estimateSeconds},
+  "accuracy": {accuracy},
   "metrics": {
     "filesChanged": {filesChanged},
     "linesAdded": {linesAdded},
@@ -115,20 +141,19 @@ BASH: `mkdir -p {archiveDir}/{yearMonth}`
 WRITE: `{archiveDir}/{yearMonth}/{session.id}.json`
 Content: Updated session object from Step 3
 
-## Step 5: Clear Current State (JSON)
+## Step 5: Clear Current State (MD)
 
-### Clear state.json (SOURCE OF TRUTH)
-READ: `{statePath}`
+### Clear now.md (SOURCE OF TRUTH)
 
-UPDATE state.json:
-```json
-{
-  "currentTask": null,
-  "lastUpdated": "{now}"
-}
+WRITE: `{nowPath}`
+
+```markdown
+# NOW
+
+_No active task_
+
+Use `/p:now <task>` to start working.
 ```
-
-WRITE: `{statePath}`
 
 ### Clear session.json
 WRITE: `{sessionPath}`
@@ -137,60 +162,46 @@ Content:
 {}
 ```
 
-## Step 6: Update Metrics (JSON)
+## Step 6: Log Completion
 
-READ: `{metricsJsonPath}` (or create default if not exists)
-
-### Update metrics.json
-```json
-{
-  "velocity": {
-    "tasksPerDay": {calculated},
-    "avgTaskDuration": {calculated}
-  },
-  "allTime": {
-    "totalTasks": {increment by 1},
-    "totalTime": {add duration},
-    "daysActive": {recalculate}
-  },
-  "recentTasks": [
-    {
-      "task": "{session.task}",
-      "duration": {duration},
-      "completedAt": "{now}",
-      "metrics": {
-        "filesChanged": {filesChanged},
-        "linesAdded": {linesAdded},
-        "linesRemoved": {linesRemoved},
-        "commits": {commits}
-      }
-    },
-    ...existing recent tasks (keep last 10)
-  ],
-  "lastUpdated": "{now}"
-}
-```
-
-WRITE: `{metricsJsonPath}`
-
-## Step 7: Generate Views
-
-BASH: `cd {projectRoot} && npx prjct-generate-views --project={projectId}`
-
-Note: This regenerates views/now.md, views/next.md from JSON automatically.
+Metrics are calculated from session history and memory log.
+No separate metrics.json needed - all data is in MD files and JSONL logs.
 
 ## Step 8: Log to Memory
 
 APPEND to: `{memoryPath}`
 
 Single line (JSONL format):
+
+IF {accuracy} exists:
+```json
+{"timestamp":"{now}","action":"session_completed","sessionId":"{session.id}","task":"{session.task}","duration":{duration},"estimate":{estimateSeconds},"accuracy":{accuracy},"metrics":{"files":{filesChanged},"added":{linesAdded},"removed":{linesRemoved},"commits":{commits}}}
+```
+
+ELSE:
 ```json
 {"timestamp":"{now}","action":"session_completed","sessionId":"{session.id}","task":"{session.task}","duration":{duration},"metrics":{"files":{filesChanged},"added":{linesAdded},"removed":{linesRemoved},"commits":{commits}}}
 ```
 
 ## Output
 
-SUCCESS:
+SUCCESS (with estimate):
+```
+✅ {session.task} ({durationFormatted})
+
+Estimate: {estimate} | Actual: {durationFormatted} | {accuracyLabel} Accuracy: {accuracy}%
+
+Session: {session.id}
+Files: {filesChanged} | +{linesAdded}/-{linesRemoved}
+Commits: {commits}
+
+Next:
+• /p:now - Start next task
+• /p:ship - Ship completed work
+• /p:progress - View metrics
+```
+
+SUCCESS (without estimate):
 ```
 ✅ {session.task} ({durationFormatted})
 
@@ -216,7 +227,7 @@ Next:
 
 ## Examples
 
-### Example 1: Full Session Completion
+### Example 1: Full Session Completion (with estimate)
 **Session:**
 ```json
 {
@@ -224,6 +235,8 @@ Next:
   "task": "implement authentication",
   "status": "active",
   "startedAt": "2025-12-07T10:00:00.000Z",
+  "estimate": "2h",
+  "estimateSeconds": 7200,
   "timeline": [
     {"type": "start", "at": "2025-12-07T10:00:00.000Z"}
   ]
@@ -234,7 +247,26 @@ Next:
 - 3 commits
 - 5 files changed
 - +120/-30 lines
+- Actual duration: 2h 15m (8100s)
+- Accuracy: 100 - |((8100-7200)/7200)*100| = 87.5%
 
+**Output:**
+```
+✅ implement authentication (2h 15m)
+
+Estimate: 2h | Actual: 2h 15m | ✅ Accuracy: 88%
+
+Session: sess_abc12345
+Files: 5 | +120/-30
+Commits: 3
+
+Next:
+• /p:now - Start next task
+• /p:ship - Ship completed work
+• /p:progress - View metrics
+```
+
+### Example 1b: Session Completion (without estimate)
 **Output:**
 ```
 ✅ implement authentication (2h 15m)

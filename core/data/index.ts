@@ -1,13 +1,21 @@
 /**
  * Data Module
  *
- * JSON file managers for all project data types.
+ * MD-First Architecture: MD files are the source of truth.
+ * JSON managers are deprecated in favor of MD managers.
  */
 
-// Base
+// Base (legacy JSON)
 export { BaseManager, ArrayManager } from './base-manager'
 
-// Managers
+// MD-First Base
+export { MdBaseManager, MdArrayManager } from './md-base-manager'
+
+// MD-First Managers (NEW - use these!)
+export { mdStateManager } from './md-state-manager'
+export { mdQueueManager } from './md-queue-manager'
+
+// Legacy JSON Managers (deprecated - for backwards compatibility only)
 export { stateManager, default as stateManagerDefault } from './state-manager'
 export { projectManager, default as projectManagerDefault } from './project-manager'
 export { agentsManager, default as agentsManagerDefault } from './agents-manager'
@@ -17,7 +25,13 @@ export { shippedManager, default as shippedManagerDefault } from './shipped-mana
 export { analysisManager, default as analysisManagerDefault } from './analysis-manager'
 export { outcomesManager, default as outcomesManagerDefault } from './outcomes-manager'
 
-// Convenience object with all managers
+// MD-First managers (preferred)
+export const mdManagers = {
+  state: require('./md-state-manager').mdStateManager,
+  queue: require('./md-queue-manager').mdQueueManager
+}
+
+// Legacy JSON managers (deprecated)
 export const dataManagers = {
   state: require('./state-manager').stateManager,
   project: require('./project-manager').projectManager,
@@ -29,4 +43,4 @@ export const dataManagers = {
   outcomes: require('./outcomes-manager').outcomesManager
 }
 
-export default dataManagers
+export default mdManagers

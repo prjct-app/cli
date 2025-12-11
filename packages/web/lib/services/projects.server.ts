@@ -1,44 +1,48 @@
 /**
  * Projects Service (Server-only)
  *
- * Direct data access for Server Components.
- * No API calls needed - reads directly from filesystem.
+ * MD-First Architecture: Reads directly from MD files.
+ * No JSON fallback - MD is the source of truth.
  */
 
 import 'server-only'
 import { cache } from 'react'
-import { loadProject, type ProjectJson } from '@/lib/json-loader'
-import { getProjects as getProjectsList, getProject as getProjectLegacy } from '@/lib/projects'
+import { getProjects as getProjectsList, getProject as getMdProject } from '@/lib/projects'
 
-export type { ProjectJson }
+// Types for project data
+export interface ProjectJson {
+  projectId: string
+  name: string
+  repoPath?: string | null
+  techStack: string[]
+  fileCount: number
+  commitCount: number
+  createdAt: string
+  lastSync: string
+}
 
 /**
  * Get single project by ID - cached per request
+ *
+ * MD-First: Uses MD files as source of truth
  */
 export const getProject = cache(async (projectId: string): Promise<ProjectJson | null> => {
-  // Try JSON first
-  const jsonProject = await loadProject(projectId)
-  if (jsonProject) {
-    return jsonProject
-  }
-
-  // Fallback to legacy
   try {
-    const legacyProject = await getProjectLegacy(projectId)
-    if (legacyProject) {
+    const project = await getMdProject(projectId)
+    if (project) {
       return {
-        projectId: legacyProject.id,
-        name: legacyProject.name,
-        repoPath: legacyProject.path,
-        techStack: legacyProject.techStack || [],
-        fileCount: legacyProject.filesCount ? parseInt(legacyProject.filesCount) : 0,
-        commitCount: legacyProject.commitsCount ? parseInt(legacyProject.commitsCount) : 0,
+        projectId: project.id,
+        name: project.name,
+        repoPath: project.repoPath,
+        techStack: project.techStack || [],
+        fileCount: project.filesCount ? parseInt(project.filesCount) : 0,
+        commitCount: project.commitsCount ? parseInt(project.commitsCount) : 0,
         createdAt: new Date().toISOString(),
         lastSync: new Date().toISOString()
       }
     }
   } catch {
-    // Ignore errors
+    // Project not found
   }
 
   return null

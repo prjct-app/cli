@@ -2,25 +2,46 @@
 allowed-tools: [Read, Write, Bash]
 description: 'Ship feature with automated workflow'
 timestamp-rule: 'GetTimestamp() and GetDate() for ALL timestamps'
-architecture: 'JSON-first - Write to data/*.json, views are generated'
+architecture: 'MD-first - MD files are source of truth'
 ---
 
 # /p:ship - Ship Feature Workflow
 
-## Architecture: JSON-First
+## Architecture: MD-First
 
-**Source of Truth**: `data/shipped.json`, `data/roadmap.json`
-**Generated Views**: `views/shipped.md`, `views/roadmap.md` (auto-generated)
+**Source of Truth**: `progress/shipped.md`, `planning/roadmap.md`
+
+MD files are the source of truth. Write directly to MD files.
 
 ## Context Variables
 - `{projectId}`: From `.prjct/prjct.config.json`
 - `{globalPath}`: `~/.prjct-cli/projects/{projectId}`
-- `{dataPath}`: `{globalPath}/data`
-- `{shippedPath}`: `{dataPath}/shipped.json`
-- `{roadmapPath}`: `{dataPath}/roadmap.json`
+- `{shippedPath}`: `{globalPath}/progress/shipped.md`
+- `{roadmapPath}`: `{globalPath}/planning/roadmap.md`
 - `{memoryPath}`: `{globalPath}/memory/context.jsonl`
 - `{snapshotDir}`: `{globalPath}/snapshots`
 - `{feature}`: User-provided feature name
+- `{outcome}`: User-provided outcome status (optional)
+
+## Outcome Categories
+
+Track what happened after shipping:
+
+| Outcome | Meaning | Use When |
+|---------|---------|----------|
+| `validated` | Confirmed working in production | Feature verified by users/tests |
+| `monitoring` | Deployed, needs observation | Just shipped, watching metrics |
+| `known-issues` | Working with caveats | Minor issues known, acceptable |
+
+If no outcome provided, default to `monitoring`.
+
+Prompt (optional):
+```
+Ship outcome? (default: monitoring)
+1. validated - Confirmed working
+2. monitoring - Watching metrics
+3. known-issues - Has minor issues
+```
 
 ## Step 1: Read Config
 
@@ -73,10 +94,32 @@ ELSE:
 
 **Note**: These are NON-BLOCKING. Continue even if they fail.
 
-## Step 4: Version Bump
+## Step 4: Version Bump (MANDATORY)
 
-READ: `package.json`
-EXTRACT: current version as {currentVersion}
+**CRITICAL**: Version bump is ALWAYS required. No exceptions.
+
+### Read Current Version (Language Agnostic)
+
+Detect project type and read version from appropriate file:
+
+| File | Language | Version Location |
+|------|----------|------------------|
+| `package.json` | Node.js | `"version": "X.Y.Z"` |
+| `Cargo.toml` | Rust | `version = "X.Y.Z"` |
+| `pyproject.toml` | Python | `version = "X.Y.Z"` |
+| `go.mod` | Go | Use git tags |
+| `VERSION` | Any | Plain text `X.Y.Z` |
+
+BASH: Check which config exists:
+```bash
+ls package.json Cargo.toml pyproject.toml VERSION 2>/dev/null | head -1
+```
+
+READ appropriate file and EXTRACT: {currentVersion}
+
+IF no version file found:
+  CREATE: `VERSION` file with content `0.0.0`
+  {currentVersion} = "0.0.0"
 
 ### Determine Bump Type
 
@@ -96,15 +139,42 @@ ELSE:
   {bumpType} = "patch"
   {newVersion} = increment Z in X.Y.Z
 
-### Update package.json
+### Update Version File (MANDATORY)
 
-READ: `package.json`
-REPLACE: `"version": "{currentVersion}"` with `"version": "{newVersion}"`
-WRITE: `package.json`
+Update the same file where version was read:
+- `package.json`: Update `"version"` field
+- `Cargo.toml`: Update `version` in `[package]`
+- `pyproject.toml`: Update `version` in `[project]`
+- `VERSION`: Replace entire content
 
-## Step 5: Update CHANGELOG
+WRITE the updated file.
 
-READ: `CHANGELOG.md` (create if not exists)
+**This step MUST complete. If it fails, STOP and report error.**
+
+## Step 5: Update CHANGELOG (MANDATORY)
+
+**CRITICAL**: CHANGELOG.md MUST be created/updated. No exceptions.
+
+### Check if CHANGELOG exists
+
+BASH: `ls CHANGELOG.md 2>/dev/null || echo "NOT_FOUND"`
+
+IF "NOT_FOUND":
+  CREATE new CHANGELOG.md with header:
+  ```markdown
+  # Changelog
+
+  All notable changes to this project will be documented in this file.
+
+  The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+  and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+  ```
+
+### Get Recent Commits for Changelog
+
+BASH: `git log --oneline -20 --pretty=format:"- %s"`
+CAPTURE as {commitList}
 
 ### Format New Entry
 
@@ -112,14 +182,25 @@ READ: `CHANGELOG.md` (create if not exists)
 ## [{newVersion}] - {GetDate()}
 
 ### {feature}
-- Shipped by prjct-cli
+
+#### Changes
+{commitList}
+
+#### Quality
 - Lint: {lintStatus}
 - Tests: {testStatus}
+
+---
+
 ```
 
-INSERT at top of file (after # Changelog header)
+### Insert Entry
 
+READ: `CHANGELOG.md`
+INSERT new entry after "# Changelog" header (or after the preamble text)
 WRITE: `CHANGELOG.md`
+
+**This step MUST complete. CHANGELOG.md MUST exist in repo after ship.**
 
 ## Step 6: Git Commit
 
@@ -128,11 +209,7 @@ BASH: `git add .`
 
 ### Create Commit
 BASH: `git commit -m "$(cat <<'EOF'
-feat: Ship {feature}
-
-- Version: {newVersion}
-- Lint: {lintStatus}
-- Tests: {testStatus}
+feat: Ship {feature} v{newVersion}
 
 🤖 Generated with [p/](https://www.prjct.app/)
 Designed for [Claude](https://www.anthropic.com/claude)
@@ -152,7 +229,7 @@ IF contains "rejected" OR contains "failed":
 IF contains "no upstream":
   BASH: `git push -u origin HEAD`
 
-## Step 8: Update Shipped (JSON)
+## Step 8: Update Shipped (MD)
 
 SET: {now} = GetTimestamp()
 GENERATE: {shipId} = "ship_" + 8 random alphanumeric chars
@@ -160,74 +237,71 @@ GENERATE: {shipId} = "ship_" + 8 random alphanumeric chars
 READ: `{shippedPath}` (or create default if not exists)
 
 Default structure:
-```json
-{
-  "items": [],
-  "lastUpdated": ""
-}
+```markdown
+# Shipped
+
+## Recent
+
+_Nothing shipped yet_
+
+## Archive
+
+_No archived ships_
 ```
 
 ### Get changes from git
 BASH: `git log --oneline -5`
 CAPTURE commit messages as {changes}
 
-### Create shipped item
-```json
-{
-  "id": "{shipId}",
-  "name": "{feature}",
-  "version": "{newVersion}",
-  "type": "feature",
-  "changes": [{changes as array}],
-  "metrics": {
-    "lintStatus": "{lintStatus}",
-    "testStatus": "{testStatus}"
-  },
-  "shippedAt": "{now}"
-}
-```
+### Update shipped.md
 
-### Update shipped.json
-```json
-{
-  "items": [
-    {new shipped item},
-    ...existing items
-  ],
-  "lastUpdated": "{now}"
-}
+Parse existing content and add new ship under "## Recent" section:
+
+```markdown
+# Shipped
+
+## Recent
+
+### {feature} (v{newVersion})
+- **ID**: {shipId}
+- **Shipped**: {now}
+- **Outcome**: {outcome}
+- **Lint**: {lintStatus}
+- **Tests**: {testStatus}
+- **Changes**:
+  {changes as bullet list}
+
+{...existing recent ships}
+
+## Archive
+
+{...existing archive}
 ```
 
 WRITE: `{shippedPath}`
 
-## Step 9: Update Roadmap Status (JSON)
+## Step 9: Update Roadmap Status (MD)
 
 READ: `{roadmapPath}`
 
 ### Find matching feature and update status
-For feature matching {feature}:
-  Set status = "shipped"
-  Set shippedAt = "{now}"
-  Set version = "{newVersion}"
+Look for feature entry matching {feature}:
+- Change status from `pending` or `active` to `shipped`
+- Add `Shipped: {now}` line
+- Add `Version: {newVersion}` line
 
 WRITE: `{roadmapPath}`
 
-## Step 10: Generate Views
-
-BASH: `cd {projectRoot} && npx prjct-generate-views --project={projectId}`
-
-Note: This regenerates views/shipped.md, views/roadmap.md from JSON automatically.
-
-## Step 11: Log to Memory
+## Step 10: Log to Memory
 
 APPEND to: `{memoryPath}`
 
 Single line (JSONL):
 ```json
-{"timestamp":"{now}","action":"feature_shipped","shipId":"{shipId}","feature":"{feature}","version":"{newVersion}"}
+{"timestamp":"{now}","action":"feature_shipped","shipId":"{shipId}","feature":"{feature}","version":"{newVersion}","outcome":"{outcome}"}
 ```
 
-## Step 12: Create Snapshot (Undo/Redo Support)
+## Step 11: Create Snapshot (Undo/Redo Support)
 
 This creates a snapshot for the undo/redo system.
 
@@ -269,6 +343,19 @@ Single line (JSONL):
 {"type":"snapshot","hash":"{snapshotHash}","message":"Ship: {feature}","version":"{newVersion}","timestamp":"{GetTimestamp()}"}
 ```
 
+## Step 12: Run Deep Sync
+
+**CRITICAL**: After shipping, run a full sync to update ALL project data.
+
+Execute `/p:sync` logic:
+- Update `project.json` with new version, commit count
+- Update `CLAUDE.md` Quick Reference table
+- Sync `core/now.md` (clear completed task)
+- Sync `core/next.md` (remove shipped items)
+- Update all stats and metadata
+
+This ensures the dashboard reflects the latest state after shipping.
+
 ## Output
 
 SUCCESS:
@@ -276,10 +363,16 @@ SUCCESS:
 🚀 Shipped: {feature}
 
 Version: {currentVersion} → {newVersion}
+Outcome: {outcome}
 Lint: {lintStatus}
 Tests: {testStatus}
 Commit: {commitHash}
 Snapshot: {snapshotHash}
+
+🔄 Synced project data
+├── Files: {fileCount}
+├── Commits: {commitCount}
+└── All MD files updated
 
 Next:
 • /p:undo - Revert this ship if needed
@@ -296,15 +389,23 @@ Next:
 | Lint fails | Show warning | CONTINUE |
 | Tests fail | Show warning | CONTINUE |
 | Push fails | Show fix command | CONTINUE |
-| No package.json | Skip version bump | CONTINUE |
+| No version file | CREATE `VERSION` file | CONTINUE |
+| Version bump fails | "Failed to update version" | STOP |
+| CHANGELOG fails | "Failed to update changelog" | STOP |
+
+**MANDATORY outputs (never skip):**
+- Version file updated (package.json, Cargo.toml, pyproject.toml, or VERSION)
+- `CHANGELOG.md` with new entry
+- Git commit with version in message
 
 ## Examples
 
-### Example 1: Full Success
+### Example 1: Full Success (validated)
 ```
 🚀 Shipped: user authentication
 
 Version: 1.2.0 → 1.3.0
+Outcome: validated
 Lint: passed
 Tests: passed
 Commit: abc1234
@@ -312,11 +413,12 @@ Commit: abc1234
 Next: /p:feature | /p:recap | compact
 ```
 
-### Example 2: With Warnings
+### Example 2: With Warnings (monitoring)
 ```
 🚀 Shipped: bug fixes
 
 Version: 1.2.0 → 1.2.1
+Outcome: monitoring
 Lint: warnings (non-blocking)
 Tests: skipped
 Commit: def5678
@@ -326,14 +428,17 @@ Commit: def5678
 Next: /p:feature | /p:recap | compact
 ```
 
-### Example 3: No Tests/Lint
+### Example 3: Known Issues
 ```
-🚀 Shipped: documentation update
+🚀 Shipped: performance updates
 
 Version: 1.2.0 → 1.2.1
-Lint: skipped (no script)
-Tests: skipped (no script)
+Outcome: known-issues
+Lint: passed
+Tests: passed
 Commit: ghi9012
+
+Note: Minor edge case in Safari, tracking issue #45
 
 Next: /p:feature | /p:recap | compact
 ```

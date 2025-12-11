@@ -1,26 +1,41 @@
 ---
 allowed-tools: [Read, Write, Bash, Glob, Grep]
-description: 'Sync state + generate agents + detect patterns'
+description: 'Deep sync - analyze git, update ALL project data'
 timestamp-rule: 'GetTimestamp() for all timestamps'
-architecture: 'JSON-first - Write to data/*.json, views are generated'
+architecture: 'MD-first - MD files are source of truth'
 ---
 
-# /p:sync - Sync Project State
+# /p:sync - Deep Project Sync
 
-## Architecture: JSON-First
+**CRITICAL**: This is a DEEP analysis. Sync EVERYTHING with the real state of the repository.
 
-This command:
-1. Analyzes the repository
-2. Generates agents
-3. Updates `data/project.json` (source of truth)
-4. Regenerates all MD views from JSON
+## What Gets Analyzed & Updated
+
+### Git Analysis (Deep)
+- `git status` - Uncommitted changes, staged files
+- `git log` - Recent commits to detect completed tasks
+- `git diff` - What's changed since last commit
+- `git branch` - Current branch, feature branches
+
+### ALL MD Files Updated
+- `core/now.md` - Current task (validate against git status)
+- `core/next.md` - Task queue (remove completed ones)
+- `progress/shipped.md` - Add tasks found in commits
+- `planning/ideas.md` - Keep valid, remove implemented
+- `planning/roadmap.md` - Update feature status
+
+### Project Metadata
+- `project.json` - ALL fields with real data
+- `CLAUDE.md` - Quick Reference with real stats
+- `analysis/repo-summary.md` - Full analysis
+- `agents/*.md` - Specialized agents
 
 ## Context Variables
 - `{projectId}`: From `.prjct/prjct.config.json`
 - `{globalPath}`: `~/.prjct-cli/projects/{projectId}`
-- `{analysisPath}`: `{globalPath}/analysis`
-- `{agentsPath}`: `{globalPath}/agents`
-- `{memoryPath}`: `{globalPath}/memory/context.jsonl`
+- `{cwd}`: Current working directory (repo path)
+
+---
 
 ## Step 1: Read Config
 
@@ -31,290 +46,399 @@ IF file not found:
   OUTPUT: "No prjct project. Run /p:init first."
   STOP
 
-## Step 2: Analyze Repository
+---
 
-### Detect Stack
-GLOB: `**/*.{js,ts,jsx,tsx,py,rb,go,rs,java}`
-GLOB: `**/package.json`, `**/Cargo.toml`, `**/go.mod`, `**/requirements.txt`
+## Step 2: Deep Git Analysis
+
+### 2.1 Git Status (Uncommitted Work)
+```bash
+git status --porcelain
+```
 
 EXTRACT:
-- {languages}: List of languages found
-- {frameworks}: Detected frameworks (React, Express, Django, etc.)
-- {packageManager}: npm, yarn, pnpm, pip, cargo, etc.
+- `{stagedFiles}`: Files staged for commit (A, M, D prefixed with space)
+- `{modifiedFiles}`: Modified but not staged (M, D without space prefix)
+- `{untrackedFiles}`: New files (??)
+- `{hasUncommittedChanges}`: true/false
 
-### Analyze File Structure
-BASH: `find . -type f -name "*.{ext}" | head -50`
-
-DETERMINE:
-- {sourceDir}: Main source directory (src/, lib/, app/)
-- {testDir}: Test directory (test/, tests/, __tests__/)
-- {configFiles}: Config files found
-
-### Generate repo-summary.md
-
-WRITE: `{analysisPath}/repo-summary.md`
-
-```markdown
-# Repository Summary
-
-> Generated: {GetTimestamp()}
-
-## Stack
-- Languages: {languages}
-- Frameworks: {frameworks}
-- Package Manager: {packageManager}
-
-## Structure
-- Source: {sourceDir}
-- Tests: {testDir}
-- Entry: {entryPoint}
-
-## Files
-- Total: {fileCount}
-- Source: {sourceCount}
-- Tests: {testCount}
+### 2.2 Recent Commits (Last 20)
+```bash
+git log --oneline -20 --pretty=format:"%h|%s|%ad" --date=short
 ```
 
-## Step 3: Pattern Analysis
+ANALYZE each commit message for:
+- Keywords: "feat:", "fix:", "complete", "done", "implement", "add", "finish"
+- Task patterns: "Task: X", "#123", issue references
+- Feature completions: "feat(auth):", "feat: user login"
 
-### Sample Files
-READ 5-10 representative source files:
-- Main entry point
-- Largest files (potential complexity)
-- Utility/helper files
-- Test files
-- Config files
+EXTRACT: `{completedTasks}` - List of tasks found in commits
 
-### Detect Patterns
-
-Analyze for:
-1. **SOLID Principles**: Evidence of each
-2. **DRY**: Shared utilities, constants
-3. **Design Patterns**: Factory, singleton, observer, repository
-4. **Code Style**: Naming, formatting, imports
-
-### Detect Anti-Patterns
-
-Flag:
-- God classes (files > 300 lines)
-- Deep nesting (> 4 levels)
-- Code duplication
-- Magic numbers
-- Mixed concerns
-
-### Generate patterns.md
-
-WRITE: `{analysisPath}/patterns.md`
-
-```markdown
-# Code Patterns - {project}
-
-> Generated: {GetTimestamp()}
-
-## Patterns Detected
-- {pattern}: {where} - {example}
-
-## Conventions (MUST FOLLOW)
-- Functions: {convention}
-- Classes: {convention}
-- Files: {convention}
-- Async: {pattern}
-
-## Anti-Patterns ⚠️
-1. **{issue}**: {file:line} - Fix: {action}
-
-## Recommendations
-1. {action}
+### 2.3 Current Branch Analysis
+```bash
+git branch --show-current
+git log main..HEAD --oneline 2>/dev/null || git log master..HEAD --oneline 2>/dev/null
 ```
 
-## Step 4: Generate Agents
+EXTRACT:
+- `{currentBranch}`: Current branch name
+- `{branchCommits}`: Commits ahead of main
+- `{isFeatureBranch}`: true if not main/master
 
-Based on detected stack, generate specialized agents:
-
-### Agent Generation Rules
-
-IF {languages} includes JavaScript/TypeScript:
-  IF React/Vue/Angular detected:
-    GENERATE: `agents/fe.md` (Frontend Specialist)
-  IF Express/Fastify/Nest detected:
-    GENERATE: `agents/be.md` (Backend Specialist)
-
-IF {languages} includes Python:
-  GENERATE: `agents/py.md` (Python Specialist)
-
-IF tests detected:
-  GENERATE: `agents/qa.md` (Quality Specialist)
-
-ALWAYS GENERATE:
-  - `agents/coordinator.md` (Orchestration)
-
-### Agent Template
-
-For each agent, WRITE to `{agentsPath}/{name}.md`:
-
-```markdown
-# {Name} Agent
-
-## Role
-{Specialized role description}
-
-## Skills
-- {skill1}
-- {skill2}
-
-## Patterns to Follow
-{From patterns.md}
-
-## Files I Own
-{Directories/patterns this agent handles}
+### 2.4 Uncommitted Changes Summary
+```bash
+git diff --stat
+git diff --cached --stat
 ```
 
-## Step 5: Update Project CLAUDE.md
+EXTRACT: `{changesDescription}` - What files are being worked on
+
+---
+
+## Step 3: Gather Project Stats
+
+### Count Files
+```bash
+find . -type f \( -name "*.js" -o -name "*.ts" -o -name "*.jsx" -o -name "*.tsx" -o -name "*.py" -o -name "*.go" -o -name "*.rs" \) -not -path "./node_modules/*" -not -path "./.git/*" -not -path "./dist/*" -not -path "./.next/*" | wc -l
+```
+EXTRACT: `{fileCount}`
+
+### Count Commits
+```bash
+git rev-list --count HEAD
+```
+EXTRACT: `{commitCount}`
+
+### Get Version
+READ: `package.json` → version field
+EXTRACT: `{version}`
+
+### Get Project Name
+READ: `package.json` → name field OR directory name
+EXTRACT: `{projectName}`
+
+### Detect Stack
+GLOB for config files and analyze:
+- `package.json` → Node.js, detect React/Vue/Express/Next.js
+- `Cargo.toml` → Rust
+- `go.mod` → Go
+- `requirements.txt` / `pyproject.toml` → Python
+
+EXTRACT: `{languages}`, `{frameworks}`, `{techStack}`
+
+---
+
+## Step 4: Sync Core MD Files
+
+### 4.1 Update now.md (Current Task)
+
+READ: `{globalPath}/core/now.md`
+
+**Logic:**
+- IF `{hasUncommittedChanges}` AND now.md is empty:
+  - INFER task from modified files (e.g., "Working on: auth module")
+  - UPDATE now.md with inferred task
+
+- IF now.md has task AND task appears in recent commits:
+  - Task is DONE → Clear now.md, add to shipped.md
+
+- IF `{isFeatureBranch}`:
+  - Suggest task based on branch name (e.g., `feature/auth` → "Implement authentication")
+
+WRITE: `{globalPath}/core/now.md`
+
+### 4.2 Update next.md (Task Queue)
+
+READ: `{globalPath}/core/next.md`
+
+**Logic:**
+- Parse existing tasks (lines starting with `- `)
+- For each task, check if it appears in `{completedTasks}` from commits
+- REMOVE completed tasks from queue
+- Keep remaining tasks
+
+WRITE: `{globalPath}/core/next.md`
+
+### 4.3 Update shipped.md (Completed Work)
+
+READ: `{globalPath}/progress/shipped.md`
+
+**Logic:**
+- For each task in `{completedTasks}` from git commits:
+  - Check if NOT already in shipped.md
+  - ADD new entries with commit date
+
+FORMAT for new entries:
+```markdown
+- **{taskName}** - {date}
+  - Commit: {commitHash}
+```
+
+WRITE: `{globalPath}/progress/shipped.md`
+
+### 4.4 Update ideas.md
+
+READ: `{globalPath}/planning/ideas.md`
+
+**Logic:**
+- Parse existing ideas
+- Check if any idea was implemented (appears in commits)
+- REMOVE implemented ideas OR mark as done
+
+WRITE: `{globalPath}/planning/ideas.md`
+
+### 4.5 Update roadmap.md
+
+READ: `{globalPath}/planning/roadmap.md`
+
+**Logic:**
+- Parse features and their status
+- For each feature, check commits for implementation
+- UPDATE status: planning → in-progress → completed
+- Add completion dates where applicable
+
+WRITE: `{globalPath}/planning/roadmap.md`
+
+---
+
+## Step 5: Update CLAUDE.md
 
 READ: `{globalPath}/CLAUDE.md`
 
-IF exists:
-  ### Add Patterns Summary
+### Quick Reference Table (MUST UPDATE)
 
-  INSERT section:
-  ```markdown
-  ## Code Patterns
+```markdown
+## Quick Reference
 
-  **Follow in ALL new code:**
-  - {key conventions}
-  - {design patterns}
+| Field | Value |
+|-------|-------|
+| **Name** | {projectName} |
+| **Version** | {version} |
+| **Stack** | {stack} |
+| **Files** | {fileCount} |
+| **Commits** | {commitCount} |
+| **Branch** | {currentBranch} |
+| **Path** | {cwd} |
+| **Last Sync** | {GetTimestamp()} |
+```
 
-  **Avoid:**
-  - {anti-patterns}
-  ```
+### Git Status Section
 
-  WRITE: `{globalPath}/CLAUDE.md`
+```markdown
+## Current Git Status
 
-## Step 6: Update project.json (in data/)
+**Branch**: `{currentBranch}`
+**Uncommitted Changes**: {hasUncommittedChanges ? "Yes" : "Clean"}
 
-This file is the source of truth for the web dashboard. It maps projectId → repoPath.
+{IF hasUncommittedChanges}
+### Modified Files
+{list of modified files}
 
-### Determine Project Name
-- Try package.json → `name` field
-- Try Cargo.toml → `[package] name`
-- Try pyproject.toml → `[project] name`
-- Fallback to directory name (last segment of current path)
+### What's Being Worked On
+{changesDescription}
+{ENDIF}
+```
 
-WRITE: `{globalPath}/data/project.json`
+WRITE: `{globalPath}/CLAUDE.md`
+
+---
+
+## Step 6: Update project.json
+
+READ existing: `{globalPath}/project.json` (preserve createdAt)
+
+WRITE: `{globalPath}/project.json`
 
 ```json
 {
   "projectId": "{projectId}",
   "repoPath": "{cwd}",
   "name": "{projectName}",
-  "techStack": ["{primaryLanguage}", "{primaryFramework}", ...],
+  "version": "{version}",
+  "techStack": {techStack},
+  "fileCount": {fileCount},
+  "commitCount": {commitCount},
+  "stack": "{stack}",
+  "currentBranch": "{currentBranch}",
+  "hasUncommittedChanges": {hasUncommittedChanges},
   "createdAt": "{existingCreatedAt || GetTimestamp()}",
   "lastSync": "{GetTimestamp()}"
 }
 ```
 
-### techStack Array Rules
-- Max 4 items for display in dashboard cards
-- Order by relevance: primary language → framework → tools
-- Examples:
-  - Node.js + React: `["TypeScript", "React", "Node.js", "Vitest"]`
-  - Python Django: `["Python", "Django", "PostgreSQL"]`
-  - CLI tool: `["Node.js", "CLI", "CommonJS"]`
+---
 
-NOTE: If project.json already exists, preserve `createdAt` field. Always update `lastSync` and `techStack`.
+## Step 7: Generate Analysis Files
 
-Also write to root for backwards compatibility:
-WRITE: `{globalPath}/project.json` (same content)
+### repo-summary.md
+WRITE: `{globalPath}/analysis/repo-summary.md`
 
-## Step 7: Generate Views from JSON
+```markdown
+# Repository Summary
 
-Regenerate all MD views from the JSON source of truth:
+> Generated: {GetTimestamp()}
 
-BASH: `cd {projectRoot} && npx prjct-generate-views --project={projectId}`
+## Project
+- **Name**: {projectName}
+- **Version**: {version}
+- **Path**: {cwd}
 
-This ensures:
-- views/now.md reflects data/state.json
-- views/next.md reflects data/queue.json
-- views/ideas.md reflects data/ideas.json
-- views/roadmap.md reflects data/roadmap.json
-- views/shipped.md reflects data/shipped.json
+## Stack
+- **Languages**: {languages}
+- **Frameworks**: {frameworks}
+- **Package Manager**: {packageManager}
 
-## Step 8: Log to Memory
+## Stats
+- **Files**: {fileCount}
+- **Commits**: {commitCount}
+- **Contributors**: {contributorCount}
 
-APPEND to: `{memoryPath}`
+## Structure
+- **Source**: {sourceDir}
+- **Tests**: {testDir}
+- **Config**: {configFiles}
 
-Single line (JSONL):
-```json
-{"timestamp":"{GetTimestamp()}","action":"sync","stack":"{languages}","agents":{agentCount},"patterns":{patternCount}}
+## Git Status
+- **Branch**: {currentBranch}
+- **Uncommitted**: {hasUncommittedChanges}
+- **Recent Activity**: {recentCommitCount} commits this week
 ```
+
+### patterns.md (Code patterns detected)
+Analyze code and WRITE: `{globalPath}/analysis/patterns.md`
+
+---
+
+## Step 8: Generate/Update Agents
+
+Based on detected stack, generate specialized agents in `{globalPath}/agents/`:
+
+- `coordinator.md` - Always generated
+- `fe.md` - If React/Vue/Angular detected
+- `be.md` - If Express/Fastify/Django detected
+- `qa.md` - If tests detected
+
+---
+
+## Step 9: Log to Memory
+
+APPEND to: `{globalPath}/memory/context.jsonl`
+
+```json
+{"ts":"{GetTimestamp()}","action":"sync","branch":"{currentBranch}","uncommitted":{hasUncommittedChanges},"tasksCompleted":{completedTaskCount},"fileCount":{fileCount},"commitCount":{commitCount}}
+```
+
+---
 
 ## Output
 
-SUCCESS:
 ```
-🔄 Synced
+🔄 Deep Sync Complete
 
-Stack:
-├── Languages: {languages}
-├── Frameworks: {frameworks}
-└── Package Manager: {packageManager}
+📊 Project Stats
+├── Files: {fileCount}
+├── Commits: {commitCount}
+├── Version: {version}
+└── Stack: {stack}
 
-Generated:
-├── Agents: {agentCount}
-├── Patterns: {patternCount} detected
-└── Anti-patterns: {antiPatternCount} flagged
+🌿 Git Status
+├── Branch: {currentBranch}
+├── Uncommitted: {hasUncommittedChanges ? "Yes - " + modifiedCount + " files" : "Clean"}
+└── Recent: {recentCommitCount} commits this week
 
-Files:
-├── analysis/repo-summary.md
-├── analysis/patterns.md
-└── agents/*.md
+✅ Tasks Synced
+├── Completed (from commits): {completedTaskCount}
+├── Removed from queue: {removedFromQueue}
+└── Added to shipped: {addedToShipped}
 
-Next:
-• /p:feature - Start building
-• /p:context - See full context
-• /p:now - Set current task
+📁 Files Updated
+├── core/now.md
+├── core/next.md
+├── progress/shipped.md
+├── planning/ideas.md
+├── planning/roadmap.md
+├── project.json
+├── CLAUDE.md
+└── analysis/*.md
+
+{IF hasUncommittedChanges}
+⚠️  You have uncommitted changes:
+{changesDescription}
+
+Next: Commit your work or continue coding
+{ELSE}
+✨ Repository is clean!
+
+Next: /p:now to start a new task
+{ENDIF}
 ```
+
+---
 
 ## Error Handling
 
 | Error | Response | Action |
 |-------|----------|--------|
 | No config | "No prjct project" | STOP |
-| No source files | "Empty project" | WARN, continue |
-| Write fails | Log warning | CONTINUE |
+| Not a git repo | "Not a git repository" | WARN, continue without git |
+| No commits | Use defaults | CONTINUE |
+| File read error | Skip that file | CONTINUE |
+
+---
 
 ## Examples
 
-### Example 1: Node.js Project
+### Example: Clean repo, tasks completed
 ```
-🔄 Synced
+🔄 Deep Sync Complete
 
-Stack:
-├── Languages: JavaScript, TypeScript
-├── Frameworks: Express, React
-└── Package Manager: npm
+📊 Project Stats
+├── Files: 156
+├── Commits: 234
+├── Version: 1.2.0
+└── Stack: TypeScript + React + Node.js
 
-Generated:
-├── Agents: 4 (coordinator, fe, be, qa)
-├── Patterns: 8 detected
-└── Anti-patterns: 2 flagged
+🌿 Git Status
+├── Branch: main
+├── Uncommitted: Clean
+└── Recent: 8 commits this week
 
-Next: /p:feature | /p:context
+✅ Tasks Synced
+├── Completed (from commits): 3
+├── Removed from queue: 2
+└── Added to shipped: 3
+
+📁 Files Updated
+├── core/now.md (cleared - task completed)
+├── core/next.md (2 tasks removed)
+├── progress/shipped.md (+3 entries)
+└── All metadata updated
+
+✨ Repository is clean!
+
+Next: /p:now to start a new task
 ```
 
-### Example 2: Python Project
+### Example: Work in progress
 ```
-🔄 Synced
+🔄 Deep Sync Complete
 
-Stack:
-├── Languages: Python
-├── Frameworks: Django
-└── Package Manager: pip
+📊 Project Stats
+├── Files: 156
+├── Commits: 234
+├── Version: 1.2.0
+└── Stack: TypeScript + React + Node.js
 
-Generated:
-├── Agents: 3 (coordinator, py, qa)
-├── Patterns: 5 detected
-└── Anti-patterns: 1 flagged
+🌿 Git Status
+├── Branch: feature/auth
+├── Uncommitted: Yes - 5 files
+└── Recent: 3 commits today
 
-Next: /p:feature | /p:context
+⚠️  You have uncommitted changes:
+   M src/auth/login.tsx
+   M src/auth/signup.tsx
+   A src/auth/utils.ts
+
+Working on: Authentication module
+
+Next: Commit your work or continue coding
 ```

@@ -7,6 +7,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { cn } from '@/lib/utils'
 
 interface CommandButtonProps {
   cmd: string
@@ -14,18 +15,24 @@ interface CommandButtonProps {
   tip: string
   disabled?: boolean
   onClick: () => void
+  variant?: 'default' | 'primary'
 }
 
-export function CommandButton({ cmd, icon: Icon, tip, disabled, onClick }: CommandButtonProps) {
+export function CommandButton({ cmd, icon: Icon, tip, disabled, onClick, variant = 'default' }: CommandButtonProps) {
+  const isPrimary = variant === 'primary'
+
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
-          variant="ghost"
+          variant={isPrimary ? 'default' : 'ghost'}
           size="icon"
           onClick={onClick}
           disabled={disabled}
-          className="h-11 w-11"
+          className={cn(
+            "h-11 w-11",
+            isPrimary && "bg-primary text-primary-foreground hover:bg-primary/90"
+          )}
         >
           <Icon className="w-5 h-5" />
         </Button>
