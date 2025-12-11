@@ -3,13 +3,9 @@ import { generateText } from 'ai'
 import { promises as fs } from 'fs'
 import { join } from 'path'
 import { homedir } from 'os'
-import { exec } from 'child_process'
-import { promisify } from 'util'
 
-const execAsync = promisify(exec)
 const SETTINGS_PATH = join(homedir(), '.prjct-cli', 'settings.json')
 const GLOBAL_STORAGE = join(homedir(), '.prjct-cli', 'projects')
-const PRJCT_CLI_PATH = join(__dirname, '..', '..', '..', '..')
 
 // Complete JSON Schema definitions for new architecture
 // JSON is source of truth, MD is generated for Claude
@@ -473,27 +469,11 @@ DESCRIPTION EXTRACTION:
     deletedFiles = await deleteLegacyFiles(projectId)
   }
 
-  // Generate views from new JSON files
-  // Fire and forget - don't block request to prevent OOM from subprocess spawning
-  let viewsGenerated = false
-  if (allSuccess) {
-    try {
-      const child = exec(`bun ${join(PRJCT_CLI_PATH, 'bin', 'generate-views.js')} --project=${projectId}`)
-      child.on('error', (err) => console.error('[Views] Generation error:', err))
-      child.unref() // Allow parent to exit independently
-      viewsGenerated = true
-      results.push({ file: 'views', success: true })
-    } catch (viewError) {
-      // Views generation failed but migration still succeeded
-      results.push({
-        file: 'views',
-        success: false,
-        error: viewError instanceof Error ? viewError.message : 'Failed to generate views'
-      })
-    }
-  }
+  // NOTE: View generation removed from migration to prevent Bun crashes
+  // Views are generated on-demand by the view-generator when needed
+  // The JSON files in data/ are the source of truth now
 
-  return { success: allSuccess, results, deletedFiles, viewsGenerated }
+  return { success: allSuccess, results, deletedFiles, viewsGenerated: false }
 }
 
 export type ProjectInfo = {

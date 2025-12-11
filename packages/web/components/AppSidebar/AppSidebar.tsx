@@ -37,9 +37,11 @@ function SidebarContent({
         "flex h-14 items-center border-b border-border",
         isCollapsed ? "justify-center px-2" : "justify-between px-3"
       )}>
-        <Link href="/" onClick={onNavigate}>
-          <Logo size="xs" showText={!isCollapsed} rounded />
-        </Link>
+        {!isCollapsed && (
+          <Link href="/" onClick={onNavigate}>
+            <Logo size="xs" showText rounded />
+          </Link>
+        )}
         {onToggleCollapse && (
           <Tooltip>
             <TooltipTrigger asChild>

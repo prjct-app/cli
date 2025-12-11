@@ -65,55 +65,39 @@ function writeState(state) {
 }
 
 /**
- * Get package.json version and hash of dependencies
+ * Get package.json version
  */
-function getPackageInfo(pkgPath) {
+function getPackageVersion(pkgPath) {
   try {
     const pkg = JSON.parse(fs.readFileSync(path.join(pkgPath, 'package.json'), 'utf8'))
-    const deps = JSON.stringify(pkg.dependencies || {}) + JSON.stringify(pkg.devDependencies || {})
-    // Simple hash of dependencies
-    let hash = 0
-    for (let i = 0; i < deps.length; i++) {
-      const char = deps.charCodeAt(i)
-      hash = ((hash << 5) - hash) + char
-      hash = hash & hash // Convert to 32bit integer
-    }
-    return { version: pkg.version, depsHash: hash.toString(16) }
+    return pkg.version || '0.0.0'
   } catch {
-    return { version: '0.0.0', depsHash: '0' }
+    return '0.0.0'
   }
 }
 
 /**
  * Check if dependencies need to be installed
+ * Simple logic: install only if node_modules missing OR version changed
  */
 function needsInstall(pkgDir, stateKey) {
   const nodeModules = path.join(pkgDir, 'node_modules')
 
-  // If node_modules doesn't exist, definitely need install
+  // If node_modules doesn't exist, need install
   if (!fs.existsSync(nodeModules)) {
     return { needed: true, reason: 'node_modules not found' }
   }
 
   const state = readState()
-  const pkgInfo = getPackageInfo(pkgDir)
-  const savedInfo = state[stateKey]
-
-  // If no saved state, need install to track
-  if (!savedInfo) {
-    return { needed: true, reason: 'first time tracking' }
-  }
+  const currentVersion = getPackageVersion(pkgDir)
+  const savedVersion = state[stateKey]?.version
 
   // If version changed, need install
-  if (savedInfo.version !== pkgInfo.version) {
-    return { needed: true, reason: `version changed: ${savedInfo.version} → ${pkgInfo.version}` }
+  if (savedVersion && savedVersion !== currentVersion) {
+    return { needed: true, reason: `${savedVersion} → ${currentVersion}` }
   }
 
-  // If dependencies hash changed, need install
-  if (savedInfo.depsHash !== pkgInfo.depsHash) {
-    return { needed: true, reason: 'dependencies changed' }
-  }
-
+  // node_modules exists and version unchanged = skip
   return { needed: false }
 }
 
@@ -122,10 +106,8 @@ function needsInstall(pkgDir, stateKey) {
  */
 function markInstalled(pkgDir, stateKey) {
   const state = readState()
-  const pkgInfo = getPackageInfo(pkgDir)
   state[stateKey] = {
-    version: pkgInfo.version,
-    depsHash: pkgInfo.depsHash,
+    version: getPackageVersion(pkgDir),
     installedAt: new Date().toISOString()
   }
   writeState(state)
