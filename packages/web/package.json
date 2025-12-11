@@ -4,10 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "NODE_ENV=development PORT=9471 bun server.ts",
-    "dev:next": "bun next dev",
     "build": "bun next build",
     "start": "NODE_ENV=production PORT=9472 bun server.ts",
-    "start:prod": "NODE_ENV=production PORT=9472 bun server.ts",
     "lint": "eslint"
   },
   "dependencies": {
