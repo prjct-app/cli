@@ -9,5 +9,6 @@ export interface Agent {
 
 export interface AgentsCardProps {
   agents: Agent[]
+  codeHref?: string
   className?: string
 }

@@ -11,5 +11,6 @@ export interface CurrentTask {
 
 export interface NowCardProps {
   currentTask: CurrentTask | null
+  codeHref?: string
   className?: string
 }

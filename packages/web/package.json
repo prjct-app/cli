@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "NODE_ENV=development PORT=9471 bun server.ts",
     "build": "bun next build",
-    "start": "NODE_ENV=production PORT=9472 bun server.ts",
+    "start": "NODE_ENV=production PORT=9472 node --import tsx server.ts",
     "lint": "eslint"
   },
   "dependencies": {
@@ -40,6 +40,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/bun": "latest",
+    "tsx": "^4.21.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

@@ -11,5 +11,6 @@ export interface RoadmapData {
 
 export interface RoadmapCardProps {
   roadmap: RoadmapData | null
+  codeHref?: string
   className?: string
 }

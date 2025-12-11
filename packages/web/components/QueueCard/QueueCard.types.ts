@@ -7,5 +7,6 @@ export interface QueueItem {
 
 export interface QueueCardProps {
   queue: QueueItem[]
+  codeHref?: string
   className?: string
 }

@@ -7,5 +7,6 @@ export interface Blocker {
 
 export interface BlockersCardProps {
   blockers: Blocker[]
+  codeHref?: string
   className?: string
 }

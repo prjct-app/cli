@@ -463,68 +463,49 @@ export function parseShipped(content: string): ShippedFeature[] {
   const features: ShippedFeature[] = []
   if (!content) return features
 
-  // Split by version headers: ## v1.2.3 - Name or ## 2025-01-01
-  const sections = content.split(/^##\s+/m).filter(s => s.trim())
+  // Split by date headers: ## 2025-01-01
+  const dateSections = content.split(/^##\s+(\d{4}-\d{2}-\d{2})/m)
 
-  for (const section of sections) {
-    const lines = section.split('\n')
-    const headerLine = lines[0]
+  // Process pairs: [before, date1, content1, date2, content2, ...]
+  for (let i = 1; i < dateSections.length; i += 2) {
+    const sectionDate = dateSections[i]
+    const sectionContent = dateSections[i + 1] || ''
 
-    // Parse header: v1.2.3 - Feature Name or date
-    const versionMatch = headerLine.match(/^(v[\d.]+)\s*[-–]\s*(.+)$/i)
-    const dateMatch = headerLine.match(/^(\d{4}-\d{2}-\d{2})/)
+    // Parse bullet points: - **Name** (version) or - **Name**
+    const bulletRegex = /^-\s+\*\*(.+?)\*\*(?:\s*\(([^)]+)\))?/gm
+    let match
+    while ((match = bulletRegex.exec(sectionContent)) !== null) {
+      const name = match[1].trim()
+      const versionOrNote = match[2]?.trim()
 
-    if (!versionMatch && !dateMatch) continue
+      // Extract version if it starts with 'v'
+      const version = versionOrNote?.match(/^v[\d.]+/) ? versionOrNote : undefined
 
-    const feature: ShippedFeature = {
-      date: dateMatch ? dateMatch[1] : new Date().toISOString().split('T')[0],
-      name: versionMatch ? versionMatch[2].trim() : '',
-      version: versionMatch ? versionMatch[1] : undefined
+      features.push({
+        date: sectionDate,
+        name,
+        version
+      })
     }
 
-    // Parse feature metadata
-    for (const line of lines.slice(1)) {
-      const typeMatch = line.match(/Type\*?\*?:\s*(\w+)/i)
-      const agentMatch = line.match(/Agent\*?\*?:\s*(\w+)/i)
-      const timeMatch = line.match(/Time\*?\*?:\s*([^\n]+)/i)
-      const commitMatch = line.match(/Commit\*?\*?:\s*(\w+)/i)
-      const impactMatch = line.match(/Impact\*?\*?:\s*(\w+)/i)
-      const filesMatch = line.match(/Files changed\*?\*?:\s*(\d+)/i)
-      const addedMatch = line.match(/\+(\d+)/i)
-      const removedMatch = line.match(/-(\d+)/i)
+    // Also check for ### Feature Name headers (alternative format)
+    const headerRegex = /^###\s+(.+?)(?:\s+(v[\d.]+))?\s*$/gm
+    while ((match = headerRegex.exec(sectionContent)) !== null) {
+      const name = match[1].trim()
+      const version = match[2]
 
-      if (typeMatch) feature.type = typeMatch[1]
-      if (agentMatch) feature.agent = agentMatch[1]
-      if (timeMatch) feature.time = timeMatch[1].trim()
-      if (commitMatch) feature.commit = commitMatch[1]
-      if (impactMatch) feature.impact = impactMatch[1]
-      if (filesMatch) feature.filesChanged = parseInt(filesMatch[1])
-      if (addedMatch) feature.linesAdded = parseInt(addedMatch[1])
-      if (removedMatch) feature.linesRemoved = parseInt(removedMatch[1])
-
-      // Root cause and solution for fixes
-      if (line.includes('Root Cause')) {
-        feature.rootCause = line.replace(/.*Root Cause\*?\*?:\s*/i, '').trim()
+      // Avoid duplicates if same feature in both formats
+      if (!features.some(f => f.date === sectionDate && f.name === name)) {
+        features.push({
+          date: sectionDate,
+          name,
+          version
+        })
       }
-      if (line.includes('Solution')) {
-        feature.solution = line.replace(/.*Solution\*?\*?:\s*/i, '').trim()
-      }
-    }
-
-    // If we found name from features list
-    if (!feature.name) {
-      const featureLineMatch = section.match(/\*\*([^*]+)\*\*/m)
-      if (featureLineMatch) {
-        feature.name = featureLineMatch[1].trim()
-      }
-    }
-
-    if (feature.name) {
-      features.push(feature)
     }
   }
 
-  return features.slice(0, 20) // Last 20
+  return features.slice(0, 30) // Last 30
 }
 
 // Parse ideas.md - Full idea structure

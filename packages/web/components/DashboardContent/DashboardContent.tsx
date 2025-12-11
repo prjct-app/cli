@@ -16,7 +16,8 @@ import {
   Lightbulb,
   ListTodo,
   Zap,
-  FolderGit2
+  FolderGit2,
+  Play
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -180,7 +181,7 @@ function ProjectCard({ project, onDeleteClick }: ProjectCardProps) {
               )}
             </div>
             {project.repoPath && (
-              <p className="text-[11px] sm:text-xs text-muted-foreground truncate mt-0.5 flex items-center gap-1">
+              <p className="text-xs text-muted-foreground truncate mt-0.5 flex items-center gap-1">
                 <FolderGit2 className="w-3 h-3 shrink-0" />
                 {formatPath(project.repoPath)}
               </p>
@@ -200,6 +201,12 @@ function ProjectCard({ project, onDeleteClick }: ProjectCardProps) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem asChild className="min-h-[44px] sm:min-h-0">
+                <Link href={`/project/${project.id}/code`}>
+                  <Play className="w-4 h-4 mr-2" />
+                  Start working
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuItem
                 className="text-destructive focus:text-destructive min-h-[44px] sm:min-h-0"
                 onClick={(e: React.MouseEvent) => onDeleteClick(project, e)}
@@ -221,7 +228,7 @@ function ProjectCard({ project, onDeleteClick }: ProjectCardProps) {
         )}
 
         {hasStats && (
-          <div className="mt-3 flex flex-wrap items-center gap-2 sm:gap-3 text-[11px] sm:text-xs text-muted-foreground">
+          <div className="mt-3 flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-muted-foreground">
             {(project.nextTasksCount ?? 0) > 0 && (
               <div className="flex items-center gap-1">
                 <ListTodo className="w-3.5 h-3.5" />

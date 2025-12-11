@@ -138,10 +138,27 @@ function SidebarContent({
   )
 }
 
+const SIDEBAR_COLLAPSED_KEY = 'prjct-sidebar-collapsed'
+
 export function AppSidebar() {
   const [isOpen, setIsOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [isCollapsed, setIsCollapsed] = useState(false)
+
+  // Load collapsed state from localStorage on mount
+  useEffect(() => {
+    const stored = localStorage.getItem(SIDEBAR_COLLAPSED_KEY)
+    if (stored !== null) {
+      setIsCollapsed(stored === 'true')
+    }
+  }, [])
+
+  // Persist collapsed state to localStorage
+  const handleToggleCollapse = () => {
+    const newValue = !isCollapsed
+    setIsCollapsed(newValue)
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(newValue))
+  }
 
   // Detect mobile on mount and resize
   useEffect(() => {
@@ -180,7 +197,7 @@ export function AppSidebar() {
     )}>
       <SidebarContent
         isCollapsed={isCollapsed}
-        onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
+        onToggleCollapse={handleToggleCollapse}
       />
     </aside>
   )

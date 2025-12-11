@@ -7,6 +7,7 @@ import { join, dirname } from 'path'
 import { homedir } from 'os'
 import { exec } from 'child_process'
 import { promisify } from 'util'
+import { listSessions } from './pty'
 
 const execAsync = promisify(exec)
 
@@ -154,11 +155,16 @@ export async function getProjects() {
       let hasActiveSession = false
       let lastActivity: string | null = null
 
-      // Try current session first
+      // Check for real PTY sessions (actual Claude sessions in memory)
+      try {
+        const activeSessions = listSessions()
+        hasActiveSession = activeSessions.some(s => s.projectDir === repoPath)
+      } catch {}
+
+      // Try current session for lastActivity only
       try {
         const sessionPath = join(storagePath, 'sessions', 'current.json')
         const sessionData = JSON.parse(await fs.readFile(sessionPath, 'utf-8'))
-        hasActiveSession = sessionData.status === 'active'
         lastActivity = sessionData.startedAt || sessionData.updatedAt
       } catch {}
 
@@ -424,10 +430,27 @@ export async function getProjectStatus(projectId: string) {
   const projectPath = join(GLOBAL_STORAGE, projectId)
 
   let session = null
+  let repoPath: string | null = null
   try {
     const sessionPath = join(projectPath, 'sessions', 'current.json')
     session = JSON.parse(await fs.readFile(sessionPath, 'utf-8'))
   } catch {}
+
+  // Get repoPath from project.json for PTY session check
+  try {
+    const projectJsonPath = join(projectPath, 'project.json')
+    const projectJson = JSON.parse(await fs.readFile(projectJsonPath, 'utf-8'))
+    repoPath = projectJson.repoPath || null
+  } catch {}
+
+  // Check for real PTY sessions
+  let hasActiveSession = false
+  if (repoPath) {
+    try {
+      const activeSessions = listSessions()
+      hasActiveSession = activeSessions.some(s => s.projectDir === repoPath)
+    } catch {}
+  }
 
   let ideas: string[] = []
   try {
@@ -446,7 +469,7 @@ export async function getProjectStatus(projectId: string) {
   return {
     projectId,
     session,
-    hasActiveSession: session?.status === 'active',
+    hasActiveSession,
     ideas,
     nextTasks
   }
