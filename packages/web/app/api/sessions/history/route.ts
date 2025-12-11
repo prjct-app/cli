@@ -39,14 +39,17 @@ export async function GET() {
     // Aggregate by date
     const dailyMap = new Map<string, { tasks: number; ships: number }>()
 
-    // Calculate date range (last 90 days)
+    // Calculate date range (last 30 days)
     const endDate = new Date()
     const startDate = new Date()
-    startDate.setDate(startDate.getDate() - 90)
+    startDate.setDate(startDate.getDate() - 30)
 
     for (const projectId of projects) {
-      const contextPath = join(globalStorage, projectId, 'memory', 'context.jsonl')
+      // Skip hidden directories
+      if (projectId.startsWith('.')) continue
 
+      // Read from memory/context.jsonl (legacy)
+      const contextPath = join(globalStorage, projectId, 'memory', 'context.jsonl')
       try {
         const content = await fs.readFile(contextPath, 'utf-8')
         const lines = content.trim().split('\n').filter(Boolean)
@@ -67,7 +70,7 @@ export async function GET() {
             const eventType = event.type || event.action
 
             // Count tasks completed
-            if (eventType === 'task_complete' || eventType === 'task_completed') {
+            if (eventType === 'task_complete' || eventType === 'task_completed' || eventType === 'session_completed') {
               current.tasks++
             }
 
@@ -84,16 +87,82 @@ export async function GET() {
       } catch {
         // Skip projects without context.jsonl
       }
+
+      // Read from progress/sessions/{YYYY-MM}/{date}.jsonl (new format)
+      const sessionsDir = join(globalStorage, projectId, 'progress', 'sessions')
+      try {
+        const monthDirs = await fs.readdir(sessionsDir)
+        for (const monthDir of monthDirs) {
+          // Skip non-directory entries
+          if (!monthDir.match(/^\d{4}-\d{2}$/)) continue
+
+          const monthPath = join(sessionsDir, monthDir)
+          try {
+            const dayFiles = await fs.readdir(monthPath)
+            for (const dayFile of dayFiles) {
+              if (!dayFile.endsWith('.jsonl')) continue
+
+              const dayPath = join(monthPath, dayFile)
+              try {
+                const content = await fs.readFile(dayPath, 'utf-8')
+                const lines = content.trim().split('\n').filter(Boolean)
+
+                for (const line of lines) {
+                  try {
+                    const event: SessionEvent = JSON.parse(line)
+                    const timestamp = event.ts || event.timestamp
+                    if (!timestamp) continue
+
+                    const eventDate = new Date(timestamp)
+                    if (isNaN(eventDate.getTime())) continue
+                    if (eventDate < startDate || eventDate > endDate) continue
+
+                    const dateKey = eventDate.toISOString().split('T')[0]
+                    const current = dailyMap.get(dateKey) || { tasks: 0, ships: 0 }
+
+                    const eventType = event.type || event.action
+
+                    // Count tasks completed
+                    if (eventType === 'task_complete' || eventType === 'task_completed') {
+                      current.tasks++
+                    }
+
+                    // Count features shipped
+                    if (eventType === 'feature_ship' || eventType === 'feature_shipped') {
+                      current.ships++
+                    }
+
+                    dailyMap.set(dateKey, current)
+                  } catch {
+                    // Skip malformed lines
+                  }
+                }
+              } catch {
+                // Skip unreadable files
+              }
+            }
+          } catch {
+            // Skip unreadable month directories
+          }
+        }
+      } catch {
+        // Skip projects without sessions directory
+      }
     }
 
-    // Convert to sorted array
-    const data: DailyStats[] = Array.from(dailyMap.entries())
-      .map(([date, stats]) => ({
-        date,
+    // Generate all dates in range (90 days), filling gaps with zeros
+    const data: DailyStats[] = []
+    const currentDate = new Date(startDate)
+    while (currentDate <= endDate) {
+      const dateKey = currentDate.toISOString().split('T')[0]
+      const stats = dailyMap.get(dateKey) || { tasks: 0, ships: 0 }
+      data.push({
+        date: dateKey,
         tasks: stats.tasks,
         ships: stats.ships
-      }))
-      .sort((a, b) => a.date.localeCompare(b.date))
+      })
+      currentDate.setDate(currentDate.getDate() + 1)
+    }
 
     // Calculate totals for summary
     const totals = {

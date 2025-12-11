@@ -91,7 +91,7 @@ export function SessionsChart() {
         <div className="flex flex-1 flex-col justify-center gap-1 px-4 py-3 sm:px-5 sm:py-4">
           <CardTitle>Session Activity</CardTitle>
           <CardDescription>
-            Last 90 days across all projects
+            Last 30 days across all projects
           </CardDescription>
         </div>
         <div className="flex">
@@ -148,8 +148,11 @@ export function SessionsChart() {
                 }}
               />
               <ChartTooltip
-                content={
+                content={({ active, payload, label }) => (
                   <ChartTooltipContent
+                    active={active}
+                    payload={payload as Parameters<typeof ChartTooltipContent>[0]['payload']}
+                    label={label as string}
                     className="w-[150px]"
                     nameKey="views"
                     labelFormatter={(value) => {
@@ -160,7 +163,7 @@ export function SessionsChart() {
                       })
                     }}
                   />
-                }
+                )}
               />
               <Bar dataKey={activeChart} fill={`var(--color-${activeChart})`} />
             </BarChart>

@@ -5,5 +5,6 @@ export interface Idea {
 
 export interface IdeasCardProps {
   ideas: Idea[]
+  codeHref?: string
   className?: string
 }

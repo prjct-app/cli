@@ -1,414 +1,370 @@
-'use client'
-
-import { useState, use } from 'react'
-import { useRouter } from 'next/navigation'
-import { useProject, useDeleteProject } from '@/hooks/useProjects'
-import { TerminalTabsProvider, useTerminalTabs } from '@/context/TerminalTabsContext'
-import { TerminalTabs } from '@/components/TerminalTabs'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { TooltipProvider } from '@/components/ui/tooltip'
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
+import { notFound } from 'next/navigation'
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import { ProjectAvatar } from '@/components/ProjectAvatar'
-import { TechStackBadges } from '@/components/TechStackBadges'
-import { CommandButton } from '@/components/CommandButton'
-import { formatPath } from '@/lib/format'
-import {
-  Loader2,
-  Play,
-  Target,
-  Lightbulb,
-  ListTodo,
-  Rocket,
-  Sparkles,
-  CheckCircle2,
-  AlertTriangle,
-  Trash2,
-  ArrowLeft,
-  FolderGit2,
-  Pause,
-  BarChart3,
-  TrendingUp,
-  Activity,
-  History,
-  Undo2,
-  Redo2,
-  Command,
-  X,
-  RefreshCw
-} from 'lucide-react'
-import { cn } from '@/lib/utils'
+  getStats,
+  getInsightMessage,
+  calculateStreak,
+  calculateHealthScore,
+  getVelocityChange,
+  getWeeklyVelocityData,
+  type StatsResult
+} from '@/lib/services/stats.server'
+import { getProject } from '@/lib/services/projects.server'
+import type { TimelineEvent } from '@/lib/parse-prjct-files'
 
-// Commands ordered by real developer workflow
-const WORKFLOW_COMMANDS = [
-  { cmd: 'p. now', icon: Target, tip: 'Set task', group: 'work' },
-  { cmd: 'p. done', icon: CheckCircle2, tip: 'Complete', group: 'work' },
-  { cmd: 'p. pause', icon: Pause, tip: 'Pause', group: 'session' },
-  { cmd: 'p. resume', icon: Play, tip: 'Resume', group: 'session' },
-  { cmd: 'p. feature', icon: Sparkles, tip: 'Feature', group: 'plan' },
-  { cmd: 'p. idea', icon: Lightbulb, tip: 'Idea', group: 'plan' },
-  { cmd: 'p. next', icon: ListTodo, tip: 'Queue', group: 'plan' },
-  { cmd: 'p. ship', icon: Rocket, tip: 'Ship', group: 'ship' },
-  { cmd: 'p. recap', icon: BarChart3, tip: 'Recap', group: 'status' },
-  { cmd: 'p. progress', icon: TrendingUp, tip: 'Progress', group: 'status' },
-  { cmd: 'p. status', icon: Activity, tip: 'Status', group: 'status' },
-  { cmd: 'p. history', icon: History, tip: 'History', group: 'status' },
-  { cmd: 'p. undo', icon: Undo2, tip: 'Undo', group: 'recovery' },
-  { cmd: 'p. redo', icon: Redo2, tip: 'Redo', group: 'recovery' },
-] as const
+import { HeroSection } from '@/components/HeroSection'
+import { StatsMasonry } from '@/components/StatsMasonry'
+import { ActivityTimeline } from '@/components/ActivityTimeline'
 
-const COMMAND_GROUPS = ['work', 'session', 'plan', 'ship', 'status', 'recovery'] as const
+// Types for normalized component data
+interface NormalizedCurrentTask {
+  task: string
+  startedAt?: string
+  agent?: string
+  estimatedDuration?: string
+  pausedAt?: string
+  pauseReason?: string
+}
 
-// Command sidebar content - shared between desktop and mobile
-function CommandSidebarContent({
-  projectId,
-  project,
-  isActiveConnected,
-  sendCommandToActive,
-  onCommandClick
-}: {
-  projectId: string
-  project: { name?: string; iconPath?: string | null }
-  isActiveConnected: boolean
-  sendCommandToActive: (cmd: string) => void
-  onCommandClick?: () => void
-}) {
-  const router = useRouter()
+interface NormalizedQueueItem {
+  task: string
+  priority?: 'low' | 'medium' | 'high' | 'critical' | number
+  estimatedDuration?: string
+}
 
-  const handleCommand = (cmd: string) => {
-    sendCommandToActive(cmd)
-    onCommandClick?.()
+interface NormalizedShip {
+  name: string
+  date: string
+  duration?: string
+}
+
+interface NormalizedIdea {
+  title: string
+  impact?: string
+}
+
+interface NormalizedAgent {
+  name: string
+  description?: string
+  successRate?: number
+  tasksCompleted?: number
+  bestFor?: string[]
+}
+
+interface NormalizedRoadmap {
+  phases: Array<{
+    name: string
+    progress: number
+    features?: Array<{ name: string; status: string }>
+  }>
+  progress: number
+}
+
+// Data normalization functions
+function normalizeCurrentTask(stats: StatsResult): NormalizedCurrentTask | null {
+  if (stats.state?.currentTask) {
+    return {
+      task: stats.state.currentTask.description,
+      startedAt: stats.state.currentTask.startedAt,
+      // Simplified - removed legacy fields not in new schema
+    }
+  }
+  return stats.legacyStats?.currentTask ?? null
+}
+
+function normalizeQueue(stats: StatsResult): NormalizedQueueItem[] {
+  if (stats.queue?.tasks) {
+    return stats.queue.tasks
+      .filter(t => !t.completed)
+      .map(q => ({
+        task: q.description,
+        priority: q.priority,
+      }))
+  }
+  return stats.legacyStats?.queue ?? []
+}
+
+function normalizeRoadmap(stats: StatsResult): NormalizedRoadmap | null {
+  const features = stats.roadmap?.features ?? []
+  if (features.length > 0) {
+    const completed = features.filter(f =>
+      f.status === 'shipped' || f.status === 'completed'
+    ).length
+
+    return {
+      phases: features.map(f => ({
+        name: f.name,
+        progress: f.status === 'shipped' || f.status === 'completed' ? 100 :
+                  f.status === 'active' ? 50 : 0,
+        features: f.tasks.map(t => ({
+          name: t.description,
+          status: t.completed ? 'completed' : 'pending'
+        }))
+      })),
+      progress: Math.round((completed / features.length) * 100)
+    }
+  }
+  return stats.legacyStats?.roadmap ?? null
+}
+
+function normalizeShipped(stats: StatsResult): NormalizedShip[] {
+  // Try new format first
+  const items = stats.shipped?.items ?? []
+  if (items.length > 0) {
+    return items.map(s => ({
+      name: s.name,
+      date: s.shippedAt || s.date || new Date().toISOString(),
+    }))
+  }
+  // Fallback to legacy
+  return (stats.legacyStats?.shipped ?? []).map(s => ({
+    name: s.name,
+    date: s.date,
+    duration: s.time,
+  }))
+}
+
+function normalizeIdeas(stats: StatsResult): NormalizedIdea[] {
+  // Try new format first
+  const ideas = stats.ideas?.ideas ?? []
+  if (ideas.length > 0) {
+    return ideas
+      .filter(i => i.status === 'pending')
+      .map(i => ({
+        title: i.text,
+        impact: i.priority?.toUpperCase() || 'MEDIUM'
+      }))
+  }
+  // Fallback to legacy
+  return (stats.legacyStats?.ideas?.pending ?? []).map(i => ({
+    title: i.title,
+    impact: i.impact?.toUpperCase() || 'MEDIUM'
+  }))
+}
+
+function normalizeAgents(stats: StatsResult): NormalizedAgent[] {
+  // Try new format first
+  if (stats.agents.length > 0) {
+    return stats.agents.map(a => ({
+      name: a.name,
+      description: a.description,
+      successRate: a.successRate,
+      tasksCompleted: a.tasksCompleted,
+      bestFor: a.bestFor,
+    }))
+  }
+  // Fallback to legacy
+  return (stats.legacyStats?.agents ?? []).map(a => ({
+    name: a.name,
+    description: a.role,
+    bestFor: a.whenToUse,
+  }))
+}
+
+function normalizeTimeline(stats: StatsResult): TimelineEvent[] {
+  if (stats.metrics?.recentActivity?.length) {
+    return stats.metrics.recentActivity.map(a => ({
+      ts: a.timestamp,
+      type: a.action || a.type || 'task_completed',
+      task: a.description || '',
+    }))
+  }
+  return stats.legacyStats?.timeline ?? []
+}
+
+function getVelocity(stats: StatsResult): number {
+  if (stats.metrics?.velocity?.tasksPerDay) {
+    return stats.metrics.velocity.tasksPerDay
+  }
+  return stats.legacyStats?.metrics?.velocity?.tasksPerDay ?? 0
+}
+
+function getTotalShips(stats: StatsResult): number {
+  return stats.shipped?.items?.length ?? stats.legacyStats?.summary?.totalShipsEver ?? 0
+}
+
+function getTasksCompleted(stats: StatsResult): number {
+  return stats.metrics?.currentSprint?.tasksCompleted ?? stats.legacyStats?.metrics?.tasksCompleted ?? 0
+}
+
+// Calculate streak from legacy timeline
+function calculateStreakFromTimeline(stats: StatsResult): number {
+  const timeline = stats.legacyStats?.timeline ?? []
+  if (timeline.length === 0) return 0
+
+  const activityDates = new Set(
+    timeline.map(e => e.ts?.split('T')[0]).filter(Boolean)
+  )
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const days = Array.from({ length: 30 }, (_, i) => {
+    const date = new Date(today)
+    date.setDate(date.getDate() - i)
+    return date.toISOString().split('T')[0]
+  })
+
+  const firstGapIndex = days.findIndex(date => !activityDates.has(date))
+
+  if (firstGapIndex === 0) {
+    const yesterdayHasActivity = activityDates.has(days[1])
+    if (!yesterdayHasActivity) return 0
+    const remainingDays = days.slice(1)
+    const gapFromYesterday = remainingDays.findIndex(date => !activityDates.has(date))
+    return gapFromYesterday === -1 ? remainingDays.length : gapFromYesterday
   }
 
+  return firstGapIndex === -1 ? days.length : firstGapIndex
+}
+
+// Get weekly velocity data from legacy timeline
+function getWeeklyDataFromTimeline(stats: StatsResult): number[] {
+  const timeline = stats.legacyStats?.timeline ?? []
+  if (timeline.length === 0) return []
+
+  const today = new Date()
+
+  return Array.from({ length: 7 }, (_, i) => {
+    const date = new Date(today)
+    date.setDate(date.getDate() - (6 - i))
+    const dateStr = date.toISOString().split('T')[0]
+
+    return timeline.filter(e => e.ts?.startsWith(dateStr)).length
+  })
+}
+
+interface PageProps {
+  params: Promise<{ id: string }>
+}
+
+export default async function ProjectStatsPage({ params }: PageProps) {
+  const { id: projectId } = await params
+
+  // Fetch data directly on server - no API calls
+  const [project, stats] = await Promise.all([
+    getProject(projectId),
+    getStats(projectId)
+  ])
+
+  if (!stats.hasData) {
+    notFound()
+  }
+
+  // Compute derived values using service functions
+  // Use legacy timeline for streak/weekly if metrics is empty
+  const streak = stats.metrics?.recentActivity?.length
+    ? calculateStreak(stats.metrics)
+    : calculateStreakFromTimeline(stats)
+  const healthScore = calculateHealthScore(stats)
+  const velocity = getVelocity(stats)
+  const velocityChange = getVelocityChange(velocity)
+  const insightMessage = getInsightMessage(stats, streak)
+  const weeklyVelocityData = stats.metrics?.recentActivity?.length
+    ? getWeeklyVelocityData(stats.metrics)
+    : getWeeklyDataFromTimeline(stats)
+
+  // Normalize data for components
+  const currentTask = normalizeCurrentTask(stats)
+  const queue = normalizeQueue(stats)
+  const roadmap = normalizeRoadmap(stats)
+  const shipped = normalizeShipped(stats)
+  const ideas = normalizeIdeas(stats)
+  const agents = normalizeAgents(stats)
+  const timeline = normalizeTimeline(stats)
+  const totalShips = getTotalShips(stats)
+  const tasksCompleted = getTasksCompleted(stats)
+
+  // Extract insights
+  const { estimateAccuracy, blockers } = stats.insights
+
   return (
-    <>
-      <div className="h-14 flex items-center justify-center border-b border-border w-full">
-        <ProjectAvatar
+    <div className="flex h-full flex-col p-4 md:p-6 overflow-auto">
+      {/* Mobile: Add padding for hamburger menu */}
+      <div className="pl-10 md:pl-0">
+        <HeroSection
           projectId={projectId}
-          name={project.name || projectId}
-          iconPath={project.iconPath}
+          projectName={project?.name ?? projectId}
+          tasksCompleted={tasksCompleted}
+          healthScore={healthScore}
+          velocity={velocity}
+          velocityChange={velocityChange}
+          insightMessage={insightMessage}
+          timeline={timeline}
         />
       </div>
 
-      <div className="flex-1 flex flex-col gap-1 overflow-auto py-3">
-        {/* Stats button - navigates to stats page */}
-        <CommandButton
-          cmd="Project stats"
-          icon={BarChart3}
-          tip="Stats"
-          disabled={false}
-          onClick={() => {
-            router.push(`/project/${projectId}/stats`)
-            onCommandClick?.()
-          }}
-        />
-        {/* Sync button - prominent, always visible */}
-        <CommandButton
-          cmd="p. sync"
-          icon={RefreshCw}
-          tip="Sync"
-          disabled={!isActiveConnected}
-          onClick={() => handleCommand('p. sync')}
-          variant="primary"
-        />
-        <div className="border-b border-border w-8 my-2 mx-auto" />
-
-        {COMMAND_GROUPS.map((group, groupIndex) => (
-          <div key={group} className="flex flex-col items-center">
-            {WORKFLOW_COMMANDS.filter(c => c.group === group).map(({ cmd, icon, tip }) => (
-              <CommandButton
-                key={cmd}
-                cmd={cmd}
-                icon={icon}
-                tip={tip}
-                disabled={!isActiveConnected}
-                onClick={() => handleCommand(cmd)}
-              />
-            ))}
-            {groupIndex < COMMAND_GROUPS.length - 1 && (
-              <div className="border-b border-border w-8 my-2" />
-            )}
+      {/* Quick Stats Bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mt-4 mb-6">
+        <div className="bg-card border rounded-lg p-2 sm:p-3 flex items-center gap-2 sm:gap-3">
+          <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
+            <svg className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3l14 9-14 9V3z" />
+            </svg>
           </div>
-        ))}
+          <div className="min-w-0">
+            <div className="text-xl sm:text-2xl font-bold tabular-nums">{totalShips}</div>
+            <div className="text-xs text-muted-foreground truncate">Shipped</div>
+          </div>
+        </div>
+        <div className="bg-card border rounded-lg p-2 sm:p-3 flex items-center gap-2 sm:gap-3">
+          <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
+            <svg className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+          </div>
+          <div className="min-w-0">
+            <div className="text-xl sm:text-2xl font-bold tabular-nums">{queue.length}</div>
+            <div className="text-xs text-muted-foreground truncate">Queue</div>
+          </div>
+        </div>
+        <div className="bg-card border rounded-lg p-2 sm:p-3 flex items-center gap-2 sm:gap-3">
+          <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
+            <svg className="h-4 w-4 sm:h-5 sm:w-5 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
+            </svg>
+          </div>
+          <div className="min-w-0">
+            <div className="text-xl sm:text-2xl font-bold tabular-nums">{streak}</div>
+            <div className="text-xs text-muted-foreground truncate">Streak</div>
+          </div>
+        </div>
+        <div className="bg-card border rounded-lg p-2 sm:p-3 flex items-center gap-2 sm:gap-3">
+          <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
+            <svg className="h-4 w-4 sm:h-5 sm:w-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+            </svg>
+          </div>
+          <div className="min-w-0">
+            <div className="text-xl sm:text-2xl font-bold tabular-nums">{ideas.length}</div>
+            <div className="text-xs text-muted-foreground truncate">Ideas</div>
+          </div>
+        </div>
       </div>
-    </>
-  )
-}
 
-// Inner component that uses the terminal context
-function ProjectPageContent({ projectId, project }: { projectId: string; project: NonNullable<ReturnType<typeof useProject>['data']> }) {
-  const router = useRouter()
-  const [commandSheetOpen, setCommandSheetOpen] = useState(false)
+      {/* Main Content - Masonry Layout */}
+      <StatsMasonry
+        projectId={projectId}
+        currentTask={currentTask}
+        velocity={velocity}
+        weeklyVelocityData={weeklyVelocityData}
+        velocityChange={velocityChange}
+        estimateAccuracy={estimateAccuracy}
+        roadmap={roadmap}
+        queue={queue}
+        shipped={shipped}
+        totalShips={totalShips}
+        streak={streak}
+        blockers={blockers}
+        ideas={ideas}
+        agents={agents}
+      />
 
-  const {
-    sessions,
-    sendCommandToActive,
-    getActiveSession
-  } = useTerminalTabs()
+      {/* Activity Timeline - Client Component */}
+      <div className="mt-4">
+        <ActivityTimeline timeline={timeline} />
+      </div>
 
-  const activeSession = getActiveSession()
-  const hasActiveSessions = sessions.length > 0
-  const isActiveConnected = activeSession?.isConnected ?? false
-
-  return (
-    <div className="h-full">
-      <TooltipProvider>
-        <div className="flex h-full">
-          {/* Desktop Sidebar - hidden on mobile */}
-          <aside className="hidden md:flex w-14 border-r border-border flex-col bg-card/50 items-center">
-            <CommandSidebarContent
-              projectId={projectId}
-              project={project}
-              isActiveConnected={isActiveConnected}
-              sendCommandToActive={sendCommandToActive}
-            />
-          </aside>
-
-          {/* Main */}
-          <main className="flex-1 flex flex-col min-w-0">
-            {/* Header - Responsive */}
-            <header className="h-auto md:h-14 flex flex-col md:flex-row md:items-center justify-between px-3 md:px-4 py-2 md:py-0 border-b border-border bg-card gap-2">
-              {/* Mobile: Add padding for hamburger menu */}
-              <div className="flex items-center gap-3 pl-12 md:pl-0">
-                {/* Mobile: Show project avatar */}
-                <div className="md:hidden">
-                  <ProjectAvatar
-                    projectId={projectId}
-                    name={project.name || projectId}
-                    iconPath={project.iconPath}
-                    size="sm"
-                  />
-                </div>
-                <div className="flex flex-col min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold leading-tight truncate">{project.name || projectId}</span>
-                    {project.version && (
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-mono shrink-0">
-                        v{project.version}
-                      </Badge>
-                    )}
-                  </div>
-                  {project.repoPath && (
-                    <span className="text-xs text-muted-foreground leading-tight flex items-center gap-1 truncate">
-                      <FolderGit2 className="w-3 h-3 shrink-0" />
-                      <span className="truncate">{formatPath(project.repoPath)}</span>
-                    </span>
-                  )}
-                </div>
-                {hasActiveSessions && (
-                  <Badge variant="outline" className="text-green-500 border-green-500/50 shrink-0">
-                    {sessions.filter(s => s.isConnected).length} active
-                  </Badge>
-                )}
-              </div>
-
-              {/* Desktop only: metadata and tech stack */}
-              <div className="hidden md:flex items-center gap-4">
-                <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                  {project.stack && <span>{project.stack}</span>}
-                  {project.filesCount && (
-                    <span><span className="font-medium text-foreground">{project.filesCount}</span> files</span>
-                  )}
-                  {project.commitsCount && (
-                    <span><span className="font-medium text-foreground">{project.commitsCount}</span> commits</span>
-                  )}
-                </div>
-                <TechStackBadges techStack={project.techStack || []} />
-              </div>
-            </header>
-
-            {/* Terminal tabs area */}
-            <div className="flex-1 min-h-0">
-              <TerminalTabs projectDir={project.repoPath || project.path || '/tmp'} />
-            </div>
-          </main>
-        </div>
-
-        {/* Mobile: Floating Action Button for commands */}
-        <div className="md:hidden fixed bottom-4 right-4 z-50">
-          <Sheet open={commandSheetOpen} onOpenChange={setCommandSheetOpen}>
-            <SheetTrigger asChild>
-              <button
-                className={cn(
-                  "h-14 w-14 rounded-full shadow-lg flex items-center justify-center transition-all",
-                  isActiveConnected
-                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                    : "bg-muted text-muted-foreground"
-                )}
-                aria-label="Open commands"
-              >
-                <Command className="h-6 w-6" />
-              </button>
-            </SheetTrigger>
-            <SheetContent side="bottom" className="h-[70vh] rounded-t-2xl px-0">
-              <div className="flex flex-col h-full">
-                <div className="px-4 pb-2 border-b border-border">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-semibold">Commands</h3>
-                    <Badge variant={isActiveConnected ? "default" : "secondary"}>
-                      {isActiveConnected ? "Connected" : "Disconnected"}
-                    </Badge>
-                  </div>
-                </div>
-
-                {/* Command grid for mobile */}
-                <div className="flex-1 overflow-auto p-4">
-                  <div className="grid grid-cols-4 gap-3">
-                    {/* Stats button */}
-                    <button
-                      onClick={() => {
-                        router.push(`/project/${projectId}/stats`)
-                        setCommandSheetOpen(false)
-                      }}
-                      className="flex flex-col items-center gap-1.5 p-3 rounded-lg hover:bg-accent transition-colors"
-                    >
-                      <div className="h-10 w-10 rounded-full bg-accent flex items-center justify-center">
-                        <BarChart3 className="h-5 w-5" />
-                      </div>
-                      <span className="text-xs text-muted-foreground">Stats</span>
-                    </button>
-
-                    {/* Sync button - prominent */}
-                    <button
-                      onClick={() => {
-                        sendCommandToActive('p. sync')
-                        setCommandSheetOpen(false)
-                      }}
-                      disabled={!isActiveConnected}
-                      className={cn(
-                        "flex flex-col items-center gap-1.5 p-3 rounded-lg transition-colors",
-                        isActiveConnected
-                          ? "hover:bg-primary/10"
-                          : "opacity-50 cursor-not-allowed"
-                      )}
-                    >
-                      <div className={cn(
-                        "h-10 w-10 rounded-full flex items-center justify-center",
-                        isActiveConnected ? "bg-primary text-primary-foreground" : "bg-muted"
-                      )}>
-                        <RefreshCw className="h-5 w-5" />
-                      </div>
-                      <span className="text-xs text-primary font-medium">Sync</span>
-                    </button>
-
-                    {WORKFLOW_COMMANDS.map(({ cmd, icon: Icon, tip }) => (
-                      <button
-                        key={cmd}
-                        onClick={() => {
-                          sendCommandToActive(cmd)
-                          setCommandSheetOpen(false)
-                        }}
-                        disabled={!isActiveConnected}
-                        className={cn(
-                          "flex flex-col items-center gap-1.5 p-3 rounded-lg transition-colors",
-                          isActiveConnected
-                            ? "hover:bg-accent"
-                            : "opacity-50 cursor-not-allowed"
-                        )}
-                      >
-                        <div className={cn(
-                          "h-10 w-10 rounded-full flex items-center justify-center",
-                          isActiveConnected ? "bg-accent" : "bg-muted"
-                        )}>
-                          <Icon className="h-5 w-5" />
-                        </div>
-                        <span className="text-xs text-muted-foreground">{tip}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </SheetContent>
-          </Sheet>
-        </div>
-      </TooltipProvider>
+      <div className="h-4" />
     </div>
-  )
-}
-
-export default function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id: projectId } = use(params)
-  const router = useRouter()
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-
-  const { data: project, isLoading: projectLoading } = useProject(projectId)
-  const deleteMutation = useDeleteProject()
-
-  if (projectLoading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-      </div>
-    )
-  }
-
-  if (!project) {
-    return (
-      <div className="flex items-center justify-center h-full p-4">
-        <div className="text-center space-y-4 max-w-sm">
-          <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto">
-            <AlertTriangle className="w-8 h-8 text-muted-foreground" />
-          </div>
-          <div>
-            <h2 className="text-lg font-medium">Project not found</h2>
-            <p className="text-sm text-muted-foreground mt-1 break-all">ID: {projectId}</p>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-2 justify-center">
-            <Button variant="outline" onClick={() => router.push('/')}>
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Dashboard
-            </Button>
-            <Button variant="destructive" onClick={() => setShowDeleteConfirm(true)}>
-              <Trash2 className="w-4 h-4 mr-2" />
-              Delete from Storage
-            </Button>
-          </div>
-
-          <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-            <AlertDialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg">
-              <AlertDialogHeader>
-                <AlertDialogTitle className="flex items-center gap-2">
-                  <AlertTriangle className="w-5 h-5 text-destructive" />
-                  Delete Project Data?
-                </AlertDialogTitle>
-                <AlertDialogDescription>
-                  This will move the project storage to trash.
-                  <br />
-                  <span className="text-muted-foreground text-sm break-all">ID: {projectId}</span>
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter className="flex-col sm:flex-row gap-2">
-                <AlertDialogCancel disabled={deleteMutation.isPending} className="w-full sm:w-auto">
-                  Cancel
-                </AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={() => deleteMutation.mutate(projectId, { onSuccess: () => router.push('/') })}
-                  disabled={deleteMutation.isPending}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90 w-full sm:w-auto"
-                >
-                  {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <TerminalTabsProvider projectId={projectId}>
-      <ProjectPageContent projectId={projectId} project={project} />
-    </TerminalTabsProvider>
   )
 }

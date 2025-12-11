@@ -5,6 +5,7 @@ export interface EmptyStateProps {
   title: string
   description?: string
   command?: string
+  href?: string
   className?: string
   compact?: boolean
 }

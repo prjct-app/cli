@@ -292,7 +292,22 @@ Look for feature entry matching {feature}:
 
 WRITE: `{roadmapPath}`
 
-## Step 10: Log to Memory
+## Step 10: Log to Daily Session (for Dashboard Charts)
+
+GET: {date} = YYYY-MM-DD from {now}
+GET: {yearMonth} = YYYY-MM from {now}
+SET: {dailySessionPath} = `{globalPath}/progress/sessions/{yearMonth}/{date}.jsonl`
+
+BASH: `mkdir -p {globalPath}/progress/sessions/{yearMonth}`
+
+APPEND to: `{dailySessionPath}`
+
+Single line (JSONL format):
+```json
+{"ts":"{now}","type":"feature_ship","name":"{feature}","version":"{newVersion}"}
+```
+
+## Step 11: Log to Memory
 
 APPEND to: `{memoryPath}`
 
@@ -301,7 +316,7 @@ Single line (JSONL):
 {"timestamp":"{now}","action":"feature_shipped","shipId":"{shipId}","feature":"{feature}","version":"{newVersion}","outcome":"{outcome}"}
 ```
 
-## Step 11: Create Snapshot (Undo/Redo Support)
+## Step 12: Create Snapshot (Undo/Redo Support)
 
 This creates a snapshot for the undo/redo system.
 

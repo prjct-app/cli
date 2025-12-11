@@ -17,7 +17,7 @@ export function EventRow({ event }: EventRowProps) {
   return (
     <div className="flex items-center gap-2 sm:gap-3 py-2 sm:py-1.5 px-2 -mx-2 rounded-md hover:bg-muted/50 active:bg-muted/70 transition-colors group">
       {event.ts && (
-        <span className="hidden sm:block text-[10px] text-muted-foreground w-14 shrink-0 tabular-nums">
+        <span className="hidden sm:block text-xs text-muted-foreground w-14 shrink-0 tabular-nums">
           {formatTime(event.ts)}
         </span>
       )}
@@ -29,18 +29,18 @@ export function EventRow({ event }: EventRowProps) {
           {getEventLabel(event)}
         </span>
         {event.ts && (
-          <span className="sm:hidden text-[10px] text-muted-foreground">
+          <span className="sm:hidden text-xs text-muted-foreground">
             {formatTime(event.ts)}
           </span>
         )}
       </div>
 
-      <span className="text-[9px] font-bold tracking-wider text-muted-foreground shrink-0">
+      <span className="text-xs font-bold tracking-wider text-muted-foreground shrink-0">
         {getEventBadge(event.type)}
       </span>
 
       {duration && (
-        <span className="text-[10px] text-muted-foreground shrink-0">
+        <span className="text-xs text-muted-foreground shrink-0">
           {duration}
         </span>
       )}

@@ -1,7 +1,8 @@
 'use client'
 
+import Link from 'next/link'
 import { cn } from '@/lib/utils'
-import { Copy } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import type { EmptyStateProps } from './EmptyState.types'
 
 export function EmptyState({
@@ -9,28 +10,34 @@ export function EmptyState({
   title,
   description,
   command,
+  href,
   className,
   compact = false,
 }: EmptyStateProps) {
-  const handleCopy = () => {
-    if (command) {
-      navigator.clipboard.writeText(command)
-    }
-  }
+  // Command button content
+  const CommandButton = href ? (
+    <Link
+      href={href}
+      className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-emerald-500/10 text-xs font-mono text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors group border border-emerald-500/20"
+    >
+      {command}
+      <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
+    </Link>
+  ) : command ? (
+    <button
+      onClick={() => navigator.clipboard.writeText(command)}
+      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-muted text-xs font-mono hover:bg-muted/80"
+    >
+      {command}
+    </button>
+  ) : null
 
   if (compact) {
     return (
       <div className={cn('flex items-center gap-2 text-muted-foreground', className)}>
         <Icon className="h-4 w-4" />
         <span className="text-sm">{title}</span>
-        {command && (
-          <button
-            onClick={handleCopy}
-            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-muted text-xs font-mono hover:bg-muted/80"
-          >
-            {command}
-          </button>
-        )}
+        {CommandButton}
       </div>
     )
   }
@@ -45,13 +52,24 @@ export function EmptyState({
         <p className="text-xs text-muted-foreground/70 mt-1">{description}</p>
       )}
       {command && (
-        <button
-          onClick={handleCopy}
-          className="mt-2 inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted text-xs font-mono text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors group"
-        >
-          {command}
-          <Copy className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-        </button>
+        <div className="mt-2">
+          {href ? (
+            <Link
+              href={href}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-500/10 text-xs font-mono text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors group border border-emerald-500/20"
+            >
+              {command}
+              <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
+            </Link>
+          ) : (
+            <button
+              onClick={() => navigator.clipboard.writeText(command)}
+              className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted text-xs font-mono text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
+            >
+              {command}
+            </button>
+          )}
+        </div>
       )}
     </div>
   )

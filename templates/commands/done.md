@@ -162,10 +162,22 @@ Content:
 {}
 ```
 
-## Step 6: Log Completion
+## Step 6: Log to Daily Session (for Dashboard Charts)
 
-Metrics are calculated from session history and memory log.
-No separate metrics.json needed - all data is in MD files and JSONL logs.
+GET: {date} = YYYY-MM-DD from {now}
+GET: {yearMonth} = YYYY-MM from {now}
+SET: {dailySessionPath} = `{globalPath}/progress/sessions/{yearMonth}/{date}.jsonl`
+
+BASH: `mkdir -p {globalPath}/progress/sessions/{yearMonth}`
+
+APPEND to: `{dailySessionPath}`
+
+Single line (JSONL format):
+```json
+{"ts":"{now}","type":"task_complete","task":"{session.task}","duration":"{durationFormatted}","sessionId":"{session.id}"}
+```
+
+This ensures the dashboard charts reflect completed tasks.
 
 ## Step 8: Log to Memory
 
