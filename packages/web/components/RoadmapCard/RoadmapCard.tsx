@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { EmptyState } from '@/components/EmptyState'
 import { Map, ChevronRight, CheckCircle2, Circle } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -82,16 +83,38 @@ export function RoadmapCard({ roadmap, codeHref, className }: RoadmapCardProps) 
                   {/* Show features under each phase */}
                   {phase.features && phase.features.length > 0 && (
                     <div className="ml-6 mt-2 space-y-1">
-                      {phase.features.slice(0, 3).map((feature, i) => (
-                        <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <ChevronRight className="h-3 w-3" />
-                          <span className={cn(
-                            feature.status === 'completed' && 'line-through opacity-60'
-                          )}>
-                            {feature.name}
-                          </span>
-                        </div>
-                      ))}
+                      {phase.features.slice(0, 3).map((feature, i) => {
+                        const isCompleted = feature.status === 'completed'
+                        const cmdHref = codeHref && !isCompleted
+                          ? `${codeHref}?cmd=${encodeURIComponent(`p. work "${feature.name}"`)}`
+                          : undefined
+
+                        const content = (
+                          <>
+                            <ChevronRight className="h-3 w-3 shrink-0" />
+                            <span className={cn(
+                              'truncate',
+                              isCompleted && 'line-through opacity-60'
+                            )}>
+                              {feature.name}
+                            </span>
+                          </>
+                        )
+
+                        return cmdHref ? (
+                          <Link
+                            key={i}
+                            href={cmdHref}
+                            className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded px-1 -mx-1 py-0.5 transition-colors cursor-pointer"
+                          >
+                            {content}
+                          </Link>
+                        ) : (
+                          <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
+                            {content}
+                          </div>
+                        )
+                      })}
                       {phase.features.length > 3 && (
                         <span className="text-xs text-muted-foreground/70 ml-5">
                           +{phase.features.length - 3} more

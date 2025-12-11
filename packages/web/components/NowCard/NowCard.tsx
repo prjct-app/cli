@@ -1,7 +1,8 @@
 'use client'
 
+import Link from 'next/link'
 import { EmptyState } from '@/components/EmptyState'
-import { Target, Clock, Bot, Pause, Play } from 'lucide-react'
+import { Target, Clock, Bot, Pause, Play, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { NowCardProps } from './NowCard.types'
 
@@ -72,6 +73,36 @@ export function NowCard({ currentTask, codeHref, className }: NowCardProps) {
               />
             </div>
           </div>
+
+          {/* Action buttons */}
+          {codeHref && (
+            <div className="flex gap-2 pt-2">
+              <Link
+                href={`${codeHref}?cmd=p.%20done`}
+                className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg bg-green-500/10 text-green-600 hover:bg-green-500/20 transition-colors"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Done
+              </Link>
+              {currentTask.pausedAt ? (
+                <Link
+                  href={`${codeHref}?cmd=p.%20resume`}
+                  className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 transition-colors"
+                >
+                  <Play className="h-3.5 w-3.5" />
+                  Resume
+                </Link>
+              ) : (
+                <Link
+                  href={`${codeHref}?cmd=p.%20pause`}
+                  className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg bg-yellow-500/10 text-yellow-600 hover:bg-yellow-500/20 transition-colors"
+                >
+                  <Pause className="h-3.5 w-3.5" />
+                  Pause
+                </Link>
+              )}
+            </div>
+          )}
         </div>
       ) : (
         <EmptyState

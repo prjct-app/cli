@@ -1,6 +1,19 @@
+import type { Metadata } from 'next'
 import { getStats } from '@/lib/services/stats.server'
 import { getProject } from '@/lib/projects'
+import { getProjectEmoji } from '@/lib/project-colors'
 import { PrintableReport } from '@/components/WeeklyReports/PrintableReport'
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id: projectId } = await params
+  const project = await getProject(projectId)
+  const projectName = project?.name ?? projectId
+  const emoji = getProjectEmoji(projectId)
+
+  return {
+    title: `${emoji} ${projectName} / Print / p.`,
+  }
+}
 
 interface Props {
   params: Promise<{ id: string }>

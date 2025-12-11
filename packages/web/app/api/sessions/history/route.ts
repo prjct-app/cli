@@ -16,6 +16,7 @@ interface DailyStats {
   date: string
   tasks: number
   ships: number
+  partial: number
 }
 
 export async function GET() {
@@ -37,7 +38,7 @@ export async function GET() {
     }
 
     // Aggregate by date
-    const dailyMap = new Map<string, { tasks: number; ships: number }>()
+    const dailyMap = new Map<string, { tasks: number; ships: number; partial: number }>()
 
     // Calculate date range (last 30 days)
     const endDate = new Date()
@@ -65,7 +66,7 @@ export async function GET() {
             if (eventDate < startDate || eventDate > endDate) continue
 
             const dateKey = eventDate.toISOString().split('T')[0]
-            const current = dailyMap.get(dateKey) || { tasks: 0, ships: 0 }
+            const current = dailyMap.get(dateKey) || { tasks: 0, ships: 0, partial: 0 }
 
             const eventType = event.type || event.action
 
@@ -77,6 +78,11 @@ export async function GET() {
             // Count features shipped
             if (eventType === 'feature_ship' || eventType === 'feature_shipped') {
               current.ships++
+            }
+
+            // Count partial/abandoned sessions
+            if (eventType === 'session_partial' || eventType === 'session_abandoned') {
+              current.partial++
             }
 
             dailyMap.set(dateKey, current)
@@ -118,7 +124,7 @@ export async function GET() {
                     if (eventDate < startDate || eventDate > endDate) continue
 
                     const dateKey = eventDate.toISOString().split('T')[0]
-                    const current = dailyMap.get(dateKey) || { tasks: 0, ships: 0 }
+                    const current = dailyMap.get(dateKey) || { tasks: 0, ships: 0, partial: 0 }
 
                     const eventType = event.type || event.action
 
@@ -130,6 +136,11 @@ export async function GET() {
                     // Count features shipped
                     if (eventType === 'feature_ship' || eventType === 'feature_shipped') {
                       current.ships++
+                    }
+
+                    // Count partial/abandoned sessions
+                    if (eventType === 'session_partial' || eventType === 'session_abandoned') {
+                      current.partial++
                     }
 
                     dailyMap.set(dateKey, current)
@@ -155,11 +166,12 @@ export async function GET() {
     const currentDate = new Date(startDate)
     while (currentDate <= endDate) {
       const dateKey = currentDate.toISOString().split('T')[0]
-      const stats = dailyMap.get(dateKey) || { tasks: 0, ships: 0 }
+      const stats = dailyMap.get(dateKey) || { tasks: 0, ships: 0, partial: 0 }
       data.push({
         date: dateKey,
         tasks: stats.tasks,
-        ships: stats.ships
+        ships: stats.ships,
+        partial: stats.partial
       })
       currentDate.setDate(currentDate.getDate() + 1)
     }
@@ -167,7 +179,8 @@ export async function GET() {
     // Calculate totals for summary
     const totals = {
       tasks: data.reduce((sum, d) => sum + d.tasks, 0),
-      ships: data.reduce((sum, d) => sum + d.ships, 0)
+      ships: data.reduce((sum, d) => sum + d.ships, 0),
+      partial: data.reduce((sum, d) => sum + d.partial, 0)
     }
 
     return NextResponse.json({

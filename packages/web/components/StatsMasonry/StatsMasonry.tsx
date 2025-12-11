@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { MasonryGrid } from '@/components/MasonryGrid'
 import { NowCard } from '@/components/NowCard'
 import { VelocityCard } from '@/components/VelocityCard'
@@ -10,6 +11,7 @@ import { IdeasCard } from '@/components/IdeasCard'
 import { AgentsCard } from '@/components/AgentsCard'
 import { RoadmapCard } from '@/components/RoadmapCard'
 import { BlockersCard } from '@/components/BlockersCard'
+import { RecoverCard, type AbandonedSession } from '@/components/RecoverCard'
 
 interface StatsMasonryProps {
   projectId: string
@@ -45,9 +47,30 @@ export function StatsMasonry({
   agents,
 }: StatsMasonryProps) {
   const codeHref = `/project/${projectId}/code`
+  const [abandonedSessions, setAbandonedSessions] = useState<AbandonedSession[]>([])
+
+  // Fetch abandoned sessions from API
+  useEffect(() => {
+    async function fetchAbandonedSessions() {
+      try {
+        const res = await fetch(`/api/sessions/current?projectId=${projectId}`)
+        const data = await res.json()
+        if (data.success && data.data.abandonedSessions) {
+          setAbandonedSessions(data.data.abandonedSessions)
+        }
+      } catch {
+        // Silently fail - abandoned sessions are not critical
+      }
+    }
+    fetchAbandonedSessions()
+  }, [projectId])
 
   return (
     <MasonryGrid>
+      {/* Show RecoverCard first if there are abandoned sessions */}
+      {abandonedSessions.length > 0 && (
+        <RecoverCard abandonedSessions={abandonedSessions} codeHref={codeHref} />
+      )}
       <NowCard currentTask={currentTask} codeHref={codeHref} />
       <VelocityCard
         tasksPerDay={velocity}

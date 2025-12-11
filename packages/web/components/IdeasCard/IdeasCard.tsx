@@ -1,14 +1,22 @@
 'use client'
 
+import { useState } from 'react'
+import Link from 'next/link'
 import { EmptyState } from '@/components/EmptyState'
-import { Lightbulb, Sparkles, ArrowUp } from 'lucide-react'
+import { ExpandButton } from '@/components/ExpandButton'
+import { Lightbulb, Sparkles, Rocket, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { IdeasCardProps } from './IdeasCard.types'
 
+const COLLAPSED_LIMIT = 8
+const EXPANDED_LIMIT = 30
+
 export function IdeasCard({ ideas, codeHref, className }: IdeasCardProps) {
-  const displayIdeas = ideas.slice(0, 8)
+  const [expanded, setExpanded] = useState(false)
+  const limit = expanded ? EXPANDED_LIMIT : COLLAPSED_LIMIT
+  const displayIdeas = ideas.slice(0, limit)
   const highImpactCount = ideas.filter(i => i.impact === 'HIGH').length
-  const remaining = ideas.length - 8
+  const hasMore = ideas.length > limit
 
   return (
     <div className={cn(
@@ -44,28 +52,61 @@ export function IdeasCard({ ideas, codeHref, className }: IdeasCardProps) {
         />
       ) : (
         <div className="space-y-1">
-          {displayIdeas.map((idea, i) => (
-            <div key={i} className="flex items-start gap-2 py-1 group hover:bg-muted/50 rounded px-1 -mx-1">
-              {idea.impact === 'HIGH' ? (
-                <Sparkles className="h-3 w-3 mt-0.5 shrink-0 text-muted-foreground" />
-              ) : (
-                <Lightbulb className="h-3 w-3 mt-0.5 shrink-0 text-muted-foreground" />
-              )}
-              <p className={cn(
-                'text-sm flex-1',
-                idea.impact === 'HIGH' && 'font-medium'
-              )}>
-                {idea.title}
-              </p>
-              {idea.impact === 'HIGH' && (
-                <ArrowUp className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5" />
-              )}
-            </div>
-          ))}
-          {remaining > 0 && (
-            <p className="text-xs text-muted-foreground mt-2 pl-5 font-medium">
-              +{remaining} more ideas
-            </p>
+          {displayIdeas.map((idea, i) => {
+            const featureHref = codeHref
+              ? `${codeHref}?cmd=${encodeURIComponent(`p. feature "${idea.title}"`)}`
+              : undefined
+            const deleteHref = codeHref
+              ? `${codeHref}?cmd=${encodeURIComponent(`p. idea remove ${i + 1}`)}`
+              : undefined
+
+            return (
+              <div
+                key={i}
+                className="flex items-start gap-2 py-1.5 group hover:bg-muted/50 rounded px-1 -mx-1"
+              >
+                {idea.impact === 'HIGH' ? (
+                  <Sparkles className="h-3 w-3 mt-0.5 shrink-0 text-amber-500" />
+                ) : (
+                  <Lightbulb className="h-3 w-3 mt-0.5 shrink-0 text-muted-foreground" />
+                )}
+                <p className={cn(
+                  'text-sm flex-1 min-w-0',
+                  idea.impact === 'HIGH' && 'font-medium'
+                )}>
+                  {idea.title}
+                </p>
+                {/* Always visible action buttons */}
+                <div className="flex items-center gap-1 shrink-0">
+                  {featureHref && (
+                    <Link
+                      href={featureHref}
+                      className="p-1 rounded hover:bg-blue-500/20 text-muted-foreground hover:text-blue-600 transition-colors"
+                      title="Convert to feature"
+                    >
+                      <Rocket className="h-3.5 w-3.5" />
+                    </Link>
+                  )}
+                  {deleteHref && (
+                    <Link
+                      href={deleteHref}
+                      className="p-1 rounded hover:bg-red-500/20 text-muted-foreground hover:text-red-600 transition-colors"
+                      title="Delete idea"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Link>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+          {(hasMore || expanded) && ideas.length > COLLAPSED_LIMIT && (
+            <ExpandButton
+              expanded={expanded}
+              totalCount={ideas.length}
+              collapsedLimit={COLLAPSED_LIMIT}
+              onToggle={() => setExpanded(!expanded)}
+            />
           )}
         </div>
       )}

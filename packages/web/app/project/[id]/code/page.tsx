@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, use } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, use, useEffect, useRef } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useProject, useDeleteProject } from '@/hooks/useProjects'
 import { TerminalTabsProvider, useTerminalTabs } from '@/context/TerminalTabsContext'
 import { TerminalTabs } from '@/components/TerminalTabs'
@@ -142,7 +142,9 @@ function CommandSidebarContent({
 // Inner component that uses the terminal context
 function ProjectPageContent({ projectId, project }: { projectId: string; project: NonNullable<ReturnType<typeof useProject>['data']> }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [commandSheetOpen, setCommandSheetOpen] = useState(false)
+  const commandExecutedRef = useRef(false)
 
   const {
     sessions,
@@ -153,6 +155,21 @@ function ProjectPageContent({ projectId, project }: { projectId: string; project
   const activeSession = getActiveSession()
   const hasActiveSessions = sessions.length > 0
   const isActiveConnected = activeSession?.isConnected ?? false
+
+  // Auto-execute command from URL param (e.g., ?cmd=p.%20done)
+  useEffect(() => {
+    const cmd = searchParams.get('cmd')
+    if (cmd && isActiveConnected && !commandExecutedRef.current) {
+      commandExecutedRef.current = true
+      const decoded = decodeURIComponent(cmd)
+      // Small delay to ensure terminal is ready
+      setTimeout(() => {
+        sendCommandToActive(decoded)
+        // Clear URL param after execution
+        router.replace(`/project/${projectId}/code`)
+      }, 500)
+    }
+  }, [searchParams, isActiveConnected, sendCommandToActive, router, projectId])
 
   return (
     <div className="h-full">
