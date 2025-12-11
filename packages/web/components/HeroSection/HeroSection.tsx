@@ -15,6 +15,7 @@ import type { HeroProps } from './HeroSection.types'
 export function HeroSection({
   projectId,
   projectName,
+  projectVersion,
   tasksCompleted,
   healthScore,
   velocityChange,
@@ -30,7 +31,12 @@ export function HeroSection({
       <HealthGradientBackground score={healthScore} />
 
       <div className="relative z-10 flex items-center justify-between my-16">
-        <h1 className="text-5xl md:text-6xl font-bold tracking-tight">{projectName}</h1>
+        <div className="flex items-baseline gap-3">
+          <h1 className="text-5xl md:text-6xl font-bold tracking-tight">{projectName}</h1>
+          {projectVersion && (
+            <span className="text-lg md:text-xl font-mono text-muted-foreground">v{projectVersion}</span>
+          )}
+        </div>
 
         <div className="flex items-center gap-3">
           {/* Reports Link */}

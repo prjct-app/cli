@@ -284,6 +284,7 @@ export default async function ProjectStatsPage({ params }: PageProps) {
         <HeroSection
           projectId={projectId}
           projectName={project?.name ?? projectId}
+          projectVersion={project?.version}
           tasksCompleted={tasksCompleted}
           healthScore={healthScore}
           velocity={velocity}
