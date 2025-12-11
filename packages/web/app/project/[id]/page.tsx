@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation'
+import type { Metadata } from 'next'
 import {
   getStats,
   getInsightMessage,
@@ -9,11 +10,24 @@ import {
   type StatsResult
 } from '@/lib/services/stats.server'
 import { getProject } from '@/lib/services/projects.server'
+import { getProjectEmoji } from '@/lib/project-colors'
 import type { TimelineEvent } from '@/lib/parse-prjct-files'
 
 import { HeroSection } from '@/components/HeroSection'
 import { StatsMasonry } from '@/components/StatsMasonry'
 import { ActivityTimeline } from '@/components/ActivityTimeline'
+
+// Dynamic metadata for browser tab title
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id: projectId } = await params
+  const project = await getProject(projectId)
+  const projectName = project?.name ?? projectId
+  const emoji = getProjectEmoji(projectId)
+
+  return {
+    title: `${emoji} ${projectName} / p.`,
+  }
+}
 
 // Types for normalized component data
 interface NormalizedCurrentTask {

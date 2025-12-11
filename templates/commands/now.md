@@ -35,6 +35,39 @@ If no estimate provided, gently remind:
 💡 Tip: Add estimate next time with /p:now "task" 2h
 ```
 
+## Step 0: Detect Abandoned Sessions (BEFORE anything else)
+
+READ: `{sessionPath}` (`~/.prjct-cli/projects/{projectId}/sessions/current.json`)
+
+IF file exists AND has content:
+  PARSE as JSON -> {existingSession}
+
+  IF {existingSession.status} == "active":
+    SET: {lastActivity} = last timestamp in {existingSession.timeline}
+    SET: {hoursAgo} = hours between {lastActivity} and now
+
+    IF {hoursAgo} >= 8:  // Session considered abandoned after 8 hours
+      OUTPUT:
+      ```
+      ⚠️ Found abandoned session from {hoursAgo}h ago
+
+      Task: {existingSession.task}
+      Session: {existingSession.id}
+      Started: {existingSession.startedAt}
+
+      {IF existingSession.context.prompt exists:}
+      📝 Original prompt:
+      "{existingSession.context.prompt}"
+
+      Options:
+      1. Resume previous task → /p:resume
+      2. Close previous as partial → /p:recover close
+      3. View full context → /p:recover
+
+      Choose an option before starting a new task.
+      ```
+      STOP
+
 ## Step 1: Read Config
 
 READ: `.prjct/prjct.config.json`
@@ -144,6 +177,14 @@ IF {task} is provided:
   Session: {sessionId}
   ```
 
+  ### Capture context (CRITICAL for recovery)
+  SET: {userPrompt} = full text of user's message that triggered /p:now
+  SET: {promptLength} = character count of {userPrompt}
+
+  ### Detect relevant files
+  BASH: `git status --short 2>/dev/null | head -10`
+  PARSE: Extract file paths as {relevantFiles} array
+
   ### Create session JSON (for detailed tracking)
   WRITE: `{sessionPath}`
   Content:
@@ -159,6 +200,11 @@ IF {task} is provided:
     "duration": 0,
     "estimate": "{estimate OR null}",
     "estimateSeconds": {estimateInSeconds OR null},
+    "context": {
+      "prompt": "{userPrompt}",
+      "promptLength": {promptLength},
+      "files": {relevantFiles OR []}
+    },
     "metrics": {
       "filesChanged": 0,
       "linesAdded": 0,

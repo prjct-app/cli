@@ -316,4 +316,30 @@ export const CORE_COMMANDS: Command[] = [
       'Refreshes context',
     ],
   },
+
+  {
+    name: 'recover',
+    category: 'core',
+    description: 'Recover abandoned session with context restoration',
+    usage: {
+      claude: '/p:recover',
+      terminal: 'prjct recover',
+    },
+    params: null,
+    implemented: true,
+    hasTemplate: true,
+    requiresInit: true,
+    blockingRules: {
+      check: 'Session exists in current.json',
+      message: 'No session to recover',
+    },
+    features: [
+      'Detect abandoned sessions',
+      'Show original prompt context',
+      'Resume with preserved context',
+      'Close as partial (counts in metrics)',
+      'Save for later reference',
+      'Discard without logging',
+    ],
+  },
 ]

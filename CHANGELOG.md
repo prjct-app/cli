@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.14.0] - 2025-12-11
+
+### Actionable Dashboard + Session Recovery
+
+Dashboard is now fully actionable - click any item to execute commands in the terminal.
+
+- **Session Recovery System**
+  - `/p:recover` command to recover abandoned sessions (>8h inactive)
+  - Captures session prompts for context restoration
+  - RecoverCard shows abandoned sessions across all projects
+
+- **Actionable Dashboard Cards**
+  - QueueCard: Start (Play) and Delete (X) buttons always visible
+  - IdeasCard: Convert to Feature (Rocket) and Delete (X) buttons always visible
+  - ExpandButton pattern for "Show more" (DRY with ActivityTimeline)
+  - Click any item → navigate to /code → auto-execute command
+
+- **Click-to-Action Pattern**
+  - URL pattern: `/project/{id}/code?cmd=p.%20now%20"task"`
+  - Auto-executes command on terminal load
+  - Works for: Queue items, Ideas, Roadmap features, NowCard actions
+
+- **NowCard Enhancements**
+  - Done/Pause/Resume action buttons
+  - Project color dot indicator
+
+- **Code Workspace Improvements**
+  - PageHeader component with project context
+  - Auto-command execution from URL params
+
 ## [0.13.3] - 2025-12-11
 
 ### MomentumWidget + Code Workspace + Weekly Reports

@@ -1,6 +1,7 @@
 'use client'
 
 import { cn } from '@/lib/utils'
+import { getProjectColor } from '@/lib/project-colors'
 
 interface ProjectAvatarProps {
   projectId: string
@@ -24,12 +25,14 @@ export function ProjectAvatar({
   className
 }: ProjectAvatarProps) {
   const initials = name.slice(0, 2).toUpperCase()
+  const color = getProjectColor(projectId)
 
   return (
     <div
       className={cn(
-        'rounded-lg bg-muted flex items-center justify-center overflow-hidden shrink-0',
+        'rounded-lg flex items-center justify-center overflow-hidden shrink-0',
         sizeClasses[size],
+        iconPath ? 'bg-muted' : color.bg,
         className
       )}
     >
@@ -46,7 +49,7 @@ export function ProjectAvatar({
           }}
         />
       ) : null}
-      <span className={cn('font-bold text-muted-foreground', iconPath ? 'hidden' : '')}>
+      <span className={cn('font-bold text-white', iconPath ? 'hidden' : '')}>
         {initials}
       </span>
     </div>
