@@ -1,5 +1,47 @@
 # Changelog
 
+## [0.13.3] - 2025-12-11
+
+### MomentumWidget + Code Workspace + Weekly Reports
+
+New features for project dashboard and code workspace.
+
+- **MomentumWidget** - Motivational sparkline in `/code` header
+  - 7-day activity visualization (tasks + ships)
+  - Smart color coding: green for streaks/trending up, gray for normal, red only for abandoned (7+ days)
+  - Status messages: "On fire!", "X tasks this week", "Miss you!"
+
+- **Code Workspace** (`/project/[id]/code`)
+  - Full terminal-based project workspace
+  - Command sidebar with workflow commands
+  - Mobile support with floating action button
+
+- **Weekly Reports** (`/project/[id]/reports`)
+  - Generate and preview project progress reports
+  - Printable report view
+
+- **Dashboard Improvements**
+  - "Start working" quick action in project dropdown
+  - Project version displayed in detail page header
+
+- **Bug Fixes**
+  - TechStackBadges: Handle both array and object formats for techStack
+
+## [0.13.2] - 2025-12-10
+
+### Fixed - Remove Migration Gate
+
+- Removed MigrationGate from production build
+- Projects now load directly without migration checks
+
+## [0.13.1] - 2025-12-10
+
+### Fixed - Server Start Mode
+
+- Fixed serve.js to use `start` instead of `start:prod`
+- Restored sidebar collapse functionality
+- Fixed server OOM crash
+
 ## [0.13.0] - 2025-12-10
 
 ### Deep Sync + Cleanup migrations

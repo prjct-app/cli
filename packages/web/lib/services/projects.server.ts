@@ -19,6 +19,7 @@ export interface ProjectJson {
   commitCount: number
   createdAt: string
   lastSync: string
+  version?: string | null
 }
 
 /**
@@ -38,7 +39,8 @@ export const getProject = cache(async (projectId: string): Promise<ProjectJson |
         fileCount: project.filesCount ? parseInt(project.filesCount) : 0,
         commitCount: project.commitsCount ? parseInt(project.commitsCount) : 0,
         createdAt: new Date().toISOString(),
-        lastSync: new Date().toISOString()
+        lastSync: new Date().toISOString(),
+        version: project.version || null
       }
     }
   } catch {
