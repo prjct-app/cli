@@ -15,7 +15,6 @@ import type { TimelineEvent } from '@/lib/parse-prjct-files'
 
 import { HeroSection } from '@/components/HeroSection'
 import { StatsMasonry } from '@/components/StatsMasonry'
-import { ActivityTimeline } from '@/components/ActivityTimeline'
 
 // Dynamic metadata for browser tab title
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
@@ -292,7 +291,7 @@ export default async function ProjectStatsPage({ params }: PageProps) {
   const { estimateAccuracy, blockers } = stats.insights
 
   return (
-    <div className="flex h-full flex-col p-4 md:p-6 overflow-auto">
+    <div className="flex h-full flex-col p-4 md:p-6 overflow-auto overflow-x-hidden">
       {/* Mobile: Add padding for hamburger menu */}
       <div className="pl-10 md:pl-0">
         <HeroSection
@@ -372,12 +371,8 @@ export default async function ProjectStatsPage({ params }: PageProps) {
         blockers={blockers}
         ideas={ideas}
         agents={agents}
+        timeline={timeline}
       />
-
-      {/* Activity Timeline - Client Component */}
-      <div className="mt-4">
-        <ActivityTimeline timeline={timeline} />
-      </div>
 
       <div className="h-4" />
     </div>

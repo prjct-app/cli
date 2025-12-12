@@ -358,16 +358,32 @@ Single line (JSONL):
 {"type":"snapshot","hash":"{snapshotHash}","message":"Ship: {feature}","version":"{newVersion}","timestamp":"{GetTimestamp()}"}
 ```
 
-## Step 12: Run Deep Sync
+## Step 13: Update project.json (MANDATORY)
+
+**CRITICAL**: `project.json` MUST be updated with new version. This is what the dashboard displays.
+
+SET: {projectJsonPath} = `{globalPath}/project.json`
+
+READ: `{projectJsonPath}`
+
+UPDATE the following fields:
+- `"version"`: Set to `{newVersion}`
+- `"hasUncommittedChanges"`: Set to `false`
+- `"lastSync"`: Set to `{now}`
+
+WRITE: `{projectJsonPath}`
+
+**This step is MANDATORY. If project.json is not updated, the dashboard will show stale data.**
+
+## Step 14: Run Deep Sync
 
 **CRITICAL**: After shipping, run a full sync to update ALL project data.
 
 Execute `/p:sync` logic:
-- Update `project.json` with new version, commit count
 - Update `CLAUDE.md` Quick Reference table
 - Sync `core/now.md` (clear completed task)
 - Sync `core/next.md` (remove shipped items)
-- Update all stats and metadata
+- Update commit count and file stats
 
 This ensures the dashboard reflects the latest state after shipping.
 

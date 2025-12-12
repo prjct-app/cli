@@ -74,29 +74,29 @@ export function ReportPreviewCard({ weekData, className }: ReportPreviewCardProp
               icon={Rocket}
               value={uniqueShips.length}
               label="shipped"
-              color="text-emerald-500"
-              bgColor="bg-emerald-500/10"
+              color="text-foreground"
+              bgColor="bg-muted"
             />
             <StatCard
               icon={CheckCircle2}
               value={totalTasks}
               label="tasks"
-              color="text-blue-500"
-              bgColor="bg-blue-500/10"
+              color="text-foreground"
+              bgColor="bg-muted"
             />
             <StatCard
               icon={Bug}
               value={totalBugs}
               label="bugs"
-              color="text-orange-500"
-              bgColor="bg-orange-500/10"
+              color="text-foreground"
+              bgColor="bg-muted"
             />
             <StatCard
               icon={Activity}
               value={totalDays}
               label="days"
-              color="text-purple-500"
-              bgColor="bg-purple-500/10"
+              color="text-foreground"
+              bgColor="bg-muted"
             />
           </div>
 
@@ -116,7 +116,7 @@ export function ReportPreviewCard({ weekData, className }: ReportPreviewCardProp
                         day: 'numeric'
                       })}
                     </p>
-                    <ul className="space-y-1.5 pl-2 border-l-2 border-emerald-500/30">
+                    <ul className="space-y-1.5 pl-2 border-l-2 border-muted-foreground/30">
                       {ships.map((ship, i) => (
                         <li key={i} className="flex items-start gap-2 pl-2">
                           <span className="flex-1">
@@ -143,19 +143,19 @@ export function ReportPreviewCard({ weekData, className }: ReportPreviewCardProp
               <ul className="space-y-1 text-sm text-muted-foreground">
                 {totalTasks > 0 && (
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-blue-500" />
+                    <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground" />
                     {totalTasks} task{totalTasks !== 1 ? 's' : ''} completed
                   </li>
                 )}
                 {totalBugs > 0 && (
                   <li className="flex items-center gap-2">
-                    <Bug className="h-3.5 w-3.5 text-orange-500" />
+                    <Bug className="h-3.5 w-3.5 text-muted-foreground" />
                     {totalBugs} bug{totalBugs !== 1 ? 's' : ''} fixed
                   </li>
                 )}
                 {totalSyncs > 0 && (
                   <li className="flex items-center gap-2">
-                    <Activity className="h-3.5 w-3.5 text-purple-500" />
+                    <Activity className="h-3.5 w-3.5 text-muted-foreground" />
                     {totalSyncs} sync{totalSyncs !== 1 ? 's' : ''}
                   </li>
                 )}

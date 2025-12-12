@@ -38,7 +38,7 @@ export function NowCard({ currentTask, codeHref, className }: NowCardProps) {
 
       {currentTask ? (
         <div className="space-y-3">
-          <p className="text-sm font-medium leading-tight">
+          <p className="text-sm font-medium leading-tight break-words">
             {currentTask.task}
           </p>
 

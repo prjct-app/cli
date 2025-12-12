@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
 import { Providers } from '@/components/Providers'
 import { AppSidebar } from '@/components/AppSidebar'
+import { TerminalDock } from '@/components/TerminalDock'
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -44,6 +45,7 @@ export default function RootLayout({
               {children}
             </main>
           </div>
+          <TerminalDock />
         </Providers>
       </body>
     </html>

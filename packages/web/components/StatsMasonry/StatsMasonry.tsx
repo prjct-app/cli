@@ -12,6 +12,8 @@ import { AgentsCard } from '@/components/AgentsCard'
 import { RoadmapCard } from '@/components/RoadmapCard'
 import { BlockersCard } from '@/components/BlockersCard'
 import { RecoverCard, type AbandonedSession } from '@/components/RecoverCard'
+import { ActivityTimeline } from '@/components/ActivityTimeline'
+import type { TimelineEvent } from '@/lib/parse-prjct-files'
 
 interface StatsMasonryProps {
   projectId: string
@@ -28,6 +30,7 @@ interface StatsMasonryProps {
   blockers: any[]
   ideas: any[]
   agents: any[]
+  timeline: TimelineEvent[]
 }
 
 export function StatsMasonry({
@@ -45,6 +48,7 @@ export function StatsMasonry({
   blockers,
   ideas,
   agents,
+  timeline,
 }: StatsMasonryProps) {
   const codeHref = `/project/${projectId}/code`
   const [abandonedSessions, setAbandonedSessions] = useState<AbandonedSession[]>([])
@@ -85,6 +89,7 @@ export function StatsMasonry({
       <BlockersCard blockers={blockers} codeHref={codeHref} />
       <IdeasCard ideas={ideas} codeHref={codeHref} />
       <AgentsCard agents={agents} codeHref={codeHref} />
+      <ActivityTimeline timeline={timeline} />
     </MasonryGrid>
   )
 }
