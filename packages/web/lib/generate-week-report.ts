@@ -186,11 +186,11 @@ export function generateReportText(
   // Date range - human readable
   if (weeks.length === 1) {
     const w = weeks[0]
-    lines.push(`Reporte semanal: ${formatDateRange(w.startDate, w.endDate)}`)
+    lines.push(`Weekly Report: ${formatDateRange(w.startDate, w.endDate)}`)
   } else {
     const firstWeek = weeks[0]
     const lastWeek = weeks[weeks.length - 1]
-    lines.push(`Reporte: ${formatDateRange(firstWeek.startDate, lastWeek.endDate)}`)
+    lines.push(`Report: ${formatDateRange(firstWeek.startDate, lastWeek.endDate)}`)
   }
   lines.push('')
 
@@ -218,9 +218,9 @@ export function generateReportText(
 
   // What we delivered - grouped by date
   if (uniqueShips.length > 0) {
-    lines.push('*Entregado:*')
+    lines.push('*Shipped:*')
     for (const [date, ships] of shipsByDate.entries()) {
-      const dateStr = new Date(date).toLocaleDateString('es-MX', {
+      const dateStr = new Date(date).toLocaleDateString('en-US', {
         weekday: 'short',
         day: 'numeric',
         month: 'short'
@@ -241,28 +241,28 @@ export function generateReportText(
 
   // Progress section
   if (totalTasks > 0 || totalBugs > 0 || totalDays > 0) {
-    lines.push('*Progreso:*')
+    lines.push('*Progress:*')
     if (totalTasks > 0) {
-      lines.push(`• ${totalTasks} tarea${totalTasks !== 1 ? 's' : ''} completada${totalTasks !== 1 ? 's' : ''}`)
+      lines.push(`• ${totalTasks} task${totalTasks !== 1 ? 's' : ''} completed`)
     }
     if (totalBugs > 0) {
-      lines.push(`• ${totalBugs} bug${totalBugs !== 1 ? 's' : ''} corregido${totalBugs !== 1 ? 's' : ''}`)
+      lines.push(`• ${totalBugs} bug${totalBugs !== 1 ? 's' : ''} fixed`)
     }
     if (totalDays > 0) {
-      lines.push(`• ${totalDays} día${totalDays !== 1 ? 's' : ''} activo${totalDays !== 1 ? 's' : ''}`)
+      lines.push(`• ${totalDays} active day${totalDays !== 1 ? 's' : ''}`)
     }
     lines.push('')
   }
 
   // If nothing happened, be honest
   if (uniqueShips.length === 0 && totalTasks === 0 && totalBugs === 0) {
-    lines.push('_En progreso, sin entregas esta semana._')
+    lines.push('_In progress, no deliveries this week._')
     lines.push('')
   }
 
   // Optional: Next steps placeholder
-  lines.push('*Siguiente:*')
-  lines.push('• [Pendiente por definir]')
+  lines.push('*Next:*')
+  lines.push('• [To be defined]')
 
   return lines.join('\n')
 }

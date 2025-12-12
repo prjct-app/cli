@@ -8,7 +8,11 @@ import {
   HelpCircle,
   Menu,
   PanelLeft,
+  Terminal,
 } from 'lucide-react'
+import { useGlobalTerminal } from '@/context/GlobalTerminalContext'
+import { Badge } from '@/components/ui/badge'
+import { ProjectSelectorModal } from '@/components/ProjectSelectorModal'
 import { Logo } from '@/components/Logo'
 import { cn } from '@/lib/utils'
 import { useState, useEffect } from 'react'
@@ -22,11 +26,15 @@ const navItems = [
 function SidebarContent({
   onNavigate,
   isCollapsed = false,
-  onToggleCollapse
+  onToggleCollapse,
+  onTerminalClick,
+  sessionCount
 }: {
   onNavigate?: () => void
   isCollapsed?: boolean
   onToggleCollapse?: () => void
+  onTerminalClick?: () => void
+  sessionCount?: number
 }) {
   const pathname = usePathname()
 
@@ -94,6 +102,45 @@ function SidebarContent({
             }
             return linkContent
           })}
+
+          {/* Terminal Button */}
+          {onTerminalClick && (
+            (() => {
+              const terminalButton = (
+                <button
+                  onClick={onTerminalClick}
+                  className={cn(
+                    'flex items-center rounded-md transition-colors min-h-[44px] w-full',
+                    isCollapsed ? 'justify-center px-2' : 'gap-3 px-3',
+                    'py-2.5',
+                    'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                  )}
+                >
+                  <div className="relative">
+                    <Terminal className="h-5 w-5 shrink-0" />
+                    {sessionCount !== undefined && sessionCount > 0 && (
+                      <Badge
+                        className="absolute -top-2 -right-2 h-4 w-4 p-0 flex items-center justify-center text-[10px] bg-primary"
+                      >
+                        {sessionCount}
+                      </Badge>
+                    )}
+                  </div>
+                  {!isCollapsed && <span className="text-sm font-medium">Terminal</span>}
+                </button>
+              )
+
+              if (isCollapsed) {
+                return (
+                  <Tooltip key="terminal">
+                    <TooltipTrigger asChild>{terminalButton}</TooltipTrigger>
+                    <TooltipContent side="right">Terminal</TooltipContent>
+                  </Tooltip>
+                )
+              }
+              return terminalButton
+            })()
+          )}
         </div>
       </nav>
 
@@ -144,6 +191,45 @@ export function AppSidebar() {
   const [isOpen, setIsOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [isCollapsed, setIsCollapsed] = useState(false)
+  const [showProjectSelector, setShowProjectSelector] = useState(false)
+  const pathname = usePathname()
+
+  // Terminal context
+  const {
+    toggleDock,
+    openDock,
+    getTotalSessionCount,
+    projectSessions,
+    createSessionForProject,
+  } = useGlobalTerminal()
+
+  const sessionCount = getTotalSessionCount()
+
+  // Handle terminal button click
+  const handleTerminalClick = () => {
+    // If we're on a project page, auto-detect project
+    const projectMatch = pathname?.match(/\/project\/([^/]+)/)
+
+    if (projectMatch) {
+      const projectId = projectMatch[1]
+      const existingProject = projectSessions.get(projectId)
+
+      if (existingProject) {
+        // Project already has sessions, just toggle dock
+        toggleDock()
+      } else {
+        // Need to show project selector to get project details
+        // For now, open dock (will be empty) - the user should create session from the dock
+        setShowProjectSelector(true)
+      }
+    } else if (sessionCount > 0) {
+      // Has sessions, toggle dock
+      toggleDock()
+    } else {
+      // No sessions and no project context - show project selector
+      setShowProjectSelector(true)
+    }
+  }
 
   // Load collapsed state from localStorage on mount
   useEffect(() => {
@@ -183,7 +269,11 @@ export function AppSidebar() {
           </button>
         </SheetTrigger>
         <SheetContent side="left" className="w-[280px] p-0 flex flex-col">
-          <SidebarContent onNavigate={() => setIsOpen(false)} />
+          <SidebarContent
+            onNavigate={() => setIsOpen(false)}
+            onTerminalClick={handleTerminalClick}
+            sessionCount={sessionCount}
+          />
         </SheetContent>
       </Sheet>
     )
@@ -191,15 +281,32 @@ export function AppSidebar() {
 
   // Desktop: Collapsible sidebar
   return (
-    <aside className={cn(
-      "hidden md:flex h-full flex-col border-r border-border bg-card transition-all duration-200",
-      isCollapsed ? "w-14" : "w-60"
-    )}>
-      <SidebarContent
-        isCollapsed={isCollapsed}
-        onToggleCollapse={handleToggleCollapse}
-      />
-    </aside>
+    <>
+      <aside className={cn(
+        "hidden md:flex h-full flex-col border-r border-border bg-card transition-all duration-200",
+        isCollapsed ? "w-14" : "w-60"
+      )}>
+        <SidebarContent
+          isCollapsed={isCollapsed}
+          onToggleCollapse={handleToggleCollapse}
+          onTerminalClick={handleTerminalClick}
+          sessionCount={sessionCount}
+        />
+      </aside>
+
+      {/* Project Selector Modal - will be implemented separately */}
+      {showProjectSelector && (
+        <ProjectSelectorModal
+          isOpen={showProjectSelector}
+          onClose={() => setShowProjectSelector(false)}
+          onSelectProject={(projectId, projectName, projectPath) => {
+            createSessionForProject(projectId, projectName, projectPath)
+            openDock()
+            setShowProjectSelector(false)
+          }}
+        />
+      )}
+    </>
   )
 }
 

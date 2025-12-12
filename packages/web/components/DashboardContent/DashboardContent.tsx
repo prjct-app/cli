@@ -17,7 +17,8 @@ import {
   ListTodo,
   Zap,
   FolderGit2,
-  Play
+  Play,
+  FileText
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -205,6 +206,12 @@ function ProjectCard({ project, onDeleteClick }: ProjectCardProps) {
                 <Link href={`/project/${project.id}/code`}>
                   <Play className="w-4 h-4 mr-2" />
                   Start working
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild className="min-h-[44px] sm:min-h-0">
+                <Link href={`/project/${project.id}/reports`}>
+                  <FileText className="w-4 h-4 mr-2" />
+                  Reports
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem

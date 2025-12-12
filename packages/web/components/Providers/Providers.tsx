@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState, type ReactNode } from 'react'
 import { ThemeProvider, type ThemeProviderProps } from 'next-themes'
 import { TerminalProvider } from '@/context/TerminalContext'
+import { GlobalTerminalProvider } from '@/context/GlobalTerminalContext'
 
 function ThemeWrapper({ children, ...props }: ThemeProviderProps & { children: ReactNode }) {
   return <ThemeProvider {...props}>{children}</ThemeProvider>
@@ -37,7 +38,9 @@ export function Providers({ children }: { children: ReactNode }) {
         disableTransitionOnChange
       >
         <TerminalProvider>
-          {children}
+          <GlobalTerminalProvider>
+            {children}
+          </GlobalTerminalProvider>
         </TerminalProvider>
       </ThemeWrapper>
     </QueryClientProvider>

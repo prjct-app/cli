@@ -1,14 +1,15 @@
 'use client'
 
-import { useState, use, useEffect, useRef } from 'react'
+import { useState, use, useEffect, useRef, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useProject, useDeleteProject } from '@/hooks/useProjects'
-import { TerminalTabsProvider, useTerminalTabs } from '@/context/TerminalTabsContext'
-import { TerminalTabs } from '@/components/TerminalTabs'
+import { useGlobalTerminal } from '@/context/GlobalTerminalContext'
+import { TerminalDockTab } from '@/components/TerminalDock/TerminalDockTab'
+import { TerminalTabBar } from '@/components/TerminalDock/TerminalTabBar'
+import { CommandBar } from '@/components/CommandBar'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { TooltipProvider } from '@/components/ui/tooltip'
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
+import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,139 +23,84 @@ import {
 import { ProjectAvatar } from '@/components/ProjectAvatar'
 import { TechStackBadges } from '@/components/TechStackBadges'
 import { MomentumWidget } from '@/components/MomentumWidget'
-import { CommandButton } from '@/components/CommandButton'
 import { formatPath } from '@/lib/format'
 import {
+  Panel,
+  PanelGroup,
+  PanelResizeHandle,
+} from 'react-resizable-panels'
+import {
   Loader2,
-  Play,
-  Target,
-  Lightbulb,
-  ListTodo,
-  Rocket,
-  Sparkles,
-  CheckCircle2,
   AlertTriangle,
   Trash2,
   ArrowLeft,
   FolderGit2,
-  Pause,
-  BarChart3,
-  TrendingUp,
-  Activity,
-  History,
-  Undo2,
-  Redo2,
-  Command,
-  X,
-  RefreshCw,
-  Home
+  Plus,
+  Terminal,
+  SplitSquareHorizontal,
+  Minus,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-
-// Commands ordered by real developer workflow
-const WORKFLOW_COMMANDS = [
-  { cmd: 'p. now', icon: Target, tip: 'Set task', group: 'work' },
-  { cmd: 'p. done', icon: CheckCircle2, tip: 'Complete', group: 'work' },
-  { cmd: 'p. pause', icon: Pause, tip: 'Pause', group: 'session' },
-  { cmd: 'p. resume', icon: Play, tip: 'Resume', group: 'session' },
-  { cmd: 'p. feature', icon: Sparkles, tip: 'Feature', group: 'plan' },
-  { cmd: 'p. idea', icon: Lightbulb, tip: 'Idea', group: 'plan' },
-  { cmd: 'p. next', icon: ListTodo, tip: 'Queue', group: 'plan' },
-  { cmd: 'p. ship', icon: Rocket, tip: 'Ship', group: 'ship' },
-  { cmd: 'p. recap', icon: BarChart3, tip: 'Recap', group: 'status' },
-  { cmd: 'p. progress', icon: TrendingUp, tip: 'Progress', group: 'status' },
-  { cmd: 'p. status', icon: Activity, tip: 'Status', group: 'status' },
-  { cmd: 'p. history', icon: History, tip: 'History', group: 'status' },
-  { cmd: 'p. undo', icon: Undo2, tip: 'Undo', group: 'recovery' },
-  { cmd: 'p. redo', icon: Redo2, tip: 'Redo', group: 'recovery' },
-] as const
-
-const COMMAND_GROUPS = ['work', 'session', 'plan', 'ship', 'status', 'recovery'] as const
-
-// Command sidebar content - shared between desktop and mobile
-function CommandSidebarContent({
-  projectId,
-  isActiveConnected,
-  sendCommandToActive,
-  onCommandClick
-}: {
-  projectId: string
-  isActiveConnected: boolean
-  sendCommandToActive: (cmd: string) => void
-  onCommandClick?: () => void
-}) {
-  const router = useRouter()
-
-  const handleCommand = (cmd: string) => {
-    sendCommandToActive(cmd)
-    onCommandClick?.()
-  }
-
-  return (
-    <>
-      <div className="h-14 flex items-center justify-center border-b border-border w-full">
-        <button
-          onClick={() => {
-            router.push(`/project/${projectId}`)
-            onCommandClick?.()
-          }}
-          className="h-10 w-10 rounded-lg bg-accent hover:bg-accent/80 flex items-center justify-center transition-colors"
-          title="Home"
-        >
-          <Home className="h-5 w-5" />
-        </button>
-      </div>
-
-      <div className="flex-1 flex flex-col gap-1 overflow-auto py-3">
-        {/* Sync button - prominent, always visible */}
-        <CommandButton
-          cmd="p. sync"
-          icon={RefreshCw}
-          tip="Sync"
-          disabled={!isActiveConnected}
-          onClick={() => handleCommand('p. sync')}
-          variant="primary"
-        />
-        <div className="border-b border-border w-8 my-2 mx-auto" />
-
-        {COMMAND_GROUPS.map((group, groupIndex) => (
-          <div key={group} className="flex flex-col items-center">
-            {WORKFLOW_COMMANDS.filter(c => c.group === group).map(({ cmd, icon, tip }) => (
-              <CommandButton
-                key={cmd}
-                cmd={cmd}
-                icon={icon}
-                tip={tip}
-                disabled={!isActiveConnected}
-                onClick={() => handleCommand(cmd)}
-              />
-            ))}
-            {groupIndex < COMMAND_GROUPS.length - 1 && (
-              <div className="border-b border-border w-8 my-2" />
-            )}
-          </div>
-        ))}
-      </div>
-    </>
-  )
-}
 
 // Inner component that uses the terminal context
 function ProjectPageContent({ projectId, project }: { projectId: string; project: NonNullable<ReturnType<typeof useProject>['data']> }) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [commandSheetOpen, setCommandSheetOpen] = useState(false)
   const commandExecutedRef = useRef(false)
 
+  // Global terminal context
   const {
-    sessions,
+    activeSessionId,
+    secondActiveSessionId,
+    isSplitEnabled,
+    setSplitEnabled,
+    createSessionForProject,
+    getProjectSessions,
+    switchSession,
+    closeSession,
     sendCommandToActive,
-    getActiveSession
-  } = useTerminalTabs()
+    getActiveSession,
+    setFullScreen,
+    getAllSessions,
+    getLeftPanelSessions,
+    getRightPanelSessions,
+    updateSession,
+  } = useGlobalTerminal()
 
+  const sessions = getProjectSessions(projectId)
+  const allSessions = getAllSessions()
   const activeSession = getActiveSession()
   const hasActiveSessions = sessions.length > 0
   const isActiveConnected = activeSession?.isConnected ?? false
+
+  const projectPath = project.repoPath || project.path || '/tmp'
+  const projectName = project.name || projectId
+
+  // Set full-screen mode when entering code page
+  useEffect(() => {
+    setFullScreen(true)
+    return () => setFullScreen(false)
+  }, [setFullScreen])
+
+  // Handle new terminal - creates session directly in the specified panel
+  const handleNewTerminal = useCallback((panel: 'left' | 'right' = 'left') => {
+    createSessionForProject(projectId, projectName, projectPath, panel)
+  }, [projectId, projectName, projectPath, createSessionForProject])
+
+  // Handle close session
+  const handleCloseSession = useCallback((sessionId: string) => {
+    const disconnectKey = `terminal_disconnect_${sessionId}`
+    const disconnectFn = (window as unknown as Record<string, () => void>)[disconnectKey]
+    if (disconnectFn) {
+      disconnectFn()
+    }
+    closeSession(sessionId)
+  }, [closeSession])
+
+  // Handle rename session
+  const handleRenameSession = useCallback((sessionId: string, newLabel: string) => {
+    updateSession(sessionId, { label: newLabel })
+  }, [updateSession])
 
   // Auto-execute command from URL param (e.g., ?cmd=p.%20done)
   useEffect(() => {
@@ -162,188 +108,226 @@ function ProjectPageContent({ projectId, project }: { projectId: string; project
     if (cmd && isActiveConnected && !commandExecutedRef.current) {
       commandExecutedRef.current = true
       const decoded = decodeURIComponent(cmd)
-      // Small delay to ensure terminal is ready
       setTimeout(() => {
         sendCommandToActive(decoded)
-        // Clear URL param after execution
         router.replace(`/project/${projectId}/code`)
       }, 500)
     }
   }, [searchParams, isActiveConnected, sendCommandToActive, router, projectId])
 
+  // Terminal content with split support
+  const TerminalContent = (
+    <div className="flex-1 relative overflow-hidden">
+      {allSessions.length === 0 ? (
+        <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-4">
+          <Terminal className="w-12 h-12 opacity-50" />
+          <div className="text-center">
+            <p className="text-lg font-medium">No terminal sessions</p>
+            <p className="text-sm">Open a terminal to get started</p>
+          </div>
+          <button
+            onClick={() => handleNewTerminal('left')}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Open Terminal
+          </button>
+        </div>
+      ) : isSplitEnabled ? (
+        <PanelGroup direction="horizontal">
+          <Panel defaultSize={50} minSize={20}>
+            <div className="h-full flex flex-col">
+              <div className="border-b border-border bg-muted/30">
+                <TerminalTabBar
+                  sessions={getLeftPanelSessions()}
+                  activeSessionId={activeSessionId}
+                  onSwitchSession={(id) => switchSession(id, 'left')}
+                  onCloseSession={handleCloseSession}
+                  onNewTerminal={() => handleNewTerminal('left')}
+                  onRenameSession={handleRenameSession}
+                />
+              </div>
+              <div className="flex-1 relative">
+                {getLeftPanelSessions().length > 0 ? (
+                  getLeftPanelSessions().map((session) => (
+                    <TerminalDockTab
+                      key={session.id}
+                      session={session}
+                      isActive={session.id === activeSessionId}
+                    />
+                  ))
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center bg-card/95 text-muted-foreground text-sm">
+                    <button
+                      onClick={() => handleNewTerminal('left')}
+                      className="text-orange-500 hover:text-orange-400 underline"
+                    >
+                      Open terminal in left panel
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </Panel>
+
+          <PanelResizeHandle className="w-1 bg-border hover:bg-orange-500/50 transition-colors" />
+
+          <Panel defaultSize={50} minSize={20}>
+            <div className="h-full flex flex-col">
+              <div className="border-b border-border bg-muted/30">
+                <TerminalTabBar
+                  sessions={getRightPanelSessions()}
+                  activeSessionId={secondActiveSessionId}
+                  onSwitchSession={(id) => switchSession(id, 'right')}
+                  onCloseSession={handleCloseSession}
+                  onNewTerminal={() => handleNewTerminal('right')}
+                  onRenameSession={handleRenameSession}
+                />
+              </div>
+              <div className="flex-1 relative">
+                {getRightPanelSessions().length > 0 ? (
+                  getRightPanelSessions().map((session) => (
+                    <TerminalDockTab
+                      key={`right-${session.id}`}
+                      session={session}
+                      isActive={session.id === secondActiveSessionId}
+                    />
+                  ))
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center bg-card/95 text-muted-foreground text-sm">
+                    <button
+                      onClick={() => handleNewTerminal('right')}
+                      className="text-orange-500 hover:text-orange-400 underline"
+                    >
+                      Open terminal in right panel
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </Panel>
+        </PanelGroup>
+      ) : (
+        <div className="h-full flex flex-col">
+          <div className="border-b border-border bg-muted/30">
+            <TerminalTabBar
+              sessions={allSessions}
+              activeSessionId={activeSessionId}
+              onSwitchSession={(id) => switchSession(id)}
+              onCloseSession={handleCloseSession}
+              onNewTerminal={() => handleNewTerminal('left')}
+              onRenameSession={handleRenameSession}
+            />
+          </div>
+          <div className="flex-1 relative">
+            {allSessions.map((session) => (
+              <TerminalDockTab
+                key={session.id}
+                session={session}
+                isActive={session.id === activeSessionId}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+
   return (
     <div className="h-full">
       <TooltipProvider>
-        <div className="flex h-full">
-          {/* Desktop Sidebar - hidden on mobile */}
-          <aside className="hidden md:flex w-14 border-r border-border flex-col bg-card/50 items-center">
-            <CommandSidebarContent
-              projectId={projectId}
-              isActiveConnected={isActiveConnected}
-              sendCommandToActive={sendCommandToActive}
-            />
-          </aside>
-
-          {/* Main */}
-          <main className="flex-1 flex flex-col min-w-0">
-            {/* Header - Responsive */}
-            <header className="h-auto md:h-14 flex flex-col md:flex-row md:items-center justify-between px-3 md:px-4 py-2 md:py-0 border-b border-border bg-card gap-2">
-              {/* Left: Project info */}
-              <div className="flex items-center gap-3 pl-12 md:pl-0">
-                {/* Mobile: Show project avatar */}
-                <div className="md:hidden">
-                  <ProjectAvatar
-                    projectId={projectId}
-                    name={project.name || projectId}
-                    iconPath={project.iconPath}
-                    size="sm"
-                  />
-                </div>
-                <div className="flex flex-col min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold leading-tight truncate">{project.name || projectId}</span>
-                    {project.version && (
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-mono shrink-0">
-                        v{project.version}
-                      </Badge>
-                    )}
-                  </div>
-                  {project.repoPath && (
-                    <span className="text-xs text-muted-foreground leading-tight flex items-center gap-1 truncate">
-                      <FolderGit2 className="w-3 h-3 shrink-0" />
-                      <span className="truncate">{formatPath(project.repoPath)}</span>
-                    </span>
-                  )}
-                </div>
-                {hasActiveSessions && (
-                  <Badge variant="outline" className="text-green-500 border-green-500/50 shrink-0">
-                    {sessions.filter(s => s.isConnected).length} active
-                  </Badge>
-                )}
-              </div>
-
-              {/* Center: Momentum widget - desktop only */}
-              <div className="hidden md:flex items-center justify-center flex-1">
-                <MomentumWidget projectId={projectId} />
-              </div>
-
-              {/* Right: metadata and tech stack - desktop only */}
-              <div className="hidden md:flex items-center gap-4">
-                <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                  {project.filesCount && (
-                    <span><span className="font-medium text-foreground">{project.filesCount}</span> files</span>
-                  )}
-                  {project.commitsCount && (
-                    <span><span className="font-medium text-foreground">{project.commitsCount}</span> commits</span>
-                  )}
-                </div>
-                <TechStackBadges techStack={project.techStack || []} />
-              </div>
-            </header>
-
-            {/* Terminal tabs area */}
-            <div className="flex-1 min-h-0">
-              <TerminalTabs projectDir={project.repoPath || project.path || '/tmp'} />
-            </div>
-          </main>
-        </div>
-
-        {/* Mobile: Floating Action Button for commands */}
-        <div className="md:hidden fixed bottom-4 right-4 z-50">
-          <Sheet open={commandSheetOpen} onOpenChange={setCommandSheetOpen}>
-            <SheetTrigger asChild>
-              <button
-                className={cn(
-                  "h-14 w-14 rounded-full shadow-lg flex items-center justify-center transition-all",
-                  isActiveConnected
-                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                    : "bg-muted text-muted-foreground"
-                )}
-                aria-label="Open commands"
-              >
-                <Command className="h-6 w-6" />
-              </button>
-            </SheetTrigger>
-            <SheetContent side="bottom" className="h-[70vh] rounded-t-2xl px-0">
-              <div className="flex flex-col h-full">
-                <div className="px-4 pb-2 border-b border-border">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-semibold">Commands</h3>
-                    <Badge variant={isActiveConnected ? "default" : "secondary"}>
-                      {isActiveConnected ? "Connected" : "Disconnected"}
+        <div className="flex flex-col h-full">
+          {/* Header - Responsive */}
+          <header className="h-auto md:h-14 flex flex-col md:flex-row md:items-center justify-between px-3 md:px-4 py-2 md:py-0 border-b border-border bg-card gap-2">
+            {/* Left: Project info */}
+            <div className="flex items-center gap-3">
+              <ProjectAvatar
+                projectId={projectId}
+                name={project.name || projectId}
+                iconPath={project.iconPath}
+                size="sm"
+              />
+              <div className="flex flex-col min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold leading-tight truncate">{project.name || projectId}</span>
+                  {project.version && (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-mono shrink-0">
+                      v{project.version}
                     </Badge>
-                  </div>
+                  )}
                 </div>
-
-                {/* Command grid for mobile */}
-                <div className="flex-1 overflow-auto p-4">
-                  <div className="grid grid-cols-4 gap-3">
-                    {/* Home button */}
-                    <button
-                      onClick={() => {
-                        router.push(`/project/${projectId}`)
-                        setCommandSheetOpen(false)
-                      }}
-                      className="flex flex-col items-center gap-1.5 p-3 rounded-lg hover:bg-accent transition-colors"
-                    >
-                      <div className="h-10 w-10 rounded-full bg-accent flex items-center justify-center">
-                        <Home className="h-5 w-5" />
-                      </div>
-                      <span className="text-xs text-muted-foreground">Home</span>
-                    </button>
-
-                    {/* Sync button - prominent */}
-                    <button
-                      onClick={() => {
-                        sendCommandToActive('p. sync')
-                        setCommandSheetOpen(false)
-                      }}
-                      disabled={!isActiveConnected}
-                      className={cn(
-                        "flex flex-col items-center gap-1.5 p-3 rounded-lg transition-colors",
-                        isActiveConnected
-                          ? "hover:bg-primary/10"
-                          : "opacity-50 cursor-not-allowed"
-                      )}
-                    >
-                      <div className={cn(
-                        "h-10 w-10 rounded-full flex items-center justify-center",
-                        isActiveConnected ? "bg-primary text-primary-foreground" : "bg-muted"
-                      )}>
-                        <RefreshCw className="h-5 w-5" />
-                      </div>
-                      <span className="text-xs text-primary font-medium">Sync</span>
-                    </button>
-
-                    {WORKFLOW_COMMANDS.map(({ cmd, icon: Icon, tip }) => (
-                      <button
-                        key={cmd}
-                        onClick={() => {
-                          sendCommandToActive(cmd)
-                          setCommandSheetOpen(false)
-                        }}
-                        disabled={!isActiveConnected}
-                        className={cn(
-                          "flex flex-col items-center gap-1.5 p-3 rounded-lg transition-colors",
-                          isActiveConnected
-                            ? "hover:bg-accent"
-                            : "opacity-50 cursor-not-allowed"
-                        )}
-                      >
-                        <div className={cn(
-                          "h-10 w-10 rounded-full flex items-center justify-center",
-                          isActiveConnected ? "bg-accent" : "bg-muted"
-                        )}>
-                          <Icon className="h-5 w-5" />
-                        </div>
-                        <span className="text-xs text-muted-foreground">{tip}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                {project.repoPath && (
+                  <span className="text-xs text-muted-foreground leading-tight flex items-center gap-1 truncate">
+                    <FolderGit2 className="w-3 h-3 shrink-0" />
+                    <span className="truncate">{formatPath(project.repoPath)}</span>
+                  </span>
+                )}
               </div>
-            </SheetContent>
-          </Sheet>
+              {hasActiveSessions && (
+                <Badge variant="outline" className="text-green-500 border-green-500/50 shrink-0">
+                  {sessions.filter(s => s.isConnected).length} active
+                </Badge>
+              )}
+            </div>
+
+            {/* Center: Momentum widget - desktop only */}
+            <div className="hidden md:flex items-center justify-center flex-1">
+              <MomentumWidget projectId={projectId} />
+            </div>
+
+            {/* Right: metadata and tech stack - desktop only */}
+            <div className="hidden md:flex items-center gap-4">
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                {project.filesCount && (
+                  <span><span className="font-medium text-foreground">{project.filesCount}</span> files</span>
+                )}
+                {project.commitsCount && (
+                  <span><span className="font-medium text-foreground">{project.commitsCount}</span> commits</span>
+                )}
+              </div>
+              <TechStackBadges techStack={project.techStack || []} />
+            </div>
+          </header>
+
+          {/* Command bar + actions - SAME AS DOCK */}
+          <div className="flex items-center justify-between border-b border-border bg-card/95 shrink-0">
+            <CommandBar isConnected={isActiveConnected} onCommand={sendCommandToActive} />
+
+            {/* Header actions: split toggle, back button */}
+            <div className="flex items-center gap-1 px-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => setSplitEnabled(!isSplitEnabled)}
+                    className={cn(
+                      'p-1.5 rounded transition-colors',
+                      isSplitEnabled
+                        ? 'bg-accent text-accent-foreground'
+                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                    )}
+                  >
+                    <SplitSquareHorizontal className="w-4 h-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>{isSplitEnabled ? 'Single view' : 'Split view'}</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => router.push(`/project/${projectId}`)}
+                    className="p-1.5 rounded text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                  >
+                    <Minus className="w-4 h-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Back to project</TooltipContent>
+              </Tooltip>
+            </div>
+          </div>
+
+          {/* Terminal content area */}
+          {TerminalContent}
         </div>
       </TooltipProvider>
     </div>
@@ -420,9 +404,5 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     )
   }
 
-  return (
-    <TerminalTabsProvider projectId={projectId}>
-      <ProjectPageContent projectId={projectId} project={project} />
-    </TerminalTabsProvider>
-  )
+  return <ProjectPageContent projectId={projectId} project={project} />
 }

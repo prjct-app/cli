@@ -43,9 +43,10 @@ export function getProjectColor(projectId: string): ProjectColor {
 
 /**
  * Get just the emoji for a project (for use in titles)
+ * Returns a neutral symbol instead of colored circles
  */
 export function getProjectEmoji(projectId: string): string {
-  return getProjectColor(projectId).emoji
+  return '▸'
 }
 
 /**

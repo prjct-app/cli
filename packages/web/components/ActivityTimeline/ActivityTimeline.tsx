@@ -16,7 +16,6 @@ export function ActivityTimeline({ timeline, className }: ActivityTimelineProps)
 
   return (
     <BentoCard
-      size="full"
       title="Recent Activity"
       icon={Activity}
       count={timeline.length > 0 ? `${timeline.length} events` : undefined}
