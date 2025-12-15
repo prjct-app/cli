@@ -2,8 +2,6 @@
  * Base class and helpers for PrjctCommands
  */
 
-import path from 'path'
-
 import commandExecutor from '../agentic/command-executor'
 import contextBuilder from '../agentic/context-builder'
 import toolRegistry from '../agentic/tool-registry'
@@ -12,7 +10,6 @@ import pathManager from '../infrastructure/path-manager'
 import configManager from '../infrastructure/config-manager'
 import authorDetector from '../infrastructure/author-detector'
 import agentDetector from '../infrastructure/agent-detector'
-import migrator from '../infrastructure/migrator'
 import UpdateChecker from '../infrastructure/update-checker'
 import dateHelper from '../utils/date-helper'
 import jsonlHelper from '../utils/jsonl-helper'
@@ -22,11 +19,7 @@ import out from '../utils/output'
 import type {
   CommandResult,
   AgentInfo,
-  Author,
-  AgentAssignmentResult,
-  ComplexityResult,
-  HealthResult,
-  Context
+  Author
 } from './types'
 
 /**
@@ -107,13 +100,12 @@ export class PrjctCommandsBase {
    * Get global project path
    */
   async getGlobalProjectPath(projectPath: string): Promise<string> {
-    if (await migrator.needsMigration(projectPath)) {
-      throw new Error('Project needs migration. Run /p:migrate first.')
-    }
-
     const projectId = await configManager.getProjectId(projectPath)
-    await pathManager.ensureProjectStructure(projectId!)
-    return pathManager.getGlobalProjectPath(projectId!)
+    if (!projectId) {
+      throw new Error('Project not initialized. Run /p:init first.')
+    }
+    await pathManager.ensureProjectStructure(projectId)
+    return pathManager.getGlobalProjectPath(projectId)
   }
 
   /**
@@ -175,64 +167,6 @@ export class PrjctCommandsBase {
   }
 
   /**
-   * Assign agent for a task
-   */
-  async _assignAgentForTask(taskDescription: string, projectPath: string, _context: Context): Promise<AgentAssignmentResult> {
-    try {
-      const projectId = await configManager.getProjectId(projectPath)
-      const agentsPath = pathManager.getFilePath(projectId!, 'agents', '')
-      const agentFiles = await fileHelper.listFiles(agentsPath, { extension: '.md' })
-      const agents = agentFiles.map(f => f.replace('.md', ''))
-
-      return {
-        agent: { name: agents[0] || 'generalist', domain: 'auto' },
-        routing: {
-          confidence: 0.8,
-          reason: 'Claude assigns via templates/agent-assignment.md',
-          availableAgents: agents
-        },
-        _agenticNote: 'Use templates/agent-assignment.md for actual assignment'
-      }
-    } catch {
-      return {
-        agent: { name: 'generalist', domain: 'general' },
-        routing: { confidence: 0.5, reason: 'Fallback - no agents found' }
-      }
-    }
-  }
-
-  /**
-   * Detect task complexity
-   */
-  _detectComplexity(_task: string): ComplexityResult {
-    return { level: 'medium', hours: 4, type: 'feature' }
-  }
-
-  /**
-   * Calculate project health score
-   */
-  _calculateHealth(stats: { activeTask: boolean; featuresShipped: number }): HealthResult {
-    const hasActivity = stats.activeTask || stats.featuresShipped > 0
-    return {
-      score: hasActivity ? 70 : 50,
-      message: hasActivity ? '🟢 Active' : '🟡 Ready to start',
-    }
-  }
-
-  /**
-   * Render ASCII progress bar
-   */
-  _renderProgressBar(label: string, value: number, max: number): void {
-    const percentage = Math.min(100, Math.round((value / max) * 100))
-    const barLength = 30
-    const filled = Math.round((percentage / 100) * barLength)
-    const empty = barLength - filled
-
-    const bar = '█'.repeat(filled) + '░'.repeat(empty)
-    console.log(`   ${label}: [${bar}] ${percentage}%`)
-  }
-
-  /**
    * Breakdown feature into tasks
    */
   _breakdownFeatureTasks(description: string): string[] {
@@ -249,14 +183,6 @@ export class PrjctCommandsBase {
    */
   _detectBugSeverity(_description: string): string {
     return 'medium'
-  }
-
-  /**
-   * Auto-assign agent based on task (deprecated)
-   */
-  _autoAssignAgent(_task: string): string {
-    console.warn('DEPRECATED: Use _assignAgentForTask() for proper agent routing')
-    return 'generalist'
   }
 }
 
