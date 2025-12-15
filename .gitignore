@@ -46,3 +46,7 @@ tmp/
 
 # Removed integrations
 .serena/
+
+# Claude Code local config (agents are dynamically generated)
+.claude/agents/
+.claude/settings.local.json
