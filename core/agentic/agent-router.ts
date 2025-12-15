@@ -54,7 +54,7 @@ class AgentRouter {
   async initialize(projectPath: string): Promise<void> {
     this.projectId = await configManager.getProjectId(projectPath)
     this.projectPath = projectPath
-    this.legacyAgentsPath = pathManager.getPath(this.projectId!, 'agents')
+    this.legacyAgentsPath = pathManager.getFilePath(this.projectId!, 'agents', '')
   }
 
   /**

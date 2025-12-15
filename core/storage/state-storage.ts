@@ -26,6 +26,10 @@ class StateStorage extends StorageManager<StateJson> {
     return 'now.md'
   }
 
+  protected getLayer(): string {
+    return 'core'
+  }
+
   protected getEventType(action: 'update' | 'create' | 'delete'): string {
     return `state.${action}d`
   }

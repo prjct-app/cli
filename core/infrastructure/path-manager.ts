@@ -114,7 +114,7 @@ class PathManager {
 
     const projectPath = this.getGlobalProjectPath(projectId)
 
-    const layers = ['core', 'progress', 'planning', 'analysis', 'memory']
+    const layers = ['core', 'progress', 'planning', 'analysis', 'memory', 'agents']
 
     for (const layer of layers) {
       await fileHelper.ensureDir(path.join(projectPath, layer))
@@ -251,6 +251,28 @@ class PathManager {
       return absolutePath.replace(homeDir, '~')
     }
     return absolutePath
+  }
+
+  /**
+   * Get the auth config file path for cloud sync
+   * Stored in global config directory, not project-specific
+   */
+  getAuthConfigPath(): string {
+    return path.join(this.globalConfigDir, 'auth.json')
+  }
+
+  /**
+   * Get the sync pending events file path for a project
+   */
+  getSyncPendingPath(projectId: string): string {
+    return path.join(this.getGlobalProjectPath(projectId), 'sync', 'pending.json')
+  }
+
+  /**
+   * Get the last sync timestamp file path for a project
+   */
+  getLastSyncPath(projectId: string): string {
+    return path.join(this.getGlobalProjectPath(projectId), 'sync', 'last-sync.json')
   }
 }
 

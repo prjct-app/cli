@@ -13,6 +13,7 @@ import fs from 'fs/promises'
 import path from 'path'
 import os from 'os'
 import { eventBus, type SyncEvent } from '../events'
+import pathManager from '../infrastructure/path-manager'
 
 interface CacheEntry<T> {
   data: T
@@ -67,16 +68,18 @@ export abstract class StorageManager<T> {
 
   /**
    * Get file path for context MD
+   * Uses layer-based paths to match MdBaseManager structure
    */
   protected getContextPath(projectId: string, mdFilename: string): string {
-    return path.join(
-      os.homedir(),
-      '.prjct-cli/projects',
-      projectId,
-      'context',
-      mdFilename
-    )
+    const layer = this.getLayer()
+    return pathManager.getFilePath(projectId, layer, mdFilename)
   }
+
+  /**
+   * Get the layer for context MD files
+   * Override in subclasses: 'core' | 'planning' | 'progress'
+   */
+  protected abstract getLayer(): string
 
   /**
    * Get default data structure

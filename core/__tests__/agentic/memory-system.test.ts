@@ -29,7 +29,8 @@ describe('MemorySystem P3.3', () => {
         userTriggered: true
       })
 
-      expect(memoryId).toMatch(/^mem_/)
+      // UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+      expect(memoryId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
 
       const memories = await memorySystem.getAllMemories(TEST_PROJECT_ID)
       expect(memories.length).toBe(1)

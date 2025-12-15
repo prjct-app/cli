@@ -39,6 +39,10 @@ class ShippedStorage extends StorageManager<ShippedJson> {
     return 'shipped.md'
   }
 
+  protected getLayer(): string {
+    return 'progress'
+  }
+
   protected getEventType(action: 'update' | 'create' | 'delete'): string {
     return `shipped.${action}d`
   }

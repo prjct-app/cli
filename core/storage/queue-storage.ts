@@ -25,6 +25,10 @@ class QueueStorage extends StorageManager<QueueJson> {
     return 'next.md'
   }
 
+  protected getLayer(): string {
+    return 'core'
+  }
+
   protected getEventType(action: 'update' | 'create' | 'delete'): string {
     return `queue.${action}d`
   }
