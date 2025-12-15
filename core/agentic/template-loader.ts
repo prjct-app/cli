@@ -8,6 +8,7 @@
 
 import fs from 'fs/promises'
 import path from 'path'
+import { TemplateError } from '../errors'
 
 interface Frontmatter {
   name?: string
@@ -24,14 +25,42 @@ interface ParsedTemplate {
 /**
  * Loads command templates from templates/commands/ with caching.
  * Parses YAML-like frontmatter for metadata extraction.
+ * Uses LRU cache with size limit to prevent memory leaks.
  */
 class TemplateLoader {
   templatesDir: string
   cache: Map<string, ParsedTemplate>
+  cacheOrder: string[] // Track access order for LRU eviction
+  maxCacheSize: number
 
   constructor() {
     this.templatesDir = path.join(__dirname, '..', '..', 'templates', 'commands')
     this.cache = new Map()
+    this.cacheOrder = []
+    this.maxCacheSize = 50 // More than enough for all commands
+  }
+
+  /**
+   * Update LRU order - move key to end (most recently used)
+   */
+  private updateLruOrder(key: string): void {
+    const index = this.cacheOrder.indexOf(key)
+    if (index > -1) {
+      this.cacheOrder.splice(index, 1)
+    }
+    this.cacheOrder.push(key)
+  }
+
+  /**
+   * Evict least recently used entry if cache exceeds max size
+   */
+  private evictLru(): void {
+    while (this.cache.size >= this.maxCacheSize && this.cacheOrder.length > 0) {
+      const oldest = this.cacheOrder.shift()
+      if (oldest) {
+        this.cache.delete(oldest)
+      }
+    }
   }
 
   /**
@@ -40,6 +69,7 @@ class TemplateLoader {
   async load(commandName: string): Promise<ParsedTemplate> {
     // Check cache first
     if (this.cache.has(commandName)) {
+      this.updateLruOrder(commandName)
       return this.cache.get(commandName)!
     }
 
@@ -49,12 +79,16 @@ class TemplateLoader {
       const rawContent = await fs.readFile(templatePath, 'utf-8')
       const parsed = this.parseFrontmatter(rawContent)
 
+      // Evict LRU if needed before adding
+      this.evictLru()
+
       // Cache result
       this.cache.set(commandName, parsed)
+      this.cacheOrder.push(commandName)
 
       return parsed
     } catch {
-      throw new Error(`Template not found: ${commandName}.md`)
+      throw TemplateError.notFound(commandName)
     }
   }
 
