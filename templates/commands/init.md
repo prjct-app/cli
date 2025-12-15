@@ -2,35 +2,116 @@
 allowed-tools: [Read, Write, Bash]
 description: 'Initialize prjct'
 timestamp-rule: 'GetTimestamp() for all timestamps'
+architecture: 'Write-Through (JSON → MD → Events)'
+storage-layer: true
 ---
 
-# /p:init
+# /p:init - Initialize Project
+
+## Architecture: Write-Through Pattern
+
+Creates the full storage structure for a new project.
 
 ## Context Variables
-- `{projectId}`: Generated unique ID (12 chars hex)
+- `{projectId}`: Generated UUID (standard format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
 - `{globalPath}`: `~/.prjct-cli/projects/{projectId}`
 - `{cwd}`: Current working directory (repository path)
 
+## Project ID Format
+
+**CRITICAL**: Project IDs MUST be standard UUIDs for PostgreSQL consistency.
+
+```
+Format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+Example: 550e8400-e29b-41d4-a716-446655440000
+```
+
+Generate using: `crypto.randomUUID()`
+
 ## Flow
 
-**Existing**: ID → dirs → config → analyze → agents
-**Blank + idea**: ARCHITECT → analyze → recommend stack → create → roadmap
+1. **Check existing**: Read `.prjct/prjct.config.json`
+2. **Generate UUID**: Use `crypto.randomUUID()`
+3. **Create directories**: storage/, context/, sync/, agents/, memory/
+4. **Create config files**: local + global
+5. **Analyze project**: Detect stack, dependencies
+6. **Generate agents**: Based on detected stack
 
-## Structure
-`~/.prjct-cli/projects/{id}/`: core, progress, planning, analysis, agents, memory
+## Directory Structure
 
-## Config
-`.prjct/prjct.config.json`: version, projectId, dataPath, author
+```
+~/.prjct-cli/projects/{projectId}/
+├── storage/                  # Source of Truth (JSON)
+│   ├── state.json           # Current + paused task
+│   ├── queue.json           # Task queue
+│   ├── ideas.json           # Ideas list
+│   └── shipped.json         # Shipped features
+├── context/                  # For Claude (MD)
+│   ├── CLAUDE.md            # Full context
+│   ├── now.md               # Current task
+│   ├── next.md              # Queue
+│   ├── ideas.md             # Ideas
+│   └── shipped.md           # Shipped
+├── sync/                     # Backend Sync
+│   └── pending.json         # Events queue
+├── agents/                   # Specialists
+├── memory/                   # Audit Trail
+│   └── events.jsonl
+├── progress/                 # Historical Data
+│   └── sessions/{YYYY-MM}/
+└── project.json             # Metadata
+```
+
+## Step: Create Storage Files
+
+### storage/state.json
+```json
+{
+  "currentTask": null,
+  "pausedTask": null,
+  "previousTask": null,
+  "lastUpdated": null
+}
+```
+
+### storage/queue.json
+```json
+{
+  "tasks": [],
+  "lastUpdated": null
+}
+```
+
+### storage/ideas.json
+```json
+{
+  "ideas": [],
+  "lastUpdated": null
+}
+```
+
+### storage/shipped.json
+```json
+{
+  "shipped": [],
+  "lastUpdated": null
+}
+```
+
+### sync/pending.json
+```json
+[]
+```
 
 ## Step: Create project.json (REQUIRED)
 
-This file is the source of truth for the web dashboard. It maps projectId → repoPath.
+This file is the source of truth for the web dashboard.
 
 ### Determine Project Name
 - Try package.json → `name` field
 - Try Cargo.toml → `[package] name`
 - Try pyproject.toml → `[project] name`
-- Fallback to directory name (last segment of current path)
+- Fallback to directory name
 
 WRITE: `{globalPath}/project.json`
 
@@ -44,18 +125,41 @@ WRITE: `{globalPath}/project.json`
 }
 ```
 
+## Step: Create Local Config
+
+WRITE: `.prjct/prjct.config.json`
+
+```json
+{
+  "projectId": "{projectId}",
+  "dataPath": "~/.prjct-cli/projects/{projectId}"
+}
+```
+
 ## Response
-`✅ Init | {stack} | {N} agents | Next: /p:feature or /p:help`
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🎯 WHAT'S NEXT?
-━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+✅ Initialized prjct
 
-1. 🚀 Start first feature (RECOMMENDED) → /p:feature "{first_feature}"
-2. 📊 See roadmap → /p:roadmap
-3. 🔍 Review structure → /p:recap
-4. 💡 Modify plan → Just tell me
+Project ID: {projectId}
+Data Path: ~/.prjct-cli/projects/{projectId}/
 
-💬 REMEMBER: Talk naturally! "Start with auth" / "Show roadmap" / "Add another feature"
+Structure:
+├── storage/    # JSON (source of truth)
+├── context/    # MD (for Claude)
+├── sync/       # Backend events
+└── agents/     # Specialists
 
-Ready to start building? 🚀
+Next:
+• /p:sync - Analyze project and generate agents
+• /p:feature "{first_feature}" - Start first feature
+• /p:help - See all commands
+```
+
+## Error Handling
+
+| Error | Response |
+|-------|----------|
+| Already initialized | Show existing projectId |
+| Permission denied | Suggest chmod |
+| Write fails | Show error |

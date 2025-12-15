@@ -3,18 +3,35 @@ allowed-tools: [Read, Write, Glob, GetTimestamp, GetDate]
 description: 'Spec-driven development for complex features'
 timestamp-rule: 'GetTimestamp() and GetDate() for ALL timestamps'
 think-triggers: [explore_to_edit, complex_analysis]
+architecture: 'Write-Through (JSON → MD → Events)'
+storage-layer: true
+source-of-truth: 'storage/specs.json'
+claude-context: 'context/specs/'
 ---
 
-# /p:spec
+# /p:spec - Spec-Driven Development
 
 Spec-Driven Development. Creates detailed specifications for complex features before implementation.
 
+## Architecture: Write-Through Pattern
+
+**Source of Truth**: `storage/specs.json`
+**Claude Context**: `context/specs/{slug}.md` (generated)
+
 ## Think First
+
 Before creating spec, analyze:
 1. Is this feature complex enough for a spec? (auth, payments, migrations = yes)
 2. What are the key architectural decisions to make?
 3. Are there multiple valid approaches? Document tradeoffs.
 4. What questions should I ask the user before proceeding?
+
+## Context Variables
+- `{projectId}`: From `.prjct/prjct.config.json`
+- `{globalPath}`: `~/.prjct-cli/projects/{projectId}`
+- `{specsStoragePath}`: `{globalPath}/storage/specs.json`
+- `{specsContextPath}`: `{globalPath}/context/specs/`
+- `{queuePath}`: `{globalPath}/storage/queue.json`
 
 ## Purpose
 
@@ -38,9 +55,9 @@ For features that require:
 /p:spec "Dark Mode"
 1. Analyze: Context, patterns, dependencies
 2. Propose: Requirements + Design + Tasks
-3. Write: `planning/specs/{slug}.md`
+3. Write: `storage/specs.json` + generate `context/specs/{slug}.md`
 4. Ask: User approval
-5. On approve: Add tasks to queue, start first
+5. On approve: Add tasks to `storage/queue.json`, start first
 ```
 
 ## Spec Structure
@@ -73,17 +90,34 @@ For features that require:
 - {edge cases to consider}
 ```
 
+## Storage Format
+
+### storage/specs.json
+```json
+{
+  "specs": [
+    {
+      "id": "{specId}",
+      "name": "{feature}",
+      "slug": "{feature-slug}",
+      "status": "PENDING_APPROVAL",
+      "requirements": [...],
+      "design": {...},
+      "tasks": [...],
+      "createdAt": "{timestamp}",
+      "approvedAt": null
+    }
+  ],
+  "lastUpdated": "{timestamp}"
+}
+```
+
 ## Validation
 
 - Feature name required for creation
 - Spec must have at least 1 requirement
 - Each task should be 20-30 minutes
 - Check for existing spec with same name
-
-## Data
-
-Session: `{"ts":"{GetTimestamp()}","type":"spec_create","name":"{feature}","requirements":{n},"tasks":{n},"effort":"{Xh}"}`
-Spec file: `planning/specs/{feature-slug}.md`
 
 ## Response
 
@@ -126,3 +160,59 @@ Use /p:done when complete
 → Breaks into: toggle, state, styles, persist, test
 → Estimates ~3h total
 ```
+
+## Decision Logging (absorbed from /p:decision)
+
+Specs now capture architectural decisions inline. When making design choices:
+
+### Decision Format
+
+```
+/p:spec "API Design"
+
+[During spec creation, capture decisions:]
+
+Decision: Use REST instead of GraphQL
+Reasoning: Simpler for this use case, team familiarity
+Alternatives: GraphQL, gRPC
+```
+
+### Storage
+
+Decisions are stored in the spec itself:
+```json
+{
+  "id": "{specId}",
+  "name": "{feature}",
+  "decisions": [
+    {
+      "id": "{decisionId}",
+      "decision": "Use REST instead of GraphQL",
+      "reasoning": "Simpler for this use case",
+      "alternatives": ["GraphQL", "gRPC"],
+      "createdAt": "{timestamp}"
+    }
+  ]
+}
+```
+
+### Response (with decisions)
+```
+📝 Decision logged: Use REST instead of GraphQL
+
+ID: {decisionId}
+Reasoning: Simpler for this use case
+Alternatives: GraphQL, gRPC
+
+This creates institutional memory to avoid:
+- Repeating the same debates
+- Forgetting why something was done a certain way
+- Making inconsistent choices
+```
+
+## Natural Language Support
+
+- "p. spec" → Interactive spec creation
+- "p. spec dark mode" → Create spec for dark mode
+- "p. design spec auth" → Create spec for auth
+- "p. decision use postgres" → Log decision (now part of spec)

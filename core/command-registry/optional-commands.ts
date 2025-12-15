@@ -116,4 +116,68 @@ export const OPTIONAL_COMMANDS: Command[] = [
       'Redo availability count',
     ],
   },
+
+  {
+    name: 'git',
+    category: 'optional',
+    description: 'Smart git operations with context',
+    usage: {
+      claude: '/p:git [operation]',
+      terminal: 'prjct git [operation]',
+    },
+    params: '[operation]',
+    implemented: true,
+    hasTemplate: true,
+    requiresInit: true,
+    blockingRules: null,
+    isOptional: true,
+    features: [
+      'Context-aware commits',
+      'Smart branch naming',
+      'Task-linked commits',
+      'Memory trail logging',
+    ],
+  },
+
+  {
+    name: 'test',
+    category: 'optional',
+    description: 'Run tests with auto-fix',
+    usage: {
+      claude: '/p:test',
+      terminal: 'prjct test',
+    },
+    params: null,
+    implemented: true,
+    hasTemplate: true,
+    requiresInit: true,
+    blockingRules: null,
+    isOptional: true,
+    features: [
+      'Run project tests',
+      'Auto-fix suggestions',
+      'Coverage reporting',
+    ],
+  },
+
+  {
+    name: 'serve',
+    category: 'optional',
+    description: 'Start prjct web server',
+    usage: {
+      claude: '/p:serve',
+      terminal: 'prjct serve',
+    },
+    params: '[port]',
+    implemented: true,
+    hasTemplate: true,
+    requiresInit: true,
+    blockingRules: null,
+    isOptional: true,
+    features: [
+      'Local dashboard server',
+      'API endpoints',
+      'Real-time updates',
+    ],
+  },
 ]

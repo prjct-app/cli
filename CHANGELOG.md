@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.15.0] - 2025-12-15
+
+### Template Optimization - Aggressive Consolidation
+
+Reduced command templates from 39 to 27 through strategic consolidation and elimination of redundancy.
+
+- **Command Consolidation**
+  - `/p:dash` absorbs status, progress, recap (views: default, week, month, compact)
+  - `/p:now` absorbs work, build (single task-start command)
+  - `/p:resume` absorbs recover (--recover flag for abandoned sessions)
+  - `/p:next` adds roadmap view (feature-grouped queue)
+  - `/p:ask` absorbs fix (troubleshooting mode)
+  - `/p:spec` absorbs decision (inline decision logging)
+
+- **Eliminated Redundant Commands**
+  - Removed: work, build, task, status, progress, recap, help
+  - Removed: roadmap, decision, fix, workflow, recover
+  - Total: 12 command templates deleted
+
+- **Auxiliary Template Cleanup**
+  - Merged accessibility.md → ux-ui.md
+  - Merged project-analysis.md → analyze.md
+  - Merged agent-assignment.md → agent-routing.md
+
+- **Template Enhancements**
+  - Agent detection table in now.md
+  - KPI metrics and velocity calculation in dash.md
+  - Recovery mode with 4 options in resume.md
+  - Standardized frontmatter across all templates
+
+- **Registry Updates**
+  - Updated core-commands.ts with consolidated commands
+  - Updated optional-commands.ts with git, test, serve
+
 ## [0.14.0] - 2025-12-11
 
 ### Actionable Dashboard + Session Recovery

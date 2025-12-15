@@ -2,21 +2,32 @@
 allowed-tools: [Read, Write, Bash]
 description: 'Pause current session with reason'
 timestamp-rule: 'GetTimestamp() for all timestamps'
-architecture: 'MD-first - MD files are source of truth'
+architecture: 'Write-Through (JSON → MD → Events)'
+storage-layer: true
+source-of-truth: 'storage/state.json'
+claude-context: 'context/now.md'
+backend-sync: 'sync/pending.json'
 ---
 
 # /p:pause - Pause Current Session
 
-## Architecture: MD-First
+## Architecture: Write-Through Pattern
 
-**Source of Truth**: `core/now.md`, `sessions/current.json`
+```
+User Action → Storage (JSON) → Context (MD) → Sync Events
+```
+
+**Source of Truth**: `storage/state.json`
+**Claude Context**: `context/now.md` (generated)
+**Backend Sync**: `sync/pending.json` (events)
 
 ## Context Variables
 - `{projectId}`: From `.prjct/prjct.config.json`
 - `{globalPath}`: `~/.prjct-cli/projects/{projectId}`
-- `{sessionPath}`: `{globalPath}/sessions/current.json`
-- `{nowPath}`: `{globalPath}/core/now.md`
-- `{memoryPath}`: `{globalPath}/memory/context.jsonl`
+- `{statePath}`: `{globalPath}/storage/state.json`
+- `{nowContextPath}`: `{globalPath}/context/now.md`
+- `{syncPath}`: `{globalPath}/sync/pending.json`
+- `{memoryPath}`: `{globalPath}/memory/events.jsonl`
 - `{reason}`: User-provided reason (optional)
 
 ## Pause Reasons
@@ -48,33 +59,35 @@ IF file not found:
   OUTPUT: "No prjct project. Run /p:init first."
   STOP
 
-## Step 2: Check Session State
+## Step 2: Check Current State
 
-READ: `{sessionPath}`
+### Read state.json (source of truth)
+READ: `{statePath}`
 
-IF file not found OR empty:
+IF file not found OR no currentTask:
   OUTPUT: "⚠️ No active session to pause. Use /p:now to start one."
   STOP
 
-PARSE as JSON → {session}
+PARSE JSON
+EXTRACT: {currentTask}, {pausedTask}
 
-IF {session.status} == "paused":
-  CALCULATE: {elapsed} = time since {session.pausedAt}
-  OUTPUT:
-  ```
-  ⏸️ Already paused: {session.task}
+IF {currentTask} is null OR {currentTask.status} != "active":
+  IF {pausedTask} exists:
+    CALCULATE: {elapsed} = time since {pausedTask.pausedAt}
+    OUTPUT:
+    ```
+    ⏸️ Already paused: {pausedTask.description}
 
-  Paused: {elapsed} ago
-  Duration so far: {session.duration}
-  Reason: {session.pauseReason}
+    Paused: {elapsed} ago
+    Duration so far: {pausedTask.duration}
+    Reason: {pausedTask.pauseReason}
 
-  /p:resume to continue | /p:done to complete
-  ```
-  STOP
-
-IF {session.status} != "active":
-  OUTPUT: "⚠️ No active session to pause."
-  STOP
+    /p:resume to continue | /p:done to complete
+    ```
+    STOP
+  ELSE:
+    OUTPUT: "⚠️ No active session to pause."
+    STOP
 
 ## Step 3: Get Pause Reason
 
@@ -89,73 +102,90 @@ IF {reason} == "blocked":
 ## Step 4: Calculate Duration So Far
 
 SET: {now} = GetTimestamp()
-
-For each event in {session.timeline}:
-  Track start/resume/pause times
-  Calculate total active time up to now
-
-SET: {duration} = total active seconds
+SET: {durationSeconds} = seconds between {currentTask.startedAt} and {now}
 SET: {durationFormatted} = format as "Xh Ym" or "Xm"
 
-## Step 5: Update Session
+## Step 5: Update Storage (SOURCE OF TRUTH)
 
-UPDATE {session}:
+### Prepare paused task
 ```json
 {
-  "id": "{session.id}",
-  "projectId": "{session.projectId}",
-  "task": "{session.task}",
+  "id": "{currentTask.id}",
+  "description": "{currentTask.description}",
   "status": "paused",
-  "startedAt": "{session.startedAt}",
+  "startedAt": "{currentTask.startedAt}",
   "pausedAt": "{now}",
+  "sessionId": "{currentTask.sessionId}",
+  "duration": {durationSeconds},
   "pauseReason": "{reason}",
   "pauseNote": "{blockerNote}",
-  "completedAt": null,
-  "duration": {duration},
-  "metrics": {session.metrics},
-  "timeline": [
-    ...{session.timeline},
-    {"type": "pause", "at": "{now}", "reason": "{reason}", "note": "{blockerNote}"}
-  ]
+  "estimate": "{currentTask.estimate}",
+  "estimateSeconds": {currentTask.estimateSeconds}
 }
 ```
 
-WRITE: `{sessionPath}`
-Content: Updated session JSON
+### Update state.json
+READ: `{statePath}`
+SET: state.pausedTask = paused task object
+SET: state.currentTask = null
+SET: state.lastUpdated = {now}
+WRITE: `{statePath}`
 
-## Step 6: Update now.md (SOURCE OF TRUTH)
+## Step 6: Generate Context (FOR CLAUDE)
 
-WRITE: `{nowPath}`
-Content:
+WRITE: `{nowContextPath}`
+
 ```markdown
 # NOW
 
-⏸️ **{session.task}** (paused)
+⏸️ **{currentTask.description}** (paused)
 
-Started: {session.startedAt}
+Started: {currentTask.startedAt}
 Paused: {now}
 Duration: {durationFormatted}
 Reason: {reason}
-Session: {session.id}
+Session: {currentTask.sessionId}
 {IF blockerNote: Note: {blockerNote}}
 ```
 
-## Step 7: Log to Memory
+## Step 7: Queue Sync Event (FOR BACKEND)
+
+READ: `{syncPath}` or create empty array
+APPEND event:
+```json
+{
+  "type": "task.paused",
+  "path": ["state"],
+  "data": {
+    "taskId": "{currentTask.id}",
+    "description": "{currentTask.description}",
+    "pausedAt": "{now}",
+    "duration": {durationSeconds},
+    "reason": "{reason}",
+    "note": "{blockerNote}"
+  },
+  "timestamp": "{now}",
+  "projectId": "{projectId}"
+}
+```
+WRITE: `{syncPath}`
+
+## Step 8: Log to Memory (AUDIT TRAIL)
 
 APPEND to: `{memoryPath}`
 
 Single line (JSONL):
 ```json
-{"timestamp":"{now}","action":"session_paused","sessionId":"{session.id}","task":"{session.task}","duration":{duration},"reason":"{reason}","note":"{blockerNote}"}
+{"timestamp":"{now}","action":"task_paused","taskId":"{currentTask.id}","sessionId":"{currentTask.sessionId}","task":"{currentTask.description}","duration":{durationSeconds},"reason":"{reason}","note":"{blockerNote}"}
 ```
 
 ## Output
 
 SUCCESS:
 ```
-⏸️ Paused: {session.task}
+⏸️ Paused: {currentTask.description}
 
-Session: {session.id}
+Session: {currentTask.sessionId}
 Active time: {durationFormatted}
 Reason: {reason}
 {IF blockerNote: Note: {blockerNote}}
@@ -186,7 +216,7 @@ Next:
 ```
 ⏸️ Paused: implement auth
 
-Session: sess_abc12345
+Session: 550e8400-e29b-41d4-a716-446655440000
 Active time: 2h 30m
 Reason: blocked
 Note: Waiting for API credentials from vendor
@@ -203,7 +233,7 @@ Next:
 ```
 ⏸️ Paused: implement auth
 
-Session: sess_abc12345
+Session: 550e8400-e29b-41d4-a716-446655440000
 Active time: 2h 30m
 Reason: break
 
@@ -218,25 +248,10 @@ Next:
 ```
 ⏸️ Paused: implement auth
 
-Session: sess_abc12345
+Session: 550e8400-e29b-41d4-a716-446655440000
 Active time: 2h 30m
 Reason: switch
 
 Next:
 • /p:now <task> - Start the urgent task
-```
-
-### Example 4: No Reason (Interactive)
-**Input:** `/p:pause`
-
-**Output:**
-```
-Why are you pausing?
-
-1. blocked - Waiting on something external
-2. switch - Starting a different task
-3. break - Taking a break
-4. research - Need to investigate
-
-Select [1-4]:
 ```
