@@ -42,6 +42,10 @@ class IdeasStorage extends StorageManager<IdeasJson> {
     return 'ideas.md'
   }
 
+  protected getLayer(): string {
+    return 'planning'
+  }
+
   protected getEventType(action: 'update' | 'create' | 'delete'): string {
     return `ideas.${action}d`
   }

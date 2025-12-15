@@ -92,7 +92,8 @@ describe('PlanMode P3.4', () => {
     it('should create a new plan with correct initial state', () => {
       const plan = planMode.startPlanning(TEST_PROJECT_ID, 'feature', { description: 'Add dark mode' })
 
-      expect(plan.id).toMatch(/^plan_/)
+      // UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+      expect(plan.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
       expect(plan.projectId).toBe(TEST_PROJECT_ID)
       expect(plan.command).toBe('feature')
       expect(plan.status).toBe(PLAN_STATUS.GATHERING)

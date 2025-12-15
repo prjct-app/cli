@@ -38,9 +38,9 @@ class AgentGenerator {
 
   constructor(projectId: string | null = null) {
     this.projectId = projectId
-    // NEW: Write to data/agents/ for JSON storage (OpenCode-style)
+    // Write to agents/ for MD storage (matches AgentLoader)
     this.outputDir = projectId
-      ? path.join(os.homedir(), '.prjct-cli', 'projects', projectId, 'data', 'agents')
+      ? path.join(os.homedir(), '.prjct-cli', 'projects', projectId, 'agents')
       : path.join(os.homedir(), '.prjct-cli', 'agents')
     this.loader = new AgentLoader(projectId)
   }
@@ -54,18 +54,10 @@ class AgentGenerator {
     log.debug(`Generating ${agentName} agent...`)
     await fs.mkdir(this.outputDir, { recursive: true })
 
-    // Write as JSON (OpenCode-style storage)
-    const agent = {
-      name: agentName,
-      role: config.role || agentName,
-      domain: config.domain || 'general',
-      expertise: config.expertise || '',
-      contextFilter: config.contextFilter || 'Only relevant files',
-      createdAt: new Date().toISOString()
-    }
-
-    const outputPath = path.join(this.outputDir, `${agentName}.json`)
-    await fs.writeFile(outputPath, JSON.stringify(agent, null, 2), 'utf-8')
+    // Write as MD (matches AgentLoader which reads .md files)
+    const content = this.buildAgentPrompt(agentName, config)
+    const outputPath = path.join(this.outputDir, `${agentName}.md`)
+    await fs.writeFile(outputPath, content, 'utf-8')
     log.debug(`${agentName} agent created`)
 
     return { name: agentName }
@@ -135,10 +127,10 @@ ${config.contextFilter || 'Only relevant files'}
 
     try {
       const files = await fs.readdir(this.outputDir)
-      const agentFiles = files.filter((f) => f.endsWith('.json') && !f.startsWith('.'))
+      const agentFiles = files.filter((f) => f.endsWith('.md') && !f.startsWith('.'))
 
       for (const file of agentFiles) {
-        const type = file.replace('.json', '')
+        const type = file.replace('.md', '')
 
         if (!requiredAgents.includes(type)) {
           const filePath = path.join(this.outputDir, file)
@@ -160,7 +152,7 @@ ${config.contextFilter || 'Only relevant files'}
   async listAgents(): Promise<string[]> {
     try {
       const files = await fs.readdir(this.outputDir)
-      return files.filter((f) => f.endsWith('.json') && !f.startsWith('.')).map((f) => f.replace('.json', ''))
+      return files.filter((f) => f.endsWith('.md') && !f.startsWith('.')).map((f) => f.replace('.md', ''))
     } catch {
       return []
     }

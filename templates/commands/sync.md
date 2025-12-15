@@ -409,6 +409,52 @@ APPEND to: `{globalPath}/memory/events.jsonl`
 
 ---
 
+## Step 9: Backend Sync (Cloud)
+
+Sync with prjct API if authenticated.
+
+### 9.1 Check Authentication
+
+READ: `~/.prjct-cli/config/auth.json`
+
+IF no auth OR no apiKey:
+  SET: `{cloudSync}` = false
+  OUTPUT TIP: "💡 Run `prjct auth` to enable cloud sync"
+  CONTINUE to output (skip 9.2, 9.3)
+
+ELSE:
+  SET: `{cloudSync}` = true
+
+### 9.2 Push Pending Events
+
+READ: `{globalPath}/sync/pending.json`
+COUNT: `{pendingCount}` events
+
+IF pendingCount > 0:
+  CALL syncManager.push(projectId)
+
+  IF success:
+    SET: `{pushedCount}` = result.count
+    OUTPUT: "☁️ Pushed {pushedCount} events to cloud"
+  ELSE:
+    OUTPUT: "⚠️ Cloud sync failed: {error}. Events queued for retry."
+    SET: `{syncError}` = error
+ELSE:
+  SET: `{pushedCount}` = 0
+
+### 9.3 Pull Updates (if push succeeded)
+
+IF cloudSync AND no syncError:
+  CALL syncManager.pull(projectId)
+
+  IF success AND result.count > 0:
+    SET: `{pulledCount}` = result.count
+    OUTPUT: "📥 Pulled {pulledCount} updates from cloud"
+  ELSE:
+    SET: `{pulledCount}` = 0
+
+---
+
 ## Output
 
 ```
@@ -435,6 +481,15 @@ APPEND to: `{globalPath}/memory/events.jsonl`
 🤖 Claude Code Sub-Agents ({workflowAgents.length + domainAgents.length})
 ├── Workflow: prjct-workflow, prjct-planner, prjct-shipper
 └── Domain: {domainAgents.join(', ') || 'none'}
+
+{IF cloudSync}
+☁️ Cloud Sync
+├── Pushed: {pushedCount} events
+├── Pulled: {pulledCount} updates
+└── Status: {syncError ? "⚠️ " + syncError : "✓ Synced"}
+{ELSE}
+💡 Cloud sync disabled. Run `prjct auth` to enable.
+{ENDIF}
 
 {IF hasUncommittedChanges}
 ⚠️  You have uncommitted changes

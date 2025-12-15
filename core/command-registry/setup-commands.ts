@@ -65,4 +65,19 @@ export const SETUP_COMMANDS: Command[] = [
     requiresInit: false,
     blockingRules: null,
   },
+
+  {
+    name: 'auth',
+    category: 'setup',
+    description: 'Manage cloud authentication',
+    usage: {
+      claude: '/p:auth [login|logout|status]',
+      terminal: 'prjct auth [login|logout|status]',
+    },
+    params: '[login|logout|status]',
+    implemented: true,
+    hasTemplate: true,
+    requiresInit: false,
+    blockingRules: null,
+  },
 ]
