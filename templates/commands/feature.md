@@ -2,16 +2,24 @@
 allowed-tools: [Read, Write, Bash, Task, Glob]
 description: 'Value analysis + roadmap + task breakdown + auto-start'
 timestamp-rule: 'GetTimestamp() and GetDate() for ALL timestamps'
-architecture: 'MD-first - MD files are source of truth'
+architecture: 'Write-Through (JSON → MD → Events)'
+storage-layer: true
+source-of-truth: 'storage/queue.json'
+claude-context: 'context/next.md'
+backend-sync: 'sync/pending.json'
 ---
 
 # /p:feature - Add Feature to Roadmap
 
-## Architecture: MD-First
+## Architecture: Write-Through Pattern
 
-**Source of Truth**: `planning/roadmap.md`, `core/next.md`, `core/now.md`
+```
+User Action → Storage (JSON) → Context (MD) → Sync Events
+```
 
-MD files are the source of truth. Write directly to MD files.
+**Source of Truth**: `storage/queue.json` (tasks), `storage/roadmap.json` (features)
+**Claude Context**: `context/next.md`, `context/roadmap.md` (generated)
+**Backend Sync**: `sync/pending.json` (events)
 
 ## Agent Delegation (REQUIRED)
 
@@ -53,10 +61,11 @@ Task(
 ## Context Variables
 - `{projectId}`: From `.prjct/prjct.config.json`
 - `{globalPath}`: `~/.prjct-cli/projects/{projectId}`
-- `{roadmapPath}`: `{globalPath}/planning/roadmap.md`
-- `{nextPath}`: `{globalPath}/core/next.md`
-- `{nowPath}`: `{globalPath}/core/now.md`
-- `{memoryPath}`: `{globalPath}/memory/context.jsonl`
+- `{queuePath}`: `{globalPath}/storage/queue.json`
+- `{statePath}`: `{globalPath}/storage/state.json`
+- `{nextContextPath}`: `{globalPath}/context/next.md`
+- `{syncPath}`: `{globalPath}/sync/pending.json`
+- `{memoryPath}`: `{globalPath}/memory/events.jsonl`
 - `{feature}`: User-provided feature description
 
 ## Step 1: Read Config
@@ -148,96 +157,54 @@ For feature "add user authentication":
 ```
 
 GENERATE: {tasks} = list of task descriptions
-
-## Step 5: Update Roadmap (MD)
-
-READ: `{roadmapPath}` (or create default if not exists)
-
-Default structure:
-```markdown
-# Roadmap
-
-## Active
-
-_No active features_
-
-## Planned
-
-_No planned features_
-
-## Shipped
-
-_Nothing shipped yet_
-```
-
-### Generate Feature ID
-GENERATE: {featureId} = "feat_" + 8 random alphanumeric chars
+GENERATE: {featureId} = UUID v4
 SET: {now} = GetTimestamp()
 
-### Update roadmap.md
+## Step 5: Update Storage (SOURCE OF TRUTH)
 
-Parse existing content and add new feature under "## Active" section:
+### Update queue.json
 
-```markdown
-# Roadmap
-
-## Active
-
-### {feature}
-- **ID**: {featureId}
-- **Impact**: {impact}
-- **Effort**: {effort}
-- **Started**: {now}
-- **Tasks**:
-  - [ ] {task1}
-  - [ ] {task2}
-  - [ ] {task3}
-  ...
-
-{...existing active features}
-
-## Planned
-
-{...existing planned features}
-
-## Shipped
-
-{...existing shipped features}
-```
-
-WRITE: `{roadmapPath}`
-
-## Step 6: Update Priority Queue (MD)
-
-READ: `{nextPath}` (or create default if not exists)
+READ: `{queuePath}` (or create default if not exists)
 
 Default structure:
-```markdown
-# Next
-
-## High Priority
-
-_No high priority tasks_
-
-## Normal Priority
-
-_No tasks in queue_
-
-## Low Priority
-
-_No low priority tasks_
+```json
+{
+  "tasks": [],
+  "lastUpdated": null
+}
 ```
 
-### Add Tasks to Queue
+For each task in {tasks}, create task object:
+```json
+{
+  "id": "{taskId}",
+  "description": "{taskDescription}",
+  "type": "feature",
+  "priority": "normal",
+  "section": "active",
+  "featureId": "{featureId}",
+  "featureName": "{feature}",
+  "createdAt": "{now}"
+}
+```
 
-For each task in {tasks}, add to appropriate priority section:
+APPEND all tasks to `tasks` array
+SET: `lastUpdated` = {now}
+WRITE: `{queuePath}`
+
+## Step 6: Generate Context (FOR CLAUDE)
+
+### Generate context/next.md
+
+READ: `{queuePath}`
+TRANSFORM to markdown:
 
 ```markdown
 # Next
 
 ## High Priority
 
-{if high priority tasks}
+{high priority tasks from queue}
 
 ## Normal Priority
 
@@ -245,58 +212,113 @@ For each task in {tasks}, add to appropriate priority section:
 - [ ] {task2} @{featureId}
 ...
 
-{...existing tasks}
-
 ## Low Priority
 
-{...existing low priority tasks}
+{low priority tasks}
 ```
 
-WRITE: `{nextPath}`
+WRITE: `{nextContextPath}`
 
-## Step 7: Auto-Start First Task (MD)
+## Step 7: Auto-Start First Task
 
-READ: `{nowPath}`
+READ: `{statePath}`
 
-IF file is empty OR contains "_No active task_":
+IF no currentTask:
   ### Start First Task
   {firstTask} = first item from {tasks}
-  GENERATE: {sessionId} = "sess_" + 8 random alphanumeric chars
+  GENERATE: {sessionId} = UUID v4
 
-  ### Update now.md
+  ### Update state.json
+  ```json
+  {
+    "currentTask": {
+      "id": "{firstTask.id}",
+      "description": "{firstTask.description}",
+      "sessionId": "{sessionId}",
+      "featureId": "{featureId}",
+      "startedAt": "{now}",
+      "status": "active"
+    },
+    "pausedTask": null,
+    "lastUpdated": "{now}"
+  }
+  ```
+  WRITE: `{statePath}`
+
+  ### Generate context/now.md
   ```markdown
   # NOW
 
-  **{firstTask}**
+  **{firstTask.description}**
 
   Started: {now}
   Session: {sessionId}
   Feature: {featureId}
   ```
+  WRITE: `{globalPath}/context/now.md`
 
-  WRITE: `{nowPath}`
   {autoStarted} = true
 ELSE:
   {autoStarted} = false
 
-## Step 8: Log to Memory
+## Step 8: Queue Sync Events
 
-GET: {date} = GetDate()
-EXTRACT: {yearMonth} = YYYY-MM from {date}
+READ: `{syncPath}` or create empty array
 
-ENSURE directory:
-BASH: `mkdir -p {globalPath}/memory/sessions/{yearMonth}`
-
-APPEND to: `{globalPath}/memory/sessions/{yearMonth}/{date}.jsonl`
-
-Single line (JSONL):
+### Feature created event
+APPEND:
 ```json
-{"ts":"{now}","type":"feature_add","featureId":"{featureId}","name":"{feature}","tasks":{taskCount},"impact":"{impact}","effort":"{effort}"}
+{
+  "type": "feature.created",
+  "path": ["queue"],
+  "data": {
+    "featureId": "{featureId}",
+    "name": "{feature}",
+    "impact": "{impact}",
+    "effort": "{effort}",
+    "taskCount": {taskCount}
+  },
+  "timestamp": "{now}",
+  "projectId": "{projectId}"
+}
 ```
 
-APPEND to: `{memoryPath}`
+### Tasks added events (one per task)
+For each task:
+```json
+{
+  "type": "queue.task_added",
+  "path": ["queue"],
+  "data": {
+    "taskId": "{taskId}",
+    "description": "{taskDescription}",
+    "featureId": "{featureId}"
+  },
+  "timestamp": "{now}",
+  "projectId": "{projectId}"
+}
+```
 
-Single line (JSONL):
+IF {autoStarted}:
+```json
+{
+  "type": "task.started",
+  "path": ["state"],
+  "data": {
+    "taskId": "{firstTask.id}",
+    "sessionId": "{sessionId}",
+    "featureId": "{featureId}"
+  },
+  "timestamp": "{now}",
+  "projectId": "{projectId}"
+}
+```
+
+WRITE: `{syncPath}`
+
+## Step 9: Log to Memory
+
+APPEND to: `{memoryPath}`
 ```json
 {"timestamp":"{now}","action":"feature_added","featureId":"{featureId}","feature":"{feature}","tasks":{taskCount}}
 ```
@@ -310,7 +332,7 @@ SUCCESS (with auto-start):
 Impact: {impact} | Effort: {effort}
 Tasks: {taskCount}
 
-🎯 Started: {firstTask}
+🎯 Started: {firstTask.description}
 
 Next:
 • Work on the task

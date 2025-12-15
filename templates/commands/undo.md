@@ -2,6 +2,8 @@
 allowed-tools: [Read, Write, Bash]
 description: 'Undo last changes by restoring previous snapshot'
 timestamp-rule: 'GetTimestamp() for ALL timestamps'
+architecture: 'Write-Through (JSON → MD → Events)'
+storage-layer: true
 ---
 
 # /p:undo - Revert to Previous Snapshot
@@ -13,7 +15,7 @@ Reverts the project to the previous snapshot state. Uses Git-based snapshots sto
 - `{projectId}`: From `.prjct/prjct.config.json`
 - `{globalPath}`: `~/.prjct-cli/projects/{projectId}`
 - `{snapshotDir}`: `{globalPath}/snapshots`
-- `{memoryPath}`: `{globalPath}/memory/context.jsonl`
+- `{memoryPath}`: `{globalPath}/memory/events.jsonl`
 
 ## Step 1: Read Config
 
@@ -29,7 +31,7 @@ IF file not found:
 BASH: `cd ~/.prjct-cli/projects/{projectId}/snapshots && git log --oneline -5 2>/dev/null || echo "NO_SNAPSHOTS"`
 
 IF output contains "NO_SNAPSHOTS" OR empty:
-  OUTPUT: "⚠️ No snapshots available. Create one with /p:ship first."
+  OUTPUT: "No snapshots available. Create one with /p:ship first."
   STOP
 
 CAPTURE last two lines as:
@@ -37,7 +39,7 @@ CAPTURE last two lines as:
 - {previousHash}: Second line (snapshot to restore)
 
 IF only one snapshot exists:
-  OUTPUT: "⚠️ Only one snapshot exists. Nothing to undo."
+  OUTPUT: "Only one snapshot exists. Nothing to undo."
   STOP
 
 ## Step 3: Get Current State Info
@@ -139,7 +141,7 @@ Files affected: 5
 
 ### Example 2: Nothing to Undo
 ```
-⚠️ Only one snapshot exists. Nothing to undo.
+Only one snapshot exists. Nothing to undo.
 
 Create more snapshots with /p:ship
 ```

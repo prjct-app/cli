@@ -1,17 +1,37 @@
 ---
 allowed-tools: [Read]
 description: 'Context-aware suggestions based on project state and momentum'
+architecture: 'Write-Through (JSON → MD → Events)'
+storage-layer: true
+source-of-truth: 'storage/*.json'
 ---
 
-# /p:suggest
+# /p:suggest - Context-Aware Suggestions
+
+## Architecture: Write-Through Pattern
+
+Reads from **Storage (JSON)** as source of truth.
+
+**Source of Truth**:
+- `storage/state.json` - Current task
+- `storage/queue.json` - Task queue
+- `storage/shipped.json` - Shipped features
 
 ## Purpose
 
 Analyze project state and recommend next actions based on current task, queue, last ship time, velocity, and momentum patterns.
 
+## Context Variables
+- `{projectId}`: From `.prjct/prjct.config.json`
+- `{globalPath}`: `~/.prjct-cli/projects/{projectId}`
+- `{statePath}`: `{globalPath}/storage/state.json`
+- `{queuePath}`: `{globalPath}/storage/queue.json`
+- `{shippedPath}`: `{globalPath}/storage/shipped.json`
+- `{sessionsPath}`: `{globalPath}/progress/sessions`
+
 ## Flow
 
-1. **Read state files**: `core/now.md`, `core/next.md`, `progress/shipped.md`, `planning/roadmap.md`, sessions (last 7 days)
+1. **Read storage files**: `storage/state.json`, `storage/queue.json`, `storage/shipped.json`, sessions (last 7 days)
 2. **Calculate metrics**: Days since ship, active task duration, queue size, velocity (features/week), completion rate
 3. **Detect patterns**: Long-running task (>1 day), stale queue, high velocity, low activity, blocked
 4. **Generate recommendations**: Immediate action, urgency alerts, momentum tips, strategic suggestions

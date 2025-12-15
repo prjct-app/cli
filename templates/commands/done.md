@@ -2,25 +2,33 @@
 allowed-tools: [Read, Write, Bash]
 description: 'Complete current task with session metrics'
 timestamp-rule: 'GetTimestamp() for all timestamps'
-architecture: 'MD-first - MD files are source of truth'
+architecture: 'Write-Through (JSON → MD → Events)'
+storage-layer: true
+source-of-truth: 'storage/state.json'
+claude-context: 'context/now.md'
+backend-sync: 'sync/pending.json'
 ---
 
 # /p:done - Complete Current Task with Session Metrics
 
-## Architecture: MD-First
+## Architecture: Write-Through Pattern
 
-**Source of Truth**: `core/now.md`, `core/next.md`, `progress/shipped.md`
+```
+User Action → Storage (JSON) → Context (MD) → Sync Events
+```
 
-MD files are the source of truth. Write directly to MD files.
+**Source of Truth**: `storage/state.json`
+**Claude Context**: `context/now.md` (generated)
+**Backend Sync**: `sync/pending.json` (events)
 
 ## Context Variables
 - `{projectId}`: From `.prjct/prjct.config.json`
 - `{globalPath}`: `~/.prjct-cli/projects/{projectId}`
-- `{nowPath}`: `{globalPath}/core/now.md`
-- `{nextPath}`: `{globalPath}/core/next.md`
-- `{sessionPath}`: `{globalPath}/sessions/current.json`
-- `{archiveDir}`: `{globalPath}/sessions/archive`
-- `{memoryPath}`: `{globalPath}/memory/context.jsonl`
+- `{statePath}`: `{globalPath}/storage/state.json`
+- `{nowContextPath}`: `{globalPath}/context/now.md`
+- `{syncPath}`: `{globalPath}/sync/pending.json`
+- `{memoryPath}`: `{globalPath}/memory/events.jsonl`
+- `{sessionsPath}`: `{globalPath}/progress/sessions`
 
 ## Accuracy Calculation
 
@@ -43,47 +51,33 @@ IF file not found:
   OUTPUT: "No prjct project. Run /p:init first."
   STOP
 
-## Step 2: Check Session State
+## Step 2: Check Current State
 
-### Read now.md (source of truth)
-READ: `{nowPath}`
+### Read state.json (source of truth)
+READ: `{statePath}`
 
-IF file exists AND has task content:
-  PARSE MD format:
-  - Look for `**Task description**` (bold text = current task)
-  - Look for `Started: {timestamp}`
-  - Look for `Session: {sessionId}`
-  - Look for `Estimate: {estimate}` (optional)
-  EXTRACT: {task}, {startedAt}, {sessionId}, {estimate}
-  GOTO Step 3 (Session Completion)
-
-### Try structured session (for detailed metrics)
-READ: `{sessionPath}`
-
-IF file exists:
-  PARSE as JSON
-  EXTRACT: {session} object
-ELSE:
-  CREATE session from now.md data
-
-IF no task in now.md:
+IF file not found OR no currentTask:
   OUTPUT: "⚠️ No active task to complete. Use /p:now to start one."
   STOP
 
-## Step 3: Session Completion
+PARSE JSON
+EXTRACT: {currentTask}
 
-### Calculate Final Duration
+IF {currentTask.status} != "active":
+  OUTPUT: "⚠️ No active task to complete. Use /p:now to start one."
+  STOP
+
+## Step 3: Calculate Metrics
+
 SET: {now} = GetTimestamp()
+SET: {startedAt} = {currentTask.startedAt}
 
-For each event in {session.timeline}:
-  Track start/resume/pause/complete times
-  Calculate total active time
-
-SET: {duration} = total active seconds
+### Calculate Duration
+SET: {durationSeconds} = seconds between {startedAt} and {now}
 SET: {durationFormatted} = format as "Xh Ym" or "Xm"
 
 ### Calculate Git Metrics
-BASH: `git rev-list --count --since="{session.startedAt}" HEAD 2>/dev/null || echo "0"`
+BASH: `git rev-list --count --since="{startedAt}" HEAD 2>/dev/null || echo "0"`
 CAPTURE as {commits}
 
 BASH: `git diff --stat HEAD~{commits} 2>/dev/null || git diff --stat`
@@ -93,59 +87,49 @@ PARSE output for:
   - {linesRemoved}: deletions
 
 ### Calculate Accuracy (if estimate exists)
-IF {session.estimateSeconds} exists AND > 0:
-  {accuracy} = 100 - Math.abs(((duration - estimateSeconds) / estimateSeconds) * 100)
+IF {currentTask.estimateSeconds} exists AND > 0:
+  {accuracy} = 100 - Math.abs(((durationSeconds - estimateSeconds) / estimateSeconds) * 100)
   {accuracy} = Math.max(0, Math.min(100, {accuracy}))  // Cap between 0-100
   {accuracyLabel} = accuracy >= 80 ? "✅" : accuracy >= 50 ? "⚠️" : "❌"
 ELSE:
   {accuracy} = null
   {accuracyLabel} = null
 
-### Update Session Object
+## Step 4: Update Storage (SOURCE OF TRUTH)
+
+### Prepare completed task
 ```json
 {
-  "id": "{session.id}",
-  "projectId": "{projectId}",
-  "task": "{session.task}",
+  "id": "{currentTask.id}",
+  "description": "{currentTask.description}",
   "status": "completed",
-  "startedAt": "{session.startedAt}",
-  "pausedAt": null,
+  "startedAt": "{currentTask.startedAt}",
   "completedAt": "{now}",
-  "duration": {duration},
-  "estimate": "{session.estimate}",
-  "estimateSeconds": {session.estimateSeconds},
+  "sessionId": "{currentTask.sessionId}",
+  "duration": {durationSeconds},
+  "estimate": "{currentTask.estimate}",
+  "estimateSeconds": {currentTask.estimateSeconds},
   "accuracy": {accuracy},
   "metrics": {
     "filesChanged": {filesChanged},
     "linesAdded": {linesAdded},
     "linesRemoved": {linesRemoved},
-    "commits": {commits},
-    "snapshots": {session.metrics.snapshots}
-  },
-  "timeline": [
-    ...{session.timeline},
-    {"type": "complete", "at": "{now}"}
-  ]
+    "commits": {commits}
+  }
 }
 ```
 
-## Step 4: Archive Session
+### Update state.json
+READ: `{statePath}`
+SET: state.previousTask = completed task object
+SET: state.currentTask = null
+SET: state.lastUpdated = {now}
+WRITE: `{statePath}`
 
-### Create Archive Directory
-GET: {yearMonth} = YYYY-MM from {now}
-ENSURE: `{archiveDir}/{yearMonth}` exists
+## Step 5: Generate Context (FOR CLAUDE)
 
-BASH: `mkdir -p {archiveDir}/{yearMonth}`
-
-### Write Archived Session
-WRITE: `{archiveDir}/{yearMonth}/{session.id}.json`
-Content: Updated session object from Step 3
-
-## Step 5: Clear Current State (MD)
-
-### Clear now.md (SOURCE OF TRUTH)
-
-WRITE: `{nowPath}`
+### Clear now.md
+WRITE: `{nowContextPath}`
 
 ```markdown
 # NOW
@@ -155,31 +139,50 @@ _No active task_
 Use `/p:now <task>` to start working.
 ```
 
-### Clear session.json
-WRITE: `{sessionPath}`
-Content:
-```json
-{}
-```
+## Step 6: Queue Sync Event (FOR BACKEND)
 
-## Step 6: Log to Daily Session (for Dashboard Charts)
+READ: `{syncPath}` or create empty array
+APPEND event:
+```json
+{
+  "type": "task.completed",
+  "path": ["state"],
+  "data": {
+    "taskId": "{currentTask.id}",
+    "description": "{currentTask.description}",
+    "startedAt": "{currentTask.startedAt}",
+    "completedAt": "{now}",
+    "duration": {durationSeconds},
+    "accuracy": {accuracy},
+    "metrics": {
+      "filesChanged": {filesChanged},
+      "linesAdded": {linesAdded},
+      "linesRemoved": {linesRemoved},
+      "commits": {commits}
+    }
+  },
+  "timestamp": "{now}",
+  "projectId": "{projectId}"
+}
+```
+WRITE: `{syncPath}`
+
+## Step 7: Log to Daily Session (for Dashboard Charts)
 
 GET: {date} = YYYY-MM-DD from {now}
 GET: {yearMonth} = YYYY-MM from {now}
-SET: {dailySessionPath} = `{globalPath}/progress/sessions/{yearMonth}/{date}.jsonl`
+SET: {dailySessionPath} = `{sessionsPath}/{yearMonth}/{date}.jsonl`
 
-BASH: `mkdir -p {globalPath}/progress/sessions/{yearMonth}`
+BASH: `mkdir -p {sessionsPath}/{yearMonth}`
 
 APPEND to: `{dailySessionPath}`
 
 Single line (JSONL format):
 ```json
-{"ts":"{now}","type":"task_complete","task":"{session.task}","duration":"{durationFormatted}","sessionId":"{session.id}"}
+{"ts":"{now}","type":"task_complete","task":"{currentTask.description}","duration":"{durationFormatted}","sessionId":"{currentTask.sessionId}"}
 ```
 
-This ensures the dashboard charts reflect completed tasks.
-
-## Step 8: Log to Memory
+## Step 8: Log to Memory (AUDIT TRAIL)
 
 APPEND to: `{memoryPath}`
 
@@ -187,23 +190,23 @@ Single line (JSONL format):
 
 IF {accuracy} exists:
 ```json
-{"timestamp":"{now}","action":"session_completed","sessionId":"{session.id}","task":"{session.task}","duration":{duration},"estimate":{estimateSeconds},"accuracy":{accuracy},"metrics":{"files":{filesChanged},"added":{linesAdded},"removed":{linesRemoved},"commits":{commits}}}
+{"timestamp":"{now}","action":"task_completed","taskId":"{currentTask.id}","sessionId":"{currentTask.sessionId}","task":"{currentTask.description}","duration":{durationSeconds},"estimate":{estimateSeconds},"accuracy":{accuracy},"metrics":{"files":{filesChanged},"added":{linesAdded},"removed":{linesRemoved},"commits":{commits}}}
 ```
 
 ELSE:
 ```json
-{"timestamp":"{now}","action":"session_completed","sessionId":"{session.id}","task":"{session.task}","duration":{duration},"metrics":{"files":{filesChanged},"added":{linesAdded},"removed":{linesRemoved},"commits":{commits}}}
+{"timestamp":"{now}","action":"task_completed","taskId":"{currentTask.id}","sessionId":"{currentTask.sessionId}","task":"{currentTask.description}","duration":{durationSeconds},"metrics":{"files":{filesChanged},"added":{linesAdded},"removed":{linesRemoved},"commits":{commits}}}
 ```
 
 ## Output
 
 SUCCESS (with estimate):
 ```
-✅ {session.task} ({durationFormatted})
+✅ {currentTask.description} ({durationFormatted})
 
 Estimate: {estimate} | Actual: {durationFormatted} | {accuracyLabel} Accuracy: {accuracy}%
 
-Session: {session.id}
+Session: {currentTask.sessionId}
 Files: {filesChanged} | +{linesAdded}/-{linesRemoved}
 Commits: {commits}
 
@@ -215,9 +218,9 @@ Next:
 
 SUCCESS (without estimate):
 ```
-✅ {session.task} ({durationFormatted})
+✅ {currentTask.description} ({durationFormatted})
 
-Session: {session.id}
+Session: {currentTask.sessionId}
 Files: {filesChanged} | +{linesAdded}/-{linesRemoved}
 Commits: {commits}
 
@@ -232,26 +235,40 @@ Next:
 | Error | Response | Action |
 |-------|----------|--------|
 | Config not found | "No prjct project" | STOP |
-| No session/task | "No active task" | STOP |
+| No current task | "No active task" | STOP |
 | Git fails | Use zeros for metrics | CONTINUE |
-| Archive fails | Log warning | CONTINUE |
 | Write fails | Log warning | CONTINUE |
+
+## File Structure Reference
+
+```
+~/.prjct-cli/projects/{projectId}/
+├── storage/
+│   └── state.json              # Source of truth
+├── context/
+│   └── now.md                  # Generated (cleared on done)
+├── sync/
+│   └── pending.json            # Events for backend
+├── progress/
+│   └── sessions/{YYYY-MM}/     # Daily session logs
+└── memory/
+    └── events.jsonl            # Audit trail
+```
 
 ## Examples
 
 ### Example 1: Full Session Completion (with estimate)
-**Session:**
+**State:**
 ```json
 {
-  "id": "sess_abc12345",
-  "task": "implement authentication",
-  "status": "active",
-  "startedAt": "2025-12-07T10:00:00.000Z",
-  "estimate": "2h",
-  "estimateSeconds": 7200,
-  "timeline": [
-    {"type": "start", "at": "2025-12-07T10:00:00.000Z"}
-  ]
+  "currentTask": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "description": "implement authentication",
+    "status": "active",
+    "startedAt": "2025-12-07T10:00:00.000Z",
+    "estimate": "2h",
+    "estimateSeconds": 7200
+  }
 }
 ```
 
@@ -268,7 +285,7 @@ Next:
 
 Estimate: 2h | Actual: 2h 15m | ✅ Accuracy: 88%
 
-Session: sess_abc12345
+Session: 550e8400-e29b-41d4-a716-446655440000
 Files: 5 | +120/-30
 Commits: 3
 
@@ -278,12 +295,12 @@ Next:
 • /p:progress - View metrics
 ```
 
-### Example 1b: Session Completion (without estimate)
+### Example 2: Session Completion (without estimate)
 **Output:**
 ```
 ✅ implement authentication (2h 15m)
 
-Session: sess_abc12345
+Session: 550e8400-e29b-41d4-a716-446655440000
 Files: 5 | +120/-30
 Commits: 3
 
@@ -293,55 +310,8 @@ Next:
 • /p:progress - View metrics
 ```
 
-### Example 2: Session with Pauses
-**Session with multiple pause/resume:**
-```json
-{
-  "id": "sess_xyz98765",
-  "task": "fix login bug",
-  "timeline": [
-    {"type": "start", "at": "2025-12-07T09:00:00.000Z"},
-    {"type": "pause", "at": "2025-12-07T10:00:00.000Z"},
-    {"type": "resume", "at": "2025-12-07T14:00:00.000Z"},
-    {"type": "pause", "at": "2025-12-07T15:30:00.000Z"},
-    {"type": "resume", "at": "2025-12-07T16:00:00.000Z"}
-  ]
-}
-```
-
-**Completion at 17:00:**
-- Active time: 1h + 1.5h + 1h = 3.5h
-- Duration: 3h 30m
-
+### Example 3: No Active Task
 **Output:**
 ```
-✅ fix login bug (3h 30m)
-
-Session: sess_xyz98765
-Files: 2 | +45/-12
-Commits: 1
-
-Next:
-• /p:now - Start next task
-• /p:ship - Ship completed work
-• /p:progress - View metrics
-```
-
-### Example 3: Legacy Fallback (No Session)
-**now.md content:**
-```
-# NOW
-
-**quick fix**
-
-Started: 2025-12-07T16:45:00.000Z
-```
-
-**Output:**
-```
-✅ quick fix (15m)
-
-Next:
-• /p:now - Start next task
-• /p:ship - Ship completed work
+⚠️ No active task to complete. Use /p:now to start one.
 ```

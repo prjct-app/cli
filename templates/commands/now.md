@@ -2,23 +2,32 @@
 allowed-tools: [Read, Write, Bash]
 description: 'Set or show current task with session tracking'
 timestamp-rule: 'GetTimestamp() for ALL timestamps'
-architecture: 'MD-first - MD files are source of truth'
+architecture: 'Write-Through (JSON → MD → Events)'
+storage-layer: true
+source-of-truth: 'storage/state.json'
+claude-context: 'context/now.md'
+backend-sync: 'sync/pending.json'
 ---
 
 # /p:now - Current Task with Session Tracking
 
-## Architecture: MD-First
+## Architecture: Write-Through Pattern
 
-**Source of Truth**: `core/now.md`
+```
+User Action → Storage (JSON) → Context (MD) → Sync Events
+```
 
-MD files are the source of truth. Write directly to MD files.
+**Source of Truth**: `storage/state.json`
+**Claude Context**: `context/now.md` (generated)
+**Backend Sync**: `sync/pending.json` (events)
 
 ## Context Variables
 - `{projectId}`: From `.prjct/prjct.config.json`
 - `{globalPath}`: `~/.prjct-cli/projects/{projectId}`
-- `{nowPath}`: `{globalPath}/core/now.md`
-- `{sessionPath}`: `{globalPath}/sessions/current.json`
-- `{memoryPath}`: `{globalPath}/memory/context.jsonl`
+- `{statePath}`: `{globalPath}/storage/state.json`
+- `{nowContextPath}`: `{globalPath}/context/now.md`
+- `{syncPath}`: `{globalPath}/sync/pending.json`
+- `{memoryPath}`: `{globalPath}/memory/events.jsonl`
 - `{task}`: User-provided task (optional)
 - `{estimate}`: User-provided time estimate (optional, e.g., "2h", "30m", "1d")
 
@@ -35,38 +44,47 @@ If no estimate provided, gently remind:
 💡 Tip: Add estimate next time with /p:now "task" 2h
 ```
 
+## Agent Detection (Optional)
+
+When starting a task, auto-detect the best agent based on keywords:
+
+| Keywords | Agent | Domain |
+|----------|-------|--------|
+| UI, frontend, React, component, CSS, style | `fe` | Frontend |
+| API, backend, database, server, endpoint | `be` | Backend |
+| design, UX, layout, wireframe | `ux` | UX Design |
+| test, QA, bug, coverage, spec | `qa` | Testing |
+| docs, README, documentation | `docs` | Documentation |
+| (default) | `general` | General |
+
+**Usage**: Agent is logged for analytics but doesn't affect workflow.
+
 ## Step 0: Detect Abandoned Sessions (BEFORE anything else)
 
-READ: `{sessionPath}` (`~/.prjct-cli/projects/{projectId}/sessions/current.json`)
+READ: `{statePath}` (`storage/state.json`)
 
-IF file exists AND has content:
-  PARSE as JSON -> {existingSession}
+IF file exists AND has `currentTask`:
+  SET: {existingTask} = currentTask object
+  SET: {lastActivity} = existingTask.startedAt or last timeline entry
+  SET: {hoursAgo} = hours between {lastActivity} and now
 
-  IF {existingSession.status} == "active":
-    SET: {lastActivity} = last timestamp in {existingSession.timeline}
-    SET: {hoursAgo} = hours between {lastActivity} and now
+  IF {hoursAgo} >= 8:  // Session considered abandoned after 8 hours
+    OUTPUT:
+    ```
+    ⚠️ Found abandoned session from {hoursAgo}h ago
 
-    IF {hoursAgo} >= 8:  // Session considered abandoned after 8 hours
-      OUTPUT:
-      ```
-      ⚠️ Found abandoned session from {hoursAgo}h ago
+    Task: {existingTask.description}
+    Session: {existingTask.sessionId}
+    Started: {existingTask.startedAt}
 
-      Task: {existingSession.task}
-      Session: {existingSession.id}
-      Started: {existingSession.startedAt}
+    Options:
+    1. Resume previous task → /p:resume
+    2. Close previous as partial → /p:recover close
+    3. View full context → /p:recover
 
-      {IF existingSession.context.prompt exists:}
-      📝 Original prompt:
-      "{existingSession.context.prompt}"
-
-      Options:
-      1. Resume previous task → /p:resume
-      2. Close previous as partial → /p:recover close
-      3. View full context → /p:recover
-
-      Choose an option before starting a new task.
-      ```
-      STOP
+    Choose an option before starting a new task.
+    ```
+    STOP
 
 ## Step 1: Read Config
 
@@ -79,46 +97,36 @@ IF file not found:
 
 ## Step 2: Check Current State
 
-### Read now.md (source of truth)
-READ: `{nowPath}`
-
-IF file exists AND has content:
-  PARSE MD format:
-  - Look for `**Task description**` (bold text = current task)
-  - Look for `Started: {timestamp}`
-  - Look for `Session: {sessionId}`
-  EXTRACT: {currentTask}, {startedAt}, {sessionId}
-
-### Check for active session (for detailed tracking)
-READ: `{sessionPath}`
+### Read state.json (source of truth)
+READ: `{statePath}`
 
 IF file exists:
-  PARSE as JSON
-  EXTRACT: {session.task}, {session.status}, {session.startedAt}, {session.duration}
+  PARSE JSON
+  EXTRACT: {currentTask}, {pausedTask} if present
 
 ## Step 3: Handle Cases
 
 ### Case A: No task provided - Show current
 IF {task} is empty OR not provided:
-  IF {currentTask} exists AND {status} == "active":
-    CALCULATE: {elapsed} = time since {startedAt}
+  IF {currentTask} exists AND {currentTask.status} == "active":
+    CALCULATE: {elapsed} = time since {currentTask.startedAt}
     OUTPUT:
     ```
-    🎯 {currentTask}
+    🎯 {currentTask.description}
 
-    Session: {sessionId}
-    Started: {startedAt} ({elapsed} ago)
+    Session: {currentTask.sessionId}
+    Started: {currentTask.startedAt} ({elapsed} ago)
     Status: active
 
     /p:done to complete | /p:pause to pause
     ```
     STOP
-  ELSE IF {currentTask} exists AND {status} == "paused":
+  ELSE IF {pausedTask} exists:
     OUTPUT:
     ```
-    ⏸️ Paused: {currentTask}
+    ⏸️ Paused: {pausedTask.description}
 
-    Duration so far: {duration}
+    Duration so far: {pausedTask.duration}
 
     /p:resume to continue | /p:done to complete
     ```
@@ -130,31 +138,54 @@ IF {task} is empty OR not provided:
 ### Case B: Task provided - Create/Update session
 IF {task} is provided:
 
-  ## Check for existing active session
-  IF {status} == "active" AND {currentTask} != {task}:
-    OUTPUT:
-    ```
-    ⚠️ Already working on: {currentTask}
+  ## Check for existing active task
+  IF {currentTask} exists AND {currentTask.status} == "active":
+    IF {currentTask.description} != {task}:
+      OUTPUT:
+      ```
+      ⚠️ Already working on: {currentTask.description}
 
-    Options:
-    • /p:done - Complete current task first
-    • /p:pause - Pause and switch
-    • /p:now (same task) - Continue current
-    ```
-    STOP
+      Options:
+      • /p:done - Complete current task first
+      • /p:pause - Pause and switch
+      • /p:now (same task) - Continue current
+      ```
+      STOP
 
   ## If same task, just continue
-  IF {currentTask} == {task}:
+  IF {currentTask} AND {currentTask.description} == {task}:
     OUTPUT: "🎯 Continuing: {task}"
     STOP
 
-  ## Create new session
-  GENERATE: {sessionId} = "sess_" + 8 random alphanumeric chars
+  ## Create new task
+  GENERATE: {taskId} = UUID v4
+  GENERATE: {sessionId} = UUID v4
   SET: {startedAt} = GetTimestamp()
 
-  ### Write now.md (SOURCE OF TRUTH)
+  ## Step 4: Write to Storage (SOURCE OF TRUTH)
 
-  WRITE: `{nowPath}`
+  ### Prepare task object
+  ```json
+  {
+    "id": "{taskId}",
+    "description": "{task}",
+    "status": "active",
+    "startedAt": "{startedAt}",
+    "sessionId": "{sessionId}",
+    "estimate": "{estimate OR null}",
+    "estimateSeconds": {estimateInSeconds OR null}
+  }
+  ```
+
+  ### Write state.json
+  READ existing `{statePath}` or create empty object
+  SET: state.currentTask = new task object
+  SET: state.lastUpdated = {startedAt}
+  WRITE: `{statePath}`
+
+  ## Step 5: Generate Context (FOR CLAUDE)
+
+  WRITE: `{nowContextPath}`
 
   IF {estimate} provided:
   ```markdown
@@ -177,66 +208,39 @@ IF {task} is provided:
   Session: {sessionId}
   ```
 
-  ### Capture context (CRITICAL for recovery)
-  SET: {userPrompt} = full text of user's message that triggered /p:now
-  SET: {promptLength} = character count of {userPrompt}
+  ## Step 6: Queue Sync Event (FOR BACKEND)
 
-  ### Detect relevant files
-  BASH: `git status --short 2>/dev/null | head -10`
-  PARSE: Extract file paths as {relevantFiles} array
-
-  ### Create session JSON (for detailed tracking)
-  WRITE: `{sessionPath}`
-  Content:
+  READ: `{syncPath}` or create empty array
+  APPEND event:
   ```json
   {
-    "id": "{sessionId}",
-    "projectId": "{projectId}",
-    "task": "{task}",
-    "status": "active",
-    "startedAt": "{startedAt}",
-    "pausedAt": null,
-    "completedAt": null,
-    "duration": 0,
-    "estimate": "{estimate OR null}",
-    "estimateSeconds": {estimateInSeconds OR null},
-    "context": {
-      "prompt": "{userPrompt}",
-      "promptLength": {promptLength},
-      "files": {relevantFiles OR []}
+    "type": "task.started",
+    "path": ["state"],
+    "data": {
+      "taskId": "{taskId}",
+      "description": "{task}",
+      "startedAt": "{startedAt}",
+      "sessionId": "{sessionId}"
     },
-    "metrics": {
-      "filesChanged": 0,
-      "linesAdded": 0,
-      "linesRemoved": 0,
-      "commits": 0,
-      "snapshots": []
-    },
-    "timeline": [
-      {"type": "start", "at": "{startedAt}"}
-    ]
+    "timestamp": "{startedAt}",
+    "projectId": "{projectId}"
   }
   ```
+  WRITE: `{syncPath}`
 
-  ### Convert estimate to seconds
-  IF {estimate} provided:
-    - "30m" → 1800 seconds
-    - "2h" → 7200 seconds
-    - "1d" → 28800 seconds (8 hours)
-    - "2h30m" → 9000 seconds
+  ## Step 7: Log to Memory (AUDIT TRAIL)
 
-  ### Log to memory
   APPEND to: `{memoryPath}`
   Single line (JSONL):
 
   IF {estimate} provided:
   ```json
-  {"timestamp":"{startedAt}","action":"session_started","sessionId":"{sessionId}","task":"{task}","estimate":"{estimate}","estimateSeconds":{estimateInSeconds}}
+  {"timestamp":"{startedAt}","action":"task_started","taskId":"{taskId}","sessionId":"{sessionId}","task":"{task}","estimate":"{estimate}","estimateSeconds":{estimateInSeconds}}
   ```
 
   ELSE:
   ```json
-  {"timestamp":"{startedAt}","action":"session_started","sessionId":"{sessionId}","task":"{task}"}
+  {"timestamp":"{startedAt}","action":"task_started","taskId":"{taskId}","sessionId":"{sessionId}","task":"{task}"}
   ```
 
 ## Output
@@ -269,8 +273,22 @@ Started: now
 | Error | Response | Action |
 |-------|----------|--------|
 | No project | "No prjct project" | STOP |
-| Active session exists | Show options | STOP |
+| Active task exists | Show options | STOP |
 | Write fails | "Failed to create session" | STOP |
+
+## File Structure Reference
+
+```
+~/.prjct-cli/projects/{projectId}/
+├── storage/
+│   └── state.json          # Source of truth (current + paused tasks)
+├── context/
+│   └── now.md              # Generated for Claude
+├── sync/
+│   └── pending.json        # Events for backend
+└── memory/
+    └── events.jsonl        # Audit trail
+```
 
 ## Examples
 
@@ -280,7 +298,7 @@ User: /p:now
 Output:
 🎯 Implement user authentication
 
-Session: sess_abc12345
+Session: 550e8400-e29b-41d4-a716-446655440000
 Started: 2 hours ago
 Status: active
 
@@ -293,7 +311,7 @@ User: /p:now "Add login form"
 Output:
 🎯 Add login form
 
-Session: sess_xyz98765
+Session: 7c9e6679-7425-40de-944b-e07fc1f90ae7
 Started: now
 
 💡 Tip: Add estimate next time with /p:now "task" 2h
@@ -301,20 +319,20 @@ Started: now
 /p:done when finished | /p:pause to take a break
 ```
 
-### Example 2b: Start New Task (with estimate)
+### Example 3: Start New Task (with estimate)
 ```
 User: /p:now "Add login form" 2h
 Output:
 🎯 Add login form
 
-Session: sess_xyz98765
+Session: 7c9e6679-7425-40de-944b-e07fc1f90ae7
 Started: now
 Estimate: 2h
 
 /p:done when finished | /p:pause to take a break
 ```
 
-### Example 3: Task Conflict
+### Example 4: Task Conflict
 ```
 User: /p:now "Something else"
 Output:

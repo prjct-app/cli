@@ -2,6 +2,8 @@
 allowed-tools: [Read, Write, Bash]
 description: 'Redo previously undone changes'
 timestamp-rule: 'GetTimestamp() for ALL timestamps'
+architecture: 'Write-Through (JSON → MD → Events)'
+storage-layer: true
 ---
 
 # /p:redo - Redo Previously Undone Snapshot
@@ -13,7 +15,7 @@ Restores a previously undone snapshot. Only works if you have recently used /p:u
 - `{projectId}`: From `.prjct/prjct.config.json`
 - `{globalPath}`: `~/.prjct-cli/projects/{projectId}`
 - `{snapshotDir}`: `{globalPath}/snapshots`
-- `{memoryPath}`: `{globalPath}/memory/context.jsonl`
+- `{memoryPath}`: `{globalPath}/memory/events.jsonl`
 - `{redoStackPath}`: `{snapshotDir}/redo-stack.json`
 
 ## Step 1: Read Config
@@ -30,14 +32,14 @@ IF file not found:
 READ: `{redoStackPath}`
 
 IF file not found OR empty OR equals "[]":
-  OUTPUT: "⚠️ Nothing to redo. Use /p:undo first."
+  OUTPUT: "Nothing to redo. Use /p:undo first."
   STOP
 
 PARSE as JSON array
 GET last item as {redoSnapshot}
 
 IF array is empty:
-  OUTPUT: "⚠️ Nothing to redo. Use /p:undo first."
+  OUTPUT: "Nothing to redo. Use /p:undo first."
   STOP
 
 EXTRACT from {redoSnapshot}:
@@ -131,7 +133,7 @@ Files affected: 5
 
 ### Example 2: Nothing to Redo
 ```
-⚠️ Nothing to redo. Use /p:undo first.
+Nothing to redo. Use /p:undo first.
 ```
 
 ## Notes
