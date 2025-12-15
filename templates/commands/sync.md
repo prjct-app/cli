@@ -336,19 +336,66 @@ WRITE: `{globalPath}/project.json`
 
 ---
 
-## Step 7: Generate Agents (AGENTIC)
+## Step 7: Generate Claude Code Sub-Agents (AGENTIC)
 
-Based on detected stack, generate specialized agents.
+Generate sub-agents for Claude Code in the PROJECT's `.claude/agents/` directory.
 
-For EACH specialist needed:
-```typescript
-const generator = new AgentGenerator('{projectId}')
-await generator.generateDynamicAgent('agent-name', {
-  role: 'specific role',
-  domain: 'domain',
-  expertise: 'technologies'
-})
+### 7.1 Create Directory
+
+```bash
+mkdir -p {cwd}/.claude/agents
 ```
+
+### 7.2 Read Generation Instructions
+
+READ: `templates/agentic/subagent-generation.md`
+
+This template contains:
+- Which workflow agents to ALWAYS generate
+- Which domain agents to generate based on stack
+- Format and structure requirements
+
+### 7.3 Generate Workflow Agents (ALWAYS)
+
+These 3 agents are ALWAYS created for every prjct project:
+
+**prjct-workflow.md** - Handles: /p:now, /p:done, /p:next, /p:pause, /p:resume
+READ template: `templates/subagents/workflow/prjct-workflow.md`
+ADAPT with: projectId, projectPath
+WRITE to: `{cwd}/.claude/agents/prjct-workflow.md`
+
+**prjct-planner.md** - Handles: /p:feature, /p:idea, /p:spec, /p:bug
+READ template: `templates/subagents/workflow/prjct-planner.md`
+ADAPT with: projectId, projectPath
+WRITE to: `{cwd}/.claude/agents/prjct-planner.md`
+
+**prjct-shipper.md** - Handles: /p:ship
+READ template: `templates/subagents/workflow/prjct-shipper.md`
+ADAPT with: projectId, projectPath, detected test/lint commands
+WRITE to: `{cwd}/.claude/agents/prjct-shipper.md`
+
+### 7.4 Generate Domain Agents (Based on Stack)
+
+Analyze `{techStack}` from Step 3 and generate ONLY relevant domain agents:
+
+| If Detected | Generate | Template |
+|-------------|----------|----------|
+| React, Vue, Angular, Svelte, CSS | `frontend.md` | `templates/subagents/domain/frontend.md` |
+| Node.js, Express, Go, Python API | `backend.md` | `templates/subagents/domain/backend.md` |
+| PostgreSQL, MySQL, MongoDB, Prisma | `database.md` | `templates/subagents/domain/database.md` |
+| Docker, Kubernetes, GitHub Actions | `devops.md` | `templates/subagents/domain/devops.md` |
+| Jest, Pytest, Vitest, testing | `testing.md` | `templates/subagents/domain/testing.md` |
+
+For EACH detected stack:
+1. READ template from `templates/subagents/domain/{name}.md`
+2. ADAPT description with detected frameworks (e.g., "React specialist" not just "frontend")
+3. WRITE to `{cwd}/.claude/agents/{name}.md`
+
+### 7.5 Report Generated Agents
+
+Track which agents were generated for output:
+- `{workflowAgents}`: Always 3 (prjct-workflow, prjct-planner, prjct-shipper)
+- `{domainAgents}`: List of domain agents generated
 
 ---
 
@@ -384,6 +431,10 @@ APPEND to: `{globalPath}/memory/events.jsonl`
 ├── context/ideas.md
 ├── context/shipped.md
 └── context/CLAUDE.md
+
+🤖 Claude Code Sub-Agents ({workflowAgents.length + domainAgents.length})
+├── Workflow: prjct-workflow, prjct-planner, prjct-shipper
+└── Domain: {domainAgents.join(', ') || 'none'}
 
 {IF hasUncommittedChanges}
 ⚠️  You have uncommitted changes
@@ -426,8 +477,18 @@ Next: /p:now to start a new task
 │   └── shipped.md           # Shipped
 ├── sync/                     # Backend Sync
 │   └── pending.json         # Events queue
-├── agents/                   # Specialists
+├── agents/                   # Specialists (legacy)
 ├── memory/                   # Audit Trail
 │   └── events.jsonl
 └── project.json             # Metadata
+
+{cwd}/.claude/agents/         # Claude Code Sub-Agents (PER PROJECT)
+├── prjct-workflow.md        # /p:now, /p:done, /p:next
+├── prjct-planner.md         # /p:feature, /p:idea, /p:spec
+├── prjct-shipper.md         # /p:ship
+├── frontend.md              # (if React/Vue/Angular detected)
+├── backend.md               # (if Node/Go/Python API detected)
+├── database.md              # (if DB detected)
+├── devops.md                # (if Docker/K8s detected)
+└── testing.md               # (if test framework detected)
 ```
