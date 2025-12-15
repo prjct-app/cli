@@ -2,24 +2,18 @@
  * Setup Module - Core installation logic
  *
  * Executes ALL setup needed for prjct-cli:
- * 1. Detect and clean legacy installation (curl-based)
- * 2. Install Claude Code CLI if missing
- * 3. Sync commands to ~/.claude/commands/p/
- * 4. Install global config ~/.claude/CLAUDE.md
- * 5. Migrate legacy projects automatically
- * 6. Save version in editors-config
+ * 1. Install Claude Code CLI if missing
+ * 2. Sync commands to ~/.claude/commands/p/
+ * 3. Install global config ~/.claude/CLAUDE.md
+ * 4. Save version in editors-config
  *
  * This module is called from:
  * - core/index.js (on first CLI use)
  * - scripts/postinstall.js (if npm scripts are enabled)
- *
- * @version 0.8.8
  */
 
 import { execSync } from 'child_process'
 import installer from './command-installer'
-import migrator from './migrator'
-import legacyDetector from './legacy-installer-detector'
 import editorsConfig from './editors-config'
 import { VERSION } from '../utils/version'
 
@@ -30,13 +24,10 @@ const DIM = '\x1b[2m'
 const NC = '\x1b[0m'
 
 interface SetupResults {
-  legacyCleaned: boolean
-  legacyProjectsMigrated: number
   claudeInstalled: boolean
   commandsAdded: number
   commandsUpdated: number
   configAction: string | null
-  projectsMigrated: number
 }
 
 /**
@@ -76,21 +67,10 @@ async function installClaudeCode(): Promise<boolean> {
  */
 export async function run(): Promise<SetupResults> {
   const results: SetupResults = {
-    legacyCleaned: false,
-    legacyProjectsMigrated: 0,
     claudeInstalled: false,
     commandsAdded: 0,
     commandsUpdated: 0,
     configAction: null,
-    projectsMigrated: 0,
-  }
-
-  // Step 0: Detect and clean legacy curl installation
-  const needsLegacyCleanup = await legacyDetector.needsCleanup()
-  if (needsLegacyCleanup) {
-    const cleanupResult = await legacyDetector.performCleanup({ verbose: true })
-    results.legacyCleaned = cleanupResult.success
-    results.legacyProjectsMigrated = cleanupResult.steps.projectsMigrated
   }
 
   // Step 1: Ensure Claude Code CLI is installed
@@ -123,20 +103,9 @@ export async function run(): Promise<SetupResults> {
     if (configResult.success) {
       results.configAction = configResult.action
     }
-
-    // Step 5: Migrate legacy projects automatically
-    const migrationResult = await migrator.migrateAll({
-      deepScan: false,
-      cleanupLegacy: true,
-      dryRun: false,
-    })
-
-    if (migrationResult.successfullyMigrated > 0) {
-      results.projectsMigrated = migrationResult.successfullyMigrated
-    }
   }
 
-  // Step 6: Save version in editors-config
+  // Step 5: Save version in editors-config
   await editorsConfig.saveConfig(VERSION, installer.getInstallPath())
 
   // Show results
@@ -153,16 +122,6 @@ export default { run }
  */
 function showResults(results: SetupResults): void {
   console.log('')
-
-  // Show what was done
-  if (results.legacyCleaned) {
-    console.log(`   ${GREEN}✓${NC} Legacy curl installation cleaned up`)
-    if (results.legacyProjectsMigrated > 0) {
-      console.log(
-        `   ${GREEN}✓${NC} ${results.legacyProjectsMigrated} project(s) migrated from legacy`
-      )
-    }
-  }
 
   if (results.claudeInstalled) {
     console.log(`   ${GREEN}✓${NC} Claude Code CLI installed`)
@@ -186,10 +145,6 @@ function showResults(results: SetupResults): void {
     console.log(`   ${GREEN}✓${NC} Global config updated`)
   } else if (results.configAction === 'appended') {
     console.log(`   ${GREEN}✓${NC} Global config merged`)
-  }
-
-  if (results.projectsMigrated > 0) {
-    console.log(`   ${GREEN}✓${NC} ${results.projectsMigrated} projects migrated to global storage`)
   }
 
   console.log('')

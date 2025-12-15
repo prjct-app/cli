@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.16.0] - 2025-12-15
+
+### Dead Code Cleanup
+
+Aggressive removal of ~6,600 lines of unused/legacy code for a cleaner, leaner codebase.
+
+- **Domain Modules Removed (6 files)**
+  - `agent-matcher.ts` - Replaced by template-based routing
+  - `product-standards.ts` - Unused domain standards
+  - `smart-cache.ts`, `task-analyzer.ts`, `agent-validator.ts`, `architect-session.ts`
+
+- **Agentic Modules Removed (6 files)**
+  - `semantic-compression.ts` - Exported but never called
+  - `response-templates.ts`, `think-blocks.ts`, `parallel-tools.ts`
+  - `context-filter.ts`, `validation-rules.ts`
+
+- **Legacy Migration Code Removed**
+  - `legacy-installer-detector/` directory (curl-to-npm migration)
+  - `migrator/` directory (version migrations)
+  - `uuid-migration.ts` (750 lines)
+  - `bin/migrate-to-json.js`, `bin/generate-views.js`
+  - `/p:migrate`, `/p:migrate-all` command templates
+
+- **Code Cleanup**
+  - Simplified `services.ts` facade (removed 6 unused exports)
+  - Simplified `setup.ts` (removed migration steps)
+  - Removed deprecated methods from `base.ts`
+  - Cleaned `command-executor.ts` (removed dead module usage)
+
+- **Impact**
+  - Lines removed: ~6,600
+  - Files deleted: ~25
+  - Build: Passing
+  - Tests: 131 pass
+
 ## [0.15.1] - 2025-12-15
 
 ### MCP Setup Documentation

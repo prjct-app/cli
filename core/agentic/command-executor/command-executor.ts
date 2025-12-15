@@ -9,15 +9,10 @@ import templateLoader from '../template-loader'
 import contextBuilder from '../context-builder'
 import promptBuilder from '../prompt-builder'
 import toolRegistry from '../tool-registry'
-import { validate, formatError } from '../validation-rules'
 import loopDetector from '../loop-detector'
 import chainOfThought from '../chain-of-thought'
-import semanticCompression from '../semantic-compression'
-import responseTemplates from '../response-templates'
 import memorySystem from '../memory-system'
 import groundTruth from '../ground-truth'
-import thinkBlocks from '../think-blocks'
-import parallelTools from '../parallel-tools'
 import planMode from '../plan-mode'
 import { signalStart, signalEnd } from './status-signal'
 import type { ExecutionResult, SimpleExecutionResult, ExecutionToolsFn } from './types'
@@ -71,18 +66,6 @@ export class CommandExecutor {
       // 2. Build METADATA context only (lazy loading - no file reads yet)
       const metadataContext = await contextBuilder.build(projectPath, params)
 
-      // 2.5. VALIDATE: Pre-flight checks with specific errors
-      const validation = await validate(commandName, metadataContext as unknown as Parameters<typeof validate>[1])
-      if (!validation.valid) {
-        this.signalEnd()
-        return {
-          success: false,
-          error: formatError(validation),
-          validation,
-          isValidationError: true,
-        }
-      }
-
       // 2.55. P3.4 PLAN MODE: Check if command requires planning
       const requiresPlanning = planMode.requiresPlanning(commandName)
       const isDestructive = planMode.isDestructive(commandName)
@@ -109,29 +92,6 @@ export class CommandExecutor {
         // Log warnings but don't block (user can override)
         if (!groundTruthResult.verified && groundTruthResult.warnings.length > 0) {
           console.log(groundTruth.formatWarnings(groundTruthResult))
-        }
-      }
-
-      // 2.7. THINK BLOCKS (P3.1): Dynamic reasoning based on triggers
-      let thinkBlock = null
-      const preThinkState =
-        groundTruthResult?.actual || (await contextBuilder.loadStateForCommand(metadataContext, commandName))
-      const thinkTrigger = thinkBlocks.detectTrigger(
-        commandName,
-        metadataContext as unknown as Parameters<typeof thinkBlocks.detectTrigger>[1],
-        preThinkState as Parameters<typeof thinkBlocks.detectTrigger>[2]
-      )
-      if (thinkTrigger) {
-        thinkBlock = await thinkBlocks.generate(
-          thinkTrigger,
-          commandName,
-          metadataContext as unknown as Parameters<typeof thinkBlocks.generate>[2],
-          preThinkState as Parameters<typeof thinkBlocks.generate>[3]
-        )
-
-        // Log think block if in debug mode
-        if (process.env.PRJCT_DEBUG === 'true') {
-          console.log(thinkBlocks.format(thinkBlock, true))
         }
       }
 
@@ -164,29 +124,7 @@ export class CommandExecutor {
       }
 
       // 6. Load state with filtered context
-      const rawState = await contextBuilder.loadState(metadataContext)
-
-      // 6.5. SEMANTIC COMPRESSION: Compress state for reduced token usage
-      const compressedState: Record<string, unknown> = {}
-      for (const [key, content] of Object.entries(rawState)) {
-        if (content) {
-          const compressed = semanticCompression.compress(content, key)
-          compressedState[key] = {
-            raw: content,
-            summary: compressed.summary,
-            compressed,
-          }
-        } else {
-          compressedState[key] = { raw: null, summary: 'Empty', compressed: null }
-        }
-      }
-
-      // Use compressed summaries for prompt, keep raw for tool execution
-      const state = {
-        ...rawState,
-        _compressed: compressedState,
-        _compressionMetrics: semanticCompression.getMetrics(),
-      }
+      const state = await contextBuilder.loadState(metadataContext)
 
       // 7. MEMORY: Load learned patterns AND relevant memories for this command
       let learnedPatterns = null
@@ -224,7 +162,7 @@ export class CommandExecutor {
         state,
         null,
         learnedPatterns,
-        thinkBlock,
+        null,
         relevantMemories,
         planInfo
       )
@@ -248,19 +186,9 @@ export class CommandExecutor {
         agentsPath: context.agentsPath as string,
         agentRoutingPath: context.agentRoutingPath as string,
         reasoning,
-        thinkBlock,
         groundTruth: groundTruthResult,
-        compressionMetrics: state._compressionMetrics,
         learnedPatterns,
         relevantMemories,
-        formatResponse: (data: unknown) => responseTemplates.format(commandName, data as Parameters<typeof responseTemplates.format>[1]),
-        formatThinkBlock: (verbose: boolean) => thinkBlocks.format(thinkBlock, verbose),
-        parallel: {
-          execute: (toolCalls: unknown[]) => parallelTools.execute(toolCalls as Parameters<typeof parallelTools.execute>[0]),
-          readAll: (paths: string[]) => parallelTools.readAll(paths),
-          canParallelize: (tools: string[]) => parallelTools.canParallelize(tools),
-          getMetrics: () => parallelTools.getMetrics(),
-        },
         memory: {
           create: (memory: unknown) =>
             memorySystem.createMemory(metadataContext.projectId!, memory as Parameters<typeof memorySystem.createMemory>[1]),

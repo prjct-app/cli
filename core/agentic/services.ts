@@ -29,14 +29,8 @@ import toolRegistry from './tool-registry'
 import loopDetector from './loop-detector'
 import memorySystem from './memory-system'
 import groundTruth from './ground-truth'
-import semanticCompression from './semantic-compression'
-import responseTemplates from './response-templates'
 import chainOfThought from './chain-of-thought'
-import thinkBlocks from './think-blocks'
-import parallelTools from './parallel-tools'
 import planMode from './plan-mode'
-import contextFilter from './context-filter'
-import validationRules from './validation-rules'
 import agentRouter from './agent-router'
 import smartContext from './smart-context'
 import { mdManagers } from '../data'
@@ -91,52 +85,16 @@ export interface AgenticServices {
   truth: typeof groundTruth
 
   /**
-   * Semantic compression - compresses context to fit token limits
-   * @see semanticCompression
-   */
-  compression: typeof semanticCompression
-
-  /**
-   * Response templates - generates formatted responses
-   * @see responseTemplates
-   */
-  responses: typeof responseTemplates
-
-  /**
    * Chain of thought - adds reasoning to responses
    * @see chainOfThought
    */
   reasoning: typeof chainOfThought
 
   /**
-   * Think blocks - generates think block content
-   * @see thinkBlocks
-   */
-  thinking: typeof thinkBlocks
-
-  /**
-   * Parallel tools - executes tools in parallel
-   * @see parallelTools
-   */
-  parallel: typeof parallelTools
-
-  /**
    * Plan mode - handles planning workflow
    * @see planMode
    */
   planning: typeof planMode
-
-  /**
-   * Context filter - filters context for relevance
-   * @see contextFilter
-   */
-  filter: typeof contextFilter
-
-  /**
-   * Validation rules - validates command inputs
-   * @see validationRules
-   */
-  validation: typeof validationRules
 
   /**
    * Agent router - routes tasks to appropriate agents
@@ -187,14 +145,8 @@ export const services: AgenticServices = {
   loops: loopDetector,
   memory: memorySystem,
   truth: groundTruth,
-  compression: semanticCompression,
-  responses: responseTemplates,
   reasoning: chainOfThought,
-  thinking: thinkBlocks,
-  parallel: parallelTools,
   planning: planMode,
-  filter: contextFilter,
-  validation: validationRules,
   router: agentRouter,
   smartContext: smartContext,
   data: mdManagers,

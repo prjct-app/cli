@@ -1,21 +1,15 @@
 /**
- * Setup Commands: start, setup, migrateAll, installStatusLine, showAsciiArt
+ * Setup Commands: start, setup, installStatusLine, showAsciiArt
  */
 
 import path from 'path'
 import fs from 'fs'
-import { promises as fsPromises } from 'fs'
 import os from 'os'
 import chalk from 'chalk'
 
-import migrator from '../infrastructure/migrator'
 import commandInstaller from '../infrastructure/command-installer'
-import type { CommandResult, SetupOptions, MigrateOptions, GlobalConfig, MigrationResult } from './types'
-import {
-  PrjctCommandsBase,
-  configManager,
-  dateHelper
-} from './base'
+import type { CommandResult, SetupOptions } from './types'
+import { PrjctCommandsBase } from './base'
 import { VERSION } from '../utils/version'
 
 export class SetupCommands extends PrjctCommandsBase {
@@ -225,80 +219,4 @@ fi
     console.log('')
   }
 
-  /**
-   * Migrate all legacy projects
-   */
-  async migrateAll(options: MigrateOptions = {}): Promise<CommandResult> {
-    console.log('🔄 Scanning for legacy prjct projects...\n')
-
-    const homeDir = os.homedir()
-    const globalRoot = path.join(homeDir, '.prjct-cli', 'projects')
-
-    let projectIds: string[] = []
-    try {
-      const dirs = await fsPromises.readdir(globalRoot)
-      projectIds = dirs.filter((d: string) => !d.startsWith('.'))
-    } catch {
-      return {
-        success: false,
-        message: '❌ No prjct projects found',
-      }
-    }
-
-    console.log(`📁 Found ${projectIds.length} projects in global storage\n`)
-
-    const migrated: { projectId: string; path: string }[] = []
-    const failed: { projectId: string; path: string; error: string }[] = []
-    const skipped: { projectId: string; reason: string }[] = []
-
-    for (const projectId of projectIds) {
-      const globalConfig = await configManager.readGlobalConfig(projectId) as GlobalConfig | null
-      if (!globalConfig || !globalConfig.projectPath) {
-        skipped.push({ projectId, reason: 'No project path in config' })
-        continue
-      }
-
-      const projectPath = globalConfig.projectPath!
-
-      if (!(await migrator.needsMigration(projectPath))) {
-        skipped.push({ projectId, reason: 'Already migrated' })
-        continue
-      }
-
-      console.log(`🔄 Migrating: ${projectPath}`)
-
-      try {
-        const result = await migrator.migrate(projectPath, options) as MigrationResult
-
-        if (result.success) {
-          migrated.push({ projectId, path: projectPath })
-          console.log(`   ✅ Migrated successfully`)
-        } else {
-          const issues = result.issues?.join(', ') || 'Unknown error'
-          failed.push({ projectId, path: projectPath, error: issues })
-          console.log(`   ❌ ${issues}`)
-        }
-      } catch (error) {
-        failed.push({ projectId, path: projectPath, error: (error as Error).message })
-        console.log(`   ❌ ${(error as Error).message}`)
-      }
-
-      console.log('')
-    }
-
-    console.log('\n📊 Migration Summary:')
-    console.log(`   ✅ Migrated: ${migrated.length}`)
-    console.log(`   ⏭️  Skipped: ${skipped.length}`)
-    console.log(`   ❌ Failed: ${failed.length}`)
-
-    if (failed.length > 0) {
-      console.log('\n❌ Failed migrations:')
-      failed.forEach((f) => console.log(`   - ${f.path}: ${f.error}`))
-    }
-
-    return {
-      success: failed.length === 0,
-      message: '',
-    }
-  }
 }
