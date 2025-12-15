@@ -13,7 +13,9 @@
 import fs from 'fs/promises'
 import path from 'path'
 import pathManager from './path-manager'
+import authorDetector from './author-detector'
 import { VERSION } from '../utils/version'
+import { ConfigError, getErrorMessage } from '../errors'
 
 interface Author {
   name: string
@@ -50,7 +52,13 @@ class ConfigManager {
       const configPath = pathManager.getLocalConfigPath(projectPath)
       const content = await fs.readFile(configPath, 'utf-8')
       return JSON.parse(content)
-    } catch {
+    } catch (error) {
+      // File not found is expected - return null
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return null
+      }
+      // JSON parse errors or other issues - log and return null
+      console.warn(`Warning: Could not read config at ${projectPath}: ${getErrorMessage(error)}`)
       return null
     }
   }
@@ -77,7 +85,13 @@ class ConfigManager {
       const configPath = pathManager.getGlobalProjectConfigPath(projectId)
       const content = await fs.readFile(configPath, 'utf-8')
       return JSON.parse(content)
-    } catch {
+    } catch (error) {
+      // File not found is expected for new projects
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return null
+      }
+      // Log other errors for debugging
+      console.warn(`Warning: Could not read global config for ${projectId}: ${getErrorMessage(error)}`)
       return null
     }
   }
@@ -202,7 +216,12 @@ class ConfigManager {
     try {
       const coreFiles = await fs.readdir(path.join(globalPath, 'core'))
       return coreFiles.length === 0
-    } catch {
+    } catch (error) {
+      // Directory not found means migration needed
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return true
+      }
+      // Permission errors or other issues - assume migration needed
       return true
     }
   }
@@ -275,8 +294,6 @@ class ConfigManager {
    * Get current author for session (detect or get from global config)
    */
   async getCurrentAuthor(projectPath: string): Promise<string> {
-    // Dynamic import to avoid circular dependency
-    const authorDetector = (await import('./author-detector')).default
     const author = await authorDetector.detect()
 
     const projectId = await this.getProjectId(projectPath)

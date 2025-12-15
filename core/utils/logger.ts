@@ -30,20 +30,27 @@ interface Logger {
 
 const LEVELS: Record<LogLevel, number> = { error: 0, warn: 1, info: 2, debug: 3 }
 
-const debugEnv = process.env.PRJCT_DEBUG || process.env.DEBUG || ''
-const isEnabled = debugEnv === '1' || debugEnv === 'true' || debugEnv.includes('prjct')
+/**
+ * Determine log level from environment variables
+ * Returns -1 (disabled) or a level from LEVELS
+ */
+function getLogLevel(): number {
+  const debugEnv = process.env.PRJCT_DEBUG || process.env.DEBUG || ''
 
-// Determine log level
-let currentLevel = -1 // disabled by default
-if (isEnabled) {
-  if (debugEnv === '1' || debugEnv === 'true' || debugEnv === 'prjct') {
-    currentLevel = LEVELS.debug // all logs
-  } else if (LEVELS[debugEnv as LogLevel] !== undefined) {
-    currentLevel = LEVELS[debugEnv as LogLevel]
-  } else {
-    currentLevel = LEVELS.debug
+  // Disabled if empty
+  if (!debugEnv) return -1
+
+  // Enable all logs for common truthy values
+  if (debugEnv === '1' || debugEnv === 'true' || debugEnv === 'prjct' || debugEnv.includes('prjct')) {
+    return LEVELS.debug
   }
+
+  // Check for specific level name (error, warn, info, debug)
+  const level = LEVELS[debugEnv as LogLevel]
+  return level !== undefined ? level : -1
 }
+
+const currentLevel = getLogLevel()
 
 // No-op function for disabled logs
 const noop: LogFunction = () => {}

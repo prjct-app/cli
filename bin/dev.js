@@ -153,7 +153,6 @@ async function main() {
     cwd: WEB_PATH,
     env: { ...process.env, PORT: PORT.toString() },
     stdio: ['ignore', 'pipe', 'pipe'],
-    shell: true
   })
 
   webProc.stdout.on('data', (data) => {

@@ -22,6 +22,16 @@ import { queueStorage, ideasStorage } from '../storage'
 import authorDetector from '../infrastructure/author-detector'
 import commandInstaller from '../infrastructure/command-installer'
 
+// Lazy-loaded to avoid circular dependencies
+let _analysisCommands: import('./analysis').AnalysisCommands | null = null
+async function getAnalysisCommands(): Promise<import('./analysis').AnalysisCommands> {
+  if (!_analysisCommands) {
+    const { AnalysisCommands } = await import('./analysis')
+    _analysisCommands = new AnalysisCommands()
+  }
+  return _analysisCommands
+}
+
 export class PlanningCommands extends PrjctCommandsBase {
   /**
    * /p:init - Initialize prjct project
@@ -82,11 +92,12 @@ export class PlanningCommands extends PrjctCommandsBase {
 
       if (hasCode || !isEmpty) {
         out.spin('analyzing project...')
-        const analysisResult = await (this as unknown as { analyze: (options: AnalyzeOptions, projectPath: string) => Promise<CommandResult> }).analyze({}, projectPath)
+        const analysis = await getAnalysisCommands()
+        const analysisResult = await analysis.analyze({}, projectPath)
 
         if (analysisResult.success) {
           out.spin('generating agents...')
-          await (this as unknown as { sync: (projectPath: string) => Promise<CommandResult> }).sync(projectPath)
+          await analysis.sync(projectPath)
           out.done('initialized')
           return { success: true, mode: 'existing', projectId }
         }

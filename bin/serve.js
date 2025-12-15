@@ -138,7 +138,6 @@ if (sharedCheck.needed || webCheck.needed) {
     const sharedInstall = spawnSync('npm', ['install'], {
       cwd: sharedDir,
       stdio: 'inherit',
-      shell: true,
     })
 
     if (sharedInstall.status !== 0) {
@@ -151,7 +150,6 @@ if (sharedCheck.needed || webCheck.needed) {
     const sharedBuild = spawnSync('npm', ['run', 'build'], {
       cwd: sharedDir,
       stdio: 'inherit',
-      shell: true,
     })
 
     if (sharedBuild.status !== 0) {
@@ -167,7 +165,6 @@ if (sharedCheck.needed || webCheck.needed) {
     const webInstall = spawnSync('npm', ['install'], {
       cwd: webDir,
       stdio: 'inherit',
-      shell: true,
     })
 
     if (webInstall.status !== 0) {
@@ -189,6 +186,7 @@ if (sharedCheck.needed || webCheck.needed) {
 function isPrjctWebProcess(pid) {
   try {
     if (process.platform === 'win32') {
+      // Windows: wmic needs shell for proper command parsing
       const result = spawnSync('wmic', ['process', 'where', `processid=${pid}`, 'get', 'commandline'], {
         shell: true,
         encoding: 'utf8',
@@ -197,10 +195,9 @@ function isPrjctWebProcess(pid) {
     } else {
       // macOS / Linux - check process command line
       const result = spawnSync('ps', ['-p', pid, '-o', 'command='], {
-        shell: true,
         encoding: 'utf8',
       })
-      const cmd = result.stdout.trim()
+      const cmd = result.stdout?.trim() || ''
       return cmd.includes('server.ts') || cmd.includes('prjct') || cmd.includes('next')
     }
   } catch {
@@ -214,9 +211,10 @@ function isPrjctWebProcess(pid) {
 function getPortPids(portToCheck) {
   try {
     if (process.platform === 'win32') {
-      const result = spawnSync('netstat', ['-ano'], { shell: true, encoding: 'utf8' })
+      // Windows: netstat works without shell
+      const result = spawnSync('netstat', ['-ano'], { encoding: 'utf8' })
       const pids = []
-      const lines = result.stdout.split('\n')
+      const lines = (result.stdout || '').split('\n')
       for (const line of lines) {
         if (line.includes(`:${portToCheck}`) && line.includes('LISTENING')) {
           const parts = line.trim().split(/\s+/)
@@ -226,11 +224,11 @@ function getPortPids(portToCheck) {
       }
       return pids
     } else {
+      // macOS / Linux
       const result = spawnSync('lsof', ['-ti', `:${portToCheck}`], {
-        shell: true,
         encoding: 'utf8',
       })
-      return result.stdout.trim().split('\n').filter(Boolean)
+      return (result.stdout || '').trim().split('\n').filter(Boolean)
     }
   } catch {
     return []
@@ -244,9 +242,11 @@ function killPids(pids) {
   for (const pid of pids) {
     try {
       if (process.platform === 'win32') {
-        spawnSync('taskkill', ['/F', '/PID', pid], { shell: true })
+        // Windows: taskkill works without shell
+        spawnSync('taskkill', ['/F', '/PID', pid])
       } else {
-        spawnSync('kill', ['-9', pid], { shell: true })
+        // Unix: kill works without shell
+        spawnSync('kill', ['-9', pid])
       }
     } catch {
       // Ignore individual kill errors
@@ -258,13 +258,14 @@ function killPids(pids) {
  * Open URL in browser
  */
 function openBrowser(url) {
-  const openCmd =
-    process.platform === 'darwin'
-      ? 'open'
-      : process.platform === 'win32'
-        ? 'start'
-        : 'xdg-open'
-  spawn(openCmd, [url], { shell: true, detached: true }).unref()
+  if (process.platform === 'darwin') {
+    spawn('open', [url], { detached: true, stdio: 'ignore' }).unref()
+  } else if (process.platform === 'win32') {
+    // Windows 'start' is a shell builtin, requires shell: true
+    spawn('cmd', ['/c', 'start', '', url], { detached: true, stdio: 'ignore' }).unref()
+  } else {
+    spawn('xdg-open', [url], { detached: true, stdio: 'ignore' }).unref()
+  }
 }
 
 // Check if port is in use and handle accordingly
@@ -324,7 +325,6 @@ if (!fs.existsSync(nextDir)) {
   const buildResult = spawnSync('npm', ['run', 'build'], {
     cwd: webDir,
     stdio: 'inherit',
-    shell: true,
   })
   if (buildResult.status !== 0) {
     console.error('❌ Build failed')
@@ -337,7 +337,6 @@ if (!fs.existsSync(nextDir)) {
 const web = spawn('npm', ['run', 'start'], {
   cwd: webDir,
   stdio: 'inherit',
-  shell: true,
   env: { ...process.env, PORT: port, NODE_ENV: 'production' },
 })
 
