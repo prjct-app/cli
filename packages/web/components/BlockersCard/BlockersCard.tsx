@@ -1,11 +1,18 @@
 'use client'
 
+import { useState } from 'react'
 import { AlertTriangle, Clock, CheckCircle2 } from 'lucide-react'
+import { ExpandButton } from '@/components/ExpandButton'
 import { cn } from '@/lib/utils'
 import type { BlockersCardProps } from './BlockersCard.types'
 
+const COLLAPSED_LIMIT = 5
+
 export function BlockersCard({ blockers, codeHref, className }: BlockersCardProps) {
+  const [expanded, setExpanded] = useState(false)
   const hasBlockers = blockers.length > 0
+  const displayBlockers = expanded ? blockers : blockers.slice(0, COLLAPSED_LIMIT)
+  const hasMore = blockers.length > COLLAPSED_LIMIT
 
   return (
     <div className={cn(
@@ -36,7 +43,7 @@ export function BlockersCard({ blockers, codeHref, className }: BlockersCardProp
         </div>
       ) : (
         <div className="space-y-2">
-          {blockers.slice(0, 5).map((blocker, i) => (
+          {displayBlockers.map((blocker, i) => (
             <div
               key={i}
               className="p-2.5 rounded-lg bg-muted/50 border"
@@ -53,10 +60,13 @@ export function BlockersCard({ blockers, codeHref, className }: BlockersCardProp
               </div>
             </div>
           ))}
-          {blockers.length > 5 && (
-            <p className="text-xs text-muted-foreground font-medium">
-              +{blockers.length - 5} more blockers
-            </p>
+          {hasMore && (
+            <ExpandButton
+              expanded={expanded}
+              totalCount={blockers.length}
+              collapsedLimit={COLLAPSED_LIMIT}
+              onToggle={() => setExpanded(!expanded)}
+            />
           )}
         </div>
       )}

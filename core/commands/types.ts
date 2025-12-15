@@ -28,6 +28,8 @@ export interface CommandResult {
   feature?: string
   /** Files that were modified */
   filesModified?: string[]
+  /** Allow any additional properties for command-specific data */
+  [key: string]: unknown
 }
 
 // Agent types
@@ -68,8 +70,8 @@ export interface HealthResult {
  * Options for the design command.
  */
 export interface DesignOptions {
-  /** Type of design (e.g., 'system', 'component', 'api') */
-  type?: 'system' | 'component' | 'api' | 'database'
+  /** Type of design */
+  type?: 'architecture' | 'api' | 'component' | 'database' | 'flow'
   /** Output format */
   format?: 'markdown' | 'mermaid'
 }
@@ -151,11 +153,11 @@ export interface MigrationConfig {
 
 // Type-safe command method names (for dynamic invocation)
 export type CommandMethodName =
-  | 'now' | 'done' | 'next' | 'build'
-  | 'init' | 'feature' | 'bug' | 'architect'
+  | 'work' | 'now' | 'done' | 'next' | 'pause' | 'resume'
+  | 'init' | 'feature' | 'bug' | 'idea' | 'spec'
   | 'ship'
-  | 'context' | 'recap' | 'stuck' | 'progress' | 'roadmap' | 'status'
-  | 'cleanup' | 'design'
+  | 'dash' | 'help'
+  | 'cleanup' | 'design' | 'recover' | 'undo' | 'redo' | 'history'
   | 'analyze' | 'sync'
   | 'start' | 'setup' | 'migrateAll'
 

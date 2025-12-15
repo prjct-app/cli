@@ -51,7 +51,8 @@ export function getProjectEmoji(projectId: string): string {
 
 /**
  * Get the Tailwind background class for a project
+ * Returns neutral color - projects no longer have color-coded backgrounds
  */
 export function getProjectBgClass(projectId: string): string {
-  return getProjectColor(projectId).bg
+  return 'bg-muted'
 }

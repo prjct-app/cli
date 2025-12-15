@@ -4,6 +4,7 @@
  */
 
 import fs from 'fs/promises'
+import { accessSync } from 'fs'
 import path from 'path'
 import os from 'os'
 import type { FindProjectsOptions } from './types'
@@ -34,7 +35,7 @@ export async function findAllProjects(options: FindProjectsOptions = {}): Promis
       .map((dir) => path.join(os.homedir(), dir))
       .filter((dirPath) => {
         try {
-          require('fs').accessSync(dirPath)
+          accessSync(dirPath)
           return true
         } catch {
           return false

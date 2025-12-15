@@ -3,18 +3,12 @@
  */
 
 import type { Session, TimelineEvent } from './types'
+import { generateUUID } from '../schemas'
 
 /**
- * Generate unique session ID
+ * Generate unique session ID (re-export from schemas)
  */
-export function generateId(): string {
-  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
-  let id = 'sess_'
-  for (let i = 0; i < 8; i++) {
-    id += chars.charAt(Math.floor(Math.random() * chars.length))
-  }
-  return id
-}
+export const generateId = generateUUID
 
 /**
  * Calculate total duration in seconds

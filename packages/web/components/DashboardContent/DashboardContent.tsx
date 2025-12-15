@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { SessionsChart } from '@/components/charts/SessionsChart'
 import { Button } from '@/components/ui/button'
-import { ProjectAvatar } from '@/components/ProjectAvatar'
+import { ProgressRing } from '@/components/ProgressRing'
 import { TechStackBadges } from '@/components/TechStackBadges'
 import { formatRelativeTime, formatPath } from '@/lib/format'
 import {
@@ -38,6 +38,14 @@ import {
 } from '@/components/ui/alert-dialog'
 import { deleteProject } from '@/lib/actions/projects'
 
+// Traffic light colors based on completion rate
+type AccentColor = 'default' | 'success' | 'warning' | 'destructive'
+function getCompletionColor(rate: number): AccentColor {
+  if (rate >= 75) return 'success'
+  if (rate >= 25) return 'warning'
+  return 'destructive'
+}
+
 export interface Project {
   id: string
   name: string
@@ -48,6 +56,7 @@ export interface Project {
   lastActivity?: string | null
   ideasCount?: number
   nextTasksCount?: number
+  shippedCount?: number
   techStack?: string[]
   iconPath?: string | null
   version?: string
@@ -163,13 +172,20 @@ interface ProjectCardProps {
 function ProjectCard({ project, onDeleteClick }: ProjectCardProps) {
   const hasStats = project.currentTask || project.nextTasksCount || project.ideasCount || project.lastActivity
 
+  // Calculate completion rate
+  const shipped = project.shippedCount ?? 0
+  const pending = project.nextTasksCount ?? 0
+  const total = shipped + pending
+  const completionRate = total > 0 ? Math.round((shipped / total) * 100) : 0
+  const completionColor = getCompletionColor(completionRate)
+
   return (
     <div className="group relative bg-card border border-border rounded-lg overflow-hidden hover:border-primary/50 active:scale-[0.99] transition-all">
       {project.hasActiveSession && <div className="absolute top-0 left-0 right-0 h-0.5 bg-green-500" />}
 
       <Link href={`/project/${project.id}`} className="block p-3 sm:p-4">
         <div className="flex items-start gap-3">
-          <ProjectAvatar projectId={project.id} name={project.name} iconPath={project.iconPath} size="lg" />
+          <ProgressRing value={completionRate} size="md" accentColor={completionColor} className="shrink-0" />
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">

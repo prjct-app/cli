@@ -36,13 +36,11 @@ class PathManager {
   }
 
   /**
-   * Generate a unique project ID from the absolute project path
-   * Uses SHA-256 hash of the absolute path for consistency
+   * Generate a unique project ID using UUID.
+   * Standard UUID format for PostgreSQL consistency.
    */
-  generateProjectId(projectPath: string): string {
-    const absolutePath = path.resolve(projectPath)
-    const hash = crypto.createHash('sha256').update(absolutePath).digest('hex')
-    return hash.substring(0, 12) // Use first 12 chars for readability
+  generateProjectId(_projectPath: string): string {
+    return crypto.randomUUID()
   }
 
   /**

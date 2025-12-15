@@ -17,9 +17,9 @@ export function getEventIconName(type: string): EventIconName {
 
 export function getEventColor(type: string): string {
   const colorMap: Record<string, string> = {
-    task_complete: 'text-emerald-500',
-    task_start: 'text-amber-500',
-    feature_ship: 'text-blue-500',
+    task_complete: 'text-muted-foreground',
+    task_start: 'text-muted-foreground',
+    feature_ship: 'text-muted-foreground',
     sync: 'text-muted-foreground',
   }
   return colorMap[type] ?? 'text-muted-foreground'

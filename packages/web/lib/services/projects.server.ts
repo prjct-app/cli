@@ -20,6 +20,10 @@ export interface ProjectJson {
   createdAt: string
   lastSync: string
   version?: string | null
+  // Counts - DRY: single source of truth for dashboard/detail
+  shippedCount: number
+  nextTasksCount: number
+  completionRate: number
 }
 
 /**
@@ -40,7 +44,11 @@ export const getProject = cache(async (projectId: string): Promise<ProjectJson |
         commitCount: project.commitsCount ? parseInt(project.commitsCount) : 0,
         createdAt: new Date().toISOString(),
         lastSync: new Date().toISOString(),
-        version: project.version || null
+        version: project.version || null,
+        // DRY: Pass through counts from lib/projects.ts (single source of truth)
+        shippedCount: project.shippedCount ?? 0,
+        nextTasksCount: project.nextTasksCount ?? 0,
+        completionRate: project.completionRate ?? 0
       }
     }
   } catch {

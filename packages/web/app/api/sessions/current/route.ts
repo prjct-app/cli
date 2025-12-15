@@ -83,7 +83,8 @@ export async function GET(request: Request) {
           currentSession = session
         }
         // If session is old (>8 hours), it's considered abandoned
-        else if (hoursAgo >= ABANDON_THRESHOLD_HOURS) {
+        // Only show abandoned sessions for the target project
+        else if (hoursAgo >= ABANDON_THRESHOLD_HOURS && projectId === targetProjectId) {
           // Try to get project name from project.json
           let projectName: string | undefined
           try {

@@ -18,21 +18,8 @@ interface AgentConfig {
   contextFilter?: string
 }
 
-interface TechSummary {
-  languages: string[]
-  frameworks: string[]
-  buildTools: string[]
-  testFrameworks: string[]
-  databases: string[]
-  tools: string[]
-  allDependencies: string[]
-}
-
-interface GenerateContext {
-  detectedTech: TechSummary
-  analysisSummary?: string
-  projectPath?: string
-}
+// TechSummary and GenerateContext interfaces REMOVED.
+// Agent generation is AGENTIC - Claude reads raw data and decides.
 
 interface Agent {
   name: string
@@ -51,8 +38,9 @@ class AgentGenerator {
 
   constructor(projectId: string | null = null) {
     this.projectId = projectId
+    // NEW: Write to data/agents/ for JSON storage (OpenCode-style)
     this.outputDir = projectId
-      ? path.join(os.homedir(), '.prjct-cli', 'projects', projectId, 'agents')
+      ? path.join(os.homedir(), '.prjct-cli', 'projects', projectId, 'data', 'agents')
       : path.join(os.homedir(), '.prjct-cli', 'agents')
     this.loader = new AgentLoader(projectId)
   }
@@ -60,61 +48,33 @@ class AgentGenerator {
   /**
    * Generate specialized agent with deep expertise
    * Universal - works with ANY technology stack
+   * Writes JSON to data/agents/{name}.json
    */
   async generateDynamicAgent(agentName: string, config: AgentConfig): Promise<{ name: string }> {
     log.debug(`Generating ${agentName} agent...`)
     await fs.mkdir(this.outputDir, { recursive: true })
 
-    // Generate concise, actionable agent prompt
-    const content = this.buildAgentPrompt(agentName, config)
+    // Write as JSON (OpenCode-style storage)
+    const agent = {
+      name: agentName,
+      role: config.role || agentName,
+      domain: config.domain || 'general',
+      expertise: config.expertise || '',
+      contextFilter: config.contextFilter || 'Only relevant files',
+      createdAt: new Date().toISOString()
+    }
 
-    const outputPath = path.join(this.outputDir, `${agentName}.md`)
-    await fs.writeFile(outputPath, content, 'utf-8')
+    const outputPath = path.join(this.outputDir, `${agentName}.json`)
+    await fs.writeFile(outputPath, JSON.stringify(agent, null, 2), 'utf-8')
     log.debug(`${agentName} agent created`)
 
     return { name: agentName }
   }
 
-  /**
-   * Generate agents from tech analysis - 100% AGENTIC
-   * Claude decides what agents are needed based on actual project tech
-   * NO HARDCODED LISTS - reads analysis and decides
-   */
-  async generateAgentsFromTech(context: GenerateContext): Promise<Array<{ name: string }>> {
-    const { detectedTech } = context
-    const agents: string[] = []
-
-    // Read agent generation template - Claude will use this to decide
-    const templatePath = path.join(__dirname, '../../templates/agents/AGENTS.md')
-    try {
-      await fs.readFile(templatePath, 'utf-8')
-    } catch {
-      // Fallback if template doesn't exist
-    }
-
-    // Build context for Claude to decide
-    const techSummary: TechSummary = {
-      languages: detectedTech.languages || [],
-      frameworks: detectedTech.frameworks || [],
-      buildTools: detectedTech.buildTools || [],
-      testFrameworks: detectedTech.testFrameworks || [],
-      databases: detectedTech.databases || [],
-      tools: detectedTech.tools || [],
-      allDependencies: detectedTech.allDependencies || [],
-    }
-
-    // Generate agents for detected domains
-    if (techSummary.languages.length > 0 || techSummary.frameworks.length > 0) {
-      await this.generateDynamicAgent('developer', {
-        role: 'Development Specialist',
-        domain: 'general',
-        projectContext: techSummary,
-      })
-      agents.push('developer')
-    }
-
-    return agents.map((name) => ({ name }))
-  }
+  // NOTE: generateAgentsFromTech() was REMOVED intentionally.
+  // Agent generation is AGENTIC - Claude reads analysis/repo-summary.md
+  // and DECIDES what specialists to create by calling generateDynamicAgent().
+  // DO NOT add any automatic agent generation logic here.
 
   /**
    * Build comprehensive agent prompt
@@ -175,10 +135,10 @@ ${config.contextFilter || 'Only relevant files'}
 
     try {
       const files = await fs.readdir(this.outputDir)
-      const agentFiles = files.filter((f) => f.endsWith('.md') && !f.startsWith('.'))
+      const agentFiles = files.filter((f) => f.endsWith('.json') && !f.startsWith('.'))
 
       for (const file of agentFiles) {
-        const type = file.replace('.md', '')
+        const type = file.replace('.json', '')
 
         if (!requiredAgents.includes(type)) {
           const filePath = path.join(this.outputDir, file)
@@ -200,7 +160,7 @@ ${config.contextFilter || 'Only relevant files'}
   async listAgents(): Promise<string[]> {
     try {
       const files = await fs.readdir(this.outputDir)
-      return files.filter((f) => f.endsWith('.md') && !f.startsWith('.')).map((f) => f.replace('.md', ''))
+      return files.filter((f) => f.endsWith('.json') && !f.startsWith('.')).map((f) => f.replace('.json', ''))
     } catch {
       return []
     }

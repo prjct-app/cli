@@ -65,7 +65,7 @@ export class PrjctCommandsBase {
       throw new Error('Unsupported agent. Please use Claude Code, Claude Desktop, or Terminal.')
     }
 
-    const Agent = require(`../infrastructure/agents/${this.agentInfo.type}-agent`)
+    const { default: Agent } = await import(`../infrastructure/agents/${this.agentInfo.type}-agent`)
     this.agent = new Agent()
 
     return this.agent

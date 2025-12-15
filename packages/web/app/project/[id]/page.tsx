@@ -4,7 +4,6 @@ import {
   getStats,
   getInsightMessage,
   calculateStreak,
-  calculateHealthScore,
   getVelocityChange,
   getWeeklyVelocityData,
   type StatsResult
@@ -192,11 +191,16 @@ function getVelocity(stats: StatsResult): number {
 }
 
 function getTotalShips(stats: StatsResult): number {
-  return stats.shipped?.items?.length ?? stats.legacyStats?.summary?.totalShipsEver ?? 0
+  // Use shipped.md items count (legacyStats.shipped) as source of truth
+  return stats.shipped?.items?.length ?? stats.legacyStats?.shipped?.length ?? 0
 }
 
-function getTasksCompleted(stats: StatsResult): number {
-  return stats.metrics?.currentSprint?.tasksCompleted ?? stats.legacyStats?.metrics?.tasksCompleted ?? 0
+function getCompletionRate(stats: StatsResult): number {
+  const completed = stats.legacyStats?.shipped?.length ?? 0
+  const pending = stats.legacyStats?.queue?.length ?? 0
+  const total = completed + pending
+  if (total === 0) return 0
+  return Math.round((completed / total) * 100)
 }
 
 // Calculate streak from legacy timeline
@@ -268,7 +272,6 @@ export default async function ProjectStatsPage({ params }: PageProps) {
   const streak = stats.metrics?.recentActivity?.length
     ? calculateStreak(stats.metrics)
     : calculateStreakFromTimeline(stats)
-  const healthScore = calculateHealthScore(stats)
   const velocity = getVelocity(stats)
   const velocityChange = getVelocityChange(velocity)
   const insightMessage = getInsightMessage(stats, streak)
@@ -284,8 +287,10 @@ export default async function ProjectStatsPage({ params }: PageProps) {
   const ideas = normalizeIdeas(stats)
   const agents = normalizeAgents(stats)
   const timeline = normalizeTimeline(stats)
-  const totalShips = getTotalShips(stats)
-  const tasksCompleted = getTasksCompleted(stats)
+
+  // DRY: Use counts from getProject() - same source as dashboard
+  const totalShips = project?.shippedCount ?? 0
+  const completionRate = project?.completionRate ?? 0
 
   // Extract insights
   const { estimateAccuracy, blockers } = stats.insights
@@ -298,10 +303,9 @@ export default async function ProjectStatsPage({ params }: PageProps) {
           projectId={projectId}
           projectName={project?.name ?? projectId}
           projectVersion={project?.version}
-          tasksCompleted={tasksCompleted}
-          healthScore={healthScore}
-          velocity={velocity}
-          velocityChange={velocityChange}
+          totalShips={totalShips}
+          completionRate={completionRate}
+          streak={streak}
           insightMessage={insightMessage}
           timeline={timeline}
         />
@@ -311,7 +315,7 @@ export default async function ProjectStatsPage({ params }: PageProps) {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mt-4 mb-6">
         <div className="bg-card border rounded-lg p-2 sm:p-3 flex items-center gap-2 sm:gap-3">
           <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
-            <svg className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3l14 9-14 9V3z" />
             </svg>
           </div>
@@ -322,7 +326,7 @@ export default async function ProjectStatsPage({ params }: PageProps) {
         </div>
         <div className="bg-card border rounded-lg p-2 sm:p-3 flex items-center gap-2 sm:gap-3">
           <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
-            <svg className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
             </svg>
           </div>
@@ -333,7 +337,7 @@ export default async function ProjectStatsPage({ params }: PageProps) {
         </div>
         <div className="bg-card border rounded-lg p-2 sm:p-3 flex items-center gap-2 sm:gap-3">
           <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
-            <svg className="h-4 w-4 sm:h-5 sm:w-5 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
             </svg>
           </div>
@@ -344,7 +348,7 @@ export default async function ProjectStatsPage({ params }: PageProps) {
         </div>
         <div className="bg-card border rounded-lg p-2 sm:p-3 flex items-center gap-2 sm:gap-3">
           <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
-            <svg className="h-4 w-4 sm:h-5 sm:w-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
             </svg>
           </div>

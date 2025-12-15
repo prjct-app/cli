@@ -79,7 +79,7 @@ export function NowCard({ currentTask, codeHref, className }: NowCardProps) {
             <div className="flex gap-2 pt-2">
               <Link
                 href={`${codeHref}?cmd=p.%20done`}
-                className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg bg-green-500/10 text-green-600 hover:bg-green-500/20 transition-colors"
+                className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg bg-muted text-foreground hover:bg-muted/80 transition-colors"
               >
                 <CheckCircle2 className="h-3.5 w-3.5" />
                 Done
@@ -87,7 +87,7 @@ export function NowCard({ currentTask, codeHref, className }: NowCardProps) {
               {currentTask.pausedAt ? (
                 <Link
                   href={`${codeHref}?cmd=p.%20resume`}
-                  className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 transition-colors"
+                  className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg bg-muted text-foreground hover:bg-muted/80 transition-colors"
                 >
                   <Play className="h-3.5 w-3.5" />
                   Resume
@@ -95,7 +95,7 @@ export function NowCard({ currentTask, codeHref, className }: NowCardProps) {
               ) : (
                 <Link
                   href={`${codeHref}?cmd=p.%20pause`}
-                  className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg bg-yellow-500/10 text-yellow-600 hover:bg-yellow-500/20 transition-colors"
+                  className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg bg-muted text-foreground hover:bg-muted/80 transition-colors"
                 >
                   <Pause className="h-3.5 w-3.5" />
                   Pause

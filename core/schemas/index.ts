@@ -1,11 +1,15 @@
 /**
  * Schemas Module
  *
- * TypeScript types and defaults for all JSON data files.
- * These schemas define the source-of-truth for all project data.
+ * TypeScript types and defaults for all project data.
+ * MD-First Architecture: Markdown files are the source of truth.
  *
- * Data lives in: ~/.prjct-cli/projects/{projectId}/data/
- * Views are generated in: ~/.prjct-cli/projects/{projectId}/views/
+ * Structure: ~/.prjct-cli/projects/{projectId}/
+ *   - core/     (now.md, next.md, context.md)
+ *   - progress/ (shipped.md, metrics.md)
+ *   - planning/ (ideas.md, roadmap.md, tasks/)
+ *   - analysis/ (repo-summary.md)
+ *   - memory/   (context.jsonl, patterns.json)
  */
 
 // State (current task + queue)
@@ -33,23 +37,25 @@ export * from './analysis'
 export * from './outcomes'
 
 // ============================================
-// ID GENERATORS
+// ID GENERATORS - UUID ONLY
 // ============================================
 
-function generateId(prefix: string): string {
-  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
-  let id = ''
-  for (let i = 0; i < 8; i++) {
-    id += chars[Math.floor(Math.random() * chars.length)]
-  }
-  return `${prefix}_${id}`
+import crypto from 'crypto'
+
+/**
+ * Generate a standard UUID.
+ * All IDs in the system use this format for PostgreSQL consistency.
+ */
+export function generateUUID(): string {
+  return crypto.randomUUID()
 }
 
-export const generateTaskId = (): string => generateId('task')
-export const generateFeatureId = (): string => generateId('feat')
-export const generateIdeaId = (): string => generateId('idea')
-export const generateShipId = (): string => generateId('ship')
-export const generateSessionId = (): string => generateId('sess')
+// All use the same UUID generator
+export const generateTaskId = generateUUID
+export const generateFeatureId = generateUUID
+export const generateIdeaId = generateUUID
+export const generateShipId = generateUUID
+export const generateSessionId = generateUUID
 
 // ============================================
 // PATH HELPERS
@@ -62,12 +68,4 @@ export const GLOBAL_STORAGE = join(homedir(), '.prjct-cli', 'projects')
 
 export function getProjectPath(projectId: string): string {
   return join(GLOBAL_STORAGE, projectId)
-}
-
-export function getDataPath(projectId: string): string {
-  return join(GLOBAL_STORAGE, projectId, 'data')
-}
-
-export function getViewsPath(projectId: string): string {
-  return join(GLOBAL_STORAGE, projectId, 'views')
 }

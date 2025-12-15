@@ -6,6 +6,7 @@
 import fs from 'fs/promises'
 import path from 'path'
 import pathManager from '../../infrastructure/path-manager'
+import { generateUUID } from '../../schemas'
 import type { Memory, MemoryDatabase, Context } from './types'
 import { MEMORY_TAGS } from './types'
 
@@ -59,7 +60,7 @@ export class SemanticMemories {
     const db = await this.loadMemories(projectId)
 
     const memory: Memory = {
-      id: `mem_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: generateUUID(),
       title,
       content,
       tags,

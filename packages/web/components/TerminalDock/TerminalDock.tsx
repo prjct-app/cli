@@ -184,7 +184,7 @@ export function TerminalDock() {
           <span>No terminal sessions</span>
           <button
             onClick={() => handleNewTerminal('left')}
-            className="text-orange-500 hover:text-orange-400 underline"
+            className="text-muted-foreground hover:text-foreground underline"
           >
             Open a terminal
           </button>
@@ -216,7 +216,7 @@ export function TerminalDock() {
                   <div className="absolute inset-0 flex items-center justify-center bg-card/95 text-muted-foreground text-sm">
                     <button
                       onClick={() => handleNewTerminal('left')}
-                      className="text-orange-500 hover:text-orange-400 underline"
+                      className="text-muted-foreground hover:text-foreground underline"
                     >
                       Open terminal in left panel
                     </button>
@@ -226,7 +226,7 @@ export function TerminalDock() {
             </div>
           </Panel>
 
-          <PanelResizeHandle className="w-1 bg-border hover:bg-orange-500/50 transition-colors" />
+          <PanelResizeHandle className="w-1 bg-border hover:bg-muted transition-colors" />
 
           <Panel defaultSize={50} minSize={20}>
             <div className="h-full flex flex-col">
@@ -253,7 +253,7 @@ export function TerminalDock() {
                   <div className="absolute inset-0 flex items-center justify-center bg-card/95 text-muted-foreground text-sm">
                     <button
                       onClick={() => handleNewTerminal('right')}
-                      className="text-orange-500 hover:text-orange-400 underline"
+                      className="text-muted-foreground hover:text-foreground underline"
                     >
                       Open terminal in right panel
                     </button>
@@ -357,9 +357,9 @@ export function TerminalDock() {
           <div
             className={cn(
               'absolute top-0 left-0 right-0 h-2 cursor-ns-resize z-10',
-              'hover:bg-orange-500/30 transition-colors',
+              'hover:bg-muted transition-colors',
               'before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-border',
-              isResizing && 'bg-orange-500/30'
+              isResizing && 'bg-muted'
             )}
             onMouseDown={startResize}
           >

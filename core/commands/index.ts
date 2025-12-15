@@ -1,19 +1,16 @@
 /**
- * Agentic Commands Handler for prjct CLI
+ * prjct CLI Commands Handler
  *
- * 100% AGENTIC - Claude decides everything based on templates.
- * ZERO if/else business logic.
+ * MD-First Architecture - All state in Markdown files.
  *
- * All commands use the agentic execution engine.
- * Templates define what Claude should do.
- *
- * MIGRATED COMMANDS (18 total):
- * - Sprint 1 (9 CRITICAL): init, analyze, sync, feature, bug, now, done, next, ship
- * - Sprint 2 (4 IMPORTANT): context, recap, stuck, design
- * - Sprint 3 (5 OPTIONAL): cleanup, progress, roadmap, status, build
- *
- * PENDING (3 total):
- * - Sprint 4 (3 SETUP): start, setup, migrateAll
+ * COMMANDS (22 total):
+ * - Workflow (5): work, done, next, pause, resume
+ * - Planning (5): init, feature, bug, idea, spec
+ * - Shipping (1): ship
+ * - Analytics (2): dash, help
+ * - Maintenance (5): cleanup, design, recover, undo, redo, history
+ * - Analysis (2): analyze, sync
+ * - Setup (3): start, setup, migrateAll
  */
 
 import { WorkflowCommands } from './workflow'
@@ -72,7 +69,7 @@ class PrjctCommands {
 
   // ========== Workflow Commands ==========
 
-  async now(task: string | null = null, projectPath: string = process.cwd()): Promise<CommandResult> {
+  async work(task: string | null = null, projectPath: string = process.cwd()): Promise<CommandResult> {
     return this.workflow.now(task, projectPath)
   }
 
@@ -84,8 +81,12 @@ class PrjctCommands {
     return this.workflow.next(projectPath)
   }
 
-  async build(taskOrNumber: string, projectPath: string = process.cwd()): Promise<CommandResult> {
-    return this.workflow.build(taskOrNumber, projectPath)
+  async pause(reason: string = '', projectPath: string = process.cwd()): Promise<CommandResult> {
+    return this.workflow.pause(reason, projectPath)
+  }
+
+  async resume(taskId: string | null = null, projectPath: string = process.cwd()): Promise<CommandResult> {
+    return this.workflow.resume(taskId, projectPath)
   }
 
   // ========== Planning Commands ==========
@@ -102,8 +103,12 @@ class PrjctCommands {
     return this.planning.bug(description, projectPath)
   }
 
-  async architect(action: string = 'execute', projectPath: string = process.cwd()): Promise<CommandResult> {
-    return this.planning.architect(action, projectPath)
+  async idea(description: string, projectPath: string = process.cwd()): Promise<CommandResult> {
+    return this.planning.idea(description, projectPath)
+  }
+
+  async spec(featureName: string | null = null, projectPath: string = process.cwd()): Promise<CommandResult> {
+    return this.planning.spec(featureName, projectPath)
   }
 
   // ========== Shipping Commands ==========
@@ -114,28 +119,12 @@ class PrjctCommands {
 
   // ========== Analytics Commands ==========
 
-  async context(projectPath: string = process.cwd()): Promise<CommandResult> {
-    return this.analytics.context(projectPath)
+  async dash(view: string = 'default', projectPath: string = process.cwd()): Promise<CommandResult> {
+    return this.analytics.dash(view, projectPath)
   }
 
-  async recap(projectPath: string = process.cwd()): Promise<CommandResult> {
-    return this.analytics.recap(projectPath)
-  }
-
-  async stuck(issue: string, projectPath: string = process.cwd()): Promise<CommandResult> {
-    return this.analytics.stuck(issue, projectPath)
-  }
-
-  async progress(period: string = 'week', projectPath: string = process.cwd()): Promise<CommandResult> {
-    return this.analytics.progress(period, projectPath)
-  }
-
-  async roadmap(projectPath: string = process.cwd()): Promise<CommandResult> {
-    return this.analytics.roadmap(projectPath)
-  }
-
-  async status(projectPath: string = process.cwd()): Promise<CommandResult> {
-    return this.analytics.status(projectPath)
+  async help(topic: string = '', projectPath: string = process.cwd()): Promise<CommandResult> {
+    return this.analytics.help(topic, projectPath)
   }
 
   // ========== Maintenance Commands ==========
@@ -146,6 +135,22 @@ class PrjctCommands {
 
   async design(target: string | null = null, options: DesignOptions = {}, projectPath: string = process.cwd()): Promise<CommandResult> {
     return this.maintenance.design(target, options, projectPath)
+  }
+
+  async recover(projectPath: string = process.cwd()): Promise<CommandResult> {
+    return this.maintenance.recover(projectPath)
+  }
+
+  async undo(projectPath: string = process.cwd()): Promise<CommandResult> {
+    return this.maintenance.undo(projectPath)
+  }
+
+  async redo(projectPath: string = process.cwd()): Promise<CommandResult> {
+    return this.maintenance.redo(projectPath)
+  }
+
+  async history(projectPath: string = process.cwd()): Promise<CommandResult> {
+    return this.maintenance.history(projectPath)
   }
 
   // ========== Analysis Commands ==========

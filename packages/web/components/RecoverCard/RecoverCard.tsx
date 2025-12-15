@@ -11,22 +11,22 @@ export function RecoverCard({ abandonedSessions, codeHref, className }: RecoverC
 
   return (
     <div className={cn(
-      'relative overflow-hidden rounded-xl border border-yellow-500/30 bg-yellow-500/5 p-4',
+      'relative overflow-hidden rounded-xl border border-yellow-500/30 bg-yellow-500/5 p-4 min-w-0 max-w-full',
       className
     )}>
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <AlertCircle className="h-4 w-4 text-yellow-500" />
-          <span className="text-xs font-bold uppercase tracking-[0.15em] text-yellow-600 dark:text-yellow-500">
+      <div className="flex items-center justify-between mb-3 min-w-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <AlertCircle className="h-4 w-4 text-yellow-500 shrink-0" />
+          <span className="text-xs font-bold uppercase tracking-[0.15em] text-yellow-600 dark:text-yellow-500 truncate">
             Recover
           </span>
         </div>
-        <Badge variant="outline" className="text-yellow-600 dark:text-yellow-500 border-yellow-500/50">
+        <Badge variant="outline" className="text-yellow-600 dark:text-yellow-500 border-yellow-500/50 shrink-0">
           {abandonedSessions.length}
         </Badge>
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-2 min-w-0 max-w-full">
         {abandonedSessions.slice(0, 3).map((session) => (
           <Link
             key={session.id}

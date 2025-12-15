@@ -1,15 +1,20 @@
 'use client'
 
+import { useState } from 'react'
 import { EmptyState } from '@/components/EmptyState'
+import { ExpandButton } from '@/components/ExpandButton'
 import { Rocket, Clock, FileCode, Check } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { formatShipDate } from './ShipsCard.utils'
 import type { ShipsCardProps } from './ShipsCard.types'
 
+const COLLAPSED_LIMIT = 10
+
 export function ShipsCard({ ships, totalShips = 0, codeHref, className }: ShipsCardProps) {
-  const displayShips = ships.slice(0, 8)
-  const remaining = ships.length - 8
+  const [expanded, setExpanded] = useState(false)
+  const displayShips = expanded ? ships : ships.slice(0, COLLAPSED_LIMIT)
+  const hasMore = ships.length > COLLAPSED_LIMIT
 
   return (
     <div className={cn(
@@ -75,10 +80,13 @@ export function ShipsCard({ ships, totalShips = 0, codeHref, className }: ShipsC
               </div>
             </div>
           ))}
-          {remaining > 0 && (
-            <p className="text-xs text-muted-foreground mt-2 pl-5 font-medium">
-              +{remaining} more shipped
-            </p>
+          {hasMore && (
+            <ExpandButton
+              expanded={expanded}
+              totalCount={ships.length}
+              collapsedLimit={COLLAPSED_LIMIT}
+              onToggle={() => setExpanded(!expanded)}
+            />
           )}
         </div>
       )}

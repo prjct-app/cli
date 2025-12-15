@@ -122,9 +122,9 @@ class PluginRegistry {
         }
       }
 
-      // Fallback: try to require (might have side effects)
-      const plugin = require(pluginPath)
-      delete require.cache[require.resolve(pluginPath)]
+      // Fallback: try to import (might have side effects)
+      const pluginModule = await import(pluginPath)
+      const plugin = pluginModule.default || pluginModule
 
       if (plugin.name) {
         return {

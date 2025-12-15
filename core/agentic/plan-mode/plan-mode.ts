@@ -6,6 +6,7 @@
 import type { Plan, PlanParams, GatheredInfo, ProposedPlan, PlanStep, ApprovalContext, ApprovalPrompt } from './types'
 import { PLAN_STATUS, PLAN_REQUIRED_COMMANDS, DESTRUCTIVE_COMMANDS, PLANNING_TOOLS } from './constants'
 import { generateApprovalPrompt } from './approval'
+import { generateUUID } from '../../schemas'
 
 export class PlanMode {
   activePlans: Map<string, Plan>
@@ -51,7 +52,7 @@ export class PlanMode {
    */
   startPlanning(projectId: string, commandName: string, params: PlanParams): Plan {
     const plan: Plan = {
-      id: `plan_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: generateUUID(),
       projectId,
       command: commandName,
       params,

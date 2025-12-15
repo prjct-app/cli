@@ -308,14 +308,41 @@ Analyze code and WRITE: `{globalPath}/analysis/patterns.md`
 
 ---
 
-## Step 8: Generate/Update Agents
+## Step 8: Generate Agents (AGENTIC)
 
-Based on detected stack, generate specialized agents in `{globalPath}/agents/`:
+**CRITICAL**: Agent generation is AGENTIC - Claude decides based on raw data.
 
-- `coordinator.md` - Always generated
-- `fe.md` - If React/Vue/Angular detected
-- `be.md` - If Express/Fastify/Django detected
-- `qa.md` - If tests detected
+READ the raw data in `{globalPath}/CLAUDE.md`:
+- Dependencies section
+- File extensions section
+- Config files section
+- Directory structure section
+
+Based on this RAW DATA, YOU (Claude) decide what specialists are needed.
+
+**DO NOT use hardcoded rules.** Analyze the actual project data.
+
+For EACH specialist you decide to create, call:
+```typescript
+const AgentGenerator = require('./core/domain/agent-generator').default
+const generator = new AgentGenerator('{projectId}')
+await generator.generateDynamicAgent('agent-name', {
+  role: 'specific role based on your analysis',
+  domain: 'domain you identified',
+  expertise: 'technologies you found in the raw data'
+})
+```
+
+**Examples of decisions YOU make:**
+- Dependencies include 'react', 'next', 'tailwindcss' → Create 'frontend' agent with React/Next.js/Tailwind expertise
+- File extensions show .ts, .tsx predominantly → TypeScript-focused agents
+- Dependencies include 'express', 'prisma', 'pg' → Create 'backend' agent with Express/Prisma expertise
+- Config files include 'vitest.config.ts' → Create 'testing' agent with Vitest expertise
+- Directories include 'api/', 'server/' → Backend specialist
+
+**DO NOT create generic 'developer' agent.** Create SPECIFIC specialists based on the raw data.
+
+**The principle:** Code provides raw data, Claude analyzes and decides.
 
 ---
 

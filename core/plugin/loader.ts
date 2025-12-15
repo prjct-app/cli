@@ -167,8 +167,9 @@ class PluginLoader {
       // Check if file exists
       await fs.access(pluginPath)
 
-      // Require the plugin
-      const plugin: Plugin = require(pluginPath)
+      // Import the plugin dynamically
+      const pluginModule = await import(pluginPath)
+      const plugin: Plugin = pluginModule.default || pluginModule
 
       // Validate plugin structure
       if (!plugin.name) {
@@ -259,11 +260,7 @@ class PluginLoader {
     // Remove from loaded plugins
     this.plugins.delete(name)
 
-    // Clear require cache
-    const pluginPath = this.pluginPaths.get(name)
-    if (pluginPath) {
-      delete require.cache[require.resolve(pluginPath)]
-    }
+    // Clear plugin path reference
     this.pluginPaths.delete(name)
   }
 

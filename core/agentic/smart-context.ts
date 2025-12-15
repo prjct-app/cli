@@ -8,11 +8,16 @@
  * @version 1.0
  */
 
-import stateManager from '../state'
 import { agentPerformanceTracker } from '../agents'
 import { outcomeAnalyzer } from '../outcomes'
-import type { ProjectState } from '../state/types'
 import type { TaskType } from '../agents/types'
+
+// Local interface for context state
+interface ProjectState {
+  projectId: string
+  currentTask: { description: string; startedAt: string } | null
+  queue: { description: string; priority: string }[]
+}
 
 /**
  * Context domain for filtering.

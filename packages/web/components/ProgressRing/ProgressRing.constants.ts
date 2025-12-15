@@ -16,5 +16,5 @@ export const PROGRESS_RING_COLOR_STYLES: Record<AccentColor, string> = {
   default: 'text-foreground',
   success: 'text-emerald-500',
   warning: 'text-amber-500',
-  destructive: 'text-destructive',
+  destructive: 'text-red-500',
 }

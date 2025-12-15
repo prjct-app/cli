@@ -39,7 +39,7 @@ async function main(): Promise<void> {
     process.exit(0)
   }
 
-  if (['-h', '--help', 'help', undefined].includes(commandName)) {
+  if (['-h', '--help', undefined].includes(commandName)) {
     displayHelp()
     process.exit(0)
   }
@@ -100,29 +100,32 @@ async function main(): Promise<void> {
       result = await commands.setup(options)
     } else if (commandName === 'migrate-all') {
       result = await commands.migrateAll(options)
-    } else if (commandName === 'progress') {
-      const period = parsedArgs[0] || 'week'
-      result = await commands.progress(period)
-    } else if (commandName === 'build') {
-      const taskOrNumber = parsedArgs.join(' ')
-      result = await commands.build(taskOrNumber)
     } else {
       // Standard commands - type-safe invocation
       const param = parsedArgs.join(' ') || null
       const standardCommands: Record<string, (p: string | null) => Promise<CommandResult>> = {
-        now: (p) => commands.now(p),
+        // Core workflow
+        work: (p) => commands.work(p),
         done: () => commands.done(),
         next: () => commands.next(),
+        pause: (p) => commands.pause(p || ''),
+        resume: (p) => commands.resume(p),
+        // Planning
         init: (p) => commands.init(p),
         feature: (p) => commands.feature(p || ''),
         bug: (p) => commands.bug(p || ''),
-        architect: (p) => commands.architect(p || 'execute'),
+        idea: (p) => commands.idea(p || ''),
+        spec: (p) => commands.spec(p),
         ship: (p) => commands.ship(p),
-        context: () => commands.context(),
-        recap: () => commands.recap(),
-        stuck: (p) => commands.stuck(p || ''),
-        roadmap: () => commands.roadmap(),
-        status: () => commands.status(),
+        // Analytics
+        dash: (p) => commands.dash(p || 'default'),
+        help: (p) => commands.help(p || ''),
+        // Maintenance
+        recover: () => commands.recover(),
+        undo: () => commands.undo(),
+        redo: () => commands.redo(),
+        history: () => commands.history(),
+        // Setup
         sync: () => commands.sync(),
         start: () => commands.start(),
       }

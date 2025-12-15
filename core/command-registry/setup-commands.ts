@@ -37,14 +37,29 @@ export const SETUP_COMMANDS: Command[] = [
   },
 
   {
+    name: 'migrate',
+    category: 'setup',
+    description: 'Migrate project to UUID format + sync',
+    usage: {
+      claude: '/p:migrate',
+      terminal: null, // Claude-only
+    },
+    params: null,
+    implemented: true,
+    hasTemplate: true,
+    requiresInit: true,
+    blockingRules: null,
+  },
+
+  {
     name: 'migrate-all',
     category: 'setup',
-    description: 'Migrate all legacy projects',
+    description: 'Migrate all legacy projects to UUID format',
     usage: {
       claude: '/p:migrate-all',
-      terminal: 'prjct migrate-all [--deep-scan] [--remove-legacy] [--dry-run]',
+      terminal: 'prjct migrate-all [--deep-scan] [--dry-run]',
     },
-    params: '[--deep-scan] [--remove-legacy] [--dry-run]',
+    params: '[--deep-scan] [--dry-run]',
     implemented: true,
     hasTemplate: true,
     requiresInit: false,
