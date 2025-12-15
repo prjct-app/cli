@@ -463,49 +463,69 @@ export function parseShipped(content: string): ShippedFeature[] {
   const features: ShippedFeature[] = []
   if (!content) return features
 
-  // Split by date headers: ## 2025-01-01
-  const dateSections = content.split(/^##\s+(\d{4}-\d{2}-\d{2})/m)
+  // Try ISO date format first: ## 2025-01-01
+  const isoDateSections = content.split(/^##\s+(\d{4}-\d{2}-\d{2})/m)
 
-  // Process pairs: [before, date1, content1, date2, content2, ...]
-  for (let i = 1; i < dateSections.length; i += 2) {
-    const sectionDate = dateSections[i]
-    const sectionContent = dateSections[i + 1] || ''
-
-    // Parse bullet points: - **Name** (version) or - **Name**
-    const bulletRegex = /^-\s+\*\*(.+?)\*\*(?:\s*\(([^)]+)\))?/gm
-    let match
-    while ((match = bulletRegex.exec(sectionContent)) !== null) {
-      const name = match[1].trim()
-      const versionOrNote = match[2]?.trim()
-
-      // Extract version if it starts with 'v'
-      const version = versionOrNote?.match(/^v[\d.]+/) ? versionOrNote : undefined
-
-      features.push({
-        date: sectionDate,
-        name,
-        version
-      })
+  if (isoDateSections.length > 1) {
+    // Process pairs: [before, date1, content1, date2, content2, ...]
+    for (let i = 1; i < isoDateSections.length; i += 2) {
+      const sectionDate = isoDateSections[i]
+      const sectionContent = isoDateSections[i + 1] || ''
+      parseShippedSection(sectionContent, sectionDate, features)
     }
+  } else {
+    // Try month format: ## November 2025 or ## December 2024
+    const monthDateSections = content.split(/^##\s+(\w+\s+\d{4})/m)
 
-    // Also check for ### Feature Name headers (alternative format)
-    const headerRegex = /^###\s+(.+?)(?:\s+(v[\d.]+))?\s*$/gm
-    while ((match = headerRegex.exec(sectionContent)) !== null) {
-      const name = match[1].trim()
-      const version = match[2]
-
-      // Avoid duplicates if same feature in both formats
-      if (!features.some(f => f.date === sectionDate && f.name === name)) {
-        features.push({
-          date: sectionDate,
-          name,
-          version
-        })
+    if (monthDateSections.length > 1) {
+      for (let i = 1; i < monthDateSections.length; i += 2) {
+        const sectionDate = monthDateSections[i]
+        const sectionContent = monthDateSections[i + 1] || ''
+        parseShippedSection(sectionContent, sectionDate, features)
       }
+    } else {
+      // No date headers - parse entire content with inline dates
+      parseShippedSection(content, '', features)
     }
   }
 
   return features.slice(0, 30) // Last 30
+}
+
+function parseShippedSection(sectionContent: string, sectionDate: string, features: ShippedFeature[]) {
+  // Parse bullet points: - **Name** (version) or - **Name** - 2025-01-01
+  const bulletRegex = /^-\s+\*\*(.+?)\*\*(?:\s*\(([^)]+)\))?(?:\s*-\s*(\d{4}-\d{2}-\d{2}))?/gm
+  let match
+  while ((match = bulletRegex.exec(sectionContent)) !== null) {
+    const name = match[1].trim()
+    const versionOrNote = match[2]?.trim()
+    const inlineDate = match[3]
+
+    // Extract version if it starts with 'v'
+    const version = versionOrNote?.match(/^v[\d.]+/) ? versionOrNote : undefined
+
+    features.push({
+      date: inlineDate || sectionDate || new Date().toISOString().split('T')[0],
+      name,
+      version
+    })
+  }
+
+  // Also check for ### Feature Name headers (alternative format)
+  const headerRegex = /^###\s+(.+?)(?:\s+(v[\d.]+))?\s*$/gm
+  while ((match = headerRegex.exec(sectionContent)) !== null) {
+    const name = match[1].trim()
+    const version = match[2]
+
+    // Avoid duplicates if same feature in both formats
+    if (!features.some(f => f.date === sectionDate && f.name === name)) {
+      features.push({
+        date: sectionDate || new Date().toISOString().split('T')[0],
+        name,
+        version
+      })
+    }
+  }
 }
 
 // Parse ideas.md - Full idea structure

@@ -8,6 +8,7 @@
 import path from 'path'
 import * as fileHelper from '../utils/file-helper'
 import pathManager from '../infrastructure/path-manager'
+import { generateUUID } from '../schemas'
 import type { Outcome, OutcomeInput, OutcomeFilter } from './types'
 
 const OUTCOMES_DIR = 'outcomes'
@@ -38,7 +39,7 @@ export class OutcomeRecorder {
   async record(projectId: string, input: OutcomeInput): Promise<Outcome> {
     const outcome: Outcome = {
       ...input,
-      id: `outcome_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      id: generateUUID(),
     }
 
     const outcomesPath = this.getOutcomesPath(projectId)

@@ -7,7 +7,7 @@ export function TasksCounter({ count }: TasksCounterProps) {
         {count}
       </span>
       <span className="text-sm sm:text-base md:text-lg text-muted-foreground">
-        tasks completed
+        shipped
       </span>
     </div>
   )

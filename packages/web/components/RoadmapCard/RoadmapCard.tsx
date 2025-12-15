@@ -6,6 +6,13 @@ import { Map, ChevronRight, CheckCircle2, Circle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { RoadmapCardProps } from './RoadmapCard.types'
 
+// Traffic light colors for progress: green=100%, yellow=50-99%, red=<50%
+function getProgressColor(progress: number): string {
+  if (progress >= 100) return 'bg-emerald-500'
+  if (progress >= 50) return 'bg-amber-500'
+  return 'bg-red-500'
+}
+
 export function RoadmapCard({ roadmap, codeHref, className }: RoadmapCardProps) {
   const hasPhases = roadmap?.phases && roadmap.phases.length > 0
 
@@ -46,7 +53,7 @@ export function RoadmapCard({ roadmap, codeHref, className }: RoadmapCardProps) 
             </div>
             <div className="h-3 bg-muted rounded-full overflow-hidden">
               <div
-                className="h-full rounded-full transition-all duration-500 bg-foreground"
+                className={cn("h-full rounded-full transition-all duration-500", getProgressColor(roadmap.progress))}
                 style={{ width: `${roadmap.progress}%` }}
               />
             </div>
@@ -76,7 +83,7 @@ export function RoadmapCard({ roadmap, codeHref, className }: RoadmapCardProps) 
                   </div>
                   <div className="h-2 bg-muted rounded-full overflow-hidden ml-6">
                     <div
-                      className="h-full rounded-full transition-all duration-300 bg-foreground/70"
+                      className={cn("h-full rounded-full transition-all duration-300", getProgressColor(phase.progress))}
                       style={{ width: `${phase.progress}%` }}
                     />
                   </div>

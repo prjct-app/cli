@@ -67,9 +67,9 @@ export function MomentumWidget({ projectId }: MomentumWidgetProps) {
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 h-8 w-32 animate-pulse">
-        <div className="h-6 w-16 bg-muted rounded" />
-        <div className="h-4 w-12 bg-muted rounded" />
+      <div className="flex items-center gap-2 h-10 animate-pulse">
+        <div className="h-10 w-32 bg-muted rounded" />
+        <div className="h-4 w-16 bg-muted rounded" />
       </div>
     )
   }
@@ -86,20 +86,20 @@ export function MomentumWidget({ projectId }: MomentumWidgetProps) {
           'flex items-center gap-2 px-2 py-1 rounded-md cursor-default transition-colors',
           config.bgColor
         )}>
-          {/* Mini sparkline */}
-          <div className="w-16 h-6">
+          {/* Mini sparkline - matching button width for visual weight */}
+          <div className="w-32 h-10">
             <SparklineChart
               data={data.dailyTasks}
               color={config.color}
-              height={24}
+              height={40}
               showArea={true}
             />
           </div>
 
           {/* Status badge */}
-          <div className={cn('flex items-center gap-1', config.textColor)}>
-            <Icon className="w-3 h-3" />
-            <span className="text-xs font-medium whitespace-nowrap">
+          <div className={cn('flex items-center gap-1.5', config.textColor)}>
+            <Icon className="w-4 h-4" />
+            <span className="text-sm font-medium whitespace-nowrap">
               {data.message}
             </span>
           </div>
@@ -110,7 +110,7 @@ export function MomentumWidget({ projectId }: MomentumWidgetProps) {
           <p className="font-medium">7-day activity</p>
           <p>{data.totalTasks} tasks, {data.totalShips} ships</p>
           {data.streak > 0 && (
-            <p className="text-green-500">{data.streak} day streak!</p>
+            <p className="text-foreground font-medium">{data.streak} day streak!</p>
           )}
         </div>
       </TooltipContent>

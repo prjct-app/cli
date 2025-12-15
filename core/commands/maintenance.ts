@@ -1,15 +1,13 @@
 /**
- * Maintenance Commands: cleanup, design
- * Analysis commands moved to analysis.ts
+ * Maintenance Commands: cleanup, design, recover, undo, redo, history
+ * Git-based snapshots for undo/redo functionality
  */
 
 import path from 'path'
 
-import type { CommandResult, CleanupOptions, DesignOptions, Context } from './types'
+import type { CommandResult, CleanupOptions, DesignOptions } from './types'
 import {
   PrjctCommandsBase,
-  contextBuilder,
-  toolRegistry,
   pathManager,
   configManager,
   fileHelper,
@@ -17,6 +15,7 @@ import {
   dateHelper,
   out
 } from './base'
+import { mdIdeasManager, mdQueueManager } from '../data'
 
 export class MaintenanceCommands extends PrjctCommandsBase {
   /**
@@ -79,12 +78,16 @@ export class MaintenanceCommands extends PrjctCommandsBase {
 
       out.spin('cleaning up...')
 
-      const context = await contextBuilder.build(projectPath) as Context
       const projectId = await configManager.getProjectId(projectPath)
+      if (!projectId) {
+        out.fail('no project ID')
+        return { success: false, error: 'No project ID found' }
+      }
 
       const cleaned: string[] = []
 
-      const memoryPath = pathManager.getFilePath(projectId!, 'memory', 'context.jsonl')
+      // Clean memory (keep last 100 entries)
+      const memoryPath = pathManager.getFilePath(projectId, 'memory', 'context.jsonl')
       try {
         const entries = await jsonlHelper.readJsonLines(memoryPath)
 
@@ -99,28 +102,11 @@ export class MaintenanceCommands extends PrjctCommandsBase {
         cleaned.push('Memory: No file found')
       }
 
-      const ideasPath = context.paths.ideas
+      // Clean ideas using mdIdeasManager
       try {
-        const ideasContent = (await toolRegistry.get('Read')!(ideasPath)) as string
-        const sections = ideasContent.split('##').filter((s) => s.trim())
-
-        const nonEmpty = sections.filter((section) => {
-          const lines = section
-            .trim()
-            .split('\n')
-            .filter((l) => l.trim())
-          return lines.length > 1
-        })
-
-        if (sections.length !== nonEmpty.length) {
-          const newContent =
-            '# IDEAS 💡\n\n## Brain Dump\n\n' +
-            nonEmpty
-              .slice(1)
-              .map((s) => '## ' + s.trim())
-              .join('\n\n')
-          await toolRegistry.get('Write')!(ideasPath, newContent)
-          cleaned.push(`Ideas: ${sections.length - nonEmpty.length} empty sections removed`)
+        const result = await mdIdeasManager.cleanup(projectId)
+        if (result.removed > 0) {
+          cleaned.push(`Ideas: ${result.removed} old archived ideas removed`)
         } else {
           cleaned.push('Ideas: No cleanup needed')
         }
@@ -128,10 +114,10 @@ export class MaintenanceCommands extends PrjctCommandsBase {
         cleaned.push('Ideas: No file found')
       }
 
-      const nextPath = context.paths.next
+      // Check queue for completed tasks using mdQueueManager
       try {
-        const nextContent = (await toolRegistry.get('Read')!(nextPath)) as string
-        const completedTasks = (nextContent.match(/\[x\]/gi) || []).length
+        const tasks = await mdQueueManager.getActiveTasks(projectId)
+        const completedTasks = tasks.filter(t => t.completed).length
 
         if (completedTasks > 0) {
           cleaned.push(
@@ -218,6 +204,289 @@ export class MaintenanceCommands extends PrjctCommandsBase {
 
       out.done(`${designType} design created`)
       return { success: true, designPath: designFilePath, type: designType, target: designTarget }
+    } catch (error) {
+      out.fail((error as Error).message)
+      return { success: false, error: (error as Error).message }
+    }
+  }
+
+  /**
+   * /p:recover - Recover abandoned session with context restoration
+   */
+  async recover(projectPath: string = process.cwd()): Promise<CommandResult> {
+    try {
+      const initResult = await this.ensureProjectInit(projectPath)
+      if (!initResult.success) return initResult
+
+      const projectId = await configManager.getProjectId(projectPath)
+      if (!projectId) {
+        out.fail('no project ID')
+        return { success: false, error: 'No project ID found' }
+      }
+
+      out.spin('checking for abandoned sessions...')
+
+      // Check for current session file
+      const sessionPath = pathManager.getFilePath(projectId, 'progress', 'sessions/current.json')
+
+      let sessionData: { task?: string; startedAt?: string; context?: string } | null = null
+      try {
+        const content = await fileHelper.readFile(sessionPath)
+        sessionData = JSON.parse(content)
+      } catch {
+        sessionData = null
+      }
+
+      if (!sessionData || !sessionData.task) {
+        out.warn('no abandoned session found')
+        return { success: true, message: 'No abandoned session found' }
+      }
+
+      console.log('\n🔍 Found abandoned session:\n')
+      console.log(`   Task: ${sessionData.task}`)
+      if (sessionData.startedAt) {
+        const elapsed = dateHelper.calculateDuration(new Date(sessionData.startedAt))
+        console.log(`   Started: ${elapsed} ago`)
+      }
+      if (sessionData.context) {
+        console.log(`   Context: ${sessionData.context.slice(0, 100)}...`)
+      }
+
+      console.log('\n💡 Options:')
+      console.log('   1. Use /p:work to resume working')
+      console.log('   2. Use /p:done to mark as complete')
+      console.log('   3. Delete session file to discard\n')
+
+      return { success: true, session: sessionData }
+    } catch (error) {
+      out.fail((error as Error).message)
+      return { success: false, error: (error as Error).message }
+    }
+  }
+
+  /**
+   * /p:undo - Git-based undo (stash current changes)
+   */
+  async undo(projectPath: string = process.cwd()): Promise<CommandResult> {
+    try {
+      const initResult = await this.ensureProjectInit(projectPath)
+      if (!initResult.success) return initResult
+
+      out.spin('creating undo point...')
+
+      const projectId = await configManager.getProjectId(projectPath)
+      if (!projectId) {
+        out.fail('no project ID')
+        return { success: false, error: 'No project ID found' }
+      }
+
+      // Create snapshots directory
+      const snapshotsPath = path.join(
+        pathManager.getGlobalProjectPath(projectId),
+        'snapshots'
+      )
+      await fileHelper.ensureDir(snapshotsPath)
+
+      // Check git status
+      const { execSync } = await import('child_process')
+
+      try {
+        const status = execSync('git status --porcelain', {
+          cwd: projectPath,
+          encoding: 'utf-8'
+        }).trim()
+
+        if (!status) {
+          out.warn('nothing to undo (no changes)')
+          return { success: true, message: 'No changes to undo' }
+        }
+
+        // Create stash with timestamp
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+        const stashMessage = `prjct-undo-${timestamp}`
+
+        execSync(`git stash push -m "${stashMessage}"`, {
+          cwd: projectPath,
+          encoding: 'utf-8'
+        })
+
+        // Save snapshot metadata
+        const snapshotFile = path.join(snapshotsPath, 'history.json')
+        let history: { snapshots: { id: string; timestamp: string; message: string }[]; current: number } = { snapshots: [], current: -1 }
+
+        try {
+          const content = await fileHelper.readFile(snapshotFile)
+          history = JSON.parse(content)
+        } catch {
+          // New history
+        }
+
+        history.snapshots.push({
+          id: stashMessage,
+          timestamp: new Date().toISOString(),
+          message: stashMessage
+        })
+        history.current = history.snapshots.length - 1
+
+        await fileHelper.writeFile(snapshotFile, JSON.stringify(history, null, 2))
+
+        await this.logToMemory(projectPath, 'undo_performed', {
+          snapshotId: stashMessage,
+          timestamp: dateHelper.getTimestamp(),
+        })
+
+        out.done('changes stashed (use /p:redo to restore)')
+        return { success: true, snapshotId: stashMessage }
+      } catch (gitError) {
+        out.fail('git operation failed')
+        return { success: false, error: (gitError as Error).message }
+      }
+    } catch (error) {
+      out.fail((error as Error).message)
+      return { success: false, error: (error as Error).message }
+    }
+  }
+
+  /**
+   * /p:redo - Restore previously undone changes
+   */
+  async redo(projectPath: string = process.cwd()): Promise<CommandResult> {
+    try {
+      const initResult = await this.ensureProjectInit(projectPath)
+      if (!initResult.success) return initResult
+
+      out.spin('restoring changes...')
+
+      const projectId = await configManager.getProjectId(projectPath)
+      if (!projectId) {
+        out.fail('no project ID')
+        return { success: false, error: 'No project ID found' }
+      }
+
+      const snapshotsPath = path.join(
+        pathManager.getGlobalProjectPath(projectId),
+        'snapshots'
+      )
+      const snapshotFile = path.join(snapshotsPath, 'history.json')
+
+      let history: { snapshots: { id: string; timestamp: string; message: string }[]; current: number }
+
+      try {
+        const content = await fileHelper.readFile(snapshotFile)
+        history = JSON.parse(content)
+      } catch {
+        out.warn('no undo history found')
+        return { success: false, message: 'No undo history found' }
+      }
+
+      if (history.snapshots.length === 0) {
+        out.warn('nothing to redo')
+        return { success: false, message: 'Nothing to redo' }
+      }
+
+      const { execSync } = await import('child_process')
+
+      try {
+        // Get latest stash
+        const stashList = execSync('git stash list', {
+          cwd: projectPath,
+          encoding: 'utf-8'
+        }).trim()
+
+        if (!stashList) {
+          out.warn('no stashed changes')
+          return { success: false, message: 'No stashed changes found' }
+        }
+
+        // Find prjct stash
+        const prjctStash = stashList.split('\n').find(line => line.includes('prjct-undo-'))
+
+        if (!prjctStash) {
+          out.warn('no prjct undo point found')
+          return { success: false, message: 'No prjct undo point found' }
+        }
+
+        // Pop the stash
+        execSync('git stash pop', {
+          cwd: projectPath,
+          encoding: 'utf-8'
+        })
+
+        // Remove from history
+        history.snapshots.pop()
+        history.current = Math.max(0, history.current - 1)
+
+        await fileHelper.writeFile(snapshotFile, JSON.stringify(history, null, 2))
+
+        await this.logToMemory(projectPath, 'redo_performed', {
+          timestamp: dateHelper.getTimestamp(),
+        })
+
+        out.done('changes restored')
+        return { success: true }
+      } catch (gitError) {
+        out.fail('git operation failed')
+        return { success: false, error: (gitError as Error).message }
+      }
+    } catch (error) {
+      out.fail((error as Error).message)
+      return { success: false, error: (error as Error).message }
+    }
+  }
+
+  /**
+   * /p:history - Show snapshot history for undo/redo
+   */
+  async history(projectPath: string = process.cwd()): Promise<CommandResult> {
+    try {
+      const initResult = await this.ensureProjectInit(projectPath)
+      if (!initResult.success) return initResult
+
+      const projectId = await configManager.getProjectId(projectPath)
+      if (!projectId) {
+        out.fail('no project ID')
+        return { success: false, error: 'No project ID found' }
+      }
+
+      const snapshotsPath = path.join(
+        pathManager.getGlobalProjectPath(projectId),
+        'snapshots'
+      )
+      const snapshotFile = path.join(snapshotsPath, 'history.json')
+
+      let history: { snapshots: { id: string; timestamp: string; message: string }[]; current: number }
+
+      try {
+        const content = await fileHelper.readFile(snapshotFile)
+        history = JSON.parse(content)
+      } catch {
+        console.log('\n📜 SNAPSHOT HISTORY\n')
+        console.log('═'.repeat(50))
+        console.log('  No snapshots yet.')
+        console.log('  Use /p:undo to create a snapshot.\n')
+        return { success: true, snapshots: [] }
+      }
+
+      console.log('\n📜 SNAPSHOT HISTORY\n')
+      console.log('═'.repeat(50))
+
+      if (history.snapshots.length === 0) {
+        console.log('  No snapshots yet.')
+        console.log('  Use /p:undo to create a snapshot.\n')
+      } else {
+        history.snapshots.forEach((snap, i) => {
+          const marker = i === history.current ? '→' : ' '
+          const date = new Date(snap.timestamp).toLocaleString()
+          console.log(`  ${marker} ${i + 1}. ${date}`)
+        })
+        console.log('')
+        console.log(`  ${history.snapshots.length} snapshot(s) available`)
+        console.log('  Use /p:redo to restore the latest\n')
+      }
+
+      console.log('═'.repeat(50) + '\n')
+
+      return { success: true, snapshots: history.snapshots, current: history.current }
     } catch (error) {
       out.fail((error as Error).message)
       return { success: false, error: (error as Error).message }

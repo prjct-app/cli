@@ -11,10 +11,17 @@
 
 import fs from 'fs'
 import path from 'path'
-import stateManager from '../state'
+import { mdStateManager, mdQueueManager } from '../data'
 import { outcomeAnalyzer } from '../outcomes'
-import type { ProjectState } from '../state/types'
+import type { StateJson, QueueJson } from '../schemas/state'
 import type { DetectedPattern } from '../outcomes/analyzer'
+
+// Unified state for prompt context
+interface ProjectState {
+  projectId: string
+  currentTask: StateJson['currentTask']
+  queue: QueueJson['tasks']
+}
 
 interface Frontmatter {
   name?: string
@@ -108,7 +115,7 @@ class PromptBuilder {
   }
 
   /**
-   * Get unified project state with caching.
+   * Get unified project state from MD managers.
    */
   async getProjectState(projectId: string): Promise<ProjectState | null> {
     if (!projectId) return null
@@ -119,7 +126,17 @@ class PromptBuilder {
     }
 
     try {
-      const state = await stateManager.read(projectId)
+      const [stateData, queueData] = await Promise.all([
+        mdStateManager.read(projectId),
+        mdQueueManager.read(projectId)
+      ])
+
+      const state: ProjectState = {
+        projectId,
+        currentTask: stateData.currentTask,
+        queue: queueData.tasks
+      }
+
       this._stateCache.set(projectId, { state, timestamp: Date.now() })
       return state
     } catch {
@@ -128,7 +145,7 @@ class PromptBuilder {
   }
 
   /**
-   * Build auto-injected context from unified state.
+   * Build auto-injected context from MD state.
    * This is automatically added to every prompt.
    */
   async buildInjectedContext(projectId: string): Promise<string | null> {
@@ -148,26 +165,10 @@ class PromptBuilder {
       const elapsed = this.calculateElapsed(state.currentTask.startedAt)
       parts.push(`**Current Task**: ${state.currentTask.description}`)
       parts.push(`- Started: ${elapsed} ago`)
-      if (state.currentTask.agent) {
-        parts.push(`- Agent: ${state.currentTask.agent}`)
-      }
-      if (state.currentTask.pausedAt) {
-        parts.push(`- Status: PAUSED (${state.currentTask.pauseReason || 'no reason'})`)
-      }
     } else {
       parts.push('**Current Task**: None')
     }
     parts.push('')
-
-    // Active feature
-    if (state.activeFeature) {
-      const progress = state.activeFeature.tasksCompleted + state.activeFeature.tasksRemaining
-      const pct = progress > 0
-        ? Math.round((state.activeFeature.tasksCompleted / progress) * 100)
-        : 0
-      parts.push(`**Feature**: ${state.activeFeature.name} (${pct}% complete)`)
-      parts.push(`- Tasks: ${state.activeFeature.tasksCompleted}/${progress}`)
-    }
 
     // Queue summary
     if (state.queue.length > 0) {
@@ -181,18 +182,6 @@ class PromptBuilder {
       }
     }
     parts.push('')
-
-    // Performance stats
-    if (state.stats.tasksToday > 0 || state.stats.streak > 0) {
-      parts.push('**Performance**')
-      parts.push(`- Today: ${state.stats.tasksToday} tasks`)
-      parts.push(`- Velocity: ${state.stats.velocity}`)
-      parts.push(`- Estimate accuracy: ${state.stats.estimateAccuracy}%`)
-      if (state.stats.streak > 1) {
-        parts.push(`- Streak: ${state.stats.streak} days`)
-      }
-      parts.push('')
-    }
 
     // Get detected patterns from outcomes
     try {
@@ -209,16 +198,6 @@ class PromptBuilder {
       }
     } catch {
       // Outcomes not available yet
-    }
-
-    // Recent activity
-    if (state.recentActivity.length > 0) {
-      parts.push('**Recent Activity**')
-      for (const activity of state.recentActivity.slice(0, 3)) {
-        const ago = this.calculateElapsed(activity.timestamp)
-        parts.push(`- ${activity.type}: ${activity.description} (${ago} ago)`)
-      }
-      parts.push('')
     }
 
     parts.push('---')

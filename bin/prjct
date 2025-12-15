@@ -6,23 +6,22 @@
  * Auto-setup on first use (like Astro, Vite, etc.)
  */
 
-const { VERSION } = require('../core/utils/version.ts')
-const editorsConfig = require('../core/infrastructure/editors-config.ts').default
+import { VERSION } from '../core/utils/version.ts'
+import editorsConfig from '../core/infrastructure/editors-config.ts'
 
 // Check for special subcommands that bypass normal CLI
 const args = process.argv.slice(2)
+
 if (args[0] === 'dev') {
   // Launch prjct dev environment
-  require('./dev.js')
+  await import('./dev.js')
   process.exitCode = 0
 } else if (args[0] === 'web' || args[0] === 'serve') {
   // Launch prjct web server
-  require('./serve.js')
+  await import('./serve.js')
   process.exitCode = 0
 } else {
-
-// Ensure setup has run for this version
-;(async function ensureSetup() {
+  // Ensure setup has run for this version
   try {
     const lastVersion = await editorsConfig.getLastVersion()
 
@@ -31,18 +30,16 @@ if (args[0] === 'dev') {
       console.log('🔧 One-time setup (v' + VERSION + ')...')
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n')
 
-      const setup = require('../core/infrastructure/setup.ts').default
+      const { default: setup } = await import('../core/infrastructure/setup.ts')
       await setup.run()
 
       console.log('✓ Setup complete!\n')
     }
   } catch (error) {
-    console.error('\n⚠️  Setup warning:', error.message)
+    console.error('\n⚠️  Setup warning:', (error as Error).message)
     console.error('You can run setup manually: prjct setup\n')
   }
 
   // Continue to main CLI logic
-  require('../core/index.ts')
-})()
-
-} // end else
+  await import('../core/index.ts')
+}

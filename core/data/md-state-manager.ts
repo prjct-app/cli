@@ -7,6 +7,7 @@
 
 import { MdBaseManager } from './md-base-manager'
 import { parseState, serializeState } from '../serializers'
+import { generateUUID } from '../schemas'
 import type { StateJson, CurrentTask, PreviousTask } from '../schemas/state'
 
 class MdStateManager extends MdBaseManager<StateJson> {
@@ -71,7 +72,7 @@ class MdStateManager extends MdBaseManager<StateJson> {
     }))
   }
 
-  async pauseTask(projectId: string): Promise<StateJson> {
+  async pauseTask(projectId: string, reason?: string): Promise<StateJson> {
     const state = await this.read(projectId)
     if (!state.currentTask) {
       throw new Error('No active task to pause')
@@ -82,7 +83,8 @@ class MdStateManager extends MdBaseManager<StateJson> {
       description: state.currentTask.description,
       status: 'paused',
       startedAt: state.currentTask.startedAt,
-      pausedAt: new Date().toISOString()
+      pausedAt: new Date().toISOString(),
+      pauseReason: reason
     }
 
     return this.update(projectId, () => ({
@@ -92,24 +94,26 @@ class MdStateManager extends MdBaseManager<StateJson> {
     }))
   }
 
-  async resumeTask(projectId: string): Promise<StateJson> {
+  async resumeTask(projectId: string, _taskId?: string): Promise<CurrentTask | null> {
     const state = await this.read(projectId)
     if (!state.previousTask) {
-      throw new Error('No paused task to resume')
+      return null
     }
 
     const currentTask: CurrentTask = {
       id: state.previousTask.id,
       description: state.previousTask.description,
-      startedAt: new Date().toISOString(), // Reset start time
-      sessionId: `sess_${Date.now()}`
+      startedAt: new Date().toISOString(),
+      sessionId: generateUUID()
     }
 
-    return this.update(projectId, () => ({
+    await this.update(projectId, () => ({
       currentTask,
       previousTask: null,
       lastUpdated: new Date().toISOString()
     }))
+
+    return currentTask
   }
 
   async clearTask(projectId: string): Promise<StateJson> {

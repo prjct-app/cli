@@ -5,6 +5,13 @@ import { Zap, TrendingUp, TrendingDown, Target } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { VelocityCardProps } from './VelocityCard.types'
 
+function getChangeColor(change: number): string {
+  if (change >= 10) return 'text-emerald-600 dark:text-emerald-400'
+  if (change >= 0) return 'text-amber-600 dark:text-amber-400'
+  if (change >= -10) return 'text-amber-600 dark:text-amber-400'
+  return 'text-red-600 dark:text-red-400'
+}
+
 export function VelocityCard({
   tasksPerDay,
   weeklyData = [],
@@ -25,13 +32,13 @@ export function VelocityCard({
           </span>
         </div>
         {change !== 0 && (
-          <div className="flex items-center gap-1">
+          <div className={cn("flex items-center gap-1", getChangeColor(change))}>
             {change >= 0 ? (
-              <TrendingUp className="h-3.5 w-3.5 text-muted-foreground" />
+              <TrendingUp className="h-3.5 w-3.5" />
             ) : (
-              <TrendingDown className="h-3.5 w-3.5 text-muted-foreground" />
+              <TrendingDown className="h-3.5 w-3.5" />
             )}
-            <span className="text-xs font-bold text-muted-foreground">
+            <span className="text-xs font-bold">
               {change >= 0 ? '+' : ''}{change}%
             </span>
           </div>

@@ -1,8 +1,10 @@
 /**
- * Analytics Commands: context, recap, progress, status, roadmap, stuck
+ * Analytics Commands: dash, help
+ * Unified dashboard and contextual help - MD-First Architecture
  */
 
 import path from 'path'
+import registry from '../command-registry'
 
 import type { CommandResult, Context } from './types'
 import {
@@ -15,6 +17,7 @@ import {
   dateHelper,
   out
 } from './base'
+import { stateStorage, queueStorage, shippedStorage, ideasStorage } from '../storage'
 
 interface MemoryEntry {
   timestamp: string
@@ -24,265 +27,296 @@ interface MemoryEntry {
 
 export class AnalyticsCommands extends PrjctCommandsBase {
   /**
-   * /p:context - Show project context and recent activity
+   * /p:dash - Unified dashboard
+   * Views: default, week, month, roadmap, compact
    */
-  async context(projectPath: string = process.cwd()): Promise<CommandResult> {
+  async dash(view: string = 'default', projectPath: string = process.cwd()): Promise<CommandResult> {
     try {
       const initResult = await this.ensureProjectInit(projectPath)
       if (!initResult.success) return initResult
-
-      out.spin('loading context...')
-      const context = await contextBuilder.build(projectPath) as Context
-
-      const nowContent = (await toolRegistry.get('Read')!(context.paths.now)) as string | null
-      const nextContent = (await toolRegistry.get('Read')!(context.paths.next)) as string | null
-
-      let task = 'none'
-      if (nowContent && !nowContent.includes('No current task')) {
-        const taskMatch = nowContent.match(/\*\*(.+?)\*\*/)
-        task = taskMatch ? taskMatch[1] : 'active'
-      }
-
-      const nextLines = nextContent?.split('\n').filter((line) => line.trim() && !line.startsWith('#')) || []
-      const queueCount = nextLines.length
-
-      await this.logToMemory(projectPath, 'context_viewed', { timestamp: dateHelper.getTimestamp() })
-
-      out.done(`task: ${task} | queue: ${queueCount}`)
-      return { success: true }
-    } catch (error) {
-      out.fail((error as Error).message)
-      return { success: false, error: (error as Error).message }
-    }
-  }
-
-  /**
-   * /p:recap - Show project overview with progress
-   */
-  async recap(projectPath: string = process.cwd()): Promise<CommandResult> {
-    try {
-      const initResult = await this.ensureProjectInit(projectPath)
-      if (!initResult.success) return initResult
-
-      out.spin('loading recap...')
-      const context = await contextBuilder.build(projectPath) as Context
-
-      const shippedContent = (await toolRegistry.get('Read')!(context.paths.shipped)) as string | null
-      const shippedFeatures = shippedContent?.split('##').filter((s) => s.trim() && !s.includes('SHIPPED')) || []
-
-      const nextContent = (await toolRegistry.get('Read')!(context.paths.next)) as string | null
-      const nextTasks = nextContent?.split('\n').filter((l) => l.match(/^\d+\./) || l.includes('[ ]')).length || 0
-
-      const ideasContent = (await toolRegistry.get('Read')!(context.paths.ideas)) as string | null
-      const ideas = ideasContent?.split('##').filter((s) => s.trim() && !s.includes('IDEAS') && !s.includes('Brain')).length || 0
-
-      await this.logToMemory(projectPath, 'recap_viewed', {
-        shipped: shippedFeatures.length,
-        tasks: nextTasks,
-        timestamp: dateHelper.getTimestamp(),
-      })
-
-      out.done(`shipped: ${shippedFeatures.length} | queue: ${nextTasks} | ideas: ${ideas}`)
-      return { success: true, stats: { shipped: shippedFeatures.length, tasks: nextTasks, ideas } }
-    } catch (error) {
-      out.fail((error as Error).message)
-      return { success: false, error: (error as Error).message }
-    }
-  }
-
-  /**
-   * /p:stuck - Get contextual help with problems
-   */
-  async stuck(issue: string, projectPath: string = process.cwd()): Promise<CommandResult> {
-    try {
-      const initResult = await this.ensureProjectInit(projectPath)
-      if (!initResult.success) return initResult
-
-      if (!issue) {
-        out.fail('issue description required')
-        return { success: false, error: 'Issue description required' }
-      }
-
-      out.spin('logging issue...')
-
-      const analyzer = require('../domain/analyzer')
-      analyzer.init(projectPath)
-      const packageJson = await analyzer.readPackageJson()
-      const detectedStack = packageJson?.name || 'project'
-
-      await this.logToMemory(projectPath, 'help_requested', {
-        issue,
-        stack: detectedStack,
-        timestamp: dateHelper.getTimestamp(),
-      })
-
-      out.done(`issue logged: ${issue.slice(0, 40)}`)
-      return { success: true, issue, stack: detectedStack }
-    } catch (error) {
-      out.fail((error as Error).message)
-      return { success: false, error: (error as Error).message }
-    }
-  }
-
-  /**
-   * /p:progress - Show metrics for period
-   */
-  async progress(period: string = 'week', projectPath: string = process.cwd()): Promise<CommandResult> {
-    try {
-      const initResult = await this.ensureProjectInit(projectPath)
-      if (!initResult.success) return initResult
-
-      const validPeriods = ['day', 'week', 'month', 'all']
-      if (!validPeriods.includes(period)) period = 'week'
-
-      out.spin(`loading ${period} progress...`)
 
       const projectId = await configManager.getProjectId(projectPath)
-      const memoryPath = pathManager.getFilePath(projectId!, 'memory', 'context.jsonl')
-
-      const startDate = period === 'day' ? dateHelper.getDaysAgo(1) :
-                        period === 'week' ? dateHelper.getDaysAgo(7) :
-                        period === 'month' ? dateHelper.getDaysAgo(30) : new Date(0)
-
-      let entries: MemoryEntry[] = []
-      try {
-        const allEntries = await jsonlHelper.readJsonLines(memoryPath) as MemoryEntry[]
-        entries = allEntries.filter((e) => new Date(e.timestamp) >= startDate)
-      } catch { entries = [] }
-
-      const metrics = {
-        tasksCompleted: entries.filter((e) => e.action === 'task_completed').length,
-        featuresShipped: entries.filter((e) => e.action === 'feature_shipped').length,
-        totalActions: entries.length,
+      if (!projectId) {
+        out.fail('no project ID')
+        return { success: false, error: 'No project ID found' }
       }
 
-      await this.logToMemory(projectPath, 'progress_viewed', { period, metrics, timestamp: dateHelper.getTimestamp() })
+      const projectName = path.basename(projectPath)
 
-      out.done(`${period}: ${metrics.tasksCompleted} tasks | ${metrics.featuresShipped} shipped`)
-      return { success: true, period, metrics }
-    } catch (error) {
-      out.fail((error as Error).message)
-      return { success: false, error: (error as Error).message }
-    }
-  }
+      // Get current task (from storage layer - JSON source of truth)
+      const currentTask = await stateStorage.getCurrentTask(projectId)
 
-  /**
-   * /p:roadmap - Show roadmap with ASCII logic maps
-   */
-  async roadmap(projectPath: string = process.cwd()): Promise<CommandResult> {
-    try {
-      const initResult = await this.ensureProjectInit(projectPath)
-      if (!initResult.success) return initResult
+      // Get queue
+      const queueTasks = await queueStorage.getActiveTasks(projectId)
 
-      out.spin('loading roadmap...')
-      const context = await contextBuilder.build(projectPath) as Context
-      const roadmapContent = (await toolRegistry.get('Read')!(context.paths.roadmap)) as string | null
+      // Get shipped (recent)
+      const shipped = await shippedStorage.getRecent(projectId, 5)
 
-      if (!roadmapContent || roadmapContent.trim() === '# ROADMAP') {
-        out.warn('no roadmap yet')
-        return { success: true, message: 'No roadmap' }
+      // Get ideas
+      const ideas = await ideasStorage.getPending(projectId)
+
+      if (view === 'compact') {
+        // One-liner status
+        const taskStatus = currentTask ? `🎯 ${currentTask.description.slice(0, 30)}` : '💤 idle'
+        const queueStatus = `📋 ${queueTasks.length}`
+        const shippedStatus = `🚀 ${shipped.length}`
+        out.done(`${taskStatus} | ${queueStatus} | ${shippedStatus}`)
+        return { success: true, view: 'compact' }
       }
 
-      const features = (roadmapContent.match(/##/g) || []).length
+      if (view === 'week' || view === 'month') {
+        // Period-based metrics
+        const days = view === 'week' ? 7 : 30
+        const startDate = dateHelper.getDaysAgo(days)
 
-      await this.logToMemory(projectPath, 'roadmap_viewed', { timestamp: dateHelper.getTimestamp() })
+        const memoryPath = pathManager.getFilePath(projectId, 'memory', 'context.jsonl')
+        let entries: MemoryEntry[] = []
+        try {
+          const allEntries = await jsonlHelper.readJsonLines(memoryPath) as MemoryEntry[]
+          entries = allEntries.filter((e) => new Date(e.timestamp) >= startDate)
+        } catch { entries = [] }
 
-      out.done(`${features} features in roadmap`)
-      return { success: true, content: roadmapContent }
-    } catch (error) {
-      out.fail((error as Error).message)
-      return { success: false, error: (error as Error).message }
-    }
-  }
+        const metrics = {
+          tasksCompleted: entries.filter((e) => e.action === 'task_completed').length,
+          featuresShipped: entries.filter((e) => e.action === 'feature_shipped').length,
+          totalActions: entries.length,
+        }
 
-  /**
-   * /p:status - KPI dashboard with ASCII graphics
-   */
-  async status(projectPath: string = process.cwd()): Promise<CommandResult> {
-    try {
-      const initResult = await this.ensureProjectInit(projectPath)
-      if (!initResult.success) return initResult
+        console.log(`\n📊 ${view.toUpperCase()} PROGRESS - ${projectName}\n`)
+        console.log('═'.repeat(50))
+        console.log(`  Tasks completed: ${metrics.tasksCompleted}`)
+        console.log(`  Features shipped: ${metrics.featuresShipped}`)
+        console.log(`  Total actions: ${metrics.totalActions}`)
+        console.log('═'.repeat(50))
 
-      console.log('📊 Project Status Dashboard\n')
+        // ASCII sparkline
+        const sparkline = this._generateSparkline(entries, days)
+        console.log(`\n  Activity: ${sparkline}\n`)
 
-      const context = await contextBuilder.build(projectPath) as Context
-
-      const nowContent = (await toolRegistry.get('Read')!(context.paths.now)) as string | null
-      const nextContent = (await toolRegistry.get('Read')!(context.paths.next)) as string | null
-      const shippedContent = (await toolRegistry.get('Read')!(context.paths.shipped)) as string | null
-      const ideasContent = (await toolRegistry.get('Read')!(context.paths.ideas)) as string | null
-
-      const stats = {
-        activeTask: !!(nowContent && !nowContent.includes('No current task')),
-        tasksInQueue:
-          nextContent
-            ?.split('\n')
-            .filter((line) => line.trim().match(/^\d+\./) || line.includes('[ ]')).length || 0,
-        featuresShipped:
-          shippedContent
-            ?.split('##')
-            .filter((section) => section.trim() && !section.includes('SHIPPED 🚀')).length || 0,
-        ideasCaptured:
-          ideasContent
-            ?.split('##')
-            .filter(
-              (section) =>
-                section.trim() && !section.includes('IDEAS 💡') && !section.includes('Brain Dump')
-            ).length || 0,
+        return { success: true, view, metrics }
       }
 
-      console.log('═══════════════════════════════════════════════════')
-      console.log(`  ${path.basename(projectPath)} - Status Overview`)
-      console.log('═══════════════════════════════════════════════════\n')
+      if (view === 'roadmap') {
+        // Roadmap view
+        const context = await contextBuilder.build(projectPath) as Context
+        const roadmapContent = (await toolRegistry.get('Read')!(context.paths.roadmap)) as string | null
 
-      console.log('## 🎯 Current Focus\n')
-      if (stats.activeTask && nowContent) {
-        const taskMatch = nowContent.match(/\*\*(.+?)\*\*/)
-        const task = taskMatch ? taskMatch[1] : 'Active task'
-        const startedMatch = nowContent.match(/Started: (.+)/)
-        const started = startedMatch ? startedMatch[1] : 'Unknown'
-        console.log(`   📌 ${task}`)
-        console.log(`   ⏱️  Started: ${started}\n`)
+        console.log(`\n🗺️  ROADMAP - ${projectName}\n`)
+        console.log('═'.repeat(50))
+
+        if (!roadmapContent || roadmapContent.trim() === '# ROADMAP') {
+          console.log('  No features planned yet.')
+          console.log('  Use /p:feature to add features.\n')
+        } else {
+          // Parse and display roadmap
+          const features = roadmapContent.split('##').filter(s => s.trim() && !s.includes('ROADMAP'))
+          features.slice(0, 5).forEach((f, i) => {
+            const name = f.split('\n')[0].trim()
+            console.log(`  ${i + 1}. ${name}`)
+          })
+          if (features.length > 5) {
+            console.log(`  ... and ${features.length - 5} more`)
+          }
+        }
+        console.log('═'.repeat(50) + '\n')
+
+        return { success: true, view: 'roadmap' }
+      }
+
+      // Default view - project overview
+      console.log(`\n📊 DASHBOARD - ${projectName}\n`)
+      console.log('═'.repeat(50))
+
+      // Current task
+      console.log('\n🎯 CURRENT FOCUS')
+      if (currentTask) {
+        console.log(`   ${currentTask.description}`)
+        if (currentTask.startedAt) {
+          const elapsed = dateHelper.calculateDuration(new Date(currentTask.startedAt))
+          console.log(`   Started: ${elapsed} ago`)
+        }
       } else {
-        console.log('   No active task\n')
+        console.log('   No active task. Use /p:work to start.')
       }
 
-      console.log('## 📋 Queue Status\n')
-      console.log(`   Tasks in Queue: ${stats.tasksInQueue}`)
-      this._renderProgressBar('Queue Load', stats.tasksInQueue, 20)
-      console.log('')
+      // Queue
+      console.log('\n📋 QUEUE')
+      if (queueTasks.length === 0) {
+        console.log('   Queue is empty')
+      } else {
+        queueTasks.slice(0, 3).forEach((t, i) => {
+          const priority = t.priority ? `[${t.priority}]` : ''
+          console.log(`   ${i + 1}. ${t.description.slice(0, 40)} ${priority}`)
+        })
+        if (queueTasks.length > 3) {
+          console.log(`   ... and ${queueTasks.length - 3} more`)
+        }
+      }
 
-      console.log('## 🚀 Shipped Features\n')
-      console.log(`   Features Shipped: ${stats.featuresShipped}`)
-      this._renderProgressBar('Progress', stats.featuresShipped, 10)
-      console.log('')
+      // Recent ships
+      console.log('\n🚀 RECENT SHIPS')
+      if (shipped.length === 0) {
+        console.log('   Nothing shipped yet')
+      } else {
+        shipped.slice(0, 3).forEach((s) => {
+          const date = s.shippedAt ? new Date(s.shippedAt).toLocaleDateString() : ''
+          console.log(`   • ${s.name} ${date ? `(${date})` : ''}`)
+        })
+      }
 
-      console.log('## 💡 Ideas Backlog\n')
-      console.log(`   Ideas Captured: ${stats.ideasCaptured}`)
-      this._renderProgressBar('Backlog', stats.ideasCaptured, 15)
-      console.log('')
+      // Ideas
+      console.log('\n💡 IDEAS')
+      console.log(`   ${ideas.length} pending ideas`)
 
-      console.log('## 💚 Overall Health\n')
-      const health = this._calculateHealth(stats)
-      console.log(`   Health Score: ${health.score}/100`)
-      this._renderProgressBar('Health', health.score, 100)
-      console.log(`   ${health.message}\n`)
+      console.log('\n' + '═'.repeat(50))
+      console.log('💡 /p:work to start | /p:done to complete | /p:ship to ship\n')
 
-      console.log('💡 Next steps:')
-      console.log('• /p:now → Start working on a task')
-      console.log('• /p:feature → Add new feature')
-      console.log('• /p:ship → Ship completed work')
-
-      await this.logToMemory(projectPath, 'status_viewed', {
-        stats,
-        health: health.score,
+      await this.logToMemory(projectPath, 'dash_viewed', {
+        view,
         timestamp: dateHelper.getTimestamp(),
       })
 
-      return { success: true, stats, health }
+      return {
+        success: true,
+        view: 'default',
+        stats: {
+          currentTask: currentTask?.description || null,
+          queueCount: queueTasks.length,
+          shippedCount: shipped.length,
+          ideasCount: ideas.length
+        }
+      }
     } catch (error) {
-      console.error('❌ Error:', (error as Error).message)
+      out.fail((error as Error).message)
       return { success: false, error: (error as Error).message }
     }
+  }
+
+  /**
+   * /p:help - Contextual help and guidance
+   */
+  async help(topic: string = '', projectPath: string = process.cwd()): Promise<CommandResult> {
+    try {
+      if (!topic) {
+        // Show command overview
+        console.log('\n🔧 PRJCT COMMANDS\n')
+        console.log('═'.repeat(50))
+
+        const categories = registry.getCategories()
+        const commands = registry.getAll()
+
+        // Group by category
+        const byCategory: Record<string, typeof commands> = {}
+        commands.forEach(cmd => {
+          if (cmd.deprecated) return
+          if (!byCategory[cmd.category]) byCategory[cmd.category] = []
+          byCategory[cmd.category].push(cmd)
+        })
+
+        Object.entries(byCategory).forEach(([cat, cmds]) => {
+          const catInfo = categories[cat]
+          console.log(`\n${catInfo?.title || cat}:`)
+          cmds.forEach(cmd => {
+            const params = cmd.params ? ` ${cmd.params}` : ''
+            console.log(`  ${cmd.name}${params}`)
+            console.log(`    ${cmd.description}`)
+          })
+        })
+
+        console.log('\n' + '═'.repeat(50))
+        console.log('💡 Use /p:help <command> for detailed help\n')
+
+        return { success: true, topic: 'overview' }
+      }
+
+      // Topic-specific help
+      const command = registry.getByName(topic)
+      if (command) {
+        console.log(`\n📚 HELP: /p:${command.name}\n`)
+        console.log('═'.repeat(50))
+        console.log(`Description: ${command.description}`)
+
+        if (command.params) {
+          console.log(`Parameters: ${command.params}`)
+        }
+
+        if (command.usage) {
+          console.log('\nUsage:')
+          if (command.usage.claude) console.log(`  Claude: ${command.usage.claude}`)
+          if (command.usage.terminal) console.log(`  Terminal: ${command.usage.terminal}`)
+        }
+
+        if (command.features) {
+          console.log('\nFeatures:')
+          command.features.forEach(f => console.log(`  • ${f}`))
+        }
+
+        console.log('\n' + '═'.repeat(50) + '\n')
+        return { success: true, topic, command }
+      }
+
+      // Intent translation (like old /p:ask)
+      const intents: Record<string, { command: string; hint: string }> = {
+        'start': { command: 'work', hint: 'Start working on a task' },
+        'begin': { command: 'work', hint: 'Start working on a task' },
+        'finish': { command: 'done', hint: 'Mark current task complete' },
+        'complete': { command: 'done', hint: 'Mark current task complete' },
+        'deploy': { command: 'ship', hint: 'Ship a feature' },
+        'release': { command: 'ship', hint: 'Ship a feature' },
+        'status': { command: 'dash', hint: 'View project dashboard' },
+        'overview': { command: 'dash', hint: 'View project dashboard' },
+        'queue': { command: 'next', hint: 'View task queue' },
+        'tasks': { command: 'next', hint: 'View task queue' },
+        'add': { command: 'feature', hint: 'Add a new feature' },
+        'new': { command: 'feature', hint: 'Add a new feature' },
+        'break': { command: 'pause', hint: 'Pause current task' },
+        'stop': { command: 'pause', hint: 'Pause current task' },
+        'continue': { command: 'resume', hint: 'Resume paused task' },
+        'back': { command: 'resume', hint: 'Resume paused task' },
+      }
+
+      const lowerTopic = topic.toLowerCase()
+      for (const [intent, info] of Object.entries(intents)) {
+        if (lowerTopic.includes(intent)) {
+          console.log(`\n💡 Did you mean /p:${info.command}?`)
+          console.log(`   ${info.hint}\n`)
+          return { success: true, topic, suggestion: info.command }
+        }
+      }
+
+      console.log(`\n❓ Unknown topic: ${topic}`)
+      console.log('   Use /p:help to see all commands\n')
+      return { success: false, error: `Unknown topic: ${topic}` }
+    } catch (error) {
+      out.fail((error as Error).message)
+      return { success: false, error: (error as Error).message }
+    }
+  }
+
+  /**
+   * Generate ASCII sparkline for activity
+   */
+  private _generateSparkline(entries: MemoryEntry[], days: number): string {
+    const bars = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█']
+    const now = new Date()
+    const counts: number[] = []
+
+    // Count entries per day
+    for (let i = days - 1; i >= 0; i--) {
+      const date = new Date(now)
+      date.setDate(date.getDate() - i)
+      const dayStart = new Date(date.setHours(0, 0, 0, 0))
+      const dayEnd = new Date(date.setHours(23, 59, 59, 999))
+
+      const count = entries.filter(e => {
+        const ts = new Date(e.timestamp)
+        return ts >= dayStart && ts <= dayEnd
+      }).length
+
+      counts.push(count)
+    }
+
+    const max = Math.max(...counts, 1)
+    return counts.map(c => bars[Math.floor((c / max) * (bars.length - 1))]).join('')
   }
 }

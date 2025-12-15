@@ -1,20 +1,21 @@
 /**
  * Shipping Commands: ship and related helpers
+ * Write-Through Architecture: JSON → MD → Event
  */
 
 import path from 'path'
 
 import memorySystem from '../agentic/memory-system'
-import type { CommandResult, Context } from './types'
+import type { CommandResult } from './types'
 import {
   PrjctCommandsBase,
-  contextBuilder,
   toolRegistry,
   configManager,
   fileHelper,
   dateHelper,
   out
 } from './base'
+import { stateStorage, shippedStorage } from '../storage'
 
 export class ShippingCommands extends PrjctCommandsBase {
   /**
@@ -25,16 +26,14 @@ export class ShippingCommands extends PrjctCommandsBase {
       const initResult = await this.ensureProjectInit(projectPath)
       if (!initResult.success) return initResult
 
+      const config = await configManager.readConfig(projectPath)
+      const projectId = config!.projectId
+
       let featureName = feature
       if (!featureName) {
-        const context = await contextBuilder.build(projectPath) as Context
-        const nowContent = await toolRegistry.get('Read')!(context.paths.now) as string
-        if (nowContent && nowContent.includes('**')) {
-          const match = nowContent.match(/\*\*(.+?)\*\*/)
-          featureName = match ? match[1] : 'current work'
-        } else {
-          featureName = 'current work'
-        }
+        // Read from storage (JSON is source of truth)
+        const currentTask = await stateStorage.getCurrentTask(projectId)
+        featureName = currentTask?.description || 'current work'
       }
 
       out.spin(`shipping ${featureName}...`)
@@ -56,20 +55,17 @@ export class ShippingCommands extends PrjctCommandsBase {
         await this._gitPush(projectPath)
       }
 
-      const context = await contextBuilder.build(projectPath) as Context
-      const shippedContent =
-        (await toolRegistry.get('Read')!(context.paths.shipped) as string) || '# SHIPPED 🚀\n\n'
-      const shippedEntry = `\n## ${featureName}\n\nShipped: ${new Date().toLocaleString()}\nVersion: ${newVersion}\n`
-      await toolRegistry.get('Write')!(context.paths.shipped, shippedContent + shippedEntry)
+      // Write-through: Record shipped feature (JSON → MD → Event)
+      await shippedStorage.addShipped(projectId, {
+        name: featureName,
+        version: newVersion
+      })
 
       await this.logToMemory(projectPath, 'feature_shipped', {
         feature: featureName,
         version: newVersion,
         timestamp: dateHelper.getTimestamp(),
       })
-
-      const config = await configManager.readConfig(projectPath)
-      const projectId = config!.projectId
 
       await memorySystem.learnDecision(projectId, 'commit_footer', 'prjct', 'ship')
 

@@ -19,6 +19,7 @@ export function BentoCard({
         'p-3 sm:p-4',
         'hover:shadow-md hover:border-foreground/20',
         'active:scale-[0.99]',
+        'min-w-0 max-w-full',
         BENTO_SIZE_CLASSES[size],
         ACCENT_STYLES[accentColor],
         className

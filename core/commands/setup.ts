@@ -4,9 +4,12 @@
 
 import path from 'path'
 import fs from 'fs'
+import { promises as fsPromises } from 'fs'
 import os from 'os'
+import chalk from 'chalk'
 
 import migrator from '../infrastructure/migrator'
+import commandInstaller from '../infrastructure/command-installer'
 import type { CommandResult, SetupOptions, MigrateOptions, GlobalConfig, MigrationResult } from './types'
 import {
   PrjctCommandsBase,
@@ -20,8 +23,6 @@ export class SetupCommands extends PrjctCommandsBase {
    * First-time setup - Install commands to editors
    */
   async start(): Promise<CommandResult> {
-    const commandInstaller = require('../infrastructure/command-installer')
-
     console.log('🚀 Setting up prjct for Claude...\n')
 
     const status = await commandInstaller.checkInstallation()
@@ -69,8 +70,6 @@ export class SetupCommands extends PrjctCommandsBase {
    * Reconfigure editor installations
    */
   async setup(options: SetupOptions = {}): Promise<CommandResult> {
-    const commandInstaller = require('../infrastructure/command-installer')
-
     console.log('🔧 Reconfiguring prjct...\n')
 
     if (options.force) {
@@ -188,8 +187,6 @@ fi
    * Show beautiful ASCII art with quick start
    */
   showAsciiArt(): void {
-    const chalk = require('chalk')
-
     console.log(chalk.cyan('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'))
     console.log('')
     console.log(chalk.bold.cyan('   ██████╗ ██████╗      ██╗ ██████╗████████╗'))
@@ -232,8 +229,6 @@ fi
    * Migrate all legacy projects
    */
   async migrateAll(options: MigrateOptions = {}): Promise<CommandResult> {
-    const fsPromises = require('fs').promises
-
     console.log('🔄 Scanning for legacy prjct projects...\n')
 
     const homeDir = os.homedir()

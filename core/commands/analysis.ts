@@ -13,6 +13,9 @@ import {
   configManager,
   dateHelper
 } from './base'
+import analyzer from '../domain/analyzer'
+import contextSync from '../context-sync'
+import commandInstaller from '../infrastructure/command-installer'
 
 export class AnalysisCommands extends PrjctCommandsBase {
   /**
@@ -24,7 +27,6 @@ export class AnalysisCommands extends PrjctCommandsBase {
 
       console.log('🔍 Analyzing repository...\n')
 
-      const analyzer = require('../domain/analyzer')
       analyzer.init(projectPath)
 
       const context = await contextBuilder.build(projectPath, options) as Context
@@ -69,10 +71,8 @@ export class AnalysisCommands extends PrjctCommandsBase {
         gitCommits: analysisData.gitStats.totalCommits,
       })
 
-      const contextSync = require('../context-sync')
       await contextSync.generateLocalContext(projectPath, projectId)
 
-      const commandInstaller = require('../infrastructure/command-installer')
       const globalConfigResult = await commandInstaller.installGlobalConfig()
       if (globalConfigResult.success) {
         console.log('📝 Updated ~/.claude/CLAUDE.md')
@@ -189,7 +189,11 @@ export class AnalysisCommands extends PrjctCommandsBase {
   }
 
   /**
-   * /p:sync - Sync project state and generate dynamic agents
+   * /p:sync - Sync project state with raw data for Claude to analyze
+   *
+   * AGENTIC: This command gathers RAW data and puts it in CLAUDE.md
+   * Claude then reads the data and decides what agents to create.
+   * NO hardcoded if/else logic for technology detection.
    */
   async sync(projectPath: string = process.cwd()): Promise<CommandResult> {
     try {
@@ -200,8 +204,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
 
       console.log('🔄 Syncing project state...\n')
 
-      const context = await contextBuilder.build(projectPath) as Context
-
+      // 1. Run analysis to gather raw data
       console.log('📊 Running analysis...')
       const analysisResult = await this.analyze({}, projectPath)
 
@@ -210,53 +213,34 @@ export class AnalysisCommands extends PrjctCommandsBase {
         return analysisResult
       }
 
-      const summaryContent = (await toolRegistry.get('Read')!(context.paths.analysis)) as string | null
-
-      if (!summaryContent) {
-        console.error('❌ No analysis found. Run /p:analyze first.')
-        return { success: false, error: 'No analysis found' }
-      }
-
-      console.log('✅ Analysis loaded\n')
-
-      console.log('🤖 Generating specialized agents...\n')
-
       const projectId = await configManager.getProjectId(projectPath)
-      const AgentGenerator = require('../domain/agent-generator')
-      const generator = new AgentGenerator(projectId)
 
-      const generatedAgents = await this._generateAgentsFromAnalysis(summaryContent, generator, projectPath)
-
-      await this.logToMemory(projectPath, 'agents_generated', {
-        timestamp: dateHelper.getTimestamp(),
-        agents: generatedAgents,
-        count: generatedAgents.length,
-      })
-
-      const contextSync = require('../context-sync')
+      // 2. Generate CLAUDE.md with RAW DATA (no processing)
+      // Claude will read this and decide what to do
       await contextSync.generateLocalContext(projectPath, projectId)
 
-      const commandInstaller = require('../infrastructure/command-installer')
+      // 3. Update global config
       const globalConfigResult = await commandInstaller.installGlobalConfig()
       if (globalConfigResult.success) {
         console.log('📝 Updated ~/.claude/CLAUDE.md')
       }
 
-      console.log('\n✅ Sync complete!\n')
-      console.log(`🤖 Agents Generated: ${generatedAgents.length}`)
-      generatedAgents.forEach((agent) => {
-        console.log(`   • ${agent}`)
+      // 4. Log to memory
+      await this.logToMemory(projectPath, 'sync_complete', {
+        timestamp: dateHelper.getTimestamp(),
+        projectId,
       })
+
+      console.log('\n✅ Sync complete!\n')
       console.log('📝 Context: ~/.prjct-cli/projects/' + projectId + '/CLAUDE.md')
-      console.log('\n📋 Based on: analysis/repo-summary.md')
-      console.log('💡 See templates/agents/AGENTS.md for reference\n')
+      console.log('\n📋 CLAUDE.md contains RAW project data.')
+      console.log('💡 Claude reads this data and decides what specialists to create.\n')
       console.log('Next steps:')
-      console.log('• /p:context → View project state')
+      console.log('• Read CLAUDE.md to see project data')
       console.log('• /p:feature → Add a feature')
 
       return {
         success: true,
-        agents: generatedAgents,
       }
     } catch (error) {
       console.error('❌ Error:', (error as Error).message)
@@ -264,35 +248,4 @@ export class AnalysisCommands extends PrjctCommandsBase {
     }
   }
 
-  /**
-   * Generate agents dynamically from analysis summary
-   */
-  async _generateAgentsFromAnalysis(summaryContent: string, generator: unknown, projectPath: string): Promise<string[]> {
-    const agents: string[] = []
-
-    const analyzer = require('../domain/analyzer')
-    analyzer.init(projectPath)
-
-    const projectData = {
-      packageJson: await analyzer.readPackageJson(),
-      extensions: await analyzer.getFileExtensions(),
-      directories: await analyzer.listDirectories(),
-      configFiles: await analyzer.listConfigFiles(),
-      analysisSummary: summaryContent,
-      projectPath
-    }
-
-    const gen = generator as { generateAgentsFromTech: (data: unknown) => Promise<Array<{ name?: string } | string>> }
-    const generatedAgents = await gen.generateAgentsFromTech(projectData)
-
-    generatedAgents.forEach(agent => {
-      if (typeof agent === 'string') {
-        agents.push(agent)
-      } else if (agent.name) {
-        agents.push(agent.name)
-      }
-    })
-
-    return agents
-  }
 }

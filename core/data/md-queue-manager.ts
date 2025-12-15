@@ -7,6 +7,7 @@
 
 import { MdBaseManager } from './md-base-manager'
 import { parseQueue, serializeQueue } from '../serializers'
+import { generateUUID } from '../schemas'
 import type { QueueJson, QueueTask, Priority, TaskType, TaskSection } from '../schemas/state'
 
 class MdQueueManager extends MdBaseManager<QueueJson> {
@@ -52,7 +53,7 @@ class MdQueueManager extends MdBaseManager<QueueJson> {
   ): Promise<QueueJson> {
     const newTask: QueueTask = {
       ...task,
-      id: `task_${Date.now()}`,
+      id: generateUUID(),
       createdAt: new Date().toISOString(),
       completed: false
     }
@@ -119,9 +120,9 @@ class MdQueueManager extends MdBaseManager<QueueJson> {
     projectId: string,
     tasks: Array<Omit<QueueTask, 'id' | 'createdAt' | 'completed'>>
   ): Promise<QueueJson> {
-    const newTasks: QueueTask[] = tasks.map((task, i) => ({
+    const newTasks: QueueTask[] = tasks.map((task) => ({
       ...task,
-      id: `task_${Date.now()}_${i}`,
+      id: generateUUID(),
       createdAt: new Date().toISOString(),
       completed: false
     }))

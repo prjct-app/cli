@@ -91,7 +91,7 @@ export function QueueCard({ queue, codeHref, className }: QueueCardProps) {
                   {startHref && (
                     <Link
                       href={startHref}
-                      className="p-1 rounded hover:bg-green-500/20 text-muted-foreground hover:text-green-600 transition-colors"
+                      className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                       title="Start now"
                     >
                       <Play className="h-3.5 w-3.5" />
@@ -100,7 +100,7 @@ export function QueueCard({ queue, codeHref, className }: QueueCardProps) {
                   {deleteHref && (
                     <Link
                       href={deleteHref}
-                      className="p-1 rounded hover:bg-red-500/20 text-muted-foreground hover:text-red-600 transition-colors"
+                      className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                       title="Remove from queue"
                     >
                       <X className="h-3.5 w-3.5" />

@@ -25,6 +25,7 @@ export interface PreviousTask {
   status: 'paused'
   startedAt: string           // ISO8601
   pausedAt: string            // ISO8601
+  pauseReason?: string        // Optional reason for pausing
 }
 
 // StateJson is the wrapper for state.json file

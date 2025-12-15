@@ -39,7 +39,7 @@ import contextFilter from './context-filter'
 import validationRules from './validation-rules'
 import agentRouter from './agent-router'
 import smartContext from './smart-context'
-import stateManager from '../state'
+import { mdManagers } from '../data'
 import { outcomeRecorder, outcomeAnalyzer } from '../outcomes'
 import { agentPerformanceTracker } from '../agents'
 
@@ -151,10 +151,10 @@ export interface AgenticServices {
   smartContext: typeof smartContext
 
   /**
-   * State manager - unified project state (read/write state.json)
-   * @see stateManager
+   * MD managers - MD-first state management
+   * @see mdManagers
    */
-  state: typeof stateManager
+  data: typeof mdManagers
 
   /**
    * Outcome recorder - records execution outcomes
@@ -197,7 +197,7 @@ export const services: AgenticServices = {
   validation: validationRules,
   router: agentRouter,
   smartContext: smartContext,
-  state: stateManager,
+  data: mdManagers,
   outcomes: outcomeRecorder,
   outcomeAnalysis: outcomeAnalyzer,
   agentPerformance: agentPerformanceTracker,

@@ -66,7 +66,7 @@ export function IdeasCard({ ideas, codeHref, className }: IdeasCardProps) {
                 className="flex items-start gap-2 py-1.5 group hover:bg-muted/50 rounded px-1 -mx-1"
               >
                 {idea.impact === 'HIGH' ? (
-                  <Sparkles className="h-3 w-3 mt-0.5 shrink-0 text-amber-500" />
+                  <Sparkles className="h-3 w-3 mt-0.5 shrink-0 text-foreground" />
                 ) : (
                   <Lightbulb className="h-3 w-3 mt-0.5 shrink-0 text-muted-foreground" />
                 )}
@@ -81,7 +81,7 @@ export function IdeasCard({ ideas, codeHref, className }: IdeasCardProps) {
                   {featureHref && (
                     <Link
                       href={featureHref}
-                      className="p-1 rounded hover:bg-blue-500/20 text-muted-foreground hover:text-blue-600 transition-colors"
+                      className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                       title="Convert to feature"
                     >
                       <Rocket className="h-3.5 w-3.5" />
@@ -90,7 +90,7 @@ export function IdeasCard({ ideas, codeHref, className }: IdeasCardProps) {
                   {deleteHref && (
                     <Link
                       href={deleteHref}
-                      className="p-1 rounded hover:bg-red-500/20 text-muted-foreground hover:text-red-600 transition-colors"
+                      className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                       title="Delete idea"
                     >
                       <X className="h-3.5 w-3.5" />

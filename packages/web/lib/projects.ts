@@ -194,9 +194,10 @@ export async function getProjects() {
         }
       }
 
-      // Count ideas and next tasks
+      // Count ideas, next tasks, and shipped items
       let ideasCount = 0
       let nextTasksCount = 0
+      let shippedCount = 0
       try {
         const ideasContent = await fs.readFile(join(storagePath, 'planning', 'ideas.md'), 'utf-8')
         ideasCount = (ideasContent.match(/^- /gm) || []).length
@@ -204,6 +205,13 @@ export async function getProjects() {
       try {
         const nextContent = await fs.readFile(join(storagePath, 'core', 'next.md'), 'utf-8')
         nextTasksCount = (nextContent.match(/^- /gm) || []).length
+      } catch {}
+      try {
+        const shippedContent = await fs.readFile(join(storagePath, 'progress', 'shipped.md'), 'utf-8')
+        // Count shipped items: either "- **Name**" or "### Name" format
+        const bulletItems = (shippedContent.match(/^- \*\*/gm) || []).length
+        const headingItems = (shippedContent.match(/^### /gm) || []).length
+        shippedCount = bulletItems + headingItems
       } catch {}
 
       // Find favicon/icon in project repo
@@ -243,6 +251,7 @@ export async function getProjects() {
         lastActivity,
         ideasCount,
         nextTasksCount,
+        shippedCount,
         techStack,
         iconPath
       })
@@ -324,6 +333,23 @@ export async function getProject(projectId: string) {
       currentTask = await fs.readFile(nowPath, 'utf-8')
     } catch {}
 
+    // Count shipped and queue items (DRY - same logic as getProjects)
+    let shippedCount = 0
+    let nextTasksCount = 0
+    try {
+      const shippedContent = await fs.readFile(join(storagePath, 'progress', 'shipped.md'), 'utf-8')
+      const bulletItems = (shippedContent.match(/^- \*\*/gm) || []).length
+      const headingItems = (shippedContent.match(/^### /gm) || []).length
+      shippedCount = bulletItems + headingItems
+    } catch {}
+    try {
+      const nextContent = await fs.readFile(join(storagePath, 'core', 'next.md'), 'utf-8')
+      nextTasksCount = (nextContent.match(/^- /gm) || []).length
+    } catch {}
+
+    const total = shippedCount + nextTasksCount
+    const completionRate = total > 0 ? Math.round((shippedCount / total) * 100) : 0
+
     // Fallback: Extract stats from claudeMd Quick Reference table if not from project.json
     if (!version) {
       const versionMatch = claudeMd.match(/\*\*Version\*\*\s*\|\s*([^\n|]+)/)
@@ -386,7 +412,11 @@ export async function getProject(projectId: string) {
       filesCount,
       commitsCount,
       techStack,
-      iconPath
+      iconPath,
+      // Counts (DRY - same source as dashboard)
+      shippedCount,
+      nextTasksCount,
+      completionRate
     }
   } catch {
     return null

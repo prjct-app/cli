@@ -1,13 +1,19 @@
 'use client'
 
+import { useState } from 'react'
 import { EmptyState } from '@/components/EmptyState'
+import { ExpandButton } from '@/components/ExpandButton'
 import { Bot, Star, TrendingUp, Wrench } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import type { AgentsCardProps } from './AgentsCard.types'
 
+const COLLAPSED_LIMIT = 12
+
 export function AgentsCard({ agents, codeHref, className }: AgentsCardProps) {
-  const displayAgents = agents.slice(0, 12)
+  const [expanded, setExpanded] = useState(false)
+  const displayAgents = expanded ? agents : agents.slice(0, COLLAPSED_LIMIT)
+  const hasMore = agents.length > COLLAPSED_LIMIT
 
   return (
     <div className={cn(
@@ -72,10 +78,13 @@ export function AgentsCard({ agents, codeHref, className }: AgentsCardProps) {
               </div>
             )
           })}
-          {agents.length > 12 && (
-            <p className="text-xs text-muted-foreground font-medium pt-1">
-              +{agents.length - 12} more agents
-            </p>
+          {hasMore && (
+            <ExpandButton
+              expanded={expanded}
+              totalCount={agents.length}
+              collapsedLimit={COLLAPSED_LIMIT}
+              onToggle={() => setExpanded(!expanded)}
+            />
           )}
         </div>
       )}

@@ -1,10 +1,13 @@
 /**
- * Planning Commands: init, feature, bug, architect
+ * Planning Commands: init, feature, bug, idea, spec
+ * Write-Through Architecture: JSON → MD → Event
  */
 
 import path from 'path'
 
 import type { CommandResult, AnalyzeOptions, Context } from './types'
+import { generateUUID } from '../schemas'
+import type { Priority, TaskType, TaskSection } from '../schemas/state'
 import {
   PrjctCommandsBase,
   contextBuilder,
@@ -15,7 +18,9 @@ import {
   dateHelper,
   out
 } from './base'
+import { queueStorage, ideasStorage } from '../storage'
 import authorDetector from '../infrastructure/author-detector'
+import commandInstaller from '../infrastructure/command-installer'
 
 export class PlanningCommands extends PrjctCommandsBase {
   /**
@@ -98,14 +103,12 @@ export class PlanningCommands extends PrjctCommandsBase {
         const sessionContent = `# Architect Session\n\n## Idea\n${idea}\n\n## Status\nInitialized - awaiting stack recommendation\n\nGenerated: ${new Date().toLocaleString()}\n`
         await toolRegistry.get('Write')!(sessionPath, sessionContent)
 
-        const commandInstaller = require('../infrastructure/command-installer')
         await commandInstaller.installGlobalConfig()
 
         out.done('architect mode ready')
         return { success: true, mode: 'architect', projectId, idea }
       }
 
-      const commandInstaller = require('../infrastructure/command-installer')
       await commandInstaller.installGlobalConfig()
 
       out.done('initialized')
@@ -129,10 +132,17 @@ export class PlanningCommands extends PrjctCommandsBase {
         return { success: false, error: 'Description required' }
       }
 
+      const projectId = await configManager.getProjectId(projectPath)
+      if (!projectId) {
+        out.fail('no project ID')
+        return { success: false, error: 'No project ID found' }
+      }
+
       out.spin(`planning ${description}...`)
 
       const context = await contextBuilder.build(projectPath, { description }) as Context
       const tasks = this._breakdownFeatureTasks(description)
+      const featureId = generateUUID()
 
       const tasksWithAgents: { task: string; agent: string }[] = []
       for (const taskDesc of tasks) {
@@ -141,17 +151,20 @@ export class PlanningCommands extends PrjctCommandsBase {
         tasksWithAgents.push({ task: taskDesc, agent })
       }
 
-      const nextContent =
-        (await toolRegistry.get('Read')!(context.paths.next) as string) || '# NEXT\n\n## Priority Queue\n\n'
-      const taskSection =
-        `\n## Feature: ${description}\n\n` +
-        tasksWithAgents.map((t, i) => `${i + 1}. [${t.agent}] [ ] ${t.task}`).join('\n') +
-        `\n\nEstimated: ${tasks.length * 2}h\n`
-
-      await toolRegistry.get('Write')!(context.paths.next, nextContent + taskSection)
+      // Write-through: Add tasks (JSON → MD → Event)
+      await queueStorage.addTasks(projectId, tasksWithAgents.map(t => ({
+        description: t.task,
+        priority: 'medium' as Priority,
+        type: 'feature' as TaskType,
+        section: 'active' as TaskSection,
+        featureId,
+        originFeature: description,
+        agent: t.agent
+      })))
 
       await this.logToMemory(projectPath, 'feature_planned', {
         feature: description,
+        featureId,
         tasks: tasksWithAgents.length,
         assignments: tasksWithAgents.map(t => ({ task: t.task, agent: t.agent })),
         timestamp: dateHelper.getTimestamp(),
@@ -165,7 +178,7 @@ export class PlanningCommands extends PrjctCommandsBase {
 
       out.done(`${tasks.length} tasks [${agentSummary}]`)
 
-      return { success: true, feature: description, tasks: tasksWithAgents }
+      return { success: true, feature: description, featureId, tasks: tasksWithAgents }
     } catch (error) {
       out.fail((error as Error).message)
       return { success: false, error: (error as Error).message }
@@ -185,6 +198,12 @@ export class PlanningCommands extends PrjctCommandsBase {
         return { success: false, error: 'Description required' }
       }
 
+      const projectId = await configManager.getProjectId(projectPath)
+      if (!projectId) {
+        out.fail('no project ID')
+        return { success: false, error: 'No project ID found' }
+      }
+
       out.spin('tracking bug...')
 
       const context = await contextBuilder.build(projectPath, { description }) as Context
@@ -193,20 +212,28 @@ export class PlanningCommands extends PrjctCommandsBase {
       const agentResult = await this._assignAgentForTask(`fix bug: ${description}`, projectPath, context)
       const agent = agentResult.agent?.name || 'generalist'
 
-      const nextContent =
-        (await toolRegistry.get('Read')!(context.paths.next) as string) || '# NEXT\n\n## Priority Queue\n\n'
-      const bugEntry = `\n## 🐛 BUG [${severity.toUpperCase()}] [${agent}]: ${description}\n\nReported: ${new Date().toLocaleString()}\nPriority: ${severity === 'critical' ? '⚠️ URGENT' : severity === 'high' ? '🔴 High' : '🟡 Normal'}\nAssigned: ${agent}\n`
+      // Map severity to Priority type
+      const priorityMap: Record<string, Priority> = {
+        'critical': 'critical',
+        'high': 'high',
+        'medium': 'medium',
+        'low': 'low'
+      }
+      const priority = priorityMap[severity] || 'medium'
 
-      const updatedContent =
-        severity === 'critical' || severity === 'high'
-          ? nextContent.replace('## Priority Queue\n\n', `## Priority Queue\n\n${bugEntry}\n`)
-          : nextContent + bugEntry
-
-      await toolRegistry.get('Write')!(context.paths.next, updatedContent)
+      // Write-through: Add bug task (JSON → MD → Event)
+      await queueStorage.addTask(projectId, {
+        description: `🐛 ${description}`,
+        priority,
+        type: 'bug' as TaskType,
+        section: 'active' as TaskSection,
+        agent
+      })
 
       await this.logToMemory(projectPath, 'bug_reported', {
         bug: description,
         severity,
+        priority,
         agent,
         timestamp: dateHelper.getTimestamp(),
       })
@@ -305,6 +332,190 @@ export class PlanningCommands extends PrjctCommandsBase {
       }
     } catch (error) {
       console.error('❌ Error:', (error as Error).message)
+      return { success: false, error: (error as Error).message }
+    }
+  }
+
+  /**
+   * /p:idea - Transform ideas into architectures or quick captures
+   */
+  async idea(description: string, projectPath: string = process.cwd()): Promise<CommandResult> {
+    try {
+      const initResult = await this.ensureProjectInit(projectPath)
+      if (!initResult.success) return initResult
+
+      if (!description) {
+        out.fail('idea description required')
+        return { success: false, error: 'Idea description required' }
+      }
+
+      const projectId = await configManager.getProjectId(projectPath)
+      if (!projectId) {
+        out.fail('no project ID')
+        return { success: false, error: 'No project ID found' }
+      }
+
+      // Determine if simple or complex idea
+      const wordCount = description.split(/\s+/).length
+      const isComplex = wordCount > 20 || description.includes('with') || description.includes('that')
+
+      if (isComplex) {
+        // Complex idea → Create architecture session
+        out.spin('analyzing idea...')
+
+        const globalPath = pathManager.getGlobalProjectPath(projectId)
+        const sessionPath = path.join(globalPath, 'planning', 'architect-session.md')
+        const sessionContent = `# Architect Session
+
+## Idea
+${description}
+
+## Status
+Initialized - awaiting architecture design
+
+## Next Steps
+1. Define tech stack
+2. Create system design
+3. Break down into features
+4. Generate roadmap
+
+Generated: ${new Date().toLocaleString()}
+`
+        await toolRegistry.get('Write')!(sessionPath, sessionContent)
+
+        await this.logToMemory(projectPath, 'idea_architecture_started', {
+          idea: description,
+          timestamp: dateHelper.getTimestamp(),
+        })
+
+        out.done('architecture session created')
+        console.log('\n💡 Use /p:architect execute to continue planning\n')
+
+        return { success: true, mode: 'architecture', idea: description }
+      } else {
+        // Simple idea → Quick capture (JSON → MD → Event)
+        out.spin('capturing idea...')
+
+        await ideasStorage.addIdea(projectId, description)
+
+        await this.logToMemory(projectPath, 'idea_captured', {
+          idea: description,
+          timestamp: dateHelper.getTimestamp(),
+        })
+
+        out.done(`idea captured: ${description.slice(0, 40)}`)
+
+        return { success: true, mode: 'capture', idea: description }
+      }
+    } catch (error) {
+      out.fail((error as Error).message)
+      return { success: false, error: (error as Error).message }
+    }
+  }
+
+  /**
+   * /p:spec - Create detailed specifications for complex features
+   */
+  async spec(featureName: string | null = null, projectPath: string = process.cwd()): Promise<CommandResult> {
+    try {
+      const initResult = await this.ensureProjectInit(projectPath)
+      if (!initResult.success) return initResult
+
+      const projectId = await configManager.getProjectId(projectPath)
+      if (!projectId) {
+        out.fail('no project ID')
+        return { success: false, error: 'No project ID found' }
+      }
+
+      if (!featureName) {
+        // List existing specs
+        out.spin('loading specs...')
+
+        const globalPath = pathManager.getGlobalProjectPath(projectId)
+        const specsPath = path.join(globalPath, 'planning', 'specs')
+
+        try {
+          const fs = await import('fs/promises')
+          const files = await fs.readdir(specsPath)
+          const specs = files.filter(f => f.endsWith('.md') && f !== '.gitkeep')
+
+          if (specs.length === 0) {
+            out.warn('no specs yet')
+            console.log('\n💡 Create one with /p:spec "feature name"\n')
+            return { success: true, specs: [] }
+          }
+
+          console.log('\n📋 SPECIFICATIONS\n')
+          console.log('═'.repeat(50))
+          specs.forEach((s, i) => {
+            const name = s.replace('.md', '').replace(/-/g, ' ')
+            console.log(`  ${i + 1}. ${name}`)
+          })
+          console.log('═'.repeat(50) + '\n')
+
+          return { success: true, specs }
+        } catch {
+          out.warn('no specs directory')
+          return { success: true, specs: [] }
+        }
+      }
+
+      // Create new spec
+      out.spin('creating spec...')
+
+      const globalPath = pathManager.getGlobalProjectPath(projectId)
+      const specsPath = path.join(globalPath, 'planning', 'specs')
+      await fileHelper.ensureDir(specsPath)
+
+      const slug = featureName.toLowerCase().replace(/\s+/g, '-')
+      const specFile = path.join(specsPath, `${slug}.md`)
+
+      const specContent = `# Specification: ${featureName}
+
+## Overview
+[Brief description of the feature]
+
+## Requirements
+- [ ] Requirement 1
+- [ ] Requirement 2
+- [ ] Requirement 3
+
+## Design Decisions
+| Decision | Rationale |
+|----------|-----------|
+| | |
+
+## Tasks (20-30 min each)
+1. [ ] Task 1 - [description]
+2. [ ] Task 2 - [description]
+3. [ ] Task 3 - [description]
+
+## Acceptance Criteria
+- [ ] Criterion 1
+- [ ] Criterion 2
+
+## Notes
+[Additional notes and considerations]
+
+---
+Created: ${new Date().toLocaleString()}
+Status: Draft
+`
+
+      await toolRegistry.get('Write')!(specFile, specContent)
+
+      await this.logToMemory(projectPath, 'spec_created', {
+        feature: featureName,
+        timestamp: dateHelper.getTimestamp(),
+      })
+
+      out.done(`spec created: ${slug}.md`)
+      console.log(`\n📝 Edit: ~/.prjct-cli/projects/${projectId}/planning/specs/${slug}.md`)
+      console.log('💡 When ready, use /p:feature to add tasks to queue\n')
+
+      return { success: true, feature: featureName, specPath: specFile }
+    } catch (error) {
+      out.fail((error as Error).message)
       return { success: false, error: (error as Error).message }
     }
   }

@@ -4,6 +4,12 @@ import { Flame, Calendar } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { StreakCardProps } from './StreakCard.types'
 
+function getStreakColor(streak: number): string {
+  if (streak >= 7) return 'text-emerald-600 dark:text-emerald-400'
+  if (streak >= 3) return 'text-amber-600 dark:text-amber-400'
+  return 'text-red-600 dark:text-red-400'
+}
+
 export function StreakCard({ streak, className }: StreakCardProps) {
   return (
     <div className={cn(
@@ -20,7 +26,7 @@ export function StreakCard({ streak, className }: StreakCardProps) {
       </div>
 
       <div className="flex items-center gap-4">
-        <Flame className="h-10 w-10 text-muted-foreground" />
+        <Flame className={cn("h-10 w-10", getStreakColor(streak))} />
         <div>
           <p className="text-3xl font-bold tabular-nums">{streak}</p>
           <p className="text-xs text-muted-foreground">consecutive day{streak !== 1 ? 's' : ''}</p>

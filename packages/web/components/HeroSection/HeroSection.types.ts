@@ -6,10 +6,9 @@ export interface HeroProps {
   projectId: string
   projectName: string
   projectVersion?: string | null
-  tasksCompleted: number
-  healthScore: number
-  velocity: number
-  velocityChange: number
+  totalShips: number
+  completionRate: number
+  streak: number
   insightMessage: string
   timeline?: TimelineEvent[]
 }

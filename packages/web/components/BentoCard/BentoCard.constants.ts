@@ -10,7 +10,7 @@ export const BENTO_SIZE_CLASSES: Record<BentoSize, string> = {
 
 export const ACCENT_STYLES: Record<AccentColor, string> = {
   default: '',
-  success: 'border-emerald-500/20 bg-emerald-500/5',
-  warning: 'border-amber-500/20 bg-amber-500/5',
-  destructive: 'border-destructive/20 bg-destructive/5',
+  success: 'border-muted-foreground/20',
+  warning: 'border-muted-foreground/20',
+  destructive: 'border-muted-foreground/20',
 }

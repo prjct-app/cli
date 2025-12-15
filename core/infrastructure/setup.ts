@@ -145,6 +145,9 @@ export async function run(): Promise<SetupResults> {
   return results
 }
 
+// Default export for CommonJS require
+export default { run }
+
 /**
  * Show setup results
  */

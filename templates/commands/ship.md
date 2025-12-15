@@ -387,6 +387,30 @@ Execute `/p:sync` logic:
 
 This ensures the dashboard reflects the latest state after shipping.
 
+## Step 15: Cloud Sync (if configured)
+
+**OPTIONAL**: If user has `prjct login` configured, sync to cloud backend.
+
+### Check sync configuration
+```typescript
+import { isSyncConfigured, syncWithContext } from 'core/sync'
+
+const isConfigured = await isSyncConfigured()
+```
+
+IF isConfigured:
+  ```typescript
+  const result = await syncWithContext(projectId)
+  ```
+
+  IF result.success:
+    {cloudSyncStatus} = `☁️ Synced ${result.syncedCount} events to cloud`
+  ELSE:
+    {cloudSyncStatus} = `⚠️ Cloud sync pending (${result.errors[0]})`
+
+ELSE:
+  {cloudSyncStatus} = "" (skip cloud sync message)
+
 ## Output
 
 SUCCESS:

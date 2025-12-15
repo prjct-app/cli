@@ -8,7 +8,7 @@ interface MasonryGridProps {
 export function MasonryGrid({ children, className }: MasonryGridProps) {
   return (
     <div className={cn(
-      'columns-1 sm:columns-2 xl:columns-3 gap-4',
+      'columns-1 sm:columns-2 xl:columns-3 gap-4 max-w-full overflow-x-hidden',
       '[&>*]:mb-4 [&>*]:break-inside-avoid',
       className
     )}>
