@@ -20,13 +20,21 @@ Reconfigures prjct-cli installation for Claude Code and Claude Desktop.
    - Updates existing commands with latest templates
    - Removes orphaned/deprecated commands
 
-3. **Installs/Updates Global Configuration**
+3. **Installs MCP Servers**
+   - Reads `templates/mcp-config.json` for MCP server definitions
+   - Merges into `~/.claude/settings.json` (preserves existing settings)
+   - Installs Context7 for library documentation lookup
+   - Does NOT overwrite existing MCP configurations
+
+4. **Installs/Updates Global Configuration**
    - Creates or updates `~/.claude/CLAUDE.md`
    - Adds prjct-specific instructions for Claude
+   - Adds Context7 usage instructions
    - Preserves existing user configuration
 
-4. **Reports Results**
+5. **Reports Results**
    - Shows commands added, updated, removed
+   - Shows MCP servers installed
    - Displays any errors encountered
    - Confirms successful installation
 
@@ -52,12 +60,19 @@ Reconfigures prjct-cli installation for Claude Code and Claude Desktop.
 🔧 Reconfiguring prjct...
 
 📦 Installing /p:* commands...
-✓ 3 nuevos, 12 actualizados, 1 eliminado
+✓ 3 new, 12 updated, 1 removed
+
+🔌 Installing MCP servers...
+✓ context7 (library documentation)
 
 📝 Installing global configuration...
 ✓ Updated ~/.claude/CLAUDE.md
+✓ Updated ~/.claude/settings.json
 
 ✅ Setup complete!
+
+MCP Tools Available:
+• context7: resolve-library-id, get-library-docs
 ```
 
 ## Error Handling

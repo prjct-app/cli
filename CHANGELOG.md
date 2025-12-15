@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.15.1] - 2025-12-15
+
+### MCP Setup Documentation
+
+Enhanced setup template with MCP server installation documentation.
+
+- **Setup Template Updates**
+  - Added MCP server installation step documentation
+  - Context7 library documentation lookup integration
+  - Updated success output examples
+
+- **MCP Config Enhancements**
+  - Added description field for Context7 server
+  - Added usage guidelines with when/tools/examples
+  - Better documentation for resolve-library-id and get-library-docs
+
 ## [0.15.0] - 2025-12-15
 
 ### Template Optimization - Aggressive Consolidation
