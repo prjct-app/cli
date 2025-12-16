@@ -54,6 +54,42 @@ Git Analysis → Storage (JSON) → Context (MD) → Project Metadata
 
 ---
 
+## Step 0: Migration Check (Legacy Projects)
+
+CHECK: Does `.prjct/prjct.config.json` exist?
+
+IF file exists:
+  READ: `.prjct/prjct.config.json`
+  CHECK: Does `projectId` exist and is it a valid UUID?
+
+  IF projectId is missing OR not a UUID:
+    MIGRATE to UUID:
+    1. Generate new UUID: `{newProjectId}`
+    2. Create global structure: `~/.prjct-cli/projects/{newProjectId}/`
+    3. Create subdirectories: storage/, context/, agents/, memory/, analysis/
+    4. IF legacy data exists in `.prjct/`:
+       - Migrate core/now.md → storage/state.json
+       - Migrate planning/ideas.md → storage/ideas.json
+       - Migrate progress/shipped.md → storage/shipped.json
+    5. Update `.prjct/prjct.config.json` with new `projectId`
+    OUTPUT: "🔄 Migrated to UUID format: {newProjectId}"
+
+IF file not found:
+  CHECK: Does `.prjct/` directory exist? (legacy project without config)
+
+  IF `.prjct/` exists:
+    MIGRATE:
+    1. Generate new UUID: `{newProjectId}`
+    2. Create `.prjct/prjct.config.json` with `projectId`
+    3. Create global structure
+    4. Migrate legacy data
+    OUTPUT: "🔄 Migrated legacy project to UUID: {newProjectId}"
+  ELSE:
+    OUTPUT: "No prjct project. Run /p:init first."
+    STOP
+
+---
+
 ## Step 1: Read Config
 
 READ: `.prjct/prjct.config.json`
