@@ -374,12 +374,12 @@ WRITE: `{globalPath}/project.json`
 
 ## Step 7: Generate Claude Code Sub-Agents (AGENTIC)
 
-Generate sub-agents for Claude Code in the PROJECT's `.claude/agents/` directory.
+Generate sub-agents for Claude Code in the GLOBAL storage `{globalPath}/agents/` directory.
 
 ### 7.1 Create Directory
 
 ```bash
-mkdir -p {cwd}/.claude/agents
+mkdir -p {globalPath}/agents
 ```
 
 ### 7.2 Read Generation Instructions
@@ -398,17 +398,17 @@ These 3 agents are ALWAYS created for every prjct project:
 **prjct-workflow.md** - Handles: /p:now, /p:done, /p:next, /p:pause, /p:resume
 READ template: `templates/subagents/workflow/prjct-workflow.md`
 ADAPT with: projectId, projectPath
-WRITE to: `{cwd}/.claude/agents/prjct-workflow.md`
+WRITE to: `{globalPath}/agents/prjct-workflow.md`
 
 **prjct-planner.md** - Handles: /p:feature, /p:idea, /p:spec, /p:bug
 READ template: `templates/subagents/workflow/prjct-planner.md`
 ADAPT with: projectId, projectPath
-WRITE to: `{cwd}/.claude/agents/prjct-planner.md`
+WRITE to: `{globalPath}/agents/prjct-planner.md`
 
 **prjct-shipper.md** - Handles: /p:ship
 READ template: `templates/subagents/workflow/prjct-shipper.md`
 ADAPT with: projectId, projectPath, detected test/lint commands
-WRITE to: `{cwd}/.claude/agents/prjct-shipper.md`
+WRITE to: `{globalPath}/agents/prjct-shipper.md`
 
 ### 7.4 Generate Domain Agents (Based on Stack)
 
@@ -425,7 +425,7 @@ Analyze `{techStack}` from Step 3 and generate ONLY relevant domain agents:
 For EACH detected stack:
 1. READ template from `templates/subagents/domain/{name}.md`
 2. ADAPT description with detected frameworks (e.g., "React specialist" not just "frontend")
-3. WRITE to `{cwd}/.claude/agents/{name}.md`
+3. WRITE to `{globalPath}/agents/{name}.md`
 
 ### 7.5 Report Generated Agents
 
@@ -573,7 +573,7 @@ Next: /p:now to start a new task
 │   └── events.jsonl
 └── project.json             # Metadata
 
-{cwd}/.claude/agents/         # Claude Code Sub-Agents (PER PROJECT)
+# Sub-Agents are in {globalPath}/agents/ (NOT in project .claude/)
 ├── prjct-workflow.md        # /p:now, /p:done, /p:next
 ├── prjct-planner.md         # /p:feature, /p:idea, /p:spec
 ├── prjct-shipper.md         # /p:ship

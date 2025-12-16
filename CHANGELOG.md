@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.18.2] - 2025-12-15
+
+### Fix: Agents Write to Global Storage
+
+Fixed critical bug where sub-agents were being written to project's local `.claude/agents/` directory instead of global storage.
+
+- **Bug**: `/p:sync` created agents in `{projectPath}/.claude/agents/` polluting local projects
+- **Fix**: Agents now correctly write to `~/.prjct-cli/projects/{projectId}/agents/`
+
+**Files Modified:**
+- `templates/commands/sync.md` - Changed all agent paths from `{cwd}/.claude/agents/` to `{globalPath}/agents/`
+- `templates/agentic/subagent-generation.md` - Updated paths and added critical rules
+
 ## [0.16.0] - 2025-12-15
 
 ### Dead Code Cleanup
