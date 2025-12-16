@@ -11,7 +11,7 @@ You have access to:
 
 ## Output Location
 
-Write sub-agents to: `{projectPath}/.claude/agents/`
+Write sub-agents to: `{globalPath}/agents/` (global storage, NOT local project)
 
 ## Sub-Agent Format (Claude Code)
 
@@ -70,29 +70,29 @@ Each generated agent should include:
 
 1. **Read Analysis**
    ```
-   Read("{projectPath}/.prjct-cli/projects/{projectId}/analysis/repo-summary.md")
+   Read("{globalPath}/analysis/repo-summary.md")
    ```
 
 2. **Create Directory**
    ```
-   Bash("mkdir -p {projectPath}/.claude/agents")
+   Bash("mkdir -p {globalPath}/agents")
    ```
 
 3. **Generate Workflow Agents** (always)
    - Read template from `templates/subagents/workflow/prjct-workflow.md`
    - Adapt with project context
-   - Write to `{projectPath}/.claude/agents/prjct-workflow.md`
+   - Write to `{globalPath}/agents/prjct-workflow.md`
    - Repeat for prjct-planner.md and prjct-shipper.md
 
 4. **Generate Domain Agents** (based on analysis)
    - For each detected technology stack:
      - Read corresponding template from `templates/subagents/domain/`
      - Adapt with project-specific details
-     - Write to `{projectPath}/.claude/agents/`
+     - Write to `{globalPath}/agents/`
 
 5. **Report Generated Agents**
    ```
-   Generated sub-agents in .claude/agents/:
+   Generated sub-agents in {globalPath}/agents/:
    - prjct-workflow.md (workflow)
    - prjct-planner.md (workflow)
    - prjct-shipper.md (workflow)
@@ -102,6 +102,8 @@ Each generated agent should include:
 
 ## Critical Rules
 
+- **NEVER write agents to local project directories** (`.claude/`, `.prjct/`)
+- **ALWAYS write agents to `{globalPath}/agents/`** (global storage)
 - NEVER hardcode technology detection in TypeScript
 - ALWAYS read and analyze repo-summary.md
 - ADAPT templates to project context
