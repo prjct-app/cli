@@ -3,13 +3,6 @@
     "context7": {
       "command": "npx",
       "args": ["-y", "@upstash/context7-mcp@latest"]
-    },
-    "testsprite": {
-      "command": "npx",
-      "args": ["-y", "@testsprite/testsprite-mcp@latest"],
-      "env": {
-        "API_KEY": "${TESTSPRITE_API_KEY}"
-      }
     }
   }
 }

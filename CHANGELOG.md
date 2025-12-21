@@ -1,5 +1,47 @@
 # Changelog
 
+## [0.20.0] - 2025-12-21
+
+### Feature: UX/UI Design Agent Integration
+
+Auto-generated UX/UI specialist agent for all frontend projects (web + mobile).
+
+**Priority: UX > UI** - Experience is more important than visuals.
+
+#### New Agent: `templates/agentic/agents/uxui.md`
+- **Part 1: UX Principles** - User analysis, clarity, feedback, reduced friction, error handling, accessibility (a11y)
+- **Part 2: UI Guidelines** - Aesthetic directions, typography trends (avoiding "AI slop"), color framework, purposeful animation
+- **Part 3: Quality Checklists** - Mandatory UX/UI gates before shipping
+
+#### Frontend Detection in `/p:sync`
+Auto-generates uxui.md when ANY frontend tech is detected:
+
+| Platform | Technologies |
+|----------|-------------|
+| Web | React, Vue, Svelte, Angular, Next.js, Nuxt |
+| Mobile | React Native, Expo, Flutter, SwiftUI, Jetpack Compose |
+
+#### Enhanced `/p:feature` Phase 4
+For frontend features, now includes:
+1. **UX Analysis** - Who, problem, happy path, edge cases
+2. **UX Requirements Checklist** - 6 mandatory accessibility/usability checks
+3. **Aesthetic Direction Selection** - Minimal, Bold, Soft, Brutalist
+4. **UI Guidelines Application** - Typography, color, animation, layout
+
+#### Anti-patterns Avoided ("AI Slop")
+- Generic fonts: Inter, Roboto, Arial, Space Grotesk
+- Purple/blue gradients on white
+- Centered layouts without personality
+- Unstyled component libraries
+
+**Files Added:**
+- `templates/agentic/agents/uxui.md` - Complete UX/UI specialist agent
+
+**Files Modified:**
+- `templates/commands/sync.md` - Frontend detection + uxui.md generation
+- `templates/commands/feature.md` - Phase 4.0 UX/UI analysis
+- `templates/commands/ship.md` - Pre-flight checks + confidence scoring
+
 ## [0.19.0] - 2025-12-21
 
 ### Breaking: Web Package Removed
