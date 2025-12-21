@@ -21,6 +21,16 @@ User Action → Storage (JSON) → Context (MD) → Sync Events
 **Claude Context**: `context/shipped.md` (generated)
 **Backend Sync**: `sync/pending.json` (events)
 
+## Usage
+
+```
+/p:ship [feature] [outcome] [--blocking]
+```
+
+- `feature`: Name of the feature being shipped (required)
+- `outcome`: Status category - validated|monitoring|known-issues (default: monitoring)
+- `--blocking`: Abort ship if lint or tests fail
+
 ## Context Variables
 - `{projectId}`: From `.prjct/prjct.config.json`
 - `{globalPath}`: `~/.prjct-cli/projects/{projectId}`
@@ -31,6 +41,7 @@ User Action → Storage (JSON) → Context (MD) → Sync Events
 - `{snapshotDir}`: `{globalPath}/snapshots`
 - `{feature}`: User-provided feature name
 - `{outcome}`: User-provided outcome status (optional)
+- `{blocking}`: Whether to abort on quality check failures
 
 ## Outcome Categories
 
@@ -67,7 +78,14 @@ IF not a git repo:
   OUTPUT: "⚠️ Not a git repository. Initialize git first."
   STOP
 
-## Step 3: Quality Checks (Non-Blocking)
+## Step 3: Quality Checks
+
+### Parse Blocking Flag
+
+IF args contains "--blocking":
+  {blocking} = true
+ELSE:
+  {blocking} = false
 
 ### Lint Check
 BASH: `npm run lint 2>&1 || echo "LINT_SKIP"`
@@ -76,11 +94,12 @@ CAPTURE output as {lintResult}
 IF contains "LINT_SKIP" OR contains "missing script":
   {lintStatus} = "skipped"
 ELSE IF contains "error":
-  {lintStatus} = "warnings"
+  {lintStatus} = "failed"
 ELSE:
   {lintStatus} = "passed"
 
 ### Test Check
+
 BASH: `npm test 2>&1 || echo "TEST_SKIP"`
 CAPTURE output as {testResult}
 
@@ -91,7 +110,20 @@ ELSE IF contains "failed" OR contains "FAIL":
 ELSE:
   {testStatus} = "passed"
 
-**Note**: These are NON-BLOCKING. Continue even if they fail.
+### Blocking Gate
+
+IF {blocking}:
+  IF {lintStatus} == "failed" OR {testStatus} == "failed":
+    OUTPUT: "❌ Quality checks failed. Ship blocked."
+    OUTPUT: ""
+    OUTPUT: "• Lint: {lintStatus}"
+    OUTPUT: "• Tests: {testStatus}"
+    OUTPUT: ""
+    OUTPUT: "Fix issues or ship without --blocking flag."
+    STOP
+
+**Note**: Without --blocking flag, quality checks are advisory only.
+**Tip**: Use `/p:test ai` for AI-powered tests before shipping.
 
 ## Step 4: Version Bump (MANDATORY)
 
@@ -306,11 +338,21 @@ Next: /p:feature | /p:recap
 
 Version: 1.2.0 → 1.2.1
 Outcome: monitoring
-Lint: warnings (non-blocking)
-Tests: skipped
+Lint: warnings
+Tests: passed
 Commit: def5678
 
 ⚠️ Consider fixing lint warnings
 
 Next: /p:feature | /p:recap
+```
+
+### Example 3: Blocked by Failures
+```
+❌ Quality checks failed. Ship blocked.
+
+• Lint: passed
+• Tests: failed
+
+Fix issues or ship without --blocking flag.
 ```
