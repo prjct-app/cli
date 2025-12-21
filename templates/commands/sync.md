@@ -167,6 +167,42 @@ GLOB for config files and analyze:
 
 EXTRACT: `{languages}`, `{frameworks}`, `{techStack}`
 
+### Detect Frontend/UI Stack (for UX/UI Agent)
+
+**CRITICAL**: If ANY frontend technology is detected, generate the UX/UI agent.
+
+#### Web Frontend Detection
+```bash
+# Check package.json for web frameworks
+grep -E '"(react|react-dom|next|vue|nuxt|svelte|@sveltejs/kit|@angular/core)"' package.json 2>/dev/null
+```
+
+SET: `{hasWebFrontend}` = true if any match
+
+#### Mobile Frontend Detection
+```bash
+# React Native / Expo
+grep -E '"(react-native|expo)"' package.json 2>/dev/null
+
+# Flutter
+test -f pubspec.yaml && echo "flutter"
+
+# SwiftUI (iOS)
+find . -name "*.swift" -exec grep -l "import SwiftUI" {} \; 2>/dev/null | head -1
+
+# Jetpack Compose (Android)
+find . -name "*.kt" -exec grep -l "androidx.compose" {} \; 2>/dev/null | head -1
+```
+
+SET: `{hasMobileFrontend}` = true if any match
+
+#### Combined Frontend Flag
+```
+{hasFrontendUI} = {hasWebFrontend} OR {hasMobileFrontend}
+```
+
+EXTRACT: `{frontendType}` = "web" | "mobile" | "both" | null
+
 ---
 
 ## Step 4: Regenerate ALL Context Files
@@ -421,13 +457,32 @@ Analyze `{techStack}` from Step 3 and generate ONLY relevant domain agents:
 | PostgreSQL, MySQL, MongoDB, Prisma | `database.md` | `templates/subagents/domain/database.md` |
 | Docker, Kubernetes, GitHub Actions | `devops.md` | `templates/subagents/domain/devops.md` |
 | Jest, Pytest, Vitest, testing | `testing.md` | `templates/subagents/domain/testing.md` |
+| **{hasFrontendUI} = true** | `uxui.md` | `templates/agentic/agents/uxui.md` |
 
 For EACH detected stack:
 1. READ template from `templates/subagents/domain/{name}.md`
 2. ADAPT description with detected frameworks (e.g., "React specialist" not just "frontend")
 3. WRITE to `{globalPath}/agents/{name}.md`
 
-### 7.5 Report Generated Agents
+### 7.5 Generate UX/UI Agent (CRITICAL for Frontend Projects)
+
+**Priority: UX > UI** - User experience is more important than visuals.
+
+IF `{hasFrontendUI}` == true:
+
+1. READ template: `templates/agentic/agents/uxui.md`
+2. WRITE to: `{globalPath}/agents/uxui.md`
+3. ADD to `{domainAgents}`: "uxui"
+
+OUTPUT: "🎨 Generated UX/UI agent for {frontendType} ({frameworks detected})"
+
+The UX/UI agent ensures:
+- **UX First**: Clarity, feedback, reduced friction, error handling, accessibility
+- **Modern UI**: Distinctive typography, bold colors, purposeful animation
+- **Anti-patterns avoided**: No "AI slop" (Inter font, purple gradients, generic layouts)
+- **Checklists**: UX and UI quality gates before shipping
+
+### 7.6 Report Generated Agents
 
 Track which agents were generated for output:
 - `{workflowAgents}`: Always 3 (prjct-workflow, prjct-planner, prjct-shipper)
@@ -516,7 +571,10 @@ IF cloudSync AND no syncError:
 
 🤖 Claude Code Sub-Agents ({workflowAgents.length + domainAgents.length})
 ├── Workflow: prjct-workflow, prjct-planner, prjct-shipper
-└── Domain: {domainAgents.join(', ') || 'none'}
+├── Domain: {domainAgents.join(', ') || 'none'}
+{IF hasFrontendUI}
+└── 🎨 UX/UI: uxui.md (Priority: UX > UI)
+{ENDIF}
 
 {IF cloudSync}
 ☁️ Cloud Sync
@@ -581,5 +639,6 @@ Next: /p:now to start a new task
 ├── backend.md               # (if Node/Go/Python API detected)
 ├── database.md              # (if DB detected)
 ├── devops.md                # (if Docker/K8s detected)
-└── testing.md               # (if test framework detected)
+├── testing.md               # (if test framework detected)
+└── uxui.md                  # (if ANY frontend UI detected - web or mobile)
 ```
