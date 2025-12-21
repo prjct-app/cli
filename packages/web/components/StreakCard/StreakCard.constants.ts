@@ -1,2 +1,0 @@
-export const STREAK_HOT_THRESHOLD = 3
-export const STREAK_ON_FIRE_THRESHOLD = 7

@@ -1,5 +1,45 @@
 # Changelog
 
+## [0.19.0] - 2025-12-21
+
+### Breaking: Web Package Removed
+
+The web dashboard (`packages/web/`) has been extracted to a separate repository for independent development.
+
+**Removed:**
+- `packages/web/` - Next.js dashboard app (~200 files)
+- `bin/serve.js`, `bin/dev.js` - Web server scripts
+- `templates/commands/serve.md` - /p:serve command
+- `prjct-serve`, `prjct-dev` bin entries
+
+### Fix: Prompt Builder Now Sends Full Templates
+
+Fixed critical bug where `prompt-builder.ts` only extracted `## Flow` sections, causing Claude to miss important instructions.
+
+**Before:** Claude only saw the Flow section (~30% of template)
+**After:** Claude sees the full template content
+
+**Files Modified:**
+- `core/agentic/prompt-builder.ts` - Removed regex extraction, send full content
+
+### Improved: Templates Simplified
+
+Reduced template verbosity for better Claude comprehension:
+
+| Template | Before | After |
+|----------|--------|-------|
+| ship.md | 359 lines | ~110 lines |
+| done.md | 318 lines | ~117 lines |
+| now.md | 346 lines | ~141 lines |
+
+### Improved: Timestamp Generation
+
+Changed from undefined `GetTimestamp()` to actual bash commands:
+
+```bash
+bun -e "console.log(new Date().toISOString())" 2>/dev/null || node -e "console.log(new Date().toISOString())"
+```
+
 ## [0.18.2] - 2025-12-15
 
 ### Fix: Agents Write to Global Storage

@@ -1,12 +1,10 @@
 {
   "name": "prjct-cli",
-  "version": "0.18.2",
+  "version": "0.19.0",
   "description": "Built for Claude - Ship fast, track progress, stay focused. Developer momentum tool for indie hackers.",
   "main": "core/index.ts",
   "bin": {
-    "prjct": "bin/prjct",
-    "prjct-dev": "bin/dev.js",
-    "prjct-serve": "bin/serve.js"
+    "prjct": "bin/prjct"
   },
   "workspaces": [
     "packages/*"
@@ -16,11 +14,8 @@
     "registry": "https://registry.npmjs.org"
   },
   "scripts": {
-    "dev": "bun run --filter '*' dev",
-    "build": "bun run --filter '@prjct/shared' build && bun run --filter 'web' build",
+    "build": "bun run --filter '@prjct/shared' build",
     "build:shared": "bun run --filter '@prjct/shared' build",
-    "build:web": "bun run --filter 'web' build",
-    "serve": "bun run --filter 'web' dev",
     "postinstall": "bun scripts/postinstall.js",
     "update-commands": "bun -e \"const installer = require('./core/infrastructure/command-installer'); installer.syncCommands().then(r => console.log('Commands updated:', r)).catch(e => console.error('Error:', e.message))\"",
     "install-global": "./scripts/install.sh",
@@ -84,15 +79,6 @@
     "bin/",
     "core/",
     "packages/shared/",
-    "packages/web/app/",
-    "packages/web/components/",
-    "packages/web/context/",
-    "packages/web/hooks/",
-    "packages/web/lib/",
-    "packages/web/public/",
-    "packages/web/*.ts",
-    "packages/web/*.json",
-    "packages/web/*.mjs",
     "templates/",
     "scripts/postinstall.js",
     "scripts/install.sh",

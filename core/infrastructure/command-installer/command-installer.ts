@@ -7,7 +7,7 @@ import fs from 'fs/promises'
 import path from 'path'
 import os from 'os'
 import type { InstallResult, UninstallResult, CheckResult, SyncResult, GlobalConfigResult } from './types'
-import { installGlobalConfig } from './global-config'
+import { installGlobalConfig, installDocs } from './global-config'
 
 export class CommandInstaller {
   homeDir: string
@@ -316,5 +316,12 @@ export class CommandInstaller {
    */
   async installGlobalConfig(): Promise<GlobalConfigResult> {
     return installGlobalConfig(this.claudeConfigPath, () => this.detectClaude())
+  }
+
+  /**
+   * Install documentation files to ~/.prjct-cli/docs/
+   */
+  async installDocs(): Promise<{ success: boolean; error?: string }> {
+    return installDocs()
   }
 }

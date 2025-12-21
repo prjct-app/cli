@@ -103,6 +103,9 @@ export async function run(): Promise<SetupResults> {
     if (configResult.success) {
       results.configAction = configResult.action
     }
+
+    // Step 4b: Install documentation files
+    await installer.installDocs()
   }
 
   // Step 5: Save version in editors-config
