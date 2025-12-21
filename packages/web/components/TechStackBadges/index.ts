@@ -1,1 +1,0 @@
-export { TechStackBadges } from './TechStackBadges'

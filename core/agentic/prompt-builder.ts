@@ -330,13 +330,9 @@ class PromptBuilder {
 
     parts.push('\n---\n')
 
-    // Template (only the flow section, skip verbose explanations)
-    const flowMatch = template.content.match(/## Flow([\s\S]*?)(?=##|$)/)
-    if (flowMatch) {
-      parts.push(flowMatch[0])
-    } else {
-      parts.push(template.content)
-    }
+    // Template content (include full template, frontmatter already stripped by loader)
+    // This ensures Claude sees ALL instructions including critical rules at the top
+    parts.push(template.content)
 
     // Current state (only if exists and relevant)
     const relevantState = this.filterRelevantState(state)

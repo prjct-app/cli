@@ -1,267 +1,126 @@
 ---
 allowed-tools: [Read, Write, Bash]
 description: 'Set or show current task with session tracking'
-timestamp-rule: 'GetTimestamp() for ALL timestamps'
-architecture: 'Write-Through (JSON → MD → Events)'
-storage-layer: true
-source-of-truth: 'storage/state.json'
-claude-context: 'context/now.md'
-backend-sync: 'sync/pending.json'
 ---
 
-# /p:now - Current Task with Session Tracking
+# /p:now - Current Task
 
-## Architecture: Write-Through Pattern
+Start a new task or show current task status.
 
+## Usage
 ```
-User Action → Storage (JSON) → Context (MD) → Sync Events
+/p:now [task] [estimate]
 ```
+- `task`: Description of what you're working on
+- `estimate`: Time estimate (e.g., "2h", "30m", "1d")
 
-**Source of Truth**: `storage/state.json`
-**Claude Context**: `context/now.md` (generated)
-**Backend Sync**: `sync/pending.json` (events)
+## Flow
 
-## Context Variables
-- `{projectId}`: From `.prjct/prjct.config.json`
-- `{globalPath}`: `~/.prjct-cli/projects/{projectId}`
-- `{statePath}`: `{globalPath}/storage/state.json`
-- `{nowContextPath}`: `{globalPath}/context/now.md`
-- `{syncPath}`: `{globalPath}/sync/pending.json`
-- `{memoryPath}`: `{globalPath}/memory/events.jsonl`
-- `{task}`: User-provided task (optional)
-- `{estimate}`: User-provided time estimate (optional, e.g., "2h", "30m", "1d")
+### Step 1: Validate
+READ: `.prjct/prjct.config.json` → extract `projectId`
+IF missing: "No prjct project. Run /p:init first." → STOP
 
-## Estimate Format
+SET: `{globalPath}` = `~/.prjct-cli/projects/{projectId}`
 
-Estimates use simple duration format:
-- `30m` - 30 minutes
-- `2h` - 2 hours
-- `1d` - 1 day (8 hours)
-- `2h30m` - 2 hours 30 minutes
+READ: `{globalPath}/storage/state.json`
 
-If no estimate provided, gently remind:
-```
-💡 Tip: Add estimate next time with /p:now "task" 2h
-```
+### Step 2: Handle Cases
 
-## Agent Detection (Optional)
-
-When starting a task, auto-detect the best agent based on keywords:
-
-| Keywords | Agent | Domain |
-|----------|-------|--------|
-| UI, frontend, React, component, CSS, style | `fe` | Frontend |
-| API, backend, database, server, endpoint | `be` | Backend |
-| design, UX, layout, wireframe | `ux` | UX Design |
-| test, QA, bug, coverage, spec | `qa` | Testing |
-| docs, README, documentation | `docs` | Documentation |
-| (default) | `general` | General |
-
-**Usage**: Agent is logged for analytics but doesn't affect workflow.
-
-## Step 0: Detect Abandoned Sessions (BEFORE anything else)
-
-READ: `{statePath}` (`storage/state.json`)
-
-IF file exists AND has `currentTask`:
-  SET: {existingTask} = currentTask object
-  SET: {lastActivity} = existingTask.startedAt or last timeline entry
-  SET: {hoursAgo} = hours between {lastActivity} and now
-
-  IF {hoursAgo} >= 8:  // Session considered abandoned after 8 hours
-    OUTPUT:
-    ```
-    ⚠️ Found abandoned session from {hoursAgo}h ago
-
-    Task: {existingTask.description}
-    Session: {existingTask.sessionId}
-    Started: {existingTask.startedAt}
-
-    Options:
-    1. Resume previous task → /p:resume
-    2. Close previous as partial → /p:recover close
-    3. View full context → /p:recover
-
-    Choose an option before starting a new task.
-    ```
-    STOP
-
-## Step 1: Read Config
-
-READ: `.prjct/prjct.config.json`
-EXTRACT: `projectId`
-
-IF file not found:
-  OUTPUT: "No prjct project. Run /p:init first."
-  STOP
-
-## Step 2: Check Current State
-
-### Read state.json (source of truth)
-READ: `{statePath}`
-
-IF file exists:
-  PARSE JSON
-  EXTRACT: {currentTask}, {pausedTask} if present
-
-## Step 3: Handle Cases
-
-### Case A: No task provided - Show current
-IF {task} is empty OR not provided:
-  IF {currentTask} exists AND {currentTask.status} == "active":
-    CALCULATE: {elapsed} = time since {currentTask.startedAt}
+**Case A: No task provided - Show current**
+IF task not provided:
+  IF currentTask exists AND status == "active":
+    CALCULATE elapsed time
     OUTPUT:
     ```
     🎯 {currentTask.description}
 
-    Session: {currentTask.sessionId}
-    Started: {currentTask.startedAt} ({elapsed} ago)
-    Status: active
+    Session: {sessionId}
+    Started: {elapsed} ago
 
     /p:done to complete | /p:pause to pause
-    ```
-    STOP
-  ELSE IF {pausedTask} exists:
-    OUTPUT:
-    ```
-    ⏸️ Paused: {pausedTask.description}
-
-    Duration so far: {pausedTask.duration}
-
-    /p:resume to continue | /p:done to complete
     ```
     STOP
   ELSE:
     OUTPUT: "No current task. Use /p:now <task> to start one."
     STOP
 
-### Case B: Task provided - Create/Update session
-IF {task} is provided:
+**Case B: Task provided - Check conflicts**
+IF currentTask exists AND status == "active" AND description != task:
+  OUTPUT:
+  ```
+  ⚠️ Already working on: {currentTask.description}
 
-  ## Check for existing active task
-  IF {currentTask} exists AND {currentTask.status} == "active":
-    IF {currentTask.description} != {task}:
-      OUTPUT:
-      ```
-      ⚠️ Already working on: {currentTask.description}
+  Options:
+  • /p:done - Complete current task first
+  • /p:pause - Pause and switch
+  ```
+  STOP
 
-      Options:
-      • /p:done - Complete current task first
-      • /p:pause - Pause and switch
-      • /p:now (same task) - Continue current
-      ```
-      STOP
+**Case C: Same task - Continue**
+IF currentTask.description == task:
+  OUTPUT: "🎯 Continuing: {task}"
+  STOP
 
-  ## If same task, just continue
-  IF {currentTask} AND {currentTask.description} == {task}:
-    OUTPUT: "🎯 Continuing: {task}"
-    STOP
+### Step 3: Create New Task
+GET timestamp: `bun -e "console.log(new Date().toISOString())" 2>/dev/null || node -e "console.log(new Date().toISOString())"`
+GET uuid: `bun -e "console.log(crypto.randomUUID())" 2>/dev/null || node -e "console.log(require('crypto').randomUUID())"`
 
-  ## Create new task
-  GENERATE: {taskId} = UUID v4
-  GENERATE: {sessionId} = UUID v4
-  SET: {startedAt} = GetTimestamp()
+SET: `{taskId}` = uuid
+SET: `{sessionId}` = uuid (different call)
+SET: `{startedAt}` = timestamp
 
-  ## Step 4: Write to Storage (SOURCE OF TRUTH)
+IF estimate provided:
+  PARSE to seconds (30m=1800, 2h=7200, 1d=28800)
 
-  ### Prepare task object
-  ```json
-  {
+### Step 4: Update Storage
+WRITE to `{globalPath}/storage/state.json`:
+```json
+{
+  "currentTask": {
     "id": "{taskId}",
     "description": "{task}",
     "status": "active",
     "startedAt": "{startedAt}",
     "sessionId": "{sessionId}",
-    "estimate": "{estimate OR null}",
-    "estimateSeconds": {estimateInSeconds OR null}
-  }
-  ```
+    "estimate": "{estimate}",
+    "estimateSeconds": {estimateSeconds}
+  },
+  "lastUpdated": "{startedAt}"
+}
+```
 
-  ### Write state.json
-  READ existing `{statePath}` or create empty object
-  SET: state.currentTask = new task object
-  SET: state.lastUpdated = {startedAt}
-  WRITE: `{statePath}`
+### Step 5: Generate Context
+WRITE: `{globalPath}/context/now.md`:
+```markdown
+# NOW
 
-  ## Step 5: Generate Context (FOR CLAUDE)
+**{task}**
 
-  WRITE: `{nowContextPath}`
+Started: {startedAt}
+Session: {sessionId}
+```
 
-  IF {estimate} provided:
-  ```markdown
-  # NOW
+### Step 6: Log Events
+APPEND to `{globalPath}/sync/pending.json`
+APPEND to `{globalPath}/memory/events.jsonl`
 
-  **{task}**
+### Step 7: Output
 
-  Started: {startedAt}
-  Session: {sessionId}
-  Estimate: {estimate}
-  ```
-
-  ELSE (no estimate):
-  ```markdown
-  # NOW
-
-  **{task}**
-
-  Started: {startedAt}
-  Session: {sessionId}
-  ```
-
-  ## Step 6: Queue Sync Event (FOR BACKEND)
-
-  READ: `{syncPath}` or create empty array
-  APPEND event:
-  ```json
-  {
-    "type": "task.started",
-    "path": ["state"],
-    "data": {
-      "taskId": "{taskId}",
-      "description": "{task}",
-      "startedAt": "{startedAt}",
-      "sessionId": "{sessionId}"
-    },
-    "timestamp": "{startedAt}",
-    "projectId": "{projectId}"
-  }
-  ```
-  WRITE: `{syncPath}`
-
-  ## Step 7: Log to Memory (AUDIT TRAIL)
-
-  APPEND to: `{memoryPath}`
-  Single line (JSONL):
-
-  IF {estimate} provided:
-  ```json
-  {"timestamp":"{startedAt}","action":"task_started","taskId":"{taskId}","sessionId":"{sessionId}","task":"{task}","estimate":"{estimate}","estimateSeconds":{estimateInSeconds}}
-  ```
-
-  ELSE:
-  ```json
-  {"timestamp":"{startedAt}","action":"task_started","taskId":"{taskId}","sessionId":"{sessionId}","task":"{task}"}
-  ```
-
-## Output
-
-SUCCESS (new task with estimate):
+WITH estimate:
 ```
 🎯 {task}
 
 Session: {sessionId}
-Started: now
 Estimate: {estimate}
 
 /p:done when finished | /p:pause to take a break
 ```
 
-SUCCESS (new task without estimate):
+WITHOUT estimate:
 ```
 🎯 {task}
 
 Session: {sessionId}
-Started: now
 
 💡 Tip: Add estimate next time with /p:now "task" 2h
 
@@ -276,70 +135,6 @@ Started: now
 | Active task exists | Show options | STOP |
 | Write fails | "Failed to create session" | STOP |
 
-## File Structure Reference
-
-```
-~/.prjct-cli/projects/{projectId}/
-├── storage/
-│   └── state.json          # Source of truth (current + paused tasks)
-├── context/
-│   └── now.md              # Generated for Claude
-├── sync/
-│   └── pending.json        # Events for backend
-└── memory/
-    └── events.jsonl        # Audit trail
-```
-
-## Examples
-
-### Example 1: Show Current Task
-```
-User: /p:now
-Output:
-🎯 Implement user authentication
-
-Session: 550e8400-e29b-41d4-a716-446655440000
-Started: 2 hours ago
-Status: active
-
-/p:done to complete | /p:pause to pause
-```
-
-### Example 2: Start New Task (without estimate)
-```
-User: /p:now "Add login form"
-Output:
-🎯 Add login form
-
-Session: 7c9e6679-7425-40de-944b-e07fc1f90ae7
-Started: now
-
-💡 Tip: Add estimate next time with /p:now "task" 2h
-
-/p:done when finished | /p:pause to take a break
-```
-
-### Example 3: Start New Task (with estimate)
-```
-User: /p:now "Add login form" 2h
-Output:
-🎯 Add login form
-
-Session: 7c9e6679-7425-40de-944b-e07fc1f90ae7
-Started: now
-Estimate: 2h
-
-/p:done when finished | /p:pause to take a break
-```
-
-### Example 4: Task Conflict
-```
-User: /p:now "Something else"
-Output:
-⚠️ Already working on: Add login form
-
-Options:
-• /p:done - Complete current task first
-• /p:pause - Pause and switch
-• /p:now (same task) - Continue current
-```
+## References
+- Architecture: `~/.prjct-cli/docs/architecture.md`
+- Commands: `~/.prjct-cli/docs/commands.md`

@@ -1,2 +1,0 @@
-export const TIMELINE_COLLAPSED_LIMIT = 8
-export const TIMELINE_EXPANDED_LIMIT = 20

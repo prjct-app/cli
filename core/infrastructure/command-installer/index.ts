@@ -16,7 +16,7 @@ export type {
   GlobalConfigResult,
 } from './types'
 
-export { installGlobalConfig } from './global-config'
+export { installGlobalConfig, installDocs } from './global-config'
 export { CommandInstaller } from './command-installer'
 
 import { CommandInstaller } from './command-installer'

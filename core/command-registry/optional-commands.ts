@@ -160,24 +160,4 @@ export const OPTIONAL_COMMANDS: Command[] = [
     ],
   },
 
-  {
-    name: 'serve',
-    category: 'optional',
-    description: 'Start prjct web server',
-    usage: {
-      claude: '/p:serve',
-      terminal: 'prjct serve',
-    },
-    params: '[port]',
-    implemented: true,
-    hasTemplate: true,
-    requiresInit: true,
-    blockingRules: null,
-    isOptional: true,
-    features: [
-      'Local dashboard server',
-      'API endpoints',
-      'Real-time updates',
-    ],
-  },
 ]

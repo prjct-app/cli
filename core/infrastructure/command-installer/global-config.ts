@@ -1,12 +1,42 @@
 /**
  * Global Config Operations
- * Install/update global CLAUDE.md configuration
+ * Install/update global CLAUDE.md configuration and docs
  */
 
 import fs from 'fs/promises'
 import path from 'path'
 import os from 'os'
 import type { GlobalConfigResult } from './types'
+
+/**
+ * Install documentation files to ~/.prjct-cli/docs/
+ */
+export async function installDocs(): Promise<{ success: boolean; error?: string }> {
+  try {
+    const docsDir = path.join(os.homedir(), '.prjct-cli', 'docs')
+    const templateDocsDir = path.join(__dirname, '../../../templates/global/docs')
+
+    // Ensure docs directory exists
+    await fs.mkdir(docsDir, { recursive: true })
+
+    // Read all doc files from template
+    const docFiles = await fs.readdir(templateDocsDir)
+
+    // Copy each doc file
+    for (const file of docFiles) {
+      if (file.endsWith('.md')) {
+        const srcPath = path.join(templateDocsDir, file)
+        const destPath = path.join(docsDir, file)
+        const content = await fs.readFile(srcPath, 'utf-8')
+        await fs.writeFile(destPath, content, 'utf-8')
+      }
+    }
+
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: (error as Error).message }
+  }
+}
 
 /**
  * Install or update global CLAUDE.md configuration
