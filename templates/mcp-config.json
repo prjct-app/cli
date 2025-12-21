@@ -4,6 +4,14 @@
       "command": "npx",
       "args": ["-y", "@upstash/context7-mcp@latest"],
       "description": "Library documentation lookup - use for framework/library docs"
+    },
+    "testsprite": {
+      "command": "npx",
+      "args": ["-y", "@testsprite/testsprite-mcp@latest"],
+      "env": {
+        "API_KEY": "${TESTSPRITE_API_KEY}"
+      },
+      "description": "AI-powered test generation and execution"
     }
   },
   "usage": {
@@ -22,6 +30,34 @@
         "resolve-library-id('nextjs') → get-library-docs('/vercel/next.js', 'app router')",
         "resolve-library-id('tailwindcss') → get-library-docs('/tailwindlabs/tailwindcss', 'configuration')"
       ]
+    },
+    "testsprite": {
+      "when": [
+        "User runs /p:test ai or /p:test --testsprite",
+        "Project needs AI-generated tests for frontend or backend",
+        "Auto-fixing flaky or broken tests",
+        "Generating comprehensive test coverage"
+      ],
+      "tools": [
+        "testsprite_bootstrap_tests: Initialize testing environment",
+        "testsprite_generate_code_summary: Analyze project architecture",
+        "testsprite_generate_standardized_prd: Generate structured requirements",
+        "testsprite_generate_frontend_test_plan: Create frontend test plan",
+        "testsprite_generate_backend_test_plan: Create backend test plan",
+        "testsprite_generate_code_and_execute: Generate and run tests",
+        "testsprite_rerun_tests: Re-run tests with auto-healing"
+      ],
+      "examples": [
+        "testsprite_bootstrap_tests(projectPath, 'frontend', 'diff')",
+        "testsprite_generate_code_and_execute(projectName, projectPath)"
+      ],
+      "apiKeySetup": "Get free API key at https://testsprite.com/dashboard/api-keys",
+      "configFields": {
+        "testspriteApiKey": "API key (optional)",
+        "testspriteSkip": "'never' | 'later' | null",
+        "testspriteSkipUntil": "ISO timestamp for snooze"
+      },
+      "nonBlocking": true
     }
   }
 }
