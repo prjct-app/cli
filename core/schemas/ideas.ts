@@ -2,73 +2,104 @@
  * Ideas Schema
  *
  * Defines the structure for ideas.json - idea backlog.
- * Matches json-loader.ts types exactly.
+ * Uses Zod for runtime validation and TypeScript type inference.
+ *
+ * @version 2.0.0
  */
 
-export type IdeaPriority = 'low' | 'medium' | 'high'
-export type IdeaStatus = 'pending' | 'converted' | 'completed' | 'archived'
+import { z } from 'zod'
 
-export interface ImpactEffort {
-  impact: 'high' | 'medium' | 'low'
-  effort: 'high' | 'medium' | 'low'
-}
+// =============================================================================
+// Zod Schemas - Source of Truth
+// =============================================================================
 
-// Tech stack definition for idea specs
-export interface TechStack {
-  frontend?: string             // "Next.js 14, HeroUI"
-  backend?: string              // "Supabase (Auth, DB, RLS, Realtime)"
-  payments?: string             // "Stripe Billing"
-  ai?: string                   // "Vercel AI SDK"
-  deploy?: string               // "Vercel"
-  other?: string[]              // Additional stack items
-}
+export const IdeaPrioritySchema = z.enum(['low', 'medium', 'high'])
+export const IdeaStatusSchema = z.enum(['pending', 'converted', 'completed', 'archived'])
+export const ImpactLevelSchema = z.enum(['high', 'medium', 'low'])
 
-// Module definition for complex ideas
-export interface IdeaModule {
-  name: string                  // "Multi-tenant"
-  description: string           // "Empresas con RLS estricto"
-}
+export const ImpactEffortSchema = z.object({
+  impact: ImpactLevelSchema,
+  effort: ImpactLevelSchema,
+})
 
-// Role definition
-export interface IdeaRole {
-  name: string                  // "SUPER_ADMIN"
-  description?: string          // "(global, impersonation)"
-}
+export const TechStackSchema = z.object({
+  frontend: z.string().optional(),  // "Next.js 14, HeroUI"
+  backend: z.string().optional(),   // "Supabase (Auth, DB, RLS, Realtime)"
+  payments: z.string().optional(),  // "Stripe Billing"
+  ai: z.string().optional(),        // "Vercel AI SDK"
+  deploy: z.string().optional(),    // "Vercel"
+  other: z.array(z.string()).optional(),
+})
 
-export interface IdeaSchema {
-  id: string                    // idea_xxxxxxxx
-  text: string                  // Title/summary
-  details?: string              // Expanded description
-  priority: IdeaPriority
-  status: IdeaStatus
-  tags: string[]
-  addedAt: string               // ISO8601
-  completedAt?: string          // ISO8601 if status=completed
-  convertedTo?: string          // featureId if status=converted
+export const IdeaModuleSchema = z.object({
+  name: z.string(),               // "Multi-tenant"
+  description: z.string(),        // "Empresas con RLS estricto"
+})
+
+export const IdeaRoleSchema = z.object({
+  name: z.string(),               // "SUPER_ADMIN"
+  description: z.string().optional(),
+})
+
+export const IdeaItemSchema = z.object({
+  id: z.string(),                 // idea_xxxxxxxx
+  text: z.string(),               // Title/summary
+  details: z.string().optional(),
+  priority: IdeaPrioritySchema,
+  status: IdeaStatusSchema,
+  tags: z.array(z.string()),
+  addedAt: z.string(),            // ISO8601
+  completedAt: z.string().optional(),
+  convertedTo: z.string().optional(),
   // Source documentation
-  source?: string               // "docs/technical-spec-v1.md, docs/edr-v1.md"
-  sourceFiles?: string[]        // Array of source files
+  source: z.string().optional(),
+  sourceFiles: z.array(z.string()).optional(),
   // Enriched fields from MD
-  painPoints?: string[]         // from ### Pain Points section
-  solutions?: string[]          // from ### Solutions section
-  filesAffected?: string[]      // from **Files:** section
-  impactEffort?: ImpactEffort
-  implementationNotes?: string
+  painPoints: z.array(z.string()).optional(),
+  solutions: z.array(z.string()).optional(),
+  filesAffected: z.array(z.string()).optional(),
+  impactEffort: ImpactEffortSchema.optional(),
+  implementationNotes: z.string().optional(),
   // Technical spec fields for ZERO DATA LOSS
-  stack?: TechStack             // Tech stack definition
-  modules?: IdeaModule[]        // V1 modules list
-  roles?: IdeaRole[]            // User roles
-  risks?: string[]              // Critical risks/pitfalls
-  risksCount?: number           // "33 pitfalls documented"
-}
+  stack: TechStackSchema.optional(),
+  modules: z.array(IdeaModuleSchema).optional(),
+  roles: z.array(IdeaRoleSchema).optional(),
+  risks: z.array(z.string()).optional(),
+  risksCount: z.number().optional(),
+})
 
-export interface IdeasJson {
-  ideas: IdeaSchema[]
-  lastUpdated: string
-}
+export const IdeasJsonSchema = z.object({
+  ideas: z.array(IdeaItemSchema),
+  lastUpdated: z.string(),
+})
+
+// =============================================================================
+// Inferred Types - Backward Compatible
+// =============================================================================
+
+export type IdeaPriority = z.infer<typeof IdeaPrioritySchema>
+export type IdeaStatus = z.infer<typeof IdeaStatusSchema>
+export type ImpactEffort = z.infer<typeof ImpactEffortSchema>
+export type TechStack = z.infer<typeof TechStackSchema>
+export type IdeaModule = z.infer<typeof IdeaModuleSchema>
+export type IdeaRole = z.infer<typeof IdeaRoleSchema>
+export type IdeaSchema = z.infer<typeof IdeaItemSchema>
+export type IdeasJson = z.infer<typeof IdeasJsonSchema>
 
 // Legacy type for backwards compatibility
 export type IdeasSchema = IdeaSchema[]
+
+// =============================================================================
+// Validation Helpers
+// =============================================================================
+
+/** Parse and validate ideas.json content */
+export const parseIdeas = (data: unknown): IdeasJson => IdeasJsonSchema.parse(data)
+export const safeParseIdeas = (data: unknown) => IdeasJsonSchema.safeParse(data)
+
+// =============================================================================
+// Defaults
+// =============================================================================
 
 export const DEFAULT_IDEA: Omit<IdeaSchema, 'id' | 'text'> = {
   priority: 'medium',

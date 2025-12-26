@@ -1,0 +1,16 @@
+Fetch and analyze web content.
+
+Use this tool to retrieve content from URLs and process it with AI. Useful for documentation, API references, and external resources.
+
+Capabilities:
+- Fetch any URL content
+- Automatic HTML to markdown conversion
+- AI-powered content extraction based on prompt
+- 15-minute cache for repeated requests
+- Automatic HTTP to HTTPS upgrade
+
+Best practices:
+- Provide specific prompts for extraction
+- Handle redirects by following the provided URL
+- Use for documentation and reference lookup
+- Results may be summarized for large content

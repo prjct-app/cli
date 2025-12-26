@@ -1,0 +1,21 @@
+Search file contents using regex patterns.
+
+Use this tool to search for code patterns, function definitions, imports, and text across the codebase. Built on ripgrep for speed.
+
+Capabilities:
+- Full regex syntax support
+- Filter by file type or glob pattern
+- Multiple output modes: files_with_matches, content, count
+- Context lines before/after matches (-A, -B, -C)
+- Multiline matching support
+
+Output modes:
+- files_with_matches (default): just file paths
+- content: matching lines with context
+- count: match counts per file
+
+Best practices:
+- Use specific patterns to reduce noise
+- Filter by file type when possible (type: "ts")
+- Use content mode with context for understanding matches
+- Never use bash grep/rg directly (use this tool)

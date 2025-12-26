@@ -1,0 +1,18 @@
+Search the web for current information.
+
+Use this tool to find up-to-date information beyond the knowledge cutoff. Returns search results with links.
+
+Capabilities:
+- Real-time web search
+- Domain filtering (allow/block specific sites)
+- Returns formatted results with URLs
+
+Requirements:
+- MUST include Sources section with URLs after answering
+- Use current year in queries for recent info
+
+Best practices:
+- Be specific in search queries
+- Include year for time-sensitive searches
+- Always cite sources in response
+- Filter domains when targeting specific sites

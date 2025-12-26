@@ -1,0 +1,14 @@
+Read files from the filesystem.
+
+Use this tool to read file contents before making edits. Always read a file before attempting to modify it to understand the current state and structure.
+
+Capabilities:
+- Read any text file by absolute path
+- Supports line offset and limit for large files
+- Returns content with line numbers for easy reference
+- Can read images, PDFs, and Jupyter notebooks
+
+Best practices:
+- Always read before editing
+- Use offset/limit for files > 2000 lines
+- Read multiple related files in parallel when exploring

@@ -48,8 +48,11 @@
   "dependencies": {
     "chalk": "^4.1.2",
     "glob": "^10.3.10",
+    "hono": "^4.11.3",
+    "jsonc-parser": "^3.3.1",
     "lightningcss": "^1.30.2",
-    "prompts": "^2.4.2"
+    "prompts": "^2.4.2",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/bun": "latest",
