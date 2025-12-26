@@ -4,8 +4,8 @@
  */
 
 import path from 'path'
-import registry from '../command-registry/index'
 
+import { commandRegistry } from './registry'
 import type { CommandResult, Context } from './types'
 import {
   PrjctCommandsBase,
@@ -199,22 +199,22 @@ export class AnalyticsCommands extends PrjctCommandsBase {
     try {
       if (!topic) {
         // Show command overview
-        console.log('\n🔧 PRJCT COMMANDS\n')
-        console.log('═'.repeat(50))
+        console.log('\n PRJCT COMMANDS\n')
+        console.log('='.repeat(50))
 
-        const categories = registry.getCategories()
-        const commands = registry.getAll()
+        const categories = commandRegistry.getAllCategories()
+        const commands = commandRegistry.getAll()
 
         // Group by category
         const byCategory: Record<string, typeof commands> = {}
         commands.forEach(cmd => {
           if (cmd.deprecated) return
-          if (!byCategory[cmd.category]) byCategory[cmd.category] = []
-          byCategory[cmd.category].push(cmd)
+          if (!byCategory[cmd.group]) byCategory[cmd.group] = []
+          byCategory[cmd.group].push(cmd)
         })
 
         Object.entries(byCategory).forEach(([cat, cmds]) => {
-          const catInfo = categories[cat]
+          const catInfo = categories.get(cat)
           console.log(`\n${catInfo?.title || cat}:`)
           cmds.forEach(cmd => {
             const params = cmd.params ? ` ${cmd.params}` : ''
@@ -230,7 +230,7 @@ export class AnalyticsCommands extends PrjctCommandsBase {
       }
 
       // Topic-specific help
-      const command = registry.getByName(topic)
+      const command = commandRegistry.getByName(topic)
       if (command) {
         console.log(`\n📚 HELP: /p:${command.name}\n`)
         console.log('═'.repeat(50))

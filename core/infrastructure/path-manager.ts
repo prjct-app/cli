@@ -15,14 +15,10 @@ import crypto from 'crypto'
 import os from 'os'
 import * as dateHelper from '../utils/date-helper'
 import * as fileHelper from '../utils/file-helper'
+import type { SessionInfo, LayerType } from './path.types'
 
-interface SessionInfo {
-  year: string
-  month: string
-  day: string
-  path: string
-  date: Date
-}
+// Re-export types for convenience
+export type { SessionInfo, LayerType } from './path.types'
 
 class PathManager {
   globalBaseDir: string
@@ -287,6 +283,49 @@ class PathManager {
    */
   getLastSyncPath(projectId: string): string {
     return path.join(this.getGlobalProjectPath(projectId), 'sync', 'last-sync.json')
+  }
+
+  /**
+   * Get the running status file path (for status signal)
+   * Used to indicate when prjct CLI is actively running
+   */
+  getRunningStatusPath(): string {
+    return path.join(this.globalBaseDir, '.running')
+  }
+
+  /**
+   * Get the docs directory path
+   * Contains documentation and help files
+   */
+  getDocsPath(): string {
+    return path.join(this.globalBaseDir, 'docs')
+  }
+
+  /**
+   * Get the agents directory path for a project
+   * If projectId is null, returns the global agents directory
+   */
+  getAgentsPath(projectId: string | null): string {
+    if (projectId) {
+      return path.join(this.getGlobalProjectPath(projectId), 'agents')
+    }
+    return path.join(this.globalBaseDir, 'agents')
+  }
+
+  /**
+   * Get the storage file path for a project
+   * Convenience method for accessing storage layer files
+   */
+  getStoragePath(projectId: string, filename: string): string {
+    return path.join(this.getGlobalProjectPath(projectId), 'storage', filename)
+  }
+
+  /**
+   * Get the context directory path for a project
+   * Contains generated markdown context files
+   */
+  getContextPath(projectId: string): string {
+    return path.join(this.getGlobalProjectPath(projectId), 'context')
   }
 }
 

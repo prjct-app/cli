@@ -11,126 +11,33 @@
 import { agentPerformanceTracker } from '../agents'
 import { outcomeAnalyzer } from '../outcomes'
 import type { TaskType } from '../agents/types'
+import type {
+  ContextDomain,
+  SmartContextProjectState,
+  FullContext,
+  FilteredContext,
+  AgentInfo,
+  FeatureInfo,
+  PatternInfo,
+  StackInfo,
+  FilterMetrics,
+  DomainAnalysis,
+} from './agentic.types'
 
-// Local interface for context state
-interface ProjectState {
-  projectId: string
-  currentTask: { description: string; startedAt: string } | null
-  queue: { description: string; priority: string }[]
-}
+// Re-export types for convenience
+export type {
+  ContextDomain,
+  FullContext,
+  FilteredContext,
+  AgentInfo,
+  FeatureInfo,
+  PatternInfo,
+  StackInfo,
+  FilterMetrics,
+} from './agentic.types'
 
-/**
- * Context domain for filtering.
- */
-export type ContextDomain = 'frontend' | 'backend' | 'devops' | 'docs' | 'testing' | 'general'
-
-/**
- * Full context available before filtering.
- */
-export interface FullContext {
-  /** Project state */
-  state: ProjectState | null
-
-  /** Available agents */
-  agents: AgentInfo[]
-
-  /** Roadmap features */
-  roadmap: FeatureInfo[]
-
-  /** Detected patterns */
-  patterns: PatternInfo[]
-
-  /** Tech stack info */
-  stack: StackInfo
-
-  /** File list */
-  files: string[]
-
-  /** Project path */
-  projectPath: string
-}
-
-/**
- * Filtered context optimized for a task domain.
- */
-export interface FilteredContext {
-  /** Filtered agents (domain-relevant only) */
-  agents: AgentInfo[]
-
-  /** Filtered roadmap (related features only) */
-  roadmap: FeatureInfo[]
-
-  /** Filtered patterns (domain-relevant only) */
-  patterns: PatternInfo[]
-
-  /** Filtered stack info */
-  stack: Partial<StackInfo>
-
-  /** Filtered files */
-  files: string[]
-
-  /** Filtering metrics */
-  metrics: FilterMetrics
-}
-
-/**
- * Agent info for context.
- */
-export interface AgentInfo {
-  name: string
-  domain: ContextDomain
-  skills: string[]
-  successRate?: number
-}
-
-/**
- * Feature info for context.
- */
-export interface FeatureInfo {
-  id: string
-  name: string
-  relatedTo: ContextDomain[]
-  status: string
-}
-
-/**
- * Pattern info for context.
- */
-export interface PatternInfo {
-  description: string
-  domain: ContextDomain
-  confidence: number
-}
-
-/**
- * Stack info for context.
- */
-export interface StackInfo {
-  frontend: string[]
-  backend: string[]
-  devops: string[]
-  database: string[]
-  testing: string[]
-}
-
-/**
- * Filtering metrics.
- */
-export interface FilterMetrics {
-  originalSize: number
-  filteredSize: number
-  reductionPercent: number
-  domain: ContextDomain
-}
-
-/**
- * Domain detection result.
- */
-interface DomainAnalysis {
-  primary: ContextDomain
-  secondary: ContextDomain[]
-  confidence: number
-}
+// Local type alias for backward compatibility
+type ProjectState = SmartContextProjectState
 
 /**
  * SmartContext - Intelligent context filtering.

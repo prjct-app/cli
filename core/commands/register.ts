@@ -9,6 +9,7 @@
  */
 
 import { commandRegistry } from './registry'
+import { COMMANDS, CATEGORIES } from './command-data'
 import { WorkflowCommands } from './workflow'
 import { PlanningCommands } from './planning'
 import { ShippingCommands } from './shipping'
@@ -27,125 +28,65 @@ const analysis = new AnalysisCommands()
 const setup = new SetupCommands()
 
 /**
+ * Register categories
+ */
+function registerCategories(): void {
+  for (const [name, info] of Object.entries(CATEGORIES)) {
+    commandRegistry.registerCategory(name, info)
+  }
+}
+
+/**
  * Register all commands from existing command groups
  */
 export function registerAllCommands(): void {
   // Skip if already registered
   if (commandRegistry.has('work')) return
 
-  // Workflow commands (5)
-  commandRegistry.registerMethod('work', workflow, 'now', {
-    group: 'workflow',
-    description: 'Set or show current task',
-  })
-  commandRegistry.registerMethod('now', workflow, 'now', {
-    group: 'workflow',
-    description: 'Set or show current task (alias)',
-  })
-  commandRegistry.registerMethod('done', workflow, 'done', {
-    group: 'workflow',
-    description: 'Complete current task',
-  })
-  commandRegistry.registerMethod('next', workflow, 'next', {
-    group: 'workflow',
-    description: 'Show priority queue',
-  })
-  commandRegistry.registerMethod('pause', workflow, 'pause', {
-    group: 'workflow',
-    description: 'Pause active task',
-  })
-  commandRegistry.registerMethod('resume', workflow, 'resume', {
-    group: 'workflow',
-    description: 'Resume paused task',
-  })
+  // Register categories first
+  registerCategories()
 
-  // Planning commands (5)
-  commandRegistry.registerMethod('init', planning, 'init', {
-    group: 'planning',
-    description: 'Initialize project',
-  })
-  commandRegistry.registerMethod('feature', planning, 'feature', {
-    group: 'planning',
-    description: 'Add feature to roadmap',
-  })
-  commandRegistry.registerMethod('bug', planning, 'bug', {
-    group: 'planning',
-    description: 'Report bug with auto-priority',
-  })
-  commandRegistry.registerMethod('idea', planning, 'idea', {
-    group: 'planning',
-    description: 'Capture idea',
-  })
-  commandRegistry.registerMethod('spec', planning, 'spec', {
-    group: 'planning',
-    description: 'Create specification',
-  })
+  // Helper to get metadata from COMMANDS
+  const getMeta = (name: string) => COMMANDS.find(c => c.name === name)
 
-  // Shipping commands (1)
-  commandRegistry.registerMethod('ship', shipping, 'ship', {
-    group: 'shipping',
-    description: 'Ship feature with quality checks',
-  })
+  // Workflow commands
+  commandRegistry.registerMethod('work', workflow, 'now', getMeta('work'))
+  commandRegistry.registerMethod('now', workflow, 'now', getMeta('now'))
+  commandRegistry.registerMethod('done', workflow, 'done', getMeta('done'))
+  commandRegistry.registerMethod('next', workflow, 'next', getMeta('next'))
+  commandRegistry.registerMethod('pause', workflow, 'pause', getMeta('pause'))
+  commandRegistry.registerMethod('resume', workflow, 'resume', getMeta('resume'))
 
-  // Analytics commands (2)
-  commandRegistry.registerMethod('dash', analytics, 'dash', {
-    group: 'analytics',
-    description: 'Unified dashboard',
-  })
-  commandRegistry.registerMethod('help', analytics, 'help', {
-    group: 'analytics',
-    description: 'Contextual help',
-  })
+  // Planning commands
+  commandRegistry.registerMethod('init', planning, 'init', getMeta('init'))
+  commandRegistry.registerMethod('feature', planning, 'feature', getMeta('feature'))
+  commandRegistry.registerMethod('bug', planning, 'bug', getMeta('bug'))
+  commandRegistry.registerMethod('idea', planning, 'idea', getMeta('idea'))
+  commandRegistry.registerMethod('spec', planning, 'spec', getMeta('spec'))
 
-  // Maintenance commands (6)
-  commandRegistry.registerMethod('cleanup', maintenance, 'cleanup', {
-    group: 'maintenance',
-    description: 'Clean temp files',
-  })
-  commandRegistry.registerMethod('design', maintenance, 'design', {
-    group: 'maintenance',
-    description: 'System design',
-  })
-  commandRegistry.registerMethod('recover', maintenance, 'recover', {
-    group: 'maintenance',
-    description: 'Recover abandoned session',
-  })
-  commandRegistry.registerMethod('undo', maintenance, 'undo', {
-    group: 'maintenance',
-    description: 'Undo last changes',
-  })
-  commandRegistry.registerMethod('redo', maintenance, 'redo', {
-    group: 'maintenance',
-    description: 'Redo undone changes',
-  })
-  commandRegistry.registerMethod('history', maintenance, 'history', {
-    group: 'maintenance',
-    description: 'View snapshot history',
-  })
+  // Shipping commands
+  commandRegistry.registerMethod('ship', shipping, 'ship', getMeta('ship'))
 
-  // Analysis commands (2)
-  commandRegistry.registerMethod('analyze', analysis, 'analyze', {
-    group: 'analysis',
-    description: 'Deep repo analysis',
-  })
-  commandRegistry.registerMethod('sync', analysis, 'sync', {
-    group: 'analysis',
-    description: 'Sync and generate agents',
-  })
+  // Analytics commands
+  commandRegistry.registerMethod('dash', analytics, 'dash', getMeta('dash'))
+  commandRegistry.registerMethod('help', analytics, 'help', getMeta('help'))
 
-  // Setup commands (3)
-  commandRegistry.registerMethod('start', setup, 'start', {
-    group: 'setup',
-    description: 'Interactive setup',
-  })
-  commandRegistry.registerMethod('setup', setup, 'setup', {
-    group: 'setup',
-    description: 'Configure prjct',
-  })
-  commandRegistry.registerMethod('migrateAll', setup, 'migrateAll', {
-    group: 'setup',
-    description: 'Migrate all projects',
-  })
+  // Maintenance commands
+  commandRegistry.registerMethod('cleanup', maintenance, 'cleanup', getMeta('cleanup'))
+  commandRegistry.registerMethod('design', maintenance, 'design', getMeta('design'))
+  commandRegistry.registerMethod('recover', maintenance, 'recover', getMeta('recover'))
+  commandRegistry.registerMethod('undo', maintenance, 'undo', getMeta('undo'))
+  commandRegistry.registerMethod('redo', maintenance, 'redo', getMeta('redo'))
+  commandRegistry.registerMethod('history', maintenance, 'history', getMeta('history'))
+
+  // Analysis commands
+  commandRegistry.registerMethod('analyze', analysis, 'analyze', getMeta('analyze'))
+  commandRegistry.registerMethod('sync', analysis, 'sync', getMeta('sync'))
+
+  // Setup commands
+  commandRegistry.registerMethod('start', setup, 'start', getMeta('start'))
+  commandRegistry.registerMethod('setup', setup, 'setup', getMeta('setup'))
+  commandRegistry.registerMethod('migrateAll', setup, 'migrateAll', getMeta('migrate-all'))
 }
 
 // Auto-register on import

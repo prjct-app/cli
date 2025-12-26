@@ -17,32 +17,11 @@ import authorDetector from './author-detector'
 import { VERSION } from '../utils/version'
 import { getTimestamp } from '../utils/date-helper'
 import { ConfigError, getErrorMessage } from '../errors'
+import { isNotFoundError } from '../types/fs'
+import type { Author, LocalConfig, GlobalConfig } from './config.types'
 
-interface Author {
-  name: string
-  email: string
-  github: string
-  firstContribution?: string
-  lastActivity?: string
-}
-
-interface LocalConfig {
-  projectId: string
-  dataPath: string
-  authors?: Author[]
-  author?: Author
-  version?: string
-  created?: string
-  lastSync?: string
-}
-
-interface GlobalConfig {
-  projectId: string
-  authors: Author[]
-  version: string
-  created?: string
-  lastSync: string
-}
+// Re-export types for convenience
+export type { Author, LocalConfig, GlobalConfig } from './config.types'
 
 class ConfigManager {
   /**
@@ -55,7 +34,7 @@ class ConfigManager {
       return JSON.parse(content)
     } catch (error) {
       // File not found is expected - return null
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      if (isNotFoundError(error)) {
         return null
       }
       // JSON parse errors or other issues - log and return null
@@ -88,7 +67,7 @@ class ConfigManager {
       return JSON.parse(content)
     } catch (error) {
       // File not found is expected for new projects
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      if (isNotFoundError(error)) {
         return null
       }
       // Log other errors for debugging
@@ -219,7 +198,7 @@ class ConfigManager {
       return coreFiles.length === 0
     } catch (error) {
       // Directory not found means migration needed
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      if (isNotFoundError(error)) {
         return true
       }
       // Permission errors or other issues - assume migration needed

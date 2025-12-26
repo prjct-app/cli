@@ -15,19 +15,10 @@ import fs from 'fs/promises'
 import path from 'path'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
+import type { Agent, AssignmentContext } from './agentic.types'
 
-interface Agent {
-  name: string
-  content: string
-}
-
-interface AssignmentContext {
-  task: string
-  availableAgents: string[]
-  projectPath: string
-  projectId: string | null
-  _template: string
-}
+// Re-export types for convenience
+export type { Agent, AssignmentContext } from './agentic.types'
 
 /**
  * Routes tasks to specialized agents based on Claude's decisions.

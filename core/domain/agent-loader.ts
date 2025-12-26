@@ -8,7 +8,8 @@
 
 import fs from 'fs/promises'
 import path from 'path'
-import os from 'os'
+import pathManager from '../infrastructure/path-manager'
+import { isNotFoundError } from '../types/fs'
 
 interface Agent {
   name: string
@@ -27,9 +28,7 @@ class AgentLoader {
 
   constructor(projectId: string | null = null) {
     this.projectId = projectId
-    this.agentsDir = projectId
-      ? path.join(os.homedir(), '.prjct-cli', 'projects', projectId, 'agents')
-      : path.join(os.homedir(), '.prjct-cli', 'agents')
+    this.agentsDir = pathManager.getAgentsPath(projectId)
     this.cache = new Map()
   }
 
@@ -63,7 +62,7 @@ class AgentLoader {
 
       return agent
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      if (isNotFoundError(error)) {
         return null // Agent file doesn't exist
       }
       throw error
@@ -89,7 +88,7 @@ class AgentLoader {
 
       return agents
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      if (isNotFoundError(error)) {
         return [] // Agents directory doesn't exist yet
       }
       throw error

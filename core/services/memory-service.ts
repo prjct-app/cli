@@ -1,0 +1,113 @@
+/**
+ * MemoryService - Event logging and memory management
+ *
+ * Handles logging actions to memory for audit trail and context building.
+ */
+
+import pathManager from '../infrastructure/path-manager'
+import configManager from '../infrastructure/config-manager'
+import { getTimestamp } from '../utils/date-helper'
+import jsonlHelper from '../utils/jsonl-helper'
+
+export interface MemoryEntry {
+  timestamp: string
+  action: string
+  data: Record<string, unknown>
+  author?: string
+}
+
+export class MemoryService {
+  /**
+   * Log an action to memory
+   */
+  async log(
+    projectPath: string,
+    action: string,
+    data: Record<string, unknown>,
+    author?: string
+  ): Promise<void> {
+    try {
+      const projectId = await configManager.getProjectId(projectPath)
+      if (!projectId) return
+
+      const memoryPath = pathManager.getFilePath(projectId, 'memory', 'context.jsonl')
+
+      const entry: MemoryEntry = {
+        timestamp: getTimestamp(),
+        action,
+        data,
+        author,
+      }
+
+      await jsonlHelper.appendJsonLine(memoryPath, entry)
+    } catch {
+      // Non-critical - don't fail the command
+    }
+  }
+
+  /**
+   * Get recent memory entries
+   */
+  async getRecent(projectPath: string, limit: number = 100): Promise<MemoryEntry[]> {
+    try {
+      const projectId = await configManager.getProjectId(projectPath)
+      if (!projectId) return []
+
+      const memoryPath = pathManager.getFilePath(projectId, 'memory', 'context.jsonl')
+      const entries = await jsonlHelper.readJsonLines<MemoryEntry>(memoryPath)
+      return entries.slice(-limit)
+    } catch {
+      return []
+    }
+  }
+
+  /**
+   * Search memory for entries matching a pattern
+   */
+  async search(
+    projectPath: string,
+    pattern: string,
+    limit: number = 50
+  ): Promise<MemoryEntry[]> {
+    const entries = await this.getRecent(projectPath, 1000)
+    const patternLower = pattern.toLowerCase()
+
+    return entries
+      .filter((entry) => {
+        const actionMatch = entry.action.toLowerCase().includes(patternLower)
+        const dataMatch = JSON.stringify(entry.data).toLowerCase().includes(patternLower)
+        return actionMatch || dataMatch
+      })
+      .slice(-limit)
+  }
+
+  /**
+   * Get entries for a specific action type
+   */
+  async getByAction(
+    projectPath: string,
+    action: string,
+    limit: number = 50
+  ): Promise<MemoryEntry[]> {
+    const entries = await this.getRecent(projectPath, 1000)
+    return entries.filter((entry) => entry.action === action).slice(-limit)
+  }
+
+  /**
+   * Clear memory (for testing or cleanup)
+   */
+  async clear(projectPath: string): Promise<void> {
+    try {
+      const projectId = await configManager.getProjectId(projectPath)
+      if (!projectId) return
+
+      const memoryPath = pathManager.getFilePath(projectId, 'memory', 'context.jsonl')
+      await jsonlHelper.writeJsonLines(memoryPath, [])
+    } catch {
+      // Non-critical
+    }
+  }
+}
+
+export const memoryService = new MemoryService()
+export default memoryService

@@ -5,9 +5,9 @@
  * Events accumulate in sync/pending.json until /p:ship or /p:sync.
  */
 
-import fs from 'fs/promises'
-import path from 'path'
-import os from 'os'
+import pathManager from '../infrastructure/path-manager'
+import * as fileHelper from '../utils/file-helper'
+import { getTimestamp } from '../utils/date-helper'
 
 import { EventType, SyncEvent } from './events.types'
 
@@ -27,89 +27,58 @@ export function inferEventType(pathArray: string[], action: 'write' | 'delete'):
 }
 
 class EventBus {
-  private pendingPath(projectId: string): string {
-    return path.join(os.homedir(), '.prjct-cli/projects', projectId, 'sync/pending.json')
-  }
-
   /**
    * Publish event to pending queue
    */
   async publish(event: SyncEvent): Promise<void> {
-    const filePath = this.pendingPath(event.projectId)
+    const filePath = pathManager.getSyncPendingPath(event.projectId)
 
     // Read existing pending events
-    let pending: SyncEvent[] = []
-    try {
-      const content = await fs.readFile(filePath, 'utf-8')
-      pending = JSON.parse(content)
-    } catch {
-      // File doesn't exist yet
-    }
+    const pending = (await fileHelper.readJson<SyncEvent[]>(filePath, [])) ?? []
 
     // Add new event
     pending.push(event)
 
-    // Ensure directory exists
-    await fs.mkdir(path.dirname(filePath), { recursive: true })
-
-    // Write back
-    await fs.writeFile(filePath, JSON.stringify(pending, null, 2), 'utf-8')
+    // Write back (ensureDir is handled by writeJson)
+    await fileHelper.writeJson(filePath, pending)
   }
 
   /**
    * Get all pending events for a project
    */
   async getPending(projectId: string): Promise<SyncEvent[]> {
-    const filePath = this.pendingPath(projectId)
-
-    try {
-      const content = await fs.readFile(filePath, 'utf-8')
-      return JSON.parse(content)
-    } catch {
-      return []
-    }
+    const filePath = pathManager.getSyncPendingPath(projectId)
+    return (await fileHelper.readJson<SyncEvent[]>(filePath, [])) ?? []
   }
 
   /**
    * Clear pending events after successful sync
    */
   async clearPending(projectId: string): Promise<void> {
-    const filePath = this.pendingPath(projectId)
-
-    try {
-      await fs.writeFile(filePath, '[]', 'utf-8')
-    } catch {
-      // Ignore
-    }
+    const filePath = pathManager.getSyncPendingPath(projectId)
+    await fileHelper.writeJson(filePath, [])
   }
 
   /**
    * Update last sync timestamp
    */
   async updateLastSync(projectId: string): Promise<void> {
-    const filePath = path.join(os.homedir(), '.prjct-cli/projects', projectId, 'sync/last-sync.json')
+    const filePath = pathManager.getLastSyncPath(projectId)
 
     const data = {
-      timestamp: new Date().toISOString(),
-      success: true
+      timestamp: getTimestamp(),
+      success: true,
     }
 
-    await fs.mkdir(path.dirname(filePath), { recursive: true })
-    await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8')
+    await fileHelper.writeJson(filePath, data)
   }
 
   /**
    * Get last sync info
    */
   async getLastSync(projectId: string): Promise<{ timestamp: string; success: boolean } | null> {
-    const filePath = path.join(os.homedir(), '.prjct-cli/projects', projectId, 'sync/last-sync.json')
-
-    try {
-      const content = await fs.readFile(filePath, 'utf-8')
-      return JSON.parse(content)
-    } catch {
-      return null
-    }
+    const filePath = pathManager.getLastSyncPath(projectId)
+    return await fileHelper.readJson<{ timestamp: string; success: boolean } | null>(filePath, null)
   }
 }
 

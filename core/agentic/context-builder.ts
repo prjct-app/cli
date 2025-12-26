@@ -9,35 +9,15 @@
 import fs from 'fs/promises'
 import pathManager from '../infrastructure/path-manager'
 import configManager from '../infrastructure/config-manager'
+import type { ContextPaths, ProjectContext, ContextState } from './agentic.types'
 
-interface Paths {
-  now: string
-  next: string
-  context: string
-  shipped: string
-  metrics: string
-  ideas: string
-  roadmap: string
-  specs: string
-  memory: string
-  patterns: string
-  analysis: string
-  codePatterns: string
-}
+// Re-export types for convenience
+export type { ContextPaths, ProjectContext, ContextState } from './agentic.types'
 
-interface Context {
-  projectId: string | null
-  projectPath: string
-  globalPath: string
-  paths: Paths
-  params: Record<string, unknown>
-  timestamp: string
-  date: string
-}
-
-interface State {
-  [key: string]: string | null
-}
+// Local type aliases for backward compatibility
+type Paths = ContextPaths
+type Context = ProjectContext
+type State = ContextState
 
 /**
  * Builds and caches project context for Claude decisions.

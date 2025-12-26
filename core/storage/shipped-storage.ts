@@ -7,6 +7,7 @@
 
 import { StorageManager } from './storage-manager'
 import { generateUUID } from '../schemas'
+import { getTimestamp } from '../utils/date-helper'
 
 export interface ShippedFeature {
   id: string
@@ -139,12 +140,12 @@ class ShippedStorage extends StorageManager<ShippedJson> {
     const shipped: ShippedFeature = {
       ...feature,
       id: generateUUID(),
-      shippedAt: new Date().toISOString()
+      shippedAt: getTimestamp()
     }
 
     await this.update(projectId, (data) => ({
       shipped: [shipped, ...data.shipped], // Prepend
-      lastUpdated: new Date().toISOString()
+      lastUpdated: getTimestamp()
     }))
 
     // Publish event

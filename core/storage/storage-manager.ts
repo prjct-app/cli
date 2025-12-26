@@ -11,60 +11,25 @@
 
 import fs from 'fs/promises'
 import path from 'path'
-import os from 'os'
 import { eventBus, type SyncEvent } from '../events'
 import { getTimestamp } from '../utils/date-helper'
 import pathManager from '../infrastructure/path-manager'
-
-interface CacheEntry<T> {
-  data: T
-  timestamp: number
-}
+import { TTLCache } from '../utils/cache'
 
 export abstract class StorageManager<T> {
   protected filename: string
-  protected cache: Map<string, CacheEntry<T>> = new Map()
-  protected cacheTimeout = 5000 // 5 seconds
-  protected maxCacheSize = 50 // Max projects to cache
+  protected cache: TTLCache<T>
 
   constructor(filename: string) {
     this.filename = filename
-  }
-
-  /**
-   * Check if cache entry is still valid
-   */
-  private isCacheValid(entry: CacheEntry<T>): boolean {
-    return Date.now() - entry.timestamp < this.cacheTimeout
-  }
-
-  /**
-   * Evict oldest entries if cache exceeds max size
-   */
-  private evictOldEntries(): void {
-    if (this.cache.size <= this.maxCacheSize) return
-
-    // Sort by timestamp and remove oldest
-    const entries = Array.from(this.cache.entries())
-      .sort((a, b) => a[1].timestamp - b[1].timestamp)
-
-    const toRemove = entries.slice(0, this.cache.size - this.maxCacheSize)
-    for (const [key] of toRemove) {
-      this.cache.delete(key)
-    }
+    this.cache = new TTLCache<T>({ ttl: 5000, maxSize: 50 })
   }
 
   /**
    * Get file path for storage JSON
    */
   protected getStoragePath(projectId: string): string {
-    return path.join(
-      os.homedir(),
-      '.prjct-cli/projects',
-      projectId,
-      'storage',
-      this.filename
-    )
+    return pathManager.getStoragePath(projectId, this.filename)
   }
 
   /**
@@ -108,13 +73,8 @@ export abstract class StorageManager<T> {
   async read(projectId: string): Promise<T> {
     // Check cache first (with expiration)
     const cached = this.cache.get(projectId)
-    if (cached && this.isCacheValid(cached)) {
-      return cached.data
-    }
-
-    // Remove expired entry
-    if (cached) {
-      this.cache.delete(projectId)
+    if (cached !== null) {
+      return cached
     }
 
     const filePath = this.getStoragePath(projectId)
@@ -122,8 +82,7 @@ export abstract class StorageManager<T> {
     try {
       const content = await fs.readFile(filePath, 'utf-8')
       const data = JSON.parse(content) as T
-      this.cache.set(projectId, { data, timestamp: Date.now() })
-      this.evictOldEntries()
+      this.cache.set(projectId, data)
       return data
     } catch {
       // Return default if file doesn't exist
@@ -151,9 +110,8 @@ export abstract class StorageManager<T> {
     const md = this.toMarkdown(data)
     await fs.writeFile(contextPath, md, 'utf-8')
 
-    // 3. Update cache with timestamp
-    this.cache.set(projectId, { data, timestamp: Date.now() })
-    this.evictOldEntries()
+    // 3. Update cache
+    this.cache.set(projectId, data)
 
     // 4. Publish event for backend sync (NOT included in this call - subclass handles)
   }
@@ -188,6 +146,30 @@ export abstract class StorageManager<T> {
   }
 
   /**
+   * Publish an entity event with automatic type construction
+   * Convenience method that builds event type from entity and action
+   *
+   * @param projectId - Project identifier
+   * @param entity - Entity name (e.g., 'task', 'idea', 'queue', 'feature')
+   * @param action - Action name (e.g., 'started', 'completed', 'created')
+   * @param payload - Event data (timestamp added automatically)
+   */
+  protected async publishEntityEvent(
+    projectId: string,
+    entity: string,
+    action: string,
+    payload: Record<string, unknown>
+  ): Promise<void> {
+    const eventType = `${entity}.${action}`
+    const eventData = {
+      ...payload,
+      timestamp: getTimestamp()
+    }
+
+    await this.publishEvent(projectId, eventType, eventData)
+  }
+
+  /**
    * Check if storage file exists
    */
   async exists(projectId: string): Promise<boolean> {
@@ -209,6 +191,13 @@ export abstract class StorageManager<T> {
     } else {
       this.cache.clear()
     }
+  }
+
+  /**
+   * Get cache statistics
+   */
+  getCacheStats(): { size: number; maxSize: number; ttl: number } {
+    return this.cache.stats()
   }
 }
 
