@@ -1,0 +1,19 @@
+Find files by pattern matching.
+
+Use this tool to locate files using glob patterns. Fast and efficient for any codebase size.
+
+Capabilities:
+- Match files using glob patterns (e.g., "**/*.ts", "src/**/*.tsx")
+- Returns paths sorted by modification time
+- Works with any codebase size
+
+Pattern examples:
+- "**/*.ts" - all TypeScript files
+- "src/**/*.tsx" - React components in src
+- "**/test*.ts" - test files anywhere
+- "core/**/*" - all files in core directory
+
+Best practices:
+- Use specific patterns to narrow results
+- Prefer glob over bash find command
+- Run multiple patterns in parallel if needed

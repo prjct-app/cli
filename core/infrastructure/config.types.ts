@@ -4,6 +4,8 @@
  * Type definitions for project configuration.
  */
 
+import type { PermissionsConfig } from '../schemas/permissions'
+
 /**
  * Author information
  */
@@ -26,6 +28,8 @@ export interface LocalConfig {
   version?: string
   created?: string
   lastSync?: string
+  /** Granular permissions for bash, files, and web access */
+  permissions?: PermissionsConfig
 }
 
 /**

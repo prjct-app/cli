@@ -36,6 +36,9 @@ export * from './analysis'
 // Outcomes
 export * from './outcomes'
 
+// Permissions
+export * from './permissions'
+
 // Utilities (ID generators and path helpers)
 export {
   generateUUID,

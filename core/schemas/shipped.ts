@@ -2,79 +2,106 @@
  * Shipped Schema
  *
  * Defines the structure for shipped.json - completed/shipped items.
+ * Uses Zod for runtime validation and TypeScript type inference.
  * ZERO DATA LOSS - captures ALL fields from MD files.
+ *
+ * @version 2.0.0
  */
 
-export type ShipType = 'feature' | 'fix' | 'improvement' | 'refactor'
-export type CheckStatus = 'pass' | 'warning' | 'fail' | 'skipped'
+import { z } from 'zod'
+
+// =============================================================================
+// Zod Schemas - Source of Truth
+// =============================================================================
+
+export const ShipTypeSchema = z.enum(['feature', 'fix', 'improvement', 'refactor'])
+export const CheckStatusSchema = z.enum(['pass', 'warning', 'fail', 'skipped'])
+export const ChangeTypeSchema = z.enum(['added', 'changed', 'fixed', 'removed'])
+
+export const DurationSchema = z.object({
+  hours: z.number(),
+  minutes: z.number(),
+  totalMinutes: z.number(),
+})
+
+export const CodeMetricsSchema = z.object({
+  filesChanged: z.number().nullable().optional(),
+  linesAdded: z.number().nullable().optional(),
+  linesRemoved: z.number().nullable().optional(),
+  commits: z.number().nullable().optional(),
+})
+
+export const ShipChangeSchema = z.object({
+  description: z.string(),
+  type: ChangeTypeSchema.optional(),
+})
+
+export const QualityMetricsSchema = z.object({
+  lintStatus: CheckStatusSchema.nullable().optional(),
+  lintDetails: z.string().optional(),
+  testStatus: CheckStatusSchema.nullable().optional(),
+  testDetails: z.string().optional(),
+})
+
+export const CommitInfoSchema = z.object({
+  hash: z.string().optional(),
+  message: z.string().optional(),
+  branch: z.string().optional(),
+})
+
+export const ShippedItemSchema = z.object({
+  id: z.string(),               // ship_xxxxxxxx
+  name: z.string(),
+  version: z.string().nullable().optional(),
+  type: ShipTypeSchema,
+  agent: z.string().optional(), // "fe+be", "be", "fe"
+  description: z.string().optional(),
+  changes: z.array(ShipChangeSchema),
+  codeSnippets: z.array(z.string()).optional(),
+  commit: CommitInfoSchema.optional(),
+  codeMetrics: CodeMetricsSchema.optional(),
+  qualityMetrics: QualityMetricsSchema.optional(),
+  quantitativeImpact: z.string().optional(),
+  duration: DurationSchema.optional(),
+  tasksCompleted: z.number().nullable().optional(),
+  shippedAt: z.string(),        // ISO8601
+  featureId: z.string().optional(),
+})
+
+export const ShippedJsonSchema = z.object({
+  items: z.array(ShippedItemSchema),
+  lastUpdated: z.string(),
+})
+
+// =============================================================================
+// Inferred Types - Backward Compatible
+// =============================================================================
+
+export type ShipType = z.infer<typeof ShipTypeSchema>
+export type CheckStatus = z.infer<typeof CheckStatusSchema>
 export type AgentType = 'fe' | 'be' | 'fe+be' | 'devops' | 'ai' | string
-
-// Duration object for parsed time strings like "13h 38m"
-export interface Duration {
-  hours: number
-  minutes: number
-  totalMinutes: number
-}
-
-// Code metrics from "Files: 4 | +160/-31 | Commits: 0"
-export interface CodeMetrics {
-  filesChanged?: number | null
-  linesAdded?: number | null
-  linesRemoved?: number | null
-  commits?: number | null
-}
-
-export interface ShipChange {
-  description: string
-  type?: 'added' | 'changed' | 'fixed' | 'removed'
-}
-
-export interface QualityMetrics {
-  lintStatus?: CheckStatus | null
-  lintDetails?: string
-  testStatus?: CheckStatus | null
-  testDetails?: string
-}
-
-// Git commit information
-export interface CommitInfo {
-  hash?: string                 // "0a7bbea"
-  message?: string              // "feat(security): Multi-tenant..."
-  branch?: string               // "main"
-}
-
-export interface ShippedItemSchema {
-  id: string                    // ship_xxxxxxxx
-  name: string
-  version?: string | null       // "0.11.6" extracted from MD
-  type: ShipType
-  // Agent who worked on this
-  agent?: AgentType             // "fe+be", "be", "fe"
-  // Full description (narrative text, not just bullet points)
-  description?: string          // "CRITICAL: Multi-tenant isolation hardening..."
-  // Changelog from bullet points
-  changes: ShipChange[]
-  // Code snippets if any
-  codeSnippets?: string[]       // TypeScript/code examples from MD
-  // Git commit info
-  commit?: CommitInfo
-  // Enriched fields from MD
-  codeMetrics?: CodeMetrics
-  qualityMetrics?: QualityMetrics
-  quantitativeImpact?: string   // "81% (1,079 → 204 lines)"
-  duration?: Duration           // parsed from "13h 38m"
-  tasksCompleted?: number | null
-  shippedAt: string             // ISO8601
-  featureId?: string
-}
-
-export interface ShippedJson {
-  items: ShippedItemSchema[]
-  lastUpdated: string
-}
+export type Duration = z.infer<typeof DurationSchema>
+export type CodeMetrics = z.infer<typeof CodeMetricsSchema>
+export type ShipChange = z.infer<typeof ShipChangeSchema>
+export type QualityMetrics = z.infer<typeof QualityMetricsSchema>
+export type CommitInfo = z.infer<typeof CommitInfoSchema>
+export type ShippedItemSchema = z.infer<typeof ShippedItemSchema>
+export type ShippedJson = z.infer<typeof ShippedJsonSchema>
 
 // Legacy type for backwards compatibility
 export type ShippedSchema = ShippedItemSchema[]
+
+// =============================================================================
+// Validation Helpers
+// =============================================================================
+
+/** Parse and validate shipped.json content */
+export const parseShipped = (data: unknown): ShippedJson => ShippedJsonSchema.parse(data)
+export const safeParseShipped = (data: unknown) => ShippedJsonSchema.safeParse(data)
+
+// =============================================================================
+// Defaults
+// =============================================================================
 
 export const DEFAULT_SHIPPED: ShippedJson = {
   items: [],

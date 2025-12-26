@@ -2,16 +2,17 @@
  * ConfigManager - Manages prjct.config.json files
  *
  * Key responsibilities:
- * - Read and write prjct.config.json
+ * - Read and write prjct.config.json (supports .jsonc with comments)
  * - Validate configuration structure
  * - Create new configurations
  * - Update existing configurations
  *
- * @version 0.2.1
+ * @version 0.3.0
  */
 
 import fs from 'fs/promises'
 import path from 'path'
+import * as jsonc from 'jsonc-parser'
 import pathManager from './path-manager'
 import authorDetector from './author-detector'
 import { VERSION } from '../utils/version'
@@ -23,15 +24,33 @@ import type { Author, LocalConfig, GlobalConfig } from './config.types'
 // Re-export types for convenience
 export type { Author, LocalConfig, GlobalConfig } from './config.types'
 
+/**
+ * Parse JSON or JSONC content safely
+ * Supports comments (line and block style) in config files
+ */
+function parseJsonc<T>(content: string): T {
+  const errors: jsonc.ParseError[] = []
+  const result = jsonc.parse(content, errors, {
+    allowTrailingComma: true,
+    disallowComments: false,
+  })
+  if (errors.length > 0) {
+    const firstError = errors[0]
+    throw new SyntaxError(`JSON parse error at offset ${firstError.offset}: ${jsonc.printParseErrorCode(firstError.error)}`)
+  }
+  return result
+}
+
 class ConfigManager {
   /**
    * Read the project configuration file
+   * Supports both .json and .jsonc formats (with comments)
    */
   async readConfig(projectPath: string): Promise<LocalConfig | null> {
     try {
       const configPath = pathManager.getLocalConfigPath(projectPath)
       const content = await fs.readFile(configPath, 'utf-8')
-      return JSON.parse(content)
+      return parseJsonc<LocalConfig>(content)
     } catch (error) {
       // File not found is expected - return null
       if (isNotFoundError(error)) {
@@ -59,12 +78,13 @@ class ConfigManager {
   /**
    * Read the global project configuration file
    * Contains authors array and other system data
+   * Supports both .json and .jsonc formats (with comments)
    */
   async readGlobalConfig(projectId: string): Promise<GlobalConfig | null> {
     try {
       const configPath = pathManager.getGlobalProjectConfigPath(projectId)
       const content = await fs.readFile(configPath, 'utf-8')
-      return JSON.parse(content)
+      return parseJsonc<GlobalConfig>(content)
     } catch (error) {
       // File not found is expected for new projects
       if (isNotFoundError(error)) {
