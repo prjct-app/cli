@@ -3,13 +3,14 @@
  * Detects Claude Code and Claude Desktop environments.
  *
  * @module infrastructure/agent-detector
- * @version 0.5.0
  */
 
 import fs from 'fs'
 import path from 'path'
 
-interface AgentCapabilities {
+// ============ Types ============
+
+export interface AgentCapabilities {
   mcp: boolean
   filesystem: string
   markdown: boolean
@@ -19,7 +20,7 @@ interface AgentCapabilities {
   agents: boolean
 }
 
-interface AgentConfig {
+export interface AgentConfig {
   configFile: string | null
   commandPrefix: string
   responseStyle: string
@@ -28,14 +29,14 @@ interface AgentConfig {
   commandsDir: string | null
 }
 
-interface AgentEnvironment {
+export interface AgentEnvironment {
   hasMCP: boolean
   sandboxed: boolean
   persistent: boolean
   agentSystem: boolean
 }
 
-interface AgentInfo {
+export interface AgentInfo {
   type: string
   name: string
   isSupported: boolean
@@ -45,179 +46,139 @@ interface AgentInfo {
 }
 
 declare const global: typeof globalThis & {
-  mcp?: {
-    filesystem?: unknown
-  }
+  mcp?: { filesystem?: unknown }
 }
 
-/**
- * Detects the current execution environment (Claude or Terminal).
- * Provides appropriate capabilities and configuration for each environment.
- */
-class AgentDetector {
-  private detectedAgent: AgentInfo | null = null
+// ============ Module State (for caching) ============
 
-  /**
-   * Main detection method - Claude or CLI fallback
-   */
-  async detect(): Promise<AgentInfo> {
-    if (this.detectedAgent) {
-      return this.detectedAgent
-    }
+let cachedAgent: AgentInfo | null = null
 
-    // Check for Claude environment
-    if (this.isClaudeEnvironment()) {
-      this.detectedAgent = this.getClaudeAgent()
-      return this.detectedAgent
-    }
+// ============ Agent Definitions ============
 
-    // Fallback to terminal/CLI
-    this.detectedAgent = this.getTerminalAgent()
-    return this.detectedAgent
-  }
-
-  /**
-   * Check if running in Claude environment
-   */
-  isClaudeEnvironment(): boolean {
-    // Environment variables
-    if (process.env.CLAUDE_AGENT || process.env.ANTHROPIC_CLAUDE) {
-      return true
-    }
-
-    // MCP availability
-    if (global.mcp || process.env.MCP_AVAILABLE) {
-      return true
-    }
-
-    // Configuration files
-    const projectRoot = process.cwd()
-    if (fs.existsSync(path.join(projectRoot, 'CLAUDE.md'))) {
-      return true
-    }
-
-    // Claude directory in home
-    const homeDir = process.env.HOME || process.env.USERPROFILE || ''
-    if (fs.existsSync(path.join(homeDir, '.claude'))) {
-      return true
-    }
-
-    // Filesystem paths
-    const cwd = process.cwd()
-    if (cwd.includes('/.claude/') || cwd.includes('/claude-workspace/')) {
-      return true
-    }
-
-    return false
-  }
-
-  /**
-   * Get Claude agent configuration
-   * Works for both Claude Code and Claude Desktop
-   */
-  getClaudeAgent(): AgentInfo {
-    return {
-      type: 'claude',
-      name: 'Claude (Code + Desktop)',
-      isSupported: true,
-      capabilities: {
-        mcp: true,
-        filesystem: 'mcp',
-        markdown: true,
-        emojis: true,
-        colors: true,
-        interactive: true,
-        agents: true,
-      },
-      config: {
-        configFile: 'CLAUDE.md',
-        commandPrefix: '/p:',
-        responseStyle: 'rich',
-        dataDir: '.prjct',
-        agentsDir: '~/.claude/agents',
-        commandsDir: '~/.claude/commands/p',
-      },
-      environment: {
-        hasMCP: true,
-        sandboxed: false,
-        persistent: true,
-        agentSystem: true,
-      },
-    }
-  }
-
-  /**
-   * Get terminal agent configuration (fallback)
-   */
-  getTerminalAgent(): AgentInfo {
-    return {
-      type: 'terminal',
-      name: 'Terminal/CLI',
-      isSupported: true,
-      capabilities: {
-        mcp: false,
-        filesystem: 'native',
-        markdown: false,
-        emojis: true,
-        colors: true,
-        interactive: true,
-        agents: false,
-      },
-      config: {
-        configFile: null,
-        commandPrefix: 'prjct',
-        responseStyle: 'cli',
-        dataDir: '.prjct',
-        agentsDir: null,
-        commandsDir: null,
-      },
-      environment: {
-        hasMCP: false,
-        sandboxed: false,
-        persistent: true,
-        agentSystem: false,
-      },
-    }
-  }
-
-  /**
-   * Force set agent type (for testing)
-   */
-  setAgent(type: string): AgentInfo {
-    switch (type) {
-      case 'claude':
-        this.detectedAgent = this.getClaudeAgent()
-        break
-      case 'terminal':
-      default:
-        this.detectedAgent = this.getTerminalAgent()
-        break
-    }
-    return this.detectedAgent
-  }
-
-  /**
-   * Reset detection (clear cache)
-   */
-  reset(): void {
-    this.detectedAgent = null
-  }
-
-  /**
-   * Check if current environment is Claude
-   */
-  isClaude(): boolean {
-    const agent = this.detectedAgent || this.isClaudeEnvironment()
-    return agent === true || (typeof agent === 'object' && agent?.type === 'claude')
-  }
-
-  /**
-   * Check if current environment is Terminal/CLI
-   */
-  isTerminal(): boolean {
-    return !this.isClaude()
-  }
+const CLAUDE_AGENT: AgentInfo = {
+  type: 'claude',
+  name: 'Claude (Code + Desktop)',
+  isSupported: true,
+  capabilities: {
+    mcp: true,
+    filesystem: 'mcp',
+    markdown: true,
+    emojis: true,
+    colors: true,
+    interactive: true,
+    agents: true,
+  },
+  config: {
+    configFile: 'CLAUDE.md',
+    commandPrefix: '/p:',
+    responseStyle: 'rich',
+    dataDir: '.prjct',
+    agentsDir: '~/.claude/agents',
+    commandsDir: '~/.claude/commands/p',
+  },
+  environment: {
+    hasMCP: true,
+    sandboxed: false,
+    persistent: true,
+    agentSystem: true,
+  },
 }
 
-const agentDetector = new AgentDetector()
-export default agentDetector
+const TERMINAL_AGENT: AgentInfo = {
+  type: 'terminal',
+  name: 'Terminal/CLI',
+  isSupported: true,
+  capabilities: {
+    mcp: false,
+    filesystem: 'native',
+    markdown: false,
+    emojis: true,
+    colors: true,
+    interactive: true,
+    agents: false,
+  },
+  config: {
+    configFile: null,
+    commandPrefix: 'prjct',
+    responseStyle: 'cli',
+    dataDir: '.prjct',
+    agentsDir: null,
+    commandsDir: null,
+  },
+  environment: {
+    hasMCP: false,
+    sandboxed: false,
+    persistent: true,
+    agentSystem: false,
+  },
+}
+
+// ============ Detection Functions ============
+
+export function isClaudeEnvironment(): boolean {
+  // Environment variables
+  if (process.env.CLAUDE_AGENT || process.env.ANTHROPIC_CLAUDE) return true
+
+  // MCP availability
+  if (global.mcp || process.env.MCP_AVAILABLE) return true
+
+  // Configuration files
+  const projectRoot = process.cwd()
+  if (fs.existsSync(path.join(projectRoot, 'CLAUDE.md'))) return true
+
+  // Claude directory in home
+  const homeDir = process.env.HOME || process.env.USERPROFILE || ''
+  if (fs.existsSync(path.join(homeDir, '.claude'))) return true
+
+  // Filesystem paths
+  const cwd = process.cwd()
+  if (cwd.includes('/.claude/') || cwd.includes('/claude-workspace/')) return true
+
+  return false
+}
+
+export function getClaudeAgent(): AgentInfo {
+  return { ...CLAUDE_AGENT }
+}
+
+export function getTerminalAgent(): AgentInfo {
+  return { ...TERMINAL_AGENT }
+}
+
+export async function detect(): Promise<AgentInfo> {
+  if (cachedAgent) return cachedAgent
+
+  cachedAgent = isClaudeEnvironment() ? getClaudeAgent() : getTerminalAgent()
+  return cachedAgent
+}
+
+export function setAgent(type: string): AgentInfo {
+  cachedAgent = type === 'claude' ? getClaudeAgent() : getTerminalAgent()
+  return cachedAgent
+}
+
+export function reset(): void {
+  cachedAgent = null
+}
+
+export function isClaude(): boolean {
+  if (cachedAgent) return cachedAgent.type === 'claude'
+  return isClaudeEnvironment()
+}
+
+export function isTerminal(): boolean {
+  return !isClaude()
+}
+
+// ============ Default Export (backwards compat) ============
+
+export default {
+  detect,
+  isClaudeEnvironment,
+  getClaudeAgent,
+  getTerminalAgent,
+  setAgent,
+  reset,
+  isClaude,
+  isTerminal
+}

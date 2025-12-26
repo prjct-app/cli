@@ -1,5 +1,6 @@
 import fs from 'fs/promises'
 import path from 'path'
+import { type NodeError, isNotFoundError } from '../types/fs'
 
 /**
  * File Helper - Centralized file operations with error handling
@@ -16,10 +17,6 @@ interface ListFilesOptions {
   extension?: string
 }
 
-interface NodeError extends Error {
-  code?: string
-}
-
 /**
  * Read JSON file and parse
  */
@@ -28,7 +25,7 @@ export async function readJson<T = unknown>(filePath: string, defaultValue: T | 
     const content = await fs.readFile(filePath, 'utf-8')
     return JSON.parse(content) as T
   } catch (error) {
-    if ((error as NodeError).code === 'ENOENT') {
+    if (isNotFoundError(error)) {
       return defaultValue
     }
     throw error
@@ -50,7 +47,7 @@ export async function readFile(filePath: string, defaultValue = ''): Promise<str
   try {
     return await fs.readFile(filePath, 'utf-8')
   } catch (error) {
-    if ((error as NodeError).code === 'ENOENT') {
+    if (isNotFoundError(error)) {
       return defaultValue
     }
     throw error
@@ -101,7 +98,7 @@ export async function prependToFile(filePath: string, content: string): Promise<
     const existing = await fs.readFile(filePath, 'utf-8')
     await fs.writeFile(filePath, content + existing, 'utf-8')
   } catch (error) {
-    if ((error as NodeError).code === 'ENOENT') {
+    if (isNotFoundError(error)) {
       await fs.writeFile(filePath, content, 'utf-8')
     } else {
       throw error
@@ -148,7 +145,7 @@ export async function deleteFile(filePath: string): Promise<boolean> {
     await fs.unlink(filePath)
     return true
   } catch (error) {
-    if ((error as NodeError).code === 'ENOENT') {
+    if (isNotFoundError(error)) {
       return false // File didn't exist
     }
     throw error
@@ -163,7 +160,7 @@ export async function deleteDir(dirPath: string): Promise<boolean> {
     await fs.rm(dirPath, { recursive: true, force: true })
     return true
   } catch (error) {
-    if ((error as NodeError).code === 'ENOENT') {
+    if (isNotFoundError(error)) {
       return false
     }
     throw error
@@ -192,7 +189,7 @@ export async function listFiles(dirPath: string, options: ListFilesOptions = {})
 
     return files.map((entry) => entry.name)
   } catch (error) {
-    if ((error as NodeError).code === 'ENOENT') {
+    if (isNotFoundError(error)) {
       return []
     }
     throw error

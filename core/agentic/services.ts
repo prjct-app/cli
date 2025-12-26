@@ -27,14 +27,22 @@ import contextBuilder from './context-builder'
 import promptBuilder from './prompt-builder'
 import toolRegistry from './tool-registry'
 import loopDetector from './loop-detector'
-import memorySystem from './memory-system'
-import groundTruth from './ground-truth'
+import memorySystem from './memory-system/index'
+import groundTruth from './ground-truth/index'
 import chainOfThought from './chain-of-thought'
-import planMode from './plan-mode'
+import planMode from './plan-mode/index'
 import agentRouter from './agent-router'
 import smartContext from './smart-context'
-import { mdManagers } from '../data'
+import { stateStorage, queueStorage, ideasStorage, shippedStorage } from '../storage'
 import { outcomeRecorder, outcomeAnalyzer } from '../outcomes'
+
+// Storage managers object (replaces mdManagers)
+const storageManagers = {
+  state: stateStorage,
+  queue: queueStorage,
+  ideas: ideasStorage,
+  shipped: shippedStorage
+}
 import { agentPerformanceTracker } from '../agents'
 
 /**
@@ -109,10 +117,10 @@ export interface AgenticServices {
   smartContext: typeof smartContext
 
   /**
-   * MD managers - MD-first state management
-   * @see mdManagers
+   * Storage managers - Write-through state management
+   * @see storageManagers
    */
-  data: typeof mdManagers
+  data: typeof storageManagers
 
   /**
    * Outcome recorder - records execution outcomes
@@ -149,7 +157,7 @@ export const services: AgenticServices = {
   planning: planMode,
   router: agentRouter,
   smartContext: smartContext,
-  data: mdManagers,
+  data: storageManagers,
   outcomes: outcomeRecorder,
   outcomeAnalysis: outcomeAnalyzer,
   agentPerformance: agentPerformanceTracker,

@@ -1,6 +1,7 @@
 /**
- * SessionManager Class
- * Core session management functionality
+ * TaskSessionManager Class
+ * Manages task lifecycle: create, pause, resume, complete
+ * Tracks metrics, timeline, and archives completed sessions.
  */
 
 import fs from 'fs/promises'
@@ -15,7 +16,7 @@ import { generateId, calculateDuration, formatDuration } from './utils'
 
 const execAsync = promisify(exec)
 
-export class SessionManager {
+export class TaskSessionManager {
   private projectPath: string
   private projectId: string | null
   private sessionDir: string | null

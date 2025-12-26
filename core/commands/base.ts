@@ -2,7 +2,7 @@
  * Base class and helpers for PrjctCommands
  */
 
-import commandExecutor from '../agentic/command-executor'
+import commandExecutor from '../agentic/command-executor/index'
 import contextBuilder from '../agentic/context-builder'
 import toolRegistry from '../agentic/tool-registry'
 import AgentRouter from '../agentic/agent-router'

@@ -7,6 +7,7 @@
 
 import { StorageManager } from './storage-manager'
 import { generateUUID } from '../schemas'
+import { getTimestamp } from '../utils/date-helper'
 import type { QueueJson, QueueTask, Priority, TaskType, TaskSection } from '../schemas/state'
 
 class QueueStorage extends StorageManager<QueueJson> {
@@ -125,13 +126,13 @@ class QueueStorage extends StorageManager<QueueJson> {
     const newTask: QueueTask = {
       ...task,
       id: generateUUID(),
-      createdAt: new Date().toISOString(),
+      createdAt: getTimestamp(),
       completed: false
     }
 
     await this.update(projectId, (queue) => ({
       tasks: [...queue.tasks, newTask],
-      lastUpdated: new Date().toISOString()
+      lastUpdated: getTimestamp()
     }))
 
     // Publish incremental event
@@ -152,7 +153,7 @@ class QueueStorage extends StorageManager<QueueJson> {
     projectId: string,
     tasks: Omit<QueueTask, 'id' | 'createdAt' | 'completed' | 'completedAt'>[]
   ): Promise<QueueTask[]> {
-    const now = new Date().toISOString()
+    const now = getTimestamp()
     const newTasks: QueueTask[] = tasks.map(task => ({
       ...task,
       id: generateUUID(),
@@ -180,7 +181,7 @@ class QueueStorage extends StorageManager<QueueJson> {
   async removeTask(projectId: string, taskId: string): Promise<void> {
     await this.update(projectId, (queue) => ({
       tasks: queue.tasks.filter(t => t.id !== taskId),
-      lastUpdated: new Date().toISOString()
+      lastUpdated: getTimestamp()
     }))
 
     await this.publishEvent(projectId, 'queue.task_removed', { taskId })
@@ -198,13 +199,13 @@ class QueueStorage extends StorageManager<QueueJson> {
           completedTask = {
             ...t,
             completed: true,
-            completedAt: new Date().toISOString()
+            completedAt: getTimestamp()
           }
           return completedTask
         }
         return t
       })
-      return { tasks, lastUpdated: new Date().toISOString() }
+      return { tasks, lastUpdated: getTimestamp() }
     })
 
     if (completedTask) {
@@ -231,7 +232,7 @@ class QueueStorage extends StorageManager<QueueJson> {
       tasks: queue.tasks.map(t =>
         t.id === taskId ? { ...t, section } : t
       ),
-      lastUpdated: new Date().toISOString()
+      lastUpdated: getTimestamp()
     }))
   }
 
@@ -247,7 +248,7 @@ class QueueStorage extends StorageManager<QueueJson> {
       tasks: queue.tasks.map(t =>
         t.id === taskId ? { ...t, priority } : t
       ),
-      lastUpdated: new Date().toISOString()
+      lastUpdated: getTimestamp()
     }))
   }
 
@@ -260,7 +261,7 @@ class QueueStorage extends StorageManager<QueueJson> {
 
     await this.update(projectId, (q) => ({
       tasks: q.tasks.filter(t => !t.completed),
-      lastUpdated: new Date().toISOString()
+      lastUpdated: getTimestamp()
     }))
 
     return completedCount
