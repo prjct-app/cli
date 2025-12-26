@@ -15,66 +15,34 @@ import { stateStorage, queueStorage } from '../storage'
 import { outcomeAnalyzer } from '../outcomes'
 import type { StateJson, QueueJson } from '../schemas/state'
 import type { DetectedPattern } from '../outcomes/analyzer'
+import type {
+  PromptProjectState,
+  Frontmatter,
+  Template,
+  PromptAgent,
+  PromptContext,
+  PromptState,
+  LearnedPatterns,
+  ThinkBlock,
+  Memory,
+  PlanInfo,
+} from './agentic.types'
 
-// Unified state for prompt context
-interface ProjectState {
-  projectId: string
-  currentTask: StateJson['currentTask']
-  queue: QueueJson['tasks']
-}
+// Re-export types for convenience
+export type {
+  Frontmatter,
+  Template,
+  LearnedPatterns,
+  ThinkBlock,
+  Memory,
+  PlanInfo,
+} from './agentic.types'
 
-interface Frontmatter {
-  name?: string
-  description?: string
-  'allowed-tools'?: string[]
-  [key: string]: unknown
-}
-
-interface Template {
-  frontmatter: Frontmatter
-  content: string
-}
-
-interface Agent {
-  name: string
-  role?: string
-  skills?: string[]
-  [key: string]: unknown
-}
-
-interface Context {
-  files?: string[]
-  filteredSize?: number
-  [key: string]: unknown
-}
-
-interface State {
-  codePatterns?: string
-  analysis?: string
-  [key: string]: unknown
-}
-
-interface LearnedPatterns {
-  [key: string]: string | null
-}
-
-interface ThinkBlock {
-  plan?: string[]
-  conclusions?: string[]
-  confidence?: number
-}
-
-interface Memory {
-  title: string
-  content: string
-  tags?: string[]
-}
-
-interface PlanInfo {
-  isPlanning?: boolean
-  requiresApproval?: boolean
-  allowedTools?: string[]
-}
+// Local type aliases for backward compatibility
+type ProjectState = PromptProjectState
+type Agent = PromptAgent
+type Context = PromptContext
+type State = PromptState
 
 /**
  * Builds prompts for Claude using templates, context, and learned patterns.

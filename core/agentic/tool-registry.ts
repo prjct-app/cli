@@ -9,20 +9,14 @@
 import fs from 'fs/promises'
 import { exec } from 'child_process'
 import { promisify } from 'util'
+import type { ToolFunction, ToolRegistryInterface } from './agentic.types'
+
+// Re-export types for convenience
+export type { ToolFunction, ToolRegistryInterface } from './agentic.types'
 
 const execAsync = promisify(exec)
 
-type ToolFunction = (...args: unknown[]) => Promise<unknown>
-
-interface ToolRegistry {
-  tools: Map<string, ToolFunction>
-  register(name: string, fn: ToolFunction): void
-  get(name: string): ToolFunction | undefined
-  isAllowed(name: string, allowedTools: string[]): boolean
-  list(): string[]
-}
-
-const toolRegistry: ToolRegistry = {
+const toolRegistry: ToolRegistryInterface = {
   tools: new Map(),
 
   /**

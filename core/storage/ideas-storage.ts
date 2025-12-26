@@ -7,6 +7,7 @@
 
 import { StorageManager } from './storage-manager'
 import { generateUUID } from '../schemas'
+import { getTimestamp } from '../utils/date-helper'
 
 export type IdeaStatus = 'pending' | 'converted' | 'archived'
 export type IdeaPriority = 'low' | 'medium' | 'high'
@@ -127,12 +128,12 @@ class IdeasStorage extends StorageManager<IdeasJson> {
       status: 'pending',
       priority: options.priority || 'medium',
       tags: options.tags || [],
-      addedAt: new Date().toISOString()
+      addedAt: getTimestamp()
     }
 
     await this.update(projectId, (data) => ({
       ideas: [idea, ...data.ideas], // Prepend new ideas
-      lastUpdated: new Date().toISOString()
+      lastUpdated: getTimestamp()
     }))
 
     // Publish event
@@ -167,7 +168,7 @@ class IdeasStorage extends StorageManager<IdeasJson> {
           ? { ...i, status: 'converted' as IdeaStatus, convertedTo: featureId }
           : i
       ),
-      lastUpdated: new Date().toISOString()
+      lastUpdated: getTimestamp()
     }))
 
     await this.publishEvent(projectId, 'idea.converted', {
@@ -184,7 +185,7 @@ class IdeasStorage extends StorageManager<IdeasJson> {
       ideas: data.ideas.map(i =>
         i.id === ideaId ? { ...i, status: 'archived' as IdeaStatus } : i
       ),
-      lastUpdated: new Date().toISOString()
+      lastUpdated: getTimestamp()
     }))
 
     await this.publishEvent(projectId, 'idea.archived', { ideaId })
@@ -202,7 +203,7 @@ class IdeasStorage extends StorageManager<IdeasJson> {
       ideas: data.ideas.map(i =>
         i.id === ideaId ? { ...i, priority } : i
       ),
-      lastUpdated: new Date().toISOString()
+      lastUpdated: getTimestamp()
     }))
   }
 
@@ -220,7 +221,7 @@ class IdeasStorage extends StorageManager<IdeasJson> {
           ? { ...i, tags: [...new Set([...i.tags, ...tags])] }
           : i
       ),
-      lastUpdated: new Date().toISOString()
+      lastUpdated: getTimestamp()
     }))
   }
 
@@ -230,7 +231,7 @@ class IdeasStorage extends StorageManager<IdeasJson> {
   async removeIdea(projectId: string, ideaId: string): Promise<void> {
     await this.update(projectId, (data) => ({
       ideas: data.ideas.filter(i => i.id !== ideaId),
-      lastUpdated: new Date().toISOString()
+      lastUpdated: getTimestamp()
     }))
   }
 
@@ -266,7 +267,7 @@ class IdeasStorage extends StorageManager<IdeasJson> {
 
     await this.update(projectId, (d) => ({
       ideas: d.ideas.filter(i => !toRemove.has(i.id)),
-      lastUpdated: new Date().toISOString()
+      lastUpdated: getTimestamp()
     }))
 
     return { removed }

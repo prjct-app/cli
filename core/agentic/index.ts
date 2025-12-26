@@ -58,3 +58,35 @@ export { default as templateLoader } from './template-loader'
 // Chain of thought, services
 export { default as chainOfThought } from './chain-of-thought'
 export { default as services } from './services'
+
+// ============ Types ============
+// Shared type definitions
+export type {
+  // Tool registry types
+  ToolFunction,
+  ToolRegistryInterface,
+  // Agent router types
+  Agent,
+  AssignmentContext,
+  // Context builder types
+  ContextPaths,
+  ProjectContext,
+  ContextState,
+  // Smart context types
+  ContextDomain,
+  FullContext,
+  FilteredContext,
+  AgentInfo,
+  FeatureInfo,
+  PatternInfo,
+  StackInfo,
+  FilterMetrics,
+  DomainAnalysis,
+  // Prompt builder types
+  Frontmatter,
+  Template,
+  LearnedPatterns,
+  ThinkBlock,
+  Memory as PromptMemory,
+  PlanInfo,
+} from './agentic.types'

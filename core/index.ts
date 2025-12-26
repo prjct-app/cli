@@ -5,18 +5,10 @@
  */
 
 import { PrjctCommands } from './commands/index'
-import registry from './command-registry/index'
+import { commandRegistry } from './commands/registry'
+import './commands/register' // Ensure commands are registered
 import out from './utils/output'
-
-interface Command {
-  name: string
-  description: string
-  category: string
-  params?: string
-  implemented: boolean
-  deprecated?: boolean
-  replacedBy?: string
-}
+import type { CommandMeta } from './commands/registry'
 
 interface ParsedCommandArgs {
   parsedArgs: string[]
@@ -51,7 +43,7 @@ async function main(): Promise<void> {
 
   try {
     // 1. Find command in registry
-    const cmd = registry.getByName(commandName)
+    const cmd = commandRegistry.getByName(commandName)
 
     if (!cmd) {
       console.error(`Unknown command: ${commandName}`)
@@ -160,7 +152,7 @@ async function main(): Promise<void> {
 /**
  * Parse command arguments dynamically
  */
-function parseCommandArgs(cmd: Command, rawArgs: string[]): ParsedCommandArgs {
+function parseCommandArgs(cmd: CommandMeta, rawArgs: string[]): ParsedCommandArgs {
   const parsedArgs: string[] = []
   const options: Record<string, string | boolean> = {}
 
@@ -189,17 +181,17 @@ function parseCommandArgs(cmd: Command, rawArgs: string[]): ParsedCommandArgs {
  * Display help using registry
  */
 function displayHelp(): void {
-  const categories = registry.getCategories()
-  const categorizedCommands: Record<string, Command[]> = {}
+  const categories = commandRegistry.getAllCategories()
+  const categorizedCommands: Record<string, CommandMeta[]> = {}
 
   // Group commands by category (exclude deprecated)
-  registry.getTerminalCommands().forEach((cmd: Command) => {
+  commandRegistry.getTerminalCommands().forEach((cmd) => {
     if (cmd.deprecated) return
 
-    if (!categorizedCommands[cmd.category]) {
-      categorizedCommands[cmd.category] = []
+    if (!categorizedCommands[cmd.group]) {
+      categorizedCommands[cmd.group] = []
     }
-    categorizedCommands[cmd.category].push(cmd)
+    categorizedCommands[cmd.group].push(cmd)
   })
 
   console.log('prjct - Developer momentum tool for solo builders')
@@ -207,8 +199,8 @@ function displayHelp(): void {
 
   // Display commands by category
   Object.entries(categorizedCommands).forEach(([categoryKey, cmds]) => {
-    const categoryInfo = categories[categoryKey]
-    console.log(`  ${categoryInfo.title}:`)
+    const categoryInfo = categories.get(categoryKey)
+    console.log(`  ${categoryInfo?.title || categoryKey}:`)
 
     cmds.forEach((cmd) => {
       const params = cmd.params ? ` ${cmd.params}` : ''
@@ -220,7 +212,7 @@ function displayHelp(): void {
     console.log('')
   })
 
-  const stats = registry.getStats()
+  const stats = commandRegistry.getStats()
   console.log(`Total: ${stats.implemented} implemented / ${stats.total} commands`)
   console.log('\nFor more info: https://prjct.app')
 }

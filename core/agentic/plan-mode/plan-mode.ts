@@ -7,6 +7,7 @@ import type { Plan, PlanParams, GatheredInfo, ProposedPlan, PlanStep, ApprovalCo
 import { PLAN_STATUS, PLAN_REQUIRED_COMMANDS, DESTRUCTIVE_COMMANDS, PLANNING_TOOLS } from './constants'
 import { generateApprovalPrompt } from './approval'
 import { generateUUID } from '../../schemas'
+import { getTimestamp } from '../../utils/date-helper'
 
 export class PlanMode {
   activePlans: Map<string, Plan>
@@ -57,7 +58,7 @@ export class PlanMode {
       command: commandName,
       params,
       status: PLAN_STATUS.GATHERING as PlanStatus,
-      startedAt: new Date().toISOString(),
+      startedAt: getTimestamp(),
       gatheredInfo: [],
       analysis: null,
       proposedPlan: null,
@@ -104,7 +105,7 @@ export class PlanMode {
 
     plan.gatheredInfo.push({
       ...info,
-      gatheredAt: new Date().toISOString(),
+      gatheredAt: getTimestamp(),
     })
   }
 
@@ -119,11 +120,11 @@ export class PlanMode {
 
     // Track timestamps for key transitions
     if (status === PLAN_STATUS.APPROVED) {
-      plan.approvedAt = new Date().toISOString()
+      plan.approvedAt = getTimestamp()
     } else if (status === PLAN_STATUS.EXECUTING) {
-      plan.executionStartedAt = new Date().toISOString()
+      plan.executionStartedAt = getTimestamp()
     } else if (status === PLAN_STATUS.COMPLETED || status === PLAN_STATUS.ABORTED) {
-      plan.completedAt = new Date().toISOString()
+      plan.completedAt = getTimestamp()
     }
   }
 
@@ -184,7 +185,7 @@ export class PlanMode {
 
     plan.userFeedback = feedback
     plan.status = PLAN_STATUS.APPROVED as PlanStatus
-    plan.approvedAt = new Date().toISOString()
+    plan.approvedAt = getTimestamp()
 
     // Convert proposed plan to executable steps
     plan.steps = (plan.proposedPlan?.steps || []).map((step, index) => ({
@@ -215,7 +216,7 @@ export class PlanMode {
 
     plan.status = PLAN_STATUS.REJECTED as PlanStatus
     plan.userFeedback = reason
-    plan.completedAt = new Date().toISOString()
+    plan.completedAt = getTimestamp()
 
     // Clear active plan
     this.activePlans.delete(projectId)
@@ -238,7 +239,7 @@ export class PlanMode {
     }
 
     plan.status = PLAN_STATUS.EXECUTING as PlanStatus
-    plan.executionStartedAt = new Date().toISOString()
+    plan.executionStartedAt = getTimestamp()
     plan.currentStep = 0
 
     return this.getNextStep(projectId)
@@ -282,7 +283,7 @@ export class PlanMode {
     // Update current step
     plan.steps[plan.currentStep].status = 'completed'
     plan.steps[plan.currentStep].result = result
-    plan.steps[plan.currentStep].completedAt = new Date().toISOString()
+    plan.steps[plan.currentStep].completedAt = getTimestamp()
 
     // Move to next step
     plan.currentStep++
@@ -316,7 +317,7 @@ export class PlanMode {
     if (!plan) return null
 
     plan.status = PLAN_STATUS.COMPLETED as PlanStatus
-    plan.completedAt = new Date().toISOString()
+    plan.completedAt = getTimestamp()
 
     const summary = {
       planId: plan.id,
@@ -341,7 +342,7 @@ export class PlanMode {
     if (!plan) return null
 
     plan.status = PLAN_STATUS.ABORTED as PlanStatus
-    plan.completedAt = new Date().toISOString()
+    plan.completedAt = getTimestamp()
     plan.abortReason = reason
 
     const summary = {
