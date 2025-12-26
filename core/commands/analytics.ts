@@ -6,7 +6,7 @@
 import path from 'path'
 
 import { commandRegistry } from './registry'
-import type { CommandResult, Context } from './types'
+import type { CommandResult, ProjectContext } from '../types'
 import {
   PrjctCommandsBase,
   contextBuilder,
@@ -98,7 +98,7 @@ export class AnalyticsCommands extends PrjctCommandsBase {
 
       if (view === 'roadmap') {
         // Roadmap view
-        const context = await contextBuilder.build(projectPath) as Context
+        const context = await contextBuilder.build(projectPath) as ProjectContext
         const roadmapContent = (await toolRegistry.get('Read')!(context.paths.roadmap)) as string | null
 
         console.log(`\n🗺️  ROADMAP - ${projectName}\n`)

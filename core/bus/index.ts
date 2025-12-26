@@ -5,4 +5,4 @@
  */
 
 export { EventBus, eventBus, emit, default } from './bus'
-export { EventTypes, type EventType, type EventData, type EventCallback } from './bus.types'
+export { EventTypes, type EventData, type EventCallback, type BusEventType } from '../types'

@@ -16,28 +16,7 @@ import fs from 'fs/promises'
 import path from 'path'
 import { glob } from 'glob'
 
-export interface SkillMetadata {
-  name: string
-  description?: string
-  agent?: string
-  tags?: string[]
-  version?: string
-}
-
-export interface Skill {
-  id: string
-  name: string
-  description: string
-  content: string
-  source: 'project' | 'global' | 'builtin'
-  filePath: string
-  metadata: SkillMetadata
-}
-
-export interface SkillSearchResult {
-  skill: Skill
-  relevance: number
-}
+import type { SkillMetadata, Skill, SkillSearchResult } from '../types'
 
 /**
  * Parse YAML-like frontmatter from markdown

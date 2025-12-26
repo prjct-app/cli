@@ -5,7 +5,7 @@
  * Each command is registered as a handler that receives context and returns a result.
  */
 
-import type { CommandResult } from './types'
+import type { CommandResult } from '../types'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import { getTimestamp } from '../utils/date-helper'
@@ -15,13 +15,13 @@ export type {
   ExecutionContext,
   CommandHandler,
   HandlerFn,
-  CommandUsage,
+  RegistryCommandUsage as CommandUsage,
   BlockingRules,
   CommandMeta,
   CategoryInfo,
   RegistryStats,
-  ValidationResult,
-} from './registry.types'
+  CommandValidationResult as ValidationResult,
+} from '../types'
 
 import type {
   ExecutionContext,
@@ -30,7 +30,7 @@ import type {
   CommandMeta,
   CategoryInfo,
   RegistryStats,
-} from './registry.types'
+} from '../types'
 
 /**
  * Command Registry - Routes commands to handlers

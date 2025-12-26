@@ -9,7 +9,7 @@ import path from 'path'
 import * as fileHelper from '../utils/file-helper'
 import pathManager from '../infrastructure/path-manager'
 import { generateUUID } from '../schemas'
-import type { Outcome, OutcomeInput, OutcomeFilter } from './types'
+import type { Outcome, OutcomeInput, OutcomeFilter } from '../types'
 
 const OUTCOMES_DIR = 'outcomes'
 const OUTCOMES_FILE = 'outcomes.jsonl'

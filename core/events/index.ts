@@ -6,4 +6,4 @@
 
 export { eventBus, inferEventType } from './events'
 export { default } from './events'
-export type { SyncEvent, EventType } from './events.types'
+export type { SyncEvent, SyncEventType } from '../types'

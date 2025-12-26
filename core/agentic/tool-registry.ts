@@ -9,10 +9,10 @@
 import fs from 'fs/promises'
 import { exec } from 'child_process'
 import { promisify } from 'util'
-import type { ToolFunction, ToolRegistryInterface } from './agentic.types'
+import type { ToolFunction, ToolRegistryInterface } from '../types'
 
 // Re-export types for convenience
-export type { ToolFunction, ToolRegistryInterface } from './agentic.types'
+export type { ToolFunction, ToolRegistryInterface } from '../types'
 
 const execAsync = promisify(exec)
 

@@ -9,21 +9,21 @@ import pathManager from '../infrastructure/path-manager'
 import * as fileHelper from '../utils/file-helper'
 import { getTimestamp } from '../utils/date-helper'
 
-import { EventType, SyncEvent } from './events.types'
+import type { SyncEventType, SyncEvent } from '../types'
 
 /**
  * Infer event type from path and action
  */
-export function inferEventType(pathArray: string[], action: 'write' | 'delete'): EventType {
+export function inferEventType(pathArray: string[], action: 'write' | 'delete'): SyncEventType {
   const entity = pathArray[0]
 
   if (action === 'delete') {
-    return `${entity}.deleted` as EventType
+    return `${entity}.deleted` as SyncEventType
   }
 
   // For writes, we'd need to check if it's new or update
   // For simplicity, use 'updated' (can be refined later)
-  return `${entity}.updated` as EventType
+  return `${entity}.updated` as SyncEventType
 }
 
 class EventBus {

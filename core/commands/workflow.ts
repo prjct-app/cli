@@ -5,7 +5,7 @@
  * Uses storage layer: JSON (source) → MD (context) → Event (sync)
  */
 
-import type { CommandResult, Context } from './types'
+import type { CommandResult, ProjectContext } from '../types'
 import { generateUUID } from '../schemas'
 import {
   PrjctCommandsBase,
@@ -32,7 +32,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
       }
 
       if (task) {
-        const context = await contextBuilder.build(projectPath, { task }) as Context
+        const context = await contextBuilder.build(projectPath, { task }) as ProjectContext
         const agentResult = await this._assignAgentForTask(task, projectPath, context)
         const agent = agentResult.agent?.name || 'generalist'
 

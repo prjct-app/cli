@@ -9,7 +9,7 @@ import fs from 'fs/promises'
 import path from 'path'
 import os from 'os'
 import { eventBus, inferEventType } from '../events'
-import type { Storage } from './storage.types'
+import type { Storage } from '../types'
 
 class FileStorage implements Storage {
   private projectId: string

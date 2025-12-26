@@ -31,4 +31,4 @@
 
 export { OutcomeRecorder, default as outcomeRecorder } from './recorder'
 export { OutcomeAnalyzer, default as outcomeAnalyzer } from './analyzer'
-export * from './types'
+export * from '../types'

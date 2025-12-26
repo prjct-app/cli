@@ -9,7 +9,7 @@ import pathManager from '../infrastructure/path-manager'
 import authorDetector from '../infrastructure/author-detector'
 import * as fileHelper from '../utils/file-helper'
 import out from '../utils/output'
-import type { Author, CommandResult } from '../commands/types'
+import type { Author, CommandResult } from '../types'
 import { ProjectError } from '../errors'
 
 export class ProjectService {

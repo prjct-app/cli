@@ -8,7 +8,7 @@ import os from 'os'
 import chalk from 'chalk'
 
 import commandInstaller from '../infrastructure/command-installer'
-import type { CommandResult, SetupOptions, MigrateOptions } from './types'
+import type { CommandResult, SetupOptions, MigrateOptions } from '../types'
 import { PrjctCommandsBase } from './base'
 import { VERSION } from '../utils/version'
 

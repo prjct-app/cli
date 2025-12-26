@@ -6,7 +6,7 @@
 
 import agentDetector from '../infrastructure/agent-detector'
 import AgentRouter from '../agentic/agent-router'
-import type { AgentInfo, AgentAssignmentResult, Context } from '../commands/types'
+import type { AgentInfo, AgentAssignmentResult, ProjectContext } from '../types'
 import { AgentError } from '../errors'
 
 // Valid agent types - whitelist for security (prevents path traversal)
@@ -30,17 +30,17 @@ export class AgentService {
 
     this.agentInfo = await agentDetector.detect()
 
-    if (!this.agentInfo.isSupported) {
-      throw AgentError.notSupported(this.agentInfo.type)
+    if (!this.agentInfo?.isSupported) {
+      throw AgentError.notSupported(this.agentInfo?.type ?? 'unknown')
     }
 
     // Security: validate agent type against whitelist to prevent path traversal
     const agentType = this.agentInfo.type as ValidAgentType
-    if (!VALID_AGENT_TYPES.includes(agentType)) {
-      throw AgentError.notSupported(this.agentInfo.type)
+    if (!agentType || !VALID_AGENT_TYPES.includes(agentType)) {
+      throw AgentError.notSupported(this.agentInfo?.type ?? 'unknown')
     }
 
-    const { default: Agent } = await import(`../infrastructure/agents/${agentType}-agent`)
+    const { default: Agent } = await import(`../infrastructure/${agentType}-agent`)
     this.agent = new Agent()
 
     return this.agent
@@ -74,7 +74,7 @@ export class AgentService {
   async assignForTask(
     task: string,
     projectPath: string,
-    _context: Context
+    _context: ProjectContext
   ): Promise<AgentAssignmentResult> {
     try {
       await this.agentRouter.initialize(projectPath)

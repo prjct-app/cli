@@ -5,7 +5,7 @@
  * This class maintains backward compatibility while services handle implementation.
  */
 
-import commandExecutor from '../agentic/command-executor/index'
+import commandExecutor from '../agentic/command-executor'
 import contextBuilder from '../agentic/context-builder'
 import toolRegistry from '../agentic/tool-registry'
 import pathManager from '../infrastructure/path-manager'
@@ -24,8 +24,8 @@ import type {
   AgentInfo,
   Author,
   AgentAssignmentResult,
-  Context
-} from './types'
+  ProjectContext
+} from '../types'
 
 /**
  * Base class with shared state and utilities
@@ -97,7 +97,7 @@ export class PrjctCommandsBase {
   async _assignAgentForTask(
     task: string,
     projectPath: string,
-    context: Context
+    context: ProjectContext
   ): Promise<AgentAssignmentResult> {
     return agentService.assignForTask(task, projectPath, context)
   }

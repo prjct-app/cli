@@ -11,7 +11,7 @@ import { promisify } from 'util'
 import pathManager from '../infrastructure/path-manager'
 import configManager from '../infrastructure/config-manager'
 import { emit } from '../bus'
-import type { Session, SessionMetrics } from './types'
+import type { Session, SessionMetrics } from '../types'
 import { generateId, calculateDuration, formatDuration } from './utils'
 
 const execAsync = promisify(exec)
@@ -90,7 +90,9 @@ export class TaskSessionManager {
       completedAt: null,
       duration: 0,
       metrics: {
+        filesCreated: 0,
         filesChanged: 0,
+        filesModified: 0,
         linesAdded: 0,
         linesRemoved: 0,
         commits: 0,

@@ -7,19 +7,8 @@
  * @version 1.0.0
  */
 
-import skillService, { type Skill } from '../services/skill-service'
-
-export interface FormattedSkill {
-  id: string
-  name: string
-  description: string
-  prompt: string
-}
-
-export interface SkillContext {
-  availableSkills: FormattedSkill[]
-  skillsMarkdown: string
-}
+import skillService from '../services/skill-service'
+import type { Skill, FormattedSkill, SkillContext } from '../types'
 
 /**
  * Format a skill for inclusion in prompts

@@ -4,7 +4,7 @@
 
 import path from 'path'
 
-import type { CommandResult, AnalyzeOptions, Context } from './types'
+import type { CommandResult, AnalyzeOptions, ProjectContext } from '../types'
 import {
   PrjctCommandsBase,
   contextBuilder,
@@ -15,7 +15,7 @@ import {
 } from './base'
 import analyzer from '../domain/analyzer'
 import { generateContext } from '../context/generator'
-import commandInstaller from '../infrastructure/command-installer/index'
+import commandInstaller from '../infrastructure/command-installer'
 
 export class AnalysisCommands extends PrjctCommandsBase {
   /**
@@ -29,7 +29,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
 
       analyzer.init(projectPath)
 
-      const context = await contextBuilder.build(projectPath, options) as Context
+      const context = await contextBuilder.build(projectPath, options) as ProjectContext
 
       const analysisData = {
         packageJson: await analyzer.readPackageJson(),

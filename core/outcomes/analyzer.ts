@@ -6,7 +6,7 @@
  */
 
 import outcomeRecorder from './recorder'
-import type { Outcome, OutcomeSummary, QualityScore } from './types'
+import type { Outcome, OutcomeSummary, QualityScore } from '../types'
 
 /**
  * Pattern detected from outcomes.

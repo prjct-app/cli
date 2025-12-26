@@ -1,0 +1,366 @@
+/**
+ * Command Types
+ * Types for the command system.
+ */
+
+// ============================================
+// Core Command Types
+// ============================================
+
+/**
+ * Command execution result with optional extra data.
+ * This is the EXTENDED version with command-specific fields.
+ */
+export interface CommandResult {
+  success: boolean
+  message?: string
+  error?: string
+  /** Duration of command execution */
+  duration?: string
+  /** Task that was affected */
+  task?: string
+  /** Feature that was affected */
+  feature?: string
+  /** Files that were modified */
+  filesModified?: string[]
+  /** Allow any additional properties for command-specific data */
+  [key: string]: unknown
+}
+
+/**
+ * Command usage - which interfaces support this command
+ */
+export interface CommandUsage {
+  human: string
+  claude: string
+}
+
+/**
+ * Command metadata for requirements and categorization
+ */
+export interface CommandMetadata {
+  requiresProject: boolean
+  requiresActiveTask: boolean
+  modifiesState: boolean
+  category: string
+}
+
+/**
+ * Feature status for a command
+ */
+export interface CommandFeature {
+  name: string
+  status: 'implemented' | 'planned' | 'deprecated'
+}
+
+/**
+ * Command definition
+ */
+export interface Command {
+  name: string
+  description: string
+  category: string
+  usage: CommandUsage
+  metadata: CommandMetadata
+  features: CommandFeature[]
+  implemented: boolean
+}
+
+/**
+ * Command registry interface
+ */
+export interface CommandRegistry {
+  getByName(name: string): Command | undefined
+  getByCategory(category: string): Command[]
+  getAll(): Command[]
+  getStats(): CommandStats
+}
+
+/**
+ * Command statistics
+ */
+export interface CommandStats {
+  total: number
+  implemented: number
+  planned: number
+  byCategory: Record<string, number>
+}
+
+// ============================================
+// Command Options Types
+// ============================================
+
+/**
+ * Author information
+ */
+export interface Author {
+  name?: string
+  email?: string
+  github?: string
+}
+
+/**
+ * Options for the design command.
+ */
+export interface DesignOptions {
+  /** Type of design */
+  type?: 'architecture' | 'api' | 'component' | 'database' | 'flow'
+  /** Output format */
+  format?: 'markdown' | 'mermaid'
+}
+
+/**
+ * Options for the cleanup command.
+ */
+export interface CleanupOptions {
+  /** Clean up memory/history */
+  memory?: boolean
+  /** Type of cleanup */
+  type?: 'all' | 'memory' | 'sessions' | 'cache'
+  /** Dry run without making changes */
+  dryRun?: boolean
+}
+
+/**
+ * Options for the setup command.
+ */
+export interface SetupOptions {
+  /** Force re-setup even if already configured */
+  force?: boolean
+  /** Skip interactive prompts */
+  nonInteractive?: boolean
+}
+
+/**
+ * Options for the migrate-all command.
+ */
+export interface MigrateOptions {
+  /** Perform deep scan for legacy installations */
+  deepScan?: boolean
+  /** Remove legacy installations after migration */
+  removeLegacy?: boolean
+  /** Dry run without making changes */
+  dryRun?: boolean
+}
+
+/**
+ * Options for the analyze command.
+ */
+export interface AnalyzeOptions {
+  /** Force re-analysis even if cached */
+  force?: boolean
+  /** Analysis depth */
+  depth?: 'quick' | 'normal' | 'deep'
+  /** Allow additional options */
+  [key: string]: unknown
+}
+
+// ============================================
+// Migration Types
+// ============================================
+
+/**
+ * Result from project migration.
+ */
+export interface MigrationResult {
+  success: boolean
+  projectId: string | null
+  filesCopied?: number
+  layerCounts: LayerCounts
+  config: MigrationConfig | null
+  author: Author | null
+  issues: string[]
+  dryRun: boolean
+  legacyRemoved?: boolean
+  legacyCleaned?: boolean
+}
+
+/**
+ * Layer counts for migration
+ */
+export interface LayerCounts {
+  core: number
+  progress: number
+  planning: number
+  analysis: number
+  memory: number
+  other: number
+}
+
+/**
+ * Migration configuration
+ */
+export interface MigrationConfig {
+  projectId: string
+  version: string
+  migratedAt: string
+}
+
+// ============================================
+// Analysis Types
+// ============================================
+
+/**
+ * Complexity analysis result
+ */
+export interface ComplexityResult {
+  level: 'low' | 'medium' | 'high'
+  hours: number
+  type: string
+}
+
+/**
+ * Health check result
+ */
+export interface HealthResult {
+  score: number
+  message: string
+}
+
+// ============================================
+// Command Function Types
+// ============================================
+
+/**
+ * Type-safe command method names (for dynamic invocation)
+ */
+export type CommandMethodName =
+  | 'work' | 'now' | 'done' | 'next' | 'pause' | 'resume'
+  | 'init' | 'feature' | 'bug' | 'idea' | 'spec'
+  | 'ship'
+  | 'dash' | 'help'
+  | 'cleanup' | 'design' | 'recover' | 'undo' | 'redo' | 'history'
+  | 'analyze' | 'sync'
+  | 'start' | 'setup' | 'migrateAll'
+
+/**
+ * Function signature for standard command methods
+ */
+export type StandardCommandFn = (param: string | null, projectPath?: string) => Promise<CommandResult>
+
+// ============================================
+// Registry Types
+// ============================================
+
+/**
+ * Execution context passed to all command handlers
+ */
+export interface ExecutionContext {
+  projectId: string
+  projectPath: string
+  globalPath: string
+  timestamp: string
+}
+
+/**
+ * Command handler interface - all commands implement this
+ */
+export interface CommandHandler<TParams = void, TResult = CommandResult> {
+  /** Command name for registration */
+  readonly name: string
+  /** Execute the command */
+  execute(params: TParams, context: ExecutionContext): Promise<TResult>
+}
+
+/**
+ * Handler function type for simple commands
+ */
+export type HandlerFn<TParams = void> = (
+  params: TParams,
+  context: ExecutionContext
+) => Promise<CommandResult>
+
+/**
+ * Registry command usage - which interfaces support this command
+ */
+export interface RegistryCommandUsage {
+  claude: string | null
+  terminal: string | null
+}
+
+/**
+ * Blocking rules for commands
+ */
+export interface BlockingRules {
+  check: string
+  message: string
+}
+
+/**
+ * Command metadata for introspection (registry version)
+ */
+export interface CommandMeta {
+  name: string
+  group: string
+  description: string
+  requiresProject: boolean
+  usage: RegistryCommandUsage
+  params?: string
+  implemented: boolean
+  hasTemplate: boolean
+  blockingRules?: BlockingRules
+  features?: string[]
+  isOptional?: boolean
+  deprecated?: boolean
+  replacedBy?: string
+}
+
+/**
+ * Category metadata
+ */
+export interface CategoryInfo {
+  title: string
+  description: string
+  order: number
+}
+
+/**
+ * Registry statistics
+ */
+export interface RegistryStats {
+  total: number
+  implemented: number
+  withTemplates: number
+  claudeOnly: number
+  terminalOnly: number
+  both: number
+  requiresInit: number
+  byCategory: Record<string, number>
+}
+
+/**
+ * Validation result
+ */
+export interface ValidationResult {
+  valid: boolean
+  issues: string[]
+}
+
+// Note: AgentInfo and AgentAssignmentResult moved to agents.ts
+
+// ============================================
+// Global Config Types (command-related)
+// ============================================
+
+/**
+ * Global configuration for prjct.
+ */
+export interface GlobalConfig {
+  projectId: string
+  projectPath?: string
+  authors: AuthorEntry[]
+  version: string
+  created?: string
+  lastSync: string
+}
+
+/**
+ * Author entry in global config
+ */
+export interface AuthorEntry {
+  name: string
+  email: string
+  github: string
+  firstContribution?: string
+  lastActivity?: string
+}
