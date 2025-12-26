@@ -7,6 +7,7 @@ import path from 'path'
 
 import memorySystem from '../agentic/memory-system'
 import type { CommandResult } from './types'
+import { detectProjectCommands } from '../utils/project-commands'
 import {
   PrjctCommandsBase,
   toolRegistry,
@@ -18,6 +19,38 @@ import {
 import { stateStorage, shippedStorage } from '../storage'
 
 export class ShippingCommands extends PrjctCommandsBase {
+  /**
+   * Run a command and capture exit code without throwing.
+   *
+   * Reason: `toolRegistry.Bash` swallows non-zero exits into stderr; we still want a reliable success flag.
+   */
+  private async _runWithExitCode(command: string): Promise<{ exitCode: number; output: string }> {
+    const bash = toolRegistry.get('Bash')!
+    const escaped = command.replace(/"/g, '\\"')
+    const wrapped = `bash -lc "set +e; ${escaped} 2>&1; echo __EXIT:$?"`
+    const result = (await bash(wrapped)) as { stdout: string; stderr: string }
+    const output = `${result.stdout}\n${result.stderr}`.trim()
+
+    const lines = output.split('\n')
+    let marker: string | undefined
+    for (let i = lines.length - 1; i >= 0; i--) {
+      if (lines[i].startsWith('__EXIT:')) {
+        marker = lines[i]
+        break
+      }
+    }
+    const exitCode = marker ? Number(marker.replace('__EXIT:', '').trim()) : 1
+
+    // Remove marker from output for cleaner logs
+    const cleaned = output
+      .split('\n')
+      .filter((line) => !line.startsWith('__EXIT:'))
+      .join('\n')
+      .trim()
+
+    return { exitCode: Number.isFinite(exitCode) ? exitCode : 1, output: cleaned }
+  }
+
   /**
    * /p:ship - Ship feature with complete automated workflow
    */
@@ -93,26 +126,30 @@ export class ShippingCommands extends PrjctCommandsBase {
   /**
    * Run lint checks
    */
-  async _runLint(_projectPath: string): Promise<{ success: boolean; message: string }> {
+  async _runLint(projectPath: string): Promise<{ success: boolean; message: string }> {
     try {
-      const result = await toolRegistry.get('Bash')!('npm run lint 2>&1 || true') as { stdout: string; stderr: string }
-      return { success: !result.stderr.includes('error'), message: 'passed' }
+      const detected = await detectProjectCommands(projectPath)
+      if (!detected.lint) return { success: true, message: 'skipped (no lint detected)' }
+
+      const { exitCode } = await this._runWithExitCode(detected.lint.command)
+      return { success: exitCode === 0, message: exitCode === 0 ? 'passed' : 'failed' }
     } catch {
-      return { success: false, message: 'no lint script (skipped)' }
+      return { success: true, message: 'skipped (lint detection failed)' }
     }
   }
 
   /**
    * Run tests
    */
-  async _runTests(_projectPath: string): Promise<{ success: boolean; message: string }> {
+  async _runTests(projectPath: string): Promise<{ success: boolean; message: string }> {
     try {
-      const result = await toolRegistry.get('Bash')!(
-        'npm test -- --passWithNoTests 2>&1 || true'
-      ) as { stdout: string; stderr: string }
-      return { success: !result.stderr.includes('FAIL'), message: 'passed' }
+      const detected = await detectProjectCommands(projectPath)
+      if (!detected.test) return { success: true, message: 'skipped (no tests detected)' }
+
+      const { exitCode } = await this._runWithExitCode(detected.test.command)
+      return { success: exitCode === 0, message: exitCode === 0 ? 'passed' : 'failed' }
     } catch {
-      return { success: false, message: 'no test script (skipped)' }
+      return { success: true, message: 'skipped (test detection failed)' }
     }
   }
 

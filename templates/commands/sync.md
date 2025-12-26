@@ -456,7 +456,7 @@ Analyze `{techStack}` from Step 3 and generate ONLY relevant domain agents:
 | Node.js, Express, Go, Python API | `backend.md` | `templates/subagents/domain/backend.md` |
 | PostgreSQL, MySQL, MongoDB, Prisma | `database.md` | `templates/subagents/domain/database.md` |
 | Docker, Kubernetes, GitHub Actions | `devops.md` | `templates/subagents/domain/devops.md` |
-| Jest, Pytest, Vitest, testing | `testing.md` | `templates/subagents/domain/testing.md` |
+| Bun test, Jest, Pytest, testing | `testing.md` | `templates/subagents/domain/testing.md` |
 | **{hasFrontendUI} = true** | `uxui.md` | `templates/agentic/agents/uxui.md` |
 
 For EACH detected stack:

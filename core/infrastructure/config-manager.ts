@@ -297,7 +297,11 @@ class ConfigManager {
     const author = await authorDetector.detect()
 
     const projectId = await this.getProjectId(projectPath)
-    await this.addAuthor(projectId, author)
+    await this.addAuthor(projectId, {
+      name: author.name ?? undefined,
+      email: author.email ?? undefined,
+      github: author.github ?? undefined
+    })
 
     return author.github || author.name || 'Unknown'
   }

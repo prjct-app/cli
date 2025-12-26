@@ -36,36 +36,14 @@ export * from './analysis'
 // Outcomes
 export * from './outcomes'
 
-// ============================================
-// ID GENERATORS - UUID ONLY
-// ============================================
-
-import crypto from 'crypto'
-
-/**
- * Generate a standard UUID.
- * All IDs in the system use this format for PostgreSQL consistency.
- */
-export function generateUUID(): string {
-  return crypto.randomUUID()
-}
-
-// All use the same UUID generator
-export const generateTaskId = generateUUID
-export const generateFeatureId = generateUUID
-export const generateIdeaId = generateUUID
-export const generateShipId = generateUUID
-export const generateSessionId = generateUUID
-
-// ============================================
-// PATH HELPERS
-// ============================================
-
-import { join } from 'path'
-import { homedir } from 'os'
-
-export const GLOBAL_STORAGE = join(homedir(), '.prjct-cli', 'projects')
-
-export function getProjectPath(projectId: string): string {
-  return join(GLOBAL_STORAGE, projectId)
-}
+// Utilities (ID generators and path helpers)
+export {
+  generateUUID,
+  generateTaskId,
+  generateFeatureId,
+  generateIdeaId,
+  generateShipId,
+  generateSessionId,
+  GLOBAL_STORAGE,
+  getProjectPath
+} from './schemas'

@@ -12,7 +12,7 @@
 import fs from 'fs/promises'
 import path from 'path'
 import { hookSystem } from './hooks'
-import { eventBus } from '../bus'
+import { eventBus, type EventCallback } from '../bus'
 import pathManager from '../infrastructure/path-manager'
 
 type PluginSource = 'builtin' | 'global' | 'project'
@@ -23,7 +23,7 @@ interface Plugin {
   version?: string
   description?: string
   hooks?: Record<string, HookHandler>
-  events?: Record<string, HookHandler>
+  events?: Record<string, EventCallback>
   commands?: Record<string, { handler: () => void; description?: string }>
   priority?: number
   activate?: (context: PluginContext) => Promise<void>
@@ -106,7 +106,7 @@ class PluginLoader {
    * Load global plugins from ~/.prjct-cli/plugins
    */
   async loadGlobalPlugins(): Promise<void> {
-    const globalPath = path.join(pathManager.getGlobalStoragePath(), 'plugins')
+    const globalPath = path.join(pathManager.getGlobalBasePath(), 'plugins')
 
     try {
       const files = await fs.readdir(globalPath)

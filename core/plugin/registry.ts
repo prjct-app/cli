@@ -57,7 +57,7 @@ class PluginRegistry {
 
     // Global plugins
     await this.discoverFromPath(
-      path.join(pathManager.getGlobalStoragePath(), 'plugins'),
+      path.join(pathManager.getGlobalBasePath(), 'plugins'),
       'global'
     )
   }
@@ -188,7 +188,7 @@ class PluginRegistry {
    * Install a plugin (copy to global plugins)
    */
   async install(sourcePath: string, name: string | null = null): Promise<void> {
-    const globalPluginsPath = path.join(pathManager.getGlobalStoragePath(), 'plugins')
+    const globalPluginsPath = path.join(pathManager.getGlobalBasePath(), 'plugins')
     await fs.mkdir(globalPluginsPath, { recursive: true })
 
     const stat = await fs.stat(sourcePath)

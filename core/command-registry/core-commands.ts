@@ -18,7 +18,6 @@ export const CORE_COMMANDS: Command[] = [
     implemented: true,
     hasTemplate: true,
     requiresInit: false,
-    blockingRules: null,
     features: [
       'Architect mode for blank projects',
       'Auto tech stack recommendation',
@@ -40,7 +39,6 @@ export const CORE_COMMANDS: Command[] = [
     implemented: true,
     hasTemplate: true,
     requiresInit: true,
-    blockingRules: null,
     features: [
       'Simple ideas -> Quick capture',
       'Complex ideas -> Full architecture',
@@ -64,7 +62,6 @@ export const CORE_COMMANDS: Command[] = [
     implemented: true,
     hasTemplate: true,
     requiresInit: true,
-    blockingRules: null,
     features: [
       'Value analysis (impact/effort/timing)',
       'Auto roadmap generation',
@@ -86,7 +83,6 @@ export const CORE_COMMANDS: Command[] = [
     implemented: true,
     hasTemplate: true,
     requiresInit: true,
-    blockingRules: null,
     features: [
       'Requirements documentation',
       'Design decisions tracking',
@@ -109,7 +105,6 @@ export const CORE_COMMANDS: Command[] = [
     implemented: true,
     hasTemplate: true,
     requiresInit: true,
-    blockingRules: null,
     features: [
       'No params -> Show current task',
       'With task -> Start new task',
@@ -203,7 +198,6 @@ export const CORE_COMMANDS: Command[] = [
       claude: '/p:done',
       terminal: 'prjct done',
     },
-    params: null,
     implemented: true,
     hasTemplate: true,
     requiresInit: true,
@@ -225,7 +219,6 @@ export const CORE_COMMANDS: Command[] = [
     implemented: true,
     hasTemplate: true,
     requiresInit: true,
-    blockingRules: null,
     features: [
       'Lint checks (non-blocking)',
       'Run tests (non-blocking)',
@@ -249,7 +242,6 @@ export const CORE_COMMANDS: Command[] = [
     implemented: true,
     hasTemplate: true,
     requiresInit: true,
-    blockingRules: null,
     features: [
       'Auto-detect severity (critical/high/medium/low)',
       'Priority placement in next.md',
@@ -270,7 +262,6 @@ export const CORE_COMMANDS: Command[] = [
     implemented: true,
     hasTemplate: true,
     requiresInit: true,
-    blockingRules: null,
     features: [
       'Project overview',
       'Weekly/monthly progress',
@@ -292,7 +283,6 @@ export const CORE_COMMANDS: Command[] = [
     implemented: true,
     hasTemplate: true,
     requiresInit: false,
-    blockingRules: null,
     features: [
       'Natural language intent parsing',
       'Command flow recommendations',
@@ -309,11 +299,9 @@ export const CORE_COMMANDS: Command[] = [
       claude: '/p:sync',
       terminal: 'prjct sync',
     },
-    params: null,
     implemented: true,
     hasTemplate: true,
     requiresInit: true,
-    blockingRules: null,
     features: [
       'Syncs project state',
       'Updates dynamic agents',
@@ -329,11 +317,9 @@ export const CORE_COMMANDS: Command[] = [
       claude: '/p:suggest',
       terminal: 'prjct suggest',
     },
-    params: null,
     implemented: true,
     hasTemplate: true,
     requiresInit: true,
-    blockingRules: null,
     features: [
       'Context-aware recommendations',
       'Momentum-based suggestions',

@@ -74,7 +74,7 @@ export const DEFAULT_IDEA: Omit<IdeaSchema, 'id' | 'text'> = {
   priority: 'medium',
   status: 'pending',
   tags: [],
-  createdAt: new Date().toISOString()
+  addedAt: new Date().toISOString()
 }
 
 export const DEFAULT_IDEAS: IdeasJson = {

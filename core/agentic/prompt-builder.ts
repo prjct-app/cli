@@ -89,6 +89,20 @@ class PromptBuilder {
   private _stateCacheTTL = 5000 // 5 seconds
 
   /**
+   * Reset context (for testing)
+   */
+  resetContext(): void {
+    this._currentContext = null
+  }
+
+  /**
+   * Set context for testing
+   */
+  setContext(context: Context | null): void {
+    this._currentContext = context
+  }
+
+  /**
    * Load quality checklists from templates/checklists/
    */
   loadChecklists(): Record<string, string> {

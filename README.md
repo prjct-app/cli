@@ -425,25 +425,24 @@ prjct recap                # Show progress
 
 ## 🧪 Testing
 
-prjct-cli uses **Vitest** with comprehensive test coverage for both the CLI core and website.
+prjct-cli uses **Bun** (`bun test`) for unit tests.
 
 ### Quick Start
 
 ```bash
 # Run all tests
-npm test
+bun test
 
 # Run tests in watch mode
-npm run test:watch
+bun test --watch
 
 # Generate coverage report
-npm run test:coverage
+bun test --coverage
 ```
 
 ### Test Suites
 
 - **Core CLI** (Node.js) - Agentic system, commands, and utilities
-- **Website** (React + TypeScript) - Component tests with Testing Library
 
 ### CI/CD
 
@@ -451,7 +450,7 @@ Tests run automatically on every push and pull request via GitHub Actions.
 
 [![Tests](https://github.com/jlopezlira/prjct-cli/actions/workflows/test.yml/badge.svg)](https://github.com/jlopezlira/prjct-cli/actions/workflows/test.yml)
 
-> 📖 **Full testing guide:** See [TESTING.md](TESTING.md) for detailed documentation, configuration, and best practices.
+> 📖 **Full testing guide:** See [docs/TESTING.md](docs/TESTING.md) for detailed documentation, configuration, and best practices.
 
 ## ❓ FAQ
 

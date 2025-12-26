@@ -32,32 +32,55 @@ bun -e "console.log(crypto.randomUUID())" 2>/dev/null || node -e "console.log(re
 Designed for [Claude](https://www.anthropic.com/claude)
 ```
 
-## Architecture: Write-Through
+## Architecture: Write-Through Pattern
 
 ```
 User Action → Storage (JSON) → Context (MD) → Sync Events
 ```
 
+### Layer System (10 layers)
+
 | Layer | Path | Purpose |
 |-------|------|---------|
-| Storage | `storage/*.json` | Source of truth |
-| Context | `context/*.md` | Claude-readable (generated) |
-| Sync | `sync/pending.json` | Backend events |
-| Memory | `memory/events.jsonl` | Audit trail |
+| **Storage** | `storage/*.json` | Source of truth (state, queue, shipped) |
+| **Context** | `context/*.md` | Claude-readable generated files |
+| **Core** | `core/` | Current task data |
+| **Progress** | `progress/` | Historical progress tracking |
+| **Planning** | `planning/` | Ideas, roadmap, specs, tasks |
+| **Analysis** | `analysis/` | Repo analysis, tech stack |
+| **Memory** | `memory/` | Events, patterns, semantic memories |
+| **Agents** | `agents/` | Domain specialists (auto-generated) |
+| **Sessions** | `sessions/YYYY/MM/DD/` | Daily session logs |
+| **Sync** | `sync/` | Backend sync events |
 
 ### File Structure
 ```
 ~/.prjct-cli/projects/{projectId}/
+├── project.json           # Project config (authors, version)
 ├── storage/
 │   ├── state.json         # Current task (source of truth)
-│   ├── shipped.json       # Shipped features
-│   └── queue.json         # Task queue
+│   ├── queue.json         # Priority queue
+│   └── shipped.json       # Shipped features
 ├── context/
 │   ├── now.md             # Generated from state.json
+│   ├── next.md            # Generated from queue.json
 │   └── shipped.md         # Generated from shipped.json
-├── sync/pending.json      # Backend events
-├── memory/events.jsonl    # Audit trail
-└── agents/                # Domain specialists
+├── core/                  # Current task context
+├── progress/              # Historical metrics
+├── planning/
+│   ├── ideas.json         # Captured ideas
+│   ├── roadmap.json       # Feature roadmap
+│   └── tasks/             # Task breakdowns
+├── analysis/
+│   └── repo-analysis.json # Tech stack, patterns
+├── memory/
+│   ├── events.jsonl       # Audit trail
+│   └── context.jsonl      # Semantic memories
+├── agents/                # Auto-generated domain specialists
+├── sessions/              # Daily session logs (YYYY/MM/DD/)
+└── sync/
+    ├── pending.json       # Events pending sync
+    └── last-sync.json     # Last sync timestamp
 ```
 
 ## Core Workflow
@@ -68,15 +91,33 @@ User Action → Storage (JSON) → Context (MD) → Sync Events
 
 ## Commands
 
+### Core Commands (14)
 | Command | Purpose |
 |---------|---------|
-| `/p:sync` | Analyze repo, generate agents |
+| `/p:init` | Initialize project with deep analysis |
+| `/p:idea` | Transform ideas into architectures |
+| `/p:feature` | Add feature with value analysis |
+| `/p:spec` | Create detailed specifications |
 | `/p:now [task]` | Start/show current task |
+| `/p:pause` | Pause active task |
+| `/p:resume` | Resume paused task |
+| `/p:next` | Show priority queue |
 | `/p:done` | Complete current task |
-| `/p:ship [feature]` | Ship with quality checks |
-| `/p:feature` | Add to roadmap |
-| `/p:idea` | Quick idea capture |
-| `/p:recap` | Project overview |
+| `/p:ship` | Ship with quality checks |
+| `/p:bug` | Report bug with auto-priority |
+| `/p:dash` | Unified dashboard |
+| `/p:sync` | Analyze repo, generate agents |
+| `/p:suggest` | Context-aware recommendations |
+
+### Optional Commands
+| Command | Purpose |
+|---------|---------|
+| `/p:design` | System architecture design |
+| `/p:cleanup` | Clean temp files |
+| `/p:analyze` | Deep repo analysis |
+| `/p:undo` / `/p:redo` | Snapshot management |
+| `/p:git` | Smart git operations |
+| `/p:test` | Run tests with auto-fix |
 
 ## Natural Language Trigger
 

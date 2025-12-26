@@ -76,6 +76,7 @@ export interface RoadmapJson {
 export type RoadmapSchema = FeatureSchema[]
 
 export const DEFAULT_FEATURE: Omit<FeatureSchema, 'id' | 'name'> = {
+  date: new Date().toISOString().split('T')[0],
   status: 'planned',
   impact: 'medium',
   progress: 0,

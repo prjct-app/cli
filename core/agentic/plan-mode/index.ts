@@ -15,6 +15,7 @@ export type {
   Plan,
   ApprovalPrompt,
   ApprovalContext,
+  ApprovalOperation,
 } from './types'
 
 export { PLAN_STATUS, PLAN_REQUIRED_COMMANDS, DESTRUCTIVE_COMMANDS, PLANNING_TOOLS } from './constants'

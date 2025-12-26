@@ -53,14 +53,14 @@ export interface Memory {
 export interface MemoryDatabase {
   version: number
   memories: Memory[]
-  /** Index of tag -> memory IDs */
-  index: Record<MemoryTag, string[]>
+  /** Index of tag -> memory IDs (uses string for flexibility with dynamic tags) */
+  index: Record<string, string[]>
 }
 
 /**
  * A history entry from session logs.
  */
-export interface HistoryEntry {
+export interface HistoryEntry extends Record<string, unknown> {
   /** Timestamp */
   ts: string
   /** Event type */
@@ -87,6 +87,7 @@ export type HistoryEventType =
   | 'feature_added'
   | 'feature_shipped'
   | 'idea_captured'
+  | 'decision'
   | 'command_executed'
   | 'error_occurred'
 
@@ -157,3 +158,4 @@ export interface MemoryContextParams {
   feature?: string
   idea?: string
 }
+

@@ -29,16 +29,18 @@ export const DESTRUCTIVE_COMMANDS = [
 export const PLANNING_TOOLS = ['Read', 'Glob', 'Grep', 'GetTimestamp', 'GetDate', 'GetDateTime']
 
 /**
- * Plan status enum
+ * Plan status enum - values must match PlanStatus type in types.ts
  */
 export const PLAN_STATUS = {
-  GATHERING: 'gathering', // Collecting information
-  ANALYZING: 'analyzing', // Understanding context
-  PROPOSING: 'proposing', // Generating plan
-  PENDING_APPROVAL: 'pending', // Waiting for user
-  APPROVED: 'approved', // User approved
-  REJECTED: 'rejected', // User rejected
-  EXECUTING: 'executing', // Running the plan
-  COMPLETED: 'completed', // Done
-  ABORTED: 'aborted', // User stopped mid-execution
-}
+  GATHERING: 'gathering',
+  ANALYZING: 'analyzing',
+  PROPOSING: 'proposing',
+  PENDING_APPROVAL: 'awaiting_approval',
+  APPROVED: 'approved',
+  REJECTED: 'rejected',
+  EXECUTING: 'executing',
+  COMPLETED: 'completed',
+  ABORTED: 'aborted',
+} as const
+
+export type PlanStatusValue = (typeof PLAN_STATUS)[keyof typeof PLAN_STATUS]

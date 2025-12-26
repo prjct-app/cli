@@ -44,8 +44,14 @@ PARSE args:
 
 READ: `package.json`
 IF has "scripts.test":
-  {runner} = "npm"
-  {runnerCmd} = "npm test"
+  Detect package manager (package.json "packageManager" or lockfiles):
+  - pnpm-lock.yaml → pnpm
+  - yarn.lock → yarn
+  - bun.lock/bun.lockb → bun
+  - else → npm
+
+  {runner} = "{packageManager}"
+  {runnerCmd} = "{packageManager} test"
   → Go to Step 4 (Native Testing)
 
 IF file exists: `pytest.ini` OR `pyproject.toml` with pytest:
@@ -58,6 +64,16 @@ IF file exists: `Cargo.toml`:
   {runnerCmd} = "cargo test"
   → Go to Step 4
 
+IF file exists: `go.mod`:
+  {runner} = "go"
+  {runnerCmd} = "go test ./..."
+  → Go to Step 4
+
+IF file exists: `*.sln` OR `*.csproj`:
+  {runner} = "dotnet"
+  {runnerCmd} = "dotnet test"
+  → Go to Step 4
+
 IF no runner found:
   OUTPUT: "No test runner detected."
   OUTPUT: ""
@@ -65,6 +81,8 @@ IF no runner found:
   OUTPUT: "• Add 'test' script to package.json"
   OUTPUT: "• Add pytest.ini for Python projects"
   OUTPUT: "• Add Cargo.toml for Rust projects"
+  OUTPUT: "• Add go.mod for Go projects"
+  OUTPUT: "• Add a .sln/.csproj for .NET projects"
   STOP
 
 ## Step 4: Native Test Runner
@@ -91,8 +109,9 @@ ELSE:
 IF {testMode} == "fix" AND {testStatus} == "failed":
   OUTPUT: "🔧 Attempting auto-fix..."
 
-  IF {runner} == "npm":
-    BASH: `npm test -- -u 2>&1`  # Update snapshots
+  IF {runner} == "npm" OR {runner} == "pnpm" OR {runner} == "yarn" OR {runner} == "bun":
+    # Reason: only JS test runners commonly support snapshot update flags.
+    BASH: `{runnerCmd} -- -u 2>&1`  # Update snapshots (best effort)
 
   OUTPUT: "Snapshots updated. Re-running tests..."
   BASH: `{runnerCmd} 2>&1`

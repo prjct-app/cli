@@ -6,7 +6,7 @@
 import fs from 'fs/promises'
 import path from 'path'
 import pathManager from '../../infrastructure/path-manager'
-import type { Patterns, Decision, Workflow } from './types'
+import type { Patterns, Decision, Workflow, Preference } from './types'
 
 export class PatternStore {
   private _patterns: Patterns | null = null
@@ -127,7 +127,7 @@ export class PatternStore {
     return workflow
   }
 
-  async setPreference(projectId: string, key: string, value: unknown): Promise<void> {
+  async setPreference(projectId: string, key: string, value: Preference['value']): Promise<void> {
     const patterns = await this.loadPatterns(projectId)
     patterns.preferences[key] = { value, updatedAt: new Date().toISOString() }
     await this.savePatterns(projectId)

@@ -13,12 +13,12 @@ describe('PromptBuilder', () => {
 
   beforeEach(() => {
     builder = promptBuilder
-    builder._currentContext = null
+    builder.resetContext()
   })
 
   describe('Critical Rules (Compressed)', () => {
     it('should include git safety rules', () => {
-      builder._currentContext = { files: [], filteredSize: 0 }
+      builder.setContext({ files: [], filteredSize: 0 })
       const rules = builder.buildCriticalRules()
 
       expect(rules).toContain('GIT SAFETY')
@@ -27,7 +27,7 @@ describe('PromptBuilder', () => {
     })
 
     it('should include read-first requirement', () => {
-      builder._currentContext = { files: [], filteredSize: 0 }
+      builder.setContext({ files: [], filteredSize: 0 })
       const rules = builder.buildCriticalRules()
 
       expect(rules).toContain('READ FIRST')
@@ -35,21 +35,21 @@ describe('PromptBuilder', () => {
     })
 
     it('should include pattern matching requirement', () => {
-      builder._currentContext = { files: [], filteredSize: 0 }
+      builder.setContext({ files: [], filteredSize: 0 })
       const rules = builder.buildCriticalRules()
 
       expect(rules).toContain('MATCH PATTERNS')
     })
 
     it('should include no-hallucination rules', () => {
-      builder._currentContext = { files: [], filteredSize: 0 }
+      builder.setContext({ files: [], filteredSize: 0 })
       const rules = builder.buildCriticalRules()
 
       expect(rules).toContain('NO HALLUCINATIONS')
     })
 
     it('should show file count in context', () => {
-      builder._currentContext = { files: ['a.js', 'b.js', 'c.js'] }
+      builder.setContext({ files: ['a.js', 'b.js', 'c.js'] })
       const rules = builder.buildCriticalRules()
 
       expect(rules).toContain('3 files available')

@@ -208,10 +208,11 @@ class QueueStorage extends StorageManager<QueueJson> {
     })
 
     if (completedTask) {
+      const task = completedTask as QueueTask
       await this.publishEvent(projectId, 'queue.task_completed', {
         taskId,
-        description: completedTask.description,
-        completedAt: completedTask.completedAt
+        description: task.description,
+        completedAt: task.completedAt
       })
     }
 

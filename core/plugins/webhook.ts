@@ -46,7 +46,7 @@ const plugin = {
   // Plugin state
   config: null as WebhookConfig | null,
   enabled: false,
-  events: [] as string[],
+  enabledEvents: [] as string[],
 
   /**
    * Activate plugin
@@ -60,7 +60,7 @@ const plugin = {
     }
 
     plugin.enabled = true
-    plugin.events = config.events || [
+    plugin.enabledEvents = config.events || [
       EventTypes.SESSION_COMPLETED,
       EventTypes.FEATURE_SHIPPED,
       EventTypes.SNAPSHOT_CREATED

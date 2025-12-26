@@ -3,7 +3,7 @@
  * Core plan management functionality
  */
 
-import type { Plan, PlanParams, GatheredInfo, ProposedPlan, PlanStep, ApprovalContext, ApprovalPrompt } from './types'
+import type { Plan, PlanParams, GatheredInfo, ProposedPlan, PlanStep, ApprovalContext, ApprovalPrompt, PlanStatus, PlanAnalysis, PlanStepResult } from './types'
 import { PLAN_STATUS, PLAN_REQUIRED_COMMANDS, DESTRUCTIVE_COMMANDS, PLANNING_TOOLS } from './constants'
 import { generateApprovalPrompt } from './approval'
 import { generateUUID } from '../../schemas'
@@ -56,7 +56,7 @@ export class PlanMode {
       projectId,
       command: commandName,
       params,
-      status: PLAN_STATUS.GATHERING,
+      status: PLAN_STATUS.GATHERING as PlanStatus,
       startedAt: new Date().toISOString(),
       gatheredInfo: [],
       analysis: null,
@@ -86,9 +86,13 @@ export class PlanMode {
   isInPlanningMode(projectId: string): boolean {
     const plan = this.getActivePlan(projectId)
     if (!plan) return false
-    return [PLAN_STATUS.GATHERING, PLAN_STATUS.ANALYZING, PLAN_STATUS.PROPOSING, PLAN_STATUS.PENDING_APPROVAL].includes(
-      plan.status
-    )
+    const planningStatuses: PlanStatus[] = [
+      PLAN_STATUS.GATHERING as PlanStatus,
+      PLAN_STATUS.ANALYZING as PlanStatus,
+      PLAN_STATUS.PROPOSING as PlanStatus,
+      PLAN_STATUS.PENDING_APPROVAL as PlanStatus,
+    ]
+    return planningStatuses.includes(plan.status)
   }
 
   /**
@@ -107,7 +111,7 @@ export class PlanMode {
   /**
    * Update plan status
    */
-  updateStatus(projectId: string, status: string): void {
+  updateStatus(projectId: string, status: PlanStatus): void {
     const plan = this.getActivePlan(projectId)
     if (!plan) return
 
@@ -126,12 +130,12 @@ export class PlanMode {
   /**
    * Set analysis results
    */
-  setAnalysis(projectId: string, analysis: unknown): void {
+  setAnalysis(projectId: string, analysis: PlanAnalysis): void {
     const plan = this.getActivePlan(projectId)
     if (!plan) return
 
     plan.analysis = analysis
-    plan.status = PLAN_STATUS.ANALYZING
+    plan.status = PLAN_STATUS.ANALYZING as PlanStatus
   }
 
   /**
@@ -142,7 +146,7 @@ export class PlanMode {
     if (!plan) return null
 
     plan.proposedPlan = proposedPlan
-    plan.status = PLAN_STATUS.PENDING_APPROVAL
+    plan.status = PLAN_STATUS.PENDING_APPROVAL as PlanStatus
 
     return this.formatPlanForApproval(plan)
   }
@@ -179,7 +183,7 @@ export class PlanMode {
     }
 
     plan.userFeedback = feedback
-    plan.status = PLAN_STATUS.APPROVED
+    plan.status = PLAN_STATUS.APPROVED as PlanStatus
     plan.approvedAt = new Date().toISOString()
 
     // Convert proposed plan to executable steps
@@ -209,7 +213,7 @@ export class PlanMode {
     const plan = this.getActivePlan(projectId)
     if (!plan) return null
 
-    plan.status = PLAN_STATUS.REJECTED
+    plan.status = PLAN_STATUS.REJECTED as PlanStatus
     plan.userFeedback = reason
     plan.completedAt = new Date().toISOString()
 
@@ -233,7 +237,7 @@ export class PlanMode {
       return null
     }
 
-    plan.status = PLAN_STATUS.EXECUTING
+    plan.status = PLAN_STATUS.EXECUTING as PlanStatus
     plan.executionStartedAt = new Date().toISOString()
     plan.currentStep = 0
 
@@ -269,7 +273,7 @@ export class PlanMode {
   /**
    * Mark current step as complete
    */
-  completeStep(projectId: string, result: unknown = {}): ReturnType<typeof this.getNextStep> {
+  completeStep(projectId: string, result: PlanStepResult = { success: true }): ReturnType<typeof this.getNextStep> {
     const plan = this.getActivePlan(projectId)
     if (!plan || plan.status !== PLAN_STATUS.EXECUTING) {
       return null
@@ -311,7 +315,7 @@ export class PlanMode {
     const plan = this.getActivePlan(projectId)
     if (!plan) return null
 
-    plan.status = PLAN_STATUS.COMPLETED
+    plan.status = PLAN_STATUS.COMPLETED as PlanStatus
     plan.completedAt = new Date().toISOString()
 
     const summary = {
@@ -336,7 +340,7 @@ export class PlanMode {
     const plan = this.getActivePlan(projectId)
     if (!plan) return null
 
-    plan.status = PLAN_STATUS.ABORTED
+    plan.status = PLAN_STATUS.ABORTED as PlanStatus
     plan.completedAt = new Date().toISOString()
     plan.abortReason = reason
 

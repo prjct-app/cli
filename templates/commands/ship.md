@@ -47,8 +47,19 @@ ELSE:
   OUTPUT: "Large change detected ({totalLines} lines). Full review recommended."
 
 ### Step 3: Quality Checks
-BASH: `npm run lint 2>&1 || echo "LINT_SKIP"`
-BASH: `npm test 2>&1 || echo "TEST_SKIP"`
+Detect and run the project's existing quality commands (do not assume JS tooling):
+
+- **Lint**: run only if the project already has a lint command configured (e.g. `npm run lint`, `pnpm run lint`, `yarn lint`, `bun run lint`)
+- **Tests**: run the repo's test runner:
+  - JS: `{packageManager} test` (npm/pnpm/yarn/bun)
+  - Python: `pytest`
+  - Go: `go test ./...`
+  - Rust: `cargo test`
+  - .NET: `dotnet test`
+  - Java: `mvn test` or `./gradlew test`
+
+BASH: `{lintCommand} 2>&1 || echo "LINT_SKIP"`  # if detected
+BASH: `{testCommand} 2>&1 || echo "TEST_SKIP"`  # if detected
 
 IF `--blocking` AND (lint failed OR tests failed):
   OUTPUT: "Quality checks failed. Ship blocked."

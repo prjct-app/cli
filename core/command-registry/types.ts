@@ -17,11 +17,11 @@ export interface Command {
   category: string
   description: string
   usage: CommandUsage
-  params: string | null
+  params?: string
   implemented: boolean
   hasTemplate: boolean
   requiresInit: boolean
-  blockingRules: BlockingRules | null
+  blockingRules?: BlockingRules
   features?: string[]
   isOptional?: boolean
   deprecated?: boolean

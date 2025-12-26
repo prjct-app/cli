@@ -30,13 +30,22 @@ Run in sequence, stop on failure:
 
 ```bash
 # 1. Lint (if configured)
-npm run lint || bun run lint
+# Use the project's own tooling (do not assume JS/Bun).
+# Examples:
+# - JS: pnpm run lint / yarn lint / npm run lint / bun run lint
+# - Python: ruff/flake8 (only if project already uses it)
 
-# 2. Type check (if TypeScript)
-npm run typecheck || tsc --noEmit
+# 2. Type check (if configured)
+# - TS: pnpm run typecheck / yarn typecheck / npm run typecheck / bun run typecheck
 
 # 3. Tests (if configured)
-npm test || bun test
+# Use the project's own test runner:
+# - JS: {packageManager} test (e.g. pnpm test, yarn test, npm test, bun test)
+# - Python: pytest
+# - Go: go test ./...
+# - Rust: cargo test
+# - .NET: dotnet test
+# - Java: mvn test / ./gradlew test
 ```
 
 If any fail:
@@ -125,12 +134,12 @@ Read from `.prjct/ship.config.json` if exists:
     "typecheck": true,
     "test": true
   },
-  "testCommand": "bun test",
-  "lintCommand": "bun run lint"
+  "testCommand": "pytest",
+  "lintCommand": "npm run lint"
 }
 ```
 
-If no config, auto-detect from package.json scripts.
+If no config, auto-detect from the repository (package.json scripts, pytest.ini, Cargo.toml, go.mod, etc.).
 
 ## Dry Run Mode
 

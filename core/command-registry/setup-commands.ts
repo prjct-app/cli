@@ -14,11 +14,9 @@ export const SETUP_COMMANDS: Command[] = [
       claude: null,
       terminal: 'prjct start',
     },
-    params: null,
     implemented: true,
     hasTemplate: false,
     requiresInit: false,
-    blockingRules: null,
   },
 
   {
@@ -33,7 +31,6 @@ export const SETUP_COMMANDS: Command[] = [
     implemented: true,
     hasTemplate: true,
     requiresInit: false,
-    blockingRules: null,
   },
 
   {
@@ -44,11 +41,9 @@ export const SETUP_COMMANDS: Command[] = [
       claude: '/p:migrate',
       terminal: null, // Claude-only
     },
-    params: null,
     implemented: true,
     hasTemplate: true,
     requiresInit: true,
-    blockingRules: null,
   },
 
   {
@@ -63,7 +58,6 @@ export const SETUP_COMMANDS: Command[] = [
     implemented: true,
     hasTemplate: true,
     requiresInit: false,
-    blockingRules: null,
   },
 
   {
@@ -78,6 +72,5 @@ export const SETUP_COMMANDS: Command[] = [
     implemented: true,
     hasTemplate: true,
     requiresInit: false,
-    blockingRules: null,
   },
 ]
