@@ -15,7 +15,7 @@ import {
   dateHelper,
   out
 } from './base'
-import { mdIdeasManager, mdQueueManager } from '../data'
+import { ideasStorage, queueStorage } from '../storage'
 
 export class MaintenanceCommands extends PrjctCommandsBase {
   /**
@@ -102,9 +102,9 @@ export class MaintenanceCommands extends PrjctCommandsBase {
         cleaned.push('Memory: No file found')
       }
 
-      // Clean ideas using mdIdeasManager
+      // Clean ideas using ideasStorage
       try {
-        const result = await mdIdeasManager.cleanup(projectId)
+        const result = await ideasStorage.cleanup(projectId)
         if (result.removed > 0) {
           cleaned.push(`Ideas: ${result.removed} old archived ideas removed`)
         } else {
@@ -114,9 +114,9 @@ export class MaintenanceCommands extends PrjctCommandsBase {
         cleaned.push('Ideas: No file found')
       }
 
-      // Check queue for completed tasks using mdQueueManager
+      // Check queue for completed tasks using queueStorage
       try {
-        const tasks = await mdQueueManager.getActiveTasks(projectId)
+        const tasks = await queueStorage.getActiveTasks(projectId)
         const completedTasks = tasks.filter(t => t.completed).length
 
         if (completedTasks > 0) {

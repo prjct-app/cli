@@ -1,54 +1,39 @@
 /**
  * History - Tier 3
- * Append-only JSONL audit log.
+ * Append-only JSONL audit log with temporal fragmentation.
  */
 
-import fs from 'fs/promises'
 import path from 'path'
 import pathManager from '../../infrastructure/path-manager'
+import { getTimestamp, getTodayKey } from '../../utils/date-helper'
+import { appendJsonLine, getLastJsonLines } from '../../utils/jsonl-helper'
+import { ensureDir } from '../../utils/file-helper'
 import type { HistoryEntry, HistoryEventType } from './types'
 
 export class HistoryStore {
   private _getSessionPath(projectId: string): string {
     const now = new Date()
     const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-    const day = now.toISOString().split('T')[0]
+    const day = getTodayKey()
 
     return path.join(pathManager.getGlobalProjectPath(projectId), 'memory', 'sessions', yearMonth, `${day}.jsonl`)
   }
 
   async appendHistory(projectId: string, entry: Record<string, unknown> & { type: HistoryEventType }): Promise<void> {
     const sessionPath = this._getSessionPath(projectId)
-    await fs.mkdir(path.dirname(sessionPath), { recursive: true })
+    await ensureDir(path.dirname(sessionPath))
 
     const logEntry: HistoryEntry = {
-      ts: new Date().toISOString(),
+      ts: getTimestamp(),
       ...entry,
-      // Reason: `HistoryEntry` allows extra fields; ensure `type` remains strongly typed (not widened to unknown).
       type: entry.type,
     }
 
-    await fs.appendFile(sessionPath, JSON.stringify(logEntry) + '\n', 'utf-8')
+    await appendJsonLine(sessionPath, logEntry)
   }
 
   async getRecentHistory(projectId: string, limit: number = 20): Promise<HistoryEntry[]> {
-    try {
-      const sessionPath = this._getSessionPath(projectId)
-      const content = await fs.readFile(sessionPath, 'utf-8')
-      const lines = content.trim().split('\n').filter(Boolean)
-
-      return lines
-        .slice(-limit)
-        .map((line) => {
-          try {
-            return JSON.parse(line)
-          } catch {
-            return null
-          }
-        })
-        .filter((entry): entry is HistoryEntry => entry !== null)
-    } catch {
-      return []
-    }
+    const sessionPath = this._getSessionPath(projectId)
+    return getLastJsonLines<HistoryEntry>(sessionPath, limit)
   }
 }

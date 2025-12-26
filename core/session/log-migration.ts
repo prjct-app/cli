@@ -4,11 +4,11 @@
  */
 
 import path from 'path'
-import pathManager from '../path-manager'
-import * as dateHelper from '../../utils/date-helper'
-import * as jsonlHelper from '../../utils/jsonl-helper'
-import * as fileHelper from '../../utils/file-helper'
-import type { SessionEntry, MigrationResult, SessionMetadata } from './types'
+import pathManager from '../infrastructure/path-manager'
+import * as dateHelper from '../utils/date-helper'
+import * as jsonlHelper from '../utils/jsonl-helper'
+import * as fileHelper from '../utils/file-helper'
+import type { SessionEntry, MigrationResult, SessionMetadata } from './log-types'
 
 /**
  * Migrate legacy JSONL file

@@ -13,6 +13,7 @@ import fs from 'fs/promises'
 import path from 'path'
 import os from 'os'
 import { eventBus, type SyncEvent } from '../events'
+import { getTimestamp } from '../utils/date-helper'
 import pathManager from '../infrastructure/path-manager'
 
 interface CacheEntry<T> {
@@ -179,7 +180,7 @@ export abstract class StorageManager<T> {
       type: eventType,
       path: [this.filename.replace('.json', '')],
       data: eventData,
-      timestamp: new Date().toISOString(),
+      timestamp: getTimestamp(),
       projectId
     }
 

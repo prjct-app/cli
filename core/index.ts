@@ -4,8 +4,8 @@
  * This file is required by bin/prjct after setup verification
  */
 
-import { PrjctCommands } from './commands'
-import registry from './command-registry'
+import { PrjctCommands } from './commands/index'
+import registry from './command-registry/index'
 import out from './utils/output'
 
 interface Command {

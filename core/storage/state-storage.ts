@@ -7,6 +7,8 @@
 
 import { StorageManager } from './storage-manager'
 import { generateUUID } from '../schemas'
+import { md } from '../utils/markdown-builder'
+import { getTimestamp } from '../utils/date-helper'
 import type { StateJson, CurrentTask, PreviousTask } from '../schemas/state'
 
 class StateStorage extends StorageManager<StateJson> {
@@ -35,40 +37,30 @@ class StateStorage extends StorageManager<StateJson> {
   }
 
   protected toMarkdown(data: StateJson): string {
-    const lines = ['# NOW', '']
-
-    // Show current task if exists
-    if (data.currentTask) {
-      const task = data.currentTask
-      lines.push(`**${task.description}**`)
-      lines.push('')
-      lines.push(`Started: ${task.startedAt}`)
-      lines.push(`Session: ${task.sessionId}`)
-      if (task.featureId) {
-        lines.push(`Feature: ${task.featureId}`)
-      }
-    } else {
-      lines.push('*No active task. Use /p:work to start.*')
-    }
-
-    // Show paused task section if exists
-    if (data.previousTask) {
-      lines.push('')
-      lines.push('---')
-      lines.push('')
-      lines.push('## Paused')
-      lines.push('')
-      lines.push(`**${data.previousTask.description}**`)
-      lines.push(`Paused: ${data.previousTask.pausedAt}`)
-      if (data.previousTask.pauseReason) {
-        lines.push(`Reason: ${data.previousTask.pauseReason}`)
-      }
-      lines.push('')
-      lines.push('*Use /p:resume to continue*')
-    }
-
-    lines.push('')
-    return lines.join('\n')
+    return md()
+      .h1('NOW')
+      .when(!!data.currentTask, (m) => {
+        const task = data.currentTask!
+        m.bold(task.description)
+          .blank()
+          .raw(`Started: ${task.startedAt}`)
+          .raw(`Session: ${task.sessionId}`)
+          .maybe(task.featureId, (m, id) => m.raw(`Feature: ${id}`))
+      })
+      .when(!data.currentTask, (m) => {
+        m.italic('No active task. Use /p:work to start.')
+      })
+      .maybe(data.previousTask, (m, prev) => {
+        m.hr()
+          .h2('Paused')
+          .bold(prev.description)
+          .raw(`Paused: ${prev.pausedAt}`)
+          .maybe(prev.pauseReason, (m, reason) => m.raw(`Reason: ${reason}`))
+          .blank()
+          .italic('Use /p:resume to continue')
+      })
+      .blank()
+      .build()
   }
 
   // =========== Domain Methods ===========
@@ -90,13 +82,13 @@ class StateStorage extends StorageManager<StateJson> {
   ): Promise<CurrentTask> {
     const currentTask: CurrentTask = {
       ...task,
-      startedAt: new Date().toISOString()
+      startedAt: getTimestamp()
     }
 
     await this.update(projectId, (state) => ({
       ...state,
       currentTask,
-      lastUpdated: new Date().toISOString()
+      lastUpdated: getTimestamp()
     }))
 
     // Publish incremental event
@@ -124,7 +116,7 @@ class StateStorage extends StorageManager<StateJson> {
     await this.update(projectId, () => ({
       currentTask: null,
       previousTask: null,
-      lastUpdated: new Date().toISOString()
+      lastUpdated: getTimestamp()
     }))
 
     // Publish incremental event
@@ -132,7 +124,7 @@ class StateStorage extends StorageManager<StateJson> {
       taskId: completedTask.id,
       description: completedTask.description,
       startedAt: completedTask.startedAt,
-      completedAt: new Date().toISOString()
+      completedAt: getTimestamp()
     })
 
     return completedTask
@@ -153,14 +145,14 @@ class StateStorage extends StorageManager<StateJson> {
       description: state.currentTask.description,
       status: 'paused',
       startedAt: state.currentTask.startedAt,
-      pausedAt: new Date().toISOString(),
+      pausedAt: getTimestamp(),
       pauseReason: reason
     }
 
     await this.update(projectId, () => ({
       currentTask: null,
       previousTask,
-      lastUpdated: new Date().toISOString()
+      lastUpdated: getTimestamp()
     }))
 
     // Publish incremental event
@@ -187,14 +179,14 @@ class StateStorage extends StorageManager<StateJson> {
     const currentTask: CurrentTask = {
       id: state.previousTask.id,
       description: state.previousTask.description,
-      startedAt: new Date().toISOString(),
+      startedAt: getTimestamp(),
       sessionId: generateUUID()
     }
 
     await this.update(projectId, () => ({
       currentTask,
       previousTask: null,
-      lastUpdated: new Date().toISOString()
+      lastUpdated: getTimestamp()
     }))
 
     // Publish incremental event
@@ -214,7 +206,7 @@ class StateStorage extends StorageManager<StateJson> {
     await this.update(projectId, () => ({
       currentTask: null,
       previousTask: null,
-      lastUpdated: new Date().toISOString()
+      lastUpdated: getTimestamp()
     }))
   }
 

@@ -2,6 +2,7 @@ import fs from 'fs/promises'
 import fsSync from 'fs'
 import readline from 'readline'
 import path from 'path'
+import { isNotFoundError } from '../types/fs'
 
 /**
  * JSONL Helper - Centralized JSONL parsing and writing
@@ -16,10 +17,6 @@ import path from 'path'
  * {"ts":"2025-10-04T14:30:00Z","type":"feature_add","name":"auth"}
  * {"ts":"2025-10-04T15:00:00Z","type":"task_start","task":"JWT"}
  */
-
-interface NodeError extends Error {
-  code?: string
-}
 
 interface FileSizeWarning {
   sizeMB: number
@@ -60,7 +57,7 @@ export async function readJsonLines<T = Record<string, unknown>>(filePath: strin
     const content = await fs.readFile(filePath, 'utf-8')
     return parseJsonLines<T>(content)
   } catch (error) {
-    if ((error as NodeError).code === 'ENOENT') {
+    if (isNotFoundError(error)) {
       return [] // File doesn't exist, return empty array
     }
     throw error
@@ -113,7 +110,7 @@ export async function countJsonLines(filePath: string): Promise<number> {
     const lines = content.split('\n').filter((line) => line.trim())
     return lines.length
   } catch (error) {
-    if ((error as NodeError).code === 'ENOENT') {
+    if (isNotFoundError(error)) {
       return 0
     }
     throw error
@@ -200,7 +197,7 @@ export async function readJsonLinesStreaming<T = Record<string, unknown>>(
 
     return lines
   } catch (error) {
-    if ((error as NodeError).code === 'ENOENT') {
+    if (isNotFoundError(error)) {
       return []
     }
     throw error
@@ -215,7 +212,7 @@ export async function getFileSizeMB(filePath: string): Promise<number> {
     const stats = await fs.stat(filePath)
     return stats.size / (1024 * 1024)
   } catch (error) {
-    if ((error as NodeError).code === 'ENOENT') {
+    if (isNotFoundError(error)) {
       return 0
     }
     throw error

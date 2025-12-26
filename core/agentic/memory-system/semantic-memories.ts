@@ -3,16 +3,28 @@
  * P3.3: Tagged, searchable, CRUD memory operations.
  */
 
-import fs from 'fs/promises'
-import path from 'path'
-import pathManager from '../../infrastructure/path-manager'
+import { CachedStore } from './base-store'
 import { generateUUID } from '../../schemas'
+import { getTimestamp } from '../../utils/date-helper'
 import type { Memory, MemoryContext, MemoryDatabase, MemoryTag } from './types'
 import { MEMORY_TAGS } from './types'
 
-export class SemanticMemories {
-  private _memories: MemoryDatabase | null = null
-  private _memoriesLoaded: boolean = false
+export class SemanticMemories extends CachedStore<MemoryDatabase> {
+  protected getFilename(): string {
+    return 'memories.json'
+  }
+
+  protected getDefault(): MemoryDatabase {
+    return {
+      version: 1,
+      memories: [],
+      index: this._createEmptyIndex(),
+    }
+  }
+
+  protected afterLoad(db: MemoryDatabase): void {
+    this._normalizeIndex(db)
+  }
 
   private _createEmptyIndex(): Record<string, string[]> {
     const tags = Object.values(MEMORY_TAGS)
@@ -34,39 +46,13 @@ export class SemanticMemories {
     return tags.filter((t): t is MemoryTag => allowed.has(t as MemoryTag))
   }
 
-  private _getMemoriesPath(projectId: string): string {
-    return path.join(pathManager.getGlobalProjectPath(projectId), 'memory', 'memories.json')
-  }
-
+  // Convenience alias for backward compatibility
   async loadMemories(projectId: string): Promise<MemoryDatabase> {
-    if (this._memoriesLoaded && this._memories) {
-      return this._memories
-    }
-
-    try {
-      const memoriesPath = this._getMemoriesPath(projectId)
-      const content = await fs.readFile(memoriesPath, 'utf-8')
-      this._memories = JSON.parse(content)
-      this._normalizeIndex(this._memories as MemoryDatabase)
-      this._memoriesLoaded = true
-      return this._memories!
-    } catch {
-      this._memories = {
-        version: 1,
-        memories: [],
-        index: this._createEmptyIndex(),
-      }
-      this._memoriesLoaded = true
-      return this._memories
-    }
+    return this.load(projectId)
   }
 
   async saveMemories(projectId: string): Promise<void> {
-    if (!this._memories) return
-
-    const memoriesPath = this._getMemoriesPath(projectId)
-    await fs.mkdir(path.dirname(memoriesPath), { recursive: true })
-    await fs.writeFile(memoriesPath, JSON.stringify(this._memories, null, 2), 'utf-8')
+    return this.save(projectId)
   }
 
   async createMemory(
@@ -78,8 +64,9 @@ export class SemanticMemories {
       userTriggered = false,
     }: { title: string; content: string; tags?: string[]; userTriggered?: boolean }
   ): Promise<string> {
-    const db = await this.loadMemories(projectId)
+    const db = await this.load(projectId)
     const parsedTags = this._coerceTags(tags)
+    const now = getTimestamp()
 
     const memory: Memory = {
       id: generateUUID(),
@@ -87,8 +74,8 @@ export class SemanticMemories {
       content,
       tags: parsedTags,
       userTriggered,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
     }
 
     db.memories.push(memory)
@@ -97,7 +84,7 @@ export class SemanticMemories {
       db.index[tag].push(memory.id)
     }
 
-    await this.saveMemories(projectId)
+    await this.save(projectId)
     return memory.id
   }
 
@@ -106,7 +93,7 @@ export class SemanticMemories {
     memoryId: string,
     updates: { title?: string; content?: string; tags?: string[] }
   ): Promise<boolean> {
-    const db = await this.loadMemories(projectId)
+    const db = await this.load(projectId)
 
     const index = db.memories.findIndex((m) => m.id === memoryId)
     if (index === -1) return false
@@ -127,13 +114,13 @@ export class SemanticMemories {
       memory.tags = newTags
     }
 
-    memory.updatedAt = new Date().toISOString()
-    await this.saveMemories(projectId)
+    memory.updatedAt = getTimestamp()
+    await this.save(projectId)
     return true
   }
 
   async deleteMemory(projectId: string, memoryId: string): Promise<boolean> {
-    const db = await this.loadMemories(projectId)
+    const db = await this.load(projectId)
 
     const index = db.memories.findIndex((m) => m.id === memoryId)
     if (index === -1) return false
@@ -147,12 +134,12 @@ export class SemanticMemories {
     }
 
     db.memories.splice(index, 1)
-    await this.saveMemories(projectId)
+    await this.save(projectId)
     return true
   }
 
   async findByTags(projectId: string, tags: string[], matchAll: boolean = false): Promise<Memory[]> {
-    const db = await this.loadMemories(projectId)
+    const db = await this.load(projectId)
     const parsedTags = this._coerceTags(tags)
 
     if (matchAll) {
@@ -168,7 +155,7 @@ export class SemanticMemories {
   }
 
   async searchMemories(projectId: string, query: string): Promise<Memory[]> {
-    const db = await this.loadMemories(projectId)
+    const db = await this.load(projectId)
     const queryLower = query.toLowerCase()
 
     return db.memories.filter(
@@ -177,7 +164,7 @@ export class SemanticMemories {
   }
 
   async getRelevantMemories(projectId: string, context: MemoryContext, limit: number = 5): Promise<Memory[]> {
-    const db = await this.loadMemories(projectId)
+    const db = await this.load(projectId)
 
     const scored = db.memories.map((memory) => {
       let score = 0
@@ -270,12 +257,12 @@ export class SemanticMemories {
   }
 
   async getAllMemories(projectId: string): Promise<Memory[]> {
-    const db = await this.loadMemories(projectId)
+    const db = await this.load(projectId)
     return db.memories
   }
 
   async getMemoryStats(projectId: string) {
-    const db = await this.loadMemories(projectId)
+    const db = await this.load(projectId)
 
     const tagCounts: Record<string, number> = {}
     for (const [tag, ids] of Object.entries(db.index)) {
@@ -289,10 +276,5 @@ export class SemanticMemories {
       oldestMemory: db.memories[0]?.createdAt,
       newestMemory: db.memories[db.memories.length - 1]?.createdAt,
     }
-  }
-
-  reset(): void {
-    this._memories = null
-    this._memoriesLoaded = false
   }
 }

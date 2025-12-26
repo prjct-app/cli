@@ -4,6 +4,18 @@
  */
 
 // ============================================
+// File System Types (centralized)
+// ============================================
+export {
+  NodeError,
+  isNotFoundError,
+  isPermissionError,
+  isDirNotEmptyError,
+  isFileExistsError,
+  isNodeError,
+} from './fs'
+
+// ============================================
 // Command System
 // ============================================
 

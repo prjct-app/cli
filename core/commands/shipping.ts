@@ -5,7 +5,7 @@
 
 import path from 'path'
 
-import memorySystem from '../agentic/memory-system'
+import memorySystem from '../agentic/memory-system/index'
 import type { CommandResult } from './types'
 import { detectProjectCommands } from '../utils/project-commands'
 import {

@@ -15,6 +15,7 @@ import path from 'path'
 import pathManager from './path-manager'
 import authorDetector from './author-detector'
 import { VERSION } from '../utils/version'
+import { getTimestamp } from '../utils/date-helper'
 import { ConfigError, getErrorMessage } from '../errors'
 
 interface Author {
@@ -116,7 +117,7 @@ class ConfigManager {
     let globalConfig = await this.readGlobalConfig(projectId)
 
     if (!globalConfig) {
-      const now = new Date().toISOString()
+      const now = getTimestamp()
       globalConfig = {
         projectId,
         authors: [],
@@ -139,7 +140,7 @@ class ConfigManager {
     const projectId = pathManager.generateProjectId(projectPath)
     const globalPath = pathManager.getGlobalProjectPath(projectId)
     const displayPath = pathManager.getDisplayPath(globalPath)
-    const now = new Date().toISOString()
+    const now = getTimestamp()
 
     const localConfig: LocalConfig = {
       projectId,
@@ -176,7 +177,7 @@ class ConfigManager {
     const projectId = await this.getProjectId(projectPath)
     const globalConfig = await this.readGlobalConfig(projectId)
     if (globalConfig) {
-      globalConfig.lastSync = new Date().toISOString()
+      globalConfig.lastSync = getTimestamp()
       await this.writeGlobalConfig(projectId, globalConfig)
     }
   }
@@ -261,7 +262,7 @@ class ConfigManager {
     const exists = globalConfig.authors.some((a) => a.github === author.github)
     if (exists) return
 
-    const now = new Date().toISOString()
+    const now = getTimestamp()
     globalConfig.authors.push({
       name: author.name || 'Unknown',
       email: author.email || '',
@@ -284,7 +285,7 @@ class ConfigManager {
 
     const author = globalConfig.authors.find((a) => a.github === githubUsername)
     if (author) {
-      author.lastActivity = new Date().toISOString()
+      author.lastActivity = getTimestamp()
       globalConfig.lastSync = author.lastActivity
       await this.writeGlobalConfig(projectId, globalConfig)
     }

@@ -1,18 +1,19 @@
 /**
- * SessionManager Class
+ * SessionLogManager Class
  * Manages temporal fragmentation of logs and progress data.
+ * Writes to sessions/YYYY-MM/DD/ structure with auto-rotation.
  */
 
 import path from 'path'
-import pathManager from '../path-manager'
-import { VERSION } from '../../utils/version'
-import * as dateHelper from '../../utils/date-helper'
-import * as jsonlHelper from '../../utils/jsonl-helper'
-import * as fileHelper from '../../utils/file-helper'
-import { migrateLegacyJsonl, migrateLegacyMarkdown } from './migration'
-import type { SessionEntry, SessionMetadata, SessionStats, MigrationResult } from './types'
+import pathManager from '../infrastructure/path-manager'
+import { VERSION } from '../utils/version'
+import * as dateHelper from '../utils/date-helper'
+import * as jsonlHelper from '../utils/jsonl-helper'
+import * as fileHelper from '../utils/file-helper'
+import { migrateLegacyJsonl, migrateLegacyMarkdown } from './log-migration'
+import type { SessionEntry, SessionMetadata, SessionStats, MigrationResult } from './log-types'
 
-export class SessionManager {
+export class SessionLogManager {
   private currentSessionCache: Map<string, string>
   private sessionMetadataCache: Map<string, SessionMetadata>
 

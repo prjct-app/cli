@@ -14,8 +14,8 @@ import {
   dateHelper
 } from './base'
 import analyzer from '../domain/analyzer'
-import contextSync from '../context-sync'
-import commandInstaller from '../infrastructure/command-installer'
+import { generateContext } from '../context/generator'
+import commandInstaller from '../infrastructure/command-installer/index'
 
 export class AnalysisCommands extends PrjctCommandsBase {
   /**
@@ -71,7 +71,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
         gitCommits: analysisData.gitStats.totalCommits,
       })
 
-      await contextSync.generateLocalContext(projectPath, projectId)
+      await generateContext(projectId!, projectPath)
 
       const globalConfigResult = await commandInstaller.installGlobalConfig()
       if (globalConfigResult.success) {
@@ -217,7 +217,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
 
       // 2. Generate CLAUDE.md with RAW DATA (no processing)
       // Claude will read this and decide what to do
-      await contextSync.generateLocalContext(projectPath, projectId)
+      await generateContext(projectId!, projectPath)
 
       // 3. Update global config
       const globalConfigResult = await commandInstaller.installGlobalConfig()

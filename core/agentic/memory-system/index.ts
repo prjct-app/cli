@@ -11,6 +11,9 @@ import { PatternStore } from './patterns'
 import { HistoryStore } from './history'
 import { SessionStore } from './session'
 import type { Memory, MemoryContext, Preference, Workflow, HistoryEventType } from './types'
+
+// Export base class for extension
+export { CachedStore } from './base-store'
 export { MEMORY_TAGS } from './types'
 
 /**

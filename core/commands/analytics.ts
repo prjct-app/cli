@@ -4,7 +4,7 @@
  */
 
 import path from 'path'
-import registry from '../command-registry'
+import registry from '../command-registry/index'
 
 import type { CommandResult, Context } from './types'
 import {

@@ -11,7 +11,7 @@
 
 import fs from 'fs'
 import path from 'path'
-import { mdStateManager, mdQueueManager } from '../data'
+import { stateStorage, queueStorage } from '../storage'
 import { outcomeAnalyzer } from '../outcomes'
 import type { StateJson, QueueJson } from '../schemas/state'
 import type { DetectedPattern } from '../outcomes/analyzer'
@@ -141,8 +141,8 @@ class PromptBuilder {
 
     try {
       const [stateData, queueData] = await Promise.all([
-        mdStateManager.read(projectId),
-        mdQueueManager.read(projectId)
+        stateStorage.read(projectId),
+        queueStorage.read(projectId)
       ])
 
       const state: ProjectState = {
