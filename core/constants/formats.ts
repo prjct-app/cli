@@ -99,26 +99,33 @@ export const IDEAS = {
 } as const
 
 /**
+ * Roadmap status markers.
+ */
+export const ROADMAP_STATUS = {
+  PLANNED: '📋 Planned',
+  IN_PROGRESS: '🚧 In Progress',
+  COMPLETED: '✅ Completed',
+  BLOCKED: '🚫 Blocked',
+} as const
+
+export type RoadmapStatusKey = keyof typeof ROADMAP_STATUS
+
+/**
  * ROADMAP file format patterns.
  */
 export const ROADMAP = {
   /** Header marker for ROADMAP file */
   HEADER: '# ROADMAP 🗺️',
 
-  /** Status markers */
-  STATUS: {
-    PLANNED: '📋 Planned',
-    IN_PROGRESS: '🚧 In Progress',
-    COMPLETED: '✅ Completed',
-    BLOCKED: '🚫 Blocked',
-  },
+  /** Status markers (re-exported for convenience) */
+  STATUS: ROADMAP_STATUS,
 
   /** Generate feature entry */
-  entry: (feature: string, status: keyof typeof ROADMAP.STATUS, tasks?: string[]): string => {
+  entry: (feature: string, status: RoadmapStatusKey, tasks?: string[]): string => {
     const lines = [
       `## ${feature}`,
       '',
-      `Status: ${ROADMAP.STATUS[status]}`,
+      `Status: ${ROADMAP_STATUS[status]}`,
     ]
     if (tasks && tasks.length > 0) {
       lines.push('', '### Tasks', '')

@@ -108,6 +108,8 @@ export type PlanStatus =
   | 'analyzing'
   | 'proposing'
   | 'awaiting_approval'
+  | 'approved'
+  | 'rejected'
   | 'executing'
   | 'completed'
   | 'aborted'
@@ -154,7 +156,7 @@ export interface ApprovalPrompt {
 export interface ApprovalOption {
   key: string
   label: string
-  action: 'approve' | 'reject' | 'modify' | 'abort'
+  action: 'approve' | 'reject' | 'modify' | 'abort' | 'edit' | 'list'
 }
 
 /**

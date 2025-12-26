@@ -30,7 +30,21 @@ class PathManager {
   globalConfigDir: string
 
   constructor() {
-    this.globalBaseDir = path.join(os.homedir(), '.prjct-cli')
+    const envOverride = process.env.PRJCT_CLI_HOME?.trim()
+    this.globalBaseDir = envOverride ? path.resolve(envOverride) : path.join(os.homedir(), '.prjct-cli')
+    this.globalProjectsDir = path.join(this.globalBaseDir, 'projects')
+    this.globalConfigDir = path.join(this.globalBaseDir, 'config')
+  }
+
+  /**
+   * Override global storage location (primarily for tests and sandboxed environments).
+   *
+   * When unset, global storage defaults to `~/.prjct-cli/`.
+   *
+   * @param {string} globalBaseDir - Base directory that will contain `projects/` and `config/`.
+   */
+  setGlobalBaseDir(globalBaseDir: string): void {
+    this.globalBaseDir = path.resolve(globalBaseDir)
     this.globalProjectsDir = path.join(this.globalBaseDir, 'projects')
     this.globalConfigDir = path.join(this.globalBaseDir, 'config')
   }

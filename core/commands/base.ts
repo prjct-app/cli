@@ -112,11 +112,11 @@ export class PrjctCommandsBase {
     // detectAuthorForLogs returns a string (username), detect() returns full Author
     const authorObj = await authorDetector.detect()
     this.currentAuthor = {
-      name: authorObj.name,
-      email: authorObj.email,
-      github: authorObj.github
+      name: authorObj.name ?? undefined,
+      email: authorObj.email ?? undefined,
+      github: authorObj.github ?? undefined
     }
-    return this.currentAuthor
+    return this.currentAuthor!
   }
 
   /**

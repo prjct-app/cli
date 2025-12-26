@@ -7,12 +7,32 @@ import fs from 'fs/promises'
 import path from 'path'
 import pathManager from '../../infrastructure/path-manager'
 import { generateUUID } from '../../schemas'
-import type { Memory, MemoryDatabase, Context } from './types'
+import type { Memory, MemoryContext, MemoryDatabase, MemoryTag } from './types'
 import { MEMORY_TAGS } from './types'
 
 export class SemanticMemories {
   private _memories: MemoryDatabase | null = null
   private _memoriesLoaded: boolean = false
+
+  private _createEmptyIndex(): Record<string, string[]> {
+    const tags = Object.values(MEMORY_TAGS)
+    const index: Record<string, string[]> = {}
+    for (const tag of tags) index[tag] = []
+    return index
+  }
+
+  private _normalizeIndex(db: MemoryDatabase): void {
+    // Reason: older persisted files may not include newer tags; ensure all tags are present.
+    const tags = Object.values(MEMORY_TAGS)
+    for (const tag of tags) {
+      if (!db.index[tag]) db.index[tag] = []
+    }
+  }
+
+  private _coerceTags(tags: string[]): MemoryTag[] {
+    const allowed = new Set<MemoryTag>(Object.values(MEMORY_TAGS) as MemoryTag[])
+    return tags.filter((t): t is MemoryTag => allowed.has(t as MemoryTag))
+  }
 
   private _getMemoriesPath(projectId: string): string {
     return path.join(pathManager.getGlobalProjectPath(projectId), 'memory', 'memories.json')
@@ -27,13 +47,14 @@ export class SemanticMemories {
       const memoriesPath = this._getMemoriesPath(projectId)
       const content = await fs.readFile(memoriesPath, 'utf-8')
       this._memories = JSON.parse(content)
+      this._normalizeIndex(this._memories as MemoryDatabase)
       this._memoriesLoaded = true
       return this._memories!
     } catch {
       this._memories = {
         version: 1,
         memories: [],
-        index: {},
+        index: this._createEmptyIndex(),
       }
       this._memoriesLoaded = true
       return this._memories
@@ -58,12 +79,13 @@ export class SemanticMemories {
     }: { title: string; content: string; tags?: string[]; userTriggered?: boolean }
   ): Promise<string> {
     const db = await this.loadMemories(projectId)
+    const parsedTags = this._coerceTags(tags)
 
     const memory: Memory = {
       id: generateUUID(),
       title,
       content,
-      tags,
+      tags: parsedTags,
       userTriggered,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -71,8 +93,7 @@ export class SemanticMemories {
 
     db.memories.push(memory)
 
-    for (const tag of tags) {
-      if (!db.index[tag]) db.index[tag] = []
+    for (const tag of parsedTags) {
       db.index[tag].push(memory.id)
     }
 
@@ -96,16 +117,14 @@ export class SemanticMemories {
     if (updates.title) memory.title = updates.title
     if (updates.content) memory.content = updates.content
     if (updates.tags) {
+      const newTags = this._coerceTags(updates.tags)
       for (const tag of oldTags) {
-        if (db.index[tag]) {
-          db.index[tag] = db.index[tag].filter((id) => id !== memoryId)
-        }
+        db.index[tag] = db.index[tag].filter((id: string) => id !== memoryId)
       }
-      for (const tag of updates.tags) {
-        if (!db.index[tag]) db.index[tag] = []
+      for (const tag of newTags) {
         db.index[tag].push(memoryId)
       }
-      memory.tags = updates.tags
+      memory.tags = newTags
     }
 
     memory.updatedAt = new Date().toISOString()
@@ -134,14 +153,15 @@ export class SemanticMemories {
 
   async findByTags(projectId: string, tags: string[], matchAll: boolean = false): Promise<Memory[]> {
     const db = await this.loadMemories(projectId)
+    const parsedTags = this._coerceTags(tags)
 
     if (matchAll) {
-      return db.memories.filter((m) => tags.every((tag) => (m.tags || []).includes(tag)))
+      return db.memories.filter((m) => parsedTags.every((tag) => (m.tags || []).includes(tag)))
     } else {
       const matchingIds = new Set<string>()
-      for (const tag of tags) {
-        const ids = db.index[tag] || []
-        ids.forEach((id) => matchingIds.add(id))
+      for (const tag of parsedTags) {
+        const ids = db.index[tag]
+        ids.forEach((id: string) => matchingIds.add(id))
       }
       return db.memories.filter((m) => matchingIds.has(m.id))
     }
@@ -156,7 +176,7 @@ export class SemanticMemories {
     )
   }
 
-  async getRelevantMemories(projectId: string, context: Context, limit: number = 5): Promise<Memory[]> {
+  async getRelevantMemories(projectId: string, context: MemoryContext, limit: number = 5): Promise<Memory[]> {
     const db = await this.loadMemories(projectId)
 
     const scored = db.memories.map((memory) => {
@@ -189,7 +209,7 @@ export class SemanticMemories {
       .map(({ _score, ...memory }) => memory as Memory)
   }
 
-  private _extractContextTags(context: Context): string[] {
+  private _extractContextTags(context: MemoryContext): string[] {
     const tags: string[] = []
 
     const commandTags: Record<string, string[]> = {
@@ -207,7 +227,7 @@ export class SemanticMemories {
     return tags
   }
 
-  private _extractKeywords(context: Context): string[] {
+  private _extractKeywords(context: MemoryContext): string[] {
     const keywords: string[] = []
 
     if (context.params?.description) {

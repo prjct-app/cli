@@ -6,7 +6,7 @@
 import fs from 'fs/promises'
 import path from 'path'
 import pathManager from '../../infrastructure/path-manager'
-import type { HistoryEntry } from './types'
+import type { HistoryEntry, HistoryEventType } from './types'
 
 export class HistoryStore {
   private _getSessionPath(projectId: string): string {
@@ -17,14 +17,15 @@ export class HistoryStore {
     return path.join(pathManager.getGlobalProjectPath(projectId), 'memory', 'sessions', yearMonth, `${day}.jsonl`)
   }
 
-  async appendHistory(projectId: string, entry: Record<string, unknown>): Promise<void> {
+  async appendHistory(projectId: string, entry: Record<string, unknown> & { type: HistoryEventType }): Promise<void> {
     const sessionPath = this._getSessionPath(projectId)
     await fs.mkdir(path.dirname(sessionPath), { recursive: true })
 
     const logEntry: HistoryEntry = {
       ts: new Date().toISOString(),
-      type: entry.type as string,
       ...entry,
+      // Reason: `HistoryEntry` allows extra fields; ensure `type` remains strongly typed (not widened to unknown).
+      type: entry.type,
     }
 
     await fs.appendFile(sessionPath, JSON.stringify(logEntry) + '\n', 'utf-8')

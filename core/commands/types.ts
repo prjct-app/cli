@@ -39,9 +39,9 @@ export interface AgentInfo {
 }
 
 export interface Author {
-  name: string | null
-  email: string | null
-  github?: string | null
+  name?: string
+  email?: string
+  github?: string
 }
 
 export interface AgentAssignmentResult {
@@ -118,6 +118,8 @@ export interface AnalyzeOptions {
   force?: boolean
   /** Analysis depth */
   depth?: 'quick' | 'normal' | 'deep'
+  /** Allow additional options */
+  [key: string]: unknown
 }
 
 /**

@@ -98,7 +98,7 @@ export class AgentPerformanceTracker {
       perfPath,
       { agents: [] }
     )
-    return data.agents
+    return data?.agents ?? []
   }
 
   /**
@@ -126,6 +126,8 @@ export class AgentPerformanceTracker {
       perfPath,
       { agents: [] }
     )
+
+    if (!data) return
 
     // Find or create agent performance
     let agentPerf = data.agents.find((a) => a.agentName === record.agentName)

@@ -171,7 +171,19 @@ class SmartContext {
 
     // Testing indicators
     const testingKeywords = [
-      'test', 'spec', 'jest', 'vitest', 'mocha', 'cypress', 'playwright',
+      'test', 'spec',
+      // JS/TS
+      'bun', 'bun test', 'jest', 'mocha', 'cypress', 'playwright',
+      // Python
+      'pytest', 'unittest',
+      // Go
+      'go test',
+      // Rust
+      'cargo test',
+      // .NET
+      'dotnet test',
+      // Java
+      'mvn test', 'gradle test', 'gradlew test',
       'e2e', 'unit', 'integration', 'coverage', 'mock', 'fixture'
     ]
 

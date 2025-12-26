@@ -57,7 +57,7 @@ Analyze `{analysis}` and create ONLY relevant domain agents:
 | Node.js, Express, Go, Python API, REST, GraphQL | `backend.md` | Read, Write, Bash, Glob, Grep |
 | PostgreSQL, MySQL, MongoDB, Redis, Prisma | `database.md` | Read, Write, Bash |
 | Docker, Kubernetes, CI/CD, GitHub Actions | `devops.md` | Read, Bash, Glob |
-| Jest, Pytest, Vitest, Testing Library | `testing.md` | Read, Write, Bash |
+| Bun test, Jest, Pytest, Testing Library | `testing.md` | Read, Write, Bash |
 
 ### 3. Adapt to Project Context
 

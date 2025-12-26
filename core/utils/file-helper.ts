@@ -85,6 +85,15 @@ export async function appendToFile(filePath: string, content: string): Promise<v
 }
 
 /**
+ * Append a single line to file (with newline and directory creation)
+ */
+export async function appendLine(filePath: string, line: string): Promise<void> {
+  const dir = path.dirname(filePath)
+  await fs.mkdir(dir, { recursive: true })
+  await fs.appendFile(filePath, line + '\n', 'utf-8')
+}
+
+/**
  * Prepend to text file (adds content at beginning)
  */
 export async function prependToFile(filePath: string, content: string): Promise<void> {
@@ -257,7 +266,11 @@ export default {
   readFile,
   writeFile,
   atomicWrite,
+  appendToFile,
+  appendLine,
+  prependToFile,
   fileExists,
+  dirExists,
   ensureDir,
   deleteFile,
   deleteDir,

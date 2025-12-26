@@ -10,7 +10,7 @@ import { SemanticMemories } from './semantic-memories'
 import { PatternStore } from './patterns'
 import { HistoryStore } from './history'
 import { SessionStore } from './session'
-import type { Memory, Context, Workflow } from './types'
+import type { Memory, MemoryContext, Preference, Workflow, HistoryEventType } from './types'
 export { MEMORY_TAGS } from './types'
 
 /**
@@ -69,7 +69,7 @@ class MemorySystem {
     return this._semanticMemories.searchMemories(projectId, query)
   }
 
-  getRelevantMemories(projectId: string, context: Context, limit?: number): Promise<Memory[]> {
+  getRelevantMemories(projectId: string, context: MemoryContext, limit?: number): Promise<Memory[]> {
     return this._semanticMemories.getRelevantMemories(projectId, context, limit)
   }
 
@@ -133,7 +133,7 @@ class MemorySystem {
     return this._patternStore.getWorkflow(projectId, workflowName)
   }
 
-  setPreference(projectId: string, key: string, value: unknown): Promise<void> {
+  setPreference(projectId: string, key: string, value: Preference['value']): Promise<void> {
     return this._patternStore.setPreference(projectId, key, value)
   }
 
@@ -149,7 +149,7 @@ class MemorySystem {
   // TIER 3: History
   // ═══════════════════════════════════════════════════════════
 
-  appendHistory(projectId: string, entry: Record<string, unknown>): Promise<void> {
+  appendHistory(projectId: string, entry: Record<string, unknown> & { type: HistoryEventType }): Promise<void> {
     return this._historyStore.appendHistory(projectId, entry)
   }
 

@@ -59,7 +59,7 @@ jobs:
         with:
           node-version: '20'
       - run: npm ci
-      - run: npm test
+      - run: npm test  # or pnpm test / yarn test / bun test depending on the repo
 ```
 
 ### docker-compose

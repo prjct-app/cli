@@ -14,6 +14,7 @@ import chainOfThought from '../chain-of-thought'
 import memorySystem from '../memory-system'
 import groundTruth from '../ground-truth'
 import planMode from '../plan-mode'
+import type { ApprovalContext } from '../plan-mode'
 import { signalStart, signalEnd } from './status-signal'
 import type { ExecutionResult, SimpleExecutionResult, ExecutionToolsFn } from './types'
 
@@ -205,16 +206,27 @@ export class CommandExecutor {
           requiresApproval: isDestructive && !params.approved,
           recordInfo: (info: unknown) =>
             planMode.recordGatheredInfo(metadataContext.projectId!, info as Parameters<typeof planMode.recordGatheredInfo>[1]),
-          setAnalysis: (analysis: unknown) => planMode.setAnalysis(metadataContext.projectId!, analysis),
+          setAnalysis: (analysis: unknown) => planMode.setAnalysis(metadataContext.projectId!, analysis as Parameters<typeof planMode.setAnalysis>[1]),
           propose: (plan: unknown) =>
             planMode.proposePlan(metadataContext.projectId!, plan as Parameters<typeof planMode.proposePlan>[1]),
           approve: (feedback?: string | null) => planMode.approvePlan(metadataContext.projectId!, feedback),
           reject: (reason?: string | null) => planMode.rejectPlan(metadataContext.projectId!, reason),
           getApprovalPrompt: () =>
-            planMode.generateApprovalPrompt(commandName, context as Parameters<typeof planMode.generateApprovalPrompt>[1]),
+            planMode.generateApprovalPrompt(commandName, {
+              // Reason: `context` here is the command execution context, not the plan-mode ApprovalContext.
+              // Provide required fields with safe defaults to avoid unsafe casting.
+              changedFiles: [],
+              filesToDelete: [],
+              operation: ((): ApprovalContext['operation'] => {
+                if (commandName === 'ship') return 'git_push'
+                if (commandName === 'cleanup') return 'delete_files'
+                return 'run_command'
+              })(),
+              warnings: [],
+            } satisfies ApprovalContext),
           startExecution: () => planMode.startExecution(metadataContext.projectId!),
           getNextStep: () => planMode.getNextStep(metadataContext.projectId!),
-          completeStep: (result?: unknown) => planMode.completeStep(metadataContext.projectId!, result),
+          completeStep: (result?: unknown) => planMode.completeStep(metadataContext.projectId!, result as Parameters<typeof planMode.completeStep>[1]),
           failStep: (error: string) => planMode.failStep(metadataContext.projectId!, error),
           abort: (reason?: string) => planMode.abortPlan(metadataContext.projectId!, reason),
           getStatus: () => planMode.formatStatus(metadataContext.projectId!),

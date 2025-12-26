@@ -1379,7 +1379,7 @@ The 3-tier help system solves the core user frustration: **users know WHAT they 
 - **Comprehensive Testing Documentation** - Complete testing guide and setup documentation
   - **TESTING.md** - Full testing guide with:
     - Quick start commands for running tests
-    - Vitest workspace architecture (core + website)
+    - Bun-based testing setup (core)
     - Detailed configuration for both Node.js and React environments
     - Testing best practices and examples
     - CI/CD integration documentation
@@ -1402,7 +1402,7 @@ The 3-tier help system solves the core user frustration: **users know WHAT they 
 
 ### Technical Details
 
-- **Testing Stack**: Vitest with workspace configuration for dual environments
+- **Testing Stack**: Bun test for unit tests
 - **Core Tests** (Node.js): 179 tests for agentic system, commands, and utilities
 - **Website Tests** (React): 104 tests with Testing Library for components
 - **CI/CD**: GitHub Actions workflow with parallel test execution
@@ -2307,7 +2307,7 @@ The 3-tier help system solves the core user frustration: **users know WHAT they 
 
 - **Interactive Workflow System** - Intelligent agent workflows with user-guided capability installation
   - **Adaptive Workflows**: Workflows detect missing capabilities and prompt user for decisions
-  - **Smart Recommendations**: Stack-aware tool suggestions (React → Vitest, Vue → Vitest, Angular → Jest)
+  - **Smart Recommendations**: Stack-aware tool suggestions (React → Bun test, Vue → Bun test, Angular → Jest)
   - **Installation Tracking**: Every tool installation becomes a visible, tracked workflow task
   - **Interactive Prompts**: Never auto-skips steps - always asks user (install/skip/continue/pause)
   - **Capability Detection**: Automatically detects design systems, test frameworks, and documentation tools
@@ -2338,11 +2338,11 @@ The 3-tier help system solves the core user frustration: **users know WHAT they 
 
 - **Stack Detection**: Identifies React/Vue/Angular, TypeScript, bundler (Vite/Webpack/esbuild)
 - **Tool Recommendations**:
-  - React + TS → Vitest + Testing Library
-  - Vue → Vitest + @vue/test-utils
+  - React + TS → Bun test + Testing Library
+  - Vue → Bun test + @vue/test-utils
   - Angular → Jest + @types/jest
 - **Auto-Configuration**:
-  - Creates config files (vitest.config.js, jest.config.js, jsdoc.json)
+  - Creates config files for the selected tooling (e.g., jest.config.js, jsdoc.json)
   - Updates package.json scripts
   - Verifies installation success
 - **Duration Tracking**: Installation tasks show completion time (e.g., "1.2 min")

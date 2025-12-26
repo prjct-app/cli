@@ -3,17 +3,24 @@
  * P3.3: Semantic Memory Database
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test'
+import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll } from 'bun:test'
 import memorySystem from '../../agentic/memory-system'
+import pathManager from '../../infrastructure/path-manager'
 import fs from 'fs/promises'
 import path from 'path'
-import os from 'os'
 
 let testCounter = 0
 const getTestProjectId = () => `test-memory-${Date.now()}-${++testCounter}`
 
 describe('MemorySystem P3.3', () => {
   let TEST_PROJECT_ID: string
+  const TEST_GLOBAL_BASE_DIR = path.join(process.cwd(), '.tmp', 'prjct-cli-tests')
+
+  beforeAll(async () => {
+    // Reason: In sandboxed test environments we can't write to "~/.prjct-cli".
+    pathManager.setGlobalBaseDir(TEST_GLOBAL_BASE_DIR)
+    await fs.mkdir(TEST_GLOBAL_BASE_DIR, { recursive: true })
+  })
 
   beforeEach(() => {
     TEST_PROJECT_ID = getTestProjectId()
@@ -244,8 +251,16 @@ describe('MemorySystem P3.3', () => {
 
   afterEach(async () => {
     try {
-      const testPath = path.join(os.homedir(), '.prjct-cli', 'projects', TEST_PROJECT_ID)
+      const testPath = pathManager.getGlobalProjectPath(TEST_PROJECT_ID)
       await fs.rm(testPath, { recursive: true, force: true })
+    } catch {
+      // Ignore cleanup errors
+    }
+  })
+
+  afterAll(async () => {
+    try {
+      await fs.rm(TEST_GLOBAL_BASE_DIR, { recursive: true, force: true })
     } catch {
       // Ignore cleanup errors
     }
