@@ -15,10 +15,10 @@ import fs from 'fs/promises'
 import path from 'path'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
-import type { Agent, AssignmentContext } from './agentic.types'
+import type { Agent, AssignmentContext } from '../types'
 
 // Re-export types for convenience
-export type { Agent, AssignmentContext } from './agentic.types'
+export type { Agent, AssignmentContext } from '../types'
 
 /**
  * Routes tasks to specialized agents based on Claude's decisions.

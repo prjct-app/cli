@@ -15,10 +15,10 @@ import crypto from 'crypto'
 import os from 'os'
 import * as dateHelper from '../utils/date-helper'
 import * as fileHelper from '../utils/file-helper'
-import type { SessionInfo, LayerType } from './path.types'
+import type { SessionInfo, LayerType } from '../types'
 
 // Re-export types for convenience
-export type { SessionInfo, LayerType } from './path.types'
+export type { SessionInfo, LayerType } from '../types'
 
 class PathManager {
   globalBaseDir: string

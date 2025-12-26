@@ -2,7 +2,7 @@
  * Session Utilities
  */
 
-import type { Session, TimelineEvent } from './types'
+import type { Session, TimelineEvent } from '../types'
 import { generateUUID } from '../schemas'
 
 /**

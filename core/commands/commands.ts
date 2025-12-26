@@ -30,7 +30,7 @@ import type {
   SetupOptions,
   MigrateOptions,
   AnalyzeOptions
-} from './types'
+} from '../types'
 
 /**
  * PrjctCommands - Combined class with all commands

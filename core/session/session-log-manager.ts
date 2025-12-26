@@ -11,11 +11,11 @@ import * as dateHelper from '../utils/date-helper'
 import * as jsonlHelper from '../utils/jsonl-helper'
 import * as fileHelper from '../utils/file-helper'
 import { migrateLegacyJsonl, migrateLegacyMarkdown } from './log-migration'
-import type { SessionEntry, SessionMetadata, SessionStats, MigrationResult } from './log-types'
+import type { SessionEntry, SessionLogMetadata, SessionStats, SessionMigrationResult } from '../types'
 
 export class SessionLogManager {
   private currentSessionCache: Map<string, string>
-  private sessionMetadataCache: Map<string, SessionMetadata>
+  private sessionMetadataCache: Map<string, SessionLogMetadata>
 
   constructor() {
     this.currentSessionCache = new Map()
@@ -35,7 +35,7 @@ export class SessionLogManager {
     const sessionPath = await pathManager.ensureSessionPath(projectId)
     this.currentSessionCache.set(cacheKey, sessionPath)
 
-    await this._ensureSessionMetadata(sessionPath)
+    await this._ensureSessionLogMetadata(sessionPath)
 
     return sessionPath
   }
@@ -54,7 +54,7 @@ export class SessionLogManager {
     // Use automatic rotation to prevent large files (>10MB)
     await jsonlHelper.appendJsonLineWithRotation(filePath, entry, 10)
 
-    await this._updateSessionMetadata(sessionPath, {
+    await this._updateSessionLogMetadata(sessionPath, {
       lastActivity: dateHelper.getTimestamp(),
       entryCount: await jsonlHelper.countJsonLines(filePath),
     })
@@ -74,7 +74,7 @@ export class SessionLogManager {
       await fileHelper.appendToFile(filePath, content)
     }
 
-    await this._updateSessionMetadata(sessionPath, {
+    await this._updateSessionLogMetadata(sessionPath, {
       lastActivity: dateHelper.getTimestamp(),
     })
   }
@@ -178,7 +178,7 @@ export class SessionLogManager {
     let activeDays = 0
 
     for (const session of sessions) {
-      const metadata = await this._getSessionMetadata(session.path)
+      const metadata = await this._getSessionLogMetadata(session.path)
       if (metadata) {
         totalEntries += metadata.entryCount || 0
         totalShips += metadata.shipCount || 0
@@ -204,7 +204,7 @@ export class SessionLogManager {
     projectId: string,
     legacyFilePath: string,
     sessionFilename: string
-  ): Promise<MigrationResult> {
+  ): Promise<SessionMigrationResult> {
     try {
       const content = await fileHelper.readFile(legacyFilePath)
 
@@ -213,8 +213,8 @@ export class SessionLogManager {
           projectId,
           content,
           sessionFilename,
-          (sp, u) => this._updateSessionMetadata(sp, u),
-          (sp) => this._ensureSessionMetadata(sp)
+          (sp, u) => this._updateSessionLogMetadata(sp, u),
+          (sp) => this._ensureSessionLogMetadata(sp)
         )
       } else {
         const sessionPath = await this.getCurrentSession(projectId)
@@ -222,7 +222,7 @@ export class SessionLogManager {
           sessionPath,
           content,
           sessionFilename,
-          (sp, u) => this._updateSessionMetadata(sp, u)
+          (sp, u) => this._updateSessionLogMetadata(sp, u)
         )
       }
     } catch (error) {
@@ -237,14 +237,14 @@ export class SessionLogManager {
   /**
    * Get session metadata
    */
-  private async _getSessionMetadata(sessionPath: string): Promise<SessionMetadata | null> {
+  private async _getSessionLogMetadata(sessionPath: string): Promise<SessionLogMetadata | null> {
     const metadataPath = path.join(sessionPath, 'session-meta.json')
 
     if (this.sessionMetadataCache.has(sessionPath)) {
       return this.sessionMetadataCache.get(sessionPath)!
     }
 
-    const metadata = await fileHelper.readJson<SessionMetadata>(metadataPath, null)
+    const metadata = await fileHelper.readJson<SessionLogMetadata>(metadataPath, null)
     if (metadata) {
       this.sessionMetadataCache.set(sessionPath, metadata)
     }
@@ -254,12 +254,12 @@ export class SessionLogManager {
   /**
    * Ensure session metadata exists
    */
-  private async _ensureSessionMetadata(sessionPath: string): Promise<void> {
+  private async _ensureSessionLogMetadata(sessionPath: string): Promise<void> {
     const metadataPath = path.join(sessionPath, 'session-meta.json')
 
     const exists = await fileHelper.fileExists(metadataPath)
     if (!exists) {
-      const metadata: SessionMetadata = {
+      const metadata: SessionLogMetadata = {
         created: dateHelper.getTimestamp(),
         lastActivity: dateHelper.getTimestamp(),
         entryCount: 0,
@@ -274,11 +274,11 @@ export class SessionLogManager {
   /**
    * Update session metadata
    */
-  private async _updateSessionMetadata(
+  private async _updateSessionLogMetadata(
     sessionPath: string,
-    updates: Partial<SessionMetadata>
+    updates: Partial<SessionLogMetadata>
   ): Promise<void> {
-    const metadata = (await this._getSessionMetadata(sessionPath)) || {}
+    const metadata = (await this._getSessionLogMetadata(sessionPath)) || {}
     Object.assign(metadata, updates)
 
     const metadataPath = path.join(sessionPath, 'session-meta.json')

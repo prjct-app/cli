@@ -25,4 +25,4 @@
  */
 
 export { AgentPerformanceTracker, default as agentPerformanceTracker } from './performance'
-export * from './types'
+export * from '../types'

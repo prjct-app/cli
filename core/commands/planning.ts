@@ -5,7 +5,7 @@
 
 import path from 'path'
 
-import type { CommandResult, AnalyzeOptions, Context } from './types'
+import type { CommandResult, AnalyzeOptions, ProjectContext } from '../types'
 import { generateUUID } from '../schemas'
 import type { Priority, TaskType, TaskSection } from '../schemas/state'
 import {
@@ -151,7 +151,7 @@ export class PlanningCommands extends PrjctCommandsBase {
 
       out.spin(`planning ${description}...`)
 
-      const context = await contextBuilder.build(projectPath, { description }) as Context
+      const context = await contextBuilder.build(projectPath, { description }) as ProjectContext
       const tasks = this._breakdownFeatureTasks(description)
       const featureId = generateUUID()
 
@@ -217,7 +217,7 @@ export class PlanningCommands extends PrjctCommandsBase {
 
       out.spin('tracking bug...')
 
-      const context = await contextBuilder.build(projectPath, { description }) as Context
+      const context = await contextBuilder.build(projectPath, { description }) as ProjectContext
       const severity = this._detectBugSeverity(description)
 
       const agentResult = await this._assignAgentForTask(`fix bug: ${description}`, projectPath, context)

@@ -26,7 +26,7 @@ import type {
   ThinkBlock,
   Memory,
   PlanInfo,
-} from './agentic.types'
+} from '../types'
 
 // Re-export types for convenience
 export type {
@@ -36,7 +36,7 @@ export type {
   ThinkBlock,
   Memory,
   PlanInfo,
-} from './agentic.types'
+} from '../types'
 
 // Local type aliases for backward compatibility
 type ProjectState = PromptProjectState

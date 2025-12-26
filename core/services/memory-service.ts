@@ -9,12 +9,7 @@ import configManager from '../infrastructure/config-manager'
 import { getTimestamp } from '../utils/date-helper'
 import jsonlHelper from '../utils/jsonl-helper'
 
-export interface MemoryEntry {
-  timestamp: string
-  action: string
-  data: Record<string, unknown>
-  author?: string
-}
+import type { MemoryServiceEntry } from '../types'
 
 export class MemoryService {
   /**
@@ -32,7 +27,7 @@ export class MemoryService {
 
       const memoryPath = pathManager.getFilePath(projectId, 'memory', 'context.jsonl')
 
-      const entry: MemoryEntry = {
+      const entry: MemoryServiceEntry = {
         timestamp: getTimestamp(),
         action,
         data,
@@ -48,13 +43,13 @@ export class MemoryService {
   /**
    * Get recent memory entries
    */
-  async getRecent(projectPath: string, limit: number = 100): Promise<MemoryEntry[]> {
+  async getRecent(projectPath: string, limit: number = 100): Promise<MemoryServiceEntry[]> {
     try {
       const projectId = await configManager.getProjectId(projectPath)
       if (!projectId) return []
 
       const memoryPath = pathManager.getFilePath(projectId, 'memory', 'context.jsonl')
-      const entries = await jsonlHelper.readJsonLines<MemoryEntry>(memoryPath)
+      const entries = await jsonlHelper.readJsonLines<MemoryServiceEntry>(memoryPath)
       return entries.slice(-limit)
     } catch {
       return []
@@ -68,7 +63,7 @@ export class MemoryService {
     projectPath: string,
     pattern: string,
     limit: number = 50
-  ): Promise<MemoryEntry[]> {
+  ): Promise<MemoryServiceEntry[]> {
     const entries = await this.getRecent(projectPath, 1000)
     const patternLower = pattern.toLowerCase()
 
@@ -88,7 +83,7 @@ export class MemoryService {
     projectPath: string,
     action: string,
     limit: number = 50
-  ): Promise<MemoryEntry[]> {
+  ): Promise<MemoryServiceEntry[]> {
     const entries = await this.getRecent(projectPath, 1000)
     return entries.filter((entry) => entry.action === action).slice(-limit)
   }

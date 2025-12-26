@@ -10,7 +10,7 @@
 import fs from 'fs/promises'
 import path from 'path'
 import pathManager from '../infrastructure/path-manager'
-import { EventTypes, type EventData, type EventCallback } from './bus.types'
+import { EventTypes, type EventData, type EventCallback } from '../types'
 
 class EventBus {
   private listeners: Map<string, Set<EventCallback>>

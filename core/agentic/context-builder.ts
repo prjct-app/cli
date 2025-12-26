@@ -9,10 +9,10 @@
 import fs from 'fs/promises'
 import pathManager from '../infrastructure/path-manager'
 import configManager from '../infrastructure/config-manager'
-import type { ContextPaths, ProjectContext, ContextState } from './agentic.types'
+import type { ContextPaths, ProjectContext, ContextState } from '../types'
 
 // Re-export types for convenience
-export type { ContextPaths, ProjectContext, ContextState } from './agentic.types'
+export type { ContextPaths, ProjectContext, ContextState } from '../types'
 
 // Local type aliases for backward compatibility
 type Paths = ContextPaths

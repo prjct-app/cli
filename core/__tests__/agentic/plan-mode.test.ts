@@ -10,7 +10,7 @@ import planMode, {
   DESTRUCTIVE_COMMANDS,
   PLANNING_TOOLS
 } from '../../agentic/plan-mode'
-import type { ProposedPlan, ApprovalContext, ChangedFile } from '../../agentic/plan-mode/types'
+import type { ProposedPlan, ApprovalContext, ChangedFile } from '../../types'
 
 // Helper to create complete ProposedPlan objects
 const createPlan = (overrides: Partial<ProposedPlan> = {}): ProposedPlan => ({

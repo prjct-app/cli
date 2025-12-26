@@ -10,7 +10,7 @@
 
 import { agentPerformanceTracker } from '../agents'
 import { outcomeAnalyzer } from '../outcomes'
-import type { TaskType } from '../agents/types'
+import type { TaskType } from '../types'
 import type {
   ContextDomain,
   SmartContextProjectState,
@@ -22,7 +22,7 @@ import type {
   StackInfo,
   FilterMetrics,
   DomainAnalysis,
-} from './agentic.types'
+} from '../types'
 
 // Re-export types for convenience
 export type {
@@ -34,7 +34,7 @@ export type {
   PatternInfo,
   StackInfo,
   FilterMetrics,
-} from './agentic.types'
+} from '../types'
 
 // Local type alias for backward compatibility
 type ProjectState = SmartContextProjectState

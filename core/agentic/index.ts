@@ -12,29 +12,49 @@
 
 // ============ Memory ============
 // Pattern learning, semantic memories, session history
-export { default as memorySystem, MemorySystem, MEMORY_TAGS, CachedStore } from './memory-system/index'
-export { PatternStore } from './memory-system/patterns'
-export { SemanticMemories } from './memory-system/semantic-memories'
-export { HistoryStore } from './memory-system/history'
-export type { Memory, MemoryContext, Preference, Workflow, HistoryEventType, Patterns } from './memory-system/types'
+export {
+  default as memorySystem,
+  MemorySystem,
+  CachedStore,
+  PatternStore,
+  SemanticMemories,
+  HistoryStore,
+  SessionStore,
+  MEMORY_TAGS,
+} from './memory-system'
 
 // ============ Planning ============
 // Plan mode for complex tasks
-export { default as planMode, PlanMode } from './plan-mode/index'
-export { PLAN_STATUS, PLAN_REQUIRED_COMMANDS, DESTRUCTIVE_COMMANDS, PLANNING_TOOLS } from './plan-mode/constants'
-export { generateApprovalPrompt } from './plan-mode/approval'
-export type { PlanParams, GatheredInfo, ProposedPlan, PlanStep, Plan, ApprovalPrompt, ApprovalContext, ApprovalOperation } from './plan-mode/types'
+export {
+  default as planMode,
+  PlanMode,
+  generateApprovalPrompt,
+  PLAN_STATUS,
+  PLAN_REQUIRED_COMMANDS,
+  DESTRUCTIVE_COMMANDS,
+  PLANNING_TOOLS,
+} from './plan-mode'
 
 // ============ Execution ============
 // Command execution, loop detection
-export { default as commandExecutor, CommandExecutor } from './command-executor/index'
-export { signalStart, signalEnd } from './command-executor/status-signal'
-export type { ExecutionResult, SimpleExecutionResult, ExecutionToolsFn } from './command-executor/types'
+export {
+  default as commandExecutor,
+  CommandExecutor,
+  signalStart,
+  signalEnd,
+} from './command-executor'
 
-export { default as loopDetector, LoopDetector } from './loop-detector/index'
-export { HALLUCINATION_PATTERNS, detectHallucination, getHallucinationSuggestion } from './loop-detector/hallucination'
-export { isSimilarError, analyzeErrorPattern, generateEscalationMessage, generateSuggestion } from './loop-detector/error-analysis'
-export type { ErrorEntry, AttemptRecord, ErrorPattern, EscalationInfo, AttemptResult, AttemptInfo, HallucinationPattern, HallucinationResult, OutputAnalysis } from './loop-detector/types'
+export {
+  default as loopDetector,
+  LoopDetector,
+  HALLUCINATION_PATTERNS,
+  detectHallucination,
+  getHallucinationSuggestion,
+  isSimilarError,
+  analyzeErrorPattern,
+  generateEscalationMessage,
+  generateSuggestion,
+} from './loop-detector'
 
 // ============ Context ============
 // Context building and prompt generation
@@ -45,9 +65,24 @@ export { default as promptBuilder } from './prompt-builder'
 // ============ Routing ============
 // Agent routing and ground truth verification
 export { default as AgentRouter } from './agent-router'
-export { default as groundTruth, verify, prepareCommand, requiresVerification, verifiers } from './ground-truth/index'
-export { formatDuration, escapeRegex, formatWarnings } from './ground-truth/utils'
-export type { Context as GroundTruthContext, VerificationResult, Verifier } from './ground-truth/types'
+export {
+  default as groundTruth,
+  verify,
+  prepareCommand,
+  requiresVerification,
+  verifiers,
+  verifyDone,
+  verifyShip,
+  verifyFeature,
+  verifyNow,
+  verifyInit,
+  verifySync,
+  verifyAnalyze,
+  verifySpec,
+  formatDuration,
+  escapeRegex,
+  formatWarnings,
+} from './ground-truth'
 
 // ============ Tools ============
 // Tool and template management
@@ -60,8 +95,56 @@ export { default as chainOfThought } from './chain-of-thought'
 export { default as services } from './services'
 
 // ============ Types ============
-// Shared type definitions
+// All types re-exported from ../types (canonical source)
 export type {
+  // Memory types
+  Memory,
+  MemoryTag,
+  MemoryDatabase,
+  HistoryEntry,
+  HistoryEventType,
+  Decision,
+  Workflow,
+  Preference,
+  Patterns,
+  MemoryContext,
+  MemoryContextParams,
+  // Plan Mode types
+  PlanParams,
+  GatheredInfo,
+  GatheredInfoType,
+  GatheredFileData,
+  GatheredAnalysisData,
+  ProposedPlan,
+  PlanStepDefinition,
+  PlanStep,
+  PlanStepResult,
+  PlanStatus,
+  Plan,
+  PlanAnalysis,
+  ApprovalPrompt,
+  ApprovalOption,
+  ApprovalContext,
+  ChangedFile,
+  ApprovalOperation,
+  // Execution types
+  ExecutionResult,
+  SimpleExecutionResult,
+  ExecutionToolsFn,
+  // Loop Detector types
+  ErrorEntry,
+  AttemptRecord,
+  ErrorPattern,
+  EscalationInfo,
+  AttemptResult,
+  AttemptInfo,
+  HallucinationPattern,
+  HallucinationResult,
+  OutputAnalysis,
+  // Ground Truth types
+  GroundTruthContext,
+  VerificationResult,
+  Verifier,
   // Tool registry types
   ToolFunction,
   ToolRegistryInterface,
@@ -87,6 +170,11 @@ export type {
   Template,
   LearnedPatterns,
   ThinkBlock,
-  Memory as PromptMemory,
   PlanInfo,
-} from './agentic.types'
+  // Chain of Thought types
+  ChainOfThoughtContext,
+  ChainOfThoughtState,
+  ReasoningStep,
+  ReasoningResult,
+  ChainOfThoughtResult,
+} from '../types'

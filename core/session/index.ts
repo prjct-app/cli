@@ -11,11 +11,11 @@
  */
 
 // Task session types and utilities
-export type { Session, SessionMetrics, TimelineEvent } from './types'
+export type { Session, SessionMetrics, TimelineEvent } from '../types'
 export { generateId, calculateDuration, formatDuration } from './utils'
 
 // Log session types
-export type { SessionEntry, SessionMetadata, SessionStats, MigrationResult } from './log-types'
+export type { SessionEntry, SessionLogMetadata, SessionStats, MigrationResult } from '../types'
 
 // Main exports
 export { TaskSessionManager } from './task-session-manager'

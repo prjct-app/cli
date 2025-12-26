@@ -8,7 +8,7 @@ import pathManager from '../infrastructure/path-manager'
 import * as dateHelper from '../utils/date-helper'
 import * as jsonlHelper from '../utils/jsonl-helper'
 import * as fileHelper from '../utils/file-helper'
-import type { SessionEntry, MigrationResult, SessionMetadata } from './log-types'
+import type { SessionEntry, SessionMigrationResult, SessionLogMetadata } from '../types'
 
 /**
  * Migrate legacy JSONL file
@@ -17,9 +17,9 @@ export async function migrateLegacyJsonl(
   projectId: string,
   content: string,
   sessionFilename: string,
-  updateMetadata: (sessionPath: string, updates: Partial<SessionMetadata>) => Promise<void>,
+  updateMetadata: (sessionPath: string, updates: Partial<SessionLogMetadata>) => Promise<void>,
   ensureMetadata: (sessionPath: string) => Promise<void>
-): Promise<MigrationResult> {
+): Promise<SessionMigrationResult> {
   const entries = jsonlHelper.parseJsonLines(content) as SessionEntry[]
   const sessionGroups = new Map<string, SessionEntry[]>()
 
@@ -68,8 +68,8 @@ export async function migrateLegacyMarkdown(
   sessionPath: string,
   content: string,
   sessionFilename: string,
-  updateMetadata: (sessionPath: string, updates: Partial<SessionMetadata>) => Promise<void>
-): Promise<MigrationResult> {
+  updateMetadata: (sessionPath: string, updates: Partial<SessionLogMetadata>) => Promise<void>
+): Promise<SessionMigrationResult> {
   const filePath = path.join(sessionPath, sessionFilename)
 
   await fileHelper.writeFile(filePath, content)

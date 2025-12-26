@@ -12,30 +12,9 @@
 import fs from 'fs/promises'
 import path from 'path'
 import { getTimestamp } from '../utils/date-helper'
+import type { ConversationTurn, CompactedContext, CompactionConfig } from '../types'
 
-export interface ConversationTurn {
-  role: 'user' | 'assistant' | 'system'
-  content: string
-  timestamp?: string
-  tokens?: number
-}
-
-export interface CompactedContext {
-  summary: string
-  keyPoints: string[]
-  decisions: string[]
-  filesModified: string[]
-  tasksCompleted: string[]
-  originalTurns: number
-  compactedAt: string
-}
-
-export interface CompactionConfig {
-  maxTurns?: number
-  maxTokens?: number
-  preserveRecent?: number
-  summaryMaxLength?: number
-}
+export type { ConversationTurn, CompactedContext, CompactionConfig } from '../types'
 
 const DEFAULT_CONFIG: Required<CompactionConfig> = {
   maxTurns: 50,

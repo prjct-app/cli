@@ -14,7 +14,7 @@ import type {
   AgentSuggestion,
   AgentPerformanceSummary,
   TaskType,
-} from './types'
+} from '../types'
 
 const PERFORMANCE_DIR = 'analysis'
 const PERFORMANCE_FILE = 'agent-performance.json'

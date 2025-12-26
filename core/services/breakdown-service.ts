@@ -4,12 +4,7 @@
  * Handles task breakdown, severity detection, and complexity estimation.
  */
 
-export type Severity = 'critical' | 'high' | 'medium' | 'low'
-
-export interface ComplexityEstimate {
-  level: 'low' | 'medium' | 'high'
-  hours: number
-}
+import type { Severity, ComplexityEstimate } from '../types'
 
 export class BreakdownService {
   /**

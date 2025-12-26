@@ -19,10 +19,10 @@ import { VERSION } from '../utils/version'
 import { getTimestamp } from '../utils/date-helper'
 import { ConfigError, getErrorMessage } from '../errors'
 import { isNotFoundError } from '../types/fs'
-import type { Author, LocalConfig, GlobalConfig } from './config.types'
+import type { Author, LocalConfig, GlobalConfig } from '../types'
 
 // Re-export types for convenience
-export type { Author, LocalConfig, GlobalConfig } from './config.types'
+export type { Author, LocalConfig, GlobalConfig } from '../types'
 
 /**
  * Parse JSON or JSONC content safely

@@ -19,4 +19,4 @@ export type { ExecutionContext, CommandHandler, HandlerFn, CommandMeta } from '.
 export { registerAllCommands } from './register'
 
 // Types
-export * from './types'
+export * from '../types'

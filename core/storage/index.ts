@@ -43,4 +43,4 @@ export { shippedStorage, type ShippedFeature, type ShippedJson } from './shipped
 
 // ========== GRANULAR STORAGE (Legacy) ==========
 export { getStorage, default } from './storage'
-export type { Storage } from './storage.types'
+export type { Storage } from '../types'
