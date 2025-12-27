@@ -180,6 +180,95 @@ export class NotionClient {
   }
 
   /**
+   * Update page content (for dashboard)
+   */
+  async updatePageContent(pageId: string, content: string): Promise<boolean> {
+    try {
+      // Convert markdown content to Notion blocks
+      const blocks = this.markdownToBlocks(content)
+
+      // Clear existing content and add new blocks
+      // First, get existing blocks to delete them
+      const existingBlocks = await this.apiRequest(
+        `/blocks/${pageId}/children`,
+        'GET'
+      )
+
+      // Delete existing blocks
+      for (const block of existingBlocks.results || []) {
+        await this.apiRequest(`/blocks/${block.id}`, 'DELETE')
+      }
+
+      // Add new blocks
+      await this.apiRequest(`/blocks/${pageId}/children`, 'PATCH', {
+        children: blocks,
+      })
+
+      return true
+    } catch (error) {
+      console.error('[notion] Failed to update page content:', (error as Error).message)
+      return false
+    }
+  }
+
+  /**
+   * Convert simple markdown to Notion blocks
+   */
+  private markdownToBlocks(content: string): unknown[] {
+    const blocks: unknown[] = []
+    const lines = content.split('\n')
+
+    for (const line of lines) {
+      if (line.startsWith('# ')) {
+        blocks.push({
+          type: 'heading_1',
+          heading_1: {
+            rich_text: [{ type: 'text', text: { content: line.slice(2) } }],
+          },
+        })
+      } else if (line.startsWith('## ')) {
+        blocks.push({
+          type: 'heading_2',
+          heading_2: {
+            rich_text: [{ type: 'text', text: { content: line.slice(3) } }],
+          },
+        })
+      } else if (line.startsWith('- ')) {
+        blocks.push({
+          type: 'bulleted_list_item',
+          bulleted_list_item: {
+            rich_text: [{ type: 'text', text: { content: line.slice(2) } }],
+          },
+        })
+      } else if (line.startsWith('|') && line.includes('|')) {
+        // Table row - skip header separator
+        if (!line.match(/^\|[-|]+\|$/)) {
+          const cells = line.split('|').filter(Boolean).map((c) => c.trim())
+          if (cells.length > 0) {
+            blocks.push({
+              type: 'paragraph',
+              paragraph: {
+                rich_text: [{ type: 'text', text: { content: cells.join(' | ') } }],
+              },
+            })
+          }
+        }
+      } else if (line.trim() === '---') {
+        blocks.push({ type: 'divider', divider: {} })
+      } else if (line.trim()) {
+        blocks.push({
+          type: 'paragraph',
+          paragraph: {
+            rich_text: [{ type: 'text', text: { content: line } }],
+          },
+        })
+      }
+    }
+
+    return blocks
+  }
+
+  /**
    * Query a database
    */
   async queryDatabase(
@@ -211,11 +300,12 @@ export class NotionClient {
   }
 
   /**
-   * Find page by project ID and name (for upsert)
+   * Find page by name (for upsert)
+   * Note: Since each project has its own database, we don't need to filter by project
    */
   async findPageByProjectAndName(
     databaseId: string,
-    projectId: string,
+    _projectId: string,
     name: string
   ): Promise<string | null> {
     try {
@@ -224,9 +314,9 @@ export class NotionClient {
         'POST',
         {
           filter: {
-            and: [
-              { property: 'Project', rich_text: { equals: projectId } },
+            or: [
               { property: 'Name', title: { equals: name } },
+              { property: 'Idea', title: { equals: name } },
             ],
           },
         }

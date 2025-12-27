@@ -76,7 +76,7 @@ Ensure the token starts with "ntn_" or "secret_".
 ```
 Now share a Notion page with your integration:
 
-1. Open a Notion page where you want the databases
+1. Create a new page in Notion named "prjct: {projectName}"
 2. Click "..." → "Connect to" → select "prjct-cli"
 3. Copy the page URL or ID
 
@@ -87,18 +87,25 @@ Parse page ID from URL:
 - `https://notion.so/workspace/Page-Title-abc123...` → `abc123...`
 - Just the 32-character ID is also valid
 
-### Step 5: Create Databases
+### Step 5: Create Project Databases
 
-Create 4 databases under the parent page:
+Create 4 databases + 1 dashboard under the parent page.
+Each project gets its own set of databases (not shared).
 
-| Database | Description |
-|----------|-------------|
-| prjct: Shipped Features | Track shipped features with metrics |
-| prjct: Roadmap | Feature planning and progress |
-| prjct: Ideas | Captured ideas and status |
-| prjct: Active Tasks | Current task queue |
+| Created | Name | Description |
+|---------|------|-------------|
+| Dashboard | {projectName}: Dashboard | Metrics + links to all DBs |
+| Database | {projectName}: Shipped Features | Track shipped features with metrics |
+| Database | {projectName}: Roadmap | Feature planning and progress |
+| Database | {projectName}: Ideas | Captured ideas and status |
+| Database | {projectName}: Active Tasks | Current task queue |
 
-Each database has project-specific columns for multi-project support.
+The dashboard shows:
+- Total features shipped
+- Ideas pendientes
+- Tareas activas
+- Progreso del roadmap
+- Links a cada database
 
 ### Step 6: Save Config
 
@@ -150,17 +157,18 @@ Or create `~/.prjct-cli/config/notion.json`:
 ✅ Notion Connected
 
 Workspace: {workspaceName}
-Created: 4 databases
+Project: {projectName}
+Created: 1 dashboard + 4 databases
 
-Databases:
-• prjct: Shipped Features
-• prjct: Roadmap
-• prjct: Ideas
-• prjct: Active Tasks
+• {projectName}: Dashboard (with metrics)
+• {projectName}: Shipped Features
+• {projectName}: Roadmap
+• {projectName}: Ideas
+• {projectName}: Active Tasks
 
 Auto-sync enabled:
-• On /p:ship → Shipped Features
-• On /p:idea → Ideas
+• On /p:ship → Shipped Features + Dashboard metrics
+• On /p:idea → Ideas + Dashboard metrics
 
 To sync all existing data: /p:notion sync
 ```
