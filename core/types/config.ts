@@ -3,6 +3,8 @@
  * Types for project and global configuration.
  */
 
+import type { IntegrationsConfig } from './integrations'
+
 /**
  * Local config - stored in .prjct/prjct.config.json
  * Minimal config that points to global storage
@@ -23,6 +25,8 @@ export interface GlobalConfig {
   version: string
   created?: string
   lastSync: string
+  // Optional external integrations (Notion, etc.)
+  integrations?: IntegrationsConfig
 }
 
 /**
