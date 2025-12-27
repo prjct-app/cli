@@ -39,9 +39,6 @@ export interface DateComponents {
   year: string
   month: string
   day: string
-  hour: string
-  minute: string
-  second: string
 }
 
 // =============================================================================
@@ -49,33 +46,45 @@ export interface DateComponents {
 // =============================================================================
 
 export interface CacheEntry<T> {
-  value: T
-  expiresAt: number
+  data: T
+  timestamp: number
 }
 
 export interface CacheOptions {
+  /** TTL in milliseconds (default: 5000) */
   ttl?: number
+  /** Max entries before eviction (default: 50) */
   maxSize?: number
-  onEvict?: (key: string, value: unknown) => void
 }
 
 export interface CacheStats {
-  hits: number
-  misses: number
   size: number
-  evictions: number
+  maxSize: number
+  ttl: number
 }
 
 // =============================================================================
 // Project Commands Types
 // =============================================================================
 
-export interface DetectedProjectCommands {
-  build?: string
-  test?: string
-  lint?: string
-  typecheck?: string
-  dev?: string
-  start?: string
-  [key: string]: string | undefined
+type PackageManager = 'npm' | 'pnpm' | 'yarn' | 'bun'
+type DetectedStack = 'js' | 'python' | 'go' | 'rust' | 'dotnet' | 'java' | 'unknown'
+
+interface DetectedCommand {
+  command: string
+  tool: string
 }
+
+export interface DetectedProjectCommands {
+  stack: DetectedStack
+  packageManager?: PackageManager
+  lint?: DetectedCommand
+  typecheck?: DetectedCommand
+  test?: DetectedCommand
+}
+
+// =============================================================================
+// Runtime Types
+// =============================================================================
+
+export type Runtime = 'bun' | 'node'

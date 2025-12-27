@@ -7,11 +7,7 @@
  * - commands.ts (38+ inline date operations)
  */
 
-export interface DateComponents {
-  year: string
-  month: string
-  day: string
-}
+import type { DateComponents } from '../types'
 
 /**
  * Format a date to YYYY-MM-DD format

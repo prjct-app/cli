@@ -7,40 +7,12 @@
 
 import authConfig from './auth-config'
 import type { SyncEvent } from '../events'
-
-// ============================================
-// Types
-// ============================================
-
-export interface SyncBatchResult {
-  success: boolean
-  processed: number
-  errors: Array<{ index: number; error: string }>
-  syncedAt: string
-}
-
-export interface SyncPullResult {
-  events: Array<{
-    type: string
-    path: string[]
-    data: unknown
-    timestamp: string
-  }>
-  syncedAt: string
-}
-
-export interface SyncStatus {
-  projectId: string
-  lastSync: string | null
-  pendingCount: number
-  hasConflicts: boolean
-}
-
-export interface SyncClientError {
-  code: 'AUTH_REQUIRED' | 'NETWORK_ERROR' | 'API_ERROR' | 'UNKNOWN'
-  message: string
-  status?: number
-}
+import type {
+  SyncBatchResult,
+  SyncPullResult,
+  SyncStatus,
+  SyncClientError,
+} from '../types'
 
 // ============================================
 // Sync Client

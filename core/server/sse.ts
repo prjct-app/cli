@@ -9,18 +9,7 @@
 
 import type { Context } from 'hono'
 import { streamSSE } from 'hono/streaming'
-
-export interface SSEClient {
-  id: string
-  send: (event: string, data: unknown) => void
-  close: () => void
-}
-
-export interface SSEManager {
-  handleConnection: (c: Context) => Response
-  broadcast: (event: string, data: unknown) => void
-  getClientCount: () => number
-}
+import type { SSEClient, SSEManager } from '../types'
 
 /**
  * Create an SSE manager for handling real-time connections

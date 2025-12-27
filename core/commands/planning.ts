@@ -5,7 +5,7 @@
 
 import path from 'path'
 
-import type { CommandResult, AnalyzeOptions, ProjectContext } from '../types'
+import type { CommandResult, ProjectContext } from '../types'
 import { generateUUID } from '../schemas'
 import type { Priority, TaskType, TaskSection } from '../schemas/state'
 import {

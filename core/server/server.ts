@@ -3,8 +3,9 @@
  *
  * Hono-based server for web dashboard and API access.
  * Provides REST endpoints for project state and real-time updates via SSE.
+ * Supports both Bun and Node.js runtimes.
  *
- * @version 1.0.0
+ * @version 1.1.0
  */
 
 import { Hono } from 'hono'
@@ -12,22 +13,11 @@ import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
 import { createRoutes } from './routes'
 import { createSSEManager } from './sse'
+import { isBun } from '../utils/runtime'
+import type { ServerConfig, ServerInstance } from '../types'
 
-export interface ServerConfig {
-  port: number
-  host?: string
-  projectId: string
-  projectPath: string
-  enableCors?: boolean
-  enableLogging?: boolean
-}
-
-export interface ServerInstance {
-  app: Hono
-  start: () => Promise<void>
-  stop: () => void
-  broadcast: (event: string, data: unknown) => void
-}
+// Server handle type that works for both runtimes
+type ServerHandle = { stop: () => void } | null
 
 /**
  * Create and configure the HTTP server
@@ -77,7 +67,7 @@ export function createServer(config: ServerConfig): ServerInstance {
     return sseManager.handleConnection(c)
   })
 
-  let server: ReturnType<typeof Bun.serve> | null = null
+  let server: ServerHandle = null
 
   return {
     app,
@@ -86,14 +76,29 @@ export function createServer(config: ServerConfig): ServerInstance {
       const port = config.port
       const host = config.host || '0.0.0.0'
 
-      server = Bun.serve({
-        port,
-        hostname: host,
-        fetch: app.fetch,
-      })
+      if (isBun()) {
+        // Use Bun's native server (faster)
+        server = Bun.serve({
+          port,
+          hostname: host,
+          fetch: app.fetch,
+        })
+      } else {
+        // Use @hono/node-server for Node.js
+        const { serve } = await import('@hono/node-server')
+        const nodeServer = serve({
+          fetch: app.fetch,
+          port,
+          hostname: host,
+        })
+        server = {
+          stop: () => nodeServer.close(),
+        }
+      }
 
       console.log(`🚀 prjct server running at http://${host}:${port}`)
       console.log(`   Project: ${config.projectId}`)
+      console.log(`   Runtime: ${isBun() ? 'Bun' : 'Node.js'}`)
       console.log(`   Dashboard: http://localhost:${port}`)
     },
 

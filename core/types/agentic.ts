@@ -507,7 +507,7 @@ export type ExecutionToolsFn = (
 export interface ParsedTemplate {
   frontmatter: Frontmatter
   content: string
-  raw: string
+  raw?: string
 }
 
 // =============================================================================
@@ -562,21 +562,6 @@ export interface ReasoningResult {
 export interface ChainOfThoughtResult {
   reasoning: ReasoningResult | null
   thinkBlock: string | null
-}
-
-// =============================================================================
-// Agentic Services Types
-// =============================================================================
-
-export interface AgenticServices {
-  commandExecutor: unknown
-  contextBuilder: unknown
-  toolRegistry: unknown
-  promptBuilder: unknown
-  smartContext: unknown
-  templateLoader: unknown
-  memorySystem: unknown
-  agentRouter: unknown
 }
 
 // =============================================================================

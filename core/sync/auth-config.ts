@@ -8,14 +8,7 @@
 import path from 'path'
 import os from 'os'
 import * as fileHelper from '../utils/file-helper'
-
-export interface AuthConfig {
-  apiKey: string | null
-  apiUrl: string
-  userId: string | null
-  email: string | null
-  lastAuth: string | null
-}
+import type { AuthConfig } from '../types'
 
 const DEFAULT_API_URL = 'https://api.prjct.app'
 

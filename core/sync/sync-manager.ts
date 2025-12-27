@@ -5,52 +5,23 @@
  * Handles the coordination between local storage (EventBus) and remote API (SyncClient).
  */
 
-import { syncClient, type SyncBatchResult, type SyncPullResult, type SyncStatus } from './sync-client'
+import { syncClient } from './sync-client'
 import authConfig from './auth-config'
 import eventBus, { type SyncEvent } from '../events'
 import { stateStorage } from '../storage/state-storage'
 import { queueStorage } from '../storage/queue-storage'
-import { ideasStorage, type IdeaPriority } from '../storage/ideas-storage'
+import { ideasStorage } from '../storage/ideas-storage'
 import { shippedStorage } from '../storage/shipped-storage'
 import type { TaskType, Priority, TaskSection } from '../schemas/state'
-
-// ============================================
-// Types
-// ============================================
-
-export interface SyncResult {
-  success: boolean
-  skipped: boolean
-  reason?: 'no_auth' | 'no_pending' | 'error'
-  pushed?: {
-    count: number
-    syncedAt: string
-  }
-  pulled?: {
-    count: number
-    syncedAt: string
-  }
-  error?: string
-}
-
-export interface PushResult {
-  success: boolean
-  skipped: boolean
-  reason?: 'no_auth' | 'no_pending' | 'error'
-  count?: number
-  syncedAt?: string
-  error?: string
-}
-
-export interface PullResult {
-  success: boolean
-  skipped: boolean
-  reason?: 'no_auth' | 'error'
-  count?: number
-  applied?: number
-  syncedAt?: string
-  error?: string
-}
+import type {
+  SyncManagerResult as SyncResult,
+  PushResult,
+  PullResult,
+  SyncBatchResult,
+  SyncPullResult,
+  SyncStatus,
+} from '../types'
+import type { IdeaPriority } from '../schemas/ideas'
 
 // ============================================
 // Sync Manager

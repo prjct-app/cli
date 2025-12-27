@@ -1,27 +1,14 @@
 import path from 'path'
 
 import * as fileHelper from './file-helper'
+import type { DetectedProjectCommands } from '../types'
 
 type PackageManager = 'npm' | 'pnpm' | 'yarn' | 'bun'
 type DetectedStack = 'js' | 'python' | 'go' | 'rust' | 'dotnet' | 'java' | 'unknown'
 
 interface DetectedCommand {
-  /**
-   * Shell command to execute from the repo root.
-   */
   command: string
-  /**
-   * Human-readable tool name for messaging/logging.
-   */
   tool: string
-}
-
-export interface DetectedProjectCommands {
-  stack: DetectedStack
-  packageManager?: PackageManager
-  lint?: DetectedCommand
-  typecheck?: DetectedCommand
-  test?: DetectedCommand
 }
 
 interface PackageJson {

@@ -133,8 +133,9 @@ export interface PermissionsConfig {
 
 export interface PermissionCheckResult {
   allowed: boolean
-  reason?: string
   level: PermissionLevel
+  matchedPattern?: string
+  reason?: string
 }
 
 // =============================================================================
@@ -142,50 +143,54 @@ export interface PermissionCheckResult {
 // =============================================================================
 
 export interface AgentCapabilities {
-  canExecuteBash: boolean
-  canReadFiles: boolean
-  canWriteFiles: boolean
-  canAccessWeb: boolean
-  hasToolUse: boolean
+  mcp: boolean
+  filesystem: string
+  markdown: boolean
+  emojis: boolean
+  colors: boolean
+  interactive: boolean
+  agents: boolean
 }
 
 export interface AgentConfig {
-  name: string
-  type: string
-  version?: string
-  capabilities: AgentCapabilities
-  settings?: Record<string, unknown>
+  configFile: string | null
+  commandPrefix: string
+  responseStyle: string
+  dataDir: string
+  agentsDir: string | null
+  commandsDir: string | null
 }
 
 export interface AgentEnvironment {
-  isCI: boolean
-  isTTY: boolean
-  terminal: string | null
-  shell: string | null
+  hasMCP: boolean
+  sandboxed: boolean
+  persistent: boolean
+  agentSystem: boolean
 }
 
-export interface DetectedAgentInfo {
-  isSupported: boolean
+export interface DetectedAgent {
   type: string
-  name?: string
-  version?: string
-  capabilities?: AgentCapabilities
-  environment?: AgentEnvironment
+  name: string
+  isSupported: boolean
+  capabilities: AgentCapabilities
+  config: AgentConfig
+  environment: AgentEnvironment
 }
 
 // =============================================================================
 // Author Detector Types
 // =============================================================================
 
-export interface DetectedAuthor {
-  name?: string
-  email?: string
-  github?: string
+export interface DetectedAuthorInfo {
+  name: string | null
+  email: string | null
+  github: string | null
 }
 
-export interface ConfigStatus {
-  hasLocalConfig: boolean
-  hasGlobalConfig: boolean
-  isValid: boolean
-  projectId?: string
+export interface AuthorConfigStatus {
+  hasGitHub: boolean
+  hasGit: boolean
+  author: DetectedAuthorInfo
+  isComplete: boolean
+  recommendations: string[]
 }

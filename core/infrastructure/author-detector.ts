@@ -11,24 +11,9 @@
 
 import { promisify } from 'util'
 import { exec as execCallback } from 'child_process'
+import type { DetectedAuthorInfo, AuthorConfigStatus } from '../types'
 
 const exec = promisify(execCallback)
-
-// ============ Types ============
-
-export interface Author {
-  name: string | null
-  email: string | null
-  github: string | null
-}
-
-export interface ConfigStatus {
-  hasGitHub: boolean
-  hasGit: boolean
-  author: Author
-  isComplete: boolean
-  recommendations: string[]
-}
 
 // ============ Internal Helpers ============
 
@@ -63,7 +48,7 @@ export async function detectGitEmail(): Promise<string | null> {
   return result.success && result.output ? result.output : null
 }
 
-export async function detect(): Promise<Author> {
+export async function detect(): Promise<DetectedAuthorInfo> {
   const [github, name, email] = await Promise.all([
     detectGitHubUsername(),
     detectGitName(),
@@ -94,7 +79,7 @@ export async function isGitConfigured(): Promise<boolean> {
   return !!(name && email)
 }
 
-export async function getConfigStatus(): Promise<ConfigStatus> {
+export async function getConfigStatus(): Promise<AuthorConfigStatus> {
   const [hasGitHub, hasGit, author] = await Promise.all([
     isGitHubCLIAvailable(),
     isGitConfigured(),
@@ -110,7 +95,7 @@ export async function getConfigStatus(): Promise<ConfigStatus> {
   }
 }
 
-function getRecommendations(hasGitHub: boolean, hasGit: boolean, author: Author): string[] {
+function getRecommendations(hasGitHub: boolean, hasGit: boolean, author: DetectedAuthorInfo): string[] {
   const recommendations: string[] = []
 
   if (!hasGitHub && !author.github) {
@@ -131,7 +116,7 @@ function getRecommendations(hasGitHub: boolean, hasGit: boolean, author: Author)
 
 // ============ Formatting ============
 
-export function formatAuthor(author: Author): string {
+export function formatAuthor(author: DetectedAuthorInfo): string {
   const parts: string[] = []
 
   if (author.name && author.name !== 'Unknown') parts.push(author.name)

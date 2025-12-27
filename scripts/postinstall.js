@@ -1,19 +1,55 @@
 #!/usr/bin/env node
 
 /**
- * Post-install hook for prjct-cli (OPTIONAL)
+ * Post-install hook for prjct-cli
  *
- * Attempts to run setup if npm scripts are enabled.
- * If it fails or doesn't run, no problem - setup will run
- * automatically on first CLI use (like Astro, Vite, etc.)
+ * 1. Builds dist/ for Node.js users (if bun not available)
+ * 2. Runs setup if npm scripts are enabled
  *
- * This hook is an optimization but NOT critical.
- *
- * @version 0.8.8
+ * @version 1.0.0
  */
 
 const path = require('path')
-const setup = require('../core/infrastructure/setup')
+const { execSync } = require('child_process')
+const fs = require('fs')
+
+/**
+ * Check if bun is available
+ */
+function isBunAvailable() {
+  try {
+    execSync('bun --version', { stdio: 'ignore' })
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Build dist/ for Node.js
+ */
+async function buildForNode() {
+  const rootDir = path.resolve(__dirname, '..')
+  const distDir = path.join(rootDir, 'dist')
+
+  // Skip if dist already exists (e.g., published package)
+  if (fs.existsSync(path.join(distDir, 'bin', 'prjct.js'))) {
+    return
+  }
+
+  console.log('Building for Node.js compatibility...')
+
+  try {
+    // Run build script
+    execSync('node scripts/build.js', {
+      cwd: rootDir,
+      stdio: 'inherit',
+    })
+  } catch (error) {
+    console.warn('Warning: Build failed. CLI will build on first use.')
+    // Non-fatal - the wrapper script will build on first run
+  }
+}
 
 async function main() {
   try {
@@ -25,7 +61,13 @@ async function main() {
       return
     }
 
+    // Build for Node.js if bun is not available
+    if (!isBunAvailable()) {
+      await buildForNode()
+    }
+
     // Run setup (all logic is in core/infrastructure/setup.js)
+    const setup = require('../core/infrastructure/setup')
     await setup.run()
 
   } catch (error) {

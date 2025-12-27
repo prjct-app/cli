@@ -158,8 +158,6 @@ export type {
   ReasoningStep,
   ReasoningResult,
   ChainOfThoughtResult,
-  // Services types
-  AgenticServices,
 } from './agentic'
 
 // =============================================================================
@@ -275,6 +273,8 @@ export type {
   Duration,
   ShippedJson,
   Idea,
+  IdeaStatus,
+  IdeaPriority,
   ImpactEffort,
   TechStack,
   IdeaModule,
@@ -300,9 +300,9 @@ export type {
   AgentCapabilities,
   AgentConfig,
   AgentEnvironment,
-  DetectedAgentInfo,
-  DetectedAuthor,
-  ConfigStatus,
+  DetectedAgent,
+  DetectedAuthorInfo,
+  AuthorConfigStatus,
 } from './infrastructure'
 
 // =============================================================================
@@ -314,6 +314,8 @@ export type {
   OutcomeSummary,
   OutcomeFilter,
   OutcomeInput,
+  DetectedPattern,
+  AgentMetrics,
 } from './outcomes'
 
 // =============================================================================
@@ -329,7 +331,17 @@ export type {
   CacheOptions,
   CacheStats,
   DetectedProjectCommands,
+  Runtime,
 } from './utils'
+
+// =============================================================================
+// Plugin Types
+// =============================================================================
+export type {
+  WebhookConfig,
+  WebhookPluginContext,
+  WebhookPayload,
+} from './plugin'
 
 // =============================================================================
 // Service Types
@@ -376,6 +388,6 @@ export type {
   ServerConfig,
   ServerInstance,
   SSEClient,
-  SSEManagerInterface,
+  SSEManager,
   SSEEventType,
 } from './server'

@@ -144,3 +144,47 @@ export interface OutcomeFilter {
  * Outcome creation input.
  */
 export type OutcomeInput = Omit<Outcome, 'id'>
+
+// =============================================================================
+// Analyzer Types
+// =============================================================================
+
+/**
+ * Pattern detected from outcomes.
+ */
+export interface DetectedPattern {
+  /** Pattern description */
+  description: string
+
+  /** Confidence level (0-1) */
+  confidence: number
+
+  /** Number of occurrences supporting this pattern */
+  occurrences: number
+
+  /** Suggested action based on pattern */
+  suggestedAction?: string
+}
+
+/**
+ * Agent performance metrics.
+ */
+export interface AgentMetrics {
+  /** Agent name */
+  agent: string
+
+  /** Number of tasks completed */
+  tasksCompleted: number
+
+  /** Success rate (0-100) */
+  successRate: number
+
+  /** Average quality score */
+  avgQualityScore: number
+
+  /** Estimate accuracy */
+  estimateAccuracy: number
+
+  /** Best task types for this agent */
+  bestFor: string[]
+}
