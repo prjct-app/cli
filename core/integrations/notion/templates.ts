@@ -35,7 +35,6 @@ export const SHIPPED_DATABASE_SCHEMA: NotionDatabaseSchema = {
     Commits: { type: 'number', number: { format: 'number' } },
     Duration: { type: 'rich_text', rich_text: {} },
     Description: { type: 'rich_text', rich_text: {} },
-    Project: { type: 'rich_text', rich_text: {} },
   },
 }
 
@@ -78,7 +77,6 @@ export const ROADMAP_DATABASE_SCHEMA: NotionDatabaseSchema = {
     'Target Date': { type: 'date', date: {} },
     Description: { type: 'rich_text', rich_text: {} },
     Tasks: { type: 'number', number: { format: 'number' } },
-    Project: { type: 'rich_text', rich_text: {} },
   },
 }
 
@@ -117,7 +115,6 @@ export const IDEAS_DATABASE_SCHEMA: NotionDatabaseSchema = {
     Tags: { type: 'multi_select', multi_select: { options: [] } },
     Created: { type: 'date', date: {} },
     'Converted To': { type: 'rich_text', rich_text: {} },
-    Project: { type: 'rich_text', rich_text: {} },
   },
 }
 
@@ -165,7 +162,6 @@ export const TASKS_DATABASE_SCHEMA: NotionDatabaseSchema = {
     Feature: { type: 'rich_text', rich_text: {} },
     Created: { type: 'date', date: {} },
     'Completed At': { type: 'date', date: {} },
-    Project: { type: 'rich_text', rich_text: {} },
   },
 }
 
@@ -173,8 +169,15 @@ export const TASKS_DATABASE_SCHEMA: NotionDatabaseSchema = {
 // Dashboard Template
 // =============================================================================
 
+export interface DashboardMetrics {
+  shippedCount: number
+  ideasPending: number
+  tasksActive: number
+  roadmapProgress: number // 0-100
+}
+
 /**
- * Dashboard page content template
+ * Dashboard page content template with metrics
  */
 export function getDashboardContent(
   projectName: string,
@@ -183,41 +186,50 @@ export function getDashboardContent(
     roadmap?: string
     ideas?: string
     tasks?: string
-  }
+  },
+  metrics?: DashboardMetrics
 ): string {
-  const sections = []
+  const sections: string[] = []
 
   sections.push(`# ${projectName} Dashboard`)
   sections.push('')
-  sections.push('This dashboard is automatically synced by prjct-cli.')
+
+  // Metrics section
+  if (metrics) {
+    sections.push('## Metrics')
+    sections.push('')
+    sections.push('| Metric | Value |')
+    sections.push('|--------|-------|')
+    sections.push(`| Features Shipped | ${metrics.shippedCount} |`)
+    sections.push(`| Ideas Pending | ${metrics.ideasPending} |`)
+    sections.push(`| Active Tasks | ${metrics.tasksActive} |`)
+    sections.push(`| Roadmap Progress | ${metrics.roadmapProgress}% |`)
+    sections.push('')
+  } else {
+    sections.push('*Metrics will appear after first sync*')
+    sections.push('')
+  }
+
+  // Database links
+  sections.push('## Databases')
   sections.push('')
 
   if (databases.shipped) {
-    sections.push('## Shipped Features')
-    sections.push(`View all shipped features and metrics.`)
-    sections.push('')
+    sections.push(`- **Shipped Features**: Track released features and metrics`)
   }
-
   if (databases.roadmap) {
-    sections.push('## Roadmap')
-    sections.push(`Track feature progress and planning.`)
-    sections.push('')
+    sections.push(`- **Roadmap**: Feature planning and progress`)
   }
-
   if (databases.ideas) {
-    sections.push('## Ideas')
-    sections.push(`Captured ideas and their status.`)
-    sections.push('')
+    sections.push(`- **Ideas**: Captured ideas and status`)
   }
-
   if (databases.tasks) {
-    sections.push('## Active Tasks')
-    sections.push(`Current task queue and completion status.`)
-    sections.push('')
+    sections.push(`- **Active Tasks**: Current task queue`)
   }
 
+  sections.push('')
   sections.push('---')
-  sections.push('Powered by [prjct-cli](https://prjct.app)')
+  sections.push('Synced by [prjct-cli](https://prjct.app)')
 
   return sections.join('\n')
 }

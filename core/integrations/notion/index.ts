@@ -28,8 +28,11 @@ export {
   syncShippedFeature,
   syncIdea,
   fullSync,
+  pullShippedFeatures,
+  pullIdeas,
+  bidirectionalSync,
 } from './sync'
-export type { SyncResult } from './sync'
+export type { SyncResult, PullResult } from './sync'
 
 // Setup
 export {

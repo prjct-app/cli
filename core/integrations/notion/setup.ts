@@ -94,16 +94,21 @@ export async function createDatabases(
   const databases: NotionIntegrationConfig['databases'] = {}
 
   try {
-    // Create each database
+    // Create each database with project-specific names
     for (const [key, schema] of Object.entries(ALL_DATABASE_SCHEMAS)) {
-      const db = await notionClient.createDatabase(parentPageId, schema)
+      // Override title with project name prefix
+      const projectSchema = {
+        ...schema,
+        title: schema.title.replace('prjct:', `${projectName}:`),
+      }
+      const db = await notionClient.createDatabase(parentPageId, projectSchema)
       if (db) {
         databases[key as keyof typeof databases] = db.id
       } else {
         return {
           success: false,
           databases,
-          error: `Failed to create ${schema.title} database`,
+          error: `Failed to create ${projectSchema.title} database`,
         }
       }
     }
