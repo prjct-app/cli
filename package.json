@@ -1,6 +1,6 @@
 {
   "name": "prjct-cli",
-  "version": "0.20.0",
+  "version": "0.20.1",
   "description": "Built for Claude - Ship fast, track progress, stay focused. Developer momentum tool for indie hackers.",
   "main": "core/index.ts",
   "bin": {
@@ -14,9 +14,10 @@
     "registry": "https://registry.npmjs.org"
   },
   "scripts": {
-    "build": "bun run --filter '@prjct/shared' build",
+    "build": "node scripts/build.js",
     "build:shared": "bun run --filter '@prjct/shared' build",
-    "postinstall": "bun scripts/postinstall.js",
+    "build:node": "node scripts/build.js",
+    "postinstall": "node scripts/postinstall.js",
     "update-commands": "bun -e \"const installer = require('./core/infrastructure/command-installer'); installer.syncCommands().then(r => console.log('Commands updated:', r)).catch(e => console.error('Error:', e.message))\"",
     "install-global": "./scripts/install.sh",
     "update": "./scripts/update.sh",
@@ -46,7 +47,9 @@
   "author": "prjct.app",
   "license": "MIT",
   "dependencies": {
+    "@hono/node-server": "^1.13.7",
     "chalk": "^4.1.2",
+    "esbuild": "^0.24.2",
     "glob": "^10.3.10",
     "hono": "^4.11.3",
     "jsonc-parser": "^3.3.1",
@@ -81,9 +84,11 @@
   "files": [
     "bin/",
     "core/",
+    "dist/",
     "packages/shared/",
     "templates/",
     "scripts/postinstall.js",
+    "scripts/build.js",
     "scripts/install.sh",
     "LICENSE",
     "README.md",

@@ -1,45 +1,62 @@
-#!/usr/bin/env bun
+#!/bin/sh
 
-/**
- * prjct CLI entry point
- *
- * Auto-setup on first use (like Astro, Vite, etc.)
- */
+# prjct CLI - Runtime-agnostic entry point
+#
+# Detects available runtime (bun preferred, node fallback)
+# and executes the appropriate entry point.
+#
+# @version 1.0.0
 
-import { VERSION } from '../core/utils/version.ts'
-import editorsConfig from '../core/infrastructure/editors-config.ts'
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-// Check for special subcommands that bypass normal CLI
-const args = process.argv.slice(2)
-
-if (args[0] === 'dev') {
-  // Launch prjct dev environment
-  await import('./dev.js')
-  process.exitCode = 0
-} else if (args[0] === 'web' || args[0] === 'serve') {
-  // Launch prjct web server
-  await import('./serve.js')
-  process.exitCode = 0
-} else {
-  // Ensure setup has run for this version
-  try {
-    const lastVersion = await editorsConfig.getLastVersion()
-
-    if (!lastVersion || lastVersion !== VERSION) {
-      console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-      console.log('🔧 One-time setup (v' + VERSION + ')...')
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n')
-
-      const { default: setup } = await import('../core/infrastructure/setup.ts')
-      await setup.run()
-
-      console.log('✓ Setup complete!\n')
-    }
-  } catch (error) {
-    console.error('\n⚠️  Setup warning:', (error as Error).message)
-    console.error('You can run setup manually: prjct setup\n')
-  }
-
-  // Continue to main CLI logic
-  await import('../core/index.ts')
+# Check if bun is available
+check_bun() {
+  command -v bun >/dev/null 2>&1
 }
+
+# Check if node is available
+check_node() {
+  command -v node >/dev/null 2>&1
+}
+
+# Run with bun (native TypeScript)
+run_with_bun() {
+  exec bun "$SCRIPT_DIR/prjct.ts" "$@"
+}
+
+# Run with node (compiled JavaScript)
+run_with_node() {
+  DIST_BIN="$ROOT_DIR/dist/bin/prjct.mjs"
+
+  # Check if compiled version exists
+  if [ ! -f "$DIST_BIN" ]; then
+    echo "Building for Node.js (first run)..."
+    node "$ROOT_DIR/scripts/build.js" || {
+      echo "Error: Build failed. Please ensure you have write permissions."
+      exit 1
+    }
+  fi
+
+  exec node "$DIST_BIN" "$@"
+}
+
+# Main execution
+main() {
+  # Prefer bun if available (faster, native TS support)
+  if check_bun; then
+    run_with_bun "$@"
+  elif check_node; then
+    run_with_node "$@"
+  else
+    echo "Error: Neither bun nor node is installed."
+    echo ""
+    echo "Please install one of:"
+    echo "  - Bun (recommended): https://bun.sh"
+    echo "  - Node.js 18+: https://nodejs.org"
+    exit 1
+  fi
+}
+
+main "$@"

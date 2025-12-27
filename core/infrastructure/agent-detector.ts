@@ -7,43 +7,7 @@
 
 import fs from 'fs'
 import path from 'path'
-
-// ============ Types ============
-
-export interface AgentCapabilities {
-  mcp: boolean
-  filesystem: string
-  markdown: boolean
-  emojis: boolean
-  colors: boolean
-  interactive: boolean
-  agents: boolean
-}
-
-export interface AgentConfig {
-  configFile: string | null
-  commandPrefix: string
-  responseStyle: string
-  dataDir: string
-  agentsDir: string | null
-  commandsDir: string | null
-}
-
-export interface AgentEnvironment {
-  hasMCP: boolean
-  sandboxed: boolean
-  persistent: boolean
-  agentSystem: boolean
-}
-
-export interface AgentInfo {
-  type: string
-  name: string
-  isSupported: boolean
-  capabilities: AgentCapabilities
-  config: AgentConfig
-  environment: AgentEnvironment
-}
+import type { DetectedAgent } from '../types'
 
 declare const global: typeof globalThis & {
   mcp?: { filesystem?: unknown }
@@ -51,11 +15,11 @@ declare const global: typeof globalThis & {
 
 // ============ Module State (for caching) ============
 
-let cachedAgent: AgentInfo | null = null
+let cachedAgent: DetectedAgent | null = null
 
 // ============ Agent Definitions ============
 
-const CLAUDE_AGENT: AgentInfo = {
+const CLAUDE_AGENT: DetectedAgent = {
   type: 'claude',
   name: 'Claude (Code + Desktop)',
   isSupported: true,
@@ -84,7 +48,7 @@ const CLAUDE_AGENT: AgentInfo = {
   },
 }
 
-const TERMINAL_AGENT: AgentInfo = {
+const TERMINAL_AGENT: DetectedAgent = {
   type: 'terminal',
   name: 'Terminal/CLI',
   isSupported: true,
@@ -137,22 +101,22 @@ export function isClaudeEnvironment(): boolean {
   return false
 }
 
-export function getClaudeAgent(): AgentInfo {
+export function getClaudeAgent(): DetectedAgent {
   return { ...CLAUDE_AGENT }
 }
 
-export function getTerminalAgent(): AgentInfo {
+export function getTerminalAgent(): DetectedAgent {
   return { ...TERMINAL_AGENT }
 }
 
-export async function detect(): Promise<AgentInfo> {
+export async function detect(): Promise<DetectedAgent> {
   if (cachedAgent) return cachedAgent
 
   cachedAgent = isClaudeEnvironment() ? getClaudeAgent() : getTerminalAgent()
   return cachedAgent
 }
 
-export function setAgent(type: string): AgentInfo {
+export function setAgent(type: string): DetectedAgent {
   cachedAgent = type === 'claude' ? getClaudeAgent() : getTerminalAgent()
   return cachedAgent
 }

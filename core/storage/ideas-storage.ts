@@ -8,24 +8,7 @@
 import { StorageManager } from './storage-manager'
 import { generateUUID } from '../schemas'
 import { getTimestamp } from '../utils/date-helper'
-
-export type IdeaStatus = 'pending' | 'converted' | 'archived'
-export type IdeaPriority = 'low' | 'medium' | 'high'
-
-export interface Idea {
-  id: string
-  text: string
-  status: IdeaStatus
-  priority: IdeaPriority
-  tags: string[]
-  addedAt: string
-  convertedTo?: string // featureId if converted
-}
-
-export interface IdeasJson {
-  ideas: Idea[]
-  lastUpdated: string
-}
+import type { Idea, IdeasJson, IdeaStatus, IdeaPriority } from '../types'
 
 class IdeasStorage extends StorageManager<IdeasJson> {
   constructor() {

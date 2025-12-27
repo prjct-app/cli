@@ -11,19 +11,9 @@
 import {
   type PermissionsConfig,
   type PermissionLevel,
-  DEFAULT_PERMISSIONS,
   buildDefaultPermissions,
 } from '../schemas/permissions'
-
-/**
- * Result of a permission check
- */
-export interface PermissionCheckResult {
-  allowed: boolean
-  level: PermissionLevel
-  matchedPattern?: string
-  reason?: string
-}
+import type { PermissionCheckResult } from '../types'
 
 /**
  * Simple glob pattern matching

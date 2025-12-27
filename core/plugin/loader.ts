@@ -83,10 +83,10 @@ class PluginLoader {
   }
 
   /**
-   * Load built-in plugins from core/plugins
+   * Load built-in plugins from core/plugin/builtin
    */
   async loadBuiltinPlugins(): Promise<void> {
-    const builtinPath = path.join(__dirname, '..', 'plugins')
+    const builtinPath = path.join(__dirname, 'builtin')
 
     try {
       const files = await fs.readdir(builtinPath)

@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.20.1] - 2025-12-26
+
+### Refactor: Type Consolidation
+
+Centralized ALL types in `core/types/` following DRY principles.
+
+**Changes:**
+- Moved types from `domain/task-stack.ts` → `types/domain.ts`
+- Moved types from `sync/*.ts` → `types/sync.ts`
+- Moved types from `storage/*.ts` → `types/storage.ts`
+- Moved types from `server/*.ts` → `types/server.ts`
+- Moved types from `utils/*.ts` → `types/utils.ts`
+- Added `types/plugin.ts` for webhook types
+- Updated all barrel exports to re-export from `core/types`
+- Renamed types to canonical names (TaskEntry → TaskStackEntry, etc.)
+
+**Stats:** 41 files changed, 606 insertions, 819 deletions (net -213 lines)
+
 ## [0.20.0] - 2025-12-21
 
 ### Feature: UX/UI Design Agent Integration

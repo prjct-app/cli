@@ -6,23 +6,7 @@
  * - LazyCache: Single-project lazy loading cache (for memory system)
  */
 
-export interface CacheEntry<T> {
-  data: T
-  timestamp: number
-}
-
-export interface CacheOptions {
-  /** TTL in milliseconds (default: 5000) */
-  ttl?: number
-  /** Max entries before eviction (default: 50) */
-  maxSize?: number
-}
-
-export interface CacheStats {
-  size: number
-  maxSize: number
-  ttl: number
-}
+import type { CacheEntry, CacheOptions, CacheStats } from '../types'
 
 /**
  * TTL Cache with LRU eviction

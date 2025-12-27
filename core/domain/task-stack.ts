@@ -8,60 +8,16 @@ import fs from 'fs/promises'
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import log from '../utils/logger'
+import type {
+  TaskStackEntry,
+  ParsedNowFile,
+  TaskStackMigrationResult,
+  TaskSwitchResult,
+  TaskStackSummary,
+} from '../types'
 
 const execAsync = promisify(exec)
 
-// =============================================================================
-// Types
-// =============================================================================
-
-export interface TaskEntry {
-  id: string
-  task: string
-  agent: string
-  status: 'active' | 'paused' | 'completed'
-  started: string
-  paused: string | null
-  resumed: string | null
-  completed: string | null
-  duration: number | null
-  durationFormatted?: string
-  complexity: string
-  dev: string
-  pauseReason?: string
-  pausedDuration?: number
-}
-
-export interface ParsedNowFile {
-  description: string
-  started: string | null
-  agent: string | null
-  complexity: string | null
-  dev: string | null
-}
-
-export interface MigrationResult {
-  migrated: boolean
-  hadTask?: boolean
-  task?: TaskEntry
-  error?: string
-}
-
-export interface SwitchResult {
-  paused: TaskEntry | null
-  resumed?: TaskEntry
-  started?: TaskEntry
-  type: 'resumed' | 'started'
-}
-
-export interface StackSummary {
-  active: TaskEntry | null
-  paused: TaskEntry[]
-  pausedCount: number
-  completed: TaskEntry[]
-  completedCount: number
-  totalTasks: number
-}
 
 // =============================================================================
 // Parser
@@ -166,7 +122,7 @@ export async function ensureStackFile(stackPath: string): Promise<void> {
 /**
  * Append entry to stack
  */
-export async function appendToStack(stackPath: string, entry: TaskEntry): Promise<void> {
+export async function appendToStack(stackPath: string, entry: TaskStackEntry): Promise<void> {
   await ensureStackFile(stackPath)
   const line = JSON.stringify(entry) + '\n'
   await fs.appendFile(stackPath, line)
@@ -175,7 +131,7 @@ export async function appendToStack(stackPath: string, entry: TaskEntry): Promis
 /**
  * Read all stack entries
  */
-export async function readStack(stackPath: string): Promise<TaskEntry[]> {
+export async function readStack(stackPath: string): Promise<TaskStackEntry[]> {
   await ensureStackFile(stackPath)
   const content = await fs.readFile(stackPath, 'utf8')
 
@@ -183,7 +139,7 @@ export async function readStack(stackPath: string): Promise<TaskEntry[]> {
     return []
   }
 
-  const entries: TaskEntry[] = []
+  const entries: TaskStackEntry[] = []
   const lines = content.split('\n').filter((line) => line.trim())
 
   for (const line of lines) {
@@ -200,7 +156,7 @@ export async function readStack(stackPath: string): Promise<TaskEntry[]> {
 /**
  * Write full stack to file
  */
-export async function writeStack(stackPath: string, stack: TaskEntry[]): Promise<void> {
+export async function writeStack(stackPath: string, stack: TaskStackEntry[]): Promise<void> {
   const content = stack.map((task) => JSON.stringify(task)).join('\n') + '\n'
   await fs.writeFile(stackPath, content)
 }
@@ -208,7 +164,7 @@ export async function writeStack(stackPath: string, stack: TaskEntry[]): Promise
 /**
  * Generate now.md content for a task
  */
-export function generateNowContent(task: TaskEntry | null, customContent: string | null, formatDurationFn: (ms: number) => string): string {
+export function generateNowContent(task: TaskStackEntry | null, customContent: string | null, formatDurationFn: (ms: number) => string): string {
   if (customContent !== undefined && customContent !== null) {
     return customContent
   }
@@ -258,7 +214,7 @@ Need to pause: \`/p:pause\`
  */
 export async function updateNowFile(
   nowPath: string,
-  task: TaskEntry | null,
+  task: TaskStackEntry | null,
   customContent: string | null,
   formatDurationFn: (ms: number) => string
 ): Promise<void> {
@@ -284,7 +240,7 @@ export class TaskStack {
   /**
    * Initialize stack system - migrate from legacy now.md if needed
    */
-  async initialize(): Promise<MigrationResult> {
+  async initialize(): Promise<TaskStackMigrationResult> {
     try {
       // Check if stack already exists
       await fs.access(this.stackPath)
@@ -298,7 +254,7 @@ export class TaskStack {
   /**
    * Migrate from legacy now.md to stack system
    */
-  async migrateFromLegacy(): Promise<MigrationResult> {
+  async migrateFromLegacy(): Promise<TaskStackMigrationResult> {
     try {
       const nowContent = await fs.readFile(this.nowPath, 'utf8')
 
@@ -312,7 +268,7 @@ export class TaskStack {
       const task = parseNowFile(nowContent)
 
       // Create initial stack entry
-      const entry: TaskEntry = {
+      const entry: TaskStackEntry = {
         id: `task-${Date.now()}`,
         task: task.description || 'Migrated task',
         agent: task.agent || 'unknown',
@@ -350,7 +306,7 @@ export class TaskStack {
   /**
    * Get active task
    */
-  async getActiveTask(): Promise<TaskEntry | null> {
+  async getActiveTask(): Promise<TaskStackEntry | null> {
     const stack = await readStack(this.stackPath)
     return stack.find((task) => task.status === 'active') || null
   }
@@ -358,7 +314,7 @@ export class TaskStack {
   /**
    * Get paused tasks
    */
-  async getPausedTasks(): Promise<TaskEntry[]> {
+  async getPausedTasks(): Promise<TaskStackEntry[]> {
     const stack = await readStack(this.stackPath)
     return stack
       .filter((task) => task.status === 'paused')
@@ -368,7 +324,7 @@ export class TaskStack {
   /**
    * Get all incomplete tasks
    */
-  async getIncompleteTasks(): Promise<TaskEntry[]> {
+  async getIncompleteTasks(): Promise<TaskStackEntry[]> {
     const stack = await readStack(this.stackPath)
     return stack.filter((task) => task.status !== 'completed')
   }
@@ -376,14 +332,14 @@ export class TaskStack {
   /**
    * Start a new task
    */
-  async startTask(description: string, agent: string = 'general', complexity: string = 'moderate'): Promise<TaskEntry> {
+  async startTask(description: string, agent: string = 'general', complexity: string = 'moderate'): Promise<TaskStackEntry> {
     // Check if there's already an active task
     const active = await this.getActiveTask()
     if (active) {
       throw new Error(`Already working on: ${active.task}. Use /p:pause to pause it first.`)
     }
 
-    const entry: TaskEntry = {
+    const entry: TaskStackEntry = {
       id: `task-${Date.now()}`,
       task: description,
       agent,
@@ -406,7 +362,7 @@ export class TaskStack {
   /**
    * Pause the active task
    */
-  async pauseTask(reason: string = ''): Promise<TaskEntry> {
+  async pauseTask(reason: string = ''): Promise<TaskStackEntry> {
     const active = await this.getActiveTask()
     if (!active) {
       throw new Error('No active task to pause')
@@ -431,7 +387,7 @@ export class TaskStack {
   /**
    * Resume a paused task
    */
-  async resumeTask(taskId: string | null = null): Promise<TaskEntry> {
+  async resumeTask(taskId: string | null = null): Promise<TaskStackEntry> {
     // Check if there's an active task
     const active = await this.getActiveTask()
     if (active) {
@@ -443,7 +399,7 @@ export class TaskStack {
       throw new Error('No paused tasks to resume')
     }
 
-    let taskToResume: TaskEntry | undefined
+    let taskToResume: TaskStackEntry | undefined
     if (taskId) {
       taskToResume = paused.find((t) => t.id === taskId)
       if (!taskToResume) {
@@ -476,7 +432,7 @@ export class TaskStack {
   /**
    * Complete the active task
    */
-  async completeTask(): Promise<TaskEntry> {
+  async completeTask(): Promise<TaskStackEntry> {
     const active = await this.getActiveTask()
     if (!active) {
       throw new Error('No active task to complete')
@@ -504,9 +460,9 @@ export class TaskStack {
   /**
    * Switch tasks (atomic pause + resume/start)
    */
-  async switchTask(targetTaskOrDescription: string): Promise<SwitchResult> {
+  async switchTask(targetTaskOrDescription: string): Promise<TaskSwitchResult> {
     const active = await this.getActiveTask()
-    let pausedTask: TaskEntry | null = null
+    let pausedTask: TaskStackEntry | null = null
 
     // Pause current if exists
     if (active) {
@@ -545,7 +501,7 @@ export class TaskStack {
   /**
    * Update a task in the stack
    */
-  async updateTask(updatedTask: TaskEntry): Promise<void> {
+  async updateTask(updatedTask: TaskStackEntry): Promise<void> {
     const stack = await readStack(this.stackPath)
     const index = stack.findIndex((t) => t.id === updatedTask.id)
 
@@ -560,7 +516,7 @@ export class TaskStack {
   /**
    * Update now.md to reflect current state
    */
-  async updateNowFile(task: TaskEntry | null, customContent: string | null = null): Promise<void> {
+  async updateNowFile(task: TaskStackEntry | null, customContent: string | null = null): Promise<void> {
     await updateNowFile(this.nowPath, task, customContent, formatDuration)
   }
 
@@ -579,7 +535,7 @@ export class TaskStack {
   /**
    * Get stack summary for display
    */
-  async getStackSummary(): Promise<StackSummary> {
+  async getStackSummary(): Promise<TaskStackSummary> {
     const active = await this.getActiveTask()
     const paused = await this.getPausedTasks()
     const stack = await readStack(this.stackPath)

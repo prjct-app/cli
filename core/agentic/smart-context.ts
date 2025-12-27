@@ -16,11 +16,7 @@ import type {
   SmartContextProjectState,
   FullContext,
   FilteredContext,
-  AgentInfo,
-  FeatureInfo,
-  PatternInfo,
   StackInfo,
-  FilterMetrics,
   DomainAnalysis,
 } from '../types'
 

@@ -17,7 +17,7 @@ import pathManager from './path-manager'
 import authorDetector from './author-detector'
 import { VERSION } from '../utils/version'
 import { getTimestamp } from '../utils/date-helper'
-import { ConfigError, getErrorMessage } from '../errors'
+import { getErrorMessage } from '../errors'
 import { isNotFoundError } from '../types/fs'
 import type { Author, LocalConfig, GlobalConfig } from '../types'
 

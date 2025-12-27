@@ -19,28 +19,29 @@ export interface Storage {
 }
 
 // =============================================================================
-// Storage Item Types
+// Shipped Storage Types
 // =============================================================================
 
 /**
- * Shipped feature record
+ * Shipped feature record (simple version used by shipped-storage.ts)
  */
 export interface ShippedFeature {
   id: string
   name: string
-  version?: string
-  type: 'feature' | 'fix' | 'improvement' | 'refactor'
-  agent?: string
+  shippedAt: string
+  version: string
   description?: string
-  changes: ShipChange[]
+  tasks?: string[]
+  duration?: string
+  type?: 'feature' | 'fix' | 'improvement' | 'refactor'
+  agent?: string
+  changes?: ShipChange[]
   codeSnippets?: string[]
   commit?: CommitInfo
   codeMetrics?: CodeMetrics
   qualityMetrics?: QualityMetrics
   quantitativeImpact?: string
-  duration?: Duration
   tasksCompleted?: number
-  shippedAt: string
   featureId?: string
 }
 
@@ -79,9 +80,16 @@ export interface Duration {
  * Shipped items collection
  */
 export interface ShippedJson {
-  items: ShippedFeature[]
+  shipped: ShippedFeature[]
   lastUpdated: string
 }
+
+// =============================================================================
+// Ideas Storage Types
+// =============================================================================
+
+export type IdeaStatus = 'pending' | 'converted' | 'completed' | 'archived'
+export type IdeaPriority = 'low' | 'medium' | 'high'
 
 /**
  * Idea record
@@ -89,10 +97,12 @@ export interface ShippedJson {
 export interface Idea {
   id: string
   text: string
+  status: IdeaStatus
+  priority: IdeaPriority
+  tags: string[]
+  addedAt: string
+  convertedTo?: string
   details?: string
-  priority: 'low' | 'medium' | 'high'
-  status: 'pending' | 'converted' | 'completed' | 'archived'
-  tags?: string[]
   painPoints?: string[]
   solutions?: string[]
   filesAffected?: string[]

@@ -38,9 +38,19 @@
 export { StorageManager } from './storage-manager'
 export { stateStorage } from './state-storage'
 export { queueStorage } from './queue-storage'
-export { ideasStorage, type Idea, type IdeasJson, type IdeaStatus, type IdeaPriority } from './ideas-storage'
-export { shippedStorage, type ShippedFeature, type ShippedJson } from './shipped-storage'
+export { ideasStorage } from './ideas-storage'
+export { shippedStorage } from './shipped-storage'
 
 // ========== GRANULAR STORAGE (Legacy) ==========
 export { getStorage, default } from './storage'
-export type { Storage } from '../types'
+
+// Re-export types from canonical location
+export type {
+  Storage,
+  Idea,
+  IdeasJson,
+  IdeaStatus,
+  IdeaPriority,
+  ShippedFeature,
+  ShippedJson,
+} from '../types'

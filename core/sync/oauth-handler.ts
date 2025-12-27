@@ -8,12 +8,7 @@
 
 import { authConfig } from './auth-config'
 import { syncClient } from './sync-client'
-
-export interface AuthResult {
-  success: boolean
-  email?: string
-  error?: string
-}
+import type { AuthResult } from '../types'
 
 class OAuthHandler {
   /**

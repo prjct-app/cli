@@ -13,11 +13,8 @@ import fs from 'fs'
 import path from 'path'
 import { stateStorage, queueStorage } from '../storage'
 import { outcomeAnalyzer } from '../outcomes'
-import type { StateJson, QueueJson } from '../schemas/state'
-import type { DetectedPattern } from '../outcomes/analyzer'
 import type {
   PromptProjectState,
-  Frontmatter,
   Template,
   PromptAgent,
   PromptContext,

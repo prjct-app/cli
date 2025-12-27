@@ -18,25 +18,9 @@
  */
 
 import crypto from 'crypto'
-import { EventTypes } from '../bus'
-import { HookPoints } from '../plugin/hooks'
-
-interface WebhookConfig {
-  url?: string
-  events?: string[]
-  secret?: string
-}
-
-interface PluginContext {
-  config: WebhookConfig
-}
-
-interface WebhookPayload {
-  event: string
-  timestamp: string
-  source: string
-  data: unknown
-}
+import { EventTypes } from '../../bus'
+import { HookPoints } from '../hooks'
+import type { WebhookConfig, WebhookPluginContext, WebhookPayload } from '../../types'
 
 const plugin = {
   name: 'webhook',
@@ -51,7 +35,7 @@ const plugin = {
   /**
    * Activate plugin
    */
-  async activate({ config }: PluginContext): Promise<void> {
+  async activate({ config }: WebhookPluginContext): Promise<void> {
     plugin.config = config
 
     if (!config.url) {

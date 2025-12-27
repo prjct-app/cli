@@ -8,20 +8,7 @@
 import fs from 'fs/promises'
 import path from 'path'
 import { TemplateError } from '../errors'
-
-// ============ Types ============
-
-export interface Frontmatter {
-  name?: string
-  description?: string
-  'allowed-tools'?: string[]
-  [key: string]: string | string[] | undefined
-}
-
-export interface ParsedTemplate {
-  frontmatter: Frontmatter
-  content: string
-}
+import type { Frontmatter, ParsedTemplate } from '../types'
 
 // ============ Module State (LRU Cache) ============
 

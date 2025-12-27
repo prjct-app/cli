@@ -8,9 +8,14 @@
  */
 
 export { createServer, startServer, DEFAULT_PORT } from './server'
-export type { ServerConfig, ServerInstance } from './server'
-
 export { createRoutes } from './routes'
-
 export { createSSEManager, SSE_EVENTS } from './sse'
-export type { SSEClient, SSEManager, SSEEventType } from './sse'
+
+// Re-export types from canonical location
+export type {
+  ServerConfig,
+  ServerInstance,
+  SSEClient,
+  SSEManager,
+  SSEEventType,
+} from '../types'

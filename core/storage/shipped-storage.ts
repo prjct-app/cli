@@ -8,21 +8,7 @@
 import { StorageManager } from './storage-manager'
 import { generateUUID } from '../schemas'
 import { getTimestamp } from '../utils/date-helper'
-
-export interface ShippedFeature {
-  id: string
-  name: string
-  shippedAt: string
-  version: string
-  description?: string
-  tasks?: string[] // Task IDs that were part of this ship
-  duration?: string // How long it took
-}
-
-export interface ShippedJson {
-  shipped: ShippedFeature[]
-  lastUpdated: string
-}
+import type { ShippedFeature, ShippedJson } from '../types'
 
 class ShippedStorage extends StorageManager<ShippedJson> {
   constructor() {
