@@ -4,6 +4,14 @@
       "command": "npx",
       "args": ["-y", "@upstash/context7-mcp@latest"],
       "description": "Library documentation lookup - use for framework/library docs"
+    },
+    "notion": {
+      "command": "npx",
+      "args": ["-y", "@notionhq/notion-mcp-server"],
+      "env": {
+        "OPENAPI_MCP_HEADERS": "{\"Authorization\": \"Bearer ${NOTION_TOKEN}\", \"Notion-Version\": \"2022-06-28\"}"
+      },
+      "description": "Notion integration for prjct dashboards and progress tracking (optional)"
     }
   },
   "usage": {
@@ -21,6 +29,26 @@
       "examples": [
         "resolve-library-id('nextjs') → get-library-docs('/vercel/next.js', 'app router')",
         "resolve-library-id('tailwindcss') → get-library-docs('/tailwindlabs/tailwindcss', 'configuration')"
+      ]
+    },
+    "notion": {
+      "when": [
+        "Syncing shipped features to Notion (auto on /p:ship)",
+        "Syncing ideas to Notion (auto on /p:idea)",
+        "Creating prjct databases during /p:init",
+        "Manual sync with /p:notion sync"
+      ],
+      "tools": [
+        "notion_create_database: Create a new database",
+        "notion_create_page: Create a page in a database",
+        "notion_update_page: Update an existing page",
+        "notion_query_database: Query database entries"
+      ],
+      "setup": [
+        "1. Create integration at https://www.notion.so/my-integrations",
+        "2. Set NOTION_TOKEN environment variable",
+        "3. Share a parent page with the integration",
+        "4. Run /p:notion setup to create databases"
       ]
     }
   }

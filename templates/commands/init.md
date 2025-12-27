@@ -136,6 +136,45 @@ WRITE: `.prjct/prjct.config.json`
 }
 ```
 
+## Step: Optional Integrations
+
+After core setup, offer optional integrations.
+
+### Notion Integration (Optional)
+
+Ask: "Would you like to connect with Notion for dashboards and progress tracking?"
+
+If yes:
+1. Guide user to create Notion integration at https://www.notion.so/my-integrations
+2. Ask for API token (starts with `ntn_`)
+3. Ask for parent page ID (where to create databases)
+4. Create 4 databases:
+   - prjct: Shipped Features
+   - prjct: Roadmap
+   - prjct: Ideas
+   - prjct: Active Tasks
+5. Store config in `project.json`:
+
+```json
+{
+  "integrations": {
+    "notion": {
+      "enabled": true,
+      "workspaceName": "{workspace}",
+      "databases": {
+        "shipped": "{dbId}",
+        "roadmap": "{dbId}",
+        "ideas": "{dbId}",
+        "tasks": "{dbId}"
+      },
+      "syncOn": { "ship": true, "idea": true }
+    }
+  }
+}
+```
+
+If no: Skip and continue (integration can be added later with `/p:notion setup`).
+
 ## Response
 
 ```
@@ -150,9 +189,13 @@ Structure:
 ├── sync/       # Backend events
 └── agents/     # Specialists
 
+Integrations:
+• Notion: {enabled|disabled}
+
 Next:
 • /p:sync - Analyze project and generate agents
 • /p:feature "{first_feature}" - Start first feature
+• /p:notion setup - Connect Notion (if skipped)
 • /p:help - See all commands
 ```
 

@@ -1,6 +1,6 @@
 {
   "name": "prjct-cli",
-  "version": "0.20.1",
+  "version": "0.21.0",
   "description": "Built for Claude - Ship fast, track progress, stay focused. Developer momentum tool for indie hackers.",
   "main": "core/index.ts",
   "bin": {
@@ -49,7 +49,7 @@
   "dependencies": {
     "@hono/node-server": "^1.13.7",
     "chalk": "^4.1.2",
-    "esbuild": "^0.24.2",
+    "esbuild": "^0.25.0",
     "glob": "^10.3.10",
     "hono": "^4.11.3",
     "jsonc-parser": "^3.3.1",
@@ -98,8 +98,5 @@
   "trustedDependencies": [
     "chalk",
     "prompts"
-  ],
-  "overrides": {
-    "esbuild": "^0.25.0"
-  }
+  ]
 }
