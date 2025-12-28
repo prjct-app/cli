@@ -31,16 +31,64 @@ Reads from **Storage (JSON)** as source of truth.
 
 ## Flow: commit
 
-1. Read: `storage/state.json` → get task context
-2. Git: `add .` → stage changes
-3. Create: commit message with prjct metadata
-4. Commit: with message
-5. Log: `memory/events.jsonl`
+### Step 1: Validate Branch
+READ: `.prjct/prjct.config.json` → extract `projectId`
+SET: `{globalPath}` = `~/.prjct-cli/projects/{projectId}`
+
+READ: `{globalPath}/storage/state.json`
+IF currentTask AND currentTask.branch:
+  SET: {expectedBranch} = currentTask.branch.name
+ELSE:
+  SET: {expectedBranch} = null
+
+BASH: `git branch --show-current`
+SET: {currentBranch} = result
+
+IF {currentBranch} == "main" OR {currentBranch} == "master":
+  OUTPUT:
+  ```
+  ⚠️ Cannot commit on protected branch: {currentBranch}
+
+  Start a task first with /p:now "task name" to create a feature branch.
+  ```
+  STOP
+
+IF {expectedBranch} AND {currentBranch} != {expectedBranch}:
+  OUTPUT:
+  ```
+  ⚠️ Branch mismatch
+
+  Current: {currentBranch}
+  Expected: {expectedBranch}
+
+  Switch to the correct branch: git checkout {expectedBranch}
+  ```
+  STOP
+
+### Step 2: Stage and Commit
+1. Git: `add .` → stage changes
+2. Create: commit message with prjct metadata
+3. Commit: with message
+4. Log: `memory/events.jsonl`
 
 ## Flow: push
 
+### Step 1: Check Protected Branch
+BASH: `git branch --show-current`
+SET: {currentBranch} = result
+
+IF {currentBranch} == "main" OR {currentBranch} == "master":
+  OUTPUT:
+  ```
+  ⚠️ Cannot push directly to protected branch: {currentBranch}
+
+  Use /p:ship to create a Pull Request instead.
+  ```
+  STOP
+
+### Step 2: Push
 1. Git: `status` → verify clean
-2. Git: `push` with branch tracking
+2. Git: `push -u origin {currentBranch}` with branch tracking
 3. Handle: errors (upstream, conflicts)
 
 ## Flow: sync
@@ -63,10 +111,38 @@ Co-Authored-By: @{github_dev}
 
 ## Response
 
+### Success
 ```
 ✅ Git {operation}
 
+Branch: {currentBranch}
 {operation_details}
 
 /p:ship | /p:status
 ```
+
+### Protected Branch Block
+```
+⚠️ Cannot {operation} on protected branch: {currentBranch}
+
+Use /p:ship to create a Pull Request instead.
+```
+
+### Branch Mismatch
+```
+⚠️ Branch mismatch
+
+Current: {currentBranch}
+Expected: {expectedBranch}
+
+Switch to the correct branch: git checkout {expectedBranch}
+```
+
+## Error Handling
+
+| Error | Response | Action |
+|-------|----------|--------|
+| On protected branch | "Cannot {op} on protected branch" | STOP |
+| Branch mismatch | Show expected vs current | STOP |
+| Push fails | "Push failed. Try: git pull --rebase" | STOP |
+| Conflicts | Show conflicted files | STOP |
