@@ -1,5 +1,5 @@
 ---
-allowed-tools: [Read, Write, Bash, Task, Glob]
+allowed-tools: [Read, Write, Bash, Task, Glob, AskUserQuestion]
 description: 'Report bug with auto-priority and auto-start'
 architecture: 'Write-Through (JSON → MD → Events)'
 storage-layer: true
@@ -129,6 +129,73 @@ GENERATE: {sessionId} = UUID v4
 bun -e "console.log(crypto.randomUUID())" 2>/dev/null || node -e "console.log(require('crypto').randomUUID())"
 ```
 
+### Step 5.5: Create Bug Branch
+
+#### Check Current Branch
+BASH: `git branch --show-current`
+SET: {currentBranch} = result
+
+IF {currentBranch} == "main" OR {currentBranch} == "master":
+  OUTPUT: "Creating bug branch..."
+
+  #### Handle Uncommitted Changes
+  BASH: `git status --porcelain`
+  SET: {hasChanges} = (result not empty)
+
+  IF {hasChanges}:
+    IF {severity} == "critical" OR {severity} == "high":
+      # Auto-stash for urgent bugs
+      BASH: `git stash push -m "prjct: stashed for urgent bug fix"`
+      SET: {stashedChanges} = true
+      OUTPUT: "Stashed changes for urgent bug fix"
+    ELSE:
+      USE AskUserQuestion:
+      ```
+      question: "Uncommitted changes detected. How to proceed?"
+      header: "Git Changes"
+      options:
+        - label: "Stash changes"
+          description: "Temporarily save changes, create branch, then continue"
+        - label: "Commit first"
+          description: "Commit current changes before switching"
+        - label: "Abort"
+          description: "Cancel and queue bug for later"
+      ```
+
+      IF choice == "Stash changes":
+        BASH: `git stash push -m "prjct: stashed for {description}"`
+        SET: {stashedChanges} = true
+      ELSE IF choice == "Commit first":
+        OUTPUT: "Commit your changes first, then run /p:bug again"
+        STOP
+      ELSE:
+        SET: {laterFlag} = true
+        SET: {autoStarted} = false
+        → Skip to Step 6
+
+  #### Create Bug Branch
+  SET: {bugSlug} = slugify({description})
+  LIMIT: {bugSlug} to 50 characters, lowercase, replace spaces with hyphens
+  SET: {branchName} = "bug/{bugSlug}"
+
+  BASH: `git checkout -b {branchName}`
+  IF command fails (branch exists):
+    BASH: `git checkout {branchName}`
+    IF still fails:
+      OUTPUT: "Failed to create/checkout branch: {branchName}"
+      SET: {laterFlag} = true
+      SET: {autoStarted} = false
+      → Skip to Step 6
+
+  SET: {branchCreated} = true
+  SET: {baseBranch} = {currentBranch}
+  OUTPUT: "✅ Created branch: {branchName}"
+
+ELSE:
+  SET: {branchName} = {currentBranch}
+  SET: {branchCreated} = false
+  SET: {baseBranch} = null
+
 ### Update state.json
 ```json
 {
@@ -139,7 +206,13 @@ bun -e "console.log(crypto.randomUUID())" 2>/dev/null || node -e "console.log(re
     "startedAt": "{now}",
     "sessionId": "{sessionId}",
     "type": "bug",
-    "priority": "{severity}"
+    "priority": "{severity}",
+    "branch": {
+      "name": "{branchName}",
+      "createdByPrjct": {branchCreated},
+      "baseBranch": "{baseBranch}",
+      "createdAt": "{now}"
+    }
   },
   "previousTask": {existing previousTask if any},
   "lastUpdated": "{now}"
@@ -156,6 +229,7 @@ WRITE: `{statePath}`
 Priority: {severity}
 Started: {now}
 Session: {sessionId}
+Branch: {branchName}
 ```
 WRITE: `{nowContextPath}`
 
@@ -221,7 +295,7 @@ ELSE:
 ```
 🐛 [{severity}] {description}
 
-Started working on fix
+Branch: {branchName}
 Session: {sessionId}
 
 /p:done when fixed
@@ -312,4 +386,6 @@ Start later: /p:now "🐛 payment not processing"
 | Error | Response | Action |
 |-------|----------|--------|
 | No project | "No prjct project" | STOP |
+| On protected branch with changes | Ask/auto-stash for urgent | WAIT |
+| Branch creation fails | Queue bug for later | CONTINUE |
 | Write fails | Log warning | CONTINUE |

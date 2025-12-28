@@ -1,5 +1,5 @@
 ---
-allowed-tools: [Read, Write, Bash]
+allowed-tools: [Read, Write, Bash, AskUserQuestion]
 description: 'Set or show current task with session tracking'
 ---
 
@@ -61,6 +61,72 @@ IF currentTask.description == task:
   OUTPUT: "🎯 Continuing: {task}"
   STOP
 
+### Step 2.5: Git Branch Management
+
+#### 2.5.1 Check Current Branch
+BASH: `git branch --show-current`
+SET: {currentBranch} = result
+
+#### 2.5.2 Block Protected Branches
+IF {currentBranch} == "main" OR {currentBranch} == "master":
+  OUTPUT:
+  ```
+  ⚠️ Cannot work on protected branch: {currentBranch}
+
+  Creating feature branch for your task...
+  ```
+
+  #### 2.5.3 Handle Uncommitted Changes
+  BASH: `git status --porcelain`
+  SET: {hasChanges} = (result not empty)
+
+  IF {hasChanges}:
+    USE AskUserQuestion:
+    ```
+    question: "Uncommitted changes detected. How to proceed?"
+    header: "Git Changes"
+    options:
+      - label: "Stash changes"
+        description: "Temporarily save changes, create branch, then continue"
+      - label: "Commit first"
+        description: "Commit current changes before switching"
+      - label: "Abort"
+        description: "Cancel and keep working on current branch"
+    ```
+
+    IF choice == "Stash changes":
+      BASH: `git stash push -m "prjct: stashed for {task}"`
+      SET: {stashedChanges} = true
+    ELSE IF choice == "Commit first":
+      OUTPUT: "Commit your changes first, then run /p:now again"
+      STOP
+    ELSE:
+      OUTPUT: "Aborted. Staying on {currentBranch}"
+      STOP
+
+  #### 2.5.4 Create Feature Branch
+  SET: {taskSlug} = slugify({task})
+  LIMIT: {taskSlug} to 50 characters, lowercase, replace spaces with hyphens
+
+  SET: {taskType} = "feature" (or "bug" if task contains bug keywords)
+  SET: {branchName} = "{taskType}/{taskSlug}"
+
+  BASH: `git checkout -b {branchName}`
+  IF command fails (branch exists):
+    BASH: `git checkout {branchName}`
+    IF still fails:
+      OUTPUT: "Failed to create/checkout branch: {branchName}"
+      STOP
+
+  SET: {branchCreated} = true
+  SET: {baseBranch} = {currentBranch}
+  OUTPUT: "✅ Created branch: {branchName}"
+
+ELSE:
+  SET: {branchName} = {currentBranch}
+  SET: {branchCreated} = false
+  SET: {baseBranch} = null
+
 ### Step 3: Create New Task
 GET timestamp: `bun -e "console.log(new Date().toISOString())" 2>/dev/null || node -e "console.log(new Date().toISOString())"`
 GET uuid: `bun -e "console.log(crypto.randomUUID())" 2>/dev/null || node -e "console.log(require('crypto').randomUUID())"`
@@ -83,7 +149,13 @@ WRITE to `{globalPath}/storage/state.json`:
     "startedAt": "{startedAt}",
     "sessionId": "{sessionId}",
     "estimate": "{estimate}",
-    "estimateSeconds": {estimateSeconds}
+    "estimateSeconds": {estimateSeconds},
+    "branch": {
+      "name": "{branchName}",
+      "createdByPrjct": {branchCreated},
+      "baseBranch": "{baseBranch}",
+      "createdAt": "{startedAt}"
+    }
   },
   "lastUpdated": "{startedAt}"
 }
@@ -98,6 +170,7 @@ WRITE: `{globalPath}/context/now.md`:
 
 Started: {startedAt}
 Session: {sessionId}
+Branch: {branchName}
 ```
 
 ### Step 6: Log Events
@@ -106,23 +179,24 @@ APPEND to `{globalPath}/memory/events.jsonl`
 
 ### Step 7: Output
 
-WITH estimate:
+WITH branch created:
 ```
 🎯 {task}
 
+Branch: {branchName}
 Session: {sessionId}
-Estimate: {estimate}
+{IF estimate: Estimate: {estimate}}
 
 /p:done when finished | /p:pause to take a break
 ```
 
-WITHOUT estimate:
+WITHOUT branch created (already on feature branch):
 ```
 🎯 {task}
 
+Branch: {branchName} (existing)
 Session: {sessionId}
-
-💡 Tip: Add estimate next time with /p:now "task" 2h
+{IF estimate: Estimate: {estimate}}
 
 /p:done when finished | /p:pause to take a break
 ```
@@ -133,6 +207,8 @@ Session: {sessionId}
 |-------|----------|--------|
 | No project | "No prjct project" | STOP |
 | Active task exists | Show options | STOP |
+| On protected branch with changes | Ask: stash/commit/abort | WAIT |
+| Branch creation fails | "Failed to create branch" | STOP |
 | Write fails | "Failed to create session" | STOP |
 
 ## References

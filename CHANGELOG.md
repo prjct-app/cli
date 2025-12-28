@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.23.0] - 2025-12-28
+
+### Feature: Branch + PR Workflow
+
+Integrated git branch management and PR-based shipping workflow.
+
+**Branch Management:**
+- `/p:now` auto-creates feature branches when on main/master
+- `/p:bug` auto-creates bug branches with proper naming
+- Handles uncommitted changes (stash/commit/abort prompts)
+- Tracks branch info in state.json
+
+**Protected Branch Validation:**
+- `/p:git` blocks commits/pushes to main/master
+- Validates current branch matches expected task branch
+- Clear error messages with recovery instructions
+
+**PR-Based Shipping (`/p:ship`):**
+- Creates PR via `gh` CLI instead of direct push
+- Generates PR description with quality metrics
+- Waits for CI checks (up to 10 min)
+- Records CI status (passed/failed/timeout)
+- Supports `--draft` flag for WIP PRs
+
+**Template Updates:**
+- `templates/commands/bug.md` - Branch creation + stashing
+- `templates/commands/git.md` - Protected branch checks
+- `templates/commands/now.md` - Feature branch workflow
+- `templates/commands/ship.md` - Full PR lifecycle
+
 ## [0.20.1] - 2025-12-26
 
 ### Refactor: Type Consolidation
