@@ -387,6 +387,15 @@ WRITE: `{globalPath}/context/CLAUDE.md`
 
 READ existing: `{globalPath}/project.json` (preserve createdAt)
 
+GET CLI version:
+```bash
+bun -e "console.log(require('./package.json').version)" 2>/dev/null || node -e "console.log(require('./package.json').version)"
+```
+SET: `{cliVersion}` = result (e.g., "0.24.0")
+
+CHECK: `{previousCliVersion}` = existing.cliVersion (if any)
+SET: `{isVersionUpgrade}` = previousCliVersion != cliVersion
+
 WRITE: `{globalPath}/project.json`
 
 ```json
@@ -395,6 +404,7 @@ WRITE: `{globalPath}/project.json`
   "repoPath": "{cwd}",
   "name": "{projectName}",
   "version": "{version}",
+  "cliVersion": "{cliVersion}",
   "techStack": {techStack},
   "fileCount": {fileCount},
   "commitCount": {commitCount},
@@ -411,6 +421,21 @@ WRITE: `{globalPath}/project.json`
 ## Step 7: Generate Claude Code Sub-Agents (AGENTIC)
 
 Generate sub-agents for Claude Code in the GLOBAL storage `{globalPath}/agents/` directory.
+
+### 7.0 PURGE Legacy Agents (CRITICAL)
+
+**ALWAYS purge all existing agents to ensure no legacy remains.**
+
+```bash
+rm -rf {globalPath}/agents/*
+```
+
+OUTPUT: "🗑️ Purged legacy agents"
+
+This ensures:
+- Old agent formats are removed
+- New agent templates are used
+- No outdated instructions remain
 
 ### 7.1 Create Directory
 
@@ -549,7 +574,7 @@ IF cloudSync AND no syncError:
 ## Output
 
 ```
-🔄 Deep Sync Complete
+🔄 Project synced to prjct v{cliVersion}
 
 📊 Project Stats
 ├── Files: {fileCount}
@@ -569,11 +594,24 @@ IF cloudSync AND no syncError:
 ├── context/shipped.md
 └── context/CLAUDE.md
 
-🤖 Claude Code Sub-Agents ({workflowAgents.length + domainAgents.length})
+🤖 Agents Regenerated ({workflowAgents.length + domainAgents.length})
 ├── Workflow: prjct-workflow, prjct-planner, prjct-shipper
 ├── Domain: {domainAgents.join(', ') || 'none'}
 {IF hasFrontendUI}
 └── 🎨 UX/UI: uxui.md (Priority: UX > UI)
+{ENDIF}
+
+{IF isVersionUpgrade}
+✨ New Features Available in v{cliVersion}:
+
+• /p:task - Unified task command with agentic classification
+• Automatic type detection (feature, bug, improvement, refactor, chore)
+• 7-phase development workflow for all task types
+• Git branch management with type-based prefixes
+• UX/UI design workflow for frontend tasks
+• Design expert integration
+
+Note: /p:now and /p:feature are deprecated. Use /p:task instead.
 {ENDIF}
 
 {IF cloudSync}
@@ -592,7 +630,7 @@ Next: Commit your work or continue coding
 {ELSE}
 ✨ Repository is clean!
 
-Next: /p:now to start a new task
+Next: /p:task "your next task"
 {ENDIF}
 ```
 

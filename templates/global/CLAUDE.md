@@ -33,11 +33,18 @@ Designed for [Claude](https://www.anthropic.com/claude)
 | Command | Purpose |
 |---------|---------|
 | `/p:sync` | Analyze project, generate agents |
-| `/p:now [task]` | Start/show current task |
+| `/p:task <description>` | Start task (auto-classifies type) |
 | `/p:done` | Complete current task |
 | `/p:ship [feature]` | Ship with quality checks |
 
-**Workflow**: `/p:sync` → `/p:now` → [work] → `/p:done` → `/p:ship`
+**Workflow**: `/p:sync` → `/p:task` → [work] → `/p:done` → `/p:ship`
+
+### Natural Language Triggers
+
+Messages starting with `p.` trigger commands:
+- `p. task add auth` → /p:task "add auth"
+- `p. done` → /p:done
+- `p. ship login` → /p:ship "login"
 
 ---
 
@@ -63,6 +70,6 @@ For detailed information, read these files:
 
 ---
 
-**Auto-managed by prjct-cli** | https://prjct.app | v0.19.0
+**Auto-managed by prjct-cli** | https://prjct.app | v0.24.0
 
 <!-- prjct:end - DO NOT REMOVE THIS MARKER -->
