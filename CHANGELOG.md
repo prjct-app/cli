@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.25.0] - 2025-12-30
+
+### Maintenance Release
+
+Version bump for release preparation.
+
 ## [0.24.0] - 2025-12-28
 
 ### Breaking Change: Unified Task Command
