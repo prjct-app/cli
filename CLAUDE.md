@@ -86,19 +86,18 @@ User Action → Storage (JSON) → Context (MD) → Sync Events
 ## Core Workflow
 
 ```
-/p:sync → /p:now "task" → [work] → /p:done → /p:ship
+/p:sync → /p:task "description" → [work] → /p:done → /p:ship
 ```
 
 ## Commands
 
-### Core Commands (14)
+### Core Commands
 | Command | Purpose |
 |---------|---------|
 | `/p:init` | Initialize project with deep analysis |
 | `/p:idea` | Transform ideas into architectures |
-| `/p:feature` | Add feature with value analysis |
+| `/p:task` | Start task with agentic classification + 7-phase workflow |
 | `/p:spec` | Create detailed specifications |
-| `/p:now [task]` | Start/show current task |
 | `/p:pause` | Pause active task |
 | `/p:resume` | Resume paused task |
 | `/p:next` | Show priority queue |
@@ -108,6 +107,13 @@ User Action → Storage (JSON) → Context (MD) → Sync Events
 | `/p:dash` | Unified dashboard |
 | `/p:sync` | Analyze repo, generate agents |
 | `/p:suggest` | Context-aware recommendations |
+
+### Deprecated Commands
+| Command | Migration |
+|---------|-----------|
+| `/p:now` | Use `/p:task` instead |
+| `/p:feature` | Use `/p:task` instead |
+| `/p:work` | Use `/p:task` instead |
 
 ### Optional Commands
 | Command | Purpose |
@@ -123,9 +129,10 @@ User Action → Storage (JSON) → Context (MD) → Sync Events
 
 Messages starting with `p.` trigger commands:
 ```
-p. start auth → /p:now "auth"
-p. done       → /p:done
-p. ship login → /p:ship "login"
+p. task add auth → /p:task "add auth"
+p. task fix login → /p:task "fix login"
+p. done          → /p:done
+p. ship login    → /p:ship "login"
 ```
 
 ## Template-Driven Execution

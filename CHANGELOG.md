@@ -1,5 +1,45 @@
 # Changelog
 
+## [0.24.0] - 2025-12-28
+
+### Breaking Change: Unified Task Command
+
+Consolidated `/p:now`, `/p:feature`, and `/p:work` into a single `/p:task` command with agentic classification.
+
+**New Command: `/p:task`**
+- Unified entry point for all work
+- Agentic type classification (not keyword-based)
+- 7-phase development workflow for all task types
+- Git branch management with type-based prefixes
+
+**Agentic Classification:**
+The agent analyzes task descriptions holistically to determine type:
+- `feature` - Adds new functionality
+- `bug` - Something broken or incorrect
+- `improvement` - Enhances existing functionality
+- `refactor` - Reorganizes without behavior change
+- `chore` - Maintenance, deps, docs
+
+**Migration:**
+```
+/p:now "fix login bug"     →  /p:task "fix login bug"
+/p:feature "add dark mode" →  /p:task "add dark mode"
+/p:work "update docs"      →  /p:task "update docs"
+```
+
+**Deprecated Commands:**
+- `/p:now` - Redirects to `/p:task`
+- `/p:feature` - Redirects to `/p:task`
+- `/p:work` - Redirects to `/p:task`
+
+**Files Changed:**
+- `templates/commands/task.md` - New unified template
+- `templates/commands/now.md` - Deprecated, redirects
+- `templates/commands/feature.md` - Deprecated, redirects
+- `core/commands/command-data.ts` - Registry updates
+- `templates/global/CLAUDE.md` - Updated workflow docs
+- `CLAUDE.md` - Updated project docs
+
 ## [0.23.0] - 2025-12-28
 
 ### Feature: Branch + PR Workflow

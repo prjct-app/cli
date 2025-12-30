@@ -130,28 +130,63 @@ export class SetupCommands extends PrjctCommandsBase {
       const settingsPath = path.join(claudeDir, 'settings.json')
       const statusLinePath = path.join(claudeDir, 'prjct-statusline.sh')
 
+      // Version is embedded at install time
       const scriptContent = `#!/bin/bash
 # prjct Status Line for Claude Code
-# Shows ⚡ prjct with animated spinner when command is running
+# Shows version update notifications and current task
+
+# Current CLI version (embedded at install time)
+CLI_VERSION="${VERSION}"
 
 # Read JSON context from stdin (provided by Claude Code)
 read -r json
 
-# Spinner frames
-frames=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
+# Extract cwd from JSON
+CWD=$(echo "$json" | grep -o '"cwd"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"cwd"[[:space:]]*:[[:space:]]*"\\([^"]*\\)".*/\\1/')
 
-# Calculate frame based on time (changes every 80ms)
-frame=$(($(date +%s%N 2>/dev/null || echo 0) / 80000000 % 10))
+# Check if this is a prjct project
+CONFIG="$CWD/.prjct/prjct.config.json"
+if [[ -f "$CONFIG" ]]; then
+  # Extract projectId
+  PROJECT_ID=$(grep -o '"projectId"[[:space:]]*:[[:space:]]*"[^"]*"' "$CONFIG" | sed 's/.*"projectId"[[:space:]]*:[[:space:]]*"\\([^"]*\\)".*/\\1/')
 
-# Check if prjct command is running
-running_file="$HOME/.prjct-cli/.running"
+  if [[ -n "$PROJECT_ID" ]]; then
+    PROJECT_JSON="$HOME/.prjct-cli/projects/$PROJECT_ID/project.json"
 
-if [ -f "$running_file" ]; then
-  task=$(cat "$running_file" 2>/dev/null || echo "working")
-  echo "⚡ prjct \${frames[$frame]} $task"
-else
-  echo "⚡ prjct"
+    # Check version mismatch
+    if [[ -f "$PROJECT_JSON" ]]; then
+      PROJECT_VERSION=$(grep -o '"cliVersion"[[:space:]]*:[[:space:]]*"[^"]*"' "$PROJECT_JSON" | sed 's/.*"cliVersion"[[:space:]]*:[[:space:]]*"\\([^"]*\\)".*/\\1/')
+
+      # If no cliVersion or different version, show update notice
+      if [[ -z "$PROJECT_VERSION" ]] || [[ "$PROJECT_VERSION" != "$CLI_VERSION" ]]; then
+        echo "⚠️ prjct v$CLI_VERSION available! Run /p:sync"
+        exit 0
+      fi
+    else
+      # No project.json means project needs sync
+      echo "⚠️ prjct v$CLI_VERSION available! Run /p:sync"
+      exit 0
+    fi
+
+    # Show current task if exists
+    STATE="$HOME/.prjct-cli/projects/$PROJECT_ID/storage/state.json"
+    if [[ -f "$STATE" ]]; then
+      TASK=$(grep -o '"description"[[:space:]]*:[[:space:]]*"[^"]*"' "$STATE" | head -1 | sed 's/.*"description"[[:space:]]*:[[:space:]]*"\\([^"]*\\)".*/\\1/')
+      STATUS=$(grep -o '"status"[[:space:]]*:[[:space:]]*"[^"]*"' "$STATE" | head -1 | sed 's/.*"status"[[:space:]]*:[[:space:]]*"\\([^"]*\\)".*/\\1/')
+
+      if [[ -n "$TASK" ]] && [[ "$STATUS" == "active" ]]; then
+        # Truncate task to 40 chars
+        TASK_SHORT="\${TASK:0:40}"
+        [[ \${#TASK} -gt 40 ]] && TASK_SHORT="$TASK_SHORT..."
+        echo "🎯 $TASK_SHORT"
+        exit 0
+      fi
+    fi
+  fi
 fi
+
+# Default: show prjct branding
+echo "⚡ prjct"
 `
       fs.writeFileSync(statusLinePath, scriptContent, { mode: 0o755 })
 
@@ -204,8 +239,8 @@ fi
     console.log(`  ${chalk.bold('1.')} Initialize your project:`)
     console.log(`     ${chalk.green('cd your-project && prjct init')}`)
     console.log('')
-    console.log(`  ${chalk.bold('2.')} Set your current focus:`)
-    console.log(`     ${chalk.green('prjct now "build auth"')}`)
+    console.log(`  ${chalk.bold('2.')} Start your first task:`)
+    console.log(`     ${chalk.green('prjct task "build auth"')}`)
     console.log('')
     console.log(`  ${chalk.bold('3.')} Ship & celebrate:`)
     console.log(`     ${chalk.green('prjct ship "user login"')}`)

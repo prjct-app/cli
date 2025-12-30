@@ -19,6 +19,7 @@ export const ProjectItemSchema = z.object({
   repoPath: z.string(),
   description: z.string().optional(),
   version: z.string().optional(),
+  cliVersion: z.string().optional(), // prjct-cli version used to sync
   techStack: z.array(z.string()),
   fileCount: z.number(),
   commitCount: z.number(),
