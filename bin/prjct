@@ -5,10 +5,40 @@
 # Detects available runtime (bun preferred, node fallback)
 # and executes the appropriate entry point.
 #
-# @version 1.0.0
+# @version 1.1.0
 
-# Get the directory where this script is located
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# Resolve symlinks to get the actual script location
+resolve_symlink() {
+  TARGET="$1"
+
+  # Try readlink -f (Linux, newer macOS)
+  if command -v readlink >/dev/null 2>&1; then
+    RESOLVED="$(readlink -f "$TARGET" 2>/dev/null)"
+    if [ -n "$RESOLVED" ]; then
+      echo "$RESOLVED"
+      return
+    fi
+  fi
+
+  # Fallback: manual symlink resolution
+  while [ -L "$TARGET" ]; do
+    DIR="$(dirname "$TARGET")"
+    TARGET="$(readlink "$TARGET")"
+    # Handle relative symlinks
+    case "$TARGET" in
+      /*) ;;
+      *) TARGET="$DIR/$TARGET" ;;
+    esac
+  done
+
+  # Get absolute path
+  DIR="$(cd "$(dirname "$TARGET")" && pwd)"
+  echo "$DIR/$(basename "$TARGET")"
+}
+
+# Get the actual script location (resolving symlinks)
+SCRIPT_PATH="$(resolve_symlink "$0")"
+SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Check if bun is available
