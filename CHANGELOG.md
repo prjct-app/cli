@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.25.1] - 2026-01-01
+
+### Bug Fix: npm install symlink resolution
+
+**Fixed:** CLI fails when invoked via npm symlink (`node_modules/.bin/prjct`)
+
+**Root Cause:**
+The shell wrapper script `bin/prjct` used `dirname "$0"` to find `prjct.ts`, which returns the symlink's directory (`.bin/`) instead of the actual script location (`prjct-cli/bin/`).
+
+**Solution:**
+Added `resolve_symlink()` function that properly resolves symlinks before determining paths. Works on both Linux (`readlink -f`) and macOS (manual resolution fallback).
+
+**Files Changed:**
+- `bin/prjct` - Added symlink resolution (v1.0.0 → v1.1.0)
+
 ## [0.25.0] - 2025-12-30
 
 ### Maintenance Release
