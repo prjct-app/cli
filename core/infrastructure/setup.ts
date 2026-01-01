@@ -117,6 +117,9 @@ export async function run(): Promise<SetupResults> {
   // Step 5: Save version in editors-config
   await editorsConfig.saveConfig(VERSION, installer.getInstallPath())
 
+  // Step 6: Migrate existing projects to add cliVersion
+  await migrateProjectsCliVersion()
+
   // Show results
   showResults(results)
 
@@ -125,6 +128,54 @@ export async function run(): Promise<SetupResults> {
 
 // Default export for CommonJS require
 export default { run }
+
+/**
+ * Migrate existing projects to add cliVersion field
+ * This clears the status line warning after npm update
+ */
+async function migrateProjectsCliVersion(): Promise<void> {
+  try {
+    const projectsDir = path.join(os.homedir(), '.prjct-cli', 'projects')
+
+    if (!fs.existsSync(projectsDir)) {
+      return
+    }
+
+    const projectDirs = fs.readdirSync(projectsDir, { withFileTypes: true })
+      .filter(dirent => dirent.isDirectory())
+      .map(dirent => dirent.name)
+
+    let migrated = 0
+
+    for (const projectId of projectDirs) {
+      const projectJsonPath = path.join(projectsDir, projectId, 'project.json')
+
+      if (!fs.existsSync(projectJsonPath)) {
+        continue
+      }
+
+      try {
+        const content = fs.readFileSync(projectJsonPath, 'utf8')
+        const project = JSON.parse(content)
+
+        // Only update if cliVersion is missing or different
+        if (project.cliVersion !== VERSION) {
+          project.cliVersion = VERSION
+          fs.writeFileSync(projectJsonPath, JSON.stringify(project, null, 2))
+          migrated++
+        }
+      } catch {
+        // Skip invalid project.json files
+      }
+    }
+
+    if (migrated > 0) {
+      console.log(`   ${GREEN}✓${NC} Updated ${migrated} project(s) to v${VERSION}`)
+    }
+  } catch {
+    // Silently fail - migration is optional
+  }
+}
 
 /**
  * Install status line script with version check
