@@ -87,20 +87,82 @@ IF no task description provided:
 
 ---
 
-## Step 3: Check for Active Task
+## Step 3: Handle Active Task Conflict (AGENTIC)
 
 READ: `{globalPath}/storage/state.json`
 
 IF currentTask exists AND status == "active" AND description != {task}:
-  OUTPUT:
-  ```
-  Already working on: {currentTask.description}
 
-  Options:
-  - /p:done - Complete current task first
-  - /p:pause - Pause and switch
+  ### 3.1 Calculate Active Time
+  SET: {elapsedTime} = time since currentTask.startedAt
+  FORMAT: as "Xh Ym"
+
+  ### 3.2 Ask User What To Do
+  USE AskUserQuestion:
   ```
-  STOP
+  question: "Active task: '{currentTask.description}' ({elapsedTime}). How to proceed?"
+  header: "Active Task"
+  options:
+    - label: "Complete current first"
+      description: "Mark '{currentTask.description}' as done, then start new"
+    - label: "Pause and switch"
+      description: "Pause current, start '{task}' immediately"
+    - label: "Cancel"
+      description: "Continue with '{currentTask.description}'"
+  ```
+
+  ### 3.3 Execute Choice
+  IF choice == "Complete current first":
+    SET: {completedTask} = currentTask
+    SET: {now} = GetTimestamp()
+    CALCULATE: duration from startedAt to now
+
+    SET: previousTask = { ...completedTask, "status": "completed", "completedAt": "{now}", "duration": "{duration}" }
+    SET: currentTask = null
+    WRITE: `{statePath}`
+
+    APPEND to `{memoryPath}`:
+    {"timestamp":"{now}","action":"task_completed","taskId":"{completedTask.id}","resolution":"completed_for_new_task"}
+
+    OUTPUT: "Completed: {completedTask.description} ({duration})"
+    CONTINUE to Step 4
+
+  IF choice == "Pause and switch":
+    SET: {now} = GetTimestamp()
+    SET: pausedTask = { ...currentTask, "status": "paused", "pausedAt": "{now}", "pauseReason": "switch" }
+    SET: currentTask = null
+    WRITE: `{statePath}`
+
+    APPEND to `{memoryPath}`:
+    {"timestamp":"{now}","action":"task_paused","taskId":"{pausedTask.id}","reason":"switch"}
+
+    OUTPUT: "Paused: {pausedTask.description}"
+    CONTINUE to Step 4
+
+  IF choice == "Cancel":
+    OUTPUT: "Continuing: {currentTask.description}"
+    STOP
+
+### 3.4 Check for Matching Paused Task
+IF pausedTask exists AND pausedTask.description == {task}:
+  USE AskUserQuestion:
+  ```
+  question: "Found paused task: '{task}'. Resume or start fresh?"
+  header: "Paused Task"
+  options:
+    - label: "Resume paused"
+      description: "Continue where you left off"
+    - label: "Start fresh"
+      description: "Create new task, keep old paused"
+  ```
+
+  IF choice == "Resume paused":
+    SET: {now} = GetTimestamp()
+    SET: currentTask = { ...pausedTask, "status": "active", "resumedAt": "{now}" }
+    SET: pausedTask = null
+    WRITE: `{statePath}`
+    OUTPUT: "Resuming: {task}"
+    STOP
 
 IF currentTask.description == {task}:
   OUTPUT: "Continuing: {task}"
@@ -555,6 +617,18 @@ WRITE: `{queuePath}`
 {firstTask} = first item from {tasks}
 GENERATE: {sessionId} = UUID v4
 
+### Build subtasks array (for features with multiple tasks)
+IF {tasks}.length > 1:
+  SET: {subtasksArray} = []
+  FOR each task in {tasks} with index:
+    SET: {subtaskStatus} = IF index == 0 THEN "active" ELSE "pending"
+    APPEND: { "id": "{task.id}", "description": "{task.description}", "status": "{subtaskStatus}", "completedAt": null }
+  SET: {hasSubtasks} = true
+  SET: {parentDescription} = "{task}"
+ELSE:
+  SET: {hasSubtasks} = false
+
+### Build currentTask object
 ```json
 {
   "currentTask": {
@@ -570,6 +644,27 @@ GENERATE: {sessionId} = UUID v4
       "createdByPrjct": {branchCreated},
       "baseBranch": "{baseBranch}",
       "createdAt": "{now}"
+    },
+    "subtasks": {hasSubtasks} ? {subtasksArray} : null,
+    "currentSubtaskIndex": {hasSubtasks} ? 0 : null,
+    "parentDescription": {hasSubtasks} ? "{parentDescription}" : null,
+    "workflow": {
+      "phase": "implement",
+      "checkpoints": {
+        "analyze": { "completedAt": "{now}", "data": { "scope": "{scope}", "taskCount": {taskCount}, "impact": "{impact}" } },
+        "branch": { "completedAt": "{now}", "data": { "branchName": "{branchName}", "baseBranch": "{baseBranch}" } },
+        "implement": null,
+        "test": null,
+        "review": null,
+        "merge": null,
+        "tag": null,
+        "release": null,
+        "deploy": null,
+        "register": null,
+        "verify": null
+      },
+      "startedAt": "{now}",
+      "lastCheckpoint": "branch"
     }
   },
   "lastUpdated": "{now}"
@@ -633,7 +728,9 @@ WRITE: `{syncPath}`
 
 APPEND to: `{memoryPath}`
 ```json
-{"timestamp":"{now}","action":"task_started","taskId":"{firstTask.id}","type":"{taskType}","description":"{task}","branch":"{branchName}"}
+{"timestamp":"{now}","action":"workflow_started","taskId":"{firstTask.id}","type":"{taskType}","description":"{task}","branch":"{branchName}","phases":11}
+{"timestamp":"{now}","action":"checkpoint_completed","taskId":"{firstTask.id}","checkpoint":"analyze"}
+{"timestamp":"{now}","action":"checkpoint_completed","taskId":"{firstTask.id}","checkpoint":"branch"}
 ```
 
 ---
@@ -647,13 +744,21 @@ Type: {taskType}
 Branch: {branchName}
 Tasks: {taskCount}
 Impact: {impact} | Effort: {effort}
+Phase: implement (2/11 checkpoints)
 
 Started: {firstTask.description}
 
-Next:
-- Work on the task
-- /p:done - When finished
-- /p:next - See full queue
+Workflow:
+1. analyze ✓
+2. branch ✓
+3. implement ← (current)
+4. test
+5. review
+6. merge
+7-10. ship
+11. verify
+
+Next: p. test when code is ready
 ```
 
 ---
