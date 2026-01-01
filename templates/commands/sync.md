@@ -383,20 +383,25 @@ WRITE: `{globalPath}/context/CLAUDE.md`
 
 ---
 
-## Step 6: Update project.json
+## Step 6: Update project.json (CRITICAL: cliVersion)
 
-READ existing: `{globalPath}/project.json` (preserve createdAt)
+READ existing: `{globalPath}/project.json` (preserve createdAt, integrations)
 
-GET CLI version:
+GET CLI version (REQUIRED - this clears the status line warning):
 ```bash
 bun -e "console.log(require('./package.json').version)" 2>/dev/null || node -e "console.log(require('./package.json').version)"
 ```
-SET: `{cliVersion}` = result (e.g., "0.24.0")
+SET: `{cliVersion}` = result (e.g., "0.25.1")
 
 CHECK: `{previousCliVersion}` = existing.cliVersion (if any)
-SET: `{isVersionUpgrade}` = previousCliVersion != cliVersion
+SET: `{isVersionUpgrade}` = previousCliVersion != cliVersion OR previousCliVersion is missing
 
-WRITE: `{globalPath}/project.json`
+**CRITICAL**: The `cliVersion` field MUST be written to project.json. This field:
+- Clears the "⚠️ prjct v{version} available!" status line warning
+- Indicates which CLI version last synced this project
+- If missing, the warning will persist even after sync
+
+WRITE: `{globalPath}/project.json` (merge with existing, but ALWAYS update these fields):
 
 ```json
 {
@@ -404,7 +409,7 @@ WRITE: `{globalPath}/project.json`
   "repoPath": "{cwd}",
   "name": "{projectName}",
   "version": "{version}",
-  "cliVersion": "{cliVersion}",
+  "cliVersion": "{cliVersion}",  // ← REQUIRED: Must match CLI version to clear warning
   "techStack": {techStack},
   "fileCount": {fileCount},
   "commitCount": {commitCount},
@@ -412,7 +417,8 @@ WRITE: `{globalPath}/project.json`
   "currentBranch": "{currentBranch}",
   "hasUncommittedChanges": {hasUncommittedChanges},
   "createdAt": "{existingCreatedAt || GetTimestamp()}",
-  "lastSync": "{GetTimestamp()}"
+  "lastSync": "{GetTimestamp()}",
+  "integrations": "{existing.integrations || {}}"  // ← Preserve integrations
 }
 ```
 
