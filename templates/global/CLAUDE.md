@@ -12,7 +12,7 @@
 
 ### 2. Project Detection
 Read `.prjct/prjct.config.json` → extract `projectId`
-- If missing: "No prjct project. Run /p:init first." → STOP
+- If missing: "No prjct project. Run `p. init` first." → STOP
 
 ### 3. Timestamps
 ```bash
@@ -30,21 +30,21 @@ Designed for [Claude](https://www.anthropic.com/claude)
 
 ## Quick Reference
 
-| Command | Purpose |
+| Trigger | Purpose |
 |---------|---------|
-| `/p:sync` | Analyze project, generate agents |
-| `/p:task <description>` | Start task (auto-classifies type) |
-| `/p:done` | Complete current task |
-| `/p:ship [feature]` | Ship with quality checks |
+| `p. sync` | Analyze project, generate agents |
+| `p. task <description>` | Start task (auto-classifies type) |
+| `p. done` | Complete current task |
+| `p. ship [feature]` | Ship with quality checks |
 
-**Workflow**: `/p:sync` → `/p:task` → [work] → `/p:done` → `/p:ship`
+**Workflow**: `p. sync` → `p. task` → [work] → `p. done` → `p. ship`
 
-### Natural Language Triggers
+### How It Works
 
-Messages starting with `p.` trigger commands:
-- `p. task add auth` → /p:task "add auth"
-- `p. done` → /p:done
-- `p. ship login` → /p:ship "login"
+Messages starting with `p.` trigger prjct commands:
+- `p. task add auth` → starts task "add auth"
+- `p. done` → completes current task
+- `p. ship login` → ships "login" feature
 
 ---
 

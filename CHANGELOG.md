@@ -1,5 +1,48 @@
 # Changelog
 
+## [0.26.0] - 2026-01-01
+
+### Complete Development Cycle with Workflow Integrity
+
+Major feature: 11-phase workflow system that ensures all development steps are completed. No more skipped version bumps, missing changelogs, or untracked ships.
+
+**New Commands:**
+- `p. test` - Run tests, advance from implement → test phase
+- `p. review` - MCP code review + GitHub approvals, advance test → review
+- `p. merge` - Merge PR to main, advance review → merge
+- `p. verify` - Validate all 11 checkpoints complete, close workflow
+
+**Workflow Phases:**
+```
+p. task → (implement) → p. test → p. review → p. merge → p. ship → p. verify
+```
+
+| Phase | Command | Action |
+|-------|---------|--------|
+| 1. analyze | p. task | PM agent breakdown |
+| 2. branch | p. task | Create feature branch |
+| 3. implement | (manual) | Write code |
+| 4. test | p. test | Run tests |
+| 5. review | p. review | MCP + GitHub approvals |
+| 6. merge | p. merge | Merge PR |
+| 7-10. ship | p. ship | Tag, release, deploy, register |
+| 11. verify | p. verify | Validate & close |
+
+**Phase Validation:**
+Each command validates the workflow phase before executing. Cannot skip steps.
+
+**Checkpoint Tracking:**
+- All phases tracked in `state.json` with timestamps
+- Events logged to `memory/events.jsonl`
+- Full audit trail for every workflow
+
+**Updated Commands:**
+- `task.md` - Initializes workflow with 11 checkpoints
+- `ship.md` - Validates merge phase, sets 4 checkpoints atomically
+- `done.md` - Clarified as subtask completion
+- `pause.md` - Preserves workflow state
+- `resume.md` - Shows workflow phase on resume
+
 ## [0.25.1] - 2026-01-01
 
 ### Bug Fix: npm install symlink resolution

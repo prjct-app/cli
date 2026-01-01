@@ -86,53 +86,55 @@ User Action → Storage (JSON) → Context (MD) → Sync Events
 ## Core Workflow
 
 ```
-/p:sync → /p:task "description" → [work] → /p:done → /p:ship
+p. sync → p. task "description" → [work] → p. done → p. ship
 ```
 
 ## Commands
 
+Use `p. <command>` to trigger any prjct command.
+
 ### Core Commands
-| Command | Purpose |
+| Trigger | Purpose |
 |---------|---------|
-| `/p:init` | Initialize project with deep analysis |
-| `/p:idea` | Transform ideas into architectures |
-| `/p:task` | Start task with agentic classification + 7-phase workflow |
-| `/p:spec` | Create detailed specifications |
-| `/p:pause` | Pause active task |
-| `/p:resume` | Resume paused task |
-| `/p:next` | Show priority queue |
-| `/p:done` | Complete current task |
-| `/p:ship` | Ship with quality checks |
-| `/p:bug` | Report bug with auto-priority |
-| `/p:dash` | Unified dashboard |
-| `/p:sync` | Analyze repo, generate agents |
-| `/p:suggest` | Context-aware recommendations |
+| `p. init` | Initialize project with deep analysis |
+| `p. idea` | Transform ideas into architectures |
+| `p. task` | Start task with agentic classification + 7-phase workflow |
+| `p. spec` | Create detailed specifications |
+| `p. pause` | Pause active task |
+| `p. resume` | Resume paused task |
+| `p. next` | Show priority queue |
+| `p. done` | Complete current task |
+| `p. ship` | Ship with quality checks |
+| `p. bug` | Report bug with auto-priority |
+| `p. dash` | Unified dashboard |
+| `p. sync` | Analyze repo, generate agents |
+| `p. suggest` | Context-aware recommendations |
 
 ### Deprecated Commands
-| Command | Migration |
+| Trigger | Migration |
 |---------|-----------|
-| `/p:now` | Use `/p:task` instead |
-| `/p:feature` | Use `/p:task` instead |
-| `/p:work` | Use `/p:task` instead |
+| `p. now` | Use `p. task` instead |
+| `p. feature` | Use `p. task` instead |
+| `p. work` | Use `p. task` instead |
 
 ### Optional Commands
-| Command | Purpose |
+| Trigger | Purpose |
 |---------|---------|
-| `/p:design` | System architecture design |
-| `/p:cleanup` | Clean temp files |
-| `/p:analyze` | Deep repo analysis |
-| `/p:undo` / `/p:redo` | Snapshot management |
-| `/p:git` | Smart git operations |
-| `/p:test` | Run tests with auto-fix |
+| `p. design` | System architecture design |
+| `p. cleanup` | Clean temp files |
+| `p. analyze` | Deep repo analysis |
+| `p. undo` / `p. redo` | Snapshot management |
+| `p. git` | Smart git operations |
+| `p. test` | Run tests with auto-fix |
 
-## Natural Language Trigger
+## How It Works
 
-Messages starting with `p.` trigger commands:
+Messages starting with `p.` trigger prjct commands:
 ```
-p. task add auth → /p:task "add auth"
-p. task fix login → /p:task "fix login"
-p. done          → /p:done
-p. ship login    → /p:ship "login"
+p. task add auth   → starts task "add auth"
+p. task fix login  → starts task "fix login"
+p. done            → completes current task
+p. ship login      → ships "login" feature
 ```
 
 ## Template-Driven Execution

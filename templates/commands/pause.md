@@ -1,5 +1,5 @@
 ---
-allowed-tools: [Read, Write, Bash]
+allowed-tools: [Read, Write, Bash, AskUserQuestion]
 description: 'Pause current session with reason'
 timestamp-rule: 'GetTimestamp() for all timestamps'
 architecture: 'Write-Through (JSON → MD → Events)'
@@ -89,15 +89,42 @@ IF {currentTask} is null OR {currentTask.status} != "active":
     OUTPUT: "⚠️ No active session to pause."
     STOP
 
-## Step 3: Get Pause Reason
+## Step 3: Get Pause Reason (AGENTIC)
 
 IF {reason} not provided:
-  ASK user to select reason (blocked, switch, break, research)
-  OR auto-detect "break" as default
+  USE AskUserQuestion:
+  ```
+  question: "Why are you pausing '{currentTask.description}'?"
+  header: "Pause Reason"
+  options:
+    - label: "Blocked"
+      description: "Waiting on external dependency"
+    - label: "Switching task"
+      description: "Starting a different, higher priority task"
+    - label: "Taking a break"
+      description: "Stepping away temporarily"
+    - label: "Researching"
+      description: "Need to investigate more before continuing"
+  ```
+
+  SET: {reason} = choice mapped to (blocked, switch, break, research)
 
 IF {reason} == "blocked":
-  ASK for blocker note: "What's blocking you?"
-  SET: {blockerNote} = user response
+  USE AskUserQuestion:
+  ```
+  question: "What's blocking you?"
+  header: "Blocker"
+  options:
+    - label: "Waiting for review"
+      description: "Code review or approval needed"
+    - label: "Waiting for API/credentials"
+      description: "External access or keys needed"
+    - label: "Waiting for clarification"
+      description: "Need more info on requirements"
+    - label: "Technical blocker"
+      description: "Dependency or infrastructure issue"
+  ```
+  SET: {blockerNote} = choice (user can also provide custom text)
 
 ## Step 4: Calculate Duration So Far
 
@@ -120,9 +147,15 @@ SET: {durationFormatted} = format as "Xh Ym" or "Xm"
   "pauseReason": "{reason}",
   "pauseNote": "{blockerNote}",
   "estimate": "{currentTask.estimate}",
-  "estimateSeconds": {currentTask.estimateSeconds}
+  "estimateSeconds": {currentTask.estimateSeconds},
+  "workflow": "{currentTask.workflow}",
+  "subtasks": "{currentTask.subtasks}",
+  "currentSubtaskIndex": {currentTask.currentSubtaskIndex},
+  "branch": "{currentTask.branch}"
 }
 ```
+
+**Note**: The workflow field is preserved so the task can resume at the correct phase.
 
 ### Update state.json
 READ: `{statePath}`

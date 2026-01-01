@@ -1,6 +1,6 @@
 ---
-allowed-tools: [Read, Write, Bash]
-description: 'Resume paused session'
+allowed-tools: [Read, Write, Bash, AskUserQuestion]
+description: 'Resume paused or interrupted session'
 timestamp-rule: 'GetTimestamp() for all timestamps'
 architecture: 'Write-Through (JSON → MD → Events)'
 storage-layer: true
@@ -54,7 +54,7 @@ IF file not found:
   STOP
 
 PARSE JSON
-EXTRACT: {currentTask}, {pausedTask}
+EXTRACT: {currentTask}, {pausedTask}, {interruptedTask}
 
 IF {currentTask} exists AND {currentTask.status} == "active":
   CALCULATE: {elapsed} = time since last start
@@ -65,47 +65,93 @@ IF {currentTask} exists AND {currentTask.status} == "active":
   Session: {currentTask.sessionId}
   Working for: {elapsed}
 
-  /p:done to complete | /p:pause to pause
+  p. done to complete | p. pause to pause
   ```
   STOP
 
-IF {pausedTask} is null:
+### Handle interruptedTask (priority check)
+IF {interruptedTask} exists AND {pausedTask} exists:
+  # Both exist - ask user which to resume
+  SET: {interruptedElapsed} = time since interruptedTask.interruptedAt
+  SET: {pausedElapsed} = time since pausedTask.pausedAt
+
+  USE AskUserQuestion:
+  ```
+  question: "Multiple tasks waiting. Which one to resume?"
+  header: "Resume Task"
+  options:
+    - label: "{interruptedTask.description}"
+      description: "Interrupted {interruptedElapsed} ago (by {interruptedTask.interruptReason})"
+    - label: "{pausedTask.description}"
+      description: "Paused {pausedElapsed} ago ({pausedTask.pauseReason})"
+  ```
+
+  IF choice == interruptedTask.description:
+    SET: {taskToResume} = {interruptedTask}
+    SET: {resumeType} = "interrupted"
+    SET: {clearField} = "interruptedTask"
+  ELSE:
+    SET: {taskToResume} = {pausedTask}
+    SET: {resumeType} = "paused"
+    SET: {clearField} = "pausedTask"
+
+ELSE IF {interruptedTask} exists:
+  # Only interrupted task exists
+  SET: {taskToResume} = {interruptedTask}
+  SET: {resumeType} = "interrupted"
+  SET: {clearField} = "interruptedTask"
+
+ELSE IF {pausedTask} exists:
+  # Only paused task exists
+  SET: {taskToResume} = {pausedTask}
+  SET: {resumeType} = "paused"
+  SET: {clearField} = "pausedTask"
+
+ELSE:
   OUTPUT:
   ```
-  ⚠️ No paused session to resume.
+  ⚠️ No paused or interrupted session to resume.
 
   Start a new task:
-  • /p:now <task>
+  • p. task <task>
   ```
   STOP
 
-## Step 3: Calculate Pause Duration
+## Step 3: Calculate Away Duration
 
 SET: {now} = GetTimestamp()
-SET: {pauseDurationSeconds} = seconds between {pausedTask.pausedAt} and {now}
-SET: {pauseFormatted} = format as "Xh Ym" or "Xm"
+
+IF {resumeType} == "interrupted":
+  SET: {awayDurationSeconds} = seconds between {taskToResume.interruptedAt} and {now}
+ELSE:
+  SET: {awayDurationSeconds} = seconds between {taskToResume.pausedAt} and {now}
+
+SET: {awayFormatted} = format as "Xh Ym" or "Xm"
 
 ## Step 4: Update Storage (SOURCE OF TRUTH)
 
 ### Prepare resumed task
 ```json
 {
-  "id": "{pausedTask.id}",
-  "description": "{pausedTask.description}",
+  "id": "{taskToResume.id}",
+  "description": "{taskToResume.description}",
   "status": "active",
-  "startedAt": "{pausedTask.startedAt}",
+  "startedAt": "{taskToResume.startedAt}",
   "resumedAt": "{now}",
-  "sessionId": "{pausedTask.sessionId}",
-  "duration": {pausedTask.duration},
-  "estimate": "{pausedTask.estimate}",
-  "estimateSeconds": {pausedTask.estimateSeconds}
+  "sessionId": "{taskToResume.sessionId}",
+  "duration": {taskToResume.duration},
+  "estimate": "{taskToResume.estimate}",
+  "estimateSeconds": {taskToResume.estimateSeconds},
+  "subtasks": {taskToResume.subtasks},
+  "currentSubtaskIndex": {taskToResume.currentSubtaskIndex},
+  "parentDescription": "{taskToResume.parentDescription}"
 }
 ```
 
 ### Update state.json
 READ: `{statePath}`
 SET: state.currentTask = resumed task object
-SET: state.pausedTask = null
+SET: state.{clearField} = null  # Clear pausedTask or interruptedTask based on which was resumed
 SET: state.lastUpdated = {now}
 WRITE: `{statePath}`
 
@@ -116,12 +162,13 @@ WRITE: `{nowContextPath}`
 ```markdown
 # NOW
 
-**{pausedTask.description}**
+**{taskToResume.description}**
 
-Started: {pausedTask.startedAt}
+Started: {taskToResume.startedAt}
 Resumed: {now}
-Session: {pausedTask.sessionId}
-{IF pausedTask.estimate: Estimate: {pausedTask.estimate}}
+Session: {taskToResume.sessionId}
+{IF taskToResume.estimate: Estimate: {taskToResume.estimate}}
+{IF taskToResume.subtasks: Subtask: {currentSubtask.description}}
 ```
 
 ## Step 6: Queue Sync Event (FOR BACKEND)
@@ -133,10 +180,11 @@ APPEND event:
   "type": "task.resumed",
   "path": ["state"],
   "data": {
-    "taskId": "{pausedTask.id}",
-    "description": "{pausedTask.description}",
+    "taskId": "{taskToResume.id}",
+    "description": "{taskToResume.description}",
     "resumedAt": "{now}",
-    "pauseDuration": {pauseDurationSeconds}
+    "awayDuration": {awayDurationSeconds},
+    "resumeType": "{resumeType}"
   },
   "timestamp": "{now}",
   "projectId": "{projectId}"
@@ -148,22 +196,54 @@ WRITE: `{syncPath}`
 
 APPEND to: `{memoryPath}`
 
-Single line (JSONL):
+IF {resumeType} == "interrupted":
 ```json
-{"timestamp":"{now}","action":"task_resumed","taskId":"{pausedTask.id}","sessionId":"{pausedTask.sessionId}","task":"{pausedTask.description}","pauseDuration":{pauseDurationSeconds}}
+{"timestamp":"{now}","action":"task_resumed_from_interrupt","taskId":"{taskToResume.id}","sessionId":"{taskToResume.sessionId}","task":"{taskToResume.description}","awayDuration":{awayDurationSeconds}}
+```
+ELSE:
+```json
+{"timestamp":"{now}","action":"task_resumed","taskId":"{taskToResume.id}","sessionId":"{taskToResume.sessionId}","task":"{taskToResume.description}","pauseDuration":{awayDurationSeconds}}
 ```
 
 ## Output
 
-SUCCESS:
+### Resumed from pause (with workflow):
+IF {taskToResume.workflow} exists:
 ```
-▶️ Resumed: {pausedTask.description}
+▶️ Resumed: {taskToResume.description}
 
-Session: {pausedTask.sessionId}
-Was paused: {pauseFormatted}
-Total active: {pausedTask.duration} (before this stretch)
+Session: {taskToResume.sessionId}
+Was paused: {awayFormatted}
+Phase: {taskToResume.workflow.phase} ({checkpointCount}/11 checkpoints)
 
-/p:done when finished | /p:pause for another break
+Next step based on phase:
+- implement: Continue coding, then p. test
+- test: Run p. test
+- review: Run p. review
+- merge: Run p. merge
+- register: Run p. verify
+```
+
+### Resumed from pause (legacy, no workflow):
+```
+▶️ Resumed: {taskToResume.description}
+
+Session: {taskToResume.sessionId}
+Was paused: {awayFormatted}
+Total active: {taskToResume.duration} (before this stretch)
+
+p. done when finished | p. pause for another break
+```
+
+### Resumed from interrupt (bug):
+```
+▶️ Resumed: {taskToResume.description}
+
+Session: {taskToResume.sessionId}
+Interrupted: {awayFormatted} ago (for bug fix)
+Phase: {taskToResume.workflow.phase}
+
+Continue where you left off.
 ```
 
 ## Error Handling

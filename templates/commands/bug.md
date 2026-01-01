@@ -110,7 +110,7 @@ WRITE: `{queuePath}`
 ### Calculate queue position
 {position} = index of task in array + 1
 
-## Step 5: Auto-Start Task (unless --later)
+## Step 5: Handle Active Task (AGENTIC)
 
 READ: `{statePath}`
 
@@ -119,9 +119,41 @@ IF {laterFlag} == true:
   → Skip to Step 6
 
 IF currentTask exists AND status == "active":
-  {autoStarted} = false
-  {conflictTask} = currentTask.description
-  → Continue to Step 6
+  SET: {conflictTask} = currentTask.description
+  SET: {elapsedTime} = time since currentTask.startedAt (format: "Xh Ym" or "Xm")
+
+  USE AskUserQuestion:
+  ```
+  question: "Bug [{severity}]: {description}. Active task: '{conflictTask}' ({elapsedTime}). How to proceed?"
+  header: "Bug Reported"
+  options:
+    - label: "Pause current and fix bug"
+      description: "Interrupt '{conflictTask}', start bug fix now"
+    - label: "Queue bug for later"
+      description: "Add to queue, continue current task"
+  ```
+
+  IF choice == "Queue bug for later":
+    SET: {autoStarted} = false
+    → Skip to Step 6
+
+  IF choice == "Pause current and fix bug":
+    ### Save current task as interrupted (different from paused)
+    SET: {now} = GetTimestamp()
+    SET: state.interruptedTask = {
+      ...currentTask,
+      "interruptedAt": "{now}",
+      "interruptReason": "bug",
+      "interruptedBy": "{taskId}"
+    }
+
+    APPEND to `{memoryPath}`:
+    ```json
+    {"timestamp":"{now}","action":"task_interrupted","taskId":"{currentTask.id}","reason":"bug","bugId":"{taskId}"}
+    ```
+
+    OUTPUT: "Paused: {conflictTask}"
+    → Continue to Start Bug below
 
 ### No active task - Auto-Start
 GENERATE: {sessionId} = UUID v4
@@ -311,17 +343,15 @@ Priority: {severity}
 Start: /p:now "{bugDescription}"
 ```
 
-### Already Working on Something
+### Interrupted Task (user chose to fix bug)
 ```
 🐛 [{severity}] {description}
 
-Queued at position #{position}
-Priority: {severity}
+⏸️ Paused: {conflictTask}
+Branch: {branchName}
+Session: {sessionId}
 
-⚠️ Already working on: {conflictTask}
-Complete current task first or use /p:pause
-
-Start later: /p:now "{bugDescription}"
+p. done when fixed → will ask to resume '{conflictTask}'
 ```
 
 ## Examples
@@ -365,20 +395,45 @@ Session: x9y8z7w6-...
 /p:done when fixed
 ```
 
-### Example 4: Already Working on Something
+### Example 4: Bug While Working on Task (Agentic)
 ```
 Input: /p:bug payment not processing
+
+[AskUserQuestion appears]:
+Bug [high]: payment not processing. Active task: 'implement auth flow' (45m). How to proceed?
+- Pause current and fix bug
+- Queue bug for later
+
+User chooses: "Pause current and fix bug"
 
 Output:
 🐛 [high] payment not processing
 
-Queued at position #1
-Priority: high
+⏸️ Paused: implement auth flow
+Branch: bug/payment-not-processing
+Session: x9y8z7w6-...
 
-⚠️ Already working on: implement auth flow
-Complete current task first or use /p:pause
+p. done when fixed → will ask to resume 'implement auth flow'
+```
 
-Start later: /p:now "🐛 payment not processing"
+### Example 5: Bug Queued for Later (Agentic)
+```
+Input: /p:bug minor css alignment issue
+
+[AskUserQuestion appears]:
+Bug [low]: minor css alignment issue. Active task: 'implement auth flow' (1h 15m). How to proceed?
+- Pause current and fix bug
+- Queue bug for later
+
+User chooses: "Queue bug for later"
+
+Output:
+🐛 [low] minor css alignment issue
+
+Queued at position #3
+Priority: low
+
+Start: p. task "🐛 minor css alignment issue"
 ```
 
 ## Error Handling

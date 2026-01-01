@@ -24,6 +24,100 @@ IF missing: "No prjct project. Run /p:init first." → STOP
 
 SET: `{globalPath}` = `~/.prjct-cli/projects/{projectId}`
 
+### Step 1.5: Validate Workflow Phase
+
+READ: `{globalPath}/storage/state.json`
+
+IF currentTask exists AND currentTask.workflow exists:
+  IF currentTask.workflow.phase != "merge":
+    OUTPUT:
+    ```
+    Cannot ship. Current phase: {currentTask.workflow.phase}
+
+    Required phase: merge
+
+    Workflow: analyze → branch → implement → test → review → merge → ship → verify
+
+    Complete previous phases first:
+    - p. test (if in implement)
+    - p. review (if in test)
+    - p. merge (if in review)
+    ```
+    STOP
+
+### Step 1.6: Validate Open Tasks (AGENTIC)
+
+IF currentTask exists AND status == "active":
+  SET: {openTaskDescription} = currentTask.description
+  SET: {elapsedTime} = time since currentTask.startedAt (format: "Xh Ym" or "Xm")
+
+  ### Check for related subtasks
+  IF currentTask.subtasks exists:
+    SET: {pendingSubtasks} = subtasks where status == "pending"
+    SET: {pendingCount} = {pendingSubtasks}.length + 1  # +1 for current
+  ELSE:
+    SET: {pendingCount} = 1
+
+  USE AskUserQuestion:
+  ```
+  question: "Active task: '{openTaskDescription}' ({elapsedTime}). {pendingCount} task(s) open. Ship anyway?"
+  header: "Open Tasks"
+  options:
+    - label: "Complete all and ship"
+      description: "Mark {pendingCount} task(s) as done, then ship"
+    - label: "Complete current only"
+      description: "Finish '{openTaskDescription}', ship now"
+    - label: "Cancel"
+      description: "Return to work, ship later"
+  ```
+
+  IF choice == "Cancel":
+    OUTPUT: "Ship cancelled. Continue working on: {openTaskDescription}"
+    STOP
+
+  IF choice == "Complete all and ship":
+    ### Mark all subtasks complete
+    IF currentTask.subtasks exists:
+      SET: {now} = GetTimestamp()
+      FOR each subtask in currentTask.subtasks:
+        IF subtask.status != "completed":
+          SET: subtask.status = "completed"
+          SET: subtask.completedAt = "{now}"
+
+    ### Mark current task complete
+    SET: {now} = GetTimestamp()
+    SET: previousTask = {
+      ...currentTask,
+      "status": "completed",
+      "completedAt": "{now}"
+    }
+    SET: currentTask = null
+    WRITE: `{globalPath}/storage/state.json`
+
+    APPEND to `{globalPath}/memory/events.jsonl`:
+    ```json
+    {"timestamp":"{now}","action":"task_auto_completed","reason":"ship","taskId":"{previousTask.id}"}
+    ```
+
+    OUTPUT: "✅ Completed: {openTaskDescription}"
+
+  IF choice == "Complete current only":
+    SET: {now} = GetTimestamp()
+    SET: previousTask = {
+      ...currentTask,
+      "status": "completed",
+      "completedAt": "{now}"
+    }
+    SET: currentTask = null
+    WRITE: `{globalPath}/storage/state.json`
+
+    APPEND to `{globalPath}/memory/events.jsonl`:
+    ```json
+    {"timestamp":"{now}","action":"task_auto_completed","reason":"ship","taskId":"{previousTask.id}"}
+    ```
+
+    OUTPUT: "✅ Completed: {openTaskDescription}"
+
 ### Step 2: Pre-flight Checks
 
 #### 2.1 Check for changes
@@ -302,42 +396,101 @@ IF currentTask:
   ```
   WRITE: `{globalPath}/storage/state.json`
 
-### Step 8: Update Storage
+### Step 8: Update Storage and Workflow Checkpoints
 GET timestamp: `bun -e "console.log(new Date().toISOString())" 2>/dev/null || node -e "console.log(new Date().toISOString())"`
 GET uuid: `bun -e "console.log(crypto.randomUUID())" 2>/dev/null || node -e "console.log(require('crypto').randomUUID())"`
 
+SET: {now} = timestamp
+SET: {shippedId} = uuid
+
+### 8.1 Update Workflow Checkpoints (if workflow exists)
+READ: `{globalPath}/storage/state.json`
+
+IF currentTask AND currentTask.workflow exists:
+  SET: currentTask.workflow.phase = "register"
+
+  ### Set tag checkpoint
+  SET: currentTask.workflow.checkpoints.tag = {
+    "completedAt": "{now}",
+    "data": { "version": "{newVersion}", "tagName": "v{newVersion}" }
+  }
+
+  ### Set release checkpoint
+  SET: currentTask.workflow.checkpoints.release = {
+    "completedAt": "{now}",
+    "data": { "prUrl": "{prUrl}", "prNumber": {prNumber} }
+  }
+
+  ### Set deploy checkpoint (manual reminder)
+  SET: currentTask.workflow.checkpoints.deploy = {
+    "completedAt": "{now}",
+    "data": { "reminded": true, "manual": true }
+  }
+
+  ### Set register checkpoint
+  SET: currentTask.workflow.checkpoints.register = {
+    "completedAt": "{now}",
+    "data": { "shippedId": "{shippedId}", "version": "{newVersion}" }
+  }
+
+  SET: currentTask.workflow.lastCheckpoint = "register"
+
+  WRITE: `{globalPath}/storage/state.json`
+
+  ### Log workflow events
+  APPEND to `{globalPath}/memory/events.jsonl`:
+  ```json
+  {"timestamp":"{now}","action":"phase_advanced","taskId":"{currentTask.id}","from":"merge","to":"register"}
+  {"timestamp":"{now}","action":"checkpoint_completed","taskId":"{currentTask.id}","checkpoint":"tag","data":{"version":"{newVersion}"}}
+  {"timestamp":"{now}","action":"checkpoint_completed","taskId":"{currentTask.id}","checkpoint":"release"}
+  {"timestamp":"{now}","action":"checkpoint_completed","taskId":"{currentTask.id}","checkpoint":"deploy"}
+  {"timestamp":"{now}","action":"checkpoint_completed","taskId":"{currentTask.id}","checkpoint":"register"}
+  ```
+
+### 8.2 Update shipped.json
 READ: `{globalPath}/storage/shipped.json` (or create default)
 PREPEND new ship object:
 ```json
 {
-  "id": "{uuid}",
+  "id": "{shippedId}",
   "name": "{feature}",
   "version": "{newVersion}",
-  "shippedAt": "{timestamp}",
+  "shippedAt": "{now}",
   "lint": "{lintStatus}",
   "tests": "{testStatus}",
   "branch": "{branchName}",
   "prUrl": "{prUrl}",
   "prNumber": {prNumber},
-  "ciStatus": "{ciStatus}"
+  "ciStatus": "{ciStatus}",
+  "taskId": "{currentTask.id}"
 }
 ```
 WRITE: `{globalPath}/storage/shipped.json`
 
-Generate context:
+### 8.3 Generate context
 WRITE: `{globalPath}/context/shipped.md`
 
-Queue sync event:
-APPEND to `{globalPath}/sync/pending.json`
+### 8.4 Queue sync event
+APPEND to `{globalPath}/sync/pending.json`:
+```json
+{"type":"feature.shipped","data":{"taskId":"{currentTask.id}","version":"{newVersion}","prUrl":"{prUrl}"},"timestamp":"{now}"}
+```
 
-Log to memory:
-APPEND to `{globalPath}/memory/events.jsonl`
+### 8.5 Deploy reminder
+OUTPUT:
+```
+📦 Deploy Reminder
+
+Version {newVersion} is ready to deploy.
+
+Remember to deploy to your platform when ready.
+```
 
 ### Step 9: Output
 
 IF {ciStatus} == "passed":
 ```
-🚀 PR Ready: {feature}
+🚀 Shipped: {feature}
 
 Version: {oldVersion} → {newVersion}
 Changes: {changeType} ({totalLines} lines in {filesChanged} files)
@@ -346,11 +499,22 @@ CI: ✅ Passed
 
 📎 PR: {prUrl}
 
-Next steps:
-1. Request review from team
-2. Merge when approved
+Phase: register (10/11 checkpoints)
 
-/p:done to close task | /p:next for more work
+Workflow:
+1. analyze ✓
+2. branch ✓
+3. implement ✓
+4. test ✓
+5. review ✓
+6. merge ✓
+7. tag ✓ - v{newVersion}
+8. release ✓
+9. deploy ✓ - (manual)
+10. register ✓
+11. verify ← next
+
+Next: p. verify to complete workflow
 ```
 
 IF {ciStatus} == "failed":
