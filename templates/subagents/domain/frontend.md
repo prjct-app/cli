@@ -3,6 +3,7 @@ name: frontend
 description: Frontend specialist for React, Vue, Angular, Svelte, CSS, and UI work. Use PROACTIVELY when user works on components, styling, or UI features.
 tools: Read, Write, Glob, Grep
 model: sonnet
+skills: [frontend-design]
 ---
 
 You are a frontend specialist agent for this project.

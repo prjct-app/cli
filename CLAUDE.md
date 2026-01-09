@@ -4,157 +4,125 @@ This file provides guidance to Claude Code when working with prjct-cli.
 
 ## Project Overview
 
-**prjct-cli** is a developer momentum tool. Track progress through slash commands without meetings or traditional PM overhead.
+**prjct-cli** is a developer momentum tool. Track progress through natural language commands (`p. <command>`) without meetings or traditional PM overhead.
+
+## HOW PRJCT WORKS
+
+When user types `p. <command>`, load the template from `templates/commands/{command}.md` and execute it **intelligently** - templates are GUIDANCE, not rigid scripts.
+
+```
+p. sync     → Analyze project, generate domain agents
+p. task X   → Start task with classification + breakdown
+p. done     → Complete current subtask
+p. ship X   → Ship feature with PR + version bump
+```
+
+---
 
 ## CRITICAL RULES
 
-### 1. Path Resolution
+### 1. Path Resolution (MOST IMPORTANT)
 **ALL writes go to global storage**: `~/.prjct-cli/projects/{projectId}/`
-- NEVER write to `.prjct/` (config only)
-- NEVER write to `./` (current directory)
+- **NEVER** write to `.prjct/` (config only, read-only)
+- **NEVER** write to `./` (current directory)
 
-### 2. Timestamps
-```bash
-# Prefer bun, fallback to node
-bun -e "console.log(new Date().toISOString())" 2>/dev/null || node -e "console.log(new Date().toISOString())"
+### 2. Before Any Command
 ```
-- Result: `"2025-12-20T10:30:00.000Z"`
-- NEVER hardcode dates or times
+1. Read .prjct/prjct.config.json → get projectId
+2. Set globalPath = ~/.prjct-cli/projects/{projectId}
+3. Execute using globalPath for all writes
+4. Log to {globalPath}/memory/events.jsonl
+```
 
-### 3. UUIDs
+### 3. Timestamps & UUIDs
 ```bash
+# Timestamp (NEVER hardcode)
+bun -e "console.log(new Date().toISOString())" 2>/dev/null || node -e "console.log(new Date().toISOString())"
+
+# UUID
 bun -e "console.log(crypto.randomUUID())" 2>/dev/null || node -e "console.log(require('crypto').randomUUID())"
 ```
 
-### 4. Git Commit Footer
+### 4. Git Commit Footer (CRITICAL - ALWAYS INCLUDE)
+
+**Every commit MUST include the prjct signature:**
+
 ```
 🤖 Generated with [p/](https://www.prjct.app/)
 Designed for [Claude](https://www.anthropic.com/claude)
+
 ```
 
-## Architecture: Write-Through Pattern
+**NON-NEGOTIABLE: The `🤖 Generated with [p/]` line identifies prjct-powered commits.**
+
+---
+
+## ARCHITECTURE: Write-Through Pattern
 
 ```
 User Action → Storage (JSON) → Context (MD) → Sync Events
 ```
 
-### Layer System (10 layers)
-
 | Layer | Path | Purpose |
 |-------|------|---------|
-| **Storage** | `storage/*.json` | Source of truth (state, queue, shipped) |
-| **Context** | `context/*.md` | Claude-readable generated files |
-| **Core** | `core/` | Current task data |
-| **Progress** | `progress/` | Historical progress tracking |
-| **Planning** | `planning/` | Ideas, roadmap, specs, tasks |
-| **Analysis** | `analysis/` | Repo analysis, tech stack |
-| **Memory** | `memory/` | Events, patterns, semantic memories |
-| **Agents** | `agents/` | Domain specialists (auto-generated) |
-| **Sessions** | `sessions/YYYY/MM/DD/` | Daily session logs |
-| **Sync** | `sync/` | Backend sync events |
+| **Storage** | `storage/*.json` | Source of truth |
+| **Context** | `context/*.md` | Claude-readable summaries |
+| **Memory** | `memory/events.jsonl` | Audit trail (append-only) |
+| **Agents** | `agents/*.md` | Domain specialists |
 
 ### File Structure
 ```
 ~/.prjct-cli/projects/{projectId}/
-├── project.json           # Project config (authors, version)
 ├── storage/
-│   ├── state.json         # Current task (source of truth)
-│   ├── queue.json         # Priority queue
-│   └── shipped.json       # Shipped features
+│   ├── state.json      # Current task (SOURCE OF TRUTH)
+│   ├── queue.json      # Task queue
+│   └── shipped.json    # Shipped features
 ├── context/
-│   ├── now.md             # Generated from state.json
-│   ├── next.md            # Generated from queue.json
-│   └── shipped.md         # Generated from shipped.json
-├── core/                  # Current task context
-├── progress/              # Historical metrics
-├── planning/
-│   ├── ideas.json         # Captured ideas
-│   ├── roadmap.json       # Feature roadmap
-│   └── tasks/             # Task breakdowns
-├── analysis/
-│   └── repo-analysis.json # Tech stack, patterns
+│   ├── now.md          # Current task (generated)
+│   └── next.md         # Queue (generated)
 ├── memory/
-│   ├── events.jsonl       # Audit trail
-│   └── context.jsonl      # Semantic memories
-├── agents/                # Auto-generated domain specialists
-├── sessions/              # Daily session logs (YYYY/MM/DD/)
+│   └── events.jsonl    # Audit trail
+├── agents/             # Domain specialists
 └── sync/
-    ├── pending.json       # Events pending sync
-    └── last-sync.json     # Last sync timestamp
+    └── pending.json    # Backend events
 ```
 
-## Core Workflow
+---
 
+## COMMANDS
+
+| Trigger | Purpose |
+|---------|---------|
+| `p. init` | Initialize project with deep analysis |
+| `p. sync` | Analyze repo, generate agents |
+| `p. task <desc>` | Start task with agentic classification |
+| `p. done` | Complete current subtask |
+| `p. ship [name]` | Ship with PR + version bump |
+| `p. pause` | Pause active task |
+| `p. resume` | Resume paused task |
+| `p. bug <desc>` | Report bug with auto-priority |
+
+### Workflow
 ```
 p. sync → p. task "description" → [work] → p. done → p. ship
 ```
 
-## Commands
+---
 
-Use `p. <command>` to trigger any prjct command.
+## INTELLIGENT BEHAVIOR
 
-### Core Commands
-| Trigger | Purpose |
-|---------|---------|
-| `p. init` | Initialize project with deep analysis |
-| `p. idea` | Transform ideas into architectures |
-| `p. task` | Start task with agentic classification + 7-phase workflow |
-| `p. spec` | Create detailed specifications |
-| `p. pause` | Pause active task |
-| `p. resume` | Resume paused task |
-| `p. next` | Show priority queue |
-| `p. done` | Complete current task |
-| `p. ship` | Ship with quality checks |
-| `p. bug` | Report bug with auto-priority |
-| `p. dash` | Unified dashboard |
-| `p. sync` | Analyze repo, generate agents |
-| `p. suggest` | Context-aware recommendations |
+Templates provide guidance. Use your intelligence to:
 
-### Deprecated Commands
-| Trigger | Migration |
-|---------|-----------|
-| `p. now` | Use `p. task` instead |
-| `p. feature` | Use `p. task` instead |
-| `p. work` | Use `p. task` instead |
+1. **Read before write** - Always read existing files first
+2. **Explore before coding** - Use Task(Explore) to understand codebase
+3. **Ask when uncertain** - Use AskUserQuestion to clarify
+4. **Load agents** - Read from `{globalPath}/agents/` for domain expertise
+5. **Adapt templates** - They're guidance, not rigid scripts
+6. **Log everything** - Append to memory/events.jsonl
 
-### Optional Commands
-| Trigger | Purpose |
-|---------|---------|
-| `p. design` | System architecture design |
-| `p. cleanup` | Clean temp files |
-| `p. analyze` | Deep repo analysis |
-| `p. undo` / `p. redo` | Snapshot management |
-| `p. git` | Smart git operations |
-| `p. test` | Run tests with auto-fix |
+---
 
-## How It Works
-
-Messages starting with `p.` trigger prjct commands:
-```
-p. task add auth   → starts task "add auth"
-p. task fix login  → starts task "fix login"
-p. done            → completes current task
-p. ship login      → ships "login" feature
-```
-
-## Template-Driven Execution
-
-Templates define command behavior:
-```
-templates/commands/{command}.md
-```
-
-Claude reads template → executes flow → generates response.
-
-## Key Rules
-
-1. **Read files before editing** - Never assume structure
-2. **Use node commands for timestamps** - Never hardcode dates
-3. **Follow template instructions** - Templates are source of truth
-4. **Log to memory** - Append to `memory/events.jsonl`
-5. **Suggest next actions** - Maintain user momentum
-
-## Output Format
+## OUTPUT FORMAT
 
 Concise responses (< 4 lines):
 ```
@@ -164,10 +132,39 @@ Concise responses (< 4 lines):
 Next: [suggested action]
 ```
 
-## Documentation
+---
 
-For detailed information:
-- Architecture: `~/.prjct-cli/docs/architecture.md`
-- Commands: `~/.prjct-cli/docs/commands.md`
-- Validation: `~/.prjct-cli/docs/validation.md`
-- Agents: `~/.prjct-cli/docs/agents.md`
+## KEY RULES
+
+1. **Read files before editing** - Never assume structure
+2. **Use node/bun for timestamps** - Never hardcode dates
+3. **Follow template guidance** - But adapt intelligently
+4. **Log to memory** - Append to `memory/events.jsonl`
+5. **Suggest next actions** - Maintain user momentum
+6. **Use linked skills** - Agents have skills in frontmatter
+
+---
+
+## SKILL INTEGRATION (v0.27)
+
+Agents are linked to Claude Code skills from claude-plugins.dev.
+
+### Agent → Skill Mapping
+
+| Agent | Skill |
+|-------|-------|
+| `frontend.md` | `frontend-design` |
+| `uxui.md` | `frontend-design` |
+| `backend.md` | `javascript-typescript` |
+| `testing.md` | `developer-kit` |
+| `devops.md` | `developer-kit` |
+| `prjct-planner.md` | `feature-dev` |
+| `prjct-shipper.md` | `code-review` |
+
+### Usage
+
+- `p. sync` installs required skills automatically
+- `p. task` invokes skills based on task type
+- Skills config: `{globalPath}/config/skills.json`
+
+See `templates/agentic/skill-integration.md` for details.

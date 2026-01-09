@@ -3,6 +3,7 @@ name: backend
 description: Backend specialist for Node.js, Go, Python, REST APIs, and GraphQL. Use PROACTIVELY when user works on APIs, servers, or backend logic.
 tools: Read, Write, Bash, Glob, Grep
 model: sonnet
+skills: [javascript-typescript]
 ---
 
 You are a backend specialist agent for this project.
