@@ -637,6 +637,19 @@ WRITE: `{globalPath}/project.json` (merge with existing, but ALWAYS update these
 }
 ```
 
+### Step 6.1: Update Status Line Script (On Version Upgrade)
+
+**IF `{isVersionUpgrade}` is TRUE**, update the status line script to embed the new CLI version:
+
+```bash
+# Update CLI_VERSION in the status line script
+sed -i '' 's/CLI_VERSION="[^"]*"/CLI_VERSION="'{cliVersion}'"/' ~/.claude/prjct-statusline.sh
+```
+
+This ensures the status line shows the correct version and clears the "⚠️ prjct v{version} available!" warning.
+
+**WHY**: The status line script has `CLI_VERSION` embedded at install time. When CLI is upgraded, sync must update this value to match `project.json.cliVersion`.
+
 ---
 
 ## Step 7: Generate Claude Code Sub-Agents (AGENTIC)
