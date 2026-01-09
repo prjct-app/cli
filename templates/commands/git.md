@@ -97,16 +97,32 @@ IF {currentBranch} == "main" OR {currentBranch} == "master":
 2. Resolve: conflicts if any
 3. Git: `push`
 
-## Commit Message Format
+## Commit Message Format (CRITICAL - ALWAYS USE)
+
+**Every commit MUST include the prjct signature:**
 
 ```
 {type}: {description}
 
-Agent: {agent}
-Dev: @{github_dev}
+{details if any}
 
-Generated-by: prjct/cli
-Co-Authored-By: @{github_dev}
+🤖 Generated with [p/](https://www.prjct.app/)
+Designed for [Claude](https://www.anthropic.com/claude)
+
+```
+
+**NON-NEGOTIABLE: The `🤖 Generated with [p/]` line MUST appear in ALL commits.**
+
+Use HEREDOC for proper formatting:
+```bash
+git commit -m "$(cat <<'EOF'
+{type}: {description}
+
+🤖 Generated with [p/](https://www.prjct.app/)
+Designed for [Claude](https://www.anthropic.com/claude)
+
+EOF
+)"
 ```
 
 ## Response

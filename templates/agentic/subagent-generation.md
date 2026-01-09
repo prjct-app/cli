@@ -21,10 +21,13 @@ name: agent-name
 description: When to use this agent. Include "Use PROACTIVELY" for auto-invocation.
 tools: Read, Write, Glob, Grep, Bash
 model: sonnet
+skills: [skill-name]
 ---
 
 Agent system prompt here...
 ```
+
+**The `skills` field links the agent to Claude Code skills from claude-plugins.dev.**
 
 ## Generation Rules
 
@@ -51,13 +54,14 @@ These are REQUIRED for every prjct project:
 
 Analyze `{analysis}` and create ONLY relevant domain agents:
 
-| If Detected | Generate | Tools |
-|-------------|----------|-------|
-| React, Vue, Angular, Svelte, CSS, HTML | `frontend.md` | Read, Write, Glob, Grep |
-| Node.js, Express, Go, Python API, REST, GraphQL | `backend.md` | Read, Write, Bash, Glob, Grep |
-| PostgreSQL, MySQL, MongoDB, Redis, Prisma | `database.md` | Read, Write, Bash |
-| Docker, Kubernetes, CI/CD, GitHub Actions | `devops.md` | Read, Bash, Glob |
-| Bun test, Jest, Pytest, Testing Library | `testing.md` | Read, Write, Bash |
+| If Detected | Generate | Tools | Skill |
+|-------------|----------|-------|-------|
+| React, Vue, Angular, Svelte, CSS, HTML | `frontend.md` | Read, Write, Glob, Grep | `frontend-design` |
+| Node.js, Express, Go, Python API, REST, GraphQL | `backend.md` | Read, Write, Bash, Glob, Grep | `javascript-typescript` or `python-development` |
+| PostgreSQL, MySQL, MongoDB, Redis, Prisma | `database.md` | Read, Write, Bash | (none) |
+| Docker, Kubernetes, CI/CD, GitHub Actions | `devops.md` | Read, Bash, Glob | `developer-kit` |
+| Bun test, Jest, Pytest, Testing Library | `testing.md` | Read, Write, Bash | `developer-kit` |
+| ANY frontend UI (web or mobile) | `uxui.md` | Read, Write, Glob, Grep | `frontend-design` |
 
 ### 3. Adapt to Project Context
 
@@ -90,14 +94,26 @@ Each generated agent should include:
      - Adapt with project-specific details
      - Write to `{globalPath}/agents/`
 
-5. **Report Generated Agents**
+5. **Link Skills to Agents**
+   - Read `templates/config/skill-mappings.json`
+   - For each generated agent, add the corresponding skill to frontmatter
+   - Skill mappings:
+     - `frontend.md` → `skills: [frontend-design]`
+     - `uxui.md` → `skills: [frontend-design]`
+     - `backend.md` → `skills: [javascript-typescript]` (or `python-development` for Python)
+     - `testing.md` → `skills: [developer-kit]`
+     - `devops.md` → `skills: [developer-kit]`
+     - `prjct-planner.md` → `skills: [feature-dev]`
+     - `prjct-shipper.md` → `skills: [code-review]`
+
+6. **Report Generated Agents**
    ```
    Generated sub-agents in {globalPath}/agents/:
    - prjct-workflow.md (workflow)
-   - prjct-planner.md (workflow)
-   - prjct-shipper.md (workflow)
-   - frontend.md (detected: React)
-   - backend.md (detected: Node.js)
+   - prjct-planner.md (workflow) → /feature-dev
+   - prjct-shipper.md (workflow) → /code-review
+   - frontend.md (detected: React) → /frontend-design
+   - backend.md (detected: Node.js) → /javascript-typescript
    ```
 
 ## Critical Rules
