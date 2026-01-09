@@ -1,0 +1,87 @@
+{
+  "version": "1.0.0",
+  "description": "Search hints for finding skills on claude-plugins.dev - NOT hardcoded mappings",
+  "note": "Claude should SEARCH claude-plugins.dev dynamically using these hints",
+  "searchEndpoint": "https://claude-plugins.dev/skills?q={query}",
+  "skillsDirectory": "~/.claude/skills/",
+  "searchHints": {
+    "frontend": {
+      "searchTerms": ["frontend-design", "react components", "vue components", "ui design"],
+      "preferredAuthors": ["@anthropics", "@wshobson"],
+      "fallbackSearch": "frontend ui components",
+      "description": "UI components, styling, frontend patterns"
+    },
+    "uxui": {
+      "searchTerms": ["ux-designer", "frontend-design", "user experience", "ui ux design"],
+      "preferredAuthors": ["@anthropics", "@aj-geddes"],
+      "fallbackSearch": "ux ui design patterns",
+      "description": "UX/UI design, user experience, accessibility"
+    },
+    "backend": {
+      "ecosystemSpecific": {
+        "javascript": ["typescript backend", "nodejs patterns", "express api"],
+        "typescript": ["typescript backend", "nodejs patterns", "api design"],
+        "python": ["python backend", "fastapi django", "python api"],
+        "go": ["golang backend", "go api patterns"],
+        "rust": ["rust backend", "axum actix"]
+      },
+      "preferredAuthors": ["@wshobson", "@anthropics"],
+      "fallbackSearch": "backend api patterns",
+      "description": "API design, backend patterns, server logic"
+    },
+    "database": {
+      "searchTerms": ["database design", "sql patterns", "prisma drizzle"],
+      "preferredAuthors": ["@wshobson"],
+      "fallbackSearch": "database sql patterns",
+      "description": "Database design, queries, migrations"
+    },
+    "testing": {
+      "searchTerms": ["testing automation", "test patterns", "jest pytest"],
+      "preferredAuthors": ["@anthropics", "@claudebase"],
+      "fallbackSearch": "testing automation patterns",
+      "description": "Test automation, TDD, test patterns"
+    },
+    "devops": {
+      "searchTerms": ["devops automation", "ci cd", "docker kubernetes", "github actions"],
+      "preferredAuthors": ["@claudebase", "@anthropics"],
+      "fallbackSearch": "devops ci cd automation",
+      "description": "CI/CD, containers, infrastructure"
+    },
+    "prjct-planner": {
+      "searchTerms": ["architecture patterns", "feature development", "system design"],
+      "preferredAuthors": ["@anthropics", "@wshobson"],
+      "fallbackSearch": "architecture planning patterns",
+      "description": "Feature planning, architecture, task breakdown"
+    },
+    "prjct-shipper": {
+      "searchTerms": ["code review", "pr review", "shipping best practices"],
+      "preferredAuthors": ["@anthropics"],
+      "fallbackSearch": "code review automation",
+      "description": "Code review, PR quality, shipping"
+    }
+  },
+  "selectionCriteria": {
+    "priority": [
+      "Match agent domain",
+      "Prefer @anthropics (official)",
+      "High download count",
+      "Recent updates",
+      "Good documentation"
+    ],
+    "skipIf": [
+      "Low download count (<100)",
+      "No recent updates (>6 months)",
+      "Duplicate of installed skill"
+    ]
+  },
+  "installMethod": {
+    "steps": [
+      "1. Search claude-plugins.dev/skills?q={searchTerm}",
+      "2. Analyze results, pick best match",
+      "3. Get skill markdown from GitHub source",
+      "4. Write to ~/.claude/skills/{name}.md",
+      "5. Verify skill loads with /skills command"
+    ],
+    "fallback": "Create custom skill if marketplace has no good match"
+  }
+}

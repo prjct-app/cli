@@ -163,6 +163,9 @@ export class CommandInstaller {
 
   constructor() {
     this.homeDir = os.homedir()
+    // Commands are stored in p/ subdirectory, accessed via p. trigger
+    // Note: Claude Code bug #2422 prevents native slash command discovery
+    // We use the p.md router in commands/ root instead
     this.claudeCommandsPath = path.join(this.homeDir, '.claude', 'commands', 'p')
     this.claudeConfigPath = path.join(this.homeDir, '.claude')
     this.templatesDir = path.join(__dirname, '..', '..', 'templates', 'commands')
@@ -227,6 +230,9 @@ export class CommandInstaller {
     }
 
     try {
+      // Install the p.md router to enable "p. task" trigger
+      await this.installRouter()
+
       // Ensure commands directory exists
       await fs.mkdir(this.claudeCommandsPath, { recursive: true })
 
@@ -379,6 +385,24 @@ export class CommandInstaller {
   }
 
   /**
+   * Install the p.md router to ~/.claude/commands/
+   * This enables the "p. task" natural language trigger
+   * Claude Code bug #2422 prevents subdirectory slash command discovery
+   */
+  async installRouter(): Promise<boolean> {
+    try {
+      const routerSource = path.join(this.templatesDir, 'p.md')
+      const routerDest = path.join(this.homeDir, '.claude', 'commands', 'p.md')
+
+      const content = await fs.readFile(routerSource, 'utf-8')
+      await fs.writeFile(routerDest, content, 'utf-8')
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  /**
    * Sync commands - intelligent update that detects and removes orphans
    */
   async syncCommands(): Promise<SyncResult> {
@@ -395,6 +419,9 @@ export class CommandInstaller {
     }
 
     try {
+      // Install the p.md router to enable "p. task" trigger
+      await this.installRouter()
+
       // Ensure commands directory exists
       await fs.mkdir(this.claudeCommandsPath, { recursive: true })
 

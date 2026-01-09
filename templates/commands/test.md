@@ -1,10 +1,15 @@
 ---
 allowed-tools: [Bash, Read, Write, Edit]
-description: 'Run tests with auto-fix'
+description: 'Run tests and advance workflow phase'
 timestamp-rule: 'GetTimestamp() for ALL timestamps'
+architecture: 'Write-Through (JSON -> MD -> Events)'
+storage-layer: true
+source-of-truth: 'storage/state.json'
 ---
 
 # /p:test
+
+Run tests to advance from implement phase to test phase in the workflow.
 
 ## Usage
 
@@ -17,7 +22,9 @@ timestamp-rule: 'GetTimestamp() for ALL timestamps'
 - `{projectId}`: From `.prjct/prjct.config.json`
 - `{globalPath}`: `~/.prjct-cli/projects/{projectId}`
 - `{configPath}`: `~/.prjct-cli/config.json`
+- `{statePath}`: `{globalPath}/storage/state.json`
 - `{memoryPath}`: `{globalPath}/memory/events.jsonl`
+- `{syncPath}`: `{globalPath}/sync/pending.json`
 
 ## Step 1: Read Project Config
 
@@ -27,6 +34,26 @@ EXTRACT: `projectId`
 IF file not found:
   OUTPUT: "No prjct project. Run /p:init first."
   STOP
+
+## Step 1.5: Validate Workflow Phase
+
+READ: `{globalPath}/storage/state.json`
+
+IF currentTask is null:
+  OUTPUT: "No active task. Use p. task to start one."
+  STOP
+
+IF currentTask.workflow exists:
+  IF currentTask.workflow.phase != "implement":
+    OUTPUT:
+    ```
+    Cannot run tests. Current phase: {currentTask.workflow.phase}
+
+    Required phase: implement
+
+    Workflow: analyze → branch → implement → test → review → merge → ship → verify
+    ```
+    STOP
 
 ## Step 2: Parse Arguments
 
@@ -141,14 +168,59 @@ IF {blocking} AND {failed} > 0:
 ### Success Response
 
 IF {testStatus} == "passed":
+  ### Update Workflow Phase (if workflow exists)
+  IF currentTask.workflow exists:
+    SET: {now} = GetTimestamp()
+
+    SET: currentTask.workflow.phase = "test"
+    SET: currentTask.workflow.checkpoints.implement = {
+      "completedAt": "{now}",
+      "data": { "filesChanged": {count}, "commits": {count} }
+    }
+    SET: currentTask.workflow.checkpoints.test = {
+      "completedAt": "{now}",
+      "data": { "passed": {passed}, "coverage": "{coverage}" }
+    }
+    SET: currentTask.workflow.lastCheckpoint = "test"
+
+    WRITE: `{statePath}`
+
+    ### Log workflow events
+    APPEND to `{memoryPath}`:
+    ```json
+    {"timestamp":"{now}","action":"phase_advanced","taskId":"{currentTask.id}","from":"implement","to":"test"}
+    {"timestamp":"{now}","action":"checkpoint_completed","taskId":"{currentTask.id}","checkpoint":"implement"}
+    {"timestamp":"{now}","action":"checkpoint_completed","taskId":"{currentTask.id}","checkpoint":"test"}
+    ```
+
+    ### Queue sync event
+    APPEND to `{syncPath}`:
+    ```json
+    {"type":"workflow.phase_advanced","data":{"taskId":"{currentTask.id}","from":"implement","to":"test"},"timestamp":"{now}"}
+    ```
+
   OUTPUT: "✅ All tests passing!"
   OUTPUT: ""
   OUTPUT: "📊 Results:"
   OUTPUT: "• Passed: {passed}"
   IF {coverage}:
     OUTPUT: "• Coverage: {coverage}%"
-  OUTPUT: ""
-  OUTPUT: "🎯 Next: /p:ship"
+
+  IF currentTask.workflow exists:
+    OUTPUT: ""
+    OUTPUT: "Phase: test (4/11 checkpoints)"
+    OUTPUT: ""
+    OUTPUT: "Workflow:"
+    OUTPUT: "1. analyze ✓"
+    OUTPUT: "2. branch ✓"
+    OUTPUT: "3. implement ✓"
+    OUTPUT: "4. test ✓"
+    OUTPUT: "5. review ← next"
+    OUTPUT: ""
+    OUTPUT: "🎯 Next: p. review"
+  ELSE:
+    OUTPUT: ""
+    OUTPUT: "🎯 Next: /p:ship"
 
 ### Failure Response
 
