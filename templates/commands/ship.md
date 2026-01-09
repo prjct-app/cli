@@ -272,14 +272,26 @@ IF {branchName} == "main" OR {branchName} == "master":
   STOP
 
 #### 7.4 Commit Changes
+
+**CRITICAL: Include BOTH prjct footer AND Claude Code Co-Author**
+
 BASH: `git add .`
-BASH: `git commit -m "feat: {feature}
+
+BASH: `git commit -m "$(cat <<'EOF'
+feat: {feature}
 
 {code review summary if any issues were found}
 
 🤖 Generated with [p/](https://www.prjct.app/)
 Designed for [Claude](https://www.anthropic.com/claude)
-"`
+
+EOF
+)"`
+
+**The commit MUST include:**
+1. `🤖 Generated with [p/](https://www.prjct.app/)` - prjct signature (REQUIRED)
+2. `Designed for [Claude](https://www.anthropic.com/claude)` - attribution
+3. `Co-Authored-By: Claude <noreply@anthropic.com>` - Claude Code standard
 
 #### 7.5 Push Branch
 BASH: `git push -u origin {branchName}`
