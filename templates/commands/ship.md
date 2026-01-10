@@ -1,6 +1,11 @@
 ---
 allowed-tools: [Read, Write, Bash, Glob, Grep, AskUserQuestion]
 description: 'Ship feature with automated PR workflow'
+tool-permissions:
+  bash:
+    allow: ["git status", "git log", "git diff", "git add", "git commit", "git push", "gh pr create", "gh pr view", "npm test", "npm run", "bun test", "bun run"]
+    ask: ["npm publish", "npm version", "git tag"]
+    deny: ["git push --force", "git reset --hard", "git clean -fd", "rm -rf"]
 ---
 
 # /p:ship - Ship Feature

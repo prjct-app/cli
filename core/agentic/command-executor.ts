@@ -18,6 +18,7 @@ import chainOfThought from './chain-of-thought'
 import memorySystem from './memory-system'
 import groundTruth from './ground-truth'
 import planMode from './plan-mode'
+import AgentRouter from './agent-router'
 
 import type {
   ExecutionResult,
@@ -107,6 +108,18 @@ export class CommandExecutor {
     }
 
     try {
+      // 0. Parse @ agent mentions from task input
+      const taskInput = (params.task as string) || (params.description as string) || ''
+      const { prjctAgents, claudeSubagents, cleanInput } = promptBuilder.parseAgentMentions(taskInput)
+
+      // Update params with clean input (without @ mentions)
+      if (prjctAgents.length > 0 || claudeSubagents.length > 0) {
+        if (params.task) params.task = cleanInput
+        if (params.description) params.description = cleanInput
+        params._mentionedAgents = prjctAgents
+        params._claudeSubagents = claudeSubagents
+      }
+
       // 1. Load template
       const template = await templateLoader.load(commandName)
 
@@ -195,27 +208,62 @@ export class CommandExecutor {
         )
       }
 
-      // 9. Build prompt - NO agent assignment here, Claude decides via templates
+      // 8.5. Load @ mentioned agents if any
+      let primaryAgent = null
+      if (prjctAgents.length > 0) {
+        const agentRouter = new AgentRouter()
+        await agentRouter.initialize(projectPath)
+        const loadedAgents = await agentRouter.loadAgentsByMention(prjctAgents)
+
+        if (loadedAgents.length > 0) {
+          primaryAgent = {
+            name: loadedAgents[0].name,
+            content: loadedAgents[0].content,
+            role: undefined,
+            skills: [],
+          }
+          console.log(`🤖 Loading agents: ${loadedAgents.map((a) => `@${a.name}`).join(', ')}`)
+        }
+      }
+
+      // 9. Build prompt - use mentioned agent or let Claude decide via templates
       const planInfo = {
         isPlanning: requiresPlanning || isInPlanningMode,
         requiresApproval: isDestructive && !params.approved,
         active: activePlan,
         allowedTools: planMode.getAllowedTools(isInPlanningMode, template.frontmatter['allowed-tools'] || []),
       }
-      // Agent is null - Claude assigns via Task tool using agent-routing.md
-      const prompt = promptBuilder.build(
+
+      // Build base prompt
+      let prompt = promptBuilder.build(
         template,
         context as Parameters<typeof promptBuilder.build>[1],
         state,
-        null,
+        primaryAgent,
         learnedPatterns,
         null,
         relevantMemories,
         planInfo
       )
 
+      // Add Claude subagent instructions if @ mentioned
+      if (claudeSubagents.length > 0) {
+        const subagentInstructions = promptBuilder.buildSubagentInstructions(claudeSubagents)
+        prompt = prompt + subagentInstructions
+        console.log(`🔧 Claude subagents requested: ${claudeSubagents.map((s) => `@${s}`).join(', ')}`)
+      }
+
+      // Add tool permissions from template if present
+      const toolPermissions = template.frontmatter['tool-permissions'] as Record<string, { allow?: string[]; ask?: string[]; deny?: string[] }> | undefined
+      if (toolPermissions) {
+        const permissionsSection = promptBuilder.buildToolPermissions(toolPermissions)
+        prompt = prompt + permissionsSection
+      }
+
       // Log agentic mode
-      console.log(`🤖 Agentic delegation enabled - Claude will assign agent via Task tool`)
+      if (!primaryAgent) {
+        console.log(`🤖 Agentic delegation enabled - Claude will assign agent via Task tool`)
+      }
 
       // Record successful attempt
       loopDetector.recordSuccess(commandName, loopContext)

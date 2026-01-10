@@ -137,21 +137,21 @@ class ContextEstimator {
         globPatterns.push(`*${ext}`)
       }
 
-      // Execute glob searches
-      for (const pattern of globPatterns) {
-        try {
-          const matches = await glob(pattern, {
-            cwd: projectPath,
-            ignore: patterns.exclude.map((ex) => `**/${ex}/**`),
-            nodir: true,
-            follow: false,
-          })
+      // Execute glob searches in parallel for better performance
+      const ignorePatterns = patterns.exclude.map((ex) => `**/${ex}/**`)
+      const globPromises = globPatterns.map((pattern) =>
+        glob(pattern, {
+          cwd: projectPath,
+          ignore: ignorePatterns,
+          nodir: true,
+          follow: false,
+        }).catch(() => [] as string[]) // Return empty array on error
+      )
 
-          if (Array.isArray(matches)) {
-            files.push(...matches)
-          }
-        } catch {
-          // Skip invalid patterns
+      const results = await Promise.all(globPromises)
+      for (const matches of results) {
+        if (Array.isArray(matches)) {
+          files.push(...matches)
         }
       }
 

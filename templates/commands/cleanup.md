@@ -1,6 +1,11 @@
 ---
 allowed-tools: [Read, Edit, Bash]
 description: 'Code cleanup'
+tool-permissions:
+  bash:
+    allow: ["git status", "find . -type f", "wc -l"]
+    ask: ["rm *", "git clean"]
+    deny: ["rm -rf /", "rm -rf ~", "rm -rf .", "git reset --hard"]
 ---
 
 # /p:cleanup

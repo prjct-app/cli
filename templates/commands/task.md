@@ -7,6 +7,47 @@ description: 'Unified task workflow with intelligent classification'
 
 Start any work with automatic classification and intelligent breakdown.
 
+## @ Agent Mentions
+
+Invoke specific agents directly in your task using @ notation:
+
+| Mention | Agent | Use Case |
+|---------|-------|----------|
+| `@frontend` | frontend.md | UI components, React/Vue |
+| `@backend` | backend.md | APIs, server logic |
+| `@database` | database.md | Schema, queries |
+| `@uxui` | uxui.md | UX patterns, design |
+| `@testing` | testing.md | Tests, coverage |
+| `@devops` | devops.md | CI/CD, Docker |
+
+**Examples:**
+- `p. task @frontend add button` - Loads frontend specialist
+- `p. task @frontend @uxui dark mode` - Loads both agents
+- `p. task @backend optimize API` - Loads backend specialist
+
+**Note:** If no @ mention, agents are auto-assigned based on task analysis.
+
+## Claude Code Subagents
+
+Special @ mentions invoke Claude Code's native subagents:
+
+| Mention | Subagent | Use Case |
+|---------|----------|----------|
+| `@explore` | Explore | Fast codebase search, find patterns |
+| `@general` | General | Complex multi-step research |
+| `@plan` | Plan | Architecture design, implementation planning |
+
+**Examples:**
+- `p. task @explore find all API endpoints`
+- `p. task @general research caching strategies`
+- `p. task @plan design authentication system`
+
+**Combined:**
+- `p. task @frontend @explore add button like existing ones`
+  → Loads frontend agent + uses Explore subagent to find similar buttons
+
+---
+
 ## Context Variables
 
 - `{projectId}`: From `.prjct/prjct.config.json`

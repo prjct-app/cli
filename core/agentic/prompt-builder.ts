@@ -499,6 +499,87 @@ class PromptBuilder {
   }
 
   /**
+   * Claude Code subagents that can be invoked via @ notation
+   */
+  private readonly CLAUDE_SUBAGENTS = ['explore', 'general', 'plan']
+
+  /**
+   * Parse @ agent mentions from input
+   * Separates prjct agents from Claude Code subagents
+   * @example "@frontend @explore add dark mode" -> { prjctAgents: ["frontend"], claudeSubagents: ["explore"], cleanInput: "add dark mode" }
+   */
+  parseAgentMentions(input: string): {
+    prjctAgents: string[]
+    claudeSubagents: string[]
+    cleanInput: string
+  } {
+    if (!input) return { prjctAgents: [], claudeSubagents: [], cleanInput: '' }
+
+    const mentionPattern = /@(\w+)/g
+    const prjctAgents: string[] = []
+    const claudeSubagents: string[] = []
+    let match
+
+    while ((match = mentionPattern.exec(input)) !== null) {
+      const name = match[1].toLowerCase()
+      if (this.CLAUDE_SUBAGENTS.includes(name)) {
+        claudeSubagents.push(name)
+      } else {
+        prjctAgents.push(name)
+      }
+    }
+
+    const cleanInput = input.replace(mentionPattern, '').trim()
+    return { prjctAgents, claudeSubagents, cleanInput }
+  }
+
+  /**
+   * Build Claude subagent instructions for the prompt
+   */
+  buildSubagentInstructions(claudeSubagents: string[]): string {
+    if (!claudeSubagents.length) return ''
+
+    const instructions = claudeSubagents.map((sub) => {
+      switch (sub) {
+        case 'explore':
+          return '- USE Task tool with subagent_type=Explore for fast codebase exploration'
+        case 'general':
+          return '- USE Task tool with subagent_type=general-purpose for complex multi-step research'
+        case 'plan':
+          return '- USE Task tool with subagent_type=Plan for architecture design'
+        default:
+          return null
+      }
+    }).filter(Boolean)
+
+    if (!instructions.length) return ''
+
+    return `
+## CLAUDE SUBAGENT INSTRUCTIONS
+${instructions.join('\n')}
+`
+  }
+
+  /**
+   * Build tool permissions section from template frontmatter
+   */
+  buildToolPermissions(toolPermissions: Record<string, { allow?: string[]; ask?: string[]; deny?: string[] }> | null): string {
+    if (!toolPermissions) return ''
+
+    const parts: string[] = ['\n## TOOL PERMISSIONS\n', 'Check these BEFORE executing:\n']
+
+    for (const [tool, rules] of Object.entries(toolPermissions)) {
+      parts.push(`\n**${tool}:**`)
+      if (rules.allow?.length) parts.push(`- ALLOW: ${rules.allow.join(', ')}`)
+      if (rules.ask?.length) parts.push(`- ASK USER: ${rules.ask.join(', ')}`)
+      if (rules.deny?.length) parts.push(`- NEVER: ${rules.deny.join(', ')}`)
+    }
+
+    parts.push('\n⚠️ DENY = Never execute. ASK = Confirm with user first.\n')
+    return parts.join('\n')
+  }
+
+  /**
    * Build critical anti-hallucination rules section
    */
   buildCriticalRules(): string {

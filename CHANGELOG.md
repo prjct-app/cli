@@ -1,5 +1,45 @@
 # Changelog
 
+## [0.28.0] - 2026-01-10
+
+### Feature: @ Agent Mentions
+
+Direct agent invocation via @ notation in tasks.
+
+**New Capabilities:**
+
+1. **@ Agent Mentions**
+   - `p. task @frontend add button` - Loads frontend specialist directly
+   - `p. task @frontend @uxui dark mode` - Loads multiple agents
+   - Supports all prjct agents: `@frontend`, `@backend`, `@database`, `@uxui`, `@testing`, `@devops`
+
+2. **@ Claude Subagents**
+   - `@explore` - Fast codebase search (Task tool with subagent_type=Explore)
+   - `@general` - Complex multi-step research
+   - `@plan` - Architecture design and planning
+   - Example: `p. task @frontend @explore add button like existing ones`
+
+3. **Performance Improvements**
+   - Template cache: O(1) LRU using ES6 Map insertion order
+   - Agent loading: Parallel Promise.all() for faster startup
+   - Glob searches: Parallel execution in context estimation
+
+4. **Tool Permissions**
+   - Templates can specify `tool-permissions` in frontmatter
+   - Supports `allow`, `ask`, and `deny` rules per tool
+   - Example: `ship.md` now declares safe vs dangerous git commands
+
+**Files Changed:**
+- `core/agentic/command-executor.ts` - Parse @ mentions, load mentioned agents
+- `core/agentic/prompt-builder.ts` - Build subagent instructions, tool permissions
+- `core/agentic/template-loader.ts` - LRU cache optimization, tool-permissions parsing
+- `core/agentic/agent-router.ts` - `loadAgentsByMention()` method
+- `core/domain/agent-loader.ts` - Parallel agent loading
+- `core/domain/context-estimator.ts` - Parallel glob execution
+- `templates/commands/task.md` - @ mention documentation
+
+---
+
 ## [0.27.0] - 2026-01-08
 
 ### Fix: prjct Commit Signature (CRITICAL)

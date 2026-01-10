@@ -105,6 +105,21 @@ class AgentRouter {
   }
 
   /**
+   * Load multiple agents by @ mention names
+   * @example loadAgentsByMention(["frontend", "uxui"]) -> [Agent, Agent]
+   */
+  async loadAgentsByMention(mentions: string[]): Promise<Agent[]> {
+    const agents: Agent[] = []
+    for (const name of mentions) {
+      const agent = await this.loadAgent(name)
+      if (agent) {
+        agents.push(agent)
+      }
+    }
+    return agents
+  }
+
+  /**
    * Log agent usage to JSONL file
    */
   async logUsage(

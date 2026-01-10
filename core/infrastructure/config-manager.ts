@@ -42,6 +42,10 @@ function parseJsonc<T>(content: string): T {
 }
 
 class ConfigManager {
+  // Cache projectId lookups with TTL (30 seconds) to avoid repeated disk reads
+  private projectIdCache = new Map<string, { id: string; timestamp: number }>()
+  private readonly CACHE_TTL = 30000
+
   /**
    * Read the project configuration file
    * Supports both .json and .jsonc formats (with comments)
@@ -228,13 +232,30 @@ class ConfigManager {
 
   /**
    * Get the project ID from config, or generate it if config doesn't exist
+   * Uses in-memory cache with TTL to avoid repeated disk reads
    */
   async getProjectId(projectPath: string): Promise<string> {
-    const config = await this.readConfig(projectPath)
-    if (config && config.projectId) {
-      return config.projectId
+    // Check cache first
+    const cached = this.projectIdCache.get(projectPath)
+    if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
+      return cached.id
     }
-    return pathManager.generateProjectId(projectPath)
+
+    // Read from disk
+    const config = await this.readConfig(projectPath)
+    const id = config?.projectId || pathManager.generateProjectId(projectPath)
+
+    // Cache the result
+    this.projectIdCache.set(projectPath, { id, timestamp: Date.now() })
+
+    return id
+  }
+
+  /**
+   * Clear the projectId cache (useful for testing or after config changes)
+   */
+  clearProjectIdCache(): void {
+    this.projectIdCache.clear()
   }
 
   /**

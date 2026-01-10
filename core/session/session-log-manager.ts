@@ -17,9 +17,22 @@ export class SessionLogManager {
   private currentSessionCache: Map<string, string>
   private sessionMetadataCache: Map<string, SessionLogMetadata>
 
+  // Max cache size to prevent unbounded memory growth
+  private static readonly MAX_CACHE_SIZE = 100
+
   constructor() {
     this.currentSessionCache = new Map()
     this.sessionMetadataCache = new Map()
+  }
+
+  /**
+   * Limit cache size with LRU eviction (oldest first)
+   */
+  private limitCacheSize<K, V>(cache: Map<K, V>): void {
+    while (cache.size > SessionLogManager.MAX_CACHE_SIZE) {
+      const oldest = cache.keys().next().value
+      if (oldest) cache.delete(oldest)
+    }
   }
 
   /**
@@ -34,6 +47,7 @@ export class SessionLogManager {
 
     const sessionPath = await pathManager.ensureSessionPath(projectId)
     this.currentSessionCache.set(cacheKey, sessionPath)
+    this.limitCacheSize(this.currentSessionCache)
 
     await this._ensureSessionLogMetadata(sessionPath)
 
@@ -247,6 +261,7 @@ export class SessionLogManager {
     const metadata = await fileHelper.readJson<SessionLogMetadata>(metadataPath, null)
     if (metadata) {
       this.sessionMetadataCache.set(sessionPath, metadata)
+      this.limitCacheSize(this.sessionMetadataCache)
     }
     return metadata
   }
@@ -268,6 +283,7 @@ export class SessionLogManager {
       }
       await fileHelper.writeJson(metadataPath, metadata)
       this.sessionMetadataCache.set(sessionPath, metadata)
+      this.limitCacheSize(this.sessionMetadataCache)
     }
   }
 
@@ -285,6 +301,7 @@ export class SessionLogManager {
     await fileHelper.writeJson(metadataPath, metadata)
 
     this.sessionMetadataCache.set(sessionPath, metadata)
+    this.limitCacheSize(this.sessionMetadataCache)
   }
 
   /**
