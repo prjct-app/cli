@@ -18,16 +18,29 @@ Write sub-agents to: `{globalPath}/agents/` (global storage, NOT local project)
 ```markdown
 ---
 name: agent-name
+agentId: p.agent.{name}
 description: When to use this agent. Include "Use PROACTIVELY" for auto-invocation.
 tools: Read, Write, Glob, Grep, Bash
 model: sonnet
 skills: [skill-name]
+projectId: {projectId}
+projectPath: {projectPath}
 ---
 
 Agent system prompt here...
 ```
 
-**The `skills` field links the agent to Claude Code skills from claude-plugins.dev.**
+**Required fields:**
+- `agentId`: Unique identifier for mentions. Format: `p.agent.{name}` (e.g., `p.agent.backend`, `p.agent.frontend`)
+- `skills`: Links the agent to Claude Code skills from claude-plugins.dev
+- `projectId`: Links agent to specific project
+- `projectPath`: Path to project root
+
+**Agent ID Convention:**
+- All prjct agents use prefix `p.agent.`
+- The `{name}` is derived from the agent filename without `.md`
+- Examples: `p.agent.backend`, `p.agent.frontend`, `p.agent.workflow`, `p.agent.planner`
+- Users can mention agents in prompts using this ID
 
 ## Generation Rules
 

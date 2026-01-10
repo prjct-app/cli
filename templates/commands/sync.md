@@ -675,40 +675,48 @@ This template contains:
 
 ### 7.3 Generate Workflow Agents (ALWAYS)
 
-These 3 agents are ALWAYS created for every prjct project:
+These 3 agents are ALWAYS created for every prjct project.
+
+**CRITICAL: Each agent MUST include `agentId` in frontmatter.**
+
+The `agentId` format is: `p.agent.{name}` where `{name}` is derived from filename without `.md`.
 
 **prjct-workflow.md** - Handles: /p:now, /p:done, /p:next, /p:pause, /p:resume
 READ template: `templates/subagents/workflow/prjct-workflow.md`
 ADAPT with: projectId, projectPath
+ADD to frontmatter: `agentId: p.agent.workflow`
 WRITE to: `{globalPath}/agents/prjct-workflow.md`
 
 **prjct-planner.md** - Handles: /p:feature, /p:idea, /p:spec, /p:bug
 READ template: `templates/subagents/workflow/prjct-planner.md`
 ADAPT with: projectId, projectPath
+ADD to frontmatter: `agentId: p.agent.planner`
 WRITE to: `{globalPath}/agents/prjct-planner.md`
 
 **prjct-shipper.md** - Handles: /p:ship
 READ template: `templates/subagents/workflow/prjct-shipper.md`
 ADAPT with: projectId, projectPath, detected test/lint commands
+ADD to frontmatter: `agentId: p.agent.shipper`
 WRITE to: `{globalPath}/agents/prjct-shipper.md`
 
 ### 7.4 Generate Domain Agents (Based on Stack)
 
 Analyze `{techStack}` from Step 3 and generate ONLY relevant domain agents:
 
-| If Detected | Generate | Template |
-|-------------|----------|----------|
-| React, Vue, Angular, Svelte, CSS | `frontend.md` | `templates/subagents/domain/frontend.md` |
-| Node.js, Express, Go, Python API | `backend.md` | `templates/subagents/domain/backend.md` |
-| PostgreSQL, MySQL, MongoDB, Prisma | `database.md` | `templates/subagents/domain/database.md` |
-| Docker, Kubernetes, GitHub Actions | `devops.md` | `templates/subagents/domain/devops.md` |
-| Bun test, Jest, Pytest, testing | `testing.md` | `templates/subagents/domain/testing.md` |
-| **{hasFrontendUI} = true** | `uxui.md` | `templates/agentic/agents/uxui.md` |
+| If Detected | Generate | Template | agentId |
+|-------------|----------|----------|---------|
+| React, Vue, Angular, Svelte, CSS | `frontend.md` | `templates/subagents/domain/frontend.md` | `p.agent.frontend` |
+| Node.js, Express, Go, Python API | `backend.md` | `templates/subagents/domain/backend.md` | `p.agent.backend` |
+| PostgreSQL, MySQL, MongoDB, Prisma | `database.md` | `templates/subagents/domain/database.md` | `p.agent.database` |
+| Docker, Kubernetes, GitHub Actions | `devops.md` | `templates/subagents/domain/devops.md` | `p.agent.devops` |
+| Bun test, Jest, Pytest, testing | `testing.md` | `templates/subagents/domain/testing.md` | `p.agent.testing` |
+| **{hasFrontendUI} = true** | `uxui.md` | `templates/agentic/agents/uxui.md` | `p.agent.uxui` |
 
 For EACH detected stack:
 1. READ template from `templates/subagents/domain/{name}.md`
 2. ADAPT description with detected frameworks (e.g., "React specialist" not just "frontend")
-3. WRITE to `{globalPath}/agents/{name}.md`
+3. ADD to frontmatter: `agentId: p.agent.{name}` (e.g., `p.agent.backend`)
+4. WRITE to `{globalPath}/agents/{name}.md`
 
 ### 7.5 Generate UX/UI Agent (CRITICAL for Frontend Projects)
 
@@ -989,6 +997,13 @@ IF cloudSync AND no syncError:
 {IF hasFrontendUI}
 └── 🎨 UX/UI: uxui.md (Priority: UX > UI)
 {ENDIF}
+
+🏷️ Agent Mentions (use in prompts)
+├── p.agent.workflow, p.agent.planner, p.agent.shipper
+{IF domainAgents.length > 0}
+├── {domainAgents.map(a => 'p.agent.' + a).join(', ')}
+{ENDIF}
+└── Example: "p.agent.backend help me create an API endpoint"
 
 📦 Skills ({totalSkills})
 ├── Installed: {skillsInstalled.length ? skillsInstalled.join(', ') : 'none'}

@@ -283,7 +283,7 @@ class PromptBuilder {
 
     // Agent assignment (CONDITIONAL - only for code-modifying commands)
     const commandName = template.frontmatter?.name?.replace('p:', '') || ''
-    const agentCommands = ['now', 'build', 'feature', 'design', 'fix', 'bug', 'test', 'work', 'cleanup', 'spec']
+    const agentCommands = ['task', 'design', 'fix', 'bug', 'test', 'cleanup', 'spec']
     const needsAgent = agentCommands.includes(commandName)
 
     if (agent && needsAgent) {
@@ -332,7 +332,7 @@ class PromptBuilder {
     }
 
     // OPTIMIZED: Only include patterns for code-modifying commands
-    const codeCommands = ['now', 'build', 'feature', 'design', 'cleanup', 'fix', 'bug', 'test', 'init', 'spec', 'work']
+    const codeCommands = ['task', 'design', 'cleanup', 'fix', 'bug', 'test', 'init', 'spec']
     const needsPatterns = codeCommands.includes(commandName)
 
     // Include code patterns analysis for code-modifying commands

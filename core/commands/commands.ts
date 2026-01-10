@@ -3,12 +3,12 @@
  *
  * MD-First Architecture - All state in Markdown files.
  *
- * COMMANDS (22 total):
- * - Workflow (5): work, done, next, pause, resume
- * - Planning (5): init, feature, bug, idea, spec
+ * COMMANDS (20 total):
+ * - Workflow (4): done, next, pause, resume
+ * - Planning (4): init, bug, idea, spec
  * - Shipping (1): ship
  * - Analytics (2): dash, help
- * - Maintenance (5): cleanup, design, recover, undo, redo, history
+ * - Maintenance (6): cleanup, design, recover, undo, redo, history
  * - Analysis (2): analyze, sync
  * - Setup (3): start, setup, migrateAll
  */
@@ -69,10 +69,6 @@ class PrjctCommands {
 
   // ========== Workflow Commands ==========
 
-  async work(task: string | null = null, projectPath: string = process.cwd()): Promise<CommandResult> {
-    return this.workflow.now(task, projectPath)
-  }
-
   async done(projectPath: string = process.cwd()): Promise<CommandResult> {
     return this.workflow.done(projectPath)
   }
@@ -93,10 +89,6 @@ class PrjctCommands {
 
   async init(idea: string | null = null, projectPath: string = process.cwd()): Promise<CommandResult> {
     return this.planning.init(idea, projectPath)
-  }
-
-  async feature(description: string, projectPath: string = process.cwd()): Promise<CommandResult> {
-    return this.planning.feature(description, projectPath)
   }
 
   async bug(description: string, projectPath: string = process.cwd()): Promise<CommandResult> {

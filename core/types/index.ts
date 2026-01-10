@@ -225,10 +225,8 @@ export type {
 // Integration Types
 // =============================================================================
 export type {
-  NotionIntegrationConfig,
   IntegrationsConfig,
 } from './integrations'
-export { DEFAULT_NOTION_CONFIG } from './integrations'
 
 // =============================================================================
 // Template Types

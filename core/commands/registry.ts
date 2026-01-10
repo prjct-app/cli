@@ -389,43 +389,6 @@ export class CommandRegistry {
   }
 
   /**
-   * Execute without requiring project (for init, setup commands)
-   * @deprecated Use execute() - it auto-detects based on command metadata
-   */
-  async executeWithoutProject<TParams = void>(
-    name: string,
-    params: TParams,
-    projectPath: string = process.cwd()
-  ): Promise<CommandResult> {
-    const handler = this.handlers.get(name)
-    if (handler) {
-      const context: ExecutionContext = {
-        projectId: '',
-        projectPath,
-        globalPath: '',
-        timestamp: getTimestamp(),
-      }
-      return handler.execute(params, context)
-    }
-
-    const handlerFn = this.handlerFns.get(name)
-    if (handlerFn) {
-      const context: ExecutionContext = {
-        projectId: '',
-        projectPath,
-        globalPath: '',
-        timestamp: getTimestamp(),
-      }
-      return handlerFn(params, context)
-    }
-
-    return {
-      success: false,
-      error: `Command not found: ${name}`,
-    }
-  }
-
-  /**
    * Clear all registrations (useful for testing)
    */
   clear(): void {

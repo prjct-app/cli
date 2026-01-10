@@ -97,14 +97,12 @@ async function main(): Promise<void> {
       const param = parsedArgs.join(' ') || null
       const standardCommands: Record<string, (p: string | null) => Promise<CommandResult>> = {
         // Core workflow
-        work: (p) => commands.work(p),
         done: () => commands.done(),
         next: () => commands.next(),
         pause: (p) => commands.pause(p || ''),
         resume: (p) => commands.resume(p),
         // Planning
         init: (p) => commands.init(p),
-        feature: (p) => commands.feature(p || ''),
         bug: (p) => commands.bug(p || ''),
         idea: (p) => commands.idea(p || ''),
         spec: (p) => commands.spec(p),

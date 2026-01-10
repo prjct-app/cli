@@ -145,6 +145,40 @@ Next: [suggested action]
 
 ---
 
+## AGENT MENTIONS (v0.28)
+
+Invoke or reference project agents using the `p.agent.{name}` syntax.
+
+### Available Agent IDs
+
+| Agent ID | Agent File | Purpose |
+|----------|------------|---------|
+| `p.agent.workflow` | `prjct-workflow.md` | Task lifecycle: /p:now, /p:done, /p:next |
+| `p.agent.planner` | `prjct-planner.md` | Planning: /p:feature, /p:idea, /p:spec |
+| `p.agent.shipper` | `prjct-shipper.md` | Shipping: /p:ship |
+| `p.agent.frontend` | `frontend.md` | Frontend/UI work |
+| `p.agent.backend` | `backend.md` | Backend/API work |
+| `p.agent.database` | `database.md` | Database work |
+| `p.agent.testing` | `testing.md` | Testing work |
+| `p.agent.devops` | `devops.md` | DevOps/CI work |
+| `p.agent.uxui` | `uxui.md` | UX/UI design |
+
+### Usage in Prompts
+
+```
+"p.agent.backend help me create a REST endpoint"
+"p.agent.frontend build a login form"
+"p.agent.testing write tests for the auth module"
+```
+
+### How It Works
+
+1. Each agent has `agentId: p.agent.{name}` in frontmatter
+2. When user mentions an agent ID, load that agent's context
+3. Agent provides domain expertise for the task
+
+---
+
 ## SKILL INTEGRATION (v0.27)
 
 Agents are linked to Claude Code skills from claude-plugins.dev.

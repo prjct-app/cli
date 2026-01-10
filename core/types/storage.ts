@@ -43,10 +43,6 @@ export interface ShippedFeature {
   quantitativeImpact?: string
   tasksCompleted?: number
   featureId?: string
-  /** Notion page ID for bidirectional sync */
-  notionPageId?: string
-  /** Last sync timestamp for conflict resolution */
-  lastSyncedAt?: string
 }
 
 export interface ShipChange {
@@ -117,10 +113,6 @@ export interface Idea {
   risks?: string[]
   risksCount?: number
   createdAt?: string
-  /** Notion page ID for bidirectional sync */
-  notionPageId?: string
-  /** Last sync timestamp for conflict resolution */
-  lastSyncedAt?: string
 }
 
 export interface ImpactEffort {
