@@ -112,6 +112,12 @@ export async function run(): Promise<SetupResults> {
 
     // Step 4c: Install status line with version check
     await installStatusLine()
+
+    // Step 4d: Install SessionStart hook for fresh context injection
+    await installSessionHook()
+
+    // Step 4e: Install Skills for auto-discovery
+    await installSkills()
   }
 
   // Step 5: Save version in editors-config
@@ -269,6 +275,99 @@ echo "⚡ prjct"
     fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2))
   } catch {
     // Silently fail - status line is optional
+  }
+}
+
+/**
+ * Install SessionStart hook for fresh context injection
+ * This hook runs at the start of every Claude Code session
+ */
+async function installSessionHook(): Promise<void> {
+  try {
+    const claudeDir = path.join(os.homedir(), '.claude')
+    const hooksDir = path.join(claudeDir, 'hooks')
+    const hookPath = path.join(hooksDir, 'prjct-session-start.sh')
+    const settingsPath = path.join(claudeDir, 'settings.json')
+
+    // Ensure hooks directory exists
+    if (!fs.existsSync(hooksDir)) {
+      fs.mkdirSync(hooksDir, { recursive: true })
+    }
+
+    // Copy hook from templates
+    const templateHookPath = path.join(__dirname, '../../templates/hooks/prjct-session-start.sh')
+    if (fs.existsSync(templateHookPath)) {
+      const hookContent = fs.readFileSync(templateHookPath, 'utf8')
+      fs.writeFileSync(hookPath, hookContent, { mode: 0o755 })
+    }
+
+    // Update settings.json to include SessionStart hook
+    let settings: Record<string, unknown> = {}
+    if (fs.existsSync(settingsPath)) {
+      try {
+        settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'))
+      } catch {
+        // Invalid JSON, start fresh
+      }
+    }
+
+    // Add or update hooks configuration
+    const hooks = (settings.hooks as Record<string, unknown[]>) || {}
+    hooks.SessionStart = [
+      {
+        matcher: 'startup',
+        hooks: [
+          {
+            type: 'command',
+            command: hookPath
+          }
+        ]
+      }
+    ]
+    settings.hooks = hooks
+
+    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2))
+    console.log(`   ${GREEN}✓${NC} SessionStart hook installed`)
+  } catch {
+    // Silently fail - hook is optional but recommended
+  }
+}
+
+/**
+ * Install Skills for Claude Code auto-discovery
+ * Skills are loaded automatically when relevant to user's request
+ */
+async function installSkills(): Promise<void> {
+  try {
+    const claudeDir = path.join(os.homedir(), '.claude')
+    const skillsDir = path.join(claudeDir, 'skills')
+    const templateSkillsDir = path.join(__dirname, '../../templates/skills')
+
+    const skillNames = ['prjct-task', 'prjct-sync', 'prjct-done', 'prjct-ship']
+    let installed = 0
+
+    for (const skillName of skillNames) {
+      const destDir = path.join(skillsDir, skillName)
+      const templatePath = path.join(templateSkillsDir, skillName, 'SKILL.md')
+
+      if (fs.existsSync(templatePath)) {
+        // Ensure skill directory exists
+        if (!fs.existsSync(destDir)) {
+          fs.mkdirSync(destDir, { recursive: true })
+        }
+
+        // Copy SKILL.md
+        const skillContent = fs.readFileSync(templatePath, 'utf8')
+        fs.writeFileSync(path.join(destDir, 'SKILL.md'), skillContent)
+        installed++
+      }
+    }
+
+    if (installed > 0) {
+      console.log(`   ${GREEN}✓${NC} ${installed} Skills installed`)
+    }
+  } catch {
+    // Silently fail - skills are optional but recommended
   }
 }
 

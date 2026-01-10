@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.28.0] - 2026-01-10
+
+### Feature: Claude Code Native Integration
+
+**Skills as First-Class Citizens**: prjct commands are now installed as Claude Code Skills for automatic discovery.
+
+- **SessionStart Hook**: Injects fresh project context at session start via `~/.claude/hooks/prjct-session-start.sh`
+- **Skills Auto-Install**: 4 skills installed to `~/.claude/skills/` during `npm install`:
+  - `prjct-task` - Start tasks with classification
+  - `prjct-sync` - Analyze codebase, generate agents
+  - `prjct-done` - Complete current subtask
+  - `prjct-ship` - Ship with PR + version bump
+- **Setup Integration**: `core/infrastructure/setup.ts` now installs hooks and skills automatically
+- **Simplified CLAUDE.md**: Reduced global template from 221 to ~50 lines - hooks handle fresh context
+
+**Upgrade Impact**: Run `npm install -g prjct-cli` to install hooks and skills.
+
+---
+
 ## [0.27.0] - 2026-01-08
 
 ### Fix: prjct Commit Signature (CRITICAL)

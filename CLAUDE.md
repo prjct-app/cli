@@ -145,26 +145,34 @@ Next: [suggested action]
 
 ---
 
-## SKILL INTEGRATION (v0.27)
+## CLAUDE CODE INTEGRATION (v0.28)
 
-Agents are linked to Claude Code skills from claude-plugins.dev.
+prjct-cli uses Claude Code's native features for robust integration:
 
-### Agent → Skill Mapping
+### SessionStart Hook
 
-| Agent | Skill |
-|-------|-------|
-| `frontend.md` | `frontend-design` |
-| `uxui.md` | `frontend-design` |
-| `backend.md` | `javascript-typescript` |
-| `testing.md` | `developer-kit` |
-| `devops.md` | `developer-kit` |
-| `prjct-planner.md` | `feature-dev` |
-| `prjct-shipper.md` | `code-review` |
+A hook runs at the start of every Claude Code session to inject fresh context:
+- Located at: `~/.claude/hooks/prjct-session-start.sh`
+- Automatically reads project state and injects into session
+- Bypasses CLAUDE.md caching issues
 
-### Usage
+### Skills (Auto-Discovery)
 
-- `p. sync` installs required skills automatically
-- `p. task` invokes skills based on task type
-- Skills config: `{globalPath}/config/skills.json`
+Skills are auto-discovered by Claude Code when relevant:
 
-See `templates/agentic/skill-integration.md` for details.
+| Skill | Trigger |
+|-------|---------|
+| `prjct-task` | "p. task", starting work, features/bugs |
+| `prjct-sync` | "p. sync", analyze codebase |
+| `prjct-done` | "p. done", completing work |
+| `prjct-ship` | "p. ship", releasing features |
+
+Skills location: `~/.claude/skills/prjct-*/SKILL.md`
+
+### Setup
+
+All integration is installed automatically via `npm install -g prjct-cli`:
+1. SessionStart hook → `~/.claude/hooks/`
+2. Skills → `~/.claude/skills/`
+3. Commands → `~/.claude/commands/p/`
+4. Settings → `~/.claude/settings.json`
