@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.28.0] - 2026-01-10
+## [0.28.1] - 2026-01-10
 
 ### Feature: @ Agent Mentions
 
