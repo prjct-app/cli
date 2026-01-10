@@ -219,21 +219,96 @@ IF {issues}.length > 0:
 ELSE:
   OUTPUT: "Code review passed. No high-confidence issues found."
 
-### Step 5: Version Bump
-READ: `package.json` (or Cargo.toml, pyproject.toml)
-EXTRACT: current version
+### Step 5: Version Bump (REQUIRED)
 
-BASH: `git log --oneline -10`
-Determine bump type:
-- "BREAKING" or "major:" → major
-- "feat:" or "feature:" → minor
-- else → patch
+**CRITICAL: Version MUST be bumped before creating PR.**
 
-UPDATE version file with new version
+#### 5.1 Read current version
+READ: `package.json` (or Cargo.toml, pyproject.toml, version.txt)
+EXTRACT: {currentVersion}
 
-### Step 6: Update CHANGELOG
-BASH: `git log --oneline -20 --pretty=format:"- %s"`
-INSERT new entry in CHANGELOG.md
+#### 5.2 Determine bump type from commits
+BASH: `git log --oneline $(git describe --tags --abbrev=0 2>/dev/null || echo "HEAD~20")..HEAD`
+ANALYZE commits:
+- "BREAKING" or "major:" → major bump
+- "feat:" or "feature:" → minor bump
+- else → patch bump
+
+SET: {bumpType} = detected type
+SET: {newVersion} = calculated version
+
+#### 5.3 Update version file
+UPDATE version in package.json (or equivalent):
+```bash
+# For Node.js projects
+npm version {bumpType} --no-git-tag-version
+```
+
+IF version update fails:
+  OUTPUT: "❌ Failed to update version. Fix manually and retry."
+  STOP
+
+OUTPUT: "📦 Version: {currentVersion} → {newVersion}"
+
+### Step 6: Update CHANGELOG (REQUIRED)
+
+**CRITICAL: CHANGELOG.md MUST be updated before creating PR.**
+
+#### 6.1 Check if CHANGELOG exists
+BASH: `test -f CHANGELOG.md && echo "exists" || echo "missing"`
+
+IF missing:
+  CREATE `CHANGELOG.md` with header:
+  ```markdown
+  # Changelog
+
+  All notable changes to this project will be documented in this file.
+
+  ## [Unreleased]
+
+  ## [{newVersion}] - {date}
+  ```
+
+#### 6.2 Get commits since last tag
+BASH: `git log --oneline --pretty=format:"- %s" $(git describe --tags --abbrev=0 2>/dev/null || echo "HEAD~20")..HEAD`
+SET: {commits} = result
+
+#### 6.3 Categorize changes
+PARSE commits and categorize:
+- `feat:` → ### Added
+- `fix:` → ### Fixed
+- `refactor:` → ### Changed
+- `docs:` → ### Documentation
+- `perf:` → ### Performance
+- `BREAKING:` → ### Breaking Changes
+
+#### 6.4 Insert changelog entry
+GET date: `date +%Y-%m-%d`
+SET: {today} = result
+
+INSERT after `## [Unreleased]` in CHANGELOG.md:
+```markdown
+
+## [{newVersion}] - {today}
+
+### Added
+{feat commits}
+
+### Fixed
+{fix commits}
+
+### Changed
+{other commits}
+```
+
+OUTPUT: "📝 CHANGELOG.md updated for v{newVersion}"
+
+#### 6.5 Verify changes are staged
+BASH: `git add package.json CHANGELOG.md`
+
+IF no changes staged:
+  OUTPUT: "❌ Version or CHANGELOG not updated. Cannot ship."
+  STOP
 
 ### Step 7: Create Pull Request
 

@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.28.2] - 2026-01-10
+
+### Feature: Agent Mentions and Major Cleanup
+
+**Agent Mentions (p.agent.{name}):**
+- New `agentId` field in agent frontmatter for identification
+- Users can invoke agents in prompts: `p.agent.backend help me...`
+- Format: `p.agent.workflow`, `p.agent.planner`, `p.agent.frontend`, etc.
+
+**Deprecated Commands Removed:**
+- `/p:now` - Use `/p:task` instead
+- `/p:feature` - Use `/p:task` instead
+- `/p:work` - Use `/p:task` instead
+
+**Notion Integration Removed:**
+- Removed entire `core/integrations/notion/` directory
+- Removed Notion skills and MCP config
+- Cleaned up type references
+
+**Code Cleanup:**
+- Removed `executeWithoutProject()` deprecated method
+- Cleaned dead code in prompt-builder arrays
+- Removed ARCHITECTURE.md (outdated)
+
+**Ship Template Enhancement:**
+- Version bump now REQUIRED before PR creation
+- CHANGELOG.md update now REQUIRED before PR creation
+- Better categorization of changes (Added/Fixed/Changed)
+
+---
+
 ## [0.28.1] - 2026-01-10
 
 ### Feature: @ Agent Mentions
