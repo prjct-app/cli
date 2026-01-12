@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.28.0] - 2026-01-12
+
+### Feature: Per-Project Task Filtering for Status Bar
+
+Extended API now supports filtering by current working directory, enabling the status bar to show project-specific tasks.
+
+**New Endpoints:**
+- `GET /api/status-bar/compact?cwd=/path` - Filter by cwd
+- `GET /api/projects` - List all projects
+- `GET /api/projects/:id/full` - Project dashboard
+- `POST /api/projects/:id/task/{complete,pause,resume}`
+- `GET /api/stats/global` - Global statistics
+
+**How it works:**
+1. Status bar detects cwd from frontmost app (Terminal, VS Code, etc.)
+2. Calls `/api/status-bar/compact?cwd=/current/path`
+3. Server matches cwd to project's `repoPath`
+4. Returns only that project's task
+
+**Files:**
+- `core/server/routes-extended.ts` - New extended API routes
+- `core/server/server.ts` - Mount extended routes
+- `core/server/index.ts` - Export extended routes
+
+---
+
 ## [0.27.1] - 2026-01-12
 
 ### Docs: Differentiation Strategy vs Coding Agents

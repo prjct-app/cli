@@ -9,6 +9,7 @@
 
 export { createServer, startServer, DEFAULT_PORT } from './server'
 export { createRoutes } from './routes'
+export { createExtendedRoutes } from './routes-extended'
 export { createSSEManager, SSE_EVENTS } from './sse'
 
 // Re-export types from canonical location
