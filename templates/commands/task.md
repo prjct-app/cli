@@ -219,44 +219,27 @@ If anything is unclear, use AskUserQuestion.
 If everything is clear, say so and continue.
 
 ### Phase 4: Design
-Load relevant agents from `{globalPath}/agents/` and their linked skills:
 
-**Agent + Skill Loading:**
+**Load agents + auto-invoke skills + query MCP docs.**
+
+See `templates/guides/integrations.md` for skill/MCP details.
+
 ```
-FOR EACH relevant agent in {globalPath}/agents/:
-  READ agent file
-  PARSE frontmatter → get `skills` array
-
-  IF skills exist:
-    FOR EACH skill in skills:
-      Invoke Skill(skill) for domain expertise
-      OUTPUT: "📚 {agent} using /{skill}"
+FOR EACH relevant agent:
+  1. READ: {globalPath}/agents/{domain}.md
+  2. PARSE frontmatter → skills, mcp
+  3. FOR skill in frontmatter.skills: Invoke Skill(skill) → "🎯 Activated"
+  4. FOR mcp in frontmatter.mcp: Query context7 for docs → "📚 Loaded"
 ```
 
-**Example flow for UI feature:**
-1. Load `uxui.md` agent (has `skills: [frontend-design]`)
-2. Invoke `/frontend-design` skill
-3. Skill provides anti-AI-slop patterns, typography guidelines
-4. Agent applies them to design options
-
-Propose 2-3 approaches:
+**Propose 2-3 options** using skill context + library docs:
 
 ```
 ### Option 1: Minimal
-- Approach: {desc}
-- Files: {count}
-- Pros/Cons: ...
+- Files: {count}, Pros/Cons: ...
 
-### Option 2: Clean Architecture
-- Approach: {desc}
-- Files: {count}
-- Pros/Cons: ...
-
-### Option 3: Recommended (Skill-informed)
-- Approach: {desc}
-- Files: {count}
-- Pros/Cons: ...
-- Skills applied: {skills}
+### Option 2: Recommended (Skill-informed)
+- Files: {count}, Skills applied: {skills}
 ```
 
 Use AskUserQuestion to get approval.

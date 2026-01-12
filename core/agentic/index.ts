@@ -90,9 +90,19 @@ export { default as toolRegistry } from './tool-registry'
 export { default as templateLoader } from './template-loader'
 
 // ============ Utilities ============
-// Chain of thought, services
+// Chain of thought, services, token estimation
 export { default as chainOfThought } from './chain-of-thought'
 export { default as services } from './services'
+export {
+  default as tokenEstimator,
+  estimateTokens,
+  getTokenBudget,
+  estimateContext,
+  filterContext,
+  summarizeForTokens,
+  createContextSections,
+  formatEstimate,
+} from './token-estimator'
 
 // ============ Types ============
 // All types re-exported from ../types (canonical source)

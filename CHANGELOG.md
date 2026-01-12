@@ -1,5 +1,67 @@
 # Changelog
 
+## [0.28.3] - 2026-01-11
+
+### Feature: Claude Code Synergy Optimization
+
+Major improvements to maximize prjct + Claude Code integration efficiency.
+
+**Skill Auto-Invocation (Phase 4 of /p:task):**
+- Skills are now automatically invoked when loading agents
+- Agent frontmatter `skills: [skill-name]` triggers `Skill("skill-name")`
+- Example: Loading `frontend.md` auto-activates `/frontend-design`
+
+**MCP Auto-Usage:**
+- Agents with `mcp: [context7]` auto-query documentation during tasks
+- Per-project MCP config at `{globalPath}/config/mcp-servers.json`
+- Seamless library documentation lookup during implementation
+
+**Think Blocks for Destructive Commands:**
+- `/p:ship` now includes mandatory `<think>` block
+- Pre-ship verification checklist (completeness, quality, git state)
+- Prevents shipping incomplete or broken code
+
+**Agent Auto-Refresh in /p:sync:**
+- Detects when dependencies change (package.json, etc.)
+- Regenerates stale agents (>7 days old)
+- Versions previous agents as `.backup` files
+- Logs refresh events to memory
+
+**Slash Command Registration:**
+- New `slash-commands.json` config for Claude Code integration
+- Enables command discovery and validation
+- Path: `{globalPath}/config/slash-commands.json`
+
+**Token Budget Analysis:**
+- Estimates context token usage during sync
+- Warns if approaching 80% of budget (160k tokens)
+- Auto-summarizes large agents if needed
+
+**Client Migration on Update:**
+- Setup now creates missing config files for existing projects
+- `slash-commands.json` auto-created for existing installations
+- Seamless upgrade experience for npm update users
+
+**New TypeScript Modules:**
+- `core/infrastructure/slash-command-registry.ts` - Command validation
+- `core/agentic/token-estimator.ts` - Token budget estimation
+
+**Template Context Optimization:**
+- Reduced main templates from 3,197 to 2,214 lines (-31%)
+- `sync.md`: 1,602 → 835 lines (-48%)
+- `global/CLAUDE.md`: 429 → 363 lines (-15%)
+- `task.md`: 397 → 336 lines (-15%)
+- `ship.md`: 769 → 680 lines (-12%)
+- New `templates/guides/` for on-demand documentation
+- New `templates/shared/validation.md` for reusable validation
+
+**Files Removed (Agentic Generation):**
+- Deleted hardcoded domain agents from `templates/subagents/domain/`
+- Deleted `.mcp.json` (now generated per-project)
+- Deleted `CLAUDE.md` from root (moved to templates/global/)
+
+---
+
 ## [0.28.2] - 2026-01-10
 
 ### Feature: Agent Mentions and Major Cleanup

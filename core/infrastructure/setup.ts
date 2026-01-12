@@ -146,9 +146,34 @@ async function migrateProjectsCliVersion(): Promise<void> {
       .map(dirent => dirent.name)
 
     let migrated = 0
+    let configsCreated = 0
 
     for (const projectId of projectDirs) {
       const projectJsonPath = path.join(projectsDir, projectId, 'project.json')
+      const configDir = path.join(projectsDir, projectId, 'config')
+
+      // Ensure config directory exists for new config files
+      if (!fs.existsSync(configDir)) {
+        fs.mkdirSync(configDir, { recursive: true })
+      }
+
+      // Create slash-commands.json if missing (v0.28+ feature)
+      const slashCommandsPath = path.join(configDir, 'slash-commands.json')
+      if (!fs.existsSync(slashCommandsPath)) {
+        const slashCommandsConfig = {
+          version: '1.0.0',
+          generatedAt: new Date().toISOString(),
+          note: 'Run /p:sync to regenerate with full command list',
+          commands: {
+            'p:task': { description: 'Start any task', category: 'workflow' },
+            'p:done': { description: 'Complete subtask', category: 'workflow' },
+            'p:ship': { description: 'Ship feature', category: 'shipping' },
+            'p:sync': { description: 'Sync project', category: 'planning' },
+          }
+        }
+        fs.writeFileSync(slashCommandsPath, JSON.stringify(slashCommandsConfig, null, 2))
+        configsCreated++
+      }
 
       if (!fs.existsSync(projectJsonPath)) {
         continue
@@ -171,6 +196,9 @@ async function migrateProjectsCliVersion(): Promise<void> {
 
     if (migrated > 0) {
       console.log(`   ${GREEN}✓${NC} Updated ${migrated} project(s) to v${VERSION}`)
+    }
+    if (configsCreated > 0) {
+      console.log(`   ${GREEN}✓${NC} Created ${configsCreated} new config file(s)`)
     }
   } catch {
     // Silently fail - migration is optional

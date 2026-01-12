@@ -5,16 +5,152 @@
 
 ## HOW TO USE PRJCT (Read This First)
 
-When user types `p. <command>`, load the template from `templates/commands/{command}.md` and execute it intelligently.
+When user types `p. <command>`, resolve the command in this order:
+
+### Command Resolution Order
+
+1. **Quick Commands (User-defined)**: `~/.prjct-cli/commands/{command}.md`
+2. **Built-in Commands**: `templates/commands/{command}.md`
 
 ```
-p. sync     → templates/commands/sync.md
-p. task X   → templates/commands/task.md
-p. done     → templates/commands/done.md
-p. ship X   → templates/commands/ship.md
+p. sync     → templates/commands/sync.md (built-in)
+p. task X   → templates/commands/task.md (built-in)
+p. deploy   → ~/.prjct-cli/commands/deploy.md (user quick command)
+p. test     → ~/.prjct-cli/commands/test.md (user quick command)
 ```
 
 **Key Insight**: Templates are GUIDANCE, not scripts. Use your intelligence to adapt them to the situation.
+
+---
+
+## QUICK COMMANDS (User-Defined)
+
+Users can create custom commands in `~/.prjct-cli/commands/`. These are checked FIRST before built-in commands.
+
+### Command Format (Full)
+
+```yaml
+---
+# Required
+description: Brief explanation shown in help
+
+# Optional - Execution control
+agent: {agent-name}              # Which agent executes (e.g., "testing", "frontend")
+model: sonnet                    # Override model (sonnet | opus | haiku)
+temperature: 0.3                 # Override temperature (0.0-1.0)
+
+# Optional - Permissions for this command
+permissions:
+  Bash: allow                    # Override default permissions
+  "npm *": allow
+---
+
+{Prompt template with variables and shell injection}
+```
+
+### Variable Substitution
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `$ARGUMENTS` | All arguments concatenated | `p. test src/` → "src/" |
+| `$1`, `$2`, `$3`... | Positional arguments | `p. diff main dev` → $1="main", $2="dev" |
+
+### Shell Injection
+
+Use `` !`command` `` to embed shell output:
+
+```yaml
+---
+description: Review current branch changes
+---
+
+# Branch: !`git branch --show-current`
+
+## Recent Commits
+!`git log --oneline -5`
+
+## Changed Files
+!`git diff --name-only`
+
+Review these changes for:
+- Code quality issues
+- Security vulnerabilities
+- Missing tests
+```
+
+### File References
+
+Use `@filepath` to include file contents:
+
+```yaml
+---
+description: Review a specific component
+---
+
+Review the component in @$1 for:
+- Performance issues
+- Accessibility
+- Best practices
+
+Suggest improvements.
+```
+
+### Example Commands
+
+**~/.prjct-cli/commands/test.md**
+```yaml
+---
+description: Run and fix tests
+agent: testing
+permissions:
+  Bash: allow
+---
+
+Run tests for $ARGUMENTS. If any fail, analyze and fix them.
+
+Current test status:
+!`{project test command} --reporter=dot 2>&1 | tail -20`
+```
+
+**~/.prjct-cli/commands/pr.md**
+```yaml
+---
+description: Create PR with AI-generated description
+permissions:
+  Bash:
+    "git *": allow
+    "gh *": allow
+---
+
+Create a pull request for branch !`git branch --show-current`.
+
+Changes since main:
+!`git log main..HEAD --oneline`
+
+Files changed:
+!`git diff --stat main`
+
+Generate a descriptive PR title and body based on these changes.
+```
+
+**~/.prjct-cli/commands/component.md**
+```yaml
+---
+description: Create a new React component
+agent: frontend
+---
+
+Create a new React component named $1 in the appropriate directory.
+
+Follow existing patterns from:
+@src/components/Button.tsx
+
+Match the project's:
+- File structure
+- Naming conventions
+- Styling approach
+- Type patterns
+```
 
 ---
 
@@ -181,52 +317,47 @@ These agents contain project-specific patterns. **USE THEM**.
 
 ---
 
-## SKILL INTEGRATION (NEW in v0.27 - AGENTIC)
+## INTEGRATIONS (v0.27+)
 
-Agents are linked to Claude Code skills from claude-plugins.dev.
+Skills and MCP servers are auto-configured during `/p:sync`.
 
-**Skills are discovered AGENTICALLY** - Claude searches the marketplace dynamically.
+**See:** `templates/guides/integrations.md` for complete documentation.
 
-### How Skills Work
+### Quick Reference
 
-1. **During `p. sync`**: Search claude-plugins.dev, install best matches
-2. **During `p. task`**: Skills are auto-invoked for domain expertise
-3. **Agent frontmatter** has `skills: [discovered-skill-name]` field
+| Feature | What Happens |
+|---------|--------------|
+| **Skills** | Auto-invoked when agent loads (`skills: [skill-name]`) |
+| **MCP** | Auto-queried for library docs (`mcp: [context7]`) |
 
-### Agentic Discovery Process
+### Pipeline
 
 ```
-FOR EACH generated agent:
-  1. Read search hints from templates/config/skill-mappings.json
-  2. Search: https://claude-plugins.dev/skills?q={searchTerm}
-  3. Analyze results (prefer @anthropics, high downloads)
-  4. Download skill markdown from GitHub
-  5. Write to ~/.claude/skills/{name}.md
-  6. Update agent frontmatter
+Load Agent → Invoke Skills → Query MCP → Execute with Context
 ```
-
-### Search Terms by Agent
-
-| Agent | Search Terms |
-|-------|-------------|
-| `frontend.md` | "frontend-design", "react", "ui components" |
-| `uxui.md` | "ux-designer", "frontend-design", "ui ux" |
-| `backend.md` | "{ecosystem} backend", "api design" |
-| `testing.md` | "testing automation", "test patterns" |
-| `devops.md` | "devops", "ci cd", "docker kubernetes" |
-| `prjct-planner.md` | "architecture patterns", "feature development" |
-| `prjct-shipper.md` | "code review", "pr review" |
-
-### Skill Location
-
-Skills are markdown files in `~/.claude/skills/`
-
-### Skill Configuration
-
-After sync: `{globalPath}/config/skills.json` contains discovered mappings.
 
 ---
 
-**Auto-managed by prjct-cli** | https://prjct.app | v0.27.0
+## CLAUDE CODE SYNERGY
+
+prjct is designed to maximize Claude Code's capabilities:
+
+### Slash Commands
+All `/p:*` commands are optimized for Claude Code execution.
+
+### Agent System
+Domain agents (`frontend.md`, `backend.md`, etc.) integrate with Claude's Task tool.
+
+### Skill + MCP Pipeline
+```
+Task → Load Agent → Invoke Skills → Query MCP → Execute with Full Context
+```
+
+### Think Blocks
+Destructive commands (`/p:ship`, `/p:cleanup`) use `<think>` blocks for verification.
+
+---
+
+**Auto-managed by prjct-cli** | https://prjct.app | v0.28.3
 
 <!-- prjct:end - DO NOT REMOVE THIS MARKER -->

@@ -1,6 +1,7 @@
 ---
 allowed-tools: [Read, Write, Bash, Glob, Grep, AskUserQuestion]
 description: 'Ship feature with automated PR workflow'
+requires-thinking: true
 tool-permissions:
   bash:
     allow: ["git status", "git log", "git diff", "git add", "git commit", "git push", "gh pr create", "gh pr view", "npm test", "npm run", "bun test", "bun run"]
@@ -11,6 +12,18 @@ tool-permissions:
 # /p:ship - Ship Feature
 
 Ship completed work with pre-flight checks, code review, PR creation, and CI verification.
+
+## Pre-Ship Think Block (MANDATORY)
+
+**Use `<think>` to verify before ANY ship action:**
+
+<think>
+- [ ] All subtasks complete? No TODO/FIXME left?
+- [ ] Tests + lint pass? No debug statements or secrets?
+- [ ] On feature branch (not main)? All changes committed?
+- [ ] Breaking changes documented? Migrations ready?
+If ANY fails → STOP and fix first.
+</think>
 
 ## Usage
 ```
@@ -655,76 +668,13 @@ Check CI status on GitHub.
 
 ## Examples
 
-### Example 1: Successful Ship with PR
 ```
-/p:ship "add user auth"
-
-Pre-flight: Medium changes (87 lines in 5 files)
-Quality: Lint ✅ | Tests ✅
-Review: Passed
-
-📎 PR created: https://github.com/user/repo/pull/42
-Waiting for CI checks...
-⏳ Waiting for 3 CI checks...
-✅ All CI checks passed
-
-🚀 PR Ready: add user auth
-
-Version: 1.2.0 → 1.3.0
-Changes: medium (87 lines in 5 files)
-Quality: Lint ✅ | Tests ✅
-CI: ✅ Passed
-
-📎 PR: https://github.com/user/repo/pull/42
-
-Next steps:
-1. Request review from team
-2. Merge when approved
-```
-
-### Example 2: Ship with CI Failure
-```
-/p:ship "fix login bug"
-
-Pre-flight: Small changes (28 lines in 2 files)
-Quality: Lint ✅ | Tests ✅
-Review: Passed
-
-📎 PR created: https://github.com/user/repo/pull/43
-Waiting for CI checks...
-
-❌ CI checks failed:
-- build: failure
-- test: failure
-
-⚠️ PR Created (CI Failed): fix login bug
-
-📎 PR: https://github.com/user/repo/pull/43
-
-Fix CI issues and push again.
-```
-
-### Example 3: Blocked on Protected Branch
-```
-/p:ship "new feature"
-
-⚠️ Cannot ship from protected branch: main
-
-Create a feature branch first with /p:now "task name"
-```
-
-### Example 4: Draft PR
-```
-/p:ship "work in progress" --draft
-
-📎 PR created (draft): https://github.com/user/repo/pull/44
-
-🚀 PR Created: work in progress
-CI: ⏳ Still running
-
-📎 PR: https://github.com/user/repo/pull/44
+/p:ship "add auth"     → 🚀 v1.2.0→1.3.0 | PR: .../pull/42 | CI ✅
+/p:ship "fix bug"      → ⚠️ PR created, CI ❌ - fix and push
+/p:ship --draft        → 📎 Draft PR created
+/p:ship (on main)      → ⚠️ Cannot ship from protected branch
 ```
 
 ## References
-- Architecture details: `~/.prjct-cli/docs/architecture.md`
-- Validation patterns: `~/.prjct-cli/docs/validation.md`
+- Architecture: `~/.prjct-cli/docs/architecture.md`
+- Validation: `templates/shared/validation.md`

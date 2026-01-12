@@ -205,170 +205,52 @@ EXTRACT: `{frontendType}` = "web" | "mobile" | "both" | null
 
 ---
 
-## Step 3.5: Deep Project Analysis (TRULY AGENTIC)
+## Step 3.5: Deep Project Analysis (AGENTIC)
 
-**CRITICAL: Do NOT follow hardcoded rules. ANALYZE the actual project and UNDERSTAND what it is.**
+**ANALYZE the actual project. Do NOT follow hardcoded rules.**
 
-### 3.5.1 Detect Project Type (AGENTIC)
-
-**Look at the project root and DETERMINE what kind of project this is:**
+### 3.5.1 Detect Ecosystem
 
 ```bash
-ls -la
+ls -la  # Look at project root
 ```
 
-ANALYZE what files exist and REASON about the project type:
+| File Found | Ecosystem | Package Manager |
+|------------|-----------|-----------------|
+| `Gemfile` | Ruby | bundle |
+| `requirements.txt`/`pyproject.toml` | Python | pip/poetry/uv |
+| `go.mod` | Go | go |
+| `Cargo.toml` | Rust | cargo |
+| `package.json` + `bun.lockb` | JavaScript | bun |
+| `package.json` + `pnpm-lock.yaml` | JavaScript | pnpm |
+| `package.json` + `yarn.lock` | JavaScript | yarn |
+| `package.json` + `package-lock.json` | JavaScript | npm |
 
-| If you see... | Project is... | Ecosystem |
-|---------------|---------------|-----------|
-| `Gemfile` | Ruby/Rails | Ruby |
-| `requirements.txt`, `pyproject.toml`, `setup.py` | Python | Python |
-| `go.mod` | Go | Go |
-| `Cargo.toml` | Rust | Rust |
-| `composer.json` | PHP | PHP |
-| `pom.xml`, `build.gradle` | Java | JVM |
-| `*.csproj`, `*.sln` | .NET/C# | .NET |
-| `mix.exs` | Elixir | Elixir |
-| `Package.swift` | Swift | Apple |
-| `package.json` | Node.js/JavaScript | JavaScript |
-| `pubspec.yaml` | Flutter/Dart | Dart |
-| `Makefile` only | C/C++ or custom | Native |
+SET: `{ecosystem}`, `{projectType}`, `{packageManager}`
 
-SET: `{ecosystem}` = detected ecosystem
-SET: `{projectType}` = specific type (e.g., "Rails", "Django", "Next.js", "Go API")
-
-### 3.5.2 Detect Commands FOR THIS PROJECT (AGENTIC)
-
-**Based on the ecosystem, LOOK for the actual commands this project uses:**
-
-#### Ruby/Rails
-```bash
-cat Gemfile | head -20  # See dependencies
-test -f bin/rails && echo "rails"
-test -f Rakefile && echo "rake"
-```
-→ Commands: `bundle install`, `rails s`, `rails c`, `rake db:migrate`, `rspec`
-
-#### Python
-```bash
-test -f pyproject.toml && cat pyproject.toml | head -20
-test -f requirements.txt && echo "pip"
-which poetry && echo "poetry"
-which uv && echo "uv"
-```
-→ Commands: `pip install -r requirements.txt` OR `poetry install` OR `uv sync`
-
-#### Go
-```bash
-cat go.mod | head -5
-```
-→ Commands: `go build`, `go test ./...`, `go run .`
-
-#### Rust
-```bash
-cat Cargo.toml | head -10
-```
-→ Commands: `cargo build`, `cargo test`, `cargo run`
-
-#### Node.js/JavaScript
-```bash
-# Check lockfile to determine package manager
-test -f bun.lockb && echo "bun"
-test -f pnpm-lock.yaml && echo "pnpm"
-test -f yarn.lock && echo "yarn"
-test -f package-lock.json && echo "npm"
-cat package.json | grep -A 20 '"scripts"'
-```
-→ Commands: Use detected package manager + scripts from package.json
-
-**EXTRACT the actual commands:**
-- `{installCommand}` = what installs dependencies
-- `{runCommand}` = how to run scripts
-- `{testCommand}` = how to run tests
-- `{buildCommand}` = how to build
-- `{devCommand}` = how to run dev server
-
-### 3.5.3 Detect Code Conventions (AGENTIC)
-
-**LOOK at actual files to understand patterns:**
+### 3.5.2 Extract Commands
 
 ```bash
-# List some source files
-find . -type f \( -name "*.rb" -o -name "*.py" -o -name "*.go" -o -name "*.rs" -o -name "*.ts" -o -name "*.js" \) -not -path "*/node_modules/*" -not -path "*/.git/*" | head -10
-
-# Check for linters/formatters
-ls .rubocop.yml .eslintrc* .prettierrc* pyproject.toml rustfmt.toml .golangci.yml 2>/dev/null
+cat package.json | grep -A 20 '"scripts"'  # For Node.js
 ```
 
-ANALYZE and DETERMINE:
-- `{namingConvention}` = based on actual file names
-- `{linter}` = what linter is configured
-- `{formatter}` = what formatter is used
+EXTRACT: `{installCommand}`, `{devCommand}`, `{testCommand}`, `{buildCommand}`, `{lintCommand}`
 
-### 3.5.4 Detect Project Structure (AGENTIC)
+### 3.5.3 Detect Conventions
 
 ```bash
-ls -d */ 2>/dev/null | head -10
+ls .eslintrc* .prettierrc* tsconfig.json biome.json 2>/dev/null
 ```
 
-UNDERSTAND the structure:
-- Where is source code?
-- Where are tests?
-- Is it a monorepo?
-- What's the architecture?
+EXTRACT: `{namingConvention}`, `{linter}`, `{formatter}`
 
-### 3.5.5 Generate Project-Specific Rules (AGENTIC)
-
-**Based on YOUR ANALYSIS, generate rules that make sense for THIS project.**
-
-Think: "What does a developer working on this project need to know?"
-
-Examples:
-- Rails project: "Use `bundle exec` for Ruby commands", "Migrations: `rails db:migrate`"
-- Python/Poetry: "Use `poetry run` to run commands in venv"
-- Go project: "Use `go test ./...` to run all tests"
-- Rust project: "Use `cargo fmt` before commits"
-- Node/bun: "Use `bun` not npm - this project has bun.lockb"
-
-### 3.5.6 Write analysis/repo-analysis.json
+### 3.5.4 Write Analysis
 
 ```bash
 mkdir -p {globalPath}/analysis
 ```
 
-WRITE: `{globalPath}/analysis/repo-analysis.json`
-
-```json
-{
-  "analyzedAt": "{timestamp}",
-  "ecosystem": "{ecosystem}",
-  "projectType": "{projectType}",
-  "commands": {
-    "install": "{installCommand}",
-    "run": "{runCommand}",
-    "test": "{testCommand}",
-    "build": "{buildCommand}",
-    "dev": "{devCommand}",
-    "lint": "{lintCommand}",
-    "format": "{formatCommand}"
-  },
-  "conventions": {
-    "naming": "{namingConvention}",
-    "linter": "{linter}",
-    "formatter": "{formatter}"
-  },
-  "structure": {
-    "srcDir": "{srcDir}",
-    "testDir": "{testDir}",
-    "isMonorepo": {isMonorepo}
-  },
-  "rules": [
-    "{rule1 - generated based on analysis}",
-    "{rule2 - generated based on analysis}",
-    "..."
-  ]
-}
-```
+WRITE: `{globalPath}/analysis/repo-analysis.json` with ecosystem, commands, conventions, structure.
 
 ---
 
@@ -675,68 +557,48 @@ This template contains:
 
 ### 7.3 Generate Workflow Agents (ALWAYS)
 
-These 3 agents are ALWAYS created for every prjct project.
+**Generate 3 workflow agents for every project:**
 
-**CRITICAL: Each agent MUST include `agentId` in frontmatter.**
+| Agent | agentId | Handles |
+|-------|---------|---------|
+| `prjct-workflow.md` | `p.agent.workflow` | /p:task, /p:done, /p:pause, /p:resume |
+| `prjct-planner.md` | `p.agent.planner` | /p:idea, /p:spec, /p:bug |
+| `prjct-shipper.md` | `p.agent.shipper` | /p:ship |
 
-The `agentId` format is: `p.agent.{name}` where `{name}` is derived from filename without `.md`.
+READ templates from: `templates/subagents/workflow/`
+ADAPT with: projectId, projectPath, detected commands
+WRITE to: `{globalPath}/agents/`
 
-**prjct-workflow.md** - Handles: /p:now, /p:done, /p:next, /p:pause, /p:resume
-READ template: `templates/subagents/workflow/prjct-workflow.md`
-ADAPT with: projectId, projectPath
-ADD to frontmatter: `agentId: p.agent.workflow`
-WRITE to: `{globalPath}/agents/prjct-workflow.md`
+### 7.4 Generate Domain Agents (AGENTIC)
 
-**prjct-planner.md** - Handles: /p:feature, /p:idea, /p:spec, /p:bug
-READ template: `templates/subagents/workflow/prjct-planner.md`
-ADAPT with: projectId, projectPath
-ADD to frontmatter: `agentId: p.agent.planner`
-WRITE to: `{globalPath}/agents/prjct-planner.md`
+**See:** `templates/guides/agent-generation.md` for complete instructions.
 
-**prjct-shipper.md** - Handles: /p:ship
-READ template: `templates/subagents/workflow/prjct-shipper.md`
-ADAPT with: projectId, projectPath, detected test/lint commands
-ADD to frontmatter: `agentId: p.agent.shipper`
-WRITE to: `{globalPath}/agents/prjct-shipper.md`
+**Summary:**
+1. FIND representative files for each domain
+2. READ 3-5 files and EXTRACT real patterns
+3. GENERATE agents that enforce those patterns
 
-### 7.4 Generate Domain Agents (Based on Stack)
+**Domains to detect:**
 
-Analyze `{techStack}` from Step 3 and generate ONLY relevant domain agents:
+| If Found | Generate | Temperature |
+|----------|----------|-------------|
+| React/Vue/Svelte | `frontend.md` | 0.3 |
+| Express/Fastify/Hono | `backend.md` | 0.2 |
+| Prisma/Drizzle/SQL | `database.md` | 0.1 |
+| Docker/K8s/Actions | `devops.md` | 0.2 |
+| Jest/Vitest/tests | `testing.md` | 0.2 |
+| UI + design system | `uxui.md` | 0.4 |
 
-| If Detected | Generate | Template | agentId |
-|-------------|----------|----------|---------|
-| React, Vue, Angular, Svelte, CSS | `frontend.md` | `templates/subagents/domain/frontend.md` | `p.agent.frontend` |
-| Node.js, Express, Go, Python API | `backend.md` | `templates/subagents/domain/backend.md` | `p.agent.backend` |
-| PostgreSQL, MySQL, MongoDB, Prisma | `database.md` | `templates/subagents/domain/database.md` | `p.agent.database` |
-| Docker, Kubernetes, GitHub Actions | `devops.md` | `templates/subagents/domain/devops.md` | `p.agent.devops` |
-| Bun test, Jest, Pytest, testing | `testing.md` | `templates/subagents/domain/testing.md` | `p.agent.testing` |
-| **{hasFrontendUI} = true** | `uxui.md` | `templates/agentic/agents/uxui.md` | `p.agent.uxui` |
+**Output per agent:**
+```
+🤖 Generated: {agent}.md
+   Stack: {technologies}
+   Patterns: {count} from {files}
+```
 
-For EACH detected stack:
-1. READ template from `templates/subagents/domain/{name}.md`
-2. ADAPT description with detected frameworks (e.g., "React specialist" not just "frontend")
-3. ADD to frontmatter: `agentId: p.agent.{name}` (e.g., `p.agent.backend`)
-4. WRITE to `{globalPath}/agents/{name}.md`
+---
 
-### 7.5 Generate UX/UI Agent (CRITICAL for Frontend Projects)
-
-**Priority: UX > UI** - User experience is more important than visuals.
-
-IF `{hasFrontendUI}` == true:
-
-1. READ template: `templates/agentic/agents/uxui.md`
-2. WRITE to: `{globalPath}/agents/uxui.md`
-3. ADD to `{domainAgents}`: "uxui"
-
-OUTPUT: "🎨 Generated UX/UI agent for {frontendType} ({frameworks detected})"
-
-The UX/UI agent ensures:
-- **UX First**: Clarity, feedback, reduced friction, error handling, accessibility
-- **Modern UI**: Distinctive typography, bold colors, purposeful animation
-- **Anti-patterns avoided**: No "AI slop" (Inter font, purple gradients, generic layouts)
-- **Checklists**: UX and UI quality gates before shipping
-
-### 7.6 Report Generated Agents
+### 7.5 Report Generated Agents
 
 Track which agents were generated for output:
 - `{workflowAgents}`: Always 3 (prjct-workflow, prjct-planner, prjct-shipper)
@@ -744,170 +606,109 @@ Track which agents were generated for output:
 
 ---
 
-## Step 7.5: Install Claude Code Skills (AGENTIC)
+## Step 7.6: Install Skills (AGENTIC)
 
-**CRITICAL: This step is AGENTIC. Search claude-plugins.dev dynamically to find the best skills.**
+**See:** `templates/guides/integrations.md` for complete skill integration docs.
 
-Skills in Claude Code are markdown files in `~/.claude/skills/`. We search the marketplace and download the best matching skills for each agent.
+**Summary:**
+1. Search claude-plugins.dev for skills matching agent's stack
+2. Install matching skills to `~/.claude/skills/`
+3. Update agent frontmatter: `skills: [{skill-name}]`
+4. Save mapping to `{globalPath}/config/skills.json`
 
-### 7.5.1 Check Existing Skills
+**Fallback skills:**
+- frontend/uxui → `frontend-design`
+- backend → `{ecosystem} backend patterns`
+- testing → `testing automation`
 
-```bash
-ls ~/.claude/skills/*.md 2>/dev/null || echo "none"
+**Output:**
+```
+📦 Skills Synchronized
+├── Installed: {count} new
+├── Verified: {count} existing
+└── Location: ~/.claude/skills/
 ```
 
-SET: `{existingSkills}` = list of installed skill files
-
-### 7.5.2 Search & Install Skills (AGENTIC)
-
-**For each generated agent, search claude-plugins.dev and install the best skill.**
-
-```
-{skillsToFind} = [
-  { agent: "frontend", searchTerms: ["frontend-design", "react", "ui components"] },
-  { agent: "uxui", searchTerms: ["ux-designer", "frontend-design", "ui ux"] },
-  { agent: "backend", searchTerms: ["{ecosystem} backend", "api design", "backend patterns"] },
-  { agent: "testing", searchTerms: ["testing", "test automation", "{ecosystem} testing"] },
-  { agent: "devops", searchTerms: ["devops", "ci cd", "docker kubernetes"] },
-  { agent: "prjct-planner", searchTerms: ["feature development", "architecture", "planning"] },
-  { agent: "prjct-shipper", searchTerms: ["code review", "pr review", "shipping"] }
-]
-
-FOR EACH entry in {skillsToFind}:
-  IF {entry.agent} IN {generatedAgents}:
-
-    # Step A: Search claude-plugins.dev
-    USE WebFetch:
-      url: "https://claude-plugins.dev/skills?q={entry.searchTerms[0]}"
-      prompt: "Find the best skill for {entry.agent}. Return: skill name, author, install URL"
-
-    SET: {searchResult} = result
-
-    # Step B: Analyze results and pick best match
-    ANALYZE {searchResult}:
-      - Prefer @anthropics skills (official)
-      - Prefer skills with high download count
-      - Match the agent's domain
-
-    SET: {bestSkill} = selected skill
-
-    # Step C: Check if already installed
-    IF {bestSkill.name}.md NOT IN {existingSkills}:
-
-      # Step D: Get skill content from GitHub
-      USE WebFetch:
-        url: "{bestSkill.githubUrl}/raw/main/skills/{bestSkill.name}.md"
-        prompt: "Get the complete skill markdown content"
-
-      SET: {skillContent} = result
-
-      # Step E: Install to ~/.claude/skills/
-      ```bash
-      mkdir -p ~/.claude/skills
-      ```
-
-      WRITE: `~/.claude/skills/{bestSkill.name}.md`
-      CONTENT: {skillContent}
-
-      OUTPUT: "📦 Installed skill: {bestSkill.name} (from {bestSkill.author})"
-      ADD {bestSkill} to {installedSkills}
-
-    ELSE:
-      OUTPUT: "✓ Skill exists: {bestSkill.name}"
-      ADD {bestSkill.name} to {verifiedSkills}
-```
-
-### 7.5.3 Skill Search Fallbacks
-
-If WebFetch fails or no results found:
-
-```
-FALLBACK SKILLS (use these if search fails):
-- frontend/uxui → "frontend-design" from @anthropics/claude-code
-- backend (JS/TS) → Search "typescript backend patterns"
-- backend (Python) → Search "python backend patterns"
-- testing → Search "testing automation"
-- devops → Search "devops ci cd"
-- planner → Search "architecture planning"
-- shipper → Search "code review"
-```
-
-### 7.5.4 Create Custom Skill if Not Found
-
-If no suitable skill found on marketplace, CREATE a minimal skill:
-
-```markdown
----
-name: {agent}-skill
-description: Custom skill for {agent} agent
 ---
 
-# {Agent} Skill
+## Step 7.7: Configure MCP Servers (AGENTIC)
 
-This is a custom skill for the {agent} domain.
+**See:** `templates/guides/integrations.md` for complete MCP documentation.
 
-## Expertise
-{Based on agent's domain - frontend, backend, etc.}
+**Summary:**
+1. Analyze which agents need external docs/tools
+2. Configure `context7` for library documentation
+3. Save to `{globalPath}/config/mcp-servers.json`
+4. Update agent frontmatter: `mcp: [context7]`
 
-## Patterns
-{Common patterns for this domain}
+**Agent-MCP Mapping:**
+
+| Agent Type | Needs MCP? | Reason |
+|------------|------------|--------|
+| frontend, backend, database | Yes | Library docs |
+| devops | Rarely | Uses bash |
+| workflow agents | Sometimes | Framework docs |
+
+**Output:**
+```
+🔌 MCP Servers Configured
+├── Servers: {count}
+├── Agents with MCP: {count}
+└── Config: {globalPath}/config/mcp-servers.json
 ```
 
-WRITE to: `~/.claude/skills/{agent}-custom.md`
+---
 
-### 7.5.5 Save Skills Configuration
+## Step 7.8: Agent Auto-Refresh
 
-```bash
-mkdir -p {globalPath}/config
+**Detect when agents need regeneration:**
+
+1. Compare `repo-analysis.json` with previous analysis
+2. If dependencies changed → regenerate all agents
+3. If agent older than 7 days → refresh that agent
+4. Backup previous version as `{agent}.md.backup`
+
+**Output:**
+```
+🔄 Agent Refresh
+├── Checked: {count} agents
+├── Refreshed: {count} stale
+└── Dependencies: Changed/Unchanged
 ```
 
-WRITE: `{globalPath}/config/skills.json`
+---
+
+## Step 7.9: Slash Command Registration
+
+**Generate registry for Claude Code integration.**
+
+WRITE: `{globalPath}/config/slash-commands.json`
 
 ```json
 {
-  "projectId": "{projectId}",
-  "ecosystem": "{ecosystem}",
-  "installedAt": "{GetTimestamp()}",
-  "searchedAt": "{GetTimestamp()}",
-  "skills": [
-    {
-      "name": "{skill.name}",
-      "source": "{skill.source}",
-      "author": "{skill.author}",
-      "path": "~/.claude/skills/{skill.name}.md",
-      "linkedAgents": ["{agents that use this skill}"]
-    }
-  ],
-  "agentSkillMap": {
-    "{agent}": "{skill.name}"
+  "version": "1.0.0",
+  "generatedAt": "{timestamp}",
+  "commands": {
+    "p:task": { "description": "Start task", "category": "workflow" },
+    "p:done": { "description": "Complete subtask", "category": "workflow" },
+    "p:ship": { "description": "Ship feature", "category": "shipping" }
   }
 }
 ```
 
-### 7.5.6 Update Agent Frontmatter
+---
 
-FOR EACH agent file in `{globalPath}/agents/`:
-  READ agent file
-  GET skill from agentSkillMap[agent.name]
+## Step 7.10: Token Budget Analysis
 
-  IF skill exists AND frontmatter.skills is missing:
-    UPDATE frontmatter to include: `skills: [{skill}]`
-    WRITE updated agent file
+**Estimate context token usage (~3.8 chars/token):**
 
-### 7.5.7 Output Summary
+1. Sum tokens: CLAUDE.md + agents/*.md + config/skills.json
+2. Budget: 160,000 tokens (80% of 200k limit)
+3. If over budget → summarize large agents
 
+**Output:**
 ```
-SET: {skillsInstalled} = list of newly installed
-SET: {skillsVerified} = list of already existing
-SET: {skillsCreated} = list of custom-created
-SET: {totalSkills} = count of all
-
-OUTPUT:
-📦 Skills Synchronized
-├── Installed: {skillsInstalled.length} new from marketplace
-├── Verified: {skillsVerified.length} already exist
-├── Created: {skillsCreated.length} custom skills
-└── Location: ~/.claude/skills/
+📊 Token Budget: {utilization}% ({used}/{budget} tokens)
 ```
 
 ---
@@ -917,7 +718,7 @@ OUTPUT:
 APPEND to: `{globalPath}/memory/events.jsonl`
 
 ```json
-{"ts":"{GetTimestamp()}","action":"sync","branch":"{currentBranch}","uncommitted":{hasUncommittedChanges},"fileCount":{fileCount},"commitCount":{commitCount}}
+{"ts":"{GetTimestamp()}","action":"sync","branch":"{currentBranch}","uncommitted":{hasUncommittedChanges},"fileCount":{fileCount},"commitCount":{commitCount},"tokensUsed":{totalContextTokens}}
 ```
 
 ---
@@ -971,81 +772,30 @@ IF cloudSync AND no syncError:
 ## Output
 
 ```
-🔄 Project synced to prjct v{cliVersion}
+🔄 Synced to prjct v{cliVersion}
 
-📊 Project Stats
-├── Files: {fileCount}
-├── Commits: {commitCount}
-├── Version: {version}
-└── Stack: {stack}
+📊 {projectName} | {version} | {stack}
+├── Files: {fileCount} | Commits: {commitCount}
+├── Branch: {currentBranch} {hasUncommittedChanges ? "⚠️ uncommitted" : "✓ clean"}
+└── Context: {tokenUtilization}% of budget
 
-🌿 Git Status
-├── Branch: {currentBranch}
-├── Uncommitted: {hasUncommittedChanges ? "Yes - " + modifiedCount + " files" : "Clean"}
-└── Recent: {recentCommitCount} commits this week
-
-📁 Context Updated
-├── context/now.md
-├── context/next.md
-├── context/ideas.md
-├── context/shipped.md
-└── context/CLAUDE.md
-
-🤖 Agents Regenerated ({workflowAgents.length + domainAgents.length})
+🤖 Agents ({workflowAgents.length + domainAgents.length})
 ├── Workflow: prjct-workflow, prjct-planner, prjct-shipper
-├── Domain: {domainAgents.join(', ') || 'none'}
-{IF hasFrontendUI}
-└── 🎨 UX/UI: uxui.md (Priority: UX > UI)
-{ENDIF}
+└── Domain: {domainAgents.join(', ') || 'none'}
 
-🏷️ Agent Mentions (use in prompts)
-├── p.agent.workflow, p.agent.planner, p.agent.shipper
-{IF domainAgents.length > 0}
-├── {domainAgents.map(a => 'p.agent.' + a).join(', ')}
-{ENDIF}
-└── Example: "p.agent.backend help me create an API endpoint"
-
-📦 Skills ({totalSkills})
-├── Installed: {skillsInstalled.length ? skillsInstalled.join(', ') : 'none'}
-├── Verified: {skillsVerified.length ? skillsVerified.join(', ') : 'none'}
-└── Config: {globalPath}/config/skills.json
-
-🔗 Agent → Skill Mapping
-{FOR EACH entry in agentSkillMap WHERE entry.skill != null}
-├── {entry.agent}.md → /{entry.skill}
-{END FOR}
+📦 Integrations
+├── Skills: {totalSkills} ({skillsInstalled.length} new)
+└── MCP: {mcpServersConfigured} servers
 
 {IF isVersionUpgrade}
-✨ New Features Available in v{cliVersion}:
-
-• /p:task - Unified task command with agentic classification
-• Automatic type detection (feature, bug, improvement, refactor, chore)
-• 7-phase development workflow for all task types
-• Git branch management with type-based prefixes
-• UX/UI design workflow for frontend tasks
-• Design expert integration
-
-Note: /p:now and /p:feature are deprecated. Use /p:task instead.
+✨ v{cliVersion}: /p:task unifies all task types
 {ENDIF}
 
 {IF cloudSync}
-☁️ Cloud Sync
-├── Pushed: {pushedCount} events
-├── Pulled: {pulledCount} updates
-└── Status: {syncError ? "⚠️ " + syncError : "✓ Synced"}
-{ELSE}
-💡 Cloud sync disabled. Run `prjct auth` to enable.
+☁️ Synced {pushedCount}↑ {pulledCount}↓
 {ENDIF}
 
-{IF hasUncommittedChanges}
-⚠️  You have uncommitted changes
-
-Next: Commit your work or continue coding
-{ELSE}
-✨ Repository is clean!
-
-Next: /p:task "your next task"
-{ENDIF}
+Next: /p:task "description"
 ```
 
 ---
@@ -1065,34 +815,21 @@ Next: /p:task "your next task"
 
 ```
 ~/.prjct-cli/projects/{projectId}/
-├── storage/                  # Source of Truth (JSON)
-│   ├── state.json           # Current + paused task
-│   ├── queue.json           # Task queue
-│   ├── ideas.json           # Ideas list
-│   └── shipped.json         # Shipped features
-├── context/                  # For Claude (MD)
-│   ├── CLAUDE.md            # Full context
-│   ├── now.md               # Current task
-│   ├── next.md              # Queue
-│   ├── ideas.md             # Ideas
-│   └── shipped.md           # Shipped
-├── config/                   # Configuration (NEW)
-│   └── skills.json          # Agent-to-skill mappings
-├── sync/                     # Backend Sync
-│   └── pending.json         # Events queue
-├── agents/                   # Specialists
-├── memory/                   # Audit Trail
-│   └── events.jsonl
-└── project.json             # Metadata
+├── storage/          # Source of Truth: state.json, queue.json, ideas.json, shipped.json
+├── context/          # Claude Context: CLAUDE.md, now.md, next.md, ideas.md, shipped.md
+├── config/           # Config: skills.json, mcp-servers.json, slash-commands.json
+├── agents/           # Domain agents: prjct-*.md, frontend.md, backend.md, etc.
+├── analysis/         # repo-analysis.json
+├── memory/           # events.jsonl
+├── sync/             # pending.json
+└── project.json      # Metadata + cliVersion
+```
 
-# Sub-Agents are in {globalPath}/agents/ (NOT in project .claude/)
-├── prjct-workflow.md        # /p:now, /p:done, /p:next
-├── prjct-planner.md         # /p:feature, /p:idea, /p:spec
-├── prjct-shipper.md         # /p:ship
-├── frontend.md              # (if React/Vue/Angular detected)
-├── backend.md               # (if Node/Go/Python API detected)
-├── database.md              # (if DB detected)
-├── devops.md                # (if Docker/K8s detected)
-├── testing.md               # (if test framework detected)
-└── uxui.md                  # (if ANY frontend UI detected - web or mobile)
+**Agent Frontmatter (v0.28+):**
+```yaml
+name: backend
+agentId: p.agent.backend
+skills: [skill-name]      # Auto-invoked
+mcp: [context7]           # Auto-used
+generatedAt: {timestamp}  # For refresh detection
 ```
