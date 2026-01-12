@@ -48,6 +48,7 @@
   "license": "MIT",
   "dependencies": {
     "@hono/node-server": "^1.13.7",
+    "@linear/sdk": "^29.0.0",
     "chalk": "^4.1.2",
     "esbuild": "^0.25.0",
     "glob": "^10.3.10",

@@ -36,11 +36,29 @@ export interface NotionIntegrationConfig {
 }
 
 /**
+ * Issue Tracker Config (Linear, Jira, Monday, etc.)
+ * Re-exported from issue-tracker module
+ */
+export type {
+  IssueTrackerConfig,
+  LinearConfig,
+  JiraConfig,
+  MondayConfig,
+  GitHubConfig,
+} from '../integrations/issue-tracker/types'
+
+export {
+  DEFAULT_LINEAR_CONFIG,
+  DEFAULT_JIRA_CONFIG,
+} from '../integrations/issue-tracker/types'
+
+/**
  * Integrations Config
  * Container for all external integrations
  */
 export interface IntegrationsConfig {
   notion?: NotionIntegrationConfig
+  issueTracker?: import('../integrations/issue-tracker/types').IssueTrackerConfig
 }
 
 /**
