@@ -1,5 +1,48 @@
 # Changelog
 
+## [0.28.4] - 2026-01-11
+
+### Feature: Claude Code UX Enhancements
+
+Rich terminal experience for Claude Code - 100% ToS compliant.
+
+**Status Line System:**
+- Custom status line script showing prjct task, git branch, lines changed
+- Context usage bar with color-coded warnings (green/yellow/red)
+- Model icons (🎭 Opus, 📝 Sonnet, 🍃 Haiku)
+- Installed at `~/.prjct-cli/statusline/statusline.sh`
+
+**Theme System:**
+- Three built-in themes: default (prjct), gentleman, minimal
+- JSON-based theme configuration
+- ANSI 256 color support
+- Located at `~/.prjct-cli/statusline/themes/`
+
+**Output Styles:**
+- `prjct.md` - Concise, actionable output (default)
+- `verbose.md` - Detailed explanations for learning
+- `ship-fast.md` - Minimal output for max velocity
+- Located at `~/.prjct-cli/output-styles/`
+
+**Hooks Integration:**
+- `update-metrics.sh` - Tracks tool usage per session
+- `session-summary.sh` - Shows stats when Claude stops
+- Located at `~/.prjct-cli/hooks/`
+
+**Visual Theme (tweakcc):**
+- Full Claude Code color theme
+- Spanish thinking verbs
+- Located at `~/.prjct-cli/tweakcc-theme.json`
+
+**New Templates:**
+- `templates/commands/setup-statusline.md` - Interactive setup
+- `templates/guides/claude-code-ux.md` - Full documentation
+- Updated `templates/global/CLAUDE.md` with UX section
+
+**Template Optimization:**
+- Further reduced template sizes
+- New shared patterns in `templates/shared/`
+
 ## [0.28.3] - 2026-01-11
 
 ### Feature: Claude Code Synergy Optimization

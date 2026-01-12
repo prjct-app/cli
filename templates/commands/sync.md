@@ -11,7 +11,20 @@ backend-sync: 'sync/pending.json'
 
 # /p:sync - Deep Project Sync
 
-**CRITICAL**: This is a DEEP analysis. Sync EVERYTHING with the real state of the repository.
+**PERFORMANCE**: Use parallel operations wherever possible. This sync should complete in <30 seconds.
+
+## Parallelization Strategy
+
+| Phase | Operations | Parallel? |
+|-------|------------|-----------|
+| Git + Stats | git commands, package.json read | ✅ Yes |
+| Storage Read | state, queue, ideas, shipped | ✅ Yes |
+| Context Write | now, next, ideas, shipped, CLAUDE.md | ✅ Yes |
+| Agent Gen | workflow agents, domain agents | ✅ Yes |
+
+**CRITICAL**: Batch all Read/Write operations. Never do sequential reads when parallel is possible.
+
+---
 
 ## Architecture: Write-Through Pattern
 
@@ -101,167 +114,112 @@ IF file not found:
 
 ---
 
-## Step 2: Deep Git Analysis
+## Step 2: Git Analysis (PARALLEL)
 
-### 2.1 Git Status (Uncommitted Work)
+**Run ALL git commands in a single parallel batch:**
+
 ```bash
-git status --porcelain
+# Run in parallel (single Bash call with &&)
+git status --porcelain && \
+git log --oneline -10 --pretty=format:"%h|%s" && \
+git branch --show-current && \
+git rev-list --count HEAD
 ```
 
-EXTRACT:
-- `{stagedFiles}`: Files staged for commit
-- `{modifiedFiles}`: Modified but not staged
-- `{untrackedFiles}`: New files
-- `{hasUncommittedChanges}`: true/false
-
-### 2.2 Recent Commits (Last 20)
-```bash
-git log --oneline -20 --pretty=format:"%h|%s|%ad" --date=short
-```
-
-ANALYZE each commit for completed tasks.
-
-EXTRACT: `{completedTasks}` - List of tasks found in commits
-
-### 2.3 Current Branch Analysis
-```bash
-git branch --show-current
-git log main..HEAD --oneline 2>/dev/null
-```
-
-EXTRACT:
-- `{currentBranch}`: Current branch name
-- `{branchCommits}`: Commits ahead of main
+EXTRACT from combined output:
+- `{stagedFiles}`, `{modifiedFiles}`, `{untrackedFiles}`, `{hasUncommittedChanges}`
+- `{recentCommits}`: Last 10 commits (reduced from 20)
+- `{currentBranch}`, `{commitCount}`
 - `{isFeatureBranch}`: true if not main/master
 
 ---
 
-## Step 3: Gather Project Stats
+## Step 3: Project Stats (FAST)
 
-### Count Files
-```bash
-find . -type f \( -name "*.js" -o -name "*.ts" -o -name "*.tsx" -o -name "*.py" \) -not -path "./node_modules/*" -not -path "./.git/*" | wc -l
+**Use Glob tool instead of find - much faster:**
+
+### 3.1 Quick Stats (Single Read)
+
+READ: `package.json` → extract `name`, `version`, `dependencies`, `devDependencies`, `scripts`
+
+From dependencies, detect:
+- `{techStack}`: react, vue, express, etc.
+- `{hasWebFrontend}`: react|vue|svelte|next in deps
+- `{hasMobileFrontend}`: react-native|expo in deps
+
+SET: `{projectName}` = package.name OR directory name
+SET: `{version}` = package.version
+
+### 3.2 File Count (Use Glob, NOT find)
+
 ```
-EXTRACT: `{fileCount}`
-
-### Count Commits
-```bash
-git rev-list --count HEAD
+GLOB: **/*.{ts,tsx,js,jsx,py,go,rs} (exclude node_modules, .git)
 ```
-EXTRACT: `{commitCount}`
+SET: `{fileCount}` = count of matches
 
-### Get Version
-READ: `package.json` → version field
-EXTRACT: `{version}`
+**NOTE**: commitCount already extracted in Step 2.
 
-### Get Project Name
-READ: `package.json` → name field OR directory name
-EXTRACT: `{projectName}`
-
-### Detect Stack
-GLOB for config files and analyze:
-- `package.json` → Node.js, detect React/Vue/Express/Next.js
-- `Cargo.toml` → Rust
-- `go.mod` → Go
-- `requirements.txt` / `pyproject.toml` → Python
-
-EXTRACT: `{languages}`, `{frameworks}`, `{techStack}`
-
-### Detect Frontend/UI Stack (for UX/UI Agent)
-
-**CRITICAL**: If ANY frontend technology is detected, generate the UX/UI agent.
-
-#### Web Frontend Detection
-```bash
-# Check package.json for web frameworks
-grep -E '"(react|react-dom|next|vue|nuxt|svelte|@sveltejs/kit|@angular/core)"' package.json 2>/dev/null
-```
-
-SET: `{hasWebFrontend}` = true if any match
-
-#### Mobile Frontend Detection
-```bash
-# React Native / Expo
-grep -E '"(react-native|expo)"' package.json 2>/dev/null
-
-# Flutter
-test -f pubspec.yaml && echo "flutter"
-
-# SwiftUI (iOS)
-find . -name "*.swift" -exec grep -l "import SwiftUI" {} \; 2>/dev/null | head -1
-
-# Jetpack Compose (Android)
-find . -name "*.kt" -exec grep -l "androidx.compose" {} \; 2>/dev/null | head -1
-```
-
-SET: `{hasMobileFrontend}` = true if any match
-
-#### Combined Frontend Flag
-```
-{hasFrontendUI} = {hasWebFrontend} OR {hasMobileFrontend}
-```
-
-EXTRACT: `{frontendType}` = "web" | "mobile" | "both" | null
-
----
-
-## Step 3.5: Deep Project Analysis (AGENTIC)
-
-**ANALYZE the actual project. Do NOT follow hardcoded rules.**
-
-### 3.5.1 Detect Ecosystem
+### 3.3 Detect Ecosystem (Single ls)
 
 ```bash
-ls -la  # Look at project root
+ls package.json bun.lockb pnpm-lock.yaml yarn.lock package-lock.json Cargo.toml go.mod pyproject.toml 2>/dev/null
 ```
 
-| File Found | Ecosystem | Package Manager |
-|------------|-----------|-----------------|
-| `Gemfile` | Ruby | bundle |
-| `requirements.txt`/`pyproject.toml` | Python | pip/poetry/uv |
-| `go.mod` | Go | go |
+| Found | Ecosystem | Package Manager |
+|-------|-----------|-----------------|
+| `bun.lockb` | JavaScript | bun |
+| `pnpm-lock.yaml` | JavaScript | pnpm |
+| `yarn.lock` | JavaScript | yarn |
+| `package-lock.json` | JavaScript | npm |
 | `Cargo.toml` | Rust | cargo |
-| `package.json` + `bun.lockb` | JavaScript | bun |
-| `package.json` + `pnpm-lock.yaml` | JavaScript | pnpm |
-| `package.json` + `yarn.lock` | JavaScript | yarn |
-| `package.json` + `package-lock.json` | JavaScript | npm |
+| `go.mod` | Go | go |
+| `pyproject.toml` | Python | uv/poetry |
 
-SET: `{ecosystem}`, `{projectType}`, `{packageManager}`
-
-### 3.5.2 Extract Commands
-
-```bash
-cat package.json | grep -A 20 '"scripts"'  # For Node.js
-```
-
-EXTRACT: `{installCommand}`, `{devCommand}`, `{testCommand}`, `{buildCommand}`, `{lintCommand}`
-
-### 3.5.3 Detect Conventions
-
-```bash
-ls .eslintrc* .prettierrc* tsconfig.json biome.json 2>/dev/null
-```
-
-EXTRACT: `{namingConvention}`, `{linter}`, `{formatter}`
-
-### 3.5.4 Write Analysis
-
-```bash
-mkdir -p {globalPath}/analysis
-```
-
-WRITE: `{globalPath}/analysis/repo-analysis.json` with ecosystem, commands, conventions, structure.
+SET: `{ecosystem}`, `{packageManager}`
 
 ---
 
-## Step 4: Regenerate ALL Context Files
+## Step 3.5: Extract Commands & Conventions
 
-### 4.1 Read Storage (Source of Truth)
+**Already have ecosystem from Step 3. Now extract commands from scripts.**
 
-READ: `{globalPath}/storage/state.json`
-READ: `{globalPath}/storage/queue.json`
-READ: `{globalPath}/storage/ideas.json`
-READ: `{globalPath}/storage/shipped.json`
+### 3.5.1 Extract Commands (from package.json scripts already read)
+
+From `package.json.scripts`:
+- `{installCommand}` = `{packageManager} install`
+- `{devCommand}` = scripts.dev || scripts.start
+- `{testCommand}` = scripts.test
+- `{buildCommand}` = scripts.build
+- `{lintCommand}` = scripts.lint
+
+### 3.5.2 Detect Conventions (Single ls)
+
+```bash
+ls .eslintrc* .prettierrc* tsconfig.json biome.json .editorconfig 2>/dev/null
+```
+
+SET: `{linter}` = eslint|biome, `{formatter}` = prettier|biome
+
+### 3.5.3 Write Analysis
+
+WRITE: `{globalPath}/analysis/repo-analysis.json`
+```json
+{"ecosystem":"{ecosystem}","packageManager":"{packageManager}","commands":{...},"linter":"{linter}"}
+```
+
+---
+
+## Step 4: Regenerate Context Files (PARALLEL READS)
+
+### 4.1 Read ALL Storage (PARALLEL)
+
+**Read all 4 files in parallel (single tool call batch):**
+
+READ (parallel):
+- `{globalPath}/storage/state.json` → `{state}`
+- `{globalPath}/storage/queue.json` → `{queue}`
+- `{globalPath}/storage/ideas.json` → `{ideas}`
+- `{globalPath}/storage/shipped.json` → `{shipped}`
 
 ### 4.2 Generate context/now.md
 
@@ -521,6 +479,44 @@ WRITE: `{globalPath}/project.json` (merge with existing, but ALWAYS update these
 
 ---
 
+## Step 6b: Update Global CLAUDE.md (CRITICAL)
+
+**ALWAYS update `~/.claude/CLAUDE.md`** with the latest prjct instructions.
+
+This ensures Claude has the newest features and commands available.
+
+### 6b.1 Read Current Global Config
+
+READ: `~/.claude/CLAUDE.md`
+
+### 6b.2 Read Template
+
+The template is at the prjct-cli install location. For development:
+READ: `templates/global/CLAUDE.md` (from the prjct-cli repo/package)
+
+### 6b.3 Intelligent Merge
+
+The file has markers:
+- `<!-- prjct:start - DO NOT REMOVE THIS MARKER -->`
+- `<!-- prjct:end - DO NOT REMOVE THIS MARKER -->`
+
+**IF markers exist in ~/.claude/CLAUDE.md:**
+1. Extract content BEFORE the start marker (user's custom content)
+2. Extract content AFTER the end marker (user's custom content)
+3. Replace the section between markers with template content
+4. Write merged content
+
+**IF no markers:**
+1. Append template content to end of file
+
+### 6b.4 Write Updated Config
+
+WRITE: `~/.claude/CLAUDE.md`
+
+OUTPUT: "📝 Updated ~/.claude/CLAUDE.md to v{cliVersion}"
+
+---
+
 ## Step 7: Generate Claude Code Sub-Agents (AGENTIC)
 
 Generate sub-agents for Claude Code in the GLOBAL storage `{globalPath}/agents/` directory.
@@ -598,118 +594,32 @@ WRITE to: `{globalPath}/agents/`
 
 ---
 
-### 7.5 Report Generated Agents
+### 7.5 Integrations (Skills + MCP) - CONDITIONAL
 
-Track which agents were generated for output:
-- `{workflowAgents}`: Always 3 (prjct-workflow, prjct-planner, prjct-shipper)
-- `{domainAgents}`: List of domain agents generated
+**Only if agents were generated, configure integrations.**
 
----
+See: `templates/guides/integrations.md`
 
-## Step 7.6: Install Skills (AGENTIC)
+| Agent | Default Skill | MCP |
+|-------|---------------|-----|
+| frontend/uxui | `frontend-design` | context7 |
+| backend | - | context7 |
+| testing | - | - |
 
-**See:** `templates/guides/integrations.md` for complete skill integration docs.
-
-**Summary:**
-1. Search claude-plugins.dev for skills matching agent's stack
-2. Install matching skills to `~/.claude/skills/`
-3. Update agent frontmatter: `skills: [{skill-name}]`
-4. Save mapping to `{globalPath}/config/skills.json`
-
-**Fallback skills:**
-- frontend/uxui → `frontend-design`
-- backend → `{ecosystem} backend patterns`
-- testing → `testing automation`
-
-**Output:**
-```
-📦 Skills Synchronized
-├── Installed: {count} new
-├── Verified: {count} existing
-└── Location: ~/.claude/skills/
-```
+WRITE: `{globalPath}/config/skills.json` (if skills configured)
 
 ---
 
-## Step 7.7: Configure MCP Servers (AGENTIC)
+### 7.6 Scan Quick Commands
 
-**See:** `templates/guides/integrations.md` for complete MCP documentation.
-
-**Summary:**
-1. Analyze which agents need external docs/tools
-2. Configure `context7` for library documentation
-3. Save to `{globalPath}/config/mcp-servers.json`
-4. Update agent frontmatter: `mcp: [context7]`
-
-**Agent-MCP Mapping:**
-
-| Agent Type | Needs MCP? | Reason |
-|------------|------------|--------|
-| frontend, backend, database | Yes | Library docs |
-| devops | Rarely | Uses bash |
-| workflow agents | Sometimes | Framework docs |
-
-**Output:**
-```
-🔌 MCP Servers Configured
-├── Servers: {count}
-├── Agents with MCP: {count}
-└── Config: {globalPath}/config/mcp-servers.json
+```bash
+ls ~/.prjct-cli/commands/*.md 2>/dev/null | head -20
 ```
 
----
-
-## Step 7.8: Agent Auto-Refresh
-
-**Detect when agents need regeneration:**
-
-1. Compare `repo-analysis.json` with previous analysis
-2. If dependencies changed → regenerate all agents
-3. If agent older than 7 days → refresh that agent
-4. Backup previous version as `{agent}.md.backup`
-
-**Output:**
-```
-🔄 Agent Refresh
-├── Checked: {count} agents
-├── Refreshed: {count} stale
-└── Dependencies: Changed/Unchanged
-```
-
----
-
-## Step 7.9: Slash Command Registration
-
-**Generate registry for Claude Code integration.**
-
-WRITE: `{globalPath}/config/slash-commands.json`
-
-```json
-{
-  "version": "1.0.0",
-  "generatedAt": "{timestamp}",
-  "commands": {
-    "p:task": { "description": "Start task", "category": "workflow" },
-    "p:done": { "description": "Complete subtask", "category": "workflow" },
-    "p:ship": { "description": "Ship feature", "category": "shipping" }
-  }
-}
-```
-
----
-
-## Step 7.10: Token Budget Analysis
-
-**Estimate context token usage (~3.8 chars/token):**
-
-1. Sum tokens: CLAUDE.md + agents/*.md + config/skills.json
-2. Budget: 160,000 tokens (80% of 200k limit)
-3. If over budget → summarize large agents
-
-**Output:**
-```
-📊 Token Budget: {utilization}% ({used}/{budget} tokens)
-```
+IF files found:
+  SET: `{quickCommandCount}` = count
+  FOR EACH file: extract `description` from frontmatter
+  SET: `{quickCommandList}` = [{name, description}, ...]
 
 ---
 
@@ -769,34 +679,21 @@ IF cloudSync AND no syncError:
 
 ---
 
-## Output
+## Output (Compact)
 
 ```
-🔄 Synced to prjct v{cliVersion}
+🔄 {projectName} v{version} | {ecosystem} | prjct v{cliVersion}
 
-📊 {projectName} | {version} | {stack}
-├── Files: {fileCount} | Commits: {commitCount}
-├── Branch: {currentBranch} {hasUncommittedChanges ? "⚠️ uncommitted" : "✓ clean"}
-└── Context: {tokenUtilization}% of budget
+{currentBranch} {hasUncommittedChanges ? "⚠️" : "✓"} | {fileCount} files | {commitCount} commits
 
-🤖 Agents ({workflowAgents.length + domainAgents.length})
-├── Workflow: prjct-workflow, prjct-planner, prjct-shipper
-└── Domain: {domainAgents.join(', ') || 'none'}
+🤖 Agents: {domainAgents.join(', ') || 'workflow only'}
+{IF quickCommandCount > 0}⚡ Commands: {quickCommandList.map(c => c.name).join(', ')}{ENDIF}
+{IF cloudSync}☁️ {pushedCount}↑ {pulledCount}↓{ENDIF}
 
-📦 Integrations
-├── Skills: {totalSkills} ({skillsInstalled.length} new)
-└── MCP: {mcpServersConfigured} servers
-
-{IF isVersionUpgrade}
-✨ v{cliVersion}: /p:task unifies all task types
-{ENDIF}
-
-{IF cloudSync}
-☁️ Synced {pushedCount}↑ {pulledCount}↓
-{ENDIF}
-
-Next: /p:task "description"
+Next: p. task "description"
 ```
+
+**Keep output under 6 lines unless errors occur.**
 
 ---
 
@@ -814,15 +711,18 @@ Next: /p:task "description"
 ## File Structure Reference
 
 ```
-~/.prjct-cli/projects/{projectId}/
-├── storage/          # Source of Truth: state.json, queue.json, ideas.json, shipped.json
-├── context/          # Claude Context: CLAUDE.md, now.md, next.md, ideas.md, shipped.md
-├── config/           # Config: skills.json, mcp-servers.json, slash-commands.json
-├── agents/           # Domain agents: prjct-*.md, frontend.md, backend.md, etc.
-├── analysis/         # repo-analysis.json
-├── memory/           # events.jsonl
-├── sync/             # pending.json
-└── project.json      # Metadata + cliVersion
+~/.prjct-cli/
+├── commands/         # User Quick Commands (global, priority over built-in)
+│   └── {command}.md  # Custom command templates
+└── projects/{projectId}/
+    ├── storage/      # Source of Truth: state.json, queue.json, ideas.json, shipped.json
+    ├── context/      # Claude Context: CLAUDE.md, now.md, next.md, ideas.md, shipped.md
+    ├── config/       # Config: skills.json, mcp-servers.json, slash-commands.json
+    ├── agents/       # Domain agents: prjct-*.md, frontend.md, backend.md, etc.
+    ├── analysis/     # repo-analysis.json
+    ├── memory/       # events.jsonl
+    ├── sync/         # pending.json
+    └── project.json  # Metadata + cliVersion
 ```
 
 **Agent Frontmatter (v0.28+):**

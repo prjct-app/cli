@@ -43,7 +43,6 @@ import type {
   MemoryDatabase,
   HistoryEntry,
   HistoryEventType,
-  Decision,
   Workflow,
   Preference,
   Patterns,
@@ -269,8 +268,13 @@ export class HistoryStore {
 /**
  * Patterns - Tier 2
  * Persistent learned preferences and decisions.
+ * OPTIMIZED: Debounced saves to reduce I/O
  */
 export class PatternStore extends CachedStore<Patterns> {
+  private _saveTimeout: ReturnType<typeof setTimeout> | null = null
+  private _pendingSave: string | null = null
+  private static readonly SAVE_DEBOUNCE_MS = 500 // Batch saves within 500ms
+
   protected getFilename(): string {
     return 'patterns.json'
   }
@@ -282,6 +286,41 @@ export class PatternStore extends CachedStore<Patterns> {
       preferences: {},
       workflows: {},
       counters: {},
+    }
+  }
+
+  /**
+   * OPTIMIZED: Debounced save - batches multiple updates
+   */
+  private async debouncedSave(projectId: string): Promise<void> {
+    this._pendingSave = projectId
+
+    if (this._saveTimeout) {
+      clearTimeout(this._saveTimeout)
+    }
+
+    return new Promise((resolve) => {
+      this._saveTimeout = setTimeout(async () => {
+        if (this._pendingSave) {
+          await this.save(this._pendingSave)
+          this._pendingSave = null
+        }
+        resolve()
+      }, PatternStore.SAVE_DEBOUNCE_MS)
+    })
+  }
+
+  /**
+   * Force flush any pending saves (call before process exit)
+   */
+  async flush(projectId: string): Promise<void> {
+    if (this._saveTimeout) {
+      clearTimeout(this._saveTimeout)
+      this._saveTimeout = null
+    }
+    if (this._pendingSave) {
+      await this.save(projectId)
+      this._pendingSave = null
     }
   }
 
@@ -330,7 +369,8 @@ export class PatternStore extends CachedStore<Patterns> {
       }
     }
 
-    await this.save(projectId)
+    // OPTIMIZED: Debounced save instead of immediate
+    await this.debouncedSave(projectId)
   }
 
   async getDecision(projectId: string, key: string): Promise<{ value: string; confidence: string } | null> {
@@ -364,13 +404,12 @@ export class PatternStore extends CachedStore<Patterns> {
       patterns.workflows[workflowName].lastSeen = now
     }
 
-    await this.save(projectId)
+    await this.debouncedSave(projectId)
   }
 
   async getWorkflow(projectId: string, workflowName: string): Promise<Workflow | null> {
     const patterns = await this.load(projectId)
     const workflow = patterns.workflows[workflowName]
-
     if (!workflow || workflow.count < 3) return null
     return workflow
   }
@@ -378,7 +417,7 @@ export class PatternStore extends CachedStore<Patterns> {
   async setPreference(projectId: string, key: string, value: Preference['value']): Promise<void> {
     const patterns = await this.load(projectId)
     patterns.preferences[key] = { value, updatedAt: getTimestamp() }
-    await this.save(projectId)
+    await this.debouncedSave(projectId)
   }
 
   async getPreference(projectId: string, key: string, defaultValue: unknown = null): Promise<unknown> {

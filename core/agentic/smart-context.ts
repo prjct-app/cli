@@ -13,7 +13,6 @@ import { outcomeAnalyzer } from '../outcomes'
 import type { TaskType } from '../types'
 import type {
   ContextDomain,
-  SmartContextProjectState,
   FullContext,
   FilteredContext,
   StackInfo,
@@ -32,8 +31,22 @@ export type {
   FilterMetrics,
 } from '../types'
 
-// Local type alias for backward compatibility
-type ProjectState = SmartContextProjectState
+/**
+ * PERFORMANCE: Pre-built keyword → domain map for O(1) lookup
+ * Instead of iterating 5 arrays of keywords, we do a single pass
+ */
+const KEYWORD_DOMAIN_MAP: Map<string, ContextDomain> = new Map([
+  // Frontend
+  ...['ui', 'component', 'react', 'vue', 'angular', 'css', 'style', 'button', 'form', 'modal', 'layout', 'responsive', 'animation', 'dom', 'html', 'frontend', 'fe', 'client', 'browser', 'jsx', 'tsx'].map(k => [k, 'frontend' as ContextDomain] as const),
+  // Backend
+  ...['api', 'server', 'database', 'db', 'endpoint', 'route', 'handler', 'controller', 'service', 'repository', 'model', 'query', 'backend', 'be', 'rest', 'graphql', 'prisma', 'sql', 'redis', 'auth'].map(k => [k, 'backend' as ContextDomain] as const),
+  // DevOps
+  ...['deploy', 'docker', 'kubernetes', 'k8s', 'ci', 'cd', 'pipeline', 'terraform', 'ansible', 'aws', 'gcp', 'azure', 'nginx', 'devops', 'infrastructure', 'monitoring', 'logging'].map(k => [k, 'devops' as ContextDomain] as const),
+  // Docs
+  ...['document', 'docs', 'readme', 'changelog', 'comment', 'jsdoc', 'tutorial', 'guide', 'explain', 'describe', 'markdown'].map(k => [k, 'docs' as ContextDomain] as const),
+  // Testing
+  ...['test', 'spec', 'jest', 'mocha', 'cypress', 'playwright', 'pytest', 'unittest', 'e2e', 'unit', 'integration', 'coverage', 'mock', 'fixture'].map(k => [k, 'testing' as ContextDomain] as const),
+])
 
 /**
  * SmartContext - Intelligent context filtering.
@@ -41,63 +54,20 @@ type ProjectState = SmartContextProjectState
 class SmartContext {
   /**
    * Detect the domain of a task from its description.
+   * OPTIMIZED: Single-pass O(n) where n = words in description
    */
   detectDomain(taskDescription: string): DomainAnalysis {
-    const lower = taskDescription.toLowerCase()
-
-    // Frontend indicators
-    const frontendKeywords = [
-      'ui', 'component', 'react', 'vue', 'angular', 'css', 'style',
-      'button', 'form', 'modal', 'layout', 'responsive', 'animation',
-      'dom', 'html', 'frontend', 'fe', 'client', 'browser', 'jsx', 'tsx'
-    ]
-
-    // Backend indicators
-    const backendKeywords = [
-      'api', 'server', 'database', 'db', 'endpoint', 'route', 'handler',
-      'controller', 'service', 'repository', 'model', 'query', 'backend',
-      'be', 'rest', 'graphql', 'prisma', 'sql', 'redis', 'auth'
-    ]
-
-    // DevOps indicators
-    const devopsKeywords = [
-      'deploy', 'docker', 'kubernetes', 'k8s', 'ci', 'cd', 'pipeline',
-      'terraform', 'ansible', 'aws', 'gcp', 'azure', 'config', 'nginx',
-      'devops', 'infrastructure', 'monitoring', 'logging', 'build'
-    ]
-
-    // Docs indicators
-    const docsKeywords = [
-      'document', 'docs', 'readme', 'changelog', 'comment', 'jsdoc',
-      'tutorial', 'guide', 'explain', 'describe', 'markdown'
-    ]
-
-    // Testing indicators
-    const testingKeywords = [
-      'test', 'spec',
-      // JS/TS
-      'bun', 'bun test', 'jest', 'mocha', 'cypress', 'playwright',
-      // Python
-      'pytest', 'unittest',
-      // Go
-      'go test',
-      // Rust
-      'cargo test',
-      // .NET
-      'dotnet test',
-      // Java
-      'mvn test', 'gradle test', 'gradlew test',
-      'e2e', 'unit', 'integration', 'coverage', 'mock', 'fixture'
-    ]
-
-    // Count matches
+    const words = taskDescription.toLowerCase().split(/\s+/)
     const scores: Record<ContextDomain, number> = {
-      frontend: frontendKeywords.filter(k => lower.includes(k)).length,
-      backend: backendKeywords.filter(k => lower.includes(k)).length,
-      devops: devopsKeywords.filter(k => lower.includes(k)).length,
-      docs: docsKeywords.filter(k => lower.includes(k)).length,
-      testing: testingKeywords.filter(k => lower.includes(k)).length,
-      general: 0,
+      frontend: 0, backend: 0, devops: 0, docs: 0, testing: 0, general: 0
+    }
+
+    // Single pass: check each word against the map
+    for (const word of words) {
+      const domain = KEYWORD_DOMAIN_MAP.get(word)
+      if (domain) {
+        scores[domain]++
+      }
     }
 
     // Find primary and secondary domains
@@ -139,14 +109,16 @@ class SmartContext {
       agent => relevantDomains.includes(agent.domain)
     )
 
-    // Enrich with performance data
-    for (const agent of filteredAgents) {
-      const perf = await agentPerformanceTracker.getAgentPerformance(
-        projectId,
-        agent.name
-      )
+    // OPTIMIZED: Enrich with performance data in parallel
+    const perfPromises = filteredAgents.map(agent =>
+      agentPerformanceTracker.getAgentPerformance(projectId, agent.name)
+    )
+    const perfResults = await Promise.all(perfPromises)
+
+    for (let i = 0; i < filteredAgents.length; i++) {
+      const perf = perfResults[i]
       if (perf) {
-        agent.successRate = perf.successRate
+        filteredAgents[i].successRate = perf.successRate
       }
     }
 

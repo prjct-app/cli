@@ -115,20 +115,20 @@ class PathManager {
   /**
    * Ensure the project-specific global structure exists
    * Creates the layered directory structure for a project
+   * OPTIMIZED: Parallel directory creation
    */
   async ensureProjectStructure(projectId: string): Promise<string> {
     await this.ensureGlobalStructure()
 
     const projectPath = this.getGlobalProjectPath(projectId)
 
-    const layers = ['core', 'progress', 'planning', 'analysis', 'memory', 'agents']
+    // OPTIMIZED: Create all directories in parallel
+    const dirs = [
+      'core', 'progress', 'planning', 'analysis', 'memory', 'agents',
+      'planning/tasks', 'sessions', 'storage', 'context', 'sync'
+    ].map(dir => path.join(projectPath, dir))
 
-    for (const layer of layers) {
-      await fileHelper.ensureDir(path.join(projectPath, layer))
-    }
-
-    await fileHelper.ensureDir(path.join(projectPath, 'planning', 'tasks'))
-    await fileHelper.ensureDir(path.join(projectPath, 'sessions'))
+    await Promise.all(dirs.map(dir => fileHelper.ensureDir(dir)))
 
     return projectPath
   }
