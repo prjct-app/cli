@@ -25,22 +25,42 @@ const ROOT = path.resolve(__dirname, '..')
  * Detect if this is a global npm install
  */
 function isGlobalInstall() {
-  // Check npm config
+  // Check npm config (most reliable)
   if (process.env.npm_config_global === 'true') {
     return true
   }
 
-  // Check install location
+  // Check install location against known global paths
   const installPath = __dirname
   const globalPaths = [
+    // macOS Intel
     '/usr/local/lib/node_modules',
+    // macOS M1/M2 (Homebrew)
+    '/opt/homebrew/lib/node_modules',
+    // Linux
     '/usr/lib/node_modules',
+    // Custom npm prefix
     path.join(process.env.HOME || '', '.npm-global', 'lib', 'node_modules'),
+    // nvm
     path.join(process.env.HOME || '', '.nvm'),
+    // Windows
     path.join(process.env.APPDATA || '', 'npm', 'node_modules'),
+    // pnpm global
+    path.join(process.env.HOME || '', '.local', 'share', 'pnpm'),
+    // Volta
+    path.join(process.env.HOME || '', '.volta'),
   ]
 
-  return globalPaths.some((p) => installPath.includes(p))
+  if (globalPaths.some((p) => installPath.includes(p))) {
+    return true
+  }
+
+  // Fallback: if we're in ANY node_modules that's not in cwd, assume global
+  if (installPath.includes('node_modules') && !installPath.includes(process.cwd())) {
+    return true
+  }
+
+  return false
 }
 
 /**
