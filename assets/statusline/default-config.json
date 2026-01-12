@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "theme": "default",
+  "cacheTTL": {
+    "prjct": 30,
+    "git": 5,
+    "linear": 60
+  },
+  "components": {
+    "prjct_icon": {
+      "enabled": true,
+      "position": 0
+    },
+    "task": {
+      "enabled": true,
+      "position": 1,
+      "maxLength": 25
+    },
+    "linear": {
+      "enabled": true,
+      "position": 2,
+      "showPriority": true
+    },
+    "dir": {
+      "enabled": true,
+      "position": 3
+    },
+    "git": {
+      "enabled": true,
+      "position": 4
+    },
+    "changes": {
+      "enabled": true,
+      "position": 5
+    },
+    "context": {
+      "enabled": true,
+      "position": 6,
+      "barWidth": 10
+    },
+    "model": {
+      "enabled": true,
+      "position": 7
+    }
+  }
+}
