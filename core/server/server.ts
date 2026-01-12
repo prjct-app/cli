@@ -12,6 +12,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
 import { createRoutes } from './routes'
+import { createExtendedRoutes } from './routes-extended'
 import { createSSEManager } from './sse'
 import { isBun } from '../utils/runtime'
 import type { ServerConfig, ServerInstance } from '../types'
@@ -55,12 +56,21 @@ export function createServer(config: ServerConfig): ServerInstance {
       roadmap: '/api/roadmap',
       shipped: '/api/shipped',
       events: '/api/events',
+      // Extended endpoints for status-bar
+      projects: '/api/projects',
+      projectFull: '/api/projects/:id/full',
+      statusBarCompact: '/api/status-bar/compact',
+      globalStats: '/api/stats/global',
     }
   }))
 
   // Mount API routes
   const routes = createRoutes(config.projectId, config.projectPath)
   app.route('/api', routes)
+
+  // Mount extended routes for status-bar
+  const extendedRoutes = createExtendedRoutes()
+  app.route('/api', extendedRoutes)
 
   // SSE endpoint for real-time updates
   app.get('/api/events', (c) => {
