@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.27.1] - 2026-01-12
+
+### Docs: Differentiation Strategy vs Coding Agents
+
+Clarified prjct's positioning as a **workflow layer**, not a coding agent.
+
+**Changes:**
+- Added "What prjct is (and isn't)" section to README
+- Created COMPARISON.md documenting prjct vs OpenCode, Cursor, Jira, etc.
+- Clear messaging: prjct enhances Claude Code, doesn't compete with it
+
+**Key insight:** prjct competes with Jira/Linear/Notion (workflow tools), not with OpenCode/Cursor/Copilot (coding agents). Use both together for maximum developer momentum.
+
+---
+
 ## [0.27.0] - 2026-01-08
 
 ### Fix: prjct Commit Signature (CRITICAL)

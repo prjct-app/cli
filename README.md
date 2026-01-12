@@ -22,7 +22,20 @@ Developer momentum tool for indie hackers and small teams.
 > - `p. I'm done`
 > - `p. ship the authentication`
 
-## 💬 p. Trigger - Zero Memorization
+## What prjct is (and isn't)
+
+**prjct is a workflow layer, not a coding agent.**
+
+| Coding Agents | prjct-cli |
+|---------------|-----------|
+| Write code for you | Tracks what you're building |
+| Replace your IDE | Enhances Claude Code |
+| Multi-provider (GPT, Claude, etc.) | 100% Claude-optimized |
+| Compete with Cursor, Copilot | Replaces Jira, Linear, Notion |
+
+**Use both together:** OpenCode/Cursor/Claude Code writes the code. prjct tracks your progress, maintains context between sessions, and keeps you focused.
+
+## p. Trigger - Zero Memorization
 
 **You don't need to memorize commands.** Just use the `p.` prefix and talk naturally!
 
