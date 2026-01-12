@@ -154,10 +154,9 @@ function updateStatusLineVersion() {
  * Main
  */
 async function main() {
-  // Only run for global installs
-  if (!isGlobalInstall()) {
-    return
-  }
+  // ALWAYS run setup - don't try to detect global vs local
+  // Worst case: setup runs unnecessarily on local dev installs (harmless)
+  // Best case: setup actually works for all users
 
   console.log('')
   console.log('   prjct-cli postinstall')
@@ -169,17 +168,23 @@ async function main() {
   }
 
   // Run full setup
+  let success = false
   if (hasBun()) {
-    await runSetupBun()
+    success = await runSetupBun()
   } else {
-    await runSetupCompiled()
+    success = await runSetupCompiled()
+  }
+
+  if (!success) {
+    console.log('   ⚠ Setup incomplete. Run: npx prjct-cli setup')
   }
 
   console.log('')
 }
 
 main().catch((error) => {
-  // Never fail npm install due to postinstall issues
-  console.warn('   postinstall warning:', error.message)
+  // Log error but don't fail npm install
+  console.error('   postinstall error:', error.message)
+  console.log('   Run manually: npx prjct-cli setup')
   process.exit(0)
 })
