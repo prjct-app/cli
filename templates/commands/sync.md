@@ -842,6 +842,39 @@ WRITE: `{globalPath}/project.json` (merge with existing, but ALWAYS update these
 }
 ```
 
+### Step 6.1: Update Statusline Script (If Version Upgrade)
+
+IF `{isVersionUpgrade}` == true:
+
+  CHECK: Does `~/.prjct-cli/statusline/statusline.sh` exist?
+  (Also check `~/.claude/prjct-statusline.sh` as fallback - follow symlink if applicable)
+
+  IF file exists:
+    READ the statusline script content
+
+    IF content contains `CLI_VERSION=`:
+      EXTRACT current version from script (regex: `/CLI_VERSION="([^"]*)"/`)
+
+      IF extracted version != `{cliVersion}`:
+        UPDATE the CLI_VERSION line in the script:
+        ```javascript
+        const content = fs.readFileSync(statusLinePath, 'utf8')
+        const updated = content.replace(/CLI_VERSION="[^"]*"/, `CLI_VERSION="${cliVersion}"`)
+        fs.writeFileSync(statusLinePath, updated, { mode: 0o755 })
+        ```
+        OUTPUT: "✓ Statusline updated to v{cliVersion}"
+      ELSE:
+        // Already at correct version, no action needed
+
+    ELSE:
+      // Script exists but NO CLI_VERSION - old version without version check
+      // Replace with new script from assets (has version check logic)
+      OUTPUT: "⚠️ Statusline missing version check. Run `prjct setup` to update."
+
+  ELSE:
+    // No statusline script exists - sync doesn't create it
+    OUTPUT: "💡 Run `prjct setup` to install statusline"
+
 ---
 
 ## Step 7: Generate Claude Code Sub-Agents (AGENTIC)

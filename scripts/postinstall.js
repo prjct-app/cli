@@ -51,6 +51,68 @@ async function buildForNode() {
   }
 }
 
+/**
+ * Update CLI_VERSION in existing statusline script
+ * This preserves customizations while ensuring version is current
+ * Checks both the actual script location and Claude's symlink
+ */
+function updateStatusLineVersion() {
+  try {
+    // Check the actual script location first (preferred)
+    const homeDir = process.env.HOME || require('os').homedir()
+    const prjctStatusLinePath = path.join(homeDir, '.prjct-cli', 'statusline', 'statusline.sh')
+    // Fallback to Claude's location (might be a direct file or symlink)
+    const claudeStatusLinePath = path.join(homeDir, '.claude', 'prjct-statusline.sh')
+
+    // Determine which path to update
+    let statusLinePath = null
+    if (fs.existsSync(prjctStatusLinePath)) {
+      statusLinePath = prjctStatusLinePath
+    } else if (fs.existsSync(claudeStatusLinePath)) {
+      // Check if it's a symlink - if so, follow it
+      const stats = fs.lstatSync(claudeStatusLinePath)
+      if (stats.isSymbolicLink()) {
+        const target = fs.readlinkSync(claudeStatusLinePath)
+        if (fs.existsSync(target)) {
+          statusLinePath = target
+        }
+      } else {
+        statusLinePath = claudeStatusLinePath
+      }
+    }
+
+    if (!statusLinePath) {
+      return { updated: false, reason: 'not_exists' }
+    }
+
+    const content = fs.readFileSync(statusLinePath, 'utf8')
+    const packageJson = require('../package.json')
+    const newVersion = packageJson.version
+
+    if (!content.includes('CLI_VERSION=')) {
+      // Script exists but no CLI_VERSION - needs to be replaced by setup
+      // Don't modify here, let setup.run() handle the replacement
+      return { updated: false, reason: 'needs_replacement' }
+    }
+
+    const versionMatch = content.match(/CLI_VERSION="([^"]*)"/)
+    if (versionMatch && versionMatch[1] === newVersion) {
+      return { updated: false, reason: 'already_current' }
+    }
+
+    // Update in-place using string replacement
+    const updatedContent = content.replace(
+      /CLI_VERSION="[^"]*"/,
+      `CLI_VERSION="${newVersion}"`
+    )
+    fs.writeFileSync(statusLinePath, updatedContent, { mode: 0o755 })
+
+    return { updated: true, version: newVersion, path: statusLinePath, action: 'updated' }
+  } catch (error) {
+    return { updated: false, reason: 'error', error: error.message }
+  }
+}
+
 async function main() {
   try {
     // Detect if this is a global install
@@ -59,6 +121,13 @@ async function main() {
     if (!isGlobal) {
       // Skip postinstall for local development installs
       return
+    }
+
+    // Update statusline version FIRST (before full setup)
+    // This ensures existing customized scripts get version updates
+    const statusLineResult = updateStatusLineVersion()
+    if (statusLineResult.updated) {
+      console.log(`   Updated statusline to v${statusLineResult.version}`)
     }
 
     // Build for Node.js if bun is not available

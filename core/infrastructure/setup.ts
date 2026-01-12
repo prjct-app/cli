@@ -178,97 +178,221 @@ async function migrateProjectsCliVersion(): Promise<void> {
 }
 
 /**
+ * Ensure settings.json has statusLine configured
+ */
+function ensureStatusLineSettings(settingsPath: string, statusLinePath: string): void {
+  let settings: Record<string, unknown> = {}
+  if (fs.existsSync(settingsPath)) {
+    try {
+      settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'))
+    } catch {
+      // Invalid JSON, start fresh
+    }
+  }
+  settings.statusLine = { type: 'command', command: statusLinePath }
+  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2))
+}
+
+/**
  * Install status line script with version check
+ * Copies modular statusline from assets/ to ~/.prjct-cli/statusline/
+ * Includes: statusline.sh, lib/, components/, themes/, config.json
+ * Creates symlink at ~/.claude/prjct-statusline.sh
+ * Updates CLI_VERSION in the script
  */
 async function installStatusLine(): Promise<void> {
   try {
     const claudeDir = path.join(os.homedir(), '.claude')
     const settingsPath = path.join(claudeDir, 'settings.json')
-    const statusLinePath = path.join(claudeDir, 'prjct-statusline.sh')
+    const claudeStatusLinePath = path.join(claudeDir, 'prjct-statusline.sh')
 
-    // Ensure .claude directory exists
+    // Target location for the actual script
+    const prjctStatusLineDir = path.join(os.homedir(), '.prjct-cli', 'statusline')
+    const prjctStatusLinePath = path.join(prjctStatusLineDir, 'statusline.sh')
+    const prjctThemesDir = path.join(prjctStatusLineDir, 'themes')
+    const prjctLibDir = path.join(prjctStatusLineDir, 'lib')
+    const prjctComponentsDir = path.join(prjctStatusLineDir, 'components')
+    const prjctConfigPath = path.join(prjctStatusLineDir, 'config.json')
+
+    // Source assets (from the package)
+    const assetsDir = path.join(__dirname, '..', '..', 'assets', 'statusline')
+    const sourceScript = path.join(assetsDir, 'statusline.sh')
+    const sourceThemeDir = path.join(assetsDir, 'themes')
+    const sourceLibDir = path.join(assetsDir, 'lib')
+    const sourceComponentsDir = path.join(assetsDir, 'components')
+    const sourceConfigPath = path.join(assetsDir, 'default-config.json')
+
+    // Ensure directories exist
     if (!fs.existsSync(claudeDir)) {
       fs.mkdirSync(claudeDir, { recursive: true })
     }
+    if (!fs.existsSync(prjctStatusLineDir)) {
+      fs.mkdirSync(prjctStatusLineDir, { recursive: true })
+    }
+    if (!fs.existsSync(prjctThemesDir)) {
+      fs.mkdirSync(prjctThemesDir, { recursive: true })
+    }
+    if (!fs.existsSync(prjctLibDir)) {
+      fs.mkdirSync(prjctLibDir, { recursive: true })
+    }
+    if (!fs.existsSync(prjctComponentsDir)) {
+      fs.mkdirSync(prjctComponentsDir, { recursive: true })
+    }
 
-    // Version is embedded at install time
-    const scriptContent = `#!/bin/bash
+    // Check if statusline already exists
+    if (fs.existsSync(prjctStatusLinePath)) {
+      const existingContent = fs.readFileSync(prjctStatusLinePath, 'utf8')
+
+      if (existingContent.includes('CLI_VERSION=')) {
+        // Has CLI_VERSION - update if needed
+        const versionMatch = existingContent.match(/CLI_VERSION="([^"]*)"/)
+
+        if (versionMatch && versionMatch[1] !== VERSION) {
+          // Update CLI_VERSION in-place
+          const updatedContent = existingContent.replace(
+            /CLI_VERSION="[^"]*"/,
+            `CLI_VERSION="${VERSION}"`
+          )
+          fs.writeFileSync(prjctStatusLinePath, updatedContent, { mode: 0o755 })
+        }
+
+        // Ensure modular structure is installed (upgrade path)
+        installStatusLineModules(sourceLibDir, prjctLibDir)
+        installStatusLineModules(sourceComponentsDir, prjctComponentsDir)
+
+        // Ensure symlink and settings
+        ensureStatusLineSymlink(claudeStatusLinePath, prjctStatusLinePath)
+        ensureStatusLineSettings(settingsPath, claudeStatusLinePath)
+        return
+      }
+      // else: Script exists WITHOUT CLI_VERSION - fall through to replace with new version
+    }
+
+    // Install fresh from assets if source exists
+    if (fs.existsSync(sourceScript)) {
+      // Copy script and update version
+      let scriptContent = fs.readFileSync(sourceScript, 'utf8')
+      scriptContent = scriptContent.replace(
+        /CLI_VERSION="[^"]*"/,
+        `CLI_VERSION="${VERSION}"`
+      )
+      fs.writeFileSync(prjctStatusLinePath, scriptContent, { mode: 0o755 })
+
+      // Copy lib/ modules
+      installStatusLineModules(sourceLibDir, prjctLibDir)
+
+      // Copy components/
+      installStatusLineModules(sourceComponentsDir, prjctComponentsDir)
+
+      // Copy themes
+      if (fs.existsSync(sourceThemeDir)) {
+        const themes = fs.readdirSync(sourceThemeDir)
+        for (const theme of themes) {
+          const src = path.join(sourceThemeDir, theme)
+          const dest = path.join(prjctThemesDir, theme)
+          // Always update themes to get new icons/colors
+          fs.copyFileSync(src, dest)
+        }
+      }
+
+      // Copy default config (only if not exists - preserve user customizations)
+      if (!fs.existsSync(prjctConfigPath) && fs.existsSync(sourceConfigPath)) {
+        fs.copyFileSync(sourceConfigPath, prjctConfigPath)
+      }
+    } else {
+      // Fallback: create simple script inline
+      const scriptContent = `#!/bin/bash
 # prjct Status Line for Claude Code
-# Shows version update notifications and current task
-
-# Current CLI version (embedded at install time)
 CLI_VERSION="${VERSION}"
-
-# Read JSON context from stdin (provided by Claude Code)
-read -r json
-
-# Extract cwd from JSON
-CWD=$(echo "$json" | grep -o '"cwd"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*"cwd"[[:space:]]*:[[:space:]]*"\\([^"]*\\)".*/\\1/')
-
-# Check if this is a prjct project
+input=$(cat)
+CWD=$(echo "$input" | jq -r '.workspace.current_dir // "~"' 2>/dev/null)
 CONFIG="$CWD/.prjct/prjct.config.json"
-if [[ -f "$CONFIG" ]]; then
-  # Extract projectId
-  PROJECT_ID=$(grep -o '"projectId"[[:space:]]*:[[:space:]]*"[^"]*"' "$CONFIG" | sed 's/.*"projectId"[[:space:]]*:[[:space:]]*"\\([^"]*\\)".*/\\1/')
-
-  if [[ -n "$PROJECT_ID" ]]; then
+if [ -f "$CONFIG" ]; then
+  PROJECT_ID=$(jq -r '.projectId // ""' "$CONFIG" 2>/dev/null)
+  if [ -n "$PROJECT_ID" ]; then
     PROJECT_JSON="$HOME/.prjct-cli/projects/$PROJECT_ID/project.json"
-
-    # Check version mismatch
-    if [[ -f "$PROJECT_JSON" ]]; then
-      PROJECT_VERSION=$(grep -o '"cliVersion"[[:space:]]*:[[:space:]]*"[^"]*"' "$PROJECT_JSON" | sed 's/.*"cliVersion"[[:space:]]*:[[:space:]]*"\\([^"]*\\)".*/\\1/')
-
-      # If no cliVersion or different version, show update notice
-      if [[ -z "$PROJECT_VERSION" ]] || [[ "$PROJECT_VERSION" != "$CLI_VERSION" ]]; then
-        echo "⚠️ prjct v$CLI_VERSION available! Run /p:sync"
+    if [ -f "$PROJECT_JSON" ]; then
+      PROJECT_VERSION=$(jq -r '.cliVersion // ""' "$PROJECT_JSON" 2>/dev/null)
+      if [ -z "$PROJECT_VERSION" ] || [ "$PROJECT_VERSION" != "$CLI_VERSION" ]; then
+        echo "prjct v$CLI_VERSION - run p. sync"
         exit 0
       fi
     else
-      # No project.json means project needs sync
-      echo "⚠️ prjct v$CLI_VERSION available! Run /p:sync"
+      echo "prjct v$CLI_VERSION - run p. sync"
       exit 0
     fi
-
-    # Show current task if exists
     STATE="$HOME/.prjct-cli/projects/$PROJECT_ID/storage/state.json"
-    if [[ -f "$STATE" ]]; then
-      TASK=$(grep -o '"description"[[:space:]]*:[[:space:]]*"[^"]*"' "$STATE" | head -1 | sed 's/.*"description"[[:space:]]*:[[:space:]]*"\\([^"]*\\)".*/\\1/')
-      STATUS=$(grep -o '"status"[[:space:]]*:[[:space:]]*"[^"]*"' "$STATE" | head -1 | sed 's/.*"status"[[:space:]]*:[[:space:]]*"\\([^"]*\\)".*/\\1/')
-
-      if [[ -n "$TASK" ]] && [[ "$STATUS" == "active" ]]; then
-        # Truncate task to 40 chars
-        TASK_SHORT="\${TASK:0:40}"
-        [[ \${#TASK} -gt 40 ]] && TASK_SHORT="$TASK_SHORT..."
-        echo "🎯 $TASK_SHORT"
+    if [ -f "$STATE" ]; then
+      TASK=$(jq -r '.currentTask.description // ""' "$STATE" 2>/dev/null)
+      if [ -n "$TASK" ]; then
+        echo "$TASK"
         exit 0
       fi
     fi
   fi
 fi
-
-# Default: show prjct branding
-echo "⚡ prjct"
+echo "prjct"
 `
-    fs.writeFileSync(statusLinePath, scriptContent, { mode: 0o755 })
-
-    // Update settings.json to use this status line
-    let settings: Record<string, unknown> = {}
-    if (fs.existsSync(settingsPath)) {
-      try {
-        settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'))
-      } catch {
-        // Invalid JSON, start fresh
-      }
+      fs.writeFileSync(prjctStatusLinePath, scriptContent, { mode: 0o755 })
     }
 
-    settings.statusLine = {
-      type: 'command',
-      command: statusLinePath
-    }
-
-    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2))
+    // Create symlink and configure settings
+    ensureStatusLineSymlink(claudeStatusLinePath, prjctStatusLinePath)
+    ensureStatusLineSettings(settingsPath, claudeStatusLinePath)
   } catch {
     // Silently fail - status line is optional
+  }
+}
+
+/**
+ * Install statusline modules (lib/ or components/)
+ * Copies .sh files from source to destination, always overwriting for updates
+ */
+function installStatusLineModules(sourceDir: string, destDir: string): void {
+  if (!fs.existsSync(sourceDir)) {
+    return
+  }
+
+  const files = fs.readdirSync(sourceDir)
+  for (const file of files) {
+    if (file.endsWith('.sh')) {
+      const src = path.join(sourceDir, file)
+      const dest = path.join(destDir, file)
+      fs.copyFileSync(src, dest)
+      fs.chmodSync(dest, 0o755)
+    }
+  }
+}
+
+/**
+ * Ensure symlink from Claude config to prjct statusline
+ */
+function ensureStatusLineSymlink(linkPath: string, targetPath: string): void {
+  try {
+    // Check if link already points to correct target
+    if (fs.existsSync(linkPath)) {
+      const stats = fs.lstatSync(linkPath)
+      if (stats.isSymbolicLink()) {
+        const existingTarget = fs.readlinkSync(linkPath)
+        if (existingTarget === targetPath) {
+          return // Already correct
+        }
+      }
+      // Remove existing file/symlink
+      fs.unlinkSync(linkPath)
+    }
+    // Create symlink
+    fs.symlinkSync(targetPath, linkPath)
+  } catch {
+    // If symlink fails (e.g., Windows), copy instead
+    try {
+      if (fs.existsSync(targetPath)) {
+        fs.copyFileSync(targetPath, linkPath)
+        fs.chmodSync(linkPath, 0o755)
+      }
+    } catch {
+      // Silently fail
+    }
   }
 }
 
