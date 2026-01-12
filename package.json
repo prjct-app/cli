@@ -1,6 +1,6 @@
 {
   "name": "prjct-cli",
-  "version": "0.28.0",
+  "version": "0.29.3",
   "description": "Built for Claude - Ship fast, track progress, stay focused. Developer momentum tool for indie hackers.",
   "main": "core/index.ts",
   "bin": {
@@ -17,6 +17,10 @@
     "build": "node scripts/build.js",
     "build:shared": "bun run --filter '@prjct/shared' build",
     "build:node": "node scripts/build.js",
+    "release": "node scripts/release.js",
+    "release:patch": "node scripts/release.js patch",
+    "release:minor": "node scripts/release.js minor",
+    "release:major": "node scripts/release.js major",
     "postinstall": "node scripts/postinstall.js",
     "update-commands": "bun -e \"const installer = require('./core/infrastructure/command-installer'); installer.syncCommands().then(r => console.log('Commands updated:', r)).catch(e => console.error('Error:', e.message))\"",
     "install-global": "./scripts/install.sh",
@@ -48,6 +52,7 @@
   "license": "MIT",
   "dependencies": {
     "@hono/node-server": "^1.13.7",
+    "@linear/sdk": "^29.0.0",
     "chalk": "^4.1.2",
     "esbuild": "^0.25.0",
     "glob": "^10.3.10",
@@ -82,6 +87,7 @@
     "bun": ">=1.0.0"
   },
   "files": [
+    "assets/",
     "bin/",
     "core/",
     "dist/",

@@ -43,6 +43,103 @@ IF file not found:
 
 ---
 
+## Step 1.5: PRD Check (AI Orchestration)
+
+**CRITICAL**: Check if a PRD exists for significant features.
+
+```
+# Skip PRD check if no task provided (handled in Step 2)
+IF no task provided:
+  SKIP to Step 2
+
+# Read orchestration config
+READ: .prjct/prjct.config.json
+SET: prdRequired = config.orchestration?.prdRequired || "standard"
+
+# Skip for off mode
+IF prdRequired == "off":
+  CONTINUE to Step 2
+
+# Quick classification (before full classification)
+SET: isSignificantWork = FALSE
+
+# Significant if:
+# - Contains "feature", "add", "create", "build", "implement"
+# - NOT a bug fix, chore, or small improvement
+# - Estimated > 4 hours of work
+
+IF task likely requires significant effort:
+  SET: isSignificantWork = TRUE
+
+# Check for existing PRD
+IF isSignificantWork:
+  READ: {globalPath}/storage/prds.json
+
+  # Search for matching PRD
+  SET: matchingPRD = null
+  FOR EACH prd in prds:
+    IF prd.title matches task (fuzzy):
+      SET: matchingPRD = prd
+      BREAK
+
+  IF matchingPRD exists:
+    # PRD found - link to it
+    OUTPUT: "📋 Found PRD: {matchingPRD.title} (status: {matchingPRD.status})"
+    SET: linkedPRDId = matchingPRD.id
+
+  ELSE:
+    # No PRD found - handle based on enforcement level
+    IF prdRequired == "strict":
+      OUTPUT: "⛔ PRD Required"
+      OUTPUT: "This task requires a PRD before starting."
+      OUTPUT: "Run `p. prd \"{task}\"` to create one."
+      STOP
+
+    ELSE IF prdRequired == "standard":
+      OUTPUT: "⚠️  No PRD found for this task"
+      OUTPUT: ""
+      OUTPUT: "For better tracking and planning, consider creating a PRD first."
+      OUTPUT: ""
+
+      USE AskUserQuestion:
+        question: "How would you like to proceed?"
+        options:
+          - label: "Create PRD first (recommended)"
+            description: "Run Chief Architect to document requirements"
+          - label: "Continue without PRD"
+            description: "Start working now, skip documentation"
+          - label: "This is a small task"
+            description: "Mark as not needing PRD"
+
+      IF "Create PRD first":
+        OUTPUT: "Running `p. prd \"{task}\"`..."
+        # Invoke PRD command
+        STOP (prd command will continue)
+
+      IF "This is a small task":
+        # Continue but don't warn again for this task
+        SET: skipPRDCheck = TRUE
+
+    ELSE IF prdRequired == "relaxed":
+      OUTPUT: "💡 Tip: Run `p. prd \"{task}\"` for better tracking"
+      # Continue without blocking
+```
+
+### Legacy Work Exemption
+
+```
+# Check if this is part of a legacy feature
+READ: {globalPath}/storage/roadmap.json
+
+FOR EACH feature in roadmap.features:
+  IF feature.legacy == TRUE AND feature matches task:
+    OUTPUT: "ℹ️  This is part of legacy feature '{feature.name}' - no PRD required"
+    SET: skipPRDCheck = TRUE
+    BREAK
+```
+
+---
+
 ## Step 2: Handle No Task Description
 
 ```

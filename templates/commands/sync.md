@@ -372,6 +372,211 @@ WRITE: `{globalPath}/analysis/repo-analysis.json`
 
 ---
 
+## Step 3.6: Generate/Update Roadmap (For Existing Projects)
+
+**CRITICAL**: This step populates the roadmap from git history for existing projects.
+Features detected from git are marked as `legacy: true` - they do NOT require PRDs.
+
+### 3.6.1 Check if Roadmap Exists
+
+READ: `{globalPath}/storage/roadmap.json`
+
+```
+IF roadmap.json does NOT exist:
+  SET: {isNewRoadmap} = true
+  SET: {existingFeatures} = []
+ELSE:
+  SET: {isNewRoadmap} = false
+  SET: {existingFeatures} = roadmap.features
+```
+
+IF roadmap already has features AND was NOT generated from git:
+  SKIP to Step 4 (don't overwrite manual roadmap)
+
+### 3.6.2 Analyze Git History for Features
+
+```bash
+# Get all commits with conventional commit format (last 200)
+git log --oneline --all --pretty=format:"%h|%s|%ad|%an" --date=short | head -200
+```
+
+PARSE commits and GROUP by conventional commit type:
+
+| Prefix | Type | Maps To |
+|--------|------|---------|
+| `feat:` | Feature | New feature |
+| `fix:` | Bug Fix | Bug fix (not a feature) |
+| `refactor:` | Refactor | Code change (not a feature) |
+| `chore:` | Chore | Maintenance (not a feature) |
+| `docs:` | Docs | Documentation (not a feature) |
+| `perf:` | Performance | Enhancement |
+| `test:` | Test | Testing (not a feature) |
+
+**Feature Grouping Logic:**
+
+```
+FOR EACH commit with "feat:" prefix:
+  EXTRACT: feature name from commit message
+  # e.g., "feat: add user authentication" → "user authentication"
+  # e.g., "feat(api): implement rate limiting" → "api rate limiting"
+
+  GROUP commits by similar feature names
+  COUNT commits per feature group
+  SUM lines changed per group: git show --stat {commit} | tail -1
+```
+
+SET: `{detectedFeatures}` = grouped features with:
+- name
+- commits (array of {hash, message, date})
+- totalCommits
+- linesAdded
+- linesRemoved
+- firstCommitDate
+- lastCommitDate
+
+### 3.6.3 Analyze Feature Branches
+
+```bash
+git branch -a --format='%(refname:short)|%(upstream:short)|%(committerdate:short)' 2>/dev/null
+```
+
+FOR EACH branch:
+  IF branch name matches `feature/*` or `feat/*`:
+    COUNT commits ahead of main:
+    ```bash
+    git rev-list --count main..{branch} 2>/dev/null || echo "0"
+    ```
+
+    ADD to `{activeBranches}`:
+    - name: branch name
+    - commitsAhead: count
+    - lastCommit: date
+
+### 3.6.4 Analyze Tags (Shipped Versions)
+
+```bash
+git tag --sort=-creatordate --format='%(refname:short)|%(creatordate:short)' 2>/dev/null | head -20
+```
+
+FOR EACH tag:
+  EXTRACT version from tag name
+  LINK to features completed before tag date
+  ADD to `{versionTags}` array
+
+### 3.6.5 Generate Initial Roadmap
+
+IF {isNewRoadmap} OR roadmap was generated from git:
+
+  GENERATE UUIDs:
+  ```bash
+  # For each feature
+  bun -e "console.log('feat_' + crypto.randomUUID().slice(0,8))" 2>/dev/null || node -e "console.log('feat_' + require('crypto').randomUUID().slice(0,8))"
+  ```
+
+  WRITE: `{globalPath}/storage/roadmap.json`
+
+  ```json
+  {
+    "strategy": null,
+    "features": [
+      // COMPLETED FEATURES (from git history)
+      {
+        "id": "feat_{uuid8}",
+        "name": "{detected feature name}",
+        "description": "Inferred from git history",
+        "date": "{firstCommitDate}",
+        "status": "completed",
+        "impact": "medium",
+        "progress": 100,
+        "tasks": [],
+        "createdAt": "{firstCommitDate}",
+        "completedDate": "{lastCommitDate}",
+
+        // LEGACY MARKERS
+        "legacy": true,
+        "prdId": null,
+        "inferredFrom": "git",
+
+        // GIT DATA
+        "commits": [
+          {"hash": "{hash}", "message": "{message}", "date": "{date}"}
+        ],
+        "effort": {
+          "estimated": null,
+          "actual": {
+            "commits": {totalCommits},
+            "linesAdded": {linesAdded},
+            "linesRemoved": {linesRemoved}
+          }
+        }
+      },
+
+      // ACTIVE FEATURES (from branches)
+      {
+        "id": "feat_{uuid8}",
+        "name": "{branch name without prefix}",
+        "description": "Work in progress",
+        "date": "{today}",
+        "status": "active",
+        "impact": "medium",
+        "progress": 0,
+        "tasks": [],
+        "createdAt": "{today}",
+
+        // LEGACY MARKERS
+        "legacy": true,
+        "prdId": null,
+        "inferredFrom": "git-branch",
+
+        // BRANCH DATA
+        "branch": "{branch name}",
+        "commitsAhead": {count}
+      }
+    ],
+    "backlog": [],
+    "quarters": [],
+    "lastUpdated": "{timestamp}",
+    "generatedFrom": "git-history",
+    "generatedAt": "{timestamp}"
+  }
+  ```
+
+### 3.6.6 Initialize PRDs Storage
+
+IF `{globalPath}/storage/prds.json` does NOT exist:
+  CREATE empty prds.json:
+  ```json
+  {
+    "prds": [],
+    "lastUpdated": "{timestamp}"
+  }
+  ```
+
+### 3.6.7 Output
+
+```
+📊 Roadmap {isNewRoadmap ? "Generated" : "Updated"} from Git History
+
+Detected Features:
+├── Completed: {completedFeatures.length} features
+{FOR EACH completedFeature (max 5)}
+│   └── {name} ({totalCommits} commits)
+{END FOR}
+├── Active: {activeBranches.length} in progress
+{FOR EACH activeBranch}
+│   └── {name} ({commitsAhead} commits ahead)
+{END FOR}
+└── Legacy Mode: PRDs not required for existing work
+
+Going forward, use `p. prd <title>` before starting new features.
+```
+
+SET: `{roadmapGenerated}` = true
+SET: `{completedCount}` = completed features count
+SET: `{activeCount}` = active branches count
+
+---
+
 ## Step 4: Regenerate ALL Context Files
 
 ### 4.1 Read Storage (Source of Truth)
@@ -636,6 +841,39 @@ WRITE: `{globalPath}/project.json` (merge with existing, but ALWAYS update these
   "integrations": "{existing.integrations || {}}"  // ← Preserve integrations
 }
 ```
+
+### Step 6.1: Update Statusline Script (If Version Upgrade)
+
+IF `{isVersionUpgrade}` == true:
+
+  CHECK: Does `~/.prjct-cli/statusline/statusline.sh` exist?
+  (Also check `~/.claude/prjct-statusline.sh` as fallback - follow symlink if applicable)
+
+  IF file exists:
+    READ the statusline script content
+
+    IF content contains `CLI_VERSION=`:
+      EXTRACT current version from script (regex: `/CLI_VERSION="([^"]*)"/`)
+
+      IF extracted version != `{cliVersion}`:
+        UPDATE the CLI_VERSION line in the script:
+        ```javascript
+        const content = fs.readFileSync(statusLinePath, 'utf8')
+        const updated = content.replace(/CLI_VERSION="[^"]*"/, `CLI_VERSION="${cliVersion}"`)
+        fs.writeFileSync(statusLinePath, updated, { mode: 0o755 })
+        ```
+        OUTPUT: "✓ Statusline updated to v{cliVersion}"
+      ELSE:
+        // Already at correct version, no action needed
+
+    ELSE:
+      // Script exists but NO CLI_VERSION - old version without version check
+      // Replace with new script from assets (has version check logic)
+      OUTPUT: "⚠️ Statusline missing version check. Run `prjct setup` to update."
+
+  ELSE:
+    // No statusline script exists - sync doesn't create it
+    OUTPUT: "💡 Run `prjct setup` to install statusline"
 
 ---
 

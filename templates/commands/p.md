@@ -25,7 +25,7 @@ If ARGUMENTS = "task fix the login bug":
 
 ## Available Commands
 
-`task` `done` `ship` `sync` `init` `idea` `dash` `next` `pause` `resume` `bug` `spec` `suggest` `git` `test` `cleanup` `design` `analyze` `undo` `redo`
+`task` `done` `ship` `sync` `init` `idea` `dash` `next` `pause` `resume` `bug` `linear` `feature` `prd` `plan` `review` `merge` `git` `test` `cleanup` `design` `analyze` `history` `enrich`
 
 ## Action
 

@@ -3,20 +3,50 @@
 /**
  * Post-install hook for prjct-cli
  *
- * 1. Builds dist/ for Node.js users (if bun not available)
- * 2. Runs setup if npm scripts are enabled
+ * Runs setup after npm install:
+ * 1. Syncs commands to ~/.claude/commands/p/
+ * 2. Installs global CLAUDE.md config
+ * 3. Installs statusline
+ * 4. Updates project versions
  *
- * @version 1.0.0
+ * IMPORTANT: This script uses COMPILED JavaScript from dist/
+ * It does NOT require TypeScript directly.
+ *
+ * @version 2.0.0
  */
 
 const path = require('path')
 const { execSync } = require('child_process')
 const fs = require('fs')
 
+const ROOT = path.resolve(__dirname, '..')
+
+/**
+ * Detect if this is a global npm install
+ */
+function isGlobalInstall() {
+  // Check npm config
+  if (process.env.npm_config_global === 'true') {
+    return true
+  }
+
+  // Check install location
+  const installPath = __dirname
+  const globalPaths = [
+    '/usr/local/lib/node_modules',
+    '/usr/lib/node_modules',
+    path.join(process.env.HOME || '', '.npm-global', 'lib', 'node_modules'),
+    path.join(process.env.HOME || '', '.nvm'),
+    path.join(process.env.APPDATA || '', 'npm', 'node_modules'),
+  ]
+
+  return globalPaths.some((p) => installPath.includes(p))
+}
+
 /**
  * Check if bun is available
  */
-function isBunAvailable() {
+function hasBun() {
   try {
     execSync('bun --version', { stdio: 'ignore' })
     return true
@@ -26,86 +56,110 @@ function isBunAvailable() {
 }
 
 /**
- * Build dist/ for Node.js
+ * Run setup using compiled JavaScript (for Node.js users)
  */
-async function buildForNode() {
-  const rootDir = path.resolve(__dirname, '..')
-  const distDir = path.join(rootDir, 'dist')
+async function runSetupCompiled() {
+  const setupPath = path.join(ROOT, 'dist', 'core', 'infrastructure', 'setup.js')
 
-  // Skip if dist already exists (e.g., published package)
-  if (fs.existsSync(path.join(distDir, 'bin', 'prjct.js'))) {
-    return
+  if (!fs.existsSync(setupPath)) {
+    console.log('   Setup module not found. Skipping setup.')
+    console.log('   Run `prjct setup` manually after install.')
+    return false
   }
 
-  console.log('Building for Node.js compatibility...')
-
   try {
-    // Run build script
-    execSync('node scripts/build.js', {
-      cwd: rootDir,
-      stdio: 'inherit',
-    })
-  } catch (error) {
-    console.warn('Warning: Build failed. CLI will build on first use.')
-    // Non-fatal - the wrapper script will build on first run
-  }
-}
-
-async function main() {
-  try {
-    // Detect if this is a global install
-    const isGlobal = detectGlobalInstall()
-
-    if (!isGlobal) {
-      // Skip postinstall for local development installs
-      return
-    }
-
-    // Build for Node.js if bun is not available
-    if (!isBunAvailable()) {
-      await buildForNode()
-    }
-
-    // Run setup (all logic is in core/infrastructure/setup.js)
-    const setup = require('../core/infrastructure/setup')
+    const setup = require(setupPath)
     await setup.run()
-
+    return true
   } catch (error) {
-    // Silent failure - setup will run on first use anyway
-    // Don't fail the install if post-install has issues
-    process.exit(0)
+    console.warn('   Setup warning:', error.message)
+    console.log('   Run `prjct setup` manually after install.')
+    return false
   }
 }
 
 /**
- * Detect if this is a global npm install
+ * Run setup using bun (for bun users - faster)
  */
-function detectGlobalInstall() {
-  // Check if we're being installed globally
-  const npmConfig = process.env.npm_config_global
-  if (npmConfig === 'true') {
+async function runSetupBun() {
+  const setupPath = path.join(ROOT, 'core', 'infrastructure', 'setup.ts')
+
+  try {
+    execSync(`bun ${setupPath}`, { cwd: ROOT, stdio: 'inherit' })
     return true
+  } catch (error) {
+    // Fallback to compiled version
+    return runSetupCompiled()
+  }
+}
+
+/**
+ * Update statusline version in existing scripts
+ */
+function updateStatusLineVersion() {
+  try {
+    const homeDir = process.env.HOME || require('os').homedir()
+    const packageJson = require(path.join(ROOT, 'package.json'))
+    const version = packageJson.version
+
+    const statusLinePaths = [
+      path.join(homeDir, '.prjct-cli', 'statusline', 'statusline.sh'),
+      path.join(homeDir, '.claude', 'prjct-statusline.sh'),
+    ]
+
+    for (const statusLinePath of statusLinePaths) {
+      if (fs.existsSync(statusLinePath)) {
+        const stats = fs.lstatSync(statusLinePath)
+        const actualPath = stats.isSymbolicLink()
+          ? fs.readlinkSync(statusLinePath)
+          : statusLinePath
+
+        if (fs.existsSync(actualPath)) {
+          let content = fs.readFileSync(actualPath, 'utf8')
+          if (content.includes('CLI_VERSION=')) {
+            const updated = content.replace(/CLI_VERSION="[^"]*"/, `CLI_VERSION="${version}"`)
+            fs.writeFileSync(actualPath, updated, { mode: 0o755 })
+            return true
+          }
+        }
+      }
+    }
+    return false
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Main
+ */
+async function main() {
+  // Only run for global installs
+  if (!isGlobalInstall()) {
+    return
   }
 
-  // Check if install location is in global node_modules
-  const installPath = __dirname
-  const globalPaths = [
-    '/usr/local/lib/node_modules',
-    '/usr/lib/node_modules',
-    path.join(process.env.HOME || '', '.npm-global', 'lib', 'node_modules'),
-    path.join(process.env.HOME || '', '.nvm'),
-    path.join(process.env.APPDATA || '', 'npm', 'node_modules')
-  ]
+  console.log('')
+  console.log('   prjct-cli postinstall')
+  console.log('')
 
-  return globalPaths.some(globalPath => installPath.includes(globalPath))
+  // Update statusline version first (fast, always works)
+  if (updateStatusLineVersion()) {
+    console.log('   ✓ Statusline version updated')
+  }
+
+  // Run full setup
+  if (hasBun()) {
+    await runSetupBun()
+  } else {
+    await runSetupCompiled()
+  }
+
+  console.log('')
 }
 
-// Run if executed directly
-if (require.main === module) {
-  main().catch(error => {
-    console.error('Fatal error:', error.message)
-    process.exit(0) // Don't fail npm install
-  })
-}
-
-module.exports = main
+main().catch((error) => {
+  // Never fail npm install due to postinstall issues
+  console.warn('   postinstall warning:', error.message)
+  process.exit(0)
+})

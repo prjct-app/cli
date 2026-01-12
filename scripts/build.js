@@ -3,10 +3,15 @@
 /**
  * Build Script for prjct-cli
  *
- * Transpiles TypeScript to JavaScript for Node.js compatibility.
- * Uses esbuild for fast builds.
+ * Compiles TypeScript to JavaScript for Node.js compatibility.
+ * Builds:
+ * - bin/prjct.mjs (CLI entry point)
+ * - core/infrastructure/setup.js (postinstall needs this)
+ * - core/infrastructure/command-installer.js
+ * - core/infrastructure/editors-config.js
+ * - core/utils/version.js
  *
- * @version 1.0.0
+ * @version 2.0.0
  */
 
 const { execSync } = require('child_process')
@@ -17,7 +22,7 @@ const ROOT = path.resolve(__dirname, '..')
 const DIST = path.join(ROOT, 'dist')
 
 /**
- * Check if esbuild is available, install if not
+ * Ensure esbuild is available
  */
 function ensureEsbuild() {
   try {
@@ -36,26 +41,28 @@ function ensureEsbuild() {
 }
 
 /**
- * Clean dist directory
+ * Clean and create dist directory
  */
 function clean() {
   if (fs.existsSync(DIST)) {
     fs.rmSync(DIST, { recursive: true })
   }
   fs.mkdirSync(DIST, { recursive: true })
+  fs.mkdirSync(path.join(DIST, 'bin'), { recursive: true })
+  fs.mkdirSync(path.join(DIST, 'core', 'infrastructure'), { recursive: true })
+  fs.mkdirSync(path.join(DIST, 'core', 'utils'), { recursive: true })
 }
 
 /**
- * Build using esbuild
- *
- * Bundles the CLI into a single file for Node.js compatibility.
+ * Build all modules
  */
 async function build() {
   const esbuild = require('esbuild')
 
-  console.log('Building for Node.js...')
+  console.log('Building for Node.js...\n')
 
-  // Bundle bin/prjct.ts into a single file
+  // 1. CLI entry point (ESM)
+  console.log('  → bin/prjct.mjs')
   await esbuild.build({
     entryPoints: [path.join(ROOT, 'bin/prjct.ts')],
     outfile: path.join(DIST, 'bin', 'prjct.mjs'),
@@ -66,9 +73,7 @@ async function build() {
     sourcemap: false,
     minify: false,
     keepNames: true,
-    // Mark all node_modules as external
     packages: 'external',
-    // Banner with shebang and __dirname polyfill for ESM
     banner: {
       js: `#!/usr/bin/env node
 import { fileURLToPath as __fileURLToPath } from 'url';
@@ -77,12 +82,70 @@ const __filename = __fileURLToPath(import.meta.url);
 const __dirname = __pathDirname(__filename);`,
     },
   })
-
-  // Make executable
   fs.chmodSync(path.join(DIST, 'bin', 'prjct.mjs'), 0o755)
 
-  console.log('Build complete!')
-  console.log(`Output: ${DIST}/bin/prjct.mjs`)
+  // 2. Setup module (CJS - for postinstall)
+  console.log('  → core/infrastructure/setup.js')
+  await esbuild.build({
+    entryPoints: [path.join(ROOT, 'core/infrastructure/setup.ts')],
+    outfile: path.join(DIST, 'core', 'infrastructure', 'setup.js'),
+    bundle: true,
+    platform: 'node',
+    target: 'node18',
+    format: 'cjs',
+    sourcemap: false,
+    minify: false,
+    keepNames: true,
+    packages: 'external',
+  })
+
+  // 3. Command installer (CJS)
+  console.log('  → core/infrastructure/command-installer.js')
+  await esbuild.build({
+    entryPoints: [path.join(ROOT, 'core/infrastructure/command-installer.ts')],
+    outfile: path.join(DIST, 'core', 'infrastructure', 'command-installer.js'),
+    bundle: true,
+    platform: 'node',
+    target: 'node18',
+    format: 'cjs',
+    sourcemap: false,
+    minify: false,
+    keepNames: true,
+    packages: 'external',
+  })
+
+  // 4. Editors config (CJS)
+  console.log('  → core/infrastructure/editors-config.js')
+  await esbuild.build({
+    entryPoints: [path.join(ROOT, 'core/infrastructure/editors-config.ts')],
+    outfile: path.join(DIST, 'core', 'infrastructure', 'editors-config.js'),
+    bundle: true,
+    platform: 'node',
+    target: 'node18',
+    format: 'cjs',
+    sourcemap: false,
+    minify: false,
+    keepNames: true,
+    packages: 'external',
+  })
+
+  // 5. Version util (CJS)
+  console.log('  → core/utils/version.js')
+  await esbuild.build({
+    entryPoints: [path.join(ROOT, 'core/utils/version.ts')],
+    outfile: path.join(DIST, 'core', 'utils', 'version.js'),
+    bundle: true,
+    platform: 'node',
+    target: 'node18',
+    format: 'cjs',
+    sourcemap: false,
+    minify: false,
+    keepNames: true,
+    packages: 'external',
+  })
+
+  console.log('\nBuild complete!')
+  console.log(`Output: ${DIST}/`)
 }
 
 /**
@@ -100,7 +163,7 @@ async function main() {
   await build()
 }
 
-main().catch(error => {
+main().catch((error) => {
   console.error('Build failed:', error)
   process.exit(1)
 })
