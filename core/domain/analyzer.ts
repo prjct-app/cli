@@ -14,6 +14,7 @@ import fs from 'fs/promises'
 import path from 'path'
 import { promisify } from 'util'
 import { exec as execCallback } from 'child_process'
+import { isNotFoundError } from '../types/fs'
 
 const exec = promisify(execCallback)
 
@@ -61,8 +62,11 @@ class CodebaseAnalyzer {
       const packagePath = path.join(this.projectPath!, 'package.json')
       const content = await fs.readFile(packagePath, 'utf-8')
       return JSON.parse(content)
-    } catch {
-      return null
+    } catch (error) {
+      if (isNotFoundError(error) || error instanceof SyntaxError) {
+        return null
+      }
+      throw error
     }
   }
 
@@ -73,8 +77,11 @@ class CodebaseAnalyzer {
     try {
       const cargoPath = path.join(this.projectPath!, 'Cargo.toml')
       return await fs.readFile(cargoPath, 'utf-8')
-    } catch {
-      return null
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        return null
+      }
+      throw error
     }
   }
 
@@ -85,8 +92,11 @@ class CodebaseAnalyzer {
     try {
       const reqPath = path.join(this.projectPath!, 'requirements.txt')
       return await fs.readFile(reqPath, 'utf-8')
-    } catch {
-      return null
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        return null
+      }
+      throw error
     }
   }
 
@@ -97,8 +107,11 @@ class CodebaseAnalyzer {
     try {
       const goModPath = path.join(this.projectPath!, 'go.mod')
       return await fs.readFile(goModPath, 'utf-8')
-    } catch {
-      return null
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        return null
+      }
+      throw error
     }
   }
 
@@ -109,8 +122,11 @@ class CodebaseAnalyzer {
     try {
       const gemfilePath = path.join(this.projectPath!, 'Gemfile')
       return await fs.readFile(gemfilePath, 'utf-8')
-    } catch {
-      return null
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        return null
+      }
+      throw error
     }
   }
 
@@ -121,8 +137,11 @@ class CodebaseAnalyzer {
     try {
       const mixPath = path.join(this.projectPath!, 'mix.exs')
       return await fs.readFile(mixPath, 'utf-8')
-    } catch {
-      return null
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        return null
+      }
+      throw error
     }
   }
 
@@ -133,8 +152,11 @@ class CodebaseAnalyzer {
     try {
       const pomPath = path.join(this.projectPath!, 'pom.xml')
       return await fs.readFile(pomPath, 'utf-8')
-    } catch {
-      return null
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        return null
+      }
+      throw error
     }
   }
 
@@ -146,8 +168,11 @@ class CodebaseAnalyzer {
       const composerPath = path.join(this.projectPath!, 'composer.json')
       const content = await fs.readFile(composerPath, 'utf-8')
       return JSON.parse(content)
-    } catch {
-      return null
+    } catch (error) {
+      if (isNotFoundError(error) || error instanceof SyntaxError) {
+        return null
+      }
+      throw error
     }
   }
 
@@ -158,8 +183,11 @@ class CodebaseAnalyzer {
     try {
       const pyprojectPath = path.join(this.projectPath!, 'pyproject.toml')
       return await fs.readFile(pyprojectPath, 'utf-8')
-    } catch {
-      return null
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        return null
+      }
+      throw error
     }
   }
 
@@ -185,7 +213,8 @@ class CodebaseAnalyzer {
           }
         })
       return extensions
-    } catch {
+    } catch (error) {
+      // exec errors (find command not available, etc.) - return empty
       return {}
     }
   }
@@ -214,8 +243,11 @@ class CodebaseAnalyzer {
         /^\.env.*$/,
       ]
       return entries.filter((entry) => configPatterns.some((pattern) => pattern.test(entry)))
-    } catch {
-      return []
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        return []
+      }
+      throw error
     }
   }
 
@@ -229,8 +261,11 @@ class CodebaseAnalyzer {
         .filter((entry) => entry.isDirectory())
         .map((entry) => entry.name)
         .filter((name) => !name.startsWith('.') && name !== 'node_modules')
-    } catch {
-      return []
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        return []
+      }
+      throw error
     }
   }
 
@@ -243,7 +278,8 @@ class CodebaseAnalyzer {
         cwd: this.projectPath!,
       })
       return stdout
-    } catch {
+    } catch (error) {
+      // Git errors (not a repo, git not installed) - return empty
       return ''
     }
   }
@@ -270,7 +306,8 @@ class CodebaseAnalyzer {
         contributors: parseInt(contributors.trim()) || 0,
         age: firstCommit.trim() || 'unknown',
       }
-    } catch {
+    } catch (error) {
+      // Git errors (not a repo, git not installed) - return defaults
       return {
         totalCommits: 0,
         contributors: 0,
@@ -289,7 +326,8 @@ class CodebaseAnalyzer {
         { cwd: this.projectPath! }
       )
       return parseInt(stdout.trim()) || 0
-    } catch {
+    } catch (error) {
+      // exec errors (find command not available, etc.) - return 0
       return 0
     }
   }
@@ -301,8 +339,11 @@ class CodebaseAnalyzer {
     try {
       await fs.access(path.join(this.projectPath!, filename))
       return true
-    } catch {
-      return false
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        return false
+      }
+      throw error
     }
   }
 
@@ -313,8 +354,11 @@ class CodebaseAnalyzer {
     try {
       const fullPath = path.join(this.projectPath!, relativePath)
       return await fs.readFile(fullPath, 'utf-8')
-    } catch {
-      return null
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        return null
+      }
+      throw error
     }
   }
 
@@ -328,7 +372,8 @@ class CodebaseAnalyzer {
         { cwd: this.projectPath! }
       )
       return stdout.trim().split('\n').filter(Boolean)
-    } catch {
+    } catch (error) {
+      // exec errors (find command not available, etc.) - return empty
       return []
     }
   }

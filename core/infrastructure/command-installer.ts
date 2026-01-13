@@ -13,6 +13,7 @@ import fs from 'fs/promises'
 import path from 'path'
 import os from 'os'
 import { getPackageRoot } from '../utils/version'
+import { isNotFoundError } from '../types/fs'
 import type {
   InstallResult,
   UninstallResult,
@@ -90,9 +91,13 @@ export async function installGlobalConfig(
     try {
       existingContent = await fs.readFile(globalConfigPath, 'utf-8')
       fileExists = true
-    } catch {
-      // File doesn't exist, will create new
-      fileExists = false
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        // File doesn't exist, will create new
+        fileExists = false
+      } else {
+        throw error
+      }
     }
 
     if (!fileExists) {
@@ -180,8 +185,11 @@ export class CommandInstaller {
     try {
       await fs.access(this.claudeConfigPath)
       return true
-    } catch {
-      return false
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        return false
+      }
+      throw error
     }
   }
 
@@ -192,8 +200,8 @@ export class CommandInstaller {
     try {
       const files = await fs.readdir(this.templatesDir)
       return files.filter((f) => f.endsWith('.md'))
-    } catch {
-      // Fallback to core commands if template directory not accessible
+    } catch (error) {
+      // Fallback to core commands if template directory not accessible (ENOENT or other)
       return [
         'init.md',
         'now.md',
@@ -294,8 +302,8 @@ export class CommandInstaller {
       // Try to remove the /p directory if empty
       try {
         await fs.rmdir(this.claudeCommandsPath)
-      } catch {
-        // Directory not empty or doesn't exist - that's fine
+      } catch (error) {
+        // Directory not empty or doesn't exist - that's fine (ENOTEMPTY or ENOENT)
       }
 
       return {
@@ -337,12 +345,15 @@ export class CommandInstaller {
         commands: installedCommands,
         path: this.claudeCommandsPath,
       }
-    } catch {
-      return {
-        installed: false,
-        claudeDetected: true,
-        commands: [],
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        return {
+          installed: false,
+          claudeDetected: true,
+          commands: [],
+        }
       }
+      throw error
     }
   }
 
@@ -381,8 +392,11 @@ export class CommandInstaller {
       const templatePath = path.join(this.templatesDir, `${commandName}.md`)
       await fs.access(templatePath)
       return true
-    } catch {
-      return false
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        return false
+      }
+      throw error
     }
   }
 
@@ -399,8 +413,11 @@ export class CommandInstaller {
       const content = await fs.readFile(routerSource, 'utf-8')
       await fs.writeFile(routerDest, content, 'utf-8')
       return true
-    } catch {
-      return false
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        return false
+      }
+      throw error
     }
   }
 
@@ -434,9 +451,13 @@ export class CommandInstaller {
       try {
         installedFiles = await fs.readdir(this.claudeCommandsPath)
         installedFiles = installedFiles.filter((f) => f.endsWith('.md'))
-      } catch {
-        // Directory doesn't exist yet
-        installedFiles = []
+      } catch (error) {
+        if (isNotFoundError(error)) {
+          // Directory doesn't exist yet
+          installedFiles = []
+        } else {
+          throw error
+        }
       }
 
       const results: SyncResult = {
