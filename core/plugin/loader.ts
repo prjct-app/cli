@@ -14,6 +14,7 @@ import path from 'path'
 import { hookSystem } from './hooks'
 import { eventBus, type EventCallback } from '../bus'
 import pathManager from '../infrastructure/path-manager'
+import { isNotFoundError } from '../types/fs'
 
 type PluginSource = 'builtin' | 'global' | 'project'
 type HookHandler = (data: unknown) => unknown | Promise<unknown>
@@ -97,8 +98,11 @@ class PluginLoader {
           await this.loadPlugin(pluginPath, 'builtin')
         }
       }
-    } catch {
-      // No built-in plugins directory yet
+    } catch (error) {
+      // No built-in plugins directory yet - expected
+      if (!isNotFoundError(error)) {
+        throw error
+      }
     }
   }
 
@@ -120,8 +124,11 @@ class PluginLoader {
           await this.loadPlugin(pluginPath, 'global')
         }
       }
-    } catch {
-      // No global plugins directory
+    } catch (error) {
+      // No global plugins directory - expected
+      if (!isNotFoundError(error)) {
+        throw error
+      }
     }
   }
 
@@ -328,8 +335,11 @@ class PluginLoader {
     try {
       const stat = await fs.stat(p)
       return stat.isDirectory()
-    } catch {
-      return false
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        return false
+      }
+      throw error
     }
   }
 }

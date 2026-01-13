@@ -15,6 +15,7 @@ import { eventBus, type SyncEvent } from '../events'
 import { getTimestamp } from '../utils/date-helper'
 import pathManager from '../infrastructure/path-manager'
 import { TTLCache } from '../utils/cache'
+import { isNotFoundError } from '../types/fs'
 
 export abstract class StorageManager<T> {
   protected filename: string
@@ -84,9 +85,12 @@ export abstract class StorageManager<T> {
       const data = JSON.parse(content) as T
       this.cache.set(projectId, data)
       return data
-    } catch {
-      // Return default if file doesn't exist
-      return this.getDefault()
+    } catch (error) {
+      // Return default if file doesn't exist or is invalid JSON
+      if (isNotFoundError(error) || error instanceof SyntaxError) {
+        return this.getDefault()
+      }
+      throw error
     }
   }
 
@@ -177,8 +181,11 @@ export abstract class StorageManager<T> {
     try {
       await fs.access(filePath)
       return true
-    } catch {
-      return false
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        return false
+      }
+      throw error
     }
   }
 

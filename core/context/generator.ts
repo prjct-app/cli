@@ -137,7 +137,9 @@ async function getGitData(repoPath: string) {
       const [hash, message, date] = line.split('|')
       return { hash, message, date }
     })
-  } catch { /* not git */ }
+  } catch (_error) {
+    // Not a git repo - expected
+  }
 
   return data
 }
@@ -155,7 +157,9 @@ async function getPackageData(repoPath: string) {
     data.dependencies = pkg.dependencies || {}
     data.devDependencies = pkg.devDependencies || {}
     data.scripts = pkg.scripts || {}
-  } catch { /* no package.json */ }
+  } catch (_error) {
+    // No package.json - expected
+  }
 
   return data
 }

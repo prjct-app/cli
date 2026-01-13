@@ -15,6 +15,7 @@ import fs from 'fs/promises'
 import path from 'path'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
+import { isNotFoundError } from '../types/fs'
 import type { Agent, AssignmentContext } from '../types'
 
 // Re-export types for convenience
@@ -57,7 +58,11 @@ class AgentRouter {
       }
 
       return agents
-    } catch {
+    } catch (error) {
+      // Agents directory doesn't exist yet - expected for new projects
+      if (!isNotFoundError(error)) {
+        console.error(`Agent loading error: ${(error as Error).message}`)
+      }
       return []
     }
   }
@@ -80,7 +85,11 @@ class AgentRouter {
       const filePath = path.join(this.agentsPath, `${name}.md`)
       const content = await fs.readFile(filePath, 'utf-8')
       return { name, content }
-    } catch {
+    } catch (error) {
+      // Agent file doesn't exist - expected
+      if (!isNotFoundError(error)) {
+        console.error(`Agent load error: ${(error as Error).message}`)
+      }
       return null
     }
   }
@@ -130,8 +139,11 @@ class AgentRouter {
         }) + '\n'
 
       await fs.appendFile(logPath, entry)
-    } catch {
-      // Silent fail for logging
+    } catch (error) {
+      // Non-critical - log unexpected errors but don't fail
+      if (!isNotFoundError(error)) {
+        console.error(`Agent usage log error: ${(error as Error).message}`)
+      }
     }
   }
 }

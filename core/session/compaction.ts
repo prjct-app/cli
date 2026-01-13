@@ -216,7 +216,7 @@ export async function loadCompactedContexts(
 
     // Return most recent
     return contexts.slice(-limit)
-  } catch {
+  } catch (_error) {
     return []
   }
 }

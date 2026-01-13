@@ -125,8 +125,8 @@ class UpdateChecker {
         const cache = JSON.parse(fs.readFileSync(this.cacheFile, 'utf8'))
         return cache
       }
-    } catch {
-      // Cache file doesn't exist or is corrupted, ignore
+    } catch (_error) {
+      // Cache file doesn't exist or is corrupted - expected
     }
     return null
   }
@@ -142,7 +142,7 @@ class UpdateChecker {
       }
 
       fs.writeFileSync(this.cacheFile, JSON.stringify(data, null, 2), 'utf8')
-    } catch {
+    } catch (_error) {
       // Fail silently - cache is not critical
     }
   }
@@ -195,8 +195,8 @@ class UpdateChecker {
         currentVersion,
         latestVersion,
       }
-    } catch {
-      // Network error or other issue - fail silently
+    } catch (_error) {
+      // Network error or other issue - fail silently (expected)
       // Return null to indicate check couldn't be performed
       return null
     }

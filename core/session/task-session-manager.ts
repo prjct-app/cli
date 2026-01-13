@@ -11,6 +11,7 @@ import { promisify } from 'util'
 import pathManager from '../infrastructure/path-manager'
 import configManager from '../infrastructure/config-manager'
 import { emit } from '../bus'
+import { isNotFoundError } from '../types/fs'
 import type { Session, SessionMetrics } from '../types'
 import { generateId, calculateDuration, formatDuration } from './utils'
 
@@ -62,8 +63,11 @@ export class TaskSessionManager {
     try {
       const content = await fs.readFile(currentPath, 'utf-8')
       return JSON.parse(content)
-    } catch {
-      return null
+    } catch (error) {
+      if (isNotFoundError(error) || error instanceof SyntaxError) {
+        return null
+      }
+      throw error
     }
   }
 
@@ -282,8 +286,13 @@ export class TaskSessionManager {
         metrics.linesAdded = parseInt(match[2]) || 0
         metrics.linesRemoved = parseInt(match[3]) || 0
       }
-    } catch {
-      // Keep existing metrics if git fails
+    } catch (error) {
+      // Keep existing metrics if git fails (not a repo, git not installed, etc.)
+      // This is expected in non-git projects
+      if (!isNotFoundError(error)) {
+        // Log unexpected errors but don't fail
+        console.error(`Metrics calculation warning: ${(error as Error).message}`)
+      }
     }
 
     return metrics
@@ -304,8 +313,11 @@ export class TaskSessionManager {
     const currentPath = path.join(this.sessionDir!, 'current.json')
     try {
       await fs.unlink(currentPath)
-    } catch {
-      // File might not exist
+    } catch (error) {
+      // File might not exist - that's ok
+      if (!isNotFoundError(error)) {
+        throw error
+      }
     }
   }
 
@@ -350,8 +362,11 @@ export class TaskSessionManager {
           sessions.push(JSON.parse(content))
         }
       }
-    } catch {
+    } catch (error) {
       // Archive might not exist yet
+      if (!isNotFoundError(error) && !(error instanceof SyntaxError)) {
+        throw error
+      }
     }
 
     return sessions
@@ -372,8 +387,11 @@ export class TaskSessionManager {
 
     try {
       await fs.appendFile(memoryPath, entry)
-    } catch {
-      // Memory file might not exist
+    } catch (error) {
+      // Memory file might not exist - that's ok
+      if (!isNotFoundError(error)) {
+        throw error
+      }
     }
   }
 

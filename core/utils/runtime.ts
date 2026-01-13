@@ -35,7 +35,7 @@ export function isBunAvailable(): boolean {
     const { execSync } = require('child_process')
     execSync('bun --version', { stdio: 'ignore' })
     return true
-  } catch {
+  } catch (_error) {
     return false
   }
 }

@@ -134,7 +134,8 @@ class SyncClient {
       })
 
       return response.ok
-    } catch {
+    } catch (_error) {
+      // Network error or other issue - expected
       return false
     }
   }
@@ -202,7 +203,8 @@ class SyncClient {
       }
 
       return this.createError('API_ERROR', message, response.status)
-    } catch {
+    } catch (_error) {
+      // JSON parse error - use generic message (expected for non-JSON responses)
       return this.createError('API_ERROR', `HTTP ${response.status}`, response.status)
     }
   }

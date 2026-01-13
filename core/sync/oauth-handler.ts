@@ -61,7 +61,7 @@ class OAuthHandler {
         success: true,
         email: userInfo.email,
       }
-    } catch {
+    } catch (_error) {
       // Key works but couldn't fetch user info - still save it
       await authConfig.write({ apiKey })
       return {

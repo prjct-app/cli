@@ -103,7 +103,7 @@ class AgentLoader {
       const agentPath = path.join(this.agentsDir, `${agentName}.md`)
       await fs.access(agentPath)
       return true
-    } catch {
+    } catch (_error) {
       return false
     }
   }

@@ -40,7 +40,7 @@ export function getPackageRoot(): string {
           cachedPackageRoot = currentDir
           return currentDir
         }
-      } catch {
+      } catch (_error) {
         // Continue searching
       }
     }

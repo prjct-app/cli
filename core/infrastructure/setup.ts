@@ -41,7 +41,7 @@ async function hasClaudeCodeCLI(): Promise<boolean> {
   try {
     execSync('which claude', { stdio: 'ignore' })
     return true
-  } catch {
+  } catch (_error) {
     return false
   }
 }

@@ -45,7 +45,7 @@ class SyncManager {
 
     try {
       return await syncClient.getStatus(projectId)
-    } catch {
+    } catch (_error) {
       return null
     }
   }

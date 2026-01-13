@@ -194,7 +194,7 @@ class PermissionManager {
       }
 
       return { allowed: true, level: 'allow' }
-    } catch {
+    } catch (_error) {
       return {
         allowed: false,
         level: 'deny',

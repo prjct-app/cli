@@ -9,6 +9,7 @@
 import fs from 'fs/promises'
 import pathManager from '../infrastructure/path-manager'
 import configManager from '../infrastructure/config-manager'
+import { isNotFoundError } from '../types/fs'
 import type { ContextPaths, ProjectContext, ContextState } from '../types'
 
 // Re-export types for convenience
@@ -113,10 +114,14 @@ class ContextBuilder {
             this._cache.delete(filePath)
             this._mtimes.delete(filePath)
           }
-        } catch {
-          // File doesn't exist - invalidate cache
-          this._cache.delete(filePath)
-          this._mtimes.delete(filePath)
+        } catch (error) {
+          // File doesn't exist or access error - invalidate cache
+          if (isNotFoundError(error)) {
+            this._cache.delete(filePath)
+            this._mtimes.delete(filePath)
+          } else {
+            throw error
+          }
         }
       }
     }
@@ -137,8 +142,11 @@ class ContextBuilder {
         try {
           const [content, stat] = await Promise.all([fs.readFile(filePath, 'utf-8'), fs.stat(filePath)])
           return { key, filePath, content, mtime: stat.mtimeMs }
-        } catch {
-          return { key, filePath, content: null, mtime: null }
+        } catch (error) {
+          if (isNotFoundError(error)) {
+            return { key, filePath, content: null, mtime: null }
+          }
+          throw error
         }
       })
 
@@ -227,8 +235,11 @@ class ContextBuilder {
         try {
           const content = await fs.readFile(filePath, 'utf-8')
           return { filePath, content }
-        } catch {
-          return { filePath, content: null }
+        } catch (error) {
+          if (isNotFoundError(error)) {
+            return { filePath, content: null }
+          }
+          throw error
         }
       })
 
@@ -264,8 +275,11 @@ class ContextBuilder {
     try {
       await fs.access(filePath)
       return true
-    } catch {
-      return false
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        return false
+      }
+      throw error
     }
   }
 

@@ -150,7 +150,7 @@ class ContextEstimator {
           if (Array.isArray(matches)) {
             files.push(...matches)
           }
-        } catch {
+        } catch (_error) {
           // Skip invalid patterns
         }
       }
