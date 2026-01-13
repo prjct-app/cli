@@ -11,10 +11,6 @@ export interface Task {
   completedAt?: string
   duration?: string
   metadata?: TaskMetadata
-  /** Notion page ID for bidirectional sync */
-  notionPageId?: string
-  /** Last sync timestamp for conflict resolution */
-  lastSyncedAt?: string
 }
 
 export interface TaskMetadata {

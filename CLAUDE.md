@@ -91,6 +91,7 @@ User Action → Storage (JSON) → Context (MD) → Sync Events
 
 ## COMMANDS
 
+### Core Workflow
 | Trigger | Purpose |
 |---------|---------|
 | `p. init` | Initialize project with deep analysis |
@@ -102,9 +103,49 @@ User Action → Storage (JSON) → Context (MD) → Sync Events
 | `p. resume` | Resume paused task |
 | `p. bug <desc>` | Report bug with auto-priority |
 
+### Issue Tracker Integrations
+| Trigger | Purpose |
+|---------|---------|
+| `p. linear` | Linear issues (OAuth via MCP) |
+| `p. jira` | JIRA issues (OAuth/SSO via MCP) |
+| `p. github` | GitHub Issues (token via MCP) |
+| `p. monday` | Monday.com boards (OAuth via MCP) |
+| `p. enrich <ID>` | **AI-powered ticket enrichment** |
+
+### Ticket Enrichment (`p. enrich`)
+
+Transform vague PM tickets into technical PRDs:
+
+```
+PM creates: "Add user auth"
+            ↓
+p. enrich PRJ-59
+            ↓
+Architect analyzes codebase:
+- Similar implementations found
+- 5 files affected
+- OAuth2 approach recommended
+- 8 story points (not PM's guess of 2)
+            ↓
+Publishes PRD to tracker:
+- Technical approach
+- Acceptance criteria
+- LLM-ready prompt (for any AI tool)
+```
+
+**Subcommands:**
+- `p. enrich <ID>` - Enrich specific ticket
+- `p. enrich setup` - Configure team preferences (estimation, output)
+- `p. enrich batch` - Enrich all assigned tickets (backlog grooming)
+
 ### Workflow
 ```
 p. sync → p. task "description" → [work] → p. done → p. ship
+```
+
+### With Issue Tracker
+```
+p. linear → p. enrich PRJ-59 → p. linear start PRJ-59 → [work] → p. done → p. ship
 ```
 
 ---

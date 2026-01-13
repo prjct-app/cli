@@ -25,7 +25,7 @@ export interface GlobalConfig {
   version: string
   created?: string
   lastSync: string
-  // Optional external integrations (Notion, etc.)
+  // Optional external integrations (Linear, JIRA)
   integrations?: IntegrationsConfig
 }
 
