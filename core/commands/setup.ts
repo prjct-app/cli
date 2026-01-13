@@ -4,10 +4,10 @@
 
 import path from 'path'
 import fs from 'fs'
-import os from 'os'
 import chalk from 'chalk'
 
 import commandInstaller from '../infrastructure/command-installer'
+import pathManager from '../infrastructure/path-manager'
 import type { CommandResult, SetupOptions, MigrateOptions } from '../types'
 import { PrjctCommandsBase } from './base'
 import { VERSION } from '../utils/version'
@@ -126,8 +126,8 @@ export class SetupCommands extends PrjctCommandsBase {
    */
   async installStatusLine(): Promise<{ success: boolean; error?: string }> {
     try {
-      const claudeDir = path.join(os.homedir(), '.claude')
-      const settingsPath = path.join(claudeDir, 'settings.json')
+      const claudeDir = pathManager.getClaudeDir()
+      const settingsPath = pathManager.getClaudeSettingsPath()
       const statusLinePath = path.join(claudeDir, 'prjct-statusline.sh')
 
       // Version is embedded at install time
