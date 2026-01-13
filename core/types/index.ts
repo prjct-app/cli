@@ -225,10 +225,11 @@ export type {
 // Integration Types
 // =============================================================================
 export type {
-  NotionIntegrationConfig,
   IntegrationsConfig,
+  LinearConfig,
+  JiraConfig,
 } from './integrations'
-export { DEFAULT_NOTION_CONFIG } from './integrations'
+export { DEFAULT_LINEAR_CONFIG, DEFAULT_JIRA_CONFIG } from './integrations'
 
 // =============================================================================
 // Template Types

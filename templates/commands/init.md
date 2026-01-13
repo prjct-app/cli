@@ -180,40 +180,13 @@ If yes:
 
 If no: Skip (integration can be added later with `p. jira setup`).
 
-### Notion Integration (Optional)
+### Linear Integration (Optional)
 
-Ask: "Would you like to connect with Notion for dashboards and progress tracking?"
+Ask: "Would you like to connect with Linear for issue tracking?"
 
 If yes:
-1. Guide user to create Notion integration at https://www.notion.so/my-integrations
-2. Ask for API token (starts with `ntn_`)
-3. Ask for parent page ID (where to create databases)
-4. Create 4 databases:
-   - prjct: Shipped Features
-   - prjct: Roadmap
-   - prjct: Ideas
-   - prjct: Active Tasks
-5. Store config in `project.json`:
-
-```json
-{
-  "integrations": {
-    "notion": {
-      "enabled": true,
-      "workspaceName": "{workspace}",
-      "databases": {
-        "shipped": "{dbId}",
-        "roadmap": "{dbId}",
-        "ideas": "{dbId}",
-        "tasks": "{dbId}"
-      },
-      "syncOn": { "ship": true, "idea": true }
-    }
-  }
-}
-```
-
-If no: Skip and continue (integration can be added later with `/p:notion setup`).
+1. Ask for LINEAR_API_KEY (from https://linear.app/settings/api)
+2. Run `p. linear setup` to complete configuration
 
 ## Response
 
@@ -235,11 +208,12 @@ MCP Servers:
 
 Integrations:
 • JIRA: {enabled|disabled}
-• Notion: {enabled|disabled}
+• Linear: {enabled|disabled}
 
 Next:
 • p. sync - Analyze project and generate agents
 • p. jira setup - Configure JIRA project (if enabled)
+• p. linear setup - Configure Linear (if enabled)
 • p. task "{first_task}" - Start first task
 • p. help - See all commands
 ```

@@ -1,11 +1,11 @@
 ---
-allowed-tools: [Read, Write, Bash, Task, Glob, Grep, AskUserQuestion]
-description: 'Sync and enrich Linear issues with AI-generated context'
+allowed-tools: [Read, Write, Bash, AskUserQuestion]
+description: 'Linear issue tracker integration via MCP'
 ---
 
-# p. linear - Issue Tracker Integration
+# p. linear - Linear Integration
 
-Sync issues from Linear (or other trackers) and enrich them with AI-generated context.
+Manage Linear issues directly from prjct using MCP (no SDK needed).
 
 ## Context Variables
 
@@ -19,20 +19,20 @@ Sync issues from Linear (or other trackers) and enrich them with AI-generated co
 
 | Command | Description |
 |---------|-------------|
-| `p. linear` | Show status + **your** assigned issues |
-| `p. linear sync` | Fetch and enrich **your** assigned issues |
-| `p. linear enrich <ID>` | Enrich specific issue (e.g., ENG-123) |
-| `p. linear setup` | Configure Linear integration |
-| `p. linear start <ID>` | Start working on issue → creates prjct task |
+| `p. linear` | Show your assigned issues |
+| `p. linear setup` | Configure Linear (first time) |
+| `p. linear start <ID>` | Start working on issue (e.g., PRJ-59) |
+| `p. linear comment <ID> <text>` | Add comment to issue |
 
-### Filter Options
+---
 
-| Flag | Description |
-|------|-------------|
-| (default) | Only issues assigned to you |
-| `--team` | All issues in your configured team |
-| `--project <name>` | Issues in a specific project |
-| `--unassigned` | Unassigned issues (for picking up work) |
+## Authentication
+
+Linear uses MCP with OAuth - **no API key needed**.
+
+**MCP Server**: `https://mcp.linear.app/mcp`
+**Auth**: Browser-based OAuth (first use opens browser)
+**Tools prefix**: `mcp__linear__*`
 
 ---
 
@@ -50,216 +50,201 @@ IF file not found:
 
 ---
 
-## Step 2: Check Configuration
+## Step 2: Check MCP Tools
 
 ```
-READ: {globalPath}/project.json
-EXTRACT: integrations.issueTracker
+CHECK: Are mcp__linear__* tools available?
 
-IF not configured:
-  OUTPUT: "Linear not configured."
-  OUTPUT: "Run `p. linear setup` to configure."
-  STOP
-
-IF LINEAR_API_KEY not set:
-  OUTPUT: "LINEAR_API_KEY environment variable not set."
-  OUTPUT: "Get your API key from: https://linear.app/settings/api"
+IF not available:
+  OUTPUT: "Linear MCP not configured."
+  OUTPUT: "Add to ~/.claude/settings.json or .mcp.json:"
+  OUTPUT: '{"mcpServers":{"linear":{"command":"npx","args":["-y","mcp-remote","https://mcp.linear.app/mcp"]}}}'
+  OUTPUT: "Then restart Claude Code."
   STOP
 ```
 
 ---
 
-## Step 3: Route Subcommand
+## Subcommand: setup
 
-### No args / status
+### Flow
+
+1. **Verify MCP tools available**
+   ```
+   CHECK: mcp__linear__* tools exist
+   IF not: Show MCP config instructions, STOP
+   ```
+
+2. **Test connection (triggers OAuth if needed)**
+   ```
+   USE TOOL: mcp__linear__list_issues
+   PARAMS: { "limit": 1 }
+
+   # First use will open browser for OAuth
+   ```
+
+3. **Get user info and teams**
+   ```
+   USE TOOL: mcp__linear__get_viewer
+   EXTRACT: userId, name, email
+
+   USE TOOL: mcp__linear__list_teams
+   ```
+
+4. **Ask user to select team**
+   ```
+   ASK: "Select your default team"
+   OPTIONS: List of teams
+   ```
+
+5. **Save config to project.json**
+   ```json
+   {
+     "integrations": {
+       "linear": {
+         "enabled": true,
+         "authMode": "mcp",
+         "teamId": "{teamId}",
+         "teamName": "{teamName}",
+         "teamKey": "{teamKey}",
+         "userId": "{userId}",
+         "setupAt": "{timestamp}"
+       }
+     }
+   }
+   ```
+
+### Output
 
 ```
-SHOW:
-- Connection status
-- Team/project configured
-- Assigned issues (first 10)
+✅ Linear configured
+
+Connected as: {name} ({email})
+Team: {teamName} ({teamKey})
+Auth: MCP (OAuth)
+
+Next: `p. linear` to see your issues
+```
+
+---
+
+## Subcommand: status (default, no args)
+
+```
+USE TOOL: mcp__linear__list_issues
+PARAMS:
+  assignedToMe: true
+  limit: 10
 
 OUTPUT:
 Linear: Connected ✓
-Team: {teamName}
-Issues assigned: {count}
+Team: {teamName} ({teamKey})
 
-Recent:
-- {ENG-123} {title} ({status})
-- ...
-```
-
-### sync
-
-```
-1. Fetch assigned issues from Linear
-2. For each issue without enrichment:
-   a. Use Task(Explore) to analyze codebase
-   b. Generate enrichment using enricher.ts prompts
-   c. Update issue description in Linear
-   d. Save enriched data locally
-3. Output summary
-
-OUTPUT:
-Synced {count} issues from Linear.
-Enriched: {enrichedCount}
-Updated in Linear: {updatedCount}
-```
-
-### enrich <ID>
-
-```
-1. Fetch issue by ID (e.g., ENG-123)
-2. Analyze codebase for context
-3. Generate full enrichment:
-   - Enhanced description
-   - Acceptance criteria
-   - Affected files
-   - Technical notes
-   - Complexity estimate
-4. Ask user to confirm before updating Linear
-5. Update issue in Linear
-6. Save locally
-
-OUTPUT:
-## {ID}: {title}
-
-### Generated Enrichment
-
-**Description**:
-{enrichedDescription}
-
-**Acceptance Criteria**:
-- [ ] {ac1}
-- [ ] {ac2}
+Your issues ({count}):
+• {PRJ-123} {title} ({status})
+• {PRJ-124} {title} ({status})
 ...
 
-**Affected Files**:
-- `{file1}` - {reason}
-...
-
-**Complexity**: {estimate}
+Next: `p. linear start PRJ-123` to begin work
+```
 
 ---
-Update in Linear? [Y/n]
-```
 
-### setup
+## Subcommand: start <ID>
 
 ```
-1. Check LINEAR_API_KEY
-2. Connect to Linear
-3. List available teams
-4. Ask user to select default team
-5. List projects (optional)
-6. Save config to {globalPath}/project.json
+1. Get issue
+   USE TOOL: mcp__linear__get_issue
+   PARAMS: { "issueId": "{ID}" }
 
-OUTPUT:
-Linear Setup
+2. Update status to In Progress
+   USE TOOL: mcp__linear__update_issue
+   PARAMS:
+     issueId: "{uuid}"
+     stateId: "{in_progress_state_id}"
 
-Connected as: {userName}
-Workspace: {workspaceName}
+3. Create prjct task from issue
 
-Select team for new issues:
-1. {team1}
-2. {team2}
-...
-
-Config saved!
-```
-
-### start <ID>
-
-```
-1. Fetch issue from Linear
-2. Enrich if not already enriched
-3. Mark issue as "In Progress" in Linear
-4. Create prjct task with enrichment data
-5. Create git branch: {type}/{issueId}-{slug}
+4. Create git branch: feature/{ID}-{slug}
 
 OUTPUT:
 Started: {ID} - {title}
 
-Branch: feature/ENG-123-add-user-auth
-Linear status: In Progress
+Branch: feature/PRJ-59-add-user-auth
+Linear: In Progress ✓
 
 Next: Work on the task, then `p. done`
 ```
 
 ---
 
-## Enrichment Process
-
-When enriching an issue:
-
-### 1. Gather Project Context
+## Subcommand: comment <ID> <text>
 
 ```
-READ: {globalPath}/project.json → techStack
-READ: package.json → dependencies
-BASH: git log --oneline -10 → recent commits
+1. Get issue UUID
+   USE TOOL: mcp__linear__get_issue
+   PARAMS: { "issueId": "{ID}" }
+
+2. Add comment
+   USE TOOL: mcp__linear__create_comment
+   PARAMS:
+     issueId: "{uuid}"
+     body: "{text}"
+
+OUTPUT:
+Comment added to {ID}
 ```
-
-### 2. Analyze Codebase
-
-Use Task(Explore) to find:
-- Similar existing features
-- Related code patterns
-- Key files that might be affected
-
-### 3. Generate Enrichment
-
-Based on analysis, generate:
-
-**Enhanced Description**:
-- What the user/stakeholder wants to achieve
-- Why this change is needed
-- Context from similar features
-
-**Acceptance Criteria** (3-7 items):
-- [ ] When [action], then [expected result]
-- Specific, testable criteria
-
-**Affected Files**:
-- `src/components/Auth.tsx` - Main auth component
-- `src/api/users.ts` - User API calls
-
-**Technical Notes**:
-- Follow existing pattern in `src/auth/`
-- Consider edge case: expired sessions
-- Reuse `useAuth` hook
-
-**Complexity**: small | medium | large
-- Based on affected files and scope
 
 ---
 
-## Storage
+## MCP Tool Reference
 
-### Issue Cache: `{globalPath}/storage/issues.json`
+| Operation | MCP Tool |
+|-----------|----------|
+| List issues | `mcp__linear__list_issues` |
+| Get issue | `mcp__linear__get_issue` |
+| Update issue | `mcp__linear__update_issue` |
+| Create issue | `mcp__linear__create_issue` |
+| Add comment | `mcp__linear__create_comment` |
+| Get viewer | `mcp__linear__get_viewer` |
+| List teams | `mcp__linear__list_teams` |
 
-```json
-{
-  "provider": "linear",
-  "lastSync": "2024-01-15T10:30:00Z",
-  "issues": {
-    "ENG-123": {
-      "id": "uuid",
-      "externalId": "ENG-123",
-      "title": "Add user authentication",
-      "status": "in_progress",
-      "enrichment": {
-        "description": "...",
-        "acceptanceCriteria": [...],
-        "affectedFiles": [...],
-        "technicalNotes": "...",
-        "estimatedComplexity": "medium",
-        "generatedAt": "2024-01-15T10:30:00Z"
-      }
-    }
-  }
-}
+### Example: List My Issues
+
 ```
+USE TOOL: mcp__linear__list_issues
+PARAMS:
+  assignedToMe: true
+  includeArchived: false
+  limit: 20
+```
+
+### Example: Get Issue by ID
+
+```
+USE TOOL: mcp__linear__get_issue
+PARAMS:
+  issueId: "PRJ-59"
+```
+
+### Example: Add Comment
+
+```
+USE TOOL: mcp__linear__create_comment
+PARAMS:
+  issueId: "{uuid}"
+  body: "Implementation complete. Used MCP instead of SDK."
+```
+
+---
+
+## Config Storage
+
+| What | Where |
+|------|-------|
+| Auth | MCP OAuth (managed by Linear) |
+| Config | `{globalPath}/project.json` → `integrations.linear` |
+| Issue cache | `{globalPath}/storage/issues.json` |
 
 ---
 
@@ -267,21 +252,18 @@ Based on analysis, generate:
 
 | Error | Action |
 |-------|--------|
-| No API key | "Set LINEAR_API_KEY. Get key: https://linear.app/settings/api" |
-| Connection failed | Show error, suggest checking key |
+| MCP tools not found | "Add Linear MCP to settings, restart Claude" |
+| OAuth failed | "Re-authenticate via browser" |
 | Issue not found | "Issue {ID} not found in Linear" |
-| Rate limited | "Linear API rate limited. Try again in {time}" |
 
 ---
 
 ## Output Format
 
 ```
-{action} {count} issues
+{action}: {result}
 
-{issueId}: {title}
-Status: {status} → {newStatus}
-Enriched: ✓
+{details}
 
 Next: {suggested action}
 ```

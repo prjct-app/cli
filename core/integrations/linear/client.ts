@@ -4,6 +4,7 @@
  */
 
 import { LinearClient as LinearSDK } from '@linear/sdk'
+import { getCredential } from '../../utils/keychain'
 import type {
   IssueTrackerProvider,
   Issue,
@@ -65,13 +66,17 @@ export class LinearProvider implements IssueTrackerProvider {
 
   /**
    * Initialize with config
+   * Looks for API key in: 1) config.apiKey, 2) macOS Keychain, 3) LINEAR_API_KEY env var
    */
   async initialize(config: LinearConfig): Promise<void> {
     this.config = config
 
-    const apiKey = config.apiKey || process.env.LINEAR_API_KEY
+    // Try config first, then keychain (which falls back to env var)
+    const apiKey = config.apiKey || (await getCredential('linear-api-key'))
     if (!apiKey) {
-      throw new Error('LINEAR_API_KEY not configured')
+      throw new Error(
+        'LINEAR_API_KEY not configured. Run `p. linear setup` to configure.'
+      )
     }
 
     this.sdk = new LinearSDK({ apiKey })
@@ -253,6 +258,21 @@ export class LinearProvider implements IssueTrackerProvider {
     if (doneState) {
       await this.sdk.updateIssue(issue.id, { stateId: doneState.id })
     }
+  }
+
+  /**
+   * Add a comment to an issue
+   */
+  async addComment(id: string, body: string): Promise<void> {
+    if (!this.sdk) throw new Error('Linear not initialized')
+
+    const issue = await this.fetchIssue(id)
+    if (!issue) throw new Error(`Issue ${id} not found`)
+
+    await this.sdk.createComment({
+      issueId: issue.id,
+      body,
+    })
   }
 
   /**

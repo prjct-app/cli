@@ -3,84 +3,56 @@
     "context7": {
       "command": "npx",
       "args": ["-y", "@upstash/context7-mcp@latest"],
-      "description": "Library documentation lookup - use for framework/library docs"
+      "description": "Library documentation lookup"
+    },
+    "linear": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://mcp.linear.app/mcp"],
+      "description": "Linear issue tracking via OAuth"
     },
     "Atlassian": {
       "command": "npx",
       "args": ["-y", "mcp-remote@latest", "https://mcp.atlassian.com/v1/sse"],
-      "description": "JIRA/Confluence integration via OAuth (SSO compatible) - for corporate environments"
+      "description": "JIRA/Confluence via OAuth (SSO compatible)"
     },
-    "notion": {
+    "monday": {
       "command": "npx",
-      "args": ["-y", "@notionhq/notion-mcp-server"],
+      "args": ["-y", "@mondaydotcomorg/monday-api-mcp"],
+      "description": "Monday.com via OAuth"
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
       "env": {
-        "OPENAPI_MCP_HEADERS": "{\"Authorization\": \"Bearer ${NOTION_TOKEN}\", \"Notion-Version\": \"2022-06-28\"}"
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
       },
-      "description": "Notion integration for prjct dashboards and progress tracking (optional)"
+      "description": "GitHub Issues/PRs via token"
     }
   },
   "usage": {
     "context7": {
-      "when": [
-        "Looking up official documentation for any library/framework",
-        "Implementing features using specific libraries (React, Next.js, etc)",
-        "Checking API references and best practices",
-        "Troubleshooting library-specific issues"
-      ],
-      "tools": [
-        "resolve-library-id: Find library ID from name (e.g., 'react' → '/facebook/react')",
-        "get-library-docs: Fetch documentation for a library ID"
-      ],
-      "examples": [
-        "resolve-library-id('nextjs') → get-library-docs('/vercel/next.js', 'app router')",
-        "resolve-library-id('tailwindcss') → get-library-docs('/tailwindlabs/tailwindcss', 'configuration')"
-      ]
+      "when": ["Looking up library/framework documentation"],
+      "tools": ["resolve-library-id", "get-library-docs"]
+    },
+    "linear": {
+      "when": ["Working with Linear issues (p. linear)"],
+      "tools": ["list_issues", "get_issue", "create_issue", "update_issue", "create_comment"],
+      "setup": ["OAuth via browser on first use"]
     },
     "Atlassian": {
-      "when": [
-        "Working with JIRA issues (p. jira commands)",
-        "Syncing issue status with JIRA",
-        "Creating/updating JIRA tickets",
-        "Corporate environments without API token access"
-      ],
-      "tools": [
-        "jira_search_issues: Search issues using JQL",
-        "jira_get_issue: Get a single issue by key",
-        "jira_transition_issue: Change issue status",
-        "jira_update_issue: Update issue fields",
-        "jira_create_issue: Create new issue"
-      ],
-      "setup": [
-        "1. MCP server is auto-installed during p. init",
-        "2. First use will open browser for OAuth authentication",
-        "3. Login with your corporate SSO credentials",
-        "4. Run p. jira setup to configure default project"
-      ],
-      "notes": [
-        "No API token needed - uses OAuth 2.1 via browser",
-        "Compatible with corporate SSO/SAML",
-        "Alternative to JIRA_API_TOKEN environment variable"
-      ]
+      "when": ["Working with JIRA issues (p. jira)", "Corporate SSO environments"],
+      "tools": ["jira_search_issues", "jira_get_issue", "jira_transition_issue", "jira_update_issue"],
+      "setup": ["OAuth via browser on first use"]
     },
-    "notion": {
-      "when": [
-        "Syncing shipped features to Notion (auto on /p:ship)",
-        "Syncing ideas to Notion (auto on /p:idea)",
-        "Creating prjct databases during /p:init",
-        "Manual sync with /p:notion sync"
-      ],
-      "tools": [
-        "notion_create_database: Create a new database",
-        "notion_create_page: Create a page in a database",
-        "notion_update_page: Update an existing page",
-        "notion_query_database: Query database entries"
-      ],
-      "setup": [
-        "1. Create integration at https://www.notion.so/my-integrations",
-        "2. Set NOTION_TOKEN environment variable",
-        "3. Share a parent page with the integration",
-        "4. Run /p:notion setup to create databases"
-      ]
+    "monday": {
+      "when": ["Working with Monday.com boards (p. monday)"],
+      "tools": ["create_item", "delete_item", "get_board_items_by_name", "change_item_column_values"],
+      "setup": ["OAuth via browser on first use"]
+    },
+    "github": {
+      "when": ["Working with GitHub Issues (p. github)", "Managing PRs"],
+      "tools": ["search_issues", "get_issue", "create_issue", "update_issue", "list_issues"],
+      "setup": ["Set GITHUB_TOKEN env var with repo scope"]
     }
   }
 }
