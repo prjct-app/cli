@@ -5,7 +5,9 @@
 # Detects available runtime (bun preferred, node fallback)
 # and executes the appropriate entry point.
 #
-# @version 1.1.0
+# CRITICAL: Also ensures p.md is installed (self-healing)
+#
+# @version 1.2.0
 
 # Resolve symlinks to get the actual script location
 resolve_symlink() {
@@ -41,6 +43,56 @@ SCRIPT_PATH="$(resolve_symlink "$0")"
 SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# CRITICAL: Ensure p.md is installed (self-healing)
+# This runs EVERY time prjct is called, ensuring setup even if postinstall failed
+ensure_setup() {
+  CLAUDE_COMMANDS="$HOME/.claude/commands"
+  PMD_SRC="$ROOT_DIR/templates/commands/p.md"
+  PMD_DEST="$CLAUDE_COMMANDS/p.md"
+
+  # Create dir if needed
+  if [ ! -d "$CLAUDE_COMMANDS" ]; then
+    mkdir -p "$CLAUDE_COMMANDS" 2>/dev/null
+  fi
+
+  # Copy p.md if source exists and dest doesn't OR dest is older
+  if [ -f "$PMD_SRC" ]; then
+    if [ ! -f "$PMD_DEST" ]; then
+      cp "$PMD_SRC" "$PMD_DEST" 2>/dev/null
+    elif [ "$PMD_SRC" -nt "$PMD_DEST" ]; then
+      # Source is newer, update
+      cp "$PMD_SRC" "$PMD_DEST" 2>/dev/null
+    fi
+  fi
+
+  # Also ensure statusline (best effort)
+  STATUSLINE_SRC="$ROOT_DIR/assets/statusline/statusline.sh"
+  STATUSLINE_DIR="$HOME/.prjct-cli/statusline"
+  STATUSLINE_DEST="$STATUSLINE_DIR/statusline.sh"
+  CLAUDE_STATUSLINE="$HOME/.claude/prjct-statusline.sh"
+
+  if [ -f "$STATUSLINE_SRC" ]; then
+    mkdir -p "$STATUSLINE_DIR" 2>/dev/null
+    if [ ! -f "$STATUSLINE_DEST" ] || [ "$STATUSLINE_SRC" -nt "$STATUSLINE_DEST" ]; then
+      cp "$STATUSLINE_SRC" "$STATUSLINE_DEST" 2>/dev/null
+      chmod +x "$STATUSLINE_DEST" 2>/dev/null
+
+      # Copy lib, components, themes
+      for subdir in lib components themes; do
+        if [ -d "$ROOT_DIR/assets/statusline/$subdir" ]; then
+          mkdir -p "$STATUSLINE_DIR/$subdir" 2>/dev/null
+          cp "$ROOT_DIR/assets/statusline/$subdir"/* "$STATUSLINE_DIR/$subdir/" 2>/dev/null
+        fi
+      done
+
+      # Symlink to ~/.claude
+      rm -f "$CLAUDE_STATUSLINE" 2>/dev/null
+      ln -s "$STATUSLINE_DEST" "$CLAUDE_STATUSLINE" 2>/dev/null || cp "$STATUSLINE_DEST" "$CLAUDE_STATUSLINE" 2>/dev/null
+      chmod +x "$CLAUDE_STATUSLINE" 2>/dev/null
+    fi
+  fi
+}
+
 # Check if bun is available
 check_bun() {
   command -v bun >/dev/null 2>&1
@@ -74,6 +126,9 @@ run_with_node() {
 
 # Main execution
 main() {
+  # ALWAYS ensure setup first (self-healing)
+  ensure_setup
+
   # Prefer bun if available (faster, native TS support)
   if check_bun; then
     run_with_bun "$@"
