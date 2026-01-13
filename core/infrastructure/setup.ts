@@ -18,7 +18,7 @@ import path from 'path'
 import os from 'os'
 import installer from './command-installer'
 import editorsConfig from './editors-config'
-import { VERSION } from '../utils/version'
+import { VERSION, getPackageRoot } from '../utils/version'
 
 // Colors
 const GREEN = '\x1b[32m'
@@ -215,7 +215,7 @@ async function installStatusLine(): Promise<void> {
     const prjctConfigPath = path.join(prjctStatusLineDir, 'config.json')
 
     // Source assets (from the package)
-    const assetsDir = path.join(__dirname, '..', '..', 'assets', 'statusline')
+    const assetsDir = path.join(getPackageRoot(), 'assets', 'statusline')
     const sourceScript = path.join(assetsDir, 'statusline.sh')
     const sourceThemeDir = path.join(assetsDir, 'themes')
     const sourceLibDir = path.join(assetsDir, 'lib')
@@ -427,4 +427,14 @@ function showResults(results: SetupResults): void {
   }
 
   console.log('')
+}
+
+// Auto-execute when run directly (for bun/node CLI usage)
+// This enables: bun core/infrastructure/setup.ts
+const isDirectRun = process.argv[1]?.includes('setup.ts') || process.argv[1]?.includes('setup.js')
+if (isDirectRun) {
+  run().catch((error) => {
+    console.error('Setup error:', error.message)
+    process.exit(1)
+  })
 }

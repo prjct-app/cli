@@ -17,6 +17,40 @@ interface PackageJson {
 
 let cachedVersion: string | null = null
 let cachedPackageJson: PackageJson | null = null
+let cachedPackageRoot: string | null = null
+
+/**
+ * Find the package root by searching up from __dirname for package.json
+ * Works whether running from source (core/utils/) or compiled (dist/core/utils/)
+ */
+export function getPackageRoot(): string {
+  if (cachedPackageRoot) {
+    return cachedPackageRoot
+  }
+
+  let currentDir = __dirname
+
+  // Search up to 5 levels up for package.json with name "prjct-cli"
+  for (let i = 0; i < 5; i++) {
+    const packageJsonPath = path.join(currentDir, 'package.json')
+    if (fs.existsSync(packageJsonPath)) {
+      try {
+        const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'))
+        if (pkg.name === 'prjct-cli') {
+          cachedPackageRoot = currentDir
+          return currentDir
+        }
+      } catch {
+        // Continue searching
+      }
+    }
+    currentDir = path.dirname(currentDir)
+  }
+
+  // Fallback: assume 3 levels up from __dirname (works for dist/core/utils/)
+  cachedPackageRoot = path.join(__dirname, '..', '..', '..')
+  return cachedPackageRoot
+}
 
 /**
  * Get the current application version from package.json
@@ -27,7 +61,7 @@ export function getVersion(): string {
   }
 
   try {
-    const packageJsonPath = path.join(__dirname, '..', '..', 'package.json')
+    const packageJsonPath = path.join(getPackageRoot(), 'package.json')
     const packageJson: PackageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'))
     cachedVersion = packageJson.version
     cachedPackageJson = packageJson
@@ -87,13 +121,16 @@ export function needsMigration(fromVersion: string, toVersion: string | null = n
 }
 
 export const VERSION = getVersion()
+export const PACKAGE_ROOT = getPackageRoot()
 
 // Default export for CommonJS compatibility
 export default {
   getVersion,
+  getPackageRoot,
   getPackageInfo,
   compareVersions,
   isCompatible,
   needsMigration,
-  VERSION
+  VERSION,
+  PACKAGE_ROOT
 }

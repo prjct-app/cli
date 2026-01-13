@@ -12,6 +12,7 @@
 import fs from 'fs/promises'
 import path from 'path'
 import os from 'os'
+import { getPackageRoot } from '../utils/version'
 import type {
   InstallResult,
   UninstallResult,
@@ -30,7 +31,7 @@ import type {
 export async function installDocs(): Promise<{ success: boolean; error?: string }> {
   try {
     const docsDir = path.join(os.homedir(), '.prjct-cli', 'docs')
-    const templateDocsDir = path.join(__dirname, '../../templates/global/docs')
+    const templateDocsDir = path.join(getPackageRoot(), 'templates/global/docs')
 
     // Ensure docs directory exists
     await fs.mkdir(docsDir, { recursive: true })
@@ -77,7 +78,7 @@ export async function installGlobalConfig(
     await fs.mkdir(claudeDir, { recursive: true })
 
     const globalConfigPath = path.join(claudeDir, 'CLAUDE.md')
-    const templatePath = path.join(__dirname, '../../templates/global/CLAUDE.md')
+    const templatePath = path.join(getPackageRoot(), 'templates/global/CLAUDE.md')
 
     // Read template content
     const templateContent = await fs.readFile(templatePath, 'utf-8')
@@ -168,7 +169,8 @@ export class CommandInstaller {
     // We use the p.md router in commands/ root instead
     this.claudeCommandsPath = path.join(this.homeDir, '.claude', 'commands', 'p')
     this.claudeConfigPath = path.join(this.homeDir, '.claude')
-    this.templatesDir = path.join(__dirname, '..', '..', 'templates', 'commands')
+    // Use getPackageRoot() to find templates - works from both source and compiled
+    this.templatesDir = path.join(getPackageRoot(), 'templates', 'commands')
   }
 
   /**

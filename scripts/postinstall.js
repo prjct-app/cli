@@ -25,22 +25,42 @@ const ROOT = path.resolve(__dirname, '..')
  * Detect if this is a global npm install
  */
 function isGlobalInstall() {
-  // Check npm config
+  // Check npm config (most reliable)
   if (process.env.npm_config_global === 'true') {
     return true
   }
 
-  // Check install location
+  // Check install location against known global paths
   const installPath = __dirname
   const globalPaths = [
+    // macOS Intel
     '/usr/local/lib/node_modules',
+    // macOS M1/M2 (Homebrew)
+    '/opt/homebrew/lib/node_modules',
+    // Linux
     '/usr/lib/node_modules',
+    // Custom npm prefix
     path.join(process.env.HOME || '', '.npm-global', 'lib', 'node_modules'),
+    // nvm
     path.join(process.env.HOME || '', '.nvm'),
+    // Windows
     path.join(process.env.APPDATA || '', 'npm', 'node_modules'),
+    // pnpm global
+    path.join(process.env.HOME || '', '.local', 'share', 'pnpm'),
+    // Volta
+    path.join(process.env.HOME || '', '.volta'),
   ]
 
-  return globalPaths.some((p) => installPath.includes(p))
+  if (globalPaths.some((p) => installPath.includes(p))) {
+    return true
+  }
+
+  // Fallback: if we're in ANY node_modules that's not in cwd, assume global
+  if (installPath.includes('node_modules') && !installPath.includes(process.cwd())) {
+    return true
+  }
+
+  return false
 }
 
 /**
@@ -134,10 +154,9 @@ function updateStatusLineVersion() {
  * Main
  */
 async function main() {
-  // Only run for global installs
-  if (!isGlobalInstall()) {
-    return
-  }
+  // ALWAYS run setup - don't try to detect global vs local
+  // Worst case: setup runs unnecessarily on local dev installs (harmless)
+  // Best case: setup actually works for all users
 
   console.log('')
   console.log('   prjct-cli postinstall')
@@ -149,17 +168,23 @@ async function main() {
   }
 
   // Run full setup
+  let success = false
   if (hasBun()) {
-    await runSetupBun()
+    success = await runSetupBun()
   } else {
-    await runSetupCompiled()
+    success = await runSetupCompiled()
+  }
+
+  if (!success) {
+    console.log('   ⚠ Setup incomplete. Run: npx prjct-cli setup')
   }
 
   console.log('')
 }
 
 main().catch((error) => {
-  // Never fail npm install due to postinstall issues
-  console.warn('   postinstall warning:', error.message)
+  // Log error but don't fail npm install
+  console.error('   postinstall error:', error.message)
+  console.log('   Run manually: npx prjct-cli setup')
   process.exit(0)
 })

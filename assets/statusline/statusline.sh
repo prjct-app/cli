@@ -48,39 +48,8 @@ load_config
 load_theme
 parse_stdin "$INPUT"
 
-# ============================================================================
-# Version Check - Show update notification if needed
-# ============================================================================
-check_version_upgrade() {
-  local config_file="${CWD}/.prjct/prjct.config.json"
-
-  [[ ! -f "$config_file" ]] && return 1
-
-  local project_id=$(jq -r '.projectId // ""' "$config_file" 2>/dev/null)
-  [[ -z "$project_id" ]] && return 1
-
-  local project_json="${HOME}/.prjct-cli/projects/${project_id}/project.json"
-  [[ ! -f "$project_json" ]] && {
-    echo -e "${WARNING}prjct v${CLI_VERSION}${NC} ${MUTED}run p. sync${NC}"
-    return 0
-  }
-
-  local project_version=$(jq -r '.cliVersion // ""' "$project_json" 2>/dev/null)
-
-  if [[ -z "$project_version" ]] || [[ "$project_version" != "$CLI_VERSION" ]]; then
-    echo -e "${WARNING}prjct v${CLI_VERSION}${NC} ${MUTED}run p. sync${NC}"
-    return 0
-  fi
-
-  return 1
-}
-
-# Check for version upgrade first
-VERSION_MSG=$(check_version_upgrade)
-if [[ -n "$VERSION_MSG" ]]; then
-  echo -e "$VERSION_MSG"
-  exit 0
-fi
+# Version check removed - was causing confusing duplicate statusline display
+# Users will see update prompts when running p. commands
 
 # ============================================================================
 # Build Statusline
