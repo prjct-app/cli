@@ -5,36 +5,29 @@ allowed-tools: [Read, Write, Edit, Bash, Glob, Grep, Task, AskUserQuestion, Todo
 
 # prjct Command Router
 
-Route `p. <command>` to the appropriate prjct template.
+**ARGUMENTS**: $ARGUMENTS
 
 ## Instructions
 
-**ARGUMENTS**: $ARGUMENTS
-
 1. Parse ARGUMENTS: first word = `command`, rest = `commandArgs`
-2. Find npm global root by running:
+2. Get npm global root:
    ```bash
    npm root -g
    ```
-   This returns a path like `/opt/homebrew/lib/node_modules` or `/usr/local/lib/node_modules`
-3. Read template from the npm package location:
+3. Read template from npm package:
    ```
    {npmRoot}/prjct-cli/templates/commands/{command}.md
    ```
-4. Execute that template with `commandArgs` as input
+4. Execute template with `commandArgs` as input
 
 ## Example
 
-If ARGUMENTS = "task fix the login bug":
+ARGUMENTS = "task fix the login bug"
 - command = "task"
 - commandArgs = "fix the login bug"
-- Run: `npm root -g` → `/opt/homebrew/lib/node_modules`
+- npm root -g → `/opt/homebrew/lib/node_modules`
 - Read: `/opt/homebrew/lib/node_modules/prjct-cli/templates/commands/task.md`
 - Execute with: "fix the login bug"
-
-## Fallback
-
-If npm root fails, read from local cache: `~/.claude/commands/p/{command}.md`
 
 ## Available Commands
 
@@ -42,4 +35,4 @@ If npm root fails, read from local cache: `~/.claude/commands/p/{command}.md`
 
 ## Action
 
-NOW find npm root and read the command template.
+NOW run `npm root -g` and read the command template.
