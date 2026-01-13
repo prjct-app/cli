@@ -42,6 +42,9 @@
     "model": {
       "enabled": false,
       "position": 7
+    },
+    "enrichment": {
+      "enabled": true
     }
   }
 }

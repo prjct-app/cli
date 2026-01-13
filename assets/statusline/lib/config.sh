@@ -12,6 +12,7 @@ DEFAULT_CACHE_TTL_GIT=5
 DEFAULT_CACHE_TTL_LINEAR=60
 DEFAULT_TASK_MAX_LENGTH=25
 DEFAULT_CONTEXT_MIN_PERCENT=30
+DEFAULT_ENRICHMENT_ENABLED="true"
 
 # Component configuration (will be populated by load_config)
 declare -A COMPONENT_ENABLED
@@ -29,6 +30,7 @@ load_config() {
   CONFIG_CONTEXT_MIN_PERCENT="$DEFAULT_CONTEXT_MIN_PERCENT"
   CONFIG_LINEAR_ENABLED="true"
   CONFIG_LINEAR_SHOW_PRIORITY="true"
+  CONFIG_ENRICHMENT_ENABLED="$DEFAULT_ENRICHMENT_ENABLED"
 
   # Default component configuration
   COMPONENT_ENABLED["prjct_icon"]="true"
@@ -72,6 +74,7 @@ load_config() {
       (if .components.changes.enabled == null then true else .components.changes.enabled end),
       (if .components.context.enabled == null then true else .components.context.enabled end),
       (if .components.model.enabled == null then false else .components.model.enabled end),
+      (if .components.enrichment.enabled == null then true else .components.enrichment.enabled end),
       (.components.prjct_icon.position // 0),
       (.components.task.position // 1),
       (.components.linear.position // 2),
@@ -91,7 +94,7 @@ load_config() {
     CONFIG_THEME \
     CONFIG_CACHE_TTL_PRJCT CONFIG_CACHE_TTL_GIT CONFIG_CACHE_TTL_LINEAR \
     CONFIG_TASK_MAX_LENGTH CONFIG_CONTEXT_MIN_PERCENT CONFIG_LINEAR_SHOW_PRIORITY \
-    E_PRJCT_ICON E_TASK E_LINEAR E_DIR E_GIT E_CHANGES E_CONTEXT E_MODEL \
+    E_PRJCT_ICON E_TASK E_LINEAR E_DIR E_GIT E_CHANGES E_CONTEXT E_MODEL E_ENRICHMENT \
     P_PRJCT_ICON P_TASK P_LINEAR P_DIR P_GIT P_CHANGES P_CONTEXT P_MODEL \
     <<< "$config_data"
   IFS="$old_ifs"
@@ -118,6 +121,9 @@ load_config() {
 
   # Update linear enabled based on component config
   CONFIG_LINEAR_ENABLED="${COMPONENT_ENABLED["linear"]}"
+
+  # Update enrichment enabled from config
+  [[ -n "$E_ENRICHMENT" ]] && CONFIG_ENRICHMENT_ENABLED="$E_ENRICHMENT"
 }
 
 # Check if a component is enabled
