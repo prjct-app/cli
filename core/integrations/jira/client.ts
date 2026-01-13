@@ -2,10 +2,16 @@
  * JIRA Client
  * Implements IssueTrackerProvider for Atlassian JIRA using REST API v3
  *
- * Authentication: Basic Auth with API Token
- * - JIRA_BASE_URL: Your JIRA instance (e.g., https://company.atlassian.net)
- * - JIRA_EMAIL: Your Atlassian account email
- * - JIRA_API_TOKEN: API token from https://id.atlassian.com/manage-profile/security/api-tokens
+ * Authentication Methods:
+ * 1. API Token (default): Direct REST API calls
+ *    - JIRA_BASE_URL: Your JIRA instance (e.g., https://company.atlassian.net)
+ *    - JIRA_EMAIL: Your Atlassian account email
+ *    - JIRA_API_TOKEN: API token from https://id.atlassian.com/manage-profile/security/api-tokens
+ *
+ * 2. MCP Mode (for corporate SSO): Uses Atlassian's official MCP Server
+ *    - No API token needed
+ *    - Authenticates via browser (OAuth 2.1, SSO compatible)
+ *    - Requires MCP server configured in ~/.claude/mcp.json
  */
 
 import type {
@@ -161,6 +167,12 @@ const PRIORITY_TO_JIRA: Record<IssuePriority, string> = {
 }
 
 // =============================================================================
+// Auth Mode Type
+// =============================================================================
+
+export type JiraAuthMode = 'api-token' | 'mcp' | 'none'
+
+// =============================================================================
 // JIRA Provider Implementation
 // =============================================================================
 
@@ -172,16 +184,39 @@ export class JiraProvider implements IssueTrackerProvider {
   private auth: string = ''
   private config: JiraConfig | null = null
   private currentUser: { accountId: string; displayName: string; email?: string } | null = null
+  private _authMode: JiraAuthMode = 'none'
+
+  /**
+   * Get current authentication mode
+   */
+  get authMode(): JiraAuthMode {
+    return this._authMode
+  }
+
+  /**
+   * Check if using MCP mode (no direct API access)
+   */
+  isMCPMode(): boolean {
+    return this._authMode === 'mcp'
+  }
 
   /**
    * Check if provider is configured
+   * Returns true for both API token mode (ready to make calls)
+   * and MCP mode (ready to generate instructions)
    */
   isConfigured(): boolean {
+    if (this._authMode === 'mcp') {
+      return this.config?.enabled === true
+    }
     return this.baseUrl !== '' && this.auth !== '' && this.config?.enabled === true
   }
 
   /**
    * Initialize with config
+   * Supports two modes:
+   * 1. API Token mode: Direct REST API access (requires JIRA_API_TOKEN)
+   * 2. MCP mode: Via Atlassian MCP Server (for corporate SSO)
    */
   async initialize(config: JiraConfig): Promise<void> {
     this.config = config
@@ -191,35 +226,61 @@ export class JiraProvider implements IssueTrackerProvider {
     const email = process.env.JIRA_EMAIL
     const apiToken = config.apiKey || process.env.JIRA_API_TOKEN
 
-    if (!baseUrl) {
-      throw new Error('JIRA_BASE_URL not configured')
-    }
-    if (!email) {
-      throw new Error('JIRA_EMAIL not configured')
-    }
-    if (!apiToken) {
-      throw new Error('JIRA_API_TOKEN not configured')
-    }
+    // Check if we have API token credentials
+    const hasApiCredentials = baseUrl && email && apiToken
 
-    // Normalize base URL (remove trailing slash)
-    this.baseUrl = baseUrl.replace(/\/$/, '')
+    if (hasApiCredentials) {
+      // API Token mode - direct REST API access
+      this._authMode = 'api-token'
 
-    // Create Basic Auth header
-    this.auth = Buffer.from(`${email}:${apiToken}`).toString('base64')
+      // Normalize base URL (remove trailing slash)
+      this.baseUrl = baseUrl!.replace(/\/$/, '')
 
-    // Verify connection by fetching current user
-    try {
-      const response = await this.request<{ accountId: string; displayName: string; emailAddress?: string }>('/rest/api/3/myself')
-      this.currentUser = {
-        accountId: response.accountId,
-        displayName: response.displayName,
-        email: response.emailAddress,
+      // Create Basic Auth header
+      this.auth = Buffer.from(`${email}:${apiToken}`).toString('base64')
+
+      // Verify connection by fetching current user
+      try {
+        const response = await this.request<{ accountId: string; displayName: string; emailAddress?: string }>('/rest/api/3/myself')
+        this.currentUser = {
+          accountId: response.accountId,
+          displayName: response.displayName,
+          email: response.emailAddress,
+        }
+        console.log(`[jira] Connected as ${this.currentUser.displayName} (${this.currentUser.email || 'no email'})`)
+      } catch (error) {
+        this.baseUrl = ''
+        this.auth = ''
+        this._authMode = 'none'
+        throw new Error(`JIRA connection failed: ${(error as Error).message}`)
       }
-      console.log(`[jira] Connected as ${this.currentUser.displayName} (${this.currentUser.email || 'no email'})`)
-    } catch (error) {
-      this.baseUrl = ''
-      this.auth = ''
-      throw new Error(`JIRA connection failed: ${(error as Error).message}`)
+    } else {
+      // MCP mode - no direct API access, Claude uses MCP tools
+      this._authMode = 'mcp'
+
+      // Store base URL if provided (for generating issue URLs)
+      if (baseUrl) {
+        this.baseUrl = baseUrl.replace(/\/$/, '')
+      }
+
+      console.log('[jira] Initialized in MCP mode (no API token)')
+      console.log('[jira] Claude will use Atlassian MCP tools for JIRA operations')
+
+      // Log what's missing if user might want API mode
+      if (!apiToken) {
+        console.log('[jira] Tip: Set JIRA_API_TOKEN for direct API access')
+      }
+    }
+  }
+
+  /**
+   * Get auth mode information for templates
+   */
+  getAuthInfo(): { mode: JiraAuthMode; baseUrl: string; user?: string } {
+    return {
+      mode: this._authMode,
+      baseUrl: this.baseUrl,
+      user: this.currentUser?.displayName,
     }
   }
 

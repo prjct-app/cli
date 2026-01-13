@@ -24,12 +24,13 @@ Reconfigures prjct-cli installation for Claude Code and Claude Desktop.
    - Reads `templates/mcp-config.json` for MCP server definitions
    - Merges into `~/.claude/settings.json` (preserves existing settings)
    - Installs Context7 for library documentation lookup
+   - Installs Atlassian for JIRA/Confluence (OAuth, SSO compatible)
    - Does NOT overwrite existing MCP configurations
 
 4. **Installs/Updates Global Configuration**
    - Creates or updates `~/.claude/CLAUDE.md`
    - Adds prjct-specific instructions for Claude
-   - Adds Context7 usage instructions
+   - Adds Context7 and Atlassian usage instructions
    - Preserves existing user configuration
 
 5. **Reports Results**
@@ -64,6 +65,7 @@ Reconfigures prjct-cli installation for Claude Code and Claude Desktop.
 
 🔌 Installing MCP servers...
 ✓ context7 (library documentation)
+✓ Atlassian (JIRA/Confluence via OAuth)
 
 📝 Installing global configuration...
 ✓ Updated ~/.claude/CLAUDE.md
@@ -73,6 +75,7 @@ Reconfigures prjct-cli installation for Claude Code and Claude Desktop.
 
 MCP Tools Available:
 • context7: resolve-library-id, get-library-docs
+• Atlassian: jira_search_issues, jira_get_issue, jira_transition_issue
 ```
 
 ## Error Handling

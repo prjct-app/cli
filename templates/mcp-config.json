@@ -5,6 +5,11 @@
       "args": ["-y", "@upstash/context7-mcp@latest"],
       "description": "Library documentation lookup - use for framework/library docs"
     },
+    "Atlassian": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote@latest", "https://mcp.atlassian.com/v1/sse"],
+      "description": "JIRA/Confluence integration via OAuth (SSO compatible) - for corporate environments"
+    },
     "notion": {
       "command": "npx",
       "args": ["-y", "@notionhq/notion-mcp-server"],
@@ -29,6 +34,32 @@
       "examples": [
         "resolve-library-id('nextjs') → get-library-docs('/vercel/next.js', 'app router')",
         "resolve-library-id('tailwindcss') → get-library-docs('/tailwindlabs/tailwindcss', 'configuration')"
+      ]
+    },
+    "Atlassian": {
+      "when": [
+        "Working with JIRA issues (p. jira commands)",
+        "Syncing issue status with JIRA",
+        "Creating/updating JIRA tickets",
+        "Corporate environments without API token access"
+      ],
+      "tools": [
+        "jira_search_issues: Search issues using JQL",
+        "jira_get_issue: Get a single issue by key",
+        "jira_transition_issue: Change issue status",
+        "jira_update_issue: Update issue fields",
+        "jira_create_issue: Create new issue"
+      ],
+      "setup": [
+        "1. MCP server is auto-installed during p. init",
+        "2. First use will open browser for OAuth authentication",
+        "3. Login with your corporate SSO credentials",
+        "4. Run p. jira setup to configure default project"
+      ],
+      "notes": [
+        "No API token needed - uses OAuth 2.1 via browser",
+        "Compatible with corporate SSO/SAML",
+        "Alternative to JIRA_API_TOKEN environment variable"
       ]
     },
     "notion": {
