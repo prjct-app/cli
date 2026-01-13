@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.33.3] - 2026-01-13
+
+### Refactor: Error Type Differentiation Phase 2 (PRJ-60)
+
+**Continuation of PRJ-51** - Differentiate error types in 3 more files (14 catch blocks):
+
+**Files Modified:**
+- `core/domain/snapshot-manager.ts` - 6 catches (fs.access, fs.readFile, fs.unlink, JSON.parse)
+- `core/server/routes-extended.ts` - 2 catches (readJsonFile, writeJsonFile helpers)
+- `core/infrastructure/setup.ts` - 6 catches (migration, settings parsing, status line)
+
+**Pattern Applied:**
+- ENOENT errors → handled gracefully (expected for missing files)
+- SyntaxError → handled gracefully (expected for malformed JSON)
+- Other errors → propagated or logged (unexpected)
+
+**Stats:**
+- Catches fixed: 14
+- Total fixed (Phase 1+2): 69
+- Remaining: ~211 catches in 63 files
+
+---
+
 ## [0.33.2] - 2026-01-13
 
 ### Refactor: Error Type Differentiation (PRJ-51)

@@ -12,6 +12,7 @@ import fs from 'fs/promises'
 import path from 'path'
 import * as jsonc from 'jsonc-parser'
 import pathManager from '../infrastructure/path-manager'
+import { isNotFoundError } from '../types/fs'
 
 // =============================================================================
 // HELPERS
@@ -26,8 +27,11 @@ async function readJsonFile<T>(filePath: string): Promise<T | null> {
     const errors: jsonc.ParseError[] = []
     const result = jsonc.parse(content, errors)
     return errors.length > 0 ? null : result
-  } catch {
-    return null
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      return null
+    }
+    throw error
   }
 }
 
@@ -36,8 +40,11 @@ async function writeJsonFile(filePath: string, data: unknown): Promise<boolean> 
     await fs.mkdir(path.dirname(filePath), { recursive: true })
     await fs.writeFile(filePath, JSON.stringify(data, null, 2) + '\n', 'utf-8')
     return true
-  } catch {
-    return false
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      return false
+    }
+    throw error
   }
 }
 
