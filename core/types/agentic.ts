@@ -3,7 +3,7 @@
  * Types for the agentic system.
  */
 
-import type { CommandParams } from './core'
+import type { CommandParams, ContextPaths } from './core'
 
 // =============================================================================
 // Tool Registry Types
@@ -180,25 +180,15 @@ export interface PlanInfo {
 // Ground Truth Types
 // =============================================================================
 
+/**
+ * Context for ground truth verification.
+ * Compatible with ProjectContext - can be passed directly from contextBuilder.build()
+ */
 export interface GroundTruthContext {
   projectPath: string
-  projectId?: string | null
-  paths: {
-    now: string
-    next: string
-    metrics: string
-    shipped: string
-    roadmap: string
-    specs: string
-    [key: string]: string
-  }
-  params: {
-    feature?: string
-    description?: string
-    task?: string
-    name?: string
-    [key: string]: unknown
-  }
+  projectId: string | null
+  paths: ContextPaths
+  params: CommandParams
 }
 
 export interface VerificationResult {

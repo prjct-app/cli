@@ -6,19 +6,11 @@
  * @version 1.0.0
  */
 
-interface Context {
-  projectId?: string | null
-  projectPath: string
-  params: Record<string, unknown>
-}
+import type { ProjectContext, ContextState } from '../types'
 
-interface State {
-  now?: string | null
-  next?: string | null
-  shipped?: string | null
-  analysis?: string | null
-  [key: string]: unknown
-}
+// Type aliases for compatibility with ProjectContext from contextBuilder.build()
+type Context = Pick<ProjectContext, 'projectId' | 'projectPath' | 'params'>
+type State = ContextState
 
 interface ReasoningStep {
   step: string

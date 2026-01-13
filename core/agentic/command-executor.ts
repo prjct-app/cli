@@ -24,6 +24,7 @@ import type {
   SimpleExecutionResult,
   ExecutionToolsFn,
   ApprovalContext,
+  PromptContext,
 } from '../types'
 
 // =============================================================================
@@ -132,7 +133,7 @@ export class CommandExecutor {
         const preState = await contextBuilder.loadStateForCommand(metadataContext, commandName)
         groundTruthResult = await groundTruth.verify(
           commandName,
-          metadataContext as unknown as Parameters<typeof groundTruth.verify>[1],
+          metadataContext,
           preState
         )
 
@@ -148,8 +149,8 @@ export class CommandExecutor {
         const reasoningState = await contextBuilder.loadStateForCommand(metadataContext, commandName)
         reasoning = await chainOfThought.reason(
           commandName,
-          metadataContext as unknown as Parameters<typeof chainOfThought.reason>[1],
-          reasoningState as Parameters<typeof chainOfThought.reason>[2]
+          metadataContext,
+          reasoningState
         )
 
         // If reasoning shows critical issues, warn but continue
@@ -160,11 +161,9 @@ export class CommandExecutor {
       }
 
       // 3. AGENTIC: Claude decides agent assignment via templates
-      let context: Record<string, unknown> = metadataContext as unknown as Record<string, unknown>
-
-      // Provide agent info to context so Claude can delegate
-      context = {
-        ...context,
+      // Build context with agent routing info for Claude delegation
+      const context: PromptContext = {
+        ...metadataContext,
         agentsPath: path.join(os.homedir(), '.prjct-cli', 'projects', metadataContext.projectId || '', 'agents'),
         agentRoutingPath: path.join(__dirname, '..', '..', 'templates', 'agentic', 'agent-routing.md'),
         agenticDelegation: true,
@@ -205,7 +204,7 @@ export class CommandExecutor {
       // Agent is null - Claude assigns via Task tool using agent-routing.md
       const prompt = promptBuilder.build(
         template,
-        context as Parameters<typeof promptBuilder.build>[1],
+        context,
         state,
         null,
         learnedPatterns,
