@@ -1,5 +1,43 @@
 # Changelog
 
+## [0.30.2] - 2026-01-13
+
+### Feature: PM Expert Auto-Enrichment
+
+**Problem:** Claude could start coding without properly understanding the task, leading to solutions that didn't match user intent.
+
+**Solution:** PM Expert enrichment now runs AUTOMATICALLY in `p. task` and `p. bug`:
+
+**`p. task` - 5-Phase Enrichment:**
+1. Intelligent Classification (type, priority, complexity)
+2. Technical Analysis (affected files, existing patterns)
+3. Dependency Detection (code, API, blockers)
+4. User Story + AC Generation
+5. Verify Understanding (ask if unclear)
+
+**`p. bug` - Quick Technical Analysis:**
+- Finds related files and recent commits
+- Assesses complexity (simple/medium/complex)
+- Suggests approach before auto-starting
+- For complex bugs, offers full PM Expert enrichment
+
+### Fix: Statusline Installation Issues
+
+- **IFS Restoration**: Fixed bash associative array iteration breaking after `read`
+- **Bash 4+ Detection**: Auto re-exec to Homebrew bash on macOS (ships with bash 3.2)
+- **VERSION Patching**: All 3 installation paths now correctly patch CLI_VERSION
+- **jq Boolean Fix**: `enabled: false` now correctly parsed (was treating as null)
+
+**Files:**
+- `templates/commands/task.md` - Added Step 3: PM Expert Enrichment
+- `templates/commands/bug.md` - Added Step 4.5: Quick Technical Analysis
+- `assets/statusline/lib/*.sh` - IFS restoration
+- `assets/statusline/statusline.sh` - Bash 4+ detection, VERSION placeholder
+- `scripts/postinstall.js` - VERSION patching
+- `bin/prjct` - VERSION patching in self-healing
+
+---
+
 ## [0.30.0] - 2026-01-12
 
 ### Fix: Distribution System Overhaul (CRITICAL)

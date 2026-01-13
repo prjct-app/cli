@@ -36,10 +36,11 @@
     "context": {
       "enabled": true,
       "position": 6,
-      "barWidth": 10
+      "barWidth": 10,
+      "minPercent": 30
     },
     "model": {
-      "enabled": true,
+      "enabled": false,
       "position": 7
     }
   }

@@ -11,7 +11,7 @@ DEFAULT_CACHE_TTL_PRJCT=30
 DEFAULT_CACHE_TTL_GIT=5
 DEFAULT_CACHE_TTL_LINEAR=60
 DEFAULT_TASK_MAX_LENGTH=25
-DEFAULT_CONTEXT_BAR_WIDTH=10
+DEFAULT_CONTEXT_MIN_PERCENT=30
 
 # Component configuration (will be populated by load_config)
 declare -A COMPONENT_ENABLED
@@ -26,7 +26,7 @@ load_config() {
   CONFIG_CACHE_TTL_GIT="$DEFAULT_CACHE_TTL_GIT"
   CONFIG_CACHE_TTL_LINEAR="$DEFAULT_CACHE_TTL_LINEAR"
   CONFIG_TASK_MAX_LENGTH="$DEFAULT_TASK_MAX_LENGTH"
-  CONFIG_CONTEXT_BAR_WIDTH="$DEFAULT_CONTEXT_BAR_WIDTH"
+  CONFIG_CONTEXT_MIN_PERCENT="$DEFAULT_CONTEXT_MIN_PERCENT"
   CONFIG_LINEAR_ENABLED="true"
   CONFIG_LINEAR_SHOW_PRIORITY="true"
 
@@ -53,6 +53,7 @@ load_config() {
   [[ ! -f "$CONFIG_FILE" ]] && return
 
   # Parse config in a single jq call
+  # Note: Use "if .x == null then default else .x end" for booleans since // treats false as null
   local config_data
   config_data=$(jq -r '
     [
@@ -61,16 +62,16 @@ load_config() {
       (.cacheTTL.git // 5),
       (.cacheTTL.linear // 60),
       (.components.task.maxLength // 25),
-      (.components.context.barWidth // 10),
-      (.components.linear.showPriority // true),
-      (.components.prjct_icon.enabled // true),
-      (.components.task.enabled // true),
-      (.components.linear.enabled // true),
-      (.components.dir.enabled // true),
-      (.components.git.enabled // true),
-      (.components.changes.enabled // true),
-      (.components.context.enabled // true),
-      (.components.model.enabled // true),
+      (.components.context.minPercent // 30),
+      (if .components.linear.showPriority == null then true else .components.linear.showPriority end),
+      (if .components.prjct_icon.enabled == null then true else .components.prjct_icon.enabled end),
+      (if .components.task.enabled == null then true else .components.task.enabled end),
+      (if .components.linear.enabled == null then true else .components.linear.enabled end),
+      (if .components.dir.enabled == null then true else .components.dir.enabled end),
+      (if .components.git.enabled == null then true else .components.git.enabled end),
+      (if .components.changes.enabled == null then true else .components.changes.enabled end),
+      (if .components.context.enabled == null then true else .components.context.enabled end),
+      (if .components.model.enabled == null then false else .components.model.enabled end),
       (.components.prjct_icon.position // 0),
       (.components.task.position // 1),
       (.components.linear.position // 2),
@@ -84,14 +85,16 @@ load_config() {
 
   [[ -z "$config_data" ]] && return
 
-  # Parse tab-separated values
+  # Parse tab-separated values (save/restore IFS to avoid breaking associative arrays)
+  local old_ifs="$IFS"
   IFS=$'\t' read -r \
     CONFIG_THEME \
     CONFIG_CACHE_TTL_PRJCT CONFIG_CACHE_TTL_GIT CONFIG_CACHE_TTL_LINEAR \
-    CONFIG_TASK_MAX_LENGTH CONFIG_CONTEXT_BAR_WIDTH CONFIG_LINEAR_SHOW_PRIORITY \
+    CONFIG_TASK_MAX_LENGTH CONFIG_CONTEXT_MIN_PERCENT CONFIG_LINEAR_SHOW_PRIORITY \
     E_PRJCT_ICON E_TASK E_LINEAR E_DIR E_GIT E_CHANGES E_CONTEXT E_MODEL \
     P_PRJCT_ICON P_TASK P_LINEAR P_DIR P_GIT P_CHANGES P_CONTEXT P_MODEL \
     <<< "$config_data"
+  IFS="$old_ifs"
 
   # Set component enabled states
   COMPONENT_ENABLED["prjct_icon"]="$E_PRJCT_ICON"

@@ -41,5 +41,5 @@ component_git() {
 
   [[ -z "$branch" ]] && return
 
-  echo -e "${SECONDARY}${ICON_GIT} ${branch}${dirty}${NC}"
+  echo -e "${SECONDARY}${branch}${dirty}${NC}"
 }

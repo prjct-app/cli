@@ -17,6 +17,10 @@ const HOME = os.homedir()
 const CLAUDE_DIR = path.join(HOME, '.claude')
 const COMMANDS_DIR = path.join(CLAUDE_DIR, 'commands')
 
+// Read version from package.json
+const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf-8'))
+const VERSION = pkg.version
+
 console.log('\n   prjct-cli postinstall\n')
 
 // 1. Copy p.md router (CRITICAL - this is the only essential file)
@@ -48,11 +52,12 @@ try {
     fs.mkdirSync(path.join(STATUSLINE_DEST, 'components'), { recursive: true })
     fs.mkdirSync(path.join(STATUSLINE_DEST, 'themes'), { recursive: true })
 
-    // Copy main script
+    // Copy main script with version patched
     const mainScript = path.join(STATUSLINE_SRC, 'statusline.sh')
     if (fs.existsSync(mainScript)) {
-      fs.copyFileSync(mainScript, path.join(STATUSLINE_DEST, 'statusline.sh'))
-      fs.chmodSync(path.join(STATUSLINE_DEST, 'statusline.sh'), 0o755)
+      let content = fs.readFileSync(mainScript, 'utf-8')
+      content = content.replace(/CLI_VERSION="[^"]*"/, `CLI_VERSION="${VERSION}"`)
+      fs.writeFileSync(path.join(STATUSLINE_DEST, 'statusline.sh'), content, { mode: 0o755 })
     }
 
     // Copy subdirs

@@ -76,8 +76,10 @@ parse_stdin() {
     ] | @tsv
   ' 2>/dev/null)
 
-  # Parse tab-separated values
+  # Parse tab-separated values (save/restore IFS to avoid breaking associative arrays)
+  local old_ifs="$IFS"
   IFS=$'\t' read -r MODEL CWD ADDED REMOVED CTX_SIZE INPUT_TOKENS CACHE_CREATE CACHE_READ <<< "$parsed"
+  IFS="$old_ifs"
 
   # Set defaults if parsing failed
   MODEL="${MODEL:-Claude}"

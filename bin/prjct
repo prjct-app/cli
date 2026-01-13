@@ -77,6 +77,13 @@ ensure_setup() {
       cp "$STATUSLINE_SRC" "$STATUSLINE_DEST" 2>/dev/null
       chmod +x "$STATUSLINE_DEST" 2>/dev/null
 
+      # Patch CLI_VERSION with actual version from package.json
+      PKG_VERSION=$(grep '"version"' "$ROOT_DIR/package.json" 2>/dev/null | head -1 | sed 's/.*"version": *"\([^"]*\)".*/\1/')
+      if [ -n "$PKG_VERSION" ]; then
+        sed -i.bak "s/CLI_VERSION=\"[^\"]*\"/CLI_VERSION=\"$PKG_VERSION\"/" "$STATUSLINE_DEST" 2>/dev/null
+        rm -f "$STATUSLINE_DEST.bak" 2>/dev/null
+      fi
+
       # Copy lib, components, themes
       for subdir in lib components themes; do
         if [ -d "$ROOT_DIR/assets/statusline/$subdir" ]; then
