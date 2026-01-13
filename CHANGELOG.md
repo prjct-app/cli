@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.30.0] - 2026-01-12
+
+### Fix: Distribution System Overhaul (CRITICAL)
+
+**Problem:** Users running `npm update -g prjct-cli` weren't getting updates because:
+1. Old p.md had fallback to local cache files
+2. postinstall copied 40+ files, too many failure points
+
+**Solution:**
+- **Removed fallback** in p.md - No more reading from stale local files
+- **p.md now always reads from npm root** - `npm root -g` + template path
+- **Simplified postinstall** - Only copies p.md (critical) + statusline (best-effort)
+
+**How it works now:**
+```
+p. sync → Claude reads ~/.claude/commands/p.md
+       → p.md says "run npm root -g, read from there"
+       → Claude reads /opt/homebrew/lib/node_modules/prjct-cli/templates/commands/sync.md
+       → Template always comes from installed npm package
+```
+
+**Files:**
+- `templates/commands/p.md` - Removed fallback, simplified
+- `scripts/postinstall.js` - Minimal, only copies essential files
+
+---
+
 ## [0.28.0] - 2026-01-12
 
 ### Feature: Per-Project Task Filtering for Status Bar
