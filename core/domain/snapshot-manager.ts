@@ -16,6 +16,7 @@ import { promisify } from 'util'
 import pathManager from '../infrastructure/path-manager'
 import configManager from '../infrastructure/config-manager'
 import { emit } from '../bus'
+import { isNotFoundError } from '../types/fs'
 
 const execAsync = promisify(exec)
 
@@ -76,8 +77,12 @@ class SnapshotManager {
     const gitDir = path.join(this.snapshotDir, '.git')
     try {
       await fs.access(gitDir)
-    } catch {
-      await this.initGitRepo()
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        await this.initGitRepo()
+      } else {
+        throw error
+      }
     }
 
     this.initialized = true
@@ -127,11 +132,20 @@ class SnapshotManager {
         const content = await fs.readFile(srcPath, 'utf-8')
         await fs.mkdir(path.dirname(destPath), { recursive: true })
         await fs.writeFile(destPath, content)
-      } catch {
-        // File might be deleted, mark for removal
-        try {
-          await fs.unlink(destPath)
-        } catch {}
+      } catch (error) {
+        if (isNotFoundError(error)) {
+          // File might be deleted, mark for removal
+          try {
+            await fs.unlink(destPath)
+          } catch (unlinkError) {
+            // Ignore if dest doesn't exist either
+            if (!isNotFoundError(unlinkError)) {
+              throw unlinkError
+            }
+          }
+        } else {
+          throw error
+        }
       }
     }
 
@@ -200,8 +214,11 @@ class SnapshotManager {
         .map((line) => {
           try {
             return JSON.parse(line) as SnapshotListItem
-          } catch {
-            return null
+          } catch (error) {
+            if (error instanceof SyntaxError) {
+              return null
+            }
+            throw error
           }
         })
         .filter((item): item is SnapshotListItem => item !== null)
@@ -235,11 +252,20 @@ class SnapshotManager {
         const content = await fs.readFile(srcPath, 'utf-8')
         await fs.mkdir(path.dirname(destPath), { recursive: true })
         await fs.writeFile(destPath, content)
-      } catch {
-        // File doesn't exist in snapshot, might need to delete from project
-        try {
-          await fs.unlink(destPath)
-        } catch {}
+      } catch (error) {
+        if (isNotFoundError(error)) {
+          // File doesn't exist in snapshot, might need to delete from project
+          try {
+            await fs.unlink(destPath)
+          } catch (unlinkError) {
+            // Ignore if dest doesn't exist either
+            if (!isNotFoundError(unlinkError)) {
+              throw unlinkError
+            }
+          }
+        } else {
+          throw error
+        }
       }
     }
 
@@ -340,8 +366,11 @@ class SnapshotManager {
     try {
       const content = await fs.readFile(stackPath, 'utf-8')
       return JSON.parse(content)
-    } catch {
-      return []
+    } catch (error) {
+      if (isNotFoundError(error) || error instanceof SyntaxError) {
+        return []
+      }
+      throw error
     }
   }
 
