@@ -428,3 +428,13 @@ function showResults(results: SetupResults): void {
 
   console.log('')
 }
+
+// Auto-execute when run directly (for bun/node CLI usage)
+// This enables: bun core/infrastructure/setup.ts
+const isDirectRun = process.argv[1]?.includes('setup.ts') || process.argv[1]?.includes('setup.js')
+if (isDirectRun) {
+  run().catch((error) => {
+    console.error('Setup error:', error.message)
+    process.exit(1)
+  })
+}
