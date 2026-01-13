@@ -136,9 +136,49 @@ WRITE: `.prjct/prjct.config.json`
 }
 ```
 
+## Step: Install MCP Servers
+
+Install required MCP servers by merging `templates/mcp-config.json` into `~/.claude/settings.json`.
+
+```
+READ: templates/mcp-config.json
+READ: ~/.claude/settings.json (if exists)
+MERGE: mcpServers (don't overwrite existing)
+WRITE: ~/.claude/settings.json
+
+Servers installed:
+- context7: Library documentation lookup
+- Atlassian: JIRA/Confluence (OAuth, SSO compatible)
+```
+
 ## Step: Optional Integrations
 
 After core setup, offer optional integrations.
+
+### JIRA Integration (Optional)
+
+Ask: "Would you like to connect with JIRA for issue tracking?"
+
+If yes:
+1. MCP server already installed (Atlassian)
+2. Ask user to authenticate:
+   - "Run `p. jira setup` after init completes"
+   - First use will open browser for OAuth (SSO compatible)
+3. Store config in `project.json`:
+
+```json
+{
+  "integrations": {
+    "jira": {
+      "enabled": true,
+      "provider": "jira",
+      "authMode": "mcp"
+    }
+  }
+}
+```
+
+If no: Skip (integration can be added later with `p. jira setup`).
 
 ### Notion Integration (Optional)
 
@@ -189,14 +229,19 @@ Structure:
 ├── sync/       # Backend events
 └── agents/     # Specialists
 
+MCP Servers:
+• context7: Library docs ✓
+• Atlassian: JIRA/Confluence ✓
+
 Integrations:
+• JIRA: {enabled|disabled}
 • Notion: {enabled|disabled}
 
 Next:
-• /p:sync - Analyze project and generate agents
-• /p:feature "{first_feature}" - Start first feature
-• /p:notion setup - Connect Notion (if skipped)
-• /p:help - See all commands
+• p. sync - Analyze project and generate agents
+• p. jira setup - Configure JIRA project (if enabled)
+• p. task "{first_task}" - Start first task
+• p. help - See all commands
 ```
 
 ## Error Handling

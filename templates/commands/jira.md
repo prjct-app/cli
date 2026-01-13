@@ -49,7 +49,7 @@ IF file not found:
 
 ---
 
-## Step 2: Check Configuration
+## Step 2: Check Configuration & Auth Mode
 
 ```
 READ: {globalPath}/project.json
@@ -60,12 +60,30 @@ IF not configured:
   OUTPUT: "Run `p. jira setup` to configure."
   STOP
 
-IF JIRA_API_TOKEN not set:
+# Determine authentication mode
+SET: hasApiToken = JIRA_API_TOKEN is set
+SET: hasMCP = Atlassian MCP tools available
+
+IF hasApiToken:
+  SET: authMode = "api-token"
+  # Use direct REST API calls via jiraProvider
+ELSE IF hasMCP:
+  SET: authMode = "mcp"
+  # Use MCP tools for JIRA operations
+ELSE:
   OUTPUT: "JIRA credentials not configured."
-  OUTPUT: "Required environment variables:"
-  OUTPUT: "  JIRA_BASE_URL - Your JIRA instance (e.g., https://company.atlassian.net)"
-  OUTPUT: "  JIRA_EMAIL - Your Atlassian account email"
-  OUTPUT: "  JIRA_API_TOKEN - API token from https://id.atlassian.com/manage-profile/security/api-tokens"
+  OUTPUT: ""
+  OUTPUT: "Choose an authentication method:"
+  OUTPUT: ""
+  OUTPUT: "Option 1: API Token (direct access)"
+  OUTPUT: "  JIRA_BASE_URL - Your JIRA instance URL"
+  OUTPUT: "  JIRA_EMAIL - Your Atlassian email"
+  OUTPUT: "  JIRA_API_TOKEN - Token from https://id.atlassian.com/manage-profile/security/api-tokens"
+  OUTPUT: ""
+  OUTPUT: "Option 2: MCP Mode (for corporate SSO)"
+  OUTPUT: "  Add to ~/.claude/mcp.json:"
+  OUTPUT: '  {"mcpServers":{"Atlassian":{"command":"npx","args":["-y","mcp-remote@latest","https://mcp.atlassian.com/v1/sse"]}}}'
+  OUTPUT: "  Then restart Claude Code and authenticate via browser."
   STOP
 ```
 
@@ -369,8 +387,122 @@ The JIRA client uses JQL (JIRA Query Language) internally:
 
 | Feature | Linear | JIRA |
 |---------|--------|------|
-| Auth | API Key | Basic Auth (email + token) |
+| Auth | API Key | Basic Auth (email + token) / MCP |
 | Issue ID | ENG-123 | PROJ-123 |
 | Teams | Teams | Projects |
 | Status | State types | Status categories |
 | Description | Markdown | ADF (converted from markdown) |
+
+---
+
+## MCP Mode Operations
+
+When `authMode = "mcp"`, use Atlassian MCP tools instead of REST API.
+
+### Available MCP Tools
+
+| Operation | MCP Tool |
+|-----------|----------|
+| Search issues | `mcp__atlassian__jira_search_issues` |
+| Get issue | `mcp__atlassian__jira_get_issue` |
+| Transition issue | `mcp__atlassian__jira_transition_issue` |
+| Update issue | `mcp__atlassian__jira_update_issue` |
+| Create issue | `mcp__atlassian__jira_create_issue` |
+
+### MCP Tool Usage Examples
+
+#### Search Assigned Issues
+
+```
+USE TOOL: mcp__atlassian__jira_search_issues
+PARAMS:
+  jql: "assignee = currentUser() AND statusCategory != Done ORDER BY updated DESC"
+  maxResults: 20
+```
+
+#### Get Single Issue
+
+```
+USE TOOL: mcp__atlassian__jira_get_issue
+PARAMS:
+  issueKey: "PROJ-123"
+```
+
+#### Transition to In Progress
+
+```
+USE TOOL: mcp__atlassian__jira_transition_issue
+PARAMS:
+  issueKey: "PROJ-123"
+  transitionName: "In Progress"
+```
+
+#### Update Description
+
+```
+USE TOOL: mcp__atlassian__jira_update_issue
+PARAMS:
+  issueKey: "PROJ-123"
+  fields:
+    description: "Updated description with enrichment..."
+```
+
+### MCP Mode Setup
+
+For corporate environments where API tokens cannot be generated:
+
+```json
+// ~/.claude/mcp.json
+{
+  "mcpServers": {
+    "Atlassian": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote@latest", "https://mcp.atlassian.com/v1/sse"]
+    }
+  }
+}
+```
+
+After configuration:
+1. Restart Claude Code
+2. Run `/mcp` to verify Atlassian tools are available
+3. First operation will prompt browser authentication (SSO compatible)
+
+### Checking MCP Availability
+
+```
+# Check if Atlassian MCP tools are available
+IF tools contain "mcp__atlassian__jira_*":
+  SET: hasMCP = true
+ELSE:
+  SET: hasMCP = false
+```
+
+---
+
+## Authentication Mode Detection Flow
+
+```
+p. jira
+    │
+    ▼
+┌─────────────────────────────┐
+│ Check JIRA_API_TOKEN env    │
+└─────────────────────────────┘
+    │
+    ├─ Set → Use API Token Mode
+    │        (direct REST API)
+    │
+    └─ Not set
+         │
+         ▼
+    ┌─────────────────────────────┐
+    │ Check MCP tools available   │
+    │ (mcp__atlassian__jira_*)    │
+    └─────────────────────────────┘
+         │
+         ├─ Available → Use MCP Mode
+         │              (OAuth via browser)
+         │
+         └─ Not available → Show setup options
+```
