@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.33.4] - 2026-01-13
+
+### Refactor: Error Type Differentiation Phase 3 (PRJ-61)
+
+**Final phase** - Complete error differentiation across all 116 remaining catch blocks in 52 files.
+
+**Pattern Applied:**
+- `isNotFoundError()` for expected ENOENT errors
+- `instanceof SyntaxError` for JSON parse errors
+- `_error` capture for intentional catch-all blocks (network, git, etc.)
+- Unexpected errors propagate with `throw error`
+
+**Key Files Fixed:**
+- `core/storage/storage.ts` - Storage read/exists operations
+- `core/commands/shipping.ts` - Ship workflow error handling
+- `core/session/task-session-manager.ts` - Session management
+- `core/commands/cleanup.ts` - Cleanup operations
+- `core/agentic/context-builder.ts` - Context building
+- Plus 47 more files
+
+**Stats:**
+- Catches fixed this phase: 116
+- Total fixed (Phase 1+2+3): 185
+- Remaining: 0 empty catches
+
+---
+
 ## [0.33.3] - 2026-01-13
 
 ### Refactor: Error Type Differentiation Phase 2 (PRJ-60)
