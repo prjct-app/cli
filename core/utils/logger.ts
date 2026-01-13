@@ -29,55 +29,57 @@ interface Logger {
 }
 
 const LEVELS: Record<LogLevel, number> = { error: 0, warn: 1, info: 2, debug: 3 }
+const TRUTHY_VALUES = new Set(['1', 'true', '*'])
 
 /**
  * Determine log level from environment variables
  * Returns -1 (disabled) or a level from LEVELS
  */
-function getLogLevel(): number {
+function getLogLevel(): { level: number; name: LogLevel | 'disabled' } {
   const debugEnv = process.env.PRJCT_DEBUG || process.env.DEBUG || ''
 
   // Disabled if empty
-  if (!debugEnv) return -1
+  if (!debugEnv) return { level: -1, name: 'disabled' }
 
-  // Enable all logs for common truthy values
-  if (debugEnv === '1' || debugEnv === 'true' || debugEnv === 'prjct' || debugEnv.includes('prjct')) {
-    return LEVELS.debug
+  // Enable all logs for common truthy values or prjct-related patterns
+  if (TRUTHY_VALUES.has(debugEnv) || debugEnv.includes('prjct')) {
+    return { level: LEVELS.debug, name: 'debug' }
   }
 
   // Check for specific level name (error, warn, info, debug)
-  const level = LEVELS[debugEnv as LogLevel]
-  return level !== undefined ? level : -1
+  const levelValue = LEVELS[debugEnv as LogLevel] ?? -1
+  const levelName = levelValue >= 0 ? (debugEnv as LogLevel) : 'disabled'
+  return { level: levelValue, name: levelName }
 }
 
-const currentLevel = getLogLevel()
+const { level: currentLevel, name: currentLevelName } = getLogLevel()
 
 // No-op function for disabled logs
 const noop: LogFunction = () => {}
 
+// Factory for creating log methods
+function createLogMethod(
+  levelThreshold: number,
+  prefix: string,
+  method: 'log' | 'warn' | 'error'
+): LogFunction {
+  return currentLevel >= levelThreshold
+    ? (...args: unknown[]) => console[method](prefix, ...args)
+    : noop
+}
+
 // Create logger methods
 const logger: Logger = {
-  error: currentLevel >= LEVELS.error
-    ? (...args: unknown[]) => console.error('[prjct:error]', ...args)
-    : noop,
-
-  warn: currentLevel >= LEVELS.warn
-    ? (...args: unknown[]) => console.warn('[prjct:warn]', ...args)
-    : noop,
-
-  info: currentLevel >= LEVELS.info
-    ? (...args: unknown[]) => console.log('[prjct:info]', ...args)
-    : noop,
-
-  debug: currentLevel >= LEVELS.debug
-    ? (...args: unknown[]) => console.log('[prjct:debug]', ...args)
-    : noop,
+  error: createLogMethod(LEVELS.error, '[prjct:error]', 'error'),
+  warn: createLogMethod(LEVELS.warn, '[prjct:warn]', 'warn'),
+  info: createLogMethod(LEVELS.info, '[prjct:info]', 'log'),
+  debug: createLogMethod(LEVELS.debug, '[prjct:debug]', 'log'),
 
   // Check if logging is enabled (useful for expensive log prep)
   isEnabled: () => currentLevel >= 0,
 
-  // Get current level name
-  level: () => (Object.keys(LEVELS) as LogLevel[]).find(k => LEVELS[k] === currentLevel) || 'disabled'
+  // Get current level name (pre-computed, no runtime lookup)
+  level: () => currentLevelName
 }
 
 export default logger
