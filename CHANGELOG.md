@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.30.3] - 2026-01-13
+
+### Fix: Enrichment Not Enabled by Default
+
+**Problem:** `CONFIG_ENRICHMENT_ENABLED` was not set in statusline config, so enrichment feature was not active by default when Claude Code started.
+
+**Solution:**
+- Added `enrichment.enabled: true` to `default-config.json`
+- Added `DEFAULT_ENRICHMENT_ENABLED="true"` to `config.sh`
+- Enrichment setting now parses from config with `true` as default
+
+**Files:**
+- `assets/statusline/default-config.json` - Added enrichment component
+- `assets/statusline/lib/config.sh` - Added enrichment config parsing
+
+---
+
 ## [0.30.2] - 2026-01-13
 
 ### Feature: PM Expert Auto-Enrichment
