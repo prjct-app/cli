@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.33.1] - 2026-01-13
+
+### Refactor: Code Quality Improvements
+
+**PRJ-58: Consolidate hardcoded paths to pathManager**
+- Added `getClaudeDir()`, `getClaudeCommandsDir()`, `getClaudeSettingsPath()` to pathManager
+- Refactored 6 files to use centralized path methods instead of `os.homedir()` concatenation
+- Files: `compaction.ts`, `generator.ts`, `routes-extended.ts`, `routes.ts`, `auth-config.ts`, `setup.ts`
+
+**PRJ-57: Simplify logger level detection**
+- Use `Set` for truthy values instead of multiple OR conditions
+- Remove redundant `'prjct'` equality check (covered by `includes`)
+- Use nullish coalescing (`??`) instead of ternary
+- Pre-compute level name to avoid runtime lookup
+- Add `createLogMethod()` factory to reduce repetition
+- File: `core/utils/logger.ts`
+
+---
+
 ## [0.30.3] - 2026-01-13
 
 ### Fix: Enrichment Not Enabled by Default
