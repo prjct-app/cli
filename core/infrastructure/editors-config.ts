@@ -126,7 +126,7 @@ class EditorsConfig {
     try {
       await fs.access(this.configFile)
       return true
-    } catch {
+    } catch (_error) {
       return false
     }
   }

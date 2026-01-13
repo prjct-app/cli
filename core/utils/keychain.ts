@@ -55,8 +55,8 @@ export async function getCredential(key: CredentialKey): Promise<string | null> 
       `security find-generic-password -s "${SERVICE_NAME}" -a "${key}" -w 2>/dev/null`
     )
     return stdout.trim() || null
-  } catch {
-    // Not found in keychain, try environment variable
+  } catch (_error) {
+    // Not found in keychain - expected, try environment variable
     return getEnvFallback(key)
   }
 }
@@ -74,7 +74,8 @@ export async function deleteCredential(key: CredentialKey): Promise<boolean> {
       `security delete-generic-password -s "${SERVICE_NAME}" -a "${key}" 2>/dev/null`
     )
     return true
-  } catch {
+  } catch (_error) {
+    // Not found in keychain - expected
     return false
   }
 }
@@ -115,8 +116,8 @@ export async function getCredentialWithSource(
       if (value) {
         return { value, source: 'keychain' }
       }
-    } catch {
-      // Not in keychain, check env
+    } catch (_error) {
+      // Not in keychain - expected, check env
     }
   }
 

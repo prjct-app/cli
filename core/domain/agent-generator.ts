@@ -153,7 +153,7 @@ ${config.contextFilter || 'Only relevant files'}
     try {
       const files = await fs.readdir(this.outputDir)
       return files.filter((f) => f.endsWith('.md') && !f.startsWith('.')).map((f) => f.replace('.md', ''))
-    } catch {
+    } catch (_error) {
       return []
     }
   }

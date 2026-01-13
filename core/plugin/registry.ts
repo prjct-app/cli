@@ -10,6 +10,7 @@ import fs from 'fs/promises'
 import path from 'path'
 import pathManager from '../infrastructure/path-manager'
 import { pluginLoader } from './loader'
+import { isNotFoundError } from '../types/fs'
 
 type PluginSource = 'builtin' | 'global' | 'project'
 
@@ -93,12 +94,18 @@ class PluginRegistry {
               source
             })
           }
-        } catch {
-          // Skip invalid plugins
+        } catch (error) {
+          // Skip invalid plugins - ENOENT expected for missing files
+          if (!isNotFoundError(error)) {
+            console.error(`Plugin discovery error: ${(error as Error).message}`)
+          }
         }
       }
-    } catch {
-      // Directory doesn't exist
+    } catch (error) {
+      // Directory doesn't exist - expected
+      if (!isNotFoundError(error)) {
+        throw error
+      }
     }
   }
 
@@ -133,8 +140,11 @@ class PluginRegistry {
           description: plugin.description || ''
         }
       }
-    } catch {
-      // Can't read metadata
+    } catch (error) {
+      // Can't read metadata - ENOENT or parse error expected
+      if (!isNotFoundError(error) && !(error instanceof SyntaxError)) {
+        console.error(`Plugin metadata read error: ${(error as Error).message}`)
+      }
     }
 
     return null

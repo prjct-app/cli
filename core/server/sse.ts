@@ -58,7 +58,8 @@ export function createSSEManager(): SSEManager {
               event: 'heartbeat',
               data: JSON.stringify({ timestamp: new Date().toISOString() }),
             })
-          } catch {
+          } catch (_error) {
+            // Client disconnected - expected
             clearInterval(heartbeat)
             clients.delete(clientId)
           }
@@ -88,8 +89,8 @@ export function createSSEManager(): SSEManager {
       for (const client of clients.values()) {
         try {
           client.send(event, message)
-        } catch {
-          // Client disconnected, will be cleaned up
+        } catch (_error) {
+          // Client disconnected - expected
           clients.delete(client.id)
         }
       }

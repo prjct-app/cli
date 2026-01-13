@@ -9,6 +9,7 @@
 import fs from 'fs/promises'
 import path from 'path'
 import pathManager from '../infrastructure/path-manager'
+import { isNotFoundError } from '../types/fs'
 
 interface Session {
   id: string
@@ -106,8 +107,11 @@ class SessionMetrics {
           }
         }
       }
-    } catch {
-      // Archive might not exist
+    } catch (error) {
+      // Archive might not exist - expected for new projects
+      if (!isNotFoundError(error)) {
+        console.error(`Metrics archive read error: ${(error as Error).message}`)
+      }
     }
 
     // Also check current session
@@ -118,8 +122,11 @@ class SessionMetrics {
       if (new Date(current.startedAt) >= cutoffDate) {
         sessions.push(current)
       }
-    } catch {
-      // No current session
+    } catch (error) {
+      // No current session - expected
+      if (!isNotFoundError(error) && !(error instanceof SyntaxError)) {
+        console.error(`Current session read error: ${(error as Error).message}`)
+      }
     }
 
     return sessions

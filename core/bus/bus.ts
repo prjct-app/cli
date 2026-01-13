@@ -188,7 +188,7 @@ class EventBus {
       // Append event
       const line = JSON.stringify(eventData) + '\n'
       await fs.appendFile(eventsPath, line)
-    } catch {
+    } catch (_error) {
       // Silently fail - logging should not break functionality
     }
   }

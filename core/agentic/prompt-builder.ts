@@ -11,6 +11,7 @@
 
 import fs from 'fs'
 import path from 'path'
+import { isNotFoundError } from '../types/fs'
 import { stateStorage, queueStorage } from '../storage'
 import { outcomeAnalyzer } from '../outcomes'
 import type {
@@ -85,8 +86,11 @@ class PromptBuilder {
           checklists[name] = content
         }
       }
-    } catch {
+    } catch (error) {
       // Silent fail - checklists are optional enhancement
+      if (!isNotFoundError(error)) {
+        console.error(`Checklist loading warning: ${(error as Error).message}`)
+      }
     }
 
     this._checklistsCache = checklists
@@ -118,8 +122,11 @@ class PromptBuilder {
 
       this._stateCache.set(projectId, { state, timestamp: Date.now() })
       return state
-    } catch {
-      return null
+    } catch (error) {
+      if (isNotFoundError(error) || error instanceof SyntaxError) {
+        return null
+      }
+      throw error
     }
   }
 
@@ -175,8 +182,11 @@ class PromptBuilder {
         }
         parts.push('')
       }
-    } catch {
-      // Outcomes not available yet
+    } catch (error) {
+      // Outcomes not available yet - expected for new projects
+      if (!isNotFoundError(error) && !(error instanceof SyntaxError)) {
+        console.error(`Outcome detection warning: ${(error as Error).message}`)
+      }
     }
 
     parts.push('---')
@@ -214,8 +224,11 @@ class PromptBuilder {
       if (fs.existsSync(routingPath)) {
         this._checklistRoutingCache = fs.readFileSync(routingPath, 'utf-8')
       }
-    } catch {
-      // Silent fail
+    } catch (error) {
+      // Silent fail - checklist routing is optional
+      if (!isNotFoundError(error)) {
+        console.error(`Checklist routing warning: ${(error as Error).message}`)
+      }
     }
 
     return this._checklistRoutingCache || null

@@ -114,7 +114,8 @@ class SkillService {
           version: metadata.version as string,
         },
       }
-    } catch {
+    } catch (_error) {
+      // File read or parse error - expected for missing skills
       return null
     }
   }
@@ -137,8 +138,8 @@ class SkillService {
             this.skills.set(skill.id, skill)
           }
         }
-      } catch {
-        // Directory doesn't exist, skip
+      } catch (_error) {
+        // Directory doesn't exist - expected for new installs
       }
     }
 

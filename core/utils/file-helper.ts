@@ -113,8 +113,11 @@ export async function fileExists(filePath: string): Promise<boolean> {
   try {
     await fs.access(filePath)
     return true
-  } catch {
-    return false
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      return false
+    }
+    throw error
   }
 }
 
@@ -125,8 +128,11 @@ export async function dirExists(dirPath: string): Promise<boolean> {
   try {
     const stats = await fs.stat(dirPath)
     return stats.isDirectory()
-  } catch {
-    return false
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      return false
+    }
+    throw error
   }
 }
 

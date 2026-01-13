@@ -224,8 +224,8 @@ export async function archiveOldSessions(
         }
       }
     }
-  } catch {
-    // Sessions directory might not exist yet
+  } catch (_error) {
+    // Sessions directory might not exist yet - expected
   }
 
   return {
@@ -269,8 +269,8 @@ export async function cleanEmptySessionDirs(
         cleaned++
       }
     }
-  } catch {
-    // Sessions directory might not exist
+  } catch (_error) {
+    // Sessions directory might not exist - expected
   }
 
   return cleaned

@@ -65,7 +65,8 @@ const toolRegistry: ToolRegistryInterface = {
 toolRegistry.register('Read', async (filePath: unknown): Promise<string | null> => {
   try {
     return await fs.readFile(filePath as string, 'utf-8')
-  } catch {
+  } catch (_error) {
+    // File not found or read error - return null (expected)
     return null
   }
 })
@@ -75,7 +76,8 @@ toolRegistry.register('Write', async (filePath: unknown, content: unknown): Prom
   try {
     await fs.writeFile(filePath as string, content as string, 'utf-8')
     return true
-  } catch {
+  } catch (_error) {
+    // Write error - return false (expected)
     return false
   }
 })

@@ -203,7 +203,8 @@ class PathManager {
 
       sessions.sort((a, b) => b.date.getTime() - a.date.getTime())
       return sessions
-    } catch {
+    } catch (_error) {
+      // Sessions directory might not exist - expected for new projects
       return []
     }
   }
@@ -236,7 +237,8 @@ class PathManager {
       await this.ensureGlobalStructure()
       const entries = await fs.readdir(this.globalProjectsDir, { withFileTypes: true })
       return entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name)
-    } catch {
+    } catch (_error) {
+      // Global projects directory might not exist - expected
       return []
     }
   }

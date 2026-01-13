@@ -191,7 +191,8 @@ class SnapshotManager {
         .filter(Boolean)
         .map((line) => line.slice(3).trim())
         .filter((file) => !file.startsWith('.prjct/'))
-    } catch {
+    } catch (_error) {
+      // Git status fails (not a git repo, etc.) - return empty (expected)
       return []
     }
   }
@@ -222,7 +223,8 @@ class SnapshotManager {
           }
         })
         .filter((item): item is SnapshotListItem => item !== null)
-    } catch {
+    } catch (_error) {
+      // Git log fails - return empty (expected in fresh repos)
       return []
     }
   }
@@ -294,7 +296,8 @@ class SnapshotManager {
     try {
       const { stdout } = await execAsync(`git diff ${hash} --stat`, { cwd: this.snapshotDir! })
       return stdout
-    } catch {
+    } catch (_error) {
+      // Git diff fails - return empty (expected)
       return ''
     }
   }
@@ -308,7 +311,8 @@ class SnapshotManager {
     try {
       const { stdout } = await execAsync(`git rev-parse HEAD`, { cwd: this.snapshotDir! })
       return stdout.trim()
-    } catch {
+    } catch (_error) {
+      // Git rev-parse fails - no commits yet (expected)
       return null
     }
   }
@@ -322,7 +326,8 @@ class SnapshotManager {
     try {
       const { stdout } = await execAsync(`git rev-parse HEAD~1`, { cwd: this.snapshotDir! })
       return stdout.trim()
-    } catch {
+    } catch (_error) {
+      // Git rev-parse fails - no previous commit (expected)
       return null
     }
   }

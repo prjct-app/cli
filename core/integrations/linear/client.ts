@@ -157,7 +157,7 @@ export class LinearProvider implements IssueTrackerProvider {
       // Try by UUID directly
       const issue = await this.sdk.issue(id)
       return this.mapIssue(issue)
-    } catch {
+    } catch (_error) {
       return null
     }
   }

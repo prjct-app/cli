@@ -8,6 +8,7 @@ import pathManager from '../infrastructure/path-manager'
 import configManager from '../infrastructure/config-manager'
 import { getTimestamp } from '../utils/date-helper'
 import jsonlHelper from '../utils/jsonl-helper'
+import { isNotFoundError } from '../types/fs'
 
 import type { MemoryServiceEntry } from '../types'
 
@@ -35,8 +36,11 @@ export class MemoryService {
       }
 
       await jsonlHelper.appendJsonLine(memoryPath, entry)
-    } catch {
-      // Non-critical - don't fail the command
+    } catch (error) {
+      // Non-critical - don't fail the command, but log unexpected errors
+      if (!isNotFoundError(error)) {
+        console.error(`Memory log error: ${(error as Error).message}`)
+      }
     }
   }
 
@@ -51,7 +55,11 @@ export class MemoryService {
       const memoryPath = pathManager.getFilePath(projectId, 'memory', 'context.jsonl')
       const entries = await jsonlHelper.readJsonLines<MemoryServiceEntry>(memoryPath)
       return entries.slice(-limit)
-    } catch {
+    } catch (error) {
+      // ENOENT or parse error - return empty (expected for new projects)
+      if (!isNotFoundError(error) && !(error instanceof SyntaxError)) {
+        console.error(`Memory read error: ${(error as Error).message}`)
+      }
       return []
     }
   }
@@ -98,8 +106,11 @@ export class MemoryService {
 
       const memoryPath = pathManager.getFilePath(projectId, 'memory', 'context.jsonl')
       await jsonlHelper.writeJsonLines(memoryPath, [])
-    } catch {
-      // Non-critical
+    } catch (error) {
+      // Non-critical - but log unexpected errors
+      if (!isNotFoundError(error)) {
+        console.error(`Memory clear error: ${(error as Error).message}`)
+      }
     }
   }
 }
