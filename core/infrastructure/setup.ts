@@ -19,6 +19,7 @@ import os from 'os'
 import installer from './command-installer'
 import editorsConfig from './editors-config'
 import { VERSION, getPackageRoot } from '../utils/version'
+import { isNotFoundError } from '../types/fs'
 
 // Colors
 const GREEN = '\x1b[32m'
@@ -164,16 +165,23 @@ async function migrateProjectsCliVersion(): Promise<void> {
           fs.writeFileSync(projectJsonPath, JSON.stringify(project, null, 2))
           migrated++
         }
-      } catch {
-        // Skip invalid project.json files
+      } catch (error) {
+        // Skip invalid project.json files (missing or malformed JSON)
+        if (!isNotFoundError(error) && !(error instanceof SyntaxError)) {
+          throw error
+        }
       }
     }
 
     if (migrated > 0) {
       console.log(`   ${GREEN}✓${NC} Updated ${migrated} project(s) to v${VERSION}`)
     }
-  } catch {
-    // Silently fail - migration is optional
+  } catch (error) {
+    // Silently fail if projects directory doesn't exist
+    if (!isNotFoundError(error)) {
+      // Log unexpected errors but don't crash - migration is optional
+      console.error(`Migration warning: ${(error as Error).message}`)
+    }
   }
 }
 
@@ -185,8 +193,11 @@ function ensureStatusLineSettings(settingsPath: string, statusLinePath: string):
   if (fs.existsSync(settingsPath)) {
     try {
       settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'))
-    } catch {
-      // Invalid JSON, start fresh
+    } catch (error) {
+      // Invalid JSON, start fresh - but propagate unexpected errors
+      if (!(error instanceof SyntaxError)) {
+        throw error
+      }
     }
   }
   settings.statusLine = { type: 'command', command: statusLinePath }
@@ -339,8 +350,12 @@ echo "prjct"
     // Create symlink and configure settings
     ensureStatusLineSymlink(claudeStatusLinePath, prjctStatusLinePath)
     ensureStatusLineSettings(settingsPath, claudeStatusLinePath)
-  } catch {
-    // Silently fail - status line is optional
+  } catch (error) {
+    // Silently fail if directories don't exist
+    if (!isNotFoundError(error)) {
+      // Log unexpected errors but don't crash - status line is optional
+      console.error(`Status line warning: ${(error as Error).message}`)
+    }
   }
 }
 
@@ -383,15 +398,18 @@ function ensureStatusLineSymlink(linkPath: string, targetPath: string): void {
     }
     // Create symlink
     fs.symlinkSync(targetPath, linkPath)
-  } catch {
-    // If symlink fails (e.g., Windows), copy instead
+  } catch (error) {
+    // If symlink fails (e.g., Windows, permission issues), try copy instead
     try {
       if (fs.existsSync(targetPath)) {
         fs.copyFileSync(targetPath, linkPath)
         fs.chmodSync(linkPath, 0o755)
       }
-    } catch {
-      // Silently fail
+    } catch (copyError) {
+      // Both symlink and copy failed - log if unexpected error
+      if (!isNotFoundError(copyError)) {
+        console.error(`Symlink fallback warning: ${(copyError as Error).message}`)
+      }
     }
   }
 }
