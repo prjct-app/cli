@@ -22,6 +22,7 @@ import {
   type EnrichmentResult,
 } from './enricher'
 import { linearProvider } from '../linear/client'
+import { jiraProvider } from '../jira/client'
 
 // =============================================================================
 // Manager Class
@@ -35,7 +36,7 @@ export class IssueTrackerManager {
   constructor() {
     // Register available providers
     this.providers.set('linear', linearProvider)
-    // Future: this.providers.set('jira', jiraProvider)
+    this.providers.set('jira', jiraProvider)
     // Future: this.providers.set('monday', mondayProvider)
   }
 
