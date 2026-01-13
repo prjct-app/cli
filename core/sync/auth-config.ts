@@ -6,8 +6,8 @@
  */
 
 import path from 'path'
-import os from 'os'
 import * as fileHelper from '../utils/file-helper'
+import pathManager from '../infrastructure/path-manager'
 import type { AuthConfig } from '../types'
 
 const DEFAULT_API_URL = 'https://api.prjct.app'
@@ -25,7 +25,7 @@ class AuthConfigManager {
   private cachedConfig: AuthConfig | null = null
 
   constructor() {
-    this.configPath = path.join(os.homedir(), '.prjct-cli', 'config', 'auth.json')
+    this.configPath = pathManager.getAuthConfigPath()
   }
 
   /**

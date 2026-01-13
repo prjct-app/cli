@@ -10,6 +10,7 @@ import { Hono } from 'hono'
 import fs from 'fs/promises'
 import path from 'path'
 import * as jsonc from 'jsonc-parser'
+import pathManager from '../infrastructure/path-manager'
 
 // Storage paths relative to project data directory
 const STORAGE_PATHS = {
@@ -51,8 +52,7 @@ async function writeJsonFile(filePath: string, data: unknown): Promise<boolean> 
  * Get global project path
  */
 function getProjectDataPath(projectId: string): string {
-  const homeDir = process.env.HOME || process.env.USERPROFILE || '~'
-  return path.join(homeDir, '.prjct-cli', 'projects', projectId)
+  return pathManager.getGlobalProjectPath(projectId)
 }
 
 /**

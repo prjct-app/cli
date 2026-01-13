@@ -10,14 +10,14 @@
 import { Hono } from 'hono'
 import fs from 'fs/promises'
 import path from 'path'
-import os from 'os'
 import * as jsonc from 'jsonc-parser'
+import pathManager from '../infrastructure/path-manager'
 
 // =============================================================================
 // HELPERS
 // =============================================================================
 
-const GLOBAL_BASE = path.join(os.homedir(), '.prjct-cli')
+const GLOBAL_BASE = pathManager.getGlobalBasePath()
 const PROJECTS_DIR = path.join(GLOBAL_BASE, 'projects')
 
 async function readJsonFile<T>(filePath: string): Promise<T | null> {
