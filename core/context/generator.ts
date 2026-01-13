@@ -13,10 +13,10 @@
 
 import fs from 'fs/promises'
 import path from 'path'
-import os from 'os'
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import { getStorage } from '../storage'
+import pathManager from '../infrastructure/path-manager'
 
 const execAsync = promisify(exec)
 
@@ -59,8 +59,8 @@ interface Agent {
  * Generate all context MD files from JSON data
  */
 export async function generateContext(projectId: string, repoPath: string): Promise<void> {
-  const globalPath = path.join(os.homedir(), '.prjct-cli/projects', projectId)
-  const contextPath = path.join(globalPath, 'context')
+  const globalPath = pathManager.getGlobalProjectPath(projectId)
+  const contextPath = pathManager.getContextPath(projectId)
   const storage = getStorage(projectId)
 
   // Ensure context directory exists

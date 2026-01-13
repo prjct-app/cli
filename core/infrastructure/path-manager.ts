@@ -299,6 +299,29 @@ class PathManager {
   }
 
   /**
+   * Get the Claude directory path (~/.claude)
+   * Contains Claude Code/Desktop configuration
+   */
+  getClaudeDir(): string {
+    return path.join(os.homedir(), '.claude')
+  }
+
+  /**
+   * Get the Claude commands directory path (~/.claude/commands)
+   * Contains custom slash commands for Claude
+   */
+  getClaudeCommandsDir(): string {
+    return path.join(this.getClaudeDir(), 'commands')
+  }
+
+  /**
+   * Get the Claude settings file path (~/.claude/settings.json)
+   */
+  getClaudeSettingsPath(): string {
+    return path.join(this.getClaudeDir(), 'settings.json')
+  }
+
+  /**
    * Get the agents directory path for a project
    * If projectId is null, returns the global agents directory
    */

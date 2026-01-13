@@ -12,6 +12,7 @@
 import fs from 'fs/promises'
 import path from 'path'
 import { getTimestamp } from '../utils/date-helper'
+import pathManager from '../infrastructure/path-manager'
 import type { ConversationTurn, CompactedContext, CompactionConfig } from '../types'
 
 export type { ConversationTurn, CompactedContext, CompactionConfig } from '../types'
@@ -186,8 +187,7 @@ export async function saveCompactedContext(
   projectId: string,
   context: CompactedContext
 ): Promise<string> {
-  const homeDir = process.env.HOME || process.env.USERPROFILE || '~'
-  const dirPath = path.join(homeDir, '.prjct-cli', 'projects', projectId, 'memory')
+  const dirPath = path.join(pathManager.getGlobalProjectPath(projectId), 'memory')
   const filePath = path.join(dirPath, 'compacted.jsonl')
 
   await fs.mkdir(dirPath, { recursive: true })
@@ -205,9 +205,8 @@ export async function loadCompactedContexts(
   projectId: string,
   limit = 5
 ): Promise<CompactedContext[]> {
-  const homeDir = process.env.HOME || process.env.USERPROFILE || '~'
   const filePath = path.join(
-    homeDir, '.prjct-cli', 'projects', projectId, 'memory', 'compacted.jsonl'
+    pathManager.getGlobalProjectPath(projectId), 'memory', 'compacted.jsonl'
   )
 
   try {
