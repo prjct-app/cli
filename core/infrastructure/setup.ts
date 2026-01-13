@@ -18,7 +18,7 @@ import path from 'path'
 import os from 'os'
 import installer from './command-installer'
 import editorsConfig from './editors-config'
-import { VERSION } from '../utils/version'
+import { VERSION, getPackageRoot } from '../utils/version'
 
 // Colors
 const GREEN = '\x1b[32m'
@@ -215,7 +215,7 @@ async function installStatusLine(): Promise<void> {
     const prjctConfigPath = path.join(prjctStatusLineDir, 'config.json')
 
     // Source assets (from the package)
-    const assetsDir = path.join(__dirname, '..', '..', 'assets', 'statusline')
+    const assetsDir = path.join(getPackageRoot(), 'assets', 'statusline')
     const sourceScript = path.join(assetsDir, 'statusline.sh')
     const sourceThemeDir = path.join(assetsDir, 'themes')
     const sourceLibDir = path.join(assetsDir, 'lib')
