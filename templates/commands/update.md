@@ -1,39 +1,63 @@
 ---
-allowed-tools: [Bash, Read, Write]
-description: 'Update prjct-cli installation - sync commands, statusline, config'
+allowed-tools: [Bash, Read, Write, Glob]
+description: 'Force update prjct-cli - sync all templates from npm package'
 ---
 
-# p. update - Update prjct-cli Installation
+# p. update - Force Update prjct-cli
 
-Run this after `npm update -g prjct-cli` to sync all components.
+Manually sync all templates from npm package to local installation.
 
-## What It Does
-
-1. Syncs commands to `~/.claude/commands/p/`
-2. Updates statusline in `~/.prjct-cli/statusline/`
-3. Updates global CLAUDE.md config
-4. Updates project versions
-
-## Execute
-
-Run the setup script directly:
+## Step 1: Find npm package location
 
 ```bash
-node "$(npm root -g)/prjct-cli/dist/core/infrastructure/setup.js"
+npm root -g
 ```
 
-If that fails, try with bun:
+Save this path as `NPM_ROOT`.
+
+## Step 2: Copy p.md router
+
+Read: `{NPM_ROOT}/prjct-cli/templates/commands/p.md`
+Write to: `~/.claude/commands/p.md`
+
+## Step 3: Copy ALL command templates
+
+For each `.md` file in `{NPM_ROOT}/prjct-cli/templates/commands/`:
+- Read the file
+- Write to `~/.claude/commands/p/{filename}`
+
+## Step 4: Update CLAUDE.md
+
+Read: `{NPM_ROOT}/prjct-cli/templates/global/CLAUDE.md`
+
+Check if `~/.claude/CLAUDE.md` exists:
+- If NOT exists: Write the template content directly
+- If exists: Find markers `<!-- prjct:start -->` and `<!-- prjct:end -->`, replace content between them
+
+## Step 5: Copy statusline
+
+Copy from `{NPM_ROOT}/prjct-cli/assets/statusline/` to `~/.prjct-cli/statusline/`:
+- `statusline.sh`
+- `lib/*.sh`
+- `components/*.sh`
+- `themes/*.json`
+
+## Step 6: Get version and confirm
 
 ```bash
-bun "$(npm root -g)/prjct-cli/core/infrastructure/setup.ts"
+cat "$(npm root -g)/prjct-cli/package.json" | grep '"version"'
 ```
 
 ## Output
 
 ```
-✓ prjct-cli updated to v{version}
+✅ prjct-cli updated
 
-Commands: {n} synced
-Statusline: updated
-Config: updated
+Commands: synced to ~/.claude/commands/p/
+Config: ~/.claude/CLAUDE.md updated
+Statusline: ~/.prjct-cli/statusline/ updated
 ```
+
+## Action
+
+NOW execute steps 1-6 in order. Use Bash to find npm root, then Read/Write to copy files.
