@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.33.5] - 2026-01-13
+
+### Fix: Type Safety Improvements (PRJ-54)
+
+Remove unsafe `as unknown` type casts with proper TypeScript interfaces.
+
+**Changes:**
+- `GroundTruthContext` now uses `ContextPaths` directly
+- `chain-of-thought.ts` uses `Pick<ProjectContext, ...>` type alias
+- `command-executor.ts` uses `PromptContext` instead of `Record<string, unknown>`
+
+---
+
 ## [0.33.4] - 2026-01-13
 
 ### Refactor: Error Type Differentiation Phase 3 (PRJ-61)
