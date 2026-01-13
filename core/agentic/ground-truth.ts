@@ -17,6 +17,7 @@ import os from 'os'
 import { execSync } from 'child_process'
 
 import type { GroundTruthContext, VerificationResult, Verifier } from '../types'
+import { isNotFoundError } from '../types/fs'
 
 // =============================================================================
 // Utilities
@@ -103,10 +104,14 @@ export async function verifyDone(context: GroundTruthContext): Promise<Verificat
         actual.durationFormatted = formatDuration(actual.durationMs as number)
       }
     }
-  } catch {
-    actual.nowExists = false
-    warnings.push('now.md does not exist')
-    recommendations.push('Create a task with /p:now "task"')
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      actual.nowExists = false
+      warnings.push('now.md does not exist')
+      recommendations.push('Create a task with /p:now "task"')
+    } else {
+      throw error
+    }
   }
 
   // 2. Verify next.md for auto-start
@@ -116,9 +121,13 @@ export async function verifyDone(context: GroundTruthContext): Promise<Verificat
     actual.nextExists = true
     const tasks = nextContent.match(/- \[ \]/g) || []
     actual.pendingTasks = tasks.length
-  } catch {
-    actual.nextExists = false
-    actual.pendingTasks = 0
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      actual.nextExists = false
+      actual.pendingTasks = 0
+    } else {
+      throw error
+    }
   }
 
   // 3. Verify metrics.md is writable
@@ -126,9 +135,13 @@ export async function verifyDone(context: GroundTruthContext): Promise<Verificat
   try {
     await fs.access(path.dirname(metricsPath), fs.constants.W_OK)
     actual.metricsWritable = true
-  } catch {
-    actual.metricsWritable = false
-    warnings.push('Cannot write to metrics directory')
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      actual.metricsWritable = false
+      warnings.push('Cannot write to metrics directory')
+    } else {
+      throw error
+    }
   }
 
   return {
@@ -161,9 +174,9 @@ export async function verifyShip(context: GroundTruthContext): Promise<Verificat
       warnings.push(`${actual.uncommittedFiles} uncommitted file(s)`)
       recommendations.push('Commit changes before shipping')
     }
-  } catch {
+  } catch (error) {
+    // Git errors (not a repo, git not installed) are not blockers
     actual.gitAvailable = false
-    // Not a git repo or git not available - not a blocker
   }
 
   // 2. Check for package.json version (if exists)
@@ -173,8 +186,15 @@ export async function verifyShip(context: GroundTruthContext): Promise<Verificat
     const pkg = JSON.parse(pkgContent)
     actual.currentVersion = pkg.version
     actual.hasPackageJson = true
-  } catch {
-    actual.hasPackageJson = false
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      actual.hasPackageJson = false
+    } else if (error instanceof SyntaxError) {
+      actual.hasPackageJson = false
+      warnings.push('package.json has invalid JSON')
+    } else {
+      throw error
+    }
   }
 
   // 3. Check shipped.md for duplicate feature names
@@ -193,8 +213,12 @@ export async function verifyShip(context: GroundTruthContext): Promise<Verificat
         recommendations.push('Use a different feature name or skip /p:ship')
       }
     }
-  } catch {
-    actual.shippedExists = false
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      actual.shippedExists = false
+    } else {
+      throw error
+    }
   }
 
   // 4. Check for test failures (if test script exists)
@@ -205,8 +229,12 @@ export async function verifyShip(context: GroundTruthContext): Promise<Verificat
       actual.hasTestScript = !!pkg.scripts?.test
       // Note: We don't run tests here, just check if they exist
       // Running tests is the user's responsibility
-    } catch {
-      actual.hasTestScript = false
+    } catch (error) {
+      if (isNotFoundError(error) || error instanceof SyntaxError) {
+        actual.hasTestScript = false
+      } else {
+        throw error
+      }
     }
   }
 
@@ -240,9 +268,13 @@ export async function verifyFeature(context: GroundTruthContext): Promise<Verifi
       warnings.push(`Queue nearly full (${actual.taskCount}/100 tasks)`)
       recommendations.push('Complete some tasks before adding more')
     }
-  } catch {
-    actual.nextExists = false
-    actual.taskCount = 0
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      actual.nextExists = false
+      actual.taskCount = 0
+    } else {
+      throw error
+    }
   }
 
   // 2. Check roadmap.md for duplicate features
@@ -259,8 +291,12 @@ export async function verifyFeature(context: GroundTruthContext): Promise<Verifi
         recommendations.push('Check roadmap for duplicates with /p:roadmap')
       }
     }
-  } catch {
-    actual.roadmapExists = false
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      actual.roadmapExists = false
+    } else {
+      throw error
+    }
   }
 
   // 3. Check if there's an active task (should complete first?)
@@ -272,8 +308,12 @@ export async function verifyFeature(context: GroundTruthContext): Promise<Verifi
     if (actual.hasActiveTask) {
       recommendations.push('Consider completing current task first with /p:done')
     }
-  } catch {
-    actual.hasActiveTask = false
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      actual.hasActiveTask = false
+    } else {
+      throw error
+    }
   }
 
   return {
@@ -311,9 +351,13 @@ export async function verifyNow(context: GroundTruthContext): Promise<Verificati
       warnings.push(`Replacing existing task: "${taskPreview}..."`)
       recommendations.push('Use /p:done first to track completion')
     }
-  } catch {
-    actual.nowExists = false
-    actual.hasActiveTask = false
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      actual.nowExists = false
+      actual.hasActiveTask = false
+    } else {
+      throw error
+    }
   }
 
   // 2. Check next.md for available tasks
@@ -326,8 +370,12 @@ export async function verifyNow(context: GroundTruthContext): Promise<Verificati
     if (!context.params.task && pendingTasks > 0) {
       recommendations.push(`${pendingTasks} tasks available in queue`)
     }
-  } catch {
-    actual.pendingTasks = 0
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      actual.pendingTasks = 0
+    } else {
+      throw error
+    }
   }
 
   return {
@@ -355,8 +403,15 @@ export async function verifyInit(context: GroundTruthContext): Promise<Verificat
     actual.existingConfig = JSON.parse(configContent)
     warnings.push('Project already initialized')
     recommendations.push('Use /p:analyze to refresh analysis or delete .prjct/ to reinitialize')
-  } catch {
-    actual.alreadyInitialized = false
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      actual.alreadyInitialized = false
+    } else if (error instanceof SyntaxError) {
+      actual.alreadyInitialized = false
+      warnings.push('Existing config has invalid JSON')
+    } else {
+      throw error
+    }
   }
 
   // 2. Check if global storage path is writable
@@ -364,13 +419,19 @@ export async function verifyInit(context: GroundTruthContext): Promise<Verificat
   try {
     await fs.access(globalPath, fs.constants.W_OK)
     actual.globalPathWritable = true
-  } catch {
-    try {
-      // Try to create it
-      await fs.mkdir(globalPath, { recursive: true })
-      actual.globalPathWritable = true
-      actual.globalPathCreated = true
-    } catch {
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      try {
+        // Try to create it
+        await fs.mkdir(globalPath, { recursive: true })
+        actual.globalPathWritable = true
+        actual.globalPathCreated = true
+      } catch (mkdirError) {
+        actual.globalPathWritable = false
+        warnings.push('Cannot write to ~/.prjct-cli')
+        recommendations.push('Check directory permissions')
+      }
+    } else {
       actual.globalPathWritable = false
       warnings.push('Cannot write to ~/.prjct-cli')
       recommendations.push('Check directory permissions')
@@ -400,11 +461,20 @@ export async function verifySync(context: GroundTruthContext): Promise<Verificat
     const configContent = await fs.readFile(configPath, 'utf-8')
     actual.hasConfig = true
     actual.config = JSON.parse(configContent)
-  } catch {
-    actual.hasConfig = false
-    warnings.push('Project not initialized')
-    recommendations.push('Run /p:init first')
-    return { verified: false, actual, warnings, recommendations }
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      actual.hasConfig = false
+      warnings.push('Project not initialized')
+      recommendations.push('Run /p:init first')
+      return { verified: false, actual, warnings, recommendations }
+    } else if (error instanceof SyntaxError) {
+      actual.hasConfig = false
+      warnings.push('Config file has invalid JSON')
+      recommendations.push('Delete .prjct/ and run /p:init')
+      return { verified: false, actual, warnings, recommendations }
+    } else {
+      throw error
+    }
   }
 
   // 2. Check if global storage exists
@@ -413,10 +483,14 @@ export async function verifySync(context: GroundTruthContext): Promise<Verificat
   try {
     await fs.access(globalProjectPath)
     actual.globalStorageExists = true
-  } catch {
-    actual.globalStorageExists = false
-    warnings.push('Global storage missing')
-    recommendations.push('Run /p:init to recreate')
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      actual.globalStorageExists = false
+      warnings.push('Global storage missing')
+      recommendations.push('Run /p:init to recreate')
+    } else {
+      throw error
+    }
   }
 
   return {
@@ -444,8 +518,11 @@ export async function verifyAnalyze(context: GroundTruthContext): Promise<Verifi
     try {
       await fs.access(path.join(context.projectPath, file))
       ;(actual.detectedFiles as string[]).push(file)
-    } catch {
-      // File doesn't exist
+    } catch (error) {
+      // ENOENT expected - file doesn't exist
+      if (!isNotFoundError(error)) {
+        throw error
+      }
     }
   }
 
@@ -464,8 +541,11 @@ export async function verifyAnalyze(context: GroundTruthContext): Promise<Verifi
       if (stat.isDirectory()) {
         ;(actual.detectedSrcDirs as string[]).push(dir)
       }
-    } catch {
-      // Directory doesn't exist
+    } catch (error) {
+      // ENOENT expected - directory doesn't exist
+      if (!isNotFoundError(error)) {
+        throw error
+      }
     }
   }
 
@@ -496,9 +576,13 @@ export async function verifySpec(context: GroundTruthContext): Promise<Verificat
     const files = await fs.readdir(specsPath)
     actual.existingSpecs = files.filter((f) => f.endsWith('.md'))
     actual.specCount = (actual.existingSpecs as string[]).length
-  } catch {
-    actual.specsExists = false
-    actual.specCount = 0
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      actual.specsExists = false
+      actual.specCount = 0
+    } else {
+      throw error
+    }
   }
 
   // 2. Check for duplicate spec name

@@ -1,5 +1,41 @@
 # Changelog
 
+## [0.33.2] - 2026-01-13
+
+### Refactor: Error Type Differentiation (PRJ-51)
+
+**Problem:** 280 catch blocks across 69 files used empty `catch {}` which swallowed all errors without differentiating between expected (ENOENT) and unexpected errors.
+
+**Solution:** Phase 1 implementation - differentiate error types in 3 priority files (55 catch blocks):
+
+**Pattern Applied:**
+```typescript
+// Before
+} catch { return null }
+
+// After
+} catch (error) {
+  if (isNotFoundError(error)) return null      // Expected: file doesn't exist
+  if (error instanceof SyntaxError) return null // Expected: invalid JSON
+  throw error                                   // Unexpected: propagate
+}
+```
+
+**Files Modified:**
+- `core/agentic/ground-truth.ts` - 21 catches (verification functions)
+- `core/domain/analyzer.ts` - 18 catches (codebase analysis)
+- `core/infrastructure/command-installer.ts` - 16 catches (command management)
+
+**Tests Added:**
+- `core/__tests__/types/fs.test.ts` - 15 new tests for error utilities
+
+**Stats:**
+- Tests: 137 → 152 (+15)
+- Catches fixed: 55
+- Files: 4 (3 refactored + 1 test)
+
+---
+
 ## [0.33.1] - 2026-01-13
 
 ### Refactor: Code Quality Improvements
