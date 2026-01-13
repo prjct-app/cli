@@ -42,7 +42,7 @@ export function signalStart(commandName: string): void {
       fs.mkdirSync(dir, { recursive: true })
     }
     fs.writeFileSync(RUNNING_FILE, `/p:${commandName}`)
-  } catch {
+  } catch (_error) {
     // Silently ignore - status line is optional
   }
 }
@@ -55,7 +55,7 @@ export function signalEnd(): void {
     if (fs.existsSync(RUNNING_FILE)) {
       fs.unlinkSync(RUNNING_FILE)
     }
-  } catch {
+  } catch (_error) {
     // Silently ignore - status line is optional
   }
 }

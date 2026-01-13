@@ -6,6 +6,7 @@
 
 import path from 'path'
 
+import { isNotFoundError } from '../types/fs'
 import type { CommandResult, CleanupOptions } from '../types'
 import {
   pathManager,
@@ -44,8 +45,11 @@ export async function cleanupMemory(projectPath: string): Promise<{
           results.freedSpace += sizeMB
         }
       }
-    } catch {
-      // skip
+    } catch (error) {
+      // Skip file if not found, otherwise log unexpected errors
+      if (!isNotFoundError(error)) {
+        console.error(`Cleanup warning for ${filePath}: ${(error as Error).message}`)
+      }
     }
   }
 
@@ -100,8 +104,12 @@ export async function cleanup(
       } else {
         cleaned.push('Memory: No cleanup needed')
       }
-    } catch {
-      cleaned.push('Memory: No file found')
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        cleaned.push('Memory: No file found')
+      } else {
+        cleaned.push(`Memory: Error - ${(error as Error).message}`)
+      }
     }
 
     // Clean ideas using ideasStorage
@@ -112,8 +120,12 @@ export async function cleanup(
       } else {
         cleaned.push('Ideas: No cleanup needed')
       }
-    } catch {
-      cleaned.push('Ideas: No file found')
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        cleaned.push('Ideas: No file found')
+      } else {
+        cleaned.push(`Ideas: Error - ${(error as Error).message}`)
+      }
     }
 
     // Check queue for completed tasks using queueStorage
@@ -128,8 +140,12 @@ export async function cleanup(
       } else {
         cleaned.push('Queue: No completed tasks')
       }
-    } catch {
-      cleaned.push('Queue: No file found')
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        cleaned.push('Queue: No file found')
+      } else {
+        cleaned.push(`Queue: Error - ${(error as Error).message}`)
+      }
     }
 
     await cleanupMemoryInternal(projectPath)

@@ -134,7 +134,8 @@ export class AgentService {
         },
         _agenticNote: 'Claude should verify this assignment using agent context',
       }
-    } catch {
+    } catch (_error) {
+      // Agent routing unavailable - expected for new projects
       return {
         agent: { name: 'generalist' },
         routing: {
@@ -152,7 +153,8 @@ export class AgentService {
     try {
       await this.agentRouter.initialize(projectPath)
       return await this.agentRouter.getAgentNames()
-    } catch {
+    } catch (_error) {
+      // Agent router unavailable - expected for new projects
       return []
     }
   }

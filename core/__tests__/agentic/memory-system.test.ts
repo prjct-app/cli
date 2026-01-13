@@ -253,7 +253,7 @@ describe('MemorySystem P3.3', () => {
     try {
       const testPath = pathManager.getGlobalProjectPath(TEST_PROJECT_ID)
       await fs.rm(testPath, { recursive: true, force: true })
-    } catch {
+    } catch (_error) {
       // Ignore cleanup errors
     }
   })
@@ -261,7 +261,7 @@ describe('MemorySystem P3.3', () => {
   afterAll(async () => {
     try {
       await fs.rm(TEST_GLOBAL_BASE_DIR, { recursive: true, force: true })
-    } catch {
+    } catch (_error) {
       // Ignore cleanup errors
     }
   })

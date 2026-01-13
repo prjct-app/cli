@@ -87,7 +87,7 @@ export async function load(commandName: string): Promise<ParsedTemplate> {
     cacheOrder.push(commandName)
 
     return parsed
-  } catch {
+  } catch (_error) {
     throw TemplateError.notFound(commandName)
   }
 }

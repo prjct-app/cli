@@ -5,6 +5,7 @@
 
 import path from 'path'
 
+import { isNotFoundError } from '../types/fs'
 import memorySystem from '../agentic/memory-system'
 import type { CommandResult } from '../types'
 import { detectProjectCommands } from '../utils/project-commands'
@@ -133,7 +134,11 @@ export class ShippingCommands extends PrjctCommandsBase {
 
       const { exitCode } = await this._runWithExitCode(detected.lint.command)
       return { success: exitCode === 0, message: exitCode === 0 ? 'passed' : 'failed' }
-    } catch {
+    } catch (error) {
+      // Lint detection/execution failed - skip gracefully
+      if (isNotFoundError(error)) {
+        return { success: true, message: 'skipped (lint not found)' }
+      }
       return { success: true, message: 'skipped (lint detection failed)' }
     }
   }
@@ -148,7 +153,11 @@ export class ShippingCommands extends PrjctCommandsBase {
 
       const { exitCode } = await this._runWithExitCode(detected.test.command)
       return { success: exitCode === 0, message: exitCode === 0 ? 'passed' : 'failed' }
-    } catch {
+    } catch (error) {
+      // Test detection/execution failed - skip gracefully
+      if (isNotFoundError(error)) {
+        return { success: true, message: 'skipped (tests not found)' }
+      }
       return { success: true, message: 'skipped (test detection failed)' }
     }
   }
@@ -168,8 +177,12 @@ export class ShippingCommands extends PrjctCommandsBase {
         await fileHelper.writeJson(pkgPath, pkg)
       }
       return newVersion
-    } catch {
-      return '0.0.1'
+    } catch (error) {
+      // No package.json or parse error - return default version
+      if (isNotFoundError(error) || error instanceof SyntaxError) {
+        return '0.0.1'
+      }
+      throw error
     }
   }
 
@@ -185,8 +198,13 @@ export class ShippingCommands extends PrjctCommandsBase {
       const updated = changelog.replace('# Changelog\n\n', `# Changelog\n\n${entry}`)
 
       await fileHelper.writeFile(changelogPath, updated)
-    } catch {
-      console.error('   Warning: Could not update CHANGELOG')
+    } catch (error) {
+      // CHANGELOG doesn't exist or can't be written - warn but continue
+      if (isNotFoundError(error)) {
+        console.error('   Warning: CHANGELOG.md not found')
+      } else {
+        console.error('   Warning: Could not update CHANGELOG')
+      }
     }
   }
 
@@ -202,7 +220,11 @@ export class ShippingCommands extends PrjctCommandsBase {
       await toolRegistry.get('Bash')!(`git commit -m "${commitMsg.replace(/"/g, '\\"')}"`)
 
       return { success: true, message: 'Committed' }
-    } catch {
+    } catch (error) {
+      // Git commit failed - likely no changes or not a repo
+      if (isNotFoundError(error)) {
+        return { success: false, message: 'Git not found' }
+      }
       return { success: false, message: 'No changes to commit' }
     }
   }
@@ -214,7 +236,11 @@ export class ShippingCommands extends PrjctCommandsBase {
     try {
       await toolRegistry.get('Bash')!('git push')
       return { success: true, message: 'Pushed to remote' }
-    } catch {
+    } catch (error) {
+      // Git push failed - no remote, auth issue, or git not found
+      if (isNotFoundError(error)) {
+        return { success: false, message: 'Git not found' }
+      }
       return { success: false, message: 'Push failed (no remote or auth issue)' }
     }
   }

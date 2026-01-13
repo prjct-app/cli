@@ -8,6 +8,7 @@ import fs from 'fs/promises'
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import log from '../utils/logger'
+import { isNotFoundError } from '../types/fs'
 import type {
   TaskStackEntry,
   ParsedNowFile,
@@ -113,9 +114,13 @@ export function formatDuration(ms: number): string {
 export async function ensureStackFile(stackPath: string): Promise<void> {
   try {
     await fs.access(stackPath)
-  } catch {
-    // Create empty file
-    await fs.writeFile(stackPath, '')
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      // Create empty file
+      await fs.writeFile(stackPath, '')
+    } else {
+      throw error
+    }
   }
 }
 
@@ -245,9 +250,12 @@ export class TaskStack {
       // Check if stack already exists
       await fs.access(this.stackPath)
       return { migrated: false }
-    } catch {
-      // Stack doesn't exist, check for legacy now.md
-      return await this.migrateFromLegacy()
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        // Stack doesn't exist, check for legacy now.md
+        return await this.migrateFromLegacy()
+      }
+      throw error
     }
   }
 
@@ -527,7 +535,8 @@ export class TaskStack {
     try {
       const { stdout } = await execAsync('git config user.name')
       return stdout.trim()
-    } catch {
+    } catch (_error) {
+      // Git not available or not configured - return unknown (expected)
       return 'unknown'
     }
   }

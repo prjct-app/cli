@@ -6,6 +6,7 @@
 
 import path from 'path'
 
+import { isNotFoundError } from '../types/fs'
 import type { CommandResult } from '../types'
 import {
   pathManager,
@@ -47,8 +48,12 @@ export async function recover(projectPath: string = process.cwd()): Promise<Comm
     try {
       const content = await fileHelper.readFile(sessionPath)
       sessionData = JSON.parse(content)
-    } catch {
-      sessionData = null
+    } catch (error) {
+      if (isNotFoundError(error) || error instanceof SyntaxError) {
+        sessionData = null
+      } else {
+        throw error
+      }
     }
 
     if (!sessionData || !sessionData.task) {
@@ -128,8 +133,11 @@ export async function undo(projectPath: string = process.cwd()): Promise<Command
       try {
         const content = await fileHelper.readFile(snapshotFile)
         history = JSON.parse(content)
-      } catch {
-        // New history
+      } catch (error) {
+        // New history file - expected for first undo
+        if (!isNotFoundError(error) && !(error instanceof SyntaxError)) {
+          throw error
+        }
       }
 
       history.snapshots.push({
@@ -182,9 +190,12 @@ export async function redo(projectPath: string = process.cwd()): Promise<Command
     try {
       const content = await fileHelper.readFile(snapshotFile)
       history = JSON.parse(content)
-    } catch {
-      out.warn('no undo history found')
-      return { success: false, message: 'No undo history found' }
+    } catch (error) {
+      if (isNotFoundError(error) || error instanceof SyntaxError) {
+        out.warn('no undo history found')
+        return { success: false, message: 'No undo history found' }
+      }
+      throw error
     }
 
     if (history.snapshots.length === 0) {
@@ -264,12 +275,15 @@ export async function history(projectPath: string = process.cwd()): Promise<Comm
     try {
       const content = await fileHelper.readFile(snapshotFile)
       snapshotHistory = JSON.parse(content)
-    } catch {
-      console.log('\n SNAPSHOT HISTORY\n')
-      console.log('='.repeat(50))
-      console.log('  No snapshots yet.')
-      console.log('  Use /p:undo to create a snapshot.\n')
-      return { success: true, snapshots: [] }
+    } catch (error) {
+      if (isNotFoundError(error) || error instanceof SyntaxError) {
+        console.log('\n SNAPSHOT HISTORY\n')
+        console.log('='.repeat(50))
+        console.log('  No snapshots yet.')
+        console.log('  Use /p:undo to create a snapshot.\n')
+        return { success: true, snapshots: [] }
+      }
+      throw error
     }
 
     console.log('\n SNAPSHOT HISTORY\n')

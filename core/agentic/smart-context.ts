@@ -170,7 +170,7 @@ class SmartContext {
           confidence: pattern.confidence,
         })
       }
-    } catch {
+    } catch (_error) {
       // Outcomes not available
     }
 

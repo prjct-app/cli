@@ -34,8 +34,8 @@ export function parseJsonLines<T = Record<string, unknown>>(content: string): T[
   for (const line of lines) {
     try {
       entries.push(JSON.parse(line) as T)
-    } catch {
-      // Skip malformed lines silently
+    } catch (_error) {
+      // Skip malformed lines silently (JSON parse error expected)
     }
   }
 
@@ -184,8 +184,8 @@ export async function readJsonLinesStreaming<T = Record<string, unknown>>(
       if (line.trim()) {
         try {
           lines.push(JSON.parse(line) as T)
-        } catch {
-          // Skip malformed lines
+        } catch (_error) {
+          // Skip malformed lines (JSON parse error expected)
         }
 
         // Keep only last maxLines

@@ -194,7 +194,7 @@ echo "⚡ prjct"
       if (fs.existsSync(settingsPath)) {
         try {
           settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'))
-        } catch {
+        } catch (_error) {
           // Invalid JSON, start fresh
         }
       }

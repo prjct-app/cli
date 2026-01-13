@@ -21,7 +21,7 @@ async function execCommand(command: string): Promise<{ success: boolean; output:
   try {
     const { stdout } = await exec(command, { timeout: 5000 })
     return { success: true, output: stdout.trim() }
-  } catch {
+  } catch (_error) {
     return { success: false, output: '' }
   }
 }

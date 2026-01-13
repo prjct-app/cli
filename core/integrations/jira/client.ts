@@ -629,7 +629,7 @@ export class JiraProvider implements IssueTrackerProvider {
       }
 
       return texts.join('\n') || undefined
-    } catch {
+    } catch (_error) {
       return undefined
     }
   }

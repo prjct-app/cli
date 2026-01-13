@@ -9,6 +9,7 @@ import pathManager from '../infrastructure/path-manager'
 import authorDetector from '../infrastructure/author-detector'
 import * as fileHelper from '../utils/file-helper'
 import out from '../utils/output'
+import { isNotFoundError } from '../types/fs'
 import type { Author, CommandResult } from '../types'
 import { ProjectError } from '../errors'
 
@@ -99,7 +100,11 @@ export class ProjectService {
           name !== 'README.md'
       )
       return meaningfulFiles.length === 0
-    } catch {
+    } catch (error) {
+      // Directory read error - treat as empty (expected for new dirs)
+      if (!isNotFoundError(error)) {
+        console.error(`Directory check error: ${(error as Error).message}`)
+      }
       return true
     }
   }
@@ -122,7 +127,11 @@ export class ProjectService {
       ]
       const entries = await fileHelper.listFiles(projectPath)
       return entries.some((name) => codePatterns.includes(name))
-    } catch {
+    } catch (error) {
+      // Directory read error - treat as no code (expected for new dirs)
+      if (!isNotFoundError(error)) {
+        console.error(`Code check error: ${(error as Error).message}`)
+      }
       return false
     }
   }

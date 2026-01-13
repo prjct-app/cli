@@ -281,7 +281,8 @@ export class PlanningCommands extends PrjctCommandsBase {
       let planContent: string
       try {
         planContent = await fileHelper.readFile(planPath)
-      } catch {
+      } catch (_error) {
+        // No plan file - expected for projects without architect mode
         return {
           success: false,
           message:
@@ -465,7 +466,8 @@ Generated: ${new Date().toLocaleString()}
           console.log('═'.repeat(50) + '\n')
 
           return { success: true, specs }
-        } catch {
+        } catch (_error) {
+          // No specs directory - expected for new projects
           out.warn('no specs directory')
           return { success: true, specs: [] }
         }

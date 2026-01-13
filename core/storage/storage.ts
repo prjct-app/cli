@@ -9,6 +9,7 @@ import fs from 'fs/promises'
 import path from 'path'
 import os from 'os'
 import { eventBus, inferEventType } from '../events'
+import { isNotFoundError } from '../types/fs'
 import type { Storage } from '../types'
 
 class FileStorage implements Storage {
@@ -68,8 +69,11 @@ class FileStorage implements Storage {
     try {
       const content = await fs.readFile(filePath, 'utf-8')
       return JSON.parse(content) as T
-    } catch {
-      return null
+    } catch (error) {
+      if (isNotFoundError(error) || error instanceof SyntaxError) {
+        return null
+      }
+      throw error
     }
   }
 
@@ -81,8 +85,11 @@ class FileStorage implements Storage {
       return files
         .filter(f => f.endsWith('.json') && f !== 'index.json')
         .map(f => [...prefix, f.replace('.json', '')])
-    } catch {
-      return []
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        return []
+      }
+      throw error
     }
   }
 
@@ -105,8 +112,11 @@ class FileStorage implements Storage {
       if (pathArray.length === 2) {
         await this.updateIndex(pathArray[0], pathArray[1], 'remove')
       }
-    } catch {
-      // File doesn't exist, ignore
+    } catch (error) {
+      // File doesn't exist - ignore
+      if (!isNotFoundError(error)) {
+        throw error
+      }
     }
   }
 
@@ -116,8 +126,11 @@ class FileStorage implements Storage {
     try {
       await fs.access(filePath)
       return true
-    } catch {
-      return false
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        return false
+      }
+      throw error
     }
   }
 
@@ -132,8 +145,11 @@ class FileStorage implements Storage {
     try {
       const content = await fs.readFile(indexPath, 'utf-8')
       index = JSON.parse(content)
-    } catch {
-      // Index doesn't exist yet
+    } catch (error) {
+      // Index doesn't exist yet or is malformed
+      if (!isNotFoundError(error) && !(error instanceof SyntaxError)) {
+        throw error
+      }
     }
 
     if (action === 'add' && !index.ids.includes(id)) {

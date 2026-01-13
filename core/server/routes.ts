@@ -11,6 +11,7 @@ import fs from 'fs/promises'
 import path from 'path'
 import * as jsonc from 'jsonc-parser'
 import pathManager from '../infrastructure/path-manager'
+import { isNotFoundError } from '../types/fs'
 
 // Storage paths relative to project data directory
 const STORAGE_PATHS = {
@@ -30,7 +31,11 @@ async function readJsonFile<T>(filePath: string): Promise<T | null> {
     const errors: jsonc.ParseError[] = []
     const result = jsonc.parse(content, errors)
     return errors.length > 0 ? null : result
-  } catch {
+  } catch (error) {
+    // ENOENT or parse error - expected for new projects
+    if (!isNotFoundError(error) && !(error instanceof SyntaxError)) {
+      console.error(`JSON read error: ${(error as Error).message}`)
+    }
     return null
   }
 }
@@ -43,7 +48,8 @@ async function writeJsonFile(filePath: string, data: unknown): Promise<boolean> 
     await fs.mkdir(path.dirname(filePath), { recursive: true })
     await fs.writeFile(filePath, JSON.stringify(data, null, 2) + '\n', 'utf-8')
     return true
-  } catch {
+  } catch (error) {
+    console.error(`JSON write error: ${(error as Error).message}`)
     return false
   }
 }
@@ -156,7 +162,11 @@ export function createRoutes(projectId: string, _projectPath: string): Hono {
       const filePath = path.join(dataPath, 'context', `${name}.md`)
       const content = await fs.readFile(filePath, 'utf-8')
       return c.text(content, 200, { 'Content-Type': 'text/markdown' })
-    } catch {
+    } catch (error) {
+      // ENOENT - context file doesn't exist yet (expected)
+      if (!isNotFoundError(error)) {
+        console.error(`Context read error: ${(error as Error).message}`)
+      }
       return c.text('', 200, { 'Content-Type': 'text/markdown' })
     }
   })
