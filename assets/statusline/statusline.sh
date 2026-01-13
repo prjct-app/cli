@@ -1,11 +1,24 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # ============================================================================
 # prjct statusline v2 for Claude Code
 # Modular component system with graceful degradation
 # ============================================================================
 
-# Current CLI version (updated by postinstall/sync)
-CLI_VERSION="0.29.0"
+# Require bash 4.0+ for associative arrays
+if [[ ${BASH_VERSINFO[0]} -lt 4 ]]; then
+  # Try to find a modern bash and re-exec
+  for bash_path in /opt/homebrew/bin/bash /usr/local/bin/bash; do
+    if [[ -x "$bash_path" ]] && "$bash_path" -c '[[ ${BASH_VERSINFO[0]} -ge 4 ]]' 2>/dev/null; then
+      exec "$bash_path" "$0" "$@"
+    fi
+  done
+  # Fallback: simple output without components
+  echo "prjct"
+  exit 0
+fi
+
+# Current CLI version (replaced by postinstall/setup with actual version)
+CLI_VERSION="__VERSION__"
 
 # Base paths
 STATUSLINE_DIR="${HOME}/.prjct-cli/statusline"
@@ -56,7 +69,7 @@ parse_stdin "$INPUT"
 # ============================================================================
 build_statusline() {
   local line=""
-  local sep=" ${MUTED}${ICON_SEPARATOR}${NC} "
+  local sep=" ${MUTED}│${NC} "
   local first=true
 
   # Get sorted list of enabled components

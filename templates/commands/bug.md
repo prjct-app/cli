@@ -1,6 +1,6 @@
 ---
 allowed-tools: [Read, Write, Bash, Task, Glob, AskUserQuestion]
-description: 'Report bug with auto-priority and auto-start'
+description: 'Report bug with technical analysis and auto-start'
 architecture: 'Write-Through (JSON → MD → Events)'
 storage-layer: true
 source-of-truth: 'storage/queue.json + storage/state.json'
@@ -18,6 +18,8 @@ backend-sync: 'sync/pending.json'
 
 - `description`: Bug description
 - `--later`: Only queue, don't auto-start (default: auto-starts)
+
+**NEW**: Before auto-starting, Claude analyzes the codebase to understand the bug context.
 
 ## Architecture: Write-Through Pattern
 
@@ -109,6 +111,84 @@ WRITE: `{queuePath}`
 
 ### Calculate queue position
 {position} = index of task in array + 1
+
+## Step 4.5: Quick Technical Analysis (AUTOMÁTICO)
+
+**CRITICAL**: Before auto-starting a bug fix, ALWAYS analyze the codebase to understand context.
+
+### 4.5.1 Find Related Code
+
+```
+USE Task(Explore) to find:
+- Files likely related to the bug description
+- Recent commits touching those files
+- Test files for the affected area
+
+BASH: git log --oneline -10 -- {related_files}
+
+OUTPUT:
+## Bug Analysis
+
+Likely Affected Files:
+- `{file1}` - {reason it's likely involved}
+- `{file2}` - {reason it's likely involved}
+
+Related Commits:
+- {hash}: {message}
+- {hash}: {message}
+
+Test Files:
+- `{test_file}` - {what it tests}
+```
+
+### 4.5.2 Assess Complexity
+
+Based on analysis, determine if this is:
+
+| Complexity | Criteria | Action |
+|------------|----------|--------|
+| `simple` | 1-2 files, clear cause | Auto-start ✓ |
+| `medium` | 3-5 files, needs investigation | Ask user |
+| `complex` | Many files, unclear root cause | Suggest full enrichment |
+
+```
+IF complexity == "complex":
+  USE AskUserQuestion:
+    question: "This bug may be complex (multiple files, unclear cause). How to proceed?"
+    options:
+      - label: "Full PM Expert analysis"
+        description: "Run complete enrichment before fixing"
+      - label: "Start investigating"
+        description: "Begin fix now, analyze as you go"
+      - label: "Queue for later"
+        description: "Add to queue without starting"
+
+  IF "Full PM Expert analysis":
+    OUTPUT: "Running full enrichment..."
+    # Execute PM Expert 5-phase enrichment (from enrich.md)
+    CONTINUE with enrichment
+
+  IF "Queue for later":
+    SET: {laterFlag} = true
+    {autoStarted} = false
+    → Skip to Step 6
+```
+
+### 4.5.3 Suggest Approach
+
+```
+OUTPUT:
+## Suggested Approach
+
+Root cause hypothesis: {based on code analysis}
+
+Steps to fix:
+1. {first step}
+2. {second step}
+3. {verification}
+
+Ready to start fixing? [Continue / Ask questions]
+```
 
 ## Step 5: Handle Active Task (AGENTIC)
 
@@ -327,10 +407,18 @@ ELSE:
 ```
 🐛 [{severity}] {description}
 
+## Bug Analysis
+Affected: {file1}, {file2}
+Hypothesis: {root_cause_hypothesis}
+
 Branch: {branchName}
 Session: {sessionId}
 
-/p:done when fixed
+Approach:
+1. {step1}
+2. {step2}
+
+Next: Fix the bug, then `p. done`
 ```
 
 ### Queue Only (--later flag)

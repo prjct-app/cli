@@ -7,5 +7,5 @@ component_dir() {
 
   local dir_name=$(basename "$CWD")
 
-  echo -e "${ACCENT}${ICON_DIR} ${dir_name}${NC}"
+  echo -e "${ACCENT}${dir_name}${NC}"
 }

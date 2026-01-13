@@ -89,11 +89,13 @@ load_theme() {
     return
   fi
 
-  # Parse theme data
+  # Parse theme data (save/restore IFS to avoid breaking associative arrays)
+  local old_ifs="$IFS"
   IFS=$'\t' read -r \
     C_PRIMARY C_ACCENT C_SECONDARY C_MUTED C_SUCCESS C_ERROR C_WARNING C_PURPLE \
     ICON_PRJCT ICON_DIR ICON_GIT ICON_SEPARATOR ICON_OPUS ICON_SONNET ICON_HAIKU ICON_DEFAULT ICON_PRIORITY_URGENT ICON_PRIORITY_HIGH ICON_PRIORITY_MEDIUM \
     <<< "$theme_data"
+  IFS="$old_ifs"
 
   # Convert color codes to escape sequences
   PRIMARY=$(color_to_escape "$C_PRIMARY")

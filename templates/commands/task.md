@@ -1,11 +1,11 @@
 ---
 allowed-tools: [Read, Write, Bash, Task, Glob, Grep, AskUserQuestion]
-description: 'Unified task workflow with intelligent classification'
+description: 'Unified task workflow with PM Expert enrichment'
 ---
 
 # p. task - Start Any Task
 
-Start any work with automatic classification and intelligent breakdown.
+Start any work with **automatic PM Expert enrichment** to ensure proper understanding before coding.
 
 ## Context Variables
 
@@ -19,13 +19,21 @@ Start any work with automatic classification and intelligent breakdown.
 
 ```
 1. Validate project exists
-2. Handle active task conflict (if any)
-3. Classify task type (agentic reasoning)
-4. Create git branch (if on main)
-5. Run 5-phase workflow
-6. Update storage + context
-7. Output summary
+2. Handle no task / active task conflict
+3. PM EXPERT ENRICHMENT (5 phases - ALWAYS runs)
+   3.1 Intelligent Classification
+   3.2 Technical Analysis
+   3.3 Dependency Detection
+   3.4 User Story + AC Generation
+   3.5 Verify Understanding
+4. PRD Check (informed by enrichment)
+5. Git branch management
+6. Design + Task Breakdown
+7. Update storage + context
+8. Output summary
 ```
+
+**CRITICAL**: PM Expert Enrichment runs AUTOMATICALLY before any coding starts.
 
 ---
 
@@ -43,104 +51,7 @@ IF file not found:
 
 ---
 
-## Step 1.5: PRD Check (AI Orchestration)
-
-**CRITICAL**: Check if a PRD exists for significant features.
-
-```
-# Skip PRD check if no task provided (handled in Step 2)
-IF no task provided:
-  SKIP to Step 2
-
-# Read orchestration config
-READ: .prjct/prjct.config.json
-SET: prdRequired = config.orchestration?.prdRequired || "standard"
-
-# Skip for off mode
-IF prdRequired == "off":
-  CONTINUE to Step 2
-
-# Quick classification (before full classification)
-SET: isSignificantWork = FALSE
-
-# Significant if:
-# - Contains "feature", "add", "create", "build", "implement"
-# - NOT a bug fix, chore, or small improvement
-# - Estimated > 4 hours of work
-
-IF task likely requires significant effort:
-  SET: isSignificantWork = TRUE
-
-# Check for existing PRD
-IF isSignificantWork:
-  READ: {globalPath}/storage/prds.json
-
-  # Search for matching PRD
-  SET: matchingPRD = null
-  FOR EACH prd in prds:
-    IF prd.title matches task (fuzzy):
-      SET: matchingPRD = prd
-      BREAK
-
-  IF matchingPRD exists:
-    # PRD found - link to it
-    OUTPUT: "📋 Found PRD: {matchingPRD.title} (status: {matchingPRD.status})"
-    SET: linkedPRDId = matchingPRD.id
-
-  ELSE:
-    # No PRD found - handle based on enforcement level
-    IF prdRequired == "strict":
-      OUTPUT: "⛔ PRD Required"
-      OUTPUT: "This task requires a PRD before starting."
-      OUTPUT: "Run `p. prd \"{task}\"` to create one."
-      STOP
-
-    ELSE IF prdRequired == "standard":
-      OUTPUT: "⚠️  No PRD found for this task"
-      OUTPUT: ""
-      OUTPUT: "For better tracking and planning, consider creating a PRD first."
-      OUTPUT: ""
-
-      USE AskUserQuestion:
-        question: "How would you like to proceed?"
-        options:
-          - label: "Create PRD first (recommended)"
-            description: "Run Chief Architect to document requirements"
-          - label: "Continue without PRD"
-            description: "Start working now, skip documentation"
-          - label: "This is a small task"
-            description: "Mark as not needing PRD"
-
-      IF "Create PRD first":
-        OUTPUT: "Running `p. prd \"{task}\"`..."
-        # Invoke PRD command
-        STOP (prd command will continue)
-
-      IF "This is a small task":
-        # Continue but don't warn again for this task
-        SET: skipPRDCheck = TRUE
-
-    ELSE IF prdRequired == "relaxed":
-      OUTPUT: "💡 Tip: Run `p. prd \"{task}\"` for better tracking"
-      # Continue without blocking
-```
-
-### Legacy Work Exemption
-
-```
-# Check if this is part of a legacy feature
-READ: {globalPath}/storage/roadmap.json
-
-FOR EACH feature in roadmap.features:
-  IF feature.legacy == TRUE AND feature matches task:
-    OUTPUT: "ℹ️  This is part of legacy feature '{feature.name}' - no PRD required"
-    SET: skipPRDCheck = TRUE
-    BREAK
-```
-
----
-
-## Step 2: Handle No Task Description
+## Step 2: Handle No Task / Active Task Conflict
 
 ```
 IF no task provided:
@@ -152,14 +63,6 @@ IF no task provided:
   ELSE:
     OUTPUT: "No current task. Use `p. task <description>` to start one."
     STOP
-```
-
----
-
-## Step 3: Handle Active Task Conflict
-
-```
-READ: {globalPath}/storage/state.json
 
 IF currentTask exists AND status == "active" AND description != {task}:
   USE AskUserQuestion:
@@ -172,11 +75,13 @@ IF currentTask exists AND status == "active" AND description != {task}:
 
 ---
 
-## Step 4: Agentic Classification
+## Step 3: PM Expert Enrichment (AUTOMÁTICO)
 
-**CRITICAL: Use reasoning, NOT keyword matching.**
+**CRITICAL**: Before ANY coding, ALWAYS run PM Expert enrichment to ensure proper understanding.
 
-Analyze the task holistically:
+### 3.1 Intelligent Classification
+
+Analyze the task using REASONING, not keyword matching:
 
 | Type | When to Use |
 |------|-------------|
@@ -186,17 +91,196 @@ Analyze the task holistically:
 | `refactor` | Reorganizes code, same behavior |
 | `chore` | Maintenance, deps, docs, config |
 
-**Reasoning Examples:**
-- "add error handling to login" → Reasoning: Adding new functionality → `feature`
-- "fix button that doesn't submit" → Reasoning: Broken behavior → `bug`
-- "make dashboard load faster" → Reasoning: Enhancing performance → `improvement`
-- "split UserService into modules" → Reasoning: Reorganizing code → `refactor`
+| Priority | Criteria |
+|----------|----------|
+| `critical` | Production broken, data loss risk |
+| `high` | Blocks users, security issue |
+| `medium` | Important but not blocking |
+| `low` | Nice to have, cosmetic |
+
+| Complexity | Hours | Files |
+|------------|-------|-------|
+| `trivial` | < 1h | 1-2 |
+| `small` | 1-4h | 2-5 |
+| `medium` | 4-16h | 5-15 |
+| `large` | 16-40h | 15+ |
+| `epic` | > 40h | Many |
 
 ```
 OUTPUT:
-Analyzing: {task}
-Intent: {your reasoning}
-Classification: {taskType}
+## Classification
+
+Task: {task}
+Type: {taskType} | Priority: {priority} | Complexity: {complexity}
+
+Reasoning: {why this classification}
+```
+
+### 3.2 Technical Analysis
+
+**ALWAYS use Task(Explore) to understand the codebase BEFORE proposing solutions.**
+
+```
+USE Task(Explore) to find:
+- Similar existing code patterns
+- Related files that would be affected
+- API endpoints involved
+- Database schemas touched
+- Test files related
+
+OUTPUT:
+## Technical Analysis
+
+Affected Files:
+- `{file1}` - {expected changes}
+- `{file2}` - {expected changes}
+- `{file3}` - {expected changes}
+
+Existing Patterns:
+- {pattern} in `{file}` - {how to follow it}
+
+Suggested Approach:
+{high-level implementation strategy based on codebase patterns}
+```
+
+### 3.3 Dependency Detection
+
+```
+ANALYZE:
+- Code imports/exports (what files depend on what)
+- API calls (fetch, axios, internal services)
+- Database queries (tables, schemas affected)
+- Other tasks in queue (potential blockers)
+- External services (third-party APIs)
+
+OUTPUT:
+## Dependencies
+
+Code Dependencies:
+- `{file}` - {reason} ({low|medium|high} risk)
+
+API Dependencies:
+- {endpoint} - {status}
+
+Blocking Tasks:
+- {taskId}: {title} ({status}) OR "None"
+
+External:
+- {service} - {purpose} OR "None"
+```
+
+### 3.4 User Story + Acceptance Criteria
+
+```
+GENERATE user story in format:
+"As a {role}, I want to {action} so that {benefit}."
+
+GENERATE 3-7 acceptance criteria based on technical analysis:
+
+OUTPUT:
+## User Story
+
+As a **{role}**, I want to **{action}** so that **{benefit}**.
+
+## Acceptance Criteria
+
+- [ ] {AC-1}: When {action}, then {expected result}
+- [ ] {AC-2}: When {action}, then {expected result}
+- [ ] {AC-3}: When {action}, then {expected result}
+...
+
+## Definition of Done
+
+- [ ] All acceptance criteria pass
+- [ ] Tests written and passing
+- [ ] Code reviewed (if team)
+- [ ] No regressions introduced
+```
+
+### 3.5 Verify Understanding
+
+```
+IF anything is UNCLEAR about:
+- What the user wants to achieve
+- How it should behave
+- Edge cases to handle
+- Priority of different aspects
+
+THEN:
+  USE AskUserQuestion to clarify BEFORE proceeding
+  DO NOT assume or invent requirements
+
+OUTPUT:
+## Enrichment Complete
+
+Type: {type} | Priority: {priority} | Complexity: {complexity}
+Affected: {count} files | Dependencies: {count}
+
+User Story: As a {role}, I want to {action}...
+
+AC: {count} criteria defined
+
+Questions: {any_remaining_questions OR "All clear ✓"}
+```
+
+---
+
+## Step 4: PRD Check (Informed by Enrichment)
+
+Now that we have enrichment data, check if PRD is needed:
+
+```
+# Read orchestration config
+READ: .prjct/prjct.config.json
+SET: prdRequired = config.orchestration?.prdRequired || "standard"
+
+# Skip for off mode or trivial/small tasks
+IF prdRequired == "off" OR complexity in ["trivial", "small"]:
+  CONTINUE to Step 5
+
+# Check for existing PRD
+IF complexity in ["medium", "large", "epic"]:
+  READ: {globalPath}/storage/prds.json
+
+  # Search for matching PRD
+  SET: matchingPRD = null
+  FOR EACH prd in prds:
+    IF prd.title matches task (fuzzy):
+      SET: matchingPRD = prd
+      BREAK
+
+  IF matchingPRD exists:
+    OUTPUT: "📋 Found PRD: {matchingPRD.title} (status: {matchingPRD.status})"
+    SET: linkedPRDId = matchingPRD.id
+
+  ELSE IF prdRequired == "strict":
+    OUTPUT: "⛔ PRD Required for {complexity} tasks"
+    OUTPUT: "Run `p. prd \"{task}\"` to create one."
+    STOP
+
+  ELSE IF prdRequired == "standard" AND complexity in ["large", "epic"]:
+    USE AskUserQuestion:
+      question: "This is a {complexity} task. Create PRD first?"
+      options:
+        - label: "Create PRD (recommended)"
+          description: "Document requirements properly"
+        - label: "Continue without PRD"
+          description: "I understand the risks"
+
+    IF "Create PRD":
+      OUTPUT: "Running `p. prd \"{task}\"`..."
+      STOP (prd command will continue)
+```
+
+### Legacy Work Exemption
+
+```
+READ: {globalPath}/storage/roadmap.json
+
+FOR EACH feature in roadmap.features:
+  IF feature.legacy == TRUE AND feature matches task:
+    OUTPUT: "ℹ️  Legacy feature - no PRD required"
+    BREAK
 ```
 
 ---
@@ -220,120 +304,69 @@ IF currentBranch == "main" OR currentBranch == "master":
 
 ---
 
-## 5-Phase Workflow
+## Step 6: Design + Task Breakdown
 
-### Phase 1: Discovery
-Summarize what you understand:
-```
-Building: {one-sentence summary}
-Type: {taskType}
+Now that enrichment is complete, design the solution and break into subtasks.
 
-Requirements:
-- {req 1}
-- {req 2}
-
-Success looks like:
-- {criteria 1}
-- {criteria 2}
-```
-
-### Phase 2: Exploration
-Use Task(Explore) agent to find:
-- Similar existing code
-- Patterns used in this codebase
-- Key files that would be affected
-
-**Load skills based on task type:**
-```
-READ: {globalPath}/config/skills.json (if exists)
-
-IF task involves UI/frontend:
-  Invoke Skill("frontend-design") for design patterns
-  OUTPUT: "🎨 Using frontend-design skill"
-
-IF task involves backend/API:
-  Invoke Skill("javascript-typescript") OR Skill("python-development")
-  OUTPUT: "⚙️ Using {skill} skill"
-```
+### Load Domain Agents + Skills
 
 ```
-OUTPUT:
-Found similar:
-- {code} in {file}
+READ: {globalPath}/agents/ → find relevant agents for task type
 
-Patterns used:
-- {pattern}: {where}
-
-Key files:
-- {file}: {what changes}
-
-Skills activated: {skills used}
-```
-
-### Phase 3: Questions
-If anything is unclear, use AskUserQuestion.
-If everything is clear, say so and continue.
-
-### Phase 4: Design
-Load relevant agents from `{globalPath}/agents/` and their linked skills:
-
-**Agent + Skill Loading:**
-```
-FOR EACH relevant agent in {globalPath}/agents/:
+FOR EACH relevant agent:
   READ agent file
   PARSE frontmatter → get `skills` array
 
   IF skills exist:
-    FOR EACH skill in skills:
-      Invoke Skill(skill) for domain expertise
-      OUTPUT: "📚 {agent} using /{skill}"
+    Invoke Skill(skill) for domain expertise
+    OUTPUT: "📚 {agent} using /{skill}"
+
+Example:
+- UI feature → Load uxui.md → Invoke /frontend-design
+- Backend → Load backend.md → Invoke /javascript-typescript
 ```
 
-**Example flow for UI feature:**
-1. Load `uxui.md` agent (has `skills: [frontend-design]`)
-2. Invoke `/frontend-design` skill
-3. Skill provides anti-AI-slop patterns, typography guidelines
-4. Agent applies them to design options
+### Propose 2-3 Approaches
 
-Propose 2-3 approaches:
+Based on enrichment Technical Analysis, propose options:
 
 ```
 ### Option 1: Minimal
 - Approach: {desc}
-- Files: {count}
-- Pros/Cons: ...
+- Files: {count from enrichment}
+- Pros: Fast, low risk
+- Cons: May need refactor later
 
 ### Option 2: Clean Architecture
 - Approach: {desc}
 - Files: {count}
-- Pros/Cons: ...
+- Pros: Maintainable
+- Cons: More initial work
 
-### Option 3: Recommended (Skill-informed)
-- Approach: {desc}
-- Files: {count}
-- Pros/Cons: ...
-- Skills applied: {skills}
+### Recommended: Option {N}
+Reason: {based on codebase patterns found in enrichment}
 ```
 
-Use AskUserQuestion to get approval.
+USE AskUserQuestion to get approval if options differ significantly.
 
-### Phase 5: Task Breakdown
+### Task Breakdown
+
 Break into actionable subtasks:
 - Each task: 30min - 2h
-- Ordered by dependency
+- Ordered by dependency (from Dependency Detection)
 - Include testing as final task
 
 ```
 Tasks for {task}:
-1. {subtask 1}
-2. {subtask 2}
+1. {subtask 1} - {file(s)}
+2. {subtask 2} - {file(s)}
 ...
-n. Write tests and verify
+n. Write tests and verify AC
 ```
 
 ---
 
-## Step 6: Update Storage
+## Step 7: Update Storage
 
 ### Write state.json
 ```json
@@ -374,7 +407,7 @@ Branch: {branchName}
 
 ---
 
-## Step 7: Log to Memory
+## Step 8: Log to Memory
 
 ```
 APPEND to {globalPath}/memory/events.jsonl:
@@ -386,10 +419,14 @@ APPEND to {globalPath}/memory/events.jsonl:
 ## Output
 
 ```
-{task}
-Type: {taskType}
+## {task}
 
+Type: {taskType} | Priority: {priority} | Complexity: {complexity}
 Branch: {branchName}
+
+User Story: As a {role}, I want to {action}...
+
+Affected: {count} files
 Subtasks: {count}
 
 Started: {firstSubtask}
