@@ -10,6 +10,8 @@ backend-sync: 'sync/pending.json'
 
 # /p:bug - Report Bug with Auto-Start
 
+**ARGUMENTS**: $ARGUMENTS
+
 ## Usage
 
 ```

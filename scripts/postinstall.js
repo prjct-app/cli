@@ -23,7 +23,7 @@ const VERSION = pkg.version
 
 console.log('\n   prjct-cli postinstall\n')
 
-// 1. Copy p.md router (CRITICAL - this is the only essential file)
+// 1. Copy p.md router (CRITICAL - main entry point)
 try {
   fs.mkdirSync(COMMANDS_DIR, { recursive: true })
 
@@ -41,7 +41,31 @@ try {
   console.log('   Run: npx prjct-cli setup')
 }
 
-// 2. Statusline (best-effort, not critical)
+// 2. Install individual commands as separate skills (p.task, p.sync, etc.)
+try {
+  const commandsDir = path.join(ROOT, 'templates', 'commands')
+  const commands = fs.readdirSync(commandsDir).filter(f => f.endsWith('.md') && f !== 'p.md')
+
+  let installed = 0
+  for (const cmd of commands) {
+    const src = path.join(commandsDir, cmd)
+    const cmdName = cmd.replace('.md', '')
+    const dest = path.join(COMMANDS_DIR, `p.${cmdName}.md`)
+
+    try {
+      fs.copyFileSync(src, dest)
+      installed++
+    } catch {
+      // Skip files that fail to copy
+    }
+  }
+
+  console.log(`   \u2713 ${installed} individual commands installed (/p.task, /p.sync, etc.)`)
+} catch (error) {
+  console.log('   ! Could not install individual commands:', error.message)
+}
+
+// 3. Statusline (best-effort, not critical)
 try {
   const STATUSLINE_SRC = path.join(ROOT, 'assets', 'statusline')
   const STATUSLINE_DEST = path.join(HOME, '.prjct-cli', 'statusline')

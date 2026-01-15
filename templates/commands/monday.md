@@ -5,6 +5,8 @@ description: 'Monday.com issue tracker integration via MCP'
 
 # p. monday - Monday.com Integration
 
+**ARGUMENTS**: $ARGUMENTS
+
 Manage Monday.com boards directly from prjct using MCP.
 
 ## Context Variables
@@ -49,16 +51,45 @@ IF file not found:
 
 ---
 
-## Step 2: Check MCP Tools
+## Step 2: Install MCP Server (if needed)
+
+```
+READ: ~/.claude/settings.json (create {} if not exists)
+CHECK: Does mcpServers.monday exist?
+
+IF not exists:
+  READ: templates/mcp-config.json
+  EXTRACT: mcpServers.monday
+
+  MERGE into ~/.claude/settings.json:
+  {
+    "mcpServers": {
+      "monday": {
+        "command": "npx",
+        "args": ["-y", "@mondaydotcomorg/monday-api-mcp"]
+      }
+    }
+  }
+
+  WRITE: ~/.claude/settings.json
+
+  OUTPUT: "✅ Installed Monday.com MCP server"
+  OUTPUT: ""
+  OUTPUT: "⚠️ Restart Claude Code to activate the MCP server."
+  OUTPUT: "Then run `p. monday setup` again to complete configuration."
+  STOP
+```
+
+---
+
+## Step 3: Check MCP Tools Available
 
 ```
 CHECK: Are mcp__monday__* tools available?
 
 IF not available:
-  OUTPUT: "Monday MCP not configured."
-  OUTPUT: "Add to ~/.claude/settings.json or .mcp.json:"
-  OUTPUT: '{"mcpServers":{"monday":{"command":"npx","args":["-y","@mondaydotcomorg/monday-api-mcp"]}}}'
-  OUTPUT: "Then restart Claude Code."
+  OUTPUT: "Monday MCP is installed but not yet active."
+  OUTPUT: "Restart Claude Code, then run `p. monday setup` again."
   STOP
 ```
 
@@ -68,7 +99,12 @@ IF not available:
 
 ### Flow
 
-1. **Verify MCP tools available**
+1. **Install MCP + Verify tools available**
+   ```
+   Execute Step 2 (auto-install MCP if needed)
+   Execute Step 3 (verify tools active)
+   IF not available: Prompt restart and STOP
+   ```
 
 2. **Test connection (triggers OAuth if needed)**
    ```

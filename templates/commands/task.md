@@ -5,6 +5,8 @@ description: 'Unified task workflow with PM Expert enrichment'
 
 # p. task - Start Any Task
 
+**ARGUMENTS**: $ARGUMENTS
+
 Start any work with **automatic PM Expert enrichment** to ensure proper understanding before coding.
 
 ## Context Variables

@@ -31,7 +31,14 @@ ARGUMENTS = "task fix the login bug"
 
 ## Available Commands
 
-`task` `done` `ship` `sync` `init` `idea` `dash` `next` `pause` `resume` `bug` `linear` `feature` `prd` `plan` `review` `merge` `git` `test` `cleanup` `design` `analyze` `history` `enrich` `update`
+**Core**: `task` `done` `ship` `pause` `resume`
+**Project**: `init` `sync` `setup` `dash`
+**Planning**: `plan` `prd` `spec` `design` `enrich`
+**Queue**: `next` `idea` `bug`
+**Integrations**: `linear` `jira` `github` `monday`
+**Git**: `git` `merge` `review`
+**Analysis**: `analyze` `history` `impact`
+**Utils**: `cleanup` `update` `verify` `test` `undo` `redo` `serve` `auth` `skill`
 
 ## Action
 
