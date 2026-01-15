@@ -1,5 +1,70 @@
 # Changelog
 
+## [0.34.0] - 2026-01-15
+
+### Feature: Agentic Orchestrator + MCP Auto-Install
+
+Major release with intelligent task routing and simplified integration setup.
+
+#### Orchestrator Agent (NEW)
+
+Auto-routing system for tasks to the right agents and skills:
+
+- **Domain Detection**: Analyzes task keywords to detect domains (frontend, backend, database, etc.)
+- **Agent Loading**: Automatically loads relevant agents from `{globalPath}/agents/`
+- **Skill Invocation**: Invokes skills from `~/.claude/skills/` based on task context
+- **Multi-Domain Coordination**: Handles tasks spanning multiple domains with proper execution order
+
+**Usage**: Orchestrator runs automatically for task-related commands (`p. task`, `p. done`, `p. ship`, etc.)
+
+#### MCP Server Auto-Install
+
+All integrations now auto-install their MCP servers:
+
+- **Linear**: Auto-installs `mcp-remote` for Linear API
+- **JIRA**: Auto-installs Atlassian MCP server
+- **GitHub**: Auto-installs GitHub MCP server with token validation
+- **Monday.com**: Auto-installs Monday MCP server
+
+No more manual `~/.claude/settings.json` editing - just run `p. linear setup` and it handles everything.
+
+#### Individual Command Skills
+
+All 37 prjct commands now available as individual Claude Code skills:
+
+- `/p.task` - Start a task
+- `/p.sync` - Sync project
+- `/p.linear` - Linear integration
+- Plus 34 more commands
+
+#### agentskills.io Integration
+
+Skills are now discovered from the official agentskills.io ecosystem:
+
+- Skills from `anthropics/skills` GitHub repo
+- Proper SKILL.md format with YAML frontmatter
+- Agent-to-skill mapping in `templates/config/skill-mappings.json`
+
+**Files Changed:**
+- `templates/agentic/orchestrator.md` (NEW)
+- `templates/commands/p.md` - Orchestrator integration
+- `templates/commands/task.md` - Orchestrator context usage
+- `templates/commands/linear.md` - MCP auto-install
+- `templates/commands/jira.md` - MCP auto-install
+- `templates/commands/github.md` - MCP auto-install
+- `templates/commands/monday.md` - MCP auto-install
+- `templates/config/skill-mappings.json` - agentskills.io sources
+- `scripts/postinstall.js` - Individual command installation
+
+**Removed (deprecated):**
+- `templates/commands/feature.md`
+- `templates/commands/now.md`
+- `templates/commands/dashboard.md`
+- `templates/commands/suggest.md`
+- `templates/commands/ask.md`
+
+---
+
 ## [0.33.5] - 2026-01-13
 
 ### Fix: Type Safety Improvements (PRJ-54)
