@@ -15,6 +15,16 @@ Start any work with **automatic PM Expert enrichment** to ensure proper understa
 - `{globalPath}`: `~/.prjct-cli/projects/{projectId}`
 - `{task}`: User-provided task description
 
+## Orchestrator Context (from p.md router)
+
+The orchestrator provides:
+- `{orchestrator.agents}`: Loaded agents for detected domains
+- `{orchestrator.skills}`: Active skills to invoke
+- `{orchestrator.primaryDomain}`: Main domain (frontend, backend, etc.)
+- `{orchestrator.project}`: Project conventions and patterns
+
+**Use orchestrator context throughout task execution for domain-specific guidance.**
+
 ---
 
 ## Quick Flow
