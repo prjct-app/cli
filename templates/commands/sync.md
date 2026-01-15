@@ -974,118 +974,147 @@ Track which agents were generated for output:
 
 ---
 
-## Step 7.5: Install Claude Code Skills (AGENTIC)
+## Step 7.5: Install Agent Skills (agentskills.io)
 
-**CRITICAL: This step is AGENTIC. Search claude-plugins.dev dynamically to find the best skills.**
+**CRITICAL: This step discovers and installs skills from the agentskills.io ecosystem.**
 
-Skills in Claude Code are markdown files in `~/.claude/skills/`. We search the marketplace and download the best matching skills for each agent.
+Skills follow the Agent Skills standard (by Anthropic). Each skill is a directory with a `SKILL.md` file.
 
 ### 7.5.1 Check Existing Skills
 
 ```bash
-ls ~/.claude/skills/*.md 2>/dev/null || echo "none"
+ls -d ~/.claude/skills/*/ 2>/dev/null || echo "none"
 ```
 
-SET: `{existingSkills}` = list of installed skill files
+SET: `{existingSkills}` = list of installed skill directories
 
-### 7.5.2 Search & Install Skills (AGENTIC)
+### 7.5.2 Read Skill Mappings
 
-**For each generated agent, search claude-plugins.dev and install the best skill.**
+READ: `templates/config/skill-mappings.json`
+
+This file contains:
+- Agent → Skill mappings
+- Search terms for agentskills.io
+- Anthropic official skills references
+
+### 7.5.3 Search & Install Skills (AGENTIC)
+
+**For each generated agent, find and install matching skills from agentskills.io.**
 
 ```
-{skillsToFind} = [
-  { agent: "frontend", searchTerms: ["frontend-design", "react", "ui components"] },
-  { agent: "uxui", searchTerms: ["ux-designer", "frontend-design", "ui ux"] },
-  { agent: "backend", searchTerms: ["{ecosystem} backend", "api design", "backend patterns"] },
-  { agent: "testing", searchTerms: ["testing", "test automation", "{ecosystem} testing"] },
-  { agent: "devops", searchTerms: ["devops", "ci cd", "docker kubernetes"] },
-  { agent: "prjct-planner", searchTerms: ["feature development", "architecture", "planning"] },
-  { agent: "prjct-shipper", searchTerms: ["code review", "pr review", "shipping"] }
-]
+FOR EACH agent IN {generatedAgents}:
+  GET: skillConfig = skill-mappings.json.agentToSkillMap[agent]
 
-FOR EACH entry in {skillsToFind}:
-  IF {entry.agent} IN {generatedAgents}:
-
-    # Step A: Search claude-plugins.dev
+  IF skillConfig.fromAnthropic == true:
+    # PRIORITY 1: Check anthropics/skills repo
     USE WebFetch:
-      url: "https://claude-plugins.dev/skills?q={entry.searchTerms[0]}"
-      prompt: "Find the best skill for {entry.agent}. Return: skill name, author, install URL"
+      url: "https://api.github.com/repos/anthropics/skills/contents/skills"
+      prompt: "List available skills. Find one matching: {skillConfig.searchTerms}"
 
-    SET: {searchResult} = result
-
-    # Step B: Analyze results and pick best match
-    ANALYZE {searchResult}:
-      - Prefer @anthropics skills (official)
-      - Prefer skills with high download count
-      - Match the agent's domain
-
-    SET: {bestSkill} = selected skill
-
-    # Step C: Check if already installed
-    IF {bestSkill.name}.md NOT IN {existingSkills}:
-
-      # Step D: Get skill content from GitHub
+    IF skill found:
+      # Download SKILL.md from anthropics/skills
       USE WebFetch:
-        url: "{bestSkill.githubUrl}/raw/main/skills/{bestSkill.name}.md"
-        prompt: "Get the complete skill markdown content"
+        url: "https://raw.githubusercontent.com/anthropics/skills/main/skills/{skill}/SKILL.md"
+        prompt: "Get the complete SKILL.md content"
 
       SET: {skillContent} = result
+      SET: {skillSource} = "anthropics/skills"
 
-      # Step E: Install to ~/.claude/skills/
-      ```bash
-      mkdir -p ~/.claude/skills
-      ```
+  ELSE:
+    # PRIORITY 2: Search agentskills.io marketplace
+    USE WebFetch:
+      url: "https://agentskills.io/search?q={skillConfig.searchTerms[0]}"
+      prompt: "Find skills matching {agent}. Return: name, repo URL, description"
 
-      WRITE: `~/.claude/skills/{bestSkill.name}.md`
-      CONTENT: {skillContent}
+    IF results found:
+      SELECT best match based on:
+        - Relevance to agent domain
+        - Recent updates
+        - Good documentation
 
-      OUTPUT: "📦 Installed skill: {bestSkill.name} (from {bestSkill.author})"
-      ADD {bestSkill} to {installedSkills}
+      # Download from matched repo
+      USE WebFetch:
+        url: "{result.repoUrl}/raw/main/SKILL.md"
+        prompt: "Get the SKILL.md content"
 
-    ELSE:
-      OUTPUT: "✓ Skill exists: {bestSkill.name}"
-      ADD {bestSkill.name} to {verifiedSkills}
+      SET: {skillContent} = result
+      SET: {skillSource} = "agentskills.io"
+
+  IF {skillContent} exists:
+    # Install skill to ~/.claude/skills/{name}/
+    ```bash
+    mkdir -p ~/.claude/skills/{skill.name}
+    ```
+
+    WRITE: `~/.claude/skills/{skill.name}/SKILL.md`
+    CONTENT: {skillContent}
+
+    OUTPUT: "📦 Installed: {skill.name} (from {skillSource})"
+    ADD to {installedSkills}
+
+  ELSE:
+    # FALLBACK: Create minimal custom skill
+    → Go to Step 7.5.4
 ```
 
-### 7.5.3 Skill Search Fallbacks
+### 7.5.4 Create Custom Skill (Fallback)
 
-If WebFetch fails or no results found:
+If no suitable skill found, CREATE a minimal skill following the agentskills.io spec:
 
-```
-FALLBACK SKILLS (use these if search fails):
-- frontend/uxui → "frontend-design" from @anthropics/claude-code
-- backend (JS/TS) → Search "typescript backend patterns"
-- backend (Python) → Search "python backend patterns"
-- testing → Search "testing automation"
-- devops → Search "devops ci cd"
-- planner → Search "architecture planning"
-- shipper → Search "code review"
+```bash
+mkdir -p ~/.claude/skills/{agent}-custom
 ```
 
-### 7.5.4 Create Custom Skill if Not Found
-
-If no suitable skill found on marketplace, CREATE a minimal skill:
+WRITE: `~/.claude/skills/{agent}-custom/SKILL.md`
 
 ```markdown
 ---
-name: {agent}-skill
-description: Custom skill for {agent} agent
+name: {agent}-custom
+description: Custom skill for {agent} domain. Use when working on {domain description}.
 ---
 
-# {Agent} Skill
+# {Agent} Custom Skill
 
-This is a custom skill for the {agent} domain.
+This skill provides guidance for {agent} domain tasks.
 
-## Expertise
-{Based on agent's domain - frontend, backend, etc.}
+## When to Use
+- {Task type 1 this skill helps with}
+- {Task type 2 this skill helps with}
+
+## Guidelines
+{Domain-specific guidelines based on project analysis}
 
 ## Patterns
-{Common patterns for this domain}
+{Common patterns detected in this project}
 ```
 
-WRITE to: `~/.claude/skills/{agent}-custom.md`
+ADD to {createdSkills}
 
-### 7.5.5 Save Skills Configuration
+### 7.5.5 Install Document Skills (Optional)
+
+IF project creates documents (PDFs, presentations, spreadsheets):
+
+```
+CHECK package.json for: pdf-lib, docx, pptxgenjs, exceljs, etc.
+
+IF found:
+  INSTALL from anthropics/skills:
+  - pdf/ - PDF creation and editing
+  - docx/ - Word document creation
+  - pptx/ - PowerPoint presentations
+  - xlsx/ - Excel spreadsheets
+
+  FOR EACH docSkill in [pdf, docx, pptx, xlsx]:
+    IF dependency detected:
+      USE WebFetch:
+        url: "https://raw.githubusercontent.com/anthropics/skills/main/skills/{docSkill}/SKILL.md"
+        prompt: "Get SKILL.md content"
+
+      mkdir -p ~/.claude/skills/{docSkill}
+      WRITE: ~/.claude/skills/{docSkill}/SKILL.md
+```
+
+### 7.5.6 Save Skills Configuration
 
 ```bash
 mkdir -p {globalPath}/config
@@ -1097,15 +1126,15 @@ WRITE: `{globalPath}/config/skills.json`
 {
   "projectId": "{projectId}",
   "ecosystem": "{ecosystem}",
-  "installedAt": "{GetTimestamp()}",
-  "searchedAt": "{GetTimestamp()}",
+  "syncedAt": "{GetTimestamp()}",
+  "skillsDirectory": "~/.claude/skills/",
   "skills": [
     {
       "name": "{skill.name}",
-      "source": "{skill.source}",
-      "author": "{skill.author}",
-      "path": "~/.claude/skills/{skill.name}.md",
-      "linkedAgents": ["{agents that use this skill}"]
+      "source": "{skillSource}",
+      "path": "~/.claude/skills/{skill.name}/SKILL.md",
+      "linkedAgents": ["{agent}"],
+      "installedAt": "{GetTimestamp()}"
     }
   ],
   "agentSkillMap": {
@@ -1114,30 +1143,30 @@ WRITE: `{globalPath}/config/skills.json`
 }
 ```
 
-### 7.5.6 Update Agent Frontmatter
+### 7.5.7 Update Agent Frontmatter
 
 FOR EACH agent file in `{globalPath}/agents/`:
   READ agent file
   GET skill from agentSkillMap[agent.name]
 
-  IF skill exists AND frontmatter.skills is missing:
+  IF skill exists:
     UPDATE frontmatter to include: `skills: [{skill}]`
     WRITE updated agent file
 
-### 7.5.7 Output Summary
+### 7.5.8 Output Summary
 
 ```
-SET: {skillsInstalled} = list of newly installed
-SET: {skillsVerified} = list of already existing
-SET: {skillsCreated} = list of custom-created
-SET: {totalSkills} = count of all
-
 OUTPUT:
-📦 Skills Synchronized
-├── Installed: {skillsInstalled.length} new from marketplace
-├── Verified: {skillsVerified.length} already exist
-├── Created: {skillsCreated.length} custom skills
+📦 Skills Installed (agentskills.io)
+├── From anthropics/skills: {anthropicSkills.length}
+├── From marketplace: {marketplaceSkills.length}
+├── Custom created: {createdSkills.length}
 └── Location: ~/.claude/skills/
+
+🔗 Agent → Skill Mapping:
+{FOR EACH entry in agentSkillMap}
+├── {agent}.md → {skill}
+{END FOR}
 ```
 
 ---
@@ -1228,14 +1257,15 @@ IF cloudSync AND no syncError:
 └── 🎨 UX/UI: uxui.md (Priority: UX > UI)
 {ENDIF}
 
-📦 Skills ({totalSkills})
-├── Installed: {skillsInstalled.length ? skillsInstalled.join(', ') : 'none'}
-├── Verified: {skillsVerified.length ? skillsVerified.join(', ') : 'none'}
-└── Config: {globalPath}/config/skills.json
+📦 Skills (agentskills.io)
+├── From anthropics/skills: {anthropicSkills.length}
+├── From marketplace: {marketplaceSkills.length}
+├── Custom: {createdSkills.length}
+└── Location: ~/.claude/skills/
 
 🔗 Agent → Skill Mapping
-{FOR EACH entry in agentSkillMap WHERE entry.skill != null}
-├── {entry.agent}.md → /{entry.skill}
+{FOR EACH entry in agentSkillMap}
+├── {entry.agent}.md → {entry.skill}/
 {END FOR}
 
 {IF isVersionUpgrade}
@@ -1308,14 +1338,20 @@ Next: /p:task "your next task"
 │   └── events.jsonl
 └── project.json             # Metadata
 
-# Sub-Agents are in {globalPath}/agents/ (NOT in project .claude/)
-├── prjct-workflow.md        # /p:now, /p:done, /p:next
-├── prjct-planner.md         # /p:feature, /p:idea, /p:spec
+# Sub-Agents are in {globalPath}/agents/
+├── prjct-workflow.md        # /p:task, /p:done, /p:pause, /p:resume
+├── prjct-planner.md         # /p:plan, /p:prd, /p:spec
 ├── prjct-shipper.md         # /p:ship
 ├── frontend.md              # (if React/Vue/Angular detected)
 ├── backend.md               # (if Node/Go/Python API detected)
 ├── database.md              # (if DB detected)
 ├── devops.md                # (if Docker/K8s detected)
 ├── testing.md               # (if test framework detected)
-└── uxui.md                  # (if ANY frontend UI detected - web or mobile)
+└── uxui.md                  # (if ANY frontend UI detected)
+
+# Skills are in ~/.claude/skills/ (agentskills.io format)
+├── {skill-name}/
+│   └── SKILL.md             # Required: skill definition
+│   └── scripts/             # Optional: helper scripts
+│   └── references/          # Optional: documentation
 ```
