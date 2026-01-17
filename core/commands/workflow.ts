@@ -19,6 +19,7 @@ import {
 } from './base'
 import { stateStorage, queueStorage } from '../storage'
 import { templateExecutor } from '../agentic/template-executor'
+import commandExecutor from '../agentic/command-executor'
 
 export class WorkflowCommands extends PrjctCommandsBase {
   /**
@@ -36,12 +37,13 @@ export class WorkflowCommands extends PrjctCommandsBase {
       }
 
       if (task) {
-        // AGENTIC: Build execution context for Claude to decide
-        const execContext = await templateExecutor.buildContext('task', task, projectPath)
-        const agenticInfo = templateExecutor.buildAgenticPrompt(execContext)
+        // AGENTIC: Use CommandExecutor for full orchestration support
+        const result = await commandExecutor.execute('task', { task }, projectPath)
 
-        // Get available agents for context
-        const availableAgents = await templateExecutor.getAvailableAgents(projectPath)
+        if (!result.success) {
+          out.fail(result.error || 'Failed to execute task')
+          return { success: false, error: result.error }
+        }
 
         // Write-through: JSON → MD → Event
         await stateStorage.startTask(projectId, {
@@ -50,18 +52,31 @@ export class WorkflowCommands extends PrjctCommandsBase {
           sessionId: generateUUID()
         })
 
-        // AGENTIC: Log that Claude will decide via templates
+        // Log orchestrator results if available
+        if (result.orchestratorContext) {
+          const oc = result.orchestratorContext
+          const agentsList = oc.agents.map((a: { name: string }) => a.name).join(', ') || 'none'
+          const domainsList = oc.detectedDomains.join(', ')
+          console.log(`🎯 Orchestrator: ${domainsList} → [${agentsList}]`)
+
+          if (oc.requiresFragmentation && oc.subtasks) {
+            console.log(`   → ${oc.subtasks.length} subtasks created`)
+          }
+        }
+
+        // Get available agents for backward compatibility
+        const availableAgents = await templateExecutor.getAvailableAgents(projectPath)
         const agentsList = availableAgents.length > 0
           ? availableAgents.join(', ')
           : 'none (run p. sync)'
 
-        console.log(`🤖 Agentic mode: Claude will read templates and decide`)
         out.done(`${task} [specialists: ${agentsList}]`)
 
         await this.logToMemory(projectPath, 'task_started', {
           task,
           agenticMode: true,
           availableAgents,
+          orchestratorContext: result.orchestratorContext,
           timestamp: dateHelper.getTimestamp(),
         })
 
@@ -70,8 +85,8 @@ export class WorkflowCommands extends PrjctCommandsBase {
           task,
           agenticMode: true,
           availableAgents,
-          execContext,
-          agenticPrompt: agenticInfo.prompt,
+          // Include full CommandExecutor result (orchestratorContext, prompt, etc.)
+          ...result,
         }
       } else {
         // Read from storage (JSON is source of truth)
