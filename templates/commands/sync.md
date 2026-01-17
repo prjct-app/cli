@@ -372,6 +372,109 @@ WRITE: `{globalPath}/analysis/repo-analysis.json`
 
 ---
 
+## Step 3.5.7: Update Enterprise State (CRITICAL for Multi-Session)
+
+**CRITICAL**: This step updates state.json with enterprise fields for multi-session continuity.
+
+### 3.5.7.1 Read Existing State
+
+```
+READ: {globalPath}/storage/state.json
+
+IF file not found:
+  CREATE default state:
+  {
+    "projectId": "{projectId}",
+    "currentTask": null,
+    "queue": [],
+    "shipped": []
+  }
+```
+
+### 3.5.7.2 Update Stack Info
+
+```
+SET: state.stack = {
+  "language": "{detected language - e.g., TypeScript, Python, Go}",
+  "runtime": "{runtime - e.g., Node.js, Python 3.11, Go 1.21}",
+  "framework": "{primary framework - e.g., React, Django, Gin}",
+  "stateManagement": "{if detected - e.g., Zustand, Redux, None}",
+  "database": "{if detected - e.g., PostgreSQL, MongoDB}",
+  "styling": "{if detected - e.g., Tailwind, CSS Modules}",
+  "testRunner": "{test framework - e.g., Vitest, Pytest, go test}"
+}
+```
+
+### 3.5.7.3 Determine Project Type
+
+```
+# Count domains detected
+SET: domainCount = count of detected domains (frontend, backend, database, etc.)
+
+# Determine project type
+IF fileCount > 300 OR domainCount >= 4:
+  SET: state.projectType = "enterprise"
+ELSE IF domainCount >= 2 OR fileCount > 50:
+  SET: state.projectType = "complex"
+ELSE:
+  SET: state.projectType = "simple"
+```
+
+### 3.5.7.4 Initialize Domains (Enterprise Projects)
+
+IF state.projectType == "enterprise" OR state.projectType == "complex":
+
+```
+# Detect and initialize domain progress
+SET: state.domains = {}
+
+FOR EACH domain in {detectedDomains}:
+  # Count files in domain area
+  COUNT files matching domain patterns
+
+  SET: state.domains[domain] = {
+    "status": "pending",
+    "progress": 0,
+    "tests": "none",
+    "keyFiles": ["{detected key files for domain}"],
+    "dependencies": []
+  }
+```
+
+### 3.5.7.5 Update Metrics
+
+```
+SET: state.metrics = {
+  "totalFiles": {fileCount},
+  "totalLOC": {locCount if available},
+  "testCoverage": null,
+  "lastBuild": "unknown"
+}
+```
+
+### 3.5.7.6 Update Session Context
+
+```
+SET: state.lastSync = {timestamp}
+SET: state.lastUpdated = {timestamp}
+
+IF state.context does not exist:
+  SET: state.context = {}
+
+SET: state.context.lastSession = {timestamp}
+SET: state.context.lastAction = "Synced project"
+SET: state.context.nextAction = "Run `p. task \"description\"` to start working"
+```
+
+### 3.5.7.7 Write Updated State
+
+```
+WRITE: {globalPath}/storage/state.json
+OUTPUT: "📊 Updated state.json with enterprise fields"
+```
+
+---
+
 ## Step 3.6: Generate/Update Roadmap (For Existing Projects)
 
 **CRITICAL**: This step populates the roadmap from git history for existing projects.

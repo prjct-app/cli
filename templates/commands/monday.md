@@ -1,13 +1,22 @@
 ---
 allowed-tools: [Read, Write, Bash, AskUserQuestion]
 description: 'Monday.com issue tracker integration via MCP'
+extends: '_bases/tracker-base.md'
 ---
 
 # p. monday - Monday.com Integration
 
+**EXTENDS**: `_bases/tracker-base.md` - See base template for common flows.
+
 **ARGUMENTS**: $ARGUMENTS
 
 Manage Monday.com boards directly from prjct using MCP.
+
+## Tracker-Specific Config
+
+- `{mcpServerName}`: "monday"
+- `{mcpPrefix}`: "mcp__monday__"
+- `{projectKey}`: "boardId"
 
 ## Context Variables
 
