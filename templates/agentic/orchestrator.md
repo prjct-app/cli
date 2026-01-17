@@ -5,39 +5,46 @@
 ## How It Works
 
 ```
-User Task → Orchestrator → [Analyze] → [Load Agents] → [Invoke Skills] → [Execute]
+User Task → Orchestrator → [Analyze] → [Fragment?] → [Load Agents] → [Delegate] → [Execute]
 ```
 
 The orchestrator is **implicit** - it runs automatically for every p. command.
 
+**CRITICAL**: This is an AGENTIC orchestrator. Claude analyzes and decides - NO hardcoded keyword matching.
+
 ---
 
-## Step 1: Task Analysis
+## Step 1: Task Analysis (AGENTIC)
 
 Analyze the current task/command to determine domains involved.
 
-### Domain Detection Keywords
+**DO NOT use keyword matching.** Instead, analyze:
+1. What does the task actually require?
+2. What files/modules will be affected?
+3. What expertise is needed?
 
-| Domain | Keywords | Agent | Skills |
-|--------|----------|-------|--------|
-| **Frontend** | react, vue, component, UI, CSS, styling, layout | `frontend.md` | ui-design, react-patterns |
-| **UX/UI** | design, user experience, accessibility, UX, interaction | `uxui.md` | ux-research, accessibility |
-| **Backend** | API, server, endpoint, database query, auth | `backend.md` | api-design, backend-patterns |
-| **Database** | schema, migration, query, SQL, ORM, prisma | `database.md` | sql-patterns, database-design |
-| **Testing** | test, spec, coverage, TDD, unit, integration | `testing.md` | test-automation |
-| **DevOps** | deploy, CI/CD, docker, kubernetes, pipeline | `devops.md` | ci-cd, infrastructure |
-| **Planning** | plan, architecture, design doc, PRD, spec | `prjct-planner.md` | architecture |
-| **Shipping** | ship, release, PR, merge, version | `prjct-shipper.md` | code-review |
+### Domain Detection (Agentic, Not Keyword-Based)
 
-### Analysis Process
+| Domain | What It Handles | Agent |
+|--------|----------------|-------|
+| **Frontend** | UI components, forms, layouts, styling, client-side logic | `frontend.md` |
+| **UX/UI** | Design systems, accessibility, user experience | `uxui.md` |
+| **Backend** | API endpoints, server logic, business rules, auth | `backend.md` |
+| **Database** | Schema design, migrations, queries, data models | `database.md` |
+| **Testing** | Unit tests, integration tests, e2e tests | `testing.md` |
+| **DevOps** | CI/CD, deployment, infrastructure, containers | `devops.md` |
+
+### Analysis Process (AGENTIC)
 
 ```
-1. EXTRACT keywords from task description
-2. MATCH keywords to domains (can be multiple)
-3. SET: {detectedDomains} = matched domains
-4. SET: {primaryDomain} = highest match count
-5. SET: {secondaryDomains} = other matches
+1. READ the task description carefully
+2. REASON about what work is actually required
+3. IDENTIFY which domains are involved (can be multiple)
+4. CHECK which agents exist in {agentsDir}
+5. DECIDE: Fragment into subtasks OR single execution
 ```
+
+**Remember**: Agents in `{agentsDir}` are ALREADY project-specific. They were generated during `p. sync` with this project's patterns and technologies. Always prefer specialist agents over generalist.
 
 ---
 
@@ -145,7 +152,80 @@ Combine all context for task execution.
 
 ---
 
-## Step 6: Execute with Context
+## Step 6: Task Fragmentation (AGENTIC)
+
+For complex multi-domain tasks, fragment into subtasks for specialist agents.
+
+**Read**: `templates/agentic/task-fragmentation.md` for full details.
+
+### When to Fragment
+
+Fragment when:
+- Task spans 3+ domains
+- One-shot execution would saturate context
+- Task has natural dependency order (database → backend → frontend)
+
+### Fragmentation Process
+
+```
+1. IDENTIFY atomic subtasks (one domain each)
+2. ASSIGN responsible agent to each subtask
+3. ORDER by dependencies
+4. DELEGATE via Task tool with clean context
+5. COLLECT summaries for context handoff
+```
+
+### Delegation Pattern
+
+For each subtask:
+
+```
+Task(
+  subagent_type: 'general-purpose',
+  prompt: '
+    ## Agent Assignment
+    Read and apply: {agentsPath}/{domain}.md
+
+    ## Subtask
+    {subtask.description}
+
+    ## Previous Subtask Output (if any)
+    {previousSubtask.summary}
+
+    ## MANDATORY: Generate Summary on Completion
+    - What was done
+    - Files created/modified
+    - Output for next agent
+
+    ## FOCUS
+    ONLY this subtask. Do NOT implement other parts.
+  '
+)
+```
+
+### Context Handoff
+
+Each subtask generates a summary stored in `storage/state.json`:
+
+```json
+{
+  "subtasks": [{
+    "id": "subtask-1",
+    "status": "completed",
+    "summary": {
+      "title": "Create auth schema",
+      "description": "Created User and Session models",
+      "outputForNextAgent": "Models available via Prisma"
+    }
+  }]
+}
+```
+
+The summary is passed to the next subtask for context.
+
+---
+
+## Step 7: Execute with Context
 
 Pass the execution context to the command template.
 
@@ -157,32 +237,43 @@ The command template receives:
 
 ---
 
-## Multi-Domain Coordination
+## Multi-Domain Coordination (Example)
 
-When task spans multiple domains:
+When task spans multiple domains, use FRAGMENTATION:
 
 ### Example: "Add user authentication with login form"
 
 ```
-Detected domains:
-├── Frontend (login form, UI)
-├── Backend (auth API, sessions)
-└── Database (users table, schema)
+🎯 Task: add user authentication with login form
 
-Loaded agents:
-├── frontend.md → React patterns, form handling
-├── backend.md → API design, auth patterns
-└── database.md → Schema design, migrations
+📊 Analysis:
+├── Domains detected: database, backend, frontend
+├── Agents available: database.md ✅, backend.md ✅, frontend.md ✅
+└── Fragmentation: REQUIRED (3 domains)
 
-Active skills:
-├── ui-design → Form components
-├── api-design → Auth endpoints
-└── sql-patterns → User schema
+📋 Subtasks (ordered by dependencies):
+│
+├─ 1. [database] Create auth schema
+│     Agent: database.md
+│     Output: User model, Session model, migrations
+│
+├─ 2. [backend] Implement auth API
+│     Agent: backend.md
+│     Depends on: #1
+│     Output: /login, /logout endpoints
+│
+└─ 3. [frontend] Create login form
+      Agent: frontend.md
+      Depends on: #2
+      Output: LoginForm component
 
-Execution order:
-1. Database: Create users schema
-2. Backend: Implement auth API
-3. Frontend: Build login form
+🚀 Executing subtasks...
+
+✅ Subtask 1 complete → Summary passed to subtask 2
+✅ Subtask 2 complete → Summary passed to subtask 3
+✅ Subtask 3 complete
+
+📋 Task Complete: All 3 subtasks finished
 ```
 
 ---
@@ -208,9 +299,9 @@ At the start of each command, output:
 
 Every p. command should:
 
-1. **Before execution**: Run orchestrator Steps 1-5
-2. **During execution**: Use orchestrator context
-3. **After execution**: Log which agents/skills were used
+1. **Before execution**: Run orchestrator Steps 1-6 (including fragmentation check)
+2. **During execution**: Use orchestrator context, delegate to specialists
+3. **After execution**: Aggregate subtask results, log which agents were used
 
 ### Command Template Integration
 
@@ -221,7 +312,13 @@ Every p. command should:
 
 INCLUDE: templates/agentic/orchestrator.md
 
-Execute orchestrator Steps 1-5 to build context.
+Execute orchestrator Steps 1-6 to:
+1. Analyze task (agentic, not keyword-based)
+2. Load project context
+3. Load relevant agents
+4. Invoke skills
+5. Build execution context
+6. Fragment into subtasks if needed
 
 ## Step 1: {Command-specific logic}
 
@@ -229,6 +326,8 @@ Use {orchestrator.agents} and {orchestrator.skills} for:
 - Code patterns
 - Conventions
 - Domain expertise
+
+If fragmented, delegate each subtask via Task tool.
 
 {Rest of command...}
 ```

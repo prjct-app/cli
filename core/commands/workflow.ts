@@ -3,6 +3,9 @@
  * Core task management - Write-Through Architecture
  *
  * Uses storage layer: JSON (source) → MD (context) → Event (sync)
+ *
+ * AGENTIC: Uses template-executor for Claude-driven decisions.
+ * TypeScript provides infrastructure; Claude decides via templates.
  */
 
 import type { CommandResult, ProjectContext } from '../types'
@@ -15,6 +18,7 @@ import {
   out
 } from './base'
 import { stateStorage, queueStorage } from '../storage'
+import { templateExecutor } from '../agentic/template-executor'
 
 export class WorkflowCommands extends PrjctCommandsBase {
   /**
@@ -32,9 +36,12 @@ export class WorkflowCommands extends PrjctCommandsBase {
       }
 
       if (task) {
-        const context = await contextBuilder.build(projectPath, { task }) as ProjectContext
-        const agentResult = await this._assignAgentForTask(task, projectPath, context)
-        const agent = agentResult.agent?.name || 'generalist'
+        // AGENTIC: Build execution context for Claude to decide
+        const execContext = await templateExecutor.buildContext('task', task, projectPath)
+        const agenticInfo = templateExecutor.buildAgenticPrompt(execContext)
+
+        // Get available agents for context
+        const availableAgents = await templateExecutor.getAvailableAgents(projectPath)
 
         // Write-through: JSON → MD → Event
         await stateStorage.startTask(projectId, {
@@ -43,14 +50,29 @@ export class WorkflowCommands extends PrjctCommandsBase {
           sessionId: generateUUID()
         })
 
-        out.done(`${task} [${agent}]`)
+        // AGENTIC: Log that Claude will decide via templates
+        const agentsList = availableAgents.length > 0
+          ? availableAgents.join(', ')
+          : 'none (run p. sync)'
+
+        console.log(`🤖 Agentic mode: Claude will read templates and decide`)
+        out.done(`${task} [specialists: ${agentsList}]`)
 
         await this.logToMemory(projectPath, 'task_started', {
           task,
-          agent,
+          agenticMode: true,
+          availableAgents,
           timestamp: dateHelper.getTimestamp(),
         })
-        return { success: true, task, agent }
+
+        return {
+          success: true,
+          task,
+          agenticMode: true,
+          availableAgents,
+          execContext,
+          agenticPrompt: agenticInfo.prompt,
+        }
       } else {
         // Read from storage (JSON is source of truth)
         const currentTask = await stateStorage.getCurrentTask(projectId)

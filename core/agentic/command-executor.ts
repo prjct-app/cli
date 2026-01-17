@@ -18,6 +18,7 @@ import chainOfThought from './chain-of-thought'
 import memorySystem from './memory-system'
 import groundTruth from './ground-truth'
 import planMode from './plan-mode'
+import templateExecutor from './template-executor'
 
 import type {
   ExecutionResult,
@@ -160,13 +161,25 @@ export class CommandExecutor {
         }
       }
 
-      // 3. AGENTIC: Claude decides agent assignment via templates
+      // 3. AGENTIC: Template-first execution
+      // Claude decides agent assignment via templates - no hardcoded routing
+      const taskDescription = (params.task as string) || (params.description as string) || ''
+      const agenticExecContext = await templateExecutor.buildContext(
+        commandName,
+        taskDescription,
+        projectPath
+      )
+      const agenticInfo = templateExecutor.buildAgenticPrompt(agenticExecContext)
+
       // Build context with agent routing info for Claude delegation
       const context: PromptContext = {
         ...metadataContext,
-        agentsPath: path.join(os.homedir(), '.prjct-cli', 'projects', metadataContext.projectId || '', 'agents'),
-        agentRoutingPath: path.join(__dirname, '..', '..', 'templates', 'agentic', 'agent-routing.md'),
+        agentsPath: agenticExecContext.paths.agentsDir,
+        agentRoutingPath: agenticExecContext.paths.agentRouting,
+        orchestratorPath: agenticExecContext.paths.orchestrator,
+        taskFragmentationPath: agenticExecContext.paths.taskFragmentation,
         agenticDelegation: true,
+        agenticMode: true,
       }
 
       // 6. Load state with filtered context
@@ -214,7 +227,10 @@ export class CommandExecutor {
       )
 
       // Log agentic mode
-      console.log(`🤖 Agentic delegation enabled - Claude will assign agent via Task tool`)
+      console.log(`🤖 Template-first execution: Claude reads templates and decides`)
+      if (agenticInfo.requiresOrchestration) {
+        console.log(`   → Orchestration: ${agenticExecContext.paths.orchestrator}`)
+      }
 
       // Record successful attempt
       loopDetector.recordSuccess(commandName, loopContext)
@@ -229,8 +245,14 @@ export class CommandExecutor {
         state,
         prompt,
         agenticDelegation: true,
+        agenticMode: true,
+        agenticExecContext,
+        agenticPrompt: agenticInfo.prompt,
+        requiresOrchestration: agenticInfo.requiresOrchestration,
         agentsPath: context.agentsPath as string,
         agentRoutingPath: context.agentRoutingPath as string,
+        orchestratorPath: agenticExecContext.paths.orchestrator,
+        taskFragmentationPath: agenticExecContext.paths.taskFragmentation,
         reasoning,
         groundTruth: groundTruthResult,
         learnedPatterns,
