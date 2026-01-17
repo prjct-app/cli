@@ -158,6 +158,11 @@ export type {
   ReasoningStep,
   ReasoningResult,
   ChainOfThoughtResult,
+  // Orchestrator types
+  OrchestratorContext,
+  LoadedAgent,
+  LoadedSkill,
+  OrchestratorSubtask,
 } from './agentic'
 
 // =============================================================================

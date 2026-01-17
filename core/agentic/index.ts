@@ -89,6 +89,7 @@ export {
 export { default as toolRegistry } from './tool-registry'
 export { default as templateLoader } from './template-loader'
 export { default as templateExecutor, TemplateExecutor } from './template-executor'
+export { default as orchestratorExecutor, OrchestratorExecutor } from './orchestrator-executor'
 
 // ============ Utilities ============
 // Chain of thought, services
@@ -178,4 +179,9 @@ export type {
   ReasoningStep,
   ReasoningResult,
   ChainOfThoughtResult,
+  // Orchestrator types
+  OrchestratorContext,
+  LoadedAgent,
+  LoadedSkill,
+  OrchestratorSubtask,
 } from '../types'
