@@ -19,8 +19,10 @@ import memorySystem from './memory-system'
 import groundTruth from './ground-truth'
 import planMode from './plan-mode'
 import templateExecutor from './template-executor'
+import orchestratorExecutor from './orchestrator-executor'
 
 import type {
+  OrchestratorContext,
   ExecutionResult,
   SimpleExecutionResult,
   ExecutionToolsFn,
@@ -171,6 +173,29 @@ export class CommandExecutor {
       )
       const agenticInfo = templateExecutor.buildAgenticPrompt(agenticExecContext)
 
+      // 3.5. ORCHESTRATOR: Execute orchestration for commands that require it
+      let orchestratorContext: OrchestratorContext | null = null
+      if (templateExecutor.requiresOrchestration(commandName) && taskDescription) {
+        try {
+          orchestratorContext = await orchestratorExecutor.execute(
+            commandName,
+            taskDescription,
+            projectPath
+          )
+
+          // Log orchestrator results
+          console.log(`🎯 Orchestrator:`)
+          console.log(`   → Domains: ${orchestratorContext.detectedDomains.join(', ')}`)
+          console.log(`   → Agents: ${orchestratorContext.agents.map(a => a.name).join(', ') || 'none loaded'}`)
+          if (orchestratorContext.requiresFragmentation && orchestratorContext.subtasks) {
+            console.log(`   → Subtasks: ${orchestratorContext.subtasks.length}`)
+          }
+        } catch (error) {
+          // Orchestration failed - log warning but continue without it
+          console.warn(`⚠️  Orchestrator warning: ${(error as Error).message}`)
+        }
+      }
+
       // Build context with agent routing info for Claude delegation
       const context: PromptContext = {
         ...metadataContext,
@@ -215,6 +240,7 @@ export class CommandExecutor {
         allowedTools: planMode.getAllowedTools(isInPlanningMode, template.frontmatter['allowed-tools'] || []),
       }
       // Agent is null - Claude assigns via Task tool using agent-routing.md
+      // Pass orchestratorContext for domain/agent/subtask injection
       const prompt = promptBuilder.build(
         template,
         context,
@@ -223,7 +249,8 @@ export class CommandExecutor {
         learnedPatterns,
         null,
         relevantMemories,
-        planInfo
+        planInfo,
+        orchestratorContext
       )
 
       // Log agentic mode
@@ -257,6 +284,7 @@ export class CommandExecutor {
         groundTruth: groundTruthResult,
         learnedPatterns,
         relevantMemories,
+        orchestratorContext,
         memory: {
           create: (memory: unknown) =>
             memorySystem.createMemory(metadataContext.projectId!, memory as Parameters<typeof memorySystem.createMemory>[1]),

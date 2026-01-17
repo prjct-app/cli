@@ -24,6 +24,7 @@ import type {
   ThinkBlock,
   Memory,
   PlanInfo,
+  OrchestratorContext,
 } from '../types'
 
 // Re-export types for convenience
@@ -287,7 +288,8 @@ class PromptBuilder {
     learnedPatterns: LearnedPatterns | null = null,
     thinkBlock: ThinkBlock | null = null,
     relevantMemories: Memory[] | null = null,
-    planInfo: PlanInfo | null = null
+    planInfo: PlanInfo | null = null,
+    orchestratorContext: OrchestratorContext | null = null
   ): string {
     const parts: string[] = []
 
@@ -325,6 +327,70 @@ class PromptBuilder {
     // Template content (include full template, frontmatter already stripped by loader)
     // This ensures Claude sees ALL instructions including critical rules at the top
     parts.push(template.content)
+
+    // ORCHESTRATOR CONTEXT: Inject loaded agents, skills, and subtasks
+    if (orchestratorContext) {
+      parts.push('\n## ORCHESTRATOR CONTEXT\n')
+      parts.push(`**Primary Domain**: ${orchestratorContext.primaryDomain}\n`)
+      parts.push(`**Domains**: ${orchestratorContext.detectedDomains.join(', ')}\n`)
+      parts.push(`**Ecosystem**: ${orchestratorContext.project.ecosystem}\n\n`)
+
+      // Inject loaded agent content (truncated for context efficiency)
+      if (orchestratorContext.agents.length > 0) {
+        parts.push('### LOADED AGENTS (Project-Specific Specialists)\n\n')
+        for (const agent of orchestratorContext.agents) {
+          parts.push(`#### Agent: ${agent.name} (${agent.domain})\n`)
+          if (agent.skills.length > 0) {
+            parts.push(`Skills: ${agent.skills.join(', ')}\n`)
+          }
+          // Include first 1500 chars of agent content
+          const truncatedContent = agent.content.length > 1500
+            ? agent.content.substring(0, 1500) + '\n... (truncated, read full file for more)'
+            : agent.content
+          parts.push(`\`\`\`markdown\n${truncatedContent}\n\`\`\`\n\n`)
+        }
+      }
+
+      // Inject loaded skill content (truncated)
+      if (orchestratorContext.skills.length > 0) {
+        parts.push('### LOADED SKILLS (From Agent Frontmatter)\n\n')
+        for (const skill of orchestratorContext.skills) {
+          parts.push(`#### Skill: ${skill.name}\n`)
+          // Include first 1000 chars of skill content
+          const truncatedContent = skill.content.length > 1000
+            ? skill.content.substring(0, 1000) + '\n... (truncated)'
+            : skill.content
+          parts.push(`\`\`\`markdown\n${truncatedContent}\n\`\`\`\n\n`)
+        }
+      }
+
+      // Inject subtasks if fragmented
+      if (orchestratorContext.requiresFragmentation && orchestratorContext.subtasks) {
+        parts.push('### SUBTASKS (Execute in Order)\n\n')
+        parts.push('**IMPORTANT**: Focus on the CURRENT subtask. Use `p. done` when complete to advance.\n\n')
+        parts.push('| # | Domain | Description | Status |\n')
+        parts.push('|---|--------|-------------|--------|\n')
+
+        for (const subtask of orchestratorContext.subtasks) {
+          const statusIcon = subtask.status === 'in_progress' ? '▶️ **CURRENT**'
+            : subtask.status === 'completed' ? '✅ Done'
+            : subtask.status === 'failed' ? '❌ Failed'
+            : '⏳ Pending'
+          parts.push(`| ${subtask.order} | ${subtask.domain} | ${subtask.description} | ${statusIcon} |\n`)
+        }
+
+        // Find and highlight current subtask
+        const currentSubtask = orchestratorContext.subtasks.find(s => s.status === 'in_progress')
+        if (currentSubtask) {
+          parts.push(`\n**FOCUS ON SUBTASK #${currentSubtask.order}**: ${currentSubtask.description}\n`)
+          parts.push(`Agent: ${currentSubtask.agent} | Domain: ${currentSubtask.domain}\n`)
+          if (currentSubtask.dependsOn.length > 0) {
+            parts.push(`Dependencies: ${currentSubtask.dependsOn.join(', ')}\n`)
+          }
+        }
+        parts.push('\n')
+      }
+    }
 
     // Current state (only if exists and relevant)
     const relevantState = this.filterRelevantState(state)

@@ -443,6 +443,7 @@ export interface ExecutionResult {
   compressionMetrics?: unknown
   learnedPatterns?: unknown
   relevantMemories?: unknown
+  orchestratorContext?: OrchestratorContext | null
   formatResponse?: (data: unknown) => string
   formatThinkBlock?: (verbose: boolean) => string
   parallel?: {
@@ -570,4 +571,65 @@ export interface LearnedPatterns {
   test_before_ship?: string | null
   preferred_agent?: string | null
   [key: string]: string | null | undefined
+}
+
+// =============================================================================
+// Orchestrator Types
+// =============================================================================
+
+/**
+ * A loaded agent with its content
+ */
+export interface LoadedAgent {
+  name: string
+  domain: string
+  content: string
+  skills: string[]
+  filePath: string
+}
+
+/**
+ * A loaded skill with its content
+ */
+export interface LoadedSkill {
+  name: string
+  content: string
+  filePath: string
+}
+
+/**
+ * Subtask for task fragmentation
+ */
+export interface OrchestratorSubtask {
+  id: string
+  description: string
+  domain: string
+  agent: string
+  status: 'pending' | 'in_progress' | 'completed' | 'failed'
+  dependsOn: string[]
+  order: number
+}
+
+/**
+ * Full orchestrator context returned after execution
+ */
+export interface OrchestratorContext {
+  /** Domains detected for this task */
+  detectedDomains: string[]
+  /** Primary domain (most important) */
+  primaryDomain: string
+  /** Loaded agents with their content */
+  agents: LoadedAgent[]
+  /** Loaded skills from agent frontmatter */
+  skills: LoadedSkill[]
+  /** Whether task requires fragmentation (3+ domains) */
+  requiresFragmentation: boolean
+  /** Subtasks if fragmented, null otherwise */
+  subtasks: OrchestratorSubtask[] | null
+  /** Project info */
+  project: {
+    id: string
+    ecosystem: string
+    conventions: string[]
+  }
 }
