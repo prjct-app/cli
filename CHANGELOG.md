@@ -1,5 +1,41 @@
 # Changelog
 
+## [0.35.1] - 2026-01-17
+
+### Fix: Orchestrator Now Actually Executes
+
+Critical fix - the orchestrator was only generating PATHS to templates, not executing them.
+
+#### What Was Broken
+- `p. task` never ran domain detection
+- Agents from `{globalPath}/agents/` were never loaded
+- Tasks were never fragmented into subtasks
+- No context was injected into prompts
+
+#### What's Fixed
+- **Created `orchestrator-executor.ts`** - Executes orchestration in TypeScript
+- **Domain Detection** - Analyzes task keywords to detect database, backend, frontend, etc.
+- **Agent Loading** - Loads agent content from `{globalPath}/agents/`
+- **Skill Loading** - Loads skills from agent frontmatter
+- **Task Fragmentation** - Creates subtasks for 3+ domain tasks
+- **Prompt Injection** - Injects loaded agents, skills, and subtasks into prompt
+
+#### Verified Flow
+```
+Task → Orchestrator → 3 subtasks
+Subtask 1 [database] → p.done → ✅
+Subtask 2 [backend] → p.done → ✅
+Subtask 3 [frontend] → p.done → ✅
+ALL COMPLETE (100%)
+```
+
+**Files Changed:**
+- `core/agentic/orchestrator-executor.ts` (NEW - 482 lines)
+- `core/agentic/command-executor.ts` - Calls orchestrator
+- `core/agentic/prompt-builder.ts` - Injects orchestrator context
+- `core/types/agentic.ts` - Added orchestrator types
+- `core/commands/workflow.ts` - **Connects CLI to CommandExecutor** (was bypassing orchestrator)
+
 ## [0.34.0] - 2026-01-15
 
 ### Feature: Agentic Orchestrator + MCP Auto-Install
