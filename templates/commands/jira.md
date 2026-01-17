@@ -1,13 +1,22 @@
 ---
 allowed-tools: [Read, Write, Bash, Task, Glob, Grep, AskUserQuestion]
 description: 'JIRA issue tracker integration'
+extends: '_bases/tracker-base.md'
 ---
 
 # p. jira - JIRA Integration
 
+**EXTENDS**: `_bases/tracker-base.md` - See base template for common flows.
+
 **ARGUMENTS**: $ARGUMENTS
 
 Manage JIRA issues directly from prjct.
+
+## Tracker-Specific Config
+
+- `{mcpServerName}`: "Atlassian"
+- `{mcpPrefix}`: "mcp__atlassian__jira_"
+- `{projectKey}`: "projectKey"
 
 ## Context Variables
 

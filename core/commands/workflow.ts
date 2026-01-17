@@ -81,12 +81,13 @@ export class WorkflowCommands extends PrjctCommandsBase {
         })
 
         return {
+          // Include full CommandExecutor result first (orchestratorContext, prompt, etc.)
+          ...result,
+          // Then override with our specific values
           success: true,
           task,
           agenticMode: true,
           availableAgents,
-          // Include full CommandExecutor result (orchestratorContext, prompt, etc.)
-          ...result,
         }
       } else {
         // Read from storage (JSON is source of truth)

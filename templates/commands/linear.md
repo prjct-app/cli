@@ -1,13 +1,22 @@
 ---
 allowed-tools: [Read, Write, Bash, AskUserQuestion]
 description: 'Linear issue tracker integration via MCP'
+extends: '_bases/tracker-base.md'
 ---
 
 # p. linear - Linear Integration
 
+**EXTENDS**: `_bases/tracker-base.md` - See base template for common flows.
+
 **ARGUMENTS**: $ARGUMENTS
 
 Manage Linear issues directly from prjct using MCP (no SDK needed).
+
+## Tracker-Specific Config
+
+- `{mcpServerName}`: "linear"
+- `{mcpPrefix}`: "mcp__linear__"
+- `{projectKey}`: "teamId"
 
 ## Context Variables
 

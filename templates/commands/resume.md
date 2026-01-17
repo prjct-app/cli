@@ -1,6 +1,6 @@
 ---
-allowed-tools: [Read, Write, Bash, AskUserQuestion]
-description: 'Resume paused or interrupted session'
+allowed-tools: [Read, Write, Bash, Glob, AskUserQuestion]
+description: 'Resume paused or interrupted session with full context'
 timestamp-rule: 'GetTimestamp() for all timestamps'
 architecture: 'Write-Through (JSON → MD → Events)'
 storage-layer: true
@@ -9,7 +9,19 @@ claude-context: 'context/now.md'
 backend-sync: 'sync/pending.json'
 ---
 
-# /p:resume - Resume Paused Session
+# p. resume - Resume Session with Full Context
+
+**Purpose**: Resume work on a project by loading full context from the last session.
+
+## IMPORTANT: Multi-Session Continuity
+
+When starting a NEW Claude Code session (not just resuming a paused task), `p. resume` provides:
+- Full project state including active task
+- Enterprise domain progress
+- Stack and patterns from project agent
+- Session context (last action, next steps, blockers)
+
+This is the recommended way to start any session on an existing project.
 
 ## Architecture: Write-Through Pattern
 
@@ -155,7 +167,36 @@ SET: state.{clearField} = null  # Clear pausedTask or interruptedTask based on w
 SET: state.lastUpdated = {now}
 WRITE: `{statePath}`
 
-## Step 5: Generate Context (FOR CLAUDE)
+## Step 5: Load Enterprise Context (NEW)
+
+### 5.1 Load Project Agent
+
+```
+GLOB: {globalPath}/agents/*.md
+IF files found:
+  READ: first agent file
+  SET: agentContent = file content
+  SET: agentName = filename
+```
+
+### 5.2 Extract Enterprise State
+
+```
+IF state.domains exists:
+  SET: hasDomains = true
+  SET: domains = state.domains
+
+IF state.stack exists:
+  SET: hasStack = true
+  SET: stack = state.stack
+
+IF state.context exists:
+  SET: lastAction = state.context.lastAction
+  SET: nextAction = state.context.nextAction
+  SET: blockers = state.context.blockers
+```
+
+## Step 6: Generate Context (FOR CLAUDE)
 
 WRITE: `{nowContextPath}`
 
@@ -169,6 +210,29 @@ Resumed: {now}
 Session: {taskToResume.sessionId}
 {IF taskToResume.estimate: Estimate: {taskToResume.estimate}}
 {IF taskToResume.subtasks: Subtask: {currentSubtask.description}}
+
+{IF hasStack:}
+## Stack
+- Language: {stack.language}
+- Framework: {stack.framework}
+- State: {stack.stateManagement}
+{ENDIF}
+
+{IF hasDomains:}
+## Domain Progress
+{FOR EACH [name, info] in domains:}
+- {name}: {info.progress}% ({info.status})
+{END FOR}
+{ENDIF}
+
+{IF lastAction:}
+## Session Context
+- Last Action: {lastAction}
+- Next: {nextAction}
+{IF blockers:}
+- Blockers: {blockers.join(', ')}
+{ENDIF}
+{ENDIF}
 ```
 
 ## Step 6: Queue Sync Event (FOR BACKEND)
