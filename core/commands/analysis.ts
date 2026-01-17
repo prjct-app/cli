@@ -16,6 +16,7 @@ import {
 import analyzer from '../domain/analyzer'
 import { generateContext } from '../context/generator'
 import commandInstaller from '../infrastructure/command-installer'
+import { syncService } from '../services'
 
 export class AnalysisCommands extends PrjctCommandsBase {
   /**
@@ -189,58 +190,83 @@ export class AnalysisCommands extends PrjctCommandsBase {
   }
 
   /**
-   * /p:sync - Sync project state with raw data for Claude to analyze
+   * /p:sync - Comprehensive project sync
    *
-   * AGENTIC: This command gathers RAW data and puts it in CLAUDE.md
-   * Claude then reads the data and decides what agents to create.
-   * NO hardcoded if/else logic for technology detection.
+   * Uses syncService to do ALL operations in one TypeScript execution:
+   * - Git analysis
+   * - Project stats
+   * - Agent generation
+   * - Context file generation
+   * - Skill configuration
+   * - State updates
+   *
+   * This eliminates the need for Claude to make 50+ individual tool calls.
    */
   async sync(projectPath: string = process.cwd()): Promise<CommandResult> {
     try {
       const initResult = await this.ensureProjectInit(projectPath)
       if (!initResult.success) return initResult
 
-      await this.initializeAgent()
+      console.log('🔄 Syncing project...\n')
 
-      console.log('🔄 Syncing project state...\n')
+      // Use syncService to do EVERYTHING in one call
+      const result = await syncService.sync(projectPath)
 
-      // 1. Run analysis to gather raw data
-      console.log('📊 Running analysis...')
-      const analysisResult = await this.analyze({}, projectPath)
-
-      if (!analysisResult.success) {
-        console.error('❌ Analysis failed')
-        return analysisResult
+      if (!result.success) {
+        console.error('❌ Sync failed:', result.error)
+        return { success: false, error: result.error }
       }
 
-      const projectId = await configManager.getProjectId(projectPath)
-
-      // 2. Generate CLAUDE.md with RAW DATA (no processing)
-      // Claude will read this and decide what to do
-      await generateContext(projectId!, projectPath)
-
-      // 3. Update global config
+      // Update global config
       const globalConfigResult = await commandInstaller.installGlobalConfig()
       if (globalConfigResult.success) {
         console.log('📝 Updated ~/.claude/CLAUDE.md')
       }
 
-      // 4. Log to memory
-      await this.logToMemory(projectPath, 'sync_complete', {
-        timestamp: dateHelper.getTimestamp(),
-        projectId,
-      })
+      // Format output
+      console.log(`🔄 Project synced to prjct v${result.cliVersion}\n`)
 
-      console.log('\n✅ Sync complete!\n')
-      console.log('📝 Context: ~/.prjct-cli/projects/' + projectId + '/CLAUDE.md')
-      console.log('\n📋 CLAUDE.md contains RAW project data.')
-      console.log('💡 Claude reads this data and decides what specialists to create.\n')
-      console.log('Next steps:')
-      console.log('• Read CLAUDE.md to see project data')
-      console.log('• /p:feature → Add a feature')
+      console.log('📊 Project Stats')
+      console.log(`├── Files: ~${result.stats.fileCount}`)
+      console.log(`├── Commits: ${result.git.commits}`)
+      console.log(`├── Version: ${result.stats.version}`)
+      console.log(`└── Stack: ${result.stats.ecosystem}\n`)
+
+      console.log('🌿 Git Status')
+      console.log(`├── Branch: ${result.git.branch}`)
+      console.log(`├── Uncommitted: ${result.git.hasChanges ? 'Yes' : 'Clean'}`)
+      console.log(`└── Recent: ${result.git.weeklyCommits} commits this week\n`)
+
+      console.log('📁 Context Updated')
+      for (const file of result.contextFiles) {
+        console.log(`├── ${file}`)
+      }
+      console.log('')
+
+      const workflowAgents = result.agents.filter(a => a.type === 'workflow').map(a => a.name)
+      const domainAgents = result.agents.filter(a => a.type === 'domain').map(a => a.name)
+
+      console.log(`🤖 Agents Regenerated (${result.agents.length})`)
+      console.log(`├── Workflow: ${workflowAgents.join(', ')}`)
+      console.log(`└── Domain: ${domainAgents.join(', ') || 'none'}\n`)
+
+      if (result.skills.length > 0) {
+        console.log('📦 Skills Configured')
+        for (const skill of result.skills) {
+          console.log(`├── ${skill.agent}.md → ${skill.skill}`)
+        }
+        console.log('')
+      }
+
+      if (result.git.hasChanges) {
+        console.log('⚠️  You have uncommitted changes\n')
+      } else {
+        console.log('✨ Repository is clean!\n')
+      }
 
       return {
         success: true,
+        data: result,
       }
     } catch (error) {
       console.error('❌ Error:', (error as Error).message)
