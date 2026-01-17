@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.35.2] - 2026-01-17
+
+### Fix: CLI Workflow Now Uses CommandExecutor
+
+The `workflow.ts` was calling `templateExecutor` directly, bypassing the orchestrator.
+Now properly routes through `commandExecutor.execute()` which triggers:
+- Domain detection
+- Agent loading
+- Skill loading
+- Task fragmentation
+
+**Files Changed:**
+- `core/commands/workflow.ts` - Uses `commandExecutor.execute()` instead of `templateExecutor`
+
 ## [0.35.1] - 2026-01-17
 
 ### Fix: Orchestrator Now Actually Executes
