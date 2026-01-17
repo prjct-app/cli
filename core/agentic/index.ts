@@ -88,6 +88,7 @@ export {
 // Tool and template management
 export { default as toolRegistry } from './tool-registry'
 export { default as templateLoader } from './template-loader'
+export { default as templateExecutor, TemplateExecutor } from './template-executor'
 
 // ============ Utilities ============
 // Chain of thought, services

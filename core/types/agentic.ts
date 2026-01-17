@@ -429,8 +429,14 @@ export interface ExecutionResult {
   state?: unknown
   prompt?: string
   agenticDelegation?: boolean
+  agenticMode?: boolean
+  agenticExecContext?: unknown
+  agenticPrompt?: string
+  requiresOrchestration?: boolean
   agentsPath?: string
   agentRoutingPath?: string
+  orchestratorPath?: string
+  taskFragmentationPath?: string
   reasoning?: unknown
   thinkBlock?: unknown
   groundTruth?: unknown
