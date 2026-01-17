@@ -1,13 +1,22 @@
 ---
 allowed-tools: [Read, Write, Bash, AskUserQuestion]
 description: 'GitHub Issues integration via MCP'
+extends: '_bases/tracker-base.md'
 ---
 
 # p. github - GitHub Issues Integration
 
+**EXTENDS**: `_bases/tracker-base.md` - See base template for common flows.
+
 **ARGUMENTS**: $ARGUMENTS
 
 Manage GitHub Issues directly from prjct using MCP.
+
+## Tracker-Specific Config
+
+- `{mcpServerName}`: "github"
+- `{mcpPrefix}`: "mcp__github__"
+- `{projectKey}`: "repo" (owner/repo)
 
 ## Context Variables
 
