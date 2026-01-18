@@ -63,17 +63,6 @@ export const COMMANDS: CommandMeta[] = [
     features: ['Agentic type classification', '7-phase workflow', 'Git branch management', 'Task breakdown'],
   },
   {
-    name: 'feature',
-    group: 'core',
-    description: 'DEPRECATED - Use /p:task instead',
-    usage: { claude: '/p:task "<description>"', terminal: 'prjct task "<description>"' },
-    params: '<description>',
-    implemented: true,
-    hasTemplate: true,
-    requiresProject: true,
-    deprecated: true,
-  },
-  {
     name: 'spec',
     group: 'core',
     description: 'Create detailed specifications for complex features',
@@ -82,28 +71,6 @@ export const COMMANDS: CommandMeta[] = [
     implemented: true,
     hasTemplate: true,
     requiresProject: true,
-  },
-  {
-    name: 'now',
-    group: 'core',
-    description: 'DEPRECATED - Use /p:task instead',
-    usage: { claude: '/p:task "<description>"', terminal: 'prjct task "<description>"' },
-    params: '[task]',
-    implemented: true,
-    hasTemplate: true,
-    requiresProject: true,
-    deprecated: true,
-  },
-  {
-    name: 'work',
-    group: 'core',
-    description: 'DEPRECATED - Use /p:task instead',
-    usage: { claude: '/p:task "<description>"', terminal: 'prjct task "<description>"' },
-    params: '[task]',
-    implemented: true,
-    hasTemplate: true,
-    requiresProject: true,
-    deprecated: true,
   },
   {
     name: 'pause',
@@ -329,16 +296,6 @@ export const COMMANDS: CommandMeta[] = [
     requiresProject: true,
   },
   {
-    name: 'migrate-all',
-    group: 'setup',
-    description: 'Migrate all legacy projects to UUID format',
-    usage: { claude: '/p:migrate-all', terminal: 'prjct migrate-all' },
-    params: '[--deep-scan] [--dry-run]',
-    implemented: true,
-    hasTemplate: true,
-    requiresProject: false,
-  },
-  {
     name: 'auth',
     group: 'setup',
     description: 'Manage cloud authentication',
@@ -348,12 +305,16 @@ export const COMMANDS: CommandMeta[] = [
     hasTemplate: true,
     requiresProject: false,
   },
+  {
+    name: 'context',
+    group: 'setup',
+    description: 'Get project context as JSON for Claude templates',
+    usage: { claude: null, terminal: 'prjct context <command> [args]' },
+    params: '<command> [args]',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: true,
+    features: ['Returns JSON with project context', 'Runs orchestrator', 'Loads agents and skills'],
+  },
 ]
 
-// Legacy compatibility - category field mapping
-export function getCommandsWithCategory(): Array<CommandMeta & { category: string }> {
-  return COMMANDS.map(cmd => ({
-    ...cmd,
-    category: cmd.group, // Map group to category for backward compat
-  }))
-}

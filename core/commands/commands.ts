@@ -3,14 +3,15 @@
  *
  * MD-First Architecture - All state in Markdown files.
  *
- * COMMANDS (22 total):
- * - Workflow (5): work, done, next, pause, resume
- * - Planning (5): init, feature, bug, idea, spec
- * - Shipping (1): ship
- * - Analytics (2): dash, help
- * - Maintenance (5): cleanup, design, recover, undo, redo, history
- * - Analysis (2): analyze, sync
- * - Setup (3): start, setup, migrateAll
+ * COMMANDS:
+ * - Workflow: done, next, pause, resume
+ * - Planning: init, bug, idea, spec
+ * - Shipping: ship
+ * - Analytics: dash, help
+ * - Maintenance: cleanup, design, recover, undo, redo, history
+ * - Analysis: analyze, sync
+ * - Setup: start, setup
+ * - Context: context
  */
 
 import { WorkflowCommands } from './workflow'
@@ -20,6 +21,7 @@ import { AnalyticsCommands } from './analytics'
 import { MaintenanceCommands } from './maintenance'
 import { AnalysisCommands } from './analysis'
 import { SetupCommands } from './setup'
+import { ContextCommands } from './context'
 
 import type {
   CommandResult,
@@ -28,7 +30,6 @@ import type {
   DesignOptions,
   CleanupOptions,
   SetupOptions,
-  MigrateOptions,
   AnalyzeOptions
 } from '../types'
 
@@ -45,6 +46,7 @@ class PrjctCommands {
   private maintenance: MaintenanceCommands
   private analysis: AnalysisCommands
   private setupCmds: SetupCommands
+  private contextCmds: ContextCommands
 
   // Shared state
   agent: unknown
@@ -60,6 +62,7 @@ class PrjctCommands {
     this.maintenance = new MaintenanceCommands()
     this.analysis = new AnalysisCommands()
     this.setupCmds = new SetupCommands()
+    this.contextCmds = new ContextCommands()
 
     this.agent = null
     this.agentInfo = null
@@ -68,10 +71,6 @@ class PrjctCommands {
   }
 
   // ========== Workflow Commands ==========
-
-  async work(task: string | null = null, projectPath: string = process.cwd()): Promise<CommandResult> {
-    return this.workflow.now(task, projectPath)
-  }
 
   async done(projectPath: string = process.cwd()): Promise<CommandResult> {
     return this.workflow.done(projectPath)
@@ -93,10 +92,6 @@ class PrjctCommands {
 
   async init(idea: string | null = null, projectPath: string = process.cwd()): Promise<CommandResult> {
     return this.planning.init(idea, projectPath)
-  }
-
-  async feature(description: string, projectPath: string = process.cwd()): Promise<CommandResult> {
-    return this.planning.feature(description, projectPath)
   }
 
   async bug(description: string, projectPath: string = process.cwd()): Promise<CommandResult> {
@@ -163,6 +158,12 @@ class PrjctCommands {
     return this.analysis.sync(projectPath)
   }
 
+  // ========== Context Commands ==========
+
+  async context(input: string | null = null, projectPath: string = process.cwd()): Promise<CommandResult> {
+    return this.contextCmds.context(input, projectPath)
+  }
+
   // ========== Setup Commands ==========
 
   async start(): Promise<CommandResult> {
@@ -171,10 +172,6 @@ class PrjctCommands {
 
   async setup(options: SetupOptions = {}): Promise<CommandResult> {
     return this.setupCmds.setup(options)
-  }
-
-  async migrateAll(options: MigrateOptions = {}): Promise<CommandResult> {
-    return this.setupCmds.migrateAll(options)
   }
 
   async installStatusLine(): Promise<{ success: boolean; error?: string }> {

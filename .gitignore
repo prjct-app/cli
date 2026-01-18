@@ -50,3 +50,7 @@ tmp/
 # Claude Code local config (agents are dynamically generated)
 .claude/agents/
 .claude/settings.local.json
+
+# CLAUDE.md lives in ~/.claude/ (installed via prjct setup)
+# Template is at templates/global/CLAUDE.md
+CLAUDE.md

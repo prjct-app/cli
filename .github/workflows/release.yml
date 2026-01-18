@@ -33,7 +33,6 @@ jobs:
           tar -czf prjct-cli-${{ steps.get_version.outputs.VERSION }}.tar.gz \
             --exclude='.git' \
             --exclude='node_modules' \
-            --exclude='packages/shared/node_modules' \
             --exclude='.github' \
             --exclude='*.log' \
             .
