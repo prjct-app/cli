@@ -17,6 +17,7 @@ import { AnalyticsCommands } from './analytics'
 import { MaintenanceCommands } from './maintenance'
 import { AnalysisCommands } from './analysis'
 import { SetupCommands } from './setup'
+import { ContextCommands } from './context'
 
 // Singleton instances of command groups
 const workflow = new WorkflowCommands()
@@ -26,6 +27,7 @@ const analytics = new AnalyticsCommands()
 const maintenance = new MaintenanceCommands()
 const analysis = new AnalysisCommands()
 const setup = new SetupCommands()
+const context = new ContextCommands()
 
 /**
  * Register categories
@@ -50,8 +52,6 @@ export function registerAllCommands(): void {
   const getMeta = (name: string) => COMMANDS.find(c => c.name === name)
 
   // Workflow commands
-  commandRegistry.registerMethod('work', workflow, 'now', getMeta('work'))
-  commandRegistry.registerMethod('now', workflow, 'now', getMeta('now'))
   commandRegistry.registerMethod('done', workflow, 'done', getMeta('done'))
   commandRegistry.registerMethod('next', workflow, 'next', getMeta('next'))
   commandRegistry.registerMethod('pause', workflow, 'pause', getMeta('pause'))
@@ -59,7 +59,6 @@ export function registerAllCommands(): void {
 
   // Planning commands
   commandRegistry.registerMethod('init', planning, 'init', getMeta('init'))
-  commandRegistry.registerMethod('feature', planning, 'feature', getMeta('feature'))
   commandRegistry.registerMethod('bug', planning, 'bug', getMeta('bug'))
   commandRegistry.registerMethod('idea', planning, 'idea', getMeta('idea'))
   commandRegistry.registerMethod('spec', planning, 'spec', getMeta('spec'))
@@ -86,7 +85,9 @@ export function registerAllCommands(): void {
   // Setup commands
   commandRegistry.registerMethod('start', setup, 'start', getMeta('start'))
   commandRegistry.registerMethod('setup', setup, 'setup', getMeta('setup'))
-  commandRegistry.registerMethod('migrateAll', setup, 'migrateAll', getMeta('migrate-all'))
+
+  // Context command (for Claude templates)
+  commandRegistry.registerMethod('context', context, 'context', getMeta('context'))
 }
 
 // Auto-register on import
@@ -100,5 +101,6 @@ export {
   analytics,
   maintenance,
   analysis,
-  setup
+  setup,
+  context
 }

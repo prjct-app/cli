@@ -132,18 +132,6 @@ export interface SetupOptions {
 }
 
 /**
- * Options for the migrate-all command.
- */
-export interface MigrateOptions {
-  /** Perform deep scan for legacy installations */
-  deepScan?: boolean
-  /** Remove legacy installations after migration */
-  removeLegacy?: boolean
-  /** Dry run without making changes */
-  dryRun?: boolean
-}
-
-/**
  * Options for the analyze command.
  */
 export interface AnalyzeOptions {

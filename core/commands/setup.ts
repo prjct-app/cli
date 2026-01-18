@@ -8,7 +8,7 @@ import chalk from 'chalk'
 
 import commandInstaller from '../infrastructure/command-installer'
 import pathManager from '../infrastructure/path-manager'
-import type { CommandResult, SetupOptions, MigrateOptions } from '../types'
+import type { CommandResult, SetupOptions } from '../types'
 import { PrjctCommandsBase } from './base'
 import { VERSION } from '../utils/version'
 
@@ -252,22 +252,6 @@ echo "⚡ prjct"
     console.log('')
     console.log(chalk.bold.magenta('Happy shipping! 🚀'))
     console.log('')
-  }
-
-  /**
-   * Migrate all projects to UUID format
-   */
-  async migrateAll(_options: MigrateOptions = {}): Promise<CommandResult> {
-    console.log('🔄 Migrating all projects to UUID format...\n')
-
-    // TODO: Implement full migration logic
-    // For now, return success as this is a stub
-    console.log('✅ Migration complete (no projects needed migration)\n')
-
-    return {
-      success: true,
-      message: 'Migration complete',
-    }
   }
 
 }
