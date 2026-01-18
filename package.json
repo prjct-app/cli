@@ -1,21 +1,17 @@
 {
   "name": "prjct-cli",
-  "version": "0.35.3",
+  "version": "0.35.4",
   "description": "Built for Claude - Ship fast, track progress, stay focused. Developer momentum tool for indie hackers.",
   "main": "core/index.ts",
   "bin": {
     "prjct": "bin/prjct"
   },
-  "workspaces": [
-    "packages/*"
-  ],
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org"
   },
   "scripts": {
     "build": "node scripts/build.js",
-    "build:shared": "bun run --filter '@prjct/shared' build",
     "build:node": "node scripts/build.js",
     "release": "node scripts/release.js",
     "release:patch": "node scripts/release.js patch",
@@ -91,15 +87,13 @@
     "bin/",
     "core/",
     "dist/",
-    "packages/shared/",
     "templates/",
     "scripts/postinstall.js",
     "scripts/build.js",
     "scripts/install.sh",
     "LICENSE",
     "README.md",
-    "CHANGELOG.md",
-    "CLAUDE.md"
+    "CHANGELOG.md"
   ],
   "trustedDependencies": [
     "chalk",

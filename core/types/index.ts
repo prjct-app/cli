@@ -36,7 +36,6 @@ export type {
   DesignOptions,
   CleanupOptions,
   SetupOptions,
-  MigrateOptions,
   AnalyzeOptions,
   // Migration types
   MigrationResult,
