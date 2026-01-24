@@ -206,7 +206,7 @@ function displayVersion(version: string): void {
 ${CYAN}p/${RESET} prjct v${version}
 ${DIM}Context layer for AI coding agents${RESET}
 
-${DIM}Global Providers:${RESET}`)
+${DIM}Providers:${RESET}`)
 
   // Claude status
   if (detection.claude.installed) {
@@ -236,9 +236,7 @@ ${DIM}Global Providers:${RESET}`)
     console.log(`  Antigravity   ${DIM}○ not installed${RESET}`)
   }
 
-  // Cursor status (per-project)
-  console.log(`
-${DIM}Project Providers:${RESET}`)
+  // Cursor status (project-level, but shown in same format)
   if (cursorConfigured) {
     console.log(`  Cursor IDE    ${GREEN}✓ ready${RESET} ${DIM}(use /sync, /task)${RESET}`)
   } else if (cursorExists) {
