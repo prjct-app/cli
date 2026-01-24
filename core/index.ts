@@ -9,7 +9,7 @@ import { commandRegistry } from './commands/registry'
 import './commands/register' // Ensure commands are registered
 import out from './utils/output'
 import type { CommandMeta } from './commands/registry'
-import { detectAllProviders, Providers } from './infrastructure/ai-provider'
+import { detectAllProviders, detectAntigravity, Providers } from './infrastructure/ai-provider'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
@@ -226,6 +226,16 @@ ${DIM}Global Providers:${RESET}`)
     console.log(`  Gemini CLI    ${DIM}○ not installed${RESET}`)
   }
 
+  // Antigravity status (global, skills-based)
+  const antigravityDetection = detectAntigravity()
+  if (antigravityDetection.installed) {
+    const status = antigravityDetection.skillInstalled ? `${GREEN}✓ ready${RESET}` : `${YELLOW}● detected${RESET}`
+    const hint = antigravityDetection.skillInstalled ? '' : ` ${DIM}(run prjct start)${RESET}`
+    console.log(`  Antigravity   ${status}${hint}`)
+  } else {
+    console.log(`  Antigravity   ${DIM}○ not installed${RESET}`)
+  }
+
   // Cursor status (per-project)
   console.log(`
 ${DIM}Project Providers:${RESET}`)
@@ -249,7 +259,7 @@ ${CYAN}https://prjct.app${RESET}
 function displayHelp(): void {
   console.log(`
 prjct - Context layer for AI coding agents
-Works with Claude Code, Gemini CLI, Cursor IDE, and more.
+Works with Claude Code, Gemini CLI, Antigravity, Cursor IDE, and more.
 
 QUICK START
 -----------

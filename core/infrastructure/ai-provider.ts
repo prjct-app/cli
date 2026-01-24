@@ -71,6 +71,29 @@ export const GeminiProvider: AIProviderConfig = {
 }
 
 /**
+ * Google Antigravity provider configuration
+ *
+ * An "agent-first" platform that manages multiple agents.
+ * Config is located in ~/.gemini/antigravity/
+ * Uses SKILL.md for skills and mcp_config.json for tools.
+ */
+export const AntigravityProvider: AIProviderConfig = {
+  name: 'antigravity',
+  displayName: 'Google Antigravity',
+  cliCommand: null, // Not a CLI command, but a platform/app
+  configDir: path.join(os.homedir(), '.gemini', 'antigravity'),
+  contextFile: 'ANTIGRAVITY.md',
+  skillsDir: path.join(os.homedir(), '.gemini', 'antigravity', 'global_skills'),
+  commandsDir: '.agent/skills', // Antigravity uses .agent/skills in projects
+  commandFormat: 'md', // Uses SKILL.md
+  settingsFile: 'mcp_config.json', // Uses MCP config
+  projectSettingsFile: null,
+  ignoreFile: '.agentignore', // Assumed
+  websiteUrl: 'https://gemini.google.com/app/antigravity',
+  docsUrl: 'https://gemini.google.com/app/antigravity',
+}
+
+/**
  * Cursor IDE provider configuration
  *
  * Key differences from Claude/Gemini:
@@ -106,6 +129,7 @@ export const Providers: Record<AIProviderName, AIProviderConfig> = {
   claude: ClaudeProvider,
   gemini: GeminiProvider,
   cursor: CursorProvider,
+  antigravity: AntigravityProvider,
 }
 
 // =============================================================================
@@ -243,6 +267,14 @@ Built with [Cursor](${config.websiteUrl})`,
     }
   }
 
+  if (provider === 'antigravity') {
+    return {
+      commitFooter: `🤖 Generated with [p/](https://www.prjct.app/)
+Powered by [Antigravity](${config.websiteUrl})`,
+      signature: '⚡ prjct + Antigravity',
+    }
+  }
+
   // Default: Claude
   return {
     commitFooter: `🤖 Generated with [p/](https://www.prjct.app/)
@@ -285,6 +317,47 @@ export function needsCursorRouterRegeneration(projectRoot: string): boolean {
   // Only check if .cursor/ exists (project uses Cursor)
   // and prjct router is missing
   return detection.detected && !detection.routerInstalled
+}
+
+// =============================================================================
+// Antigravity Detection
+// =============================================================================
+
+/**
+ * Result of Antigravity detection
+ */
+export interface AntigravityDetection {
+  /** Whether ~/.gemini/antigravity/ exists */
+  installed: boolean
+
+  /** Whether prjct skill is installed */
+  skillInstalled: boolean
+
+  /** Path to config directory */
+  configPath?: string
+}
+
+/**
+ * Detect if Google Antigravity is installed
+ *
+ * Antigravity is NOT a CLI command - it's a GUI platform.
+ * Detection is based on ~/.gemini/antigravity/ directory.
+ */
+export function detectAntigravity(): AntigravityDetection {
+  const configPath = AntigravityProvider.configDir
+  if (!configPath) {
+    return { installed: false, skillInstalled: false }
+  }
+
+  const installed = fs.existsSync(configPath)
+  const skillPath = path.join(configPath, 'skills', 'prjct', 'SKILL.md')
+  const skillInstalled = fs.existsSync(skillPath)
+
+  return {
+    installed,
+    skillInstalled,
+    configPath: installed ? configPath : undefined,
+  }
 }
 
 // =============================================================================
@@ -398,8 +471,10 @@ export default {
   ClaudeProvider,
   GeminiProvider,
   CursorProvider,
+  AntigravityProvider,
   detectProvider,
   detectAllProviders,
+  detectAntigravity,
   getActiveProvider,
   hasProviderConfig,
   getProviderBranding,
