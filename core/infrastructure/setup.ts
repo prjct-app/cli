@@ -307,6 +307,7 @@ async function installGeminiGlobalConfig(): Promise<{ success: boolean; action: 
  * configuration in .cursor/rules/ and .cursor/commands/.
  *
  * Creates minimal routers that point to the npm package for real instructions.
+ * Installs individual command files for better Cursor UX (/sync, /task, etc.)
  *
  * @param projectRoot - The project root directory
  * @returns Object with success status and files created
@@ -330,10 +331,9 @@ export async function installCursorProject(projectRoot: string): Promise<{
     const commandsDir = path.join(cursorDir, 'commands')
 
     const routerMdcDest = path.join(rulesDir, 'prjct.mdc')
-    const commandRouterDest = path.join(commandsDir, 'p.md')
 
     const routerMdcSource = path.join(getPackageRoot(), 'templates', 'cursor', 'router.mdc')
-    const commandRouterSource = path.join(getPackageRoot(), 'templates', 'cursor', 'p.md')
+    const cursorCommandsSource = path.join(getPackageRoot(), 'templates', 'cursor', 'commands')
 
     // Ensure directories exist
     fs.mkdirSync(rulesDir, { recursive: true })
@@ -345,10 +345,18 @@ export async function installCursorProject(projectRoot: string): Promise<{
       result.rulesCreated = true
     }
 
-    // Copy p.md → .cursor/commands/p.md
-    if (fs.existsSync(commandRouterSource)) {
-      fs.copyFileSync(commandRouterSource, commandRouterDest)
-      result.commandsCreated = true
+    // Copy individual command files → .cursor/commands/
+    // This enables /sync, /task, /done, /ship, etc. syntax in Cursor
+    if (fs.existsSync(cursorCommandsSource)) {
+      const commandFiles = fs.readdirSync(cursorCommandsSource)
+        .filter(f => f.endsWith('.md'))
+
+      for (const file of commandFiles) {
+        const src = path.join(cursorCommandsSource, file)
+        const dest = path.join(commandsDir, file)
+        fs.copyFileSync(src, dest)
+      }
+      result.commandsCreated = commandFiles.length > 0
     }
 
     // Update .gitignore to exclude prjct Cursor routers
@@ -373,7 +381,13 @@ async function addCursorToGitignore(projectRoot: string): Promise<boolean> {
     const entriesToAdd = [
       '# prjct Cursor routers (regenerated per-developer)',
       '.cursor/rules/prjct.mdc',
-      '.cursor/commands/p.md',
+      '.cursor/commands/sync.md',
+      '.cursor/commands/task.md',
+      '.cursor/commands/done.md',
+      '.cursor/commands/ship.md',
+      '.cursor/commands/bug.md',
+      '.cursor/commands/pause.md',
+      '.cursor/commands/resume.md',
     ]
 
     let content = ''
