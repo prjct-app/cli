@@ -5,14 +5,16 @@
  * - Claude Code (CLI): ~/.claude/, CLAUDE.md, .md commands
  * - Gemini CLI (CLI): ~/.gemini/, GEMINI.md, .toml commands
  * - Cursor IDE (GUI): .cursor/ (project-level), .mdc rules
+ * - Windsurf IDE (GUI): .windsurf/ (project-level), .md rules with YAML frontmatter
  *
  * Key differences:
  * - CLI providers (Claude/Gemini) have global config directories
- * - Cursor has project-level config only (no ~/.cursor/)
+ * - Cursor/Windsurf have project-level config only (no ~/.cursor/ or ~/.windsurf/)
  *
  * @see https://geminicli.com/docs/cli/gemini-md/
  * @see https://geminicli.com/docs/cli/skills/
  * @see https://cursor.com/docs/context/rules
+ * @see https://docs.windsurf.com/windsurf/cascade/memories
  */
 
 import { execSync } from 'child_process'
@@ -26,6 +28,7 @@ import type {
   ProviderSelectionResult,
   ProviderBranding,
   CursorProjectDetection,
+  WindsurfProjectDetection,
 } from '../types/provider'
 
 // =============================================================================
@@ -123,6 +126,36 @@ export const CursorProvider: AIProviderConfig = {
 }
 
 /**
+ * Windsurf IDE provider configuration
+ *
+ * Key differences from Cursor:
+ * - Uses .md files (not .mdc) with YAML frontmatter
+ * - Uses "workflows" instead of "commands"
+ * - Frontmatter uses `trigger: always_on` instead of `alwaysApply: true`
+ * - Character limits: 6000 per file, 12000 total
+ *
+ * @see https://docs.windsurf.com/windsurf/cascade/memories
+ * @see https://docs.windsurf.com/windsurf/cascade/workflows
+ */
+export const WindsurfProvider: AIProviderConfig = {
+  name: 'windsurf',
+  displayName: 'Windsurf IDE',
+  cliCommand: null,                    // Not a CLI - GUI app
+  configDir: null,                     // No global config directory
+  contextFile: 'prjct.md',             // Uses .md format (not .mdc)
+  skillsDir: null,                     // No skills directory
+  commandsDir: '.windsurf/workflows',  // Windsurf uses "workflows" not "commands"
+  rulesDir: '.windsurf/rules',
+  commandFormat: 'md',
+  settingsFile: null,
+  projectSettingsFile: null,
+  ignoreFile: '.windsurfignore',
+  isProjectLevel: true,                // Config is project-level only
+  websiteUrl: 'https://windsurf.com',
+  docsUrl: 'https://docs.windsurf.com',
+}
+
+/**
  * All available providers
  */
 export const Providers: Record<AIProviderName, AIProviderConfig> = {
@@ -130,6 +163,7 @@ export const Providers: Record<AIProviderName, AIProviderConfig> = {
   gemini: GeminiProvider,
   cursor: CursorProvider,
   antigravity: AntigravityProvider,
+  windsurf: WindsurfProvider,
 }
 
 // =============================================================================
@@ -275,6 +309,14 @@ Powered by [Antigravity](${config.websiteUrl})`,
     }
   }
 
+  if (provider === 'windsurf') {
+    return {
+      commitFooter: `🤖 Generated with [p/](https://www.prjct.app/)
+Built with [Windsurf](${config.websiteUrl})`,
+      signature: '⚡ prjct + Windsurf',
+    }
+  }
+
   // Default: Claude
   return {
     commitFooter: `🤖 Generated with [p/](https://www.prjct.app/)
@@ -315,6 +357,42 @@ export function needsCursorRouterRegeneration(projectRoot: string): boolean {
   const detection = detectCursorProject(projectRoot)
 
   // Only check if .cursor/ exists (project uses Cursor)
+  // and prjct router is missing
+  return detection.detected && !detection.routerInstalled
+}
+
+// =============================================================================
+// Windsurf Project Detection
+// =============================================================================
+
+/**
+ * Detect if a project is configured for Windsurf IDE
+ *
+ * Windsurf has NO global config (~/.windsurf/ doesn't exist).
+ * Detection is based on project-level .windsurf/ directory.
+ */
+export function detectWindsurfProject(projectRoot: string): WindsurfProjectDetection {
+  const windsurfDir = path.join(projectRoot, '.windsurf')
+  const rulesDir = path.join(windsurfDir, 'rules')
+  const routerPath = path.join(rulesDir, 'prjct.md')
+
+  const detected = fs.existsSync(windsurfDir)
+  const routerInstalled = fs.existsSync(routerPath)
+
+  return {
+    detected,
+    routerInstalled,
+    projectRoot: detected ? projectRoot : undefined,
+  }
+}
+
+/**
+ * Check if Windsurf routers need to be regenerated
+ */
+export function needsWindsurfRouterRegeneration(projectRoot: string): boolean {
+  const detection = detectWindsurfProject(projectRoot)
+
+  // Only check if .windsurf/ exists (project uses Windsurf)
   // and prjct router is missing
   return detection.detected && !detection.routerInstalled
 }
@@ -472,6 +550,7 @@ export default {
   GeminiProvider,
   CursorProvider,
   AntigravityProvider,
+  WindsurfProvider,
   detectProvider,
   detectAllProviders,
   detectAntigravity,
@@ -486,4 +565,6 @@ export default {
   selectProvider,
   detectCursorProject,
   needsCursorRouterRegeneration,
+  detectWindsurfProject,
+  needsWindsurfRouterRegeneration,
 }

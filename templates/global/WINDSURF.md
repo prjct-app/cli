@@ -1,0 +1,268 @@
+---
+trigger: always_on
+description: "prjct - Context layer for AI coding agents"
+---
+
+<!-- prjct:start - DO NOT REMOVE THIS MARKER -->
+# prjct-cli
+
+**Context layer for AI agents** - Project context for your AI coding assistant.
+
+## HOW TO USE PRJCT (Read This First)
+
+In Windsurf, use the `/workflow` syntax. Type `/` followed by the workflow name:
+
+```
+/sync       → Analyze project, generate agents
+/task X     → Start task with description X
+/done       → Complete current subtask
+/ship       → Ship feature with PR + version bump
+/bug X      → Report bug with description X
+/pause      → Pause current task
+/resume     → Resume paused task
+```
+
+Each workflow loads templates from the prjct-cli npm package.
+
+**Key Insight**: Templates are GUIDANCE, not scripts. Use your intelligence to adapt them to the situation.
+
+---
+
+## CRITICAL RULES
+
+### 0. PLAN BEFORE ACTION (NON-NEGOTIABLE)
+
+**For ANY prjct task, you MUST create a plan and get user approval BEFORE executing.**
+
+```
+EVERY prjct workflow (/task, /sync, /ship, etc.):
+1. STOP - Do not execute anything yet
+2. ANALYZE - Read relevant files, understand scope
+3. PLAN - Write a clear plan with:
+   - What will be done
+   - Files that will be modified
+   - Potential risks
+4. ASK - Present plan to user and wait for explicit approval
+5. EXECUTE - Only after user says "yes", "approved", "go ahead", etc.
+```
+
+**NEVER:**
+- Execute code changes without showing a plan first
+- Assume approval - wait for explicit confirmation
+- Skip the plan step for "simple" tasks
+
+**ALWAYS:**
+- Show the plan in a clear, readable format
+- Wait for user response before proceeding
+- If user asks questions, answer them before executing
+
+This rule applies to ALL prjct operations. No exceptions.
+
+---
+
+### 1. Path Resolution (MOST IMPORTANT)
+**ALL writes go to global storage**: `~/.prjct-cli/projects/{projectId}/`
+
+- **NEVER** write to `.prjct/` (config only, read-only)
+- **NEVER** write to `./` (current directory)
+- **ALWAYS** resolve projectId first from `.prjct/prjct.config.json`
+
+### 2. Before Any Workflow
+```
+1. Read .prjct/prjct.config.json → get projectId
+2. Set globalPath = ~/.prjct-cli/projects/{projectId}
+3. Execute workflow using globalPath for all writes
+4. Log to {globalPath}/memory/events.jsonl
+```
+
+### 3. Loading Templates
+```bash
+# Get npm global root
+npm root -g
+# → e.g., /opt/homebrew/lib/node_modules
+
+# Read template
+{npmRoot}/prjct-cli/templates/commands/{workflow}.md
+```
+
+### 4. Timestamps & UUIDs
+```bash
+# Timestamp (NEVER hardcode)
+node -e "console.log(new Date().toISOString())"
+
+# UUID
+node -e "console.log(require('crypto').randomUUID())"
+```
+
+### 5. Git Commit Footer (CRITICAL - ALWAYS INCLUDE)
+
+**Every commit made with prjct MUST include this footer:**
+
+```
+🤖 Generated with [p/](https://www.prjct.app/)
+Built with [Windsurf](https://www.windsurf.com/)
+
+```
+
+**This is NON-NEGOTIABLE. The prjct signature must appear in ALL commits.**
+
+### 6. Storage Rules (CROSS-AGENT COMPATIBILITY)
+
+**NEVER use temporary files** - Write directly to final destination:
+- WRONG: Create `.tmp/file.json`, then `mv` to final path
+- CORRECT: Write directly to `{globalPath}/storage/state.json`
+
+**JSON formatting** - Always use consistent format:
+- 2-space indentation
+- No trailing commas
+- Keys in logical order
+
+**Timestamps**: Always ISO-8601 with milliseconds (`.000Z`)
+**UUIDs**: Always v4 format (lowercase)
+
+---
+
+## CORE WORKFLOW
+
+```
+/sync  →  /task "description"  →  [work]  →  /done  →  /ship
+  │             │                               │          │
+  │             └─ Creates branch, breaks down  │          │
+  │                task, starts tracking        │          │
+  │                                             │          │
+  └─ Analyzes project, generates agents         │          │
+                                                │          │
+                           Completes subtask ───┘          │
+                                                           │
+                                     Ships feature, PR ────┘
+```
+
+### Quick Reference
+
+| Workflow | What It Does |
+|----------|--------------|
+| `/sync` | Analyze project, generate domain agents |
+| `/task <desc>` | Start task with auto-classification |
+| `/done` | Complete current subtask |
+| `/ship [name]` | Ship feature with PR + version bump |
+| `/pause` | Pause current task |
+| `/resume` | Resume paused task |
+| `/bug <desc>` | Report bug with auto-priority |
+
+---
+
+## ARCHITECTURE: Write-Through Pattern
+
+```
+User Action → Storage (JSON) → Context (MD) → Sync Events
+```
+
+| Layer | Path | Purpose |
+|-------|------|---------|
+| **Storage** | `storage/*.json` | Source of truth |
+| **Context** | `context/*.md` | AI-readable summaries |
+| **Memory** | `memory/events.jsonl` | Audit trail (append-only) |
+| **Agents** | `agents/*.md` | Domain specialists |
+| **Sync** | `sync/pending.json` | Backend sync queue |
+
+### File Structure
+```
+~/.prjct-cli/projects/{projectId}/
+├── storage/
+│   ├── state.json      # Current task (SOURCE OF TRUTH)
+│   ├── queue.json      # Task queue
+│   └── shipped.json    # Shipped features
+├── context/
+│   ├── now.md          # Current task (generated)
+│   └── next.md         # Queue (generated)
+├── config/
+│   └── skills.json     # Agent-to-skill mappings
+├── memory/
+│   └── events.jsonl    # Audit trail
+├── agents/             # Domain specialists (auto-generated)
+└── sync/
+    └── pending.json    # Events for backend
+```
+
+---
+
+## INTELLIGENT BEHAVIOR
+
+### When Starting Tasks (`/task`)
+1. **Analyze** - Understand what user wants to achieve
+2. **Classify** - Determine type: feature, bug, improvement, refactor, chore
+3. **Explore** - Find similar code, patterns, affected files
+4. **Ask** - Clarify ambiguities
+5. **Design** - Propose 2-3 approaches, get approval
+6. **Break down** - Create actionable subtasks
+7. **Track** - Update storage/state.json
+
+### When Completing Tasks (`/done`)
+1. Check if there are more subtasks
+2. If yes, advance to next subtask
+3. If no, task is complete
+4. Update storage, generate context
+
+### When Shipping (`/ship`)
+1. Run tests (if configured)
+2. Create PR (if on feature branch)
+3. Bump version
+4. Update CHANGELOG
+5. Create git tag
+
+### Key Intelligence Rules
+- **Read before write** - Always read existing files before modifying
+- **Explore before coding** - Understand codebase structure
+- **Ask when uncertain** - Clarify requirements
+- **Adapt templates** - Templates are guidance, not rigid scripts
+- **Log everything** - Append to memory/events.jsonl
+
+---
+
+## OUTPUT FORMAT
+
+Concise responses (< 4 lines):
+```
+✅ [What was done]
+
+[Key metrics]
+Next: [suggested action]
+```
+
+---
+
+## LOADING DOMAIN AGENTS
+
+When working on tasks, load relevant agents from `{globalPath}/agents/`:
+- `frontend.md` - Frontend patterns, components
+- `backend.md` - Backend patterns, APIs
+- `database.md` - Database patterns, queries
+- `uxui.md` - UX/UI guidelines
+- `testing.md` - Testing patterns
+- `devops.md` - CI/CD, containers
+
+These agents contain project-specific patterns. **USE THEM**.
+
+---
+
+## WINDSURF-SPECIFIC NOTES
+
+### Router Regeneration
+If workflow files in `.windsurf/workflows/` are deleted:
+- Run `/sync` to regenerate them
+- Or run `prjct init` in the project
+
+### Model Agnostic
+prjct works with any model Windsurf supports:
+- GPT-4, GPT-4o
+- Claude Opus, Claude Sonnet
+- Gemini Pro
+- And more
+
+The instructions are model-agnostic.
+
+---
+
+**Auto-managed by prjct-cli** | https://prjct.app
+
+<!-- prjct:end - DO NOT REMOVE THIS MARKER -->

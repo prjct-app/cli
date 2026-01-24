@@ -1,5 +1,45 @@
 # Changelog
 
+## [0.39.0] - 2026-01-24
+
+### Feature: Windsurf IDE Support (PRJ-66)
+
+prjct now works with **Windsurf IDE** as a project-level integration.
+
+**Architecture:**
+- Windsurf uses `.md` files (not `.mdc` like Cursor) with YAML frontmatter
+- Uses `trigger: always_on` instead of `alwaysApply: true`
+- Uses "workflows" directory instead of "commands"
+- Character limits: 6000 per file, 12000 total
+
+**New Files:**
+- `templates/windsurf/router.md` - Minimal router with YAML frontmatter
+- `templates/global/WINDSURF.md` - Full prjct instructions for Windsurf
+- `templates/windsurf/workflows/*.md` - Individual workflow files (sync, task, done, ship, bug, pause, resume)
+
+**Modified:**
+- `core/types/provider.ts` - Added `'windsurf'` to AIProviderName, added `WindsurfProjectDetection`
+- `core/infrastructure/ai-provider.ts` - Added WindsurfProvider, detectWindsurfProject(), branding
+- `core/infrastructure/setup.ts` - Added installWindsurfProject(), hasWindsurfProject()
+- `bin/prjct.ts` - Added Windsurf to --version display
+
+**Project Structure:**
+```
+.windsurf/
+├── rules/
+│   └── prjct.md          # Router (auto-generated)
+└── workflows/
+    ├── sync.md
+    ├── task.md
+    ├── done.md
+    ├── ship.md
+    ├── bug.md
+    ├── pause.md
+    └── resume.md
+```
+
+---
+
 ## [0.38.1] - 2026-01-24
 
 ### Docs: Complete Antigravity documentation
