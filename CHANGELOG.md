@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.36.1] - 2026-01-23
+
+### Docs: Minimal README
+
+Rewrote README from 645 lines to 100 lines. Clean, minimal, multi-platform focused.
+
+---
+
 ## [0.36.0] - 2026-01-23
 
 ### Feature: Dual Platform Support - Claude + Gemini (PRJ-62)
