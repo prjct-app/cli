@@ -10,14 +10,19 @@ alwaysApply: true
 
 ## HOW TO USE PRJCT (Read This First)
 
-When user types `p. <command>`, load the template from the prjct-cli npm package and execute it intelligently.
+In Cursor, use the `/command` syntax. Type `/` followed by the command name:
 
 ```
-p. sync     → templates/commands/sync.md
-p. task X   → templates/commands/task.md
-p. done     → templates/commands/done.md
-p. ship X   → templates/commands/ship.md
+/sync       → Analyze project, generate agents
+/task X     → Start task with description X
+/done       → Complete current subtask
+/ship       → Ship feature with PR + version bump
+/bug X      → Report bug with description X
+/pause      → Pause current task
+/resume     → Resume paused task
 ```
+
+Each command loads templates from the prjct-cli npm package.
 
 **Key Insight**: Templates are GUIDANCE, not scripts. Use your intelligence to adapt them to the situation.
 
@@ -90,29 +95,29 @@ Built with [Cursor](https://www.cursor.com/)
 ## CORE WORKFLOW
 
 ```
-p. sync  →  p. task "description"  →  [work]  →  p. done  →  p. ship
-   │              │                                  │            │
-   │              └─ Creates branch, breaks down     │            │
-   │                 task, starts tracking           │            │
-   │                                                 │            │
-   └─ Analyzes project, generates agents             │            │
-                                                     │            │
-                              Completes subtask ─────┘            │
-                                                                  │
-                                        Ships feature, PR, tag ───┘
+/sync  →  /task "description"  →  [work]  →  /done  →  /ship
+  │             │                               │          │
+  │             └─ Creates branch, breaks down  │          │
+  │                task, starts tracking        │          │
+  │                                             │          │
+  └─ Analyzes project, generates agents         │          │
+                                                │          │
+                           Completes subtask ───┘          │
+                                                           │
+                                     Ships feature, PR ────┘
 ```
 
 ### Quick Reference
 
-| Trigger | What It Does |
+| Command | What It Does |
 |---------|--------------|
-| `p. sync` | Analyze project, generate domain agents |
-| `p. task <desc>` | Start task with auto-classification |
-| `p. done` | Complete current subtask |
-| `p. ship [name]` | Ship feature with PR + version bump |
-| `p. pause` | Pause current task |
-| `p. resume` | Resume paused task |
-| `p. bug <desc>` | Report bug with auto-priority |
+| `/sync` | Analyze project, generate domain agents |
+| `/task <desc>` | Start task with auto-classification |
+| `/done` | Complete current subtask |
+| `/ship [name]` | Ship feature with PR + version bump |
+| `/pause` | Pause current task |
+| `/resume` | Resume paused task |
+| `/bug <desc>` | Report bug with auto-priority |
 
 ---
 
@@ -213,8 +218,8 @@ These agents contain project-specific patterns. **USE THEM**.
 ## CURSOR-SPECIFIC NOTES
 
 ### Router Regeneration
-If this file or `.cursor/commands/p.md` is deleted:
-- Run `p. sync` to regenerate them
+If command files in `.cursor/commands/` are deleted:
+- Run `/sync` to regenerate them
 - Or run `prjct init` in the project
 
 ### Model Agnostic

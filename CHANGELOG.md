@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.37.1] - 2026-01-24
+
+### Fix: Cursor Command Syntax (PRJ-65)
+
+Fixed Cursor IDE commands not working. Cursor uses `/command` syntax, not `p. command`.
+
+**Changes:**
+- Created individual command files: `/sync`, `/task`, `/done`, `/ship`, `/bug`, `/pause`, `/resume`
+- Updated `CURSOR.mdc` with correct `/command` syntax documentation
+- Updated `router.mdc` with new syntax examples
+- Updated `README.md` with Cursor-specific syntax section
+- Fixed `installCursorProject()` to install all individual command files
+
+**Cursor Syntax:**
+```
+/sync                  # Analyze project
+/task "description"    # Start task
+/done                  # Complete subtask
+/ship                  # Ship feature
+```
+
+---
+
 ## [0.37.0] - 2026-01-24
 
 ### Feature: Cursor IDE Support (PRJ-63)

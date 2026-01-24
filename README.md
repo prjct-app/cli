@@ -37,7 +37,9 @@ prjct start
 
 ## Usage
 
-Inside Claude Code, Gemini CLI, or Cursor IDE, use the `p.` prefix:
+### Claude Code / Gemini CLI
+
+Use the `p.` prefix:
 
 ```
 p. sync                    # Analyze project, generate agents
@@ -46,35 +48,49 @@ p. done                    # Complete current subtask
 p. ship "user auth"        # Ship with PR + version bump
 ```
 
+### Cursor IDE
+
+Use `/command` syntax:
+
+```
+/sync                      # Analyze project, generate agents
+/task "add user auth"      # Start a task
+/done                      # Complete current subtask
+/ship "user auth"          # Ship with PR + version bump
+```
+
 ### Core Workflow
 
 ```
-p. sync  →  p. task "..."  →  [code]  →  p. done  →  p. ship
+Claude/Gemini:  p. sync  →  p. task "..."  →  [code]  →  p. done  →  p. ship
+Cursor:         /sync    →  /task "..."    →  [code]  →  /done    →  /ship
 ```
 
 ## How It Works
 
 | Component | Claude Code | Gemini CLI | Cursor IDE |
 |-----------|-------------|------------|------------|
-| Router | `~/.claude/commands/p.md` | `~/.gemini/commands/p.toml` | `.cursor/commands/p.md` |
+| Router | `~/.claude/commands/p.md` | `~/.gemini/commands/p.toml` | `.cursor/commands/*.md` |
 | Config | `~/.claude/CLAUDE.md` | `~/.gemini/GEMINI.md` | `.cursor/rules/prjct.mdc` |
 | Storage | `~/.prjct-cli/projects/` | `~/.prjct-cli/projects/` | `~/.prjct-cli/projects/` |
 | Scope | Global | Global | Per-project |
+| Syntax | `p. command` | `p. command` | `/command` |
 
 All agents share the same project storage, so you can switch between them freely.
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `p. sync` | Analyze project, generate domain agents |
-| `p. task "desc"` | Start task with auto-classification |
-| `p. done` | Complete current subtask |
-| `p. ship "name"` | Ship feature with PR + version bump |
-| `p. pause` | Pause current task |
-| `p. resume` | Resume paused task |
-| `p. linear` | Linear integration |
-| `p. github` | GitHub Issues integration |
+| Claude/Gemini | Cursor | Description |
+|---------------|--------|-------------|
+| `p. sync` | `/sync` | Analyze project, generate domain agents |
+| `p. task "desc"` | `/task "desc"` | Start task with auto-classification |
+| `p. done` | `/done` | Complete current subtask |
+| `p. ship "name"` | `/ship "name"` | Ship feature with PR + version bump |
+| `p. pause` | `/pause` | Pause current task |
+| `p. resume` | `/resume` | Resume paused task |
+| `p. bug "desc"` | `/bug "desc"` | Report a bug |
+| `p. linear` | - | Linear integration |
+| `p. github` | - | GitHub Issues integration |
 
 ## CLI Commands
 
