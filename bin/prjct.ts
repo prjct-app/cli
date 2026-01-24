@@ -94,6 +94,8 @@ if (args[0] === 'start' || args[0] === 'setup') {
   const geminiConfigured = fs.existsSync(path.join(home, '.gemini', 'commands', 'p.toml'))
   const cursorDetected = fs.existsSync(path.join(cwd, '.cursor'))
   const cursorConfigured = fs.existsSync(path.join(cwd, '.cursor', 'rules', 'prjct.mdc'))
+  const windsurfDetected = fs.existsSync(path.join(cwd, '.windsurf'))
+  const windsurfConfigured = fs.existsSync(path.join(cwd, '.windsurf', 'rules', 'prjct.md'))
 
   const GREEN = '\x1b[32m'
 
@@ -129,9 +131,17 @@ ${DIM}Providers:${RESET}`)
     console.log(`  Cursor IDE    ${DIM}○ not detected${RESET}`)
   }
 
+  // Windsurf status (project-level)
+  if (windsurfDetected) {
+    const status = windsurfConfigured ? `${GREEN}✓ ready${RESET}` : `${YELLOW}● detected${RESET}`
+    console.log(`  Windsurf IDE  ${status}${DIM} (project)${RESET}`)
+  } else {
+    console.log(`  Windsurf IDE  ${DIM}○ not detected${RESET}`)
+  }
+
   console.log(`
 ${DIM}Run 'prjct start' to configure (CLI providers)${RESET}
-${DIM}Run 'prjct init' to configure (Cursor IDE)${RESET}
+${DIM}Run 'prjct init' to configure (Cursor/Windsurf IDE)${RESET}
 ${CYAN}https://prjct.app${RESET}
 `)
 } else {
