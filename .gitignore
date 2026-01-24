@@ -54,3 +54,14 @@ tmp/
 # CLAUDE.md lives in ~/.claude/ (installed via prjct setup)
 # Template is at templates/global/CLAUDE.md
 CLAUDE.md
+
+# Cursor IDE local config (routers are dynamically generated per-developer)
+.cursor/rules/prjct.mdc
+.cursor/commands/p.md
+.cursor/commands/sync.md
+.cursor/commands/task.md
+.cursor/commands/done.md
+.cursor/commands/ship.md
+.cursor/commands/bug.md
+.cursor/commands/pause.md
+.cursor/commands/resume.md
