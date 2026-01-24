@@ -2,7 +2,7 @@
 
 **Context layer for AI coding agents.**
 
-Works with Claude Code, Gemini CLI, Cursor IDE, and more.
+Works with Claude Code, Gemini CLI, Antigravity, Cursor IDE, and more.
 
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Ready-6366f1)](CLAUDE.md)
 [![Gemini CLI](https://img.shields.io/badge/Gemini%20CLI-Ready-4285F4)]()
