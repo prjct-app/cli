@@ -22,6 +22,8 @@ Manage Linear issues directly from prjct using MCP (no SDK needed).
 
 - `{projectId}`: From `.prjct/prjct.config.json`
 - `{globalPath}`: `~/.prjct-cli/projects/{projectId}`
+- `{agentName}`: Name of the AI agent (Claude Code, Gemini CLI)
+- `{agentSettingsPath}`: Path to agent settings (settings.json)
 - `{args}`: User-provided arguments (subcommand)
 
 ---
@@ -64,14 +66,14 @@ IF file not found:
 ## Step 2: Install MCP Server (if needed)
 
 ```
-READ: ~/.claude/settings.json (create {} if not exists)
+READ: {agentSettingsPath} (create {} if not exists)
 CHECK: Does mcpServers.linear exist?
 
 IF not exists:
   READ: templates/mcp-config.json
   EXTRACT: mcpServers.linear
 
-  MERGE into ~/.claude/settings.json:
+  MERGE into {agentSettingsPath}:
   {
     "mcpServers": {
       "linear": {
@@ -81,11 +83,11 @@ IF not exists:
     }
   }
 
-  WRITE: ~/.claude/settings.json
+  WRITE: {agentSettingsPath}
 
   OUTPUT: "✅ Installed Linear MCP server"
   OUTPUT: ""
-  OUTPUT: "⚠️ Restart Claude Code to activate the MCP server."
+  OUTPUT: "⚠️ Restart {agentName} to activate the MCP server."
   OUTPUT: "Then run `p. linear setup` again to complete configuration."
   STOP
 ```
@@ -99,7 +101,7 @@ CHECK: Are mcp__linear__* tools available?
 
 IF not available:
   OUTPUT: "Linear MCP is installed but not yet active."
-  OUTPUT: "Restart Claude Code, then run `p. linear setup` again."
+  OUTPUT: "Restart {agentName}, then run `p. linear setup` again."
   STOP
 ```
 
@@ -293,7 +295,7 @@ PARAMS:
 
 | Error | Action |
 |-------|--------|
-| MCP tools not found | "Add Linear MCP to settings, restart Claude" |
+| MCP tools not found | "Add Linear MCP to settings, restart {agentName}" |
 | OAuth failed | "Re-authenticate via browser" |
 | Issue not found | "Issue {ID} not found in Linear" |
 

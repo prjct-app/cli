@@ -17,17 +17,19 @@ export class SetupCommands extends PrjctCommandsBase {
    * First-time setup - Install commands to editors
    */
   async start(): Promise<CommandResult> {
-    console.log('🚀 Setting up prjct for Claude...\n')
+    const aiProvider = require('../infrastructure/ai-provider')
+    const activeProvider = aiProvider.getActiveProvider()
+    
+    console.log(`🚀 Setting up prjct for ${activeProvider.displayName}...\n`)
 
     const status = await commandInstaller.checkInstallation()
 
-    if (!status.claudeDetected) {
+    if (!status.claudeDetected) { // Note: variable name is legacy, checks active provider
       return {
         success: false,
         message:
-          '❌ Claude not detected.\n\nPlease install Claude Code or Claude Desktop first:\n' +
-          '  - Claude Code: https://claude.com/code\n' +
-          '  - Claude Desktop: https://claude.com/desktop',
+          `❌ ${activeProvider.displayName} not detected.\n\nPlease install it first:\n` +
+          `  - ${activeProvider.displayName}: ${activeProvider.docsUrl}`,
       }
     }
 
@@ -41,7 +43,7 @@ export class SetupCommands extends PrjctCommandsBase {
       }
     }
 
-    console.log(`\n✅ Installed ${result.installed?.length ?? 0} commands to:\n   ${result.path}`)
+    console.log(`\n✅ Installed ${result.installed?.length ?? 0} commands to:\n   ${pathManager.getDisplayPath(result.path || '')}`)
 
     if ((result.errors?.length ?? 0) > 0) {
       console.log(`\n⚠️  ${result.errors?.length ?? 0} errors:`)
@@ -50,9 +52,9 @@ export class SetupCommands extends PrjctCommandsBase {
 
     console.log('\n🎉 Setup complete!')
     console.log('\nNext steps:')
-    console.log('  1. Open Claude Code or Claude Desktop')
+    console.log(`  1. Open ${activeProvider.displayName}`)
     console.log('  2. Navigate to your project')
-    console.log('  3. Run: /p:init')
+    console.log('  3. Run: /p:init') // This might need adjustment for Gemini (p init) but /p:init is likely fine for now or we can make it dynamic
 
     return {
       success: true,
@@ -90,25 +92,32 @@ export class SetupCommands extends PrjctCommandsBase {
 
     console.log('\n📝 Installing global configuration...')
     const configResult = await commandInstaller.installGlobalConfig()
+    const displayPath = configResult.path ? pathManager.getDisplayPath(configResult.path) : 'global config'
 
     if (configResult.success) {
       if (configResult.action === 'created') {
-        console.log('✅ Created ~/.claude/CLAUDE.md')
+        console.log(`✅ Created ${displayPath}`)
       } else if (configResult.action === 'updated') {
-        console.log('✅ Updated ~/.claude/CLAUDE.md')
+        console.log(`✅ Updated ${displayPath}`)
       } else if (configResult.action === 'appended') {
-        console.log('✅ Added prjct config to ~/.claude/CLAUDE.md')
+        console.log(`✅ Added prjct config to ${displayPath}`)
       }
     } else {
       console.log(`⚠️  ${configResult.error}`)
     }
 
-    console.log('\n⚡ Installing status line...')
-    const statusLineResult = await this.installStatusLine()
-    if (statusLineResult.success) {
-      console.log('✅ Status line configured')
-    } else {
-      console.log(`⚠️  ${statusLineResult.error}`)
+    const aiProvider = require('../infrastructure/ai-provider')
+    const activeProvider = aiProvider.getActiveProvider()
+    
+    // Status line is currently Claude-only
+    if (activeProvider.name === 'claude') {
+      console.log('\n⚡ Installing status line...')
+      const statusLineResult = await this.installStatusLine()
+      if (statusLineResult.success) {
+        console.log('✅ Status line configured')
+      } else {
+        console.log(`⚠️  ${statusLineResult.error}`)
+      }
     }
 
     console.log('\n🎉 Setup complete!\n')
@@ -126,6 +135,7 @@ export class SetupCommands extends PrjctCommandsBase {
    */
   async installStatusLine(): Promise<{ success: boolean; error?: string }> {
     try {
+      // Note: This method is currently Claude-specific
       const claudeDir = pathManager.getClaudeDir()
       const settingsPath = pathManager.getClaudeSettingsPath()
       const statusLinePath = path.join(claudeDir, 'prjct-statusline.sh')

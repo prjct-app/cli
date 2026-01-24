@@ -74,14 +74,17 @@ export class AnalysisCommands extends PrjctCommandsBase {
 
       await generateContext(projectId!, projectPath)
 
+      const aiProvider = require('../infrastructure/ai-provider')
+      const activeProvider = aiProvider.getActiveProvider()
+
       const globalConfigResult = await commandInstaller.installGlobalConfig()
       if (globalConfigResult.success) {
-        console.log('📝 Updated ~/.claude/CLAUDE.md')
+        console.log(`📝 Updated ${pathManager.getDisplayPath(globalConfigResult.path!)}`)
       }
 
       console.log('✅ Analysis complete!\n')
       console.log('📄 Full report: analysis/repo-summary.md')
-      console.log('📝 Context: ~/.prjct-cli/projects/' + projectId + '/CLAUDE.md\n')
+      console.log(`📝 Context: ~/.prjct-cli/projects/${projectId}/${activeProvider.contextFile}\n`)
       console.log('Next steps:')
       console.log('• /p:sync → Generate agents based on stack')
       console.log('• /p:feature → Add a new feature')
@@ -220,7 +223,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
       // Update global config
       const globalConfigResult = await commandInstaller.installGlobalConfig()
       if (globalConfigResult.success) {
-        console.log('📝 Updated ~/.claude/CLAUDE.md')
+        console.log(`📝 Updated ${pathManager.getDisplayPath(globalConfigResult.path!)}`)
       }
 
       // Format output

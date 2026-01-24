@@ -89,8 +89,11 @@ if (args[0] === 'start' || args[0] === 'setup') {
   // Show version with provider status
   const detection = detectAllProviders()
   const home = os.homedir()
+  const cwd = process.cwd()
   const claudeConfigured = fs.existsSync(path.join(home, '.claude', 'commands', 'p.md'))
   const geminiConfigured = fs.existsSync(path.join(home, '.gemini', 'commands', 'p.toml'))
+  const cursorDetected = fs.existsSync(path.join(cwd, '.cursor'))
+  const cursorConfigured = fs.existsSync(path.join(cwd, '.cursor', 'rules', 'prjct.mdc'))
 
   const GREEN = '\x1b[32m'
 
@@ -118,8 +121,17 @@ ${DIM}Providers:${RESET}`)
     console.log(`  Gemini CLI    ${DIM}○ not installed${RESET}`)
   }
 
+  // Cursor status (project-level)
+  if (cursorDetected) {
+    const status = cursorConfigured ? `${GREEN}✓ ready${RESET}` : `${YELLOW}● detected${RESET}`
+    console.log(`  Cursor IDE    ${status}${DIM} (project)${RESET}`)
+  } else {
+    console.log(`  Cursor IDE    ${DIM}○ not detected${RESET}`)
+  }
+
   console.log(`
-${DIM}Run 'prjct start' to configure${RESET}
+${DIM}Run 'prjct start' to configure (CLI providers)${RESET}
+${DIM}Run 'prjct init' to configure (Cursor IDE)${RESET}
 ${CYAN}https://prjct.app${RESET}
 `)
 } else {

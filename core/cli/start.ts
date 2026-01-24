@@ -198,11 +198,16 @@ async function selectProviders(): Promise<AIProviderName[]> {
 }
 
 /**
- * Install router for a provider
+ * Install router for a CLI-based provider (Claude/Gemini)
+ * Note: Cursor uses project-level config, not global
  */
 async function installRouter(provider: AIProviderName): Promise<boolean> {
-  const home = os.homedir()
   const config = Providers[provider]
+
+  // Skip project-level providers (Cursor)
+  if (!config.configDir) {
+    return false
+  }
 
   try {
     // Create commands directory
@@ -231,11 +236,16 @@ async function installRouter(provider: AIProviderName): Promise<boolean> {
 }
 
 /**
- * Install global config for a provider
+ * Install global config for a CLI-based provider (Claude/Gemini)
+ * Note: Cursor uses project-level config, not global
  */
 async function installGlobalConfig(provider: AIProviderName): Promise<boolean> {
-  const home = os.homedir()
   const config = Providers[provider]
+
+  // Skip project-level providers (Cursor)
+  if (!config.configDir) {
+    return false
+  }
 
   try {
     // Ensure config directory exists
