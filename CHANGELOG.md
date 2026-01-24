@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.38.0] - 2026-01-24
+
+### Feature: Google Antigravity Support (PRJ-64)
+
+prjct now works with **Google Antigravity** as a skill (not MCP server).
+
+**Why Skills over MCP:**
+- Zero overhead (just SKILL.md files)
+- Cross-compatible with Claude Code skills
+- No daemon process needed
+- Aligned with prjct as "context layer"
+
+**New Files:**
+- `templates/global/ANTIGRAVITY.md` - Full prjct instructions
+- `templates/antigravity/SKILL.md` - Skill router for Antigravity
+
+**Modified:**
+- `core/infrastructure/ai-provider.ts` - Added AntigravityProvider, detectAntigravity()
+- `core/infrastructure/setup.ts` - Added installAntigravitySkill()
+- `core/index.ts` - Show Antigravity in --version
+
+**Skills Location:**
+```
+~/.gemini/antigravity/skills/prjct/SKILL.md
+```
+
+**Critical Rule Added:**
+All agent templates (CLAUDE.md, GEMINI.md, CURSOR.mdc, ANTIGRAVITY.md) now include:
+- Rule #0: Plan Before Action (NON-NEGOTIABLE)
+- Agent must create plan and get user approval before ANY execution
+
+---
+
 ## [0.37.1] - 2026-01-24
 
 ### Fix: Cursor Command Syntax (PRJ-65)

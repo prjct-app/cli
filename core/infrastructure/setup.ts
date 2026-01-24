@@ -29,7 +29,9 @@ import {
   selectProvider,
   detectProvider,
   detectAllProviders,
+  detectAntigravity,
   Providers,
+  AntigravityProvider,
 } from './ai-provider'
 import type { AIProviderName, AIProviderConfig } from '../types/provider'
 
@@ -185,6 +187,15 @@ export async function run(): Promise<SetupResults> {
     results.providers.push(providerResult)
   }
 
+  // Step 2b: Install for Antigravity if detected (separate from CLI providers)
+  const antigravityDetection = detectAntigravity()
+  if (antigravityDetection.installed) {
+    const antigravityResult = await installAntigravitySkill()
+    if (antigravityResult.success) {
+      console.log(`   ${GREEN}✓${NC} Antigravity skill installed`)
+    }
+  }
+
   // Step 3: Save version in editors-config
   await editorsConfig.saveConfig(VERSION, installer.getInstallPath(), selection.provider)
 
@@ -294,6 +305,55 @@ async function installGeminiGlobalConfig(): Promise<{ success: boolean; action: 
     console.error(`Gemini config warning: ${(error as Error).message}`)
     return { success: false, action: null }
   }
+}
+
+// =============================================================================
+// Antigravity Installation (Skills-based)
+// =============================================================================
+
+/**
+ * Install prjct as a skill for Google Antigravity
+ *
+ * Antigravity uses SKILL.md files in ~/.gemini/antigravity/skills/
+ * This is the recommended integration method (not MCP).
+ */
+export async function installAntigravitySkill(): Promise<{ success: boolean; action: string | null }> {
+  try {
+    const antigravitySkillsDir = path.join(os.homedir(), '.gemini', 'antigravity', 'skills')
+    const prjctSkillDir = path.join(antigravitySkillsDir, 'prjct')
+    const skillMdPath = path.join(prjctSkillDir, 'SKILL.md')
+    const templatePath = path.join(getPackageRoot(), 'templates', 'antigravity', 'SKILL.md')
+
+    // Ensure skills directory exists
+    fs.mkdirSync(prjctSkillDir, { recursive: true })
+
+    // Check if SKILL.md already exists
+    const fileExists = fs.existsSync(skillMdPath)
+
+    // Read template content
+    if (!fs.existsSync(templatePath)) {
+      console.error('Antigravity SKILL.md template not found')
+      return { success: false, action: null }
+    }
+
+    const templateContent = fs.readFileSync(templatePath, 'utf-8')
+
+    // Write SKILL.md
+    fs.writeFileSync(skillMdPath, templateContent, 'utf-8')
+
+    return { success: true, action: fileExists ? 'updated' : 'created' }
+  } catch (error) {
+    console.error(`Antigravity skill warning: ${(error as Error).message}`)
+    return { success: false, action: null }
+  }
+}
+
+/**
+ * Check if Antigravity skill needs installation or update
+ */
+export function needsAntigravityInstallation(): boolean {
+  const detection = detectAntigravity()
+  return detection.installed && !detection.skillInstalled
 }
 
 // =============================================================================
