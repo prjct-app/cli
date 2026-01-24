@@ -32,32 +32,42 @@ Your AI Agent (Claude/Gemini/Cursor)     prjct
 
 ```bash
 npm install -g prjct-cli
-prjct start
 ```
 
-## Usage
+## Quick Start
 
 ### Claude Code / Gemini CLI
 
-Use the `p.` prefix:
+```bash
+# 1. One-time global setup
+prjct start
 
-```
-p. sync                    # Analyze project, generate agents
+# 2. Initialize your project
+cd my-project
+prjct init
+
+# 3. Open in Claude Code or Gemini CLI and use:
+p. sync                    # Analyze project
 p. task "add user auth"    # Start a task
-p. done                    # Complete current subtask
-p. ship "user auth"        # Ship with PR + version bump
+p. done                    # Complete subtask
+p. ship                    # Ship with PR
 ```
 
 ### Cursor IDE
 
-Use `/command` syntax:
+```bash
+# 1. Initialize your project (no global setup needed)
+cd my-project
+prjct init
 
-```
-/sync                      # Analyze project, generate agents
+# 2. Open in Cursor and use:
+/sync                      # Analyze project
 /task "add user auth"      # Start a task
-/done                      # Complete current subtask
-/ship "user auth"          # Ship with PR + version bump
+/done                      # Complete subtask
+/ship                      # Ship with PR
 ```
+
+> **Note:** Cursor uses `/command` syntax. Commands are installed per-project in `.cursor/commands/`. If deleted, run `/sync` to regenerate.
 
 ### Core Workflow
 

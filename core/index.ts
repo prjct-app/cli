@@ -198,11 +198,15 @@ function displayVersion(version: string): void {
   const claudeConfigured = fs.existsSync(claudeCommandPath)
   const geminiConfigured = fs.existsSync(geminiCommandPath)
 
+  // Check current project for Cursor
+  const cursorConfigured = fs.existsSync(path.join(process.cwd(), '.cursor', 'commands', 'sync.md'))
+  const cursorExists = fs.existsSync(path.join(process.cwd(), '.cursor'))
+
   console.log(`
 ${CYAN}p/${RESET} prjct v${version}
 ${DIM}Context layer for AI coding agents${RESET}
 
-${DIM}Providers:${RESET}`)
+${DIM}Global Providers:${RESET}`)
 
   // Claude status
   if (detection.claude.installed) {
@@ -222,8 +226,19 @@ ${DIM}Providers:${RESET}`)
     console.log(`  Gemini CLI    ${DIM}○ not installed${RESET}`)
   }
 
+  // Cursor status (per-project)
   console.log(`
-${DIM}Run 'prjct start' to configure providers${RESET}
+${DIM}Project Providers:${RESET}`)
+  if (cursorConfigured) {
+    console.log(`  Cursor IDE    ${GREEN}✓ ready${RESET} ${DIM}(use /sync, /task)${RESET}`)
+  } else if (cursorExists) {
+    console.log(`  Cursor IDE    ${YELLOW}● detected${RESET} ${DIM}(run prjct init)${RESET}`)
+  } else {
+    console.log(`  Cursor IDE    ${DIM}○ no .cursor/ folder${RESET}`)
+  }
+
+  console.log(`
+${DIM}Run 'prjct start' for Claude/Gemini, 'prjct init' for Cursor${RESET}
 ${CYAN}https://prjct.app${RESET}
 `)
 }
@@ -234,45 +249,49 @@ ${CYAN}https://prjct.app${RESET}
 function displayHelp(): void {
   console.log(`
 prjct - Context layer for AI coding agents
-Works with Claude Code, Gemini CLI, and more.
+Works with Claude Code, Gemini CLI, Cursor IDE, and more.
 
 QUICK START
 -----------
-  1. prjct start          Configure your AI provider (Claude/Gemini)
-  2. Open project in your AI coding agent
-  3. Type: p. sync        Analyze project and generate context
-  4. Type: p. task "..."  Start working on a task
+  Claude/Gemini:
+    1. prjct start              Configure your AI provider
+    2. cd my-project && prjct init
+    3. Open in Claude Code or Gemini CLI
+    4. Type: p. sync            Analyze project
 
-HOW IT WORKS
-------------
-  prjct gives AI agents the context they need about your project.
-  Use "p." commands inside Claude Code or Gemini CLI:
+  Cursor IDE:
+    1. cd my-project && prjct init
+    2. Open in Cursor
+    3. Type: /sync              Analyze project
 
-    p. sync              Analyze project, generate domain agents
-    p. task "desc"       Start task with auto-classification
-    p. done              Complete current subtask
-    p. ship "name"       Ship feature with PR + version
+COMMANDS (inside your AI agent)
+-------------------------------
+  Claude/Gemini          Cursor            Description
+  ─────────────────────────────────────────────────────
+  p. sync                /sync             Analyze project
+  p. task "desc"         /task "desc"      Start a task
+  p. done                /done             Complete subtask
+  p. ship "name"         /ship "name"      Ship with PR
 
 TERMINAL COMMANDS (this CLI)
 ----------------------------
-  prjct start            First-time setup
+  prjct start            First-time setup (Claude/Gemini global config)
+  prjct init             Initialize project (required for Cursor)
   prjct setup            Reconfigure installations
-  prjct init             Initialize project (creates .prjct/)
   prjct sync             Sync project state
 
 EXAMPLES
 --------
-  # First time setup
+  # Claude Code / Gemini CLI (global setup, then per-project)
   $ prjct start
-
-  # Initialize a new project
   $ cd my-project && prjct init
-
-  # Inside Claude Code or Gemini CLI
   > p. sync
   > p. task "add user authentication"
-  > p. done
-  > p. ship "user auth"
+
+  # Cursor IDE (per-project only)
+  $ cd my-project && prjct init
+  > /sync
+  > /task "add user authentication"
 
 MORE INFO
 ---------
