@@ -498,6 +498,150 @@ export function needsCursorRegeneration(projectRoot: string): boolean {
   return fs.existsSync(cursorDir) && !fs.existsSync(routerPath)
 }
 
+// =============================================================================
+// Windsurf IDE Installation (Project-Level)
+// =============================================================================
+
+/**
+ * Install prjct routers for Windsurf IDE in a project
+ *
+ * Unlike Claude/Gemini which have global config, Windsurf uses project-level
+ * configuration in .windsurf/rules/ and .windsurf/workflows/.
+ *
+ * Key differences from Cursor:
+ * - Uses .md files (not .mdc) with YAML frontmatter
+ * - Uses "workflows" directory instead of "commands"
+ * - Frontmatter uses `trigger: always_on` instead of `alwaysApply: true`
+ *
+ * @param projectRoot - The project root directory
+ * @returns Object with success status and files created
+ */
+export async function installWindsurfProject(projectRoot: string): Promise<{
+  success: boolean
+  rulesCreated: boolean
+  workflowsCreated: boolean
+  gitignoreUpdated: boolean
+}> {
+  const result = {
+    success: false,
+    rulesCreated: false,
+    workflowsCreated: false,
+    gitignoreUpdated: false,
+  }
+
+  try {
+    const windsurfDir = path.join(projectRoot, '.windsurf')
+    const rulesDir = path.join(windsurfDir, 'rules')
+    const workflowsDir = path.join(windsurfDir, 'workflows')
+
+    const routerDest = path.join(rulesDir, 'prjct.md')
+
+    const routerSource = path.join(getPackageRoot(), 'templates', 'windsurf', 'router.md')
+    const windsurfWorkflowsSource = path.join(getPackageRoot(), 'templates', 'windsurf', 'workflows')
+
+    // Ensure directories exist
+    fs.mkdirSync(rulesDir, { recursive: true })
+    fs.mkdirSync(workflowsDir, { recursive: true })
+
+    // Copy router.md → .windsurf/rules/prjct.md
+    if (fs.existsSync(routerSource)) {
+      fs.copyFileSync(routerSource, routerDest)
+      result.rulesCreated = true
+    }
+
+    // Copy individual workflow files → .windsurf/workflows/
+    // This enables /sync, /task, /done, /ship, etc. syntax in Windsurf
+    if (fs.existsSync(windsurfWorkflowsSource)) {
+      const workflowFiles = fs.readdirSync(windsurfWorkflowsSource)
+        .filter(f => f.endsWith('.md'))
+
+      for (const file of workflowFiles) {
+        const src = path.join(windsurfWorkflowsSource, file)
+        const dest = path.join(workflowsDir, file)
+        fs.copyFileSync(src, dest)
+      }
+      result.workflowsCreated = workflowFiles.length > 0
+    }
+
+    // Update .gitignore to exclude prjct Windsurf routers
+    result.gitignoreUpdated = await addWindsurfToGitignore(projectRoot)
+
+    result.success = result.rulesCreated || result.workflowsCreated
+    return result
+  } catch (error) {
+    console.error(`Windsurf installation warning: ${(error as Error).message}`)
+    return result
+  }
+}
+
+/**
+ * Add Windsurf prjct routers to .gitignore
+ *
+ * These files are per-developer and regenerated automatically.
+ */
+async function addWindsurfToGitignore(projectRoot: string): Promise<boolean> {
+  try {
+    const gitignorePath = path.join(projectRoot, '.gitignore')
+    const entriesToAdd = [
+      '# prjct Windsurf routers (regenerated per-developer)',
+      '.windsurf/rules/prjct.md',
+      '.windsurf/workflows/sync.md',
+      '.windsurf/workflows/task.md',
+      '.windsurf/workflows/done.md',
+      '.windsurf/workflows/ship.md',
+      '.windsurf/workflows/bug.md',
+      '.windsurf/workflows/pause.md',
+      '.windsurf/workflows/resume.md',
+    ]
+
+    let content = ''
+    let fileExists = false
+
+    try {
+      content = fs.readFileSync(gitignorePath, 'utf-8')
+      fileExists = true
+    } catch (error) {
+      if (!isNotFoundError(error)) {
+        throw error
+      }
+    }
+
+    // Check if already added
+    if (content.includes('.windsurf/rules/prjct.md')) {
+      return false // Already added
+    }
+
+    // Append to .gitignore
+    const newContent = fileExists
+      ? content.trimEnd() + '\n\n' + entriesToAdd.join('\n') + '\n'
+      : entriesToAdd.join('\n') + '\n'
+
+    fs.writeFileSync(gitignorePath, newContent, 'utf-8')
+    return true
+  } catch (error) {
+    console.error(`Gitignore update warning: ${(error as Error).message}`)
+    return false
+  }
+}
+
+/**
+ * Check if a project has Windsurf configured (has .windsurf/ directory)
+ */
+export function hasWindsurfProject(projectRoot: string): boolean {
+  return fs.existsSync(path.join(projectRoot, '.windsurf'))
+}
+
+/**
+ * Check if Windsurf routers need regeneration
+ */
+export function needsWindsurfRegeneration(projectRoot: string): boolean {
+  const windsurfDir = path.join(projectRoot, '.windsurf')
+  const routerPath = path.join(windsurfDir, 'rules', 'prjct.md')
+
+  // Only check if .windsurf/ exists (project uses Windsurf)
+  return fs.existsSync(windsurfDir) && !fs.existsSync(routerPath)
+}
+
 /**
  * Migrate existing projects to add cliVersion field
  * This clears the status line warning after npm update
