@@ -8,9 +8,9 @@
    prjct/cli
 ```
 
-**Ship fast, track progress, stay focused.**
+**Context layer for AI coding agents.**
 
-Developer momentum tool for indie hackers and small teams.
+Works with Claude Code, Gemini CLI, and more.
 
 [![Claude Code Ready](https://img.shields.io/badge/Claude%20Code-Ready-6366f1)](CLAUDE.md)
 [![Claude Desktop Compatible](https://img.shields.io/badge/Claude%20Desktop-Compatible-6366f1)]()
@@ -652,4 +652,4 @@ MIT - Build something amazing!
 
 ---
 
-**Built for builders who ship, not managers who meet.**
+**Context layer for AI coding agents.** Works with Claude Code, Gemini CLI, and more.

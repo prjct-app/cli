@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.34.0] - 2026-01-23
+
+### Feature: Dual Platform Support - Claude + Gemini (PRJ-62)
+
+prjct now works with **both Claude Code and Gemini CLI** simultaneously. Use prjct with whichever AI coding agent you prefer.
+
+**New Branding:**
+- Tagline: "Context layer for AI agents"
+- Works with Claude Code, Gemini CLI, and more
+
+**Dual Provider Support:**
+- Auto-detect installed providers (Claude, Gemini, or both)
+- `prjct start` - Interactive setup for provider configuration
+- Install routers to both `~/.claude/commands/p.md` and `~/.gemini/commands/p.toml`
+- Shared storage format for cross-agent compatibility
+
+**New Files:**
+- `templates/global/GEMINI.md` - Gemini CLI global instructions
+- `templates/commands/p.toml` - Gemini CLI router
+- `templates/global/STORAGE-SPEC.md` - Canonical storage specification
+- `core/infrastructure/ai-provider.ts` - Multi-provider detection
+- `core/cli/start.ts` - Beautiful interactive setup UI
+
+**Improved CLI:**
+- `prjct --version` - Shows provider status with versions
+- `prjct --help` - Actually useful help with quick start guide
+- `prjct start` - Gorgeous ASCII art welcome screen
+
+**Storage Compatibility:**
+- Cross-agent JSON formatting rules
+- Identical storage output from Claude and Gemini
+- Ready for future remote sync to prjct.app
+
+---
+
 ## [0.33.5] - 2026-01-13
 
 ### Fix: Type Safety Improvements (PRJ-54)

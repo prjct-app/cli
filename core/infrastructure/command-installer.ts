@@ -1,12 +1,15 @@
 /**
  * Command Installer
- * Installs prjct commands in Claude Code and other editors.
+ * Installs prjct commands in Claude Code and other AI CLI agents.
  *
- * 100% Claude-focused architecture
- * Handles installation and synchronization of /p:* commands
- * to Claude's native slash command system
+ * Architecture:
+ * - Claude: Full command sync to ~/.claude/commands/p/ (workaround for bug #2422)
+ * - Gemini: Simple router (p.toml) to ~/.gemini/commands/ (handled by setup.ts)
  *
- * @version 0.5.0
+ * This module handles the more complex Claude installation.
+ * For Gemini, see setup.ts::installGeminiRouter()
+ *
+ * @version 0.6.0 - Multi-provider support
  */
 
 import fs from 'fs/promises'
@@ -519,6 +522,47 @@ export class CommandInstaller {
    */
   async installDocs(): Promise<{ success: boolean; error?: string }> {
     return installDocs()
+  }
+}
+
+// =============================================================================
+// Multi-Provider Support
+// =============================================================================
+
+/**
+ * Get installation paths for all providers
+ */
+export function getProviderPaths(): {
+  claude: { commands: string; config: string; router: string }
+  gemini: { commands: string; config: string; router: string }
+} {
+  const homeDir = os.homedir()
+  return {
+    claude: {
+      commands: path.join(homeDir, '.claude', 'commands', 'p'),
+      config: path.join(homeDir, '.claude'),
+      router: path.join(homeDir, '.claude', 'commands', 'p.md'),
+    },
+    gemini: {
+      commands: path.join(homeDir, '.gemini', 'commands'),
+      config: path.join(homeDir, '.gemini'),
+      router: path.join(homeDir, '.gemini', 'commands', 'p.toml'),
+    },
+  }
+}
+
+/**
+ * Check if provider router is installed
+ */
+export async function isRouterInstalled(provider: 'claude' | 'gemini'): Promise<boolean> {
+  const paths = getProviderPaths()
+  const routerPath = paths[provider].router
+
+  try {
+    await fs.access(routerPath)
+    return true
+  } catch {
+    return false
   }
 }
 

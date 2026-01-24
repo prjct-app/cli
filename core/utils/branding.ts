@@ -1,9 +1,13 @@
 /**
  * Branding Configuration for prjct-cli
- * Single source of truth for all branding across CLI and Claude Code
+ * Single source of truth for all branding across CLI and AI agents
+ *
+ * Supports multiple AI providers (Claude Code, Gemini CLI)
  */
 
 import chalk from 'chalk'
+import type { AIProviderName } from '../types/provider'
+import { getProviderBranding, Providers } from '../infrastructure/ai-provider'
 
 const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
 const SPINNER_SPEED = 80
@@ -30,6 +34,9 @@ interface Branding {
     website: string
     docs: string
   }
+  // Provider-aware methods
+  getCommitFooter: (provider?: AIProviderName) => string
+  getSignature: (provider?: AIProviderName) => string
 }
 
 const branding: Branding = {
@@ -52,13 +59,13 @@ const branding: Branding = {
       chalk.cyan('⚡') + ' ' + chalk.cyan('prjct') + ' ' + chalk.cyan(SPINNER_FRAMES[frame % 10]) + ' ' + chalk.dim(msg || '')
   },
 
-  // Template/Claude (plain text)
+  // Template (plain text)
   template: {
     header: '⚡ prjct',
     footer: '⚡ prjct'
   },
 
-  // Git commit footer
+  // Default Git commit footer (Claude - for backward compatibility)
   commitFooter: `🤖 Generated with [p/](https://www.prjct.app/)
 Designed for [Claude](https://www.anthropic.com/claude)`,
 
@@ -66,6 +73,16 @@ Designed for [Claude](https://www.anthropic.com/claude)`,
   urls: {
     website: 'https://prjct.app',
     docs: 'https://prjct.app/docs'
+  },
+
+  // Provider-aware commit footer
+  getCommitFooter: (provider: AIProviderName = 'claude') => {
+    return getProviderBranding(provider).commitFooter
+  },
+
+  // Provider-aware signature
+  getSignature: (provider: AIProviderName = 'claude') => {
+    return getProviderBranding(provider).signature
   }
 }
 

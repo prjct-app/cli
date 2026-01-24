@@ -1,12 +1,12 @@
 # AGENTS.md
 
-AI assistant guidance for **prjct-cli** - developer momentum tool for solo builders & small teams (2-5 people). Just ship. No BS.
+AI assistant guidance for **prjct-cli** - context layer for AI coding agents. Works with Claude Code, Gemini CLI, and more.
 
 ## What This Is
 
 **NOT** project management. NO sprints, story points, ceremonies, or meetings.
 
-**IS** frictionless progress tracking. Talk naturally, ship features, celebrate wins.
+**IS** a context layer that gives AI agents the project knowledge they need to work effectively.
 
 ---
 

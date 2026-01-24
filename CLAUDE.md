@@ -4,7 +4,7 @@ This file provides guidance to Claude Code when working with prjct-cli.
 
 ## Project Overview
 
-**prjct-cli** is a developer momentum tool. Track progress through natural language commands (`p. <command>`) without meetings or traditional PM overhead.
+**prjct-cli** is a context layer for AI agents. Project context for Claude Code, Gemini CLI, and more. Execute commands through natural language (`p. <command>`).
 
 ## HOW PRJCT WORKS
 

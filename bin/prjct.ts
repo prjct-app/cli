@@ -3,17 +3,67 @@
  *
  * Auto-setup on first use (like Astro, Vite, etc.)
  * Supports both Bun and Node.js runtimes.
+ *
+ * IMPORTANT: postinstall.js often doesn't run, so we detect and
+ * auto-install on first CLI use. This is the reliable path.
  */
 
+import fs from 'fs'
+import path from 'path'
+import os from 'os'
 import { VERSION } from '../core/utils/version'
 import editorsConfig from '../core/infrastructure/editors-config'
 import { startServer, DEFAULT_PORT } from '../core/server/server'
 import configManager from '../core/infrastructure/config-manager'
+import { detectAllProviders } from '../core/infrastructure/ai-provider'
+
+/**
+ * Check if routers are installed for detected providers
+ * Returns true if at least one provider has its router installed
+ */
+function checkRoutersInstalled(): boolean {
+  const home = os.homedir()
+  const detection = detectAllProviders()
+
+  // Check Claude router
+  if (detection.claude.installed) {
+    const claudeRouter = path.join(home, '.claude', 'commands', 'p.md')
+    if (!fs.existsSync(claudeRouter)) {
+      return false
+    }
+  }
+
+  // Check Gemini router
+  if (detection.gemini.installed) {
+    const geminiRouter = path.join(home, '.gemini', 'commands', 'p.toml')
+    if (!fs.existsSync(geminiRouter)) {
+      return false
+    }
+  }
+
+  // If no providers detected, consider it "installed" (setup will handle)
+  if (!detection.claude.installed && !detection.gemini.installed) {
+    return true
+  }
+
+  return true
+}
 
 // Check for special subcommands that bypass normal CLI
 const args = process.argv.slice(2)
 
-if (args[0] === 'dev') {
+// Colors for output
+const CYAN = '\x1b[36m'
+const YELLOW = '\x1b[33m'
+const DIM = '\x1b[2m'
+const BOLD = '\x1b[1m'
+const RESET = '\x1b[0m'
+
+if (args[0] === 'start' || args[0] === 'setup') {
+  // Interactive setup with beautiful UI
+  const { runStart } = await import('../core/cli/start')
+  await runStart()
+} else if (args[0] === 'dev') {
   // Dev mode - placeholder for future development server
   console.log('Dev mode is not yet implemented.')
   console.log('Use "prjct serve" to start the web server.')
@@ -35,26 +85,75 @@ if (args[0] === 'dev') {
     console.error('Server error:', (error as Error).message)
     process.exitCode = 1
   }
-} else {
-  // Ensure setup has run for this version
-  try {
-    const lastVersion = await editorsConfig.getLastVersion()
+} else if (args[0] === 'version' || args[0] === '-v' || args[0] === '--version') {
+  // Show version with provider status
+  const detection = detectAllProviders()
+  const home = os.homedir()
+  const claudeConfigured = fs.existsSync(path.join(home, '.claude', 'commands', 'p.md'))
+  const geminiConfigured = fs.existsSync(path.join(home, '.gemini', 'commands', 'p.toml'))
 
-    if (!lastVersion || lastVersion !== VERSION) {
-      console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-      console.log('🔧 One-time setup (v' + VERSION + ')...')
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n')
+  const GREEN = '\x1b[32m'
 
-      const { default: setup } = await import('../core/infrastructure/setup')
-      await setup.run()
+  console.log(`
+${CYAN}p/${RESET} prjct v${VERSION}
+${DIM}Context layer for AI coding agents${RESET}
 
-      console.log('✓ Setup complete!\n')
-    }
-  } catch (error) {
-    console.error('\n⚠️  Setup warning:', (error as Error).message)
-    console.error('You can run setup manually: prjct setup\n')
+${DIM}Providers:${RESET}`)
+
+  // Claude status
+  if (detection.claude.installed) {
+    const status = claudeConfigured ? `${GREEN}✓ ready${RESET}` : `${YELLOW}● installed${RESET}`
+    const ver = detection.claude.version ? ` (v${detection.claude.version})` : ''
+    console.log(`  Claude Code   ${status}${DIM}${ver}${RESET}`)
+  } else {
+    console.log(`  Claude Code   ${DIM}○ not installed${RESET}`)
   }
 
-  // Continue to main CLI logic
-  await import('../core/index')
+  // Gemini status
+  if (detection.gemini.installed) {
+    const status = geminiConfigured ? `${GREEN}✓ ready${RESET}` : `${YELLOW}● installed${RESET}`
+    const ver = detection.gemini.version ? ` (v${detection.gemini.version})` : ''
+    console.log(`  Gemini CLI    ${status}${DIM}${ver}${RESET}`)
+  } else {
+    console.log(`  Gemini CLI    ${DIM}○ not installed${RESET}`)
+  }
+
+  console.log(`
+${DIM}Run 'prjct start' to configure${RESET}
+${CYAN}https://prjct.app${RESET}
+`)
+} else {
+  // Check if setup has been done
+  const configPath = path.join(os.homedir(), '.prjct-cli', 'config', 'installed-editors.json')
+  const routersInstalled = checkRoutersInstalled()
+
+  if (!fs.existsSync(configPath) || !routersInstalled) {
+    // First time - prompt to run start
+    console.log(`
+${CYAN}${BOLD}  Welcome to prjct!${RESET}
+
+  Run ${BOLD}prjct start${RESET} to configure your AI providers.
+
+  ${DIM}This is a one-time setup that lets you choose between
+  Claude Code, Gemini CLI, or both.${RESET}
+`)
+    process.exitCode = 0
+  } else {
+    // Check version and auto-update if needed
+    try {
+      const lastVersion = await editorsConfig.getLastVersion()
+
+      if (lastVersion && lastVersion !== VERSION) {
+        console.log(`\n${YELLOW}ℹ${RESET} Updating prjct v${lastVersion} → v${VERSION}...\n`)
+
+        const { default: setup } = await import('../core/infrastructure/setup')
+        await setup.run()
+      }
+    } catch (error) {
+      // Silent fail on version check
+    }
+
+    // Continue to main CLI logic
+    await import('../core/index')
+  }
 }

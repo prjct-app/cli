@@ -9,6 +9,10 @@ import { commandRegistry } from './commands/registry'
 import './commands/register' // Ensure commands are registered
 import out from './utils/output'
 import type { CommandMeta } from './commands/registry'
+import { detectAllProviders, Providers } from './infrastructure/ai-provider'
+import fs from 'fs'
+import path from 'path'
+import os from 'os'
 
 interface ParsedCommandArgs {
   parsedArgs: string[]
@@ -27,7 +31,7 @@ async function main(): Promise<void> {
 
   if (['-v', '--version', 'version'].includes(commandName)) {
     const packageJson = await import('../package.json')
-    console.log(`prjct-cli v${packageJson.version}`)
+    displayVersion(packageJson.version)
     process.exit(0)
   }
 
@@ -177,44 +181,106 @@ function parseCommandArgs(cmd: CommandMeta, rawArgs: string[]): ParsedCommandArg
   return { parsedArgs, options }
 }
 
+// Colors for version display
+const CYAN = '\x1b[36m'
+const GREEN = '\x1b[32m'
+const YELLOW = '\x1b[33m'
+const DIM = '\x1b[2m'
+const RESET = '\x1b[0m'
+
+/**
+ * Display version with provider status
+ */
+function displayVersion(version: string): void {
+  const detection = detectAllProviders()
+
+  // Check if prjct commands are installed for each provider
+  const claudeCommandPath = path.join(os.homedir(), '.claude', 'commands', 'p.md')
+  const geminiCommandPath = path.join(os.homedir(), '.gemini', 'commands', 'p.toml')
+  const claudeConfigured = fs.existsSync(claudeCommandPath)
+  const geminiConfigured = fs.existsSync(geminiCommandPath)
+
+  console.log(`
+${CYAN}p/${RESET} prjct v${version}
+${DIM}Context layer for AI coding agents${RESET}
+
+${DIM}Providers:${RESET}`)
+
+  // Claude status
+  if (detection.claude.installed) {
+    const status = claudeConfigured ? `${GREEN}✓ ready${RESET}` : `${YELLOW}● installed${RESET}`
+    const ver = detection.claude.version ? ` (v${detection.claude.version})` : ''
+    console.log(`  Claude Code   ${status}${DIM}${ver}${RESET}`)
+  } else {
+    console.log(`  Claude Code   ${DIM}○ not installed${RESET}`)
+  }
+
+  // Gemini status
+  if (detection.gemini.installed) {
+    const status = geminiConfigured ? `${GREEN}✓ ready${RESET}` : `${YELLOW}● installed${RESET}`
+    const ver = detection.gemini.version ? ` (v${detection.gemini.version})` : ''
+    console.log(`  Gemini CLI    ${status}${DIM}${ver}${RESET}`)
+  } else {
+    console.log(`  Gemini CLI    ${DIM}○ not installed${RESET}`)
+  }
+
+  console.log(`
+${DIM}Run 'prjct start' to configure providers${RESET}
+${CYAN}https://prjct.app${RESET}
+`)
+}
+
 /**
  * Display help using registry
  */
 function displayHelp(): void {
-  const categories = commandRegistry.getAllCategories()
-  const categorizedCommands: Record<string, CommandMeta[]> = {}
+  console.log(`
+prjct - Context layer for AI coding agents
+Works with Claude Code, Gemini CLI, and more.
 
-  // Group commands by category (exclude deprecated)
-  commandRegistry.getTerminalCommands().forEach((cmd) => {
-    if (cmd.deprecated) return
+QUICK START
+-----------
+  1. prjct start          Configure your AI provider (Claude/Gemini)
+  2. Open project in your AI coding agent
+  3. Type: p. sync        Analyze project and generate context
+  4. Type: p. task "..."  Start working on a task
 
-    if (!categorizedCommands[cmd.group]) {
-      categorizedCommands[cmd.group] = []
-    }
-    categorizedCommands[cmd.group].push(cmd)
-  })
+HOW IT WORKS
+------------
+  prjct gives AI agents the context they need about your project.
+  Use "p." commands inside Claude Code or Gemini CLI:
 
-  console.log('prjct - Developer momentum tool for solo builders')
-  console.log('\nAvailable commands:\n')
+    p. sync              Analyze project, generate domain agents
+    p. task "desc"       Start task with auto-classification
+    p. done              Complete current subtask
+    p. ship "name"       Ship feature with PR + version
 
-  // Display commands by category
-  Object.entries(categorizedCommands).forEach(([categoryKey, cmds]) => {
-    const categoryInfo = categories.get(categoryKey)
-    console.log(`  ${categoryInfo?.title || categoryKey}:`)
+TERMINAL COMMANDS (this CLI)
+----------------------------
+  prjct start            First-time setup
+  prjct setup            Reconfigure installations
+  prjct init             Initialize project (creates .prjct/)
+  prjct sync             Sync project state
 
-    cmds.forEach((cmd) => {
-      const params = cmd.params ? ` ${cmd.params}` : ''
-      const spacing = ' '.repeat(Math.max(20 - cmd.name.length - params.length, 1))
-      const impl = cmd.implemented ? '' : ' (not implemented)'
-      console.log(`    ${cmd.name}${params}${spacing}${cmd.description}${impl}`)
-    })
+EXAMPLES
+--------
+  # First time setup
+  $ prjct start
 
-    console.log('')
-  })
+  # Initialize a new project
+  $ cd my-project && prjct init
 
-  const stats = commandRegistry.getStats()
-  console.log(`Total: ${stats.implemented} implemented / ${stats.total} commands`)
-  console.log('\nFor more info: https://prjct.app')
+  # Inside Claude Code or Gemini CLI
+  > p. sync
+  > p. task "add user authentication"
+  > p. done
+  > p. ship "user auth"
+
+MORE INFO
+---------
+  Documentation:  https://prjct.app
+  GitHub:         https://github.com/jlopezlira/prjct-cli
+`)
 }
 
 // Run CLI
