@@ -6,10 +6,14 @@
  *
  * Skill sources (in priority order):
  * 1. Project: .prjct/skills/*.md
- * 2. Global: ~/.prjct-cli/skills/*.md
- * 3. Built-in: templates/skills/*.md
+ * 2. Provider: ~/.claude/skills/* or ~/.gemini/skills/* (SKILL.md format)
+ * 3. Global: ~/.prjct-cli/skills/*.md
+ * 4. Built-in: templates/skills/*.md
  *
- * @version 1.0.0
+ * Note: Claude Code and Gemini CLI use identical SKILL.md format,
+ * so skills are compatible between both providers.
+ *
+ * @version 1.1.0
  */
 
 import fs from 'fs/promises'
@@ -17,6 +21,7 @@ import path from 'path'
 import { glob } from 'glob'
 
 import type { SkillMetadata, Skill, SkillSearchResult } from '../types'
+import type { AIProviderName } from '../types/provider'
 
 /**
  * Parse YAML-like frontmatter from markdown
@@ -57,9 +62,17 @@ function parseFrontmatter(content: string): { metadata: Record<string, unknown>;
 
 /**
  * Convert filename to skill ID
+ * For SKILL.md files, uses the parent directory name
  */
 function fileToSkillId(filePath: string): string {
   const basename = path.basename(filePath, '.md')
+
+  // For SKILL.md files (provider format), use parent directory name
+  if (basename.toUpperCase() === 'SKILL') {
+    const dirName = path.basename(path.dirname(filePath))
+    return dirName.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+  }
+
   return basename.toLowerCase().replace(/[^a-z0-9]+/g, '-')
 }
 
@@ -70,16 +83,27 @@ class SkillService {
   /**
    * Get all skill directories in order of priority
    */
-  private getSkillDirs(projectPath?: string): Array<{ dir: string; source: Skill['source'] }> {
+  private getSkillDirs(projectPath?: string, provider?: AIProviderName): Array<{ dir: string; source: Skill['source']; isProviderSkill?: boolean }> {
     const homeDir = process.env.HOME || process.env.USERPROFILE || '~'
-    const dirs: Array<{ dir: string; source: Skill['source'] }> = []
+    const dirs: Array<{ dir: string; source: Skill['source']; isProviderSkill?: boolean }> = []
 
     // Project skills (highest priority)
     if (projectPath) {
       dirs.push({ dir: path.join(projectPath, '.prjct', 'skills'), source: 'project' })
     }
 
-    // Global skills
+    // Provider skills (Claude or Gemini)
+    // Both use SKILL.md format, so skills are compatible
+    if (provider) {
+      const providerDir = provider === 'gemini' ? '.gemini' : '.claude'
+      dirs.push({ dir: path.join(homeDir, providerDir, 'skills'), source: 'global', isProviderSkill: true })
+    } else {
+      // Check both providers if no specific one is set
+      dirs.push({ dir: path.join(homeDir, '.claude', 'skills'), source: 'global', isProviderSkill: true })
+      dirs.push({ dir: path.join(homeDir, '.gemini', 'skills'), source: 'global', isProviderSkill: true })
+    }
+
+    // prjct global skills
     dirs.push({ dir: path.join(homeDir, '.prjct-cli', 'skills'), source: 'global' })
 
     // Built-in skills (lowest priority)
@@ -123,19 +147,31 @@ class SkillService {
   /**
    * Load all skills from all sources
    */
-  async loadSkills(projectPath?: string): Promise<void> {
+  async loadSkills(projectPath?: string, provider?: AIProviderName): Promise<void> {
     this.skills.clear()
-    const dirs = this.getSkillDirs(projectPath)
+    const dirs = this.getSkillDirs(projectPath, provider)
 
-    for (const { dir, source } of dirs) {
+    for (const { dir, source, isProviderSkill } of dirs) {
       try {
-        const files = await glob('*.md', { cwd: dir, absolute: true })
-
-        for (const file of files) {
-          const skill = await this.loadSkill(file, source)
-          if (skill && !this.skills.has(skill.id)) {
-            // Don't override higher priority skills
-            this.skills.set(skill.id, skill)
+        if (isProviderSkill) {
+          // Provider skills use SKILL.md in subdirectories
+          // e.g., ~/.claude/skills/my-skill/SKILL.md
+          const skillDirs = await glob('*/SKILL.md', { cwd: dir, absolute: true })
+          for (const file of skillDirs) {
+            const skill = await this.loadSkill(file, source)
+            if (skill && !this.skills.has(skill.id)) {
+              this.skills.set(skill.id, skill)
+            }
+          }
+        } else {
+          // Regular .md files in directory
+          const files = await glob('*.md', { cwd: dir, absolute: true })
+          for (const file of files) {
+            const skill = await this.loadSkill(file, source)
+            if (skill && !this.skills.has(skill.id)) {
+              // Don't override higher priority skills
+              this.skills.set(skill.id, skill)
+            }
           }
         }
       } catch (_error) {

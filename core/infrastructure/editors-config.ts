@@ -1,21 +1,25 @@
 /**
- * EditorsConfig - Manages Claude installation tracking
+ * EditorsConfig - Manages AI CLI installation tracking
  *
- * Tracks prjct commands installation in Claude (Code + Desktop),
+ * Tracks prjct commands installation in AI CLIs (Claude Code, Gemini CLI),
  * enabling automatic updates when npm package is updated.
  *
  * Config location: ~/.prjct-cli/config/installed-editors.json
  *
- * @version 0.5.0
+ * @version 0.6.0
  */
 
 import fs from 'fs/promises'
 import path from 'path'
 import os from 'os'
+import type { AIProviderName } from '../types/provider'
 
 interface EditorConfig {
   version: string
+  /** @deprecated Use 'provider' instead */
   editor: string
+  /** AI provider name (claude or gemini) */
+  provider: AIProviderName
   lastInstall: string
   path: string
 }
@@ -61,15 +65,16 @@ class EditorsConfig {
   /**
    * Save installation configuration
    */
-  async saveConfig(version: string, claudePath: string): Promise<boolean> {
+  async saveConfig(version: string, installPath: string, provider: AIProviderName = 'claude'): Promise<boolean> {
     try {
       await this.ensureConfigDir()
 
       const config: EditorConfig = {
         version,
-        editor: 'claude',
+        editor: provider, // deprecated, kept for backward compatibility
+        provider,
         lastInstall: new Date().toISOString(),
-        path: claudePath,
+        path: installPath,
       }
 
       await fs.writeFile(this.configFile, JSON.stringify(config, null, 2), 'utf-8')
@@ -79,6 +84,15 @@ class EditorsConfig {
       console.error('[editors-config] Error saving config:', (error as Error).message)
       return false
     }
+  }
+
+  /**
+   * Get the configured provider
+   */
+  async getProvider(): Promise<AIProviderName | null> {
+    const config = await this.loadConfig()
+    if (!config) return null
+    return config.provider || (config.editor as AIProviderName) || 'claude'
   }
 
   /**

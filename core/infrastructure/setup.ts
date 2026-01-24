@@ -2,10 +2,15 @@
  * Setup Module - Core installation logic
  *
  * Executes ALL setup needed for prjct-cli:
- * 1. Install Claude Code CLI if missing
- * 2. Sync commands to ~/.claude/commands/p/
- * 3. Install global config ~/.claude/CLAUDE.md
- * 4. Save version in editors-config
+ * 1. Detect AI provider (Claude Code or Gemini CLI)
+ * 2. Install CLI if missing
+ * 3. Sync commands to provider's commands directory
+ * 4. Install global config (CLAUDE.md or GEMINI.md)
+ * 5. Save version in editors-config
+ *
+ * Supports multiple AI CLI agents:
+ * - Claude Code: ~/.claude/commands/p/, CLAUDE.md
+ * - Gemini CLI: ~/.gemini/commands/p/, GEMINI.md
  *
  * This module is called from:
  * - core/index.js (on first CLI use)
@@ -20,6 +25,13 @@ import installer from './command-installer'
 import editorsConfig from './editors-config'
 import { VERSION, getPackageRoot } from '../utils/version'
 import { isNotFoundError } from '../types/fs'
+import {
+  selectProvider,
+  detectProvider,
+  detectAllProviders,
+  Providers,
+} from './ai-provider'
+import type { AIProviderName, AIProviderConfig } from '../types/provider'
 
 // Colors
 const GREEN = '\x1b[32m'
@@ -27,108 +39,261 @@ const YELLOW = '\x1b[33m'
 const DIM = '\x1b[2m'
 const NC = '\x1b[0m'
 
+interface ProviderSetupResult {
+  provider: AIProviderName
+  cliInstalled: boolean
+  commandsAdded: number
+  commandsUpdated: number
+  configAction: string | null
+}
+
 interface SetupResults {
-  claudeInstalled: boolean
+  provider: AIProviderName  // Primary provider (for backward compat)
+  providers: ProviderSetupResult[]  // All installed providers
+  cliInstalled: boolean
   commandsAdded: number
   commandsUpdated: number
   configAction: string | null
 }
 
 /**
- * Check if Claude Code CLI is installed
+ * Check if an AI CLI is installed
  */
-async function hasClaudeCodeCLI(): Promise<boolean> {
-  try {
-    execSync('which claude', { stdio: 'ignore' })
-    return true
-  } catch (_error) {
-    return false
-  }
+async function hasAICLI(provider: AIProviderConfig): Promise<boolean> {
+  const detection = detectProvider(provider.name)
+  return detection.installed
 }
 
 /**
- * Install Claude Code CLI
+ * Install AI CLI for the specified provider
  */
-async function installClaudeCode(): Promise<boolean> {
+async function installAICLI(provider: AIProviderConfig): Promise<boolean> {
+  const packageName = provider.name === 'claude'
+    ? '@anthropic-ai/claude-code'
+    : '@google/gemini-cli'
+
   try {
-    console.log(`${YELLOW}📦 Claude Code not found. Installing...${NC}`)
+    console.log(`${YELLOW}📦 ${provider.displayName} not found. Installing...${NC}`)
     console.log('')
-    execSync('npm install -g @anthropic-ai/claude-code', { stdio: 'inherit' })
+    execSync(`npm install -g ${packageName}`, { stdio: 'inherit' })
     console.log('')
-    console.log(`${GREEN}✓${NC} Claude Code installed successfully`)
+    console.log(`${GREEN}✓${NC} ${provider.displayName} installed successfully`)
     console.log('')
     return true
   } catch (error) {
-    console.log(`${YELLOW}⚠️  Failed to install Claude Code: ${(error as Error).message}${NC}`)
-    console.log(`${DIM}Please install manually: npm install -g @anthropic-ai/claude-code${NC}`)
+    console.log(`${YELLOW}⚠️  Failed to install ${provider.displayName}: ${(error as Error).message}${NC}`)
+    console.log(`${DIM}Please install manually: npm install -g ${packageName}${NC}`)
     console.log('')
     return false
   }
 }
 
 /**
- * Main setup function
+ * Main setup function - installs for ALL detected providers
  */
 export async function run(): Promise<SetupResults> {
+  // Step 0: Detect all available providers
+  const detection = detectAllProviders()
+  const selection = selectProvider()
+  const primaryProvider = Providers[selection.provider]
+
   const results: SetupResults = {
-    claudeInstalled: false,
+    provider: selection.provider,
+    providers: [],
+    cliInstalled: false,
     commandsAdded: 0,
     commandsUpdated: 0,
     configAction: null,
   }
 
-  // Step 1: Ensure Claude Code CLI is installed
-  const hasClaude = await hasClaudeCodeCLI()
+  // Step 1: Install for each detected provider
+  const providerNames: AIProviderName[] = ['claude', 'gemini']
 
-  if (!hasClaude) {
-    const installed = await installClaudeCode()
-    if (installed) {
-      results.claudeInstalled = true
-    } else {
-      throw new Error('Claude Code installation failed')
+  for (const providerName of providerNames) {
+    const providerConfig = Providers[providerName]
+    const providerDetection = detection[providerName]
+
+    const providerResult: ProviderSetupResult = {
+      provider: providerName,
+      cliInstalled: false,
+      commandsAdded: 0,
+      commandsUpdated: 0,
+      configAction: null,
     }
+
+    // Check if CLI is installed
+    if (!providerDetection.installed) {
+      // Only prompt to install the primary (selected) provider
+      if (providerName === selection.provider) {
+        const installed = await installAICLI(providerConfig)
+        if (installed) {
+          providerResult.cliInstalled = true
+          results.cliInstalled = true
+        } else {
+          throw new Error(`${providerConfig.displayName} installation failed`)
+        }
+      } else {
+        // Skip non-primary providers that aren't installed
+        continue
+      }
+    }
+
+    // Step 2: Install commands and config for this provider
+    if (providerName === 'claude') {
+      const claudeDetected = await installer.detectClaude()
+
+      if (claudeDetected) {
+        // Sync commands
+        const syncResult = await installer.syncCommands()
+        if (syncResult.success) {
+          providerResult.commandsAdded = syncResult.added
+          providerResult.commandsUpdated = syncResult.updated
+          results.commandsAdded += syncResult.added
+          results.commandsUpdated += syncResult.updated
+        }
+
+        // Install global configuration
+        const configResult = await installer.installGlobalConfig()
+        if (configResult.success) {
+          providerResult.configAction = configResult.action
+          if (!results.configAction) {
+            results.configAction = configResult.action
+          }
+        }
+
+        // Install documentation files
+        await installer.installDocs()
+
+        // Install status line (Claude only)
+        await installStatusLine()
+      }
+    } else if (providerName === 'gemini') {
+      // Gemini provider - install router and global config
+      const geminiInstalled = await installGeminiRouter()
+      if (geminiInstalled) {
+        providerResult.commandsAdded = 1
+        results.commandsAdded += 1
+      }
+
+      const geminiConfigResult = await installGeminiGlobalConfig()
+      if (geminiConfigResult.success) {
+        providerResult.configAction = geminiConfigResult.action
+      }
+    }
+
+    results.providers.push(providerResult)
   }
 
-  // Step 2: Detect Claude directory (for commands)
-  const claudeDetected = await installer.detectClaude()
+  // Step 3: Save version in editors-config
+  await editorsConfig.saveConfig(VERSION, installer.getInstallPath(), selection.provider)
 
-  if (claudeDetected) {
-    // Step 3: Sync commands
-    const syncResult = await installer.syncCommands()
-
-    if (syncResult.success) {
-      results.commandsAdded = syncResult.added
-      results.commandsUpdated = syncResult.updated
-    }
-
-    // Step 4: Install global configuration
-    const configResult = await installer.installGlobalConfig()
-
-    if (configResult.success) {
-      results.configAction = configResult.action
-    }
-
-    // Step 4b: Install documentation files
-    await installer.installDocs()
-
-    // Step 4c: Install status line with version check
-    await installStatusLine()
-  }
-
-  // Step 5: Save version in editors-config
-  await editorsConfig.saveConfig(VERSION, installer.getInstallPath())
-
-  // Step 6: Migrate existing projects to add cliVersion
+  // Step 4: Migrate existing projects to add cliVersion
   await migrateProjectsCliVersion()
 
-  // Show results
-  showResults(results)
+  // Show results for all providers
+  for (const providerResult of results.providers) {
+    showResults(providerResult, Providers[providerResult.provider])
+  }
 
   return results
 }
 
 // Default export for CommonJS require
 export default { run }
+
+/**
+ * Install the p.toml router for Gemini CLI
+ */
+async function installGeminiRouter(): Promise<boolean> {
+  try {
+    const geminiCommandsDir = path.join(os.homedir(), '.gemini', 'commands')
+    const routerSource = path.join(getPackageRoot(), 'templates', 'commands', 'p.toml')
+    const routerDest = path.join(geminiCommandsDir, 'p.toml')
+
+    // Ensure commands directory exists
+    fs.mkdirSync(geminiCommandsDir, { recursive: true })
+
+    // Copy router
+    if (fs.existsSync(routerSource)) {
+      fs.copyFileSync(routerSource, routerDest)
+      return true
+    }
+    return false
+  } catch (error) {
+    console.error(`Gemini router warning: ${(error as Error).message}`)
+    return false
+  }
+}
+
+/**
+ * Install or update global GEMINI.md configuration
+ */
+async function installGeminiGlobalConfig(): Promise<{ success: boolean; action: string | null }> {
+  try {
+    const geminiDir = path.join(os.homedir(), '.gemini')
+    const globalConfigPath = path.join(geminiDir, 'GEMINI.md')
+    const templatePath = path.join(getPackageRoot(), 'templates', 'global', 'GEMINI.md')
+
+    // Ensure ~/.gemini directory exists
+    fs.mkdirSync(geminiDir, { recursive: true })
+
+    // Read template content
+    const templateContent = fs.readFileSync(templatePath, 'utf-8')
+
+    // Check if global config already exists
+    let existingContent = ''
+    let fileExists = false
+
+    try {
+      existingContent = fs.readFileSync(globalConfigPath, 'utf-8')
+      fileExists = true
+    } catch (error) {
+      if (isNotFoundError(error)) {
+        fileExists = false
+      } else {
+        throw error
+      }
+    }
+
+    if (!fileExists) {
+      // Create new file with full template
+      fs.writeFileSync(globalConfigPath, templateContent, 'utf-8')
+      return { success: true, action: 'created' }
+    }
+
+    // File exists - perform intelligent merge
+    const startMarker = '<!-- prjct:start - DO NOT REMOVE THIS MARKER -->'
+    const endMarker = '<!-- prjct:end - DO NOT REMOVE THIS MARKER -->'
+
+    const hasMarkers = existingContent.includes(startMarker) && existingContent.includes(endMarker)
+
+    if (!hasMarkers) {
+      // No markers - append prjct section at the end
+      const updatedContent = existingContent + '\n\n' + templateContent
+      fs.writeFileSync(globalConfigPath, updatedContent, 'utf-8')
+      return { success: true, action: 'appended' }
+    }
+
+    // Markers exist - replace content between markers
+    const beforeMarker = existingContent.substring(0, existingContent.indexOf(startMarker))
+    const afterMarker = existingContent.substring(
+      existingContent.indexOf(endMarker) + endMarker.length
+    )
+
+    // Extract prjct section from template
+    const prjctSection = templateContent.substring(
+      templateContent.indexOf(startMarker),
+      templateContent.indexOf(endMarker) + endMarker.length
+    )
+
+    const updatedContent = beforeMarker + prjctSection + afterMarker
+    fs.writeFileSync(globalConfigPath, updatedContent, 'utf-8')
+    return { success: true, action: 'updated' }
+  } catch (error) {
+    console.error(`Gemini config warning: ${(error as Error).message}`)
+    return { success: false, action: null }
+  }
+}
 
 /**
  * Migrate existing projects to add cliVersion field
@@ -415,15 +580,15 @@ function ensureStatusLineSymlink(linkPath: string, targetPath: string): void {
 }
 
 /**
- * Show setup results
+ * Show setup results for a single provider
  */
-function showResults(results: SetupResults): void {
+function showResults(results: ProviderSetupResult, provider: AIProviderConfig): void {
   console.log('')
 
-  if (results.claudeInstalled) {
-    console.log(`   ${GREEN}✓${NC} Claude Code CLI installed`)
+  if (results.cliInstalled) {
+    console.log(`   ${GREEN}✓${NC} ${provider.displayName} CLI installed`)
   } else {
-    console.log(`   ${GREEN}✓${NC} Claude Code CLI found`)
+    console.log(`   ${GREEN}✓${NC} ${provider.displayName} CLI found`)
   }
 
   const totalCommands = results.commandsAdded + results.commandsUpdated
@@ -437,11 +602,11 @@ function showResults(results: SetupResults): void {
   }
 
   if (results.configAction === 'created') {
-    console.log(`   ${GREEN}✓${NC} Global config created`)
+    console.log(`   ${GREEN}✓${NC} Global config created (${provider.contextFile})`)
   } else if (results.configAction === 'updated') {
-    console.log(`   ${GREEN}✓${NC} Global config updated`)
+    console.log(`   ${GREEN}✓${NC} Global config updated (${provider.contextFile})`)
   } else if (results.configAction === 'appended') {
-    console.log(`   ${GREEN}✓${NC} Global config merged`)
+    console.log(`   ${GREEN}✓${NC} Global config merged (${provider.contextFile})`)
   }
 
   console.log('')

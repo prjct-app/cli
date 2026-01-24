@@ -405,3 +405,15 @@ export type {
   SSEManager,
   SSEEventType,
 } from './server'
+
+// =============================================================================
+// Provider Types (AI CLI abstraction)
+// =============================================================================
+export type {
+  AIProviderName,
+  CommandFormat,
+  AIProviderConfig,
+  ProviderDetectionResult,
+  ProviderSelectionResult,
+  ProviderBranding,
+} from './provider'
