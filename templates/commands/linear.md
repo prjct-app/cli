@@ -1,11 +1,22 @@
 ---
 allowed-tools: [Read, Write, Bash, AskUserQuestion]
 description: 'Linear issue tracker integration via MCP'
+extends: '_bases/tracker-base.md'
 ---
 
 # p. linear - Linear Integration
 
+**EXTENDS**: `_bases/tracker-base.md` - See base template for common flows.
+
+**ARGUMENTS**: $ARGUMENTS
+
 Manage Linear issues directly from prjct using MCP (no SDK needed).
+
+## Tracker-Specific Config
+
+- `{mcpServerName}`: "linear"
+- `{mcpPrefix}`: "mcp__linear__"
+- `{projectKey}`: "teamId"
 
 ## Context Variables
 
@@ -50,16 +61,45 @@ IF file not found:
 
 ---
 
-## Step 2: Check MCP Tools
+## Step 2: Install MCP Server (if needed)
+
+```
+READ: ~/.claude/settings.json (create {} if not exists)
+CHECK: Does mcpServers.linear exist?
+
+IF not exists:
+  READ: templates/mcp-config.json
+  EXTRACT: mcpServers.linear
+
+  MERGE into ~/.claude/settings.json:
+  {
+    "mcpServers": {
+      "linear": {
+        "command": "npx",
+        "args": ["-y", "mcp-remote", "https://mcp.linear.app/mcp"]
+      }
+    }
+  }
+
+  WRITE: ~/.claude/settings.json
+
+  OUTPUT: "✅ Installed Linear MCP server"
+  OUTPUT: ""
+  OUTPUT: "⚠️ Restart Claude Code to activate the MCP server."
+  OUTPUT: "Then run `p. linear setup` again to complete configuration."
+  STOP
+```
+
+---
+
+## Step 3: Check MCP Tools Available
 
 ```
 CHECK: Are mcp__linear__* tools available?
 
 IF not available:
-  OUTPUT: "Linear MCP not configured."
-  OUTPUT: "Add to ~/.claude/settings.json or .mcp.json:"
-  OUTPUT: '{"mcpServers":{"linear":{"command":"npx","args":["-y","mcp-remote","https://mcp.linear.app/mcp"]}}}'
-  OUTPUT: "Then restart Claude Code."
+  OUTPUT: "Linear MCP is installed but not yet active."
+  OUTPUT: "Restart Claude Code, then run `p. linear setup` again."
   STOP
 ```
 
@@ -69,10 +109,11 @@ IF not available:
 
 ### Flow
 
-1. **Verify MCP tools available**
+1. **Install MCP + Verify tools available**
    ```
-   CHECK: mcp__linear__* tools exist
-   IF not: Show MCP config instructions, STOP
+   Execute Step 2 (auto-install if needed)
+   Execute Step 3 (verify tools active)
+   IF not available: Prompt restart and STOP
    ```
 
 2. **Test connection (triggers OAuth if needed)**

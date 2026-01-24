@@ -36,7 +36,6 @@ export type {
   DesignOptions,
   CleanupOptions,
   SetupOptions,
-  MigrateOptions,
   AnalyzeOptions,
   // Migration types
   MigrationResult,
@@ -158,6 +157,11 @@ export type {
   ReasoningStep,
   ReasoningResult,
   ChainOfThoughtResult,
+  // Orchestrator types
+  OrchestratorContext,
+  LoadedAgent,
+  LoadedSkill,
+  OrchestratorSubtask,
 } from './agentic'
 
 // =============================================================================

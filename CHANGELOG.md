@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.34.0] - 2026-01-23
+## [0.36.0] - 2026-01-23
 
 ### Feature: Dual Platform Support - Claude + Gemini (PRJ-62)
 
@@ -32,6 +32,121 @@ prjct now works with **both Claude Code and Gemini CLI** simultaneously. Use prj
 - Cross-agent JSON formatting rules
 - Identical storage output from Claude and Gemini
 - Ready for future remote sync to prjct.app
+
+---
+
+## [0.35.2] - 2026-01-17
+
+### Fix: CLI Workflow Now Uses CommandExecutor
+
+The `workflow.ts` was calling `templateExecutor` directly, bypassing the orchestrator.
+Now properly routes through `commandExecutor.execute()` which triggers:
+- Domain detection
+- Agent loading
+- Skill loading
+- Task fragmentation
+
+**Files Changed:**
+- `core/commands/workflow.ts` - Uses `commandExecutor.execute()` instead of `templateExecutor`
+
+## [0.35.1] - 2026-01-17
+
+### Fix: Orchestrator Now Actually Executes
+
+Critical fix - the orchestrator was only generating PATHS to templates, not executing them.
+
+#### What Was Broken
+- `p. task` never ran domain detection
+- Agents from `{globalPath}/agents/` were never loaded
+- Tasks were never fragmented into subtasks
+- No context was injected into prompts
+
+#### What's Fixed
+- **Created `orchestrator-executor.ts`** - Executes orchestration in TypeScript
+- **Domain Detection** - Analyzes task keywords to detect database, backend, frontend, etc.
+- **Agent Loading** - Loads agent content from `{globalPath}/agents/`
+- **Skill Loading** - Loads skills from agent frontmatter
+- **Task Fragmentation** - Creates subtasks for 3+ domain tasks
+- **Prompt Injection** - Injects loaded agents, skills, and subtasks into prompt
+
+#### Verified Flow
+```
+Task → Orchestrator → 3 subtasks
+Subtask 1 [database] → p.done → ✅
+Subtask 2 [backend] → p.done → ✅
+Subtask 3 [frontend] → p.done → ✅
+ALL COMPLETE (100%)
+```
+
+**Files Changed:**
+- `core/agentic/orchestrator-executor.ts` (NEW - 482 lines)
+- `core/agentic/command-executor.ts` - Calls orchestrator
+- `core/agentic/prompt-builder.ts` - Injects orchestrator context
+- `core/types/agentic.ts` - Added orchestrator types
+- `core/commands/workflow.ts` - **Connects CLI to CommandExecutor** (was bypassing orchestrator)
+
+## [0.34.0] - 2026-01-15
+
+### Feature: Agentic Orchestrator + MCP Auto-Install
+
+Major release with intelligent task routing and simplified integration setup.
+
+#### Orchestrator Agent (NEW)
+
+Auto-routing system for tasks to the right agents and skills:
+
+- **Domain Detection**: Analyzes task keywords to detect domains (frontend, backend, database, etc.)
+- **Agent Loading**: Automatically loads relevant agents from `{globalPath}/agents/`
+- **Skill Invocation**: Invokes skills from `~/.claude/skills/` based on task context
+- **Multi-Domain Coordination**: Handles tasks spanning multiple domains with proper execution order
+
+**Usage**: Orchestrator runs automatically for task-related commands (`p. task`, `p. done`, `p. ship`, etc.)
+
+#### MCP Server Auto-Install
+
+All integrations now auto-install their MCP servers:
+
+- **Linear**: Auto-installs `mcp-remote` for Linear API
+- **JIRA**: Auto-installs Atlassian MCP server
+- **GitHub**: Auto-installs GitHub MCP server with token validation
+- **Monday.com**: Auto-installs Monday MCP server
+
+No more manual `~/.claude/settings.json` editing - just run `p. linear setup` and it handles everything.
+
+#### Individual Command Skills
+
+All 37 prjct commands now available as individual Claude Code skills:
+
+- `/p.task` - Start a task
+- `/p.sync` - Sync project
+- `/p.linear` - Linear integration
+- Plus 34 more commands
+
+#### agentskills.io Integration
+
+Skills are now discovered from the official agentskills.io ecosystem:
+
+- Skills from `anthropics/skills` GitHub repo
+- Proper SKILL.md format with YAML frontmatter
+- Agent-to-skill mapping in `templates/config/skill-mappings.json`
+
+**Files Changed:**
+- `templates/agentic/orchestrator.md` (NEW)
+- `templates/commands/p.md` - Orchestrator integration
+- `templates/commands/task.md` - Orchestrator context usage
+- `templates/commands/linear.md` - MCP auto-install
+- `templates/commands/jira.md` - MCP auto-install
+- `templates/commands/github.md` - MCP auto-install
+- `templates/commands/monday.md` - MCP auto-install
+- `templates/config/skill-mappings.json` - agentskills.io sources
+- `scripts/postinstall.js` - Individual command installation
+
+**Removed (deprecated):**
+- `templates/commands/feature.md`
+- `templates/commands/now.md`
+- `templates/commands/dashboard.md`
+- `templates/commands/suggest.md`
+- `templates/commands/ask.md`
 
 ---
 

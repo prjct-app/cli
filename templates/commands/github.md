@@ -1,11 +1,22 @@
 ---
 allowed-tools: [Read, Write, Bash, AskUserQuestion]
 description: 'GitHub Issues integration via MCP'
+extends: '_bases/tracker-base.md'
 ---
 
 # p. github - GitHub Issues Integration
 
+**EXTENDS**: `_bases/tracker-base.md` - See base template for common flows.
+
+**ARGUMENTS**: $ARGUMENTS
+
 Manage GitHub Issues directly from prjct using MCP.
+
+## Tracker-Specific Config
+
+- `{mcpServerName}`: "github"
+- `{mcpPrefix}`: "mcp__github__"
+- `{projectKey}`: "repo" (owner/repo)
 
 ## Context Variables
 
@@ -50,17 +61,65 @@ IF file not found:
 
 ---
 
-## Step 2: Check MCP Tools
+## Step 2: Check GITHUB_TOKEN
+
+```
+CHECK: Is GITHUB_TOKEN env var set?
+
+IF not set:
+  OUTPUT: "GitHub requires a Personal Access Token."
+  OUTPUT: ""
+  OUTPUT: "1. Create token at: https://github.com/settings/tokens"
+  OUTPUT: "2. Select 'repo' scope"
+  OUTPUT: "3. Set env var: export GITHUB_TOKEN=ghp_..."
+  OUTPUT: "4. Run `p. github setup` again"
+  STOP
+```
+
+---
+
+## Step 3: Install MCP Server (if needed)
+
+```
+READ: ~/.claude/settings.json (create {} if not exists)
+CHECK: Does mcpServers.github exist?
+
+IF not exists:
+  READ: templates/mcp-config.json
+  EXTRACT: mcpServers.github
+
+  MERGE into ~/.claude/settings.json:
+  {
+    "mcpServers": {
+      "github": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-github"],
+        "env": {
+          "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+        }
+      }
+    }
+  }
+
+  WRITE: ~/.claude/settings.json
+
+  OUTPUT: "✅ Installed GitHub MCP server"
+  OUTPUT: ""
+  OUTPUT: "⚠️ Restart Claude Code to activate the MCP server."
+  OUTPUT: "Then run `p. github setup` again to complete configuration."
+  STOP
+```
+
+---
+
+## Step 4: Check MCP Tools Available
 
 ```
 CHECK: Are mcp__github__* tools available?
 
 IF not available:
-  OUTPUT: "GitHub MCP not configured."
-  OUTPUT: "1. Set GITHUB_TOKEN env var (needs repo scope)"
-  OUTPUT: "2. Add to ~/.claude/settings.json:"
-  OUTPUT: '{"mcpServers":{"github":{"command":"npx","args":["-y","@modelcontextprotocol/server-github"],"env":{"GITHUB_PERSONAL_ACCESS_TOKEN":"${GITHUB_TOKEN}"}}}}'
-  OUTPUT: "3. Restart Claude Code."
+  OUTPUT: "GitHub MCP is installed but not yet active."
+  OUTPUT: "Restart Claude Code, then run `p. github setup` again."
   STOP
 ```
 
@@ -70,7 +129,13 @@ IF not available:
 
 ### Flow
 
-1. **Verify MCP tools available**
+1. **Check token + Install MCP + Verify tools**
+   ```
+   Execute Step 2 (check GITHUB_TOKEN)
+   Execute Step 3 (auto-install MCP if needed)
+   Execute Step 4 (verify tools active)
+   IF not available: Prompt restart and STOP
+   ```
 
 2. **Detect repo from git remote**
    ```bash

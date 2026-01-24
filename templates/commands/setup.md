@@ -86,7 +86,6 @@ MCP Tools Available:
 
 ## Notes
 
-- This command does NOT migrate projects (use `/p:migrate-all` for that)
 - This command does NOT require an initialized prjct project
 - Safe to run multiple times (idempotent)
 - Will not overwrite user customizations in `~/.claude/CLAUDE.md`

@@ -5,3 +5,4 @@ build/
 *.min.js
 .config/
 docs/
+core/services/

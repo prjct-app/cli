@@ -68,8 +68,13 @@ export class AgentService {
   }
 
   /**
-   * Assign agent for a task using AgentRouter
-   * Returns agent info for Claude to delegate work
+   * Assign agent for a task - AGENTIC APPROACH
+   *
+   * NO keyword matching. Returns available agents and context
+   * for Claude to make the decision via templates/orchestrator.md
+   *
+   * The agents in {agentsDir} are already project-specific
+   * (generated during p. sync with real technologies)
    */
   async assignForTask(
     task: string,
@@ -81,67 +86,53 @@ export class AgentService {
       const agents = await this.agentRouter.getAgentNames()
 
       if (agents.length === 0) {
+        // No agents available - suggest running sync
         return {
-          agent: { name: 'generalist' },
+          agent: null, // Claude decides - don't default to generalist
           routing: {
-            confidence: 1.0,
-            reason: 'No specialized agents available',
+            confidence: 0,
+            reason: 'No specialized agents available. Run "p. sync" to generate agents.',
             availableAgents: [],
           },
+          _agenticNote: 'AGENTIC: Claude reads orchestrator.md and decides how to proceed',
         }
       }
 
-      // Simple keyword matching for agent assignment
-      // Claude will make the final decision via templates
-      const taskLower = task.toLowerCase()
-      let bestMatch = 'generalist'
-
-      for (const agentName of agents) {
-        const nameLower = agentName.toLowerCase()
-        if (taskLower.includes(nameLower) || nameLower.includes('general')) {
-          bestMatch = agentName
-          break
-        }
-        // Common domain keywords
-        if (
-          (nameLower.includes('fe') || nameLower.includes('frontend')) &&
-          (taskLower.includes('ui') ||
-            taskLower.includes('component') ||
-            taskLower.includes('react'))
-        ) {
-          bestMatch = agentName
-          break
-        }
-        if (
-          (nameLower.includes('be') || nameLower.includes('backend')) &&
-          (taskLower.includes('api') ||
-            taskLower.includes('server') ||
-            taskLower.includes('database'))
-        ) {
-          bestMatch = agentName
-          break
-        }
-      }
-
-      await this.agentRouter.logUsage(task, bestMatch, projectPath)
+      // AGENTIC: No keyword matching here
+      // Claude reads the orchestrator template and decides based on:
+      // 1. Task analysis (what domains are involved)
+      // 2. Available agents (from agents directory)
+      // 3. Whether to fragment into subtasks
+      //
+      // The TypeScript code just provides the list of available agents
 
       return {
-        agent: { name: bestMatch },
+        agent: null, // Claude decides via templates
         routing: {
-          confidence: 0.7,
-          reason: 'Keyword-based agent matching',
+          confidence: 0, // Claude determines confidence
+          reason: 'AGENTIC: Claude will analyze task and select appropriate specialist agents',
           availableAgents: agents,
         },
-        _agenticNote: 'Claude should verify this assignment using agent context',
+        _agenticNote: `
+          AGENTIC EXECUTION:
+          - Read: templates/agentic/orchestrator.md
+          - Analyze task: "${task}"
+          - Available specialists: ${agents.join(', ')}
+          - Claude decides which agent(s) to use
+          - Always prefer specialists over generalist
+          - Fragment complex tasks into subtasks
+        `,
       }
     } catch (_error) {
       // Agent routing unavailable - expected for new projects
       return {
-        agent: { name: 'generalist' },
+        agent: null,
         routing: {
-          confidence: 1.0,
-          reason: 'Agent routing unavailable',
+          confidence: 0,
+          reason: 'Agent routing unavailable - run "p. sync" first',
+          availableAgents: [],
         },
+        _agenticNote: 'AGENTIC: Suggest running p. sync to generate agents',
       }
     }
   }

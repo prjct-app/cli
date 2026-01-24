@@ -17,8 +17,42 @@ import { z } from 'zod'
 export const PrioritySchema = z.enum(['low', 'medium', 'high', 'critical'])
 export const TaskTypeSchema = z.enum(['feature', 'bug', 'improvement', 'chore'])
 export const TaskSectionSchema = z.enum(['active', 'backlog', 'previously_active'])
-export const TaskStatusSchema = z.enum(['pending', 'in_progress', 'completed', 'blocked', 'paused'])
+export const TaskStatusSchema = z.enum(['pending', 'in_progress', 'completed', 'blocked', 'paused', 'failed'])
 export const ActivityTypeSchema = z.enum(['task_completed', 'feature_shipped', 'idea_captured', 'session_started'])
+
+// Subtask summary for context handoff between agents
+export const SubtaskSummarySchema = z.object({
+  title: z.string(),
+  description: z.string(),
+  filesChanged: z.array(z.object({
+    path: z.string(),
+    action: z.enum(['created', 'modified', 'deleted']),
+  })),
+  whatWasDone: z.array(z.string()),
+  outputForNextAgent: z.string().optional(),
+  notes: z.string().optional(),
+})
+
+// Subtask schema for task fragmentation
+export const SubtaskSchema = z.object({
+  id: z.string(),                    // subtask-xxx
+  description: z.string(),
+  domain: z.string(),                // frontend, backend, database, testing, etc.
+  agent: z.string(),                 // agent file name (e.g., "frontend.md")
+  status: TaskStatusSchema,
+  dependsOn: z.array(z.string()),    // IDs of dependent subtasks
+  startedAt: z.string().optional(),  // ISO8601
+  completedAt: z.string().optional(), // ISO8601
+  output: z.string().optional(),      // Brief output description
+  summary: SubtaskSummarySchema.optional(), // Full summary for context handoff
+})
+
+// Subtask progress tracking
+export const SubtaskProgressSchema = z.object({
+  completed: z.number(),
+  total: z.number(),
+  percentage: z.number(),
+})
 
 export const CurrentTaskSchema = z.object({
   id: z.string(),                   // task_xxxxxxxx
@@ -26,6 +60,10 @@ export const CurrentTaskSchema = z.object({
   startedAt: z.string(),            // ISO8601
   sessionId: z.string(),            // sess_xxxxxxxx
   featureId: z.string().optional(), // feat_xxxxxxxx
+  // Subtask tracking for fragmented tasks
+  subtasks: z.array(SubtaskSchema).optional(),
+  currentSubtaskIndex: z.number().optional(),
+  subtaskProgress: SubtaskProgressSchema.optional(),
 })
 
 export const PreviousTaskSchema = z.object({
@@ -98,6 +136,10 @@ export type TaskType = z.infer<typeof TaskTypeSchema>
 export type TaskSection = z.infer<typeof TaskSectionSchema>
 export type TaskStatus = z.infer<typeof TaskStatusSchema>
 export type ActivityType = z.infer<typeof ActivityTypeSchema>
+
+export type Subtask = z.infer<typeof SubtaskSchema>
+export type SubtaskSummary = z.infer<typeof SubtaskSummarySchema>
+export type SubtaskProgress = z.infer<typeof SubtaskProgressSchema>
 
 export type CurrentTask = z.infer<typeof CurrentTaskSchema>
 export type PreviousTask = z.infer<typeof PreviousTaskSchema>

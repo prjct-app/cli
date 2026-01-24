@@ -3,6 +3,9 @@
  * Core task management - Write-Through Architecture
  *
  * Uses storage layer: JSON (source) → MD (context) → Event (sync)
+ *
+ * AGENTIC: Uses template-executor for Claude-driven decisions.
+ * TypeScript provides infrastructure; Claude decides via templates.
  */
 
 import type { CommandResult, ProjectContext } from '../types'
@@ -15,6 +18,8 @@ import {
   out
 } from './base'
 import { stateStorage, queueStorage } from '../storage'
+import { templateExecutor } from '../agentic/template-executor'
+import commandExecutor from '../agentic/command-executor'
 
 export class WorkflowCommands extends PrjctCommandsBase {
   /**
@@ -32,9 +37,13 @@ export class WorkflowCommands extends PrjctCommandsBase {
       }
 
       if (task) {
-        const context = await contextBuilder.build(projectPath, { task }) as ProjectContext
-        const agentResult = await this._assignAgentForTask(task, projectPath, context)
-        const agent = agentResult.agent?.name || 'generalist'
+        // AGENTIC: Use CommandExecutor for full orchestration support
+        const result = await commandExecutor.execute('task', { task }, projectPath)
+
+        if (!result.success) {
+          out.fail(result.error || 'Failed to execute task')
+          return { success: false, error: result.error }
+        }
 
         // Write-through: JSON → MD → Event
         await stateStorage.startTask(projectId, {
@@ -43,14 +52,43 @@ export class WorkflowCommands extends PrjctCommandsBase {
           sessionId: generateUUID()
         })
 
-        out.done(`${task} [${agent}]`)
+        // Log orchestrator results if available
+        if (result.orchestratorContext) {
+          const oc = result.orchestratorContext
+          const agentsList = oc.agents.map((a: { name: string }) => a.name).join(', ') || 'none'
+          const domainsList = oc.detectedDomains.join(', ')
+          console.log(`🎯 Orchestrator: ${domainsList} → [${agentsList}]`)
+
+          if (oc.requiresFragmentation && oc.subtasks) {
+            console.log(`   → ${oc.subtasks.length} subtasks created`)
+          }
+        }
+
+        // Get available agents for backward compatibility
+        const availableAgents = await templateExecutor.getAvailableAgents(projectPath)
+        const agentsList = availableAgents.length > 0
+          ? availableAgents.join(', ')
+          : 'none (run p. sync)'
+
+        out.done(`${task} [specialists: ${agentsList}]`)
 
         await this.logToMemory(projectPath, 'task_started', {
           task,
-          agent,
+          agenticMode: true,
+          availableAgents,
+          orchestratorContext: result.orchestratorContext,
           timestamp: dateHelper.getTimestamp(),
         })
-        return { success: true, task, agent }
+
+        return {
+          // Include full CommandExecutor result first (orchestratorContext, prompt, etc.)
+          ...result,
+          // Then override with our specific values
+          success: true,
+          task,
+          agenticMode: true,
+          availableAgents,
+        }
       } else {
         // Read from storage (JSON is source of truth)
         const currentTask = await stateStorage.getCurrentTask(projectId)

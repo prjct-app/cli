@@ -9,7 +9,7 @@ import { StorageManager } from './storage-manager'
 import { generateUUID } from '../schemas'
 import { md } from '../utils/markdown-builder'
 import { getTimestamp } from '../utils/date-helper'
-import type { StateJson, CurrentTask, PreviousTask } from '../schemas/state'
+import type { StateJson, CurrentTask, PreviousTask, Subtask, SubtaskSummary } from '../schemas/state'
 
 class StateStorage extends StorageManager<StateJson> {
   constructor() {
@@ -46,6 +46,54 @@ class StateStorage extends StorageManager<StateJson> {
           .raw(`Started: ${task.startedAt}`)
           .raw(`Session: ${task.sessionId}`)
           .maybe(task.featureId, (m, id) => m.raw(`Feature: ${id}`))
+
+        // Subtask progress table
+        if (task.subtasks && task.subtasks.length > 0) {
+          m.blank()
+            .h2('Subtasks Progress')
+            .raw(`**Progress**: ${task.subtaskProgress?.completed || 0}/${task.subtaskProgress?.total || 0} (${task.subtaskProgress?.percentage || 0}%)`)
+            .blank()
+            .raw('| # | Domain | Description | Status | Agent |')
+            .raw('|---|--------|-------------|--------|-------|')
+
+          task.subtasks.forEach((subtask, index) => {
+            const statusIcon = subtask.status === 'completed' ? '✅' :
+                               subtask.status === 'in_progress' ? '▶️' :
+                               subtask.status === 'failed' ? '❌' : '⏳'
+            const isActive = index === task.currentSubtaskIndex ? ' **← Active**' : ''
+            m.raw(`| ${index + 1} | ${subtask.domain} | ${subtask.description} | ${statusIcon} ${subtask.status}${isActive} | ${subtask.agent} |`)
+          })
+
+          // Current subtask details
+          const currentSubtask = task.subtasks[task.currentSubtaskIndex || 0]
+          if (currentSubtask && currentSubtask.status === 'in_progress') {
+            m.blank()
+              .h3('Current Subtask')
+              .raw(`**#${(task.currentSubtaskIndex || 0) + 1}**: ${currentSubtask.description}`)
+              .raw(`**Agent**: ${currentSubtask.agent}`)
+              .raw(`**Domain**: ${currentSubtask.domain}`)
+
+            // Show dependencies
+            if (currentSubtask.dependsOn.length > 0) {
+              m.raw(`**Depends on**: ${currentSubtask.dependsOn.join(', ')}`)
+            }
+          }
+
+          // Show last completed subtask summary if available
+          const completedSubtasks = task.subtasks.filter(s => s.status === 'completed' && s.summary)
+          if (completedSubtasks.length > 0) {
+            const lastCompleted = completedSubtasks[completedSubtasks.length - 1]
+            if (lastCompleted.summary) {
+              m.blank()
+                .h3('Previous Subtask Output')
+                .raw(`**${lastCompleted.summary.title}**`)
+                .raw(lastCompleted.summary.description)
+                .maybe(lastCompleted.summary.outputForNextAgent, (m, output) =>
+                  m.blank().raw(`**Available for next agent**: ${output}`)
+                )
+            }
+          }
+        }
       })
       .when(!data.currentTask, (m) => {
         m.italic('No active task. Use /p:work to start.')
@@ -224,6 +272,216 @@ class StateStorage extends StorageManager<StateJson> {
   async getPausedTask(projectId: string): Promise<PreviousTask | null> {
     const state = await this.read(projectId)
     return state.previousTask || null
+  }
+
+  // =========== Subtask Methods ===========
+
+  /**
+   * Create subtasks when fragmenting a task
+   * Sets first subtask to in_progress
+   */
+  async createSubtasks(
+    projectId: string,
+    subtasks: Omit<Subtask, 'status' | 'startedAt' | 'completedAt' | 'output' | 'summary'>[]
+  ): Promise<void> {
+    const state = await this.read(projectId)
+    if (!state.currentTask) return
+
+    // Convert input to full Subtask objects
+    const fullSubtasks: Subtask[] = subtasks.map((s, index) => ({
+      ...s,
+      status: index === 0 ? 'in_progress' : 'pending',
+      startedAt: index === 0 ? getTimestamp() : undefined,
+      dependsOn: s.dependsOn || [],
+    }))
+
+    await this.update(projectId, (current) => ({
+      ...current,
+      currentTask: {
+        ...current.currentTask!,
+        subtasks: fullSubtasks,
+        currentSubtaskIndex: 0,
+        subtaskProgress: {
+          completed: 0,
+          total: fullSubtasks.length,
+          percentage: 0,
+        },
+      },
+      lastUpdated: getTimestamp(),
+    }))
+
+    // Publish event
+    await this.publishEvent(projectId, 'subtasks.created', {
+      taskId: state.currentTask.id,
+      subtaskCount: fullSubtasks.length,
+      subtasks: fullSubtasks.map(s => ({ id: s.id, description: s.description, domain: s.domain })),
+    })
+  }
+
+  /**
+   * Complete current subtask and advance to next
+   * Returns the next subtask (or null if all complete)
+   */
+  async completeSubtask(
+    projectId: string,
+    output?: string,
+    summary?: SubtaskSummary
+  ): Promise<Subtask | null> {
+    const state = await this.read(projectId)
+    if (!state.currentTask?.subtasks) return null
+
+    const currentIndex = state.currentTask.currentSubtaskIndex || 0
+    const current = state.currentTask.subtasks[currentIndex]
+    if (!current) return null
+
+    // Mark current as completed
+    const updatedSubtasks = [...state.currentTask.subtasks]
+    updatedSubtasks[currentIndex] = {
+      ...current,
+      status: 'completed',
+      completedAt: getTimestamp(),
+      output,
+      summary,
+    }
+
+    // Calculate new progress
+    const completed = updatedSubtasks.filter(s => s.status === 'completed').length
+    const total = updatedSubtasks.length
+    const percentage = Math.round((completed / total) * 100)
+
+    // Advance to next subtask if available
+    const nextIndex = currentIndex + 1
+    if (nextIndex < updatedSubtasks.length) {
+      updatedSubtasks[nextIndex] = {
+        ...updatedSubtasks[nextIndex],
+        status: 'in_progress',
+        startedAt: getTimestamp(),
+      }
+    }
+
+    await this.update(projectId, (s) => ({
+      ...s,
+      currentTask: {
+        ...s.currentTask!,
+        subtasks: updatedSubtasks,
+        currentSubtaskIndex: nextIndex < total ? nextIndex : currentIndex,
+        subtaskProgress: { completed, total, percentage },
+      },
+      lastUpdated: getTimestamp(),
+    }))
+
+    // Publish event
+    await this.publishEvent(projectId, 'subtask.completed', {
+      taskId: state.currentTask.id,
+      subtaskId: current.id,
+      description: current.description,
+      output,
+      progress: { completed, total, percentage },
+    })
+
+    // Return next subtask or null
+    return nextIndex < total ? updatedSubtasks[nextIndex] : null
+  }
+
+  /**
+   * Get current subtask
+   */
+  async getCurrentSubtask(projectId: string): Promise<Subtask | null> {
+    const state = await this.read(projectId)
+    if (!state.currentTask?.subtasks) return null
+    const index = state.currentTask.currentSubtaskIndex || 0
+    return state.currentTask.subtasks[index] || null
+  }
+
+  /**
+   * Get next subtask (after current)
+   */
+  async getNextSubtask(projectId: string): Promise<Subtask | null> {
+    const state = await this.read(projectId)
+    if (!state.currentTask?.subtasks) return null
+    const nextIndex = (state.currentTask.currentSubtaskIndex || 0) + 1
+    return state.currentTask.subtasks[nextIndex] || null
+  }
+
+  /**
+   * Get previous subtask (before current)
+   */
+  async getPreviousSubtask(projectId: string): Promise<Subtask | null> {
+    const state = await this.read(projectId)
+    if (!state.currentTask?.subtasks) return null
+    const prevIndex = (state.currentTask.currentSubtaskIndex || 0) - 1
+    if (prevIndex < 0) return null
+    return state.currentTask.subtasks[prevIndex] || null
+  }
+
+  /**
+   * Get all subtasks
+   */
+  async getSubtasks(projectId: string): Promise<Subtask[]> {
+    const state = await this.read(projectId)
+    return state.currentTask?.subtasks || []
+  }
+
+  /**
+   * Get subtask progress
+   */
+  async getSubtaskProgress(projectId: string): Promise<{ completed: number; total: number; percentage: number } | null> {
+    const state = await this.read(projectId)
+    return state.currentTask?.subtaskProgress || null
+  }
+
+  /**
+   * Check if task has subtasks
+   */
+  async hasSubtasks(projectId: string): Promise<boolean> {
+    const state = await this.read(projectId)
+    return (state.currentTask?.subtasks?.length || 0) > 0
+  }
+
+  /**
+   * Check if all subtasks are complete
+   */
+  async areAllSubtasksComplete(projectId: string): Promise<boolean> {
+    const state = await this.read(projectId)
+    if (!state.currentTask?.subtasks) return true
+    return state.currentTask.subtasks.every(s => s.status === 'completed')
+  }
+
+  /**
+   * Fail current subtask
+   */
+  async failSubtask(projectId: string, error: string): Promise<void> {
+    const state = await this.read(projectId)
+    if (!state.currentTask?.subtasks) return
+
+    const currentIndex = state.currentTask.currentSubtaskIndex || 0
+    const current = state.currentTask.subtasks[currentIndex]
+    if (!current) return
+
+    const updatedSubtasks = [...state.currentTask.subtasks]
+    updatedSubtasks[currentIndex] = {
+      ...current,
+      status: 'failed',
+      completedAt: getTimestamp(),
+      output: `Failed: ${error}`,
+    }
+
+    await this.update(projectId, (s) => ({
+      ...s,
+      currentTask: {
+        ...s.currentTask!,
+        subtasks: updatedSubtasks,
+      },
+      lastUpdated: getTimestamp(),
+    }))
+
+    // Publish event
+    await this.publishEvent(projectId, 'subtask.failed', {
+      taskId: state.currentTask.id,
+      subtaskId: current.id,
+      description: current.description,
+      error,
+    })
   }
 }
 

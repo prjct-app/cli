@@ -1,11 +1,22 @@
 ---
 allowed-tools: [Read, Write, Bash, Task, Glob, Grep, AskUserQuestion]
 description: 'JIRA issue tracker integration'
+extends: '_bases/tracker-base.md'
 ---
 
 # p. jira - JIRA Integration
 
+**EXTENDS**: `_bases/tracker-base.md` - See base template for common flows.
+
+**ARGUMENTS**: $ARGUMENTS
+
 Manage JIRA issues directly from prjct.
+
+## Tracker-Specific Config
+
+- `{mcpServerName}`: "Atlassian"
+- `{mcpPrefix}`: "mcp__atlassian__jira_"
+- `{projectKey}`: "projectKey"
 
 ## Context Variables
 
@@ -68,7 +79,38 @@ IF file not found:
 
 ---
 
-## Step 2: Detect Auth Mode
+## Step 2: Install MCP Server (if needed)
+
+```
+READ: ~/.claude/settings.json (create {} if not exists)
+CHECK: Does mcpServers.Atlassian exist?
+
+IF not exists:
+  READ: templates/mcp-config.json
+  EXTRACT: mcpServers.Atlassian
+
+  MERGE into ~/.claude/settings.json:
+  {
+    "mcpServers": {
+      "Atlassian": {
+        "command": "npx",
+        "args": ["-y", "mcp-remote@latest", "https://mcp.atlassian.com/v1/sse"]
+      }
+    }
+  }
+
+  WRITE: ~/.claude/settings.json
+
+  OUTPUT: "✅ Installed Atlassian MCP server"
+  OUTPUT: ""
+  OUTPUT: "⚠️ Restart Claude Code to activate the MCP server."
+  OUTPUT: "Then run `p. jira setup` again to complete configuration."
+  STOP
+```
+
+---
+
+## Step 3: Detect Auth Mode
 
 ```
 # Check API Token first
@@ -78,6 +120,12 @@ IF JIRA_API_TOKEN is set:
 # Then check MCP
 ELSE IF mcp__atlassian__jira_* tools available:
   SET: authMode = "mcp"
+
+# MCP installed but not active
+ELSE IF mcpServers.Atlassian exists in settings.json:
+  OUTPUT: "Atlassian MCP is installed but not yet active."
+  OUTPUT: "Restart Claude Code, then run `p. jira setup` again."
+  STOP
 
 # Neither available
 ELSE:
@@ -91,10 +139,11 @@ ELSE:
 
 ### Flow
 
-1. **Detect available auth methods**
+1. **Install MCP + Detect auth mode**
    ```
-   CHECK: JIRA_API_TOKEN env var
-   CHECK: Atlassian MCP tools available
+   Execute Step 2 (auto-install MCP if needed)
+   Execute Step 3 (detect auth mode)
+   IF MCP not active: Prompt restart and STOP
    ```
 
 2. **If MCP available (preferred)**

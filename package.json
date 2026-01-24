@@ -1,21 +1,17 @@
 {
   "name": "prjct-cli",
-  "version": "0.34.0",
+  "version": "0.36.0",
   "description": "Context layer for AI agents. Project context for Claude Code, Gemini CLI, and more.",
   "main": "core/index.ts",
   "bin": {
     "prjct": "bin/prjct"
   },
-  "workspaces": [
-    "packages/*"
-  ],
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org"
   },
   "scripts": {
     "build": "node scripts/build.js",
-    "build:shared": "bun run --filter '@prjct/shared' build",
     "build:node": "node scripts/build.js",
     "release": "node scripts/release.js",
     "release:patch": "node scripts/release.js patch",
@@ -91,15 +87,13 @@
     "bin/",
     "core/",
     "dist/",
-    "packages/shared/",
     "templates/",
     "scripts/postinstall.js",
     "scripts/build.js",
     "scripts/install.sh",
     "LICENSE",
     "README.md",
-    "CHANGELOG.md",
-    "CLAUDE.md"
+    "CHANGELOG.md"
   ],
   "trustedDependencies": [
     "chalk",

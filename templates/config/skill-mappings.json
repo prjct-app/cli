@@ -1,87 +1,119 @@
 {
-  "version": "1.0.0",
-  "description": "Search hints for finding skills on claude-plugins.dev - NOT hardcoded mappings",
-  "note": "Claude should SEARCH claude-plugins.dev dynamically using these hints",
-  "searchEndpoint": "https://claude-plugins.dev/skills?q={query}",
-  "skillsDirectory": "~/.claude/skills/",
-  "searchHints": {
-    "frontend": {
-      "searchTerms": ["frontend-design", "react components", "vue components", "ui design"],
-      "preferredAuthors": ["@anthropics", "@wshobson"],
-      "fallbackSearch": "frontend ui components",
-      "description": "UI components, styling, frontend patterns"
+  "version": "2.0.0",
+  "description": "Skill discovery from agentskills.io ecosystem",
+  "sources": {
+    "primary": {
+      "name": "anthropics/skills",
+      "url": "https://github.com/anthropics/skills",
+      "rawUrl": "https://raw.githubusercontent.com/anthropics/skills/main"
     },
-    "uxui": {
-      "searchTerms": ["ux-designer", "frontend-design", "user experience", "ui ux design"],
-      "preferredAuthors": ["@anthropics", "@aj-geddes"],
-      "fallbackSearch": "ux ui design patterns",
-      "description": "UX/UI design, user experience, accessibility"
-    },
-    "backend": {
-      "ecosystemSpecific": {
-        "javascript": ["typescript backend", "nodejs patterns", "express api"],
-        "typescript": ["typescript backend", "nodejs patterns", "api design"],
-        "python": ["python backend", "fastapi django", "python api"],
-        "go": ["golang backend", "go api patterns"],
-        "rust": ["rust backend", "axum actix"]
-      },
-      "preferredAuthors": ["@wshobson", "@anthropics"],
-      "fallbackSearch": "backend api patterns",
-      "description": "API design, backend patterns, server logic"
-    },
-    "database": {
-      "searchTerms": ["database design", "sql patterns", "prisma drizzle"],
-      "preferredAuthors": ["@wshobson"],
-      "fallbackSearch": "database sql patterns",
-      "description": "Database design, queries, migrations"
-    },
-    "testing": {
-      "searchTerms": ["testing automation", "test patterns", "jest pytest"],
-      "preferredAuthors": ["@anthropics", "@claudebase"],
-      "fallbackSearch": "testing automation patterns",
-      "description": "Test automation, TDD, test patterns"
-    },
-    "devops": {
-      "searchTerms": ["devops automation", "ci cd", "docker kubernetes", "github actions"],
-      "preferredAuthors": ["@claudebase", "@anthropics"],
-      "fallbackSearch": "devops ci cd automation",
-      "description": "CI/CD, containers, infrastructure"
-    },
-    "prjct-planner": {
-      "searchTerms": ["architecture patterns", "feature development", "system design"],
-      "preferredAuthors": ["@anthropics", "@wshobson"],
-      "fallbackSearch": "architecture planning patterns",
-      "description": "Feature planning, architecture, task breakdown"
-    },
-    "prjct-shipper": {
-      "searchTerms": ["code review", "pr review", "shipping best practices"],
-      "preferredAuthors": ["@anthropics"],
-      "fallbackSearch": "code review automation",
-      "description": "Code review, PR quality, shipping"
+    "marketplace": {
+      "name": "agentskills.io",
+      "url": "https://agentskills.io",
+      "search": "https://agentskills.io/search?q={query}"
     }
   },
-  "selectionCriteria": {
-    "priority": [
-      "Match agent domain",
-      "Prefer @anthropics (official)",
-      "High download count",
-      "Recent updates",
-      "Good documentation"
-    ],
-    "skipIf": [
-      "Low download count (<100)",
-      "No recent updates (>6 months)",
-      "Duplicate of installed skill"
-    ]
+  "skillsDirectory": "~/.claude/skills/",
+  "skillFormat": {
+    "required": ["name", "description"],
+    "optional": ["license", "compatibility", "metadata", "allowed-tools"],
+    "fileStructure": {
+      "required": "SKILL.md",
+      "optional": ["scripts/", "references/", "assets/"]
+    }
+  },
+  "agentToSkillMap": {
+    "frontend": {
+      "skills": ["ui-design", "react-patterns", "css-architecture"],
+      "searchTerms": ["frontend", "react", "vue", "ui components"],
+      "fromAnthropic": true
+    },
+    "uxui": {
+      "skills": ["ux-research", "accessibility", "design-systems"],
+      "searchTerms": ["ux design", "user experience", "accessibility"],
+      "fromAnthropic": true
+    },
+    "backend": {
+      "skills": ["api-design", "backend-patterns"],
+      "ecosystemSpecific": {
+        "javascript": ["nodejs-patterns", "typescript-backend"],
+        "python": ["python-backend", "fastapi-patterns"],
+        "go": ["go-patterns", "go-backend"],
+        "rust": ["rust-patterns", "rust-backend"]
+      },
+      "searchTerms": ["backend", "api", "server"],
+      "fromAnthropic": true
+    },
+    "database": {
+      "skills": ["sql-patterns", "database-design"],
+      "searchTerms": ["database", "sql", "orm"],
+      "fromAnthropic": true
+    },
+    "testing": {
+      "skills": ["test-automation", "tdd-patterns"],
+      "searchTerms": ["testing", "test automation", "tdd"],
+      "fromAnthropic": true
+    },
+    "devops": {
+      "skills": ["ci-cd", "docker-kubernetes", "infrastructure"],
+      "searchTerms": ["devops", "ci/cd", "docker", "kubernetes"],
+      "fromAnthropic": true
+    },
+    "prjct-planner": {
+      "skills": ["architecture", "feature-planning"],
+      "searchTerms": ["architecture", "planning", "system design"],
+      "fromAnthropic": false
+    },
+    "prjct-shipper": {
+      "skills": ["code-review", "release-management"],
+      "searchTerms": ["code review", "shipping", "release"],
+      "fromAnthropic": false
+    }
+  },
+  "documentSkills": {
+    "note": "Official Anthropic document creation skills",
+    "source": "anthropics/skills",
+    "skills": {
+      "pdf": {
+        "name": "pdf",
+        "description": "Create and edit PDF documents",
+        "path": "skills/pdf"
+      },
+      "docx": {
+        "name": "docx",
+        "description": "Create and edit Word documents",
+        "path": "skills/docx"
+      },
+      "pptx": {
+        "name": "pptx",
+        "description": "Create PowerPoint presentations",
+        "path": "skills/pptx"
+      },
+      "xlsx": {
+        "name": "xlsx",
+        "description": "Create Excel spreadsheets",
+        "path": "skills/xlsx"
+      }
+    }
   },
   "installMethod": {
-    "steps": [
-      "1. Search claude-plugins.dev/skills?q={searchTerm}",
-      "2. Analyze results, pick best match",
-      "3. Get skill markdown from GitHub source",
-      "4. Write to ~/.claude/skills/{name}.md",
-      "5. Verify skill loads with /skills command"
-    ],
-    "fallback": "Create custom skill if marketplace has no good match"
-  }
+    "claudeCode": {
+      "marketplace": "/plugin marketplace add anthropics/skills",
+      "install": "/plugin install {skill-name}@anthropic-agent-skills",
+      "manual": "Download SKILL.md to ~/.claude/skills/{name}/"
+    },
+    "fallback": {
+      "steps": [
+        "1. Check anthropics/skills repo for matching skill",
+        "2. Download SKILL.md + supporting files",
+        "3. Write to ~/.claude/skills/{skill-name}/SKILL.md",
+        "4. Verify skill loads in Claude Code"
+      ]
+    }
+  },
+  "discoveryPriority": [
+    "anthropics/skills (official)",
+    "agentskills.io marketplace",
+    "Custom skill creation"
+  ]
 }

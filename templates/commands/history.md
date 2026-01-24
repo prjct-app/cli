@@ -1,55 +1,102 @@
 ---
-allowed-tools: [Read, Bash]
-description: 'View snapshot history for undo/redo'
-timestamp-rule: 'None required - read-only command'
+allowed-tools: [Read, Write, Bash]
+description: 'View snapshot history and undo/redo changes'
+timestamp-rule: 'GetTimestamp() for ALL timestamps'
+architecture: 'Write-Through (JSON → MD → Events)'
+storage-layer: true
 ---
 
-# /p:history - View Snapshot History
+# p. history - Snapshot History & Undo/Redo
 
-## Overview
-Displays the history of snapshots for the current project. Shows what can be undone/redone.
+**ARGUMENTS**: $ARGUMENTS
+
+Unified command for viewing snapshot history and managing undo/redo operations.
 
 ## Context Variables
+
 - `{projectId}`: From `.prjct/prjct.config.json`
 - `{globalPath}`: `~/.prjct-cli/projects/{projectId}`
 - `{snapshotDir}`: `{globalPath}/snapshots`
+- `{memoryPath}`: `{globalPath}/memory/events.jsonl`
+- `{redoStackPath}`: `{snapshotDir}/redo-stack.json`
 - `{limit}`: Number of snapshots to show (default: 10)
 
-## Step 1: Read Config
+---
 
-READ: `.prjct/prjct.config.json`
-EXTRACT: `projectId`
+## Subcommands
+
+| Command | Description |
+|---------|-------------|
+| `p. history` | Show snapshot history (default) |
+| `p. history undo` | Revert to previous snapshot |
+| `p. history redo` | Redo previously undone changes |
+
+---
+
+## Step 1: Validate Project
+
+```
+READ: .prjct/prjct.config.json
+EXTRACT: projectId
 
 IF file not found:
-  OUTPUT: "No prjct project. Run /p:init first."
+  OUTPUT: "No prjct project. Run `p. init` first."
   STOP
 
-## Step 2: Check Snapshots Exist
+SET: globalPath = ~/.prjct-cli/projects/{projectId}
+SET: snapshotDir = {globalPath}/snapshots
+```
 
-BASH: `ls ~/.prjct-cli/projects/{projectId}/snapshots/.git 2>/dev/null || echo "NO_SNAPSHOTS"`
+---
+
+## Step 2: Route by Subcommand
+
+```
+PARSE: $ARGUMENTS
+SET: subcommand = first word (or empty for default)
+
+ROUTE:
+  - no args OR "list" → Show History (default)
+  - "undo" → Execute Undo
+  - "redo" → Execute Redo
+```
+
+---
+
+## Subcommand: (default) - Show History
+
+### Check Snapshots Exist
+
+```bash
+ls {snapshotDir}/.git 2>/dev/null || echo "NO_SNAPSHOTS"
+```
 
 IF output contains "NO_SNAPSHOTS":
-  OUTPUT: "⚠️ No snapshots yet. Create one with /p:ship."
+  OUTPUT: "⚠️ No snapshots yet. Create one with `p. ship`."
   STOP
 
-## Step 3: Get Snapshot History
+### Get Snapshot History
 
-BASH: `cd {snapshotDir} && git log --pretty=format:'%h|%s|%ar|%ai' -n {limit}`
+```bash
+cd {snapshotDir} && git log --pretty=format:'%h|%s|%ar|%ai' -n {limit}
+```
 
-CAPTURE output and parse each line:
+PARSE each line:
 - `{shortHash}`: Before first `|`
 - `{message}`: Between first and second `|`
 - `{relativeTime}`: Between second and third `|`
 - `{absoluteTime}`: After third `|`
 
-## Step 4: Get Current Position
+### Get Current Position
 
-BASH: `cd {snapshotDir} && git rev-parse --short HEAD`
+```bash
+cd {snapshotDir} && git rev-parse --short HEAD
+```
 CAPTURE as {currentHash}
 
-## Step 5: Check Redo Stack
+### Check Redo Stack
 
-READ: `{snapshotDir}/redo-stack.json`
+READ: `{redoStackPath}`
 
 IF file exists AND not empty AND not "[]":
   PARSE as JSON array
@@ -57,45 +104,223 @@ IF file exists AND not empty AND not "[]":
 ELSE:
   {redoCount} = 0
 
-## Step 6: Format Output
+### Output
 
-Build table with columns:
-- `#`: Index (1, 2, 3...)
-- `Hash`: Short hash
-- `Description`: Commit message (first line)
-- `When`: Relative time
-- `Status`: "← current" for current, empty for others
-
-### Table Format
-
-```
-# Snapshot History
-
-| # | Hash    | Description                  | When       |
-|---|---------|------------------------------|------------|
-| 1 | abc1234 | Ship authentication [← NOW]  | 2 hours ago|
-| 2 | def5678 | Add login form               | 5 hours ago|
-| 3 | ghi9012 | Initial setup                | 1 day ago  |
-```
-
-## Output
-
-SUCCESS:
 ```
 📜 Snapshot History
 
 | # | Hash    | Description                  | When        |
 |---|---------|------------------------------|-------------|
-{formattedTable}
+{FOR EACH snapshot in history:}
+| {index} | {shortHash} | {message}{IF shortHash == currentHash: " [← NOW]"} | {relativeTime} |
+{END FOR}
 
 Current: {currentHash}
 Redo available: {redoCount} snapshot(s)
 
 Commands:
-• /p:undo - Revert to previous snapshot
-• /p:redo - Redo if available ({redoCount})
-• /p:ship - Create new snapshot
+• `p. history undo` - Revert to previous snapshot
+• `p. history redo` - Redo if available ({redoCount})
+• `p. ship` - Create new snapshot
 ```
+
+---
+
+## Subcommand: undo
+
+Reverts the project to the previous snapshot state.
+
+### Check Snapshot History
+
+```bash
+cd {snapshotDir} && git log --oneline -5 2>/dev/null || echo "NO_SNAPSHOTS"
+```
+
+IF output contains "NO_SNAPSHOTS" OR empty:
+  OUTPUT: "No snapshots available. Create one with `p. ship` first."
+  STOP
+
+CAPTURE last two lines as:
+- {currentHash}: First line (current snapshot)
+- {previousHash}: Second line (snapshot to restore)
+
+IF only one snapshot exists:
+  OUTPUT: "Only one snapshot exists. Nothing to undo."
+  STOP
+
+### Get State Info
+
+```bash
+cd {snapshotDir} && git log -1 --pretty=format:'%s' {currentHash}
+```
+CAPTURE as {currentMessage}
+
+```bash
+cd {snapshotDir} && git log -1 --pretty=format:'%s' {previousHash}
+```
+CAPTURE as {previousMessage}
+
+### Get Files That Will Change
+
+```bash
+cd {snapshotDir} && git diff --name-only {previousHash} {currentHash}
+```
+CAPTURE as {affectedFiles}
+COUNT files as {fileCount}
+
+### Save Current State to Redo Stack
+
+READ: `{redoStackPath}` (create if not exists with `[]`)
+PARSE as JSON array
+
+ADD to array:
+```json
+{
+  "hash": "{currentHash}",
+  "message": "{currentMessage}",
+  "timestamp": "{GetTimestamp()}"
+}
+```
+
+WRITE: `{redoStackPath}`
+
+### Restore Previous Snapshot
+
+```bash
+cd {snapshotDir} && git checkout {previousHash} -- .
+```
+
+Copy files back to project for each file in {affectedFiles}:
+- Source: `{snapshotDir}/{file}`
+- Destination: `{projectPath}/{file}`
+
+### Log to Memory
+
+APPEND to: `{memoryPath}`
+```json
+{"timestamp":"{GetTimestamp()}","action":"snapshot_undo","from":"{currentHash}","to":"{previousHash}","files":{fileCount}}
+```
+
+### Log to Manifest
+
+APPEND to: `{snapshotDir}/manifest.jsonl`
+```json
+{"type":"undo","from":"{currentHash}","to":"{previousHash}","timestamp":"{GetTimestamp()}","files":{fileCount}}
+```
+
+### Output
+
+```
+⏪ Undone: {currentMessage}
+
+Restored to: {previousMessage}
+Files affected: {fileCount}
+
+`p. history redo` to redo | `p. history` to see all snapshots
+```
+
+---
+
+## Subcommand: redo
+
+Restores a previously undone snapshot.
+
+### Check Redo Stack
+
+READ: `{redoStackPath}`
+
+IF file not found OR empty OR equals "[]":
+  OUTPUT: "Nothing to redo. Use `p. history undo` first."
+  STOP
+
+PARSE as JSON array
+GET last item as {redoSnapshot}
+
+IF array is empty:
+  OUTPUT: "Nothing to redo. Use `p. history undo` first."
+  STOP
+
+EXTRACT from {redoSnapshot}:
+- `{redoHash}`: hash
+- `{redoMessage}`: message
+- `{redoTimestamp}`: timestamp
+
+### Get Current State
+
+```bash
+cd {snapshotDir} && git rev-parse HEAD
+```
+CAPTURE as {currentHash}
+
+```bash
+cd {snapshotDir} && git log -1 --pretty=format:'%s' {currentHash}
+```
+CAPTURE as {currentMessage}
+
+### Get Files That Will Change
+
+```bash
+cd {snapshotDir} && git diff --name-only {currentHash} {redoHash}
+```
+CAPTURE as {affectedFiles}
+COUNT files as {fileCount}
+
+### Restore Redo Snapshot
+
+```bash
+cd {snapshotDir} && git checkout {redoHash} -- .
+```
+
+Copy files back to project for each file in {affectedFiles}:
+- Source: `{snapshotDir}/{file}`
+- Destination: `{projectPath}/{file}`
+
+### Remove from Redo Stack
+
+READ: `{redoStackPath}`
+PARSE as JSON array
+REMOVE last item
+WRITE: `{redoStackPath}`
+
+### Log to Memory
+
+APPEND to: `{memoryPath}`
+```json
+{"timestamp":"{GetTimestamp()}","action":"snapshot_redo","from":"{currentHash}","to":"{redoHash}","files":{fileCount}}
+```
+
+### Log to Manifest
+
+APPEND to: `{snapshotDir}/manifest.jsonl`
+```json
+{"type":"redo","from":"{currentHash}","to":"{redoHash}","timestamp":"{GetTimestamp()}","files":{fileCount}}
+```
+
+### Output
+
+```
+⏩ Redone: {redoMessage}
+
+Restored from: {currentMessage}
+Files affected: {fileCount}
+
+`p. history undo` to undo again | `p. history` to see all snapshots
+```
+
+---
+
+## Error Handling
+
+| Error | Response | Action |
+|-------|----------|--------|
+| No project | "No prjct project" | STOP |
+| No snapshots | Show empty state | STOP |
+| Only one snapshot | "Nothing to undo" | STOP |
+| Nothing to redo | "Use undo first" | STOP |
+| Git error | Show error message | STOP |
+| File copy fails | "Failed to restore {file}" | CONTINUE |
+
+---
 
 ## Empty State
 
@@ -106,13 +331,17 @@ IF no snapshots:
 No snapshots yet.
 
 Create your first snapshot:
-• /p:ship <feature> - Ship a feature and create snapshot
+• `p. ship <feature>` - Ship a feature and create snapshot
 ```
+
+---
 
 ## Examples
 
-### Example 1: Multiple Snapshots
+### Example 1: View History
 ```
+p. history
+
 📜 Snapshot History
 
 | # | Hash    | Description                  | When        |
@@ -120,57 +349,41 @@ Create your first snapshot:
 | 1 | a1b2c3d | Ship user authentication     | 2 hours ago |
 | 2 | e4f5g6h | Add login form               | 5 hours ago |
 | 3 | i7j8k9l | Setup database models        | 1 day ago   |
-| 4 | m0n1o2p | Initial project setup        | 2 days ago  |
 
 Current: a1b2c3d
 Redo available: 0 snapshot(s)
-
-Commands:
-• /p:undo - Revert to previous snapshot
-• /p:redo - Redo if available (0)
-• /p:ship - Create new snapshot
 ```
 
-### Example 2: After Undo
+### Example 2: Undo
 ```
-📜 Snapshot History
+p. history undo
 
-| # | Hash    | Description                  | When        |
-|---|---------|------------------------------|-------------|
-| 1 | e4f5g6h | Add login form [← NOW]       | 5 hours ago |
-| 2 | i7j8k9l | Setup database models        | 1 day ago   |
-| 3 | m0n1o2p | Initial project setup        | 2 days ago  |
+⏪ Undone: Ship user authentication
 
-Current: e4f5g6h
-Redo available: 1 snapshot(s)
+Restored to: Add login form
+Files affected: 5
 
-Commands:
-• /p:undo - Revert to previous snapshot
-• /p:redo - Redo if available (1)
-• /p:ship - Create new snapshot
+`p. history redo` to redo | `p. history` to see all snapshots
 ```
 
-### Example 3: No Snapshots
+### Example 3: Redo
 ```
-📜 Snapshot History
+p. history redo
 
-No snapshots yet.
+⏩ Redone: Ship user authentication
 
-Create your first snapshot:
-• /p:ship <feature> - Ship a feature and create snapshot
+Restored from: Add login form
+Files affected: 5
+
+`p. history undo` to undo again | `p. history` to see all snapshots
 ```
 
-## Error Handling
-
-| Error | Response | Action |
-|-------|----------|--------|
-| No project | "No prjct project" | STOP |
-| No snapshots | Show empty state | STOP |
-| Git error | Show error message | STOP |
+---
 
 ## Notes
 
-- History is read-only, doesn't modify anything
-- Shows relative times for quick scanning
-- Indicates current position in history
-- Shows redo availability count
+- History is non-destructive: current state is saved to redo stack before undo
+- You can redo immediately after undoing
+- Creating a new snapshot after undo clears the redo stack
+- Multiple redos are possible if you undid multiple times
+- Snapshots are project-specific, not global
