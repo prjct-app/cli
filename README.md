@@ -8,14 +8,13 @@
    prjct/cli
 ```
 
-**Ship fast, track progress, stay focused.**
+**Context layer for AI coding agents.**
 
-Developer momentum tool for indie hackers and small teams.
+Works with Claude Code, Gemini CLI, and more.
 
-[![Claude Code Ready](https://img.shields.io/badge/Claude%20Code-Ready-6366f1)](CLAUDE.md)
-[![Claude Desktop Compatible](https://img.shields.io/badge/Claude%20Desktop-Compatible-6366f1)]()
+[![Claude Code](https://img.shields.io/badge/Claude%20Code-Ready-6366f1)](CLAUDE.md)
+[![Gemini CLI](https://img.shields.io/badge/Gemini%20CLI-Ready-4285F4)]()
 [![Tests](https://github.com/jlopezlira/prjct-cli/actions/workflows/test.yml/badge.svg)](https://github.com/jlopezlira/prjct-cli/actions/workflows/test.yml)
-[![Website Build](https://img.shields.io/badge/website-deployed-success)](https://prjct.app)
 
 > **New to prjct?** You don't need to memorize commands. Just use `p.` and talk naturally:
 > - `p. start working on user auth`
@@ -24,16 +23,16 @@ Developer momentum tool for indie hackers and small teams.
 
 ## What prjct is (and isn't)
 
-**prjct is a workflow layer, not a coding agent.**
+**prjct is a context layer for AI coding agents.**
 
-| Coding Agents | prjct-cli |
-|---------------|-----------|
-| Write code for you | Tracks what you're building |
-| Replace your IDE | Enhances Claude Code |
-| Multi-provider (GPT, Claude, etc.) | 100% Claude-optimized |
-| Compete with Cursor, Copilot | Replaces Jira, Linear, Notion |
+| AI Coding Agents | prjct-cli |
+|------------------|-----------|
+| Write code for you | Gives them project context |
+| Need context to work well | Maintains context between sessions |
+| Claude Code, Gemini CLI, etc. | Works with all of them |
+| Compete with each other | Enhances all of them |
 
-**Use both together:** OpenCode/Cursor/Claude Code writes the code. prjct tracks your progress, maintains context between sessions, and keeps you focused.
+**Use together:** Your AI coding agent writes the code. prjct gives it the context it needs about your project, tracks progress, and maintains state between sessions.
 
 ## p. Trigger - Zero Memorization
 
@@ -58,24 +57,23 @@ Instead of:                      Just say:
 - Auto-validates you're in a prjct project before execution
 - Every command response suggests what to do next
 
-## 🤖 Claude-Native Architecture
+## 🤖 Multi-Platform Architecture
 
-**prjct-cli is purpose-built for Claude's unique capabilities:**
+**prjct works with multiple AI coding agents:**
+
+| Feature | Claude Code | Gemini CLI |
+|---------|-------------|------------|
+| Router | `~/.claude/commands/p.md` | `~/.gemini/commands/p.toml` |
+| Global Config | `~/.claude/CLAUDE.md` | `~/.gemini/GEMINI.md` |
+| Skills | `~/.claude/skills/` | `~/.gemini/skills/` |
+| MCP Support | ✓ | ✓ |
+
+**Shared features across all platforms:**
 
 - **Dynamic AI Agents** - Auto-generated specialists based on your stack
-- **MCP Integration** - Native Model Context Protocol support
-- **Slash Commands** - `/p:*` commands in Claude Code and Desktop
+- **Cross-Agent Storage** - Same project state, any agent
+- **Natural Language** - Talk naturally with `p.` prefix
 - **Git Validation** - Last commit as source of truth
-- **Natural Language** - Talk naturally, commands adapt
-
-### Why Claude-Only?
-
-We chose to focus 100% on Claude to deliver:
-
-- **Deep Integration** - Leverage Claude's agent system and MCP
-- **Better Quality** - Optimized for Claude's strengths
-- **Simpler Codebase** - No multi-platform compromises
-- **Honest Compatibility** - We only support what we can validate
 
 ## ⚡ Installation
 
@@ -114,27 +112,25 @@ For easier installation from GitHub Packages, see [GitHub Packages Setup](docs/G
 
 > **Note**: The CLI automatically detects updates and notifies you when a new version is available. Simply run `npm update -g prjct-cli` to upgrade.
 
-### Auto-Setup (NEW in v0.8.2)
+### First-Time Setup
 
-After `npm install -g prjct-cli`, setup runs automatically:
-
-- ✅ Installs `/p:*` commands to `~/.claude`
-- ✅ Migrates legacy projects to global storage
-- ✅ Syncs commands (removes orphans, adds new ones)
-- ✅ Shows beautiful ASCII art with quick start
-
-**That's it!** No manual setup required.
-
-If you need to reconfigure later:
+After installing, run the interactive setup:
 
 ```bash
-prjct setup          # Reconfigure and sync commands
-prjct setup --force  # Force reinstall all commands
+prjct start
 ```
 
-**Installation Location**: `~/.claude/commands/p/`
+This will:
+- ✅ Detect installed AI agents (Claude Code, Gemini CLI)
+- ✅ Install the `p.` router for each detected agent
+- ✅ Configure global context files
+- ✅ Show your provider status
 
-All 25+ slash commands (`/p:*`) are automatically installed to Claude Code and Claude Desktop.
+**Installation Locations:**
+- Claude Code: `~/.claude/commands/p.md`
+- Gemini CLI: `~/.gemini/commands/p.toml`
+
+To reconfigure later: `prjct start --force`
 
 ### Version Management
 
@@ -154,19 +150,13 @@ cd prjct-cli
 ./setup.sh
 ```
 
-### What the Installer Does
+### What the Setup Does
 
-- ✅ **Installs to** `~/.prjct-cli/`
-- ✅ **Checks prerequisites** (Node.js 18+, Git)
-- ✅ **Detects Claude** (Code or Desktop)
-- ✅ **Installs slash commands** to `~/.claude/commands/p/`
-- ✅ **Creates global structure** in `~/.prjct-cli/`
-- ✅ **Version management** with automatic update detection
-- ✅ **Configures MCP integration** (Context7, Sequential, Magic, Playwright)
-- ✅ **Sets up the** `prjct` **command**
-- ✅ **Creates project structure** in `.prjct/`
-- ✅ **Auto-detects your environment** (Claude or Terminal fallback)
-- ✅ **Configures shell** (bash/zsh) automatically
+- ✅ **Detects AI agents** - Claude Code, Gemini CLI, or both
+- ✅ **Installs routers** - `p.md` for Claude, `p.toml` for Gemini
+- ✅ **Configures global context** - `CLAUDE.md` / `GEMINI.md`
+- ✅ **Creates storage** - `~/.prjct-cli/projects/` for project data
+- ✅ **Version management** - Auto-updates on new releases
 
 ## ⚡ 5-Minute Quick Start
 
@@ -652,4 +642,4 @@ MIT - Build something amazing!
 
 ---
 
-**Built for builders who ship, not managers who meet.**
+**Context layer for AI coding agents.** Works with Claude Code, Gemini CLI, and more.

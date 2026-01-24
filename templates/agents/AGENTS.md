@@ -1,6 +1,14 @@
 # AGENTS.md
 
-AI assistant guidance for **prjct-cli** - developer momentum tool.
+AI assistant guidance for **prjct-cli** - context layer for AI coding agents. Works with Claude Code, Gemini CLI, and more.
+
+## What This Is
+
+**NOT** project management. NO sprints, story points, ceremonies, or meetings.
+
+**IS** a context layer that gives AI agents the project knowledge they need to work effectively.
+
+---
 
 ## Dynamic Agent Generation
 

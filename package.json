@@ -1,7 +1,7 @@
 {
   "name": "prjct-cli",
-  "version": "0.35.4",
-  "description": "Built for Claude - Ship fast, track progress, stay focused. Developer momentum tool for indie hackers.",
+  "version": "0.36.0",
+  "description": "Context layer for AI agents. Project context for Claude Code, Gemini CLI, and more.",
   "main": "core/index.ts",
   "bin": {
     "prjct": "bin/prjct"
@@ -34,15 +34,15 @@
   },
   "keywords": [
     "claude-code",
-    "claude-desktop",
-    "developer-momentum",
-    "indie-hacker",
-    "ship-fast",
+    "gemini-cli",
+    "ai-agents",
+    "context-layer",
+    "developer-tools",
     "ai-assistant",
     "productivity",
-    "developer-tools",
-    "no-bs",
-    "focus"
+    "mcp",
+    "llm",
+    "coding-agents"
   ],
   "author": "prjct.app",
   "license": "MIT",

@@ -1,5 +1,5 @@
 ---
-description: 'prjct CLI - Developer momentum tool'
+description: 'prjct CLI - Context layer for AI agents'
 allowed-tools: [Read, Write, Edit, Bash, Glob, Grep, Task, AskUserQuestion, TodoWrite, WebFetch]
 ---
 

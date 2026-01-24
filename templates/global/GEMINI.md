@@ -50,7 +50,7 @@ bun -e "console.log(crypto.randomUUID())" 2>/dev/null || node -e "console.log(re
 
 ```
 🤖 Generated with [p/](https://www.prjct.app/)
-Designed for [Claude](https://www.anthropic.com/claude)
+Designed for [Gemini](https://geminicli.com/)
 
 ```
 
@@ -128,7 +128,7 @@ User Action → Storage (JSON) → Context (MD) → Sync Events
 | Layer | Path | Purpose |
 |-------|------|---------|
 | **Storage** | `storage/*.json` | Source of truth |
-| **Context** | `context/*.md` | Claude-readable summaries |
+| **Context** | `context/*.md` | AI-readable summaries |
 | **Memory** | `memory/events.jsonl` | Audit trail (append-only) |
 | **Agents** | `agents/*.md` | Domain specialists |
 | **Sync** | `sync/pending.json` | Backend sync queue |
@@ -144,7 +144,7 @@ User Action → Storage (JSON) → Context (MD) → Sync Events
 │   ├── now.md          # Current task (generated)
 │   └── next.md         # Queue (generated)
 ├── config/
-│   └── skills.json     # Agent-to-skill mappings (NEW)
+│   └── skills.json     # Agent-to-skill mappings
 ├── memory/
 │   └── events.jsonl    # Audit trail
 ├── agents/             # Domain specialists (auto-generated)
@@ -160,7 +160,7 @@ User Action → Storage (JSON) → Context (MD) → Sync Events
 1. **Analyze** - Understand what user wants to achieve
 2. **Classify** - Determine type: feature, bug, improvement, refactor, chore
 3. **Explore** - Find similar code, patterns, affected files
-4. **Ask** - Clarify ambiguities (use AskUserQuestion)
+4. **Ask** - Clarify ambiguities
 5. **Design** - Propose 2-3 approaches, get approval
 6. **Break down** - Create actionable subtasks
 7. **Track** - Update storage/state.json
@@ -180,8 +180,8 @@ User Action → Storage (JSON) → Context (MD) → Sync Events
 
 ### Key Intelligence Rules
 - **Read before write** - Always read existing files before modifying
-- **Explore before coding** - Use Task(Explore) to understand codebase
-- **Ask when uncertain** - Use AskUserQuestion to clarify
+- **Explore before coding** - Understand codebase first
+- **Ask when uncertain** - Clarify ambiguities
 - **Adapt templates** - Templates are guidance, not rigid scripts
 - **Log everything** - Append to memory/events.jsonl
 
@@ -213,49 +213,50 @@ These agents contain project-specific patterns. **USE THEM**.
 
 ---
 
-## SKILL INTEGRATION (NEW in v0.27 - AGENTIC)
+## SKILL INTEGRATION
 
-Agents are linked to Claude Code skills from claude-plugins.dev.
-
-**Skills are discovered AGENTICALLY** - Claude searches the marketplace dynamically.
+Agents can be linked to skills for specialized expertise.
 
 ### How Skills Work
 
-1. **During `p. sync`**: Search claude-plugins.dev, install best matches
+1. **During `p. sync`**: Skills are discovered and installed
 2. **During `p. task`**: Skills are auto-invoked for domain expertise
-3. **Agent frontmatter** has `skills: [discovered-skill-name]` field
-
-### Agentic Discovery Process
-
-```
-FOR EACH generated agent:
-  1. Read search hints from templates/config/skill-mappings.json
-  2. Search: https://claude-plugins.dev/skills?q={searchTerm}
-  3. Analyze results (prefer @anthropics, high downloads)
-  4. Download skill markdown from GitHub
-  5. Write to ~/.claude/skills/{name}.md
-  6. Update agent frontmatter
-```
-
-### Search Terms by Agent
-
-| Agent | Search Terms |
-|-------|-------------|
-| `frontend.md` | "frontend-design", "react", "ui components" |
-| `uxui.md` | "ux-designer", "frontend-design", "ui ux" |
-| `backend.md` | "{ecosystem} backend", "api design" |
-| `testing.md` | "testing automation", "test patterns" |
-| `devops.md` | "devops", "ci cd", "docker kubernetes" |
-| `prjct-planner.md` | "architecture patterns", "feature development" |
-| `prjct-shipper.md` | "code review", "pr review" |
+3. **Agent frontmatter** has `skills: [skill-name]` field
 
 ### Skill Location
 
-Skills are markdown files in `~/.claude/skills/`
+Skills are SKILL.md files in `~/.gemini/skills/{skill-name}/`
+
+**Note**: Gemini CLI and Claude Code use the same SKILL.md format, so skills are compatible between both agents.
 
 ### Skill Configuration
 
-After sync: `{globalPath}/config/skills.json` contains discovered mappings.
+After sync: `{globalPath}/config/skills.json` contains skill mappings.
+
+---
+
+## GEMINI-SPECIFIC FEATURES
+
+### Context Hierarchy
+
+Gemini CLI loads GEMINI.md files hierarchically:
+1. Global: `~/.gemini/GEMINI.md`
+2. Project ancestors: Walk up to `.git` root
+3. Subdirectories: Scan below cwd (respects `.geminiignore`)
+
+### Modular Imports
+
+You can import content from other files using `@file.md` syntax:
+```markdown
+@./components/instructions.md
+@../shared/style-guide.md
+```
+
+### Memory Commands
+
+- `/memory show` - Display loaded context
+- `/memory refresh` - Reload all GEMINI.md files
+- `/memory add <text>` - Add to global context
 
 ---
 
