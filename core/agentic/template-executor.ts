@@ -27,7 +27,11 @@ export interface TemplateExecutionContext {
   command: string
   args: string
 
-  // Paths for Claude (not content - Claude reads what it needs)
+  // Agent information
+  agentName: string
+  agentSettingsPath: string
+
+  // Paths for agent (not content)
   paths: {
     orchestrator: string
     agentRouting: string
@@ -85,6 +89,8 @@ export class TemplateExecutor {
   ): Promise<TemplateExecutionContext> {
     const projectId = await this.getProjectId(projectPath)
     const globalPath = pathManager.getGlobalProjectPath(projectId)
+    const aiProvider = require('../infrastructure/ai-provider')
+    const activeProvider = aiProvider.getActiveProvider()
 
     // Get templates directory - use local path during development
     let templatesDir: string
@@ -102,6 +108,8 @@ export class TemplateExecutor {
       globalPath,
       command,
       args,
+      agentName: activeProvider.displayName,
+      agentSettingsPath: pathManager.getAgentSettingsPath(),
       paths: {
         orchestrator: path.join(templatesDir, 'agentic', 'orchestrator.md'),
         agentRouting: path.join(templatesDir, 'agentic', 'agent-routing.md'),
@@ -109,7 +117,7 @@ export class TemplateExecutor {
         commandTemplate: path.join(templatesDir, 'commands', `${command}.md`),
         repoAnalysis: path.join(globalPath, 'analysis', 'repo-analysis.json'),
         agentsDir: path.join(globalPath, 'agents'),
-        skillsDir: path.join(os.homedir(), '.claude', 'skills'),
+        skillsDir: activeProvider.skillsDir,
         stateJson: path.join(globalPath, 'storage', 'state.json'),
       }
     }
@@ -157,7 +165,7 @@ export class TemplateExecutor {
   }
 
   /**
-   * Build prompt that tells Claude to execute templates agentically
+   * Build prompt that tells agent to execute templates agentically
    */
   buildAgenticPrompt(context: TemplateExecutionContext): AgenticPromptInfo {
     const requiresOrchestration = this.requiresOrchestration(context.command)
@@ -165,9 +173,11 @@ export class TemplateExecutor {
     const prompt = `
 ## Agentic Execution Mode
 
-You are executing a prjct command. Follow the template-first approach.
+You are executing a prjct command as ${context.agentName}. Follow the template-first approach.
 
 ### Context
+- Agent: ${context.agentName}
+- Settings: ${context.agentSettingsPath}
 - Command: ${context.command}
 - Args: ${context.args}
 - Project: ${context.projectPath}

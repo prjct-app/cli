@@ -15,6 +15,8 @@ All issue tracker integrations (Linear, JIRA, GitHub Issues, Monday.com) inherit
 
 - `{projectId}`: From `.prjct/prjct.config.json`
 - `{globalPath}`: `~/.prjct-cli/projects/{projectId}`
+- `{agentName}`: Name of the AI agent (Claude Code, Gemini CLI)
+- `{agentSettingsPath}`: Path to agent settings (settings.json)
 - `{args}`: User-provided arguments (subcommand)
 - `{tracker}`: The tracker name (linear, jira, github, monday)
 - `{mcpPrefix}`: MCP tool prefix (e.g., `mcp__linear__`, `mcp__atlassian__jira_`)
@@ -75,7 +77,7 @@ ELSE:
 ## Step 3: Install MCP Server (COMMON)
 
 ```
-READ: ~/.claude/settings.json (create {} if not exists)
+READ: {agentSettingsPath} (create {} if not exists)
 CHECK: Does mcpServers.{mcpServerName} exist?
 
 IF not exists:
@@ -86,11 +88,11 @@ IF not exists:
     }
   }
 
-  WRITE: ~/.claude/settings.json
+  WRITE: {agentSettingsPath}
 
   OUTPUT: "✅ Installed {TRACKER} MCP server"
   OUTPUT: ""
-  OUTPUT: "⚠️ Restart Claude Code to activate the MCP server."
+  OUTPUT: "⚠️ Restart your AI agent ({agentName}) to activate the MCP server."
   OUTPUT: "Then run `p. {tracker} setup` again to complete configuration."
   STOP
 ```
@@ -104,7 +106,7 @@ CHECK: Are {mcpPrefix}* tools available?
 
 IF not available:
   OUTPUT: "{TRACKER} MCP is installed but not yet active."
-  OUTPUT: "Restart Claude Code, then run `p. {tracker} setup` again."
+  OUTPUT: "Restart {agentName}, then run `p. {tracker} setup` again."
   STOP
 ```
 
@@ -238,7 +240,7 @@ Comment added to {ID}
 |-------|--------|
 | No project | "Run `p. init` first" |
 | Auth not configured | "Run `p. {tracker} setup` first" |
-| MCP tools not found | "Restart Claude Code after setup" |
+| MCP tools not found | "Restart {agentName} after setup" |
 | Auth failed | Re-authenticate message |
 | Issue not found | "Issue {ID} not found in {TRACKER}" |
 | Rate limited | "Rate limited. Try again later" |

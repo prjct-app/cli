@@ -1,15 +1,18 @@
 /**
  * AI Provider - Multi-agent support for prjct-cli
  *
- * Supports both Claude Code and Gemini CLI with a unified abstraction layer.
- * Both agents share similar architectures:
- * - Context files: CLAUDE.md / GEMINI.md
- * - Skills: Both use SKILL.md format (identical!)
- * - Commands: .md (Claude) / .toml (Gemini)
- * - MCP: Both support Model Context Protocol
+ * Supports multiple AI coding agents with a unified abstraction layer:
+ * - Claude Code (CLI): ~/.claude/, CLAUDE.md, .md commands
+ * - Gemini CLI (CLI): ~/.gemini/, GEMINI.md, .toml commands
+ * - Cursor IDE (GUI): .cursor/ (project-level), .mdc rules
+ *
+ * Key differences:
+ * - CLI providers (Claude/Gemini) have global config directories
+ * - Cursor has project-level config only (no ~/.cursor/)
  *
  * @see https://geminicli.com/docs/cli/gemini-md/
  * @see https://geminicli.com/docs/cli/skills/
+ * @see https://cursor.com/docs/context/rules
  */
 
 import { execSync } from 'child_process'
@@ -22,6 +25,7 @@ import type {
   ProviderDetectionResult,
   ProviderSelectionResult,
   ProviderBranding,
+  CursorProjectDetection,
 } from '../types/provider'
 
 // =============================================================================
@@ -67,11 +71,41 @@ export const GeminiProvider: AIProviderConfig = {
 }
 
 /**
+ * Cursor IDE provider configuration
+ *
+ * Key differences from Claude/Gemini:
+ * - NOT a CLI (GUI app, VS Code fork)
+ * - No global config directory (~/.cursor/ doesn't exist)
+ * - Project-level config only (.cursor/rules/, .cursor/commands/)
+ * - User can select any model (GPT, Claude, Gemini, DeepSeek, etc.)
+ *
+ * @see https://cursor.com/docs/context/rules
+ */
+export const CursorProvider: AIProviderConfig = {
+  name: 'cursor',
+  displayName: 'Cursor IDE',
+  cliCommand: null,              // Not a CLI - GUI app
+  configDir: null,               // No global config directory
+  contextFile: 'prjct.mdc',      // Uses .mdc format with frontmatter
+  skillsDir: null,               // No skills directory
+  commandsDir: '.cursor/commands',
+  rulesDir: '.cursor/rules',     // Cursor-specific: rules directory
+  commandFormat: 'md',
+  settingsFile: null,
+  projectSettingsFile: null,
+  ignoreFile: '.cursorignore',
+  isProjectLevel: true,          // Config is project-level only
+  websiteUrl: 'https://cursor.com',
+  docsUrl: 'https://cursor.com/docs',
+}
+
+/**
  * All available providers
  */
 export const Providers: Record<AIProviderName, AIProviderConfig> = {
   claude: ClaudeProvider,
   gemini: GeminiProvider,
+  cursor: CursorProvider,
 }
 
 // =============================================================================
@@ -105,10 +139,17 @@ function getCliVersion(command: string): string | null {
 }
 
 /**
- * Detect if a specific provider is installed
+ * Detect if a specific CLI-based provider is installed
+ * Note: Cursor is NOT a CLI, use detectCursorProject() instead
  */
 export function detectProvider(provider: AIProviderName): ProviderDetectionResult {
   const config = Providers[provider]
+
+  // Cursor is not a CLI - return not installed for CLI detection
+  if (!config.cliCommand) {
+    return { installed: false }
+  }
+
   const cliPath = whichCommand(config.cliCommand)
 
   if (!cliPath) {
@@ -125,9 +166,10 @@ export function detectProvider(provider: AIProviderName): ProviderDetectionResul
 }
 
 /**
- * Detect all available providers
+ * Detect all available CLI-based providers
+ * Note: Cursor detection is project-level, use detectCursorProject() separately
  */
-export function detectAllProviders(): Record<AIProviderName, ProviderDetectionResult> {
+export function detectAllProviders(): { claude: ProviderDetectionResult; gemini: ProviderDetectionResult } {
   return {
     claude: detectProvider('claude'),
     gemini: detectProvider('gemini'),
@@ -165,9 +207,13 @@ export function getActiveProvider(projectProvider?: AIProviderName): AIProviderC
 
 /**
  * Check if config directory exists for a provider
+ * Returns false for project-level providers (Cursor)
  */
 export function hasProviderConfig(provider: AIProviderName): boolean {
   const config = Providers[provider]
+  if (!config.configDir) {
+    return false // Cursor has no global config directory
+  }
   return fs.existsSync(config.configDir)
 }
 
@@ -189,6 +235,14 @@ Designed for [Gemini](${config.websiteUrl})`,
     }
   }
 
+  if (provider === 'cursor') {
+    return {
+      commitFooter: `🤖 Generated with [p/](https://www.prjct.app/)
+Built with [Cursor](${config.websiteUrl})`,
+      signature: '⚡ prjct + Cursor',
+    }
+  }
+
   // Default: Claude
   return {
     commitFooter: `🤖 Generated with [p/](https://www.prjct.app/)
@@ -198,29 +252,74 @@ Designed for [Claude](${config.websiteUrl})`,
 }
 
 // =============================================================================
+// Cursor Project Detection
+// =============================================================================
+
+/**
+ * Detect if a project is configured for Cursor IDE
+ *
+ * Cursor has NO global config (~/.cursor/ doesn't exist).
+ * Detection is based on project-level .cursor/ directory.
+ */
+export function detectCursorProject(projectRoot: string): CursorProjectDetection {
+  const cursorDir = path.join(projectRoot, '.cursor')
+  const rulesDir = path.join(cursorDir, 'rules')
+  const routerPath = path.join(rulesDir, 'prjct.mdc')
+
+  const detected = fs.existsSync(cursorDir)
+  const routerInstalled = fs.existsSync(routerPath)
+
+  return {
+    detected,
+    routerInstalled,
+    projectRoot: detected ? projectRoot : undefined,
+  }
+}
+
+/**
+ * Check if Cursor routers need to be regenerated
+ */
+export function needsCursorRouterRegeneration(projectRoot: string): boolean {
+  const detection = detectCursorProject(projectRoot)
+
+  // Only check if .cursor/ exists (project uses Cursor)
+  // and prjct router is missing
+  return detection.detected && !detection.routerInstalled
+}
+
+// =============================================================================
 // Provider Paths
 // =============================================================================
 
 /**
  * Get full path to global context file
+ * Returns null for project-level providers (Cursor)
  */
-export function getGlobalContextPath(provider: AIProviderName): string {
+export function getGlobalContextPath(provider: AIProviderName): string | null {
   const config = Providers[provider]
+  if (!config.configDir) {
+    return null // Cursor has no global config
+  }
   return path.join(config.configDir, config.contextFile)
 }
 
 /**
  * Get full path to global settings file
+ * Returns null for project-level providers (Cursor)
  */
-export function getGlobalSettingsPath(provider: AIProviderName): string {
+export function getGlobalSettingsPath(provider: AIProviderName): string | null {
   const config = Providers[provider]
+  if (!config.configDir || !config.settingsFile) {
+    return null // Cursor has no global settings
+  }
   return path.join(config.configDir, config.settingsFile)
 }
 
 /**
  * Get full path to skills directory
+ * Returns null for providers without skill support (Cursor)
  */
-export function getSkillsPath(provider: AIProviderName): string {
+export function getSkillsPath(provider: AIProviderName): string | null {
   return Providers[provider].skillsDir
 }
 
@@ -298,6 +397,7 @@ export default {
   Providers,
   ClaudeProvider,
   GeminiProvider,
+  CursorProvider,
   detectProvider,
   detectAllProviders,
   getActiveProvider,
@@ -309,4 +409,6 @@ export default {
   getCommandsDir,
   getProjectCommandsPath,
   selectProvider,
+  detectCursorProject,
+  needsCursorRouterRegeneration,
 }

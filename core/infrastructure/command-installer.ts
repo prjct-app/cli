@@ -60,32 +60,43 @@ export async function installDocs(): Promise<{ success: boolean; error?: string 
 }
 
 /**
- * Install or update global CLAUDE.md configuration
+ * Install or update global AI agent configuration (CLAUDE.md / GEMINI.md)
  */
-export async function installGlobalConfig(
-  claudeConfigPath: string,
-  detectClaude: () => Promise<boolean>
-): Promise<GlobalConfigResult> {
-  const claudeDetected = await detectClaude()
+export async function installGlobalConfig(): Promise<GlobalConfigResult> {
+  const aiProvider = require('./ai-provider')
+  const activeProvider = aiProvider.getActiveProvider()
+  const providerName = activeProvider.name
 
-  if (!claudeDetected) {
+  // Check if provider is installed
+  const detection = aiProvider.detectProvider(providerName)
+  if (!detection.installed && !activeProvider.configDir) {
     return {
       success: false,
-      error: 'Claude not detected',
+      error: `${activeProvider.displayName} not detected`,
       action: 'skipped',
     }
   }
 
   try {
-    // Ensure ~/.claude directory exists
-    const claudeDir = path.join(os.homedir(), '.claude')
-    await fs.mkdir(claudeDir, { recursive: true })
+    // Ensure config directory exists
+    await fs.mkdir(activeProvider.configDir, { recursive: true })
 
-    const globalConfigPath = path.join(claudeDir, 'CLAUDE.md')
-    const templatePath = path.join(getPackageRoot(), 'templates/global/CLAUDE.md')
+    const globalConfigPath = path.join(activeProvider.configDir, activeProvider.contextFile)
+    const templatePath = path.join(getPackageRoot(), 'templates', 'global', activeProvider.contextFile)
 
     // Read template content
-    const templateContent = await fs.readFile(templatePath, 'utf-8')
+    let templateContent = ''
+    try {
+      templateContent = await fs.readFile(templatePath, 'utf-8')
+    } catch (error) {
+      // Fallback if provider-specific template not found
+      const fallbackTemplatePath = path.join(getPackageRoot(), 'templates/global/CLAUDE.md')
+      templateContent = await fs.readFile(fallbackTemplatePath, 'utf-8')
+      // If it is Gemini, we should rename Claude to Gemini in the fallback content
+      if (providerName === 'gemini') {
+        templateContent = templateContent.replace(/Claude/g, 'Gemini')
+      }
+    }
 
     // Check if global config already exists
     let existingContent = ''
@@ -172,19 +183,26 @@ export class CommandInstaller {
 
   constructor() {
     this.homeDir = os.homedir()
-    // Commands are stored in p/ subdirectory, accessed via p. trigger
-    // Note: Claude Code bug #2422 prevents native slash command discovery
-    // We use the p.md router in commands/ root instead
-    this.claudeCommandsPath = path.join(this.homeDir, '.claude', 'commands', 'p')
-    this.claudeConfigPath = path.join(this.homeDir, '.claude')
-    // Use getPackageRoot() to find templates - works from both source and compiled
+    
+    const aiProvider = require('./ai-provider')
+    const activeProvider = aiProvider.getActiveProvider()
+    
+    // Command paths are provider-specific
+    if (activeProvider.name === 'gemini') {
+      this.claudeCommandsPath = path.join(activeProvider.configDir, 'commands')
+    } else {
+      // Claude: Commands are in p/ subdirectory to avoid cluttering commands/
+      this.claudeCommandsPath = path.join(activeProvider.configDir, 'commands', 'p')
+    }
+    
+    this.claudeConfigPath = activeProvider.configDir
     this.templatesDir = path.join(getPackageRoot(), 'templates', 'commands')
   }
 
   /**
-   * Detect if Claude is installed
+   * Detect if active provider is installed
    */
-  async detectClaude(): Promise<boolean> {
+  async detectActiveProvider(): Promise<boolean> {
     try {
       await fs.access(this.claudeConfigPath)
       return true
@@ -194,6 +212,13 @@ export class CommandInstaller {
       }
       throw error
     }
+  }
+
+  /**
+   * Detect if Claude is installed (legacy support)
+   */
+  async detectClaude(): Promise<boolean> {
+    return this.detectActiveProvider()
   }
 
   /**
@@ -230,20 +255,22 @@ export class CommandInstaller {
   }
 
   /**
-   * Install commands to Claude
+   * Install commands to active AI agent
    */
   async installCommands(): Promise<InstallResult> {
-    const claudeDetected = await this.detectClaude()
+    const providerDetected = await this.detectActiveProvider()
+    const aiProvider = require('./ai-provider')
+    const activeProvider = aiProvider.getActiveProvider()
 
-    if (!claudeDetected) {
+    if (!providerDetected) {
       return {
         success: false,
-        error: 'Claude not detected. Please install Claude Code or Claude Desktop first.',
+        error: `${activeProvider.displayName} not detected. Please install it first.`,
       }
     }
 
     try {
-      // Install the p.md router to enable "p. task" trigger
+      // Install the router to enable "p. task" trigger
       await this.installRouter()
 
       // Ensure commands directory exists
@@ -404,14 +431,20 @@ export class CommandInstaller {
   }
 
   /**
-   * Install the p.md router to ~/.claude/commands/
+   * Install the router (p.md for Claude, p.toml for Gemini) to commands directory
    * This enables the "p. task" natural language trigger
-   * Claude Code bug #2422 prevents subdirectory slash command discovery
    */
   async installRouter(): Promise<boolean> {
+    const aiProvider = require('./ai-provider')
+    const activeProvider = aiProvider.getActiveProvider()
+    const routerFile = activeProvider.name === 'gemini' ? 'p.toml' : 'p.md'
+    
     try {
-      const routerSource = path.join(this.templatesDir, 'p.md')
-      const routerDest = path.join(this.homeDir, '.claude', 'commands', 'p.md')
+      const routerSource = path.join(this.templatesDir, routerFile)
+      const routerDest = path.join(activeProvider.configDir, 'commands', routerFile)
+
+      // Ensure commands directory exists
+      await fs.mkdir(path.dirname(routerDest), { recursive: true })
 
       const content = await fs.readFile(routerSource, 'utf-8')
       await fs.writeFile(routerDest, content, 'utf-8')
@@ -428,12 +461,12 @@ export class CommandInstaller {
    * Sync commands - intelligent update that detects and removes orphans
    */
   async syncCommands(): Promise<SyncResult> {
-    const claudeDetected = await this.detectClaude()
+    const providerDetected = await this.detectActiveProvider()
 
-    if (!claudeDetected) {
+    if (!providerDetected) {
       return {
         success: false,
-        error: 'Claude not detected',
+        error: 'AI agent not detected',
         added: 0,
         updated: 0,
         removed: 0,
@@ -511,10 +544,10 @@ export class CommandInstaller {
   }
 
   /**
-   * Install or update global CLAUDE.md configuration
+   * Install or update global AI agent configuration (CLAUDE.md / GEMINI.md)
    */
   async installGlobalConfig(): Promise<GlobalConfigResult> {
-    return installGlobalConfig(this.claudeConfigPath, () => this.detectClaude())
+    return installGlobalConfig()
   }
 
   /**

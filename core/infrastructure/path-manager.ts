@@ -301,23 +301,32 @@ class PathManager {
   }
 
   /**
-   * Get the Claude directory path (~/.claude)
-   * Contains Claude Code/Desktop configuration
+   * Get the Claude/Gemini directory path (~/.claude or ~/.gemini)
+   * Contains AI CLI configuration
+   */
+  getAgentDir(): string {
+    const provider = require('./ai-provider').getActiveProvider()
+    return provider.configDir
+  }
+
+  /**
+   * Get the agent settings file path (~/.claude/settings.json or ~/.gemini/settings.json)
+   */
+  getAgentSettingsPath(): string {
+    const provider = require('./ai-provider').getActiveProvider()
+    const aiProvider = require('./ai-provider')
+    return aiProvider.getGlobalSettingsPath(provider.name)
+  }
+
+  /**
+   * Get the Claude directory path (~/.claude) - Legacy support
    */
   getClaudeDir(): string {
     return path.join(os.homedir(), '.claude')
   }
 
   /**
-   * Get the Claude commands directory path (~/.claude/commands)
-   * Contains custom slash commands for Claude
-   */
-  getClaudeCommandsDir(): string {
-    return path.join(this.getClaudeDir(), 'commands')
-  }
-
-  /**
-   * Get the Claude settings file path (~/.claude/settings.json)
+   * Get the Claude settings file path (~/.claude/settings.json) - Legacy support
    */
   getClaudeSettingsPath(): string {
     return path.join(this.getClaudeDir(), 'settings.json')
