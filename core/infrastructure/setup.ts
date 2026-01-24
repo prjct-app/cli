@@ -106,10 +106,11 @@ export async function run(): Promise<SetupResults> {
     configAction: null,
   }
 
-  // Step 1: Install for each detected provider
-  const providerNames: AIProviderName[] = ['claude', 'gemini']
+  // Step 1: Install for each CLI-based provider (Claude, Gemini)
+  // Note: Cursor is project-level and handled separately via installCursorProject()
+  const cliProviderNames: ('claude' | 'gemini')[] = ['claude', 'gemini']
 
-  for (const providerName of providerNames) {
+  for (const providerName of cliProviderNames) {
     const providerConfig = Providers[providerName]
     const providerDetection = detection[providerName]
 
@@ -293,6 +294,134 @@ async function installGeminiGlobalConfig(): Promise<{ success: boolean; action: 
     console.error(`Gemini config warning: ${(error as Error).message}`)
     return { success: false, action: null }
   }
+}
+
+// =============================================================================
+// Cursor IDE Installation (Project-Level)
+// =============================================================================
+
+/**
+ * Install prjct routers for Cursor IDE in a project
+ *
+ * Unlike Claude/Gemini which have global config, Cursor uses project-level
+ * configuration in .cursor/rules/ and .cursor/commands/.
+ *
+ * Creates minimal routers that point to the npm package for real instructions.
+ *
+ * @param projectRoot - The project root directory
+ * @returns Object with success status and files created
+ */
+export async function installCursorProject(projectRoot: string): Promise<{
+  success: boolean
+  rulesCreated: boolean
+  commandsCreated: boolean
+  gitignoreUpdated: boolean
+}> {
+  const result = {
+    success: false,
+    rulesCreated: false,
+    commandsCreated: false,
+    gitignoreUpdated: false,
+  }
+
+  try {
+    const cursorDir = path.join(projectRoot, '.cursor')
+    const rulesDir = path.join(cursorDir, 'rules')
+    const commandsDir = path.join(cursorDir, 'commands')
+
+    const routerMdcDest = path.join(rulesDir, 'prjct.mdc')
+    const commandRouterDest = path.join(commandsDir, 'p.md')
+
+    const routerMdcSource = path.join(getPackageRoot(), 'templates', 'cursor', 'router.mdc')
+    const commandRouterSource = path.join(getPackageRoot(), 'templates', 'cursor', 'p.md')
+
+    // Ensure directories exist
+    fs.mkdirSync(rulesDir, { recursive: true })
+    fs.mkdirSync(commandsDir, { recursive: true })
+
+    // Copy router.mdc → .cursor/rules/prjct.mdc
+    if (fs.existsSync(routerMdcSource)) {
+      fs.copyFileSync(routerMdcSource, routerMdcDest)
+      result.rulesCreated = true
+    }
+
+    // Copy p.md → .cursor/commands/p.md
+    if (fs.existsSync(commandRouterSource)) {
+      fs.copyFileSync(commandRouterSource, commandRouterDest)
+      result.commandsCreated = true
+    }
+
+    // Update .gitignore to exclude prjct Cursor routers
+    result.gitignoreUpdated = await addCursorToGitignore(projectRoot)
+
+    result.success = result.rulesCreated || result.commandsCreated
+    return result
+  } catch (error) {
+    console.error(`Cursor installation warning: ${(error as Error).message}`)
+    return result
+  }
+}
+
+/**
+ * Add Cursor prjct routers to .gitignore
+ *
+ * These files are per-developer and regenerated automatically.
+ */
+async function addCursorToGitignore(projectRoot: string): Promise<boolean> {
+  try {
+    const gitignorePath = path.join(projectRoot, '.gitignore')
+    const entriesToAdd = [
+      '# prjct Cursor routers (regenerated per-developer)',
+      '.cursor/rules/prjct.mdc',
+      '.cursor/commands/p.md',
+    ]
+
+    let content = ''
+    let fileExists = false
+
+    try {
+      content = fs.readFileSync(gitignorePath, 'utf-8')
+      fileExists = true
+    } catch (error) {
+      if (!isNotFoundError(error)) {
+        throw error
+      }
+    }
+
+    // Check if already added
+    if (content.includes('.cursor/rules/prjct.mdc')) {
+      return false // Already added
+    }
+
+    // Append to .gitignore
+    const newContent = fileExists
+      ? content.trimEnd() + '\n\n' + entriesToAdd.join('\n') + '\n'
+      : entriesToAdd.join('\n') + '\n'
+
+    fs.writeFileSync(gitignorePath, newContent, 'utf-8')
+    return true
+  } catch (error) {
+    console.error(`Gitignore update warning: ${(error as Error).message}`)
+    return false
+  }
+}
+
+/**
+ * Check if a project has Cursor configured (has .cursor/ directory)
+ */
+export function hasCursorProject(projectRoot: string): boolean {
+  return fs.existsSync(path.join(projectRoot, '.cursor'))
+}
+
+/**
+ * Check if Cursor routers need regeneration
+ */
+export function needsCursorRegeneration(projectRoot: string): boolean {
+  const cursorDir = path.join(projectRoot, '.cursor')
+  const routerPath = path.join(cursorDir, 'rules', 'prjct.mdc')
+
+  // Only check if .cursor/ exists (project uses Cursor)
+  return fs.existsSync(cursorDir) && !fs.existsSync(routerPath)
 }
 
 /**
