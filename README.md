@@ -6,6 +6,7 @@ Works with Claude Code, Gemini CLI, Antigravity, Cursor IDE, and more.
 
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Ready-6366f1)](CLAUDE.md)
 [![Gemini CLI](https://img.shields.io/badge/Gemini%20CLI-Ready-4285F4)]()
+[![Antigravity](https://img.shields.io/badge/Antigravity-Ready-EA4335)]()
 [![Cursor IDE](https://img.shields.io/badge/Cursor%20IDE-Ready-00D4AA)]()
 [![npm](https://img.shields.io/npm/v/prjct-cli)](https://www.npmjs.com/package/prjct-cli)
 
@@ -14,18 +15,19 @@ Works with Claude Code, Gemini CLI, Antigravity, Cursor IDE, and more.
 prjct gives AI coding agents the context they need about your project. It maintains state between sessions, tracks progress, and ensures agents understand your codebase.
 
 ```
-Your AI Agent (Claude/Gemini/Cursor)     prjct
-         │                                  │
-         │  "What am I working on?"         │
-         │ ───────────────────────────────► │
-         │                                  │ Reads project context
-         │  Task: "Add user auth"           │
-         │  Branch: feature/auth            │
-         │  Subtask 2/5: API routes         │
-         │ ◄─────────────────────────────── │
-         │                                  │
-         ▼                                  │
-    Writes code with full context           │
+Your AI Agent                              prjct
+(Claude/Gemini/Antigravity/Cursor)           │
+         │                                   │
+         │  "What am I working on?"          │
+         │ ────────────────────────────────► │
+         │                                   │ Reads project context
+         │  Task: "Add user auth"            │
+         │  Branch: feature/auth             │
+         │  Subtask 2/5: API routes          │
+         │ ◄──────────────────────────────── │
+         │                                   │
+         ▼                                   │
+    Writes code with full context            │
 ```
 
 ## Install
@@ -53,6 +55,25 @@ p. done                    # Complete subtask
 p. ship                    # Ship with PR
 ```
 
+### Google Antigravity
+
+```bash
+# 1. One-time global setup (installs prjct as a skill)
+prjct start
+
+# 2. Initialize your project
+cd my-project
+prjct init
+
+# 3. Open in Antigravity and use:
+p. sync                    # Analyze project
+p. task "add user auth"    # Start a task
+p. done                    # Complete subtask
+p. ship                    # Ship with PR
+```
+
+> **Note:** prjct integrates as a Skill (not MCP server) for zero-overhead operation.
+
 ### Cursor IDE
 
 ```bash
@@ -72,19 +93,19 @@ prjct init
 ### Core Workflow
 
 ```
-Claude/Gemini:  p. sync  →  p. task "..."  →  [code]  →  p. done  →  p. ship
-Cursor:         /sync    →  /task "..."    →  [code]  →  /done    →  /ship
+Claude/Gemini/Antigravity:  p. sync  →  p. task "..."  →  [code]  →  p. done  →  p. ship
+Cursor:                     /sync    →  /task "..."    →  [code]  →  /done    →  /ship
 ```
 
 ## How It Works
 
-| Component | Claude Code | Gemini CLI | Cursor IDE |
-|-----------|-------------|------------|------------|
-| Router | `~/.claude/commands/p.md` | `~/.gemini/commands/p.toml` | `.cursor/commands/*.md` |
-| Config | `~/.claude/CLAUDE.md` | `~/.gemini/GEMINI.md` | `.cursor/rules/prjct.mdc` |
-| Storage | `~/.prjct-cli/projects/` | `~/.prjct-cli/projects/` | `~/.prjct-cli/projects/` |
-| Scope | Global | Global | Per-project |
-| Syntax | `p. command` | `p. command` | `/command` |
+| Component | Claude Code | Gemini CLI | Antigravity | Cursor IDE |
+|-----------|-------------|------------|-------------|------------|
+| Router | `~/.claude/commands/p.md` | `~/.gemini/commands/p.toml` | Skill | `.cursor/commands/*.md` |
+| Config | `~/.claude/CLAUDE.md` | `~/.gemini/GEMINI.md` | `~/.gemini/antigravity/skills/prjct/` | `.cursor/rules/prjct.mdc` |
+| Storage | `~/.prjct-cli/projects/` | `~/.prjct-cli/projects/` | `~/.prjct-cli/projects/` | `~/.prjct-cli/projects/` |
+| Scope | Global | Global | Global | Per-project |
+| Syntax | `p. command` | `p. command` | `p. command` | `/command` |
 
 All agents share the same project storage, so you can switch between them freely.
 
@@ -114,7 +135,7 @@ prjct --help         # Show help
 ## Requirements
 
 - Node.js 18+ or Bun 1.0+
-- One of: Claude Code, Gemini CLI, or Cursor IDE
+- One of: Claude Code, Gemini CLI, Antigravity, or Cursor IDE
 
 ## Links
 

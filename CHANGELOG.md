@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.38.1] - 2026-01-24
+
+### Docs: Complete Antigravity documentation
+
+- Added Antigravity badge to README
+- Added Antigravity Quick Start section
+- Updated "How It Works" table with Antigravity column
+- Updated Requirements to include Antigravity
+- Fixed version display to show all providers consistently
+
+---
+
 ## [0.38.0] - 2026-01-24
 
 ### Feature: Google Antigravity Support (PRJ-64)
