@@ -20,6 +20,36 @@ p. ship X   → templates/commands/ship.md
 
 ## CRITICAL RULES
 
+### 0. PLAN BEFORE ACTION (NON-NEGOTIABLE)
+
+**For ANY prjct task, you MUST create a plan and get user approval BEFORE executing.**
+
+```
+EVERY prjct command (p. task, p. sync, p. ship, etc.):
+1. STOP - Do not execute anything yet
+2. ANALYZE - Read relevant files, understand scope
+3. PLAN - Write a clear plan with:
+   - What will be done
+   - Files that will be modified
+   - Potential risks
+4. ASK - Present plan to user and wait for explicit approval
+5. EXECUTE - Only after user says "yes", "approved", "go ahead", etc.
+```
+
+**NEVER:**
+- Execute code changes without showing a plan first
+- Assume approval - wait for explicit confirmation
+- Skip the plan step for "simple" tasks
+
+**ALWAYS:**
+- Show the plan in a clear, readable format
+- Wait for user response before proceeding
+- If user asks questions, answer them before executing
+
+This rule applies to ALL prjct operations. No exceptions.
+
+---
+
 ### 1. Path Resolution (MOST IMPORTANT)
 **ALL writes go to global storage**: `~/.prjct-cli/projects/{projectId}/`
 
