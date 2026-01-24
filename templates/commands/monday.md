@@ -22,6 +22,8 @@ Manage Monday.com boards directly from prjct using MCP.
 
 - `{projectId}`: From `.prjct/prjct.config.json`
 - `{globalPath}`: `~/.prjct-cli/projects/{projectId}`
+- `{agentName}`: Name of the AI agent (Claude Code, Gemini CLI)
+- `{agentSettingsPath}`: Path to agent settings (settings.json)
 - `{args}`: User-provided arguments (subcommand)
 
 ---
@@ -63,14 +65,14 @@ IF file not found:
 ## Step 2: Install MCP Server (if needed)
 
 ```
-READ: ~/.claude/settings.json (create {} if not exists)
+READ: {agentSettingsPath} (create {} if not exists)
 CHECK: Does mcpServers.monday exist?
 
 IF not exists:
   READ: templates/mcp-config.json
   EXTRACT: mcpServers.monday
 
-  MERGE into ~/.claude/settings.json:
+  MERGE into {agentSettingsPath}:
   {
     "mcpServers": {
       "monday": {
@@ -80,11 +82,11 @@ IF not exists:
     }
   }
 
-  WRITE: ~/.claude/settings.json
+  WRITE: {agentSettingsPath}
 
   OUTPUT: "✅ Installed Monday.com MCP server"
   OUTPUT: ""
-  OUTPUT: "⚠️ Restart Claude Code to activate the MCP server."
+  OUTPUT: "⚠️ Restart {agentName} to activate the MCP server."
   OUTPUT: "Then run `p. monday setup` again to complete configuration."
   STOP
 ```
@@ -98,7 +100,7 @@ CHECK: Are mcp__monday__* tools available?
 
 IF not available:
   OUTPUT: "Monday MCP is installed but not yet active."
-  OUTPUT: "Restart Claude Code, then run `p. monday setup` again."
+  OUTPUT: "Restart {agentName}, then run `p. monday setup` again."
   STOP
 ```
 
@@ -224,7 +226,7 @@ Next: Work on the task, then `p. done`
 
 | Error | Action |
 |-------|--------|
-| MCP tools not found | "Add Monday MCP to settings, restart Claude" |
+| MCP tools not found | "Add Monday MCP to settings, restart {agentName}" |
 | OAuth failed | "Re-authenticate via browser" |
 | Item not found | "Item not found in board" |
 

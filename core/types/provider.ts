@@ -1,19 +1,23 @@
 /**
  * AI Provider Types
  *
- * Abstractions for supporting multiple AI CLI agents (Claude Code, Gemini CLI).
- * Both agents share similar architectures, making compatibility achievable.
+ * Abstractions for supporting multiple AI coding agents:
+ * - Claude Code (CLI)
+ * - Gemini CLI (CLI)
+ * - Cursor IDE (GUI, project-level config)
  *
- * Key discovery: Skills use identical SKILL.md format for both providers.
+ * Key discovery: Skills use identical SKILL.md format for CLI providers.
+ * Cursor uses .mdc files with frontmatter for rules.
  *
  * @see https://geminicli.com/docs/cli/gemini-md/
  * @see https://geminicli.com/docs/cli/skills/
+ * @see https://cursor.com/docs/context/rules
  */
 
 /**
  * Supported AI provider names
  */
-export type AIProviderName = 'claude' | 'gemini'
+export type AIProviderName = 'claude' | 'gemini' | 'cursor'
 
 /**
  * Command format for each provider
@@ -24,7 +28,7 @@ export type CommandFormat = 'md' | 'toml'
 
 /**
  * AI Provider configuration
- * Defines paths and formats for each AI CLI agent
+ * Defines paths and formats for each AI coding agent
  */
 export interface AIProviderConfig {
   /** Provider identifier */
@@ -33,32 +37,38 @@ export interface AIProviderConfig {
   /** Display name for UI/logs */
   displayName: string
 
-  /** CLI command name (e.g., 'claude', 'gemini') */
-  cliCommand: string
+  /** CLI command name (e.g., 'claude', 'gemini'). Null for GUI apps like Cursor */
+  cliCommand: string | null
 
-  /** Global config directory (e.g., ~/.claude, ~/.gemini) */
-  configDir: string
+  /** Global config directory (e.g., ~/.claude, ~/.gemini). Null for project-level only (Cursor) */
+  configDir: string | null
 
-  /** Context file name (CLAUDE.md or GEMINI.md) */
+  /** Context file name (CLAUDE.md, GEMINI.md, or prjct.mdc for Cursor) */
   contextFile: string
 
-  /** Skills directory (e.g., ~/.claude/skills, ~/.gemini/skills) */
-  skillsDir: string
+  /** Skills directory (e.g., ~/.claude/skills). Null for providers without skill support */
+  skillsDir: string | null
 
-  /** Commands directory relative to project (e.g., .claude/commands, .gemini/commands) */
+  /** Commands directory relative to project (e.g., .claude/commands, .cursor/commands) */
   commandsDir: string
+
+  /** Rules directory for project-level config (e.g., .cursor/rules). Only used by Cursor */
+  rulesDir?: string
 
   /** Command file format */
   commandFormat: CommandFormat
 
-  /** Settings file name (settings.json for both) */
-  settingsFile: string
+  /** Settings file name (settings.json). Null if not applicable */
+  settingsFile: string | null
 
-  /** Project settings file (e.g., settings.local.json, settings.json) */
-  projectSettingsFile: string
+  /** Project settings file (e.g., settings.local.json). Null if not applicable */
+  projectSettingsFile: string | null
 
-  /** Ignore file name (.claudeignore, .geminiignore) */
+  /** Ignore file name (.claudeignore, .geminiignore, .cursorignore) */
   ignoreFile: string
+
+  /** Whether config is project-level only (no global config directory) */
+  isProjectLevel?: boolean
 
   /** URL for provider website */
   websiteUrl: string
@@ -88,14 +98,28 @@ export interface ProviderSelectionResult {
   /** Selected provider */
   provider: AIProviderName
 
-  /** Whether user was prompted to choose (both installed) */
+  /** Whether user was prompted to choose (multiple installed) */
   userSelected: boolean
 
-  /** Detection details */
+  /** Detection details for CLI-based providers */
   detection: {
     claude: ProviderDetectionResult
     gemini: ProviderDetectionResult
   }
+}
+
+/**
+ * Result of Cursor project detection
+ */
+export interface CursorProjectDetection {
+  /** Whether .cursor/ directory exists in project */
+  detected: boolean
+
+  /** Whether prjct router is installed */
+  routerInstalled: boolean
+
+  /** Project root path */
+  projectRoot?: string
 }
 
 /**

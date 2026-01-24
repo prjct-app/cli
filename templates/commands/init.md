@@ -22,6 +22,21 @@ Create `.prjct/prjct.config.json`:
 
 Create `{globalPath}/project.json` with project name from package.json
 
+## Cursor IDE Detection
+
+If `.cursor/` directory exists in project:
+1. Ask: "Cursor IDE detected. Configure prjct for Cursor?"
+2. If yes:
+   - Get npm root: `npm root -g`
+   - Copy router: `{npmRoot}/prjct-cli/templates/cursor/router.mdc` → `.cursor/rules/prjct.mdc`
+   - Copy commands: `{npmRoot}/prjct-cli/templates/cursor/p.md` → `.cursor/commands/p.md`
+   - Add to `.gitignore`:
+     ```
+     # prjct Cursor routers (regenerated per-developer)
+     .cursor/rules/prjct.mdc
+     .cursor/commands/p.md
+     ```
+
 Optional: Ask about JIRA/Linear integration
 
 **Output**:
@@ -30,6 +45,7 @@ Optional: Ask about JIRA/Linear integration
 
 Project ID: {uuid}
 Data: ~/.prjct-cli/projects/{uuid}/
+Cursor: {configured/not detected}
 
 Next:
 - Analyze project → `p. sync`

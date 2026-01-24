@@ -1,5 +1,46 @@
 # Changelog
 
+## [0.37.0] - 2026-01-24
+
+### Feature: Cursor IDE Support (PRJ-63)
+
+prjct now works with **Cursor IDE** in addition to Claude Code and Gemini CLI. Use any AI model Cursor supports (GPT-4, Claude, Gemini, DeepSeek, etc.).
+
+**Key Insight:** Cursor has NO global config directory. Unlike Claude/Gemini which use `~/.claude/` and `~/.gemini/`, Cursor uses project-level config in `.cursor/`.
+
+**Solution: Minimal Router Pattern**
+- Router files are minimal (~15 lines), point to npm package for real instructions
+- If deleted, `p. sync` regenerates them automatically
+- Added to `.gitignore` - each developer regenerates their own
+
+**New Files:**
+- `templates/global/CURSOR.mdc` - Full prjct instructions for Cursor
+- `templates/cursor/router.mdc` - Minimal router (installed in projects)
+- `templates/cursor/p.md` - Command router for `p. <command>`
+
+**Modified:**
+- `core/types/provider.ts` - Added 'cursor' to AIProviderName
+- `core/infrastructure/ai-provider.ts` - Added CursorProvider, detectCursorProject()
+- `core/infrastructure/setup.ts` - Added installCursorProject(), hasCursorProject()
+- `templates/commands/init.md` - Cursor detection and setup
+- `templates/commands/sync.md` - Cursor router regeneration
+- `bin/prjct.ts` - Cursor status in --version output
+- `README.md` - Added Cursor to supported platforms
+
+**Architecture:**
+```
+Claude/Gemini (CLI)          Cursor (GUI)
+~/.claude/CLAUDE.md         .cursor/rules/prjct.mdc (router)
+~/.gemini/GEMINI.md                ↓
+        ↓                   npm/prjct-cli/templates/global/CURSOR.mdc
+Global config                      ↓
+        └──────────────────────────┘
+                    ↓
+        ~/.prjct-cli/projects/{id}/  (shared storage)
+```
+
+---
+
 ## [0.36.1] - 2026-01-23
 
 ### Docs: Minimal README
