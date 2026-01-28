@@ -1,5 +1,43 @@
 # Changelog
 
+## [0.40.0] - 2026-01-28
+
+### Feature: Enhanced Skill System
+
+Inspired by vercel-labs/skills, prjct-cli now supports remote skill installation, version tracking via lock file, and full ecosystem-standard SKILL.md subdirectory format across all skill directories.
+
+**New: Remote Skill Installation (`p. skill add`)**
+- Install skills from GitHub repos: `p. skill add owner/repo`
+- Install specific skill: `p. skill add owner/repo@skill-name`
+- Install from local directory: `p. skill add ./path`
+- Automatic source metadata injection (`_prjct` frontmatter block)
+
+**New: Skill Lock File**
+- Tracks installed skills at `~/.prjct-cli/skills/.skill-lock.json`
+- Records source URL, commit SHA, install timestamp
+- Enables update detection via `p. skill check`
+
+**New: Additional Subcommands**
+- `p. skill add <source>` — Install from GitHub or local path
+- `p. skill remove <name>` — Uninstall a skill
+- `p. skill init <name>` — Scaffold a new skill template
+- `p. skill check` — Detect available updates
+
+**Improved: Full SKILL.md Subdirectory Support**
+- All skill directories now support both `{name}.md` (flat) and `{name}/SKILL.md` (subdirectory) formats
+- Previously only provider dirs (`~/.claude/skills/`) checked subdirectories
+- Orchestrator executor now checks both patterns when loading agent skills
+
+**New Files:**
+- `core/services/skill-installer.ts` — Remote installation service
+- `core/services/skill-lock.ts` — Lock file management
+
+**Modified:**
+- `core/types/services.ts` — Extended `SkillMetadata` with `sourceUrl`, `sourceType`, `installedAt`, `sha`; added `'remote'` source type
+- `core/services/skill-service.ts` — Unified SKILL.md discovery in all dirs
+- `core/agentic/orchestrator-executor.ts` — Both path patterns for skill loading
+- `templates/commands/skill.md` — New subcommands documentation
+
 ## [0.39.0] - 2026-01-24
 
 ### Feature: Windsurf IDE Support (PRJ-66)
