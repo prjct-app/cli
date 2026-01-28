@@ -83,9 +83,9 @@ class SkillService {
   /**
    * Get all skill directories in order of priority
    */
-  private getSkillDirs(projectPath?: string, provider?: AIProviderName): Array<{ dir: string; source: Skill['source']; isProviderSkill?: boolean }> {
+  private getSkillDirs(projectPath?: string, provider?: AIProviderName): Array<{ dir: string; source: Skill['source'] }> {
     const homeDir = process.env.HOME || process.env.USERPROFILE || '~'
-    const dirs: Array<{ dir: string; source: Skill['source']; isProviderSkill?: boolean }> = []
+    const dirs: Array<{ dir: string; source: Skill['source'] }> = []
 
     // Project skills (highest priority)
     if (projectPath) {
@@ -96,11 +96,11 @@ class SkillService {
     // Both use SKILL.md format, so skills are compatible
     if (provider) {
       const providerDir = provider === 'gemini' ? '.gemini' : '.claude'
-      dirs.push({ dir: path.join(homeDir, providerDir, 'skills'), source: 'global', isProviderSkill: true })
+      dirs.push({ dir: path.join(homeDir, providerDir, 'skills'), source: 'global' })
     } else {
       // Check both providers if no specific one is set
-      dirs.push({ dir: path.join(homeDir, '.claude', 'skills'), source: 'global', isProviderSkill: true })
-      dirs.push({ dir: path.join(homeDir, '.gemini', 'skills'), source: 'global', isProviderSkill: true })
+      dirs.push({ dir: path.join(homeDir, '.claude', 'skills'), source: 'global' })
+      dirs.push({ dir: path.join(homeDir, '.gemini', 'skills'), source: 'global' })
     }
 
     // prjct global skills
@@ -123,6 +123,9 @@ class SkillService {
       const id = fileToSkillId(filePath)
       const name = (metadata.name as string) || id
 
+      // Extract _prjct source tracking metadata if present
+      const prjctMeta = metadata._prjct as Record<string, unknown> | undefined
+
       return {
         id,
         name,
@@ -136,6 +139,12 @@ class SkillService {
           agent: metadata.agent as string,
           tags: metadata.tags as string[],
           version: metadata.version as string,
+          category: metadata.category as string,
+          author: metadata.author as string,
+          sourceUrl: prjctMeta?.sourceUrl as string,
+          sourceType: prjctMeta?.sourceType as SkillMetadata['sourceType'],
+          installedAt: prjctMeta?.installedAt as string,
+          sha: prjctMeta?.sha as string,
         },
       }
     } catch (_error) {
@@ -151,27 +160,27 @@ class SkillService {
     this.skills.clear()
     const dirs = this.getSkillDirs(projectPath, provider)
 
-    for (const { dir, source, isProviderSkill } of dirs) {
+    for (const { dir, source } of dirs) {
       try {
-        if (isProviderSkill) {
-          // Provider skills use SKILL.md in subdirectories
-          // e.g., ~/.claude/skills/my-skill/SKILL.md
-          const skillDirs = await glob('*/SKILL.md', { cwd: dir, absolute: true })
-          for (const file of skillDirs) {
-            const skill = await this.loadSkill(file, source)
-            if (skill && !this.skills.has(skill.id)) {
-              this.skills.set(skill.id, skill)
-            }
+        // Check both patterns in ALL skill directories:
+        // 1. Flat files: {dir}/{name}.md
+        // 2. Subdirectories: {dir}/{name}/SKILL.md (ecosystem standard)
+        const flatFiles = await glob('*.md', { cwd: dir, absolute: true })
+        const subdirFiles = await glob('*/SKILL.md', { cwd: dir, absolute: true })
+
+        // Load subdirectory skills first (ecosystem standard takes priority within same dir)
+        for (const file of subdirFiles) {
+          const skill = await this.loadSkill(file, source)
+          if (skill && !this.skills.has(skill.id)) {
+            this.skills.set(skill.id, skill)
           }
-        } else {
-          // Regular .md files in directory
-          const files = await glob('*.md', { cwd: dir, absolute: true })
-          for (const file of files) {
-            const skill = await this.loadSkill(file, source)
-            if (skill && !this.skills.has(skill.id)) {
-              // Don't override higher priority skills
-              this.skills.set(skill.id, skill)
-            }
+        }
+
+        // Then flat files (don't override subdirectory version)
+        for (const file of flatFiles) {
+          const skill = await this.loadSkill(file, source)
+          if (skill && !this.skills.has(skill.id)) {
+            this.skills.set(skill.id, skill)
           }
         }
       } catch (_error) {
@@ -256,6 +265,7 @@ class SkillService {
       project: [],
       global: [],
       builtin: [],
+      remote: [],
     }
 
     for (const skill of skills) {
