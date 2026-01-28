@@ -28,6 +28,11 @@ export interface SkillMetadata {
   version?: string
   category?: string
   author?: string
+  // Ecosystem compatibility fields
+  sourceUrl?: string
+  sourceType?: 'github' | 'local' | 'builtin' | 'registry'
+  installedAt?: string
+  sha?: string
 }
 
 export interface Skill {
@@ -35,7 +40,7 @@ export interface Skill {
   name: string
   description: string
   content: string
-  source: 'project' | 'global' | 'builtin'
+  source: 'project' | 'global' | 'builtin' | 'remote'
   filePath: string
   metadata: SkillMetadata
   path?: string

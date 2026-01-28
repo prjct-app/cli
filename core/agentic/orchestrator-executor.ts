@@ -344,18 +344,35 @@ export class OrchestratorExecutor {
         // Skip if already loaded
         if (loadedSkillNames.has(skillName)) continue
 
-        const skillPath = path.join(skillsDir, `${skillName}.md`)
+        // Check both patterns: flat file and subdirectory (ecosystem standard)
+        const flatPath = path.join(skillsDir, `${skillName}.md`)
+        const subdirPath = path.join(skillsDir, skillName, 'SKILL.md')
+
+        let content: string | null = null
+        let resolvedPath = flatPath
+
+        // Prefer subdirectory format (ecosystem standard)
         try {
-          const content = await fs.readFile(skillPath, 'utf-8')
+          content = await fs.readFile(subdirPath, 'utf-8')
+          resolvedPath = subdirPath
+        } catch {
+          // Fall back to flat file
+          try {
+            content = await fs.readFile(flatPath, 'utf-8')
+            resolvedPath = flatPath
+          } catch {
+            // Skill not found - not an error, just skip
+            console.warn(`Skill not found: ${skillName}`)
+          }
+        }
+
+        if (content) {
           skills.push({
             name: skillName,
             content,
-            filePath: skillPath,
+            filePath: resolvedPath,
           })
           loadedSkillNames.add(skillName)
-        } catch {
-          // Skill not found - not an error, just skip
-          console.warn(`Skill not found: ${skillName}`)
         }
       }
     }
