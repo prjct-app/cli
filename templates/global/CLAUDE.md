@@ -5,7 +5,7 @@
 
 ## HOW TO USE PRJCT (Read This First)
 
-When user types `p. <command>`, load the template from `templates/commands/{command}.md` and execute it intelligently.
+When user types `p. <command>`, load the template from `templates/commands/{command}.md` and execute it.
 
 ```
 p. sync     → templates/commands/sync.md
@@ -14,39 +14,70 @@ p. done     → templates/commands/done.md
 p. ship X   → templates/commands/ship.md
 ```
 
-**Key Insight**: Templates are GUIDANCE, not scripts. Use your intelligence to adapt them to the situation.
-
 ---
 
-## CRITICAL RULES
+## ⛔ CRITICAL RULES - READ BEFORE EVERY COMMAND
 
-### 0. PLAN BEFORE ACTION (NON-NEGOTIABLE)
+### 0. FOLLOW TEMPLATES STEP BY STEP (NON-NEGOTIABLE)
 
-**For ANY prjct task, you MUST create a plan and get user approval BEFORE executing.**
+**Templates are MANDATORY WORKFLOWS, not suggestions.**
 
 ```
-EVERY prjct command (p. task, p. sync, p. ship, etc.):
-1. STOP - Do not execute anything yet
-2. ANALYZE - Read relevant files, understand scope
-3. PLAN - Write a clear plan with:
-   - What will be done
-   - Files that will be modified
-   - Potential risks
-4. ASK - Present plan to user and wait for explicit approval
-5. EXECUTE - Only after user says "yes", "approved", "go ahead", etc.
+⛔ BEFORE executing ANY p. command:
+1. READ the template file COMPLETELY
+2. FOLLOW each step IN ORDER
+3. DO NOT skip steps - even "obvious" ones
+4. DO NOT take shortcuts - even for "simple" tasks
+5. STOP at any ⛔ BLOCKING condition
 ```
 
-**NEVER:**
-- Execute code changes without showing a plan first
-- Assume approval - wait for explicit confirmation
-- Skip the plan step for "simple" tasks
+**WHY THIS MATTERS:**
+- Skipping steps breaks the prjct workflow for ALL users
+- "Intelligent adaptation" is NOT permission to skip steps
+- Every step exists for a reason
+- If you skip steps, prjct becomes useless
 
-**ALWAYS:**
-- Show the plan in a clear, readable format
-- Wait for user response before proceeding
-- If user asks questions, answer them before executing
+### ⛔ BLOCKING CONDITIONS
 
-This rule applies to ALL prjct operations. No exceptions.
+When a template says "STOP" or has a ⛔ symbol:
+```
+1. HALT execution immediately
+2. TELL the user why you stopped
+3. DO NOT proceed until the condition is resolved
+4. DO NOT work around the blocker
+```
+
+**Examples of blockers:**
+- `p. ship` on main branch → STOP, tell user to create branch
+- `gh auth status` fails → STOP, tell user to authenticate
+- No changes to commit → STOP, tell user nothing to ship
+
+### GIT WORKFLOW RULES (CRITICAL)
+
+**⛔ NEVER commit directly to main/master**
+- Always create a feature branch first
+- Always create a PR for review
+- Direct pushes to main are FORBIDDEN
+
+**⛔ NEVER push without a PR**
+- All changes go through pull requests
+- No exceptions for "small fixes"
+
+**⛔ NEVER skip version bump on ship**
+- Every ship requires version update
+- Every ship requires CHANGELOG entry
+
+### PLAN BEFORE DESTRUCTIVE ACTIONS
+
+For commands that modify git state (ship, merge, done):
+```
+1. Show the user what will happen
+2. List all changes/files affected
+3. WAIT for explicit approval ("yes", "proceed", "do it")
+4. Only then execute
+```
+
+**DO NOT assume approval. WAIT for it.**
 
 ---
 
@@ -79,12 +110,10 @@ bun -e "console.log(crypto.randomUUID())" 2>/dev/null || node -e "console.log(re
 **Every commit made with prjct MUST include this footer:**
 
 ```
-🤖 Generated with [p/](https://www.prjct.app/)
-Designed for [Claude](https://www.anthropic.com/claude)
-
+Generated with [p/](https://www.prjct.app/)
 ```
 
-**This is NON-NEGOTIABLE. The prjct signature (`🤖 Generated with [p/]`) must appear in ALL commits.**
+**This is NON-NEGOTIABLE. The prjct signature must appear in ALL commits.**
 
 ### 5. Storage Rules (CROSS-AGENT COMPATIBILITY)
 
