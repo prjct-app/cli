@@ -37,11 +37,21 @@ const truncate = (s: string | undefined | null, max = 50): string =>
 
 const clear = (): boolean => process.stdout.write('\r' + ' '.repeat(80) + '\r')
 
+/**
+ * Metrics to display after command completion
+ * Shows value provided by prjct (compression, agent count, etc.)
+ */
+interface OutputMetrics {
+  agents?: number      // Number of agents used
+  reduction?: number   // Context reduction percentage
+  tokens?: number      // Token count (in thousands)
+}
+
 interface Output {
   start(): Output
   end(): Output
   spin(msg: string): Output
-  done(msg: string): Output
+  done(msg: string, metrics?: OutputMetrics): Output
   fail(msg: string): Output
   warn(msg: string): Output
   stop(): Output
@@ -72,9 +82,22 @@ const out: Output = {
     return this
   },
 
-  done(msg: string) {
+  done(msg: string, metrics?: OutputMetrics) {
     this.stop()
-    if (!quietMode) console.log(`${chalk.green('✓')} ${truncate(msg, 65)}`)
+    if (!quietMode) {
+      // Build metrics suffix if provided: [2a | 97% | 45K]
+      let suffix = ''
+      if (metrics) {
+        const parts: string[] = []
+        if (metrics.agents !== undefined) parts.push(`${metrics.agents}a`)
+        if (metrics.reduction !== undefined) parts.push(`${metrics.reduction}%`)
+        if (metrics.tokens !== undefined) parts.push(`${Math.round(metrics.tokens)}K`)
+        if (parts.length > 0) {
+          suffix = chalk.dim(` [${parts.join(' | ')}]`)
+        }
+      }
+      console.log(`${chalk.green('✓')} ${truncate(msg, 50)}${suffix}`)
+    }
     return this
   },
 
@@ -127,4 +150,5 @@ const out: Output = {
   }
 }
 
+export type { OutputMetrics }
 export default out
