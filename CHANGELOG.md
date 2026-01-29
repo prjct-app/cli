@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.45.1] - 2026-01-29
+
+### Bug Fixes
+
+- use semver-sorted tags for version detection - PRJ-147
+- npm auth configuration for CI publish - PRJ-147
+
+
 ## [0.42.1] - 2026-01-29
 
 ### Bug Fixes
