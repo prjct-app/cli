@@ -89,7 +89,11 @@ export class WorkflowCommands extends PrjctCommandsBase {
           ? availableAgents.join(', ')
           : 'none (run p. sync)'
 
-        out.done(`${task}`)
+        // Build metrics from orchestrator context
+        const agentCount = result.orchestratorContext?.agents?.length || availableAgents.length
+        out.done(`${task}`, {
+          agents: agentCount > 0 ? agentCount : undefined,
+        })
         showStateInfo('working')
         showNextSteps('task')
 
