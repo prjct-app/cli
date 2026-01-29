@@ -2,6 +2,8 @@
  * Minimal Output System for prjct-cli
  * Spinner while working → Single line result
  * With prjct branding
+ *
+ * Supports --quiet mode for CI/CD and scripting
  */
 
 import chalk from 'chalk'
@@ -12,6 +14,23 @@ const SPEED = branding.spinner.speed
 
 let interval: ReturnType<typeof setInterval> | null = null
 let frame = 0
+
+// Quiet mode - suppress all stdout except errors
+let quietMode = false
+
+/**
+ * Enable quiet mode (no stdout, only stderr for errors)
+ */
+export function setQuietMode(enabled: boolean): void {
+  quietMode = enabled
+}
+
+/**
+ * Check if quiet mode is enabled
+ */
+export function isQuietMode(): boolean {
+  return quietMode
+}
 
 const truncate = (s: string | undefined | null, max = 50): string =>
   s && s.length > max ? s.slice(0, max - 1) + '…' : s || ''
@@ -43,18 +62,19 @@ interface Output {
 const out: Output = {
   // Branding: Show header at start
   start() {
-    console.log(branding.cli.header())
+    if (!quietMode) console.log(branding.cli.header())
     return this
   },
 
   // Branding: Show footer at end
   end() {
-    console.log(branding.cli.footer())
+    if (!quietMode) console.log(branding.cli.footer())
     return this
   },
 
   // Branded spinner: prjct message...
   spin(msg: string) {
+    if (quietMode) return this
     this.stop()
     interval = setInterval(() => {
       process.stdout.write(`\r${branding.cli.spin(frame++, truncate(msg, 45))}`)
@@ -64,30 +84,33 @@ const out: Output = {
 
   done(msg: string, metrics?: OutputMetrics) {
     this.stop()
-    // Build metrics suffix if provided: [2a | 97% | 45K]
-    let suffix = ''
-    if (metrics) {
-      const parts: string[] = []
-      if (metrics.agents !== undefined) parts.push(`${metrics.agents}a`)
-      if (metrics.reduction !== undefined) parts.push(`${metrics.reduction}%`)
-      if (metrics.tokens !== undefined) parts.push(`${Math.round(metrics.tokens)}K`)
-      if (parts.length > 0) {
-        suffix = chalk.dim(` [${parts.join(' | ')}]`)
+    if (!quietMode) {
+      // Build metrics suffix if provided: [2a | 97% | 45K]
+      let suffix = ''
+      if (metrics) {
+        const parts: string[] = []
+        if (metrics.agents !== undefined) parts.push(`${metrics.agents}a`)
+        if (metrics.reduction !== undefined) parts.push(`${metrics.reduction}%`)
+        if (metrics.tokens !== undefined) parts.push(`${Math.round(metrics.tokens)}K`)
+        if (parts.length > 0) {
+          suffix = chalk.dim(` [${parts.join(' | ')}]`)
+        }
       }
+      console.log(`${chalk.green('✓')} ${truncate(msg, 50)}${suffix}`)
     }
-    console.log(`${chalk.green('✓')} ${truncate(msg, 50)}${suffix}`)
     return this
   },
 
+  // Errors go to stderr even in quiet mode
   fail(msg: string) {
     this.stop()
-    console.log(`${chalk.red('✗')} ${truncate(msg, 65)}`)
+    console.error(`${chalk.red('✗')} ${truncate(msg, 65)}`)
     return this
   },
 
   warn(msg: string) {
     this.stop()
-    console.log(`${chalk.yellow('⚠')} ${truncate(msg, 65)}`)
+    if (!quietMode) console.log(`${chalk.yellow('⚠')} ${truncate(msg, 65)}`)
     return this
   },
 
@@ -102,6 +125,7 @@ const out: Output = {
 
   // Step counter: [3/7] Running tests...
   step(current: number, total: number, msg: string) {
+    if (quietMode) return this
     this.stop()
     const counter = chalk.dim(`[${current}/${total}]`)
     interval = setInterval(() => {
@@ -112,6 +136,7 @@ const out: Output = {
 
   // Progress bar: [████░░░░] 50% Analyzing...
   progress(current: number, total: number, msg?: string) {
+    if (quietMode) return this
     this.stop()
     const percent = Math.round((current / total) * 100)
     const filled = Math.round(percent / 10)

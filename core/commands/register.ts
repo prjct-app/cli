@@ -18,6 +18,7 @@ import { MaintenanceCommands } from './maintenance'
 import { AnalysisCommands } from './analysis'
 import { SetupCommands } from './setup'
 import { ContextCommands } from './context'
+import { UninstallCommands } from './uninstall'
 
 // Singleton instances of command groups
 const workflow = new WorkflowCommands()
@@ -28,6 +29,7 @@ const maintenance = new MaintenanceCommands()
 const analysis = new AnalysisCommands()
 const setup = new SetupCommands()
 const context = new ContextCommands()
+const uninstallCmd = new UninstallCommands()
 
 /**
  * Register categories
@@ -81,10 +83,12 @@ export function registerAllCommands(): void {
   // Analysis commands
   commandRegistry.registerMethod('analyze', analysis, 'analyze', getMeta('analyze'))
   commandRegistry.registerMethod('sync', analysis, 'sync', getMeta('sync'))
+  commandRegistry.registerMethod('stats', analysis, 'stats', getMeta('stats'))
 
   // Setup commands
   commandRegistry.registerMethod('start', setup, 'start', getMeta('start'))
   commandRegistry.registerMethod('setup', setup, 'setup', getMeta('setup'))
+  commandRegistry.registerMethod('uninstall', uninstallCmd, 'uninstall', getMeta('uninstall'))
 
   // Context command (for Claude templates)
   commandRegistry.registerMethod('context', context, 'context', getMeta('context'))
@@ -102,5 +106,6 @@ export {
   maintenance,
   analysis,
   setup,
-  context
+  context,
+  uninstallCmd
 }

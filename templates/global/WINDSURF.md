@@ -99,9 +99,7 @@ node -e "console.log(require('crypto').randomUUID())"
 **Every commit made with prjct MUST include this footer:**
 
 ```
-🤖 Generated with [p/](https://www.prjct.app/)
-Built with [Windsurf](https://www.windsurf.com/)
-
+Generated with [p/](https://www.prjct.app/)
 ```
 
 **This is NON-NEGOTIABLE. The prjct signature must appear in ALL commits.**

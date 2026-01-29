@@ -132,6 +132,20 @@ export interface SetupOptions {
 }
 
 /**
+ * Options for the uninstall command.
+ */
+export interface UninstallOptions {
+  /** Skip confirmation prompt */
+  force?: boolean
+  /** Create backup before deletion */
+  backup?: boolean
+  /** Show what would be deleted without actually deleting */
+  dryRun?: boolean
+  /** Keep the npm/homebrew package, only remove data */
+  keepPackage?: boolean
+}
+
+/**
  * Options for the analyze command.
  */
 export interface AnalyzeOptions {

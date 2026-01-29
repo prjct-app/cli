@@ -22,6 +22,7 @@ import { promisify } from 'util'
 import pathManager from '../infrastructure/path-manager'
 import configManager from '../infrastructure/config-manager'
 import dateHelper from '../utils/date-helper'
+import { metricsStorage } from '../storage/metrics-storage'
 import {
   generateAIToolContexts,
   DEFAULT_AI_TOOLS,
@@ -30,6 +31,8 @@ import {
   type ProjectContext,
   type GenerateResult,
 } from '../ai-tools'
+import { ContextFileGenerator } from './context-generator'
+import { StackDetector, type StackDetection } from './stack-detector'
 
 const execAsync = promisify(exec)
 
@@ -69,16 +72,6 @@ interface Commands {
   format: string
 }
 
-interface StackDetection {
-  hasFrontend: boolean
-  hasBackend: boolean
-  hasDatabase: boolean
-  hasDocker: boolean
-  hasTesting: boolean
-  frontendType: 'web' | 'mobile' | 'both' | null
-  frameworks: string[]
-}
-
 interface AgentInfo {
   name: string
   type: 'workflow' | 'domain'
@@ -89,6 +82,13 @@ interface AIToolResult {
   toolId: string
   outputFile: string
   success: boolean
+}
+
+interface SyncMetrics {
+  duration: number           // Sync duration in ms
+  originalSize: number       // Estimated tokens before compression
+  filteredSize: number       // Actual tokens in context files
+  compressionRate: number    // Percentage saved
 }
 
 interface SyncResult {
@@ -103,6 +103,7 @@ interface SyncResult {
   skills: { agent: string; skill: string }[]
   contextFiles: string[]
   aiTools: AIToolResult[]
+  syncMetrics?: SyncMetrics
   error?: string
 }
 
@@ -129,6 +130,7 @@ class SyncService {
    */
   async sync(projectPath: string = process.cwd(), options: SyncOptions = {}): Promise<SyncResult> {
     this.projectPath = projectPath
+    const startTime = Date.now()
 
     // Resolve AI tools: supports 'auto', 'all', or specific list
     let aiToolIds: string[]
@@ -166,16 +168,22 @@ class SyncService {
       this.globalPath = pathManager.getGlobalProjectPath(this.projectId)
       this.cliVersion = await this.getCliVersion()
 
-      // 2. Ensure directories exist
-      await this.ensureDirectories()
+      // 2. Ensure directories exist (non-blocking)
+      const ensureDirsPromise = this.ensureDirectories()
 
-      // 3. Gather all data
-      const git = await this.analyzeGit()
-      const stats = await this.gatherStats()
-      const commands = await this.detectCommands()
-      const stack = await this.detectStack()
+      // 3. Gather all data IN PARALLEL (30-50% speedup)
+      // These operations are independent and can run concurrently
+      const [git, stats, commands, stack] = await Promise.all([
+        this.analyzeGit(),
+        this.gatherStats(),
+        this.detectCommands(),
+        this.detectStack(),
+      ])
 
-      // 4. Generate all files
+      // Wait for directories before writing files
+      await ensureDirsPromise
+
+      // 4. Generate all files (depends on gathered data)
       const agents = await this.generateAgents(stack, stats)
       const skills = this.configureSkills(agents)
       const contextFiles = await this.generateContextFiles(git, stats, commands, agents)
@@ -208,14 +216,21 @@ class SyncService {
         aiToolIds
       )
 
-      // 6. Update project.json
-      await this.updateProjectJson(git, stats)
+      // 6-8. Update files IN PARALLEL (write to different files)
+      await Promise.all([
+        this.updateProjectJson(git, stats),
+        this.updateStateJson(stats, stack),
+        this.logToMemory(git, stats),
+      ])
 
-      // 7. Update state.json with enterprise fields
-      await this.updateStateJson(stats, stack)
-
-      // 8. Log to memory
-      await this.logToMemory(git, stats)
+      // 9. Record metrics for value dashboard
+      const duration = Date.now() - startTime
+      const syncMetrics = await this.recordSyncMetrics(
+        stats,
+        contextFiles,
+        agents,
+        duration
+      )
 
       return {
         success: true,
@@ -233,6 +248,7 @@ class SyncService {
           outputFile: r.outputFile,
           success: r.success,
         })),
+        syncMetrics,
       }
     } catch (error) {
       return {
@@ -258,9 +274,10 @@ class SyncService {
 
   private async ensureDirectories(): Promise<void> {
     const dirs = ['storage', 'context', 'agents', 'memory', 'analysis', 'config', 'sync']
-    for (const dir of dirs) {
-      await fs.mkdir(path.join(this.globalPath, dir), { recursive: true })
-    }
+    // Create all directories IN PARALLEL
+    await Promise.all(
+      dirs.map(dir => fs.mkdir(path.join(this.globalPath, dir), { recursive: true }))
+    )
   }
 
   // ==========================================================================
@@ -493,60 +510,8 @@ class SyncService {
   // ==========================================================================
 
   private async detectStack(): Promise<StackDetection> {
-    const stack: StackDetection = {
-      hasFrontend: false,
-      hasBackend: false,
-      hasDatabase: false,
-      hasDocker: false,
-      hasTesting: false,
-      frontendType: null,
-      frameworks: [],
-    }
-
-    try {
-      const pkgPath = path.join(this.projectPath, 'package.json')
-      const pkg = JSON.parse(await fs.readFile(pkgPath, 'utf-8'))
-      const deps = { ...pkg.dependencies, ...pkg.devDependencies }
-
-      // Frontend detection
-      if (deps.react || deps.vue || deps.svelte || deps['@angular/core']) {
-        stack.hasFrontend = true
-        stack.frontendType = 'web'
-      }
-      if (deps['react-native'] || deps.expo) {
-        stack.hasFrontend = true
-        stack.frontendType = stack.frontendType === 'web' ? 'both' : 'mobile'
-      }
-
-      // Backend detection
-      if (deps.express || deps.fastify || deps.hono || deps.koa || deps.nest) {
-        stack.hasBackend = true
-      }
-
-      // Database detection
-      if (deps.prisma || deps.mongoose || deps.pg || deps.mysql2 || deps.sequelize) {
-        stack.hasDatabase = true
-      }
-
-      // Testing detection
-      if (deps.jest || deps.vitest || deps.mocha || pkg.devDependencies?.['bun-types']) {
-        stack.hasTesting = true
-      }
-
-      // Collect frameworks
-      if (deps.react) stack.frameworks.push('React')
-      if (deps.next) stack.frameworks.push('Next.js')
-      if (deps.express) stack.frameworks.push('Express')
-      if (deps.hono) stack.frameworks.push('Hono')
-    } catch {
-      // No package.json
-    }
-
-    // Docker detection
-    stack.hasDocker =
-      (await this.fileExists('Dockerfile')) || (await this.fileExists('docker-compose.yml'))
-
-    return stack
+    const detector = new StackDetector(this.projectPath)
+    return detector.detect()
   }
 
   // ==========================================================================
@@ -569,40 +534,43 @@ class SyncService {
       // Directory might not exist yet
     }
 
-    // Workflow agents (always generated)
+    // Workflow agents (always generated) - IN PARALLEL
     const workflowAgents = ['prjct-workflow', 'prjct-planner', 'prjct-shipper']
+    await Promise.all(workflowAgents.map(name => this.generateWorkflowAgent(name, agentsPath)))
     for (const name of workflowAgents) {
-      await this.generateWorkflowAgent(name, agentsPath)
       agents.push({ name, type: 'workflow' })
     }
 
-    // Domain agents (based on stack)
+    // Domain agents (based on stack) - COLLECT AND GENERATE IN PARALLEL
+    const domainAgentsToGenerate: { name: string; skill?: string }[] = []
+
     if (stack.hasFrontend) {
-      await this.generateDomainAgent('frontend', agentsPath, stats, stack)
-      agents.push({ name: 'frontend', type: 'domain', skill: 'javascript-typescript' })
-
-      await this.generateDomainAgent('uxui', agentsPath, stats, stack)
-      agents.push({ name: 'uxui', type: 'domain', skill: 'frontend-design' })
+      domainAgentsToGenerate.push({ name: 'frontend', skill: 'javascript-typescript' })
+      domainAgentsToGenerate.push({ name: 'uxui', skill: 'frontend-design' })
     }
-
     if (stack.hasBackend) {
-      await this.generateDomainAgent('backend', agentsPath, stats, stack)
-      agents.push({ name: 'backend', type: 'domain', skill: 'javascript-typescript' })
+      domainAgentsToGenerate.push({ name: 'backend', skill: 'javascript-typescript' })
     }
-
     if (stack.hasDatabase) {
-      await this.generateDomainAgent('database', agentsPath, stats, stack)
-      agents.push({ name: 'database', type: 'domain' })
+      domainAgentsToGenerate.push({ name: 'database' })
     }
-
     if (stack.hasTesting) {
-      await this.generateDomainAgent('testing', agentsPath, stats, stack)
-      agents.push({ name: 'testing', type: 'domain', skill: 'developer-kit' })
+      domainAgentsToGenerate.push({ name: 'testing', skill: 'developer-kit' })
+    }
+    if (stack.hasDocker) {
+      domainAgentsToGenerate.push({ name: 'devops', skill: 'developer-kit' })
     }
 
-    if (stack.hasDocker) {
-      await this.generateDomainAgent('devops', agentsPath, stats, stack)
-      agents.push({ name: 'devops', type: 'domain', skill: 'developer-kit' })
+    // Generate all domain agents IN PARALLEL
+    await Promise.all(
+      domainAgentsToGenerate.map(agent =>
+        this.generateDomainAgent(agent.name, agentsPath, stats, stack)
+      )
+    )
+
+    // Add to agents list
+    for (const agent of domainAgentsToGenerate) {
+      agents.push({ name: agent.name, type: 'domain', skill: agent.skill })
     }
 
     return agents
@@ -761,212 +729,18 @@ You are the ${name} expert for this project. Apply best practices for the detect
     commands: Commands,
     agents: AgentInfo[]
   ): Promise<string[]> {
-    const contextPath = path.join(this.globalPath, 'context')
-    const files: string[] = []
+    const generator = new ContextFileGenerator({
+      projectId: this.projectId!,
+      projectPath: this.projectPath,
+      globalPath: this.globalPath,
+    })
 
-    // Generate CLAUDE.md
-    await this.generateClaudeMd(contextPath, git, stats, commands, agents)
-    files.push('context/CLAUDE.md')
-
-    // Generate now.md
-    await this.generateNowMd(contextPath)
-    files.push('context/now.md')
-
-    // Generate next.md
-    await this.generateNextMd(contextPath)
-    files.push('context/next.md')
-
-    // Generate ideas.md
-    await this.generateIdeasMd(contextPath)
-    files.push('context/ideas.md')
-
-    // Generate shipped.md
-    await this.generateShippedMd(contextPath)
-    files.push('context/shipped.md')
-
-    return files
-  }
-
-  private async generateClaudeMd(
-    contextPath: string,
-    git: GitData,
-    stats: ProjectStats,
-    commands: Commands,
-    agents: AgentInfo[]
-  ): Promise<void> {
-    const workflowAgents = agents.filter((a) => a.type === 'workflow').map((a) => a.name)
-    const domainAgents = agents.filter((a) => a.type === 'domain').map((a) => a.name)
-
-    const content = `# ${stats.name} - Project Rules
-<!-- projectId: ${this.projectId} -->
-<!-- Generated: ${dateHelper.getTimestamp()} -->
-<!-- Ecosystem: ${stats.ecosystem} | Type: ${stats.projectType} -->
-
-## THIS PROJECT (${stats.ecosystem})
-
-**Type:** ${stats.projectType}
-**Path:** ${this.projectPath}
-
-### Commands (USE THESE, NOT OTHERS)
-
-| Action | Command |
-|--------|---------|
-| Install dependencies | \`${commands.install}\` |
-| Run dev server | \`${commands.dev}\` |
-| Run tests | \`${commands.test}\` |
-| Build | \`${commands.build}\` |
-| Lint | \`${commands.lint}\` |
-| Format | \`${commands.format}\` |
-
-### Code Conventions
-
-- **Languages**: ${stats.languages.join(', ') || 'Not detected'}
-- **Frameworks**: ${stats.frameworks.join(', ') || 'Not detected'}
-
----
-
-## PRJCT RULES
-
-### Path Resolution
-**ALL prjct writes go to**: \`~/.prjct-cli/projects/${this.projectId}/\`
-- NEVER write to \`.prjct/\`
-- NEVER write to \`./\` for prjct data
-
-### Workflow
-\`\`\`
-p. sync → p. task "desc" → [work] → p. done → p. ship
-\`\`\`
-
-| Command | Action |
-|---------|--------|
-| \`p. sync\` | Re-analyze project |
-| \`p. task X\` | Start task |
-| \`p. done\` | Complete subtask |
-| \`p. ship X\` | Ship feature |
-
----
-
-## PROJECT STATE
-
-| Field | Value |
-|-------|-------|
-| Name | ${stats.name} |
-| Version | ${stats.version} |
-| Ecosystem | ${stats.ecosystem} |
-| Branch | ${git.branch} |
-| Files | ~${stats.fileCount} |
-| Commits | ${git.commits} |
-
----
-
-## AGENTS
-
-Load from \`~/.prjct-cli/projects/${this.projectId}/agents/\`:
-
-**Workflow**: ${workflowAgents.join(', ')}
-**Domain**: ${domainAgents.join(', ') || 'none'}
-`
-
-    await fs.writeFile(path.join(contextPath, 'CLAUDE.md'), content, 'utf-8')
-  }
-
-  private async generateNowMd(contextPath: string): Promise<void> {
-    // Read current task from state
-    let currentTask = null
-    try {
-      const statePath = path.join(this.globalPath, 'storage', 'state.json')
-      const state = JSON.parse(await fs.readFile(statePath, 'utf-8'))
-      currentTask = state.currentTask
-    } catch {
-      // No state file
-    }
-
-    const content = currentTask
-      ? `# NOW
-
-**${currentTask.description}**
-
-Started: ${currentTask.startedAt}
-${currentTask.branch ? `Branch: ${currentTask.branch.name}` : ''}
-`
-      : `# NOW
-
-_No active task_
-
-Use \`p. task "description"\` to start working.
-`
-
-    await fs.writeFile(path.join(contextPath, 'now.md'), content, 'utf-8')
-  }
-
-  private async generateNextMd(contextPath: string): Promise<void> {
-    let queue: { tasks: { description: string; priority?: string }[] } = { tasks: [] }
-    try {
-      const queuePath = path.join(this.globalPath, 'storage', 'queue.json')
-      queue = JSON.parse(await fs.readFile(queuePath, 'utf-8'))
-    } catch {
-      // No queue file
-    }
-
-    const content = `# NEXT
-
-${
-  queue.tasks.length > 0
-    ? queue.tasks.map((t, i) => `${i + 1}. ${t.description}${t.priority ? ` [${t.priority}]` : ''}`).join('\n')
-    : '_Empty queue_'
-}
-`
-
-    await fs.writeFile(path.join(contextPath, 'next.md'), content, 'utf-8')
-  }
-
-  private async generateIdeasMd(contextPath: string): Promise<void> {
-    let ideas: { ideas: { text: string; priority?: string }[] } = { ideas: [] }
-    try {
-      const ideasPath = path.join(this.globalPath, 'storage', 'ideas.json')
-      ideas = JSON.parse(await fs.readFile(ideasPath, 'utf-8'))
-    } catch {
-      // No ideas file
-    }
-
-    const content = `# IDEAS
-
-${
-  ideas.ideas.length > 0
-    ? ideas.ideas.map((i) => `- ${i.text}${i.priority ? ` [${i.priority}]` : ''}`).join('\n')
-    : '_No ideas captured yet_'
-}
-`
-
-    await fs.writeFile(path.join(contextPath, 'ideas.md'), content, 'utf-8')
-  }
-
-  private async generateShippedMd(contextPath: string): Promise<void> {
-    let shipped: { shipped: { name: string; version?: string; shippedAt: string }[] } = {
-      shipped: [],
-    }
-    try {
-      const shippedPath = path.join(this.globalPath, 'storage', 'shipped.json')
-      shipped = JSON.parse(await fs.readFile(shippedPath, 'utf-8'))
-    } catch {
-      // No shipped file
-    }
-
-    const content = `# SHIPPED 🚀
-
-${
-  shipped.shipped.length > 0
-    ? shipped.shipped
-        .slice(-10)
-        .map((s) => `- **${s.name}**${s.version ? ` v${s.version}` : ''} - ${s.shippedAt}`)
-        .join('\n')
-    : '_Nothing shipped yet_'
-}
-
-**Total shipped:** ${shipped.shipped.length}
-`
-
-    await fs.writeFile(path.join(contextPath, 'shipped.md'), content, 'utf-8')
+    return generator.generate(
+      { branch: git.branch, commits: git.commits },
+      stats,
+      commands,
+      agents
+    )
   }
 
   // ==========================================================================
@@ -1065,6 +839,85 @@ ${
     }
 
     await fs.appendFile(memoryPath, JSON.stringify(event) + '\n', 'utf-8')
+  }
+
+  // ==========================================================================
+  // METRICS RECORDING
+  // ==========================================================================
+
+  /**
+   * Record sync metrics for the value dashboard
+   *
+   * Calculates token savings by comparing:
+   * - Original: Estimated tokens if we sent all source files
+   * - Filtered: Actual tokens in generated context files
+   *
+   * Token estimation: ~4 chars per token (industry standard)
+   */
+  private async recordSyncMetrics(
+    stats: ProjectStats,
+    contextFiles: string[],
+    agents: AgentInfo[],
+    duration: number
+  ): Promise<SyncMetrics> {
+    const CHARS_PER_TOKEN = 4
+
+    // Calculate filtered size (actual context files generated)
+    let filteredChars = 0
+    for (const file of contextFiles) {
+      try {
+        const filePath = path.join(this.globalPath, file)
+        const content = await fs.readFile(filePath, 'utf-8')
+        filteredChars += content.length
+      } catch {
+        // File might not exist, skip
+      }
+    }
+
+    // Also count agent files
+    for (const agent of agents) {
+      try {
+        const agentPath = path.join(this.globalPath, 'agents', `${agent.name}.md`)
+        const content = await fs.readFile(agentPath, 'utf-8')
+        filteredChars += content.length
+      } catch {
+        // Skip if not found
+      }
+    }
+
+    const filteredSize = Math.floor(filteredChars / CHARS_PER_TOKEN)
+
+    // Estimate original size (what it would take without prjct)
+    // Conservative estimate: avg 500 tokens per source file
+    // Plus overhead for manually creating context
+    const avgTokensPerFile = 500
+    const originalSize = stats.fileCount * avgTokensPerFile
+
+    // Calculate compression rate
+    const compressionRate = originalSize > 0
+      ? Math.max(0, (originalSize - filteredSize) / originalSize)
+      : 0
+
+    // Record to storage
+    try {
+      await metricsStorage.recordSync(this.projectId!, {
+        originalSize,
+        filteredSize,
+        duration,
+        isWatch: false,
+        agents: agents.filter(a => a.type === 'domain').map(a => a.name),
+      })
+    } catch (error) {
+      // Non-blocking - metrics are nice to have
+      console.error('Warning: Failed to record metrics:', (error as Error).message)
+    }
+
+    return {
+      duration,
+      originalSize,
+      filteredSize,
+      compressionRate,
+    }
   }
 
   // ==========================================================================

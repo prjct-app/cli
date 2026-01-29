@@ -52,6 +52,15 @@ function checkRoutersInstalled(): boolean {
 // Check for special subcommands that bypass normal CLI
 const args = process.argv.slice(2)
 
+// Parse --quiet / -q flag (must be done early, before any output)
+const quietIndex = args.findIndex(arg => arg === '--quiet' || arg === '-q')
+const isQuietMode = quietIndex !== -1
+if (isQuietMode) {
+  args.splice(quietIndex, 1) // Remove flag from args
+  const { setQuietMode } = await import('../core/utils/output')
+  setQuietMode(true)
+}
+
 // Colors for output
 const CYAN = '\x1b[36m'
 const YELLOW = '\x1b[33m'
@@ -84,6 +93,68 @@ if (args[0] === 'start' || args[0] === 'setup') {
   } catch (error) {
     console.error('Server error:', (error as Error).message)
     process.exitCode = 1
+  }
+} else if (args[0] === 'context') {
+  // Context tools - smart context filtering for AI agents
+  const projectPath = process.cwd()
+  const projectId = await configManager.getProjectId(projectPath)
+
+  if (!projectId) {
+    console.error('No prjct project found. Run "prjct init" first.')
+    process.exitCode = 1
+  } else {
+    const { runContextTool } = await import('../core/context-tools')
+    const result = await runContextTool(args.slice(1), projectId, projectPath)
+    console.log(JSON.stringify(result, null, 2))
+    process.exitCode = result.tool === 'error' ? 1 : 0
+  }
+} else if (args[0] === 'doctor') {
+  // Health check command
+  const { doctorService } = await import('../core/services/doctor-service')
+  const exitCode = await doctorService.run(process.cwd())
+  process.exitCode = exitCode
+} else if (args[0] === 'uninstall') {
+  // Complete system removal
+  const { uninstall } = await import('../core/commands/uninstall')
+
+  // Parse flags
+  const force = args.includes('--force') || args.includes('-f')
+  const backup = args.includes('--backup') || args.includes('-b')
+  const dryRun = args.includes('--dry-run') || args.includes('-n')
+  const keepPackage = args.includes('--keep-package')
+
+  const result = await uninstall({ force, backup, dryRun, keepPackage })
+  process.exitCode = result.success ? 0 : 1
+} else if (args[0] === 'watch') {
+  // Watch mode - auto-sync on file changes
+  const projectPath = process.cwd()
+  const projectId = await configManager.getProjectId(projectPath)
+
+  if (!projectId) {
+    console.error('No prjct project found. Run "prjct init" first.')
+    process.exitCode = 1
+  } else {
+    const { watchService } = await import('../core/services/watch-service')
+
+    // Parse options
+    const verbose = args.includes('--verbose') || args.includes('-v')
+    const debounceArg = args.find(a => a.startsWith('--debounce='))
+    const debounceMs = debounceArg ? parseInt(debounceArg.split('=')[1]) : undefined
+    const intervalArg = args.find(a => a.startsWith('--interval='))
+    const minIntervalMs = intervalArg ? parseInt(intervalArg.split('=')[1]) * 1000 : undefined
+
+    const result = await watchService.start(projectPath, {
+      verbose,
+      quiet: isQuietMode,
+      debounceMs,
+      minIntervalMs,
+    })
+
+    if (!result.success) {
+      console.error(result.error)
+      process.exitCode = 1
+    }
+    // Watch mode runs indefinitely until Ctrl+C
   }
 } else if (args[0] === 'linear') {
   // Linear CLI subcommand - direct access to Linear SDK

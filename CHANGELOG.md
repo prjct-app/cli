@@ -1,5 +1,105 @@
 # Changelog
 
+## [0.45.0] - 2026-01-29
+
+### Feature: Smart Context Filtering Tools (PRJ-127)
+
+Terminal tools for AI agents to explore codebases efficiently **without consuming tokens for filtering**.
+
+**New Command: `prjct context <tool>`**
+
+| Tool | Purpose | Compression |
+|------|---------|-------------|
+| `files <task>` | Find relevant files for a task | 93% fewer files |
+| `signatures <path>` | Extract code structure only | ~92% token reduction |
+| `imports <file>` | Analyze dependency graphs | - |
+| `recent [commits]` | Find hot files from git | - |
+| `summary <path>` | Intelligent file summary | ~96% token reduction |
+
+**Real Cost Savings (multi-model support)**
+
+```json
+"cost": {
+  "saved": 2.32,
+  "byModel": [
+    { "model": "claude-sonnet-4.5", "inputSaved": 0.93, "outputPotential": 1.39 },
+    { "model": "gpt-4o", "inputSaved": 0.77, "outputPotential": 0.93 }
+  ]
+}
+```
+
+**Example: Full codebase signatures**
+```bash
+prjct context signatures core/ --recursive
+# 336K → 26K tokens (92% compression)
+# Saves $2.32/call (Sonnet) or $3.87/call (Opus)
+```
+
+**New Files:**
+- `core/context-tools/` - Complete module (7 files)
+- `core/schemas/metrics.ts` - Updated pricing (Jan 2026)
+
+## [0.44.1] - 2026-01-29
+
+### Fixed: Workflow Templates with Mandatory Steps (PRJ-143)
+
+Templates now enforce step-by-step workflows with explicit blocking conditions.
+
+**Problem:** Claude was skipping workflow steps (pushing directly to main, skipping PRs, etc.)
+
+**Solution:** Added ⛔ BLOCKING conditions to critical templates:
+- `ship.md` - Must check branch, create PR, bump version
+- `merge.md` - Must verify PR approval and CI status
+- `task.md` - Pre-flight checks before branch creation
+- `git.md` - Block commits/pushes on main/master
+
+**Also Fixed:**
+- Commit footer simplified to `Generated with [p/](https://www.prjct.app/)` (no emoji, no provider-specific line)
+- All provider templates updated (Claude, Gemini, Cursor, Antigravity, Windsurf)
+- Global CLAUDE.md strengthened with git workflow rules
+
+## [0.44.0] - 2026-01-29
+
+### Feature: Workflow State Machine (PRJ-139)
+
+Explicit states with valid transitions for prjct workflow. Users always know what commands are available.
+
+**States:** `idle` → `working` → `completed` → `shipped` (with `paused` branch)
+
+**New: State Machine (`core/workflow/state-machine.ts`)**
+- Explicit state definitions with valid transitions
+- State info shown after each command (e.g., `📍 State: WORKING`)
+- Next steps derived from current state
+
+**Updated Commands**
+- `task` — Shows state: WORKING after starting
+- `done` — Shows state: COMPLETED
+- `pause` — Shows state: PAUSED
+- `resume` — Shows state: WORKING
+
+### Feature: Auto-sync to Linear (PRJ-142 completion)
+
+When starting/completing tasks with Linear IDs, prjct now auto-syncs status.
+
+- `p. task PRJ-123` → Fetches issue title, marks as In Progress in Linear
+- `p. done` → Marks issue as Done in Linear (if task has linearId)
+
+### Feature: Sync Summary (PRJ-119)
+
+After `p. sync`, shows a compact summary with key metrics:
+- Stack detected
+- Files analyzed → context files generated
+- Agents count
+- Time elapsed
+
+### Improvement: Linear CLI filter by team
+
+`list` command now uses configured team, showing only relevant issues.
+
+### Improvement: Clean Terminal UX guidelines
+
+Added guidelines to CLAUDE.md for user-friendly tool call descriptions.
+
 ## [0.43.0] - 2026-01-29
 
 ### Feature: Bidirectional Sync Linear ↔ prjct (PRJ-142)

@@ -5,7 +5,7 @@
 
 ## HOW TO USE PRJCT (Read This First)
 
-When user types `p. <command>`, load the template from `templates/commands/{command}.md` and execute it intelligently.
+When user types `p. <command>`, load the template from `templates/commands/{command}.md` and execute it.
 
 ```
 p. sync     → templates/commands/sync.md
@@ -14,39 +14,70 @@ p. done     → templates/commands/done.md
 p. ship X   → templates/commands/ship.md
 ```
 
-**Key Insight**: Templates are GUIDANCE, not scripts. Use your intelligence to adapt them to the situation.
-
 ---
 
-## CRITICAL RULES
+## ⛔ CRITICAL RULES - READ BEFORE EVERY COMMAND
 
-### 0. PLAN BEFORE ACTION (NON-NEGOTIABLE)
+### 0. FOLLOW TEMPLATES STEP BY STEP (NON-NEGOTIABLE)
 
-**For ANY prjct task, you MUST create a plan and get user approval BEFORE executing.**
+**Templates are MANDATORY WORKFLOWS, not suggestions.**
 
 ```
-EVERY prjct command (p. task, p. sync, p. ship, etc.):
-1. STOP - Do not execute anything yet
-2. ANALYZE - Read relevant files, understand scope
-3. PLAN - Write a clear plan with:
-   - What will be done
-   - Files that will be modified
-   - Potential risks
-4. ASK - Present plan to user and wait for explicit approval
-5. EXECUTE - Only after user says "yes", "approved", "go ahead", etc.
+⛔ BEFORE executing ANY p. command:
+1. READ the template file COMPLETELY
+2. FOLLOW each step IN ORDER
+3. DO NOT skip steps - even "obvious" ones
+4. DO NOT take shortcuts - even for "simple" tasks
+5. STOP at any ⛔ BLOCKING condition
 ```
 
-**NEVER:**
-- Execute code changes without showing a plan first
-- Assume approval - wait for explicit confirmation
-- Skip the plan step for "simple" tasks
+**WHY THIS MATTERS:**
+- Skipping steps breaks the prjct workflow for ALL users
+- "Intelligent adaptation" is NOT permission to skip steps
+- Every step exists for a reason
+- If you skip steps, prjct becomes useless
 
-**ALWAYS:**
-- Show the plan in a clear, readable format
-- Wait for user response before proceeding
-- If user asks questions, answer them before executing
+### ⛔ BLOCKING CONDITIONS
 
-This rule applies to ALL prjct operations. No exceptions.
+When a template says "STOP" or has a ⛔ symbol:
+```
+1. HALT execution immediately
+2. TELL the user why you stopped
+3. DO NOT proceed until the condition is resolved
+4. DO NOT work around the blocker
+```
+
+**Examples of blockers:**
+- `p. ship` on main branch → STOP, tell user to create branch
+- `gh auth status` fails → STOP, tell user to authenticate
+- No changes to commit → STOP, tell user nothing to ship
+
+### GIT WORKFLOW RULES (CRITICAL)
+
+**⛔ NEVER commit directly to main/master**
+- Always create a feature branch first
+- Always create a PR for review
+- Direct pushes to main are FORBIDDEN
+
+**⛔ NEVER push without a PR**
+- All changes go through pull requests
+- No exceptions for "small fixes"
+
+**⛔ NEVER skip version bump on ship**
+- Every ship requires version update
+- Every ship requires CHANGELOG entry
+
+### PLAN BEFORE DESTRUCTIVE ACTIONS
+
+For commands that modify git state (ship, merge, done):
+```
+1. Show the user what will happen
+2. List all changes/files affected
+3. WAIT for explicit approval ("yes", "proceed", "do it")
+4. Only then execute
+```
+
+**DO NOT assume approval. WAIT for it.**
 
 ---
 
@@ -79,12 +110,10 @@ bun -e "console.log(crypto.randomUUID())" 2>/dev/null || node -e "console.log(re
 **Every commit made with prjct MUST include this footer:**
 
 ```
-🤖 Generated with [p/](https://www.prjct.app/)
-Designed for [Claude](https://www.anthropic.com/claude)
-
+Generated with [p/](https://www.prjct.app/)
 ```
 
-**This is NON-NEGOTIABLE. The prjct signature (`🤖 Generated with [p/]`) must appear in ALL commits.**
+**This is NON-NEGOTIABLE. The prjct signature must appear in ALL commits.**
 
 ### 5. Storage Rules (CROSS-AGENT COMPATIBILITY)
 
@@ -226,6 +255,64 @@ Concise responses (< 4 lines):
 [Key metrics]
 Next: [suggested action]
 ```
+
+---
+
+## CLEAN TERMINAL UX (CRITICAL)
+
+**Tool calls MUST be user-friendly.** The terminal output represents prjct's quality.
+
+### Rules for Tool Calls
+
+1. **ALWAYS use clear descriptions** in Bash tool calls:
+   ```
+   GOOD: description: "Building project"
+   BAD:  description: "bun run build 2>&1 | tail -5"
+   ```
+
+2. **Hide implementation details** - Users don't need to see:
+   - Pipe chains (`| tail -5`, `| grep`, `2>&1`)
+   - Internal paths (`/Users/jj/.prjct-cli/...`)
+   - JSON parsing (`jq -r '.field'`)
+
+3. **Use action verbs** for descriptions:
+   - "Building project"
+   - "Running tests"
+   - "Checking git status"
+   - "Fetching Linear issues"
+
+4. **Group related operations** - Don't show 5 separate tool calls when 1 will do
+
+5. **Prefer prjct CLI over raw commands**:
+   ```
+   GOOD: bun $PRJCT_CLI/core/cli/linear.ts list
+   BAD:  curl -X POST https://api.linear.app/graphql...
+   ```
+
+### Examples
+
+```
+# GOOD - Clean, understandable
+⏺ Bash: Building project
+  ✓ Build complete
+
+# BAD - Technical noise
+⏺ Bash(cd /Users/jj/Apps/prjct && bun run build 2>&1 | tail -5)
+  → core/infrastructure/editors-config.js
+  → core/utils/version.js
+```
+
+### When Reading Files
+
+- Don't announce every file read
+- Group related reads
+- Only mention files relevant to user's question
+
+### When Running Commands
+
+- Show WHAT you're doing, not HOW
+- Suppress stderr noise when possible
+- Return only meaningful output
 
 ---
 

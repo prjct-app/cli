@@ -36,6 +36,7 @@ export type {
   DesignOptions,
   CleanupOptions,
   SetupOptions,
+  UninstallOptions,
   AnalyzeOptions,
   // Migration types
   MigrationResult,
@@ -294,6 +295,9 @@ export type {
   IdeaModule,
   IdeaRole,
   IdeasJson,
+  DailyStats,
+  AgentUsage,
+  MetricsJson,
 } from './storage'
 
 // =============================================================================

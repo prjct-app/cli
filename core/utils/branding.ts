@@ -65,9 +65,8 @@ const branding: Branding = {
     footer: '⚡ prjct'
   },
 
-  // Default Git commit footer (Claude - for backward compatibility)
-  commitFooter: `🤖 Generated with [p/](https://www.prjct.app/)
-Designed for [Claude](https://www.anthropic.com/claude)`,
+  // Default Git commit footer (generic)
+  commitFooter: `Generated with [p/](https://www.prjct.app/)`,
 
   // URLs
   urls: {

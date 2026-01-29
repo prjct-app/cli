@@ -18,7 +18,7 @@ READ: {globalPath}/project.json → check integrations.linear.enabled
 
 IF integrations.linear.enabled:
   # Sync Linear issues to local cache
-  RUN: bun core/cli/linear.ts --project {projectId} sync
+  RUN: bun $PRJCT_CLI/core/cli/linear.ts --project {projectId} sync
 
   # Result stored in {globalPath}/storage/issues.json
   # Contains all assigned issues from Linear

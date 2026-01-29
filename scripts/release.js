@@ -308,8 +308,7 @@ function commitAndTag(version) {
 
   const commitMsg = `chore: release v${version}
 
-🤖 Generated with [p/](https://www.prjct.app/)
-Designed for [Claude](https://www.anthropic.com/claude)`
+Generated with [p/](https://www.prjct.app/)`
 
   exec(`git commit -m "${commitMsg}"`)
   success(`Committed: release v${version}`)

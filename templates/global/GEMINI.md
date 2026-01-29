@@ -79,12 +79,10 @@ bun -e "console.log(crypto.randomUUID())" 2>/dev/null || node -e "console.log(re
 **Every commit made with prjct MUST include this footer:**
 
 ```
-🤖 Generated with [p/](https://www.prjct.app/)
-Designed for [Gemini](https://geminicli.com/)
-
+Generated with [p/](https://www.prjct.app/)
 ```
 
-**This is NON-NEGOTIABLE. The prjct signature (`🤖 Generated with [p/]`) must appear in ALL commits.**
+**This is NON-NEGOTIABLE. The prjct signature must appear in ALL commits.**
 
 ### 5. Storage Rules (CROSS-AGENT COMPATIBILITY)
 

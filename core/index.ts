@@ -111,6 +111,10 @@ async function main(): Promise<void> {
         ship: (p) => commands.ship(p),
         // Analytics
         dash: (p) => commands.dash(p || 'default'),
+        stats: () => commands.stats(process.cwd(), {
+          json: options.json === true,
+          export: options.export === true,
+        }),
         help: (p) => commands.help(p || ''),
         // Maintenance
         recover: () => commands.recover(),
@@ -289,6 +293,8 @@ TERMINAL COMMANDS (this CLI)
   prjct init             Initialize project (required for Cursor)
   prjct setup            Reconfigure installations
   prjct sync             Sync project state
+  prjct watch            Auto-sync on file changes (Ctrl+C to stop)
+  prjct doctor           Check system health and dependencies
 
 EXAMPLES
 --------
@@ -302,6 +308,12 @@ EXAMPLES
   $ cd my-project && prjct init
   > /sync
   > /task "add user authentication"
+
+FLAGS
+-----
+  --quiet, -q            Suppress all output (only errors to stderr)
+  --version, -v          Show version
+  --help, -h             Show this help
 
 MORE INFO
 ---------
