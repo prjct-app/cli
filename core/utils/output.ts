@@ -26,6 +26,8 @@ interface Output {
   fail(msg: string): Output
   warn(msg: string): Output
   stop(): Output
+  step(current: number, total: number, msg: string): Output
+  progress(current: number, total: number, msg?: string): Output
 }
 
 const out: Output = {
@@ -74,6 +76,30 @@ const out: Output = {
       interval = null
       clear()
     }
+    return this
+  },
+
+  // Step counter: [3/7] Running tests...
+  step(current: number, total: number, msg: string) {
+    this.stop()
+    const counter = chalk.dim(`[${current}/${total}]`)
+    interval = setInterval(() => {
+      process.stdout.write(`\r${branding.cli.spin(frame++, `${counter} ${truncate(msg, 35)}`)}`)
+    }, SPEED)
+    return this
+  },
+
+  // Progress bar: [████░░░░] 50% Analyzing...
+  progress(current: number, total: number, msg?: string) {
+    this.stop()
+    const percent = Math.round((current / total) * 100)
+    const filled = Math.round(percent / 10)
+    const empty = 10 - filled
+    const bar = chalk.cyan('█'.repeat(filled)) + chalk.dim('░'.repeat(empty))
+    const text = msg ? ` ${truncate(msg, 25)}` : ''
+    interval = setInterval(() => {
+      process.stdout.write(`\r${branding.cli.spin(frame++, `[${bar}] ${percent}%${text}`)}`)
+    }, SPEED)
     return this
   }
 }

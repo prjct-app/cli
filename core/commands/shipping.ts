@@ -71,22 +71,22 @@ export class ShippingCommands extends PrjctCommandsBase {
         featureName = currentTask?.description || 'current work'
       }
 
-      out.spin(`shipping ${featureName}...`)
-
+      // Ship steps with progress indicator
+      out.step(1, 5, `Linting ${featureName}...`)
       const lintResult = await this._runLint(projectPath)
 
-      out.spin('running tests...')
+      out.step(2, 5, 'Running tests...')
       const testResult = await this._runTests(projectPath)
 
-      out.spin('updating version...')
+      out.step(3, 5, 'Updating version...')
       const newVersion = await this._bumpVersion(projectPath)
       await this._updateChangelog(featureName, newVersion, projectPath)
 
-      out.spin('committing...')
+      out.step(4, 5, 'Committing...')
       const commitResult = await this._createShipCommit(featureName, projectPath)
 
       if (commitResult.success) {
-        out.spin('pushing...')
+        out.step(5, 5, 'Pushing...')
         await this._gitPush(projectPath)
       }
 
