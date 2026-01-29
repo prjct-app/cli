@@ -108,6 +108,11 @@ if (args[0] === 'start' || args[0] === 'setup') {
     console.log(JSON.stringify(result, null, 2))
     process.exitCode = result.tool === 'error' ? 1 : 0
   }
+} else if (args[0] === 'doctor') {
+  // Health check command
+  const { doctorService } = await import('../core/services/doctor-service')
+  const exitCode = await doctorService.run(process.cwd())
+  process.exitCode = exitCode
 } else if (args[0] === 'watch') {
   // Watch mode - auto-sync on file changes
   const projectPath = process.cwd()
