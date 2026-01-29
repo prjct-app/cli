@@ -17,17 +17,17 @@
  * @see https://docs.windsurf.com/windsurf/cascade/memories
  */
 
-import { execSync } from 'child_process'
-import fs from 'fs'
-import path from 'path'
-import os from 'os'
+import { execSync } from 'node:child_process'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import type {
-  AIProviderName,
   AIProviderConfig,
+  AIProviderName,
+  CursorProjectDetection,
+  ProviderBranding,
   ProviderDetectionResult,
   ProviderSelectionResult,
-  ProviderBranding,
-  CursorProjectDetection,
   WindsurfProjectDetection,
 } from '../types/provider'
 
@@ -110,17 +110,17 @@ export const AntigravityProvider: AIProviderConfig = {
 export const CursorProvider: AIProviderConfig = {
   name: 'cursor',
   displayName: 'Cursor IDE',
-  cliCommand: null,              // Not a CLI - GUI app
-  configDir: null,               // No global config directory
-  contextFile: 'prjct.mdc',      // Uses .mdc format with frontmatter
-  skillsDir: null,               // No skills directory
+  cliCommand: null, // Not a CLI - GUI app
+  configDir: null, // No global config directory
+  contextFile: 'prjct.mdc', // Uses .mdc format with frontmatter
+  skillsDir: null, // No skills directory
   commandsDir: '.cursor/commands',
-  rulesDir: '.cursor/rules',     // Cursor-specific: rules directory
+  rulesDir: '.cursor/rules', // Cursor-specific: rules directory
   commandFormat: 'md',
   settingsFile: null,
   projectSettingsFile: null,
   ignoreFile: '.cursorignore',
-  isProjectLevel: true,          // Config is project-level only
+  isProjectLevel: true, // Config is project-level only
   websiteUrl: 'https://cursor.com',
   docsUrl: 'https://cursor.com/docs',
 }
@@ -140,17 +140,17 @@ export const CursorProvider: AIProviderConfig = {
 export const WindsurfProvider: AIProviderConfig = {
   name: 'windsurf',
   displayName: 'Windsurf IDE',
-  cliCommand: null,                    // Not a CLI - GUI app
-  configDir: null,                     // No global config directory
-  contextFile: 'prjct.md',             // Uses .md format (not .mdc)
-  skillsDir: null,                     // No skills directory
-  commandsDir: '.windsurf/workflows',  // Windsurf uses "workflows" not "commands"
+  cliCommand: null, // Not a CLI - GUI app
+  configDir: null, // No global config directory
+  contextFile: 'prjct.md', // Uses .md format (not .mdc)
+  skillsDir: null, // No skills directory
+  commandsDir: '.windsurf/workflows', // Windsurf uses "workflows" not "commands"
   rulesDir: '.windsurf/rules',
   commandFormat: 'md',
   settingsFile: null,
   projectSettingsFile: null,
   ignoreFile: '.windsurfignore',
-  isProjectLevel: true,                // Config is project-level only
+  isProjectLevel: true, // Config is project-level only
   websiteUrl: 'https://windsurf.com',
   docsUrl: 'https://docs.windsurf.com',
 }
@@ -227,7 +227,10 @@ export function detectProvider(provider: AIProviderName): ProviderDetectionResul
  * Detect all available CLI-based providers
  * Note: Cursor detection is project-level, use detectCursorProject() separately
  */
-export function detectAllProviders(): { claude: ProviderDetectionResult; gemini: ProviderDetectionResult } {
+export function detectAllProviders(): {
+  claude: ProviderDetectionResult
+  gemini: ProviderDetectionResult
+} {
   return {
     claude: detectProvider('claude'),
     gemini: detectProvider('gemini'),

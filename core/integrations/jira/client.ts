@@ -15,15 +15,15 @@
  */
 
 import type {
-  IssueTrackerProvider,
-  Issue,
   CreateIssueInput,
-  UpdateIssueInput,
   FetchOptions,
-  JiraConfig,
-  IssueStatus,
+  Issue,
   IssuePriority,
+  IssueStatus,
+  IssueTrackerProvider,
   IssueType,
+  JiraConfig,
+  UpdateIssueInput,
 } from '../issue-tracker/types'
 
 // =============================================================================
@@ -36,13 +36,16 @@ interface JiraIssue {
   self: string
   fields: {
     summary: string
-    description?: {
-      type: string
-      content: Array<{
-        type: string
-        content?: Array<{ type: string; text?: string }>
-      }>
-    } | string | null
+    description?:
+      | {
+          type: string
+          content: Array<{
+            type: string
+            content?: Array<{ type: string; text?: string }>
+          }>
+        }
+      | string
+      | null
     status: {
       id: string
       name: string
@@ -114,7 +117,7 @@ const JIRA_STATUS_CATEGORY_MAP: Record<string, IssueStatus> = {
 const JIRA_STATUS_NAME_MAP: Record<string, IssueStatus> = {
   // Backlog states
   backlog: 'backlog',
-  'open': 'backlog',
+  open: 'backlog',
   'to do': 'todo',
   todo: 'todo',
   new: 'todo',
@@ -124,7 +127,7 @@ const JIRA_STATUS_NAME_MAP: Record<string, IssueStatus> = {
   'in development': 'in_progress',
   'in review': 'in_review',
   'code review': 'in_review',
-  'review': 'in_review',
+  review: 'in_review',
 
   // Done states
   done: 'done',
@@ -241,13 +244,19 @@ export class JiraProvider implements IssueTrackerProvider {
 
       // Verify connection by fetching current user
       try {
-        const response = await this.request<{ accountId: string; displayName: string; emailAddress?: string }>('/rest/api/3/myself')
+        const response = await this.request<{
+          accountId: string
+          displayName: string
+          emailAddress?: string
+        }>('/rest/api/3/myself')
         this.currentUser = {
           accountId: response.accountId,
           displayName: response.displayName,
           email: response.emailAddress,
         }
-        console.log(`[jira] Connected as ${this.currentUser.displayName} (${this.currentUser.email || 'no email'})`)
+        console.log(
+          `[jira] Connected as ${this.currentUser.displayName} (${this.currentUser.email || 'no email'})`
+        )
       } catch (error) {
         this.baseUrl = ''
         this.auth = ''
@@ -360,7 +369,7 @@ export class JiraProvider implements IssueTrackerProvider {
 
     // Add optional fields
     if (input.description) {
-      (payload.fields as Record<string, unknown>).description = {
+      ;(payload.fields as Record<string, unknown>).description = {
         type: 'doc',
         version: 1,
         content: [
@@ -373,28 +382,25 @@ export class JiraProvider implements IssueTrackerProvider {
     }
 
     if (input.priority) {
-      (payload.fields as Record<string, unknown>).priority = {
+      ;(payload.fields as Record<string, unknown>).priority = {
         name: PRIORITY_TO_JIRA[input.priority],
       }
     }
 
     if (input.labels?.length) {
-      (payload.fields as Record<string, unknown>).labels = input.labels
+      ;(payload.fields as Record<string, unknown>).labels = input.labels
     }
 
     if (input.assigneeId) {
-      (payload.fields as Record<string, unknown>).assignee = {
+      ;(payload.fields as Record<string, unknown>).assignee = {
         accountId: input.assigneeId,
       }
     }
 
-    const created = await this.request<{ id: string; key: string }>(
-      '/rest/api/3/issue',
-      {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      }
-    )
+    const created = await this.request<{ id: string; key: string }>('/rest/api/3/issue', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
 
     // Fetch the full issue
     const issue = await this.fetchIssue(created.key)
@@ -414,7 +420,7 @@ export class JiraProvider implements IssueTrackerProvider {
     const payload: Record<string, unknown> = { fields: {} }
 
     if (input.description) {
-      (payload.fields as Record<string, unknown>).description = {
+      ;(payload.fields as Record<string, unknown>).description = {
         type: 'doc',
         version: 1,
         content: this.markdownToADF(input.description),
@@ -442,9 +448,9 @@ export class JiraProvider implements IssueTrackerProvider {
     if (!this.isConfigured()) throw new Error('JIRA not initialized')
 
     // Get available transitions
-    const transitions = await this.request<{ transitions: Array<{ id: string; name: string; to: { statusCategory: { key: string } } }> }>(
-      `/rest/api/3/issue/${id}/transitions`
-    )
+    const transitions = await this.request<{
+      transitions: Array<{ id: string; name: string; to: { statusCategory: { key: string } } }>
+    }>(`/rest/api/3/issue/${id}/transitions`)
 
     // Find transition to "in progress" state
     const inProgressTransition = transitions.transitions.find(
@@ -469,9 +475,9 @@ export class JiraProvider implements IssueTrackerProvider {
     if (!this.isConfigured()) throw new Error('JIRA not initialized')
 
     // Get available transitions
-    const transitions = await this.request<{ transitions: Array<{ id: string; name: string; to: { statusCategory: { key: string } } }> }>(
-      `/rest/api/3/issue/${id}/transitions`
-    )
+    const transitions = await this.request<{
+      transitions: Array<{ id: string; name: string; to: { statusCategory: { key: string } } }>
+    }>(`/rest/api/3/issue/${id}/transitions`)
 
     // Find transition to "done" state
     const doneTransition = transitions.transitions.find(
@@ -556,9 +562,7 @@ export class JiraProvider implements IssueTrackerProvider {
 
     // Try exact status name match first, then category
     const status: IssueStatus =
-      JIRA_STATUS_NAME_MAP[statusName] ||
-      JIRA_STATUS_CATEGORY_MAP[statusCategory] ||
-      'backlog'
+      JIRA_STATUS_NAME_MAP[statusName] || JIRA_STATUS_CATEGORY_MAP[statusCategory] || 'backlog'
 
     const priorityName = jiraIssue.fields.priority?.name?.toLowerCase() || 'medium'
     const priority: IssuePriority = JIRA_PRIORITY_MAP[priorityName] || 'medium'
@@ -599,9 +603,7 @@ export class JiraProvider implements IssueTrackerProvider {
   /**
    * Extract plain text from JIRA description (ADF or string)
    */
-  private extractDescription(
-    description: JiraIssue['fields']['description']
-  ): string | undefined {
+  private extractDescription(description: JiraIssue['fields']['description']): string | undefined {
     if (!description) return undefined
 
     // Handle string descriptions (older JIRA versions)
@@ -661,34 +663,42 @@ export class JiraProvider implements IssueTrackerProvider {
         content.push({
           type: 'taskList',
           attrs: { localId: crypto.randomUUID() },
-          content: [{
-            type: 'taskItem',
-            attrs: { localId: crypto.randomUUID(), state: 'TODO' },
-            content: [{ type: 'text', text: line.slice(6) }],
-          }],
+          content: [
+            {
+              type: 'taskItem',
+              attrs: { localId: crypto.randomUUID(), state: 'TODO' },
+              content: [{ type: 'text', text: line.slice(6) }],
+            },
+          ],
         })
       } else if (line.startsWith('- [x] ')) {
         // Checkbox checked
         content.push({
           type: 'taskList',
           attrs: { localId: crypto.randomUUID() },
-          content: [{
-            type: 'taskItem',
-            attrs: { localId: crypto.randomUUID(), state: 'DONE' },
-            content: [{ type: 'text', text: line.slice(6) }],
-          }],
+          content: [
+            {
+              type: 'taskItem',
+              attrs: { localId: crypto.randomUUID(), state: 'DONE' },
+              content: [{ type: 'text', text: line.slice(6) }],
+            },
+          ],
         })
       } else if (line.startsWith('- ')) {
         // Bullet point
         content.push({
           type: 'bulletList',
-          content: [{
-            type: 'listItem',
-            content: [{
-              type: 'paragraph',
-              content: [{ type: 'text', text: line.slice(2) }],
-            }],
-          }],
+          content: [
+            {
+              type: 'listItem',
+              content: [
+                {
+                  type: 'paragraph',
+                  content: [{ type: 'text', text: line.slice(2) }],
+                },
+              ],
+            },
+          ],
         })
       } else if (line.trim()) {
         // Regular paragraph
@@ -741,8 +751,6 @@ export class JiraProvider implements IssueTrackerProvider {
         return 'Improvement'
       case 'epic':
         return 'Epic'
-      case 'chore':
-      case 'task':
       default:
         return 'Task'
     }

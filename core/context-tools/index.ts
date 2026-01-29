@@ -15,16 +15,15 @@
  * @version 1.0.0
  */
 
-import type { ContextToolOutput, ContextToolUsage } from './types'
+import { metricsStorage } from '../storage/metrics-storage'
+import { getTimestamp } from '../utils/date-helper'
 import { findRelevantFiles } from './files-tool'
-import { extractSignatures, extractDirectorySignatures } from './signatures-tool'
 import { analyzeImports } from './imports-tool'
 import { getRecentFiles } from './recent-tool'
-import { summarizeFile, summarizeDirectory } from './summary-tool'
+import { extractDirectorySignatures, extractSignatures } from './signatures-tool'
+import { summarizeDirectory, summarizeFile } from './summary-tool'
 import { combineMetrics } from './token-counter'
-import { metricsStorage } from '../storage/metrics-storage'
-import configManager from '../infrastructure/config-manager'
-import { getTimestamp } from '../utils/date-helper'
+import type { ContextToolOutput, ContextToolUsage } from './types'
 
 // =============================================================================
 // CLI Dispatcher
@@ -127,17 +126,14 @@ export async function runContextTool(
 // Tool Runners
 // =============================================================================
 
-async function runFilesTool(
-  args: string[],
-  projectPath: string
-): Promise<ContextToolOutput> {
+async function runFilesTool(args: string[], projectPath: string): Promise<ContextToolOutput> {
   // Parse options
   const options: { maxFiles?: number; minScore?: number; includeTests?: boolean } = {}
   const taskParts: string[] = []
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--max' && args[i + 1]) {
-      options.maxFiles = parseInt(args[++i])
+      options.maxFiles = parseInt(args[++i], 10)
     } else if (args[i] === '--min-score' && args[i + 1]) {
       options.minScore = parseFloat(args[++i])
     } else if (args[i] === '--include-tests') {
@@ -162,10 +158,7 @@ async function runFilesTool(
   return { tool: 'files', result }
 }
 
-async function runSignaturesTool(
-  args: string[],
-  projectPath: string
-): Promise<ContextToolOutput> {
+async function runSignaturesTool(args: string[], projectPath: string): Promise<ContextToolOutput> {
   const filePath = args[0]
   if (!filePath) {
     return {
@@ -178,11 +171,9 @@ async function runSignaturesTool(
   }
 
   // Check if it's a directory
-  const fs = await import('fs/promises')
-  const path = await import('path')
-  const fullPath = path.isAbsolute(filePath)
-    ? filePath
-    : path.join(projectPath, filePath)
+  const fs = await import('node:fs/promises')
+  const path = await import('node:path')
+  const fullPath = path.isAbsolute(filePath) ? filePath : path.join(projectPath, filePath)
 
   try {
     const stat = await fs.stat(fullPath)
@@ -192,13 +183,11 @@ async function runSignaturesTool(
         recursive: args.includes('--recursive') || args.includes('-r'),
       })
       // Combine into single output with cost savings
-      const combinedMetrics = combineMetrics(results.map(r => r.metrics))
+      const combinedMetrics = combineMetrics(results.map((r) => r.metrics))
       const combined = {
         file: filePath,
         language: 'multiple',
-        signatures: results.flatMap((r) =>
-          r.signatures.map((s) => ({ ...s, file: r.file }))
-        ),
+        signatures: results.flatMap((r) => r.signatures.map((s) => ({ ...s, file: r.file }))),
         fallback: false,
         metrics: combinedMetrics,
       }
@@ -212,10 +201,7 @@ async function runSignaturesTool(
   return { tool: 'signatures', result }
 }
 
-async function runImportsTool(
-  args: string[],
-  projectPath: string
-): Promise<ContextToolOutput> {
+async function runImportsTool(args: string[], projectPath: string): Promise<ContextToolOutput> {
   const filePath = args[0]
   if (!filePath) {
     return {
@@ -233,7 +219,7 @@ async function runImportsTool(
     if (args[i] === '--reverse' || args[i] === '-r') {
       options.reverse = true
     } else if ((args[i] === '--depth' || args[i] === '-d') && args[i + 1]) {
-      options.depth = parseInt(args[++i])
+      options.depth = parseInt(args[++i], 10)
     }
   }
 
@@ -241,19 +227,16 @@ async function runImportsTool(
   return { tool: 'imports', result }
 }
 
-async function runRecentTool(
-  args: string[],
-  projectPath: string
-): Promise<ContextToolOutput> {
+async function runRecentTool(args: string[], projectPath: string): Promise<ContextToolOutput> {
   const options: { commits?: number; branch?: boolean; maxFiles?: number } = {}
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--branch' || args[i] === '-b') {
       options.branch = true
     } else if (args[i] === '--max' && args[i + 1]) {
-      options.maxFiles = parseInt(args[++i])
+      options.maxFiles = parseInt(args[++i], 10)
     } else if (/^\d+$/.test(args[i])) {
-      options.commits = parseInt(args[i])
+      options.commits = parseInt(args[i], 10)
     }
   }
 
@@ -261,10 +244,7 @@ async function runRecentTool(
   return { tool: 'recent', result }
 }
 
-async function runSummaryTool(
-  args: string[],
-  projectPath: string
-): Promise<ContextToolOutput> {
+async function runSummaryTool(args: string[], projectPath: string): Promise<ContextToolOutput> {
   const targetPath = args[0]
   if (!targetPath) {
     return {
@@ -277,11 +257,9 @@ async function runSummaryTool(
   }
 
   // Check if it's a directory
-  const fs = await import('fs/promises')
-  const path = await import('path')
-  const fullPath = path.isAbsolute(targetPath)
-    ? targetPath
-    : path.join(projectPath, targetPath)
+  const fs = await import('node:fs/promises')
+  const path = await import('node:path')
+  const fullPath = path.isAbsolute(targetPath) ? targetPath : path.join(projectPath, targetPath)
 
   try {
     const stat = await fs.stat(fullPath)
@@ -293,11 +271,9 @@ async function runSummaryTool(
       const combined = {
         file: targetPath,
         purpose: `Directory with ${results.length} files`,
-        publicAPI: results.flatMap((r) =>
-          r.publicAPI.map((api) => ({ ...api, file: r.file }))
-        ),
+        publicAPI: results.flatMap((r) => r.publicAPI.map((api) => ({ ...api, file: r.file }))),
         dependencies: [...new Set(results.flatMap((r) => r.dependencies))],
-        metrics: combineMetrics(results.map(r => r.metrics)),
+        metrics: combineMetrics(results.map((r) => r.metrics)),
       }
       return { tool: 'summary', result: combined }
     }
@@ -341,19 +317,17 @@ function getCompressionRate(result: ContextToolOutput): number {
     case 'signatures':
     case 'summary':
       return result.result.metrics.compression
-    case 'files':
+    case 'files': {
       const scanned = result.result.metrics.filesScanned
       const returned = result.result.metrics.filesReturned
       return scanned > 0 ? (scanned - returned) / scanned : 0
+    }
     default:
       return 0
   }
 }
 
-async function recordToolUsage(
-  projectId: string,
-  usage: ContextToolUsage
-): Promise<void> {
+async function recordToolUsage(projectId: string, usage: ContextToolUsage): Promise<void> {
   try {
     // Record to metrics storage
     await metricsStorage.recordSync(projectId, {
@@ -451,8 +425,9 @@ export {
   summarizeFile,
   summarizeDirectory,
 }
+
 // Note: runContextTool is already exported at its definition (line 48)
 
+export * from './token-counter'
 // Re-export types
 export * from './types'
-export * from './token-counter'

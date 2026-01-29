@@ -4,6 +4,5 @@
  * Barrel export for events module
  */
 
-export { eventBus, inferEventType } from './events'
-export { default } from './events'
 export type { SyncEvent, SyncEventType } from '../types'
+export { default, eventBus, inferEventType } from './events'

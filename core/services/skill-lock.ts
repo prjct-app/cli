@@ -9,9 +9,9 @@
  * @version 1.0.0
  */
 
-import fs from 'fs/promises'
-import path from 'path'
-import os from 'os'
+import fs from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
 
 // =============================================================================
 // Types

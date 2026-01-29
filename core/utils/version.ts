@@ -1,5 +1,5 @@
-import fs from 'fs'
-import path from 'path'
+import fs from 'node:fs'
+import path from 'node:path'
 
 /**
  * Version Manager - Single source of truth for application version
@@ -132,5 +132,5 @@ export default {
   isCompatible,
   needsMigration,
   VERSION,
-  PACKAGE_ROOT
+  PACKAGE_ROOT,
 }

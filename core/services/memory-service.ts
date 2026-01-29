@@ -4,13 +4,12 @@
  * Handles logging actions to memory for audit trail and context building.
  */
 
-import pathManager from '../infrastructure/path-manager'
 import configManager from '../infrastructure/config-manager'
+import pathManager from '../infrastructure/path-manager'
+import type { MemoryServiceEntry } from '../types'
+import { isNotFoundError } from '../types/fs'
 import { getTimestamp } from '../utils/date-helper'
 import jsonlHelper from '../utils/jsonl-helper'
-import { isNotFoundError } from '../types/fs'
-
-import type { MemoryServiceEntry } from '../types'
 
 export class MemoryService {
   /**

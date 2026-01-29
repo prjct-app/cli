@@ -19,15 +19,14 @@
  */
 
 import type {
-  IssueTrackerProvider,
-  Issue,
   CreateIssueInput,
-  UpdateIssueInput,
   FetchOptions,
-  JiraConfig,
-  IssueStatus,
+  Issue,
   IssuePriority,
+  IssueStatus,
+  IssueTrackerProvider,
   IssueType,
+  JiraConfig,
 } from '../issue-tracker/types'
 
 // =============================================================================
@@ -323,9 +322,7 @@ export class JiraMCPAdapter implements Partial<IssueTrackerProvider> {
     const statusCategory = mcpIssue.fields.status.statusCategory?.key || ''
 
     const status: IssueStatus =
-      JIRA_STATUS_NAME_MAP[statusName] ||
-      JIRA_STATUS_CATEGORY_MAP[statusCategory] ||
-      'backlog'
+      JIRA_STATUS_NAME_MAP[statusName] || JIRA_STATUS_CATEGORY_MAP[statusCategory] || 'backlog'
 
     const priorityName = mcpIssue.fields.priority?.name?.toLowerCase() || 'medium'
     const priority: IssuePriority = JIRA_PRIORITY_MAP[priorityName] || 'medium'
@@ -400,8 +397,6 @@ export class JiraMCPAdapter implements Partial<IssueTrackerProvider> {
         return 'Improvement'
       case 'epic':
         return 'Epic'
-      case 'chore':
-      case 'task':
       default:
         return 'Task'
     }

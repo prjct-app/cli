@@ -5,10 +5,10 @@
  * Generates context/ideas.md for Claude
  */
 
-import { StorageManager } from './storage-manager'
 import { generateUUID } from '../schemas'
+import type { Idea, IdeaPriority, IdeaStatus, IdeasJson } from '../types'
 import { getTimestamp } from '../utils/date-helper'
-import type { Idea, IdeasJson, IdeaStatus, IdeaPriority } from '../types'
+import { StorageManager } from './storage-manager'
 
 class IdeasStorage extends StorageManager<IdeasJson> {
   constructor() {
@@ -18,7 +18,7 @@ class IdeasStorage extends StorageManager<IdeasJson> {
   protected getDefault(): IdeasJson {
     return {
       ideas: [],
-      lastUpdated: ''
+      lastUpdated: '',
     }
   }
 
@@ -37,16 +37,16 @@ class IdeasStorage extends StorageManager<IdeasJson> {
   protected toMarkdown(data: IdeasJson): string {
     const lines = ['# IDEAS \u{1F4A1}', '']
 
-    const pending = data.ideas.filter(i => i.status === 'pending')
-    const converted = data.ideas.filter(i => i.status === 'converted')
-    const archived = data.ideas.filter(i => i.status === 'archived')
+    const pending = data.ideas.filter((i) => i.status === 'pending')
+    const converted = data.ideas.filter((i) => i.status === 'converted')
+    const archived = data.ideas.filter((i) => i.status === 'archived')
 
     // Brain Dump (pending)
     lines.push('## Brain Dump')
     if (pending.length > 0) {
-      pending.forEach(idea => {
+      pending.forEach((idea) => {
         const date = idea.addedAt.split('T')[0]
-        const tags = idea.tags.length > 0 ? ' ' + idea.tags.map(t => `#${t}`).join(' ') : ''
+        const tags = idea.tags.length > 0 ? ` ${idea.tags.map((t) => `#${t}`).join(' ')}` : ''
         const priority = idea.priority !== 'medium' ? ` [${idea.priority.toUpperCase()}]` : ''
         lines.push(`- ${idea.text}${priority} _(${date})_${tags}`)
       })
@@ -58,7 +58,7 @@ class IdeasStorage extends StorageManager<IdeasJson> {
     // Converted
     if (converted.length > 0) {
       lines.push('## Converted')
-      converted.forEach(idea => {
+      converted.forEach((idea) => {
         const date = idea.addedAt.split('T')[0]
         const feat = idea.convertedTo ? ` \u2192 ${idea.convertedTo}` : ''
         lines.push(`- \u2713 ${idea.text}${feat} _(${date})_`)
@@ -69,7 +69,7 @@ class IdeasStorage extends StorageManager<IdeasJson> {
     // Archived
     if (archived.length > 0) {
       lines.push('## Archived')
-      archived.forEach(idea => {
+      archived.forEach((idea) => {
         const date = idea.addedAt.split('T')[0]
         lines.push(`- ${idea.text} _(${date})_`)
       })
@@ -94,7 +94,7 @@ class IdeasStorage extends StorageManager<IdeasJson> {
    */
   async getPending(projectId: string): Promise<Idea[]> {
     const data = await this.read(projectId)
-    return data.ideas.filter(i => i.status === 'pending')
+    return data.ideas.filter((i) => i.status === 'pending')
   }
 
   /**
@@ -111,19 +111,19 @@ class IdeasStorage extends StorageManager<IdeasJson> {
       status: 'pending',
       priority: options.priority || 'medium',
       tags: options.tags || [],
-      addedAt: getTimestamp()
+      addedAt: getTimestamp(),
     }
 
     await this.update(projectId, (data) => ({
       ideas: [idea, ...data.ideas], // Prepend new ideas
-      lastUpdated: getTimestamp()
+      lastUpdated: getTimestamp(),
     }))
 
     // Publish event
     await this.publishEvent(projectId, 'idea.created', {
       ideaId: idea.id,
       text: idea.text,
-      priority: idea.priority
+      priority: idea.priority,
     })
 
     return idea
@@ -134,29 +134,23 @@ class IdeasStorage extends StorageManager<IdeasJson> {
    */
   async getById(projectId: string, id: string): Promise<Idea | undefined> {
     const data = await this.read(projectId)
-    return data.ideas.find(i => i.id === id)
+    return data.ideas.find((i) => i.id === id)
   }
 
   /**
    * Convert idea to feature
    */
-  async convertToFeature(
-    projectId: string,
-    ideaId: string,
-    featureId: string
-  ): Promise<void> {
+  async convertToFeature(projectId: string, ideaId: string, featureId: string): Promise<void> {
     await this.update(projectId, (data) => ({
-      ideas: data.ideas.map(i =>
-        i.id === ideaId
-          ? { ...i, status: 'converted' as IdeaStatus, convertedTo: featureId }
-          : i
+      ideas: data.ideas.map((i) =>
+        i.id === ideaId ? { ...i, status: 'converted' as IdeaStatus, convertedTo: featureId } : i
       ),
-      lastUpdated: getTimestamp()
+      lastUpdated: getTimestamp(),
     }))
 
     await this.publishEvent(projectId, 'idea.converted', {
       ideaId,
-      featureId
+      featureId,
     })
   }
 
@@ -165,10 +159,10 @@ class IdeasStorage extends StorageManager<IdeasJson> {
    */
   async archive(projectId: string, ideaId: string): Promise<void> {
     await this.update(projectId, (data) => ({
-      ideas: data.ideas.map(i =>
+      ideas: data.ideas.map((i) =>
         i.id === ideaId ? { ...i, status: 'archived' as IdeaStatus } : i
       ),
-      lastUpdated: getTimestamp()
+      lastUpdated: getTimestamp(),
     }))
 
     await this.publishEvent(projectId, 'idea.archived', { ideaId })
@@ -177,34 +171,22 @@ class IdeasStorage extends StorageManager<IdeasJson> {
   /**
    * Set priority
    */
-  async setPriority(
-    projectId: string,
-    ideaId: string,
-    priority: IdeaPriority
-  ): Promise<void> {
+  async setPriority(projectId: string, ideaId: string, priority: IdeaPriority): Promise<void> {
     await this.update(projectId, (data) => ({
-      ideas: data.ideas.map(i =>
-        i.id === ideaId ? { ...i, priority } : i
-      ),
-      lastUpdated: getTimestamp()
+      ideas: data.ideas.map((i) => (i.id === ideaId ? { ...i, priority } : i)),
+      lastUpdated: getTimestamp(),
     }))
   }
 
   /**
    * Add tags to an idea
    */
-  async addTags(
-    projectId: string,
-    ideaId: string,
-    tags: string[]
-  ): Promise<void> {
+  async addTags(projectId: string, ideaId: string, tags: string[]): Promise<void> {
     await this.update(projectId, (data) => ({
-      ideas: data.ideas.map(i =>
-        i.id === ideaId
-          ? { ...i, tags: [...new Set([...i.tags, ...tags])] }
-          : i
+      ideas: data.ideas.map((i) =>
+        i.id === ideaId ? { ...i, tags: [...new Set([...i.tags, ...tags])] } : i
       ),
-      lastUpdated: getTimestamp()
+      lastUpdated: getTimestamp(),
     }))
   }
 
@@ -213,20 +195,22 @@ class IdeasStorage extends StorageManager<IdeasJson> {
    */
   async removeIdea(projectId: string, ideaId: string): Promise<void> {
     await this.update(projectId, (data) => ({
-      ideas: data.ideas.filter(i => i.id !== ideaId),
-      lastUpdated: getTimestamp()
+      ideas: data.ideas.filter((i) => i.id !== ideaId),
+      lastUpdated: getTimestamp(),
     }))
   }
 
   /**
    * Get counts by status
    */
-  async getCounts(projectId: string): Promise<{ pending: number; converted: number; archived: number }> {
+  async getCounts(
+    projectId: string
+  ): Promise<{ pending: number; converted: number; archived: number }> {
     const data = await this.read(projectId)
     return {
-      pending: data.ideas.filter(i => i.status === 'pending').length,
-      converted: data.ideas.filter(i => i.status === 'converted').length,
-      archived: data.ideas.filter(i => i.status === 'archived').length
+      pending: data.ideas.filter((i) => i.status === 'pending').length,
+      converted: data.ideas.filter((i) => i.status === 'converted').length,
+      archived: data.ideas.filter((i) => i.status === 'archived').length,
     }
   }
 
@@ -235,7 +219,7 @@ class IdeasStorage extends StorageManager<IdeasJson> {
    */
   async cleanup(projectId: string): Promise<{ removed: number }> {
     const data = await this.read(projectId)
-    const archived = data.ideas.filter(i => i.status === 'archived')
+    const archived = data.ideas.filter((i) => i.status === 'archived')
 
     if (archived.length <= 50) {
       return { removed: 0 }
@@ -245,12 +229,12 @@ class IdeasStorage extends StorageManager<IdeasJson> {
     const sortedArchived = archived.sort(
       (a, b) => new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime()
     )
-    const toRemove = new Set(sortedArchived.slice(50).map(i => i.id))
+    const toRemove = new Set(sortedArchived.slice(50).map((i) => i.id))
     const removed = toRemove.size
 
     await this.update(projectId, (d) => ({
-      ideas: d.ideas.filter(i => !toRemove.has(i.id)),
-      lastUpdated: getTimestamp()
+      ideas: d.ideas.filter((i) => !toRemove.has(i.id)),
+      lastUpdated: getTimestamp(),
     }))
 
     return { removed }

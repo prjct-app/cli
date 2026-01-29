@@ -10,26 +10,26 @@
 
 import { agentPerformanceTracker } from '../agents'
 import { outcomeAnalyzer } from '../outcomes'
-import type { TaskType } from '../types'
 import type {
   ContextDomain,
-  SmartContextProjectState,
-  FullContext,
-  FilteredContext,
-  StackInfo,
   DomainAnalysis,
+  FilteredContext,
+  FullContext,
+  SmartContextProjectState,
+  StackInfo,
+  TaskType,
 } from '../types'
 
 // Re-export types for convenience
 export type {
-  ContextDomain,
-  FullContext,
-  FilteredContext,
   AgentInfo,
+  ContextDomain,
   FeatureInfo,
+  FilteredContext,
+  FilterMetrics,
+  FullContext,
   PatternInfo,
   StackInfo,
-  FilterMetrics,
 } from '../types'
 
 // Local type alias for backward compatibility
@@ -47,38 +47,105 @@ class SmartContext {
 
     // Frontend indicators
     const frontendKeywords = [
-      'ui', 'component', 'react', 'vue', 'angular', 'css', 'style',
-      'button', 'form', 'modal', 'layout', 'responsive', 'animation',
-      'dom', 'html', 'frontend', 'fe', 'client', 'browser', 'jsx', 'tsx'
+      'ui',
+      'component',
+      'react',
+      'vue',
+      'angular',
+      'css',
+      'style',
+      'button',
+      'form',
+      'modal',
+      'layout',
+      'responsive',
+      'animation',
+      'dom',
+      'html',
+      'frontend',
+      'fe',
+      'client',
+      'browser',
+      'jsx',
+      'tsx',
     ]
 
     // Backend indicators
     const backendKeywords = [
-      'api', 'server', 'database', 'db', 'endpoint', 'route', 'handler',
-      'controller', 'service', 'repository', 'model', 'query', 'backend',
-      'be', 'rest', 'graphql', 'prisma', 'sql', 'redis', 'auth'
+      'api',
+      'server',
+      'database',
+      'db',
+      'endpoint',
+      'route',
+      'handler',
+      'controller',
+      'service',
+      'repository',
+      'model',
+      'query',
+      'backend',
+      'be',
+      'rest',
+      'graphql',
+      'prisma',
+      'sql',
+      'redis',
+      'auth',
     ]
 
     // DevOps indicators
     const devopsKeywords = [
-      'deploy', 'docker', 'kubernetes', 'k8s', 'ci', 'cd', 'pipeline',
-      'terraform', 'ansible', 'aws', 'gcp', 'azure', 'config', 'nginx',
-      'devops', 'infrastructure', 'monitoring', 'logging', 'build'
+      'deploy',
+      'docker',
+      'kubernetes',
+      'k8s',
+      'ci',
+      'cd',
+      'pipeline',
+      'terraform',
+      'ansible',
+      'aws',
+      'gcp',
+      'azure',
+      'config',
+      'nginx',
+      'devops',
+      'infrastructure',
+      'monitoring',
+      'logging',
+      'build',
     ]
 
     // Docs indicators
     const docsKeywords = [
-      'document', 'docs', 'readme', 'changelog', 'comment', 'jsdoc',
-      'tutorial', 'guide', 'explain', 'describe', 'markdown'
+      'document',
+      'docs',
+      'readme',
+      'changelog',
+      'comment',
+      'jsdoc',
+      'tutorial',
+      'guide',
+      'explain',
+      'describe',
+      'markdown',
     ]
 
     // Testing indicators
     const testingKeywords = [
-      'test', 'spec',
+      'test',
+      'spec',
       // JS/TS
-      'bun', 'bun test', 'jest', 'mocha', 'cypress', 'playwright',
+      'bun',
+      'bun test',
+      'jest',
+      'mocha',
+      'cypress',
+      'playwright',
       // Python
-      'pytest', 'unittest',
+      'pytest',
+      'unittest',
       // Go
       'go test',
       // Rust
@@ -86,17 +153,24 @@ class SmartContext {
       // .NET
       'dotnet test',
       // Java
-      'mvn test', 'gradle test', 'gradlew test',
-      'e2e', 'unit', 'integration', 'coverage', 'mock', 'fixture'
+      'mvn test',
+      'gradle test',
+      'gradlew test',
+      'e2e',
+      'unit',
+      'integration',
+      'coverage',
+      'mock',
+      'fixture',
     ]
 
     // Count matches
     const scores: Record<ContextDomain, number> = {
-      frontend: frontendKeywords.filter(k => lower.includes(k)).length,
-      backend: backendKeywords.filter(k => lower.includes(k)).length,
-      devops: devopsKeywords.filter(k => lower.includes(k)).length,
-      docs: docsKeywords.filter(k => lower.includes(k)).length,
-      testing: testingKeywords.filter(k => lower.includes(k)).length,
+      frontend: frontendKeywords.filter((k) => lower.includes(k)).length,
+      backend: backendKeywords.filter((k) => lower.includes(k)).length,
+      devops: devopsKeywords.filter((k) => lower.includes(k)).length,
+      docs: docsKeywords.filter((k) => lower.includes(k)).length,
+      testing: testingKeywords.filter((k) => lower.includes(k)).length,
       general: 0,
     }
 
@@ -135,29 +209,26 @@ class SmartContext {
     const relevantDomains = [taskDomain, ...secondary, 'general']
 
     // Filter agents
-    const filteredAgents = fullContext.agents.filter(
-      agent => relevantDomains.includes(agent.domain)
+    const filteredAgents = fullContext.agents.filter((agent) =>
+      relevantDomains.includes(agent.domain)
     )
 
     // Enrich with performance data
     for (const agent of filteredAgents) {
-      const perf = await agentPerformanceTracker.getAgentPerformance(
-        projectId,
-        agent.name
-      )
+      const perf = await agentPerformanceTracker.getAgentPerformance(projectId, agent.name)
       if (perf) {
         agent.successRate = perf.successRate
       }
     }
 
     // Filter roadmap
-    const filteredRoadmap = fullContext.roadmap.filter(
-      feature => feature.relatedTo.some(domain => relevantDomains.includes(domain))
+    const filteredRoadmap = fullContext.roadmap.filter((feature) =>
+      feature.relatedTo.some((domain) => relevantDomains.includes(domain))
     )
 
     // Filter patterns
-    const filteredPatterns = fullContext.patterns.filter(
-      pattern => relevantDomains.includes(pattern.domain)
+    const filteredPatterns = fullContext.patterns.filter((pattern) =>
+      relevantDomains.includes(pattern.domain)
     )
 
     // Get relevant patterns from outcomes
@@ -248,19 +319,8 @@ class SmartContext {
         /infra/i,
         /k8s/i,
       ],
-      docs: [
-        /\.(md|mdx|rst|txt)$/i,
-        /docs?\//i,
-        /readme/i,
-        /changelog/i,
-      ],
-      testing: [
-        /\.(test|spec)\./i,
-        /tests?\//i,
-        /__tests__\//i,
-        /e2e\//i,
-        /fixtures?\//i,
-      ],
+      docs: [/\.(md|mdx|rst|txt)$/i, /docs?\//i, /readme/i, /changelog/i],
+      testing: [/\.(test|spec)\./i, /tests?\//i, /__tests__\//i, /e2e\//i, /fixtures?\//i],
       general: [],
     }
 
@@ -270,19 +330,15 @@ class SmartContext {
     }
 
     // Always include config files
-    const configPatterns = [
-      /package\.json$/,
-      /tsconfig\.json$/,
-      /\.config\.(ts|js)$/,
-    ]
+    const configPatterns = [/package\.json$/, /tsconfig\.json$/, /\.config\.(ts|js)$/]
 
-    return files.filter(file => {
+    return files.filter((file) => {
       // Include if matches domain patterns
-      if (domainPatterns.some(p => p.test(file))) {
+      if (domainPatterns.some((p) => p.test(file))) {
         return true
       }
       // Include config files
-      if (configPatterns.some(p => p.test(file))) {
+      if (configPatterns.some((p) => p.test(file))) {
         return true
       }
       return false
@@ -292,14 +348,16 @@ class SmartContext {
   /**
    * Estimate context size in approximate tokens.
    */
-  private estimateSize(context: Partial<{
-    agents: unknown[]
-    roadmap: unknown[]
-    patterns: unknown[]
-    stack: unknown
-    files: string[]
-    state: unknown
-  }>): number {
+  private estimateSize(
+    context: Partial<{
+      agents: unknown[]
+      roadmap: unknown[]
+      patterns: unknown[]
+      stack: unknown
+      files: string[]
+      state: unknown
+    }>
+  ): number {
     let size = 0
 
     // Rough estimates: each item ~50 tokens, files ~10 tokens each
@@ -349,22 +407,14 @@ class SmartContext {
     const taskType = this.contextDomainToTaskType(domainAnalysis.primary)
 
     // Get agent suggestion
-    const agentSuggestion = await agentPerformanceTracker.suggestAgent(
-      projectId,
-      taskType
-    )
+    const agentSuggestion = await agentPerformanceTracker.suggestAgent(projectId, taskType)
 
     // Get duration estimate
-    const durationEstimate = await outcomeAnalyzer.suggestEstimate(
-      projectId,
-      taskType
-    )
+    const durationEstimate = await outcomeAnalyzer.suggestEstimate(projectId, taskType)
 
     // Get relevant patterns
     const patterns = await outcomeAnalyzer.detectPatterns(projectId)
-    const relevantPatterns = patterns
-      .slice(0, 3)
-      .map(p => p.description)
+    const relevantPatterns = patterns.slice(0, 3).map((p) => p.description)
 
     return {
       domain: domainAnalysis.primary,

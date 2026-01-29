@@ -7,10 +7,10 @@
  * @version 1.0.0
  */
 
-import fs from 'fs/promises'
-import path from 'path'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
-import { EventTypes, type EventData, type EventCallback } from '../types'
+import { type EventCallback, type EventData, EventTypes } from '../types'
 
 class EventBus {
   private listeners: Map<string, Set<EventCallback>>
@@ -83,7 +83,7 @@ class EventBus {
       type: event,
       timestamp,
       projectId: this.projectId,
-      ...data
+      ...data,
     }
 
     // Store in history
@@ -102,7 +102,7 @@ class EventBus {
 
     // Execute all callbacks
     const results = await Promise.allSettled(
-      callbacks.map(cb => this.executeCallback(cb, eventData))
+      callbacks.map((cb) => this.executeCallback(cb, eventData))
     )
 
     // Log any errors
@@ -186,7 +186,7 @@ class EventBus {
       await fs.mkdir(path.dirname(eventsPath), { recursive: true })
 
       // Append event
-      const line = JSON.stringify(eventData) + '\n'
+      const line = `${JSON.stringify(eventData)}\n`
       await fs.appendFile(eventsPath, line)
     } catch (_error) {
       // Silently fail - logging should not break functionality
@@ -199,7 +199,7 @@ class EventBus {
   getHistory(limit: number = 10, type: string | null = null): EventData[] {
     let events = this.history
     if (type) {
-      events = events.filter(e => e.type === type || e.type.startsWith(type))
+      events = events.filter((e) => e.type === type || e.type.startsWith(type))
     }
     return events.slice(-limit)
   }
@@ -233,30 +233,37 @@ const eventBus = new EventBus()
 
 // Convenience methods for common events
 const emit = {
-  sessionStarted: (data: Record<string, unknown>) => eventBus.emit(EventTypes.SESSION_STARTED, data),
+  sessionStarted: (data: Record<string, unknown>) =>
+    eventBus.emit(EventTypes.SESSION_STARTED, data),
   sessionPaused: (data: Record<string, unknown>) => eventBus.emit(EventTypes.SESSION_PAUSED, data),
-  sessionResumed: (data: Record<string, unknown>) => eventBus.emit(EventTypes.SESSION_RESUMED, data),
-  sessionCompleted: (data: Record<string, unknown>) => eventBus.emit(EventTypes.SESSION_COMPLETED, data),
+  sessionResumed: (data: Record<string, unknown>) =>
+    eventBus.emit(EventTypes.SESSION_RESUMED, data),
+  sessionCompleted: (data: Record<string, unknown>) =>
+    eventBus.emit(EventTypes.SESSION_COMPLETED, data),
 
   taskCreated: (data: Record<string, unknown>) => eventBus.emit(EventTypes.TASK_CREATED, data),
   taskCompleted: (data: Record<string, unknown>) => eventBus.emit(EventTypes.TASK_COMPLETED, data),
 
   featureAdded: (data: Record<string, unknown>) => eventBus.emit(EventTypes.FEATURE_ADDED, data),
-  featureShipped: (data: Record<string, unknown>) => eventBus.emit(EventTypes.FEATURE_SHIPPED, data),
+  featureShipped: (data: Record<string, unknown>) =>
+    eventBus.emit(EventTypes.FEATURE_SHIPPED, data),
 
   ideaCaptured: (data: Record<string, unknown>) => eventBus.emit(EventTypes.IDEA_CAPTURED, data),
 
-  snapshotCreated: (data: Record<string, unknown>) => eventBus.emit(EventTypes.SNAPSHOT_CREATED, data),
-  snapshotRestored: (data: Record<string, unknown>) => eventBus.emit(EventTypes.SNAPSHOT_RESTORED, data),
+  snapshotCreated: (data: Record<string, unknown>) =>
+    eventBus.emit(EventTypes.SNAPSHOT_CREATED, data),
+  snapshotRestored: (data: Record<string, unknown>) =>
+    eventBus.emit(EventTypes.SNAPSHOT_RESTORED, data),
 
   commitCreated: (data: Record<string, unknown>) => eventBus.emit(EventTypes.COMMIT_CREATED, data),
   pushCompleted: (data: Record<string, unknown>) => eventBus.emit(EventTypes.PUSH_COMPLETED, data),
 
-  projectInitialized: (data: Record<string, unknown>) => eventBus.emit(EventTypes.PROJECT_INITIALIZED, data),
+  projectInitialized: (data: Record<string, unknown>) =>
+    eventBus.emit(EventTypes.PROJECT_INITIALIZED, data),
   projectSynced: (data: Record<string, unknown>) => eventBus.emit(EventTypes.PROJECT_SYNCED, data),
-  analysisCompleted: (data: Record<string, unknown>) => eventBus.emit(EventTypes.ANALYSIS_COMPLETED, data)
+  analysisCompleted: (data: Record<string, unknown>) =>
+    eventBus.emit(EventTypes.ANALYSIS_COMPLETED, data),
 }
 
 export { EventBus, eventBus, emit }
 export default { EventBus, EventTypes, eventBus, emit }
-

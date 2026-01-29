@@ -9,13 +9,13 @@
  * @version 1.0.0
  */
 
-import fs from 'fs/promises'
-import path from 'path'
-import { getTimestamp } from '../utils/date-helper'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
-import type { ConversationTurn, CompactedContext, CompactionConfig } from '../types'
+import type { CompactedContext, CompactionConfig, ConversationTurn } from '../types'
+import { getTimestamp } from '../utils/date-helper'
 
-export type { ConversationTurn, CompactedContext, CompactionConfig } from '../types'
+export type { CompactedContext, CompactionConfig, ConversationTurn } from '../types'
 
 const DEFAULT_CONFIG: Required<CompactionConfig> = {
   maxTurns: 50,
@@ -76,17 +76,14 @@ function extractKeyInfo(turns: ConversationTurn[]): {
     }
 
     // Extract completed tasks
-    const taskPatterns = [
-      /✅\s*(.+)/g,
-      /completed[:\s]+(.+)/gi,
-      /finished[:\s]+(.+)/gi,
-    ]
+    const taskPatterns = [/✅\s*(.+)/g, /completed[:\s]+(.+)/gi, /finished[:\s]+(.+)/gi]
 
     for (const pattern of taskPatterns) {
       const matches = content.matchAll(pattern)
       for (const match of matches) {
         const task = match[1].trim()
-        if (task.length < 100) { // Avoid capturing large blocks
+        if (task.length < 100) {
+          // Avoid capturing large blocks
           tasksCompleted.push(task)
         }
       }
@@ -106,19 +103,19 @@ function extractKeyInfo(turns: ConversationTurn[]): {
 function generateSummary(turns: ConversationTurn[], maxLength: number): string {
   // Get key user requests
   const userRequests = turns
-    .filter(t => t.role === 'user')
-    .map(t => t.content.slice(0, 200))
+    .filter((t) => t.role === 'user')
+    .map((t) => t.content.slice(0, 200))
     .slice(0, 5)
 
   // Get key assistant actions
   const assistantActions = turns
-    .filter(t => t.role === 'assistant')
-    .map(t => {
+    .filter((t) => t.role === 'assistant')
+    .map((t) => {
       // Extract first meaningful sentence
       const firstLine = t.content.split('\n')[0]
       return firstLine.slice(0, 150)
     })
-    .filter(a => a.length > 10)
+    .filter((a) => a.length > 10)
     .slice(0, 5)
 
   const summary = [
@@ -160,10 +157,7 @@ export function compactContext(
 /**
  * Check if compaction is needed
  */
-export function needsCompaction(
-  turns: ConversationTurn[],
-  config: CompactionConfig = {}
-): boolean {
+export function needsCompaction(turns: ConversationTurn[], config: CompactionConfig = {}): boolean {
   const cfg = { ...DEFAULT_CONFIG, ...config }
 
   // Check turn count
@@ -192,7 +186,7 @@ export async function saveCompactedContext(
 
   await fs.mkdir(dirPath, { recursive: true })
 
-  const line = JSON.stringify(context) + '\n'
+  const line = `${JSON.stringify(context)}\n`
   await fs.appendFile(filePath, line, 'utf-8')
 
   return filePath
@@ -206,13 +200,15 @@ export async function loadCompactedContexts(
   limit = 5
 ): Promise<CompactedContext[]> {
   const filePath = path.join(
-    pathManager.getGlobalProjectPath(projectId), 'memory', 'compacted.jsonl'
+    pathManager.getGlobalProjectPath(projectId),
+    'memory',
+    'compacted.jsonl'
   )
 
   try {
     const content = await fs.readFile(filePath, 'utf-8')
     const lines = content.trim().split('\n').filter(Boolean)
-    const contexts = lines.map(line => JSON.parse(line) as CompactedContext)
+    const contexts = lines.map((line) => JSON.parse(line) as CompactedContext)
 
     // Return most recent
     return contexts.slice(-limit)
@@ -225,27 +221,23 @@ export async function loadCompactedContexts(
  * Format compacted context for prompt injection
  */
 export function formatCompactedForPrompt(context: CompactedContext): string {
-  const lines = [
-    '<compacted-context>',
-    context.summary,
-    '',
-  ]
+  const lines = ['<compacted-context>', context.summary, '']
 
   if (context.filesModified.length > 0) {
     lines.push('### Files Modified:')
-    lines.push(context.filesModified.map(f => `- ${f}`).join('\n'))
+    lines.push(context.filesModified.map((f) => `- ${f}`).join('\n'))
     lines.push('')
   }
 
   if (context.tasksCompleted.length > 0) {
     lines.push('### Tasks Completed:')
-    lines.push(context.tasksCompleted.map(t => `- ${t}`).join('\n'))
+    lines.push(context.tasksCompleted.map((t) => `- ${t}`).join('\n'))
     lines.push('')
   }
 
   if (context.decisions.length > 0) {
     lines.push('### Decisions Made:')
-    lines.push(context.decisions.map(d => `- ${d}`).join('\n'))
+    lines.push(context.decisions.map((d) => `- ${d}`).join('\n'))
     lines.push('')
   }
 

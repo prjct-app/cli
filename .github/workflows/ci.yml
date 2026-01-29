@@ -35,15 +35,11 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Lint
-        run: bun run lint
+      - name: Biome (lint + format)
+        run: bun run check
 
       - name: Type check
         run: bun run typecheck
-
-      - name: Format check
-        run: bun run format:check
-        continue-on-error: true
 
   test:
     name: Tests

@@ -9,16 +9,16 @@
  * Phase 3: + Continue.dev + Auto-detection
  */
 
-import { execSync } from 'child_process'
-import fs from 'fs'
-import path from 'path'
-import os from 'os'
+import { execSync } from 'node:child_process'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 
 export interface AIToolConfig {
   id: string
   name: string
   outputFile: string
-  outputPath: 'repo' | 'global'  // 'repo' = project root, 'global' = ~/.prjct-cli/projects/{id}/context/
+  outputPath: 'repo' | 'global' // 'repo' = project root, 'global' = ~/.prjct-cli/projects/{id}/context/
   maxTokens: number
   format: 'detailed' | 'concise' | 'minimal' | 'json'
   description: string
@@ -101,8 +101,8 @@ export function parseAgentsFlag(value: string): string[] {
     return SUPPORTED_AI_TOOLS
   }
 
-  const requested = value.split(',').map(s => s.trim().toLowerCase())
-  return requested.filter(id => AI_TOOLS[id])
+  const requested = value.split(',').map((s) => s.trim().toLowerCase())
+  return requested.filter((id) => AI_TOOLS[id])
 }
 
 /**
@@ -163,7 +163,10 @@ export function detectInstalledTools(repoPath: string = process.cwd()): string[]
   }
 
   // Continue.dev: check for .continue/ directory
-  if (fs.existsSync(path.join(repoPath, '.continue')) || fs.existsSync(path.join(os.homedir(), '.continue'))) {
+  if (
+    fs.existsSync(path.join(repoPath, '.continue')) ||
+    fs.existsSync(path.join(os.homedir(), '.continue'))
+  ) {
     detected.push('continue')
   }
 
@@ -191,5 +194,5 @@ export function resolveToolIds(
   }
 
   // Specific list provided
-  return mode.filter(id => AI_TOOLS[id])
+  return mode.filter((id) => AI_TOOLS[id])
 }

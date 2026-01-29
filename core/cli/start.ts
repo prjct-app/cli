@@ -8,13 +8,13 @@
  * 4. Installs routers and global config
  */
 
-import fs from 'fs'
-import path from 'path'
-import os from 'os'
-import readline from 'readline'
-import { VERSION } from '../utils/version'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import readline from 'node:readline'
 import { detectAllProviders, Providers } from '../infrastructure/ai-provider'
 import type { AIProviderName } from '../types/provider'
+import { VERSION } from '../utils/version'
 
 // Colors
 const RESET = '\x1b[0m'
@@ -22,18 +22,18 @@ const BOLD = '\x1b[1m'
 const DIM = '\x1b[2m'
 const GREEN = '\x1b[32m'
 const YELLOW = '\x1b[33m'
-const BLUE = '\x1b[34m'
-const MAGENTA = '\x1b[35m'
+const _BLUE = '\x1b[34m'
+const _MAGENTA = '\x1b[35m'
 const CYAN = '\x1b[36m'
 const WHITE = '\x1b[37m'
-const BG_BLUE = '\x1b[44m'
+const _BG_BLUE = '\x1b[44m'
 
 // True color gradient (cyan -> blue -> purple -> pink)
-const G1 = '\x1b[38;2;0;255;255m'    // Cyan
-const G2 = '\x1b[38;2;80;180;255m'   // Sky blue
-const G3 = '\x1b[38;2;140;120;255m'  // Blue-purple
-const G4 = '\x1b[38;2;200;80;220m'   // Purple
-const G5 = '\x1b[38;2;255;80;180m'   // Pink
+const G1 = '\x1b[38;2;0;255;255m' // Cyan
+const G2 = '\x1b[38;2;80;180;255m' // Sky blue
+const G3 = '\x1b[38;2;140;120;255m' // Blue-purple
+const G4 = '\x1b[38;2;200;80;220m' // Purple
+const G5 = '\x1b[38;2;255;80;180m' // Pink
 
 // Large block letters - PRJCT (7 lines tall)
 const BANNER = `
@@ -64,7 +64,7 @@ interface ProviderOption {
 /**
  * Create readline interface for user input
  */
-function createReadline(): readline.Interface {
+function _createReadline(): readline.Interface {
   return readline.createInterface({
     input: process.stdin,
     output: process.stdout,
@@ -94,9 +94,8 @@ function showProviderSelection(options: ProviderOption[], currentIndex: number):
     const status = option.installed
       ? `${GREEN}(installed)${RESET}`
       : `${YELLOW}(will install)${RESET}`
-    const name = index === currentIndex
-      ? `${BOLD}${option.displayName}${RESET}`
-      : option.displayName
+    const name =
+      index === currentIndex ? `${BOLD}${option.displayName}${RESET}` : option.displayName
 
     console.log(`  ${cursor} ${checkbox} ${name} ${status}`)
   })
@@ -126,20 +125,20 @@ async function selectProviders(): Promise<AIProviderName[]> {
   ]
 
   // If neither installed, select Claude by default
-  if (!options.some(o => o.selected)) {
+  if (!options.some((o) => o.selected)) {
     options[0].selected = true
   }
 
   // Non-interactive mode: auto-select detected providers
   if (!process.stdin.isTTY) {
     console.log(`\n${BOLD}  Detected providers:${RESET}\n`)
-    options.forEach(option => {
+    options.forEach((option) => {
       if (option.installed) {
         console.log(`  ${GREEN}✓${RESET} ${option.displayName}`)
       }
     })
     console.log('')
-    return options.filter(o => o.selected).map(o => o.name)
+    return options.filter((o) => o.selected).map((o) => o.name)
   }
 
   return new Promise((resolve) => {
@@ -172,7 +171,7 @@ async function selectProviders(): Promise<AIProviderName[]> {
 
       if (key === '\r' || key === '\n') {
         cleanup()
-        const selected = options.filter(o => o.selected).map(o => o.name)
+        const selected = options.filter((o) => o.selected).map((o) => o.name)
         resolve(selected.length > 0 ? selected : ['claude'])
         return
       }
@@ -230,7 +229,9 @@ async function installRouter(provider: AIProviderName): Promise<boolean> {
 
     return false
   } catch (error) {
-    console.error(`  ${YELLOW}⚠${RESET} Failed to install ${provider} router: ${(error as Error).message}`)
+    console.error(
+      `  ${YELLOW}⚠${RESET} Failed to install ${provider} router: ${(error as Error).message}`
+    )
     return false
   }
 }
@@ -280,7 +281,7 @@ async function installGlobalConfig(provider: AIProviderName): Promise<boolean> {
           fs.writeFileSync(dest, before + prjctSection + after)
         } else {
           // Append
-          fs.writeFileSync(dest, existing + '\n\n' + content)
+          fs.writeFileSync(dest, `${existing}\n\n${content}`)
         }
       } else {
         // Create new
@@ -292,7 +293,9 @@ async function installGlobalConfig(provider: AIProviderName): Promise<boolean> {
 
     return false
   } catch (error) {
-    console.error(`  ${YELLOW}⚠${RESET} Failed to install ${provider} config: ${(error as Error).message}`)
+    console.error(
+      `  ${YELLOW}⚠${RESET} Failed to install ${provider} config: ${(error as Error).message}`
+    )
     return false
   }
 }
@@ -324,7 +327,7 @@ function showCompletion(providers: AIProviderName[]): void {
   console.log(`\n${GREEN}${BOLD}  ✓ Setup complete!${RESET}\n`)
 
   console.log(`  ${DIM}Configured providers:${RESET}`)
-  providers.forEach(p => {
+  providers.forEach((p) => {
     const config = Providers[p]
     console.log(`    ${GREEN}✓${RESET} ${config.displayName}`)
   })

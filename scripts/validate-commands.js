@@ -13,8 +13,8 @@
  * @version 0.6.0 - Uses dynamic registry
  */
 
-const fs = require('fs').promises
-const path = require('path')
+const fs = require('node:fs').promises
+const path = require('node:path')
 
 // Import command data directly (these are now in commands/command-data.ts)
 // For now, we'll read the TypeScript file and parse it
@@ -69,7 +69,7 @@ const COMMANDS = [
 ]
 
 async function validateTemplates() {
-  console.log('\n' + colorize('='.repeat(60), 'cyan'))
+  console.log(`\n${colorize('='.repeat(60), 'cyan')}`)
   console.log(colorize('VALIDATING TEMPLATE FILES', 'cyan'))
   console.log(colorize('='.repeat(60), 'cyan'))
 
@@ -97,13 +97,11 @@ async function validateTemplates() {
 
   // Check: Template files should have corresponding command entries
   templateFiles.forEach((filename) => {
-    const cmd = COMMANDS.find(c => c.name === filename)
+    const cmd = COMMANDS.find((c) => c.name === filename)
     if (!cmd) {
       errors.push(`Template file '${filename}.md' exists but has no entry in command list`)
     } else if (!cmd.hasTemplate) {
-      errors.push(
-        `Template file '${filename}.md' exists but command has hasTemplate=false`
-      )
+      errors.push(`Template file '${filename}.md' exists but command has hasTemplate=false`)
     }
   })
 
@@ -118,13 +116,13 @@ async function validateTemplates() {
 }
 
 function displayStatistics() {
-  console.log('\n' + colorize('='.repeat(60), 'cyan'))
+  console.log(`\n${colorize('='.repeat(60), 'cyan')}`)
   console.log(colorize('COMMAND STATISTICS', 'cyan'))
   console.log(colorize('='.repeat(60), 'cyan'))
 
   const total = COMMANDS.length
-  const implemented = COMMANDS.filter(c => c.implemented).length
-  const withTemplates = COMMANDS.filter(c => c.hasTemplate).length
+  const implemented = COMMANDS.filter((c) => c.implemented).length
+  const withTemplates = COMMANDS.filter((c) => c.hasTemplate).length
 
   console.log(`\n${colorize('Total Commands:', 'blue')} ${total}`)
   console.log(`${colorize('Implemented:', 'green')} ${implemented}`)
@@ -142,7 +140,7 @@ async function main() {
 
   displayStatistics()
 
-  console.log('\n' + colorize('='.repeat(60), 'cyan'))
+  console.log(`\n${colorize('='.repeat(60), 'cyan')}`)
   console.log(colorize('VALIDATION SUMMARY', 'cyan'))
   console.log(colorize('='.repeat(60), 'cyan'))
 

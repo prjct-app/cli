@@ -2,15 +2,15 @@
  * Setup Commands: start, setup, installStatusLine, showAsciiArt
  */
 
-import path from 'path'
-import fs from 'fs'
+import fs from 'node:fs'
+import path from 'node:path'
 import chalk from 'chalk'
 
 import commandInstaller from '../infrastructure/command-installer'
 import pathManager from '../infrastructure/path-manager'
 import type { CommandResult, SetupOptions } from '../types'
-import { PrjctCommandsBase } from './base'
 import { VERSION } from '../utils/version'
+import { PrjctCommandsBase } from './base'
 
 export class SetupCommands extends PrjctCommandsBase {
   /**
@@ -19,12 +19,13 @@ export class SetupCommands extends PrjctCommandsBase {
   async start(): Promise<CommandResult> {
     const aiProvider = require('../infrastructure/ai-provider')
     const activeProvider = aiProvider.getActiveProvider()
-    
+
     console.log(`🚀 Setting up prjct for ${activeProvider.displayName}...\n`)
 
     const status = await commandInstaller.checkInstallation()
 
-    if (!status.claudeDetected) { // Note: variable name is legacy, checks active provider
+    if (!status.claudeDetected) {
+      // Note: variable name is legacy, checks active provider
       return {
         success: false,
         message:
@@ -43,11 +44,15 @@ export class SetupCommands extends PrjctCommandsBase {
       }
     }
 
-    console.log(`\n✅ Installed ${result.installed?.length ?? 0} commands to:\n   ${pathManager.getDisplayPath(result.path || '')}`)
+    console.log(
+      `\n✅ Installed ${result.installed?.length ?? 0} commands to:\n   ${pathManager.getDisplayPath(result.path || '')}`
+    )
 
     if ((result.errors?.length ?? 0) > 0) {
       console.log(`\n⚠️  ${result.errors?.length ?? 0} errors:`)
-      result.errors?.forEach((e: { file: string; error: string }) => console.log(`   - ${e.file}: ${e.error}`))
+      result.errors?.forEach((e: { file: string; error: string }) =>
+        console.log(`   - ${e.file}: ${e.error}`)
+      )
     }
 
     console.log('\n🎉 Setup complete!')
@@ -87,12 +92,16 @@ export class SetupCommands extends PrjctCommandsBase {
 
     if ((result.errors?.length ?? 0) > 0) {
       console.log(`\n⚠️  ${result.errors?.length ?? 0} errors:`)
-      result.errors?.forEach((e: { file: string; error: string }) => console.log(`   - ${e.file}: ${e.error}`))
+      result.errors?.forEach((e: { file: string; error: string }) =>
+        console.log(`   - ${e.file}: ${e.error}`)
+      )
     }
 
     console.log('\n📝 Installing global configuration...')
     const configResult = await commandInstaller.installGlobalConfig()
-    const displayPath = configResult.path ? pathManager.getDisplayPath(configResult.path) : 'global config'
+    const displayPath = configResult.path
+      ? pathManager.getDisplayPath(configResult.path)
+      : 'global config'
 
     if (configResult.success) {
       if (configResult.action === 'created') {
@@ -108,7 +117,7 @@ export class SetupCommands extends PrjctCommandsBase {
 
     const aiProvider = require('../infrastructure/ai-provider')
     const activeProvider = aiProvider.getActiveProvider()
-    
+
     // Status line is currently Claude-only
     if (activeProvider.name === 'claude') {
       console.log('\n⚡ Installing status line...')
@@ -211,7 +220,7 @@ echo "⚡ prjct"
 
       settings.statusLine = {
         type: 'command',
-        command: statusLinePath
+        command: statusLinePath,
       }
 
       fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2))
@@ -235,7 +244,9 @@ echo "⚡ prjct"
     console.log(chalk.bold.cyan('   ██║     ██║  ██║╚█████╔╝╚██████╗   ██║'))
     console.log(chalk.bold.cyan('   ╚═╝     ╚═╝  ╚═╝ ╚════╝  ╚═════╝   ╚═╝'))
     console.log('')
-    console.log(`   ${chalk.bold.cyan('prjct')}${chalk.magenta('/')}${chalk.green('cli')}  ${chalk.dim.white('v' + VERSION + ' installed')}`)
+    console.log(
+      `   ${chalk.bold.cyan('prjct')}${chalk.magenta('/')}${chalk.green('cli')}  ${chalk.dim.white(`v${VERSION} installed`)}`
+    )
     console.log('')
     console.log(`   ${chalk.yellow('⚡')} Ship faster with zero friction`)
     console.log(`   ${chalk.green('📝')} From idea to technical tasks in minutes`)
@@ -258,10 +269,11 @@ echo "⚡ prjct"
     console.log(chalk.dim('─────────────────────────────────────────────────'))
     console.log('')
     console.log(`  ${chalk.dim('Documentation:')} ${chalk.cyan('https://prjct.app')}`)
-    console.log(`  ${chalk.dim('Report issues:')} ${chalk.cyan('https://github.com/jlopezlira/prjct-cli/issues')}`)
+    console.log(
+      `  ${chalk.dim('Report issues:')} ${chalk.cyan('https://github.com/jlopezlira/prjct-cli/issues')}`
+    )
     console.log('')
     console.log(chalk.bold.magenta('Happy shipping! 🚀'))
     console.log('')
   }
-
 }

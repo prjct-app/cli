@@ -5,10 +5,10 @@
  * Generates context/next.md for Claude
  */
 
-import { StorageManager } from './storage-manager'
 import { generateUUID } from '../schemas'
+import type { Priority, QueueJson, QueueTask, TaskSection } from '../schemas/state'
 import { getTimestamp } from '../utils/date-helper'
-import type { QueueJson, QueueTask, Priority, TaskType, TaskSection } from '../schemas/state'
+import { StorageManager } from './storage-manager'
 
 class QueueStorage extends StorageManager<QueueJson> {
   constructor() {
@@ -18,7 +18,7 @@ class QueueStorage extends StorageManager<QueueJson> {
   protected getDefault(): QueueJson {
     return {
       tasks: [],
-      lastUpdated: ''
+      lastUpdated: '',
     }
   }
 
@@ -37,9 +37,11 @@ class QueueStorage extends StorageManager<QueueJson> {
   protected toMarkdown(data: QueueJson): string {
     const lines = ['# Priority Queue', '']
 
-    const activeTasks = data.tasks.filter(t => t.section === 'active' && !t.completed)
-    const backlogTasks = data.tasks.filter(t => t.section === 'backlog' && !t.completed)
-    const previouslyActive = data.tasks.filter(t => t.section === 'previously_active' && !t.completed)
+    const activeTasks = data.tasks.filter((t) => t.section === 'active' && !t.completed)
+    const backlogTasks = data.tasks.filter((t) => t.section === 'backlog' && !t.completed)
+    const previouslyActive = data.tasks.filter(
+      (t) => t.section === 'previously_active' && !t.completed
+    )
 
     // Active section
     lines.push('## Active Tasks')
@@ -60,7 +62,7 @@ class QueueStorage extends StorageManager<QueueJson> {
     // Previously active section (if any)
     if (previouslyActive.length > 0) {
       lines.push('## Previously Active')
-      previouslyActive.forEach(task => {
+      previouslyActive.forEach((task) => {
         lines.push(`- [ ] ${task.description}`)
       })
       lines.push('')
@@ -69,7 +71,7 @@ class QueueStorage extends StorageManager<QueueJson> {
     // Backlog section
     lines.push('## Backlog')
     if (backlogTasks.length > 0) {
-      backlogTasks.forEach(task => {
+      backlogTasks.forEach((task) => {
         const priority = task.priority !== 'medium' ? ` [${task.priority.toUpperCase()}]` : ''
         const bug = task.type === 'bug' ? ' \u{1F41B}' : ''
         lines.push(`- [ ]${bug}${priority} ${task.description}`)
@@ -97,7 +99,7 @@ class QueueStorage extends StorageManager<QueueJson> {
    */
   async getActiveTasks(projectId: string): Promise<QueueTask[]> {
     const queue = await this.read(projectId)
-    return queue.tasks.filter(t => t.section === 'active' && !t.completed)
+    return queue.tasks.filter((t) => t.section === 'active' && !t.completed)
   }
 
   /**
@@ -105,7 +107,7 @@ class QueueStorage extends StorageManager<QueueJson> {
    */
   async getBacklog(projectId: string): Promise<QueueTask[]> {
     const queue = await this.read(projectId)
-    return queue.tasks.filter(t => t.section === 'backlog' && !t.completed)
+    return queue.tasks.filter((t) => t.section === 'backlog' && !t.completed)
   }
 
   /**
@@ -127,12 +129,12 @@ class QueueStorage extends StorageManager<QueueJson> {
       ...task,
       id: generateUUID(),
       createdAt: getTimestamp(),
-      completed: false
+      completed: false,
     }
 
     await this.update(projectId, (queue) => ({
       tasks: [...queue.tasks, newTask],
-      lastUpdated: getTimestamp()
+      lastUpdated: getTimestamp(),
     }))
 
     // Publish incremental event
@@ -140,7 +142,7 @@ class QueueStorage extends StorageManager<QueueJson> {
       taskId: newTask.id,
       description: newTask.description,
       priority: newTask.priority,
-      section: newTask.section
+      section: newTask.section,
     })
 
     return newTask
@@ -154,22 +156,22 @@ class QueueStorage extends StorageManager<QueueJson> {
     tasks: Omit<QueueTask, 'id' | 'createdAt' | 'completed' | 'completedAt'>[]
   ): Promise<QueueTask[]> {
     const now = getTimestamp()
-    const newTasks: QueueTask[] = tasks.map(task => ({
+    const newTasks: QueueTask[] = tasks.map((task) => ({
       ...task,
       id: generateUUID(),
       createdAt: now,
-      completed: false
+      completed: false,
     }))
 
     await this.update(projectId, (queue) => ({
       tasks: [...queue.tasks, ...newTasks],
-      lastUpdated: now
+      lastUpdated: now,
     }))
 
     // Publish event for batch add
     await this.publishEvent(projectId, 'queue.tasks_added', {
       count: newTasks.length,
-      tasks: newTasks.map(t => ({ id: t.id, description: t.description }))
+      tasks: newTasks.map((t) => ({ id: t.id, description: t.description })),
     })
 
     return newTasks
@@ -180,8 +182,8 @@ class QueueStorage extends StorageManager<QueueJson> {
    */
   async removeTask(projectId: string, taskId: string): Promise<void> {
     await this.update(projectId, (queue) => ({
-      tasks: queue.tasks.filter(t => t.id !== taskId),
-      lastUpdated: getTimestamp()
+      tasks: queue.tasks.filter((t) => t.id !== taskId),
+      lastUpdated: getTimestamp(),
     }))
 
     await this.publishEvent(projectId, 'queue.task_removed', { taskId })
@@ -194,12 +196,12 @@ class QueueStorage extends StorageManager<QueueJson> {
     let completedTask: QueueTask | null = null
 
     await this.update(projectId, (queue) => {
-      const tasks = queue.tasks.map(t => {
+      const tasks = queue.tasks.map((t) => {
         if (t.id === taskId) {
           completedTask = {
             ...t,
             completed: true,
-            completedAt: getTimestamp()
+            completedAt: getTimestamp(),
           }
           return completedTask
         }
@@ -213,7 +215,7 @@ class QueueStorage extends StorageManager<QueueJson> {
       await this.publishEvent(projectId, 'queue.task_completed', {
         taskId,
         description: task.description,
-        completedAt: task.completedAt
+        completedAt: task.completedAt,
       })
     }
 
@@ -223,32 +225,20 @@ class QueueStorage extends StorageManager<QueueJson> {
   /**
    * Move task to different section
    */
-  async moveToSection(
-    projectId: string,
-    taskId: string,
-    section: TaskSection
-  ): Promise<void> {
+  async moveToSection(projectId: string, taskId: string, section: TaskSection): Promise<void> {
     await this.update(projectId, (queue) => ({
-      tasks: queue.tasks.map(t =>
-        t.id === taskId ? { ...t, section } : t
-      ),
-      lastUpdated: getTimestamp()
+      tasks: queue.tasks.map((t) => (t.id === taskId ? { ...t, section } : t)),
+      lastUpdated: getTimestamp(),
     }))
   }
 
   /**
    * Set task priority
    */
-  async setPriority(
-    projectId: string,
-    taskId: string,
-    priority: Priority
-  ): Promise<void> {
+  async setPriority(projectId: string, taskId: string, priority: Priority): Promise<void> {
     await this.update(projectId, (queue) => ({
-      tasks: queue.tasks.map(t =>
-        t.id === taskId ? { ...t, priority } : t
-      ),
-      lastUpdated: getTimestamp()
+      tasks: queue.tasks.map((t) => (t.id === taskId ? { ...t, priority } : t)),
+      lastUpdated: getTimestamp(),
     }))
   }
 
@@ -257,11 +247,11 @@ class QueueStorage extends StorageManager<QueueJson> {
    */
   async clearCompleted(projectId: string): Promise<number> {
     const queue = await this.read(projectId)
-    const completedCount = queue.tasks.filter(t => t.completed).length
+    const completedCount = queue.tasks.filter((t) => t.completed).length
 
     await this.update(projectId, (q) => ({
-      tasks: q.tasks.filter(t => !t.completed),
-      lastUpdated: getTimestamp()
+      tasks: q.tasks.filter((t) => !t.completed),
+      lastUpdated: getTimestamp(),
     }))
 
     return completedCount
@@ -275,13 +265,13 @@ class QueueStorage extends StorageManager<QueueJson> {
       critical: 0,
       high: 1,
       medium: 2,
-      low: 3
+      low: 3,
     }
 
     const sectionOrder: Record<TaskSection, number> = {
       active: 0,
       previously_active: 1,
-      backlog: 2
+      backlog: 2,
     }
 
     return [...tasks].sort((a, b) => {

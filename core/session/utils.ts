@@ -2,8 +2,8 @@
  * Session Utilities
  */
 
-import type { Session, TimelineEvent } from '../types'
 import { generateUUID } from '../schemas'
+import type { Session } from '../types'
 
 /**
  * Generate unique session ID (re-export from schemas)

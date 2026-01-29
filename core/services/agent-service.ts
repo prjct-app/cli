@@ -4,10 +4,10 @@
  * Handles agent detection, initialization, and routing tasks to appropriate agents.
  */
 
-import agentDetector from '../infrastructure/agent-detector'
 import AgentRouter from '../agentic/agent-router'
-import type { AgentInfo, AgentAssignmentResult, ProjectContext } from '../types'
 import { AgentError } from '../errors'
+import agentDetector from '../infrastructure/agent-detector'
+import type { AgentAssignmentResult, AgentInfo, ProjectContext } from '../types'
 
 // Valid agent types - whitelist for security (prevents path traversal)
 const VALID_AGENT_TYPES = ['claude'] as const

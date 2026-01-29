@@ -37,5 +37,5 @@ export const DEFAULT_ANALYSIS: Omit<AnalysisSchema, 'projectId'> = {
   fileCount: 0,
   patterns: [],
   antiPatterns: [],
-  analyzedAt: new Date().toISOString()
+  analyzedAt: new Date().toISOString(),
 }

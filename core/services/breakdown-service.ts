@@ -4,7 +4,7 @@
  * Handles task breakdown, severity detection, and complexity estimation.
  */
 
-import type { Severity, ComplexityEstimate } from '../types'
+import type { ComplexityEstimate, Severity } from '../types'
 
 export class BreakdownService {
   /**
@@ -77,9 +77,7 @@ export class BreakdownService {
       'authorization',
     ]
 
-    const hasComplexKeyword = complexKeywords.some((kw) =>
-      description.toLowerCase().includes(kw)
-    )
+    const hasComplexKeyword = complexKeywords.some((kw) => description.toLowerCase().includes(kw))
 
     if (hasComplexKeyword || wordCount > 30) {
       return { level: 'high', hours: 8 }

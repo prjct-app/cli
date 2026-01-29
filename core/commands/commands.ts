@@ -14,24 +14,23 @@
  * - Context: context
  */
 
-import { WorkflowCommands } from './workflow'
-import { PlanningCommands } from './planning'
-import { ShippingCommands } from './shipping'
-import { AnalyticsCommands } from './analytics'
-import { MaintenanceCommands } from './maintenance'
-import { AnalysisCommands } from './analysis'
-import { SetupCommands } from './setup'
-import { ContextCommands } from './context'
-
 import type {
-  CommandResult,
   AgentInfo,
+  AnalyzeOptions,
   Author,
-  DesignOptions,
   CleanupOptions,
+  CommandResult,
+  DesignOptions,
   SetupOptions,
-  AnalyzeOptions
 } from '../types'
+import { AnalysisCommands } from './analysis'
+import { AnalyticsCommands } from './analytics'
+import { ContextCommands } from './context'
+import { MaintenanceCommands } from './maintenance'
+import { PlanningCommands } from './planning'
+import { SetupCommands } from './setup'
+import { ShippingCommands } from './shipping'
+import { WorkflowCommands } from './workflow'
 
 /**
  * PrjctCommands - Combined class with all commands
@@ -84,13 +83,19 @@ class PrjctCommands {
     return this.workflow.pause(reason, projectPath)
   }
 
-  async resume(taskId: string | null = null, projectPath: string = process.cwd()): Promise<CommandResult> {
+  async resume(
+    taskId: string | null = null,
+    projectPath: string = process.cwd()
+  ): Promise<CommandResult> {
     return this.workflow.resume(taskId, projectPath)
   }
 
   // ========== Planning Commands ==========
 
-  async init(idea: string | null = null, projectPath: string = process.cwd()): Promise<CommandResult> {
+  async init(
+    idea: string | null = null,
+    projectPath: string = process.cwd()
+  ): Promise<CommandResult> {
     return this.planning.init(idea, projectPath)
   }
 
@@ -102,7 +107,10 @@ class PrjctCommands {
     return this.planning.idea(description, projectPath)
   }
 
-  async spec(featureName: string | null = null, projectPath: string = process.cwd()): Promise<CommandResult> {
+  async spec(
+    featureName: string | null = null,
+    projectPath: string = process.cwd()
+  ): Promise<CommandResult> {
     return this.planning.spec(featureName, projectPath)
   }
 
@@ -114,7 +122,10 @@ class PrjctCommands {
 
   // ========== Analytics Commands ==========
 
-  async dash(view: string = 'default', projectPath: string = process.cwd()): Promise<CommandResult> {
+  async dash(
+    view: string = 'default',
+    projectPath: string = process.cwd()
+  ): Promise<CommandResult> {
     return this.analytics.dash(view, projectPath)
   }
 
@@ -124,11 +135,18 @@ class PrjctCommands {
 
   // ========== Maintenance Commands ==========
 
-  async cleanup(options: CleanupOptions = {}, projectPath: string = process.cwd()): Promise<CommandResult> {
+  async cleanup(
+    options: CleanupOptions = {},
+    projectPath: string = process.cwd()
+  ): Promise<CommandResult> {
     return this.maintenance.cleanup(options, projectPath)
   }
 
-  async design(target: string | null = null, options: DesignOptions = {}, projectPath: string = process.cwd()): Promise<CommandResult> {
+  async design(
+    target: string | null = null,
+    options: DesignOptions = {},
+    projectPath: string = process.cwd()
+  ): Promise<CommandResult> {
     return this.maintenance.design(target, options, projectPath)
   }
 
@@ -150,21 +168,33 @@ class PrjctCommands {
 
   // ========== Analysis Commands ==========
 
-  async analyze(options: AnalyzeOptions = {}, projectPath: string = process.cwd()): Promise<CommandResult> {
+  async analyze(
+    options: AnalyzeOptions = {},
+    projectPath: string = process.cwd()
+  ): Promise<CommandResult> {
     return this.analysis.analyze(options, projectPath)
   }
 
-  async sync(projectPath: string = process.cwd(), options: { aiTools?: string[] } = {}): Promise<CommandResult> {
+  async sync(
+    projectPath: string = process.cwd(),
+    options: { aiTools?: string[] } = {}
+  ): Promise<CommandResult> {
     return this.analysis.sync(projectPath, options)
   }
 
-  async stats(projectPath: string = process.cwd(), options: { json?: boolean; export?: boolean } = {}): Promise<CommandResult> {
+  async stats(
+    projectPath: string = process.cwd(),
+    options: { json?: boolean; export?: boolean } = {}
+  ): Promise<CommandResult> {
     return this.analysis.stats(projectPath, options)
   }
 
   // ========== Context Commands ==========
 
-  async context(input: string | null = null, projectPath: string = process.cwd()): Promise<CommandResult> {
+  async context(
+    input: string | null = null,
+    projectPath: string = process.cwd()
+  ): Promise<CommandResult> {
     return this.contextCmds.context(input, projectPath)
   }
 
@@ -204,7 +234,11 @@ class PrjctCommands {
     return this.workflow.getGlobalProjectPath(projectPath)
   }
 
-  async logToMemory(projectPath: string, action: string, data: Record<string, unknown>): Promise<void> {
+  async logToMemory(
+    projectPath: string,
+    action: string,
+    data: Record<string, unknown>
+  ): Promise<void> {
     return this.workflow.logToMemory(projectPath, action, data)
   }
 }
@@ -214,4 +248,3 @@ const instance = new PrjctCommands()
 
 export default instance
 export { PrjctCommands }
-

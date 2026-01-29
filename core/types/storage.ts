@@ -155,20 +155,20 @@ export interface IdeasJson {
  * Daily stats for trend analysis
  */
 export interface DailyStats {
-  date: string                    // YYYY-MM-DD
-  tokensSaved: number             // Tokens saved that day
-  syncs: number                   // Number of syncs
-  avgCompressionRate: number      // Average compression rate (0-1)
-  totalDuration: number           // Total sync time in ms
+  date: string // YYYY-MM-DD
+  tokensSaved: number // Tokens saved that day
+  syncs: number // Number of syncs
+  avgCompressionRate: number // Average compression rate (0-1)
+  totalDuration: number // Total sync time in ms
 }
 
 /**
  * Agent usage tracking
  */
 export interface AgentUsage {
-  agentName: string               // e.g., "backend", "frontend"
-  usageCount: number              // Times invoked
-  tokensSaved: number             // Tokens saved by this agent
+  agentName: string // e.g., "backend", "frontend"
+  usageCount: number // Times invoked
+  tokensSaved: number // Tokens saved by this agent
 }
 
 /**
@@ -177,13 +177,13 @@ export interface AgentUsage {
 export interface MetricsJson {
   // Token metrics
   totalTokensSaved: number
-  avgCompressionRate: number      // 0-1 (e.g., 0.63 = 63% reduction)
+  avgCompressionRate: number // 0-1 (e.g., 0.63 = 63% reduction)
 
   // Sync metrics
   syncCount: number
-  watchTriggers: number           // Auto-syncs from watch mode
-  avgSyncDuration: number         // Average in ms
-  totalSyncDuration: number       // Total in ms
+  watchTriggers: number // Auto-syncs from watch mode
+  avgSyncDuration: number // Average in ms
+  totalSyncDuration: number // Total in ms
 
   // Agent usage
   agentUsage: AgentUsage[]
@@ -192,6 +192,6 @@ export interface MetricsJson {
   dailyStats: DailyStats[]
 
   // Metadata
-  firstSync: string               // ISO8601 - when tracking started
-  lastUpdated: string             // ISO8601
+  firstSync: string // ISO8601 - when tracking started
+  lastUpdated: string // ISO8601
 }

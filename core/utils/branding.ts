@@ -6,8 +6,8 @@
  */
 
 import chalk from 'chalk'
+import { getProviderBranding } from '../infrastructure/ai-provider'
 import type { AIProviderName } from '../types/provider'
-import { getProviderBranding, Providers } from '../infrastructure/ai-provider'
 
 const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
 const SPINNER_SPEED = 80
@@ -48,21 +48,21 @@ const branding: Branding = {
   // Spinner config
   spinner: {
     frames: SPINNER_FRAMES,
-    speed: SPINNER_SPEED
+    speed: SPINNER_SPEED,
   },
 
   // CLI output (with chalk colors)
   cli: {
-    header: () => chalk.cyan.bold('⚡') + ' ' + chalk.cyan('prjct'),
+    header: () => `${chalk.cyan.bold('⚡')} ${chalk.cyan('prjct')}`,
     footer: () => chalk.dim('⚡ prjct'),
     spin: (frame: number, msg?: string) =>
-      chalk.cyan('⚡') + ' ' + chalk.cyan('prjct') + ' ' + chalk.cyan(SPINNER_FRAMES[frame % 10]) + ' ' + chalk.dim(msg || '')
+      `${chalk.cyan('⚡')} ${chalk.cyan('prjct')} ${chalk.cyan(SPINNER_FRAMES[frame % 10])} ${chalk.dim(msg || '')}`,
   },
 
   // Template (plain text)
   template: {
     header: '⚡ prjct',
-    footer: '⚡ prjct'
+    footer: '⚡ prjct',
   },
 
   // Default Git commit footer (generic)
@@ -71,7 +71,7 @@ const branding: Branding = {
   // URLs
   urls: {
     website: 'https://prjct.app',
-    docs: 'https://prjct.app/docs'
+    docs: 'https://prjct.app/docs',
   },
 
   // Provider-aware commit footer
@@ -82,7 +82,7 @@ const branding: Branding = {
   // Provider-aware signature
   getSignature: (provider: AIProviderName = 'claude') => {
     return getProviderBranding(provider).signature
-  }
+  },
 }
 
 export default branding

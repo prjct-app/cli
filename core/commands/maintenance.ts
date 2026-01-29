@@ -7,13 +7,13 @@
  * - snapshots: Git-based undo/redo and session recovery
  */
 
-import type { CommandResult, CleanupOptions, DesignOptions } from '../types'
+import type { CleanupOptions, CommandResult, DesignOptions } from '../types'
 import { PrjctCommandsBase } from './base'
 
 // Import individual command functions
 import { cleanup, cleanupMemory, cleanupMemoryInternal } from './cleanup'
 import { design } from './design'
-import { recover, undo, redo, history } from './snapshots'
+import { history, recover, redo, undo } from './snapshots'
 
 /**
  * MaintenanceCommands - Facade class for maintenance operations
@@ -25,7 +25,10 @@ export class MaintenanceCommands extends PrjctCommandsBase {
   _cleanupMemory = cleanupMemory
   _cleanupMemoryInternal = cleanupMemoryInternal
 
-  async cleanup(options: CleanupOptions = {}, projectPath: string = process.cwd()): Promise<CommandResult> {
+  async cleanup(
+    options: CleanupOptions = {},
+    projectPath: string = process.cwd()
+  ): Promise<CommandResult> {
     const initResult = await this.ensureProjectInit(projectPath)
     if (!initResult.success) return initResult
     return cleanup(options, projectPath)
@@ -71,4 +74,4 @@ export class MaintenanceCommands extends PrjctCommandsBase {
 // Re-export individual functions for direct use
 export { cleanup, cleanupMemory, cleanupMemoryInternal } from './cleanup'
 export { design } from './design'
-export { recover, undo, redo, history } from './snapshots'
+export { history, recover, redo, undo } from './snapshots'

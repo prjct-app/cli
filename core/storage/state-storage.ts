@@ -5,11 +5,17 @@
  * Generates context/now.md for Claude
  */
 
-import { StorageManager } from './storage-manager'
 import { generateUUID } from '../schemas'
-import { md } from '../utils/markdown-builder'
+import type {
+  CurrentTask,
+  PreviousTask,
+  StateJson,
+  Subtask,
+  SubtaskSummary,
+} from '../schemas/state'
 import { getTimestamp } from '../utils/date-helper'
-import type { StateJson, CurrentTask, PreviousTask, Subtask, SubtaskSummary } from '../schemas/state'
+import { md } from '../utils/markdown-builder'
+import { StorageManager } from './storage-manager'
 
 class StateStorage extends StorageManager<StateJson> {
   constructor() {
@@ -20,7 +26,7 @@ class StateStorage extends StorageManager<StateJson> {
     return {
       currentTask: null,
       previousTask: null,
-      lastUpdated: ''
+      lastUpdated: '',
     }
   }
 
@@ -51,17 +57,26 @@ class StateStorage extends StorageManager<StateJson> {
         if (task.subtasks && task.subtasks.length > 0) {
           m.blank()
             .h2('Subtasks Progress')
-            .raw(`**Progress**: ${task.subtaskProgress?.completed || 0}/${task.subtaskProgress?.total || 0} (${task.subtaskProgress?.percentage || 0}%)`)
+            .raw(
+              `**Progress**: ${task.subtaskProgress?.completed || 0}/${task.subtaskProgress?.total || 0} (${task.subtaskProgress?.percentage || 0}%)`
+            )
             .blank()
             .raw('| # | Domain | Description | Status | Agent |')
             .raw('|---|--------|-------------|--------|-------|')
 
           task.subtasks.forEach((subtask, index) => {
-            const statusIcon = subtask.status === 'completed' ? '✅' :
-                               subtask.status === 'in_progress' ? '▶️' :
-                               subtask.status === 'failed' ? '❌' : '⏳'
+            const statusIcon =
+              subtask.status === 'completed'
+                ? '✅'
+                : subtask.status === 'in_progress'
+                  ? '▶️'
+                  : subtask.status === 'failed'
+                    ? '❌'
+                    : '⏳'
             const isActive = index === task.currentSubtaskIndex ? ' **← Active**' : ''
-            m.raw(`| ${index + 1} | ${subtask.domain} | ${subtask.description} | ${statusIcon} ${subtask.status}${isActive} | ${subtask.agent} |`)
+            m.raw(
+              `| ${index + 1} | ${subtask.domain} | ${subtask.description} | ${statusIcon} ${subtask.status}${isActive} | ${subtask.agent} |`
+            )
           })
 
           // Current subtask details
@@ -80,7 +95,9 @@ class StateStorage extends StorageManager<StateJson> {
           }
 
           // Show last completed subtask summary if available
-          const completedSubtasks = task.subtasks.filter(s => s.status === 'completed' && s.summary)
+          const completedSubtasks = task.subtasks.filter(
+            (s) => s.status === 'completed' && s.summary
+          )
           if (completedSubtasks.length > 0) {
             const lastCompleted = completedSubtasks[completedSubtasks.length - 1]
             if (lastCompleted.summary) {
@@ -124,19 +141,16 @@ class StateStorage extends StorageManager<StateJson> {
   /**
    * Start a new task
    */
-  async startTask(
-    projectId: string,
-    task: Omit<CurrentTask, 'startedAt'>
-  ): Promise<CurrentTask> {
+  async startTask(projectId: string, task: Omit<CurrentTask, 'startedAt'>): Promise<CurrentTask> {
     const currentTask: CurrentTask = {
       ...task,
-      startedAt: getTimestamp()
+      startedAt: getTimestamp(),
     }
 
     await this.update(projectId, (state) => ({
       ...state,
       currentTask,
-      lastUpdated: getTimestamp()
+      lastUpdated: getTimestamp(),
     }))
 
     // Publish incremental event
@@ -144,7 +158,7 @@ class StateStorage extends StorageManager<StateJson> {
       taskId: currentTask.id,
       description: currentTask.description,
       startedAt: currentTask.startedAt,
-      sessionId: currentTask.sessionId
+      sessionId: currentTask.sessionId,
     })
 
     return currentTask
@@ -164,7 +178,7 @@ class StateStorage extends StorageManager<StateJson> {
     await this.update(projectId, () => ({
       currentTask: null,
       previousTask: null,
-      lastUpdated: getTimestamp()
+      lastUpdated: getTimestamp(),
     }))
 
     // Publish incremental event
@@ -172,7 +186,7 @@ class StateStorage extends StorageManager<StateJson> {
       taskId: completedTask.id,
       description: completedTask.description,
       startedAt: completedTask.startedAt,
-      completedAt: getTimestamp()
+      completedAt: getTimestamp(),
     })
 
     return completedTask
@@ -194,13 +208,13 @@ class StateStorage extends StorageManager<StateJson> {
       status: 'paused',
       startedAt: state.currentTask.startedAt,
       pausedAt: getTimestamp(),
-      pauseReason: reason
+      pauseReason: reason,
     }
 
     await this.update(projectId, () => ({
       currentTask: null,
       previousTask,
-      lastUpdated: getTimestamp()
+      lastUpdated: getTimestamp(),
     }))
 
     // Publish incremental event
@@ -208,7 +222,7 @@ class StateStorage extends StorageManager<StateJson> {
       taskId: previousTask.id,
       description: previousTask.description,
       pausedAt: previousTask.pausedAt,
-      reason
+      reason,
     })
 
     return previousTask
@@ -228,20 +242,20 @@ class StateStorage extends StorageManager<StateJson> {
       id: state.previousTask.id,
       description: state.previousTask.description,
       startedAt: getTimestamp(),
-      sessionId: generateUUID()
+      sessionId: generateUUID(),
     }
 
     await this.update(projectId, () => ({
       currentTask,
       previousTask: null,
-      lastUpdated: getTimestamp()
+      lastUpdated: getTimestamp(),
     }))
 
     // Publish incremental event
     await this.publishEvent(projectId, 'task.resumed', {
       taskId: currentTask.id,
       description: currentTask.description,
-      resumedAt: currentTask.startedAt
+      resumedAt: currentTask.startedAt,
     })
 
     return currentTask
@@ -254,7 +268,7 @@ class StateStorage extends StorageManager<StateJson> {
     await this.update(projectId, () => ({
       currentTask: null,
       previousTask: null,
-      lastUpdated: getTimestamp()
+      lastUpdated: getTimestamp(),
     }))
   }
 
@@ -314,7 +328,11 @@ class StateStorage extends StorageManager<StateJson> {
     await this.publishEvent(projectId, 'subtasks.created', {
       taskId: state.currentTask.id,
       subtaskCount: fullSubtasks.length,
-      subtasks: fullSubtasks.map(s => ({ id: s.id, description: s.description, domain: s.domain })),
+      subtasks: fullSubtasks.map((s) => ({
+        id: s.id,
+        description: s.description,
+        domain: s.domain,
+      })),
     })
   }
 
@@ -345,7 +363,7 @@ class StateStorage extends StorageManager<StateJson> {
     }
 
     // Calculate new progress
-    const completed = updatedSubtasks.filter(s => s.status === 'completed').length
+    const completed = updatedSubtasks.filter((s) => s.status === 'completed').length
     const total = updatedSubtasks.length
     const percentage = Math.round((completed / total) * 100)
 
@@ -425,7 +443,9 @@ class StateStorage extends StorageManager<StateJson> {
   /**
    * Get subtask progress
    */
-  async getSubtaskProgress(projectId: string): Promise<{ completed: number; total: number; percentage: number } | null> {
+  async getSubtaskProgress(
+    projectId: string
+  ): Promise<{ completed: number; total: number; percentage: number } | null> {
     const state = await this.read(projectId)
     return state.currentTask?.subtaskProgress || null
   }
@@ -444,7 +464,7 @@ class StateStorage extends StorageManager<StateJson> {
   async areAllSubtasksComplete(projectId: string): Promise<boolean> {
     const state = await this.read(projectId)
     if (!state.currentTask?.subtasks) return true
-    return state.currentTask.subtasks.every(s => s.status === 'completed')
+    return state.currentTask.subtasks.every((s) => s.status === 'completed')
   }
 
   /**

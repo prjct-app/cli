@@ -5,7 +5,7 @@
  * OPTIMIZED: Tests updated to match compressed prompt structure
  */
 
-import { describe, it, expect, beforeEach } from 'bun:test'
+import { beforeEach, describe, expect, it } from 'bun:test'
 import promptBuilder from '../../agentic/prompt-builder'
 
 describe('PromptBuilder', () => {
@@ -63,7 +63,7 @@ describe('PromptBuilder', () => {
         next: '# NEXT\n\n## Priority Queue\n\n1. Task 1',
         context: 'Project context information',
         analysis: 'Stack: Node.js\nPatterns: ES6 modules',
-        metrics: 'Some metrics data'
+        metrics: 'Some metrics data',
       }
 
       const filtered = builder.filterRelevantState(state)
@@ -79,7 +79,7 @@ describe('PromptBuilder', () => {
       const largeContent = 'x'.repeat(2000)
       const state = {
         now: '# NOW\n\n**Task**',
-        largeFile: largeContent
+        largeFile: largeContent,
       }
 
       const filtered = builder.filterRelevantState(state)
@@ -99,7 +99,7 @@ describe('PromptBuilder', () => {
     it('should include patterns for code commands', () => {
       const template = {
         frontmatter: { description: 'Build feature', name: 'p:build' },
-        content: '## Flow\nBuild something'
+        content: '## Flow\nBuild something',
       }
 
       const context = { projectPath: '/test', files: ['file1.js'] }
@@ -114,7 +114,7 @@ describe('PromptBuilder', () => {
     it('should NOT include patterns for non-code commands', () => {
       const template = {
         frontmatter: { description: 'Show current task', name: 'p:now' },
-        content: '## Flow\nShow task'
+        content: '## Flow\nShow task',
       }
 
       const context = { projectPath: '/test', files: ['file1.js'] }
@@ -130,12 +130,12 @@ describe('PromptBuilder', () => {
     it('should list available files when context has files', () => {
       const template = {
         frontmatter: { description: 'Test command' },
-        content: '## Flow\nDo something'
+        content: '## Flow\nDo something',
       }
 
       const context = {
         projectPath: '/test',
-        files: ['src/file1.js', 'src/file2.js', 'tests/test1.js']
+        files: ['src/file1.js', 'src/file2.js', 'tests/test1.js'],
       }
 
       const state = {}
@@ -151,7 +151,7 @@ describe('PromptBuilder', () => {
     it('should show project path when no files listed', () => {
       const template = {
         frontmatter: { description: 'Test command' },
-        content: '## Flow\nDo something'
+        content: '## Flow\nDo something',
       }
 
       const context = { projectPath: '/test/project' }
@@ -169,15 +169,15 @@ describe('PromptBuilder', () => {
       const template = {
         frontmatter: {
           description: 'Test command',
-          'allowed-tools': ['Read', 'Write']
+          'allowed-tools': ['Read', 'Write'],
         },
-        content: '## Flow\n1. Do step 1\n2. Do step 2'
+        content: '## Flow\n1. Do step 1\n2. Do step 2',
       }
 
       const context = {
         projectPath: '/test',
         params: { task: 'test task' },
-        files: ['file1.js']
+        files: ['file1.js'],
       }
 
       const state = { now: '# NOW\n\n**Current task**' }
@@ -194,7 +194,7 @@ describe('PromptBuilder', () => {
     it('should be concise (under 2000 chars for simple prompt)', () => {
       const template = {
         frontmatter: { description: 'Test', 'allowed-tools': ['Read'] },
-        content: '## Flow\n1. Test'
+        content: '## Flow\n1. Test',
       }
 
       const context = { projectPath: '/test', files: ['a.js'] }
@@ -210,7 +210,7 @@ describe('PromptBuilder', () => {
     it('should include compact plan mode instructions', () => {
       const template = {
         frontmatter: { description: 'Test' },
-        content: '## Flow\nTest'
+        content: '## Flow\nTest',
       }
 
       const context = { projectPath: '/test' }
@@ -227,7 +227,7 @@ describe('PromptBuilder', () => {
     it('should include approval required section', () => {
       const template = {
         frontmatter: { description: 'Test' },
-        content: '## Flow\nTest'
+        content: '## Flow\nTest',
       }
 
       const context = { projectPath: '/test' }

@@ -9,12 +9,12 @@
  * @version 1.0.0
  */
 
-import fs from 'fs/promises'
-import path from 'path'
-import { hookSystem } from './hooks'
-import { eventBus, type EventCallback } from '../bus'
+import fs from 'node:fs/promises'
+import path from 'node:path'
+import { type EventCallback, eventBus } from '../bus'
 import pathManager from '../infrastructure/path-manager'
 import { isNotFoundError } from '../types/fs'
+import { hookSystem } from './hooks'
 
 type PluginSource = 'builtin' | 'global' | 'project'
 type HookHandler = (data: unknown) => unknown | Promise<unknown>
@@ -118,9 +118,10 @@ class PluginLoader {
       for (const file of files) {
         const filePath = path.join(globalPath, file)
         if (file.endsWith('.js') || file.endsWith('.ts') || (await this.isDirectory(filePath))) {
-          const pluginPath = (file.endsWith('.js') || file.endsWith('.ts'))
-            ? filePath
-            : path.join(filePath, 'index.js')
+          const pluginPath =
+            file.endsWith('.js') || file.endsWith('.ts')
+              ? filePath
+              : path.join(filePath, 'index.js')
           await this.loadPlugin(pluginPath, 'global')
         }
       }
@@ -169,7 +170,11 @@ class PluginLoader {
   /**
    * Load a single plugin
    */
-  async loadPlugin(pluginPath: string, source: PluginSource, config: Record<string, unknown> = {}): Promise<void> {
+  async loadPlugin(
+    pluginPath: string,
+    source: PluginSource,
+    config: Record<string, unknown> = {}
+  ): Promise<void> {
     try {
       // Check if file exists
       await fs.access(pluginPath)
@@ -192,7 +197,7 @@ class PluginLoader {
       this.plugins.set(plugin.name, {
         ...plugin,
         source,
-        config: { ...config, ...(this.config[plugin.name] as Record<string, unknown> || {}) }
+        config: { ...config, ...((this.config[plugin.name] as Record<string, unknown>) || {}) },
       })
       this.pluginPaths.set(plugin.name, pluginPath)
 
@@ -212,10 +217,9 @@ class PluginLoader {
           config: this.plugins.get(plugin.name)!.config!,
           eventBus,
           hookSystem,
-          projectPath: this.projectPath
+          projectPath: this.projectPath,
         })
       }
-
     } catch (error) {
       const err = error as NodeJS.ErrnoException
       if (err.code === 'ENOENT') {
@@ -235,7 +239,7 @@ class PluginLoader {
     for (const [hookPoint, handler] of Object.entries(plugin.hooks || {})) {
       hookSystem.register(hookPoint, handler, {
         pluginName: plugin.name,
-        priority: plugin.priority || 10
+        priority: plugin.priority || 10,
       })
     }
   }
@@ -304,7 +308,7 @@ class PluginLoader {
    * Get plugins by source
    */
   getPluginsBySource(source: PluginSource): Plugin[] {
-    return this.getAllPlugins().filter(p => p.source === source)
+    return this.getAllPlugins().filter((p) => p.source === source)
   }
 
   /**
@@ -319,7 +323,7 @@ class PluginLoader {
           commands[name] = {
             handler: handler.handler,
             plugin: plugin.name,
-            description: handler.description || `Command from ${plugin.name}`
+            description: handler.description || `Command from ${plugin.name}`,
           }
         }
       }
@@ -347,10 +351,6 @@ class PluginLoader {
 // Singleton instance
 const pluginLoader = new PluginLoader()
 
-export {
-  PluginLoader,
-  pluginLoader,
-  Plugin
-}
+export { PluginLoader, pluginLoader, type Plugin }
 
 export default { PluginLoader, pluginLoader }

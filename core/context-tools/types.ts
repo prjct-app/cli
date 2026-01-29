@@ -18,9 +18,9 @@
  */
 export interface CostBreakdown {
   model: string
-  inputSaved: number      // $ saved on input tokens
+  inputSaved: number // $ saved on input tokens
   outputPotential: number // $ potential savings on output (estimated)
-  total: number           // Combined savings
+  total: number // Combined savings
 }
 
 /**
@@ -32,10 +32,10 @@ export interface TokenMetrics {
     filtered: number
     saved: number
   }
-  compression: number     // 0-1 (e.g., 0.90 = 90% reduction)
+  compression: number // 0-1 (e.g., 0.90 = 90% reduction)
   cost: {
-    saved: number         // $ saved (using default model)
-    formatted: string     // Human-readable (e.g., "$0.02")
+    saved: number // $ saved (using default model)
+    formatted: string // Human-readable (e.g., "$0.02")
     byModel: CostBreakdown[] // Breakdown by popular models
   }
 }

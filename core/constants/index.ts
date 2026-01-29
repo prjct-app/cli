@@ -19,17 +19,13 @@ export const NOW = {
 
   /** Generate NOW file content */
   content: (task: string, startedAt: string, agent?: string, confidence?: number): string => {
-    const lines = [
-      '# NOW',
-      '',
-      `**${task}**`,
-      '',
-      `Started: ${startedAt}`,
-    ]
+    const lines = ['# NOW', '', `**${task}**`, '', `Started: ${startedAt}`]
     if (agent) {
-      lines.push(`Agent: ${agent}${confidence ? ` (${Math.round(confidence * 100)}% confidence)` : ''}`)
+      lines.push(
+        `Agent: ${agent}${confidence ? ` (${Math.round(confidence * 100)}% confidence)` : ''}`
+      )
     }
-    return lines.join('\n') + '\n'
+    return `${lines.join('\n')}\n`
   },
 
   /** Extract task from NOW content */
@@ -48,15 +44,11 @@ export const SHIPPED = {
 
   /** Generate ship entry */
   entry: (feature: string, date: string, duration?: string): string => {
-    const lines = [
-      `## ${feature}`,
-      '',
-      `Shipped: ${date}`,
-    ]
+    const lines = [`## ${feature}`, '', `Shipped: ${date}`]
     if (duration) {
       lines.push(`Duration: ${duration}`)
     }
-    return lines.join('\n') + '\n\n'
+    return `${lines.join('\n')}\n\n`
   },
 } as const
 
@@ -113,16 +105,12 @@ export const ROADMAP = {
 
   /** Generate feature entry */
   entry: (feature: string, status: RoadmapStatusKey, tasks?: string[]): string => {
-    const lines = [
-      `## ${feature}`,
-      '',
-      `Status: ${ROADMAP_STATUS[status]}`,
-    ]
+    const lines = [`## ${feature}`, '', `Status: ${ROADMAP_STATUS[status]}`]
     if (tasks && tasks.length > 0) {
       lines.push('', '### Tasks', '')
-      tasks.forEach(task => lines.push(`- [ ] ${task}`))
+      tasks.forEach((task) => lines.push(`- [ ] ${task}`))
     }
-    return lines.join('\n') + '\n\n'
+    return `${lines.join('\n')}\n\n`
   },
 } as const
 

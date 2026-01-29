@@ -3,26 +3,26 @@
  * Orchestrates multiple issue tracker providers and enrichment.
  */
 
-import type {
-  IssueTrackerProvider,
-  IssueTrackerConfig,
-  Issue,
-  EnrichedIssue,
-  SyncResult,
-  FetchOptions,
-  CreateIssueInput,
-  IssueProvider,
-} from './types'
+import { jiraProvider } from '../jira/client'
+import { linearProvider } from '../linear/client'
 import {
-  generateEnrichmentPrompt,
   buildEnrichedIssue,
+  type EnrichmentResult,
   formatEnrichmentAsMarkdown,
+  generateEnrichmentPrompt,
   generateQuickEnrichment,
   type ProjectContext,
-  type EnrichmentResult,
 } from './enricher'
-import { linearProvider } from '../linear/client'
-import { jiraProvider } from '../jira/client'
+import type {
+  CreateIssueInput,
+  EnrichedIssue,
+  FetchOptions,
+  Issue,
+  IssueProvider,
+  IssueTrackerConfig,
+  IssueTrackerProvider,
+  SyncResult,
+} from './types'
 
 // =============================================================================
 // Manager Class
@@ -232,7 +232,7 @@ export class IssueTrackerManager {
         for (const issue of issues) {
           try {
             // Generate prompt (actual AI execution is external)
-            const prompt = this.getEnrichmentPrompt(issue, projectContext)
+            const _prompt = this.getEnrichmentPrompt(issue, projectContext)
             console.log(`[issue-tracker] Enrichment prompt ready for ${issue.externalId}`)
 
             // For now, use quick enrichment as placeholder

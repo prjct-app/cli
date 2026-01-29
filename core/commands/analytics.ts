@@ -3,21 +3,20 @@
  * Unified dashboard and contextual help - MD-First Architecture
  */
 
-import path from 'path'
-
-import { commandRegistry } from './registry'
+import path from 'node:path'
+import { ideasStorage, queueStorage, shippedStorage, stateStorage } from '../storage'
 import type { CommandResult, ProjectContext } from '../types'
 import {
-  PrjctCommandsBase,
-  contextBuilder,
-  toolRegistry,
-  pathManager,
   configManager,
-  jsonlHelper,
+  contextBuilder,
   dateHelper,
-  out
+  jsonlHelper,
+  out,
+  PrjctCommandsBase,
+  pathManager,
+  toolRegistry,
 } from './base'
-import { stateStorage, queueStorage, shippedStorage, ideasStorage } from '../storage'
+import { commandRegistry } from './registry'
 
 interface MemoryEntry {
   timestamp: string
@@ -30,7 +29,10 @@ export class AnalyticsCommands extends PrjctCommandsBase {
    * /p:dash - Unified dashboard
    * Views: default, week, month, roadmap, compact
    */
-  async dash(view: string = 'default', projectPath: string = process.cwd()): Promise<CommandResult> {
+  async dash(
+    view: string = 'default',
+    projectPath: string = process.cwd()
+  ): Promise<CommandResult> {
     try {
       const initResult = await this.ensureProjectInit(projectPath)
       if (!initResult.success) return initResult
@@ -72,9 +74,11 @@ export class AnalyticsCommands extends PrjctCommandsBase {
         const memoryPath = pathManager.getFilePath(projectId, 'memory', 'context.jsonl')
         let entries: MemoryEntry[] = []
         try {
-          const allEntries = await jsonlHelper.readJsonLines(memoryPath) as MemoryEntry[]
+          const allEntries = (await jsonlHelper.readJsonLines(memoryPath)) as MemoryEntry[]
           entries = allEntries.filter((e) => new Date(e.timestamp) >= startDate)
-        } catch { entries = [] }
+        } catch {
+          entries = []
+        }
 
         const metrics = {
           tasksCompleted: entries.filter((e) => e.action === 'task_completed').length,
@@ -98,8 +102,10 @@ export class AnalyticsCommands extends PrjctCommandsBase {
 
       if (view === 'roadmap') {
         // Roadmap view
-        const context = await contextBuilder.build(projectPath) as ProjectContext
-        const roadmapContent = (await toolRegistry.get('Read')!(context.paths.roadmap)) as string | null
+        const context = (await contextBuilder.build(projectPath)) as ProjectContext
+        const roadmapContent = (await toolRegistry.get('Read')!(context.paths.roadmap)) as
+          | string
+          | null
 
         console.log(`\n🗺️  ROADMAP - ${projectName}\n`)
         console.log('═'.repeat(50))
@@ -109,7 +115,9 @@ export class AnalyticsCommands extends PrjctCommandsBase {
           console.log('  Use /p:feature to add features.\n')
         } else {
           // Parse and display roadmap
-          const features = roadmapContent.split('##').filter(s => s.trim() && !s.includes('ROADMAP'))
+          const features = roadmapContent
+            .split('##')
+            .filter((s) => s.trim() && !s.includes('ROADMAP'))
           features.slice(0, 5).forEach((f, i) => {
             const name = f.split('\n')[0].trim()
             console.log(`  ${i + 1}. ${name}`)
@@ -118,7 +126,7 @@ export class AnalyticsCommands extends PrjctCommandsBase {
             console.log(`  ... and ${features.length - 5} more`)
           }
         }
-        console.log('═'.repeat(50) + '\n')
+        console.log(`${'═'.repeat(50)}\n`)
 
         return { success: true, view: 'roadmap' }
       }
@@ -168,7 +176,7 @@ export class AnalyticsCommands extends PrjctCommandsBase {
       console.log('\n💡 IDEAS')
       console.log(`   ${ideas.length} pending ideas`)
 
-      console.log('\n' + '═'.repeat(50))
+      console.log(`\n${'═'.repeat(50)}`)
       console.log('💡 /p:work to start | /p:done to complete | /p:ship to ship\n')
 
       await this.logToMemory(projectPath, 'dash_viewed', {
@@ -183,8 +191,8 @@ export class AnalyticsCommands extends PrjctCommandsBase {
           currentTask: currentTask?.description || null,
           queueCount: queueTasks.length,
           shippedCount: shipped.length,
-          ideasCount: ideas.length
-        }
+          ideasCount: ideas.length,
+        },
       }
     } catch (error) {
       out.fail((error as Error).message)
@@ -195,7 +203,7 @@ export class AnalyticsCommands extends PrjctCommandsBase {
   /**
    * /p:help - Contextual help and guidance
    */
-  async help(topic: string = '', projectPath: string = process.cwd()): Promise<CommandResult> {
+  async help(topic: string = '', _projectPath: string = process.cwd()): Promise<CommandResult> {
     try {
       if (!topic) {
         // Show command overview
@@ -207,7 +215,7 @@ export class AnalyticsCommands extends PrjctCommandsBase {
 
         // Group by category
         const byCategory: Record<string, typeof commands> = {}
-        commands.forEach(cmd => {
+        commands.forEach((cmd) => {
           if (cmd.deprecated) return
           if (!byCategory[cmd.group]) byCategory[cmd.group] = []
           byCategory[cmd.group].push(cmd)
@@ -216,14 +224,14 @@ export class AnalyticsCommands extends PrjctCommandsBase {
         Object.entries(byCategory).forEach(([cat, cmds]) => {
           const catInfo = categories.get(cat)
           console.log(`\n${catInfo?.title || cat}:`)
-          cmds.forEach(cmd => {
+          cmds.forEach((cmd) => {
             const params = cmd.params ? ` ${cmd.params}` : ''
             console.log(`  ${cmd.name}${params}`)
             console.log(`    ${cmd.description}`)
           })
         })
 
-        console.log('\n' + '═'.repeat(50))
+        console.log(`\n${'═'.repeat(50)}`)
         console.log('💡 Use /p:help <command> for detailed help\n')
 
         return { success: true, topic: 'overview' }
@@ -248,31 +256,31 @@ export class AnalyticsCommands extends PrjctCommandsBase {
 
         if (command.features) {
           console.log('\nFeatures:')
-          command.features.forEach(f => console.log(`  • ${f}`))
+          command.features.forEach((f) => console.log(`  • ${f}`))
         }
 
-        console.log('\n' + '═'.repeat(50) + '\n')
+        console.log(`\n${'═'.repeat(50)}\n`)
         return { success: true, topic, command }
       }
 
       // Intent translation (like old /p:ask)
       const intents: Record<string, { command: string; hint: string }> = {
-        'start': { command: 'work', hint: 'Start working on a task' },
-        'begin': { command: 'work', hint: 'Start working on a task' },
-        'finish': { command: 'done', hint: 'Mark current task complete' },
-        'complete': { command: 'done', hint: 'Mark current task complete' },
-        'deploy': { command: 'ship', hint: 'Ship a feature' },
-        'release': { command: 'ship', hint: 'Ship a feature' },
-        'status': { command: 'dash', hint: 'View project dashboard' },
-        'overview': { command: 'dash', hint: 'View project dashboard' },
-        'queue': { command: 'next', hint: 'View task queue' },
-        'tasks': { command: 'next', hint: 'View task queue' },
-        'add': { command: 'feature', hint: 'Add a new feature' },
-        'new': { command: 'feature', hint: 'Add a new feature' },
-        'break': { command: 'pause', hint: 'Pause current task' },
-        'stop': { command: 'pause', hint: 'Pause current task' },
-        'continue': { command: 'resume', hint: 'Resume paused task' },
-        'back': { command: 'resume', hint: 'Resume paused task' },
+        start: { command: 'work', hint: 'Start working on a task' },
+        begin: { command: 'work', hint: 'Start working on a task' },
+        finish: { command: 'done', hint: 'Mark current task complete' },
+        complete: { command: 'done', hint: 'Mark current task complete' },
+        deploy: { command: 'ship', hint: 'Ship a feature' },
+        release: { command: 'ship', hint: 'Ship a feature' },
+        status: { command: 'dash', hint: 'View project dashboard' },
+        overview: { command: 'dash', hint: 'View project dashboard' },
+        queue: { command: 'next', hint: 'View task queue' },
+        tasks: { command: 'next', hint: 'View task queue' },
+        add: { command: 'feature', hint: 'Add a new feature' },
+        new: { command: 'feature', hint: 'Add a new feature' },
+        break: { command: 'pause', hint: 'Pause current task' },
+        stop: { command: 'pause', hint: 'Pause current task' },
+        continue: { command: 'resume', hint: 'Resume paused task' },
+        back: { command: 'resume', hint: 'Resume paused task' },
       }
 
       const lowerTopic = topic.toLowerCase()
@@ -308,7 +316,7 @@ export class AnalyticsCommands extends PrjctCommandsBase {
       const dayStart = new Date(date.setHours(0, 0, 0, 0))
       const dayEnd = new Date(date.setHours(23, 59, 59, 999))
 
-      const count = entries.filter(e => {
+      const count = entries.filter((e) => {
         const ts = new Date(e.timestamp)
         return ts >= dayStart && ts <= dayEnd
       }).length
@@ -317,6 +325,6 @@ export class AnalyticsCommands extends PrjctCommandsBase {
     }
 
     const max = Math.max(...counts, 1)
-    return counts.map(c => bars[Math.floor((c / max) * (bars.length - 1))]).join('')
+    return counts.map((c) => bars[Math.floor((c / max) * (bars.length - 1))]).join('')
   }
 }

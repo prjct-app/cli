@@ -5,10 +5,10 @@
  * Each tool gets context in its preferred format.
  */
 
-import fs from 'fs/promises'
-import path from 'path'
-import { AI_TOOLS, DEFAULT_AI_TOOLS, getAIToolConfig, type AIToolConfig } from './registry'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import { getFormatter, type ProjectContext } from './formatters'
+import { AI_TOOLS, type AIToolConfig, DEFAULT_AI_TOOLS, getAIToolConfig } from './registry'
 
 export interface GenerateResult {
   toolId: string
@@ -111,7 +111,7 @@ export function getOutputFiles(
   toolIds: string[] = DEFAULT_AI_TOOLS
 ): { toolId: string; file: string; location: 'repo' | 'global' }[] {
   return toolIds
-    .map(id => {
+    .map((id) => {
       const config = AI_TOOLS[id]
       if (!config) return null
       return {

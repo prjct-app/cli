@@ -6,30 +6,29 @@
  * @version 3.4
  */
 
-import fs from 'fs'
-import path from 'path'
-import os from 'os'
-import templateLoader from './template-loader'
-import contextBuilder from './context-builder'
-import promptBuilder from './prompt-builder'
-import toolRegistry from './tool-registry'
-import loopDetector from './loop-detector'
-import chainOfThought from './chain-of-thought'
-import memorySystem from './memory-system'
-import groundTruth from './ground-truth'
-import planMode from './plan-mode'
-import templateExecutor from './template-executor'
-import orchestratorExecutor from './orchestrator-executor'
-import { agentStream } from '../utils/agent-stream'
-
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import type {
-  OrchestratorContext,
-  ExecutionResult,
-  SimpleExecutionResult,
-  ExecutionToolsFn,
   ApprovalContext,
+  ExecutionResult,
+  ExecutionToolsFn,
+  OrchestratorContext,
   PromptContext,
+  SimpleExecutionResult,
 } from '../types'
+import { agentStream } from '../utils/agent-stream'
+import chainOfThought from './chain-of-thought'
+import contextBuilder from './context-builder'
+import groundTruth from './ground-truth'
+import loopDetector from './loop-detector'
+import memorySystem from './memory-system'
+import orchestratorExecutor from './orchestrator-executor'
+import planMode from './plan-mode'
+import promptBuilder from './prompt-builder'
+import templateExecutor from './template-executor'
+import templateLoader from './template-loader'
+import toolRegistry from './tool-registry'
 
 // =============================================================================
 // Status Signal
@@ -135,11 +134,7 @@ export class CommandExecutor {
       let groundTruthResult = null
       if (groundTruth.requiresVerification(commandName)) {
         const preState = await contextBuilder.loadStateForCommand(metadataContext, commandName)
-        groundTruthResult = await groundTruth.verify(
-          commandName,
-          metadataContext,
-          preState
-        )
+        groundTruthResult = await groundTruth.verify(commandName, metadataContext, preState)
 
         // Log warnings but don't block (user can override)
         if (!groundTruthResult.verified && groundTruthResult.warnings.length > 0) {
@@ -150,12 +145,11 @@ export class CommandExecutor {
       // 2.8. CHAIN OF THOUGHT: Reasoning for critical commands
       let reasoning = null
       if (chainOfThought.requiresReasoning(commandName)) {
-        const reasoningState = await contextBuilder.loadStateForCommand(metadataContext, commandName)
-        reasoning = await chainOfThought.reason(
-          commandName,
+        const reasoningState = await contextBuilder.loadStateForCommand(
           metadataContext,
-          reasoningState
+          commandName
         )
+        reasoning = await chainOfThought.reason(commandName, metadataContext, reasoningState)
 
         // If reasoning shows critical issues, warn but continue
         if (reasoning.reasoning && !reasoning.reasoning.allPassed) {
@@ -225,9 +219,18 @@ export class CommandExecutor {
       let relevantMemories = null
       if (metadataContext.projectId) {
         learnedPatterns = {
-          commit_footer: await memorySystem.getSmartDecision(metadataContext.projectId, 'commit_footer'),
-          branch_naming: await memorySystem.getSmartDecision(metadataContext.projectId, 'branch_naming'),
-          test_before_ship: await memorySystem.getSmartDecision(metadataContext.projectId, 'test_before_ship'),
+          commit_footer: await memorySystem.getSmartDecision(
+            metadataContext.projectId,
+            'commit_footer'
+          ),
+          branch_naming: await memorySystem.getSmartDecision(
+            metadataContext.projectId,
+            'branch_naming'
+          ),
+          test_before_ship: await memorySystem.getSmartDecision(
+            metadataContext.projectId,
+            'test_before_ship'
+          ),
           preferred_agent: await memorySystem.getSmartDecision(
             metadataContext.projectId,
             `preferred_agent_${commandName}`
@@ -247,7 +250,10 @@ export class CommandExecutor {
         isPlanning: requiresPlanning || isInPlanningMode,
         requiresApproval: isDestructive && !params.approved,
         active: activePlan,
-        allowedTools: planMode.getAllowedTools(isInPlanningMode, template.frontmatter['allowed-tools'] || []),
+        allowedTools: planMode.getAllowedTools(
+          isInPlanningMode,
+          template.frontmatter['allowed-tools'] || []
+        ),
       }
       // Agent is null - Claude assigns via Task tool using agent-routing.md
       // Pass orchestratorContext for domain/agent/subtask injection
@@ -297,7 +303,10 @@ export class CommandExecutor {
         orchestratorContext,
         memory: {
           create: (memory: unknown) =>
-            memorySystem.createMemory(metadataContext.projectId!, memory as Parameters<typeof memorySystem.createMemory>[1]),
+            memorySystem.createMemory(
+              metadataContext.projectId!,
+              memory as Parameters<typeof memorySystem.createMemory>[1]
+            ),
           autoRemember: (type: string, value: string, ctx?: string) =>
             memorySystem.autoRemember(metadataContext.projectId!, type, value, ctx),
           search: (query: string) => memorySystem.searchMemories(metadataContext.projectId!, query),
@@ -310,12 +319,24 @@ export class CommandExecutor {
           isDestructive,
           requiresApproval: isDestructive && !params.approved,
           recordInfo: (info: unknown) =>
-            planMode.recordGatheredInfo(metadataContext.projectId!, info as Parameters<typeof planMode.recordGatheredInfo>[1]),
-          setAnalysis: (analysis: unknown) => planMode.setAnalysis(metadataContext.projectId!, analysis as Parameters<typeof planMode.setAnalysis>[1]),
+            planMode.recordGatheredInfo(
+              metadataContext.projectId!,
+              info as Parameters<typeof planMode.recordGatheredInfo>[1]
+            ),
+          setAnalysis: (analysis: unknown) =>
+            planMode.setAnalysis(
+              metadataContext.projectId!,
+              analysis as Parameters<typeof planMode.setAnalysis>[1]
+            ),
           propose: (plan: unknown) =>
-            planMode.proposePlan(metadataContext.projectId!, plan as Parameters<typeof planMode.proposePlan>[1]),
-          approve: (feedback?: string | null) => planMode.approvePlan(metadataContext.projectId!, feedback),
-          reject: (reason?: string | null) => planMode.rejectPlan(metadataContext.projectId!, reason),
+            planMode.proposePlan(
+              metadataContext.projectId!,
+              plan as Parameters<typeof planMode.proposePlan>[1]
+            ),
+          approve: (feedback?: string | null) =>
+            planMode.approvePlan(metadataContext.projectId!, feedback),
+          reject: (reason?: string | null) =>
+            planMode.rejectPlan(metadataContext.projectId!, reason),
           getApprovalPrompt: () =>
             planMode.generateApprovalPrompt(commandName, {
               // Reason: `context` here is the command execution context, not the plan-mode ApprovalContext.
@@ -331,7 +352,11 @@ export class CommandExecutor {
             } satisfies ApprovalContext),
           startExecution: () => planMode.startExecution(metadataContext.projectId!),
           getNextStep: () => planMode.getNextStep(metadataContext.projectId!),
-          completeStep: (result?: unknown) => planMode.completeStep(metadataContext.projectId!, result as Parameters<typeof planMode.completeStep>[1]),
+          completeStep: (result?: unknown) =>
+            planMode.completeStep(
+              metadataContext.projectId!,
+              result as Parameters<typeof planMode.completeStep>[1]
+            ),
           failStep: (error: string) => planMode.failStep(metadataContext.projectId!, error),
           abort: (reason?: string) => planMode.abortPlan(metadataContext.projectId!, reason),
           getStatus: () => planMode.formatStatus(metadataContext.projectId!),
@@ -408,7 +433,8 @@ export class CommandExecutor {
       // Create tools proxy that checks permissions
       const tools = {
         read: async (filePath: string) => this.executeTool('Read', [filePath], allowedTools),
-        write: async (filePath: string, content: string) => this.executeTool('Write', [filePath, content], allowedTools),
+        write: async (filePath: string, content: string) =>
+          this.executeTool('Write', [filePath, content], allowedTools),
         bash: async (command: string) => this.executeTool('Bash', [command], allowedTools),
       }
 

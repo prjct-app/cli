@@ -26,10 +26,10 @@
 
 import { linearService, linearSync } from '../integrations/linear'
 import {
-  getLinearApiKey,
-  setLinearCredentials,
-  getProjectCredentials,
   getCredentialSource,
+  getLinearApiKey,
+  getProjectCredentials,
+  setLinearCredentials,
 } from '../utils/project-credentials'
 
 // Parse arguments
@@ -129,9 +129,7 @@ async function main(): Promise<void> {
         output({
           success: true,
           teams,
-          defaultTeam: selectedTeamId
-            ? { id: selectedTeamId, key: selectedTeamKey }
-            : null,
+          defaultTeam: selectedTeamId ? { id: selectedTeamId, key: selectedTeamKey } : null,
         })
         break
       }

@@ -9,32 +9,32 @@
  * @version 5.0
  */
 
-import fs from 'fs'
-import path from 'path'
-import { isNotFoundError } from '../types/fs'
-import { stateStorage, queueStorage } from '../storage'
+import fs from 'node:fs'
+import path from 'node:path'
 import { outcomeAnalyzer } from '../outcomes'
+import { queueStorage, stateStorage } from '../storage'
 import type {
-  PromptProjectState,
-  Template,
+  LearnedPatterns,
+  Memory,
+  OrchestratorContext,
+  PlanInfo,
   PromptAgent,
   PromptContext,
+  PromptProjectState,
   PromptState,
-  LearnedPatterns,
+  Template,
   ThinkBlock,
-  Memory,
-  PlanInfo,
-  OrchestratorContext,
 } from '../types'
+import { isNotFoundError } from '../types/fs'
 
 // Re-export types for convenience
 export type {
   Frontmatter,
-  Template,
   LearnedPatterns,
-  ThinkBlock,
   Memory,
   PlanInfo,
+  Template,
+  ThinkBlock,
 } from '../types'
 
 // Local type aliases for backward compatibility
@@ -112,13 +112,13 @@ class PromptBuilder {
     try {
       const [stateData, queueData] = await Promise.all([
         stateStorage.read(projectId),
-        queueStorage.read(projectId)
+        queueStorage.read(projectId),
       ])
 
       const state: ProjectState = {
         projectId,
         currentTask: stateData.currentTask,
-        queue: queueData.tasks
+        queue: queueData.tasks,
       }
 
       this._stateCache.set(projectId, { state, timestamp: Date.now() })
@@ -219,7 +219,14 @@ class PromptBuilder {
   loadChecklistRouting(): string | null {
     if (this._checklistRoutingCache) return this._checklistRoutingCache
 
-    const routingPath = path.join(__dirname, '..', '..', 'templates', 'agentic', 'checklist-routing.md')
+    const routingPath = path.join(
+      __dirname,
+      '..',
+      '..',
+      'templates',
+      'agentic',
+      'checklist-routing.md'
+    )
 
     try {
       if (fs.existsSync(routingPath)) {
@@ -298,7 +305,18 @@ class PromptBuilder {
 
     // Agent assignment (CONDITIONAL - only for code-modifying commands)
     const commandName = template.frontmatter?.name?.replace('p:', '') || ''
-    const agentCommands = ['now', 'build', 'feature', 'design', 'fix', 'bug', 'test', 'work', 'cleanup', 'spec']
+    const agentCommands = [
+      'now',
+      'build',
+      'feature',
+      'design',
+      'fix',
+      'bug',
+      'test',
+      'work',
+      'cleanup',
+      'spec',
+    ]
     const needsAgent = agentCommands.includes(commandName)
 
     if (agent && needsAgent) {
@@ -344,9 +362,10 @@ class PromptBuilder {
             parts.push(`Skills: ${agent.skills.join(', ')}\n`)
           }
           // Include first 1500 chars of agent content
-          const truncatedContent = agent.content.length > 1500
-            ? agent.content.substring(0, 1500) + '\n... (truncated, read full file for more)'
-            : agent.content
+          const truncatedContent =
+            agent.content.length > 1500
+              ? `${agent.content.substring(0, 1500)}\n... (truncated, read full file for more)`
+              : agent.content
           parts.push(`\`\`\`markdown\n${truncatedContent}\n\`\`\`\n\n`)
         }
       }
@@ -357,9 +376,10 @@ class PromptBuilder {
         for (const skill of orchestratorContext.skills) {
           parts.push(`#### Skill: ${skill.name}\n`)
           // Include first 1000 chars of skill content
-          const truncatedContent = skill.content.length > 1000
-            ? skill.content.substring(0, 1000) + '\n... (truncated)'
-            : skill.content
+          const truncatedContent =
+            skill.content.length > 1000
+              ? `${skill.content.substring(0, 1000)}\n... (truncated)`
+              : skill.content
           parts.push(`\`\`\`markdown\n${truncatedContent}\n\`\`\`\n\n`)
         }
       }
@@ -367,22 +387,32 @@ class PromptBuilder {
       // Inject subtasks if fragmented
       if (orchestratorContext.requiresFragmentation && orchestratorContext.subtasks) {
         parts.push('### SUBTASKS (Execute in Order)\n\n')
-        parts.push('**IMPORTANT**: Focus on the CURRENT subtask. Use `p. done` when complete to advance.\n\n')
+        parts.push(
+          '**IMPORTANT**: Focus on the CURRENT subtask. Use `p. done` when complete to advance.\n\n'
+        )
         parts.push('| # | Domain | Description | Status |\n')
         parts.push('|---|--------|-------------|--------|\n')
 
         for (const subtask of orchestratorContext.subtasks) {
-          const statusIcon = subtask.status === 'in_progress' ? '▶️ **CURRENT**'
-            : subtask.status === 'completed' ? '✅ Done'
-            : subtask.status === 'failed' ? '❌ Failed'
-            : '⏳ Pending'
-          parts.push(`| ${subtask.order} | ${subtask.domain} | ${subtask.description} | ${statusIcon} |\n`)
+          const statusIcon =
+            subtask.status === 'in_progress'
+              ? '▶️ **CURRENT**'
+              : subtask.status === 'completed'
+                ? '✅ Done'
+                : subtask.status === 'failed'
+                  ? '❌ Failed'
+                  : '⏳ Pending'
+          parts.push(
+            `| ${subtask.order} | ${subtask.domain} | ${subtask.description} | ${statusIcon} |\n`
+          )
         }
 
         // Find and highlight current subtask
-        const currentSubtask = orchestratorContext.subtasks.find(s => s.status === 'in_progress')
+        const currentSubtask = orchestratorContext.subtasks.find((s) => s.status === 'in_progress')
         if (currentSubtask) {
-          parts.push(`\n**FOCUS ON SUBTASK #${currentSubtask.order}**: ${currentSubtask.description}\n`)
+          parts.push(
+            `\n**FOCUS ON SUBTASK #${currentSubtask.order}**: ${currentSubtask.description}\n`
+          )
           parts.push(`Agent: ${currentSubtask.agent} | Domain: ${currentSubtask.domain}\n`)
           if (currentSubtask.dependsOn.length > 0) {
             parts.push(`Dependencies: ${currentSubtask.dependsOn.join(', ')}\n`)
@@ -407,11 +437,25 @@ class PromptBuilder {
       parts.push(`\n## FILES: ${files.length} available. Top: ${top5}\n`)
       parts.push('Read BEFORE modifying. Use Glob/Grep to find more.\n\n')
     } else if ((context as { projectPath?: string }).projectPath) {
-      parts.push(`\n## PROJECT: ${(context as { projectPath: string }).projectPath}\nRead files before modifying.\n\n`)
+      parts.push(
+        `\n## PROJECT: ${(context as { projectPath: string }).projectPath}\nRead files before modifying.\n\n`
+      )
     }
 
     // OPTIMIZED: Only include patterns for code-modifying commands
-    const codeCommands = ['now', 'build', 'feature', 'design', 'cleanup', 'fix', 'bug', 'test', 'init', 'spec', 'work']
+    const codeCommands = [
+      'now',
+      'build',
+      'feature',
+      'design',
+      'cleanup',
+      'fix',
+      'bug',
+      'test',
+      'init',
+      'spec',
+      'work',
+    ]
     const needsPatterns = codeCommands.includes(commandName)
 
     // Include code patterns analysis for code-modifying commands
@@ -428,12 +472,15 @@ class PromptBuilder {
     const analysisContent = state?.analysis || ''
     if (needsPatterns && analysisContent && analysisContent.trim()) {
       const stackMatch =
-        analysisContent.match(/Stack[:\s]+([^\n]+)/i) || analysisContent.match(/Technology[:\s]+([^\n]+)/i)
+        analysisContent.match(/Stack[:\s]+([^\n]+)/i) ||
+        analysisContent.match(/Technology[:\s]+([^\n]+)/i)
       const stack = stackMatch ? stackMatch[1].trim() : 'detected'
 
       parts.push(`\n## STACK\nStack: ${stack}\n`)
       if (!codePatternsContent) {
-        parts.push('Read analysis/repo-summary.md + similar files before coding. Match patterns exactly.\n')
+        parts.push(
+          'Read analysis/repo-summary.md + similar files before coding. Match patterns exactly.\n'
+        )
       }
     }
 
@@ -451,7 +498,7 @@ class PromptBuilder {
     }
 
     // P3.1: Think Block
-    if (thinkBlock && thinkBlock.plan && thinkBlock.plan.length > 0) {
+    if (thinkBlock?.plan && thinkBlock.plan.length > 0) {
       parts.push('\n## THINK FIRST (reasoning from analysis)\n')
       if (thinkBlock.conclusions && thinkBlock.conclusions.length > 0) {
         parts.push('Conclusions:\n')
@@ -475,22 +522,38 @@ class PromptBuilder {
 
     // P3.4: Plan Mode
     if (planInfo?.isPlanning) {
-      parts.push(`\n## PLAN MODE\nRead-only. Gather info → Analyze → Propose plan → Wait for approval.\n`)
+      parts.push(
+        `\n## PLAN MODE\nRead-only. Gather info → Analyze → Propose plan → Wait for approval.\n`
+      )
       if (planInfo.allowedTools) parts.push(`Tools: ${planInfo.allowedTools.join(', ')}\n`)
     }
     if (planInfo?.requiresApproval) {
-      parts.push(`\n## APPROVAL REQUIRED\nShow changes, list affected files, ask for confirmation.\n`)
+      parts.push(
+        `\n## APPROVAL REQUIRED\nShow changes, list affected files, ask for confirmation.\n`
+      )
     }
 
     // P4.1: Quality Checklists
-    const checklistCommands = ['now', 'build', 'feature', 'design', 'fix', 'bug', 'cleanup', 'spec', 'work']
+    const checklistCommands = [
+      'now',
+      'build',
+      'feature',
+      'design',
+      'fix',
+      'bug',
+      'cleanup',
+      'spec',
+      'work',
+    ]
     if (checklistCommands.includes(commandName)) {
       const routing = this.loadChecklistRouting()
       const checklists = this.loadChecklists()
 
       if (routing && Object.keys(checklists).length > 0) {
         parts.push('\n## QUALITY CHECKLISTS\n')
-        parts.push('Apply relevant checklists based on task. Read checklist-routing.md for guidance.\n')
+        parts.push(
+          'Apply relevant checklists based on task. Read checklist-routing.md for guidance.\n'
+        )
         parts.push(`Available: ${Object.keys(checklists).join(', ')}\n`)
         parts.push('Path: templates/checklists/{name}.md\n')
         parts.push('Use Read tool to load checklists you determine are relevant.\n')
@@ -516,7 +579,7 @@ class PromptBuilder {
         if (criticalFiles.includes(key)) {
           const display =
             (content as string).length > 2000
-              ? (content as string).substring(0, 2000) + '\n... (truncated)'
+              ? `${(content as string).substring(0, 2000)}\n... (truncated)`
               : content
           relevant.push(`### ${key}\n${display}`)
         } else if ((content as string).length < 1000) {
@@ -535,7 +598,10 @@ class PromptBuilder {
   /**
    * Build an analysis prompt for pre-action investigation tasks
    */
-  buildAnalysis(analysisType: string, context: { projectPath: string; projectId?: string }): string {
+  buildAnalysis(
+    analysisType: string,
+    context: { projectPath: string; projectId?: string }
+  ): string {
     const parts: string[] = []
 
     parts.push(`# Analyze: ${analysisType}\n\n`)
@@ -570,7 +636,7 @@ class PromptBuilder {
     const antiPatternsMatch = content.match(/### High Priority[\s\S]*?(?=###|##|$)/i)
     if (antiPatternsMatch) {
       const antiPatterns = antiPatternsMatch[0].substring(0, 300)
-      parts.push('\nAvoid:\n' + antiPatterns)
+      parts.push(`\nAvoid:\n${antiPatterns}`)
     }
 
     const result = parts.join('\n').substring(0, 800)

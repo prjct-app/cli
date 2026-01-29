@@ -8,16 +8,16 @@
  * Re-exported from issue-tracker module
  */
 export type {
-  IssueTrackerConfig,
-  LinearConfig,
-  JiraConfig,
-  MondayConfig,
   GitHubConfig,
+  IssueTrackerConfig,
+  JiraConfig,
+  LinearConfig,
+  MondayConfig,
 } from '../integrations/issue-tracker/types'
 
 export {
-  DEFAULT_LINEAR_CONFIG,
   DEFAULT_JIRA_CONFIG,
+  DEFAULT_LINEAR_CONFIG,
 } from '../integrations/issue-tracker/types'
 
 /**

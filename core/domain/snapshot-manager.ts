@@ -9,13 +9,13 @@
  * @version 1.0.0
  */
 
-import fs from 'fs/promises'
-import path from 'path'
-import { exec } from 'child_process'
-import { promisify } from 'util'
-import pathManager from '../infrastructure/path-manager'
-import configManager from '../infrastructure/config-manager'
+import { exec } from 'node:child_process'
+import fs from 'node:fs/promises'
+import path from 'node:path'
+import { promisify } from 'node:util'
 import { emit } from '../bus'
+import configManager from '../infrastructure/config-manager'
+import pathManager from '../infrastructure/path-manager'
 import { isNotFoundError } from '../types/fs'
 
 const execAsync = promisify(exec)
@@ -100,7 +100,9 @@ class SnapshotManager {
     await execAsync(`git config user.name "prjct-snapshots"`, { cwd: this.snapshotDir! })
 
     // Create initial empty commit
-    await execAsync(`git commit --allow-empty -m "init: snapshot system"`, { cwd: this.snapshotDir! })
+    await execAsync(`git commit --allow-empty -m "init: snapshot system"`, {
+      cwd: this.snapshotDir!,
+    })
   }
 
   /**
@@ -236,9 +238,12 @@ class SnapshotManager {
     if (!this.initialized) await this.initialize()
 
     // Get files changed in that commit
-    const { stdout: filesOutput } = await execAsync(`git diff-tree --no-commit-id --name-only -r ${hash}`, {
-      cwd: this.snapshotDir!,
-    })
+    const { stdout: filesOutput } = await execAsync(
+      `git diff-tree --no-commit-id --name-only -r ${hash}`,
+      {
+        cwd: this.snapshotDir!,
+      }
+    )
 
     const files = filesOutput.split('\n').filter(Boolean)
 
@@ -337,11 +342,10 @@ class SnapshotManager {
    */
   async logSnapshot(snapshot: SnapshotInfo): Promise<void> {
     const manifestPath = path.join(this.snapshotDir!, 'manifest.jsonl')
-    const entry =
-      JSON.stringify({
-        type: 'snapshot',
-        ...snapshot,
-      }) + '\n'
+    const entry = `${JSON.stringify({
+      type: 'snapshot',
+      ...snapshot,
+    })}\n`
 
     await fs.appendFile(manifestPath, entry)
   }
@@ -351,13 +355,12 @@ class SnapshotManager {
    */
   async logRestore(hash: string, files: string[]): Promise<void> {
     const manifestPath = path.join(this.snapshotDir!, 'manifest.jsonl')
-    const entry =
-      JSON.stringify({
-        type: 'restore',
-        hash,
-        files,
-        timestamp: new Date().toISOString(),
-      }) + '\n'
+    const entry = `${JSON.stringify({
+      type: 'restore',
+      hash,
+      files,
+      timestamp: new Date().toISOString(),
+    })}\n`
 
     await fs.appendFile(manifestPath, entry)
   }

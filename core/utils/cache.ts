@@ -91,9 +91,7 @@ export class TTLCache<T> {
   private evictOldEntries(): void {
     if (this.cache.size <= this.maxSize) return
 
-    const entries = Array.from(this.cache.entries()).sort(
-      (a, b) => a[1].timestamp - b[1].timestamp
-    )
+    const entries = Array.from(this.cache.entries()).sort((a, b) => a[1].timestamp - b[1].timestamp)
 
     const toRemove = entries.slice(0, this.cache.size - this.maxSize)
     for (const [key] of toRemove) {

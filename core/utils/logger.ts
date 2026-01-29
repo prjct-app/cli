@@ -79,7 +79,7 @@ const logger: Logger = {
   isEnabled: () => currentLevel >= 0,
 
   // Get current level name (pre-computed, no runtime lookup)
-  level: () => currentLevelName
+  level: () => currentLevelName,
 }
 
 export default logger

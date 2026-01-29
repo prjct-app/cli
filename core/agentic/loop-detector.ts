@@ -17,12 +17,12 @@
  */
 
 import type {
-  ErrorEntry,
+  AttemptInfo,
   AttemptRecord,
+  AttemptResult,
+  ErrorEntry,
   ErrorPattern,
   EscalationInfo,
-  AttemptResult,
-  AttemptInfo,
   HallucinationPattern,
   HallucinationResult,
   OutputAnalysis,
@@ -38,9 +38,21 @@ import type {
  */
 export const HALLUCINATION_PATTERNS: HallucinationPattern[] = [
   // Contradictory file operations
-  { pattern: /file.*not found.*created/i, type: 'contradiction', description: 'Claims file created but also not found' },
-  { pattern: /created.*but.*error/i, type: 'contradiction', description: 'Claims success but also error' },
-  { pattern: /successfully.*failed/i, type: 'contradiction', description: 'Contradictory success/failure' },
+  {
+    pattern: /file.*not found.*created/i,
+    type: 'contradiction',
+    description: 'Claims file created but also not found',
+  },
+  {
+    pattern: /created.*but.*error/i,
+    type: 'contradiction',
+    description: 'Claims success but also error',
+  },
+  {
+    pattern: /successfully.*failed/i,
+    type: 'contradiction',
+    description: 'Contradictory success/failure',
+  },
 
   // Impossible task states
   {
@@ -48,8 +60,16 @@ export const HALLUCINATION_PATTERNS: HallucinationPattern[] = [
     type: 'state',
     description: 'Completing already-completed task',
   },
-  { pattern: /no task.*marking complete/i, type: 'state', description: 'Completing non-existent task' },
-  { pattern: /no.*active.*done with/i, type: 'state', description: 'Finishing task that doesnt exist' },
+  {
+    pattern: /no task.*marking complete/i,
+    type: 'state',
+    description: 'Completing non-existent task',
+  },
+  {
+    pattern: /no.*active.*done with/i,
+    type: 'state',
+    description: 'Finishing task that doesnt exist',
+  },
 
   // Invented data
   {
@@ -57,7 +77,11 @@ export const HALLUCINATION_PATTERNS: HallucinationPattern[] = [
     type: 'invented',
     description: 'Version update without package.json',
   },
-  { pattern: /committed.*nothing to commit/i, type: 'invented', description: 'Commit without changes' },
+  {
+    pattern: /committed.*nothing to commit/i,
+    type: 'invented',
+    description: 'Commit without changes',
+  },
   { pattern: /pushed.*no remote/i, type: 'invented', description: 'Push without remote' },
 ]
 
@@ -70,7 +94,8 @@ export const HALLUCINATION_PATTERNS: HallucinationPattern[] = [
  */
 export function getHallucinationSuggestion(type: string): string {
   const suggestions: Record<string, string> = {
-    contradiction: 'Verify file/resource state before reporting. Use Read tool to check actual state.',
+    contradiction:
+      'Verify file/resource state before reporting. Use Read tool to check actual state.',
     state: 'Check current task state from now.md before assuming completion.',
     invented: 'Verify prerequisites exist (package.json, git remote) before claiming actions.',
   }
@@ -163,7 +188,11 @@ export function analyzeErrorPattern(errors: ErrorEntry[]): ErrorPattern {
 /**
  * Generate user-friendly escalation message
  */
-export function generateEscalationMessage(command: string, errorPattern: ErrorPattern, maxAttempts: number): string {
+export function generateEscalationMessage(
+  command: string,
+  errorPattern: ErrorPattern,
+  maxAttempts: number
+): string {
   const messages: Record<string, string> = {
     permission: `I've tried ${command} ${maxAttempts} times but keep hitting permission issues.`,
     not_found: `After ${maxAttempts} attempts, I still can't find the required file or resource.`,

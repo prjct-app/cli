@@ -6,14 +6,17 @@
  * @version 1.0.0
  */
 
-import { HookSystem, HookPoints, hookSystem, hooks } from './hooks'
+import { HookPoints, HookSystem, hookSystem, hooks } from './hooks'
 import { PluginLoader, pluginLoader } from './loader'
 import { PluginRegistry, pluginRegistry } from './registry'
 
 /**
  * Initialize the complete plugin system
  */
-async function initializePlugins(projectPath: string, config: Record<string, unknown> = {}): Promise<void> {
+async function initializePlugins(
+  projectPath: string,
+  config: Record<string, unknown> = {}
+): Promise<void> {
   await pluginRegistry.initialize()
   await pluginLoader.initialize(projectPath, config)
 }
@@ -35,18 +38,15 @@ export {
   HookPoints,
   hookSystem,
   hooks,
-
   // Plugin loader
   PluginLoader,
   pluginLoader,
-
   // Plugin registry
   PluginRegistry,
   pluginRegistry,
-
   // Convenience functions
   initializePlugins,
-  shutdownPlugins
+  shutdownPlugins,
 }
 
 export default {
@@ -59,5 +59,5 @@ export default {
   PluginRegistry,
   pluginRegistry,
   initializePlugins,
-  shutdownPlugins
+  shutdownPlugins,
 }

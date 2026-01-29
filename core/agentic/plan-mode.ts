@@ -8,22 +8,34 @@
  * Pattern from: Devin AI, Windsurf, Kiro
  */
 
+import { generateUUID } from '../schemas'
 import type {
-  PlanParams,
+  ApprovalContext,
+  ApprovalPrompt,
   GatheredInfo,
-  ProposedPlan,
-  PlanStep,
-  PlanStepResult,
-  PlanStatus,
   Plan,
   PlanAnalysis,
-  ApprovalPrompt,
-  ApprovalContext,
+  PlanParams,
+  PlanStatus,
+  PlanStep,
+  PlanStepResult,
+  ProposedPlan,
 } from '../types'
-import { generateUUID } from '../schemas'
 import { getTimestamp } from '../utils/date-helper'
-export { PLAN_STATUS, PLAN_REQUIRED_COMMANDS, DESTRUCTIVE_COMMANDS, PLANNING_TOOLS } from '../constants'
-import { PLAN_STATUS, PLAN_REQUIRED_COMMANDS, DESTRUCTIVE_COMMANDS, PLANNING_TOOLS } from '../constants'
+
+export {
+  DESTRUCTIVE_COMMANDS,
+  PLAN_REQUIRED_COMMANDS,
+  PLAN_STATUS,
+  PLANNING_TOOLS,
+} from '../constants'
+
+import {
+  DESTRUCTIVE_COMMANDS,
+  PLAN_REQUIRED_COMMANDS,
+  PLAN_STATUS,
+  PLANNING_TOOLS,
+} from '../constants'
 
 // =============================================================================
 // Approval
@@ -32,7 +44,10 @@ import { PLAN_STATUS, PLAN_REQUIRED_COMMANDS, DESTRUCTIVE_COMMANDS, PLANNING_TOO
 /**
  * Generate approval prompt for destructive commands
  */
-export function generateApprovalPrompt(commandName: string, context: ApprovalContext): ApprovalPrompt {
+export function generateApprovalPrompt(
+  commandName: string,
+  context: ApprovalContext
+): ApprovalPrompt {
   const prompts: Record<string, ApprovalPrompt> = {
     ship: {
       title: 'Ship Confirmation',
@@ -51,7 +66,10 @@ export function generateApprovalPrompt(commandName: string, context: ApprovalCon
     cleanup: {
       title: 'Cleanup Confirmation',
       message: 'This will delete files/code. Continue?',
-      details: [`Files to delete: ${context.filesToDelete?.length || 0}`, `Code to remove: ${context.linesOfCode || 0} lines`],
+      details: [
+        `Files to delete: ${context.filesToDelete?.length || 0}`,
+        `Code to remove: ${context.linesOfCode || 0} lines`,
+      ],
       options: [
         { key: 'y', label: 'Yes, cleanup', action: 'approve' },
         { key: 'n', label: 'No, cancel', action: 'reject' },
@@ -218,7 +236,10 @@ export class PlanMode {
   /**
    * Propose a plan for user approval
    */
-  proposePlan(projectId: string, proposedPlan: ProposedPlan): ReturnType<typeof this.formatPlanForApproval> | null {
+  proposePlan(
+    projectId: string,
+    proposedPlan: ProposedPlan
+  ): ReturnType<typeof this.formatPlanForApproval> | null {
     const plan = this.getActivePlan(projectId)
     if (!plan) return null
 
@@ -350,7 +371,10 @@ export class PlanMode {
   /**
    * Mark current step as complete
    */
-  completeStep(projectId: string, result: PlanStepResult = { success: true }): ReturnType<typeof this.getNextStep> {
+  completeStep(
+    projectId: string,
+    result: PlanStepResult = { success: true }
+  ): ReturnType<typeof this.getNextStep> {
     const plan = this.getActivePlan(projectId)
     if (!plan || plan.status !== PLAN_STATUS.EXECUTING) {
       return null
@@ -370,7 +394,10 @@ export class PlanMode {
   /**
    * Mark step as failed
    */
-  failStep(projectId: string, error: string): { failed: boolean; step: number; error: string; options: string[] } | null {
+  failStep(
+    projectId: string,
+    error: string
+  ): { failed: boolean; step: number; error: string; options: string[] } | null {
     const plan = this.getActivePlan(projectId)
     if (!plan) return null
 
@@ -461,7 +488,10 @@ export class PlanMode {
       [PLAN_STATUS.ABORTED]: '🛑',
     }
 
-    const lines = [`${statusEmoji[plan.status] || '📋'} Plan: ${plan.command}`, `Status: ${plan.status}`]
+    const lines = [
+      `${statusEmoji[plan.status] || '📋'} Plan: ${plan.command}`,
+      `Status: ${plan.status}`,
+    ]
 
     if (plan.status === PLAN_STATUS.EXECUTING) {
       const progress = Math.round((plan.currentStep / plan.steps.length) * 100)

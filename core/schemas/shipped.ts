@@ -50,7 +50,7 @@ export const CommitInfoSchema = z.object({
 })
 
 export const ShippedItemSchema = z.object({
-  id: z.string(),               // ship_xxxxxxxx
+  id: z.string(), // ship_xxxxxxxx
   name: z.string(),
   version: z.string().nullable().optional(),
   type: ShipTypeSchema,
@@ -64,7 +64,7 @@ export const ShippedItemSchema = z.object({
   quantitativeImpact: z.string().optional(),
   duration: DurationSchema.optional(),
   tasksCompleted: z.number().nullable().optional(),
-  shippedAt: z.string(),        // ISO8601
+  shippedAt: z.string(), // ISO8601
   featureId: z.string().optional(),
 })
 
@@ -105,5 +105,5 @@ export const safeParseShipped = (data: unknown) => ShippedJsonSchema.safeParse(d
 
 export const DEFAULT_SHIPPED: ShippedJson = {
   items: [],
-  lastUpdated: ''
+  lastUpdated: '',
 }

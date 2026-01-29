@@ -19,9 +19,9 @@
  * @version 1.0.0
  */
 
-const { execSync } = require('child_process')
-const fs = require('fs')
-const path = require('path')
+const { execSync } = require('node:child_process')
+const fs = require('node:fs')
+const path = require('node:path')
 
 const ROOT = path.resolve(__dirname, '..')
 const PACKAGE_JSON = path.join(ROOT, 'package.json')
@@ -34,11 +34,21 @@ const YELLOW = '\x1b[33m'
 const BLUE = '\x1b[34m'
 const NC = '\x1b[0m'
 
-function log(msg) { console.log(msg) }
-function info(msg) { console.log(`${BLUE}ℹ${NC} ${msg}`) }
-function success(msg) { console.log(`${GREEN}✓${NC} ${msg}`) }
-function warn(msg) { console.log(`${YELLOW}⚠${NC} ${msg}`) }
-function error(msg) { console.log(`${RED}✗${NC} ${msg}`) }
+function log(msg) {
+  console.log(msg)
+}
+function info(msg) {
+  console.log(`${BLUE}ℹ${NC} ${msg}`)
+}
+function success(msg) {
+  console.log(`${GREEN}✓${NC} ${msg}`)
+}
+function warn(msg) {
+  console.log(`${YELLOW}⚠${NC} ${msg}`)
+}
+function error(msg) {
+  console.log(`${RED}✗${NC} ${msg}`)
+}
 
 function exec(cmd, options = {}) {
   return execSync(cmd, { cwd: ROOT, encoding: 'utf8', ...options }).trim()
@@ -243,7 +253,10 @@ function test() {
     const output = e.stdout?.toString() || ''
     console.log(output)
 
-    if (output.includes(' 0 fail') || (output.includes(' pass') && !output.match(/[1-9]\d* fail/))) {
+    if (
+      output.includes(' 0 fail') ||
+      (output.includes(' pass') && !output.match(/[1-9]\d* fail/))
+    ) {
       success('Tests passed (with warnings)')
     } else {
       error('Tests failed')
@@ -272,13 +285,12 @@ function bumpVersion(type) {
     case 'minor':
       newVersion = `${major}.${minor + 1}.0`
       break
-    case 'patch':
     default:
       newVersion = `${major}.${minor}.${patch + 1}`
   }
 
   pkg.version = newVersion
-  fs.writeFileSync(PACKAGE_JSON, JSON.stringify(pkg, null, 2) + '\n')
+  fs.writeFileSync(PACKAGE_JSON, `${JSON.stringify(pkg, null, 2)}\n`)
 
   // Also update version.ts
   const versionTsPath = path.join(ROOT, 'core/utils/version.ts')
@@ -327,7 +339,7 @@ function publish() {
   try {
     exec('npm publish', { stdio: 'inherit' })
     success('Published to npm')
-  } catch (e) {
+  } catch (_e) {
     error('Publish failed')
     console.log('\nYou can retry with: npm publish')
     process.exit(1)
@@ -345,7 +357,7 @@ function push(branch) {
     exec(`git push origin ${branch}`)
     exec('git push --tags')
     success('Pushed to remote')
-  } catch (e) {
+  } catch (_e) {
     warn('Push failed - you may need to push manually')
   }
 }
@@ -382,7 +394,7 @@ async function main() {
   log(`${'='.repeat(50)}\n`)
 }
 
-main().catch(err => {
+main().catch((err) => {
   error(err.message)
   process.exit(1)
 })

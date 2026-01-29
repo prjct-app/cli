@@ -12,11 +12,7 @@
  * - Faster task understanding
  */
 
-import {
-  indexStorage,
-  type ScoredFile,
-  type DomainDefinition,
-} from '../storage/index-storage'
+import { type DomainDefinition, indexStorage, type ScoredFile } from '../storage/index-storage'
 
 // ============================================================================
 // TYPES
@@ -34,10 +30,10 @@ export interface SelectedContext {
 }
 
 export interface ContextSelectionOptions {
-  maxFiles?: number          // Max files to return (default: 50)
-  minScore?: number          // Min relevance score (default: 30)
-  includeGeneral?: boolean   // Include 'general' domain files (default: true)
-  tokenBudget?: number       // Max estimated tokens (default: 50000)
+  maxFiles?: number // Max files to return (default: 50)
+  minScore?: number // Min relevance score (default: 30)
+  includeGeneral?: boolean // Include 'general' domain files (default: true)
+  tokenBudget?: number // Max estimated tokens (default: 50000)
 }
 
 // ============================================================================
@@ -49,46 +45,110 @@ export interface ContextSelectionOptions {
  */
 const DOMAIN_KEYWORDS: Record<string, string[]> = {
   payments: [
-    'payment', 'pay', 'stripe', 'billing', 'checkout', 'invoice',
-    'subscription', 'charge', 'refund', 'transaction', 'pricing', 'price'
+    'payment',
+    'pay',
+    'stripe',
+    'billing',
+    'checkout',
+    'invoice',
+    'subscription',
+    'charge',
+    'refund',
+    'transaction',
+    'pricing',
+    'price',
   ],
   auth: [
-    'auth', 'login', 'logout', 'signup', 'sign up', 'sign in', 'register',
-    'password', 'session', 'token', 'jwt', 'oauth', 'sso', 'permission',
-    'role', 'access', 'user'
+    'auth',
+    'login',
+    'logout',
+    'signup',
+    'sign up',
+    'sign in',
+    'register',
+    'password',
+    'session',
+    'token',
+    'jwt',
+    'oauth',
+    'sso',
+    'permission',
+    'role',
+    'access',
+    'user',
   ],
   api: [
-    'api', 'endpoint', 'route', 'rest', 'graphql', 'webhook', 'request',
-    'response', 'http', 'fetch', 'axios'
+    'api',
+    'endpoint',
+    'route',
+    'rest',
+    'graphql',
+    'webhook',
+    'request',
+    'response',
+    'http',
+    'fetch',
+    'axios',
   ],
   database: [
-    'database', 'db', 'model', 'schema', 'migration', 'query', 'sql',
-    'prisma', 'drizzle', 'mongoose', 'sequelize', 'typeorm'
+    'database',
+    'db',
+    'model',
+    'schema',
+    'migration',
+    'query',
+    'sql',
+    'prisma',
+    'drizzle',
+    'mongoose',
+    'sequelize',
+    'typeorm',
   ],
   frontend: [
-    'component', 'page', 'view', 'ui', 'button', 'form', 'modal',
-    'layout', 'style', 'css', 'react', 'vue', 'svelte', 'html'
+    'component',
+    'page',
+    'view',
+    'ui',
+    'button',
+    'form',
+    'modal',
+    'layout',
+    'style',
+    'css',
+    'react',
+    'vue',
+    'svelte',
+    'html',
   ],
   testing: [
-    'test', 'spec', 'unit', 'e2e', 'cypress', 'jest',
-    'vitest', 'mocha', 'coverage', 'mock'
+    'test',
+    'spec',
+    'unit',
+    'e2e',
+    'cypress',
+    'jest',
+    'vitest',
+    'mocha',
+    'coverage',
+    'mock',
   ],
   integrations: [
-    'integration', 'integrate', 'connect', 'sync', 'webhook', 'oauth',
-    'linear', 'jira', 'github', 'slack', 'discord'
+    'integration',
+    'integrate',
+    'connect',
+    'sync',
+    'webhook',
+    'oauth',
+    'linear',
+    'jira',
+    'github',
+    'slack',
+    'discord',
   ],
-  config: [
-    'config', 'configuration', 'setting', 'env', 'environment', 'setup'
-  ],
-  utilities: [
-    'util', 'utility', 'helper', 'lib', 'common', 'shared', 'tool'
-  ],
-  services: [
-    'service', 'handler', 'processor', 'worker', 'job', 'queue', 'cron'
-  ],
-  types: [
-    'type', 'interface', 'dto', 'schema', 'definition'
-  ],
+  config: ['config', 'configuration', 'setting', 'env', 'environment', 'setup'],
+  utilities: ['util', 'utility', 'helper', 'lib', 'common', 'shared', 'tool'],
+  services: ['service', 'handler', 'processor', 'worker', 'job', 'queue', 'cron'],
+  types: ['type', 'interface', 'dto', 'schema', 'definition'],
 }
 
 // ============================================================================
@@ -128,10 +188,7 @@ export class ContextSelector {
     }
 
     // Detect domains from task description
-    const detectedDomains = this.detectTaskDomains(
-      taskDescription,
-      domainsData.domains
-    )
+    const detectedDomains = this.detectTaskDomains(taskDescription, domainsData.domains)
 
     // Get files for detected domains
     const selectedPaths = new Set<string>()
@@ -144,9 +201,9 @@ export class ContextSelector {
     }
 
     // Optionally include 'general' files
-    if (includeGeneral && categoriesCache.domainIndex['general']) {
+    if (includeGeneral && categoriesCache.domainIndex.general) {
       // Add top general files by score
-      const generalFiles = categoriesCache.domainIndex['general'].slice(0, 10)
+      const generalFiles = categoriesCache.domainIndex.general.slice(0, 10)
       for (const filePath of generalFiles) {
         selectedPaths.add(filePath)
       }
@@ -154,7 +211,7 @@ export class ContextSelector {
 
     // Filter to only files in the index with score >= minScore
     const selectedFiles = index.relevantFiles.filter(
-      f => selectedPaths.has(f.path) && f.score >= minScore
+      (f) => selectedPaths.has(f.path) && f.score >= minScore
     )
 
     // Sort by score and limit
@@ -180,9 +237,7 @@ export class ContextSelector {
     const totalTokens = Math.ceil(
       index.relevantFiles.reduce((sum, f) => sum + f.size, 0) / this.CHARS_PER_TOKEN
     )
-    const compressionRate = totalTokens > 0
-      ? (totalTokens - estimatedTokens) / totalTokens
-      : 0
+    const compressionRate = totalTokens > 0 ? (totalTokens - estimatedTokens) / totalTokens : 0
 
     return {
       files: budgetedFiles,
@@ -199,10 +254,7 @@ export class ContextSelector {
   /**
    * Detect domains from task description
    */
-  detectTaskDomains(
-    description: string,
-    projectDomains: DomainDefinition[]
-  ): string[] {
+  detectTaskDomains(description: string, projectDomains: DomainDefinition[]): string[] {
     const normalizedDesc = description.toLowerCase()
     const detectedDomains = new Set<string>()
 
@@ -267,7 +319,7 @@ export class ContextSelector {
 
     // If files provided, filter them; otherwise use all categorized files
     if (files) {
-      return files.filter(f => domainFilePaths.has(f.path))
+      return files.filter((f) => domainFilePaths.has(f.path))
     }
 
     // Load index and filter
@@ -276,16 +328,13 @@ export class ContextSelector {
       return []
     }
 
-    return index.relevantFiles.filter(f => domainFilePaths.has(f.path))
+    return index.relevantFiles.filter((f) => domainFilePaths.has(f.path))
   }
 
   /**
    * Get domains for a specific file
    */
-  async getFilesDomains(
-    projectId: string,
-    filePaths: string[]
-  ): Promise<Map<string, string[]>> {
+  async getFilesDomains(projectId: string, filePaths: string[]): Promise<Map<string, string[]>> {
     return indexStorage.getFileCategories(projectId, filePaths)
   }
 
@@ -305,9 +354,7 @@ export class ContextSelector {
     const tokenBudget = options.tokenBudget || 50000
 
     // Filter and sort by score
-    const filteredFiles = files
-      .filter(f => f.score >= minScore)
-      .sort((a, b) => b.score - a.score)
+    const filteredFiles = files.filter((f) => f.score >= minScore).sort((a, b) => b.score - a.score)
 
     // Apply token budget
     let estimatedTokens = 0
@@ -325,9 +372,7 @@ export class ContextSelector {
       estimatedTokens += fileTokens
     }
 
-    const totalTokens = Math.ceil(
-      files.reduce((sum, f) => sum + f.size, 0) / this.CHARS_PER_TOKEN
-    )
+    const totalTokens = Math.ceil(files.reduce((sum, f) => sum + f.size, 0) / this.CHARS_PER_TOKEN)
 
     return {
       files: selectedFiles,
@@ -335,9 +380,7 @@ export class ContextSelector {
       metrics: {
         totalFiles: files.length,
         selectedFiles: selectedFiles.length,
-        compressionRate: totalTokens > 0
-          ? (totalTokens - estimatedTokens) / totalTokens
-          : 0,
+        compressionRate: totalTokens > 0 ? (totalTokens - estimatedTokens) / totalTokens : 0,
         estimatedTokensSaved: totalTokens - estimatedTokens,
       },
     }

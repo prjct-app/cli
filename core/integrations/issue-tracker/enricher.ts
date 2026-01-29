@@ -6,7 +6,7 @@
  * The actual AI call happens through Claude Code's execution context.
  */
 
-import type { Issue, EnrichedIssue } from './types'
+import type { EnrichedIssue, Issue } from './types'
 
 // =============================================================================
 // Enrichment Templates
@@ -81,13 +81,9 @@ export function generateLLMPrompt(
   projectContext: ProjectContext,
   enrichment: EnrichmentResult
 ): string {
-  const filesList = enrichment.affectedFiles
-    .map(f => `- ${f}`)
-    .join('\n')
+  const filesList = enrichment.affectedFiles.map((f) => `- ${f}`).join('\n')
 
-  const acList = enrichment.acceptanceCriteria
-    .map(ac => `- [ ] ${ac}`)
-    .join('\n')
+  const acList = enrichment.acceptanceCriteria.map((ac) => `- [ ] ${ac}`).join('\n')
 
   return `## Task: ${issue.title}
 
@@ -150,10 +146,7 @@ export interface EnrichmentResult {
 /**
  * Build enriched issue from result
  */
-export function buildEnrichedIssue(
-  issue: Issue,
-  enrichment: EnrichmentResult
-): EnrichedIssue {
+export function buildEnrichedIssue(issue: Issue, enrichment: EnrichmentResult): EnrichedIssue {
   return {
     ...issue,
     enrichment: {
@@ -213,8 +206,8 @@ export function formatEnrichmentAsMarkdown(enrichment: EnrichmentResult): string
 export function parseEnrichmentResponse(response: string): EnrichmentResult | null {
   try {
     // Extract JSON from response (may be wrapped in markdown code block)
-    const jsonMatch = response.match(/```(?:json)?\s*([\s\S]*?)```/) ||
-                      response.match(/\{[\s\S]*\}/)
+    const jsonMatch =
+      response.match(/```(?:json)?\s*([\s\S]*?)```/) || response.match(/\{[\s\S]*\}/)
 
     if (!jsonMatch) {
       console.error('[enricher] No JSON found in response')
@@ -232,12 +225,8 @@ export function parseEnrichmentResponse(response: string): EnrichmentResult | nu
 
     return {
       description: parsed.description,
-      acceptanceCriteria: Array.isArray(parsed.acceptanceCriteria)
-        ? parsed.acceptanceCriteria
-        : [],
-      affectedFiles: Array.isArray(parsed.affectedFiles)
-        ? parsed.affectedFiles
-        : [],
+      acceptanceCriteria: Array.isArray(parsed.acceptanceCriteria) ? parsed.acceptanceCriteria : [],
+      affectedFiles: Array.isArray(parsed.affectedFiles) ? parsed.affectedFiles : [],
       technicalNotes: parsed.technicalNotes || '',
       estimatedComplexity: parsed.estimatedComplexity,
       suggestedApproach: parsed.suggestedApproach,

@@ -97,11 +97,7 @@ export function getDateRange(fromDate: Date, toDate: Date): Date[] {
 
   while (current <= toDate) {
     dates.push(new Date(current))
-    current = new Date(
-      current.getFullYear(),
-      current.getMonth(),
-      current.getDate() + 1,
-    )
+    current = new Date(current.getFullYear(), current.getMonth(), current.getDate() + 1)
   }
 
   return dates
@@ -186,6 +182,5 @@ export default {
   formatDuration,
   calculateDuration,
   getStartOfDay,
-  getEndOfDay
+  getEndOfDay,
 }
-

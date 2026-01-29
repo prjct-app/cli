@@ -11,43 +11,42 @@
  * @version 3.3
  */
 
-import fs from 'fs/promises'
-import path from 'path'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
-import { isNotFoundError } from '../types/fs'
 import { generateUUID } from '../schemas'
+import { isNotFoundError } from '../types/fs'
 import { getTimestamp, getTodayKey } from '../utils/date-helper'
-import { appendJsonLine, getLastJsonLines } from '../utils/jsonl-helper'
 import { ensureDir } from '../utils/file-helper'
+import { appendJsonLine, getLastJsonLines } from '../utils/jsonl-helper'
 
 // Re-export types from canonical location
 export type {
-  Memory,
-  MemoryTag,
-  MemoryDatabase,
+  Decision,
   HistoryEntry,
   HistoryEventType,
-  Decision,
-  Workflow,
-  Preference,
-  Patterns,
+  Memory,
   MemoryContext,
   MemoryContextParams,
+  MemoryDatabase,
+  MemoryTag,
+  Patterns,
+  Preference,
+  Workflow,
 } from '../types/memory'
 
 export { MEMORY_TAGS } from '../types/memory'
 
 import type {
-  Memory,
-  MemoryTag,
-  MemoryDatabase,
   HistoryEntry,
   HistoryEventType,
-  Decision,
-  Workflow,
-  Preference,
-  Patterns,
+  Memory,
   MemoryContext,
+  MemoryDatabase,
+  MemoryTag,
+  Patterns,
+  Preference,
+  Workflow,
 } from '../types/memory'
 
 import { MEMORY_TAGS } from '../types/memory'
@@ -240,10 +239,19 @@ export class HistoryStore {
     const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
     const day = getTodayKey()
 
-    return path.join(pathManager.getGlobalProjectPath(projectId), 'memory', 'sessions', yearMonth, `${day}.jsonl`)
+    return path.join(
+      pathManager.getGlobalProjectPath(projectId),
+      'memory',
+      'sessions',
+      yearMonth,
+      `${day}.jsonl`
+    )
   }
 
-  async appendHistory(projectId: string, entry: Record<string, unknown> & { type: HistoryEventType }): Promise<void> {
+  async appendHistory(
+    projectId: string,
+    entry: Record<string, unknown> & { type: HistoryEventType }
+  ): Promise<void> {
     const sessionPath = this._getSessionPath(projectId)
     await ensureDir(path.dirname(sessionPath))
 
@@ -294,7 +302,12 @@ export class PatternStore extends CachedStore<Patterns> {
     return this.save(projectId)
   }
 
-  async recordDecision(projectId: string, key: string, value: string, context: string = ''): Promise<void> {
+  async recordDecision(
+    projectId: string,
+    key: string,
+    value: string,
+    context: string = ''
+  ): Promise<void> {
     const patterns = await this.load(projectId)
     const now = getTimestamp()
 
@@ -333,7 +346,10 @@ export class PatternStore extends CachedStore<Patterns> {
     await this.save(projectId)
   }
 
-  async getDecision(projectId: string, key: string): Promise<{ value: string; confidence: string } | null> {
+  async getDecision(
+    projectId: string,
+    key: string
+  ): Promise<{ value: string; confidence: string } | null> {
     const patterns = await this.load(projectId)
     const decision = patterns.decisions[key]
 
@@ -348,7 +364,11 @@ export class PatternStore extends CachedStore<Patterns> {
     return decision !== null
   }
 
-  async recordWorkflow(projectId: string, workflowName: string, pattern: Record<string, unknown>): Promise<void> {
+  async recordWorkflow(
+    projectId: string,
+    workflowName: string,
+    pattern: Record<string, unknown>
+  ): Promise<void> {
     const patterns = await this.load(projectId)
     const now = getTimestamp()
 
@@ -381,7 +401,11 @@ export class PatternStore extends CachedStore<Patterns> {
     await this.save(projectId)
   }
 
-  async getPreference(projectId: string, key: string, defaultValue: unknown = null): Promise<unknown> {
+  async getPreference(
+    projectId: string,
+    key: string,
+    defaultValue: unknown = null
+  ): Promise<unknown> {
     const patterns = await this.load(projectId)
     return patterns.preferences[key]?.value ?? defaultValue
   }
@@ -391,7 +415,8 @@ export class PatternStore extends CachedStore<Patterns> {
 
     return {
       decisions: Object.keys(patterns.decisions).length,
-      learnedDecisions: Object.values(patterns.decisions).filter((d) => d.confidence !== 'low').length,
+      learnedDecisions: Object.values(patterns.decisions).filter((d) => d.confidence !== 'low')
+        .length,
       workflows: Object.keys(patterns.workflows).length,
       preferences: Object.keys(patterns.preferences).length,
     }
@@ -535,7 +560,11 @@ export class SemanticMemories extends CachedStore<MemoryDatabase> {
     return true
   }
 
-  async findByTags(projectId: string, tags: string[], matchAll: boolean = false): Promise<Memory[]> {
+  async findByTags(
+    projectId: string,
+    tags: string[],
+    matchAll: boolean = false
+  ): Promise<Memory[]> {
     const db = await this.load(projectId)
     const parsedTags = this._coerceTags(tags)
 
@@ -556,11 +585,16 @@ export class SemanticMemories extends CachedStore<MemoryDatabase> {
     const queryLower = query.toLowerCase()
 
     return db.memories.filter(
-      (m) => m.title.toLowerCase().includes(queryLower) || m.content.toLowerCase().includes(queryLower)
+      (m) =>
+        m.title.toLowerCase().includes(queryLower) || m.content.toLowerCase().includes(queryLower)
     )
   }
 
-  async getRelevantMemories(projectId: string, context: MemoryContext, limit: number = 5): Promise<Memory[]> {
+  async getRelevantMemories(
+    projectId: string,
+    context: MemoryContext,
+    limit: number = 5
+  ): Promise<Memory[]> {
     const db = await this.load(projectId)
 
     const scored = db.memories.map((memory) => {
@@ -625,7 +659,12 @@ export class SemanticMemories extends CachedStore<MemoryDatabase> {
     return keywords.filter((k) => k.length > 2 && !stopWords.includes(k))
   }
 
-  async autoRemember(projectId: string, decisionType: string, value: string, context: string = ''): Promise<void> {
+  async autoRemember(
+    projectId: string,
+    decisionType: string,
+    value: string,
+    context: string = ''
+  ): Promise<void> {
     const tagMap: Record<string, string[]> = {
       commit_footer: [MEMORY_TAGS.COMMIT_STYLE],
       branch_naming: [MEMORY_TAGS.BRANCH_NAMING],
@@ -736,11 +775,20 @@ export class MemorySystem {
     return this._semanticMemories.searchMemories(projectId, query)
   }
 
-  getRelevantMemories(projectId: string, context: MemoryContext, limit?: number): Promise<Memory[]> {
+  getRelevantMemories(
+    projectId: string,
+    context: MemoryContext,
+    limit?: number
+  ): Promise<Memory[]> {
     return this._semanticMemories.getRelevantMemories(projectId, context, limit)
   }
 
-  autoRemember(projectId: string, decisionType: string, value: string, context?: string): Promise<void> {
+  autoRemember(
+    projectId: string,
+    decisionType: string,
+    value: string,
+    context?: string
+  ): Promise<void> {
     return this._semanticMemories.autoRemember(projectId, decisionType, value, context)
   }
 
@@ -784,7 +832,10 @@ export class MemorySystem {
     return this._patternStore.recordDecision(projectId, key, value, context)
   }
 
-  getDecision(projectId: string, key: string): Promise<{ value: string; confidence: string } | null> {
+  getDecision(
+    projectId: string,
+    key: string
+  ): Promise<{ value: string; confidence: string } | null> {
     return this._patternStore.getDecision(projectId, key)
   }
 
@@ -792,7 +843,11 @@ export class MemorySystem {
     return this._patternStore.hasPattern(projectId, key)
   }
 
-  recordWorkflow(projectId: string, workflowName: string, pattern: Record<string, unknown>): Promise<void> {
+  recordWorkflow(
+    projectId: string,
+    workflowName: string,
+    pattern: Record<string, unknown>
+  ): Promise<void> {
     return this._patternStore.recordWorkflow(projectId, workflowName, pattern)
   }
 
@@ -816,7 +871,10 @@ export class MemorySystem {
   // TIER 3: History
   // ===========================================================================
 
-  appendHistory(projectId: string, entry: Record<string, unknown> & { type: HistoryEventType }): Promise<void> {
+  appendHistory(
+    projectId: string,
+    entry: Record<string, unknown> & { type: HistoryEventType }
+  ): Promise<void> {
     return this._historyStore.appendHistory(projectId, entry)
   }
 
@@ -838,7 +896,12 @@ export class MemorySystem {
     return null
   }
 
-  async learnDecision(projectId: string, key: string, value: string, context: string = ''): Promise<void> {
+  async learnDecision(
+    projectId: string,
+    key: string,
+    value: string,
+    context: string = ''
+  ): Promise<void> {
     this.setSession(`decision:${key}`, value)
     await this.recordDecision(projectId, key, value, context)
     await this.appendHistory(projectId, { type: 'decision', key, value, context })

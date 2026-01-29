@@ -4,18 +4,11 @@
  * Git-based undo/redo functionality and session recovery.
  */
 
-import path from 'path'
-
-import { isNotFoundError } from '../types/fs'
-import type { CommandResult } from '../types'
-import {
-  pathManager,
-  configManager,
-  fileHelper,
-  dateHelper,
-  out
-} from './base'
+import path from 'node:path'
 import { memoryService } from '../services'
+import type { CommandResult } from '../types'
+import { isNotFoundError } from '../types/fs'
+import { configManager, dateHelper, fileHelper, out, pathManager } from './base'
 
 interface SnapshotHistory {
   snapshots: { id: string; timestamp: string; message: string }[]
@@ -97,19 +90,16 @@ export async function undo(projectPath: string = process.cwd()): Promise<Command
     }
 
     // Create snapshots directory
-    const snapshotsPath = path.join(
-      pathManager.getGlobalProjectPath(projectId),
-      'snapshots'
-    )
+    const snapshotsPath = path.join(pathManager.getGlobalProjectPath(projectId), 'snapshots')
     await fileHelper.ensureDir(snapshotsPath)
 
     // Check git status
-    const { execSync } = await import('child_process')
+    const { execSync } = await import('node:child_process')
 
     try {
       const status = execSync('git status --porcelain', {
         cwd: projectPath,
-        encoding: 'utf-8'
+        encoding: 'utf-8',
       }).trim()
 
       if (!status) {
@@ -123,7 +113,7 @@ export async function undo(projectPath: string = process.cwd()): Promise<Command
 
       execSync(`git stash push -m "${stashMessage}"`, {
         cwd: projectPath,
-        encoding: 'utf-8'
+        encoding: 'utf-8',
       })
 
       // Save snapshot metadata
@@ -143,7 +133,7 @@ export async function undo(projectPath: string = process.cwd()): Promise<Command
       history.snapshots.push({
         id: stashMessage,
         timestamp: new Date().toISOString(),
-        message: stashMessage
+        message: stashMessage,
       })
       history.current = history.snapshots.length - 1
 
@@ -179,10 +169,7 @@ export async function redo(projectPath: string = process.cwd()): Promise<Command
       return { success: false, error: 'No project ID found' }
     }
 
-    const snapshotsPath = path.join(
-      pathManager.getGlobalProjectPath(projectId),
-      'snapshots'
-    )
+    const snapshotsPath = path.join(pathManager.getGlobalProjectPath(projectId), 'snapshots')
     const snapshotFile = path.join(snapshotsPath, 'history.json')
 
     let history: SnapshotHistory
@@ -203,13 +190,13 @@ export async function redo(projectPath: string = process.cwd()): Promise<Command
       return { success: false, message: 'Nothing to redo' }
     }
 
-    const { execSync } = await import('child_process')
+    const { execSync } = await import('node:child_process')
 
     try {
       // Get latest stash
       const stashList = execSync('git stash list', {
         cwd: projectPath,
-        encoding: 'utf-8'
+        encoding: 'utf-8',
       }).trim()
 
       if (!stashList) {
@@ -218,7 +205,7 @@ export async function redo(projectPath: string = process.cwd()): Promise<Command
       }
 
       // Find prjct stash
-      const prjctStash = stashList.split('\n').find(line => line.includes('prjct-undo-'))
+      const prjctStash = stashList.split('\n').find((line) => line.includes('prjct-undo-'))
 
       if (!prjctStash) {
         out.warn('no prjct undo point found')
@@ -228,7 +215,7 @@ export async function redo(projectPath: string = process.cwd()): Promise<Command
       // Pop the stash
       execSync('git stash pop', {
         cwd: projectPath,
-        encoding: 'utf-8'
+        encoding: 'utf-8',
       })
 
       // Remove from history
@@ -264,10 +251,7 @@ export async function history(projectPath: string = process.cwd()): Promise<Comm
       return { success: false, error: 'No project ID found' }
     }
 
-    const snapshotsPath = path.join(
-      pathManager.getGlobalProjectPath(projectId),
-      'snapshots'
-    )
+    const snapshotsPath = path.join(pathManager.getGlobalProjectPath(projectId), 'snapshots')
     const snapshotFile = path.join(snapshotsPath, 'history.json')
 
     let snapshotHistory: SnapshotHistory
@@ -303,7 +287,7 @@ export async function history(projectPath: string = process.cwd()): Promise<Comm
       console.log('  Use /p:redo to restore the latest\n')
     }
 
-    console.log('='.repeat(50) + '\n')
+    console.log(`${'='.repeat(50)}\n`)
 
     return { success: true, snapshots: snapshotHistory.snapshots, current: snapshotHistory.current }
   } catch (error) {

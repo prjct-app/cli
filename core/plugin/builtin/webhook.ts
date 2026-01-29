@@ -17,10 +17,10 @@
  * }
  */
 
-import crypto from 'crypto'
+import crypto from 'node:crypto'
 import { EventTypes } from '../../bus'
+import type { WebhookConfig, WebhookPayload, WebhookPluginContext } from '../../types'
 import { HookPoints } from '../hooks'
-import type { WebhookConfig, WebhookPluginContext, WebhookPayload } from '../../types'
 
 const plugin = {
   name: 'webhook',
@@ -47,7 +47,7 @@ const plugin = {
     plugin.enabledEvents = config.events || [
       EventTypes.SESSION_COMPLETED,
       EventTypes.FEATURE_SHIPPED,
-      EventTypes.SNAPSHOT_CREATED
+      EventTypes.SNAPSHOT_CREATED,
     ]
   },
 
@@ -62,34 +62,38 @@ const plugin = {
    * Event handlers
    */
   events: {
-    [EventTypes.SESSION_COMPLETED]: async function(data: unknown): Promise<void> {
+    [EventTypes.SESSION_COMPLETED]: async (data: unknown): Promise<void> => {
       await plugin.sendWebhook('session.completed', data)
     },
 
-    [EventTypes.FEATURE_SHIPPED]: async function(data: unknown): Promise<void> {
+    [EventTypes.FEATURE_SHIPPED]: async (data: unknown): Promise<void> => {
       await plugin.sendWebhook('feature.shipped', data)
     },
 
-    [EventTypes.SNAPSHOT_CREATED]: async function(data: unknown): Promise<void> {
+    [EventTypes.SNAPSHOT_CREATED]: async (data: unknown): Promise<void> => {
       await plugin.sendWebhook('snapshot.created', data)
     },
 
-    [EventTypes.TASK_COMPLETED]: async function(data: unknown): Promise<void> {
+    [EventTypes.TASK_COMPLETED]: async (data: unknown): Promise<void> => {
       await plugin.sendWebhook('task.completed', data)
-    }
+    },
   },
 
   /**
    * Hook handlers
    */
   hooks: {
-    [HookPoints.AFTER_FEATURE_SHIP]: async function(data: { feature: string; version: string; timestamp: string }): Promise<void> {
+    [HookPoints.AFTER_FEATURE_SHIP]: async (data: {
+      feature: string
+      version: string
+      timestamp: string
+    }): Promise<void> => {
       await plugin.sendWebhook('feature.shipped', {
         feature: data.feature,
         version: data.version,
-        timestamp: data.timestamp
+        timestamp: data.timestamp,
       })
-    }
+    },
   },
 
   /**
@@ -107,13 +111,13 @@ const plugin = {
       event,
       timestamp: new Date().toISOString(),
       source: 'prjct-cli',
-      data
+      data,
     }
 
     try {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-        'User-Agent': 'prjct-cli/webhook'
+        'User-Agent': 'prjct-cli/webhook',
       }
 
       // Add signature if secret is configured
@@ -128,7 +132,7 @@ const plugin = {
       const response = await fetch(plugin.config.url, {
         method: 'POST',
         headers,
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       })
 
       if (!response.ok) {
@@ -137,7 +141,7 @@ const plugin = {
     } catch (error) {
       console.error(`[webhook] Error sending webhook:`, (error as Error).message)
     }
-  }
+  },
 }
 
 export default plugin

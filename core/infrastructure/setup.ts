@@ -17,23 +17,22 @@
  * - scripts/postinstall.js (if npm scripts are enabled)
  */
 
-import { execSync } from 'child_process'
-import fs from 'fs'
-import path from 'path'
-import os from 'os'
-import installer from './command-installer'
-import editorsConfig from './editors-config'
-import { VERSION, getPackageRoot } from '../utils/version'
+import { execSync } from 'node:child_process'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import { isNotFoundError } from '../types/fs'
+import type { AIProviderConfig, AIProviderName } from '../types/provider'
+import { getPackageRoot, VERSION } from '../utils/version'
 import {
-  selectProvider,
-  detectProvider,
   detectAllProviders,
   detectAntigravity,
+  detectProvider,
   Providers,
-  AntigravityProvider,
+  selectProvider,
 } from './ai-provider'
-import type { AIProviderName, AIProviderConfig } from '../types/provider'
+import installer from './command-installer'
+import editorsConfig from './editors-config'
 
 // Colors
 const GREEN = '\x1b[32m'
@@ -50,8 +49,8 @@ interface ProviderSetupResult {
 }
 
 interface SetupResults {
-  provider: AIProviderName  // Primary provider (for backward compat)
-  providers: ProviderSetupResult[]  // All installed providers
+  provider: AIProviderName // Primary provider (for backward compat)
+  providers: ProviderSetupResult[] // All installed providers
   cliInstalled: boolean
   commandsAdded: number
   commandsUpdated: number
@@ -61,7 +60,7 @@ interface SetupResults {
 /**
  * Check if an AI CLI is installed
  */
-async function hasAICLI(provider: AIProviderConfig): Promise<boolean> {
+async function _hasAICLI(provider: AIProviderConfig): Promise<boolean> {
   const detection = detectProvider(provider.name)
   return detection.installed
 }
@@ -70,9 +69,8 @@ async function hasAICLI(provider: AIProviderConfig): Promise<boolean> {
  * Install AI CLI for the specified provider
  */
 async function installAICLI(provider: AIProviderConfig): Promise<boolean> {
-  const packageName = provider.name === 'claude'
-    ? '@anthropic-ai/claude-code'
-    : '@google/gemini-cli'
+  const packageName =
+    provider.name === 'claude' ? '@anthropic-ai/claude-code' : '@google/gemini-cli'
 
   try {
     console.log(`${YELLOW}📦 ${provider.displayName} not found. Installing...${NC}`)
@@ -83,7 +81,9 @@ async function installAICLI(provider: AIProviderConfig): Promise<boolean> {
     console.log('')
     return true
   } catch (error) {
-    console.log(`${YELLOW}⚠️  Failed to install ${provider.displayName}: ${(error as Error).message}${NC}`)
+    console.log(
+      `${YELLOW}⚠️  Failed to install ${provider.displayName}: ${(error as Error).message}${NC}`
+    )
     console.log(`${DIM}Please install manually: npm install -g ${packageName}${NC}`)
     console.log('')
     return false
@@ -97,7 +97,7 @@ export async function run(): Promise<SetupResults> {
   // Step 0: Detect all available providers
   const detection = detectAllProviders()
   const selection = selectProvider()
-  const primaryProvider = Providers[selection.provider]
+  const _primaryProvider = Providers[selection.provider]
 
   const results: SetupResults = {
     provider: selection.provider,
@@ -281,7 +281,7 @@ async function installGeminiGlobalConfig(): Promise<{ success: boolean; action: 
 
     if (!hasMarkers) {
       // No markers - append prjct section at the end
-      const updatedContent = existingContent + '\n\n' + templateContent
+      const updatedContent = `${existingContent}\n\n${templateContent}`
       fs.writeFileSync(globalConfigPath, updatedContent, 'utf-8')
       return { success: true, action: 'appended' }
     }
@@ -317,7 +317,10 @@ async function installGeminiGlobalConfig(): Promise<{ success: boolean; action: 
  * Antigravity uses SKILL.md files in ~/.gemini/antigravity/skills/
  * This is the recommended integration method (not MCP).
  */
-export async function installAntigravitySkill(): Promise<{ success: boolean; action: string | null }> {
+export async function installAntigravitySkill(): Promise<{
+  success: boolean
+  action: string | null
+}> {
   try {
     const antigravitySkillsDir = path.join(os.homedir(), '.gemini', 'antigravity', 'skills')
     const prjctSkillDir = path.join(antigravitySkillsDir, 'prjct')
@@ -408,8 +411,7 @@ export async function installCursorProject(projectRoot: string): Promise<{
     // Copy individual command files → .cursor/commands/
     // This enables /sync, /task, /done, /ship, etc. syntax in Cursor
     if (fs.existsSync(cursorCommandsSource)) {
-      const commandFiles = fs.readdirSync(cursorCommandsSource)
-        .filter(f => f.endsWith('.md'))
+      const commandFiles = fs.readdirSync(cursorCommandsSource).filter((f) => f.endsWith('.md'))
 
       for (const file of commandFiles) {
         const src = path.join(cursorCommandsSource, file)
@@ -469,8 +471,8 @@ async function addCursorToGitignore(projectRoot: string): Promise<boolean> {
 
     // Append to .gitignore
     const newContent = fileExists
-      ? content.trimEnd() + '\n\n' + entriesToAdd.join('\n') + '\n'
-      : entriesToAdd.join('\n') + '\n'
+      ? `${content.trimEnd()}\n\n${entriesToAdd.join('\n')}\n`
+      : `${entriesToAdd.join('\n')}\n`
 
     fs.writeFileSync(gitignorePath, newContent, 'utf-8')
     return true
@@ -537,7 +539,12 @@ export async function installWindsurfProject(projectRoot: string): Promise<{
     const routerDest = path.join(rulesDir, 'prjct.md')
 
     const routerSource = path.join(getPackageRoot(), 'templates', 'windsurf', 'router.md')
-    const windsurfWorkflowsSource = path.join(getPackageRoot(), 'templates', 'windsurf', 'workflows')
+    const windsurfWorkflowsSource = path.join(
+      getPackageRoot(),
+      'templates',
+      'windsurf',
+      'workflows'
+    )
 
     // Ensure directories exist
     fs.mkdirSync(rulesDir, { recursive: true })
@@ -552,8 +559,7 @@ export async function installWindsurfProject(projectRoot: string): Promise<{
     // Copy individual workflow files → .windsurf/workflows/
     // This enables /sync, /task, /done, /ship, etc. syntax in Windsurf
     if (fs.existsSync(windsurfWorkflowsSource)) {
-      const workflowFiles = fs.readdirSync(windsurfWorkflowsSource)
-        .filter(f => f.endsWith('.md'))
+      const workflowFiles = fs.readdirSync(windsurfWorkflowsSource).filter((f) => f.endsWith('.md'))
 
       for (const file of workflowFiles) {
         const src = path.join(windsurfWorkflowsSource, file)
@@ -613,8 +619,8 @@ async function addWindsurfToGitignore(projectRoot: string): Promise<boolean> {
 
     // Append to .gitignore
     const newContent = fileExists
-      ? content.trimEnd() + '\n\n' + entriesToAdd.join('\n') + '\n'
-      : entriesToAdd.join('\n') + '\n'
+      ? `${content.trimEnd()}\n\n${entriesToAdd.join('\n')}\n`
+      : `${entriesToAdd.join('\n')}\n`
 
     fs.writeFileSync(gitignorePath, newContent, 'utf-8')
     return true
@@ -654,9 +660,10 @@ async function migrateProjectsCliVersion(): Promise<void> {
       return
     }
 
-    const projectDirs = fs.readdirSync(projectsDir, { withFileTypes: true })
-      .filter(dirent => dirent.isDirectory())
-      .map(dirent => dirent.name)
+    const projectDirs = fs
+      .readdirSync(projectsDir, { withFileTypes: true })
+      .filter((dirent) => dirent.isDirectory())
+      .map((dirent) => dirent.name)
 
     let migrated = 0
 
@@ -795,10 +802,7 @@ async function installStatusLine(): Promise<void> {
     if (fs.existsSync(sourceScript)) {
       // Copy script and update version
       let scriptContent = fs.readFileSync(sourceScript, 'utf8')
-      scriptContent = scriptContent.replace(
-        /CLI_VERSION="[^"]*"/,
-        `CLI_VERSION="${VERSION}"`
-      )
+      scriptContent = scriptContent.replace(/CLI_VERSION="[^"]*"/, `CLI_VERSION="${VERSION}"`)
       fs.writeFileSync(prjctStatusLinePath, scriptContent, { mode: 0o755 })
 
       // Copy lib/ modules
@@ -910,7 +914,7 @@ function ensureStatusLineSymlink(linkPath: string, targetPath: string): void {
     }
     // Create symlink
     fs.symlinkSync(targetPath, linkPath)
-  } catch (error) {
+  } catch (_error) {
     // If symlink fails (e.g., Windows, permission issues), try copy instead
     try {
       if (fs.existsSync(targetPath)) {

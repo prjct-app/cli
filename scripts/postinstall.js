@@ -9,8 +9,8 @@
  * This script just shows a helpful message.
  */
 
-const fs = require('fs')
-const path = require('path')
+const fs = require('node:fs')
+const path = require('node:path')
 
 const ROOT = path.resolve(__dirname, '..')
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf-8'))

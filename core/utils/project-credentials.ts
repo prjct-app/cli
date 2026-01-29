@@ -11,10 +11,10 @@
  * This allows different projects to use different Linear workspaces.
  */
 
-import fs from 'fs'
-import path from 'path'
-import os from 'os'
-import { getCredential, type CredentialKey } from './keychain'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import { type CredentialKey, getCredential } from './keychain'
 
 interface LinearCredentials {
   apiKey: string
@@ -31,14 +31,7 @@ export interface ProjectCredentials {
  * Get path to project credentials file
  */
 function getCredentialsPath(projectId: string): string {
-  return path.join(
-    os.homedir(),
-    '.prjct-cli',
-    'projects',
-    projectId,
-    'config',
-    'credentials.json'
-  )
+  return path.join(os.homedir(), '.prjct-cli', 'projects', projectId, 'config', 'credentials.json')
 }
 
 /**

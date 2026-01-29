@@ -7,7 +7,7 @@
  * @version 1.0.0
  */
 
-import { eventBus, EventTypes } from '../bus'
+import { EventTypes, eventBus } from '../bus'
 
 /**
  * Hook Points - Where plugins can intercept
@@ -37,10 +37,10 @@ const HookPoints = {
   // Transform hooks (must return modified data)
   TRANSFORM_COMMIT_MESSAGE: 'transform:commit.message',
   TRANSFORM_TASK_DATA: 'transform:task.data',
-  TRANSFORM_METRICS: 'transform:metrics'
+  TRANSFORM_METRICS: 'transform:metrics',
 } as const
 
-type HookPoint = typeof HookPoints[keyof typeof HookPoints]
+type HookPoint = (typeof HookPoints)[keyof typeof HookPoints]
 type HookHandler = (data: unknown, context?: unknown) => unknown | Promise<unknown>
 
 interface HookEntry {
@@ -83,7 +83,7 @@ class HookSystem {
       handler,
       pluginName,
       priority,
-      id: `${pluginName}:${Date.now()}`
+      id: `${pluginName}:${Date.now()}`,
     }
 
     this.hooks.get(hookPoint)!.push(hookEntry)
@@ -107,7 +107,7 @@ class HookSystem {
   unregister(hookPoint: string, id: string): void {
     const hooks = this.hooks.get(hookPoint)
     if (hooks) {
-      const index = hooks.findIndex(h => h.id === id)
+      const index = hooks.findIndex((h) => h.id === id)
       if (index !== -1) {
         hooks.splice(index, 1)
       }
@@ -130,7 +130,10 @@ class HookSystem {
   /**
    * Execute a "before" hook (can modify data)
    */
-  async executeBefore(hookPoint: string, data: Record<string, unknown>): Promise<Record<string, unknown>> {
+  async executeBefore(
+    hookPoint: string,
+    data: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
     const hooks = this.hooks.get(hookPoint) || []
     let result = { ...data }
 
@@ -157,11 +160,14 @@ class HookSystem {
 
     // Execute all hooks in parallel for after hooks
     await Promise.allSettled(
-      hooks.map(async hook => {
+      hooks.map(async (hook) => {
         try {
           await hook.handler(data)
         } catch (error) {
-          console.error(`Hook error [${hook.pluginName}] at ${hookPoint}:`, (error as Error).message)
+          console.error(
+            `Hook error [${hook.pluginName}] at ${hookPoint}:`,
+            (error as Error).message
+          )
         }
       })
     )
@@ -176,7 +182,11 @@ class HookSystem {
   /**
    * Execute a "transform" hook (must return modified value)
    */
-  async executeTransform<T>(hookPoint: string, value: T, context: Record<string, unknown> = {}): Promise<T> {
+  async executeTransform<T>(
+    hookPoint: string,
+    value: T,
+    context: Record<string, unknown> = {}
+  ): Promise<T> {
     const hooks = this.hooks.get(hookPoint) || []
     let result = value
 
@@ -187,7 +197,10 @@ class HookSystem {
           result = transformed as T
         }
       } catch (error) {
-        console.error(`Transform hook error [${hook.pluginName}] at ${hookPoint}:`, (error as Error).message)
+        console.error(
+          `Transform hook error [${hook.pluginName}] at ${hookPoint}:`,
+          (error as Error).message
+        )
         // Keep previous value on error
       }
     }
@@ -210,7 +223,7 @@ class HookSystem {
       [HookPoints.AFTER_SNAPSHOT_RESTORE]: EventTypes.SNAPSHOT_RESTORED,
       [HookPoints.AFTER_COMMIT]: EventTypes.COMMIT_CREATED,
       [HookPoints.AFTER_PUSH]: EventTypes.PUSH_COMPLETED,
-      [HookPoints.AFTER_SYNC]: EventTypes.PROJECT_SYNCED
+      [HookPoints.AFTER_SYNC]: EventTypes.PROJECT_SYNCED,
     }
     return mapping[hookPoint] || null
   }
@@ -219,9 +232,9 @@ class HookSystem {
    * Get all registered hooks for a point
    */
   getHooks(hookPoint: string): Array<{ pluginName: string; priority: number }> {
-    return (this.hooks.get(hookPoint) || []).map(h => ({
+    return (this.hooks.get(hookPoint) || []).map((h) => ({
       pluginName: h.pluginName,
-      priority: h.priority
+      priority: h.priority,
     }))
   }
 
@@ -230,7 +243,7 @@ class HookSystem {
    */
   getPluginHooks(pluginName: string): string[] {
     const entries = this.pluginHooks.get(pluginName) || []
-    return entries.map(e => e.hookPoint)
+    return entries.map((e) => e.hookPoint)
   }
 
   /**
@@ -298,14 +311,9 @@ const hooks = {
    */
   runTransform: <T>(point: string, value: T, context?: Record<string, unknown>) => {
     return hookSystem.executeTransform(`transform:${point}`, value, context)
-  }
+  },
 }
 
-export {
-  HookSystem,
-  HookPoints,
-  hookSystem,
-  hooks
-}
+export { HookSystem, HookPoints, hookSystem, hooks }
 
 export default { HookSystem, HookPoints, hookSystem, hooks }

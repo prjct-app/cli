@@ -3,22 +3,14 @@
  * Write-Through Architecture: JSON → MD → Event
  */
 
-import path from 'path'
-
-import { isNotFoundError } from '../types/fs'
+import path from 'node:path'
 import memorySystem from '../agentic/memory-system'
+import { shippedStorage, stateStorage } from '../storage'
 import type { CommandResult } from '../types'
-import { detectProjectCommands } from '../utils/project-commands'
-import {
-  PrjctCommandsBase,
-  toolRegistry,
-  configManager,
-  fileHelper,
-  dateHelper,
-  out
-} from './base'
-import { stateStorage, shippedStorage } from '../storage'
+import { isNotFoundError } from '../types/fs'
 import { showNextSteps } from '../utils/next-steps'
+import { detectProjectCommands } from '../utils/project-commands'
+import { configManager, dateHelper, fileHelper, out, PrjctCommandsBase, toolRegistry } from './base'
 
 export class ShippingCommands extends PrjctCommandsBase {
   /**
@@ -93,7 +85,7 @@ export class ShippingCommands extends PrjctCommandsBase {
       // Write-through: Record shipped feature (JSON → MD → Event)
       await shippedStorage.addShipped(projectId, {
         name: featureName,
-        version: newVersion
+        version: newVersion,
       })
 
       await this.logToMemory(projectPath, 'feature_shipped', {
@@ -112,7 +104,7 @@ export class ShippingCommands extends PrjctCommandsBase {
       if (isQuickShip) {
         await memorySystem.recordWorkflow(projectId, 'quick_ship', {
           description: 'Ship without full checks',
-          feature_type: featureName.toLowerCase().includes('doc') ? 'docs' : 'other'
+          feature_type: featureName.toLowerCase().includes('doc') ? 'docs' : 'other',
         })
       }
 
@@ -213,7 +205,10 @@ export class ShippingCommands extends PrjctCommandsBase {
   /**
    * Create git commit for ship
    */
-  async _createShipCommit(feature: string, _projectPath: string): Promise<{ success: boolean; message: string }> {
+  async _createShipCommit(
+    feature: string,
+    _projectPath: string
+  ): Promise<{ success: boolean; message: string }> {
     try {
       await toolRegistry.get('Bash')!('git add .')
 

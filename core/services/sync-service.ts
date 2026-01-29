@@ -15,24 +15,23 @@
  * @version 1.0.0
  */
 
-import fs from 'fs/promises'
-import path from 'path'
-import { exec } from 'child_process'
-import { promisify } from 'util'
-import pathManager from '../infrastructure/path-manager'
-import configManager from '../infrastructure/config-manager'
-import dateHelper from '../utils/date-helper'
-import { metricsStorage } from '../storage/metrics-storage'
+import { exec } from 'node:child_process'
+import fs from 'node:fs/promises'
+import path from 'node:path'
+import { promisify } from 'node:util'
 import {
-  generateAIToolContexts,
   DEFAULT_AI_TOOLS,
-  resolveToolIds,
   detectInstalledTools,
+  generateAIToolContexts,
   type ProjectContext,
-  type GenerateResult,
+  resolveToolIds,
 } from '../ai-tools'
+import configManager from '../infrastructure/config-manager'
+import pathManager from '../infrastructure/path-manager'
+import { metricsStorage } from '../storage/metrics-storage'
+import dateHelper from '../utils/date-helper'
 import { ContextFileGenerator } from './context-generator'
-import { StackDetector, type StackDetection } from './stack-detector'
+import { type StackDetection, StackDetector } from './stack-detector'
 
 const execAsync = promisify(exec)
 
@@ -85,10 +84,10 @@ interface AIToolResult {
 }
 
 interface SyncMetrics {
-  duration: number           // Sync duration in ms
-  originalSize: number       // Estimated tokens before compression
-  filteredSize: number       // Actual tokens in context files
-  compressionRate: number    // Percentage saved
+  duration: number // Sync duration in ms
+  originalSize: number // Estimated tokens before compression
+  filteredSize: number // Actual tokens in context files
+  compressionRate: number // Percentage saved
 }
 
 interface SyncResult {
@@ -108,7 +107,7 @@ interface SyncResult {
 }
 
 interface SyncOptions {
-  aiTools?: string[]  // AI tools to generate context for (default: claude, cursor)
+  aiTools?: string[] // AI tools to generate context for (default: claude, cursor)
 }
 
 // ============================================================================
@@ -204,8 +203,8 @@ class SyncService {
         hasChanges: git.hasChanges,
         commands,
         agents: {
-          workflow: agents.filter(a => a.type === 'workflow').map(a => a.name),
-          domain: agents.filter(a => a.type === 'domain').map(a => a.name),
+          workflow: agents.filter((a) => a.type === 'workflow').map((a) => a.name),
+          domain: agents.filter((a) => a.type === 'domain').map((a) => a.name),
         },
       }
 
@@ -225,12 +224,7 @@ class SyncService {
 
       // 9. Record metrics for value dashboard
       const duration = Date.now() - startTime
-      const syncMetrics = await this.recordSyncMetrics(
-        stats,
-        contextFiles,
-        agents,
-        duration
-      )
+      const syncMetrics = await this.recordSyncMetrics(stats, contextFiles, agents, duration)
 
       return {
         success: true,
@@ -243,7 +237,7 @@ class SyncService {
         agents,
         skills,
         contextFiles,
-        aiTools: aiToolResults.map(r => ({
+        aiTools: aiToolResults.map((r) => ({
           toolId: r.toolId,
           outputFile: r.outputFile,
           success: r.success,
@@ -276,7 +270,7 @@ class SyncService {
     const dirs = ['storage', 'context', 'agents', 'memory', 'analysis', 'config', 'sync']
     // Create all directories IN PARALLEL
     await Promise.all(
-      dirs.map(dir => fs.mkdir(path.join(this.globalPath, dir), { recursive: true }))
+      dirs.map((dir) => fs.mkdir(path.join(this.globalPath, dir), { recursive: true }))
     )
   }
 
@@ -308,13 +302,13 @@ class SyncService {
       const { stdout: commits } = await execAsync('git rev-list --count HEAD', {
         cwd: this.projectPath,
       })
-      data.commits = parseInt(commits.trim()) || 0
+      data.commits = parseInt(commits.trim(), 10) || 0
 
       // Contributors
       const { stdout: contributors } = await execAsync('git shortlog -sn --all | wc -l', {
         cwd: this.projectPath,
       })
-      data.contributors = parseInt(contributors.trim()) || 0
+      data.contributors = parseInt(contributors.trim(), 10) || 0
 
       // Status
       const { stdout: status } = await execAsync('git status --porcelain', {
@@ -352,7 +346,7 @@ class SyncService {
       const { stdout: weekly } = await execAsync('git log --oneline --since="1 week ago" | wc -l', {
         cwd: this.projectPath,
       })
-      data.weeklyCommits = parseInt(weekly.trim()) || 0
+      data.weeklyCommits = parseInt(weekly.trim(), 10) || 0
     } catch {
       // Not a git repo - use defaults
     }
@@ -381,7 +375,7 @@ class SyncService {
         'find . -type f \\( -name "*.js" -o -name "*.ts" -o -name "*.tsx" -o -name "*.py" -o -name "*.go" -o -name "*.rs" \\) -not -path "./node_modules/*" -not -path "./.git/*" | wc -l',
         { cwd: this.projectPath }
       )
-      stats.fileCount = parseInt(stdout.trim()) || 0
+      stats.fileCount = parseInt(stdout.trim(), 10) || 0
     } catch {
       stats.fileCount = 0
     }
@@ -424,7 +418,7 @@ class SyncService {
       stats.ecosystem = 'Go'
       stats.languages.push('Go')
     }
-    if (await this.fileExists('requirements.txt') || await this.fileExists('pyproject.toml')) {
+    if ((await this.fileExists('requirements.txt')) || (await this.fileExists('pyproject.toml'))) {
       stats.ecosystem = 'Python'
       stats.languages.push('Python')
     }
@@ -536,7 +530,7 @@ class SyncService {
 
     // Workflow agents (always generated) - IN PARALLEL
     const workflowAgents = ['prjct-workflow', 'prjct-planner', 'prjct-shipper']
-    await Promise.all(workflowAgents.map(name => this.generateWorkflowAgent(name, agentsPath)))
+    await Promise.all(workflowAgents.map((name) => this.generateWorkflowAgent(name, agentsPath)))
     for (const name of workflowAgents) {
       agents.push({ name, type: 'workflow' })
     }
@@ -563,7 +557,7 @@ class SyncService {
 
     // Generate all domain agents IN PARALLEL
     await Promise.all(
-      domainAgentsToGenerate.map(agent =>
+      domainAgentsToGenerate.map((agent) =>
         this.generateDomainAgent(agent.name, agentsPath, stats, stack)
       )
     )
@@ -735,12 +729,7 @@ You are the ${name} expert for this project. Apply best practices for the detect
       globalPath: this.globalPath,
     })
 
-    return generator.generate(
-      { branch: git.branch, commits: git.commits },
-      stats,
-      commands,
-      agents
-    )
+    return generator.generate({ branch: git.branch, commits: git.commits }, stats, commands, agents)
   }
 
   // ==========================================================================
@@ -813,7 +802,7 @@ You are the ${name} expert for this project. Apply best practices for the detect
     state.lastSync = dateHelper.getTimestamp()
     state.lastUpdated = dateHelper.getTimestamp()
     state.context = {
-      ...(state.context as Record<string, unknown> || {}),
+      ...((state.context as Record<string, unknown>) || {}),
       lastSession: dateHelper.getTimestamp(),
       lastAction: 'Synced project',
       nextAction: 'Run `p. task "description"` to start working',
@@ -838,7 +827,7 @@ You are the ${name} expert for this project. Apply best practices for the detect
       commitCount: git.commits,
     }
 
-    await fs.appendFile(memoryPath, JSON.stringify(event) + '\n', 'utf-8')
+    await fs.appendFile(memoryPath, `${JSON.stringify(event)}\n`, 'utf-8')
   }
 
   // ==========================================================================
@@ -894,9 +883,8 @@ You are the ${name} expert for this project. Apply best practices for the detect
     const originalSize = stats.fileCount * avgTokensPerFile
 
     // Calculate compression rate
-    const compressionRate = originalSize > 0
-      ? Math.max(0, (originalSize - filteredSize) / originalSize)
-      : 0
+    const compressionRate =
+      originalSize > 0 ? Math.max(0, (originalSize - filteredSize) / originalSize) : 0
 
     // Record to storage
     try {
@@ -905,7 +893,7 @@ You are the ${name} expert for this project. Apply best practices for the detect
         filteredSize,
         duration,
         isWatch: false,
-        agents: agents.filter(a => a.type === 'domain').map(a => a.name),
+        agents: agents.filter((a) => a.type === 'domain').map((a) => a.name),
       })
     } catch (error) {
       // Non-blocking - metrics are nice to have
@@ -997,4 +985,4 @@ You are the ${name} expert for this project. Apply best practices for the detect
 }
 
 export const syncService = new SyncService()
-export { SyncService, SyncResult }
+export { SyncService, type SyncResult }

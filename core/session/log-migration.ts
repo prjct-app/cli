@@ -3,12 +3,12 @@
  * Migrate legacy single-file logs to session structure
  */
 
-import path from 'path'
+import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
+import type { SessionEntry, SessionLogMetadata, SessionMigrationResult } from '../types'
 import * as dateHelper from '../utils/date-helper'
-import * as jsonlHelper from '../utils/jsonl-helper'
 import * as fileHelper from '../utils/file-helper'
-import type { SessionEntry, SessionMigrationResult, SessionLogMetadata } from '../types'
+import * as jsonlHelper from '../utils/jsonl-helper'
 
 /**
  * Migrate legacy JSONL file

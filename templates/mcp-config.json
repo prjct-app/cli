@@ -26,7 +26,12 @@
     },
     "monday": {
       "when": ["Working with Monday.com boards (p. monday)"],
-      "tools": ["create_item", "delete_item", "get_board_items_by_name", "change_item_column_values"],
+      "tools": [
+        "create_item",
+        "delete_item",
+        "get_board_items_by_name",
+        "change_item_column_values"
+      ],
       "setup": ["OAuth via browser on first use"]
     },
     "github": {

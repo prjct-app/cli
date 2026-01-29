@@ -7,8 +7,8 @@
  * @version 1.0.0
  */
 
-import { exec } from 'child_process'
-import { promisify } from 'util'
+import { exec } from 'node:child_process'
+import { promisify } from 'node:util'
 
 const execAsync = promisify(exec)
 
@@ -104,7 +104,7 @@ export class GitAnalyzer {
       const { stdout } = await execAsync('git rev-list --count HEAD', {
         cwd: this.projectPath,
       })
-      return parseInt(stdout.trim()) || 0
+      return parseInt(stdout.trim(), 10) || 0
     } catch {
       return 0
     }
@@ -118,7 +118,7 @@ export class GitAnalyzer {
       const { stdout } = await execAsync('git shortlog -sn --all | wc -l', {
         cwd: this.projectPath,
       })
-      return parseInt(stdout.trim()) || 0
+      return parseInt(stdout.trim(), 10) || 0
     } catch {
       return 0
     }
@@ -169,7 +169,9 @@ export class GitAnalyzer {
   /**
    * Get recent commits
    */
-  async getRecentCommits(count: number = 20): Promise<{ hash: string; message: string; date: string }[]> {
+  async getRecentCommits(
+    count: number = 20
+  ): Promise<{ hash: string; message: string; date: string }[]> {
     try {
       const { stdout } = await execAsync(
         `git log --oneline -${count} --pretty=format:"%h|%s|%ad" --date=short`,
@@ -196,7 +198,7 @@ export class GitAnalyzer {
       const { stdout } = await execAsync('git log --oneline --since="1 week ago" | wc -l', {
         cwd: this.projectPath,
       })
-      return parseInt(stdout.trim()) || 0
+      return parseInt(stdout.trim(), 10) || 0
     } catch {
       return 0
     }

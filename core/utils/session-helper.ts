@@ -1,7 +1,7 @@
-import path from 'path'
+import path from 'node:path'
 import * as dateHelper from './date-helper'
-import * as jsonlHelper from './jsonl-helper'
 import * as fileHelper from './file-helper'
+import * as jsonlHelper from './jsonl-helper'
 
 /**
  * Session Helper - High-level session operations
@@ -285,6 +285,5 @@ export default {
   readRecentSessions,
   getSessionStats,
   archiveOldSessions,
-  cleanEmptySessionDirs
+  cleanEmptySessionDirs,
 }
-

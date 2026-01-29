@@ -9,8 +9,8 @@
  * - shipped.md (completed features)
  */
 
-import fs from 'fs/promises'
-import path from 'path'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import dateHelper from '../utils/date-helper'
 
 // ============================================================================
@@ -230,7 +230,9 @@ Use \`p. task "description"\` to start working.
 
 ${
   queue.tasks.length > 0
-    ? queue.tasks.map((t, i) => `${i + 1}. ${t.description}${t.priority ? ` [${t.priority}]` : ''}`).join('\n')
+    ? queue.tasks
+        .map((t, i) => `${i + 1}. ${t.description}${t.priority ? ` [${t.priority}]` : ''}`)
+        .join('\n')
     : '_Empty queue_'
 }
 `

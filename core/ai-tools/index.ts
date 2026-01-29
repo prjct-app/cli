@@ -10,6 +10,6 @@
  * - Tool-specific output formats
  */
 
-export * from './registry'
 export * from './formatters'
 export * from './generator'
+export * from './registry'

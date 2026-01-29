@@ -8,14 +8,14 @@
  * auto-install on first CLI use. This is the reliable path.
  */
 
-import fs from 'fs'
-import path from 'path'
-import os from 'os'
-import { VERSION } from '../core/utils/version'
-import editorsConfig from '../core/infrastructure/editors-config'
-import { startServer, DEFAULT_PORT } from '../core/server/server'
-import configManager from '../core/infrastructure/config-manager'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import { detectAllProviders } from '../core/infrastructure/ai-provider'
+import configManager from '../core/infrastructure/config-manager'
+import editorsConfig from '../core/infrastructure/editors-config'
+import { DEFAULT_PORT, startServer } from '../core/server/server'
+import { VERSION } from '../core/utils/version'
 
 /**
  * Check if routers are installed for detected providers
@@ -53,7 +53,7 @@ function checkRoutersInstalled(): boolean {
 const args = process.argv.slice(2)
 
 // Parse --quiet / -q flag (must be done early, before any output)
-const quietIndex = args.findIndex(arg => arg === '--quiet' || arg === '-q')
+const quietIndex = args.findIndex((arg) => arg === '--quiet' || arg === '-q')
 const isQuietMode = quietIndex !== -1
 if (isQuietMode) {
   args.splice(quietIndex, 1) // Remove flag from args
@@ -87,7 +87,7 @@ if (args[0] === 'start' || args[0] === 'setup') {
       console.error('No prjct project found. Run "prjct init" first.')
       process.exitCode = 1
     } else {
-      const port = parseInt(args[1]) || DEFAULT_PORT
+      const port = parseInt(args[1], 10) || DEFAULT_PORT
       await startServer(projectId, projectPath, port)
     }
   } catch (error) {
@@ -138,10 +138,10 @@ if (args[0] === 'start' || args[0] === 'setup') {
 
     // Parse options
     const verbose = args.includes('--verbose') || args.includes('-v')
-    const debounceArg = args.find(a => a.startsWith('--debounce='))
-    const debounceMs = debounceArg ? parseInt(debounceArg.split('=')[1]) : undefined
-    const intervalArg = args.find(a => a.startsWith('--interval='))
-    const minIntervalMs = intervalArg ? parseInt(intervalArg.split('=')[1]) * 1000 : undefined
+    const debounceArg = args.find((a) => a.startsWith('--debounce='))
+    const debounceMs = debounceArg ? parseInt(debounceArg.split('=')[1], 10) : undefined
+    const intervalArg = args.find((a) => a.startsWith('--interval='))
+    const minIntervalMs = intervalArg ? parseInt(intervalArg.split('=')[1], 10) * 1000 : undefined
 
     const result = await watchService.start(projectPath, {
       verbose,
@@ -158,7 +158,7 @@ if (args[0] === 'start' || args[0] === 'setup') {
   }
 } else if (args[0] === 'linear') {
   // Linear CLI subcommand - direct access to Linear SDK
-  const { spawn } = await import('child_process')
+  const { spawn } = await import('node:child_process')
   const projectPath = process.cwd()
   const projectId = await configManager.getProjectId(projectPath)
 
@@ -318,7 +318,7 @@ ${CYAN}${BOLD}  Welcome to prjct!${RESET}
         const { default: setup } = await import('../core/infrastructure/setup')
         await setup.run()
       }
-    } catch (error) {
+    } catch (_error) {
       // Silent fail on version check
     }
 

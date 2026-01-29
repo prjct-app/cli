@@ -14,19 +14,19 @@
  *   state.json.currentTask.linearId ← DIRECT LINK
  */
 
-import { readFile, writeFile, mkdir } from 'fs/promises'
-import { existsSync } from 'fs'
-import { join } from 'path'
-import { linearService } from './service'
-import { getProjectPath } from '../../schemas/schemas'
+import { existsSync } from 'node:fs'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import {
-  type IssuesJson,
   type CachedIssue,
-  type SyncResult,
   createEmptyIssues,
+  type IssuesJson,
   parseIssues,
+  type SyncResult,
 } from '../../schemas/issues'
+import { getProjectPath } from '../../schemas/schemas'
 import type { Issue } from '../issue-tracker/types'
+import { linearService } from './service'
 
 // Default staleness threshold: 30 minutes
 const DEFAULT_STALE_AFTER = 30 * 60 * 1000
@@ -105,7 +105,7 @@ export class LinearSync {
     const issuesJson = await this.loadIssues(projectId)
 
     // Check local cache first
-    if (issuesJson && issuesJson.issues[identifier]) {
+    if (issuesJson?.issues[identifier]) {
       const cachedIssue = issuesJson.issues[identifier]
 
       // Check if cached issue is still fresh (within fetchedAt + some grace period)

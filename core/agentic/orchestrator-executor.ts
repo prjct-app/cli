@@ -13,20 +13,15 @@
  * @version 1.0.0
  */
 
-import fs from 'fs/promises'
-import path from 'path'
-import os from 'os'
-import pathManager from '../infrastructure/path-manager'
+import fs from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
 import configManager from '../infrastructure/config-manager'
+import pathManager from '../infrastructure/path-manager'
 import { stateStorage } from '../storage'
+import type { LoadedAgent, LoadedSkill, OrchestratorContext, OrchestratorSubtask } from '../types'
 import { isNotFoundError } from '../types/fs'
 import { parseFrontmatter } from './template-loader'
-import type {
-  OrchestratorContext,
-  LoadedAgent,
-  LoadedSkill,
-  OrchestratorSubtask,
-} from '../types'
 
 // =============================================================================
 // Domain Detection Keywords
@@ -38,49 +33,139 @@ import type {
  */
 const DOMAIN_KEYWORDS: Record<string, string[]> = {
   database: [
-    'database', 'db', 'sql', 'query', 'table', 'schema', 'migration',
-    'postgres', 'mysql', 'sqlite', 'mongo', 'redis', 'prisma', 'drizzle',
-    'orm', 'model', 'entity', 'repository', 'data layer', 'persist',
+    'database',
+    'db',
+    'sql',
+    'query',
+    'table',
+    'schema',
+    'migration',
+    'postgres',
+    'mysql',
+    'sqlite',
+    'mongo',
+    'redis',
+    'prisma',
+    'drizzle',
+    'orm',
+    'model',
+    'entity',
+    'repository',
+    'data layer',
+    'persist',
   ],
   backend: [
-    'api', 'endpoint', 'route', 'server', 'controller', 'service',
-    'middleware', 'auth', 'authentication', 'authorization', 'jwt', 'oauth',
-    'rest', 'graphql', 'trpc', 'express', 'fastify', 'hono', 'nest',
-    'validation', 'business logic',
+    'api',
+    'endpoint',
+    'route',
+    'server',
+    'controller',
+    'service',
+    'middleware',
+    'auth',
+    'authentication',
+    'authorization',
+    'jwt',
+    'oauth',
+    'rest',
+    'graphql',
+    'trpc',
+    'express',
+    'fastify',
+    'hono',
+    'nest',
+    'validation',
+    'business logic',
   ],
   frontend: [
-    'ui', 'component', 'page', 'form', 'button', 'input', 'modal', 'dialog',
-    'react', 'vue', 'svelte', 'angular', 'next', 'nuxt', 'solid',
-    'css', 'style', 'tailwind', 'layout', 'responsive', 'animation',
-    'hook', 'state', 'context', 'redux', 'zustand', 'jotai',
+    'ui',
+    'component',
+    'page',
+    'form',
+    'button',
+    'input',
+    'modal',
+    'dialog',
+    'react',
+    'vue',
+    'svelte',
+    'angular',
+    'next',
+    'nuxt',
+    'solid',
+    'css',
+    'style',
+    'tailwind',
+    'layout',
+    'responsive',
+    'animation',
+    'hook',
+    'state',
+    'context',
+    'redux',
+    'zustand',
+    'jotai',
   ],
   testing: [
-    'test', 'spec', 'unit', 'integration', 'e2e', 'jest', 'vitest',
-    'playwright', 'cypress', 'mocha', 'chai', 'mock', 'stub', 'fixture',
-    'coverage', 'assertion',
+    'test',
+    'spec',
+    'unit',
+    'integration',
+    'e2e',
+    'jest',
+    'vitest',
+    'playwright',
+    'cypress',
+    'mocha',
+    'chai',
+    'mock',
+    'stub',
+    'fixture',
+    'coverage',
+    'assertion',
   ],
   devops: [
-    'docker', 'kubernetes', 'k8s', 'ci', 'cd', 'pipeline', 'deploy',
-    'github actions', 'vercel', 'aws', 'gcp', 'azure', 'terraform',
-    'nginx', 'caddy', 'env', 'environment', 'config', 'secret',
+    'docker',
+    'kubernetes',
+    'k8s',
+    'ci',
+    'cd',
+    'pipeline',
+    'deploy',
+    'github actions',
+    'vercel',
+    'aws',
+    'gcp',
+    'azure',
+    'terraform',
+    'nginx',
+    'caddy',
+    'env',
+    'environment',
+    'config',
+    'secret',
   ],
   uxui: [
-    'design', 'ux', 'user experience', 'accessibility', 'a11y',
-    'color', 'typography', 'spacing', 'prototype', 'wireframe',
-    'figma', 'user flow', 'interaction',
+    'design',
+    'ux',
+    'user experience',
+    'accessibility',
+    'a11y',
+    'color',
+    'typography',
+    'spacing',
+    'prototype',
+    'wireframe',
+    'figma',
+    'user flow',
+    'interaction',
   ],
 }
 
 /**
  * Domain dependency order - earlier domains should complete first
  */
-const DOMAIN_DEPENDENCY_ORDER = [
-  'database',
-  'backend',
-  'frontend',
-  'testing',
-  'devops',
-]
+const DOMAIN_DEPENDENCY_ORDER = ['database', 'backend', 'frontend', 'testing', 'devops']
 
 // =============================================================================
 // Orchestrator Executor Class
@@ -108,11 +193,7 @@ export class OrchestratorExecutor {
     const repoAnalysis = await this.loadRepoAnalysis(globalPath)
 
     // Step 3: Detect domains from task + project context
-    const { domains, primary } = await this.detectDomains(
-      taskDescription,
-      projectId,
-      repoAnalysis
-    )
+    const { domains, primary } = await this.detectDomains(taskDescription, projectId, repoAnalysis)
 
     // Step 4: Load agents for detected domains
     const agents = await this.loadAgents(domains, projectId)
@@ -126,12 +207,7 @@ export class OrchestratorExecutor {
     // Step 7: Create subtasks if fragmentation is required
     let subtasks: OrchestratorSubtask[] | null = null
     if (requiresFragmentation && command === 'task') {
-      subtasks = await this.createSubtasks(
-        taskDescription,
-        domains,
-        agents,
-        projectId
-      )
+      subtasks = await this.createSubtasks(taskDescription, domains, agents, projectId)
     }
 
     return {
@@ -229,10 +305,8 @@ export class OrchestratorExecutor {
       .filter(([domain]) => {
         // Check if agent exists for this domain
         return availableAgents.some(
-          agent =>
-            agent === domain ||
-            agent.includes(domain) ||
-            domain.includes(agent.replace('.md', ''))
+          (agent) =>
+            agent === domain || agent.includes(domain) || domain.includes(agent.replace('.md', ''))
         )
       })
       .sort((a, b) => b[1] - a[1]) // Sort by score descending
@@ -256,7 +330,7 @@ export class OrchestratorExecutor {
     try {
       const agentsDir = path.join(globalPath, 'agents')
       const files = await fs.readdir(agentsDir)
-      return files.filter(f => f.endsWith('.md')).map(f => f.replace('.md', ''))
+      return files.filter((f) => f.endsWith('.md')).map((f) => f.replace('.md', ''))
     } catch {
       return []
     }
@@ -275,11 +349,7 @@ export class OrchestratorExecutor {
 
     for (const domain of domains) {
       // Try exact match first, then variations
-      const possibleNames = [
-        `${domain}.md`,
-        `${domain}-agent.md`,
-        `prjct-${domain}.md`,
-      ]
+      const possibleNames = [`${domain}.md`, `${domain}-agent.md`, `prjct-${domain}.md`]
 
       for (const fileName of possibleNames) {
         const filePath = path.join(agentsDir, fileName)
@@ -297,10 +367,7 @@ export class OrchestratorExecutor {
 
           // Found one, no need to try other variations
           break
-        } catch {
-          // Try next variation
-          continue
-        }
+        } catch {}
       }
     }
 
@@ -320,12 +387,12 @@ export class OrchestratorExecutor {
     const frontmatter = { ...parsed.frontmatter }
     if (typeof frontmatter.skills === 'string') {
       // Handle comma-separated string
-      frontmatter.skills = (frontmatter.skills as string).split(',').map(s => s.trim())
+      frontmatter.skills = (frontmatter.skills as string).split(',').map((s) => s.trim())
     }
 
     return {
       frontmatter: frontmatter as { skills?: string[]; [key: string]: unknown },
-      body: parsed.content
+      body: parsed.content,
     }
   }
 
@@ -438,11 +505,11 @@ export class OrchestratorExecutor {
     // Create subtask for each domain
     const subtasks: OrchestratorSubtask[] = sortedDomains.map((domain, index) => {
       // Find the agent for this domain
-      const agent = agents.find(a => a.domain === domain)
+      const agent = agents.find((a) => a.domain === domain)
       const agentFile = agent ? `${agent.name}.md` : `${domain}.md`
 
       // Determine dependencies - each subtask depends on previous ones
-      const dependsOn = sortedDomains.slice(0, index).map((d, i) => `subtask-${i + 1}`)
+      const dependsOn = sortedDomains.slice(0, index).map((_d, i) => `subtask-${i + 1}`)
 
       return {
         id: `subtask-${index + 1}`,
@@ -458,7 +525,7 @@ export class OrchestratorExecutor {
     // Store subtasks in state.json via state storage
     await stateStorage.createSubtasks(
       projectId,
-      subtasks.map(st => ({
+      subtasks.map((st) => ({
         id: st.id,
         description: st.description,
         domain: st.domain,
@@ -473,10 +540,7 @@ export class OrchestratorExecutor {
   /**
    * Generate a domain-specific subtask description
    */
-  private generateSubtaskDescription(
-    fullTask: string,
-    domain: string
-  ): string {
+  private generateSubtaskDescription(fullTask: string, domain: string): string {
     const domainDescriptions: Record<string, string> = {
       database: 'Set up data layer: schema, models, migrations',
       backend: 'Implement API: routes, controllers, services, validation',

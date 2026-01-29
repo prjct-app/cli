@@ -5,30 +5,30 @@
  * Each command is registered as a handler that receives context and returns a result.
  */
 
-import type { CommandResult } from '../types'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
+import type { CommandResult } from '../types'
 import { getTimestamp } from '../utils/date-helper'
 
 // Re-export types for convenience
 export type {
-  ExecutionContext,
+  BlockingRules,
+  CategoryInfo,
   CommandHandler,
+  CommandMeta,
+  CommandValidationResult as ValidationResult,
+  ExecutionContext,
   HandlerFn,
   RegistryCommandUsage as CommandUsage,
-  BlockingRules,
-  CommandMeta,
-  CategoryInfo,
   RegistryStats,
-  CommandValidationResult as ValidationResult,
 } from '../types'
 
 import type {
-  ExecutionContext,
-  CommandHandler,
-  HandlerFn,
-  CommandMeta,
   CategoryInfo,
+  CommandHandler,
+  CommandMeta,
+  ExecutionContext,
+  HandlerFn,
   RegistryStats,
 } from '../types'
 
@@ -60,7 +60,11 @@ export class CommandRegistry {
   /**
    * Register a command handler function (function-based)
    */
-  registerFn<TParams>(name: string, handler: HandlerFn<TParams>, meta?: Partial<CommandMeta>): void {
+  registerFn<TParams>(
+    name: string,
+    handler: HandlerFn<TParams>,
+    meta?: Partial<CommandMeta>
+  ): void {
     this.handlerFns.set(name, handler as HandlerFn<unknown>)
     this.setMeta(name, meta)
   }
@@ -134,10 +138,7 @@ export class CommandRegistry {
    * Get list of registered commands
    */
   list(): string[] {
-    return [
-      ...this.handlers.keys(),
-      ...this.handlerFns.keys(),
-    ]
+    return [...this.handlers.keys(), ...this.handlerFns.keys()]
   }
 
   /**

@@ -4,14 +4,14 @@
  * Handles project initialization detection, author management, and directory analysis.
  */
 
+import { ProjectError } from '../errors'
+import authorDetector from '../infrastructure/author-detector'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
-import authorDetector from '../infrastructure/author-detector'
+import type { Author, CommandResult } from '../types'
+import { isNotFoundError } from '../types/fs'
 import * as fileHelper from '../utils/file-helper'
 import out from '../utils/output'
-import { isNotFoundError } from '../types/fs'
-import type { Author, CommandResult } from '../types'
-import { ProjectError } from '../errors'
 
 export class ProjectService {
   private currentAuthor: Author | null = null

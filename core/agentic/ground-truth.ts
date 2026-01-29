@@ -11,10 +11,10 @@
  * Source: Devin, Cursor, Augment Code patterns
  */
 
-import fs from 'fs/promises'
-import path from 'path'
-import os from 'os'
-import { execSync } from 'child_process'
+import { execSync } from 'node:child_process'
+import fs from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
 
 import type { GroundTruthContext, VerificationResult, Verifier } from '../types'
 import { isNotFoundError } from '../types/fs'
@@ -99,7 +99,7 @@ export async function verifyDone(context: GroundTruthContext): Promise<Verificat
       actual.startedAt = startedMatch[1]
       // Calculate duration
       const startTime = new Date(startedMatch[1])
-      if (!isNaN(startTime.getTime())) {
+      if (!Number.isNaN(startTime.getTime())) {
         actual.durationMs = Date.now() - startTime.getTime()
         actual.durationFormatted = formatDuration(actual.durationMs as number)
       }
@@ -174,7 +174,7 @@ export async function verifyShip(context: GroundTruthContext): Promise<Verificat
       warnings.push(`${actual.uncommittedFiles} uncommitted file(s)`)
       recommendations.push('Commit changes before shipping')
     }
-  } catch (error) {
+  } catch (_error) {
     // Git errors (not a repo, git not installed) are not blockers
     actual.gitAvailable = false
   }
@@ -341,7 +341,9 @@ export async function verifyNow(context: GroundTruthContext): Promise<Verificati
     actual.nowContent = nowContent.trim()
 
     const hasRealTask =
-      nowContent.trim().length > 0 && !nowContent.includes('No current task') && !nowContent.match(/^#\s*NOW\s*$/m)
+      nowContent.trim().length > 0 &&
+      !nowContent.includes('No current task') &&
+      !nowContent.match(/^#\s*NOW\s*$/m)
 
     actual.hasActiveTask = hasRealTask
 
@@ -426,7 +428,7 @@ export async function verifyInit(context: GroundTruthContext): Promise<Verificat
         await fs.mkdir(globalPath, { recursive: true })
         actual.globalPathWritable = true
         actual.globalPathCreated = true
-      } catch (mkdirError) {
+      } catch (_mkdirError) {
         actual.globalPathWritable = false
         warnings.push('Cannot write to ~/.prjct-cli')
         recommendations.push('Check directory permissions')
@@ -657,7 +659,11 @@ export async function verify(
  * Prepare command by verifying ground truth
  * Returns enhanced context with verification results
  */
-export async function prepareCommand(commandName: string, context: GroundTruthContext, state: unknown) {
+export async function prepareCommand(
+  commandName: string,
+  context: GroundTruthContext,
+  state: unknown
+) {
   const verification = await verify(commandName, context, state)
 
   return {

@@ -1,7 +1,6 @@
-import path from 'path'
-
-import * as fileHelper from './file-helper'
+import path from 'node:path'
 import type { DetectedProjectCommands } from '../types'
+import * as fileHelper from './file-helper'
 
 type PackageManager = 'npm' | 'pnpm' | 'yarn' | 'bun'
 type DetectedStack = 'js' | 'python' | 'go' | 'rust' | 'dotnet' | 'java' | 'unknown'
@@ -21,7 +20,10 @@ interface PackageJson {
  *
  * Reason: installed users may not have Bun, and many projects use pnpm/yarn.
  */
-async function detectPackageManager(projectPath: string, pkg: PackageJson | null): Promise<PackageManager> {
+async function detectPackageManager(
+  projectPath: string,
+  pkg: PackageJson | null
+): Promise<PackageManager> {
   const declared = pkg?.packageManager?.trim().toLowerCase()
   if (declared?.startsWith('pnpm@')) return 'pnpm'
   if (declared?.startsWith('yarn@')) return 'yarn'
@@ -128,5 +130,3 @@ export async function detectProjectCommands(projectPath: string): Promise<Detect
 
   return { stack: 'unknown' }
 }
-
-

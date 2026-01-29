@@ -5,7 +5,7 @@
  * Used by registry for introspection and help display.
  */
 
-import type { CommandMeta, CategoryInfo } from '../types'
+import type { CategoryInfo, CommandMeta } from '../types'
 
 // Category definitions
 export const CATEGORIES: Record<string, CategoryInfo> = {
@@ -38,7 +38,11 @@ export const COMMANDS: CommandMeta[] = [
     implemented: true,
     hasTemplate: true,
     requiresProject: false,
-    features: ['Architect mode for blank projects', 'Auto tech stack recommendation', 'Analyzes existing codebases'],
+    features: [
+      'Architect mode for blank projects',
+      'Auto tech stack recommendation',
+      'Analyzes existing codebases',
+    ],
   },
   {
     name: 'idea',
@@ -60,7 +64,12 @@ export const COMMANDS: CommandMeta[] = [
     implemented: true,
     hasTemplate: true,
     requiresProject: true,
-    features: ['Agentic type classification', '7-phase workflow', 'Git branch management', 'Task breakdown'],
+    features: [
+      'Agentic type classification',
+      '7-phase workflow',
+      'Git branch management',
+      'Task breakdown',
+    ],
   },
   {
     name: 'spec',
@@ -350,4 +359,3 @@ export const COMMANDS: CommandMeta[] = [
     ],
   },
 ]
-

@@ -3,13 +3,13 @@
  * Tests for file system error utilities
  */
 
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import {
-  isNotFoundError,
-  isPermissionError,
   isDirNotEmptyError,
   isFileExistsError,
   isNodeError,
+  isNotFoundError,
+  isPermissionError,
 } from '../../types/fs'
 
 describe('FS Error Utilities', () => {

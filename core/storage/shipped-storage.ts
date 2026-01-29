@@ -5,10 +5,10 @@
  * Generates context/shipped.md for Claude
  */
 
-import { StorageManager } from './storage-manager'
 import { generateUUID } from '../schemas'
-import { getTimestamp } from '../utils/date-helper'
 import type { ShippedFeature, ShippedJson } from '../types'
+import { getTimestamp } from '../utils/date-helper'
+import { StorageManager } from './storage-manager'
 
 class ShippedStorage extends StorageManager<ShippedJson> {
   constructor() {
@@ -18,7 +18,7 @@ class ShippedStorage extends StorageManager<ShippedJson> {
   protected getDefault(): ShippedJson {
     return {
       shipped: [],
-      lastUpdated: ''
+      lastUpdated: '',
     }
   }
 
@@ -46,7 +46,7 @@ class ShippedStorage extends StorageManager<ShippedJson> {
     // Group by month
     const byMonth = new Map<string, ShippedFeature[]>()
 
-    data.shipped.forEach(ship => {
+    data.shipped.forEach((ship) => {
       const date = new Date(ship.shippedAt)
       const month = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' })
 
@@ -63,18 +63,18 @@ class ShippedStorage extends StorageManager<ShippedJson> {
       return dateB.getTime() - dateA.getTime()
     })
 
-    sortedMonths.forEach(month => {
+    sortedMonths.forEach((month) => {
       lines.push(`## ${month}`)
       lines.push('')
 
-      const ships = byMonth.get(month)!.sort(
-        (a, b) => new Date(b.shippedAt).getTime() - new Date(a.shippedAt).getTime()
-      )
+      const ships = byMonth
+        .get(month)!
+        .sort((a, b) => new Date(b.shippedAt).getTime() - new Date(a.shippedAt).getTime())
 
-      ships.forEach(ship => {
+      ships.forEach((ship) => {
         const date = new Date(ship.shippedAt).toLocaleDateString('en-US', {
           month: 'short',
-          day: 'numeric'
+          day: 'numeric',
         })
         const version = ship.version ? ` v${ship.version}` : ''
         const duration = ship.duration ? ` (${ship.duration})` : ''
@@ -126,12 +126,12 @@ class ShippedStorage extends StorageManager<ShippedJson> {
     const shipped: ShippedFeature = {
       ...feature,
       id: generateUUID(),
-      shippedAt: getTimestamp()
+      shippedAt: getTimestamp(),
     }
 
     await this.update(projectId, (data) => ({
       shipped: [shipped, ...data.shipped], // Prepend
-      lastUpdated: getTimestamp()
+      lastUpdated: getTimestamp(),
     }))
 
     // Publish event
@@ -139,7 +139,7 @@ class ShippedStorage extends StorageManager<ShippedJson> {
       shipId: shipped.id,
       name: shipped.name,
       version: shipped.version,
-      shippedAt: shipped.shippedAt
+      shippedAt: shipped.shippedAt,
     })
 
     return shipped
@@ -148,12 +148,9 @@ class ShippedStorage extends StorageManager<ShippedJson> {
   /**
    * Get shipped by version
    */
-  async getByVersion(
-    projectId: string,
-    version: string
-  ): Promise<ShippedFeature | undefined> {
+  async getByVersion(projectId: string, version: string): Promise<ShippedFeature | undefined> {
     const data = await this.read(projectId)
-    return data.shipped.find(s => s.version === version)
+    return data.shipped.find((s) => s.version === version)
   }
 
   /**
@@ -173,7 +170,7 @@ class ShippedStorage extends StorageManager<ShippedJson> {
     endDate: Date
   ): Promise<ShippedFeature[]> {
     const data = await this.read(projectId)
-    return data.shipped.filter(s => {
+    return data.shipped.filter((s) => {
       const date = new Date(s.shippedAt)
       return date >= startDate && date <= endDate
     })
@@ -205,7 +202,7 @@ class ShippedStorage extends StorageManager<ShippedJson> {
 
     return {
       count: shipped.length,
-      period
+      period,
     }
   }
 }

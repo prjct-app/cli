@@ -4,11 +4,11 @@
  * @version 1.0.0
  */
 
-import fs from 'fs/promises'
-import path from 'path'
-import os from 'os'
-import AgentLoader from './agent-loader'
+import fs from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
 import log from '../utils/logger'
+import AgentLoader from './agent-loader'
 
 interface AgentConfig {
   role?: string
@@ -152,7 +152,9 @@ ${config.contextFilter || 'Only relevant files'}
   async listAgents(): Promise<string[]> {
     try {
       const files = await fs.readdir(this.outputDir)
-      return files.filter((f) => f.endsWith('.md') && !f.startsWith('.')).map((f) => f.replace('.md', ''))
+      return files
+        .filter((f) => f.endsWith('.md') && !f.startsWith('.'))
+        .map((f) => f.replace('.md', ''))
     } catch (_error) {
       return []
     }

@@ -5,10 +5,10 @@
  * Used by SyncClient to authenticate with prjct API
  */
 
-import path from 'path'
-import * as fileHelper from '../utils/file-helper'
+import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
 import type { AuthConfig } from '../types'
+import * as fileHelper from '../utils/file-helper'
 
 const DEFAULT_API_URL = 'https://api.prjct.app'
 
@@ -121,7 +121,7 @@ class AuthConfigManager {
     return {
       authenticated: config.apiKey !== null,
       email: config.email,
-      apiKeyPrefix: config.apiKey ? config.apiKey.substring(0, 12) + '...' : null,
+      apiKeyPrefix: config.apiKey ? `${config.apiKey.substring(0, 12)}...` : null,
       lastAuth: config.lastAuth,
     }
   }

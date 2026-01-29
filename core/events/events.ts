@@ -6,10 +6,9 @@
  */
 
 import pathManager from '../infrastructure/path-manager'
-import * as fileHelper from '../utils/file-helper'
+import type { SyncEvent, SyncEventType } from '../types'
 import { getTimestamp } from '../utils/date-helper'
-
-import type { SyncEventType, SyncEvent } from '../types'
+import * as fileHelper from '../utils/file-helper'
 
 /**
  * Infer event type from path and action
@@ -84,4 +83,3 @@ class EventBus {
 
 export const eventBus = new EventBus()
 export default eventBus
-

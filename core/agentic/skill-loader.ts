@@ -8,7 +8,7 @@
  */
 
 import skillService from '../services/skill-service'
-import type { Skill, FormattedSkill, SkillContext } from '../types'
+import type { FormattedSkill, Skill, SkillContext } from '../types'
 
 /**
  * Format a skill for inclusion in prompts
@@ -30,12 +30,7 @@ function generateSkillsMarkdown(skills: Skill[]): string {
     return ''
   }
 
-  const lines: string[] = [
-    '## Available Skills',
-    '',
-    'The following skills can be invoked:',
-    '',
-  ]
+  const lines: string[] = ['## Available Skills', '', 'The following skills can be invoked:', '']
 
   for (const skill of skills) {
     lines.push(`- **${skill.name}** (\`${skill.id}\`): ${skill.description || 'No description'}`)
@@ -65,7 +60,10 @@ export async function loadSkillContext(projectPath?: string): Promise<SkillConte
 /**
  * Get a specific skill's prompt content
  */
-export async function getSkillPrompt(skillId: string, projectPath?: string): Promise<string | null> {
+export async function getSkillPrompt(
+  skillId: string,
+  projectPath?: string
+): Promise<string | null> {
   const skill = await skillService.get(skillId, projectPath)
   return skill?.content || null
 }
@@ -102,11 +100,7 @@ export async function buildSkillSystemPrompt(projectPath?: string): Promise<stri
     return ''
   }
 
-  return [
-    '<skills>',
-    skillsMarkdown,
-    '',
-    'To invoke a skill, use the skill ID.',
-    '</skills>',
-  ].join('\n')
+  return ['<skills>', skillsMarkdown, '', 'To invoke a skill, use the skill ID.', '</skills>'].join(
+    '\n'
+  )
 }

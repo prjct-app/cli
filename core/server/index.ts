@@ -7,16 +7,15 @@
  * @version 1.0.0
  */
 
-export { createServer, startServer, DEFAULT_PORT } from './server'
-export { createRoutes } from './routes'
-export { createExtendedRoutes } from './routes-extended'
-export { createSSEManager, SSE_EVENTS } from './sse'
-
 // Re-export types from canonical location
 export type {
   ServerConfig,
   ServerInstance,
   SSEClient,
-  SSEManager,
   SSEEventType,
+  SSEManager,
 } from '../types'
+export { createRoutes } from './routes'
+export { createExtendedRoutes } from './routes-extended'
+export { createServer, DEFAULT_PORT, startServer } from './server'
+export { createSSEManager, SSE_EVENTS } from './sse'

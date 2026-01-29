@@ -3,26 +3,25 @@
  * Write-Through Architecture: JSON → MD → Event
  */
 
-import path from 'path'
-
-import type { CommandResult, ProjectContext } from '../types'
-import { generateUUID } from '../schemas'
-import type { Priority, TaskType, TaskSection } from '../schemas/state'
-import {
-  PrjctCommandsBase,
-  contextBuilder,
-  toolRegistry,
-  pathManager,
-  configManager,
-  fileHelper,
-  dateHelper,
-  out
-} from './base'
-import { queueStorage, ideasStorage } from '../storage'
+import path from 'node:path'
 import authorDetector from '../infrastructure/author-detector'
 import commandInstaller from '../infrastructure/command-installer'
+import { generateUUID } from '../schemas'
+import type { Priority, TaskSection, TaskType } from '../schemas/state'
+import { ideasStorage, queueStorage } from '../storage'
+import type { CommandResult, ProjectContext } from '../types'
 import { showNextSteps } from '../utils/next-steps'
 import { OnboardingWizard } from '../wizard'
+import {
+  configManager,
+  contextBuilder,
+  dateHelper,
+  fileHelper,
+  out,
+  PrjctCommandsBase,
+  pathManager,
+  toolRegistry,
+} from './base'
 
 // Lazy-loaded to avoid circular dependencies
 let _analysisCommands: import('./analysis').AnalysisCommands | null = null
@@ -35,8 +34,8 @@ async function getAnalysisCommands(): Promise<import('./analysis').AnalysisComma
 }
 
 export interface InitOptions {
-  yes?: boolean  // Skip interactive wizard, use defaults
-  idea?: string | null  // Initial idea for architect mode
+  yes?: boolean // Skip interactive wizard, use defaults
+  idea?: string | null // Initial idea for architect mode
 }
 
 export class PlanningCommands extends PrjctCommandsBase {
@@ -95,7 +94,7 @@ export class PlanningCommands extends PrjctCommandsBase {
       const author = {
         name: detectedAuthor.name || undefined,
         email: detectedAuthor.email || undefined,
-        github: detectedAuthor.github || undefined
+        github: detectedAuthor.github || undefined,
       }
       const config = await configManager.createConfig(projectPath, author)
       const projectId = config.projectId
@@ -115,24 +114,32 @@ export class PlanningCommands extends PrjctCommandsBase {
         'planning/roadmap.md': '# ROADMAP\n\n',
         'planning/specs/.gitkeep': '# Specs directory - created by /p:spec\n',
         'memory/context.jsonl': '',
-        'memory/patterns.json': JSON.stringify({
-          version: 1,
-          decisions: {},
-          preferences: {},
-          workflows: {},
-          counters: {}
-        }, null, 2),
+        'memory/patterns.json': JSON.stringify(
+          {
+            version: 1,
+            decisions: {},
+            preferences: {},
+            workflows: {},
+            counters: {},
+          },
+          null,
+          2
+        ),
       }
 
       // Save wizard preferences if available
       if (wizardResult) {
-        baseFiles['config/wizard.json'] = JSON.stringify({
-          projectType: wizardResult.projectType,
-          agents: wizardResult.agents,
-          stack: wizardResult.stack,
-          preferences: wizardResult.preferences,
-          createdAt: new Date().toISOString(),
-        }, null, 2)
+        baseFiles['config/wizard.json'] = JSON.stringify(
+          {
+            projectType: wizardResult.projectType,
+            agents: wizardResult.agents,
+            stack: wizardResult.stack,
+            preferences: wizardResult.preferences,
+            createdAt: new Date().toISOString(),
+          },
+          null,
+          2
+        )
       }
 
       for (const [filePath, content] of Object.entries(baseFiles)) {
@@ -203,16 +210,24 @@ export class PlanningCommands extends PrjctCommandsBase {
     console.log('')
 
     if (wizardResult) {
-      const agentFiles = wizardResult.agents.map(a => {
-        switch (a) {
-          case 'claude': return 'CLAUDE.md'
-          case 'cursor': return '.cursorrules'
-          case 'windsurf': return '.windsurfrules'
-          case 'copilot': return '.github/copilot-instructions.md'
-          case 'gemini': return 'GEMINI.md'
-          default: return null
-        }
-      }).filter(Boolean)
+      const agentFiles = wizardResult.agents
+        .map((a) => {
+          switch (a) {
+            case 'claude':
+              return 'CLAUDE.md'
+            case 'cursor':
+              return '.cursorrules'
+            case 'windsurf':
+              return '.windsurfrules'
+            case 'copilot':
+              return '.github/copilot-instructions.md'
+            case 'gemini':
+              return 'GEMINI.md'
+            default:
+              return null
+          }
+        })
+        .filter(Boolean)
 
       if (agentFiles.length > 0) {
         console.log(`  Generated: ${agentFiles.join(', ')}`)
@@ -245,7 +260,7 @@ export class PlanningCommands extends PrjctCommandsBase {
 
       out.spin(`planning ${description}...`)
 
-      const context = await contextBuilder.build(projectPath, { description }) as ProjectContext
+      const context = (await contextBuilder.build(projectPath, { description })) as ProjectContext
       const tasks = this._breakdownFeatureTasks(description)
       const featureId = generateUUID()
 
@@ -257,21 +272,24 @@ export class PlanningCommands extends PrjctCommandsBase {
       }
 
       // Write-through: Add tasks (JSON → MD → Event)
-      await queueStorage.addTasks(projectId, tasksWithAgents.map(t => ({
-        description: t.task,
-        priority: 'medium' as Priority,
-        type: 'feature' as TaskType,
-        section: 'active' as TaskSection,
-        featureId,
-        originFeature: description,
-        agent: t.agent
-      })))
+      await queueStorage.addTasks(
+        projectId,
+        tasksWithAgents.map((t) => ({
+          description: t.task,
+          priority: 'medium' as Priority,
+          type: 'feature' as TaskType,
+          section: 'active' as TaskSection,
+          featureId,
+          originFeature: description,
+          agent: t.agent,
+        }))
+      )
 
       await this.logToMemory(projectPath, 'feature_planned', {
         feature: description,
         featureId,
         tasks: tasksWithAgents.length,
-        assignments: tasksWithAgents.map(t => ({ task: t.task, agent: t.agent })),
+        assignments: tasksWithAgents.map((t) => ({ task: t.task, agent: t.agent })),
         timestamp: dateHelper.getTimestamp(),
       })
 
@@ -279,7 +297,9 @@ export class PlanningCommands extends PrjctCommandsBase {
         acc[t.agent] = (acc[t.agent] || 0) + 1
         return acc
       }, {})
-      const agentSummary = Object.entries(agentCounts).map(([a, c]) => `${a}:${c}`).join(' ')
+      const agentSummary = Object.entries(agentCounts)
+        .map(([a, c]) => `${a}:${c}`)
+        .join(' ')
 
       out.done(`${tasks.length} tasks [${agentSummary}]`)
 
@@ -311,18 +331,22 @@ export class PlanningCommands extends PrjctCommandsBase {
 
       out.spin('tracking bug...')
 
-      const context = await contextBuilder.build(projectPath, { description }) as ProjectContext
+      const context = (await contextBuilder.build(projectPath, { description })) as ProjectContext
       const severity = this._detectBugSeverity(description)
 
-      const agentResult = await this._assignAgentForTask(`fix bug: ${description}`, projectPath, context)
+      const agentResult = await this._assignAgentForTask(
+        `fix bug: ${description}`,
+        projectPath,
+        context
+      )
       const agent = agentResult.agent?.name || 'generalist'
 
       // Map severity to Priority type
       const priorityMap: Record<string, Priority> = {
-        'critical': 'critical',
-        'high': 'high',
-        'medium': 'medium',
-        'low': 'low'
+        critical: 'critical',
+        high: 'high',
+        medium: 'medium',
+        low: 'low',
       }
       const priority = priorityMap[severity] || 'medium'
 
@@ -332,7 +356,7 @@ export class PlanningCommands extends PrjctCommandsBase {
         priority,
         type: 'bug' as TaskType,
         section: 'active' as TaskSection,
-        agent
+        agent,
       })
 
       await this.logToMemory(projectPath, 'bug_reported', {
@@ -356,7 +380,10 @@ export class PlanningCommands extends PrjctCommandsBase {
   /**
    * /p:architect - Execute architect plan and generate code
    */
-  async architect(action: string = 'execute', projectPath: string = process.cwd()): Promise<CommandResult> {
+  async architect(
+    action: string = 'execute',
+    projectPath: string = process.cwd()
+  ): Promise<CommandResult> {
     if (action !== 'execute') {
       return {
         success: false,
@@ -411,7 +438,7 @@ export class PlanningCommands extends PrjctCommandsBase {
       console.log(`\n🔧 Stack:\n${stack}`)
       console.log(`\n📋 Implementation Steps:\n${steps}`)
 
-      console.log('\n' + '='.repeat(60))
+      console.log(`\n${'='.repeat(60)}`)
       console.log('🤖 READY TO GENERATE CODE')
       console.log('='.repeat(60))
 
@@ -464,7 +491,8 @@ export class PlanningCommands extends PrjctCommandsBase {
 
       // Determine if simple or complex idea
       const wordCount = description.split(/\s+/).length
-      const isComplex = wordCount > 20 || description.includes('with') || description.includes('that')
+      const isComplex =
+        wordCount > 20 || description.includes('with') || description.includes('that')
 
       if (isComplex) {
         // Complex idea → Create architecture session
@@ -524,7 +552,10 @@ Generated: ${new Date().toLocaleString()}
   /**
    * /p:spec - Create detailed specifications for complex features
    */
-  async spec(featureName: string | null = null, projectPath: string = process.cwd()): Promise<CommandResult> {
+  async spec(
+    featureName: string | null = null,
+    projectPath: string = process.cwd()
+  ): Promise<CommandResult> {
     try {
       const initResult = await this.ensureProjectInit(projectPath)
       if (!initResult.success) return initResult
@@ -543,9 +574,9 @@ Generated: ${new Date().toLocaleString()}
         const specsPath = path.join(globalPath, 'planning', 'specs')
 
         try {
-          const fs = await import('fs/promises')
+          const fs = await import('node:fs/promises')
           const files = await fs.readdir(specsPath)
-          const specs = files.filter(f => f.endsWith('.md') && f !== '.gitkeep')
+          const specs = files.filter((f) => f.endsWith('.md') && f !== '.gitkeep')
 
           if (specs.length === 0) {
             out.warn('no specs yet')
@@ -559,7 +590,7 @@ Generated: ${new Date().toLocaleString()}
             const name = s.replace('.md', '').replace(/-/g, ' ')
             console.log(`  ${i + 1}. ${name}`)
           })
-          console.log('═'.repeat(50) + '\n')
+          console.log(`${'═'.repeat(50)}\n`)
 
           return { success: true, specs }
         } catch (_error) {

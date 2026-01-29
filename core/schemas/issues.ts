@@ -14,7 +14,14 @@ import { z } from 'zod'
 // =============================================================================
 
 export const IssueProviderSchema = z.enum(['linear', 'jira', 'github', 'monday', 'asana', 'none'])
-export const IssueStatusSchema = z.enum(['backlog', 'todo', 'in_progress', 'in_review', 'done', 'cancelled'])
+export const IssueStatusSchema = z.enum([
+  'backlog',
+  'todo',
+  'in_progress',
+  'in_review',
+  'done',
+  'cancelled',
+])
 export const IssuePrioritySchema = z.enum(['none', 'urgent', 'high', 'medium', 'low'])
 export const IssueTypeSchema = z.enum(['feature', 'bug', 'improvement', 'task', 'chore', 'epic'])
 
@@ -27,8 +34,8 @@ export const IssueTypeSchema = z.enum(['feature', 'bug', 'improvement', 'task', 
  */
 export const CachedIssueSchema = z.object({
   // Core identifiers
-  id: z.string(),                    // Provider UUID
-  identifier: z.string(),            // Human-readable ID (e.g., "PRJ-123")
+  id: z.string(), // Provider UUID
+  identifier: z.string(), // Human-readable ID (e.g., "PRJ-123")
 
   // Issue content
   title: z.string(),
@@ -40,27 +47,33 @@ export const CachedIssueSchema = z.object({
   type: IssueTypeSchema.optional(),
 
   // Metadata
-  assignee: z.object({
-    id: z.string(),
-    name: z.string(),
-    email: z.string().optional(),
-  }).optional(),
+  assignee: z
+    .object({
+      id: z.string(),
+      name: z.string(),
+      email: z.string().optional(),
+    })
+    .optional(),
   labels: z.array(z.string()).default([]),
-  team: z.object({
-    id: z.string(),
-    name: z.string(),
-    key: z.string().optional(),
-  }).optional(),
-  project: z.object({
-    id: z.string(),
-    name: z.string(),
-  }).optional(),
+  team: z
+    .object({
+      id: z.string(),
+      name: z.string(),
+      key: z.string().optional(),
+    })
+    .optional(),
+  project: z
+    .object({
+      id: z.string(),
+      name: z.string(),
+    })
+    .optional(),
 
   // URLs and timestamps
   url: z.string(),
-  createdAt: z.string(),             // ISO8601 from provider
-  updatedAt: z.string(),             // ISO8601 from provider
-  fetchedAt: z.string(),             // ISO8601 when we cached it
+  createdAt: z.string(), // ISO8601 from provider
+  updatedAt: z.string(), // ISO8601 from provider
+  fetchedAt: z.string(), // ISO8601 when we cached it
 })
 
 // =============================================================================
@@ -76,7 +89,7 @@ export const IssuesJsonSchema = z.object({
   provider: IssueProviderSchema,
 
   // Sync metadata
-  lastSync: z.string(),              // ISO8601 of last full sync
+  lastSync: z.string(), // ISO8601 of last full sync
   staleAfter: z.number().default(1800000), // 30 minutes in ms
 
   // Issues map: identifier -> issue
@@ -91,10 +104,12 @@ export const SyncResultSchema = z.object({
   provider: IssueProviderSchema,
   fetched: z.number(),
   updated: z.number(),
-  errors: z.array(z.object({
-    issueId: z.string(),
-    error: z.string(),
-  })),
+  errors: z.array(
+    z.object({
+      issueId: z.string(),
+      error: z.string(),
+    })
+  ),
   timestamp: z.string(),
 })
 

@@ -4,14 +4,19 @@
  * Writes to sessions/YYYY-MM/DD/ structure with auto-rotation.
  */
 
-import path from 'path'
+import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
-import { VERSION } from '../utils/version'
+import type {
+  SessionEntry,
+  SessionLogMetadata,
+  SessionMigrationResult,
+  SessionStats,
+} from '../types'
 import * as dateHelper from '../utils/date-helper'
-import * as jsonlHelper from '../utils/jsonl-helper'
 import * as fileHelper from '../utils/file-helper'
+import * as jsonlHelper from '../utils/jsonl-helper'
+import { VERSION } from '../utils/version'
 import { migrateLegacyJsonl, migrateLegacyMarkdown } from './log-migration'
-import type { SessionEntry, SessionLogMetadata, SessionStats, SessionMigrationResult } from '../types'
 
 export class SessionLogManager {
   private currentSessionCache: Map<string, string>
@@ -69,7 +74,7 @@ export class SessionLogManager {
 
     const exists = await fileHelper.fileExists(filePath)
     if (!exists && filename === 'shipped.md') {
-      await fileHelper.writeFile(filePath, '# SHIPPED 🚀\n\n' + content)
+      await fileHelper.writeFile(filePath, `# SHIPPED 🚀\n\n${content}`)
     } else {
       await fileHelper.appendToFile(filePath, content)
     }
@@ -218,11 +223,8 @@ export class SessionLogManager {
         )
       } else {
         const sessionPath = await this.getCurrentSession(projectId)
-        return await migrateLegacyMarkdown(
-          sessionPath,
-          content,
-          sessionFilename,
-          (sp, u) => this._updateSessionLogMetadata(sp, u)
+        return await migrateLegacyMarkdown(sessionPath, content, sessionFilename, (sp, u) =>
+          this._updateSessionLogMetadata(sp, u)
         )
       }
     } catch (error) {
@@ -292,13 +294,6 @@ export class SessionLogManager {
    */
   private _getTodayKey(): string {
     return dateHelper.getTodayKey()
-  }
-
-  /**
-   * Get date key for any date (YYYY-MM-DD)
-   */
-  private _getDateKey(date: Date): string {
-    return dateHelper.getDateKey(date)
   }
 
   clearCache(): void {

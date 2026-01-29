@@ -23,5 +23,5 @@ export const DEFAULT_AGENT: Omit<AgentSchema, 'name' | 'description'> = {
   patterns: [],
   filesOwned: [],
   bestFor: [],
-  avoidFor: []
+  avoidFor: [],
 }

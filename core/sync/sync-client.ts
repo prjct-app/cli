@@ -5,14 +5,9 @@
  * Uses native fetch API (available in Node 18+ and Bun).
  */
 
-import authConfig from './auth-config'
 import type { SyncEvent } from '../events'
-import type {
-  SyncBatchResult,
-  SyncPullResult,
-  SyncStatus,
-  SyncClientError,
-} from '../types'
+import type { SyncBatchResult, SyncClientError, SyncPullResult, SyncStatus } from '../types'
+import authConfig from './auth-config'
 
 // ============================================
 // Sync Client
@@ -167,7 +162,7 @@ class SyncClient {
       // Retry on server errors (5xx) but not client errors (4xx)
       if (response.status >= 500 && retryCount < this.retryConfig.maxRetries) {
         const delay = Math.min(
-          this.retryConfig.baseDelayMs * Math.pow(2, retryCount),
+          this.retryConfig.baseDelayMs * 2 ** retryCount,
           this.retryConfig.maxDelayMs
         )
         await this.sleep(delay)
@@ -179,7 +174,7 @@ class SyncClient {
       // Retry on network errors
       if (retryCount < this.retryConfig.maxRetries) {
         const delay = Math.min(
-          this.retryConfig.baseDelayMs * Math.pow(2, retryCount),
+          this.retryConfig.baseDelayMs * 2 ** retryCount,
           this.retryConfig.maxDelayMs
         )
         await this.sleep(delay)

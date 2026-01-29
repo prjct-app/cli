@@ -5,14 +5,8 @@
  * Powers the learning loop for better estimates and agent selection.
  */
 
+import type { AgentMetrics, DetectedPattern, Outcome, OutcomeSummary } from '../types'
 import outcomeRecorder from './recorder'
-import type {
-  Outcome,
-  OutcomeSummary,
-  QualityScore,
-  DetectedPattern,
-  AgentMetrics,
-} from '../types'
 
 /**
  * OutcomeAnalyzer - Extracts insights from outcomes.
@@ -36,8 +30,7 @@ export class OutcomeAnalyzer {
     }
 
     // Calculate average quality
-    const avgQuality =
-      outcomes.reduce((sum, o) => sum + o.qualityScore, 0) / outcomes.length
+    const avgQuality = outcomes.reduce((sum, o) => sum + o.qualityScore, 0) / outcomes.length
 
     // Calculate estimate accuracy
     const estimateAccuracy = await outcomeRecorder.getEstimateAccuracy(projectId)
@@ -98,8 +91,7 @@ export class OutcomeAnalyzer {
       const successful = agentOutcomes.filter((o) => o.completedAsPlanned)
       const successRate = Math.round((successful.length / tasksCompleted) * 100)
 
-      const avgQuality =
-        agentOutcomes.reduce((sum, o) => sum + o.qualityScore, 0) / tasksCompleted
+      const avgQuality = agentOutcomes.reduce((sum, o) => sum + o.qualityScore, 0) / tasksCompleted
 
       // Calculate estimate accuracy for this agent
       const accurateEstimates = agentOutcomes.filter((o) => {
@@ -109,9 +101,7 @@ export class OutcomeAnalyzer {
         if (estimated === 0) return false
         return Math.abs(variance) / estimated <= 0.2
       })
-      const estimateAccuracy = Math.round(
-        (accurateEstimates.length / tasksCompleted) * 100
-      )
+      const estimateAccuracy = Math.round((accurateEstimates.length / tasksCompleted) * 100)
 
       // Find best task types
       const taskTypes = new Map<string, number>()
@@ -214,10 +204,7 @@ export class OutcomeAnalyzer {
   /**
    * Suggest estimate for a task type based on history.
    */
-  async suggestEstimate(
-    projectId: string,
-    taskType: string
-  ): Promise<string | null> {
+  async suggestEstimate(projectId: string, taskType: string): Promise<string | null> {
     const outcomes = await outcomeRecorder.getAll(projectId)
 
     // Filter by task type (using tags)

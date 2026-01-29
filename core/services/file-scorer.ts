@@ -13,7 +13,7 @@
  * Files with score > 30 are considered relevant
  */
 
-import path from 'path'
+import path from 'node:path'
 
 // ============================================================================
 // TYPES
@@ -23,22 +23,22 @@ export interface FileScore {
   path: string
   score: number
   factors: {
-    recency: number        // 0-20
-    centrality: number     // 0-25
+    recency: number // 0-20
+    centrality: number // 0-25
     configRelevance: number // 0-20
-    nameRelevance: number  // 0-15
-    sizeOptimal: number    // 0-10
-    gitActivity: number    // 0-10
+    nameRelevance: number // 0-15
+    sizeOptimal: number // 0-10
+    gitActivity: number // 0-10
   }
 }
 
 export interface FileStats {
   path: string
-  size: number           // bytes
-  mtime: Date            // modification time
-  lines?: number         // line count
-  imports?: string[]     // files this imports
-  importedBy?: string[]  // files that import this
+  size: number // bytes
+  mtime: Date // modification time
+  lines?: number // line count
+  imports?: string[] // files this imports
+  importedBy?: string[] // files that import this
   recentCommits?: number // commits in last 30 days
 }
 
@@ -82,21 +82,21 @@ const CONFIG_PATTERNS = [
 
 // Important filename patterns
 const IMPORTANT_NAME_PATTERNS = [
-  /^index\.\w+$/,         // Entry points
-  /^main\.\w+$/,          // Main files
-  /^app\.\w+$/,           // App files
-  /^server\.\w+$/,        // Server files
-  /^router\.\w+$/,        // Router files
-  /^routes\.\w+$/,        // Routes
-  /^api\.\w+$/,           // API files
-  /^schema\.\w+$/,        // Schema files
-  /^types?\.\w+$/,        // Type definitions
-  /^constants?\.\w+$/,    // Constants
-  /^config\.\w+$/,        // Config files
-  /^utils?\.\w+$/,        // Utilities
-  /^helpers?\.\w+$/,      // Helpers
-  /README\.md$/i,         // Documentation
-  /CHANGELOG\.md$/i,      // Changelog
+  /^index\.\w+$/, // Entry points
+  /^main\.\w+$/, // Main files
+  /^app\.\w+$/, // App files
+  /^server\.\w+$/, // Server files
+  /^router\.\w+$/, // Router files
+  /^routes\.\w+$/, // Routes
+  /^api\.\w+$/, // API files
+  /^schema\.\w+$/, // Schema files
+  /^types?\.\w+$/, // Type definitions
+  /^constants?\.\w+$/, // Constants
+  /^config\.\w+$/, // Config files
+  /^utils?\.\w+$/, // Utilities
+  /^helpers?\.\w+$/, // Helpers
+  /README\.md$/i, // Documentation
+  /CHANGELOG\.md$/i, // Changelog
 ]
 
 // ============================================================================
@@ -143,7 +143,7 @@ export class FileScorer {
    * Get relevant files (score > threshold)
    */
   getRelevantFiles(context: ScoringContext, threshold: number = RELEVANCE_THRESHOLD): FileScore[] {
-    return this.scoreAll(context).filter(f => f.score >= threshold)
+    return this.scoreAll(context).filter((f) => f.score >= threshold)
   }
 
   // ==========================================================================
@@ -155,13 +155,14 @@ export class FileScorer {
    * Files modified recently get higher scores
    */
   private calculateRecency(stats: FileStats, context: ScoringContext): number {
-    const daysSinceModified = (context.now.getTime() - stats.mtime.getTime()) / (1000 * 60 * 60 * 24)
+    const daysSinceModified =
+      (context.now.getTime() - stats.mtime.getTime()) / (1000 * 60 * 60 * 24)
 
-    if (daysSinceModified < 1) return 20    // Today
-    if (daysSinceModified < 7) return 15    // This week
-    if (daysSinceModified < 30) return 10   // This month
-    if (daysSinceModified < 90) return 5    // Last 3 months
-    return 0                                 // Older
+    if (daysSinceModified < 1) return 20 // Today
+    if (daysSinceModified < 7) return 15 // This week
+    if (daysSinceModified < 30) return 10 // This month
+    if (daysSinceModified < 90) return 5 // Last 3 months
+    return 0 // Older
   }
 
   /**
@@ -226,7 +227,7 @@ export class FileScorer {
    * Size optimal factor (0-10)
    * Files that are neither too small nor too large
    */
-  private calculateSizeOptimal(stats: FileStats, context: ScoringContext): number {
+  private calculateSizeOptimal(stats: FileStats, _context: ScoringContext): number {
     const size = stats.size
 
     // Too small (likely stub or barrel export)
@@ -257,7 +258,7 @@ export class FileScorer {
     // Normalize against max
     const ratio = commits / context.maxRecentCommits
 
-    if (ratio >= 0.5) return 10   // Among most active
+    if (ratio >= 0.5) return 10 // Among most active
     if (ratio >= 0.25) return 7
     if (ratio >= 0.1) return 5
     if (commits > 0) return 2

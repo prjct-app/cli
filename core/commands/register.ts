@@ -8,17 +8,17 @@
  * - Future migration to pure handler pattern
  */
 
-import { commandRegistry } from './registry'
-import { COMMANDS, CATEGORIES } from './command-data'
-import { WorkflowCommands } from './workflow'
-import { PlanningCommands } from './planning'
-import { ShippingCommands } from './shipping'
-import { AnalyticsCommands } from './analytics'
-import { MaintenanceCommands } from './maintenance'
 import { AnalysisCommands } from './analysis'
-import { SetupCommands } from './setup'
+import { AnalyticsCommands } from './analytics'
+import { CATEGORIES, COMMANDS } from './command-data'
 import { ContextCommands } from './context'
+import { MaintenanceCommands } from './maintenance'
+import { PlanningCommands } from './planning'
+import { commandRegistry } from './registry'
+import { SetupCommands } from './setup'
+import { ShippingCommands } from './shipping'
 import { UninstallCommands } from './uninstall'
+import { WorkflowCommands } from './workflow'
 
 // Singleton instances of command groups
 const workflow = new WorkflowCommands()
@@ -51,7 +51,7 @@ export function registerAllCommands(): void {
   registerCategories()
 
   // Helper to get metadata from COMMANDS
-  const getMeta = (name: string) => COMMANDS.find(c => c.name === name)
+  const getMeta = (name: string) => COMMANDS.find((c) => c.name === name)
 
   // Workflow commands
   commandRegistry.registerMethod('done', workflow, 'done', getMeta('done'))
@@ -107,5 +107,5 @@ export {
   analysis,
   setup,
   context,
-  uninstallCmd
+  uninstallCmd,
 }

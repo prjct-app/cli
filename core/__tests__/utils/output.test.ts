@@ -3,7 +3,7 @@
  * Minimal output system for prjct-cli
  */
 
-import { describe, it, expect, beforeEach, afterEach, spyOn } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test'
 import out from '../../utils/output'
 
 describe('Output Module', () => {
@@ -93,7 +93,7 @@ describe('Output Module', () => {
     it('should start spinner with message', async () => {
       out.spin('loading')
 
-      await new Promise(resolve => setTimeout(resolve, 150))
+      await new Promise((resolve) => setTimeout(resolve, 150))
 
       expect(stdoutWriteSpy).toHaveBeenCalled()
       const output = stdoutWriteSpy.mock.calls[0][0]
@@ -112,7 +112,7 @@ describe('Output Module', () => {
   describe('stop()', () => {
     it('should stop spinner and clear line', async () => {
       out.spin('loading')
-      await new Promise(resolve => setTimeout(resolve, 150))
+      await new Promise((resolve) => setTimeout(resolve, 150))
 
       stdoutWriteSpy.mockClear()
       out.stop()

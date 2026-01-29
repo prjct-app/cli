@@ -5,8 +5,8 @@
  * @module agentic/template-loader
  */
 
-import fs from 'fs/promises'
-import path from 'path'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import { TemplateError } from '../errors'
 import type { Frontmatter, ParsedTemplate } from '../types'
 
@@ -53,7 +53,10 @@ export function parseFrontmatter(content: string): ParsedTemplate {
 
       // Parse arrays
       if (value.startsWith('[') && value.endsWith(']')) {
-        frontmatter[key.trim()] = value.slice(1, -1).split(',').map((v) => v.trim())
+        frontmatter[key.trim()] = value
+          .slice(1, -1)
+          .split(',')
+          .map((v) => v.trim())
       } else {
         // Remove quotes if present
         frontmatter[key.trim()] = value.replace(/^["']|["']$/g, '')
@@ -108,5 +111,5 @@ export default {
   load,
   parseFrontmatter,
   getAllowedTools,
-  clearCache
+  clearCache,
 }

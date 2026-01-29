@@ -12,18 +12,18 @@
  * @version 0.6.0 - Multi-provider support
  */
 
-import fs from 'fs/promises'
-import path from 'path'
-import os from 'os'
-import { getPackageRoot } from '../utils/version'
-import { isNotFoundError } from '../types/fs'
+import fs from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
 import type {
-  InstallResult,
-  UninstallResult,
   CheckResult,
-  SyncResult,
   GlobalConfigResult,
+  InstallResult,
+  SyncResult,
+  UninstallResult,
 } from '../types'
+import { isNotFoundError } from '../types/fs'
+import { getPackageRoot } from '../utils/version'
 
 // =============================================================================
 // Global Config
@@ -82,13 +82,18 @@ export async function installGlobalConfig(): Promise<GlobalConfigResult> {
     await fs.mkdir(activeProvider.configDir, { recursive: true })
 
     const globalConfigPath = path.join(activeProvider.configDir, activeProvider.contextFile)
-    const templatePath = path.join(getPackageRoot(), 'templates', 'global', activeProvider.contextFile)
+    const templatePath = path.join(
+      getPackageRoot(),
+      'templates',
+      'global',
+      activeProvider.contextFile
+    )
 
     // Read template content
     let templateContent = ''
     try {
       templateContent = await fs.readFile(templatePath, 'utf-8')
-    } catch (error) {
+    } catch (_error) {
       // Fallback if provider-specific template not found
       const fallbackTemplatePath = path.join(getPackageRoot(), 'templates/global/CLAUDE.md')
       templateContent = await fs.readFile(fallbackTemplatePath, 'utf-8')
@@ -133,7 +138,7 @@ export async function installGlobalConfig(): Promise<GlobalConfigResult> {
 
       if (!hasMarkers) {
         // No markers - append prjct section at the end
-        const updatedContent = existingContent + '\n\n' + templateContent
+        const updatedContent = `${existingContent}\n\n${templateContent}`
         await fs.writeFile(globalConfigPath, updatedContent, 'utf-8')
         return {
           success: true,
@@ -183,10 +188,10 @@ export class CommandInstaller {
 
   constructor() {
     this.homeDir = os.homedir()
-    
+
     const aiProvider = require('./ai-provider')
     const activeProvider = aiProvider.getActiveProvider()
-    
+
     // Command paths are provider-specific
     if (activeProvider.name === 'gemini') {
       this.claudeCommandsPath = path.join(activeProvider.configDir, 'commands')
@@ -194,7 +199,7 @@ export class CommandInstaller {
       // Claude: Commands are in p/ subdirectory to avoid cluttering commands/
       this.claudeCommandsPath = path.join(activeProvider.configDir, 'commands', 'p')
     }
-    
+
     this.claudeConfigPath = activeProvider.configDir
     this.templatesDir = path.join(getPackageRoot(), 'templates', 'commands')
   }
@@ -228,7 +233,7 @@ export class CommandInstaller {
     try {
       const files = await fs.readdir(this.templatesDir)
       return files.filter((f) => f.endsWith('.md'))
-    } catch (error) {
+    } catch (_error) {
       // Fallback to core commands if template directory not accessible (ENOENT or other)
       return [
         'init.md',
@@ -332,7 +337,7 @@ export class CommandInstaller {
       // Try to remove the /p directory if empty
       try {
         await fs.rmdir(this.claudeCommandsPath)
-      } catch (error) {
+      } catch (_error) {
         // Directory not empty or doesn't exist - that's fine (ENOTEMPTY or ENOENT)
       }
 
@@ -438,7 +443,7 @@ export class CommandInstaller {
     const aiProvider = require('./ai-provider')
     const activeProvider = aiProvider.getActiveProvider()
     const routerFile = activeProvider.name === 'gemini' ? 'p.toml' : 'p.md'
-    
+
     try {
       const routerSource = path.join(this.templatesDir, routerFile)
       const routerDest = path.join(activeProvider.configDir, 'commands', routerFile)

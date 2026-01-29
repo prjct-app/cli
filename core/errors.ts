@@ -13,7 +13,7 @@
  * @version 2.0.0
  */
 
-import { z, type ZodType } from 'zod'
+import { type ZodType, z } from 'zod'
 
 // =============================================================================
 // Named Error Pattern (Zod-based)

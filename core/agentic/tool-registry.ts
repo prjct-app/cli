@@ -6,9 +6,9 @@
  * @version 1.0.0
  */
 
-import fs from 'fs/promises'
-import { exec } from 'child_process'
-import { promisify } from 'util'
+import { exec } from 'node:child_process'
+import fs from 'node:fs/promises'
+import { promisify } from 'node:util'
 import type { ToolFunction, ToolRegistryInterface } from '../types'
 
 // Re-export types for convenience
@@ -83,18 +83,21 @@ toolRegistry.register('Write', async (filePath: unknown, content: unknown): Prom
 })
 
 // Execute bash command
-toolRegistry.register('Bash', async (command: unknown): Promise<{ stdout: string; stderr: string }> => {
-  try {
-    const { stdout, stderr } = await execAsync(command as string)
-    return { stdout, stderr }
-  } catch (error) {
-    const err = error as { stdout?: string; stderr?: string; message?: string }
-    return {
-      stdout: err.stdout || '',
-      stderr: err.stderr || err.message || 'Command failed',
+toolRegistry.register(
+  'Bash',
+  async (command: unknown): Promise<{ stdout: string; stderr: string }> => {
+    try {
+      const { stdout, stderr } = await execAsync(command as string)
+      return { stdout, stderr }
+    } catch (error) {
+      const err = error as { stdout?: string; stderr?: string; message?: string }
+      return {
+        stdout: err.stdout || '',
+        stderr: err.stderr || err.message || 'Command failed',
+      }
     }
   }
-})
+)
 
 // Get current timestamp
 toolRegistry.register('GetTimestamp', async (): Promise<string> => {

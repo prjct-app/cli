@@ -10,10 +10,10 @@
  * @version 0.6.0 - Fully agentic refactor
  */
 
-import fs from 'fs/promises'
-import path from 'path'
-import { promisify } from 'util'
-import { exec as execCallback } from 'child_process'
+import { exec as execCallback } from 'node:child_process'
+import fs from 'node:fs/promises'
+import path from 'node:path'
+import { promisify } from 'node:util'
 import { isNotFoundError } from '../types/fs'
 
 const exec = promisify(execCallback)
@@ -209,11 +209,11 @@ class CodebaseAnalyzer {
         .forEach((line) => {
           const match = line.trim().match(/^\s*(\d+)\s+(\.\w+)$/)
           if (match) {
-            extensions[match[2]] = parseInt(match[1])
+            extensions[match[2]] = parseInt(match[1], 10)
           }
         })
       return extensions
-    } catch (error) {
+    } catch (_error) {
       // exec errors (find command not available, etc.) - return empty
       return {}
     }
@@ -278,7 +278,7 @@ class CodebaseAnalyzer {
         cwd: this.projectPath!,
       })
       return stdout
-    } catch (error) {
+    } catch (_error) {
       // Git errors (not a repo, git not installed) - return empty
       return ''
     }
@@ -297,16 +297,19 @@ class CodebaseAnalyzer {
         cwd: this.projectPath!,
       })
 
-      const { stdout: firstCommit } = await exec('git log --reverse --pretty=format:"%ar" | head -1', {
-        cwd: this.projectPath!,
-      })
+      const { stdout: firstCommit } = await exec(
+        'git log --reverse --pretty=format:"%ar" | head -1',
+        {
+          cwd: this.projectPath!,
+        }
+      )
 
       return {
-        totalCommits: parseInt(totalCommits.trim()) || 0,
-        contributors: parseInt(contributors.trim()) || 0,
+        totalCommits: parseInt(totalCommits.trim(), 10) || 0,
+        contributors: parseInt(contributors.trim(), 10) || 0,
         age: firstCommit.trim() || 'unknown',
       }
-    } catch (error) {
+    } catch (_error) {
       // Git errors (not a repo, git not installed) - return defaults
       return {
         totalCommits: 0,
@@ -325,8 +328,8 @@ class CodebaseAnalyzer {
         'find . -type f ! -path "*/node_modules/*" ! -path "*/.git/*" ! -path "*/dist/*" | wc -l',
         { cwd: this.projectPath! }
       )
-      return parseInt(stdout.trim()) || 0
-    } catch (error) {
+      return parseInt(stdout.trim(), 10) || 0
+    } catch (_error) {
       // exec errors (find command not available, etc.) - return 0
       return 0
     }
@@ -372,7 +375,7 @@ class CodebaseAnalyzer {
         { cwd: this.projectPath! }
       )
       return stdout.trim().split('\n').filter(Boolean)
-    } catch (error) {
+    } catch (_error) {
       // exec errors (find command not available, etc.) - return empty
       return []
     }

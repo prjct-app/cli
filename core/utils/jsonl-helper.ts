@@ -1,7 +1,7 @@
-import fs from 'fs/promises'
-import fsSync from 'fs'
-import readline from 'readline'
-import path from 'path'
+import fsSync from 'node:fs'
+import fs from 'node:fs/promises'
+import path from 'node:path'
+import readline from 'node:readline'
 import { isNotFoundError } from '../types/fs'
 
 /**
@@ -46,7 +46,7 @@ export function parseJsonLines<T = Record<string, unknown>>(content: string): T[
  * Convert array of objects to JSONL string
  */
 export function stringifyJsonLines(objects: unknown[]): string {
-  return objects.map((obj) => JSON.stringify(obj)).join('\n') + '\n'
+  return `${objects.map((obj) => JSON.stringify(obj)).join('\n')}\n`
 }
 
 /**
@@ -77,7 +77,7 @@ export async function writeJsonLines(filePath: string, objects: unknown[]): Prom
  * Uses append mode for efficiency (no full file read/write)
  */
 export async function appendJsonLine(filePath: string, object: unknown): Promise<void> {
-  const line = JSON.stringify(object) + '\n'
+  const line = `${JSON.stringify(object)}\n`
   await fs.appendFile(filePath, line, 'utf-8')
 }
 
@@ -144,7 +144,9 @@ export async function getFirstJsonLines<T = Record<string, unknown>>(
  * Merge multiple JSONL files into one array
  * Useful for reading multiple sessions
  */
-export async function mergeJsonLines<T = Record<string, unknown>>(filePaths: string[]): Promise<T[]> {
+export async function mergeJsonLines<T = Record<string, unknown>>(
+  filePaths: string[]
+): Promise<T[]> {
   const allEntries: T[] = []
 
   for (const filePath of filePaths) {
@@ -240,7 +242,9 @@ export async function rotateJsonLinesIfNeeded(filePath: string, maxSizeMB = 10):
   // Move file to archive
   await fs.rename(filePath, archivePath)
 
-  console.log(`📦 Rotated ${path.basename(filePath)} (${sizeMB.toFixed(1)}MB) → ${path.basename(archivePath)}`)
+  console.log(
+    `📦 Rotated ${path.basename(filePath)} (${sizeMB.toFixed(1)}MB) → ${path.basename(archivePath)}`
+  )
 
   return true
 }
@@ -299,6 +303,5 @@ export default {
   getFileSizeMB,
   rotateJsonLinesIfNeeded,
   appendJsonLineWithRotation,
-  checkFileSizeWarning
+  checkFileSizeWarning,
 }
-

@@ -11,12 +11,12 @@
  * └── summary.md   - Project summary
  */
 
-import fs from 'fs/promises'
-import path from 'path'
-import { exec } from 'child_process'
-import { promisify } from 'util'
-import { getStorage } from '../storage'
+import { exec } from 'node:child_process'
+import fs from 'node:fs/promises'
+import path from 'node:path'
+import { promisify } from 'node:util'
 import pathManager from '../infrastructure/path-manager'
+import { getStorage } from '../storage'
 
 const execAsync = promisify(exec)
 
@@ -59,7 +59,7 @@ interface Agent {
  * Generate all context MD files from JSON data
  */
 export async function generateContext(projectId: string, repoPath: string): Promise<void> {
-  const globalPath = pathManager.getGlobalProjectPath(projectId)
+  const _globalPath = pathManager.getGlobalProjectPath(projectId)
   const contextPath = pathManager.getContextPath(projectId)
   const storage = getStorage(projectId)
 
@@ -67,7 +67,7 @@ export async function generateContext(projectId: string, repoPath: string): Prom
   await fs.mkdir(contextPath, { recursive: true })
 
   // Read all data
-  const project = await storage.read<ProjectData>(['project']) || {}
+  const project = (await storage.read<ProjectData>(['project'])) || {}
   const taskPaths = await storage.list(['task'])
   const featurePaths = await storage.list(['feature'])
   const ideaPaths = await storage.list(['idea'])
@@ -104,7 +104,18 @@ export async function generateContext(projectId: string, repoPath: string): Prom
   const pkgData = await getPackageData(repoPath)
 
   // Generate each context file
-  await generateClaudeMd(contextPath, projectId, project, tasks, features, ideas, agents, gitData, pkgData, repoPath)
+  await generateClaudeMd(
+    contextPath,
+    projectId,
+    project,
+    tasks,
+    features,
+    ideas,
+    agents,
+    gitData,
+    pkgData,
+    repoPath
+  )
   await generateNowMd(contextPath, tasks)
   await generateQueueMd(contextPath, tasks)
   await generateSummaryMd(contextPath, project, gitData, pkgData)
@@ -116,7 +127,7 @@ async function getGitData(repoPath: string) {
     commits: 0,
     contributors: 0,
     hasChanges: false,
-    recentCommits: [] as { hash: string; message: string; date: string }[]
+    recentCommits: [] as { hash: string; message: string; date: string }[],
   }
 
   try {
@@ -124,19 +135,27 @@ async function getGitData(repoPath: string) {
     data.branch = branch.trim() || 'main'
 
     const { stdout: commits } = await execAsync('git rev-list --count HEAD', { cwd: repoPath })
-    data.commits = parseInt(commits.trim()) || 0
+    data.commits = parseInt(commits.trim(), 10) || 0
 
-    const { stdout: contributors } = await execAsync('git shortlog -sn --all | wc -l', { cwd: repoPath })
-    data.contributors = parseInt(contributors.trim()) || 0
+    const { stdout: contributors } = await execAsync('git shortlog -sn --all | wc -l', {
+      cwd: repoPath,
+    })
+    data.contributors = parseInt(contributors.trim(), 10) || 0
 
     const { stdout: status } = await execAsync('git status --porcelain', { cwd: repoPath })
     data.hasChanges = status.trim().length > 0
 
-    const { stdout: log } = await execAsync('git log --oneline -10 --pretty=format:"%h|%s|%ad" --date=short', { cwd: repoPath })
-    data.recentCommits = log.split('\n').filter(Boolean).map(line => {
-      const [hash, message, date] = line.split('|')
-      return { hash, message, date }
-    })
+    const { stdout: log } = await execAsync(
+      'git log --oneline -10 --pretty=format:"%h|%s|%ad" --date=short',
+      { cwd: repoPath }
+    )
+    data.recentCommits = log
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => {
+        const [hash, message, date] = line.split('|')
+        return { hash, message, date }
+      })
   } catch (_error) {
     // Not a git repo - expected
   }
@@ -148,7 +167,7 @@ async function getPackageData(repoPath: string) {
   const data = {
     dependencies: {} as Record<string, string>,
     devDependencies: {} as Record<string, string>,
-    scripts: {} as Record<string, string>
+    scripts: {} as Record<string, string>,
   }
 
   try {
@@ -177,9 +196,9 @@ async function generateClaudeMd(
   repoPath: string
 ) {
   const projectName = project.name || path.basename(repoPath)
-  const currentTask = tasks.find(t => t.status === 'in_progress')
-  const pendingTasks = tasks.filter(t => t.status === 'pending')
-  const activeFeatures = features.filter(f => f.status === 'in_progress' || f.status === 'active')
+  const currentTask = tasks.find((t) => t.status === 'in_progress')
+  const pendingTasks = tasks.filter((t) => t.status === 'pending')
+  const activeFeatures = features.filter((f) => f.status === 'in_progress' || f.status === 'active')
 
   const deps = Object.keys(pkgData.dependencies)
   const devDeps = Object.keys(pkgData.devDependencies)
@@ -193,14 +212,20 @@ async function generateClaudeMd(
 ### Dependencies (${deps.length + devDeps.length})
 
 **Production** (${deps.length}):
-${deps.length > 0 ? deps.map(d => `- ${d}: ${pkgData.dependencies[d]}`).join('\n') : '_None_'}
+${deps.length > 0 ? deps.map((d) => `- ${d}: ${pkgData.dependencies[d]}`).join('\n') : '_None_'}
 
 **Dev** (${devDeps.length}):
-${devDeps.length > 0 ? devDeps.map(d => `- ${d}: ${pkgData.devDependencies[d]}`).join('\n') : '_None_'}
+${devDeps.length > 0 ? devDeps.map((d) => `- ${d}: ${pkgData.devDependencies[d]}`).join('\n') : '_None_'}
 
 ### Scripts
 
-${Object.keys(pkgData.scripts).length > 0 ? Object.entries(pkgData.scripts).map(([k, v]) => `- \`${k}\`: ${v}`).join('\n') : '_None_'}
+${
+  Object.keys(pkgData.scripts).length > 0
+    ? Object.entries(pkgData.scripts)
+        .map(([k, v]) => `- \`${k}\`: ${v}`)
+        .join('\n')
+    : '_None_'
+}
 
 ### Git
 
@@ -210,7 +235,14 @@ ${Object.keys(pkgData.scripts).length > 0 ? Object.entries(pkgData.scripts).map(
 - Uncommitted: ${gitData.hasChanges ? 'Yes' : 'No'}
 
 **Recent:**
-${gitData.recentCommits.length > 0 ? gitData.recentCommits.slice(0, 5).map(c => `- \`${c.hash}\` ${c.message}`).join('\n') : '_None_'}
+${
+  gitData.recentCommits.length > 0
+    ? gitData.recentCommits
+        .slice(0, 5)
+        .map((c) => `- \`${c.hash}\` ${c.message}`)
+        .join('\n')
+    : '_None_'
+}
 
 ---
 
@@ -219,19 +251,33 @@ ${gitData.recentCommits.length > 0 ? gitData.recentCommits.slice(0, 5).map(c => 
 **Now:** ${currentTask ? currentTask.description : '_No active task_'}
 
 **Queue (${pendingTasks.length}):**
-${pendingTasks.length > 0 ? pendingTasks.slice(0, 10).map((t, i) => `${i + 1}. ${t.description}`).join('\n') : '_Empty_'}
+${
+  pendingTasks.length > 0
+    ? pendingTasks
+        .slice(0, 10)
+        .map((t, i) => `${i + 1}. ${t.description}`)
+        .join('\n')
+    : '_Empty_'
+}
 
 **Active Features (${activeFeatures.length}):**
-${activeFeatures.length > 0 ? activeFeatures.map(f => `- ${f.name}`).join('\n') : '_None_'}
+${activeFeatures.length > 0 ? activeFeatures.map((f) => `- ${f.name}`).join('\n') : '_None_'}
 
 **Ideas (${ideas.length}):**
-${ideas.length > 0 ? ideas.slice(0, 5).map(i => `- ${i.title}`).join('\n') : '_None_'}
+${
+  ideas.length > 0
+    ? ideas
+        .slice(0, 5)
+        .map((i) => `- ${i.title}`)
+        .join('\n')
+    : '_None_'
+}
 
 ---
 
 ## AGENTS
 
-${agents.length > 0 ? agents.map(a => `- **${a.name}**: ${a.role || 'Specialist'}`).join('\n') : '_None_'}
+${agents.length > 0 ? agents.map((a) => `- **${a.name}**: ${a.role || 'Specialist'}`).join('\n') : '_None_'}
 
 ---
 
@@ -258,7 +304,7 @@ ${agents.length > 0 ? agents.map(a => `- **${a.name}**: ${a.role || 'Specialist'
 }
 
 async function generateNowMd(contextPath: string, tasks: Task[]) {
-  const currentTask = tasks.find(t => t.status === 'in_progress')
+  const currentTask = tasks.find((t) => t.status === 'in_progress')
 
   const content = currentTask
     ? `# NOW
@@ -278,12 +324,15 @@ _No active task. Use /p:now to start._
 }
 
 async function generateQueueMd(contextPath: string, tasks: Task[]) {
-  const pendingTasks = tasks.filter(t => t.status === 'pending')
+  const pendingTasks = tasks.filter((t) => t.status === 'pending')
 
   const content = `# QUEUE
 
-${pendingTasks.length > 0
-    ? pendingTasks.map((t, i) => `${i + 1}. ${t.description}${t.priority ? ` [${t.priority}]` : ''}`).join('\n')
+${
+  pendingTasks.length > 0
+    ? pendingTasks
+        .map((t, i) => `${i + 1}. ${t.description}${t.priority ? ` [${t.priority}]` : ''}`)
+        .join('\n')
     : '_Empty queue. Use /p:next to add tasks._'
 }
 `

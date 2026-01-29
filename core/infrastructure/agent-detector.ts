@@ -5,8 +5,8 @@
  * @module infrastructure/agent-detector
  */
 
-import fs from 'fs'
-import path from 'path'
+import fs from 'node:fs'
+import path from 'node:path'
 import type { DetectedAgent } from '../types'
 
 declare const global: typeof globalThis & {
@@ -144,5 +144,5 @@ export default {
   setAgent,
   reset,
   isClaude,
-  isTerminal
+  isTerminal,
 }
