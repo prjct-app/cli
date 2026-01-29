@@ -81,6 +81,7 @@ export function registerAllCommands(): void {
   // Analysis commands
   commandRegistry.registerMethod('analyze', analysis, 'analyze', getMeta('analyze'))
   commandRegistry.registerMethod('sync', analysis, 'sync', getMeta('sync'))
+  commandRegistry.registerMethod('stats', analysis, 'stats', getMeta('stats'))
 
   // Setup commands
   commandRegistry.registerMethod('start', setup, 'start', getMeta('start'))

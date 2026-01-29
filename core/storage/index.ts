@@ -40,6 +40,7 @@ export { stateStorage } from './state-storage'
 export { queueStorage } from './queue-storage'
 export { ideasStorage } from './ideas-storage'
 export { shippedStorage } from './shipped-storage'
+export { metricsStorage } from './metrics-storage'
 
 // ========== GRANULAR STORAGE (Legacy) ==========
 export { getStorage, default } from './storage'
@@ -53,4 +54,7 @@ export type {
   IdeaPriority,
   ShippedFeature,
   ShippedJson,
+  DailyStats,
+  AgentUsage,
+  MetricsJson,
 } from '../types'

@@ -143,6 +143,17 @@ export const COMMANDS: CommandMeta[] = [
     requiresProject: true,
   },
   {
+    name: 'stats',
+    group: 'core',
+    description: 'Value dashboard - token savings, performance, and impact',
+    usage: { claude: '/p:stats', terminal: 'prjct stats' },
+    params: '[--json] [--export]',
+    implemented: true,
+    hasTemplate: true,
+    requiresProject: true,
+    features: ['Token savings tracking', 'Compression metrics', 'Cost estimates', '30-day trends'],
+  },
+  {
     name: 'sync',
     group: 'core',
     description: 'Sync project state and update workflow agents',
@@ -308,13 +319,19 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'context',
     group: 'setup',
-    description: 'Get project context as JSON for Claude templates',
-    usage: { claude: null, terminal: 'prjct context <command> [args]' },
-    params: '<command> [args]',
+    description: 'Smart context filtering tools for AI agents',
+    usage: { claude: null, terminal: 'prjct context <tool> [args]' },
+    params: '<tool> [args]',
     implemented: true,
     hasTemplate: false,
     requiresProject: true,
-    features: ['Returns JSON with project context', 'Runs orchestrator', 'Loads agents and skills'],
+    features: [
+      'files - Find relevant files for a task',
+      'signatures - Extract code structure (~90% compression)',
+      'imports - Analyze dependency graphs',
+      'recent - Find hot files from git history',
+      'summary - Intelligent file summarization',
+    ],
   },
 ]
 

@@ -294,6 +294,9 @@ export type {
   IdeaModule,
   IdeaRole,
   IdeasJson,
+  DailyStats,
+  AgentUsage,
+  MetricsJson,
 } from './storage'
 
 // =============================================================================
