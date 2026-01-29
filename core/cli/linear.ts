@@ -139,7 +139,16 @@ async function main(): Promise<void> {
       case 'list': {
         await initFromProject()
         const limit = commandArgs[0] ? parseInt(commandArgs[0], 10) : 20
-        const issues = await linearService.fetchAssignedIssues({ limit })
+
+        // Use team issues if teamId is configured, otherwise assigned issues
+        const creds = await getProjectCredentials(projectId!)
+        let issues
+        if (creds.linear?.teamId) {
+          issues = await linearService.fetchTeamIssues(creds.linear.teamId, { limit })
+        } else {
+          issues = await linearService.fetchAssignedIssues({ limit })
+        }
+
         output({
           count: issues.length,
           issues: issues.map((issue) => ({

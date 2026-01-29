@@ -94,16 +94,28 @@ export class LinearProvider implements IssueTrackerProvider {
 
   /**
    * Get issues assigned to current user
+   * Filters by configured team if defaultTeamId is set
    */
   async fetchAssignedIssues(options?: FetchOptions): Promise<Issue[]> {
     if (!this.sdk) throw new Error('Linear not initialized')
 
     const viewer = await this.sdk.viewer
+
+    // Build filter - always filter by team if configured
+    const filter: Record<string, unknown> = {}
+
+    if (!options?.includeCompleted) {
+      filter.state = { type: { nin: ['completed', 'canceled'] } }
+    }
+
+    // Filter by configured team to only show relevant issues
+    if (this.config?.defaultTeamId) {
+      filter.team = { id: { eq: this.config.defaultTeamId } }
+    }
+
     const assignedIssues = await viewer.assignedIssues({
       first: options?.limit || 50,
-      filter: options?.includeCompleted
-        ? undefined
-        : { state: { type: { nin: ['completed', 'canceled'] } } },
+      filter: Object.keys(filter).length > 0 ? filter : undefined,
     })
 
     return Promise.all(
