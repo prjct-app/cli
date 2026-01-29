@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.45.2] - 2026-01-29
+
+### Bug Fixes
+
+- use Production environment for npm secrets - PRJ-147
+
+
 ## [0.45.1] - 2026-01-29
 
 ### Bug Fixes
