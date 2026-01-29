@@ -256,7 +256,7 @@ Next: [suggested action]
 
 5. **Prefer prjct CLI over raw commands**:
    ```
-   GOOD: bun core/cli/linear.ts list
+   GOOD: bun $PRJCT_CLI/core/cli/linear.ts list
    BAD:  curl -X POST https://api.linear.app/graphql...
    ```
 

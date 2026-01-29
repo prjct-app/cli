@@ -20,7 +20,7 @@ IF integrations.linear.enabled:
   # Linear issue detected - use LOCAL-FIRST approach
   # Try local cache first (issues.json), then API if not found
 
-  RUN: bun core/cli/linear.ts --project {projectId} get-local "$ARGUMENTS"
+  RUN: bun $PRJCT_CLI/core/cli/linear.ts --project {projectId} get-local "$ARGUMENTS"
 
   IF issue found in local cache:
     USE cached issue data (no API call needed)
