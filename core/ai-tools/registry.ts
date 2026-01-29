@@ -61,9 +61,9 @@ export const AI_TOOLS: Record<string, AIToolConfig> = {
 }
 
 /**
- * Default tools to generate (Phase 1)
+ * Default tools to generate (Phase 2: all major tools)
  */
-export const DEFAULT_AI_TOOLS = ['claude', 'cursor']
+export const DEFAULT_AI_TOOLS = ['claude', 'cursor', 'copilot', 'windsurf']
 
 /**
  * All supported tool IDs
