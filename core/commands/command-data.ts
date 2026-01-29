@@ -333,5 +333,21 @@ export const COMMANDS: CommandMeta[] = [
       'summary - Intelligent file summarization',
     ],
   },
+  {
+    name: 'uninstall',
+    group: 'setup',
+    description: 'Complete system removal of prjct',
+    usage: { claude: null, terminal: 'prjct uninstall' },
+    params: '[--force] [--backup] [--dry-run]',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: false,
+    features: [
+      'Removes ~/.prjct-cli/ data',
+      'Cleans CLAUDE.md prjct section',
+      'Uninstalls Homebrew/npm packages',
+      'Backup option before deletion',
+    ],
+  },
 ]
 
