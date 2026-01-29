@@ -18,6 +18,7 @@ import {
   out
 } from './base'
 import { stateStorage, shippedStorage } from '../storage'
+import { showNextSteps } from '../utils/next-steps'
 
 export class ShippingCommands extends PrjctCommandsBase {
   /**
@@ -116,6 +117,7 @@ export class ShippingCommands extends PrjctCommandsBase {
       }
 
       out.done(`v${newVersion} shipped`)
+      showNextSteps('ship')
 
       return { success: true, feature: featureName, version: newVersion }
     } catch (error) {

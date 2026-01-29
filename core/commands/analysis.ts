@@ -17,6 +17,7 @@ import analyzer from '../domain/analyzer'
 import { generateContext } from '../context/generator'
 import commandInstaller from '../infrastructure/command-installer'
 import { syncService } from '../services'
+import { showNextSteps } from '../utils/next-steps'
 
 export class AnalysisCommands extends PrjctCommandsBase {
   /**
@@ -277,6 +278,8 @@ export class AnalysisCommands extends PrjctCommandsBase {
       } else {
         console.log('✨ Repository is clean!\n')
       }
+
+      showNextSteps('sync')
 
       return {
         success: true,
