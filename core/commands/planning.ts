@@ -48,7 +48,7 @@ export class PlanningCommands extends PrjctCommandsBase {
         return { success: false, message: 'Already initialized' }
       }
 
-      out.spin('initializing...')
+      out.step(1, 4, 'Detecting author...')
 
       const detectedAuthor = await authorDetector.detect()
       // Convert null to undefined for createConfig
@@ -60,7 +60,7 @@ export class PlanningCommands extends PrjctCommandsBase {
       const config = await configManager.createConfig(projectPath, author)
       const projectId = config.projectId
 
-      out.spin('creating structure...')
+      out.step(2, 4, 'Creating structure...')
 
       await pathManager.ensureProjectStructure(projectId)
       const globalPath = pathManager.getGlobalProjectPath(projectId)
@@ -92,12 +92,12 @@ export class PlanningCommands extends PrjctCommandsBase {
       const hasCode = await this._detectExistingCode(projectPath)
 
       if (hasCode || !isEmpty) {
-        out.spin('analyzing project...')
+        out.step(3, 4, 'Analyzing project...')
         const analysis = await getAnalysisCommands()
         const analysisResult = await analysis.analyze({}, projectPath)
 
         if (analysisResult.success) {
-          out.spin('generating agents...')
+          out.step(4, 4, 'Generating agents...')
           await analysis.sync(projectPath)
           out.done('initialized')
           return { success: true, mode: 'existing', projectId }
