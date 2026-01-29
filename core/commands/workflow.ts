@@ -53,18 +53,6 @@ export class WorkflowCommands extends PrjctCommandsBase {
           sessionId: generateUUID()
         })
 
-        // Log orchestrator results if available
-        if (result.orchestratorContext) {
-          const oc = result.orchestratorContext
-          const agentsList = oc.agents.map((a: { name: string }) => a.name).join(', ') || 'none'
-          const domainsList = oc.detectedDomains.join(', ')
-          console.log(`🎯 Orchestrator: ${domainsList} → [${agentsList}]`)
-
-          if (oc.requiresFragmentation && oc.subtasks) {
-            console.log(`   → ${oc.subtasks.length} subtasks created`)
-          }
-        }
-
         // Get available agents for backward compatibility
         const availableAgents = await templateExecutor.getAvailableAgents(projectPath)
         const agentsList = availableAgents.length > 0
