@@ -14,6 +14,10 @@
  *    For future per-entity storage
  *    - getStorage(projectId): data/{entity}s/{id}.json
  *
+ * 3. INDEX STORAGE (New)
+ *    For persistent project scanning with scoring
+ *    - indexStorage: index/project-index.json, index/checksums.json
+ *
  * Structure:
  * ~/.prjct-cli/projects/{projectId}/
  * ├── storage/              # Aggregate JSON (source of truth)
@@ -27,6 +31,10 @@
  * │   ├── next.md
  * │   ├── ideas.md
  * │   └── shipped.md
+ * ├── index/                # Project index (persistent scan)
+ * │   ├── project-index.json
+ * │   ├── file-scores.json
+ * │   └── checksums.json
  * ├── data/                 # Granular JSON (legacy/future)
  * │   └── ...
  * └── sync/                 # Backend sync
@@ -41,6 +49,24 @@ export { queueStorage } from './queue-storage'
 export { ideasStorage } from './ideas-storage'
 export { shippedStorage } from './shipped-storage'
 export { metricsStorage } from './metrics-storage'
+
+// ========== INDEX STORAGE (Project scanning) ==========
+export { indexStorage, INDEX_VERSION, getDefaultIndex, getDefaultChecksums } from './index-storage'
+export type {
+  ProjectIndex,
+  LanguageStats,
+  ConfigFileEntry,
+  DirectoryEntry,
+  ScoredFile,
+  DetectedPattern,
+  DetectedStack,
+  FileChecksums,
+  // Smart Context Selection types (PRJ-85)
+  DomainDefinition,
+  DiscoveredDomains,
+  FileCategory,
+  CategoriesCache,
+} from './index-storage'
 
 // ========== GRANULAR STORAGE (Legacy) ==========
 export { getStorage, default } from './storage'
