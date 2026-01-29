@@ -6,6 +6,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test'
 import fs from 'fs/promises'
 import path from 'path'
+import os from 'os'
 
 import { detectProjectCommands } from '../../utils/project-commands'
 
@@ -23,7 +24,7 @@ async function writeText(filePath: string, content: string): Promise<void> {
 
 describe('detectProjectCommands', () => {
   beforeEach(async () => {
-    tmpRoot = await fs.mkdtemp(path.join(process.cwd(), '.tmp', 'detect-commands-'))
+    tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'prjct-detect-commands-'))
   })
 
   afterEach(async () => {
