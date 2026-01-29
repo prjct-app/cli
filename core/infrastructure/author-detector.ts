@@ -9,9 +9,9 @@
  * @module infrastructure/author-detector
  */
 
-import { promisify } from 'util'
-import { exec as execCallback } from 'child_process'
-import type { DetectedAuthorInfo, AuthorConfigStatus } from '../types'
+import { exec as execCallback } from 'node:child_process'
+import { promisify } from 'node:util'
+import type { AuthorConfigStatus, DetectedAuthorInfo } from '../types'
 
 const exec = promisify(execCallback)
 
@@ -52,13 +52,13 @@ export async function detect(): Promise<DetectedAuthorInfo> {
   const [github, name, email] = await Promise.all([
     detectGitHubUsername(),
     detectGitName(),
-    detectGitEmail()
+    detectGitEmail(),
   ])
 
   return {
     github,
     email,
-    name: name || github || 'Unknown'
+    name: name || github || 'Unknown',
   }
 }
 
@@ -83,7 +83,7 @@ export async function getConfigStatus(): Promise<AuthorConfigStatus> {
   const [hasGitHub, hasGit, author] = await Promise.all([
     isGitHubCLIAvailable(),
     isGitConfigured(),
-    detect()
+    detect(),
   ])
 
   return {
@@ -91,15 +91,21 @@ export async function getConfigStatus(): Promise<AuthorConfigStatus> {
     hasGit,
     author,
     isComplete: !!(author.github || (author.name !== 'Unknown' && author.email)),
-    recommendations: getRecommendations(hasGitHub, hasGit, author)
+    recommendations: getRecommendations(hasGitHub, hasGit, author),
   }
 }
 
-function getRecommendations(hasGitHub: boolean, hasGit: boolean, author: DetectedAuthorInfo): string[] {
+function getRecommendations(
+  hasGitHub: boolean,
+  hasGit: boolean,
+  author: DetectedAuthorInfo
+): string[] {
   const recommendations: string[] = []
 
   if (!hasGitHub && !author.github) {
-    recommendations.push('Install GitHub CLI (gh) for better collaboration support: https://cli.github.com/')
+    recommendations.push(
+      'Install GitHub CLI (gh) for better collaboration support: https://cli.github.com/'
+    )
   }
 
   if (!hasGit) {
@@ -137,5 +143,5 @@ export default {
   isGitHubCLIAvailable,
   isGitConfigured,
   getConfigStatus,
-  formatAuthor
+  formatAuthor,
 }

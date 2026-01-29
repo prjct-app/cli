@@ -10,17 +10,12 @@
  * @version 1.0.0
  */
 
-import fs from 'fs/promises'
-import path from 'path'
-import { exec as execCallback } from 'child_process'
-import { promisify } from 'util'
-import type {
-  ImportsToolOutput,
-  ImportRelation,
-  ImportedBy,
-  DependencyNode,
-} from './types'
+import { exec as execCallback } from 'node:child_process'
+import fs from 'node:fs/promises'
+import path from 'node:path'
+import { promisify } from 'node:util'
 import { isNotFoundError } from '../types/fs'
+import type { DependencyNode, ImportedBy, ImportRelation, ImportsToolOutput } from './types'
 
 const exec = promisify(execCallback)
 
@@ -154,9 +149,7 @@ export async function analyzeImports(
     depth?: number // Dependency tree depth (0 = no tree)
   } = {}
 ): Promise<ImportsToolOutput> {
-  const absolutePath = path.isAbsolute(filePath)
-    ? filePath
-    : path.join(projectPath, filePath)
+  const absolutePath = path.isAbsolute(filePath) ? filePath : path.join(projectPath, filePath)
 
   // Read file content
   let content: string
@@ -196,11 +189,7 @@ export async function analyzeImports(
   // Build dependency tree if requested
   let dependencyTree: DependencyNode | undefined
   if (options.depth && options.depth > 0) {
-    dependencyTree = await buildDependencyTree(
-      filePath,
-      projectPath,
-      options.depth
-    )
+    dependencyTree = await buildDependencyTree(filePath, projectPath, options.depth)
   }
 
   // Calculate metrics
@@ -285,11 +274,7 @@ function extractImports(
 /**
  * Resolve a relative import to an absolute path
  */
-function resolveImport(
-  source: string,
-  fromFile: string,
-  projectPath: string
-): string | null {
+function resolveImport(source: string, fromFile: string, projectPath: string): string | null {
   const fileDir = path.dirname(fromFile)
 
   // Handle path alias like @/
@@ -313,13 +298,11 @@ function tryResolve(basePath: string, projectPath: string): string | null {
     const fullPath = basePath + ext
     try {
       // Check synchronously (we're in a hot path)
-      const fs = require('fs')
+      const fs = require('node:fs')
       if (fs.existsSync(fullPath) && fs.statSync(fullPath).isFile()) {
         return path.relative(projectPath, fullPath)
       }
-    } catch {
-      continue
-    }
+    } catch {}
   }
 
   return null
@@ -328,15 +311,12 @@ function tryResolve(basePath: string, projectPath: string): string | null {
 /**
  * Find all files that import the target file
  */
-async function findImportedBy(
-  filePath: string,
-  projectPath: string
-): Promise<ImportedBy[]> {
+async function findImportedBy(filePath: string, projectPath: string): Promise<ImportedBy[]> {
   const importedBy: ImportedBy[] = []
 
   // Get the base name without extension for matching
   const baseName = path.basename(filePath, path.extname(filePath))
-  const dirName = path.dirname(filePath)
+  const _dirName = path.dirname(filePath)
 
   try {
     // Use ripgrep if available, otherwise grep
@@ -364,7 +344,7 @@ async function findImportedBy(
     for (const file of files) {
       importedBy.push({ file })
     }
-  } catch (error) {
+  } catch (_error) {
     // grep not available or error - return empty
   }
 

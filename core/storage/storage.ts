@@ -5,12 +5,12 @@
  * For future per-entity storage: data/{entity}s/{id}.json
  */
 
-import fs from 'fs/promises'
-import path from 'path'
-import os from 'os'
+import fs from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
 import { eventBus, inferEventType } from '../events'
-import { isNotFoundError } from '../types/fs'
 import type { Storage } from '../types'
+import { isNotFoundError } from '../types/fs'
 
 class FileStorage implements Storage {
   private projectId: string
@@ -32,9 +32,9 @@ class FileStorage implements Storage {
     }
 
     // Pluralize first segment for directory
-    const dir = pathArray[0] + 's'
+    const dir = `${pathArray[0]}s`
     const rest = pathArray.slice(1)
-    const filename = rest.join('/') + '.json'
+    const filename = `${rest.join('/')}.json`
 
     return path.join(this.basePath, dir, filename)
   }
@@ -54,7 +54,7 @@ class FileStorage implements Storage {
       path: pathArray,
       data,
       timestamp: new Date().toISOString(),
-      projectId: this.projectId
+      projectId: this.projectId,
     })
 
     // Update index if it's a collection item
@@ -78,13 +78,13 @@ class FileStorage implements Storage {
   }
 
   async list(prefix: string[]): Promise<string[][]> {
-    const dir = path.join(this.basePath, prefix[0] + 's')
+    const dir = path.join(this.basePath, `${prefix[0]}s`)
 
     try {
       const files = await fs.readdir(dir)
       return files
-        .filter(f => f.endsWith('.json') && f !== 'index.json')
-        .map(f => [...prefix, f.replace('.json', '')])
+        .filter((f) => f.endsWith('.json') && f !== 'index.json')
+        .map((f) => [...prefix, f.replace('.json', '')])
     } catch (error) {
       if (isNotFoundError(error)) {
         return []
@@ -105,7 +105,7 @@ class FileStorage implements Storage {
         path: pathArray,
         data: null,
         timestamp: new Date().toISOString(),
-        projectId: this.projectId
+        projectId: this.projectId,
       })
 
       // Update index if it's a collection item
@@ -137,8 +137,12 @@ class FileStorage implements Storage {
   /**
    * Update collection index
    */
-  private async updateIndex(collection: string, id: string, action: 'add' | 'remove'): Promise<void> {
-    const indexPath = path.join(this.basePath, collection + 's', 'index.json')
+  private async updateIndex(
+    collection: string,
+    id: string,
+    action: 'add' | 'remove'
+  ): Promise<void> {
+    const indexPath = path.join(this.basePath, `${collection}s`, 'index.json')
 
     let index: { ids: string[]; updatedAt: string } = { ids: [], updatedAt: '' }
 
@@ -155,7 +159,7 @@ class FileStorage implements Storage {
     if (action === 'add' && !index.ids.includes(id)) {
       index.ids.push(id)
     } else if (action === 'remove') {
-      index.ids = index.ids.filter(i => i !== id)
+      index.ids = index.ids.filter((i) => i !== id)
     }
 
     index.updatedAt = new Date().toISOString()
@@ -173,4 +177,3 @@ export function getStorage(projectId: string): Storage {
 }
 
 export default { getStorage }
-

@@ -16,11 +16,11 @@
  * @version 1.0.0
  */
 
-import fs from 'fs/promises'
-import path from 'path'
-import type { SignaturesToolOutput, CodeSignature, SignatureType } from './types'
-import { measureCompression, noCompression } from './token-counter'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import { isNotFoundError } from '../types/fs'
+import { measureCompression, noCompression } from './token-counter'
+import type { CodeSignature, SignaturesToolOutput, SignatureType } from './types'
 
 // =============================================================================
 // Language Support
@@ -92,15 +92,13 @@ const TS_PATTERNS: ExtractionPattern[] = [
   // Regular function declarations
   {
     type: 'function',
-    pattern:
-      /^(?:async\s+)?function\s+(\w+)\s*(<[^>]*>)?\s*\(([^)]*)\)\s*(?::\s*([^{;]+))?/gm,
+    pattern: /^(?:async\s+)?function\s+(\w+)\s*(<[^>]*>)?\s*\(([^)]*)\)\s*(?::\s*([^{;]+))?/gm,
     nameIndex: 1,
   },
   // Const arrow functions
   {
     type: 'function',
-    pattern:
-      /^const\s+(\w+)\s*(?::\s*[^=]+)?\s*=\s*(?:async\s+)?\([^)]*\)\s*(?::\s*[^=]+)?\s*=>/gm,
+    pattern: /^const\s+(\w+)\s*(?::\s*[^=]+)?\s*=\s*(?:async\s+)?\([^)]*\)\s*(?::\s*[^=]+)?\s*=>/gm,
     nameIndex: 1,
   },
   // Interface declarations
@@ -131,14 +129,14 @@ const TS_PATTERNS: ExtractionPattern[] = [
   {
     type: 'class',
     pattern:
-      /^export\s+(?:abstract\s+)?class\s+(\w+)(?:<[^>]+>)?(?:\s+extends\s+[^\{]+)?(?:\s+implements\s+[^\{]+)?\s*\{/gm,
+      /^export\s+(?:abstract\s+)?class\s+(\w+)(?:<[^>]+>)?(?:\s+extends\s+[^{]+)?(?:\s+implements\s+[^{]+)?\s*\{/gm,
     nameIndex: 1,
     exported: true,
   },
   {
     type: 'class',
     pattern:
-      /^(?:abstract\s+)?class\s+(\w+)(?:<[^>]+>)?(?:\s+extends\s+[^\{]+)?(?:\s+implements\s+[^\{]+)?\s*\{/gm,
+      /^(?:abstract\s+)?class\s+(\w+)(?:<[^>]+>)?(?:\s+extends\s+[^{]+)?(?:\s+implements\s+[^{]+)?\s*\{/gm,
     nameIndex: 1,
   },
   // Enum declarations
@@ -325,9 +323,7 @@ export async function extractSignatures(
   projectPath: string = process.cwd()
 ): Promise<SignaturesToolOutput> {
   // Resolve to absolute path
-  const absolutePath = path.isAbsolute(filePath)
-    ? filePath
-    : path.join(projectPath, filePath)
+  const absolutePath = path.isAbsolute(filePath) ? filePath : path.join(projectPath, filePath)
 
   // Read file content
   let content: string
@@ -392,9 +388,7 @@ export async function extractDirectorySignatures(
   projectPath: string = process.cwd(),
   options: { recursive?: boolean } = {}
 ): Promise<SignaturesToolOutput[]> {
-  const absolutePath = path.isAbsolute(dirPath)
-    ? dirPath
-    : path.join(projectPath, dirPath)
+  const absolutePath = path.isAbsolute(dirPath) ? dirPath : path.join(projectPath, dirPath)
 
   const results: SignaturesToolOutput[] = []
 
@@ -407,11 +401,7 @@ export async function extractDirectorySignatures(
 
       if (entry.isDirectory()) {
         // Skip common ignore patterns
-        if (
-          entry.name === 'node_modules' ||
-          entry.name === '.git' ||
-          entry.name.startsWith('.')
-        ) {
+        if (entry.name === 'node_modules' || entry.name === '.git' || entry.name.startsWith('.')) {
           continue
         }
         if (options.recursive) {
@@ -438,10 +428,7 @@ export async function extractDirectorySignatures(
 /**
  * Extract signatures from content using patterns
  */
-function extractFromContent(
-  content: string,
-  patterns: ExtractionPattern[]
-): CodeSignature[] {
+function extractFromContent(content: string, patterns: ExtractionPattern[]): CodeSignature[] {
   const signatures: CodeSignature[] = []
   const lines = content.split('\n')
 
@@ -473,7 +460,11 @@ function extractFromContent(
       let docstring: string | undefined
       if (lineNumber > 1) {
         const prevLine = lines[lineNumber - 2]?.trim()
-        if (prevLine?.startsWith('/**') || prevLine?.startsWith('///') || prevLine?.startsWith('#')) {
+        if (
+          prevLine?.startsWith('/**') ||
+          prevLine?.startsWith('///') ||
+          prevLine?.startsWith('#')
+        ) {
           docstring = prevLine
         }
       }

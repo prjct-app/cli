@@ -8,24 +8,22 @@
 import commandExecutor from '../agentic/command-executor'
 import contextBuilder from '../agentic/context-builder'
 import toolRegistry from '../agentic/tool-registry'
-import pathManager from '../infrastructure/path-manager'
 import configManager from '../infrastructure/config-manager'
+import pathManager from '../infrastructure/path-manager'
 import UpdateChecker from '../infrastructure/update-checker'
-import dateHelper from '../utils/date-helper'
-import jsonlHelper from '../utils/jsonl-helper'
-import * as fileHelper from '../utils/file-helper'
-import out from '../utils/output'
-
 // Services
-import { agentService, projectService, memoryService, breakdownService } from '../services'
-
+import { agentService, breakdownService, memoryService, projectService } from '../services'
 import type {
-  CommandResult,
+  AgentAssignmentResult,
   AgentInfo,
   Author,
-  AgentAssignmentResult,
-  ProjectContext
+  CommandResult,
+  ProjectContext,
 } from '../types'
+import dateHelper from '../utils/date-helper'
+import * as fileHelper from '../utils/file-helper'
+import jsonlHelper from '../utils/jsonl-helper'
+import out from '../utils/output'
 
 /**
  * Base class with shared state and utilities
@@ -73,7 +71,11 @@ export class PrjctCommandsBase {
     return projectService.getGlobalPath(projectPath)
   }
 
-  async logToMemory(projectPath: string, action: string, data: Record<string, unknown>): Promise<void> {
+  async logToMemory(
+    projectPath: string,
+    action: string,
+    data: Record<string, unknown>
+  ): Promise<void> {
     const author = await this.ensureAuthor()
     return memoryService.log(projectPath, action, data, author.name)
   }
@@ -112,5 +114,5 @@ export {
   fileHelper,
   jsonlHelper,
   dateHelper,
-  out
+  out,
 }

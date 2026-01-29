@@ -33,24 +33,20 @@
   "files": {
     "read": {
       "**/*": "allow",
-      "**/.*": "ask",           // Hidden files need approval
-      "**/.env*": "deny"        // Never read env files
+      "**/.*": "ask", // Hidden files need approval
+      "**/.env*": "deny" // Never read env files
     },
     "write": {
-      "**/*": "ask"             // All writes need approval
+      "**/*": "ask" // All writes need approval
     },
     "delete": {
-      "**/*": "deny"            // No deletions without explicit override
+      "**/*": "deny" // No deletions without explicit override
     }
   },
 
   "web": {
     "enabled": true,
-    "blockedDomains": [
-      "localhost",
-      "127.0.0.1",
-      "internal"
-    ]
+    "blockedDomains": ["localhost", "127.0.0.1", "internal"]
   },
 
   "doomLoop": {

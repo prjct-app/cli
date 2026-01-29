@@ -9,9 +9,9 @@
  * - Provides actionable recommendations
  */
 
-import { execSync } from 'child_process'
-import fs from 'fs/promises'
-import path from 'path'
+import { execSync } from 'node:child_process'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import chalk from 'chalk'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
@@ -61,8 +61,10 @@ class DoctorService {
     const project = await this.checkProject()
     const recommendations = this.generateRecommendations(tools, project)
 
-    const hasErrors = [...tools, ...project].some(c => c.status === 'error' && !c.optional)
-    const hasWarnings = [...tools, ...project].some(c => c.status === 'warn' || (c.status === 'error' && c.optional))
+    const hasErrors = [...tools, ...project].some((c) => c.status === 'error' && !c.optional)
+    const hasWarnings = [...tools, ...project].some(
+      (c) => c.status === 'warn' || (c.status === 'error' && c.optional)
+    )
 
     return {
       success: !hasErrors,
@@ -110,13 +112,25 @@ class DoctorService {
     checks.push(this.checkCommand('bun', 'bun --version', /([\d.]+)/, true))
 
     // GitHub CLI (optional)
-    checks.push(this.checkCommand('gh', 'gh --version', /gh version ([\d.]+)/, true, 'needed for PR commands'))
+    checks.push(
+      this.checkCommand('gh', 'gh --version', /gh version ([\d.]+)/, true, 'needed for PR commands')
+    )
 
     // Claude Code (optional)
-    checks.push(this.checkCommand('claude', 'claude --version', /claude ([\d.]+)/, true, 'Anthropic Claude Code CLI'))
+    checks.push(
+      this.checkCommand(
+        'claude',
+        'claude --version',
+        /claude ([\d.]+)/,
+        true,
+        'Anthropic Claude Code CLI'
+      )
+    )
 
     // Gemini CLI (optional)
-    checks.push(this.checkCommand('gemini', 'gemini --version', /gemini ([\d.]+)/, true, 'Google Gemini CLI'))
+    checks.push(
+      this.checkCommand('gemini', 'gemini --version', /gemini ([\d.]+)/, true, 'Google Gemini CLI')
+    )
 
     return checks
   }
@@ -241,10 +255,16 @@ class DoctorService {
 
   private async checkGitRepo(): Promise<CheckResult> {
     try {
-      execSync('git rev-parse --git-dir', { cwd: this.projectPath, stdio: ['pipe', 'pipe', 'pipe'] })
+      execSync('git rev-parse --git-dir', {
+        cwd: this.projectPath,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      })
 
       // Check for uncommitted changes
-      const status = execSync('git status --porcelain', { cwd: this.projectPath, encoding: 'utf-8' })
+      const status = execSync('git status --porcelain', {
+        cwd: this.projectPath,
+        encoding: 'utf-8',
+      })
       const hasChanges = status.trim().length > 0
 
       if (hasChanges) {
@@ -316,25 +336,25 @@ class DoctorService {
     const recommendations: string[] = []
 
     // Check for missing optional tools
-    const missingGh = tools.find(t => t.name === 'gh' && t.status === 'error')
+    const missingGh = tools.find((t) => t.name === 'gh' && t.status === 'error')
     if (missingGh) {
       recommendations.push('Install GitHub CLI (gh) for PR commands: https://cli.github.com')
     }
 
     // Check for stale CLAUDE.md
-    const claudeCheck = project.find(p => p.name === 'CLAUDE.md')
+    const claudeCheck = project.find((p) => p.name === 'CLAUDE.md')
     if (claudeCheck?.status === 'warn' && claudeCheck.message?.includes('stale')) {
       recommendations.push('Run "prjct sync" to update context')
     }
 
     // Check for missing init
-    const configCheck = project.find(p => p.name === 'prjct config')
+    const configCheck = project.find((p) => p.name === 'prjct config')
     if (configCheck?.status === 'error') {
       recommendations.push('Run "prjct init" to initialize this project')
     }
 
     // Check for missing CLAUDE.md
-    const claudeMissing = project.find(p => p.name === 'CLAUDE.md' && p.status === 'error')
+    const claudeMissing = project.find((p) => p.name === 'CLAUDE.md' && p.status === 'error')
     if (claudeMissing && !configCheck?.status?.includes('error')) {
       recommendations.push('Run "prjct sync" to generate context files')
     }
@@ -403,4 +423,4 @@ class DoctorService {
 }
 
 export const doctorService = new DoctorService()
-export { DoctorService, DoctorResult, CheckResult }
+export { DoctorService, type DoctorResult, type CheckResult }

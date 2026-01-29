@@ -5,8 +5,8 @@
  * Falls back to environment variables if keychain is not available.
  */
 
-import { exec } from 'child_process'
-import { promisify } from 'util'
+import { exec } from 'node:child_process'
+import { promisify } from 'node:util'
 
 const execAsync = promisify(exec)
 
@@ -30,9 +30,7 @@ export async function setCredential(key: CredentialKey, value: string): Promise<
     )
 
     // Add new entry
-    await execAsync(
-      `security add-generic-password -s "${SERVICE_NAME}" -a "${key}" -w "${value}"`
-    )
+    await execAsync(`security add-generic-password -s "${SERVICE_NAME}" -a "${key}" -w "${value}"`)
 
     return true
   } catch (error) {
@@ -70,9 +68,7 @@ export async function deleteCredential(key: CredentialKey): Promise<boolean> {
   }
 
   try {
-    await execAsync(
-      `security delete-generic-password -s "${SERVICE_NAME}" -a "${key}" 2>/dev/null`
-    )
+    await execAsync(`security delete-generic-password -s "${SERVICE_NAME}" -a "${key}" 2>/dev/null`)
     return true
   } catch (_error) {
     // Not found in keychain - expected

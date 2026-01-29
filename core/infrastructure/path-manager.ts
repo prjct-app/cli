@@ -9,13 +9,13 @@
  * @version 0.2.1
  */
 
-import fs from 'fs/promises'
-import path from 'path'
-import crypto from 'crypto'
-import os from 'os'
+import crypto from 'node:crypto'
+import fs from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
+import type { SessionInfo } from '../types'
 import * as dateHelper from '../utils/date-helper'
 import * as fileHelper from '../utils/file-helper'
-import type { SessionInfo } from '../types'
 
 class PathManager {
   globalBaseDir: string
@@ -24,7 +24,9 @@ class PathManager {
 
   constructor() {
     const envOverride = process.env.PRJCT_CLI_HOME?.trim()
-    this.globalBaseDir = envOverride ? path.resolve(envOverride) : path.join(os.homedir(), '.prjct-cli')
+    this.globalBaseDir = envOverride
+      ? path.resolve(envOverride)
+      : path.join(os.homedir(), '.prjct-cli')
     this.globalProjectsDir = path.join(this.globalBaseDir, 'projects')
     this.globalConfigDir = path.join(this.globalBaseDir, 'config')
   }

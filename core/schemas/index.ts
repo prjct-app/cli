@@ -12,44 +12,34 @@
  *   - memory/   (context.jsonl, patterns.json)
  */
 
-// State (current task + queue)
-export * from './state'
-
-// Issues (local cache of issue tracker issues)
-export * from './issues'
-
-// Project metadata
-export * from './project'
-
 // Agents
 export * from './agents'
-
-// Ideas
-export * from './ideas'
-
-// Roadmap (features)
-export * from './roadmap'
-
-// Shipped items
-export * from './shipped'
-
 // Analysis
 export * from './analysis'
-
+// Ideas
+export * from './ideas'
+// Issues (local cache of issue tracker issues)
+export * from './issues'
 // Outcomes
 export * from './outcomes'
-
 // Permissions
 export * from './permissions'
-
+// Project metadata
+export * from './project'
+// Roadmap (features)
+export * from './roadmap'
 // Utilities (ID generators and path helpers)
 export {
-  generateUUID,
-  generateTaskId,
+  GLOBAL_STORAGE,
   generateFeatureId,
   generateIdeaId,
-  generateShipId,
   generateSessionId,
-  GLOBAL_STORAGE,
-  getProjectPath
+  generateShipId,
+  generateTaskId,
+  generateUUID,
+  getProjectPath,
 } from './schemas'
+// Shipped items
+export * from './shipped'
+// State (current task + queue)
+export * from './state'

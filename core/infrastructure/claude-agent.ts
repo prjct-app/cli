@@ -3,7 +3,7 @@
  * Implements prjct commands for Claude Code environment
  */
 
-import fs from 'fs/promises'
+import fs from 'node:fs/promises'
 import { isNotFoundError } from '../types/fs'
 
 declare const global: typeof globalThis & {
@@ -71,7 +71,7 @@ class ClaudeAgent {
    */
   async readFile(filePath: string): Promise<string> {
     try {
-      if (global.mcp && global.mcp.filesystem) {
+      if (global.mcp?.filesystem) {
         return await global.mcp.filesystem.read(filePath)
       }
     } catch (_error) {
@@ -86,7 +86,7 @@ class ClaudeAgent {
    */
   async writeFile(filePath: string, content: string): Promise<void> {
     try {
-      if (global.mcp && global.mcp.filesystem) {
+      if (global.mcp?.filesystem) {
         return await global.mcp.filesystem.write(filePath, content)
       }
     } catch (_error) {
@@ -101,7 +101,7 @@ class ClaudeAgent {
    */
   async listDirectory(dirPath: string): Promise<string[]> {
     try {
-      if (global.mcp && global.mcp.filesystem) {
+      if (global.mcp?.filesystem) {
         return await global.mcp.filesystem.list(dirPath)
       }
     } catch (_error) {
@@ -148,7 +148,7 @@ class ClaudeAgent {
       return '📋 No tasks queued'
     }
 
-    return '📋 Queue:\n' + tasks.map((t, i) => `${i + 1}. ${t}`).join('\n')
+    return `📋 Queue:\n${tasks.map((t, i) => `${i + 1}. ${t}`).join('\n')}`
   }
 
   /**
@@ -161,7 +161,7 @@ class ClaudeAgent {
 🚀 Shipped: ${data.shippedCount}
 📝 Queue: ${data.queuedCount}
 💡 Ideas: ${data.ideasCount}
-${data.recentActivity ? '\n' + data.recentActivity : ''}`
+${data.recentActivity ? `\n${data.recentActivity}` : ''}`
   }
 
   /**

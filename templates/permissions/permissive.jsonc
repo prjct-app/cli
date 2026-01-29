@@ -32,7 +32,7 @@
     },
     "delete": {
       "**/*": "allow",
-      "**/node_modules/**": "deny"  // Protect dependencies
+      "**/node_modules/**": "deny" // Protect dependencies
     }
   },
 

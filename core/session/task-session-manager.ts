@@ -4,16 +4,16 @@
  * Tracks metrics, timeline, and archives completed sessions.
  */
 
-import fs from 'fs/promises'
-import path from 'path'
-import { exec } from 'child_process'
-import { promisify } from 'util'
-import pathManager from '../infrastructure/path-manager'
-import configManager from '../infrastructure/config-manager'
+import { exec } from 'node:child_process'
+import fs from 'node:fs/promises'
+import path from 'node:path'
+import { promisify } from 'node:util'
 import { emit } from '../bus'
-import { isNotFoundError } from '../types/fs'
+import configManager from '../infrastructure/config-manager'
+import pathManager from '../infrastructure/path-manager'
 import type { Session, SessionMetrics } from '../types'
-import { generateId, calculateDuration, formatDuration } from './utils'
+import { isNotFoundError } from '../types/fs'
+import { calculateDuration, formatDuration, generateId } from './utils'
 
 const execAsync = promisify(exec)
 
@@ -100,11 +100,9 @@ export class TaskSessionManager {
         linesAdded: 0,
         linesRemoved: 0,
         commits: 0,
-        snapshots: []
+        snapshots: [],
       },
-      timeline: [
-        { type: 'start', at: now }
-      ]
+      timeline: [{ type: 'start', at: now }],
     }
 
     // Save as current session
@@ -117,7 +115,7 @@ export class TaskSessionManager {
     await emit.sessionStarted({
       sessionId: session.id,
       task,
-      projectId: this.projectId
+      projectId: this.projectId,
     })
 
     return session
@@ -161,7 +159,7 @@ export class TaskSessionManager {
     await emit.sessionResumed({
       sessionId: current.id,
       task: current.task,
-      projectId: this.projectId
+      projectId: this.projectId,
     })
 
     return current
@@ -196,7 +194,7 @@ export class TaskSessionManager {
       sessionId: current.id,
       task: current.task,
       duration: current.duration,
-      projectId: this.projectId
+      projectId: this.projectId,
     })
 
     return current
@@ -231,7 +229,7 @@ export class TaskSessionManager {
       sessionId: current.id,
       task: current.task,
       duration: current.duration,
-      metrics: current.metrics
+      metrics: current.metrics,
     })
 
     // Emit event for plugins
@@ -240,7 +238,7 @@ export class TaskSessionManager {
       task: current.task,
       duration: current.duration,
       metrics: current.metrics,
-      projectId: this.projectId
+      projectId: this.projectId,
     })
 
     return current
@@ -268,7 +266,7 @@ export class TaskSessionManager {
         `git rev-list --count --since="${since}" HEAD 2>/dev/null || echo "0"`,
         { cwd: this.projectPath }
       )
-      metrics.commits = parseInt(commitCount.trim()) || 0
+      metrics.commits = parseInt(commitCount.trim(), 10) || 0
 
       // Get diff stats
       const { stdout: diffStat } = await execAsync(
@@ -279,12 +277,14 @@ export class TaskSessionManager {
       // Parse diff stats
       const lines = diffStat.split('\n')
       const summaryLine = lines[lines.length - 2] || ''
-      const match = summaryLine.match(/(\d+) files? changed(?:, (\d+) insertions?)?(?:, (\d+) deletions?)?/)
+      const match = summaryLine.match(
+        /(\d+) files? changed(?:, (\d+) insertions?)?(?:, (\d+) deletions?)?/
+      )
 
       if (match) {
-        metrics.filesChanged = parseInt(match[1]) || 0
-        metrics.linesAdded = parseInt(match[2]) || 0
-        metrics.linesRemoved = parseInt(match[3]) || 0
+        metrics.filesChanged = parseInt(match[1], 10) || 0
+        metrics.linesAdded = parseInt(match[2], 10) || 0
+        metrics.linesRemoved = parseInt(match[3], 10) || 0
       }
     } catch (error) {
       // Keep existing metrics if git fails (not a repo, git not installed, etc.)
@@ -379,11 +379,11 @@ export class TaskSessionManager {
     const globalPath = pathManager.getGlobalProjectPath(this.projectId!)
     const memoryPath = path.join(globalPath, 'memory', 'context.jsonl')
 
-    const entry = JSON.stringify({
+    const entry = `${JSON.stringify({
       timestamp: new Date().toISOString(),
       action,
-      ...data
-    }) + '\n'
+      ...data,
+    })}\n`
 
     try {
       await fs.appendFile(memoryPath, entry)

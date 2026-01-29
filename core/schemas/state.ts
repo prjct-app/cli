@@ -17,17 +17,31 @@ import { z } from 'zod'
 export const PrioritySchema = z.enum(['low', 'medium', 'high', 'critical'])
 export const TaskTypeSchema = z.enum(['feature', 'bug', 'improvement', 'chore'])
 export const TaskSectionSchema = z.enum(['active', 'backlog', 'previously_active'])
-export const TaskStatusSchema = z.enum(['pending', 'in_progress', 'completed', 'blocked', 'paused', 'failed'])
-export const ActivityTypeSchema = z.enum(['task_completed', 'feature_shipped', 'idea_captured', 'session_started'])
+export const TaskStatusSchema = z.enum([
+  'pending',
+  'in_progress',
+  'completed',
+  'blocked',
+  'paused',
+  'failed',
+])
+export const ActivityTypeSchema = z.enum([
+  'task_completed',
+  'feature_shipped',
+  'idea_captured',
+  'session_started',
+])
 
 // Subtask summary for context handoff between agents
 export const SubtaskSummarySchema = z.object({
   title: z.string(),
   description: z.string(),
-  filesChanged: z.array(z.object({
-    path: z.string(),
-    action: z.enum(['created', 'modified', 'deleted']),
-  })),
+  filesChanged: z.array(
+    z.object({
+      path: z.string(),
+      action: z.enum(['created', 'modified', 'deleted']),
+    })
+  ),
   whatWasDone: z.array(z.string()),
   outputForNextAgent: z.string().optional(),
   notes: z.string().optional(),
@@ -35,15 +49,15 @@ export const SubtaskSummarySchema = z.object({
 
 // Subtask schema for task fragmentation
 export const SubtaskSchema = z.object({
-  id: z.string(),                    // subtask-xxx
+  id: z.string(), // subtask-xxx
   description: z.string(),
-  domain: z.string(),                // frontend, backend, database, testing, etc.
-  agent: z.string(),                 // agent file name (e.g., "frontend.md")
+  domain: z.string(), // frontend, backend, database, testing, etc.
+  agent: z.string(), // agent file name (e.g., "frontend.md")
   status: TaskStatusSchema,
-  dependsOn: z.array(z.string()),    // IDs of dependent subtasks
-  startedAt: z.string().optional(),  // ISO8601
+  dependsOn: z.array(z.string()), // IDs of dependent subtasks
+  startedAt: z.string().optional(), // ISO8601
   completedAt: z.string().optional(), // ISO8601
-  output: z.string().optional(),      // Brief output description
+  output: z.string().optional(), // Brief output description
   summary: SubtaskSummarySchema.optional(), // Full summary for context handoff
 })
 
@@ -55,26 +69,26 @@ export const SubtaskProgressSchema = z.object({
 })
 
 export const CurrentTaskSchema = z.object({
-  id: z.string(),                   // task_xxxxxxxx
+  id: z.string(), // task_xxxxxxxx
   description: z.string(),
-  startedAt: z.string(),            // ISO8601
-  sessionId: z.string(),            // sess_xxxxxxxx
+  startedAt: z.string(), // ISO8601
+  sessionId: z.string(), // sess_xxxxxxxx
   featureId: z.string().optional(), // feat_xxxxxxxx
   // Subtask tracking for fragmented tasks
   subtasks: z.array(SubtaskSchema).optional(),
   currentSubtaskIndex: z.number().optional(),
   subtaskProgress: SubtaskProgressSchema.optional(),
   // Linear integration - bidirectional sync
-  linearId: z.string().optional(),      // "PRJ-123" - Linear identifier
-  linearUuid: z.string().optional(),    // Linear internal UUID for API calls
+  linearId: z.string().optional(), // "PRJ-123" - Linear identifier
+  linearUuid: z.string().optional(), // Linear internal UUID for API calls
 })
 
 export const PreviousTaskSchema = z.object({
   id: z.string(),
   description: z.string(),
   status: z.literal('paused'),
-  startedAt: z.string(),            // ISO8601
-  pausedAt: z.string(),             // ISO8601
+  startedAt: z.string(), // ISO8601
+  pausedAt: z.string(), // ISO8601
   pauseReason: z.string().optional(),
 })
 
@@ -85,20 +99,20 @@ export const StateJsonSchema = z.object({
 })
 
 export const QueueTaskSchema = z.object({
-  id: z.string(),                   // task_xxxxxxxx
+  id: z.string(), // task_xxxxxxxx
   description: z.string(),
   priority: PrioritySchema,
-  type: TaskTypeSchema,             // detect from emoji 🐛=bug
+  type: TaskTypeSchema, // detect from emoji 🐛=bug
   featureId: z.string().optional(),
   originFeature: z.string().optional(),
   completed: z.boolean(),
   completedAt: z.string().optional(),
-  createdAt: z.string(),            // ISO8601
+  createdAt: z.string(), // ISO8601
   section: TaskSectionSchema,
   // Additional fields for ZERO DATA LOSS
-  agent: z.string().optional(),     // "fe", "be", "fe + be"
+  agent: z.string().optional(), // "fe", "be", "fe + be"
   groupName: z.string().optional(), // "Sales Reports", "Stock Audits"
-  groupId: z.string().optional(),   // For grouping related tasks
+  groupId: z.string().optional(), // For grouping related tasks
 })
 
 export const QueueJsonSchema = z.object({
@@ -117,7 +131,7 @@ export const StatsSchema = z.object({
 export const RecentActivitySchema = z.object({
   type: ActivityTypeSchema,
   description: z.string(),
-  timestamp: z.string(),            // ISO8601
+  timestamp: z.string(), // ISO8601
   duration: z.string().optional(),
 })
 
@@ -127,7 +141,7 @@ export const StateSchemaFull = z.object({
   queue: z.array(QueueTaskSchema),
   stats: StatsSchema,
   recentActivity: z.array(RecentActivitySchema),
-  lastSync: z.string(),             // ISO8601
+  lastSync: z.string(), // ISO8601
 })
 
 // =============================================================================
@@ -176,12 +190,12 @@ export const safeParseQueue = (data: unknown) => QueueJsonSchema.safeParse(data)
 
 export const DEFAULT_STATE: StateJson = {
   currentTask: null,
-  lastUpdated: ''
+  lastUpdated: '',
 }
 
 export const DEFAULT_QUEUE: QueueJson = {
   tasks: [],
-  lastUpdated: ''
+  lastUpdated: '',
 }
 
 export const DEFAULT_STATS: Stats = {
@@ -189,5 +203,5 @@ export const DEFAULT_STATS: Stats = {
   tasksThisWeek: 0,
   streak: 0,
   velocity: '0/day',
-  avgDuration: '0m'
+  avgDuration: '0m',
 }

@@ -4,19 +4,12 @@
  * Memory and project file cleanup operations.
  */
 
-import path from 'path'
-
-import { isNotFoundError } from '../types/fs'
-import type { CommandResult, CleanupOptions } from '../types'
-import {
-  pathManager,
-  configManager,
-  jsonlHelper,
-  dateHelper,
-  out
-} from './base'
-import { ideasStorage, queueStorage } from '../storage'
+import path from 'node:path'
 import { memoryService } from '../services'
+import { ideasStorage, queueStorage } from '../storage'
+import type { CleanupOptions, CommandResult } from '../types'
+import { isNotFoundError } from '../types/fs'
+import { configManager, dateHelper, jsonlHelper, out, pathManager } from './base'
 
 /**
  * Memory cleanup helper
@@ -131,7 +124,7 @@ export async function cleanup(
     // Check queue for completed tasks using queueStorage
     try {
       const tasks = await queueStorage.getActiveTasks(projectId)
-      const completedTasks = tasks.filter(t => t.completed).length
+      const completedTasks = tasks.filter((t) => t.completed).length
 
       if (completedTasks > 0) {
         cleaned.push(

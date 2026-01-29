@@ -6,14 +6,14 @@
  * @version 0.1
  */
 
-import fs from 'fs/promises'
-import pathManager from '../infrastructure/path-manager'
+import fs from 'node:fs/promises'
 import configManager from '../infrastructure/config-manager'
+import pathManager from '../infrastructure/path-manager'
+import type { ContextPaths, ContextState, ProjectContext } from '../types'
 import { isNotFoundError } from '../types/fs'
-import type { ContextPaths, ProjectContext, ContextState } from '../types'
 
 // Re-export types for convenience
-export type { ContextPaths, ProjectContext, ContextState } from '../types'
+export type { ContextPaths, ContextState, ProjectContext } from '../types'
 
 // Local type aliases for backward compatibility
 type Paths = ContextPaths
@@ -140,7 +140,10 @@ class ContextBuilder {
     if (uncachedEntries.length > 0) {
       const readPromises = uncachedEntries.map(async ([key, filePath]) => {
         try {
-          const [content, stat] = await Promise.all([fs.readFile(filePath, 'utf-8'), fs.stat(filePath)])
+          const [content, stat] = await Promise.all([
+            fs.readFile(filePath, 'utf-8'),
+            fs.stat(filePath),
+          ])
           return { key, filePath, content, mtime: stat.mtimeMs }
         } catch (error) {
           if (isNotFoundError(error)) {

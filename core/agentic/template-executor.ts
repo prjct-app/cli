@@ -9,9 +9,8 @@
  * @version 1.0.0
  */
 
-import fs from 'fs/promises'
-import path from 'path'
-import os from 'os'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import { isNotFoundError } from '../types/fs'
@@ -119,7 +118,7 @@ export class TemplateExecutor {
         agentsDir: path.join(globalPath, 'agents'),
         skillsDir: activeProvider.skillsDir,
         stateJson: path.join(globalPath, 'storage', 'state.json'),
-      }
+      },
     }
   }
 
@@ -141,7 +140,7 @@ export class TemplateExecutor {
       const projectId = await this.getProjectId(projectPath)
       const agentsDir = path.join(pathManager.getGlobalProjectPath(projectId), 'agents')
       const files = await fs.readdir(agentsDir)
-      return files.some(f => f.endsWith('.md'))
+      return files.some((f) => f.endsWith('.md'))
     } catch (error) {
       if (isNotFoundError(error)) return false
       return false
@@ -156,9 +155,7 @@ export class TemplateExecutor {
       const projectId = await this.getProjectId(projectPath)
       const agentsDir = path.join(pathManager.getGlobalProjectPath(projectId), 'agents')
       const files = await fs.readdir(agentsDir)
-      return files
-        .filter(f => f.endsWith('.md'))
-        .map(f => f.replace('.md', ''))
+      return files.filter((f) => f.endsWith('.md')).map((f) => f.replace('.md', ''))
     } catch {
       return []
     }
@@ -199,7 +196,9 @@ You are executing a prjct command as ${context.agentName}. Follow the template-f
 
 2. **Check if orchestration is needed**
    - This command ${requiresOrchestration ? 'REQUIRES' : 'does NOT require'} orchestration
-   ${requiresOrchestration ? `
+   ${
+     requiresOrchestration
+       ? `
 3. **Orchestration steps:**
    - Read: ${context.paths.orchestrator}
    - Read: ${context.paths.repoAnalysis} to understand project technologies
@@ -217,11 +216,13 @@ You are executing a prjct command as ${context.agentName}. Follow the template-f
 
    - Check if task should be fragmented (read: ${context.paths.taskFragmentation})
    - If agents loaded, check their skills and load from ${context.paths.skillsDir}
-` : `
+`
+       : `
 3. **Simple execution:**
    - Execute the command template directly
    - No agent routing needed
-`}
+`
+   }
 
 4. **Execute the command template** with full context
 
@@ -258,7 +259,7 @@ When fragmenting tasks:
     return {
       prompt,
       context,
-      requiresOrchestration
+      requiresOrchestration,
     }
   }
 }

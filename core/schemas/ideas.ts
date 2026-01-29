@@ -23,32 +23,32 @@ export const ImpactEffortSchema = z.object({
 })
 
 export const TechStackSchema = z.object({
-  frontend: z.string().optional(),  // "Next.js 14, HeroUI"
-  backend: z.string().optional(),   // "Supabase (Auth, DB, RLS, Realtime)"
-  payments: z.string().optional(),  // "Stripe Billing"
-  ai: z.string().optional(),        // "Vercel AI SDK"
-  deploy: z.string().optional(),    // "Vercel"
+  frontend: z.string().optional(), // "Next.js 14, HeroUI"
+  backend: z.string().optional(), // "Supabase (Auth, DB, RLS, Realtime)"
+  payments: z.string().optional(), // "Stripe Billing"
+  ai: z.string().optional(), // "Vercel AI SDK"
+  deploy: z.string().optional(), // "Vercel"
   other: z.array(z.string()).optional(),
 })
 
 export const IdeaModuleSchema = z.object({
-  name: z.string(),               // "Multi-tenant"
-  description: z.string(),        // "Empresas con RLS estricto"
+  name: z.string(), // "Multi-tenant"
+  description: z.string(), // "Empresas con RLS estricto"
 })
 
 export const IdeaRoleSchema = z.object({
-  name: z.string(),               // "SUPER_ADMIN"
+  name: z.string(), // "SUPER_ADMIN"
   description: z.string().optional(),
 })
 
 export const IdeaItemSchema = z.object({
-  id: z.string(),                 // idea_xxxxxxxx
-  text: z.string(),               // Title/summary
+  id: z.string(), // idea_xxxxxxxx
+  text: z.string(), // Title/summary
   details: z.string().optional(),
   priority: IdeaPrioritySchema,
   status: IdeaStatusSchema,
   tags: z.array(z.string()),
-  addedAt: z.string(),            // ISO8601
+  addedAt: z.string(), // ISO8601
   completedAt: z.string().optional(),
   convertedTo: z.string().optional(),
   // Source documentation
@@ -105,10 +105,10 @@ export const DEFAULT_IDEA: Omit<IdeaSchema, 'id' | 'text'> = {
   priority: 'medium',
   status: 'pending',
   tags: [],
-  addedAt: new Date().toISOString()
+  addedAt: new Date().toISOString(),
 }
 
 export const DEFAULT_IDEAS: IdeasJson = {
   ideas: [],
-  lastUpdated: ''
+  lastUpdated: '',
 }

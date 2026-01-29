@@ -19,20 +19,14 @@ export const TaskTypeSchema = z.enum([
   'epic',
 ])
 
-export const PrioritySchema = z.enum([
-  'critical',
-  'high',
-  'medium',
-  'low',
-  'none',
-])
+export const PrioritySchema = z.enum(['critical', 'high', 'medium', 'low', 'none'])
 
 export const ComplexitySchema = z.enum([
-  'trivial',   // < 1 hour
-  'small',     // 1-4 hours
-  'medium',    // 1-2 days
-  'large',     // 3-5 days
-  'epic',      // > 1 week
+  'trivial', // < 1 hour
+  'small', // 1-4 hours
+  'medium', // 1-2 days
+  'large', // 3-5 days
+  'epic', // > 1 week
 ])
 
 export const RiskLevelSchema = z.enum(['none', 'low', 'medium', 'high', 'critical'])
@@ -45,7 +39,9 @@ export const UserStorySchema = z.object({
   role: z.string().describe('The user role (e.g., "mobile user")'),
   action: z.string().describe('What the user wants to do'),
   benefit: z.string().describe('The benefit they get'),
-  formatted: z.string().describe('Formatted user story: "As a [role], I want [action] so that [benefit]"'),
+  formatted: z
+    .string()
+    .describe('Formatted user story: "As a [role], I want [action] so that [benefit]"'),
 })
 
 // =============================================================================
@@ -91,11 +87,15 @@ export const DependenciesSchema = z.object({
   code: z.array(CodeDependencySchema).default([]),
   api: z.array(ApiDependencySchema).default([]),
   tasks: z.array(TaskDependencySchema).default([]),
-  infrastructure: z.array(z.object({
-    service: z.string(),
-    purpose: z.string(),
-    risk: RiskLevelSchema,
-  })).default([]),
+  infrastructure: z
+    .array(
+      z.object({
+        service: z.string(),
+        purpose: z.string(),
+        risk: RiskLevelSchema,
+      })
+    )
+    .default([]),
 })
 
 // =============================================================================
@@ -103,31 +103,45 @@ export const DependenciesSchema = z.object({
 // =============================================================================
 
 export const TechnicalAnalysisSchema = z.object({
-  affectedFiles: z.array(z.object({
-    path: z.string(),
-    changes: z.string().describe('Expected changes'),
-    complexity: ComplexitySchema,
-  })).default([]),
+  affectedFiles: z
+    .array(
+      z.object({
+        path: z.string(),
+        changes: z.string().describe('Expected changes'),
+        complexity: ComplexitySchema,
+      })
+    )
+    .default([]),
 
-  existingPatterns: z.array(z.object({
-    pattern: z.string().describe('Pattern name'),
-    file: z.string().describe('Reference file'),
-    relevance: z.string().describe('Why it is relevant'),
-  })).default([]),
+  existingPatterns: z
+    .array(
+      z.object({
+        pattern: z.string().describe('Pattern name'),
+        file: z.string().describe('Reference file'),
+        relevance: z.string().describe('Why it is relevant'),
+      })
+    )
+    .default([]),
 
   suggestedApproach: z.string().optional().describe('Recommended approach'),
 
-  potentialRisks: z.array(z.object({
-    risk: z.string(),
-    mitigation: z.string(),
-    severity: RiskLevelSchema,
-  })).default([]),
+  potentialRisks: z
+    .array(
+      z.object({
+        risk: z.string(),
+        mitigation: z.string(),
+        severity: RiskLevelSchema,
+      })
+    )
+    .default([]),
 
-  testingStrategy: z.object({
-    unit: z.array(z.string()).default([]),
-    integration: z.array(z.string()).default([]),
-    e2e: z.array(z.string()).default([]),
-  }).optional(),
+  testingStrategy: z
+    .object({
+      unit: z.array(z.string()).default([]),
+      integration: z.array(z.string()).default([]),
+      e2e: z.array(z.string()).default([]),
+    })
+    .optional(),
 })
 
 // =============================================================================
@@ -174,12 +188,9 @@ export const EnrichedTaskSchema = z.object({
   // Enrichment
   userStory: UserStorySchema,
   acceptanceCriteria: z.array(AcceptanceCriterionSchema).min(1),
-  definitionOfDone: z.array(z.string()).default([
-    'Code reviewed',
-    'Tests pass',
-    'Documentation updated',
-    'Deployed to staging',
-  ]),
+  definitionOfDone: z
+    .array(z.string())
+    .default(['Code reviewed', 'Tests pass', 'Documentation updated', 'Deployed to staging']),
 
   // Technical analysis
   technicalAnalysis: TechnicalAnalysisSchema,
@@ -241,13 +252,15 @@ export function isReadyForDev(task: EnrichedTask): { ready: boolean; reasons: st
   }
 
   // Check blockers
-  const blockingDeps = task.dependencies.tasks.filter(t => t.blocking)
+  const blockingDeps = task.dependencies.tasks.filter((t) => t.blocking)
   if (blockingDeps.length > 0) {
-    reasons.push(`Blocked by: ${blockingDeps.map(t => t.id).join(', ')}`)
+    reasons.push(`Blocked by: ${blockingDeps.map((t) => t.id).join(', ')}`)
   }
 
   // Check critical risks
-  const criticalRisks = task.technicalAnalysis.potentialRisks.filter(r => r.severity === 'critical')
+  const criticalRisks = task.technicalAnalysis.potentialRisks.filter(
+    (r) => r.severity === 'critical'
+  )
   if (criticalRisks.length > 0) {
     reasons.push('Has unmitigated critical risks')
   }

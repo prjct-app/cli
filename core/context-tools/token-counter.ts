@@ -36,17 +36,17 @@ const CHARS_PER_TOKEN = 4
  */
 const MODEL_PRICING = {
   // Anthropic Claude (2026)
-  'claude-opus-4.5':   { input: 0.005,   output: 0.025 },   // $5/$25 per M
-  'claude-sonnet-4.5': { input: 0.003,   output: 0.015 },   // $3/$15 per M
-  'claude-haiku-4.5':  { input: 0.001,   output: 0.005 },   // $1/$5 per M
-  'claude-opus-4':     { input: 0.015,   output: 0.075 },   // $15/$75 per M (legacy)
+  'claude-opus-4.5': { input: 0.005, output: 0.025 }, // $5/$25 per M
+  'claude-sonnet-4.5': { input: 0.003, output: 0.015 }, // $3/$15 per M
+  'claude-haiku-4.5': { input: 0.001, output: 0.005 }, // $1/$5 per M
+  'claude-opus-4': { input: 0.015, output: 0.075 }, // $15/$75 per M (legacy)
   // OpenAI
-  'gpt-4o':            { input: 0.0025,  output: 0.01 },    // $2.50/$10 per M
-  'gpt-4-turbo':       { input: 0.01,    output: 0.03 },    // $10/$30 per M
-  'gpt-4o-mini':       { input: 0.00015, output: 0.0006 },  // $0.15/$0.60 per M
+  'gpt-4o': { input: 0.0025, output: 0.01 }, // $2.50/$10 per M
+  'gpt-4-turbo': { input: 0.01, output: 0.03 }, // $10/$30 per M
+  'gpt-4o-mini': { input: 0.00015, output: 0.0006 }, // $0.15/$0.60 per M
   // Google
-  'gemini-1.5-pro':    { input: 0.00125, output: 0.005 },   // $1.25/$5 per M
-  'gemini-1.5-flash':  { input: 0.000075, output: 0.0003 }, // $0.075/$0.30 per M
+  'gemini-1.5-pro': { input: 0.00125, output: 0.005 }, // $1.25/$5 per M
+  'gemini-1.5-flash': { input: 0.000075, output: 0.0003 }, // $0.075/$0.30 per M
 } as const
 
 type ModelName = keyof typeof MODEL_PRICING
@@ -86,7 +86,10 @@ const BREAKDOWN_MODELS: ModelName[] = [
  * Calculate cost breakdown for a model
  * Output potential = estimated savings if response is proportionally shorter
  */
-function calculateModelCost(tokensSaved: number, model: ModelName): {
+function calculateModelCost(
+  tokensSaved: number,
+  model: ModelName
+): {
   inputSaved: number
   outputPotential: number
   total: number
@@ -128,14 +131,13 @@ export function measureCompression(original: string, filtered: string): TokenMet
   const filteredTokens = countTokens(filtered)
   const tokensSaved = Math.max(0, originalTokens - filteredTokens)
 
-  const compression =
-    originalTokens > 0 ? (originalTokens - filteredTokens) / originalTokens : 0
+  const compression = originalTokens > 0 ? (originalTokens - filteredTokens) / originalTokens : 0
 
   // Calculate cost for default model
   const defaultCost = calculateModelCost(tokensSaved, DEFAULT_MODEL)
 
   // Calculate breakdown for popular models
-  const byModel = BREAKDOWN_MODELS.map(model => ({
+  const byModel = BREAKDOWN_MODELS.map((model) => ({
     model,
     ...calculateModelCost(tokensSaved, model),
   }))
@@ -170,7 +172,7 @@ export function noCompression(content: string): TokenMetrics {
     cost: {
       saved: 0,
       formatted: '$0.00',
-      byModel: BREAKDOWN_MODELS.map(model => ({
+      byModel: BREAKDOWN_MODELS.map((model) => ({
         model,
         inputSaved: 0,
         outputPotential: 0,
@@ -199,14 +201,17 @@ export function combineMetrics(metrics: TokenMetrics[]): TokenMetrics {
   const totalSaved = metrics.reduce((sum, m) => sum + m.tokens.saved, 0)
 
   // Calculate overall compression
-  const compression = totalOriginal > 0
-    ? (totalOriginal - totalFiltered) / totalOriginal
-    : 0
+  const compression = totalOriginal > 0 ? (totalOriginal - totalFiltered) / totalOriginal : 0
 
   // Sum costs by model
-  const byModel = BREAKDOWN_MODELS.map(model => {
-    const modelMetrics = metrics.map(m =>
-      m.cost.byModel.find(b => b.model === model) || { inputSaved: 0, outputPotential: 0, total: 0 }
+  const byModel = BREAKDOWN_MODELS.map((model) => {
+    const modelMetrics = metrics.map(
+      (m) =>
+        m.cost.byModel.find((b) => b.model === model) || {
+          inputSaved: 0,
+          outputPotential: 0,
+          total: 0,
+        }
     )
     return {
       model,

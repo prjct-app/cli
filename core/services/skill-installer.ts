@@ -12,15 +12,14 @@
  * @version 1.0.0
  */
 
-import fs from 'fs/promises'
-import path from 'path'
-import os from 'os'
-import { promisify } from 'util'
-import { exec as execCallback } from 'child_process'
+import { exec as execCallback } from 'node:child_process'
+import fs from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
+import { promisify } from 'node:util'
 import { glob } from 'glob'
-
-import { skillLock } from './skill-lock'
 import type { SkillLockEntry } from './skill-lock'
+import { skillLock } from './skill-lock'
 
 const exec = promisify(execCallback)
 
@@ -103,7 +102,9 @@ export function parseSource(source: string): ParsedSource {
     }
   }
 
-  throw new Error(`Invalid source format: "${source}". Expected "owner/repo", "owner/repo@skill-name", or "./local-path"`)
+  throw new Error(
+    `Invalid source format: "${source}". Expected "owner/repo", "owner/repo@skill-name", or "./local-path"`
+  )
 }
 
 // =============================================================================
@@ -131,7 +132,7 @@ async function discoverSkills(dir: string): Promise<Array<{ name: string; filePa
   for (const filePath of subdirSkills) {
     const name = path.basename(path.dirname(filePath))
     // Avoid duplicate if already found as root
-    if (!skills.some(s => s.name === name)) {
+    if (!skills.some((s) => s.name === name)) {
       skills.push({ name, filePath })
     }
   }
@@ -140,7 +141,7 @@ async function discoverSkills(dir: string): Promise<Array<{ name: string; filePa
   const nestedSkills = await glob('skills/*/SKILL.md', { cwd: dir, absolute: true })
   for (const filePath of nestedSkills) {
     const name = path.basename(path.dirname(filePath))
-    if (!skills.some(s => s.name === name)) {
+    if (!skills.some((s) => s.name === name)) {
       skills.push({ name, filePath })
     }
   }
@@ -155,11 +156,7 @@ async function discoverSkills(dir: string): Promise<Array<{ name: string; filePa
 /**
  * Add _prjct source tracking metadata to a skill's frontmatter
  */
-function injectSourceMetadata(
-  content: string,
-  source: ParsedSource,
-  sha?: string
-): string {
+function injectSourceMetadata(content: string, source: ParsedSource, sha?: string): string {
   const now = new Date().toISOString()
   const prjctBlock = [
     `_prjct:`,
@@ -181,7 +178,7 @@ function injectSourceMetadata(
     frontmatter = frontmatter.replace(/\n?_prjct:[\s\S]*?(?=\n[a-zA-Z]|\n---|\s*$)/g, '')
 
     // Append _prjct block
-    const updatedFrontmatter = frontmatter.trimEnd() + '\n' + prjctBlock.join('\n')
+    const updatedFrontmatter = `${frontmatter.trimEnd()}\n${prjctBlock.join('\n')}`
     return content.replace(frontmatterRegex, `---\n${updatedFrontmatter}\n---`)
   }
 
@@ -264,7 +261,7 @@ async function installFromGitHub(source: ParsedSource): Promise<InstallResult> {
 
     // Filter to specific skill if requested
     const skillsToInstall = source.skillName
-      ? discoveredSkills.filter(s => s.name === source.skillName)
+      ? discoveredSkills.filter((s) => s.name === source.skillName)
       : discoveredSkills
 
     if (source.skillName && skillsToInstall.length === 0) {

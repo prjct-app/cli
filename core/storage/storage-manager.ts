@@ -9,13 +9,13 @@
  * Subclasses implement specific data types (state, queue, ideas, shipped).
  */
 
-import fs from 'fs/promises'
-import path from 'path'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import { eventBus, type SyncEvent } from '../events'
-import { getTimestamp } from '../utils/date-helper'
 import pathManager from '../infrastructure/path-manager'
-import { TTLCache } from '../utils/cache'
 import { isNotFoundError } from '../types/fs'
+import { TTLCache } from '../utils/cache'
+import { getTimestamp } from '../utils/date-helper'
 
 export abstract class StorageManager<T> {
   protected filename: string
@@ -143,7 +143,7 @@ export abstract class StorageManager<T> {
       path: [this.filename.replace('.json', '')],
       data: eventData,
       timestamp: getTimestamp(),
-      projectId
+      projectId,
     }
 
     await eventBus.publish(event)
@@ -167,7 +167,7 @@ export abstract class StorageManager<T> {
     const eventType = `${entity}.${action}`
     const eventData = {
       ...payload,
-      timestamp: getTimestamp()
+      timestamp: getTimestamp(),
     }
 
     await this.publishEvent(projectId, eventType, eventData)

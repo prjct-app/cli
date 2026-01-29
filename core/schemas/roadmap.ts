@@ -23,20 +23,25 @@ import { z } from 'zod'
 
 export const FeatureStatusSchema = z.enum(['planned', 'active', 'completed', 'shipped'])
 export const FeatureImpactSchema = z.enum(['low', 'medium', 'high'])
-export const FeatureTypeSchema = z.enum(['feature', 'breaking_change', 'refactor', 'infrastructure'])
+export const FeatureTypeSchema = z.enum([
+  'feature',
+  'breaking_change',
+  'refactor',
+  'infrastructure',
+])
 export const PhaseStatusSchema = z.enum(['completed', 'active', 'planned'])
 export const QuarterStatusSchema = z.enum(['planned', 'active', 'completed'])
 export const InferredFromSchema = z.enum(['git', 'git-branch', 'manual', 'prd'])
 
 export const FeatureTaskSchema = z.object({
-  id: z.string(),               // task_xxxxxxxx
+  id: z.string(), // task_xxxxxxxx
   description: z.string(),
   completed: z.boolean(),
   completedAt: z.string().optional(),
 })
 
 export const RoadmapPhaseSchema = z.object({
-  id: z.string(),               // P0, P1, etc.
+  id: z.string(), // P0, P1, etc.
   name: z.string(),
   status: PhaseStatusSchema,
   completedAt: z.string().optional(),
@@ -73,10 +78,14 @@ export const GitCommitSchema = z.object({
 export const EffortEstimateSchema = z.object({
   hours: z.number(),
   confidence: z.enum(['low', 'medium', 'high']).optional(),
-  breakdown: z.array(z.object({
-    area: z.string(),
-    hours: z.number(),
-  })).optional(),
+  breakdown: z
+    .array(
+      z.object({
+        area: z.string(),
+        hours: z.number(),
+      })
+    )
+    .optional(),
 })
 
 export const EffortActualSchema = z.object({
@@ -98,19 +107,19 @@ export const FeatureEffortSchema = z.object({
 export const QuarterCapacitySchema = z.object({
   totalHours: z.number(),
   allocatedHours: z.number(),
-  bufferPercent: z.number().optional(),  // % reserved for unknowns
+  bufferPercent: z.number().optional(), // % reserved for unknowns
 })
 
 export const QuarterSchema = z.object({
-  id: z.string(),                         // Q1-2026
-  name: z.string(),                       // "Q1 2026"
-  theme: z.string().optional(),           // "Foundation"
+  id: z.string(), // Q1-2026
+  name: z.string(), // "Q1 2026"
+  theme: z.string().optional(), // "Foundation"
   goals: z.array(z.string()).optional(),
-  features: z.array(z.string()),          // Feature IDs
+  features: z.array(z.string()), // Feature IDs
   capacity: QuarterCapacitySchema.optional(),
   status: QuarterStatusSchema,
-  startDate: z.string().optional(),       // ISO8601
-  endDate: z.string().optional(),         // ISO8601
+  startDate: z.string().optional(), // ISO8601
+  endDate: z.string().optional(), // ISO8601
 })
 
 // -----------------------------------------------------------------------------
@@ -118,23 +127,23 @@ export const QuarterSchema = z.object({
 // -----------------------------------------------------------------------------
 
 export const FeatureItemSchema = z.object({
-  id: z.string(),               // feat_xxxxxxxx
+  id: z.string(), // feat_xxxxxxxx
   name: z.string(),
   description: z.string().optional(),
-  date: z.string(),             // YYYY-MM-DD creation date
+  date: z.string(), // YYYY-MM-DD creation date
   status: FeatureStatusSchema,
   impact: FeatureImpactSchema,
   effort: z.string().optional(),
-  progress: z.number(),         // 0-100
+  progress: z.number(), // 0-100
   // Enriched fields from MD
   type: FeatureTypeSchema.optional(),
-  roi: z.number().optional(),   // 1-5 from star count
+  roi: z.number().optional(), // 1-5 from star count
   why: z.array(z.string()).optional(),
   technicalNotes: z.array(z.string()).optional(),
   compatibility: z.string().optional(),
   phase: z.string().optional(), // P0, P1, etc.
   tasks: z.array(FeatureTaskSchema),
-  createdAt: z.string(),        // ISO8601
+  createdAt: z.string(), // ISO8601
   shippedAt: z.string().optional(),
   version: z.string().optional(),
   // ZERO DATA LOSS - additional fields
@@ -149,29 +158,29 @@ export const FeatureItemSchema = z.object({
   // =========================================================================
 
   // PRD Integration
-  prdId: z.string().nullable().optional(),           // Link to PRD (prd_xxxxxxxx)
+  prdId: z.string().nullable().optional(), // Link to PRD (prd_xxxxxxxx)
 
   // Legacy Support (for existing projects)
-  legacy: z.boolean().optional(),                     // true = no PRD required
-  inferredFrom: InferredFromSchema.optional(),        // git, git-branch, manual, prd
+  legacy: z.boolean().optional(), // true = no PRD required
+  inferredFrom: InferredFromSchema.optional(), // git, git-branch, manual, prd
 
   // Quarter Planning
-  quarter: z.string().nullable().optional(),          // Q1-2026, etc.
+  quarter: z.string().nullable().optional(), // Q1-2026, etc.
 
   // Dependency Tracking
-  dependencies: z.array(z.string()).optional(),       // Feature IDs this depends on
-  blockedBy: z.array(z.string()).optional(),          // Feature IDs blocking this
+  dependencies: z.array(z.string()).optional(), // Feature IDs this depends on
+  blockedBy: z.array(z.string()).optional(), // Feature IDs blocking this
 
   // Effort Tracking (for PRD comparison)
   effortTracking: FeatureEffortSchema.optional(),
 
   // Value Scoring (calculated from PRD)
-  valueScore: z.number().optional(),                  // Calculated priority score
+  valueScore: z.number().optional(), // Calculated priority score
 
   // Git Data (for legacy features)
-  commits: z.array(GitCommitSchema).optional(),       // Commits for this feature
-  branch: z.string().optional(),                      // Branch name (for active)
-  commitsAhead: z.number().optional(),                // Commits ahead of main
+  commits: z.array(GitCommitSchema).optional(), // Commits for this feature
+  branch: z.string().optional(), // Branch name (for active)
+  commitsAhead: z.number().optional(), // Commits ahead of main
 })
 
 // -----------------------------------------------------------------------------
@@ -184,7 +193,7 @@ export const BacklogItemSchema = z.object({
   prdId: z.string().nullable().optional(),
   valueScore: z.number().optional(),
   effortEstimate: z.number().optional(),
-  reason: z.string().optional(),          // Why in backlog
+  reason: z.string().optional(), // Why in backlog
 })
 
 // -----------------------------------------------------------------------------
@@ -194,7 +203,7 @@ export const BacklogItemSchema = z.object({
 export const RoadmapJsonSchema = z.object({
   strategy: RoadmapStrategySchema.nullable().optional(),
   features: z.array(FeatureItemSchema),
-  backlog: z.array(z.union([z.string(), BacklogItemSchema])),  // Support both formats
+  backlog: z.array(z.union([z.string(), BacklogItemSchema])), // Support both formats
   lastUpdated: z.string(),
 
   // AI ORCHESTRATION FIELDS (v0.29.0)
@@ -274,7 +283,11 @@ export const DEFAULT_ROADMAP: RoadmapJson = {
  * Check if a feature is legacy (no PRD required)
  */
 export const isLegacyFeature = (feature: FeatureSchema): boolean => {
-  return feature.legacy === true || feature.inferredFrom === 'git' || feature.inferredFrom === 'git-branch'
+  return (
+    feature.legacy === true ||
+    feature.inferredFrom === 'git' ||
+    feature.inferredFrom === 'git-branch'
+  )
 }
 
 /**
@@ -294,14 +307,14 @@ export const calculateFeaturePriority = (feature: FeatureSchema): number => {
  * Get features for a specific quarter
  */
 export const getQuarterFeatures = (roadmap: RoadmapJson, quarterId: string): FeatureSchema[] => {
-  return roadmap.features.filter(f => f.quarter === quarterId)
+  return roadmap.features.filter((f) => f.quarter === quarterId)
 }
 
 /**
  * Get quarter capacity utilization percentage
  */
 export const getQuarterUtilization = (roadmap: RoadmapJson, quarterId: string): number => {
-  const quarter = roadmap.quarters?.find(q => q.id === quarterId)
+  const quarter = roadmap.quarters?.find((q) => q.id === quarterId)
   if (!quarter?.capacity) return 0
 
   const { allocatedHours, totalHours } = quarter.capacity

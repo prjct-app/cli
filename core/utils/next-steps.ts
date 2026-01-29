@@ -6,7 +6,7 @@
  */
 
 import chalk from 'chalk'
-import { workflowStateMachine, type WorkflowState } from '../workflow/state-machine'
+import { type WorkflowState, workflowStateMachine } from '../workflow/state-machine'
 
 interface NextStep {
   cmd: string
@@ -59,7 +59,7 @@ export function showNextSteps(command: string, options: { quiet?: boolean } = {}
 
   if (validCommands.length === 0) return
 
-  const steps: NextStep[] = validCommands.map(cmd => ({
+  const steps: NextStep[] = validCommands.map((cmd) => ({
     cmd: `p. ${cmd}`,
     desc: CMD_DESCRIPTIONS[cmd] || cmd,
   }))
@@ -78,7 +78,7 @@ export function getNextSteps(command: string): NextStep[] {
   const resultingState = COMMAND_TO_STATE[command] || 'idle'
   const validCommands = workflowStateMachine.getValidCommands(resultingState)
 
-  return validCommands.map(cmd => ({
+  return validCommands.map((cmd) => ({
     cmd: `p. ${cmd}`,
     desc: CMD_DESCRIPTIONS[cmd] || cmd,
   }))

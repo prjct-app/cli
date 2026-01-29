@@ -4,17 +4,10 @@
  * System architecture, API, and component design operations.
  */
 
-import path from 'path'
-
-import type { CommandResult, DesignOptions } from '../types'
-import {
-  pathManager,
-  configManager,
-  fileHelper,
-  dateHelper,
-  out
-} from './base'
+import path from 'node:path'
 import { memoryService } from '../services'
+import type { CommandResult, DesignOptions } from '../types'
+import { configManager, dateHelper, fileHelper, out, pathManager } from './base'
 
 /**
  * /p:design - Design system architecture, APIs, and components

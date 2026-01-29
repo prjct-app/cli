@@ -22,27 +22,28 @@
  * ```
  */
 
-import templateLoader from './template-loader'
+import { outcomeAnalyzer, outcomeRecorder } from '../outcomes'
+import { ideasStorage, queueStorage, shippedStorage, stateStorage } from '../storage'
+import agentRouter from './agent-router'
+import chainOfThought from './chain-of-thought'
 import contextBuilder from './context-builder'
-import promptBuilder from './prompt-builder'
-import toolRegistry from './tool-registry'
+import groundTruth from './ground-truth'
 import loopDetector from './loop-detector'
 import memorySystem from './memory-system'
-import groundTruth from './ground-truth'
-import chainOfThought from './chain-of-thought'
 import planMode from './plan-mode'
-import agentRouter from './agent-router'
+import promptBuilder from './prompt-builder'
 import smartContext from './smart-context'
-import { stateStorage, queueStorage, ideasStorage, shippedStorage } from '../storage'
-import { outcomeRecorder, outcomeAnalyzer } from '../outcomes'
+import templateLoader from './template-loader'
+import toolRegistry from './tool-registry'
 
 // Storage managers object (replaces mdManagers)
 const storageManagers = {
   state: stateStorage,
   queue: queueStorage,
   ideas: ideasStorage,
-  shipped: shippedStorage
+  shipped: shippedStorage,
 }
+
 import { agentPerformanceTracker } from '../agents'
 
 /**

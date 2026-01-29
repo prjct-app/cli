@@ -6,9 +6,9 @@
  * 2. Browser (future): Full OAuth device flow
  */
 
+import type { AuthResult } from '../types'
 import { authConfig } from './auth-config'
 import { syncClient } from './sync-client'
-import type { AuthResult } from '../types'
 
 class OAuthHandler {
   /**
@@ -123,8 +123,8 @@ class OAuthHandler {
    * Open URL in default browser
    */
   async openBrowser(url: string): Promise<void> {
-    const { exec } = await import('child_process')
-    const { promisify } = await import('util')
+    const { exec } = await import('node:child_process')
+    const { promisify } = await import('node:util')
     const execAsync = promisify(exec)
 
     const platform = process.platform

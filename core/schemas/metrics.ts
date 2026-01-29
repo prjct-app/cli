@@ -18,20 +18,20 @@ import { z } from 'zod'
  * Daily stats for trend analysis
  */
 export const DailyStatsSchema = z.object({
-  date: z.string(),                    // YYYY-MM-DD
-  tokensSaved: z.number(),             // Tokens saved that day
-  syncs: z.number(),                   // Number of syncs
-  avgCompressionRate: z.number(),      // Average compression rate (0-1)
-  totalDuration: z.number(),           // Total sync time in ms
+  date: z.string(), // YYYY-MM-DD
+  tokensSaved: z.number(), // Tokens saved that day
+  syncs: z.number(), // Number of syncs
+  avgCompressionRate: z.number(), // Average compression rate (0-1)
+  totalDuration: z.number(), // Total sync time in ms
 })
 
 /**
  * Agent usage tracking
  */
 export const AgentUsageSchema = z.object({
-  agentName: z.string(),               // e.g., "backend", "frontend"
-  usageCount: z.number(),              // Times invoked
-  tokensSaved: z.number(),             // Tokens saved by this agent
+  agentName: z.string(), // e.g., "backend", "frontend"
+  usageCount: z.number(), // Times invoked
+  tokensSaved: z.number(), // Tokens saved by this agent
 })
 
 /**
@@ -40,13 +40,13 @@ export const AgentUsageSchema = z.object({
 export const MetricsJsonSchema = z.object({
   // Token metrics
   totalTokensSaved: z.number(),
-  avgCompressionRate: z.number(),      // 0-1 (e.g., 0.63 = 63% reduction)
+  avgCompressionRate: z.number(), // 0-1 (e.g., 0.63 = 63% reduction)
 
   // Sync metrics
   syncCount: z.number(),
-  watchTriggers: z.number(),           // Auto-syncs from watch mode
-  avgSyncDuration: z.number(),         // Average in ms
-  totalSyncDuration: z.number(),       // Total in ms
+  watchTriggers: z.number(), // Auto-syncs from watch mode
+  avgSyncDuration: z.number(), // Average in ms
+  totalSyncDuration: z.number(), // Total in ms
 
   // Agent usage
   agentUsage: z.array(AgentUsageSchema),
@@ -55,8 +55,8 @@ export const MetricsJsonSchema = z.object({
   dailyStats: z.array(DailyStatsSchema),
 
   // Metadata
-  firstSync: z.string(),               // ISO8601 - when tracking started
-  lastUpdated: z.string(),             // ISO8601
+  firstSync: z.string(), // ISO8601 - when tracking started
+  lastUpdated: z.string(), // ISO8601
 })
 
 // =============================================================================
@@ -106,20 +106,20 @@ export const DEFAULT_METRICS: MetricsJson = {
  */
 export const TOKEN_COSTS = {
   // Current models (2026)
-  'claude-opus-4.5': 0.005,      // $5/M input - flagship
-  'claude-sonnet-4.5': 0.003,    // $3/M input - balanced
-  'claude-haiku-4.5': 0.001,     // $1/M input - fastest
+  'claude-opus-4.5': 0.005, // $5/M input - flagship
+  'claude-sonnet-4.5': 0.003, // $3/M input - balanced
+  'claude-haiku-4.5': 0.001, // $1/M input - fastest
   // Legacy models
-  'claude-opus-4': 0.015,        // $15/M input
-  'claude-sonnet-4': 0.003,      // $3/M input
-  'claude-3-opus': 0.015,        // $15/M input (deprecated)
-  'claude-3-sonnet': 0.003,      // $3/M input (deprecated)
+  'claude-opus-4': 0.015, // $15/M input
+  'claude-sonnet-4': 0.003, // $3/M input
+  'claude-3-opus': 0.015, // $15/M input (deprecated)
+  'claude-3-sonnet': 0.003, // $3/M input (deprecated)
   // Other providers
-  'gpt-4o': 0.0025,              // $2.50/M input
-  'gpt-4': 0.01,                 // $10/M input (legacy)
-  'gemini-pro': 0.00125,         // $1.25/M input
+  'gpt-4o': 0.0025, // $2.50/M input
+  'gpt-4': 0.01, // $10/M input (legacy)
+  'gemini-pro': 0.00125, // $1.25/M input
   // Default: Claude Sonnet (most common for Claude Code)
-  default: 0.003,                // $3/M input
+  default: 0.003, // $3/M input
 } as const
 
 export type ModelName = keyof typeof TOKEN_COSTS

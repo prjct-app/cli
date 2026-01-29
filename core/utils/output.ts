@@ -9,7 +9,7 @@
 import chalk from 'chalk'
 import branding from './branding'
 
-const FRAMES = branding.spinner.frames
+const _FRAMES = branding.spinner.frames
 const SPEED = branding.spinner.speed
 
 let interval: ReturnType<typeof setInterval> | null = null
@@ -33,18 +33,18 @@ export function isQuietMode(): boolean {
 }
 
 const truncate = (s: string | undefined | null, max = 50): string =>
-  s && s.length > max ? s.slice(0, max - 1) + '…' : s || ''
+  s && s.length > max ? `${s.slice(0, max - 1)}…` : s || ''
 
-const clear = (): boolean => process.stdout.write('\r' + ' '.repeat(80) + '\r')
+const clear = (): boolean => process.stdout.write(`\r${' '.repeat(80)}\r`)
 
 /**
  * Metrics to display after command completion
  * Shows value provided by prjct (compression, agent count, etc.)
  */
 interface OutputMetrics {
-  agents?: number      // Number of agents used
-  reduction?: number   // Context reduction percentage
-  tokens?: number      // Token count (in thousands)
+  agents?: number // Number of agents used
+  reduction?: number // Context reduction percentage
+  tokens?: number // Token count (in thousands)
 }
 
 interface Output {
@@ -147,7 +147,7 @@ const out: Output = {
       process.stdout.write(`\r${branding.cli.spin(frame++, `[${bar}] ${percent}%${text}`)}`)
     }, SPEED)
     return this
-  }
+  },
 }
 
 export type { OutputMetrics }

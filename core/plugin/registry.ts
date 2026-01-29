@@ -6,11 +6,11 @@
  * @version 1.0.0
  */
 
-import fs from 'fs/promises'
-import path from 'path'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
-import { pluginLoader } from './loader'
 import { isNotFoundError } from '../types/fs'
+import { pluginLoader } from './loader'
 
 type PluginSource = 'builtin' | 'global' | 'project'
 
@@ -51,16 +51,10 @@ class PluginRegistry {
    */
   async discoverPlugins(): Promise<void> {
     // Built-in plugins
-    await this.discoverFromPath(
-      path.join(__dirname, '..', 'plugins'),
-      'builtin'
-    )
+    await this.discoverFromPath(path.join(__dirname, '..', 'plugins'), 'builtin')
 
     // Global plugins
-    await this.discoverFromPath(
-      path.join(pathManager.getGlobalBasePath(), 'plugins'),
-      'global'
-    )
+    await this.discoverFromPath(path.join(pathManager.getGlobalBasePath(), 'plugins'), 'global')
   }
 
   /**
@@ -91,7 +85,7 @@ class PluginRegistry {
             this.availablePlugins.set(metadata.name, {
               ...metadata,
               path: pluginPath,
-              source
+              source,
             })
           }
         } catch (error) {
@@ -125,7 +119,7 @@ class PluginRegistry {
         return {
           name: nameMatch[1],
           version: versionMatch ? versionMatch[1] : '1.0.0',
-          description: descMatch ? descMatch[1] : ''
+          description: descMatch ? descMatch[1] : '',
         }
       }
 
@@ -137,7 +131,7 @@ class PluginRegistry {
         return {
           name: plugin.name,
           version: plugin.version || '1.0.0',
-          description: plugin.description || ''
+          description: plugin.description || '',
         }
       }
     } catch (error) {
@@ -161,7 +155,7 @@ class PluginRegistry {
    * Get available plugins by source
    */
   getAvailableBySource(source: PluginSource): PluginMetadata[] {
-    return this.getAvailable().filter(p => p.source === source)
+    return this.getAvailable().filter((p) => p.source === source)
   }
 
   /**
@@ -190,7 +184,7 @@ class PluginRegistry {
     return {
       ...(available || { name, version: '1.0.0', description: '' }),
       loaded: !!loaded,
-      active: loaded ? true : false
+      active: !!loaded,
     }
   }
 
@@ -287,7 +281,7 @@ class PluginRegistry {
     const bySource: Record<PluginSource, PluginMetadata[]> = {
       builtin: [],
       global: [],
-      project: []
+      project: [],
     }
 
     for (const plugin of available) {
@@ -329,11 +323,6 @@ class PluginRegistry {
 // Singleton instance
 const pluginRegistry = new PluginRegistry()
 
-export {
-  PluginRegistry,
-  pluginRegistry,
-  PluginMetadata,
-  PluginInfo
-}
+export { PluginRegistry, pluginRegistry, type PluginMetadata, type PluginInfo }
 
 export default { PluginRegistry, pluginRegistry }

@@ -11,12 +11,12 @@
  * @version 4.0.0
  */
 
-import fs from 'fs/promises'
-import path from 'path'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
-import { isNotFoundError } from '../types/fs'
 import type { Agent, AssignmentContext } from '../types'
+import { isNotFoundError } from '../types/fs'
 
 // Re-export types for convenience
 export type { Agent, AssignmentContext } from '../types'
@@ -130,13 +130,12 @@ class AgentRouter {
         'agent-usage.jsonl'
       )
 
-      const entry =
-        JSON.stringify({
-          timestamp: new Date().toISOString(),
-          task: typeof task === 'string' ? task : task.description,
-          agent: typeof agent === 'string' ? agent : agent.name,
-          projectId: this.projectId,
-        }) + '\n'
+      const entry = `${JSON.stringify({
+        timestamp: new Date().toISOString(),
+        task: typeof task === 'string' ? task : task.description,
+        agent: typeof agent === 'string' ? agent : agent.name,
+        projectId: this.projectId,
+      })}\n`
 
       await fs.appendFile(logPath, entry)
     } catch (error) {

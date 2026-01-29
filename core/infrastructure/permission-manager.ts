@@ -9,9 +9,9 @@
  */
 
 import {
-  type PermissionsConfig,
-  type PermissionLevel,
   buildDefaultPermissions,
+  type PermissionLevel,
+  type PermissionsConfig,
 } from '../schemas/permissions'
 import type { PermissionCheckResult } from '../types'
 
@@ -114,11 +114,12 @@ class PermissionManager {
       allowed: match.level === 'allow',
       level: match.level,
       matchedPattern: match.pattern,
-      reason: match.level === 'deny'
-        ? `Command denied by pattern: ${match.pattern}`
-        : match.level === 'ask'
-          ? `Command requires approval: ${match.pattern}`
-          : undefined,
+      reason:
+        match.level === 'deny'
+          ? `Command denied by pattern: ${match.pattern}`
+          : match.level === 'ask'
+            ? `Command requires approval: ${match.pattern}`
+            : undefined,
     }
   }
 
@@ -145,11 +146,12 @@ class PermissionManager {
       allowed: match.level === 'allow',
       level: match.level,
       matchedPattern: match.pattern,
-      reason: match.level === 'deny'
-        ? `File operation denied: ${operation} on ${match.pattern}`
-        : match.level === 'ask'
-          ? `File operation requires approval: ${operation}`
-          : undefined,
+      reason:
+        match.level === 'deny'
+          ? `File operation denied: ${operation} on ${match.pattern}`
+          : match.level === 'ask'
+            ? `File operation requires approval: ${operation}`
+            : undefined,
     }
   }
 
@@ -239,11 +241,12 @@ class PermissionManager {
     return {
       allowed: level === 'allow',
       level,
-      reason: level === 'deny'
-        ? 'External directory access denied'
-        : level === 'ask'
-          ? 'External directory access requires approval'
-          : undefined,
+      reason:
+        level === 'deny'
+          ? 'External directory access denied'
+          : level === 'ask'
+            ? 'External directory access requires approval'
+            : undefined,
     }
   }
 

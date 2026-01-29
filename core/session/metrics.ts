@@ -6,8 +6,8 @@
  * @version 1.0.0
  */
 
-import fs from 'fs/promises'
-import path from 'path'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
 import { isNotFoundError } from '../types/fs'
 
@@ -68,14 +68,14 @@ class SessionMetrics {
       totalDurationFormatted: this.formatDuration(this.sumDurations(sessions)),
       averageDuration: this.averageDuration(sessions),
       averageDurationFormatted: this.formatDuration(this.averageDuration(sessions)),
-      tasksCompleted: sessions.filter(s => s.status === 'completed').length,
+      tasksCompleted: sessions.filter((s) => s.status === 'completed').length,
       filesChanged: this.sumMetric(sessions, 'filesChanged'),
       linesAdded: this.sumMetric(sessions, 'linesAdded'),
       linesRemoved: this.sumMetric(sessions, 'linesRemoved'),
       commits: this.sumMetric(sessions, 'commits'),
       productivityScore: this.calculateProductivityScore(sessions),
       streak: await this.calculateStreak(),
-      byDay: this.groupByDay(sessions)
+      byDay: this.groupByDay(sessions),
     }
   }
 
@@ -141,15 +141,16 @@ class SessionMetrics {
     switch (period) {
       case 'day':
         return new Date(now.setHours(0, 0, 0, 0))
-      case 'week':
+      case 'week': {
         const weekAgo = new Date(now)
         weekAgo.setDate(weekAgo.getDate() - 7)
         return weekAgo
-      case 'month':
+      }
+      case 'month': {
         const monthAgo = new Date(now)
         monthAgo.setMonth(monthAgo.getMonth() - 1)
         return monthAgo
-      case 'all':
+      }
       default:
         return new Date(0) // Beginning of time
     }
@@ -173,7 +174,10 @@ class SessionMetrics {
   /**
    * Sum a specific metric
    */
-  sumMetric(sessions: Session[], metric: 'filesChanged' | 'linesAdded' | 'linesRemoved' | 'commits'): number {
+  sumMetric(
+    sessions: Session[],
+    metric: 'filesChanged' | 'linesAdded' | 'linesRemoved' | 'commits'
+  ): number {
     return sessions.reduce((sum, s) => {
       return sum + (s.metrics?.[metric] || 0)
     }, 0)
@@ -200,11 +204,12 @@ class SessionMetrics {
     }
 
     // 3. Completion rate
-    const completedCount = sessions.filter(s => s.status === 'completed').length
+    const completedCount = sessions.filter((s) => s.status === 'completed').length
     const completionScore = (completedCount / sessions.length) * 20
 
     // 4. Output (commits + files changed)
-    const totalOutput = this.sumMetric(sessions, 'commits') + this.sumMetric(sessions, 'filesChanged')
+    const totalOutput =
+      this.sumMetric(sessions, 'commits') + this.sumMetric(sessions, 'filesChanged')
     const outputScore = Math.min(totalOutput / 50, 1) * 20
 
     return Math.round(sessionScore + durationScore + completionScore + outputScore)
@@ -218,7 +223,7 @@ class SessionMetrics {
 
     // Get unique dates with sessions
     const dates = new Set(
-      sessions.map(s => {
+      sessions.map((s) => {
         const d = new Date(s.completedAt || s.startedAt)
         return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
       })
@@ -257,7 +262,7 @@ class SessionMetrics {
         byDay[key] = {
           sessions: 0,
           duration: 0,
-          commits: 0
+          commits: 0,
         }
       }
 
@@ -293,7 +298,7 @@ class SessionMetrics {
       day: 'Today',
       week: 'This Week',
       month: 'This Month',
-      all: 'All Time'
+      all: 'All Time',
     }
 
     return `
@@ -315,4 +320,4 @@ class SessionMetrics {
 }
 
 export default SessionMetrics
-export { SessionMetrics, AggregatedMetrics, DayMetrics }
+export { SessionMetrics, type AggregatedMetrics, type DayMetrics }

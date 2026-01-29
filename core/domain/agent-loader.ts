@@ -6,8 +6,8 @@
  * @version 1.0.0
  */
 
-import fs from 'fs/promises'
-import path from 'path'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
 import { isNotFoundError } from '../types/fs'
 

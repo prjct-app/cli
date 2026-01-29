@@ -10,19 +10,19 @@
  * @version 0.3.0
  */
 
-import fs from 'fs/promises'
-import path from 'path'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import * as jsonc from 'jsonc-parser'
-import pathManager from './path-manager'
-import authorDetector from './author-detector'
-import { VERSION } from '../utils/version'
-import { getTimestamp } from '../utils/date-helper'
 import { getErrorMessage } from '../errors'
+import type { Author, GlobalConfig, LocalConfig } from '../types'
 import { isNotFoundError } from '../types/fs'
-import type { Author, LocalConfig, GlobalConfig } from '../types'
+import { getTimestamp } from '../utils/date-helper'
+import { VERSION } from '../utils/version'
+import authorDetector from './author-detector'
+import pathManager from './path-manager'
 
 // Re-export types for convenience
-export type { Author, LocalConfig, GlobalConfig } from '../types'
+export type { Author, GlobalConfig, LocalConfig } from '../types'
 
 /**
  * Parse JSON or JSONC content safely
@@ -36,7 +36,9 @@ function parseJsonc<T>(content: string): T {
   })
   if (errors.length > 0) {
     const firstError = errors[0]
-    throw new SyntaxError(`JSON parse error at offset ${firstError.offset}: ${jsonc.printParseErrorCode(firstError.error)}`)
+    throw new SyntaxError(
+      `JSON parse error at offset ${firstError.offset}: ${jsonc.printParseErrorCode(firstError.error)}`
+    )
   }
   return result
 }
@@ -72,7 +74,7 @@ class ConfigManager {
     await fs.mkdir(configDir, { recursive: true })
 
     const content = JSON.stringify(config, null, 2)
-    await fs.writeFile(configPath, content + '\n', 'utf-8')
+    await fs.writeFile(configPath, `${content}\n`, 'utf-8')
   }
 
   /**
@@ -91,7 +93,9 @@ class ConfigManager {
         return null
       }
       // Log other errors for debugging
-      console.warn(`Warning: Could not read global config for ${projectId}: ${getErrorMessage(error)}`)
+      console.warn(
+        `Warning: Could not read global config for ${projectId}: ${getErrorMessage(error)}`
+      )
       return null
     }
   }
@@ -106,7 +110,7 @@ class ConfigManager {
     await fs.mkdir(configDir, { recursive: true })
 
     const content = JSON.stringify(config, null, 2)
-    await fs.writeFile(configPath, content + '\n', 'utf-8')
+    await fs.writeFile(configPath, `${content}\n`, 'utf-8')
   }
 
   /**
@@ -231,7 +235,7 @@ class ConfigManager {
    */
   async getProjectId(projectPath: string): Promise<string> {
     const config = await this.readConfig(projectPath)
-    if (config && config.projectId) {
+    if (config?.projectId) {
       return config.projectId
     }
     return pathManager.generateProjectId(projectPath)
@@ -300,7 +304,7 @@ class ConfigManager {
     await this.addAuthor(projectId, {
       name: author.name ?? undefined,
       email: author.email ?? undefined,
-      github: author.github ?? undefined
+      github: author.github ?? undefined,
     })
 
     return author.github || author.name || 'Unknown'

@@ -3,11 +3,11 @@
  * P3.3: Semantic Memory Database
  */
 
-import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll } from 'bun:test'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'bun:test'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import memorySystem from '../../agentic/memory-system'
 import pathManager from '../../infrastructure/path-manager'
-import fs from 'fs/promises'
-import path from 'path'
 
 let testCounter = 0
 const getTestProjectId = () => `test-memory-${Date.now()}-${++testCounter}`
@@ -33,7 +33,7 @@ describe('MemorySystem P3.3', () => {
         title: 'Test Memory',
         content: 'This is test content',
         tags: ['code_style', 'naming_convention'],
-        userTriggered: true
+        userTriggered: true,
       })
 
       // UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
@@ -52,19 +52,19 @@ describe('MemorySystem P3.3', () => {
       const memoryId = await memorySystem.createMemory(TEST_PROJECT_ID, {
         title: 'Original Title',
         content: 'Original content',
-        tags: ['code_style']
+        tags: ['code_style'],
       })
 
       const updated = await memorySystem.updateMemory(TEST_PROJECT_ID, memoryId, {
         title: 'Updated Title',
         content: 'Updated content',
-        tags: ['naming_convention', 'architecture']
+        tags: ['naming_convention', 'architecture'],
       })
 
       expect(updated).toBe(true)
 
       const memories = await memorySystem.getAllMemories(TEST_PROJECT_ID)
-      const memory = memories.find(m => m.id === memoryId)
+      const memory = memories.find((m) => m.id === memoryId)
 
       expect(memory!.title).toBe('Updated Title')
       expect(memory!.content).toBe('Updated content')
@@ -74,7 +74,7 @@ describe('MemorySystem P3.3', () => {
 
     it('should return false for non-existent memory', async () => {
       const result = await memorySystem.updateMemory(TEST_PROJECT_ID, 'non_existent_id', {
-        title: 'New Title'
+        title: 'New Title',
       })
       expect(result).toBe(false)
     })
@@ -85,14 +85,14 @@ describe('MemorySystem P3.3', () => {
       const memoryId = await memorySystem.createMemory(TEST_PROJECT_ID, {
         title: 'To Delete',
         content: 'Will be deleted',
-        tags: ['test']
+        tags: ['test'],
       })
 
       const deleted = await memorySystem.deleteMemory(TEST_PROJECT_ID, memoryId)
       expect(deleted).toBe(true)
 
       const memories = await memorySystem.getAllMemories(TEST_PROJECT_ID)
-      expect(memories.find(m => m.id === memoryId)).toBeUndefined()
+      expect(memories.find((m) => m.id === memoryId)).toBeUndefined()
     })
   })
 
@@ -101,27 +101,35 @@ describe('MemorySystem P3.3', () => {
       await memorySystem.createMemory(TEST_PROJECT_ID, {
         title: 'Memory 1',
         content: 'Content 1',
-        tags: ['code_style', 'naming_convention']
+        tags: ['code_style', 'naming_convention'],
       })
       await memorySystem.createMemory(TEST_PROJECT_ID, {
         title: 'Memory 2',
         content: 'Content 2',
-        tags: ['architecture', 'naming_convention']
+        tags: ['architecture', 'naming_convention'],
       })
       await memorySystem.createMemory(TEST_PROJECT_ID, {
         title: 'Memory 3',
         content: 'Content 3',
-        tags: ['commit_style']
+        tags: ['commit_style'],
       })
     })
 
     it('should find memories with ANY tag (OR)', async () => {
-      const results = await memorySystem.findByTags(TEST_PROJECT_ID, ['code_style', 'architecture'], false)
+      const results = await memorySystem.findByTags(
+        TEST_PROJECT_ID,
+        ['code_style', 'architecture'],
+        false
+      )
       expect(results.length).toBe(2)
     })
 
     it('should find memories with ALL tags (AND)', async () => {
-      const results = await memorySystem.findByTags(TEST_PROJECT_ID, ['naming_convention', 'architecture'], true)
+      const results = await memorySystem.findByTags(
+        TEST_PROJECT_ID,
+        ['naming_convention', 'architecture'],
+        true
+      )
       expect(results.length).toBe(1)
       expect(results[0].title).toBe('Memory 2')
     })
@@ -132,12 +140,12 @@ describe('MemorySystem P3.3', () => {
       await memorySystem.createMemory(TEST_PROJECT_ID, {
         title: 'React Hooks Pattern',
         content: 'Use custom hooks for reusable logic',
-        tags: ['code_style']
+        tags: ['code_style'],
       })
       await memorySystem.createMemory(TEST_PROJECT_ID, {
         title: 'API Design',
         content: 'REST endpoints follow /api/v1 pattern',
-        tags: ['architecture']
+        tags: ['architecture'],
       })
     })
 
@@ -165,17 +173,17 @@ describe('MemorySystem P3.3', () => {
         title: 'Commit Style',
         content: 'Use conventional commits',
         tags: ['commit_style', 'ship_workflow'],
-        userTriggered: true
+        userTriggered: true,
       })
       await memorySystem.createMemory(TEST_PROJECT_ID, {
         title: 'Test Behavior',
         content: 'Run tests before shipping',
-        tags: ['test_behavior', 'ship_workflow']
+        tags: ['test_behavior', 'ship_workflow'],
       })
       await memorySystem.createMemory(TEST_PROJECT_ID, {
         title: 'Code Style',
         content: 'Use TypeScript strict mode',
-        tags: ['code_style']
+        tags: ['code_style'],
       })
     })
 
@@ -184,8 +192,8 @@ describe('MemorySystem P3.3', () => {
       const results = await memorySystem.getRelevantMemories(TEST_PROJECT_ID, context, 5)
 
       expect(results.length).toBeGreaterThan(0)
-      const hasRelevantTags = results.some(m =>
-        m.tags.includes('commit_style') || m.tags.includes('ship_workflow')
+      const hasRelevantTags = results.some(
+        (m) => m.tags.includes('commit_style') || m.tags.includes('ship_workflow')
       )
       expect(hasRelevantTags).toBe(true)
     })
@@ -194,7 +202,7 @@ describe('MemorySystem P3.3', () => {
       const context = { commandName: 'ship', params: {} }
       const results = await memorySystem.getRelevantMemories(TEST_PROJECT_ID, context, 5)
 
-      const userTriggeredIndex = results.findIndex(m => m.userTriggered)
+      const userTriggeredIndex = results.findIndex((m) => m.userTriggered)
       expect(userTriggeredIndex).toBeLessThanOrEqual(1)
     })
 
@@ -207,7 +215,12 @@ describe('MemorySystem P3.3', () => {
 
   describe('autoRemember', () => {
     it('should create memory from user decision', async () => {
-      await memorySystem.autoRemember(TEST_PROJECT_ID, 'commit_footer', 'prjct', 'User chose prjct footer')
+      await memorySystem.autoRemember(
+        TEST_PROJECT_ID,
+        'commit_footer',
+        'prjct',
+        'User chose prjct footer'
+      )
 
       const memories = await memorySystem.getAllMemories(TEST_PROJECT_ID)
       expect(memories.length).toBe(1)
@@ -232,12 +245,12 @@ describe('MemorySystem P3.3', () => {
         title: 'Memory 1',
         content: 'Content 1',
         tags: ['code_style'],
-        userTriggered: true
+        userTriggered: true,
       })
       await memorySystem.createMemory(TEST_PROJECT_ID, {
         title: 'Memory 2',
         content: 'Content 2',
-        tags: ['code_style', 'architecture']
+        tags: ['code_style', 'architecture'],
       })
 
       const stats = await memorySystem.getMemoryStats(TEST_PROJECT_ID)

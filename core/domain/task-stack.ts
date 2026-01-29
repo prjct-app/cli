@@ -3,22 +3,21 @@
  * Manages task breakdown and hierarchical task tracking.
  */
 
-import path from 'path'
-import fs from 'fs/promises'
-import { exec } from 'child_process'
-import { promisify } from 'util'
-import log from '../utils/logger'
-import { isNotFoundError } from '../types/fs'
+import { exec } from 'node:child_process'
+import fs from 'node:fs/promises'
+import path from 'node:path'
+import { promisify } from 'node:util'
 import type {
-  TaskStackEntry,
   ParsedNowFile,
+  TaskStackEntry,
   TaskStackMigrationResult,
-  TaskSwitchResult,
   TaskStackSummary,
+  TaskSwitchResult,
 } from '../types'
+import { isNotFoundError } from '../types/fs'
+import log from '../utils/logger'
 
 const execAsync = promisify(exec)
-
 
 // =============================================================================
 // Parser
@@ -129,7 +128,7 @@ export async function ensureStackFile(stackPath: string): Promise<void> {
  */
 export async function appendToStack(stackPath: string, entry: TaskStackEntry): Promise<void> {
   await ensureStackFile(stackPath)
-  const line = JSON.stringify(entry) + '\n'
+  const line = `${JSON.stringify(entry)}\n`
   await fs.appendFile(stackPath, line)
 }
 
@@ -162,14 +161,18 @@ export async function readStack(stackPath: string): Promise<TaskStackEntry[]> {
  * Write full stack to file
  */
 export async function writeStack(stackPath: string, stack: TaskStackEntry[]): Promise<void> {
-  const content = stack.map((task) => JSON.stringify(task)).join('\n') + '\n'
+  const content = `${stack.map((task) => JSON.stringify(task)).join('\n')}\n`
   await fs.writeFile(stackPath, content)
 }
 
 /**
  * Generate now.md content for a task
  */
-export function generateNowContent(task: TaskStackEntry | null, customContent: string | null, formatDurationFn: (ms: number) => string): string {
+export function generateNowContent(
+  task: TaskStackEntry | null,
+  customContent: string | null,
+  formatDurationFn: (ms: number) => string
+): string {
   if (customContent !== undefined && customContent !== null) {
     return customContent
   }
@@ -340,7 +343,11 @@ export class TaskStack {
   /**
    * Start a new task
    */
-  async startTask(description: string, agent: string = 'general', complexity: string = 'moderate'): Promise<TaskStackEntry> {
+  async startTask(
+    description: string,
+    agent: string = 'general',
+    complexity: string = 'moderate'
+  ): Promise<TaskStackEntry> {
     // Check if there's already an active task
     const active = await this.getActiveTask()
     if (active) {
@@ -524,7 +531,10 @@ export class TaskStack {
   /**
    * Update now.md to reflect current state
    */
-  async updateNowFile(task: TaskStackEntry | null, customContent: string | null = null): Promise<void> {
+  async updateNowFile(
+    task: TaskStackEntry | null,
+    customContent: string | null = null
+  ): Promise<void> {
     await updateNowFile(this.nowPath, task, customContent, formatDuration)
   }
 

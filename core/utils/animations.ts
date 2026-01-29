@@ -132,15 +132,15 @@ function sleep(ms: number): Promise<void> {
 
 export async function animate(frameList: string[], duration = 100): Promise<void> {
   for (const frame of frameList) {
-    process.stdout.write('\r' + frame)
+    process.stdout.write(`\r${frame}`)
     await sleep(duration)
   }
-  process.stdout.write('\r' + ' '.repeat(30) + '\r')
+  process.stdout.write(`\r${' '.repeat(30)}\r`)
 }
 
 export async function typeWriter(text: string, delay = 30): Promise<void> {
   for (let i = 0; i <= text.length; i++) {
-    process.stdout.write('\r' + text.slice(0, i) + (i < text.length ? '▋' : ''))
+    process.stdout.write(`\r${text.slice(0, i)}${i < text.length ? '▋' : ''}`)
     await sleep(delay)
   }
   process.stdout.write('\n')
@@ -154,8 +154,8 @@ export async function progressBar(duration = 1000, label = 'Processing'): Promis
     const percent = Math.round((i / steps) * 100)
     const filled = '▓'.repeat(i)
     const empty = '░'.repeat(steps - i)
-    const bar = `${colors.dim(label)} [${colors.primary(filled)}${colors.dim(empty)}] ${colors.text(percent + '%')}`
-    process.stdout.write('\r' + bar)
+    const bar = `${colors.dim(label)} [${colors.primary(filled)}${colors.dim(empty)}] ${colors.text(`${percent}%`)}`
+    process.stdout.write(`\r${bar}`)
     await sleep(stepDuration)
   }
   process.stdout.write('\n')
@@ -168,9 +168,9 @@ export async function sparkle(message: string): Promise<void> {
   for (let i = 0; i < 3; i++) {
     const spark = sparkles[Math.floor(Math.random() * sparkles.length)]
     output = `${spark} ${message} ${spark}`
-    process.stdout.write('\r' + output)
+    process.stdout.write(`\r${output}`)
     await sleep(200)
-    process.stdout.write('\r' + ' '.repeat(output.length))
+    process.stdout.write(`\r${' '.repeat(output.length)}`)
     await sleep(100)
   }
 
@@ -216,13 +216,17 @@ ${colors.dim('Added to your ideas backlog')}
   `
 }
 
-export function formatCleanup(filesRemoved: number, tasksArchived: number, spaceFeed: number): string {
+export function formatCleanup(
+  filesRemoved: number,
+  tasksArchived: number,
+  spaceFeed: number
+): string {
   return `
 ${banners.cleanup}
 
 ${colors.text('🗑️  Files removed:')} ${colors.success.bold(String(filesRemoved))}
 ${colors.text('📦 Tasks archived:')} ${colors.success.bold(String(tasksArchived))}
-${colors.text('💾 Space freed:')} ${colors.success.bold(spaceFeed + ' MB')}
+${colors.text('💾 Space freed:')} ${colors.success.bold(`${spaceFeed} MB`)}
 
 ${colors.celebrate('✨ Your project is clean and lean!')}
   `
@@ -261,6 +265,5 @@ export default {
   formatError,
   formatIdea,
   formatCleanup,
-  formatRecap
+  formatRecap,
 }
-

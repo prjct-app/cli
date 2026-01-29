@@ -7,12 +7,12 @@
 import { PrjctCommands } from './commands/index'
 import { commandRegistry } from './commands/registry'
 import './commands/register' // Ensure commands are registered
-import out from './utils/output'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import type { CommandMeta } from './commands/registry'
-import { detectAllProviders, detectAntigravity, Providers } from './infrastructure/ai-provider'
-import fs from 'fs'
-import path from 'path'
-import os from 'os'
+import { detectAllProviders, detectAntigravity } from './infrastructure/ai-provider'
+import out from './utils/output'
 
 interface ParsedCommandArgs {
   parsedArgs: string[]
@@ -111,10 +111,11 @@ async function main(): Promise<void> {
         ship: (p) => commands.ship(p),
         // Analytics
         dash: (p) => commands.dash(p || 'default'),
-        stats: () => commands.stats(process.cwd(), {
-          json: options.json === true,
-          export: options.export === true,
-        }),
+        stats: () =>
+          commands.stats(process.cwd(), {
+            json: options.json === true,
+            export: options.export === true,
+          }),
         help: (p) => commands.help(p || ''),
         // Maintenance
         recover: () => commands.recover(),
@@ -122,9 +123,10 @@ async function main(): Promise<void> {
         redo: () => commands.redo(),
         history: () => commands.history(),
         // Setup
-        sync: () => commands.sync(process.cwd(), {
-          aiTools: options.agents ? String(options.agents).split(',') : undefined,
-        }),
+        sync: () =>
+          commands.sync(process.cwd(), {
+            aiTools: options.agents ? String(options.agents).split(',') : undefined,
+          }),
         start: () => commands.start(),
         // Context (for Claude templates)
         context: (p) => commands.context(p),
@@ -139,13 +141,13 @@ async function main(): Promise<void> {
     }
 
     // 7. Display result
-    if (result && result.message) {
+    if (result?.message) {
       console.log(result.message)
     }
 
     // Show branding footer
     out.end()
-    process.exit(result && result.success ? 0 : 1)
+    process.exit(result?.success ? 0 : 1)
   } catch (error) {
     console.error('Error:', (error as Error).message)
     if (process.env.DEBUG) {
@@ -160,7 +162,7 @@ async function main(): Promise<void> {
 /**
  * Parse command arguments dynamically
  */
-function parseCommandArgs(cmd: CommandMeta, rawArgs: string[]): ParsedCommandArgs {
+function parseCommandArgs(_cmd: CommandMeta, rawArgs: string[]): ParsedCommandArgs {
   const parsedArgs: string[] = []
   const options: Record<string, string | boolean> = {}
 
@@ -235,7 +237,9 @@ ${DIM}Providers:${RESET}`)
   // Antigravity status (global, skills-based)
   const antigravityDetection = detectAntigravity()
   if (antigravityDetection.installed) {
-    const status = antigravityDetection.skillInstalled ? `${GREEN}✓ ready${RESET}` : `${YELLOW}● detected${RESET}`
+    const status = antigravityDetection.skillInstalled
+      ? `${GREEN}✓ ready${RESET}`
+      : `${YELLOW}● detected${RESET}`
     const hint = antigravityDetection.skillInstalled ? '' : ` ${DIM}(run prjct start)${RESET}`
     console.log(`  Antigravity   ${status}${hint}`)
   } else {

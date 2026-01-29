@@ -41,7 +41,7 @@ export interface ProjectContext {
  * Format context for Claude Code (CLAUDE.md)
  * Detailed markdown with full context
  */
-export function formatForClaude(ctx: ProjectContext, config: AIToolConfig): string {
+export function formatForClaude(ctx: ProjectContext, _config: AIToolConfig): string {
   return `# ${ctx.name} - Project Rules
 <!-- projectId: ${ctx.projectId} -->
 <!-- Generated: ${new Date().toISOString()} -->
@@ -117,7 +117,7 @@ Load from \`~/.prjct-cli/projects/${ctx.projectId}/agents/\`:
  * Format context for Cursor (.cursorrules)
  * Concise rules format, optimized for inline suggestions
  */
-export function formatForCursor(ctx: ProjectContext, config: AIToolConfig): string {
+export function formatForCursor(ctx: ProjectContext, _config: AIToolConfig): string {
   const rules: string[] = []
 
   // Project identity
@@ -164,7 +164,7 @@ export function formatForCursor(ctx: ProjectContext, config: AIToolConfig): stri
  * Format context for GitHub Copilot (.github/copilot-instructions.md)
  * Minimal bullet points
  */
-export function formatForCopilot(ctx: ProjectContext, config: AIToolConfig): string {
+export function formatForCopilot(ctx: ProjectContext, _config: AIToolConfig): string {
   const lines: string[] = []
 
   lines.push('# Copilot Instructions')
@@ -197,7 +197,7 @@ export function formatForCopilot(ctx: ProjectContext, config: AIToolConfig): str
  * Format context for Windsurf (.windsurfrules)
  * Optimized for Cascade AI with flow-based suggestions
  */
-export function formatForWindsurf(ctx: ProjectContext, config: AIToolConfig): string {
+export function formatForWindsurf(ctx: ProjectContext, _config: AIToolConfig): string {
   const rules: string[] = []
 
   // Project identity
@@ -242,7 +242,7 @@ export function formatForWindsurf(ctx: ProjectContext, config: AIToolConfig): st
  * Format context for Continue.dev (.continue/config.json)
  * JSON config with system message and context providers
  */
-export function formatForContinue(ctx: ProjectContext, config: AIToolConfig): string {
+export function formatForContinue(ctx: ProjectContext, _config: AIToolConfig): string {
   const systemMessage = [
     `You are working on ${ctx.name}, a ${ctx.projectType} ${ctx.ecosystem} project.`,
     '',
@@ -289,7 +289,9 @@ export function formatForContinue(ctx: ProjectContext, config: AIToolConfig): st
 /**
  * Get formatter function for a tool
  */
-export function getFormatter(toolId: string): ((ctx: ProjectContext, config: AIToolConfig) => string) | null {
+export function getFormatter(
+  toolId: string
+): ((ctx: ProjectContext, config: AIToolConfig) => string) | null {
   const formatters: Record<string, (ctx: ProjectContext, config: AIToolConfig) => string> = {
     claude: formatForClaude,
     cursor: formatForCursor,

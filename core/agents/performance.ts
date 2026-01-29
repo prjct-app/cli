@@ -5,16 +5,16 @@
  * Enables learning which agent works best for which task type.
  */
 
-import path from 'path'
-import * as fileHelper from '../utils/file-helper'
+import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
 import type {
   AgentPerformance,
-  AgentTaskRecord,
-  AgentSuggestion,
   AgentPerformanceSummary,
+  AgentSuggestion,
+  AgentTaskRecord,
   TaskType,
 } from '../types'
+import * as fileHelper from '../utils/file-helper'
 
 const PERFORMANCE_DIR = 'analysis'
 const PERFORMANCE_FILE = 'agent-performance.json'
@@ -94,10 +94,7 @@ export class AgentPerformanceTracker {
       return []
     }
 
-    const data = await fileHelper.readJson<{ agents: AgentPerformance[] }>(
-      perfPath,
-      { agents: [] }
-    )
+    const data = await fileHelper.readJson<{ agents: AgentPerformance[] }>(perfPath, { agents: [] })
     return data?.agents ?? []
   }
 
@@ -115,17 +112,11 @@ export class AgentPerformanceTracker {
   /**
    * Update performance summary after a task completion.
    */
-  private async updatePerformance(
-    projectId: string,
-    record: AgentTaskRecord
-  ): Promise<void> {
+  private async updatePerformance(projectId: string, record: AgentTaskRecord): Promise<void> {
     const perfPath = this.getPerformancePath(projectId)
     await fileHelper.ensureDir(path.dirname(perfPath))
 
-    const data = await fileHelper.readJson<{ agents: AgentPerformance[] }>(
-      perfPath,
-      { agents: [] }
-    )
+    const data = await fileHelper.readJson<{ agents: AgentPerformance[] }>(perfPath, { agents: [] })
 
     if (!data) return
 
@@ -279,10 +270,7 @@ export class AgentPerformanceTracker {
   /**
    * Suggest the best agent for a task type.
    */
-  async suggestAgent(
-    projectId: string,
-    taskType: TaskType
-  ): Promise<AgentSuggestion | null> {
+  async suggestAgent(projectId: string, taskType: TaskType): Promise<AgentSuggestion | null> {
     const allPerf = await this.getAllPerformance(projectId)
 
     if (allPerf.length === 0) {
@@ -308,9 +296,7 @@ export class AgentPerformanceTracker {
     }
 
     // Fallback to most experienced agent
-    const byExperience = [...allPerf].sort(
-      (a, b) => b.tasksCompleted - a.tasksCompleted
-    )
+    const byExperience = [...allPerf].sort((a, b) => b.tasksCompleted - a.tasksCompleted)
     const fallback = byExperience[0]
 
     return {
@@ -364,10 +350,7 @@ export class AgentPerformanceTracker {
       'design',
       'other',
     ]
-    const byTaskType: Record<TaskType, string | null> = {} as Record<
-      TaskType,
-      string | null
-    >
+    const byTaskType: Record<TaskType, string | null> = {} as Record<TaskType, string | null>
 
     for (const taskType of taskTypes) {
       const best = allPerf.find((a) => a.bestFor.includes(taskType))

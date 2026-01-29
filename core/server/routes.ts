@@ -6,9 +6,9 @@
  * @version 1.0.0
  */
 
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import { Hono } from 'hono'
-import fs from 'fs/promises'
-import path from 'path'
 import * as jsonc from 'jsonc-parser'
 import pathManager from '../infrastructure/path-manager'
 import { isNotFoundError } from '../types/fs'
@@ -46,7 +46,7 @@ async function readJsonFile<T>(filePath: string): Promise<T | null> {
 async function writeJsonFile(filePath: string, data: unknown): Promise<boolean> {
   try {
     await fs.mkdir(path.dirname(filePath), { recursive: true })
-    await fs.writeFile(filePath, JSON.stringify(data, null, 2) + '\n', 'utf-8')
+    await fs.writeFile(filePath, `${JSON.stringify(data, null, 2)}\n`, 'utf-8')
     return true
   } catch (error) {
     console.error(`JSON write error: ${(error as Error).message}`)

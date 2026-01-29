@@ -12,17 +12,17 @@
  * - Caching for efficiency
  */
 
-import path from 'path'
-import { getTimestamp } from '../utils/date-helper'
+import path from 'node:path'
 import {
+  type CategoriesCache,
+  type DiscoveredDomains,
+  type DomainDefinition,
+  type FileCategory,
+  INDEX_VERSION,
   indexStorage,
   type ScoredFile,
-  type DomainDefinition,
-  type DiscoveredDomains,
-  type FileCategory,
-  type CategoriesCache,
-  INDEX_VERSION,
 } from '../storage/index-storage'
+import { getTimestamp } from '../utils/date-helper'
 
 // ============================================================================
 // TYPES
@@ -41,10 +41,10 @@ export interface CategorizationResult {
 }
 
 export interface CategorizationOptions {
-  batchSize?: number        // Files per LLM call (default: 20)
-  maxDomains?: number       // Max domains to discover (default: 15)
-  useLLM?: boolean          // Use LLM or heuristics only (default: true)
-  projectId?: string        // For caching
+  batchSize?: number // Files per LLM call (default: 20)
+  maxDomains?: number // Max domains to discover (default: 15)
+  useLLM?: boolean // Use LLM or heuristics only (default: true)
+  projectId?: string // For caching
 }
 
 // ============================================================================
@@ -126,7 +126,7 @@ export class FileCategorizer {
 
     // Update domain file counts
     for (const domain of domains) {
-      domain.fileCount = categories.filter(c => c.primaryDomain === domain.name).length
+      domain.fileCount = categories.filter((c) => c.primaryDomain === domain.name).length
     }
 
     // Save to cache if projectId provided
@@ -151,7 +151,7 @@ export class FileCategorizer {
    * Discover domains from project structure (LLM)
    */
   async discoverDomainsWithLLM(
-    projectPath: string,
+    _projectPath: string,
     files: ScoredFile[]
   ): Promise<DomainDefinition[]> {
     // For now, fall back to heuristics
@@ -212,7 +212,7 @@ export class FileCategorizer {
     const domains: DomainDefinition[] = []
     for (const [name, count] of domainCounts) {
       if (count >= 2) {
-        const heuristic = HEURISTIC_PATTERNS.find(h => h.domain === name)
+        const heuristic = HEURISTIC_PATTERNS.find((h) => h.domain === name)
         domains.push({
           name,
           description: `Files related to ${name}`,
@@ -224,9 +224,7 @@ export class FileCategorizer {
     }
 
     // Sort by file count (most files first) and limit
-    return domains
-      .sort((a, b) => b.fileCount - a.fileCount)
-      .slice(0, this.maxDomains)
+    return domains.sort((a, b) => b.fileCount - a.fileCount).slice(0, this.maxDomains)
   }
 
   /**
@@ -257,10 +255,7 @@ export class FileCategorizer {
   /**
    * Categorize files using heuristics (fallback)
    */
-  categorizeFilesHeuristic(
-    files: ScoredFile[],
-    domains: DomainDefinition[]
-  ): FileCategory[] {
+  categorizeFilesHeuristic(files: ScoredFile[], domains: DomainDefinition[]): FileCategory[] {
     const categories: FileCategory[] = []
     const now = getTimestamp()
 
@@ -302,14 +297,11 @@ export class FileCategorizer {
       // Sort by score and take top matches
       matchedDomains.sort((a, b) => b.score - a.score)
 
-      const fileCategories = matchedDomains.length > 0
-        ? matchedDomains.slice(0, 3).map(m => m.domain)
-        : ['general']
+      const fileCategories =
+        matchedDomains.length > 0 ? matchedDomains.slice(0, 3).map((m) => m.domain) : ['general']
 
       const primaryDomain = fileCategories[0]
-      const confidence = matchedDomains.length > 0
-        ? Math.min(1, matchedDomains[0].score / 5)
-        : 0.1
+      const confidence = matchedDomains.length > 0 ? Math.min(1, matchedDomains[0].score / 5) : 0.1
 
       categories.push({
         path: file.path,
@@ -411,17 +403,18 @@ export class FileCategorizer {
     }
 
     // Categorize just the new/changed files
-    const newCategories = options.useLLM !== false
-      ? await this.categorizeFilesWithLLM(files, domainsData.domains)
-      : this.categorizeFilesHeuristic(files, domainsData.domains)
+    const newCategories =
+      options.useLLM !== false
+        ? await this.categorizeFilesWithLLM(files, domainsData.domains)
+        : this.categorizeFilesHeuristic(files, domainsData.domains)
 
     // Load existing cache and merge
     const existingCache = await indexStorage.readCategories(projectId)
     if (existingCache) {
       // Remove old entries for updated files
-      const updatedPaths = new Set(files.map(f => f.path))
+      const updatedPaths = new Set(files.map((f) => f.path))
       const existingCategories = existingCache.fileCategories.filter(
-        c => !updatedPaths.has(c.path)
+        (c) => !updatedPaths.has(c.path)
       )
 
       // Merge and save

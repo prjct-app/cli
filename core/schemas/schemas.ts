@@ -4,9 +4,9 @@
  * ID generators and path helpers for project data.
  */
 
-import crypto from 'crypto'
-import { join } from 'path'
-import { homedir } from 'os'
+import crypto from 'node:crypto'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 
 // ============================================
 // ID GENERATORS - UUID ONLY
@@ -36,4 +36,3 @@ export const GLOBAL_STORAGE = join(homedir(), '.prjct-cli', 'projects')
 export function getProjectPath(projectId: string): string {
   return join(GLOBAL_STORAGE, projectId)
 }
-

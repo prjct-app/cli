@@ -5,23 +5,23 @@
  * Handles the coordination between local storage (EventBus) and remote API (SyncClient).
  */
 
-import { syncClient } from './sync-client'
-import authConfig from './auth-config'
-import eventBus, { type SyncEvent } from '../events'
-import { stateStorage } from '../storage/state-storage'
-import { queueStorage } from '../storage/queue-storage'
+import eventBus from '../events'
+import type { IdeaPriority } from '../schemas/ideas'
+import type { Priority, TaskSection, TaskType } from '../schemas/state'
 import { ideasStorage } from '../storage/ideas-storage'
+import { queueStorage } from '../storage/queue-storage'
 import { shippedStorage } from '../storage/shipped-storage'
-import type { TaskType, Priority, TaskSection } from '../schemas/state'
+import { stateStorage } from '../storage/state-storage'
 import type {
-  SyncManagerResult as SyncResult,
-  PushResult,
   PullResult,
+  PushResult,
   SyncBatchResult,
   SyncPullResult,
+  SyncManagerResult as SyncResult,
   SyncStatus,
 } from '../types'
-import type { IdeaPriority } from '../schemas/ideas'
+import authConfig from './auth-config'
+import { syncClient } from './sync-client'
 
 // ============================================
 // Sync Manager
@@ -293,11 +293,9 @@ class SyncManager {
   ): Promise<void> {
     switch (action) {
       case 'created':
-        await ideasStorage.addIdea(
-          projectId,
-          (data.title as string) || (data.text as string),
-          { priority: (data.priority as IdeaPriority) || 'medium' }
-        )
+        await ideasStorage.addIdea(projectId, (data.title as string) || (data.text as string), {
+          priority: (data.priority as IdeaPriority) || 'medium',
+        })
         break
       case 'archived':
         await ideasStorage.update(projectId, (ideas) => ({

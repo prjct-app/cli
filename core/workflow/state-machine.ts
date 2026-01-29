@@ -34,27 +34,27 @@ interface TransitionResult {
 const WORKFLOW_STATES: Record<WorkflowState, StateDefinition> = {
   idle: {
     transitions: ['task', 'next'],
-    prompt: "p. task <description>  Start working",
+    prompt: 'p. task <description>  Start working',
     description: 'No active task',
   },
   working: {
     transitions: ['done', 'pause'],
-    prompt: "p. done  Complete task  |  p. pause  Switch context",
+    prompt: 'p. done  Complete task  |  p. pause  Switch context',
     description: 'Task in progress',
   },
   paused: {
     transitions: ['resume', 'task'],
-    prompt: "p. resume  Continue  |  p. task <new>  Start different",
+    prompt: 'p. resume  Continue  |  p. task <new>  Start different',
     description: 'Task paused',
   },
   completed: {
     transitions: ['ship', 'task', 'next'],
-    prompt: "p. ship  Ship it  |  p. task <next>  Start next",
+    prompt: 'p. ship  Ship it  |  p. task <next>  Start next',
     description: 'Task completed',
   },
   shipped: {
     transitions: ['task', 'next'],
-    prompt: "p. task <description>  Start new task",
+    prompt: 'p. task <description>  Start new task',
     description: 'Feature shipped',
   },
 }
@@ -103,7 +103,7 @@ export class WorkflowStateMachine {
     }
 
     // Build helpful error message
-    const validCommands = stateConfig.transitions.map(c => `p. ${c}`).join(', ')
+    const validCommands = stateConfig.transitions.map((c) => `p. ${c}`).join(', ')
 
     return {
       valid: false,
@@ -160,7 +160,7 @@ export class WorkflowStateMachine {
    */
   formatNextSteps(state: WorkflowState): string[] {
     const stateConfig = WORKFLOW_STATES[state]
-    return stateConfig.transitions.map(cmd => {
+    return stateConfig.transitions.map((cmd) => {
       switch (cmd) {
         case 'task':
           return 'p. task <desc>  Start new task'

@@ -4,10 +4,10 @@
  * @version 0.5.0
  */
 
-import https from 'https'
-import fs from 'fs'
-import path from 'path'
-import os from 'os'
+import fs from 'node:fs'
+import https from 'node:https'
+import os from 'node:os'
+import path from 'node:path'
 import chalk from 'chalk'
 
 interface UpdateCache {
@@ -162,7 +162,7 @@ class UpdateChecker {
       const cache = this.readCache()
       const now = Date.now()
 
-      if (cache && cache.lastCheck && now - cache.lastCheck < this.checkInterval) {
+      if (cache?.lastCheck && now - cache.lastCheck < this.checkInterval) {
         // Cache is still valid
         if (cache.latestVersion && this.compareVersions(cache.latestVersion, currentVersion) > 0) {
           return {

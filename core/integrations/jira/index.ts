@@ -9,33 +9,30 @@
  *    - JIRA_API_TOKEN: API token from https://id.atlassian.com/manage-profile/security/api-tokens
  */
 
-// REST API client
-export { JiraProvider, jiraProvider, type JiraAuthMode } from './client'
-
-// Service layer with caching (preferred API)
-export { JiraService, jiraService } from './service'
-
 // Cache utilities
 export {
-  issueCache,
   assignedIssuesCache,
-  projectsCache,
   clearJiraCache,
   getJiraCacheStats,
+  issueCache,
+  projectsCache,
 } from './cache'
-
+// REST API client
+export { type JiraAuthMode, JiraProvider, jiraProvider } from './client'
 // MCP adapter (deprecated - will be removed)
 export {
-  JiraMCPAdapter,
-  jiraMCPAdapter,
+  createCreateIssueInstruction,
+  createGetIssueInstruction,
   // MCP instruction generators
   createSearchInstruction,
-  createGetIssueInstruction,
   createTransitionInstruction,
   createUpdateInstruction,
-  createCreateIssueInstruction,
+  getMCPSetupInstructions,
   // Utilities
   isMCPAvailable,
-  getMCPSetupInstructions,
+  JiraMCPAdapter,
+  jiraMCPAdapter,
   type MCPInstruction,
 } from './mcp-adapter'
+// Service layer with caching (preferred API)
+export { JiraService, jiraService } from './service'

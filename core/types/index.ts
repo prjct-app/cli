@@ -8,254 +8,190 @@
  */
 
 // =============================================================================
-// File System Types
-// =============================================================================
-export type { NodeError } from './fs'
-export {
-  isNotFoundError,
-  isPermissionError,
-  isDirNotEmptyError,
-  isFileExistsError,
-  isNodeError,
-} from './fs'
-
-// =============================================================================
-// Command Types
+// Agentic System Types
 // =============================================================================
 export type {
-  // Core command types
-  CommandResult,
-  CommandUsage,
-  CommandMetadata,
-  CommandFeature,
-  Command,
-  CommandRegistry,
-  CommandStats,
-  // Options types
-  Author,
-  DesignOptions,
-  CleanupOptions,
-  SetupOptions,
-  UninstallOptions,
-  AnalyzeOptions,
-  // Migration types
-  MigrationResult,
-  LayerCounts,
-  MigrationConfig,
-  // Analysis types
-  ComplexityResult,
-  HealthResult,
-  // Command function types
-  CommandMethodName,
-  StandardCommandFn,
-  // Registry types
-  ExecutionContext,
-  CommandHandler,
-  HandlerFn,
-  RegistryCommandUsage,
-  BlockingRules,
-  CommandMeta,
-  CategoryInfo,
-  RegistryStats,
-  ValidationResult as CommandValidationResult,
-  // Config types (command-related)
-  GlobalConfig as CommandGlobalConfig,
-  AuthorEntry,
-} from './commands'
-
+  ApprovalContext,
+  ApprovalOperation,
+  ApprovalOption,
+  ApprovalPrompt,
+  AttemptInfo,
+  AttemptRecord,
+  AttemptResult,
+  BashResult,
+  // Chain of Thought types
+  ChainOfThoughtContext,
+  ChainOfThoughtResult,
+  ChainOfThoughtState,
+  ChangedFile,
+  // Context types
+  ContextDomain,
+  ContextState,
+  DomainAnalysis,
+  // Loop Detector types
+  ErrorEntry,
+  ErrorPattern,
+  EscalationInfo,
+  // Command Executor types
+  ExecutionResult,
+  ExecutionToolsFn,
+  FeatureInfo,
+  FilteredContext,
+  FilterMetrics,
+  // Skill Loader types
+  FormattedSkill,
+  Frontmatter,
+  FullContext,
+  GatheredAnalysisData,
+  GatheredFileData,
+  GatheredInfo,
+  GatheredInfoType,
+  // Ground Truth types
+  GroundTruthContext,
+  HallucinationPattern,
+  HallucinationResult,
+  LearnedPatterns,
+  LearnedPatternsRecord,
+  LoadedAgent,
+  LoadedSkill,
+  // Orchestrator types
+  OrchestratorContext,
+  OrchestratorSubtask,
+  OutputAnalysis,
+  // Template Loader types
+  ParsedTemplate,
+  PatternInfo,
+  Plan,
+  PlanAnalysis,
+  PlanInfo,
+  // Plan Mode types
+  PlanParams,
+  PlanStatus,
+  PlanStep,
+  PlanStepDefinition,
+  PlanStepResult,
+  PromptAgent,
+  PromptContext,
+  // Prompt types
+  PromptProjectState,
+  PromptState,
+  ProposedPlan,
+  ReasoningResult,
+  ReasoningStep,
+  SimpleExecutionResult,
+  SkillContext,
+  SmartContextProjectState,
+  StackInfo,
+  Template,
+  ThinkBlock,
+  ToolDefinition,
+  // Tool types
+  ToolFunction,
+  ToolRegistry,
+  ToolRegistryInterface,
+  VerificationResult,
+  Verifier,
+} from './agentic'
 // =============================================================================
 // Agent Types
 // =============================================================================
 export type {
-  TaskType,
-  AgentPerformance,
-  AgentTaskRecord,
-  AgentSuggestion,
-  AgentPerformanceSummary,
   Agent,
-  AgentInfo,
-  AgentRouting,
-  AssignmentContext,
   AgentAssignmentResult,
+  AgentInfo,
+  AgentPerformance,
+  AgentPerformanceSummary,
+  AgentRouting,
+  AgentSuggestion,
+  AgentTaskRecord,
+  AssignmentContext,
+  TaskType,
 } from './agents'
-
 // =============================================================================
-// Agentic System Types
-// =============================================================================
-export type {
-  // Tool types
-  ToolFunction,
-  ToolRegistryInterface,
-  ToolDefinition,
-  ToolRegistry,
-  BashResult,
-  // Context types
-  ContextDomain,
-  ContextState,
-  SmartContextProjectState,
-  FullContext,
-  FilteredContext,
-  FeatureInfo,
-  PatternInfo,
-  StackInfo,
-  FilterMetrics,
-  DomainAnalysis,
-  // Prompt types
-  PromptProjectState,
-  Frontmatter,
-  Template,
-  PromptAgent,
-  PromptContext,
-  PromptState,
-  LearnedPatternsRecord,
-  ThinkBlock,
-  PlanInfo,
-  LearnedPatterns,
-  // Ground Truth types
-  GroundTruthContext,
-  VerificationResult,
-  Verifier,
-  // Plan Mode types
-  PlanParams,
-  GatheredInfo,
-  GatheredInfoType,
-  GatheredFileData,
-  GatheredAnalysisData,
-  ProposedPlan,
-  PlanStepDefinition,
-  PlanStep,
-  PlanStepResult,
-  PlanStatus,
-  Plan,
-  PlanAnalysis,
-  ApprovalPrompt,
-  ApprovalOption,
-  ApprovalContext,
-  ChangedFile,
-  ApprovalOperation,
-  // Loop Detector types
-  ErrorEntry,
-  AttemptRecord,
-  ErrorPattern,
-  EscalationInfo,
-  AttemptResult,
-  AttemptInfo,
-  HallucinationPattern,
-  HallucinationResult,
-  OutputAnalysis,
-  // Command Executor types
-  ExecutionResult,
-  SimpleExecutionResult,
-  ExecutionToolsFn,
-  // Template Loader types
-  ParsedTemplate,
-  // Skill Loader types
-  FormattedSkill,
-  SkillContext,
-  // Chain of Thought types
-  ChainOfThoughtContext,
-  ChainOfThoughtState,
-  ReasoningStep,
-  ReasoningResult,
-  ChainOfThoughtResult,
-  // Orchestrator types
-  OrchestratorContext,
-  LoadedAgent,
-  LoadedSkill,
-  OrchestratorSubtask,
-} from './agentic'
-
-// =============================================================================
-// Session Types
+// Bus Types
 // =============================================================================
 export type {
-  Session,
-  SessionMetrics,
-  TimelineEvent,
-  SessionEntry,
-  SessionLogMetadata,
-  SessionStats,
-  SessionMigrationResult,
-  SessionInfo,
-  ConversationTurn,
-  CompactedContext,
-  CompactionConfig,
-} from './session'
-
+  BusEventType,
+  EventCallback,
+  EventData,
+  EventSubscription,
+} from './bus'
+export { EventTypes } from './bus'
 // =============================================================================
-// Memory Types
+// Command Types
 // =============================================================================
 export type {
-  Memory,
-  MemoryMetadata,
-  MemoryQuery,
-  MemoryTag,
-  MemoryDatabase,
-  HistoryEntry,
-  HistoryEventType,
-  Decision,
-  Workflow,
-  Preference,
-  Patterns,
-  MemoryContext,
-  MemoryContextParams,
-} from './memory'
-export { MEMORY_TAGS } from './memory'
-
-// =============================================================================
-// Task Types
-// =============================================================================
-export type {
-  Task,
-  TaskMetadata,
-  TaskAnalysis,
-  SemanticAnalysis,
-  HistoricalAnalysis,
-  ProjectAnalysisData,
-} from './task'
-
+  AnalyzeOptions,
+  // Options types
+  Author,
+  AuthorEntry,
+  BlockingRules,
+  CategoryInfo,
+  CleanupOptions,
+  Command,
+  CommandFeature,
+  CommandHandler,
+  CommandMeta,
+  CommandMetadata,
+  // Command function types
+  CommandMethodName,
+  CommandRegistry,
+  // Core command types
+  CommandResult,
+  CommandStats,
+  CommandUsage,
+  // Analysis types
+  ComplexityResult,
+  DesignOptions,
+  // Registry types
+  ExecutionContext,
+  // Config types (command-related)
+  GlobalConfig as CommandGlobalConfig,
+  HandlerFn,
+  HealthResult,
+  LayerCounts,
+  MigrationConfig,
+  // Migration types
+  MigrationResult,
+  RegistryCommandUsage,
+  RegistryStats,
+  SetupOptions,
+  StandardCommandFn,
+  UninstallOptions,
+  ValidationResult as CommandValidationResult,
+} from './commands'
 // =============================================================================
 // Config Types
 // =============================================================================
 export type {
-  LocalConfig,
-  GlobalConfig,
   AuthorEntry as ConfigAuthorEntry,
+  GlobalConfig,
+  GlobalSettings,
+  LocalConfig,
   ProjectConfig,
   ProjectSettings,
-  GlobalSettings,
 } from './config'
-
-// =============================================================================
-// Integration Types
-// =============================================================================
-export type {
-  IntegrationsConfig,
-  LinearConfig,
-  JiraConfig,
-} from './integrations'
-export { DEFAULT_LINEAR_CONFIG, DEFAULT_JIRA_CONFIG } from './integrations'
-
-// =============================================================================
-// Template Types
-// =============================================================================
-export type {
-  TemplateFrontmatter,
-  ValidationRule,
-} from './template'
-
 // =============================================================================
 // Core Types
 // =============================================================================
 export type {
-  ContextPaths,
   CommandParams,
+  CompressedContent,
+  CompressionMetrics,
+  ContextPaths,
   ProjectContext,
   ProjectState,
-  CompressionMetrics,
-  CompressedContent,
 } from './core'
-
+// =============================================================================
+// Domain Types
+// =============================================================================
+export type {
+  ParsedNowFile,
+  TaskStackEntry,
+  TaskStackMigrationResult,
+  TaskStackSummary,
+  TaskSwitchResult,
+} from './domain'
 // =============================================================================
 // Event Types
 // =============================================================================
@@ -263,142 +199,98 @@ export type {
   SyncEvent,
   SyncEventType,
 } from './events'
-
 // =============================================================================
-// Bus Types
+// File System Types
 // =============================================================================
-export type {
-  BusEventType,
-  EventData,
-  EventCallback,
-  EventSubscription,
-} from './bus'
-export { EventTypes } from './bus'
-
-// =============================================================================
-// Storage Types
-// =============================================================================
-export type {
-  Storage,
-  ShippedFeature,
-  ShipChange,
-  CommitInfo,
-  CodeMetrics,
-  QualityMetrics,
-  Duration,
-  ShippedJson,
-  Idea,
-  IdeaStatus,
-  IdeaPriority,
-  ImpactEffort,
-  TechStack,
-  IdeaModule,
-  IdeaRole,
-  IdeasJson,
-  DailyStats,
-  AgentUsage,
-  MetricsJson,
-} from './storage'
-
+export type { NodeError } from './fs'
+export {
+  isDirNotEmptyError,
+  isFileExistsError,
+  isNodeError,
+  isNotFoundError,
+  isPermissionError,
+} from './fs'
 // =============================================================================
 // Infrastructure Types
 // =============================================================================
 export type {
-  PathSessionInfo,
-  LayerType,
-  InstallResult,
-  UninstallResult,
-  CheckResult,
-  SyncResult,
-  GlobalConfigResult,
-  PermissionLevel,
-  FileOperation,
-  PermissionsConfig,
-  PermissionCheckResult,
   AgentCapabilities,
   AgentConfig,
   AgentEnvironment,
+  AuthorConfigStatus,
+  CheckResult,
   DetectedAgent,
   DetectedAuthorInfo,
-  AuthorConfigStatus,
+  FileOperation,
+  GlobalConfigResult,
+  InstallResult,
+  LayerType,
+  PathSessionInfo,
+  PermissionCheckResult,
+  PermissionLevel,
+  PermissionsConfig,
+  SyncResult,
+  UninstallResult,
 } from './infrastructure'
-
+// =============================================================================
+// Integration Types
+// =============================================================================
+export type {
+  IntegrationsConfig,
+  JiraConfig,
+  LinearConfig,
+} from './integrations'
+export { DEFAULT_JIRA_CONFIG, DEFAULT_LINEAR_CONFIG } from './integrations'
+// =============================================================================
+// Memory Types
+// =============================================================================
+export type {
+  Decision,
+  HistoryEntry,
+  HistoryEventType,
+  Memory,
+  MemoryContext,
+  MemoryContextParams,
+  MemoryDatabase,
+  MemoryMetadata,
+  MemoryQuery,
+  MemoryTag,
+  Patterns,
+  Preference,
+  Workflow,
+} from './memory'
+export { MEMORY_TAGS } from './memory'
 // =============================================================================
 // Outcome Types
 // =============================================================================
 export type {
-  QualityScore,
+  AgentMetrics,
+  DetectedPattern,
   Outcome,
-  OutcomeSummary,
   OutcomeFilter,
   OutcomeInput,
-  DetectedPattern,
-  AgentMetrics,
+  OutcomeSummary,
+  QualityScore,
 } from './outcomes'
-
-// =============================================================================
-// Utility Types
-// =============================================================================
-export type {
-  AsyncFunction,
-  MaybePromise,
-  FileInfo,
-  LogLevel,
-  DateComponents,
-  CacheEntry,
-  CacheOptions,
-  CacheStats,
-  DetectedProjectCommands,
-  Runtime,
-} from './utils'
-
 // =============================================================================
 // Plugin Types
 // =============================================================================
 export type {
   WebhookConfig,
-  WebhookPluginContext,
   WebhookPayload,
+  WebhookPluginContext,
 } from './plugin'
-
 // =============================================================================
-// Service Types
-// =============================================================================
-export type {
-  Severity,
-  ComplexityEstimate,
-  SkillMetadata,
-  Skill,
-  SkillSearchResult,
-  MemoryServiceEntry,
-} from './services'
-
-// =============================================================================
-// Domain Types
+// Provider Types (AI CLI abstraction)
 // =============================================================================
 export type {
-  TaskStackEntry,
-  ParsedNowFile,
-  TaskStackMigrationResult,
-  TaskSwitchResult,
-  TaskStackSummary,
-} from './domain'
-
-// =============================================================================
-// Sync Types
-// =============================================================================
-export type {
-  AuthResult,
-  AuthConfig,
-  SyncManagerResult,
-  PushResult,
-  PullResult,
-  SyncBatchResult,
-  SyncPullResult,
-  SyncStatus,
-  SyncClientError,
-} from './sync'
-
+  AIProviderConfig,
+  AIProviderName,
+  CommandFormat,
+  ProviderBranding,
+  ProviderDetectionResult,
+  ProviderSelectionResult,
+} from './provider'
 // =============================================================================
 // Server Types
 // =============================================================================
@@ -406,18 +298,104 @@ export type {
   ServerConfig,
   ServerInstance,
   SSEClient,
-  SSEManager,
   SSEEventType,
+  SSEManager,
 } from './server'
-
 // =============================================================================
-// Provider Types (AI CLI abstraction)
+// Service Types
 // =============================================================================
 export type {
-  AIProviderName,
-  CommandFormat,
-  AIProviderConfig,
-  ProviderDetectionResult,
-  ProviderSelectionResult,
-  ProviderBranding,
-} from './provider'
+  ComplexityEstimate,
+  MemoryServiceEntry,
+  Severity,
+  Skill,
+  SkillMetadata,
+  SkillSearchResult,
+} from './services'
+// =============================================================================
+// Session Types
+// =============================================================================
+export type {
+  CompactedContext,
+  CompactionConfig,
+  ConversationTurn,
+  Session,
+  SessionEntry,
+  SessionInfo,
+  SessionLogMetadata,
+  SessionMetrics,
+  SessionMigrationResult,
+  SessionStats,
+  TimelineEvent,
+} from './session'
+// =============================================================================
+// Storage Types
+// =============================================================================
+export type {
+  AgentUsage,
+  CodeMetrics,
+  CommitInfo,
+  DailyStats,
+  Duration,
+  Idea,
+  IdeaModule,
+  IdeaPriority,
+  IdeaRole,
+  IdeaStatus,
+  IdeasJson,
+  ImpactEffort,
+  MetricsJson,
+  QualityMetrics,
+  ShipChange,
+  ShippedFeature,
+  ShippedJson,
+  Storage,
+  TechStack,
+} from './storage'
+// =============================================================================
+// Sync Types
+// =============================================================================
+export type {
+  AuthConfig,
+  AuthResult,
+  PullResult,
+  PushResult,
+  SyncBatchResult,
+  SyncClientError,
+  SyncManagerResult,
+  SyncPullResult,
+  SyncStatus,
+} from './sync'
+// =============================================================================
+// Task Types
+// =============================================================================
+export type {
+  HistoricalAnalysis,
+  ProjectAnalysisData,
+  SemanticAnalysis,
+  Task,
+  TaskAnalysis,
+  TaskMetadata,
+} from './task'
+// =============================================================================
+// Template Types
+// =============================================================================
+export type {
+  TemplateFrontmatter,
+  ValidationRule,
+} from './template'
+// =============================================================================
+// Utility Types
+// =============================================================================
+export type {
+  AsyncFunction,
+  CacheEntry,
+  CacheOptions,
+  CacheStats,
+  DateComponents,
+  DetectedProjectCommands,
+  FileInfo,
+  LogLevel,
+  MaybePromise,
+  Runtime,
+} from './utils'

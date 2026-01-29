@@ -11,11 +11,11 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
+import type { ServerConfig, ServerInstance } from '../types'
+import { isBun } from '../utils/runtime'
 import { createRoutes } from './routes'
 import { createExtendedRoutes } from './routes-extended'
 import { createSSEManager } from './sse'
-import { isBun } from '../utils/runtime'
-import type { ServerConfig, ServerInstance } from '../types'
 
 // Server handle type that works for both runtimes
 type ServerHandle = { stop: () => void } | null
@@ -29,11 +29,14 @@ export function createServer(config: ServerConfig): ServerInstance {
 
   // Middleware
   if (config.enableCors !== false) {
-    app.use('*', cors({
-      origin: '*',
-      allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-      allowHeaders: ['Content-Type', 'Authorization'],
-    }))
+    app.use(
+      '*',
+      cors({
+        origin: '*',
+        allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        allowHeaders: ['Content-Type', 'Authorization'],
+      })
+    )
   }
 
   if (config.enableLogging !== false) {
@@ -44,25 +47,27 @@ export function createServer(config: ServerConfig): ServerInstance {
   app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }))
 
   // API info
-  app.get('/', (c) => c.json({
-    name: 'prjct-cli',
-    version: '0.20.0',
-    projectId: config.projectId,
-    endpoints: {
-      health: '/health',
-      state: '/api/state',
-      queue: '/api/queue',
-      ideas: '/api/ideas',
-      roadmap: '/api/roadmap',
-      shipped: '/api/shipped',
-      events: '/api/events',
-      // Extended endpoints for status-bar
-      projects: '/api/projects',
-      projectFull: '/api/projects/:id/full',
-      statusBarCompact: '/api/status-bar/compact',
-      globalStats: '/api/stats/global',
-    }
-  }))
+  app.get('/', (c) =>
+    c.json({
+      name: 'prjct-cli',
+      version: '0.20.0',
+      projectId: config.projectId,
+      endpoints: {
+        health: '/health',
+        state: '/api/state',
+        queue: '/api/queue',
+        ideas: '/api/ideas',
+        roadmap: '/api/roadmap',
+        shipped: '/api/shipped',
+        events: '/api/events',
+        // Extended endpoints for status-bar
+        projects: '/api/projects',
+        projectFull: '/api/projects/:id/full',
+        statusBarCompact: '/api/status-bar/compact',
+        globalStats: '/api/stats/global',
+      },
+    })
+  )
 
   // Mount API routes
   const routes = createRoutes(config.projectId, config.projectPath)

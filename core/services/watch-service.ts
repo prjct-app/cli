@@ -9,22 +9,22 @@
  * - Low CPU/memory footprint
  */
 
-import chokidar, { type FSWatcher } from 'chokidar'
-import path from 'path'
+import path from 'node:path'
 import chalk from 'chalk'
-import { syncService } from './sync-service'
+import chokidar, { type FSWatcher } from 'chokidar'
 import configManager from '../infrastructure/config-manager'
 import dateHelper from '../utils/date-helper'
+import { syncService } from './sync-service'
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
 interface WatchOptions {
-  debounceMs?: number      // Debounce window (default: 2000ms)
-  minIntervalMs?: number   // Minimum sync interval (default: 30000ms)
-  verbose?: boolean        // Show detailed output
-  quiet?: boolean          // Suppress all output except errors
+  debounceMs?: number // Debounce window (default: 2000ms)
+  minIntervalMs?: number // Minimum sync interval (default: 30000ms)
+  verbose?: boolean // Show detailed output
+  quiet?: boolean // Suppress all output except errors
 }
 
 interface WatchResult {
@@ -75,7 +75,7 @@ const IGNORE_PATTERNS = [
   '**/coverage/**',
   '**/*.log',
   '**/*.tmp',
-  '**/CLAUDE.md',           // Don't trigger on our own output
+  '**/CLAUDE.md', // Don't trigger on our own output
   '**/.cursorrules',
   '**/.windsurfrules',
   '**/.prjct/**',
@@ -105,7 +105,10 @@ class WatchService {
   /**
    * Start watching for file changes
    */
-  async start(projectPath: string = process.cwd(), options: WatchOptions = {}): Promise<WatchResult> {
+  async start(
+    projectPath: string = process.cwd(),
+    options: WatchOptions = {}
+  ): Promise<WatchResult> {
     this.projectPath = projectPath
     this.options = { ...this.options, ...options }
 
@@ -132,8 +135,9 @@ class WatchService {
       cwd: this.projectPath,
       ignored: IGNORE_PATTERNS,
       persistent: true,
-      ignoreInitial: true,      // Don't trigger on initial scan
-      awaitWriteFinish: {       // Wait for writes to complete
+      ignoreInitial: true, // Don't trigger on initial scan
+      awaitWriteFinish: {
+        // Wait for writes to complete
         stabilityThreshold: 500,
         pollInterval: 100,
       },
@@ -233,10 +237,11 @@ class WatchService {
     const timestamp = dateHelper.getTimestamp().split('T')[1].split('.')[0]
 
     if (!this.options.quiet) {
-      const filesSummary = changedFiles.length === 1
-        ? changedFiles[0]
-        : `${changedFiles.length} files`
-      console.log(`\n${chalk.dim(`[${timestamp}]`)} ${chalk.cyan('⟳')} ${filesSummary} changed → syncing...`)
+      const filesSummary =
+        changedFiles.length === 1 ? changedFiles[0] : `${changedFiles.length} files`
+      console.log(
+        `\n${chalk.dim(`[${timestamp}]`)} ${chalk.cyan('⟳')} ${filesSummary} changed → syncing...`
+      )
     }
 
     try {
@@ -247,15 +252,19 @@ class WatchService {
 
       if (result.success) {
         if (!this.options.quiet) {
-          const agents = result.agents.filter(a => a.type === 'domain').map(a => a.name)
+          const agents = result.agents.filter((a) => a.type === 'domain').map((a) => a.name)
           const agentStr = agents.length > 0 ? ` [${agents.join(', ')}]` : ''
           console.log(`${chalk.dim(`[${timestamp}]`)} ${chalk.green('✓')} Synced${agentStr}`)
         }
       } else {
-        console.error(`${chalk.dim(`[${timestamp}]`)} ${chalk.red('✗')} Sync failed: ${result.error}`)
+        console.error(
+          `${chalk.dim(`[${timestamp}]`)} ${chalk.red('✗')} Sync failed: ${result.error}`
+        )
       }
     } catch (error) {
-      console.error(`${chalk.dim(`[${timestamp}]`)} ${chalk.red('✗')} Error: ${(error as Error).message}`)
+      console.error(
+        `${chalk.dim(`[${timestamp}]`)} ${chalk.red('✗')} Error: ${(error as Error).message}`
+      )
     }
   }
 
@@ -282,4 +291,4 @@ class WatchService {
 }
 
 export const watchService = new WatchService()
-export { WatchService, WatchOptions, WatchResult }
+export { WatchService, type WatchOptions, type WatchResult }

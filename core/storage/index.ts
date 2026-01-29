@@ -42,45 +42,43 @@
  *     └── last-sync.json
  */
 
-// ========== AGGREGATE STORAGE (Recommended) ==========
-export { StorageManager } from './storage-manager'
-export { stateStorage } from './state-storage'
-export { queueStorage } from './queue-storage'
-export { ideasStorage } from './ideas-storage'
-export { shippedStorage } from './shipped-storage'
-export { metricsStorage } from './metrics-storage'
-
-// ========== INDEX STORAGE (Project scanning) ==========
-export { indexStorage, INDEX_VERSION, getDefaultIndex, getDefaultChecksums } from './index-storage'
-export type {
-  ProjectIndex,
-  LanguageStats,
-  ConfigFileEntry,
-  DirectoryEntry,
-  ScoredFile,
-  DetectedPattern,
-  DetectedStack,
-  FileChecksums,
-  // Smart Context Selection types (PRJ-85)
-  DomainDefinition,
-  DiscoveredDomains,
-  FileCategory,
-  CategoriesCache,
-} from './index-storage'
-
-// ========== GRANULAR STORAGE (Legacy) ==========
-export { getStorage, default } from './storage'
-
 // Re-export types from canonical location
 export type {
-  Storage,
+  AgentUsage,
+  DailyStats,
   Idea,
-  IdeasJson,
-  IdeaStatus,
   IdeaPriority,
+  IdeaStatus,
+  IdeasJson,
+  MetricsJson,
   ShippedFeature,
   ShippedJson,
-  DailyStats,
-  AgentUsage,
-  MetricsJson,
+  Storage,
 } from '../types'
+export { ideasStorage } from './ideas-storage'
+export type {
+  CategoriesCache,
+  ConfigFileEntry,
+  DetectedPattern,
+  DetectedStack,
+  DirectoryEntry,
+  DiscoveredDomains,
+  // Smart Context Selection types (PRJ-85)
+  DomainDefinition,
+  FileCategory,
+  FileChecksums,
+  LanguageStats,
+  ProjectIndex,
+  ScoredFile,
+} from './index-storage'
+// ========== INDEX STORAGE (Project scanning) ==========
+export { getDefaultChecksums, getDefaultIndex, INDEX_VERSION, indexStorage } from './index-storage'
+export { metricsStorage } from './metrics-storage'
+export { queueStorage } from './queue-storage'
+export { shippedStorage } from './shipped-storage'
+export { stateStorage } from './state-storage'
+
+// ========== GRANULAR STORAGE (Legacy) ==========
+export { default, getStorage } from './storage'
+// ========== AGGREGATE STORAGE (Recommended) ==========
+export { StorageManager } from './storage-manager'

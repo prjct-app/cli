@@ -1,6 +1,6 @@
-import fs from 'fs/promises'
-import path from 'path'
-import { type NodeError, isNotFoundError } from '../types/fs'
+import fs from 'node:fs/promises'
+import path from 'node:path'
+import { isNotFoundError } from '../types/fs'
 
 /**
  * File Helper - Centralized file operations with error handling
@@ -20,7 +20,10 @@ interface ListFilesOptions {
 /**
  * Read JSON file and parse
  */
-export async function readJson<T = unknown>(filePath: string, defaultValue: T | null = null): Promise<T | null> {
+export async function readJson<T = unknown>(
+  filePath: string,
+  defaultValue: T | null = null
+): Promise<T | null> {
   try {
     const content = await fs.readFile(filePath, 'utf-8')
     return JSON.parse(content) as T
@@ -87,7 +90,7 @@ export async function appendToFile(filePath: string, content: string): Promise<v
 export async function appendLine(filePath: string, line: string): Promise<void> {
   const dir = path.dirname(filePath)
   await fs.mkdir(dir, { recursive: true })
-  await fs.appendFile(filePath, line + '\n', 'utf-8')
+  await fs.appendFile(filePath, `${line}\n`, 'utf-8')
 }
 
 /**
@@ -176,7 +179,10 @@ export async function deleteDir(dirPath: string): Promise<boolean> {
 /**
  * List files in directory
  */
-export async function listFiles(dirPath: string, options: ListFilesOptions = {}): Promise<string[]> {
+export async function listFiles(
+  dirPath: string,
+  options: ListFilesOptions = {}
+): Promise<string[]> {
   try {
     const entries = await fs.readdir(dirPath, { withFileTypes: true })
     let files = entries
@@ -285,6 +291,5 @@ export default {
   readLines,
   writeLines,
   getFileExtension,
-  getFileNameWithoutExtension
+  getFileNameWithoutExtension,
 }
-

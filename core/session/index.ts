@@ -11,15 +11,21 @@
  */
 
 // Task session types and utilities
-export type { Session, SessionMetrics, TimelineEvent } from '../types'
-export { generateId, calculateDuration, formatDuration } from './utils'
-
 // Log session types
-export type { SessionEntry, SessionLogMetadata, SessionStats, MigrationResult } from '../types'
+export type {
+  MigrationResult,
+  Session,
+  SessionEntry,
+  SessionLogMetadata,
+  SessionMetrics,
+  SessionStats,
+  TimelineEvent,
+} from '../types'
+export { SessionLogManager } from './session-log-manager'
 
 // Main exports
 export { TaskSessionManager } from './task-session-manager'
-export { SessionLogManager } from './session-log-manager'
+export { calculateDuration, formatDuration, generateId } from './utils'
 
 // Default: TaskSessionManager for backward compatibility
 import { TaskSessionManager } from './task-session-manager'

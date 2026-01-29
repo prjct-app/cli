@@ -12,13 +12,13 @@
  * @version 1.0.0
  */
 
-import fs from 'fs/promises'
-import path from 'path'
-import type { SummaryToolOutput, PublicAPIEntry, SignatureType } from './types'
-import { measureCompression, noCompression, combineMetrics } from './token-counter'
-import { extractSignatures } from './signatures-tool'
-import { analyzeImports } from './imports-tool'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import { isNotFoundError } from '../types/fs'
+import { analyzeImports } from './imports-tool'
+import { extractSignatures } from './signatures-tool'
+import { measureCompression, noCompression } from './token-counter'
+import type { PublicAPIEntry, SummaryToolOutput } from './types'
 
 // =============================================================================
 // Docstring Patterns
@@ -83,9 +83,7 @@ export async function summarizeFile(
   filePath: string,
   projectPath: string = process.cwd()
 ): Promise<SummaryToolOutput> {
-  const absolutePath = path.isAbsolute(filePath)
-    ? filePath
-    : path.join(projectPath, filePath)
+  const absolutePath = path.isAbsolute(filePath) ? filePath : path.join(projectPath, filePath)
 
   // Read file content
   let content: string
@@ -124,9 +122,7 @@ export async function summarizeFile(
       name: sig.name,
       type: sig.type,
       signature: sig.signature,
-      description: sig.docstring
-        ? extractDescriptionFromDocstring(sig.docstring)
-        : undefined,
+      description: sig.docstring ? extractDescriptionFromDocstring(sig.docstring) : undefined,
     }))
 
   // Get key dependencies (internal only, external are obvious from package.json)
@@ -155,9 +151,7 @@ export async function summarizeDirectory(
   projectPath: string = process.cwd(),
   options: { recursive?: boolean } = {}
 ): Promise<SummaryToolOutput[]> {
-  const absolutePath = path.isAbsolute(dirPath)
-    ? dirPath
-    : path.join(projectPath, dirPath)
+  const absolutePath = path.isAbsolute(dirPath) ? dirPath : path.join(projectPath, dirPath)
 
   const results: SummaryToolOutput[] = []
 
@@ -170,11 +164,7 @@ export async function summarizeDirectory(
 
       if (entry.isDirectory()) {
         // Skip common ignore patterns
-        if (
-          entry.name === 'node_modules' ||
-          entry.name === '.git' ||
-          entry.name.startsWith('.')
-        ) {
+        if (entry.name === 'node_modules' || entry.name === '.git' || entry.name.startsWith('.')) {
           continue
         }
         if (options.recursive) {
@@ -227,7 +217,7 @@ function extractFilePurpose(content: string, language: string): string {
           let comment = ''
           let j = i
           while (j < lines.length) {
-            comment += lines[j] + '\n'
+            comment += `${lines[j]}\n`
             if (pattern.end.test(lines[j])) break
             j++
           }
@@ -246,7 +236,15 @@ function extractFilePurpose(content: string, language: string): string {
     }
 
     // Stop if we hit code (not comments or empty lines)
-    if (line.length > 0 && !line.startsWith('//') && !line.startsWith('#') && !line.startsWith('/*') && !line.startsWith('*') && !line.startsWith("'") && !line.startsWith('"')) {
+    if (
+      line.length > 0 &&
+      !line.startsWith('//') &&
+      !line.startsWith('#') &&
+      !line.startsWith('/*') &&
+      !line.startsWith('*') &&
+      !line.startsWith("'") &&
+      !line.startsWith('"')
+    ) {
       break
     }
   }

@@ -6,15 +6,15 @@
 import { LinearClient as LinearSDK } from '@linear/sdk'
 import { getCredential } from '../../utils/keychain'
 import type {
-  IssueTrackerProvider,
-  Issue,
   CreateIssueInput,
-  UpdateIssueInput,
   FetchOptions,
-  LinearConfig,
-  IssueStatus,
+  Issue,
   IssuePriority,
+  IssueStatus,
+  IssueTrackerProvider,
   IssueType,
+  LinearConfig,
+  UpdateIssueInput,
 } from '../issue-tracker/types'
 
 // =============================================================================
@@ -74,9 +74,7 @@ export class LinearProvider implements IssueTrackerProvider {
     // Try config first, then keychain (which falls back to env var)
     const apiKey = config.apiKey || (await getCredential('linear-api-key'))
     if (!apiKey) {
-      throw new Error(
-        'LINEAR_API_KEY not configured. Run `p. linear setup` to configure.'
-      )
+      throw new Error('LINEAR_API_KEY not configured. Run `p. linear setup` to configure.')
     }
 
     this.sdk = new LinearSDK({ apiKey })
@@ -118,9 +116,7 @@ export class LinearProvider implements IssueTrackerProvider {
       filter: Object.keys(filter).length > 0 ? filter : undefined,
     })
 
-    return Promise.all(
-      assignedIssues.nodes.map((issue) => this.mapIssue(issue))
-    )
+    return Promise.all(assignedIssues.nodes.map((issue) => this.mapIssue(issue)))
   }
 
   /**
@@ -356,7 +352,10 @@ export class LinearProvider implements IssueTrackerProvider {
       description: linearIssue.description || undefined,
       status: LINEAR_STATUS_MAP[state?.type || 'backlog'] || 'backlog',
       priority: LINEAR_PRIORITY_MAP[linearIssue.priority] || 'none',
-      type: this.inferType(linearIssue.title, labels.nodes.map((l) => l.name)),
+      type: this.inferType(
+        linearIssue.title,
+        labels.nodes.map((l) => l.name)
+      ),
       assignee: assignee
         ? {
             id: assignee.id,
@@ -395,13 +394,25 @@ export class LinearProvider implements IssueTrackerProvider {
     if (labelsLower.includes('bug') || titleLower.includes('fix') || titleLower.includes('bug')) {
       return 'bug'
     }
-    if (labelsLower.includes('feature') || titleLower.includes('add') || titleLower.includes('implement')) {
+    if (
+      labelsLower.includes('feature') ||
+      titleLower.includes('add') ||
+      titleLower.includes('implement')
+    ) {
       return 'feature'
     }
-    if (labelsLower.includes('improvement') || titleLower.includes('improve') || titleLower.includes('enhance')) {
+    if (
+      labelsLower.includes('improvement') ||
+      titleLower.includes('improve') ||
+      titleLower.includes('enhance')
+    ) {
       return 'improvement'
     }
-    if (labelsLower.includes('chore') || titleLower.includes('chore') || titleLower.includes('deps')) {
+    if (
+      labelsLower.includes('chore') ||
+      titleLower.includes('chore') ||
+      titleLower.includes('deps')
+    ) {
       return 'chore'
     }
 
@@ -417,9 +428,7 @@ export class LinearProvider implements IssueTrackerProvider {
     const team = await this.sdk.team(teamId)
     const labels = await team.labels()
 
-    return labels.nodes
-      .filter((label) => labelNames.includes(label.name))
-      .map((label) => label.id)
+    return labels.nodes.filter((label) => labelNames.includes(label.name)).map((label) => label.id)
   }
 }
 

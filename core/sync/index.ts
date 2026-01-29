@@ -8,30 +8,24 @@
  * - OAuthHandler: Authentication flow management
  */
 
-// Auth
-export { authConfig } from './auth-config'
-
-// OAuth
-export { oauthHandler } from './oauth-handler'
-
-// Client
-export { syncClient } from './sync-client'
-
-// Manager
-export { syncManager } from './sync-manager'
-
-// Default export is the main sync manager
-export { syncManager as default } from './sync-manager'
-
 // Re-export types from canonical location
 export type {
   AuthConfig,
   AuthResult,
+  PullResult,
+  PushResult,
   SyncBatchResult,
-  SyncPullResult,
-  SyncStatus,
   SyncClientError,
   SyncManagerResult as SyncResult,
-  PushResult,
-  PullResult,
+  SyncPullResult,
+  SyncStatus,
 } from '../types'
+// Auth
+export { authConfig } from './auth-config'
+// OAuth
+export { oauthHandler } from './oauth-handler'
+// Client
+export { syncClient } from './sync-client'
+// Manager
+// Default export is the main sync manager
+export { syncManager, syncManager as default } from './sync-manager'

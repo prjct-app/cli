@@ -32,7 +32,7 @@ export function isBunAvailable(): boolean {
 
   // Check if bun command exists in PATH
   try {
-    const { execSync } = require('child_process')
+    const { execSync } = require('node:child_process')
     execSync('bun --version', { stdio: 'ignore' })
     return true
   } catch (_error) {
@@ -91,7 +91,7 @@ export function getPreferredRuntime(): Runtime {
  */
 export function getRunCommand(scriptPath: string, args: string[] = []): string {
   const runtime = getPreferredRuntime()
-  const argsStr = args.length > 0 ? ' ' + args.join(' ') : ''
+  const argsStr = args.length > 0 ? ` ${args.join(' ')}` : ''
 
   if (runtime === 'bun') {
     return `bun ${scriptPath}${argsStr}`

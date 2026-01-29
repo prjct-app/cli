@@ -3,14 +3,9 @@
  * P3.4: Plan Mode + Approval Flow
  */
 
-import { describe, it, expect, beforeEach } from 'bun:test'
-import planMode, {
-  PLAN_STATUS,
-  PLAN_REQUIRED_COMMANDS,
-  DESTRUCTIVE_COMMANDS,
-  PLANNING_TOOLS
-} from '../../agentic/plan-mode'
-import type { ProposedPlan, ApprovalContext, ChangedFile } from '../../types'
+import { beforeEach, describe, expect, it } from 'bun:test'
+import planMode, { PLAN_STATUS } from '../../agentic/plan-mode'
+import type { ApprovalContext, ProposedPlan } from '../../types'
 
 // Helper to create complete ProposedPlan objects
 const createPlan = (overrides: Partial<ProposedPlan> = {}): ProposedPlan => ({
@@ -109,7 +104,9 @@ describe('PlanMode P3.4', () => {
 
   describe('startPlanning', () => {
     it('should create a new plan with correct initial state', () => {
-      const plan = planMode.startPlanning(TEST_PROJECT_ID, 'feature', { description: 'Add dark mode' })
+      const plan = planMode.startPlanning(TEST_PROJECT_ID, 'feature', {
+        description: 'Add dark mode',
+      })
 
       // UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
       expect(plan.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
@@ -161,7 +158,7 @@ describe('PlanMode P3.4', () => {
         type: 'file_content',
         source: 'src/index.js',
         data: 'content',
-        gatheredAt: new Date().toISOString()
+        gatheredAt: new Date().toISOString(),
       })
 
       const plan = planMode.getActivePlan(TEST_PROJECT_ID)
@@ -173,11 +170,14 @@ describe('PlanMode P3.4', () => {
   describe('proposePlan', () => {
     it('should set status to pending approval', () => {
       planMode.startPlanning(TEST_PROJECT_ID, 'feature', {})
-      planMode.proposePlan(TEST_PROJECT_ID, createPlan({
-        summary: 'Add dark mode feature',
-        approach: 'CSS variables with theme context',
-        steps: [{ description: 'Create theme context' }, { description: 'Add toggle' }]
-      }))
+      planMode.proposePlan(
+        TEST_PROJECT_ID,
+        createPlan({
+          summary: 'Add dark mode feature',
+          approach: 'CSS variables with theme context',
+          steps: [{ description: 'Create theme context' }, { description: 'Add toggle' }],
+        })
+      )
 
       const plan = planMode.getActivePlan(TEST_PROJECT_ID)
       expect(plan!.status).toBe(PLAN_STATUS.PENDING_APPROVAL)
@@ -185,11 +185,14 @@ describe('PlanMode P3.4', () => {
 
     it('should return formatted plan for display', () => {
       planMode.startPlanning(TEST_PROJECT_ID, 'feature', {})
-      const formatted = planMode.proposePlan(TEST_PROJECT_ID, createPlan({
-        summary: 'Test plan',
-        approach: 'Test approach',
-        steps: [{ description: 'Step 1' }]
-      }))
+      const formatted = planMode.proposePlan(
+        TEST_PROJECT_ID,
+        createPlan({
+          summary: 'Test plan',
+          approach: 'Test approach',
+          steps: [{ description: 'Step 1' }],
+        })
+      )
 
       expect(formatted!.summary).toBe('Test plan')
       expect(formatted!.approach).toBe('Test approach')
@@ -210,9 +213,12 @@ describe('PlanMode P3.4', () => {
 
     it('should convert proposed steps to executable steps', () => {
       planMode.startPlanning(TEST_PROJECT_ID, 'feature', {})
-      planMode.proposePlan(TEST_PROJECT_ID, createPlan({
-        steps: [{ description: 'Step 1' }, { description: 'Step 2' }]
-      }))
+      planMode.proposePlan(
+        TEST_PROJECT_ID,
+        createPlan({
+          steps: [{ description: 'Step 1' }, { description: 'Step 2' }],
+        })
+      )
       const result = planMode.approvePlan(TEST_PROJECT_ID)
 
       expect(result!.steps.length).toBe(2)
@@ -249,12 +255,15 @@ describe('PlanMode P3.4', () => {
   describe('execution flow', () => {
     beforeEach(() => {
       planMode.startPlanning(TEST_PROJECT_ID, 'feature', {})
-      planMode.proposePlan(TEST_PROJECT_ID, createPlan({
-        steps: [
-          { description: 'Step 1', tool: 'Write' },
-          { description: 'Step 2', tool: 'Bash' }
-        ]
-      }))
+      planMode.proposePlan(
+        TEST_PROJECT_ID,
+        createPlan({
+          steps: [
+            { description: 'Step 1', tool: 'Write' },
+            { description: 'Step 2', tool: 'Bash' },
+          ],
+        })
+      )
       planMode.approvePlan(TEST_PROJECT_ID)
     })
 
@@ -301,15 +310,18 @@ describe('PlanMode P3.4', () => {
 
   describe('generateApprovalPrompt', () => {
     it('should generate ship approval prompt', () => {
-      const prompt = planMode.generateApprovalPrompt('ship', createApprovalContext({
-        branch: 'feature/dark-mode',
-        changedFiles: [
-          { path: 'a.js', action: 'modify' },
-          { path: 'b.js', action: 'modify' }
-        ],
-        commitMessage: 'Add dark mode',
-        operation: 'git_push'
-      }))
+      const prompt = planMode.generateApprovalPrompt(
+        'ship',
+        createApprovalContext({
+          branch: 'feature/dark-mode',
+          changedFiles: [
+            { path: 'a.js', action: 'modify' },
+            { path: 'b.js', action: 'modify' },
+          ],
+          commitMessage: 'Add dark mode',
+          operation: 'git_push',
+        })
+      )
 
       expect(prompt.title).toBe('Ship Confirmation')
       expect(prompt.details).toContain('Branch: feature/dark-mode')
@@ -317,11 +329,14 @@ describe('PlanMode P3.4', () => {
     })
 
     it('should generate cleanup approval prompt', () => {
-      const prompt = planMode.generateApprovalPrompt('cleanup', createApprovalContext({
-        filesToDelete: ['temp.js'],
-        linesOfCode: 50,
-        operation: 'delete_files'
-      }))
+      const prompt = planMode.generateApprovalPrompt(
+        'cleanup',
+        createApprovalContext({
+          filesToDelete: ['temp.js'],
+          linesOfCode: 50,
+          operation: 'delete_files',
+        })
+      )
 
       expect(prompt.title).toBe('Cleanup Confirmation')
       expect(prompt.message).toContain('delete')
@@ -347,9 +362,12 @@ describe('PlanMode P3.4', () => {
 
     it('should show progress during execution', () => {
       planMode.startPlanning(TEST_PROJECT_ID, 'feature', {})
-      planMode.proposePlan(TEST_PROJECT_ID, createPlan({
-        steps: [{ description: 'Step 1' }, { description: 'Step 2' }]
-      }))
+      planMode.proposePlan(
+        TEST_PROJECT_ID,
+        createPlan({
+          steps: [{ description: 'Step 1' }, { description: 'Step 2' }],
+        })
+      )
       planMode.approvePlan(TEST_PROJECT_ID)
       planMode.startExecution(TEST_PROJECT_ID)
 

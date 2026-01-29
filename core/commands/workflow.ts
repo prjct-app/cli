@@ -8,28 +8,24 @@
  * TypeScript provides infrastructure; Claude decides via templates.
  */
 
-import type { CommandResult, ProjectContext } from '../types'
-import { generateUUID } from '../schemas'
-import {
-  PrjctCommandsBase,
-  contextBuilder,
-  configManager,
-  dateHelper,
-  out
-} from './base'
-import { stateStorage, queueStorage } from '../storage'
-import { templateExecutor } from '../agentic/template-executor'
 import commandExecutor from '../agentic/command-executor'
-import { showNextSteps, showStateInfo } from '../utils/next-steps'
-import { workflowStateMachine } from '../workflow/state-machine'
+import { templateExecutor } from '../agentic/template-executor'
 import { linearService } from '../integrations/linear'
-import { getProjectCredentials, getLinearApiKey } from '../utils/project-credentials'
+import { generateUUID } from '../schemas'
+import { queueStorage, stateStorage } from '../storage'
+import type { CommandResult } from '../types'
+import { showNextSteps, showStateInfo } from '../utils/next-steps'
+import { getLinearApiKey, getProjectCredentials } from '../utils/project-credentials'
+import { configManager, dateHelper, out, PrjctCommandsBase } from './base'
 
 export class WorkflowCommands extends PrjctCommandsBase {
   /**
    * /p:now - Set or show current task
    */
-  async now(task: string | null = null, projectPath: string = process.cwd()): Promise<CommandResult> {
+  async now(
+    task: string | null = null,
+    projectPath: string = process.cwd()
+  ): Promise<CommandResult> {
     try {
       const initResult = await this.ensureProjectInit(projectPath)
       if (!initResult.success) return initResult
@@ -58,10 +54,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
             const creds = await getProjectCredentials(projectId)
             const apiKey = await getLinearApiKey(projectId)
             if (apiKey && creds.linear?.teamId) {
-              await linearService.initializeFromApiKey(
-                apiKey,
-                creds.linear.teamId
-              )
+              await linearService.initializeFromApiKey(apiKey, creds.linear.teamId)
               const issue = await linearService.fetchIssue(task)
               if (issue) {
                 linearId = task
@@ -85,9 +78,8 @@ export class WorkflowCommands extends PrjctCommandsBase {
 
         // Get available agents for backward compatibility
         const availableAgents = await templateExecutor.getAvailableAgents(projectPath)
-        const agentsList = availableAgents.length > 0
-          ? availableAgents.join(', ')
-          : 'none (run p. sync)'
+        const _agentsList =
+          availableAgents.length > 0 ? availableAgents.join(', ') : 'none (run p. sync)'
 
         // Build metrics from orchestrator context
         const agentCount = result.orchestratorContext?.agents?.length || availableAgents.length
@@ -171,10 +163,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
           const creds = await getProjectCredentials(projectId)
           const apiKey = await getLinearApiKey(projectId)
           if (apiKey && creds.linear?.teamId) {
-            await linearService.initializeFromApiKey(
-              apiKey,
-              creds.linear.teamId
-            )
+            await linearService.initializeFromApiKey(apiKey, creds.linear.teamId)
             await linearService.markDone(linearId)
             out.done(`${task}${duration ? ` (${duration})` : ''} → Linear ✓`)
           } else {
@@ -279,7 +268,10 @@ export class WorkflowCommands extends PrjctCommandsBase {
   /**
    * /p:resume - Resume most recently paused task
    */
-  async resume(taskId: string | null = null, projectPath: string = process.cwd()): Promise<CommandResult> {
+  async resume(
+    _taskId: string | null = null,
+    projectPath: string = process.cwd()
+  ): Promise<CommandResult> {
     try {
       const initResult = await this.ensureProjectInit(projectPath)
       if (!initResult.success) return initResult

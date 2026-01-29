@@ -38,11 +38,13 @@ export const PermissionsConfigSchema = z.object({
   bash: BashPermissionSchema.optional(),
 
   /** File operation permissions - glob patterns */
-  files: z.object({
-    read: FilePermissionSchema.optional(),
-    write: FilePermissionSchema.optional(),
-    delete: FilePermissionSchema.optional(),
-  }).optional(),
+  files: z
+    .object({
+      read: FilePermissionSchema.optional(),
+      write: FilePermissionSchema.optional(),
+      delete: FilePermissionSchema.optional(),
+    })
+    .optional(),
 
   /** Web fetch permissions */
   web: WebPermissionSchema.optional(),
@@ -51,10 +53,12 @@ export const PermissionsConfigSchema = z.object({
   skills: z.record(z.string(), PermissionLevelSchema).optional(),
 
   /** Doom loop protection - prevent infinite retries */
-  doomLoop: z.object({
-    enabled: z.boolean().default(true),
-    maxRetries: z.number().default(3),
-  }).optional(),
+  doomLoop: z
+    .object({
+      enabled: z.boolean().default(true),
+      maxRetries: z.number().default(3),
+    })
+    .optional(),
 
   /** External directory access */
   externalDirectories: PermissionLevelSchema.default('ask'),
@@ -117,7 +121,7 @@ export const DEFAULT_BASH_ASK: string[] = [
 export const DEFAULT_BASH_DENY: string[] = [
   'rm -rf /*',
   'rm -rf ~/*',
-  ':(){ :|:& };:*',  // Fork bomb
+  ':(){ :|:& };:*', // Fork bomb
   'mkfs*',
   'dd if=*of=/dev/*',
 ]
@@ -167,8 +171,7 @@ export function buildDefaultPermissions(): PermissionsConfig {
 export const parsePermissions = (data: unknown): PermissionsConfig =>
   PermissionsConfigSchema.parse(data)
 
-export const safeParsePermissions = (data: unknown) =>
-  PermissionsConfigSchema.safeParse(data)
+export const safeParsePermissions = (data: unknown) => PermissionsConfigSchema.safeParse(data)
 
 // =============================================================================
 // Defaults

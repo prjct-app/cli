@@ -118,7 +118,9 @@ class AgentStream {
   complete(taskName: string, totalDuration?: number): void {
     if (this.quiet) return
 
-    const durationStr = totalDuration ? ` ${chalk.dim(`[${this.formatDuration(totalDuration)}]`)}` : ''
+    const durationStr = totalDuration
+      ? ` ${chalk.dim(`[${this.formatDuration(totalDuration)}]`)}`
+      : ''
     console.log(chalk.green(`✅ ${taskName}${durationStr}`))
   }
 

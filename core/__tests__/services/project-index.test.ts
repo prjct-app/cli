@@ -4,14 +4,14 @@
  * Tests for the persistent project scanner with scoring
  */
 
-import { describe, it, expect, beforeEach, afterEach, mock } from 'bun:test'
-import fs from 'fs/promises'
-import path from 'path'
-import os from 'os'
-import { ProjectIndexer, createProjectIndexer, RELEVANCE_THRESHOLD } from '../../services/project-index'
-import { FileScorer, fileScorer } from '../../services/file-scorer'
-import { indexStorage, getDefaultIndex } from '../../storage/index-storage'
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
+import fs from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
 import pathManager from '../../infrastructure/path-manager'
+import { FileScorer } from '../../services/file-scorer'
+import { createProjectIndexer, RELEVANCE_THRESHOLD } from '../../services/project-index'
+import { getDefaultIndex, indexStorage } from '../../storage/index-storage'
 
 describe('FileScorer', () => {
   describe('scoreFile', () => {
@@ -184,11 +184,11 @@ describe('FileScorer', () => {
 })
 
 describe('IndexStorage', () => {
-  const testProjectId = 'test-project-' + Date.now()
+  const testProjectId = `test-project-${Date.now()}`
 
   beforeEach(async () => {
     // Set up test directory
-    const testDir = path.join(os.tmpdir(), 'prjct-test-' + Date.now())
+    const testDir = path.join(os.tmpdir(), `prjct-test-${Date.now()}`)
     pathManager.setGlobalBaseDir(testDir)
   })
 
@@ -235,27 +235,40 @@ describe('IndexStorage', () => {
 })
 
 describe('ProjectIndexer', () => {
-  const testProjectId = 'test-indexer-' + Date.now()
+  const testProjectId = `test-indexer-${Date.now()}`
   let testProjectPath: string
 
   beforeEach(async () => {
     // Create a temp project directory
-    testProjectPath = path.join(os.tmpdir(), 'prjct-indexer-test-' + Date.now())
+    testProjectPath = path.join(os.tmpdir(), `prjct-indexer-test-${Date.now()}`)
     await fs.mkdir(testProjectPath, { recursive: true })
 
     // Create some test files
     await fs.mkdir(path.join(testProjectPath, 'src'), { recursive: true })
-    await fs.writeFile(path.join(testProjectPath, 'src', 'index.ts'), 'export const main = () => {}')
-    await fs.writeFile(path.join(testProjectPath, 'src', 'utils.ts'), 'export const helper = () => {}')
-    await fs.writeFile(path.join(testProjectPath, 'package.json'), JSON.stringify({
-      name: 'test-project',
-      version: '1.0.0',
-      dependencies: { express: '^4.0.0' },
-      devDependencies: { typescript: '^5.0.0' },
-    }, null, 2))
+    await fs.writeFile(
+      path.join(testProjectPath, 'src', 'index.ts'),
+      'export const main = () => {}'
+    )
+    await fs.writeFile(
+      path.join(testProjectPath, 'src', 'utils.ts'),
+      'export const helper = () => {}'
+    )
+    await fs.writeFile(
+      path.join(testProjectPath, 'package.json'),
+      JSON.stringify(
+        {
+          name: 'test-project',
+          version: '1.0.0',
+          dependencies: { express: '^4.0.0' },
+          devDependencies: { typescript: '^5.0.0' },
+        },
+        null,
+        2
+      )
+    )
 
     // Set up test storage directory
-    const testStorageDir = path.join(os.tmpdir(), 'prjct-storage-' + Date.now())
+    const testStorageDir = path.join(os.tmpdir(), `prjct-storage-${Date.now()}`)
     pathManager.setGlobalBaseDir(testStorageDir)
   })
 
@@ -280,14 +293,17 @@ describe('ProjectIndexer', () => {
 
     it('should detect TypeScript from config files', async () => {
       // Add tsconfig.json
-      await fs.writeFile(path.join(testProjectPath, 'tsconfig.json'), JSON.stringify({
-        compilerOptions: { target: 'ES2020' },
-      }))
+      await fs.writeFile(
+        path.join(testProjectPath, 'tsconfig.json'),
+        JSON.stringify({
+          compilerOptions: { target: 'ES2020' },
+        })
+      )
 
       const indexer = createProjectIndexer(testProjectPath, testProjectId)
       const result = await indexer.fullScan()
 
-      expect(result.index.configFiles.some(cf => cf.type === 'tsconfig.json')).toBe(true)
+      expect(result.index.configFiles.some((cf) => cf.type === 'tsconfig.json')).toBe(true)
     })
 
     it('should detect Express backend', async () => {

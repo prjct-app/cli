@@ -32,7 +32,7 @@ export const VarianceReasonSchema = z.enum([
   'requirements_changed',
   'optimistic_estimate',
   'team_changes',
-  'other'
+  'other',
 ])
 
 // -----------------------------------------------------------------------------
@@ -50,11 +50,11 @@ export const EffortComparisonSchema = z.object({
     commits: z.number().optional(),
     linesAdded: z.number().optional(),
     linesRemoved: z.number().optional(),
-    sessions: z.number().optional(),  // Number of work sessions
+    sessions: z.number().optional(), // Number of work sessions
   }),
   variance: z.object({
-    hours: z.number(),          // actual - estimated
-    percentage: z.number(),     // ((actual - estimated) / estimated) * 100
+    hours: z.number(), // actual - estimated
+    percentage: z.number(), // ((actual - estimated) / estimated) * 100
     reason: VarianceReasonSchema.optional(),
     explanation: z.string().optional(),
   }),
@@ -70,8 +70,8 @@ export const MetricResultSchema = z.object({
   target: z.number(),
   actual: z.number(),
   unit: z.string(),
-  achieved: z.boolean(),        // actual >= target (or <= for decrease metrics)
-  percentOfTarget: z.number(),  // (actual / target) * 100
+  achieved: z.boolean(), // actual >= target (or <= for decrease metrics)
+  percentOfTarget: z.number(), // (actual / target) * 100
 })
 
 export const AcceptanceCriteriaResultSchema = z.object({
@@ -84,7 +84,7 @@ export const SuccessTrackingSchema = z.object({
   metrics: z.array(MetricResultSchema),
   acceptanceCriteria: z.array(AcceptanceCriteriaResultSchema),
   overallSuccess: SuccessLevelSchema,
-  successScore: z.number().min(0).max(100),  // Percentage of metrics/criteria met
+  successScore: z.number().min(0).max(100), // Percentage of metrics/criteria met
 })
 
 // -----------------------------------------------------------------------------
@@ -100,11 +100,11 @@ export const LearningSchema = z.object({
     'tooling',
     'architecture',
     'testing',
-    'other'
+    'other',
   ]),
   insight: z.string(),
   actionable: z.boolean(),
-  action: z.string().optional(),  // What to do differently next time
+  action: z.string().optional(), // What to do differently next time
 })
 
 export const LearningsSchema = z.object({
@@ -119,7 +119,7 @@ export const LearningsSchema = z.object({
 // -----------------------------------------------------------------------------
 
 export const ROIAssessmentSchema = z.object({
-  valueDelivered: z.number().min(1).max(10),    // Subjective 1-10 score
+  valueDelivered: z.number().min(1).max(10), // Subjective 1-10 score
   userImpact: z.enum(['none', 'low', 'medium', 'high', 'critical']),
   businessImpact: z.enum(['none', 'low', 'medium', 'high', 'critical']),
 
@@ -140,7 +140,7 @@ export const ROIAssessmentSchema = z.object({
 // -----------------------------------------------------------------------------
 
 export const TaskOutcomeSchema = z.object({
-  id: z.string(),                 // out_task_xxxxxxxx
+  id: z.string(), // out_task_xxxxxxxx
   taskId: z.string(),
   description: z.string(),
 
@@ -167,12 +167,12 @@ export const TaskOutcomeSchema = z.object({
 // -----------------------------------------------------------------------------
 
 export const FeatureOutcomeSchema = z.object({
-  id: z.string(),                 // out_feat_xxxxxxxx
+  id: z.string(), // out_feat_xxxxxxxx
 
   // Links
   featureId: z.string(),
   featureName: z.string(),
-  prdId: z.string().nullable(),   // null for legacy features
+  prdId: z.string().nullable(), // null for legacy features
 
   // Version info
   version: z.string().optional(),
@@ -200,11 +200,11 @@ export const FeatureOutcomeSchema = z.object({
   // Timestamps
   startedAt: z.string(),
   shippedAt: z.string(),
-  reviewedAt: z.string().optional(),  // When impact was captured
+  reviewedAt: z.string().optional(), // When impact was captured
 
   // Metadata
-  reviewedBy: z.string().optional(),  // Who filled out the impact review
-  legacy: z.boolean().optional(),     // Legacy feature (no PRD)
+  reviewedBy: z.string().optional(), // Who filled out the impact review
+  legacy: z.boolean().optional(), // Legacy feature (no PRD)
 })
 
 // -----------------------------------------------------------------------------
@@ -213,8 +213,8 @@ export const FeatureOutcomeSchema = z.object({
 
 export const AggregateMetricsSchema = z.object({
   totalFeatures: z.number(),
-  averageEstimationAccuracy: z.number(),  // Percentage
-  averageSuccessRate: z.number(),         // Percentage
+  averageEstimationAccuracy: z.number(), // Percentage
+  averageSuccessRate: z.number(), // Percentage
   averageROI: z.number(),
 
   // By category
@@ -226,17 +226,21 @@ export const AggregateMetricsSchema = z.object({
   }),
 
   // Variance patterns
-  variancePatterns: z.array(z.object({
-    reason: VarianceReasonSchema,
-    count: z.number(),
-    averageVariance: z.number(),
-  })),
+  variancePatterns: z.array(
+    z.object({
+      reason: VarianceReasonSchema,
+      count: z.number(),
+      averageVariance: z.number(),
+    })
+  ),
 
   // Top learnings (aggregated)
-  topLearnings: z.array(z.object({
-    insight: z.string(),
-    frequency: z.number(),
-  })),
+  topLearnings: z.array(
+    z.object({
+      insight: z.string(),
+      frequency: z.number(),
+    })
+  ),
 })
 
 // -----------------------------------------------------------------------------
@@ -245,7 +249,7 @@ export const AggregateMetricsSchema = z.object({
 
 export const OutcomesJsonSchema = z.object({
   outcomes: z.array(FeatureOutcomeSchema),
-  taskOutcomes: z.array(TaskOutcomeSchema).optional(),  // Standalone task outcomes
+  taskOutcomes: z.array(TaskOutcomeSchema).optional(), // Standalone task outcomes
   aggregates: AggregateMetricsSchema.optional(),
   lastUpdated: z.string(),
   lastAggregated: z.string().optional(),
@@ -286,7 +290,8 @@ export const parseOutcomes = (data: unknown): OutcomesJson => OutcomesJsonSchema
 export const safeParseOutcomes = (data: unknown) => OutcomesJsonSchema.safeParse(data)
 
 /** Parse a single feature outcome */
-export const parseFeatureOutcome = (data: unknown): FeatureOutcome => FeatureOutcomeSchema.parse(data)
+export const parseFeatureOutcome = (data: unknown): FeatureOutcome =>
+  FeatureOutcomeSchema.parse(data)
 export const safeParseFeatureOutcome = (data: unknown) => FeatureOutcomeSchema.safeParse(data)
 
 // =============================================================================
@@ -335,7 +340,7 @@ export const calculateVariance = (
  */
 export const calculateROIScore = (valueDelivered: number, actualHours: number): number => {
   if (actualHours <= 0) return valueDelivered * 10
-  return Math.round((valueDelivered * 10 / actualHours) * 100) / 100
+  return Math.round(((valueDelivered * 10) / actualHours) * 100) / 100
 }
 
 /**
@@ -348,8 +353,8 @@ export const calculateSuccessScore = (
   const totalItems = metrics.length + acceptanceCriteria.length
   if (totalItems === 0) return 100
 
-  const metMetrics = metrics.filter(m => m.achieved).length
-  const metCriteria = acceptanceCriteria.filter(ac => ac.met).length
+  const metMetrics = metrics.filter((m) => m.achieved).length
+  const metCriteria = acceptanceCriteria.filter((ac) => ac.met).length
 
   return Math.round(((metMetrics + metCriteria) / totalItems) * 100)
 }
@@ -389,34 +394,33 @@ export const aggregateOutcomes = (outcomes: FeatureOutcome[]): AggregateMetrics 
   }
 
   // Calculate averages
-  const accuracies = outcomes.map(o =>
-    calculateEstimationAccuracy(o.effort.variance.percentage)
-  )
-  const successRates = outcomes
-    .filter(o => o.success)
-    .map(o => o.success!.successScore)
-  const rois = outcomes.map(o => o.roi.roiScore)
+  const accuracies = outcomes.map((o) => calculateEstimationAccuracy(o.effort.variance.percentage))
+  const successRates = outcomes.filter((o) => o.success).map((o) => o.success!.successScore)
+  const rois = outcomes.map((o) => o.roi.roiScore)
 
   // Count by success level
   const bySuccessLevel = {
-    exceeded: outcomes.filter(o => o.success?.overallSuccess === 'exceeded').length,
-    met: outcomes.filter(o => o.success?.overallSuccess === 'met').length,
-    partial: outcomes.filter(o => o.success?.overallSuccess === 'partial').length,
-    failed: outcomes.filter(o => o.success?.overallSuccess === 'failed').length,
+    exceeded: outcomes.filter((o) => o.success?.overallSuccess === 'exceeded').length,
+    met: outcomes.filter((o) => o.success?.overallSuccess === 'met').length,
+    partial: outcomes.filter((o) => o.success?.overallSuccess === 'partial').length,
+    failed: outcomes.filter((o) => o.success?.overallSuccess === 'failed').length,
   }
 
   // Variance patterns
   const varianceReasons = outcomes
-    .filter(o => o.effort.variance.reason)
-    .reduce((acc, o) => {
-      const reason = o.effort.variance.reason!
-      if (!acc[reason]) {
-        acc[reason] = { count: 0, totalVariance: 0 }
-      }
-      acc[reason].count++
-      acc[reason].totalVariance += o.effort.variance.percentage
-      return acc
-    }, {} as Record<VarianceReason, { count: number; totalVariance: number }>)
+    .filter((o) => o.effort.variance.reason)
+    .reduce(
+      (acc, o) => {
+        const reason = o.effort.variance.reason!
+        if (!acc[reason]) {
+          acc[reason] = { count: 0, totalVariance: 0 }
+        }
+        acc[reason].count++
+        acc[reason].totalVariance += o.effort.variance.percentage
+        return acc
+      },
+      {} as Record<VarianceReason, { count: number; totalVariance: number }>
+    )
 
   const variancePatterns = Object.entries(varianceReasons).map(([reason, data]) => ({
     reason: reason as VarianceReason,
@@ -425,14 +429,17 @@ export const aggregateOutcomes = (outcomes: FeatureOutcome[]): AggregateMetrics 
   }))
 
   // Top learnings
-  const allLearnings = outcomes.flatMap(o => [
+  const allLearnings = outcomes.flatMap((o) => [
     ...o.learnings.whatWorked,
     ...o.learnings.whatDidnt,
   ])
-  const learningCounts = allLearnings.reduce((acc, learning) => {
-    acc[learning] = (acc[learning] || 0) + 1
-    return acc
-  }, {} as Record<string, number>)
+  const learningCounts = allLearnings.reduce(
+    (acc, learning) => {
+      acc[learning] = (acc[learning] || 0) + 1
+      return acc
+    },
+    {} as Record<string, number>
+  )
 
   const topLearnings = Object.entries(learningCounts)
     .sort((a, b) => b[1] - a[1])
@@ -444,10 +451,11 @@ export const aggregateOutcomes = (outcomes: FeatureOutcome[]): AggregateMetrics 
     averageEstimationAccuracy: Math.round(
       accuracies.reduce((a, b) => a + b, 0) / accuracies.length
     ),
-    averageSuccessRate: successRates.length > 0
-      ? Math.round(successRates.reduce((a, b) => a + b, 0) / successRates.length)
-      : 0,
-    averageROI: Math.round(rois.reduce((a, b) => a + b, 0) / rois.length * 100) / 100,
+    averageSuccessRate:
+      successRates.length > 0
+        ? Math.round(successRates.reduce((a, b) => a + b, 0) / successRates.length)
+        : 0,
+    averageROI: Math.round((rois.reduce((a, b) => a + b, 0) / rois.length) * 100) / 100,
     bySuccessLevel,
     variancePatterns,
     topLearnings,

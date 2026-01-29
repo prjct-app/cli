@@ -227,18 +227,39 @@ export interface HealthResult {
  * Type-safe command method names (for dynamic invocation)
  */
 export type CommandMethodName =
-  | 'work' | 'now' | 'done' | 'next' | 'pause' | 'resume'
-  | 'init' | 'feature' | 'bug' | 'idea' | 'spec'
+  | 'work'
+  | 'now'
+  | 'done'
+  | 'next'
+  | 'pause'
+  | 'resume'
+  | 'init'
+  | 'feature'
+  | 'bug'
+  | 'idea'
+  | 'spec'
   | 'ship'
-  | 'dash' | 'help'
-  | 'cleanup' | 'design' | 'recover' | 'undo' | 'redo' | 'history'
-  | 'analyze' | 'sync'
-  | 'start' | 'setup' | 'migrateAll'
+  | 'dash'
+  | 'help'
+  | 'cleanup'
+  | 'design'
+  | 'recover'
+  | 'undo'
+  | 'redo'
+  | 'history'
+  | 'analyze'
+  | 'sync'
+  | 'start'
+  | 'setup'
+  | 'migrateAll'
 
 /**
  * Function signature for standard command methods
  */
-export type StandardCommandFn = (param: string | null, projectPath?: string) => Promise<CommandResult>
+export type StandardCommandFn = (
+  param: string | null,
+  projectPath?: string
+) => Promise<CommandResult>
 
 // ============================================
 // Registry Types

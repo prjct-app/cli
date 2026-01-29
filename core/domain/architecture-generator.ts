@@ -4,8 +4,8 @@
  * This file only provides structure - real content from Claude
  */
 
-import path from 'path'
-import fs from 'fs/promises'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 
 interface ArchitectureContext {
   [key: string]: unknown
@@ -40,7 +40,10 @@ class ArchitectureGenerator {
    * Generate architecture skeleton
    * AGENTIC: Claude fills in content using templates
    */
-  async generateArchitecture(idea: string, context: ArchitectureContext = {}): Promise<Architecture> {
+  async generateArchitecture(
+    idea: string,
+    _context: ArchitectureContext = {}
+  ): Promise<Architecture> {
     // Return skeleton - Claude generates actual content via templates
     return {
       id: `arch-${Date.now()}`,

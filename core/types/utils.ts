@@ -5,12 +5,12 @@
 
 // Re-export file system types
 export {
-  NodeError,
-  isNotFoundError,
-  isPermissionError,
   isDirNotEmptyError,
   isFileExistsError,
   isNodeError,
+  isNotFoundError,
+  isPermissionError,
+  NodeError,
 } from './fs'
 
 export type AsyncFunction<T = unknown> = (...args: unknown[]) => Promise<T>

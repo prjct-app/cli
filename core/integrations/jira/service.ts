@@ -4,21 +4,21 @@
  * All operations are cached with 5-minute TTL.
  */
 
-import { jiraProvider } from './client'
+import type {
+  CreateIssueInput,
+  FetchOptions,
+  Issue,
+  JiraConfig,
+  UpdateIssueInput,
+} from '../issue-tracker/types'
 import {
-  issueCache,
   assignedIssuesCache,
-  projectsCache,
   clearJiraCache,
   getJiraCacheStats,
+  issueCache,
+  projectsCache,
 } from './cache'
-import type {
-  Issue,
-  CreateIssueInput,
-  UpdateIssueInput,
-  FetchOptions,
-  JiraConfig,
-} from '../issue-tracker/types'
+import { jiraProvider } from './client'
 
 export class JiraService {
   private initialized = false

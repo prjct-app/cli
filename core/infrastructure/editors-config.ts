@@ -9,9 +9,9 @@
  * @version 0.6.0
  */
 
-import fs from 'fs/promises'
-import path from 'path'
-import os from 'os'
+import fs from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
 import type { AIProviderName } from '../types/provider'
 
 interface EditorConfig {
@@ -65,7 +65,11 @@ class EditorsConfig {
   /**
    * Save installation configuration
    */
-  async saveConfig(version: string, installPath: string, provider: AIProviderName = 'claude'): Promise<boolean> {
+  async saveConfig(
+    version: string,
+    installPath: string,
+    provider: AIProviderName = 'claude'
+  ): Promise<boolean> {
     try {
       await this.ensureConfigDir()
 

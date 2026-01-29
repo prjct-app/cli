@@ -16,11 +16,11 @@
  * @version 1.1.0
  */
 
-import fs from 'fs/promises'
-import path from 'path'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import { glob } from 'glob'
 
-import type { SkillMetadata, Skill, SkillSearchResult } from '../types'
+import type { Skill, SkillMetadata, SkillSearchResult } from '../types'
 import type { AIProviderName } from '../types/provider'
 
 /**
@@ -46,7 +46,10 @@ function parseFrontmatter(content: string): { metadata: Record<string, unknown>;
 
       // Handle arrays [item1, item2]
       if (typeof value === 'string' && value.startsWith('[') && value.endsWith(']')) {
-        value = value.slice(1, -1).split(',').map(s => s.trim().replace(/['"]/g, ''))
+        value = value
+          .slice(1, -1)
+          .split(',')
+          .map((s) => s.trim().replace(/['"]/g, ''))
       }
       // Remove quotes
       else if (typeof value === 'string' && (value.startsWith('"') || value.startsWith("'"))) {
@@ -83,7 +86,10 @@ class SkillService {
   /**
    * Get all skill directories in order of priority
    */
-  private getSkillDirs(projectPath?: string, provider?: AIProviderName): Array<{ dir: string; source: Skill['source'] }> {
+  private getSkillDirs(
+    projectPath?: string,
+    provider?: AIProviderName
+  ): Array<{ dir: string; source: Skill['source'] }> {
     const homeDir = process.env.HOME || process.env.USERPROFILE || '~'
     const dirs: Array<{ dir: string; source: Skill['source'] }> = []
 
@@ -237,7 +243,7 @@ class SkillService {
       }
 
       // Tag match
-      if (skill.metadata.tags?.some(t => t.toLowerCase().includes(queryLower))) {
+      if (skill.metadata.tags?.some((t) => t.toLowerCase().includes(queryLower))) {
         relevance += 3
       }
 

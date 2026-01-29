@@ -4,22 +4,22 @@
  * All operations are cached with 5-minute TTL.
  */
 
-import { linearProvider } from './client'
+import type {
+  CreateIssueInput,
+  FetchOptions,
+  Issue,
+  LinearConfig,
+  UpdateIssueInput,
+} from '../issue-tracker/types'
 import {
-  issueCache,
   assignedIssuesCache,
-  teamsCache,
-  projectsCache,
   clearLinearCache,
   getLinearCacheStats,
+  issueCache,
+  projectsCache,
+  teamsCache,
 } from './cache'
-import type {
-  Issue,
-  CreateIssueInput,
-  UpdateIssueInput,
-  FetchOptions,
-  LinearConfig,
-} from '../issue-tracker/types'
+import { linearProvider } from './client'
 
 export class LinearService {
   private initialized = false

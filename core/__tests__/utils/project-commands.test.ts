@@ -3,10 +3,10 @@
  * Ensures prjct-cli uses the repo's own test/lint tooling (not hardcoded).
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test'
-import fs from 'fs/promises'
-import path from 'path'
-import os from 'os'
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
+import fs from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
 
 import { detectProjectCommands } from '../../utils/project-commands'
 
@@ -69,5 +69,3 @@ describe('detectProjectCommands', () => {
     expect(detected.test?.command).toBe('cargo test')
   })
 })
-
-

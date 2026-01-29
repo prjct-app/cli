@@ -29,6 +29,6 @@
  * ```
  */
 
-export { OutcomeRecorder, default as outcomeRecorder } from './recorder'
-export { OutcomeAnalyzer, default as outcomeAnalyzer } from './analyzer'
 export * from '../types'
+export { default as outcomeAnalyzer, OutcomeAnalyzer } from './analyzer'
+export { default as outcomeRecorder, OutcomeRecorder } from './recorder'

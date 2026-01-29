@@ -7,9 +7,9 @@
  * @version 1.0.0
  */
 
-import fs from 'fs/promises'
-import path from 'path'
-import { type StackDetection } from './stack-detector'
+import fs from 'node:fs/promises'
+import path from 'node:path'
+import type { StackDetection } from './stack-detector'
 
 // ============================================================================
 // TYPES
@@ -72,8 +72,8 @@ export class AgentGenerator {
       const files = await fs.readdir(this.agentsPath)
       await Promise.all(
         files
-          .filter(file => file.endsWith('.md'))
-          .map(file => fs.unlink(path.join(this.agentsPath, file)))
+          .filter((file) => file.endsWith('.md'))
+          .map((file) => fs.unlink(path.join(this.agentsPath, file)))
       )
     } catch {
       // Directory might not exist yet
@@ -86,11 +86,9 @@ export class AgentGenerator {
   private async generateWorkflowAgents(): Promise<AgentInfo[]> {
     const workflowAgentNames = ['prjct-workflow', 'prjct-planner', 'prjct-shipper']
 
-    await Promise.all(
-      workflowAgentNames.map(name => this.generateWorkflowAgent(name))
-    )
+    await Promise.all(workflowAgentNames.map((name) => this.generateWorkflowAgent(name)))
 
-    return workflowAgentNames.map(name => ({ name, type: 'workflow' as const }))
+    return workflowAgentNames.map((name) => ({ name, type: 'workflow' as const }))
   }
 
   /**
@@ -121,12 +119,10 @@ export class AgentGenerator {
 
     // Generate all domain agents IN PARALLEL
     await Promise.all(
-      agentsToGenerate.map(agent =>
-        this.generateDomainAgent(agent.name, stats, stack)
-      )
+      agentsToGenerate.map((agent) => this.generateDomainAgent(agent.name, stats, stack))
     )
 
-    return agentsToGenerate.map(agent => ({
+    return agentsToGenerate.map((agent) => ({
       name: agent.name,
       type: 'domain' as const,
       skill: agent.skill,

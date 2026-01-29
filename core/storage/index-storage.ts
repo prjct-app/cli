@@ -9,26 +9,26 @@
  * Location: ~/.prjct-cli/projects/{projectId}/index/
  */
 
-import fs from 'fs/promises'
-import path from 'path'
-import crypto from 'crypto'
+import crypto from 'node:crypto'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
-import { getTimestamp } from '../utils/date-helper'
 import { isNotFoundError } from '../types/fs'
+import { getTimestamp } from '../utils/date-helper'
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
 export interface LanguageStats {
-  count: number         // Number of files
-  totalLines: number    // Total lines of code
-  totalSize: number     // Total bytes
+  count: number // Number of files
+  totalLines: number // Total lines of code
+  totalSize: number // Total bytes
 }
 
 export interface ConfigFileEntry {
   path: string
-  type: string          // "package.json", "Cargo.toml", etc.
+  type: string // "package.json", "Cargo.toml", etc.
   checksum: string
   parsed?: Record<string, unknown>
 }
@@ -43,19 +43,19 @@ export interface ScoredFile {
   path: string
   score: number
   size: number
-  mtime: string         // ISO timestamp
+  mtime: string // ISO timestamp
   categories?: string[] // Domain categories: ['payments', 'api', 'backend']
 }
 
 export interface DetectedPattern {
-  name: string          // "monorepo", "api-first", "component-based"
-  confidence: number    // 0-1
-  evidence: string[]    // Files/dirs that evidence this pattern
+  name: string // "monorepo", "api-first", "component-based"
+  confidence: number // 0-1
+  evidence: string[] // Files/dirs that evidence this pattern
 }
 
 export interface DetectedStack {
-  ecosystem: string           // "JavaScript", "Python", "Rust", etc.
-  frameworks: string[]        // Detected frameworks
+  ecosystem: string // "JavaScript", "Python", "Rust", etc.
+  frameworks: string[] // Detected frameworks
   hasTests: boolean
   hasDocker: boolean
   hasCi: boolean
@@ -65,7 +65,7 @@ export interface DetectedStack {
 export interface ProjectIndex {
   version: string
   projectPath: string
-  lastFullScan: string        // ISO timestamp
+  lastFullScan: string // ISO timestamp
   lastIncrementalUpdate: string // ISO timestamp
 
   // Language detection by extension
@@ -88,15 +88,15 @@ export interface ProjectIndex {
 
   // Metrics
   totalFiles: number
-  totalSize: number           // Total bytes
-  totalLines: number          // Total LOC
-  scanDuration: number        // ms
+  totalSize: number // Total bytes
+  totalLines: number // Total LOC
+  scanDuration: number // ms
 }
 
 export interface FileChecksums {
   version: string
   lastUpdated: string
-  checksums: Record<string, string>  // path -> checksum
+  checksums: Record<string, string> // path -> checksum
 }
 
 // ============================================================================
@@ -107,11 +107,11 @@ export interface FileChecksums {
  * A domain discovered by LLM analysis of the project
  */
 export interface DomainDefinition {
-  name: string           // "payments", "shipping", "inventory"
-  description: string    // "Handles payment processing, Stripe integration"
-  keywords: string[]     // ["stripe", "checkout", "billing"]
+  name: string // "payments", "shipping", "inventory"
+  description: string // "Handles payment processing, Stripe integration"
+  keywords: string[] // ["stripe", "checkout", "billing"]
   filePatterns: string[] // ["**/payments/**", "**/billing/**"]
-  fileCount: number      // Number of files in this domain
+  fileCount: number // Number of files in this domain
 }
 
 /**
@@ -121,7 +121,7 @@ export interface DiscoveredDomains {
   version: string
   projectId: string
   domains: DomainDefinition[]
-  discoveredAt: string   // ISO timestamp
+  discoveredAt: string // ISO timestamp
 }
 
 /**
@@ -129,10 +129,10 @@ export interface DiscoveredDomains {
  */
 export interface FileCategory {
   path: string
-  categories: string[]       // ['payments', 'users', 'api']
-  primaryDomain: string      // 'payments'
-  confidence: number         // 0-1
-  categorizedAt: string      // ISO timestamp
+  categories: string[] // ['payments', 'users', 'api']
+  primaryDomain: string // 'payments'
+  confidence: number // 0-1
+  categorizedAt: string // ISO timestamp
   method: 'llm' | 'heuristic' // How it was categorized
 }
 
@@ -143,7 +143,7 @@ export interface CategoriesCache {
   version: string
   lastUpdate: string
   fileCategories: FileCategory[]
-  domainIndex: Record<string, string[]>  // domain -> file paths
+  domainIndex: Record<string, string[]> // domain -> file paths
 }
 
 // ============================================================================
@@ -300,7 +300,7 @@ class IndexStorage {
    */
   async detectChangedFiles(
     projectId: string,
-    currentFiles: Map<string, string>  // path -> checksum
+    currentFiles: Map<string, string> // path -> checksum
   ): Promise<{
     added: string[]
     modified: string[]
@@ -380,9 +380,7 @@ class IndexStorage {
 
     try {
       const files = await fs.readdir(indexPath)
-      await Promise.all(
-        files.map(file => fs.unlink(path.join(indexPath, file)))
-      )
+      await Promise.all(files.map((file) => fs.unlink(path.join(indexPath, file))))
     } catch (error) {
       if (!isNotFoundError(error)) {
         throw error

@@ -11,12 +11,12 @@
  * @version 1.0.0
  */
 
-import fs from 'fs/promises'
-import path from 'path'
-import { exec as execCallback } from 'child_process'
-import { promisify } from 'util'
-import type { FilesToolOutput, ScoredFile, ScoreReason } from './types'
+import { exec as execCallback } from 'node:child_process'
+import fs from 'node:fs/promises'
+import path from 'node:path'
+import { promisify } from 'node:util'
 import { isNotFoundError } from '../types/fs'
+import type { FilesToolOutput, ScoredFile, ScoreReason } from './types'
 
 const exec = promisify(execCallback)
 
@@ -270,7 +270,10 @@ export async function findRelevantFiles(
  */
 function extractKeywords(description: string): string[] {
   // Convert to lowercase and split by non-word characters
-  const words = description.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)
+  const words = description
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)
 
   // Remove common stop words
   const stopWords = new Set([
@@ -430,14 +433,14 @@ async function getGitRecency(
     for (const line of lines) {
       const match = line.match(/^(\d+)\s+(\d+)\s+(.+)$/)
       if (match) {
-        const commits = parseInt(match[1])
-        const timestamp = parseInt(match[2])
+        const commits = parseInt(match[1], 10)
+        const timestamp = parseInt(match[2], 10)
         const file = match[3]
         const daysAgo = Math.floor((now - timestamp) / 86400)
         recency.set(file, { commits, daysAgo })
       }
     }
-  } catch (error) {
+  } catch (_error) {
     // Git not available or not a git repo
   }
 
@@ -459,7 +462,10 @@ function scoreFile(
   let importScore = 0
 
   const pathLower = filePath.toLowerCase()
-  const pathParts = pathLower.split('/').join(' ').split(/[^a-z0-9]+/)
+  const pathParts = pathLower
+    .split('/')
+    .join(' ')
+    .split(/[^a-z0-9]+/)
 
   // Keyword matching (60% weight)
   for (const keyword of keywords) {
@@ -483,10 +489,7 @@ function scoreFile(
       if (pathLower.includes(domainKw)) {
         // Check if any task keyword relates to this domain
         const taskRelatesToDomain = keywords.some(
-          (k) =>
-            domainKeywords.includes(k) ||
-            k.includes(domain) ||
-            domain.includes(k)
+          (k) => domainKeywords.includes(k) || k.includes(domain) || domain.includes(k)
         )
         if (taskRelatesToDomain) {
           domainScore += 0.4
@@ -547,11 +550,7 @@ function scoreFile(
   }
 
   // Calculate weighted score
-  const score =
-    keywordScore * 0.6 +
-    domainScore * 0.2 +
-    recencyScore * 0.15 +
-    importScore * 0.05
+  const score = keywordScore * 0.6 + domainScore * 0.2 + recencyScore * 0.15 + importScore * 0.05
 
   return {
     path: filePath,

@@ -29,33 +29,21 @@ export const SECTION_ORDER: Record<TaskSection, number> = {
 /**
  * Filter items by a specific field value
  */
-export function filterByField<T, K extends keyof T>(
-  items: T[],
-  field: K,
-  value: T[K]
-): T[] {
+export function filterByField<T, K extends keyof T>(items: T[], field: K, value: T[K]): T[] {
   return items.filter((item) => item[field] === value)
 }
 
 /**
  * Filter items by multiple field values (OR logic)
  */
-export function filterByFieldIn<T, K extends keyof T>(
-  items: T[],
-  field: K,
-  values: T[K][]
-): T[] {
+export function filterByFieldIn<T, K extends keyof T>(items: T[], field: K, values: T[K][]): T[] {
   return items.filter((item) => values.includes(item[field]))
 }
 
 /**
  * Filter items excluding a specific field value
  */
-export function filterByFieldNot<T, K extends keyof T>(
-  items: T[],
-  field: K,
-  value: T[K]
-): T[] {
+export function filterByFieldNot<T, K extends keyof T>(items: T[], field: K, value: T[K]): T[] {
   return items.filter((item) => item[field] !== value)
 }
 

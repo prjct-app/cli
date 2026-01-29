@@ -8,9 +8,9 @@
  * @version 1.0.0
  */
 
-import { exec as execCallback } from 'child_process'
-import { promisify } from 'util'
-import type { RecentToolOutput, HotFile } from './types'
+import { exec as execCallback } from 'node:child_process'
+import { promisify } from 'node:util'
+import type { HotFile, RecentToolOutput } from './types'
 
 const exec = promisify(execCallback)
 
@@ -74,9 +74,7 @@ export async function getRecentFiles(
     }
 
     // Filter and limit
-    hotFiles = hotFiles
-      .filter((f) => !shouldIgnore(f.path))
-      .slice(0, maxFiles)
+    hotFiles = hotFiles.filter((f) => !shouldIgnore(f.path)).slice(0, maxFiles)
 
     return {
       hotFiles,
@@ -88,7 +86,7 @@ export async function getRecentFiles(
         analysisWindow,
       },
     }
-  } catch (error) {
+  } catch (_error) {
     // Git not available or not a repo
     return {
       hotFiles: [],
@@ -110,10 +108,7 @@ export async function getRecentFiles(
 /**
  * Get hot files from recent commits
  */
-async function getHotFilesFromCommits(
-  projectPath: string,
-  commits: number
-): Promise<HotFile[]> {
+async function getHotFilesFromCommits(projectPath: string, commits: number): Promise<HotFile[]> {
   // Get file change counts and last modified times
   const { stdout } = await exec(
     `git log -${commits} --pretty=format:"%ct" --name-only | awk '
@@ -138,7 +133,7 @@ async function getHotFilesFromCommits(
   for (const line of lines) {
     const match = line.match(/^(\d+)\s+(\d+)\s+(.+)$/)
     if (match) {
-      const changes = parseInt(match[1])
+      const changes = parseInt(match[1], 10)
       if (changes > maxChanges) maxChanges = changes
     }
   }
@@ -147,8 +142,8 @@ async function getHotFilesFromCommits(
     const match = line.match(/^(\d+)\s+(\d+)\s+(.+)$/)
     if (!match) continue
 
-    const changes = parseInt(match[1])
-    const timestamp = parseInt(match[2])
+    const changes = parseInt(match[1], 10)
+    const timestamp = parseInt(match[2], 10)
     const filePath = match[3]
 
     const secondsAgo = now - timestamp
@@ -199,7 +194,7 @@ async function getBranchOnlyFiles(projectPath: string): Promise<{
   const { stdout: branchOutput } = await exec('git branch --show-current', {
     cwd: projectPath,
   })
-  const currentBranch = branchOutput.trim()
+  const _currentBranch = branchOutput.trim()
 
   // Determine base branch (main or master)
   let baseBranch = 'main'
@@ -210,10 +205,9 @@ async function getBranchOnlyFiles(projectPath: string): Promise<{
   }
 
   // Get files changed in this branch
-  const { stdout: diffOutput } = await exec(
-    `git diff --name-only ${baseBranch}...HEAD`,
-    { cwd: projectPath }
-  )
+  const { stdout: diffOutput } = await exec(`git diff --name-only ${baseBranch}...HEAD`, {
+    cwd: projectPath,
+  })
 
   const branchOnlyFiles = diffOutput.trim().split('\n').filter(Boolean)
 
@@ -241,7 +235,7 @@ async function getBranchOnlyFiles(projectPath: string): Promise<{
   for (const line of lines) {
     const match = line.match(/^(\d+)\s+(\d+)\s+(.+)$/)
     if (match) {
-      const changes = parseInt(match[1])
+      const changes = parseInt(match[1], 10)
       if (changes > maxChanges) maxChanges = changes
     }
   }
@@ -250,8 +244,8 @@ async function getBranchOnlyFiles(projectPath: string): Promise<{
     const match = line.match(/^(\d+)\s+(\d+)\s+(.+)$/)
     if (!match) continue
 
-    const changes = parseInt(match[1])
-    const timestamp = parseInt(match[2])
+    const changes = parseInt(match[1], 10)
+    const timestamp = parseInt(match[2], 10)
     const filePath = match[3]
 
     const secondsAgo = now - timestamp

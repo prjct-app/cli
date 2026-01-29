@@ -6,7 +6,7 @@
  * @version 1.0.0
  */
 
-import type { ProjectContext, ContextState } from '../types'
+import type { ContextState, ProjectContext } from '../types'
 
 // Type aliases for compatibility with ProjectContext from contextBuilder.build()
 type Context = Pick<ProjectContext, 'projectId' | 'projectPath' | 'params'>
@@ -44,7 +44,11 @@ function requiresReasoning(commandName: string): boolean {
 /**
  * Reason through a command before execution
  */
-async function reason(commandName: string, context: Context, state: State): Promise<ReasoningResult> {
+async function reason(
+  commandName: string,
+  context: Context,
+  state: State
+): Promise<ReasoningResult> {
   const steps: ReasoningStep[] = []
   const plan: string[] = []
   const criticalIssues: string[] = []
@@ -63,7 +67,11 @@ async function reason(commandName: string, context: Context, state: State): Prom
       if (state.shipped) {
         steps.push({ step: 'Shipped log accessible', passed: true })
       } else {
-        steps.push({ step: 'Shipped log accessible', passed: false, details: 'shipped.md not found' })
+        steps.push({
+          step: 'Shipped log accessible',
+          passed: false,
+          details: 'shipped.md not found',
+        })
       }
 
       // Plan
@@ -79,7 +87,11 @@ async function reason(commandName: string, context: Context, state: State): Prom
       if (context.params.description || context.params.feature) {
         steps.push({ step: 'Has feature description', passed: true })
       } else {
-        steps.push({ step: 'Has feature description', passed: false, details: 'No description provided' })
+        steps.push({
+          step: 'Has feature description',
+          passed: false,
+          details: 'No description provided',
+        })
         criticalIssues.push('Missing feature description')
       }
 

@@ -7,7 +7,6 @@
  * @version 1.0.0
  */
 
-import path from 'path'
 import { glob } from 'glob'
 import log from '../utils/logger'
 
@@ -79,7 +78,7 @@ class ContextEstimator {
    * 100% AGENTIC: Uses REAL project data, not hardcoded patterns.
    * No domain-specific assumptions or language→extension mapping.
    */
-  getPatternsForDomain(domain: string, projectData: ProjectTech): FilePatterns {
+  getPatternsForDomain(_domain: string, projectData: ProjectTech): FilePatterns {
     const patterns: FilePatterns = {
       include: [],
       extensions: [],
@@ -87,7 +86,7 @@ class ContextEstimator {
     }
 
     // Use REAL extensions from project (if provided in projectData)
-    if (projectData && projectData.extensions) {
+    if (projectData?.extensions) {
       // projectData.extensions is {'.js': 45, '.ts': 23, ...}
       patterns.extensions = Object.keys(projectData.extensions)
         .filter((ext) => ext.startsWith('.'))
@@ -95,7 +94,7 @@ class ContextEstimator {
     }
 
     // Use REAL directories from project (if provided in projectData)
-    if (projectData && projectData.directories) {
+    if (projectData?.directories) {
       patterns.include = projectData.directories.filter((dir) => !patterns.exclude.includes(dir))
     }
 

@@ -7,16 +7,15 @@
  * @version 1.0.0
  */
 
-import fs from 'fs/promises'
-import fsSync from 'fs'
-import path from 'path'
-import os from 'os'
-import { execSync } from 'child_process'
+import { execSync } from 'node:child_process'
+import fsSync from 'node:fs'
+import fs from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
+import readline from 'node:readline'
 import chalk from 'chalk'
-import readline from 'readline'
-
-import pathManager from '../infrastructure/path-manager'
 import { getProviderPaths } from '../infrastructure/command-installer'
+import pathManager from '../infrastructure/path-manager'
 import type { CommandResult, UninstallOptions } from '../types'
 import { PrjctCommandsBase } from './base'
 
@@ -77,7 +76,7 @@ function formatSize(bytes: number): string {
 
   const units = ['B', 'KB', 'MB', 'GB']
   const i = Math.floor(Math.log(bytes) / Math.log(1024))
-  const size = bytes / Math.pow(1024, i)
+  const size = bytes / 1024 ** i
 
   return `${size.toFixed(1)} ${units[i]}`
 }
@@ -137,7 +136,9 @@ async function gatherUninstallItems(): Promise<UninstallItem[]> {
   // 1. ~/.prjct-cli/ (main data directory)
   const prjctCliPath = pathManager.getGlobalBasePath()
   const prjctCliExists = fsSync.existsSync(prjctCliPath)
-  const projectCount = prjctCliExists ? await countDirectoryItems(path.join(prjctCliPath, 'projects')) : 0
+  const projectCount = prjctCliExists
+    ? await countDirectoryItems(path.join(prjctCliPath, 'projects'))
+    : 0
   const prjctCliSize = prjctCliExists ? await getDirectorySize(prjctCliPath) : 0
 
   items.push({
@@ -224,7 +225,8 @@ async function gatherUninstallItems(): Promise<UninstallItem[]> {
   if (geminiMdExists) {
     try {
       const content = fsSync.readFileSync(geminiMdPath, 'utf-8')
-      hasGeminiPrjctSection = content.includes(PRJCT_START_MARKER) && content.includes(PRJCT_END_MARKER)
+      hasGeminiPrjctSection =
+        content.includes(PRJCT_START_MARKER) && content.includes(PRJCT_END_MARKER)
     } catch {
       // Can't read file
     }
@@ -264,7 +266,7 @@ async function removePrjctSection(filePath: string): Promise<boolean> {
     if (!newContent || newContent.trim().length === 0) {
       await fs.unlink(filePath)
     } else {
-      await fs.writeFile(filePath, newContent + '\n', 'utf-8')
+      await fs.writeFile(filePath, `${newContent}\n`, 'utf-8')
     }
 
     return true

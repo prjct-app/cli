@@ -23,8 +23,8 @@ export const ProjectItemSchema = z.object({
   techStack: z.array(z.string()),
   fileCount: z.number(),
   commitCount: z.number(),
-  createdAt: z.string(),        // ISO8601
-  lastSync: z.string(),         // ISO8601
+  createdAt: z.string(), // ISO8601
+  lastSync: z.string(), // ISO8601
 })
 
 // =============================================================================
@@ -50,5 +50,5 @@ export const DEFAULT_PROJECT: Omit<ProjectSchema, 'projectId' | 'name' | 'repoPa
   fileCount: 0,
   commitCount: 0,
   createdAt: new Date().toISOString(),
-  lastSync: new Date().toISOString()
+  lastSync: new Date().toISOString(),
 }

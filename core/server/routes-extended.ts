@@ -7,9 +7,9 @@
  * @version 2.0.0
  */
 
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import { Hono } from 'hono'
-import fs from 'fs/promises'
-import path from 'path'
 import * as jsonc from 'jsonc-parser'
 import pathManager from '../infrastructure/path-manager'
 import { isNotFoundError } from '../types/fs'
@@ -38,7 +38,7 @@ async function readJsonFile<T>(filePath: string): Promise<T | null> {
 async function writeJsonFile(filePath: string, data: unknown): Promise<boolean> {
   try {
     await fs.mkdir(path.dirname(filePath), { recursive: true })
-    await fs.writeFile(filePath, JSON.stringify(data, null, 2) + '\n', 'utf-8')
+    await fs.writeFile(filePath, `${JSON.stringify(data, null, 2)}\n`, 'utf-8')
     return true
   } catch (error) {
     if (isNotFoundError(error)) {
@@ -59,14 +59,14 @@ async function getProjectConfig(projectId: string): Promise<any> {
 
 async function calculateDuration(startedAt: string | undefined): Promise<string> {
   if (!startedAt) return ''
-  
+
   const start = new Date(startedAt)
   const now = new Date()
   const elapsed = now.getTime() - start.getTime()
-  
+
   const hours = Math.floor(elapsed / (1000 * 60 * 60))
   const minutes = Math.floor((elapsed % (1000 * 60 * 60)) / (1000 * 60))
-  
+
   if (hours > 0) {
     return `${hours}h ${minutes}m`
   }
@@ -87,34 +87,26 @@ export function createExtendedRoutes(): Hono {
     try {
       await fs.mkdir(PROJECTS_DIR, { recursive: true })
       const entries = await fs.readdir(PROJECTS_DIR, { withFileTypes: true })
-      const projectIds = entries.filter(e => e.isDirectory()).map(e => e.name)
+      const projectIds = entries.filter((e) => e.isDirectory()).map((e) => e.name)
 
       const projects = await Promise.all(
         projectIds.map(async (id) => {
           const projectPath = getProjectPath(id)
-          
+
           // Read config
           const config = await getProjectConfig(id)
-          
+
           // Read state
-          const state = await readJsonFile<any>(
-            path.join(projectPath, 'storage/state.json')
-          )
-          
+          const state = await readJsonFile<any>(path.join(projectPath, 'storage/state.json'))
+
           // Read queue for count
-          const queue = await readJsonFile<any>(
-            path.join(projectPath, 'storage/queue.json')
-          )
-          
+          const queue = await readJsonFile<any>(path.join(projectPath, 'storage/queue.json'))
+
           // Read ideas for count
-          const ideas = await readJsonFile<any>(
-            path.join(projectPath, 'storage/ideas.json')
-          )
-          
+          const ideas = await readJsonFile<any>(path.join(projectPath, 'storage/ideas.json'))
+
           // Read shipped for count
-          const shipped = await readJsonFile<any>(
-            path.join(projectPath, 'storage/shipped.json')
-          )
+          const shipped = await readJsonFile<any>(path.join(projectPath, 'storage/shipped.json'))
 
           const currentTask = state?.currentTask
           const duration = await calculateDuration(currentTask?.startedAt)
@@ -123,16 +115,18 @@ export function createExtendedRoutes(): Hono {
             id,
             name: config?.name || id.slice(0, 8),
             path: config?.path || null,
-            currentTask: currentTask ? {
-              ...currentTask,
-              duration
-            } : null,
+            currentTask: currentTask
+              ? {
+                  ...currentTask,
+                  duration,
+                }
+              : null,
             pausedTask: state?.previousTask || null,
             stats: {
               queueCount: queue?.tasks?.filter((t: any) => !t.completed)?.length || 0,
               ideasCount: ideas?.ideas?.filter((i: any) => i.status === 'pending')?.length || 0,
               shippedCount: shipped?.shipped?.length || 0,
-            }
+            },
           }
         })
       )
@@ -178,15 +172,17 @@ export function createExtendedRoutes(): Hono {
       const weekStart = new Date(todayStart)
       weekStart.setDate(weekStart.getDate() - weekStart.getDay())
 
-      const completedToday = queue?.tasks?.filter((t: any) => {
-        if (!t.completed || !t.completedAt) return false
-        return new Date(t.completedAt) >= todayStart
-      })?.length || 0
+      const completedToday =
+        queue?.tasks?.filter((t: any) => {
+          if (!t.completed || !t.completedAt) return false
+          return new Date(t.completedAt) >= todayStart
+        })?.length || 0
 
-      const completedThisWeek = queue?.tasks?.filter((t: any) => {
-        if (!t.completed || !t.completedAt) return false
-        return new Date(t.completedAt) >= weekStart
-      })?.length || 0
+      const completedThisWeek =
+        queue?.tasks?.filter((t: any) => {
+          if (!t.completed || !t.completedAt) return false
+          return new Date(t.completedAt) >= weekStart
+        })?.length || 0
 
       return c.json({
         id: projectId,
@@ -204,7 +200,7 @@ export function createExtendedRoutes(): Hono {
           ideasCount: ideas?.ideas?.filter((i: any) => i.status === 'pending')?.length || 0,
           shippedCount: shipped?.shipped?.length || 0,
         },
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       })
     } catch (error) {
       return c.json({ error: String(error) }, 500)
@@ -221,7 +217,7 @@ export function createExtendedRoutes(): Hono {
 
     try {
       const state = await readJsonFile<any>(statePath)
-      
+
       if (!state?.currentTask) {
         return c.json({ success: false, error: 'No active task' }, 400)
       }
@@ -232,15 +228,15 @@ export function createExtendedRoutes(): Hono {
       const newState = {
         currentTask: null,
         previousTask: null,
-        lastUpdated: new Date().toISOString()
+        lastUpdated: new Date().toISOString(),
       }
 
       await writeJsonFile(statePath, newState)
 
-      return c.json({ 
-        success: true, 
+      return c.json({
+        success: true,
         completedTask,
-        message: `Completed: ${completedTask.description}`
+        message: `Completed: ${completedTask.description}`,
       })
     } catch (error) {
       return c.json({ success: false, error: String(error) }, 500)
@@ -260,7 +256,7 @@ export function createExtendedRoutes(): Hono {
       const reason = body.reason
 
       const state = await readJsonFile<any>(statePath)
-      
+
       if (!state?.currentTask) {
         return c.json({ success: false, error: 'No active task' }, 400)
       }
@@ -271,21 +267,21 @@ export function createExtendedRoutes(): Hono {
         status: 'paused',
         startedAt: state.currentTask.startedAt,
         pausedAt: new Date().toISOString(),
-        pauseReason: reason
+        pauseReason: reason,
       }
 
       const newState = {
         currentTask: null,
         previousTask: pausedTask,
-        lastUpdated: new Date().toISOString()
+        lastUpdated: new Date().toISOString(),
       }
 
       await writeJsonFile(statePath, newState)
 
-      return c.json({ 
-        success: true, 
+      return c.json({
+        success: true,
         pausedTask,
-        message: `Paused: ${pausedTask.description}`
+        message: `Paused: ${pausedTask.description}`,
       })
     } catch (error) {
       return c.json({ success: false, error: String(error) }, 500)
@@ -302,7 +298,7 @@ export function createExtendedRoutes(): Hono {
 
     try {
       const state = await readJsonFile<any>(statePath)
-      
+
       if (!state?.previousTask) {
         return c.json({ success: false, error: 'No paused task' }, 400)
       }
@@ -311,21 +307,21 @@ export function createExtendedRoutes(): Hono {
         id: state.previousTask.id,
         description: state.previousTask.description,
         startedAt: new Date().toISOString(),
-        sessionId: `sess_${Date.now().toString(36)}`
+        sessionId: `sess_${Date.now().toString(36)}`,
       }
 
       const newState = {
         currentTask: resumedTask,
         previousTask: null,
-        lastUpdated: new Date().toISOString()
+        lastUpdated: new Date().toISOString(),
       }
 
       await writeJsonFile(statePath, newState)
 
-      return c.json({ 
-        success: true, 
+      return c.json({
+        success: true,
         resumedTask,
-        message: `Resumed: ${resumedTask.description}`
+        message: `Resumed: ${resumedTask.description}`,
       })
     } catch (error) {
       return c.json({ success: false, error: String(error) }, 500)
@@ -369,22 +365,22 @@ export function createExtendedRoutes(): Hono {
         description: task.description,
         startedAt: new Date().toISOString(),
         sessionId: `sess_${Date.now().toString(36)}`,
-        featureId: task.featureId
+        featureId: task.featureId,
       }
 
       // Update state
       const newState = {
         currentTask: newTask,
         previousTask: null,
-        lastUpdated: new Date().toISOString()
+        lastUpdated: new Date().toISOString(),
       }
 
       await writeJsonFile(statePath, newState)
 
-      return c.json({ 
-        success: true, 
+      return c.json({
+        success: true,
         task: newTask,
-        message: `Started: ${newTask.description}`
+        message: `Started: ${newTask.description}`,
       })
     } catch (error) {
       return c.json({ success: false, error: String(error) }, 500)
@@ -407,7 +403,7 @@ export function createExtendedRoutes(): Hono {
         return c.json({ success: false, error: 'text required' }, 400)
       }
 
-      const ideas = await readJsonFile<any>(ideasPath) || { ideas: [], lastUpdated: '' }
+      const ideas = (await readJsonFile<any>(ideasPath)) || { ideas: [], lastUpdated: '' }
 
       const newIdea = {
         id: `idea_${Date.now().toString(36)}`,
@@ -415,7 +411,7 @@ export function createExtendedRoutes(): Hono {
         status: 'pending',
         priority,
         tags,
-        addedAt: new Date().toISOString()
+        addedAt: new Date().toISOString(),
       }
 
       ideas.ideas.unshift(newIdea) // Prepend
@@ -423,10 +419,10 @@ export function createExtendedRoutes(): Hono {
 
       await writeJsonFile(ideasPath, ideas)
 
-      return c.json({ 
-        success: true, 
+      return c.json({
+        success: true,
         idea: newIdea,
-        message: `Captured: ${text.slice(0, 50)}...`
+        message: `Captured: ${text.slice(0, 50)}...`,
       })
     } catch (error) {
       return c.json({ success: false, error: String(error) }, 500)
@@ -440,7 +436,7 @@ export function createExtendedRoutes(): Hono {
     try {
       await fs.mkdir(PROJECTS_DIR, { recursive: true })
       const entries = await fs.readdir(PROJECTS_DIR, { withFileTypes: true })
-      const projectIds = entries.filter(e => e.isDirectory()).map(e => e.name)
+      const projectIds = entries.filter((e) => e.isDirectory()).map((e) => e.name)
 
       let totalTasks = 0
       let totalIdeas = 0
@@ -449,14 +445,14 @@ export function createExtendedRoutes(): Hono {
 
       for (const id of projectIds) {
         const projectPath = getProjectPath(id)
-        
+
         const state = await readJsonFile<any>(path.join(projectPath, 'storage/state.json'))
         const queue = await readJsonFile<any>(path.join(projectPath, 'storage/queue.json'))
         const ideas = await readJsonFile<any>(path.join(projectPath, 'storage/ideas.json'))
         const shipped = await readJsonFile<any>(path.join(projectPath, 'storage/shipped.json'))
 
         if (state?.currentTask) activeProjects++
-        
+
         totalTasks += queue?.tasks?.filter((t: any) => !t.completed)?.length || 0
         totalIdeas += ideas?.ideas?.filter((i: any) => i.status === 'pending')?.length || 0
         totalShipped += shipped?.shipped?.length || 0
@@ -468,7 +464,7 @@ export function createExtendedRoutes(): Hono {
         totalTasks,
         totalIdeas,
         totalShipped,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       })
     } catch (error) {
       return c.json({ error: String(error) }, 500)
@@ -485,7 +481,7 @@ export function createExtendedRoutes(): Hono {
 
       await fs.mkdir(PROJECTS_DIR, { recursive: true })
       const entries = await fs.readdir(PROJECTS_DIR, { withFileTypes: true })
-      const projectIds = entries.filter(e => e.isDirectory()).map(e => e.name)
+      const projectIds = entries.filter((e) => e.isDirectory()).map((e) => e.name)
 
       // If cwd provided, find matching project by path
       let targetProjectId: string | null = null
@@ -519,7 +515,7 @@ export function createExtendedRoutes(): Hono {
           activeProject = { id, name: config?.name || id, path: config?.repoPath || config?.path }
           activeTask = {
             ...state.currentTask,
-            duration: await calculateDuration(state.currentTask.startedAt)
+            duration: await calculateDuration(state.currentTask.startedAt),
           }
           break
         }
@@ -540,7 +536,7 @@ export function createExtendedRoutes(): Hono {
         // Include whether we filtered by cwd
         filtered: !!targetProjectId,
         cwd: cwd || null,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       })
     } catch (error) {
       return c.json({ error: String(error) }, 500)

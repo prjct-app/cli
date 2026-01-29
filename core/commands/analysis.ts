@@ -2,30 +2,32 @@
  * Analysis Commands: analyze, sync, and related helpers
  */
 
-import path from 'path'
-
-import type { CommandResult, AnalyzeOptions, ProjectContext } from '../types'
-import {
-  PrjctCommandsBase,
-  contextBuilder,
-  toolRegistry,
-  pathManager,
-  configManager,
-  dateHelper
-} from './base'
-import analyzer from '../domain/analyzer'
+import path from 'node:path'
 import { generateContext } from '../context/generator'
+import analyzer from '../domain/analyzer'
 import commandInstaller from '../infrastructure/command-installer'
-import { syncService } from '../services'
-import { showNextSteps } from '../utils/next-steps'
-import { metricsStorage } from '../storage/metrics-storage'
 import { formatCost } from '../schemas/metrics'
+import { syncService } from '../services'
+import { metricsStorage } from '../storage/metrics-storage'
+import type { AnalyzeOptions, CommandResult, ProjectContext } from '../types'
+import { showNextSteps } from '../utils/next-steps'
+import {
+  configManager,
+  contextBuilder,
+  dateHelper,
+  PrjctCommandsBase,
+  pathManager,
+  toolRegistry,
+} from './base'
 
 export class AnalysisCommands extends PrjctCommandsBase {
   /**
    * /p:analyze - Analyze repository and generate summary
    */
-  async analyze(options: AnalyzeOptions = {}, projectPath: string = process.cwd()): Promise<CommandResult> {
+  async analyze(
+    options: AnalyzeOptions = {},
+    projectPath: string = process.cwd()
+  ): Promise<CommandResult> {
     try {
       await this.initializeAgent()
 
@@ -33,7 +35,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
 
       analyzer.init(projectPath)
 
-      const context = await contextBuilder.build(projectPath, options) as ProjectContext
+      const context = (await contextBuilder.build(projectPath, options)) as ProjectContext
 
       const analysisData = {
         packageJson: await analyzer.readPackageJson(),
@@ -60,12 +62,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
 
       const projectId = await configManager.getProjectId(projectPath)
       const summaryPath =
-        context.paths.analysis ||
-        pathManager.getFilePath(
-          projectId!,
-          'analysis',
-          'repo-summary.md'
-        )
+        context.paths.analysis || pathManager.getFilePath(projectId!, 'analysis', 'repo-summary.md')
 
       await toolRegistry.get('Write')!(summaryPath, summary)
 
@@ -165,7 +162,9 @@ export class AnalysisCommands extends PrjctCommandsBase {
     if (data.hasReadme) lines.push('- **Documentation**: README.md found')
     lines.push('')
 
-    const gitStats = data.gitStats as { totalCommits?: number; contributors?: number; age?: string } | undefined
+    const gitStats = data.gitStats as
+      | { totalCommits?: number; contributors?: number; age?: string }
+      | undefined
     lines.push('## Git Statistics\n')
     lines.push(`- **Total Commits**: ${gitStats?.totalCommits || 0}`)
     lines.push(`- **Contributors**: ${gitStats?.contributors || 0}`)
@@ -208,7 +207,10 @@ export class AnalysisCommands extends PrjctCommandsBase {
    *
    * This eliminates the need for Claude to make 50+ individual tool calls.
    */
-  async sync(projectPath: string = process.cwd(), options: { aiTools?: string[] } = {}): Promise<CommandResult> {
+  async sync(
+    projectPath: string = process.cwd(),
+    options: { aiTools?: string[] } = {}
+  ): Promise<CommandResult> {
     try {
       const initResult = await this.ensureProjectInit(projectPath)
       if (!initResult.success) return initResult
@@ -252,7 +254,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
 
       // Show AI Tools generated (multi-agent output)
       if (result.aiTools && result.aiTools.length > 0) {
-        const successTools = result.aiTools.filter(t => t.success)
+        const successTools = result.aiTools.filter((t) => t.success)
         console.log(`🤖 AI Tools Context (${successTools.length})`)
         for (const tool of result.aiTools) {
           const status = tool.success ? '✓' : '✗'
@@ -261,8 +263,8 @@ export class AnalysisCommands extends PrjctCommandsBase {
         console.log('')
       }
 
-      const workflowAgents = result.agents.filter(a => a.type === 'workflow').map(a => a.name)
-      const domainAgents = result.agents.filter(a => a.type === 'domain').map(a => a.name)
+      const workflowAgents = result.agents.filter((a) => a.type === 'workflow').map((a) => a.name)
+      const domainAgents = result.agents.filter((a) => a.type === 'domain').map((a) => a.name)
 
       console.log(`🤖 Agents Regenerated (${result.agents.length})`)
       console.log(`├── Workflow: ${workflowAgents.join(', ')}`)
@@ -286,14 +288,21 @@ export class AnalysisCommands extends PrjctCommandsBase {
 
       // Summary metrics
       const elapsed = Date.now() - startTime
-      const contextFilesCount = result.contextFiles.length + (result.aiTools?.filter(t => t.success).length || 0)
+      const contextFilesCount =
+        result.contextFiles.length + (result.aiTools?.filter((t) => t.success).length || 0)
       const agentCount = result.agents.length
 
       console.log('─'.repeat(45))
       console.log(`📊 Sync Summary`)
-      console.log(`   Stack: ${result.stats.ecosystem} (${result.stats.frameworks.join(', ') || 'no frameworks'})`)
-      console.log(`   Files: ${result.stats.fileCount} analyzed → ${contextFilesCount} context files`)
-      console.log(`   Agents: ${agentCount} (${result.agents.filter(a => a.type === 'domain').length} domain)`)
+      console.log(
+        `   Stack: ${result.stats.ecosystem} (${result.stats.frameworks.join(', ') || 'no frameworks'})`
+      )
+      console.log(
+        `   Files: ${result.stats.fileCount} analyzed → ${contextFilesCount} context files`
+      )
+      console.log(
+        `   Agents: ${agentCount} (${result.agents.filter((a) => a.type === 'domain').length} domain)`
+      )
       console.log(`   Time: ${(elapsed / 1000).toFixed(1)}s`)
       console.log('')
 
@@ -360,8 +369,8 @@ export class AnalysisCommands extends PrjctCommandsBase {
       const globalPath = pathManager.getGlobalProjectPath(projectId)
       let projectName = 'Unknown'
       try {
-        const fs = require('fs/promises')
-        const path = require('path')
+        const fs = require('node:fs/promises')
+        const path = require('node:path')
         const projectJson = JSON.parse(
           await fs.readFile(path.join(globalPath, 'project.json'), 'utf-8')
         )
@@ -384,14 +393,18 @@ export class AnalysisCommands extends PrjctCommandsBase {
       console.log('')
       console.log('╭─────────────────────────────────────────────────╮')
       console.log('│  📊 prjct-cli Value Dashboard                   │')
-      console.log(`│  Project: ${projectName.padEnd(20).slice(0, 20)} | Since: ${firstSyncDate.padEnd(12).slice(0, 12)} │`)
+      console.log(
+        `│  Project: ${projectName.padEnd(20).slice(0, 20)} | Since: ${firstSyncDate.padEnd(12).slice(0, 12)} │`
+      )
       console.log('╰─────────────────────────────────────────────────╯')
       console.log('')
 
       // Token Savings Section
       console.log('💰 TOKEN SAVINGS')
       console.log(`   Total saved:     ${this._formatTokens(summary.totalTokensSaved)} tokens`)
-      console.log(`   Compression:     ${(summary.compressionRate * 100).toFixed(0)}% average reduction`)
+      console.log(
+        `   Compression:     ${(summary.compressionRate * 100).toFixed(0)}% average reduction`
+      )
       console.log(`   Estimated cost:  ${formatCost(summary.estimatedCostSaved)} saved`)
       console.log('')
 
@@ -421,7 +434,9 @@ export class AnalysisCommands extends PrjctCommandsBase {
         if (summary.trend !== 0) {
           const trendIcon = summary.trend > 0 ? '↑' : '↓'
           const trendSign = summary.trend > 0 ? '+' : ''
-          console.log(`   ${trendIcon} ${trendSign}${summary.trend.toFixed(0)}% vs previous 30 days`)
+          console.log(
+            `   ${trendIcon} ${trendSign}${summary.trend.toFixed(0)}% vs previous 30 days`
+          )
         }
         console.log('')
       }
@@ -433,7 +448,12 @@ export class AnalysisCommands extends PrjctCommandsBase {
 
       // Export mode - return markdown
       if (options.export) {
-        const markdown = this._generateStatsMarkdown(summary, dailyStats, projectName, firstSyncDate)
+        const markdown = this._generateStatsMarkdown(
+          summary,
+          dailyStats,
+          projectName,
+          firstSyncDate
+        )
         console.log(markdown)
         return { success: true, data: { markdown } }
       }
@@ -493,7 +513,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
       last30DaysTokens: number
       trend: number
     },
-    dailyStats: { date: string; tokensSaved: number; syncs: number }[],
+    _dailyStats: { date: string; tokensSaved: number; syncs: number }[],
     projectName: string,
     firstSyncDate: string
   ): string {
@@ -549,5 +569,4 @@ export class AnalysisCommands extends PrjctCommandsBase {
 
     return lines.join('\n')
   }
-
 }

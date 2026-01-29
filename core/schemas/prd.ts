@@ -16,7 +16,13 @@ import { z } from 'zod'
 // Zod Schemas - Source of Truth
 // =============================================================================
 
-export const PRDStatusSchema = z.enum(['draft', 'approved', 'in_progress', 'completed', 'cancelled'])
+export const PRDStatusSchema = z.enum([
+  'draft',
+  'approved',
+  'in_progress',
+  'completed',
+  'cancelled',
+])
 export const PRDSizeSchema = z.enum(['XS', 'S', 'M', 'L', 'XL'])
 export const ImpactLevelSchema = z.enum(['critical', 'high', 'medium', 'low'])
 export const ConfidenceLevelSchema = z.enum(['low', 'medium', 'high'])
@@ -87,10 +93,14 @@ export const APIEndpointSchema = z.object({
   auth: z.enum(['required', 'optional', 'none']),
   input: z.record(z.string()).optional(),
   output: z.record(z.string()).optional(),
-  errors: z.array(z.object({
-    code: z.number(),
-    description: z.string(),
-  })).optional(),
+  errors: z
+    .array(
+      z.object({
+        code: z.number(),
+        description: z.string(),
+      })
+    )
+    .optional(),
 })
 
 export const APIContractsSchema = z.object({
@@ -180,10 +190,10 @@ export const ImplementationPhaseSchema = z.object({
 })
 
 export const MVPScopeSchema = z.object({
-  p0: z.array(z.string()),  // Must-have
-  p1: z.array(z.string()),  // Should-have
-  p2: z.array(z.string()),  // Nice-to-have
-  p3: z.array(z.string()),  // Future
+  p0: z.array(z.string()), // Must-have
+  p1: z.array(z.string()), // Should-have
+  p2: z.array(z.string()), // Nice-to-have
+  p3: z.array(z.string()), // Future
 })
 
 export const ImplementationRoadmapSchema = z.object({
@@ -265,7 +275,7 @@ export const PRDOutcomesSchema = z.object({
 // -----------------------------------------------------------------------------
 
 export const PRDItemSchema = z.object({
-  id: z.string(),                           // prd_xxxxxxxx
+  id: z.string(), // prd_xxxxxxxx
   title: z.string(),
   status: PRDStatusSchema,
   size: PRDSizeSchema,
@@ -286,9 +296,9 @@ export const PRDItemSchema = z.object({
   value: ValueAssessmentSchema.optional(),
 
   // Links (for integration)
-  featureId: z.string().nullable(),         // Link to roadmap feature
-  phase: z.string().nullable(),             // P0, P1, etc.
-  quarter: z.string().nullable(),           // Q1-2026, etc.
+  featureId: z.string().nullable(), // Link to roadmap feature
+  phase: z.string().nullable(), // P0, P1, etc.
+  quarter: z.string().nullable(), // Q1-2026, etc.
 
   // Metadata
   createdAt: z.string(),
@@ -358,7 +368,10 @@ export const safeParsePRD = (data: unknown) => PRDItemSchema.safeParse(data)
 // Defaults
 // =============================================================================
 
-export const DEFAULT_PRD: Omit<PRDItem, 'id' | 'title' | 'problem' | 'roadmap' | 'estimation' | 'successCriteria'> = {
+export const DEFAULT_PRD: Omit<
+  PRDItem,
+  'id' | 'title' | 'problem' | 'roadmap' | 'estimation' | 'successCriteria'
+> = {
   status: 'draft',
   size: 'M',
   featureId: null,

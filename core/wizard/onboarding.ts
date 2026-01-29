@@ -9,8 +9,8 @@
  * 5. Generation + summary
  */
 
-import prompts from 'prompts'
 import chalk from 'chalk'
+import prompts from 'prompts'
 import out from '../utils/output'
 
 // ============================================================================
@@ -62,19 +62,31 @@ export interface WizardStep {
 
 const PROJECT_TYPES: { value: ProjectType; title: string; description: string }[] = [
   { value: 'web-app', title: 'Web Application', description: 'React, Vue, Angular, Next.js, etc.' },
-  { value: 'api-backend', title: 'API / Backend Service', description: 'Express, Hono, FastAPI, etc.' },
-  { value: 'fullstack', title: 'Full-Stack (Monorepo)', description: 'Frontend + Backend in one repo' },
+  {
+    value: 'api-backend',
+    title: 'API / Backend Service',
+    description: 'Express, Hono, FastAPI, etc.',
+  },
+  {
+    value: 'fullstack',
+    title: 'Full-Stack (Monorepo)',
+    description: 'Frontend + Backend in one repo',
+  },
   { value: 'cli-tool', title: 'CLI Tool', description: 'Command-line application' },
   { value: 'library', title: 'Library / Package', description: 'Reusable npm/pip/cargo package' },
-  { value: 'monorepo', title: 'Monorepo (Multiple Projects)', description: 'Turborepo, Nx, Lerna, etc.' },
+  {
+    value: 'monorepo',
+    title: 'Monorepo (Multiple Projects)',
+    description: 'Turborepo, Nx, Lerna, etc.',
+  },
 ]
 
 const AI_AGENTS: { value: AIAgent; title: string; description: string }[] = [
-  { value: 'claude', title: 'Claude Code', description: 'Anthropic\'s Claude in VS Code/CLI' },
+  { value: 'claude', title: 'Claude Code', description: "Anthropic's Claude in VS Code/CLI" },
   { value: 'cursor', title: 'Cursor', description: 'AI-first code editor' },
-  { value: 'windsurf', title: 'Windsurf', description: 'Codeium\'s AI IDE' },
-  { value: 'copilot', title: 'GitHub Copilot', description: 'GitHub\'s AI pair programmer' },
-  { value: 'gemini', title: 'Gemini CLI', description: 'Google\'s Gemini in terminal' },
+  { value: 'windsurf', title: 'Windsurf', description: "Codeium's AI IDE" },
+  { value: 'copilot', title: 'GitHub Copilot', description: "GitHub's AI pair programmer" },
+  { value: 'gemini', title: 'Gemini CLI', description: "Google's Gemini in terminal" },
 ]
 
 // ============================================================================
@@ -168,20 +180,24 @@ export class OnboardingWizard {
   private async stepProjectType(): Promise<boolean> {
     this.detectedType = await this.detectProjectType()
 
-    const response = await prompts({
-      type: 'select',
-      name: 'projectType',
-      message: this.detectedType !== 'unknown'
-        ? `Detected: ${this.getProjectTypeLabel(this.detectedType)}. Is this correct?`
-        : 'What type of project is this?',
-      choices: PROJECT_TYPES.map(pt => ({
-        title: pt.title,
-        description: pt.description,
-        value: pt.value,
-        selected: pt.value === this.detectedType,
-      })),
-      initial: PROJECT_TYPES.findIndex(pt => pt.value === this.detectedType),
-    }, { onCancel: () => this.handleCancel() })
+    const response = await prompts(
+      {
+        type: 'select',
+        name: 'projectType',
+        message:
+          this.detectedType !== 'unknown'
+            ? `Detected: ${this.getProjectTypeLabel(this.detectedType)}. Is this correct?`
+            : 'What type of project is this?',
+        choices: PROJECT_TYPES.map((pt) => ({
+          title: pt.title,
+          description: pt.description,
+          value: pt.value,
+          selected: pt.value === this.detectedType,
+        })),
+        initial: PROJECT_TYPES.findIndex((pt) => pt.value === this.detectedType),
+      },
+      { onCancel: () => this.handleCancel() }
+    )
 
     if (this.aborted) return false
 
@@ -195,20 +211,23 @@ export class OnboardingWizard {
   private async stepAIAgents(): Promise<boolean> {
     const detectedAgents = await this.detectInstalledAgents()
 
-    const response = await prompts({
-      type: 'multiselect',
-      name: 'agents',
-      message: 'Which AI agents do you use?',
-      choices: AI_AGENTS.map(agent => ({
-        title: agent.title,
-        description: agent.description,
-        value: agent.value,
-        selected: detectedAgents.includes(agent.value),
-      })),
-      hint: '- Space to select, Enter to confirm',
-      instructions: false,
-      min: 1,
-    }, { onCancel: () => this.handleCancel() })
+    const response = await prompts(
+      {
+        type: 'multiselect',
+        name: 'agents',
+        message: 'Which AI agents do you use?',
+        choices: AI_AGENTS.map((agent) => ({
+          title: agent.title,
+          description: agent.description,
+          value: agent.value,
+          selected: detectedAgents.includes(agent.value),
+        })),
+        hint: '- Space to select, Enter to confirm',
+        instructions: false,
+        min: 1,
+      },
+      { onCancel: () => this.handleCancel() }
+    )
 
     if (this.aborted) return false
 
@@ -225,12 +244,15 @@ export class OnboardingWizard {
     const stackDisplay = this.formatStackDisplay(this.detectedStack)
     console.log(chalk.dim(`\n  Detected: ${stackDisplay}\n`))
 
-    const response = await prompts({
-      type: 'confirm',
-      name: 'confirmed',
-      message: 'Is this stack correct?',
-      initial: true,
-    }, { onCancel: () => this.handleCancel() })
+    const response = await prompts(
+      {
+        type: 'confirm',
+        name: 'confirmed',
+        message: 'Is this stack correct?',
+        initial: true,
+      },
+      { onCancel: () => this.handleCancel() }
+    )
 
     if (this.aborted) return false
 
@@ -238,20 +260,23 @@ export class OnboardingWizard {
       this.confirmedStack = this.detectedStack
     } else {
       // Allow manual override
-      const manualResponse = await prompts([
-        {
-          type: 'text',
-          name: 'language',
-          message: 'Primary language:',
-          initial: this.detectedStack.language,
-        },
-        {
-          type: 'text',
-          name: 'framework',
-          message: 'Framework (optional):',
-          initial: this.detectedStack.framework || '',
-        },
-      ], { onCancel: () => this.handleCancel() })
+      const manualResponse = await prompts(
+        [
+          {
+            type: 'text',
+            name: 'language',
+            message: 'Primary language:',
+            initial: this.detectedStack.language,
+          },
+          {
+            type: 'text',
+            name: 'framework',
+            message: 'Framework (optional):',
+            initial: this.detectedStack.framework || '',
+          },
+        ],
+        { onCancel: () => this.handleCancel() }
+      )
 
       if (this.aborted) return false
 
@@ -269,25 +294,28 @@ export class OnboardingWizard {
    * Step 4: Preferences Collection
    */
   private async stepPreferences(): Promise<boolean> {
-    const response = await prompts([
-      {
-        type: 'select',
-        name: 'verbosity',
-        message: 'Output verbosity:',
-        choices: [
-          { title: 'Minimal', description: 'Essential output only', value: 'minimal' },
-          { title: 'Normal (Recommended)', description: 'Balanced information', value: 'normal' },
-          { title: 'Verbose', description: 'Detailed logging', value: 'verbose' },
-        ],
-        initial: 1,
-      },
-      {
-        type: 'confirm',
-        name: 'autoSync',
-        message: 'Auto-sync context on file changes?',
-        initial: true,
-      },
-    ], { onCancel: () => this.handleCancel() })
+    const response = await prompts(
+      [
+        {
+          type: 'select',
+          name: 'verbosity',
+          message: 'Output verbosity:',
+          choices: [
+            { title: 'Minimal', description: 'Essential output only', value: 'minimal' },
+            { title: 'Normal (Recommended)', description: 'Balanced information', value: 'normal' },
+            { title: 'Verbose', description: 'Detailed logging', value: 'verbose' },
+          ],
+          initial: 1,
+        },
+        {
+          type: 'confirm',
+          name: 'autoSync',
+          message: 'Auto-sync context on file changes?',
+          initial: true,
+        },
+      ],
+      { onCancel: () => this.handleCancel() }
+    )
 
     if (this.aborted) return false
 
@@ -306,20 +334,25 @@ export class OnboardingWizard {
   private async stepSummary(): Promise<boolean> {
     console.log('')
     console.log(chalk.bold('  Configuration Summary'))
-    console.log(chalk.dim('  ' + '─'.repeat(40)))
+    console.log(chalk.dim(`  ${'─'.repeat(40)}`))
     console.log(`  ${chalk.cyan('Project Type:')} ${this.getProjectTypeLabel(this.confirmedType)}`)
-    console.log(`  ${chalk.cyan('AI Agents:')} ${this.selectedAgents.map(a => this.getAgentLabel(a)).join(', ')}`)
+    console.log(
+      `  ${chalk.cyan('AI Agents:')} ${this.selectedAgents.map((a) => this.getAgentLabel(a)).join(', ')}`
+    )
     console.log(`  ${chalk.cyan('Stack:')} ${this.formatStackDisplay(this.confirmedStack)}`)
     console.log(`  ${chalk.cyan('Verbosity:')} ${this.preferences.verbosity}`)
     console.log(`  ${chalk.cyan('Auto-sync:')} ${this.preferences.autoSync ? 'Yes' : 'No'}`)
     console.log('')
 
-    const response = await prompts({
-      type: 'confirm',
-      name: 'proceed',
-      message: 'Generate configuration with these settings?',
-      initial: true,
-    }, { onCancel: () => this.handleCancel() })
+    const response = await prompts(
+      {
+        type: 'confirm',
+        name: 'proceed',
+        message: 'Generate configuration with these settings?',
+        initial: true,
+      },
+      { onCancel: () => this.handleCancel() }
+    )
 
     if (this.aborted || !response.proceed) {
       return false
@@ -336,14 +369,18 @@ export class OnboardingWizard {
    * Detect project type from file system
    */
   async detectProjectType(): Promise<ProjectType> {
-    const fs = await import('fs/promises')
-    const path = await import('path')
+    const fs = await import('node:fs/promises')
+    const path = await import('node:path')
 
     try {
       const files = await fs.readdir(this.projectPath)
 
       // Check for monorepo indicators
-      if (files.includes('turbo.json') || files.includes('lerna.json') || files.includes('nx.json')) {
+      if (
+        files.includes('turbo.json') ||
+        files.includes('lerna.json') ||
+        files.includes('nx.json')
+      ) {
         return 'monorepo'
       }
 
@@ -381,7 +418,7 @@ export class OnboardingWizard {
 
       // Python project detection
       if (files.includes('pyproject.toml') || files.includes('setup.py')) {
-        const hasServer = files.some(f => ['main.py', 'app.py', 'server.py'].includes(f))
+        const hasServer = files.some((f) => ['main.py', 'app.py', 'server.py'].includes(f))
         return hasServer ? 'api-backend' : 'library'
       }
 
@@ -405,9 +442,9 @@ export class OnboardingWizard {
    * Detect installed AI agents from config files
    */
   async detectInstalledAgents(): Promise<AIAgent[]> {
-    const fs = await import('fs/promises')
-    const path = await import('path')
-    const os = await import('os')
+    const fs = await import('node:fs/promises')
+    const path = await import('node:path')
+    const os = await import('node:os')
 
     const agents: AIAgent[] = []
 
@@ -415,31 +452,41 @@ export class OnboardingWizard {
     try {
       await fs.access(path.join(os.homedir(), '.claude'))
       agents.push('claude')
-    } catch { /* not installed */ }
+    } catch {
+      /* not installed */
+    }
 
     // Cursor: Check for .cursorrules in project
     try {
       await fs.access(path.join(this.projectPath, '.cursorrules'))
       agents.push('cursor')
-    } catch { /* not installed */ }
+    } catch {
+      /* not installed */
+    }
 
     // Windsurf: Check for .windsurfrules
     try {
       await fs.access(path.join(this.projectPath, '.windsurfrules'))
       agents.push('windsurf')
-    } catch { /* not installed */ }
+    } catch {
+      /* not installed */
+    }
 
     // Copilot: Check for .github/copilot-instructions.md
     try {
       await fs.access(path.join(this.projectPath, '.github', 'copilot-instructions.md'))
       agents.push('copilot')
-    } catch { /* not installed */ }
+    } catch {
+      /* not installed */
+    }
 
     // Gemini: Check ~/.gemini
     try {
       await fs.access(path.join(os.homedir(), '.gemini'))
       agents.push('gemini')
-    } catch { /* not installed */ }
+    } catch {
+      /* not installed */
+    }
 
     // Default to Claude if nothing detected
     return agents.length > 0 ? agents : ['claude']
@@ -449,8 +496,8 @@ export class OnboardingWizard {
    * Detect tech stack from project files
    */
   async detectStack(): Promise<DetectedStack> {
-    const fs = await import('fs/promises')
-    const path = await import('path')
+    const fs = await import('node:fs/promises')
+    const path = await import('node:path')
 
     const stack: DetectedStack = {
       language: 'Unknown',
@@ -523,7 +570,7 @@ export class OnboardingWizard {
   private printWelcome(): void {
     console.log('')
     console.log(chalk.bold.cyan('  Welcome to prjct-cli!'))
-    console.log(chalk.dim('  Let\'s set up your project in 60 seconds.'))
+    console.log(chalk.dim("  Let's set up your project in 60 seconds."))
     console.log('')
   }
 
@@ -539,11 +586,11 @@ export class OnboardingWizard {
   }
 
   private getProjectTypeLabel(type: ProjectType): string {
-    return PROJECT_TYPES.find(pt => pt.value === type)?.title || 'Unknown'
+    return PROJECT_TYPES.find((pt) => pt.value === type)?.title || 'Unknown'
   }
 
   private getAgentLabel(agent: AIAgent): string {
-    return AI_AGENTS.find(a => a.value === agent)?.title || agent
+    return AI_AGENTS.find((a) => a.value === agent)?.title || agent
   }
 
   private formatStackDisplay(stack: DetectedStack): string {
