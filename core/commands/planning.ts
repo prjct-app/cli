@@ -22,6 +22,7 @@ import { queueStorage, ideasStorage } from '../storage'
 import authorDetector from '../infrastructure/author-detector'
 import commandInstaller from '../infrastructure/command-installer'
 import { showNextSteps } from '../utils/next-steps'
+import { OnboardingWizard } from '../wizard'
 
 // Lazy-loaded to avoid circular dependencies
 let _analysisCommands: import('./analysis').AnalysisCommands | null = null
@@ -33,12 +34,32 @@ async function getAnalysisCommands(): Promise<import('./analysis').AnalysisComma
   return _analysisCommands
 }
 
+export interface InitOptions {
+  yes?: boolean  // Skip interactive wizard, use defaults
+  idea?: string | null  // Initial idea for architect mode
+}
+
 export class PlanningCommands extends PrjctCommandsBase {
   /**
-   * /p:init - Initialize prjct project
+   * /p:init - Initialize prjct project with interactive wizard
+   *
+   * @param options.yes - Skip wizard, use auto-detected values (for CI)
+   * @param options.idea - Initial idea for architect mode
+   * @param projectPath - Project directory path
    */
-  async init(idea: string | null = null, projectPath: string = process.cwd()): Promise<CommandResult> {
+  async init(
+    options: InitOptions | string | null = {},
+    projectPath: string = process.cwd()
+  ): Promise<CommandResult> {
     try {
+      // Handle legacy signature: init(idea, projectPath)
+      let opts: InitOptions = {}
+      if (typeof options === 'string' || options === null) {
+        opts = { idea: options }
+      } else {
+        opts = options
+      }
+
       await this.initializeAgent()
 
       const isConfigured = await configManager.isConfigured(projectPath)
@@ -46,6 +67,25 @@ export class PlanningCommands extends PrjctCommandsBase {
       if (isConfigured) {
         out.warn('already initialized')
         return { success: false, message: 'Already initialized' }
+      }
+
+      // Determine if we should run interactive wizard
+      const isTTY = process.stdout.isTTY && process.stdin.isTTY
+      const skipWizard = opts.yes || !isTTY || process.env.CI === 'true'
+
+      // Run wizard if interactive
+      let wizardResult = null
+      if (!skipWizard) {
+        const wizard = new OnboardingWizard(projectPath)
+        wizardResult = await wizard.run()
+
+        if (wizardResult.skipped) {
+          return { success: false, message: 'Setup cancelled' }
+        }
+      } else if (isTTY && opts.yes) {
+        // Non-interactive but show progress
+        const wizard = new OnboardingWizard(projectPath)
+        wizardResult = await wizard.runNonInteractive()
       }
 
       out.step(1, 4, 'Detecting author...')
@@ -84,6 +124,17 @@ export class PlanningCommands extends PrjctCommandsBase {
         }, null, 2),
       }
 
+      // Save wizard preferences if available
+      if (wizardResult) {
+        baseFiles['config/wizard.json'] = JSON.stringify({
+          projectType: wizardResult.projectType,
+          agents: wizardResult.agents,
+          stack: wizardResult.stack,
+          preferences: wizardResult.preferences,
+          createdAt: new Date().toISOString(),
+        }, null, 2)
+      }
+
       for (const [filePath, content] of Object.entries(baseFiles)) {
         await toolRegistry.get('Write')!(path.join(globalPath, filePath), content)
       }
@@ -98,16 +149,25 @@ export class PlanningCommands extends PrjctCommandsBase {
 
         if (analysisResult.success) {
           out.step(4, 4, 'Generating agents...')
-          await analysis.sync(projectPath)
+
+          // Pass wizard agent selection to sync if available
+          if (wizardResult?.agents) {
+            await analysis.sync(projectPath, { aiTools: wizardResult.agents })
+          } else {
+            await analysis.sync(projectPath)
+          }
+
           out.done('initialized')
-          return { success: true, mode: 'existing', projectId }
+          this._printNextSteps(wizardResult)
+          return { success: true, mode: 'existing', projectId, wizard: wizardResult }
         }
       }
 
+      const idea = opts.idea
       if (isEmpty && !hasCode) {
         if (!idea) {
           out.done('blank project - provide idea for architect mode')
-          return { success: true, mode: 'blank_no_idea', projectId }
+          return { success: true, mode: 'blank_no_idea', projectId, wizard: wizardResult }
         }
 
         out.spin('architect mode...')
@@ -118,18 +178,50 @@ export class PlanningCommands extends PrjctCommandsBase {
         await commandInstaller.installGlobalConfig()
 
         out.done('architect mode ready')
-        return { success: true, mode: 'architect', projectId, idea }
+        return { success: true, mode: 'architect', projectId, idea, wizard: wizardResult }
       }
 
       await commandInstaller.installGlobalConfig()
 
       out.done('initialized')
-      showNextSteps('init')
-      return { success: true, projectId }
+      this._printNextSteps(wizardResult)
+      return { success: true, projectId, wizard: wizardResult }
     } catch (error) {
       out.fail((error as Error).message)
       return { success: false, error: (error as Error).message }
     }
+  }
+
+  /**
+   * Print next steps after initialization
+   */
+  private _printNextSteps(wizardResult: import('../wizard').WizardResult | null): void {
+    console.log('')
+    console.log('  Quick start:')
+    console.log('    prjct sync     Update context after changes')
+    console.log('    prjct task     Start working on a task')
+    console.log('')
+
+    if (wizardResult) {
+      const agentFiles = wizardResult.agents.map(a => {
+        switch (a) {
+          case 'claude': return 'CLAUDE.md'
+          case 'cursor': return '.cursorrules'
+          case 'windsurf': return '.windsurfrules'
+          case 'copilot': return '.github/copilot-instructions.md'
+          case 'gemini': return 'GEMINI.md'
+          default: return null
+        }
+      }).filter(Boolean)
+
+      if (agentFiles.length > 0) {
+        console.log(`  Generated: ${agentFiles.join(', ')}`)
+        console.log('')
+      }
+    }
+
+    console.log('  Docs: https://prjct.app/docs')
+    console.log('')
   }
 
   /**
