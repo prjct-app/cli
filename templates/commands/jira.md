@@ -1,6 +1,6 @@
 ---
 allowed-tools: [Read, Write, Bash, Task, Glob, Grep, AskUserQuestion]
-description: 'JIRA issue tracker integration'
+description: 'JIRA issue tracker integration via REST API'
 extends: '_bases/tracker-base.md'
 ---
 
@@ -10,20 +10,12 @@ extends: '_bases/tracker-base.md'
 
 **ARGUMENTS**: $ARGUMENTS
 
-Manage JIRA issues directly from prjct.
-
-## Tracker-Specific Config
-
-- `{mcpServerName}`: "Atlassian"
-- `{mcpPrefix}`: "mcp__atlassian__jira_"
-- `{projectKey}`: "projectKey"
+Manage JIRA issues directly from prjct using the REST API for fast performance.
 
 ## Context Variables
 
 - `{projectId}`: From `.prjct/prjct.config.json`
 - `{globalPath}`: `~/.prjct-cli/projects/{projectId}`
-- `{agentName}`: Name of the AI agent (Claude Code, Gemini CLI)
-- `{agentSettingsPath}`: Path to agent settings (settings.json)
 - `{args}`: User-provided arguments (subcommand)
 
 ---
@@ -33,37 +25,24 @@ Manage JIRA issues directly from prjct.
 | Command | Description |
 |---------|-------------|
 | `p. jira` | Show status + your assigned issues |
-| `p. jira setup` | Configure JIRA integration (REQUIRED FIRST) |
+| `p. jira setup` | Configure JIRA credentials (REQUIRED FIRST) |
 | `p. jira sync` | Fetch your assigned issues |
 | `p. jira start <KEY>` | Start working on issue (e.g., PROJ-123) |
 
 ---
 
-## Authentication Modes
+## Authentication
 
-JIRA supports TWO authentication methods:
+JIRA uses API Token authentication for fast REST API access.
 
-### 1. MCP Mode (Recommended for Corporate/SSO)
-
-Uses Atlassian's official MCP server with OAuth - browser-based login, SSO compatible.
-
-**Setup:**
-- MCP server installed automatically during `p. init`
-- First use opens browser for OAuth authentication
-- No API tokens needed
-
-**How to check:** Look for `mcp__atlassian__jira_*` tools
-
-### 2. API Token Mode (Direct Access)
-
-Uses REST API with email + token - for personal accounts or when MCP unavailable.
-
-**Required env vars:**
+**Required Environment Variables:**
 ```bash
 export JIRA_BASE_URL="https://company.atlassian.net"
 export JIRA_EMAIL="you@company.com"
-export JIRA_API_TOKEN="your-token"  # From https://id.atlassian.com/manage-profile/security/api-tokens
+export JIRA_API_TOKEN="your-token"
 ```
+
+**Get API Token**: https://id.atlassian.com/manage-profile/security/api-tokens
 
 ---
 
@@ -81,58 +60,23 @@ IF file not found:
 
 ---
 
-## Step 2: Install MCP Server (if needed)
+## Step 2: Check Credentials
 
 ```
-READ: {agentSettingsPath} (create {} if not exists)
-CHECK: Does mcpServers.Atlassian exist?
+CHECK: Are JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN set?
 
-IF not exists:
-  READ: templates/mcp-config.json
-  EXTRACT: mcpServers.Atlassian
+IF not all set:
+  ASK: "Enter your JIRA credentials"
 
-  MERGE into {agentSettingsPath}:
-  {
-    "mcpServers": {
-      "Atlassian": {
-        "command": "npx",
-        "args": ["-y", "mcp-remote@latest", "https://mcp.atlassian.com/v1/sse"]
-      }
-    }
-  }
+  PROMPT FOR:
+  - JIRA_BASE_URL: "Your JIRA instance URL (e.g., https://company.atlassian.net)"
+  - JIRA_EMAIL: "Your Atlassian account email"
+  - JIRA_API_TOKEN: "API token from https://id.atlassian.com/manage-profile/security/api-tokens"
 
-  WRITE: {agentSettingsPath}
-
-  OUTPUT: "✅ Installed Atlassian MCP server"
-  OUTPUT: ""
-  OUTPUT: "⚠️ Restart {agentName} to activate the MCP server."
-  OUTPUT: "Then run `p. jira setup` again to complete configuration."
-  STOP
-```
-
----
-
-## Step 3: Detect Auth Mode
-
-```
-# Check API Token first
-IF JIRA_API_TOKEN is set:
-  SET: authMode = "api-token"
-
-# Then check MCP
-ELSE IF mcp__atlassian__jira_* tools available:
-  SET: authMode = "mcp"
-
-# MCP installed but not active
-ELSE IF mcpServers.Atlassian exists in {agentSettingsPath}:
-  OUTPUT: "Atlassian MCP is installed but not yet active."
-  OUTPUT: "Restart {agentName}, then run `p. jira setup` again."
-  STOP
-
-# Neither available
-ELSE:
-  OUTPUT: "JIRA not configured. Run `p. jira setup` first."
-  STOP
+  OUTPUT: "Add to your shell profile:"
+  OUTPUT: "export JIRA_BASE_URL='https://company.atlassian.net'"
+  OUTPUT: "export JIRA_EMAIL='you@company.com'"
+  OUTPUT: "export JIRA_API_TOKEN='your-token'"
 ```
 
 ---
@@ -141,30 +85,29 @@ ELSE:
 
 ### Flow
 
-1. **Install MCP + Detect auth mode**
+1. **Check for credentials**
    ```
-   Execute Step 2 (auto-install MCP if needed)
-   Execute Step 3 (detect auth mode)
-   IF MCP not active: Prompt restart and STOP
-   ```
-
-2. **If MCP available (preferred)**
-   ```
-   OUTPUT: "Atlassian MCP detected. Using OAuth authentication."
-   OUTPUT: "First operation will open browser for login."
-
-   # Just save config indicating MCP mode
+   IF any of JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN missing:
+     ASK: Collect missing credentials
+     PROVIDE: Link to https://id.atlassian.com/manage-profile/security/api-tokens
    ```
 
-3. **If only API Token available**
+2. **Test REST API connection**
    ```
-   VERIFY: Connection works with provided credentials
-   IF fails: Show error, ask to check credentials
+   IMPORT: jiraService from core/integrations/jira
+   CALL: jiraService.initializeFromCredentials(baseUrl, email, token)
+
+   # This will verify the connection
    ```
 
-4. **List projects and ask user to select**
+3. **Get available projects**
    ```
-   FETCH: projects from JIRA (via MCP or REST)
+   CALL: jiraService.getProjects()
+   EXTRACT: List of projects with id, name, key
+   ```
+
+4. **Ask user to select default project**
+   ```
    ASK: "Select your default project"
    OPTIONS: List of projects
    ```
@@ -176,7 +119,7 @@ ELSE:
        "jira": {
          "enabled": true,
          "provider": "jira",
-         "authMode": "mcp",  // or "api-token"
+         "authMode": "api-token",
          "baseUrl": "{baseUrl}",
          "projectKey": "{projectKey}",
          "projectName": "{projectName}",
@@ -189,11 +132,11 @@ ELSE:
 ### Output
 
 ```
-✅ JIRA configured
+JIRA configured
 
-Auth: {MCP (OAuth) | API Token}
 Instance: {baseUrl}
 Project: {projectKey} - {projectName}
+Auth: API Token (REST)
 
 Next: `p. jira` to see your issues
 ```
@@ -203,18 +146,15 @@ Next: `p. jira` to see your issues
 ## Subcommand: status (default, no args)
 
 ```
-1. Detect auth mode
-2. Fetch assigned issues (limit 10)
-3. Show status
+CALL: jiraService.fetchAssignedIssues({ limit: 10 })
 
 OUTPUT:
-JIRA: Connected ✓
+JIRA: Connected
 Project: {projectKey}
-Auth: {authMode}
 
 Your issues ({count}):
-• {PROJ-123} {title} ({status})
-• {PROJ-124} {title} ({status})
+  {PROJ-123} {title} ({status})
+  {PROJ-124} {title} ({status})
 ...
 
 Next: `p. jira start PROJ-123` to begin work
@@ -226,7 +166,10 @@ Next: `p. jira start PROJ-123` to begin work
 
 ```
 1. Fetch all assigned issues
+   CALL: jiraService.fetchAssignedIssues({ limit: 50 })
+
 2. Save to {globalPath}/storage/issues.json
+
 3. Show summary
 
 OUTPUT:
@@ -240,58 +183,56 @@ Next: `p. jira start <KEY>` to begin work
 ## Subcommand: start <KEY>
 
 ```
-1. Fetch issue by key (e.g., PROJ-123)
+1. Fetch issue by key
+   CALL: jiraService.fetchIssue("{KEY}")
+   EXTRACT: id, title, description, status
+
 2. Transition to "In Progress" in JIRA
+   CALL: jiraService.markInProgress("{KEY}")
+
 3. Create prjct task from issue
-4. Create git branch: {type}/{key}-{slug}
+   - Use issue title as task description
+   - Link externalId to JIRA issue
+
+4. Create git branch
+   PATTERN: {type}/{KEY}-{slug}
+   EXAMPLE: feature/PROJ-123-add-user-auth
 
 OUTPUT:
 Started: {KEY} - {title}
 
 Branch: feature/PROJ-123-add-user-auth
-JIRA: In Progress ✓
+JIRA: In Progress
 
 Next: Work on the task, then `p. done`
 ```
 
 ---
 
-## MCP Tool Reference
+## SDK Service Reference
 
-When `authMode = "mcp"`, use these tools:
+The `jiraService` from `core/integrations/jira` provides:
 
-| Operation | MCP Tool |
-|-----------|----------|
-| Search issues | `mcp__atlassian__jira_search_issues` |
-| Get issue | `mcp__atlassian__jira_get_issue` |
-| Transition | `mcp__atlassian__jira_transition_issue` |
-| Update | `mcp__atlassian__jira_update_issue` |
+| Operation | SDK Method |
+|-----------|------------|
+| Initialize | `jiraService.initializeFromCredentials(url, email, token, project?)` |
+| List assigned | `jiraService.fetchAssignedIssues(options?)` |
+| List project issues | `jiraService.fetchProjectIssues(projectKey, options?)` |
+| Get issue | `jiraService.fetchIssue(key)` |
+| Create issue | `jiraService.createIssue(input)` |
+| Update issue | `jiraService.updateIssue(key, input)` |
+| Mark in progress | `jiraService.markInProgress(key)` |
+| Mark done | `jiraService.markDone(key)` |
+| Get projects | `jiraService.getProjects()` |
 
-### Example: Search Assigned Issues
+### Caching
 
-```
-USE TOOL: mcp__atlassian__jira_search_issues
-PARAMS:
-  jql: "assignee = currentUser() AND statusCategory != Done"
-  maxResults: 20
-```
+All read operations are cached for 5 minutes:
+- Issues are cached by ID and key (e.g., "PROJ-123")
+- Assigned issues list is cached per user
+- Projects are cached globally
 
-### Example: Get Issue
-
-```
-USE TOOL: mcp__atlassian__jira_get_issue
-PARAMS:
-  issueKey: "PROJ-123"
-```
-
-### Example: Transition to In Progress
-
-```
-USE TOOL: mcp__atlassian__jira_transition_issue
-PARAMS:
-  issueKey: "PROJ-123"
-  transitionName: "In Progress"
-```
+Cache is automatically invalidated on writes (create, update, status changes).
 
 ---
 
@@ -299,9 +240,8 @@ PARAMS:
 
 | What | Where |
 |------|-------|
-| API Token | Environment variable `JIRA_API_TOKEN` |
+| Credentials | Environment variables: `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN` |
 | Config | `{globalPath}/project.json` → `integrations.jira` |
-| Issue cache | `{globalPath}/storage/issues.json` |
 
 ---
 
@@ -309,10 +249,10 @@ PARAMS:
 
 | Error | Action |
 |-------|--------|
-| No auth configured | "Run `p. jira setup` first" |
-| MCP auth failed | "Re-authenticate: browser will open" |
-| API Token invalid | "Check JIRA_API_TOKEN" |
+| Missing credentials | "Set JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN or run `p. jira setup`" |
+| Invalid credentials | "Check your credentials at https://id.atlassian.com/manage-profile/security" |
 | Issue not found | "Issue {KEY} not found in JIRA" |
+| Network error | "Check your internet connection" |
 
 ---
 
@@ -325,3 +265,15 @@ PARAMS:
 
 Next: {suggested action}
 ```
+
+---
+
+## Performance
+
+REST API operations are fast and cached:
+
+| Operation | REST API |
+|-----------|----------|
+| Fetch issue | ~200ms |
+| List issues | ~300ms |
+| Transition | ~250ms |

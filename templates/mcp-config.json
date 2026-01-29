@@ -5,16 +5,6 @@
       "args": ["-y", "@upstash/context7-mcp@latest"],
       "description": "Library documentation lookup"
     },
-    "linear": {
-      "command": "npx",
-      "args": ["-y", "mcp-remote", "https://mcp.linear.app/mcp"],
-      "description": "Linear issue tracking via OAuth"
-    },
-    "Atlassian": {
-      "command": "npx",
-      "args": ["-y", "mcp-remote@latest", "https://mcp.atlassian.com/v1/sse"],
-      "description": "JIRA/Confluence via OAuth (SSO compatible)"
-    },
     "monday": {
       "command": "npx",
       "args": ["-y", "@mondaydotcomorg/monday-api-mcp"],
@@ -34,16 +24,6 @@
       "when": ["Looking up library/framework documentation"],
       "tools": ["resolve-library-id", "get-library-docs"]
     },
-    "linear": {
-      "when": ["Working with Linear issues (p. linear)"],
-      "tools": ["list_issues", "get_issue", "create_issue", "update_issue", "create_comment"],
-      "setup": ["OAuth via browser on first use"]
-    },
-    "Atlassian": {
-      "when": ["Working with JIRA issues (p. jira)", "Corporate SSO environments"],
-      "tools": ["jira_search_issues", "jira_get_issue", "jira_transition_issue", "jira_update_issue"],
-      "setup": ["OAuth via browser on first use"]
-    },
     "monday": {
       "when": ["Working with Monday.com boards (p. monday)"],
       "tools": ["create_item", "delete_item", "get_board_items_by_name", "change_item_column_values"],
@@ -54,5 +34,9 @@
       "tools": ["search_issues", "get_issue", "create_issue", "update_issue", "list_issues"],
       "setup": ["Set GITHUB_TOKEN env var with repo scope"]
     }
+  },
+  "deprecated": {
+    "linear": "Use SDK instead. Set LINEAR_API_KEY env var.",
+    "Atlassian": "Use SDK instead. Set JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN env vars."
   }
 }
