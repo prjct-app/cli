@@ -32,6 +32,7 @@ import {
   type GenerateResult,
 } from '../ai-tools'
 import { ContextFileGenerator } from './context-generator'
+import { StackDetector, type StackDetection } from './stack-detector'
 
 const execAsync = promisify(exec)
 
@@ -69,16 +70,6 @@ interface Commands {
   dev: string
   lint: string
   format: string
-}
-
-interface StackDetection {
-  hasFrontend: boolean
-  hasBackend: boolean
-  hasDatabase: boolean
-  hasDocker: boolean
-  hasTesting: boolean
-  frontendType: 'web' | 'mobile' | 'both' | null
-  frameworks: string[]
 }
 
 interface AgentInfo {
@@ -519,60 +510,8 @@ class SyncService {
   // ==========================================================================
 
   private async detectStack(): Promise<StackDetection> {
-    const stack: StackDetection = {
-      hasFrontend: false,
-      hasBackend: false,
-      hasDatabase: false,
-      hasDocker: false,
-      hasTesting: false,
-      frontendType: null,
-      frameworks: [],
-    }
-
-    try {
-      const pkgPath = path.join(this.projectPath, 'package.json')
-      const pkg = JSON.parse(await fs.readFile(pkgPath, 'utf-8'))
-      const deps = { ...pkg.dependencies, ...pkg.devDependencies }
-
-      // Frontend detection
-      if (deps.react || deps.vue || deps.svelte || deps['@angular/core']) {
-        stack.hasFrontend = true
-        stack.frontendType = 'web'
-      }
-      if (deps['react-native'] || deps.expo) {
-        stack.hasFrontend = true
-        stack.frontendType = stack.frontendType === 'web' ? 'both' : 'mobile'
-      }
-
-      // Backend detection
-      if (deps.express || deps.fastify || deps.hono || deps.koa || deps.nest) {
-        stack.hasBackend = true
-      }
-
-      // Database detection
-      if (deps.prisma || deps.mongoose || deps.pg || deps.mysql2 || deps.sequelize) {
-        stack.hasDatabase = true
-      }
-
-      // Testing detection
-      if (deps.jest || deps.vitest || deps.mocha || pkg.devDependencies?.['bun-types']) {
-        stack.hasTesting = true
-      }
-
-      // Collect frameworks
-      if (deps.react) stack.frameworks.push('React')
-      if (deps.next) stack.frameworks.push('Next.js')
-      if (deps.express) stack.frameworks.push('Express')
-      if (deps.hono) stack.frameworks.push('Hono')
-    } catch {
-      // No package.json
-    }
-
-    // Docker detection
-    stack.hasDocker =
-      (await this.fileExists('Dockerfile')) || (await this.fileExists('docker-compose.yml'))
-
-    return stack
+    const detector = new StackDetector(this.projectPath)
+    return detector.detect()
   }
 
   // ==========================================================================
