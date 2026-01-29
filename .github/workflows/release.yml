@@ -58,8 +58,8 @@ jobs:
       - name: Check for releasable commits
         id: check
         run: |
-          # Get commits since last tag
-          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          # Get highest version tag (sorted by semver)
+          LAST_TAG=$(git tag -l 'v*' --sort=-v:refname | head -1)
 
           if [ -z "$LAST_TAG" ]; then
             echo "No previous tag found, will release"
@@ -111,7 +111,11 @@ jobs:
       - name: Determine version bump
         id: version
         run: |
-          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          # Get highest version tag (sorted by semver, not commit date)
+          LAST_TAG=$(git tag -l 'v*' --sort=-v:refname | head -1)
+          if [ -z "$LAST_TAG" ]; then
+            LAST_TAG="v0.0.0"
+          fi
           CURRENT_VERSION=${LAST_TAG#v}
 
           # Parse current version
@@ -142,7 +146,7 @@ jobs:
       - name: Generate changelog entry
         id: changelog
         run: |
-          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          LAST_TAG=$(git tag -l 'v*' --sort=-v:refname | head -1)
           VERSION=${{ steps.version.outputs.new }}
           DATE=$(date +%Y-%m-%d)
 
