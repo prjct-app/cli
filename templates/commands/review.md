@@ -151,7 +151,7 @@ ELSE:
 {mcpScore}/100
 
 ---
-🤖 Generated with [p/](https://www.prjct.app/)
+Generated with [p/](https://www.prjct.app/)
 """
   
   BASH: `gh pr create --title "{prTitle}" --base {baseBranch} --body "$(cat <<'PREOF'

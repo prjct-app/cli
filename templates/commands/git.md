@@ -1,5 +1,5 @@
 ---
-allowed-tools: [Bash, Read, Write]
+allowed-tools: [Bash, Read, Write, AskUserQuestion]
 description: 'Smart git operations with context'
 architecture: 'Write-Through (JSON → MD → Events)'
 storage-layer: true
@@ -8,11 +8,11 @@ source-of-truth: 'storage/state.json'
 
 # /p:git - Smart Git Operations
 
-## Architecture: Write-Through Pattern
+## ⛔ MANDATORY WORKFLOW - FOLLOW STEPS IN ORDER
 
-Reads from **Storage (JSON)** as source of truth.
+**All git operations through prjct MUST follow these rules.**
 
-**Source of Truth**: `storage/state.json`
+---
 
 ## Usage
 
@@ -23,6 +23,33 @@ Reads from **Storage (JSON)** as source of truth.
 /p:git undo         # Undo last commit
 ```
 
+## ⛔ GLOBAL BLOCKING RULES
+
+### Rule 1: Protected Branch Check (ALL OPERATIONS)
+
+```bash
+CURRENT_BRANCH=$(git branch --show-current)
+```
+
+**⛔ IF branch is `main` or `master`:**
+```
+For commit: STOP. "Cannot commit on main. Create a feature branch."
+For push: STOP. "Cannot push to main. Use p. ship to create PR."
+ABORT the operation entirely.
+```
+
+### Rule 2: Dirty Working Directory
+
+```bash
+git status --porcelain
+```
+
+**⛔ IF uncommitted changes AND operation is push/sync:**
+```
+STOP. "Uncommitted changes detected. Commit first with p. git commit."
+ABORT.
+```
+
 ## Context Variables
 - `{projectId}`: From `.prjct/prjct.config.json`
 - `{globalPath}`: `~/.prjct-cli/projects/{projectId}`
@@ -31,65 +58,129 @@ Reads from **Storage (JSON)** as source of truth.
 
 ## Flow: commit
 
-### Step 1: Validate Branch
-READ: `.prjct/prjct.config.json` → extract `projectId`
-SET: `{globalPath}` = `~/.prjct-cli/projects/{projectId}`
+### Step 1: Pre-flight Checks (BLOCKING)
 
-READ: `{globalPath}/storage/state.json`
-IF currentTask AND currentTask.branch:
-  SET: {expectedBranch} = currentTask.branch.name
-ELSE:
-  SET: {expectedBranch} = null
+```bash
+# Get current branch
+CURRENT_BRANCH=$(git branch --show-current)
+```
 
-BASH: `git branch --show-current`
-SET: {currentBranch} = result
+**⛔ IF on main/master:**
+```
+STOP. DO NOT PROCEED.
+OUTPUT: "Cannot commit on protected branch: {currentBranch}"
+OUTPUT: "Create a feature branch first with: p. task 'description'"
+ABORT.
+```
 
-IF {currentBranch} == "main" OR {currentBranch} == "master":
-  OUTPUT:
-  ```
-  ⚠️ Cannot commit on protected branch: {currentBranch}
+```bash
+# Check for changes
+git status --porcelain
+```
 
-  Start a task first with /p:now "task name" to create a feature branch.
-  ```
-  STOP
+**⛔ IF no changes:**
+```
+STOP. DO NOT PROCEED.
+OUTPUT: "Nothing to commit."
+ABORT.
+```
 
-IF {expectedBranch} AND {currentBranch} != {expectedBranch}:
-  OUTPUT:
-  ```
-  ⚠️ Branch mismatch
+### Step 2: Show Plan and Get Approval (BLOCKING)
 
-  Current: {currentBranch}
-  Expected: {expectedBranch}
+```bash
+git diff --stat
+```
 
-  Switch to the correct branch: git checkout {expectedBranch}
-  ```
-  STOP
+```
+OUTPUT:
+"""
+## Commit Plan
 
-### Step 2: Stage and Commit
-1. Git: `add .` → stage changes
-2. Create: commit message with prjct metadata
-3. Commit: with message
-4. Log: `memory/events.jsonl`
+Branch: {currentBranch}
+Changes:
+{git diff --stat output}
+
+Will create commit with prjct footer.
+Proceed? (yes/no)
+"""
+
+WAIT for explicit approval.
+DO NOT assume.
+```
+
+### Step 3: Stage and Commit
+
+```bash
+git add .
+git commit -m "$(cat <<'EOF'
+{type}: {description}
+
+Generated with [p/](https://www.prjct.app/)
+EOF
+)"
+```
+
+**⛔ The prjct footer is MANDATORY. No exceptions.**
+
+### Step 4: Log to Memory
+
+APPEND to `{globalPath}/memory/events.jsonl`
 
 ## Flow: push
 
-### Step 1: Check Protected Branch
-BASH: `git branch --show-current`
-SET: {currentBranch} = result
+### Step 1: Pre-flight Checks (BLOCKING)
 
-IF {currentBranch} == "main" OR {currentBranch} == "master":
-  OUTPUT:
-  ```
-  ⚠️ Cannot push directly to protected branch: {currentBranch}
+```bash
+CURRENT_BRANCH=$(git branch --show-current)
+```
 
-  Use /p:ship to create a Pull Request instead.
-  ```
-  STOP
+**⛔ IF on main/master:**
+```
+STOP. DO NOT PROCEED.
+OUTPUT: "Cannot push directly to main/master."
+OUTPUT: "Use `p. ship` to create a Pull Request instead."
+ABORT.
+```
 
-### Step 2: Push
-1. Git: `status` → verify clean
-2. Git: `push -u origin {currentBranch}` with branch tracking
-3. Handle: errors (upstream, conflicts)
+```bash
+git status --porcelain
+```
+
+**⛔ IF uncommitted changes:**
+```
+STOP. DO NOT PROCEED.
+OUTPUT: "Uncommitted changes detected. Commit first."
+ABORT.
+```
+
+### Step 2: Show Plan and Get Approval (BLOCKING)
+
+```bash
+git log origin/{currentBranch}..HEAD --oneline 2>/dev/null || git log --oneline -3
+```
+
+```
+OUTPUT:
+"""
+## Push Plan
+
+Branch: {currentBranch}
+Commits to push:
+{commits}
+
+Proceed? (yes/no)
+"""
+
+WAIT for explicit approval.
+```
+
+### Step 3: Execute Push
+
+```bash
+git push -u origin {currentBranch}
+```
+
+**IF push fails:** Show error and STOP. Do not retry automatically.
 
 ## Flow: sync
 
@@ -106,20 +197,18 @@ IF {currentBranch} == "main" OR {currentBranch} == "master":
 
 {details if any}
 
-🤖 Generated with [p/](https://www.prjct.app/)
-Designed for [Claude](https://www.anthropic.com/claude)
+Generated with [p/](https://www.prjct.app/)
 
 ```
 
-**NON-NEGOTIABLE: The `🤖 Generated with [p/]` line MUST appear in ALL commits.**
+**NON-NEGOTIABLE: The `Generated with [p/]` line MUST appear in ALL commits.**
 
 Use HEREDOC for proper formatting:
 ```bash
 git commit -m "$(cat <<'EOF'
 {type}: {description}
 
-🤖 Generated with [p/](https://www.prjct.app/)
-Designed for [Claude](https://www.anthropic.com/claude)
+Generated with [p/](https://www.prjct.app/)
 
 EOF
 )"

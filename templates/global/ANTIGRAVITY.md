@@ -79,12 +79,10 @@ node -e "console.log(require('crypto').randomUUID())"
 **Every commit made with prjct MUST include this footer:**
 
 ```
-🤖 Generated with [p/](https://www.prjct.app/)
-Powered by [Antigravity](https://gemini.google.com/app/antigravity)
-
+Generated with [p/](https://www.prjct.app/)
 ```
 
-**This is NON-NEGOTIABLE. The prjct signature (`🤖 Generated with [p/]`) must appear in ALL commits.**
+**This is NON-NEGOTIABLE. The prjct signature must appear in ALL commits.**
 
 ### 5. Storage Rules (CROSS-AGENT COMPATIBILITY)
 

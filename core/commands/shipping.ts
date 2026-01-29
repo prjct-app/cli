@@ -217,7 +217,7 @@ export class ShippingCommands extends PrjctCommandsBase {
     try {
       await toolRegistry.get('Bash')!('git add .')
 
-      const commitMsg = `feat: ${feature}\n\n🤖 Generated with [p/](https://www.prjct.app/)\nDesigned for [Claude](https://www.anthropic.com/claude)`
+      const commitMsg = `feat: ${feature}\n\nGenerated with [p/](https://www.prjct.app/)`
 
       await toolRegistry.get('Bash')!(`git commit -m "${commitMsg.replace(/"/g, '\\"')}"`)
 

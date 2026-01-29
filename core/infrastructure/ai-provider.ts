@@ -283,45 +283,20 @@ export function hasProviderConfig(provider: AIProviderName): boolean {
  * Get provider-specific branding
  */
 export function getProviderBranding(provider: AIProviderName): ProviderBranding {
-  const config = Providers[provider]
+  // Generic commit footer for all providers
+  const commitFooter = `Generated with [p/](https://www.prjct.app/)`
 
-  if (provider === 'gemini') {
-    return {
-      commitFooter: `🤖 Generated with [p/](https://www.prjct.app/)
-Designed for [Gemini](${config.websiteUrl})`,
-      signature: '⚡ prjct + Gemini',
-    }
+  const signatures: Record<AIProviderName, string> = {
+    claude: '⚡ prjct + Claude',
+    gemini: '⚡ prjct + Gemini',
+    cursor: '⚡ prjct + Cursor',
+    antigravity: '⚡ prjct + Antigravity',
+    windsurf: '⚡ prjct + Windsurf',
   }
 
-  if (provider === 'cursor') {
-    return {
-      commitFooter: `🤖 Generated with [p/](https://www.prjct.app/)
-Built with [Cursor](${config.websiteUrl})`,
-      signature: '⚡ prjct + Cursor',
-    }
-  }
-
-  if (provider === 'antigravity') {
-    return {
-      commitFooter: `🤖 Generated with [p/](https://www.prjct.app/)
-Powered by [Antigravity](${config.websiteUrl})`,
-      signature: '⚡ prjct + Antigravity',
-    }
-  }
-
-  if (provider === 'windsurf') {
-    return {
-      commitFooter: `🤖 Generated with [p/](https://www.prjct.app/)
-Built with [Windsurf](${config.websiteUrl})`,
-      signature: '⚡ prjct + Windsurf',
-    }
-  }
-
-  // Default: Claude
   return {
-    commitFooter: `🤖 Generated with [p/](https://www.prjct.app/)
-Designed for [Claude](${config.websiteUrl})`,
-    signature: '⚡ prjct + Claude',
+    commitFooter,
+    signature: signatures[provider] || '⚡ prjct',
   }
 }
 
