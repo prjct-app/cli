@@ -142,36 +142,11 @@ export function formatForCursor(ctx: ProjectContext, config: AIToolConfig): stri
   rules.push(`- Build: \`${ctx.commands.build}\``)
   rules.push('')
 
-  // Code style rules based on ecosystem
+  // Code style - language agnostic
   rules.push('## Code Style')
-  if (ctx.ecosystem === 'JavaScript' || ctx.languages.includes('TypeScript')) {
-    rules.push('- Use TypeScript for type safety')
-    rules.push('- Prefer async/await over callbacks')
-    rules.push('- Use ES modules (import/export)')
-    if (ctx.frameworks.includes('React')) {
-      rules.push('- Use functional components with hooks')
-      rules.push('- Prefer composition over inheritance')
-    }
-    if (ctx.frameworks.includes('Next.js')) {
-      rules.push('- Use App Router conventions')
-      rules.push('- Prefer Server Components where possible')
-    }
-  }
-  if (ctx.ecosystem === 'Python') {
-    rules.push('- Follow PEP 8 style guide')
-    rules.push('- Use type hints')
-    rules.push('- Prefer f-strings for formatting')
-  }
-  if (ctx.ecosystem === 'Go') {
-    rules.push('- Follow Go conventions (gofmt)')
-    rules.push('- Handle errors explicitly')
-    rules.push('- Keep functions small and focused')
-  }
-  if (ctx.ecosystem === 'Rust') {
-    rules.push('- Follow Rust idioms')
-    rules.push('- Prefer Result over panics')
-    rules.push('- Use meaningful variable names')
-  }
+  rules.push(`- Follow ${ctx.ecosystem} conventions`)
+  rules.push('- Match existing code patterns in this project')
+  rules.push('- Use idiomatic constructs for the language')
   rules.push('')
 
   // Best practices
@@ -205,10 +180,8 @@ export function formatForCopilot(ctx: ProjectContext, config: AIToolConfig): str
 
   // Conventions
   lines.push('## Conventions')
-  if (ctx.languages.includes('TypeScript')) {
-    lines.push('- Use TypeScript')
-  }
-  lines.push('- Follow existing code patterns')
+  lines.push(`- Follow ${ctx.ecosystem} conventions`)
+  lines.push('- Match existing code patterns')
   lines.push('- Keep code clean and readable')
   lines.push('')
 
@@ -222,11 +195,47 @@ export function formatForCopilot(ctx: ProjectContext, config: AIToolConfig): str
 
 /**
  * Format context for Windsurf (.windsurfrules)
- * Similar to Cursor format
+ * Optimized for Cascade AI with flow-based suggestions
  */
 export function formatForWindsurf(ctx: ProjectContext, config: AIToolConfig): string {
-  // Windsurf uses similar format to Cursor
-  return formatForCursor(ctx, config)
+  const rules: string[] = []
+
+  // Project identity
+  rules.push(`# ${ctx.name}`)
+  rules.push('')
+  rules.push(`${ctx.projectType} project using ${ctx.ecosystem}.`)
+  rules.push('')
+
+  // Tech stack (concise)
+  rules.push('## Stack')
+  rules.push(`- ${ctx.languages.join(', ')}`)
+  if (ctx.frameworks.length > 0) {
+    rules.push(`- ${ctx.frameworks.join(', ')}`)
+  }
+  rules.push('')
+
+  // Commands (essential only)
+  rules.push('## Commands')
+  rules.push(`\`\`\`bash`)
+  rules.push(`# Install`)
+  rules.push(ctx.commands.install)
+  rules.push(`# Dev`)
+  rules.push(ctx.commands.dev)
+  rules.push(`# Test`)
+  rules.push(ctx.commands.test)
+  rules.push(`# Build`)
+  rules.push(ctx.commands.build)
+  rules.push(`\`\`\``)
+  rules.push('')
+
+  // Code style - language agnostic
+  rules.push('## Rules')
+  rules.push(`- Follow ${ctx.ecosystem} conventions`)
+  rules.push('- Match existing project patterns')
+  rules.push('- Clean code, minimal comments')
+  rules.push('- Test new functionality')
+
+  return rules.join('\n')
 }
 
 /**
