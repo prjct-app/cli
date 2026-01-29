@@ -6,7 +6,13 @@
  *
  * Phase 1: Claude Code + Cursor
  * Phase 2: + Copilot + Windsurf
+ * Phase 3: + Continue.dev + Auto-detection
  */
+
+import { execSync } from 'child_process'
+import fs from 'fs'
+import path from 'path'
+import os from 'os'
 
 export interface AIToolConfig {
   id: string
@@ -14,7 +20,7 @@ export interface AIToolConfig {
   outputFile: string
   outputPath: 'repo' | 'global'  // 'repo' = project root, 'global' = ~/.prjct-cli/projects/{id}/context/
   maxTokens: number
-  format: 'detailed' | 'concise' | 'minimal'
+  format: 'detailed' | 'concise' | 'minimal' | 'json'
   description: string
 }
 
@@ -57,6 +63,15 @@ export const AI_TOOLS: Record<string, AIToolConfig> = {
     maxTokens: 2000,
     format: 'concise',
     description: 'Codeium Windsurf Editor',
+  },
+  continue: {
+    id: 'continue',
+    name: 'Continue.dev',
+    outputFile: '.continue/config.json',
+    outputPath: 'repo',
+    maxTokens: 1500,
+    format: 'json',
+    description: 'Continue.dev open-source AI assistant',
   },
 }
 
@@ -106,4 +121,75 @@ export function validateToolIds(ids: string[]): { valid: string[]; invalid: stri
   }
 
   return { valid, invalid }
+}
+
+/**
+ * Check if a command exists in PATH
+ */
+function commandExists(cmd: string): boolean {
+  try {
+    execSync(`which ${cmd}`, { stdio: 'ignore' })
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Detect installed AI tools
+ * Returns list of tool IDs that are detected on the system
+ */
+export function detectInstalledTools(repoPath: string = process.cwd()): string[] {
+  const detected: string[] = []
+
+  // Claude Code: check for 'claude' command
+  if (commandExists('claude')) {
+    detected.push('claude')
+  }
+
+  // Cursor: check for command or .cursor/ directory in repo
+  if (commandExists('cursor') || fs.existsSync(path.join(repoPath, '.cursor'))) {
+    detected.push('cursor')
+  }
+
+  // Copilot: check for .github/ directory (likely has Copilot if using GitHub)
+  if (fs.existsSync(path.join(repoPath, '.github'))) {
+    detected.push('copilot')
+  }
+
+  // Windsurf: check for command or .windsurf/ directory
+  if (commandExists('windsurf') || fs.existsSync(path.join(repoPath, '.windsurf'))) {
+    detected.push('windsurf')
+  }
+
+  // Continue.dev: check for .continue/ directory
+  if (fs.existsSync(path.join(repoPath, '.continue')) || fs.existsSync(path.join(os.homedir(), '.continue'))) {
+    detected.push('continue')
+  }
+
+  return detected
+}
+
+/**
+ * Get tools to generate based on mode
+ * - 'auto': detect installed tools
+ * - 'all': all supported tools
+ * - specific: use provided list
+ */
+export function resolveToolIds(
+  mode: 'auto' | 'all' | string[],
+  repoPath: string = process.cwd()
+): string[] {
+  if (mode === 'auto') {
+    const detected = detectInstalledTools(repoPath)
+    // Always include claude if nothing detected (safe default)
+    return detected.length > 0 ? detected : ['claude']
+  }
+
+  if (mode === 'all') {
+    return SUPPORTED_AI_TOOLS
+  }
+
+  // Specific list provided
+  return mode.filter(id => AI_TOOLS[id])
 }
