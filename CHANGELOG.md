@@ -1,5 +1,51 @@
 # Changelog
 
+## [0.42.0] - 2026-01-29
+
+### Features
+
+- automated release pipeline - PRJ-147 (#68)
+- add project indexing and analysis services (PRJ-85, PRJ-87) (#66)
+- metrics display in output (PRJ-68, PRJ-69) (#54)
+- add prjct uninstall command (PRJ-146) (#65)
+- add prjct doctor command (PRJ-117) (#62)
+- smart watch mode - auto-sync on file changes (PRJ-123) (#61)
+- add --quiet flag for silent output (PRJ-97) (#60)
+- interactive onboarding wizard (PRJ-124) (#58)
+- smart context filtering tools for AI agents (PRJ-127) (#57)
+- workflow state machine + bidirectional Linear sync (#55)
+- progress indicators for long-running operations (PRJ-129) (#52)
+- agent activity stream for real-time visibility (PRJ-135) (#51)
+- show explicit next steps after each command (PRJ-136) (#50)
+- multi-agent output Phase 3 - Auto-detect + Continue.dev (PRJ-126) (#49)
+- multi-agent output Phase 2 - Copilot + Windsurf (PRJ-126) (#48)
+- multi-agent context output - Phase 1 (PRJ-126) (#47)
+- bidirectional sync Linear ↔ prjct (PRJ-142) (#46)
+
+### Bug Fixes
+
+- add Bun setup for test runner in CI - PRJ-147
+- use npm instead of bun for CI tests - PRJ-147
+- remove IDE files from repo - PRJ-144, PRJ-145
+- add --help handler in CLI entry point for CI compatibility
+- update tests for CI compatibility
+- CI workflow - remove unsupported bun reporter flag and fix verification
+- enforce workflow steps in templates (PRJ-143) (#56)
+- add $PRJCT_CLI prefix to relative paths in templates (PRJ-143)
+- use stderr for Linear connection log to not break JSON output
+
+### Performance
+
+- parallelize sync operations for 30-50% speedup (PRJ-116) (#59)
+
+### Refactoring
+
+- migrate from ESLint + Prettier to Biome
+- consolidate and optimize CI workflows
+- extract StackDetector from sync-service (PRJ-86) (#64)
+- extract ContextFileGenerator from sync-service (PRJ-88) (#63)
+
+
 ## [0.45.0] - 2026-01-29
 
 ### Feature: Smart Context Filtering Tools (PRJ-127)
