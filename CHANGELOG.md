@@ -1,5 +1,42 @@
 # Changelog
 
+## [0.42.0] - 2026-01-29
+
+### Feature: Linear SDK Integration with Per-Project Credentials
+
+Linear integration now uses the native `@linear/sdk` with per-project credential storage, enabling different projects to use different Linear workspaces.
+
+**New: Per-Project Credentials**
+- Credentials stored at `~/.prjct-cli/projects/{projectId}/config/credentials.json`
+- Fallback chain: project credentials → macOS keychain → environment variable
+- Each project can connect to a different Linear workspace
+
+**New: CLI Bridge (`core/cli/linear.ts`)**
+- Direct access to Linear SDK from templates
+- Commands: `setup`, `list`, `get`, `create`, `update`, `start`, `done`, `comment`, `teams`, `projects`, `status`
+- JSON output for easy parsing by Claude
+
+**New: `prjct linear <cmd>` Subcommand**
+- Direct CLI access: `prjct linear status`, `prjct linear list`, etc.
+- Auto-resolves project ID from current directory
+
+**Updated Templates**
+- `linear.md` — Natural language interpretation guide for Claude
+- `enrich.md` — Uses CLI instead of MCP for ticket enrichment
+
+**Breaking: Removed MCP-only Trackers**
+- Removed JIRA, GitHub Issues, Monday.com support (no native SDK)
+- Only Linear is supported (has native SDK)
+
+**New Files:**
+- `core/cli/linear.ts` — CLI bridge for Linear SDK
+- `core/utils/project-credentials.ts` — Per-project credential storage
+
+**Modified:**
+- `bin/prjct.ts` — Added `prjct linear` subcommand
+- `templates/commands/linear.md` — Updated with CLI execution pattern
+- `templates/commands/enrich.md` — Linear-only, uses CLI
+
 ## [0.40.0] - 2026-01-28
 
 ### Feature: Enhanced Skill System
