@@ -239,6 +239,54 @@ export function formatForWindsurf(ctx: ProjectContext, config: AIToolConfig): st
 }
 
 /**
+ * Format context for Continue.dev (.continue/config.json)
+ * JSON config with system message and context providers
+ */
+export function formatForContinue(ctx: ProjectContext, config: AIToolConfig): string {
+  const systemMessage = [
+    `You are working on ${ctx.name}, a ${ctx.projectType} ${ctx.ecosystem} project.`,
+    '',
+    `Stack: ${ctx.languages.join(', ')}${ctx.frameworks.length > 0 ? ` with ${ctx.frameworks.join(', ')}` : ''}`,
+    '',
+    'Commands:',
+    `- Install: ${ctx.commands.install}`,
+    `- Dev: ${ctx.commands.dev}`,
+    `- Test: ${ctx.commands.test}`,
+    `- Build: ${ctx.commands.build}`,
+    '',
+    `Follow ${ctx.ecosystem} conventions. Match existing code patterns.`,
+  ].join('\n')
+
+  const continueConfig = {
+    systemMessage,
+    models: [],
+    contextProviders: [
+      { name: 'code' },
+      { name: 'docs' },
+      { name: 'diff' },
+      { name: 'terminal' },
+      { name: 'problems' },
+      { name: 'folder' },
+      { name: 'codebase' },
+    ],
+    slashCommands: [
+      { name: 'edit', description: 'Edit selected code' },
+      { name: 'comment', description: 'Add comments to code' },
+      { name: 'share', description: 'Export conversation' },
+      { name: 'cmd', description: 'Run terminal command' },
+    ],
+    customCommands: [
+      {
+        name: 'test',
+        prompt: `Write tests for the selected code. Use the project's testing conventions. Test command: ${ctx.commands.test}`,
+      },
+    ],
+  }
+
+  return JSON.stringify(continueConfig, null, 2)
+}
+
+/**
  * Get formatter function for a tool
  */
 export function getFormatter(toolId: string): ((ctx: ProjectContext, config: AIToolConfig) => string) | null {
@@ -247,6 +295,7 @@ export function getFormatter(toolId: string): ((ctx: ProjectContext, config: AIT
     cursor: formatForCursor,
     copilot: formatForCopilot,
     windsurf: formatForWindsurf,
+    continue: formatForContinue,
   }
 
   return formatters[toolId] || null
