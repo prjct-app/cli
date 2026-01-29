@@ -83,6 +83,7 @@ jobs:
     needs: ci
     if: needs.ci.outputs.should_release == 'true'
     runs-on: ubuntu-latest
+    environment: Production
     permissions:
       contents: write
       id-token: write
