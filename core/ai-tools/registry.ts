@@ -76,9 +76,16 @@ export const AI_TOOLS: Record<string, AIToolConfig> = {
 }
 
 /**
- * Default tools to generate (Phase 2: all major tools)
+ * Default tools to generate
+ * CLI tools only - IDE tools (cursor, windsurf, copilot) are OPT-IN
+ * Use --editors flag or "all" to include IDE tools
  */
-export const DEFAULT_AI_TOOLS = ['claude', 'cursor', 'copilot', 'windsurf']
+export const DEFAULT_AI_TOOLS = ['claude']
+
+/**
+ * IDE tools - require explicit opt-in (--editors flag)
+ */
+export const IDE_AI_TOOLS = ['cursor', 'windsurf', 'copilot', 'continue']
 
 /**
  * All supported tool IDs
