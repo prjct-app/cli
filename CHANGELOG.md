@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.45.4] - 2026-01-29
+
+### Bug Fixes
+
+- ignore tar warning in release workflow - PRJ-147
+
+
 ## [0.45.3] - 2026-01-29
 
 ### Bug Fixes
