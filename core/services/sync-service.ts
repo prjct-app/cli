@@ -25,6 +25,8 @@ import dateHelper from '../utils/date-helper'
 import {
   generateAIToolContexts,
   DEFAULT_AI_TOOLS,
+  resolveToolIds,
+  detectInstalledTools,
   type ProjectContext,
   type GenerateResult,
 } from '../ai-tools'
@@ -127,7 +129,19 @@ class SyncService {
    */
   async sync(projectPath: string = process.cwd(), options: SyncOptions = {}): Promise<SyncResult> {
     this.projectPath = projectPath
-    const aiToolIds = options.aiTools || DEFAULT_AI_TOOLS
+
+    // Resolve AI tools: supports 'auto', 'all', or specific list
+    let aiToolIds: string[]
+    if (!options.aiTools || options.aiTools.length === 0) {
+      aiToolIds = DEFAULT_AI_TOOLS
+    } else if (options.aiTools[0] === 'auto') {
+      aiToolIds = detectInstalledTools(projectPath)
+      if (aiToolIds.length === 0) aiToolIds = ['claude'] // fallback
+    } else if (options.aiTools[0] === 'all') {
+      aiToolIds = resolveToolIds('all', projectPath)
+    } else {
+      aiToolIds = options.aiTools
+    }
 
     try {
       // 1. Get project config
