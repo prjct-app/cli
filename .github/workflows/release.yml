@@ -13,24 +13,18 @@ jobs:
       contents: write
 
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
       - name: Get version from tag
-        id: get_version
+        id: version
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
       - name: Create tarball
         run: |
-          # Create tarball excluding unnecessary files
-          tar -czf prjct-cli-${{ steps.get_version.outputs.VERSION }}.tar.gz \
+          tar -czf prjct-cli-${{ steps.version.outputs.VERSION }}.tar.gz \
             --exclude='.git' \
             --exclude='node_modules' \
             --exclude='.github' \
@@ -38,42 +32,50 @@ jobs:
             .
 
       - name: Generate checksums
+        id: checksums
         run: |
-          sha256sum prjct-cli-${{ steps.get_version.outputs.VERSION }}.tar.gz > checksums.txt
-          cat checksums.txt
+          CHECKSUM=$(sha256sum prjct-cli-${{ steps.version.outputs.VERSION }}.tar.gz)
+          echo "SHA256=$CHECKSUM" >> $GITHUB_OUTPUT
+          echo "$CHECKSUM" > checksums.txt
+
+      - name: Extract changelog
+        id: changelog
+        run: |
+          # Extract the section for this version from CHANGELOG.md
+          VERSION=${{ steps.version.outputs.VERSION }}
+          NOTES=$(awk "/## \[$VERSION\]|## $VERSION/{flag=1; next} /## \[?[0-9]+\.[0-9]+/{if(flag) exit} flag" CHANGELOG.md 2>/dev/null || echo "See CHANGELOG.md for details.")
+          echo "NOTES<<EOF" >> $GITHUB_OUTPUT
+          echo "$NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: |
-            prjct-cli-${{ steps.get_version.outputs.VERSION }}.tar.gz
+            prjct-cli-${{ steps.version.outputs.VERSION }}.tar.gz
             checksums.txt
           body: |
+            ## What's Changed
+
+            ${{ steps.changelog.outputs.NOTES }}
+
             ## Installation
 
             ### Bun (Recommended)
             ```bash
-            bun install -g prjct-cli@${{ steps.get_version.outputs.VERSION }}
+            bun install -g prjct-cli@${{ steps.version.outputs.VERSION }}
             ```
 
             ### npm
             ```bash
-            npm install -g prjct-cli@${{ steps.get_version.outputs.VERSION }}
+            npm install -g prjct-cli@${{ steps.version.outputs.VERSION }}
             ```
 
-            ### Direct download
-            ```bash
-            curl -fsSL https://prjct.app/install.sh | bash
+            ## SHA256 Checksum
             ```
-
-            ## What's Changed
-            See [CHANGELOG.md](https://github.com/jlopezlira/prjct-cli/blob/main/CHANGELOG.md) for details.
-
-            ## SHA256 Checksums
-            ```
-            $(cat checksums.txt)
+            ${{ steps.checksums.outputs.SHA256 }}
             ```
           draft: false
-          prerelease: false
+          prerelease: ${{ contains(steps.version.outputs.VERSION, '-') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
