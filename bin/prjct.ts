@@ -113,6 +113,18 @@ if (args[0] === 'start' || args[0] === 'setup') {
   const { doctorService } = await import('../core/services/doctor-service')
   const exitCode = await doctorService.run(process.cwd())
   process.exitCode = exitCode
+} else if (args[0] === 'uninstall') {
+  // Complete system removal
+  const { uninstall } = await import('../core/commands/uninstall')
+
+  // Parse flags
+  const force = args.includes('--force') || args.includes('-f')
+  const backup = args.includes('--backup') || args.includes('-b')
+  const dryRun = args.includes('--dry-run') || args.includes('-n')
+  const keepPackage = args.includes('--keep-package')
+
+  const result = await uninstall({ force, backup, dryRun, keepPackage })
+  process.exitCode = result.success ? 0 : 1
 } else if (args[0] === 'watch') {
   // Watch mode - auto-sync on file changes
   const projectPath = process.cwd()
