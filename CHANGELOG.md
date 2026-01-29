@@ -1,5 +1,47 @@
 # Changelog
 
+## [0.44.0] - 2026-01-29
+
+### Feature: Workflow State Machine (PRJ-139)
+
+Explicit states with valid transitions for prjct workflow. Users always know what commands are available.
+
+**States:** `idle` → `working` → `completed` → `shipped` (with `paused` branch)
+
+**New: State Machine (`core/workflow/state-machine.ts`)**
+- Explicit state definitions with valid transitions
+- State info shown after each command (e.g., `📍 State: WORKING`)
+- Next steps derived from current state
+
+**Updated Commands**
+- `task` — Shows state: WORKING after starting
+- `done` — Shows state: COMPLETED
+- `pause` — Shows state: PAUSED
+- `resume` — Shows state: WORKING
+
+### Feature: Auto-sync to Linear (PRJ-142 completion)
+
+When starting/completing tasks with Linear IDs, prjct now auto-syncs status.
+
+- `p. task PRJ-123` → Fetches issue title, marks as In Progress in Linear
+- `p. done` → Marks issue as Done in Linear (if task has linearId)
+
+### Feature: Sync Summary (PRJ-119)
+
+After `p. sync`, shows a compact summary with key metrics:
+- Stack detected
+- Files analyzed → context files generated
+- Agents count
+- Time elapsed
+
+### Improvement: Linear CLI filter by team
+
+`list` command now uses configured team, showing only relevant issues.
+
+### Improvement: Clean Terminal UX guidelines
+
+Added guidelines to CLAUDE.md for user-friendly tool call descriptions.
+
 ## [0.43.0] - 2026-01-29
 
 ### Feature: Bidirectional Sync Linear ↔ prjct (PRJ-142)

@@ -1,11 +1,12 @@
 /**
  * Next Steps - Show explicit guidance after each command
  *
- * Makes the workflow learnable by showing what commands are available
- * after each action.
+ * Uses the workflow state machine to show valid commands
+ * for the current state.
  */
 
 import chalk from 'chalk'
+import { workflowStateMachine, type WorkflowState } from '../workflow/state-machine'
 
 interface NextStep {
   cmd: string
@@ -13,56 +14,35 @@ interface NextStep {
 }
 
 /**
- * Next steps for each command
+ * Command descriptions for display
  */
-const NEXT_STEPS: Record<string, NextStep[]> = {
-  task: [
-    { cmd: 'p. done', desc: 'Complete current subtask' },
-    { cmd: 'p. pause', desc: 'Pause and switch context' },
-  ],
-  done: [
-    { cmd: 'p. ship', desc: 'Ship this feature (create PR)' },
-    { cmd: 'p. task', desc: 'Start new task' },
-    { cmd: 'p. next', desc: 'View task queue' },
-  ],
-  'done-subtask': [
-    { cmd: 'p. done', desc: 'Complete next subtask' },
-    { cmd: 'p. ship', desc: 'Ship this feature' },
-    { cmd: 'p. pause', desc: 'Pause and switch context' },
-  ],
-  pause: [
-    { cmd: 'p. resume', desc: 'Continue this task' },
-    { cmd: 'p. task', desc: 'Start different task' },
-    { cmd: 'p. next', desc: 'View task queue' },
-  ],
-  resume: [
-    { cmd: 'p. done', desc: 'Complete current subtask' },
-    { cmd: 'p. pause', desc: 'Pause again' },
-  ],
-  ship: [
-    { cmd: 'p. task', desc: 'Start new task' },
-    { cmd: 'p. next', desc: 'View task queue' },
-  ],
-  next: [
-    { cmd: 'p. task', desc: 'Start a task' },
-    { cmd: 'p. resume', desc: 'Resume paused task' },
-  ],
-  sync: [
-    { cmd: 'p. task', desc: 'Start a task' },
-    { cmd: 'p. next', desc: 'View task queue' },
-  ],
-  init: [
-    { cmd: 'p. sync', desc: 'Analyze project' },
-    { cmd: 'p. task', desc: 'Start a task' },
-  ],
-  bug: [
-    { cmd: 'p. done', desc: 'Complete bug fix' },
-    { cmd: 'p. pause', desc: 'Pause and switch context' },
-  ],
-  idea: [
-    { cmd: 'p. task', desc: 'Start working on idea' },
-    { cmd: 'p. next', desc: 'View task queue' },
-  ],
+const CMD_DESCRIPTIONS: Record<string, string> = {
+  task: 'Start new task',
+  done: 'Complete current task',
+  pause: 'Pause and switch context',
+  resume: 'Continue paused task',
+  ship: 'Ship the feature',
+  next: 'View task queue',
+  sync: 'Analyze project',
+  bug: 'Report a bug',
+  idea: 'Capture an idea',
+}
+
+/**
+ * Map command to resulting workflow state
+ */
+const COMMAND_TO_STATE: Record<string, WorkflowState> = {
+  task: 'working',
+  done: 'completed',
+  'done-subtask': 'working', // Still working on subtasks
+  pause: 'paused',
+  resume: 'working',
+  ship: 'shipped',
+  next: 'idle',
+  sync: 'idle',
+  init: 'idle',
+  bug: 'working',
+  idea: 'idle',
 }
 
 /**
@@ -71,8 +51,18 @@ const NEXT_STEPS: Record<string, NextStep[]> = {
 export function showNextSteps(command: string, options: { quiet?: boolean } = {}): void {
   if (options.quiet) return
 
-  const steps = NEXT_STEPS[command]
-  if (!steps || steps.length === 0) return
+  // Get the state after this command
+  const resultingState = COMMAND_TO_STATE[command] || 'idle'
+
+  // Get valid commands for that state
+  const validCommands = workflowStateMachine.getValidCommands(resultingState)
+
+  if (validCommands.length === 0) return
+
+  const steps: NextStep[] = validCommands.map(cmd => ({
+    cmd: `p. ${cmd}`,
+    desc: CMD_DESCRIPTIONS[cmd] || cmd,
+  }))
 
   console.log(chalk.dim('\nNext:'))
   for (const step of steps) {
@@ -85,7 +75,21 @@ export function showNextSteps(command: string, options: { quiet?: boolean } = {}
  * Get next steps for a command (for programmatic use)
  */
 export function getNextSteps(command: string): NextStep[] {
-  return NEXT_STEPS[command] || []
+  const resultingState = COMMAND_TO_STATE[command] || 'idle'
+  const validCommands = workflowStateMachine.getValidCommands(resultingState)
+
+  return validCommands.map(cmd => ({
+    cmd: `p. ${cmd}`,
+    desc: CMD_DESCRIPTIONS[cmd] || cmd,
+  }))
 }
 
-export default { showNextSteps, getNextSteps }
+/**
+ * Show current state info
+ */
+export function showStateInfo(state: WorkflowState): void {
+  const info = workflowStateMachine.getStateInfo(state)
+  console.log(chalk.dim(`📍 State: ${chalk.white(state.toUpperCase())} - ${info.description}`))
+}
+
+export default { showNextSteps, getNextSteps, showStateInfo }

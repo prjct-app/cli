@@ -211,6 +211,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
       const initResult = await this.ensureProjectInit(projectPath)
       if (!initResult.success) return initResult
 
+      const startTime = Date.now()
       console.log('🔄 Syncing project...\n')
 
       // Use syncService to do EVERYTHING in one call
@@ -281,9 +282,28 @@ export class AnalysisCommands extends PrjctCommandsBase {
 
       showNextSteps('sync')
 
+      // Summary metrics
+      const elapsed = Date.now() - startTime
+      const contextFilesCount = result.contextFiles.length + (result.aiTools?.filter(t => t.success).length || 0)
+      const agentCount = result.agents.length
+
+      console.log('─'.repeat(45))
+      console.log(`📊 Sync Summary`)
+      console.log(`   Stack: ${result.stats.ecosystem} (${result.stats.frameworks.join(', ') || 'no frameworks'})`)
+      console.log(`   Files: ${result.stats.fileCount} analyzed → ${contextFilesCount} context files`)
+      console.log(`   Agents: ${agentCount} (${result.agents.filter(a => a.type === 'domain').length} domain)`)
+      console.log(`   Time: ${(elapsed / 1000).toFixed(1)}s`)
+      console.log('')
+
       return {
         success: true,
         data: result,
+        metrics: {
+          elapsed,
+          contextFilesCount,
+          agentCount,
+          fileCount: result.stats.fileCount,
+        },
       }
     } catch (error) {
       console.error('❌ Error:', (error as Error).message)
