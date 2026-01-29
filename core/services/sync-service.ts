@@ -22,6 +22,7 @@ import { promisify } from 'util'
 import pathManager from '../infrastructure/path-manager'
 import configManager from '../infrastructure/config-manager'
 import dateHelper from '../utils/date-helper'
+import { writeWithPreservation, validatePreservedSections } from '../utils/preserve-sections'
 import {
   generateAIToolContexts,
   DEFAULT_AI_TOOLS,
@@ -865,9 +866,28 @@ Load from \`~/.prjct-cli/projects/${this.projectId}/agents/\`:
 
 **Workflow**: ${workflowAgents.join(', ')}
 **Domain**: ${domainAgents.join(', ') || 'none'}
+
+---
+
+## User Customizations
+
+Add your own rules below. Content between preserve markers survives \`p. sync\`:
+
+\`\`\`markdown
+<!-- prjct:preserve -->
+## My Custom Rules
+- Your rules here
+<!-- prjct:end-preserve -->
+\`\`\`
 `
 
-    await fs.writeFile(path.join(contextPath, 'CLAUDE.md'), content, 'utf-8')
+    // Write with preservation of user customizations
+    const claudeMdPath = path.join(contextPath, 'CLAUDE.md')
+    const result = await writeWithPreservation(claudeMdPath, content)
+
+    if (result.preserved > 0) {
+      console.log(`   Preserved ${result.preserved} user customization section(s)`)
+    }
   }
 
   private async generateNowMd(contextPath: string): Promise<void> {

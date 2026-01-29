@@ -17,6 +17,7 @@ import { exec } from 'child_process'
 import { promisify } from 'util'
 import { getStorage } from '../storage'
 import pathManager from '../infrastructure/path-manager'
+import { writeWithPreservation } from '../utils/preserve-sections'
 
 const execAsync = promisify(exec)
 
@@ -252,9 +253,23 @@ ${agents.length > 0 ? agents.map(a => `- **${a.name}**: ${a.role || 'Specialist'
 └── sync/           # Sync state
     └── pending.json
 \`\`\`
+
+---
+
+## User Customizations
+
+Add your own rules below. Content between preserve markers survives regeneration:
+
+\`\`\`markdown
+<!-- prjct:preserve -->
+## My Custom Rules
+- Your rules here
+<!-- prjct:end-preserve -->
+\`\`\`
 `
 
-  await fs.writeFile(path.join(contextPath, 'CLAUDE.md'), content, 'utf-8')
+  // Write with preservation of user customizations
+  await writeWithPreservation(path.join(contextPath, 'CLAUDE.md'), content)
 }
 
 async function generateNowMd(contextPath: string, tasks: Task[]) {
