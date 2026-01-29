@@ -15,6 +15,9 @@
 // State (current task + queue)
 export * from './state'
 
+// Issues (local cache of issue tracker issues)
+export * from './issues'
+
 // Project metadata
 export * from './project'
 

@@ -1,5 +1,78 @@
 # Changelog
 
+## [0.43.0] - 2026-01-29
+
+### Feature: Bidirectional Sync Linear ↔ prjct (PRJ-142)
+
+When `integrations.linear.enabled === true`, prjct now syncs bidirectionally with Linear, using a local cache for offline access and reduced API calls.
+
+**New: Local Issue Cache (`storage/issues.json`)**
+- Full copy of assigned Linear issues stored locally
+- 30-minute staleness threshold for automatic refresh
+- Local-first reads: no API call if issue is cached and fresh
+
+**New: Sync Layer (`core/integrations/linear/sync.ts`)**
+- `pullAll()` — Fetch all assigned issues to local cache
+- `getIssue()` — Local-first fetch with API fallback
+- `getIssueLocal()` — Local-only fetch (no API call)
+- `pushStatus()` — Push status changes to Linear + update cache
+- `isStale()` — Check if cache needs refresh
+
+**New CLI Commands**
+- `sync` — Pull all assigned issues to local storage
+- `sync-status` — Check local cache status (hasCache, issueCount, isStale)
+- `get-local <id>` — Get issue from local cache without API call
+
+**Updated State Schema**
+- `currentTask.linearId` — Linear identifier (e.g., "PRJ-123")
+- `currentTask.linearUuid` — Linear internal UUID for API calls
+
+**Updated Templates**
+- `sync.md` — Syncs Linear issues when enabled
+- `task.md` — Uses local-first approach, tracks linearId/linearUuid
+- `done.md` — Pushes status to Linear via sync layer
+
+**New Files:**
+- `core/integrations/linear/sync.ts` — Sync layer implementation
+- `core/schemas/issues.ts` — Zod schema for issues.json
+
+## [0.42.0] - 2026-01-29
+
+### Feature: Linear SDK Integration with Per-Project Credentials
+
+Linear integration now uses the native `@linear/sdk` with per-project credential storage, enabling different projects to use different Linear workspaces.
+
+**New: Per-Project Credentials**
+- Credentials stored at `~/.prjct-cli/projects/{projectId}/config/credentials.json`
+- Fallback chain: project credentials → macOS keychain → environment variable
+- Each project can connect to a different Linear workspace
+
+**New: CLI Bridge (`core/cli/linear.ts`)**
+- Direct access to Linear SDK from templates
+- Commands: `setup`, `list`, `get`, `create`, `update`, `start`, `done`, `comment`, `teams`, `projects`, `status`
+- JSON output for easy parsing by Claude
+
+**New: `prjct linear <cmd>` Subcommand**
+- Direct CLI access: `prjct linear status`, `prjct linear list`, etc.
+- Auto-resolves project ID from current directory
+
+**Updated Templates**
+- `linear.md` — Natural language interpretation guide for Claude
+- `enrich.md` — Uses CLI instead of MCP for ticket enrichment
+
+**Breaking: Removed MCP-only Trackers**
+- Removed JIRA, GitHub Issues, Monday.com support (no native SDK)
+- Only Linear is supported (has native SDK)
+
+**New Files:**
+- `core/cli/linear.ts` — CLI bridge for Linear SDK
+- `core/utils/project-credentials.ts` — Per-project credential storage
+
+**Modified:**
+- `bin/prjct.ts` — Added `prjct linear` subcommand
+- `templates/commands/linear.md` — Updated with CLI execution pattern
+- `templates/commands/enrich.md` — Linear-only, uses CLI
+
 ## [0.40.0] - 2026-01-28
 
 ### Feature: Enhanced Skill System

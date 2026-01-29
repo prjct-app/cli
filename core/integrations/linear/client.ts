@@ -128,28 +128,34 @@ export class LinearProvider implements IssueTrackerProvider {
   }
 
   /**
-   * Get a single issue by ID or identifier (e.g., "ENG-123")
+   * Get a single issue by ID or identifier (e.g., "PRJ-123")
    */
   async fetchIssue(id: string): Promise<Issue | null> {
     if (!this.sdk) throw new Error('Linear not initialized')
 
     try {
-      // Check if it looks like an identifier (e.g., "ENG-123")
+      // Check if it looks like an identifier (e.g., "PRJ-123")
       if (id.includes('-') && /^[A-Z]+-\d+$/.test(id)) {
-        // Use raw GraphQL to search by identifier
-        const result = await this.sdk.client.rawRequest(`
-          query SearchByIdentifier($query: String!) {
-            searchIssues(query: $query, first: 1) {
-              nodes {
-                id
-              }
-            }
-          }
-        `, { query: id }) as { data?: { searchIssues?: { nodes?: Array<{ id: string }> } } }
+        // Parse identifier into team key and issue number
+        const match = id.match(/^([A-Z]+)-(\d+)$/)
+        if (!match) return null
 
-        if (result.data?.searchIssues?.nodes?.length) {
-          const issue = await this.sdk.issue(result.data.searchIssues.nodes[0].id)
-          return this.mapIssue(issue)
+        const [, teamKey, numberStr] = match
+        const issueNumber = parseInt(numberStr, 10)
+
+        // Find team by key
+        const teams = await this.sdk.teams({ first: 50 })
+        const team = teams.nodes.find((t) => t.key === teamKey)
+        if (!team) return null
+
+        // Query issue by team and number
+        const issues = await team.issues({
+          first: 1,
+          filter: { number: { eq: issueNumber } },
+        })
+
+        if (issues.nodes.length > 0) {
+          return this.mapIssue(issues.nodes[0])
         }
         return null
       }
@@ -197,15 +203,28 @@ export class LinearProvider implements IssueTrackerProvider {
   async updateIssue(id: string, input: UpdateIssueInput): Promise<Issue> {
     if (!this.sdk) throw new Error('Linear not initialized')
 
-    // Get the issue first to get UUID
+    // Get the issue first to get UUID (if identifier like PRJ-123 was passed)
     const issue = await this.fetchIssue(id)
     if (!issue) {
       throw new Error(`Issue ${id} not found`)
     }
 
-    await this.sdk.updateIssue(issue.id, {
-      description: input.description,
-    })
+    // Build update payload with all supported fields
+    const updatePayload: Record<string, unknown> = {}
+
+    if (input.title !== undefined) updatePayload.title = input.title
+    if (input.description !== undefined) updatePayload.description = input.description
+    if (input.priority !== undefined) updatePayload.priority = PRIORITY_TO_LINEAR[input.priority]
+    if (input.assigneeId !== undefined) updatePayload.assigneeId = input.assigneeId
+    if (input.stateId !== undefined) updatePayload.stateId = input.stateId
+    if (input.projectId !== undefined) updatePayload.projectId = input.projectId
+
+    // Handle labels - need to resolve names to IDs
+    if (input.labels !== undefined && issue.team) {
+      updatePayload.labelIds = await this.resolveLabelIds(issue.team.id, input.labels)
+    }
+
+    await this.sdk.updateIssue(issue.id, updatePayload)
 
     // Fetch updated issue
     const updated = await this.fetchIssue(issue.id)

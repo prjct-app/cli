@@ -9,6 +9,9 @@ export { LinearProvider, linearProvider } from './client'
 // Service layer with caching (preferred API)
 export { LinearService, linearService } from './service'
 
+// Sync layer for bidirectional sync with issues.json
+export { LinearSync, linearSync } from './sync'
+
 // Cache utilities
 export {
   issueCache,
