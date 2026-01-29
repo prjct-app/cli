@@ -2,80 +2,329 @@ name: Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (no publish)'
+        required: false
+        default: false
+        type: boolean
+
+# Prevent concurrent releases
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
-  release:
-    name: Create Release
+  # Run CI checks first
+  ci:
+    name: CI Checks
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    outputs:
+      should_release: ${{ steps.check.outputs.should_release }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Get version from tag
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Quality checks
+        run: |
+          bun run check
+          bun run typecheck
+
+      - name: Tests
+        run: bun test
+
+      - name: Build
+        run: bun run build
+
+      - name: Check for releasable commits
+        id: check
+        run: |
+          # Get commits since last tag
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+          if [ -z "$LAST_TAG" ]; then
+            echo "No previous tag found, will release"
+            echo "should_release=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Check if there are commits with feat:, fix:, or BREAKING CHANGE
+          COMMITS=$(git log $LAST_TAG..HEAD --pretty=format:"%s" 2>/dev/null || echo "")
+
+          if echo "$COMMITS" | grep -qE "^(feat|fix|perf|refactor)(\(.+\))?:|BREAKING CHANGE"; then
+            echo "Found releasable commits"
+            echo "should_release=true" >> $GITHUB_OUTPUT
+          else
+            echo "No releasable commits found (feat:, fix:, perf:, refactor:, or BREAKING CHANGE)"
+            echo "should_release=false" >> $GITHUB_OUTPUT
+          fi
+
+  release:
+    name: Release
+    needs: ci
+    if: needs.ci.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Determine version bump
         id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+        run: |
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          CURRENT_VERSION=${LAST_TAG#v}
+
+          # Parse current version
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+
+          # Get commits since last tag
+          COMMITS=$(git log $LAST_TAG..HEAD --pretty=format:"%s%n%b" 2>/dev/null || git log --pretty=format:"%s%n%b")
+
+          # Determine bump type
+          if echo "$COMMITS" | grep -q "BREAKING CHANGE"; then
+            BUMP="major"
+            NEW_VERSION="$((MAJOR + 1)).0.0"
+          elif echo "$COMMITS" | grep -qE "^feat(\(.+\))?:"; then
+            BUMP="minor"
+            NEW_VERSION="$MAJOR.$((MINOR + 1)).0"
+          else
+            BUMP="patch"
+            NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
+          fi
+
+          echo "current=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "new=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "bump=$BUMP" >> $GITHUB_OUTPUT
+          echo "tag=v$NEW_VERSION" >> $GITHUB_OUTPUT
+
+          echo "📦 Version bump: $CURRENT_VERSION → $NEW_VERSION ($BUMP)"
+
+      - name: Generate changelog entry
+        id: changelog
+        run: |
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          VERSION=${{ steps.version.outputs.new }}
+          DATE=$(date +%Y-%m-%d)
+
+          # Start changelog entry
+          ENTRY="## [$VERSION] - $DATE"$'\n\n'
+
+          # Get commits since last tag
+          if [ -n "$LAST_TAG" ]; then
+            RANGE="$LAST_TAG..HEAD"
+          else
+            RANGE="HEAD"
+          fi
+
+          # Categorize commits
+          FEATURES=$(git log $RANGE --pretty=format:"- %s" --grep="^feat" 2>/dev/null | sed 's/^- feat[^:]*: /- /' || echo "")
+          FIXES=$(git log $RANGE --pretty=format:"- %s" --grep="^fix" 2>/dev/null | sed 's/^- fix[^:]*: /- /' || echo "")
+          PERF=$(git log $RANGE --pretty=format:"- %s" --grep="^perf" 2>/dev/null | sed 's/^- perf[^:]*: /- /' || echo "")
+          REFACTOR=$(git log $RANGE --pretty=format:"- %s" --grep="^refactor" 2>/dev/null | sed 's/^- refactor[^:]*: /- /' || echo "")
+
+          if [ -n "$FEATURES" ]; then
+            ENTRY+="### Features"$'\n\n'"$FEATURES"$'\n\n'
+          fi
+
+          if [ -n "$FIXES" ]; then
+            ENTRY+="### Bug Fixes"$'\n\n'"$FIXES"$'\n\n'
+          fi
+
+          if [ -n "$PERF" ]; then
+            ENTRY+="### Performance"$'\n\n'"$PERF"$'\n\n'
+          fi
+
+          if [ -n "$REFACTOR" ]; then
+            ENTRY+="### Refactoring"$'\n\n'"$REFACTOR"$'\n\n'
+          fi
+
+          # Save for release notes
+          echo "ENTRY<<EOF" >> $GITHUB_OUTPUT
+          echo "$ENTRY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Update CHANGELOG.md
+        run: |
+          VERSION=${{ steps.version.outputs.new }}
+          DATE=$(date +%Y-%m-%d)
+
+          # Create new changelog entry
+          node -e "
+            const fs = require('fs');
+            const changelog = fs.readFileSync('CHANGELOG.md', 'utf8');
+            const entry = process.env.CHANGELOG_ENTRY;
+
+            // Insert after the title line
+            const lines = changelog.split('\n');
+            let insertIndex = 0;
+
+            // Find first ## line (skip title)
+            for (let i = 0; i < lines.length; i++) {
+              if (lines[i].startsWith('## [') || lines[i].startsWith('## v')) {
+                insertIndex = i;
+                break;
+              }
+              if (i === lines.length - 1) {
+                insertIndex = i + 1;
+              }
+            }
+
+            lines.splice(insertIndex, 0, entry);
+            fs.writeFileSync('CHANGELOG.md', lines.join('\n'));
+          "
+        env:
+          CHANGELOG_ENTRY: ${{ steps.changelog.outputs.ENTRY }}
+
+      - name: Update version in package.json
+        run: |
+          VERSION=${{ steps.version.outputs.new }}
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            pkg.version = '$VERSION';
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          "
+
+      - name: Update version in version.ts
+        run: |
+          VERSION=${{ steps.version.outputs.new }}
+          sed -i "s/export const VERSION = '[^']*'/export const VERSION = '$VERSION'/" core/utils/version.ts
+
+      - name: Build release
+        run: bun run build
+
+      - name: Commit and tag
+        if: ${{ !inputs.dry_run }}
+        run: |
+          VERSION=${{ steps.version.outputs.new }}
+          TAG=${{ steps.version.outputs.tag }}
+
+          git add -A
+          git commit -m "chore(release): v$VERSION
+
+          Generated with [p/](https://www.prjct.app/)"
+
+          git tag -a "$TAG" -m "Release $TAG"
+
+      - name: Push changes
+        if: ${{ !inputs.dry_run }}
+        run: |
+          git push origin main
+          git push origin ${{ steps.version.outputs.tag }}
+
+      - name: Publish to npm
+        if: ${{ !inputs.dry_run }}
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Verify npm publication
+        if: ${{ !inputs.dry_run }}
+        run: |
+          sleep 15
+          npm view prjct-cli@${{ steps.version.outputs.new }} version
+          echo "✅ Published prjct-cli@${{ steps.version.outputs.new }}"
 
       - name: Create tarball
         run: |
-          tar -czf prjct-cli-${{ steps.version.outputs.VERSION }}.tar.gz \
+          VERSION=${{ steps.version.outputs.new }}
+          tar -czf prjct-cli-$VERSION.tar.gz \
             --exclude='.git' \
             --exclude='node_modules' \
             --exclude='.github' \
             --exclude='*.log' \
             .
+          sha256sum prjct-cli-$VERSION.tar.gz > checksums.txt
 
-      - name: Generate checksums
-        id: checksums
-        run: |
-          CHECKSUM=$(sha256sum prjct-cli-${{ steps.version.outputs.VERSION }}.tar.gz)
-          echo "SHA256=$CHECKSUM" >> $GITHUB_OUTPUT
-          echo "$CHECKSUM" > checksums.txt
-
-      - name: Extract changelog
-        id: changelog
-        run: |
-          # Extract the section for this version from CHANGELOG.md
-          VERSION=${{ steps.version.outputs.VERSION }}
-          NOTES=$(awk "/## \[$VERSION\]|## $VERSION/{flag=1; next} /## \[?[0-9]+\.[0-9]+/{if(flag) exit} flag" CHANGELOG.md 2>/dev/null || echo "See CHANGELOG.md for details.")
-          echo "NOTES<<EOF" >> $GITHUB_OUTPUT
-          echo "$NOTES" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-      - name: Create Release
+      - name: Create GitHub Release
+        if: ${{ !inputs.dry_run }}
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.tag }}
           files: |
-            prjct-cli-${{ steps.version.outputs.VERSION }}.tar.gz
+            prjct-cli-${{ steps.version.outputs.new }}.tar.gz
             checksums.txt
           body: |
-            ## What's Changed
-
-            ${{ steps.changelog.outputs.NOTES }}
+            ${{ steps.changelog.outputs.ENTRY }}
 
             ## Installation
 
-            ### Bun (Recommended)
             ```bash
-            bun install -g prjct-cli@${{ steps.version.outputs.VERSION }}
+            # Bun (recommended)
+            bun install -g prjct-cli@${{ steps.version.outputs.new }}
+
+            # npm
+            npm install -g prjct-cli@${{ steps.version.outputs.new }}
             ```
 
-            ### npm
-            ```bash
-            npm install -g prjct-cli@${{ steps.version.outputs.VERSION }}
-            ```
-
-            ## SHA256 Checksum
-            ```
-            ${{ steps.checksums.outputs.SHA256 }}
-            ```
+            [View on npm](https://www.npmjs.com/package/prjct-cli)
           draft: false
-          prerelease: ${{ contains(steps.version.outputs.VERSION, '-') }}
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Summary
+        run: |
+          echo "### 🚀 Release ${{ steps.version.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ steps.version.outputs.current }} → ${{ steps.version.outputs.new }} (${{ steps.version.outputs.bump }})" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ inputs.dry_run }}" == "true" ]; then
+            echo "⚠️ **Dry run** - no changes published" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ Published to npm with provenance" >> $GITHUB_STEP_SUMMARY
+            echo "✅ GitHub Release created" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "bun install -g prjct-cli@${{ steps.version.outputs.new }}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
