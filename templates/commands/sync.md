@@ -10,6 +10,22 @@ prjct sync
 
 CLI handles: git analysis, context generation, agents, skills.
 
+## Linear Sync (when enabled)
+
+```
+READ: .prjct/prjct.config.json → get projectId
+READ: {globalPath}/project.json → check integrations.linear.enabled
+
+IF integrations.linear.enabled:
+  # Sync Linear issues to local cache
+  RUN: bun core/cli/linear.ts --project {projectId} sync
+
+  # Result stored in {globalPath}/storage/issues.json
+  # Contains all assigned issues from Linear
+
+  OUTPUT: "Linear: {fetched} issues synced"
+```
+
 ## Cursor Router Regeneration
 
 If `.cursor/` exists but `.cursor/rules/prjct.mdc` is missing:
@@ -25,6 +41,7 @@ If `.cursor/` exists but `.cursor/rules/prjct.mdc` is missing:
 
 Ecosystem: {ecosystem}
 Agents: {count} generated
+Linear: {issueCount} issues synced (or "not enabled")
 Cursor: {regenerated/ready/not detected}
 
 Next:

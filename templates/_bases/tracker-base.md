@@ -9,6 +9,17 @@ description: 'Base template for issue tracker integrations'
 
 All issue tracker integrations (Linear, JIRA, GitHub Issues, Monday.com) inherit from this base.
 
+## CRITICAL - SDK vs MCP
+
+| Tracker | Method | Why |
+|---------|--------|-----|
+| **Linear** | **SDK ONLY** | Per-project credentials, 4x faster |
+| **JIRA** | **SDK ONLY** | Per-project credentials, 4x faster |
+| GitHub | MCP | Simple token auth |
+| Monday | MCP | OAuth only |
+
+**For Linear and JIRA**: NEVER use MCP tools (`mcp__linear__*`, `mcp__jira__*`). ALWAYS use the SDK CLI helper.
+
 ---
 
 ## Common Context Variables

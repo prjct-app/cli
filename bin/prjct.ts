@@ -85,6 +85,32 @@ if (args[0] === 'start' || args[0] === 'setup') {
     console.error('Server error:', (error as Error).message)
     process.exitCode = 1
   }
+} else if (args[0] === 'linear') {
+  // Linear CLI subcommand - direct access to Linear SDK
+  const { spawn } = await import('child_process')
+  const projectPath = process.cwd()
+  const projectId = await configManager.getProjectId(projectPath)
+
+  if (!projectId) {
+    console.error('No prjct project found. Run "prjct init" first.')
+    process.exitCode = 1
+  } else {
+    // Get the path to the linear CLI
+    const linearCliPath = path.join(__dirname, '..', 'core', 'cli', 'linear.ts')
+
+    // Forward args to linear CLI, adding --project flag
+    const linearArgs = ['--project', projectId, ...args.slice(1)]
+
+    // Use bun to run the CLI
+    const child = spawn('bun', [linearCliPath, ...linearArgs], {
+      stdio: 'inherit',
+      cwd: projectPath,
+    })
+
+    child.on('close', (code) => {
+      process.exitCode = code || 0
+    })
+  }
 } else if (args[0] === 'version' || args[0] === '-v' || args[0] === '--version') {
   // Show version with provider status
   const detection = detectAllProviders()

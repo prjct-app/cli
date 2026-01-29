@@ -17,20 +17,29 @@ READ: {globalPath}/project.json
 CHECK: integrations.linear OR integrations.jira
 
 IF integrations.linear.enabled:
-  # Linear issue detected
-  IMPORT: linearService from core/integrations/linear
-  CALL: linearService.fetchIssue("$ARGUMENTS")
+  # Linear issue detected - use LOCAL-FIRST approach
+  # Try local cache first (issues.json), then API if not found
+
+  RUN: bun core/cli/linear.ts --project {projectId} get-local "$ARGUMENTS"
+
+  IF issue found in local cache:
+    USE cached issue data (no API call needed)
+  ELSE:
+    # Fallback to API
+    IMPORT: linearSync from core/integrations/linear
+    CALL: linearSync.getIssue(projectId, "$ARGUMENTS")  # Fetches + caches
 
   IF issue found:
-    SET: task.externalId = issue.externalId
-    SET: task.externalProvider = "linear"
+    SET: task.linearId = issue.identifier     # "PRJ-123"
+    SET: task.linearUuid = issue.id           # Linear internal UUID
     SET: task.description = issue.title
     SET: $ARGUMENTS = issue.title  # Use title for task
 
-    # Mark issue as In Progress in Linear
-    CALL: linearService.markInProgress(issue.id)
+    # Mark issue as In Progress in Linear (pushes status change)
+    IMPORT: linearSync from core/integrations/linear
+    CALL: linearSync.pushStatus(projectId, issue.identifier, 'in_progress')
 
-    OUTPUT: "Linked to Linear: {issue.externalId} - {issue.title}"
+    OUTPUT: "Linked to Linear: {issue.identifier} - {issue.title}"
     OUTPUT: "Linear: In Progress"
 
 ELSE IF integrations.jira.enabled:
@@ -83,8 +92,8 @@ WRITE `{globalPath}/storage/state.json`:
     "subtasks": [...],
     "currentSubtaskIndex": 0,
     "parentDescription": "$ARGUMENTS",
-    "externalId": "{externalId or null}",
-    "externalProvider": "{linear|jira|null}"
+    "linearId": "{identifier or null}",      // "PRJ-123" - Linear identifier
+    "linearUuid": "{uuid or null}"           // Linear internal UUID
   }
 }
 ```
@@ -94,7 +103,7 @@ WRITE `{globalPath}/storage/state.json`:
 {type}: $ARGUMENTS
 
 Branch: {branch} | Subtasks: {count}
-{externalId ? "Linked: {externalProvider} {externalId}" : ""}
+{linearId ? "Linear: {linearId} → In Progress" : ""}
 
 Next: Work on subtask, then `p. done`
 ```
