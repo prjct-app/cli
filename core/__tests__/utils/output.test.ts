@@ -8,16 +8,19 @@ import out from '../../utils/output'
 
 describe('Output Module', () => {
   let consoleLogSpy: ReturnType<typeof spyOn>
+  let consoleErrorSpy: ReturnType<typeof spyOn>
   let stdoutWriteSpy: ReturnType<typeof spyOn>
 
   beforeEach(() => {
     consoleLogSpy = spyOn(console, 'log').mockImplementation(() => {})
+    consoleErrorSpy = spyOn(console, 'error').mockImplementation(() => {})
     stdoutWriteSpy = spyOn(process.stdout, 'write').mockImplementation(() => true)
     out.stop()
   })
 
   afterEach(() => {
     consoleLogSpy.mockRestore()
+    consoleErrorSpy.mockRestore()
     stdoutWriteSpy.mockRestore()
     out.stop()
   })
@@ -50,8 +53,8 @@ describe('Output Module', () => {
     it('should output error message with X mark', () => {
       out.fail('something failed')
 
-      expect(consoleLogSpy).toHaveBeenCalledTimes(1)
-      const output = consoleLogSpy.mock.calls[0][0]
+      expect(consoleErrorSpy).toHaveBeenCalledTimes(1)
+      const output = consoleErrorSpy.mock.calls[0][0]
       expect(output).toContain('✗')
       expect(output).toContain('something failed')
     })
@@ -60,7 +63,7 @@ describe('Output Module', () => {
       const longMessage = 'error '.repeat(50)
       out.fail(longMessage)
 
-      const output = consoleLogSpy.mock.calls[0][0]
+      const output = consoleErrorSpy.mock.calls[0][0]
       expect(output.length).toBeLessThan(80)
     })
 
