@@ -274,12 +274,13 @@ jobs:
       - name: Create tarball
         run: |
           VERSION=${{ steps.version.outputs.new }}
+          # Ignore "file changed as we read it" warning
           tar -czf prjct-cli-$VERSION.tar.gz \
             --exclude='.git' \
             --exclude='node_modules' \
             --exclude='.github' \
             --exclude='*.log' \
-            .
+            . || true
           sha256sum prjct-cli-$VERSION.tar.gz > checksums.txt
 
       - name: Create GitHub Release
