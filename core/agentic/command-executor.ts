@@ -20,6 +20,7 @@ import groundTruth from './ground-truth'
 import planMode from './plan-mode'
 import templateExecutor from './template-executor'
 import orchestratorExecutor from './orchestrator-executor'
+import { agentStream } from '../utils/agent-stream'
 
 import type {
   OrchestratorContext,
@@ -183,12 +184,21 @@ export class CommandExecutor {
             projectPath
           )
 
-          // Log orchestrator results
-          console.log(`🎯 Orchestrator:`)
-          console.log(`   → Domains: ${orchestratorContext.detectedDomains.join(', ')}`)
-          console.log(`   → Agents: ${orchestratorContext.agents.map(a => a.name).join(', ') || 'none loaded'}`)
+          // Show orchestration with agent stream
+          if (orchestratorContext.detectedDomains.length > 0) {
+            agentStream.orchestrate(orchestratorContext.detectedDomains)
+          }
+
+          // Show each agent being activated
+          for (const agent of orchestratorContext.agents) {
+            const domain = agent.domain || agent.name.replace('.md', '')
+            agentStream.startAgent(agent.name, domain, `Loading ${domain} specialist...`)
+            agentStream.endAgent(true)
+          }
+
+          // Show subtasks if fragmented
           if (orchestratorContext.requiresFragmentation && orchestratorContext.subtasks) {
-            console.log(`   → Subtasks: ${orchestratorContext.subtasks.length}`)
+            agentStream.status('📋', `${orchestratorContext.subtasks.length} subtasks planned`)
           }
         } catch (error) {
           // Orchestration failed - log warning but continue without it
