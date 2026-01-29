@@ -307,6 +307,12 @@ EXAMPLES
   > /sync
   > /task "add user authentication"
 
+FLAGS
+-----
+  --quiet, -q            Suppress all output (only errors to stderr)
+  --version, -v          Show version
+  --help, -h             Show this help
+
 MORE INFO
 ---------
   Documentation:  https://prjct.app

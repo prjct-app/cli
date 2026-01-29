@@ -52,6 +52,15 @@ function checkRoutersInstalled(): boolean {
 // Check for special subcommands that bypass normal CLI
 const args = process.argv.slice(2)
 
+// Parse --quiet / -q flag (must be done early, before any output)
+const quietIndex = args.findIndex(arg => arg === '--quiet' || arg === '-q')
+const isQuietMode = quietIndex !== -1
+if (isQuietMode) {
+  args.splice(quietIndex, 1) // Remove flag from args
+  const { setQuietMode } = await import('../core/utils/output')
+  setQuietMode(true)
+}
+
 // Colors for output
 const CYAN = '\x1b[36m'
 const YELLOW = '\x1b[33m'
