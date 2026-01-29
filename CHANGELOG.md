@@ -1,5 +1,41 @@
 # Changelog
 
+## [0.43.0] - 2026-01-29
+
+### Feature: Bidirectional Sync Linear ↔ prjct (PRJ-142)
+
+When `integrations.linear.enabled === true`, prjct now syncs bidirectionally with Linear, using a local cache for offline access and reduced API calls.
+
+**New: Local Issue Cache (`storage/issues.json`)**
+- Full copy of assigned Linear issues stored locally
+- 30-minute staleness threshold for automatic refresh
+- Local-first reads: no API call if issue is cached and fresh
+
+**New: Sync Layer (`core/integrations/linear/sync.ts`)**
+- `pullAll()` — Fetch all assigned issues to local cache
+- `getIssue()` — Local-first fetch with API fallback
+- `getIssueLocal()` — Local-only fetch (no API call)
+- `pushStatus()` — Push status changes to Linear + update cache
+- `isStale()` — Check if cache needs refresh
+
+**New CLI Commands**
+- `sync` — Pull all assigned issues to local storage
+- `sync-status` — Check local cache status (hasCache, issueCount, isStale)
+- `get-local <id>` — Get issue from local cache without API call
+
+**Updated State Schema**
+- `currentTask.linearId` — Linear identifier (e.g., "PRJ-123")
+- `currentTask.linearUuid` — Linear internal UUID for API calls
+
+**Updated Templates**
+- `sync.md` — Syncs Linear issues when enabled
+- `task.md` — Uses local-first approach, tracks linearId/linearUuid
+- `done.md` — Pushes status to Linear via sync layer
+
+**New Files:**
+- `core/integrations/linear/sync.ts` — Sync layer implementation
+- `core/schemas/issues.ts` — Zod schema for issues.json
+
 ## [0.42.0] - 2026-01-29
 
 ### Feature: Linear SDK Integration with Per-Project Credentials

@@ -75,10 +75,16 @@ export interface CreateIssueInput {
 }
 
 /**
- * Update input for enriching issues
+ * Update input for issues
  */
 export interface UpdateIssueInput {
+  title?: string
   description?: string
+  priority?: IssuePriority
+  assigneeId?: string | null // null to unassign
+  stateId?: string
+  projectId?: string
+  labels?: string[]
   // Provider-specific: may update custom fields for AC, etc.
   customFields?: Record<string, unknown>
 }

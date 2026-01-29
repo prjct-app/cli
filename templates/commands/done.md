@@ -26,20 +26,25 @@ WRITE `{globalPath}/storage/state.json`
 
 ## Sync Issue Tracker Status
 
-IF `currentTask.externalId` exists:
+IF `currentTask.linearId` exists:
 
 ```
-IF currentTask.externalProvider == "linear":
-  # Update Linear issue to Done
-  IMPORT: linearService from core/integrations/linear
-  CALL: linearService.markDone(currentTask.externalId)
-  OUTPUT: "Linear: {externalId} → Done"
+# Update Linear issue to Done using sync layer
+# This updates both Linear API and local issues.json cache
 
-ELSE IF currentTask.externalProvider == "jira":
-  # Update JIRA issue to Done
-  IMPORT: jiraService from core/integrations/jira
-  CALL: jiraService.markDone(currentTask.externalId)
-  OUTPUT: "JIRA: {externalId} → Done"
+IMPORT: linearSync from core/integrations/linear
+CALL: linearSync.pushStatus(projectId, currentTask.linearId, 'done')
+
+OUTPUT: "Linear: {linearId} → Done"
+```
+
+ELSE IF `currentTask.externalId` AND `currentTask.externalProvider == "jira"`:
+
+```
+# Update JIRA issue to Done
+IMPORT: jiraService from core/integrations/jira
+CALL: jiraService.markDone(currentTask.externalId)
+OUTPUT: "JIRA: {externalId} → Done"
 ```
 
 ---
@@ -49,7 +54,7 @@ ELSE IF currentTask.externalProvider == "jira":
 {task} ({duration})
 
 Files: {count} | Commits: {count}
-{externalId ? "{externalProvider}: {externalId} → Done" : ""}
+{linearId ? "Linear: {linearId} → Done" : ""}
 
 Next:
 - More work? → `p. task "description"`

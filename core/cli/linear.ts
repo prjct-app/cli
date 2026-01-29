@@ -9,6 +9,9 @@
  *   list                       - List my assigned issues
  *   list-team <teamId>         - List issues from a team
  *   get <id>                   - Get issue by ID or identifier (PRJ-123)
+ *   get-local <id>             - Get issue from local cache (no API call)
+ *   sync                       - Pull all assigned issues to local storage
+ *   sync-status                - Check local cache status
  *   create <json>              - Create issue from JSON input
  *   update <id> <json>         - Update issue
  *   start <id>                 - Mark issue as in progress
@@ -21,7 +24,7 @@
  * All output is JSON for easy parsing by Claude.
  */
 
-import { linearService } from '../integrations/linear'
+import { linearService, linearSync } from '../integrations/linear'
 import {
   getLinearApiKey,
   setLinearCredentials,
@@ -192,6 +195,50 @@ async function main(): Promise<void> {
         break
       }
 
+      case 'get-local': {
+        if (!projectId) {
+          error('--project required for get-local')
+        }
+
+        const id = commandArgs[0]
+        if (!id) {
+          error('Issue ID required. Usage: get-local <id>')
+        }
+
+        const cachedIssue = await linearSync.getIssueLocal(projectId, id)
+        if (!cachedIssue) {
+          error(`Issue not in local cache: ${id}. Run 'sync' first.`)
+        }
+
+        output(cachedIssue)
+        break
+      }
+
+      case 'sync': {
+        if (!projectId) {
+          error('--project required for sync')
+        }
+
+        await initFromProject()
+        const result = await linearSync.pullAll(projectId)
+
+        output({
+          success: result.errors.length === 0,
+          ...result,
+        })
+        break
+      }
+
+      case 'sync-status': {
+        if (!projectId) {
+          error('--project required for sync-status')
+        }
+
+        const status = await linearSync.getSyncStatus(projectId)
+        output(status)
+        break
+      }
+
       case 'create': {
         await initFromProject()
         const inputJson = commandArgs[0]
@@ -357,6 +404,9 @@ async function main(): Promise<void> {
             list: 'list [limit] - List my assigned issues',
             'list-team': 'list-team <teamId> [limit] - List team issues',
             get: 'get <id> - Get issue by ID or identifier',
+            'get-local': 'get-local <id> - Get from local cache (no API)',
+            sync: 'sync - Pull all assigned issues to local storage',
+            'sync-status': 'sync-status - Check local cache status',
             create: 'create <json> - Create issue',
             update: 'update <id> <json> - Update issue',
             start: 'start <id> - Mark as in progress',

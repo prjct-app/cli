@@ -64,6 +64,9 @@ export const CurrentTaskSchema = z.object({
   subtasks: z.array(SubtaskSchema).optional(),
   currentSubtaskIndex: z.number().optional(),
   subtaskProgress: SubtaskProgressSchema.optional(),
+  // Linear integration - bidirectional sync
+  linearId: z.string().optional(),      // "PRJ-123" - Linear identifier
+  linearUuid: z.string().optional(),    // Linear internal UUID for API calls
 })
 
 export const PreviousTaskSchema = z.object({
