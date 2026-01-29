@@ -22,6 +22,7 @@ import { promisify } from 'util'
 import pathManager from '../infrastructure/path-manager'
 import configManager from '../infrastructure/config-manager'
 import dateHelper from '../utils/date-helper'
+import { metricsStorage } from '../storage/metrics-storage'
 import {
   generateAIToolContexts,
   DEFAULT_AI_TOOLS,
@@ -91,6 +92,13 @@ interface AIToolResult {
   success: boolean
 }
 
+interface SyncMetrics {
+  duration: number           // Sync duration in ms
+  originalSize: number       // Estimated tokens before compression
+  filteredSize: number       // Actual tokens in context files
+  compressionRate: number    // Percentage saved
+}
+
 interface SyncResult {
   success: boolean
   projectId: string
@@ -103,6 +111,7 @@ interface SyncResult {
   skills: { agent: string; skill: string }[]
   contextFiles: string[]
   aiTools: AIToolResult[]
+  syncMetrics?: SyncMetrics
   error?: string
 }
 
@@ -129,6 +138,7 @@ class SyncService {
    */
   async sync(projectPath: string = process.cwd(), options: SyncOptions = {}): Promise<SyncResult> {
     this.projectPath = projectPath
+    const startTime = Date.now()
 
     // Resolve AI tools: supports 'auto', 'all', or specific list
     let aiToolIds: string[]
@@ -217,6 +227,15 @@ class SyncService {
       // 8. Log to memory
       await this.logToMemory(git, stats)
 
+      // 9. Record metrics for value dashboard
+      const duration = Date.now() - startTime
+      const syncMetrics = await this.recordSyncMetrics(
+        stats,
+        contextFiles,
+        agents,
+        duration
+      )
+
       return {
         success: true,
         projectId: this.projectId,
@@ -233,6 +252,7 @@ class SyncService {
           outputFile: r.outputFile,
           success: r.success,
         })),
+        syncMetrics,
       }
     } catch (error) {
       return {
@@ -1065,6 +1085,85 @@ ${
     }
 
     await fs.appendFile(memoryPath, JSON.stringify(event) + '\n', 'utf-8')
+  }
+
+  // ==========================================================================
+  // METRICS RECORDING
+  // ==========================================================================
+
+  /**
+   * Record sync metrics for the value dashboard
+   *
+   * Calculates token savings by comparing:
+   * - Original: Estimated tokens if we sent all source files
+   * - Filtered: Actual tokens in generated context files
+   *
+   * Token estimation: ~4 chars per token (industry standard)
+   */
+  private async recordSyncMetrics(
+    stats: ProjectStats,
+    contextFiles: string[],
+    agents: AgentInfo[],
+    duration: number
+  ): Promise<SyncMetrics> {
+    const CHARS_PER_TOKEN = 4
+
+    // Calculate filtered size (actual context files generated)
+    let filteredChars = 0
+    for (const file of contextFiles) {
+      try {
+        const filePath = path.join(this.globalPath, file)
+        const content = await fs.readFile(filePath, 'utf-8')
+        filteredChars += content.length
+      } catch {
+        // File might not exist, skip
+      }
+    }
+
+    // Also count agent files
+    for (const agent of agents) {
+      try {
+        const agentPath = path.join(this.globalPath, 'agents', `${agent.name}.md`)
+        const content = await fs.readFile(agentPath, 'utf-8')
+        filteredChars += content.length
+      } catch {
+        // Skip if not found
+      }
+    }
+
+    const filteredSize = Math.floor(filteredChars / CHARS_PER_TOKEN)
+
+    // Estimate original size (what it would take without prjct)
+    // Conservative estimate: avg 500 tokens per source file
+    // Plus overhead for manually creating context
+    const avgTokensPerFile = 500
+    const originalSize = stats.fileCount * avgTokensPerFile
+
+    // Calculate compression rate
+    const compressionRate = originalSize > 0
+      ? Math.max(0, (originalSize - filteredSize) / originalSize)
+      : 0
+
+    // Record to storage
+    try {
+      await metricsStorage.recordSync(this.projectId!, {
+        originalSize,
+        filteredSize,
+        duration,
+        isWatch: false,
+        agents: agents.filter(a => a.type === 'domain').map(a => a.name),
+      })
+    } catch (error) {
+      // Non-blocking - metrics are nice to have
+      console.error('Warning: Failed to record metrics:', (error as Error).message)
+    }
+
+    return {
+      duration,
+      originalSize,
+      filteredSize,
+      compressionRate,
+    }
   }
 
   // ==========================================================================
