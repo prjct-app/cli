@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.42.1] - 2026-01-29
+
+### Bug Fixes
+
+- npm auth configuration for CI publish - PRJ-147
+
+
 ## [0.42.0] - 2026-01-29
 
 ### Features
