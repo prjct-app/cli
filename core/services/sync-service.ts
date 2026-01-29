@@ -22,6 +22,12 @@ import { promisify } from 'util'
 import pathManager from '../infrastructure/path-manager'
 import configManager from '../infrastructure/config-manager'
 import dateHelper from '../utils/date-helper'
+import {
+  generateAIToolContexts,
+  DEFAULT_AI_TOOLS,
+  type ProjectContext,
+  type GenerateResult,
+} from '../ai-tools'
 
 const execAsync = promisify(exec)
 
@@ -77,6 +83,12 @@ interface AgentInfo {
   skill?: string
 }
 
+interface AIToolResult {
+  toolId: string
+  outputFile: string
+  success: boolean
+}
+
 interface SyncResult {
   success: boolean
   projectId: string
@@ -88,7 +100,12 @@ interface SyncResult {
   agents: AgentInfo[]
   skills: { agent: string; skill: string }[]
   contextFiles: string[]
+  aiTools: AIToolResult[]
   error?: string
+}
+
+interface SyncOptions {
+  aiTools?: string[]  // AI tools to generate context for (default: claude, cursor)
 }
 
 // ============================================================================
@@ -108,8 +125,9 @@ class SyncService {
   /**
    * Main sync method - does everything in one call
    */
-  async sync(projectPath: string = process.cwd()): Promise<SyncResult> {
+  async sync(projectPath: string = process.cwd(), options: SyncOptions = {}): Promise<SyncResult> {
     this.projectPath = projectPath
+    const aiToolIds = options.aiTools || DEFAULT_AI_TOOLS
 
     try {
       // 1. Get project config
@@ -126,6 +144,7 @@ class SyncService {
           agents: [],
           skills: [],
           contextFiles: [],
+          aiTools: [],
           error: 'No prjct project. Run p. init first.',
         }
       }
@@ -147,13 +166,41 @@ class SyncService {
       const skills = this.configureSkills(agents)
       const contextFiles = await this.generateContextFiles(git, stats, commands, agents)
 
-      // 5. Update project.json
+      // 5. Generate AI tool context files (multi-agent output)
+      const projectContext: ProjectContext = {
+        projectId: this.projectId,
+        name: stats.name,
+        version: stats.version,
+        ecosystem: stats.ecosystem,
+        projectType: stats.projectType,
+        languages: stats.languages,
+        frameworks: stats.frameworks,
+        repoPath: this.projectPath,
+        branch: git.branch,
+        fileCount: stats.fileCount,
+        commits: git.commits,
+        hasChanges: git.hasChanges,
+        commands,
+        agents: {
+          workflow: agents.filter(a => a.type === 'workflow').map(a => a.name),
+          domain: agents.filter(a => a.type === 'domain').map(a => a.name),
+        },
+      }
+
+      const aiToolResults = await generateAIToolContexts(
+        projectContext,
+        this.globalPath,
+        this.projectPath,
+        aiToolIds
+      )
+
+      // 6. Update project.json
       await this.updateProjectJson(git, stats)
 
-      // 6. Update state.json with enterprise fields
+      // 7. Update state.json with enterprise fields
       await this.updateStateJson(stats, stack)
 
-      // 7. Log to memory
+      // 8. Log to memory
       await this.logToMemory(git, stats)
 
       return {
@@ -167,6 +214,11 @@ class SyncService {
         agents,
         skills,
         contextFiles,
+        aiTools: aiToolResults.map(r => ({
+          toolId: r.toolId,
+          outputFile: r.outputFile,
+          success: r.success,
+        })),
       }
     } catch (error) {
       return {
@@ -180,6 +232,7 @@ class SyncService {
         agents: [],
         skills: [],
         contextFiles: [],
+        aiTools: [],
         error: (error as Error).message,
       }
     }

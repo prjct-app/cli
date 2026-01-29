@@ -205,7 +205,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
    *
    * This eliminates the need for Claude to make 50+ individual tool calls.
    */
-  async sync(projectPath: string = process.cwd()): Promise<CommandResult> {
+  async sync(projectPath: string = process.cwd(), options: { aiTools?: string[] } = {}): Promise<CommandResult> {
     try {
       const initResult = await this.ensureProjectInit(projectPath)
       if (!initResult.success) return initResult
@@ -213,7 +213,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
       console.log('🔄 Syncing project...\n')
 
       // Use syncService to do EVERYTHING in one call
-      const result = await syncService.sync(projectPath)
+      const result = await syncService.sync(projectPath, { aiTools: options.aiTools })
 
       if (!result.success) {
         console.error('❌ Sync failed:', result.error)
@@ -245,6 +245,17 @@ export class AnalysisCommands extends PrjctCommandsBase {
         console.log(`├── ${file}`)
       }
       console.log('')
+
+      // Show AI Tools generated (multi-agent output)
+      if (result.aiTools && result.aiTools.length > 0) {
+        const successTools = result.aiTools.filter(t => t.success)
+        console.log(`🤖 AI Tools Context (${successTools.length})`)
+        for (const tool of result.aiTools) {
+          const status = tool.success ? '✓' : '✗'
+          console.log(`├── ${status} ${tool.outputFile} (${tool.toolId})`)
+        }
+        console.log('')
+      }
 
       const workflowAgents = result.agents.filter(a => a.type === 'workflow').map(a => a.name)
       const domainAgents = result.agents.filter(a => a.type === 'domain').map(a => a.name)
