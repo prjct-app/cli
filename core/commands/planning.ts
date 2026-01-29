@@ -21,6 +21,7 @@ import {
 import { queueStorage, ideasStorage } from '../storage'
 import authorDetector from '../infrastructure/author-detector'
 import commandInstaller from '../infrastructure/command-installer'
+import { showNextSteps } from '../utils/next-steps'
 
 // Lazy-loaded to avoid circular dependencies
 let _analysisCommands: import('./analysis').AnalysisCommands | null = null
@@ -123,6 +124,7 @@ export class PlanningCommands extends PrjctCommandsBase {
       await commandInstaller.installGlobalConfig()
 
       out.done('initialized')
+      showNextSteps('init')
       return { success: true, projectId }
     } catch (error) {
       out.fail((error as Error).message)
@@ -250,6 +252,7 @@ export class PlanningCommands extends PrjctCommandsBase {
       })
 
       out.done(`bug [${severity}] → ${agent}`)
+      showNextSteps('bug')
 
       return { success: true, bug: description, severity, agent }
     } catch (error) {
@@ -416,6 +419,7 @@ Generated: ${new Date().toLocaleString()}
         })
 
         out.done(`idea captured: ${description.slice(0, 40)}`)
+        showNextSteps('idea')
 
         return { success: true, mode: 'capture', idea: description }
       }

@@ -20,6 +20,7 @@ import {
 import { stateStorage, queueStorage } from '../storage'
 import { templateExecutor } from '../agentic/template-executor'
 import commandExecutor from '../agentic/command-executor'
+import { showNextSteps } from '../utils/next-steps'
 
 export class WorkflowCommands extends PrjctCommandsBase {
   /**
@@ -71,6 +72,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
           : 'none (run p. sync)'
 
         out.done(`${task} [specialists: ${agentsList}]`)
+        showNextSteps('task')
 
         await this.logToMemory(projectPath, 'task_started', {
           task,
@@ -140,6 +142,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
       await stateStorage.completeTask(projectId)
 
       out.done(`${task}${duration ? ` (${duration})` : ''}`)
+      showNextSteps('done')
 
       await this.logToMemory(projectPath, 'task_completed', {
         task,
@@ -176,6 +179,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
       }
 
       out.done(`${tasks.length} task${tasks.length !== 1 ? 's' : ''} queued`)
+      showNextSteps('next')
 
       return { success: true, tasks, count: tasks.length }
     } catch (error) {
@@ -210,6 +214,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
 
       const taskDesc = currentTask.description.slice(0, 40)
       out.done(`paused: ${taskDesc}${reason ? ` (${reason})` : ''}`)
+      showNextSteps('pause')
 
       await this.logToMemory(projectPath, 'task_paused', {
         task: currentTask.description,
@@ -254,6 +259,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
       }
 
       out.done(`resumed: ${resumed.description.slice(0, 40)}`)
+      showNextSteps('resume')
 
       await this.logToMemory(projectPath, 'task_resumed', {
         task: resumed.description,
