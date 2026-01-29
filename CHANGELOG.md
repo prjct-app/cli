@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.44.1] - 2026-01-29
+
+### Fixed: Workflow Templates with Mandatory Steps (PRJ-143)
+
+Templates now enforce step-by-step workflows with explicit blocking conditions.
+
+**Problem:** Claude was skipping workflow steps (pushing directly to main, skipping PRs, etc.)
+
+**Solution:** Added ⛔ BLOCKING conditions to critical templates:
+- `ship.md` - Must check branch, create PR, bump version
+- `merge.md` - Must verify PR approval and CI status
+- `task.md` - Pre-flight checks before branch creation
+- `git.md` - Block commits/pushes on main/master
+
+**Also Fixed:**
+- Commit footer simplified to `Generated with [p/](https://www.prjct.app/)` (no emoji, no provider-specific line)
+- All provider templates updated (Claude, Gemini, Cursor, Antigravity, Windsurf)
+- Global CLAUDE.md strengthened with git workflow rules
+
 ## [0.44.0] - 2026-01-29
 
 ### Feature: Workflow State Machine (PRJ-139)

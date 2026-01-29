@@ -64,8 +64,7 @@ Fix issues and try again.
 
    {body if needed}
 
-   🤖 Generated with [p/](https://www.prjct.app/)
-   Designed for [Claude](https://www.anthropic.com/claude)
+   Generated with [p/](https://www.prjct.app/)
    ```
 3. Commit: `git commit -m "{message}"`
 4. Push: `git push origin {current-branch}`

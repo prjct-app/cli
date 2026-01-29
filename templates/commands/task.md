@@ -4,9 +4,61 @@ allowed-tools: [Read, Write, Bash, Task, Glob, Grep, AskUserQuestion]
 
 # p. task "$ARGUMENTS"
 
-```bash
-prjct context task $ARGUMENTS
+## ⛔ MANDATORY PRE-FLIGHT CHECKS
+
+**Execute these checks BEFORE any task creation:**
+
+### Check 1: Validate Arguments
+
 ```
+IF $ARGUMENTS is empty:
+  ASK: "What task do you want to start?"
+  WAIT for response
+  DO NOT proceed with empty task
+```
+
+### Check 2: Check for Active Task
+
+```
+READ: {globalPath}/storage/state.json
+
+IF currentTask exists AND currentTask.status == "active":
+  OUTPUT:
+  """
+  ⚠️ Active task detected: {currentTask.description}
+
+  Options:
+  1. Complete current task first → `p. done`
+  2. Pause current task → `p. pause`
+  3. Switch anyway (current task will be paused)
+  """
+
+  ASK: "What would you like to do?"
+  WAIT for explicit choice
+  DO NOT automatically switch tasks
+```
+
+### Check 3: Validate Git State
+
+```bash
+git status --porcelain
+```
+
+```
+IF uncommitted changes exist:
+  OUTPUT:
+  """
+  ⚠️ You have uncommitted changes:
+  {list of files}
+
+  Commit or stash them before starting a new task.
+  """
+
+  ASK: "Would you like to commit these changes first?"
+  WAIT for response
+```
+
+---
 
 ## Step 0: Detect Issue Tracker Reference
 
@@ -67,14 +119,59 @@ ELSE:
 
 ## Main Flow
 
-IF `currentTask` active → Ask: complete, pause, or cancel?
+### Step A: Show Plan and Get Approval (BLOCKING)
 
+**⛔ DO NOT create branches or modify state without user approval.**
+
+```
+OUTPUT:
+"""
+## Task Plan
+
+Description: $ARGUMENTS
+Type: {classified type}
+Branch: {type}/{slug}
+
+Will do:
+1. Create feature branch from current branch
+2. Initialize task tracking in state.json
+3. Break down into subtasks
+4. {If Linear: Update issue status to In Progress}
+
+Proceed? (yes/no)
+"""
+
+WAIT for explicit "yes" or approval
+DO NOT assume
+```
+
+### Step B: Explore Codebase
+
+```
 USE Task(Explore) → find similar code, affected files
-READ `agents[].filePath` → get patterns
-Classify: feature|bug|improvement|refactor|chore
-Break into subtasks
+READ agents/*.md → get domain patterns
+```
 
-IF on main → `git checkout -b {type}/{slug}`
+### Step C: Classify Task
+
+Determine type: feature | bug | improvement | refactor | chore
+
+### Step D: Create Branch (if needed)
+
+```bash
+CURRENT_BRANCH=$(git branch --show-current)
+```
+
+```
+IF CURRENT_BRANCH == "main" OR CURRENT_BRANCH == "master":
+  OUTPUT: "Creating feature branch: {type}/{slug}"
+
+  git checkout -b {type}/{slug}
+
+  IF git command fails:
+    OUTPUT: "Failed to create branch. Check git status."
+    STOP
+```
 
 ```bash
 prjct work "$ARGUMENTS"
