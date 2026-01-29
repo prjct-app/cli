@@ -22,11 +22,34 @@ Mark complete:
 
 WRITE `{globalPath}/storage/state.json`
 
+---
+
+## Sync Issue Tracker Status
+
+IF `currentTask.externalId` exists:
+
+```
+IF currentTask.externalProvider == "linear":
+  # Update Linear issue to Done
+  IMPORT: linearService from core/integrations/linear
+  CALL: linearService.markDone(currentTask.externalId)
+  OUTPUT: "Linear: {externalId} → Done"
+
+ELSE IF currentTask.externalProvider == "jira":
+  # Update JIRA issue to Done
+  IMPORT: jiraService from core/integrations/jira
+  CALL: jiraService.markDone(currentTask.externalId)
+  OUTPUT: "JIRA: {externalId} → Done"
+```
+
+---
+
 **Output**:
 ```
-✅ {task} ({duration})
+{task} ({duration})
 
 Files: {count} | Commits: {count}
+{externalId ? "{externalProvider}: {externalId} → Done" : ""}
 
 Next:
 - More work? → `p. task "description"`
