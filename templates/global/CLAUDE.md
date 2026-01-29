@@ -229,6 +229,64 @@ Next: [suggested action]
 
 ---
 
+## CLEAN TERMINAL UX (CRITICAL)
+
+**Tool calls MUST be user-friendly.** The terminal output represents prjct's quality.
+
+### Rules for Tool Calls
+
+1. **ALWAYS use clear descriptions** in Bash tool calls:
+   ```
+   GOOD: description: "Building project"
+   BAD:  description: "bun run build 2>&1 | tail -5"
+   ```
+
+2. **Hide implementation details** - Users don't need to see:
+   - Pipe chains (`| tail -5`, `| grep`, `2>&1`)
+   - Internal paths (`/Users/jj/.prjct-cli/...`)
+   - JSON parsing (`jq -r '.field'`)
+
+3. **Use action verbs** for descriptions:
+   - "Building project"
+   - "Running tests"
+   - "Checking git status"
+   - "Fetching Linear issues"
+
+4. **Group related operations** - Don't show 5 separate tool calls when 1 will do
+
+5. **Prefer prjct CLI over raw commands**:
+   ```
+   GOOD: bun core/cli/linear.ts list
+   BAD:  curl -X POST https://api.linear.app/graphql...
+   ```
+
+### Examples
+
+```
+# GOOD - Clean, understandable
+⏺ Bash: Building project
+  ✓ Build complete
+
+# BAD - Technical noise
+⏺ Bash(cd /Users/jj/Apps/prjct && bun run build 2>&1 | tail -5)
+  → core/infrastructure/editors-config.js
+  → core/utils/version.js
+```
+
+### When Reading Files
+
+- Don't announce every file read
+- Group related reads
+- Only mention files relevant to user's question
+
+### When Running Commands
+
+- Show WHAT you're doing, not HOW
+- Suppress stderr noise when possible
+- Return only meaningful output
+
+---
+
 ## LOADING DOMAIN AGENTS
 
 When working on tasks, load relevant agents from `{globalPath}/agents/`:

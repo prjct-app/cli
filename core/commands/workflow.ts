@@ -20,7 +20,10 @@ import {
 import { stateStorage, queueStorage } from '../storage'
 import { templateExecutor } from '../agentic/template-executor'
 import commandExecutor from '../agentic/command-executor'
-import { showNextSteps } from '../utils/next-steps'
+import { showNextSteps, showStateInfo } from '../utils/next-steps'
+import { workflowStateMachine } from '../workflow/state-machine'
+import { linearService } from '../integrations/linear'
+import { getProjectCredentials, getLinearApiKey } from '../utils/project-credentials'
 
 export class WorkflowCommands extends PrjctCommandsBase {
   /**
@@ -46,12 +49,39 @@ export class WorkflowCommands extends PrjctCommandsBase {
           return { success: false, error: result.error }
         }
 
+        // Check if task is a Linear issue ID (e.g., PRJ-139)
+        let linearId: string | undefined
+        let taskDescription = task
+        const linearPattern = /^[A-Z]+-\d+$/
+        if (linearPattern.test(task)) {
+          try {
+            const creds = await getProjectCredentials(projectId)
+            const apiKey = await getLinearApiKey(projectId)
+            if (apiKey && creds.linear?.teamId) {
+              await linearService.initializeFromApiKey(
+                apiKey,
+                creds.linear.teamId
+              )
+              const issue = await linearService.fetchIssue(task)
+              if (issue) {
+                linearId = task
+                taskDescription = `${task}: ${issue.title}`
+                // Mark as in progress in Linear
+                await linearService.markInProgress(task)
+              }
+            }
+          } catch {
+            // Linear fetch failed - continue with task as-is
+          }
+        }
+
         // Write-through: JSON → MD → Event
         await stateStorage.startTask(projectId, {
           id: generateUUID(),
-          description: task,
-          sessionId: generateUUID()
-        })
+          description: taskDescription,
+          sessionId: generateUUID(),
+          linearId,
+        } as Parameters<typeof stateStorage.startTask>[1])
 
         // Get available agents for backward compatibility
         const availableAgents = await templateExecutor.getAvailableAgents(projectPath)
@@ -59,7 +89,8 @@ export class WorkflowCommands extends PrjctCommandsBase {
           ? availableAgents.join(', ')
           : 'none (run p. sync)'
 
-        out.done(`${task} [specialists: ${agentsList}]`)
+        out.done(`${task}`)
+        showStateInfo('working')
         showNextSteps('task')
 
         await this.logToMemory(projectPath, 'task_started', {
@@ -129,7 +160,30 @@ export class WorkflowCommands extends PrjctCommandsBase {
       // Write-through: Complete task (JSON → MD → Event)
       await stateStorage.completeTask(projectId)
 
-      out.done(`${task}${duration ? ` (${duration})` : ''}`)
+      // Sync to Linear if task has linearId
+      const linearId = (currentTask as { linearId?: string }).linearId
+      if (linearId) {
+        try {
+          const creds = await getProjectCredentials(projectId)
+          const apiKey = await getLinearApiKey(projectId)
+          if (apiKey && creds.linear?.teamId) {
+            await linearService.initializeFromApiKey(
+              apiKey,
+              creds.linear.teamId
+            )
+            await linearService.markDone(linearId)
+            out.done(`${task}${duration ? ` (${duration})` : ''} → Linear ✓`)
+          } else {
+            out.done(`${task}${duration ? ` (${duration})` : ''}`)
+          }
+        } catch {
+          // Linear sync failed silently - don't block the workflow
+          out.done(`${task}${duration ? ` (${duration})` : ''}`)
+        }
+      } else {
+        out.done(`${task}${duration ? ` (${duration})` : ''}`)
+      }
+      showStateInfo('completed')
       showNextSteps('done')
 
       await this.logToMemory(projectPath, 'task_completed', {
@@ -202,6 +256,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
 
       const taskDesc = currentTask.description.slice(0, 40)
       out.done(`paused: ${taskDesc}${reason ? ` (${reason})` : ''}`)
+      showStateInfo('paused')
       showNextSteps('pause')
 
       await this.logToMemory(projectPath, 'task_paused', {
@@ -247,6 +302,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
       }
 
       out.done(`resumed: ${resumed.description.slice(0, 40)}`)
+      showStateInfo('working')
       showNextSteps('resume')
 
       await this.logToMemory(projectPath, 'task_resumed', {
