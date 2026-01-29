@@ -6,37 +6,39 @@ extends: '_bases/tracker-base.md'
 
 # p. linear - Linear Integration
 
-**EXTENDS**: `_bases/tracker-base.md` - See base template for common flows.
-
 **ARGUMENTS**: $ARGUMENTS
 
-Manage Linear issues directly from prjct using the @linear/sdk for fast performance.
+Manage Linear issues directly from prjct using natural language.
 
-## Context Variables
+## How This Works
 
-- `{projectId}`: From `.prjct/prjct.config.json`
-- `{globalPath}`: `~/.prjct-cli/projects/{projectId}`
-- `{args}`: User-provided arguments (subcommand)
+User types natural commands → Claude interprets → Executes SDK → Shows formatted result
 
----
-
-## Subcommands
-
-| Command | Description |
-|---------|-------------|
-| `p. linear` | Show your assigned issues |
-| `p. linear setup` | Configure Linear API key (first time) |
-| `p. linear start <ID>` | Start working on issue (e.g., PRJ-59) |
-| `p. linear comment <ID> <text>` | Add comment to issue |
+**Examples**:
+- `p. linear` → List my assigned issues
+- `p. linear 123` or `p. linear PRJ-123` → Get issue details
+- `p. linear start 123` → Start working on issue
+- `p. linear done 123` → Mark issue as done
+- `p. linear setup` → Configure API key
+- `p. linear "add auth feature"` → Create new issue
 
 ---
 
-## Authentication
+## CRITICAL - Execution Pattern
 
-Linear uses API key authentication for fast SDK access.
+**NEVER use MCP tools** (`mcp__linear__*`, `mcp__claude_ai_Linear__*`).
+**ALWAYS use SDK via CLI helper** (much faster, per-project credentials).
 
-**Get API Key**: https://linear.app/settings/api
-**Env Variable**: `LINEAR_API_KEY`
+### CLI Helper (Internal Use)
+
+```bash
+# Setup paths first
+PRJCT_CLI=$(npm root -g)/prjct-cli
+PROJECT_ID=$(cat .prjct/prjct.config.json | jq -r '.projectId')
+
+# Then run commands with --project flag
+bun $PRJCT_CLI/core/cli/linear.ts --project $PROJECT_ID <command> [args...]
+```
 
 ---
 
@@ -54,125 +56,139 @@ IF file not found:
 
 ---
 
-## Step 2: Check API Key
+## Step 2: Parse User Intent
 
-```
-CHECK: Is LINEAR_API_KEY set in environment?
+Analyze $ARGUMENTS to determine what user wants:
 
-IF not set:
-  ASK: "Enter your Linear API key"
-  HINT: "Get it from https://linear.app/settings/api"
+| User Input | Intent | CLI Command |
+|------------|--------|-------------|
+| (empty) | List my issues | `list` |
+| `setup` | Configure API key | `setup <apiKey>` |
+| `123` or `PRJ-123` | Get issue details | `get PRJ-123` |
+| `start 123` | Start working | `start PRJ-123` |
+| `done 123` | Mark complete | `done PRJ-123` |
+| `comment 123 text...` | Add comment | `comment PRJ-123 "text"` |
+| `"create something"` | Create issue | `create '{"title":"..."}'` |
+| `teams` | List teams | `teams` |
+| `status` | Check connection | `status` |
 
-  ONCE PROVIDED:
-  OUTPUT: "Add to your shell profile:"
-  OUTPUT: "export LINEAR_API_KEY='your-key'"
-  OUTPUT: ""
-  OUTPUT: "Or add to .env file in project root"
-```
+**Identifier normalization**: If user types `123`, check project config for team key and expand to `PRJ-123`.
 
 ---
 
 ## Subcommand: setup
 
+**Trigger**: `p. linear setup`
+
 ### Flow
 
-1. **Check for API key**
+1. **Ask for API key**
    ```
-   IF LINEAR_API_KEY not in environment:
-     ASK: "Enter your Linear API key"
-     PROVIDE: Link to https://linear.app/settings/api
-   ```
-
-2. **Test SDK connection**
-   ```
-   IMPORT: linearService from core/integrations/linear
-   CALL: linearService.initializeFromApiKey(apiKey)
-
-   # This will verify the connection
+   ASK: "Enter your Linear API key"
+   HINT: "Get it from https://linear.app/settings/api"
    ```
 
-3. **Get user info and teams**
-   ```
-   CALL: linearService.getTeams()
-   EXTRACT: List of teams with id, name, key
+2. **Store and test via CLI**
+   ```bash
+   RESULT=$(bun $PRJCT_CLI/core/cli/linear.ts --project $PROJECT_ID setup "$API_KEY")
    ```
 
-4. **Ask user to select default team**
+3. **Parse result** - Contains `{ success, teams, defaultTeam }`
+
+4. **If multiple teams, ask user to select**
    ```
    ASK: "Select your default team"
-   OPTIONS: List of teams
-   ```
+   OPTIONS: teams from result
 
-5. **Save config to project.json**
-   ```json
-   {
-     "integrations": {
-       "linear": {
-         "enabled": true,
-         "authMode": "api-key",
-         "teamId": "{teamId}",
-         "teamName": "{teamName}",
-         "teamKey": "{teamKey}",
-         "setupAt": "{timestamp}"
-       }
-     }
-   }
+   # Re-run setup with team selection
+   bun $PRJCT_CLI/core/cli/linear.ts --project $PROJECT_ID setup "$API_KEY" "$TEAM_ID"
    ```
 
 ### Output
 
 ```
-Linear configured
+✅ Linear configured
 
 Team: {teamName} ({teamKey})
-Auth: API Key (SDK)
+Credentials: Stored per-project
 
 Next: `p. linear` to see your issues
 ```
 
 ---
 
-## Subcommand: status (default, no args)
+## Subcommand: list (default)
+
+**Trigger**: `p. linear` (no arguments)
+
+```bash
+RESULT=$(bun $PRJCT_CLI/core/cli/linear.ts --project $PROJECT_ID list)
+```
+
+### Output
 
 ```
-CALL: linearService.fetchAssignedIssues({ limit: 10 })
-
-OUTPUT:
 Linear: Connected
-Team: {teamName} ({teamKey})
 
-Your issues ({count}):
-  {PRJ-123} {title} ({status})
-  {PRJ-124} {title} ({status})
-...
+Your issues (5):
+  PRJ-123  Add user authentication     In Progress
+  PRJ-124  Fix login redirect          Todo
+  PRJ-125  Update dependencies         Backlog
+  ...
 
-Next: `p. linear start PRJ-123` to begin work
+Next: `p. linear 123` for details, `p. linear start 123` to begin
+```
+
+---
+
+## Subcommand: get <ID>
+
+**Trigger**: `p. linear 123` or `p. linear PRJ-123`
+
+```bash
+RESULT=$(bun $PRJCT_CLI/core/cli/linear.ts --project $PROJECT_ID get "PRJ-123")
+```
+
+### Output
+
+```
+PRJ-123: Add user authentication
+
+Status: In Progress
+Priority: High
+Assignee: @user
+
+Description:
+{description text}
+
+URL: https://linear.app/team/issue/PRJ-123
+
+Next: `p. linear start 123` to begin, `p. task "PRJ-123"` to track in prjct
 ```
 
 ---
 
 ## Subcommand: start <ID>
 
+**Trigger**: `p. linear start 123`
+
+```bash
+# 1. Get issue info
+ISSUE=$(bun $PRJCT_CLI/core/cli/linear.ts --project $PROJECT_ID get "PRJ-123")
+
+# 2. Mark in progress
+bun $PRJCT_CLI/core/cli/linear.ts --project $PROJECT_ID start "PRJ-123"
+
+# 3. Create git branch
+git checkout -b "feature/PRJ-123-{slug}"
 ```
-1. Get issue
-   CALL: linearService.fetchIssue("{ID}")
-   EXTRACT: id, title, description, status
 
-2. Update status to In Progress
-   CALL: linearService.markInProgress("{ID}")
+### Output
 
-3. Create prjct task from issue
-   - Use issue title as task description
-   - Link externalId to Linear issue
+```
+Started: PRJ-123 - {title}
 
-4. Create git branch
-   PATTERN: feature/{ID}-{slug}
-   EXAMPLE: feature/PRJ-59-add-user-auth
-
-OUTPUT:
-Started: {ID} - {title}
-
-Branch: feature/PRJ-59-add-user-auth
+Branch: feature/PRJ-123-add-user-auth
 Linear: In Progress
 
 Next: Work on the task, then `p. done`
@@ -180,84 +196,102 @@ Next: Work on the task, then `p. done`
 
 ---
 
+## Subcommand: done <ID>
+
+**Trigger**: `p. linear done 123`
+
+```bash
+bun $PRJCT_CLI/core/cli/linear.ts --project $PROJECT_ID done "PRJ-123"
+```
+
+### Output
+
+```
+✅ Completed: PRJ-123 - {title}
+
+Linear: Done
+```
+
+---
+
+## Subcommand: create
+
+**Trigger**: `p. linear "add feature X"` or `p. linear create "title"`
+
+```bash
+# Get default team from credentials
+TEAMS=$(bun $PRJCT_CLI/core/cli/linear.ts --project $PROJECT_ID teams)
+
+# Create issue
+RESULT=$(bun $PRJCT_CLI/core/cli/linear.ts --project $PROJECT_ID create '{"title":"...","teamId":"..."}')
+```
+
+### Output
+
+```
+✅ Created: PRJ-126 - {title}
+
+URL: https://linear.app/...
+
+Next: `p. linear start 126` to begin
+```
+
+---
+
 ## Subcommand: comment <ID> <text>
 
-```
-1. Add comment via SDK
-   CALL: linearService.addComment("{ID}", "{text}")
+**Trigger**: `p. linear comment 123 "Progress update..."`
 
-OUTPUT:
-Comment added to {ID}
+```bash
+bun $PRJCT_CLI/core/cli/linear.ts --project $PROJECT_ID comment "PRJ-123" "Progress update..."
+```
+
+### Output
+
+```
+✅ Comment added to PRJ-123
 ```
 
 ---
 
-## SDK Service Reference
+## Subcommand: update <ID>
 
-The `linearService` from `core/integrations/linear` provides:
+**Trigger**: `p. linear update 123` (then ask what to update)
 
-| Operation | SDK Method |
-|-----------|------------|
-| Initialize | `linearService.initializeFromApiKey(key, teamId?)` |
-| List assigned | `linearService.fetchAssignedIssues(options?)` |
-| Get issue | `linearService.fetchIssue(id)` |
-| Create issue | `linearService.createIssue(input)` |
-| Update issue | `linearService.updateIssue(id, input)` |
-| Mark in progress | `linearService.markInProgress(id)` |
-| Mark done | `linearService.markDone(id)` |
-| Add comment | `linearService.addComment(id, body)` |
-| Get teams | `linearService.getTeams()` |
-| Get projects | `linearService.getProjects()` |
-
-### Caching
-
-All read operations are cached for 5 minutes:
-- Issues are cached by ID and identifier (e.g., "PRJ-123")
-- Assigned issues list is cached per user
-- Teams and projects are cached globally
-
-Cache is automatically invalidated on writes (create, update, status changes).
-
----
-
-## Config Storage
-
-| What | Where |
-|------|-------|
-| API Key | `LINEAR_API_KEY` environment variable |
-| Config | `{globalPath}/project.json` → `integrations.linear` |
+```bash
+bun $PRJCT_CLI/core/cli/linear.ts --project $PROJECT_ID update "PRJ-123" '{"description":"..."}'
+```
 
 ---
 
 ## Error Handling
 
-| Error | Action |
-|-------|--------|
-| No API key | "Set LINEAR_API_KEY or run `p. linear setup`" |
-| Invalid API key | "Check your API key at https://linear.app/settings/api" |
-| Issue not found | "Issue {ID} not found in Linear" |
-| Network error | "Check your internet connection" |
+| Error | Response |
+|-------|----------|
+| Not configured | "Run `p. linear setup` to configure your API key" |
+| Invalid API key | "Invalid API key. Get a new one at https://linear.app/settings/api" |
+| Issue not found | "Issue PRJ-123 not found" |
+| No project | "Run `p. init` first" |
 
 ---
 
-## Output Format
+## Credential Storage
 
-```
-{action}: {result}
+Credentials are stored **per-project** to support multiple Linear workspaces:
 
-{details}
+**Location**: `~/.prjct-cli/projects/{projectId}/config/credentials.json`
 
-Next: {suggested action}
-```
+**Fallback chain**:
+1. Project credentials (per-project)
+2. Global keychain (macOS)
+3. Environment variable (`LINEAR_API_KEY`)
 
 ---
 
 ## Performance
 
-SDK operations are significantly faster than MCP:
-
 | Operation | SDK | MCP (deprecated) |
 |-----------|-----|------------------|
 | Fetch issue | ~150ms | ~600ms |
+| List issues | ~300ms | ~1200ms |
 | Create issue | ~200ms | ~800ms |
-| Batch (10) | ~500ms | ~8000ms |
