@@ -154,8 +154,8 @@ class PrjctCommands {
     return this.analysis.analyze(options, projectPath)
   }
 
-  async sync(projectPath: string = process.cwd()): Promise<CommandResult> {
-    return this.analysis.sync(projectPath)
+  async sync(projectPath: string = process.cwd(), options: { aiTools?: string[] } = {}): Promise<CommandResult> {
+    return this.analysis.sync(projectPath, options)
   }
 
   // ========== Context Commands ==========

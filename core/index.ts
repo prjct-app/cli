@@ -118,7 +118,9 @@ async function main(): Promise<void> {
         redo: () => commands.redo(),
         history: () => commands.history(),
         // Setup
-        sync: () => commands.sync(),
+        sync: () => commands.sync(process.cwd(), {
+          aiTools: options.agents ? String(options.agents).split(',') : undefined,
+        }),
         start: () => commands.start(),
         // Context (for Claude templates)
         context: (p) => commands.context(p),
