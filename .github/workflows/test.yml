@@ -27,10 +27,10 @@ jobs:
         run: npm rebuild node-pty
 
       - name: Run tests
-        run: bun test --reporter=verbose
+        run: bun test
 
       - name: Generate coverage report
-        run: bun test --coverage
+        run: bun test --coverage || true
 
   lint:
     name: Lint

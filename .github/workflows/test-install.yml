@@ -29,7 +29,7 @@ jobs:
       - name: Verify installation
         run: |
           which prjct
-          prjct 2>&1 | grep -q "Available commands" || exit 1
+          prjct --help 2>&1 | grep -q "COMMANDS" || exit 1
 
   test-npm:
     name: Test npm Installation
@@ -55,7 +55,7 @@ jobs:
       - name: Verify installation
         run: |
           which prjct
-          prjct 2>&1 | grep -q "Available commands" || exit 1
+          prjct --help 2>&1 | grep -q "COMMANDS" || exit 1
 
       - name: Test package.json scripts
         run: |
@@ -85,15 +85,14 @@ jobs:
           which prjct
 
           # Test CLI runs and shows help
-          prjct --help 2>&1 | grep -q "Available commands"
+          prjct --help 2>&1 | grep -q "COMMANDS"
 
-          # Test all core commands exist
-          prjct 2>&1 | grep -q "init"
-          prjct 2>&1 | grep -q "now"
-          prjct 2>&1 | grep -q "done"
-          prjct 2>&1 | grep -q "ship"
-          prjct 2>&1 | grep -q "next"
-          prjct 2>&1 | grep -q "idea"
+          # Test all core commands exist in help output
+          prjct --help 2>&1 | grep -q "init"
+          prjct --help 2>&1 | grep -q "sync"
+          prjct --help 2>&1 | grep -q "task"
+          prjct --help 2>&1 | grep -q "done"
+          prjct --help 2>&1 | grep -q "ship"
 
           echo "✅ CLI installed and all commands verified"
 
