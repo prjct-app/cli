@@ -31,32 +31,24 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          bun-version: latest
-
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
+          node-version: '20'
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: npm install
 
       - name: Quality checks
         run: |
-          bun run check
-          bun run typecheck
+          npm run check
+          npm run typecheck
 
       - name: Tests
-        run: bun test
+        run: npm test
 
       - name: Build
-        run: bun run build
+        run: npm run build
 
       - name: Check for releasable commits
         id: check
@@ -97,11 +89,6 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -109,7 +96,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: npm install
 
       - name: Configure git
         run: |
@@ -239,7 +226,7 @@ jobs:
           sed -i "s/export const VERSION = '[^']*'/export const VERSION = '$VERSION'/" core/utils/version.ts
 
       - name: Build release
-        run: bun run build
+        run: npm run build
 
       - name: Commit and tag
         if: ${{ !inputs.dry_run }}
