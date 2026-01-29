@@ -1,5 +1,44 @@
 # Changelog
 
+## [0.45.0] - 2026-01-29
+
+### Feature: Smart Context Filtering Tools (PRJ-127)
+
+Terminal tools for AI agents to explore codebases efficiently **without consuming tokens for filtering**.
+
+**New Command: `prjct context <tool>`**
+
+| Tool | Purpose | Compression |
+|------|---------|-------------|
+| `files <task>` | Find relevant files for a task | 93% fewer files |
+| `signatures <path>` | Extract code structure only | ~92% token reduction |
+| `imports <file>` | Analyze dependency graphs | - |
+| `recent [commits]` | Find hot files from git | - |
+| `summary <path>` | Intelligent file summary | ~96% token reduction |
+
+**Real Cost Savings (multi-model support)**
+
+```json
+"cost": {
+  "saved": 2.32,
+  "byModel": [
+    { "model": "claude-sonnet-4.5", "inputSaved": 0.93, "outputPotential": 1.39 },
+    { "model": "gpt-4o", "inputSaved": 0.77, "outputPotential": 0.93 }
+  ]
+}
+```
+
+**Example: Full codebase signatures**
+```bash
+prjct context signatures core/ --recursive
+# 336K → 26K tokens (92% compression)
+# Saves $2.32/call (Sonnet) or $3.87/call (Opus)
+```
+
+**New Files:**
+- `core/context-tools/` - Complete module (7 files)
+- `core/schemas/metrics.ts` - Updated pricing (Jan 2026)
+
 ## [0.44.1] - 2026-01-29
 
 ### Fixed: Workflow Templates with Mandatory Steps (PRJ-143)

@@ -18,6 +18,8 @@ import { generateContext } from '../context/generator'
 import commandInstaller from '../infrastructure/command-installer'
 import { syncService } from '../services'
 import { showNextSteps } from '../utils/next-steps'
+import { metricsStorage } from '../storage/metrics-storage'
+import { formatCost } from '../schemas/metrics'
 
 export class AnalysisCommands extends PrjctCommandsBase {
   /**
@@ -309,6 +311,243 @@ export class AnalysisCommands extends PrjctCommandsBase {
       console.error('❌ Error:', (error as Error).message)
       return { success: false, error: (error as Error).message }
     }
+  }
+
+  /**
+   * /p:stats - Value dashboard showing accumulated savings and impact
+   *
+   * Displays:
+   * - Token savings (total, compression rate, estimated cost)
+   * - Performance metrics (sync count, avg duration)
+   * - Agent usage breakdown
+   * - 30-day trend visualization
+   */
+  async stats(
+    projectPath: string = process.cwd(),
+    options: { json?: boolean; export?: boolean } = {}
+  ): Promise<CommandResult> {
+    try {
+      const initResult = await this.ensureProjectInit(projectPath)
+      if (!initResult.success) return initResult
+
+      const projectId = await configManager.getProjectId(projectPath)
+      if (!projectId) {
+        return { success: false, error: 'No project ID found' }
+      }
+
+      // Get metrics summary
+      const summary = await metricsStorage.getSummary(projectId)
+      const dailyStats = await metricsStorage.getDailyStats(projectId, 30)
+
+      // JSON output mode
+      if (options.json) {
+        const jsonOutput = {
+          totalTokensSaved: summary.totalTokensSaved,
+          estimatedCostSaved: summary.estimatedCostSaved,
+          compressionRate: summary.compressionRate,
+          syncCount: summary.syncCount,
+          avgSyncDuration: summary.avgSyncDuration,
+          topAgents: summary.topAgents,
+          last30DaysTokens: summary.last30DaysTokens,
+          trend: summary.trend,
+          dailyStats,
+        }
+        console.log(JSON.stringify(jsonOutput, null, 2))
+        return { success: true, data: jsonOutput }
+      }
+
+      // Get project info for header
+      const globalPath = pathManager.getGlobalProjectPath(projectId)
+      let projectName = 'Unknown'
+      try {
+        const fs = require('fs/promises')
+        const path = require('path')
+        const projectJson = JSON.parse(
+          await fs.readFile(path.join(globalPath, 'project.json'), 'utf-8')
+        )
+        projectName = projectJson.name || 'Unknown'
+      } catch {
+        // Use fallback
+      }
+
+      // Determine first sync date
+      const metricsData = await metricsStorage.read(projectId)
+      const firstSyncDate = metricsData.firstSync
+        ? new Date(metricsData.firstSync).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+          })
+        : 'N/A'
+
+      // ASCII Dashboard
+      console.log('')
+      console.log('╭─────────────────────────────────────────────────╮')
+      console.log('│  📊 prjct-cli Value Dashboard                   │')
+      console.log(`│  Project: ${projectName.padEnd(20).slice(0, 20)} | Since: ${firstSyncDate.padEnd(12).slice(0, 12)} │`)
+      console.log('╰─────────────────────────────────────────────────╯')
+      console.log('')
+
+      // Token Savings Section
+      console.log('💰 TOKEN SAVINGS')
+      console.log(`   Total saved:     ${this._formatTokens(summary.totalTokensSaved)} tokens`)
+      console.log(`   Compression:     ${(summary.compressionRate * 100).toFixed(0)}% average reduction`)
+      console.log(`   Estimated cost:  ${formatCost(summary.estimatedCostSaved)} saved`)
+      console.log('')
+
+      // Performance Section
+      console.log('⚡ PERFORMANCE')
+      console.log(`   Syncs completed: ${summary.syncCount.toLocaleString()}`)
+      console.log(`   Avg sync time:   ${this._formatDuration(summary.avgSyncDuration)}`)
+      console.log('')
+
+      // Agent Usage Section
+      if (summary.topAgents.length > 0) {
+        console.log('🤖 AGENT USAGE')
+        const totalUsage = summary.topAgents.reduce((sum, a) => sum + a.usageCount, 0)
+        for (const agent of summary.topAgents) {
+          const pct = totalUsage > 0 ? ((agent.usageCount / totalUsage) * 100).toFixed(0) : 0
+          console.log(`   ${agent.agentName.padEnd(12)}: ${pct}% (${agent.usageCount} uses)`)
+        }
+        console.log('')
+      }
+
+      // 30-Day Trend Section
+      if (dailyStats.length > 0) {
+        console.log('📈 TREND (last 30 days)')
+        const sparkline = this._generateSparkline(dailyStats)
+        console.log(`   ${sparkline} ${this._formatTokens(summary.last30DaysTokens)} tokens saved`)
+
+        if (summary.trend !== 0) {
+          const trendIcon = summary.trend > 0 ? '↑' : '↓'
+          const trendSign = summary.trend > 0 ? '+' : ''
+          console.log(`   ${trendIcon} ${trendSign}${summary.trend.toFixed(0)}% vs previous 30 days`)
+        }
+        console.log('')
+      }
+
+      // Footer
+      console.log('───────────────────────────────────────────────────')
+      console.log(`Export: prjct stats --export > stats.md`)
+      console.log('')
+
+      // Export mode - return markdown
+      if (options.export) {
+        const markdown = this._generateStatsMarkdown(summary, dailyStats, projectName, firstSyncDate)
+        console.log(markdown)
+        return { success: true, data: { markdown } }
+      }
+
+      return {
+        success: true,
+        data: summary,
+      }
+    } catch (error) {
+      console.error('❌ Error:', (error as Error).message)
+      return { success: false, error: (error as Error).message }
+    }
+  }
+
+  // =========== Stats Helper Methods ===========
+
+  private _formatTokens(tokens: number): string {
+    if (tokens >= 1_000_000) {
+      return `${(tokens / 1_000_000).toFixed(1)}M`
+    }
+    if (tokens >= 1_000) {
+      return `${(tokens / 1_000).toFixed(1)}K`
+    }
+    return tokens.toLocaleString()
+  }
+
+  private _formatDuration(ms: number): string {
+    if (ms < 1000) {
+      return `${Math.round(ms)}ms`
+    }
+    return `${(ms / 1000).toFixed(1)}s`
+  }
+
+  private _generateSparkline(dailyStats: { tokensSaved: number }[]): string {
+    if (dailyStats.length === 0) return ''
+
+    const chars = '▁▂▃▄▅▆▇█'
+    const values = dailyStats.map((d) => d.tokensSaved)
+    const max = Math.max(...values, 1)
+
+    return values
+      .map((v) => {
+        const idx = Math.min(Math.floor((v / max) * (chars.length - 1)), chars.length - 1)
+        return chars[idx]
+      })
+      .join('')
+  }
+
+  private _generateStatsMarkdown(
+    summary: {
+      totalTokensSaved: number
+      estimatedCostSaved: number
+      compressionRate: number
+      syncCount: number
+      avgSyncDuration: number
+      topAgents: { agentName: string; usageCount: number }[]
+      last30DaysTokens: number
+      trend: number
+    },
+    dailyStats: { date: string; tokensSaved: number; syncs: number }[],
+    projectName: string,
+    firstSyncDate: string
+  ): string {
+    const lines: string[] = []
+
+    lines.push(`# ${projectName} - Value Dashboard`)
+    lines.push('')
+    lines.push(`_Generated: ${new Date().toLocaleString()} | Tracking since: ${firstSyncDate}_`)
+    lines.push('')
+
+    lines.push('## 💰 Token Savings')
+    lines.push('')
+    lines.push(`| Metric | Value |`)
+    lines.push(`|--------|-------|`)
+    lines.push(`| Total saved | ${this._formatTokens(summary.totalTokensSaved)} tokens |`)
+    lines.push(`| Compression | ${(summary.compressionRate * 100).toFixed(0)}% |`)
+    lines.push(`| Cost saved | ${formatCost(summary.estimatedCostSaved)} |`)
+    lines.push('')
+
+    lines.push('## ⚡ Performance')
+    lines.push('')
+    lines.push(`| Metric | Value |`)
+    lines.push(`|--------|-------|`)
+    lines.push(`| Syncs | ${summary.syncCount} |`)
+    lines.push(`| Avg time | ${this._formatDuration(summary.avgSyncDuration)} |`)
+    lines.push('')
+
+    if (summary.topAgents.length > 0) {
+      lines.push('## 🤖 Agent Usage')
+      lines.push('')
+      lines.push(`| Agent | Usage |`)
+      lines.push(`|-------|-------|`)
+      const totalUsage = summary.topAgents.reduce((sum, a) => sum + a.usageCount, 0)
+      for (const agent of summary.topAgents) {
+        const pct = totalUsage > 0 ? ((agent.usageCount / totalUsage) * 100).toFixed(0) : 0
+        lines.push(`| ${agent.agentName} | ${pct}% (${agent.usageCount}) |`)
+      }
+      lines.push('')
+    }
+
+    lines.push('## 📈 30-Day Trend')
+    lines.push('')
+    lines.push(`- Tokens saved: ${this._formatTokens(summary.last30DaysTokens)}`)
+    if (summary.trend !== 0) {
+      const trendSign = summary.trend > 0 ? '+' : ''
+      lines.push(`- Trend: ${trendSign}${summary.trend.toFixed(0)}% vs previous period`)
+    }
+    lines.push('')
+
+    lines.push('---')
+    lines.push('')
+    lines.push('_Generated with [prjct-cli](https://prjct.app)_')
+
+    return lines.join('\n')
   }
 
 }

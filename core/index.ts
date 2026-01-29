@@ -111,6 +111,10 @@ async function main(): Promise<void> {
         ship: (p) => commands.ship(p),
         // Analytics
         dash: (p) => commands.dash(p || 'default'),
+        stats: () => commands.stats(process.cwd(), {
+          json: options.json === true,
+          export: options.export === true,
+        }),
         help: (p) => commands.help(p || ''),
         // Maintenance
         recover: () => commands.recover(),

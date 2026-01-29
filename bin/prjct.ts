@@ -85,6 +85,20 @@ if (args[0] === 'start' || args[0] === 'setup') {
     console.error('Server error:', (error as Error).message)
     process.exitCode = 1
   }
+} else if (args[0] === 'context') {
+  // Context tools - smart context filtering for AI agents
+  const projectPath = process.cwd()
+  const projectId = await configManager.getProjectId(projectPath)
+
+  if (!projectId) {
+    console.error('No prjct project found. Run "prjct init" first.')
+    process.exitCode = 1
+  } else {
+    const { runContextTool } = await import('../core/context-tools')
+    const result = await runContextTool(args.slice(1), projectId, projectPath)
+    console.log(JSON.stringify(result, null, 2))
+    process.exitCode = result.tool === 'error' ? 1 : 0
+  }
 } else if (args[0] === 'linear') {
   // Linear CLI subcommand - direct access to Linear SDK
   const { spawn } = await import('child_process')
