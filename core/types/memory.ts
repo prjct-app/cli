@@ -79,7 +79,14 @@ export interface MemoryQuery {
  * Domain types for task context.
  * @see PRJ-107
  */
-export type TaskDomain = 'frontend' | 'backend' | 'devops' | 'docs' | 'testing' | 'database' | 'general'
+export type TaskDomain =
+  | 'frontend'
+  | 'backend'
+  | 'devops'
+  | 'docs'
+  | 'testing'
+  | 'database'
+  | 'general'
 
 /**
  * Enhanced query parameters for selective memory retrieval.
