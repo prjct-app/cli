@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.54.1] - 2026-01-30
+
+### Bug Fixes
+
+- Claude over-plans simple commands like p. sync - PRJ-148 (#83)
+
+
 ## [0.55.2] - 2026-01-30
 
 ### Fixed
