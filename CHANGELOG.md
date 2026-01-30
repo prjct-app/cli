@@ -2,6 +2,13 @@
 
 ## [0.52.0] - 2026-01-30
 
+### Features
+
+- Add confidence scores to all stored preferences - PRJ-104 (#78)
+
+
+## [0.52.0] - 2026-01-30
+
 ### Added
 
 - **Confidence scores for stored preferences** (PRJ-104)
