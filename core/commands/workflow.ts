@@ -16,6 +16,16 @@ import { queueStorage, stateStorage } from '../storage'
 import type { CommandResult } from '../types'
 import { showNextSteps, showStateInfo } from '../utils/next-steps'
 import { getLinearApiKey, getProjectCredentials } from '../utils/project-credentials'
+import {
+  formatWorkflowPreferences,
+  listWorkflowPreferences,
+  removeWorkflowPreference,
+  runWorkflowHooks,
+  setWorkflowPreference,
+  type HookCommand,
+  type HookPhase,
+  type PreferenceScope,
+} from '../workflow/workflow-preferences'
 import { configManager, dateHelper, out, PrjctCommandsBase } from './base'
 
 export class WorkflowCommands extends PrjctCommandsBase {
@@ -24,7 +34,8 @@ export class WorkflowCommands extends PrjctCommandsBase {
    */
   async now(
     task: string | null = null,
-    projectPath: string = process.cwd()
+    projectPath: string = process.cwd(),
+    options: { skipHooks?: boolean } = {}
   ): Promise<CommandResult> {
     try {
       const initResult = await this.ensureProjectInit(projectPath)
@@ -37,6 +48,15 @@ export class WorkflowCommands extends PrjctCommandsBase {
       }
 
       if (task) {
+        // Run before_task hooks (using memory-based preferences)
+        const beforeResult = await runWorkflowHooks(projectId, 'before', 'task', {
+          projectPath,
+          skipHooks: options.skipHooks,
+        })
+        if (!beforeResult.success) {
+          return { success: false, error: `Hook failed: ${beforeResult.failed}` }
+        }
+
         // AGENTIC: Use CommandExecutor for full orchestration support
         const result = await commandExecutor.execute('task', { task }, projectPath)
 
@@ -97,6 +117,12 @@ export class WorkflowCommands extends PrjctCommandsBase {
           timestamp: dateHelper.getTimestamp(),
         })
 
+        // Run after_task hooks
+        await runWorkflowHooks(projectId, 'after', 'task', {
+          projectPath,
+          skipHooks: options.skipHooks,
+        })
+
         return {
           // Include full CommandExecutor result first (orchestratorContext, prompt, etc.)
           ...result,
@@ -127,7 +153,10 @@ export class WorkflowCommands extends PrjctCommandsBase {
   /**
    * /p:done - Complete current task
    */
-  async done(projectPath: string = process.cwd()): Promise<CommandResult> {
+  async done(
+    projectPath: string = process.cwd(),
+    options: { skipHooks?: boolean } = {}
+  ): Promise<CommandResult> {
     try {
       const initResult = await this.ensureProjectInit(projectPath)
       if (!initResult.success) return initResult
@@ -144,6 +173,15 @@ export class WorkflowCommands extends PrjctCommandsBase {
       if (!currentTask) {
         out.warn('no active task')
         return { success: true, message: 'No active task to complete' }
+      }
+
+      // Run before_done hooks (using memory-based preferences)
+      const beforeResult = await runWorkflowHooks(projectId, 'before', 'done', {
+        projectPath,
+        skipHooks: options.skipHooks,
+      })
+      if (!beforeResult.success) {
+        return { success: false, error: `Hook failed: ${beforeResult.failed}` }
       }
 
       const task = currentTask.description
@@ -184,6 +222,13 @@ export class WorkflowCommands extends PrjctCommandsBase {
         duration,
         timestamp: dateHelper.getTimestamp(),
       })
+
+      // Run after_done hooks
+      await runWorkflowHooks(projectId, 'after', 'done', {
+        projectPath,
+        skipHooks: options.skipHooks,
+      })
+
       return { success: true, task, duration }
     } catch (error) {
       out.fail((error as Error).message)
@@ -307,6 +352,64 @@ export class WorkflowCommands extends PrjctCommandsBase {
       })
 
       return { success: true, task: resumed.description }
+    } catch (error) {
+      out.fail((error as Error).message)
+      return { success: false, error: (error as Error).message }
+    }
+  }
+
+  /**
+   * /p:workflow - View and manage workflow preferences
+   *
+   * When called without arguments, shows current preferences.
+   * With arguments, parses natural language and updates preferences.
+   */
+  async workflow(
+    input: string | null = null,
+    projectPath: string = process.cwd()
+  ): Promise<CommandResult> {
+    try {
+      const initResult = await this.ensureProjectInit(projectPath)
+      if (!initResult.success) return initResult
+
+      const projectId = await configManager.getProjectId(projectPath)
+      if (!projectId) {
+        out.fail('no project ID')
+        return { success: false, error: 'No project ID found' }
+      }
+
+      if (!input) {
+        // Show current preferences
+        const preferences = await listWorkflowPreferences(projectId)
+        console.log(formatWorkflowPreferences(preferences))
+        return { success: true, preferences }
+      }
+
+      // Return info for template-based processing
+      // The template/LLM will parse the natural language and call the appropriate functions
+      return {
+        success: true,
+        projectId,
+        input,
+        // Export functions for template use
+        setWorkflowPreference: async (pref: {
+          hook: HookPhase
+          command: HookCommand
+          action: string
+          scope: PreferenceScope
+        }) => {
+          await setWorkflowPreference(projectId, {
+            ...pref,
+            createdAt: dateHelper.getTimestamp(),
+          })
+        },
+        removeWorkflowPreference: async (hook: HookPhase, command: HookCommand) => {
+          await removeWorkflowPreference(projectId, hook, command)
+        },
+        listWorkflowPreferences: async () => {
+          return listWorkflowPreferences(projectId)
+        },
+      }
     } catch (error) {
       out.fail((error as Error).message)
       return { success: false, error: (error as Error).message }

@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.48.0] - 2026-01-29
+
+### Added
+
+- **Workflow hooks via natural language** (PRJ-137)
+  - Configure hooks with `p. workflow "antes de ship corre los tests"`
+  - Supports before/after hooks for task, done, ship, sync commands
+  - Three scopes: permanent (persisted), session, one-time
+  - Uses existing memory system for storage
+  - No JSON config needed - just talk to the LLM
+
+
 ## [0.47.0] - 2026-01-29
 
 ### Added
