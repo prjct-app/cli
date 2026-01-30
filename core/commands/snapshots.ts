@@ -28,7 +28,7 @@ export async function recover(projectPath: string = process.cwd()): Promise<Comm
   try {
     const projectId = await configManager.getProjectId(projectPath)
     if (!projectId) {
-      out.fail('no project ID')
+      out.failWithHint('NO_PROJECT_ID')
       return { success: false, error: 'No project ID found' }
     }
 
@@ -85,7 +85,7 @@ export async function undo(projectPath: string = process.cwd()): Promise<Command
 
     const projectId = await configManager.getProjectId(projectPath)
     if (!projectId) {
-      out.fail('no project ID')
+      out.failWithHint('NO_PROJECT_ID')
       return { success: false, error: 'No project ID found' }
     }
 
@@ -147,7 +147,7 @@ export async function undo(projectPath: string = process.cwd()): Promise<Command
       out.done('changes stashed (use /p:redo to restore)')
       return { success: true, snapshotId: stashMessage }
     } catch (gitError) {
-      out.fail('git operation failed')
+      out.failWithHint('GIT_OPERATION_FAILED')
       return { success: false, error: (gitError as Error).message }
     }
   } catch (error) {
@@ -165,7 +165,7 @@ export async function redo(projectPath: string = process.cwd()): Promise<Command
 
     const projectId = await configManager.getProjectId(projectPath)
     if (!projectId) {
-      out.fail('no project ID')
+      out.failWithHint('NO_PROJECT_ID')
       return { success: false, error: 'No project ID found' }
     }
 
@@ -231,7 +231,7 @@ export async function redo(projectPath: string = process.cwd()): Promise<Command
       out.done('changes restored')
       return { success: true }
     } catch (gitError) {
-      out.fail('git operation failed')
+      out.failWithHint('GIT_OPERATION_FAILED')
       return { success: false, error: (gitError as Error).message }
     }
   } catch (error) {
@@ -247,7 +247,7 @@ export async function history(projectPath: string = process.cwd()): Promise<Comm
   try {
     const projectId = await configManager.getProjectId(projectPath)
     if (!projectId) {
-      out.fail('no project ID')
+      out.failWithHint('NO_PROJECT_ID')
       return { success: false, error: 'No project ID found' }
     }
 
