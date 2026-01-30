@@ -2,6 +2,13 @@
 
 ## [0.51.0] - 2026-01-30
 
+### Features
+
+- Context diff preview before sync applies - PRJ-125 (#77)
+
+
+## [0.51.0] - 2026-01-30
+
 ### Added
 
 - **Context Diff Preview** (PRJ-125)
