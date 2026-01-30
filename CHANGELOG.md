@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.54.4] - 2026-01-30
+
+### Improved
+
+- **Modular CLAUDE.md for reduced token usage** (PRJ-94)
+  - Split global template into 5 modules: core, git, storage, commands, intelligence
+  - Added profile-based composition: minimal (84% reduction), standard (56%), full (23%)
+  - FAST commands (sync, next, dash) use minimal profile (~394 tokens)
+  - SMART commands (task, ship, bug) dynamically inject additional modules
+  - Target 40-60% token reduction achieved for simple commands
+
 ## [0.54.3] - 2026-01-30
 
 ### Bug Fixes
