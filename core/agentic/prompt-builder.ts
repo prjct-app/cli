@@ -44,16 +44,72 @@ type Context = PromptContext
 type State = PromptState
 
 /**
+ * Cached template entry with TTL support
+ * @see PRJ-76
+ */
+interface CachedTemplate {
+  content: string
+  loadedAt: number
+}
+
+/**
  * Builds prompts for Claude using templates, context, and learned patterns.
  * Supports plan mode, think blocks, and quality checklists.
  * Auto-injects unified state and performance insights.
+ *
+ * Uses lazy loading for templates with 60s TTL cache.
+ * @see PRJ-76
  */
 class PromptBuilder {
   private _checklistsCache: Record<string, string> | null = null
+  private _checklistsCacheTime: number = 0
   private _checklistRoutingCache: string | null = null
+  private _checklistRoutingCacheTime: number = 0
   private _currentContext: Context | null = null
   private _stateCache: Map<string, { state: ProjectState; timestamp: number }> = new Map()
   private _stateCacheTTL = 5000 // 5 seconds
+  private _templateCache: Map<string, CachedTemplate> = new Map()
+  private readonly TEMPLATE_CACHE_TTL_MS = 60_000 // 60 seconds
+
+  /**
+   * Get a template with TTL caching.
+   * Returns cached content if within TTL, otherwise loads from disk.
+   * @see PRJ-76
+   */
+  getTemplate(templatePath: string): string | null {
+    const cached = this._templateCache.get(templatePath)
+    const now = Date.now()
+
+    if (cached && now - cached.loadedAt < this.TEMPLATE_CACHE_TTL_MS) {
+      return cached.content
+    }
+
+    try {
+      if (fs.existsSync(templatePath)) {
+        const content = fs.readFileSync(templatePath, 'utf-8')
+        this._templateCache.set(templatePath, { content, loadedAt: now })
+        return content
+      }
+    } catch (error) {
+      if (!isNotFoundError(error)) {
+        console.error(`Template loading warning: ${(error as Error).message}`)
+      }
+    }
+
+    return null
+  }
+
+  /**
+   * Clear the template cache (for testing or forced refresh)
+   * @see PRJ-76
+   */
+  clearTemplateCache(): void {
+    this._templateCache.clear()
+    this._checklistsCache = null
+    this._checklistsCacheTime = 0
+    this._checklistRoutingCache = null
+    this._checklistRoutingCacheTime = 0
+  }
 
   /**
    * Reset context (for testing)
@@ -71,9 +127,16 @@ class PromptBuilder {
 
   /**
    * Load quality checklists from templates/checklists/
+   * Uses lazy loading with TTL cache.
+   * @see PRJ-76
    */
   loadChecklists(): Record<string, string> {
-    if (this._checklistsCache) return this._checklistsCache
+    const now = Date.now()
+
+    // Check if cache is still valid
+    if (this._checklistsCache && now - this._checklistsCacheTime < this.TEMPLATE_CACHE_TTL_MS) {
+      return this._checklistsCache
+    }
 
     const checklistsDir = path.join(__dirname, '..', '..', 'templates', 'checklists')
     const checklists: Record<string, string> = {}
@@ -83,8 +146,12 @@ class PromptBuilder {
         const files = fs.readdirSync(checklistsDir).filter((f) => f.endsWith('.md'))
         for (const file of files) {
           const name = file.replace('.md', '')
-          const content = fs.readFileSync(path.join(checklistsDir, file), 'utf-8')
-          checklists[name] = content
+          const templatePath = path.join(checklistsDir, file)
+          // Use getTemplate for individual files to leverage per-file caching
+          const content = this.getTemplate(templatePath)
+          if (content) {
+            checklists[name] = content
+          }
         }
       }
     } catch (error) {
@@ -95,6 +162,7 @@ class PromptBuilder {
     }
 
     this._checklistsCache = checklists
+    this._checklistsCacheTime = now
     return checklists
   }
 
@@ -215,9 +283,19 @@ class PromptBuilder {
 
   /**
    * Load checklist routing template for Claude to decide which checklists apply
+   * Uses lazy loading with TTL cache.
+   * @see PRJ-76
    */
   loadChecklistRouting(): string | null {
-    if (this._checklistRoutingCache) return this._checklistRoutingCache
+    const now = Date.now()
+
+    // Check if cache is still valid
+    if (
+      this._checklistRoutingCache &&
+      now - this._checklistRoutingCacheTime < this.TEMPLATE_CACHE_TTL_MS
+    ) {
+      return this._checklistRoutingCache
+    }
 
     const routingPath = path.join(
       __dirname,
@@ -228,15 +306,11 @@ class PromptBuilder {
       'checklist-routing.md'
     )
 
-    try {
-      if (fs.existsSync(routingPath)) {
-        this._checklistRoutingCache = fs.readFileSync(routingPath, 'utf-8')
-      }
-    } catch (error) {
-      // Silent fail - checklist routing is optional
-      if (!isNotFoundError(error)) {
-        console.error(`Checklist routing warning: ${(error as Error).message}`)
-      }
+    // Use getTemplate for consistent caching behavior
+    const content = this.getTemplate(routingPath)
+    if (content) {
+      this._checklistRoutingCache = content
+      this._checklistRoutingCacheTime = now
     }
 
     return this._checklistRoutingCache || null
