@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.55.0] - 2026-01-30
+
+### Features
+
+- modular CLAUDE.md for reduced token usage - PRJ-94 (#86)
+
+
 ## [0.54.4] - 2026-01-30
 
 ### Improved
