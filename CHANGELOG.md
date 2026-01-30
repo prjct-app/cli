@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.49.0] - 2026-01-30
+
+### Features
+
+- Error messages with context and recovery hints - PRJ-131 (#75)
+
+
 ## [0.49.1] - 2026-01-30
 
 ### Improved

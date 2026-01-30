@@ -1,8 +1,6 @@
 {
   "name": "prjct-cli",
-
-  "version": "0.49.1",
-
+  "version": "0.49.0",
   "description": "Context layer for AI agents. Project context for Claude Code, Gemini CLI, and more.",
   "main": "core/index.ts",
   "bin": {
