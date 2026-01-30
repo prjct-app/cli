@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.45.5] - 2026-01-29
+
+### Changed
+
+- Remove meta-commentary from memory output (PRJ-103)
+  - "LEARNED PATTERNS" → "PROJECT DEFAULTS"
+  - "RELEVANT MEMORIES" → "CONTEXT"
+  - "Learned Patterns" → "Project Conventions"
+
+### Added
+
+- `lint:meta` script to catch meta-commentary anti-patterns
+
+
 ## [0.45.4] - 2026-01-29
 
 ### Bug Fixes

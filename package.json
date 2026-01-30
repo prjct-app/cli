@@ -1,6 +1,6 @@
 {
   "name": "prjct-cli",
-  "version": "0.45.4",
+  "version": "0.45.5",
   "description": "Context layer for AI agents. Project context for Claude Code, Gemini CLI, and more.",
   "main": "core/index.ts",
   "bin": {
@@ -29,6 +29,7 @@
     "validate": "bun scripts/validate-commands.js",
     "lint": "biome lint .",
     "lint:fix": "biome lint --write .",
+    "lint:meta": "bun core/cli/lint-meta-commentary.ts",
     "format": "biome format --write .",
     "format:check": "biome format .",
     "check": "biome check .",
