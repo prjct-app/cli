@@ -4,3 +4,4 @@
  */
 
 export * from './state-machine'
+export * from './workflow-preferences'

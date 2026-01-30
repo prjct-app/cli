@@ -90,6 +90,13 @@ class PrjctCommands {
     return this.workflow.resume(taskId, projectPath)
   }
 
+  async workflowPrefs(
+    input: string | null = null,
+    projectPath: string = process.cwd()
+  ): Promise<CommandResult> {
+    return this.workflow.workflow(input, projectPath)
+  }
+
   // ========== Planning Commands ==========
 
   async init(
