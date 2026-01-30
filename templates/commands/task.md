@@ -123,9 +123,8 @@ ELSE:
 
 **⛔ DO NOT create branches or modify state without user approval.**
 
+Show the user:
 ```
-OUTPUT:
-"""
 ## Task Plan
 
 Description: $ARGUMENTS
@@ -137,13 +136,38 @@ Will do:
 2. Initialize task tracking in state.json
 3. Break down into subtasks
 4. {If Linear: Update issue status to In Progress}
-
-Proceed? (yes/no)
-"""
-
-WAIT for explicit "yes" or approval
-DO NOT assume
 ```
+
+Then ask for confirmation:
+
+```
+AskUserQuestion:
+  question: "Start this task?"
+  header: "Task"
+  options:
+    - label: "Yes, start task (Recommended)"
+      description: "Create branch and begin tracking"
+    - label: "No, cancel"
+      description: "Don't create task"
+    - label: "Modify plan"
+      description: "Change type, branch name, or subtasks"
+```
+
+**Handle responses:**
+
+**If "Modify plan":**
+- Ask: "What would you like to change?"
+- Update plan accordingly
+- Ask again with Yes/No options only
+
+**If "No, cancel":**
+```
+OUTPUT: "✅ Task creation cancelled"
+STOP - Do not continue
+```
+
+**If "Yes, start task":**
+CONTINUE to Step B
 
 ### Step B: Explore Codebase
 
