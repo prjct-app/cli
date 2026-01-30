@@ -4,6 +4,13 @@
 
 ### Features
 
+- Lazy template loading with TTL cache - PRJ-76 (#79)
+
+
+## [0.53.0] - 2026-01-30
+
+### Features
+
 - Lazy template loading with TTL cache - PRJ-76
 
 
