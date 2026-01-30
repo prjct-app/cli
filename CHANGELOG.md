@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.51.0] - 2026-01-30
+
+### Added
+
+- **Context Diff Preview** (PRJ-125)
+  - See what changes sync will make before they're applied
+  - Interactive confirmation: apply, cancel, or show full diff
+  - Preserved sections clearly marked in preview
+  - Token count delta displayed
+  - `--preview` flag for dry-run only
+  - `--yes` flag to skip confirmation
+
+
 ## [0.50.0] - 2026-01-30
 
 ### Features
