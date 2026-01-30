@@ -2,6 +2,13 @@
 
 ## [0.46.0] - 2026-01-30
 
+### Features
+
+- preserve user customizations during sync - PRJ-115 (#70)
+
+
+## [0.46.0] - 2026-01-30
+
 ### Added
 
 - **Preserve user customizations during sync** (PRJ-115)
