@@ -7,6 +7,7 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { mergePreservedSections } from '../utils/preserve-sections'
 import { getFormatter, type ProjectContext } from './formatters'
 import { AI_TOOLS, type AIToolConfig, DEFAULT_AI_TOOLS, getAIToolConfig } from './registry'
 
@@ -71,7 +72,7 @@ async function generateForTool(
 
   try {
     // Generate content
-    const content = formatter(context, config)
+    let content = formatter(context, config)
 
     // Determine output path
     let outputPath: string
@@ -83,6 +84,14 @@ async function generateForTool(
 
     // Ensure directory exists
     await fs.mkdir(path.dirname(outputPath), { recursive: true })
+
+    // Read existing file to preserve user customizations
+    try {
+      const existingContent = await fs.readFile(outputPath, 'utf-8')
+      content = mergePreservedSections(content, existingContent)
+    } catch {
+      // File doesn't exist yet - use generated content as-is
+    }
 
     // Write file
     await fs.writeFile(outputPath, content, 'utf-8')

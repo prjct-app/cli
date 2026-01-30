@@ -12,6 +12,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import dateHelper from '../utils/date-helper'
+import { mergePreservedSections } from '../utils/preserve-sections'
 
 // ============================================================================
 // TYPES
@@ -180,7 +181,17 @@ Load from \`~/.prjct-cli/projects/${this.config.projectId}/agents/\`:
 **Domain**: ${domainAgents.join(', ') || 'none'}
 `
 
-    await fs.writeFile(path.join(contextPath, 'CLAUDE.md'), content, 'utf-8')
+    // Preserve user customizations from existing file
+    const claudePath = path.join(contextPath, 'CLAUDE.md')
+    let finalContent = content
+    try {
+      const existingContent = await fs.readFile(claudePath, 'utf-8')
+      finalContent = mergePreservedSections(content, existingContent)
+    } catch {
+      // File doesn't exist yet - use generated content as-is
+    }
+
+    await fs.writeFile(claudePath, finalContent, 'utf-8')
   }
 
   /**
