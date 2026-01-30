@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.47.0] - 2026-01-29
+
+### Added
+
+- **Subtask progress dashboard with domain-specific colors** (PRJ-138)
+  - Each domain (frontend, backend, database, etc.) displays in unique color
+  - Hash-based color assignment ensures consistency across sessions
+  - Integrated into command execution flow for visual task tracking
+
+
 ## [0.46.0] - 2026-01-30
 
 ### Added
