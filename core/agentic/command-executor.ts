@@ -18,6 +18,7 @@ import type {
   SimpleExecutionResult,
 } from '../types'
 import { agentStream } from '../utils/agent-stream'
+import { printSubtaskProgress, type SubtaskDisplay } from '../utils/subtask-table'
 import chainOfThought from './chain-of-thought'
 import contextBuilder from './context-builder'
 import groundTruth from './ground-truth'
@@ -192,7 +193,13 @@ export class CommandExecutor {
 
           // Show subtasks if fragmented
           if (orchestratorContext.requiresFragmentation && orchestratorContext.subtasks) {
-            agentStream.status('📋', `${orchestratorContext.subtasks.length} subtasks planned`)
+            const subtaskDisplay: SubtaskDisplay[] = orchestratorContext.subtasks.map(s => ({
+              id: s.id,
+              domain: s.domain,
+              description: s.description,
+              status: s.status
+            }))
+            printSubtaskProgress(subtaskDisplay)
           }
         } catch (error) {
           // Orchestration failed - log warning but continue without it
