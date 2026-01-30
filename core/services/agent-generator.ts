@@ -9,6 +9,11 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import {
+  hasPreservedSections,
+  mergePreservedSections,
+  validatePreserveBlocks,
+} from '../utils/preserve-sections'
 import type { StackDetection } from './stack-detector'
 
 // ============================================================================
@@ -65,19 +70,66 @@ export class AgentGenerator {
   }
 
   /**
-   * Remove existing agent files
+   * Cache of existing agent content (for preserving user sections)
+   */
+  private existingAgents: Map<string, string> = new Map()
+
+  /**
+   * Read existing agents and cache their content for preservation
+   * Then remove the files (they'll be regenerated with preserved sections)
    */
   private async purgeOldAgents(): Promise<void> {
+    this.existingAgents.clear()
+
     try {
       const files = await fs.readdir(this.agentsPath)
+      const mdFiles = files.filter((file) => file.endsWith('.md'))
+
+      // Read all existing agent files BEFORE deleting
       await Promise.all(
-        files
-          .filter((file) => file.endsWith('.md'))
-          .map((file) => fs.unlink(path.join(this.agentsPath, file)))
+        mdFiles.map(async (file) => {
+          const filePath = path.join(this.agentsPath, file)
+          try {
+            const content = await fs.readFile(filePath, 'utf-8')
+            // Only cache if it has user-preserved sections
+            if (hasPreservedSections(content)) {
+              this.existingAgents.set(file, content)
+            }
+          } catch {
+            // File read failed, skip
+          }
+        })
       )
+
+      // Now delete the files
+      await Promise.all(mdFiles.map((file) => fs.unlink(path.join(this.agentsPath, file))))
     } catch {
       // Directory might not exist yet
     }
+  }
+
+  /**
+   * Write agent file, preserving user sections from previous version
+   */
+  private async writeAgentWithPreservation(filename: string, content: string): Promise<void> {
+    const existingContent = this.existingAgents.get(filename)
+
+    let finalContent = content
+    if (existingContent) {
+      // Validate existing preserved blocks
+      const validation = validatePreserveBlocks(existingContent)
+      if (!validation.valid) {
+        console.warn(`⚠️  Agent ${filename} has invalid preserve blocks:`)
+        for (const error of validation.errors) {
+          console.warn(`   ${error}`)
+        }
+      }
+
+      // Merge preserved sections from old content
+      finalContent = mergePreservedSections(content, existingContent)
+    }
+
+    await fs.writeFile(path.join(this.agentsPath, filename), finalContent, 'utf-8')
   }
 
   /**
@@ -143,7 +195,7 @@ export class AgentGenerator {
       content = this.generateMinimalWorkflowAgent(name)
     }
 
-    await fs.writeFile(path.join(this.agentsPath, `${name}.md`), content, 'utf-8')
+    await this.writeAgentWithPreservation(`${name}.md`, content)
   }
 
   /**
@@ -169,7 +221,7 @@ export class AgentGenerator {
       content = this.generateMinimalDomainAgent(name, stats, stack)
     }
 
-    await fs.writeFile(path.join(this.agentsPath, `${name}.md`), content, 'utf-8')
+    await this.writeAgentWithPreservation(`${name}.md`, content)
   }
 
   /**

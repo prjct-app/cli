@@ -72,7 +72,7 @@ function formatSubtaskLine(
   const domain = `${domainColor}${subtask.domain.padEnd(10)}${RESET}`
   const desc =
     subtask.description.length > 32
-      ? subtask.description.slice(0, 29) + '...'
+      ? `${subtask.description.slice(0, 29)}...`
       : subtask.description.padEnd(32)
 
   let status: string

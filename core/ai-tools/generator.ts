@@ -7,7 +7,7 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { mergePreservedSections } from '../utils/preserve-sections'
+import { mergePreservedSections, validatePreserveBlocks } from '../utils/preserve-sections'
 import { getFormatter, type ProjectContext } from './formatters'
 import { AI_TOOLS, type AIToolConfig, DEFAULT_AI_TOOLS, getAIToolConfig } from './registry'
 
@@ -88,6 +88,16 @@ async function generateForTool(
     // Read existing file to preserve user customizations
     try {
       const existingContent = await fs.readFile(outputPath, 'utf-8')
+
+      // Validate existing preserved blocks
+      const validation = validatePreserveBlocks(existingContent)
+      if (!validation.valid) {
+        console.warn(`⚠️  ${config.outputFile} has invalid preserve blocks:`)
+        for (const error of validation.errors) {
+          console.warn(`   ${error}`)
+        }
+      }
+
       content = mergePreservedSections(content, existingContent)
     } catch {
       // File doesn't exist yet - use generated content as-is

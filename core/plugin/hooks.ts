@@ -40,7 +40,7 @@ const HookPoints = {
   TRANSFORM_METRICS: 'transform:metrics',
 } as const
 
-type HookPoint = (typeof HookPoints)[keyof typeof HookPoints]
+export type HookPoint = (typeof HookPoints)[keyof typeof HookPoints]
 type HookHandler = (data: unknown, context?: unknown) => unknown | Promise<unknown>
 
 interface HookEntry {

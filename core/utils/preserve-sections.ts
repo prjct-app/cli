@@ -128,7 +128,7 @@ export function mergePreservedSections(newContent: string, oldContent: string): 
     merged += '\n\n'
   }
 
-  return merged.trimEnd() + '\n'
+  return `${merged.trimEnd()}\n`
 }
 
 /**

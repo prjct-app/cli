@@ -256,7 +256,9 @@ export class AnalyticsCommands extends PrjctCommandsBase {
 
         if (command.features) {
           console.log('\nFeatures:')
-          command.features.forEach((f) => console.log(`  • ${f}`))
+          for (const f of command.features) {
+            console.log(`  • ${f}`)
+          }
         }
 
         console.log(`\n${'═'.repeat(50)}\n`)

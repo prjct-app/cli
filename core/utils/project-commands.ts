@@ -3,12 +3,6 @@ import type { DetectedProjectCommands } from '../types'
 import * as fileHelper from './file-helper'
 
 type PackageManager = 'npm' | 'pnpm' | 'yarn' | 'bun'
-type DetectedStack = 'js' | 'python' | 'go' | 'rust' | 'dotnet' | 'java' | 'unknown'
-
-interface DetectedCommand {
-  command: string
-  tool: string
-}
 
 interface PackageJson {
   scripts?: Record<string, string>

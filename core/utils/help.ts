@@ -8,7 +8,6 @@
  */
 
 import { CATEGORIES, COMMANDS } from '../commands/command-data'
-import type { CommandMeta } from '../types'
 import { VERSION } from './version'
 
 // ANSI colors

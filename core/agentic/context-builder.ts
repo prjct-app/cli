@@ -15,10 +15,10 @@ import { isNotFoundError } from '../types/fs'
 // Re-export types for convenience
 export type { ContextPaths, ContextState, ProjectContext } from '../types'
 
-// Local type aliases for backward compatibility
-type Paths = ContextPaths
-type Context = ProjectContext
-type State = ContextState
+// Type aliases exported for backward compatibility (used by external consumers)
+export type Paths = ContextPaths
+export type Context = ProjectContext
+export type State = ContextState
 
 /**
  * Builds and caches project context for Claude decisions.
