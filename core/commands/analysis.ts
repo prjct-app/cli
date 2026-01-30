@@ -527,7 +527,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
       console.log('')
 
       // Session Activity Section (PRJ-89)
-      console.log('🎯 TODAY\'S ACTIVITY')
+      console.log("🎯 TODAY'S ACTIVITY")
       if (sessionActivity.sessionDuration) {
         console.log(`   Duration:        ${sessionActivity.sessionDuration}`)
       }
@@ -545,7 +545,9 @@ export class AnalysisCommands extends PrjctCommandsBase {
       // Learned Patterns Section (PRJ-89)
       if (patternsSummary.decisions > 0 || patternsSummary.preferences > 0) {
         console.log('🧠 PATTERNS LEARNED')
-        console.log(`   Decisions:    ${patternsSummary.learnedDecisions} confirmed (${patternsSummary.decisions} total)`)
+        console.log(
+          `   Decisions:    ${patternsSummary.learnedDecisions} confirmed (${patternsSummary.decisions} total)`
+        )
         console.log(`   Preferences:  ${patternsSummary.preferences} saved`)
         console.log(`   Workflows:    ${patternsSummary.workflows} tracked`)
         console.log('')
@@ -762,7 +764,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
 
     // Session Activity (PRJ-89)
     if (sessionActivity) {
-      lines.push('## 🎯 Today\'s Activity')
+      lines.push("## 🎯 Today's Activity")
       lines.push('')
       lines.push(`| Metric | Value |`)
       lines.push(`|--------|-------|`)
@@ -787,7 +789,9 @@ export class AnalysisCommands extends PrjctCommandsBase {
       lines.push('')
       lines.push(`| Type | Count |`)
       lines.push(`|------|-------|`)
-      lines.push(`| Decisions | ${patternsSummary.learnedDecisions} confirmed (${patternsSummary.decisions} total) |`)
+      lines.push(
+        `| Decisions | ${patternsSummary.learnedDecisions} confirmed (${patternsSummary.decisions} total) |`
+      )
       lines.push(`| Preferences | ${patternsSummary.preferences} |`)
       lines.push(`| Workflows | ${patternsSummary.workflows} |`)
       lines.push('')

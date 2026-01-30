@@ -235,10 +235,10 @@ const out: Output = {
     const border = '─'.repeat(maxLen + 2)
 
     console.log(chalk.dim(`┌${border}┐`))
-    console.log(chalk.dim('│') + ` ${chalk.bold(title.padEnd(maxLen))} ` + chalk.dim('│'))
+    console.log(`${chalk.dim('│')} ${chalk.bold(title.padEnd(maxLen))} ${chalk.dim('│')}`)
     console.log(chalk.dim(`├${border}┤`))
     for (const line of lines) {
-      console.log(chalk.dim('│') + ` ${line.padEnd(maxLen)} ` + chalk.dim('│'))
+      console.log(`${chalk.dim('│')} ${line.padEnd(maxLen)} ${chalk.dim('│')}`)
     }
     console.log(chalk.dim(`└${border}┘`))
     return this
