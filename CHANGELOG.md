@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.47.0] - 2026-01-30
+
+### Features
+
+- Complete and improve help text documentation - PRJ-133 (#73)
+- Workflow hooks via natural language - PRJ-137 (#72)
+- Subtask progress dashboard with domain colors - PRJ-138 (#71)
+
+
 ## [0.48.1] - 2026-01-30
 
 ### Improved
