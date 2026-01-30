@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.54.2] - 2026-01-30
+
+### Bug Fixes
+
+- LLM debe manejar los prompts, no el CLI - PRJ-149 (#84)
+
+
 ## [0.55.3] - 2026-01-30
 
 ### Fixed
