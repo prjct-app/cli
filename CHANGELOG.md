@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.54.0] - 2026-01-30
+
+### Features
+
+- Add showMetrics config option - PRJ-70 (#82)
+- Selective memory retrieval based on task relevance - PRJ-107 (#81)
+- Add session stats to p. stats command - PRJ-89 (#80)
+
+
 ## [0.55.1] - 2026-01-30
 
 ### Added
