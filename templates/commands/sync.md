@@ -1,14 +1,79 @@
 ---
-allowed-tools: [Bash, Read, Write]
+allowed-tools: [Bash, Read, Write, AskUserQuestion]
 ---
 
 # p. sync
 
+## Step 1: Run sync with JSON output
+
 ```bash
-prjct sync
+prjct sync --json
 ```
 
-CLI handles: git analysis, context generation, agents, skills.
+Parse the JSON output to determine next action.
+
+## Step 2: Handle response
+
+**If `action: "no_changes"`:**
+```
+Output: "✅ Context is up to date"
+```
+
+**If `action: "confirm_required"`:**
+
+Show the diff summary to the user:
+
+```
+📋 Changes to context files:
+
++ Added: {list added sections}
+~ Modified: {list modified sections}
+- Removed: {list removed sections}
+
+Tokens: {tokensBefore} → {tokensAfter} ({tokenDelta})
+```
+
+Then ask for confirmation:
+
+```
+AskUserQuestion:
+  question: "Apply these context changes?"
+  header: "Sync"
+  options:
+    - label: "Yes, apply changes"
+      description: "Update context files with the changes shown above"
+    - label: "No, cancel"
+      description: "Keep existing context files unchanged"
+    - label: "Show full diff"
+      description: "See detailed before/after for each section"
+```
+
+## Step 3: Apply based on response
+
+**If "Yes, apply changes":**
+```bash
+prjct sync --yes
+```
+
+**If "No, cancel":**
+```
+Output: "✅ Sync cancelled"
+```
+
+**If "Show full diff":**
+- Run `prjct sync --preview --json` to get full diff details
+- Display the full diff to user
+- Ask again with Yes/No options only
+
+## First sync (no existing files)
+
+When there's no existing context, the CLI will apply changes directly:
+
+```bash
+prjct sync --json
+```
+
+This returns success without needing confirmation.
 
 ## Linear Sync (when enabled)
 
@@ -21,8 +86,6 @@ IF integrations.linear.enabled:
   RUN: bun $PRJCT_CLI/core/cli/linear.ts --project {projectId} sync
 
   # Result stored in {globalPath}/storage/issues.json
-  # Contains all assigned issues from Linear
-
   OUTPUT: "Linear: {fetched} issues synced"
 ```
 
@@ -35,7 +98,8 @@ If `.cursor/` exists but `.cursor/rules/prjct.mdc` is missing:
 4. Copy commands: `{npmRoot}/prjct-cli/templates/cursor/p.md` → `.cursor/commands/p.md`
 5. Report: "Cursor routers regenerated"
 
-**Output**:
+## Output
+
 ```
 ✅ Synced: {projectName}
 

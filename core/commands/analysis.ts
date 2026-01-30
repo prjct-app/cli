@@ -213,6 +213,13 @@ export class AnalysisCommands extends PrjctCommandsBase {
    * Options:
    * - --preview: Show what would change without applying
    * - --yes: Skip confirmation prompt
+   * - --json: Output structured JSON for LLM consumption (non-interactive)
+   *
+   * When running in non-TTY mode (e.g., from an LLM), the CLI outputs
+   * structured JSON instead of interactive prompts. The LLM should:
+   * 1. Run `prjct sync --preview --json` to get diff data
+   * 2. Show diff to user and use AskUserQuestion for confirmation
+   * 3. Run `prjct sync --yes` if user confirms
    *
    * This eliminates the need for Claude to make 50+ individual tool calls.
    *
@@ -220,7 +227,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
    */
   async sync(
     projectPath: string = process.cwd(),
-    options: { aiTools?: string[]; preview?: boolean; yes?: boolean } = {}
+    options: { aiTools?: string[]; preview?: boolean; yes?: boolean; json?: boolean } = {}
   ): Promise<CommandResult> {
     try {
       const initResult = await this.ensureProjectInit(projectPath)
@@ -244,14 +251,23 @@ export class AnalysisCommands extends PrjctCommandsBase {
         // No existing file - first sync
       }
 
+      // Detect non-interactive mode (LLM or piped input)
+      const isNonInteractive = !process.stdin.isTTY || options.json
+
       // For preview mode or when we have existing content, show diff first
       if (existingContent && !options.yes) {
-        out.spin('Analyzing changes...')
+        if (!isNonInteractive) {
+          out.spin('Analyzing changes...')
+        }
 
         // Do a dry-run sync to see what would change
         const result = await syncService.sync(projectPath, { aiTools: options.aiTools })
 
         if (!result.success) {
+          if (isNonInteractive) {
+            console.log(JSON.stringify({ success: false, error: result.error || 'Sync failed' }))
+            return { success: false, error: result.error }
+          }
           out.fail(result.error || 'Sync failed')
           return { success: false, error: result.error }
         }
@@ -267,14 +283,64 @@ export class AnalysisCommands extends PrjctCommandsBase {
         // Generate diff
         const diff = generateSyncDiff(existingContent, newContent)
 
-        out.stop()
+        if (!isNonInteractive) {
+          out.stop()
+        }
 
         if (!diff.hasChanges) {
+          if (isNonInteractive) {
+            console.log(
+              JSON.stringify({
+                success: true,
+                action: 'no_changes',
+                message: 'No changes detected (context is up to date)',
+              })
+            )
+            return { success: true, message: 'No changes' }
+          }
           out.done('No changes detected (context is up to date)')
           return { success: true, message: 'No changes' }
         }
 
-        // Show diff preview
+        // Non-interactive mode: return JSON for LLM to handle
+        if (isNonInteractive) {
+          // Build a plain-text diff summary for LLM to show user
+          const diffSummary = {
+            added: diff.added.map((s) => ({ name: s.name, lineCount: s.lineCount })),
+            modified: diff.modified.map((s) => ({ name: s.name, lineCount: s.lineCount })),
+            removed: diff.removed.map((s) => ({ name: s.name, lineCount: s.lineCount })),
+            preserved: diff.preserved,
+            tokensBefore: diff.tokensBefore,
+            tokensAfter: diff.tokensAfter,
+            tokenDelta: diff.tokenDelta,
+          }
+
+          console.log(
+            JSON.stringify({
+              success: true,
+              action: 'confirm_required',
+              message: 'Changes detected. Confirmation required to apply.',
+              diff: diffSummary,
+              fullDiff: options.preview
+                ? {
+                    added: diff.added,
+                    modified: diff.modified,
+                    removed: diff.removed,
+                  }
+                : undefined,
+              hint: 'Run `prjct sync --yes` to apply changes',
+            })
+          )
+
+          return {
+            success: true,
+            isPreview: true,
+            diff,
+            message: 'Preview complete (awaiting confirmation)',
+          }
+        }
+
+        // Show diff preview (interactive mode)
         console.log(formatDiffPreview(diff))
 
         // Preview-only mode - don't apply
@@ -287,7 +353,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
           }
         }
 
-        // Interactive confirmation
+        // Interactive confirmation (TTY mode only)
         const response = await prompts({
           type: 'select',
           name: 'action',

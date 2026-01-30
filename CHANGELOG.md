@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.55.3] - 2026-01-30
+
+### Fixed
+
+- **LLM debe manejar los prompts, no el CLI** (PRJ-149)
+  - Added `--json` flag to `prjct sync` for non-interactive mode
+  - CLI now detects non-TTY mode and outputs structured JSON instead of interactive prompts
+  - Updated `sync.md` template so LLM uses AskUserQuestion for confirmation
+  - Enables proper flow: `prjct sync --json` → show diff → AskUserQuestion → `prjct sync --yes`
+
+
 ## [0.54.1] - 2026-01-30
 
 ### Bug Fixes
