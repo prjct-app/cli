@@ -1,9 +1,11 @@
 /**
- * Minimal Output System for prjct-cli
+ * Unified Output System for prjct-cli
  * Spinner while working → Single line result
  * With prjct branding
  *
  * Supports --quiet mode for CI/CD and scripting
+ *
+ * @see PRJ-130
  */
 
 import chalk from 'chalk'
@@ -13,6 +15,22 @@ import { getError } from './error-messages'
 
 const _FRAMES = branding.spinner.frames
 const SPEED = branding.spinner.speed
+
+/**
+ * Centralized icons for consistent output
+ */
+export const ICONS = {
+  success: chalk.green('✓'),
+  fail: chalk.red('✗'),
+  warn: chalk.yellow('⚠'),
+  info: chalk.blue('ℹ'),
+  debug: chalk.dim('🔧'),
+  bullet: chalk.dim('•'),
+  arrow: chalk.dim('→'),
+  check: chalk.green('✓'),
+  cross: chalk.red('✗'),
+  spinner: chalk.cyan('◐'),
+} as const
 
 let interval: ReturnType<typeof setInterval> | null = null
 let frame = 0
@@ -57,6 +75,12 @@ interface Output {
   fail(msg: string): Output
   failWithHint(error: ErrorWithHint | ErrorCode): Output
   warn(msg: string): Output
+  info(msg: string): Output
+  debug(msg: string): Output
+  success(msg: string, metrics?: OutputMetrics): Output
+  list(items: string[], options?: { bullet?: string; indent?: number }): Output
+  table(rows: Array<Record<string, string | number>>, options?: { header?: boolean }): Output
+  box(title: string, content: string): Output
   stop(): Output
   step(current: number, total: number, msg: string): Output
   progress(current: number, total: number, msg?: string): Output
@@ -99,7 +123,7 @@ const out: Output = {
           suffix = chalk.dim(` [${parts.join(' | ')}]`)
         }
       }
-      console.log(`${chalk.green('✓')} ${truncate(msg, 50)}${suffix}`)
+      console.log(`${ICONS.success} ${truncate(msg, 50)}${suffix}`)
     }
     return this
   },
@@ -107,7 +131,7 @@ const out: Output = {
   // Errors go to stderr even in quiet mode
   fail(msg: string) {
     this.stop()
-    console.error(`${chalk.red('✗')} ${truncate(msg, 65)}`)
+    console.error(`${ICONS.fail} ${truncate(msg, 65)}`)
     return this
   },
 
@@ -116,7 +140,7 @@ const out: Output = {
     this.stop()
     const err = typeof error === 'string' ? getError(error) : error
     console.error()
-    console.error(`${chalk.red('✗')} ${err.message}`)
+    console.error(`${ICONS.fail} ${err.message}`)
     if (err.file) {
       console.error(chalk.dim(`  File: ${err.file}`))
     }
@@ -132,7 +156,91 @@ const out: Output = {
 
   warn(msg: string) {
     this.stop()
-    if (!quietMode) console.log(`${chalk.yellow('⚠')} ${truncate(msg, 65)}`)
+    if (!quietMode) console.log(`${ICONS.warn} ${truncate(msg, 65)}`)
+    return this
+  },
+
+  // Informational message
+  info(msg: string) {
+    this.stop()
+    if (!quietMode) console.log(`${ICONS.info} ${msg}`)
+    return this
+  },
+
+  // Debug message (only if DEBUG=1 or DEBUG=true)
+  debug(msg: string) {
+    this.stop()
+    const debugEnabled = process.env.DEBUG === '1' || process.env.DEBUG === 'true'
+    if (!quietMode && debugEnabled) {
+      console.log(`${ICONS.debug} ${chalk.dim(msg)}`)
+    }
+    return this
+  },
+
+  // Alias for done - explicit success indicator
+  success(msg: string, metrics?: OutputMetrics) {
+    return this.done(msg, metrics)
+  },
+
+  // Bulleted list
+  list(items: string[], options: { bullet?: string; indent?: number } = {}) {
+    this.stop()
+    if (quietMode) return this
+    const bullet = options.bullet || ICONS.bullet
+    const indent = ' '.repeat(options.indent || 0)
+    for (const item of items) {
+      console.log(`${indent}${bullet} ${item}`)
+    }
+    return this
+  },
+
+  // Simple table output
+  table(rows: Array<Record<string, string | number>>, options: { header?: boolean } = {}) {
+    this.stop()
+    if (quietMode || rows.length === 0) return this
+
+    const keys = Object.keys(rows[0])
+    const colWidths: Record<string, number> = {}
+
+    // Calculate column widths
+    for (const key of keys) {
+      colWidths[key] = key.length
+      for (const row of rows) {
+        const val = String(row[key] ?? '')
+        if (val.length > colWidths[key]) colWidths[key] = val.length
+      }
+    }
+
+    // Print header if requested
+    if (options.header !== false) {
+      const headerLine = keys.map((k) => k.padEnd(colWidths[k])).join('  ')
+      console.log(chalk.dim(headerLine))
+      console.log(chalk.dim('─'.repeat(headerLine.length)))
+    }
+
+    // Print rows
+    for (const row of rows) {
+      const line = keys.map((k) => String(row[k] ?? '').padEnd(colWidths[k])).join('  ')
+      console.log(line)
+    }
+    return this
+  },
+
+  // Boxed content
+  box(title: string, content: string) {
+    this.stop()
+    if (quietMode) return this
+    const lines = content.split('\n')
+    const maxLen = Math.max(title.length, ...lines.map((l) => l.length))
+    const border = '─'.repeat(maxLen + 2)
+
+    console.log(chalk.dim(`┌${border}┐`))
+    console.log(chalk.dim('│') + ` ${chalk.bold(title.padEnd(maxLen))} ` + chalk.dim('│'))
+    console.log(chalk.dim(`├${border}┤`))
+    for (const line of lines) {
+      console.log(chalk.dim('│') + ` ${line.padEnd(maxLen)} ` + chalk.dim('│'))
+    }
+    console.log(chalk.dim(`└${border}┘`))
     return this
   },
 

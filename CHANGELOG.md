@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.50.0] - 2026-01-30
+
+### Added
+
+- **Unified output system with new methods** (PRJ-130)
+  - Added `ICONS` constant for centralized icon definitions
+  - New methods: `info()`, `debug()`, `success()`, `list()`, `table()`, `box()`
+  - `debug()` only shows output when `DEBUG=1`
+  - Refactored existing methods to use `ICONS` for consistency
+
+
 ## [0.49.0] - 2026-01-30
 
 ### Features
