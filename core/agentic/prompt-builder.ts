@@ -13,7 +13,6 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { outcomeAnalyzer } from '../outcomes'
 import { queueStorage, stateStorage } from '../storage'
-import { getPackageRoot } from '../utils/version'
 import type {
   LearnedPatterns,
   Memory,
@@ -27,6 +26,7 @@ import type {
   ThinkBlock,
 } from '../types'
 import { isNotFoundError } from '../types/fs'
+import { getPackageRoot } from '../utils/version'
 
 // Re-export types for convenience
 export type {
