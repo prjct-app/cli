@@ -8,6 +8,8 @@
 
 import chalk from 'chalk'
 import branding from './branding'
+import type { ErrorCode, ErrorWithHint } from './error-messages'
+import { getError } from './error-messages'
 
 const _FRAMES = branding.spinner.frames
 const SPEED = branding.spinner.speed
@@ -53,6 +55,7 @@ interface Output {
   spin(msg: string): Output
   done(msg: string, metrics?: OutputMetrics): Output
   fail(msg: string): Output
+  failWithHint(error: ErrorWithHint | ErrorCode): Output
   warn(msg: string): Output
   stop(): Output
   step(current: number, total: number, msg: string): Output
@@ -108,6 +111,25 @@ const out: Output = {
     return this
   },
 
+  // Rich error with context and recovery hint
+  failWithHint(error: ErrorWithHint | ErrorCode) {
+    this.stop()
+    const err = typeof error === 'string' ? getError(error) : error
+    console.error()
+    console.error(`${chalk.red('✗')} ${err.message}`)
+    if (err.file) {
+      console.error(chalk.dim(`  File: ${err.file}`))
+    }
+    if (err.hint) {
+      console.error(chalk.yellow(`  💡 ${err.hint}`))
+    }
+    if (err.docs) {
+      console.error(chalk.dim(`  Docs: ${err.docs}`))
+    }
+    console.error()
+    return this
+  },
+
   warn(msg: string) {
     this.stop()
     if (!quietMode) console.log(`${chalk.yellow('⚠')} ${truncate(msg, 65)}`)
@@ -151,4 +173,6 @@ const out: Output = {
 }
 
 export type { OutputMetrics }
+export type { ErrorCode, ErrorWithHint } from './error-messages'
+export { createError, ERRORS, getError } from './error-messages'
 export default out
