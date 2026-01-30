@@ -16,6 +16,50 @@ p. ship X   → templates/commands/ship.md
 
 ---
 
+## ⚡ FAST vs 🧠 SMART COMMANDS (CRITICAL)
+
+**Some commands just run a CLI. Others need intelligence. Know the difference.**
+
+### ⚡ FAST COMMANDS (Execute Immediately - NO planning, NO exploration)
+
+| Command | Action | Time |
+|---------|--------|------|
+| `p. sync` | Run `prjct sync` | <5s |
+| `p. next` | Run `prjct next` | <2s |
+| `p. dash` | Run `prjct dash` | <2s |
+| `p. pause` | Run `prjct pause` | <2s |
+| `p. resume` | Run `prjct resume` | <2s |
+
+**For these commands:**
+```
+1. Read template
+2. Run the CLI command shown
+3. Done
+```
+
+**⛔ DO NOT:** explore codebase, create plans, ask questions, read project files
+
+### 🧠 SMART COMMANDS (Require intelligence)
+
+| Command | Why it needs intelligence |
+|---------|--------------------------|
+| `p. task` | Must explore codebase, break down work |
+| `p. ship` | Must validate changes, create PR |
+| `p. bug` | Must classify severity, find affected files |
+| `p. done` | Must verify completion, update state |
+
+**For these commands:** Follow the full INTELLIGENT BEHAVIOR rules below.
+
+### Decision Rule
+```
+IF template just says "run CLI command":
+  → Execute immediately, no planning
+ELSE:
+  → Use intelligent behavior (explore, ask, plan)
+```
+
+---
+
 ## ⛔ CRITICAL RULES - READ BEFORE EVERY COMMAND
 
 ### 0. FOLLOW TEMPLATES STEP BY STEP (NON-NEGOTIABLE)
@@ -264,12 +308,14 @@ User Action → Storage (JSON) → Context (MD) → Sync Events
 4. Update CHANGELOG
 5. Create git tag
 
-### Key Intelligence Rules
+### Key Intelligence Rules (For 🧠 SMART commands only)
 - **Read before write** - Always read existing files before modifying
 - **Explore before coding** - Use Task(Explore) to understand codebase
 - **Ask when uncertain** - Use AskUserQuestion to clarify
-- **Adapt templates** - Templates are guidance, not rigid scripts
 - **Log everything** - Append to memory/events.jsonl
+
+**⚠️ These rules apply ONLY to 🧠 SMART commands (task, ship, bug, done).**
+**⚡ FAST commands skip all of this - just run the CLI.**
 
 ---
 

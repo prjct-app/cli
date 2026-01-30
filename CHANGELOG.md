@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.55.2] - 2026-01-30
+
+### Fixed
+
+- **Claude over-plans simple commands** (PRJ-148)
+  - Added "⚡ FAST vs 🧠 SMART COMMANDS" section to CLAUDE.md
+  - FAST commands (sync, next, dash, pause, resume) now execute immediately without exploration/planning
+  - SMART commands (task, ship, bug, done) continue to use intelligent behavior
+  - Clarified that "Key Intelligence Rules" only apply to SMART commands
+
+
 ## [0.55.1] - 2026-01-30
 
 ### Added
