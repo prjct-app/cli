@@ -148,6 +148,7 @@ class ConfigManager {
     const localConfig: LocalConfig = {
       projectId,
       dataPath: displayPath,
+      showMetrics: true, // PRJ-70: default to true for new projects
     }
 
     await this.writeConfig(projectPath, localConfig)
@@ -316,6 +317,29 @@ class ConfigManager {
   async isConfigured(projectPath: string): Promise<boolean> {
     const config = await this.readConfig(projectPath)
     return this.validateConfig(config)
+  }
+
+  /**
+   * Get showMetrics setting from config.
+   * Defaults to true for new or existing projects without the setting.
+   * @see PRJ-70
+   */
+  async getShowMetrics(projectPath: string): Promise<boolean> {
+    const config = await this.readConfig(projectPath)
+    // Default to true if not set
+    return config?.showMetrics ?? true
+  }
+
+  /**
+   * Set showMetrics setting in config.
+   * @see PRJ-70
+   */
+  async setShowMetrics(projectPath: string, showMetrics: boolean): Promise<void> {
+    const config = await this.readConfig(projectPath)
+    if (config) {
+      config.showMetrics = showMetrics
+      await this.writeConfig(projectPath, config)
+    }
   }
 
   /**
