@@ -117,10 +117,11 @@ export class CommandRegistry {
     const wrapper: HandlerFn<unknown> = async (params, context) => {
       // Legacy commands expect (param?, projectPath) signature
       // Most commands use first param + projectPath
+      type LegacyMethod = (...args: unknown[]) => Promise<CommandResult>
       if (params !== undefined && params !== null) {
-        return (method as Function).call(instance, params, context.projectPath)
+        return (method as LegacyMethod).call(instance, params, context.projectPath)
       }
-      return (method as Function).call(instance, context.projectPath)
+      return (method as LegacyMethod).call(instance, context.projectPath)
     }
 
     this.handlerFns.set(name, wrapper)

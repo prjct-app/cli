@@ -439,7 +439,7 @@ function extractFromContent(content: string, patterns: ExtractionPattern[]): Cod
     // Reset lastIndex for global regex
     patternDef.pattern.lastIndex = 0
 
-    let match
+    let match: RegExpExecArray | null
     while ((match = patternDef.pattern.exec(content)) !== null) {
       const name = match[patternDef.nameIndex]
       if (!name) continue

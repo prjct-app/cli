@@ -147,6 +147,33 @@ fs.writeFileSync(path, JSON.stringify(data, null, 2))
 
 **Full specification**: Install prjct-cli and see `{npm root -g}/prjct-cli/templates/global/STORAGE-SPEC.md`
 
+### 6. Preserve Markers (User Customizations)
+
+User customizations in context files and agents survive regeneration using preserve markers:
+
+```markdown
+<!-- prjct:preserve -->
+# My Custom Rules
+- Always use tabs
+- Prefer functional patterns
+<!-- /prjct:preserve -->
+```
+
+**How it works:**
+- Content between markers is extracted before regeneration
+- After regeneration, preserved content is appended under "Your Customizations"
+- Named sections: `<!-- prjct:preserve:my-rules -->` for identification
+
+**Where to use:**
+- `context/CLAUDE.md` - Project-specific AI instructions
+- `agents/*.md` - Domain-specific patterns
+- Any regenerated context file
+
+**⚠️ Invalid blocks show warnings:**
+- Unclosed markers are ignored
+- Nested blocks are not supported
+- Mismatched markers trigger console warnings
+
 ---
 
 ## CORE WORKFLOW
