@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.55.1] - 2026-01-30
+
+### Added
+
+- **showMetrics config option** (PRJ-70)
+  - Add `showMetrics` boolean to `LocalConfig` (prjct.config.json)
+  - Defaults to `true` for new projects and existing projects without setting
+  - Added `getShowMetrics()` and `setShowMetrics()` to ConfigManager
+
+
 ## [0.55.0] - 2026-01-30
 
 ### Features

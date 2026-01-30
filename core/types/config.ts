@@ -12,6 +12,12 @@ import type { IntegrationsConfig } from './integrations'
 export interface LocalConfig {
   projectId: string
   dataPath: string
+  /**
+   * Whether to show metrics in command output.
+   * Defaults to true for new projects.
+   * @see PRJ-70
+   */
+  showMetrics?: boolean
 }
 
 /**
