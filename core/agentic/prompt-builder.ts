@@ -174,7 +174,7 @@ class PromptBuilder {
     try {
       const patterns = await outcomeAnalyzer.detectPatterns(projectId)
       if (patterns.length > 0) {
-        parts.push('**Learned Patterns**')
+        parts.push('**Project Conventions**')
         for (const pattern of patterns.slice(0, 3)) {
           parts.push(`- ${pattern.description}`)
           if (pattern.suggestedAction) {
@@ -489,7 +489,7 @@ class PromptBuilder {
 
     // P1.1: Learned Patterns
     if (learnedPatterns && Object.keys(learnedPatterns).some((k) => learnedPatterns[k])) {
-      parts.push('\n## LEARNED PATTERNS (use these, do NOT ask user)\n')
+      parts.push('\n## PROJECT DEFAULTS (apply automatically)\n')
       for (const [key, value] of Object.entries(learnedPatterns)) {
         if (value) {
           parts.push(`- ${key}: ${value}\n`)
@@ -511,7 +511,7 @@ class PromptBuilder {
 
     // P3.3: Relevant Memories
     if (relevantMemories && relevantMemories.length > 0) {
-      parts.push('\n## RELEVANT MEMORIES (apply these learnings)\n')
+      parts.push('\n## CONTEXT (apply these)\n')
       for (const memory of relevantMemories) {
         parts.push(`- **${memory.title}**: ${memory.content}\n`)
         if (memory.tags && memory.tags.length > 0) {
