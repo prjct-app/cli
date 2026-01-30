@@ -24,6 +24,7 @@
  * All output is JSON for easy parsing by Claude.
  */
 
+import type { CreateIssueInput, Issue } from '../integrations/issue-tracker/types'
 import { linearService, linearSync } from '../integrations/linear'
 import {
   getCredentialSource,
@@ -140,7 +141,7 @@ async function main(): Promise<void> {
 
         // Use team issues if teamId is configured, otherwise assigned issues
         const creds = await getProjectCredentials(projectId!)
-        let issues
+        let issues: Issue[]
         if (creds.linear?.teamId) {
           issues = await linearService.fetchTeamIssues(creds.linear.teamId, { limit })
         } else {
@@ -254,7 +255,7 @@ async function main(): Promise<void> {
           error('JSON input required. Usage: create \'{"title":"...", "teamId":"..."}\'')
         }
 
-        let input
+        let input: Record<string, unknown>
         try {
           input = JSON.parse(inputJson)
         } catch {
@@ -274,7 +275,7 @@ async function main(): Promise<void> {
           }
         }
 
-        const issue = await linearService.createIssue(input)
+        const issue = await linearService.createIssue(input as unknown as CreateIssueInput)
         output(issue)
         break
       }
@@ -291,7 +292,7 @@ async function main(): Promise<void> {
           error('JSON input required. Usage: update <id> \'{"description":"..."}\'')
         }
 
-        let input
+        let input: Record<string, unknown>
         try {
           input = JSON.parse(inputJson)
         } catch {

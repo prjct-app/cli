@@ -229,7 +229,7 @@ function extractImports(
   for (const patternDef of patterns) {
     patternDef.pattern.lastIndex = 0
 
-    let match
+    let match: RegExpExecArray | null
     while ((match = patternDef.pattern.exec(content)) !== null) {
       const source = match[patternDef.sourceIndex]
       if (!source || seen.has(source)) continue

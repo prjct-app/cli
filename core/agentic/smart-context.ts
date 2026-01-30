@@ -32,8 +32,8 @@ export type {
   StackInfo,
 } from '../types'
 
-// Local type alias for backward compatibility
-type ProjectState = SmartContextProjectState
+// Type alias exported for backward compatibility (used by external consumers)
+export type ProjectState = SmartContextProjectState
 
 /**
  * SmartContext - Intelligent context filtering.

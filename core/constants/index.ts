@@ -108,7 +108,9 @@ export const ROADMAP = {
     const lines = [`## ${feature}`, '', `Status: ${ROADMAP_STATUS[status]}`]
     if (tasks && tasks.length > 0) {
       lines.push('', '### Tasks', '')
-      tasks.forEach((task) => lines.push(`- [ ] ${task}`))
+      for (const task of tasks) {
+        lines.push(`- [ ] ${task}`)
+      }
     }
     return `${lines.join('\n')}\n\n`
   },

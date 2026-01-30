@@ -502,10 +502,14 @@ class PromptBuilder {
       parts.push('\n## THINK FIRST (reasoning from analysis)\n')
       if (thinkBlock.conclusions && thinkBlock.conclusions.length > 0) {
         parts.push('Conclusions:\n')
-        thinkBlock.conclusions.forEach((c) => parts.push(`  → ${c}\n`))
+        for (const c of thinkBlock.conclusions) {
+          parts.push(`  → ${c}\n`)
+        }
       }
       parts.push('Plan:\n')
-      thinkBlock.plan.forEach((p, i) => parts.push(`  ${i + 1}. ${p}\n`))
+      for (let i = 0; i < thinkBlock.plan.length; i++) {
+        parts.push(`  ${i + 1}. ${thinkBlock.plan[i]}\n`)
+      }
       parts.push(`Confidence: ${Math.round((thinkBlock.confidence || 0.5) * 100)}%\n`)
     }
 

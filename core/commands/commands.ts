@@ -220,7 +220,7 @@ class PrjctCommands {
   }
 
   showAsciiArt(): void {
-    return this.setupCmds.showAsciiArt()
+    this.setupCmds.showAsciiArt()
   }
 
   // ========== Delegated Base Methods ==========

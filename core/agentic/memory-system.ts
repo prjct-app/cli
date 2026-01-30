@@ -574,7 +574,9 @@ export class SemanticMemories extends CachedStore<MemoryDatabase> {
       const matchingIds = new Set<string>()
       for (const tag of parsedTags) {
         const ids = db.index[tag]
-        ids.forEach((id: string) => matchingIds.add(id))
+        for (const id of ids) {
+          matchingIds.add(id)
+        }
       }
       return db.memories.filter((m) => matchingIds.has(m.id))
     }

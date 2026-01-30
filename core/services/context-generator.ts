@@ -12,7 +12,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import dateHelper from '../utils/date-helper'
-import { mergePreservedSections } from '../utils/preserve-sections'
+import { mergePreservedSections, validatePreserveBlocks } from '../utils/preserve-sections'
 
 // ============================================================================
 // TYPES
@@ -63,6 +63,35 @@ export class ContextFileGenerator {
 
   constructor(config: ContextGeneratorConfig) {
     this.config = config
+  }
+
+  /**
+   * Write file with preserved sections from existing content
+   * This ensures user customizations survive regeneration
+   */
+  private async writeWithPreservation(filePath: string, content: string): Promise<void> {
+    let finalContent = content
+
+    try {
+      const existingContent = await fs.readFile(filePath, 'utf-8')
+
+      // Validate existing preserved blocks
+      const validation = validatePreserveBlocks(existingContent)
+      if (!validation.valid) {
+        const filename = path.basename(filePath)
+        console.warn(`⚠️  ${filename} has invalid preserve blocks:`)
+        for (const error of validation.errors) {
+          console.warn(`   ${error}`)
+        }
+      }
+
+      // Merge preserved sections from existing content
+      finalContent = mergePreservedSections(content, existingContent)
+    } catch {
+      // File doesn't exist yet - use generated content as-is
+    }
+
+    await fs.writeFile(filePath, finalContent, 'utf-8')
   }
 
   /**
@@ -181,17 +210,8 @@ Load from \`~/.prjct-cli/projects/${this.config.projectId}/agents/\`:
 **Domain**: ${domainAgents.join(', ') || 'none'}
 `
 
-    // Preserve user customizations from existing file
     const claudePath = path.join(contextPath, 'CLAUDE.md')
-    let finalContent = content
-    try {
-      const existingContent = await fs.readFile(claudePath, 'utf-8')
-      finalContent = mergePreservedSections(content, existingContent)
-    } catch {
-      // File doesn't exist yet - use generated content as-is
-    }
-
-    await fs.writeFile(claudePath, finalContent, 'utf-8')
+    await this.writeWithPreservation(claudePath, content)
   }
 
   /**
@@ -222,7 +242,7 @@ _No active task_
 Use \`p. task "description"\` to start working.
 `
 
-    await fs.writeFile(path.join(contextPath, 'now.md'), content, 'utf-8')
+    await this.writeWithPreservation(path.join(contextPath, 'now.md'), content)
   }
 
   /**
@@ -248,7 +268,7 @@ ${
 }
 `
 
-    await fs.writeFile(path.join(contextPath, 'next.md'), content, 'utf-8')
+    await this.writeWithPreservation(path.join(contextPath, 'next.md'), content)
   }
 
   /**
@@ -272,7 +292,7 @@ ${
 }
 `
 
-    await fs.writeFile(path.join(contextPath, 'ideas.md'), content, 'utf-8')
+    await this.writeWithPreservation(path.join(contextPath, 'ideas.md'), content)
   }
 
   /**
@@ -303,7 +323,7 @@ ${
 **Total shipped:** ${shipped.shipped.length}
 `
 
-    await fs.writeFile(path.join(contextPath, 'shipped.md'), content, 'utf-8')
+    await this.writeWithPreservation(path.join(contextPath, 'shipped.md'), content)
   }
 }
 

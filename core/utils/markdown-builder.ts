@@ -117,7 +117,9 @@ export class MarkdownBuilder {
    * Add multiple list items
    */
   list(items: string[], options?: { checked?: boolean }): this {
-    items.forEach((item) => this.li(item, options))
+    for (const item of items) {
+      this.li(item, options)
+    }
     return this
   }
 
@@ -125,7 +127,9 @@ export class MarkdownBuilder {
    * Add multiple numbered list items
    */
   orderedList(items: string[]): this {
-    items.forEach((item, i) => this.oli(item, i + 1))
+    for (let i = 0; i < items.length; i++) {
+      this.oli(items[i], i + 1)
+    }
     return this
   }
 
@@ -225,7 +229,9 @@ export class MarkdownBuilder {
    * Iterate and build for each item
    */
   each<T>(items: T[], builder: (md: MarkdownBuilder, item: T, index: number) => void): this {
-    items.forEach((item, i) => builder(this, item, i))
+    for (let i = 0; i < items.length; i++) {
+      builder(this, items[i], i)
+    }
     return this
   }
 
