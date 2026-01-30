@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.45.4] - 2026-01-29
+## [0.45.5] - 2026-01-29
 
 ### Changed
 
@@ -12,6 +12,13 @@
 ### Added
 
 - `lint:meta` script to catch meta-commentary anti-patterns
+
+
+## [0.45.4] - 2026-01-29
+
+### Bug Fixes
+
+- ignore tar warning in release workflow - PRJ-147
 
 
 ## [0.45.3] - 2026-01-29
