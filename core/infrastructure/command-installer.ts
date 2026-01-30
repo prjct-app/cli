@@ -26,6 +26,101 @@ import { isNotFoundError } from '../types/fs'
 import { getPackageRoot } from '../utils/version'
 
 // =============================================================================
+// Module Types
+// =============================================================================
+
+interface ModuleProfile {
+  description: string
+  modules: string[]
+}
+
+interface ModuleConfig {
+  description: string
+  version: string
+  profiles: Record<string, ModuleProfile>
+  default: string
+  commandProfiles: Record<string, string>
+}
+
+// =============================================================================
+// Modular Template Composition (PRJ-94)
+// =============================================================================
+
+/**
+ * Load module configuration
+ */
+async function loadModuleConfig(): Promise<ModuleConfig | null> {
+  try {
+    const configPath = path.join(getPackageRoot(), 'templates/global/modules/module-config.json')
+    const content = await fs.readFile(configPath, 'utf-8')
+    return JSON.parse(content) as ModuleConfig
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Compose global template from modules based on profile
+ * @param profile - Profile name ('full', 'standard', 'minimal') or null for default
+ * @returns Composed template content with markers
+ */
+export async function composeGlobalTemplate(profile?: string): Promise<string> {
+  const config = await loadModuleConfig()
+  const modulesDir = path.join(getPackageRoot(), 'templates/global/modules')
+
+  // Fallback to legacy template if config not found
+  if (!config) {
+    const legacyPath = path.join(getPackageRoot(), 'templates/global/CLAUDE.md')
+    return fs.readFile(legacyPath, 'utf-8')
+  }
+
+  const profileName = profile || config.default
+  const selectedProfile = config.profiles[profileName]
+
+  if (!selectedProfile) {
+    // Fallback to default profile
+    const defaultProfile = config.profiles[config.default]
+    if (!defaultProfile) {
+      const legacyPath = path.join(getPackageRoot(), 'templates/global/CLAUDE.md')
+      return fs.readFile(legacyPath, 'utf-8')
+    }
+  }
+
+  const modules = (selectedProfile || config.profiles[config.default]).modules
+
+  // Load and compose modules
+  const parts: string[] = []
+  parts.push('<!-- prjct:start - DO NOT REMOVE THIS MARKER -->')
+
+  for (const moduleName of modules) {
+    try {
+      const modulePath = path.join(modulesDir, moduleName)
+      const content = await fs.readFile(modulePath, 'utf-8')
+      parts.push('')
+      parts.push(content)
+    } catch {
+      // Module not found, skip
+      console.warn(`Module not found: ${moduleName}`)
+    }
+  }
+
+  parts.push('')
+  parts.push('<!-- prjct:end - DO NOT REMOVE THIS MARKER -->')
+  parts.push('')
+
+  return parts.join('\n')
+}
+
+/**
+ * Get recommended profile for a command
+ */
+export async function getProfileForCommand(command: string): Promise<string> {
+  const config = await loadModuleConfig()
+  if (!config) return 'standard'
+  return config.commandProfiles[command] || config.default
+}
+
+// =============================================================================
 // Global Config
 // =============================================================================
 
@@ -89,17 +184,29 @@ export async function installGlobalConfig(): Promise<GlobalConfigResult> {
       activeProvider.contextFile
     )
 
-    // Read template content
+    // Read template content - use modular composition (PRJ-94)
     let templateContent = ''
     try {
+      // First try provider-specific template
       templateContent = await fs.readFile(templatePath, 'utf-8')
     } catch (_error) {
-      // Fallback if provider-specific template not found
-      const fallbackTemplatePath = path.join(getPackageRoot(), 'templates/global/CLAUDE.md')
-      templateContent = await fs.readFile(fallbackTemplatePath, 'utf-8')
-      // If it is Gemini, we should rename Claude to Gemini in the fallback content
-      if (providerName === 'gemini') {
-        templateContent = templateContent.replace(/Claude/g, 'Gemini')
+      // Use modular composition for Claude (PRJ-94)
+      if (providerName === 'claude') {
+        try {
+          templateContent = await composeGlobalTemplate('standard')
+        } catch {
+          // Final fallback to legacy template
+          const fallbackTemplatePath = path.join(getPackageRoot(), 'templates/global/CLAUDE.md')
+          templateContent = await fs.readFile(fallbackTemplatePath, 'utf-8')
+        }
+      } else {
+        // Fallback for other providers
+        const fallbackTemplatePath = path.join(getPackageRoot(), 'templates/global/CLAUDE.md')
+        templateContent = await fs.readFile(fallbackTemplatePath, 'utf-8')
+        // If it is Gemini, we should rename Claude to Gemini in the fallback content
+        if (providerName === 'gemini') {
+          templateContent = templateContent.replace(/Claude/g, 'Gemini')
+        }
       }
     }
 
