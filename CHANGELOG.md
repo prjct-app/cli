@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.48.0] - 2026-01-30
+
+### Features
+
+- Read-before-write enforcement for templates - PRJ-108 (#74)
+
+
 ## [0.49.0] - 2026-01-30
 
 ### Added
