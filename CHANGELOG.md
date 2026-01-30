@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.52.0] - 2026-01-30
+
+### Added
+
+- **Confidence scores for stored preferences** (PRJ-104)
+  - All preferences, decisions, and workflows now track confidence level
+  - Confidence: `low` (1-2 obs), `medium` (3-5 obs), `high` (6+ or confirmed)
+  - Added `confirmPreference()`, `confirmDecision()`, `confirmWorkflow()` methods
+  - User confirmation immediately sets confidence to `high`
+  - Added `calculateConfidence()` utility function
+
+
 ## [0.51.0] - 2026-01-30
 
 ### Features

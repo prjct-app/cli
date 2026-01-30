@@ -22,6 +22,7 @@ import { appendJsonLine, getLastJsonLines } from '../utils/jsonl-helper'
 
 // Re-export types from canonical location
 export type {
+  ConfidenceLevel,
   Decision,
   HistoryEntry,
   HistoryEventType,
@@ -35,7 +36,7 @@ export type {
   Workflow,
 } from '../types/memory'
 
-export { MEMORY_TAGS } from '../types/memory'
+export { calculateConfidence, MEMORY_TAGS } from '../types/memory'
 
 import type {
   HistoryEntry,
@@ -49,7 +50,7 @@ import type {
   Workflow,
 } from '../types/memory'
 
-import { MEMORY_TAGS } from '../types/memory'
+import { calculateConfidence, MEMORY_TAGS } from '../types/memory'
 
 // =============================================================================
 // Base Store
@@ -306,7 +307,8 @@ export class PatternStore extends CachedStore<Patterns> {
     projectId: string,
     key: string,
     value: string,
-    context: string = ''
+    context: string = '',
+    options: { userConfirmed?: boolean } = {}
   ): Promise<void> {
     const patterns = await this.load(projectId)
     const now = getTimestamp()
@@ -317,11 +319,14 @@ export class PatternStore extends CachedStore<Patterns> {
         count: 1,
         firstSeen: now,
         lastSeen: now,
-        confidence: 'low',
+        confidence: options.userConfirmed ? 'high' : 'low',
         contexts: [context].filter(Boolean),
-      }
+        userConfirmed: options.userConfirmed || false,
+      } as Patterns['decisions'][string]
     } else {
-      const decision = patterns.decisions[key]
+      const decision = patterns.decisions[key] as Patterns['decisions'][string] & {
+        userConfirmed?: boolean
+      }
 
       if (decision.value === value) {
         decision.count++
@@ -329,21 +334,34 @@ export class PatternStore extends CachedStore<Patterns> {
         if (context && !decision.contexts.includes(context)) {
           decision.contexts.push(context)
         }
-
-        if (decision.count >= 5) {
-          decision.confidence = 'high'
-        } else if (decision.count >= 3) {
-          decision.confidence = 'medium'
+        if (options.userConfirmed) {
+          decision.userConfirmed = true
         }
+        decision.confidence = calculateConfidence(decision.count, decision.userConfirmed)
       } else {
         decision.value = value
         decision.count = 1
         decision.lastSeen = now
-        decision.confidence = 'low'
+        decision.userConfirmed = options.userConfirmed || false
+        decision.confidence = options.userConfirmed ? 'high' : 'low'
       }
     }
 
     await this.save(projectId)
+  }
+
+  async confirmDecision(projectId: string, key: string): Promise<boolean> {
+    const patterns = await this.load(projectId)
+    const decision = patterns.decisions[key] as
+      | (Patterns['decisions'][string] & { userConfirmed?: boolean })
+      | undefined
+    if (!decision) return false
+
+    decision.userConfirmed = true
+    decision.confidence = 'high'
+    decision.lastSeen = getTimestamp()
+    await this.save(projectId)
+    return true
   }
 
   async getDecision(
@@ -378,13 +396,29 @@ export class PatternStore extends CachedStore<Patterns> {
         count: 1,
         firstSeen: now,
         lastSeen: now,
+        confidence: 'low',
+        userConfirmed: false,
       }
     } else {
-      patterns.workflows[workflowName].count++
-      patterns.workflows[workflowName].lastSeen = now
+      const workflow = patterns.workflows[workflowName]
+      workflow.count++
+      workflow.lastSeen = now
+      workflow.confidence = calculateConfidence(workflow.count, workflow.userConfirmed)
     }
 
     await this.save(projectId)
+  }
+
+  async confirmWorkflow(projectId: string, workflowName: string): Promise<boolean> {
+    const patterns = await this.load(projectId)
+    const workflow = patterns.workflows[workflowName]
+    if (!workflow) return false
+
+    workflow.userConfirmed = true
+    workflow.confidence = 'high'
+    workflow.lastSeen = getTimestamp()
+    await this.save(projectId)
+    return true
   }
 
   async getWorkflow(projectId: string, workflowName: string): Promise<Workflow | null> {
@@ -395,10 +429,37 @@ export class PatternStore extends CachedStore<Patterns> {
     return workflow
   }
 
-  async setPreference(projectId: string, key: string, value: Preference['value']): Promise<void> {
+  async setPreference(
+    projectId: string,
+    key: string,
+    value: Preference['value'],
+    options: { userConfirmed?: boolean } = {}
+  ): Promise<void> {
     const patterns = await this.load(projectId)
-    patterns.preferences[key] = { value, updatedAt: getTimestamp() }
+    const existing = patterns.preferences[key]
+    const observationCount = existing ? existing.observationCount + 1 : 1
+    const userConfirmed = options.userConfirmed || existing?.userConfirmed || false
+
+    patterns.preferences[key] = {
+      value,
+      updatedAt: getTimestamp(),
+      confidence: calculateConfidence(observationCount, userConfirmed),
+      observationCount,
+      userConfirmed,
+    }
     await this.save(projectId)
+  }
+
+  async confirmPreference(projectId: string, key: string): Promise<boolean> {
+    const patterns = await this.load(projectId)
+    const pref = patterns.preferences[key]
+    if (!pref) return false
+
+    pref.userConfirmed = true
+    pref.confidence = 'high'
+    pref.updatedAt = getTimestamp()
+    await this.save(projectId)
+    return true
   }
 
   async getPreference(
@@ -857,12 +918,29 @@ export class MemorySystem {
     return this._patternStore.getWorkflow(projectId, workflowName)
   }
 
-  setPreference(projectId: string, key: string, value: Preference['value']): Promise<void> {
-    return this._patternStore.setPreference(projectId, key, value)
+  setPreference(
+    projectId: string,
+    key: string,
+    value: Preference['value'],
+    options?: { userConfirmed?: boolean }
+  ): Promise<void> {
+    return this._patternStore.setPreference(projectId, key, value, options)
   }
 
   getPreference(projectId: string, key: string, defaultValue?: unknown): Promise<unknown> {
     return this._patternStore.getPreference(projectId, key, defaultValue)
+  }
+
+  confirmPreference(projectId: string, key: string): Promise<boolean> {
+    return this._patternStore.confirmPreference(projectId, key)
+  }
+
+  confirmDecision(projectId: string, key: string): Promise<boolean> {
+    return this._patternStore.confirmDecision(projectId, key)
+  }
+
+  confirmWorkflow(projectId: string, workflowName: string): Promise<boolean> {
+    return this._patternStore.confirmWorkflow(projectId, workflowName)
   }
 
   getPatternsSummary(projectId: string) {
