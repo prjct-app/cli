@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.46.0] - 2026-01-29
+## [0.46.0] - 2026-01-30
 
 ### Added
 
@@ -9,6 +9,13 @@
   - Content survives `p. sync` regeneration
   - Supports named sections: `<!-- prjct:preserve:my-rules -->`
   - Works with CLAUDE.md, .cursorrules, and all context files
+
+
+## [0.45.5] - 2026-01-30
+
+### Bug Fixes
+
+- implement silent memory application - PRJ-103 (#69)
 
 
 ## [0.45.5] - 2026-01-29
