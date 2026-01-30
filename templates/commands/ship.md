@@ -69,11 +69,37 @@ Will do:
 4. Commit with prjct footer
 5. Push branch
 6. Create PR to main
-
-Proceed? (yes/no)
 ```
 
-**⛔ WAIT for explicit "yes" or approval. Do not assume.**
+Then ask for confirmation:
+
+```
+AskUserQuestion:
+  question: "Ready to ship these changes?"
+  header: "Ship"
+  options:
+    - label: "Yes, ship it (Recommended)"
+      description: "Run tests, bump version, create PR"
+    - label: "No, cancel"
+      description: "Abort ship operation"
+    - label: "Show full diff"
+      description: "See all file changes before deciding"
+```
+
+**Handle responses:**
+
+**If "Show full diff":**
+- Run `git diff` to show full changes
+- Ask again with Yes/No options only
+
+**If "No, cancel":**
+```
+OUTPUT: "✅ Ship cancelled"
+STOP - Do not continue
+```
+
+**If "Yes, ship it":**
+CONTINUE to Step 3
 
 ---
 

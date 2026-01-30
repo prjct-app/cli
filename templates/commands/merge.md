@@ -79,11 +79,31 @@ Will do:
 1. Merge PR with squash
 2. Delete feature branch
 3. Update local main
-
-Proceed? (yes/no)
 ```
 
-**⛔ WAIT for explicit approval. Do not assume.**
+Then ask for confirmation:
+
+```
+AskUserQuestion:
+  question: "Merge this PR?"
+  header: "Merge"
+  options:
+    - label: "Yes, merge (Recommended)"
+      description: "Squash merge and delete branch"
+    - label: "No, cancel"
+      description: "Keep PR open"
+```
+
+**Handle responses:**
+
+**If "No, cancel":**
+```
+OUTPUT: "✅ Merge cancelled"
+STOP - Do not continue
+```
+
+**If "Yes, merge":**
+CONTINUE to Step 4
 
 ---
 
