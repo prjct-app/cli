@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.46.0] - 2026-01-30
+
+### Added
+
+- **Preserve user customizations during sync** (PRJ-115)
+  - Wrap custom content in `<!-- prjct:preserve -->` markers
+  - Content survives `p. sync` regeneration
+  - Supports named sections: `<!-- prjct:preserve:my-rules -->`
+  - Works with CLAUDE.md, .cursorrules, and all context files
+
+
 ## [0.45.5] - 2026-01-30
 
 ### Bug Fixes
