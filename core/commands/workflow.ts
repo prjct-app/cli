@@ -18,13 +18,13 @@ import { showNextSteps, showStateInfo } from '../utils/next-steps'
 import { getLinearApiKey, getProjectCredentials } from '../utils/project-credentials'
 import {
   formatWorkflowPreferences,
+  type HookCommand,
+  type HookPhase,
   listWorkflowPreferences,
+  type PreferenceScope,
   removeWorkflowPreference,
   runWorkflowHooks,
   setWorkflowPreference,
-  type HookCommand,
-  type HookPhase,
-  type PreferenceScope,
 } from '../workflow/workflow-preferences'
 import { configManager, dateHelper, out, PrjctCommandsBase } from './base'
 

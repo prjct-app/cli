@@ -50,9 +50,9 @@ export class SetupCommands extends PrjctCommandsBase {
 
     if ((result.errors?.length ?? 0) > 0) {
       console.log(`\n⚠️  ${result.errors?.length ?? 0} errors:`)
-      result.errors?.forEach((e: { file: string; error: string }) =>
+      for (const e of result.errors ?? []) {
         console.log(`   - ${e.file}: ${e.error}`)
-      )
+      }
     }
 
     console.log('\n🎉 Setup complete!')
@@ -92,9 +92,9 @@ export class SetupCommands extends PrjctCommandsBase {
 
     if ((result.errors?.length ?? 0) > 0) {
       console.log(`\n⚠️  ${result.errors?.length ?? 0} errors:`)
-      result.errors?.forEach((e: { file: string; error: string }) =>
+      for (const e of result.errors ?? []) {
         console.log(`   - ${e.file}: ${e.error}`)
-      )
+      }
     }
 
     console.log('\n📝 Installing global configuration...')
