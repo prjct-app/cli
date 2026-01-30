@@ -5,11 +5,12 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import prompts from 'prompts'
+import memorySystem from '../agentic/memory-system'
 import { generateContext } from '../context/generator'
 import analyzer from '../domain/analyzer'
 import commandInstaller from '../infrastructure/command-installer'
 import { formatCost } from '../schemas/metrics'
-import { syncService } from '../services'
+import { memoryService, syncService } from '../services'
 import { formatDiffPreview, formatFullDiff, generateSyncDiff } from '../services/diff-generator'
 import { metricsStorage } from '../storage/metrics-storage'
 import type { AnalyzeOptions, CommandResult, ProjectContext } from '../types'
@@ -439,13 +440,17 @@ export class AnalysisCommands extends PrjctCommandsBase {
   }
 
   /**
-   * /p:stats - Value dashboard showing accumulated savings and impact
+   * /p:stats - Session summary and value dashboard
    *
    * Displays:
+   * - Session activity (tasks completed, features shipped today)
+   * - Patterns learned (from memory system)
    * - Token savings (total, compression rate, estimated cost)
    * - Performance metrics (sync count, avg duration)
    * - Agent usage breakdown
    * - 30-day trend visualization
+   *
+   * @see PRJ-89
    */
   async stats(
     projectPath: string = process.cwd(),
@@ -464,9 +469,17 @@ export class AnalysisCommands extends PrjctCommandsBase {
       const summary = await metricsStorage.getSummary(projectId)
       const dailyStats = await metricsStorage.getDailyStats(projectId, 30)
 
+      // Get session activity (today's events)
+      const sessionActivity = await this._getSessionActivity(projectId)
+
+      // Get learned patterns
+      const patternsSummary = await memorySystem.getPatternsSummary(projectId)
+
       // JSON output mode
       if (options.json) {
         const jsonOutput = {
+          session: sessionActivity,
+          patterns: patternsSummary,
           totalTokensSaved: summary.totalTokensSaved,
           estimatedCostSaved: summary.estimatedCostSaved,
           compressionRate: summary.compressionRate,
@@ -485,8 +498,6 @@ export class AnalysisCommands extends PrjctCommandsBase {
       const globalPath = pathManager.getGlobalProjectPath(projectId)
       let projectName = 'Unknown'
       try {
-        const fs = require('node:fs/promises')
-        const path = require('node:path')
         const projectJson = JSON.parse(
           await fs.readFile(path.join(globalPath, 'project.json'), 'utf-8')
         )
@@ -508,12 +519,37 @@ export class AnalysisCommands extends PrjctCommandsBase {
       // ASCII Dashboard
       console.log('')
       console.log('╭─────────────────────────────────────────────────╮')
-      console.log('│  📊 prjct-cli Value Dashboard                   │')
+      console.log('│  📊 prjct-cli Stats Dashboard                   │')
       console.log(
         `│  Project: ${projectName.padEnd(20).slice(0, 20)} | Since: ${firstSyncDate.padEnd(12).slice(0, 12)} │`
       )
       console.log('╰─────────────────────────────────────────────────╯')
       console.log('')
+
+      // Session Activity Section (PRJ-89)
+      console.log('🎯 TODAY\'S ACTIVITY')
+      if (sessionActivity.sessionDuration) {
+        console.log(`   Duration:        ${sessionActivity.sessionDuration}`)
+      }
+      console.log(`   Tasks completed: ${sessionActivity.tasksCompleted}`)
+      console.log(`   Features shipped: ${sessionActivity.featuresShipped}`)
+      if (sessionActivity.agentsUsed.length > 0) {
+        const agentStr = sessionActivity.agentsUsed
+          .slice(0, 3)
+          .map((a) => `${a.name} (${a.count}×)`)
+          .join(', ')
+        console.log(`   Agents used:     ${agentStr}`)
+      }
+      console.log('')
+
+      // Learned Patterns Section (PRJ-89)
+      if (patternsSummary.decisions > 0 || patternsSummary.preferences > 0) {
+        console.log('🧠 PATTERNS LEARNED')
+        console.log(`   Decisions:    ${patternsSummary.learnedDecisions} confirmed (${patternsSummary.decisions} total)`)
+        console.log(`   Preferences:  ${patternsSummary.preferences} saved`)
+        console.log(`   Workflows:    ${patternsSummary.workflows} tracked`)
+        console.log('')
+      }
 
       // Token Savings Section
       console.log('💰 TOKEN SAVINGS')
@@ -532,7 +568,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
 
       // Agent Usage Section
       if (summary.topAgents.length > 0) {
-        console.log('🤖 AGENT USAGE')
+        console.log('🤖 AGENT USAGE (all time)')
         const totalUsage = summary.topAgents.reduce((sum, a) => sum + a.usageCount, 0)
         for (const agent of summary.topAgents) {
           const pct = totalUsage > 0 ? ((agent.usageCount / totalUsage) * 100).toFixed(0) : 0
@@ -568,7 +604,9 @@ export class AnalysisCommands extends PrjctCommandsBase {
           summary,
           dailyStats,
           projectName,
-          firstSyncDate
+          firstSyncDate,
+          sessionActivity,
+          patternsSummary
         )
         console.log(markdown)
         return { success: true, data: { markdown } }
@@ -576,11 +614,81 @@ export class AnalysisCommands extends PrjctCommandsBase {
 
       return {
         success: true,
-        data: summary,
+        data: { ...summary, session: sessionActivity, patterns: patternsSummary },
       }
     } catch (error) {
       console.error('❌ Error:', (error as Error).message)
       return { success: false, error: (error as Error).message }
+    }
+  }
+
+  /**
+   * Get session activity stats from today's events
+   * @see PRJ-89
+   */
+  private async _getSessionActivity(projectId: string): Promise<{
+    sessionDuration: string | null
+    tasksCompleted: number
+    featuresShipped: number
+    agentsUsed: { name: string; count: number }[]
+  }> {
+    try {
+      // Get today's events from memory
+      const recentHistory = await memoryService.getRecentEvents(projectId, 100)
+
+      const today = new Date().toISOString().split('T')[0]
+      const todayEvents = recentHistory.filter((e) => {
+        const ts = (e.timestamp || e.ts) as string | undefined
+        return ts?.startsWith(today)
+      })
+
+      // Calculate session duration (time between first and last event today)
+      let sessionDuration: string | null = null
+      if (todayEvents.length >= 2) {
+        const timestamps = todayEvents
+          .map((e) => new Date((e.timestamp || e.ts) as string).getTime())
+          .filter((t) => !Number.isNaN(t))
+          .sort((a, b) => a - b)
+
+        if (timestamps.length >= 2) {
+          const durationMs = timestamps[timestamps.length - 1] - timestamps[0]
+          sessionDuration = dateHelper.formatDuration(durationMs)
+        }
+      }
+
+      // Count tasks completed today
+      const tasksCompleted = todayEvents.filter((e) => e.action === 'task_completed').length
+
+      // Count features shipped today
+      const featuresShipped = todayEvents.filter((e) => e.action === 'feature_shipped').length
+
+      // Count agent usage from sync events
+      const agentCounts = new Map<string, number>()
+      for (const event of todayEvents) {
+        if (event.action === 'sync' && Array.isArray(event.subagents)) {
+          for (const agent of event.subagents as string[]) {
+            agentCounts.set(agent, (agentCounts.get(agent) || 0) + 1)
+          }
+        }
+      }
+
+      const agentsUsed = Array.from(agentCounts.entries())
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count)
+
+      return {
+        sessionDuration,
+        tasksCompleted,
+        featuresShipped,
+        agentsUsed,
+      }
+    } catch {
+      return {
+        sessionDuration: null,
+        tasksCompleted: 0,
+        featuresShipped: 0,
+        agentsUsed: [],
+      }
     }
   }
 
@@ -631,14 +739,59 @@ export class AnalysisCommands extends PrjctCommandsBase {
     },
     _dailyStats: { date: string; tokensSaved: number; syncs: number }[],
     projectName: string,
-    firstSyncDate: string
+    firstSyncDate: string,
+    sessionActivity?: {
+      sessionDuration: string | null
+      tasksCompleted: number
+      featuresShipped: number
+      agentsUsed: { name: string; count: number }[]
+    },
+    patternsSummary?: {
+      decisions: number
+      learnedDecisions: number
+      workflows: number
+      preferences: number
+    }
   ): string {
     const lines: string[] = []
 
-    lines.push(`# ${projectName} - Value Dashboard`)
+    lines.push(`# ${projectName} - Stats Dashboard`)
     lines.push('')
     lines.push(`_Generated: ${new Date().toLocaleString()} | Tracking since: ${firstSyncDate}_`)
     lines.push('')
+
+    // Session Activity (PRJ-89)
+    if (sessionActivity) {
+      lines.push('## 🎯 Today\'s Activity')
+      lines.push('')
+      lines.push(`| Metric | Value |`)
+      lines.push(`|--------|-------|`)
+      if (sessionActivity.sessionDuration) {
+        lines.push(`| Duration | ${sessionActivity.sessionDuration} |`)
+      }
+      lines.push(`| Tasks completed | ${sessionActivity.tasksCompleted} |`)
+      lines.push(`| Features shipped | ${sessionActivity.featuresShipped} |`)
+      if (sessionActivity.agentsUsed.length > 0) {
+        const agentStr = sessionActivity.agentsUsed
+          .slice(0, 3)
+          .map((a) => `${a.name} (${a.count}×)`)
+          .join(', ')
+        lines.push(`| Agents used | ${agentStr} |`)
+      }
+      lines.push('')
+    }
+
+    // Patterns Learned (PRJ-89)
+    if (patternsSummary && (patternsSummary.decisions > 0 || patternsSummary.preferences > 0)) {
+      lines.push('## 🧠 Patterns Learned')
+      lines.push('')
+      lines.push(`| Type | Count |`)
+      lines.push(`|------|-------|`)
+      lines.push(`| Decisions | ${patternsSummary.learnedDecisions} confirmed (${patternsSummary.decisions} total) |`)
+      lines.push(`| Preferences | ${patternsSummary.preferences} |`)
+      lines.push(`| Workflows | ${patternsSummary.workflows} |`)
+      lines.push('')
+    }
 
     lines.push('## 💰 Token Savings')
     lines.push('')
