@@ -2,6 +2,13 @@
 
 ## [0.54.3] - 2026-01-30
 
+### Bug Fixes
+
+- standardize confirmation pattern across all commands (#85)
+
+
+## [0.54.3] - 2026-01-30
+
 ### Fixed
 
 - Standardize confirmation pattern across all commands to use AskUserQuestion
