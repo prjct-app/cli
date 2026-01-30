@@ -273,11 +273,7 @@ export function formatWorkflowPreferences(
     return `${DIM}No workflow preferences configured.${RESET}\n\nSet one: "p. workflow antes de ship corre los tests"`
   }
 
-  const lines: string[] = [
-    '',
-    'WORKFLOW PREFERENCES',
-    '────────────────────────────',
-  ]
+  const lines: string[] = ['', 'WORKFLOW PREFERENCES', '────────────────────────────']
 
   for (const pref of preferences) {
     const scopeBadge =

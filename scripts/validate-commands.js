@@ -107,7 +107,9 @@ async function validateTemplates() {
 
   if (errors.length > 0) {
     console.log(colorize(`\n✗ Found ${errors.length} template validation errors:\n`, 'red'))
-    errors.forEach((err) => console.log(colorize(`  - ${err}`, 'red')))
+    for (const err of errors) {
+      console.log(colorize(`  - ${err}`, 'red'))
+    }
     return { valid: false, errors }
   } else {
     console.log(colorize('\n✓ All template files are consistent with commands', 'green'))
