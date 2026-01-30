@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.55.0] - 2026-01-30
+
+### Features
+
+- Selective memory retrieval based on task relevance - PRJ-107
+
+
+## [0.55.0] - 2026-01-30
+
+### Added
+
+- **Selective memory retrieval based on task relevance** (PRJ-107)
+  - Added `getRelevantMemoriesWithMetrics()` for domain-based filtering
+  - Relevance scoring considers: domain match (25pts), tag match (20pts), recency (15pts), confidence (20pts), keywords (15pts), user triggered (5pts)
+  - Returns retrieval metrics: total, considered, returned, filtering ratio, avg score
+  - New types: `RelevantMemoryQuery`, `ScoredMemory`, `MemoryRetrievalResult`, `TaskDomain`
+  - Integrates with PRJ-104 confidence scoring
+
+
 ## [0.54.0] - 2026-01-30
 
 ### Features
