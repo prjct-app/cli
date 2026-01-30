@@ -184,53 +184,9 @@ if (args[0] === 'start' || args[0] === 'setup') {
   }
 } else if (args[0] === 'help' || args[0] === '-h' || args[0] === '--help') {
   // Show help - bypass setup check to always show help
-  console.log(`
-prjct - Context layer for AI coding agents
-Works with Claude Code, Gemini CLI, Antigravity, Cursor IDE, and more.
-
-QUICK START
------------
-  Claude/Gemini:
-    1. prjct start              Configure your AI provider
-    2. cd my-project && prjct init
-    3. Open in Claude Code or Gemini CLI
-    4. Type: p. sync            Analyze project
-
-  Cursor IDE:
-    1. cd my-project && prjct init
-    2. Open in Cursor
-    3. Type: /sync              Analyze project
-
-COMMANDS (inside your AI agent)
--------------------------------
-  Claude/Gemini          Cursor            Description
-  ─────────────────────────────────────────────────────
-  p. sync                /sync             Analyze project
-  p. task "desc"         /task "desc"      Start a task
-  p. done                /done             Complete subtask
-  p. ship "name"         /ship "name"      Ship with PR
-
-TERMINAL COMMANDS (this CLI)
-----------------------------
-  prjct start            First-time setup (Claude/Gemini global config)
-  prjct init             Initialize project (required for Cursor)
-  prjct setup            Reconfigure installations
-  prjct sync             Sync project state
-  prjct watch            Auto-sync on file changes (Ctrl+C to stop)
-  prjct doctor           Check system health and dependencies
-  prjct uninstall        Complete system removal of prjct
-
-FLAGS
------
-  --quiet, -q            Suppress all output (only errors to stderr)
-  --version, -v          Show version
-  --help, -h             Show this help
-
-MORE INFO
----------
-  Documentation:  https://prjct.app
-  GitHub:         https://github.com/jlopezlira/prjct-cli
-`)
+  const { getHelp } = await import('../core/utils/help')
+  const topic = args[1] // Optional: prjct help <command>
+  console.log(getHelp(topic))
   process.exitCode = 0
 } else if (args[0] === 'version' || args[0] === '-v' || args[0] === '--version') {
   // Show version with provider status

@@ -193,11 +193,11 @@ export class CommandExecutor {
 
           // Show subtasks if fragmented
           if (orchestratorContext.requiresFragmentation && orchestratorContext.subtasks) {
-            const subtaskDisplay: SubtaskDisplay[] = orchestratorContext.subtasks.map(s => ({
+            const subtaskDisplay: SubtaskDisplay[] = orchestratorContext.subtasks.map((s) => ({
               id: s.id,
               domain: s.domain,
               description: s.description,
-              status: s.status
+              status: s.status,
             }))
             printSubtaskProgress(subtaskDisplay)
           }

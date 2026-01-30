@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.48.1] - 2026-01-30
+
+### Improved
+
+- **Complete and improve help text documentation** (PRJ-133)
+  - New structured help system with `prjct help <command>` support
+  - Per-command help with usage, parameters, and features
+  - Commands grouped by category with `prjct help commands`
+  - Clean visual formatting with Quick Start, Terminal Commands, AI Agent Commands sections
+
+
 ## [0.48.0] - 2026-01-29
 
 ### Added

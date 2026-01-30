@@ -19,14 +19,14 @@ const GRAY = '\x1b[90m'
 
 // Color palette for domains (cycle through these)
 const DOMAIN_COLOR_PALETTE = [
-  '\x1b[36m',   // Cyan
-  '\x1b[35m',   // Magenta
-  '\x1b[33m',   // Yellow
-  '\x1b[34m',   // Blue
-  '\x1b[32m',   // Green
-  '\x1b[91m',   // Light Red
-  '\x1b[95m',   // Light Magenta
-  '\x1b[96m',   // Light Cyan
+  '\x1b[36m', // Cyan
+  '\x1b[35m', // Magenta
+  '\x1b[33m', // Yellow
+  '\x1b[34m', // Blue
+  '\x1b[32m', // Green
+  '\x1b[91m', // Light Red
+  '\x1b[95m', // Light Magenta
+  '\x1b[96m', // Light Cyan
 ]
 
 /**
@@ -36,7 +36,7 @@ const DOMAIN_COLOR_PALETTE = [
 function getDomainColor(domain: string): string {
   let hash = 0
   for (const char of domain) {
-    hash = ((hash << 5) - hash) + char.charCodeAt(0)
+    hash = (hash << 5) - hash + char.charCodeAt(0)
     hash = hash & hash
   }
   const index = Math.abs(hash) % DOMAIN_COLOR_PALETTE.length
@@ -70,9 +70,10 @@ function formatSubtaskLine(
   const num = `${DIM}${String(index + 1).padStart(2)}${RESET}`
   const domainColor = getDomainColor(subtask.domain)
   const domain = `${domainColor}${subtask.domain.padEnd(10)}${RESET}`
-  const desc = subtask.description.length > 32
-    ? subtask.description.slice(0, 29) + '...'
-    : subtask.description.padEnd(32)
+  const desc =
+    subtask.description.length > 32
+      ? subtask.description.slice(0, 29) + '...'
+      : subtask.description.padEnd(32)
 
   let status: string
   switch (subtask.status) {
