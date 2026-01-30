@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.54.0] - 2026-01-30
+
+### Features
+
+- Session stats in p. stats command - PRJ-89
+
+
+## [0.54.0] - 2026-01-30
+
+### Added
+
+- **Session stats in `p. stats` command** (PRJ-89)
+  - Shows today's activity: duration, tasks completed, features shipped
+  - Displays agents used during the session with frequency
+  - Shows learned patterns: decisions, preferences, workflows
+  - Enhanced JSON and export modes include session data
+  - Added `getRecentEvents()` to memoryService
+
+
 ## [0.53.0] - 2026-01-30
 
 ### Features

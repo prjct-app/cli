@@ -112,6 +112,27 @@ export class MemoryService {
       }
     }
   }
+
+  /**
+   * Get recent events by projectId (for stats dashboard)
+   * @see PRJ-89
+   */
+  async getRecentEvents(
+    projectId: string,
+    limit: number = 100
+  ): Promise<Record<string, unknown>[]> {
+    try {
+      const memoryPath = pathManager.getFilePath(projectId, 'memory', 'context.jsonl')
+      const entries = await jsonlHelper.readJsonLines<Record<string, unknown>>(memoryPath)
+      return entries.slice(-limit)
+    } catch (error) {
+      // ENOENT or parse error - return empty
+      if (!isNotFoundError(error) && !(error instanceof SyntaxError)) {
+        console.error(`Memory read error: ${(error as Error).message}`)
+      }
+      return []
+    }
+  }
 }
 
 export const memoryService = new MemoryService()
