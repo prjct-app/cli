@@ -43,6 +43,10 @@ export interface Memory {
   userTriggered: boolean
   createdAt: string
   updatedAt: string
+  /** Confidence level for this memory (optional for backward compatibility) */
+  confidence?: ConfidenceLevel
+  /** Number of times this memory was reinforced */
+  observationCount?: number
 }
 
 /**
@@ -123,8 +127,10 @@ export interface Decision {
   count: number
   firstSeen: string
   lastSeen: string
-  confidence: 'low' | 'medium' | 'high'
+  confidence: ConfidenceLevel
   contexts: string[]
+  /** Whether user explicitly confirmed this decision */
+  userConfirmed?: boolean
 }
 
 /**
@@ -141,14 +147,47 @@ export interface Workflow {
   successRate?: number
   /** Steps in the workflow */
   steps?: string[]
+  /** Confidence level based on execution count */
+  confidence?: ConfidenceLevel
+  /** Whether user explicitly confirmed this workflow */
+  userConfirmed?: boolean
 }
 
 /**
- * A user preference value.
+ * Confidence level for stored preferences and decisions.
+ * @see PRJ-104
+ */
+export type ConfidenceLevel = 'low' | 'medium' | 'high'
+
+/**
+ * Calculate confidence level from observation count.
+ * - low: 1-2 observations
+ * - medium: 3-5 observations
+ * - high: 6+ observations or explicit user confirmation
+ */
+export function calculateConfidence(
+  count: number,
+  userConfirmed: boolean = false
+): ConfidenceLevel {
+  if (userConfirmed) return 'high'
+  if (count >= 6) return 'high'
+  if (count >= 3) return 'medium'
+  return 'low'
+}
+
+/**
+ * A user preference value with confidence scoring.
+ * @see PRJ-104
  */
 export interface Preference {
   value: string | number | boolean
   updatedAt: string
+  /** Confidence level based on observations */
+  confidence: ConfidenceLevel
+  /** Number of times this preference was observed */
+  observationCount: number
+  /** Whether user explicitly confirmed this preference */
+  userConfirmed: boolean
 }
 
 /**
