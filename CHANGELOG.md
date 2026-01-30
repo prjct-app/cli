@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.53.0] - 2026-01-30
+
+### Features
+
+- Lazy template loading with TTL cache - PRJ-76
+
+
+## [0.53.0] - 2026-01-30
+
+### Added
+
+- **Lazy template loading with TTL cache** (PRJ-76)
+  - Templates now loaded on-demand with 60-second TTL cache
+  - Added `getTemplate()` method with per-file caching
+  - `loadChecklists()` and `loadChecklistRouting()` now use TTL cache
+  - Added `clearTemplateCache()` method for testing/forced refresh
+  - Reduces disk I/O for frequently accessed templates
+
+
 ## [0.52.0] - 2026-01-30
 
 ### Features
