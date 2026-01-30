@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.54.3] - 2026-01-30
+
+### Fixed
+
+- Standardize confirmation pattern across all commands to use AskUserQuestion
+  - Updated `ship.md`, `merge.md`, `git.md`, `task.md` templates
+  - Replaces inconsistent "Proceed? (yes/no)" text prompts
+  - All confirmations now use consistent options: "Yes (Recommended)", "No, cancel"
+
 ## [0.54.2] - 2026-01-30
 
 ### Bug Fixes

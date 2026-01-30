@@ -91,9 +91,8 @@ ABORT.
 git diff --stat
 ```
 
+Show the user:
 ```
-OUTPUT:
-"""
 ## Commit Plan
 
 Branch: {currentBranch}
@@ -101,12 +100,37 @@ Changes:
 {git diff --stat output}
 
 Will create commit with prjct footer.
-Proceed? (yes/no)
-"""
-
-WAIT for explicit approval.
-DO NOT assume.
 ```
+
+Then ask for confirmation:
+
+```
+AskUserQuestion:
+  question: "Create this commit?"
+  header: "Commit"
+  options:
+    - label: "Yes, commit (Recommended)"
+      description: "Stage all changes and commit"
+    - label: "No, cancel"
+      description: "Abort commit"
+    - label: "Show full diff"
+      description: "See detailed changes"
+```
+
+**Handle responses:**
+
+**If "Show full diff":**
+- Run `git diff` to show full changes
+- Ask again with Yes/No options only
+
+**If "No, cancel":**
+```
+OUTPUT: "✅ Commit cancelled"
+STOP - Do not continue
+```
+
+**If "Yes, commit":**
+CONTINUE to Step 3
 
 ### Step 3: Stage and Commit
 
@@ -159,20 +183,38 @@ ABORT.
 git log origin/{currentBranch}..HEAD --oneline 2>/dev/null || git log --oneline -3
 ```
 
+Show the user:
 ```
-OUTPUT:
-"""
 ## Push Plan
 
 Branch: {currentBranch}
 Commits to push:
 {commits}
-
-Proceed? (yes/no)
-"""
-
-WAIT for explicit approval.
 ```
+
+Then ask for confirmation:
+
+```
+AskUserQuestion:
+  question: "Push these commits?"
+  header: "Push"
+  options:
+    - label: "Yes, push (Recommended)"
+      description: "Push to remote origin"
+    - label: "No, cancel"
+      description: "Keep commits local"
+```
+
+**Handle responses:**
+
+**If "No, cancel":**
+```
+OUTPUT: "✅ Push cancelled"
+STOP - Do not continue
+```
+
+**If "Yes, push":**
+CONTINUE to Step 3
 
 ### Step 3: Execute Push
 
