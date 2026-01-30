@@ -285,6 +285,22 @@ export const COMMANDS: CommandMeta[] = [
     requiresProject: true,
     isOptional: true,
   },
+  {
+    name: 'workflow',
+    group: 'optional',
+    description: 'Configure workflow hooks via natural language',
+    usage: { claude: '/p:workflow ["config"]', terminal: 'prjct workflow ["config"]' },
+    params: '["natural language config"]',
+    implemented: true,
+    hasTemplate: true,
+    requiresProject: true,
+    isOptional: true,
+    features: [
+      'Natural language configuration',
+      'Before/after hooks for task, done, ship, sync',
+      'Permanent, session, or one-time preferences',
+    ],
+  },
 
   // ===== SETUP COMMANDS =====
   {

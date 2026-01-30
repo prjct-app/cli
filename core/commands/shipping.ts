@@ -10,6 +10,7 @@ import type { CommandResult } from '../types'
 import { isNotFoundError } from '../types/fs'
 import { showNextSteps } from '../utils/next-steps'
 import { detectProjectCommands } from '../utils/project-commands'
+import { runWorkflowHooks } from '../workflow/workflow-preferences'
 import { configManager, dateHelper, fileHelper, out, PrjctCommandsBase, toolRegistry } from './base'
 
 export class ShippingCommands extends PrjctCommandsBase {
@@ -48,19 +49,35 @@ export class ShippingCommands extends PrjctCommandsBase {
   /**
    * /p:ship - Ship feature with complete automated workflow
    */
-  async ship(feature: string | null, projectPath: string = process.cwd()): Promise<CommandResult> {
+  async ship(
+    feature: string | null,
+    projectPath: string = process.cwd(),
+    options: { skipHooks?: boolean } = {}
+  ): Promise<CommandResult> {
     try {
       const initResult = await this.ensureProjectInit(projectPath)
       if (!initResult.success) return initResult
 
-      const config = await configManager.readConfig(projectPath)
-      const projectId = config!.projectId
+      const projectId = await configManager.getProjectId(projectPath)
+      if (!projectId) {
+        out.fail('no project ID')
+        return { success: false, error: 'No project ID found' }
+      }
 
       let featureName = feature
       if (!featureName) {
         // Read from storage (JSON is source of truth)
         const currentTask = await stateStorage.getCurrentTask(projectId)
         featureName = currentTask?.description || 'current work'
+      }
+
+      // Run before_ship hooks (using memory-based preferences)
+      const beforeResult = await runWorkflowHooks(projectId, 'before', 'ship', {
+        projectPath,
+        skipHooks: options.skipHooks,
+      })
+      if (!beforeResult.success) {
+        return { success: false, error: `Hook failed: ${beforeResult.failed}` }
       }
 
       // Ship steps with progress indicator
@@ -107,6 +124,12 @@ export class ShippingCommands extends PrjctCommandsBase {
           feature_type: featureName.toLowerCase().includes('doc') ? 'docs' : 'other',
         })
       }
+
+      // Run after_ship hooks
+      await runWorkflowHooks(projectId, 'after', 'ship', {
+        projectPath,
+        skipHooks: options.skipHooks,
+      })
 
       out.done(`v${newVersion} shipped`)
       showNextSteps('ship')

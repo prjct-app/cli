@@ -1,0 +1,316 @@
+/**
+ * Workflow Preferences - Natural Language Driven Hooks
+ *
+ * Users configure workflow hooks via natural language.
+ * The LLM interprets preferences and stores them in memory.
+ *
+ * Scopes:
+ * - permanent: persisted via memorySystem.recordDecision()
+ * - session: in-memory Map, cleared on process exit
+ * - once: consumed after first use
+ *
+ * @see PRJ-137
+ * @module workflow/workflow-preferences
+ */
+
+import { exec } from 'node:child_process'
+import { promisify } from 'node:util'
+import memorySystem from '../agentic/memory-system'
+
+const execAsync = promisify(exec)
+
+// ANSI colors
+const DIM = '\x1b[2m'
+const GREEN = '\x1b[32m'
+const RED = '\x1b[31m'
+const YELLOW = '\x1b[33m'
+const RESET = '\x1b[0m'
+
+export type PreferenceScope = 'permanent' | 'session' | 'once'
+export type HookPhase = 'before' | 'after' | 'skip'
+export type HookCommand = 'task' | 'done' | 'ship' | 'sync'
+
+export interface WorkflowPreference {
+  hook: HookPhase
+  command: HookCommand
+  action: string // command to run or 'true' for skip
+  scope: PreferenceScope
+  createdAt: string
+}
+
+export interface HookResult {
+  success: boolean
+  failed?: string
+  skipped?: string[]
+  output?: string
+}
+
+// Session and once preferences (in-memory)
+const sessionPreferences: Map<string, WorkflowPreference> = new Map()
+const oncePreferences: Map<string, WorkflowPreference> = new Map()
+
+/**
+ * Generate a key for a preference
+ */
+function prefKey(hook: HookPhase, command: HookCommand): string {
+  return `workflow:${hook}_${command}`
+}
+
+/**
+ * Set a workflow preference
+ */
+export async function setWorkflowPreference(
+  projectId: string,
+  pref: WorkflowPreference
+): Promise<void> {
+  const key = prefKey(pref.hook, pref.command)
+
+  switch (pref.scope) {
+    case 'permanent':
+      // Use memory system for persistent storage
+      await memorySystem.recordDecision(projectId, key, pref.action, 'workflow')
+      break
+    case 'session':
+      sessionPreferences.set(key, pref)
+      break
+    case 'once':
+      oncePreferences.set(key, pref)
+      break
+  }
+}
+
+/**
+ * Get workflow preferences for a command
+ * Combines permanent + session + once preferences
+ */
+export async function getWorkflowPreferences(
+  projectId: string,
+  command: HookCommand
+): Promise<{
+  before?: string
+  after?: string
+  skip?: boolean
+}> {
+  const result: {
+    before?: string
+    after?: string
+    skip?: boolean
+  } = {}
+
+  // Check each phase
+  for (const phase of ['before', 'after', 'skip'] as const) {
+    const key = prefKey(phase, command)
+
+    // Check once first (highest priority)
+    const once = oncePreferences.get(key)
+    if (once) {
+      if (phase === 'skip') {
+        result.skip = once.action === 'true'
+      } else {
+        result[phase] = once.action
+      }
+      continue
+    }
+
+    // Check session
+    const session = sessionPreferences.get(key)
+    if (session) {
+      if (phase === 'skip') {
+        result.skip = session.action === 'true'
+      } else {
+        result[phase] = session.action
+      }
+      continue
+    }
+
+    // Check permanent (via memory system)
+    const permanent = await memorySystem.getSmartDecision(projectId, key)
+    if (permanent) {
+      if (phase === 'skip') {
+        result.skip = permanent === 'true'
+      } else {
+        result[phase] = permanent
+      }
+    }
+  }
+
+  return result
+}
+
+/**
+ * Run workflow hooks for a command
+ * Consumes 'once' preferences after use
+ */
+export async function runWorkflowHooks(
+  projectId: string,
+  phase: 'before' | 'after',
+  command: HookCommand,
+  options: { projectPath?: string; skipHooks?: boolean } = {}
+): Promise<HookResult> {
+  if (options.skipHooks) {
+    return { success: true }
+  }
+
+  const prefs = await getWorkflowPreferences(projectId, command)
+
+  // Check if this step should be skipped
+  if (prefs.skip) {
+    return { success: true, skipped: [command] }
+  }
+
+  const action = prefs[phase]
+  if (!action) {
+    return { success: true }
+  }
+
+  // Consume 'once' preference if it exists
+  const key = prefKey(phase, command)
+  if (oncePreferences.has(key)) {
+    oncePreferences.delete(key)
+  }
+
+  console.log(`\n${DIM}Running ${phase}-${command}: ${action}${RESET}`)
+
+  try {
+    const startTime = Date.now()
+    await execAsync(action, {
+      timeout: 60000,
+      cwd: options.projectPath || process.cwd(),
+      env: { ...process.env },
+    })
+    const elapsed = Date.now() - startTime
+    const timeStr = elapsed > 1000 ? `${(elapsed / 1000).toFixed(1)}s` : `${elapsed}ms`
+    console.log(`${GREEN}✓${RESET} ${DIM}(${timeStr})${RESET}`)
+    return { success: true }
+  } catch (error) {
+    console.log(`${RED}✗ failed${RESET}`)
+    const errorMessage = (error as Error).message || 'Unknown error'
+    console.log(`${DIM}${errorMessage.split('\n')[0]}${RESET}`)
+    return { success: false, failed: action, output: errorMessage }
+  }
+}
+
+/**
+ * List all workflow preferences for a project
+ */
+export async function listWorkflowPreferences(projectId: string): Promise<
+  Array<{
+    key: string
+    action: string
+    scope: PreferenceScope
+  }>
+> {
+  const results: Array<{
+    key: string
+    action: string
+    scope: PreferenceScope
+  }> = []
+
+  const commands: HookCommand[] = ['task', 'done', 'ship', 'sync']
+  const phases: HookPhase[] = ['before', 'after', 'skip']
+
+  for (const command of commands) {
+    for (const phase of phases) {
+      const key = prefKey(phase, command)
+
+      // Check once
+      const once = oncePreferences.get(key)
+      if (once) {
+        results.push({ key: `${phase} ${command}`, action: once.action, scope: 'once' })
+        continue
+      }
+
+      // Check session
+      const session = sessionPreferences.get(key)
+      if (session) {
+        results.push({ key: `${phase} ${command}`, action: session.action, scope: 'session' })
+        continue
+      }
+
+      // Check permanent
+      const permanent = await memorySystem.getSmartDecision(projectId, key)
+      if (permanent) {
+        results.push({ key: `${phase} ${command}`, action: permanent, scope: 'permanent' })
+      }
+    }
+  }
+
+  return results
+}
+
+/**
+ * Remove a workflow preference
+ */
+export async function removeWorkflowPreference(
+  projectId: string,
+  hook: HookPhase,
+  command: HookCommand
+): Promise<boolean> {
+  const key = prefKey(hook, command)
+
+  // Remove from all scopes
+  oncePreferences.delete(key)
+  sessionPreferences.delete(key)
+
+  // For permanent, we record an empty value
+  // (the memory system will treat low-confidence empty values as non-existent)
+  await memorySystem.recordDecision(projectId, key, '', 'workflow:remove')
+
+  return true
+}
+
+/**
+ * Format workflow preferences for display
+ */
+export function formatWorkflowPreferences(
+  preferences: Array<{
+    key: string
+    action: string
+    scope: PreferenceScope
+  }>
+): string {
+  if (preferences.length === 0) {
+    return `${DIM}No workflow preferences configured.${RESET}\n\nSet one: "p. workflow antes de ship corre los tests"`
+  }
+
+  const lines: string[] = [
+    '',
+    'WORKFLOW PREFERENCES',
+    '────────────────────────────',
+  ]
+
+  for (const pref of preferences) {
+    const scopeBadge =
+      pref.scope === 'permanent'
+        ? `${GREEN}permanent${RESET}`
+        : pref.scope === 'session'
+          ? `${YELLOW}session${RESET}`
+          : `${DIM}once${RESET}`
+
+    lines.push(`  [${scopeBadge}] ${pref.key.padEnd(15)} → ${pref.action}`)
+  }
+
+  lines.push('')
+  lines.push(`${DIM}Modify: "p. workflow antes de ship corre npm test"${RESET}`)
+  lines.push(`${DIM}Remove: "p. workflow quita el hook de ship"${RESET}`)
+
+  return lines.join('\n')
+}
+
+/**
+ * Clear all session preferences (for testing)
+ */
+export function clearSessionPreferences(): void {
+  sessionPreferences.clear()
+  oncePreferences.clear()
+}
+
+export default {
+  setWorkflowPreference,
+  getWorkflowPreferences,
+  runWorkflowHooks,
+  listWorkflowPreferences,
+  removeWorkflowPreference,
+  formatWorkflowPreferences,
+  clearSessionPreferences,
+}
