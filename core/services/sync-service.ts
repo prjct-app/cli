@@ -31,6 +31,7 @@ import pathManager from '../infrastructure/path-manager'
 import { metricsStorage } from '../storage/metrics-storage'
 import dateHelper from '../utils/date-helper'
 import { ContextFileGenerator } from './context-generator'
+import type { SyncDiff } from './diff-generator'
 import { type StackDetection, StackDetector } from './stack-detector'
 
 const execAsync = promisify(exec)
@@ -104,10 +105,15 @@ interface SyncResult {
   aiTools: AIToolResult[]
   syncMetrics?: SyncMetrics
   error?: string
+  // Preview mode fields
+  isPreview?: boolean
+  previewDiff?: SyncDiff
 }
 
 interface SyncOptions {
   aiTools?: string[] // AI tools to generate context for (default: claude, cursor)
+  preview?: boolean // If true, return diff without applying changes
+  skipConfirmation?: boolean // If true, apply changes without confirmation (--yes flag)
 }
 
 // ============================================================================

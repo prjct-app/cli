@@ -2,15 +2,19 @@
  * Analysis Commands: analyze, sync, and related helpers
  */
 
+import fs from 'node:fs/promises'
 import path from 'node:path'
+import prompts from 'prompts'
 import { generateContext } from '../context/generator'
 import analyzer from '../domain/analyzer'
 import commandInstaller from '../infrastructure/command-installer'
 import { formatCost } from '../schemas/metrics'
 import { syncService } from '../services'
+import { formatDiffPreview, formatFullDiff, generateSyncDiff } from '../services/diff-generator'
 import { metricsStorage } from '../storage/metrics-storage'
 import type { AnalyzeOptions, CommandResult, ProjectContext } from '../types'
 import { showNextSteps } from '../utils/next-steps'
+import out from '../utils/output'
 import {
   configManager,
   contextBuilder,
@@ -195,7 +199,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
   }
 
   /**
-   * /p:sync - Comprehensive project sync
+   * /p:sync - Comprehensive project sync with diff preview
    *
    * Uses syncService to do ALL operations in one TypeScript execution:
    * - Git analysis
@@ -205,120 +209,232 @@ export class AnalysisCommands extends PrjctCommandsBase {
    * - Skill configuration
    * - State updates
    *
+   * Options:
+   * - --preview: Show what would change without applying
+   * - --yes: Skip confirmation prompt
+   *
    * This eliminates the need for Claude to make 50+ individual tool calls.
+   *
+   * @see PRJ-125
    */
   async sync(
     projectPath: string = process.cwd(),
-    options: { aiTools?: string[] } = {}
+    options: { aiTools?: string[]; preview?: boolean; yes?: boolean } = {}
   ): Promise<CommandResult> {
     try {
       const initResult = await this.ensureProjectInit(projectPath)
       if (!initResult.success) return initResult
 
+      const projectId = await configManager.getProjectId(projectPath)
+      if (!projectId) {
+        out.failWithHint('NO_PROJECT_ID')
+        return { success: false, error: 'No project ID found' }
+      }
+
+      const globalPath = pathManager.getGlobalProjectPath(projectId)
       const startTime = Date.now()
-      console.log('🔄 Syncing project...\n')
+
+      // Generate diff preview if we have existing context
+      const claudeMdPath = path.join(globalPath, 'context', 'CLAUDE.md')
+      let existingContent: string | null = null
+      try {
+        existingContent = await fs.readFile(claudeMdPath, 'utf-8')
+      } catch {
+        // No existing file - first sync
+      }
+
+      // For preview mode or when we have existing content, show diff first
+      if (existingContent && !options.yes) {
+        out.spin('Analyzing changes...')
+
+        // Do a dry-run sync to see what would change
+        const result = await syncService.sync(projectPath, { aiTools: options.aiTools })
+
+        if (!result.success) {
+          out.fail(result.error || 'Sync failed')
+          return { success: false, error: result.error }
+        }
+
+        // Read the newly generated CLAUDE.md
+        let newContent: string
+        try {
+          newContent = await fs.readFile(claudeMdPath, 'utf-8')
+        } catch {
+          newContent = ''
+        }
+
+        // Generate diff
+        const diff = generateSyncDiff(existingContent, newContent)
+
+        out.stop()
+
+        if (!diff.hasChanges) {
+          out.done('No changes detected (context is up to date)')
+          return { success: true, message: 'No changes' }
+        }
+
+        // Show diff preview
+        console.log(formatDiffPreview(diff))
+
+        // Preview-only mode - don't apply
+        if (options.preview) {
+          return {
+            success: true,
+            isPreview: true,
+            diff,
+            message: 'Preview complete (no changes applied)',
+          }
+        }
+
+        // Interactive confirmation
+        const response = await prompts({
+          type: 'select',
+          name: 'action',
+          message: 'Apply these changes?',
+          choices: [
+            { title: 'Yes, apply changes', value: 'apply' },
+            { title: 'No, cancel', value: 'cancel' },
+            { title: 'Show full diff', value: 'diff' },
+          ],
+        })
+
+        if (response.action === 'cancel' || !response.action) {
+          out.warn('Sync cancelled')
+          return { success: false, message: 'Cancelled by user' }
+        }
+
+        if (response.action === 'diff') {
+          console.log(`\n${formatFullDiff(diff)}`)
+          const confirm = await prompts({
+            type: 'confirm',
+            name: 'apply',
+            message: 'Apply these changes?',
+            initial: true,
+          })
+          if (!confirm.apply) {
+            out.warn('Sync cancelled')
+            return { success: false, message: 'Cancelled by user' }
+          }
+        }
+
+        // Changes already applied from dry-run, just show success
+        out.done('Changes applied')
+        return this.showSyncResult(result, startTime)
+      }
+
+      // First sync or --yes flag - proceed directly
+      out.spin('Syncing project...')
 
       // Use syncService to do EVERYTHING in one call
       const result = await syncService.sync(projectPath, { aiTools: options.aiTools })
 
       if (!result.success) {
-        console.error('❌ Sync failed:', result.error)
+        out.fail(result.error || 'Sync failed')
         return { success: false, error: result.error }
       }
 
-      // Update global config
-      const globalConfigResult = await commandInstaller.installGlobalConfig()
-      if (globalConfigResult.success) {
-        console.log(`📝 Updated ${pathManager.getDisplayPath(globalConfigResult.path!)}`)
-      }
-
-      // Format output
-      console.log(`🔄 Project synced to prjct v${result.cliVersion}\n`)
-
-      console.log('📊 Project Stats')
-      console.log(`├── Files: ~${result.stats.fileCount}`)
-      console.log(`├── Commits: ${result.git.commits}`)
-      console.log(`├── Version: ${result.stats.version}`)
-      console.log(`└── Stack: ${result.stats.ecosystem}\n`)
-
-      console.log('🌿 Git Status')
-      console.log(`├── Branch: ${result.git.branch}`)
-      console.log(`├── Uncommitted: ${result.git.hasChanges ? 'Yes' : 'Clean'}`)
-      console.log(`└── Recent: ${result.git.weeklyCommits} commits this week\n`)
-
-      console.log('📁 Context Updated')
-      for (const file of result.contextFiles) {
-        console.log(`├── ${file}`)
-      }
-      console.log('')
-
-      // Show AI Tools generated (multi-agent output)
-      if (result.aiTools && result.aiTools.length > 0) {
-        const successTools = result.aiTools.filter((t) => t.success)
-        console.log(`🤖 AI Tools Context (${successTools.length})`)
-        for (const tool of result.aiTools) {
-          const status = tool.success ? '✓' : '✗'
-          console.log(`├── ${status} ${tool.outputFile} (${tool.toolId})`)
-        }
-        console.log('')
-      }
-
-      const workflowAgents = result.agents.filter((a) => a.type === 'workflow').map((a) => a.name)
-      const domainAgents = result.agents.filter((a) => a.type === 'domain').map((a) => a.name)
-
-      console.log(`🤖 Agents Regenerated (${result.agents.length})`)
-      console.log(`├── Workflow: ${workflowAgents.join(', ')}`)
-      console.log(`└── Domain: ${domainAgents.join(', ') || 'none'}\n`)
-
-      if (result.skills.length > 0) {
-        console.log('📦 Skills Configured')
-        for (const skill of result.skills) {
-          console.log(`├── ${skill.agent}.md → ${skill.skill}`)
-        }
-        console.log('')
-      }
-
-      if (result.git.hasChanges) {
-        console.log('⚠️  You have uncommitted changes\n')
-      } else {
-        console.log('✨ Repository is clean!\n')
-      }
-
-      showNextSteps('sync')
-
-      // Summary metrics
-      const elapsed = Date.now() - startTime
-      const contextFilesCount =
-        result.contextFiles.length + (result.aiTools?.filter((t) => t.success).length || 0)
-      const agentCount = result.agents.length
-
-      console.log('─'.repeat(45))
-      console.log(`📊 Sync Summary`)
-      console.log(
-        `   Stack: ${result.stats.ecosystem} (${result.stats.frameworks.join(', ') || 'no frameworks'})`
-      )
-      console.log(
-        `   Files: ${result.stats.fileCount} analyzed → ${contextFilesCount} context files`
-      )
-      console.log(
-        `   Agents: ${agentCount} (${result.agents.filter((a) => a.type === 'domain').length} domain)`
-      )
-      console.log(`   Time: ${(elapsed / 1000).toFixed(1)}s`)
-      console.log('')
-
-      return {
-        success: true,
-        data: result,
-        metrics: {
-          elapsed,
-          contextFilesCount,
-          agentCount,
-          fileCount: result.stats.fileCount,
-        },
-      }
+      out.stop()
+      return this.showSyncResult(result, startTime)
     } catch (error) {
-      console.error('❌ Error:', (error as Error).message)
+      out.fail((error as Error).message)
       return { success: false, error: (error as Error).message }
+    }
+  }
+
+  /**
+   * Display sync results (extracted to avoid duplication)
+   */
+  private async showSyncResult(
+    result: Awaited<ReturnType<typeof syncService.sync>>,
+    startTime: number
+  ): Promise<CommandResult> {
+    // Update global config
+    const globalConfigResult = await commandInstaller.installGlobalConfig()
+    if (globalConfigResult.success) {
+      console.log(`📝 Updated ${pathManager.getDisplayPath(globalConfigResult.path!)}`)
+    }
+
+    // Format output
+    console.log(`🔄 Project synced to prjct v${result.cliVersion}\n`)
+
+    console.log('📊 Project Stats')
+    console.log(`├── Files: ~${result.stats.fileCount}`)
+    console.log(`├── Commits: ${result.git.commits}`)
+    console.log(`├── Version: ${result.stats.version}`)
+    console.log(`└── Stack: ${result.stats.ecosystem}\n`)
+
+    console.log('🌿 Git Status')
+    console.log(`├── Branch: ${result.git.branch}`)
+    console.log(`├── Uncommitted: ${result.git.hasChanges ? 'Yes' : 'Clean'}`)
+    console.log(`└── Recent: ${result.git.weeklyCommits} commits this week\n`)
+
+    console.log('📁 Context Updated')
+    for (const file of result.contextFiles) {
+      console.log(`├── ${file}`)
+    }
+    console.log('')
+
+    // Show AI Tools generated (multi-agent output)
+    if (result.aiTools && result.aiTools.length > 0) {
+      const successTools = result.aiTools.filter((t) => t.success)
+      console.log(`🤖 AI Tools Context (${successTools.length})`)
+      for (const tool of result.aiTools) {
+        const status = tool.success ? '✓' : '✗'
+        console.log(`├── ${status} ${tool.outputFile} (${tool.toolId})`)
+      }
+      console.log('')
+    }
+
+    const workflowAgents = result.agents.filter((a) => a.type === 'workflow').map((a) => a.name)
+    const domainAgents = result.agents.filter((a) => a.type === 'domain').map((a) => a.name)
+
+    console.log(`🤖 Agents Regenerated (${result.agents.length})`)
+    console.log(`├── Workflow: ${workflowAgents.join(', ')}`)
+    console.log(`└── Domain: ${domainAgents.join(', ') || 'none'}\n`)
+
+    if (result.skills.length > 0) {
+      console.log('📦 Skills Configured')
+      for (const skill of result.skills) {
+        console.log(`├── ${skill.agent}.md → ${skill.skill}`)
+      }
+      console.log('')
+    }
+
+    if (result.git.hasChanges) {
+      console.log('⚠️  You have uncommitted changes\n')
+    } else {
+      console.log('✨ Repository is clean!\n')
+    }
+
+    showNextSteps('sync')
+
+    // Summary metrics
+    const elapsed = Date.now() - startTime
+    const contextFilesCount =
+      result.contextFiles.length + (result.aiTools?.filter((t) => t.success).length || 0)
+    const agentCount = result.agents.length
+
+    console.log('─'.repeat(45))
+    console.log('📊 Sync Summary')
+    console.log(
+      `   Stack: ${result.stats.ecosystem} (${result.stats.frameworks.join(', ') || 'no frameworks'})`
+    )
+    console.log(`   Files: ${result.stats.fileCount} analyzed → ${contextFilesCount} context files`)
+    console.log(
+      `   Agents: ${agentCount} (${result.agents.filter((a) => a.type === 'domain').length} domain)`
+    )
+    console.log(`   Time: ${(elapsed / 1000).toFixed(1)}s`)
+    console.log('')
+
+    return {
+      success: true,
+      data: result,
+      metrics: {
+        elapsed,
+        contextFilesCount,
+        agentCount,
+        fileCount: result.stats.fileCount,
+      },
     }
   }
 
