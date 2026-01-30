@@ -26,6 +26,7 @@ import type {
   ThinkBlock,
 } from '../types'
 import { isNotFoundError } from '../types/fs'
+import { getPackageRoot } from '../utils/version'
 
 // Re-export types for convenience
 export type {
@@ -123,6 +124,31 @@ class PromptBuilder {
    */
   setContext(context: Context | null): void {
     this._currentContext = context
+  }
+
+  /**
+   * Load a specific CLAUDE module for SMART commands (PRJ-94)
+   * These modules extend the base global CLAUDE.md for complex operations
+   */
+  loadModule(moduleName: string): string | null {
+    const modulePath = path.join(getPackageRoot(), 'templates/global/modules', moduleName)
+    return this.getTemplate(modulePath)
+  }
+
+  /**
+   * Get additional modules needed for SMART commands (PRJ-94)
+   * Returns array of module names that should be injected
+   */
+  getModulesForCommand(commandName: string): string[] {
+    const smartCommands: Record<string, string[]> = {
+      task: ['CLAUDE-intelligence.md', 'CLAUDE-storage.md'],
+      ship: ['CLAUDE-intelligence.md', 'CLAUDE-storage.md'],
+      bug: ['CLAUDE-intelligence.md'],
+      done: ['CLAUDE-storage.md'],
+      work: ['CLAUDE-intelligence.md', 'CLAUDE-storage.md'],
+      spec: ['CLAUDE-intelligence.md'],
+    }
+    return smartCommands[commandName] || []
   }
 
   /**
@@ -560,6 +586,18 @@ class PromptBuilder {
 
     // CRITICAL: Compressed rules
     parts.push(this.buildCriticalRules())
+
+    // PRJ-94: Inject additional modules for SMART commands
+    const additionalModules = this.getModulesForCommand(commandName)
+    if (additionalModules.length > 0) {
+      for (const moduleName of additionalModules) {
+        const moduleContent = this.loadModule(moduleName)
+        if (moduleContent) {
+          parts.push('\n')
+          parts.push(moduleContent)
+        }
+      }
+    }
 
     // P1.1: Learned Patterns
     if (learnedPatterns && Object.keys(learnedPatterns).some((k) => learnedPatterns[k])) {
