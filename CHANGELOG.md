@@ -1,10 +1,14 @@
 # Changelog
 
-## [0.48.0] - 2026-01-30
+## [0.49.1] - 2026-01-30
 
-### Features
+### Improved
 
-- Read-before-write enforcement for templates - PRJ-108 (#74)
+- **Error messages with context and recovery hints** (PRJ-131)
+  - Created error catalog with 15+ error types
+  - Added `out.failWithHint()` for rich error output
+  - Errors now show file path and recovery hints
+  - Example: `✗ Project ID not found` → `💡 Run 'prjct init'`
 
 
 ## [0.49.0] - 2026-01-30

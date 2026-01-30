@@ -39,7 +39,7 @@ export class AnalyticsCommands extends PrjctCommandsBase {
 
       const projectId = await configManager.getProjectId(projectPath)
       if (!projectId) {
-        out.fail('no project ID')
+        out.failWithHint('NO_PROJECT_ID')
         return { success: false, error: 'No project ID found' }
       }
 
