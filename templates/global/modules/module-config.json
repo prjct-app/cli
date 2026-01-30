@@ -14,17 +14,11 @@
     },
     "standard": {
       "description": "Standard modules - balanced (~1400 tokens)",
-      "modules": [
-        "CLAUDE-core.md",
-        "CLAUDE-commands.md",
-        "CLAUDE-git.md"
-      ]
+      "modules": ["CLAUDE-core.md", "CLAUDE-commands.md", "CLAUDE-git.md"]
     },
     "minimal": {
       "description": "Core only - minimum context (~500 tokens)",
-      "modules": [
-        "CLAUDE-core.md"
-      ]
+      "modules": ["CLAUDE-core.md"]
     }
   },
   "default": "standard",
