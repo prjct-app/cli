@@ -30,9 +30,13 @@ export type {
   MemoryContext,
   MemoryContextParams,
   MemoryDatabase,
+  MemoryRetrievalResult,
   MemoryTag,
   Patterns,
   Preference,
+  RelevantMemoryQuery,
+  ScoredMemory,
+  TaskDomain,
   Workflow,
 } from '../types/memory'
 
@@ -44,9 +48,13 @@ import type {
   Memory,
   MemoryContext,
   MemoryDatabase,
+  MemoryRetrievalResult,
   MemoryTag,
   Patterns,
   Preference,
+  RelevantMemoryQuery,
+  ScoredMemory,
+  TaskDomain,
   Workflow,
 } from '../types/memory'
 
@@ -690,6 +698,202 @@ export class SemanticMemories extends CachedStore<MemoryDatabase> {
       .map(({ _score, ...memory }) => memory as Memory)
   }
 
+  /**
+   * Enhanced memory retrieval with domain-based filtering and metrics.
+   * Implements selective memory retrieval based on task relevance.
+   * @see PRJ-107
+   */
+  async getRelevantMemoriesWithMetrics(
+    projectId: string,
+    query: RelevantMemoryQuery
+  ): Promise<MemoryRetrievalResult> {
+    const db = await this.load(projectId)
+    const totalMemories = db.memories.length
+
+    if (totalMemories === 0) {
+      return {
+        memories: [],
+        metrics: {
+          totalMemories: 0,
+          memoriesConsidered: 0,
+          memoriesReturned: 0,
+          filteringRatio: 0,
+          avgRelevanceScore: 0,
+        },
+      }
+    }
+
+    const maxResults = query.maxResults ?? 10
+    const minRelevance = query.minRelevance ?? 10
+
+    // Score all memories
+    const scored: ScoredMemory[] = db.memories.map((memory) => {
+      const breakdown = {
+        domainMatch: 0,
+        tagMatch: 0,
+        recency: 0,
+        confidence: 0,
+        keywords: 0,
+        userTriggered: 0,
+      }
+
+      // Domain match scoring (0-25 points)
+      if (query.taskDomain) {
+        const domainTags = this._getDomainTags(query.taskDomain)
+        const matchingTags = (memory.tags || []).filter((tag) => domainTags.includes(tag))
+        breakdown.domainMatch = Math.min(25, matchingTags.length * 10)
+      }
+
+      // Tag match from command context (0-20 points)
+      if (query.commandName) {
+        const commandTags = this._getCommandTags(query.commandName)
+        const matchingTags = (memory.tags || []).filter((tag) => commandTags.includes(tag))
+        breakdown.tagMatch = Math.min(20, matchingTags.length * 8)
+      }
+
+      // Recency scoring (0-15 points)
+      const age = Date.now() - new Date(memory.updatedAt).getTime()
+      const daysSinceUpdate = age / (1000 * 60 * 60 * 24)
+      breakdown.recency = Math.max(0, Math.round(15 - daysSinceUpdate * 0.5))
+
+      // Confidence scoring (0-20 points) - PRJ-104 integration
+      if (memory.confidence) {
+        breakdown.confidence =
+          memory.confidence === 'high' ? 20 : memory.confidence === 'medium' ? 12 : 5
+      } else if (memory.observationCount) {
+        // Fallback to observation count
+        breakdown.confidence = Math.min(20, memory.observationCount * 3)
+      }
+
+      // Keyword matching (0-15 points)
+      if (query.taskDescription) {
+        const keywords = this._extractKeywordsFromText(query.taskDescription)
+        let keywordScore = 0
+        for (const keyword of keywords) {
+          if (memory.content.toLowerCase().includes(keyword)) keywordScore += 2
+          if (memory.title.toLowerCase().includes(keyword)) keywordScore += 3
+        }
+        breakdown.keywords = Math.min(15, keywordScore)
+      }
+
+      // User triggered bonus (0-5 points)
+      if (memory.userTriggered) {
+        breakdown.userTriggered = 5
+      }
+
+      const relevanceScore =
+        breakdown.domainMatch +
+        breakdown.tagMatch +
+        breakdown.recency +
+        breakdown.confidence +
+        breakdown.keywords +
+        breakdown.userTriggered
+
+      return {
+        ...memory,
+        relevanceScore,
+        scoreBreakdown: breakdown,
+      }
+    })
+
+    // Filter by minimum relevance
+    const considered = scored.filter((m) => m.relevanceScore >= minRelevance)
+
+    // Sort by relevance and take top N
+    const sorted = considered.sort((a, b) => b.relevanceScore - a.relevanceScore)
+    const returned = sorted.slice(0, maxResults)
+
+    // Calculate average relevance
+    const avgRelevanceScore =
+      returned.length > 0
+        ? Math.round(returned.reduce((sum, m) => sum + m.relevanceScore, 0) / returned.length)
+        : 0
+
+    return {
+      memories: returned,
+      metrics: {
+        totalMemories,
+        memoriesConsidered: considered.length,
+        memoriesReturned: returned.length,
+        filteringRatio: totalMemories > 0 ? returned.length / totalMemories : 0,
+        avgRelevanceScore,
+      },
+    }
+  }
+
+  /**
+   * Map task domain to relevant memory tags.
+   * @see PRJ-107
+   */
+  private _getDomainTags(domain: TaskDomain): MemoryTag[] {
+    const domainTagMap: Record<TaskDomain, MemoryTag[]> = {
+      frontend: [MEMORY_TAGS.CODE_STYLE, MEMORY_TAGS.FILE_STRUCTURE, MEMORY_TAGS.ARCHITECTURE],
+      backend: [
+        MEMORY_TAGS.CODE_STYLE,
+        MEMORY_TAGS.ARCHITECTURE,
+        MEMORY_TAGS.DEPENDENCIES,
+        MEMORY_TAGS.TECH_STACK,
+      ],
+      devops: [MEMORY_TAGS.SHIP_WORKFLOW, MEMORY_TAGS.TEST_BEHAVIOR, MEMORY_TAGS.DEPENDENCIES],
+      docs: [MEMORY_TAGS.CODE_STYLE, MEMORY_TAGS.NAMING_CONVENTION],
+      testing: [MEMORY_TAGS.TEST_BEHAVIOR, MEMORY_TAGS.CODE_STYLE],
+      database: [MEMORY_TAGS.ARCHITECTURE, MEMORY_TAGS.NAMING_CONVENTION],
+      general: Object.values(MEMORY_TAGS) as MemoryTag[],
+    }
+    return domainTagMap[domain] || []
+  }
+
+  /**
+   * Map command to relevant memory tags.
+   * @see PRJ-107
+   */
+  private _getCommandTags(commandName: string): MemoryTag[] {
+    const commandTags: Record<string, MemoryTag[]> = {
+      ship: [MEMORY_TAGS.COMMIT_STYLE, MEMORY_TAGS.SHIP_WORKFLOW, MEMORY_TAGS.TEST_BEHAVIOR],
+      feature: [MEMORY_TAGS.ARCHITECTURE, MEMORY_TAGS.CODE_STYLE],
+      done: [MEMORY_TAGS.SHIP_WORKFLOW],
+      analyze: [MEMORY_TAGS.TECH_STACK, MEMORY_TAGS.ARCHITECTURE],
+      spec: [MEMORY_TAGS.ARCHITECTURE, MEMORY_TAGS.CODE_STYLE],
+      task: [MEMORY_TAGS.BRANCH_NAMING, MEMORY_TAGS.CODE_STYLE],
+      sync: [MEMORY_TAGS.TECH_STACK, MEMORY_TAGS.ARCHITECTURE, MEMORY_TAGS.DEPENDENCIES],
+      test: [MEMORY_TAGS.TEST_BEHAVIOR],
+      bug: [MEMORY_TAGS.CODE_STYLE, MEMORY_TAGS.TEST_BEHAVIOR],
+    }
+    return commandTags[commandName] || []
+  }
+
+  /**
+   * Extract keywords from text for matching.
+   */
+  private _extractKeywordsFromText(text: string): string[] {
+    const words = text.toLowerCase().split(/\s+/)
+    const stopWords = new Set([
+      'the',
+      'a',
+      'an',
+      'is',
+      'are',
+      'to',
+      'for',
+      'and',
+      'or',
+      'in',
+      'on',
+      'at',
+      'by',
+      'with',
+      'from',
+      'as',
+      'it',
+      'this',
+      'that',
+      'be',
+      'have',
+      'has',
+    ])
+    return words.filter((w) => w.length > 2 && !stopWords.has(w))
+  }
+
   private _extractContextTags(context: MemoryContext): string[] {
     const tags: string[] = []
 
@@ -861,6 +1065,18 @@ export class MemorySystem {
 
   getMemoryStats(projectId: string) {
     return this._semanticMemories.getMemoryStats(projectId)
+  }
+
+  /**
+   * Get relevant memories with domain-based filtering and metrics.
+   * Implements selective memory retrieval based on task relevance.
+   * @see PRJ-107
+   */
+  getRelevantMemoriesWithMetrics(
+    projectId: string,
+    query: RelevantMemoryQuery
+  ): Promise<MemoryRetrievalResult> {
+    return this._semanticMemories.getRelevantMemoriesWithMetrics(projectId, query)
   }
 
   // ===========================================================================

@@ -76,6 +76,69 @@ export interface MemoryQuery {
 }
 
 /**
+ * Domain types for task context.
+ * @see PRJ-107
+ */
+export type TaskDomain = 'frontend' | 'backend' | 'devops' | 'docs' | 'testing' | 'database' | 'general'
+
+/**
+ * Enhanced query parameters for selective memory retrieval.
+ * @see PRJ-107
+ */
+export interface RelevantMemoryQuery {
+  /** Task domain for context-aware retrieval */
+  taskDomain?: TaskDomain
+  /** Task description for keyword matching */
+  taskDescription?: string
+  /** Command being executed */
+  commandName?: string
+  /** Maximum results to return */
+  maxResults?: number
+  /** Minimum relevance score threshold (0-100) */
+  minRelevance?: number
+}
+
+/**
+ * Memory with relevance score attached.
+ * @see PRJ-107
+ */
+export interface ScoredMemory extends Memory {
+  /** Relevance score (0-100) */
+  relevanceScore: number
+  /** Breakdown of score components */
+  scoreBreakdown?: {
+    domainMatch: number
+    tagMatch: number
+    recency: number
+    confidence: number
+    keywords: number
+    userTriggered: number
+  }
+}
+
+/**
+ * Result of selective memory retrieval with metrics.
+ * @see PRJ-107
+ */
+export interface MemoryRetrievalResult {
+  /** Relevant memories sorted by score */
+  memories: ScoredMemory[]
+  /** Retrieval metrics */
+  metrics: {
+    /** Total memories in database */
+    totalMemories: number
+    /** Memories that passed threshold */
+    memoriesConsidered: number
+    /** Memories returned */
+    memoriesReturned: number
+    /** Filtering ratio (returned/total) */
+    filteringRatio: number
+    /** Average relevance score of returned memories */
+    avgRelevanceScore: number
+  }
+}
+
+/**
  * Memory database structure.
  */
 export interface MemoryDatabase {
