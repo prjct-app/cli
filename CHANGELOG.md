@@ -2,6 +2,13 @@
 
 ## [0.50.0] - 2026-01-30
 
+### Features
+
+- Unified output system with new methods - PRJ-130 (#76)
+
+
+## [0.50.0] - 2026-01-30
+
 ### Added
 
 - **Unified output system with new methods** (PRJ-130)
