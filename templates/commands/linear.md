@@ -1,7 +1,6 @@
 ---
 allowed-tools: [Read, Write, Bash, AskUserQuestion]
 description: 'Linear issue tracker integration via SDK'
-extends: '_bases/tracker-base.md'
 ---
 
 # p. linear - Linear Integration

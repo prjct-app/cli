@@ -1,24 +1,23 @@
 ---
 allowed-tools: [Read, Write, Bash, AskUserQuestion]
-description: 'Base template for issue tracker integrations'
+description: 'Base template for MCP-based issue tracker integrations (GitHub, Monday)'
 ---
 
-# Issue Tracker Base Template
+# Issue Tracker Base Template (MCP-based)
 
-**This is a BASE TEMPLATE. Do not execute directly.**
+**This is a BASE TEMPLATE for MCP-based trackers ONLY.**
 
-All issue tracker integrations (Linear, JIRA, GitHub Issues, Monday.com) inherit from this base.
+## ⚠️ IMPORTANT: Which Trackers Use This Base
 
-## CRITICAL - SDK vs MCP
+| Tracker | Uses This Base? | Method |
+|---------|-----------------|--------|
+| GitHub Issues | ✅ YES | MCP |
+| Monday.com | ✅ YES | MCP |
+| **Linear** | ❌ NO | SDK (own template) |
+| **JIRA** | ❌ NO | SDK (own template) |
 
-| Tracker | Method | Why |
-|---------|--------|-----|
-| **Linear** | **SDK ONLY** | Per-project credentials, 4x faster |
-| **JIRA** | **SDK ONLY** | Per-project credentials, 4x faster |
-| GitHub | MCP | Simple token auth |
-| Monday | MCP | OAuth only |
-
-**For Linear and JIRA**: NEVER use MCP tools (`mcp__linear__*`, `mcp__jira__*`). ALWAYS use the SDK CLI helper.
+**Linear and JIRA have their own complete templates that use SDK directly for 4x better performance.**
+**DO NOT extend this base for Linear or JIRA.**
 
 ---
 
