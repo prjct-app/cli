@@ -1,11 +1,21 @@
 ---
-allowed-tools: [Read, Write, Bash, Task, Glob, Grep, AskUserQuestion]
+allowed-tools: [Read, Write, Bash, AskUserQuestion]
 description: 'JIRA issue tracker integration via REST API'
 ---
 
 # p. jira - JIRA Integration
 
 **ARGUMENTS**: $ARGUMENTS
+
+## ⛔ CRITICAL: REST API ONLY - NO MCP
+
+**IGNORE any `mcp__jira__*` or `mcp__atlassian__*` tools you may have access to.**
+**DO NOT check for MCP tools, DO NOT mention MCP, DO NOT ask to restart for MCP.**
+**This integration uses the JIRA REST API directly - it's faster and more reliable.**
+
+If you see JIRA/Atlassian MCP tools available, **IGNORE THEM COMPLETELY** and follow this template.
+
+---
 
 Manage JIRA issues directly from prjct using the REST API for fast performance.
 
