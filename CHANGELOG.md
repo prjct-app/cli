@@ -1,11 +1,20 @@
 # Changelog
 
+## [0.55.1] - 2026-02-04
+
+### Fixed
+
+- **Linear/JIRA templates no longer inherit MCP-based tracker-base**
+  - Removed `extends: '_bases/tracker-base.md'` from `linear.md` and `jira.md`
+  - Both templates have complete SDK-based implementations (4x faster than MCP)
+  - Fixes bug where `p. linear setup` kept asking users to "restart Claude Code for MCP"
+  - Updated `tracker-base.md` to clarify it's only for MCP trackers (GitHub, Monday)
+
 ## [0.55.0] - 2026-01-30
 
 ### Features
 
 - modular CLAUDE.md for reduced token usage - PRJ-94 (#86)
-
 
 ## [0.54.4] - 2026-01-30
 
