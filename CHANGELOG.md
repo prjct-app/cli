@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.55.2] - 2026-02-04
+
+### Bug Fixes
+
+- make Linear/JIRA templates explicitly ignore MCP tools
+
+
 ## [0.55.1] - 2026-02-04
 
 ### Bug Fixes
