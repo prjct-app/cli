@@ -1,12 +1,9 @@
 ---
 allowed-tools: [Read, Write, Bash, Task, Glob, Grep, AskUserQuestion]
 description: 'JIRA issue tracker integration via REST API'
-extends: '_bases/tracker-base.md'
 ---
 
 # p. jira - JIRA Integration
-
-**EXTENDS**: `_bases/tracker-base.md` - See base template for common flows.
 
 **ARGUMENTS**: $ARGUMENTS
 
