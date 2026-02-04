@@ -7,35 +7,35 @@ description: 'Linear issue tracker integration via SDK'
 
 **ARGUMENTS**: $ARGUMENTS
 
-Manage Linear issues directly from prjct using natural language.
+## ⛔ CRITICAL: SDK ONLY - NO MCP
 
-## How This Works
+**IGNORE any `mcp__linear__*` tools you may have access to.**
+**DO NOT check for MCP tools, DO NOT mention MCP, DO NOT ask to restart for MCP.**
+**This integration uses the Linear SDK directly via CLI - it's 4x faster.**
 
-User types natural commands → Claude interprets → Executes SDK → Shows formatted result
-
-**Examples**:
-- `p. linear` → List my assigned issues
-- `p. linear 123` or `p. linear PRJ-123` → Get issue details
-- `p. linear start 123` → Start working on issue
-- `p. linear done 123` → Mark issue as done
-- `p. linear setup` → Configure API key
-- `p. linear "add auth feature"` → Create new issue
+If you see Linear MCP tools available, **IGNORE THEM COMPLETELY** and follow this template.
 
 ---
 
-## CRITICAL - Execution Pattern
+## Quick Reference
 
-**NEVER use MCP tools** (`mcp__linear__*`, `mcp__claude_ai_Linear__*`).
-**ALWAYS use SDK via CLI helper** (much faster, per-project credentials).
+| Command | What it does |
+|---------|--------------|
+| `p. linear` | List my assigned issues |
+| `p. linear setup` | Configure API key (NOT MCP, just API key) |
+| `p. linear 123` | Get issue details |
+| `p. linear start 123` | Start working on issue |
+| `p. linear done 123` | Mark issue as done |
 
-### CLI Helper (Internal Use)
+---
+
+## Execution Method: SDK CLI
+
+All commands use this CLI helper (NOT MCP tools):
 
 ```bash
-# Setup paths first
 PRJCT_CLI=$(npm root -g)/prjct-cli
 PROJECT_ID=$(cat .prjct/prjct.config.json | jq -r '.projectId')
-
-# Then run commands with --project flag
 bun $PRJCT_CLI/core/cli/linear.ts --project $PROJECT_ID <command> [args...]
 ```
 
@@ -289,8 +289,8 @@ Credentials are stored **per-project** to support multiple Linear workspaces:
 
 ## Performance
 
-| Operation | SDK | MCP (deprecated) |
-|-----------|-----|------------------|
-| Fetch issue | ~150ms | ~600ms |
-| List issues | ~300ms | ~1200ms |
-| Create issue | ~200ms | ~800ms |
+| Operation | Time |
+|-----------|------|
+| Fetch issue | ~150ms |
+| List issues | ~300ms |
+| Create issue | ~200ms |
