@@ -4,13 +4,6 @@
 
 ### Bug Fixes
 
-- remove MCP inheritance from Linear/JIRA templates
-
-
-## [0.55.1] - 2026-02-04
-
-### Fixed
-
 - **Linear/JIRA templates no longer inherit MCP-based tracker-base**
   - Removed `extends: '_bases/tracker-base.md'` from `linear.md` and `jira.md`
   - Both templates have complete SDK-based implementations (4x faster than MCP)
