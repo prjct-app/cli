@@ -55,7 +55,7 @@
     "chalk": "^4.1.2",
     "chokidar": "^5.0.0",
     "esbuild": "^0.25.0",
-    "glob": "^10.3.10",
+    "glob": "^13.0.1",
     "hono": "^4.11.3",
     "jsonc-parser": "^3.3.1",
     "lightningcss": "^1.30.2",
