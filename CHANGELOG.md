@@ -2,6 +2,13 @@
 
 ## [0.55.1] - 2026-02-04
 
+### Bug Fixes
+
+- remove MCP inheritance from Linear/JIRA templates
+
+
+## [0.55.1] - 2026-02-04
+
 ### Fixed
 
 - **Linear/JIRA templates no longer inherit MCP-based tracker-base**
