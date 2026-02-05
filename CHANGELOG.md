@@ -2,6 +2,13 @@
 
 ## [0.62.0] - 2026-02-05
 
+### Features
+
+- implement graceful degradation for missing dependencies (PRJ-114) (#103)
+
+
+## [0.62.0] - 2026-02-05
+
 ### Improved
 
 - **Graceful degradation (PRJ-114)**: prjct now handles missing dependencies with helpful recovery hints instead of crashing
