@@ -1,5 +1,45 @@
 # Changelog
 
+## [0.60.0] - 2026-02-05
+
+### Features
+
+- **Hierarchical AGENTS.md resolution (PRJ-101)**: Agent files can now be discovered and loaded hierarchically from any directory level
+- **Learnings capture on task completion**: Templates now capture patterns, approaches, and decisions for LLM knowledge transfer
+- **Local-first issue tracking**: READ LOCAL, WRITE REMOTE pattern for Linear/JIRA (faster, fewer tokens)
+
+### Changed
+
+- **Statusline improvements**: `p/` → `p.`, branch names truncated to 10 chars, neutral colors
+- **Templates use `prjct` CLI directly**: No more dependency on `$PRJCT_CLI` environment variable
+- **Ship always marks Done**: Issue tracker status updated to Done after ship (work complete)
+
+### Implementation Details
+
+Implemented hierarchical agent resolution allowing AGENTS.md files at any directory level to define domain-specific patterns. Extended NestedContextResolver to discover these files and HierarchicalAgentResolver to merge them. Updated templates to enforce issue tracker updates and capture learnings on completion.
+
+### Learnings
+
+- LLMs tend to skip template steps even when marked mandatory - need explicit POST-MERGE sections
+- `$PRJCT_CLI` may not be set - use `prjct` CLI directly
+- Local-first caching critical for token efficiency
+- Neutral colors better than brand colors for dev tools
+
+### Test Plan
+
+#### For QA
+1. Run `p. sync` → Verify statusline shows `p.` instead of `p/`
+2. On long branch name → Verify truncates to 10 chars after `/`
+3. Run `p. task PRJ-XXX` → Should read from local `issues.json`, not API
+4. Run `p. done` → Should update Linear status to Done
+5. Run `p. ship` after merge → Must update issue tracker before outputting success
+
+#### For Users
+- Statusline: `p/` → `p.`, branch names truncated, neutral colors
+- Templates enforce issue tracker updates (never skipped)
+- Learnings captured on task completion for LLM knowledge transfer
+
+
 ## [0.59.1] - 2026-02-05
 
 ### Tests

@@ -73,47 +73,65 @@ IF uncommitted changes exist:
 
 IF `$ARGUMENTS` matches pattern `/^[A-Z]+-\d+$/` (e.g., PRJ-123, PROJ-456):
 
+**⛔ CRITICAL: READ LOCAL, WRITE REMOTE (Token Efficiency)**
+
 ```
 READ: {globalPath}/project.json
 CHECK: integrations.linear OR integrations.jira
 
 IF integrations.linear.enabled:
-  # Linear issue detected - use LOCAL-FIRST approach
-  # Try local cache first (issues.json), then API if not found
+  # ═══════════════════════════════════════════════════════════════
+  # READ FROM LOCAL CACHE - NEVER call API for issue details
+  # This saves 1000s of tokens by not re-reading descriptions/AC
+  # ═══════════════════════════════════════════════════════════════
 
-  RUN: bun $PRJCT_CLI/core/cli/linear.ts --project {projectId} get-local "$ARGUMENTS"
+  READ: {globalPath}/storage/issues.json
+  FIND: issue where identifier == "$ARGUMENTS"
 
-  IF issue found in local cache:
-    USE cached issue data (no API call needed)
-  ELSE:
-    # Fallback to API - sync and retry
-    RUN: bun $PRJCT_CLI/core/cli/linear.ts --project {projectId} sync
-    RUN: bun $PRJCT_CLI/core/cli/linear.ts --project {projectId} get-local "$ARGUMENTS"
+  IF issue NOT found in local cache:
+    # Only sync if issue not cached (rare case)
+    OUTPUT: "Issue not in cache. Syncing..."
+    RUN: prjct linear sync
+    READ: {globalPath}/storage/issues.json  # Re-read after sync
 
   IF issue found:
+    # Use cached data - DO NOT re-fetch from API
     SET: task.linearId = issue.identifier     # "PRJ-123"
     SET: task.linearUuid = issue.id           # Linear internal UUID
-    SET: task.description = issue.title
-    SET: $ARGUMENTS = issue.title  # Use title for task
+    SET: task.description = issue.title       # From cache, not API
+    SET: $ARGUMENTS = issue.title
 
-    # Mark issue as In Progress in Linear (REQUIRED - DO NOT SKIP)
-    RUN: bun $PRJCT_CLI/core/cli/linear.ts --project {projectId} start "{task.linearId}"
+    # ═══════════════════════════════════════════════════════════════
+    # WRITE TO REMOTE - Only status updates go to API
+    # USE prjct CLI DIRECTLY - NOT $PRJCT_CLI (may be unset)
+    # ═══════════════════════════════════════════════════════════════
+    RUN: prjct linear start "{task.linearId}"
 
     OUTPUT: "Linked to Linear: {issue.identifier} - {issue.title}"
     OUTPUT: "Linear: → In Progress ✓"
 
 ELSE IF integrations.jira.enabled:
-  # JIRA issue detected
-  RUN: bun $PRJCT_CLI/core/cli/jira.ts --project {projectId} get "$ARGUMENTS"
+  # ═══════════════════════════════════════════════════════════════
+  # READ FROM LOCAL CACHE - Same pattern as Linear
+  # ═══════════════════════════════════════════════════════════════
+
+  READ: {globalPath}/storage/issues.json
+  FIND: issue where externalId == "$ARGUMENTS"
+
+  IF issue NOT found in local cache:
+    OUTPUT: "Issue not in cache. Syncing..."
+    RUN: prjct jira sync
+    READ: {globalPath}/storage/issues.json
 
   IF issue found:
     SET: task.externalId = issue.externalId
     SET: task.externalProvider = "jira"
     SET: task.description = issue.title
-    SET: $ARGUMENTS = issue.title  # Use title for task
+    SET: $ARGUMENTS = issue.title
 
-    # Mark issue as In Progress in JIRA
-    RUN: bun $PRJCT_CLI/core/cli/jira.ts --project {projectId} status "$ARGUMENTS" "in_progress"
+    # WRITE TO REMOTE - Only status update
+    # USE prjct CLI DIRECTLY
+    RUN: prjct jira transition "$ARGUMENTS" "In Progress"
 
     OUTPUT: "Linked to JIRA: {issue.externalId} - {issue.title}"
     OUTPUT: "JIRA: In Progress"
@@ -147,6 +165,17 @@ Default: **feature**
 ### Step C: Break Down into Subtasks
 
 Create 2-5 actionable subtasks based on the task description.
+
+### Step C.5: Define Expected Value
+
+**Before showing the plan, identify expected outcomes:**
+
+Based on exploration and task analysis, determine:
+- **Expected value type**: feature | bugfix | performance | dx | refactor | infrastructure
+- **Expected impact**: high | medium | low
+- **Success criteria**: What makes this task "done well" (1-2 bullet points)
+
+This will be stored in state.json and compared against actual outcomes in `p. done`.
 
 ### Step D: Show Plan and Get Approval (BLOCKING)
 
@@ -249,7 +278,12 @@ WRITE `{globalPath}/storage/state.json`:
     "parentDescription": "$ARGUMENTS",
     "branch": "{type}/{slug}",
     "linearId": "{identifier or null}",
-    "linearUuid": "{uuid or null}"
+    "linearUuid": "{uuid or null}",
+    "expectedValue": {
+      "type": "{feature|bugfix|performance|dx|refactor|infrastructure}",
+      "impact": "{high|medium|low}",
+      "successCriteria": ["criterion 1", "criterion 2"]
+    }
   },
   "pausedTasks": []
 }

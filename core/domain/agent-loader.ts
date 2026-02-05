@@ -1,14 +1,21 @@
 /**
- * AgentLoader - Loads agents from project files
+ * AgentLoader - Loads agents from project files with hierarchical AGENTS.md support
  *
  * CRITICAL: This ensures agents generated for a project are actually USED
  *
- * @version 1.0.0
+ * Supports two agent sources:
+ * 1. Generated agent files in ~/.prjct-cli/projects/{projectId}/agents/
+ * 2. Hierarchical AGENTS.md files in the project directory tree
+ *
+ * @version 2.0.0
  */
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
+import HierarchicalAgentResolver, {
+  type HierarchicalAgent,
+} from '../services/hierarchical-agent-resolver'
 import { isNotFoundError } from '../types/fs'
 
 interface Agent {
@@ -19,17 +26,33 @@ interface Agent {
   domain: string
   skills: string[]
   modified: Date
+  /** Source of this agent: 'file' (generated) or 'hierarchical' (AGENTS.md) */
+  source?: 'file' | 'hierarchical'
+  /** If hierarchical, the files that contributed to this agent */
+  hierarchySources?: string[]
 }
 
 class AgentLoader {
   projectId: string | null
   agentsDir: string
   cache: Map<string, Agent>
+  private projectPath: string | null
+  private hierarchicalResolver: HierarchicalAgentResolver | null = null
 
-  constructor(projectId: string | null = null) {
+  constructor(projectId: string | null = null, projectPath: string | null = null) {
     this.projectId = projectId
+    this.projectPath = projectPath
     this.agentsDir = pathManager.getAgentsPath(projectId)
     this.cache = new Map()
+  }
+
+  /**
+   * Initialize hierarchical agent resolution for a project path
+   */
+  async initializeHierarchical(projectPath: string): Promise<void> {
+    this.projectPath = projectPath
+    this.hierarchicalResolver = new HierarchicalAgentResolver(projectPath)
+    await this.hierarchicalResolver.initialize()
   }
 
   /**
@@ -185,6 +208,177 @@ class AgentLoader {
    */
   getAgentsDir(): string {
     return this.agentsDir
+  }
+
+  // ==========================================================================
+  // HIERARCHICAL AGENTS.md SUPPORT
+  // ==========================================================================
+
+  /**
+   * Load agents from hierarchical AGENTS.md files for a specific path
+   * Returns agents resolved from the directory tree
+   */
+  async loadHierarchicalAgents(targetPath?: string): Promise<Agent[]> {
+    if (!this.hierarchicalResolver) {
+      if (this.projectPath) {
+        await this.initializeHierarchical(this.projectPath)
+      } else {
+        return [] // No project path, can't resolve hierarchical agents
+      }
+    }
+
+    const result = await this.hierarchicalResolver!.resolveAgentsForPath(
+      targetPath || this.projectPath || process.cwd()
+    )
+
+    return result.agents.map((ha) => this.hierarchicalAgentToAgent(ha))
+  }
+
+  /**
+   * Load a specific agent from AGENTS.md hierarchy
+   */
+  async loadHierarchicalAgent(agentName: string, targetPath?: string): Promise<Agent | null> {
+    if (!this.hierarchicalResolver) {
+      if (this.projectPath) {
+        await this.initializeHierarchical(this.projectPath)
+      } else {
+        return null
+      }
+    }
+
+    const agent = await this.hierarchicalResolver!.getAgentByName(
+      agentName,
+      targetPath || this.projectPath || undefined
+    )
+
+    return agent ? this.hierarchicalAgentToAgent(agent) : null
+  }
+
+  /**
+   * Load all agents, merging generated files with AGENTS.md definitions
+   * Generated files take precedence for content, but AGENTS.md provides
+   * additional rules/triggers/patterns
+   */
+  async loadAllAgentsMerged(targetPath?: string): Promise<Agent[]> {
+    // Load both sources
+    const fileAgents = await this.loadAllAgents()
+    const hierarchicalAgents = await this.loadHierarchicalAgents(targetPath)
+
+    // Create a map for merging
+    const mergedMap = new Map<string, Agent>()
+
+    // First, add all hierarchical agents
+    for (const agent of hierarchicalAgents) {
+      mergedMap.set(agent.name.toLowerCase(), agent)
+    }
+
+    // Then, overlay with file agents (they take precedence for content)
+    for (const agent of fileAgents) {
+      const existing = mergedMap.get(agent.name.toLowerCase())
+      if (existing && existing.source === 'hierarchical') {
+        // Merge: file content + hierarchical metadata
+        mergedMap.set(agent.name.toLowerCase(), {
+          ...agent,
+          source: 'file',
+          hierarchySources: existing.hierarchySources,
+          // Append hierarchical rules/patterns to content if present
+          content: this.mergeAgentContent(agent.content, existing),
+        })
+      } else {
+        mergedMap.set(agent.name.toLowerCase(), {
+          ...agent,
+          source: 'file',
+        })
+      }
+    }
+
+    return Array.from(mergedMap.values())
+  }
+
+  /**
+   * Check if hierarchical agents are available for this project
+   */
+  async hasHierarchicalAgents(): Promise<boolean> {
+    if (!this.hierarchicalResolver && this.projectPath) {
+      await this.initializeHierarchical(this.projectPath)
+    }
+
+    if (!this.hierarchicalResolver) {
+      return false
+    }
+
+    const tree = await this.hierarchicalResolver.getAgentFileTree()
+    return tree.length > 0
+  }
+
+  /**
+   * Get all agent names available (from both sources)
+   */
+  async getAllAgentNames(): Promise<string[]> {
+    const names = new Set<string>()
+
+    // From generated files
+    const fileAgents = await this.loadAllAgents()
+    for (const agent of fileAgents) {
+      names.add(agent.name)
+    }
+
+    // From AGENTS.md hierarchy
+    if (this.hierarchicalResolver || this.projectPath) {
+      if (!this.hierarchicalResolver && this.projectPath) {
+        await this.initializeHierarchical(this.projectPath)
+      }
+      if (this.hierarchicalResolver) {
+        const hierarchicalNames = await this.hierarchicalResolver.getAllAgentNames()
+        for (const name of hierarchicalNames) {
+          names.add(name)
+        }
+      }
+    }
+
+    return Array.from(names).sort()
+  }
+
+  /**
+   * Convert HierarchicalAgent to Agent interface
+   */
+  private hierarchicalAgentToAgent(ha: HierarchicalAgent): Agent {
+    const resolver = this.hierarchicalResolver!
+    const content = resolver.generateAgentMarkdown(ha)
+
+    return {
+      name: ha.name,
+      content,
+      path: `AGENTS.md:${ha.name}`,
+      role: ha.description.split('\n')[0] || null,
+      domain: ha.domain || 'general',
+      skills: ha.triggers, // Use triggers as skills for routing
+      modified: new Date(),
+      source: 'hierarchical',
+      hierarchySources: ha.sources,
+    }
+  }
+
+  /**
+   * Merge file agent content with hierarchical metadata
+   */
+  private mergeAgentContent(fileContent: string, hierarchical: Agent): string {
+    // If the hierarchical agent has rules/patterns not in file content,
+    // append them as additional sections
+    const additions: string[] = []
+
+    // Check if file content already has the hierarchical rules
+    if (hierarchical.hierarchySources && hierarchical.hierarchySources.length > 0) {
+      additions.push('')
+      additions.push('---')
+      additions.push(`*Extended from: ${hierarchical.hierarchySources.join(' → ')}*`)
+    }
+
+    if (additions.length > 0) {
+      return fileContent + additions.join('\n')
+    }
+
+    return fileContent
   }
 }
 

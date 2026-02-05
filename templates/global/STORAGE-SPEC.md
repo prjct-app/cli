@@ -20,7 +20,8 @@ This document defines the exact format for all storage files. Both Claude and Ge
 ├── config/
 │   └── skills.json     # Agent-to-skill mappings
 ├── memory/
-│   └── events.jsonl    # Audit trail (append-only)
+│   ├── events.jsonl    # Audit trail (append-only)
+│   └── learnings.jsonl # LLM knowledge base (append-only)
 ├── agents/             # Domain specialists (auto-generated)
 └── sync/
     └── pending.json    # Events for backend sync
@@ -115,6 +116,40 @@ One JSON object per line. NEVER modify existing lines.
 - `task.completed` - Task completed
 - `subtask.completed` - Subtask completed
 - `feature.shipped` - Feature shipped
+
+### learnings.jsonl (append-only, LLM Knowledge)
+
+**Purpose**: LLM-to-LLM knowledge transfer. Captures patterns, approaches, and decisions for future semantic retrieval. NOT human documentation.
+
+One JSON object per line. NEVER modify existing lines.
+
+```jsonl
+{"taskId":"uuid","linearId":"PRJ-123","timestamp":"2024-01-15T10:40:00.000Z","learnings":{"patterns":["Use NestedContextResolver for hierarchical discovery"],"approaches":["Mirror existing method structure when extending"],"decisions":["Extended class rather than wrapper for consistency"],"gotchas":["Must handle null parent case"]},"value":{"type":"feature","impact":"high","description":"Hierarchical AGENTS.md support for monorepos"},"filesChanged":["core/resolver.ts","core/types.ts"],"tags":["agents","hierarchy","monorepo"]}
+```
+
+**Schema:**
+```json
+{
+  "taskId": "uuid-v4",
+  "linearId": "string|null",
+  "timestamp": "2024-01-15T10:40:00.000Z",
+  "learnings": {
+    "patterns": ["string"],
+    "approaches": ["string"],
+    "decisions": ["string"],
+    "gotchas": ["string"]
+  },
+  "value": {
+    "type": "feature|bugfix|performance|dx|refactor|infrastructure",
+    "impact": "high|medium|low",
+    "description": "string"
+  },
+  "filesChanged": ["string"],
+  "tags": ["string"]
+}
+```
+
+**Why Local Cache**: Enables future semantic retrieval without API latency. Will feed into vector DB for cross-session knowledge transfer.
 
 ### skills.json
 
@@ -252,5 +287,105 @@ Local Storage (Claude/Gemini)
 
 ---
 
-**Version**: 1.0.0
-**Last Updated**: 2024-01-15
+## Local Caching Strategy (CRITICAL)
+
+### ⛔ MUST: Read Local, Write Remote
+
+**This is NON-NEGOTIABLE for token efficiency and latency.**
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  READ: ALWAYS from local cache (issues.json)           │
+│  WRITE: Status updates go to remote API                │
+│  NEVER: Re-fetch issue details after initial sync      │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Why This Matters
+
+| Problem | Without Local Cache | With Local Cache |
+|---------|---------------------|------------------|
+| **Token usage** | Re-read full issue (title, description, AC) every time | Read once, cache forever |
+| **API latency** | 200-500ms per API call | 0ms (local file read) |
+| **API costs** | Multiple calls per task | 1 sync call, then local |
+| **Context bloat** | Full issue in every LLM context | Minimal, only what's needed |
+
+### The Pattern
+
+```
+p. sync          → Fetch ALL issues once → Write to issues.json
+p. task PRJ-123  → READ from issues.json (NOT API)
+                 → WRITE status "In Progress" to API
+p. done          → READ state.json (local)
+                 → WRITE status "Done" to API
+```
+
+### Cache Files
+
+| Cache File | Source | Purpose |
+|------------|--------|---------|
+| `storage/issues.json` | Linear/JIRA API | Issue titles, descriptions, AC (READ ONLY after sync) |
+| `storage/state.json` | Local operations | Current task state |
+| `memory/learnings.jsonl` | Task completions | LLM knowledge for future sessions |
+| `memory/events.jsonl` | All operations | Audit trail + future sync |
+
+### ⛔ NEVER Do These
+
+- **NEVER** call API to get issue details during `p. task` - use local cache
+- **NEVER** re-fetch issue description/AC after initial sync
+- **NEVER** load full issue context into LLM when you already have it cached
+- **NEVER** make API calls for READ operations (except explicit `p. sync`)
+
+### ALLOWED API Calls
+
+Only these remote writes are allowed:
+- `linear.ts start {id}` - Update status to "In Progress"
+- `linear.ts done {id}` - Update status to "Done"
+- `linear.ts comment {id} "..."` - Add completion comment
+- `jira.ts transition {id} "..."` - Update JIRA status
+
+### Sync Strategy
+
+```
+p. sync (explicit)
+     │
+     ▼
+Remote API ──────> Local Cache (issues.json)
+                        │
+                        ▼
+              All reads from here (0 latency, 0 extra tokens)
+                        │
+                        ▼
+              Status writes ──────> Remote API (fire & forget)
+```
+
+### Token Efficiency Example
+
+```
+WITHOUT cache (BAD):
+  p. task PRJ-123
+  → API call: fetch issue (500ms, 2000 tokens for description+AC)
+  → Work...
+  → API call: fetch issue again for status update (500ms, 2000 tokens)
+  Total: 1000ms latency, 4000 wasted tokens
+
+WITH cache (GOOD):
+  p. sync (once per session)
+  → All issues cached locally
+  p. task PRJ-123
+  → Read issues.json (0ms, already in context from sync)
+  → Work...
+  → Write status to API (fire & forget)
+  Total: 0ms read latency, 0 extra tokens
+```
+
+### Cache Invalidation
+
+- `p. sync` forces full refresh from remote
+- TTL-based staleness detection (warns user, doesn't auto-fetch)
+- Manual refresh via `prjct linear sync` or `prjct jira sync`
+
+---
+
+**Version**: 1.1.0
+**Last Updated**: 2026-02-05
