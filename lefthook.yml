@@ -1,0 +1,18 @@
+# lefthook.yml - Git hooks for prjct-cli
+# Prevents commits with lint/format errors
+
+pre-commit:
+  parallel: true
+  commands:
+    check:
+      glob: "*.{ts,tsx,js,jsx,json,md}"
+      run: bun run check
+      stage_fixed: true
+
+pre-push:
+  parallel: true
+  commands:
+    typecheck:
+      run: bun run typecheck
+    test:
+      run: bun test

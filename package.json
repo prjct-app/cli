@@ -1,6 +1,6 @@
 {
   "name": "prjct-cli",
-  "version": "0.55.4",
+  "version": "0.55.5",
   "description": "Context layer for AI agents. Project context for Claude Code, Gemini CLI, and more.",
   "main": "core/index.ts",
   "bin": {
@@ -18,6 +18,7 @@
     "release:minor": "node scripts/release.js minor",
     "release:major": "node scripts/release.js major",
     "postinstall": "node scripts/postinstall.js",
+    "prepare": "lefthook install",
     "update-commands": "bun -e \"const installer = require('./core/infrastructure/command-installer'); installer.syncCommands().then(r => console.log('Commands updated:', r)).catch(e => console.error('Error:', e.message))\"",
     "install-global": "./scripts/install.sh",
     "update": "./scripts/update.sh",
@@ -67,6 +68,7 @@
     "@types/bun": "latest",
     "@types/chokidar": "^2.1.7",
     "@types/prompts": "^2.4.9",
+    "lefthook": "^2.1.0",
     "typescript": "^5.9.3"
   },
   "repository": {
