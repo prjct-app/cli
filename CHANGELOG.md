@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.55.5] - 2026-02-05
+
+### Added
+
+- **Pre-commit hooks**: Added lefthook for git hooks - blocks commits with lint/format errors
+- **Pre-push hooks**: Runs typecheck and tests before push
+
+### Fixed
+
+- Fixed 3 lint errors (import ordering, formatting)
+
 ## [0.55.4] - 2026-02-05
 
 ### Features
