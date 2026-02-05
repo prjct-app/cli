@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.60.2] - 2026-02-05
+
+### Performance
+
+- **Parallel agent/skill loading (PRJ-110)**: Agent and skill loading now uses `Promise.all` for parallel I/O
+
+### Implementation Details
+
+Refactored `loadAgents()` and `loadSkills()` in `core/agentic/orchestrator-executor.ts` to use `Promise.all` with map instead of sequential for loops. Also parallelized `loadAllAgents()` in `core/domain/agent-loader.ts`. Pattern: collect items → map to async promises → Promise.all → filter nulls with type guard.
+
+### Learnings
+
+- Use `Promise.all(items.map(async (item) => ...))` for parallel async operations
+- Return null for failed items, then filter - can't push to array in parallel
+- Collect unique items first (deduplication), then parallelize reads
+
+### Test Plan
+
+#### For QA
+1. Run `prjct sync --yes` - verify agents load successfully
+2. Run `p. task "test"` - verify orchestrator works
+3. Check no errors in agent/skill loading output
+
+#### For Users
+- Agent and skill loading is now faster (parallel I/O)
+- No changes needed - improvement is automatic
+
+
 ## [0.60.1] - 2026-02-05
 
 ### Improved

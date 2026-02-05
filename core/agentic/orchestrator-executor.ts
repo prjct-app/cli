@@ -341,13 +341,15 @@ export class OrchestratorExecutor {
    *
    * Reads agent markdown files from {globalPath}/agents/
    * and extracts their content and skills from frontmatter.
+   *
+   * Uses parallel file reads for performance (PRJ-110).
    */
   async loadAgents(domains: string[], projectId: string): Promise<LoadedAgent[]> {
     const globalPath = pathManager.getGlobalProjectPath(projectId)
     const agentsDir = path.join(globalPath, 'agents')
-    const agents: LoadedAgent[] = []
 
-    for (const domain of domains) {
+    // Load all domain agents in parallel
+    const agentPromises = domains.map(async (domain): Promise<LoadedAgent | null> => {
       // Try exact match first, then variations
       const possibleNames = [`${domain}.md`, `${domain}-agent.md`, `prjct-${domain}.md`]
 
@@ -357,21 +359,22 @@ export class OrchestratorExecutor {
           const content = await fs.readFile(filePath, 'utf-8')
           const { frontmatter, body } = this.parseAgentFile(content)
 
-          agents.push({
+          return {
             name: fileName.replace('.md', ''),
             domain,
             content: body,
             skills: frontmatter.skills || [],
             filePath,
-          })
-
-          // Found one, no need to try other variations
-          break
-        } catch {}
+          }
+        } catch {
+          // Try next variation
+        }
       }
-    }
+      return null
+    })
 
-    return agents
+    const results = await Promise.all(agentPromises)
+    return results.filter((agent): agent is LoadedAgent => agent !== null)
   }
 
   /**
@@ -400,51 +403,46 @@ export class OrchestratorExecutor {
    * Load skills from agent frontmatter
    *
    * Skills are stored in ~/.claude/skills/{name}.md
+   *
+   * Uses parallel file reads for performance (PRJ-110).
    */
   async loadSkills(agents: LoadedAgent[]): Promise<LoadedSkill[]> {
     const skillsDir = path.join(os.homedir(), '.claude', 'skills')
-    const skills: LoadedSkill[] = []
-    const loadedSkillNames = new Set<string>()
 
+    // Collect unique skill names from all agents
+    const uniqueSkillNames = new Set<string>()
     for (const agent of agents) {
       for (const skillName of agent.skills) {
-        // Skip if already loaded
-        if (loadedSkillNames.has(skillName)) continue
+        uniqueSkillNames.add(skillName)
+      }
+    }
 
+    // Load all skills in parallel
+    const skillPromises = Array.from(uniqueSkillNames).map(
+      async (skillName): Promise<LoadedSkill | null> => {
         // Check both patterns: flat file and subdirectory (ecosystem standard)
         const flatPath = path.join(skillsDir, `${skillName}.md`)
         const subdirPath = path.join(skillsDir, skillName, 'SKILL.md')
 
-        let content: string | null = null
-        let resolvedPath = flatPath
-
         // Prefer subdirectory format (ecosystem standard)
         try {
-          content = await fs.readFile(subdirPath, 'utf-8')
-          resolvedPath = subdirPath
+          const content = await fs.readFile(subdirPath, 'utf-8')
+          return { name: skillName, content, filePath: subdirPath }
         } catch {
           // Fall back to flat file
           try {
-            content = await fs.readFile(flatPath, 'utf-8')
-            resolvedPath = flatPath
+            const content = await fs.readFile(flatPath, 'utf-8')
+            return { name: skillName, content, filePath: flatPath }
           } catch {
             // Skill not found - not an error, just skip
-            console.warn(`Skill not found: ${skillName}`)
+            return null
           }
         }
-
-        if (content) {
-          skills.push({
-            name: skillName,
-            content,
-            filePath: resolvedPath,
-          })
-          loadedSkillNames.add(skillName)
-        }
       }
-    }
+    )
 
-    return skills
+    const results = await Promise.all(skillPromises)
+    return results.filter((skill): skill is LoadedSkill => skill !== null)
   }
 
   /**
