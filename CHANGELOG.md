@@ -4,6 +4,13 @@
 
 ### Features
 
+- visual workflow status command (PRJ-140) (#109)
+
+
+## [1.1.0] - 2026-02-05
+
+### Features
+
 - **Workflow visualization (PRJ-140)**: New `p. status` command with visual workflow diagram
 
 ### Implementation Details
