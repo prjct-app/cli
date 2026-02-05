@@ -4,6 +4,13 @@
 
 ### Features
 
+- add .prjct-state.md local state file for persistence (PRJ-112) (#102)
+
+
+## [0.61.0] - 2026-02-05
+
+### Features
+
 - **Local state file (PRJ-112)**: New `.prjct-state.md` file generated in project root for local persistence
 
 ### Implementation Details
