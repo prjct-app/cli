@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.55.6] - 2026-02-04
+
+### Fixed
+
+- **Portable git hooks**: Removed `skip_in_ci` and test from pre-push hook - hooks now work everywhere with npm-only commands (lint, typecheck). Tests run in CI where bun is properly installed.
+
 ## [0.55.5] - 2026-02-05
 
 ### Added
