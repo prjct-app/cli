@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.55.3] - 2026-02-05
+
+### Bug Fixes
+
+- ensure test isolation in IndexStorage tests
+- remove MCP integrations, keep only Context7 (#87)
+
+
 ## [0.56.0] - 2026-02-04
 
 ### Breaking Changes
