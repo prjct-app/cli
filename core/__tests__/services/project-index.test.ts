@@ -184,9 +184,11 @@ describe('FileScorer', () => {
 })
 
 describe('IndexStorage', () => {
-  const testProjectId = `test-project-${Date.now()}`
+  let testProjectId: string
 
   beforeEach(async () => {
+    // Generate unique project ID for each test to ensure isolation
+    testProjectId = `test-project-${Date.now()}-${Math.random().toString(36).slice(2)}`
     // Set up test directory
     const testDir = path.join(os.tmpdir(), `prjct-test-${Date.now()}`)
     pathManager.setGlobalBaseDir(testDir)
