@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.58.1] - 2026-02-05
+
+### Tests
+
+- **command-executor.ts tests (PRJ-82)**: Added 26 unit tests for the command execution pipeline
+
+### Implementation Details
+
+Added comprehensive unit tests for `core/agentic/command-executor.ts` covering:
+- `signalStart`/`signalEnd` lifecycle for CLI status line
+- `execute()` main flow with loop detection, error handling, signal lifecycle
+- `executeTool()` permission checking and tool execution
+- `executeSimple()` legacy migration helper
+
+### Learnings
+
+1. Bun's `mock()` requires storing original functions for proper restoration in `afterEach`
+2. The `execute()` flow has 12+ dependencies that need mocking (templateLoader, contextBuilder, loopDetector, planMode, groundTruth, chainOfThought, templateExecutor, memorySystem, promptBuilder, etc.)
+3. Test patterns in this codebase use `.tmp/` directories with unique project IDs for isolation
+
+### Test Plan
+
+#### For QA
+1. Run `bun test core/__tests__/agentic/command-executor.test.ts`
+2. Expect 26 passing tests
+3. Verify no test pollution (each test is isolated)
+
+#### For Users
+- No user-facing changes (internal testing infrastructure)
+- Breaking changes: None
+
+
 ## [0.58.0] - 2026-02-05
 
 ### Features
