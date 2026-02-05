@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.63.3] - 2026-02-05
+
+### Bug Fixes
+
+- **IDE context file generation (PRJ-122)**: Fixed Cursor and Windsurf context file paths and formats
+
+### Implementation Details
+
+Fixed misalignment between `ai-provider.ts` (correct paths) and `ai-tools/registry.ts` (incorrect paths). Updated Cursor output to `.cursor/rules/prjct.mdc` with MDC format and `alwaysApply: true` frontmatter. Updated Windsurf output to `.windsurf/rules/prjct.md` with `trigger: always_on` frontmatter. Modified sync-service default behavior to auto-detect IDE tools when `.cursor/` or `.windsurf/` directories exist.
+
+### Learnings
+
+- Two separate implementations existed (ai-provider vs ai-tools) that needed synchronization
+- IDE formats differ: Cursor uses `alwaysApply: true`, Windsurf uses `trigger: always_on`
+- Auto-detection pattern: check for directory existence to enable optional features
+
+### Test Plan
+
+#### For QA
+1. Run `prjct sync` in project with `.cursor/` dir - verify `.cursor/rules/prjct.mdc` generated
+2. Run `prjct sync` in project with `.windsurf/` dir - verify `.windsurf/rules/prjct.md` generated
+3. Verify Cursor file has `alwaysApply: true` in frontmatter
+4. Verify Windsurf file has `trigger: always_on` in frontmatter
+5. Run `bun test` - all 405 tests pass
+
+#### For Users
+- `prjct sync` now auto-generates IDE context files when `.cursor/` or `.windsurf/` directories exist
+- No manual flags needed - detection is automatic
+- No breaking changes
+
+
 ## [0.63.2] - 2026-02-05
 
 ### Added

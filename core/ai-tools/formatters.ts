@@ -114,50 +114,60 @@ Load from \`~/.prjct-cli/projects/${ctx.projectId}/agents/\`:
 }
 
 /**
- * Format context for Cursor (.cursorrules)
- * Concise rules format, optimized for inline suggestions
+ * Format context for Cursor (.cursor/rules/prjct.mdc)
+ * MDC format with YAML frontmatter, optimized for inline suggestions
+ *
+ * @see https://cursor.com/docs/context/rules
  */
 export function formatForCursor(ctx: ProjectContext, _config: AIToolConfig): string {
-  const rules: string[] = []
+  const lines: string[] = []
+
+  // MDC format with YAML frontmatter
+  lines.push('---')
+  lines.push(`description: prjct context for ${ctx.name}`)
+  lines.push('globs:')
+  lines.push('alwaysApply: true')
+  lines.push('---')
+  lines.push('')
 
   // Project identity
-  rules.push(`You are working on ${ctx.name}, a ${ctx.projectType} ${ctx.ecosystem} project.`)
-  rules.push('')
+  lines.push(`You are working on ${ctx.name}, a ${ctx.projectType} ${ctx.ecosystem} project.`)
+  lines.push('')
 
   // Tech stack
-  rules.push('## Tech Stack')
+  lines.push('## Tech Stack')
   if (ctx.languages.length > 0) {
-    rules.push(`- Languages: ${ctx.languages.join(', ')}`)
+    lines.push(`- Languages: ${ctx.languages.join(', ')}`)
   }
   if (ctx.frameworks.length > 0) {
-    rules.push(`- Frameworks: ${ctx.frameworks.join(', ')}`)
+    lines.push(`- Frameworks: ${ctx.frameworks.join(', ')}`)
   }
-  rules.push('')
+  lines.push('')
 
   // Commands
-  rules.push('## Commands')
-  rules.push(`- Install: \`${ctx.commands.install}\``)
-  rules.push(`- Dev: \`${ctx.commands.dev}\``)
-  rules.push(`- Test: \`${ctx.commands.test}\``)
-  rules.push(`- Build: \`${ctx.commands.build}\``)
-  rules.push('')
+  lines.push('## Commands')
+  lines.push(`- Install: \`${ctx.commands.install}\``)
+  lines.push(`- Dev: \`${ctx.commands.dev}\``)
+  lines.push(`- Test: \`${ctx.commands.test}\``)
+  lines.push(`- Build: \`${ctx.commands.build}\``)
+  lines.push('')
 
   // Code style - language agnostic
-  rules.push('## Code Style')
-  rules.push(`- Follow ${ctx.ecosystem} conventions`)
-  rules.push('- Match existing code patterns in this project')
-  rules.push('- Use idiomatic constructs for the language')
-  rules.push('')
+  lines.push('## Code Style')
+  lines.push(`- Follow ${ctx.ecosystem} conventions`)
+  lines.push('- Match existing code patterns in this project')
+  lines.push('- Use idiomatic constructs for the language')
+  lines.push('')
 
   // Best practices
-  rules.push('## Best Practices')
-  rules.push('- Write clean, readable code')
-  rules.push('- Add comments only for complex logic')
-  rules.push('- Keep functions small and focused')
-  rules.push('- Handle errors appropriately')
-  rules.push('- Write tests for new functionality')
+  lines.push('## Best Practices')
+  lines.push('- Write clean, readable code')
+  lines.push('- Add comments only for complex logic')
+  lines.push('- Keep functions small and focused')
+  lines.push('- Handle errors appropriately')
+  lines.push('- Write tests for new functionality')
 
-  return rules.join('\n')
+  return lines.join('\n')
 }
 
 /**
@@ -194,48 +204,57 @@ export function formatForCopilot(ctx: ProjectContext, _config: AIToolConfig): st
 }
 
 /**
- * Format context for Windsurf (.windsurfrules)
- * Optimized for Cascade AI with flow-based suggestions
+ * Format context for Windsurf (.windsurf/rules/prjct.md)
+ * MD format with YAML frontmatter, optimized for Cascade AI
+ *
+ * @see https://docs.windsurf.com/windsurf/cascade/memories
  */
 export function formatForWindsurf(ctx: ProjectContext, _config: AIToolConfig): string {
-  const rules: string[] = []
+  const lines: string[] = []
+
+  // YAML frontmatter (Windsurf uses trigger: always_on instead of alwaysApply)
+  lines.push('---')
+  lines.push(`description: prjct context for ${ctx.name}`)
+  lines.push('trigger: always_on')
+  lines.push('---')
+  lines.push('')
 
   // Project identity
-  rules.push(`# ${ctx.name}`)
-  rules.push('')
-  rules.push(`${ctx.projectType} project using ${ctx.ecosystem}.`)
-  rules.push('')
+  lines.push(`# ${ctx.name}`)
+  lines.push('')
+  lines.push(`${ctx.projectType} project using ${ctx.ecosystem}.`)
+  lines.push('')
 
   // Tech stack (concise)
-  rules.push('## Stack')
-  rules.push(`- ${ctx.languages.join(', ')}`)
+  lines.push('## Stack')
+  lines.push(`- ${ctx.languages.join(', ')}`)
   if (ctx.frameworks.length > 0) {
-    rules.push(`- ${ctx.frameworks.join(', ')}`)
+    lines.push(`- ${ctx.frameworks.join(', ')}`)
   }
-  rules.push('')
+  lines.push('')
 
   // Commands (essential only)
-  rules.push('## Commands')
-  rules.push(`\`\`\`bash`)
-  rules.push(`# Install`)
-  rules.push(ctx.commands.install)
-  rules.push(`# Dev`)
-  rules.push(ctx.commands.dev)
-  rules.push(`# Test`)
-  rules.push(ctx.commands.test)
-  rules.push(`# Build`)
-  rules.push(ctx.commands.build)
-  rules.push(`\`\`\``)
-  rules.push('')
+  lines.push('## Commands')
+  lines.push('```bash')
+  lines.push(`# Install`)
+  lines.push(ctx.commands.install)
+  lines.push(`# Dev`)
+  lines.push(ctx.commands.dev)
+  lines.push(`# Test`)
+  lines.push(ctx.commands.test)
+  lines.push(`# Build`)
+  lines.push(ctx.commands.build)
+  lines.push('```')
+  lines.push('')
 
   // Code style - language agnostic
-  rules.push('## Rules')
-  rules.push(`- Follow ${ctx.ecosystem} conventions`)
-  rules.push('- Match existing project patterns')
-  rules.push('- Clean code, minimal comments')
-  rules.push('- Test new functionality')
+  lines.push('## Rules')
+  lines.push(`- Follow ${ctx.ecosystem} conventions`)
+  lines.push('- Match existing project patterns')
+  lines.push('- Clean code, minimal comments')
+  lines.push('- Test new functionality')
 
-  return rules.join('\n')
+  return lines.join('\n')
 }
 
 /**
