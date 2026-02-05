@@ -455,88 +455,96 @@ export class AnalysisCommands extends PrjctCommandsBase {
 
   /**
    * Display sync results (extracted to avoid duplication)
+   *
+   * UX Design (PRJ-100):
+   * - Summary first: success + key metrics on first lines
+   * - Scannable: single-line metrics, minimal vertical space
+   * - Changes focused: show what changed, not everything that exists
+   * - Next steps prominent: clear call to action at bottom
    */
   private async showSyncResult(
     result: Awaited<ReturnType<typeof syncService.sync>>,
     startTime: number
   ): Promise<CommandResult> {
-    // Update global config
-    const globalConfigResult = await commandInstaller.installGlobalConfig()
-    if (globalConfigResult.success) {
-      console.log(`📝 Updated ${pathManager.getDisplayPath(globalConfigResult.path!)}`)
-    }
-
-    // Format output
-    console.log(`🔄 Project synced to prjct v${result.cliVersion}\n`)
-
-    console.log('📊 Project Stats')
-    console.log(`├── Files: ~${result.stats.fileCount}`)
-    console.log(`├── Commits: ${result.git.commits}`)
-    console.log(`├── Version: ${result.stats.version}`)
-    console.log(`└── Stack: ${result.stats.ecosystem}\n`)
-
-    console.log('🌿 Git Status')
-    console.log(`├── Branch: ${result.git.branch}`)
-    console.log(`├── Uncommitted: ${result.git.hasChanges ? 'Yes' : 'Clean'}`)
-    console.log(`└── Recent: ${result.git.weeklyCommits} commits this week\n`)
-
-    console.log('📁 Context Updated')
-    for (const file of result.contextFiles) {
-      console.log(`├── ${file}`)
-    }
-    console.log('')
-
-    // Show AI Tools generated (multi-agent output)
-    if (result.aiTools && result.aiTools.length > 0) {
-      const successTools = result.aiTools.filter((t) => t.success)
-      console.log(`🤖 AI Tools Context (${successTools.length})`)
-      for (const tool of result.aiTools) {
-        const status = tool.success ? '✓' : '✗'
-        console.log(`├── ${status} ${tool.outputFile} (${tool.toolId})`)
-      }
-      console.log('')
-    }
-
-    const workflowAgents = result.agents.filter((a) => a.type === 'workflow').map((a) => a.name)
-    const domainAgents = result.agents.filter((a) => a.type === 'domain').map((a) => a.name)
-
-    console.log(`🤖 Agents Regenerated (${result.agents.length})`)
-    console.log(`├── Workflow: ${workflowAgents.join(', ')}`)
-    console.log(`└── Domain: ${domainAgents.join(', ') || 'none'}\n`)
-
-    if (result.skills.length > 0) {
-      console.log('📦 Skills Configured')
-      for (const skill of result.skills) {
-        console.log(`├── ${skill.agent}.md → ${skill.skill}`)
-      }
-      console.log('')
-    }
-
-    if (result.git.hasChanges) {
-      console.log('⚠️  You have uncommitted changes\n')
-    } else {
-      console.log('✨ Repository is clean!\n')
-    }
-
-    showNextSteps('sync')
-
-    // Summary metrics
     const elapsed = Date.now() - startTime
     const contextFilesCount =
       result.contextFiles.length + (result.aiTools?.filter((t) => t.success).length || 0)
     const agentCount = result.agents.length
+    const domainAgentCount = result.agents.filter((a) => a.type === 'domain').length
 
-    console.log('─'.repeat(45))
-    console.log('📊 Sync Summary')
-    console.log(
-      `   Stack: ${result.stats.ecosystem} (${result.stats.frameworks.join(', ') || 'no frameworks'})`
-    )
-    console.log(`   Files: ${result.stats.fileCount} analyzed → ${contextFilesCount} context files`)
-    console.log(
-      `   Agents: ${agentCount} (${result.agents.filter((a) => a.type === 'domain').length} domain)`
-    )
-    console.log(`   Time: ${(elapsed / 1000).toFixed(1)}s`)
+    // Update global config (silent - don't clutter output)
+    await commandInstaller.installGlobalConfig()
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SUCCESS LINE - Immediate confirmation with timing
+    // ═══════════════════════════════════════════════════════════════════════
+    console.log(`✅ Synced ${result.stats.name || 'project'} (${(elapsed / 1000).toFixed(1)}s)\n`)
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // KEY METRICS - Single scannable line
+    // ═══════════════════════════════════════════════════════════════════════
+    // Only show compression rate if meaningful (> 10%)
+    const compressionPct = result.syncMetrics?.compressionRate
+      ? Math.round(result.syncMetrics.compressionRate * 100)
+      : 0
+    const metricsLine = [
+      `${result.stats.fileCount} files → ${contextFilesCount} context`,
+      `${agentCount} agents`,
+      compressionPct > 10 ? `${compressionPct}% reduction` : null,
+    ]
+      .filter(Boolean)
+      .join(' | ')
+    console.log(metricsLine)
+
+    // Stack and branch info
+    const framework = result.stats.frameworks.length > 0 ? ` (${result.stats.frameworks[0]})` : ''
+    console.log(`Stack: ${result.stats.ecosystem}${framework} | Branch: ${result.git.branch}\n`)
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // CHANGES SECTION - What was generated/updated
+    // ═══════════════════════════════════════════════════════════════════════
+    console.log('Generated:')
+
+    // Context files (condensed)
+    if (result.contextFiles.length > 0) {
+      console.log(`  ✓ ${result.contextFiles.length} context files`)
+    }
+
+    // AI tools
+    const successTools = result.aiTools?.filter((t) => t.success) || []
+    if (successTools.length > 0) {
+      const toolNames = successTools.map((t) => t.toolId).join(', ')
+      console.log(`  ✓ AI tools: ${toolNames}`)
+    }
+
+    // Agents (show count with breakdown)
+    if (agentCount > 0) {
+      const agentSummary =
+        domainAgentCount > 0
+          ? `${agentCount} agents (${domainAgentCount} domain)`
+          : `${agentCount} agents`
+      console.log(`  ✓ ${agentSummary}`)
+    }
+
+    // Skills
+    if (result.skills.length > 0) {
+      const skillWord = result.skills.length === 1 ? 'skill' : 'skills'
+      console.log(`  ✓ ${result.skills.length} ${skillWord}`)
+    }
+
     console.log('')
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // STATUS INDICATOR - Repository state
+    // ═══════════════════════════════════════════════════════════════════════
+    if (result.git.hasChanges) {
+      console.log('⚠️  Uncommitted changes detected\n')
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // NEXT STEPS - Clear call to action
+    // ═══════════════════════════════════════════════════════════════════════
+    showNextSteps('sync')
 
     return {
       success: true,
