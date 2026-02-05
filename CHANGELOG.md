@@ -4,6 +4,13 @@
 
 ### Performance
 
+- parallelize agent/skill loading with Promise.all (PRJ-110) (#101)
+
+
+## [0.60.2] - 2026-02-05
+
+### Performance
+
 - **Parallel agent/skill loading (PRJ-110)**: Agent and skill loading now uses `Promise.all` for parallel I/O
 
 ### Implementation Details
