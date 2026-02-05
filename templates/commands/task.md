@@ -96,11 +96,11 @@ IF integrations.linear.enabled:
     SET: task.description = issue.title
     SET: $ARGUMENTS = issue.title  # Use title for task
 
-    # Mark issue as In Progress in Linear
-    RUN: bun $PRJCT_CLI/core/cli/linear.ts --project {projectId} status "$ARGUMENTS" "in_progress"
+    # Mark issue as In Progress in Linear (REQUIRED - DO NOT SKIP)
+    RUN: bun $PRJCT_CLI/core/cli/linear.ts --project {projectId} start "{task.linearId}"
 
     OUTPUT: "Linked to Linear: {issue.identifier} - {issue.title}"
-    OUTPUT: "Linear: In Progress"
+    OUTPUT: "Linear: → In Progress ✓"
 
 ELSE IF integrations.jira.enabled:
   # JIRA issue detected
