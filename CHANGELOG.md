@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.63.2] - 2026-02-05
+
+### Added
+
+- **Input source tagging (PRJ-102)**: Context items now support origin tracking via `_source` metadata
+
+### Implementation Details
+
+Added `InputSource` type with 10 standardized source categories (user_explicit, user_file, system_detected, system_generated, system_inferred, learned, external, inherited, cached, unknown). Created `SourceMetadata` interface with capturedAt timestamp and optional confidence/sourcePath fields. Added `SourcedItem` base interface and `createSourceMetadata()` helper function. Extended key context interfaces (AgentInfo, FeatureInfo, PatternInfo, GatheredInfo, LoadedAgent) to support source tracking. Updated MemoryMetadata with inputSource field for consistency.
+
+### Learnings
+
+- Anthropic pattern: always track origin of all data for traceability and debugging
+- Using optional `_source` field allows backward-compatible adoption
+
+### Test Plan
+
+#### For QA
+1. Run `bun run typecheck` - passes with new types
+2. Run `bun test` - all 368 tests pass
+3. Verify `InputSource` type is exported from `core/types`
+
+#### For Users
+- Context items now support source tracking via `_source` metadata
+- Use `createSourceMetadata()` when creating context items
+- No breaking changes
+
+
 ## [0.63.1] - 2026-02-05
 
 ### Added
