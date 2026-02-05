@@ -4,6 +4,13 @@
 
 ### Features
 
+- hierarchical AGENTS.md resolution and template improvements (PRJ-101) (#99)
+
+
+## [0.60.0] - 2026-02-05
+
+### Features
+
 - **Hierarchical AGENTS.md resolution (PRJ-101)**: Agent files can now be discovered and loaded hierarchically from any directory level
 - **Learnings capture on task completion**: Templates now capture patterns, approaches, and decisions for LLM knowledge transfer
 - **Local-first issue tracking**: READ LOCAL, WRITE REMOTE pattern for Linear/JIRA (faster, fewer tokens)
