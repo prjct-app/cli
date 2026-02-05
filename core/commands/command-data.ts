@@ -186,6 +186,22 @@ export const COMMANDS: CommandMeta[] = [
     requiresProject: true,
   },
   {
+    name: 'status',
+    group: 'core',
+    description: 'Check if CLAUDE.md context is stale and needs resync',
+    usage: { claude: '/p:status', terminal: 'prjct status' },
+    params: '[--json]',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: true,
+    features: [
+      'Compares current HEAD with last sync commit',
+      'Counts commits and days since sync',
+      'Detects significant file changes',
+      'Configurable staleness thresholds',
+    ],
+  },
+  {
     name: 'help',
     group: 'core',
     description: 'Contextual help and guidance',

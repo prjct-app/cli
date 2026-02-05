@@ -10,7 +10,7 @@ import { generateContext } from '../context/generator'
 import analyzer from '../domain/analyzer'
 import commandInstaller from '../infrastructure/command-installer'
 import { formatCost } from '../schemas/metrics'
-import { memoryService, syncService } from '../services'
+import { createStalenessChecker, memoryService, syncService } from '../services'
 import { formatDiffPreview, formatFullDiff, generateSyncDiff } from '../services/diff-generator'
 import { metricsStorage } from '../storage/metrics-storage'
 import type { AnalyzeOptions, CommandResult, ProjectContext } from '../types'
@@ -732,6 +732,64 @@ export class AnalysisCommands extends PrjctCommandsBase {
     } catch (error) {
       console.error('❌ Error:', (error as Error).message)
       return { success: false, error: (error as Error).message }
+    }
+  }
+
+  /**
+   * /p:status - Check if CLAUDE.md context is stale
+   *
+   * Uses git commit history to detect when significant changes
+   * have occurred since the last sync.
+   *
+   * @see PRJ-120
+   */
+  async status(
+    projectPath: string = process.cwd(),
+    options: { json?: boolean } = {}
+  ): Promise<CommandResult> {
+    try {
+      const initResult = await this.ensureProjectInit(projectPath)
+      if (!initResult.success) return initResult
+
+      const projectId = await configManager.getProjectId(projectPath)
+      if (!projectId) {
+        if (options.json) {
+          console.log(JSON.stringify({ success: false, error: 'No project ID found' }))
+        } else {
+          out.fail('No project ID found')
+        }
+        return { success: false, error: 'No project ID found' }
+      }
+
+      // Create staleness checker and run check
+      const checker = createStalenessChecker(projectPath)
+      const status = await checker.check(projectId)
+
+      // JSON output mode
+      if (options.json) {
+        console.log(
+          JSON.stringify({
+            success: true,
+            ...status,
+          })
+        )
+        return { success: true, data: status }
+      }
+
+      // Human-readable output
+      console.log('')
+      console.log(checker.formatStatus(status))
+      console.log('')
+
+      return { success: true, data: status }
+    } catch (error) {
+      const errMsg = (error as Error).message
+      if (options.json) {
+        console.log(JSON.stringify({ success: false, error: errMsg }))
+      } else {
+        out.fail(errMsg)
+      }
+      return { success: false, error: errMsg }
     }
   }
 
