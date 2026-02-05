@@ -1,6 +1,33 @@
 #!/bin/bash
 # prjct statusline - Git component
-# Displays the current branch and dirty status
+# Displays the current branch (truncated) and dirty status
+
+# Truncate branch name: keep prefix + 10 chars after slash
+# feat/PRJ-101-hierarchical-scope → feat/PRJ-101-hi...
+truncate_branch() {
+  local branch="$1"
+  local max_suffix=10
+
+  # If branch has a slash (e.g., feat/something)
+  if [[ "$branch" == *"/"* ]]; then
+    local prefix="${branch%%/*}"
+    local suffix="${branch#*/}"
+
+    # If suffix is longer than max, truncate with ...
+    if [[ ${#suffix} -gt $max_suffix ]]; then
+      suffix="${suffix:0:$max_suffix}..."
+    fi
+
+    echo "${prefix}/${suffix}"
+  else
+    # No slash, just truncate if too long
+    if [[ ${#branch} -gt 15 ]]; then
+      echo "${branch:0:15}..."
+    else
+      echo "$branch"
+    fi
+  fi
+}
 
 component_git() {
   component_enabled "git" || return
@@ -41,5 +68,8 @@ component_git() {
 
   [[ -z "$branch" ]] && return
 
-  echo -e "${SECONDARY}${branch}${dirty}${NC}"
+  # Truncate long branch names
+  local display_branch=$(truncate_branch "$branch")
+
+  echo -e "${SECONDARY}${display_branch}${dirty}${NC}"
 }

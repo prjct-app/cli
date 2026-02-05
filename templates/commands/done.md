@@ -96,6 +96,51 @@ currentTask = null
 ```
 
 WRITE `{globalPath}/storage/state.json`:
+
+## Step 4.5: Capture Learnings & Value (LLM Knowledge)
+
+**⚠️ This data is for LLM future reference, not human documentation.**
+
+Based on the work completed, analyze the code changes and capture:
+
+### Learnings (Technical Knowledge for Future LLM Sessions)
+
+Identify and record:
+- **Patterns** - Any new code patterns introduced or discovered
+- **Approaches** - How problems were solved (implementation strategies)
+- **Decisions** - Why certain approaches were chosen over alternatives
+- **Gotchas** - Things that could trip up future work on similar tasks
+
+### Value Contribution
+
+Assess what value this task brings to the project:
+- **Type**: feature | bugfix | performance | dx | refactor | infrastructure
+- **Impact**: high | medium | low
+- **Description**: 1-2 sentences on the value added
+
+### Get Files Changed
+
+```bash
+git diff --name-only HEAD~1 2>/dev/null || git diff --name-only --cached
+```
+
+### Generate Tags
+
+Extract tags from the task context:
+- Domain tags (frontend, backend, api, database, etc.)
+- Feature tags (auth, ui, testing, etc.)
+- Technical tags (refactor, performance, security, etc.)
+
+### Write to Learnings File
+
+APPEND to `{globalPath}/memory/learnings.jsonl`:
+```jsonl
+{"taskId":"{id}","linearId":"{linearId or null}","timestamp":"{timestamp}","learnings":{"patterns":["pattern 1","pattern 2"],"approaches":["how X was solved"],"decisions":["why Y was chosen over Z"],"gotchas":["watch out for X"]},"value":{"type":"feature","impact":"high","description":"Brief description of value added"},"filesChanged":["path/to/file1.ts"],"tags":["domain-tag","feature-tag"]}
+```
+
+**Note**: This local cache enables future semantic retrieval without API latency. Will eventually feed into vector DB for cross-session LLM knowledge transfer.
+
+---
 ```json
 {
   "currentTask": null,
@@ -116,29 +161,32 @@ WRITE `{globalPath}/storage/state.json`:
 
 ## Step 5: Sync Issue Tracker Status (REQUIRED - DO NOT SKIP)
 
-**⛔ This step is MANDATORY if there's a linked issue.**
+**⛔ This step is MANDATORY if there's a linked issue. NEVER skip this.**
 
-```bash
-# Get projectId
-PROJ_ID=$(cat .prjct/prjct.config.json | grep -o '"projectId"[[:space:]]*:[[:space:]]*"[^"]*"' | cut -d'"' -f4)
-```
+**⛔ WRITE TO REMOTE ONLY - Do NOT re-read issue from API (token efficiency)**
+
+The linearId/externalId is already in `previousTask` from local state.json.
+Only send status update to remote API.
 
 ```
 IF previousTask.linearId exists:
-  # Mark issue as Done in Linear (REQUIRED)
-  RUN: bun $PRJCT_CLI/core/cli/linear.ts --project $PROJ_ID done "{linearId}"
-
-  # Add completion comment with summary
-  RUN: bun $PRJCT_CLI/core/cli/linear.ts --project $PROJ_ID comment "{linearId}" "✅ Task completed. Ready for ship."
+  # ═══════════════════════════════════════════════════════════════
+  # USE prjct CLI DIRECTLY - NOT $PRJCT_CLI (may be unset)
+  # ═══════════════════════════════════════════════════════════════
+  RUN: prjct linear done "{linearId}"
+  RUN: prjct linear comment "{linearId}" "✅ Task completed. Ready for ship."
 
   OUTPUT: "Linear: {linearId} → Done ✓"
 
 ELSE IF previousTask.externalId AND previousTask.externalProvider == "jira":
-  # Transition to Done in JIRA (REQUIRED)
-  RUN: bun $PRJCT_CLI/core/cli/jira.ts --project $PROJ_ID transition "{externalId}" "Done"
-  RUN: bun $PRJCT_CLI/core/cli/jira.ts --project $PROJ_ID comment "{externalId}" "✅ Task completed. Ready for ship."
+  RUN: prjct jira transition "{externalId}" "Done"
+  RUN: prjct jira comment "{externalId}" "✅ Task completed. Ready for ship."
 
   OUTPUT: "JIRA: {externalId} → Done ✓"
+
+ELSE:
+  # No issue tracker linked - that's OK, prjct works without it
+  # Just skip the sync step silently
 ```
 
 ## Step 6: Log Event

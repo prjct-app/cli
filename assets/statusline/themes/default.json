@@ -2,7 +2,7 @@
   "name": "prjct-default",
   "description": "Default prjct theme for Claude Code statusline",
   "colors": {
-    "primary": "75",
+    "primary": "252",
     "accent": "252",
     "secondary": "248",
     "muted": "245",
@@ -12,7 +12,7 @@
     "purple": "182"
   },
   "icons": {
-    "prjct": "p/",
+    "prjct": "p.",
     "dir": "󰉋",
     "git": "",
     "separator": "│",
