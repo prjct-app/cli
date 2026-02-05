@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.56.1] - 2026-02-05
+
+### Bug Fixes
+
+- correct template paths and agent loading in CLAUDE.md (#93)
+
+
 ## [0.56.1] - 2026-02-04
 
 ### Fixed
