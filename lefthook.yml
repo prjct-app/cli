@@ -1,5 +1,9 @@
 # lefthook.yml - Git hooks for prjct-cli
 # Prevents commits with lint/format errors
+# CI has its own checks - skip hooks there
+
+# Skip in CI environments
+skip_in_ci: true
 
 pre-commit:
   parallel: true
