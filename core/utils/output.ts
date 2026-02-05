@@ -4,8 +4,9 @@
  * With prjct branding
  *
  * Supports --quiet mode for CI/CD and scripting
+ * Supports output tiers: silent, minimal, compact, verbose
  *
- * @see PRJ-130
+ * @see PRJ-105, PRJ-130
  */
 
 import chalk from 'chalk'
@@ -15,6 +16,49 @@ import { getError } from './error-messages'
 
 const _FRAMES = branding.spinner.frames
 const SPEED = branding.spinner.speed
+
+/**
+ * Output tier configuration
+ * Controls verbosity of CLI output
+ */
+export type OutputTier = 'silent' | 'minimal' | 'compact' | 'verbose'
+
+export interface TierConfig {
+  maxLines: number
+  maxCharsPerLine: number
+  showMetrics: boolean
+}
+
+export const OUTPUT_TIERS: Record<OutputTier, TierConfig> = {
+  silent: { maxLines: 0, maxCharsPerLine: 0, showMetrics: false },
+  minimal: { maxLines: 1, maxCharsPerLine: 65, showMetrics: false },
+  compact: { maxLines: 4, maxCharsPerLine: 80, showMetrics: true },
+  verbose: { maxLines: Infinity, maxCharsPerLine: Infinity, showMetrics: true },
+}
+
+// Current output tier (default: compact for human-readable output)
+let currentTier: OutputTier = 'compact'
+
+/**
+ * Set the output tier
+ */
+export function setOutputTier(tier: OutputTier): void {
+  currentTier = tier
+}
+
+/**
+ * Get current output tier
+ */
+export function getOutputTier(): OutputTier {
+  return currentTier
+}
+
+/**
+ * Get current tier config
+ */
+export function getTierConfig(): TierConfig {
+  return OUTPUT_TIERS[currentTier]
+}
 
 /**
  * Centralized icons for consistent output
@@ -52,8 +96,87 @@ export function isQuietMode(): boolean {
   return quietMode
 }
 
-const truncate = (s: string | undefined | null, max = 50): string =>
-  s && s.length > max ? `${s.slice(0, max - 1)}…` : s || ''
+/**
+ * Truncate string to max chars (uses tier config if no max specified)
+ */
+const truncate = (s: string | undefined | null, max?: number): string => {
+  const limit = max ?? (getTierConfig().maxCharsPerLine || 50)
+  return s && s.length > limit ? `${s.slice(0, limit - 1)}…` : s || ''
+}
+
+/**
+ * Limit output to maxLines (respects tier config)
+ * Returns truncated content with "...N more lines" indicator
+ */
+/**
+ * Limit output to maxLines (respects tier config)
+ * Returns truncated content with "...N more lines" indicator
+ */
+export function limitLines(content: string, maxLines?: number): string {
+  const limit = maxLines ?? getTierConfig().maxLines
+  if (limit === Infinity || limit === 0) return content
+
+  const lines = content.split('\n')
+  if (lines.length <= limit) return content
+
+  const shown = lines.slice(0, limit)
+  const remaining = lines.length - limit
+  return `${shown.join('\n')}\n${chalk.dim(`...${remaining} more lines`)}`
+}
+
+/**
+ * Format data for human-readable output (respects tier)
+ * Use this instead of JSON.stringify for CLI output
+ */
+export function formatForHuman(data: unknown): string {
+  const tier = getTierConfig()
+
+  if (currentTier === 'silent') return ''
+  if (currentTier === 'verbose') return JSON.stringify(data, null, 2)
+
+  // For minimal/compact: extract key info
+  if (typeof data !== 'object' || data === null) {
+    return truncate(String(data), tier.maxCharsPerLine)
+  }
+
+  const obj = data as Record<string, unknown>
+
+  // Linear issue format
+  if ('identifier' in obj && 'title' in obj) {
+    const lines: string[] = []
+    lines.push(`${obj.identifier}: ${truncate(String(obj.title), tier.maxCharsPerLine - 10)}`)
+    if (obj.status) lines.push(`Status: ${obj.status}`)
+    if (obj.priority && obj.priority !== 'none') lines.push(`Priority: ${obj.priority}`)
+    if (obj.url && currentTier === 'compact') lines.push(chalk.dim(String(obj.url)))
+    return limitLines(lines.join('\n'), tier.maxLines)
+  }
+
+  // Issue list format
+  if ('issues' in obj && Array.isArray(obj.issues)) {
+    const issues = obj.issues as Array<Record<string, unknown>>
+    const lines = issues.slice(0, tier.maxLines).map((i) => {
+      const priority = i.priority && i.priority !== 'none' ? ` [${i.priority}]` : ''
+      return `${i.identifier}  ${truncate(String(i.title), 50)}${priority}`
+    })
+    if (issues.length > tier.maxLines) {
+      lines.push(chalk.dim(`...${issues.length - tier.maxLines} more`))
+    }
+    return lines.join('\n')
+  }
+
+  // Generic object: show key fields only
+  const keyFields = ['id', 'name', 'title', 'status', 'message', 'success', 'error']
+  const relevant = keyFields.filter((k) => k in obj)
+  if (relevant.length > 0) {
+    return limitLines(
+      relevant.map((k) => `${k}: ${truncate(String(obj[k]), tier.maxCharsPerLine - k.length - 2)}`).join('\n'),
+      tier.maxLines
+    )
+  }
+
+  // Fallback: compact JSON
+  return limitLines(JSON.stringify(data, null, 2), tier.maxLines)
+}
 
 const clear = (): boolean => process.stdout.write(`\r${' '.repeat(80)}\r`)
 

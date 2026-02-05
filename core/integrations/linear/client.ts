@@ -79,11 +79,9 @@ export class LinearProvider implements IssueTrackerProvider {
 
     this.sdk = new LinearSDK({ apiKey })
 
-    // Verify connection
+    // Verify connection silently (no output noise)
     try {
-      const viewer = await this.sdk.viewer
-      // Use stderr for logs to not break JSON output
-      console.error(`[linear] Connected as ${viewer.name} (${viewer.email})`)
+      await this.sdk.viewer
     } catch (error) {
       this.sdk = null
       throw new Error(`Linear connection failed: ${(error as Error).message}`)
