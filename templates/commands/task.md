@@ -17,7 +17,16 @@ IF $ARGUMENTS is empty:
   DO NOT proceed with empty task
 ```
 
-### Check 2: Check for Active Task
+### Check 2: Resolve Project Paths
+
+```bash
+# Get projectId from local config
+cat .prjct/prjct.config.json | grep -o '"projectId"[[:space:]]*:[[:space:]]*"[^"]*"' | cut -d'"' -f4
+```
+
+Set `globalPath = ~/.prjct-cli/projects/{projectId}`
+
+### Check 3: Check for Active Task
 
 ```
 READ: {globalPath}/storage/state.json
@@ -38,7 +47,7 @@ IF currentTask exists AND currentTask.status == "active":
   DO NOT automatically switch tasks
 ```
 
-### Check 3: Validate Git State
+### Check 4: Validate Git State
 
 ```bash
 git status --porcelain
@@ -77,9 +86,9 @@ IF integrations.linear.enabled:
   IF issue found in local cache:
     USE cached issue data (no API call needed)
   ELSE:
-    # Fallback to API
-    IMPORT: linearSync from core/integrations/linear
-    CALL: linearSync.getIssue(projectId, "$ARGUMENTS")  # Fetches + caches
+    # Fallback to API - sync and retry
+    RUN: bun $PRJCT_CLI/core/cli/linear.ts --project {projectId} sync
+    RUN: bun $PRJCT_CLI/core/cli/linear.ts --project {projectId} get-local "$ARGUMENTS"
 
   IF issue found:
     SET: task.linearId = issue.identifier     # "PRJ-123"
@@ -87,17 +96,15 @@ IF integrations.linear.enabled:
     SET: task.description = issue.title
     SET: $ARGUMENTS = issue.title  # Use title for task
 
-    # Mark issue as In Progress in Linear (pushes status change)
-    IMPORT: linearSync from core/integrations/linear
-    CALL: linearSync.pushStatus(projectId, issue.identifier, 'in_progress')
+    # Mark issue as In Progress in Linear
+    RUN: bun $PRJCT_CLI/core/cli/linear.ts --project {projectId} status "$ARGUMENTS" "in_progress"
 
     OUTPUT: "Linked to Linear: {issue.identifier} - {issue.title}"
     OUTPUT: "Linear: In Progress"
 
 ELSE IF integrations.jira.enabled:
   # JIRA issue detected
-  IMPORT: jiraService from core/integrations/jira
-  CALL: jiraService.fetchIssue("$ARGUMENTS")
+  RUN: bun $PRJCT_CLI/core/cli/jira.ts --project {projectId} get "$ARGUMENTS"
 
   IF issue found:
     SET: task.externalId = issue.externalId
@@ -106,7 +113,7 @@ ELSE IF integrations.jira.enabled:
     SET: $ARGUMENTS = issue.title  # Use title for task
 
     # Mark issue as In Progress in JIRA
-    CALL: jiraService.markInProgress(issue.externalId)
+    RUN: bun $PRJCT_CLI/core/cli/jira.ts --project {projectId} status "$ARGUMENTS" "in_progress"
 
     OUTPUT: "Linked to JIRA: {issue.externalId} - {issue.title}"
     OUTPUT: "JIRA: In Progress"
@@ -119,7 +126,29 @@ ELSE:
 
 ## Main Flow
 
-### Step A: Show Plan and Get Approval (BLOCKING)
+### Step A: Explore Codebase (for context)
+
+```
+USE Task(Explore) → find similar code, affected files
+READ {globalPath}/agents/*.md → get domain patterns (if they exist)
+```
+
+### Step B: Classify Task
+
+Determine type based on keywords:
+- `add`, `create`, `implement`, `new` → **feature**
+- `fix`, `repair`, `broken`, `error` → **bug**
+- `improve`, `enhance`, `optimize` → **improvement**
+- `refactor`, `clean`, `reorganize` → **refactor**
+- `update`, `upgrade`, `migrate` → **chore**
+
+Default: **feature**
+
+### Step C: Break Down into Subtasks
+
+Create 2-5 actionable subtasks based on the task description.
+
+### Step D: Show Plan and Get Approval (BLOCKING)
 
 **⛔ DO NOT create branches or modify state without user approval.**
 
@@ -131,11 +160,16 @@ Description: $ARGUMENTS
 Type: {classified type}
 Branch: {type}/{slug}
 
+Subtasks:
+1. {subtask 1}
+2. {subtask 2}
+...
+
 Will do:
 1. Create feature branch from current branch
 2. Initialize task tracking in state.json
-3. Break down into subtasks
-4. {If Linear: Update issue status to In Progress}
+3. Begin work on first subtask
+{If Linear: 4. Update issue status to In Progress}
 ```
 
 Then ask for confirmation:
@@ -167,27 +201,16 @@ STOP - Do not continue
 ```
 
 **If "Yes, start task":**
-CONTINUE to Step B
+CONTINUE to Step E
 
-### Step B: Explore Codebase
-
-```
-USE Task(Explore) → find similar code, affected files
-READ agents/*.md → get domain patterns
-```
-
-### Step C: Classify Task
-
-Determine type: feature | bug | improvement | refactor | chore
-
-### Step D: Create Branch (if needed)
+### Step E: Create Branch (if needed)
 
 ```bash
-CURRENT_BRANCH=$(git branch --show-current)
+git branch --show-current
 ```
 
 ```
-IF CURRENT_BRANCH == "main" OR CURRENT_BRANCH == "master":
+IF current branch == "main" OR "master":
   OUTPUT: "Creating feature branch: {type}/{slug}"
 
   git checkout -b {type}/{slug}
@@ -197,8 +220,15 @@ IF CURRENT_BRANCH == "main" OR CURRENT_BRANCH == "master":
     STOP
 ```
 
+### Step F: Write State
+
+Generate UUID and timestamp:
 ```bash
-prjct work "$ARGUMENTS"
+# UUID
+node -e "console.log(require('crypto').randomUUID())"
+
+# Timestamp
+node -e "console.log(new Date().toISOString())"
 ```
 
 WRITE `{globalPath}/storage/state.json`:
@@ -206,25 +236,43 @@ WRITE `{globalPath}/storage/state.json`:
 {
   "currentTask": {
     "id": "{uuid}",
-    "description": "{subtask}",
+    "description": "{first subtask description}",
     "type": "{type}",
     "status": "active",
-    "startedAt": "{now}",
-    "subtasks": [...],
+    "startedAt": "{timestamp}",
+    "subtasks": [
+      {"description": "{subtask 1}", "status": "active"},
+      {"description": "{subtask 2}", "status": "pending"},
+      {"description": "{subtask 3}", "status": "pending"}
+    ],
     "currentSubtaskIndex": 0,
     "parentDescription": "$ARGUMENTS",
-    "linearId": "{identifier or null}",      // "PRJ-123" - Linear identifier
-    "linearUuid": "{uuid or null}"           // Linear internal UUID
-  }
+    "branch": "{type}/{slug}",
+    "linearId": "{identifier or null}",
+    "linearUuid": "{uuid or null}"
+  },
+  "pausedTasks": []
 }
 ```
 
-**Output**:
+### Step G: Log Event
+
+APPEND to `{globalPath}/memory/events.jsonl`:
+```json
+{"type":"task_started","taskId":"{uuid}","description":"$ARGUMENTS","timestamp":"{timestamp}","branch":"{branch}"}
 ```
-{type}: $ARGUMENTS
+
+---
+
+## Output
+
+```
+✅ {type}: $ARGUMENTS
 
 Branch: {branch} | Subtasks: {count}
 {linearId ? "Linear: {linearId} → In Progress" : ""}
+
+Current: {first subtask}
 
 Next: Work on subtask, then `p. done`
 ```

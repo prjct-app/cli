@@ -4,44 +4,16 @@
       "command": "npx",
       "args": ["-y", "@upstash/context7-mcp@latest"],
       "description": "Library documentation lookup"
-    },
-    "monday": {
-      "command": "npx",
-      "args": ["-y", "@mondaydotcomorg/monday-api-mcp"],
-      "description": "Monday.com via OAuth"
-    },
-    "github": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-github"],
-      "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
-      },
-      "description": "GitHub Issues/PRs via token"
     }
   },
   "usage": {
     "context7": {
-      "when": ["Looking up library/framework documentation"],
+      "when": ["Looking up library/framework documentation", "Need current API docs"],
       "tools": ["resolve-library-id", "get-library-docs"]
-    },
-    "monday": {
-      "when": ["Working with Monday.com boards (p. monday)"],
-      "tools": [
-        "create_item",
-        "delete_item",
-        "get_board_items_by_name",
-        "change_item_column_values"
-      ],
-      "setup": ["OAuth via browser on first use"]
-    },
-    "github": {
-      "when": ["Working with GitHub Issues (p. github)", "Managing PRs"],
-      "tools": ["search_issues", "get_issue", "create_issue", "update_issue", "list_issues"],
-      "setup": ["Set GITHUB_TOKEN env var with repo scope"]
     }
   },
-  "deprecated": {
-    "linear": "Use SDK instead. Set LINEAR_API_KEY env var.",
-    "Atlassian": "Use SDK instead. Set JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN env vars."
+  "integrations": {
+    "linear": "SDK - Set LINEAR_API_KEY env var",
+    "jira": "REST API - Set JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN env vars"
   }
 }

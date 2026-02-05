@@ -2,13 +2,18 @@
 allowed-tools: [Read, Write, Bash, AskUserQuestion]
 ---
 
-# p. workflow
+# p. workflow "$ARGUMENTS"
 
 Manage workflow preferences using natural language.
 
+## Step 1: Resolve Project Paths
+
 ```bash
-prjct context workflow
+# Get projectId from local config
+cat .prjct/prjct.config.json | grep -o '"projectId"[[:space:]]*:[[:space:]]*"[^"]*"' | cut -d'"' -f4
 ```
+
+Set `globalPath = ~/.prjct-cli/projects/{projectId}`
 
 ---
 
@@ -16,10 +21,24 @@ prjct context workflow
 
 Show current workflow preferences:
 
-```typescript
-IMPORT: { listWorkflowPreferences, formatWorkflowPreferences } from core/workflow/workflow-preferences
-CALL: preferences = listWorkflowPreferences(projectId)
-OUTPUT: formatWorkflowPreferences(preferences)
+READ `{globalPath}/config/workflow-preferences.json` (or empty object)
+
+**When preferences exist:**
+```
+WORKFLOW PREFERENCES
+────────────────────────────
+  [permanent] before ship    → bun test
+  [session]   after done     → npm run docs
+
+Modify: "p. workflow before ship run npm test"
+Remove: "p. workflow remove ship hook"
+```
+
+**When no preferences:**
+```
+No workflow preferences configured.
+
+Set one: "p. workflow before ship run tests"
 ```
 
 ---
@@ -32,60 +51,64 @@ Parse the user's intent and update preferences accordingly.
 
 | Pattern | Hook | Command | Action |
 |---------|------|---------|--------|
-| "antes de ship corre X" | before | ship | X |
 | "before ship run X" | before | ship | X |
-| "después de done X" | after | done | X |
 | "after done run X" | after | done | X |
-| "no quiero X en ship" | skip | ship | true |
-| "skip tests on ship" | skip | ship | true |
-| "quita el hook de ship" | * | ship | REMOVE |
+| "skip tests on ship" | skip | ship | tests |
 | "remove ship hook" | * | ship | REMOVE |
 
 ### Flow:
 
 1. **Detect intent** from natural language
+
 2. **Ask for scope** (ALWAYS):
 
 ```
 AskUserQuestion:
-  question: "¿Cuándo quieres que aplique esto?"
+  question: "When should this apply?"
   header: "Scope"
   options:
-    - label: "Siempre (Recommended)"
-      description: "Guardo en tus preferencias permanentemente"
-    - label: "Solo esta sesión"
-      description: "Hasta que cierres la terminal"
-    - label: "Solo el próximo comando"
-      description: "Se usa una vez y se elimina"
+    - label: "Always (Recommended)"
+      description: "Save permanently in your preferences"
+    - label: "This session only"
+      description: "Until you close the terminal"
+    - label: "Just the next command"
+      description: "Use once and discard"
 ```
 
-3. **Apply preference**:
+3. **Save preference**:
 
-```typescript
-IMPORT: { setWorkflowPreference, removeWorkflowPreference } from core/workflow/workflow-preferences
+READ `{globalPath}/config/workflow-preferences.json` (or create empty object)
 
-// For adding/updating
-CALL: setWorkflowPreference(projectId, {
-  hook: detected.hook,      // 'before' | 'after' | 'skip'
-  command: detected.command, // 'task' | 'done' | 'ship' | 'sync'
-  action: detected.action,   // command to run or 'true' for skip
-  scope: userChoice,         // 'permanent' | 'session' | 'once'
-  createdAt: new Date().toISOString()
-})
-
-// For removal
-CALL: removeWorkflowPreference(projectId, hook, command)
+For adding/updating:
+```json
+{
+  "preferences": [
+    {
+      "hook": "{before|after|skip}",
+      "command": "{task|done|ship|sync}",
+      "action": "{command to run}",
+      "scope": "{permanent|session|once}",
+      "createdAt": "{timestamp}"
+    }
+  ]
+}
 ```
+
+WRITE `{globalPath}/config/workflow-preferences.json`
+
+For removal:
+- Filter out preferences matching the hook and command
+- Write updated file
 
 4. **Confirm**:
 
 ```
 IF scope == 'permanent':
-  OUTPUT: "Guardado. Antes de cada {command} correré: {action}"
+  OUTPUT: "Saved. Before each {command} I'll run: {action}"
 ELSE IF scope == 'session':
-  OUTPUT: "OK. Durante esta sesión, antes de {command} correré: {action}"
+  OUTPUT: "OK. During this session, before {command} I'll run: {action}"
 ELSE:
-  OUTPUT: "OK. En el próximo {command} correré: {action}"
+  OUTPUT: "OK. On the next {command} I'll run: {action}"
 ```
 
 ---
@@ -95,56 +118,33 @@ ELSE:
 ### Setting a hook
 
 ```
-User: "p. workflow antes de ship corre bun test"
+User: "p. workflow before ship run bun test"
 
 → Detect: hook=before, command=ship, action="bun test"
 → Ask scope
-→ User: "siempre"
-→ Save: setWorkflowPreference(projectId, { hook: 'before', command: 'ship', action: 'bun test', scope: 'permanent', ... })
-→ Output: "Guardado. Antes de cada ship correré: bun test"
+→ User: "always"
+→ Save preference
+→ Output: "Saved. Before each ship I'll run: bun test"
 ```
 
 ### Removing a hook
 
 ```
-User: "p. workflow quita el hook de ship"
+User: "p. workflow remove ship hook"
 
 → Detect: REMOVE for ship
-→ Remove: removeWorkflowPreference(projectId, 'before', 'ship')
-→ Remove: removeWorkflowPreference(projectId, 'after', 'ship')
-→ Output: "Eliminado. Los hooks de ship ya no están activos."
+→ Remove all hooks for ship command
+→ Output: "Removed. Ship hooks are no longer active."
 ```
 
 ### Skipping a step
 
 ```
-User: "p. workflow no corras lint en ship"
+User: "p. workflow skip lint on ship"
 
-→ Detect: hook=skip, command=ship (interpreted as skip lint step)
+→ Detect: hook=skip, command=ship, action="lint"
 → Ask scope
-→ User: "solo ahora"
-→ Save: setWorkflowPreference(projectId, { hook: 'skip', command: 'ship', action: 'lint', scope: 'once', ... })
-→ Output: "OK. En el próximo ship se saltará el lint."
-```
-
----
-
-## Output Format
-
-**When showing preferences**:
-```
-WORKFLOW PREFERENCES
-────────────────────────────
-  [permanent] before ship    → bun test
-  [session]   after done     → npm run docs
-
-Modify: "p. workflow antes de ship corre npm test"
-Remove: "p. workflow quita el hook de ship"
-```
-
-**When no preferences**:
-```
-No workflow preferences configured.
-
-Set one: "p. workflow antes de ship corre los tests"
+→ User: "just this once"
+→ Save preference with scope=once
+→ Output: "OK. On the next ship, lint will be skipped."
 ```
