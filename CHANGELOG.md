@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.63.3] - 2026-02-05
+## [0.64.1] - 2026-02-05
 
 ### Bug Fixes
 
@@ -29,6 +29,13 @@ Fixed misalignment between `ai-provider.ts` (correct paths) and `ai-tools/regist
 - `prjct sync` now auto-generates IDE context files when `.cursor/` or `.windsurf/` directories exist
 - No manual flags needed - detection is automatic
 - No breaking changes
+
+
+## [0.64.0] - 2026-02-05
+
+### Features
+
+- add input source tagging for context items (PRJ-102) (#106)
 
 
 ## [0.63.2] - 2026-02-05
