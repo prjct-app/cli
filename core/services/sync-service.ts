@@ -33,6 +33,7 @@ import { metricsStorage } from '../storage/metrics-storage'
 import dateHelper from '../utils/date-helper'
 import { ContextFileGenerator } from './context-generator'
 import type { SyncDiff } from './diff-generator'
+import { localStateGenerator } from './local-state-generator'
 import { type StackDetection, StackDetector } from './stack-detector'
 
 const execAsync = promisify(exec)
@@ -826,6 +827,16 @@ You are the ${name} expert for this project. Apply best practices for the detect
     }
 
     await fs.writeFile(statePath, JSON.stringify(state, null, 2), 'utf-8')
+
+    // Also generate local .prjct-state.md (PRJ-112)
+    try {
+      await localStateGenerator.generate(
+        this.projectPath,
+        state as import('../schemas/state').StateJson
+      )
+    } catch {
+      // Silently fail - local state is optional
+    }
   }
 
   // ==========================================================================

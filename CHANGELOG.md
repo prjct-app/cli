@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.61.0] - 2026-02-05
+
+### Features
+
+- **Local state file (PRJ-112)**: New `.prjct-state.md` file generated in project root for local persistence
+
+### Implementation Details
+
+Created `LocalStateGenerator` service that generates a markdown file showing current task state. Integrated via write-through pattern - `StateStorage.write()` now also generates the local state file. Also hooks into `sync-service.ts` for state.json updates during sync.
+
+### Learnings
+
+- Write-through pattern: JSON storage triggers MD generation automatically
+- State can be written from multiple entry points (storage class + sync service) - need hooks in both places
+
+### Test Plan
+
+#### For QA
+1. Run `prjct sync` on any project - verify `.prjct-state.md` is generated in project root
+2. Start a task with `p. task "test"` - verify `.prjct-state.md` updates with task info
+3. Check that subtasks, progress, and status are displayed correctly
+4. Verify the file has "DO NOT EDIT" header comment
+
+#### For Users
+- New `.prjct-state.md` file in project root shows current task state
+- Automatic - file updates whenever prjct state changes
+- No breaking changes
+
+
 ## [0.60.2] - 2026-02-05
 
 ### Performance
