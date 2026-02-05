@@ -4,6 +4,13 @@
 
 ### Bug Fixes
 
+- generate IDE context files with correct paths and formats (PRJ-122) (#107)
+
+
+## [0.64.1] - 2026-02-05
+
+### Bug Fixes
+
 - **IDE context file generation (PRJ-122)**: Fixed Cursor and Windsurf context file paths and formats
 
 ### Implementation Details
