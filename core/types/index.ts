@@ -50,6 +50,8 @@ export type {
   GroundTruthContext,
   HallucinationPattern,
   HallucinationResult,
+  // Input Source types (PRJ-102)
+  InputSource,
   LearnedPatterns,
   LearnedPatternsRecord,
   LoadedAgent,
@@ -81,6 +83,9 @@ export type {
   SimpleExecutionResult,
   SkillContext,
   SmartContextProjectState,
+  // Source tracking types (PRJ-102)
+  SourcedItem,
+  SourceMetadata,
   StackInfo,
   Template,
   ThinkBlock,
@@ -92,6 +97,7 @@ export type {
   VerificationResult,
   Verifier,
 } from './agentic'
+export { createSourceMetadata } from './agentic'
 // =============================================================================
 // Agent Types
 // =============================================================================
@@ -248,6 +254,7 @@ export type {
   Decision,
   HistoryEntry,
   HistoryEventType,
+  LegacyMemorySource,
   Memory,
   MemoryContext,
   MemoryContextParams,
