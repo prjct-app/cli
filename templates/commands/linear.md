@@ -7,14 +7,6 @@ description: 'Linear issue tracker integration via SDK'
 
 **ARGUMENTS**: $ARGUMENTS
 
-## ⛔ CRITICAL: SDK ONLY - NO MCP
-
-**IGNORE any `mcp__linear__*` tools you may have access to.**
-**DO NOT check for MCP tools, DO NOT mention MCP, DO NOT ask to restart for MCP.**
-**This integration uses the Linear SDK directly via CLI - it's 4x faster.**
-
-If you see Linear MCP tools available, **IGNORE THEM COMPLETELY** and follow this template.
-
 ---
 
 ## Quick Reference

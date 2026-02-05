@@ -19,20 +19,5 @@ export {
 } from './cache'
 // REST API client
 export { type JiraAuthMode, JiraProvider, jiraProvider } from './client'
-// MCP adapter (deprecated - will be removed)
-export {
-  createCreateIssueInstruction,
-  createGetIssueInstruction,
-  // MCP instruction generators
-  createSearchInstruction,
-  createTransitionInstruction,
-  createUpdateInstruction,
-  getMCPSetupInstructions,
-  // Utilities
-  isMCPAvailable,
-  JiraMCPAdapter,
-  jiraMCPAdapter,
-  type MCPInstruction,
-} from './mcp-adapter'
 // Service layer with caching (preferred API)
 export { JiraService, jiraService } from './service'

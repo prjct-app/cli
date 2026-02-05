@@ -169,6 +169,9 @@ export async function run(): Promise<SetupResults> {
 
         // Install status line (Claude only)
         await installStatusLine()
+
+        // Install Context7 MCP (only MCP server prjct uses)
+        await installContext7MCP()
       }
     } else if (providerName === 'gemini') {
       // Gemini provider - install router and global config
@@ -872,6 +875,58 @@ echo "prjct"
       // Log unexpected errors but don't crash - status line is optional
       console.error(`Status line warning: ${(error as Error).message}`)
     }
+  }
+}
+
+/**
+ * Install Context7 MCP server configuration
+ *
+ * Context7 is the ONLY MCP server prjct uses - for library documentation lookup.
+ * All issue tracker integrations (Linear, JIRA) use SDK/REST API directly.
+ */
+async function installContext7MCP(): Promise<void> {
+  try {
+    const claudeDir = path.join(os.homedir(), '.claude')
+    const mcpConfigPath = path.join(claudeDir, 'mcp.json')
+
+    // Ensure ~/.claude directory exists
+    if (!fs.existsSync(claudeDir)) {
+      fs.mkdirSync(claudeDir, { recursive: true })
+    }
+
+    // Context7 MCP configuration
+    const context7Config = {
+      mcpServers: {
+        context7: {
+          command: 'npx',
+          args: ['-y', '@upstash/context7-mcp@latest'],
+        },
+      },
+    }
+
+    // Check if mcp.json exists
+    if (fs.existsSync(mcpConfigPath)) {
+      // Read existing config
+      const existingContent = fs.readFileSync(mcpConfigPath, 'utf-8')
+      const existingConfig = JSON.parse(existingContent)
+
+      // Check if context7 is already configured
+      if (existingConfig.mcpServers?.context7) {
+        // Already configured, skip
+        return
+      }
+
+      // Add context7 to existing config
+      existingConfig.mcpServers = existingConfig.mcpServers || {}
+      existingConfig.mcpServers.context7 = context7Config.mcpServers.context7
+      fs.writeFileSync(mcpConfigPath, JSON.stringify(existingConfig, null, 2), 'utf-8')
+    } else {
+      // Create new mcp.json with context7
+      fs.writeFileSync(mcpConfigPath, JSON.stringify(context7Config, null, 2), 'utf-8')
+    }
+  } catch (error) {
+    // Non-fatal error, just log
+    console.error(`Context7 MCP setup warning: ${(error as Error).message}`)
   }
 }
 
