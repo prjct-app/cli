@@ -26,6 +26,7 @@ import {
   type ProjectContext,
   resolveToolIds,
 } from '../ai-tools'
+import commandInstaller from '../infrastructure/command-installer'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import { metricsStorage } from '../storage/metrics-storage'
@@ -231,6 +232,11 @@ class SyncService {
       // 9. Record metrics for value dashboard
       const duration = Date.now() - startTime
       const syncMetrics = await this.recordSyncMetrics(stats, contextFiles, agents, duration)
+
+      // 10. Update global config and commands (CLI does EVERYTHING)
+      // This ensures `prjct sync` from terminal updates global CLAUDE.md and commands
+      await commandInstaller.installGlobalConfig()
+      await commandInstaller.syncCommands()
 
       return {
         success: true,

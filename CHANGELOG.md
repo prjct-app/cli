@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.56.0] - 2026-02-04
+
+### Breaking Changes
+
+- **Removed MCP-based integrations** (Monday.com, GitHub Issues)
+  - Only Context7 remains as the sole MCP server (for library docs)
+  - Linear and JIRA use SDK/REST API directly (4x faster)
+
+### Features
+
+- **Context7 auto-install**: Now automatically configured in `~/.claude/mcp.json` on `prjct init`
+
+### Fixed
+
+- Templates no longer reference non-existent CLI commands (`prjct context task`, etc.)
+- All workflow templates (task, done, bug, pause, resume, next, dash) now use Read/Write directly
+
+### Removed
+
+- `templates/commands/monday.md` - MCP integration
+- `templates/commands/github.md` - MCP integration
+- `templates/_bases/tracker-base.md` - MCP base template
+- `core/integrations/jira/mcp-adapter.ts` - Unused MCP adapter
+
 ## [0.55.2] - 2026-02-04
 
 ### Bug Fixes

@@ -4,23 +4,78 @@ allowed-tools: [Read, Write, Bash]
 
 # p. idea "$ARGUMENTS"
 
+## Step 1: Validate Arguments
+
+```
+IF $ARGUMENTS is empty:
+  ASK: "What's your idea?"
+  WAIT for response
+```
+
+## Step 2: Resolve Project Paths
+
 ```bash
-prjct context idea
+# Get projectId from local config
+cat .prjct/prjct.config.json | grep -o '"projectId"[[:space:]]*:[[:space:]]*"[^"]*"' | cut -d'"' -f4
 ```
 
-Detect priority from keywords:
-- urgent/critical/asap → high
-- later/maybe/nice-to-have → low
-- default → medium
+Set `globalPath = ~/.prjct-cli/projects/{projectId}`
 
-Detect tags: #ui, #perf, #bug, #api, #security, #docs
+## Step 3: Detect Priority from Keywords
 
-ADD to `{globalPath}/storage/ideas.json`:
+Analyze `$ARGUMENTS`:
+- `urgent`, `critical`, `asap`, `important` → **high**
+- `later`, `maybe`, `nice-to-have`, `someday` → **low**
+- default → **medium**
+
+## Step 4: Extract Tags
+
+Look for hashtags in text: `#ui`, `#perf`, `#bug`, `#api`, `#security`, `#docs`, `#feature`
+
+Or detect from context:
+- UI/UX related words → `#ui`
+- Performance related → `#perf`
+- Security related → `#security`
+
+## Step 5: Generate UUID and Timestamp
+
+```bash
+# UUID
+node -e "console.log(require('crypto').randomUUID())"
+
+# Timestamp
+node -e "console.log(new Date().toISOString())"
+```
+
+## Step 6: Save Idea
+
+READ `{globalPath}/storage/ideas.json` (or create empty array if doesn't exist)
+
+APPEND new idea:
 ```json
-{"id":"{uuid}","text":"$ARGUMENTS","priority":"{priority}","tags":[...],"status":"pending","createdAt":"{now}"}
+{
+  "id": "{uuid}",
+  "text": "$ARGUMENTS",
+  "priority": "{priority}",
+  "tags": ["{tags}"],
+  "status": "pending",
+  "createdAt": "{timestamp}"
+}
 ```
 
-**Output**:
+WRITE `{globalPath}/storage/ideas.json`
+
+## Step 7: Log Event
+
+APPEND to `{globalPath}/memory/events.jsonl`:
+```json
+{"type":"idea_captured","ideaId":"{uuid}","text":"$ARGUMENTS","timestamp":"{timestamp}"}
+```
+
+---
+
+## Output
+
 ```
 💡 $ARGUMENTS
 

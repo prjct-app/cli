@@ -89,15 +89,6 @@ IF integrations.linear.enabled:
   OUTPUT: "Linear: {fetched} issues synced"
 ```
 
-## Cursor Router Regeneration
-
-If `.cursor/` exists but `.cursor/rules/prjct.mdc` is missing:
-1. Get npm root: `npm root -g`
-2. Create `.cursor/rules/` directory if needed
-3. Copy router: `{npmRoot}/prjct-cli/templates/cursor/router.mdc` → `.cursor/rules/prjct.mdc`
-4. Copy commands: `{npmRoot}/prjct-cli/templates/cursor/p.md` → `.cursor/commands/p.md`
-5. Report: "Cursor routers regenerated"
-
 ## Output
 
 ```
@@ -106,7 +97,6 @@ If `.cursor/` exists but `.cursor/rules/prjct.mdc` is missing:
 Ecosystem: {ecosystem}
 Agents: {count} generated
 Linear: {issueCount} issues synced (or "not enabled")
-Cursor: {regenerated/ready/not detected}
 
 Next:
 - Start work → `p. task "description"`
