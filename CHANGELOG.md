@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.56.0] - 2026-02-05
+
+### Features
+
+- implement output tiers for cleaner CLI output (#88)
+
+### Bug Fixes
+
+- make lefthook hooks portable (no bun required) (#92)
+- skip lefthook in CI environments (#91)
+- use npm instead of bun in lefthook hooks (#90)
+- add pre-commit hooks to prevent commits with lint errors (#89)
+
+
 ## [0.55.6] - 2026-02-04
 
 ### Fixed
