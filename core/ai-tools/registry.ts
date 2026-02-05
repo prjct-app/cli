@@ -40,7 +40,7 @@ export const AI_TOOLS: Record<string, AIToolConfig> = {
   cursor: {
     id: 'cursor',
     name: 'Cursor',
-    outputFile: '.cursorrules',
+    outputFile: '.cursor/rules/prjct.mdc',
     outputPath: 'repo',
     maxTokens: 2000,
     format: 'concise',
@@ -58,7 +58,7 @@ export const AI_TOOLS: Record<string, AIToolConfig> = {
   windsurf: {
     id: 'windsurf',
     name: 'Windsurf',
-    outputFile: '.windsurfrules',
+    outputFile: '.windsurf/rules/prjct.md',
     outputPath: 'repo',
     maxTokens: 2000,
     format: 'concise',
