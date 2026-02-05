@@ -2,6 +2,13 @@
 
 ## [0.60.1] - 2026-02-05
 
+### Bug Fixes
+
+- improve sync output with summary-first format (PRJ-100) (#100)
+
+
+## [0.60.1] - 2026-02-05
+
 ### Improved
 
 - **Sync output UX (PRJ-100)**: Summary-first format with key metrics prominent, ~50% less output
