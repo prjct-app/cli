@@ -4,6 +4,7 @@
  */
 
 import path from 'node:path'
+import { createStalenessChecker } from '../services'
 import { ideasStorage, queueStorage, shippedStorage, stateStorage } from '../storage'
 import type { CommandResult, ProjectContext } from '../types'
 import {
@@ -134,6 +135,14 @@ export class AnalyticsCommands extends PrjctCommandsBase {
       // Default view - project overview
       console.log(`\n📊 DASHBOARD - ${projectName}\n`)
       console.log('═'.repeat(50))
+
+      // Check staleness (PRJ-120)
+      const checker = createStalenessChecker(projectPath)
+      const stalenessStatus = await checker.check(projectId)
+      const stalenessWarning = checker.getWarning(stalenessStatus)
+      if (stalenessWarning) {
+        console.log(`\n${stalenessWarning}`)
+      }
 
       // Current task
       console.log('\n🎯 CURRENT FOCUS')

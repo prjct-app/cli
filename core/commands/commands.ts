@@ -202,6 +202,13 @@ class PrjctCommands {
     return this.analysis.stats(projectPath, options)
   }
 
+  async status(
+    projectPath: string = process.cwd(),
+    options: { json?: boolean } = {}
+  ): Promise<CommandResult> {
+    return this.analysis.status(projectPath, options)
+  }
+
   // ========== Context Commands ==========
 
   async context(

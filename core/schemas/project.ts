@@ -25,6 +25,9 @@ export const ProjectItemSchema = z.object({
   commitCount: z.number(),
   createdAt: z.string(), // ISO8601
   lastSync: z.string(), // ISO8601
+  // Staleness tracking (PRJ-120)
+  lastSyncCommit: z.string().optional(), // Git commit hash at last sync
+  lastSyncBranch: z.string().optional(), // Git branch at last sync
 })
 
 // =============================================================================

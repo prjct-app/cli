@@ -39,5 +39,8 @@ export type { IndexOptions, RelevantContext, ScanResult } from './project-index'
 // Project Index - Persistent scanning with scoring
 export { createProjectIndexer, ProjectIndexer, RELEVANCE_THRESHOLD } from './project-index'
 export { ProjectService, projectService } from './project-service'
+export type { StalenessConfig, StalenessStatus } from './staleness-checker'
+// Staleness Checker - Detect when CLAUDE.md is stale (PRJ-120)
+export { createStalenessChecker, StalenessChecker } from './staleness-checker'
 export type { SyncResult } from './sync-service'
 export { SyncService, syncService } from './sync-service'
