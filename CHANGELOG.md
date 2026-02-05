@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.59.0] - 2026-02-05
+
+### Features
+
+- add staleness detection for CLAUDE.md context (PRJ-120) (#97)
+
+
 ## [0.58.0] - 2026-02-05
 
 ### Features
