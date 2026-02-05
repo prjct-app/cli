@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.64.0] - 2026-02-05
+
+### Features
+
+- add input source tagging for context items (PRJ-102) (#106)
+
+
 ## [0.63.2] - 2026-02-05
 
 ### Added
