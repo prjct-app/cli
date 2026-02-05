@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.55.4] - 2026-02-05
+
+### Bug Fixes
+
+- remove legacy p.*.md commands on sync
+
+
 ## [0.55.3] - 2026-02-05
 
 ### Bug Fixes
