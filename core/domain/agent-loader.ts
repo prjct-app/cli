@@ -94,22 +94,22 @@ class AgentLoader {
 
   /**
    * Load all agents for the project
+   *
+   * Uses parallel file reads for performance (PRJ-110).
    */
   async loadAllAgents(): Promise<Agent[]> {
     try {
       const files = await fs.readdir(this.agentsDir)
       const agentFiles = files.filter((f) => f.endsWith('.md') && !f.startsWith('.'))
 
-      const agents: Agent[] = []
-      for (const file of agentFiles) {
+      // Load all agents in parallel
+      const agentPromises = agentFiles.map((file) => {
         const agentName = file.replace('.md', '')
-        const agent = await this.loadAgent(agentName)
-        if (agent) {
-          agents.push(agent)
-        }
-      }
+        return this.loadAgent(agentName)
+      })
 
-      return agents
+      const results = await Promise.all(agentPromises)
+      return results.filter((agent): agent is Agent => agent !== null)
     } catch (error) {
       if (isNotFoundError(error)) {
         return [] // Agents directory doesn't exist yet
