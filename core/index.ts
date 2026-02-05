@@ -129,6 +129,7 @@ async function main(): Promise<void> {
             preview: options.preview === true,
             yes: options.yes === true,
             json: options.json === true,
+            package: options.package ? String(options.package) : undefined,
           }),
         start: () => commands.start(),
         // Context (for Claude templates)

@@ -32,6 +32,9 @@ export type { GitData } from './git-analyzer'
 // Git Analyzer - Extracted from sync-service (PRJ-85)
 export { GitAnalyzer, getEmptyGitData, gitAnalyzer } from './git-analyzer'
 export { MemoryService, memoryService } from './memory-service'
+export type { ContextSection, NestedContext, ResolvedContext } from './nested-context-resolver'
+// Nested Context Resolver - Monorepo PRJCT.md inheritance (PRJ-118)
+export { NestedContextResolver } from './nested-context-resolver'
 export type { IndexOptions, RelevantContext, ScanResult } from './project-index'
 // Project Index - Persistent scanning with scoring
 export { createProjectIndexer, ProjectIndexer, RELEVANCE_THRESHOLD } from './project-index'

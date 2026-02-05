@@ -13,9 +13,27 @@ import crypto from 'node:crypto'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { globSync } from 'glob'
 import type { SessionInfo } from '../types'
 import * as dateHelper from '../utils/date-helper'
 import * as fileHelper from '../utils/file-helper'
+
+/**
+ * Monorepo detection result
+ */
+export interface MonorepoInfo {
+  isMonorepo: boolean
+  type: 'pnpm' | 'npm' | 'yarn' | 'lerna' | 'nx' | 'rush' | 'turborepo' | null
+  rootPath: string
+  packages: MonorepoPackage[]
+}
+
+export interface MonorepoPackage {
+  name: string
+  path: string
+  relativePath: string
+  hasPrjctMd: boolean
+}
 
 class PathManager {
   globalBaseDir: string
@@ -359,6 +377,207 @@ class PathManager {
    */
   getContextPath(projectId: string): string {
     return path.join(this.getGlobalProjectPath(projectId), 'context')
+  }
+
+  // ===========================================================================
+  // Monorepo Detection
+  // ===========================================================================
+
+  /**
+   * Detect if a project is a monorepo and get package information
+   */
+  async detectMonorepo(projectPath: string): Promise<MonorepoInfo> {
+    const result: MonorepoInfo = {
+      isMonorepo: false,
+      type: null,
+      rootPath: projectPath,
+      packages: [],
+    }
+
+    // Check for various monorepo configurations
+    const checks = [
+      { file: 'pnpm-workspace.yaml', type: 'pnpm' as const },
+      { file: 'lerna.json', type: 'lerna' as const },
+      { file: 'nx.json', type: 'nx' as const },
+      { file: 'rush.json', type: 'rush' as const },
+      { file: 'turbo.json', type: 'turborepo' as const },
+    ]
+
+    for (const check of checks) {
+      const filePath = path.join(projectPath, check.file)
+      if (await fileHelper.fileExists(filePath)) {
+        result.isMonorepo = true
+        result.type = check.type
+        break
+      }
+    }
+
+    // Check package.json for workspaces (npm/yarn)
+    if (!result.isMonorepo) {
+      const packageJsonPath = path.join(projectPath, 'package.json')
+      if (await fileHelper.fileExists(packageJsonPath)) {
+        try {
+          const content = await fs.readFile(packageJsonPath, 'utf-8')
+          const pkg = JSON.parse(content)
+          if (pkg.workspaces) {
+            result.isMonorepo = true
+            result.type = 'npm' // Could be yarn too, but npm is more generic
+          }
+        } catch {
+          // Invalid package.json, ignore
+        }
+      }
+    }
+
+    // If it's a monorepo, discover packages
+    if (result.isMonorepo) {
+      result.packages = await this.discoverMonorepoPackages(projectPath, result.type)
+    }
+
+    return result
+  }
+
+  /**
+   * Discover all packages in a monorepo
+   */
+  async discoverMonorepoPackages(
+    rootPath: string,
+    type: MonorepoInfo['type']
+  ): Promise<MonorepoPackage[]> {
+    const packages: MonorepoPackage[] = []
+    let patterns: string[] = []
+
+    try {
+      if (type === 'pnpm') {
+        // Read pnpm-workspace.yaml
+        const yaml = await fs.readFile(path.join(rootPath, 'pnpm-workspace.yaml'), 'utf-8')
+        // Simple YAML parsing for packages array
+        const match = yaml.match(/packages:\s*\n((?:\s*-\s*.+\n?)+)/)
+        if (match) {
+          patterns = match[1]
+            .split('\n')
+            .map((line) => line.replace(/^\s*-\s*['"]?|['"]?\s*$/g, ''))
+            .filter(Boolean)
+        }
+      } else if (type === 'npm' || type === 'lerna') {
+        // Read from package.json workspaces or lerna.json
+        const packageJsonPath = path.join(rootPath, 'package.json')
+        const content = await fs.readFile(packageJsonPath, 'utf-8')
+        const pkg = JSON.parse(content)
+        if (Array.isArray(pkg.workspaces)) {
+          patterns = pkg.workspaces
+        } else if (pkg.workspaces?.packages) {
+          patterns = pkg.workspaces.packages
+        }
+
+        // Also check lerna.json
+        if (type === 'lerna') {
+          const lernaPath = path.join(rootPath, 'lerna.json')
+          if (await fileHelper.fileExists(lernaPath)) {
+            const lernaContent = await fs.readFile(lernaPath, 'utf-8')
+            const lerna = JSON.parse(lernaContent)
+            if (lerna.packages) {
+              patterns = lerna.packages
+            }
+          }
+        }
+      } else if (type === 'nx') {
+        // NX uses apps/* and libs/* by default
+        patterns = ['apps/*', 'libs/*', 'packages/*']
+      } else if (type === 'turborepo') {
+        // Turborepo reads from package.json workspaces
+        const packageJsonPath = path.join(rootPath, 'package.json')
+        const content = await fs.readFile(packageJsonPath, 'utf-8')
+        const pkg = JSON.parse(content)
+        if (Array.isArray(pkg.workspaces)) {
+          patterns = pkg.workspaces
+        }
+      }
+
+      // If no patterns found, use common defaults
+      if (patterns.length === 0) {
+        patterns = ['packages/*', 'apps/*', 'libs/*']
+      }
+
+      // Expand glob patterns to find packages
+      for (const pattern of patterns) {
+        // Skip negation patterns for now
+        if (pattern.startsWith('!')) continue
+
+        const matches = globSync(pattern, {
+          cwd: rootPath,
+          absolute: false,
+        })
+
+        for (const match of matches) {
+          const packagePath = path.join(rootPath, match)
+          const packageJsonPath = path.join(packagePath, 'package.json')
+
+          // Only include directories with package.json
+          if (await fileHelper.fileExists(packageJsonPath)) {
+            try {
+              const content = await fs.readFile(packageJsonPath, 'utf-8')
+              const pkg = JSON.parse(content)
+              const prjctMdPath = path.join(packagePath, 'PRJCT.md')
+
+              packages.push({
+                name: pkg.name || path.basename(match),
+                path: packagePath,
+                relativePath: match,
+                hasPrjctMd: await fileHelper.fileExists(prjctMdPath),
+              })
+            } catch {
+              // Invalid package.json, skip
+            }
+          }
+        }
+      }
+    } catch {
+      // Error reading monorepo config, return empty
+    }
+
+    return packages
+  }
+
+  /**
+   * Check if current path is within a monorepo package
+   * Returns the package info if found, null otherwise
+   */
+  async findContainingPackage(
+    currentPath: string,
+    monoInfo: MonorepoInfo
+  ): Promise<MonorepoPackage | null> {
+    if (!monoInfo.isMonorepo) return null
+
+    const normalizedCurrent = path.resolve(currentPath)
+
+    for (const pkg of monoInfo.packages) {
+      const normalizedPkg = path.resolve(pkg.path)
+      if (normalizedCurrent.startsWith(normalizedPkg)) {
+        return pkg
+      }
+    }
+
+    return null
+  }
+
+  /**
+   * Find monorepo root from any subdirectory
+   * Walks up the directory tree looking for monorepo markers
+   */
+  async findMonorepoRoot(startPath: string): Promise<string | null> {
+    let currentPath = path.resolve(startPath)
+    const root = path.parse(currentPath).root
+
+    while (currentPath !== root) {
+      const monoInfo = await this.detectMonorepo(currentPath)
+      if (monoInfo.isMonorepo) {
+        return currentPath
+      }
+      currentPath = path.dirname(currentPath)
+    }
+
+    return null
   }
 }
 

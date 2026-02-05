@@ -1,15 +1,25 @@
 # Changelog
 
+## [0.57.0] - 2026-02-05
+
+### Features
+
+- **Monorepo support (PRJ-118)**: Support nested PRJCT.md files for monorepo subdirectories
+  - Detect monorepos (pnpm, npm, yarn, lerna, nx, turborepo, rush)
+  - Discover packages with workspace patterns
+  - Nested PRJCT.md inheritance (deeper files take precedence)
+  - Per-package CLAUDE.md generation with merged context
+  - `prjct sync --package=<name>` for single package sync
+
+### Added
+
+- `NestedContextResolver` service for PRJCT.md discovery and inheritance
+- `detectMonorepo()` and `discoverMonorepoPackages()` in PathManager
+- `generateMonorepoContexts()` in ContextFileGenerator
+
 ## [0.56.1] - 2026-02-05
 
 ### Bug Fixes
-
-- correct template paths and agent loading in CLAUDE.md (#93)
-
-
-## [0.56.1] - 2026-02-04
-
-### Fixed
 
 - **Context injection**: Fixed template paths in CLAUDE.md - now correctly points to `~/.claude/commands/p/` instead of `templates/commands/`
 - **Agent loading**: Added clear instructions for loading domain agents before SMART commands (task, ship, bug, done)
