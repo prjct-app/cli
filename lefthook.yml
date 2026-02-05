@@ -6,13 +6,13 @@ pre-commit:
   commands:
     check:
       glob: "*.{ts,tsx,js,jsx,json,md}"
-      run: bun run check
+      run: npm run check
       stage_fixed: true
 
 pre-push:
   parallel: true
   commands:
     typecheck:
-      run: bun run typecheck
+      run: npm run typecheck
     test:
-      run: bun test
+      run: npm test
