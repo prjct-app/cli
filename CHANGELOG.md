@@ -14,6 +14,10 @@
 - Removed noisy `[linear] Connected as...` messages from every API call
 - Added `limitLines()` and `formatForHuman()` utilities for consistent output formatting
 
+### Bug Fixes
+
+- remove legacy p.*.md commands on sync
+
 ### Tests
 
 - Added 11 new tests for output tier functionality
