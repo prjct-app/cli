@@ -20,6 +20,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
 import { glob } from 'glob'
+import { getTimeout } from '../constants'
 import { dependencyValidator } from './dependency-validator'
 import type { SkillLockEntry } from './skill-lock'
 import { skillLock } from './skill-lock'
@@ -252,13 +253,17 @@ async function installFromGitHub(source: ParsedSource): Promise<InstallResult> {
 
   try {
     // Clone with depth 1 for speed
+    // PRJ-111: Configurable timeout (default: 60s, override via PRJCT_TIMEOUT_GIT_CLONE)
     const cloneUrl = `https://github.com/${source.owner}/${source.repo}.git`
-    await exec(`git clone --depth 1 ${cloneUrl} ${tmpDir}`, { timeout: 60_000 })
+    await exec(`git clone --depth 1 ${cloneUrl} ${tmpDir}`, { timeout: getTimeout('GIT_CLONE') })
 
     // Get the commit SHA
     let sha: string | undefined
     try {
-      const { stdout } = await exec('git rev-parse HEAD', { cwd: tmpDir, timeout: 5_000 })
+      const { stdout } = await exec('git rev-parse HEAD', {
+        cwd: tmpDir,
+        timeout: getTimeout('TOOL_CHECK'),
+      })
       sha = stdout.trim()
     } catch {
       // Non-critical

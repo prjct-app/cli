@@ -219,6 +219,52 @@ export const PLANNING_TOOLS = [
 ] as const
 
 // =============================================================================
+// Timeout Constants (PRJ-111)
+// =============================================================================
+
+/**
+ * Timeout values in milliseconds for various operations.
+ * Can be overridden via PRJCT_TIMEOUT_* environment variables.
+ */
+export const TIMEOUTS = {
+  /** Tool availability checks (git --version, npm --version) */
+  TOOL_CHECK: 5_000,
+
+  /** Standard git operations (status, add, commit) */
+  GIT_OPERATION: 10_000,
+
+  /** Git clone with --depth 1 */
+  GIT_CLONE: 60_000,
+
+  /** HTTP fetch/API requests */
+  API_REQUEST: 30_000,
+
+  /** npm install -g (CLI installation) - 2 minutes */
+  NPM_INSTALL: 120_000,
+
+  /** User-defined workflow hooks */
+  WORKFLOW_HOOK: 60_000,
+} as const
+
+export type TimeoutKey = keyof typeof TIMEOUTS
+
+/**
+ * Get timeout value with optional environment variable override.
+ * Environment variables: PRJCT_TIMEOUT_TOOL_CHECK, PRJCT_TIMEOUT_GIT_OPERATION, etc.
+ */
+export function getTimeout(key: TimeoutKey): number {
+  const envVar = `PRJCT_TIMEOUT_${key}`
+  const envValue = process.env[envVar]
+  if (envValue) {
+    const parsed = Number.parseInt(envValue, 10)
+    if (!Number.isNaN(parsed) && parsed > 0) {
+      return parsed
+    }
+  }
+  return TIMEOUTS[key]
+}
+
+// =============================================================================
 // Combined Exports
 // =============================================================================
 
@@ -244,4 +290,12 @@ export const PLAN = {
   REQUIRED_COMMANDS: PLAN_REQUIRED_COMMANDS,
   DESTRUCTIVE_COMMANDS,
   TOOLS: PLANNING_TOOLS,
+} as const
+
+/**
+ * Combined timeout exports for easy import.
+ */
+export const TIMEOUT = {
+  VALUES: TIMEOUTS,
+  get: getTimeout,
 } as const

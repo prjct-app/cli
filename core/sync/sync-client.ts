@@ -3,8 +3,11 @@
  *
  * Handles communication with the backend API for push/pull operations.
  * Uses native fetch API (available in Node 18+ and Bun).
+ *
+ * PRJ-111: Includes configurable timeout support via AbortController.
  */
 
+import { getTimeout } from '../constants'
 import type { SyncEvent } from '../events'
 import type { SyncBatchResult, SyncClientError, SyncPullResult, SyncStatus } from '../types'
 import authConfig from './auth-config'
@@ -114,10 +117,15 @@ class SyncClient {
    * Test connection to the API
    */
   async testConnection(): Promise<boolean> {
+    // PRJ-111: Add timeout to connection test
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), getTimeout('API_REQUEST'))
+
     try {
       const { apiUrl, apiKey } = await this.getAuthHeaders()
 
       if (!apiKey) {
+        clearTimeout(timeoutId)
         return false
       }
 
@@ -126,11 +134,14 @@ class SyncClient {
         headers: {
           'X-Api-Key': apiKey,
         },
+        signal: controller.signal,
       })
 
+      clearTimeout(timeoutId)
       return response.ok
     } catch (_error) {
-      // Network error or other issue - expected
+      // Network error, timeout, or other issue - expected
+      clearTimeout(timeoutId)
       return false
     }
   }
@@ -156,8 +167,17 @@ class SyncClient {
     options: RequestInit,
     retryCount = 0
   ): Promise<Response> {
+    // PRJ-111: Add AbortController-based timeout (default: 30s, configurable via PRJCT_TIMEOUT_API_REQUEST)
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), getTimeout('API_REQUEST'))
+
     try {
-      const response = await fetch(url, options)
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      })
+
+      clearTimeout(timeoutId)
 
       // Retry on server errors (5xx) but not client errors (4xx)
       if (response.status >= 500 && retryCount < this.retryConfig.maxRetries) {
@@ -171,6 +191,16 @@ class SyncClient {
 
       return response
     } catch (error) {
+      clearTimeout(timeoutId)
+
+      // Check if this is a timeout (AbortError)
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw this.createError(
+          'NETWORK_ERROR',
+          `Request timed out. Try increasing PRJCT_TIMEOUT_API_REQUEST (current: ${getTimeout('API_REQUEST')}ms)`
+        )
+      }
+
       // Retry on network errors
       if (retryCount < this.retryConfig.maxRetries) {
         const delay = Math.min(
