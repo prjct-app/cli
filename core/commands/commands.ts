@@ -184,7 +184,13 @@ class PrjctCommands {
 
   async sync(
     projectPath: string = process.cwd(),
-    options: { aiTools?: string[]; preview?: boolean; yes?: boolean; json?: boolean } = {}
+    options: {
+      aiTools?: string[]
+      preview?: boolean
+      yes?: boolean
+      json?: boolean
+      package?: string
+    } = {}
   ): Promise<CommandResult> {
     return this.analysis.sync(projectPath, options)
   }

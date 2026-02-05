@@ -11,8 +11,10 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import pathManager from '../infrastructure/path-manager'
 import dateHelper from '../utils/date-helper'
 import { mergePreservedSections, validatePreserveBlocks } from '../utils/preserve-sections'
+import { NestedContextResolver } from './nested-context-resolver'
 
 // ============================================================================
 // TYPES
@@ -324,6 +326,135 @@ ${
 `
 
     await this.writeWithPreservation(path.join(contextPath, 'shipped.md'), content)
+  }
+
+  // ==========================================================================
+  // MONOREPO SUPPORT
+  // ==========================================================================
+
+  /**
+   * Generate CLAUDE.md files for each package in a monorepo
+   * Each package gets its own context file with inherited + package-specific rules
+   */
+  async generateMonorepoContexts(
+    git: GitData,
+    stats: ProjectStats,
+    commands: Commands,
+    agents: AgentInfo[]
+  ): Promise<string[]> {
+    const monoInfo = await pathManager.detectMonorepo(this.config.projectPath)
+
+    if (!monoInfo.isMonorepo) {
+      return []
+    }
+
+    const generatedFiles: string[] = []
+    const resolver = new NestedContextResolver(this.config.projectPath)
+    await resolver.initialize()
+
+    // Generate CLAUDE.md for each package that has PRJCT.md
+    for (const pkg of monoInfo.packages) {
+      if (!pkg.hasPrjctMd) continue
+
+      const resolvedCtx = await resolver.getPackageContext(pkg.name)
+      if (!resolvedCtx) continue
+
+      const content = await this.generatePackageClaudeMd(
+        pkg,
+        resolvedCtx,
+        git,
+        stats,
+        commands,
+        agents
+      )
+
+      // Write to the package directory
+      const claudePath = path.join(pkg.path, 'CLAUDE.md')
+      await this.writeWithPreservation(claudePath, content)
+      generatedFiles.push(path.relative(this.config.projectPath, claudePath))
+    }
+
+    return generatedFiles
+  }
+
+  /**
+   * Generate CLAUDE.md content for a specific package
+   */
+  private async generatePackageClaudeMd(
+    pkg: { name: string; path: string; relativePath: string },
+    resolvedCtx: { content: string; sources: string[]; overrides: string[] },
+    git: GitData,
+    stats: ProjectStats,
+    commands: Commands,
+    agents: AgentInfo[]
+  ): Promise<string> {
+    const workflowAgents = agents.filter((a) => a.type === 'workflow').map((a) => a.name)
+    const domainAgents = agents.filter((a) => a.type === 'domain').map((a) => a.name)
+
+    // Try to read package-specific info
+    let pkgVersion = stats.version
+    let pkgName = pkg.name
+    try {
+      const pkgJsonPath = path.join(pkg.path, 'package.json')
+      const pkgJson = JSON.parse(await fs.readFile(pkgJsonPath, 'utf-8'))
+      pkgVersion = pkgJson.version || stats.version
+      pkgName = pkgJson.name || pkg.name
+    } catch {
+      // Use defaults
+    }
+
+    return `# ${pkgName} - Package Rules
+<!-- package: ${pkg.relativePath} -->
+<!-- monorepo: ${stats.name} -->
+<!-- Generated: ${dateHelper.getTimestamp()} -->
+<!-- Sources: ${resolvedCtx.sources.join(' → ')} -->
+
+## THIS PACKAGE
+
+**Name:** ${pkgName}
+**Path:** ${pkg.relativePath}
+**Version:** ${pkgVersion}
+**Monorepo:** ${stats.name}
+
+---
+
+## INHERITED CONTEXT
+
+${resolvedCtx.content || '_No PRJCT.md rules defined_'}
+
+${resolvedCtx.overrides.length > 0 ? `\n**Overrides:** ${resolvedCtx.overrides.join(', ')}\n` : ''}
+
+---
+
+## COMMANDS
+
+| Action | Command |
+|--------|---------|
+| Install | \`${commands.install}\` |
+| Dev | \`${commands.dev}\` |
+| Test | \`${commands.test}\` |
+| Build | \`${commands.build}\` |
+
+---
+
+## PROJECT STATE
+
+| Field | Value |
+|-------|-------|
+| Package | ${pkgName} |
+| Monorepo | ${stats.name} |
+| Branch | ${git.branch} |
+| Ecosystem | ${stats.ecosystem} |
+
+---
+
+## AGENTS
+
+Load from \`~/.prjct-cli/projects/${this.config.projectId}/agents/\`:
+
+**Workflow**: ${workflowAgents.join(', ')}
+**Domain**: ${domainAgents.join(', ') || 'none'}
+`
   }
 }
 
