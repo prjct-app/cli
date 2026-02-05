@@ -19,7 +19,11 @@ cat .prjct/prjct.config.json 2>/dev/null | grep -o '"projectId"[[:space:]]*:[[:s
 
 Set `globalPath = ~/.prjct-cli/projects/{projectId}`
 
-READ: `{globalPath}/storage/state.json` to get current task info (linearId, description, etc.)
+READ: `{globalPath}/storage/state.json` to get:
+- `previousTask.linearId` or `currentTask.linearId`
+- Task description
+
+**⚠️ SAVE the linearId/jiraId NOW - you will need it at the end.**
 
 ---
 
@@ -39,23 +43,14 @@ git log -1 --pretty=format:"%s" | head -1
 
 **IF last commit is a merge/squash from a PR:**
 ```
-# This is POST-MERGE state - user wants to finalize/release
+# ═══════════════════════════════════════════════════════════════
+# POST-MERGE FLOW - ISSUE TRACKER UPDATE IS MANDATORY
+# ═══════════════════════════════════════════════════════════════
+
 OUTPUT: "Detected: Already on main after merge."
-OUTPUT: "Checking for pending release..."
 
-# Check if version was already bumped by CI
-npm view prjct-cli version 2>/dev/null
-node -p "require('./package.json').version"
-
-IF npm version >= package.json version:
-  OUTPUT: "✅ Already released: v{version}"
-  OUTPUT: "npm: prjct-cli@{version}"
-  GOTO: STEP 8 (Update Issue Tracker)
-ELSE:
-  OUTPUT: "Triggering release workflow..."
-  # CI handles the release on push to main
-  OUTPUT: "Release will be handled by CI workflow."
-  GOTO: STEP 8 (Update Issue Tracker)
+# ⛔ IMMEDIATELY update issue tracker - DO NOT SKIP
+GOTO: **POST-MERGE FINALIZE** section at the bottom of this file
 ```
 
 **IF no recent merge (user is trying to ship from main):**
@@ -329,21 +324,21 @@ EOF
 
 ### STEP 10: Update Issue Tracker (REQUIRED - DO NOT SKIP)
 
-**⛔ This step is MANDATORY if there's a linked issue.**
+**⛔ This step is MANDATORY if there's a linked issue. NEVER skip this.**
 
 ```
 READ: {globalPath}/storage/state.json
-GET: linearId or jiraId from currentTask
+GET: linearId or jiraId from currentTask or previousTask
 ```
 
 **IF linearId exists:**
 ```bash
-# Get projectId
-PROJ_ID=$(cat .prjct/prjct.config.json | grep -o '"projectId"[[:space:]]*:[[:space:]]*"[^"]*"' | cut -d'"' -f4)
+# ═══════════════════════════════════════════════════════════════
+# USE prjct CLI DIRECTLY - NOT $PRJCT_CLI (may be unset)
+# ═══════════════════════════════════════════════════════════════
 
 # Add implementation comment to Linear issue
-bun $PRJCT_CLI/core/cli/linear.ts --project $PROJ_ID comment "{linearId}" "$(cat <<'EOF'
-## Implementation Complete
+prjct linear comment "{linearId}" "## Implementation Complete
 
 **PR:** {pr_url}
 **Branch:** {branch}
@@ -352,31 +347,21 @@ bun $PRJCT_CLI/core/cli/linear.ts --project $PROJ_ID comment "{linearId}" "$(cat
 {implementation details}
 
 ### How to test
-{test steps for QA}
+{test steps for QA}"
 
-### For users
-{user-facing changes}
-
-### Learnings
-{learnings}
-EOF
-)"
-
-# Mark issue as Done (if PR was merged) or In Review (if PR is open)
-IF on main branch (post-merge):
-  bun $PRJCT_CLI/core/cli/linear.ts --project $PROJ_ID done "{linearId}"
-  OUTPUT: "Linear: {linearId} → Done ✓"
-ELSE:
-  # Issue stays In Progress, PR link added as comment
-  OUTPUT: "Linear: {linearId} - Comment added with PR link"
+# ═══════════════════════════════════════════════════════════════
+# ALWAYS mark as Done after ship (work is complete)
+# ═══════════════════════════════════════════════════════════════
+prjct linear done "{linearId}"
+OUTPUT: "Linear: {linearId} → Done ✓"
 ```
 
 **IF jiraId exists:**
 ```bash
-# Similar flow for JIRA
-bun $PRJCT_CLI/core/cli/jira.ts --project $PROJ_ID comment "{jiraId}" "PR: {pr_url}"
-bun $PRJCT_CLI/core/cli/jira.ts --project $PROJ_ID transition "{jiraId}" "In Review"
-OUTPUT: "JIRA: {jiraId} → In Review ✓"
+# Similar flow for JIRA - always Done after ship
+prjct jira comment "{jiraId}" "PR: {pr_url}"
+prjct jira transition "{jiraId}" "Done"
+OUTPUT: "JIRA: {jiraId} → Done ✓"
 ```
 
 **IF no issue tracker configured:**
@@ -440,3 +425,51 @@ Common violations:
 - ❌ **Not adding implementation comments to issues**
 
 **These violations make prjct useless. Follow the workflow.**
+
+---
+
+## ═══════════════════════════════════════════════════════════════
+## POST-MERGE FINALIZE (Called from STEP 1 when on main after merge)
+## ═══════════════════════════════════════════════════════════════
+
+**⛔ THIS SECTION IS MANDATORY AFTER ANY MERGE. DO NOT SKIP.**
+
+When user runs `p. ship` on main after a merge, execute ONLY this section:
+
+### 1. Get Issue ID from State
+
+```bash
+# Read state to get linearId
+cat ~/.prjct-cli/projects/$(cat .prjct/prjct.config.json 2>/dev/null | grep -o '"projectId"[[:space:]]*:[[:space:]]*"[^"]*"' | cut -d'"' -f4)/storage/state.json 2>/dev/null
+```
+
+Extract `linearId` from `previousTask.linearId` or `currentTask.linearId`.
+
+### 2. Update Issue Tracker to Done (MANDATORY)
+
+**⛔ DO NOT OUTPUT SUCCESS UNTIL THIS COMPLETES**
+
+```bash
+# Use prjct CLI directly (NOT $PRJCT_CLI which may be unset)
+prjct linear done "{linearId}"
+```
+
+**IF no prjct CLI available, use direct command:**
+```bash
+# Fallback - find CLI location
+PRJCT_BIN=$(which prjct 2>/dev/null || echo "/opt/homebrew/bin/prjct")
+$PRJCT_BIN linear done "{linearId}"
+```
+
+### 3. Output
+
+```
+✅ Merged: {linearId}
+
+PR #{number} → main
+Linear: {linearId} → Done ✓
+
+Ready for next task.
+```
+
+**⛔ NEVER output "Merged" without updating the issue tracker first.**

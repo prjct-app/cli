@@ -7,14 +7,14 @@ STATUSLINE_DIR="${HOME}/.prjct-cli/statusline"
 THEME_DIR="${STATUSLINE_DIR}/themes"
 
 # Default colors (ANSI 256) - used as fallback
-DEFAULT_PRIMARY='\033[38;5;51m'      # Cyan - prjct brand
-DEFAULT_ACCENT='\033[38;5;220m'      # Gold/Yellow
-DEFAULT_SECONDARY='\033[38;5;147m'   # Light purple
-DEFAULT_MUTED='\033[38;5;242m'       # Gray
-DEFAULT_SUCCESS='\033[38;5;114m'     # Green
-DEFAULT_ERROR='\033[38;5;204m'       # Pink/Red
-DEFAULT_WARNING='\033[38;5;214m'     # Orange
-DEFAULT_PURPLE='\033[38;5;183m'      # Purple
+DEFAULT_PRIMARY='\033[38;5;252m'     # Light gray/white - neutral
+DEFAULT_ACCENT='\033[38;5;252m'      # Light gray/white
+DEFAULT_SECONDARY='\033[38;5;248m'   # Medium gray
+DEFAULT_MUTED='\033[38;5;245m'       # Gray
+DEFAULT_SUCCESS='\033[38;5;108m'     # Muted green
+DEFAULT_ERROR='\033[38;5;174m'       # Muted red/pink
+DEFAULT_WARNING='\033[38;5;180m'     # Muted yellow
+DEFAULT_PURPLE='\033[38;5;182m'      # Muted purple
 
 # Default icons
 DEFAULT_ICON_PRJCT="⚡"

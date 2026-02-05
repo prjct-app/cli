@@ -113,6 +113,33 @@ When a template says "STOP" or has a ⛔ symbol:
 - Every ship requires version update
 - Every ship requires CHANGELOG entry
 
+### ISSUE TRACKER RULES (CRITICAL - TOKEN EFFICIENCY)
+
+**⛔ READ LOCAL, WRITE REMOTE** - This is NON-NEGOTIABLE.
+
+```
+READ:  ALWAYS from local cache (issues.json) - NEVER call API
+WRITE: Status updates go to remote API (start, done, comment)
+```
+
+**Why this matters:**
+- Avoids re-reading issue descriptions/AC (saves 1000s of tokens per task)
+- Zero latency on reads (local file vs 200-500ms API call)
+- Reduces API costs
+
+**The pattern:**
+```
+p. sync         → Fetch ALL issues once → Cache to issues.json
+p. task PRJ-123 → READ from issues.json (NOT API!)
+                → WRITE status "In Progress" to API
+p. done         → WRITE status "Done" to API
+```
+
+**⛔ NEVER:**
+- Call API to get issue details during `p. task` (use cache)
+- Re-fetch issue description/AC after sync
+- Load full issue into LLM context when already cached
+
 ### PLAN BEFORE DESTRUCTIVE ACTIONS
 
 For commands that modify git state (ship, merge, done):

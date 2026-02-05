@@ -143,30 +143,23 @@ GET: currentTask.linearId, currentTask.jiraId
 
 **IF linearId exists:**
 ```bash
-# Get projectId
-PROJ_ID=$(cat .prjct/prjct.config.json | grep -o '"projectId"[[:space:]]*:[[:space:]]*"[^"]*"' | cut -d'"' -f4)
-
-# Mark issue as Done in Linear (REQUIRED)
-bun $PRJCT_CLI/core/cli/linear.ts --project $PROJ_ID done "{linearId}"
-
-# Add completion comment
-bun $PRJCT_CLI/core/cli/linear.ts --project $PROJ_ID comment "{linearId}" "✅ PR #{prNumber} merged and released"
-
+# USE prjct CLI DIRECTLY - NOT $PRJCT_CLI (may be unset)
+prjct linear done "{linearId}"
+prjct linear comment "{linearId}" "✅ PR #{prNumber} merged and released"
+```
 OUTPUT: "Linear: {linearId} → Done ✓"
-```
 
-**IF jiraId exists:**
+**ELSE IF jiraId exists:**
 ```bash
-# Transition to Done in JIRA (REQUIRED)
-bun $PRJCT_CLI/core/cli/jira.ts --project $PROJ_ID transition "{jiraId}" "Done"
-bun $PRJCT_CLI/core/cli/jira.ts --project $PROJ_ID comment "{jiraId}" "✅ PR #{prNumber} merged and released"
-
+prjct jira transition "{jiraId}" "Done"
+prjct jira comment "{jiraId}" "✅ PR #{prNumber} merged and released"
+```
 OUTPUT: "JIRA: {jiraId} → Done ✓"
-```
 
-**IF no issue tracker linked:**
+**ELSE (no issue tracker):**
 ```
-OUTPUT: "No issue tracker linked."
+# No issue tracker linked - that's OK, just skip this step
+OUTPUT: "✓ No issue tracker linked"
 ```
 
 ---
