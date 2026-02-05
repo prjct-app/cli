@@ -4,6 +4,11 @@
  *
  * Usage: bun core/cli/linear.ts --project <projectId> <command> [args...]
  *
+ * Flags:
+ *   --project <id>   - Project ID (required)
+ *   --json           - Output raw JSON (default: human-readable)
+ *   --verbose        - Show all details (no truncation)
+ *
  * Commands:
  *   setup <apiKey> [teamId]    - Store API key in project credentials
  *   list                       - List my assigned issues
@@ -21,7 +26,7 @@
  *   projects                   - List available projects
  *   status                     - Check connection status
  *
- * All output is JSON for easy parsing by Claude.
+ * Default output is human-readable. Use --json for machine parsing.
  */
 
 import type { CreateIssueInput, Issue } from '../integrations/issue-tracker/types'
@@ -32,6 +37,7 @@ import {
   getProjectCredentials,
   setLinearCredentials,
 } from '../utils/project-credentials'
+import { formatForHuman, setOutputTier } from '../utils/output'
 
 // Parse arguments
 const args = process.argv.slice(2)
@@ -44,20 +50,41 @@ if (projectIdx !== -1 && args[projectIdx + 1]) {
   args.splice(projectIdx, 2)
 }
 
+// Extract --json flag (raw JSON output)
+const jsonIdx = args.indexOf('--json')
+const jsonMode = jsonIdx !== -1
+if (jsonMode) args.splice(jsonIdx, 1)
+
+// Extract --verbose flag
+const verboseIdx = args.indexOf('--verbose')
+const verboseMode = verboseIdx !== -1
+if (verboseMode) {
+  args.splice(verboseIdx, 1)
+  setOutputTier('verbose')
+}
+
 const [command, ...commandArgs] = args
 
 /**
- * Output result as JSON
+ * Output result - human-readable by default, JSON with --json flag
  */
 function output(data: unknown): void {
-  console.log(JSON.stringify(data, null, 2))
+  if (jsonMode) {
+    console.log(JSON.stringify(data, null, 2))
+  } else {
+    console.log(formatForHuman(data))
+  }
 }
 
 /**
- * Output error as JSON and exit
+ * Output error and exit
  */
 function error(message: string, code = 1): never {
-  console.error(JSON.stringify({ error: message }))
+  if (jsonMode) {
+    console.error(JSON.stringify({ error: message }))
+  } else {
+    console.error(`Error: ${message}`)
+  }
   process.exit(code)
 }
 
@@ -148,17 +175,28 @@ async function main(): Promise<void> {
           issues = await linearService.fetchAssignedIssues({ limit })
         }
 
-        output({
-          count: issues.length,
-          issues: issues.map((issue) => ({
-            id: issue.id,
-            identifier: issue.externalId,
-            title: issue.title,
-            status: issue.status,
-            priority: issue.priority,
-            url: issue.url,
-          })),
-        })
+        const issueList = issues.map((issue) => ({
+          id: issue.id,
+          identifier: issue.externalId,
+          title: issue.title,
+          status: issue.status,
+          priority: issue.priority,
+          url: issue.url,
+        }))
+
+        if (jsonMode) {
+          output({ count: issues.length, issues: issueList })
+        } else {
+          // Human-friendly table output
+          console.log(`Your issues (${issues.length}):`)
+          for (const issue of issueList.slice(0, 10)) {
+            const p = issue.priority && issue.priority !== 'none' ? ` [${issue.priority}]` : ''
+            console.log(`  ${issue.identifier}  ${issue.title.slice(0, 50)}${p}`)
+          }
+          if (issues.length > 10) {
+            console.log(`  ...${issues.length - 10} more`)
+          }
+        }
         break
       }
 
@@ -199,7 +237,18 @@ async function main(): Promise<void> {
           error(`Issue not found: ${id}`)
         }
 
-        output(issue)
+        if (jsonMode) {
+          output(issue)
+        } else {
+          // Human-friendly issue display
+          console.log(`${issue.externalId}: ${issue.title}`)
+          console.log(`Status: ${issue.status} | Priority: ${issue.priority || 'none'}`)
+          if (issue.description) {
+            const desc = issue.description.slice(0, 200)
+            console.log(`\n${desc}${issue.description.length > 200 ? '...' : ''}`)
+          }
+          console.log(`\n${issue.url}`)
+        }
         break
       }
 
@@ -371,11 +420,12 @@ async function main(): Promise<void> {
         const creds = await getProjectCredentials(projectId)
 
         if (!apiKey) {
-          output({
-            configured: false,
-            source: 'none',
-            message: 'Linear not configured. Run: p. linear setup',
-          })
+          if (jsonMode) {
+            output({ configured: false, source: 'none', message: 'Linear not configured' })
+          } else {
+            console.log('Linear: Not configured')
+            console.log('Run: p. linear setup')
+          }
           break
         }
 
@@ -384,19 +434,28 @@ async function main(): Promise<void> {
           await linearService.initializeFromApiKey(apiKey, creds.linear?.teamId)
           const teams = await linearService.getTeams()
 
-          output({
-            configured: true,
-            source,
-            teamId: creds.linear?.teamId,
-            teamKey: creds.linear?.teamKey,
-            teamsAvailable: teams.length,
-          })
+          if (jsonMode) {
+            output({
+              configured: true,
+              source,
+              teamId: creds.linear?.teamId,
+              teamKey: creds.linear?.teamKey,
+              teamsAvailable: teams.length,
+            })
+          } else {
+            console.log(`Linear: Connected`)
+            if (creds.linear?.teamKey) {
+              console.log(`Team: ${creds.linear.teamKey}`)
+            }
+            console.log(`Teams: ${teams.length} available`)
+          }
         } catch (err) {
-          output({
-            configured: true,
-            source,
-            connectionError: (err as Error).message,
-          })
+          if (jsonMode) {
+            output({ configured: true, source, connectionError: (err as Error).message })
+          } else {
+            console.log(`Linear: Connection error`)
+            console.log(`Error: ${(err as Error).message}`)
+          }
         }
         break
       }

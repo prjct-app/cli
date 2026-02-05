@@ -4,7 +4,14 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test'
-import out from '../../utils/output'
+import out, {
+  OUTPUT_TIERS,
+  formatForHuman,
+  getOutputTier,
+  getTierConfig,
+  limitLines,
+  setOutputTier,
+} from '../../utils/output'
 
 describe('Output Module', () => {
   let consoleLogSpy: ReturnType<typeof spyOn>
@@ -149,6 +156,117 @@ describe('Output Module', () => {
     it('should handle messages with special characters', () => {
       out.done('test with émojis 🎉 and spëcial çhars')
       expect(consoleLogSpy).toHaveBeenCalled()
+    })
+  })
+
+  describe('Output Tiers', () => {
+    afterEach(() => {
+      setOutputTier('compact') // Reset to default
+    })
+
+    it('should have correct tier configs', () => {
+      expect(OUTPUT_TIERS.silent.maxLines).toBe(0)
+      expect(OUTPUT_TIERS.minimal.maxLines).toBe(1)
+      expect(OUTPUT_TIERS.compact.maxLines).toBe(4)
+      expect(OUTPUT_TIERS.verbose.maxLines).toBe(Infinity)
+    })
+
+    it('should get and set output tier', () => {
+      setOutputTier('verbose')
+      expect(getOutputTier()).toBe('verbose')
+
+      setOutputTier('minimal')
+      expect(getOutputTier()).toBe('minimal')
+    })
+
+    it('should return correct tier config', () => {
+      setOutputTier('compact')
+      const config = getTierConfig()
+      expect(config.maxLines).toBe(4)
+      expect(config.maxCharsPerLine).toBe(80)
+      expect(config.showMetrics).toBe(true)
+    })
+  })
+
+  describe('limitLines()', () => {
+    it('should limit content to maxLines', () => {
+      setOutputTier('compact') // maxLines = 4
+      const content = 'line1\nline2\nline3\nline4\nline5\nline6'
+      const result = limitLines(content)
+
+      expect(result.split('\n').length).toBe(5) // 4 lines + "...2 more lines"
+      expect(result).toContain('...2 more lines')
+    })
+
+    it('should not truncate if under limit', () => {
+      setOutputTier('compact')
+      const content = 'line1\nline2'
+      const result = limitLines(content)
+
+      expect(result).toBe(content)
+    })
+
+    it('should respect custom maxLines parameter', () => {
+      const content = 'line1\nline2\nline3\nline4'
+      const result = limitLines(content, 2)
+
+      expect(result.split('\n').length).toBe(3) // 2 lines + indicator
+      expect(result).toContain('...2 more lines')
+    })
+
+    it('should return content unchanged for verbose tier', () => {
+      setOutputTier('verbose')
+      const content = 'line1\nline2\nline3\nline4\nline5'
+      const result = limitLines(content)
+
+      expect(result).toBe(content)
+    })
+  })
+
+  describe('formatForHuman()', () => {
+    afterEach(() => {
+      setOutputTier('compact')
+    })
+
+    it('should format Linear issue object', () => {
+      const issue = {
+        identifier: 'PRJ-123',
+        title: 'Test issue title',
+        status: 'in_progress',
+        priority: 'high',
+        url: 'https://linear.app/test',
+      }
+
+      const result = formatForHuman(issue)
+      expect(result).toContain('PRJ-123')
+      expect(result).toContain('Test issue title')
+      expect(result).toContain('in_progress')
+    })
+
+    it('should format issue list', () => {
+      const list = {
+        issues: [
+          { identifier: 'PRJ-1', title: 'First issue', priority: 'high' },
+          { identifier: 'PRJ-2', title: 'Second issue', priority: 'none' },
+        ],
+      }
+
+      const result = formatForHuman(list)
+      expect(result).toContain('PRJ-1')
+      expect(result).toContain('PRJ-2')
+    })
+
+    it('should return empty string for silent tier', () => {
+      setOutputTier('silent')
+      const result = formatForHuman({ test: 'data' })
+      expect(result).toBe('')
+    })
+
+    it('should return full JSON for verbose tier', () => {
+      setOutputTier('verbose')
+      const data = { test: 'data', nested: { key: 'value' } }
+      const result = formatForHuman(data)
+      expect(result).toBe(JSON.stringify(data, null, 2))
     })
   })
 })
