@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.63.0] - 2026-02-05
+
+### Features
+
+- add timeout management with configurable limits (PRJ-111) (#104)
+
+
 ## [0.62.1] - 2026-02-05
 
 ### Improved
