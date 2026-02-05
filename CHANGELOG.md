@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.62.2] - 2026-02-05
+
+### Added
+
+- **Unit tests for smart-context.ts (PRJ-84)**: 57 tests covering domain detection, file filtering, and type mappings
+
+### Implementation Details
+
+Created comprehensive test suite for SmartContext class: `detectDomain()` tests for all 6 domains (frontend, backend, devops, docs, testing, general), `filterFiles()` tests for file pattern matching, `estimateSize()` tests for token estimation, and type mapping function tests.
+
+### Learnings
+
+- Keyword detection uses substring matching - "be" in "better" matches backend keyword
+- Frontend file pattern `/\.(tsx?|jsx?)$/` also matches plain `.ts` files (known behavior)
+- Confidence scoring caps at 0.95 regardless of keyword count
+
+### Test Plan
+
+#### For QA
+1. Run `bun test core/__tests__/agentic/smart-context.test.ts` - all 57 tests pass
+2. Run `bun test` - full suite passes (368 tests)
+
+#### For Users
+- No user-facing changes (test coverage improvement)
+
+
 ## [0.62.1] - 2026-02-05
 
 ### Improved
