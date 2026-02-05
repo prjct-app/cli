@@ -9,7 +9,9 @@
  * - owner/repo@skill-name — install specific skill from repo
  * - ./local-path — install from local directory
  *
- * @version 1.0.0
+ * Uses graceful degradation for git availability (PRJ-114).
+ *
+ * @version 1.1.0
  */
 
 import { exec as execCallback } from 'node:child_process'
@@ -18,6 +20,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
 import { glob } from 'glob'
+import { dependencyValidator } from './dependency-validator'
 import type { SkillLockEntry } from './skill-lock'
 import { skillLock } from './skill-lock'
 
@@ -230,9 +233,19 @@ async function installSkillFile(
 
 /**
  * Install skills from a GitHub repository
+ * PRJ-114: Checks git availability with graceful error handling
  */
 async function installFromGitHub(source: ParsedSource): Promise<InstallResult> {
   const result: InstallResult = { installed: [], skipped: [], errors: [] }
+
+  // PRJ-114: Check git availability before attempting clone
+  if (!dependencyValidator.isAvailable('git')) {
+    const gitStatus = dependencyValidator.checkTool('git')
+    result.errors.push(
+      `Cannot install from GitHub: git is not available. ${gitStatus.error?.hint || 'Install git and try again.'}`
+    )
+    return result
+  }
 
   // Create temp directory
   const tmpDir = path.join(os.tmpdir(), `prjct-skill-${Date.now()}`)

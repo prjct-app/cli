@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.62.0] - 2026-02-05
+
+### Improved
+
+- **Graceful degradation (PRJ-114)**: prjct now handles missing dependencies with helpful recovery hints instead of crashing
+
+### Implementation Details
+
+Created `DependencyValidator` service with `checkTool()`, `ensureTool()`, and caching. Integrated into GitAnalyzer, SkillInstaller, and setup.ts. Replaced shell pipes (`wc -l`, `sed`) with JS string operations for cross-platform compatibility. Added alternative installation suggestions (yarn, pnpm, brew) when npm fails.
+
+### Learnings
+
+- Shell pipes like `wc -l` and `sed` aren't cross-platform - use JS string operations instead
+- execSync calls are expensive - cache results with TTL
+- npm may not be available even when node is - check separately
+
+### Test Plan
+
+#### For QA
+1. Run `prjct sync` on a machine without git - verify helpful error message instead of crash
+2. Run `prjct skill install owner/repo` without git - verify error suggests install methods
+3. Run `prjct start` without npm - verify suggests alternatives (yarn, pnpm, brew)
+4. Run `prjct doctor` - verify all tool checks display correctly
+
+#### For Users
+- prjct now gracefully handles missing dependencies with helpful recovery hints
+- Automatic - errors include installation suggestions
+- No breaking changes
+
+
 ## [0.61.0] - 2026-02-05
 
 ### Features

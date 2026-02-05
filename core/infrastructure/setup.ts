@@ -21,6 +21,7 @@ import { execSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { dependencyValidator } from '../services/dependency-validator'
 import { isNotFoundError } from '../types/fs'
 import type { AIProviderConfig, AIProviderName } from '../types/provider'
 import { getPackageRoot, VERSION } from '../utils/version'
@@ -67,10 +68,25 @@ async function _hasAICLI(provider: AIProviderConfig): Promise<boolean> {
 
 /**
  * Install AI CLI for the specified provider
+ * PRJ-114: Enhanced with graceful degradation and alternative install suggestions
  */
 async function installAICLI(provider: AIProviderConfig): Promise<boolean> {
   const packageName =
     provider.name === 'claude' ? '@anthropic-ai/claude-code' : '@google/gemini-cli'
+
+  // PRJ-114: Check npm availability first
+  if (!dependencyValidator.isAvailable('npm')) {
+    console.log(`${YELLOW}⚠️  npm is not available${NC}`)
+    console.log('')
+    console.log(`${DIM}Install ${provider.displayName} using one of:${NC}`)
+    console.log(`${DIM}  • Install Node.js: https://nodejs.org${NC}`)
+    console.log(
+      `${DIM}  • Use Homebrew: brew install ${provider.name === 'claude' ? 'claude' : 'gemini'}${NC}`
+    )
+    console.log(`${DIM}  • Use npx directly: npx ${packageName}${NC}`)
+    console.log('')
+    return false
+  }
 
   try {
     console.log(`${YELLOW}📦 ${provider.displayName} not found. Installing...${NC}`)
@@ -84,7 +100,14 @@ async function installAICLI(provider: AIProviderConfig): Promise<boolean> {
     console.log(
       `${YELLOW}⚠️  Failed to install ${provider.displayName}: ${(error as Error).message}${NC}`
     )
-    console.log(`${DIM}Please install manually: npm install -g ${packageName}${NC}`)
+    console.log('')
+    console.log(`${DIM}Alternative installation methods:${NC}`)
+    console.log(`${DIM}  • npm:  npm install -g ${packageName}${NC}`)
+    console.log(`${DIM}  • yarn: yarn global add ${packageName}${NC}`)
+    console.log(`${DIM}  • pnpm: pnpm add -g ${packageName}${NC}`)
+    console.log(
+      `${DIM}  • brew: brew install ${provider.name === 'claude' ? 'claude' : 'gemini'}${NC}`
+    )
     console.log('')
     return false
   }
