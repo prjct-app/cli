@@ -4,6 +4,13 @@
 
 ### Features
 
+- monorepo support with nested PRJCT.md inheritance (PRJ-118) (#94)
+
+
+## [0.57.0] - 2026-02-05
+
+### Features
+
 - **Monorepo support (PRJ-118)**: Support nested PRJCT.md files for monorepo subdirectories
   - Detect monorepos (pnpm, npm, yarn, lerna, nx, turborepo, rush)
   - Discover packages with workspace patterns
