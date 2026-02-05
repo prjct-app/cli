@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.59.1] - 2026-02-05
+
+### Tests
+
+- **command-executor.ts tests (PRJ-82)**: Added 26 unit tests for the command execution pipeline
+
+
 ## [0.59.0] - 2026-02-05
 
 ### Features
