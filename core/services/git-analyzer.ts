@@ -12,6 +12,7 @@
 
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
+import { getTimeout } from '../constants'
 import { dependencyValidator } from './dependency-validator'
 
 const execAsync = promisify(exec)
@@ -99,6 +100,7 @@ export class GitAnalyzer {
     try {
       const { stdout } = await execAsync('git branch --show-current', {
         cwd: this.projectPath,
+        timeout: getTimeout('GIT_OPERATION'),
       })
       return stdout.trim() || 'main'
     } catch {
@@ -113,6 +115,7 @@ export class GitAnalyzer {
     try {
       const { stdout } = await execAsync('git rev-list --count HEAD', {
         cwd: this.projectPath,
+        timeout: getTimeout('GIT_OPERATION'),
       })
       return parseInt(stdout.trim(), 10) || 0
     } catch {
@@ -128,6 +131,7 @@ export class GitAnalyzer {
     try {
       const { stdout } = await execAsync('git shortlog -sn --all', {
         cwd: this.projectPath,
+        timeout: getTimeout('GIT_OPERATION'),
       })
       // Count non-empty lines instead of piping to wc -l
       const lines = stdout.trim().split('\n').filter(Boolean)
@@ -156,6 +160,7 @@ export class GitAnalyzer {
     try {
       const { stdout } = await execAsync('git status --porcelain', {
         cwd: this.projectPath,
+        timeout: getTimeout('GIT_OPERATION'),
       })
       const lines = stdout.trim().split('\n').filter(Boolean)
       result.hasChanges = lines.length > 0
@@ -188,7 +193,7 @@ export class GitAnalyzer {
     try {
       const { stdout } = await execAsync(
         `git log --oneline -${count} --pretty=format:"%h|%s|%ad" --date=short`,
-        { cwd: this.projectPath }
+        { cwd: this.projectPath, timeout: getTimeout('GIT_OPERATION') }
       )
 
       return stdout
@@ -211,6 +216,7 @@ export class GitAnalyzer {
     try {
       const { stdout } = await execAsync('git log --oneline --since="1 week ago"', {
         cwd: this.projectPath,
+        timeout: getTimeout('GIT_OPERATION'),
       })
       // Count non-empty lines instead of piping to wc -l
       const lines = stdout.trim().split('\n').filter(Boolean)
@@ -227,6 +233,7 @@ export class GitAnalyzer {
     try {
       await execAsync('git rev-parse --is-inside-work-tree', {
         cwd: this.projectPath,
+        timeout: getTimeout('GIT_OPERATION'),
       })
       return true
     } catch {
@@ -243,6 +250,7 @@ export class GitAnalyzer {
       // Try to get from remote
       const { stdout } = await execAsync('git symbolic-ref refs/remotes/origin/HEAD', {
         cwd: this.projectPath,
+        timeout: getTimeout('GIT_OPERATION'),
       })
       // Use JS replace instead of piping to sed
       const branch = stdout.trim().replace(/^refs\/remotes\/origin\//, '')
@@ -255,6 +263,7 @@ export class GitAnalyzer {
     try {
       await execAsync('git show-ref --verify --quiet refs/heads/main', {
         cwd: this.projectPath,
+        timeout: getTimeout('GIT_OPERATION'),
       })
       return 'main'
     } catch {

@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.62.1] - 2026-02-05
+
+### Improved
+
+- **Timeout management (PRJ-111)**: Operations now timeout gracefully with configurable limits instead of hanging indefinitely
+
+### Implementation Details
+
+Added `TIMEOUTS` constants with `getTimeout()` helper function supporting environment variable overrides (`PRJCT_TIMEOUT_*`). Applied timeouts to: npm install (120s), git operations (10s), git clone (60s), and fetch API calls (30s via AbortController). Timeout errors now include helpful hints for increasing limits.
+
+### Learnings
+
+- AbortController is the standard way to timeout fetch() calls - create controller, set timeout to call abort(), pass signal to fetch
+- Environment variable pattern `PRJCT_TIMEOUT_*` allows user configurability without config files
+
+### Test Plan
+
+#### For QA
+1. Set `PRJCT_TIMEOUT_GIT_OPERATION=100` (100ms) and run `prjct sync` - should timeout
+2. Unset env var, run `prjct sync` on a large repo - should complete within 10s
+3. Test npm install timeout with `PRJCT_TIMEOUT_NPM_INSTALL=1000` (1s) - should timeout with helpful message
+
+#### For Users
+- Operations now timeout gracefully instead of hanging indefinitely
+- Set `PRJCT_TIMEOUT_*` env vars to customize timeouts (e.g., `export PRJCT_TIMEOUT_API_REQUEST=60000` for 60s)
+- No breaking changes
+
+
 ## [0.62.0] - 2026-02-05
 
 ### Improved
