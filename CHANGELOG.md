@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.62.2] - 2026-02-05
+## [0.63.1] - 2026-02-05
 
 ### Added
 
@@ -24,6 +24,13 @@ Created comprehensive test suite for SmartContext class: `detectDomain()` tests 
 
 #### For Users
 - No user-facing changes (test coverage improvement)
+
+
+## [0.63.0] - 2026-02-05
+
+### Features
+
+- add timeout management with configurable limits (PRJ-111) (#104)
 
 
 ## [0.62.1] - 2026-02-05
