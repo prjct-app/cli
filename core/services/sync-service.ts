@@ -142,9 +142,14 @@ class SyncService {
     const startTime = Date.now()
 
     // Resolve AI tools: supports 'auto', 'all', or specific list
+    // Default behavior: claude + any detected IDE tools (.cursor/, .windsurf/)
     let aiToolIds: string[]
     if (!options.aiTools || options.aiTools.length === 0) {
-      aiToolIds = DEFAULT_AI_TOOLS
+      // Start with default CLI tools and add detected IDE tools
+      const detectedIdeTools = detectInstalledTools(projectPath).filter(
+        (id) => !DEFAULT_AI_TOOLS.includes(id)
+      )
+      aiToolIds = [...DEFAULT_AI_TOOLS, ...detectedIdeTools]
     } else if (options.aiTools[0] === 'auto') {
       aiToolIds = detectInstalledTools(projectPath)
       if (aiToolIds.length === 0) aiToolIds = ['claude'] // fallback
