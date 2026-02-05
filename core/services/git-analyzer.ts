@@ -4,11 +4,15 @@
  * Extracted from sync-service.ts for single responsibility.
  * Analyzes git state: branch, commits, contributors, changes, etc.
  *
- * @version 1.0.0
+ * Uses graceful degradation for git availability (PRJ-114).
+ * Avoids shell pipes for better cross-platform compatibility.
+ *
+ * @version 1.1.0
  */
 
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
+import { dependencyValidator } from './dependency-validator'
 
 const execAsync = promisify(exec)
 
@@ -41,6 +45,7 @@ export class GitAnalyzer {
 
   /**
    * Analyze git repository state
+   * Returns defaults if git is not available (graceful degradation)
    */
   async analyze(): Promise<GitData> {
     const data: GitData = {
@@ -53,6 +58,11 @@ export class GitAnalyzer {
       untrackedFiles: [],
       recentCommits: [],
       weeklyCommits: 0,
+    }
+
+    // PRJ-114: Check git availability first (graceful degradation)
+    if (!dependencyValidator.isAvailable('git')) {
+      return data
     }
 
     try {
@@ -112,13 +122,16 @@ export class GitAnalyzer {
 
   /**
    * Get contributor count
+   * PRJ-114: Avoids shell pipe by counting lines in JS
    */
   async getContributorCount(): Promise<number> {
     try {
-      const { stdout } = await execAsync('git shortlog -sn --all | wc -l', {
+      const { stdout } = await execAsync('git shortlog -sn --all', {
         cwd: this.projectPath,
       })
-      return parseInt(stdout.trim(), 10) || 0
+      // Count non-empty lines instead of piping to wc -l
+      const lines = stdout.trim().split('\n').filter(Boolean)
+      return lines.length
     } catch {
       return 0
     }
@@ -192,13 +205,16 @@ export class GitAnalyzer {
 
   /**
    * Get commit count in the last week
+   * PRJ-114: Avoids shell pipe by counting lines in JS
    */
   async getWeeklyCommitCount(): Promise<number> {
     try {
-      const { stdout } = await execAsync('git log --oneline --since="1 week ago" | wc -l', {
+      const { stdout } = await execAsync('git log --oneline --since="1 week ago"', {
         cwd: this.projectPath,
       })
-      return parseInt(stdout.trim(), 10) || 0
+      // Count non-empty lines instead of piping to wc -l
+      const lines = stdout.trim().split('\n').filter(Boolean)
+      return lines.length
     } catch {
       return 0
     }
@@ -220,18 +236,19 @@ export class GitAnalyzer {
 
   /**
    * Get default main branch name (main or master)
+   * PRJ-114: Avoids shell pipe by using JS string replace
    */
   async getDefaultBranch(): Promise<string> {
     try {
       // Try to get from remote
-      const { stdout } = await execAsync(
-        'git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed "s@^refs/remotes/origin/@@"',
-        { cwd: this.projectPath }
-      )
-      const branch = stdout.trim()
+      const { stdout } = await execAsync('git symbolic-ref refs/remotes/origin/HEAD', {
+        cwd: this.projectPath,
+      })
+      // Use JS replace instead of piping to sed
+      const branch = stdout.trim().replace(/^refs\/remotes\/origin\//, '')
       if (branch) return branch
     } catch {
-      // Ignore
+      // Ignore - remote may not exist
     }
 
     // Fallback: check if main or master exists
