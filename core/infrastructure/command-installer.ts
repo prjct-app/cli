@@ -570,6 +570,36 @@ export class CommandInstaller {
   }
 
   /**
+   * Remove legacy p.*.md files from commands root directory
+   * These were replaced by the p/ subdirectory structure in v0.50+
+   */
+  async removeLegacyCommands(): Promise<number> {
+    const aiProvider = require('./ai-provider')
+    const activeProvider = aiProvider.getActiveProvider()
+    const commandsRoot = path.join(activeProvider.configDir, 'commands')
+
+    let removed = 0
+
+    try {
+      const files = await fs.readdir(commandsRoot)
+      const legacyFiles = files.filter((f) => f.startsWith('p.') && f.endsWith('.md'))
+
+      for (const file of legacyFiles) {
+        try {
+          await fs.unlink(path.join(commandsRoot, file))
+          removed++
+        } catch {
+          // Ignore errors removing individual files
+        }
+      }
+    } catch {
+      // Ignore errors if directory doesn't exist
+    }
+
+    return removed
+  }
+
+  /**
    * Sync commands - intelligent update that detects and removes orphans
    */
   async syncCommands(): Promise<SyncResult> {
@@ -639,9 +669,9 @@ export class CommandInstaller {
         }
       }
 
-      // Note: We do NOT remove orphaned files
-      // Legacy commands from older versions are preserved
-      // to avoid breaking existing workflows
+      // Remove legacy p.*.md files from commands root (old naming convention)
+      // These were replaced by p/ subdirectory structure
+      await this.removeLegacyCommands()
 
       return results
     } catch (error) {
