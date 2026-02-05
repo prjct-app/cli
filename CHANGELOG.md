@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.56.1] - 2026-02-04
+
+### Fixed
+
+- **Context injection**: Fixed template paths in CLAUDE.md - now correctly points to `~/.claude/commands/p/` instead of `templates/commands/`
+- **Agent loading**: Added clear instructions for loading domain agents before SMART commands (task, ship, bug, done)
+
 ## [0.56.0] - 2026-02-05
 
 ### Features
