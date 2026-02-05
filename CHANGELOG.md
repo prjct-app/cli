@@ -2,10 +2,25 @@
 
 ## [0.55.4] - 2026-02-05
 
+### Features
+
+- **Output tiers**: New tiered output system (silent/minimal/compact/verbose) for cleaner CLI output
+- **Human-friendly Linear output**: `p. linear list` now shows concise table instead of raw JSON
+- **--json flag**: Use `--json` to get machine-parseable JSON output when needed
+- **--verbose flag**: Use `--verbose` for full untruncated output
+
+### Improved
+
+- Removed noisy `[linear] Connected as...` messages from every API call
+- Added `limitLines()` and `formatForHuman()` utilities for consistent output formatting
+
 ### Bug Fixes
 
 - remove legacy p.*.md commands on sync
 
+### Tests
+
+- Added 11 new tests for output tier functionality
 
 ## [0.55.3] - 2026-02-05
 
