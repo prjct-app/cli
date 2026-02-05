@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.57.0] - 2026-02-05
+
+### Features
+
+- **Monorepo support (PRJ-118)**: Support nested PRJCT.md files for monorepo subdirectories
+  - Detect monorepos (pnpm, npm, yarn, lerna, nx, turborepo, rush)
+  - Discover packages with workspace patterns
+  - Nested PRJCT.md inheritance (deeper files take precedence)
+  - Per-package CLAUDE.md generation with merged context
+  - `prjct sync --package=<name>` for single package sync
+
+### Added
+
+- `NestedContextResolver` service for PRJCT.md discovery and inheritance
+- `detectMonorepo()` and `discoverMonorepoPackages()` in PathManager
+- `generateMonorepoContexts()` in ContextFileGenerator
+
 ## [0.56.0] - 2026-02-05
 
 ### Features

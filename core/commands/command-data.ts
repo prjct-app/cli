@@ -166,10 +166,15 @@ export const COMMANDS: CommandMeta[] = [
     name: 'sync',
     group: 'core',
     description: 'Sync project state and update workflow agents',
-    usage: { claude: '/p:sync', terminal: 'prjct sync' },
+    usage: { claude: '/p:sync', terminal: 'prjct sync [--package=<name>]' },
     implemented: true,
     hasTemplate: true,
     requiresProject: true,
+    features: [
+      'Monorepo support: --package=<name> for single package sync',
+      'Nested PRJCT.md inheritance',
+      'Per-package CLAUDE.md generation',
+    ],
   },
   {
     name: 'suggest',

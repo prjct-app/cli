@@ -227,7 +227,13 @@ export class AnalysisCommands extends PrjctCommandsBase {
    */
   async sync(
     projectPath: string = process.cwd(),
-    options: { aiTools?: string[]; preview?: boolean; yes?: boolean; json?: boolean } = {}
+    options: {
+      aiTools?: string[]
+      preview?: boolean
+      yes?: boolean
+      json?: boolean
+      package?: string
+    } = {}
   ): Promise<CommandResult> {
     try {
       const initResult = await this.ensureProjectInit(projectPath)
@@ -241,6 +247,45 @@ export class AnalysisCommands extends PrjctCommandsBase {
 
       const globalPath = pathManager.getGlobalProjectPath(projectId)
       const startTime = Date.now()
+
+      // Handle package-specific sync for monorepos
+      if (options.package) {
+        const monoInfo = await pathManager.detectMonorepo(projectPath)
+        if (!monoInfo.isMonorepo) {
+          return {
+            success: false,
+            error: 'Not a monorepo. --package flag only works in monorepos.',
+          }
+        }
+
+        const pkg = monoInfo.packages.find(
+          (p) => p.name === options.package || p.relativePath === options.package
+        )
+        if (!pkg) {
+          const available = monoInfo.packages.map((p) => p.name).join(', ')
+          return {
+            success: false,
+            error: `Package "${options.package}" not found. Available: ${available}`,
+          }
+        }
+
+        // Sync only the specified package
+        const result = await syncService.sync(projectPath, {
+          aiTools: options.aiTools,
+          packagePath: pkg.path,
+          packageName: pkg.name,
+        })
+
+        if (options.json) {
+          console.log(
+            JSON.stringify({ success: result.success, package: pkg.name, path: pkg.relativePath })
+          )
+        } else {
+          out.done(`Synced package: ${pkg.name}`)
+        }
+
+        return { success: result.success }
+      }
 
       // Generate diff preview if we have existing context
       const claudeMdPath = path.join(globalPath, 'context', 'CLAUDE.md')

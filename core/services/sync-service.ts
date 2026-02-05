@@ -115,6 +115,8 @@ interface SyncOptions {
   aiTools?: string[] // AI tools to generate context for (default: claude, cursor)
   preview?: boolean // If true, return diff without applying changes
   skipConfirmation?: boolean // If true, apply changes without confirmation (--yes flag)
+  packagePath?: string // For monorepo: sync only this package path
+  packageName?: string // For monorepo: package name for display
 }
 
 // ============================================================================
