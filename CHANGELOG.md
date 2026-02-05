@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.58.0] - 2026-02-05
+
+### Features
+
+- complete Linear/JIRA workflow integration (#95)
+
+
 ## [0.57.0] - 2026-02-05
 
 ### Features
