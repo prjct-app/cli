@@ -1,5 +1,38 @@
 # Changelog
 
+## [1.1.0] - 2026-02-05
+
+### Features
+
+- **Workflow visualization (PRJ-140)**: New `p. status` command with visual workflow diagram
+
+### Implementation Details
+
+Added visual workflow status template showing:
+- ASCII workflow diagram with current position indicator (sync → task → work → done → ship)
+- Subtask tree visualization with status icons (✅/🔄/⬜)
+- Progress bar for subtask completion
+- Paused tasks, queue summary, and recent ships
+- Context staleness indicator from `prjct status --json`
+- Compact mode for single-line status output
+
+### Learnings
+
+- Template-first approach: Complex visualizations can be defined entirely in markdown templates without code changes
+
+### Test Plan
+
+#### For QA
+1. Run `prjct sync` to install new status template
+2. Run `p. status` - verify workflow diagram displays
+3. Verify subtask tree shows correct status icons
+4. Test `p. status compact` for single-line output
+
+#### For Users
+- New `p. status` command shows visual workflow overview
+- No breaking changes
+
+
 ## [1.0.0] - 2026-02-05
 
 ### Features
