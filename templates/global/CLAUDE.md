@@ -5,14 +5,16 @@
 
 ## HOW TO USE PRJCT (Read This First)
 
-When user types `p. <command>`, load the template from `templates/commands/{command}.md` and execute it.
+When user types `p. <command>`, **READ the template** from `~/.claude/commands/p/{command}.md` and execute it step by step.
 
 ```
-p. sync     → templates/commands/sync.md
-p. task X   → templates/commands/task.md
-p. done     → templates/commands/done.md
-p. ship X   → templates/commands/ship.md
+p. sync     → ~/.claude/commands/p/sync.md
+p. task X   → ~/.claude/commands/p/task.md
+p. done     → ~/.claude/commands/p/done.md
+p. ship X   → ~/.claude/commands/p/ship.md
 ```
+
+**⚠️ ALWAYS use the Read tool on the template file first. Templates contain mandatory workflows.**
 
 ---
 
@@ -389,17 +391,31 @@ Next: [suggested action]
 
 ---
 
-## LOADING DOMAIN AGENTS
+## LOADING DOMAIN AGENTS (CRITICAL)
 
-When working on tasks, load relevant agents from `{globalPath}/agents/`:
+**Before starting any 🧠 SMART command (task, ship, bug, done):**
+
+```
+1. Read .prjct/prjct.config.json → get projectId
+2. Set globalPath = ~/.prjct-cli/projects/{projectId}
+3. Read relevant agents from {globalPath}/agents/:
+   - prjct-planner.md → for task planning (p. task)
+   - prjct-shipper.md → for shipping (p. ship)
+   - prjct-workflow.md → for task lifecycle (p. done, p. pause)
+   - backend.md, frontend.md → for domain-specific coding
+```
+
+**Available agents** (read the ones relevant to your task):
+- `prjct-planner.md` - Task planning, subtask breakdown
+- `prjct-shipper.md` - PR creation, version bumping
+- `prjct-workflow.md` - Task state management
 - `frontend.md` - Frontend patterns, components
 - `backend.md` - Backend patterns, APIs
 - `database.md` - Database patterns, queries
-- `uxui.md` - UX/UI guidelines
 - `testing.md` - Testing patterns
 - `devops.md` - CI/CD, containers
 
-These agents contain project-specific patterns. **USE THEM**.
+**USE the agent context when working.** Agents contain project-specific patterns.
 
 ---
 

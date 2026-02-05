@@ -4,14 +4,33 @@
 
 ## HOW TO USE PRJCT
 
-When user types `p. <command>`, load the template from `templates/commands/{command}.md` and execute it.
+When user types `p. <command>`, **READ the template** from `~/.claude/commands/p/{command}.md` and execute it step by step.
 
 ```
-p. sync     → templates/commands/sync.md
-p. task X   → templates/commands/task.md
-p. done     → templates/commands/done.md
-p. ship X   → templates/commands/ship.md
+p. sync     → ~/.claude/commands/p/sync.md
+p. task X   → ~/.claude/commands/p/task.md
+p. done     → ~/.claude/commands/p/done.md
+p. ship X   → ~/.claude/commands/p/ship.md
 ```
+
+**⚠️ ALWAYS Read() the template file first. Templates contain mandatory workflows.**
+
+---
+
+## LOADING DOMAIN AGENTS (CRITICAL)
+
+**Before starting any 🧠 SMART command (task, ship, bug, done):**
+
+```
+1. Read .prjct/prjct.config.json → get projectId
+2. Set globalPath = ~/.prjct-cli/projects/{projectId}
+3. Read {globalPath}/agents/*.md for domain expertise:
+   - prjct-planner.md → for task planning
+   - prjct-shipper.md → for shipping
+   - backend.md, frontend.md, etc → for domain-specific work
+```
+
+**USE the agent context when working.** Agents contain project-specific patterns.
 
 ---
 
