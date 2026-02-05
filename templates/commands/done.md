@@ -114,18 +114,31 @@ WRITE `{globalPath}/storage/state.json`:
 }
 ```
 
-## Step 5: Sync Issue Tracker Status
+## Step 5: Sync Issue Tracker Status (REQUIRED - DO NOT SKIP)
+
+**⛔ This step is MANDATORY if there's a linked issue.**
+
+```bash
+# Get projectId
+PROJ_ID=$(cat .prjct/prjct.config.json | grep -o '"projectId"[[:space:]]*:[[:space:]]*"[^"]*"' | cut -d'"' -f4)
+```
 
 ```
 IF previousTask.linearId exists:
-  # Update Linear issue to Done
-  RUN: bun $PRJCT_CLI/core/cli/linear.ts --project {projectId} status "{linearId}" "done"
-  OUTPUT: "Linear: {linearId} → Done"
+  # Mark issue as Done in Linear (REQUIRED)
+  RUN: bun $PRJCT_CLI/core/cli/linear.ts --project $PROJ_ID done "{linearId}"
+
+  # Add completion comment with summary
+  RUN: bun $PRJCT_CLI/core/cli/linear.ts --project $PROJ_ID comment "{linearId}" "✅ Task completed. Ready for ship."
+
+  OUTPUT: "Linear: {linearId} → Done ✓"
 
 ELSE IF previousTask.externalId AND previousTask.externalProvider == "jira":
-  # Update JIRA issue to Done
-  RUN: bun $PRJCT_CLI/core/cli/jira.ts --project {projectId} status "{externalId}" "done"
-  OUTPUT: "JIRA: {externalId} → Done"
+  # Transition to Done in JIRA (REQUIRED)
+  RUN: bun $PRJCT_CLI/core/cli/jira.ts --project $PROJ_ID transition "{externalId}" "Done"
+  RUN: bun $PRJCT_CLI/core/cli/jira.ts --project $PROJ_ID comment "{externalId}" "✅ Task completed. Ready for ship."
+
+  OUTPUT: "JIRA: {externalId} → Done ✓"
 ```
 
 ## Step 6: Log Event

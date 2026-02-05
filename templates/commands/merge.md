@@ -132,12 +132,59 @@ git pull origin main
 
 ---
 
-### STEP 7: Update Linear (if applicable)
+### STEP 7: Update Issue Tracker (REQUIRED - DO NOT SKIP)
 
-IF `currentTask.linearId`:
+**⛔ This step is MANDATORY if there's a linked issue.**
+
 ```
-Update Linear issue status to "Done" or "Merged"
-Add comment: "PR #{prNumber} merged"
+READ: {globalPath}/storage/state.json
+GET: currentTask.linearId, currentTask.jiraId
+```
+
+**IF linearId exists:**
+```bash
+# Get projectId
+PROJ_ID=$(cat .prjct/prjct.config.json | grep -o '"projectId"[[:space:]]*:[[:space:]]*"[^"]*"' | cut -d'"' -f4)
+
+# Mark issue as Done in Linear (REQUIRED)
+bun $PRJCT_CLI/core/cli/linear.ts --project $PROJ_ID done "{linearId}"
+
+# Add completion comment
+bun $PRJCT_CLI/core/cli/linear.ts --project $PROJ_ID comment "{linearId}" "✅ PR #{prNumber} merged and released"
+
+OUTPUT: "Linear: {linearId} → Done ✓"
+```
+
+**IF jiraId exists:**
+```bash
+# Transition to Done in JIRA (REQUIRED)
+bun $PRJCT_CLI/core/cli/jira.ts --project $PROJ_ID transition "{jiraId}" "Done"
+bun $PRJCT_CLI/core/cli/jira.ts --project $PROJ_ID comment "{jiraId}" "✅ PR #{prNumber} merged and released"
+
+OUTPUT: "JIRA: {jiraId} → Done ✓"
+```
+
+**IF no issue tracker linked:**
+```
+OUTPUT: "No issue tracker linked."
+```
+
+---
+
+### STEP 8: Complete Task State
+
+```
+UPDATE: {globalPath}/storage/state.json
+
+SET: previousTask = currentTask
+SET: previousTask.status = "completed"
+SET: previousTask.completedAt = {timestamp}
+SET: currentTask = null
+```
+
+APPEND to `{globalPath}/memory/events.jsonl`:
+```json
+{"type":"task_completed","taskId":"{id}","linearId":"{linearId}","prNumber":"{prNumber}","timestamp":"{timestamp}"}
 ```
 
 ---
