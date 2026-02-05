@@ -21,6 +21,7 @@ import { execSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { getTimeout } from '../constants'
 import { dependencyValidator } from '../services/dependency-validator'
 import { isNotFoundError } from '../types/fs'
 import type { AIProviderConfig, AIProviderName } from '../types/provider'
@@ -91,15 +92,28 @@ async function installAICLI(provider: AIProviderConfig): Promise<boolean> {
   try {
     console.log(`${YELLOW}📦 ${provider.displayName} not found. Installing...${NC}`)
     console.log('')
-    execSync(`npm install -g ${packageName}`, { stdio: 'inherit' })
+    // PRJ-111: Add timeout to npm install (default: 2 minutes, configurable via PRJCT_TIMEOUT_NPM_INSTALL)
+    execSync(`npm install -g ${packageName}`, {
+      stdio: 'inherit',
+      timeout: getTimeout('NPM_INSTALL'),
+    })
     console.log('')
     console.log(`${GREEN}✓${NC} ${provider.displayName} installed successfully`)
     console.log('')
     return true
   } catch (error) {
-    console.log(
-      `${YELLOW}⚠️  Failed to install ${provider.displayName}: ${(error as Error).message}${NC}`
-    )
+    const err = error as Error & { killed?: boolean; signal?: string }
+    const isTimeout = err.killed && err.signal === 'SIGTERM'
+
+    if (isTimeout) {
+      console.log(`${YELLOW}⚠️  Installation timed out for ${provider.displayName}${NC}`)
+      console.log('')
+      console.log(`${DIM}The npm install took too long. Try:${NC}`)
+      console.log(`${DIM}  • Set PRJCT_TIMEOUT_NPM_INSTALL=300000 for 5 minutes${NC}`)
+      console.log(`${DIM}  • Run manually: npm install -g ${packageName}${NC}`)
+    } else {
+      console.log(`${YELLOW}⚠️  Failed to install ${provider.displayName}: ${err.message}${NC}`)
+    }
     console.log('')
     console.log(`${DIM}Alternative installation methods:${NC}`)
     console.log(`${DIM}  • npm:  npm install -g ${packageName}${NC}`)
