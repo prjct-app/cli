@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.60.1] - 2026-02-05
+
+### Improved
+
+- **Sync output UX (PRJ-100)**: Summary-first format with key metrics prominent, ~50% less output
+
+### Implementation Details
+
+Refactored `showSyncResult()` in `core/commands/analysis.ts` to show success line with timing immediately, followed by single-line metrics (files → context | agents | reduction). Removed redundant bottom summary section. Fixed compressionRate calculation (was decimal, now percentage). Added conditional display for low-value metrics (only show reduction if >10%). Fixed pluralization ("1 skill" not "1 skills").
+
+### Learnings
+
+- `syncMetrics.compressionRate` is a decimal (0-1), not percentage - multiply by 100
+- Summary-first output pattern improves scannability
+- Conditional metric display reduces noise for low-value data
+
+### Test Plan
+
+#### For QA
+1. Run `prjct sync --yes` on any project
+2. Verify output shows success line first with timing: `✅ Synced {project} ({time}s)`
+3. Verify single-line metrics: `{files} files → {context} context | {agents} agents`
+4. Verify compression rate only shows if > 10%
+5. Verify pluralization is correct ("1 skill" not "1 skills")
+
+#### For Users
+- Sync output is now more scannable - key metrics appear first instead of buried at bottom
+- Run `p. sync` as usual - new format is automatic
+- No breaking changes
+
+
 ## [0.60.0] - 2026-02-05
 
 ### Features
