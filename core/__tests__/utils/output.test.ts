@@ -5,11 +5,11 @@
 
 import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test'
 import out, {
-  OUTPUT_TIERS,
   formatForHuman,
   getOutputTier,
   getTierConfig,
   limitLines,
+  OUTPUT_TIERS,
   setOutputTier,
 } from '../../utils/output'
 

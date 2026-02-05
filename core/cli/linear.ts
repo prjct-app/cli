@@ -31,13 +31,13 @@
 
 import type { CreateIssueInput, Issue } from '../integrations/issue-tracker/types'
 import { linearService, linearSync } from '../integrations/linear'
+import { formatForHuman, setOutputTier } from '../utils/output'
 import {
   getCredentialSource,
   getLinearApiKey,
   getProjectCredentials,
   setLinearCredentials,
 } from '../utils/project-credentials'
-import { formatForHuman, setOutputTier } from '../utils/output'
 
 // Parse arguments
 const args = process.argv.slice(2)

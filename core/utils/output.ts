@@ -169,7 +169,9 @@ export function formatForHuman(data: unknown): string {
   const relevant = keyFields.filter((k) => k in obj)
   if (relevant.length > 0) {
     return limitLines(
-      relevant.map((k) => `${k}: ${truncate(String(obj[k]), tier.maxCharsPerLine - k.length - 2)}`).join('\n'),
+      relevant
+        .map((k) => `${k}: ${truncate(String(obj[k]), tier.maxCharsPerLine - k.length - 2)}`)
+        .join('\n'),
       tier.maxLines
     )
   }
