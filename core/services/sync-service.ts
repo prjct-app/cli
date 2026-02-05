@@ -776,6 +776,9 @@ You are the ${name} expert for this project. Apply best practices for the detect
       hasUncommittedChanges: git.hasChanges,
       createdAt: existing.createdAt || dateHelper.getTimestamp(),
       lastSync: dateHelper.getTimestamp(),
+      // Staleness tracking (PRJ-120)
+      lastSyncCommit: git.recentCommits[0]?.hash || null,
+      lastSyncBranch: git.branch,
     }
 
     await fs.writeFile(projectJsonPath, JSON.stringify(updated, null, 2), 'utf-8')

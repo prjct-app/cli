@@ -116,6 +116,10 @@ async function main(): Promise<void> {
             json: options.json === true,
             export: options.export === true,
           }),
+        status: () =>
+          commands.status(process.cwd(), {
+            json: options.json === true,
+          }),
         help: (p) => commands.help(p || ''),
         // Maintenance
         recover: () => commands.recover(),
