@@ -9,8 +9,10 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { getErrorMessage } from '../errors'
 import pathManager from '../infrastructure/path-manager'
 import { type EventCallback, type EventData, EventTypes } from '../types'
+import log from '../utils/logger'
 
 class EventBus {
   private listeners: Map<string, Set<EventCallback>>
@@ -108,7 +110,7 @@ class EventBus {
     // Log any errors
     results.forEach((result) => {
       if (result.status === 'rejected') {
-        console.error(`Event listener error for ${event}:`, result.reason)
+        log.error(`Event listener error for ${event}:`, result.reason)
       }
     })
 
@@ -169,7 +171,7 @@ class EventBus {
         await result
       }
     } catch (error) {
-      console.error('Event callback error:', error)
+      log.error('Event callback error:', error)
       throw error
     }
   }
@@ -188,8 +190,8 @@ class EventBus {
       // Append event
       const line = `${JSON.stringify(eventData)}\n`
       await fs.appendFile(eventsPath, line)
-    } catch (_error) {
-      // Silently fail - logging should not break functionality
+    } catch (error) {
+      log.debug('Failed to log event:', getErrorMessage(error))
     }
   }
 
