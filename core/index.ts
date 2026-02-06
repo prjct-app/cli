@@ -15,6 +15,7 @@ import type { CommandMeta } from './commands/registry'
 import { detectAllProviders, detectAntigravity } from './infrastructure/ai-provider'
 import configManager from './infrastructure/config-manager'
 import { sessionTracker } from './services/session-tracker'
+import { getError } from './utils/error-messages'
 import out from './utils/output'
 
 interface ParsedCommandArgs {
@@ -53,27 +54,34 @@ async function main(): Promise<void> {
     const cmd = commandRegistry.getByName(commandName)
 
     if (!cmd) {
-      console.error(`Unknown command: ${commandName}`)
-      console.error(`\nUse 'prjct --help' to see available commands.`)
+      const suggestion = findClosestCommand(commandName)
+      const hint = suggestion
+        ? `Did you mean 'prjct ${suggestion}'? Run 'prjct --help' for all commands`
+        : "Run 'prjct --help' to see available commands"
+      out.failWithHint(
+        getError('UNKNOWN_COMMAND', { message: `Unknown command: ${commandName}`, hint })
+      )
       out.end()
       process.exit(1)
     }
 
     // 2. Check if deprecated
     if (cmd.deprecated) {
-      console.error(`Command '${commandName}' is deprecated.`)
-      if (cmd.replacedBy) {
-        console.error(`Use 'prjct ${cmd.replacedBy}' instead.`)
-      }
+      const hint = cmd.replacedBy
+        ? `Use 'prjct ${cmd.replacedBy}' instead`
+        : "Run 'prjct --help' to see available commands"
+      out.failWithHint({ message: `Command '${commandName}' is deprecated`, hint })
       out.end()
       process.exit(1)
     }
 
     // 3. Check if implemented
     if (!cmd.implemented) {
-      console.error(`Command '${commandName}' exists but is not yet implemented.`)
-      console.error(`Check the roadmap or contribute: https://github.com/jlopezlira/prjct-cli`)
-      console.error(`\nUse 'prjct --help' to see available commands.`)
+      out.failWithHint({
+        message: `Command '${commandName}' is not yet implemented`,
+        hint: "Run 'prjct --help' to see available commands",
+        docs: 'https://github.com/jlopezlira/prjct-cli',
+      })
       out.end()
       process.exit(1)
     }
@@ -81,7 +89,15 @@ async function main(): Promise<void> {
     // 4. Parse arguments
     const { parsedArgs, options } = parseCommandArgs(cmd, rawArgs)
 
-    // 4.5. Session tracking — touch/create session before command execution
+    // 4.5. Validate required params
+    const paramError = validateCommandParams(cmd, parsedArgs)
+    if (paramError) {
+      out.failWithHint(paramError)
+      out.end()
+      process.exit(1)
+    }
+
+    // 4.6. Session tracking — touch/create session before command execution
     let projectId: string | null = null
     const commandStartTime = Date.now()
     try {
@@ -191,6 +207,71 @@ async function main(): Promise<void> {
     out.end()
     process.exit(1)
   }
+}
+
+/**
+ * Validate that required params are provided
+ * Parses CommandMeta.params: <required> vs [optional]
+ */
+function validateCommandParams(
+  cmd: CommandMeta,
+  parsedArgs: string[]
+): import('./utils/error-messages').ErrorWithHint | null {
+  if (!cmd.params) return null
+
+  // Extract required params: tokens wrapped in <angle brackets>
+  const requiredParams = cmd.params.match(/<[^>]+>/g)
+  if (!requiredParams || requiredParams.length === 0) return null
+
+  // Check if enough positional args provided
+  if (parsedArgs.length < requiredParams.length) {
+    const paramNames = requiredParams.map((p) => p.slice(1, -1)).join(', ')
+    const usage = cmd.usage.terminal || `prjct ${cmd.name} ${cmd.params}`
+    return getError('MISSING_PARAM', {
+      message: `Missing required parameter: ${paramNames}`,
+      hint: `Usage: ${usage}`,
+    })
+  }
+
+  return null
+}
+
+/**
+ * Find closest matching command name for did-you-mean suggestions
+ * Uses Levenshtein edit distance — suggests if distance <= 2
+ */
+function findClosestCommand(input: string): string | null {
+  const allNames = commandRegistry.getAll().map((c) => c.name)
+  let best: string | null = null
+  let bestDist = Infinity
+
+  for (const name of allNames) {
+    const dist = editDistance(input.toLowerCase(), name.toLowerCase())
+    if (dist < bestDist) {
+      bestDist = dist
+      best = name
+    }
+  }
+
+  // Only suggest if edit distance is at most 2
+  return bestDist <= 2 ? best : null
+}
+
+function editDistance(a: string, b: string): number {
+  const m = a.length
+  const n = b.length
+  const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0))
+  for (let i = 0; i <= m; i++) dp[i][0] = i
+  for (let j = 0; j <= n; j++) dp[0][j] = j
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] =
+        a[i - 1] === b[j - 1]
+          ? dp[i - 1][j - 1]
+          : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1])
+    }
+  }
+  return dp[m][n]
 }
 
 /**

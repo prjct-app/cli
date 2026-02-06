@@ -1,11 +1,46 @@
 # Changelog
 
+## [1.4.1] - 2026-02-06
+
+### Improvements
+
+- **Better error messages for invalid commands (PRJ-98)**: Consistent, helpful CLI errors with did-you-mean suggestions and required parameter validation
+
+### Implementation Details
+
+- Added `UNKNOWN_COMMAND` and `MISSING_PARAM` error codes to centralized error catalog (`core/utils/error-messages.ts`)
+- Added `validateCommandParams()` — parses `CommandMeta.params` convention (`<required>` vs `[optional]`) and validates against actual CLI args before command execution
+- Added `findClosestCommand()` with Levenshtein edit distance (threshold ≤ 2) for did-you-mean suggestions on typos
+- All error paths now use `out.failWithHint()` for consistent formatting with hints, docs links, and file references
+- Deprecated and unimplemented command errors also upgraded to use `failWithHint()`
+
+### Learnings
+
+- `bin/prjct.ts` intercepts many commands (start, context, hooks, doctor, etc.) before `core/index.ts` — changes to dispatch only affect commands that reach core
+- Template-only commands (e.g. `task`) are defined in `command-data.ts` but not registered in the command registry — they don't get param validation via CLI
+- Levenshtein edit distance is simple to implement (~15 lines) and effective for CLI typo suggestions
+
+### Test Plan
+
+#### For QA
+1. `prjct xyzzy` → "Unknown command: xyzzy" with help hint
+2. `prjct snyc` → "Did you mean 'prjct sync'?"
+3. `prjct shp` → "Did you mean 'prjct ship'?"
+4. `prjct bug` (no args) → "Missing required parameter: description" with usage
+5. `prjct idea` (no args) → "Missing required parameter: description" with usage
+6. `prjct sync --yes` → works normally (no regression)
+7. `prjct dash compact` → works normally (no regression)
+
+#### For Users
+**What changed:** CLI now shows helpful error messages with suggestions when you mistype a command or forget a required argument.
+**How to use:** Just use prjct normally — errors are now more helpful automatically.
+**Breaking changes:** None
+
 ## [1.4.0] - 2026-02-06
 
 ### Features
 
 - programmatic verification checks for sync workflow (PRJ-106) (#115)
-
 
 ## [1.3.1] - 2026-02-06
 
