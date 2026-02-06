@@ -8,32 +8,25 @@
  * @module utils/subtask-table
  */
 
-// ANSI codes
-const RESET = '\x1b[0m'
-const BOLD = '\x1b[1m'
-const DIM = '\x1b[2m'
-const GREEN = '\x1b[32m'
-const YELLOW = '\x1b[33m'
-const WHITE = '\x1b[37m'
-const GRAY = '\x1b[90m'
+import chalk from 'chalk'
 
 // Color palette for domains (cycle through these)
 const DOMAIN_COLOR_PALETTE = [
-  '\x1b[36m', // Cyan
-  '\x1b[35m', // Magenta
-  '\x1b[33m', // Yellow
-  '\x1b[34m', // Blue
-  '\x1b[32m', // Green
-  '\x1b[91m', // Light Red
-  '\x1b[95m', // Light Magenta
-  '\x1b[96m', // Light Cyan
+  chalk.cyan,
+  chalk.magenta,
+  chalk.yellow,
+  chalk.blue,
+  chalk.green,
+  chalk.redBright,
+  chalk.magentaBright,
+  chalk.cyanBright,
 ]
 
 /**
  * Get consistent color for a domain name using hash
  * Same domain name always returns same color
  */
-function getDomainColor(domain: string): string {
+function getDomainColor(domain: string): (text: string) => string {
   let hash = 0
   for (const char of domain) {
     hash = (hash << 5) - hash + char.charCodeAt(0)
@@ -43,7 +36,7 @@ function getDomainColor(domain: string): string {
   return DOMAIN_COLOR_PALETTE[index]
 }
 
-// Hide/show cursor
+// Terminal control sequences (not colors - chalk doesn't handle these)
 const HIDE_CURSOR = '\x1b[?25l'
 const SHOW_CURSOR = '\x1b[?25h'
 
@@ -67,9 +60,9 @@ function formatSubtaskLine(
   subtask: SubtaskDisplay,
   spinnerFrame: string = '▶'
 ): string {
-  const num = `${DIM}${String(index + 1).padStart(2)}${RESET}`
-  const domainColor = getDomainColor(subtask.domain)
-  const domain = `${domainColor}${subtask.domain.padEnd(10)}${RESET}`
+  const num = chalk.dim(String(index + 1).padStart(2))
+  const domainColorFn = getDomainColor(subtask.domain)
+  const domain = domainColorFn(subtask.domain.padEnd(10))
   const desc =
     subtask.description.length > 32
       ? `${subtask.description.slice(0, 29)}...`
@@ -78,22 +71,22 @@ function formatSubtaskLine(
   let status: string
   switch (subtask.status) {
     case 'completed':
-      status = `${GREEN}✓ Complete${RESET}`
+      status = chalk.green('✓ Complete')
       break
     case 'in_progress':
-      status = `${YELLOW}${spinnerFrame} Working...${RESET}`
+      status = chalk.yellow(`${spinnerFrame} Working...`)
       break
     case 'pending':
-      status = `${GRAY}○ Pending${RESET}`
+      status = chalk.gray('○ Pending')
       break
     case 'failed':
-      status = `\x1b[31m✗ Failed${RESET}`
+      status = chalk.red('✗ Failed')
       break
     case 'blocked':
-      status = `${GRAY}⊘ Blocked${RESET}`
+      status = chalk.gray('⊘ Blocked')
       break
     default:
-      status = `${GRAY}○ ${subtask.status}${RESET}`
+      status = chalk.gray(`○ ${subtask.status}`)
   }
 
   return `  ${num}   ${domain} ${desc}  ${status}`
@@ -108,8 +101,8 @@ export function renderSubtaskProgress(subtasks: SubtaskDisplay[]): string {
   const lines: string[] = []
 
   lines.push('')
-  lines.push(`  ${BOLD}${WHITE}SUBTASK PROGRESS${RESET}`)
-  lines.push(`  ${DIM}${'─'.repeat(58)}${RESET}`)
+  lines.push(`  ${chalk.bold.white('SUBTASK PROGRESS')}`)
+  lines.push(`  ${chalk.dim('─'.repeat(58))}`)
 
   for (let i = 0; i < subtasks.length; i++) {
     lines.push(formatSubtaskLine(i, subtasks[i]))
@@ -141,8 +134,8 @@ export function createSubtaskAnimation(subtasks: SubtaskDisplay[]) {
     const lines: string[] = []
 
     lines.push('')
-    lines.push(`  ${BOLD}${WHITE}SUBTASK PROGRESS${RESET}`)
-    lines.push(`  ${DIM}${'─'.repeat(58)}${RESET}`)
+    lines.push(`  ${chalk.bold.white('SUBTASK PROGRESS')}`)
+    lines.push(`  ${chalk.dim('─'.repeat(58))}`)
 
     for (let i = 0; i < subtasks.length; i++) {
       lines.push(formatSubtaskLine(i, subtasks[i], spinnerFrame))
@@ -204,8 +197,8 @@ export function createSubtaskAnimation(subtasks: SubtaskDisplay[]) {
       // Print final state with static icons
       const finalLines: string[] = []
       finalLines.push('')
-      finalLines.push(`  ${BOLD}${WHITE}SUBTASK PROGRESS${RESET}`)
-      finalLines.push(`  ${DIM}${'─'.repeat(58)}${RESET}`)
+      finalLines.push(`  ${chalk.bold.white('SUBTASK PROGRESS')}`)
+      finalLines.push(`  ${chalk.dim('─'.repeat(58))}`)
       for (let i = 0; i < subtasks.length; i++) {
         finalLines.push(formatSubtaskLine(i, subtasks[i], '▶'))
       }
@@ -226,7 +219,7 @@ export function createSubtaskAnimation(subtasks: SubtaskDisplay[]) {
  * Output: "Progress: 2/4 subtasks complete"
  */
 export function renderProgressLine(completed: number, total: number): string {
-  return `  ${DIM}Progress:${RESET} ${completed}/${total} subtasks complete`
+  return `  ${chalk.dim('Progress:')} ${completed}/${total} subtasks complete`
 }
 
 // Legacy exports for backwards compatibility

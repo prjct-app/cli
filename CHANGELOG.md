@@ -56,6 +56,46 @@ Hook configuration saved to `project.json` for persistence across sessions.
 **How to use:** Run `prjct hooks install` in any prjct project
 **Breaking changes:** None
 
+## [1.1.2] - 2026-02-05
+
+### Fixed
+
+- **Replace raw ANSI codes with chalk library (PRJ-132)**: Replaced ~60 raw ANSI escape codes across 7 files with chalk library calls
+
+### Implementation Details
+
+Replaced all raw ANSI color/formatting constants (`\x1b[32m`, `\x1b[1m`, etc.) with chalk equivalents (`chalk.green()`, `chalk.bold()`, etc.) in:
+- `bin/prjct.ts` — version display, provider status, welcome message
+- `core/index.ts` — version display, provider status
+- `core/cli/start.ts` — gradient banner using `chalk.rgb()`, setup UI
+- `core/utils/subtask-table.ts` — color palette as chalk functions, progress display
+- `core/utils/help.ts` — all help formatting
+- `core/workflow/workflow-preferences.ts` — hook status display
+- `core/infrastructure/setup.ts` — installation messages
+
+Terminal control sequences (cursor movement, hide/show) kept as raw ANSI since chalk only handles colors/formatting.
+
+### Learnings
+
+- `chalk.rgb(R,G,B)` replaces `\x1b[38;2;R;G;Bm` for true-color support
+- Chalk functions can be stored as array values and called dynamically (useful for color palettes)
+- `chalk.bold.white()` chains work for compound styling
+- Terminal control sequences (`\x1b[?25l`, cursor movement) must stay raw — chalk doesn't handle them
+
+### Test Plan
+
+#### For QA
+1. Run `prjct --version` — verify colored output with provider status
+2. Run `prjct help` — verify formatted help with colors
+3. Run `prjct start --force` — verify gradient banner and colored UI
+4. Set `NO_COLOR=1` and repeat above — verify all color is suppressed
+5. Run `bun run build && bun run typecheck` — verify zero errors
+
+#### For Users
+**What changed:** Terminal colors now use the chalk library instead of raw ANSI codes
+**How to use:** No change — colors appear the same but now respect `NO_COLOR` env variable
+**Breaking changes:** None
+
 ## [1.1.1] - 2026-02-06
 
 ### Bug Fixes

@@ -15,16 +15,10 @@
 
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
+import chalk from 'chalk'
 import memorySystem from '../agentic/memory-system'
 
 const execAsync = promisify(exec)
-
-// ANSI colors
-const DIM = '\x1b[2m'
-const GREEN = '\x1b[32m'
-const RED = '\x1b[31m'
-const YELLOW = '\x1b[33m'
-const RESET = '\x1b[0m'
 
 export type PreferenceScope = 'permanent' | 'session' | 'once'
 export type HookPhase = 'before' | 'after' | 'skip'
@@ -169,7 +163,7 @@ export async function runWorkflowHooks(
     oncePreferences.delete(key)
   }
 
-  console.log(`\n${DIM}Running ${phase}-${command}: ${action}${RESET}`)
+  console.log(`\n${chalk.dim(`Running ${phase}-${command}: ${action}`)}`)
 
   try {
     const startTime = Date.now()
@@ -180,12 +174,12 @@ export async function runWorkflowHooks(
     })
     const elapsed = Date.now() - startTime
     const timeStr = elapsed > 1000 ? `${(elapsed / 1000).toFixed(1)}s` : `${elapsed}ms`
-    console.log(`${GREEN}✓${RESET} ${DIM}(${timeStr})${RESET}`)
+    console.log(`${chalk.green('✓')} ${chalk.dim(`(${timeStr})`)}`)
     return { success: true }
   } catch (error) {
-    console.log(`${RED}✗ failed${RESET}`)
+    console.log(chalk.red('✗ failed'))
     const errorMessage = (error as Error).message || 'Unknown error'
-    console.log(`${DIM}${errorMessage.split('\n')[0]}${RESET}`)
+    console.log(chalk.dim(errorMessage.split('\n')[0]))
     return { success: false, failed: action, output: errorMessage }
   }
 }
@@ -270,7 +264,7 @@ export function formatWorkflowPreferences(
   }>
 ): string {
   if (preferences.length === 0) {
-    return `${DIM}No workflow preferences configured.${RESET}\n\nSet one: "p. workflow antes de ship corre los tests"`
+    return `${chalk.dim('No workflow preferences configured.')}\n\nSet one: "p. workflow antes de ship corre los tests"`
   }
 
   const lines: string[] = ['', 'WORKFLOW PREFERENCES', '────────────────────────────']
@@ -278,17 +272,17 @@ export function formatWorkflowPreferences(
   for (const pref of preferences) {
     const scopeBadge =
       pref.scope === 'permanent'
-        ? `${GREEN}permanent${RESET}`
+        ? chalk.green('permanent')
         : pref.scope === 'session'
-          ? `${YELLOW}session${RESET}`
-          : `${DIM}once${RESET}`
+          ? chalk.yellow('session')
+          : chalk.dim('once')
 
     lines.push(`  [${scopeBadge}] ${pref.key.padEnd(15)} → ${pref.action}`)
   }
 
   lines.push('')
-  lines.push(`${DIM}Modify: "p. workflow antes de ship corre npm test"${RESET}`)
-  lines.push(`${DIM}Remove: "p. workflow quita el hook de ship"${RESET}`)
+  lines.push(chalk.dim('Modify: "p. workflow antes de ship corre npm test"'))
+  lines.push(chalk.dim('Remove: "p. workflow quita el hook de ship"'))
 
   return lines.join('\n')
 }
