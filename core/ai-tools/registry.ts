@@ -9,10 +9,13 @@
  * Phase 3: + Continue.dev + Auto-detection
  */
 
-import { execSync } from 'node:child_process'
-import fs from 'node:fs'
+import { exec } from 'node:child_process'
 import os from 'node:os'
 import path from 'node:path'
+import { promisify } from 'node:util'
+import { fileExists } from '../utils/fs-helpers'
+
+const execAsync = promisify(exec)
 
 export interface AIToolConfig {
   id: string
@@ -133,9 +136,9 @@ export function validateToolIds(ids: string[]): { valid: string[]; invalid: stri
 /**
  * Check if a command exists in PATH
  */
-function commandExists(cmd: string): boolean {
+async function commandExists(cmd: string): Promise<boolean> {
   try {
-    execSync(`which ${cmd}`, { stdio: 'ignore' })
+    await execAsync(`which ${cmd}`)
     return true
   } catch {
     return false
@@ -146,33 +149,33 @@ function commandExists(cmd: string): boolean {
  * Detect installed AI tools
  * Returns list of tool IDs that are detected on the system
  */
-export function detectInstalledTools(repoPath: string = process.cwd()): string[] {
+export async function detectInstalledTools(repoPath: string = process.cwd()): Promise<string[]> {
   const detected: string[] = []
 
   // Claude Code: check for 'claude' command
-  if (commandExists('claude')) {
+  if (await commandExists('claude')) {
     detected.push('claude')
   }
 
   // Cursor: check for command or .cursor/ directory in repo
-  if (commandExists('cursor') || fs.existsSync(path.join(repoPath, '.cursor'))) {
+  if ((await commandExists('cursor')) || (await fileExists(path.join(repoPath, '.cursor')))) {
     detected.push('cursor')
   }
 
   // Copilot: check for .github/ directory (likely has Copilot if using GitHub)
-  if (fs.existsSync(path.join(repoPath, '.github'))) {
+  if (await fileExists(path.join(repoPath, '.github'))) {
     detected.push('copilot')
   }
 
   // Windsurf: check for command or .windsurf/ directory
-  if (commandExists('windsurf') || fs.existsSync(path.join(repoPath, '.windsurf'))) {
+  if ((await commandExists('windsurf')) || (await fileExists(path.join(repoPath, '.windsurf')))) {
     detected.push('windsurf')
   }
 
   // Continue.dev: check for .continue/ directory
   if (
-    fs.existsSync(path.join(repoPath, '.continue')) ||
-    fs.existsSync(path.join(os.homedir(), '.continue'))
+    (await fileExists(path.join(repoPath, '.continue'))) ||
+    (await fileExists(path.join(os.homedir(), '.continue')))
   ) {
     detected.push('continue')
   }
@@ -186,12 +189,12 @@ export function detectInstalledTools(repoPath: string = process.cwd()): string[]
  * - 'all': all supported tools
  * - specific: use provided list
  */
-export function resolveToolIds(
+export async function resolveToolIds(
   mode: 'auto' | 'all' | string[],
   repoPath: string = process.cwd()
-): string[] {
+): Promise<string[]> {
   if (mode === 'auto') {
-    const detected = detectInstalledTools(repoPath)
+    const detected = await detectInstalledTools(repoPath)
     // Always include claude if nothing detected (safe default)
     return detected.length > 0 ? detected : ['claude']
   }

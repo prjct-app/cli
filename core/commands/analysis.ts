@@ -80,7 +80,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
       await generateContext(projectId!, projectPath)
 
       const aiProvider = require('../infrastructure/ai-provider')
-      const activeProvider = aiProvider.getActiveProvider()
+      const activeProvider = await aiProvider.getActiveProvider()
 
       const globalConfigResult = await commandInstaller.installGlobalConfig()
       if (globalConfigResult.success) {

@@ -106,40 +106,40 @@ describe('CommandExecutor', () => {
       }
     })
 
-    it('should create status file with command name', () => {
-      signalStart('test-command')
+    it('should create status file with command name', async () => {
+      await signalStart('test-command')
 
       expect(fs.existsSync(RUNNING_FILE)).toBe(true)
       const content = fs.readFileSync(RUNNING_FILE, 'utf-8')
       expect(content).toBe('/p:test-command')
     })
 
-    it('should overwrite existing status file', () => {
-      signalStart('first-command')
-      signalStart('second-command')
+    it('should overwrite existing status file', async () => {
+      await signalStart('first-command')
+      await signalStart('second-command')
 
       const content = fs.readFileSync(RUNNING_FILE, 'utf-8')
       expect(content).toBe('/p:second-command')
     })
 
-    it('should handle filesystem errors gracefully', () => {
+    it('should handle filesystem errors gracefully', async () => {
       // This test verifies that errors are silently ignored
       // We can't easily simulate fs errors, but we can verify the function doesn't throw
-      expect(() => signalStart('test-command')).not.toThrow()
+      await expect(signalStart('test-command')).resolves.toBeUndefined()
     })
   })
 
   describe('signalEnd', () => {
-    it('should remove status file if it exists', () => {
+    it('should remove status file if it exists', async () => {
       // Create the file first
-      signalStart('test-command')
+      await signalStart('test-command')
       expect(fs.existsSync(RUNNING_FILE)).toBe(true)
 
-      signalEnd()
+      await signalEnd()
       expect(fs.existsSync(RUNNING_FILE)).toBe(false)
     })
 
-    it('should not throw if file does not exist', () => {
+    it('should not throw if file does not exist', async () => {
       // Ensure file doesn't exist
       try {
         fs.unlinkSync(RUNNING_FILE)
@@ -147,7 +147,7 @@ describe('CommandExecutor', () => {
         // Ignore
       }
 
-      expect(() => signalEnd()).not.toThrow()
+      await expect(signalEnd()).resolves.toBeUndefined()
     })
   })
 
@@ -158,20 +158,20 @@ describe('CommandExecutor', () => {
       executor = new CommandExecutor()
     })
 
-    it('should have signalStart method that calls module function', () => {
-      executor.signalStart('class-test')
+    it('should have signalStart method that calls module function', async () => {
+      await executor.signalStart('class-test')
 
       expect(fs.existsSync(RUNNING_FILE)).toBe(true)
       const content = fs.readFileSync(RUNNING_FILE, 'utf-8')
       expect(content).toBe('/p:class-test')
 
       // Cleanup
-      executor.signalEnd()
+      await executor.signalEnd()
     })
 
-    it('should have signalEnd method that calls module function', () => {
-      executor.signalStart('class-test')
-      executor.signalEnd()
+    it('should have signalEnd method that calls module function', async () => {
+      await executor.signalStart('class-test')
+      await executor.signalEnd()
 
       expect(fs.existsSync(RUNNING_FILE)).toBe(false)
     })
@@ -336,7 +336,7 @@ describe('execute', () => {
     memorySystem.getRelevantMemories = mock(() => Promise.resolve([]))
 
     // Mock promptBuilder
-    promptBuilder.build = mock(() => 'built prompt')
+    promptBuilder.build = mock(() => Promise.resolve('built prompt'))
   })
 
   afterEach(() => {

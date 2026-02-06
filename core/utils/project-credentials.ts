@@ -11,9 +11,10 @@
  * This allows different projects to use different Linear workspaces.
  */
 
-import fs from 'node:fs'
+import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { fileExists } from './fs-helpers'
 import { type CredentialKey, getCredential } from './keychain'
 
 interface LinearCredentials {
@@ -39,12 +40,12 @@ function getCredentialsPath(projectId: string): string {
  */
 export async function getProjectCredentials(projectId: string): Promise<ProjectCredentials> {
   const credPath = getCredentialsPath(projectId)
-  if (!fs.existsSync(credPath)) {
+  if (!(await fileExists(credPath))) {
     return {}
   }
 
   try {
-    return JSON.parse(fs.readFileSync(credPath, 'utf-8'))
+    return JSON.parse(await fs.readFile(credPath, 'utf-8'))
   } catch (error) {
     console.error('[project-credentials] Failed to read credentials:', (error as Error).message)
     return {}
@@ -62,14 +63,14 @@ export async function setLinearCredentials(
   const dir = path.dirname(credPath)
 
   // Ensure directory exists
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true })
+  if (!(await fileExists(dir))) {
+    await fs.mkdir(dir, { recursive: true })
   }
 
   // Read existing, merge, write
   const current = await getProjectCredentials(projectId)
   current.linear = credentials
-  fs.writeFileSync(credPath, JSON.stringify(current, null, 2))
+  await fs.writeFile(credPath, JSON.stringify(current, null, 2))
 }
 
 /**
@@ -81,7 +82,7 @@ export async function deleteLinearCredentials(projectId: string): Promise<void> 
   if (current.linear) {
     delete current.linear
     const credPath = getCredentialsPath(projectId)
-    fs.writeFileSync(credPath, JSON.stringify(current, null, 2))
+    await fs.writeFile(credPath, JSON.stringify(current, null, 2))
   }
 }
 

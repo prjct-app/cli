@@ -2,13 +2,13 @@
  * Setup Commands: start, setup, installStatusLine, showAsciiArt
  */
 
-import fs from 'node:fs'
+import fs from 'node:fs/promises'
 import path from 'node:path'
 import chalk from 'chalk'
-
 import commandInstaller from '../infrastructure/command-installer'
 import pathManager from '../infrastructure/path-manager'
 import type { CommandResult, SetupOptions } from '../types'
+import { fileExists } from '../utils/fs-helpers'
 import { VERSION } from '../utils/version'
 import { PrjctCommandsBase } from './base'
 
@@ -18,7 +18,7 @@ export class SetupCommands extends PrjctCommandsBase {
    */
   async start(): Promise<CommandResult> {
     const aiProvider = require('../infrastructure/ai-provider')
-    const activeProvider = aiProvider.getActiveProvider()
+    const activeProvider = await aiProvider.getActiveProvider()
 
     console.log(`🚀 Setting up prjct for ${activeProvider.displayName}...\n`)
 
@@ -116,7 +116,7 @@ export class SetupCommands extends PrjctCommandsBase {
     }
 
     const aiProvider = require('../infrastructure/ai-provider')
-    const activeProvider = aiProvider.getActiveProvider()
+    const activeProvider = await aiProvider.getActiveProvider()
 
     // Status line is currently Claude-only
     if (activeProvider.name === 'claude') {
@@ -207,12 +207,12 @@ fi
 # Default: show prjct branding
 echo "⚡ prjct"
 `
-      fs.writeFileSync(statusLinePath, scriptContent, { mode: 0o755 })
+      await fs.writeFile(statusLinePath, scriptContent, { mode: 0o755 })
 
       let settings: Record<string, unknown> = {}
-      if (fs.existsSync(settingsPath)) {
+      if (await fileExists(settingsPath)) {
         try {
-          settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'))
+          settings = JSON.parse(await fs.readFile(settingsPath, 'utf8'))
         } catch (_error) {
           // Invalid JSON, start fresh
         }
@@ -223,7 +223,7 @@ echo "⚡ prjct"
         command: statusLinePath,
       }
 
-      fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2))
+      await fs.writeFile(settingsPath, JSON.stringify(settings, null, 2))
 
       return { success: true }
     } catch (error) {

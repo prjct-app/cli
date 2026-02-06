@@ -1,5 +1,42 @@
 # Changelog
 
+## [1.4.3] - 2026-02-06
+
+### Changed
+
+- **Standardize on fs/promises across codebase (PRJ-93)**: Replaced all synchronous `fs` operations (`existsSync`, `readFileSync`, `writeFileSync`, `mkdirSync`, etc.) with async `fs/promises` equivalents across 22 files
+
+### Implementation Details
+
+- Created shared `fileExists()` utility in `core/utils/fs-helpers.ts` replacing `existsSync` with `fs.access`
+- Converted all detection functions in `ai-provider.ts` to async with `Promise.all` for parallel checks
+- Applied lazy initialization pattern in `CommandInstaller` to handle async `getActiveProvider()` in constructor
+- Replaced `execSync` with `promisify(exec)` in `registry.ts` and `ai-provider.ts`
+- Converted `setup.ts` (~60 sync ops), `hooks-service.ts` (~30 sync ops), and all command/CLI files
+- Updated prompt-builder and command-executor tests to handle async `build()` and `signalStart/End()`
+- Intentional exceptions: `version.ts` (module-level constants), `jsonl-helper.ts` (`createReadStream`), test files
+
+### Learnings
+
+- Module-level constants (`VERSION`, `PACKAGE_ROOT`) cannot use async — sync reads at import time are a valid exception
+- `createReadStream` is inherently sync (returns a stream) — the correct pattern for streaming reads
+- Making a function async cascades to all callers — `ai-provider.ts` changes rippled to 10+ files
+- Constructor methods can't be async — solved with lazy `ensureInit()` pattern in `CommandInstaller`
+
+### Test Plan
+
+#### For QA
+1. Run `bun run build` — verify clean build with no errors
+2. Run `bun test` — verify all 416 tests pass
+3. Run `prjct sync` on a project — verify async fs operations work correctly
+4. Run `prjct start` — verify setup flow works with async file operations
+5. Verify `prjct linear list` works (uses converted linear/sync.ts)
+
+#### For Users
+**What changed:** Internal refactor — no user-facing API changes. All sync filesystem operations replaced with async equivalents for better performance.
+**How to use:** No changes needed. All commands work identically.
+**Breaking changes:** None
+
 ## [1.4.2] - 2026-02-06
 
 ### Features

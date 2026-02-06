@@ -149,15 +149,15 @@ class SyncService {
     let aiToolIds: string[]
     if (!options.aiTools || options.aiTools.length === 0) {
       // Start with default CLI tools and add detected IDE tools
-      const detectedIdeTools = detectInstalledTools(projectPath).filter(
+      const detectedIdeTools = (await detectInstalledTools(projectPath)).filter(
         (id) => !DEFAULT_AI_TOOLS.includes(id)
       )
       aiToolIds = [...DEFAULT_AI_TOOLS, ...detectedIdeTools]
     } else if (options.aiTools[0] === 'auto') {
-      aiToolIds = detectInstalledTools(projectPath)
+      aiToolIds = await detectInstalledTools(projectPath)
       if (aiToolIds.length === 0) aiToolIds = ['claude'] // fallback
     } else if (options.aiTools[0] === 'all') {
-      aiToolIds = resolveToolIds('all', projectPath)
+      aiToolIds = await resolveToolIds('all', projectPath)
     } else {
       aiToolIds = options.aiTools
     }

@@ -14,7 +14,6 @@
  *   state.json.currentTask.linearId ← DIRECT LINK
  */
 
-import { existsSync } from 'node:fs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import {
@@ -25,6 +24,7 @@ import {
   type SyncResult,
 } from '../../schemas/issues'
 import { getProjectPath } from '../../schemas/schemas'
+import { fileExists } from '../../utils/fs-helpers'
 import type { Issue } from '../issue-tracker/types'
 import { linearService } from './service'
 
@@ -41,7 +41,7 @@ export class LinearSync {
     const issuesPath = join(storagePath, 'issues.json')
 
     // Ensure storage directory exists
-    if (!existsSync(storagePath)) {
+    if (!(await fileExists(storagePath))) {
       await mkdir(storagePath, { recursive: true })
     }
 
@@ -241,7 +241,7 @@ export class LinearSync {
   private async loadIssues(projectId: string): Promise<IssuesJson | null> {
     const issuesPath = join(getProjectPath(projectId), 'storage', 'issues.json')
 
-    if (!existsSync(issuesPath)) {
+    if (!(await fileExists(issuesPath))) {
       return null
     }
 
@@ -260,7 +260,7 @@ export class LinearSync {
     const storagePath = join(getProjectPath(projectId), 'storage')
     const issuesPath = join(storagePath, 'issues.json')
 
-    if (!existsSync(storagePath)) {
+    if (!(await fileExists(storagePath))) {
       await mkdir(storagePath, { recursive: true })
     }
 

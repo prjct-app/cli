@@ -17,10 +17,14 @@
  * @see https://docs.windsurf.com/windsurf/cascade/memories
  */
 
-import { execSync } from 'node:child_process'
-import fs from 'node:fs'
+import { exec } from 'node:child_process'
 import os from 'node:os'
 import path from 'node:path'
+import { promisify } from 'node:util'
+import { fileExists } from '../utils/fs-helpers'
+
+const execAsync = promisify(exec)
+
 import type {
   AIProviderConfig,
   AIProviderName,
@@ -173,10 +177,10 @@ export const Providers: Record<AIProviderName, AIProviderConfig> = {
 /**
  * Check if a CLI command is available
  */
-function whichCommand(command: string): string | null {
+async function whichCommand(command: string): Promise<string | null> {
   try {
-    const result = execSync(`which ${command}`, { stdio: 'pipe', encoding: 'utf-8' })
-    return result.trim()
+    const { stdout } = await execAsync(`which ${command}`)
+    return stdout.trim()
   } catch {
     return null
   }
@@ -185,12 +189,12 @@ function whichCommand(command: string): string | null {
 /**
  * Get CLI version
  */
-function getCliVersion(command: string): string | null {
+async function getCliVersion(command: string): Promise<string | null> {
   try {
-    const result = execSync(`${command} --version`, { stdio: 'pipe', encoding: 'utf-8' })
+    const { stdout } = await execAsync(`${command} --version`)
     // Extract version number from output (e.g., "claude 1.0.0" -> "1.0.0")
-    const match = result.match(/\d+\.\d+\.\d+/)
-    return match ? match[0] : result.trim()
+    const match = stdout.match(/\d+\.\d+\.\d+/)
+    return match ? match[0] : stdout.trim()
   } catch {
     return null
   }
@@ -200,7 +204,7 @@ function getCliVersion(command: string): string | null {
  * Detect if a specific CLI-based provider is installed
  * Note: Cursor is NOT a CLI, use detectCursorProject() instead
  */
-export function detectProvider(provider: AIProviderName): ProviderDetectionResult {
+export async function detectProvider(provider: AIProviderName): Promise<ProviderDetectionResult> {
   const config = Providers[provider]
 
   // Cursor is not a CLI - return not installed for CLI detection
@@ -208,13 +212,13 @@ export function detectProvider(provider: AIProviderName): ProviderDetectionResul
     return { installed: false }
   }
 
-  const cliPath = whichCommand(config.cliCommand)
+  const cliPath = await whichCommand(config.cliCommand)
 
   if (!cliPath) {
     return { installed: false }
   }
 
-  const version = getCliVersion(config.cliCommand)
+  const version = await getCliVersion(config.cliCommand)
 
   return {
     installed: true,
@@ -227,14 +231,12 @@ export function detectProvider(provider: AIProviderName): ProviderDetectionResul
  * Detect all available CLI-based providers
  * Note: Cursor detection is project-level, use detectCursorProject() separately
  */
-export function detectAllProviders(): {
+export async function detectAllProviders(): Promise<{
   claude: ProviderDetectionResult
   gemini: ProviderDetectionResult
-} {
-  return {
-    claude: detectProvider('claude'),
-    gemini: detectProvider('gemini'),
-  }
+}> {
+  const [claude, gemini] = await Promise.all([detectProvider('claude'), detectProvider('gemini')])
+  return { claude, gemini }
 }
 
 /**
@@ -245,14 +247,16 @@ export function detectAllProviders(): {
  * 2. Auto-detect single installed provider
  * 3. Default to Claude if both installed (backward compatibility)
  */
-export function getActiveProvider(projectProvider?: AIProviderName): AIProviderConfig {
+export async function getActiveProvider(
+  projectProvider?: AIProviderName
+): Promise<AIProviderConfig> {
   // If project has a saved preference, use it
   if (projectProvider && Providers[projectProvider]) {
     return Providers[projectProvider]
   }
 
   // Auto-detect
-  const detection = detectAllProviders()
+  const detection = await detectAllProviders()
 
   // If only one is installed, use it
   if (detection.claude.installed && !detection.gemini.installed) {
@@ -270,12 +274,12 @@ export function getActiveProvider(projectProvider?: AIProviderName): AIProviderC
  * Check if config directory exists for a provider
  * Returns false for project-level providers (Cursor)
  */
-export function hasProviderConfig(provider: AIProviderName): boolean {
+export async function hasProviderConfig(provider: AIProviderName): Promise<boolean> {
   const config = Providers[provider]
   if (!config.configDir) {
     return false // Cursor has no global config directory
   }
-  return fs.existsSync(config.configDir)
+  return fileExists(config.configDir)
 }
 
 // =============================================================================
@@ -313,13 +317,15 @@ export function getProviderBranding(provider: AIProviderName): ProviderBranding 
  * Cursor has NO global config (~/.cursor/ doesn't exist).
  * Detection is based on project-level .cursor/ directory.
  */
-export function detectCursorProject(projectRoot: string): CursorProjectDetection {
+export async function detectCursorProject(projectRoot: string): Promise<CursorProjectDetection> {
   const cursorDir = path.join(projectRoot, '.cursor')
   const rulesDir = path.join(cursorDir, 'rules')
   const routerPath = path.join(rulesDir, 'prjct.mdc')
 
-  const detected = fs.existsSync(cursorDir)
-  const routerInstalled = fs.existsSync(routerPath)
+  const [detected, routerInstalled] = await Promise.all([
+    fileExists(cursorDir),
+    fileExists(routerPath),
+  ])
 
   return {
     detected,
@@ -331,8 +337,8 @@ export function detectCursorProject(projectRoot: string): CursorProjectDetection
 /**
  * Check if Cursor routers need to be regenerated
  */
-export function needsCursorRouterRegeneration(projectRoot: string): boolean {
-  const detection = detectCursorProject(projectRoot)
+export async function needsCursorRouterRegeneration(projectRoot: string): Promise<boolean> {
+  const detection = await detectCursorProject(projectRoot)
 
   // Only check if .cursor/ exists (project uses Cursor)
   // and prjct router is missing
@@ -349,13 +355,17 @@ export function needsCursorRouterRegeneration(projectRoot: string): boolean {
  * Windsurf has NO global config (~/.windsurf/ doesn't exist).
  * Detection is based on project-level .windsurf/ directory.
  */
-export function detectWindsurfProject(projectRoot: string): WindsurfProjectDetection {
+export async function detectWindsurfProject(
+  projectRoot: string
+): Promise<WindsurfProjectDetection> {
   const windsurfDir = path.join(projectRoot, '.windsurf')
   const rulesDir = path.join(windsurfDir, 'rules')
   const routerPath = path.join(rulesDir, 'prjct.md')
 
-  const detected = fs.existsSync(windsurfDir)
-  const routerInstalled = fs.existsSync(routerPath)
+  const [detected, routerInstalled] = await Promise.all([
+    fileExists(windsurfDir),
+    fileExists(routerPath),
+  ])
 
   return {
     detected,
@@ -367,8 +377,8 @@ export function detectWindsurfProject(projectRoot: string): WindsurfProjectDetec
 /**
  * Check if Windsurf routers need to be regenerated
  */
-export function needsWindsurfRouterRegeneration(projectRoot: string): boolean {
-  const detection = detectWindsurfProject(projectRoot)
+export async function needsWindsurfRouterRegeneration(projectRoot: string): Promise<boolean> {
+  const detection = await detectWindsurfProject(projectRoot)
 
   // Only check if .windsurf/ exists (project uses Windsurf)
   // and prjct router is missing
@@ -399,15 +409,17 @@ export interface AntigravityDetection {
  * Antigravity is NOT a CLI command - it's a GUI platform.
  * Detection is based on ~/.gemini/antigravity/ directory.
  */
-export function detectAntigravity(): AntigravityDetection {
+export async function detectAntigravity(): Promise<AntigravityDetection> {
   const configPath = AntigravityProvider.configDir
   if (!configPath) {
     return { installed: false, skillInstalled: false }
   }
 
-  const installed = fs.existsSync(configPath)
   const skillPath = path.join(configPath, 'skills', 'prjct', 'SKILL.md')
-  const skillInstalled = fs.existsSync(skillPath)
+  const [installed, skillInstalled] = await Promise.all([
+    fileExists(configPath),
+    fileExists(skillPath),
+  ])
 
   return {
     installed,
@@ -475,8 +487,8 @@ export function getProjectCommandsPath(provider: AIProviderName, projectRoot: st
  * Determine which provider to use during setup
  * Returns selection result with detection details
  */
-export function selectProvider(): ProviderSelectionResult {
-  const detection = detectAllProviders()
+export async function selectProvider(): Promise<ProviderSelectionResult> {
+  const detection = await detectAllProviders()
 
   const claudeInstalled = detection.claude.installed
   const geminiInstalled = detection.gemini.installed

@@ -6,7 +6,7 @@
  * @version 3.4
  */
 
-import fs from 'node:fs'
+import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import type {
@@ -18,6 +18,7 @@ import type {
   SimpleExecutionResult,
 } from '../types'
 import { agentStream } from '../utils/agent-stream'
+import { fileExists } from '../utils/fs-helpers'
 import { printSubtaskProgress, type SubtaskDisplay } from '../utils/subtask-table'
 import chainOfThought from './chain-of-thought'
 import contextBuilder from './context-builder'
@@ -40,13 +41,13 @@ const RUNNING_FILE = path.join(os.homedir(), '.prjct-cli', '.running')
 /**
  * Signal that a command is running (for status line)
  */
-export function signalStart(commandName: string): void {
+export async function signalStart(commandName: string): Promise<void> {
   try {
     const dir = path.dirname(RUNNING_FILE)
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true })
+    if (!(await fileExists(dir))) {
+      await fs.mkdir(dir, { recursive: true })
     }
-    fs.writeFileSync(RUNNING_FILE, `/p:${commandName}`)
+    await fs.writeFile(RUNNING_FILE, `/p:${commandName}`)
   } catch (_error) {
     // Silently ignore - status line is optional
   }
@@ -55,10 +56,10 @@ export function signalStart(commandName: string): void {
 /**
  * Signal that command has finished (for status line)
  */
-export function signalEnd(): void {
+export async function signalEnd(): Promise<void> {
   try {
-    if (fs.existsSync(RUNNING_FILE)) {
-      fs.unlinkSync(RUNNING_FILE)
+    if (await fileExists(RUNNING_FILE)) {
+      await fs.unlink(RUNNING_FILE)
     }
   } catch (_error) {
     // Silently ignore - status line is optional
@@ -73,15 +74,15 @@ export class CommandExecutor {
   /**
    * Signal that a command is running (for status line)
    */
-  signalStart(commandName: string): void {
-    signalStart(commandName)
+  async signalStart(commandName: string): Promise<void> {
+    await signalStart(commandName)
   }
 
   /**
    * Signal that command has finished (for status line)
    */
-  signalEnd(): void {
-    signalEnd()
+  async signalEnd(): Promise<void> {
+    await signalEnd()
   }
 
   /**
@@ -93,7 +94,7 @@ export class CommandExecutor {
     projectPath: string
   ): Promise<ExecutionResult> {
     // Signal start for status line
-    this.signalStart(commandName)
+    await this.signalStart(commandName)
 
     // Context for loop detection
     const loopContext = (params.task as string) || (params.description as string) || ''
@@ -101,7 +102,7 @@ export class CommandExecutor {
     // Check if we're in a loop BEFORE attempting
     if (loopDetector.shouldEscalate(commandName, loopContext)) {
       const escalation = loopDetector.getEscalationInfo(commandName, loopContext)
-      this.signalEnd()
+      await this.signalEnd()
       return {
         success: false,
         error: escalation?.message,
@@ -264,7 +265,7 @@ export class CommandExecutor {
       }
       // Agent is null - Claude assigns via Task tool using agent-routing.md
       // Pass orchestratorContext for domain/agent/subtask injection
-      const prompt = promptBuilder.build(
+      const prompt = await promptBuilder.build(
         template,
         context,
         state,
@@ -286,7 +287,7 @@ export class CommandExecutor {
       loopDetector.recordSuccess(commandName, loopContext)
 
       // Signal end for status line
-      this.signalEnd()
+      await this.signalEnd()
 
       return {
         success: true,
@@ -373,7 +374,7 @@ export class CommandExecutor {
       }
     } catch (error) {
       // Signal end for status line
-      this.signalEnd()
+      await this.signalEnd()
 
       // Record failed attempt for loop detection
       const attemptInfo = loopDetector.recordAttempt(commandName, loopContext, {

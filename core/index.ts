@@ -7,7 +7,6 @@
 import { PrjctCommands } from './commands/index'
 import { commandRegistry } from './commands/registry'
 import './commands/register' // Ensure commands are registered
-import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import chalk from 'chalk'
@@ -16,6 +15,7 @@ import { detectAllProviders, detectAntigravity } from './infrastructure/ai-provi
 import configManager from './infrastructure/config-manager'
 import { sessionTracker } from './services/session-tracker'
 import { getError } from './utils/error-messages'
+import { fileExists } from './utils/fs-helpers'
 import out from './utils/output'
 
 interface ParsedCommandArgs {
@@ -35,7 +35,7 @@ async function main(): Promise<void> {
 
   if (['-v', '--version', 'version'].includes(commandName)) {
     const packageJson = await import('../package.json')
-    displayVersion(packageJson.version)
+    await displayVersion(packageJson.version)
     process.exit(0)
   }
 
@@ -307,18 +307,21 @@ function parseCommandArgs(_cmd: CommandMeta, rawArgs: string[]): ParsedCommandAr
 /**
  * Display version with provider status
  */
-function displayVersion(version: string): void {
-  const detection = detectAllProviders()
+async function displayVersion(version: string): Promise<void> {
+  const detection = await detectAllProviders()
 
   // Check if prjct commands are installed for each provider
   const claudeCommandPath = path.join(os.homedir(), '.claude', 'commands', 'p.md')
   const geminiCommandPath = path.join(os.homedir(), '.gemini', 'commands', 'p.toml')
-  const claudeConfigured = fs.existsSync(claudeCommandPath)
-  const geminiConfigured = fs.existsSync(geminiCommandPath)
+  const [claudeConfigured, geminiConfigured, cursorConfigured, cursorExists] = await Promise.all([
+    fileExists(claudeCommandPath),
+    fileExists(geminiCommandPath),
+    fileExists(path.join(process.cwd(), '.cursor', 'commands', 'sync.md')),
+    fileExists(path.join(process.cwd(), '.cursor')),
+  ])
 
-  // Check current project for Cursor
-  const cursorConfigured = fs.existsSync(path.join(process.cwd(), '.cursor', 'commands', 'sync.md'))
-  const cursorExists = fs.existsSync(path.join(process.cwd(), '.cursor'))
+  // Antigravity status (global, skills-based)
+  const antigravityDetection = await detectAntigravity()
 
   console.log(`
 ${chalk.cyan('p/')} prjct v${version}
@@ -344,8 +347,6 @@ ${chalk.dim('Providers:')}`)
     console.log(`  Gemini CLI    ${chalk.dim('○ not installed')}`)
   }
 
-  // Antigravity status (global, skills-based)
-  const antigravityDetection = detectAntigravity()
   if (antigravityDetection.installed) {
     const status = antigravityDetection.skillInstalled
       ? chalk.green('✓ ready')

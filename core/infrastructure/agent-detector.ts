@@ -5,9 +5,9 @@
  * @module infrastructure/agent-detector
  */
 
-import fs from 'node:fs'
 import path from 'node:path'
 import type { DetectedAgent } from '../types'
+import { fileExists } from '../utils/fs-helpers'
 
 declare const global: typeof globalThis & {
   mcp?: { filesystem?: unknown }
@@ -79,7 +79,7 @@ const TERMINAL_AGENT: DetectedAgent = {
 
 // ============ Detection Functions ============
 
-export function isClaudeEnvironment(): boolean {
+export async function isClaudeEnvironment(): Promise<boolean> {
   // Environment variables
   if (process.env.CLAUDE_AGENT || process.env.ANTHROPIC_CLAUDE) return true
 
@@ -88,11 +88,11 @@ export function isClaudeEnvironment(): boolean {
 
   // Configuration files
   const projectRoot = process.cwd()
-  if (fs.existsSync(path.join(projectRoot, 'CLAUDE.md'))) return true
+  if (await fileExists(path.join(projectRoot, 'CLAUDE.md'))) return true
 
   // Claude directory in home
   const homeDir = process.env.HOME || process.env.USERPROFILE || ''
-  if (fs.existsSync(path.join(homeDir, '.claude'))) return true
+  if (await fileExists(path.join(homeDir, '.claude'))) return true
 
   // Filesystem paths
   const cwd = process.cwd()
@@ -112,7 +112,7 @@ export function getTerminalAgent(): DetectedAgent {
 export async function detect(): Promise<DetectedAgent> {
   if (cachedAgent) return cachedAgent
 
-  cachedAgent = isClaudeEnvironment() ? getClaudeAgent() : getTerminalAgent()
+  cachedAgent = (await isClaudeEnvironment()) ? getClaudeAgent() : getTerminalAgent()
   return cachedAgent
 }
 
@@ -125,13 +125,13 @@ export function reset(): void {
   cachedAgent = null
 }
 
-export function isClaude(): boolean {
+export async function isClaude(): Promise<boolean> {
   if (cachedAgent) return cachedAgent.type === 'claude'
   return isClaudeEnvironment()
 }
 
-export function isTerminal(): boolean {
-  return !isClaude()
+export async function isTerminal(): Promise<boolean> {
+  return !(await isClaude())
 }
 
 // ============ Default Export (backwards compat) ============

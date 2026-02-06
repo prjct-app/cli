@@ -11,10 +11,11 @@
  * @module services/hooks-service
  */
 
-import fs from 'node:fs'
+import fs from 'node:fs/promises'
 import path from 'node:path'
 import chalk from 'chalk'
 import configManager from '../infrastructure/config-manager'
+import { fileExists } from '../utils/fs-helpers'
 import out from '../utils/output'
 
 // ============================================================================
@@ -129,27 +130,27 @@ exit 0
 /**
  * Detect which hook managers are available in the project
  */
-function detectHookManagers(projectPath: string): HookStrategy[] {
+async function detectHookManagers(projectPath: string): Promise<HookStrategy[]> {
   const detected: HookStrategy[] = []
 
   // Check for lefthook
   if (
-    fs.existsSync(path.join(projectPath, 'lefthook.yml')) ||
-    fs.existsSync(path.join(projectPath, 'lefthook.yaml'))
+    (await fileExists(path.join(projectPath, 'lefthook.yml'))) ||
+    (await fileExists(path.join(projectPath, 'lefthook.yaml')))
   ) {
     detected.push('lefthook')
   }
 
   // Check for husky
   if (
-    fs.existsSync(path.join(projectPath, '.husky')) ||
-    fs.existsSync(path.join(projectPath, '.husky', '_'))
+    (await fileExists(path.join(projectPath, '.husky'))) ||
+    (await fileExists(path.join(projectPath, '.husky', '_')))
   ) {
     detected.push('husky')
   }
 
   // Direct .git/hooks is always available if it's a git repo
-  if (fs.existsSync(path.join(projectPath, '.git'))) {
+  if (await fileExists(path.join(projectPath, '.git'))) {
     detected.push('direct')
   }
 
@@ -173,13 +174,13 @@ function selectStrategy(detected: HookStrategy[]): HookStrategy {
 /**
  * Install hooks via lefthook (append to existing config)
  */
-function installLefthook(projectPath: string, hooks: HookName[]): boolean {
-  const configFile = fs.existsSync(path.join(projectPath, 'lefthook.yml'))
+async function installLefthook(projectPath: string, hooks: HookName[]): Promise<boolean> {
+  const configFile = (await fileExists(path.join(projectPath, 'lefthook.yml')))
     ? 'lefthook.yml'
     : 'lefthook.yaml'
   const configPath = path.join(projectPath, configFile)
 
-  let content = fs.readFileSync(configPath, 'utf-8')
+  let content = await fs.readFile(configPath, 'utf-8')
 
   for (const hook of hooks) {
     const sectionName = hook // e.g. "post-commit"
@@ -212,29 +213,29 @@ ${sectionName}:
     }
   }
 
-  fs.writeFileSync(configPath, content, 'utf-8')
+  await fs.writeFile(configPath, content, 'utf-8')
   return true
 }
 
 /**
  * Install hooks via husky
  */
-function installHusky(projectPath: string, hooks: HookName[]): boolean {
+async function installHusky(projectPath: string, hooks: HookName[]): Promise<boolean> {
   const huskyDir = path.join(projectPath, '.husky')
 
   for (const hook of hooks) {
     const hookPath = path.join(huskyDir, hook)
     const script = hook === 'post-commit' ? getPostCommitScript() : getPostCheckoutScript()
 
-    if (fs.existsSync(hookPath)) {
+    if (await fileExists(hookPath)) {
       // Append to existing hook if not already present
-      const existing = fs.readFileSync(hookPath, 'utf-8')
+      const existing = await fs.readFile(hookPath, 'utf-8')
       if (existing.includes('prjct sync')) {
         continue
       }
-      fs.appendFileSync(hookPath, '\n# prjct auto-sync\nprjct sync --quiet --yes &\n')
+      await fs.appendFile(hookPath, '\n# prjct auto-sync\nprjct sync --quiet --yes &\n')
     } else {
-      fs.writeFileSync(hookPath, script, { mode: 0o755 })
+      await fs.writeFile(hookPath, script, { mode: 0o755 })
     }
   }
 
@@ -244,26 +245,29 @@ function installHusky(projectPath: string, hooks: HookName[]): boolean {
 /**
  * Install hooks directly into .git/hooks/
  */
-function installDirect(projectPath: string, hooks: HookName[]): boolean {
+async function installDirect(projectPath: string, hooks: HookName[]): Promise<boolean> {
   const hooksDir = path.join(projectPath, '.git', 'hooks')
 
-  if (!fs.existsSync(hooksDir)) {
-    fs.mkdirSync(hooksDir, { recursive: true })
+  if (!(await fileExists(hooksDir))) {
+    await fs.mkdir(hooksDir, { recursive: true })
   }
 
   for (const hook of hooks) {
     const hookPath = path.join(hooksDir, hook)
     const script = hook === 'post-commit' ? getPostCommitScript() : getPostCheckoutScript()
 
-    if (fs.existsSync(hookPath)) {
-      const existing = fs.readFileSync(hookPath, 'utf-8')
+    if (await fileExists(hookPath)) {
+      const existing = await fs.readFile(hookPath, 'utf-8')
       if (existing.includes('prjct sync')) {
         continue // Already installed
       }
       // Append to existing hook
-      fs.appendFileSync(hookPath, `\n# prjct auto-sync\n${script.split('\n').slice(1).join('\n')}`)
+      await fs.appendFile(
+        hookPath,
+        `\n# prjct auto-sync\n${script.split('\n').slice(1).join('\n')}`
+      )
     } else {
-      fs.writeFileSync(hookPath, script, { mode: 0o755 })
+      await fs.writeFile(hookPath, script, { mode: 0o755 })
     }
   }
 
@@ -274,15 +278,15 @@ function installDirect(projectPath: string, hooks: HookName[]): boolean {
 // UNINSTALL STRATEGIES
 // ============================================================================
 
-function uninstallLefthook(projectPath: string): boolean {
-  const configFile = fs.existsSync(path.join(projectPath, 'lefthook.yml'))
+async function uninstallLefthook(projectPath: string): Promise<boolean> {
+  const configFile = (await fileExists(path.join(projectPath, 'lefthook.yml')))
     ? 'lefthook.yml'
     : 'lefthook.yaml'
   const configPath = path.join(projectPath, configFile)
 
-  if (!fs.existsSync(configPath)) return false
+  if (!(await fileExists(configPath))) return false
 
-  let content = fs.readFileSync(configPath, 'utf-8')
+  let content = await fs.readFile(configPath, 'utf-8')
 
   // Remove prjct-sync commands
   content = content.replace(/\s*prjct-sync-[\w-]+:[\s\S]*?(?=\n\S|\n*$)/g, '')
@@ -290,18 +294,18 @@ function uninstallLefthook(projectPath: string): boolean {
   // Clean up empty sections
   content = content.replace(/^(post-commit|post-checkout):\s*commands:\s*$/gm, '')
 
-  fs.writeFileSync(configPath, `${content.trimEnd()}\n`, 'utf-8')
+  await fs.writeFile(configPath, `${content.trimEnd()}\n`, 'utf-8')
   return true
 }
 
-function uninstallHusky(projectPath: string): boolean {
+async function uninstallHusky(projectPath: string): Promise<boolean> {
   const huskyDir = path.join(projectPath, '.husky')
 
   for (const hook of ['post-commit', 'post-checkout'] as HookName[]) {
     const hookPath = path.join(huskyDir, hook)
-    if (!fs.existsSync(hookPath)) continue
+    if (!(await fileExists(hookPath))) continue
 
-    const content = fs.readFileSync(hookPath, 'utf-8')
+    const content = await fs.readFile(hookPath, 'utf-8')
     if (!content.includes('prjct sync')) continue
 
     // Remove prjct lines
@@ -312,35 +316,35 @@ function uninstallHusky(projectPath: string): boolean {
 
     if (cleaned.trim() === '#!/bin/sh' || cleaned.trim() === '#!/usr/bin/env sh') {
       // Hook is now empty, remove it
-      fs.unlinkSync(hookPath)
+      await fs.unlink(hookPath)
     } else {
-      fs.writeFileSync(hookPath, cleaned, { mode: 0o755 })
+      await fs.writeFile(hookPath, cleaned, { mode: 0o755 })
     }
   }
 
   return true
 }
 
-function uninstallDirect(projectPath: string): boolean {
+async function uninstallDirect(projectPath: string): Promise<boolean> {
   const hooksDir = path.join(projectPath, '.git', 'hooks')
 
   for (const hook of ['post-commit', 'post-checkout'] as HookName[]) {
     const hookPath = path.join(hooksDir, hook)
-    if (!fs.existsSync(hookPath)) continue
+    if (!(await fileExists(hookPath))) continue
 
-    const content = fs.readFileSync(hookPath, 'utf-8')
+    const content = await fs.readFile(hookPath, 'utf-8')
     if (!content.includes('prjct sync')) continue
 
     if (content.includes('Installed by: prjct hooks install')) {
       // Entirely ours, remove it
-      fs.unlinkSync(hookPath)
+      await fs.unlink(hookPath)
     } else {
       // Shared hook, just remove our lines
       const cleaned = content
         .split('\n')
         .filter((line) => !line.includes('prjct sync') && !line.includes('prjct auto-sync'))
         .join('\n')
-      fs.writeFileSync(hookPath, cleaned, { mode: 0o755 })
+      await fs.writeFile(hookPath, cleaned, { mode: 0o755 })
     }
   }
 
@@ -362,7 +366,7 @@ class HooksService {
     const hooks: HookName[] = options.hooks || ['post-commit', 'post-checkout']
 
     // Detect available managers
-    const detected = detectHookManagers(projectPath)
+    const detected = await detectHookManagers(projectPath)
 
     if (detected.length === 0) {
       return {
@@ -380,13 +384,13 @@ class HooksService {
 
       switch (strategy) {
         case 'lefthook':
-          success = installLefthook(projectPath, hooks)
+          success = await installLefthook(projectPath, hooks)
           break
         case 'husky':
-          success = installHusky(projectPath, hooks)
+          success = await installHusky(projectPath, hooks)
           break
         case 'direct':
-          success = installDirect(projectPath, hooks)
+          success = await installDirect(projectPath, hooks)
           break
       }
 
@@ -428,13 +432,13 @@ class HooksService {
 
       switch (strategy) {
         case 'lefthook':
-          success = uninstallLefthook(projectPath)
+          success = await uninstallLefthook(projectPath)
           break
         case 'husky':
-          success = uninstallHusky(projectPath)
+          success = await uninstallHusky(projectPath)
           break
         case 'direct':
-          success = uninstallDirect(projectPath)
+          success = await uninstallDirect(projectPath)
           break
       }
 
@@ -457,15 +461,17 @@ class HooksService {
    * Get hook installation status
    */
   async status(projectPath: string): Promise<HooksStatusResult> {
-    const detected = detectHookManagers(projectPath)
+    const detected = await detectHookManagers(projectPath)
     const config = await this.getHookConfig(projectPath)
 
     const hookNames: HookName[] = ['post-commit', 'post-checkout']
-    const hooks = hookNames.map((name) => ({
-      name,
-      installed: this.isHookInstalled(projectPath, name, config?.strategy || null),
-      path: this.getHookPath(projectPath, name, config?.strategy || null),
-    }))
+    const hooks = await Promise.all(
+      hookNames.map(async (name) => ({
+        name,
+        installed: await this.isHookInstalled(projectPath, name, config?.strategy || null),
+        path: await this.getHookPath(projectPath, name, config?.strategy || null),
+      }))
+    )
 
     return {
       installed: hooks.some((h) => h.installed),
@@ -506,7 +512,7 @@ class HooksService {
     out.start()
     out.section('Git Hooks Installation')
 
-    const detected = detectHookManagers(projectPath)
+    const detected = await detectHookManagers(projectPath)
     const strategy = selectStrategy(detected)
 
     console.log(`  Strategy: ${chalk.cyan(strategy)}`)
@@ -589,36 +595,40 @@ class HooksService {
   // HELPERS
   // ==========================================================================
 
-  private isHookInstalled(
+  private async isHookInstalled(
     projectPath: string,
     hook: HookName,
     strategy: HookStrategy | null
-  ): boolean {
+  ): Promise<boolean> {
     if (strategy === 'lefthook') {
-      const configFile = fs.existsSync(path.join(projectPath, 'lefthook.yml'))
+      const configFile = (await fileExists(path.join(projectPath, 'lefthook.yml')))
         ? 'lefthook.yml'
         : 'lefthook.yaml'
       const configPath = path.join(projectPath, configFile)
-      if (!fs.existsSync(configPath)) return false
-      const content = fs.readFileSync(configPath, 'utf-8')
+      if (!(await fileExists(configPath))) return false
+      const content = await fs.readFile(configPath, 'utf-8')
       return content.includes(`prjct-sync-${hook}`)
     }
 
     if (strategy === 'husky') {
       const hookPath = path.join(projectPath, '.husky', hook)
-      if (!fs.existsSync(hookPath)) return false
-      return fs.readFileSync(hookPath, 'utf-8').includes('prjct sync')
+      if (!(await fileExists(hookPath))) return false
+      return (await fs.readFile(hookPath, 'utf-8')).includes('prjct sync')
     }
 
     // Direct
     const hookPath = path.join(projectPath, '.git', 'hooks', hook)
-    if (!fs.existsSync(hookPath)) return false
-    return fs.readFileSync(hookPath, 'utf-8').includes('prjct sync')
+    if (!(await fileExists(hookPath))) return false
+    return (await fs.readFile(hookPath, 'utf-8')).includes('prjct sync')
   }
 
-  private getHookPath(projectPath: string, hook: HookName, strategy: HookStrategy | null): string {
+  private async getHookPath(
+    projectPath: string,
+    hook: HookName,
+    strategy: HookStrategy | null
+  ): Promise<string> {
     if (strategy === 'lefthook') {
-      return fs.existsSync(path.join(projectPath, 'lefthook.yml'))
+      return (await fileExists(path.join(projectPath, 'lefthook.yml')))
         ? 'lefthook.yml'
         : 'lefthook.yaml'
     }
@@ -640,8 +650,8 @@ class HooksService {
         projectId,
         'project.json'
       )
-      if (!fs.existsSync(projectJsonPath)) return null
-      const project = JSON.parse(fs.readFileSync(projectJsonPath, 'utf-8'))
+      if (!(await fileExists(projectJsonPath))) return null
+      const project = JSON.parse(await fs.readFile(projectJsonPath, 'utf-8'))
       return project.hooks || null
     } catch {
       return null
@@ -660,11 +670,11 @@ class HooksService {
         projectId,
         'project.json'
       )
-      if (!fs.existsSync(projectJsonPath)) return
+      if (!(await fileExists(projectJsonPath))) return
 
-      const project = JSON.parse(fs.readFileSync(projectJsonPath, 'utf-8'))
+      const project = JSON.parse(await fs.readFile(projectJsonPath, 'utf-8'))
       project.hooks = config
-      fs.writeFileSync(projectJsonPath, JSON.stringify(project, null, 2))
+      await fs.writeFile(projectJsonPath, JSON.stringify(project, null, 2))
     } catch {
       // Non-fatal
     }

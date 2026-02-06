@@ -9,7 +9,7 @@
  * @version 5.0
  */
 
-import fs from 'node:fs'
+import fs from 'node:fs/promises'
 import path from 'node:path'
 import { outcomeAnalyzer } from '../outcomes'
 import { queueStorage, stateStorage } from '../storage'
@@ -26,6 +26,7 @@ import type {
   ThinkBlock,
 } from '../types'
 import { isNotFoundError } from '../types/fs'
+import { fileExists } from '../utils/fs-helpers'
 import { getPackageRoot } from '../utils/version'
 
 // Re-export types for convenience
@@ -77,7 +78,7 @@ class PromptBuilder {
    * Returns cached content if within TTL, otherwise loads from disk.
    * @see PRJ-76
    */
-  getTemplate(templatePath: string): string | null {
+  async getTemplate(templatePath: string): Promise<string | null> {
     const cached = this._templateCache.get(templatePath)
     const now = Date.now()
 
@@ -86,8 +87,8 @@ class PromptBuilder {
     }
 
     try {
-      if (fs.existsSync(templatePath)) {
-        const content = fs.readFileSync(templatePath, 'utf-8')
+      if (await fileExists(templatePath)) {
+        const content = await fs.readFile(templatePath, 'utf-8')
         this._templateCache.set(templatePath, { content, loadedAt: now })
         return content
       }
@@ -130,7 +131,7 @@ class PromptBuilder {
    * Load a specific CLAUDE module for SMART commands (PRJ-94)
    * These modules extend the base global CLAUDE.md for complex operations
    */
-  loadModule(moduleName: string): string | null {
+  async loadModule(moduleName: string): Promise<string | null> {
     const modulePath = path.join(getPackageRoot(), 'templates/global/modules', moduleName)
     return this.getTemplate(modulePath)
   }
@@ -156,7 +157,7 @@ class PromptBuilder {
    * Uses lazy loading with TTL cache.
    * @see PRJ-76
    */
-  loadChecklists(): Record<string, string> {
+  async loadChecklists(): Promise<Record<string, string>> {
     const now = Date.now()
 
     // Check if cache is still valid
@@ -168,13 +169,13 @@ class PromptBuilder {
     const checklists: Record<string, string> = {}
 
     try {
-      if (fs.existsSync(checklistsDir)) {
-        const files = fs.readdirSync(checklistsDir).filter((f) => f.endsWith('.md'))
+      if (await fileExists(checklistsDir)) {
+        const files = (await fs.readdir(checklistsDir)).filter((f: string) => f.endsWith('.md'))
         for (const file of files) {
           const name = file.replace('.md', '')
           const templatePath = path.join(checklistsDir, file)
           // Use getTemplate for individual files to leverage per-file caching
-          const content = this.getTemplate(templatePath)
+          const content = await this.getTemplate(templatePath)
           if (content) {
             checklists[name] = content
           }
@@ -312,7 +313,7 @@ class PromptBuilder {
    * Uses lazy loading with TTL cache.
    * @see PRJ-76
    */
-  loadChecklistRouting(): string | null {
+  async loadChecklistRouting(): Promise<string | null> {
     const now = Date.now()
 
     // Check if cache is still valid
@@ -333,7 +334,7 @@ class PromptBuilder {
     )
 
     // Use getTemplate for consistent caching behavior
-    const content = this.getTemplate(routingPath)
+    const content = await this.getTemplate(routingPath)
     if (content) {
       this._checklistRoutingCache = content
       this._checklistRoutingCacheTime = now
@@ -367,7 +368,7 @@ class PromptBuilder {
     }
 
     // Build the rest using existing method
-    const basePrompt = this.build(
+    const basePrompt = await this.build(
       template,
       context,
       state,
@@ -387,7 +388,7 @@ class PromptBuilder {
    * Build a complete prompt for Claude from template, context, and enhancements
    * @deprecated Use buildWithInjection for auto-injected context
    */
-  build(
+  async build(
     template: Template,
     context: Context,
     state: State,
@@ -397,7 +398,7 @@ class PromptBuilder {
     relevantMemories: Memory[] | null = null,
     planInfo: PlanInfo | null = null,
     orchestratorContext: OrchestratorContext | null = null
-  ): string {
+  ): Promise<string> {
     const parts: string[] = []
 
     // Store context for use in helper methods
@@ -591,7 +592,7 @@ class PromptBuilder {
     const additionalModules = this.getModulesForCommand(commandName)
     if (additionalModules.length > 0) {
       for (const moduleName of additionalModules) {
-        const moduleContent = this.loadModule(moduleName)
+        const moduleContent = await this.loadModule(moduleName)
         if (moduleContent) {
           parts.push('\n')
           parts.push(moduleContent)
@@ -662,8 +663,8 @@ class PromptBuilder {
       'work',
     ]
     if (checklistCommands.includes(commandName)) {
-      const routing = this.loadChecklistRouting()
-      const checklists = this.loadChecklists()
+      const routing = await this.loadChecklistRouting()
+      const checklists = await this.loadChecklists()
 
       if (routing && Object.keys(checklists).length > 0) {
         parts.push('\n## QUALITY CHECKLISTS\n')

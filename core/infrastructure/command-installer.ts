@@ -159,11 +159,11 @@ export async function installDocs(): Promise<{ success: boolean; error?: string 
  */
 export async function installGlobalConfig(): Promise<GlobalConfigResult> {
   const aiProvider = require('./ai-provider')
-  const activeProvider = aiProvider.getActiveProvider()
+  const activeProvider = await aiProvider.getActiveProvider()
   const providerName = activeProvider.name
 
   // Check if provider is installed
-  const detection = aiProvider.detectProvider(providerName)
+  const detection = await aiProvider.detectProvider(providerName)
   if (!detection.installed && !activeProvider.configDir) {
     return {
       success: false,
@@ -289,15 +289,21 @@ export async function installGlobalConfig(): Promise<GlobalConfigResult> {
 
 export class CommandInstaller {
   homeDir: string
-  claudeCommandsPath: string
-  claudeConfigPath: string
+  claudeCommandsPath = ''
+  claudeConfigPath = ''
   templatesDir: string
+  private _initialized = false
 
   constructor() {
     this.homeDir = os.homedir()
+    this.templatesDir = path.join(getPackageRoot(), 'templates', 'commands')
+  }
+
+  private async ensureInit(): Promise<void> {
+    if (this._initialized) return
 
     const aiProvider = require('./ai-provider')
-    const activeProvider = aiProvider.getActiveProvider()
+    const activeProvider = await aiProvider.getActiveProvider()
 
     // Command paths are provider-specific
     if (activeProvider.name === 'gemini') {
@@ -308,13 +314,14 @@ export class CommandInstaller {
     }
 
     this.claudeConfigPath = activeProvider.configDir
-    this.templatesDir = path.join(getPackageRoot(), 'templates', 'commands')
+    this._initialized = true
   }
 
   /**
    * Detect if active provider is installed
    */
   async detectActiveProvider(): Promise<boolean> {
+    await this.ensureInit()
     try {
       await fs.access(this.claudeConfigPath)
       return true
@@ -372,7 +379,7 @@ export class CommandInstaller {
   async installCommands(): Promise<InstallResult> {
     const providerDetected = await this.detectActiveProvider()
     const aiProvider = require('./ai-provider')
-    const activeProvider = aiProvider.getActiveProvider()
+    const activeProvider = await aiProvider.getActiveProvider()
 
     if (!providerDetected) {
       return {
@@ -522,7 +529,8 @@ export class CommandInstaller {
   /**
    * Get installation path for Claude commands
    */
-  getInstallPath(): string {
+  async getInstallPath(): Promise<string> {
+    await this.ensureInit()
     return this.claudeCommandsPath
   }
 
@@ -548,7 +556,7 @@ export class CommandInstaller {
    */
   async installRouter(): Promise<boolean> {
     const aiProvider = require('./ai-provider')
-    const activeProvider = aiProvider.getActiveProvider()
+    const activeProvider = await aiProvider.getActiveProvider()
     const routerFile = activeProvider.name === 'gemini' ? 'p.toml' : 'p.md'
 
     try {
@@ -575,7 +583,7 @@ export class CommandInstaller {
    */
   async removeLegacyCommands(): Promise<number> {
     const aiProvider = require('./ai-provider')
-    const activeProvider = aiProvider.getActiveProvider()
+    const activeProvider = await aiProvider.getActiveProvider()
     const commandsRoot = path.join(activeProvider.configDir, 'commands')
 
     let removed = 0
