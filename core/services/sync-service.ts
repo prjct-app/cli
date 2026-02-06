@@ -17,6 +17,7 @@
 
 import { exec } from 'node:child_process'
 import fs from 'node:fs/promises'
+import os from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
 import {
@@ -26,15 +27,18 @@ import {
   type ProjectContext,
   resolveToolIds,
 } from '../ai-tools'
+import { getErrorMessage } from '../errors'
 import commandInstaller from '../infrastructure/command-installer'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import { metricsStorage } from '../storage/metrics-storage'
 import { type ContextSources, defaultSources, type SourceInfo } from '../utils/citations'
 import dateHelper from '../utils/date-helper'
+import log from '../utils/logger'
 import { ContextFileGenerator } from './context-generator'
 import type { SyncDiff } from './diff-generator'
 import { localStateGenerator } from './local-state-generator'
+import { skillInstaller } from './skill-installer'
 import { type StackDetection, StackDetector } from './stack-detector'
 import { syncVerifier, type VerificationReport } from './sync-verifier'
 
@@ -105,6 +109,7 @@ interface SyncResult {
   stack: StackDetection
   agents: AgentInfo[]
   skills: { agent: string; skill: string }[]
+  skillsInstalled: { name: string; agent: string; status: 'installed' | 'skipped' | 'error' }[]
   contextFiles: string[]
   aiTools: AIToolResult[]
   syncMetrics?: SyncMetrics
@@ -176,6 +181,7 @@ class SyncService {
           stack: this.emptyStack(),
           agents: [],
           skills: [],
+          skillsInstalled: [],
           contextFiles: [],
           aiTools: [],
           error: 'No prjct project. Run p. init first.',
@@ -203,6 +209,7 @@ class SyncService {
       // 4. Generate all files (depends on gathered data)
       const agents = await this.generateAgents(stack, stats)
       const skills = this.configureSkills(agents)
+      const skillsInstalled = await this.autoInstallSkills(agents)
       const sources = this.buildSources(stats, commands)
       const contextFiles = await this.generateContextFiles(git, stats, commands, agents, sources)
 
@@ -274,6 +281,7 @@ class SyncService {
         stack,
         agents,
         skills,
+        skillsInstalled,
         contextFiles,
         aiTools: aiToolResults.map((r) => ({
           toolId: r.toolId,
@@ -294,6 +302,7 @@ class SyncService {
         stack: this.emptyStack(),
         agents: [],
         skills: [],
+        skillsInstalled: [],
         contextFiles: [],
         aiTools: [],
         error: (error as Error).message,
@@ -798,6 +807,109 @@ You are the ${name} expert for this project. Apply best practices for the detect
     })
 
     return skills
+  }
+
+  // ==========================================================================
+  // SKILL AUTO-INSTALLATION
+  // ==========================================================================
+
+  /**
+   * Auto-install skills from skill-mappings.json for generated agents.
+   * Reads the mapping, checks which packages are needed, and installs missing ones.
+   */
+  private async autoInstallSkills(
+    agents: AgentInfo[]
+  ): Promise<{ name: string; agent: string; status: 'installed' | 'skipped' | 'error' }[]> {
+    const results: { name: string; agent: string; status: 'installed' | 'skipped' | 'error' }[] = []
+
+    try {
+      // Load skill mappings
+      const mappingsPath = path.join(
+        __dirname,
+        '..',
+        '..',
+        'templates',
+        'config',
+        'skill-mappings.json'
+      )
+      const mappingsContent = await fs.readFile(mappingsPath, 'utf-8')
+      const mappings = JSON.parse(mappingsContent)
+      const agentToSkillMap = mappings.agentToSkillMap || {}
+
+      // Collect all packages to install, grouped by agent
+      const packagesToInstall: { pkg: string; agent: string }[] = []
+      for (const agent of agents) {
+        const mapping = agentToSkillMap[agent.name]
+        if (mapping?.packages) {
+          for (const pkg of mapping.packages) {
+            packagesToInstall.push({ pkg, agent: agent.name })
+          }
+        }
+      }
+
+      if (packagesToInstall.length === 0) return results
+
+      // Install each package (check if already installed first)
+      const skillsDir = path.join(os.homedir(), '.claude', 'skills')
+      for (const { pkg, agent } of packagesToInstall) {
+        // Extract skill name from package path (e.g., "anthropics/skills/frontend-design" -> "frontend-design")
+        const skillName = pkg.split('/').pop() || pkg
+
+        // Check if already installed
+        const subdirPath = path.join(skillsDir, skillName, 'SKILL.md')
+        const flatPath = path.join(skillsDir, `${skillName}.md`)
+
+        let alreadyInstalled = false
+        try {
+          await fs.access(subdirPath)
+          alreadyInstalled = true
+        } catch {
+          try {
+            await fs.access(flatPath)
+            alreadyInstalled = true
+          } catch {
+            // Not installed
+          }
+        }
+
+        if (alreadyInstalled) {
+          results.push({ name: skillName, agent, status: 'skipped' })
+          continue
+        }
+
+        // Install via skillInstaller (supports owner/repo format)
+        try {
+          // Parse package as owner/repo or owner/repo@skill format
+          // "anthropics/skills/frontend-design" -> owner=anthropics, repo=skills, skill=frontend-design
+          const parts = pkg.split('/')
+          let installSource: string
+          if (parts.length === 3) {
+            // owner/repo/skill -> owner/repo@skill
+            installSource = `${parts[0]}/${parts[1]}@${parts[2]}`
+          } else {
+            installSource = pkg
+          }
+
+          const installResult = await skillInstaller.install(installSource)
+          if (installResult.installed.length > 0) {
+            results.push({ name: skillName, agent, status: 'installed' })
+            log.info(`Installed skill: ${skillName} for agent: ${agent}`)
+          } else if (installResult.errors.length > 0) {
+            results.push({ name: skillName, agent, status: 'error' })
+            log.debug(`Failed to install skill ${skillName}`, { errors: installResult.errors })
+          } else {
+            results.push({ name: skillName, agent, status: 'skipped' })
+          }
+        } catch (error) {
+          results.push({ name: skillName, agent, status: 'error' })
+          log.debug(`Skill install error for ${skillName}`, { error: getErrorMessage(error) })
+        }
+      }
+    } catch (error) {
+      log.debug('Skill auto-installation failed (non-critical)', { error: getErrorMessage(error) })
+    }
+
+    return results
   }
 
   // ==========================================================================

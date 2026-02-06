@@ -84,6 +84,9 @@ export interface AgentPerformanceSummary {
  * Agent representation - from simple file to full metadata.
  * Only name and content are required for basic loading.
  */
+/** Effort level hint for Claude's adaptive reasoning depth */
+export type AgentEffort = 'low' | 'medium' | 'high' | 'max'
+
 export interface Agent {
   name: string
   content: string
@@ -91,6 +94,8 @@ export interface Agent {
   role?: string | null
   domain?: string | null
   skills?: string[]
+  effort?: AgentEffort
+  model?: string
   modified?: Date
 }
 

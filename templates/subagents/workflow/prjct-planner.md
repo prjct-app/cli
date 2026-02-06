@@ -2,7 +2,8 @@
 name: prjct-planner
 description: Planning agent for /p:feature, /p:idea, /p:spec, /p:bug tasks. Use PROACTIVELY when user discusses features, ideas, specs, or bugs.
 tools: Read, Write, Glob, Grep
-model: sonnet
+model: opus
+effort: high
 skills: [feature-dev]
 ---
 

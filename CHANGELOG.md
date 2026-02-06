@@ -1,5 +1,40 @@
 # Changelog
 
+## [1.6.0] - 2026-02-06
+
+### Features
+
+- **Skills.sh auto-install**: During `prjct sync`, skills from skills.sh are automatically installed for generated agents. Real packages like `anthropics/skills/frontend-design`, `obra/superpowers/systematic-debugging`, and `obra/superpowers/test-driven-development` are mapped per agent domain.
+- **Proactive codebase context**: The orchestrator now gathers real context before agent execution — git state, relevant files (scored by task relevance), code signatures from top files, and recently changed files. Agents start with a complete briefing instead of exploring first.
+- **Effort/model metadata wiring**: Agent frontmatter `effort` and `model` fields are now extracted and injected into prompts, enabling per-agent reasoning depth control.
+
+### Improved
+
+- **Skill loading warnings**: Missing skills now log visible warnings with the agent that needs them and a hint to run `prjct sync`
+- **Skill content in prompts**: Increased skill content truncation from 1000 to 2000 characters for richer context
+- **Skill mappings v3**: Updated `skill-mappings.json` from generic names to real installable skills.sh packages
+
+### Implementation Details
+
+- `sync-service.ts`: New `autoInstallSkills()` method reads `skill-mappings.json`, checks if each skill is installed, and calls `skillInstaller.install()` for missing ones
+- `orchestrator-executor.ts`: New `gatherRealContext()` calls `findRelevantFiles()`, `getRecentFiles()`, and `extractSignatures()` in parallel to build a proactive briefing
+- `prompt-builder.ts`: New "CODEBASE CONTEXT" section with git state, relevant files table, code signatures, and recently changed files; plus effort/model per agent
+- `agent-loader.ts`: New `extractFrontmatterMeta()` parses YAML frontmatter for effort/model fields
+- `agentic.ts`: New `RealCodebaseContext` interface; `LoadedAgent` extended with `effort?` and `model?`
+
+### Test Plan
+
+#### For QA
+1. Run `prjct sync` — verify skills auto-install (check `~/.claude/skills/`)
+2. Run `p. task "test"` — verify prompt includes git state, relevant files, signatures, effort/model
+3. Verify warnings for missing skills
+4. Build and all 416 tests pass
+
+#### For Users
+**What changed:** Agents receive proactive codebase context before starting work. Skills auto-install during sync.
+**How to use:** No action needed — automatic during `prjct sync` and `p. task`.
+**Breaking changes:** None
+
 ## [1.5.2] - 2026-02-06
 
 ### Improved

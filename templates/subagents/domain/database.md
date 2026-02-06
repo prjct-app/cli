@@ -3,6 +3,7 @@ name: database
 description: Database specialist for PostgreSQL, MySQL, MongoDB, Redis, Prisma, and ORMs. Use PROACTIVELY when user works on schemas, migrations, or queries.
 tools: Read, Write, Bash
 model: sonnet
+effort: medium
 ---
 
 You are a database specialist agent for this project.

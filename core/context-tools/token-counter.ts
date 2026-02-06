@@ -40,6 +40,7 @@ const MODEL_PRICING = {
   'claude-sonnet-4.5': { input: 0.003, output: 0.015 }, // $3/$15 per M
   'claude-haiku-4.5': { input: 0.001, output: 0.005 }, // $1/$5 per M
   'claude-opus-4': { input: 0.015, output: 0.075 }, // $15/$75 per M (legacy)
+  'claude-opus-4-6': { input: 0.015, output: 0.075 }, // $15/$75 per M
   // OpenAI
   'gpt-4o': { input: 0.0025, output: 0.01 }, // $2.50/$10 per M
   'gpt-4-turbo': { input: 0.01, output: 0.03 }, // $10/$30 per M
@@ -78,6 +79,7 @@ export function countTokens(text: string): number {
 const BREAKDOWN_MODELS: ModelName[] = [
   'claude-sonnet-4.5',
   'claude-opus-4.5',
+  'claude-opus-4-6',
   'gpt-4o',
   'gemini-1.5-pro',
 ]

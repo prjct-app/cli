@@ -3,6 +3,7 @@ name: testing
 description: Testing specialist for Bun test, Jest, Pytest, and testing libraries. Use PROACTIVELY when user works on tests, coverage, or test infrastructure.
 tools: Read, Write, Bash
 model: sonnet
+effort: medium
 skills: [developer-kit]
 ---
 
