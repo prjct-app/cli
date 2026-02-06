@@ -207,6 +207,7 @@ export class PlanningCommands extends PrjctCommandsBase {
     console.log('  Quick start:')
     console.log('    prjct sync     Update context after changes')
     console.log('    prjct task     Start working on a task')
+    console.log('    prjct hooks    Auto-sync on commit/checkout')
     console.log('')
 
     if (wizardResult) {

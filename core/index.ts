@@ -306,6 +306,7 @@ TERMINAL COMMANDS (this CLI)
   prjct setup            Reconfigure installations
   prjct sync             Sync project state
   prjct watch            Auto-sync on file changes (Ctrl+C to stop)
+  prjct hooks            Manage git hooks for auto-sync
   prjct doctor           Check system health and dependencies
 
 EXAMPLES

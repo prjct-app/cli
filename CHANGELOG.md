@@ -1,11 +1,59 @@
 # Changelog
 
+## [1.2.0] - 2026-02-05
+
+### Added
+
+- **Git hooks integration (PRJ-128)**: New `prjct hooks` command for auto-syncing context on commit and branch checkout
+
+### Implementation Details
+
+New `prjct hooks` CLI subcommand with three operations:
+- `prjct hooks install` — auto-detects hook manager (lefthook > husky > direct `.git/hooks/`) and installs post-commit + post-checkout hooks
+- `prjct hooks uninstall` — cleanly removes only prjct hooks, preserving existing hooks
+- `prjct hooks status` — shows active hooks, strategy, and available managers
+
+Hook scripts feature:
+- **Rate limiting** — 30-second lockfile prevents over-syncing on rapid commits
+- **Background execution** — hooks run `prjct sync` in background, never blocking git
+- **Branch-only checkout** — post-checkout only fires on branch switch, not file checkout
+- **Cross-platform** — handles macOS/Linux differences in `stat` and `md5` commands
+
+Supports three installation strategies:
+- **Lefthook** — adds `prjct-sync-*` commands to existing `lefthook.yml`
+- **Husky** — appends to existing `.husky/` hook scripts
+- **Direct** — writes to `.git/hooks/` as fallback
+
+Hook configuration saved to `project.json` for persistence across sessions.
+
+### Learnings
+
+- Strategy pattern works well for hook manager abstraction (detect → select → install)
+- `stat -f%m` (macOS) vs `stat -c%Y` (Linux) for file modification time
+- Lefthook section merging needs careful regex to avoid duplicates
+- `$3` parameter in post-checkout distinguishes branch checkout (1) from file checkout (0)
+
+### Test Plan
+
+#### For QA
+1. Run `prjct hooks status` — verify shows "Not installed" with available managers
+2. Run `prjct hooks install` — verify detects manager and installs hooks
+3. Run `prjct hooks status` — verify shows "Active"
+4. Make a git commit — verify sync runs in background
+5. Switch branches — verify post-checkout triggers sync
+6. Run `prjct hooks uninstall` — verify clean removal
+7. Run `bun run build && bun run typecheck` — zero errors
+
+#### For Users
+**What changed:** New `prjct hooks` command for automatic context syncing
+**How to use:** Run `prjct hooks install` in any prjct project
+**Breaking changes:** None
+
 ## [1.1.1] - 2026-02-06
 
 ### Bug Fixes
 
 - visual grouping with boxes and tables for structured output (PRJ-134) (#110)
-
 
 ## [1.1.1] - 2026-02-05
 

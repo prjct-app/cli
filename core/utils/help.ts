@@ -44,6 +44,12 @@ const TERMINAL_COMMANDS = [
     options: ['--verbose', '--debounce=<ms>', '--interval=<sec>'],
   },
   {
+    name: 'hooks',
+    description: 'Manage git hooks for auto-sync',
+    example: 'prjct hooks install',
+    subcommands: ['install', 'uninstall', 'status'],
+  },
+  {
     name: 'doctor',
     description: 'Check system health and dependencies',
     example: 'prjct doctor',
