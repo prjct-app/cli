@@ -11,13 +11,16 @@
  * Source: Devin, Cursor, Augment Code patterns
  */
 
-import { execSync } from 'node:child_process'
+import { exec } from 'node:child_process'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { promisify } from 'node:util'
 
 import type { GroundTruthContext, VerificationResult, Verifier } from '../types'
 import { isNotFoundError } from '../types/fs'
+
+const execAsync = promisify(exec)
 
 // =============================================================================
 // Utilities
@@ -163,9 +166,8 @@ export async function verifyShip(context: GroundTruthContext): Promise<Verificat
 
   // 1. Check for uncommitted changes
   try {
-    const gitStatus = execSync('git status --porcelain', {
+    const { stdout: gitStatus } = await execAsync('git status --porcelain', {
       cwd: context.projectPath,
-      encoding: 'utf-8',
     })
     actual.hasUncommittedChanges = gitStatus.trim().length > 0
     actual.uncommittedFiles = gitStatus.trim().split('\n').filter(Boolean).length

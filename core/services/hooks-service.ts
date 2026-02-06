@@ -11,7 +11,6 @@
  * @module services/hooks-service
  */
 
-import { execSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import chalk from 'chalk'
@@ -209,7 +208,7 @@ ${sectionName}:
       )
     } else {
       // Append new section
-      content = content.trimEnd() + '\n' + hookBlock
+      content = `${content.trimEnd()}\n${hookBlock}`
     }
   }
 
@@ -262,7 +261,7 @@ function installDirect(projectPath: string, hooks: HookName[]): boolean {
         continue // Already installed
       }
       // Append to existing hook
-      fs.appendFileSync(hookPath, '\n# prjct auto-sync\n' + script.split('\n').slice(1).join('\n'))
+      fs.appendFileSync(hookPath, `\n# prjct auto-sync\n${script.split('\n').slice(1).join('\n')}`)
     } else {
       fs.writeFileSync(hookPath, script, { mode: 0o755 })
     }
@@ -291,7 +290,7 @@ function uninstallLefthook(projectPath: string): boolean {
   // Clean up empty sections
   content = content.replace(/^(post-commit|post-checkout):\s*commands:\s*$/gm, '')
 
-  fs.writeFileSync(configPath, content.trimEnd() + '\n', 'utf-8')
+  fs.writeFileSync(configPath, `${content.trimEnd()}\n`, 'utf-8')
   return true
 }
 
