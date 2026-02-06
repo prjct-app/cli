@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.6.1] - 2026-02-06
+
+### Bug Fixes
+
+- **Replace console.error with logger in bus.ts**: Event bus now uses the centralized `log` module instead of raw `console.error` for error logging. Silent catch block in `logEvent()` now logs at debug level with `getErrorMessage()` context. Production remains quiet by default; enable with `PRJCT_DEBUG=1`.
+
+### Test Plan
+
+#### For QA
+1. Run `PRJCT_DEBUG=1 bun test` — verify bus errors appear with `[prjct:error]` prefix
+2. Run `bun test` (no debug) — verify bus errors are silent by default
+3. Trigger a listener error — verify it logs via logger, not console.error
+
+#### For Users
+- **What changed:** Error logging in event bus uses centralized logger
+- **How to use:** `PRJCT_DEBUG=1` to see bus errors; quiet by default
+- **Breaking changes:** None
+
 ## [1.6.0] - 2026-02-06
 
 ### Features
