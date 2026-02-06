@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0] - 2026-02-06
+
+### Features
+
+- add citation format for context sources in templates (PRJ-113) (#117)
+
+
 ## [1.4.2] - 2026-02-06
 
 ### Features
