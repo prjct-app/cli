@@ -4,6 +4,13 @@
 
 ### Bug Fixes
 
+- replace console.error with logger in bus.ts (PRJ-72) (#122)
+
+
+## [1.6.1] - 2026-02-06
+
+### Bug Fixes
+
 - **Replace console.error with logger in bus.ts**: Event bus now uses the centralized `log` module instead of raw `console.error` for error logging. Silent catch block in `logEvent()` now logs at debug level with `getErrorMessage()` context. Production remains quiet by default; enable with `PRJCT_DEBUG=1`.
 
 ### Test Plan
