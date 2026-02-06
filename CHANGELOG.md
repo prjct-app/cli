@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.5.3] - 2026-02-06
+
+### Bug Fixes
+- **Add context to silent catch blocks in sync-service.ts** (PRJ-80): All 15 silent catch blocks now log at debug level with operation context (file path, method name, error message)
+
+### Implementation Details
+- Imported `logger` from `core/utils/logger.ts` and `getErrorMessage` from `core/errors.ts`
+- Replaced all bare `catch {}` blocks with `catch (error) { log.debug(message, { context }) }`
+- Replaced one `console.error` + `(error as Error).message` pattern with `log.debug` + `getErrorMessage`
+- Production stays quiet by default; set `PRJCT_DEBUG=debug` to see error context
+
+### Test Plan
+
+#### For QA
+1. Run `PRJCT_DEBUG=debug prjct sync` — verify debug output shows catch block context (file paths, operation names, error messages)
+2. Run `prjct sync` without `PRJCT_DEBUG` — verify zero extra output (production stays quiet)
+3. Run `bun test` — verify all 416 tests still pass
+4. Trigger an error path (e.g. remove `package.json` temporarily) and verify debug log includes the path and error message
+
+#### For Users
+**What changed:** Silent catch blocks in sync-service.ts now log at debug level with operation context
+**How to use:** Set `PRJCT_DEBUG=debug` to see detailed error context during sync
+**Breaking changes:** None
+
 ## [1.5.2] - 2026-02-06
 
 ### Improved
