@@ -35,6 +35,7 @@ import { ContextFileGenerator } from './context-generator'
 import type { SyncDiff } from './diff-generator'
 import { localStateGenerator } from './local-state-generator'
 import { type StackDetection, StackDetector } from './stack-detector'
+import { syncVerifier, type VerificationReport } from './sync-verifier'
 
 const execAsync = promisify(exec)
 
@@ -106,6 +107,7 @@ interface SyncResult {
   contextFiles: string[]
   aiTools: AIToolResult[]
   syncMetrics?: SyncMetrics
+  verification?: VerificationReport
   error?: string
   // Preview mode fields
   isPreview?: boolean
@@ -246,6 +248,19 @@ class SyncService {
       await commandInstaller.installGlobalConfig()
       await commandInstaller.syncCommands()
 
+      // 11. Run verification checks (built-in + custom from config)
+      let verification: VerificationReport | undefined
+      try {
+        const localConfig = await configManager.readConfig(this.projectPath)
+        verification = await syncVerifier.verify(
+          this.projectPath,
+          this.globalPath,
+          localConfig?.verification
+        )
+      } catch {
+        // Verification is non-critical — don't fail sync
+      }
+
       return {
         success: true,
         projectId: this.projectId,
@@ -263,6 +278,7 @@ class SyncService {
           success: r.success,
         })),
         syncMetrics,
+        verification,
       }
     } catch (error) {
       return {

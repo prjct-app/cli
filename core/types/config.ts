@@ -18,6 +18,20 @@ export interface LocalConfig {
    * @see PRJ-70
    */
   showMetrics?: boolean
+  /**
+   * Verification checks to run after sync.
+   * Built-in checks always run; custom checks are additive.
+   * @see PRJ-106
+   */
+  verification?: {
+    checks?: Array<{
+      name: string
+      command?: string
+      script?: string
+      enabled?: boolean
+    }>
+    failFast?: boolean
+  }
 }
 
 /**

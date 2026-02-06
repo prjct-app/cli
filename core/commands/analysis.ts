@@ -530,6 +530,28 @@ export class AnalysisCommands extends PrjctCommandsBase {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
+    // VERIFICATION - Post-sync validation checks
+    // ═══════════════════════════════════════════════════════════════════════
+    if (result.verification) {
+      const v = result.verification
+      if (v.passed) {
+        const items = v.checks.map((c) => `${c.name} (${c.durationMs}ms)`)
+        out.section('Verified')
+        out.list(items, { bullet: '✓' })
+      } else {
+        out.section('Verification')
+        const items = v.checks.map((c) =>
+          c.passed ? `✓ ${c.name}` : `✗ ${c.name}${c.error ? ` — ${c.error}` : ''}`
+        )
+        out.list(items)
+        if (v.skippedCount > 0) {
+          out.warn(`${v.skippedCount} check(s) skipped (fail-fast)`)
+        }
+      }
+      console.log('')
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // NEXT STEPS - Clear call to action
     // ═══════════════════════════════════════════════════════════════════════
     showNextSteps('sync')
