@@ -13,6 +13,8 @@ import path from 'node:path'
 import chalk from 'chalk'
 import type { CommandMeta } from './commands/registry'
 import { detectAllProviders, detectAntigravity } from './infrastructure/ai-provider'
+import configManager from './infrastructure/config-manager'
+import { sessionTracker } from './services/session-tracker'
 import out from './utils/output'
 
 interface ParsedCommandArgs {
@@ -78,6 +80,19 @@ async function main(): Promise<void> {
 
     // 4. Parse arguments
     const { parsedArgs, options } = parseCommandArgs(cmd, rawArgs)
+
+    // 4.5. Session tracking — touch/create session before command execution
+    let projectId: string | null = null
+    const commandStartTime = Date.now()
+    try {
+      projectId = await configManager.getProjectId(process.cwd())
+      if (projectId) {
+        await sessionTracker.expireIfStale(projectId)
+        await sessionTracker.touch(projectId)
+      }
+    } catch {
+      // Session tracking is non-critical — silent fail
+    }
 
     // 5. Instantiate commands handler
     const commands = new PrjctCommands()
@@ -149,7 +164,17 @@ async function main(): Promise<void> {
       }
     }
 
-    // 7. Display result
+    // 7. Track command in session
+    if (projectId) {
+      const durationMs = Date.now() - commandStartTime
+      try {
+        await sessionTracker.trackCommand(projectId, commandName, durationMs)
+      } catch {
+        // Non-critical
+      }
+    }
+
+    // 8. Display result
     if (result?.message) {
       console.log(result.message)
     }
