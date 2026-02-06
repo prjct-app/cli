@@ -12,6 +12,7 @@ import { Hono } from 'hono'
 import * as jsonc from 'jsonc-parser'
 import pathManager from '../infrastructure/path-manager'
 import { isNotFoundError } from '../types/fs'
+import log from '../utils/logger'
 
 // Storage paths relative to project data directory
 const STORAGE_PATHS = {
@@ -34,7 +35,7 @@ async function readJsonFile<T>(filePath: string): Promise<T | null> {
   } catch (error) {
     // ENOENT or parse error - expected for new projects
     if (!isNotFoundError(error) && !(error instanceof SyntaxError)) {
-      console.error(`JSON read error: ${(error as Error).message}`)
+      log.error(`JSON read error: ${(error as Error).message}`)
     }
     return null
   }
@@ -49,7 +50,7 @@ async function writeJsonFile(filePath: string, data: unknown): Promise<boolean> 
     await fs.writeFile(filePath, `${JSON.stringify(data, null, 2)}\n`, 'utf-8')
     return true
   } catch (error) {
-    console.error(`JSON write error: ${(error as Error).message}`)
+    log.error(`JSON write error: ${(error as Error).message}`)
     return false
   }
 }
@@ -165,7 +166,7 @@ export function createRoutes(projectId: string, _projectPath: string): Hono {
     } catch (error) {
       // ENOENT - context file doesn't exist yet (expected)
       if (!isNotFoundError(error)) {
-        console.error(`Context read error: ${(error as Error).message}`)
+        log.error(`Context read error: ${(error as Error).message}`)
       }
       return c.text('', 200, { 'Content-Type': 'text/markdown' })
     }

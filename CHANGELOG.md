@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.4] - 2026-02-06
+
+### Bug Fixes
+
+- **Replace console.error with logger in routes.ts**: Server routes now use the centralized `log` module instead of raw `console.error` for JSON read/write and context read errors. Production remains quiet by default; enable with `PRJCT_DEBUG=1`.
+
 ## [1.6.3] - 2026-02-06
 
 ### Improvements
