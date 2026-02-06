@@ -4,6 +4,13 @@
 
 ### Features
 
+- super context for agents — skills.sh, proactive codebase context, effort/model (#121)
+
+
+## [1.6.0] - 2026-02-06
+
+### Features
+
 - **Skills.sh auto-install**: During `prjct sync`, skills from skills.sh are automatically installed for generated agents. Real packages like `anthropics/skills/frontend-design`, `obra/superpowers/systematic-debugging`, and `obra/superpowers/test-driven-development` are mapped per agent domain.
 - **Proactive codebase context**: The orchestrator now gathers real context before agent execution — git state, relevant files (scored by task relevance), code signatures from top files, and recently changed files. Agents start with a complete briefing instead of exploring first.
 - **Effort/model metadata wiring**: Agent frontmatter `effort` and `model` fields are now extracted and injected into prompts, enabling per-agent reasoning depth control.
