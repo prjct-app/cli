@@ -347,8 +347,18 @@ export class AnalysisCommands extends PrjctCommandsBase {
           return { success: true, message: 'No changes' }
         }
 
+        // Helper to restore original CLAUDE.md (undo sync's write)
+        const restoreOriginal = async () => {
+          if (existingContent != null) {
+            await fs.writeFile(claudeMdPath, existingContent, 'utf-8')
+          }
+        }
+
         // Non-interactive mode: return JSON for LLM to handle
         if (isNonInteractive) {
+          // Restore original — LLM will call `prjct sync --yes` to apply
+          await restoreOriginal()
+
           // Build a plain-text diff summary for LLM to show user
           const diffSummary = {
             added: diff.added.map((s) => ({ name: s.name, lineCount: s.lineCount })),
@@ -388,8 +398,9 @@ export class AnalysisCommands extends PrjctCommandsBase {
         // Show diff preview (interactive mode)
         console.log(formatDiffPreview(diff))
 
-        // Preview-only mode - don't apply
+        // Preview-only mode (--preview / --dry-run) - restore and don't apply
         if (options.preview) {
+          await restoreOriginal()
           return {
             success: true,
             isPreview: true,
@@ -411,7 +422,8 @@ export class AnalysisCommands extends PrjctCommandsBase {
         })
 
         if (response.action === 'cancel' || !response.action) {
-          out.warn('Sync cancelled')
+          await restoreOriginal()
+          out.warn('Sync cancelled — no changes applied')
           return { success: false, message: 'Cancelled by user' }
         }
 
@@ -424,12 +436,13 @@ export class AnalysisCommands extends PrjctCommandsBase {
             initial: true,
           })
           if (!confirm.apply) {
-            out.warn('Sync cancelled')
+            await restoreOriginal()
+            out.warn('Sync cancelled — no changes applied')
             return { success: false, message: 'Cancelled by user' }
           }
         }
 
-        // Changes already applied from dry-run, just show success
+        // User approved — changes already applied by sync
         out.done('Changes applied')
         return this.showSyncResult(result, startTime)
       }
