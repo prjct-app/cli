@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.1] - 2026-02-06
+
+### Bug Fixes
+
+- replace raw ANSI codes with chalk library (PRJ-132) (#111)
+- replace raw ANSI codes with chalk library (PRJ-132)
+
+
 ## [1.2.0] - 2026-02-06
 
 ### Features
