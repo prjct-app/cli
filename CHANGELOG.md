@@ -1,5 +1,53 @@
 # Changelog
 
+## [1.3.1] - 2026-02-06
+
+### Features
+
+- **Programmatic verification checks for sync workflow (PRJ-106)**: Post-sync validation with built-in and custom checks
+
+### Implementation Details
+
+New `SyncVerifier` service (`core/services/sync-verifier.ts`) that runs verification checks after every sync. Three built-in checks run automatically:
+- **Context files exist** — verifies `context/CLAUDE.md` was generated
+- **JSON files valid** — validates `storage/state.json` syntax
+- **No sensitive data** — scans context files for leaked API keys, passwords, secrets
+
+Custom checks configurable in `.prjct/prjct.config.json`:
+```json
+{
+  "verification": {
+    "checks": [
+      { "name": "Lint CLAUDE.md", "command": "npx markdownlint CLAUDE.md" },
+      { "name": "Custom validator", "script": ".prjct/verify.sh" }
+    ],
+    "failFast": false
+  }
+}
+```
+
+Integration: wired into `sync-service.ts` after file generation (step 11), results returned in `SyncResult.verification`. Display in `showSyncResult()` shows pass/fail per check with timing.
+
+### Learnings
+
+- Non-critical verification must be wrapped in try/catch so it never breaks the sync workflow
+- Config types must match optional fields between `LocalConfig` and `VerificationConfig` (both `checks` must be optional)
+- Built-in + custom extensibility pattern (always run built-ins, then user commands) provides good defaults with flexibility
+
+### Test Plan
+
+#### For QA
+1. Run `prjct sync --yes` — verify "Verified" section with 3 checks passing
+2. Add custom check to `.prjct/prjct.config.json` — verify it runs after sync
+3. Add failing custom check (`command: "exit 1"`) — verify `✗` with error
+4. Set `failFast: true` with failing check — verify remaining checks skipped
+5. Run `bun run build && bun run typecheck` — zero errors
+
+#### For Users
+**What changed:** `prjct sync` now validates generated output with pass/fail checks
+**How to use:** Built-in checks run automatically. Add custom checks in `.prjct/prjct.config.json`
+**Breaking changes:** None
+
 ## [1.3.0] - 2026-02-06
 
 ### Features
