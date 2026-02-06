@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0] - 2026-02-06
+
+### Features
+
+- git hooks integration for auto-sync (PRJ-128) (#112)
+
+
 ## [1.2.0] - 2026-02-05
 
 ### Added
