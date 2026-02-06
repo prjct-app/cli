@@ -8,13 +8,14 @@
  * 4. Installs routers and global config
  */
 
-import fs from 'node:fs'
+import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import readline from 'node:readline'
 import chalk from 'chalk'
 import { detectAllProviders, Providers } from '../infrastructure/ai-provider'
 import type { AIProviderName } from '../types/provider'
+import { fileExists } from '../utils/fs-helpers'
 import { VERSION } from '../utils/version'
 
 // True color gradient (cyan -> blue -> purple -> pink)
@@ -93,7 +94,7 @@ function showProviderSelection(options: ProviderOption[], currentIndex: number):
  * Interactive provider selection (with fallback for non-TTY)
  */
 async function selectProviders(): Promise<AIProviderName[]> {
-  const detection = detectAllProviders()
+  const detection = await detectAllProviders()
 
   const options: ProviderOption[] = [
     {
@@ -197,7 +198,7 @@ async function installRouter(provider: AIProviderName): Promise<boolean> {
   try {
     // Create commands directory
     const commandsDir = path.join(config.configDir, 'commands')
-    fs.mkdirSync(commandsDir, { recursive: true })
+    await fs.mkdir(commandsDir, { recursive: true })
 
     // Find package root (where templates are)
     const { getPackageRoot } = await import('../utils/version')
@@ -208,8 +209,8 @@ async function installRouter(provider: AIProviderName): Promise<boolean> {
     const src = path.join(packageRoot, 'templates', 'commands', routerFile)
     const dest = path.join(commandsDir, routerFile)
 
-    if (fs.existsSync(src)) {
-      fs.copyFileSync(src, dest)
+    if (await fileExists(src)) {
+      await fs.copyFile(src, dest)
       return true
     }
 
@@ -236,7 +237,7 @@ async function installGlobalConfig(provider: AIProviderName): Promise<boolean> {
 
   try {
     // Ensure config directory exists
-    fs.mkdirSync(config.configDir, { recursive: true })
+    await fs.mkdir(config.configDir, { recursive: true })
 
     // Find package root
     const { getPackageRoot } = await import('../utils/version')
@@ -247,12 +248,12 @@ async function installGlobalConfig(provider: AIProviderName): Promise<boolean> {
     const src = path.join(packageRoot, 'templates', 'global', configFile)
     const dest = path.join(config.configDir, configFile)
 
-    if (fs.existsSync(src)) {
-      const content = fs.readFileSync(src, 'utf-8')
+    if (await fileExists(src)) {
+      const content = await fs.readFile(src, 'utf-8')
 
       // Check if file exists and has our markers
-      if (fs.existsSync(dest)) {
-        const existing = fs.readFileSync(dest, 'utf-8')
+      if (await fileExists(dest)) {
+        const existing = await fs.readFile(dest, 'utf-8')
         const startMarker = '<!-- prjct:start - DO NOT REMOVE THIS MARKER -->'
         const endMarker = '<!-- prjct:end - DO NOT REMOVE THIS MARKER -->'
 
@@ -264,14 +265,14 @@ async function installGlobalConfig(provider: AIProviderName): Promise<boolean> {
             content.indexOf(startMarker),
             content.indexOf(endMarker) + endMarker.length
           )
-          fs.writeFileSync(dest, before + prjctSection + after)
+          await fs.writeFile(dest, before + prjctSection + after)
         } else {
           // Append
-          fs.writeFileSync(dest, `${existing}\n\n${content}`)
+          await fs.writeFile(dest, `${existing}\n\n${content}`)
         }
       } else {
         // Create new
-        fs.writeFileSync(dest, content)
+        await fs.writeFile(dest, content)
       }
 
       return true
@@ -291,7 +292,7 @@ async function installGlobalConfig(provider: AIProviderName): Promise<boolean> {
  */
 async function saveSetupConfig(providers: AIProviderName[]): Promise<void> {
   const configDir = path.join(os.homedir(), '.prjct-cli', 'config')
-  fs.mkdirSync(configDir, { recursive: true })
+  await fs.mkdir(configDir, { recursive: true })
 
   const configPath = path.join(configDir, 'installed-editors.json')
   const config = {
@@ -303,7 +304,7 @@ async function saveSetupConfig(providers: AIProviderName[]): Promise<void> {
     path: path.join(os.homedir(), `.${providers[0]}`, 'commands'),
   }
 
-  fs.writeFileSync(configPath, JSON.stringify(config, null, 2))
+  await fs.writeFile(configPath, JSON.stringify(config, null, 2))
 }
 
 /**
@@ -342,8 +343,8 @@ export async function runStart(): Promise<void> {
 
   // Check if already configured
   const configPath = path.join(os.homedir(), '.prjct-cli', 'config', 'installed-editors.json')
-  if (fs.existsSync(configPath)) {
-    const existing = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+  if (await fileExists(configPath)) {
+    const existing = JSON.parse(await fs.readFile(configPath, 'utf-8'))
     if (existing.version === VERSION) {
       console.log(`  ${chalk.yellow('ℹ')} Already configured for v${VERSION}`)
       console.log(`  ${chalk.dim('Run with --force to reconfigure')}\n`)

@@ -96,7 +96,7 @@ describe('PromptBuilder', () => {
   })
 
   describe('Context Filtering by Command Type', () => {
-    it('should include patterns for code commands', () => {
+    it('should include patterns for code commands', async () => {
       const template = {
         frontmatter: { description: 'Build feature', name: 'p:build' },
         content: '## Flow\nBuild something',
@@ -105,13 +105,13 @@ describe('PromptBuilder', () => {
       const context = { projectPath: '/test', files: ['file1.js'] }
       const state = { analysis: 'Stack: Node.js, React' }
 
-      const prompt = builder.build(template, context, state)
+      const prompt = await builder.build(template, context, state)
 
       expect(prompt).toContain('PATTERNS')
       expect(prompt).toContain('Node.js')
     })
 
-    it('should NOT include patterns for non-code commands', () => {
+    it('should NOT include patterns for non-code commands', async () => {
       const template = {
         frontmatter: { description: 'Show current task', name: 'p:now' },
         content: '## Flow\nShow task',
@@ -120,14 +120,14 @@ describe('PromptBuilder', () => {
       const context = { projectPath: '/test', files: ['file1.js'] }
       const state = { analysis: 'Stack: Node.js, React' }
 
-      const prompt = builder.build(template, context, state)
+      const prompt = await builder.build(template, context, state)
 
       expect(prompt).not.toContain('## PATTERNS')
     })
   })
 
   describe('Project Files Listing', () => {
-    it('should list available files when context has files', () => {
+    it('should list available files when context has files', async () => {
       const template = {
         frontmatter: { description: 'Test command' },
         content: '## Flow\nDo something',
@@ -140,7 +140,7 @@ describe('PromptBuilder', () => {
 
       const state = {}
 
-      const prompt = builder.build(template, context, state)
+      const prompt = await builder.build(template, context, state)
 
       expect(prompt).toContain('## FILES:')
       expect(prompt).toContain('3 available')
@@ -148,7 +148,7 @@ describe('PromptBuilder', () => {
       expect(prompt).toContain('Read')
     })
 
-    it('should show project path when no files listed', () => {
+    it('should show project path when no files listed', async () => {
       const template = {
         frontmatter: { description: 'Test command' },
         content: '## Flow\nDo something',
@@ -157,7 +157,7 @@ describe('PromptBuilder', () => {
       const context = { projectPath: '/test/project' }
       const state = {}
 
-      const prompt = builder.build(template, context, state)
+      const prompt = await builder.build(template, context, state)
 
       expect(prompt).toContain('## PROJECT:')
       expect(prompt).toContain('/test/project')
@@ -165,7 +165,7 @@ describe('PromptBuilder', () => {
   })
 
   describe('Build Complete Prompt', () => {
-    it('should include all critical sections', () => {
+    it('should include all critical sections', async () => {
       const template = {
         frontmatter: {
           description: 'Test command',
@@ -182,7 +182,7 @@ describe('PromptBuilder', () => {
 
       const state = { now: '# NOW\n\n**Current task**' }
 
-      const prompt = builder.build(template, context, state)
+      const prompt = await builder.build(template, context, state)
 
       expect(prompt).toContain('TASK:')
       expect(prompt).toContain('TOOLS:')
@@ -191,7 +191,7 @@ describe('PromptBuilder', () => {
       expect(prompt).toContain('## FILES:')
     })
 
-    it('should be concise (under 2000 chars for simple prompt)', () => {
+    it('should be concise (under 2000 chars for simple prompt)', async () => {
       const template = {
         frontmatter: { description: 'Test', 'allowed-tools': ['Read'] },
         content: '## Flow\n1. Test',
@@ -200,14 +200,14 @@ describe('PromptBuilder', () => {
       const context = { projectPath: '/test', files: ['a.js'] }
       const state = {}
 
-      const prompt = builder.build(template, context, state)
+      const prompt = await builder.build(template, context, state)
 
       expect(prompt.length).toBeLessThan(2000)
     })
   })
 
   describe('Plan Mode (Compressed)', () => {
-    it('should include compact plan mode instructions', () => {
+    it('should include compact plan mode instructions', async () => {
       const template = {
         frontmatter: { description: 'Test' },
         content: '## Flow\nTest',
@@ -217,14 +217,14 @@ describe('PromptBuilder', () => {
       const state = {}
       const planInfo = { isPlanning: true, allowedTools: ['Read', 'Glob'] }
 
-      const prompt = builder.build(template, context, state, null, null, null, null, planInfo)
+      const prompt = await builder.build(template, context, state, null, null, null, null, planInfo)
 
       expect(prompt).toContain('PLAN MODE')
       expect(prompt).toContain('Read-only')
       expect(prompt).toContain('Tools: Read, Glob')
     })
 
-    it('should include approval required section', () => {
+    it('should include approval required section', async () => {
       const template = {
         frontmatter: { description: 'Test' },
         content: '## Flow\nTest',
@@ -234,7 +234,7 @@ describe('PromptBuilder', () => {
       const state = {}
       const planInfo = { requiresApproval: true }
 
-      const prompt = builder.build(template, context, state, null, null, null, null, planInfo)
+      const prompt = await builder.build(template, context, state, null, null, null, null, planInfo)
 
       expect(prompt).toContain('APPROVAL REQUIRED')
       expect(prompt).toContain('confirmation')

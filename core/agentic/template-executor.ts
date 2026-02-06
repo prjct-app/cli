@@ -89,7 +89,7 @@ export class TemplateExecutor {
     const projectId = await this.getProjectId(projectPath)
     const globalPath = pathManager.getGlobalProjectPath(projectId)
     const aiProvider = require('../infrastructure/ai-provider')
-    const activeProvider = aiProvider.getActiveProvider()
+    const activeProvider = await aiProvider.getActiveProvider()
 
     // Get templates directory - use local path during development
     let templatesDir: string
@@ -108,7 +108,7 @@ export class TemplateExecutor {
       command,
       args,
       agentName: activeProvider.displayName,
-      agentSettingsPath: pathManager.getAgentSettingsPath(),
+      agentSettingsPath: await pathManager.getAgentSettingsPath(),
       paths: {
         orchestrator: path.join(templatesDir, 'agentic', 'orchestrator.md'),
         agentRouting: path.join(templatesDir, 'agentic', 'agent-routing.md'),

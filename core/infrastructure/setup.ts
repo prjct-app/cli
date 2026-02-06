@@ -18,7 +18,7 @@
  */
 
 import { execSync } from 'node:child_process'
-import fs from 'node:fs'
+import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import chalk from 'chalk'
@@ -26,6 +26,7 @@ import { getTimeout } from '../constants'
 import { dependencyValidator } from '../services/dependency-validator'
 import { isNotFoundError } from '../types/fs'
 import type { AIProviderConfig, AIProviderName } from '../types/provider'
+import { fileExists } from '../utils/fs-helpers'
 import { getPackageRoot, VERSION } from '../utils/version'
 import {
   detectAllProviders,
@@ -58,7 +59,7 @@ interface SetupResults {
  * Check if an AI CLI is installed
  */
 async function _hasAICLI(provider: AIProviderConfig): Promise<boolean> {
-  const detection = detectProvider(provider.name)
+  const detection = await detectProvider(provider.name)
   return detection.installed
 }
 
@@ -129,8 +130,8 @@ async function installAICLI(provider: AIProviderConfig): Promise<boolean> {
  */
 export async function run(): Promise<SetupResults> {
   // Step 0: Detect all available providers
-  const detection = detectAllProviders()
-  const selection = selectProvider()
+  const detection = await detectAllProviders()
+  const selection = await selectProvider()
   const _primaryProvider = Providers[selection.provider]
 
   const results: SetupResults = {
@@ -225,7 +226,7 @@ export async function run(): Promise<SetupResults> {
   }
 
   // Step 2b: Install for Antigravity if detected (separate from CLI providers)
-  const antigravityDetection = detectAntigravity()
+  const antigravityDetection = await detectAntigravity()
   if (antigravityDetection.installed) {
     const antigravityResult = await installAntigravitySkill()
     if (antigravityResult.success) {
@@ -234,7 +235,7 @@ export async function run(): Promise<SetupResults> {
   }
 
   // Step 3: Save version in editors-config
-  await editorsConfig.saveConfig(VERSION, installer.getInstallPath(), selection.provider)
+  await editorsConfig.saveConfig(VERSION, await installer.getInstallPath(), selection.provider)
 
   // Step 4: Migrate existing projects to add cliVersion
   await migrateProjectsCliVersion()
@@ -260,11 +261,11 @@ async function installGeminiRouter(): Promise<boolean> {
     const routerDest = path.join(geminiCommandsDir, 'p.toml')
 
     // Ensure commands directory exists
-    fs.mkdirSync(geminiCommandsDir, { recursive: true })
+    await fs.mkdir(geminiCommandsDir, { recursive: true })
 
     // Copy router
-    if (fs.existsSync(routerSource)) {
-      fs.copyFileSync(routerSource, routerDest)
+    if (await fileExists(routerSource)) {
+      await fs.copyFile(routerSource, routerDest)
       return true
     }
     return false
@@ -284,29 +285,29 @@ async function installGeminiGlobalConfig(): Promise<{ success: boolean; action: 
     const templatePath = path.join(getPackageRoot(), 'templates', 'global', 'GEMINI.md')
 
     // Ensure ~/.gemini directory exists
-    fs.mkdirSync(geminiDir, { recursive: true })
+    await fs.mkdir(geminiDir, { recursive: true })
 
     // Read template content
-    const templateContent = fs.readFileSync(templatePath, 'utf-8')
+    const templateContent = await fs.readFile(templatePath, 'utf-8')
 
     // Check if global config already exists
     let existingContent = ''
-    let fileExists = false
+    let configExists = false
 
     try {
-      existingContent = fs.readFileSync(globalConfigPath, 'utf-8')
-      fileExists = true
+      existingContent = await fs.readFile(globalConfigPath, 'utf-8')
+      configExists = true
     } catch (error) {
       if (isNotFoundError(error)) {
-        fileExists = false
+        configExists = false
       } else {
         throw error
       }
     }
 
-    if (!fileExists) {
+    if (!configExists) {
       // Create new file with full template
-      fs.writeFileSync(globalConfigPath, templateContent, 'utf-8')
+      await fs.writeFile(globalConfigPath, templateContent, 'utf-8')
       return { success: true, action: 'created' }
     }
 
@@ -319,7 +320,7 @@ async function installGeminiGlobalConfig(): Promise<{ success: boolean; action: 
     if (!hasMarkers) {
       // No markers - append prjct section at the end
       const updatedContent = `${existingContent}\n\n${templateContent}`
-      fs.writeFileSync(globalConfigPath, updatedContent, 'utf-8')
+      await fs.writeFile(globalConfigPath, updatedContent, 'utf-8')
       return { success: true, action: 'appended' }
     }
 
@@ -336,7 +337,7 @@ async function installGeminiGlobalConfig(): Promise<{ success: boolean; action: 
     )
 
     const updatedContent = beforeMarker + prjctSection + afterMarker
-    fs.writeFileSync(globalConfigPath, updatedContent, 'utf-8')
+    await fs.writeFile(globalConfigPath, updatedContent, 'utf-8')
     return { success: true, action: 'updated' }
   } catch (error) {
     console.error(`Gemini config warning: ${(error as Error).message}`)
@@ -365,23 +366,23 @@ export async function installAntigravitySkill(): Promise<{
     const templatePath = path.join(getPackageRoot(), 'templates', 'antigravity', 'SKILL.md')
 
     // Ensure skills directory exists
-    fs.mkdirSync(prjctSkillDir, { recursive: true })
+    await fs.mkdir(prjctSkillDir, { recursive: true })
 
     // Check if SKILL.md already exists
-    const fileExists = fs.existsSync(skillMdPath)
+    const skillExists = await fileExists(skillMdPath)
 
     // Read template content
-    if (!fs.existsSync(templatePath)) {
+    if (!(await fileExists(templatePath))) {
       console.error('Antigravity SKILL.md template not found')
       return { success: false, action: null }
     }
 
-    const templateContent = fs.readFileSync(templatePath, 'utf-8')
+    const templateContent = await fs.readFile(templatePath, 'utf-8')
 
     // Write SKILL.md
-    fs.writeFileSync(skillMdPath, templateContent, 'utf-8')
+    await fs.writeFile(skillMdPath, templateContent, 'utf-8')
 
-    return { success: true, action: fileExists ? 'updated' : 'created' }
+    return { success: true, action: skillExists ? 'updated' : 'created' }
   } catch (error) {
     console.error(`Antigravity skill warning: ${(error as Error).message}`)
     return { success: false, action: null }
@@ -391,8 +392,8 @@ export async function installAntigravitySkill(): Promise<{
 /**
  * Check if Antigravity skill needs installation or update
  */
-export function needsAntigravityInstallation(): boolean {
-  const detection = detectAntigravity()
+export async function needsAntigravityInstallation(): Promise<boolean> {
+  const detection = await detectAntigravity()
   return detection.installed && !detection.skillInstalled
 }
 
@@ -436,24 +437,24 @@ export async function installCursorProject(projectRoot: string): Promise<{
     const cursorCommandsSource = path.join(getPackageRoot(), 'templates', 'cursor', 'commands')
 
     // Ensure directories exist
-    fs.mkdirSync(rulesDir, { recursive: true })
-    fs.mkdirSync(commandsDir, { recursive: true })
+    await fs.mkdir(rulesDir, { recursive: true })
+    await fs.mkdir(commandsDir, { recursive: true })
 
     // Copy router.mdc → .cursor/rules/prjct.mdc
-    if (fs.existsSync(routerMdcSource)) {
-      fs.copyFileSync(routerMdcSource, routerMdcDest)
+    if (await fileExists(routerMdcSource)) {
+      await fs.copyFile(routerMdcSource, routerMdcDest)
       result.rulesCreated = true
     }
 
     // Copy individual command files → .cursor/commands/
     // This enables /sync, /task, /done, /ship, etc. syntax in Cursor
-    if (fs.existsSync(cursorCommandsSource)) {
-      const commandFiles = fs.readdirSync(cursorCommandsSource).filter((f) => f.endsWith('.md'))
+    if (await fileExists(cursorCommandsSource)) {
+      const commandFiles = (await fs.readdir(cursorCommandsSource)).filter((f) => f.endsWith('.md'))
 
       for (const file of commandFiles) {
         const src = path.join(cursorCommandsSource, file)
         const dest = path.join(commandsDir, file)
-        fs.copyFileSync(src, dest)
+        await fs.copyFile(src, dest)
       }
       result.commandsCreated = commandFiles.length > 0
     }
@@ -490,11 +491,11 @@ async function addCursorToGitignore(projectRoot: string): Promise<boolean> {
     ]
 
     let content = ''
-    let fileExists = false
+    let configExists = false
 
     try {
-      content = fs.readFileSync(gitignorePath, 'utf-8')
-      fileExists = true
+      content = await fs.readFile(gitignorePath, 'utf-8')
+      configExists = true
     } catch (error) {
       if (!isNotFoundError(error)) {
         throw error
@@ -507,11 +508,11 @@ async function addCursorToGitignore(projectRoot: string): Promise<boolean> {
     }
 
     // Append to .gitignore
-    const newContent = fileExists
+    const newContent = configExists
       ? `${content.trimEnd()}\n\n${entriesToAdd.join('\n')}\n`
       : `${entriesToAdd.join('\n')}\n`
 
-    fs.writeFileSync(gitignorePath, newContent, 'utf-8')
+    await fs.writeFile(gitignorePath, newContent, 'utf-8')
     return true
   } catch (error) {
     console.error(`Gitignore update warning: ${(error as Error).message}`)
@@ -522,19 +523,19 @@ async function addCursorToGitignore(projectRoot: string): Promise<boolean> {
 /**
  * Check if a project has Cursor configured (has .cursor/ directory)
  */
-export function hasCursorProject(projectRoot: string): boolean {
-  return fs.existsSync(path.join(projectRoot, '.cursor'))
+export async function hasCursorProject(projectRoot: string): Promise<boolean> {
+  return await fileExists(path.join(projectRoot, '.cursor'))
 }
 
 /**
  * Check if Cursor routers need regeneration
  */
-export function needsCursorRegeneration(projectRoot: string): boolean {
+export async function needsCursorRegeneration(projectRoot: string): Promise<boolean> {
   const cursorDir = path.join(projectRoot, '.cursor')
   const routerPath = path.join(cursorDir, 'rules', 'prjct.mdc')
 
   // Only check if .cursor/ exists (project uses Cursor)
-  return fs.existsSync(cursorDir) && !fs.existsSync(routerPath)
+  return (await fileExists(cursorDir)) && !(await fileExists(routerPath))
 }
 
 // =============================================================================
@@ -584,24 +585,26 @@ export async function installWindsurfProject(projectRoot: string): Promise<{
     )
 
     // Ensure directories exist
-    fs.mkdirSync(rulesDir, { recursive: true })
-    fs.mkdirSync(workflowsDir, { recursive: true })
+    await fs.mkdir(rulesDir, { recursive: true })
+    await fs.mkdir(workflowsDir, { recursive: true })
 
     // Copy router.md → .windsurf/rules/prjct.md
-    if (fs.existsSync(routerSource)) {
-      fs.copyFileSync(routerSource, routerDest)
+    if (await fileExists(routerSource)) {
+      await fs.copyFile(routerSource, routerDest)
       result.rulesCreated = true
     }
 
     // Copy individual workflow files → .windsurf/workflows/
     // This enables /sync, /task, /done, /ship, etc. syntax in Windsurf
-    if (fs.existsSync(windsurfWorkflowsSource)) {
-      const workflowFiles = fs.readdirSync(windsurfWorkflowsSource).filter((f) => f.endsWith('.md'))
+    if (await fileExists(windsurfWorkflowsSource)) {
+      const workflowFiles = (await fs.readdir(windsurfWorkflowsSource)).filter((f) =>
+        f.endsWith('.md')
+      )
 
       for (const file of workflowFiles) {
         const src = path.join(windsurfWorkflowsSource, file)
         const dest = path.join(workflowsDir, file)
-        fs.copyFileSync(src, dest)
+        await fs.copyFile(src, dest)
       }
       result.workflowsCreated = workflowFiles.length > 0
     }
@@ -638,11 +641,11 @@ async function addWindsurfToGitignore(projectRoot: string): Promise<boolean> {
     ]
 
     let content = ''
-    let fileExists = false
+    let configExists = false
 
     try {
-      content = fs.readFileSync(gitignorePath, 'utf-8')
-      fileExists = true
+      content = await fs.readFile(gitignorePath, 'utf-8')
+      configExists = true
     } catch (error) {
       if (!isNotFoundError(error)) {
         throw error
@@ -655,11 +658,11 @@ async function addWindsurfToGitignore(projectRoot: string): Promise<boolean> {
     }
 
     // Append to .gitignore
-    const newContent = fileExists
+    const newContent = configExists
       ? `${content.trimEnd()}\n\n${entriesToAdd.join('\n')}\n`
       : `${entriesToAdd.join('\n')}\n`
 
-    fs.writeFileSync(gitignorePath, newContent, 'utf-8')
+    await fs.writeFile(gitignorePath, newContent, 'utf-8')
     return true
   } catch (error) {
     console.error(`Gitignore update warning: ${(error as Error).message}`)
@@ -670,19 +673,19 @@ async function addWindsurfToGitignore(projectRoot: string): Promise<boolean> {
 /**
  * Check if a project has Windsurf configured (has .windsurf/ directory)
  */
-export function hasWindsurfProject(projectRoot: string): boolean {
-  return fs.existsSync(path.join(projectRoot, '.windsurf'))
+export async function hasWindsurfProject(projectRoot: string): Promise<boolean> {
+  return await fileExists(path.join(projectRoot, '.windsurf'))
 }
 
 /**
  * Check if Windsurf routers need regeneration
  */
-export function needsWindsurfRegeneration(projectRoot: string): boolean {
+export async function needsWindsurfRegeneration(projectRoot: string): Promise<boolean> {
   const windsurfDir = path.join(projectRoot, '.windsurf')
   const routerPath = path.join(windsurfDir, 'rules', 'prjct.md')
 
   // Only check if .windsurf/ exists (project uses Windsurf)
-  return fs.existsSync(windsurfDir) && !fs.existsSync(routerPath)
+  return (await fileExists(windsurfDir)) && !(await fileExists(routerPath))
 }
 
 /**
@@ -693,12 +696,11 @@ async function migrateProjectsCliVersion(): Promise<void> {
   try {
     const projectsDir = path.join(os.homedir(), '.prjct-cli', 'projects')
 
-    if (!fs.existsSync(projectsDir)) {
+    if (!(await fileExists(projectsDir))) {
       return
     }
 
-    const projectDirs = fs
-      .readdirSync(projectsDir, { withFileTypes: true })
+    const projectDirs = (await fs.readdir(projectsDir, { withFileTypes: true }))
       .filter((dirent) => dirent.isDirectory())
       .map((dirent) => dirent.name)
 
@@ -707,18 +709,18 @@ async function migrateProjectsCliVersion(): Promise<void> {
     for (const projectId of projectDirs) {
       const projectJsonPath = path.join(projectsDir, projectId, 'project.json')
 
-      if (!fs.existsSync(projectJsonPath)) {
+      if (!(await fileExists(projectJsonPath))) {
         continue
       }
 
       try {
-        const content = fs.readFileSync(projectJsonPath, 'utf8')
+        const content = await fs.readFile(projectJsonPath, 'utf8')
         const project = JSON.parse(content)
 
         // Only update if cliVersion is missing or different
         if (project.cliVersion !== VERSION) {
           project.cliVersion = VERSION
-          fs.writeFileSync(projectJsonPath, JSON.stringify(project, null, 2))
+          await fs.writeFile(projectJsonPath, JSON.stringify(project, null, 2))
           migrated++
         }
       } catch (error) {
@@ -744,11 +746,14 @@ async function migrateProjectsCliVersion(): Promise<void> {
 /**
  * Ensure settings.json has statusLine configured
  */
-function ensureStatusLineSettings(settingsPath: string, statusLinePath: string): void {
+async function ensureStatusLineSettings(
+  settingsPath: string,
+  statusLinePath: string
+): Promise<void> {
   let settings: Record<string, unknown> = {}
-  if (fs.existsSync(settingsPath)) {
+  if (await fileExists(settingsPath)) {
     try {
-      settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'))
+      settings = JSON.parse(await fs.readFile(settingsPath, 'utf8'))
     } catch (error) {
       // Invalid JSON, start fresh - but propagate unexpected errors
       if (!(error instanceof SyntaxError)) {
@@ -757,7 +762,7 @@ function ensureStatusLineSettings(settingsPath: string, statusLinePath: string):
     }
   }
   settings.statusLine = { type: 'command', command: statusLinePath }
-  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2))
+  await fs.writeFile(settingsPath, JSON.stringify(settings, null, 2))
 }
 
 /**
@@ -790,25 +795,25 @@ async function installStatusLine(): Promise<void> {
     const sourceConfigPath = path.join(assetsDir, 'default-config.json')
 
     // Ensure directories exist
-    if (!fs.existsSync(claudeDir)) {
-      fs.mkdirSync(claudeDir, { recursive: true })
+    if (!(await fileExists(claudeDir))) {
+      await fs.mkdir(claudeDir, { recursive: true })
     }
-    if (!fs.existsSync(prjctStatusLineDir)) {
-      fs.mkdirSync(prjctStatusLineDir, { recursive: true })
+    if (!(await fileExists(prjctStatusLineDir))) {
+      await fs.mkdir(prjctStatusLineDir, { recursive: true })
     }
-    if (!fs.existsSync(prjctThemesDir)) {
-      fs.mkdirSync(prjctThemesDir, { recursive: true })
+    if (!(await fileExists(prjctThemesDir))) {
+      await fs.mkdir(prjctThemesDir, { recursive: true })
     }
-    if (!fs.existsSync(prjctLibDir)) {
-      fs.mkdirSync(prjctLibDir, { recursive: true })
+    if (!(await fileExists(prjctLibDir))) {
+      await fs.mkdir(prjctLibDir, { recursive: true })
     }
-    if (!fs.existsSync(prjctComponentsDir)) {
-      fs.mkdirSync(prjctComponentsDir, { recursive: true })
+    if (!(await fileExists(prjctComponentsDir))) {
+      await fs.mkdir(prjctComponentsDir, { recursive: true })
     }
 
     // Check if statusline already exists
-    if (fs.existsSync(prjctStatusLinePath)) {
-      const existingContent = fs.readFileSync(prjctStatusLinePath, 'utf8')
+    if (await fileExists(prjctStatusLinePath)) {
+      const existingContent = await fs.readFile(prjctStatusLinePath, 'utf8')
 
       if (existingContent.includes('CLI_VERSION=')) {
         // Has CLI_VERSION - update if needed
@@ -820,48 +825,48 @@ async function installStatusLine(): Promise<void> {
             /CLI_VERSION="[^"]*"/,
             `CLI_VERSION="${VERSION}"`
           )
-          fs.writeFileSync(prjctStatusLinePath, updatedContent, { mode: 0o755 })
+          await fs.writeFile(prjctStatusLinePath, updatedContent, { mode: 0o755 })
         }
 
         // Ensure modular structure is installed (upgrade path)
-        installStatusLineModules(sourceLibDir, prjctLibDir)
-        installStatusLineModules(sourceComponentsDir, prjctComponentsDir)
+        await installStatusLineModules(sourceLibDir, prjctLibDir)
+        await installStatusLineModules(sourceComponentsDir, prjctComponentsDir)
 
         // Ensure symlink and settings
-        ensureStatusLineSymlink(claudeStatusLinePath, prjctStatusLinePath)
-        ensureStatusLineSettings(settingsPath, claudeStatusLinePath)
+        await ensureStatusLineSymlink(claudeStatusLinePath, prjctStatusLinePath)
+        await ensureStatusLineSettings(settingsPath, claudeStatusLinePath)
         return
       }
       // else: Script exists WITHOUT CLI_VERSION - fall through to replace with new version
     }
 
     // Install fresh from assets if source exists
-    if (fs.existsSync(sourceScript)) {
+    if (await fileExists(sourceScript)) {
       // Copy script and update version
-      let scriptContent = fs.readFileSync(sourceScript, 'utf8')
+      let scriptContent = await fs.readFile(sourceScript, 'utf8')
       scriptContent = scriptContent.replace(/CLI_VERSION="[^"]*"/, `CLI_VERSION="${VERSION}"`)
-      fs.writeFileSync(prjctStatusLinePath, scriptContent, { mode: 0o755 })
+      await fs.writeFile(prjctStatusLinePath, scriptContent, { mode: 0o755 })
 
       // Copy lib/ modules
-      installStatusLineModules(sourceLibDir, prjctLibDir)
+      await installStatusLineModules(sourceLibDir, prjctLibDir)
 
       // Copy components/
-      installStatusLineModules(sourceComponentsDir, prjctComponentsDir)
+      await installStatusLineModules(sourceComponentsDir, prjctComponentsDir)
 
       // Copy themes
-      if (fs.existsSync(sourceThemeDir)) {
-        const themes = fs.readdirSync(sourceThemeDir)
+      if (await fileExists(sourceThemeDir)) {
+        const themes = await fs.readdir(sourceThemeDir)
         for (const theme of themes) {
           const src = path.join(sourceThemeDir, theme)
           const dest = path.join(prjctThemesDir, theme)
           // Always update themes to get new icons/colors
-          fs.copyFileSync(src, dest)
+          await fs.copyFile(src, dest)
         }
       }
 
       // Copy default config (only if not exists - preserve user customizations)
-      if (!fs.existsSync(prjctConfigPath) && fs.existsSync(sourceConfigPath)) {
-        fs.copyFileSync(sourceConfigPath, prjctConfigPath)
+      if (!(await fileExists(prjctConfigPath)) && (await fileExists(sourceConfigPath))) {
+        await fs.copyFile(sourceConfigPath, prjctConfigPath)
       }
     } else {
       // Fallback: create simple script inline
@@ -897,12 +902,12 @@ if [ -f "$CONFIG" ]; then
 fi
 echo "prjct"
 `
-      fs.writeFileSync(prjctStatusLinePath, scriptContent, { mode: 0o755 })
+      await fs.writeFile(prjctStatusLinePath, scriptContent, { mode: 0o755 })
     }
 
     // Create symlink and configure settings
-    ensureStatusLineSymlink(claudeStatusLinePath, prjctStatusLinePath)
-    ensureStatusLineSettings(settingsPath, claudeStatusLinePath)
+    await ensureStatusLineSymlink(claudeStatusLinePath, prjctStatusLinePath)
+    await ensureStatusLineSettings(settingsPath, claudeStatusLinePath)
   } catch (error) {
     // Silently fail if directories don't exist
     if (!isNotFoundError(error)) {
@@ -924,8 +929,8 @@ async function installContext7MCP(): Promise<void> {
     const mcpConfigPath = path.join(claudeDir, 'mcp.json')
 
     // Ensure ~/.claude directory exists
-    if (!fs.existsSync(claudeDir)) {
-      fs.mkdirSync(claudeDir, { recursive: true })
+    if (!(await fileExists(claudeDir))) {
+      await fs.mkdir(claudeDir, { recursive: true })
     }
 
     // Context7 MCP configuration
@@ -939,9 +944,9 @@ async function installContext7MCP(): Promise<void> {
     }
 
     // Check if mcp.json exists
-    if (fs.existsSync(mcpConfigPath)) {
+    if (await fileExists(mcpConfigPath)) {
       // Read existing config
-      const existingContent = fs.readFileSync(mcpConfigPath, 'utf-8')
+      const existingContent = await fs.readFile(mcpConfigPath, 'utf-8')
       const existingConfig = JSON.parse(existingContent)
 
       // Check if context7 is already configured
@@ -953,10 +958,10 @@ async function installContext7MCP(): Promise<void> {
       // Add context7 to existing config
       existingConfig.mcpServers = existingConfig.mcpServers || {}
       existingConfig.mcpServers.context7 = context7Config.mcpServers.context7
-      fs.writeFileSync(mcpConfigPath, JSON.stringify(existingConfig, null, 2), 'utf-8')
+      await fs.writeFile(mcpConfigPath, JSON.stringify(existingConfig, null, 2), 'utf-8')
     } else {
       // Create new mcp.json with context7
-      fs.writeFileSync(mcpConfigPath, JSON.stringify(context7Config, null, 2), 'utf-8')
+      await fs.writeFile(mcpConfigPath, JSON.stringify(context7Config, null, 2), 'utf-8')
     }
   } catch (error) {
     // Non-fatal error, just log
@@ -968,18 +973,18 @@ async function installContext7MCP(): Promise<void> {
  * Install statusline modules (lib/ or components/)
  * Copies .sh files from source to destination, always overwriting for updates
  */
-function installStatusLineModules(sourceDir: string, destDir: string): void {
-  if (!fs.existsSync(sourceDir)) {
+async function installStatusLineModules(sourceDir: string, destDir: string): Promise<void> {
+  if (!(await fileExists(sourceDir))) {
     return
   }
 
-  const files = fs.readdirSync(sourceDir)
+  const files = await fs.readdir(sourceDir)
   for (const file of files) {
     if (file.endsWith('.sh')) {
       const src = path.join(sourceDir, file)
       const dest = path.join(destDir, file)
-      fs.copyFileSync(src, dest)
-      fs.chmodSync(dest, 0o755)
+      await fs.copyFile(src, dest)
+      await fs.chmod(dest, 0o755)
     }
   }
 }
@@ -987,28 +992,28 @@ function installStatusLineModules(sourceDir: string, destDir: string): void {
 /**
  * Ensure symlink from Claude config to prjct statusline
  */
-function ensureStatusLineSymlink(linkPath: string, targetPath: string): void {
+async function ensureStatusLineSymlink(linkPath: string, targetPath: string): Promise<void> {
   try {
     // Check if link already points to correct target
-    if (fs.existsSync(linkPath)) {
-      const stats = fs.lstatSync(linkPath)
+    if (await fileExists(linkPath)) {
+      const stats = await fs.lstat(linkPath)
       if (stats.isSymbolicLink()) {
-        const existingTarget = fs.readlinkSync(linkPath)
+        const existingTarget = await fs.readlink(linkPath)
         if (existingTarget === targetPath) {
           return // Already correct
         }
       }
       // Remove existing file/symlink
-      fs.unlinkSync(linkPath)
+      await fs.unlink(linkPath)
     }
     // Create symlink
-    fs.symlinkSync(targetPath, linkPath)
+    await fs.symlink(targetPath, linkPath)
   } catch (_error) {
     // If symlink fails (e.g., Windows, permission issues), try copy instead
     try {
-      if (fs.existsSync(targetPath)) {
-        fs.copyFileSync(targetPath, linkPath)
-        fs.chmodSync(linkPath, 0o755)
+      if (await fileExists(targetPath)) {
+        await fs.copyFile(targetPath, linkPath)
+        await fs.chmod(linkPath, 0o755)
       }
     } catch (copyError) {
       // Both symlink and copy failed - log if unexpected error

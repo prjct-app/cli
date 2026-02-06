@@ -324,16 +324,16 @@ class PathManager {
    * Get the Claude/Gemini directory path (~/.claude or ~/.gemini)
    * Contains AI CLI configuration
    */
-  getAgentDir(): string {
-    const provider = require('./ai-provider').getActiveProvider()
+  async getAgentDir(): Promise<string> {
+    const provider = await require('./ai-provider').getActiveProvider()
     return provider.configDir
   }
 
   /**
    * Get the agent settings file path (~/.claude/settings.json or ~/.gemini/settings.json)
    */
-  getAgentSettingsPath(): string {
-    const provider = require('./ai-provider').getActiveProvider()
+  async getAgentSettingsPath(): Promise<string> {
+    const provider = await require('./ai-provider').getActiveProvider()
     const aiProvider = require('./ai-provider')
     return aiProvider.getGlobalSettingsPath(provider.name)
   }

@@ -4,11 +4,12 @@
  * @version 0.5.0
  */
 
-import fs from 'node:fs'
+import fs from 'node:fs/promises'
 import https from 'node:https'
 import os from 'node:os'
 import path from 'node:path'
 import chalk from 'chalk'
+import { fileExists } from '../utils/fs-helpers'
 
 interface UpdateCache {
   lastCheck: number
@@ -37,10 +38,10 @@ class UpdateChecker {
   /**
    * Get current installed version from package.json
    */
-  getCurrentVersion(): string | null {
+  async getCurrentVersion(): Promise<string | null> {
     try {
       const packageJsonPath = path.join(__dirname, '..', '..', 'package.json')
-      const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'))
+      const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf8'))
       return packageJson.version
     } catch (error) {
       console.error('Error reading package version:', (error as Error).message)
@@ -119,10 +120,10 @@ class UpdateChecker {
   /**
    * Read cache file
    */
-  readCache(): UpdateCache | null {
+  async readCache(): Promise<UpdateCache | null> {
     try {
-      if (fs.existsSync(this.cacheFile)) {
-        const cache = JSON.parse(fs.readFileSync(this.cacheFile, 'utf8'))
+      if (await fileExists(this.cacheFile)) {
+        const cache = JSON.parse(await fs.readFile(this.cacheFile, 'utf8'))
         return cache
       }
     } catch (_error) {
@@ -134,14 +135,14 @@ class UpdateChecker {
   /**
    * Write cache file
    */
-  writeCache(data: UpdateCache): void {
+  async writeCache(data: UpdateCache): Promise<void> {
     try {
       // Ensure cache directory exists
-      if (!fs.existsSync(this.cacheDir)) {
-        fs.mkdirSync(this.cacheDir, { recursive: true })
+      if (!(await fileExists(this.cacheDir))) {
+        await fs.mkdir(this.cacheDir, { recursive: true })
       }
 
-      fs.writeFileSync(this.cacheFile, JSON.stringify(data, null, 2), 'utf8')
+      await fs.writeFile(this.cacheFile, JSON.stringify(data, null, 2), 'utf8')
     } catch (_error) {
       // Fail silently - cache is not critical
     }
@@ -153,13 +154,13 @@ class UpdateChecker {
    */
   async checkForUpdates(): Promise<UpdateResult | null> {
     try {
-      const currentVersion = this.getCurrentVersion()
+      const currentVersion = await this.getCurrentVersion()
       if (!currentVersion) {
         return null
       }
 
       // Check cache first
-      const cache = this.readCache()
+      const cache = await this.readCache()
       const now = Date.now()
 
       if (cache?.lastCheck && now - cache.lastCheck < this.checkInterval) {
@@ -182,7 +183,7 @@ class UpdateChecker {
       const latestVersion = await this.getLatestVersion()
 
       // Update cache
-      this.writeCache({
+      await this.writeCache({
         lastCheck: now,
         latestVersion,
       })

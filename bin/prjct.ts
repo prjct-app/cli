@@ -8,7 +8,6 @@
  * auto-install on first CLI use. This is the reliable path.
  */
 
-import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import chalk from 'chalk'
@@ -16,20 +15,21 @@ import { detectAllProviders } from '../core/infrastructure/ai-provider'
 import configManager from '../core/infrastructure/config-manager'
 import editorsConfig from '../core/infrastructure/editors-config'
 import { DEFAULT_PORT, startServer } from '../core/server/server'
+import { fileExists } from '../core/utils/fs-helpers'
 import { VERSION } from '../core/utils/version'
 
 /**
  * Check if routers are installed for detected providers
  * Returns true if at least one provider has its router installed
  */
-function checkRoutersInstalled(): boolean {
+async function checkRoutersInstalled(): Promise<boolean> {
   const home = os.homedir()
-  const detection = detectAllProviders()
+  const detection = await detectAllProviders()
 
   // Check Claude router
   if (detection.claude.installed) {
     const claudeRouter = path.join(home, '.claude', 'commands', 'p.md')
-    if (!fs.existsSync(claudeRouter)) {
+    if (!(await fileExists(claudeRouter))) {
       return false
     }
   }
@@ -37,7 +37,7 @@ function checkRoutersInstalled(): boolean {
   // Check Gemini router
   if (detection.gemini.installed) {
     const geminiRouter = path.join(home, '.gemini', 'commands', 'p.toml')
-    if (!fs.existsSync(geminiRouter)) {
+    if (!(await fileExists(geminiRouter))) {
       return false
     }
   }
@@ -218,15 +218,24 @@ if (args[0] === 'start' || args[0] === 'setup') {
   process.exitCode = 0
 } else if (args[0] === 'version' || args[0] === '-v' || args[0] === '--version') {
   // Show version with provider status
-  const detection = detectAllProviders()
+  const detection = await detectAllProviders()
   const home = os.homedir()
   const cwd = process.cwd()
-  const claudeConfigured = fs.existsSync(path.join(home, '.claude', 'commands', 'p.md'))
-  const geminiConfigured = fs.existsSync(path.join(home, '.gemini', 'commands', 'p.toml'))
-  const cursorDetected = fs.existsSync(path.join(cwd, '.cursor'))
-  const cursorConfigured = fs.existsSync(path.join(cwd, '.cursor', 'rules', 'prjct.mdc'))
-  const windsurfDetected = fs.existsSync(path.join(cwd, '.windsurf'))
-  const windsurfConfigured = fs.existsSync(path.join(cwd, '.windsurf', 'rules', 'prjct.md'))
+  const [
+    claudeConfigured,
+    geminiConfigured,
+    cursorDetected,
+    cursorConfigured,
+    windsurfDetected,
+    windsurfConfigured,
+  ] = await Promise.all([
+    fileExists(path.join(home, '.claude', 'commands', 'p.md')),
+    fileExists(path.join(home, '.gemini', 'commands', 'p.toml')),
+    fileExists(path.join(cwd, '.cursor')),
+    fileExists(path.join(cwd, '.cursor', 'rules', 'prjct.mdc')),
+    fileExists(path.join(cwd, '.windsurf')),
+    fileExists(path.join(cwd, '.windsurf', 'rules', 'prjct.md')),
+  ])
 
   console.log(`
 ${chalk.cyan('p/')} prjct v${VERSION}
@@ -276,9 +285,9 @@ ${chalk.cyan('https://prjct.app')}
 } else {
   // Check if setup has been done
   const configPath = path.join(os.homedir(), '.prjct-cli', 'config', 'installed-editors.json')
-  const routersInstalled = checkRoutersInstalled()
+  const routersInstalled = await checkRoutersInstalled()
 
-  if (!fs.existsSync(configPath) || !routersInstalled) {
+  if (!(await fileExists(configPath)) || !routersInstalled) {
     // First time - prompt to run start
     console.log(`
 ${chalk.cyan.bold('  Welcome to prjct!')}

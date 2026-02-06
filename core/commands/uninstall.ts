@@ -8,7 +8,6 @@
  */
 
 import { execSync } from 'node:child_process'
-import fsSync from 'node:fs'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -17,6 +16,7 @@ import chalk from 'chalk'
 import { getProviderPaths } from '../infrastructure/command-installer'
 import pathManager from '../infrastructure/path-manager'
 import type { CommandResult, UninstallOptions } from '../types'
+import { fileExists } from '../utils/fs-helpers'
 import { PrjctCommandsBase } from './base'
 
 // Markers for prjct section in CLAUDE.md
@@ -135,7 +135,7 @@ async function gatherUninstallItems(): Promise<UninstallItem[]> {
 
   // 1. ~/.prjct-cli/ (main data directory)
   const prjctCliPath = pathManager.getGlobalBasePath()
-  const prjctCliExists = fsSync.existsSync(prjctCliPath)
+  const prjctCliExists = await fileExists(prjctCliPath)
   const projectCount = prjctCliExists
     ? await countDirectoryItems(path.join(prjctCliPath, 'projects'))
     : 0
@@ -152,12 +152,12 @@ async function gatherUninstallItems(): Promise<UninstallItem[]> {
 
   // 2. ~/.claude/CLAUDE.md (prjct section only)
   const claudeMdPath = path.join(providerPaths.claude.config, 'CLAUDE.md')
-  const claudeMdExists = fsSync.existsSync(claudeMdPath)
+  const claudeMdExists = await fileExists(claudeMdPath)
   let hasPrjctSection = false
 
   if (claudeMdExists) {
     try {
-      const content = fsSync.readFileSync(claudeMdPath, 'utf-8')
+      const content = await fs.readFile(claudeMdPath, 'utf-8')
       hasPrjctSection = content.includes(PRJCT_START_MARKER) && content.includes(PRJCT_END_MARKER)
     } catch {
       // Can't read file
@@ -173,7 +173,7 @@ async function gatherUninstallItems(): Promise<UninstallItem[]> {
 
   // 3. ~/.claude/commands/p/ (prjct commands)
   const claudeCommandsPath = providerPaths.claude.commands
-  const claudeCommandsExists = fsSync.existsSync(claudeCommandsPath)
+  const claudeCommandsExists = await fileExists(claudeCommandsPath)
   const claudeCommandsSize = claudeCommandsExists ? await getDirectorySize(claudeCommandsPath) : 0
 
   items.push({
@@ -186,7 +186,7 @@ async function gatherUninstallItems(): Promise<UninstallItem[]> {
 
   // 4. ~/.claude/commands/p.md (router)
   const claudeRouterPath = providerPaths.claude.router
-  const claudeRouterExists = fsSync.existsSync(claudeRouterPath)
+  const claudeRouterExists = await fileExists(claudeRouterPath)
 
   items.push({
     path: claudeRouterPath,
@@ -197,7 +197,7 @@ async function gatherUninstallItems(): Promise<UninstallItem[]> {
 
   // 5. ~/.claude/prjct-statusline.sh (status line script)
   const statusLinePath = path.join(providerPaths.claude.config, 'prjct-statusline.sh')
-  const statusLineExists = fsSync.existsSync(statusLinePath)
+  const statusLineExists = await fileExists(statusLinePath)
 
   items.push({
     path: statusLinePath,
@@ -208,7 +208,7 @@ async function gatherUninstallItems(): Promise<UninstallItem[]> {
 
   // 6. ~/.gemini/commands/p.toml (Gemini router, if exists)
   const geminiRouterPath = providerPaths.gemini.router
-  const geminiRouterExists = fsSync.existsSync(geminiRouterPath)
+  const geminiRouterExists = await fileExists(geminiRouterPath)
 
   items.push({
     path: geminiRouterPath,
@@ -219,12 +219,12 @@ async function gatherUninstallItems(): Promise<UninstallItem[]> {
 
   // 7. ~/.gemini/GEMINI.md (prjct section only, if exists)
   const geminiMdPath = path.join(providerPaths.gemini.config, 'GEMINI.md')
-  const geminiMdExists = fsSync.existsSync(geminiMdPath)
+  const geminiMdExists = await fileExists(geminiMdPath)
   let hasGeminiPrjctSection = false
 
   if (geminiMdExists) {
     try {
-      const content = fsSync.readFileSync(geminiMdPath, 'utf-8')
+      const content = await fs.readFile(geminiMdPath, 'utf-8')
       hasGeminiPrjctSection =
         content.includes(PRJCT_START_MARKER) && content.includes(PRJCT_END_MARKER)
     } catch {
@@ -288,7 +288,7 @@ async function createBackup(): Promise<string | null> {
 
     const prjctCliPath = pathManager.getGlobalBasePath()
 
-    if (fsSync.existsSync(prjctCliPath)) {
+    if (await fileExists(prjctCliPath)) {
       // Copy entire .prjct-cli directory
       await copyDirectory(prjctCliPath, path.join(backupDir, '.prjct-cli'))
     }
