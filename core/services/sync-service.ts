@@ -27,12 +27,14 @@ import {
   type ProjectContext,
   resolveToolIds,
 } from '../ai-tools'
+import { getErrorMessage } from '../errors'
 import commandInstaller from '../infrastructure/command-installer'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import { metricsStorage } from '../storage/metrics-storage'
 import { type ContextSources, defaultSources, type SourceInfo } from '../utils/citations'
 import dateHelper from '../utils/date-helper'
+import log from '../utils/logger'
 import { ContextFileGenerator } from './context-generator'
 import type { SyncDiff } from './diff-generator'
 import { localStateGenerator } from './local-state-generator'
