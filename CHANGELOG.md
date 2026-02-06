@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.2] - 2026-02-06
+
+### Bug Fixes
+
+- replace console.error with logger in routes.ts (PRJ-73) (#125)
+
+
 ## [1.6.4] - 2026-02-06
 
 ### Bug Fixes
