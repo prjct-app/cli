@@ -12,6 +12,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { promisify } from 'node:util'
 import pathManager from '../infrastructure/path-manager'
+import { type SessionInfo, sessionTracker } from './session-tracker'
 
 const execAsync = promisify(exec)
 
@@ -243,6 +244,57 @@ export class StalenessChecker {
     if (status.isStale) {
       lines.push(``)
       lines.push(`Run \`prjct sync\` to update context`)
+    }
+
+    return lines.join('\n')
+  }
+
+  /**
+   * Get session info for the project
+   */
+  async getSessionInfo(projectId: string): Promise<SessionInfo> {
+    return sessionTracker.getInfo(projectId)
+  }
+
+  /**
+   * Format session info for display
+   */
+  formatSessionInfo(info: SessionInfo): string {
+    const lines: string[] = []
+
+    if (!info.active) {
+      lines.push('Session: ○ No active session')
+      return lines.join('\n')
+    }
+
+    lines.push(`Session: ▶ Active (${info.duration})`)
+
+    const details: string[] = []
+    if (info.commandCount > 0) {
+      // Show unique command sequence
+      const seen = new Set<string>()
+      const unique: string[] = []
+      for (const cmd of info.commands) {
+        if (!seen.has(cmd)) {
+          seen.add(cmd)
+          unique.push(cmd)
+        }
+      }
+      details.push(`Commands:       ${unique.join(' → ')} (${info.commandCount} total)`)
+    }
+    if (info.filesRead > 0 || info.filesWritten > 0) {
+      details.push(`Files:          ${info.filesRead} read, ${info.filesWritten} written`)
+    }
+    details.push(`Idle:           ${info.expiresIn} until timeout`)
+
+    if (details.length > 0) {
+      const maxLen = Math.max(...details.map((l) => l.length))
+      const border = '─'.repeat(maxLen + 2)
+      lines.push(`┌${border}┐`)
+      for (const detail of details) {
+        lines.push(`│ ${detail.padEnd(maxLen)} │`)
+      }
+      lines.push(`└${border}┘`)
     }
 
     return lines.join('\n')

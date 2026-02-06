@@ -64,6 +64,26 @@ if (isQuietMode) {
 
 // Colors for output (chalk respects NO_COLOR env)
 
+// Session tracking for commands that bypass core/index.ts
+async function trackSession(command: string): Promise<() => void> {
+  const start = Date.now()
+  try {
+    const projectId = await configManager.getProjectId(process.cwd())
+    if (projectId) {
+      const { sessionTracker } = await import('../core/services/session-tracker')
+      await sessionTracker.expireIfStale(projectId)
+      await sessionTracker.touch(projectId)
+      return () => {
+        const durationMs = Date.now() - start
+        sessionTracker.trackCommand(projectId, command, durationMs).catch(() => {})
+      }
+    }
+  } catch {
+    // Non-critical
+  }
+  return () => {}
+}
+
 if (args[0] === 'start' || args[0] === 'setup') {
   // Interactive setup with beautiful UI
   const { runStart } = await import('../core/cli/start')
@@ -99,22 +119,28 @@ if (args[0] === 'start' || args[0] === 'setup') {
     console.error('No prjct project found. Run "prjct init" first.')
     process.exitCode = 1
   } else {
+    const done = await trackSession('context')
     const { runContextTool } = await import('../core/context-tools')
     const result = await runContextTool(args.slice(1), projectId, projectPath)
     console.log(JSON.stringify(result, null, 2))
     process.exitCode = result.tool === 'error' ? 1 : 0
+    done()
   }
 } else if (args[0] === 'hooks') {
   // Git hooks management
+  const done = await trackSession('hooks')
   const { hooksService } = await import('../core/services/hooks-service')
   const subcommand = args[1] || 'status'
   const exitCode = await hooksService.run(process.cwd(), subcommand)
   process.exitCode = exitCode
+  done()
 } else if (args[0] === 'doctor') {
   // Health check command
+  const done = await trackSession('doctor')
   const { doctorService } = await import('../core/services/doctor-service')
   const exitCode = await doctorService.run(process.cwd())
   process.exitCode = exitCode
+  done()
 } else if (args[0] === 'uninstall') {
   // Complete system removal
   const { uninstall } = await import('../core/commands/uninstall')

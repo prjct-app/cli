@@ -761,23 +761,29 @@ export class AnalysisCommands extends PrjctCommandsBase {
       const checker = createStalenessChecker(projectPath)
       const status = await checker.check(projectId)
 
+      // Get session info
+      const sessionInfo = await checker.getSessionInfo(projectId)
+
       // JSON output mode
       if (options.json) {
         console.log(
           JSON.stringify({
             success: true,
             ...status,
+            session: sessionInfo,
           })
         )
-        return { success: true, data: status }
+        return { success: true, data: { ...status, session: sessionInfo } }
       }
 
       // Human-readable output
       console.log('')
       console.log(checker.formatStatus(status))
       console.log('')
+      console.log(checker.formatSessionInfo(sessionInfo))
+      console.log('')
 
-      return { success: true, data: status }
+      return { success: true, data: { ...status, session: sessionInfo } }
     } catch (error) {
       const errMsg = (error as Error).message
       if (options.json) {

@@ -1,5 +1,50 @@
 # Changelog
 
+## [1.3.0] - 2026-02-06
+
+### Features
+
+- session state tracking for multi-command workflows (PRJ-109)
+
+### Implementation Details
+
+New `SessionTracker` service (`core/services/session-tracker.ts`) that manages lightweight session lifecycle for tracking command sequences and file access across CLI invocations.
+
+Key behaviors:
+- **Auto-create**: Sessions start automatically on first CLI command
+- **Auto-resume**: Subsequent commands within 30 min extend the existing session
+- **Auto-expire**: Sessions expire after 30 minutes of idle time, cleaned up on next startup
+- **Command tracking**: Records command name, timestamp, and duration (up to 50 commands)
+- **File tracking**: Records file reads/writes with timestamps (up to 200 records)
+
+Integration points:
+- `core/index.ts` — touch/track in main CLI dispatch (all standard commands)
+- `bin/prjct.ts` — `trackSession()` helper for context/hooks/doctor commands
+- `core/commands/analysis.ts` — session info in `prjct status` output (JSON + human-readable)
+- `core/services/staleness-checker.ts` — `getSessionInfo()` and `formatSessionInfo()` with box-drawing display
+
+Storage: `~/.prjct-cli/projects/{projectId}/storage/session.json`
+
+### Learnings
+
+- Non-critical tracking should always be wrapped in try/catch with silent fail — session tracking must never break CLI commands
+- Touch-on-every-command pattern is simple but effective for session detection — no explicit start/stop needed
+- Box-drawing characters (`┌─┐│└─┘`) provide clean structured output without external dependencies
+
+### Test Plan
+
+#### For QA
+1. Run `prjct status` — verify "Session: ▶ Active" with duration, commands, idle timer
+2. Wait 30+ minutes, run `prjct status` — verify "Session: ○ No active session"
+3. Run multiple commands in sequence — verify command count increments
+4. Run `prjct status --json` — verify session object in JSON output
+5. Run `bun run build && bun run typecheck` — zero errors
+
+#### For Users
+**What changed:** CLI now tracks session state across commands for workflow visibility
+**How to use:** Run `prjct status` to see active session info
+**Breaking changes:** None
+
 ## [1.2.2] - 2026-02-06
 
 ### Performance
