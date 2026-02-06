@@ -15,6 +15,7 @@ import path from 'node:path'
 import chalk from 'chalk'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
+import out from '../utils/output'
 import { VERSION } from '../utils/version'
 
 // ============================================================================
@@ -367,32 +368,28 @@ class DoctorService {
   // ==========================================================================
 
   private printHeader(): void {
-    console.log('')
-    console.log(chalk.bold(`prjct doctor v${VERSION}`))
-    console.log(chalk.dim('─'.repeat(40)))
+    out.section(`prjct doctor v${VERSION}`)
   }
 
   private printSection(title: string, checks: CheckResult[]): void {
-    console.log('')
-    console.log(chalk.bold(title))
+    out.section(title)
 
-    for (const check of checks) {
+    const items = checks.map((check) => {
       const icon = this.getStatusIcon(check.status, check.optional)
       const name = check.name.padEnd(14)
       const detail = check.version || check.message || ''
       const optionalTag = check.optional && check.status === 'error' ? chalk.dim(' (optional)') : ''
+      return `${icon} ${name} ${chalk.dim(detail)}${optionalTag}`
+    })
 
-      console.log(`  ${icon} ${name} ${chalk.dim(detail)}${optionalTag}`)
+    for (const item of items) {
+      console.log(`  ${item}`)
     }
   }
 
   private printRecommendations(recommendations: string[]): void {
-    console.log('')
-    console.log(chalk.bold('Recommendations'))
-
-    for (const rec of recommendations) {
-      console.log(`  ${chalk.yellow('•')} ${rec}`)
-    }
+    out.section('Recommendations')
+    out.list(recommendations, { bullet: chalk.yellow('•') })
   }
 
   private printSummary(result: DoctorResult): void {
@@ -400,11 +397,11 @@ class DoctorService {
     console.log(chalk.dim('─'.repeat(40)))
 
     if (result.hasErrors) {
-      console.log(chalk.red('✗ Some required checks failed'))
+      out.fail('Some required checks failed')
     } else if (result.hasWarnings) {
-      console.log(chalk.yellow('⚠ All required checks passed (some warnings)'))
+      out.warn('All required checks passed (some warnings)')
     } else {
-      console.log(chalk.green('✓ All checks passed'))
+      out.done('All checks passed')
     }
 
     console.log('')

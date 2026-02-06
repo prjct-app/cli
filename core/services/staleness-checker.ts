@@ -195,23 +195,35 @@ export class StalenessChecker {
       lines.push('CLAUDE.md status: ✓ Fresh')
     }
 
-    lines.push('─────────────────────────────')
-
+    // Build key-value table content
+    const details: string[] = []
     if (status.lastSyncCommit) {
-      lines.push(`Last sync:      ${status.lastSyncCommit}`)
+      details.push(`Last sync:      ${status.lastSyncCommit}`)
     }
     if (status.currentCommit) {
-      lines.push(`Current:        ${status.currentCommit}`)
+      details.push(`Current:        ${status.currentCommit}`)
     }
     if (status.commitsSinceSync > 0) {
-      lines.push(`Commits since:  ${status.commitsSinceSync}`)
+      details.push(`Commits since:  ${status.commitsSinceSync}`)
     }
     if (status.daysSinceSync > 0) {
-      lines.push(`Days since:     ${status.daysSinceSync}`)
+      details.push(`Days since:     ${status.daysSinceSync}`)
     }
     if (status.changedFiles.length > 0) {
-      lines.push(`Files changed:  ${status.changedFiles.length}`)
+      details.push(`Files changed:  ${status.changedFiles.length}`)
     }
+
+    // Wrap details in a box
+    if (details.length > 0) {
+      const maxLen = Math.max(...details.map((l) => l.length))
+      const border = '─'.repeat(maxLen + 2)
+      lines.push(`┌${border}┐`)
+      for (const detail of details) {
+        lines.push(`│ ${detail.padEnd(maxLen)} │`)
+      }
+      lines.push(`└${border}┘`)
+    }
+
     if (status.significantChanges.length > 0) {
       lines.push(``)
       lines.push(`Significant changes:`)
