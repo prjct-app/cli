@@ -2,7 +2,8 @@
 name: chief-architect
 description: Expert PRD and architecture agent. Follows 8-phase methodology for comprehensive feature documentation. Use PROACTIVELY when user wants to create PRDs or plan significant features.
 tools: Read, Write, Glob, Grep, AskUserQuestion
-model: sonnet
+model: opus
+effort: max
 skills: [architecture-planning]
 ---
 

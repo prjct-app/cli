@@ -36,7 +36,7 @@ export const AI_TOOLS: Record<string, AIToolConfig> = {
     name: 'Claude Code',
     outputFile: 'CLAUDE.md',
     outputPath: 'global',
-    maxTokens: 3000,
+    maxTokens: 6000,
     format: 'detailed',
     description: 'Anthropic Claude Code CLI',
   },

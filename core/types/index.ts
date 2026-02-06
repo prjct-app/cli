@@ -78,6 +78,7 @@ export type {
   PromptProjectState,
   PromptState,
   ProposedPlan,
+  RealCodebaseContext,
   ReasoningResult,
   ReasoningStep,
   SimpleExecutionResult,

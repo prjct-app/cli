@@ -516,6 +516,11 @@ export class AnalysisCommands extends PrjctCommandsBase {
       const skillWord = result.skills.length === 1 ? 'skill' : 'skills'
       generatedItems.push(`${result.skills.length} ${skillWord}`)
     }
+    const installed = result.skillsInstalled?.filter((s) => s.status === 'installed') || []
+    if (installed.length > 0) {
+      const word = installed.length === 1 ? 'skill' : 'skills'
+      generatedItems.push(`${installed.length} ${word} auto-installed`)
+    }
 
     out.section('Generated')
     out.list(generatedItems, { bullet: '✓' })

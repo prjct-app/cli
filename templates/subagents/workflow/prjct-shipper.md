@@ -3,6 +3,7 @@ name: prjct-shipper
 description: Shipping agent for /p:ship tasks. Use PROACTIVELY when user wants to commit, push, deploy, or ship features.
 tools: Read, Write, Bash, Glob
 model: sonnet
+effort: low
 skills: [code-review]
 ---
 

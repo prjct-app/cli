@@ -36,6 +36,8 @@ export interface HierarchicalAgent {
   sources: string[]
   /** Whether this agent was overridden at some level */
   wasOverridden: boolean
+  /** Effort level hint for Claude's adaptive reasoning depth */
+  effort?: 'low' | 'medium' | 'high' | 'max'
 }
 
 export interface AgentResolutionResult {

@@ -29,11 +29,14 @@ export interface SelectedContext {
   }
 }
 
+/** Default token budget for context selection (increased for 200K+ context models) */
+const DEFAULT_TOKEN_BUDGET = 80_000
+
 export interface ContextSelectionOptions {
   maxFiles?: number // Max files to return (default: 50)
   minScore?: number // Min relevance score (default: 30)
   includeGeneral?: boolean // Include 'general' domain files (default: true)
-  tokenBudget?: number // Max estimated tokens (default: 50000)
+  tokenBudget?: number // Max estimated tokens (default: 80000)
 }
 
 // ============================================================================
@@ -173,7 +176,7 @@ export class ContextSelector {
     const maxFiles = options.maxFiles || 50
     const minScore = options.minScore || 30
     const includeGeneral = options.includeGeneral !== false
-    const tokenBudget = options.tokenBudget || 50000
+    const tokenBudget = options.tokenBudget || DEFAULT_TOKEN_BUDGET
 
     // Load index and categories
     const [index, domainsData, categoriesCache] = await Promise.all([
@@ -351,7 +354,7 @@ export class ContextSelector {
   ): SelectedContext {
     const maxFiles = options.maxFiles || 50
     const minScore = options.minScore || 30
-    const tokenBudget = options.tokenBudget || 50000
+    const tokenBudget = options.tokenBudget || DEFAULT_TOKEN_BUDGET
 
     // Filter and sort by score
     const filteredFiles = files.filter((f) => f.score >= minScore).sort((a, b) => b.score - a.score)

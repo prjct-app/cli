@@ -649,6 +649,8 @@ export interface LoadedAgent extends SourcedItem {
   content: string
   skills: string[]
   filePath: string
+  effort?: 'low' | 'medium' | 'high' | 'max'
+  model?: string
 }
 
 /**
@@ -674,6 +676,24 @@ export interface OrchestratorSubtask {
 }
 
 /**
+ * Real codebase context gathered proactively before agent execution.
+ * Provides git state, relevant files, and code signatures so the agent
+ * doesn't need to explore before starting work.
+ */
+export interface RealCodebaseContext {
+  /** Current git branch */
+  gitBranch: string
+  /** Short git status (e.g., "3 files modified, 1 untracked") */
+  gitStatus: string
+  /** Files scored by relevance to the task */
+  relevantFiles: Array<{ path: string; score: number; reason: string }>
+  /** Recently changed files */
+  recentFiles: Array<{ path: string; lastChanged: string; changes: number }>
+  /** Code signatures from top relevant files */
+  signatures: Array<{ path: string; content: string }>
+}
+
+/**
  * Full orchestrator context returned after execution
  */
 export interface OrchestratorContext {
@@ -695,4 +715,6 @@ export interface OrchestratorContext {
     ecosystem: string
     conventions: string[]
   }
+  /** Real codebase context gathered proactively */
+  realContext?: RealCodebaseContext
 }

@@ -25,6 +25,8 @@ interface Agent {
   role: string | null
   domain: string
   skills: string[]
+  effort?: 'low' | 'medium' | 'high' | 'max'
+  model?: string
   modified: Date
   /** Source of this agent: 'file' (generated) or 'hierarchical' (AGENTS.md) */
   source?: 'file' | 'hierarchical'
@@ -69,7 +71,8 @@ class AgentLoader {
       const agentPath = path.join(this.agentsDir, `${agentName}.md`)
       const content = await fs.readFile(agentPath, 'utf-8')
 
-      // Parse agent metadata from content
+      // Parse agent metadata from content (including frontmatter)
+      const { effort, model } = this.extractFrontmatterMeta(content)
       const agent: Agent = {
         name: agentName,
         content,
@@ -77,6 +80,8 @@ class AgentLoader {
         role: this.extractRole(content),
         domain: this.extractDomain(content),
         skills: this.extractSkills(content),
+        effort,
+        model,
         modified: (await fs.stat(agentPath)).mtime,
       }
 
@@ -201,6 +206,35 @@ class AgentLoader {
     }
 
     return skills
+  }
+
+  /**
+   * Extract effort and model from YAML frontmatter
+   */
+  private extractFrontmatterMeta(content: string): {
+    effort?: 'low' | 'medium' | 'high' | 'max'
+    model?: string
+  } {
+    const frontmatterMatch = content.match(/^---\s*\n([\s\S]*?)\n---/)
+    if (!frontmatterMatch) return {}
+
+    const fm = frontmatterMatch[1]
+    const result: { effort?: 'low' | 'medium' | 'high' | 'max'; model?: string } = {}
+
+    const effortMatch = fm.match(/^effort:\s*(.+)$/m)
+    if (effortMatch) {
+      const val = effortMatch[1].trim().replace(/['"]/g, '') as 'low' | 'medium' | 'high' | 'max'
+      if (['low', 'medium', 'high', 'max'].includes(val)) {
+        result.effort = val
+      }
+    }
+
+    const modelMatch = fm.match(/^model:\s*(.+)$/m)
+    if (modelMatch) {
+      result.model = modelMatch[1].trim().replace(/['"]/g, '')
+    }
+
+    return result
   }
 
   /**

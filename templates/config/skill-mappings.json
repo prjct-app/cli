@@ -1,16 +1,15 @@
 {
-  "version": "2.0.0",
-  "description": "Skill discovery from agentskills.io ecosystem",
+  "version": "3.0.0",
+  "description": "Skill packages from skills.sh for auto-installation during sync",
   "sources": {
     "primary": {
-      "name": "anthropics/skills",
-      "url": "https://github.com/anthropics/skills",
-      "rawUrl": "https://raw.githubusercontent.com/anthropics/skills/main"
+      "name": "skills.sh",
+      "url": "https://skills.sh",
+      "installCmd": "npx skills add {package}"
     },
-    "marketplace": {
-      "name": "agentskills.io",
-      "url": "https://agentskills.io",
-      "search": "https://agentskills.io/search?q={query}"
+    "fallback": {
+      "name": "GitHub direct",
+      "installFormat": "owner/repo"
     }
   },
   "skillsDirectory": "~/.claude/skills/",
@@ -24,50 +23,34 @@
   },
   "agentToSkillMap": {
     "frontend": {
-      "skills": ["ui-design", "react-patterns", "css-architecture"],
-      "searchTerms": ["frontend", "react", "vue", "ui components"],
-      "fromAnthropic": true
+      "packages": [
+        "anthropics/skills/frontend-design",
+        "vercel-labs/agent-skills/vercel-react-best-practices"
+      ]
     },
     "uxui": {
-      "skills": ["ux-research", "accessibility", "design-systems"],
-      "searchTerms": ["ux design", "user experience", "accessibility"],
-      "fromAnthropic": true
+      "packages": ["anthropics/skills/frontend-design"]
     },
     "backend": {
-      "skills": ["api-design", "backend-patterns"],
-      "ecosystemSpecific": {
-        "javascript": ["nodejs-patterns", "typescript-backend"],
-        "python": ["python-backend", "fastapi-patterns"],
-        "go": ["go-patterns", "go-backend"],
-        "rust": ["rust-patterns", "rust-backend"]
-      },
-      "searchTerms": ["backend", "api", "server"],
-      "fromAnthropic": true
+      "packages": ["obra/superpowers/systematic-debugging"]
     },
     "database": {
-      "skills": ["sql-patterns", "database-design"],
-      "searchTerms": ["database", "sql", "orm"],
-      "fromAnthropic": true
+      "packages": []
     },
     "testing": {
-      "skills": ["test-automation", "tdd-patterns"],
-      "searchTerms": ["testing", "test automation", "tdd"],
-      "fromAnthropic": true
+      "packages": ["obra/superpowers/test-driven-development", "anthropics/skills/webapp-testing"]
     },
     "devops": {
-      "skills": ["ci-cd", "docker-kubernetes", "infrastructure"],
-      "searchTerms": ["devops", "ci/cd", "docker", "kubernetes"],
-      "fromAnthropic": true
+      "packages": ["anthropics/skills/mcp-builder"]
     },
     "prjct-planner": {
-      "skills": ["architecture", "feature-planning"],
-      "searchTerms": ["architecture", "planning", "system design"],
-      "fromAnthropic": false
+      "packages": ["obra/superpowers/brainstorming"]
     },
     "prjct-shipper": {
-      "skills": ["code-review", "release-management"],
-      "searchTerms": ["code review", "shipping", "release"],
-      "fromAnthropic": false
+      "packages": []
+    },
+    "prjct-workflow": {
+      "packages": []
     }
   },
   "documentSkills": {
@@ -95,25 +78,5 @@
         "path": "skills/xlsx"
       }
     }
-  },
-  "installMethod": {
-    "claudeCode": {
-      "marketplace": "/plugin marketplace add anthropics/skills",
-      "install": "/plugin install {skill-name}@anthropic-agent-skills",
-      "manual": "Download SKILL.md to ~/.claude/skills/{name}/"
-    },
-    "fallback": {
-      "steps": [
-        "1. Check anthropics/skills repo for matching skill",
-        "2. Download SKILL.md + supporting files",
-        "3. Write to ~/.claude/skills/{skill-name}/SKILL.md",
-        "4. Verify skill loads in Claude Code"
-      ]
-    }
-  },
-  "discoveryPriority": [
-    "anthropics/skills (official)",
-    "agentskills.io marketplace",
-    "Custom skill creation"
-  ]
+  }
 }
