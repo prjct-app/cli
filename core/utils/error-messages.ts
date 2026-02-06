@@ -128,6 +128,17 @@ export const ERRORS = {
     hint: "Run 'prjct start' to configure your provider",
   },
 
+  // Command errors
+  UNKNOWN_COMMAND: {
+    message: 'Unknown command',
+    hint: "Run 'prjct --help' to see available commands",
+  },
+
+  MISSING_PARAM: {
+    message: 'Missing required parameter',
+    hint: 'Check command usage below',
+  },
+
   // Generic
   UNKNOWN: {
     message: 'An unexpected error occurred',
