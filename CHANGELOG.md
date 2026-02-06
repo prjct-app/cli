@@ -1,5 +1,39 @@
 # Changelog
 
+## [1.1.1] - 2026-02-05
+
+### Improved
+
+- **Visual grouping for structured output (PRJ-134)**: Added `out.section()` and integrated `out.box()`, `out.table()`, `out.list()` into sync, doctor, and status commands
+
+### Implementation Details
+
+Added `out.section(title)` method to the unified output system (`core/utils/output.ts`) — bold title with dim underline, chainable, quiet-mode aware.
+
+Refactored three commands to use unified output helpers instead of raw `console.log`:
+- **Sync** (`analysis.ts`): Summary metrics in `out.box()`, generated items via `out.section()` + `out.list()`
+- **Doctor** (`doctor-service.ts`): Section headers via `out.section()`, recommendations via `out.list()`, summary via `out.done()`/`out.warn()`/`out.fail()`
+- **Status** (`staleness-checker.ts`): Key-value details wrapped in box-drawing characters
+
+### Learnings
+
+- `staleness-checker.formatStatus()` returns a string (not direct output), so `out.box()` can't be used directly — used inline box-drawing chars instead
+- Doctor service had its own icon logic for check results that was worth preserving alongside the new section headers
+- Unified output helpers reduce code while maintaining the same visual style
+
+### Test Plan
+
+#### For QA
+1. Run `prjct sync` — verify boxed "Sync Summary" with metrics, "Generated" section header with underline, `✓` bullet items
+2. Run `prjct doctor` — verify bold+underline section headers for "System Tools", "Project Status", "Recommendations"
+3. Run `prjct status` — verify key-value details in box-drawing characters
+4. Run with `--quiet` flag — verify no visual output is printed
+
+#### For Users
+**What changed:** CLI output now uses visual grouping (boxes, section headers, structured lists) for better scannability
+**How to use:** No changes needed — output is automatically improved
+**Breaking changes:** None
+
 ## [1.1.0] - 2026-02-05
 
 ### Features

@@ -206,6 +206,7 @@ interface Output {
   list(items: string[], options?: { bullet?: string; indent?: number }): Output
   table(rows: Array<Record<string, string | number>>, options?: { header?: boolean }): Output
   box(title: string, content: string): Output
+  section(title: string): Output
   stop(): Output
   step(current: number, total: number, msg: string): Output
   progress(current: number, total: number, msg?: string): Output
@@ -366,6 +367,15 @@ const out: Output = {
       console.log(`${chalk.dim('│')} ${line.padEnd(maxLen)} ${chalk.dim('│')}`)
     }
     console.log(chalk.dim(`└${border}┘`))
+    return this
+  },
+
+  // Section header: bold title + underline
+  section(title: string) {
+    this.stop()
+    if (quietMode) return this
+    console.log(`\n${chalk.bold(title)}`)
+    console.log(chalk.dim('─'.repeat(title.length)))
     return this
   },
 
