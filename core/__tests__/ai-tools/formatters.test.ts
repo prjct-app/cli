@@ -2,6 +2,7 @@
  * Tests for AI Tools Formatters
  *
  * @see PRJ-122
+ * @see PRJ-113 (citation support)
  */
 
 import { describe, expect, test } from 'bun:test'
@@ -15,6 +16,7 @@ import {
   type ProjectContext,
 } from '../../ai-tools/formatters'
 import { AI_TOOLS, getAIToolConfig } from '../../ai-tools/registry'
+import { type ContextSources, cite, defaultSources } from '../../utils/citations'
 
 // =============================================================================
 // Test Fixtures
@@ -354,5 +356,121 @@ describe('Formatter Edge Cases', () => {
 
     const claudeResult = formatForClaude(ctx, AI_TOOLS.claude)
     expect(claudeResult).toContain('@scope/my-project')
+  })
+})
+
+// =============================================================================
+// Citation Tests (PRJ-113)
+// =============================================================================
+
+const mockSources: ContextSources = {
+  name: { file: 'package.json', type: 'detected' },
+  version: { file: 'package.json', type: 'detected' },
+  ecosystem: { file: 'package.json', type: 'detected' },
+  languages: { file: 'package.json', type: 'detected' },
+  frameworks: { file: 'package.json', type: 'detected' },
+  commands: { file: 'bun.lockb', type: 'detected' },
+  projectType: { file: 'file count + frameworks', type: 'inferred' },
+  git: { file: 'git', type: 'detected' },
+}
+
+const ctxWithSources: ProjectContext = {
+  ...mockContext,
+  sources: mockSources,
+}
+
+describe('cite() helper', () => {
+  test('generates HTML comment with file and type', () => {
+    const result = cite({ file: 'package.json', type: 'detected' })
+    expect(result).toBe('<!-- source: package.json, detected -->')
+  })
+
+  test('supports inferred type', () => {
+    const result = cite({ file: 'file count + frameworks', type: 'inferred' })
+    expect(result).toBe('<!-- source: file count + frameworks, inferred -->')
+  })
+
+  test('supports user-defined type', () => {
+    const result = cite({ file: 'prjct.yaml', type: 'user-defined' })
+    expect(result).toBe('<!-- source: prjct.yaml, user-defined -->')
+  })
+})
+
+describe('defaultSources()', () => {
+  test('returns all source fields', () => {
+    const sources = defaultSources()
+    expect(sources.name).toBeDefined()
+    expect(sources.version).toBeDefined()
+    expect(sources.ecosystem).toBeDefined()
+    expect(sources.languages).toBeDefined()
+    expect(sources.frameworks).toBeDefined()
+    expect(sources.commands).toBeDefined()
+    expect(sources.projectType).toBeDefined()
+    expect(sources.git).toBeDefined()
+  })
+
+  test('git source is always "git"', () => {
+    const sources = defaultSources()
+    expect(sources.git.file).toBe('git')
+    expect(sources.git.type).toBe('detected')
+  })
+})
+
+describe('Citation integration', () => {
+  test('Claude format includes source citations', () => {
+    const result = formatForClaude(ctxWithSources, AI_TOOLS.claude)
+
+    expect(result).toContain('<!-- source: package.json, detected -->')
+    expect(result).toContain('<!-- source: bun.lockb, detected -->')
+  })
+
+  test('Cursor format includes source citations', () => {
+    const result = formatForCursor(ctxWithSources, AI_TOOLS.cursor)
+
+    expect(result).toContain('<!-- source: package.json, detected -->')
+    expect(result).toContain('<!-- source: bun.lockb, detected -->')
+  })
+
+  test('Windsurf format includes source citations', () => {
+    const result = formatForWindsurf(ctxWithSources, AI_TOOLS.windsurf)
+
+    expect(result).toContain('<!-- source: package.json, detected -->')
+    expect(result).toContain('<!-- source: bun.lockb, detected -->')
+  })
+
+  test('Copilot format includes source citations', () => {
+    const result = formatForCopilot(ctxWithSources, AI_TOOLS.copilot)
+
+    expect(result).toContain('<!-- source: package.json, detected -->')
+    expect(result).toContain('<!-- source: bun.lockb, detected -->')
+  })
+
+  test('formatters work without sources (backward compatible)', () => {
+    const ctxNoSources = { ...mockContext }
+    delete ctxNoSources.sources
+
+    // Should not throw
+    expect(() => formatForClaude(ctxNoSources, AI_TOOLS.claude)).not.toThrow()
+    expect(() => formatForCursor(ctxNoSources, AI_TOOLS.cursor)).not.toThrow()
+    expect(() => formatForWindsurf(ctxNoSources, AI_TOOLS.windsurf)).not.toThrow()
+    expect(() => formatForCopilot(ctxNoSources, AI_TOOLS.copilot)).not.toThrow()
+
+    // Should still contain default citation comments
+    const result = formatForClaude(ctxNoSources, AI_TOOLS.claude)
+    expect(result).toContain('<!-- source:')
+  })
+
+  test('Claude format has citations before each major section', () => {
+    const result = formatForClaude(ctxWithSources, AI_TOOLS.claude)
+
+    // Ecosystem citation before project type
+    const ecosystemIdx = result.indexOf('<!-- source: package.json, detected -->')
+    const projectTypeIdx = result.indexOf('**Type:**')
+    expect(ecosystemIdx).toBeLessThan(projectTypeIdx)
+
+    // Commands citation before commands table
+    const commandsCiteIdx = result.indexOf('<!-- source: bun.lockb, detected -->')
+    const commandsTableIdx = result.indexOf('| Action | Command |')
+    expect(commandsCiteIdx).toBeLessThan(commandsTableIdx)
   })
 })

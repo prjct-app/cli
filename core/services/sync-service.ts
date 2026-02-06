@@ -30,6 +30,7 @@ import commandInstaller from '../infrastructure/command-installer'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import { metricsStorage } from '../storage/metrics-storage'
+import { type ContextSources, defaultSources, type SourceInfo } from '../utils/citations'
 import dateHelper from '../utils/date-helper'
 import { ContextFileGenerator } from './context-generator'
 import type { SyncDiff } from './diff-generator'
@@ -202,7 +203,8 @@ class SyncService {
       // 4. Generate all files (depends on gathered data)
       const agents = await this.generateAgents(stack, stats)
       const skills = this.configureSkills(agents)
-      const contextFiles = await this.generateContextFiles(git, stats, commands, agents)
+      const sources = this.buildSources(stats, commands)
+      const contextFiles = await this.generateContextFiles(git, stats, commands, agents, sources)
 
       // 5. Generate AI tool context files (multi-agent output)
       const projectContext: ProjectContext = {
@@ -223,6 +225,7 @@ class SyncService {
           workflow: agents.filter((a) => a.type === 'workflow').map((a) => a.name),
           domain: agents.filter((a) => a.type === 'domain').map((a) => a.name),
         },
+        sources,
       }
 
       const aiToolResults = await generateAIToolContexts(
@@ -536,6 +539,54 @@ class SyncService {
   }
 
   // ==========================================================================
+  // SOURCE CITATIONS
+  // ==========================================================================
+
+  private buildSources(stats: ProjectStats, commands: Commands): ContextSources {
+    const sources = defaultSources()
+
+    // Determine ecosystem source file
+    const ecosystemFiles: Record<string, string> = {
+      JavaScript: 'package.json',
+      Rust: 'Cargo.toml',
+      Go: 'go.mod',
+      Python: 'pyproject.toml',
+    }
+    const ecosystemFile = ecosystemFiles[stats.ecosystem] || 'filesystem'
+    const detected = (file: string): SourceInfo => ({ file, type: 'detected' })
+    const inferred = (file: string): SourceInfo => ({ file, type: 'inferred' })
+
+    sources.ecosystem = detected(ecosystemFile)
+    sources.name = detected(ecosystemFile)
+    sources.version = detected(ecosystemFile)
+    sources.languages = detected(ecosystemFile)
+    sources.frameworks = detected(ecosystemFile)
+
+    // Commands source is the lock file or ecosystem file
+    if (commands.install.startsWith('bun')) {
+      sources.commands = detected('bun.lockb')
+    } else if (commands.install.startsWith('pnpm')) {
+      sources.commands = detected('pnpm-lock.yaml')
+    } else if (commands.install === 'yarn') {
+      sources.commands = detected('yarn.lock')
+    } else if (commands.install.startsWith('cargo')) {
+      sources.commands = detected('Cargo.toml')
+    } else if (commands.install.startsWith('go')) {
+      sources.commands = detected('go.mod')
+    } else {
+      sources.commands = detected('package.json')
+    }
+
+    // Project type is inferred from file count + framework count
+    sources.projectType = inferred('file count + frameworks')
+
+    // Git is always from git
+    sources.git = detected('git')
+
+    return sources
+  }
+
+  // ==========================================================================
   // STACK DETECTION
   // ==========================================================================
 
@@ -757,7 +808,8 @@ You are the ${name} expert for this project. Apply best practices for the detect
     git: GitData,
     stats: ProjectStats,
     commands: Commands,
-    agents: AgentInfo[]
+    agents: AgentInfo[],
+    sources?: ContextSources
   ): Promise<string[]> {
     const generator = new ContextFileGenerator({
       projectId: this.projectId!,
@@ -765,7 +817,13 @@ You are the ${name} expert for this project. Apply best practices for the detect
       globalPath: this.globalPath,
     })
 
-    return generator.generate({ branch: git.branch, commits: git.commits }, stats, commands, agents)
+    return generator.generate(
+      { branch: git.branch, commits: git.commits },
+      stats,
+      commands,
+      agents,
+      sources
+    )
   }
 
   // ==========================================================================

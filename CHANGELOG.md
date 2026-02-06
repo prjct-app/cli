@@ -1,5 +1,42 @@
 # Changelog
 
+## [1.4.2] - 2026-02-06
+
+### Features
+
+- **Source citations in context files (PRJ-113)**: All generated context files now include `<!-- source: file, type -->` HTML comments showing where each section's data was detected from
+
+### Implementation Details
+
+- Added `SourceInfo` type and `ContextSources` interface with `cite()` helper (`core/utils/citations.ts`)
+- Extended `ProjectContext` with optional `sources` field — backward compatible, falls back to `defaultSources()`
+- Added `buildSources()` to `sync-service.ts` — maps detected ecosystem/commands data to their source files (package.json, lock files, Cargo.toml, etc.)
+- Citations added to 4 markdown formatters: Claude, Cursor, Windsurf, Copilot. Continue.dev skipped (JSON has no comment syntax)
+- Context generator CLAUDE.md also updated with citation support
+- Source types: `detected` (from files), `user-defined` (from config), `inferred` (from heuristics)
+
+### Learnings
+
+- `context-generator.ts` and `formatters.ts` both independently generate CLAUDE.md content — both must be updated for consistent citations
+- Sources can be determined post-detection from data values rather than threading metadata through every detection method
+- Optional fields with fallback defaults (`sources?`) maintain backward compatibility without breaking existing callers
+
+### Test Plan
+
+#### For QA
+1. Run `prjct sync --yes` — verify generated context files contain `<!-- source: ... -->` comments
+2. Check CLAUDE.md citations before: THIS PROJECT, Commands, Code Conventions, PROJECT STATE
+3. Check `.cursor/rules/prjct.mdc` citations before Tech Stack and Commands
+4. Check `.windsurf/rules/prjct.md` citations before Stack and Commands
+5. Check `.github/copilot-instructions.md` citations before Project Info and Commands
+6. Verify `.continue/config.json` unchanged (JSON has no comments)
+7. Run `bun test` — all 416 tests pass
+
+#### For Users
+**What changed:** Context files now show where data came from via HTML comments
+**How to use:** Run `p. sync` — citations appear automatically
+**Breaking changes:** None
+
 ## [1.4.1] - 2026-02-06
 
 ### Improvements
