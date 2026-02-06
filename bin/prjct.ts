@@ -108,6 +108,12 @@ if (args[0] === 'start' || args[0] === 'setup') {
     console.log(JSON.stringify(result, null, 2))
     process.exitCode = result.tool === 'error' ? 1 : 0
   }
+} else if (args[0] === 'hooks') {
+  // Git hooks management
+  const { hooksService } = await import('../core/services/hooks-service')
+  const subcommand = args[1] || 'status'
+  const exitCode = await hooksService.run(process.cwd(), subcommand)
+  process.exitCode = exitCode
 } else if (args[0] === 'doctor') {
   // Health check command
   const { doctorService } = await import('../core/services/doctor-service')
