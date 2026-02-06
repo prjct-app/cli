@@ -2,6 +2,13 @@
 
 ## [1.5.1] - 2026-02-06
 
+### Refactoring
+
+- standardize on fs/promises across codebase (PRJ-93) (#118)
+
+
+## [1.5.1] - 2026-02-06
+
 ### Changed
 
 - **Standardize on fs/promises across codebase (PRJ-93)**: Replaced all synchronous `fs` operations (`existsSync`, `readFileSync`, `writeFileSync`, `mkdirSync`, etc.) with async `fs/promises` equivalents across 22 files
