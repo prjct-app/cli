@@ -180,7 +180,8 @@ export function formatForHuman(data: unknown): string {
   return limitLines(JSON.stringify(data, null, 2), tier.maxLines)
 }
 
-const clear = (): boolean => process.stdout.write(`\r${' '.repeat(80)}\r`)
+const clear = (): boolean =>
+  process.stdout.isTTY ? process.stdout.write(`\r${' '.repeat(80)}\r`) : true
 
 /**
  * Metrics to display after command completion
@@ -226,9 +227,14 @@ const out: Output = {
   },
 
   // Branded spinner: prjct message...
+  // In non-TTY (CI, Claude Code), prints a static line instead of animating
   spin(msg: string) {
     if (quietMode) return this
     this.stop()
+    if (!process.stdout.isTTY) {
+      process.stdout.write(`${branding.cli.spin(0, truncate(msg, 45))}\n`)
+      return this
+    }
     interval = setInterval(() => {
       process.stdout.write(`\r${branding.cli.spin(frame++, truncate(msg, 45))}`)
     }, SPEED)
@@ -393,6 +399,10 @@ const out: Output = {
     if (quietMode) return this
     this.stop()
     const counter = chalk.dim(`[${current}/${total}]`)
+    if (!process.stdout.isTTY) {
+      process.stdout.write(`${branding.cli.spin(0, `${counter} ${truncate(msg, 35)}`)}\n`)
+      return this
+    }
     interval = setInterval(() => {
       process.stdout.write(`\r${branding.cli.spin(frame++, `${counter} ${truncate(msg, 35)}`)}`)
     }, SPEED)
@@ -408,6 +418,10 @@ const out: Output = {
     const empty = 10 - filled
     const bar = chalk.cyan('█'.repeat(filled)) + chalk.dim('░'.repeat(empty))
     const text = msg ? ` ${truncate(msg, 25)}` : ''
+    if (!process.stdout.isTTY) {
+      process.stdout.write(`${branding.cli.spin(0, `[${bar}] ${percent}%${text}`)}\n`)
+      return this
+    }
     interval = setInterval(() => {
       process.stdout.write(`\r${branding.cli.spin(frame++, `[${bar}] ${percent}%${text}`)}`)
     }, SPEED)

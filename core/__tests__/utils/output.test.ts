@@ -124,7 +124,13 @@ describe('Output Module', () => {
       stdoutWriteSpy.mockClear()
       out.stop()
 
-      expect(stdoutWriteSpy).toHaveBeenCalled()
+      // In TTY, stop() writes a clear sequence; in non-TTY, spinner doesn't
+      // use setInterval so stop() is a no-op (clear skips in non-TTY)
+      if (process.stdout.isTTY) {
+        expect(stdoutWriteSpy).toHaveBeenCalled()
+      } else {
+        expect(stdoutWriteSpy).not.toHaveBeenCalled()
+      }
     })
 
     it('should be safe to call multiple times', () => {

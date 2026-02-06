@@ -1,5 +1,36 @@
 # Changelog
 
+## [1.5.2] - 2026-02-06
+
+### Improved
+
+- **TTY detection for CLI spinners**: Spinner, step, and progress animations now detect non-TTY environments (CI/CD, Claude Code, piped output) and print a single static line instead of animating
+
+### Implementation Details
+
+- Added `process.stdout.isTTY` guard to `spin()`, `step()`, and `progress()` in `core/utils/output.ts`
+- Non-TTY environments get a single line with `\n` instead of `setInterval` with `\r` carriage returns
+- Made `clear()` a no-op in non-TTY (the `\r` + spaces trick doesn't work outside terminals)
+- Updated test for `stop()` to handle non-TTY behavior in test runner
+
+### Learnings
+
+- `process.stdout.isTTY` is the reliable built-in way to detect interactive terminals in Node.js
+- Test suites (bun test) also run as non-TTY, so test assertions need to account for both paths
+
+### Test Plan
+
+#### For QA
+1. Run `prjct sync --yes` in an interactive terminal — spinner should animate normally
+2. Run `prjct sync --yes > out.txt` — output should show a single static line, no repeated frames
+3. Run inside Claude Code Bash tool — output should be clean, no spinner noise
+4. Verify `step()` and `progress()` behave the same way in both environments
+
+#### For Users
+**What changed:** CLI spinners no longer produce garbage output in non-interactive terminals
+**How to use:** No action needed — automatic TTY detection
+**Breaking changes:** None
+
 ## [1.5.1] - 2026-02-06
 
 ### Refactoring

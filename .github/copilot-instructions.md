@@ -2,6 +2,7 @@
 
 This is prjct-cli, a JavaScript project.
 
+<!-- source: package.json, detected -->
 ## Project Info
 - Type: complex
 - Stack: Hono
@@ -11,6 +12,7 @@ This is prjct-cli, a JavaScript project.
 - Match existing code patterns
 - Keep code clean and readable
 
+<!-- source: package.json, detected -->
 ## Commands
 - Test: `npm test`
 - Build: `npm run build`
