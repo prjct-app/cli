@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0] - 2026-02-06
+
+### Features
+
+- programmatic verification checks for sync workflow (PRJ-106) (#115)
+
+
 ## [1.3.1] - 2026-02-06
 
 ### Features
