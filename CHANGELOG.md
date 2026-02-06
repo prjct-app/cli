@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.6.3] - 2026-02-06
+
+### Improvements
+
+- **Typed event bus payloads**: Added 15 typed payload interfaces (`SessionStartedPayload`, `SnapshotCreatedPayload`, etc.) and an `EventMap` type mapping event strings to their payloads. Convenience `emit` methods now enforce required fields at compile time. Backward compatible — callers with `Record<string, unknown>` still work.
+
+### Implementation Details
+- `core/types/bus.ts`: Added `EventMap` interface and all payload types
+- `core/bus/bus.ts`: Generic overload `emit<K extends keyof EventMap>()`, typed convenience methods
+- `core/types/index.ts`: Exported all new payload types
+
+### Test Plan
+
+#### For QA
+1. `bun run typecheck` — zero errors
+2. `emit.sessionStarted({})` → TS error for missing fields (IntelliSense works)
+3. `bun test` — all 416 tests pass
+
+#### For Users
+- **What changed:** Event emit methods have typed payloads with autocomplete
+- **Breaking changes:** None
+
 ## [1.6.2] - 2026-02-06
 
 ### Improvements

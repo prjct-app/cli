@@ -11,7 +11,27 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { getErrorMessage } from '../errors'
 import pathManager from '../infrastructure/path-manager'
-import { type EventCallback, type EventData, EventTypes } from '../types'
+import {
+  type AnalysisCompletedPayload,
+  type EventCallback,
+  type EventData,
+  type EventMap,
+  EventTypes,
+  type FeaturePayload,
+  type GitCommitPayload,
+  type GitPushPayload,
+  type IdeaCapturedPayload,
+  type ProjectInitializedPayload,
+  type ProjectSyncedPayload,
+  type SessionCompletedPayload,
+  type SessionPausedPayload,
+  type SessionResumedPayload,
+  type SessionStartedPayload,
+  type SnapshotCreatedPayload,
+  type SnapshotRestoredPayload,
+  type TaskCompletedPayload,
+  type TaskCreatedPayload,
+} from '../types'
 import log from '../utils/logger'
 
 class EventBus {
@@ -77,8 +97,10 @@ class EventBus {
   }
 
   /**
-   * Emit an event
+   * Emit an event with typed payload
    */
+  async emit<K extends keyof EventMap>(event: K, data: EventMap[K]): Promise<void>
+  async emit(event: string, data: Record<string, unknown>): Promise<void>
   async emit(event: string, data: Record<string, unknown> = {}): Promise<void> {
     const timestamp = new Date().toISOString()
     const eventData: EventData = {
@@ -233,37 +255,34 @@ class EventBus {
 // Singleton instance
 const eventBus = new EventBus()
 
-// Convenience methods for common events
+// Convenience methods for common events (typed payloads)
 const emit = {
-  sessionStarted: (data: Record<string, unknown>) =>
-    eventBus.emit(EventTypes.SESSION_STARTED, data),
-  sessionPaused: (data: Record<string, unknown>) => eventBus.emit(EventTypes.SESSION_PAUSED, data),
-  sessionResumed: (data: Record<string, unknown>) =>
-    eventBus.emit(EventTypes.SESSION_RESUMED, data),
-  sessionCompleted: (data: Record<string, unknown>) =>
+  sessionStarted: (data: SessionStartedPayload) => eventBus.emit(EventTypes.SESSION_STARTED, data),
+  sessionPaused: (data: SessionPausedPayload) => eventBus.emit(EventTypes.SESSION_PAUSED, data),
+  sessionResumed: (data: SessionResumedPayload) => eventBus.emit(EventTypes.SESSION_RESUMED, data),
+  sessionCompleted: (data: SessionCompletedPayload) =>
     eventBus.emit(EventTypes.SESSION_COMPLETED, data),
 
-  taskCreated: (data: Record<string, unknown>) => eventBus.emit(EventTypes.TASK_CREATED, data),
-  taskCompleted: (data: Record<string, unknown>) => eventBus.emit(EventTypes.TASK_COMPLETED, data),
+  taskCreated: (data: TaskCreatedPayload) => eventBus.emit(EventTypes.TASK_CREATED, data),
+  taskCompleted: (data: TaskCompletedPayload) => eventBus.emit(EventTypes.TASK_COMPLETED, data),
 
-  featureAdded: (data: Record<string, unknown>) => eventBus.emit(EventTypes.FEATURE_ADDED, data),
-  featureShipped: (data: Record<string, unknown>) =>
-    eventBus.emit(EventTypes.FEATURE_SHIPPED, data),
+  featureAdded: (data: FeaturePayload) => eventBus.emit(EventTypes.FEATURE_ADDED, data),
+  featureShipped: (data: FeaturePayload) => eventBus.emit(EventTypes.FEATURE_SHIPPED, data),
 
-  ideaCaptured: (data: Record<string, unknown>) => eventBus.emit(EventTypes.IDEA_CAPTURED, data),
+  ideaCaptured: (data: IdeaCapturedPayload) => eventBus.emit(EventTypes.IDEA_CAPTURED, data),
 
-  snapshotCreated: (data: Record<string, unknown>) =>
+  snapshotCreated: (data: SnapshotCreatedPayload) =>
     eventBus.emit(EventTypes.SNAPSHOT_CREATED, data),
-  snapshotRestored: (data: Record<string, unknown>) =>
+  snapshotRestored: (data: SnapshotRestoredPayload) =>
     eventBus.emit(EventTypes.SNAPSHOT_RESTORED, data),
 
-  commitCreated: (data: Record<string, unknown>) => eventBus.emit(EventTypes.COMMIT_CREATED, data),
-  pushCompleted: (data: Record<string, unknown>) => eventBus.emit(EventTypes.PUSH_COMPLETED, data),
+  commitCreated: (data: GitCommitPayload) => eventBus.emit(EventTypes.COMMIT_CREATED, data),
+  pushCompleted: (data: GitPushPayload) => eventBus.emit(EventTypes.PUSH_COMPLETED, data),
 
-  projectInitialized: (data: Record<string, unknown>) =>
+  projectInitialized: (data: ProjectInitializedPayload) =>
     eventBus.emit(EventTypes.PROJECT_INITIALIZED, data),
-  projectSynced: (data: Record<string, unknown>) => eventBus.emit(EventTypes.PROJECT_SYNCED, data),
-  analysisCompleted: (data: Record<string, unknown>) =>
+  projectSynced: (data: ProjectSyncedPayload) => eventBus.emit(EventTypes.PROJECT_SYNCED, data),
+  analysisCompleted: (data: AnalysisCompletedPayload) =>
     eventBus.emit(EventTypes.ANALYSIS_COMPLETED, data),
 }
 
