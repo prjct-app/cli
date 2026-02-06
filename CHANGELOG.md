@@ -4,6 +4,13 @@
 
 ### Features
 
+- session state tracking for multi-command workflows (PRJ-109) (#114)
+
+
+## [1.3.0] - 2026-02-06
+
+### Features
+
 - session state tracking for multi-command workflows (PRJ-109)
 
 ### Implementation Details
