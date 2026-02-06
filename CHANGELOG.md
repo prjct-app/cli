@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.6.2] - 2026-02-06
+
+### Improvements
+
+- **Diff preview before sync overwrites**: `prjct sync --dry-run` (or `--preview`) now shows what would change in CLAUDE.md without applying changes. Cancelling interactive sync restores the original file. Previously, files were written before the diff was shown, so cancel/preview still applied changes.
+
+### Implementation Details
+- Added `--dry-run` CLI flag as alias for `--preview`
+- Added `restoreOriginal()` helper that writes back saved CLAUDE.md content on cancel/preview
+- Non-interactive mode (LLM) restores original and returns JSON — apply with `prjct sync --yes`
+
+### Test Plan
+
+#### For QA
+1. `prjct sync --dry-run` — diff shown, CLAUDE.md NOT modified
+2. `prjct sync` → cancel — CLAUDE.md restored
+3. `prjct sync` → approve — changes kept
+4. `prjct sync --yes` — applied directly
+5. `prjct sync --json` — JSON returned, CLAUDE.md restored
+
+#### For Users
+- **What changed:** `--dry-run` flag works correctly; cancel restores original
+- **How to use:** `prjct sync --dry-run` to preview, `prjct sync --yes` to apply
+- **Breaking changes:** None
+
 ## [1.6.1] - 2026-02-06
 
 ### Bug Fixes
