@@ -33,7 +33,7 @@ export const TechStackSchema = z.object({
 
 export const IdeaModuleSchema = z.object({
   name: z.string(), // "Multi-tenant"
-  description: z.string(), // "Empresas con RLS estricto"
+  description: z.string(), // "Strict RLS for organizations"
 })
 
 export const IdeaRoleSchema = z.object({
