@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.4.3] - 2026-02-06
+## [1.5.1] - 2026-02-06
 
 ### Changed
 
@@ -36,6 +36,12 @@
 **What changed:** Internal refactor — no user-facing API changes. All sync filesystem operations replaced with async equivalents for better performance.
 **How to use:** No changes needed. All commands work identically.
 **Breaking changes:** None
+
+## [1.5.0] - 2026-02-06
+
+### Features
+
+- add citation format for context sources in templates (PRJ-113) (#117)
 
 ## [1.4.2] - 2026-02-06
 
