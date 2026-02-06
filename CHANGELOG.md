@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.2] - 2026-02-06
+
+### Performance
+
+- convert execSync to async in ground-truth.ts (PRJ-92) (#113)
+- convert execSync to async in ground-truth.ts (PRJ-92)
+
+
 ## [1.2.1] - 2026-02-06
 
 ### Performance
