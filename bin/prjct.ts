@@ -11,6 +11,7 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import chalk from 'chalk'
 import { detectAllProviders } from '../core/infrastructure/ai-provider'
 import configManager from '../core/infrastructure/config-manager'
 import editorsConfig from '../core/infrastructure/editors-config'
@@ -61,12 +62,7 @@ if (isQuietMode) {
   setQuietMode(true)
 }
 
-// Colors for output
-const CYAN = '\x1b[36m'
-const YELLOW = '\x1b[33m'
-const DIM = '\x1b[2m'
-const BOLD = '\x1b[1m'
-const RESET = '\x1b[0m'
+// Colors for output (chalk respects NO_COLOR env)
 
 if (args[0] === 'start' || args[0] === 'setup') {
   // Interactive setup with beautiful UI
@@ -206,52 +202,50 @@ if (args[0] === 'start' || args[0] === 'setup') {
   const windsurfDetected = fs.existsSync(path.join(cwd, '.windsurf'))
   const windsurfConfigured = fs.existsSync(path.join(cwd, '.windsurf', 'rules', 'prjct.md'))
 
-  const GREEN = '\x1b[32m'
-
   console.log(`
-${CYAN}p/${RESET} prjct v${VERSION}
-${DIM}Context layer for AI coding agents${RESET}
+${chalk.cyan('p/')} prjct v${VERSION}
+${chalk.dim('Context layer for AI coding agents')}
 
-${DIM}Providers:${RESET}`)
+${chalk.dim('Providers:')}`)
 
   // Claude status
   if (detection.claude.installed) {
-    const status = claudeConfigured ? `${GREEN}✓ ready${RESET}` : `${YELLOW}● installed${RESET}`
+    const status = claudeConfigured ? chalk.green('✓ ready') : chalk.yellow('● installed')
     const ver = detection.claude.version ? ` (v${detection.claude.version})` : ''
-    console.log(`  Claude Code   ${status}${DIM}${ver}${RESET}`)
+    console.log(`  Claude Code   ${status}${chalk.dim(ver)}`)
   } else {
-    console.log(`  Claude Code   ${DIM}○ not installed${RESET}`)
+    console.log(`  Claude Code   ${chalk.dim('○ not installed')}`)
   }
 
   // Gemini status
   if (detection.gemini.installed) {
-    const status = geminiConfigured ? `${GREEN}✓ ready${RESET}` : `${YELLOW}● installed${RESET}`
+    const status = geminiConfigured ? chalk.green('✓ ready') : chalk.yellow('● installed')
     const ver = detection.gemini.version ? ` (v${detection.gemini.version})` : ''
-    console.log(`  Gemini CLI    ${status}${DIM}${ver}${RESET}`)
+    console.log(`  Gemini CLI    ${status}${chalk.dim(ver)}`)
   } else {
-    console.log(`  Gemini CLI    ${DIM}○ not installed${RESET}`)
+    console.log(`  Gemini CLI    ${chalk.dim('○ not installed')}`)
   }
 
   // Cursor status (project-level)
   if (cursorDetected) {
-    const status = cursorConfigured ? `${GREEN}✓ ready${RESET}` : `${YELLOW}● detected${RESET}`
-    console.log(`  Cursor IDE    ${status}${DIM} (project)${RESET}`)
+    const status = cursorConfigured ? chalk.green('✓ ready') : chalk.yellow('● detected')
+    console.log(`  Cursor IDE    ${status}${chalk.dim(' (project)')}`)
   } else {
-    console.log(`  Cursor IDE    ${DIM}○ not detected${RESET}`)
+    console.log(`  Cursor IDE    ${chalk.dim('○ not detected')}`)
   }
 
   // Windsurf status (project-level)
   if (windsurfDetected) {
-    const status = windsurfConfigured ? `${GREEN}✓ ready${RESET}` : `${YELLOW}● detected${RESET}`
-    console.log(`  Windsurf IDE  ${status}${DIM} (project)${RESET}`)
+    const status = windsurfConfigured ? chalk.green('✓ ready') : chalk.yellow('● detected')
+    console.log(`  Windsurf IDE  ${status}${chalk.dim(' (project)')}`)
   } else {
-    console.log(`  Windsurf IDE  ${DIM}○ not detected${RESET}`)
+    console.log(`  Windsurf IDE  ${chalk.dim('○ not detected')}`)
   }
 
   console.log(`
-${DIM}Run 'prjct start' to configure (CLI providers)${RESET}
-${DIM}Run 'prjct init' to configure (Cursor/Windsurf IDE)${RESET}
-${CYAN}https://prjct.app${RESET}
+${chalk.dim("Run 'prjct start' to configure (CLI providers)")}
+${chalk.dim("Run 'prjct init' to configure (Cursor/Windsurf IDE)")}
+${chalk.cyan('https://prjct.app')}
 `)
 } else {
   // Check if setup has been done
@@ -261,12 +255,12 @@ ${CYAN}https://prjct.app${RESET}
   if (!fs.existsSync(configPath) || !routersInstalled) {
     // First time - prompt to run start
     console.log(`
-${CYAN}${BOLD}  Welcome to prjct!${RESET}
+${chalk.cyan.bold('  Welcome to prjct!')}
 
-  Run ${BOLD}prjct start${RESET} to configure your AI providers.
+  Run ${chalk.bold('prjct start')} to configure your AI providers.
 
-  ${DIM}This is a one-time setup that lets you choose between
-  Claude Code, Gemini CLI, or both.${RESET}
+  ${chalk.dim(`This is a one-time setup that lets you choose between
+  Claude Code, Gemini CLI, or both.`)}
 `)
     process.exitCode = 0
   } else {
@@ -275,7 +269,7 @@ ${CYAN}${BOLD}  Welcome to prjct!${RESET}
       const lastVersion = await editorsConfig.getLastVersion()
 
       if (lastVersion && lastVersion !== VERSION) {
-        console.log(`\n${YELLOW}ℹ${RESET} Updating prjct v${lastVersion} → v${VERSION}...\n`)
+        console.log(`\n${chalk.yellow('ℹ')} Updating prjct v${lastVersion} → v${VERSION}...\n`)
 
         const { default: setup } = await import('../core/infrastructure/setup')
         await setup.run()

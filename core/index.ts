@@ -10,6 +10,7 @@ import './commands/register' // Ensure commands are registered
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import chalk from 'chalk'
 import type { CommandMeta } from './commands/registry'
 import { detectAllProviders, detectAntigravity } from './infrastructure/ai-provider'
 import out from './utils/output'
@@ -195,12 +196,7 @@ function parseCommandArgs(_cmd: CommandMeta, rawArgs: string[]): ParsedCommandAr
   return { parsedArgs, options }
 }
 
-// Colors for version display
-const CYAN = '\x1b[36m'
-const GREEN = '\x1b[32m'
-const YELLOW = '\x1b[33m'
-const DIM = '\x1b[2m'
-const RESET = '\x1b[0m'
+// Colors via chalk (respects NO_COLOR env)
 
 /**
  * Display version with provider status
@@ -219,53 +215,53 @@ function displayVersion(version: string): void {
   const cursorExists = fs.existsSync(path.join(process.cwd(), '.cursor'))
 
   console.log(`
-${CYAN}p/${RESET} prjct v${version}
-${DIM}Context layer for AI coding agents${RESET}
+${chalk.cyan('p/')} prjct v${version}
+${chalk.dim('Context layer for AI coding agents')}
 
-${DIM}Providers:${RESET}`)
+${chalk.dim('Providers:')}`)
 
   // Claude status
   if (detection.claude.installed) {
-    const status = claudeConfigured ? `${GREEN}✓ ready${RESET}` : `${YELLOW}● installed${RESET}`
+    const status = claudeConfigured ? chalk.green('✓ ready') : chalk.yellow('● installed')
     const ver = detection.claude.version ? ` (v${detection.claude.version})` : ''
-    console.log(`  Claude Code   ${status}${DIM}${ver}${RESET}`)
+    console.log(`  Claude Code   ${status}${chalk.dim(ver)}`)
   } else {
-    console.log(`  Claude Code   ${DIM}○ not installed${RESET}`)
+    console.log(`  Claude Code   ${chalk.dim('○ not installed')}`)
   }
 
   // Gemini status
   if (detection.gemini.installed) {
-    const status = geminiConfigured ? `${GREEN}✓ ready${RESET}` : `${YELLOW}● installed${RESET}`
+    const status = geminiConfigured ? chalk.green('✓ ready') : chalk.yellow('● installed')
     const ver = detection.gemini.version ? ` (v${detection.gemini.version})` : ''
-    console.log(`  Gemini CLI    ${status}${DIM}${ver}${RESET}`)
+    console.log(`  Gemini CLI    ${status}${chalk.dim(ver)}`)
   } else {
-    console.log(`  Gemini CLI    ${DIM}○ not installed${RESET}`)
+    console.log(`  Gemini CLI    ${chalk.dim('○ not installed')}`)
   }
 
   // Antigravity status (global, skills-based)
   const antigravityDetection = detectAntigravity()
   if (antigravityDetection.installed) {
     const status = antigravityDetection.skillInstalled
-      ? `${GREEN}✓ ready${RESET}`
-      : `${YELLOW}● detected${RESET}`
-    const hint = antigravityDetection.skillInstalled ? '' : ` ${DIM}(run prjct start)${RESET}`
+      ? chalk.green('✓ ready')
+      : chalk.yellow('● detected')
+    const hint = antigravityDetection.skillInstalled ? '' : ` ${chalk.dim('(run prjct start)')}`
     console.log(`  Antigravity   ${status}${hint}`)
   } else {
-    console.log(`  Antigravity   ${DIM}○ not installed${RESET}`)
+    console.log(`  Antigravity   ${chalk.dim('○ not installed')}`)
   }
 
   // Cursor status (project-level, but shown in same format)
   if (cursorConfigured) {
-    console.log(`  Cursor IDE    ${GREEN}✓ ready${RESET} ${DIM}(use /sync, /task)${RESET}`)
+    console.log(`  Cursor IDE    ${chalk.green('✓ ready')} ${chalk.dim('(use /sync, /task)')}`)
   } else if (cursorExists) {
-    console.log(`  Cursor IDE    ${YELLOW}● detected${RESET} ${DIM}(run prjct init)${RESET}`)
+    console.log(`  Cursor IDE    ${chalk.yellow('● detected')} ${chalk.dim('(run prjct init)')}`)
   } else {
-    console.log(`  Cursor IDE    ${DIM}○ no .cursor/ folder${RESET}`)
+    console.log(`  Cursor IDE    ${chalk.dim('○ no .cursor/ folder')}`)
   }
 
   console.log(`
-${DIM}Run 'prjct start' for Claude/Gemini, 'prjct init' for Cursor${RESET}
-${CYAN}https://prjct.app${RESET}
+${chalk.dim("Run 'prjct start' for Claude/Gemini, 'prjct init' for Cursor")}
+${chalk.cyan('https://prjct.app')}
 `)
 }
 

@@ -7,16 +7,9 @@
  * @module utils/help
  */
 
+import chalk from 'chalk'
 import { CATEGORIES, COMMANDS } from '../commands/command-data'
 import { VERSION } from './version'
-
-// ANSI colors
-const CYAN = '\x1b[36m'
-const DIM = '\x1b[2m'
-const BOLD = '\x1b[1m'
-const RESET = '\x1b[0m'
-const GREEN = '\x1b[32m'
-const YELLOW = '\x1b[33m'
 
 /**
  * Terminal commands that run directly in the shell
@@ -96,22 +89,24 @@ export function formatMainHelp(): string {
 
   // Header
   lines.push('')
-  lines.push(`${CYAN}${BOLD}prjct${RESET} v${VERSION} - Context layer for AI coding agents`)
-  lines.push(`${DIM}Works with Claude Code, Gemini CLI, Cursor, Windsurf, and more.${RESET}`)
+  lines.push(`${chalk.cyan.bold('prjct')} v${VERSION} - Context layer for AI coding agents`)
+  lines.push(chalk.dim('Works with Claude Code, Gemini CLI, Cursor, Windsurf, and more.'))
   lines.push('')
 
   // Quick Start
-  lines.push(`${BOLD}QUICK START${RESET}`)
-  lines.push(`${DIM}${'─'.repeat(60)}${RESET}`)
-  lines.push(`  ${GREEN}1.${RESET} prjct start              ${DIM}# Configure AI providers${RESET}`)
-  lines.push(`  ${GREEN}2.${RESET} cd my-project && prjct init`)
-  lines.push(`  ${GREEN}3.${RESET} Open in Claude Code / Gemini CLI / Cursor`)
-  lines.push(`  ${GREEN}4.${RESET} p. sync                  ${DIM}# Analyze project${RESET}`)
+  lines.push(chalk.bold('QUICK START'))
+  lines.push(chalk.dim('─'.repeat(60)))
+  lines.push(
+    `  ${chalk.green('1.')} prjct start              ${chalk.dim('# Configure AI providers')}`
+  )
+  lines.push(`  ${chalk.green('2.')} cd my-project && prjct init`)
+  lines.push(`  ${chalk.green('3.')} Open in Claude Code / Gemini CLI / Cursor`)
+  lines.push(`  ${chalk.green('4.')} p. sync                  ${chalk.dim('# Analyze project')}`)
   lines.push('')
 
   // Terminal Commands
-  lines.push(`${BOLD}TERMINAL COMMANDS${RESET}`)
-  lines.push(`${DIM}${'─'.repeat(60)}${RESET}`)
+  lines.push(chalk.bold('TERMINAL COMMANDS'))
+  lines.push(chalk.dim('─'.repeat(60)))
   for (const cmd of TERMINAL_COMMANDS) {
     const name = `prjct ${cmd.name}`.padEnd(22)
     lines.push(`  ${name} ${cmd.description}`)
@@ -119,10 +114,10 @@ export function formatMainHelp(): string {
   lines.push('')
 
   // AI Agent Commands
-  lines.push(`${BOLD}AI AGENT COMMANDS${RESET} ${DIM}(inside Claude/Gemini/Cursor)${RESET}`)
-  lines.push(`${DIM}${'─'.repeat(60)}${RESET}`)
+  lines.push(`${chalk.bold('AI AGENT COMMANDS')} ${chalk.dim('(inside Claude/Gemini/Cursor)')}`)
+  lines.push(chalk.dim('─'.repeat(60)))
   lines.push(`  ${'Command'.padEnd(22)} Description`)
-  lines.push(`  ${DIM}${'─'.repeat(56)}${RESET}`)
+  lines.push(`  ${chalk.dim('─'.repeat(56))}`)
 
   // Core commands
   const coreCommands = COMMANDS.filter((c) => c.group === 'core' && c.usage?.claude)
@@ -130,22 +125,24 @@ export function formatMainHelp(): string {
     const usage = `p. ${cmd.name}`.padEnd(22)
     lines.push(`  ${usage} ${cmd.description}`)
   }
-  lines.push(`  ${DIM}... and ${coreCommands.length - 10} more (run 'prjct help commands')${RESET}`)
+  lines.push(
+    `  ${chalk.dim(`... and ${coreCommands.length - 10} more (run 'prjct help commands')`)}`
+  )
   lines.push('')
 
   // Global Flags
-  lines.push(`${BOLD}FLAGS${RESET}`)
-  lines.push(`${DIM}${'─'.repeat(60)}${RESET}`)
+  lines.push(chalk.bold('FLAGS'))
+  lines.push(chalk.dim('─'.repeat(60)))
   for (const flag of GLOBAL_FLAGS) {
     lines.push(`  ${flag.flag.padEnd(22)} ${flag.description}`)
   }
   lines.push('')
 
   // More Info
-  lines.push(`${BOLD}MORE INFO${RESET}`)
-  lines.push(`${DIM}${'─'.repeat(60)}${RESET}`)
-  lines.push(`  Documentation:  ${CYAN}https://prjct.app${RESET}`)
-  lines.push(`  GitHub:         ${CYAN}https://github.com/jlopezlira/prjct-cli${RESET}`)
+  lines.push(chalk.bold('MORE INFO'))
+  lines.push(chalk.dim('─'.repeat(60)))
+  lines.push(`  Documentation:  ${chalk.cyan('https://prjct.app')}`)
+  lines.push(`  GitHub:         ${chalk.cyan('https://github.com/jlopezlira/prjct-cli')}`)
   lines.push(`  Per-command:    prjct help <command>`)
   lines.push('')
 
@@ -162,15 +159,15 @@ export function formatTerminalCommandHelp(commandName: string): string | null {
   const lines: string[] = []
 
   lines.push('')
-  lines.push(`${CYAN}${BOLD}prjct ${cmd.name}${RESET} - ${cmd.description}`)
+  lines.push(`${chalk.cyan.bold(`prjct ${cmd.name}`)} - ${cmd.description}`)
   lines.push('')
 
-  lines.push(`${BOLD}USAGE${RESET}`)
+  lines.push(chalk.bold('USAGE'))
   lines.push(`  ${cmd.example}`)
   lines.push('')
 
   if (cmd.options) {
-    lines.push(`${BOLD}OPTIONS${RESET}`)
+    lines.push(chalk.bold('OPTIONS'))
     for (const opt of cmd.options) {
       lines.push(`  ${opt}`)
     }
@@ -178,7 +175,7 @@ export function formatTerminalCommandHelp(commandName: string): string | null {
   }
 
   if (cmd.subcommands) {
-    lines.push(`${BOLD}SUBCOMMANDS${RESET}`)
+    lines.push(chalk.bold('SUBCOMMANDS'))
     for (const sub of cmd.subcommands) {
       lines.push(`  ${sub}`)
     }
@@ -198,10 +195,10 @@ export function formatAgentCommandHelp(commandName: string): string | null {
   const lines: string[] = []
 
   lines.push('')
-  lines.push(`${CYAN}${BOLD}p. ${cmd.name}${RESET} - ${cmd.description}`)
+  lines.push(`${chalk.cyan.bold(`p. ${cmd.name}`)} - ${cmd.description}`)
   lines.push('')
 
-  lines.push(`${BOLD}USAGE${RESET}`)
+  lines.push(chalk.bold('USAGE'))
   if (cmd.usage?.claude) {
     lines.push(`  Claude/Gemini:  ${cmd.usage.claude.replace('/p:', 'p. ')}`)
   }
@@ -211,13 +208,13 @@ export function formatAgentCommandHelp(commandName: string): string | null {
   lines.push('')
 
   if (cmd.params) {
-    lines.push(`${BOLD}PARAMETERS${RESET}`)
+    lines.push(chalk.bold('PARAMETERS'))
     lines.push(`  ${cmd.params}`)
     lines.push('')
   }
 
   if (cmd.features && cmd.features.length > 0) {
-    lines.push(`${BOLD}FEATURES${RESET}`)
+    lines.push(chalk.bold('FEATURES'))
     for (const feature of cmd.features) {
       lines.push(`  • ${feature}`)
     }
@@ -225,17 +222,17 @@ export function formatAgentCommandHelp(commandName: string): string | null {
   }
 
   if (cmd.blockingRules) {
-    lines.push(`${BOLD}REQUIREMENTS${RESET}`)
-    lines.push(`  ${YELLOW}⚠${RESET} ${cmd.blockingRules.check}`)
+    lines.push(chalk.bold('REQUIREMENTS'))
+    lines.push(`  ${chalk.yellow('⚠')} ${cmd.blockingRules.check}`)
     lines.push('')
   }
 
   // Category info
   const category = CATEGORIES[cmd.group]
   if (category) {
-    lines.push(`${DIM}Category: ${category.title}${RESET}`)
+    lines.push(chalk.dim(`Category: ${category.title}`))
     if (cmd.isOptional) {
-      lines.push(`${DIM}This is an optional command.${RESET}`)
+      lines.push(chalk.dim('This is an optional command.'))
     }
     lines.push('')
   }
@@ -257,7 +254,7 @@ export function formatCommandHelp(commandName: string): string {
 
   // Command not found
   return `
-${YELLOW}Command '${commandName}' not found.${RESET}
+${chalk.yellow(`Command '${commandName}' not found.`)}
 
 Run 'prjct help' to see all available commands.
 `
@@ -270,7 +267,7 @@ export function formatCommandList(): string {
   const lines: string[] = []
 
   lines.push('')
-  lines.push(`${CYAN}${BOLD}All Commands${RESET}`)
+  lines.push(chalk.cyan.bold('All Commands'))
   lines.push('')
 
   // Group by category
@@ -281,9 +278,9 @@ export function formatCommandList(): string {
     if (categoryCommands.length === 0) continue
 
     lines.push(
-      `${BOLD}${category.title}${RESET} ${DIM}(${categoryCommands.length} commands)${RESET}`
+      `${chalk.bold(category.title)} ${chalk.dim(`(${categoryCommands.length} commands)`)}`
     )
-    lines.push(`${DIM}${category.description}${RESET}`)
+    lines.push(chalk.dim(category.description))
     lines.push('')
 
     for (const cmd of categoryCommands) {
@@ -295,7 +292,7 @@ export function formatCommandList(): string {
     lines.push('')
   }
 
-  lines.push(`${DIM}Run 'prjct help <command>' for detailed help on a specific command.${RESET}`)
+  lines.push(chalk.dim("Run 'prjct help <command>' for detailed help on a specific command."))
   lines.push('')
 
   return lines.join('\n')

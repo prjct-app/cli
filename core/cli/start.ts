@@ -12,46 +12,35 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import readline from 'node:readline'
+import chalk from 'chalk'
 import { detectAllProviders, Providers } from '../infrastructure/ai-provider'
 import type { AIProviderName } from '../types/provider'
 import { VERSION } from '../utils/version'
 
-// Colors
-const RESET = '\x1b[0m'
-const BOLD = '\x1b[1m'
-const DIM = '\x1b[2m'
-const GREEN = '\x1b[32m'
-const YELLOW = '\x1b[33m'
-const _BLUE = '\x1b[34m'
-const _MAGENTA = '\x1b[35m'
-const CYAN = '\x1b[36m'
-const WHITE = '\x1b[37m'
-const _BG_BLUE = '\x1b[44m'
-
 // True color gradient (cyan -> blue -> purple -> pink)
-const G1 = '\x1b[38;2;0;255;255m' // Cyan
-const G2 = '\x1b[38;2;80;180;255m' // Sky blue
-const G3 = '\x1b[38;2;140;120;255m' // Blue-purple
-const G4 = '\x1b[38;2;200;80;220m' // Purple
-const G5 = '\x1b[38;2;255;80;180m' // Pink
+const G1 = chalk.rgb(0, 255, 255)
+const G2 = chalk.rgb(80, 180, 255)
+const G3 = chalk.rgb(140, 120, 255)
+const G4 = chalk.rgb(200, 80, 220)
+const G5 = chalk.rgb(255, 80, 180)
 
 // Large block letters - PRJCT (7 lines tall)
 const BANNER = `
 
-${G1} ██████╗ ${G2} ██████╗ ${G3}     ██╗${G4} ██████╗${G5}████████╗${RESET}
-${G1} ██╔══██╗${G2} ██╔══██╗${G3}     ██║${G4}██╔════╝${G5}╚══██╔══╝${RESET}
-${G1} ██████╔╝${G2} ██████╔╝${G3}     ██║${G4}██║     ${G5}   ██║   ${RESET}
-${G1} ██╔═══╝ ${G2} ██╔══██╗${G3}██   ██║${G4}██║     ${G5}   ██║   ${RESET}
-${G1} ██║     ${G2} ██║  ██║${G3}╚█████╔╝${G4}╚██████╗${G5}   ██║   ${RESET}
-${G1} ╚═╝     ${G2} ╚═╝  ╚═╝${G3} ╚════╝ ${G4} ╚═════╝${G5}   ╚═╝   ${RESET}
+${G1(' ██████╗ ')}${G2(' ██████╗ ')}${G3('     ██╗')}${G4(' ██████╗')}${G5('████████╗')}
+${G1(' ██╔══██╗')}${G2(' ██╔══██╗')}${G3('     ██║')}${G4('██╔════╝')}${G5('╚══██╔══╝')}
+${G1(' ██████╔╝')}${G2(' ██████╔╝')}${G3('     ██║')}${G4('██║     ')}${G5('   ██║   ')}
+${G1(' ██╔═══╝ ')}${G2(' ██╔══██╗')}${G3('██   ██║')}${G4('██║     ')}${G5('   ██║   ')}
+${G1(' ██║     ')}${G2(' ██║  ██║')}${G3('╚█████╔╝')}${G4('╚██████╗')}${G5('   ██║   ')}
+${G1(' ╚═╝     ')}${G2(' ╚═╝  ╚═╝')}${G3(' ╚════╝ ')}${G4(' ╚═════╝')}${G5('   ╚═╝   ')}
 
 `
 
-const WELCOME_BOX = `  ${WHITE}Context Layer for AI Agents${RESET}  ${DIM}v${VERSION}${RESET}
+const WELCOME_BOX = `  ${chalk.white('Context Layer for AI Agents')}  ${chalk.dim(`v${VERSION}`)}
 
-  ${DIM}Project context layer for AI coding agents.
-  Works with Claude Code, Gemini CLI, and more.${RESET}
-  ${CYAN}https://prjct.app${RESET}
+  ${chalk.dim(`Project context layer for AI coding agents.
+  Works with Claude Code, Gemini CLI, and more.`)}
+  ${chalk.cyan('https://prjct.app')}
 `
 
 interface ProviderOption {
@@ -85,17 +74,14 @@ function showBanner(): void {
  * Show provider selection UI
  */
 function showProviderSelection(options: ProviderOption[], currentIndex: number): void {
-  console.log(`\n${BOLD}  Select AI providers to configure:${RESET}\n`)
-  console.log(`  ${DIM}(Use arrow keys to navigate, space to toggle, enter to confirm)${RESET}\n`)
+  console.log(`\n${chalk.bold('  Select AI providers to configure:')}\n`)
+  console.log(`  ${chalk.dim('(Use arrow keys to navigate, space to toggle, enter to confirm)')}\n`)
 
   options.forEach((option, index) => {
-    const cursor = index === currentIndex ? `${CYAN}❯${RESET}` : ' '
-    const checkbox = option.selected ? `${GREEN}[✓]${RESET}` : `${DIM}[ ]${RESET}`
-    const status = option.installed
-      ? `${GREEN}(installed)${RESET}`
-      : `${YELLOW}(will install)${RESET}`
-    const name =
-      index === currentIndex ? `${BOLD}${option.displayName}${RESET}` : option.displayName
+    const cursor = index === currentIndex ? chalk.cyan('❯') : ' '
+    const checkbox = option.selected ? chalk.green('[✓]') : chalk.dim('[ ]')
+    const status = option.installed ? chalk.green('(installed)') : chalk.yellow('(will install)')
+    const name = index === currentIndex ? chalk.bold(option.displayName) : option.displayName
 
     console.log(`  ${cursor} ${checkbox} ${name} ${status}`)
   })
@@ -131,10 +117,10 @@ async function selectProviders(): Promise<AIProviderName[]> {
 
   // Non-interactive mode: auto-select detected providers
   if (!process.stdin.isTTY) {
-    console.log(`\n${BOLD}  Detected providers:${RESET}\n`)
+    console.log(`\n${chalk.bold('  Detected providers:')}\n`)
     options.forEach((option) => {
       if (option.installed) {
-        console.log(`  ${GREEN}✓${RESET} ${option.displayName}`)
+        console.log(`  ${chalk.green('✓')} ${option.displayName}`)
       }
     })
     console.log('')
@@ -230,7 +216,7 @@ async function installRouter(provider: AIProviderName): Promise<boolean> {
     return false
   } catch (error) {
     console.error(
-      `  ${YELLOW}⚠${RESET} Failed to install ${provider} router: ${(error as Error).message}`
+      `  ${chalk.yellow('⚠')} Failed to install ${provider} router: ${(error as Error).message}`
     )
     return false
   }
@@ -294,7 +280,7 @@ async function installGlobalConfig(provider: AIProviderName): Promise<boolean> {
     return false
   } catch (error) {
     console.error(
-      `  ${YELLOW}⚠${RESET} Failed to install ${provider} config: ${(error as Error).message}`
+      `  ${chalk.yellow('⚠')} Failed to install ${provider} config: ${(error as Error).message}`
     )
     return false
   }
@@ -324,27 +310,27 @@ async function saveSetupConfig(providers: AIProviderName[]): Promise<void> {
  * Show completion message
  */
 function showCompletion(providers: AIProviderName[]): void {
-  console.log(`\n${GREEN}${BOLD}  ✓ Setup complete!${RESET}\n`)
+  console.log(`\n${chalk.green.bold('  ✓ Setup complete!')}\n`)
 
-  console.log(`  ${DIM}Configured providers:${RESET}`)
+  console.log(`  ${chalk.dim('Configured providers:')}`)
   providers.forEach((p) => {
     const config = Providers[p]
-    console.log(`    ${GREEN}✓${RESET} ${config.displayName}`)
+    console.log(`    ${chalk.green('✓')} ${config.displayName}`)
   })
 
   console.log(`
-  ${BOLD}Next steps:${RESET}
+  ${chalk.bold('Next steps:')}
 
-  ${CYAN}1.${RESET} Navigate to your project directory
-  ${CYAN}2.${RESET} Run ${BOLD}p. init${RESET} to initialize prjct for that project
-  ${CYAN}3.${RESET} Start tracking with ${BOLD}p. task "your task"${RESET}
+  ${chalk.cyan('1.')} Navigate to your project directory
+  ${chalk.cyan('2.')} Run ${chalk.bold('p. init')} to initialize prjct for that project
+  ${chalk.cyan('3.')} Start tracking with ${chalk.bold('p. task "your task"')}
 
-  ${DIM}Tips:${RESET}
-  ${DIM}•${RESET} Use ${BOLD}p. sync${RESET} to analyze your codebase
-  ${DIM}•${RESET} Use ${BOLD}p. done${RESET} to complete tasks
-  ${DIM}•${RESET} Use ${BOLD}p. ship${RESET} to create PRs
+  ${chalk.dim('Tips:')}
+  ${chalk.dim('•')} Use ${chalk.bold('p. sync')} to analyze your codebase
+  ${chalk.dim('•')} Use ${chalk.bold('p. done')} to complete tasks
+  ${chalk.dim('•')} Use ${chalk.bold('p. ship')} to create PRs
 
-  ${DIM}Learn more: https://prjct.app/docs${RESET}
+  ${chalk.dim('Learn more: https://prjct.app/docs')}
 `)
 }
 
@@ -359,8 +345,8 @@ export async function runStart(): Promise<void> {
   if (fs.existsSync(configPath)) {
     const existing = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
     if (existing.version === VERSION) {
-      console.log(`  ${YELLOW}ℹ${RESET} Already configured for v${VERSION}`)
-      console.log(`  ${DIM}Run with --force to reconfigure${RESET}\n`)
+      console.log(`  ${chalk.yellow('ℹ')} Already configured for v${VERSION}`)
+      console.log(`  ${chalk.dim('Run with --force to reconfigure')}\n`)
 
       if (!process.argv.includes('--force')) {
         return
@@ -371,22 +357,22 @@ export async function runStart(): Promise<void> {
   // Select providers
   const selectedProviders = await selectProviders()
 
-  console.log(`\n  ${CYAN}Setting up...${RESET}\n`)
+  console.log(`\n  ${chalk.cyan('Setting up...')}\n`)
 
   // Install for each selected provider
   for (const provider of selectedProviders) {
     const config = Providers[provider]
-    process.stdout.write(`  ${DIM}•${RESET} ${config.displayName}... `)
+    process.stdout.write(`  ${chalk.dim('•')} ${config.displayName}... `)
 
     const routerOk = await installRouter(provider)
     const configOk = await installGlobalConfig(provider)
 
     if (routerOk && configOk) {
-      console.log(`${GREEN}✓${RESET}`)
+      console.log(chalk.green('✓'))
     } else if (routerOk || configOk) {
-      console.log(`${YELLOW}partial${RESET}`)
+      console.log(chalk.yellow('partial'))
     } else {
-      console.log(`${YELLOW}skipped${RESET}`)
+      console.log(chalk.yellow('skipped'))
     }
   }
 

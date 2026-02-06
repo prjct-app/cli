@@ -21,6 +21,7 @@ import { execSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import chalk from 'chalk'
 import { getTimeout } from '../constants'
 import { dependencyValidator } from '../services/dependency-validator'
 import { isNotFoundError } from '../types/fs'
@@ -35,12 +36,6 @@ import {
 } from './ai-provider'
 import installer from './command-installer'
 import editorsConfig from './editors-config'
-
-// Colors
-const GREEN = '\x1b[32m'
-const YELLOW = '\x1b[33m'
-const DIM = '\x1b[2m'
-const NC = '\x1b[0m'
 
 interface ProviderSetupResult {
   provider: AIProviderName
@@ -77,20 +72,22 @@ async function installAICLI(provider: AIProviderConfig): Promise<boolean> {
 
   // PRJ-114: Check npm availability first
   if (!dependencyValidator.isAvailable('npm')) {
-    console.log(`${YELLOW}⚠️  npm is not available${NC}`)
+    console.log(`${chalk.yellow('⚠️  npm is not available')}`)
     console.log('')
-    console.log(`${DIM}Install ${provider.displayName} using one of:${NC}`)
-    console.log(`${DIM}  • Install Node.js: https://nodejs.org${NC}`)
+    console.log(`${chalk.dim(`Install ${provider.displayName} using one of:`)}`)
+    console.log(chalk.dim('  • Install Node.js: https://nodejs.org'))
     console.log(
-      `${DIM}  • Use Homebrew: brew install ${provider.name === 'claude' ? 'claude' : 'gemini'}${NC}`
+      chalk.dim(
+        `  • Use Homebrew: brew install ${provider.name === 'claude' ? 'claude' : 'gemini'}`
+      )
     )
-    console.log(`${DIM}  • Use npx directly: npx ${packageName}${NC}`)
+    console.log(chalk.dim(`  • Use npx directly: npx ${packageName}`))
     console.log('')
     return false
   }
 
   try {
-    console.log(`${YELLOW}📦 ${provider.displayName} not found. Installing...${NC}`)
+    console.log(chalk.yellow(`📦 ${provider.displayName} not found. Installing...`))
     console.log('')
     // PRJ-111: Add timeout to npm install (default: 2 minutes, configurable via PRJCT_TIMEOUT_NPM_INSTALL)
     execSync(`npm install -g ${packageName}`, {
@@ -98,7 +95,7 @@ async function installAICLI(provider: AIProviderConfig): Promise<boolean> {
       timeout: getTimeout('NPM_INSTALL'),
     })
     console.log('')
-    console.log(`${GREEN}✓${NC} ${provider.displayName} installed successfully`)
+    console.log(`${chalk.green('✓')} ${provider.displayName} installed successfully`)
     console.log('')
     return true
   } catch (error) {
@@ -106,21 +103,21 @@ async function installAICLI(provider: AIProviderConfig): Promise<boolean> {
     const isTimeout = err.killed && err.signal === 'SIGTERM'
 
     if (isTimeout) {
-      console.log(`${YELLOW}⚠️  Installation timed out for ${provider.displayName}${NC}`)
+      console.log(chalk.yellow(`⚠️  Installation timed out for ${provider.displayName}`))
       console.log('')
-      console.log(`${DIM}The npm install took too long. Try:${NC}`)
-      console.log(`${DIM}  • Set PRJCT_TIMEOUT_NPM_INSTALL=300000 for 5 minutes${NC}`)
-      console.log(`${DIM}  • Run manually: npm install -g ${packageName}${NC}`)
+      console.log(chalk.dim('The npm install took too long. Try:'))
+      console.log(chalk.dim('  • Set PRJCT_TIMEOUT_NPM_INSTALL=300000 for 5 minutes'))
+      console.log(chalk.dim(`  • Run manually: npm install -g ${packageName}`))
     } else {
-      console.log(`${YELLOW}⚠️  Failed to install ${provider.displayName}: ${err.message}${NC}`)
+      console.log(chalk.yellow(`⚠️  Failed to install ${provider.displayName}: ${err.message}`))
     }
     console.log('')
-    console.log(`${DIM}Alternative installation methods:${NC}`)
-    console.log(`${DIM}  • npm:  npm install -g ${packageName}${NC}`)
-    console.log(`${DIM}  • yarn: yarn global add ${packageName}${NC}`)
-    console.log(`${DIM}  • pnpm: pnpm add -g ${packageName}${NC}`)
+    console.log(chalk.dim('Alternative installation methods:'))
+    console.log(chalk.dim(`  • npm:  npm install -g ${packageName}`))
+    console.log(chalk.dim(`  • yarn: yarn global add ${packageName}`))
+    console.log(chalk.dim(`  • pnpm: pnpm add -g ${packageName}`))
     console.log(
-      `${DIM}  • brew: brew install ${provider.name === 'claude' ? 'claude' : 'gemini'}${NC}`
+      chalk.dim(`  • brew: brew install ${provider.name === 'claude' ? 'claude' : 'gemini'}`)
     )
     console.log('')
     return false
@@ -232,7 +229,7 @@ export async function run(): Promise<SetupResults> {
   if (antigravityDetection.installed) {
     const antigravityResult = await installAntigravitySkill()
     if (antigravityResult.success) {
-      console.log(`   ${GREEN}✓${NC} Antigravity skill installed`)
+      console.log(`   ${chalk.green('✓')} Antigravity skill installed`)
     }
   }
 
@@ -733,7 +730,7 @@ async function migrateProjectsCliVersion(): Promise<void> {
     }
 
     if (migrated > 0) {
-      console.log(`   ${GREEN}✓${NC} Updated ${migrated} project(s) to v${VERSION}`)
+      console.log(`   ${chalk.green('✓')} Updated ${migrated} project(s) to v${VERSION}`)
     }
   } catch (error) {
     // Silently fail if projects directory doesn't exist
@@ -1029,9 +1026,9 @@ function showResults(results: ProviderSetupResult, provider: AIProviderConfig): 
   console.log('')
 
   if (results.cliInstalled) {
-    console.log(`   ${GREEN}✓${NC} ${provider.displayName} CLI installed`)
+    console.log(`   ${chalk.green('✓')} ${provider.displayName} CLI installed`)
   } else {
-    console.log(`   ${GREEN}✓${NC} ${provider.displayName} CLI found`)
+    console.log(`   ${chalk.green('✓')} ${provider.displayName} CLI found`)
   }
 
   const totalCommands = results.commandsAdded + results.commandsUpdated
@@ -1039,17 +1036,17 @@ function showResults(results: ProviderSetupResult, provider: AIProviderConfig): 
     const parts: string[] = []
     if (results.commandsAdded > 0) parts.push(`${results.commandsAdded} new`)
     if (results.commandsUpdated > 0) parts.push(`${results.commandsUpdated} updated`)
-    console.log(`   ${GREEN}✓${NC} Commands synced (${parts.join(', ')})`)
+    console.log(`   ${chalk.green('✓')} Commands synced (${parts.join(', ')})`)
   } else {
-    console.log(`   ${GREEN}✓${NC} Commands up to date`)
+    console.log(`   ${chalk.green('✓')} Commands up to date`)
   }
 
   if (results.configAction === 'created') {
-    console.log(`   ${GREEN}✓${NC} Global config created (${provider.contextFile})`)
+    console.log(`   ${chalk.green('✓')} Global config created (${provider.contextFile})`)
   } else if (results.configAction === 'updated') {
-    console.log(`   ${GREEN}✓${NC} Global config updated (${provider.contextFile})`)
+    console.log(`   ${chalk.green('✓')} Global config updated (${provider.contextFile})`)
   } else if (results.configAction === 'appended') {
-    console.log(`   ${GREEN}✓${NC} Global config merged (${provider.contextFile})`)
+    console.log(`   ${chalk.green('✓')} Global config merged (${provider.contextFile})`)
   }
 
   console.log('')
