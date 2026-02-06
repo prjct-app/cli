@@ -49,6 +49,12 @@ Hook configuration saved to `project.json` for persistence across sessions.
 **How to use:** Run `prjct hooks install` in any prjct project
 **Breaking changes:** None
 
+## [1.1.1] - 2026-02-06
+
+### Bug Fixes
+
+- visual grouping with boxes and tables for structured output (PRJ-134) (#110)
+
 ## [1.1.1] - 2026-02-05
 
 ### Improved
