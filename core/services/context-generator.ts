@@ -12,6 +12,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
+import { type ContextSources, cite, defaultSources } from '../utils/citations'
 import dateHelper from '../utils/date-helper'
 import { mergePreservedSections, validatePreserveBlocks } from '../utils/preserve-sections'
 import { NestedContextResolver } from './nested-context-resolver'
@@ -103,13 +104,14 @@ export class ContextFileGenerator {
     git: GitData,
     stats: ProjectStats,
     commands: Commands,
-    agents: AgentInfo[]
+    agents: AgentInfo[],
+    sources?: ContextSources
   ): Promise<string[]> {
     const contextPath = path.join(this.config.globalPath, 'context')
 
     // Generate all context files IN PARALLEL
     await Promise.all([
-      this.generateClaudeMd(contextPath, git, stats, commands, agents),
+      this.generateClaudeMd(contextPath, git, stats, commands, agents, sources),
       this.generateNowMd(contextPath),
       this.generateNextMd(contextPath),
       this.generateIdeasMd(contextPath),
@@ -137,10 +139,12 @@ export class ContextFileGenerator {
     git: GitData,
     stats: ProjectStats,
     commands: Commands,
-    agents: AgentInfo[]
+    agents: AgentInfo[],
+    sources?: ContextSources
   ): Promise<void> {
     const workflowAgents = agents.filter((a) => a.type === 'workflow').map((a) => a.name)
     const domainAgents = agents.filter((a) => a.type === 'domain').map((a) => a.name)
+    const s = sources || defaultSources()
 
     const content = `# ${stats.name} - Project Rules
 <!-- projectId: ${this.config.projectId} -->
@@ -149,11 +153,13 @@ export class ContextFileGenerator {
 
 ## THIS PROJECT (${stats.ecosystem})
 
+${cite(s.ecosystem)}
 **Type:** ${stats.projectType}
 **Path:** ${this.config.projectPath}
 
 ### Commands (USE THESE, NOT OTHERS)
 
+${cite(s.commands)}
 | Action | Command |
 |--------|---------|
 | Install dependencies | \`${commands.install}\` |
@@ -165,7 +171,9 @@ export class ContextFileGenerator {
 
 ### Code Conventions
 
+${cite(s.languages)}
 - **Languages**: ${stats.languages.join(', ') || 'Not detected'}
+${cite(s.frameworks)}
 - **Frameworks**: ${stats.frameworks.join(', ') || 'Not detected'}
 
 ---
@@ -193,6 +201,7 @@ p. sync → p. task "desc" → [work] → p. done → p. ship
 
 ## PROJECT STATE
 
+${cite(s.name)}
 | Field | Value |
 |-------|-------|
 | Name | ${stats.name} |

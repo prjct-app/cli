@@ -8,6 +8,7 @@
  * - Windsurf: Similar to Cursor
  */
 
+import { type ContextSources, cite, defaultSources } from '../utils/citations'
 import type { AIToolConfig } from './registry'
 
 export interface ProjectContext {
@@ -35,6 +36,7 @@ export interface ProjectContext {
     workflow: string[]
     domain: string[]
   }
+  sources?: ContextSources
 }
 
 /**
@@ -42,6 +44,8 @@ export interface ProjectContext {
  * Detailed markdown with full context
  */
 export function formatForClaude(ctx: ProjectContext, _config: AIToolConfig): string {
+  const s = ctx.sources || defaultSources()
+
   return `# ${ctx.name} - Project Rules
 <!-- projectId: ${ctx.projectId} -->
 <!-- Generated: ${new Date().toISOString()} -->
@@ -49,11 +53,13 @@ export function formatForClaude(ctx: ProjectContext, _config: AIToolConfig): str
 
 ## THIS PROJECT (${ctx.ecosystem})
 
+${cite(s.ecosystem)}
 **Type:** ${ctx.projectType}
 **Path:** ${ctx.repoPath}
 
 ### Commands (USE THESE, NOT OTHERS)
 
+${cite(s.commands)}
 | Action | Command |
 |--------|---------|
 | Install dependencies | \`${ctx.commands.install}\` |
@@ -65,7 +71,9 @@ export function formatForClaude(ctx: ProjectContext, _config: AIToolConfig): str
 
 ### Code Conventions
 
+${cite(s.languages)}
 - **Languages**: ${ctx.languages.join(', ') || 'Not detected'}
+${cite(s.frameworks)}
 - **Frameworks**: ${ctx.frameworks.join(', ') || 'Not detected'}
 
 ---
@@ -93,6 +101,7 @@ p. sync → p. task "desc" → [work] → p. done → p. ship
 
 ## PROJECT STATE
 
+${cite(s.name)}
 | Field | Value |
 |-------|-------|
 | Name | ${ctx.name} |
@@ -120,6 +129,7 @@ Load from \`~/.prjct-cli/projects/${ctx.projectId}/agents/\`:
  * @see https://cursor.com/docs/context/rules
  */
 export function formatForCursor(ctx: ProjectContext, _config: AIToolConfig): string {
+  const s = ctx.sources || defaultSources()
   const lines: string[] = []
 
   // MDC format with YAML frontmatter
@@ -135,6 +145,7 @@ export function formatForCursor(ctx: ProjectContext, _config: AIToolConfig): str
   lines.push('')
 
   // Tech stack
+  lines.push(cite(s.languages))
   lines.push('## Tech Stack')
   if (ctx.languages.length > 0) {
     lines.push(`- Languages: ${ctx.languages.join(', ')}`)
@@ -145,6 +156,7 @@ export function formatForCursor(ctx: ProjectContext, _config: AIToolConfig): str
   lines.push('')
 
   // Commands
+  lines.push(cite(s.commands))
   lines.push('## Commands')
   lines.push(`- Install: \`${ctx.commands.install}\``)
   lines.push(`- Dev: \`${ctx.commands.dev}\``)
@@ -175,6 +187,7 @@ export function formatForCursor(ctx: ProjectContext, _config: AIToolConfig): str
  * Minimal bullet points
  */
 export function formatForCopilot(ctx: ProjectContext, _config: AIToolConfig): string {
+  const s = ctx.sources || defaultSources()
   const lines: string[] = []
 
   lines.push('# Copilot Instructions')
@@ -183,6 +196,7 @@ export function formatForCopilot(ctx: ProjectContext, _config: AIToolConfig): st
   lines.push('')
 
   // Key info
+  lines.push(cite(s.ecosystem))
   lines.push('## Project Info')
   lines.push(`- Type: ${ctx.projectType}`)
   lines.push(`- Stack: ${ctx.frameworks.join(', ') || ctx.ecosystem}`)
@@ -196,6 +210,7 @@ export function formatForCopilot(ctx: ProjectContext, _config: AIToolConfig): st
   lines.push('')
 
   // Commands
+  lines.push(cite(s.commands))
   lines.push('## Commands')
   lines.push(`- Test: \`${ctx.commands.test}\``)
   lines.push(`- Build: \`${ctx.commands.build}\``)
@@ -210,6 +225,7 @@ export function formatForCopilot(ctx: ProjectContext, _config: AIToolConfig): st
  * @see https://docs.windsurf.com/windsurf/cascade/memories
  */
 export function formatForWindsurf(ctx: ProjectContext, _config: AIToolConfig): string {
+  const s = ctx.sources || defaultSources()
   const lines: string[] = []
 
   // YAML frontmatter (Windsurf uses trigger: always_on instead of alwaysApply)
@@ -226,6 +242,7 @@ export function formatForWindsurf(ctx: ProjectContext, _config: AIToolConfig): s
   lines.push('')
 
   // Tech stack (concise)
+  lines.push(cite(s.languages))
   lines.push('## Stack')
   lines.push(`- ${ctx.languages.join(', ')}`)
   if (ctx.frameworks.length > 0) {
@@ -234,6 +251,7 @@ export function formatForWindsurf(ctx: ProjectContext, _config: AIToolConfig): s
   lines.push('')
 
   // Commands (essential only)
+  lines.push(cite(s.commands))
   lines.push('## Commands')
   lines.push('```bash')
   lines.push(`# Install`)
