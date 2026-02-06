@@ -2,11 +2,36 @@
 
 ## [1.2.1] - 2026-02-06
 
+### Performance
+
+- **Convert execSync to async in ground-truth.ts (PRJ-92)**: Replaced blocking execSync with promisify(exec) in verifyShip
+
 ### Bug Fixes
 
 - replace raw ANSI codes with chalk library (PRJ-132) (#111)
-- replace raw ANSI codes with chalk library (PRJ-132)
 
+### Implementation Details
+
+Replaced the single `execSync('git status --porcelain')` call in `verifyShip()` with `await execAsync()` using `promisify(exec)` from `node:util`. The rest of `ground-truth.ts` already used async `fs.promises` — this was the last synchronous call blocking the event loop.
+
+### Learnings
+
+- `exec` returns `{stdout, stderr}` object vs `execSync` returning a string directly — must destructure
+- `promisify(exec)` is simpler than `spawn` for short-lived commands that return stdout
+- Terminal control sequences (cursor movement) are separate from color/formatting — chalk doesn't handle them
+
+### Test Plan
+
+#### For QA
+1. Run `bun run build && bun run typecheck` — zero errors
+2. Trigger `verifyShip` path — verify async git status check works
+3. Test with uncommitted changes — verify warning still appears
+4. Test in non-git directory — verify graceful fallback (`gitAvailable = false`)
+
+#### For Users
+**What changed:** Internal performance improvement — git status check in ground-truth verifier is now async
+**How to use:** No change needed — improvement is internal
+**Breaking changes:** None
 
 ## [1.2.0] - 2026-02-06
 
