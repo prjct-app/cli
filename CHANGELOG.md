@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.9] - 2026-02-07
+
+### Bug Fixes
+
+- resolve SSE zombie connections and infinite promise leak (PRJ-286) (#134)
+
+
 ## [1.6.11] - 2026-02-07
 
 ### Bug Fixes
