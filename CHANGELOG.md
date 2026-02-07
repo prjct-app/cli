@@ -2,6 +2,13 @@
 
 ## [1.7.1] - 2026-02-07
 
+### Bug Fixes
+
+- add Zod validation on all storage reads (PRJ-279) (#140)
+
+
+## [1.7.1] - 2026-02-07
+
 ### Bug Fix
 - **Add Zod validation on all storage reads (PRJ-279)**: Created `safeRead<T>()` utility that wraps `JSON.parse` + `schema.safeParse()`. All 5 `StorageManager` subclasses (state, queue, ideas, shipped, metrics) now validate reads against their Zod schemas. Corrupted files produce a logged warning + `.backup` file instead of silently crashing downstream.
 
