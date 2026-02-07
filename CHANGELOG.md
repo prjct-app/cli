@@ -1,5 +1,36 @@
 # Changelog
 
+## [1.7.7] - 2026-02-07
+
+### Bug Fixes
+- **Config-driven command context (PRJ-298)**: Replaced 4 hardcoded command lists in `prompt-builder.ts` with a single `command-context.config.json` config file. New commands no longer silently get zero context — the wildcard `*` entry provides sensible defaults, and a heuristic classifier handles unknown commands.
+- **Quality checklists for ship/done**: `ship` and `done` commands now receive quality checklists (previously excluded from the hardcoded list).
+
+### Implementation Details
+- Created `core/config/command-context.config.json` mapping 25 commands + wildcard to context sections (agents, patterns, checklists, modules)
+- Zod schema in `core/schemas/command-context.ts` validates config at load time
+- `core/agentic/command-context.ts` provides `resolveCommandContextFull()` with fallback chain: config → cache → heuristic classify → wildcard
+- `core/agentic/command-classifier.ts` uses word-boundary keyword matching with score-based priority to classify unknown commands from template metadata
+- Auto-learn (Phase 3): after 3 identical heuristic classifications, persists to config file via fire-and-forget
+
+### Learnings
+- Keyword substring matching causes false positives (e.g., "check" matching inside "checks") — word boundaries via `\b` regex are essential
+- When quality and info keywords overlap, score-based priority (higher count wins) is more robust than boolean exclusion
+
+### Test Plan
+
+#### For QA
+1. Run `bun test ./core/__tests__/agentic/command-context.test.ts` — all 20 tests pass
+2. Run `bun test ./core/__tests__/agentic/prompt-builder.test.ts` — all 16 existing tests pass
+3. Run `bun run build` — compiles without errors
+4. Verify `ship` and `done` commands have `checklist: true` in config
+5. Verify unknown commands get wildcard defaults (agents: true, patterns: true)
+
+#### For Users
+**What changed:** Commands like `ship` and `done` now receive quality checklists. New commands automatically get sensible context instead of nothing.
+**How to use:** No user action needed — works automatically.
+**Breaking changes:** None
+
 ## [1.7.6] - 2026-02-07
 
 ### Features
