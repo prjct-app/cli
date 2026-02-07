@@ -3,6 +3,13 @@
 ## [1.7.3] - 2026-02-07
 
 ### Bug Fixes
+
+- add Zod validation and token budgets for prompt injection (PRJ-282) (#142)
+
+
+## [1.7.3] - 2026-02-07
+
+### Bug Fixes
 - **Validate auto-injected state in prompt builder (PRJ-282)**: Added `safeInject()` validation utility, token-aware truncation via `InjectionBudgetTracker`, and domain-based skill filtering to prevent oversized or irrelevant content in LLM prompts. Replaced hardcoded character limits with configurable token budgets.
 
 ### Implementation Details
