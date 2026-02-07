@@ -1,11 +1,35 @@
 # Changelog
 
+## [1.6.15] - 2026-02-07
+
+### Refactor
+- **Remove unused templates and dead code (PRJ-293)**: Deleted 8 unused template files from `templates/analysis/` (5) and `templates/agentic/` (3) that were never referenced by any code or other templates. Also removed unused type imports flagged by biome's `noUnusedImports` rule from `diff-generator.ts`, `sync-service.ts`, and `citations.ts`. Total: -471 lines removed.
+
+### Implementation Details
+Audited all 135 templates by cross-referencing with code that loads them. Carefully distinguished between templates loaded dynamically via `readdir` (checklists, skills — kept) and templates with zero references (analysis prompts, agentic scaffolding — deleted). Unused imports were types imported for re-export where the `export type` statement imports independently from the source module, making the `import type` line redundant.
+
+### Learnings
+- Dynamic template loading via `readdir` (in `prompt-builder.ts` and `skill-service.ts`) means simple grep searches can't identify all references — must trace runtime loading patterns to distinguish truly unused templates from dynamically loaded ones
+- TypeScript `export type { X } from 'module'` is a standalone declaration that imports independently — a separate `import type { X }` is only needed if `X` is used in the file body
+
+### Test Plan
+
+#### For QA
+1. Run `bun run build` — verify build succeeds with no errors
+2. Run `bun run lint` — verify zero biome warnings (especially `noUnusedImports`)
+3. Run `prjct sync` — verify sync still works (deleted templates were unused by sync)
+4. Verify `templates/checklists/*.md` and `templates/skills/*.md` are untouched (dynamically loaded)
+
+#### For Users
+**What changed:** Removed 8 unused internal template files and cleaned up dead imports. No user-facing behavior changes.
+**How to use:** No action needed — this is an internal cleanup.
+**Breaking changes:** None.
+
 ## [1.6.12] - 2026-02-07
 
 ### Bug Fixes
 
 - replace sync I/O in imports-tool hot path (PRJ-290) (#137)
-
 
 ## [1.6.14] - 2026-02-07
 

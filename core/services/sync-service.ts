@@ -33,7 +33,6 @@ import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import { metricsStorage } from '../storage/metrics-storage'
 import type {
-  AIToolResult,
   GitData,
   ProjectCommands,
   ProjectStats,
@@ -48,7 +47,6 @@ import { type ContextSources, defaultSources, type SourceInfo } from '../utils/c
 import * as dateHelper from '../utils/date-helper'
 import log from '../utils/logger'
 import { ContextFileGenerator } from './context-generator'
-import type { SyncDiff } from './diff-generator'
 import { localStateGenerator } from './local-state-generator'
 import { skillInstaller } from './skill-installer'
 import { StackDetector } from './stack-detector'

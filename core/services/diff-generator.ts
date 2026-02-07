@@ -9,13 +9,7 @@
  */
 
 import chalk from 'chalk'
-import type {
-  DiffOptions,
-  DiffSection,
-  ParsedMarkdownSection,
-  PreservedInfo,
-  SyncDiff,
-} from '../types'
+import type { DiffOptions, ParsedMarkdownSection, SyncDiff } from '../types'
 
 export type {
   DiffOptions,

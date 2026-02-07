@@ -7,7 +7,7 @@
  * @see PRJ-113
  */
 
-import type { ContextSources, SourceInfo, SourceType } from '../types/citations'
+import type { ContextSources, SourceInfo } from '../types/citations'
 
 export type { ContextSources, SourceInfo, SourceType } from '../types/citations'
 
