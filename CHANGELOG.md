@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.7.2] - 2026-02-07
+
+### Bug Fix
+- **Fix state machine completeness: missing transitions and dead-end states (PRJ-280)**: Added missing transitions (`completed → pause`, `paused → ship`, `completed → reopen`), subtask states (`skipped`, `blocked` with reason tracking), migrated `previousTask` to `pausedTasks[]` array with max limit (5) and staleness detection (30 days), and enforced all transitions through the state machine at the storage level.
+
+### Implementation Details
+Added `reopen` command to `WorkflowCommand` type. Updated `getCurrentState()` to detect paused state from `pausedTasks[]` array and legacy `previousTask`. `failSubtask()` now advances to the next subtask instead of halting. New `skipSubtask(reason)` and `blockSubtask(blocker)` methods mark subtasks and advance. `pauseTask()` pushes onto a `pausedTasks[]` array (max 5), `resumeTask()` pops from array or by ID. `getPausedTasksFromState()` handles backward compat by migrating legacy `previousTask` format. All storage mutation methods (`startTask`, `completeTask`, `pauseTask`, `resumeTask`) validate transitions through the state machine before executing.
+
+### Test Plan
+
+#### For QA
+1. Verify `completed → pause`, `paused → ship`, and `completed → reopen` transitions work
+2. Start a task with subtasks, call `failSubtask()` — verify it records reason AND advances to next subtask
+3. Call `skipSubtask(reason)` and `blockSubtask(blocker)` — verify they record reasons and advance
+4. Pause 3+ tasks — verify `pausedTasks[]` array stores all, respects max limit of 5
+5. State.json with old `previousTask` format — verify auto-migration into array
+6. Attempt invalid transition (e.g., `done` from `idle`) — verify error thrown at storage level
+
+#### For Users
+**What changed:** Workflow supports reopening completed tasks, shipping paused tasks directly, and multiple paused tasks. Subtask failures auto-advance instead of halting.
+**Breaking changes:** `previousTask` deprecated in favor of `pausedTasks[]`. Backward compat maintained via auto-migration.
+
 ## [1.7.1] - 2026-02-07
 
 ### Bug Fix
