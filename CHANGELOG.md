@@ -3,6 +3,13 @@
 ## [1.7.4] - 2026-02-07
 
 ### Bug Fixes
+
+- add eviction policies to all in-memory caches (PRJ-288) (#143)
+
+
+## [1.7.4] - 2026-02-07
+
+### Bug Fixes
 - **Add eviction policies to all in-memory caches (PRJ-288)**: Replaced unbounded Maps with TTLCache in SessionLogManager and ContextBuilder, capped PatternStore decision contexts at 20 with FIFO eviction, and added 90-day archival for stale decisions to prevent unbounded memory growth.
 
 ### Implementation Details
