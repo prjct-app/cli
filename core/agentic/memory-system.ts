@@ -351,6 +351,9 @@ export class HistoryStore {
  * Persistent learned preferences and decisions.
  */
 export class PatternStore extends CachedStore<Patterns> {
+  private static readonly MAX_CONTEXTS = 20
+  private static readonly ARCHIVE_AGE_DAYS = 90
+
   protected getFilename(): string {
     return 'patterns.json'
   }
@@ -362,6 +365,14 @@ export class PatternStore extends CachedStore<Patterns> {
       preferences: {},
       workflows: {},
       counters: {},
+    }
+  }
+
+  protected afterLoad(patterns: Patterns): void {
+    for (const decision of Object.values(patterns.decisions)) {
+      if (decision.contexts.length > PatternStore.MAX_CONTEXTS) {
+        decision.contexts = decision.contexts.slice(-PatternStore.MAX_CONTEXTS)
+      }
     }
   }
 
@@ -404,6 +415,9 @@ export class PatternStore extends CachedStore<Patterns> {
         decision.lastSeen = now
         if (context && !decision.contexts.includes(context)) {
           decision.contexts.push(context)
+          if (decision.contexts.length > PatternStore.MAX_CONTEXTS) {
+            decision.contexts = decision.contexts.slice(-PatternStore.MAX_CONTEXTS)
+          }
         }
         if (options.userConfirmed) {
           decision.userConfirmed = true
@@ -552,6 +566,50 @@ export class PatternStore extends CachedStore<Patterns> {
       workflows: Object.keys(patterns.workflows).length,
       preferences: Object.keys(patterns.preferences).length,
     }
+  }
+
+  private _getArchivePath(projectId: string): string {
+    const basePath = path.join(pathManager.getGlobalProjectPath(projectId), 'memory')
+    return path.join(basePath, 'patterns-archive.json')
+  }
+
+  async archiveStaleDecisions(projectId: string): Promise<number> {
+    const patterns = await this.load(projectId)
+    const now = Date.now()
+    const cutoff = PatternStore.ARCHIVE_AGE_DAYS * 24 * 60 * 60 * 1000
+
+    const staleKeys: string[] = []
+    for (const [key, decision] of Object.entries(patterns.decisions)) {
+      const lastSeenMs = new Date(decision.lastSeen).getTime()
+      if (now - lastSeenMs > cutoff) {
+        staleKeys.push(key)
+      }
+    }
+
+    if (staleKeys.length === 0) return 0
+
+    // Load or create archive
+    const archivePath = this._getArchivePath(projectId)
+    let archive: Record<string, unknown> = {}
+    try {
+      const content = await fs.readFile(archivePath, 'utf-8')
+      archive = JSON.parse(content)
+    } catch (error) {
+      if (!isNotFoundError(error)) throw error
+    }
+
+    // Move stale decisions to archive
+    for (const key of staleKeys) {
+      archive[key] = patterns.decisions[key]
+      delete patterns.decisions[key]
+    }
+
+    // Save archive and pruned patterns
+    await fs.mkdir(path.dirname(archivePath), { recursive: true })
+    await fs.writeFile(archivePath, JSON.stringify(archive, null, 2), 'utf-8')
+    await this.save(projectId)
+
+    return staleKeys.length
   }
 }
 
@@ -1224,6 +1282,10 @@ export class MemorySystem {
 
   getPatternsSummary(projectId: string) {
     return this._patternStore.getPatternsSummary(projectId)
+  }
+
+  archiveStaleDecisions(projectId: string): Promise<number> {
+    return this._patternStore.archiveStaleDecisions(projectId)
   }
 
   // ===========================================================================

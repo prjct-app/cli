@@ -13,6 +13,7 @@ import type {
   SessionStats,
 } from '../types'
 import { getErrorMessage } from '../types/fs'
+import { TTLCache } from '../utils/cache'
 import * as dateHelper from '../utils/date-helper'
 import * as fileHelper from '../utils/file-helper'
 import * as jsonlHelper from '../utils/jsonl-helper'
@@ -20,12 +21,12 @@ import { VERSION } from '../utils/version'
 import { migrateLegacyJsonl, migrateLegacyMarkdown } from './log-migration'
 
 export class SessionLogManager {
-  private currentSessionCache: Map<string, string>
-  private sessionMetadataCache: Map<string, SessionLogMetadata>
+  private currentSessionCache: TTLCache<string>
+  private sessionMetadataCache: TTLCache<SessionLogMetadata>
 
   constructor() {
-    this.currentSessionCache = new Map()
-    this.sessionMetadataCache = new Map()
+    this.currentSessionCache = new TTLCache<string>({ maxSize: 50, ttl: 3_600_000 })
+    this.sessionMetadataCache = new TTLCache<SessionLogMetadata>({ maxSize: 50, ttl: 3_600_000 })
   }
 
   /**
@@ -34,8 +35,9 @@ export class SessionLogManager {
   async getCurrentSession(projectId: string): Promise<string> {
     const cacheKey = `${projectId}-${this._getTodayKey()}`
 
-    if (this.currentSessionCache.has(cacheKey)) {
-      return this.currentSessionCache.get(cacheKey)!
+    const cached = this.currentSessionCache.get(cacheKey)
+    if (cached !== null) {
+      return cached
     }
 
     const sessionPath = await pathManager.ensureSessionPath(projectId)
@@ -243,8 +245,9 @@ export class SessionLogManager {
   private async _getSessionLogMetadata(sessionPath: string): Promise<SessionLogMetadata | null> {
     const metadataPath = path.join(sessionPath, 'session-meta.json')
 
-    if (this.sessionMetadataCache.has(sessionPath)) {
-      return this.sessionMetadataCache.get(sessionPath)!
+    const cached = this.sessionMetadataCache.get(sessionPath)
+    if (cached !== null) {
+      return cached
     }
 
     const metadata = await fileHelper.readJson<SessionLogMetadata>(metadataPath, null)

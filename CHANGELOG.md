@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.7.4] - 2026-02-07
+
+### Bug Fixes
+- **Add eviction policies to all in-memory caches (PRJ-288)**: Replaced unbounded Maps with TTLCache in SessionLogManager and ContextBuilder, capped PatternStore decision contexts at 20 with FIFO eviction, and added 90-day archival for stale decisions to prevent unbounded memory growth.
+
+### Implementation Details
+- SessionLogManager: replaced 2 `Map` caches with `TTLCache` (maxSize: 50, TTL: 1hr)
+- ContextBuilder: replaced `Map` + `_mtimes` + manual TTL with single `TTLCache<CachedFile>` (maxSize: 200, TTL: 5s), added project-switch detection
+- PatternStore: added `afterLoad()` hook to truncate oversized contexts arrays, FIFO cap at 20 in `recordDecision()`, new `archiveStaleDecisions()` method for 90-day archival
+- Exposed `archiveStaleDecisions()` via MemorySystem facade
+
+### Test Plan
+
+#### For QA
+1. Run `bun test core/__tests__/agentic/cache-eviction.test.ts` — 12 new tests pass
+2. Run `bun test` — full suite (538 tests) passes with no regressions
+3. Run `bun run build` — compiles without errors
+4. Verify `prjct sync` and `prjct status` work normally
+
+#### For Users
+**What changed:** Internal optimization — in-memory caches now bounded to prevent memory growth during long sessions.
+**How to use:** No user-facing changes.
+**Breaking changes:** None
+
 ## [1.7.3] - 2026-02-07
 
 ### Bug Fixes
