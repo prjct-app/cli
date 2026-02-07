@@ -1,6 +1,6 @@
 {
   "name": "prjct-cli",
-  "version": "1.7.4",
+  "version": "1.7.5",
   "description": "Context layer for AI agents. Project context for Claude Code, Gemini CLI, and more.",
   "main": "core/index.ts",
   "bin": {
@@ -56,11 +56,9 @@
     "chalk": "^4.1.2",
     "chokidar": "^5.0.0",
     "date-fns": "^4.1.0",
-    "esbuild": "^0.25.0",
     "glob": "^13.0.1",
     "hono": "^4.11.3",
     "jsonc-parser": "^3.3.1",
-    "lightningcss": "^1.30.2",
     "prompts": "^2.4.2",
     "zod": "^3.24.1"
   },
@@ -69,6 +67,7 @@
     "@types/bun": "latest",
     "@types/chokidar": "^2.1.7",
     "@types/prompts": "^2.4.9",
+    "esbuild": "^0.25.0",
     "lefthook": "^2.1.0",
     "typescript": "^5.9.3"
   },
@@ -92,7 +91,6 @@
     "dist/",
     "templates/",
     "scripts/postinstall.js",
-    "scripts/build.js",
     "scripts/install.sh",
     "LICENSE",
     "README.md",

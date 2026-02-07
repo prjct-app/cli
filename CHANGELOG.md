@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.7.5] - 2026-02-07
+
+### Changed
+- **Remove unused dependencies and lazy-load heavy optional ones (PRJ-291)**: Removed `lightningcss` (completely unused), moved `esbuild` to devDependencies (build-time only), lazy-loaded `@linear/sdk` via dynamic `import()` so it only loads when Linear commands are invoked.
+
+### Implementation Details
+- Removed `lightningcss` from dependencies (zero imports in codebase)
+- Moved `esbuild` from dependencies to devDependencies (only used in `scripts/build.js`)
+- Changed `import { LinearClient } from '@linear/sdk'` to `import type` + dynamic `await import('@linear/sdk')` in `core/integrations/linear/client.ts`
+- Excluded test files from published package via `.npmignore`
+- Removed `scripts/build.js` from `files` field (dist/ ships pre-built)
+
+### Learnings
+- `import type` + dynamic `await import()` pattern preserves full type safety while deferring module load to runtime. Type imports are erased at compile time with zero cost.
+
+### Test Plan
+
+#### For QA
+1. Run `bun test` — 538 tests pass, no regressions
+2. Run `bun run build` — compiles without errors
+3. Run `bun run typecheck` — zero type errors
+4. Run `prjct status` and `prjct linear list` — CLI works normally
+
+#### For Users
+**What changed:** Faster install (~75MB fewer dependencies), faster CLI startup (Linear SDK only loaded on demand).
+**How to use:** No changes needed.
+**Breaking changes:** None
+
 ## [1.7.4] - 2026-02-07
 
 ### Bug Fixes
