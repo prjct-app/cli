@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.10.0] - 2026-02-07
+
+### Features
+- **Add structured output schema to all LLM prompts (PRJ-264)**: LLM prompts now include explicit JSON output schemas. Responses are validated with Zod before use. Invalid responses trigger re-prompt with structured error feedback.
+
+### Implementation Details
+- New `core/schemas/llm-output.ts`: Zod schemas for task classification, agent assignment, and subtask breakdown responses. Schema registry (`OUTPUT_SCHEMAS`) with examples that self-validate. `renderSchemaForPrompt()` serializes schemas as markdown format instructions for prompt injection.
+- New `core/agentic/response-validator.ts`: `validateLLMResponse()` handles JSON parsing (plain and markdown-wrapped `\`\`\`json` fences), Zod validation, and typed results. `buildReprompt()` generates retry messages with specific validation errors.
+- Replaced manual field-by-field validation in `domain-classifier.ts` with `TaskClassificationSchema.safeParse()` — the schema existed (PRJ-299) but was unused.
+- Added output schema injection to `prompt-builder.ts` `build()` method with `getSchemaTypeForCommand()` mapping commands to schemas.
+- 20 new unit tests in `core/__tests__/agentic/response-validator.test.ts`
+
+### Test Plan
+
+#### For QA
+1. Run `bun test core/__tests__/agentic/response-validator.test.ts` — all 20 tests pass
+2. Run `bun test` — full suite (677 tests) passes with no regressions
+3. Run `bun run build` — build succeeds cleanly
+4. Verify `renderSchemaForPrompt('classification')` returns markdown with OUTPUT FORMAT header
+5. Verify `validateLLMResponse()` handles plain JSON, markdown-wrapped JSON, and rejects non-JSON
+6. Verify OUTPUT_SCHEMAS registry examples validate against their own schemas
+
+#### For Users
+**What changed:** LLM prompts include explicit JSON output schemas. Domain classifier uses Zod validation. Response validator provides structured error handling with re-prompt.
+**How to use:** Automatic — schemas injected into prompts and validation runs transparently.
+**Breaking changes:** None — all changes are additive.
+
 ## [1.9.0] - 2026-02-07
 
 ### Features

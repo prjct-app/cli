@@ -22,6 +22,8 @@ export * from './classification'
 export * from './ideas'
 // Issues (local cache of issue tracker issues)
 export * from './issues'
+// LLM output schemas (structured response validation)
+export * from './llm-output'
 // Model specification (AI provider model tracking)
 export * from './model'
 // Outcomes

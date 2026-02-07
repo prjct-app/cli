@@ -23,7 +23,9 @@ import {
   DEFAULT_CLASSIFICATION_CACHE,
   GENERAL_CLASSIFICATION,
   type TaskClassification,
+  TaskClassificationSchema,
 } from '../schemas/classification'
+import { renderSchemaForPrompt } from '../schemas/llm-output'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 
 const CACHE_TTL_MS = 60 * 60 * 1000 // 1 hour
@@ -117,6 +119,7 @@ async function classifyWithLLM(
   if (!apiKey) return null
 
   const availableDomains = buildAvailableDomains(context)
+  const schemaBlock = renderSchemaForPrompt('classification') || ''
 
   const prompt = `Classify this software engineering task into a domain.
 
@@ -126,8 +129,7 @@ Available domains in this project: ${availableDomains.join(', ')}
 Available agents: ${context.agents.join(', ') || 'none'}
 Stack: ${context.stack?.language || 'unknown'} / ${context.stack?.framework || 'unknown'}
 
-Return ONLY valid JSON (no markdown, no explanation):
-{"primaryDomain":"<domain>","secondaryDomains":[],"confidence":0.9,"filePatterns":["src/**"],"relevantAgents":[]}`
+${schemaBlock}`
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -139,7 +141,7 @@ Return ONLY valid JSON (no markdown, no explanation):
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 150,
+        max_tokens: 200,
         messages: [{ role: 'user', content: prompt }],
       }),
     })
@@ -154,30 +156,23 @@ Return ONLY valid JSON (no markdown, no explanation):
 
     const parsed = JSON.parse(text)
 
-    // Validate domain is one of our known domains
-    const validDomains: ClassificationDomain[] = [
-      'frontend',
-      'backend',
-      'database',
-      'devops',
-      'testing',
-      'docs',
-      'uxui',
-      'general',
-    ]
-    if (!validDomains.includes(parsed.primaryDomain)) {
-      parsed.primaryDomain = 'general'
+    // Validate with Zod schema (PRJ-264)
+    const result = TaskClassificationSchema.safeParse(parsed)
+    if (result.success) {
+      return result.data
     }
-    parsed.secondaryDomains = (parsed.secondaryDomains || []).filter((d: string) =>
-      validDomains.includes(d as ClassificationDomain)
-    )
 
+    // Re-prompt: coerce what we can from partial response
     return {
-      primaryDomain: parsed.primaryDomain,
-      secondaryDomains: parsed.secondaryDomains || [],
-      confidence: Math.min(1, Math.max(0, parsed.confidence || 0.8)),
-      filePatterns: parsed.filePatterns || [],
-      relevantAgents: parsed.relevantAgents || [],
+      primaryDomain: availableDomains.includes(parsed.primaryDomain)
+        ? parsed.primaryDomain
+        : 'general',
+      secondaryDomains: (parsed.secondaryDomains || []).filter((d: string) =>
+        availableDomains.includes(d as ClassificationDomain)
+      ),
+      confidence: Math.min(1, Math.max(0, parsed.confidence || 0.5)),
+      filePatterns: Array.isArray(parsed.filePatterns) ? parsed.filePatterns : [],
+      relevantAgents: Array.isArray(parsed.relevantAgents) ? parsed.relevantAgents : [],
     }
   } catch {
     return null
