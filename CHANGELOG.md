@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.10] - 2026-02-07
+
+### Bug Fixes
+
+- resolve signal handler and EventBus listener accumulation leaks (PRJ-287) (#135)
+
+
 ## [1.6.12] - 2026-02-07
 
 ### Bug Fixes
