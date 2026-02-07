@@ -11,6 +11,7 @@ import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import type { ContextPaths, ContextState, ProjectContext } from '../types'
 import { isNotFoundError } from '../types/fs'
+import { TTLCache } from '../utils/cache'
 
 // Re-export types for convenience
 export type { ContextPaths, ContextState, ProjectContext } from '../types'
@@ -20,34 +21,22 @@ export type Paths = ContextPaths
 export type Context = ProjectContext
 export type State = ContextState
 
+interface CachedFile {
+  content: string | null
+  mtime: number | null
+}
+
 /**
  * Builds and caches project context for Claude decisions.
  * Features parallel reads, selective loading, and anti-hallucination mtime checks.
  */
 class ContextBuilder {
-  private _cache: Map<string, string | null>
-  private _cacheTimeout: number
-  private _lastCacheTime: number | null
-  private _mtimes: Map<string, number>
+  private _cache: TTLCache<CachedFile>
+  private _currentProjectId: string | null
 
   constructor() {
-    // Session cache - cleared between commands or after timeout
-    this._cache = new Map()
-    // ANTI-HALLUCINATION: Reduced from 30s to 5s to prevent stale data
-    this._cacheTimeout = 5000 // 5 seconds (was 30s - caused stale context issues)
-    this._lastCacheTime = null
-    // Track file modification times for additional staleness detection
-    this._mtimes = new Map()
-  }
-
-  /**
-   * Clear cache if stale or force clear
-   */
-  private _clearCacheIfStale(force: boolean = false): void {
-    if (force || !this._lastCacheTime || Date.now() - this._lastCacheTime > this._cacheTimeout) {
-      this._cache.clear()
-      this._lastCacheTime = Date.now()
-    }
+    this._cache = new TTLCache<CachedFile>({ ttl: 5000, maxSize: 200 })
+    this._currentProjectId = null
   }
 
   /**
@@ -56,6 +45,12 @@ class ContextBuilder {
   async build(projectPath: string, commandParams: Record<string, unknown> = {}): Promise<Context> {
     const projectId = await configManager.getProjectId(projectPath)
     const globalPath = pathManager.getGlobalProjectPath(projectId!)
+
+    // Clear cache on project switch
+    if (this._currentProjectId !== null && this._currentProjectId !== projectId) {
+      this._cache.clear()
+    }
+    this._currentProjectId = projectId
 
     return {
       // Project identification
@@ -94,8 +89,6 @@ class ContextBuilder {
    * Uses Promise.all() for 40-60% faster file I/O
    */
   async loadState(context: Context, onlyKeys: string[] | null = null): Promise<State> {
-    this._clearCacheIfStale()
-
     const state: State = {}
     const entries = Object.entries(context.paths)
 
@@ -105,20 +98,16 @@ class ContextBuilder {
     // ANTI-HALLUCINATION: Verify mtime before trusting cache
     // Files can change between commands - stale cache causes hallucinations
     for (const [, filePath] of filteredEntries) {
-      if (this._cache.has(filePath)) {
+      const cachedEntry = this._cache.get(filePath)
+      if (cachedEntry !== null) {
         try {
           const stat = await fs.stat(filePath)
-          const cachedMtime = this._mtimes.get(filePath)
-          if (!cachedMtime || stat.mtimeMs > cachedMtime) {
-            // File changed since cached - invalidate
+          if (!cachedEntry.mtime || stat.mtimeMs > cachedEntry.mtime) {
             this._cache.delete(filePath)
-            this._mtimes.delete(filePath)
           }
         } catch (error) {
-          // File doesn't exist or access error - invalidate cache
           if (isNotFoundError(error)) {
             this._cache.delete(filePath)
-            this._mtimes.delete(filePath)
           } else {
             throw error
           }
@@ -129,8 +118,9 @@ class ContextBuilder {
     // Separate cached vs uncached files
     const uncachedEntries: [string, string][] = []
     for (const [key, filePath] of filteredEntries) {
-      if (this._cache.has(filePath)) {
-        state[key] = this._cache.get(filePath)!
+      const cachedEntry = this._cache.get(filePath)
+      if (cachedEntry !== null) {
+        state[key] = cachedEntry.content
       } else {
         uncachedEntries.push([key, filePath])
       }
@@ -155,13 +145,9 @@ class ContextBuilder {
 
       const results = await Promise.all(readPromises)
 
-      // Populate state and cache (with mtime for anti-hallucination)
       for (const { key, filePath, content, mtime } of results) {
         state[key] = content
-        this._cache.set(filePath, content)
-        if (mtime) {
-          this._mtimes.set(filePath, mtime)
-        }
+        this._cache.set(filePath, { content, mtime })
       }
     }
 
@@ -218,15 +204,14 @@ class ContextBuilder {
    * Utility for custom file sets
    */
   async batchRead(filePaths: string[]): Promise<Map<string, string | null>> {
-    this._clearCacheIfStale()
-
     const results = new Map<string, string | null>()
     const uncachedPaths: string[] = []
 
     // Check cache first
     for (const filePath of filePaths) {
-      if (this._cache.has(filePath)) {
-        results.set(filePath, this._cache.get(filePath)!)
+      const cachedEntry = this._cache.get(filePath)
+      if (cachedEntry !== null) {
+        results.set(filePath, cachedEntry.content)
       } else {
         uncachedPaths.push(filePath)
       }
@@ -250,7 +235,7 @@ class ContextBuilder {
 
       for (const { filePath, content } of readResults) {
         results.set(filePath, content)
-        this._cache.set(filePath, content)
+        this._cache.set(filePath, { content, mtime: null })
       }
     }
 
@@ -268,7 +253,8 @@ class ContextBuilder {
    * Force clear entire cache
    */
   clearCache(): void {
-    this._clearCacheIfStale(true)
+    this._cache.clear()
+    this._currentProjectId = null
   }
 
   /**
@@ -289,12 +275,8 @@ class ContextBuilder {
   /**
    * Get cache stats (for debugging/metrics)
    */
-  getCacheStats(): { size: number; lastRefresh: number | null; timeout: number } {
-    return {
-      size: this._cache.size,
-      lastRefresh: this._lastCacheTime,
-      timeout: this._cacheTimeout,
-    }
+  getCacheStats(): { size: number; maxSize: number; ttl: number } {
+    return this._cache.stats()
   }
 }
 
