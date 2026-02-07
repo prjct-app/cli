@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.7.3] - 2026-02-07
+
+### Bug Fixes
+- **Validate auto-injected state in prompt builder (PRJ-282)**: Added `safeInject()` validation utility, token-aware truncation via `InjectionBudgetTracker`, and domain-based skill filtering to prevent oversized or irrelevant content in LLM prompts. Replaced hardcoded character limits with configurable token budgets.
+
+### Implementation Details
+- Created `core/agentic/injection-validator.ts` with `safeInject()`, `safeInjectString()`, `truncateToTokenBudget()`, `estimateTokens()`, `filterSkillsByDomains()`, and `InjectionBudgetTracker` class
+- Wired validation into `prompt-builder.ts`: auto-context truncation, agent/skill token budgets, cumulative state budget tracking
+- Skills filtered by detected task domains before injection to reduce token waste
+- 33 new unit tests covering all validation, filtering, and truncation paths
+
+### Test Plan
+
+#### For QA
+1. Run `bun test` — all 526 tests pass (33 new)
+2. Verify `safeInject()` returns fallback on corrupt data
+3. Verify `filterSkillsByDomains()` excludes irrelevant skills
+4. Verify `InjectionBudgetTracker` enforces cumulative limits
+
+#### For Users
+- No user-facing changes — validation is automatic
+- Breaking changes: None
+
 ## [1.7.2] - 2026-02-07
 
 ### Bug Fixes
