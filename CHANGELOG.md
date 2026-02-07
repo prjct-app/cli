@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.6.17] - 2026-02-07
+## [1.7.1] - 2026-02-07
 
 ### Bug Fix
 - **Add Zod validation on all storage reads (PRJ-279)**: Created `safeRead<T>()` utility that wraps `JSON.parse` + `schema.safeParse()`. All 5 `StorageManager` subclasses (state, queue, ideas, shipped, metrics) now validate reads against their Zod schemas. Corrupted files produce a logged warning + `.backup` file instead of silently crashing downstream.
@@ -26,6 +26,13 @@ Created `core/storage/safe-reader.ts` with a `ValidationSchema` interface decoup
 **What changed:** Storage reads are now validated against Zod schemas. Corrupted files no longer cause silent crashes.
 **How to use:** No action needed — automatic.
 **Breaking changes:** None.
+
+## [1.7.0] - 2026-02-07
+
+### Features
+
+- use relative timestamps to reduce token waste (PRJ-274) (#139)
+- use relative timestamps to reduce token waste (PRJ-274)
 
 ## [1.6.16] - 2026-02-07
 
