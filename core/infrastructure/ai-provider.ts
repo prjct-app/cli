@@ -21,6 +21,7 @@ import { exec } from 'node:child_process'
 import os from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
+import { compareSemver } from '../schemas/model'
 import { fileExists } from '../utils/fs-helpers'
 import { readProviderCache, writeProviderCache } from '../utils/provider-cache'
 
@@ -58,6 +59,9 @@ export const ClaudeProvider: AIProviderConfig = {
   ignoreFile: '.claudeignore',
   websiteUrl: 'https://www.anthropic.com/claude',
   docsUrl: 'https://docs.anthropic.com/claude-code',
+  defaultModel: 'sonnet',
+  supportedModels: ['opus', 'sonnet', 'haiku'],
+  minCliVersion: '1.0.0',
 }
 
 /**
@@ -77,6 +81,9 @@ export const GeminiProvider: AIProviderConfig = {
   ignoreFile: '.geminiignore',
   websiteUrl: 'https://geminicli.com',
   docsUrl: 'https://geminicli.com/docs',
+  defaultModel: '2.5-flash',
+  supportedModels: ['2.5-pro', '2.5-flash', '2.0-flash'],
+  minCliVersion: '1.0.0',
 }
 
 /**
@@ -100,6 +107,9 @@ export const AntigravityProvider: AIProviderConfig = {
   ignoreFile: '.agentignore', // Assumed
   websiteUrl: 'https://gemini.google.com/app/antigravity',
   docsUrl: 'https://gemini.google.com/app/antigravity',
+  defaultModel: null, // Platform-managed
+  supportedModels: [],
+  minCliVersion: null,
 }
 
 /**
@@ -129,6 +139,9 @@ export const CursorProvider: AIProviderConfig = {
   isProjectLevel: true, // Config is project-level only
   websiteUrl: 'https://cursor.com',
   docsUrl: 'https://cursor.com/docs',
+  defaultModel: null, // Multi-model IDE, user selects
+  supportedModels: [],
+  minCliVersion: null,
 }
 
 /**
@@ -159,6 +172,9 @@ export const WindsurfProvider: AIProviderConfig = {
   isProjectLevel: true, // Config is project-level only
   websiteUrl: 'https://windsurf.com',
   docsUrl: 'https://docs.windsurf.com',
+  defaultModel: null, // Multi-model IDE, user selects
+  supportedModels: [],
+  minCliVersion: null,
 }
 
 /**
@@ -221,12 +237,31 @@ export async function detectProvider(provider: AIProviderName): Promise<Provider
   }
 
   const version = await getCliVersion(config.cliCommand)
+  const versionWarning = validateCliVersion(provider, version || undefined)
 
   return {
     installed: true,
     version: version || undefined,
     path: cliPath,
+    versionWarning: versionWarning || undefined,
   }
+}
+
+/**
+ * Validate that a detected CLI version meets the provider's minimum requirement.
+ * Returns a warning message if the version is below minimum, or null if OK.
+ */
+export function validateCliVersion(
+  provider: AIProviderName,
+  version: string | undefined
+): string | null {
+  const config = Providers[provider]
+  if (!config.minCliVersion || !version) return null
+
+  if (compareSemver(version, config.minCliVersion) < 0) {
+    return `⚠️ ${config.displayName} v${version} is below minimum v${config.minCliVersion}. Some features may not work correctly.`
+  }
+  return null
 }
 
 /**

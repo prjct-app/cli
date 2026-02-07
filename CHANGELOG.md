@@ -1,5 +1,35 @@
 # Changelog
 
+## [1.9.0] - 2026-02-07
+
+### Features
+- **Add mandatory model specification to AI provider (PRJ-265)**: Provider configs now include `defaultModel`, `supportedModels`, and `minCliVersion` fields. Analysis and task metadata can record which model was used, enabling consistency tracking and mismatch warnings.
+
+### Implementation Details
+- New `core/schemas/model.ts`: Zod schemas defining supported models per provider (Claude: opus/sonnet/haiku, Gemini: 2.5-pro/2.5-flash/2.0-flash), default model resolution, semver comparison utilities, minimum CLI version validation, and model mismatch detection
+- Extended `AIProviderConfig` interface in `core/types/provider.ts` with `defaultModel`, `supportedModels`, `minCliVersion` fields
+- All 5 provider configs (Claude, Gemini, Cursor, Windsurf, Antigravity) updated with model specification fields
+- Added `modelMetadata` (optional) to `CurrentTaskSchema` in `core/schemas/state.ts` and `AnalysisSchema` in `core/schemas/analysis.ts`
+- Added `preferredModel` to `ProjectSettings` in `core/types/config.ts`
+- Added `validateCliVersion()` to `core/infrastructure/ai-provider.ts` with version warning integration into `detectProvider()`
+- Added `versionWarning` field to `ProviderDetectionResult`
+- 32 new unit tests in `core/__tests__/schemas/model.test.ts`
+
+### Test Plan
+
+#### For QA
+1. Verify `ClaudeProvider.defaultModel` is `'sonnet'` and `supportedModels` includes `['opus', 'sonnet', 'haiku']`
+2. Verify `GeminiProvider.defaultModel` is `'2.5-flash'` and `supportedModels` includes `['2.5-pro', '2.5-flash', '2.0-flash']`
+3. Verify multi-model IDEs (Cursor, Windsurf) have `null` defaultModel and empty supportedModels
+4. Run `bun test core/__tests__/schemas/model.test.ts` — all 32 tests pass
+5. Run `bun test` — full suite (657 tests) passes with no regressions
+6. Run `bun run build` — build succeeds cleanly
+
+#### For Users
+**What changed:** Provider configs now include model specification fields. Analysis and task metadata can record which model was used. Version validation warns if CLI is outdated.
+**How to use:** Existing configs work unchanged — model fields have sensible defaults. New `preferredModel` setting available in project settings.
+**Breaking changes:** None — all new fields are optional or have defaults.
+
 ## [1.8.1] - 2026-02-07
 
 ### Bug Fixes

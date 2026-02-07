@@ -4,6 +4,8 @@
  * Defines the structure for analysis.json - repository analysis.
  */
 
+import type { ModelMetadata } from './model'
+
 export interface CodePattern {
   name: string
   description: string
@@ -28,6 +30,8 @@ export interface AnalysisSchema {
   patterns: CodePattern[]
   antiPatterns: AntiPattern[]
   analyzedAt: string // ISO8601
+  /** Which AI model was used for this analysis (PRJ-265) */
+  modelMetadata?: ModelMetadata
 }
 
 export const DEFAULT_ANALYSIS: Omit<AnalysisSchema, 'projectId'> = {
