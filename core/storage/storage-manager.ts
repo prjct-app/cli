@@ -16,14 +16,17 @@ import pathManager from '../infrastructure/path-manager'
 import { isNotFoundError } from '../types/fs'
 import { TTLCache } from '../utils/cache'
 import { getTimestamp } from '../utils/date-helper'
+import { safeRead, type ValidationSchema } from './safe-reader'
 
 export abstract class StorageManager<T> {
   protected filename: string
   protected cache: TTLCache<T>
+  protected schema: ValidationSchema | null
 
-  constructor(filename: string) {
+  constructor(filename: string, schema?: ValidationSchema) {
     this.filename = filename
     this.cache = new TTLCache<T>({ ttl: 5000, maxSize: 50 })
+    this.schema = schema ?? null
   }
 
   /**
@@ -69,7 +72,9 @@ export abstract class StorageManager<T> {
   protected abstract getEventType(action: 'update' | 'create' | 'delete'): string
 
   /**
-   * Read data from storage
+   * Read data from storage with optional Zod validation.
+   * When a schema is provided (via constructor), validates after JSON.parse.
+   * On corruption: creates .backup file, logs warning, returns default.
    */
   async read(projectId: string): Promise<T> {
     // Check cache first (with expiration)
@@ -80,13 +85,24 @@ export abstract class StorageManager<T> {
 
     const filePath = this.getStoragePath(projectId)
 
+    if (this.schema) {
+      // Validated read path
+      const data = await safeRead<T>(filePath, this.schema)
+      if (data !== null) {
+        this.cache.set(projectId, data)
+        return data
+      }
+      // File missing or corrupted — return default
+      return this.getDefault()
+    }
+
+    // Unvalidated fallback (for subclasses without a schema)
     try {
       const content = await fs.readFile(filePath, 'utf-8')
       const data = JSON.parse(content) as T
       this.cache.set(projectId, data)
       return data
     } catch (error) {
-      // Return default if file doesn't exist or is invalid JSON
       if (isNotFoundError(error) || error instanceof SyntaxError) {
         return this.getDefault()
       }

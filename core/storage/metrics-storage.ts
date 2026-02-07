@@ -18,13 +18,14 @@ import {
   estimateCostSaved,
   formatCost,
   type MetricsJson,
+  MetricsJsonSchema,
 } from '../schemas/metrics'
 import { getTimestamp } from '../utils/date-helper'
 import { StorageManager } from './storage-manager'
 
 class MetricsStorage extends StorageManager<MetricsJson> {
   constructor() {
-    super('metrics.json')
+    super('metrics.json', MetricsJsonSchema)
   }
 
   protected getDefault(): MetricsJson {

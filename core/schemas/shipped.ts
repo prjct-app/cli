@@ -56,7 +56,7 @@ export const ShippedItemSchema = z.object({
   type: ShipTypeSchema,
   agent: z.string().optional(), // "fe+be", "be", "fe"
   description: z.string().optional(),
-  changes: z.array(ShipChangeSchema),
+  changes: z.array(ShipChangeSchema).optional(),
   codeSnippets: z.array(z.string()).optional(),
   commit: CommitInfoSchema.optional(),
   codeMetrics: CodeMetricsSchema.optional(),
@@ -69,7 +69,7 @@ export const ShippedItemSchema = z.object({
 })
 
 export const ShippedJsonSchema = z.object({
-  items: z.array(ShippedItemSchema),
+  shipped: z.array(ShippedItemSchema),
   lastUpdated: z.string(),
 })
 
@@ -104,6 +104,6 @@ export const safeParseShipped = (data: unknown) => ShippedJsonSchema.safeParse(d
 // =============================================================================
 
 export const DEFAULT_SHIPPED: ShippedJson = {
-  items: [],
+  shipped: [],
   lastUpdated: '',
 }
