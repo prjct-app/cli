@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.5] - 2026-02-07
+
+### Refactoring
+
+- extract common agent-base.md template (PRJ-95) (#128)
+
+
 ## [1.6.7] - 2026-02-07
 
 ### Refactor
