@@ -10,6 +10,7 @@
  */
 
 import chalk from 'chalk'
+import { OUTPUT_LIMITS } from '../constants'
 import branding from './branding'
 import type { ErrorCode, ErrorWithHint } from './error-messages'
 import { getError } from './error-messages'
@@ -100,7 +101,7 @@ export function isQuietMode(): boolean {
  * Truncate string to max chars (uses tier config if no max specified)
  */
 const truncate = (s: string | undefined | null, max?: number): string => {
-  const limit = max ?? (getTierConfig().maxCharsPerLine || 50)
+  const limit = max ?? (getTierConfig().maxCharsPerLine || OUTPUT_LIMITS.FALLBACK_TRUNCATE)
   return s && s.length > limit ? `${s.slice(0, limit - 1)}…` : s || ''
 }
 
@@ -156,7 +157,7 @@ export function formatForHuman(data: unknown): string {
     const issues = obj.issues as Array<Record<string, unknown>>
     const lines = issues.slice(0, tier.maxLines).map((i) => {
       const priority = i.priority && i.priority !== 'none' ? ` [${i.priority}]` : ''
-      return `${i.identifier}  ${truncate(String(i.title), 50)}${priority}`
+      return `${i.identifier}  ${truncate(String(i.title), OUTPUT_LIMITS.ISSUE_TITLE)}${priority}`
     })
     if (issues.length > tier.maxLines) {
       lines.push(chalk.dim(`...${issues.length - tier.maxLines} more`))
@@ -181,7 +182,7 @@ export function formatForHuman(data: unknown): string {
 }
 
 const clear = (): boolean =>
-  process.stdout.isTTY ? process.stdout.write(`\r${' '.repeat(80)}\r`) : true
+  process.stdout.isTTY ? process.stdout.write(`\r${' '.repeat(OUTPUT_LIMITS.CLEAR_WIDTH)}\r`) : true
 
 /**
  * Metrics to display after command completion
@@ -232,11 +233,13 @@ const out: Output = {
     if (quietMode) return this
     this.stop()
     if (!process.stdout.isTTY) {
-      process.stdout.write(`${branding.cli.spin(0, truncate(msg, 45))}\n`)
+      process.stdout.write(`${branding.cli.spin(0, truncate(msg, OUTPUT_LIMITS.SPINNER_MSG))}\n`)
       return this
     }
     interval = setInterval(() => {
-      process.stdout.write(`\r${branding.cli.spin(frame++, truncate(msg, 45))}`)
+      process.stdout.write(
+        `\r${branding.cli.spin(frame++, truncate(msg, OUTPUT_LIMITS.SPINNER_MSG))}`
+      )
     }, SPEED)
     return this
   },
@@ -255,7 +258,7 @@ const out: Output = {
           suffix = chalk.dim(` [${parts.join(' | ')}]`)
         }
       }
-      console.log(`${ICONS.success} ${truncate(msg, 50)}${suffix}`)
+      console.log(`${ICONS.success} ${truncate(msg, OUTPUT_LIMITS.DONE_MSG)}${suffix}`)
     }
     return this
   },
@@ -263,7 +266,7 @@ const out: Output = {
   // Errors go to stderr even in quiet mode
   fail(msg: string) {
     this.stop()
-    console.error(`${ICONS.fail} ${truncate(msg, 65)}`)
+    console.error(`${ICONS.fail} ${truncate(msg, OUTPUT_LIMITS.FAIL_MSG)}`)
     return this
   },
 
@@ -288,7 +291,7 @@ const out: Output = {
 
   warn(msg: string) {
     this.stop()
-    if (!quietMode) console.log(`${ICONS.warn} ${truncate(msg, 65)}`)
+    if (!quietMode) console.log(`${ICONS.warn} ${truncate(msg, OUTPUT_LIMITS.WARN_MSG)}`)
     return this
   },
 
@@ -400,11 +403,15 @@ const out: Output = {
     this.stop()
     const counter = chalk.dim(`[${current}/${total}]`)
     if (!process.stdout.isTTY) {
-      process.stdout.write(`${branding.cli.spin(0, `${counter} ${truncate(msg, 35)}`)}\n`)
+      process.stdout.write(
+        `${branding.cli.spin(0, `${counter} ${truncate(msg, OUTPUT_LIMITS.STEP_MSG)}`)}\n`
+      )
       return this
     }
     interval = setInterval(() => {
-      process.stdout.write(`\r${branding.cli.spin(frame++, `${counter} ${truncate(msg, 35)}`)}`)
+      process.stdout.write(
+        `\r${branding.cli.spin(frame++, `${counter} ${truncate(msg, OUTPUT_LIMITS.STEP_MSG)}`)}`
+      )
     }, SPEED)
     return this
   },
@@ -417,7 +424,7 @@ const out: Output = {
     const filled = Math.round(percent / 10)
     const empty = 10 - filled
     const bar = chalk.cyan('█'.repeat(filled)) + chalk.dim('░'.repeat(empty))
-    const text = msg ? ` ${truncate(msg, 25)}` : ''
+    const text = msg ? ` ${truncate(msg, OUTPUT_LIMITS.PROGRESS_TEXT)}` : ''
     if (!process.stdout.isTTY) {
       process.stdout.write(`${branding.cli.spin(0, `[${bar}] ${percent}%${text}`)}\n`)
       return this

@@ -9,6 +9,7 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { EVENT_LIMITS } from '../constants'
 import { getErrorMessage } from '../errors'
 import pathManager from '../infrastructure/path-manager'
 import {
@@ -45,7 +46,7 @@ class EventBus {
     this.listeners = new Map()
     this.onceListeners = new Map()
     this.history = []
-    this.historyLimit = 100
+    this.historyLimit = EVENT_LIMITS.HISTORY_MAX
     this.projectId = null
   }
 

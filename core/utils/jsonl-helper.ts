@@ -2,6 +2,7 @@ import fsSync from 'node:fs'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import readline from 'node:readline'
+import { STORAGE_LIMITS } from '../constants'
 import { isNotFoundError } from '../types/fs'
 
 /**
@@ -171,7 +172,7 @@ export async function isJsonLinesEmpty(filePath: string): Promise<boolean> {
  */
 export async function readJsonLinesStreaming<T = Record<string, unknown>>(
   filePath: string,
-  maxLines = 1000
+  maxLines: number = STORAGE_LIMITS.JSONL_MAX_LINES
 ): Promise<T[]> {
   try {
     const fileStream = fsSync.createReadStream(filePath)
@@ -225,7 +226,10 @@ export async function getFileSizeMB(filePath: string): Promise<number> {
  * Rotate JSONL file if it exceeds size limit
  * Moves large file to archive with timestamp
  */
-export async function rotateJsonLinesIfNeeded(filePath: string, maxSizeMB = 10): Promise<boolean> {
+export async function rotateJsonLinesIfNeeded(
+  filePath: string,
+  maxSizeMB: number = STORAGE_LIMITS.ROTATION_SIZE_MB
+): Promise<boolean> {
   const sizeMB = await getFileSizeMB(filePath)
 
   if (sizeMB < maxSizeMB) {
@@ -256,7 +260,7 @@ export async function rotateJsonLinesIfNeeded(filePath: string, maxSizeMB = 10):
 export async function appendJsonLineWithRotation(
   filePath: string,
   object: unknown,
-  maxSizeMB = 10
+  maxSizeMB: number = STORAGE_LIMITS.ROTATION_SIZE_MB
 ): Promise<void> {
   // Rotate if needed (before appending)
   await rotateJsonLinesIfNeeded(filePath, maxSizeMB)
@@ -271,7 +275,7 @@ export async function appendJsonLineWithRotation(
  */
 export async function checkFileSizeWarning(
   filePath: string,
-  warnThresholdMB = 50
+  warnThresholdMB: number = STORAGE_LIMITS.LARGE_FILE_WARN_MB
 ): Promise<FileSizeWarning> {
   const sizeMB = await getFileSizeMB(filePath)
   const isLarge = sizeMB > warnThresholdMB
