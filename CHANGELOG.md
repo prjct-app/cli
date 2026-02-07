@@ -1,5 +1,31 @@
 # Changelog
 
+## [1.8.0] - 2026-02-07
+
+### Features
+- **Fibonacci estimation with variance tracking (PRJ-295)**: Capture Fibonacci point estimates (1,2,3,5,8,13,21) on task start with automatic points-to-time conversion, record actual duration on done, and display estimation variance.
+
+### Implementation Details
+- New `core/domain/fibonacci.ts` module: `FIBONACCI_POINTS`, `pointsToMinutes()`, `pointsToTimeRange()`, `findClosestPoint()`, `suggestFromHistory()`
+- Added `estimatedPoints` and `estimatedMinutes` optional fields to `CurrentTaskSchema` and `SubtaskSchema`
+- Added `updateCurrentTask()` partial update method to `StateStorage`
+- `now()` handler returns `fibonacci` helper object with `storeEstimate(points)` for template use
+- `done()` handler records outcomes via `outcomeRecorder.record()` and displays variance: `est: 5pt (1h 30m) → +50%`
+
+### Test Plan
+
+#### For QA
+1. Start a task — verify `fibonacci` helper is returned with `storeEstimate()`, `pointsToMinutes()`, `pointsToTimeRange()`
+2. Call `storeEstimate(5)` — verify `estimatedPoints: 5` and `estimatedMinutes: 90` in state.json
+3. Complete task with `p. done` — verify outcome recorded to `outcomes/outcomes.jsonl`
+4. Verify variance display shows `est: 5pt (1h 30m) → +X%`
+5. Run `bun test` — 552 tests pass
+
+#### For Users
+**What changed:** Tasks now support Fibonacci point estimation with automatic time conversion and variance tracking on completion.
+**How to use:** Estimation is stored via `storeEstimate(points)` during task start; variance is auto-displayed on `p. done`.
+**Breaking changes:** None — estimation fields are optional.
+
 ## [1.7.7] - 2026-02-07
 
 ### Bug Fixes
@@ -70,7 +96,6 @@
 ### Refactoring
 
 - remove unused deps and lazy-load @linear/sdk (PRJ-291) (#144)
-
 
 ## [1.7.5] - 2026-02-07
 

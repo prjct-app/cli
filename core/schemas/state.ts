@@ -62,6 +62,9 @@ export const SubtaskSchema = z.object({
   summary: SubtaskSummarySchema.optional(), // Full summary for context handoff
   skipReason: z.string().optional(), // Why this subtask was skipped
   blockReason: z.string().optional(), // What is blocking this subtask
+  // Fibonacci estimation
+  estimatedPoints: z.number().optional(), // Fibonacci: 1,2,3,5,8,13,21
+  estimatedMinutes: z.number().optional(), // Derived from points
 })
 
 // Subtask progress tracking
@@ -84,6 +87,9 @@ export const CurrentTaskSchema = z.object({
   // Linear integration - bidirectional sync
   linearId: z.string().optional(), // "PRJ-123" - Linear identifier
   linearUuid: z.string().optional(), // Linear internal UUID for API calls
+  // Fibonacci estimation
+  estimatedPoints: z.number().optional(), // Fibonacci: 1,2,3,5,8,13,21
+  estimatedMinutes: z.number().optional(), // Derived from points
 })
 
 export const PreviousTaskSchema = z.object({

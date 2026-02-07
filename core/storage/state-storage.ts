@@ -197,6 +197,27 @@ class StateStorage extends StorageManager<StateJson> {
   }
 
   /**
+   * Update fields on the current task (partial update)
+   */
+  async updateCurrentTask(
+    projectId: string,
+    fields: Partial<CurrentTask>
+  ): Promise<CurrentTask | null> {
+    const state = await this.read(projectId)
+    if (!state.currentTask) return null
+
+    const updated: CurrentTask = { ...state.currentTask, ...fields }
+
+    await this.update(projectId, (s) => ({
+      ...s,
+      currentTask: updated,
+      lastUpdated: getTimestamp(),
+    }))
+
+    return updated
+  }
+
+  /**
    * Complete current task
    */
   async completeTask(projectId: string): Promise<CurrentTask | null> {

@@ -10,7 +10,14 @@
 
 import commandExecutor from '../agentic/command-executor'
 import { templateExecutor } from '../agentic/template-executor'
+import {
+  type FibonacciPoint,
+  isValidPoint,
+  pointsToMinutes,
+  pointsToTimeRange,
+} from '../domain/fibonacci'
 import { linearService } from '../integrations/linear'
+import outcomeRecorder from '../outcomes/recorder'
 import { generateUUID } from '../schemas'
 import { queueStorage, stateStorage } from '../storage'
 import type { CommandResult } from '../types'
@@ -132,6 +139,20 @@ export class WorkflowCommands extends PrjctCommandsBase {
           task,
           agenticMode: true,
           availableAgents,
+          // Fibonacci estimation helpers for templates
+          fibonacci: {
+            isValidPoint,
+            pointsToMinutes,
+            pointsToTimeRange,
+            storeEstimate: async (points: FibonacciPoint) => {
+              const minutes = pointsToMinutes(points)
+              await stateStorage.updateCurrentTask(projectId, {
+                estimatedPoints: points,
+                estimatedMinutes: minutes.typical,
+              })
+              return minutes
+            },
+          },
         }
       } else {
         // Read from storage (JSON is source of truth)
@@ -187,9 +208,44 @@ export class WorkflowCommands extends PrjctCommandsBase {
 
       const task = currentTask.description
       let duration = ''
+      let actualMinutes = 0
       if (currentTask.startedAt) {
         const started = new Date(currentTask.startedAt)
         duration = dateHelper.calculateDuration(started)
+        actualMinutes = Math.round((Date.now() - started.getTime()) / 60_000)
+      }
+
+      // Record outcome with estimation data if available
+      const estimatedMinutes = (currentTask as { estimatedMinutes?: number }).estimatedMinutes
+      const estimatedPoints = (currentTask as { estimatedPoints?: number }).estimatedPoints
+      try {
+        await outcomeRecorder.record(projectId, {
+          sessionId: currentTask.sessionId,
+          command: 'done',
+          task,
+          startedAt: currentTask.startedAt,
+          completedAt: dateHelper.getTimestamp(),
+          estimatedDuration: estimatedMinutes ? formatMinutesToDuration(estimatedMinutes) : '0m',
+          actualDuration: duration || '0m',
+          variance: estimatedMinutes ? formatVariance(actualMinutes - estimatedMinutes) : '+0m',
+          completedAsPlanned: true,
+          qualityScore: 3,
+          tags: [(currentTask as { linearId?: string }).linearId].filter(Boolean) as string[],
+        })
+      } catch {
+        // Outcome recording failure should not block workflow
+      }
+
+      // Build variance display
+      let varianceDisplay = ''
+      if (estimatedPoints && estimatedMinutes) {
+        const diff = actualMinutes - estimatedMinutes
+        const pct =
+          estimatedMinutes > 0
+            ? Math.round(((actualMinutes - estimatedMinutes) / estimatedMinutes) * 100)
+            : 0
+        const sign = diff >= 0 ? '+' : ''
+        varianceDisplay = ` | est: ${estimatedPoints}pt (${formatMinutesToDuration(estimatedMinutes)}) → ${sign}${pct}%`
       }
 
       // Write-through: Complete task (JSON → MD → Event)
@@ -204,16 +260,16 @@ export class WorkflowCommands extends PrjctCommandsBase {
           if (apiKey && creds.linear?.teamId) {
             await linearService.initializeFromApiKey(apiKey, creds.linear.teamId)
             await linearService.markDone(linearId)
-            out.done(`${task}${duration ? ` (${duration})` : ''} → Linear ✓`)
+            out.done(`${task}${duration ? ` (${duration}${varianceDisplay})` : ''} → Linear ✓`)
           } else {
-            out.done(`${task}${duration ? ` (${duration})` : ''}`)
+            out.done(`${task}${duration ? ` (${duration}${varianceDisplay})` : ''}`)
           }
         } catch {
           // Linear sync failed silently - don't block the workflow
-          out.done(`${task}${duration ? ` (${duration})` : ''}`)
+          out.done(`${task}${duration ? ` (${duration}${varianceDisplay})` : ''}`)
         }
       } else {
-        out.done(`${task}${duration ? ` (${duration})` : ''}`)
+        out.done(`${task}${duration ? ` (${duration}${varianceDisplay})` : ''}`)
       }
       showStateInfo('completed')
       showNextSteps('done')
@@ -221,6 +277,9 @@ export class WorkflowCommands extends PrjctCommandsBase {
       await this.logToMemory(projectPath, 'task_completed', {
         task,
         duration,
+        estimatedPoints,
+        estimatedMinutes,
+        actualMinutes,
         timestamp: dateHelper.getTimestamp(),
       })
 
@@ -416,4 +475,28 @@ export class WorkflowCommands extends PrjctCommandsBase {
       return { success: false, error: getErrorMessage(error) }
     }
   }
+}
+
+// =============================================================================
+// Helpers
+// =============================================================================
+
+/** Format minutes to a human-readable duration string */
+function formatMinutesToDuration(minutes: number): string {
+  if (minutes < 60) return `${minutes}m`
+  const hours = Math.floor(minutes / 60)
+  const mins = minutes % 60
+  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`
+}
+
+/** Format a variance in minutes to a string like "+30m" or "-15m" */
+function formatVariance(diffMinutes: number): string {
+  const sign = diffMinutes >= 0 ? '+' : '-'
+  const abs = Math.abs(diffMinutes)
+  if (abs >= 60) {
+    const hours = Math.floor(abs / 60)
+    const mins = abs % 60
+    return mins > 0 ? `${sign}${hours}h ${mins}m` : `${sign}${hours}h`
+  }
+  return `${sign}${abs}m`
 }
