@@ -14,26 +14,11 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { globSync } from 'glob'
-import type { SessionInfo } from '../types'
+import type { MonorepoInfo, MonorepoPackage, SessionInfo } from '../types'
 import * as dateHelper from '../utils/date-helper'
 import * as fileHelper from '../utils/file-helper'
 
-/**
- * Monorepo detection result
- */
-export interface MonorepoInfo {
-  isMonorepo: boolean
-  type: 'pnpm' | 'npm' | 'yarn' | 'lerna' | 'nx' | 'rush' | 'turborepo' | null
-  rootPath: string
-  packages: MonorepoPackage[]
-}
-
-export interface MonorepoPackage {
-  name: string
-  path: string
-  relativePath: string
-  hasPrjctMd: boolean
-}
+export type { MonorepoInfo, MonorepoPackage } from '../types'
 
 class PathManager {
   globalBaseDir: string

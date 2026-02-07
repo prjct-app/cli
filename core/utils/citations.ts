@@ -7,23 +7,9 @@
  * @see PRJ-113
  */
 
-export type SourceType = 'detected' | 'user-defined' | 'inferred'
+import type { ContextSources, SourceInfo, SourceType } from '../types/citations'
 
-export interface SourceInfo {
-  file: string
-  type: SourceType
-}
-
-export interface ContextSources {
-  name: SourceInfo
-  version: SourceInfo
-  ecosystem: SourceInfo
-  languages: SourceInfo
-  frameworks: SourceInfo
-  commands: SourceInfo
-  projectType: SourceInfo
-  git: SourceInfo
-}
+export type { ContextSources, SourceInfo, SourceType } from '../types/citations'
 
 /**
  * Generate an HTML citation comment

@@ -141,6 +141,10 @@ export type {
 } from './bus'
 export { EventTypes } from './bus'
 // =============================================================================
+// Citations Types
+// =============================================================================
+export type { ContextSources, SourceInfo, SourceType } from './citations'
+// =============================================================================
 // Command Types
 // =============================================================================
 export type {
@@ -172,6 +176,7 @@ export type {
   GlobalConfig as CommandGlobalConfig,
   HandlerFn,
   HealthResult,
+  InitOptions,
   LayerCounts,
   MigrationConfig,
   // Migration types
@@ -206,6 +211,16 @@ export type {
   ProjectState,
 } from './core'
 // =============================================================================
+// Diff Types
+// =============================================================================
+export type {
+  DiffOptions,
+  DiffSection,
+  ParsedMarkdownSection,
+  PreservedInfo,
+  SyncDiff,
+} from './diff'
+// =============================================================================
 // Domain Types
 // =============================================================================
 export type {
@@ -215,6 +230,11 @@ export type {
   TaskStackSummary,
   TaskSwitchResult,
 } from './domain'
+// =============================================================================
+// Error Types
+// =============================================================================
+export type { ErrorCode, ErrorWithHint } from './errors'
+export { ERRORS } from './errors'
 // =============================================================================
 // Event Types
 // =============================================================================
@@ -250,6 +270,8 @@ export type {
   GlobalConfigResult,
   InstallResult,
   LayerType,
+  MonorepoInfo,
+  MonorepoPackage,
   PathSessionInfo,
   PermissionCheckResult,
   PermissionLevel,
@@ -266,6 +288,19 @@ export type {
   LinearConfig,
 } from './integrations'
 export { DEFAULT_JIRA_CONFIG, DEFAULT_LINEAR_CONFIG } from './integrations'
+// =============================================================================
+// JIRA Types
+// =============================================================================
+export type {
+  JiraAuthMode,
+  JiraIssue,
+  JiraProject,
+  JiraSearchResponse,
+} from './jira'
+// =============================================================================
+// Logger Types
+// =============================================================================
+export type { LogFunction, Logger, LogLevel as LoggerLogLevel } from './logger'
 // =============================================================================
 // Memory Types
 // =============================================================================
@@ -299,6 +334,10 @@ export type {
   QualityScore,
 } from './outcomes'
 // =============================================================================
+// Output Types
+// =============================================================================
+export type { Output, OutputMetrics, OutputTier, TierConfig } from './output'
+// =============================================================================
 // Plugin Types
 // =============================================================================
 export type {
@@ -306,6 +345,20 @@ export type {
   WebhookPayload,
   WebhookPluginContext,
 } from './plugin'
+// =============================================================================
+// Project Sync Types (sync-service / context-generator)
+// =============================================================================
+export type {
+  AIToolResult,
+  ContextGeneratorConfig,
+  GitData,
+  ProjectCommands,
+  ProjectStats,
+  ProjectSyncResult,
+  SyncAgentInfo,
+  SyncMetrics,
+  SyncOptions,
+} from './project-sync'
 // =============================================================================
 // Provider Types (AI CLI abstraction)
 // =============================================================================
@@ -322,15 +375,19 @@ export type {
 // =============================================================================
 export type {
   ServerConfig,
+  ServerHandle,
   ServerInstance,
   SSEClient,
   SSEEventType,
+  SSEInternalClient,
   SSEManager,
 } from './server'
+export { SSE_EVENTS } from './server'
 // =============================================================================
 // Service Types
 // =============================================================================
 export type {
+  AIToolConfig,
   ComplexityEstimate,
   MemoryServiceEntry,
   Severity,
@@ -354,6 +411,10 @@ export type {
   SessionStats,
   TimelineEvent,
 } from './session'
+// =============================================================================
+// Stack Types
+// =============================================================================
+export type { StackDetection, StackPackageJson } from './stack'
 // =============================================================================
 // Storage Types
 // =============================================================================
@@ -393,6 +454,15 @@ export type {
   SyncStatus,
 } from './sync'
 // =============================================================================
+// Sync Verifier Types
+// =============================================================================
+export type {
+  VerificationCheck,
+  VerificationCheckResult,
+  VerificationConfig,
+  VerificationReport,
+} from './sync-verifier'
+// =============================================================================
 // Task Types
 // =============================================================================
 export type {
@@ -425,3 +495,13 @@ export type {
   MaybePromise,
   Runtime,
 } from './utils'
+// =============================================================================
+// Workflow Types
+// =============================================================================
+export type {
+  HookCommand,
+  HookPhase,
+  HookResult,
+  PreferenceScope,
+  WorkflowPreference,
+} from './workflow'

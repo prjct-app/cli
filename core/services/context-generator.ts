@@ -12,50 +12,25 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
+import type {
+  ContextGeneratorConfig,
+  GitData,
+  ProjectCommands,
+  ProjectStats,
+  SyncAgentInfo,
+} from '../types'
 import { type ContextSources, cite, defaultSources } from '../utils/citations'
 import * as dateHelper from '../utils/date-helper'
 import { mergePreservedSections, validatePreserveBlocks } from '../utils/preserve-sections'
 import { NestedContextResolver } from './nested-context-resolver'
 
-// ============================================================================
-// TYPES
-// ============================================================================
-
-export interface GitData {
-  branch: string
-  commits: number
-}
-
-export interface ProjectStats {
-  name: string
-  version: string
-  ecosystem: string
-  projectType: string
-  fileCount: number
-  languages: string[]
-  frameworks: string[]
-}
-
-export interface Commands {
-  install: string
-  dev: string
-  test: string
-  build: string
-  lint: string
-  format: string
-}
-
-export interface AgentInfo {
-  name: string
-  type: 'workflow' | 'domain'
-  skill?: string
-}
-
-export interface ContextGeneratorConfig {
-  projectId: string
-  projectPath: string
-  globalPath: string
-}
+export type {
+  ContextGeneratorConfig,
+  GitData,
+  ProjectCommands,
+  ProjectStats,
+  SyncAgentInfo,
+} from '../types'
 
 // ============================================================================
 // CONTEXT FILE GENERATOR
@@ -103,8 +78,8 @@ export class ContextFileGenerator {
   async generate(
     git: GitData,
     stats: ProjectStats,
-    commands: Commands,
-    agents: AgentInfo[],
+    commands: ProjectCommands,
+    agents: SyncAgentInfo[],
     sources?: ContextSources
   ): Promise<string[]> {
     const contextPath = path.join(this.config.globalPath, 'context')
@@ -138,8 +113,8 @@ export class ContextFileGenerator {
     contextPath: string,
     git: GitData,
     stats: ProjectStats,
-    commands: Commands,
-    agents: AgentInfo[],
+    commands: ProjectCommands,
+    agents: SyncAgentInfo[],
     sources?: ContextSources
   ): Promise<void> {
     const workflowAgents = agents.filter((a) => a.type === 'workflow').map((a) => a.name)
@@ -348,8 +323,8 @@ ${
   async generateMonorepoContexts(
     git: GitData,
     stats: ProjectStats,
-    commands: Commands,
-    agents: AgentInfo[]
+    commands: ProjectCommands,
+    agents: SyncAgentInfo[]
   ): Promise<string[]> {
     const monoInfo = await pathManager.detectMonorepo(this.config.projectPath)
 
@@ -394,8 +369,8 @@ ${
     resolvedCtx: { content: string; sources: string[]; overrides: string[] },
     git: GitData,
     stats: ProjectStats,
-    commands: Commands,
-    agents: AgentInfo[]
+    commands: ProjectCommands,
+    agents: SyncAgentInfo[]
   ): Promise<string> {
     const workflowAgents = agents.filter((a) => a.type === 'workflow').map((a) => a.name)
     const domainAgents = agents.filter((a) => a.type === 'domain').map((a) => a.name)

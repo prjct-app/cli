@@ -15,6 +15,7 @@
  */
 
 import { getErrorMessage } from '../../types/fs'
+import type { JiraAuthMode, JiraIssue, JiraProject, JiraSearchResponse } from '../../types/jira'
 import type {
   CreateIssueInput,
   FetchOptions,
@@ -26,77 +27,6 @@ import type {
   JiraConfig,
   UpdateIssueInput,
 } from '../issue-tracker/types'
-
-// =============================================================================
-// JIRA API Types
-// =============================================================================
-
-interface JiraIssue {
-  id: string
-  key: string
-  self: string
-  fields: {
-    summary: string
-    description?:
-      | {
-          type: string
-          content: Array<{
-            type: string
-            content?: Array<{ type: string; text?: string }>
-          }>
-        }
-      | string
-      | null
-    status: {
-      id: string
-      name: string
-      statusCategory: {
-        key: string // 'new', 'indeterminate', 'done'
-        name: string
-      }
-    }
-    priority?: {
-      id: string
-      name: string
-    }
-    issuetype: {
-      id: string
-      name: string
-      subtask: boolean
-    }
-    assignee?: {
-      accountId: string
-      displayName: string
-      emailAddress?: string
-    }
-    reporter?: {
-      accountId: string
-      displayName: string
-      emailAddress?: string
-    }
-    project: {
-      id: string
-      key: string
-      name: string
-    }
-    labels: string[]
-    created: string
-    updated: string
-  }
-}
-
-interface JiraSearchResponse {
-  issues: JiraIssue[]
-  total: number
-  maxResults: number
-  startAt: number
-}
-
-interface JiraProject {
-  id: string
-  key: string
-  name: string
-}
 
 // =============================================================================
 // Status/Priority Mapping
@@ -170,11 +100,7 @@ const PRIORITY_TO_JIRA: Record<IssuePriority, string> = {
   none: 'Medium',
 }
 
-// =============================================================================
-// Auth Mode Type
-// =============================================================================
-
-export type JiraAuthMode = 'api-token' | 'mcp' | 'none'
+export type { JiraAuthMode } from '../../types/jira'
 
 // =============================================================================
 // JIRA Provider Implementation

@@ -11,42 +11,22 @@ import { exec } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { promisify } from 'node:util'
+import type {
+  VerificationCheck,
+  VerificationCheckResult,
+  VerificationConfig,
+  VerificationReport,
+} from '../types'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 
 const execAsync = promisify(exec)
 
-// =============================================================================
-// TYPES
-// =============================================================================
-
-export interface VerificationCheck {
-  name: string
-  command?: string
-  script?: string
-  enabled?: boolean
-}
-
-export interface VerificationConfig {
-  checks?: VerificationCheck[]
-  failFast?: boolean
-}
-
-export interface CheckResult {
-  name: string
-  passed: boolean
-  output?: string
-  error?: string
-  durationMs: number
-}
-
-export interface VerificationReport {
-  passed: boolean
-  checks: CheckResult[]
-  totalMs: number
-  failedCount: number
-  passedCount: number
-  skippedCount: number
-}
+export type {
+  VerificationCheck,
+  VerificationCheckResult,
+  VerificationConfig,
+  VerificationReport,
+} from '../types'
 
 // =============================================================================
 // BUILT-IN CHECKS
@@ -56,7 +36,7 @@ const BUILTIN_CHECKS = {
   /**
    * Verify all expected context files exist after sync
    */
-  async contextFilesExist(globalPath: string): Promise<CheckResult> {
+  async contextFilesExist(globalPath: string): Promise<VerificationCheckResult> {
     const start = Date.now()
     const expected = ['context/CLAUDE.md']
     const missing: string[] = []
@@ -82,7 +62,7 @@ const BUILTIN_CHECKS = {
   /**
    * Verify generated JSON files are valid
    */
-  async jsonFilesValid(globalPath: string): Promise<CheckResult> {
+  async jsonFilesValid(globalPath: string): Promise<VerificationCheckResult> {
     const start = Date.now()
     const jsonFiles = ['storage/state.json']
     const invalid: string[] = []
@@ -111,7 +91,7 @@ const BUILTIN_CHECKS = {
   /**
    * Verify no sensitive data leaked into context files
    */
-  async noSensitiveData(globalPath: string): Promise<CheckResult> {
+  async noSensitiveData(globalPath: string): Promise<VerificationCheckResult> {
     const start = Date.now()
     const contextDir = path.join(globalPath, 'context')
     const patterns = [
@@ -168,7 +148,7 @@ class SyncVerifier {
     config?: VerificationConfig
   ): Promise<VerificationReport> {
     const totalStart = Date.now()
-    const checks: CheckResult[] = []
+    const checks: VerificationCheckResult[] = []
     const failFast = config?.failFast ?? false
     let skipped = 0
 
@@ -228,7 +208,7 @@ class SyncVerifier {
   private async runCustomCheck(
     check: VerificationCheck,
     projectPath: string
-  ): Promise<CheckResult> {
+  ): Promise<VerificationCheckResult> {
     const start = Date.now()
     const command = check.command || (check.script ? `sh ${check.script}` : null)
 

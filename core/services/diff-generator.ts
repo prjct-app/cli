@@ -9,39 +9,21 @@
  */
 
 import chalk from 'chalk'
+import type {
+  DiffOptions,
+  DiffSection,
+  ParsedMarkdownSection,
+  PreservedInfo,
+  SyncDiff,
+} from '../types'
 
-// =============================================================================
-// Types
-// =============================================================================
-
-export interface DiffSection {
-  name: string
-  type: 'added' | 'modified' | 'removed' | 'unchanged'
-  before?: string
-  after?: string
-  lineCount: number
-}
-
-export interface PreservedInfo {
-  name: string
-  lineCount: number
-}
-
-export interface SyncDiff {
-  hasChanges: boolean
-  added: DiffSection[]
-  modified: DiffSection[]
-  removed: DiffSection[]
-  preserved: PreservedInfo[]
-  tokensBefore: number
-  tokensAfter: number
-  tokenDelta: number
-}
-
-export interface DiffOptions {
-  showFullDiff?: boolean
-  colorize?: boolean
-}
+export type {
+  DiffOptions,
+  DiffSection,
+  ParsedMarkdownSection,
+  PreservedInfo,
+  SyncDiff,
+} from '../types'
 
 // =============================================================================
 // Constants
@@ -64,20 +46,13 @@ export function estimateTokens(content: string): number {
 // Section Parsing
 // =============================================================================
 
-interface ParsedSection {
-  name: string
-  content: string
-  startLine: number
-  endLine: number
-}
-
 /**
  * Parse markdown into sections based on headers
  */
-export function parseMarkdownSections(content: string): ParsedSection[] {
+export function parseMarkdownSections(content: string): ParsedMarkdownSection[] {
   const lines = content.split('\n')
-  const sections: ParsedSection[] = []
-  let currentSection: ParsedSection | null = null
+  const sections: ParsedMarkdownSection[] = []
+  let currentSection: ParsedMarkdownSection | null = null
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]

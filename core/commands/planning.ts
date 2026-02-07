@@ -9,7 +9,7 @@ import commandInstaller from '../infrastructure/command-installer'
 import { generateUUID } from '../schemas'
 import type { Priority, TaskSection, TaskType } from '../schemas/state'
 import { ideasStorage, queueStorage } from '../storage'
-import type { CommandResult, ProjectContext } from '../types'
+import type { CommandResult, InitOptions, ProjectContext } from '../types'
 import { getErrorMessage } from '../types/fs'
 import { showNextSteps } from '../utils/next-steps'
 import { OnboardingWizard } from '../wizard'
@@ -34,10 +34,7 @@ async function getAnalysisCommands(): Promise<import('./analysis').AnalysisComma
   return _analysisCommands
 }
 
-export interface InitOptions {
-  yes?: boolean // Skip interactive wizard, use defaults
-  idea?: string | null // Initial idea for architect mode
-}
+export type { InitOptions } from '../types'
 
 export class PlanningCommands extends PrjctCommandsBase {
   /**

@@ -11,31 +11,22 @@
 
 import chalk from 'chalk'
 import { OUTPUT_LIMITS } from '../constants'
+import type { ErrorCode, ErrorWithHint } from '../types/errors'
+import type { Output, OutputMetrics, OutputTier, TierConfig } from '../types/output'
 import branding from './branding'
-import type { ErrorCode, ErrorWithHint } from './error-messages'
 import { getError } from './error-messages'
 
 const _FRAMES = branding.spinner.frames
 const SPEED = branding.spinner.speed
 
-/**
- * Output tier configuration
- * Controls verbosity of CLI output
- */
-export type OutputTier = 'silent' | 'minimal' | 'compact' | 'verbose'
-
-export interface TierConfig {
-  maxLines: number
-  maxCharsPerLine: number
-  showMetrics: boolean
-}
+export type { Output, OutputMetrics, OutputTier, TierConfig } from '../types/output'
 
 export const OUTPUT_TIERS: Record<OutputTier, TierConfig> = {
   silent: { maxLines: 0, maxCharsPerLine: 0, showMetrics: false },
   minimal: { maxLines: 1, maxCharsPerLine: 65, showMetrics: false },
   compact: { maxLines: 4, maxCharsPerLine: 80, showMetrics: true },
   verbose: { maxLines: Infinity, maxCharsPerLine: Infinity, showMetrics: true },
-}
+} as const
 
 // Current output tier (default: compact for human-readable output)
 let currentTier: OutputTier = 'compact'
@@ -184,36 +175,6 @@ export function formatForHuman(data: unknown): string {
 const clear = (): boolean =>
   process.stdout.isTTY ? process.stdout.write(`\r${' '.repeat(OUTPUT_LIMITS.CLEAR_WIDTH)}\r`) : true
 
-/**
- * Metrics to display after command completion
- * Shows value provided by prjct (compression, agent count, etc.)
- */
-interface OutputMetrics {
-  agents?: number // Number of agents used
-  reduction?: number // Context reduction percentage
-  tokens?: number // Token count (in thousands)
-}
-
-interface Output {
-  start(): Output
-  end(): Output
-  spin(msg: string): Output
-  done(msg: string, metrics?: OutputMetrics): Output
-  fail(msg: string): Output
-  failWithHint(error: ErrorWithHint | ErrorCode): Output
-  warn(msg: string): Output
-  info(msg: string): Output
-  debug(msg: string): Output
-  success(msg: string, metrics?: OutputMetrics): Output
-  list(items: string[], options?: { bullet?: string; indent?: number }): Output
-  table(rows: Array<Record<string, string | number>>, options?: { header?: boolean }): Output
-  box(title: string, content: string): Output
-  section(title: string): Output
-  stop(): Output
-  step(current: number, total: number, msg: string): Output
-  progress(current: number, total: number, msg?: string): Output
-}
-
 const out: Output = {
   // Branding: Show header at start
   start() {
@@ -273,7 +234,7 @@ const out: Output = {
   // Rich error with context and recovery hint
   failWithHint(error: ErrorWithHint | ErrorCode) {
     this.stop()
-    const err = typeof error === 'string' ? getError(error) : error
+    const err = typeof error === 'string' ? getError(error as ErrorCode) : error
     console.error()
     console.error(`${ICONS.fail} ${err.message}`)
     if (err.file) {
@@ -437,7 +398,6 @@ const out: Output = {
   },
 }
 
-export type { OutputMetrics }
 export type { ErrorCode, ErrorWithHint } from './error-messages'
 export { createError, ERRORS, getError } from './error-messages'
 export default out

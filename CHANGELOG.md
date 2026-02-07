@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.6.11] - 2026-02-07
+
+### Bug Fixes
+- **Fix SSE zombie connections and infinite promise leak (PRJ-286)**: Replaced infinite `await new Promise(() => {})` with AbortController-based mechanism that resolves on client removal. Added max client lifetime (1 hour) with per-client TTL timeout. Added periodic reaper (every 5 min) that scans for and removes zombie entries from the clients Map. Consolidated duplicate cleanup paths into single idempotent `removeClient(id)` function. Added `shutdown()` to SSEManager for clean server stop. All timers use `unref()` to avoid blocking process exit.
+
+### Implementation Details
+Replaced the infinite pending promise in `streamSSE` callback with an `AbortController` whose signal resolves the await when the client is removed. Internal client state (`heartbeatInterval`, `ttlTimeout`, `abortController`) is tracked in an `InternalClient` wrapper separate from the public `SSEClient` type. The public `SSEClient` interface gained only `connectedAt` for staleness detection.
+
+### Learnings
+- AbortController integrates cleanly with Hono's `streamSSE` — the async callback needs to await *something*, and a signal-based promise is the right primitive.
+- Timer `unref()` has different shapes between Bun (number) and Node (Timeout object) — use `typeof` check before calling.
+- Idempotent cleanup functions eliminate race conditions between heartbeat failure and stream abort handlers.
+
+### Test Plan
+
+#### For QA
+1. Start prjct server, connect SSE client to `/api/events` — verify `connected` event
+2. Disconnect client gracefully — verify `clients.size === 0`
+3. Kill client process (ungraceful) — verify heartbeat cleanup within 30s
+4. Connect client, wait >1 hour — verify TTL auto-disconnect
+5. Connect 5+ clients, kill all — verify reaper cleans all within 5 min
+6. Call `server.stop()` — verify all clients disconnected and reaper stopped
+
+#### For Users
+**What changed:** SSE connections now clean up reliably on disconnect, have a 1-hour max lifetime, and a background reaper removes zombie connections every 5 minutes.
+**Breaking changes:** `SSEManager` interface now includes `shutdown()`. `SSEClient` now includes `connectedAt`.
+
 ## [1.6.10] - 2026-02-07
 
 ### Documentation
