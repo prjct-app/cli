@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.3] - 2026-02-07
+
+### Bug Fixes
+
+- replace console.error with logger in setup.ts (PRJ-74) (#126)
+
+
 ## [1.6.5] - 2026-02-07
 
 ### Bug Fixes
