@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.8] - 2026-02-07
+
+### Refactoring
+
+- standardize export patterns to ESM (PRJ-99) (#132)
+
+
 ## [1.6.9] - 2026-02-07
 
 ### Refactor
