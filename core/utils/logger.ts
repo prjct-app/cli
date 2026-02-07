@@ -16,17 +16,7 @@
  *   log.error('Failed to load', error.message)
  */
 
-type LogLevel = 'error' | 'warn' | 'info' | 'debug'
-type LogFunction = (...args: unknown[]) => void
-
-interface Logger {
-  error: LogFunction
-  warn: LogFunction
-  info: LogFunction
-  debug: LogFunction
-  isEnabled: () => boolean
-  level: () => LogLevel | 'disabled'
-}
+import type { LogFunction, Logger, LogLevel } from '../types/logger'
 
 const LEVELS: Record<LogLevel, number> = { error: 0, warn: 1, info: 2, debug: 3 }
 const TRUTHY_VALUES = new Set(['1', 'true', '*'])

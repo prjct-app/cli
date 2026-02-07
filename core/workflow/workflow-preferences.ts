@@ -18,28 +18,24 @@ import { promisify } from 'node:util'
 import chalk from 'chalk'
 import memorySystem from '../agentic/memory-system'
 import { WORKFLOW_HELP } from '../constants'
+import type {
+  HookCommand,
+  HookPhase,
+  HookResult,
+  PreferenceScope,
+  WorkflowPreference,
+} from '../types'
 import { getErrorMessage } from '../types/fs'
 
 const execAsync = promisify(exec)
 
-export type PreferenceScope = 'permanent' | 'session' | 'once'
-export type HookPhase = 'before' | 'after' | 'skip'
-export type HookCommand = 'task' | 'done' | 'ship' | 'sync'
-
-export interface WorkflowPreference {
-  hook: HookPhase
-  command: HookCommand
-  action: string // command to run or 'true' for skip
-  scope: PreferenceScope
-  createdAt: string
-}
-
-export interface HookResult {
-  success: boolean
-  failed?: string
-  skipped?: string[]
-  output?: string
-}
+export type {
+  HookCommand,
+  HookPhase,
+  HookResult,
+  PreferenceScope,
+  WorkflowPreference,
+} from '../types'
 
 // Session and once preferences (in-memory)
 const sessionPreferences: Map<string, WorkflowPreference> = new Map()

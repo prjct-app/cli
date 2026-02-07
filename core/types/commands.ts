@@ -157,6 +157,16 @@ export interface AnalyzeOptions {
   [key: string]: unknown
 }
 
+/**
+ * Options for the init (planning) command.
+ */
+export interface InitOptions {
+  /** Skip interactive wizard, use defaults */
+  yes?: boolean
+  /** Initial idea for architect mode */
+  idea?: string | null
+}
+
 // ============================================
 // Migration Types
 // ============================================

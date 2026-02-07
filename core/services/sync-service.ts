@@ -32,6 +32,18 @@ import commandInstaller from '../infrastructure/command-installer'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import { metricsStorage } from '../storage/metrics-storage'
+import type {
+  AIToolResult,
+  GitData,
+  ProjectCommands,
+  ProjectStats,
+  ProjectSyncResult,
+  StackDetection,
+  SyncAgentInfo,
+  SyncMetrics,
+  SyncOptions,
+  VerificationReport,
+} from '../types'
 import { type ContextSources, defaultSources, type SourceInfo } from '../utils/citations'
 import * as dateHelper from '../utils/date-helper'
 import log from '../utils/logger'
@@ -39,94 +51,10 @@ import { ContextFileGenerator } from './context-generator'
 import type { SyncDiff } from './diff-generator'
 import { localStateGenerator } from './local-state-generator'
 import { skillInstaller } from './skill-installer'
-import { type StackDetection, StackDetector } from './stack-detector'
-import { syncVerifier, type VerificationReport } from './sync-verifier'
+import { StackDetector } from './stack-detector'
+import { syncVerifier } from './sync-verifier'
 
 const execAsync = promisify(exec)
-
-// ============================================================================
-// TYPES
-// ============================================================================
-
-interface GitData {
-  branch: string
-  commits: number
-  contributors: number
-  hasChanges: boolean
-  stagedFiles: string[]
-  modifiedFiles: string[]
-  untrackedFiles: string[]
-  recentCommits: { hash: string; message: string; date: string }[]
-  weeklyCommits: number
-}
-
-interface ProjectStats {
-  fileCount: number
-  version: string
-  name: string
-  ecosystem: string
-  projectType: string
-  languages: string[]
-  frameworks: string[]
-}
-
-interface Commands {
-  install: string
-  run: string
-  test: string
-  build: string
-  dev: string
-  lint: string
-  format: string
-}
-
-interface AgentInfo {
-  name: string
-  type: 'workflow' | 'domain'
-  skill?: string
-}
-
-interface AIToolResult {
-  toolId: string
-  outputFile: string
-  success: boolean
-}
-
-interface SyncMetrics {
-  duration: number // Sync duration in ms
-  originalSize: number // Estimated tokens before compression
-  filteredSize: number // Actual tokens in context files
-  compressionRate: number // Percentage saved
-}
-
-interface SyncResult {
-  success: boolean
-  projectId: string
-  cliVersion: string
-  git: GitData
-  stats: ProjectStats
-  commands: Commands
-  stack: StackDetection
-  agents: AgentInfo[]
-  skills: { agent: string; skill: string }[]
-  skillsInstalled: { name: string; agent: string; status: 'installed' | 'skipped' | 'error' }[]
-  contextFiles: string[]
-  aiTools: AIToolResult[]
-  syncMetrics?: SyncMetrics
-  verification?: VerificationReport
-  error?: string
-  // Preview mode fields
-  isPreview?: boolean
-  previewDiff?: SyncDiff
-}
-
-interface SyncOptions {
-  aiTools?: string[] // AI tools to generate context for (default: claude, cursor)
-  preview?: boolean // If true, return diff without applying changes
-  skipConfirmation?: boolean // If true, apply changes without confirmation (--yes flag)
-  packagePath?: string // For monorepo: sync only this package path
-  packageName?: string // For monorepo: package name for display
-}
 
 // ============================================================================
 // SYNC SERVICE
@@ -145,7 +73,10 @@ class SyncService {
   /**
    * Main sync method - does everything in one call
    */
-  async sync(projectPath: string = process.cwd(), options: SyncOptions = {}): Promise<SyncResult> {
+  async sync(
+    projectPath: string = process.cwd(),
+    options: SyncOptions = {}
+  ): Promise<ProjectSyncResult> {
     this.projectPath = projectPath
     const startTime = Date.now()
 
@@ -486,8 +417,8 @@ class SyncService {
   // COMMAND DETECTION
   // ==========================================================================
 
-  private async detectCommands(): Promise<Commands> {
-    const commands: Commands = {
+  private async detectCommands(): Promise<ProjectCommands> {
+    const commands: ProjectCommands = {
       install: 'npm install',
       run: 'npm run',
       test: 'npm test',
@@ -552,7 +483,7 @@ class SyncService {
   // SOURCE CITATIONS
   // ==========================================================================
 
-  private buildSources(stats: ProjectStats, commands: Commands): ContextSources {
+  private buildSources(stats: ProjectStats, commands: ProjectCommands): ContextSources {
     const sources = defaultSources()
 
     // Determine ecosystem source file
@@ -609,8 +540,11 @@ class SyncService {
   // AGENT GENERATION
   // ==========================================================================
 
-  private async generateAgents(stack: StackDetection, stats: ProjectStats): Promise<AgentInfo[]> {
-    const agents: AgentInfo[] = []
+  private async generateAgents(
+    stack: StackDetection,
+    stats: ProjectStats
+  ): Promise<SyncAgentInfo[]> {
+    const agents: SyncAgentInfo[] = []
     const agentsPath = path.join(this.globalPath, 'agents')
 
     // Purge old agents
@@ -822,7 +756,7 @@ You are the ${name} expert for this project. Apply best practices for the detect
   // SKILL CONFIGURATION
   // ==========================================================================
 
-  private configureSkills(agents: AgentInfo[]): { agent: string; skill: string }[] {
+  private configureSkills(agents: SyncAgentInfo[]): { agent: string; skill: string }[] {
     const skills: { agent: string; skill: string }[] = []
 
     for (const agent of agents) {
@@ -862,7 +796,7 @@ You are the ${name} expert for this project. Apply best practices for the detect
    * Reads the mapping, checks which packages are needed, and installs missing ones.
    */
   private async autoInstallSkills(
-    agents: AgentInfo[]
+    agents: SyncAgentInfo[]
   ): Promise<{ name: string; agent: string; status: 'installed' | 'skipped' | 'error' }[]> {
     const results: { name: string; agent: string; status: 'installed' | 'skipped' | 'error' }[] = []
 
@@ -963,8 +897,8 @@ You are the ${name} expert for this project. Apply best practices for the detect
   private async generateContextFiles(
     git: GitData,
     stats: ProjectStats,
-    commands: Commands,
-    agents: AgentInfo[],
+    commands: ProjectCommands,
+    agents: SyncAgentInfo[],
     sources?: ContextSources
   ): Promise<string[]> {
     const generator = new ContextFileGenerator({
@@ -973,13 +907,7 @@ You are the ${name} expert for this project. Apply best practices for the detect
       globalPath: this.globalPath,
     })
 
-    return generator.generate(
-      { branch: git.branch, commits: git.commits },
-      stats,
-      commands,
-      agents,
-      sources
-    )
+    return generator.generate(git, stats, commands, agents, sources)
   }
 
   // ==========================================================================
@@ -1112,7 +1040,7 @@ You are the ${name} expert for this project. Apply best practices for the detect
   private async recordSyncMetrics(
     stats: ProjectStats,
     contextFiles: string[],
-    agents: AgentInfo[],
+    agents: SyncAgentInfo[],
     duration: number
   ): Promise<SyncMetrics> {
     const CHARS_PER_TOKEN = 4
@@ -1229,7 +1157,7 @@ You are the ${name} expert for this project. Apply best practices for the detect
     }
   }
 
-  private emptyCommands(): Commands {
+  private emptyCommands(): ProjectCommands {
     return {
       install: 'npm install',
       run: 'npm run',
@@ -1255,4 +1183,5 @@ You are the ${name} expert for this project. Apply best practices for the detect
 }
 
 export const syncService = new SyncService()
-export { SyncService, type SyncResult }
+export { SyncService }
+export type { ProjectSyncResult as SyncResult } from '../types'

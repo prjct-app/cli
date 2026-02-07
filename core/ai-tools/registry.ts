@@ -13,19 +13,12 @@ import { exec } from 'node:child_process'
 import os from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
+import type { AIToolConfig } from '../types'
 import { fileExists } from '../utils/fs-helpers'
 
 const execAsync = promisify(exec)
 
-export interface AIToolConfig {
-  id: string
-  name: string
-  outputFile: string
-  outputPath: 'repo' | 'global' // 'repo' = project root, 'global' = ~/.prjct-cli/projects/{id}/context/
-  maxTokens: number
-  format: 'detailed' | 'concise' | 'minimal' | 'json'
-  description: string
-}
+export type { AIToolConfig } from '../types'
 
 /**
  * Supported AI tools registry

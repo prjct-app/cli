@@ -7,6 +7,20 @@
 // Path Management Types
 // =============================================================================
 
+export interface MonorepoPackage {
+  name: string
+  path: string
+  relativePath: string
+  hasPrjctMd: boolean
+}
+
+export interface MonorepoInfo {
+  isMonorepo: boolean
+  type: 'pnpm' | 'npm' | 'yarn' | 'lerna' | 'nx' | 'rush' | 'turborepo' | null
+  rootPath: string
+  packages: MonorepoPackage[]
+}
+
 /**
  * Session information for date-based paths
  */

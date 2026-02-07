@@ -11,14 +11,11 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
-import type { ServerConfig, ServerInstance } from '../types'
+import type { ServerConfig, ServerHandle, ServerInstance } from '../types'
 import { isBun } from '../utils/runtime'
 import { createRoutes } from './routes'
 import { createExtendedRoutes } from './routes-extended'
 import { createSSEManager } from './sse'
-
-// Server handle type that works for both runtimes
-type ServerHandle = { stop: () => void } | null
 
 /**
  * Create and configure the HTTP server
@@ -118,6 +115,7 @@ export function createServer(config: ServerConfig): ServerInstance {
     },
 
     stop() {
+      sseManager.shutdown()
       if (server) {
         server.stop()
         server = null

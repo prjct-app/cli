@@ -11,25 +11,9 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import type { StackDetection, StackPackageJson } from '../types'
 
-// ============================================================================
-// TYPES
-// ============================================================================
-
-export interface StackDetection {
-  hasFrontend: boolean
-  hasBackend: boolean
-  hasDatabase: boolean
-  hasDocker: boolean
-  hasTesting: boolean
-  frontendType: 'web' | 'mobile' | 'both' | null
-  frameworks: string[]
-}
-
-interface PackageJson {
-  dependencies?: Record<string, string>
-  devDependencies?: Record<string, string>
-}
+export type { StackDetection, StackPackageJson } from '../types'
 
 // ============================================================================
 // STACK DETECTOR
@@ -148,7 +132,7 @@ export class StackDetector {
    */
   private detectTesting(
     deps: Record<string, string>,
-    pkg: PackageJson,
+    pkg: StackPackageJson,
     stack: StackDetection
   ): void {
     const testingFrameworks = [
@@ -219,7 +203,7 @@ export class StackDetector {
   /**
    * Read and parse package.json
    */
-  private async readPackageJson(): Promise<PackageJson | null> {
+  private async readPackageJson(): Promise<StackPackageJson | null> {
     try {
       const pkgPath = path.join(this.projectPath, 'package.json')
       const content = await fs.readFile(pkgPath, 'utf-8')

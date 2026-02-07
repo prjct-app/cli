@@ -55,6 +55,20 @@ export interface SkillSearchResult {
 }
 
 // =============================================================================
+// AI Tools Registry Types
+// =============================================================================
+
+export interface AIToolConfig {
+  id: string
+  name: string
+  outputFile: string
+  outputPath: 'repo' | 'global'
+  maxTokens: number
+  format: 'detailed' | 'concise' | 'minimal' | 'json'
+  description: string
+}
+
+// =============================================================================
 // Memory Service Types
 // =============================================================================
 
