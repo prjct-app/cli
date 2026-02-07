@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.12] - 2026-02-07
+
+### Bug Fixes
+
+- replace sync I/O in imports-tool hot path (PRJ-290) (#137)
+
+
 ## [1.6.14] - 2026-02-07
 
 ### Bug Fixes
