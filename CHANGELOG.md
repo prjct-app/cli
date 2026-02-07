@@ -1,5 +1,31 @@
 # Changelog
 
+## [1.6.14] - 2026-02-07
+
+### Bug Fixes
+- **Replace sync I/O in imports-tool hot path (PRJ-290)**: Converted `tryResolve`/`resolveImport`/`extractImports` from sync `require('node:fs')` with `existsSync`+`statSync` to async `fs.stat()` from `node:fs/promises`. Also replaced repeated `getPackageRoot()` calls with the pre-resolved `PACKAGE_ROOT` constant in prompt-builder, command-installer, and setup modules.
+
+### Implementation Details
+The `imports-tool.ts` file had an inline `require('node:fs')` call inside `tryResolve()` that used `existsSync` and `statSync` in a loop — a true hot path during import analysis. Converted the entire chain (`tryResolve` → `resolveImport` → `extractImports`) to async, using the already-imported `fs` from `node:fs/promises`. `version.ts` was kept sync intentionally: esbuild CJS output (used for postinstall) doesn't support top-level await, and its I/O runs once at cold start with results cached.
+
+### Learnings
+- esbuild CJS format does not support top-level `await` — async module exports require ESM format
+- `version.ts` cold-start I/O is negligible (runs once, cached) vs `imports-tool.ts` which resolves extensions in a loop per import
+- Using pre-resolved `PACKAGE_ROOT` constant avoids repeated sync function calls across modules
+
+### Test Plan
+
+#### For QA
+1. Run `prjct context imports <file>` — verify import resolution works correctly (resolves `.ts`, `.tsx`, `.js` extensions and `/index.ts` barrel imports)
+2. Run `prjct sync` — verify command-installer and setup find templates via `PACKAGE_ROOT`
+3. Run `bun run build` — verify all 5 build targets compile without errors
+4. Verify no `fs.*Sync()` calls remain in `imports-tool.ts`
+
+#### For Users
+**What changed:** Import analysis is now fully async, eliminating sync file system calls in the hot path.
+**How to use:** No changes needed — `prjct context imports` works the same way.
+**Breaking changes:** None.
+
 ## [1.6.13] - 2026-02-07
 
 ### Improvements

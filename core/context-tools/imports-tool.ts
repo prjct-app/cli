@@ -178,7 +178,7 @@ export async function analyzeImports(
   const patterns = IMPORT_PATTERNS[language] || []
 
   // Extract imports
-  const imports = extractImports(content, patterns, absolutePath, projectPath)
+  const imports = await extractImports(content, patterns, absolutePath, projectPath)
 
   // Get reverse imports if requested
   let importedBy: ImportedBy[] = []
@@ -217,12 +217,12 @@ export async function analyzeImports(
 /**
  * Extract imports from file content
  */
-function extractImports(
+async function extractImports(
   content: string,
   patterns: ImportPattern[],
   absolutePath: string,
   projectPath: string
-): ImportRelation[] {
+): Promise<ImportRelation[]> {
   const imports: ImportRelation[] = []
   const seen = new Set<string>()
 
@@ -254,7 +254,7 @@ function extractImports(
       // Resolve internal imports
       let resolved: string | null = null
       if (!isExternal) {
-        resolved = resolveImport(source, absolutePath, projectPath)
+        resolved = await resolveImport(source, absolutePath, projectPath)
       }
 
       imports.push({
@@ -274,7 +274,11 @@ function extractImports(
 /**
  * Resolve a relative import to an absolute path
  */
-function resolveImport(source: string, fromFile: string, projectPath: string): string | null {
+async function resolveImport(
+  source: string,
+  fromFile: string,
+  projectPath: string
+): Promise<string | null> {
   const fileDir = path.dirname(fromFile)
 
   // Handle path alias like @/
@@ -291,15 +295,14 @@ function resolveImport(source: string, fromFile: string, projectPath: string): s
 /**
  * Try to resolve a path, adding extensions if needed
  */
-function tryResolve(basePath: string, projectPath: string): string | null {
+async function tryResolve(basePath: string, projectPath: string): Promise<string | null> {
   const extensions = ['', '.ts', '.tsx', '.js', '.jsx', '/index.ts', '/index.js']
 
   for (const ext of extensions) {
     const fullPath = basePath + ext
     try {
-      // Check synchronously (we're in a hot path)
-      const fs = require('node:fs')
-      if (fs.existsSync(fullPath) && fs.statSync(fullPath).isFile()) {
+      const stat = await fs.stat(fullPath)
+      if (stat.isFile()) {
         return path.relative(projectPath, fullPath)
       }
     } catch {}

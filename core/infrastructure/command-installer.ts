@@ -23,7 +23,7 @@ import type {
   UninstallResult,
 } from '../types'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
-import { getPackageRoot } from '../utils/version'
+import { PACKAGE_ROOT } from '../utils/version'
 
 // =============================================================================
 // Module Types
@@ -51,7 +51,7 @@ interface ModuleConfig {
  */
 async function loadModuleConfig(): Promise<ModuleConfig | null> {
   try {
-    const configPath = path.join(getPackageRoot(), 'templates/global/modules/module-config.json')
+    const configPath = path.join(PACKAGE_ROOT, 'templates/global/modules/module-config.json')
     const content = await fs.readFile(configPath, 'utf-8')
     return JSON.parse(content) as ModuleConfig
   } catch {
@@ -66,11 +66,11 @@ async function loadModuleConfig(): Promise<ModuleConfig | null> {
  */
 export async function composeGlobalTemplate(profile?: string): Promise<string> {
   const config = await loadModuleConfig()
-  const modulesDir = path.join(getPackageRoot(), 'templates/global/modules')
+  const modulesDir = path.join(PACKAGE_ROOT, 'templates/global/modules')
 
   // Fallback to legacy template if config not found
   if (!config) {
-    const legacyPath = path.join(getPackageRoot(), 'templates/global/CLAUDE.md')
+    const legacyPath = path.join(PACKAGE_ROOT, 'templates/global/CLAUDE.md')
     return fs.readFile(legacyPath, 'utf-8')
   }
 
@@ -81,7 +81,7 @@ export async function composeGlobalTemplate(profile?: string): Promise<string> {
     // Fallback to default profile
     const defaultProfile = config.profiles[config.default]
     if (!defaultProfile) {
-      const legacyPath = path.join(getPackageRoot(), 'templates/global/CLAUDE.md')
+      const legacyPath = path.join(PACKAGE_ROOT, 'templates/global/CLAUDE.md')
       return fs.readFile(legacyPath, 'utf-8')
     }
   }
@@ -130,7 +130,7 @@ export async function getProfileForCommand(command: string): Promise<string> {
 export async function installDocs(): Promise<{ success: boolean; error?: string }> {
   try {
     const docsDir = path.join(os.homedir(), '.prjct-cli', 'docs')
-    const templateDocsDir = path.join(getPackageRoot(), 'templates/global/docs')
+    const templateDocsDir = path.join(PACKAGE_ROOT, 'templates/global/docs')
 
     // Ensure docs directory exists
     await fs.mkdir(docsDir, { recursive: true })
@@ -177,12 +177,7 @@ export async function installGlobalConfig(): Promise<GlobalConfigResult> {
     await fs.mkdir(activeProvider.configDir, { recursive: true })
 
     const globalConfigPath = path.join(activeProvider.configDir, activeProvider.contextFile)
-    const templatePath = path.join(
-      getPackageRoot(),
-      'templates',
-      'global',
-      activeProvider.contextFile
-    )
+    const templatePath = path.join(PACKAGE_ROOT, 'templates', 'global', activeProvider.contextFile)
 
     // Read template content - use modular composition (PRJ-94)
     let templateContent = ''
@@ -196,12 +191,12 @@ export async function installGlobalConfig(): Promise<GlobalConfigResult> {
           templateContent = await composeGlobalTemplate('standard')
         } catch {
           // Final fallback to legacy template
-          const fallbackTemplatePath = path.join(getPackageRoot(), 'templates/global/CLAUDE.md')
+          const fallbackTemplatePath = path.join(PACKAGE_ROOT, 'templates/global/CLAUDE.md')
           templateContent = await fs.readFile(fallbackTemplatePath, 'utf-8')
         }
       } else {
         // Fallback for other providers
-        const fallbackTemplatePath = path.join(getPackageRoot(), 'templates/global/CLAUDE.md')
+        const fallbackTemplatePath = path.join(PACKAGE_ROOT, 'templates/global/CLAUDE.md')
         templateContent = await fs.readFile(fallbackTemplatePath, 'utf-8')
         // If it is Gemini, we should rename Claude to Gemini in the fallback content
         if (providerName === 'gemini') {
@@ -296,7 +291,7 @@ export class CommandInstaller {
 
   constructor() {
     this.homeDir = os.homedir()
-    this.templatesDir = path.join(getPackageRoot(), 'templates', 'commands')
+    this.templatesDir = path.join(PACKAGE_ROOT, 'templates', 'commands')
   }
 
   private async ensureInit(): Promise<void> {
