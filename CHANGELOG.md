@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.11] - 2026-02-07
+
+### Performance
+
+- cache provider detection to eliminate redundant shell spawns (PRJ-289) (#136)
+
+
 ## [1.6.13] - 2026-02-07
 
 ### Improvements
