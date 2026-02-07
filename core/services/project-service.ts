@@ -9,7 +9,7 @@ import authorDetector from '../infrastructure/author-detector'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import type { Author, CommandResult } from '../types'
-import { isNotFoundError } from '../types/fs'
+import { getErrorMessage, isNotFoundError } from '../types/fs'
 import * as fileHelper from '../utils/file-helper'
 import out from '../utils/output'
 
@@ -103,7 +103,7 @@ export class ProjectService {
     } catch (error) {
       // Directory read error - treat as empty (expected for new dirs)
       if (!isNotFoundError(error)) {
-        console.error(`Directory check error: ${(error as Error).message}`)
+        console.error(`Directory check error: ${getErrorMessage(error)}`)
       }
       return true
     }
@@ -130,7 +130,7 @@ export class ProjectService {
     } catch (error) {
       // Directory read error - treat as no code (expected for new dirs)
       if (!isNotFoundError(error)) {
-        console.error(`Code check error: ${(error as Error).message}`)
+        console.error(`Code check error: ${getErrorMessage(error)}`)
       }
       return false
     }

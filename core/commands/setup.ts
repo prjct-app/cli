@@ -8,6 +8,7 @@ import chalk from 'chalk'
 import commandInstaller from '../infrastructure/command-installer'
 import pathManager from '../infrastructure/path-manager'
 import type { CommandResult, SetupOptions } from '../types'
+import { getErrorMessage } from '../types/fs'
 import { fileExists } from '../utils/fs-helpers'
 import { VERSION } from '../utils/version'
 import { PrjctCommandsBase } from './base'
@@ -227,7 +228,7 @@ echo "⚡ prjct"
 
       return { success: true }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: getErrorMessage(error) }
     }
   }
 

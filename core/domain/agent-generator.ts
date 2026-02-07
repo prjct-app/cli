@@ -7,6 +7,7 @@
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { getErrorMessage } from '../types/fs'
 import log from '../utils/logger'
 import AgentLoader from './agent-loader'
 
@@ -140,7 +141,7 @@ ${config.contextFilter || 'Only relevant files'}
         }
       }
     } catch (error) {
-      log.error('Agent cleanup failed:', (error as Error).message)
+      log.error('Agent cleanup failed:', getErrorMessage(error))
     }
 
     return removed

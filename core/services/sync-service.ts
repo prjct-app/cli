@@ -305,7 +305,7 @@ class SyncService {
         skillsInstalled: [],
         contextFiles: [],
         aiTools: [],
-        error: (error as Error).message,
+        error: getErrorMessage(error),
       }
     }
   }
@@ -1116,7 +1116,7 @@ You are the ${name} expert for this project. Apply best practices for the detect
       })
     } catch (error) {
       // Non-blocking - metrics are nice to have
-      console.error('Warning: Failed to record metrics:', (error as Error).message)
+      console.error('Warning: Failed to record metrics:', getErrorMessage(error))
     }
 
     return {

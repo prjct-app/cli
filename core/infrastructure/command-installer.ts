@@ -22,7 +22,7 @@ import type {
   SyncResult,
   UninstallResult,
 } from '../types'
-import { isNotFoundError } from '../types/fs'
+import { getErrorMessage, isNotFoundError } from '../types/fs'
 import { getPackageRoot } from '../utils/version'
 
 // =============================================================================
@@ -150,7 +150,7 @@ export async function installDocs(): Promise<{ success: boolean; error?: string 
 
     return { success: true }
   } catch (error) {
-    return { success: false, error: (error as Error).message }
+    return { success: false, error: getErrorMessage(error) }
   }
 }
 
@@ -277,7 +277,7 @@ export async function installGlobalConfig(): Promise<GlobalConfigResult> {
   } catch (error) {
     return {
       success: false,
-      error: (error as Error).message,
+      error: getErrorMessage(error),
       action: 'failed',
     }
   }
@@ -409,7 +409,7 @@ export class CommandInstaller {
 
           installed.push(file.replace('.md', ''))
         } catch (error) {
-          errors.push({ file, error: (error as Error).message })
+          errors.push({ file, error: getErrorMessage(error) })
         }
       }
 
@@ -422,7 +422,7 @@ export class CommandInstaller {
     } catch (error) {
       return {
         success: false,
-        error: (error as Error).message,
+        error: getErrorMessage(error),
       }
     }
   }
@@ -443,7 +443,7 @@ export class CommandInstaller {
           uninstalled.push(file.replace('.md', ''))
         } catch (error) {
           if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-            errors.push({ file, error: (error as Error).message })
+            errors.push({ file, error: getErrorMessage(error) })
           }
         }
       }
@@ -463,7 +463,7 @@ export class CommandInstaller {
     } catch (error) {
       return {
         success: false,
-        error: (error as Error).message,
+        error: getErrorMessage(error),
       }
     }
   }
@@ -673,7 +673,7 @@ export class CommandInstaller {
             results.updated++
           }
         } catch (error) {
-          results.errors!.push({ file, error: (error as Error).message })
+          results.errors!.push({ file, error: getErrorMessage(error) })
         }
       }
 
@@ -685,7 +685,7 @@ export class CommandInstaller {
     } catch (error) {
       return {
         success: false,
-        error: (error as Error).message,
+        error: getErrorMessage(error),
         added: 0,
         updated: 0,
         removed: 0,

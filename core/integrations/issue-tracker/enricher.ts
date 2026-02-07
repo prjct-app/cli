@@ -6,6 +6,7 @@
  * The actual AI call happens through Claude Code's execution context.
  */
 
+import { getErrorMessage } from '../../types/fs'
 import type { EnrichedIssue, Issue } from './types'
 
 // =============================================================================
@@ -233,7 +234,7 @@ export function parseEnrichmentResponse(response: string): EnrichmentResult | nu
       relatedCode: parsed.relatedCode,
     }
   } catch (error) {
-    console.error('[enricher] Failed to parse enrichment:', (error as Error).message)
+    console.error('[enricher] Failed to parse enrichment:', getErrorMessage(error))
     return null
   }
 }

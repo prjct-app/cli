@@ -227,6 +227,8 @@ export type {
 // =============================================================================
 export type { NodeError } from './fs'
 export {
+  getErrorMessage,
+  getErrorStack,
   isDirNotEmptyError,
   isFileExistsError,
   isNodeError,

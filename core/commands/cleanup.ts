@@ -8,7 +8,7 @@ import path from 'node:path'
 import { memoryService } from '../services'
 import { ideasStorage, queueStorage } from '../storage'
 import type { CleanupOptions, CommandResult } from '../types'
-import { isNotFoundError } from '../types/fs'
+import { getErrorMessage, isNotFoundError } from '../types/fs'
 import { configManager, dateHelper, jsonlHelper, out, pathManager } from './base'
 
 /**
@@ -41,7 +41,7 @@ export async function cleanupMemory(projectPath: string): Promise<{
     } catch (error) {
       // Skip file if not found, otherwise log unexpected errors
       if (!isNotFoundError(error)) {
-        console.error(`Cleanup warning for ${filePath}: ${(error as Error).message}`)
+        console.error(`Cleanup warning for ${filePath}: ${getErrorMessage(error)}`)
       }
     }
   }
@@ -101,7 +101,7 @@ export async function cleanup(
       if (isNotFoundError(error)) {
         cleaned.push('Memory: No file found')
       } else {
-        cleaned.push(`Memory: Error - ${(error as Error).message}`)
+        cleaned.push(`Memory: Error - ${getErrorMessage(error)}`)
       }
     }
 
@@ -117,7 +117,7 @@ export async function cleanup(
       if (isNotFoundError(error)) {
         cleaned.push('Ideas: No file found')
       } else {
-        cleaned.push(`Ideas: Error - ${(error as Error).message}`)
+        cleaned.push(`Ideas: Error - ${getErrorMessage(error)}`)
       }
     }
 
@@ -137,7 +137,7 @@ export async function cleanup(
       if (isNotFoundError(error)) {
         cleaned.push('Queue: No file found')
       } else {
-        cleaned.push(`Queue: Error - ${(error as Error).message}`)
+        cleaned.push(`Queue: Error - ${getErrorMessage(error)}`)
       }
     }
 
@@ -151,7 +151,7 @@ export async function cleanup(
     out.done(`${cleaned.length} items cleaned`)
     return { success: true, cleaned }
   } catch (error) {
-    out.fail((error as Error).message)
-    return { success: false, error: (error as Error).message }
+    out.fail(getErrorMessage(error))
+    return { success: false, error: getErrorMessage(error) }
   }
 }

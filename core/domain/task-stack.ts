@@ -14,7 +14,7 @@ import type {
   TaskStackSummary,
   TaskSwitchResult,
 } from '../types'
-import { isNotFoundError } from '../types/fs'
+import { getErrorMessage, isNotFoundError } from '../types/fs'
 import log from '../utils/logger'
 
 const execAsync = promisify(exec)
@@ -150,7 +150,7 @@ export async function readStack(stackPath: string): Promise<TaskStackEntry[]> {
     try {
       entries.push(JSON.parse(line))
     } catch (error) {
-      log.error('Error parsing stack line:', (error as Error).message)
+      log.error('Error parsing stack line:', getErrorMessage(error))
     }
   }
 
@@ -300,7 +300,7 @@ export class TaskStack {
     } catch (error) {
       // No now.md or error reading, just create empty stack
       await ensureStackFile(this.stackPath)
-      return { migrated: true, hadTask: false, error: (error as Error).message }
+      return { migrated: true, hadTask: false, error: getErrorMessage(error) }
     }
   }
 

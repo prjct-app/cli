@@ -10,6 +10,7 @@
 
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
+import { getErrorMessage } from '../types/fs'
 
 const execAsync = promisify(exec)
 
@@ -61,7 +62,7 @@ class CapabilityInstaller {
         success: false,
         capability,
         command,
-        error: (error as Error).message,
+        error: getErrorMessage(error),
       }
     }
   }

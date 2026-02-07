@@ -7,6 +7,7 @@
 import path from 'node:path'
 import { memoryService } from '../services'
 import type { CommandResult, DesignOptions } from '../types'
+import { getErrorMessage } from '../types/fs'
 import { configManager, dateHelper, fileHelper, out, pathManager } from './base'
 
 /**
@@ -70,7 +71,7 @@ export async function design(
     out.done(`${designType} design created`)
     return { success: true, designPath: designFilePath, type: designType, target: designTarget }
   } catch (error) {
-    out.fail((error as Error).message)
-    return { success: false, error: (error as Error).message }
+    out.fail(getErrorMessage(error))
+    return { success: false, error: getErrorMessage(error) }
   }
 }

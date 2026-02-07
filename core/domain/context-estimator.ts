@@ -8,6 +8,7 @@
  */
 
 import { glob } from 'glob'
+import { getErrorMessage } from '../types/fs'
 import log from '../utils/logger'
 
 interface TaskAnalysis {
@@ -157,7 +158,7 @@ class ContextEstimator {
       // Remove duplicates and sort
       return [...new Set(files)].sort()
     } catch (error) {
-      log.error('Error finding files:', (error as Error).message)
+      log.error('Error finding files:', getErrorMessage(error))
       return []
     }
   }

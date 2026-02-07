@@ -18,7 +18,7 @@ import path from 'node:path'
 import { promisify } from 'node:util'
 
 import type { GroundTruthContext, VerificationResult, Verifier } from '../types'
-import { isNotFoundError } from '../types/fs'
+import { getErrorMessage, isNotFoundError } from '../types/fs'
 
 const execAsync = promisify(exec)
 
@@ -651,7 +651,7 @@ export async function verify(
     return {
       verified: false,
       actual: {},
-      warnings: [`Verification error: ${(error as Error).message}`],
+      warnings: [`Verification error: ${getErrorMessage(error)}`],
       recommendations: ['Check file permissions and project configuration'],
     }
   }

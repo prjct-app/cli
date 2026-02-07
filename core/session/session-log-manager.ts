@@ -12,6 +12,7 @@ import type {
   SessionMigrationResult,
   SessionStats,
 } from '../types'
+import { getErrorMessage } from '../types/fs'
 import * as dateHelper from '../utils/date-helper'
 import * as fileHelper from '../utils/file-helper'
 import * as jsonlHelper from '../utils/jsonl-helper'
@@ -230,7 +231,7 @@ export class SessionLogManager {
     } catch (error) {
       return {
         success: false,
-        message: `Migration failed: ${(error as Error).message}`,
+        message: `Migration failed: ${getErrorMessage(error)}`,
         entriesMigrated: 0,
       }
     }

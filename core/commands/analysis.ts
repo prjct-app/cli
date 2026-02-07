@@ -14,6 +14,7 @@ import { createStalenessChecker, memoryService, syncService } from '../services'
 import { formatDiffPreview, formatFullDiff, generateSyncDiff } from '../services/diff-generator'
 import { metricsStorage } from '../storage/metrics-storage'
 import type { AnalyzeOptions, CommandResult, ProjectContext } from '../types'
+import { getErrorMessage } from '../types/fs'
 import { showNextSteps } from '../utils/next-steps'
 import out from '../utils/output'
 import {
@@ -100,8 +101,8 @@ export class AnalysisCommands extends PrjctCommandsBase {
         data: analysisData,
       }
     } catch (error) {
-      console.error('❌ Error:', (error as Error).message)
-      return { success: false, error: (error as Error).message }
+      console.error('❌ Error:', getErrorMessage(error))
+      return { success: false, error: getErrorMessage(error) }
     }
   }
 
@@ -461,8 +462,8 @@ export class AnalysisCommands extends PrjctCommandsBase {
       out.stop()
       return this.showSyncResult(result, startTime)
     } catch (error) {
-      out.fail((error as Error).message)
-      return { success: false, error: (error as Error).message }
+      out.fail(getErrorMessage(error))
+      return { success: false, error: getErrorMessage(error) }
     }
   }
 
@@ -766,8 +767,8 @@ export class AnalysisCommands extends PrjctCommandsBase {
         data: { ...summary, session: sessionActivity, patterns: patternsSummary },
       }
     } catch (error) {
-      console.error('❌ Error:', (error as Error).message)
-      return { success: false, error: (error as Error).message }
+      console.error('❌ Error:', getErrorMessage(error))
+      return { success: false, error: getErrorMessage(error) }
     }
   }
 
@@ -825,7 +826,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
 
       return { success: true, data: { ...status, session: sessionInfo } }
     } catch (error) {
-      const errMsg = (error as Error).message
+      const errMsg = getErrorMessage(error)
       if (options.json) {
         console.log(JSON.stringify({ success: false, error: errMsg }))
       } else {
