@@ -305,6 +305,7 @@ const out: Output = {
   // Debug message (only if DEBUG=1 or DEBUG=true)
   debug(msg: string) {
     this.stop()
+    // DEBUG: Enable debug output (values: '1' or 'true')
     const debugEnabled = process.env.DEBUG === '1' || process.env.DEBUG === 'true'
     if (!quietMode && debugEnabled) {
       console.log(`${ICONS.debug} ${chalk.dim(msg)}`)
