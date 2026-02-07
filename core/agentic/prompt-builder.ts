@@ -27,7 +27,7 @@ import type {
 } from '../types'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import { fileExists } from '../utils/fs-helpers'
-import { getPackageRoot } from '../utils/version'
+import { PACKAGE_ROOT } from '../utils/version'
 
 // Re-export types for convenience
 export type {
@@ -132,7 +132,7 @@ class PromptBuilder {
    * These modules extend the base global CLAUDE.md for complex operations
    */
   async loadModule(moduleName: string): Promise<string | null> {
-    const modulePath = path.join(getPackageRoot(), 'templates/global/modules', moduleName)
+    const modulePath = path.join(PACKAGE_ROOT, 'templates/global/modules', moduleName)
     return this.getTemplate(modulePath)
   }
 

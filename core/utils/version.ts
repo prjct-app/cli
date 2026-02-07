@@ -7,6 +7,9 @@ import { getErrorMessage } from '../types/fs'
  *
  * Reads version from package.json dynamically to ensure consistency
  * across the entire application.
+ *
+ * Uses sync I/O intentionally: runs once at cold start, results cached.
+ * CJS build (postinstall) requires sync module-level exports.
  */
 
 interface PackageJson {

@@ -28,7 +28,7 @@ import { getErrorMessage, isNotFoundError } from '../types/fs'
 import type { AIProviderConfig, AIProviderName } from '../types/provider'
 import { fileExists } from '../utils/fs-helpers'
 import log from '../utils/logger'
-import { getPackageRoot, VERSION } from '../utils/version'
+import { PACKAGE_ROOT, VERSION } from '../utils/version'
 import {
   detectAllProviders,
   detectAntigravity,
@@ -255,7 +255,7 @@ export async function run(): Promise<SetupResults> {
 async function installGeminiRouter(): Promise<boolean> {
   try {
     const geminiCommandsDir = path.join(os.homedir(), '.gemini', 'commands')
-    const routerSource = path.join(getPackageRoot(), 'templates', 'commands', 'p.toml')
+    const routerSource = path.join(PACKAGE_ROOT, 'templates', 'commands', 'p.toml')
     const routerDest = path.join(geminiCommandsDir, 'p.toml')
 
     // Ensure commands directory exists
@@ -280,7 +280,7 @@ async function installGeminiGlobalConfig(): Promise<{ success: boolean; action: 
   try {
     const geminiDir = path.join(os.homedir(), '.gemini')
     const globalConfigPath = path.join(geminiDir, 'GEMINI.md')
-    const templatePath = path.join(getPackageRoot(), 'templates', 'global', 'GEMINI.md')
+    const templatePath = path.join(PACKAGE_ROOT, 'templates', 'global', 'GEMINI.md')
 
     // Ensure ~/.gemini directory exists
     await fs.mkdir(geminiDir, { recursive: true })
@@ -361,7 +361,7 @@ export async function installAntigravitySkill(): Promise<{
     const antigravitySkillsDir = path.join(os.homedir(), '.gemini', 'antigravity', 'skills')
     const prjctSkillDir = path.join(antigravitySkillsDir, 'prjct')
     const skillMdPath = path.join(prjctSkillDir, 'SKILL.md')
-    const templatePath = path.join(getPackageRoot(), 'templates', 'antigravity', 'SKILL.md')
+    const templatePath = path.join(PACKAGE_ROOT, 'templates', 'antigravity', 'SKILL.md')
 
     // Ensure skills directory exists
     await fs.mkdir(prjctSkillDir, { recursive: true })
@@ -431,8 +431,8 @@ export async function installCursorProject(projectRoot: string): Promise<{
 
     const routerMdcDest = path.join(rulesDir, 'prjct.mdc')
 
-    const routerMdcSource = path.join(getPackageRoot(), 'templates', 'cursor', 'router.mdc')
-    const cursorCommandsSource = path.join(getPackageRoot(), 'templates', 'cursor', 'commands')
+    const routerMdcSource = path.join(PACKAGE_ROOT, 'templates', 'cursor', 'router.mdc')
+    const cursorCommandsSource = path.join(PACKAGE_ROOT, 'templates', 'cursor', 'commands')
 
     // Ensure directories exist
     await fs.mkdir(rulesDir, { recursive: true })
@@ -574,13 +574,8 @@ export async function installWindsurfProject(projectRoot: string): Promise<{
 
     const routerDest = path.join(rulesDir, 'prjct.md')
 
-    const routerSource = path.join(getPackageRoot(), 'templates', 'windsurf', 'router.md')
-    const windsurfWorkflowsSource = path.join(
-      getPackageRoot(),
-      'templates',
-      'windsurf',
-      'workflows'
-    )
+    const routerSource = path.join(PACKAGE_ROOT, 'templates', 'windsurf', 'router.md')
+    const windsurfWorkflowsSource = path.join(PACKAGE_ROOT, 'templates', 'windsurf', 'workflows')
 
     // Ensure directories exist
     await fs.mkdir(rulesDir, { recursive: true })
@@ -785,7 +780,7 @@ async function installStatusLine(): Promise<void> {
     const prjctConfigPath = path.join(prjctStatusLineDir, 'config.json')
 
     // Source assets (from the package)
-    const assetsDir = path.join(getPackageRoot(), 'assets', 'statusline')
+    const assetsDir = path.join(PACKAGE_ROOT, 'assets', 'statusline')
     const sourceScript = path.join(assetsDir, 'statusline.sh')
     const sourceThemeDir = path.join(assetsDir, 'themes')
     const sourceLibDir = path.join(assetsDir, 'lib')
