@@ -65,17 +65,26 @@ import { calculateConfidence, MEMORY_TAGS } from '../types/memory'
 // =============================================================================
 
 /**
- * CachedStore - Abstract base class for memory system stores
+ * Abstract base class for project-scoped, disk-backed stores with in-memory caching.
  *
- * Eliminates duplicated cache/load/save patterns across:
- * - PatternStore (~40 lines of boilerplate)
- * - SemanticMemories (~40 lines of boilerplate)
+ * Provides lazy loading, automatic directory creation on save, and project-scoped
+ * cache invalidation. Subclasses only need to define the filename, default data
+ * structure, and optionally a subdirectory or post-load normalization hook.
  *
- * Provides:
- * - Lazy loading with project-scoped cache
- * - Automatic directory creation on save
- * - Reset functionality
- * - Path management via pathManager
+ * Extended by {@link PatternStore} and {@link SemanticMemories}.
+ *
+ * @typeParam T - The shape of the stored data (e.g., `Patterns`, `MemoryDatabase`)
+ *
+ * @example
+ * ```ts
+ * class MyStore extends CachedStore<MyData> {
+ *   protected getFilename() { return 'my-data.json' }
+ *   protected getDefault() { return { items: [] } }
+ * }
+ *
+ * const store = new MyStore()
+ * const data = await store.load('project-id')
+ * ```
  */
 export abstract class CachedStore<T> {
   private _data: T | null = null
@@ -83,24 +92,33 @@ export abstract class CachedStore<T> {
   private _projectId: string | null = null
 
   /**
-   * Get the filename for this store (e.g., 'patterns.json', 'memories.json')
+   * Return the filename for this store (e.g., `'patterns.json'`).
+   * @returns The JSON filename used for disk persistence
    */
   protected abstract getFilename(): string
 
   /**
-   * Get default data structure when file doesn't exist
+   * Return the default data structure when the file does not exist on disk.
+   * @returns A fresh default instance of `T`
    */
   protected abstract getDefault(): T
 
   /**
-   * Optional: subdirectory within memory folder
+   * Optional subdirectory within the project's `memory/` folder.
+   * Override to nest the store file under a subfolder.
+   *
+   * @returns Subdirectory name, or `null` to store directly in `memory/`
    */
   protected getSubdirectory(): string | null {
     return null
   }
 
   /**
-   * Get full path for the store file
+   * Build the full filesystem path for this store's JSON file.
+   *
+   * @param projectId - The project identifier used for path resolution
+   * @returns Absolute path to the store file
+   *   (e.g., `~/.prjct-cli/projects/{id}/memory/patterns.json`)
    */
   protected getPath(projectId: string): string {
     const basePath = path.join(pathManager.getGlobalProjectPath(projectId), 'memory')
@@ -114,8 +132,20 @@ export abstract class CachedStore<T> {
   }
 
   /**
-   * Load data from disk (with caching)
-   * Returns cached data if same project and already loaded
+   * Load data from disk with project-scoped caching.
+   *
+   * Returns cached data immediately if already loaded for the same project.
+   * Otherwise reads from disk, falling back to {@link getDefault} when the
+   * file does not exist. Calls {@link afterLoad} after a successful disk read.
+   *
+   * @param projectId - The project identifier
+   * @returns The loaded (or cached) data
+   * @throws {Error} If the file read fails for reasons other than ENOENT
+   *
+   * @example
+   * ```ts
+   * const patterns = await patternStore.load('my-project-id')
+   * ```
    */
   async load(projectId: string): Promise<T> {
     // Return cached if same project and loaded
@@ -146,15 +176,25 @@ export abstract class CachedStore<T> {
   }
 
   /**
-   * Hook for subclasses to normalize data after loading
-   * E.g., ensuring all index keys exist
+   * Hook for subclasses to normalize or migrate data after loading from disk.
+   *
+   * Called once per disk read (not on cache hits). Override to ensure
+   * structural invariants — e.g., adding missing index keys.
+   *
+   * @param _data - The freshly loaded data to normalize (mutate in place)
    */
   protected afterLoad(_data: T): void {
     // Override in subclass if needed
   }
 
   /**
-   * Save data to disk
+   * Persist the current in-memory data to disk.
+   *
+   * Creates parent directories automatically if they don't exist.
+   * No-op if no data has been loaded yet.
+   *
+   * @param projectId - The project identifier for path resolution
+   * @throws {Error} If the file write fails
    */
   async save(projectId: string): Promise<void> {
     if (!this._data) return
@@ -165,21 +205,39 @@ export abstract class CachedStore<T> {
   }
 
   /**
-   * Get cached data without loading (may be null)
+   * Access the cached data without triggering a disk read.
+   *
+   * @returns The cached data, or `null` if nothing has been loaded
    */
   protected getData(): T | null {
     return this._data
   }
 
   /**
-   * Set data directly (for subclass modifications)
+   * Replace the in-memory data directly. Does not persist to disk —
+   * call {@link save} afterwards if persistence is needed.
+   *
+   * @param data - The new data to cache
    */
   protected setData(data: T): void {
     this._data = data
   }
 
   /**
-   * Update data with a transform function, then save
+   * Atomically load, transform, and save data in one operation.
+   *
+   * @param projectId - The project identifier
+   * @param updater - Pure function that receives current data and returns updated data
+   * @returns The updated data after saving
+   * @throws {Error} If load or save fails
+   *
+   * @example
+   * ```ts
+   * await store.update('my-project', (data) => ({
+   *   ...data,
+   *   count: data.count + 1,
+   * }))
+   * ```
    */
   async update(projectId: string, updater: (data: T) => T): Promise<T> {
     const data = await this.load(projectId)
@@ -190,7 +248,11 @@ export abstract class CachedStore<T> {
   }
 
   /**
-   * Check if data has been loaded for a project
+   * Check whether data has been loaded into the cache.
+   *
+   * @param projectId - If provided, checks that data is loaded for this specific project.
+   *   If omitted, returns `true` if any project's data is cached.
+   * @returns `true` if data is loaded (and matches the project, when specified)
    */
   isLoaded(projectId?: string): boolean {
     if (projectId) {
@@ -200,7 +262,8 @@ export abstract class CachedStore<T> {
   }
 
   /**
-   * Reset cache (forces reload on next access)
+   * Clear the in-memory cache, forcing a fresh disk read on the next {@link load} call.
+   * Does not delete or modify the file on disk.
    */
   reset(): void {
     this._data = null

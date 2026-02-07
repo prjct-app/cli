@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.6.8] - 2026-02-07
+
+### Documentation
+- **Add JSDoc to CachedStore class methods (PRJ-91)**: Enhanced all 12 public/protected methods on the `CachedStore<T>` base class with comprehensive JSDoc including `@param`, `@returns`, `@throws`, `@example`, and `@typeParam` annotations. Improved class-level documentation with usage example and cross-references to subclasses.
+
+### Test Plan
+
+#### For QA
+1. Build (`bun run build`) — should succeed
+2. Typecheck (`npx tsc -p core/tsconfig.json --noEmit`) — should pass
+3. Verify JSDoc renders in IDE hover tooltips for CachedStore methods
+
+#### For Users
+**What changed:** Better IDE documentation for CachedStore internals.
+**Breaking changes:** None
+
+
 ## [1.6.7] - 2026-02-07
 
 ### Bug Fixes
