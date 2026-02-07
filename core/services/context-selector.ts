@@ -29,14 +29,20 @@ export interface SelectedContext {
   }
 }
 
-/** Default token budget for context selection (increased for 200K+ context models) */
+/**
+ * Default token budget for context selection.
+ * When a TokenBudgetCoordinator is available, this is overridden
+ * by the coordinator's file allocation.
+ *
+ * @see PRJ-266
+ */
 const DEFAULT_TOKEN_BUDGET = 80_000
 
 export interface ContextSelectionOptions {
   maxFiles?: number // Max files to return (default: 50)
   minScore?: number // Min relevance score (default: 30)
   includeGeneral?: boolean // Include 'general' domain files (default: true)
-  tokenBudget?: number // Max estimated tokens (default: 80000)
+  tokenBudget?: number // Max estimated tokens (default: 80000, or from coordinator)
 }
 
 // ============================================================================

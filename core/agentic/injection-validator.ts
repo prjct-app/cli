@@ -8,6 +8,7 @@
  */
 
 import type { z } from 'zod'
+import type { TokenBudgetCoordinator } from './token-budget'
 
 // =============================================================================
 // Token Budget Configuration
@@ -37,6 +38,21 @@ export const DEFAULT_BUDGETS: InjectionBudgets = {
   stateData: 1000,
   memories: 600,
   totalPrompt: 8000,
+}
+
+/**
+ * Create injection budgets from a TokenBudgetCoordinator.
+ * Uses the coordinator's injection allocation as the totalPrompt ceiling,
+ * keeping per-section budgets at their defaults.
+ *
+ * @see PRJ-266
+ */
+export function budgetsFromCoordinator(coordinator: TokenBudgetCoordinator): InjectionBudgets {
+  const injectionBudget = coordinator.getAllocationFor('injection')
+  return {
+    ...DEFAULT_BUDGETS,
+    totalPrompt: injectionBudget,
+  }
 }
 
 // Approximate chars-per-token ratio
