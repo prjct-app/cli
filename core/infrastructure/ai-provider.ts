@@ -22,8 +22,10 @@ import os from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
 import { fileExists } from '../utils/fs-helpers'
+import { readProviderCache, writeProviderCache } from '../utils/provider-cache'
 
 const execAsync = promisify(exec)
+const SPAWN_TIMEOUT_MS = 2000
 
 import type {
   AIProviderConfig,
@@ -179,7 +181,7 @@ export const Providers: Record<AIProviderName, AIProviderConfig> = {
  */
 async function whichCommand(command: string): Promise<string | null> {
   try {
-    const { stdout } = await execAsync(`which ${command}`)
+    const { stdout } = await execAsync(`which ${command}`, { timeout: SPAWN_TIMEOUT_MS })
     return stdout.trim()
   } catch {
     return null
@@ -191,7 +193,7 @@ async function whichCommand(command: string): Promise<string | null> {
  */
 async function getCliVersion(command: string): Promise<string | null> {
   try {
-    const { stdout } = await execAsync(`${command} --version`)
+    const { stdout } = await execAsync(`${command} --version`, { timeout: SPAWN_TIMEOUT_MS })
     // Extract version number from output (e.g., "claude 1.0.0" -> "1.0.0")
     const match = stdout.match(/\d+\.\d+\.\d+/)
     return match ? match[0] : stdout.trim()
@@ -229,14 +231,24 @@ export async function detectProvider(provider: AIProviderName): Promise<Provider
 
 /**
  * Detect all available CLI-based providers
- * Note: Cursor detection is project-level, use detectCursorProject() separately
+ * Results are cached to disk with a 10-minute TTL to avoid redundant shell spawns.
+ * Pass refresh=true to force re-detection.
  */
-export async function detectAllProviders(): Promise<{
+export async function detectAllProviders(refresh = false): Promise<{
   claude: ProviderDetectionResult
   gemini: ProviderDetectionResult
 }> {
+  if (!refresh) {
+    const cached = await readProviderCache()
+    if (cached) return cached
+  }
+
   const [claude, gemini] = await Promise.all([detectProvider('claude'), detectProvider('gemini')])
-  return { claude, gemini }
+  const detection = { claude, gemini }
+
+  await writeProviderCache(detection).catch(() => {})
+
+  return detection
 }
 
 /**

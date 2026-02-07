@@ -16,6 +16,7 @@ import configManager from '../core/infrastructure/config-manager'
 import editorsConfig from '../core/infrastructure/editors-config'
 import { DEFAULT_PORT, startServer } from '../core/server/server'
 import { fileExists } from '../core/utils/fs-helpers'
+import { invalidateProviderCache } from '../core/utils/provider-cache'
 import { VERSION } from '../core/utils/version'
 
 /**
@@ -60,6 +61,14 @@ if (isQuietMode) {
   args.splice(quietIndex, 1) // Remove flag from args
   const { setQuietMode } = await import('../core/utils/output')
   setQuietMode(true)
+}
+
+// Parse --refresh flag (force re-detection of providers, invalidate cache)
+const refreshIndex = args.indexOf('--refresh')
+const isRefresh = refreshIndex !== -1
+if (isRefresh) {
+  args.splice(refreshIndex, 1)
+  await invalidateProviderCache()
 }
 
 // Colors for output (chalk respects NO_COLOR env)
@@ -217,8 +226,8 @@ if (args[0] === 'start' || args[0] === 'setup') {
   console.log(getHelp(topic))
   process.exitCode = 0
 } else if (args[0] === 'version' || args[0] === '-v' || args[0] === '--version') {
-  // Show version with provider status
-  const detection = await detectAllProviders()
+  // Show version with provider status (uses cached detection unless --refresh)
+  const detection = await detectAllProviders(isRefresh)
   const home = os.homedir()
   const cwd = process.cwd()
   const [

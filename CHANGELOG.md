@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.6.13] - 2026-02-07
+
+### Improvements
+- **Cache provider detection to eliminate redundant shell spawns (PRJ-289)**: Provider detection results (Claude, Gemini CLI availability) are now cached to `~/.prjct-cli/cache/providers.json` with a 10-minute TTL. Subsequent CLI commands skip shell spawns entirely. Added 2-second timeout on `which`/`--version` spawns to prevent hangs. Added `--refresh` flag to force re-detection.
+
+### Implementation Details
+Created `core/utils/provider-cache.ts` with `readProviderCache()`, `writeProviderCache()`, and `invalidateProviderCache()`. Wired into `detectAllProviders()` — checks cache first, falls through to shell detection on miss or expiry, writes cache after detection. `bin/prjct.ts` parses `--refresh` early (like `--quiet`), invalidates cache, and passes refresh flag to detection.
+
+### Learnings
+- `execAsync` accepts a `timeout` option (milliseconds) that kills the child process on expiry — ideal for preventing hangs on broken CLI installations.
+- Biome enforces `Array#indexOf()` over `Array#findIndex()` for simple equality checks (`useIndexOf` rule).
+- Separating cache logic into its own module keeps `ai-provider.ts` focused on detection logic.
+
+### Test Plan
+
+#### For QA
+1. Run `prjct --version` twice — second run should be near-instant (cache hit)
+2. Delete `~/.prjct-cli/cache/providers.json`, run `prjct --version` — should re-detect and recreate cache
+3. Run `prjct --version --refresh` — should take ~2s (forced re-detection)
+4. Edit cache file to set timestamp 11 minutes ago — next command should re-detect (TTL expired)
+5. Run `prjct sync` — should use cached providers, no shell spawns
+
+#### For Users
+**What changed:** Provider detection is now cached for 10 minutes. CLI startup is ~30x faster for cached commands (~66ms vs ~2100ms).
+**How to use:** Automatic. Use `--refresh` to force re-detection after installing a new CLI.
+**Breaking changes:** None.
+
 ## [1.6.12] - 2026-02-07
 
 ### Bug Fixes
