@@ -2,6 +2,13 @@
 
 ## [1.7.2] - 2026-02-07
 
+### Bug Fixes
+
+- add missing state machine transitions and dead-end states (PRJ-280) (#141)
+
+
+## [1.7.2] - 2026-02-07
+
 ### Bug Fix
 - **Fix state machine completeness: missing transitions and dead-end states (PRJ-280)**: Added missing transitions (`completed → pause`, `paused → ship`, `completed → reopen`), subtask states (`skipped`, `blocked` with reason tracking), migrated `previousTask` to `pausedTasks[]` array with max limit (5) and staleness detection (30 days), and enforced all transitions through the state machine at the storage level.
 
