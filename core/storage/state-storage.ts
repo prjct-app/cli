@@ -16,7 +16,7 @@ import type {
   Subtask,
   SubtaskSummary,
 } from '../schemas/state'
-import { getTimestamp } from '../utils/date-helper'
+import { getTimestamp, toRelative } from '../utils/date-helper'
 import { md } from '../utils/markdown-builder'
 import { StorageManager } from './storage-manager'
 
@@ -52,7 +52,7 @@ class StateStorage extends StorageManager<StateJson> {
         const task = data.currentTask!
         m.bold(task.description)
           .blank()
-          .raw(`Started: ${task.startedAt}`)
+          .raw(`Started: ${toRelative(task.startedAt)}`)
           .raw(`Session: ${task.sessionId}`)
           .maybe(task.featureId, (m, id) => m.raw(`Feature: ${id}`))
 
@@ -122,7 +122,7 @@ class StateStorage extends StorageManager<StateJson> {
         m.hr()
           .h2('Paused')
           .bold(prev.description)
-          .raw(`Paused: ${prev.pausedAt}`)
+          .raw(`Paused: ${toRelative(prev.pausedAt)}`)
           .maybe(prev.pauseReason, (m, reason) => m.raw(`Reason: ${reason}`))
           .blank()
           .italic('Use /p:resume to continue')

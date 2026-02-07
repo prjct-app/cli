@@ -7,7 +7,7 @@
 
 import { generateUUID } from '../schemas'
 import type { ShippedFeature, ShippedJson } from '../types'
-import { getTimestamp } from '../utils/date-helper'
+import { getTimestamp, toRelative } from '../utils/date-helper'
 import { StorageManager } from './storage-manager'
 
 class ShippedStorage extends StorageManager<ShippedJson> {
@@ -72,13 +72,10 @@ class ShippedStorage extends StorageManager<ShippedJson> {
         .sort((a, b) => new Date(b.shippedAt).getTime() - new Date(a.shippedAt).getTime())
 
       ships.forEach((ship) => {
-        const date = new Date(ship.shippedAt).toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric',
-        })
+        const rel = toRelative(ship.shippedAt)
         const version = ship.version ? ` v${ship.version}` : ''
         const duration = ship.duration ? ` (${ship.duration})` : ''
-        lines.push(`- **${ship.name}**${version}${duration} - ${date}`)
+        lines.push(`- **${ship.name}**${version}${duration} - ${rel}`)
         if (ship.description) {
           lines.push(`  _${ship.description}_`)
         }

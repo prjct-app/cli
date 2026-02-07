@@ -7,7 +7,7 @@
 
 import { generateUUID } from '../schemas'
 import type { Idea, IdeaPriority, IdeaStatus, IdeasJson } from '../types'
-import { getTimestamp } from '../utils/date-helper'
+import { getTimestamp, toRelative } from '../utils/date-helper'
 import { StorageManager } from './storage-manager'
 
 class IdeasStorage extends StorageManager<IdeasJson> {
@@ -45,10 +45,10 @@ class IdeasStorage extends StorageManager<IdeasJson> {
     lines.push('## Brain Dump')
     if (pending.length > 0) {
       pending.forEach((idea) => {
-        const date = idea.addedAt.split('T')[0]
+        const rel = toRelative(idea.addedAt)
         const tags = idea.tags.length > 0 ? ` ${idea.tags.map((t) => `#${t}`).join(' ')}` : ''
         const priority = idea.priority !== 'medium' ? ` [${idea.priority.toUpperCase()}]` : ''
-        lines.push(`- ${idea.text}${priority} _(${date})_${tags}`)
+        lines.push(`- ${idea.text}${priority} _(${rel})_${tags}`)
       })
     } else {
       lines.push('_No pending ideas_')
@@ -59,9 +59,9 @@ class IdeasStorage extends StorageManager<IdeasJson> {
     if (converted.length > 0) {
       lines.push('## Converted')
       converted.forEach((idea) => {
-        const date = idea.addedAt.split('T')[0]
+        const rel = toRelative(idea.addedAt)
         const feat = idea.convertedTo ? ` \u2192 ${idea.convertedTo}` : ''
-        lines.push(`- \u2713 ${idea.text}${feat} _(${date})_`)
+        lines.push(`- \u2713 ${idea.text}${feat} _(${rel})_`)
       })
       lines.push('')
     }
@@ -70,8 +70,8 @@ class IdeasStorage extends StorageManager<IdeasJson> {
     if (archived.length > 0) {
       lines.push('## Archived')
       archived.forEach((idea) => {
-        const date = idea.addedAt.split('T')[0]
-        lines.push(`- ${idea.text} _(${date})_`)
+        const rel = toRelative(idea.addedAt)
+        lines.push(`- ${idea.text} _(${rel})_`)
       })
       lines.push('')
     }

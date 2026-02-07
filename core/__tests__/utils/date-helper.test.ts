@@ -21,6 +21,7 @@ import {
   isToday,
   isWithinLastDays,
   parseDate,
+  toRelative,
 } from '../../utils/date-helper'
 
 describe('DateHelper', () => {
@@ -400,6 +401,49 @@ describe('DateHelper', () => {
 
       expect(original.getHours()).toBe(10)
       expect(original.getMinutes()).toBe(30)
+    })
+  })
+
+  describe('toRelative', () => {
+    it('should show minutes for dates within 1 hour', () => {
+      setSystemTime(new Date('2025-10-15T12:00:00.000Z'))
+      const fiveMinAgo = '2025-10-15T11:55:00.000Z'
+      expect(toRelative(fiveMinAgo)).toBe('5 minutes ago')
+      setSystemTime()
+    })
+
+    it('should show hours for dates within 24 hours', () => {
+      setSystemTime(new Date('2025-10-15T12:00:00.000Z'))
+      const threeHoursAgo = '2025-10-15T09:00:00.000Z'
+      expect(toRelative(threeHoursAgo)).toBe('3 hours ago')
+      setSystemTime()
+    })
+
+    it('should show days for dates within 7 days', () => {
+      setSystemTime(new Date('2025-10-15T12:00:00.000Z'))
+      const twoDaysAgo = '2025-10-13T12:00:00.000Z'
+      expect(toRelative(twoDaysAgo)).toBe('2 days ago')
+      setSystemTime()
+    })
+
+    it('should show months for dates older than 30 days', () => {
+      setSystemTime(new Date('2025-10-15T12:00:00.000Z'))
+      const twoMonthsAgo = '2025-08-15T12:00:00.000Z'
+      expect(toRelative(twoMonthsAgo)).toBe('2 months ago')
+      setSystemTime()
+    })
+
+    it('should accept Date objects', () => {
+      setSystemTime(new Date('2025-10-15T12:00:00.000Z'))
+      const date = new Date('2025-10-15T11:00:00.000Z')
+      expect(toRelative(date)).toBe('1 hour ago')
+      setSystemTime()
+    })
+
+    it('should accept ISO string timestamps', () => {
+      setSystemTime(new Date('2025-10-15T12:00:00.000Z'))
+      expect(toRelative('2025-10-14T12:00:00.000Z')).toBe('1 day ago')
+      setSystemTime()
     })
   })
 })
