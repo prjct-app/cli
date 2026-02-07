@@ -1,10 +1,10 @@
 # Changelog
 
-## [1.6.5] - 2026-02-07
+## [1.6.8] - 2026-02-07
 
-### Refactoring
+### Refactor
 
-- extract common agent-base.md template (PRJ-95) (#128)
+- **Extract hardcoded values to constants (PRJ-71)**: Added `OUTPUT_LIMITS`, `STORAGE_LIMITS`, `EVENT_LIMITS` to `core/constants/index.ts`. Replaced 16 magic numbers across `output.ts` (11 truncation lengths), `bus.ts` (history limit), and `jsonl-helper.ts` (max lines, rotation size, warning threshold). All limits now configurable from one place with `as const` typing.
 
 
 ## [1.6.7] - 2026-02-07
