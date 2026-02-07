@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.7.0] - 2026-02-07
+
+### Features
+
+- use relative timestamps to reduce token waste (PRJ-274) (#139)
+- use relative timestamps to reduce token waste (PRJ-274)
+
+
 ## [1.6.16] - 2026-02-07
 
 ### Improvement
