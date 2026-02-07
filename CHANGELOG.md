@@ -2,6 +2,13 @@
 
 ## [1.7.5] - 2026-02-07
 
+### Refactoring
+
+- remove unused deps and lazy-load @linear/sdk (PRJ-291) (#144)
+
+
+## [1.7.5] - 2026-02-07
+
 ### Changed
 - **Remove unused dependencies and lazy-load heavy optional ones (PRJ-291)**: Removed `lightningcss` (completely unused), moved `esbuild` to devDependencies (build-time only), lazy-loaded `@linear/sdk` via dynamic `import()` so it only loads when Linear commands are invoked.
 
