@@ -1,5 +1,39 @@
 # Changelog
 
+## [1.7.6] - 2026-02-07
+
+### Features
+- **PerformanceTracker service (PRJ-297)**: New `core/infrastructure/performance-tracker.ts` singleton that automatically measures startup time, memory usage, and command durations on every CLI invocation. Data stored in append-only JSONL with 5MB rotation.
+- **`prjct perf` dashboard command**: Shows performance metrics vs targets for the last N days (default 7). Displays startup time, heap/RSS memory, context correctness rate, subtask handoff rate, and per-command duration breakdown.
+- **Zod schemas for performance metrics**: `core/schemas/performance.ts` with typed schemas for all metric types (timing, memory, context correctness, subtask handoff, analysis state).
+
+### Implementation Details
+- PerformanceTracker uses `process.hrtime.bigint()` for nanosecond-precision timing and `process.memoryUsage()` for memory snapshots
+- Startup time captured at top of `bin/prjct.ts` via `globalThis.__perfStartNs` and recorded in `core/index.ts` after command execution
+- All instrumentation wrapped in non-critical try/catch to prevent perf tracking from breaking CLI functionality
+- Uses existing `jsonl-helper.appendJsonLineWithRotation` for storage (5MB rotation limit)
+- 17 unit tests covering timing, memory, recording, context correctness, handoff, and report generation
+
+### Learnings
+- JSONL append-only pattern with rotation is ideal for time-series metrics (vs JSON write-through for stateful data)
+- `globalThis` works well for passing data between `bin/` entry point and `core/` modules without import coupling
+- `process.memoryUsage().heapUsed` can momentarily exceed `heapTotal` during GC — don't assert `<=`
+
+### Test Plan
+
+#### For QA
+1. Run `prjct status` then `prjct perf` — verify metrics appear (startup time, memory, command duration)
+2. Run multiple commands then `prjct perf 1` — verify all commands show in dashboard
+3. Check `~/.prjct-cli/projects/{id}/storage/performance.jsonl` exists with valid JSONL entries
+4. Verify `prjct perf` with no data shows "No performance data yet" message
+5. Verify target indicators: startup `<500ms` green, `>500ms` yellow warning
+
+#### For Users
+**What changed:** New `prjct perf` command shows a performance dashboard with startup time, memory usage, and command duration metrics.
+**How to use:** Run `prjct perf` (default 7 days) or `prjct perf 30` for 30-day view. Metrics are collected automatically.
+**Breaking changes:** None
+
+
 ## [1.7.5] - 2026-02-07
 
 ### Refactoring
