@@ -78,6 +78,8 @@ export interface ProjectSettings {
   autoCommit?: boolean
   commitFooter?: string
   branchNaming?: string
+  /** Preferred AI model for this project (e.g., 'opus', 'sonnet', '2.5-pro') */
+  preferredModel?: string
 }
 
 /**

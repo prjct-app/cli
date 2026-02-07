@@ -78,6 +78,15 @@ export interface AIProviderConfig {
 
   /** URL for provider documentation */
   docsUrl: string
+
+  /** Default model for this provider (e.g., 'sonnet', '2.5-flash'). Null for multi-model IDEs */
+  defaultModel: string | null
+
+  /** Supported model identifiers. Empty array for multi-model IDEs (user selects model) */
+  supportedModels: readonly string[]
+
+  /** Minimum CLI version required. Null for non-CLI providers */
+  minCliVersion: string | null
 }
 
 /**
@@ -92,6 +101,9 @@ export interface ProviderDetectionResult {
 
   /** Path to the CLI executable */
   path?: string
+
+  /** Warning if CLI version is below minimum requirement */
+  versionWarning?: string
 }
 
 /**

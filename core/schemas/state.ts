@@ -9,6 +9,7 @@
  */
 
 import { z } from 'zod'
+import { ModelMetadataSchema } from './model'
 
 // =============================================================================
 // Zod Schemas - Source of Truth
@@ -90,6 +91,8 @@ export const CurrentTaskSchema = z.object({
   // Fibonacci estimation
   estimatedPoints: z.number().optional(), // Fibonacci: 1,2,3,5,8,13,21
   estimatedMinutes: z.number().optional(), // Derived from points
+  // Model specification - which AI model was used (PRJ-265)
+  modelMetadata: ModelMetadataSchema.optional(),
 })
 
 export const PreviousTaskSchema = z.object({
