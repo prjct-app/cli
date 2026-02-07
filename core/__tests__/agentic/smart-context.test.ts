@@ -134,7 +134,7 @@ describe('SmartContext PRJ-84', () => {
       it('should return general for ambiguous tasks', () => {
         const result = smartContext.detectDomain('Refactor code')
         expect(result.primary).toBe('general')
-        expect(result.confidence).toBe(0.5)
+        expect(result.confidence).toBe(0.3)
       })
 
       it('should return general for empty descriptions', () => {
@@ -172,11 +172,11 @@ describe('SmartContext PRJ-84', () => {
         expect(strong.confidence).toBeGreaterThanOrEqual(weak.confidence)
       })
 
-      it('should cap confidence at 0.95', () => {
+      it('should cap confidence at 0.85', () => {
         const result = smartContext.detectDomain(
           'ui component react vue angular css style button form modal layout responsive animation dom html frontend jsx tsx'
         )
-        expect(result.confidence).toBeLessThanOrEqual(0.95)
+        expect(result.confidence).toBeLessThanOrEqual(0.85)
       })
     })
   })
