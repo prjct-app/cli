@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.4] - 2026-02-07
+
+### Bug Fixes
+
+- add type guards for error handling (PRJ-79) (#127)
+
+
 ## [1.6.6] - 2026-02-07
 
 ### Improvements
