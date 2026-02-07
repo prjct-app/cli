@@ -238,6 +238,30 @@ class EventBus {
   }
 
   /**
+   * Flush event history and clean up stale once-listeners.
+   * Call on task completion, project switch, or periodically.
+   */
+  flush(): void {
+    this.history = []
+
+    // Remove once-listeners for events that were never fired
+    this.onceListeners.clear()
+  }
+
+  /**
+   * Remove all listeners for a specific event, or all events if none specified.
+   */
+  removeAllListeners(event?: string): void {
+    if (event) {
+      this.listeners.delete(event)
+      this.onceListeners.delete(event)
+    } else {
+      this.listeners.clear()
+      this.onceListeners.clear()
+    }
+  }
+
+  /**
    * Get count of listeners for an event
    */
   listenerCount(event: string): number {

@@ -102,6 +102,8 @@ class WatchService {
   }
   private isRunning: boolean = false
   private syncCount: number = 0
+  private sigintHandler: (() => void) | null = null
+  private sigtermHandler: (() => void) | null = null
 
   /**
    * Start watching for file changes
@@ -151,9 +153,13 @@ class WatchService {
       .on('unlink', (filePath: string) => this.handleChange('unlink', filePath))
       .on('error', (error: unknown) => this.handleError(error as Error))
 
-    // Handle graceful shutdown
-    process.on('SIGINT', () => this.stop())
-    process.on('SIGTERM', () => this.stop())
+    // Handle graceful shutdown — store references for proper removal
+    if (this.sigintHandler) process.off('SIGINT', this.sigintHandler)
+    if (this.sigtermHandler) process.off('SIGTERM', this.sigtermHandler)
+    this.sigintHandler = () => this.stop()
+    this.sigtermHandler = () => this.stop()
+    process.on('SIGINT', this.sigintHandler)
+    process.on('SIGTERM', this.sigtermHandler)
 
     return { success: true }
   }
@@ -177,6 +183,17 @@ class WatchService {
       this.watcher = null
     }
 
+    // Remove signal handlers to prevent accumulation
+    if (this.sigintHandler) {
+      process.off('SIGINT', this.sigintHandler)
+      this.sigintHandler = null
+    }
+    if (this.sigtermHandler) {
+      process.off('SIGTERM', this.sigtermHandler)
+      this.sigtermHandler = null
+    }
+
+    this.pendingChanges.clear()
     this.isRunning = false
     process.exit(0)
   }
