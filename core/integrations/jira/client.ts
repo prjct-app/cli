@@ -14,6 +14,7 @@
  *    - Requires MCP server configured in ~/.claude/mcp.json
  */
 
+import { getErrorMessage } from '../../types/fs'
 import type {
   CreateIssueInput,
   FetchOptions,
@@ -261,7 +262,7 @@ export class JiraProvider implements IssueTrackerProvider {
         this.baseUrl = ''
         this.auth = ''
         this._authMode = 'none'
-        throw new Error(`JIRA connection failed: ${(error as Error).message}`)
+        throw new Error(`JIRA connection failed: ${getErrorMessage(error)}`)
       }
     } else {
       // MCP mode - no direct API access, Claude uses MCP tools
@@ -340,7 +341,7 @@ export class JiraProvider implements IssueTrackerProvider {
       return this.mapIssue(issue)
     } catch (error) {
       // Issue not found
-      if ((error as Error).message.includes('404')) {
+      if (getErrorMessage(error).includes('404')) {
         return null
       }
       throw error

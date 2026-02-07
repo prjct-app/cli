@@ -9,7 +9,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
-import { isNotFoundError } from '../types/fs'
+import { getErrorMessage, isNotFoundError } from '../types/fs'
 import { pluginLoader } from './loader'
 
 type PluginSource = 'builtin' | 'global' | 'project'
@@ -91,7 +91,7 @@ class PluginRegistry {
         } catch (error) {
           // Skip invalid plugins - ENOENT expected for missing files
           if (!isNotFoundError(error)) {
-            console.error(`Plugin discovery error: ${(error as Error).message}`)
+            console.error(`Plugin discovery error: ${getErrorMessage(error)}`)
           }
         }
       }
@@ -137,7 +137,7 @@ class PluginRegistry {
     } catch (error) {
       // Can't read metadata - ENOENT or parse error expected
       if (!isNotFoundError(error) && !(error instanceof SyntaxError)) {
-        console.error(`Plugin metadata read error: ${(error as Error).message}`)
+        console.error(`Plugin metadata read error: ${getErrorMessage(error)}`)
       }
     }
 

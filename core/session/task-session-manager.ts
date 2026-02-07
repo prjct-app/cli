@@ -12,7 +12,7 @@ import { emit } from '../bus'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import type { Session, SessionMetrics } from '../types'
-import { isNotFoundError } from '../types/fs'
+import { getErrorMessage, isNotFoundError } from '../types/fs'
 import { calculateDuration, formatDuration, generateId } from './utils'
 
 const execAsync = promisify(exec)
@@ -291,7 +291,7 @@ export class TaskSessionManager {
       // This is expected in non-git projects
       if (!isNotFoundError(error)) {
         // Log unexpected errors but don't fail
-        console.error(`Metrics calculation warning: ${(error as Error).message}`)
+        console.error(`Metrics calculation warning: ${getErrorMessage(error)}`)
       }
     }
 

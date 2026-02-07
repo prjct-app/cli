@@ -3,6 +3,7 @@
  * Orchestrates multiple issue tracker providers and enrichment.
  */
 
+import { getErrorMessage } from '../../types/fs'
 import { jiraProvider } from '../jira/client'
 import { linearProvider } from '../linear/client'
 import {
@@ -241,7 +242,7 @@ export class IssueTrackerManager {
           } catch (error) {
             result.errors.push({
               issueId: issue.externalId,
-              error: (error as Error).message,
+              error: getErrorMessage(error),
             })
           }
         }
@@ -251,7 +252,7 @@ export class IssueTrackerManager {
     } catch (error) {
       result.errors.push({
         issueId: 'sync',
-        error: (error as Error).message,
+        error: getErrorMessage(error),
       })
       return result
     }

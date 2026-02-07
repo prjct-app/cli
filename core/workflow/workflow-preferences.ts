@@ -17,6 +17,7 @@ import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
 import chalk from 'chalk'
 import memorySystem from '../agentic/memory-system'
+import { getErrorMessage } from '../types/fs'
 
 const execAsync = promisify(exec)
 
@@ -178,7 +179,7 @@ export async function runWorkflowHooks(
     return { success: true }
   } catch (error) {
     console.log(chalk.red('✗ failed'))
-    const errorMessage = (error as Error).message || 'Unknown error'
+    const errorMessage = getErrorMessage(error) || 'Unknown error'
     console.log(chalk.dim(errorMessage.split('\n')[0]))
     return { success: false, failed: action, output: errorMessage }
   }

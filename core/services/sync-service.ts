@@ -17,6 +17,7 @@
 
 import { exec } from 'node:child_process'
 import fs from 'node:fs/promises'
+import os from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
 import {
@@ -37,6 +38,7 @@ import log from '../utils/logger'
 import { ContextFileGenerator } from './context-generator'
 import type { SyncDiff } from './diff-generator'
 import { localStateGenerator } from './local-state-generator'
+import { skillInstaller } from './skill-installer'
 import { type StackDetection, StackDetector } from './stack-detector'
 import { syncVerifier, type VerificationReport } from './sync-verifier'
 
@@ -107,6 +109,7 @@ interface SyncResult {
   stack: StackDetection
   agents: AgentInfo[]
   skills: { agent: string; skill: string }[]
+  skillsInstalled: { name: string; agent: string; status: 'installed' | 'skipped' | 'error' }[]
   contextFiles: string[]
   aiTools: AIToolResult[]
   syncMetrics?: SyncMetrics
@@ -178,6 +181,7 @@ class SyncService {
           stack: this.emptyStack(),
           agents: [],
           skills: [],
+          skillsInstalled: [],
           contextFiles: [],
           aiTools: [],
           error: 'No prjct project. Run p. init first.',
@@ -205,6 +209,7 @@ class SyncService {
       // 4. Generate all files (depends on gathered data)
       const agents = await this.generateAgents(stack, stats)
       const skills = this.configureSkills(agents)
+      const skillsInstalled = await this.autoInstallSkills(agents)
       const sources = this.buildSources(stats, commands)
       const contextFiles = await this.generateContextFiles(git, stats, commands, agents, sources)
 
@@ -276,6 +281,7 @@ class SyncService {
         stack,
         agents,
         skills,
+        skillsInstalled,
         contextFiles,
         aiTools: aiToolResults.map((r) => ({
           toolId: r.toolId,
@@ -296,6 +302,7 @@ class SyncService {
         stack: this.emptyStack(),
         agents: [],
         skills: [],
+        skillsInstalled: [],
         contextFiles: [],
         aiTools: [],
         error: getErrorMessage(error),
@@ -660,6 +667,39 @@ class SyncService {
     return agents
   }
 
+  /**
+   * Resolve {{> partial-name }} includes in template content.
+   * Loads partials from templates/subagents/.
+   */
+  private async resolveTemplateIncludes(content: string): Promise<string> {
+    const includePattern = /\{\{>\s*([\w-]+)\s*\}\}/g
+    const matches = [...content.matchAll(includePattern)]
+
+    if (matches.length === 0) return content
+
+    let resolved = content
+    for (const match of matches) {
+      const partialName = match[1]
+      const partialPath = path.join(
+        __dirname,
+        '..',
+        '..',
+        'templates',
+        'subagents',
+        `${partialName}.md`
+      )
+      try {
+        const partialContent = await fs.readFile(partialPath, 'utf-8')
+        resolved = resolved.replace(match[0], partialContent.trim())
+      } catch {
+        // Partial not found — leave marker for debugging
+        resolved = resolved.replace(match[0], `<!-- partial "${partialName}" not found -->`)
+      }
+    }
+
+    return resolved
+  }
+
   private async generateWorkflowAgent(name: string, agentsPath: string): Promise<void> {
     // Try to read template
     let content = ''
@@ -674,6 +714,7 @@ class SyncService {
         `${name}.md`
       )
       content = await fs.readFile(templatePath, 'utf-8')
+      content = await this.resolveTemplateIncludes(content)
     } catch (error) {
       log.debug('Workflow agent template not found, generating minimal', {
         name,
@@ -704,6 +745,9 @@ class SyncService {
         `${name}.md`
       )
       content = await fs.readFile(templatePath, 'utf-8')
+
+      // Resolve includes before variable replacement
+      content = await this.resolveTemplateIncludes(content)
 
       // Inject project-specific context
       content = content.replace('{projectName}', stats.name)
@@ -807,6 +851,109 @@ You are the ${name} expert for this project. Apply best practices for the detect
     })
 
     return skills
+  }
+
+  // ==========================================================================
+  // SKILL AUTO-INSTALLATION
+  // ==========================================================================
+
+  /**
+   * Auto-install skills from skill-mappings.json for generated agents.
+   * Reads the mapping, checks which packages are needed, and installs missing ones.
+   */
+  private async autoInstallSkills(
+    agents: AgentInfo[]
+  ): Promise<{ name: string; agent: string; status: 'installed' | 'skipped' | 'error' }[]> {
+    const results: { name: string; agent: string; status: 'installed' | 'skipped' | 'error' }[] = []
+
+    try {
+      // Load skill mappings
+      const mappingsPath = path.join(
+        __dirname,
+        '..',
+        '..',
+        'templates',
+        'config',
+        'skill-mappings.json'
+      )
+      const mappingsContent = await fs.readFile(mappingsPath, 'utf-8')
+      const mappings = JSON.parse(mappingsContent)
+      const agentToSkillMap = mappings.agentToSkillMap || {}
+
+      // Collect all packages to install, grouped by agent
+      const packagesToInstall: { pkg: string; agent: string }[] = []
+      for (const agent of agents) {
+        const mapping = agentToSkillMap[agent.name]
+        if (mapping?.packages) {
+          for (const pkg of mapping.packages) {
+            packagesToInstall.push({ pkg, agent: agent.name })
+          }
+        }
+      }
+
+      if (packagesToInstall.length === 0) return results
+
+      // Install each package (check if already installed first)
+      const skillsDir = path.join(os.homedir(), '.claude', 'skills')
+      for (const { pkg, agent } of packagesToInstall) {
+        // Extract skill name from package path (e.g., "anthropics/skills/frontend-design" -> "frontend-design")
+        const skillName = pkg.split('/').pop() || pkg
+
+        // Check if already installed
+        const subdirPath = path.join(skillsDir, skillName, 'SKILL.md')
+        const flatPath = path.join(skillsDir, `${skillName}.md`)
+
+        let alreadyInstalled = false
+        try {
+          await fs.access(subdirPath)
+          alreadyInstalled = true
+        } catch {
+          try {
+            await fs.access(flatPath)
+            alreadyInstalled = true
+          } catch {
+            // Not installed
+          }
+        }
+
+        if (alreadyInstalled) {
+          results.push({ name: skillName, agent, status: 'skipped' })
+          continue
+        }
+
+        // Install via skillInstaller (supports owner/repo format)
+        try {
+          // Parse package as owner/repo or owner/repo@skill format
+          // "anthropics/skills/frontend-design" -> owner=anthropics, repo=skills, skill=frontend-design
+          const parts = pkg.split('/')
+          let installSource: string
+          if (parts.length === 3) {
+            // owner/repo/skill -> owner/repo@skill
+            installSource = `${parts[0]}/${parts[1]}@${parts[2]}`
+          } else {
+            installSource = pkg
+          }
+
+          const installResult = await skillInstaller.install(installSource)
+          if (installResult.installed.length > 0) {
+            results.push({ name: skillName, agent, status: 'installed' })
+            log.info(`Installed skill: ${skillName} for agent: ${agent}`)
+          } else if (installResult.errors.length > 0) {
+            results.push({ name: skillName, agent, status: 'error' })
+            log.debug(`Failed to install skill ${skillName}`, { errors: installResult.errors })
+          } else {
+            results.push({ name: skillName, agent, status: 'skipped' })
+          }
+        } catch (error) {
+          results.push({ name: skillName, agent, status: 'error' })
+          log.debug(`Skill install error for ${skillName}`, { error: getErrorMessage(error) })
+        }
+      }
+    } catch (error) {
+      log.debug('Skill auto-installation failed (non-critical)', { error: getErrorMessage(error) })
+    }
+
+    return results
   }
 
   // ==========================================================================

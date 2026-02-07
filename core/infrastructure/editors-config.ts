@@ -12,6 +12,7 @@
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { getErrorMessage } from '../types/fs'
 import type { AIProviderName } from '../types/provider'
 
 interface EditorConfig {
@@ -42,7 +43,7 @@ class EditorsConfig {
     try {
       await fs.mkdir(this.configDir, { recursive: true })
     } catch (error) {
-      console.error('[editors-config] Error creating config directory:', (error as Error).message)
+      console.error('[editors-config] Error creating config directory:', getErrorMessage(error))
     }
   }
 
@@ -57,7 +58,7 @@ class EditorsConfig {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
         return null
       }
-      console.error('[editors-config] Error loading config:', (error as Error).message)
+      console.error('[editors-config] Error loading config:', getErrorMessage(error))
       return null
     }
   }
@@ -85,7 +86,7 @@ class EditorsConfig {
 
       return true
     } catch (error) {
-      console.error('[editors-config] Error saving config:', (error as Error).message)
+      console.error('[editors-config] Error saving config:', getErrorMessage(error))
       return false
     }
   }
@@ -132,7 +133,7 @@ class EditorsConfig {
 
       return true
     } catch (error) {
-      console.error('[editors-config] Error updating version:', (error as Error).message)
+      console.error('[editors-config] Error updating version:', getErrorMessage(error))
       return false
     }
   }
@@ -161,7 +162,7 @@ class EditorsConfig {
       }
       return true
     } catch (error) {
-      console.error('[editors-config] Error deleting config:', (error as Error).message)
+      console.error('[editors-config] Error deleting config:', getErrorMessage(error))
       return false
     }
   }

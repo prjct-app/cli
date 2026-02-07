@@ -13,6 +13,7 @@ import path from 'node:path'
 import chalk from 'chalk'
 import chokidar, { type FSWatcher } from 'chokidar'
 import configManager from '../infrastructure/config-manager'
+import { getErrorMessage } from '../types/fs'
 import dateHelper from '../utils/date-helper'
 import { syncService } from './sync-service'
 
@@ -263,7 +264,7 @@ class WatchService {
       }
     } catch (error) {
       console.error(
-        `${chalk.dim(`[${timestamp}]`)} ${chalk.red('✗')} Error: ${(error as Error).message}`
+        `${chalk.dim(`[${timestamp}]`)} ${chalk.red('✗')} Error: ${getErrorMessage(error)}`
       )
     }
   }

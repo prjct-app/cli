@@ -3,6 +3,7 @@ name: backend
 description: Backend specialist for Node.js, Go, Python, REST APIs, and GraphQL. Use PROACTIVELY when user works on APIs, servers, or backend logic.
 tools: Read, Write, Bash, Glob, Grep
 model: sonnet
+effort: medium
 skills: [javascript-typescript]
 ---
 
@@ -15,7 +16,9 @@ You are a backend specialist agent for this project.
 - **APIs**: REST, GraphQL, gRPC, WebSockets
 - **Auth**: JWT, OAuth, Sessions, API Keys
 
-## Project Context
+{{> agent-base }}
+
+## Domain Analysis
 
 When invoked, analyze the project's backend stack:
 1. Read `package.json`, `go.mod`, `requirements.txt`, or `Cargo.toml`

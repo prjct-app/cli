@@ -21,6 +21,7 @@ import path from 'node:path'
 import { promisify } from 'node:util'
 import { glob } from 'glob'
 import { getTimeout } from '../constants'
+import { getErrorMessage } from '../types/fs'
 import { dependencyValidator } from './dependency-validator'
 import type { SkillLockEntry } from './skill-lock'
 import { skillLock } from './skill-lock'
@@ -307,7 +308,7 @@ async function installFromGitHub(source: ParsedSource): Promise<InstallResult> {
 
         result.installed.push(installed)
       } catch (error) {
-        result.errors.push(`Failed to install ${skill.name}: ${(error as Error).message}`)
+        result.errors.push(`Failed to install ${skill.name}: ${getErrorMessage(error)}`)
       }
     }
   } finally {
@@ -352,7 +353,7 @@ async function installFromLocal(source: ParsedSource): Promise<InstallResult> {
       await skillLock.addEntry(lockEntry)
       result.installed.push(installed)
     } catch (error) {
-      result.errors.push(`Failed to install from ${localPath}: ${(error as Error).message}`)
+      result.errors.push(`Failed to install from ${localPath}: ${getErrorMessage(error)}`)
     }
   } else {
     // Directory — discover skills
@@ -375,7 +376,7 @@ async function installFromLocal(source: ParsedSource): Promise<InstallResult> {
         await skillLock.addEntry(lockEntry)
         result.installed.push(installed)
       } catch (error) {
-        result.errors.push(`Failed to install ${skill.name}: ${(error as Error).message}`)
+        result.errors.push(`Failed to install ${skill.name}: ${getErrorMessage(error)}`)
       }
     }
   }

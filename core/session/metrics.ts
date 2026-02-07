@@ -9,7 +9,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
-import { isNotFoundError } from '../types/fs'
+import { getErrorMessage, isNotFoundError } from '../types/fs'
 
 interface Session {
   id: string
@@ -110,7 +110,7 @@ class SessionMetrics {
     } catch (error) {
       // Archive might not exist - expected for new projects
       if (!isNotFoundError(error)) {
-        console.error(`Metrics archive read error: ${(error as Error).message}`)
+        console.error(`Metrics archive read error: ${getErrorMessage(error)}`)
       }
     }
 
@@ -125,7 +125,7 @@ class SessionMetrics {
     } catch (error) {
       // No current session - expected
       if (!isNotFoundError(error) && !(error instanceof SyntaxError)) {
-        console.error(`Current session read error: ${(error as Error).message}`)
+        console.error(`Current session read error: ${getErrorMessage(error)}`)
       }
     }
 

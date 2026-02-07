@@ -78,6 +78,7 @@ export type {
   PromptProjectState,
   PromptState,
   ProposedPlan,
+  RealCodebaseContext,
   ReasoningResult,
   ReasoningStep,
   SimpleExecutionResult,
@@ -117,10 +118,26 @@ export type {
 // Bus Types
 // =============================================================================
 export type {
+  AnalysisCompletedPayload,
   BusEventType,
   EventCallback,
   EventData,
+  EventMap,
   EventSubscription,
+  FeaturePayload,
+  GitCommitPayload,
+  GitPushPayload,
+  IdeaCapturedPayload,
+  ProjectInitializedPayload,
+  ProjectSyncedPayload,
+  SessionCompletedPayload,
+  SessionPausedPayload,
+  SessionResumedPayload,
+  SessionStartedPayload,
+  SnapshotCreatedPayload,
+  SnapshotRestoredPayload,
+  TaskCompletedPayload,
+  TaskCreatedPayload,
 } from './bus'
 export { EventTypes } from './bus'
 // =============================================================================
@@ -210,6 +227,8 @@ export type {
 // =============================================================================
 export type { NodeError } from './fs'
 export {
+  getErrorMessage,
+  getErrorStack,
   isDirNotEmptyError,
   isFileExistsError,
   isNodeError,

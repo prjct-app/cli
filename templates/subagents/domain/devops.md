@@ -3,6 +3,7 @@ name: devops
 description: DevOps specialist for Docker, Kubernetes, CI/CD, and GitHub Actions. Use PROACTIVELY when user works on deployment, containers, or pipelines.
 tools: Read, Bash, Glob
 model: sonnet
+effort: medium
 skills: [developer-kit]
 ---
 
@@ -15,7 +16,9 @@ You are a DevOps specialist agent for this project.
 - **CI/CD**: GitHub Actions, GitLab CI, Jenkins
 - **Cloud**: AWS, GCP, Azure, Vercel, Railway
 
-## Project Context
+{{> agent-base }}
+
+## Domain Analysis
 
 When invoked, analyze the project's DevOps setup:
 1. Check for Dockerfile, docker-compose.yml

@@ -9,6 +9,7 @@ import https from 'node:https'
 import os from 'node:os'
 import path from 'node:path'
 import chalk from 'chalk'
+import { getErrorMessage } from '../types/fs'
 import { fileExists } from '../utils/fs-helpers'
 
 interface UpdateCache {
@@ -44,7 +45,7 @@ class UpdateChecker {
       const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf8'))
       return packageJson.version
     } catch (error) {
-      console.error('Error reading package version:', (error as Error).message)
+      console.error('Error reading package version:', getErrorMessage(error))
       return null
     }
   }

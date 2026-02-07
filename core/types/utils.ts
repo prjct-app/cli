@@ -5,6 +5,8 @@
 
 // Re-export file system types
 export {
+  getErrorMessage,
+  getErrorStack,
   isDirNotEmptyError,
   isFileExistsError,
   isNodeError,

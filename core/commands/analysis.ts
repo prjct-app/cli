@@ -14,6 +14,7 @@ import { createStalenessChecker, memoryService, syncService } from '../services'
 import { formatDiffPreview, formatFullDiff, generateSyncDiff } from '../services/diff-generator'
 import { metricsStorage } from '../storage/metrics-storage'
 import type { AnalyzeOptions, CommandResult, ProjectContext } from '../types'
+import { getErrorMessage } from '../types/fs'
 import { showNextSteps } from '../utils/next-steps'
 import out from '../utils/output'
 import {
@@ -100,8 +101,8 @@ export class AnalysisCommands extends PrjctCommandsBase {
         data: analysisData,
       }
     } catch (error) {
-      console.error('❌ Error:', (error as Error).message)
-      return { success: false, error: (error as Error).message }
+      console.error('❌ Error:', getErrorMessage(error))
+      return { success: false, error: getErrorMessage(error) }
     }
   }
 
@@ -347,8 +348,18 @@ export class AnalysisCommands extends PrjctCommandsBase {
           return { success: true, message: 'No changes' }
         }
 
+        // Helper to restore original CLAUDE.md (undo sync's write)
+        const restoreOriginal = async () => {
+          if (existingContent != null) {
+            await fs.writeFile(claudeMdPath, existingContent, 'utf-8')
+          }
+        }
+
         // Non-interactive mode: return JSON for LLM to handle
         if (isNonInteractive) {
+          // Restore original — LLM will call `prjct sync --yes` to apply
+          await restoreOriginal()
+
           // Build a plain-text diff summary for LLM to show user
           const diffSummary = {
             added: diff.added.map((s) => ({ name: s.name, lineCount: s.lineCount })),
@@ -388,8 +399,9 @@ export class AnalysisCommands extends PrjctCommandsBase {
         // Show diff preview (interactive mode)
         console.log(formatDiffPreview(diff))
 
-        // Preview-only mode - don't apply
+        // Preview-only mode (--preview / --dry-run) - restore and don't apply
         if (options.preview) {
+          await restoreOriginal()
           return {
             success: true,
             isPreview: true,
@@ -411,7 +423,8 @@ export class AnalysisCommands extends PrjctCommandsBase {
         })
 
         if (response.action === 'cancel' || !response.action) {
-          out.warn('Sync cancelled')
+          await restoreOriginal()
+          out.warn('Sync cancelled — no changes applied')
           return { success: false, message: 'Cancelled by user' }
         }
 
@@ -424,12 +437,13 @@ export class AnalysisCommands extends PrjctCommandsBase {
             initial: true,
           })
           if (!confirm.apply) {
-            out.warn('Sync cancelled')
+            await restoreOriginal()
+            out.warn('Sync cancelled — no changes applied')
             return { success: false, message: 'Cancelled by user' }
           }
         }
 
-        // Changes already applied from dry-run, just show success
+        // User approved — changes already applied by sync
         out.done('Changes applied')
         return this.showSyncResult(result, startTime)
       }
@@ -448,8 +462,8 @@ export class AnalysisCommands extends PrjctCommandsBase {
       out.stop()
       return this.showSyncResult(result, startTime)
     } catch (error) {
-      out.fail((error as Error).message)
-      return { success: false, error: (error as Error).message }
+      out.fail(getErrorMessage(error))
+      return { success: false, error: getErrorMessage(error) }
     }
   }
 
@@ -515,6 +529,11 @@ export class AnalysisCommands extends PrjctCommandsBase {
     if (result.skills.length > 0) {
       const skillWord = result.skills.length === 1 ? 'skill' : 'skills'
       generatedItems.push(`${result.skills.length} ${skillWord}`)
+    }
+    const installed = result.skillsInstalled?.filter((s) => s.status === 'installed') || []
+    if (installed.length > 0) {
+      const word = installed.length === 1 ? 'skill' : 'skills'
+      generatedItems.push(`${installed.length} ${word} auto-installed`)
     }
 
     out.section('Generated')
@@ -748,8 +767,8 @@ export class AnalysisCommands extends PrjctCommandsBase {
         data: { ...summary, session: sessionActivity, patterns: patternsSummary },
       }
     } catch (error) {
-      console.error('❌ Error:', (error as Error).message)
-      return { success: false, error: (error as Error).message }
+      console.error('❌ Error:', getErrorMessage(error))
+      return { success: false, error: getErrorMessage(error) }
     }
   }
 
@@ -807,7 +826,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
 
       return { success: true, data: { ...status, session: sessionInfo } }
     } catch (error) {
-      const errMsg = (error as Error).message
+      const errMsg = getErrorMessage(error)
       if (options.json) {
         console.log(JSON.stringify({ success: false, error: errMsg }))
       } else {

@@ -3,6 +3,7 @@ name: testing
 description: Testing specialist for Bun test, Jest, Pytest, and testing libraries. Use PROACTIVELY when user works on tests, coverage, or test infrastructure.
 tools: Read, Write, Bash
 model: sonnet
+effort: medium
 skills: [developer-kit]
 ---
 
@@ -16,7 +17,9 @@ You are a testing specialist agent for this project.
 - **Go**: testing package, testify
 - **E2E**: Playwright, Cypress, Puppeteer
 
-## Project Context
+{{> agent-base }}
+
+## Domain Analysis
 
 When invoked, analyze the project's testing setup:
 1. Check for test config (bunfig.toml, jest.config.js, pytest.ini)

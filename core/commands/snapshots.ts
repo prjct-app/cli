@@ -7,7 +7,7 @@
 import path from 'node:path'
 import { memoryService } from '../services'
 import type { CommandResult } from '../types'
-import { isNotFoundError } from '../types/fs'
+import { getErrorMessage, isNotFoundError } from '../types/fs'
 import { configManager, dateHelper, fileHelper, out, pathManager } from './base'
 
 interface SnapshotHistory {
@@ -71,8 +71,8 @@ export async function recover(projectPath: string = process.cwd()): Promise<Comm
 
     return { success: true, session: sessionData }
   } catch (error) {
-    out.fail((error as Error).message)
-    return { success: false, error: (error as Error).message }
+    out.fail(getErrorMessage(error))
+    return { success: false, error: getErrorMessage(error) }
   }
 }
 
@@ -148,11 +148,11 @@ export async function undo(projectPath: string = process.cwd()): Promise<Command
       return { success: true, snapshotId: stashMessage }
     } catch (gitError) {
       out.failWithHint('GIT_OPERATION_FAILED')
-      return { success: false, error: (gitError as Error).message }
+      return { success: false, error: getErrorMessage(gitError) }
     }
   } catch (error) {
-    out.fail((error as Error).message)
-    return { success: false, error: (error as Error).message }
+    out.fail(getErrorMessage(error))
+    return { success: false, error: getErrorMessage(error) }
   }
 }
 
@@ -232,11 +232,11 @@ export async function redo(projectPath: string = process.cwd()): Promise<Command
       return { success: true }
     } catch (gitError) {
       out.failWithHint('GIT_OPERATION_FAILED')
-      return { success: false, error: (gitError as Error).message }
+      return { success: false, error: getErrorMessage(gitError) }
     }
   } catch (error) {
-    out.fail((error as Error).message)
-    return { success: false, error: (error as Error).message }
+    out.fail(getErrorMessage(error))
+    return { success: false, error: getErrorMessage(error) }
   }
 }
 
@@ -291,7 +291,7 @@ export async function history(projectPath: string = process.cwd()): Promise<Comm
 
     return { success: true, snapshots: snapshotHistory.snapshots, current: snapshotHistory.current }
   } catch (error) {
-    out.fail((error as Error).message)
-    return { success: false, error: (error as Error).message }
+    out.fail(getErrorMessage(error))
+    return { success: false, error: getErrorMessage(error) }
   }
 }

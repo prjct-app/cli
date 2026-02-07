@@ -14,6 +14,7 @@ import type { CommandMeta } from './commands/registry'
 import { detectAllProviders, detectAntigravity } from './infrastructure/ai-provider'
 import configManager from './infrastructure/config-manager'
 import { sessionTracker } from './services/session-tracker'
+import { getErrorMessage, getErrorStack } from './types/fs'
 import { getError } from './utils/error-messages'
 import { fileExists } from './utils/fs-helpers'
 import out from './utils/output'
@@ -162,7 +163,7 @@ async function main(): Promise<void> {
         sync: () =>
           commands.sync(process.cwd(), {
             aiTools: options.agents ? String(options.agents).split(',') : undefined,
-            preview: options.preview === true,
+            preview: options.preview === true || options['dry-run'] === true,
             yes: options.yes === true,
             json: options.json === true,
             package: options.package ? String(options.package) : undefined,
@@ -199,9 +200,9 @@ async function main(): Promise<void> {
     out.end()
     process.exit(result?.success ? 0 : 1)
   } catch (error) {
-    console.error('Error:', (error as Error).message)
+    console.error('Error:', getErrorMessage(error))
     if (process.env.DEBUG) {
-      console.error((error as Error).stack)
+      console.error(getErrorStack(error))
     }
     // Show branding footer even on error
     out.end()
@@ -440,9 +441,9 @@ MORE INFO
 
 // Run CLI
 main().catch((error) => {
-  console.error('Fatal error:', (error as Error).message)
+  console.error('Fatal error:', getErrorMessage(error))
   if (process.env.DEBUG) {
-    console.error((error as Error).stack)
+    console.error(getErrorStack(error))
   }
   process.exit(1)
 })

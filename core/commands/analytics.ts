@@ -7,6 +7,7 @@ import path from 'node:path'
 import { createStalenessChecker } from '../services'
 import { ideasStorage, queueStorage, shippedStorage, stateStorage } from '../storage'
 import type { CommandResult, ProjectContext } from '../types'
+import { getErrorMessage } from '../types/fs'
 import {
   configManager,
   contextBuilder,
@@ -204,8 +205,8 @@ export class AnalyticsCommands extends PrjctCommandsBase {
         },
       }
     } catch (error) {
-      out.fail((error as Error).message)
-      return { success: false, error: (error as Error).message }
+      out.fail(getErrorMessage(error))
+      return { success: false, error: getErrorMessage(error) }
     }
   }
 
@@ -307,8 +308,8 @@ export class AnalyticsCommands extends PrjctCommandsBase {
       console.log('   Use /p:help to see all commands\n')
       return { success: false, error: `Unknown topic: ${topic}` }
     } catch (error) {
-      out.fail((error as Error).message)
-      return { success: false, error: (error as Error).message }
+      out.fail(getErrorMessage(error))
+      return { success: false, error: getErrorMessage(error) }
     }
   }
 

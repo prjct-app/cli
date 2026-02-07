@@ -19,7 +19,7 @@ export type { CompactedContext, CompactionConfig, ConversationTurn } from '../ty
 
 const DEFAULT_CONFIG: Required<CompactionConfig> = {
   maxTurns: 50,
-  maxTokens: 100000,
+  maxTokens: 160000,
   preserveRecent: 10,
   summaryMaxLength: 2000,
 }

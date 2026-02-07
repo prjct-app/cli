@@ -14,6 +14,7 @@
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { getErrorMessage } from '../types/fs'
 import { fileExists } from './fs-helpers'
 import { type CredentialKey, getCredential } from './keychain'
 
@@ -47,7 +48,7 @@ export async function getProjectCredentials(projectId: string): Promise<ProjectC
   try {
     return JSON.parse(await fs.readFile(credPath, 'utf-8'))
   } catch (error) {
-    console.error('[project-credentials] Failed to read credentials:', (error as Error).message)
+    console.error('[project-credentials] Failed to read credentials:', getErrorMessage(error))
     return {}
   }
 }

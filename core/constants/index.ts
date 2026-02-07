@@ -265,6 +265,65 @@ export function getTimeout(key: TimeoutKey): number {
 }
 
 // =============================================================================
+// Output Limits (PRJ-71)
+// =============================================================================
+
+/**
+ * Truncation lengths for CLI output messages.
+ * Centralizes magic numbers from output.ts.
+ */
+export const OUTPUT_LIMITS = {
+  /** Spinner message truncation */
+  SPINNER_MSG: 45,
+  /** Done/success message truncation */
+  DONE_MSG: 50,
+  /** Fail message truncation */
+  FAIL_MSG: 65,
+  /** Warn message truncation */
+  WARN_MSG: 65,
+  /** Step counter message truncation */
+  STEP_MSG: 35,
+  /** Progress bar text truncation */
+  PROGRESS_TEXT: 25,
+  /** Issue title truncation in lists */
+  ISSUE_TITLE: 50,
+  /** Fallback truncation when tier config is 0 */
+  FALLBACK_TRUNCATE: 50,
+  /** Terminal clear width */
+  CLEAR_WIDTH: 80,
+} as const
+
+// =============================================================================
+// Storage Limits (PRJ-71)
+// =============================================================================
+
+/**
+ * File size and line limits for JSONL/storage operations.
+ * Centralizes magic numbers from jsonl-helper.ts.
+ */
+export const STORAGE_LIMITS = {
+  /** Default max lines for streaming JSONL reads */
+  JSONL_MAX_LINES: 1000,
+  /** File rotation threshold in MB */
+  ROTATION_SIZE_MB: 10,
+  /** Warning threshold for large files in MB */
+  LARGE_FILE_WARN_MB: 50,
+} as const
+
+// =============================================================================
+// Event Bus Limits (PRJ-71)
+// =============================================================================
+
+/**
+ * Event bus configuration limits.
+ * Centralizes magic numbers from bus.ts.
+ */
+export const EVENT_LIMITS = {
+  /** Max events kept in history */
+  HISTORY_MAX: 100,
+} as const
+
+// =============================================================================
 // Combined Exports
 // =============================================================================
 

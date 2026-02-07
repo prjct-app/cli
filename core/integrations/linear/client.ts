@@ -4,6 +4,7 @@
  */
 
 import { LinearClient as LinearSDK } from '@linear/sdk'
+import { getErrorMessage } from '../../types/fs'
 import { getCredential } from '../../utils/keychain'
 import type {
   CreateIssueInput,
@@ -84,7 +85,7 @@ export class LinearProvider implements IssueTrackerProvider {
       await this.sdk.viewer
     } catch (error) {
       this.sdk = null
-      throw new Error(`Linear connection failed: ${(error as Error).message}`)
+      throw new Error(`Linear connection failed: ${getErrorMessage(error)}`)
     }
   }
 

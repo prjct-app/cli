@@ -22,7 +22,7 @@ import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import { stateStorage } from '../storage'
 import type { CommandResult } from '../types'
-import { isNotFoundError } from '../types/fs'
+import { getErrorMessage, isNotFoundError } from '../types/fs'
 
 // =============================================================================
 // Types
@@ -149,7 +149,7 @@ export class ContextCommands {
           )
         } catch (error) {
           // Orchestration failed - continue without it
-          console.error(`Warning: Orchestrator failed: ${(error as Error).message}`)
+          console.error(`Warning: Orchestrator failed: ${getErrorMessage(error)}`)
         }
       }
 
@@ -198,7 +198,7 @@ export class ContextCommands {
     } catch (error) {
       return {
         success: false,
-        message: `Context error: ${(error as Error).message}`,
+        message: `Context error: ${getErrorMessage(error)}`,
       }
     }
   }

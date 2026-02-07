@@ -13,15 +13,28 @@
  * @version 1.0.0
  */
 
+import { exec as execCallback } from 'node:child_process'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { promisify } from 'node:util'
+import { findRelevantFiles } from '../context-tools/files-tool'
+import { getRecentFiles } from '../context-tools/recent-tool'
+import { extractSignatures } from '../context-tools/signatures-tool'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import { stateStorage } from '../storage'
-import type { LoadedAgent, LoadedSkill, OrchestratorContext, OrchestratorSubtask } from '../types'
-import { isNotFoundError } from '../types/fs'
+import type {
+  LoadedAgent,
+  LoadedSkill,
+  OrchestratorContext,
+  OrchestratorSubtask,
+  RealCodebaseContext,
+} from '../types'
+import { getErrorMessage, isNotFoundError } from '../types/fs'
 import { parseFrontmatter } from './template-loader'
+
+const execAsync = promisify(execCallback)
 
 // =============================================================================
 // Domain Detection Keywords
@@ -201,10 +214,13 @@ export class OrchestratorExecutor {
     // Step 5: Load skills from agent frontmatter
     const skills = await this.loadSkills(agents)
 
-    // Step 6: Determine if fragmentation is needed
+    // Step 6: Gather real codebase context proactively
+    const realContext = await this.gatherRealContext(taskDescription, projectPath)
+
+    // Step 7: Determine if fragmentation is needed
     const requiresFragmentation = this.shouldFragment(domains, taskDescription)
 
-    // Step 7: Create subtasks if fragmentation is required
+    // Step 8: Create subtasks if fragmentation is required
     let subtasks: OrchestratorSubtask[] | null = null
     if (requiresFragmentation && command === 'task') {
       subtasks = await this.createSubtasks(taskDescription, domains, agents, projectId)
@@ -222,6 +238,100 @@ export class OrchestratorExecutor {
         ecosystem: repoAnalysis?.ecosystem || 'unknown',
         conventions: repoAnalysis?.conventions || [],
       },
+      realContext,
+    }
+  }
+
+  /**
+   * Gather real codebase context proactively.
+   *
+   * Calls existing context tools (files-tool, recent-tool, signatures-tool)
+   * to build a briefing so the agent doesn't need to explore first.
+   */
+  private async gatherRealContext(
+    taskDescription: string,
+    projectPath: string
+  ): Promise<RealCodebaseContext | undefined> {
+    try {
+      // Run git state + relevant files + recent files in parallel
+      const [gitResult, filesResult, recentResult] = await Promise.all([
+        this.getGitState(projectPath),
+        findRelevantFiles(taskDescription, projectPath, { maxFiles: 10, minScore: 0.15 }),
+        getRecentFiles(projectPath, { commits: 10, maxFiles: 10 }),
+      ])
+
+      // Extract signatures from top 3 relevant files
+      const topFiles = filesResult.files.slice(0, 3)
+      const signatureResults = await Promise.all(
+        topFiles.map(async (f) => {
+          try {
+            const result = await extractSignatures(f.path, projectPath)
+            if (result.signatures.length === 0) return null
+            const sigContent = result.signatures
+              .map((s) => `${s.exported ? 'export ' : ''}${s.type} ${s.name}: ${s.signature}`)
+              .join('\n')
+            return { path: f.path, content: sigContent }
+          } catch {
+            return null
+          }
+        })
+      )
+
+      return {
+        gitBranch: gitResult.branch,
+        gitStatus: gitResult.status,
+        relevantFiles: filesResult.files.map((f) => ({
+          path: f.path,
+          score: Math.round(f.score * 100),
+          reason: f.reasons.join(', '),
+        })),
+        recentFiles: recentResult.hotFiles.slice(0, 5).map((f) => ({
+          path: f.path,
+          lastChanged: f.lastChanged,
+          changes: f.changes,
+        })),
+        signatures: signatureResults.filter(
+          (s): s is { path: string; content: string } => s !== null
+        ),
+      }
+    } catch {
+      // Non-critical — return undefined if context gathering fails
+      return undefined
+    }
+  }
+
+  /**
+   * Get current git state (branch + short status)
+   */
+  private async getGitState(projectPath: string): Promise<{ branch: string; status: string }> {
+    try {
+      const [branchResult, statusResult] = await Promise.all([
+        execAsync('git branch --show-current', { cwd: projectPath }),
+        execAsync('git status --porcelain', { cwd: projectPath }),
+      ])
+
+      const branch = branchResult.stdout.trim() || 'main'
+      const lines = statusResult.stdout.trim().split('\n').filter(Boolean)
+
+      let modified = 0
+      let untracked = 0
+      let staged = 0
+      for (const line of lines) {
+        const code = line.substring(0, 2)
+        if (code.startsWith('??')) untracked++
+        else if (code[0] !== ' ' && code[0] !== '?') staged++
+        else modified++
+      }
+
+      const parts: string[] = []
+      if (staged > 0) parts.push(`${staged} staged`)
+      if (modified > 0) parts.push(`${modified} modified`)
+      if (untracked > 0) parts.push(`${untracked} untracked`)
+      const status = parts.length > 0 ? parts.join(', ') : 'clean'
+
+      return { branch, status }
+    } catch {
+      return { branch: 'unknown', status: 'git unavailable' }
     }
   }
 
@@ -237,7 +347,7 @@ export class OrchestratorExecutor {
       return JSON.parse(content)
     } catch (error) {
       if (isNotFoundError(error)) return null
-      console.warn('Failed to load repo-analysis.json:', (error as Error).message)
+      console.warn('Failed to load repo-analysis.json:', getErrorMessage(error))
       return null
     }
   }
@@ -365,6 +475,8 @@ export class OrchestratorExecutor {
             content: body,
             skills: frontmatter.skills || [],
             filePath,
+            effort: frontmatter.effort as LoadedAgent['effort'],
+            model: frontmatter.model as string | undefined,
           }
         } catch {
           // Try next variation
@@ -409,16 +521,18 @@ export class OrchestratorExecutor {
   async loadSkills(agents: LoadedAgent[]): Promise<LoadedSkill[]> {
     const skillsDir = path.join(os.homedir(), '.claude', 'skills')
 
-    // Collect unique skill names from all agents
-    const uniqueSkillNames = new Set<string>()
+    // Collect unique skill names from all agents, tracking which agents need them
+    const skillToAgents = new Map<string, string[]>()
     for (const agent of agents) {
       for (const skillName of agent.skills) {
-        uniqueSkillNames.add(skillName)
+        const existing = skillToAgents.get(skillName) || []
+        existing.push(agent.name)
+        skillToAgents.set(skillName, existing)
       }
     }
 
     // Load all skills in parallel
-    const skillPromises = Array.from(uniqueSkillNames).map(
+    const skillPromises = Array.from(skillToAgents.keys()).map(
       async (skillName): Promise<LoadedSkill | null> => {
         // Check both patterns: flat file and subdirectory (ecosystem standard)
         const flatPath = path.join(skillsDir, `${skillName}.md`)
@@ -434,7 +548,11 @@ export class OrchestratorExecutor {
             const content = await fs.readFile(flatPath, 'utf-8')
             return { name: skillName, content, filePath: flatPath }
           } catch {
-            // Skill not found - not an error, just skip
+            // Skill not found — log warning with agent context
+            const agentNames = skillToAgents.get(skillName) || []
+            console.warn(
+              `⚠ Skill "${skillName}" not installed (needed by: ${agentNames.join(', ')}). Run \`prjct sync\` to auto-install.`
+            )
             return null
           }
         }

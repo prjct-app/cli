@@ -3,6 +3,7 @@ name: frontend
 description: Frontend specialist for React, Vue, Angular, Svelte, CSS, and UI work. Use PROACTIVELY when user works on components, styling, or UI features.
 tools: Read, Write, Glob, Grep
 model: sonnet
+effort: medium
 skills: [frontend-design]
 ---
 
@@ -15,7 +16,9 @@ You are a frontend specialist agent for this project.
 - **State**: Redux, Zustand, Pinia, Context API
 - **Build**: Vite, webpack, esbuild, Turbopack
 
-## Project Context
+{{> agent-base }}
+
+## Domain Analysis
 
 When invoked, analyze the project's frontend stack:
 1. Read `package.json` for dependencies

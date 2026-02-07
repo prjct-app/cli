@@ -1,27 +1,155 @@
 # Changelog
 
-## [1.5.3] - 2026-02-06
+## [1.6.6] - 2026-02-07
+
+### Refactoring
+
+- extract hardcoded values to constants (PRJ-71) (#129)
+
+
+## [1.6.8] - 2026-02-07
+
+### Refactor
+
+- **Extract hardcoded values to constants (PRJ-71)**: Added `OUTPUT_LIMITS`, `STORAGE_LIMITS`, `EVENT_LIMITS` to `core/constants/index.ts`. Replaced 16 magic numbers across `output.ts` (11 truncation lengths), `bus.ts` (history limit), and `jsonl-helper.ts` (max lines, rotation size, warning threshold). All limits now configurable from one place with `as const` typing.
+
+
+## [1.6.7] - 2026-02-07
+
+### Refactor
+
+- **Extract common agent-base.md template (PRJ-95)**: Created `templates/subagents/agent-base.md` with shared project context (path resolution, storage locations, rules). Added `{{> partial }}` include resolution in `sync-service.ts` that resolves partials during agent generation. Updated all 9 agent templates (5 domain + 4 workflow) to use `{{> agent-base }}` instead of duplicated content. Saves ~200 tokens per additional agent template.
+
+## [1.6.6] - 2026-02-07
+
+### Improvements
+
+- **Type-safe error handling**: Added `getErrorMessage()` and `getErrorStack()` type guards to `core/types/fs.ts`. Replaced ~130 unsafe `(error as Error).message` casts across 59 files with safe `getErrorMessage(error)` calls. Fixed internal `as` casts in existing type guards (`isNotFoundError`, `isPermissionError`, etc.) to use `isNodeError()` guard instead. Zero remaining `(error as Error)` patterns in the codebase.
+
+## [1.6.5] - 2026-02-07
 
 ### Bug Fixes
-- **Add context to silent catch blocks in sync-service.ts** (PRJ-80): All 15 silent catch blocks now log at debug level with operation context (file path, method name, error message)
+
+- **Replace console.error with logger in setup.ts**: 12 `console.error` warning calls replaced with `log.warn` for Gemini, Cursor, Windsurf, Antigravity, migration, status line, Context7, symlink, and gitignore warnings. User-facing chalk output preserved. Fatal direct-run error kept as `console.error`.
+
+## [1.6.4] - 2026-02-06
+
+### Bug Fixes
+
+- **Replace console.error with logger in routes.ts**: Server routes now use the centralized `log` module instead of raw `console.error` for JSON read/write and context read errors. Production remains quiet by default; enable with `PRJCT_DEBUG=1`.
+
+## [1.6.3] - 2026-02-06
+
+### Improvements
+
+- **Typed event bus payloads**: Added 15 typed payload interfaces (`SessionStartedPayload`, `SnapshotCreatedPayload`, etc.) and an `EventMap` type mapping event strings to their payloads. Convenience `emit` methods now enforce required fields at compile time. Backward compatible — callers with `Record<string, unknown>` still work.
 
 ### Implementation Details
-- Imported `logger` from `core/utils/logger.ts` and `getErrorMessage` from `core/errors.ts`
-- Replaced all bare `catch {}` blocks with `catch (error) { log.debug(message, { context }) }`
-- Replaced one `console.error` + `(error as Error).message` pattern with `log.debug` + `getErrorMessage`
-- Production stays quiet by default; set `PRJCT_DEBUG=debug` to see error context
+- `core/types/bus.ts`: Added `EventMap` interface and all payload types
+- `core/bus/bus.ts`: Generic overload `emit<K extends keyof EventMap>()`, typed convenience methods
+- `core/types/index.ts`: Exported all new payload types
 
 ### Test Plan
 
 #### For QA
-1. Run `PRJCT_DEBUG=debug prjct sync` — verify debug output shows catch block context (file paths, operation names, error messages)
-2. Run `prjct sync` without `PRJCT_DEBUG` — verify zero extra output (production stays quiet)
-3. Run `bun test` — verify all 416 tests still pass
-4. Trigger an error path (e.g. remove `package.json` temporarily) and verify debug log includes the path and error message
+1. `bun run typecheck` — zero errors
+2. `emit.sessionStarted({})` → TS error for missing fields (IntelliSense works)
+3. `bun test` — all 416 tests pass
 
 #### For Users
-**What changed:** Silent catch blocks in sync-service.ts now log at debug level with operation context
-**How to use:** Set `PRJCT_DEBUG=debug` to see detailed error context during sync
+- **What changed:** Event emit methods have typed payloads with autocomplete
+- **Breaking changes:** None
+
+## [1.6.2] - 2026-02-06
+
+### Improvements
+
+- **Diff preview before sync overwrites**: `prjct sync --dry-run` (or `--preview`) now shows what would change in CLAUDE.md without applying changes. Cancelling interactive sync restores the original file. Previously, files were written before the diff was shown, so cancel/preview still applied changes.
+
+### Implementation Details
+- Added `--dry-run` CLI flag as alias for `--preview`
+- Added `restoreOriginal()` helper that writes back saved CLAUDE.md content on cancel/preview
+- Non-interactive mode (LLM) restores original and returns JSON — apply with `prjct sync --yes`
+
+### Test Plan
+
+#### For QA
+1. `prjct sync --dry-run` — diff shown, CLAUDE.md NOT modified
+2. `prjct sync` → cancel — CLAUDE.md restored
+3. `prjct sync` → approve — changes kept
+4. `prjct sync --yes` — applied directly
+5. `prjct sync --json` — JSON returned, CLAUDE.md restored
+
+#### For Users
+- **What changed:** `--dry-run` flag works correctly; cancel restores original
+- **How to use:** `prjct sync --dry-run` to preview, `prjct sync --yes` to apply
+- **Breaking changes:** None
+
+## [1.6.1] - 2026-02-06
+
+### Bug Fixes
+
+- replace console.error with logger in bus.ts (PRJ-72) (#122)
+
+
+## [1.6.1] - 2026-02-06
+
+### Bug Fixes
+
+- **Replace console.error with logger in bus.ts**: Event bus now uses the centralized `log` module instead of raw `console.error` for error logging. Silent catch block in `logEvent()` now logs at debug level with `getErrorMessage()` context. Production remains quiet by default; enable with `PRJCT_DEBUG=1`.
+
+### Test Plan
+
+#### For QA
+1. Run `PRJCT_DEBUG=1 bun test` — verify bus errors appear with `[prjct:error]` prefix
+2. Run `bun test` (no debug) — verify bus errors are silent by default
+3. Trigger a listener error — verify it logs via logger, not console.error
+
+#### For Users
+- **What changed:** Error logging in event bus uses centralized logger
+- **How to use:** `PRJCT_DEBUG=1` to see bus errors; quiet by default
+- **Breaking changes:** None
+
+## [1.6.0] - 2026-02-06
+
+### Features
+
+- super context for agents — skills.sh, proactive codebase context, effort/model (#121)
+
+
+## [1.6.0] - 2026-02-06
+
+### Features
+
+- **Skills.sh auto-install**: During `prjct sync`, skills from skills.sh are automatically installed for generated agents. Real packages like `anthropics/skills/frontend-design`, `obra/superpowers/systematic-debugging`, and `obra/superpowers/test-driven-development` are mapped per agent domain.
+- **Proactive codebase context**: The orchestrator now gathers real context before agent execution — git state, relevant files (scored by task relevance), code signatures from top files, and recently changed files. Agents start with a complete briefing instead of exploring first.
+- **Effort/model metadata wiring**: Agent frontmatter `effort` and `model` fields are now extracted and injected into prompts, enabling per-agent reasoning depth control.
+
+### Improved
+
+- **Skill loading warnings**: Missing skills now log visible warnings with the agent that needs them and a hint to run `prjct sync`
+- **Skill content in prompts**: Increased skill content truncation from 1000 to 2000 characters for richer context
+- **Skill mappings v3**: Updated `skill-mappings.json` from generic names to real installable skills.sh packages
+
+### Implementation Details
+
+- `sync-service.ts`: New `autoInstallSkills()` method reads `skill-mappings.json`, checks if each skill is installed, and calls `skillInstaller.install()` for missing ones
+- `orchestrator-executor.ts`: New `gatherRealContext()` calls `findRelevantFiles()`, `getRecentFiles()`, and `extractSignatures()` in parallel to build a proactive briefing
+- `prompt-builder.ts`: New "CODEBASE CONTEXT" section with git state, relevant files table, code signatures, and recently changed files; plus effort/model per agent
+- `agent-loader.ts`: New `extractFrontmatterMeta()` parses YAML frontmatter for effort/model fields
+- `agentic.ts`: New `RealCodebaseContext` interface; `LoadedAgent` extended with `effort?` and `model?`
+
+### Test Plan
+
+#### For QA
+1. Run `prjct sync` — verify skills auto-install (check `~/.claude/skills/`)
+2. Run `p. task "test"` — verify prompt includes git state, relevant files, signatures, effort/model
+3. Verify warnings for missing skills
+4. Build and all 416 tests pass
+
+#### For Users
+**What changed:** Agents receive proactive codebase context before starting work. Skills auto-install during sync.
+**How to use:** No action needed — automatic during `prjct sync` and `p. task`.
 **Breaking changes:** None
 
 ## [1.5.2] - 2026-02-06

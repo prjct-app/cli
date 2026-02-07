@@ -25,7 +25,7 @@ import type {
   Template,
   ThinkBlock,
 } from '../types'
-import { isNotFoundError } from '../types/fs'
+import { getErrorMessage, isNotFoundError } from '../types/fs'
 import { fileExists } from '../utils/fs-helpers'
 import { getPackageRoot } from '../utils/version'
 
@@ -94,7 +94,7 @@ class PromptBuilder {
       }
     } catch (error) {
       if (!isNotFoundError(error)) {
-        console.error(`Template loading warning: ${(error as Error).message}`)
+        console.error(`Template loading warning: ${getErrorMessage(error)}`)
       }
     }
 
@@ -184,7 +184,7 @@ class PromptBuilder {
     } catch (error) {
       // Silent fail - checklists are optional enhancement
       if (!isNotFoundError(error)) {
-        console.error(`Checklist loading warning: ${(error as Error).message}`)
+        console.error(`Checklist loading warning: ${getErrorMessage(error)}`)
       }
     }
 
@@ -281,7 +281,7 @@ class PromptBuilder {
     } catch (error) {
       // Outcomes not available yet - expected for new projects
       if (!isNotFoundError(error) && !(error instanceof SyntaxError)) {
-        console.error(`Outcome detection warning: ${(error as Error).message}`)
+        console.error(`Outcome detection warning: ${getErrorMessage(error)}`)
       }
     }
 
@@ -459,6 +459,8 @@ class PromptBuilder {
         parts.push('### LOADED AGENTS (Project-Specific Specialists)\n\n')
         for (const agent of orchestratorContext.agents) {
           parts.push(`#### Agent: ${agent.name} (${agent.domain})\n`)
+          if (agent.effort) parts.push(`Effort: ${agent.effort}\n`)
+          if (agent.model) parts.push(`Model: ${agent.model}\n`)
           if (agent.skills.length > 0) {
             parts.push(`Skills: ${agent.skills.join(', ')}\n`)
           }
@@ -476,12 +478,47 @@ class PromptBuilder {
         parts.push('### LOADED SKILLS (From Agent Frontmatter)\n\n')
         for (const skill of orchestratorContext.skills) {
           parts.push(`#### Skill: ${skill.name}\n`)
-          // Include first 1000 chars of skill content
+          // Include first 2000 chars of skill content
           const truncatedContent =
-            skill.content.length > 1000
-              ? `${skill.content.substring(0, 1000)}\n... (truncated)`
+            skill.content.length > 2000
+              ? `${skill.content.substring(0, 2000)}\n... (truncated)`
               : skill.content
           parts.push(`\`\`\`markdown\n${truncatedContent}\n\`\`\`\n\n`)
+        }
+      }
+
+      // Inject real codebase context (proactively gathered)
+      if (orchestratorContext.realContext) {
+        const rc = orchestratorContext.realContext
+        parts.push('### CODEBASE CONTEXT (Real — gathered proactively)\n\n')
+
+        parts.push(`**Git State**: Branch \`${rc.gitBranch}\` | ${rc.gitStatus}\n\n`)
+
+        if (rc.relevantFiles.length > 0) {
+          parts.push('**Relevant Files** (scored by task relevance):\n')
+          parts.push('| Score | File | Why |\n')
+          parts.push('|-------|------|-----|\n')
+          for (const f of rc.relevantFiles.slice(0, 8)) {
+            parts.push(`| ${f.score} | ${f.path} | ${f.reason} |\n`)
+          }
+          parts.push('\n')
+        }
+
+        if (rc.signatures.length > 0) {
+          parts.push('**Code Signatures** (top files):\n')
+          for (const sig of rc.signatures) {
+            parts.push(`\`\`\`typescript\n// ${sig.path}\n${sig.content}\n\`\`\`\n`)
+          }
+          parts.push('\n')
+        }
+
+        if (rc.recentFiles.length > 0) {
+          parts.push('**Recently Changed**: ')
+          const recentSummary = rc.recentFiles
+            .slice(0, 5)
+            .map((f) => `${f.path} (${f.lastChanged})`)
+            .join(', ')
+          parts.push(`${recentSummary}\n\n`)
         }
       }
 

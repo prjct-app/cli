@@ -11,7 +11,7 @@ import { exec } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { promisify } from 'node:util'
-import { isNotFoundError } from '../types/fs'
+import { getErrorMessage, isNotFoundError } from '../types/fs'
 
 const execAsync = promisify(exec)
 
@@ -138,7 +138,7 @@ const BUILTIN_CHECKS = {
         return {
           name: 'No sensitive data',
           passed: false,
-          error: `Could not scan: ${(error as Error).message}`,
+          error: `Could not scan: ${getErrorMessage(error)}`,
           durationMs: Date.now() - start,
         }
       }

@@ -17,6 +17,7 @@ import type {
   PromptContext,
   SimpleExecutionResult,
 } from '../types'
+import { getErrorMessage } from '../types/fs'
 import { agentStream } from '../utils/agent-stream'
 import { fileExists } from '../utils/fs-helpers'
 import { printSubtaskProgress, type SubtaskDisplay } from '../utils/subtask-table'
@@ -204,7 +205,7 @@ export class CommandExecutor {
           }
         } catch (error) {
           // Orchestration failed - log warning but continue without it
-          console.warn(`⚠️  Orchestrator warning: ${(error as Error).message}`)
+          console.warn(`⚠️  Orchestrator warning: ${getErrorMessage(error)}`)
         }
       }
 
@@ -379,7 +380,7 @@ export class CommandExecutor {
       // Record failed attempt for loop detection
       const attemptInfo = loopDetector.recordAttempt(commandName, loopContext, {
         success: false,
-        error: (error as Error).message,
+        error: getErrorMessage(error),
       })
 
       // Check if we should escalate after this failure
@@ -396,7 +397,7 @@ export class CommandExecutor {
 
       return {
         success: false,
-        error: (error as Error).message,
+        error: getErrorMessage(error),
         attemptNumber: attemptInfo.attemptNumber,
         isLooping: attemptInfo.isLooping,
       }
@@ -456,7 +457,7 @@ export class CommandExecutor {
     } catch (error) {
       return {
         success: false,
-        error: (error as Error).message,
+        error: getErrorMessage(error),
       }
     }
   }
