@@ -31,11 +31,13 @@ import { fileExists } from '../utils/fs-helpers'
 import { PACKAGE_ROOT } from '../utils/version'
 import { loadCommandContextConfig, resolveCommandContextFull } from './command-context'
 import {
+  budgetsFromCoordinator,
   DEFAULT_BUDGETS,
   filterSkillsByDomains,
   InjectionBudgetTracker,
   truncateToTokenBudget,
 } from './injection-validator'
+import type { TokenBudgetCoordinator } from './token-budget'
 
 // Re-export types for convenience
 export type {
@@ -81,6 +83,9 @@ class PromptBuilder {
   private _templateCache: Map<string, CachedTemplate> = new Map()
   private readonly TEMPLATE_CACHE_TTL_MS = 60_000 // 60 seconds
 
+  /** Active token budget coordinator (PRJ-266) */
+  private _coordinator: TokenBudgetCoordinator | null = null
+
   /**
    * Get a template with TTL caching.
    * Returns cached content if within TTL, otherwise loads from disk.
@@ -119,6 +124,34 @@ class PromptBuilder {
     this._checklistsCacheTime = 0
     this._checklistRoutingCache = null
     this._checklistRoutingCacheTime = 0
+  }
+
+  /**
+   * Set the token budget coordinator for model-aware budget management.
+   * When set, budget allocations flow from the coordinator instead of defaults.
+   *
+   * @see PRJ-266
+   */
+  setCoordinator(coordinator: TokenBudgetCoordinator | null): void {
+    this._coordinator = coordinator
+  }
+
+  /** Get the active coordinator (may be null) */
+  getCoordinator(): TokenBudgetCoordinator | null {
+    return this._coordinator
+  }
+
+  /**
+   * Get effective injection budgets.
+   * Uses coordinator allocation when available, falls back to DEFAULT_BUDGETS.
+   *
+   * @see PRJ-266
+   */
+  private getEffectiveBudgets() {
+    if (this._coordinator) {
+      return budgetsFromCoordinator(this._coordinator)
+    }
+    return DEFAULT_BUDGETS
   }
 
   /**
@@ -293,7 +326,7 @@ class PromptBuilder {
     parts.push('')
 
     const result = parts.join('\n')
-    return truncateToTokenBudget(result, DEFAULT_BUDGETS.autoContext)
+    return truncateToTokenBudget(result, this.getEffectiveBudgets().autoContext)
   }
 
   /**
@@ -471,7 +504,7 @@ class PromptBuilder {
           // Truncate agent content to token budget
           const truncatedContent = truncateToTokenBudget(
             agent.content,
-            DEFAULT_BUDGETS.agentContent
+            this.getEffectiveBudgets().agentContent
           )
           parts.push(`\`\`\`markdown\n${truncatedContent}\n\`\`\`\n\n`)
         }
@@ -489,7 +522,7 @@ class PromptBuilder {
           // Truncate skill content to token budget
           const truncatedContent = truncateToTokenBudget(
             skill.content,
-            DEFAULT_BUDGETS.skillContent
+            this.getEffectiveBudgets().skillContent
           )
           parts.push(`\`\`\`markdown\n${truncatedContent}\n\`\`\`\n\n`)
         }
@@ -721,7 +754,8 @@ class PromptBuilder {
   filterRelevantState(state: State): string | null {
     if (!state || Object.keys(state).length === 0) return null
 
-    const tracker = new InjectionBudgetTracker({ totalPrompt: DEFAULT_BUDGETS.stateData })
+    const budgets = this.getEffectiveBudgets()
+    const tracker = new InjectionBudgetTracker({ totalPrompt: budgets.stateData })
     const criticalFiles = ['now', 'next', 'context', 'analysis', 'codePatterns']
     const relevant: string[] = []
 

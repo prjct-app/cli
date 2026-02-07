@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.11.0] - 2026-02-07
+
+### Features
+- **Token Budget Coordinator**: Centralized token budget management across all context-loading components (PRJ-266)
+
+### Implementation Details
+Created `TokenBudgetCoordinator` class that manages the global token budget based on model context windows. Key features:
+- Model context window registry (Claude 200K, Gemini 1M) with automatic budget calculation
+- Input/output budget split: 65% input, 35% reserved for output
+- Priority-based allocation: state (P1) > injection context (P2) > file content (P3)
+- Request/record API for usage tracking with overflow detection
+- Integrated into `injection-validator.ts`, `prompt-builder.ts`, and `context-selector.ts`
+- Backward compatible: falls back to existing defaults when no coordinator is set
+
+### Test Plan
+
+#### For QA
+1. Create coordinator with `'sonnet'` → input budget = 130K, output reserve = 70K
+2. Create with `'2.5-pro'` (Gemini) → input budget = 650K (5x Claude)
+3. Request tokens up to allocation limit → verify grants are capped
+4. Exhaust a category budget → verify subsequent requests return 0
+5. Verify `budgetsFromCoordinator()` uses coordinator's injection allocation
+6. Run full test suite → all 705 tests pass
+
+#### For Users
+Token budgets are now centrally coordinated based on the model's context window. Larger models get proportionally larger budgets automatically. No breaking changes.
+
 ## [1.9.0] - 2026-02-07
 
 ### Features
@@ -10,7 +37,6 @@
 ### Bug Fixes
 
 - replace keyword domain detection with LLM semantic classification (PRJ-299) (#148)
-
 
 ## [1.10.0] - 2026-02-07
 
