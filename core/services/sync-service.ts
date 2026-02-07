@@ -267,8 +267,8 @@ class SyncService {
           this.globalPath,
           localConfig?.verification
         )
-      } catch {
-        // Verification is non-critical — don't fail sync
+      } catch (error) {
+        log.debug('Verification failed (non-critical)', { error: getErrorMessage(error) })
       }
 
       return {
@@ -395,8 +395,8 @@ class SyncService {
         cwd: this.projectPath,
       })
       data.weeklyCommits = parseInt(weekly.trim(), 10) || 0
-    } catch {
-      // Not a git repo - use defaults
+    } catch (error) {
+      log.debug('Git analysis failed (not a git repo?)', { error: getErrorMessage(error) })
     }
 
     return data
@@ -424,7 +424,8 @@ class SyncService {
         { cwd: this.projectPath }
       )
       stats.fileCount = parseInt(stdout.trim(), 10) || 0
-    } catch {
+    } catch (error) {
+      log.debug('File count failed', { path: this.projectPath, error: getErrorMessage(error) })
       stats.fileCount = 0
     }
 
@@ -453,8 +454,8 @@ class SyncService {
       } else {
         stats.languages.push('JavaScript')
       }
-    } catch {
-      // No package.json
+    } catch (error) {
+      log.debug('No package.json found', { path: this.projectPath, error: getErrorMessage(error) })
     }
 
     // Check other ecosystems
@@ -620,8 +621,8 @@ class SyncService {
           await fs.unlink(path.join(agentsPath, file))
         }
       }
-    } catch {
-      // Directory might not exist yet
+    } catch (error) {
+      log.debug('Failed to purge old agents', { path: agentsPath, error: getErrorMessage(error) })
     }
 
     // Workflow agents (always generated) - IN PARALLEL
@@ -714,8 +715,11 @@ class SyncService {
       )
       content = await fs.readFile(templatePath, 'utf-8')
       content = await this.resolveTemplateIncludes(content)
-    } catch {
-      // Generate minimal agent
+    } catch (error) {
+      log.debug('Workflow agent template not found, generating minimal', {
+        name,
+        error: getErrorMessage(error),
+      })
       content = this.generateMinimalWorkflowAgent(name)
     }
 
@@ -749,8 +753,11 @@ class SyncService {
       content = content.replace('{projectName}', stats.name)
       content = content.replace('{frameworks}', stack.frameworks.join(', ') || 'None detected')
       content = content.replace('{ecosystem}', stats.ecosystem)
-    } catch {
-      // Generate minimal agent
+    } catch (error) {
+      log.debug('Domain agent template not found, generating minimal', {
+        name,
+        error: getErrorMessage(error),
+      })
       content = this.generateMinimalDomainAgent(name, stats, stack)
     }
 
@@ -839,8 +846,8 @@ You are the ${name} expert for this project. Apply best practices for the detect
       path.join(this.globalPath, 'config', 'skills.json'),
       JSON.stringify(skillsConfig, null, 2),
       'utf-8'
-    ).catch(() => {
-      // Best effort
+    ).catch((error) => {
+      log.debug('Failed to write skills.json', { error: getErrorMessage(error) })
     })
 
     return skills
@@ -986,8 +993,11 @@ You are the ${name} expert for this project. Apply best practices for the detect
     let existing: Record<string, unknown> = {}
     try {
       existing = JSON.parse(await fs.readFile(projectJsonPath, 'utf-8'))
-    } catch {
-      // No existing file
+    } catch (error) {
+      log.debug('No existing project.json', {
+        path: projectJsonPath,
+        error: getErrorMessage(error),
+      })
     }
 
     const updated = {
@@ -1024,8 +1034,8 @@ You are the ${name} expert for this project. Apply best practices for the detect
     let state: Record<string, unknown> = {}
     try {
       state = JSON.parse(await fs.readFile(statePath, 'utf-8'))
-    } catch {
-      // No existing file
+    } catch (error) {
+      log.debug('No existing state.json', { path: statePath, error: getErrorMessage(error) })
     }
 
     // Update with enterprise fields
@@ -1062,8 +1072,8 @@ You are the ${name} expert for this project. Apply best practices for the detect
         this.projectPath,
         state as import('../schemas/state').StateJson
       )
-    } catch {
-      // Silently fail - local state is optional
+    } catch (error) {
+      log.debug('Local state generation failed (optional)', { error: getErrorMessage(error) })
     }
   }
 
@@ -1114,8 +1124,8 @@ You are the ${name} expert for this project. Apply best practices for the detect
         const filePath = path.join(this.globalPath, file)
         const content = await fs.readFile(filePath, 'utf-8')
         filteredChars += content.length
-      } catch {
-        // File might not exist, skip
+      } catch (error) {
+        log.debug('Context file not found for metrics', { file, error: getErrorMessage(error) })
       }
     }
 
@@ -1125,8 +1135,11 @@ You are the ${name} expert for this project. Apply best practices for the detect
         const agentPath = path.join(this.globalPath, 'agents', `${agent.name}.md`)
         const content = await fs.readFile(agentPath, 'utf-8')
         filteredChars += content.length
-      } catch {
-        // Skip if not found
+      } catch (error) {
+        log.debug('Agent file not found for metrics', {
+          agent: agent.name,
+          error: getErrorMessage(error),
+        })
       }
     }
 
@@ -1152,8 +1165,7 @@ You are the ${name} expert for this project. Apply best practices for the detect
         agents: agents.filter((a) => a.type === 'domain').map((a) => a.name),
       })
     } catch (error) {
-      // Non-blocking - metrics are nice to have
-      console.error('Warning: Failed to record metrics:', getErrorMessage(error))
+      log.debug('Failed to record sync metrics', { error: getErrorMessage(error) })
     }
 
     return {
@@ -1172,7 +1184,8 @@ You are the ${name} expert for this project. Apply best practices for the detect
     try {
       await fs.access(path.join(this.projectPath, filename))
       return true
-    } catch {
+    } catch (error) {
+      log.debug('File not found', { filename, error: getErrorMessage(error) })
       return false
     }
   }
@@ -1183,7 +1196,8 @@ You are the ${name} expert for this project. Apply best practices for the detect
       const pkgPath = path.join(__dirname, '..', '..', 'package.json')
       const pkg = JSON.parse(await fs.readFile(pkgPath, 'utf-8'))
       return pkg.version || '0.0.0'
-    } catch {
+    } catch (error) {
+      log.debug('Failed to read CLI version', { error: getErrorMessage(error) })
       return '0.0.0'
     }
   }
