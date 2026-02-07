@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.9.0] - 2026-02-07
+
+### Features
+
+- add structured output schema to all LLM prompts (PRJ-264) (#150)
+- add mandatory model specification to AI provider (PRJ-265) (#149)
+
+### Bug Fixes
+
+- replace keyword domain detection with LLM semantic classification (PRJ-299) (#148)
+
+
 ## [1.10.0] - 2026-02-07
 
 ### Features
