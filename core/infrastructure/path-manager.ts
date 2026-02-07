@@ -41,6 +41,7 @@ class PathManager {
   globalConfigDir: string
 
   constructor() {
+    // PRJCT_CLI_HOME: Override global storage location (default: ~/.prjct-cli)
     const envOverride = process.env.PRJCT_CLI_HOME?.trim()
     this.globalBaseDir = envOverride
       ? path.resolve(envOverride)

@@ -225,7 +225,7 @@ export class JiraProvider implements IssueTrackerProvider {
   async initialize(config: JiraConfig): Promise<void> {
     this.config = config
 
-    // Get credentials from config or environment
+    // JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN: JIRA API credentials (fallback from config)
     const baseUrl = config.baseUrl || process.env.JIRA_BASE_URL
     const email = process.env.JIRA_EMAIL
     const apiToken = config.apiKey || process.env.JIRA_API_TOKEN

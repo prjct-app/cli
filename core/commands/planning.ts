@@ -71,6 +71,7 @@ export class PlanningCommands extends PrjctCommandsBase {
 
       // Determine if we should run interactive wizard
       const isTTY = process.stdout.isTTY && process.stdin.isTTY
+      // CI: Skip interactive prompts in CI environments
       const skipWizard = opts.yes || !isTTY || process.env.CI === 'true'
 
       // Run wizard if interactive

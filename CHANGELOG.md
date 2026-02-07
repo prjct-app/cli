@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.6.10] - 2026-02-07
+
+### Documentation
+- **Document all environment variables (PRJ-90)**: Added comprehensive environment variable documentation to README.md covering all 13 env vars used by prjct-cli. Organized into Configuration, JIRA Integration, and Agent Detection categories with defaults, descriptions, and usage examples. Added inline comments at all `process.env` read sites in 6 source files.
+
+### Test Plan
+
+#### For QA
+1. `bun run build` — should succeed
+2. `bun run lint` — no errors
+3. Verify README.md renders correctly on GitHub (env vars tables)
+
+#### For Users
+**What changed:** New "Environment Variables" section in README.md with full documentation of all configurable env vars.
+**Breaking changes:** None.
+
 ## [1.6.8] - 2026-02-07
 
 ### Refactoring

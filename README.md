@@ -132,6 +132,52 @@ prjct --version      # Show version + provider status
 prjct --help         # Show help
 ```
 
+## Environment Variables
+
+### Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PRJCT_CLI_HOME` | `~/.prjct-cli` | Override global storage location. Useful for tests or sandboxed environments. |
+| `PRJCT_DEBUG` | _(unset)_ | Enable debug logging. Values: `1`, `true`, or a log level (`error`, `warn`, `info`, `debug`). |
+| `DEBUG` | _(unset)_ | Fallback debug flag (used if `PRJCT_DEBUG` is not set). Values: `1`, `true`, or `prjct`. |
+| `CI` | _(unset)_ | Set automatically in CI environments. Skips interactive prompts. |
+
+### JIRA Integration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `JIRA_BASE_URL` | _(none)_ | JIRA instance URL (e.g., `https://myorg.atlassian.net`). |
+| `JIRA_EMAIL` | _(none)_ | Email for JIRA API authentication. |
+| `JIRA_API_TOKEN` | _(none)_ | API token for JIRA authentication. Generate at [Atlassian API tokens](https://id.atlassian.com/manage-profile/security/api-tokens). |
+
+### Agent Detection (Auto-set)
+
+These are typically set by the AI agent runtime, not by users:
+
+| Variable | Description |
+|----------|-------------|
+| `CLAUDE_AGENT` | Set when running inside Claude Code. |
+| `ANTHROPIC_CLAUDE` | Alternative Claude environment indicator. |
+| `MCP_AVAILABLE` | Set when MCP (Model Context Protocol) is available. |
+| `HOME` / `USERPROFILE` | Standard OS home directory (used for path resolution). |
+
+### Usage Examples
+
+```bash
+# Enable debug logging
+PRJCT_DEBUG=1 prjct sync
+
+# Use a custom storage location
+PRJCT_CLI_HOME=/tmp/prjct-test prjct init
+
+# Configure JIRA integration via env vars
+export JIRA_BASE_URL=https://myorg.atlassian.net
+export JIRA_EMAIL=you@example.com
+export JIRA_API_TOKEN=your-api-token
+prjct jira setup
+```
+
 ## Requirements
 
 - Node.js 18+ or Bun 1.0+

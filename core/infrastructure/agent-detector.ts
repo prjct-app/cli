@@ -80,10 +80,10 @@ const TERMINAL_AGENT: DetectedAgent = {
 // ============ Detection Functions ============
 
 export async function isClaudeEnvironment(): Promise<boolean> {
-  // Environment variables
+  // CLAUDE_AGENT / ANTHROPIC_CLAUDE: Set by Claude runtime to indicate agent environment
   if (process.env.CLAUDE_AGENT || process.env.ANTHROPIC_CLAUDE) return true
 
-  // MCP availability
+  // MCP_AVAILABLE: Set when Model Context Protocol is available
   if (global.mcp || process.env.MCP_AVAILABLE) return true
 
   // Configuration files

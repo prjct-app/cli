@@ -36,6 +36,8 @@ const TRUTHY_VALUES = new Set(['1', 'true', '*'])
  * Returns -1 (disabled) or a level from LEVELS
  */
 function getLogLevel(): { level: number; name: LogLevel | 'disabled' } {
+  // PRJCT_DEBUG (primary) or DEBUG (fallback): Enable debug logging
+  // Values: '1', 'true', a log level name, or 'prjct' to match
   const debugEnv = process.env.PRJCT_DEBUG || process.env.DEBUG || ''
 
   // Disabled if empty
