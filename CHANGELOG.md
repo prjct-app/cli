@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.6] - 2026-02-07
+
+### Refactoring
+
+- extract hardcoded values to constants (PRJ-71) (#129)
+
+
 ## [1.6.8] - 2026-02-07
 
 ### Refactor
