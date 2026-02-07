@@ -2,6 +2,17 @@
 
 ## [1.6.7] - 2026-02-07
 
+### Bug Fixes
+
+- add context to silent catch blocks in sync-service.ts (PRJ-80) (#120)
+
+### Refactoring
+
+- replace `any` types in routes-extended.ts and server.ts (PRJ-77) (#130)
+
+
+## [1.6.7] - 2026-02-07
+
 ### Refactoring
 - **Replace `any` types in routes-extended.ts and server.ts (PRJ-77)**: Added `ProjectJson`, `StateJson`, `StateTask`, `QueueJson`, `QueueTask`, `RoadmapJson` interfaces to `core/types/storage.ts`. Replaced all 33 `any` types in `core/server/routes-extended.ts` with proper typed generics. Fixed `handleConnection: (c: any)` in `core/types/server.ts` with Hono `Context` type. Disabled redundant task component in statusline default config.
 
