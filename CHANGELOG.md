@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.13] - 2026-02-07
+
+### Refactoring
+
+- remove unused templates and dead code (PRJ-293) (#138)
+- remove unused templates and dead code (PRJ-293)
+
+
 ## [1.6.15] - 2026-02-07
 
 ### Refactor
