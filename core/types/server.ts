@@ -3,7 +3,7 @@
  * Types for HTTP server and SSE modules.
  */
 
-import type { Hono } from 'hono'
+import type { Context, Hono } from 'hono'
 
 // =============================================================================
 // Server Types
@@ -36,8 +36,7 @@ export interface SSEClient {
 }
 
 export interface SSEManager {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  handleConnection: (c: any) => Response
+  handleConnection: (c: Context) => Response
   broadcast: (event: string, data: unknown) => void
   getClientCount: () => number
 }

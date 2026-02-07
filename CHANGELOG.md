@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.6.7] - 2026-02-07
+
+### Refactoring
+- **Replace `any` types in routes-extended.ts and server.ts (PRJ-77)**: Added `ProjectJson`, `StateJson`, `StateTask`, `QueueJson`, `QueueTask`, `RoadmapJson` interfaces to `core/types/storage.ts`. Replaced all 33 `any` types in `core/server/routes-extended.ts` with proper typed generics. Fixed `handleConnection: (c: any)` in `core/types/server.ts` with Hono `Context` type. Disabled redundant task component in statusline default config.
+
+### Test Plan
+
+#### For QA
+1. Build the project (`bun run build`) — should succeed
+2. Typecheck (`npx tsc -p core/tsconfig.json --noEmit`) — should pass clean
+3. Verify zero `any` types in `routes-extended.ts` and `server.ts`
+4. Status bar should no longer show task description segment
+
+#### For Users
+**What changed:** Internal type safety improvement. Cleaner status bar.
+**Breaking changes:** None
+
+
 ## [1.6.6] - 2026-02-07
 
 ### Refactoring

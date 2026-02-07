@@ -13,7 +13,7 @@
       "position": 0
     },
     "task": {
-      "enabled": true,
+      "enabled": false,
       "position": 1,
       "maxLength": 25
     },
