@@ -1,5 +1,38 @@
 # Changelog
 
+## [1.8.1] - 2026-02-07
+
+### Bug Fixes
+- **Replace keyword domain detection with LLM semantic classification (PRJ-299)**: Eliminated substring false positives in domain classification. "author" no longer matches "auth" → backend, "Build responsive dashboard" correctly routes to frontend.
+
+### Implementation Details
+- New `core/agentic/domain-classifier.ts`: LLM-based classifier with 4-level fallback chain (cache → confirmed history → Claude Haiku API → word-boundary heuristic)
+- New `core/schemas/classification.ts`: Zod schemas for TaskClassification, cache entries, and confirmed patterns
+- Replaced substring `includes()` matching in `smart-context.ts` and `orchestrator-executor.ts` with word-boundary regex (`\b`)
+- Removed ~230 lines of hardcoded keyword lists from both files
+- Classification results cached per (project + description hash) with 1-hour TTL
+- Successful classifications auto-persisted as confirmed patterns via `confirmClassification()`
+
+### Learnings
+- Word-boundary regex (`\b`) correctly rejects "author" matching "auth" because there's no boundary between "auth" and "or" in "author"
+- Using raw `fetch` to Claude API avoids adding `@anthropic-ai/sdk` dependency while keeping vendor-neutral design
+- Centralized classifier in `domain-classifier.ts` consumed by both `smart-context.ts` and `orchestrator-executor.ts` eliminates duplication
+
+### Test Plan
+
+#### For QA
+1. Run `bun test` — all 625 tests should pass
+2. Verify `detectDomain('Fix the author display on profile page')` returns `frontend` (not `backend`)
+3. Verify `detectDomain('Build responsive dashboard')` returns `frontend` (not `general`)
+4. Verify `detectDomain('Fix the auth middleware')` returns `backend` (standalone "auth" still works)
+5. Verify `classifyWithHeuristic` returns `general` with confidence 0.3 for unrecognizable tasks
+6. Run `bun run build` — build should succeed
+
+#### For Users
+**What changed:** Domain classification uses smarter word-boundary matching, eliminating false positives.
+**How to use:** No user-facing changes — classification happens automatically during `p. task`.
+**Breaking changes:** None for end users.
+
 ## [1.8.0] - 2026-02-07
 
 ### Features

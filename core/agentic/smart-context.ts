@@ -4,8 +4,10 @@
  * Intelligently filters context based on task type.
  * Reduces prompt size by 40-70% while maintaining relevance.
  *
+ * Uses LLM-based domain classification (PRJ-299) instead of keyword matching.
+ *
  * @module agentic/smart-context
- * @version 1.0
+ * @version 2.0
  */
 
 import { agentPerformanceTracker } from '../agents'
@@ -19,6 +21,7 @@ import type {
   StackInfo,
   TaskType,
 } from '../types'
+import domainClassifier, { classifyWithHeuristic, type ProjectContext } from './domain-classifier'
 
 // Re-export types for convenience
 export type {
@@ -35,163 +38,76 @@ export type {
 // Type alias exported for backward compatibility (used by external consumers)
 export type ProjectState = SmartContextProjectState
 
+// Map ClassificationDomain → ContextDomain
+function toContextDomain(domain: string): ContextDomain {
+  const mapping: Record<string, ContextDomain> = {
+    frontend: 'frontend',
+    backend: 'backend',
+    database: 'backend', // database maps to backend context domain
+    devops: 'devops',
+    testing: 'testing',
+    docs: 'docs',
+    uxui: 'frontend', // uxui maps to frontend context domain
+    general: 'general',
+  }
+  return mapping[domain] || 'general'
+}
+
 /**
  * SmartContext - Intelligent context filtering.
  */
 class SmartContext {
   /**
    * Detect the domain of a task from its description.
+   *
+   * Synchronous version using the improved heuristic (word-boundary matching).
+   * For full LLM-based classification, use classifyDomain().
    */
   detectDomain(taskDescription: string): DomainAnalysis {
-    const lower = taskDescription.toLowerCase()
-
-    // Frontend indicators
-    const frontendKeywords = [
-      'ui',
-      'component',
-      'react',
-      'vue',
-      'angular',
-      'css',
-      'style',
-      'button',
-      'form',
-      'modal',
-      'layout',
-      'responsive',
-      'animation',
-      'dom',
-      'html',
-      'frontend',
-      'fe',
-      'client',
-      'browser',
-      'jsx',
-      'tsx',
-    ]
-
-    // Backend indicators
-    const backendKeywords = [
-      'api',
-      'server',
-      'database',
-      'db',
-      'endpoint',
-      'route',
-      'handler',
-      'controller',
-      'service',
-      'repository',
-      'model',
-      'query',
-      'backend',
-      'be',
-      'rest',
-      'graphql',
-      'prisma',
-      'sql',
-      'redis',
-      'auth',
-    ]
-
-    // DevOps indicators
-    const devopsKeywords = [
-      'deploy',
-      'docker',
-      'kubernetes',
-      'k8s',
-      'ci',
-      'cd',
-      'pipeline',
-      'terraform',
-      'ansible',
-      'aws',
-      'gcp',
-      'azure',
-      'config',
-      'nginx',
-      'devops',
-      'infrastructure',
-      'monitoring',
-      'logging',
-      'build',
-    ]
-
-    // Docs indicators
-    const docsKeywords = [
-      'document',
-      'docs',
-      'readme',
-      'changelog',
-      'comment',
-      'jsdoc',
-      'tutorial',
-      'guide',
-      'explain',
-      'describe',
-      'markdown',
-    ]
-
-    // Testing indicators
-    const testingKeywords = [
-      'test',
-      'spec',
-      // JS/TS
-      'bun',
-      'bun test',
-      'jest',
-      'mocha',
-      'cypress',
-      'playwright',
-      // Python
-      'pytest',
-      'unittest',
-      // Go
-      'go test',
-      // Rust
-      'cargo test',
-      // .NET
-      'dotnet test',
-      // Java
-      'mvn test',
-      'gradle test',
-      'gradlew test',
-      'e2e',
-      'unit',
-      'integration',
-      'coverage',
-      'mock',
-      'fixture',
-    ]
-
-    // Count matches
-    const scores: Record<ContextDomain, number> = {
-      frontend: frontendKeywords.filter((k) => lower.includes(k)).length,
-      backend: backendKeywords.filter((k) => lower.includes(k)).length,
-      devops: devopsKeywords.filter((k) => lower.includes(k)).length,
-      docs: docsKeywords.filter((k) => lower.includes(k)).length,
-      testing: testingKeywords.filter((k) => lower.includes(k)).length,
-      general: 0,
+    // Default context when no project info is available
+    const defaultContext: ProjectContext = {
+      domains: {
+        hasFrontend: true,
+        hasBackend: true,
+        hasDatabase: true,
+        hasTesting: true,
+        hasDocker: true,
+      },
+      agents: [],
     }
 
-    // Find primary and secondary domains
-    const sorted = Object.entries(scores)
-      .filter(([_, score]) => score > 0)
-      .sort((a, b) => b[1] - a[1])
+    const result = classifyWithHeuristic(taskDescription, defaultContext)
 
-    if (sorted.length === 0) {
-      return { primary: 'general', secondary: [], confidence: 0.5 }
+    return {
+      primary: toContextDomain(result.primaryDomain),
+      secondary: result.secondaryDomains.map(toContextDomain),
+      confidence: result.confidence,
     }
+  }
 
-    const primary = sorted[0][0] as ContextDomain
-    const primaryScore = sorted[0][1]
-    const secondary = sorted.slice(1, 3).map(([domain]) => domain as ContextDomain)
+  /**
+   * Classify domain using the full fallback chain (cache → history → LLM → heuristic).
+   * Async version that leverages project context and LLM classification.
+   */
+  async classifyDomain(
+    taskDescription: string,
+    projectId: string,
+    globalPath: string,
+    context: ProjectContext
+  ): Promise<DomainAnalysis & { source: string }> {
+    const { classification, source } = await domainClassifier.classify(
+      taskDescription,
+      projectId,
+      globalPath,
+      context
+    )
 
-    // Calculate confidence based on score gap
-    const totalScore = sorted.reduce((sum, [_, score]) => sum + score, 0)
-    const confidence = totalScore > 0 ? Math.min(0.95, primaryScore / totalScore + 0.3) : 0.5
-
-    return { primary, secondary, confidence }
+    return {
+      primary: toContextDomain(classification.primaryDomain),
+      secondary: classification.secondaryDomains.map(toContextDomain),
+      confidence: classification.confidence,
+      source,
+    }
   }
 
   /**

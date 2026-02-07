@@ -16,6 +16,8 @@
 export * from './agents'
 // Analysis
 export * from './analysis'
+// Classification (LLM-based domain detection)
+export * from './classification'
 // Ideas
 export * from './ideas'
 // Issues (local cache of issue tracker issues)

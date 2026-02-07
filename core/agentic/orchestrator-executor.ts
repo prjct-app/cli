@@ -32,148 +32,10 @@ import type {
   RealCodebaseContext,
 } from '../types'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
+import domainClassifier, { type ProjectContext } from './domain-classifier'
 import { parseFrontmatter } from './template-loader'
 
 const execAsync = promisify(execCallback)
-
-// =============================================================================
-// Domain Detection Keywords
-// =============================================================================
-
-/**
- * Keywords that indicate a domain is involved in the task
- * These are hints, not absolute rules - context matters
- */
-const DOMAIN_KEYWORDS: Record<string, string[]> = {
-  database: [
-    'database',
-    'db',
-    'sql',
-    'query',
-    'table',
-    'schema',
-    'migration',
-    'postgres',
-    'mysql',
-    'sqlite',
-    'mongo',
-    'redis',
-    'prisma',
-    'drizzle',
-    'orm',
-    'model',
-    'entity',
-    'repository',
-    'data layer',
-    'persist',
-  ],
-  backend: [
-    'api',
-    'endpoint',
-    'route',
-    'server',
-    'controller',
-    'service',
-    'middleware',
-    'auth',
-    'authentication',
-    'authorization',
-    'jwt',
-    'oauth',
-    'rest',
-    'graphql',
-    'trpc',
-    'express',
-    'fastify',
-    'hono',
-    'nest',
-    'validation',
-    'business logic',
-  ],
-  frontend: [
-    'ui',
-    'component',
-    'page',
-    'form',
-    'button',
-    'input',
-    'modal',
-    'dialog',
-    'react',
-    'vue',
-    'svelte',
-    'angular',
-    'next',
-    'nuxt',
-    'solid',
-    'css',
-    'style',
-    'tailwind',
-    'layout',
-    'responsive',
-    'animation',
-    'hook',
-    'state',
-    'context',
-    'redux',
-    'zustand',
-    'jotai',
-  ],
-  testing: [
-    'test',
-    'spec',
-    'unit',
-    'integration',
-    'e2e',
-    'jest',
-    'vitest',
-    'playwright',
-    'cypress',
-    'mocha',
-    'chai',
-    'mock',
-    'stub',
-    'fixture',
-    'coverage',
-    'assertion',
-  ],
-  devops: [
-    'docker',
-    'kubernetes',
-    'k8s',
-    'ci',
-    'cd',
-    'pipeline',
-    'deploy',
-    'github actions',
-    'vercel',
-    'aws',
-    'gcp',
-    'azure',
-    'terraform',
-    'nginx',
-    'caddy',
-    'env',
-    'environment',
-    'config',
-    'secret',
-  ],
-  uxui: [
-    'design',
-    'ux',
-    'user experience',
-    'accessibility',
-    'a11y',
-    'color',
-    'typography',
-    'spacing',
-    'prototype',
-    'wireframe',
-    'figma',
-    'user flow',
-    'interaction',
-  ],
-}
 
 /**
  * Domain dependency order - earlier domains should complete first
@@ -353,84 +215,66 @@ export class OrchestratorExecutor {
   }
 
   /**
-   * Detect which domains are relevant for this task
+   * Detect which domains are relevant for this task.
    *
-   * Uses keyword matching + project context to determine domains.
-   * More intelligent than simple string matching - considers:
-   * - Task description keywords
-   * - Project technology stack
-   * - Available agents
+   * Uses LLM-based classification with fallback chain (PRJ-299):
+   * cache → confirmed patterns → LLM → heuristic
    */
   async detectDomains(
     taskDescription: string,
     projectId: string,
     repoAnalysis: { ecosystem: string; technologies?: string[] } | null
   ): Promise<{ domains: string[]; primary: string }> {
-    const taskLower = taskDescription.toLowerCase()
-    const detectedDomains: Map<string, number> = new Map()
-
-    // Score each domain based on keyword matches
-    for (const [domain, keywords] of Object.entries(DOMAIN_KEYWORDS)) {
-      let score = 0
-      for (const keyword of keywords) {
-        if (taskLower.includes(keyword.toLowerCase())) {
-          // Weight multi-word matches higher
-          score += keyword.includes(' ') ? 3 : 1
-        }
-      }
-      if (score > 0) {
-        detectedDomains.set(domain, score)
-      }
-    }
-
-    // Boost scores for domains that match project technologies
-    if (repoAnalysis?.technologies) {
-      const techStr = repoAnalysis.technologies.join(' ').toLowerCase()
-
-      // If project has React/Vue/etc, boost frontend
-      if (/react|vue|svelte|angular|next|nuxt/.test(techStr)) {
-        const current = detectedDomains.get('frontend') || 0
-        if (current > 0) detectedDomains.set('frontend', current + 2)
-      }
-
-      // If project has Express/Fastify/etc, boost backend
-      if (/express|fastify|hono|nest|koa/.test(techStr)) {
-        const current = detectedDomains.get('backend') || 0
-        if (current > 0) detectedDomains.set('backend', current + 2)
-      }
-
-      // If project has Prisma/Drizzle/etc, boost database
-      if (/prisma|drizzle|mongoose|typeorm|sequelize/.test(techStr)) {
-        const current = detectedDomains.get('database') || 0
-        if (current > 0) detectedDomains.set('database', current + 2)
-      }
-    }
-
-    // Get available agents to filter domains
     const globalPath = pathManager.getGlobalProjectPath(projectId)
     const availableAgents = await this.getAvailableAgentNames(globalPath)
 
-    // Only include domains that have corresponding agents
-    const validDomains = Array.from(detectedDomains.entries())
-      .filter(([domain]) => {
-        // Check if agent exists for this domain
-        return availableAgents.some(
-          (agent) =>
-            agent === domain || agent.includes(domain) || domain.includes(agent.replace('.md', ''))
-        )
-      })
-      .sort((a, b) => b[1] - a[1]) // Sort by score descending
-      .map(([domain]) => domain)
+    // Load state.json for project domain info
+    let projectDomains = {
+      hasFrontend: false,
+      hasBackend: true,
+      hasDatabase: false,
+      hasTesting: false,
+      hasDocker: false,
+    }
+    try {
+      const statePath = path.join(globalPath, 'storage', 'state.json')
+      const stateContent = await fs.readFile(statePath, 'utf-8')
+      const state = JSON.parse(stateContent)
+      if (state.domains) {
+        projectDomains = state.domains
+      }
+    } catch {
+      // Use defaults
+    }
 
-    // If no domains detected, default to 'general'
+    const context: ProjectContext = {
+      domains: projectDomains,
+      agents: availableAgents,
+      stack: repoAnalysis ? { language: repoAnalysis.ecosystem } : undefined,
+    }
+
+    const { classification } = await domainClassifier.classify(
+      taskDescription,
+      projectId,
+      globalPath,
+      context
+    )
+
+    const domains = [classification.primaryDomain, ...classification.secondaryDomains]
+
+    // Filter to domains that have corresponding agents
+    const validDomains = domains.filter((domain) =>
+      availableAgents.some(
+        (agent) =>
+          agent === domain || agent.includes(domain) || domain.includes(agent.replace('.md', ''))
+      )
+    )
+
     if (validDomains.length === 0) {
       return { domains: ['general'], primary: 'general' }
     }
 
-    // Primary is the highest scoring domain
-    const primary = validDomains[0]
-
-    return { domains: validDomains, primary }
+    return { domains: validDomains, primary: validDomains[0] }
   }
 
   /**

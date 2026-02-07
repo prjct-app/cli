@@ -123,6 +123,7 @@ export {
 // ============ Context ============
 // Context building and prompt generation
 export { default as contextBuilder } from './context-builder'
+export { DomainClassifier, default as domainClassifier } from './domain-classifier'
 export {
   default as groundTruth,
   escapeRegex,
