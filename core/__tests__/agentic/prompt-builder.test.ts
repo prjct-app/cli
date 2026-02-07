@@ -107,7 +107,7 @@ describe('PromptBuilder', () => {
 
       const prompt = await builder.build(template, context, state)
 
-      expect(prompt).toContain('PATTERNS')
+      expect(prompt).toContain('STACK')
       expect(prompt).toContain('Node.js')
     })
 
@@ -187,7 +187,7 @@ describe('PromptBuilder', () => {
       expect(prompt).toContain('TASK:')
       expect(prompt).toContain('TOOLS:')
       expect(prompt).toContain('Flow')
-      expect(prompt).toContain('RULES (CRITICAL)')
+      expect(prompt).toContain('CONSTRAINTS (Read Before Acting)')
       expect(prompt).toContain('## FILES:')
     })
 

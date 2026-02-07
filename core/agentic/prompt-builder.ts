@@ -29,7 +29,9 @@ import type {
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import { fileExists } from '../utils/fs-helpers'
 import { PACKAGE_ROOT } from '../utils/version'
+import { buildAntiHallucinationBlock, type ProjectGroundTruth } from './anti-hallucination'
 import { loadCommandContextConfig, resolveCommandContextFull } from './command-context'
+import { buildEnvironmentBlock } from './environment-block'
 import {
   budgetsFromCoordinator,
   DEFAULT_BUDGETS,
@@ -38,6 +40,36 @@ import {
   truncateToTokenBudget,
 } from './injection-validator'
 import type { TokenBudgetCoordinator } from './token-budget'
+
+// =============================================================================
+// Section Priority (PRJ-301)
+// =============================================================================
+
+/**
+ * Prompt section priorities for budget trimming.
+ * When token budget is tight, optional sections are dropped first.
+ *
+ * @see PRJ-301
+ */
+export type SectionPriority = 'critical' | 'important' | 'optional'
+
+/**
+ * Canonical section ordering for prompt assembly.
+ * Based on research of 25+ system prompts from Claude Code, Gemini, ChatGPT.
+ *
+ * @see PRJ-301
+ */
+export const PROMPT_SECTION_ORDER = [
+  'identity', // Who the model is (agent + role)
+  'environment', // Where: project, git, platform, model
+  'ground_truth', // Sealed analysis: ecosystem, stack, patterns
+  'capabilities', // Tools, agents, skills, plan mode
+  'constraints', // Anti-hallucination rules (BEFORE task context)
+  'task_context', // Files, state, memories, learned patterns
+  'task', // Template content + subtasks (the actual instructions)
+  'output_schema', // Structured response format
+  'efficiency', // Token efficiency directive
+] as const
 
 // Re-export types for convenience
 export type {
@@ -423,7 +455,12 @@ class PromptBuilder {
   }
 
   /**
-   * Build a complete prompt for Claude from template, context, and enhancements
+   * Build a complete prompt for Claude from template, context, and enhancements.
+   *
+   * Section ordering follows research-backed pattern (PRJ-301):
+   * Identity → Environment → Ground Truth → Capabilities → Constraints →
+   * Task Context → Task → Output Schema → Efficiency
+   *
    * @deprecated Use buildWithInjection for auto-injected context
    */
   async build(
@@ -454,7 +491,11 @@ class PromptBuilder {
       commandContext = { agents: true, patterns: true, checklist: false, modules: [] }
     }
 
-    // Agent assignment (config-driven)
+    // =========================================================================
+    // SECTION 1: IDENTITY (critical)
+    // Tell the LLM what it is before anything else.
+    // =========================================================================
+
     const needsAgent = commandContext.agents
 
     if (agent && needsAgent) {
@@ -464,172 +505,55 @@ class PromptBuilder {
       parts.push(`\nApply specialized expertise. Read agent file for details if needed.\n\n`)
     }
 
-    // Core instruction (concise)
     parts.push(`TASK: ${template.frontmatter.description}\n`)
 
-    // Tools (inline)
     if (template.frontmatter['allowed-tools']) {
       parts.push(`TOOLS: ${template.frontmatter['allowed-tools'].join(', ')}\n`)
     }
 
-    // Critical parameters only
     const params = context as { params?: { task?: string; description?: string } }
     if (params.params?.task || params.params?.description) {
       parts.push(`INPUT: ${params.params.task || params.params.description}\n`)
     }
 
-    parts.push('\n---\n')
+    // =========================================================================
+    // SECTION 2: ENVIRONMENT (important)
+    // Structured env block: project, git, platform, model.
+    // =========================================================================
 
-    // Template content (include full template, frontmatter already stripped by loader)
-    // This ensures Claude sees ALL instructions including critical rules at the top
-    parts.push(template.content)
+    const projectPath = (context as { projectPath?: string }).projectPath
+    if (projectPath) {
+      const projectName = orchestratorContext?.project?.id
+        ? path.basename(projectPath)
+        : path.basename(projectPath)
+      const envBlock = buildEnvironmentBlock({
+        projectName,
+        projectPath,
+        isGitRepo: true,
+        gitBranch: orchestratorContext?.realContext?.gitBranch,
+      })
+      parts.push(`\n${envBlock}\n`)
+    }
 
-    // ORCHESTRATOR CONTEXT: Inject loaded agents, skills, and subtasks
+    // =========================================================================
+    // SECTION 3: GROUND TRUTH (important)
+    // Sealed analysis: ecosystem, domains, stack, code patterns.
+    // LLM knows the project reality before seeing task context.
+    // =========================================================================
+
     if (orchestratorContext) {
-      parts.push('\n## ORCHESTRATOR CONTEXT\n')
+      parts.push('\n## PROJECT ANALYSIS (Sealed)\n')
+      parts.push(`**Ecosystem**: ${orchestratorContext.project.ecosystem}\n`)
       parts.push(`**Primary Domain**: ${orchestratorContext.primaryDomain}\n`)
-      parts.push(`**Domains**: ${orchestratorContext.detectedDomains.join(', ')}\n`)
-      parts.push(`**Ecosystem**: ${orchestratorContext.project.ecosystem}\n\n`)
-
-      // Inject loaded agent content (truncated for context efficiency)
-      if (orchestratorContext.agents.length > 0) {
-        parts.push('### LOADED AGENTS (Project-Specific Specialists)\n\n')
-        for (const agent of orchestratorContext.agents) {
-          parts.push(`#### Agent: ${agent.name} (${agent.domain})\n`)
-          if (agent.effort) parts.push(`Effort: ${agent.effort}\n`)
-          if (agent.model) parts.push(`Model: ${agent.model}\n`)
-          if (agent.skills.length > 0) {
-            parts.push(`Skills: ${agent.skills.join(', ')}\n`)
-          }
-          // Truncate agent content to token budget
-          const truncatedContent = truncateToTokenBudget(
-            agent.content,
-            this.getEffectiveBudgets().agentContent
-          )
-          parts.push(`\`\`\`markdown\n${truncatedContent}\n\`\`\`\n\n`)
-        }
-      }
-
-      // Filter skills by detected domains, then inject (truncated)
-      const relevantSkills = filterSkillsByDomains(
-        orchestratorContext.skills,
-        orchestratorContext.detectedDomains
-      )
-      if (relevantSkills.length > 0) {
-        parts.push('### LOADED SKILLS (From Agent Frontmatter)\n\n')
-        for (const skill of relevantSkills) {
-          parts.push(`#### Skill: ${skill.name}\n`)
-          // Truncate skill content to token budget
-          const truncatedContent = truncateToTokenBudget(
-            skill.content,
-            this.getEffectiveBudgets().skillContent
-          )
-          parts.push(`\`\`\`markdown\n${truncatedContent}\n\`\`\`\n\n`)
-        }
-      }
-
-      // Inject real codebase context (proactively gathered)
-      if (orchestratorContext.realContext) {
-        const rc = orchestratorContext.realContext
-        parts.push('### CODEBASE CONTEXT (Real — gathered proactively)\n\n')
-
-        parts.push(`**Git State**: Branch \`${rc.gitBranch}\` | ${rc.gitStatus}\n\n`)
-
-        if (rc.relevantFiles.length > 0) {
-          parts.push('**Relevant Files** (scored by task relevance):\n')
-          parts.push('| Score | File | Why |\n')
-          parts.push('|-------|------|-----|\n')
-          for (const f of rc.relevantFiles.slice(0, 8)) {
-            parts.push(`| ${f.score} | ${f.path} | ${f.reason} |\n`)
-          }
-          parts.push('\n')
-        }
-
-        if (rc.signatures.length > 0) {
-          parts.push('**Code Signatures** (top files):\n')
-          for (const sig of rc.signatures) {
-            parts.push(`\`\`\`typescript\n// ${sig.path}\n${sig.content}\n\`\`\`\n`)
-          }
-          parts.push('\n')
-        }
-
-        if (rc.recentFiles.length > 0) {
-          parts.push('**Recently Changed**: ')
-          const recentSummary = rc.recentFiles
-            .slice(0, 5)
-            .map((f) => `${f.path} (${f.lastChanged})`)
-            .join(', ')
-          parts.push(`${recentSummary}\n\n`)
-        }
-      }
-
-      // Inject subtasks if fragmented
-      if (orchestratorContext.requiresFragmentation && orchestratorContext.subtasks) {
-        parts.push('### SUBTASKS (Execute in Order)\n\n')
-        parts.push(
-          '**IMPORTANT**: Focus on the CURRENT subtask. Use `p. done` when complete to advance.\n\n'
-        )
-        parts.push('| # | Domain | Description | Status |\n')
-        parts.push('|---|--------|-------------|--------|\n')
-
-        for (const subtask of orchestratorContext.subtasks) {
-          const statusIcon =
-            subtask.status === 'in_progress'
-              ? '▶️ **CURRENT**'
-              : subtask.status === 'completed'
-                ? '✅ Done'
-                : subtask.status === 'failed'
-                  ? '❌ Failed'
-                  : '⏳ Pending'
-          parts.push(
-            `| ${subtask.order} | ${subtask.domain} | ${subtask.description} | ${statusIcon} |\n`
-          )
-        }
-
-        // Find and highlight current subtask
-        const currentSubtask = orchestratorContext.subtasks.find((s) => s.status === 'in_progress')
-        if (currentSubtask) {
-          parts.push(
-            `\n**FOCUS ON SUBTASK #${currentSubtask.order}**: ${currentSubtask.description}\n`
-          )
-          parts.push(`Agent: ${currentSubtask.agent} | Domain: ${currentSubtask.domain}\n`)
-          if (currentSubtask.dependsOn.length > 0) {
-            parts.push(`Dependencies: ${currentSubtask.dependsOn.join(', ')}\n`)
-          }
-        }
-        parts.push('\n')
-      }
+      parts.push(`**Domains**: ${orchestratorContext.detectedDomains.join(', ')}\n\n`)
     }
 
-    // Current state (only if exists and relevant)
-    const relevantState = this.filterRelevantState(state)
-    if (relevantState) {
-      parts.push('\n## PRJCT STATE (Project Management Data)\n')
-      parts.push(relevantState)
-      parts.push('\n')
-    }
-
-    // COMPRESSED: File list
-    const files = context.files || []
-    if (files.length > 0) {
-      const top5 = files.slice(0, 5).join(', ')
-      parts.push(`\n## FILES: ${files.length} available. Top: ${top5}\n`)
-      parts.push('Read BEFORE modifying. Use Glob/Grep to find more.\n\n')
-    } else if ((context as { projectPath?: string }).projectPath) {
-      parts.push(
-        `\n## PROJECT: ${(context as { projectPath: string }).projectPath}\nRead files before modifying.\n\n`
-      )
-    }
-
-    // OPTIMIZED: Only include patterns for code-modifying commands (config-driven, PRJ-298)
     const needsPatterns = commandContext.patterns
-
-    // Include code patterns analysis for code-modifying commands
     const codePatternsContent = state?.codePatterns || ''
     if (needsPatterns && codePatternsContent && codePatternsContent.trim()) {
       const patternSummary = this.extractPatternSummary(codePatternsContent)
       if (patternSummary) {
-        parts.push('\n## CODE PATTERNS\n')
+        parts.push('## CODE PATTERNS\n')
         parts.push(patternSummary)
         parts.push('\nFull patterns: Read analysis/patterns.md\n')
       }
@@ -650,10 +574,49 @@ class PromptBuilder {
       }
     }
 
-    // CRITICAL: Compressed rules
-    parts.push(this.buildCriticalRules())
+    // =========================================================================
+    // SECTION 4: CAPABILITIES (important)
+    // Available agents, skills, modules, plan mode.
+    // =========================================================================
 
-    // PRJ-94/PRJ-298: Inject additional modules for SMART commands (config-driven)
+    if (orchestratorContext) {
+      // Loaded agents
+      if (orchestratorContext.agents.length > 0) {
+        parts.push('\n### LOADED AGENTS (Project-Specific Specialists)\n\n')
+        for (const orcAgent of orchestratorContext.agents) {
+          parts.push(`#### Agent: ${orcAgent.name} (${orcAgent.domain})\n`)
+          if (orcAgent.effort) parts.push(`Effort: ${orcAgent.effort}\n`)
+          if (orcAgent.model) parts.push(`Model: ${orcAgent.model}\n`)
+          if (orcAgent.skills.length > 0) {
+            parts.push(`Skills: ${orcAgent.skills.join(', ')}\n`)
+          }
+          const truncatedContent = truncateToTokenBudget(
+            orcAgent.content,
+            this.getEffectiveBudgets().agentContent
+          )
+          parts.push(`\`\`\`markdown\n${truncatedContent}\n\`\`\`\n\n`)
+        }
+      }
+
+      // Loaded skills (filtered by domain)
+      const relevantSkills = filterSkillsByDomains(
+        orchestratorContext.skills,
+        orchestratorContext.detectedDomains
+      )
+      if (relevantSkills.length > 0) {
+        parts.push('### LOADED SKILLS (From Agent Frontmatter)\n\n')
+        for (const skill of relevantSkills) {
+          parts.push(`#### Skill: ${skill.name}\n`)
+          const truncatedContent = truncateToTokenBudget(
+            skill.content,
+            this.getEffectiveBudgets().skillContent
+          )
+          parts.push(`\`\`\`markdown\n${truncatedContent}\n\`\`\`\n\n`)
+        }
+      }
+    }
+
+    // Additional modules for SMART commands (PRJ-94/PRJ-298)
     const additionalModules = this.getModulesForCommand(commandName, commandContext)
     if (additionalModules.length > 0) {
       for (const moduleName of additionalModules) {
@@ -665,7 +628,100 @@ class PromptBuilder {
       }
     }
 
-    // P1.1: Learned Patterns
+    // Plan mode / approval
+    if (planInfo?.isPlanning) {
+      parts.push(
+        `\n## PLAN MODE\nRead-only. Gather info → Analyze → Propose plan → Wait for approval.\n`
+      )
+      if (planInfo.allowedTools) parts.push(`Tools: ${planInfo.allowedTools.join(', ')}\n`)
+    }
+    if (planInfo?.requiresApproval) {
+      parts.push(
+        `\n## APPROVAL REQUIRED\nShow changes, list affected files, ask for confirmation.\n`
+      )
+    }
+
+    // =========================================================================
+    // SECTION 5: CONSTRAINTS (critical)
+    // Anti-hallucination rules BEFORE task context.
+    // LLM has constraints loaded before processing code/files.
+    // =========================================================================
+
+    if (projectPath) {
+      const groundTruth: ProjectGroundTruth = {
+        projectPath,
+        language: orchestratorContext?.project?.ecosystem,
+        techStack: orchestratorContext?.project?.conventions || [],
+        domains: this.extractDomains(state),
+        fileCount: context.files?.length || context.filteredSize || 0,
+        availableAgents: orchestratorContext?.agents?.map((a) => a.name) || [],
+      }
+      parts.push(`\n${buildAntiHallucinationBlock(groundTruth)}\n`)
+    } else {
+      // Fallback: compressed rules when no project context available
+      parts.push(this.buildCriticalRules())
+    }
+
+    // =========================================================================
+    // SECTION 6: TASK CONTEXT (important)
+    // Files, codebase context, state, memories, patterns — all the data
+    // the LLM needs to work with, presented after it knows the rules.
+    // =========================================================================
+
+    // Codebase context (proactively gathered)
+    if (orchestratorContext?.realContext) {
+      const rc = orchestratorContext.realContext
+      parts.push('\n### CODEBASE CONTEXT\n\n')
+
+      parts.push(`**Git State**: Branch \`${rc.gitBranch}\` | ${rc.gitStatus}\n\n`)
+
+      if (rc.relevantFiles.length > 0) {
+        parts.push('**Relevant Files** (scored by task relevance):\n')
+        parts.push('| Score | File | Why |\n')
+        parts.push('|-------|------|-----|\n')
+        for (const f of rc.relevantFiles.slice(0, 8)) {
+          parts.push(`| ${f.score} | ${f.path} | ${f.reason} |\n`)
+        }
+        parts.push('\n')
+      }
+
+      if (rc.signatures.length > 0) {
+        parts.push('**Code Signatures** (top files):\n')
+        for (const sig of rc.signatures) {
+          parts.push(`\`\`\`typescript\n// ${sig.path}\n${sig.content}\n\`\`\`\n`)
+        }
+        parts.push('\n')
+      }
+
+      if (rc.recentFiles.length > 0) {
+        parts.push('**Recently Changed**: ')
+        const recentSummary = rc.recentFiles
+          .slice(0, 5)
+          .map((f) => `${f.path} (${f.lastChanged})`)
+          .join(', ')
+        parts.push(`${recentSummary}\n\n`)
+      }
+    }
+
+    // File list
+    const files = context.files || []
+    if (files.length > 0) {
+      const top5 = files.slice(0, 5).join(', ')
+      parts.push(`\n## FILES: ${files.length} available. Top: ${top5}\n`)
+      parts.push('Read BEFORE modifying. Use Glob/Grep to find more.\n\n')
+    } else if (projectPath) {
+      parts.push(`\n## PROJECT: ${projectPath}\nRead files before modifying.\n\n`)
+    }
+
+    // Project state
+    const relevantState = this.filterRelevantState(state)
+    if (relevantState) {
+      parts.push('\n## PRJCT STATE (Project Management Data)\n')
+      parts.push(relevantState)
+      parts.push('\n')
+    }
+
+    // Learned patterns
     if (learnedPatterns && Object.keys(learnedPatterns).some((k) => learnedPatterns[k])) {
       parts.push('\n## PROJECT DEFAULTS (apply automatically)\n')
       for (const [key, value] of Object.entries(learnedPatterns)) {
@@ -675,7 +731,7 @@ class PromptBuilder {
       }
     }
 
-    // P3.1: Think Block
+    // Think block
     if (thinkBlock?.plan && thinkBlock.plan.length > 0) {
       parts.push('\n## THINK FIRST (reasoning from analysis)\n')
       if (thinkBlock.conclusions && thinkBlock.conclusions.length > 0) {
@@ -691,7 +747,7 @@ class PromptBuilder {
       parts.push(`Confidence: ${Math.round((thinkBlock.confidence || 0.5) * 100)}%\n`)
     }
 
-    // P3.3: Relevant Memories
+    // Relevant memories
     if (relevantMemories && relevantMemories.length > 0) {
       parts.push('\n## CONTEXT (apply these)\n')
       for (const memory of relevantMemories) {
@@ -702,20 +758,68 @@ class PromptBuilder {
       }
     }
 
-    // P3.4: Plan Mode
-    if (planInfo?.isPlanning) {
+    parts.push('\n---\n')
+
+    // =========================================================================
+    // SECTION 7: TASK (critical)
+    // Template content (actual instructions) + subtasks.
+    // LLM reads this AFTER knowing identity, env, rules, and context.
+    // =========================================================================
+
+    parts.push(template.content)
+
+    // Subtasks (if fragmented)
+    if (orchestratorContext?.requiresFragmentation && orchestratorContext.subtasks) {
+      parts.push('\n### SUBTASKS (Execute in Order)\n\n')
       parts.push(
-        `\n## PLAN MODE\nRead-only. Gather info → Analyze → Propose plan → Wait for approval.\n`
+        '**IMPORTANT**: Focus on the CURRENT subtask. Use `p. done` when complete to advance.\n\n'
       )
-      if (planInfo.allowedTools) parts.push(`Tools: ${planInfo.allowedTools.join(', ')}\n`)
-    }
-    if (planInfo?.requiresApproval) {
-      parts.push(
-        `\n## APPROVAL REQUIRED\nShow changes, list affected files, ask for confirmation.\n`
-      )
+      parts.push('| # | Domain | Description | Status |\n')
+      parts.push('|---|--------|-------------|--------|\n')
+
+      for (const subtask of orchestratorContext.subtasks) {
+        const statusIcon =
+          subtask.status === 'in_progress'
+            ? '▶️ **CURRENT**'
+            : subtask.status === 'completed'
+              ? '✅ Done'
+              : subtask.status === 'failed'
+                ? '❌ Failed'
+                : '⏳ Pending'
+        parts.push(
+          `| ${subtask.order} | ${subtask.domain} | ${subtask.description} | ${statusIcon} |\n`
+        )
+      }
+
+      const currentSubtask = orchestratorContext.subtasks.find((s) => s.status === 'in_progress')
+      if (currentSubtask) {
+        parts.push(
+          `\n**FOCUS ON SUBTASK #${currentSubtask.order}**: ${currentSubtask.description}\n`
+        )
+        parts.push(`Agent: ${currentSubtask.agent} | Domain: ${currentSubtask.domain}\n`)
+        if (currentSubtask.dependsOn.length > 0) {
+          parts.push(`Dependencies: ${currentSubtask.dependsOn.join(', ')}\n`)
+        }
+      }
+      parts.push('\n')
     }
 
-    // P4.1: Quality Checklists (config-driven, PRJ-298)
+    // =========================================================================
+    // SECTION 8: OUTPUT (important)
+    // Output schema and quality checklists.
+    // =========================================================================
+
+    // Output schema (PRJ-264)
+    const schemaType = this.getSchemaTypeForCommand(commandName)
+    if (schemaType) {
+      const { renderSchemaForPrompt } = await import('../schemas/llm-output')
+      const schemaBlock = renderSchemaForPrompt(schemaType)
+      if (schemaBlock) {
+        parts.push(`\n${schemaBlock}\n`)
+      }
+    }
+
+    // Quality checklists (PRJ-298)
     if (commandContext.checklist) {
       const routing = await this.loadChecklistRouting()
       const checklists = await this.loadChecklists()
@@ -731,18 +835,12 @@ class PromptBuilder {
       }
     }
 
-    // PRJ-264: Output schema injection for structured responses
-    const schemaType = this.getSchemaTypeForCommand(commandName)
-    if (schemaType) {
-      const { renderSchemaForPrompt } = await import('../schemas/llm-output')
-      const schemaBlock = renderSchemaForPrompt(schemaType)
-      if (schemaBlock) {
-        parts.push(`\n${schemaBlock}\n`)
-      }
-    }
+    // =========================================================================
+    // SECTION 9: EFFICIENCY (critical)
+    // Token efficiency directive — be concise, no preamble.
+    // =========================================================================
 
-    // Simple execution directive
-    parts.push('\nEXECUTE: Follow flow. Use tools. Decide.\n')
+    parts.push(this.buildEfficiencyDirective())
 
     return parts.join('')
   }
@@ -832,7 +930,9 @@ class PromptBuilder {
   }
 
   /**
-   * Build critical anti-hallucination rules section
+   * Build critical anti-hallucination rules section.
+   * Used as fallback when full anti-hallucination block can't be built
+   * (e.g., no project path available).
    */
   buildCriticalRules(): string {
     const fileCount = this._currentContext?.files?.length || this._currentContext?.filteredSize || 0
@@ -845,6 +945,44 @@ class PromptBuilder {
 5. **VERIFY**: After writing, confirm code matches project patterns.
 Context: ${fileCount} files available. Read what you need.
 `
+  }
+
+  /**
+   * Build token efficiency directive (PRJ-301).
+   * Instructs the LLM to be concise and avoid wasting tokens on preamble.
+   */
+  buildEfficiencyDirective(): string {
+    return `
+## OUTPUT RULES
+- Be concise. Maximum 4 lines of explanation unless asked for detail.
+- No preamble ("Here is...", "I'll help you...", "Based on...").
+- No postamble (summaries, next steps suggestions unless asked).
+- When executing code: show the code, not the explanation.
+- Prefer structured output (JSON) over free text when applicable.
+
+EXECUTE: Follow flow. Use tools. Decide.
+`
+  }
+
+  /**
+   * Extract domain flags from state data.
+   * Returns the domains object if available in the raw state.
+   */
+  private extractDomains(state: State): ProjectGroundTruth['domains'] | undefined {
+    if (!state) return undefined
+    // State may contain raw domains from state.json (loaded by context-builder)
+    const raw = state as Record<string, unknown>
+    if (raw.domains && typeof raw.domains === 'object') {
+      const d = raw.domains as Record<string, boolean>
+      return {
+        hasFrontend: d.hasFrontend ?? false,
+        hasBackend: d.hasBackend ?? false,
+        hasDatabase: d.hasDatabase ?? false,
+        hasTesting: d.hasTesting ?? false,
+        hasDocker: d.hasDocker ?? false,
+      }
+    }
+    return undefined
   }
 }
 
