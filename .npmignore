@@ -14,7 +14,10 @@ packages/*/tsconfig.tsbuildinfo
 # Test files
 test/
 tests/
+core/__tests__/
+*.test.ts
 *.test.js
+*.spec.ts
 *.spec.js
 
 # Build and development tools

@@ -3,7 +3,7 @@
  * Implements IssueTrackerProvider for Linear using @linear/sdk
  */
 
-import { LinearClient as LinearSDK } from '@linear/sdk'
+import type { LinearClient as LinearSDK } from '@linear/sdk'
 import { getErrorMessage } from '../../types/fs'
 import { getCredential } from '../../utils/keychain'
 import type {
@@ -78,7 +78,8 @@ export class LinearProvider implements IssueTrackerProvider {
       throw new Error('LINEAR_API_KEY not configured. Run `p. linear setup` to configure.')
     }
 
-    this.sdk = new LinearSDK({ apiKey })
+    const { LinearClient } = await import('@linear/sdk')
+    this.sdk = new LinearClient({ apiKey })
 
     // Verify connection silently (no output noise)
     try {
