@@ -27,6 +27,7 @@ import { AnalysisCommands } from './analysis'
 import { AnalyticsCommands } from './analytics'
 import { ContextCommands } from './context'
 import { MaintenanceCommands } from './maintenance'
+import { PerformanceCommands } from './performance'
 import { PlanningCommands } from './planning'
 import { SetupCommands } from './setup'
 import { ShippingCommands } from './shipping'
@@ -42,6 +43,7 @@ class PrjctCommands {
   private planning: PlanningCommands
   private shipping: ShippingCommands
   private analytics: AnalyticsCommands
+  private performanceCmds: PerformanceCommands
   private maintenance: MaintenanceCommands
   private analysis: AnalysisCommands
   private setupCmds: SetupCommands
@@ -58,6 +60,7 @@ class PrjctCommands {
     this.planning = new PlanningCommands()
     this.shipping = new ShippingCommands()
     this.analytics = new AnalyticsCommands()
+    this.performanceCmds = new PerformanceCommands()
     this.maintenance = new MaintenanceCommands()
     this.analysis = new AnalysisCommands()
     this.setupCmds = new SetupCommands()
@@ -138,6 +141,12 @@ class PrjctCommands {
 
   async help(topic: string = '', projectPath: string = process.cwd()): Promise<CommandResult> {
     return this.analytics.help(topic, projectPath)
+  }
+
+  // ========== Performance Commands ==========
+
+  async perf(period: string = '7', projectPath: string = process.cwd()): Promise<CommandResult> {
+    return this.performanceCmds.perf(period, projectPath)
   }
 
   // ========== Maintenance Commands ==========

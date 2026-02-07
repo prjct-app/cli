@@ -13,6 +13,7 @@ import { AnalyticsCommands } from './analytics'
 import { CATEGORIES, COMMANDS } from './command-data'
 import { ContextCommands } from './context'
 import { MaintenanceCommands } from './maintenance'
+import { PerformanceCommands } from './performance'
 import { PlanningCommands } from './planning'
 import { commandRegistry } from './registry'
 import { SetupCommands } from './setup'
@@ -25,6 +26,7 @@ const workflow = new WorkflowCommands()
 const planning = new PlanningCommands()
 const shipping = new ShippingCommands()
 const analytics = new AnalyticsCommands()
+const performance = new PerformanceCommands()
 const maintenance = new MaintenanceCommands()
 const analysis = new AnalysisCommands()
 const setup = new SetupCommands()
@@ -73,6 +75,9 @@ export function registerAllCommands(): void {
   commandRegistry.registerMethod('dash', analytics, 'dash', getMeta('dash'))
   commandRegistry.registerMethod('help', analytics, 'help', getMeta('help'))
 
+  // Performance commands
+  commandRegistry.registerMethod('perf', performance, 'perf', getMeta('perf'))
+
   // Maintenance commands
   commandRegistry.registerMethod('cleanup', maintenance, 'cleanup', getMeta('cleanup'))
   commandRegistry.registerMethod('design', maintenance, 'design', getMeta('design'))
@@ -105,6 +110,7 @@ export {
   planning,
   shipping,
   analytics,
+  performance,
   maintenance,
   analysis,
   setup,

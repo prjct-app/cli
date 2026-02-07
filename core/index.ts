@@ -13,6 +13,7 @@ import chalk from 'chalk'
 import type { CommandMeta } from './commands/registry'
 import { detectAllProviders, detectAntigravity } from './infrastructure/ai-provider'
 import configManager from './infrastructure/config-manager'
+import performanceTracker from './infrastructure/performance-tracker'
 import { sessionTracker } from './services/session-tracker'
 import { getErrorMessage, getErrorStack } from './types/fs'
 import { getError } from './utils/error-messages'
@@ -154,6 +155,7 @@ async function main(): Promise<void> {
             json: options.json === true,
           }),
         help: (p) => commands.help(p || ''),
+        perf: (p) => commands.perf(p || '7'),
         // Maintenance
         recover: () => commands.recover(),
         undo: () => commands.undo(),
@@ -181,13 +183,35 @@ async function main(): Promise<void> {
       }
     }
 
-    // 7. Track command in session
+    // 7. Track command in session + performance metrics
     if (projectId) {
       const durationMs = Date.now() - commandStartTime
       try {
         await sessionTracker.trackCommand(projectId, commandName, durationMs)
       } catch {
         // Non-critical
+      }
+
+      // Performance tracking (non-critical)
+      try {
+        // Record command duration
+        await performanceTracker.recordTiming(projectId, 'command_duration', durationMs, {
+          command: commandName,
+        })
+
+        // Record startup time (from bin/prjct.ts marker if available)
+        const perfStartNs = (globalThis as Record<string, unknown>).__perfStartNs as
+          | bigint
+          | undefined
+        if (perfStartNs) {
+          const startupMs = Number(process.hrtime.bigint() - perfStartNs) / 1_000_000
+          await performanceTracker.recordTiming(projectId, 'startup_time', startupMs)
+        }
+
+        // Record memory snapshot
+        await performanceTracker.recordMemory(projectId, { command: commandName })
+      } catch {
+        // Performance tracking is non-critical
       }
     }
 

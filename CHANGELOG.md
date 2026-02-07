@@ -26,6 +26,77 @@
 **How to use:** Estimation is stored via `storeEstimate(points)` during task start; variance is auto-displayed on `p. done`.
 **Breaking changes:** None — estimation fields are optional.
 
+## [1.7.7] - 2026-02-07
+
+### Bug Fixes
+- **Config-driven command context (PRJ-298)**: Replaced 4 hardcoded command lists in `prompt-builder.ts` with a single `command-context.config.json` config file. New commands no longer silently get zero context — the wildcard `*` entry provides sensible defaults, and a heuristic classifier handles unknown commands.
+- **Quality checklists for ship/done**: `ship` and `done` commands now receive quality checklists (previously excluded from the hardcoded list).
+
+### Implementation Details
+- Created `core/config/command-context.config.json` mapping 25 commands + wildcard to context sections (agents, patterns, checklists, modules)
+- Zod schema in `core/schemas/command-context.ts` validates config at load time
+- `core/agentic/command-context.ts` provides `resolveCommandContextFull()` with fallback chain: config → cache → heuristic classify → wildcard
+- `core/agentic/command-classifier.ts` uses word-boundary keyword matching with score-based priority to classify unknown commands from template metadata
+- Auto-learn (Phase 3): after 3 identical heuristic classifications, persists to config file via fire-and-forget
+
+### Learnings
+- Keyword substring matching causes false positives (e.g., "check" matching inside "checks") — word boundaries via `\b` regex are essential
+- When quality and info keywords overlap, score-based priority (higher count wins) is more robust than boolean exclusion
+
+### Test Plan
+
+#### For QA
+1. Run `bun test ./core/__tests__/agentic/command-context.test.ts` — all 20 tests pass
+2. Run `bun test ./core/__tests__/agentic/prompt-builder.test.ts` — all 16 existing tests pass
+3. Run `bun run build` — compiles without errors
+4. Verify `ship` and `done` commands have `checklist: true` in config
+5. Verify unknown commands get wildcard defaults (agents: true, patterns: true)
+
+#### For Users
+**What changed:** Commands like `ship` and `done` now receive quality checklists. New commands automatically get sensible context instead of nothing.
+**How to use:** No user action needed — works automatically.
+**Breaking changes:** None
+
+## [1.7.6] - 2026-02-07
+
+### Features
+- **PerformanceTracker service (PRJ-297)**: New `core/infrastructure/performance-tracker.ts` singleton that automatically measures startup time, memory usage, and command durations on every CLI invocation. Data stored in append-only JSONL with 5MB rotation.
+- **`prjct perf` dashboard command**: Shows performance metrics vs targets for the last N days (default 7). Displays startup time, heap/RSS memory, context correctness rate, subtask handoff rate, and per-command duration breakdown.
+- **Zod schemas for performance metrics**: `core/schemas/performance.ts` with typed schemas for all metric types (timing, memory, context correctness, subtask handoff, analysis state).
+
+### Implementation Details
+- PerformanceTracker uses `process.hrtime.bigint()` for nanosecond-precision timing and `process.memoryUsage()` for memory snapshots
+- Startup time captured at top of `bin/prjct.ts` via `globalThis.__perfStartNs` and recorded in `core/index.ts` after command execution
+- All instrumentation wrapped in non-critical try/catch to prevent perf tracking from breaking CLI functionality
+- Uses existing `jsonl-helper.appendJsonLineWithRotation` for storage (5MB rotation limit)
+- 17 unit tests covering timing, memory, recording, context correctness, handoff, and report generation
+
+### Learnings
+- JSONL append-only pattern with rotation is ideal for time-series metrics (vs JSON write-through for stateful data)
+- `globalThis` works well for passing data between `bin/` entry point and `core/` modules without import coupling
+- `process.memoryUsage().heapUsed` can momentarily exceed `heapTotal` during GC — don't assert `<=`
+
+### Test Plan
+
+#### For QA
+1. Run `prjct status` then `prjct perf` — verify metrics appear (startup time, memory, command duration)
+2. Run multiple commands then `prjct perf 1` — verify all commands show in dashboard
+3. Check `~/.prjct-cli/projects/{id}/storage/performance.jsonl` exists with valid JSONL entries
+4. Verify `prjct perf` with no data shows "No performance data yet" message
+5. Verify target indicators: startup `<500ms` green, `>500ms` yellow warning
+
+#### For Users
+**What changed:** New `prjct perf` command shows a performance dashboard with startup time, memory usage, and command duration metrics.
+**How to use:** Run `prjct perf` (default 7 days) or `prjct perf 30` for 30-day view. Metrics are collected automatically.
+**Breaking changes:** None
+
+
+## [1.7.5] - 2026-02-07
+
+### Refactoring
+
+- remove unused deps and lazy-load @linear/sdk (PRJ-291) (#144)
+
 ## [1.7.5] - 2026-02-07
 
 ### Changed

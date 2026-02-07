@@ -177,6 +177,23 @@ export const COMMANDS: CommandMeta[] = [
     ],
   },
   {
+    name: 'perf',
+    group: 'core',
+    description: 'Performance dashboard - startup, memory, context, and handoff metrics',
+    usage: { claude: '/p:perf', terminal: 'prjct perf [days]' },
+    params: '[days]',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: true,
+    features: [
+      'Startup time tracking',
+      'Memory usage snapshots',
+      'Context correctness rate',
+      'Subtask handoff rate',
+      'Command duration breakdown',
+    ],
+  },
+  {
     name: 'suggest',
     group: 'core',
     description: 'Smart recommendations based on project state',
