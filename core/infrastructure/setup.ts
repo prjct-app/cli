@@ -24,7 +24,7 @@ import path from 'node:path'
 import chalk from 'chalk'
 import { getTimeout } from '../constants'
 import { dependencyValidator } from '../services/dependency-validator'
-import { isNotFoundError } from '../types/fs'
+import { getErrorMessage, isNotFoundError } from '../types/fs'
 import type { AIProviderConfig, AIProviderName } from '../types/provider'
 import { fileExists } from '../utils/fs-helpers'
 import log from '../utils/logger'
@@ -271,7 +271,7 @@ async function installGeminiRouter(): Promise<boolean> {
     }
     return false
   } catch (error) {
-    log.warn(`Gemini router warning: ${(error as Error).message}`)
+    log.warn(`Gemini router warning: ${getErrorMessage(error)}`)
     return false
   }
 }
@@ -341,7 +341,7 @@ async function installGeminiGlobalConfig(): Promise<{ success: boolean; action: 
     await fs.writeFile(globalConfigPath, updatedContent, 'utf-8')
     return { success: true, action: 'updated' }
   } catch (error) {
-    log.warn(`Gemini config warning: ${(error as Error).message}`)
+    log.warn(`Gemini config warning: ${getErrorMessage(error)}`)
     return { success: false, action: null }
   }
 }
@@ -385,7 +385,7 @@ export async function installAntigravitySkill(): Promise<{
 
     return { success: true, action: skillExists ? 'updated' : 'created' }
   } catch (error) {
-    log.warn(`Antigravity skill warning: ${(error as Error).message}`)
+    log.warn(`Antigravity skill warning: ${getErrorMessage(error)}`)
     return { success: false, action: null }
   }
 }
@@ -466,7 +466,7 @@ export async function installCursorProject(projectRoot: string): Promise<{
     result.success = result.rulesCreated || result.commandsCreated
     return result
   } catch (error) {
-    log.warn(`Cursor installation warning: ${(error as Error).message}`)
+    log.warn(`Cursor installation warning: ${getErrorMessage(error)}`)
     return result
   }
 }
@@ -516,7 +516,7 @@ async function addCursorToGitignore(projectRoot: string): Promise<boolean> {
     await fs.writeFile(gitignorePath, newContent, 'utf-8')
     return true
   } catch (error) {
-    log.warn(`Gitignore update warning: ${(error as Error).message}`)
+    log.warn(`Gitignore update warning: ${getErrorMessage(error)}`)
     return false
   }
 }
@@ -616,7 +616,7 @@ export async function installWindsurfProject(projectRoot: string): Promise<{
     result.success = result.rulesCreated || result.workflowsCreated
     return result
   } catch (error) {
-    log.warn(`Windsurf installation warning: ${(error as Error).message}`)
+    log.warn(`Windsurf installation warning: ${getErrorMessage(error)}`)
     return result
   }
 }
@@ -666,7 +666,7 @@ async function addWindsurfToGitignore(projectRoot: string): Promise<boolean> {
     await fs.writeFile(gitignorePath, newContent, 'utf-8')
     return true
   } catch (error) {
-    log.warn(`Gitignore update warning: ${(error as Error).message}`)
+    log.warn(`Gitignore update warning: ${getErrorMessage(error)}`)
     return false
   }
 }
@@ -739,7 +739,7 @@ async function migrateProjectsCliVersion(): Promise<void> {
     // Silently fail if projects directory doesn't exist
     if (!isNotFoundError(error)) {
       // Log unexpected errors but don't crash - migration is optional
-      log.warn(`Migration warning: ${(error as Error).message}`)
+      log.warn(`Migration warning: ${getErrorMessage(error)}`)
     }
   }
 }
@@ -913,7 +913,7 @@ echo "prjct"
     // Silently fail if directories don't exist
     if (!isNotFoundError(error)) {
       // Log unexpected errors but don't crash - status line is optional
-      log.warn(`Status line warning: ${(error as Error).message}`)
+      log.warn(`Status line warning: ${getErrorMessage(error)}`)
     }
   }
 }
@@ -966,7 +966,7 @@ async function installContext7MCP(): Promise<void> {
     }
   } catch (error) {
     // Non-fatal error, just log
-    log.warn(`Context7 MCP setup warning: ${(error as Error).message}`)
+    log.warn(`Context7 MCP setup warning: ${getErrorMessage(error)}`)
   }
 }
 

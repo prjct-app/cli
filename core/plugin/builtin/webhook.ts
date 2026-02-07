@@ -20,6 +20,7 @@
 import crypto from 'node:crypto'
 import { EventTypes } from '../../bus'
 import type { WebhookConfig, WebhookPayload, WebhookPluginContext } from '../../types'
+import { getErrorMessage } from '../../types/fs'
 import { HookPoints } from '../hooks'
 
 const plugin = {
@@ -139,7 +140,7 @@ const plugin = {
         console.error(`[webhook] Request failed: ${response.status}`)
       }
     } catch (error) {
-      console.error(`[webhook] Error sending webhook:`, (error as Error).message)
+      console.error(`[webhook] Error sending webhook:`, getErrorMessage(error))
     }
   },
 }

@@ -13,7 +13,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { type EventCallback, eventBus } from '../bus'
 import pathManager from '../infrastructure/path-manager'
-import { isNotFoundError } from '../types/fs'
+import { getErrorMessage, isNotFoundError } from '../types/fs'
 import { hookSystem } from './hooks'
 
 type PluginSource = 'builtin' | 'global' | 'project'
@@ -162,7 +162,7 @@ class PluginLoader {
           await this.loadPlugin(fullPath, 'project', spec.config)
         }
       } catch (error) {
-        console.error(`Failed to load plugin: ${spec}`, (error as Error).message)
+        console.error(`Failed to load plugin: ${spec}`, getErrorMessage(error))
       }
     }
   }

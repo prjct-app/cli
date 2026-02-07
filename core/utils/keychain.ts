@@ -7,6 +7,7 @@
 
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
+import { getErrorMessage } from '../types/fs'
 
 const execAsync = promisify(exec)
 
@@ -34,7 +35,7 @@ export async function setCredential(key: CredentialKey, value: string): Promise<
 
     return true
   } catch (error) {
-    console.error('[keychain] Failed to store credential:', (error as Error).message)
+    console.error('[keychain] Failed to store credential:', getErrorMessage(error))
     return false
   }
 }

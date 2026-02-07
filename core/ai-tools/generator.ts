@@ -7,6 +7,7 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { getErrorMessage } from '../types/fs'
 import { mergePreservedSections, validatePreserveBlocks } from '../utils/preserve-sections'
 import { getFormatter, type ProjectContext } from './formatters'
 import { AI_TOOLS, type AIToolConfig, DEFAULT_AI_TOOLS, getAIToolConfig } from './registry'
@@ -118,7 +119,7 @@ async function generateForTool(
       outputFile: config.outputFile,
       outputPath: '',
       success: false,
-      error: (error as Error).message,
+      error: getErrorMessage(error),
     }
   }
 }

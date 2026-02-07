@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+
 /**
  * Linear CLI - Bridge between templates and SDK
  *
@@ -31,6 +32,7 @@
 
 import type { CreateIssueInput, Issue } from '../integrations/issue-tracker/types'
 import { linearService, linearSync } from '../integrations/linear'
+import { getErrorMessage } from '../types/fs'
 import { formatForHuman, setOutputTier } from '../utils/output'
 import {
   getCredentialSource,
@@ -451,10 +453,10 @@ async function main(): Promise<void> {
           }
         } catch (err) {
           if (jsonMode) {
-            output({ configured: true, source, connectionError: (err as Error).message })
+            output({ configured: true, source, connectionError: getErrorMessage(err) })
           } else {
             console.log(`Linear: Connection error`)
-            console.log(`Error: ${(err as Error).message}`)
+            console.log(`Error: ${getErrorMessage(err)}`)
           }
         }
         break
@@ -491,7 +493,7 @@ async function main(): Promise<void> {
         error(`Unknown command: ${command}. Use --help to see available commands.`)
     }
   } catch (err) {
-    error((err as Error).message)
+    error(getErrorMessage(err))
   }
 }
 

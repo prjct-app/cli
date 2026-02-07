@@ -31,7 +31,7 @@ import type {
   OrchestratorSubtask,
   RealCodebaseContext,
 } from '../types'
-import { isNotFoundError } from '../types/fs'
+import { getErrorMessage, isNotFoundError } from '../types/fs'
 import { parseFrontmatter } from './template-loader'
 
 const execAsync = promisify(execCallback)
@@ -347,7 +347,7 @@ export class OrchestratorExecutor {
       return JSON.parse(content)
     } catch (error) {
       if (isNotFoundError(error)) return null
-      console.warn('Failed to load repo-analysis.json:', (error as Error).message)
+      console.warn('Failed to load repo-analysis.json:', getErrorMessage(error))
       return null
     }
   }

@@ -14,6 +14,7 @@ import path from 'node:path'
 import readline from 'node:readline'
 import chalk from 'chalk'
 import { detectAllProviders, Providers } from '../infrastructure/ai-provider'
+import { getErrorMessage } from '../types/fs'
 import type { AIProviderName } from '../types/provider'
 import { fileExists } from '../utils/fs-helpers'
 import { VERSION } from '../utils/version'
@@ -217,7 +218,7 @@ async function installRouter(provider: AIProviderName): Promise<boolean> {
     return false
   } catch (error) {
     console.error(
-      `  ${chalk.yellow('⚠')} Failed to install ${provider} router: ${(error as Error).message}`
+      `  ${chalk.yellow('⚠')} Failed to install ${provider} router: ${getErrorMessage(error)}`
     )
     return false
   }
@@ -281,7 +282,7 @@ async function installGlobalConfig(provider: AIProviderName): Promise<boolean> {
     return false
   } catch (error) {
     console.error(
-      `  ${chalk.yellow('⚠')} Failed to install ${provider} config: ${(error as Error).message}`
+      `  ${chalk.yellow('⚠')} Failed to install ${provider} config: ${getErrorMessage(error)}`
     )
     return false
   }

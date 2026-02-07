@@ -16,7 +16,7 @@ import path from 'node:path'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import type { Agent, AssignmentContext } from '../types'
-import { isNotFoundError } from '../types/fs'
+import { getErrorMessage, isNotFoundError } from '../types/fs'
 
 // Re-export types for convenience
 export type { Agent, AssignmentContext } from '../types'
@@ -61,7 +61,7 @@ class AgentRouter {
     } catch (error) {
       // Agents directory doesn't exist yet - expected for new projects
       if (!isNotFoundError(error)) {
-        console.error(`Agent loading error: ${(error as Error).message}`)
+        console.error(`Agent loading error: ${getErrorMessage(error)}`)
       }
       return []
     }
@@ -88,7 +88,7 @@ class AgentRouter {
     } catch (error) {
       // Agent file doesn't exist - expected
       if (!isNotFoundError(error)) {
-        console.error(`Agent load error: ${(error as Error).message}`)
+        console.error(`Agent load error: ${getErrorMessage(error)}`)
       }
       return null
     }
@@ -141,7 +141,7 @@ class AgentRouter {
     } catch (error) {
       // Non-critical - log unexpected errors but don't fail
       if (!isNotFoundError(error)) {
-        console.error(`Agent usage log error: ${(error as Error).message}`)
+        console.error(`Agent usage log error: ${getErrorMessage(error)}`)
       }
     }
   }

@@ -1,11 +1,10 @@
 # Changelog
 
-## [1.6.3] - 2026-02-07
+## [1.6.6] - 2026-02-07
 
-### Bug Fixes
+### Improvements
 
-- replace console.error with logger in setup.ts (PRJ-74) (#126)
-
+- **Type-safe error handling**: Added `getErrorMessage()` and `getErrorStack()` type guards to `core/types/fs.ts`. Replaced ~130 unsafe `(error as Error).message` casts across 59 files with safe `getErrorMessage(error)` calls. Fixed internal `as` casts in existing type guards (`isNotFoundError`, `isPermissionError`, etc.) to use `isNodeError()` guard instead. Zero remaining `(error as Error)` patterns in the codebase.
 
 ## [1.6.5] - 2026-02-07
 

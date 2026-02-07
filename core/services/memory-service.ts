@@ -7,7 +7,7 @@
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import type { MemoryServiceEntry } from '../types'
-import { isNotFoundError } from '../types/fs'
+import { getErrorMessage, isNotFoundError } from '../types/fs'
 import { getTimestamp } from '../utils/date-helper'
 import jsonlHelper from '../utils/jsonl-helper'
 
@@ -38,7 +38,7 @@ export class MemoryService {
     } catch (error) {
       // Non-critical - don't fail the command, but log unexpected errors
       if (!isNotFoundError(error)) {
-        console.error(`Memory log error: ${(error as Error).message}`)
+        console.error(`Memory log error: ${getErrorMessage(error)}`)
       }
     }
   }
@@ -57,7 +57,7 @@ export class MemoryService {
     } catch (error) {
       // ENOENT or parse error - return empty (expected for new projects)
       if (!isNotFoundError(error) && !(error instanceof SyntaxError)) {
-        console.error(`Memory read error: ${(error as Error).message}`)
+        console.error(`Memory read error: ${getErrorMessage(error)}`)
       }
       return []
     }
@@ -108,7 +108,7 @@ export class MemoryService {
     } catch (error) {
       // Non-critical - but log unexpected errors
       if (!isNotFoundError(error)) {
-        console.error(`Memory clear error: ${(error as Error).message}`)
+        console.error(`Memory clear error: ${getErrorMessage(error)}`)
       }
     }
   }
@@ -128,7 +128,7 @@ export class MemoryService {
     } catch (error) {
       // ENOENT or parse error - return empty
       if (!isNotFoundError(error) && !(error instanceof SyntaxError)) {
-        console.error(`Memory read error: ${(error as Error).message}`)
+        console.error(`Memory read error: ${getErrorMessage(error)}`)
       }
       return []
     }

@@ -7,7 +7,7 @@ import path from 'node:path'
 import memorySystem from '../agentic/memory-system'
 import { shippedStorage, stateStorage } from '../storage'
 import type { CommandResult } from '../types'
-import { isNotFoundError } from '../types/fs'
+import { getErrorMessage, isNotFoundError } from '../types/fs'
 import { showNextSteps } from '../utils/next-steps'
 import { detectProjectCommands } from '../utils/project-commands'
 import { runWorkflowHooks } from '../workflow/workflow-preferences'
@@ -136,8 +136,8 @@ export class ShippingCommands extends PrjctCommandsBase {
 
       return { success: true, feature: featureName, version: newVersion }
     } catch (error) {
-      out.fail((error as Error).message)
-      return { success: false, error: (error as Error).message }
+      out.fail(getErrorMessage(error))
+      return { success: false, error: getErrorMessage(error) }
     }
   }
 

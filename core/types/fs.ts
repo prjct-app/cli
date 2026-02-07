@@ -1,5 +1,5 @@
 /**
- * File System Types - Centralized FS-related type definitions
+ * File System & Error Types - Centralized type definitions
  *
  * Eliminates duplicate NodeError definitions across:
  * - file-helper.ts
@@ -20,37 +20,53 @@ export interface NodeError extends Error {
 }
 
 /**
+ * Type guard for NodeError
+ */
+export function isNodeError(error: unknown): error is NodeError {
+  return error instanceof Error && 'code' in error
+}
+
+/**
  * Check if error is an ENOENT (file not found) error
  */
 export function isNotFoundError(error: unknown): boolean {
-  return (error as NodeError)?.code === 'ENOENT'
+  return isNodeError(error) && error.code === 'ENOENT'
 }
 
 /**
  * Check if error is a permission error
  */
 export function isPermissionError(error: unknown): boolean {
-  const code = (error as NodeError)?.code
-  return code === 'EACCES' || code === 'EPERM'
+  return isNodeError(error) && (error.code === 'EACCES' || error.code === 'EPERM')
 }
 
 /**
  * Check if error is a directory not empty error
  */
 export function isDirNotEmptyError(error: unknown): boolean {
-  return (error as NodeError)?.code === 'ENOTEMPTY'
+  return isNodeError(error) && error.code === 'ENOTEMPTY'
 }
 
 /**
  * Check if error is a file exists error
  */
 export function isFileExistsError(error: unknown): boolean {
-  return (error as NodeError)?.code === 'EEXIST'
+  return isNodeError(error) && error.code === 'EEXIST'
 }
 
 /**
- * Type guard for NodeError
+ * Safely extract error message from unknown catch value
  */
-export function isNodeError(error: unknown): error is NodeError {
-  return error instanceof Error && 'code' in error
+export function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message
+  if (typeof error === 'string') return error
+  return 'Unknown error'
+}
+
+/**
+ * Safely extract error stack from unknown catch value
+ */
+export function getErrorStack(error: unknown): string | undefined {
+  if (error instanceof Error) return error.stack
+  return undefined
 }

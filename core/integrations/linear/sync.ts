@@ -24,6 +24,7 @@ import {
   type SyncResult,
 } from '../../schemas/issues'
 import { getProjectPath } from '../../schemas/schemas'
+import { getErrorMessage } from '../../types/fs'
 import { fileExists } from '../../utils/fs-helpers'
 import type { Issue } from '../issue-tracker/types'
 import { linearService } from './service'
@@ -60,7 +61,7 @@ export class LinearSync {
         } catch (err) {
           errors.push({
             issueId: issue.externalId || issue.id,
-            error: (err as Error).message,
+            error: getErrorMessage(err),
           })
         }
       }
@@ -85,7 +86,7 @@ export class LinearSync {
     } catch (err) {
       errors.push({
         issueId: 'all',
-        error: (err as Error).message,
+        error: getErrorMessage(err),
       })
       return {
         provider: 'linear',

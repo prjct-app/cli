@@ -14,6 +14,7 @@ import { linearService } from '../integrations/linear'
 import { generateUUID } from '../schemas'
 import { queueStorage, stateStorage } from '../storage'
 import type { CommandResult } from '../types'
+import { getErrorMessage } from '../types/fs'
 import { showNextSteps, showStateInfo } from '../utils/next-steps'
 import { getLinearApiKey, getProjectCredentials } from '../utils/project-credentials'
 import {
@@ -145,8 +146,8 @@ export class WorkflowCommands extends PrjctCommandsBase {
         return { success: true, task: currentTask.description, currentTask }
       }
     } catch (error) {
-      out.fail((error as Error).message)
-      return { success: false, error: (error as Error).message }
+      out.fail(getErrorMessage(error))
+      return { success: false, error: getErrorMessage(error) }
     }
   }
 
@@ -231,8 +232,8 @@ export class WorkflowCommands extends PrjctCommandsBase {
 
       return { success: true, task, duration }
     } catch (error) {
-      out.fail((error as Error).message)
-      return { success: false, error: (error as Error).message }
+      out.fail(getErrorMessage(error))
+      return { success: false, error: getErrorMessage(error) }
     }
   }
 
@@ -263,8 +264,8 @@ export class WorkflowCommands extends PrjctCommandsBase {
 
       return { success: true, tasks, count: tasks.length }
     } catch (error) {
-      out.fail((error as Error).message)
-      return { success: false, error: (error as Error).message }
+      out.fail(getErrorMessage(error))
+      return { success: false, error: getErrorMessage(error) }
     }
   }
 
@@ -305,8 +306,8 @@ export class WorkflowCommands extends PrjctCommandsBase {
 
       return { success: true, task: currentTask.description, reason }
     } catch (error) {
-      out.fail((error as Error).message)
-      return { success: false, error: (error as Error).message }
+      out.fail(getErrorMessage(error))
+      return { success: false, error: getErrorMessage(error) }
     }
   }
 
@@ -353,8 +354,8 @@ export class WorkflowCommands extends PrjctCommandsBase {
 
       return { success: true, task: resumed.description }
     } catch (error) {
-      out.fail((error as Error).message)
-      return { success: false, error: (error as Error).message }
+      out.fail(getErrorMessage(error))
+      return { success: false, error: getErrorMessage(error) }
     }
   }
 
@@ -411,8 +412,8 @@ export class WorkflowCommands extends PrjctCommandsBase {
         },
       }
     } catch (error) {
-      out.fail((error as Error).message)
-      return { success: false, error: (error as Error).message }
+      out.fail(getErrorMessage(error))
+      return { success: false, error: getErrorMessage(error) }
     }
   }
 }

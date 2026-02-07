@@ -16,6 +16,7 @@ import chalk from 'chalk'
 import { getProviderPaths } from '../infrastructure/command-installer'
 import pathManager from '../infrastructure/path-manager'
 import type { CommandResult, UninstallOptions } from '../types'
+import { getErrorMessage } from '../types/fs'
 import { fileExists } from '../utils/fs-helpers'
 import { PrjctCommandsBase } from './base'
 
@@ -347,7 +348,7 @@ async function performUninstall(
         deleted.push(item.path)
       }
     } catch (error) {
-      errors.push(`${item.path}: ${(error as Error).message}`)
+      errors.push(`${item.path}: ${getErrorMessage(error)}`)
     }
   }
 
@@ -360,7 +361,7 @@ async function performUninstall(
         }
         deleted.push('Homebrew: prjct-cli')
       } catch (error) {
-        errors.push(`Homebrew: ${(error as Error).message}`)
+        errors.push(`Homebrew: ${getErrorMessage(error)}`)
       }
     }
 
@@ -371,7 +372,7 @@ async function performUninstall(
         }
         deleted.push('npm: prjct-cli')
       } catch (error) {
-        errors.push(`npm: ${(error as Error).message}`)
+        errors.push(`npm: ${getErrorMessage(error)}`)
       }
     }
   }

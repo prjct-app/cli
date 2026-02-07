@@ -25,7 +25,7 @@ import type {
   Template,
   ThinkBlock,
 } from '../types'
-import { isNotFoundError } from '../types/fs'
+import { getErrorMessage, isNotFoundError } from '../types/fs'
 import { fileExists } from '../utils/fs-helpers'
 import { getPackageRoot } from '../utils/version'
 
@@ -94,7 +94,7 @@ class PromptBuilder {
       }
     } catch (error) {
       if (!isNotFoundError(error)) {
-        console.error(`Template loading warning: ${(error as Error).message}`)
+        console.error(`Template loading warning: ${getErrorMessage(error)}`)
       }
     }
 
@@ -184,7 +184,7 @@ class PromptBuilder {
     } catch (error) {
       // Silent fail - checklists are optional enhancement
       if (!isNotFoundError(error)) {
-        console.error(`Checklist loading warning: ${(error as Error).message}`)
+        console.error(`Checklist loading warning: ${getErrorMessage(error)}`)
       }
     }
 
@@ -281,7 +281,7 @@ class PromptBuilder {
     } catch (error) {
       // Outcomes not available yet - expected for new projects
       if (!isNotFoundError(error) && !(error instanceof SyntaxError)) {
-        console.error(`Outcome detection warning: ${(error as Error).message}`)
+        console.error(`Outcome detection warning: ${getErrorMessage(error)}`)
       }
     }
 

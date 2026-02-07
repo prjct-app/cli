@@ -15,6 +15,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import chalk from 'chalk'
 import configManager from '../infrastructure/config-manager'
+import { getErrorMessage } from '../types/fs'
 import { fileExists } from '../utils/fs-helpers'
 import out from '../utils/output'
 
@@ -414,7 +415,7 @@ class HooksService {
         success: false,
         strategy,
         hooksInstalled: [],
-        error: (error as Error).message,
+        error: getErrorMessage(error),
       }
     }
   }
@@ -453,7 +454,7 @@ class HooksService {
 
       return { success }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      return { success: false, error: getErrorMessage(error) }
     }
   }
 

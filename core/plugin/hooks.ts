@@ -8,6 +8,7 @@
  */
 
 import { EventTypes, eventBus } from '../bus'
+import { getErrorMessage } from '../types/fs'
 
 /**
  * Hook Points - Where plugins can intercept
@@ -144,7 +145,7 @@ class HookSystem {
           result = { ...result, ...(modified as Record<string, unknown>) }
         }
       } catch (error) {
-        console.error(`Hook error [${hook.pluginName}] at ${hookPoint}:`, (error as Error).message)
+        console.error(`Hook error [${hook.pluginName}] at ${hookPoint}:`, getErrorMessage(error))
         // Continue with other hooks
       }
     }
@@ -164,10 +165,7 @@ class HookSystem {
         try {
           await hook.handler(data)
         } catch (error) {
-          console.error(
-            `Hook error [${hook.pluginName}] at ${hookPoint}:`,
-            (error as Error).message
-          )
+          console.error(`Hook error [${hook.pluginName}] at ${hookPoint}:`, getErrorMessage(error))
         }
       })
     )
@@ -199,7 +197,7 @@ class HookSystem {
       } catch (error) {
         console.error(
           `Transform hook error [${hook.pluginName}] at ${hookPoint}:`,
-          (error as Error).message
+          getErrorMessage(error)
         )
         // Keep previous value on error
       }

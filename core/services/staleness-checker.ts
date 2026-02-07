@@ -12,6 +12,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { promisify } from 'node:util'
 import pathManager from '../infrastructure/path-manager'
+import { getErrorMessage } from '../types/fs'
 import { type SessionInfo, sessionTracker } from './session-tracker'
 
 const execAsync = promisify(exec)
@@ -179,7 +180,7 @@ export class StalenessChecker {
 
       return status
     } catch (error) {
-      status.reason = `Error checking staleness: ${(error as Error).message}`
+      status.reason = `Error checking staleness: ${getErrorMessage(error)}`
       return status
     }
   }

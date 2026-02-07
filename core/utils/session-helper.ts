@@ -1,4 +1,5 @@
 import path from 'node:path'
+import { getErrorMessage } from '../types/fs'
 import * as dateHelper from './date-helper'
 import * as fileHelper from './file-helper'
 import * as jsonlHelper from './jsonl-helper'
@@ -218,7 +219,7 @@ export async function archiveOldSessions(
               await fileHelper.moveFile(sourcePath, destPath)
               archived.push(filename)
             } catch (error) {
-              errors.push({ filename, error: (error as Error).message })
+              errors.push({ filename, error: getErrorMessage(error) })
             }
           }
         }

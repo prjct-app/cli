@@ -16,6 +16,7 @@
  */
 
 import { metricsStorage } from '../storage/metrics-storage'
+import { getErrorMessage } from '../types/fs'
 import { getTimestamp } from '../utils/date-helper'
 import { findRelevantFiles } from './files-tool'
 import { analyzeImports } from './imports-tool'
@@ -115,7 +116,7 @@ export async function runContextTool(
     return {
       tool: 'error',
       result: {
-        error: (error as Error).message,
+        error: getErrorMessage(error),
         code: 'EXECUTION_ERROR',
       },
     }

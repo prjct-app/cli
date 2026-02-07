@@ -10,6 +10,7 @@ import { generateUUID } from '../schemas'
 import type { Priority, TaskSection, TaskType } from '../schemas/state'
 import { ideasStorage, queueStorage } from '../storage'
 import type { CommandResult, ProjectContext } from '../types'
+import { getErrorMessage } from '../types/fs'
 import { showNextSteps } from '../utils/next-steps'
 import { OnboardingWizard } from '../wizard'
 import {
@@ -194,8 +195,8 @@ export class PlanningCommands extends PrjctCommandsBase {
       this._printNextSteps(wizardResult)
       return { success: true, projectId, wizard: wizardResult }
     } catch (error) {
-      out.fail((error as Error).message)
-      return { success: false, error: (error as Error).message }
+      out.fail(getErrorMessage(error))
+      return { success: false, error: getErrorMessage(error) }
     }
   }
 
@@ -306,8 +307,8 @@ export class PlanningCommands extends PrjctCommandsBase {
 
       return { success: true, feature: description, featureId, tasks: tasksWithAgents }
     } catch (error) {
-      out.fail((error as Error).message)
-      return { success: false, error: (error as Error).message }
+      out.fail(getErrorMessage(error))
+      return { success: false, error: getErrorMessage(error) }
     }
   }
 
@@ -373,8 +374,8 @@ export class PlanningCommands extends PrjctCommandsBase {
 
       return { success: true, bug: description, severity, agent }
     } catch (error) {
-      out.fail((error as Error).message)
-      return { success: false, error: (error as Error).message }
+      out.fail(getErrorMessage(error))
+      return { success: false, error: getErrorMessage(error) }
     }
   }
 
@@ -466,8 +467,8 @@ export class PlanningCommands extends PrjctCommandsBase {
         idea,
       }
     } catch (error) {
-      console.error('❌ Error:', (error as Error).message)
-      return { success: false, error: (error as Error).message }
+      console.error('❌ Error:', getErrorMessage(error))
+      return { success: false, error: getErrorMessage(error) }
     }
   }
 
@@ -545,8 +546,8 @@ Generated: ${new Date().toLocaleString()}
         return { success: true, mode: 'capture', idea: description }
       }
     } catch (error) {
-      out.fail((error as Error).message)
-      return { success: false, error: (error as Error).message }
+      out.fail(getErrorMessage(error))
+      return { success: false, error: getErrorMessage(error) }
     }
   }
 
@@ -656,8 +657,8 @@ Status: Draft
 
       return { success: true, feature: featureName, specPath: specFile }
     } catch (error) {
-      out.fail((error as Error).message)
-      return { success: false, error: (error as Error).message }
+      out.fail(getErrorMessage(error))
+      return { success: false, error: getErrorMessage(error) }
     }
   }
 }

@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { getErrorMessage } from '../types/fs'
 
 /**
  * Version Manager - Single source of truth for application version
@@ -67,7 +68,7 @@ export function getVersion(): string {
     cachedPackageJson = packageJson
     return cachedVersion
   } catch (error) {
-    console.error('Failed to read version from package.json:', (error as Error).message)
+    console.error('Failed to read version from package.json:', getErrorMessage(error))
     return '0.0.0'
   }
 }

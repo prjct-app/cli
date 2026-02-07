@@ -8,6 +8,7 @@
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import type { CommandResult } from '../types'
+import { getErrorMessage } from '../types/fs'
 import { getTimestamp } from '../utils/date-helper'
 
 // Re-export types for convenience
@@ -367,7 +368,7 @@ export class CommandRegistry {
       } catch (error) {
         return {
           success: false,
-          error: (error as Error).message,
+          error: getErrorMessage(error),
         }
       }
     }
