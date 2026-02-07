@@ -1,12 +1,29 @@
 # Changelog
 
-## [1.6.13] - 2026-02-07
+## [1.6.16] - 2026-02-07
 
-### Refactoring
+### Improvement
+- **Use relative timestamps to reduce token waste (PRJ-274)**: Added `toRelative()` function using `date-fns` `formatDistanceToNowStrict`. Replaced raw ISO-8601 timestamps in Markdown context files (`now.md`, `ideas.md`, `shipped.md`) with human-readable relative time ("5 minutes ago", "3 days ago"). JSON storage retains full ISO timestamps — no data loss.
 
-- remove unused templates and dead code (PRJ-293) (#138)
-- remove unused templates and dead code (PRJ-293)
+### Implementation Details
+Added `date-fns` as a dependency and created a thin `toRelative(date)` wrapper around `formatDistanceToNowStrict` in `core/utils/date-helper.ts`. Updated `toMarkdown()` in `state-storage.ts` (Started/Paused fields), `ideas-storage.ts` (all 3 sections: pending, converted, archived), and `shipped-storage.ts` (ship date per entry). 6 new unit tests added covering minutes, hours, days, months, Date objects, and ISO string inputs.
 
+### Learnings
+- `date-fns` `formatDistanceToNowStrict` gives exact units ("5 minutes ago" not "about 5 minutes ago") — better for token efficiency
+- Tests need `setSystemTime()` from `bun:test` since `formatDistanceToNowStrict` uses system clock internally
+
+### Test Plan
+
+#### For QA
+1. Run `bun test core/__tests__/utils/date-helper.test.ts` — verify all 55 tests pass (6 new for `toRelative`)
+2. Run `bun run build` — verify build succeeds
+3. Run `prjct sync` — verify `context/now.md` shows relative timestamps instead of raw ISO
+4. Check `ideas.md` and `shipped.md` for relative date format
+
+#### For Users
+**What changed:** Timestamps in context files now show "5 minutes ago", "3 days ago" instead of raw ISO-8601 strings.
+**How to use:** No action needed — automatic.
+**Breaking changes:** None.
 
 ## [1.6.15] - 2026-02-07
 

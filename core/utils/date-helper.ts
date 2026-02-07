@@ -7,6 +7,7 @@
  * - commands.ts (38+ inline date operations)
  */
 
+import { formatDistanceToNowStrict } from 'date-fns'
 import type { DateComponents } from '../types'
 
 /**
@@ -163,4 +164,13 @@ export function getEndOfDay(date: Date): Date {
   const result = new Date(date)
   result.setHours(23, 59, 59, 999)
   return result
+}
+
+/**
+ * Convert a date/timestamp to a relative string (e.g. "5 minutes ago").
+ * Uses date-fns formatDistanceToNowStrict for accurate, token-friendly output.
+ */
+export function toRelative(date: string | Date): string {
+  const d = typeof date === 'string' ? new Date(date) : date
+  return formatDistanceToNowStrict(d, { addSuffix: true })
 }
