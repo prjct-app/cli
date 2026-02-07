@@ -698,6 +698,16 @@ class PromptBuilder {
       }
     }
 
+    // PRJ-264: Output schema injection for structured responses
+    const schemaType = this.getSchemaTypeForCommand(commandName)
+    if (schemaType) {
+      const { renderSchemaForPrompt } = await import('../schemas/llm-output')
+      const schemaBlock = renderSchemaForPrompt(schemaType)
+      if (schemaBlock) {
+        parts.push(`\n${schemaBlock}\n`)
+      }
+    }
+
     // Simple execution directive
     parts.push('\nEXECUTE: Follow flow. Use tools. Decide.\n')
 
@@ -773,6 +783,18 @@ class PromptBuilder {
     const joined = parts.join('\n')
     const result = truncateToTokenBudget(joined, 200) // ~800 chars
     return result || null
+  }
+
+  /**
+   * Map command names to their expected output schema type.
+   * Returns null for commands that don't need structured output.
+   */
+  private getSchemaTypeForCommand(commandName: string): string | null {
+    const schemaMap: Record<string, string> = {
+      task: 'subtaskBreakdown',
+      bug: 'classification',
+    }
+    return schemaMap[commandName] ?? null
   }
 
   /**
