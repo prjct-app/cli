@@ -8,6 +8,10 @@
  * auto-install on first CLI use. This is the reliable path.
  */
 
+// Performance: capture process start time (nanosecond precision)
+// Exposed via globalThis so core/index.ts can read it for startup time metrics
+;(globalThis as Record<string, unknown>).__perfStartNs = process.hrtime.bigint()
+
 import os from 'node:os'
 import path from 'node:path'
 import chalk from 'chalk'
@@ -85,6 +89,16 @@ async function trackSession(command: string): Promise<() => void> {
       return () => {
         const durationMs = Date.now() - start
         sessionTracker.trackCommand(projectId, command, durationMs).catch(() => {})
+
+        // Performance tracking (non-critical, lazy-loaded)
+        import('../core/infrastructure/performance-tracker')
+          .then(({ performanceTracker }) => {
+            performanceTracker
+              .recordTiming(projectId, 'command_duration', durationMs, { command })
+              .catch(() => {})
+            performanceTracker.recordMemory(projectId, { command }).catch(() => {})
+          })
+          .catch(() => {})
       }
     }
   } catch {
