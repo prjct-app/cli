@@ -25,6 +25,12 @@ Audited all 135 templates by cross-referencing with code that loads them. Carefu
 **How to use:** No action needed — this is an internal cleanup.
 **Breaking changes:** None.
 
+## [1.6.12] - 2026-02-07
+
+### Bug Fixes
+
+- replace sync I/O in imports-tool hot path (PRJ-290) (#137)
+
 ## [1.6.14] - 2026-02-07
 
 ### Bug Fixes
