@@ -26,6 +26,12 @@ The `imports-tool.ts` file had an inline `require('node:fs')` call inside `tryRe
 **How to use:** No changes needed — `prjct context imports` works the same way.
 **Breaking changes:** None.
 
+## [1.6.11] - 2026-02-07
+
+### Performance
+
+- cache provider detection to eliminate redundant shell spawns (PRJ-289) (#136)
+
 ## [1.6.13] - 2026-02-07
 
 ### Improvements
