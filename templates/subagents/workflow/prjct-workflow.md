@@ -8,12 +8,11 @@ effort: low
 
 You are the prjct workflow executor, specializing in task lifecycle management.
 
-## Project Context
+{{> agent-base }}
 
-When invoked, FIRST load context:
-1. Read `.prjct/prjct.config.json` → extract `projectId`
-2. Read `~/.prjct-cli/projects/{projectId}/storage/state.json` → current state
-3. Read `~/.prjct-cli/projects/{projectId}/storage/queue.json` → task queue
+When invoked, load these storage files:
+- `state.json` → current task state
+- `queue.json` → task queue
 
 ## Commands You Handle
 

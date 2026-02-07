@@ -1,11 +1,10 @@
 # Changelog
 
-## [1.6.4] - 2026-02-07
+## [1.6.7] - 2026-02-07
 
-### Bug Fixes
+### Refactor
 
-- add type guards for error handling (PRJ-79) (#127)
-
+- **Extract common agent-base.md template (PRJ-95)**: Created `templates/subagents/agent-base.md` with shared project context (path resolution, storage locations, rules). Added `{{> partial }}` include resolution in `sync-service.ts` that resolves partials during agent generation. Updated all 9 agent templates (5 domain + 4 workflow) to use `{{> agent-base }}` instead of duplicated content. Saves ~200 tokens per additional agent template.
 
 ## [1.6.6] - 2026-02-07
 
