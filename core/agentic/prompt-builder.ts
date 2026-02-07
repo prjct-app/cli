@@ -12,6 +12,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { outcomeAnalyzer } from '../outcomes'
+import type { CommandContextEntry } from '../schemas/command-context'
 import { queueStorage, stateStorage } from '../storage'
 import type {
   LearnedPatterns,
@@ -28,6 +29,7 @@ import type {
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import { fileExists } from '../utils/fs-helpers'
 import { PACKAGE_ROOT } from '../utils/version'
+import { loadCommandContextConfig, resolveCommandContextFull } from './command-context'
 import {
   DEFAULT_BUDGETS,
   filterSkillsByDomains,
@@ -144,18 +146,14 @@ class PromptBuilder {
 
   /**
    * Get additional modules needed for SMART commands (PRJ-94)
-   * Returns array of module names that should be injected
+   * Now config-driven via command-context.config.json (PRJ-298)
    */
-  getModulesForCommand(commandName: string): string[] {
-    const smartCommands: Record<string, string[]> = {
-      task: ['CLAUDE-intelligence.md', 'CLAUDE-storage.md'],
-      ship: ['CLAUDE-intelligence.md', 'CLAUDE-storage.md'],
-      bug: ['CLAUDE-intelligence.md'],
-      done: ['CLAUDE-storage.md'],
-      work: ['CLAUDE-intelligence.md', 'CLAUDE-storage.md'],
-      spec: ['CLAUDE-intelligence.md'],
+  getModulesForCommand(_commandName: string, commandContext?: CommandContextEntry): string[] {
+    if (commandContext) {
+      return commandContext.modules
     }
-    return smartCommands[commandName] || []
+    // Fallback if called without config (shouldn't happen after PRJ-298)
+    return []
   }
 
   /**
@@ -411,21 +409,20 @@ class PromptBuilder {
     // Store context for use in helper methods
     this._currentContext = context
 
-    // Agent assignment (CONDITIONAL - only for code-modifying commands)
+    // PRJ-298: Config-driven command context (replaces 4 hardcoded lists)
     const commandName = template.frontmatter?.name?.replace('p:', '') || ''
-    const agentCommands = [
-      'now',
-      'build',
-      'feature',
-      'design',
-      'fix',
-      'bug',
-      'test',
-      'work',
-      'cleanup',
-      'spec',
-    ]
-    const needsAgent = agentCommands.includes(commandName)
+    let commandContext: CommandContextEntry
+    try {
+      const config = await loadCommandContextConfig()
+      const resolved = resolveCommandContextFull(config, commandName, template)
+      commandContext = resolved.entry
+    } catch {
+      // Fallback: sensible defaults if config fails to load
+      commandContext = { agents: true, patterns: true, checklist: false, modules: [] }
+    }
+
+    // Agent assignment (config-driven)
+    const needsAgent = commandContext.agents
 
     if (agent && needsAgent) {
       parts.push(`# AGENT: ${agent.name}\n`)
@@ -591,21 +588,8 @@ class PromptBuilder {
       )
     }
 
-    // OPTIMIZED: Only include patterns for code-modifying commands
-    const codeCommands = [
-      'now',
-      'build',
-      'feature',
-      'design',
-      'cleanup',
-      'fix',
-      'bug',
-      'test',
-      'init',
-      'spec',
-      'work',
-    ]
-    const needsPatterns = codeCommands.includes(commandName)
+    // OPTIMIZED: Only include patterns for code-modifying commands (config-driven, PRJ-298)
+    const needsPatterns = commandContext.patterns
 
     // Include code patterns analysis for code-modifying commands
     const codePatternsContent = state?.codePatterns || ''
@@ -636,8 +620,8 @@ class PromptBuilder {
     // CRITICAL: Compressed rules
     parts.push(this.buildCriticalRules())
 
-    // PRJ-94: Inject additional modules for SMART commands
-    const additionalModules = this.getModulesForCommand(commandName)
+    // PRJ-94/PRJ-298: Inject additional modules for SMART commands (config-driven)
+    const additionalModules = this.getModulesForCommand(commandName, commandContext)
     if (additionalModules.length > 0) {
       for (const moduleName of additionalModules) {
         const moduleContent = await this.loadModule(moduleName)
@@ -698,19 +682,8 @@ class PromptBuilder {
       )
     }
 
-    // P4.1: Quality Checklists
-    const checklistCommands = [
-      'now',
-      'build',
-      'feature',
-      'design',
-      'fix',
-      'bug',
-      'cleanup',
-      'spec',
-      'work',
-    ]
-    if (checklistCommands.includes(commandName)) {
+    // P4.1: Quality Checklists (config-driven, PRJ-298)
+    if (commandContext.checklist) {
       const routing = await this.loadChecklistRouting()
       const checklists = await this.loadChecklists()
 
