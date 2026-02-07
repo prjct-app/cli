@@ -28,6 +28,12 @@ import type {
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import { fileExists } from '../utils/fs-helpers'
 import { PACKAGE_ROOT } from '../utils/version'
+import {
+  DEFAULT_BUDGETS,
+  filterSkillsByDomains,
+  InjectionBudgetTracker,
+  truncateToTokenBudget,
+} from './injection-validator'
 
 // Re-export types for convenience
 export type {
@@ -288,7 +294,8 @@ class PromptBuilder {
     parts.push('---')
     parts.push('')
 
-    return parts.join('\n')
+    const result = parts.join('\n')
+    return truncateToTokenBudget(result, DEFAULT_BUDGETS.autoContext)
   }
 
   /**
@@ -464,25 +471,29 @@ class PromptBuilder {
           if (agent.skills.length > 0) {
             parts.push(`Skills: ${agent.skills.join(', ')}\n`)
           }
-          // Include first 1500 chars of agent content
-          const truncatedContent =
-            agent.content.length > 1500
-              ? `${agent.content.substring(0, 1500)}\n... (truncated, read full file for more)`
-              : agent.content
+          // Truncate agent content to token budget
+          const truncatedContent = truncateToTokenBudget(
+            agent.content,
+            DEFAULT_BUDGETS.agentContent
+          )
           parts.push(`\`\`\`markdown\n${truncatedContent}\n\`\`\`\n\n`)
         }
       }
 
-      // Inject loaded skill content (truncated)
-      if (orchestratorContext.skills.length > 0) {
+      // Filter skills by detected domains, then inject (truncated)
+      const relevantSkills = filterSkillsByDomains(
+        orchestratorContext.skills,
+        orchestratorContext.detectedDomains
+      )
+      if (relevantSkills.length > 0) {
         parts.push('### LOADED SKILLS (From Agent Frontmatter)\n\n')
-        for (const skill of orchestratorContext.skills) {
+        for (const skill of relevantSkills) {
           parts.push(`#### Skill: ${skill.name}\n`)
-          // Include first 2000 chars of skill content
-          const truncatedContent =
-            skill.content.length > 2000
-              ? `${skill.content.substring(0, 2000)}\n... (truncated)`
-              : skill.content
+          // Truncate skill content to token budget
+          const truncatedContent = truncateToTokenBudget(
+            skill.content,
+            DEFAULT_BUDGETS.skillContent
+          )
           parts.push(`\`\`\`markdown\n${truncatedContent}\n\`\`\`\n\n`)
         }
       }
@@ -721,28 +732,21 @@ class PromptBuilder {
   }
 
   /**
-   * Filter state data to include only relevant portions for the prompt
+   * Filter state data to include only relevant portions for the prompt.
+   * Uses InjectionBudgetTracker to enforce cumulative token limits.
    */
   filterRelevantState(state: State): string | null {
     if (!state || Object.keys(state).length === 0) return null
 
+    const tracker = new InjectionBudgetTracker({ totalPrompt: DEFAULT_BUDGETS.stateData })
+    const criticalFiles = ['now', 'next', 'context', 'analysis', 'codePatterns']
     const relevant: string[] = []
+
     for (const [key, content] of Object.entries(state)) {
       if (content && (content as string).trim()) {
-        const criticalFiles = ['now', 'next', 'context', 'analysis', 'codePatterns']
-        if (criticalFiles.includes(key)) {
-          const display =
-            (content as string).length > 2000
-              ? `${(content as string).substring(0, 2000)}\n... (truncated)`
-              : content
-          relevant.push(`### ${key}\n${display}`)
-        } else if ((content as string).length < 1000) {
-          relevant.push(`### ${key}\n${content}`)
-        } else {
-          relevant.push(
-            `### ${key}\n${(content as string).substring(0, 500)}... (truncated, use Read tool for full content)`
-          )
-        }
+        const sectionBudget = criticalFiles.includes(key) ? 500 : 250
+        const section = tracker.addSection(`### ${key}\n${content}`, sectionBudget)
+        if (section) relevant.push(section)
       }
     }
 
@@ -793,7 +797,8 @@ class PromptBuilder {
       parts.push(`\nAvoid:\n${antiPatterns}`)
     }
 
-    const result = parts.join('\n').substring(0, 800)
+    const joined = parts.join('\n')
+    const result = truncateToTokenBudget(joined, 200) // ~800 chars
     return result || null
   }
 
