@@ -666,6 +666,39 @@ class SyncService {
     return agents
   }
 
+  /**
+   * Resolve {{> partial-name }} includes in template content.
+   * Loads partials from templates/subagents/.
+   */
+  private async resolveTemplateIncludes(content: string): Promise<string> {
+    const includePattern = /\{\{>\s*([\w-]+)\s*\}\}/g
+    const matches = [...content.matchAll(includePattern)]
+
+    if (matches.length === 0) return content
+
+    let resolved = content
+    for (const match of matches) {
+      const partialName = match[1]
+      const partialPath = path.join(
+        __dirname,
+        '..',
+        '..',
+        'templates',
+        'subagents',
+        `${partialName}.md`
+      )
+      try {
+        const partialContent = await fs.readFile(partialPath, 'utf-8')
+        resolved = resolved.replace(match[0], partialContent.trim())
+      } catch {
+        // Partial not found — leave marker for debugging
+        resolved = resolved.replace(match[0], `<!-- partial "${partialName}" not found -->`)
+      }
+    }
+
+    return resolved
+  }
+
   private async generateWorkflowAgent(name: string, agentsPath: string): Promise<void> {
     // Try to read template
     let content = ''
@@ -680,6 +713,7 @@ class SyncService {
         `${name}.md`
       )
       content = await fs.readFile(templatePath, 'utf-8')
+      content = await this.resolveTemplateIncludes(content)
     } catch {
       // Generate minimal agent
       content = this.generateMinimalWorkflowAgent(name)
@@ -707,6 +741,9 @@ class SyncService {
         `${name}.md`
       )
       content = await fs.readFile(templatePath, 'utf-8')
+
+      // Resolve includes before variable replacement
+      content = await this.resolveTemplateIncludes(content)
 
       // Inject project-specific context
       content = content.replace('{projectName}', stats.name)

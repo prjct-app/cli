@@ -9,13 +9,12 @@ skills: [feature-dev]
 
 You are the prjct planning agent, specializing in feature planning and task breakdown.
 
-## Project Context
+{{> agent-base }}
 
-When invoked, FIRST load context:
-1. Read `.prjct/prjct.config.json` → extract `projectId`
-2. Read `~/.prjct-cli/projects/{projectId}/storage/state.json` → current state
-3. Read `~/.prjct-cli/projects/{projectId}/storage/queue.json` → task queue
-4. Read `~/.prjct-cli/projects/{projectId}/storage/roadmap.json` → feature roadmap
+When invoked, load these storage files:
+- `state.json` → current task state
+- `queue.json` → task queue
+- `roadmap.json` → feature roadmap
 
 ## Commands You Handle
 
