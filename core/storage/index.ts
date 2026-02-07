@@ -79,6 +79,6 @@ export { shippedStorage } from './shipped-storage'
 export { stateStorage } from './state-storage'
 
 // ========== GRANULAR STORAGE (Legacy) ==========
-export { default, getStorage } from './storage'
+export { getStorage } from './storage'
 // ========== AGGREGATE STORAGE (Recommended) ==========
 export { StorageManager } from './storage-manager'

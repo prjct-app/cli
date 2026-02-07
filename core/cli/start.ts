@@ -384,5 +384,3 @@ export async function runStart(): Promise<void> {
   // Show completion
   showCompletion(selectedProviders)
 }
-
-export default { runStart }

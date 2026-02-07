@@ -106,14 +106,3 @@ export function getRunCommand(scriptPath: string, args: string[] = []): string {
 
   return `node ${scriptPath}${argsStr}`
 }
-
-export default {
-  detectRuntime,
-  isBunAvailable,
-  isNodeAvailable,
-  getRuntimeVersion,
-  isBun,
-  isNode,
-  getPreferredRuntime,
-  getRunCommand,
-}

@@ -324,5 +324,3 @@ class PluginRegistry {
 const pluginRegistry = new PluginRegistry()
 
 export { PluginRegistry, pluginRegistry, type PluginMetadata, type PluginInfo }
-
-export default { PluginRegistry, pluginRegistry }

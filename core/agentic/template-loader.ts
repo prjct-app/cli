@@ -105,11 +105,5 @@ export function clearCache(): void {
   cacheOrder.length = 0
 }
 
-// ============ Default Export (backwards compat) ============
-
-export default {
-  load,
-  parseFrontmatter,
-  getAllowedTools,
-  clearCache,
-}
+const templateLoader = { load, parseFrontmatter, getAllowedTools, clearCache }
+export default templateLoader

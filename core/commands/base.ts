@@ -20,9 +20,9 @@ import type {
   CommandResult,
   ProjectContext,
 } from '../types'
-import dateHelper from '../utils/date-helper'
+import * as dateHelper from '../utils/date-helper'
 import * as fileHelper from '../utils/file-helper'
-import jsonlHelper from '../utils/jsonl-helper'
+import * as jsonlHelper from '../utils/jsonl-helper'
 import out from '../utils/output'
 
 /**

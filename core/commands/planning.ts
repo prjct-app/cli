@@ -4,7 +4,7 @@
  */
 
 import path from 'node:path'
-import authorDetector from '../infrastructure/author-detector'
+import * as authorDetector from '../infrastructure/author-detector'
 import commandInstaller from '../infrastructure/command-installer'
 import { generateUUID } from '../schemas'
 import type { Priority, TaskSection, TaskType } from '../schemas/state'

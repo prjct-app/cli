@@ -133,16 +133,3 @@ export async function isClaude(): Promise<boolean> {
 export async function isTerminal(): Promise<boolean> {
   return !(await isClaude())
 }
-
-// ============ Default Export (backwards compat) ============
-
-export default {
-  detect,
-  isClaudeEnvironment,
-  getClaudeAgent,
-  getTerminalAgent,
-  setAgent,
-  reset,
-  isClaude,
-  isTerminal,
-}

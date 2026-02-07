@@ -299,9 +299,3 @@ function shouldIgnore(filePath: string): boolean {
 
   return false
 }
-
-// =============================================================================
-// Exports
-// =============================================================================
-
-export default { getRecentFiles }

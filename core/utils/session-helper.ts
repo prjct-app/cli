@@ -276,15 +276,3 @@ export async function cleanEmptySessionDirs(
 
   return cleaned
 }
-
-// Default export for CommonJS compatibility
-export default {
-  getTodaySessionFilePath,
-  ensureTodaySessionDir,
-  writeToSession,
-  readTodaySession,
-  readRecentSessions,
-  getSessionStats,
-  archiveOldSessions,
-  cleanEmptySessionDirs,
-}

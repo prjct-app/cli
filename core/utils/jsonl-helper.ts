@@ -288,24 +288,3 @@ export async function checkFileSizeWarning(
 
   return { sizeMB, isLarge }
 }
-
-// Default export for CommonJS compatibility
-export default {
-  parseJsonLines,
-  stringifyJsonLines,
-  readJsonLines,
-  writeJsonLines,
-  appendJsonLine,
-  appendJsonLines,
-  filterJsonLines,
-  countJsonLines,
-  getLastJsonLines,
-  getFirstJsonLines,
-  mergeJsonLines,
-  isJsonLinesEmpty,
-  readJsonLinesStreaming,
-  getFileSizeMB,
-  rotateJsonLinesIfNeeded,
-  appendJsonLineWithRotation,
-  checkFileSizeWarning,
-}

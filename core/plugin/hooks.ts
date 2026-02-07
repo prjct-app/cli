@@ -313,5 +313,3 @@ const hooks = {
 }
 
 export { HookSystem, HookPoints, hookSystem, hooks }
-
-export default { HookSystem, HookPoints, hookSystem, hooks }

@@ -575,9 +575,3 @@ function isTestFile(filePath: string): boolean {
     lower.endsWith('_test.py')
   )
 }
-
-// =============================================================================
-// Exports
-// =============================================================================
-
-export default { findRelevantFiles }

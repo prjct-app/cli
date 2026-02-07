@@ -686,14 +686,21 @@ export function requiresVerification(commandName: string): boolean {
   return ['done', 'ship', 'feature', 'spec', 'now', 'init', 'sync', 'analyze'].includes(commandName)
 }
 
-// =============================================================================
-// Default Export
-// =============================================================================
-
-export default {
+const groundTruth = {
   verify,
   prepareCommand,
   requiresVerification,
   verifiers,
   formatWarnings,
+  formatDuration,
+  escapeRegex,
+  verifyDone,
+  verifyShip,
+  verifyFeature,
+  verifyNow,
+  verifyInit,
+  verifySync,
+  verifyAnalyze,
+  verifySpec,
 }
+export default groundTruth

@@ -324,6 +324,25 @@ export const EVENT_LIMITS = {
 } as const
 
 // =============================================================================
+// Workflow Help Strings (user-facing, no magic strings)
+// =============================================================================
+
+/**
+ * Example commands shown in workflow preferences help.
+ * Keeps UI copy in English and centralized.
+ */
+export const WORKFLOW_HELP = {
+  /** Message when no workflow preferences are configured */
+  NO_PREFERENCES: 'No workflow preferences configured.',
+  /** Example: set a before-ship hook to run tests */
+  SET_EXAMPLE: 'p. workflow before ship run the tests',
+  /** Example: modify workflow to run npm test */
+  MODIFY_EXAMPLE: 'p. workflow before ship run npm test',
+  /** Example: remove the ship hook */
+  REMOVE_EXAMPLE: 'p. workflow remove the ship hook',
+} as const
+
+// =============================================================================
 // Combined Exports
 // =============================================================================
 

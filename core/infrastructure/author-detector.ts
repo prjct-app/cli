@@ -131,17 +131,3 @@ export function formatAuthor(author: DetectedAuthorInfo): string {
 
   return parts.join(' ') || 'Unknown'
 }
-
-// ============ Default Export (backwards compat) ============
-
-export default {
-  detect,
-  detectAuthorForLogs,
-  detectGitHubUsername,
-  detectGitName,
-  detectGitEmail,
-  isGitHubCLIAvailable,
-  isGitConfigured,
-  getConfigStatus,
-  formatAuthor,
-}

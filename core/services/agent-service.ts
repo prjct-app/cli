@@ -6,7 +6,7 @@
 
 import AgentRouter from '../agentic/agent-router'
 import { AgentError } from '../errors'
-import agentDetector from '../infrastructure/agent-detector'
+import * as agentDetector from '../infrastructure/agent-detector'
 import type { AgentAssignmentResult, AgentInfo, ProjectContext } from '../types'
 
 // Valid agent types - whitelist for security (prevents path traversal)

@@ -493,9 +493,3 @@ function cleanSignature(signature: string): string {
     .replace(/\s+/g, ' ') // Normalize whitespace
     .trim()
 }
-
-// =============================================================================
-// Exports
-// =============================================================================
-
-export default { extractSignatures, extractDirectorySignatures }

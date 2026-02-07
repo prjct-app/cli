@@ -14,7 +14,7 @@ import chalk from 'chalk'
 import chokidar, { type FSWatcher } from 'chokidar'
 import configManager from '../infrastructure/config-manager'
 import { getErrorMessage } from '../types/fs'
-import dateHelper from '../utils/date-helper'
+import * as dateHelper from '../utils/date-helper'
 import { syncService } from './sync-service'
 
 // ============================================================================

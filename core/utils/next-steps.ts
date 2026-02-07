@@ -91,5 +91,3 @@ export function showStateInfo(state: WorkflowState): void {
   const info = workflowStateMachine.getStateInfo(state)
   console.log(chalk.dim(`📍 State: ${chalk.white(state.toUpperCase())} - ${info.description}`))
 }
-
-export default { showNextSteps, getNextSteps, showStateInfo }

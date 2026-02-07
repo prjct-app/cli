@@ -185,9 +185,3 @@ export class LazyCache<T> {
     return !this.loaded || this.data === null
   }
 }
-
-// Default export for CommonJS compatibility
-export default {
-  TTLCache,
-  LazyCache,
-}
