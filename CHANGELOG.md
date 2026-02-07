@@ -1,11 +1,36 @@
 # Changelog
 
+## [1.6.12] - 2026-02-07
+
+### Bug Fixes
+- **Fix signal handler and EventBus listener accumulation leaks (PRJ-287)**: WatchService signal handlers (`SIGINT`/`SIGTERM`) are now stored by reference and removed in `stop()`, preventing accumulation on restart cycles. `pendingChanges` Set is cleared on stop. EventBus gains `flush()` to clear history and stale once-listeners, and `removeAllListeners(event?)` for targeted cleanup.
+
+### Implementation Details
+Stored signal handler references as class properties (`sigintHandler`, `sigtermHandler`). In `start()`, old handlers are removed before new ones are added. In `stop()`, handlers are removed via `process.off()` and `pendingChanges` is cleared. EventBus `flush()` clears history array and all once-listeners. `removeAllListeners()` supports both targeted (single event) and global cleanup.
+
+### Learnings
+- Arrow functions passed to `process.on()` cannot be removed — must store named handler references for `process.off()`.
+- Cleanup code after `process.exit(0)` is unreachable — perform all cleanup before the exit call.
+
+### Test Plan
+
+#### For QA
+1. Start/stop watch mode 10 times — verify only 2 signal handlers (not 20)
+2. Trigger file changes, stop — verify `pendingChanges` cleared
+3. Emit 50 events, call `flush()` — verify history empty
+4. Register `once()` for unfired event, `flush()` — verify listener removed
+5. `removeAllListeners('event')` — verify only that event cleared
+6. `removeAllListeners()` — verify all cleared
+
+#### For Users
+**What changed:** WatchService no longer leaks signal handlers on restart. EventBus has `flush()` and `removeAllListeners()`.
+**Breaking changes:** None.
+
 ## [1.6.9] - 2026-02-07
 
 ### Bug Fixes
 
 - resolve SSE zombie connections and infinite promise leak (PRJ-286) (#134)
-
 
 ## [1.6.11] - 2026-02-07
 
