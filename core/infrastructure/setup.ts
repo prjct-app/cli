@@ -27,6 +27,7 @@ import { dependencyValidator } from '../services/dependency-validator'
 import { isNotFoundError } from '../types/fs'
 import type { AIProviderConfig, AIProviderName } from '../types/provider'
 import { fileExists } from '../utils/fs-helpers'
+import log from '../utils/logger'
 import { getPackageRoot, VERSION } from '../utils/version'
 import {
   detectAllProviders,
@@ -270,7 +271,7 @@ async function installGeminiRouter(): Promise<boolean> {
     }
     return false
   } catch (error) {
-    console.error(`Gemini router warning: ${(error as Error).message}`)
+    log.warn(`Gemini router warning: ${(error as Error).message}`)
     return false
   }
 }
@@ -340,7 +341,7 @@ async function installGeminiGlobalConfig(): Promise<{ success: boolean; action: 
     await fs.writeFile(globalConfigPath, updatedContent, 'utf-8')
     return { success: true, action: 'updated' }
   } catch (error) {
-    console.error(`Gemini config warning: ${(error as Error).message}`)
+    log.warn(`Gemini config warning: ${(error as Error).message}`)
     return { success: false, action: null }
   }
 }
@@ -373,7 +374,7 @@ export async function installAntigravitySkill(): Promise<{
 
     // Read template content
     if (!(await fileExists(templatePath))) {
-      console.error('Antigravity SKILL.md template not found')
+      log.warn('Antigravity SKILL.md template not found')
       return { success: false, action: null }
     }
 
@@ -384,7 +385,7 @@ export async function installAntigravitySkill(): Promise<{
 
     return { success: true, action: skillExists ? 'updated' : 'created' }
   } catch (error) {
-    console.error(`Antigravity skill warning: ${(error as Error).message}`)
+    log.warn(`Antigravity skill warning: ${(error as Error).message}`)
     return { success: false, action: null }
   }
 }
@@ -465,7 +466,7 @@ export async function installCursorProject(projectRoot: string): Promise<{
     result.success = result.rulesCreated || result.commandsCreated
     return result
   } catch (error) {
-    console.error(`Cursor installation warning: ${(error as Error).message}`)
+    log.warn(`Cursor installation warning: ${(error as Error).message}`)
     return result
   }
 }
@@ -515,7 +516,7 @@ async function addCursorToGitignore(projectRoot: string): Promise<boolean> {
     await fs.writeFile(gitignorePath, newContent, 'utf-8')
     return true
   } catch (error) {
-    console.error(`Gitignore update warning: ${(error as Error).message}`)
+    log.warn(`Gitignore update warning: ${(error as Error).message}`)
     return false
   }
 }
@@ -615,7 +616,7 @@ export async function installWindsurfProject(projectRoot: string): Promise<{
     result.success = result.rulesCreated || result.workflowsCreated
     return result
   } catch (error) {
-    console.error(`Windsurf installation warning: ${(error as Error).message}`)
+    log.warn(`Windsurf installation warning: ${(error as Error).message}`)
     return result
   }
 }
@@ -665,7 +666,7 @@ async function addWindsurfToGitignore(projectRoot: string): Promise<boolean> {
     await fs.writeFile(gitignorePath, newContent, 'utf-8')
     return true
   } catch (error) {
-    console.error(`Gitignore update warning: ${(error as Error).message}`)
+    log.warn(`Gitignore update warning: ${(error as Error).message}`)
     return false
   }
 }
@@ -738,7 +739,7 @@ async function migrateProjectsCliVersion(): Promise<void> {
     // Silently fail if projects directory doesn't exist
     if (!isNotFoundError(error)) {
       // Log unexpected errors but don't crash - migration is optional
-      console.error(`Migration warning: ${(error as Error).message}`)
+      log.warn(`Migration warning: ${(error as Error).message}`)
     }
   }
 }
@@ -912,7 +913,7 @@ echo "prjct"
     // Silently fail if directories don't exist
     if (!isNotFoundError(error)) {
       // Log unexpected errors but don't crash - status line is optional
-      console.error(`Status line warning: ${(error as Error).message}`)
+      log.warn(`Status line warning: ${(error as Error).message}`)
     }
   }
 }
@@ -965,7 +966,7 @@ async function installContext7MCP(): Promise<void> {
     }
   } catch (error) {
     // Non-fatal error, just log
-    console.error(`Context7 MCP setup warning: ${(error as Error).message}`)
+    log.warn(`Context7 MCP setup warning: ${(error as Error).message}`)
   }
 }
 
@@ -1018,7 +1019,7 @@ async function ensureStatusLineSymlink(linkPath: string, targetPath: string): Pr
     } catch (copyError) {
       // Both symlink and copy failed - log if unexpected error
       if (!isNotFoundError(copyError)) {
-        console.error(`Symlink fallback warning: ${(copyError as Error).message}`)
+        log.warn(`Symlink fallback warning: ${(copyError as Error).message}`)
       }
     }
   }

@@ -1,11 +1,10 @@
 # Changelog
 
-## [1.6.2] - 2026-02-06
+## [1.6.5] - 2026-02-07
 
 ### Bug Fixes
 
-- replace console.error with logger in routes.ts (PRJ-73) (#125)
-
+- **Replace console.error with logger in setup.ts**: 12 `console.error` warning calls replaced with `log.warn` for Gemini, Cursor, Windsurf, Antigravity, migration, status line, Context7, symlink, and gitignore warnings. User-facing chalk output preserved. Fatal direct-run error kept as `console.error`.
 
 ## [1.6.4] - 2026-02-06
 
