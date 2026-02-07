@@ -48,16 +48,3 @@ export {
   initializePlugins,
   shutdownPlugins,
 }
-
-export default {
-  HookSystem,
-  HookPoints,
-  hookSystem,
-  hooks,
-  PluginLoader,
-  pluginLoader,
-  PluginRegistry,
-  pluginRegistry,
-  initializePlugins,
-  shutdownPlugins,
-}

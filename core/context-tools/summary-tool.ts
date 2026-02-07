@@ -299,9 +299,3 @@ function buildSummaryText(
 
   return parts.join('\n')
 }
-
-// =============================================================================
-// Exports
-// =============================================================================
-
-export default { summarizeFile, summarizeDirectory }

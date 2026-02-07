@@ -18,7 +18,7 @@ import type { Author, GlobalConfig, LocalConfig } from '../types'
 import { isNotFoundError } from '../types/fs'
 import { getTimestamp } from '../utils/date-helper'
 import { VERSION } from '../utils/version'
-import authorDetector from './author-detector'
+import * as authorDetector from './author-detector'
 import pathManager from './path-manager'
 
 // Re-export types for convenience

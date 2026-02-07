@@ -271,16 +271,3 @@ export function formatCompressionRate(rate: number): string {
 // =============================================================================
 
 export { formatCostSaved }
-
-export default {
-  countTokens,
-  measureCompression,
-  noCompression,
-  combineMetrics,
-  formatTokenCount,
-  formatCompressionRate,
-  formatCostSaved,
-  CHARS_PER_TOKEN,
-  MODEL_PRICING,
-  DEFAULT_MODEL,
-}

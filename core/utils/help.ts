@@ -312,12 +312,3 @@ export function getHelp(topic?: string): string {
 
   return formatCommandHelp(topic)
 }
-
-export default {
-  formatMainHelp,
-  formatCommandHelp,
-  formatCommandList,
-  formatTerminalCommandHelp,
-  formatAgentCommandHelp,
-  getHelp,
-}

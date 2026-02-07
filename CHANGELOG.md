@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.6.9] - 2026-02-07
+
+### Refactor
+- **Standardize export patterns to ESM (PRJ-99)**: Removed redundant `export default { ... }` CJS-compat patterns from 33 files across `core/`. Updated 19 import sites to use namespace imports (`import * as X`). Cleaned 3 barrel re-exports in `agentic/index.ts`, `bus/index.ts`, and `storage/index.ts`. 3 function-collection modules (chain-of-thought, ground-truth, template-loader) retain proper singleton defaults for test mocking compatibility. Net reduction of 274 lines.
+
+### Implementation Details
+Removed the redundant pattern where files had both named exports (`export function X`) and a CJS-compat default export object (`export default { X, Y, Z }`). All 33 cleaned files already had proper named exports, making the default objects unnecessary. Import sites referencing removed defaults were converted to `import * as X from` namespace imports, which preserves the `X.method()` usage pattern.
+
+### Learnings
+- Bun enforces read-only properties on ESM namespace objects (`import * as X`) — direct property assignment for test mocking fails at runtime
+- Function-collection modules that need test mocking should export a named singleton object as default, consistent with class-instance modules like `pathManager`, `loopDetector`
+- Barrel file (`index.ts`) re-exports of `default` must be updated when removing default exports from source modules
+
+### Test Plan
+
+#### For QA
+1. Run `bun run build` — should complete with no errors
+2. Run `bun run test` — all 416 tests should pass (1 pre-existing timeout flake in DependencyValidator)
+3. Run `bun run lint` — no lint errors
+4. Run `npx tsc -p core/tsconfig.json --noEmit` — no type errors
+5. Verify `prjct sync --yes` still works end-to-end
+
+#### For Users
+**What changed:** Internal refactor only — no API or CLI behavior changes.
+**How to use:** No user action needed.
+**Breaking changes:** None.
+
 ## [1.6.8] - 2026-02-07
 
 ### Documentation
@@ -804,7 +831,7 @@ Added visual workflow status template showing:
 - add automatic npm publication and update detection system
 - publish prjct-cli to npm registry
 - remove bun and homebrew installation methods
-- add natural language interface with English and Spanish support
+- add natural language interface with multi-language support
 - add interactive workflow system with capability detection and installation
 - release v0.3.0 with interactive editor selection and codebase analysis
 - add project management workflows for analyzing, tracking, and fixing tasks
@@ -827,7 +854,7 @@ Added visual workflow status template showing:
 - make Linear/JIRA templates explicitly ignore MCP tools
 - remove MCP inheritance from Linear/JIRA templates
 - standardize confirmation pattern across all commands (#85)
-- LLM debe manejar los prompts, no el CLI - PRJ-149 (#84)
+- LLM must handle the prompts, not the CLI - PRJ-149 (#84)
 - Claude over-plans simple commands like p. sync - PRJ-148 (#83)
 - implement silent memory application - PRJ-103 (#69)
 - ignore tar warning in release workflow - PRJ-147
@@ -1453,14 +1480,14 @@ Implemented hierarchical agent resolution allowing AGENTS.md files at any direct
 
 ### Bug Fixes
 
-- LLM debe manejar los prompts, no el CLI - PRJ-149 (#84)
+- LLM must handle the prompts, not the CLI - PRJ-149 (#84)
 
 
 ## [0.55.3] - 2026-01-30
 
 ### Fixed
 
-- **LLM debe manejar los prompts, no el CLI** (PRJ-149)
+- **LLM must handle the prompts, not the CLI** (PRJ-149)
   - Added `--json` flag to `prjct sync` for non-interactive mode
   - CLI now detects non-TTY mode and outputs structured JSON instead of interactive prompts
   - Updated `sync.md` template so LLM uses AskUserQuestion for confirmation
@@ -1670,7 +1697,7 @@ Implemented hierarchical agent resolution allowing AGENTS.md files at any direct
 ### Added
 
 - **Workflow hooks via natural language** (PRJ-137)
-  - Configure hooks with `p. workflow "antes de ship corre los tests"`
+  - Configure hooks with `p. workflow "before ship run the tests"`
   - Supports before/after hooks for task, done, ship, sync commands
   - Three scopes: permanent (persisted), session, one-time
   - Uses existing memory system for storage

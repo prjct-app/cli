@@ -352,5 +352,3 @@ class PluginLoader {
 const pluginLoader = new PluginLoader()
 
 export { PluginLoader, pluginLoader, type Plugin }
-
-export default { PluginLoader, pluginLoader }

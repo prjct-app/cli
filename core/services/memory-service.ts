@@ -9,7 +9,7 @@ import pathManager from '../infrastructure/path-manager'
 import type { MemoryServiceEntry } from '../types'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import { getTimestamp } from '../utils/date-helper'
-import jsonlHelper from '../utils/jsonl-helper'
+import * as jsonlHelper from '../utils/jsonl-helper'
 
 export class MemoryService {
   /**

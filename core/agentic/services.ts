@@ -12,7 +12,7 @@
  * import { services } from './services'
  *
  * // Instead of:
- * import templateLoader from './template-loader'
+ * import * as templateLoader from './template-loader'
  * import contextBuilder from './context-builder'
  * // ... 12 more imports
  *

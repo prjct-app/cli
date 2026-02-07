@@ -278,6 +278,3 @@ export class MarkdownBuilder {
 export function md(): MarkdownBuilder {
   return new MarkdownBuilder()
 }
-
-// Default export
-export default { MarkdownBuilder, md }

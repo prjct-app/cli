@@ -104,7 +104,13 @@ export type {
 export { default as AgentRouter } from './agent-router'
 // ============ Utilities ============
 // Chain of thought, services
-export { default as chainOfThought } from './chain-of-thought'
+export {
+  default as chainOfThought,
+  formatPlan,
+  REASONING_REQUIRED_COMMANDS,
+  reason,
+  requiresReasoning,
+} from './chain-of-thought'
 // ============ Execution ============
 // Command execution, loop detection
 export {
@@ -174,7 +180,13 @@ export { default as promptBuilder } from './prompt-builder'
 export { default as services } from './services'
 export { default as smartContext } from './smart-context'
 export { default as templateExecutor, TemplateExecutor } from './template-executor'
-export { default as templateLoader } from './template-loader'
+export {
+  clearCache,
+  default as templateLoader,
+  getAllowedTools,
+  load,
+  parseFrontmatter,
+} from './template-loader'
 // ============ Tools ============
 // Tool and template management
 export { default as toolRegistry } from './tool-registry'

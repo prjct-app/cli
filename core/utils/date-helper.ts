@@ -164,23 +164,3 @@ export function getEndOfDay(date: Date): Date {
   result.setHours(23, 59, 59, 999)
   return result
 }
-
-// Default export for CommonJS compatibility
-export default {
-  formatDate,
-  formatMonth,
-  getTodayKey,
-  getDateKey,
-  getYearMonthDay,
-  parseDate,
-  getTimestamp,
-  getDaysAgo,
-  getDaysFromNow,
-  getDateRange,
-  isToday,
-  isWithinLastDays,
-  formatDuration,
-  calculateDuration,
-  getStartOfDay,
-  getEndOfDay,
-}

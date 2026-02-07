@@ -249,9 +249,6 @@ export async function run(): Promise<SetupResults> {
   return results
 }
 
-// Default export for CommonJS require
-export default { run }
-
 /**
  * Install the p.toml router for Gemini CLI
  */

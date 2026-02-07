@@ -229,4 +229,6 @@ function formatPlan(result: ReasoningResult): string {
 }
 
 export { requiresReasoning, reason, formatPlan, REASONING_REQUIRED_COMMANDS }
-export default { requiresReasoning, reason, formatPlan }
+
+const chainOfThought = { requiresReasoning, reason, formatPlan, REASONING_REQUIRED_COMMANDS }
+export default chainOfThought

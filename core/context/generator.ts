@@ -366,5 +366,3 @@ async function generateSummaryMd(
 
   await fs.writeFile(path.join(contextPath, 'summary.md'), content, 'utf-8')
 }
-
-export default { generateContext }

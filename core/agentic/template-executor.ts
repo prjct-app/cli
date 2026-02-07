@@ -208,11 +208,11 @@ You are executing a prjct command as ${context.agentName}. Follow the template-f
      b) What technologies exist in this project
      c) What agents are available in ${context.paths.agentsDir}
 
-   - **IMPORTANTE**: Los agentes en ${context.paths.agentsDir} YA son específicos del proyecto
-     (fueron generados durante p. sync con las tecnologías reales)
+   - **IMPORTANT**: The agents in ${context.paths.agentsDir} are already project-specific
+     (they were generated during p. sync with the actual project technologies)
 
-   - SIEMPRE usar el especialista si existe para el dominio
-   - Solo usar generalista si NO existe agente para ese dominio
+   - ALWAYS use the specialist if one exists for the domain
+   - Only use the generalist if there is NO agent for that domain
 
    - Check if task should be fragmented (read: ${context.paths.taskFragmentation})
    - If agents loaded, check their skills and load from ${context.paths.skillsDir}

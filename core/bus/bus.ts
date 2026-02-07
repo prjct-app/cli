@@ -288,4 +288,3 @@ const emit = {
 }
 
 export { EventBus, eventBus, emit }
-export default { EventBus, EventTypes, eventBus, emit }

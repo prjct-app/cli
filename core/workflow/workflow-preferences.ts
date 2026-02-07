@@ -17,6 +17,7 @@ import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
 import chalk from 'chalk'
 import memorySystem from '../agentic/memory-system'
+import { WORKFLOW_HELP } from '../constants'
 import { getErrorMessage } from '../types/fs'
 
 const execAsync = promisify(exec)
@@ -265,7 +266,7 @@ export function formatWorkflowPreferences(
   }>
 ): string {
   if (preferences.length === 0) {
-    return `${chalk.dim('No workflow preferences configured.')}\n\nSet one: "p. workflow antes de ship corre los tests"`
+    return `${chalk.dim(WORKFLOW_HELP.NO_PREFERENCES)}\n\nSet one: "${WORKFLOW_HELP.SET_EXAMPLE}"`
   }
 
   const lines: string[] = ['', 'WORKFLOW PREFERENCES', '────────────────────────────']
@@ -282,8 +283,8 @@ export function formatWorkflowPreferences(
   }
 
   lines.push('')
-  lines.push(chalk.dim('Modify: "p. workflow antes de ship corre npm test"'))
-  lines.push(chalk.dim('Remove: "p. workflow quita el hook de ship"'))
+  lines.push(chalk.dim(`Modify: "${WORKFLOW_HELP.MODIFY_EXAMPLE}"`))
+  lines.push(chalk.dim(`Remove: "${WORKFLOW_HELP.REMOVE_EXAMPLE}"`))
 
   return lines.join('\n')
 }
@@ -294,14 +295,4 @@ export function formatWorkflowPreferences(
 export function clearSessionPreferences(): void {
   sessionPreferences.clear()
   oncePreferences.clear()
-}
-
-export default {
-  setWorkflowPreference,
-  getWorkflowPreferences,
-  runWorkflowHooks,
-  listWorkflowPreferences,
-  removeWorkflowPreference,
-  formatWorkflowPreferences,
-  clearSessionPreferences,
 }

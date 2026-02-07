@@ -529,32 +529,3 @@ export async function selectProvider(): Promise<ProviderSelectionResult> {
     detection,
   }
 }
-
-// =============================================================================
-// Exports
-// =============================================================================
-
-export default {
-  Providers,
-  ClaudeProvider,
-  GeminiProvider,
-  CursorProvider,
-  AntigravityProvider,
-  WindsurfProvider,
-  detectProvider,
-  detectAllProviders,
-  detectAntigravity,
-  getActiveProvider,
-  hasProviderConfig,
-  getProviderBranding,
-  getGlobalContextPath,
-  getGlobalSettingsPath,
-  getSkillsPath,
-  getCommandsDir,
-  getProjectCommandsPath,
-  selectProvider,
-  detectCursorProject,
-  needsCursorRouterRegeneration,
-  detectWindsurfProject,
-  needsWindsurfRouterRegeneration,
-}

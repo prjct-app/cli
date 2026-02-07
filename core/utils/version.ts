@@ -123,15 +123,3 @@ export function needsMigration(fromVersion: string, toVersion: string | null = n
 
 export const VERSION = getVersion()
 export const PACKAGE_ROOT = getPackageRoot()
-
-// Default export for CommonJS compatibility
-export default {
-  getVersion,
-  getPackageRoot,
-  getPackageInfo,
-  compareVersions,
-  isCompatible,
-  needsMigration,
-  VERSION,
-  PACKAGE_ROOT,
-}

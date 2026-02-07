@@ -249,21 +249,3 @@ ${divider}
 ${colors.dim('Keep shipping! 🚀')}
   `
 }
-
-// Default export for CommonJS compatibility
-export default {
-  colors,
-  frames,
-  banners,
-  animate,
-  typeWriter,
-  progressBar,
-  sparkle,
-  formatShip,
-  formatFocus,
-  formatSuccess,
-  formatError,
-  formatIdea,
-  formatCleanup,
-  formatRecap,
-}

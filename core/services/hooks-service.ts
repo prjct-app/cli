@@ -683,4 +683,3 @@ class HooksService {
 }
 
 export const hooksService = new HooksService()
-export default { hooksService }

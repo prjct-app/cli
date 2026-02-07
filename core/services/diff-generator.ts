@@ -342,15 +342,3 @@ export function formatFullDiff(diff: SyncDiff, options: DiffOptions = {}): strin
 
   return lines.join('\n')
 }
-
-// =============================================================================
-// Exports
-// =============================================================================
-
-export default {
-  generateSyncDiff,
-  formatDiffPreview,
-  formatFullDiff,
-  estimateTokens,
-  parseMarkdownSections,
-}

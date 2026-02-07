@@ -175,5 +175,3 @@ class FileStorage implements Storage {
 export function getStorage(projectId: string): Storage {
   return new FileStorage(projectId)
 }
-
-export default { getStorage }

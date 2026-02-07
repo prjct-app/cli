@@ -5,7 +5,7 @@
  */
 
 import { ProjectError } from '../errors'
-import authorDetector from '../infrastructure/author-detector'
+import * as authorDetector from '../infrastructure/author-detector'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import type { Author, CommandResult } from '../types'

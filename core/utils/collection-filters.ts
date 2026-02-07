@@ -207,27 +207,3 @@ export function uniqueByField<T, K extends keyof T>(items: T[], field: K): T[] {
     return true
   })
 }
-
-// Default export for CommonJS compatibility
-export default {
-  PRIORITY_ORDER,
-  SECTION_ORDER,
-  filterByField,
-  filterByFieldIn,
-  filterByFieldNot,
-  filterActiveByField,
-  filterByTruthy,
-  filterByFalsy,
-  sortByPriority,
-  sortBySectionAndPriority,
-  sortByDate,
-  filterByDateRange,
-  filterByLastDays,
-  groupByField,
-  countByField,
-  take,
-  takeLast,
-  findByField,
-  anyByField,
-  uniqueByField,
-}

@@ -267,29 +267,3 @@ export function getFileExtension(filePath: string): string {
 export function getFileNameWithoutExtension(filePath: string): string {
   return path.basename(filePath, path.extname(filePath))
 }
-
-// Default export for CommonJS compatibility
-export default {
-  readJson,
-  writeJson,
-  readFile,
-  writeFile,
-  atomicWrite,
-  appendToFile,
-  appendLine,
-  prependToFile,
-  fileExists,
-  dirExists,
-  ensureDir,
-  deleteFile,
-  deleteDir,
-  listFiles,
-  getFileSize,
-  getFileModifiedTime,
-  copyFile,
-  moveFile,
-  readLines,
-  writeLines,
-  getFileExtension,
-  getFileNameWithoutExtension,
-}

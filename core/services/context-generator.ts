@@ -13,7 +13,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
 import { type ContextSources, cite, defaultSources } from '../utils/citations'
-import dateHelper from '../utils/date-helper'
+import * as dateHelper from '../utils/date-helper'
 import { mergePreservedSections, validatePreserveBlocks } from '../utils/preserve-sections'
 import { NestedContextResolver } from './nested-context-resolver'
 
