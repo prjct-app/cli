@@ -40,7 +40,7 @@ export const EnvironmentBlockInputSchema = z.object({
   provider: z.string().optional(),
 })
 
-export type EnvironmentBlockInput = z.infer<typeof EnvironmentBlockInputSchema>
+export type EnvironmentBlockInput = z.input<typeof EnvironmentBlockInputSchema>
 
 // =============================================================================
 // Runtime Detection

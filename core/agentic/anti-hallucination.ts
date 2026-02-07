@@ -49,7 +49,7 @@ export const ProjectGroundTruthSchema = z.object({
   availableAgents: z.array(z.string()).default([]),
 })
 
-export type ProjectGroundTruth = z.infer<typeof ProjectGroundTruthSchema>
+export type ProjectGroundTruth = z.input<typeof ProjectGroundTruthSchema>
 
 // =============================================================================
 // Domain Mapping
