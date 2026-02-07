@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { safeRead, type ValidationSchema } from '../storage/safe-reader'
 import { isNotFoundError } from '../types/fs'
 
 /**
@@ -18,12 +19,19 @@ interface ListFilesOptions {
 }
 
 /**
- * Read JSON file and parse
+ * Read JSON file and parse.
+ * When a Zod schema is provided, validates the data and creates a .backup on corruption.
  */
 export async function readJson<T = unknown>(
   filePath: string,
-  defaultValue: T | null = null
+  defaultValue: T | null = null,
+  schema?: ValidationSchema
 ): Promise<T | null> {
+  if (schema) {
+    const data = await safeRead<T>(filePath, schema)
+    return data ?? defaultValue
+  }
+
   try {
     const content = await fs.readFile(filePath, 'utf-8')
     return JSON.parse(content) as T

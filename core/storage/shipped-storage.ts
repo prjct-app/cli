@@ -6,13 +6,14 @@
  */
 
 import { generateUUID } from '../schemas'
+import { ShippedJsonSchema } from '../schemas/shipped'
 import type { ShippedFeature, ShippedJson } from '../types'
 import { getTimestamp, toRelative } from '../utils/date-helper'
 import { StorageManager } from './storage-manager'
 
 class ShippedStorage extends StorageManager<ShippedJson> {
   constructor() {
-    super('shipped.json')
+    super('shipped.json', ShippedJsonSchema)
   }
 
   protected getDefault(): ShippedJson {

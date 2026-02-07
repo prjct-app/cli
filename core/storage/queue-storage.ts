@@ -7,12 +7,13 @@
 
 import { generateUUID } from '../schemas'
 import type { Priority, QueueJson, QueueTask, TaskSection } from '../schemas/state'
+import { QueueJsonSchema } from '../schemas/state'
 import { getTimestamp } from '../utils/date-helper'
 import { StorageManager } from './storage-manager'
 
 class QueueStorage extends StorageManager<QueueJson> {
   constructor() {
-    super('queue.json')
+    super('queue.json', QueueJsonSchema)
   }
 
   protected getDefault(): QueueJson {

@@ -1,12 +1,38 @@
 # Changelog
 
+## [1.7.1] - 2026-02-07
+
+### Bug Fix
+- **Add Zod validation on all storage reads (PRJ-279)**: Created `safeRead<T>()` utility that wraps `JSON.parse` + `schema.safeParse()`. All 5 `StorageManager` subclasses (state, queue, ideas, shipped, metrics) now validate reads against their Zod schemas. Corrupted files produce a logged warning + `.backup` file instead of silently crashing downstream.
+
+### Implementation Details
+Created `core/storage/safe-reader.ts` with a `ValidationSchema` interface decoupled from Zod generics to avoid strict type parameter matching. The `StorageManager` base class accepts an optional schema via constructor — subclasses pass their Zod schema with a single import + arg change. `safeRead` returns the raw parsed JSON (not Zod-transformed `result.data`) to preserve extra fields for forward compatibility. Also fixed `ShippedJsonSchema` which used `items` instead of `shipped` (pre-existing schema bug), and made `changes` optional to match actual data.
+
+### Learnings
+- Zod's default `strip` mode silently drops unknown keys from `result.data` — must return raw JSON to preserve extra state.json fields (projectId, stack, domains, etc.)
+- `ShippedJsonSchema` had `items` instead of `shipped` as the array key — pre-existing schema/data mismatch
+- `ValidationSchema` interface avoids Zod generic constraints while still providing type-safe validation
+
+### Test Plan
+
+#### For QA
+1. Create a valid `state.json` — verify it reads correctly with no warnings
+2. Corrupt a storage file with invalid JSON — verify `.backup` is created and defaults returned
+3. Write valid JSON with wrong schema — verify `.backup` and defaults
+4. Add extra fields not in schema — verify they are preserved after read
+5. Run `bun test` — verify all 438 tests pass (16 new for `safeRead`)
+
+#### For Users
+**What changed:** Storage reads are now validated against Zod schemas. Corrupted files no longer cause silent crashes.
+**How to use:** No action needed — automatic.
+**Breaking changes:** None.
+
 ## [1.7.0] - 2026-02-07
 
 ### Features
 
 - use relative timestamps to reduce token waste (PRJ-274) (#139)
 - use relative timestamps to reduce token waste (PRJ-274)
-
 
 ## [1.6.16] - 2026-02-07
 

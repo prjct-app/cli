@@ -16,13 +16,14 @@ import type {
   Subtask,
   SubtaskSummary,
 } from '../schemas/state'
+import { StateJsonSchema } from '../schemas/state'
 import { getTimestamp, toRelative } from '../utils/date-helper'
 import { md } from '../utils/markdown-builder'
 import { StorageManager } from './storage-manager'
 
 class StateStorage extends StorageManager<StateJson> {
   constructor() {
-    super('state.json')
+    super('state.json', StateJsonSchema)
   }
 
   protected getDefault(): StateJson {

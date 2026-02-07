@@ -6,13 +6,14 @@
  */
 
 import { generateUUID } from '../schemas'
+import { IdeasJsonSchema } from '../schemas/ideas'
 import type { Idea, IdeaPriority, IdeaStatus, IdeasJson } from '../types'
 import { getTimestamp, toRelative } from '../utils/date-helper'
 import { StorageManager } from './storage-manager'
 
 class IdeasStorage extends StorageManager<IdeasJson> {
   constructor() {
-    super('ideas.json')
+    super('ideas.json', IdeasJsonSchema)
   }
 
   protected getDefault(): IdeasJson {
