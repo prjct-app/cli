@@ -19,6 +19,127 @@ export interface Storage {
 }
 
 // =============================================================================
+// Project JSON Types (project.json)
+// =============================================================================
+
+export interface ProjectJson {
+  projectId: string
+  repoPath?: string
+  path?: string
+  name?: string
+  version?: string
+  cliVersion?: string
+  techStack?: string[]
+  fileCount?: number
+  commitCount?: number
+  stack?: string
+  currentBranch?: string
+  hasUncommittedChanges?: boolean
+  createdAt?: string
+  lastSync?: string
+  integrations?: {
+    linear?: {
+      enabled: boolean
+      authMode?: string
+      teamId?: string
+      teamName?: string
+      teamKey?: string
+      setupAt?: string
+    }
+    jira?: {
+      enabled: boolean
+    }
+  }
+  lastSyncCommit?: string
+  lastSyncBranch?: string
+  hooks?: {
+    enabled: boolean
+    strategy?: string
+    hooks?: unknown[]
+  }
+}
+
+// =============================================================================
+// State JSON Types (state.json)
+// =============================================================================
+
+export interface StateTask {
+  id: string
+  description: string
+  type?: string
+  status: string
+  startedAt: string
+  shippedAt?: string
+  prUrl?: string
+  subtasks?: Array<{ description: string; status: string }>
+  currentSubtaskIndex?: number
+  parentDescription?: string
+  branch?: string
+  linearId?: string | null
+  linearUuid?: string | null
+  duration?: string
+  sessionId?: string
+  featureId?: string
+  pausedAt?: string
+  pauseReason?: string
+  expectedValue?: {
+    type: string
+    impact: string
+    successCriteria: string[]
+  }
+}
+
+export interface StateJson {
+  currentTask: StateTask | null
+  pausedTasks?: StateTask[]
+  previousTask: StateTask | null
+  lastUpdated?: string
+  projectId?: string
+  stack?: { language: string; framework: string }
+  domains?: Record<string, boolean>
+  projectType?: string
+  metrics?: { totalFiles: number }
+  lastSync?: string
+  context?: {
+    lastSession: string
+    lastAction: string
+    nextAction: string
+  }
+}
+
+// =============================================================================
+// Queue JSON Types (queue.json)
+// =============================================================================
+
+export interface QueueTask {
+  id: string
+  description: string
+  type?: string
+  priority?: string
+  section?: string
+  createdAt: string
+  completed?: boolean
+  completedAt?: string
+  featureId?: string
+  featureName?: string
+}
+
+export interface QueueJson {
+  tasks: QueueTask[]
+  lastUpdated?: string
+}
+
+// =============================================================================
+// Roadmap JSON Types (roadmap.json)
+// =============================================================================
+
+export interface RoadmapJson {
+  features: unknown[]
+  backlog: unknown[]
+  lastUpdated: string
+}
+
+// =============================================================================
 // Shipped Storage Types
 // =============================================================================
 
