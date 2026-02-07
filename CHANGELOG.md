@@ -3,6 +3,18 @@
 ## [1.8.0] - 2026-02-07
 
 ### Features
+
+- add Fibonacci estimation with variance tracking (PRJ-295) (#145)
+- add PerformanceTracker for CLI metrics (PRJ-297) (#146)
+
+### Bug Fixes
+
+- replace hardcoded command lists with config-driven context (PRJ-298) (#147)
+
+
+## [1.8.0] - 2026-02-07
+
+### Features
 - **Fibonacci estimation with variance tracking (PRJ-295)**: Capture Fibonacci point estimates (1,2,3,5,8,13,21) on task start with automatic points-to-time conversion, record actual duration on done, and display estimation variance.
 
 ### Implementation Details
