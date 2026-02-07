@@ -24,6 +24,7 @@ export const TaskStatusSchema = z.enum([
   'blocked',
   'paused',
   'failed',
+  'skipped',
 ])
 export const ActivityTypeSchema = z.enum([
   'task_completed',
@@ -59,6 +60,8 @@ export const SubtaskSchema = z.object({
   completedAt: z.string().optional(), // ISO8601
   output: z.string().optional(), // Brief output description
   summary: SubtaskSummarySchema.optional(), // Full summary for context handoff
+  skipReason: z.string().optional(), // Why this subtask was skipped
+  blockReason: z.string().optional(), // What is blocking this subtask
 })
 
 // Subtask progress tracking
@@ -94,7 +97,8 @@ export const PreviousTaskSchema = z.object({
 
 export const StateJsonSchema = z.object({
   currentTask: CurrentTaskSchema.nullable(),
-  previousTask: PreviousTaskSchema.nullable().optional(),
+  previousTask: PreviousTaskSchema.nullable().optional(), // deprecated: use pausedTasks
+  pausedTasks: z.array(PreviousTaskSchema).optional(), // replaces previousTask
   lastUpdated: z.string(),
 })
 
@@ -190,6 +194,7 @@ export const safeParseQueue = (data: unknown) => QueueJsonSchema.safeParse(data)
 
 export const DEFAULT_STATE: StateJson = {
   currentTask: null,
+  pausedTasks: [],
   lastUpdated: '',
 }
 

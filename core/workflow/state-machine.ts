@@ -3,8 +3,9 @@
  * Explicit states with valid transitions for prjct workflow.
  *
  * States: idle → working → completed → shipped
- *         ↓↑
- *       paused
+ *                ↓↑          ↓↑
+ *              paused ──────→ shipped (fast-track)
+ *         completed ──reopen──→ working
  */
 
 // =============================================================================
@@ -13,7 +14,7 @@
 
 export type WorkflowState = 'idle' | 'working' | 'paused' | 'completed' | 'shipped'
 
-export type WorkflowCommand = 'task' | 'done' | 'pause' | 'resume' | 'ship' | 'next'
+export type WorkflowCommand = 'task' | 'done' | 'pause' | 'resume' | 'ship' | 'next' | 'reopen'
 
 interface StateDefinition {
   transitions: WorkflowCommand[]
@@ -43,13 +44,13 @@ const WORKFLOW_STATES: Record<WorkflowState, StateDefinition> = {
     description: 'Task in progress',
   },
   paused: {
-    transitions: ['resume', 'task'],
-    prompt: 'p. resume  Continue  |  p. task <new>  Start different',
+    transitions: ['resume', 'task', 'ship'],
+    prompt: 'p. resume  Continue  |  p. task <new>  Start different  |  p. ship  Ship directly',
     description: 'Task paused',
   },
   completed: {
-    transitions: ['ship', 'task', 'next'],
-    prompt: 'p. ship  Ship it  |  p. task <next>  Start next',
+    transitions: ['ship', 'task', 'next', 'pause', 'reopen'],
+    prompt: 'p. ship  Ship it  |  p. task <next>  Start next  |  p. reopen  Reopen for rework',
     description: 'Task completed',
   },
   shipped: {
@@ -67,14 +68,22 @@ export class WorkflowStateMachine {
   /**
    * Get current state from storage state
    */
-  getCurrentState(storageState: { currentTask?: { status?: string } | null }): WorkflowState {
+  getCurrentState(storageState: {
+    currentTask?: Record<string, unknown> | null
+    pausedTasks?: unknown[]
+    previousTask?: Record<string, unknown> | null
+  }): WorkflowState {
     const task = storageState?.currentTask
 
     if (!task) {
-      return 'idle'
+      // Check if there are paused tasks (array or legacy previousTask)
+      const hasPaused =
+        (storageState?.pausedTasks?.length || 0) > 0 ||
+        storageState?.previousTask?.status === 'paused'
+      return hasPaused ? 'paused' : 'idle'
     }
 
-    const status = task.status?.toLowerCase()
+    const status = (typeof task.status === 'string' ? task.status : '').toLowerCase()
 
     switch (status) {
       case 'in_progress':
@@ -127,6 +136,8 @@ export class WorkflowStateMachine {
         return 'working'
       case 'ship':
         return 'shipped'
+      case 'reopen':
+        return 'working'
       case 'next':
         return currentState // next doesn't change state
       default:
@@ -172,6 +183,8 @@ export class WorkflowStateMachine {
           return 'p. resume       Continue paused task'
         case 'ship':
           return 'p. ship         Ship the feature'
+        case 'reopen':
+          return 'p. reopen       Reopen for rework'
         case 'next':
           return 'p. next         View task queue'
         default:

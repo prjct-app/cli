@@ -19,6 +19,8 @@ import type {
 import { StateJsonSchema } from '../schemas/state'
 import { getTimestamp, toRelative } from '../utils/date-helper'
 import { md } from '../utils/markdown-builder'
+import type { WorkflowCommand } from '../workflow/state-machine'
+import { workflowStateMachine } from '../workflow/state-machine'
 import { StorageManager } from './storage-manager'
 
 class StateStorage extends StorageManager<StateJson> {
@@ -76,7 +78,11 @@ class StateStorage extends StorageManager<StateJson> {
                   ? '▶️'
                   : subtask.status === 'failed'
                     ? '❌'
-                    : '⏳'
+                    : subtask.status === 'skipped'
+                      ? '⏭️'
+                      : subtask.status === 'blocked'
+                        ? '🚫'
+                        : '⏳'
             const isActive = index === task.currentSubtaskIndex ? ' **← Active**' : ''
             m.raw(
               `| ${index + 1} | ${subtask.domain} | ${subtask.description} | ${statusIcon} ${subtask.status}${isActive} | ${subtask.agent} |`
@@ -119,17 +125,36 @@ class StateStorage extends StorageManager<StateJson> {
       .when(!data.currentTask, (m) => {
         m.italic('No active task. Use /p:work to start.')
       })
-      .maybe(data.previousTask, (m, prev) => {
-        m.hr()
-          .h2('Paused')
-          .bold(prev.description)
-          .raw(`Paused: ${toRelative(prev.pausedAt)}`)
-          .maybe(prev.pauseReason, (m, reason) => m.raw(`Reason: ${reason}`))
-          .blank()
-          .italic('Use /p:resume to continue')
+      .when((data.pausedTasks?.length || 0) > 0 || !!data.previousTask, (m) => {
+        const paused = data.pausedTasks?.length
+          ? data.pausedTasks
+          : data.previousTask
+            ? [data.previousTask]
+            : []
+        if (paused.length === 0) return
+        m.hr().h2(`Paused (${paused.length})`)
+        paused.forEach((prev, i) => {
+          m.raw(`${i + 1}. **${prev.description}**`).raw(`   Paused: ${toRelative(prev.pausedAt)}`)
+          if (prev.pauseReason) m.raw(`   Reason: ${prev.pauseReason}`)
+        })
+        m.blank().italic('Use /p:resume to continue')
       })
       .blank()
       .build()
+  }
+
+  // =========== Transition Validation ===========
+
+  /**
+   * Validate a state transition through the state machine.
+   * Throws if the transition is invalid.
+   */
+  private validateTransition(state: StateJson, command: WorkflowCommand): void {
+    const currentState = workflowStateMachine.getCurrentState(state)
+    const result = workflowStateMachine.canTransition(currentState, command)
+    if (!result.valid) {
+      throw new Error(`${result.error}. ${result.suggestion || ''}`.trim())
+    }
   }
 
   // =========== Domain Methods ===========
@@ -146,6 +171,9 @@ class StateStorage extends StorageManager<StateJson> {
    * Start a new task
    */
   async startTask(projectId: string, task: Omit<CurrentTask, 'startedAt'>): Promise<CurrentTask> {
+    const state = await this.read(projectId)
+    this.validateTransition(state, 'task')
+
     const currentTask: CurrentTask = {
       ...task,
       startedAt: getTimestamp(),
@@ -179,6 +207,8 @@ class StateStorage extends StorageManager<StateJson> {
       return null
     }
 
+    this.validateTransition(state, 'done')
+
     await this.update(projectId, () => ({
       currentTask: null,
       previousTask: null,
@@ -196,8 +226,14 @@ class StateStorage extends StorageManager<StateJson> {
     return completedTask
   }
 
+  /** Max number of paused tasks (configurable) */
+  private maxPausedTasks = 5
+
+  /** Staleness threshold in days */
+  private stalenessThresholdDays = 30
+
   /**
-   * Pause current task
+   * Pause current task — pushes onto pausedTasks[] array
    */
   async pauseTask(projectId: string, reason?: string): Promise<PreviousTask | null> {
     const state = await this.read(projectId)
@@ -206,7 +242,9 @@ class StateStorage extends StorageManager<StateJson> {
       return null
     }
 
-    const previousTask: PreviousTask = {
+    this.validateTransition(state, 'pause')
+
+    const pausedTask: PreviousTask = {
       id: state.currentTask.id,
       description: state.currentTask.description,
       status: 'paused',
@@ -215,43 +253,67 @@ class StateStorage extends StorageManager<StateJson> {
       pauseReason: reason,
     }
 
+    // Get existing paused tasks, migrate from previousTask if needed
+    const existingPaused = this.getPausedTasksFromState(state)
+
+    // Enforce max paused limit
+    const pausedTasks = [pausedTask, ...existingPaused].slice(0, this.maxPausedTasks)
+
     await this.update(projectId, () => ({
       currentTask: null,
-      previousTask,
+      previousTask: null, // deprecated, keep null for compat
+      pausedTasks,
       lastUpdated: getTimestamp(),
     }))
 
     // Publish incremental event
     await this.publishEvent(projectId, 'task.paused', {
-      taskId: previousTask.id,
-      description: previousTask.description,
-      pausedAt: previousTask.pausedAt,
+      taskId: pausedTask.id,
+      description: pausedTask.description,
+      pausedAt: pausedTask.pausedAt,
       reason,
+      pausedCount: pausedTasks.length,
     })
 
-    return previousTask
+    return pausedTask
   }
 
   /**
-   * Resume paused task
+   * Resume most recent paused task (or by ID)
    */
-  async resumeTask(projectId: string): Promise<CurrentTask | null> {
+  async resumeTask(projectId: string, taskId?: string): Promise<CurrentTask | null> {
     const state = await this.read(projectId)
 
-    if (!state.previousTask) {
+    // Migrate from previousTask if pausedTasks is empty
+    const pausedTasks = this.getPausedTasksFromState(state)
+
+    if (pausedTasks.length === 0) {
       return null
     }
 
+    this.validateTransition(state, 'resume')
+
+    // Find target task: by ID or most recent (first in array)
+    let targetIndex = 0
+    if (taskId) {
+      targetIndex = pausedTasks.findIndex((t) => t.id === taskId)
+      if (targetIndex === -1) return null
+    }
+
+    const target = pausedTasks[targetIndex]
+    const remaining = pausedTasks.filter((_, i) => i !== targetIndex)
+
     const currentTask: CurrentTask = {
-      id: state.previousTask.id,
-      description: state.previousTask.description,
+      id: target.id,
+      description: target.description,
       startedAt: getTimestamp(),
       sessionId: generateUUID(),
     }
 
     await this.update(projectId, () => ({
       currentTask,
-      previousTask: null,
+      previousTask: null, // deprecated, keep null
+      pausedTasks: remaining,
       lastUpdated: getTimestamp(),
     }))
 
@@ -260,9 +322,71 @@ class StateStorage extends StorageManager<StateJson> {
       taskId: currentTask.id,
       description: currentTask.description,
       resumedAt: currentTask.startedAt,
+      remainingPaused: remaining.length,
     })
 
     return currentTask
+  }
+
+  /**
+   * Get paused tasks from state, migrating from legacy previousTask if needed
+   */
+  private getPausedTasksFromState(state: StateJson): PreviousTask[] {
+    const paused = state.pausedTasks || []
+
+    // Migrate legacy previousTask into array if present
+    if (state.previousTask && state.previousTask.status === 'paused') {
+      const alreadyInArray = paused.some((t) => t.id === state.previousTask!.id)
+      if (!alreadyInArray) {
+        return [state.previousTask, ...paused]
+      }
+    }
+
+    return paused
+  }
+
+  /**
+   * Get stale paused tasks (older than threshold)
+   */
+  async getStalePausedTasks(projectId: string): Promise<PreviousTask[]> {
+    const state = await this.read(projectId)
+    const pausedTasks = this.getPausedTasksFromState(state)
+    const threshold = Date.now() - this.stalenessThresholdDays * 24 * 60 * 60 * 1000
+
+    return pausedTasks.filter((t) => new Date(t.pausedAt).getTime() < threshold)
+  }
+
+  /**
+   * Archive stale paused tasks (remove from pausedTasks)
+   * Returns archived tasks
+   */
+  async archiveStalePausedTasks(projectId: string): Promise<PreviousTask[]> {
+    const state = await this.read(projectId)
+    const pausedTasks = this.getPausedTasksFromState(state)
+    const threshold = Date.now() - this.stalenessThresholdDays * 24 * 60 * 60 * 1000
+
+    const stale = pausedTasks.filter((t) => new Date(t.pausedAt).getTime() < threshold)
+    const fresh = pausedTasks.filter((t) => new Date(t.pausedAt).getTime() >= threshold)
+
+    if (stale.length === 0) return []
+
+    await this.update(projectId, (s) => ({
+      ...s,
+      pausedTasks: fresh,
+      previousTask: null,
+      lastUpdated: getTimestamp(),
+    }))
+
+    for (const task of stale) {
+      await this.publishEvent(projectId, 'task.archived', {
+        taskId: task.id,
+        description: task.description,
+        pausedAt: task.pausedAt,
+        reason: 'staleness',
+      })
+    }
+
+    return stale
   }
 
   /**
@@ -272,6 +396,7 @@ class StateStorage extends StorageManager<StateJson> {
     await this.update(projectId, () => ({
       currentTask: null,
       previousTask: null,
+      pausedTasks: [],
       lastUpdated: getTimestamp(),
     }))
   }
@@ -281,15 +406,25 @@ class StateStorage extends StorageManager<StateJson> {
    */
   async hasTask(projectId: string): Promise<boolean> {
     const state = await this.read(projectId)
-    return state.currentTask !== null || state.previousTask !== null
+    const paused = this.getPausedTasksFromState(state)
+    return state.currentTask !== null || paused.length > 0
   }
 
   /**
-   * Get paused task
+   * Get most recently paused task
    */
   async getPausedTask(projectId: string): Promise<PreviousTask | null> {
     const state = await this.read(projectId)
-    return state.previousTask || null
+    const paused = this.getPausedTasksFromState(state)
+    return paused[0] || null
+  }
+
+  /**
+   * Get all paused tasks
+   */
+  async getAllPausedTasks(projectId: string): Promise<PreviousTask[]> {
+    const state = await this.read(projectId)
+    return this.getPausedTasksFromState(state)
   }
 
   // =========== Subtask Methods ===========
@@ -468,19 +603,22 @@ class StateStorage extends StorageManager<StateJson> {
   async areAllSubtasksComplete(projectId: string): Promise<boolean> {
     const state = await this.read(projectId)
     if (!state.currentTask?.subtasks) return true
-    return state.currentTask.subtasks.every((s) => s.status === 'completed')
+    return state.currentTask.subtasks.every(
+      (s) => s.status === 'completed' || s.status === 'failed' || s.status === 'skipped'
+    )
   }
 
   /**
-   * Fail current subtask
+   * Fail current subtask and advance to next
+   * Returns the next subtask (or null if all done/failed)
    */
-  async failSubtask(projectId: string, error: string): Promise<void> {
+  async failSubtask(projectId: string, error: string): Promise<Subtask | null> {
     const state = await this.read(projectId)
-    if (!state.currentTask?.subtasks) return
+    if (!state.currentTask?.subtasks) return null
 
     const currentIndex = state.currentTask.currentSubtaskIndex || 0
     const current = state.currentTask.subtasks[currentIndex]
-    if (!current) return
+    if (!current) return null
 
     const updatedSubtasks = [...state.currentTask.subtasks]
     updatedSubtasks[currentIndex] = {
@@ -490,11 +628,30 @@ class StateStorage extends StorageManager<StateJson> {
       output: `Failed: ${error}`,
     }
 
+    // Advance to next subtask if available
+    const nextIndex = currentIndex + 1
+    const total = updatedSubtasks.length
+    if (nextIndex < total) {
+      updatedSubtasks[nextIndex] = {
+        ...updatedSubtasks[nextIndex],
+        status: 'in_progress',
+        startedAt: getTimestamp(),
+      }
+    }
+
+    // Count completed + failed + skipped as "resolved" for progress
+    const resolved = updatedSubtasks.filter(
+      (s) => s.status === 'completed' || s.status === 'failed' || s.status === 'skipped'
+    ).length
+    const percentage = Math.round((resolved / total) * 100)
+
     await this.update(projectId, (s) => ({
       ...s,
       currentTask: {
         ...s.currentTask!,
         subtasks: updatedSubtasks,
+        currentSubtaskIndex: nextIndex < total ? nextIndex : currentIndex,
+        subtaskProgress: { completed: resolved, total, percentage },
       },
       lastUpdated: getTimestamp(),
     }))
@@ -506,6 +663,117 @@ class StateStorage extends StorageManager<StateJson> {
       description: current.description,
       error,
     })
+
+    return nextIndex < total ? updatedSubtasks[nextIndex] : null
+  }
+
+  /**
+   * Skip current subtask with reason and advance to next
+   * Returns the next subtask (or null if all done)
+   */
+  async skipSubtask(projectId: string, reason: string): Promise<Subtask | null> {
+    const state = await this.read(projectId)
+    if (!state.currentTask?.subtasks) return null
+
+    const currentIndex = state.currentTask.currentSubtaskIndex || 0
+    const current = state.currentTask.subtasks[currentIndex]
+    if (!current) return null
+
+    const updatedSubtasks = [...state.currentTask.subtasks]
+    updatedSubtasks[currentIndex] = {
+      ...current,
+      status: 'skipped',
+      completedAt: getTimestamp(),
+      output: `Skipped: ${reason}`,
+      skipReason: reason,
+    }
+
+    // Advance to next subtask if available
+    const nextIndex = currentIndex + 1
+    const total = updatedSubtasks.length
+    if (nextIndex < total) {
+      updatedSubtasks[nextIndex] = {
+        ...updatedSubtasks[nextIndex],
+        status: 'in_progress',
+        startedAt: getTimestamp(),
+      }
+    }
+
+    const resolved = updatedSubtasks.filter(
+      (s) => s.status === 'completed' || s.status === 'failed' || s.status === 'skipped'
+    ).length
+    const percentage = Math.round((resolved / total) * 100)
+
+    await this.update(projectId, (s) => ({
+      ...s,
+      currentTask: {
+        ...s.currentTask!,
+        subtasks: updatedSubtasks,
+        currentSubtaskIndex: nextIndex < total ? nextIndex : currentIndex,
+        subtaskProgress: { completed: resolved, total, percentage },
+      },
+      lastUpdated: getTimestamp(),
+    }))
+
+    await this.publishEvent(projectId, 'subtask.skipped', {
+      taskId: state.currentTask.id,
+      subtaskId: current.id,
+      description: current.description,
+      reason,
+    })
+
+    return nextIndex < total ? updatedSubtasks[nextIndex] : null
+  }
+
+  /**
+   * Block current subtask with reason, allow proceeding to next
+   * Returns the next subtask (or null if no more)
+   */
+  async blockSubtask(projectId: string, blocker: string): Promise<Subtask | null> {
+    const state = await this.read(projectId)
+    if (!state.currentTask?.subtasks) return null
+
+    const currentIndex = state.currentTask.currentSubtaskIndex || 0
+    const current = state.currentTask.subtasks[currentIndex]
+    if (!current) return null
+
+    const updatedSubtasks = [...state.currentTask.subtasks]
+    updatedSubtasks[currentIndex] = {
+      ...current,
+      status: 'blocked',
+      output: `Blocked: ${blocker}`,
+      blockReason: blocker,
+    }
+
+    // Advance to next subtask if available (blocked doesn't halt)
+    const nextIndex = currentIndex + 1
+    const total = updatedSubtasks.length
+    if (nextIndex < total) {
+      updatedSubtasks[nextIndex] = {
+        ...updatedSubtasks[nextIndex],
+        status: 'in_progress',
+        startedAt: getTimestamp(),
+      }
+    }
+
+    await this.update(projectId, (s) => ({
+      ...s,
+      currentTask: {
+        ...s.currentTask!,
+        subtasks: updatedSubtasks,
+        currentSubtaskIndex: nextIndex < total ? nextIndex : currentIndex,
+      },
+      lastUpdated: getTimestamp(),
+    }))
+
+    await this.publishEvent(projectId, 'subtask.blocked', {
+      taskId: state.currentTask.id,
+      subtaskId: current.id,
+      description: current.description,
+      blocker,
+    })
+
+    return nextIndex < total ? updatedSubtasks[nextIndex] : null
   }
 }
 
