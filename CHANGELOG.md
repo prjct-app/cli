@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.10.0] - 2026-02-08
+
+### Features
+
+- redesign prompt assembly with correct section ordering + anti-hallucination (PRJ-301) (#152)
+- add coordinated global token budget (PRJ-266) (#151)
+
+
 ## [1.12.0] - 2026-02-07
 
 ### Features
