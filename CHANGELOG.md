@@ -1,5 +1,45 @@
 # Changelog
 
+## [1.12.0] - 2026-02-07
+
+### Features
+- **Prompt Assembly Redesign**: Correct section ordering based on research of 25+ system prompts (PRJ-301)
+- **Environment Block**: Structured `<env>` block with project, git, platform, runtime, and model metadata
+- **Anti-Hallucination Block**: Explicit availability/unavailability grounding injected BEFORE task context
+- **Token Efficiency Directive**: Conciseness rules appended to every prompt
+
+### Implementation Details
+Redesigned `prompt-builder.ts` section ordering to follow research-backed pattern:
+Identity → Environment → Ground Truth → Capabilities → Constraints → Task Context → Task → Output Schema → Efficiency
+
+Key changes:
+- New `environment-block.ts`: Generates `<env>` XML block with auto-detected runtime, platform, and normalized names
+- New `anti-hallucination.ts`: Generates constraints block from sealed analysis (available tech, absent domains, grounding rules)
+- Moved template content (task instructions) to section 7 — LLM knows identity, env, and rules before reading task
+- Anti-hallucination block placed at section 5 (before task context), replacing old `RULES (CRITICAL)` at the end
+- Added `buildEfficiencyDirective()` with conciseness rules (max 4 lines, no preamble/postamble)
+- Exported `PROMPT_SECTION_ORDER` constant and `SectionPriority` type for budget trimming
+- Kept `buildCriticalRules()` as fallback when project context unavailable
+
+### Learnings
+- Zod `.default()` only applies during `.parse()` — raw object construction skips defaults, use `??` fallback
+- Renaming prompt section headers breaks existing test assertions — always update test matchers
+- Template position matters: placing task instructions after constraints improves LLM grounding
+
+### Test Plan
+
+#### For QA
+1. Run `bun test` — all 719 tests pass (0 failures)
+2. Run `bun run build` — build succeeds
+3. Verify `<env>` block appears in generated prompts before constraints
+4. Verify `CONSTRAINTS (Read Before Acting)` appears before template content
+5. Verify `OUTPUT RULES` section appears at end of prompt
+6. Check `AVAILABLE` and `NOT PRESENT` lists reflect project tech stack
+7. Run `prjct sync` — prompt assembly still works end-to-end
+
+#### For Users
+Prompts sent to AI models are now structured with research-backed section ordering, reducing hallucinations and improving response conciseness. No user action required — improvements are automatic.
+
 ## [1.11.0] - 2026-02-07
 
 ### Features
