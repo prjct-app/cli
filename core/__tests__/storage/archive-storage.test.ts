@@ -299,6 +299,7 @@ describe('Archive Storage', () => {
           {
             id: 'active',
             description: 'Active',
+            type: 'feature',
             priority: 'medium',
             section: 'active',
             createdAt: daysAgoISO(1),
@@ -307,6 +308,7 @@ describe('Archive Storage', () => {
           {
             id: 'recent-done',
             description: 'Recent done',
+            type: 'feature',
             priority: 'medium',
             section: 'active',
             createdAt: daysAgoISO(5),
@@ -316,6 +318,7 @@ describe('Archive Storage', () => {
           {
             id: 'old-done',
             description: 'Old done',
+            type: 'feature',
             priority: 'low',
             section: 'active',
             createdAt: daysAgoISO(30),
@@ -404,7 +407,7 @@ describe('Archive Storage', () => {
           })
         )
       }
-      await fs.writeFile(memoryPath, entries.join('\n') + '\n', 'utf-8')
+      await fs.writeFile(memoryPath, `${entries.join('\n')}\n`, 'utf-8')
 
       // Import and use memoryService
       const { memoryService } = await import('../../services/memory-service')
@@ -428,7 +431,7 @@ describe('Archive Storage', () => {
       for (let i = 0; i < 10; i++) {
         entries.push(JSON.stringify({ timestamp: getTimestamp(), action: `a-${i}`, data: {} }))
       }
-      await fs.writeFile(memoryPath, entries.join('\n') + '\n', 'utf-8')
+      await fs.writeFile(memoryPath, `${entries.join('\n')}\n`, 'utf-8')
 
       const { memoryService } = await import('../../services/memory-service')
       const capped = await memoryService.capEntries(testProjectId)
