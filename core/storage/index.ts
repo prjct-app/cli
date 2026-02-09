@@ -47,6 +47,8 @@ export type {
 } from '../types'
 export type { AnalysisStoreData, SealResult, StalenessCheck } from './analysis-storage'
 export { analysisStorage } from './analysis-storage'
+export type { ArchiveEntityType, ArchiveItem, ArchiveRecord, ArchiveStats } from './archive-storage'
+export { ARCHIVE_POLICIES, archiveStorage } from './archive-storage'
 export type { Migration, MigrationRecord } from './database'
 export { PrjctDatabase, prjctDb } from './database'
 export { ideasStorage } from './ideas-storage'

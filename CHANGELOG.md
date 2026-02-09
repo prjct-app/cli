@@ -1,5 +1,48 @@
 # Changelog
 
+## [1.19.0] - 2026-02-09
+
+### Features
+
+- **Aggressive archival of stale storage data** (PRJ-267): Automatic archival during `prjct sync` to keep LLM context lean
+  - Shipped features >90 days archived to SQLite `archives` table with 1-line summary
+  - Pending ideas >180 days marked `dormant` and excluded from LLM context
+  - Completed queue tasks >7 days auto-removed and archived
+  - Paused tasks >30 days archived with persistence (previously discarded)
+  - Memory log capped at 500 active entries, overflow archived
+
+### Implementation Details
+
+New modules:
+- `core/storage/archive-storage.ts` — Archive infrastructure: SQLite `archives` table, batch archival via transactions, restore, prune, stats
+- `core/__tests__/storage/archive-storage.test.ts` — 13 tests covering all archival paths
+
+Modified:
+- `core/storage/database.ts` — Migration v2: `archives` table with entity_type, entity_id, entity_data, summary, reason columns
+- `core/storage/shipped-storage.ts` — `archiveOldShipped()` method with 90-day retention policy
+- `core/storage/ideas-storage.ts` — `markDormantIdeas()` method, `dormant` status excluded from markdown context
+- `core/storage/queue-storage.ts` — `removeStaleCompleted()` method with 7-day retention
+- `core/storage/state-storage.ts` — `archiveStalePausedTasks()` now persists to archive table before removal
+- `core/services/memory-service.ts` — `capEntries()` method with 500-entry cap
+- `core/services/sync-service.ts` — `archiveStaleData()` orchestrates all archival in parallel during sync
+- `core/schemas/ideas.ts` + `core/types/storage.ts` — Added `dormant` to IdeaStatus enum
+
+### Test Plan
+
+#### For QA
+1. Run `prjct sync` with >90d shipped features — verify archive and removal from context
+2. Run sync with >180d pending ideas — verify dormant status, excluded from `ideas.md`
+3. Run sync with >7d completed queue tasks — verify removal and archival
+4. Run sync with >30d paused tasks — verify archival to SQLite
+5. Create >500 memory entries, sync — verify cap at 500
+6. `bun test` — all 947+ tests pass
+7. Verify recent items are NOT archived
+
+#### For Users
+**What changed:** Storage data automatically cleaned up during sync. Old data archived, not deleted.
+**How to use:** No action needed — runs automatically on every sync.
+**Breaking changes:** Ideas can now have `dormant` status (new enum value).
+
 ## [1.18.0] - 2026-02-09
 
 ### Features

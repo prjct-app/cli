@@ -14,7 +14,7 @@ import { z } from 'zod'
 // =============================================================================
 
 export const IdeaPrioritySchema = z.enum(['low', 'medium', 'high'])
-export const IdeaStatusSchema = z.enum(['pending', 'converted', 'completed', 'archived'])
+export const IdeaStatusSchema = z.enum(['pending', 'converted', 'completed', 'archived', 'dormant'])
 export const ImpactLevelSchema = z.enum(['high', 'medium', 'low'])
 
 export const ImpactEffortSchema = z.object({

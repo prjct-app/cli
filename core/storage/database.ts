@@ -265,6 +265,30 @@ const migrations: Migration[] = [
       `)
     },
   },
+  {
+    version: 2,
+    name: 'archives-table',
+    up: (db: Database) => {
+      db.run(`
+        -- =======================================================================
+        -- Archives: Stale data moved out of active storage (PRJ-267)
+        -- =======================================================================
+        CREATE TABLE archives (
+          id            TEXT PRIMARY KEY,
+          entity_type   TEXT NOT NULL,
+          entity_id     TEXT NOT NULL,
+          entity_data   TEXT NOT NULL,
+          summary       TEXT,
+          archived_at   TEXT NOT NULL,
+          reason        TEXT NOT NULL
+        );
+
+        CREATE INDEX idx_archives_entity_type ON archives(entity_type);
+        CREATE INDEX idx_archives_archived_at ON archives(archived_at);
+        CREATE INDEX idx_archives_entity_id ON archives(entity_id);
+      `)
+    },
+  },
 ]
 
 // =============================================================================

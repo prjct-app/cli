@@ -6,6 +6,7 @@
 
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
+import { ARCHIVE_POLICIES, archiveStorage } from '../storage/archive-storage'
 import type { MemoryServiceEntry } from '../types'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import { getTimestamp } from '../utils/date-helper'
@@ -131,6 +132,47 @@ export class MemoryService {
         console.error(`Memory read error: ${getErrorMessage(error)}`)
       }
       return []
+    }
+  }
+
+  /**
+   * Cap memory log at max entries (PRJ-267).
+   * Moves overflow entries to archive table, keeps most recent entries.
+   * Returns count of archived entries.
+   */
+  async capEntries(projectId: string): Promise<number> {
+    try {
+      const memoryPath = pathManager.getFilePath(projectId, 'memory', 'context.jsonl')
+      const entries = await jsonlHelper.readJsonLines<MemoryServiceEntry>(memoryPath)
+
+      if (entries.length <= ARCHIVE_POLICIES.MEMORY_MAX_ENTRIES) {
+        return 0
+      }
+
+      const overflow = entries.slice(0, entries.length - ARCHIVE_POLICIES.MEMORY_MAX_ENTRIES)
+      const kept = entries.slice(-ARCHIVE_POLICIES.MEMORY_MAX_ENTRIES)
+
+      // Archive overflow entries in batch
+      archiveStorage.archiveMany(
+        projectId,
+        overflow.map((entry, i) => ({
+          entityType: 'memory_entry' as const,
+          entityId: `memory-${entry.timestamp || i}`,
+          entityData: entry,
+          summary: entry.action,
+          reason: 'overflow',
+        }))
+      )
+
+      // Rewrite file with only kept entries
+      await jsonlHelper.writeJsonLines(memoryPath, kept)
+
+      return overflow.length
+    } catch (error) {
+      if (!isNotFoundError(error)) {
+        console.error(`Memory cap error: ${getErrorMessage(error)}`)
+      }
+      return 0
     }
   }
 }

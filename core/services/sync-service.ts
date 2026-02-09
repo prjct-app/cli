@@ -37,8 +37,13 @@ import commandInstaller from '../infrastructure/command-installer'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import { analysisStorage } from '../storage/analysis-storage'
+import { archiveStorage } from '../storage/archive-storage'
+import { ideasStorage } from '../storage/ideas-storage'
 import { metricsStorage } from '../storage/metrics-storage'
 import { migrateJsonToSqlite } from '../storage/migrate-json'
+import { queueStorage } from '../storage/queue-storage'
+import { shippedStorage } from '../storage/shipped-storage'
+import { stateStorage } from '../storage/state-storage'
 import type {
   GitData,
   IncrementalInfo,
@@ -56,6 +61,7 @@ import * as dateHelper from '../utils/date-helper'
 import log from '../utils/logger'
 import { ContextFileGenerator } from './context-generator'
 import { localStateGenerator } from './local-state-generator'
+import { memoryService } from './memory-service'
 import { skillInstaller } from './skill-installer'
 import { StackDetector } from './stack-detector'
 import { syncVerifier } from './sync-verifier'
@@ -289,6 +295,9 @@ class SyncService {
       // 9. Record metrics for value dashboard
       const duration = Date.now() - startTime
       const syncMetrics = await this.recordSyncMetrics(stats, contextFiles, agents, duration)
+
+      // 9b. Archive stale data (PRJ-267)
+      await this.archiveStaleData()
 
       // 10. Update global config and commands (CLI does EVERYTHING)
       // This ensures `prjct sync` from terminal updates global CLAUDE.md and commands
@@ -1267,6 +1276,48 @@ You are the ${name} expert for this project. Apply best practices for the detect
       })
     } catch (error) {
       log.debug('Failed to save draft analysis (non-critical)', { error: getErrorMessage(error) })
+    }
+  }
+
+  // ==========================================================================
+  // ARCHIVAL (PRJ-267)
+  // ==========================================================================
+
+  /**
+   * Archive stale data across all storage types.
+   * Runs during sync to keep active storage lean.
+   */
+  private async archiveStaleData(): Promise<void> {
+    if (!this.projectId) return
+
+    try {
+      const [shipped, dormant, staleQueue, stalePaused, memoryCapped] = await Promise.all([
+        shippedStorage.archiveOldShipped(this.projectId).catch(() => 0),
+        ideasStorage.markDormantIdeas(this.projectId).catch(() => 0),
+        queueStorage.removeStaleCompleted(this.projectId).catch(() => 0),
+        stateStorage.archiveStalePausedTasks(this.projectId).catch(() => []),
+        memoryService.capEntries(this.projectId).catch(() => 0),
+      ])
+
+      const totalArchived =
+        shipped + dormant + staleQueue + (stalePaused as unknown[]).length + memoryCapped
+
+      if (totalArchived > 0) {
+        log.info('Archived stale data', {
+          shipped,
+          dormant,
+          staleQueue,
+          stalePaused: (stalePaused as unknown[]).length,
+          memoryCapped,
+          total: totalArchived,
+        })
+
+        // Record archive stats
+        const stats = archiveStorage.getStats(this.projectId)
+        log.debug('Archive stats', stats)
+      }
+    } catch (error) {
+      log.debug('Archival failed (non-critical)', { error: getErrorMessage(error) })
     }
   }
 
