@@ -1,5 +1,39 @@
 # Changelog
 
+## [1.14.1] - 2026-02-09
+
+### Improved
+- **Semantic memory domain matching** (PRJ-300): Memory retrieval now uses two-pass scoring (exact MEMORY_TAG match + semantic keyword match) instead of exact-only tag matching. Unknown domains like "uxui" are resolved to canonical domains ("frontend") via SEMANTIC_DOMAIN_KEYWORDS map.
+- **Tech stack normalizer**: New `tech-normalizer.ts` module handles framework name normalization, compound names ("React + TypeScript"), framework families (Next.js → React), and alias resolution (nextjs → next.js).
+- **Anti-hallucination dedup**: Tech stack entries in the anti-hallucination block are now deduplicated using normalized matching, preventing duplicates like "React" and "react" or "Next.js" and "nextjs".
+- **Sealed analysis priority**: Prompt builder now uses sealed analysis frameworks as primary tech stack source, falling back to repo conventions.
+
+### Implementation Details
+- Expanded `TaskDomain` type from fixed union to `KnownDomain | (string & {})` for forward compatibility while preserving autocomplete
+- `DOMAIN_TAG_MAP` now includes TECH_STACK for frontend/database domains (previously missing)
+- `SEMANTIC_DOMAIN_KEYWORDS` maps 80+ keywords across 7 domains for fuzzy domain resolution
+- `resolveCanonicalDomains()` exported for testability — resolves arbitrary strings to known domains
+- `normalizeFrameworkName()` handles 15 aliases; `FRAMEWORK_FAMILIES` maps 12 meta-frameworks to base frameworks
+- `extractTechNames()` splits compound tech strings on +, /, commas, parentheses, "with", "and"
+
+### Learnings
+- Two-pass scoring (exact 10pts + semantic 5pts) gives gradual relevance instead of binary match/no-match
+- TypeScript's `KnownDomain | (string & {})` pattern preserves autocomplete for known values while accepting any string
+- Parentheses in compound names need comma replacement (not space) — otherwise adjacent words merge into a single token
+
+### Test Plan
+
+#### For QA
+1. `bun test core/__tests__/agentic/semantic-matching.test.ts` — domain resolution (uxui→frontend, api→backend, infra→devops)
+2. `bun test core/__tests__/agentic/tech-normalizer.test.ts` — normalization, compound names, framework families, dedup
+3. `bun test core/__tests__/agentic/prompt-assembly.test.ts` — anti-hallucination block still renders correctly
+4. `bun test` — 848 tests pass, 0 fail
+
+#### For Users
+- Memory retrieval automatically surfaces related memories across domains
+- No user action needed — improvements are automatic
+- No breaking changes
+
 ## [1.14.0] - 2026-02-09
 
 ### Features

@@ -86,17 +86,27 @@ export interface MemoryQuery {
 }
 
 /**
- * Domain types for task context.
+ * Known domain types for task context.
  * @see PRJ-107
  */
-export type TaskDomain =
-  | 'frontend'
-  | 'backend'
-  | 'devops'
-  | 'docs'
-  | 'testing'
-  | 'database'
-  | 'general'
+export const KNOWN_DOMAINS = [
+  'frontend',
+  'backend',
+  'devops',
+  'docs',
+  'testing',
+  'database',
+  'general',
+] as const
+export type KnownDomain = (typeof KNOWN_DOMAINS)[number]
+
+/**
+ * Task domain — accepts known domains with autocomplete + any string for
+ * semantic resolution. Unknown domains are resolved to the closest canonical
+ * domain via SEMANTIC_DOMAIN_KEYWORDS.
+ * @see PRJ-107, PRJ-300
+ */
+export type TaskDomain = KnownDomain | (string & {})
 
 /**
  * Enhanced query parameters for selective memory retrieval.

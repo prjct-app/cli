@@ -39,6 +39,7 @@ import {
   InjectionBudgetTracker,
   truncateToTokenBudget,
 } from './injection-validator'
+import { deduplicateTechStack } from './tech-normalizer'
 import type { TokenBudgetCoordinator } from './token-budget'
 
 // =============================================================================
@@ -689,10 +690,17 @@ class PromptBuilder {
 
     if (projectPath) {
       const sa = orchestratorContext?.sealedAnalysis
+      // PRJ-300: prefer sealed analysis frameworks as primary tech stack,
+      // falling back to repo conventions. Deduplicate with normalized matching.
+      const rawStack = [
+        ...(sa?.frameworks || []),
+        ...(orchestratorContext?.project?.conventions || []),
+      ]
       const groundTruth: ProjectGroundTruth = {
         projectPath,
         language: orchestratorContext?.project?.ecosystem,
-        techStack: orchestratorContext?.project?.conventions || [],
+        framework: sa?.frameworks?.[0],
+        techStack: deduplicateTechStack(rawStack),
         domains: this.extractDomains(state),
         fileCount: context.files?.length || context.filteredSize || 0,
         availableAgents: orchestratorContext?.agents?.map((a) => a.name) || [],

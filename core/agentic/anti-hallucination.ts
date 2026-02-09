@@ -19,6 +19,7 @@
  */
 
 import { z } from 'zod'
+import { deduplicateTechStack } from './tech-normalizer'
 
 // =============================================================================
 // Schema
@@ -85,25 +86,19 @@ export function buildAntiHallucinationBlock(truth: ProjectGroundTruth): string {
 
   parts.push('## CONSTRAINTS (Read Before Acting)\n')
 
-  // 1. Explicit availability (enriched by sealed analysis — PRJ-260)
-  const available: string[] = []
-  if (truth.language) available.push(truth.language)
-  if (truth.framework) available.push(truth.framework)
+  // 1. Explicit availability (enriched by sealed analysis — PRJ-260, PRJ-300)
+  // Use normalized deduplication to prevent "React" and "react" appearing twice,
+  // and to handle aliases like "Next.js" vs "nextjs".
+  const rawAvailable: string[] = []
+  if (truth.language) rawAvailable.push(truth.language)
+  if (truth.framework) rawAvailable.push(truth.framework)
   const techStack = truth.techStack ?? []
-  available.push(...techStack.filter((t) => t !== truth.framework))
-  // Merge languages/frameworks from sealed analysis (deduped)
+  rawAvailable.push(...techStack)
+  // Merge languages/frameworks from sealed analysis
   const analysisLangs = truth.analysisLanguages ?? []
   const analysisFrameworks = truth.analysisFrameworks ?? []
-  for (const lang of analysisLangs) {
-    if (!available.some((a) => a.toLowerCase() === lang.toLowerCase())) {
-      available.push(lang)
-    }
-  }
-  for (const fw of analysisFrameworks) {
-    if (!available.some((a) => a.toLowerCase() === fw.toLowerCase())) {
-      available.push(fw)
-    }
-  }
+  rawAvailable.push(...analysisLangs, ...analysisFrameworks)
+  const available = deduplicateTechStack(rawAvailable)
 
   if (available.length > 0) {
     parts.push(`AVAILABLE in this project: ${available.join(', ')}`)

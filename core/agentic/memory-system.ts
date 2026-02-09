@@ -26,6 +26,7 @@ export type {
   Decision,
   HistoryEntry,
   HistoryEventType,
+  KnownDomain,
   Memory,
   MemoryContext,
   MemoryContextParams,
@@ -40,11 +41,12 @@ export type {
   Workflow,
 } from '../types/memory'
 
-export { calculateConfidence, MEMORY_TAGS } from '../types/memory'
+export { calculateConfidence, KNOWN_DOMAINS, MEMORY_TAGS } from '../types/memory'
 
 import type {
   HistoryEntry,
   HistoryEventType,
+  KnownDomain,
   Memory,
   MemoryContext,
   MemoryDatabase,
@@ -58,7 +60,167 @@ import type {
   Workflow,
 } from '../types/memory'
 
-import { calculateConfidence, MEMORY_TAGS } from '../types/memory'
+import { calculateConfidence, KNOWN_DOMAINS, MEMORY_TAGS } from '../types/memory'
+
+// =============================================================================
+// Semantic Domain Mapping (PRJ-300)
+// =============================================================================
+
+/**
+ * Map each known domain to its relevant MEMORY_TAGS.
+ * More comprehensive than the previous mapping — includes TECH_STACK and
+ * DEPENDENCIES where they apply.
+ */
+export const DOMAIN_TAG_MAP: Record<string, MemoryTag[]> = {
+  frontend: [
+    MEMORY_TAGS.CODE_STYLE,
+    MEMORY_TAGS.FILE_STRUCTURE,
+    MEMORY_TAGS.ARCHITECTURE,
+    MEMORY_TAGS.TECH_STACK,
+  ],
+  backend: [
+    MEMORY_TAGS.CODE_STYLE,
+    MEMORY_TAGS.ARCHITECTURE,
+    MEMORY_TAGS.DEPENDENCIES,
+    MEMORY_TAGS.TECH_STACK,
+  ],
+  devops: [
+    MEMORY_TAGS.SHIP_WORKFLOW,
+    MEMORY_TAGS.TEST_BEHAVIOR,
+    MEMORY_TAGS.DEPENDENCIES,
+    MEMORY_TAGS.ARCHITECTURE,
+  ],
+  docs: [MEMORY_TAGS.CODE_STYLE, MEMORY_TAGS.NAMING_CONVENTION, MEMORY_TAGS.FILE_STRUCTURE],
+  testing: [MEMORY_TAGS.TEST_BEHAVIOR, MEMORY_TAGS.CODE_STYLE, MEMORY_TAGS.DEPENDENCIES],
+  database: [
+    MEMORY_TAGS.ARCHITECTURE,
+    MEMORY_TAGS.NAMING_CONVENTION,
+    MEMORY_TAGS.TECH_STACK,
+    MEMORY_TAGS.DEPENDENCIES,
+  ],
+  general: Object.values(MEMORY_TAGS) as MemoryTag[],
+}
+
+/**
+ * Semantic keywords for each domain.
+ * Used to resolve unknown domain strings (e.g., "uxui" → frontend)
+ * and for partial scoring when memory tags relate semantically.
+ * @see PRJ-300
+ */
+export const SEMANTIC_DOMAIN_KEYWORDS: Record<string, string[]> = {
+  frontend: [
+    'ui',
+    'ux',
+    'uxui',
+    'css',
+    'styling',
+    'component',
+    'layout',
+    'design',
+    'responsive',
+    'react',
+    'vue',
+    'svelte',
+    'angular',
+    'html',
+    'tailwind',
+    'sass',
+    'web',
+    'accessibility',
+    'a11y',
+  ],
+  backend: [
+    'api',
+    'server',
+    'route',
+    'endpoint',
+    'rest',
+    'graphql',
+    'middleware',
+    'worker',
+    'queue',
+    'auth',
+    'hono',
+    'express',
+    'service',
+    'microservice',
+  ],
+  devops: [
+    'ci',
+    'cd',
+    'docker',
+    'kubernetes',
+    'deploy',
+    'infra',
+    'infrastructure',
+    'monitoring',
+    'cloud',
+    'aws',
+    'gcp',
+    'azure',
+    'pipeline',
+    'helm',
+    'terraform',
+  ],
+  docs: ['documentation', 'readme', 'guide', 'tutorial', 'wiki', 'changelog', 'jsdoc', 'typedoc'],
+  testing: [
+    'test',
+    'spec',
+    'e2e',
+    'unit',
+    'integration',
+    'coverage',
+    'mock',
+    'vitest',
+    'jest',
+    'playwright',
+    'cypress',
+  ],
+  database: [
+    'db',
+    'sql',
+    'schema',
+    'migration',
+    'query',
+    'orm',
+    'prisma',
+    'mongo',
+    'postgres',
+    'redis',
+    'drizzle',
+    'sqlite',
+  ],
+  general: [],
+}
+
+/**
+ * Resolve a domain string to canonical known domain(s).
+ * Known domains pass through; unknown domains are matched via semantic keywords.
+ * Exported for testing.
+ * @see PRJ-300
+ */
+export function resolveCanonicalDomains(domain: string): KnownDomain[] {
+  // Exact match
+  if ((KNOWN_DOMAINS as readonly string[]).includes(domain)) {
+    return [domain as KnownDomain]
+  }
+
+  // Semantic resolution — find canonical domains whose keywords match
+  const normalized = domain.toLowerCase().replace(/[-_\s]/g, '')
+  const matches: KnownDomain[] = []
+
+  for (const [canonical, keywords] of Object.entries(SEMANTIC_DOMAIN_KEYWORDS)) {
+    if (canonical === 'general') continue
+    for (const kw of keywords) {
+      if (normalized.includes(kw) || kw.includes(normalized)) {
+        matches.push(canonical as KnownDomain)
+        break
+      }
+    }
+  }
+
+  return matches.length > 0 ? matches : ['general']
+}
 
 // =============================================================================
 // Base Store
@@ -858,11 +1020,9 @@ export class SemanticMemories extends CachedStore<MemoryDatabase> {
         userTriggered: 0,
       }
 
-      // Domain match scoring (0-25 points)
+      // Domain match scoring (0-25 points) — semantic matching (PRJ-300)
       if (query.taskDomain) {
-        const domainTags = this._getDomainTags(query.taskDomain)
-        const matchingTags = (memory.tags || []).filter((tag) => domainTags.includes(tag))
-        breakdown.domainMatch = Math.min(25, matchingTags.length * 10)
+        breakdown.domainMatch = this._getSemanticDomainScore(query.taskDomain, memory.tags || [])
       }
 
       // Tag match from command context (0-20 points)
@@ -943,25 +1103,66 @@ export class SemanticMemories extends CachedStore<MemoryDatabase> {
   }
 
   /**
-   * Map task domain to relevant memory tags.
-   * @see PRJ-107
+   * Compute semantic domain match score (0-25 points).
+   *
+   * Two-pass scoring:
+   * 1. Exact MEMORY_TAG match: memory tag in domain's tag list → 10 pts each
+   * 2. Semantic match: memory tag relates to domain via keywords → 5 pts each
+   *
+   * Unknown domains are resolved to canonical domain(s) via SEMANTIC_DOMAIN_KEYWORDS.
+   * @see PRJ-107, PRJ-300
    */
-  private _getDomainTags(domain: TaskDomain): MemoryTag[] {
-    const domainTagMap: Record<TaskDomain, MemoryTag[]> = {
-      frontend: [MEMORY_TAGS.CODE_STYLE, MEMORY_TAGS.FILE_STRUCTURE, MEMORY_TAGS.ARCHITECTURE],
-      backend: [
-        MEMORY_TAGS.CODE_STYLE,
-        MEMORY_TAGS.ARCHITECTURE,
-        MEMORY_TAGS.DEPENDENCIES,
-        MEMORY_TAGS.TECH_STACK,
-      ],
-      devops: [MEMORY_TAGS.SHIP_WORKFLOW, MEMORY_TAGS.TEST_BEHAVIOR, MEMORY_TAGS.DEPENDENCIES],
-      docs: [MEMORY_TAGS.CODE_STYLE, MEMORY_TAGS.NAMING_CONVENTION],
-      testing: [MEMORY_TAGS.TEST_BEHAVIOR, MEMORY_TAGS.CODE_STYLE],
-      database: [MEMORY_TAGS.ARCHITECTURE, MEMORY_TAGS.NAMING_CONVENTION],
-      general: Object.values(MEMORY_TAGS) as MemoryTag[],
+  private _getSemanticDomainScore(domain: TaskDomain, memoryTags: string[]): number {
+    // Resolve to canonical domain(s)
+    const canonicals = this._resolveCanonicalDomains(domain)
+    if (canonicals.length === 0) return 0
+
+    // Collect all relevant MEMORY_TAGS for the canonical domains
+    const relevantTags = new Set<string>()
+    for (const canonical of canonicals) {
+      const tags = DOMAIN_TAG_MAP[canonical]
+      if (tags) {
+        for (const tag of tags) relevantTags.add(tag)
+      }
     }
-    return domainTagMap[domain] || []
+
+    // Collect semantic keywords for the canonical domains
+    const domainKeywords = new Set<string>()
+    for (const canonical of canonicals) {
+      const keywords = SEMANTIC_DOMAIN_KEYWORDS[canonical]
+      if (keywords) {
+        for (const kw of keywords) domainKeywords.add(kw)
+      }
+    }
+
+    let score = 0
+
+    for (const tag of memoryTags) {
+      // Pass 1: exact MEMORY_TAG match (10 pts)
+      if (relevantTags.has(tag)) {
+        score += 10
+        continue
+      }
+      // Pass 2: semantic keyword match (5 pts)
+      const normalized = tag.toLowerCase().replace(/[-_\s]/g, '')
+      for (const kw of domainKeywords) {
+        if (normalized.includes(kw) || kw.includes(normalized)) {
+          score += 5
+          break
+        }
+      }
+    }
+
+    return Math.min(25, score)
+  }
+
+  /**
+   * Resolve a domain string to canonical known domain(s).
+   * Delegates to module-level resolveCanonicalDomains().
+   * @see PRJ-300
+   */
+  private _resolveCanonicalDomains(domain: TaskDomain): KnownDomain[] {
+    return resolveCanonicalDomains(domain)
   }
 
   /**
