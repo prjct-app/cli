@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.16.0] - 2026-02-09
+
+### Features
+
+- remove JSON storage redundancy, SQLite-only backend (PRJ-303) (#158)
+
+
 ## [1.16.0] - 2026-02-08
 
 ### Features
