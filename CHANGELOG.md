@@ -3,6 +3,13 @@
 ## [1.13.0] - 2026-02-09
 
 ### Features
+
+- inject sealed analysis into task prompt context (PRJ-260) (#155)
+
+
+## [1.13.0] - 2026-02-09
+
+### Features
 - **Analysis Injection**: Sealed analysis (languages, frameworks, patterns, anti-patterns) now automatically injected into LLM prompt context (PRJ-260)
 - **Enriched Ground Truth**: Prompt section 3 renders full analysis data — languages, frameworks, package manager, source/test dirs, code patterns, and anti-patterns
 - **Enhanced Anti-Hallucination**: AVAILABLE tech list enriched with analysis data (case-insensitive dedup), package manager constraint added
