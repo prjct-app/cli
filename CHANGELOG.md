@@ -34,6 +34,12 @@
 **How to use:** Run `p. sync` to build indexes — file selection is automatic and more accurate.
 **Breaking changes:** None. Falls back to previous filtering if indexes don't exist.
 
+## [1.16.0] - 2026-02-09
+
+### Features
+
+- remove JSON storage redundancy, SQLite-only backend (PRJ-303) (#158)
+
 ## [1.16.0] - 2026-02-08
 
 ### Features
