@@ -156,6 +156,7 @@ async function main(): Promise<void> {
           }),
         help: (p) => commands.help(p || ''),
         perf: (p) => commands.perf(p || '7'),
+        velocity: (p) => commands.velocity(p || '0'),
         // Maintenance
         recover: () => commands.recover(),
         undo: () => commands.undo(),

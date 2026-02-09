@@ -1,5 +1,47 @@
 # Changelog
 
+## [1.14.0] - 2026-02-09
+
+### Features
+- **Velocity Dashboard**: New `prjct velocity` command with sprint-by-sprint breakdown, trend detection, and estimation accuracy (PRJ-296)
+- **Estimation Patterns**: Automatic detection of over/under estimation patterns by task category
+- **Completion Projections**: Given remaining backlog points, projects estimated sprints and completion date
+- **Velocity Context Injection**: Historical velocity data automatically injected into LLM task prompts for better estimation
+
+### Implementation Details
+
+**PRJ-296 — Sprint-Based Velocity Calculation**
+New velocity subsystem that aggregates completed task data (from outcomes.jsonl) into sprint periods, calculates rolling velocity metrics, detects trends, and identifies estimation patterns.
+
+Key changes:
+- `core/schemas/velocity.ts` — Zod schemas: SprintVelocity, VelocityMetrics, VelocityConfig, EstimationPattern, CompletionProjection
+- `core/domain/velocity.ts` — Velocity engine: sprint bucketing, linear regression trend detection, accuracy tracking, pattern detection, duration parsing, LLM context formatting
+- `core/storage/velocity-storage.ts` — Write-through storage extending StorageManager with markdown generation
+- `core/commands/velocity.ts` — Dashboard command with chalk-formatted output + registration
+- `core/types/agentic.ts` — Extended `OrchestratorContext` with `velocityContext` field
+- `core/agentic/orchestrator-executor.ts` — Loads velocity context in parallel via `Promise.all`
+- `core/agentic/prompt-builder.ts` — Injects velocity into Section 6 (task context)
+- `core/__tests__/domain/velocity.test.ts` — 35 new tests
+
+### Learnings
+- Derive story points from estimated duration via Fibonacci mapping when outcomes lack explicit point data
+- Linear regression slope normalized by average velocity works well for trend detection (>10% = improving, <-10% = declining)
+- Parallel loading pattern in orchestrator-executor (`Promise.all`) ensures zero-latency context enrichment
+
+### Test Plan
+
+#### For QA
+1. Run `prjct velocity` on a project with outcomes data — verify sprint-by-sprint breakdown with points, tasks, accuracy
+2. Run `prjct velocity` with no outcomes — verify graceful "No velocity data yet" message
+3. Run `prjct velocity 89` — verify completion projection (sprints remaining + date)
+4. Run `bun test core/__tests__/domain/velocity.test.ts` — 35 tests pass
+5. Run `bun test` — all 805 tests pass
+
+#### For Users
+- **What changed:** New `prjct velocity` command shows sprint velocity, estimation accuracy trends, and completion projections. Velocity data is automatically injected into task prompts for better LLM estimation.
+- **How to use:** Run `prjct velocity` after completing tasks with estimates. Add backlog points: `prjct velocity 89`
+- **Breaking changes:** None
+
 ## [1.13.0] - 2026-02-09
 
 ### Features

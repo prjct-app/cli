@@ -19,6 +19,7 @@ import { commandRegistry } from './registry'
 import { SetupCommands } from './setup'
 import { ShippingCommands } from './shipping'
 import { UninstallCommands } from './uninstall'
+import { VelocityCommands } from './velocity'
 import { WorkflowCommands } from './workflow'
 
 // Singleton instances of command groups
@@ -31,6 +32,7 @@ const maintenance = new MaintenanceCommands()
 const analysis = new AnalysisCommands()
 const setup = new SetupCommands()
 const context = new ContextCommands()
+const velocityCmd = new VelocityCommands()
 const uninstallCmd = new UninstallCommands()
 
 /**
@@ -78,6 +80,9 @@ export function registerAllCommands(): void {
   // Performance commands
   commandRegistry.registerMethod('perf', performance, 'perf', getMeta('perf'))
 
+  // Velocity commands
+  commandRegistry.registerMethod('velocity', velocityCmd, 'velocity', getMeta('velocity'))
+
   // Maintenance commands
   commandRegistry.registerMethod('cleanup', maintenance, 'cleanup', getMeta('cleanup'))
   commandRegistry.registerMethod('design', maintenance, 'design', getMeta('design'))
@@ -117,5 +122,6 @@ export {
   analysis,
   setup,
   context,
+  velocityCmd,
   uninstallCmd,
 }

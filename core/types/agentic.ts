@@ -726,6 +726,8 @@ export interface OrchestratorContext {
   realContext?: RealCodebaseContext
   /** Sealed/active analysis from PRJ-263 storage — injected into prompt context (PRJ-260) */
   sealedAnalysis?: SealedAnalysisContext | null
+  /** Velocity context for estimation guidance (PRJ-296) */
+  velocityContext?: string | null
 }
 
 /**

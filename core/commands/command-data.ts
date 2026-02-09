@@ -194,6 +194,23 @@ export const COMMANDS: CommandMeta[] = [
     ],
   },
   {
+    name: 'velocity',
+    group: 'core',
+    description: 'Sprint-based velocity dashboard with trend detection and projections',
+    usage: { claude: '/p:velocity', terminal: 'prjct velocity [backlogPoints]' },
+    params: '[backlogPoints]',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: true,
+    features: [
+      'Sprint-by-sprint velocity breakdown',
+      'Trend detection (improving/stable/declining)',
+      'Estimation accuracy tracking',
+      'Over/under estimation pattern detection',
+      'Completion projections for backlog',
+    ],
+  },
+  {
     name: 'suggest',
     group: 'core',
     description: 'Smart recommendations based on project state',
