@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.15.0] - 2026-02-09
+
+### Features
+
+- replace hardcoded memory domain tags with semantic matching (PRJ-300) (#157)
+
+
 ## [1.14.1] - 2026-02-09
 
 ### Improved
