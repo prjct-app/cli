@@ -14,9 +14,9 @@ import type {
   PreviousTask,
   StateJson,
   Subtask,
-  SubtaskSummary,
+  SubtaskCompletionData,
 } from '../schemas/state'
-import { StateJsonSchema } from '../schemas/state'
+import { StateJsonSchema, SubtaskCompletionDataSchema } from '../schemas/state'
 import { getTimestamp, toRelative } from '../utils/date-helper'
 import { md } from '../utils/markdown-builder'
 import type { WorkflowCommand } from '../workflow/state-machine'
@@ -497,14 +497,23 @@ class StateStorage extends StorageManager<StateJson> {
   }
 
   /**
-   * Complete current subtask and advance to next
-   * Returns the next subtask (or null if all complete)
+   * Complete current subtask and advance to next.
+   * Requires output and summary for mandatory handoff (PRJ-262).
+   * Returns the next subtask (or null if all complete).
    */
   async completeSubtask(
     projectId: string,
-    output?: string,
-    summary?: SubtaskSummary
+    completionData: SubtaskCompletionData
   ): Promise<Subtask | null> {
+    // Validate handoff data with Zod before persisting
+    const validation = SubtaskCompletionDataSchema.safeParse(completionData)
+    if (!validation.success) {
+      const errors = validation.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`)
+      throw new Error(`Subtask completion requires handoff data:\n${errors.join('\n')}`)
+    }
+
+    const { output, summary } = validation.data
+
     const state = await this.read(projectId)
     if (!state.currentTask?.subtasks) return null
 
@@ -512,7 +521,7 @@ class StateStorage extends StorageManager<StateJson> {
     const current = state.currentTask.subtasks[currentIndex]
     if (!current) return null
 
-    // Mark current as completed
+    // Mark current as completed with mandatory handoff
     const updatedSubtasks = [...state.currentTask.subtasks]
     updatedSubtasks[currentIndex] = {
       ...current,
@@ -548,12 +557,14 @@ class StateStorage extends StorageManager<StateJson> {
       lastUpdated: getTimestamp(),
     }))
 
-    // Publish event
+    // Publish event with handoff data
     await this.publishEvent(projectId, 'subtask.completed', {
       taskId: state.currentTask.id,
       subtaskId: current.id,
       description: current.description,
       output,
+      handoff: summary.outputForNextAgent,
+      filesChanged: summary.filesChanged.length,
       progress: { completed, total, percentage },
     })
 
@@ -590,6 +601,27 @@ class StateStorage extends StorageManager<StateJson> {
     const prevIndex = (state.currentTask.currentSubtaskIndex || 0) - 1
     if (prevIndex < 0) return null
     return state.currentTask.subtasks[prevIndex] || null
+  }
+
+  /**
+   * Get handoff from the most recently completed subtask (PRJ-262).
+   * Returns the summary.outputForNextAgent and related context,
+   * or null if no previous subtask or no handoff data.
+   */
+  async getPreviousHandoff(projectId: string): Promise<{
+    fromSubtask: string
+    outputForNextAgent: string
+    filesChanged: Array<{ path: string; action: string }>
+    whatWasDone: string[]
+  } | null> {
+    const prev = await this.getPreviousSubtask(projectId)
+    if (!prev?.summary?.outputForNextAgent) return null
+    return {
+      fromSubtask: prev.description,
+      outputForNextAgent: prev.summary.outputForNextAgent,
+      filesChanged: prev.summary.filesChanged,
+      whatWasDone: prev.summary.whatWasDone,
+    }
   }
 
   /**

@@ -673,6 +673,13 @@ export interface OrchestratorSubtask {
   status: 'pending' | 'in_progress' | 'completed' | 'failed'
   dependsOn: string[]
   order: number
+  /** Handoff from previous subtask — injected into prompt for context continuity (PRJ-262) */
+  handoff?: {
+    fromSubtask: string
+    outputForNextAgent: string
+    filesChanged: Array<{ path: string; action: string }>
+    whatWasDone: string[]
+  }
 }
 
 /**
