@@ -3,6 +3,13 @@
 ## [1.14.0] - 2026-02-09
 
 ### Features
+
+- add sprint-based velocity calculation with trend detection (PRJ-296) (#156)
+
+
+## [1.14.0] - 2026-02-09
+
+### Features
 - **Velocity Dashboard**: New `prjct velocity` command with sprint-by-sprint breakdown, trend detection, and estimation accuracy (PRJ-296)
 - **Estimation Patterns**: Automatic detection of over/under estimation patterns by task category
 - **Completion Projections**: Given remaining backlog points, projects estimated sprints and completion date
