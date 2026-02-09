@@ -47,6 +47,12 @@ export const ProjectGroundTruthSchema = z.object({
   fileCount: z.number().optional(),
   /** Available agent names (e.g., ['backend', 'testing']) */
   availableAgents: z.array(z.string()).default([]),
+  /** Sealed analysis languages — used to ground available tech (PRJ-260) */
+  analysisLanguages: z.array(z.string()).default([]),
+  /** Sealed analysis frameworks — used to ground available tech (PRJ-260) */
+  analysisFrameworks: z.array(z.string()).default([]),
+  /** Package manager from sealed analysis (PRJ-260) */
+  analysisPackageManager: z.string().optional(),
 })
 
 export type ProjectGroundTruth = z.input<typeof ProjectGroundTruthSchema>
@@ -79,15 +85,31 @@ export function buildAntiHallucinationBlock(truth: ProjectGroundTruth): string {
 
   parts.push('## CONSTRAINTS (Read Before Acting)\n')
 
-  // 1. Explicit availability
+  // 1. Explicit availability (enriched by sealed analysis — PRJ-260)
   const available: string[] = []
   if (truth.language) available.push(truth.language)
   if (truth.framework) available.push(truth.framework)
   const techStack = truth.techStack ?? []
   available.push(...techStack.filter((t) => t !== truth.framework))
+  // Merge languages/frameworks from sealed analysis (deduped)
+  const analysisLangs = truth.analysisLanguages ?? []
+  const analysisFrameworks = truth.analysisFrameworks ?? []
+  for (const lang of analysisLangs) {
+    if (!available.some((a) => a.toLowerCase() === lang.toLowerCase())) {
+      available.push(lang)
+    }
+  }
+  for (const fw of analysisFrameworks) {
+    if (!available.some((a) => a.toLowerCase() === fw.toLowerCase())) {
+      available.push(fw)
+    }
+  }
 
   if (available.length > 0) {
     parts.push(`AVAILABLE in this project: ${available.join(', ')}`)
+  }
+  if (truth.analysisPackageManager) {
+    parts.push(`PACKAGE MANAGER: ${truth.analysisPackageManager}`)
   }
 
   // 2. Explicit unavailability from domain flags

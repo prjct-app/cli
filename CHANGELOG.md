@@ -1,5 +1,38 @@
 # Changelog
 
+## [1.13.0] - 2026-02-09
+
+### Features
+- **Analysis Injection**: Sealed analysis (languages, frameworks, patterns, anti-patterns) now automatically injected into LLM prompt context (PRJ-260)
+- **Enriched Ground Truth**: Prompt section 3 renders full analysis data — languages, frameworks, package manager, source/test dirs, code patterns, and anti-patterns
+- **Enhanced Anti-Hallucination**: AVAILABLE tech list enriched with analysis data (case-insensitive dedup), package manager constraint added
+
+### Implementation Details
+
+**PRJ-260 — Inject Sync Analysis into Task Context**
+Connected the analysis pipeline (from PRJ-263) to the prompt assembly pipeline (from PRJ-301). `analysisStorage.getActive()` returns sealed analysis (or draft fallback), loaded in parallel with real codebase context for zero latency impact.
+
+Key changes:
+- `core/types/agentic.ts` — New `SealedAnalysisContext` interface, extended `OrchestratorContext` with `sealedAnalysis` field
+- `core/agentic/orchestrator-executor.ts` — Added `loadSealedAnalysis()`, loads in parallel with `gatherRealContext()`
+- `core/agentic/prompt-builder.ts` — Section 3 (ground truth) renders analysis data, Section 5 passes analysis to anti-hallucination
+- `core/agentic/anti-hallucination.ts` — Extended `ProjectGroundTruth` with `analysisLanguages`, `analysisFrameworks`, `analysisPackageManager`
+- `core/__tests__/agentic/analysis-injection.test.ts` — 14 new tests
+
+### Test Plan
+
+#### For QA
+1. Run `prjct sync` on a project with sealed analysis — verify prompt contains Languages, Frameworks, Patterns sections
+2. Run `prjct sync` on a project WITHOUT sealed analysis — verify no crash, fallback rules still present
+3. Check anti-hallucination block — verify AVAILABLE list includes analysis languages/frameworks (deduped)
+4. Run `bun test core/__tests__/agentic/analysis-injection.test.ts` — 14 tests pass
+5. Run `bun test` — all 770 tests pass
+
+#### For Users
+- **What changed:** AI prompts now include your project's detected languages, frameworks, code patterns, and anti-patterns from sealed analysis
+- **How to use:** Run `prjct sync` then `prjct seal` — improvements are automatic in subsequent task prompts
+- **Breaking changes:** None
+
 ## [1.12.0] - 2026-02-09
 
 ### Features

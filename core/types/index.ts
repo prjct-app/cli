@@ -81,6 +81,8 @@ export type {
   RealCodebaseContext,
   ReasoningResult,
   ReasoningStep,
+  // Sealed analysis context (PRJ-260)
+  SealedAnalysisContext,
   SimpleExecutionResult,
   SkillContext,
   SmartContextProjectState,
