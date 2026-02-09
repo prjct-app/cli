@@ -4,6 +4,13 @@
 
 ### Features
 
+- implement aggressive archival of stale storage data (PRJ-267) (#161)
+
+
+## [1.19.0] - 2026-02-09
+
+### Features
+
 - **Aggressive archival of stale storage data** (PRJ-267): Automatic archival during `prjct sync` to keep LLM context lean
   - Shipped features >90 days archived to SQLite `archives` table with 1-line summary
   - Pending ideas >180 days marked `dormant` and excluded from LLM context
