@@ -21,6 +21,7 @@ import { getTimestamp, toRelative } from '../utils/date-helper'
 import { md } from '../utils/markdown-builder'
 import type { WorkflowCommand } from '../workflow/state-machine'
 import { workflowStateMachine } from '../workflow/state-machine'
+import { archiveStorage } from './archive-storage'
 import { StorageManager } from './storage-manager'
 
 class StateStorage extends StorageManager<StateJson> {
@@ -378,8 +379,9 @@ class StateStorage extends StorageManager<StateJson> {
   }
 
   /**
-   * Archive stale paused tasks (remove from pausedTasks)
-   * Returns archived tasks
+   * Archive stale paused tasks (PRJ-267).
+   * Persists to archive table before removing from active storage.
+   * Returns archived tasks.
    */
   async archiveStalePausedTasks(projectId: string): Promise<PreviousTask[]> {
     const state = await this.read(projectId)
@@ -390,6 +392,18 @@ class StateStorage extends StorageManager<StateJson> {
     const fresh = pausedTasks.filter((t) => new Date(t.pausedAt).getTime() >= threshold)
 
     if (stale.length === 0) return []
+
+    // Persist to archive table before removal
+    archiveStorage.archiveMany(
+      projectId,
+      stale.map((task) => ({
+        entityType: 'paused_task' as const,
+        entityId: task.id,
+        entityData: task,
+        summary: task.description,
+        reason: 'staleness',
+      }))
+    )
 
     await this.update(projectId, (s) => ({
       ...s,

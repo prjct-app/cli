@@ -8,7 +8,8 @@
 import { generateUUID } from '../schemas'
 import type { Priority, QueueJson, QueueTask, TaskSection } from '../schemas/state'
 import { QueueJsonSchema } from '../schemas/state'
-import { getTimestamp } from '../utils/date-helper'
+import { getDaysAgo, getTimestamp } from '../utils/date-helper'
+import { ARCHIVE_POLICIES, archiveStorage } from './archive-storage'
 import { StorageManager } from './storage-manager'
 
 class QueueStorage extends StorageManager<QueueJson> {
@@ -256,6 +257,47 @@ class QueueStorage extends StorageManager<QueueJson> {
     }))
 
     return completedCount
+  }
+
+  /**
+   * Remove completed tasks older than retention period (PRJ-267).
+   * Archives them to SQLite before removal.
+   * Returns count of removed tasks.
+   */
+  async removeStaleCompleted(projectId: string): Promise<number> {
+    const queue = await this.read(projectId)
+    const threshold = getDaysAgo(ARCHIVE_POLICIES.QUEUE_COMPLETED_DAYS)
+
+    const stale = queue.tasks.filter(
+      (t) => t.completed && t.completedAt && new Date(t.completedAt) < threshold
+    )
+
+    if (stale.length === 0) return 0
+
+    // Archive before removal
+    archiveStorage.archiveMany(
+      projectId,
+      stale.map((t) => ({
+        entityType: 'queue_task' as const,
+        entityId: t.id,
+        entityData: t,
+        summary: t.description,
+        reason: 'age',
+      }))
+    )
+
+    const staleIds = new Set(stale.map((t) => t.id))
+
+    await this.update(projectId, (q) => ({
+      tasks: q.tasks.filter((t) => !staleIds.has(t.id)),
+      lastUpdated: getTimestamp(),
+    }))
+
+    await this.publishEvent(projectId, 'queue.stale_removed', {
+      count: stale.length,
+    })
+
+    return stale.length
   }
 
   /**

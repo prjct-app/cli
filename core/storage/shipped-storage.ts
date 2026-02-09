@@ -8,7 +8,8 @@
 import { generateUUID } from '../schemas'
 import { ShippedJsonSchema } from '../schemas/shipped'
 import type { ShippedFeature, ShippedJson } from '../types'
-import { getTimestamp, toRelative } from '../utils/date-helper'
+import { getDaysAgo, getTimestamp, toRelative } from '../utils/date-helper'
+import { ARCHIVE_POLICIES, archiveStorage } from './archive-storage'
 import { StorageManager } from './storage-manager'
 
 class ShippedStorage extends StorageManager<ShippedJson> {
@@ -202,6 +203,49 @@ class ShippedStorage extends StorageManager<ShippedJson> {
       count: shipped.length,
       period,
     }
+  }
+
+  /**
+   * Archive shipped features older than retention period (PRJ-267).
+   * Moves old items to archive table, keeps 1-line summary in active storage.
+   * Returns count of archived items.
+   */
+  async archiveOldShipped(projectId: string): Promise<number> {
+    const data = await this.read(projectId)
+    const threshold = getDaysAgo(ARCHIVE_POLICIES.SHIPPED_RETENTION_DAYS)
+
+    const stale = data.shipped.filter((s) => new Date(s.shippedAt) < threshold)
+
+    if (stale.length === 0) return 0
+
+    // Persist to archive table
+    archiveStorage.archiveMany(
+      projectId,
+      stale.map((s) => ({
+        entityType: 'shipped' as const,
+        entityId: s.id,
+        entityData: s,
+        summary: `${s.name} v${s.version}`,
+        reason: 'age',
+      }))
+    )
+
+    // Remove from active storage
+    const freshIds = new Set(
+      data.shipped.filter((s) => new Date(s.shippedAt) >= threshold).map((s) => s.id)
+    )
+
+    await this.update(projectId, (d) => ({
+      shipped: d.shipped.filter((s) => freshIds.has(s.id)),
+      lastUpdated: getTimestamp(),
+    }))
+
+    await this.publishEvent(projectId, 'shipped.archived', {
+      count: stale.length,
+      oldestShippedAt: stale[stale.length - 1]?.shippedAt,
+    })
+
+    return stale.length
   }
 }
 

@@ -209,7 +209,7 @@ export interface ShippedJson {
 // Ideas Storage Types
 // =============================================================================
 
-export type IdeaStatus = 'pending' | 'converted' | 'completed' | 'archived'
+export type IdeaStatus = 'pending' | 'converted' | 'completed' | 'archived' | 'dormant'
 export type IdeaPriority = 'low' | 'medium' | 'high'
 
 /**

@@ -8,7 +8,8 @@
 import { generateUUID } from '../schemas'
 import { IdeasJsonSchema } from '../schemas/ideas'
 import type { Idea, IdeaPriority, IdeaStatus, IdeasJson } from '../types'
-import { getTimestamp, toRelative } from '../utils/date-helper'
+import { getDaysAgo, getTimestamp, toRelative } from '../utils/date-helper'
+import { ARCHIVE_POLICIES, archiveStorage } from './archive-storage'
 import { StorageManager } from './storage-manager'
 
 class IdeasStorage extends StorageManager<IdeasJson> {
@@ -41,8 +42,9 @@ class IdeasStorage extends StorageManager<IdeasJson> {
     const pending = data.ideas.filter((i) => i.status === 'pending')
     const converted = data.ideas.filter((i) => i.status === 'converted')
     const archived = data.ideas.filter((i) => i.status === 'archived')
+    const dormant = data.ideas.filter((i) => i.status === 'dormant')
 
-    // Brain Dump (pending)
+    // Brain Dump (pending only — dormant excluded from LLM context)
     lines.push('## Brain Dump')
     if (pending.length > 0) {
       pending.forEach((idea) => {
@@ -74,6 +76,12 @@ class IdeasStorage extends StorageManager<IdeasJson> {
         const rel = toRelative(idea.addedAt)
         lines.push(`- ${idea.text} _(${rel})_`)
       })
+      lines.push('')
+    }
+
+    // Dormant count only (details excluded from LLM context)
+    if (dormant.length > 0) {
+      lines.push(`_${dormant.length} dormant idea(s) excluded from context_`)
       lines.push('')
     }
 
@@ -239,6 +247,50 @@ class IdeasStorage extends StorageManager<IdeasJson> {
     }))
 
     return { removed }
+  }
+
+  /**
+   * Mark pending ideas older than retention period as dormant (PRJ-267).
+   * Dormant ideas are excluded from LLM context but remain queryable.
+   * Returns count of newly dormant ideas.
+   */
+  async markDormantIdeas(projectId: string): Promise<number> {
+    const data = await this.read(projectId)
+    const threshold = getDaysAgo(ARCHIVE_POLICIES.IDEA_DORMANT_DAYS)
+
+    const stalePending = data.ideas.filter(
+      (i) => i.status === 'pending' && new Date(i.addedAt) < threshold
+    )
+
+    if (stalePending.length === 0) return 0
+
+    // Archive to SQLite for long-term access
+    archiveStorage.archiveMany(
+      projectId,
+      stalePending.map((idea) => ({
+        entityType: 'idea' as const,
+        entityId: idea.id,
+        entityData: idea,
+        summary: idea.text,
+        reason: 'dormant',
+      }))
+    )
+
+    // Mark as dormant in active storage (excluded from context)
+    const staleIds = new Set(stalePending.map((i) => i.id))
+
+    await this.update(projectId, (d) => ({
+      ideas: d.ideas.map((i) =>
+        staleIds.has(i.id) ? { ...i, status: 'dormant' as IdeaStatus } : i
+      ),
+      lastUpdated: getTimestamp(),
+    }))
+
+    await this.publishEvent(projectId, 'ideas.dormant', {
+      count: stalePending.length,
+    })
+
+    return stalePending.length
   }
 }
 
