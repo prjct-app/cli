@@ -724,4 +724,35 @@ export interface OrchestratorContext {
   }
   /** Real codebase context gathered proactively */
   realContext?: RealCodebaseContext
+  /** Sealed/active analysis from PRJ-263 storage — injected into prompt context (PRJ-260) */
+  sealedAnalysis?: SealedAnalysisContext | null
+}
+
+/**
+ * Subset of analysis data injected into prompt context.
+ * Extracted from AnalysisSchema to avoid coupling types to storage schema.
+ *
+ * @see PRJ-260
+ */
+export interface SealedAnalysisContext {
+  /** Programming languages detected */
+  languages: string[]
+  /** Frameworks detected */
+  frameworks: string[]
+  /** Package manager (e.g., 'bun', 'npm', 'pnpm') */
+  packageManager?: string
+  /** Source directory */
+  sourceDir?: string
+  /** Test directory */
+  testDir?: string
+  /** Total files analyzed */
+  fileCount: number
+  /** Code patterns found */
+  patterns: Array<{ name: string; description: string; location?: string }>
+  /** Anti-patterns found */
+  antiPatterns: Array<{ issue: string; file: string; suggestion: string }>
+  /** Lifecycle status */
+  status: 'draft' | 'verified' | 'sealed'
+  /** Git commit hash when analysis was performed */
+  commitHash?: string
 }

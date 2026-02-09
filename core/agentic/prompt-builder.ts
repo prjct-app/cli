@@ -542,10 +542,50 @@ class PromptBuilder {
     // =========================================================================
 
     if (orchestratorContext) {
+      const sa = orchestratorContext.sealedAnalysis
       parts.push('\n## PROJECT ANALYSIS (Sealed)\n')
       parts.push(`**Ecosystem**: ${orchestratorContext.project.ecosystem}\n`)
       parts.push(`**Primary Domain**: ${orchestratorContext.primaryDomain}\n`)
-      parts.push(`**Domains**: ${orchestratorContext.detectedDomains.join(', ')}\n\n`)
+      parts.push(`**Domains**: ${orchestratorContext.detectedDomains.join(', ')}\n`)
+
+      // Inject sealed analysis data (PRJ-260)
+      if (sa) {
+        if (sa.languages.length > 0) {
+          parts.push(`**Languages**: ${sa.languages.join(', ')}\n`)
+        }
+        if (sa.frameworks.length > 0) {
+          parts.push(`**Frameworks**: ${sa.frameworks.join(', ')}\n`)
+        }
+        if (sa.packageManager) {
+          parts.push(`**Package Manager**: ${sa.packageManager}\n`)
+        }
+        if (sa.sourceDir) {
+          parts.push(`**Source Dir**: ${sa.sourceDir}\n`)
+        }
+        if (sa.testDir) {
+          parts.push(`**Test Dir**: ${sa.testDir}\n`)
+        }
+        parts.push(`**Files Analyzed**: ${sa.fileCount}\n`)
+        parts.push(
+          `**Analysis Status**: ${sa.status}${sa.commitHash ? ` (commit: ${sa.commitHash.slice(0, 8)})` : ''}\n`
+        )
+
+        if (sa.patterns.length > 0) {
+          parts.push('\n### Code Patterns (Follow These)\n')
+          for (const p of sa.patterns) {
+            parts.push(`- **${p.name}**: ${p.description}${p.location ? ` (${p.location})` : ''}\n`)
+          }
+        }
+
+        if (sa.antiPatterns.length > 0) {
+          parts.push('\n### Anti-Patterns (Avoid These)\n')
+          for (const ap of sa.antiPatterns) {
+            parts.push(`- **${ap.issue}** in \`${ap.file}\` — ${ap.suggestion}\n`)
+          }
+        }
+      }
+
+      parts.push('\n')
     }
 
     const needsPatterns = commandContext.patterns
@@ -648,6 +688,7 @@ class PromptBuilder {
     // =========================================================================
 
     if (projectPath) {
+      const sa = orchestratorContext?.sealedAnalysis
       const groundTruth: ProjectGroundTruth = {
         projectPath,
         language: orchestratorContext?.project?.ecosystem,
@@ -655,6 +696,10 @@ class PromptBuilder {
         domains: this.extractDomains(state),
         fileCount: context.files?.length || context.filteredSize || 0,
         availableAgents: orchestratorContext?.agents?.map((a) => a.name) || [],
+        // Inject sealed analysis data for enriched grounding (PRJ-260)
+        analysisLanguages: sa?.languages || [],
+        analysisFrameworks: sa?.frameworks || [],
+        analysisPackageManager: sa?.packageManager,
       }
       parts.push(`\n${buildAntiHallucinationBlock(groundTruth)}\n`)
     } else {

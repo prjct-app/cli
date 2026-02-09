@@ -23,13 +23,14 @@ import { getRecentFiles } from '../context-tools/recent-tool'
 import { extractSignatures } from '../context-tools/signatures-tool'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
-import { stateStorage } from '../storage'
+import { analysisStorage, stateStorage } from '../storage'
 import type {
   LoadedAgent,
   LoadedSkill,
   OrchestratorContext,
   OrchestratorSubtask,
   RealCodebaseContext,
+  SealedAnalysisContext,
 } from '../types'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import domainClassifier, { type ProjectContext } from './domain-classifier'
@@ -76,8 +77,11 @@ export class OrchestratorExecutor {
     // Step 5: Load skills from agent frontmatter
     const skills = await this.loadSkills(agents)
 
-    // Step 6: Gather real codebase context proactively
-    const realContext = await this.gatherRealContext(taskDescription, projectPath)
+    // Step 6: Gather real codebase context and sealed analysis in parallel
+    const [realContext, sealedAnalysis] = await Promise.all([
+      this.gatherRealContext(taskDescription, projectPath),
+      this.loadSealedAnalysis(projectId),
+    ])
 
     // Step 7: Determine if fragmentation is needed
     const requiresFragmentation = this.shouldFragment(domains, taskDescription)
@@ -101,6 +105,7 @@ export class OrchestratorExecutor {
         conventions: repoAnalysis?.conventions || [],
       },
       realContext,
+      sealedAnalysis,
     }
   }
 
@@ -194,6 +199,34 @@ export class OrchestratorExecutor {
       return { branch, status }
     } catch {
       return { branch: 'unknown', status: 'git unavailable' }
+    }
+  }
+
+  /**
+   * Load sealed/active analysis from analysis storage (PRJ-260).
+   * Returns sealed if available, otherwise draft as fallback.
+   * Returns null if no analysis exists (graceful degradation).
+   */
+  private async loadSealedAnalysis(projectId: string): Promise<SealedAnalysisContext | null> {
+    try {
+      const analysis = await analysisStorage.getActive(projectId)
+      if (!analysis) return null
+
+      return {
+        languages: analysis.languages,
+        frameworks: analysis.frameworks,
+        packageManager: analysis.packageManager,
+        sourceDir: analysis.sourceDir,
+        testDir: analysis.testDir,
+        fileCount: analysis.fileCount,
+        patterns: analysis.patterns,
+        antiPatterns: analysis.antiPatterns,
+        status: analysis.status ?? 'draft',
+        commitHash: analysis.commitHash,
+      }
+    } catch {
+      // Graceful degradation — analysis is optional enhancement
+      return null
     }
   }
 
