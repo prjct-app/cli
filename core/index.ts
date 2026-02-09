@@ -170,6 +170,7 @@ async function main(): Promise<void> {
             yes: options.yes === true,
             json: options.json === true,
             package: options.package ? String(options.package) : undefined,
+            full: options.full === true,
           }),
         seal: () => commands.seal(process.cwd(), { json: options.json === true }),
         verify: () => commands.verify(process.cwd(), { json: options.json === true }),

@@ -354,6 +354,7 @@ export type {
   AIToolResult,
   ContextGeneratorConfig,
   GitData,
+  IncrementalInfo,
   ProjectCommands,
   ProjectStats,
   ProjectSyncResult,

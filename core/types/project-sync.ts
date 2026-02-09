@@ -70,6 +70,10 @@ export interface SyncOptions {
   skipConfirmation?: boolean
   packagePath?: string
   packageName?: string
+  /** Force full re-analysis, bypassing incremental cache */
+  full?: boolean
+  /** Pre-computed list of changed files (from watch service) */
+  changedFiles?: string[]
 }
 
 export interface AIToolResult {
@@ -81,6 +85,21 @@ export interface AIToolResult {
 // =============================================================================
 // Sync Result & Context Generator Config
 // =============================================================================
+
+export interface IncrementalInfo {
+  /** Whether this was an incremental sync (vs full) */
+  isIncremental: boolean
+  /** Number of files that changed */
+  filesChanged: number
+  /** Number of files unchanged (skipped) */
+  filesUnchanged: number
+  /** Whether indexes were rebuilt */
+  indexesRebuilt: boolean
+  /** Whether agents were regenerated */
+  agentsRegenerated: boolean
+  /** Domains affected by changes */
+  affectedDomains: string[]
+}
 
 export interface ProjectSyncResult {
   success: boolean
@@ -97,6 +116,7 @@ export interface ProjectSyncResult {
   aiTools: AIToolResult[]
   syncMetrics?: SyncMetrics
   verification?: VerificationReport
+  incremental?: IncrementalInfo
   error?: string
   isPreview?: boolean
   previewDiff?: SyncDiff

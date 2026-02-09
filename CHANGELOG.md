@@ -1,5 +1,49 @@
 # Changelog
 
+## [1.18.0] - 2026-02-09
+
+### Features
+
+- **Incremental sync**: `prjct sync` now only re-analyzes files that changed since last sync (PRJ-305)
+  - File hashing with Bun.hash (xxHash64) — <100ms for 500 files
+  - Change propagation through import graph (1-level reverse edges)
+  - Conditional index rebuilds: BM25, import graph, co-change only when source files change
+  - Conditional agent regeneration: only when config files (package.json, tsconfig.json) change
+  - `prjct sync --full` flag to force complete re-analysis
+
+### Implementation Details
+
+New modules:
+- `core/domain/file-hasher.ts` — Hash computation via Bun.hash, SQLite registry using `index_checksums` table, diff detection (added/modified/deleted/unchanged)
+- `core/domain/change-propagator.ts` — Import graph reverse-edge lookup for 1-level change propagation, domain classification for affected files
+
+Modified:
+- `core/services/sync-service.ts` — Incremental decision logic: detect changes → propagate → conditionally rebuild indexes and agents
+- `core/services/watch-service.ts` — Passes accumulated `changedFiles` to sync options
+- `core/types/project-sync.ts` — Added `full`, `changedFiles` to `SyncOptions` + `IncrementalInfo` result type
+- CLI chain (`core/index.ts` → `commands.ts` → `analysis.ts`) — Wired `--full` flag through
+
+### Learnings
+
+- Bun's `fs.readdir` with `withFileTypes` returns `Dirent<NonSharedBuffer>` — need `String()` cast for `.name`
+- Existing `index_checksums` SQLite table was already set up (PRJ-303) — zero schema changes needed
+- Import graph reverse edges (from PRJ-304) enable efficient 1-level propagation without rebuilding the graph
+
+### Test Plan
+
+#### For QA
+1. Run `prjct sync` on fresh project (no hash cache) — should behave as full sync
+2. Run `prjct sync` again without changes — should skip index rebuilds and agent regeneration
+3. Modify a `.ts` file, run `prjct sync` — should detect change and rebuild indexes
+4. Modify `package.json`, run `prjct sync` — should regenerate agents
+5. Run `prjct sync --full` — should force complete re-analysis
+6. Run `prjct watch`, change a file — should pass changedFiles to sync
+
+#### For Users
+**What changed:** `prjct sync` is now incremental by default.
+**How to use:** No changes needed. Use `prjct sync --full` to force complete re-analysis.
+**Breaking changes:** None
+
 ## [1.17.0] - 2026-02-09
 
 ### Features

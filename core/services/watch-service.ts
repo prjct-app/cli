@@ -263,7 +263,7 @@ class WatchService {
     }
 
     try {
-      const result = await syncService.sync(this.projectPath)
+      const result = await syncService.sync(this.projectPath, { changedFiles })
 
       this.lastSyncTime = Date.now()
       this.syncCount++
