@@ -218,6 +218,20 @@ class PrjctCommands {
     return this.analysis.status(projectPath, options)
   }
 
+  async seal(
+    projectPath: string = process.cwd(),
+    options: { json?: boolean } = {}
+  ): Promise<CommandResult> {
+    return this.analysis.seal(projectPath, options)
+  }
+
+  async verify(
+    projectPath: string = process.cwd(),
+    options: { json?: boolean } = {}
+  ): Promise<CommandResult> {
+    return this.analysis.verify(projectPath, options)
+  }
+
   // ========== Context Commands ==========
 
   async context(

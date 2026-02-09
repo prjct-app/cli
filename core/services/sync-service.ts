@@ -31,6 +31,7 @@ import { getErrorMessage } from '../errors'
 import commandInstaller from '../infrastructure/command-installer'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
+import { analysisStorage } from '../storage/analysis-storage'
 import { metricsStorage } from '../storage/metrics-storage'
 import type {
   GitData,
@@ -176,6 +177,7 @@ class SyncService {
         this.updateProjectJson(git, stats),
         this.updateStateJson(stats, stack),
         this.logToMemory(git, stats),
+        this.saveDraftAnalysis(git, stats, stack),
       ])
 
       // 9. Record metrics for value dashboard
@@ -1099,6 +1101,39 @@ You are the ${name} expert for this project. Apply best practices for the detect
       originalSize,
       filteredSize,
       compressionRate,
+    }
+  }
+
+  // ==========================================================================
+  // DRAFT ANALYSIS (PRJ-263)
+  // ==========================================================================
+
+  /**
+   * Save sync results as a draft analysis.
+   * Preserves existing sealed analysis — only the draft is overwritten.
+   */
+  private async saveDraftAnalysis(
+    git: GitData,
+    stats: ProjectStats,
+    _stack: StackDetection
+  ): Promise<void> {
+    try {
+      const commitHash = git.recentCommits[0]?.hash || null
+
+      await analysisStorage.saveDraft(this.projectId!, {
+        projectId: this.projectId!,
+        languages: stats.languages,
+        frameworks: stats.frameworks,
+        configFiles: [],
+        fileCount: stats.fileCount,
+        patterns: [],
+        antiPatterns: [],
+        analyzedAt: dateHelper.getTimestamp(),
+        status: 'draft',
+        commitHash: commitHash ?? undefined,
+      })
+    } catch (error) {
+      log.debug('Failed to save draft analysis (non-critical)', { error: getErrorMessage(error) })
     }
   }
 
