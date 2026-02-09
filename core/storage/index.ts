@@ -1,48 +1,38 @@
 /**
- * Storage Layer
+ * Storage Layer (PRJ-303: SQLite primary)
  *
- * Two storage patterns:
+ * All data stored in SQLite (prjct.db). Context MD files regenerated on write.
  *
- * 1. AGGREGATE STORAGE (Write-Through Pattern)
- *    For main state - writes JSON + regenerates MD + publishes events
- *    - stateStorage: storage/state.json → context/now.md
- *    - queueStorage: storage/queue.json → context/next.md
- *    - ideasStorage: storage/ideas.json → context/ideas.md
- *    - shippedStorage: storage/shipped.json → context/shipped.md
+ * 1. AGGREGATE STORAGE (StorageManager)
+ *    Writes to SQLite kv_store + regenerates MD for Claude
+ *    - stateStorage: kv_store['state'] → context/now.md
+ *    - queueStorage: kv_store['queue'] → context/next.md
+ *    - ideasStorage: kv_store['ideas'] → context/ideas.md
+ *    - shippedStorage: kv_store['shipped'] → context/shipped.md
  *
- * 2. GRANULAR STORAGE (OpenCode-style) - Legacy
- *    For future per-entity storage
- *    - getStorage(projectId): data/{entity}s/{id}.json
+ * 2. INDEX STORAGE
+ *    Project scanning data in SQLite index_meta table
+ *    - indexStorage: index_meta['project-index'], index_meta['checksums'], etc.
  *
- * 3. INDEX STORAGE (New)
- *    For persistent project scanning with scoring
- *    - indexStorage: index/project-index.json, index/checksums.json
+ * 3. SQLITE DATABASE
+ *    Single SQLite DB per project — source of truth
+ *    - prjctDb: ~/.prjct-cli/projects/{projectId}/prjct.db
  *
  * Structure:
  * ~/.prjct-cli/projects/{projectId}/
- * ├── storage/              # Aggregate JSON (source of truth)
- * │   ├── state.json
- * │   ├── queue.json
- * │   ├── ideas.json
- * │   └── shipped.json
+ * ├── prjct.db              # SQLite database (source of truth)
  * ├── context/              # Generated MD (for Claude)
  * │   ├── CLAUDE.md
  * │   ├── now.md
  * │   ├── next.md
  * │   ├── ideas.md
  * │   └── shipped.md
- * ├── index/                # Project index (persistent scan)
- * │   ├── project-index.json
- * │   ├── file-scores.json
- * │   └── checksums.json
- * ├── data/                 # Granular JSON (legacy/future)
- * │   └── ...
+ * ├── storage/backup/       # Pre-migration backup (one-time)
  * └── sync/                 # Backend sync
  *     ├── pending.json
  *     └── last-sync.json
  */
 
-// Re-export types from canonical location
 export type {
   AgentUsage,
   DailyStats,
@@ -57,6 +47,8 @@ export type {
 } from '../types'
 export type { AnalysisStoreData, SealResult, StalenessCheck } from './analysis-storage'
 export { analysisStorage } from './analysis-storage'
+export type { Migration, MigrationRecord } from './database'
+export { PrjctDatabase, prjctDb } from './database'
 export { ideasStorage } from './ideas-storage'
 export type {
   CategoriesCache,
@@ -65,7 +57,6 @@ export type {
   DetectedStack,
   DirectoryEntry,
   DiscoveredDomains,
-  // Smart Context Selection types (PRJ-85)
   DomainDefinition,
   FileCategory,
   FileChecksums,
@@ -73,15 +64,14 @@ export type {
   ProjectIndex,
   ScoredFile,
 } from './index-storage'
-// ========== INDEX STORAGE (Project scanning) ==========
 export { getDefaultChecksums, getDefaultIndex, INDEX_VERSION, indexStorage } from './index-storage'
 export { metricsStorage } from './metrics-storage'
+export type { MigrationResult } from './migrate-json'
+export { migrateJsonToSqlite } from './migrate-json'
 export { queueStorage } from './queue-storage'
 export { shippedStorage } from './shipped-storage'
 export { stateStorage } from './state-storage'
-// ========== GRANULAR STORAGE (Legacy) ==========
 export { getStorage } from './storage'
-// ========== AGGREGATE STORAGE (Recommended) ==========
 export { StorageManager } from './storage-manager'
 export type { VelocityStoreData } from './velocity-storage'
 export { velocityStorage } from './velocity-storage'

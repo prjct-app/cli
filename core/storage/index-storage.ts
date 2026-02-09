@@ -1,12 +1,17 @@
 /**
- * IndexStorage - Persistent storage for ProjectIndex
+ * IndexStorage - Persistent storage for ProjectIndex (PRJ-303: SQLite-backed)
+ *
+ * Write path: SQLite index_meta (primary)
+ * Read path: SQLite index_meta → null/default
  *
  * Stores:
- * - project-index.json: Main index data
- * - file-scores.json: Calculated scores
- * - checksums.json: For detecting file changes
+ * - project-index: Main index data
+ * - file-scores: Calculated scores
+ * - checksums: For detecting file changes
+ * - domains: Discovered project domains
+ * - categories-cache: File categorization cache
  *
- * Location: ~/.prjct-cli/projects/{projectId}/index/
+ * Location: SQLite DB at ~/.prjct-cli/projects/{projectId}/prjct.db
  */
 
 import crypto from 'node:crypto'
@@ -15,6 +20,9 @@ import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
 import { isNotFoundError } from '../types/fs'
 import { getTimestamp } from '../utils/date-helper'
+import { prjctDb } from './database'
+
+// Note: fs, path, pathManager, isNotFoundError still needed for clearIndex, calculateChecksum
 
 // ============================================================================
 // TYPES
@@ -212,37 +220,27 @@ class IndexStorage {
   // ==========================================================================
 
   /**
-   * Read the project index
+   * Read the project index.
+   * Path: SQLite index_meta → null
    */
   async readIndex(projectId: string): Promise<ProjectIndex | null> {
-    const filePath = path.join(this.getIndexPath(projectId), 'project-index.json')
-
     try {
-      const content = await fs.readFile(filePath, 'utf-8')
-      const index = JSON.parse(content) as ProjectIndex
-
-      // Version check
-      if (index.version !== INDEX_VERSION) {
-        // Index is outdated, return null to trigger full rescan
-        return null
+      const data = this.getIndexMeta<ProjectIndex>(projectId, 'project-index')
+      if (data !== null) {
+        if (data.version !== INDEX_VERSION) return null
+        return data
       }
-
-      return index
-    } catch (error) {
-      if (isNotFoundError(error)) {
-        return null
-      }
-      throw error
+    } catch {
+      // SQLite not available
     }
+    return null
   }
 
   /**
-   * Write the project index
+   * Write the project index to SQLite.
    */
   async writeIndex(projectId: string, index: ProjectIndex): Promise<void> {
-    await this.ensureIndexDir(projectId)
-    const filePath = path.join(this.getIndexPath(projectId), 'project-index.json')
-    await fs.writeFile(filePath, JSON.stringify(index, null, 2), 'utf-8')
+    this.setIndexMeta(projectId, 'project-index', index)
   }
 
   /**
@@ -258,29 +256,24 @@ class IndexStorage {
   // ==========================================================================
 
   /**
-   * Read file checksums
+   * Read file checksums.
+   * Path: SQLite index_meta → default
    */
   async readChecksums(projectId: string): Promise<FileChecksums> {
-    const filePath = path.join(this.getIndexPath(projectId), 'checksums.json')
-
     try {
-      const content = await fs.readFile(filePath, 'utf-8')
-      return JSON.parse(content) as FileChecksums
-    } catch (error) {
-      if (isNotFoundError(error)) {
-        return getDefaultChecksums()
-      }
-      throw error
+      const data = this.getIndexMeta<FileChecksums>(projectId, 'checksums')
+      if (data !== null) return data
+    } catch {
+      // SQLite not available
     }
+    return getDefaultChecksums()
   }
 
   /**
-   * Write file checksums
+   * Write file checksums to SQLite.
    */
   async writeChecksums(projectId: string, checksums: FileChecksums): Promise<void> {
-    await this.ensureIndexDir(projectId)
-    const filePath = path.join(this.getIndexPath(projectId), 'checksums.json')
-    await fs.writeFile(filePath, JSON.stringify(checksums, null, 2), 'utf-8')
+    this.setIndexMeta(projectId, 'checksums', checksums)
   }
 
   /**
@@ -337,35 +330,30 @@ class IndexStorage {
   // ==========================================================================
 
   /**
-   * Read file scores
+   * Read file scores.
+   * Path: SQLite index_meta → []
    */
   async readScores(projectId: string): Promise<ScoredFile[]> {
-    const filePath = path.join(this.getIndexPath(projectId), 'file-scores.json')
-
     try {
-      const content = await fs.readFile(filePath, 'utf-8')
-      const data = JSON.parse(content) as { scores: ScoredFile[] }
-      return data.scores || []
-    } catch (error) {
-      if (isNotFoundError(error)) {
-        return []
-      }
-      throw error
+      const data = this.getIndexMeta<{ scores: ScoredFile[] }>(projectId, 'file-scores')
+      if (data !== null) return data.scores || []
+    } catch {
+      // SQLite not available
     }
+    return []
   }
 
   /**
-   * Write file scores
+   * Write file scores to SQLite.
    */
   async writeScores(projectId: string, scores: ScoredFile[]): Promise<void> {
-    await this.ensureIndexDir(projectId)
-    const filePath = path.join(this.getIndexPath(projectId), 'file-scores.json')
     const data = {
       version: INDEX_VERSION,
       lastUpdated: getTimestamp(),
       scores,
     }
-    await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8')
+
+    this.setIndexMeta(projectId, 'file-scores', data)
   }
 
   // ==========================================================================
@@ -373,9 +361,18 @@ class IndexStorage {
   // ==========================================================================
 
   /**
-   * Clear all index data for a project
+   * Clear all index data for a project (SQLite + JSON files)
    */
   async clearIndex(projectId: string): Promise<void> {
+    // Clear from SQLite index_meta
+    try {
+      const db = prjctDb.getDb(projectId)
+      db.prepare('DELETE FROM index_meta').run()
+    } catch {
+      // SQLite not available — continue with JSON cleanup
+    }
+
+    // Clear JSON files
     const indexPath = this.getIndexPath(projectId)
 
     try {
@@ -407,36 +404,27 @@ class IndexStorage {
   // ==========================================================================
 
   /**
-   * Read discovered domains for a project
+   * Read discovered domains for a project.
+   * Path: SQLite index_meta → null
    */
   async readDomains(projectId: string): Promise<DiscoveredDomains | null> {
-    const filePath = path.join(this.getIndexPath(projectId), 'domains.json')
-
     try {
-      const content = await fs.readFile(filePath, 'utf-8')
-      const domains = JSON.parse(content) as DiscoveredDomains
-
-      // Version check
-      if (domains.version !== INDEX_VERSION) {
-        return null
+      const data = this.getIndexMeta<DiscoveredDomains>(projectId, 'domains')
+      if (data !== null) {
+        if (data.version !== INDEX_VERSION) return null
+        return data
       }
-
-      return domains
-    } catch (error) {
-      if (isNotFoundError(error)) {
-        return null
-      }
-      throw error
+    } catch {
+      // SQLite not available
     }
+    return null
   }
 
   /**
-   * Write discovered domains
+   * Write discovered domains to SQLite.
    */
   async writeDomains(projectId: string, domains: DiscoveredDomains): Promise<void> {
-    await this.ensureIndexDir(projectId)
-    const filePath = path.join(this.getIndexPath(projectId), 'domains.json')
-    await fs.writeFile(filePath, JSON.stringify(domains, null, 2), 'utf-8')
+    this.setIndexMeta(projectId, 'domains', domains)
   }
 
   // ==========================================================================
@@ -444,36 +432,27 @@ class IndexStorage {
   // ==========================================================================
 
   /**
-   * Read categories cache
+   * Read categories cache.
+   * Path: SQLite index_meta → null
    */
   async readCategories(projectId: string): Promise<CategoriesCache | null> {
-    const filePath = path.join(this.getIndexPath(projectId), 'categories-cache.json')
-
     try {
-      const content = await fs.readFile(filePath, 'utf-8')
-      const cache = JSON.parse(content) as CategoriesCache
-
-      // Version check
-      if (cache.version !== INDEX_VERSION) {
-        return null
+      const data = this.getIndexMeta<CategoriesCache>(projectId, 'categories-cache')
+      if (data !== null) {
+        if (data.version !== INDEX_VERSION) return null
+        return data
       }
-
-      return cache
-    } catch (error) {
-      if (isNotFoundError(error)) {
-        return null
-      }
-      throw error
+    } catch {
+      // SQLite not available
     }
+    return null
   }
 
   /**
-   * Write categories cache
+   * Write categories cache to SQLite.
    */
   async writeCategories(projectId: string, cache: CategoriesCache): Promise<void> {
-    await this.ensureIndexDir(projectId)
-    const filePath = path.join(this.getIndexPath(projectId), 'categories-cache.json')
-    await fs.writeFile(filePath, JSON.stringify(cache, null, 2), 'utf-8')
+    this.setIndexMeta(projectId, 'categories-cache', cache)
   }
 
   /**
@@ -507,6 +486,36 @@ class IndexStorage {
     }
 
     return cache.domainIndex[domain] || []
+  }
+
+  // ==========================================================================
+  // SQLite index_meta helpers
+  // ==========================================================================
+
+  /**
+   * Read a document from the index_meta table.
+   */
+  private getIndexMeta<T>(projectId: string, key: string): T | null {
+    const db = prjctDb.getDb(projectId)
+    const row = db.prepare('SELECT data FROM index_meta WHERE key = ?').get(key) as {
+      data: string
+    } | null
+    if (!row) return null
+    return JSON.parse(row.data) as T
+  }
+
+  /**
+   * Write a document to the index_meta table.
+   */
+  private setIndexMeta<T>(projectId: string, key: string, data: T): void {
+    const db = prjctDb.getDb(projectId)
+    const json = JSON.stringify(data)
+    const now = new Date().toISOString()
+    db.prepare('INSERT OR REPLACE INTO index_meta (key, data, updated_at) VALUES (?, ?, ?)').run(
+      key,
+      json,
+      now
+    )
   }
 }
 

@@ -1,5 +1,35 @@
 # Changelog
 
+## [1.16.0] - 2026-02-08
+
+### Features
+- **Remove JSON storage redundancy** (PRJ-303): SQLite is now the sole storage backend. JSON dual-write removed from StorageManager and IndexStorage. Auto-migration runs during `prjct sync`, deletes source JSON files after backup.
+
+### Implementation Details
+- `StorageManager.write()` — removed JSON file write and temp file pattern; writes only to SQLite kv_store + regenerates context MD
+- `StorageManager.read()` — removed JSON fallback; reads from cache → SQLite → default
+- `StorageManager.exists()` — removed JSON file check; checks SQLite only
+- `IndexStorage` — all 5 read methods (readIndex, readChecksums, readScores, readDomains, readCategories) no longer fall back to JSON; all 5 write methods no longer create JSON files
+- `migrateJsonToSqlite()` — new cleanup step deletes `storage/*.json`, `index/*.json`, `memory/*.jsonl` after successful migration; keeps `storage/backup/`
+- `SyncService.sync()` — auto-runs `migrateJsonToSqlite()` after directory setup (idempotent)
+- `PrjctDatabase.getDb()` — ensures parent directory exists before creating SQLite DB
+- `database.ts` — fixed all TS errors: `db.exec()` → `db.run()` (deprecated), `unknown[]` → `SQLQueryBindings[]`, `require()` → `fs.existsSync()`
+
+### Test Plan
+
+#### For QA
+1. Run `bun test` — all 879 tests must pass
+2. Run `prjct sync` on existing project — verify migration runs, JSON files deleted, `prjct.db` has data
+3. Run `prjct sync` again — verify idempotent (no errors, migration skips)
+4. Verify `storage/backup/` contains pre-migration JSON files
+5. Verify `context/*.md` files still generated after writes
+6. Run `prjct status` — verify state reads from SQLite
+
+#### For Users
+**What changed:** Storage is now fully SQLite-backed. JSON files are auto-migrated and removed during sync.
+**How to use:** Run `prjct sync` — migration happens automatically.
+**Breaking changes:** None — all public APIs unchanged. JSON backups preserved in `storage/backup/`.
+
 ## [1.15.0] - 2026-02-09
 
 ### Features
