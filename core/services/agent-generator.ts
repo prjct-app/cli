@@ -14,6 +14,7 @@ import {
   mergePreservedSections,
   validatePreserveBlocks,
 } from '../utils/preserve-sections'
+import { defaultToolRetryPolicy } from '../utils/retry'
 import type { StackDetection } from './stack-detector'
 
 // ============================================================================
@@ -169,16 +170,42 @@ export class AgentGenerator {
       agentsToGenerate.push({ name: 'devops', skill: 'developer-kit' })
     }
 
-    // Generate all domain agents IN PARALLEL
-    await Promise.all(
-      agentsToGenerate.map((agent) => this.generateDomainAgent(agent.name, stats, stack))
+    // Generate all domain agents IN PARALLEL with individual retry
+    // Using Promise.allSettled() so one failure doesn't block others
+    const results = await Promise.allSettled(
+      agentsToGenerate.map((agent) =>
+        defaultToolRetryPolicy.execute(
+          async () => await this.generateDomainAgent(agent.name, stats, stack),
+          `generate-agent-${agent.name}`
+        )
+      )
     )
 
-    return agentsToGenerate.map((agent) => ({
-      name: agent.name,
-      type: 'domain' as const,
-      skill: agent.skill,
-    }))
+    // Track which agents succeeded and which failed
+    const successfulAgents: AgentInfo[] = []
+    const failedAgents: string[] = []
+
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i]
+      const agent = agentsToGenerate[i]
+
+      if (result.status === 'fulfilled') {
+        successfulAgents.push({
+          name: agent.name,
+          type: 'domain' as const,
+          skill: agent.skill,
+        })
+      } else {
+        failedAgents.push(agent.name)
+        // Log failure but continue (don't throw)
+        console.warn(`[prjct] Warning: Failed to generate agent: ${agent.name}`)
+        if (result.reason) {
+          console.warn(`[prjct]   Reason: ${result.reason.message || result.reason}`)
+        }
+      }
+    }
+
+    return successfulAgents
   }
 
   /**
