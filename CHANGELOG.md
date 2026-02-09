@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.0] - 2026-02-09
+
+### Features
+
+- make subtask output and handoff mandatory (PRJ-262) (#154)
+
+
 ## [1.11.0] - 2026-02-09
 
 ### Features
