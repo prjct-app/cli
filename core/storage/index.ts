@@ -55,6 +55,8 @@ export type {
   ShippedJson,
   Storage,
 } from '../types'
+export type { AnalysisStoreData, SealResult, StalenessCheck } from './analysis-storage'
+export { analysisStorage } from './analysis-storage'
 export { ideasStorage } from './ideas-storage'
 export type {
   CategoriesCache,

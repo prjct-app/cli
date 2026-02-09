@@ -1,5 +1,37 @@
 # Changelog
 
+## [1.11.0] - 2026-02-08
+
+### Features
+- **Sealable Analysis**: 3-state lifecycle (draft/verified/sealed) with SHA-256 commit-hash signatures (PRJ-263)
+- **Dual Storage**: Re-sync creates drafts without destroying sealed analysis — only sealed feeds task context
+- **Staleness Detection**: Warns when HEAD moves past the sealed commit hash
+- **Seal & Verify Commands**: `prjct seal` locks draft analysis, `prjct verify` checks integrity
+
+### Implementation Details
+New `analysis-storage.ts` extends StorageManager with dual storage (draft + sealed). Analysis schema rewritten as Zod schemas with runtime validation. Sync service writes drafts in parallel with existing writes. Canonical JSON representation ensures deterministic SHA-256 signatures.
+
+Key changes:
+- `core/schemas/analysis.ts` — Full rewrite: plain interfaces → Zod schemas with `AnalysisStatusSchema`, `AnalysisItemSchema`
+- `core/storage/analysis-storage.ts` — New: dual storage, sealing, verification, staleness detection
+- `core/services/sync-service.ts` — Added `saveDraftAnalysis()` to parallel writes
+- `core/commands/analysis.ts` — Added `seal()` and `verify()` command methods
+- `core/commands/register.ts`, `core/index.ts` — Registered new commands
+
+### Test Plan
+
+#### For QA
+1. Run `prjct sync` — verify draft analysis is created in storage
+2. Run `prjct seal` — verify analysis is locked with SHA-256 signature
+3. Run `prjct verify` — verify signature matches
+4. Run `prjct sync` again — verify sealed analysis is preserved, new draft created
+5. Make a commit, run `prjct status` — verify staleness detection warns about diverged commits
+
+#### For Users
+- **What changed:** Analysis results can now be locked (sealed) so re-syncing doesn't overwrite verified context
+- **How to use:** Run `prjct seal` after reviewing sync results, `prjct verify` to check integrity
+- **Breaking changes:** None — old analysis files parse with `status: 'draft'` default
+
 ## [1.10.0] - 2026-02-08
 
 ### Features

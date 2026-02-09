@@ -12,6 +12,7 @@ import commandInstaller from '../infrastructure/command-installer'
 import { formatCost } from '../schemas/metrics'
 import { createStalenessChecker, memoryService, syncService } from '../services'
 import { formatDiffPreview, formatFullDiff, generateSyncDiff } from '../services/diff-generator'
+import { analysisStorage } from '../storage/analysis-storage'
 import { metricsStorage } from '../storage/metrics-storage'
 import type { AnalyzeOptions, CommandResult, ProjectContext } from '../types'
 import { getErrorMessage } from '../types/fs'
@@ -805,6 +806,9 @@ export class AnalysisCommands extends PrjctCommandsBase {
       // Get session info
       const sessionInfo = await checker.getSessionInfo(projectId)
 
+      // Get analysis status (PRJ-263)
+      const analysisStatus = await analysisStorage.getStatus(projectId)
+
       // JSON output mode
       if (options.json) {
         console.log(
@@ -812,9 +816,13 @@ export class AnalysisCommands extends PrjctCommandsBase {
             success: true,
             ...status,
             session: sessionInfo,
+            analysis: analysisStatus,
           })
         )
-        return { success: true, data: { ...status, session: sessionInfo } }
+        return {
+          success: true,
+          data: { ...status, session: sessionInfo, analysis: analysisStatus },
+        }
       }
 
       // Human-readable output
@@ -822,9 +830,22 @@ export class AnalysisCommands extends PrjctCommandsBase {
       console.log(checker.formatStatus(status))
       console.log('')
       console.log(checker.formatSessionInfo(sessionInfo))
+
+      // Show analysis status (PRJ-263)
+      if (analysisStatus.hasSealed || analysisStatus.hasDraft) {
+        console.log('')
+        console.log('Analysis:')
+        if (analysisStatus.hasSealed) {
+          console.log(`  Sealed: ${analysisStatus.sealedCommit} (${analysisStatus.sealedAt})`)
+        }
+        if (analysisStatus.hasDraft) {
+          console.log(`  Draft: ${analysisStatus.draftCommit} (pending seal)`)
+        }
+      }
+
       console.log('')
 
-      return { success: true, data: { ...status, session: sessionInfo } }
+      return { success: true, data: { ...status, session: sessionInfo, analysis: analysisStatus } }
     } catch (error) {
       const errMsg = getErrorMessage(error)
       if (options.json) {
@@ -832,6 +853,100 @@ export class AnalysisCommands extends PrjctCommandsBase {
       } else {
         out.fail(errMsg)
       }
+      return { success: false, error: errMsg }
+    }
+  }
+
+  /**
+   * prjct seal - Seal the current draft analysis (PRJ-263)
+   *
+   * Locks the current draft with a SHA-256 signature.
+   * Only sealed analysis feeds task context.
+   */
+  async seal(
+    projectPath: string = process.cwd(),
+    options: { json?: boolean } = {}
+  ): Promise<CommandResult> {
+    try {
+      const initResult = await this.ensureProjectInit(projectPath)
+      if (!initResult.success) return initResult
+
+      const projectId = await configManager.getProjectId(projectPath)
+      if (!projectId) {
+        if (options.json) {
+          console.log(JSON.stringify({ success: false, error: 'No project ID found' }))
+        }
+        return { success: false, error: 'No project ID found' }
+      }
+
+      const result = await analysisStorage.seal(projectId)
+
+      if (options.json) {
+        console.log(
+          JSON.stringify({
+            success: result.success,
+            signature: result.signature,
+            error: result.error,
+          })
+        )
+        return { success: result.success, error: result.error }
+      }
+
+      if (!result.success) {
+        out.fail(result.error || 'Seal failed')
+        return { success: false, error: result.error }
+      }
+
+      out.done('Analysis sealed')
+      console.log(`  Signature: ${result.signature?.substring(0, 16)}...`)
+      console.log('')
+
+      return { success: true, data: { signature: result.signature } }
+    } catch (error) {
+      const errMsg = getErrorMessage(error)
+      if (options.json) {
+        console.log(JSON.stringify({ success: false, error: errMsg }))
+      } else {
+        out.fail(errMsg)
+      }
+      return { success: false, error: errMsg }
+    }
+  }
+
+  /**
+   * prjct verify - Verify integrity of sealed analysis (PRJ-263)
+   */
+  async verify(
+    projectPath: string = process.cwd(),
+    options: { json?: boolean } = {}
+  ): Promise<CommandResult> {
+    try {
+      const initResult = await this.ensureProjectInit(projectPath)
+      if (!initResult.success) return initResult
+
+      const projectId = await configManager.getProjectId(projectPath)
+      if (!projectId) {
+        return { success: false, error: 'No project ID found' }
+      }
+
+      const result = await analysisStorage.verify(projectId)
+
+      if (options.json) {
+        console.log(JSON.stringify(result))
+        return { success: result.valid }
+      }
+
+      if (result.valid) {
+        out.done(result.message)
+      } else {
+        out.fail(result.message)
+      }
+      console.log('')
+
+      return { success: result.valid, data: result }
+    } catch (error) {
+      const errMsg = getErrorMessage(error)
+      out.fail(errMsg)
       return { success: false, error: errMsg }
     }
   }
