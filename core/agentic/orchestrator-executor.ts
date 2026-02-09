@@ -21,8 +21,11 @@ import { promisify } from 'node:util'
 import { findRelevantFiles } from '../context-tools/files-tool'
 import { getRecentFiles } from '../context-tools/recent-tool'
 import { extractSignatures } from '../context-tools/signatures-tool'
+import { calculateVelocity, formatVelocityContext } from '../domain/velocity'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
+import outcomeRecorder from '../outcomes/recorder'
+import { DEFAULT_VELOCITY_CONFIG } from '../schemas/velocity'
 import { analysisStorage, stateStorage } from '../storage'
 import type {
   LoadedAgent,
@@ -77,10 +80,11 @@ export class OrchestratorExecutor {
     // Step 5: Load skills from agent frontmatter
     const skills = await this.loadSkills(agents)
 
-    // Step 6: Gather real codebase context and sealed analysis in parallel
-    const [realContext, sealedAnalysis] = await Promise.all([
+    // Step 6: Gather real codebase context, sealed analysis, and velocity in parallel
+    const [realContext, sealedAnalysis, velocityContext] = await Promise.all([
       this.gatherRealContext(taskDescription, projectPath),
       this.loadSealedAnalysis(projectId),
+      this.loadVelocityContext(projectId),
     ])
 
     // Step 7: Determine if fragmentation is needed
@@ -106,6 +110,7 @@ export class OrchestratorExecutor {
       },
       realContext,
       sealedAnalysis,
+      velocityContext,
     }
   }
 
@@ -226,6 +231,24 @@ export class OrchestratorExecutor {
       }
     } catch {
       // Graceful degradation — analysis is optional enhancement
+      return null
+    }
+  }
+
+  /**
+   * Load velocity context for estimation guidance (PRJ-296).
+   * Returns formatted string for prompt injection, or null if no data.
+   */
+  private async loadVelocityContext(projectId: string): Promise<string | null> {
+    try {
+      const outcomes = await outcomeRecorder.getAll(projectId)
+      if (outcomes.length === 0) return null
+
+      const metrics = calculateVelocity(outcomes, DEFAULT_VELOCITY_CONFIG)
+      if (metrics.sprints.length === 0) return null
+
+      return formatVelocityContext(metrics)
+    } catch {
       return null
     }
   }

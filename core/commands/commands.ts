@@ -31,6 +31,7 @@ import { PerformanceCommands } from './performance'
 import { PlanningCommands } from './planning'
 import { SetupCommands } from './setup'
 import { ShippingCommands } from './shipping'
+import { VelocityCommands } from './velocity'
 import { WorkflowCommands } from './workflow'
 
 /**
@@ -47,6 +48,7 @@ class PrjctCommands {
   private maintenance: MaintenanceCommands
   private analysis: AnalysisCommands
   private setupCmds: SetupCommands
+  private velocityCmds: VelocityCommands
   private contextCmds: ContextCommands
 
   // Shared state
@@ -64,6 +66,7 @@ class PrjctCommands {
     this.maintenance = new MaintenanceCommands()
     this.analysis = new AnalysisCommands()
     this.setupCmds = new SetupCommands()
+    this.velocityCmds = new VelocityCommands()
     this.contextCmds = new ContextCommands()
 
     this.agent = null
@@ -147,6 +150,15 @@ class PrjctCommands {
 
   async perf(period: string = '7', projectPath: string = process.cwd()): Promise<CommandResult> {
     return this.performanceCmds.perf(period, projectPath)
+  }
+
+  // ========== Velocity Commands ==========
+
+  async velocity(
+    backlogPoints: string = '0',
+    projectPath: string = process.cwd()
+  ): Promise<CommandResult> {
+    return this.velocityCmds.velocity(backlogPoints, projectPath)
   }
 
   // ========== Maintenance Commands ==========

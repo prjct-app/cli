@@ -49,3 +49,5 @@ export {
 export * from './shipped'
 // State (current task + queue)
 export * from './state'
+// Velocity (sprint-based tracking)
+export * from './velocity'

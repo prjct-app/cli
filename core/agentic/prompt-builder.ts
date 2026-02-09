@@ -766,6 +766,13 @@ class PromptBuilder {
       parts.push('\n')
     }
 
+    // Velocity context (PRJ-296) — estimation guidance from historical data
+    if (orchestratorContext?.velocityContext) {
+      parts.push('\n### VELOCITY (Historical Estimation Data)\n\n')
+      parts.push(orchestratorContext.velocityContext)
+      parts.push('\n\n')
+    }
+
     // Learned patterns
     if (learnedPatterns && Object.keys(learnedPatterns).some((k) => learnedPatterns[k])) {
       parts.push('\n## PROJECT DEFAULTS (apply automatically)\n')

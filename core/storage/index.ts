@@ -79,8 +79,9 @@ export { metricsStorage } from './metrics-storage'
 export { queueStorage } from './queue-storage'
 export { shippedStorage } from './shipped-storage'
 export { stateStorage } from './state-storage'
-
 // ========== GRANULAR STORAGE (Legacy) ==========
 export { getStorage } from './storage'
 // ========== AGGREGATE STORAGE (Recommended) ==========
 export { StorageManager } from './storage-manager'
+export type { VelocityStoreData } from './velocity-storage'
+export { velocityStorage } from './velocity-storage'
