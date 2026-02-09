@@ -1,5 +1,77 @@
 # Changelog
 
+## [1.20.0] - 2026-02-09
+
+### Features
+
+- **Retry with exponential backoff for agent and tool operations** (PRJ-271): Comprehensive retry infrastructure with error classification and circuit breaker
+  - RetryPolicy utility with configurable attempts, delays, and exponential backoff (1s→2s→4s)
+  - Automatic error classification: transient (EBUSY, EAGAIN, ETIMEDOUT) vs permanent (ENOENT, EPERM)
+  - Circuit breaker protection: opens after 5 consecutive failures, auto-closes after 60s
+  - Agent initialization retries (3 attempts with 1s base delay)
+  - Tool operations retry (Read/Write/Bash with 2 attempts)
+  - Resilient parallel agent generation using Promise.allSettled()
+
+### Implementation Details
+
+Built RetryPolicy utility with exponential backoff, error classification, and circuit breaker. Integrated across agent initialization, tool operations, and parallel agent generation. The system now automatically retries transient failures while failing fast on permanent errors.
+
+**New modules:**
+- `core/utils/retry.ts` (320 lines) — Core retry infrastructure with RetryPolicy class, error classification, circuit breaker
+- `core/__tests__/utils/retry.test.ts` (380 lines) — 21 comprehensive tests with 53 assertions
+- `ACCEPTANCE-PRJ-271.md` — Full acceptance criteria verification (22 criteria verified)
+
+**Modified modules:**
+- `core/services/agent-service.ts` — Wrapped initialize() with retry policy (3 attempts)
+- `core/agentic/tool-registry.ts` — Added retry to Read/Write/Bash tools (2 attempts each)
+- `core/services/agent-generator.ts` — Changed to Promise.allSettled() with per-agent retry
+
+**Key features:**
+- Exponential backoff: 1s, 2s, 4s (configurable base/max)
+- Error classification: automatic transient vs permanent detection
+- Circuit breaker: per-operation tracking, 5 failure threshold, 60s cooldown
+- Two default policies: defaultAgentRetryPolicy (3 attempts), defaultToolRetryPolicy (2 attempts)
+- Zero breaking changes: all 968 existing tests pass
+
+### Learnings
+
+- **RetryPolicy pattern:** Wrapping operations with retry execution provides clean separation of retry logic from business logic
+- **Error classification strategies:** Using error code sets (EBUSY, EAGAIN) for transient vs (ENOENT, EPERM) for permanent enables automatic decision-making
+- **Promise.allSettled() for resilient parallel operations:** Prevents one failure from blocking other operations, enables partial success
+- **Circuit breaker implementation:** Per-operation state tracking prevents cascading failures while allowing recovery
+
+### Test Plan
+
+#### For QA
+
+1. **Agent Initialization Retry**
+   - Temporarily make file system busy during agent initialization
+   - Verify agent initialization retries up to 3 times
+   - Confirm permanent errors (unsupported agent) fail immediately
+
+2. **Tool Operations Retry**
+   - Test Read/Write/Bash with transient errors (EBUSY, ETIMEDOUT)
+   - Verify operations retry automatically (2 attempts)
+   - Confirm permanent errors (ENOENT, EPERM) return null/false without retry
+
+3. **Circuit Breaker**
+   - Trigger 5 consecutive failures on same operation
+   - Verify circuit breaker opens and blocks further attempts
+   - Wait 60 seconds and verify circuit closes automatically
+
+4. **Parallel Agent Generation**
+   - Simulate one agent generation failure during sync
+   - Verify other agents generate successfully (Promise.allSettled behavior)
+   - Check logs for failure warnings
+
+#### For Users
+
+**What changed:** The system is now more resilient against transient failures. Operations like agent initialization, file reads/writes, and command execution will automatically retry when they encounter temporary errors (disk busy, timeouts, etc).
+
+**How to use:** No action required - retry logic works automatically. Users will experience fewer random failures during normal operations.
+
+**Breaking changes:** None. All changes are backward compatible. Existing tests (968 total) all pass.
+
 ## [1.19.0] - 2026-02-09
 
 ### Features
