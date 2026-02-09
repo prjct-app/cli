@@ -1,11 +1,44 @@
 # Changelog
 
+## [1.17.0] - 2026-02-08
+
+### Features
+- **BM25 + import graph + git co-change file selection** (PRJ-304): Zero-cost file selection using three mathematical signals combined into a weighted ranker. Replaces keyword matching in smart-context with precision that matches LLM-based classification — at zero API cost.
+
+### Implementation Details
+- `core/domain/bm25.ts` — BM25 indexer: tokenizes files (exports, functions, imports, comments, path segments), builds inverted index, scores queries using Okapi BM25 (k1=1.2, b=0.75). Stores in SQLite kv_store.
+- `core/domain/import-graph.ts` — Import graph builder: parses TS/JS imports to build directed adjacency list, follows chains 2 levels deep, scores by proximity (1/(depth+1)).
+- `core/domain/git-cochange.ts` — Git co-change analyzer: parses last 100 commits, builds Jaccard similarity matrix for file pairs that change together.
+- `core/domain/file-ranker.ts` — Combined ranker: `BM25 × 0.5 + imports × 0.3 + cochange × 0.2`, normalizes each signal to [0,1], returns top 15 files.
+- `core/agentic/smart-context.ts` — Uses ranker when indexes exist, graceful fallback to regex-based domain filtering.
+- `core/services/sync-service.ts` — Builds all 3 indexes in parallel during `prjct sync`.
+
+### Learnings
+- `tokenizeQuery` must split camelCase BEFORE lowercasing — otherwise "getUserById" becomes "getuserbyid" and doesn't split
+- Jaccard similarity > cosine for co-change because data is binary (file present or not in commit)
+- Batch file reads (50 at a time) needed for indexing performance on large projects
+- Stop words list must include code keywords (import, export, const) to reduce noise in scoring
+
+### Test Plan
+
+#### For QA
+1. Run `prjct sync` — verify BM25, import graph, and co-change indexes build without errors
+2. Query "Fix auth middleware" — verify auth-related files rank higher than unrelated files
+3. Query "Build responsive dashboard" — verify frontend files rank higher than backend files
+4. Verify index rebuild time <5 seconds on 300+ file project
+5. Verify query time <50ms
+6. Verify zero API calls during file selection
+
+#### For Users
+**What changed:** File selection during task context is now powered by BM25 text search, import graph proximity, and git co-change analysis instead of keyword matching.
+**How to use:** Run `p. sync` to build indexes — file selection is automatic and more accurate.
+**Breaking changes:** None. Falls back to previous filtering if indexes don't exist.
+
 ## [1.16.0] - 2026-02-09
 
 ### Features
 
 - remove JSON storage redundancy, SQLite-only backend (PRJ-303) (#158)
-
 
 ## [1.16.0] - 2026-02-08
 

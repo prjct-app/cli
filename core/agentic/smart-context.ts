@@ -11,6 +11,7 @@
  */
 
 import { agentPerformanceTracker } from '../agents'
+import { hasIndexes, rankFiles } from '../domain/file-ranker'
 import { outcomeAnalyzer } from '../outcomes'
 import type {
   ContextDomain,
@@ -177,8 +178,13 @@ class SmartContext {
       filteredStack.testing = fullContext.stack.testing
     }
 
-    // Filter files by domain patterns
-    const filteredFiles = this.filterFiles(fullContext.files, taskDomain)
+    // Filter files: use BM25 ranker if indexes exist, else fall back to domain patterns
+    const filteredFiles = this.rankOrFilterFiles(
+      fullContext.files,
+      taskDescription,
+      projectId,
+      taskDomain
+    )
 
     // Calculate metrics
     const originalSize = this.estimateSize(fullContext)
@@ -203,6 +209,31 @@ class SmartContext {
         domain: taskDomain,
       },
     }
+  }
+
+  /**
+   * Use BM25 + import graph + co-change ranking if indexes exist,
+   * otherwise fall back to regex-based domain filtering.
+   */
+  private rankOrFilterFiles(
+    files: string[],
+    taskDescription: string,
+    projectId: string,
+    domain: ContextDomain
+  ): string[] {
+    try {
+      const indexes = hasIndexes(projectId)
+      if (indexes.bm25) {
+        const ranked = rankFiles(projectId, taskDescription, { topN: 15 })
+        if (ranked.length > 0) {
+          return ranked.map((r) => r.path)
+        }
+      }
+    } catch {
+      // Index not available — fall through to regex filter
+    }
+
+    return this.filterFiles(files, domain)
   }
 
   /**

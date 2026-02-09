@@ -27,6 +27,9 @@ import {
   type ProjectContext,
   resolveToolIds,
 } from '../ai-tools'
+import { indexProject } from '../domain/bm25'
+import { indexCoChanges } from '../domain/git-cochange'
+import { indexImports } from '../domain/import-graph'
 import { getErrorMessage } from '../errors'
 import commandInstaller from '../infrastructure/command-installer'
 import configManager from '../infrastructure/config-manager'
@@ -137,6 +140,20 @@ class SyncService {
         this.detectCommands(),
         this.detectStack(),
       ])
+
+      // 3b. Build file-ranking indexes IN PARALLEL (BM25, import graph, co-change)
+      // These are independent and run after directory setup
+      try {
+        await Promise.all([
+          indexProject(this.projectPath, this.projectId!),
+          indexImports(this.projectPath, this.projectId!),
+          indexCoChanges(this.projectPath, this.projectId!),
+        ])
+      } catch (error) {
+        log.debug('File ranking index build failed (non-critical)', {
+          error: getErrorMessage(error),
+        })
+      }
 
       // 4. Generate all files (depends on gathered data)
       const agents = await this.generateAgents(stack, stats)
