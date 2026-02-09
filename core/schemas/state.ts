@@ -44,9 +44,16 @@ export const SubtaskSummarySchema = z.object({
       action: z.enum(['created', 'modified', 'deleted']),
     })
   ),
-  whatWasDone: z.array(z.string()),
-  outputForNextAgent: z.string().optional(),
+  whatWasDone: z.array(z.string()).min(1),
+  outputForNextAgent: z.string().min(1),
   notes: z.string().optional(),
+})
+
+// Schema for validating completion data before persisting
+// Used by completeSubtask() to enforce mandatory handoff
+export const SubtaskCompletionDataSchema = z.object({
+  output: z.string().min(1, 'Subtask output is required'),
+  summary: SubtaskSummarySchema,
 })
 
 // Subtask schema for task fragmentation
@@ -169,6 +176,7 @@ export type ActivityType = z.infer<typeof ActivityTypeSchema>
 
 export type Subtask = z.infer<typeof SubtaskSchema>
 export type SubtaskSummary = z.infer<typeof SubtaskSummarySchema>
+export type SubtaskCompletionData = z.infer<typeof SubtaskCompletionDataSchema>
 export type SubtaskProgress = z.infer<typeof SubtaskProgressSchema>
 
 export type CurrentTask = z.infer<typeof CurrentTaskSchema>
@@ -196,6 +204,18 @@ export const parseQueue = (data: unknown): QueueJson => QueueJsonSchema.parse(da
 /** Safe parse with error result */
 export const safeParseState = (data: unknown) => StateJsonSchema.safeParse(data)
 export const safeParseQueue = (data: unknown) => QueueJsonSchema.safeParse(data)
+
+/** Validate subtask completion data — returns errors or null */
+export const validateSubtaskCompletion = (
+  data: unknown
+): { success: true; data: SubtaskCompletionData } | { success: false; errors: string[] } => {
+  const result = SubtaskCompletionDataSchema.safeParse(data)
+  if (result.success) return { success: true, data: result.data }
+  return {
+    success: false,
+    errors: result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`),
+  }
+}
 
 // =============================================================================
 // Defaults

@@ -43,33 +43,101 @@ IF currentTask.subtasks exists AND has items:
         - label: "Continue current"
           description: "Keep working on this subtask"
 
-    IF "Next subtask":
-      # Mark current subtask as completed
-      currentTask.subtasks[currentSubtaskIndex].status = "completed"
-      currentTask.currentSubtaskIndex++
-      currentTask.subtasks[currentSubtaskIndex].status = "active"
-      currentTask.description = currentTask.subtasks[currentSubtaskIndex].description
-
-      WRITE state.json
-
-      OUTPUT:
-      """
-      ✅ Subtask complete: {completed subtask}
-
-      Progress: {completed}/{total} subtasks
-
-      Current: {next subtask description}
-
-      Next: Continue working, then `p. done`
-      """
-      STOP
-
     IF "Continue current":
       OUTPUT: "Continuing: {current subtask}"
       STOP
 
-    # If "Complete all" - fall through to complete task
+    IF "Next subtask" OR "Complete all remaining":
+      # ═══════════════════════════════════════════════════════════════
+      # MANDATORY HANDOFF COLLECTION (PRJ-262)
+      # Every subtask MUST provide handoff data before completing.
+      # This enables the next subtask to start with full context.
+      # ═══════════════════════════════════════════════════════════════
+
+      GOTO: Step 3.5 (Collect Handoff)
+
+      # After collecting handoff, mark current subtask as completed:
+      currentTask.subtasks[currentSubtaskIndex].status = "completed"
+      currentTask.subtasks[currentSubtaskIndex].output = "{handoff.output}"
+      currentTask.subtasks[currentSubtaskIndex].summary = {
+        "title": "{current subtask description}",
+        "description": "{what was accomplished}",
+        "filesChanged": [{path, action}...],
+        "whatWasDone": ["item1", "item2", ...],
+        "outputForNextAgent": "{context for next subtask}",
+        "notes": "{optional notes}"
+      }
+
+      IF "Next subtask":
+        currentTask.currentSubtaskIndex++
+        currentTask.subtasks[currentSubtaskIndex].status = "active"
+        currentTask.description = currentTask.subtasks[currentSubtaskIndex].description
+
+        WRITE state.json
+
+        # Show previous subtask handoff to establish context
+        OUTPUT:
+        """
+        ✅ Subtask complete: {completed subtask}
+
+        Progress: {completed}/{total} subtasks
+
+        ### Handoff
+        {outputForNextAgent}
+
+        Current: {next subtask description}
+
+        Next: Continue working, then `p. done`
+        """
+        STOP
+
+      # If "Complete all" - fall through to complete task (handoff still collected)
 ```
+
+## Step 3.5: Collect Handoff (MANDATORY for subtask completion)
+
+**⛔ DO NOT skip this step. Every subtask completion MUST include handoff data.**
+
+The LLM should analyze the work done during this subtask and produce:
+
+### 1. Get Files Changed
+
+```bash
+# Files changed during this subtask (uncommitted + recent commits on branch)
+git diff --name-only HEAD 2>/dev/null
+git diff --name-only --cached 2>/dev/null
+```
+
+Categorize each file as `created`, `modified`, or `deleted`.
+
+### 2. Summarize Work Done
+
+Based on the code changes and task context, produce:
+- **whatWasDone**: Array of 1-5 bullet points describing key accomplishments
+- **outputForNextAgent**: A paragraph explaining context the next subtask needs:
+  - What was built/changed and why
+  - Key decisions made and their rationale
+  - Any patterns established that subsequent work should follow
+  - Known issues or edge cases to watch for
+
+### 3. Validation
+
+```
+IF whatWasDone is empty:
+  ⛔ STOP. At least one item is required.
+  Re-analyze the work and provide at minimum 1 bullet point.
+
+IF outputForNextAgent is empty:
+  ⛔ STOP. Context for next subtask is required.
+  Even if this is the last subtask, provide a summary for the done/ship step.
+```
+
+### 4. Store Handoff
+
+The handoff data is stored in the subtask's `summary` field in state.json.
+This data persists across sessions and feeds into the next subtask's prompt context.
+
+---
 
 ## Step 4: Complete Task
 

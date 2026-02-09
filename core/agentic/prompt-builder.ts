@@ -800,6 +800,24 @@ class PromptBuilder {
         if (currentSubtask.dependsOn.length > 0) {
           parts.push(`Dependencies: ${currentSubtask.dependsOn.join(', ')}\n`)
         }
+
+        // Inject previous subtask handoff for context continuity (PRJ-262)
+        if (currentSubtask.handoff) {
+          const h = currentSubtask.handoff
+          parts.push('\n### Previous Subtask Handoff\n\n')
+          parts.push(`**From:** ${h.fromSubtask}\n\n`)
+          parts.push('**What was done:**\n')
+          for (const item of h.whatWasDone) {
+            parts.push(`- ${item}\n`)
+          }
+          if (h.filesChanged.length > 0) {
+            parts.push('\n**Files changed:**\n')
+            for (const f of h.filesChanged) {
+              parts.push(`- \`${f.path}\` (${f.action})\n`)
+            }
+          }
+          parts.push(`\n**Context for this subtask:**\n${h.outputForNextAgent}\n`)
+        }
       }
       parts.push('\n')
     }
