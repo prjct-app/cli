@@ -1,10 +1,12 @@
 /**
- * Storage Manager Base Class
+ * Storage Manager Base Class (PRJ-303: SQLite-backed)
  *
  * Write-through pattern:
- * 1. Write JSON to storage/
+ * 1. Write to SQLite kv_store (primary)
  * 2. Regenerate MD in context/
  * 3. Publish event for backend sync
+ *
+ * Read path: cache → SQLite → default
  *
  * Subclasses implement specific data types (state, queue, ideas, shipped).
  */
@@ -13,27 +15,25 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { eventBus, type SyncEvent } from '../events'
 import pathManager from '../infrastructure/path-manager'
-import { isNotFoundError } from '../types/fs'
 import { TTLCache } from '../utils/cache'
 import { getTimestamp } from '../utils/date-helper'
-import { safeRead, type ValidationSchema } from './safe-reader'
+import { prjctDb } from './database'
 
 export abstract class StorageManager<T> {
   protected filename: string
   protected cache: TTLCache<T>
-  protected schema: ValidationSchema | null
 
-  constructor(filename: string, schema?: ValidationSchema) {
+  constructor(filename: string, _schema?: unknown) {
     this.filename = filename
     this.cache = new TTLCache<T>({ ttl: 5000, maxSize: 50 })
-    this.schema = schema ?? null
   }
 
   /**
-   * Get file path for storage JSON
+   * Get the kv_store key for this storage type.
+   * Derived from filename: 'state.json' → 'state'
    */
-  protected getStoragePath(projectId: string): string {
-    return pathManager.getStoragePath(projectId, this.filename)
+  protected getStoreKey(): string {
+    return this.filename.replace('.json', '')
   }
 
   /**
@@ -72,9 +72,8 @@ export abstract class StorageManager<T> {
   protected abstract getEventType(action: 'update' | 'create' | 'delete'): string
 
   /**
-   * Read data from storage with optional Zod validation.
-   * When a schema is provided (via constructor), validates after JSON.parse.
-   * On corruption: creates .backup file, logs warning, returns default.
+   * Read data from storage.
+   * Path: cache → SQLite kv_store → default
    */
   async read(projectId: string): Promise<T> {
     // Check cache first (with expiration)
@@ -83,48 +82,32 @@ export abstract class StorageManager<T> {
       return cached
     }
 
-    const filePath = this.getStoragePath(projectId)
-
-    if (this.schema) {
-      // Validated read path
-      const data = await safeRead<T>(filePath, this.schema)
+    // Try SQLite kv_store (primary store)
+    try {
+      const data = prjctDb.getDoc<T>(projectId, this.getStoreKey())
       if (data !== null) {
         this.cache.set(projectId, data)
         return data
       }
-      // File missing or corrupted — return default
-      return this.getDefault()
+    } catch {
+      // SQLite not available (e.g., DB dir doesn't exist yet)
     }
 
-    // Unvalidated fallback (for subclasses without a schema)
-    try {
-      const content = await fs.readFile(filePath, 'utf-8')
-      const data = JSON.parse(content) as T
-      this.cache.set(projectId, data)
-      return data
-    } catch (error) {
-      if (isNotFoundError(error) || error instanceof SyntaxError) {
-        return this.getDefault()
-      }
-      throw error
-    }
+    return this.getDefault()
   }
 
   /**
-   * Write data to storage + regenerate context + publish event
+   * Write data to storage + regenerate context + publish event.
+   * SQLite primary + MD context regeneration.
    */
   async write(projectId: string, data: T): Promise<void> {
-    const storagePath = this.getStoragePath(projectId)
     const contextPath = this.getContextPath(projectId, this.getMdFilename())
 
-    // Ensure directories exist
-    await fs.mkdir(path.dirname(storagePath), { recursive: true })
+    // Ensure context directory exists
     await fs.mkdir(path.dirname(contextPath), { recursive: true })
 
-    // 1. Write JSON (atomic via temp file)
-    const tempPath = `${storagePath}.${Date.now()}.tmp`
-    await fs.writeFile(tempPath, JSON.stringify(data, null, 2), 'utf-8')
-    await fs.rename(tempPath, storagePath)
+    // 1. Write to SQLite kv_store (primary)
+    prjctDb.setDoc(projectId, this.getStoreKey(), data)
 
     // 2. Regenerate MD for Claude
     const md = this.toMarkdown(data)
@@ -190,18 +173,13 @@ export abstract class StorageManager<T> {
   }
 
   /**
-   * Check if storage file exists
+   * Check if storage exists for this project.
    */
   async exists(projectId: string): Promise<boolean> {
-    const filePath = this.getStoragePath(projectId)
     try {
-      await fs.access(filePath)
-      return true
-    } catch (error) {
-      if (isNotFoundError(error)) {
-        return false
-      }
-      throw error
+      return prjctDb.hasDoc(projectId, this.getStoreKey())
+    } catch {
+      return false
     }
   }
 

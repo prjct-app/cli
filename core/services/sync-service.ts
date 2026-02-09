@@ -33,6 +33,7 @@ import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import { analysisStorage } from '../storage/analysis-storage'
 import { metricsStorage } from '../storage/metrics-storage'
+import { migrateJsonToSqlite } from '../storage/migrate-json'
 import type {
   GitData,
   ProjectCommands,
@@ -124,6 +125,10 @@ class SyncService {
       // 2. Ensure directories exist (non-blocking)
       const ensureDirsPromise = this.ensureDirectories()
 
+      // 2b. Auto-migrate JSON → SQLite (idempotent, skips if already done)
+      await ensureDirsPromise
+      await migrateJsonToSqlite(this.projectId)
+
       // 3. Gather all data IN PARALLEL (30-50% speedup)
       // These operations are independent and can run concurrently
       const [git, stats, commands, stack] = await Promise.all([
@@ -132,9 +137,6 @@ class SyncService {
         this.detectCommands(),
         this.detectStack(),
       ])
-
-      // Wait for directories before writing files
-      await ensureDirsPromise
 
       // 4. Generate all files (depends on gathered data)
       const agents = await this.generateAgents(stack, stats)

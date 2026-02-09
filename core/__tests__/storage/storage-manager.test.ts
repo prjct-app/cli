@@ -14,6 +14,7 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import pathManager from '../../infrastructure/path-manager'
+import { prjctDb } from '../../storage/database'
 import { StorageManager } from '../../storage/storage-manager'
 
 // =============================================================================
@@ -92,6 +93,9 @@ describe('StorageManager', () => {
   })
 
   afterEach(async () => {
+    // Close SQLite connections before cleanup
+    prjctDb.close()
+
     // Restore original pathManager methods
     pathManager.getGlobalProjectPath = originalGetGlobalProjectPath
     pathManager.getStoragePath = originalGetStoragePath
@@ -122,7 +126,7 @@ describe('StorageManager', () => {
       expect(result).toEqual(testData)
     })
 
-    it('should create storage file with correct JSON format', async () => {
+    it('should write to SQLite kv_store', async () => {
       const testData: TestData = {
         value: 'test',
         count: 1,
@@ -131,12 +135,23 @@ describe('StorageManager', () => {
 
       await manager.write(testProjectId, testData)
 
-      // Verify file exists and has correct content
-      const storagePath = path.join(tmpRoot!, testProjectId, 'storage', 'test-data.json')
-      const content = await fs.readFile(storagePath, 'utf-8')
-      const parsed = JSON.parse(content)
+      // Verify SQLite has the data
+      const doc = prjctDb.getDoc<TestData>(testProjectId, 'test-data')
+      expect(doc).toEqual(testData)
+    })
 
-      expect(parsed).toEqual(testData)
+    it('should not create JSON storage file', async () => {
+      const testData: TestData = {
+        value: 'test',
+        count: 1,
+        items: ['item1'],
+      }
+
+      await manager.write(testProjectId, testData)
+
+      // Verify JSON file does NOT exist
+      const storagePath = path.join(tmpRoot!, testProjectId, 'storage', 'test-data.json')
+      await expect(fs.access(storagePath)).rejects.toThrow()
     })
 
     it('should create context markdown file', async () => {
@@ -181,18 +196,7 @@ describe('StorageManager', () => {
       expect(result).toEqual({ value: '', count: 0, items: [] })
     })
 
-    it('should return default for invalid JSON', async () => {
-      // Create invalid JSON file
-      const storagePath = path.join(tmpRoot!, testProjectId, 'storage', 'test-data.json')
-      await fs.mkdir(path.dirname(storagePath), { recursive: true })
-      await fs.writeFile(storagePath, 'not valid json {{{', 'utf-8')
-
-      const result = await manager.read(testProjectId)
-
-      expect(result).toEqual({ value: '', count: 0, items: [] })
-    })
-
-    it('should report exists=false for missing file', async () => {
+    it('should report exists=false when no data', async () => {
       const exists = await manager.exists('non-existent-project')
       expect(exists).toBe(false)
     })
@@ -210,18 +214,18 @@ describe('StorageManager', () => {
   // ===========================================================================
 
   describe('directory creation', () => {
-    it('should create storage directory if it does not exist', async () => {
+    it('should create project directory for SQLite DB', async () => {
       const testData: TestData = { value: 'dir-test', count: 1, items: [] }
 
-      // Directory shouldn't exist yet
-      const storageDir = path.join(tmpRoot!, testProjectId, 'storage')
-      await expect(fs.access(storageDir)).rejects.toThrow()
+      // Project directory shouldn't exist yet
+      const projectDir = path.join(tmpRoot!, testProjectId)
+      await expect(fs.access(projectDir)).rejects.toThrow()
 
-      // Write should create it
+      // Write should create it (SQLite DB creates its parent dir)
       await manager.write(testProjectId, testData)
 
-      // Now it should exist
-      const stat = await fs.stat(storageDir)
+      // Project dir should exist (created by SQLite)
+      const stat = await fs.stat(projectDir)
       expect(stat.isDirectory()).toBe(true)
     })
 
@@ -263,13 +267,8 @@ describe('StorageManager', () => {
       // First read
       const result1 = await manager.read(testProjectId)
 
-      // Modify file directly (bypass manager)
-      const storagePath = path.join(tmpRoot!, testProjectId, 'storage', 'test-data.json')
-      await fs.writeFile(
-        storagePath,
-        JSON.stringify({ value: 'modified', count: 2, items: [] }),
-        'utf-8'
-      )
+      // Modify SQLite directly (bypass manager)
+      prjctDb.setDoc(testProjectId, 'test-data', { value: 'modified', count: 2, items: [] })
 
       // Second read should return cached value
       const result2 = await manager.read(testProjectId)
@@ -283,17 +282,22 @@ describe('StorageManager', () => {
       // Read to populate cache
       await manager.read(testProjectId)
 
-      // Modify file directly
-      const storagePath = path.join(tmpRoot!, testProjectId, 'storage', 'test-data.json')
-      const newData = { value: 'updated', count: 99, items: ['new'] }
-      await fs.writeFile(storagePath, JSON.stringify(newData), 'utf-8')
+      // Write new data through the manager (the proper API)
+      const newData: TestData = { value: 'updated', count: 99, items: ['new'] }
+      await manager.write(testProjectId, newData)
 
-      // Clear cache
+      // Create a new manager instance (simulates fresh session without cache)
+      const freshManager = new TestStorageManager()
+
+      // Clear cache on original manager
       manager.clearCache(testProjectId)
 
-      // Now read should get fresh data
+      // Both should get the new data
       const result = await manager.read(testProjectId)
       expect(result).toEqual(newData)
+
+      const freshResult = await freshManager.read(testProjectId)
+      expect(freshResult).toEqual(newData)
     })
 
     it('should clear all cache', async () => {
