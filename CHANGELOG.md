@@ -4,6 +4,13 @@
 
 ### Features
 
+- implement incremental sync with file hashing (PRJ-305) (#160)
+
+
+## [1.18.0] - 2026-02-09
+
+### Features
+
 - **Incremental sync**: `prjct sync` now only re-analyzes files that changed since last sync (PRJ-305)
   - File hashing with Bun.hash (xxHash64) — <100ms for 500 files
   - Change propagation through import graph (1-level reverse edges)
