@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.11.0] - 2026-02-09
+
+### Features
+
+- implement sealable analysis with commit-hash signature (PRJ-263) (#153)
+
+
 ## [1.11.0] - 2026-02-08
 
 ### Features
