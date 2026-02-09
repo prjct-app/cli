@@ -211,6 +211,7 @@ class PrjctCommands {
       yes?: boolean
       json?: boolean
       package?: string
+      full?: boolean
     } = {}
   ): Promise<CommandResult> {
     return this.analysis.sync(projectPath, options)

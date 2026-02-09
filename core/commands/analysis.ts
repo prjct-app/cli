@@ -235,6 +235,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
       yes?: boolean
       json?: boolean
       package?: string
+      full?: boolean
     } = {}
   ): Promise<CommandResult> {
     try {
@@ -308,7 +309,10 @@ export class AnalysisCommands extends PrjctCommandsBase {
         }
 
         // Do a dry-run sync to see what would change
-        const result = await syncService.sync(projectPath, { aiTools: options.aiTools })
+        const result = await syncService.sync(projectPath, {
+          aiTools: options.aiTools,
+          full: options.full,
+        })
 
         if (!result.success) {
           if (isNonInteractive) {
@@ -453,7 +457,10 @@ export class AnalysisCommands extends PrjctCommandsBase {
       out.spin('Syncing project...')
 
       // Use syncService to do EVERYTHING in one call
-      const result = await syncService.sync(projectPath, { aiTools: options.aiTools })
+      const result = await syncService.sync(projectPath, {
+        aiTools: options.aiTools,
+        full: options.full,
+      })
 
       if (!result.success) {
         out.fail(result.error || 'Sync failed')

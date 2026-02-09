@@ -28,6 +28,8 @@ import {
   resolveToolIds,
 } from '../ai-tools'
 import { indexProject } from '../domain/bm25'
+import { affectedDomains, propagateChanges } from '../domain/change-propagator'
+import { detectChanges, hasHashRegistry, saveHashes } from '../domain/file-hasher'
 import { indexCoChanges } from '../domain/git-cochange'
 import { indexImports } from '../domain/import-graph'
 import { getErrorMessage } from '../errors'
@@ -39,6 +41,7 @@ import { metricsStorage } from '../storage/metrics-storage'
 import { migrateJsonToSqlite } from '../storage/migrate-json'
 import type {
   GitData,
+  IncrementalInfo,
   ProjectCommands,
   ProjectStats,
   ProjectSyncResult,
@@ -141,24 +144,108 @@ class SyncService {
         this.detectStack(),
       ])
 
+      // 3a. Incremental change detection
+      // Determine if we can skip expensive operations based on file changes
+      const isFullSync = options.full === true
+      let incrementalInfo: IncrementalInfo | undefined
+      let shouldRebuildIndexes = true
+      let shouldRegenerateAgents = true
+      let changedDomains = new Set<string>()
+
+      if (!isFullSync && hasHashRegistry(this.projectId!)) {
+        try {
+          const { diff, currentHashes } = await detectChanges(this.projectPath, this.projectId!)
+          const totalChanged = diff.added.length + diff.modified.length + diff.deleted.length
+
+          if (totalChanged === 0 && !options.changedFiles?.length) {
+            // Nothing changed — skip expensive rebuilds
+            shouldRebuildIndexes = false
+            shouldRegenerateAgents = false
+            incrementalInfo = {
+              isIncremental: true,
+              filesChanged: 0,
+              filesUnchanged: diff.unchanged.length,
+              indexesRebuilt: false,
+              agentsRegenerated: false,
+              affectedDomains: [],
+            }
+          } else {
+            // Some files changed — propagate through import graph
+            const propagated = propagateChanges(diff, this.projectId!)
+            changedDomains = affectedDomains(propagated.allAffected)
+
+            // Only rebuild indexes if source files changed
+            const sourceExtensions = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'])
+            const hasSourceChanges = propagated.allAffected.some((f) => {
+              const ext = f.substring(f.lastIndexOf('.'))
+              return sourceExtensions.has(ext)
+            })
+            shouldRebuildIndexes = hasSourceChanges
+
+            // Only regenerate agents if stack/domains might have changed
+            // (new files added to previously empty domains, or config files changed)
+            const configChanged = propagated.directlyChanged.some(
+              (f) =>
+                f === 'package.json' ||
+                f === 'tsconfig.json' ||
+                f.includes('Dockerfile') ||
+                f.includes('docker-compose')
+            )
+            shouldRegenerateAgents = configChanged
+
+            incrementalInfo = {
+              isIncremental: true,
+              filesChanged: totalChanged,
+              filesUnchanged: diff.unchanged.length,
+              indexesRebuilt: shouldRebuildIndexes,
+              agentsRegenerated: shouldRegenerateAgents,
+              affectedDomains: Array.from(changedDomains),
+            }
+          }
+
+          // Save updated hashes AFTER determining diff (commit new state)
+          saveHashes(this.projectId!, currentHashes)
+        } catch (error) {
+          log.debug('Incremental detection failed, falling back to full sync', {
+            error: getErrorMessage(error),
+          })
+          // Fall through to full sync
+        }
+      } else {
+        // First sync or --full flag: compute and save hashes for next time
+        try {
+          const { currentHashes } = await detectChanges(this.projectPath, this.projectId!)
+          saveHashes(this.projectId!, currentHashes)
+        } catch (error) {
+          log.debug('Hash computation failed (non-critical)', {
+            error: getErrorMessage(error),
+          })
+        }
+      }
+
       // 3b. Build file-ranking indexes IN PARALLEL (BM25, import graph, co-change)
-      // These are independent and run after directory setup
-      try {
-        await Promise.all([
-          indexProject(this.projectPath, this.projectId!),
-          indexImports(this.projectPath, this.projectId!),
-          indexCoChanges(this.projectPath, this.projectId!),
-        ])
-      } catch (error) {
-        log.debug('File ranking index build failed (non-critical)', {
-          error: getErrorMessage(error),
-        })
+      // Skip if no source files changed (incremental optimization)
+      if (shouldRebuildIndexes) {
+        try {
+          await Promise.all([
+            indexProject(this.projectPath, this.projectId!),
+            indexImports(this.projectPath, this.projectId!),
+            indexCoChanges(this.projectPath, this.projectId!),
+          ])
+        } catch (error) {
+          log.debug('File ranking index build failed (non-critical)', {
+            error: getErrorMessage(error),
+          })
+        }
       }
 
       // 4. Generate all files (depends on gathered data)
-      const agents = await this.generateAgents(stack, stats)
+      // Skip agent regeneration if nothing structural changed
+      const agents = shouldRegenerateAgents
+        ? await this.generateAgents(stack, stats)
+        : await this.loadExistingAgents()
       const skills = this.configureSkills(agents)
-      const skillsInstalled = await this.autoInstallSkills(agents)
+      const skillsInstalled = shouldRegenerateAgents ? await this.autoInstallSkills(agents) : []
       const sources = this.buildSources(stats, commands)
       const contextFiles = await this.generateContextFiles(git, stats, commands, agents, sources)
 
@@ -240,6 +327,7 @@ class SyncService {
         })),
         syncMetrics,
         verification,
+        incremental: incrementalInfo,
       }
     } catch (error) {
       return {
@@ -615,6 +703,32 @@ class SyncService {
     // Add to agents list
     for (const agent of domainAgentsToGenerate) {
       agents.push({ name: agent.name, type: 'domain', skill: agent.skill })
+    }
+
+    return agents
+  }
+
+  /**
+   * Load existing agent info from disk (for incremental sync when agents don't need regeneration).
+   * Reads the agents directory and returns metadata without regenerating files.
+   */
+  private async loadExistingAgents(): Promise<SyncAgentInfo[]> {
+    const agentsPath = path.join(this.globalPath, 'agents')
+    const agents: SyncAgentInfo[] = []
+
+    try {
+      const files = await fs.readdir(agentsPath)
+      const workflowNames = new Set(['prjct-workflow', 'prjct-planner', 'prjct-shipper'])
+
+      for (const file of files) {
+        if (!file.endsWith('.md')) continue
+        const name = file.replace('.md', '')
+        const type = workflowNames.has(name) ? ('workflow' as const) : ('domain' as const)
+        agents.push({ name, type })
+      }
+    } catch {
+      // No existing agents — fall back to generation
+      return []
     }
 
     return agents
