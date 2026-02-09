@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.17.0] - 2026-02-09
+
+### Features
+
+- implement BM25 + import graph + git co-change for zero-cost file selection (PRJ-304) (#159)
+
+
 ## [1.17.0] - 2026-02-08
 
 ### Features
