@@ -922,11 +922,21 @@ export class AnalysisCommands extends PrjctCommandsBase {
 
   /**
    * prjct verify - Verify integrity of sealed analysis (PRJ-263)
+   *
+   * Modes:
+   * - Default: Cryptographic verification (signature check)
+   * - --semantic: Semantic verification (data accuracy check, PRJ-270)
    */
   async verify(
     projectPath: string = process.cwd(),
-    options: { json?: boolean } = {}
+    options: { json?: boolean; semantic?: boolean } = {}
   ): Promise<CommandResult> {
+    // Semantic verification mode (PRJ-270)
+    if (options.semantic) {
+      return this.semanticVerify(projectPath, options)
+    }
+
+    // Default: Cryptographic verification (PRJ-263)
     try {
       const initResult = await this.ensureProjectInit(projectPath)
       if (!initResult.success) return initResult
@@ -954,6 +964,91 @@ export class AnalysisCommands extends PrjctCommandsBase {
     } catch (error) {
       const errMsg = getErrorMessage(error)
       out.fail(errMsg)
+      return { success: false, error: errMsg }
+    }
+  }
+
+  /**
+   * prjct analysis verify --semantic - Semantic verification of analysis results (PRJ-270)
+   *
+   * Validates that analysis data matches actual project state:
+   * - Frameworks exist in package.json
+   * - Languages match file extensions
+   * - Pattern locations reference real files
+   * - File count is accurate
+   * - Anti-pattern files exist
+   */
+  async semanticVerify(
+    projectPath: string = process.cwd(),
+    options: { json?: boolean } = {}
+  ): Promise<CommandResult> {
+    try {
+      const initResult = await this.ensureProjectInit(projectPath)
+      if (!initResult.success) return initResult
+
+      const projectId = await configManager.getProjectId(projectPath)
+      if (!projectId) {
+        if (options.json) {
+          console.log(JSON.stringify({ success: false, error: 'No project ID found' }))
+        } else {
+          out.fail('No project ID found')
+        }
+        return { success: false, error: 'No project ID found' }
+      }
+
+      // Get project path from project.json
+      const globalPath = pathManager.getGlobalProjectPath(projectId)
+      let repoPath = projectPath
+      try {
+        const projectJson = JSON.parse(
+          await fs.readFile(path.join(globalPath, 'project.json'), 'utf-8')
+        )
+        repoPath = projectJson.repoPath || projectPath
+      } catch {
+        // Use fallback projectPath
+      }
+
+      // Run semantic verification
+      const result = await analysisStorage.semanticVerify(projectId, repoPath)
+
+      // JSON output mode
+      if (options.json) {
+        console.log(JSON.stringify(result))
+        return { success: result.passed, data: result }
+      }
+
+      // Human-readable output
+      console.log('')
+      if (result.passed) {
+        out.done('Semantic verification passed')
+        console.log(
+          `  ${result.passedCount}/${result.checks.length} checks passed (${result.totalMs}ms)`
+        )
+      } else {
+        out.fail('Semantic verification failed')
+        console.log(`  ${result.failedCount}/${result.checks.length} checks failed`)
+      }
+      console.log('')
+
+      // Show check details
+      console.log('Check Results:')
+      for (const check of result.checks) {
+        const icon = check.passed ? '✓' : '✗'
+        const status = check.passed
+          ? `${check.output} (${check.durationMs}ms)`
+          : check.error || 'Failed'
+        console.log(`  ${icon} ${check.name}: ${status}`)
+      }
+      console.log('')
+
+      return { success: result.passed, data: result }
+    } catch (error) {
+      const errMsg = getErrorMessage(error)
+      if (options.json) {
+        console.log(JSON.stringify({ success: false, error: errMsg }))
+      } else {
+        out.fail(errMsg)
+      }
       return { success: false, error: errMsg }
     }
   }
