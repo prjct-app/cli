@@ -4,6 +4,7 @@
 
 ### Features
 
+- add semantic verification for analysis results (PRJ-270) (#163)
 - **Task history array** (PRJ-281): Replace single previousTask with bounded task history for pattern learning
   - TaskHistoryEntry schema captures completed task metadata: title, classification, timestamps, subtasks, outcome, branch, Linear IDs
   - Automatic history push on task completion with FIFO eviction (max 20 entries)
