@@ -4,6 +4,16 @@
 
 ### Features
 
+- **Semantic verification for analysis results** (PRJ-270): Validate analysis consistency before sealing
+  - Framework verification: checks frameworks exist in package.json dependencies (case-insensitive matching)
+  - Language verification: validates languages match actual file extensions (.ts → TypeScript)
+  - Pattern location verification: confirms pattern files exist in project
+  - File count verification: validates count accuracy (within 10% tolerance)
+  - Anti-pattern file verification: ensures anti-pattern files exist when referenced
+  - CLI command: `prjct verify --semantic` with human-readable and JSON output
+  - Parallel execution of all 5 checks using Promise.all() (~100-200ms for typical projects)
+  - Comprehensive test suite with 10 new test cases covering all scenarios (28 tests total, 63 assertions)
+
 - **Retry with exponential backoff for agent and tool operations** (PRJ-271): Comprehensive retry infrastructure with error classification and circuit breaker
   - RetryPolicy utility with configurable attempts, delays, and exponential backoff (1s→2s→4s)
   - Automatic error classification: transient (EBUSY, EAGAIN, ETIMEDOUT) vs permanent (ENOENT, EPERM)
@@ -13,6 +23,41 @@
   - Resilient parallel agent generation using Promise.allSettled()
 
 ### Implementation Details
+
+#### Semantic Verification (PRJ-270)
+
+Added semantic verification functions to validate analysis results match actual project state. The verification system runs 5 parallel checks to detect logical inconsistencies before sealing analysis data.
+
+**Modified modules:**
+- `core/schemas/analysis.ts` — Added 5 verification functions, 1 orchestrator, 2 helpers, and 2 interfaces (SemanticCheckResult, SemanticVerificationReport)
+- `core/storage/analysis-storage.ts` — Added semanticVerify() method to AnalysisStorage class
+- `core/commands/analysis.ts` — Extended verify() with --semantic flag and added semanticVerify() helper
+- `core/commands/commands.ts` — Updated verify() signature to include semantic?: boolean
+- `core/index.ts` — Updated verify command handler to pass semantic flag
+- `core/__tests__/storage/analysis-storage.test.ts` — Added 10 comprehensive test cases (+345 lines)
+- `README.md` — Added analysis verification documentation section
+- `CHANGELOG.md` — Documented semantic verification feature
+
+**Verification functions:**
+1. `verifyFrameworks()` — Checks frameworks exist in package.json (case-insensitive partial matching)
+2. `verifyLanguages()` — Validates languages match file extensions (.ts → TypeScript)
+3. `verifyPatternLocations()` — Confirms pattern files exist in project
+4. `verifyFileCount()` — Validates count accuracy (10% tolerance for temporary files/caches)
+5. `verifyAntiPatternFiles()` — Ensures anti-pattern files exist when referenced
+
+**Helper functions:**
+- `getProjectExtensions()` — Recursively scans project for file extensions (ignores node_modules, .git, dist, build, .next, .turbo, coverage)
+- `countProjectFiles()` — Counts all files in project with same ignore patterns
+
+**Key features:**
+- Parallel execution using Promise.all() for performance (~100-200ms typical)
+- Skip conditions for null/undefined/empty arrays (prevents false failures)
+- 10% tolerance for file count (accounts for temporary files, caches)
+- Case-insensitive partial matching for frameworks
+- Returns SemanticVerificationReport following VerificationReport pattern from sync-verifier
+- Zero breaking changes: all 18 existing tests pass
+
+#### Retry Infrastructure (PRJ-271)
 
 Built RetryPolicy utility with exponential backoff, error classification, and circuit breaker. Integrated across agent initialization, tool operations, and parallel agent generation. The system now automatically retries transient failures while failing fast on permanent errors.
 
