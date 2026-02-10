@@ -4,6 +4,14 @@
 
 ### Features
 
+- add task-to-analysis feedback loop (PRJ-272) (#165)
+- add task history array with FIFO eviction (PRJ-281) (#164)
+
+
+## [1.22.0] - 2026-02-10
+
+### Features
+
 - **Task-to-analysis feedback loop** (PRJ-272): Tasks report discoveries back into analysis and agent generation
   - TaskFeedbackSchema: stackConfirmed, patternsDiscovered, agentAccuracy (with rating enum), issuesEncountered
   - Optional `feedback` field on TaskHistoryEntry for backward compatibility
