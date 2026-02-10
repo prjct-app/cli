@@ -34,6 +34,8 @@ class StateStorage extends StorageManager<StateJson> {
     return {
       currentTask: null,
       previousTask: null,
+      pausedTasks: [],
+      taskHistory: [],
       lastUpdated: '',
     }
   }
