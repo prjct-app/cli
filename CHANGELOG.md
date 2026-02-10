@@ -5,6 +5,46 @@
 ### Features
 
 - add semantic verification for analysis results (PRJ-270) (#163)
+- **Task history array** (PRJ-281): Replace single previousTask with bounded task history for pattern learning
+  - TaskHistoryEntry schema captures completed task metadata: title, classification, timestamps, subtasks, outcome, branch, Linear IDs
+  - Automatic history push on task completion with FIFO eviction (max 20 entries)
+  - Context injection: shows 3 recent same-type tasks when active, 5 recent when idle
+  - Accessor methods: getTaskHistory(), getMostRecentTask(), getTaskHistoryByType()
+  - Backward compatible: undefined taskHistory initializes as empty array
+  - Comprehensive test suite with 20 test cases (998 tests total pass)
+
+### Implementation Details
+
+Replaced single previousTask field with bounded task history array to enable pattern learning and cross-task context for AI agents. When tasks complete, metadata is automatically captured and stored with FIFO eviction.
+
+**Modified modules:**
+- `core/schemas/state.ts` — Added TaskHistoryEntrySchema with 12 fields, updated StateJsonSchema, exported TaskHistoryEntry type, updated DEFAULT_STATE
+- `core/storage/state-storage.ts` — Updated completeTask() to push history entries, added createTaskHistoryEntry() helper, added 3 accessor methods, updated toMarkdown() for context injection, updated getDefault()
+- `core/__tests__/storage/state-storage-history.test.ts` (468 lines) — 20 comprehensive tests covering push, eviction, backward compatibility, accessors, and context injection
+- `README.md` — Added Task History section with usage documentation
+- `CHANGELOG.md` — Documented task history feature
+
+### Learnings
+
+- **Schema-first design:** Define Zod schemas before implementation ensures type safety and validation at runtime
+- **Type assertions for extended properties:** Use `taskAny = task as any` to access properties not in CurrentTask schema (type, branch, parentDescription)
+- **Context injection in toMarkdown():** The state-storage toMarkdown() method is where context is generated, not context-builder.ts
+- **pathManager mocking for test isolation:** Mock getGlobalProjectPath, getStoragePath, getFilePath to use temp directories in tests
+- **FIFO over LRU:** Simpler implementation with predictable behavior for bounded history
+
+### Test Plan
+
+#### For QA
+1. Complete a task with `p. done` — verify taskHistory entry appears in state.json with all metadata fields
+2. Complete 25+ tasks — verify only 20 entries remain (oldest dropped)
+3. Start a bug task — verify context markdown shows recent bug tasks only (not features)
+4. Test with existing state.json missing taskHistory field — verify backward compatibility
+5. Verify accessor methods return correct data: getTaskHistory(), getMostRecentTask(), getTaskHistoryByType()
+
+#### For Users
+**What changed:** Completed tasks are now tracked in a history array (max 20) instead of only storing the last paused task
+**How to use:** No action needed — task history is automatic on `p. done`
+**Breaking changes:** None — fully backward compatible
 
 
 ## [1.20.0] - 2026-02-10

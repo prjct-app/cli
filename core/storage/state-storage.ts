@@ -15,6 +15,7 @@ import type {
   StateJson,
   Subtask,
   SubtaskCompletionData,
+  TaskHistoryEntry,
 } from '../schemas/state'
 import { StateJsonSchema, SubtaskCompletionDataSchema } from '../schemas/state'
 import { getTimestamp, toRelative } from '../utils/date-helper'
@@ -33,6 +34,8 @@ class StateStorage extends StorageManager<StateJson> {
     return {
       currentTask: null,
       previousTask: null,
+      pausedTasks: [],
+      taskHistory: [],
       lastUpdated: '',
     }
   }
@@ -140,6 +143,33 @@ class StateStorage extends StorageManager<StateJson> {
         })
         m.blank().italic('Use /p:resume to continue')
       })
+      .when((data.taskHistory?.length || 0) > 0, (m) => {
+        const history = this.getTaskHistoryFromState(data)
+        if (history.length === 0) return
+
+        // Filter by current task classification if available
+        const currentTaskType = (data.currentTask as any)?.type
+        const relevantHistory = currentTaskType
+          ? history.filter((h) => h.classification === currentTaskType).slice(0, 3)
+          : history.slice(0, 5)
+
+        if (relevantHistory.length === 0) return
+
+        m.hr().h2(
+          currentTaskType
+            ? `Recent ${currentTaskType} tasks (${relevantHistory.length})`
+            : `Recent tasks (${relevantHistory.length})`
+        )
+        relevantHistory.forEach((entry, i) => {
+          m.raw(`${i + 1}. **${entry.title}** (${entry.classification})`)
+            .raw(
+              `   Completed: ${toRelative(entry.completedAt)} | ${entry.subtaskCount} subtask${entry.subtaskCount > 1 ? 's' : ''}`
+            )
+            .raw(`   Outcome: ${entry.outcome}`)
+          if (entry.linearId) m.raw(`   Linear: ${entry.linearId}`)
+        })
+        m.blank().italic('Task history helps identify patterns and improve decisions')
+      })
       .blank()
       .build()
   }
@@ -220,6 +250,7 @@ class StateStorage extends StorageManager<StateJson> {
 
   /**
    * Complete current task
+   * Creates a TaskHistoryEntry and adds it to taskHistory with FIFO eviction
    */
   async completeTask(projectId: string): Promise<CurrentTask | null> {
     const state = await this.read(projectId)
@@ -231,10 +262,22 @@ class StateStorage extends StorageManager<StateJson> {
 
     this.validateTransition(state, 'done')
 
+    const completedAt = getTimestamp()
+
+    // Create task history entry for completed task
+    const historyEntry = this.createTaskHistoryEntry(completedTask, completedAt)
+
+    // Get existing task history with backward compatibility
+    const existingHistory = this.getTaskHistoryFromState(state)
+
+    // Add new entry to beginning, enforce max limit with FIFO eviction
+    const taskHistory = [historyEntry, ...existingHistory].slice(0, this.maxTaskHistory)
+
     await this.update(projectId, () => ({
       currentTask: null,
       previousTask: null,
-      lastUpdated: getTimestamp(),
+      taskHistory,
+      lastUpdated: completedAt,
     }))
 
     // Publish incremental event
@@ -242,14 +285,51 @@ class StateStorage extends StorageManager<StateJson> {
       taskId: completedTask.id,
       description: completedTask.description,
       startedAt: completedTask.startedAt,
-      completedAt: getTimestamp(),
+      completedAt,
     })
 
     return completedTask
   }
 
+  /**
+   * Create a TaskHistoryEntry from a completed task
+   */
+  private createTaskHistoryEntry(task: CurrentTask, completedAt: string): TaskHistoryEntry {
+    // Extended task properties (may be present in storage but not in schema)
+    const taskAny = task as any
+
+    // Extract subtask summaries (only completed subtasks with summaries)
+    const subtaskSummaries = (task.subtasks || [])
+      .filter((st) => st.status === 'completed' && st.summary)
+      .map((st) => st.summary!)
+
+    // Calculate outcome description from subtask summaries
+    const outcome =
+      subtaskSummaries.length > 0
+        ? subtaskSummaries.map((s) => s.title).join(', ')
+        : 'Task completed'
+
+    return {
+      taskId: task.id,
+      title: taskAny.parentDescription || task.description,
+      classification: taskAny.type || 'improvement',
+      startedAt: task.startedAt,
+      completedAt,
+      subtaskCount: task.subtasks?.length || 0,
+      subtaskSummaries,
+      outcome,
+      branchName: taskAny.branch || 'unknown',
+      linearId: task.linearId,
+      linearUuid: task.linearUuid,
+      prUrl: taskAny.prUrl,
+    }
+  }
+
   /** Max number of paused tasks (configurable) */
   private maxPausedTasks = 5
+
+  /** Max number of task history entries (configurable) */
+  private maxTaskHistory = 20
 
   /** Staleness threshold in days */
   private stalenessThresholdDays = 30
@@ -368,6 +448,14 @@ class StateStorage extends StorageManager<StateJson> {
   }
 
   /**
+   * Get task history from state with backward compatibility
+   * Ensures taskHistory is always an array (never undefined)
+   */
+  private getTaskHistoryFromState(state: StateJson): TaskHistoryEntry[] {
+    return state.taskHistory || []
+  }
+
+  /**
    * Get stale paused tasks (older than threshold)
    */
   async getStalePausedTasks(projectId: string): Promise<PreviousTask[]> {
@@ -460,6 +548,35 @@ class StateStorage extends StorageManager<StateJson> {
   async getAllPausedTasks(projectId: string): Promise<PreviousTask[]> {
     const state = await this.read(projectId)
     return this.getPausedTasksFromState(state)
+  }
+
+  /**
+   * Get full task history (completed tasks)
+   */
+  async getTaskHistory(projectId: string): Promise<TaskHistoryEntry[]> {
+    const state = await this.read(projectId)
+    return this.getTaskHistoryFromState(state)
+  }
+
+  /**
+   * Get most recent task from history
+   */
+  async getMostRecentTask(projectId: string): Promise<TaskHistoryEntry | null> {
+    const state = await this.read(projectId)
+    const history = this.getTaskHistoryFromState(state)
+    return history[0] || null
+  }
+
+  /**
+   * Get task history filtered by classification
+   */
+  async getTaskHistoryByType(
+    projectId: string,
+    classification: TaskHistoryEntry['classification']
+  ): Promise<TaskHistoryEntry[]> {
+    const state = await this.read(projectId)
+    const history = this.getTaskHistoryFromState(state)
+    return history.filter((t) => t.classification === classification)
   }
 
   // =========== Subtask Methods ===========

@@ -123,6 +123,47 @@ All agents share the same project storage, so you can switch between them freely
 | `p. linear` | - | Linear integration |
 | `p. github` | - | GitHub Issues integration |
 
+## Task History
+
+prjct automatically tracks your completed tasks to help AI agents learn from patterns and make better decisions across sessions.
+
+### How It Works
+
+When you complete a task (`p. done` / `/done`), prjct stores:
+- Task description and classification (feature, bug, improvement, chore)
+- Start and completion timestamps
+- Number of subtasks and their summaries
+- Git branch name and Linear issue ID (if linked)
+- PR URL (if shipped)
+
+This history is:
+- **Bounded**: Maximum 20 entries with FIFO (First-In-First-Out) eviction
+- **Contextual**: Filtered by task type when starting similar work
+- **Persistent**: Survives across sessions and agent types
+
+### Context Injection
+
+Task history is automatically injected into the AI agent's context:
+- When **starting a task**: Shows 3 most recent tasks of the same type (e.g., recent bug fixes when starting a new bug)
+- When **idle**: Shows 5 most recent tasks across all types
+- **Purpose**: Helps agents identify patterns, avoid repeating mistakes, and build on previous solutions
+
+### Accessor Methods (for developers)
+
+```typescript
+import { stateStorage } from './storage/state-storage'
+
+// Get full task history (max 20 entries, newest first)
+const history = await stateStorage.getTaskHistory(projectId)
+
+// Get most recent completed task
+const recent = await stateStorage.getMostRecentTask(projectId)
+
+// Get tasks by classification
+const bugs = await stateStorage.getTaskHistoryByType(projectId, 'bug')
+const features = await stateStorage.getTaskHistoryByType(projectId, 'feature')
+```
+
 ## CLI Commands
 
 ```bash
