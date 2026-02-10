@@ -238,8 +238,8 @@ class StateStorage extends StorageManager<StateJson> {
     // Create task history entry for completed task
     const historyEntry = this.createTaskHistoryEntry(completedTask, completedAt)
 
-    // Get existing task history (or empty array if not present)
-    const existingHistory = state.taskHistory || []
+    // Get existing task history with backward compatibility
+    const existingHistory = this.getTaskHistoryFromState(state)
 
     // Add new entry to beginning, enforce max limit with FIFO eviction
     const taskHistory = [historyEntry, ...existingHistory].slice(0, this.maxTaskHistory)
@@ -419,6 +419,14 @@ class StateStorage extends StorageManager<StateJson> {
   }
 
   /**
+   * Get task history from state with backward compatibility
+   * Ensures taskHistory is always an array (never undefined)
+   */
+  private getTaskHistoryFromState(state: StateJson): TaskHistoryEntry[] {
+    return state.taskHistory || []
+  }
+
+  /**
    * Get stale paused tasks (older than threshold)
    */
   async getStalePausedTasks(projectId: string): Promise<PreviousTask[]> {
@@ -511,6 +519,35 @@ class StateStorage extends StorageManager<StateJson> {
   async getAllPausedTasks(projectId: string): Promise<PreviousTask[]> {
     const state = await this.read(projectId)
     return this.getPausedTasksFromState(state)
+  }
+
+  /**
+   * Get full task history (completed tasks)
+   */
+  async getTaskHistory(projectId: string): Promise<TaskHistoryEntry[]> {
+    const state = await this.read(projectId)
+    return this.getTaskHistoryFromState(state)
+  }
+
+  /**
+   * Get most recent task from history
+   */
+  async getMostRecentTask(projectId: string): Promise<TaskHistoryEntry | null> {
+    const state = await this.read(projectId)
+    const history = this.getTaskHistoryFromState(state)
+    return history[0] || null
+  }
+
+  /**
+   * Get task history filtered by classification
+   */
+  async getTaskHistoryByType(
+    projectId: string,
+    classification: TaskHistoryEntry['classification']
+  ): Promise<TaskHistoryEntry[]> {
+    const state = await this.read(projectId)
+    const history = this.getTaskHistoryFromState(state)
+    return history.filter((t) => t.classification === classification)
   }
 
   // =========== Subtask Methods ===========
