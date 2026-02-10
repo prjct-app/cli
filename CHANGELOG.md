@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.20.0] - 2026-02-10
+
+### Features
+
+- add retry with exponential backoff for agent and tool operations (#162)
+
+
 ## [1.20.0] - 2026-02-09
 
 ### Features
