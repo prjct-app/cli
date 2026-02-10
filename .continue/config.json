@@ -1,5 +1,5 @@
 {
-  "systemMessage": "You are working on prjct-cli, a complex JavaScript project.\n\nStack: TypeScript with Hono\n\nCommands:\n- Install: npm install\n- Dev: npm run dev\n- Test: npm test\n- Build: npm run build\n\nFollow JavaScript conventions. Match existing code patterns.",
+  "systemMessage": "You are working on prjct-cli, a enterprise JavaScript project.\n\nStack: TypeScript with Hono\n\nCommands:\n- Install: npm install\n- Dev: npm run dev\n- Test: npm test\n- Build: npm run build\n\nFollow JavaScript conventions. Match existing code patterns.",
   "models": [],
   "contextProviders": [
     {

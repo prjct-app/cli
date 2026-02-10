@@ -4,7 +4,7 @@ This is prjct-cli, a JavaScript project.
 
 <!-- source: package.json, detected -->
 ## Project Info
-- Type: complex
+- Type: enterprise
 - Stack: Hono
 
 ## Conventions

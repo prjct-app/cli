@@ -8,6 +8,7 @@ import AgentRouter from '../agentic/agent-router'
 import { AgentError } from '../errors'
 import * as agentDetector from '../infrastructure/agent-detector'
 import type { AgentAssignmentResult, AgentInfo, ProjectContext } from '../types'
+import { defaultAgentRetryPolicy } from '../utils/retry'
 
 // Valid agent types - whitelist for security (prevents path traversal)
 const VALID_AGENT_TYPES = ['claude'] as const
@@ -24,26 +25,30 @@ export class AgentService {
 
   /**
    * Initialize agent (Claude Code, Desktop, or Terminal)
+   * Wrapped with retry policy to handle transient failures
    */
   async initialize(): Promise<unknown> {
     if (this.agent) return this.agent
 
-    this.agentInfo = await agentDetector.detect()
+    // Wrap initialization with retry policy (3 attempts, exponential backoff)
+    return await defaultAgentRetryPolicy.execute(async () => {
+      this.agentInfo = await agentDetector.detect()
 
-    if (!this.agentInfo?.isSupported) {
-      throw AgentError.notSupported(this.agentInfo?.type ?? 'unknown')
-    }
+      if (!this.agentInfo?.isSupported) {
+        throw AgentError.notSupported(this.agentInfo?.type ?? 'unknown')
+      }
 
-    // Security: validate agent type against whitelist to prevent path traversal
-    const agentType = this.agentInfo.type as ValidAgentType
-    if (!agentType || !VALID_AGENT_TYPES.includes(agentType)) {
-      throw AgentError.notSupported(this.agentInfo?.type ?? 'unknown')
-    }
+      // Security: validate agent type against whitelist to prevent path traversal
+      const agentType = this.agentInfo.type as ValidAgentType
+      if (!agentType || !VALID_AGENT_TYPES.includes(agentType)) {
+        throw AgentError.notSupported(this.agentInfo?.type ?? 'unknown')
+      }
 
-    const { default: Agent } = await import(`../infrastructure/${agentType}-agent`)
-    this.agent = new Agent()
+      const { default: Agent } = await import(`../infrastructure/${agentType}-agent`)
+      this.agent = new Agent()
 
-    return this.agent
+      return this.agent
+    }, 'agent-initialization')
   }
 
   /**
