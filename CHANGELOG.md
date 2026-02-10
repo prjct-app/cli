@@ -1,5 +1,55 @@
 # Changelog
 
+## [1.23.0] - 2026-02-10
+
+### Features
+
+- **Outcome-to-memory auto-learning** (PRJ-283): Completed tasks automatically extract patterns and inject high-confidence learnings into semantic memory
+  - `OutcomeStorage`: Unified storage for feature/task outcomes extending StorageManager, with migration from shipped.json, aggregation, and markdown generation
+  - `OutcomeMemoryLearner`: Extracts file co-change, tech stack, architecture, gotcha, and workflow patterns from task history and feature outcomes
+  - Confidence-gated injection: Only patterns with 3+ occurrences are auto-injected into memory
+  - Deduplication: Updates existing `[auto-learned]` memories instead of creating duplicates
+  - Non-blocking sync integration: Auto-learning runs during `p. sync` as step 9c (errors caught, don't block sync)
+  - `p. learnings` command template for viewing auto-learned patterns by confidence level
+  - 37 new tests (26 learner + 11 storage), 1057 total
+
+### Implementation Details
+
+Bridges the outcomes system to semantic memory. Previously, patterns from completed tasks were only available in task history JSON. Now, recurring patterns are automatically extracted and injected into the memory system for cross-session knowledge transfer.
+
+**Data flow:** `taskHistory[]` + `FeatureOutcome[]` → pattern extraction → confidence scoring → `SemanticMemories` injection
+
+**Pattern categories:** file_cochange (files modified together), tech_stack (confirmed technologies), architecture (discovered patterns), estimation (variance tracking), workflow (what works/doesn't), gotcha (recurring issues)
+
+**New modules:**
+- `core/outcomes/outcome-storage.ts` — OutcomeStorage extending StorageManager with CRUD, migration, aggregation, markdown
+- `core/outcomes/outcome-learner.ts` — OutcomeMemoryLearner with pattern extraction and memory injection
+- `core/outcomes/index.ts` — Updated exports
+- `core/services/sync-service.ts` — Added autoLearnFromHistory() in sync flow
+- `templates/commands/learnings.md` — Template for `p. learnings` command
+- `core/__tests__/outcomes/outcome-learner.test.ts` — 26 tests
+- `core/__tests__/outcomes/outcome-storage.test.ts` — 11 tests
+
+### Learnings
+
+- `StorageManager<T>` base class provides consistent pattern for all JSON storage with SQLite backing, cache, MD generation, and event publishing
+- Non-critical sync steps should always wrap in try/catch to prevent blocking the main sync flow
+- biome pre-commit hook checks ALL files, not just staged — run `biome check --write` on all new files before committing
+
+### Test Plan
+
+#### For QA
+1. Run `p. sync` on a project with task history — verify auto-learning runs without errors
+2. Check memories.json for `[auto-learned]` entries after sync with 3+ recurring patterns
+3. Run `p. learnings` — verify patterns display grouped by confidence level
+4. Complete 3+ tasks with the same stackConfirmed values — verify auto-injection
+5. Verify sync works when no task history exists
+
+#### For Users
+**What changed:** Completed tasks now automatically extract patterns and inject high-confidence learnings into the memory system.
+**How to use:** Patterns accumulate automatically. Run `p. learnings` to see what the system has learned.
+**Breaking changes:** None
+
 ## [1.22.0] - 2026-02-10
 
 ### Features
