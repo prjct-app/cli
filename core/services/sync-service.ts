@@ -20,6 +20,7 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
+import { SemanticMemories } from '../agentic/memory-system'
 import {
   DEFAULT_AI_TOOLS,
   detectInstalledTools,
@@ -36,6 +37,8 @@ import { getErrorMessage } from '../errors'
 import commandInstaller from '../infrastructure/command-installer'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
+import { outcomeMemoryLearner } from '../outcomes/outcome-learner'
+import { outcomeStorage } from '../outcomes/outcome-storage'
 import { analysisStorage } from '../storage/analysis-storage'
 import { archiveStorage } from '../storage/archive-storage'
 import { ideasStorage } from '../storage/ideas-storage'
@@ -327,6 +330,9 @@ class SyncService {
 
       // 9b. Archive stale data (PRJ-267)
       await this.archiveStaleData()
+
+      // 9c. Auto-learn from task history → memory (PRJ-283)
+      await this.autoLearnFromHistory()
 
       // 10. Update global config and commands (CLI does EVERYTHING)
       // This ensures `prjct sync` from terminal updates global CLAUDE.md and commands
@@ -1429,6 +1435,47 @@ You are the ${name} expert for this project. Apply best practices for the detect
       }
     } catch (error) {
       log.debug('Archival failed (non-critical)', { error: getErrorMessage(error) })
+    }
+  }
+
+  /**
+   * Auto-learn from task history and outcomes → inject into memory (PRJ-283).
+   * Extracts patterns from completed tasks and injects high-confidence
+   * learnings into the semantic memory system.
+   */
+  private async autoLearnFromHistory(): Promise<void> {
+    if (!this.projectId) return
+
+    try {
+      const taskHistory = await stateStorage.getTaskHistory(this.projectId)
+      if (taskHistory.length === 0) return
+
+      const semanticMemories = new SemanticMemories()
+      const result = await outcomeMemoryLearner.learnFromTaskHistory(
+        this.projectId,
+        taskHistory,
+        semanticMemories
+      )
+
+      // Also learn from feature outcomes if available
+      try {
+        const outcomes = await outcomeStorage.getFeatureOutcomes(this.projectId)
+        if (outcomes.length > 0) {
+          await outcomeMemoryLearner.learnFromOutcomes(this.projectId, outcomes, semanticMemories)
+        }
+      } catch {
+        // Outcome storage may not exist yet
+      }
+
+      if (result.memoriesInjected > 0) {
+        log.info('Auto-learned from task history', {
+          patternsExtracted: result.patternsExtracted,
+          memoriesInjected: result.memoriesInjected,
+          patternsSkipped: result.patternsSkipped,
+        })
+      }
+    } catch (error) {
+      log.debug('Auto-learning failed (non-critical)', { error: getErrorMessage(error) })
     }
   }
 

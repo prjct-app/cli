@@ -31,4 +31,7 @@
 
 export * from '../types'
 export { default as outcomeAnalyzer, OutcomeAnalyzer } from './analyzer'
+export type { ExtractedPattern, LearningResult, PatternCategory } from './outcome-learner'
+export { default as outcomeMemoryLearner, OutcomeMemoryLearner } from './outcome-learner'
+export { default as outcomeStorage, OutcomeStorage } from './outcome-storage'
 export { default as outcomeRecorder, OutcomeRecorder } from './recorder'
