@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.21.0] - 2026-02-10
+
+### Features
+
+- add semantic verification for analysis results (PRJ-270) (#163)
+
+
 ## [1.20.0] - 2026-02-10
 
 ### Features
