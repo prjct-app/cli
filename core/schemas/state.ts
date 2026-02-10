@@ -111,10 +111,28 @@ export const PreviousTaskSchema = z.object({
   pauseReason: z.string().optional(),
 })
 
+// Task history entry for completed tasks
+// Stores historical context to enable pattern learning and cross-task correlation
+export const TaskHistoryEntrySchema = z.object({
+  taskId: z.string(), // task UUID
+  title: z.string(), // parent task description
+  classification: TaskTypeSchema, // feature, bug, improvement, chore
+  startedAt: z.string(), // ISO8601
+  completedAt: z.string(), // ISO8601
+  subtaskCount: z.number(), // total number of subtasks
+  subtaskSummaries: z.array(SubtaskSummarySchema), // summary of each subtask
+  outcome: z.string(), // brief description of what was accomplished
+  branchName: z.string(), // git branch used
+  linearId: z.string().optional(), // Linear issue ID if linked
+  linearUuid: z.string().optional(), // Linear internal UUID
+  prUrl: z.string().optional(), // PR URL if shipped
+})
+
 export const StateJsonSchema = z.object({
   currentTask: CurrentTaskSchema.nullable(),
   previousTask: PreviousTaskSchema.nullable().optional(), // deprecated: use pausedTasks
   pausedTasks: z.array(PreviousTaskSchema).optional(), // replaces previousTask
+  taskHistory: z.array(TaskHistoryEntrySchema).optional(), // completed tasks history (max 20)
   lastUpdated: z.string(),
 })
 
@@ -181,6 +199,7 @@ export type SubtaskProgress = z.infer<typeof SubtaskProgressSchema>
 
 export type CurrentTask = z.infer<typeof CurrentTaskSchema>
 export type PreviousTask = z.infer<typeof PreviousTaskSchema>
+export type TaskHistoryEntry = z.infer<typeof TaskHistoryEntrySchema>
 export type StateJson = z.infer<typeof StateJsonSchema>
 export type QueueTask = z.infer<typeof QueueTaskSchema>
 export type QueueJson = z.infer<typeof QueueJsonSchema>
@@ -224,6 +243,7 @@ export const validateSubtaskCompletion = (
 export const DEFAULT_STATE: StateJson = {
   currentTask: null,
   pausedTasks: [],
+  taskHistory: [],
   lastUpdated: '',
 }
 
