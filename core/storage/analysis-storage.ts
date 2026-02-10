@@ -12,7 +12,11 @@
 
 import { createHash } from 'node:crypto'
 import type { AnalysisSchema } from '../schemas/analysis'
-import { AnalysisItemSchema } from '../schemas/analysis'
+import {
+  AnalysisItemSchema,
+  type SemanticVerificationReport,
+  semanticVerify,
+} from '../schemas/analysis'
 import { getTimestamp } from '../utils/date-helper'
 import { StorageManager } from './storage-manager'
 
@@ -294,6 +298,46 @@ class AnalysisStorage extends StorageManager<AnalysisStoreData> {
     }
   }
 
+  /**
+   * Perform semantic verification on analysis results (PRJ-270).
+   * Validates that analysis data matches actual project state:
+   * - Frameworks exist in package.json
+   * - Languages match file extensions
+   * - Pattern locations reference real files
+   * - File count is accurate
+   * - Anti-pattern files exist
+   */
+  async semanticVerify(
+    projectId: string,
+    projectPath: string
+  ): Promise<SemanticVerificationReport> {
+    const data = await this.read(projectId)
+
+    // Get the active analysis (sealed if available, otherwise draft)
+    const analysis = data.sealed ?? data.draft
+
+    if (!analysis) {
+      // No analysis to verify - return empty report
+      return {
+        passed: false,
+        checks: [
+          {
+            name: 'Analysis availability',
+            passed: false,
+            error: 'No analysis available. Run `p. sync` to generate.',
+            durationMs: 0,
+          },
+        ],
+        totalMs: 0,
+        failedCount: 1,
+        passedCount: 0,
+      }
+    }
+
+    // Run semantic verification
+    return await semanticVerify(analysis, projectPath)
+  }
+
   // ===========================================================================
   // Private Helpers
   // ===========================================================================
@@ -326,3 +370,4 @@ class AnalysisStorage extends StorageManager<AnalysisStoreData> {
 export const analysisStorage = new AnalysisStorage()
 export default analysisStorage
 export type { AnalysisStoreData, SealResult, StalenessCheck }
+export type { SemanticVerificationReport } from '../schemas/analysis'
