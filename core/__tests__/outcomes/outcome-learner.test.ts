@@ -191,6 +191,7 @@ describe('File Co-change Patterns', () => {
           {
             title: 'Sub 1',
             description: 'No files',
+            filesChanged: [],
             whatWasDone: ['Stuff'],
             outputForNextAgent: 'Done',
           },
