@@ -141,6 +141,33 @@ class StateStorage extends StorageManager<StateJson> {
         })
         m.blank().italic('Use /p:resume to continue')
       })
+      .when((data.taskHistory?.length || 0) > 0, (m) => {
+        const history = this.getTaskHistoryFromState(data)
+        if (history.length === 0) return
+
+        // Filter by current task classification if available
+        const currentTaskType = (data.currentTask as any)?.type
+        const relevantHistory = currentTaskType
+          ? history.filter((h) => h.classification === currentTaskType).slice(0, 3)
+          : history.slice(0, 5)
+
+        if (relevantHistory.length === 0) return
+
+        m.hr().h2(
+          currentTaskType
+            ? `Recent ${currentTaskType} tasks (${relevantHistory.length})`
+            : `Recent tasks (${relevantHistory.length})`
+        )
+        relevantHistory.forEach((entry, i) => {
+          m.raw(`${i + 1}. **${entry.title}** (${entry.classification})`)
+            .raw(
+              `   Completed: ${toRelative(entry.completedAt)} | ${entry.subtaskCount} subtask${entry.subtaskCount > 1 ? 's' : ''}`
+            )
+            .raw(`   Outcome: ${entry.outcome}`)
+          if (entry.linearId) m.raw(`   Linear: ${entry.linearId}`)
+        })
+        m.blank().italic('Task history helps identify patterns and improve decisions')
+      })
       .blank()
       .build()
   }
