@@ -240,7 +240,7 @@ class PrjctCommands {
 
   async verify(
     projectPath: string = process.cwd(),
-    options: { json?: boolean } = {}
+    options: { json?: boolean; semantic?: boolean } = {}
   ): Promise<CommandResult> {
     return this.analysis.verify(projectPath, options)
   }

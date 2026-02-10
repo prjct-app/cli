@@ -5,7 +5,10 @@
  * Supports a 3-state lifecycle: DRAFT → VERIFIED → SEALED (PRJ-263).
  */
 
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import { z } from 'zod'
+import { isNotFoundError } from '../types/fs'
 import { ModelMetadataSchema } from './model'
 
 // =============================================================================
@@ -86,4 +89,442 @@ export const DEFAULT_ANALYSIS: Omit<AnalysisSchema, 'projectId'> = {
   antiPatterns: [],
   analyzedAt: new Date().toISOString(),
   status: 'draft',
+}
+
+// =============================================================================
+// Semantic Verification (PRJ-270)
+// =============================================================================
+
+export interface SemanticCheckResult {
+  name: string
+  passed: boolean
+  output?: string
+  error?: string
+  durationMs: number
+}
+
+export interface SemanticVerificationReport {
+  passed: boolean
+  checks: SemanticCheckResult[]
+  totalMs: number
+  failedCount: number
+  passedCount: number
+}
+
+interface PackageJson {
+  dependencies?: Record<string, string>
+  devDependencies?: Record<string, string>
+  [key: string]: unknown
+}
+
+/**
+ * Language to file extension mapping
+ */
+const LANGUAGE_EXTENSIONS: Record<string, string[]> = {
+  TypeScript: ['.ts', '.tsx', '.mts', '.cts'],
+  JavaScript: ['.js', '.jsx', '.mjs', '.cjs'],
+  Python: ['.py', '.pyw'],
+  Java: ['.java'],
+  Go: ['.go'],
+  Rust: ['.rs'],
+  Ruby: ['.rb'],
+  PHP: ['.php'],
+  Swift: ['.swift'],
+  Kotlin: ['.kt', '.kts'],
+  'C++': ['.cpp', '.cc', '.cxx', '.hpp', '.h'],
+  C: ['.c', '.h'],
+  'C#': ['.cs'],
+  Elixir: ['.ex', '.exs'],
+  Scala: ['.scala'],
+}
+
+/**
+ * Verify frameworks exist in package.json dependencies
+ */
+export async function verifyFrameworks(
+  analysis: AnalysisSchema,
+  projectPath: string
+): Promise<SemanticCheckResult> {
+  const start = Date.now()
+
+  if (analysis.frameworks.length === 0) {
+    return {
+      name: 'Framework verification',
+      passed: true,
+      output: 'No frameworks declared (skipped)',
+      durationMs: Date.now() - start,
+    }
+  }
+
+  try {
+    const packagePath = path.join(projectPath, 'package.json')
+    const content = await fs.readFile(packagePath, 'utf-8')
+    const pkg: PackageJson = JSON.parse(content)
+
+    const allDeps = {
+      ...pkg.dependencies,
+      ...pkg.devDependencies,
+    }
+
+    const missing: string[] = []
+    const found: string[] = []
+
+    for (const framework of analysis.frameworks) {
+      // Check if framework name (or lowercase variant) exists in dependencies
+      const frameworkLower = framework.toLowerCase()
+      const exists = Object.keys(allDeps).some((dep) => dep.toLowerCase().includes(frameworkLower))
+
+      if (exists) {
+        found.push(framework)
+      } else {
+        missing.push(framework)
+      }
+    }
+
+    if (missing.length === 0) {
+      return {
+        name: 'Framework verification',
+        passed: true,
+        output: `${found.length} framework(s) verified in dependencies`,
+        durationMs: Date.now() - start,
+      }
+    }
+
+    return {
+      name: 'Framework verification',
+      passed: false,
+      error: `Frameworks not found in dependencies: ${missing.join(', ')}`,
+      durationMs: Date.now() - start,
+    }
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      return {
+        name: 'Framework verification',
+        passed: false,
+        error: 'package.json not found (cannot verify frameworks)',
+        durationMs: Date.now() - start,
+      }
+    }
+
+    return {
+      name: 'Framework verification',
+      passed: false,
+      error: `Failed to read package.json: ${error instanceof Error ? error.message : 'unknown error'}`,
+      durationMs: Date.now() - start,
+    }
+  }
+}
+
+/**
+ * Verify languages match actual file extensions in the project
+ */
+export async function verifyLanguages(
+  analysis: AnalysisSchema,
+  projectPath: string
+): Promise<SemanticCheckResult> {
+  const start = Date.now()
+
+  if (analysis.languages.length === 0) {
+    return {
+      name: 'Language verification',
+      passed: true,
+      output: 'No languages declared (skipped)',
+      durationMs: Date.now() - start,
+    }
+  }
+
+  try {
+    // Get list of all file extensions in the project
+    const extensions = await getProjectExtensions(projectPath)
+    const foundExtensions = new Set(extensions)
+
+    const verified: string[] = []
+    const notFound: string[] = []
+
+    for (const language of analysis.languages) {
+      const expectedExts = LANGUAGE_EXTENSIONS[language]
+      if (!expectedExts) {
+        // Unknown language mapping - skip validation
+        continue
+      }
+
+      const hasMatchingFiles = expectedExts.some((ext) => foundExtensions.has(ext))
+      if (hasMatchingFiles) {
+        verified.push(language)
+      } else {
+        notFound.push(language)
+      }
+    }
+
+    if (notFound.length === 0) {
+      return {
+        name: 'Language verification',
+        passed: true,
+        output: `${verified.length} language(s) verified with matching files`,
+        durationMs: Date.now() - start,
+      }
+    }
+
+    return {
+      name: 'Language verification',
+      passed: false,
+      error: `Languages without matching files: ${notFound.join(', ')}`,
+      durationMs: Date.now() - start,
+    }
+  } catch (error) {
+    return {
+      name: 'Language verification',
+      passed: false,
+      error: `Failed to scan project files: ${error instanceof Error ? error.message : 'unknown error'}`,
+      durationMs: Date.now() - start,
+    }
+  }
+}
+
+/**
+ * Verify pattern locations reference real files
+ */
+export async function verifyPatternLocations(
+  analysis: AnalysisSchema,
+  projectPath: string
+): Promise<SemanticCheckResult> {
+  const start = Date.now()
+
+  const patternsWithLocations = analysis.patterns.filter((p) => p.location)
+
+  if (patternsWithLocations.length === 0) {
+    return {
+      name: 'Pattern location verification',
+      passed: true,
+      output: 'No pattern locations specified (skipped)',
+      durationMs: Date.now() - start,
+    }
+  }
+
+  const missing: string[] = []
+  const verified: string[] = []
+
+  for (const pattern of patternsWithLocations) {
+    const location = pattern.location!
+    const filePath = path.join(projectPath, location)
+
+    try {
+      await fs.access(filePath)
+      verified.push(location)
+    } catch {
+      missing.push(`${pattern.name} (${location})`)
+    }
+  }
+
+  if (missing.length === 0) {
+    return {
+      name: 'Pattern location verification',
+      passed: true,
+      output: `${verified.length} pattern location(s) verified`,
+      durationMs: Date.now() - start,
+    }
+  }
+
+  return {
+    name: 'Pattern location verification',
+    passed: false,
+    error: `Pattern locations not found: ${missing.join(', ')}`,
+    durationMs: Date.now() - start,
+  }
+}
+
+/**
+ * Verify file count accuracy (within 10% tolerance)
+ */
+export async function verifyFileCount(
+  analysis: AnalysisSchema,
+  projectPath: string
+): Promise<SemanticCheckResult> {
+  const start = Date.now()
+
+  try {
+    const actualCount = await countProjectFiles(projectPath)
+    const declared = analysis.fileCount
+    const tolerance = 0.1 // 10% tolerance
+    const diff = Math.abs(actualCount - declared)
+    const allowedDiff = declared * tolerance
+
+    if (diff <= allowedDiff) {
+      return {
+        name: 'File count verification',
+        passed: true,
+        output: `File count accurate (declared: ${declared}, actual: ${actualCount})`,
+        durationMs: Date.now() - start,
+      }
+    }
+
+    return {
+      name: 'File count verification',
+      passed: false,
+      error: `File count mismatch: declared ${declared}, actual ${actualCount} (diff: ${diff})`,
+      durationMs: Date.now() - start,
+    }
+  } catch (error) {
+    return {
+      name: 'File count verification',
+      passed: false,
+      error: `Failed to count files: ${error instanceof Error ? error.message : 'unknown error'}`,
+      durationMs: Date.now() - start,
+    }
+  }
+}
+
+/**
+ * Verify anti-pattern files exist
+ */
+export async function verifyAntiPatternFiles(
+  analysis: AnalysisSchema,
+  projectPath: string
+): Promise<SemanticCheckResult> {
+  const start = Date.now()
+
+  if (analysis.antiPatterns.length === 0) {
+    return {
+      name: 'Anti-pattern file verification',
+      passed: true,
+      output: 'No anti-patterns declared (skipped)',
+      durationMs: Date.now() - start,
+    }
+  }
+
+  const missing: string[] = []
+  const verified: string[] = []
+
+  for (const antiPattern of analysis.antiPatterns) {
+    const filePath = path.join(projectPath, antiPattern.file)
+
+    try {
+      await fs.access(filePath)
+      verified.push(antiPattern.file)
+    } catch {
+      missing.push(`${antiPattern.issue} (${antiPattern.file})`)
+    }
+  }
+
+  if (missing.length === 0) {
+    return {
+      name: 'Anti-pattern file verification',
+      passed: true,
+      output: `${verified.length} anti-pattern file(s) verified`,
+      durationMs: Date.now() - start,
+    }
+  }
+
+  return {
+    name: 'Anti-pattern file verification',
+    passed: false,
+    error: `Anti-pattern files not found: ${missing.join(', ')}`,
+    durationMs: Date.now() - start,
+  }
+}
+
+/**
+ * Run all semantic verification checks
+ */
+export async function semanticVerify(
+  analysis: AnalysisSchema,
+  projectPath: string
+): Promise<SemanticVerificationReport> {
+  const totalStart = Date.now()
+
+  const checks = await Promise.all([
+    verifyFrameworks(analysis, projectPath),
+    verifyLanguages(analysis, projectPath),
+    verifyPatternLocations(analysis, projectPath),
+    verifyFileCount(analysis, projectPath),
+    verifyAntiPatternFiles(analysis, projectPath),
+  ])
+
+  const failedCount = checks.filter((c) => !c.passed).length
+  const passedCount = checks.filter((c) => c.passed).length
+
+  return {
+    passed: failedCount === 0,
+    checks,
+    totalMs: Date.now() - totalStart,
+    failedCount,
+    passedCount,
+  }
+}
+
+// =============================================================================
+// Helper Functions
+// =============================================================================
+
+/**
+ * Get all file extensions in a project (excluding common ignore patterns)
+ */
+async function getProjectExtensions(projectPath: string): Promise<string[]> {
+  const extensions = new Set<string>()
+  const ignorePatterns = [/node_modules/, /\.git/, /dist/, /build/, /\.next/, /\.turbo/, /coverage/]
+
+  async function scanDir(dir: string): Promise<void> {
+    try {
+      const entries = await fs.readdir(dir, { withFileTypes: true })
+
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name)
+        const relativePath = path.relative(projectPath, fullPath)
+
+        // Skip ignored patterns
+        if (ignorePatterns.some((pattern) => pattern.test(relativePath))) {
+          continue
+        }
+
+        if (entry.isDirectory()) {
+          await scanDir(fullPath)
+        } else if (entry.isFile()) {
+          const ext = path.extname(entry.name)
+          if (ext) {
+            extensions.add(ext)
+          }
+        }
+      }
+    } catch {
+      // Silently skip directories we can't read
+    }
+  }
+
+  await scanDir(projectPath)
+  return Array.from(extensions)
+}
+
+/**
+ * Count total files in a project (excluding common ignore patterns)
+ */
+async function countProjectFiles(projectPath: string): Promise<number> {
+  let count = 0
+  const ignorePatterns = [/node_modules/, /\.git/, /dist/, /build/, /\.next/, /\.turbo/, /coverage/]
+
+  async function scanDir(dir: string): Promise<void> {
+    try {
+      const entries = await fs.readdir(dir, { withFileTypes: true })
+
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name)
+        const relativePath = path.relative(projectPath, fullPath)
+
+        // Skip ignored patterns
+        if (ignorePatterns.some((pattern) => pattern.test(relativePath))) {
+          continue
+        }
+
+        if (entry.isDirectory()) {
+          await scanDir(fullPath)
+        } else if (entry.isFile()) {
+          count++
+        }
+      }
+    } catch {
+      // Silently skip directories we can't read
+    }
+  }
+
+  await scanDir(projectPath)
+  return count
 }

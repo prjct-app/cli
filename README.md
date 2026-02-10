@@ -128,9 +128,58 @@ All agents share the same project storage, so you can switch between them freely
 ```bash
 prjct start          # First-time setup (Claude/Gemini)
 prjct init           # Initialize project (+ Cursor setup)
+prjct sync           # Analyze project and generate context
+prjct verify         # Verify analysis integrity (cryptographic)
+prjct verify --semantic  # Verify analysis consistency (semantic)
 prjct --version      # Show version + provider status
 prjct --help         # Show help
 ```
+
+### Analysis Verification
+
+prjct provides two types of analysis verification to ensure data integrity and logical consistency:
+
+#### Cryptographic Verification (Default)
+```bash
+prjct verify [--json]
+```
+
+Verifies the integrity of sealed analysis results using cryptographic signatures. This ensures:
+- Analysis data hasn't been tampered with
+- Sealed analysis matches the original analysis
+- Hash signatures are valid
+
+**When to use:** After sealing an analysis (`prjct seal`) to confirm data integrity.
+
+#### Semantic Verification (PRJ-270)
+```bash
+prjct verify --semantic [--json]
+```
+
+Validates that analysis results match the actual project state. This checks:
+- ✓ **Frameworks** exist in `package.json` dependencies
+- ✓ **Languages** match actual file extensions (.ts → TypeScript)
+- ✓ **Pattern locations** reference real files in the project
+- ✓ **File count** is accurate (within 10% tolerance)
+- ✓ **Anti-pattern files** exist when referenced
+
+**When to use:** Before sealing an analysis to catch logical inconsistencies or after project changes to validate analysis accuracy.
+
+**Example output:**
+```
+Semantic Verification Report
+────────────────────────────
+  ✓ Framework verification: passed (2 frameworks validated)
+  ✓ Language verification: passed (1 language validated)
+  ✓ Pattern locations: passed (12 patterns verified)
+  ✓ File count verification: passed (324 files, within tolerance)
+  ✓ Anti-pattern files: passed (3 anti-patterns verified)
+
+Result: PASSED (5/5 checks)
+Total time: 145ms
+```
+
+Both verification modes support `--json` flag for programmatic use.
 
 ## Environment Variables
 

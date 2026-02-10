@@ -173,7 +173,11 @@ async function main(): Promise<void> {
             full: options.full === true,
           }),
         seal: () => commands.seal(process.cwd(), { json: options.json === true }),
-        verify: () => commands.verify(process.cwd(), { json: options.json === true }),
+        verify: () =>
+          commands.verify(process.cwd(), {
+            json: options.json === true,
+            semantic: options.semantic === true,
+          }),
         start: () => commands.start(),
         // Context (for Claude templates)
         context: (p) => commands.context(p),

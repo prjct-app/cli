@@ -14,6 +14,7 @@ import {
   AnalysisItemSchema,
   AnalysisStatusSchema,
   parseAnalysis,
+  type SemanticCheckResult,
   safeParseAnalysis,
 } from '../../schemas/analysis'
 
@@ -273,5 +274,368 @@ describe('backward compatibility', () => {
     const result = AnalysisItemSchema.parse(oldWithModel)
     expect(result.status).toBe('draft')
     expect(result.modelMetadata?.provider).toBe('claude')
+  })
+})
+
+// =============================================================================
+// Semantic Verification (PRJ-270)
+// =============================================================================
+
+describe('semantic verification', () => {
+  const { semanticVerify } = require('../../schemas/analysis')
+  const fs = require('node:fs/promises')
+  const path = require('node:path')
+  const os = require('node:os')
+
+  // Helper to create a temporary test project
+  async function createTestProject(options: {
+    hasPackageJson?: boolean
+    packageJsonDeps?: Record<string, string>
+    files?: { path: string; content: string }[]
+    fileCount?: number
+  }) {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'prjct-test-'))
+
+    // Create package.json if requested
+    if (options.hasPackageJson) {
+      const pkg = {
+        name: 'test-project',
+        dependencies: options.packageJsonDeps || {},
+      }
+      await fs.writeFile(path.join(tmpDir, 'package.json'), JSON.stringify(pkg, null, 2))
+    }
+
+    // Create additional files
+    if (options.files) {
+      for (const file of options.files) {
+        const filePath = path.join(tmpDir, file.path)
+        await fs.mkdir(path.dirname(filePath), { recursive: true })
+        await fs.writeFile(filePath, file.content)
+      }
+    }
+
+    return tmpDir
+  }
+
+  // Helper to cleanup test project
+  async function cleanupTestProject(tmpDir: string) {
+    try {
+      await fs.rm(tmpDir, { recursive: true, force: true })
+    } catch {
+      // Ignore cleanup errors
+    }
+  }
+
+  it('should pass all checks for valid analysis', async () => {
+    const projectPath = await createTestProject({
+      hasPackageJson: true,
+      packageJsonDeps: { hono: '^3.0.0', zod: '^3.0.0' },
+      files: [
+        { path: 'src/index.ts', content: 'export const app = {}' },
+        { path: 'src/server.ts', content: 'import { serve } from "bun"' },
+        { path: 'patterns/service.ts', content: 'export class UserService {}' },
+      ],
+    })
+
+    const analysis = {
+      projectId: 'test',
+      languages: ['TypeScript'],
+      frameworks: ['Hono'],
+      configFiles: [],
+      fileCount: 4, // package.json + 3 TypeScript files
+      patterns: [
+        { name: 'Service pattern', description: 'DI pattern', location: 'patterns/service.ts' },
+      ],
+      antiPatterns: [],
+      analyzedAt: '2026-02-10T00:00:00.000Z',
+      status: 'draft' as const,
+    }
+
+    const result = await semanticVerify(analysis, projectPath)
+
+    expect(result.passed).toBe(true)
+    expect(result.failedCount).toBe(0)
+    expect(result.passedCount).toBeGreaterThan(0)
+    expect(result.checks.every((c: SemanticCheckResult) => c.passed)).toBe(true)
+
+    await cleanupTestProject(projectPath)
+  })
+
+  it('should fail when frameworks are not in package.json', async () => {
+    const projectPath = await createTestProject({
+      hasPackageJson: true,
+      packageJsonDeps: { express: '^4.0.0' }, // Different framework
+      files: [{ path: 'src/index.ts', content: '' }],
+    })
+
+    const analysis = {
+      projectId: 'test',
+      languages: ['TypeScript'],
+      frameworks: ['Hono', 'Zod'], // These are not in dependencies
+      configFiles: [],
+      fileCount: 1,
+      patterns: [],
+      antiPatterns: [],
+      analyzedAt: '2026-02-10T00:00:00.000Z',
+      status: 'draft' as const,
+    }
+
+    const result = await semanticVerify(analysis, projectPath)
+
+    expect(result.passed).toBe(false)
+    expect(result.failedCount).toBeGreaterThan(0)
+
+    const frameworkCheck = result.checks.find(
+      (c: SemanticCheckResult) => c.name === 'Framework verification'
+    )
+    expect(frameworkCheck?.passed).toBe(false)
+    expect(frameworkCheck?.error).toContain('not found in dependencies')
+
+    await cleanupTestProject(projectPath)
+  })
+
+  it('should fail when package.json is missing', async () => {
+    const projectPath = await createTestProject({
+      hasPackageJson: false, // No package.json
+      files: [{ path: 'src/index.ts', content: '' }],
+    })
+
+    const analysis = {
+      projectId: 'test',
+      languages: ['TypeScript'],
+      frameworks: ['Hono'],
+      configFiles: [],
+      fileCount: 1,
+      patterns: [],
+      antiPatterns: [],
+      analyzedAt: '2026-02-10T00:00:00.000Z',
+      status: 'draft' as const,
+    }
+
+    const result = await semanticVerify(analysis, projectPath)
+
+    const frameworkCheck = result.checks.find(
+      (c: SemanticCheckResult) => c.name === 'Framework verification'
+    )
+    expect(frameworkCheck?.passed).toBe(false)
+    expect(frameworkCheck?.error).toContain('package.json not found')
+
+    await cleanupTestProject(projectPath)
+  })
+
+  it('should fail when declared languages have no matching files', async () => {
+    const projectPath = await createTestProject({
+      hasPackageJson: true,
+      files: [
+        { path: 'src/index.js', content: '' }, // Only JS files
+      ],
+    })
+
+    const analysis = {
+      projectId: 'test',
+      languages: ['TypeScript', 'Go'], // Declared but no .ts or .go files
+      frameworks: [],
+      configFiles: [],
+      fileCount: 1,
+      patterns: [],
+      antiPatterns: [],
+      analyzedAt: '2026-02-10T00:00:00.000Z',
+      status: 'draft' as const,
+    }
+
+    const result = await semanticVerify(analysis, projectPath)
+
+    const languageCheck = result.checks.find(
+      (c: SemanticCheckResult) => c.name === 'Language verification'
+    )
+    expect(languageCheck?.passed).toBe(false)
+    expect(languageCheck?.error).toContain('without matching files')
+
+    await cleanupTestProject(projectPath)
+  })
+
+  it('should fail when pattern locations reference missing files', async () => {
+    const projectPath = await createTestProject({
+      hasPackageJson: true,
+      files: [{ path: 'src/index.ts', content: '' }],
+    })
+
+    const analysis = {
+      projectId: 'test',
+      languages: ['TypeScript'],
+      frameworks: [],
+      configFiles: [],
+      fileCount: 1,
+      patterns: [
+        { name: 'Service pattern', description: 'DI', location: 'src/service.ts' }, // Doesn't exist
+        { name: 'Repository', description: 'Data access', location: 'src/repo.ts' }, // Doesn't exist
+      ],
+      antiPatterns: [],
+      analyzedAt: '2026-02-10T00:00:00.000Z',
+      status: 'draft' as const,
+    }
+
+    const result = await semanticVerify(analysis, projectPath)
+
+    const patternCheck = result.checks.find(
+      (c: SemanticCheckResult) => c.name === 'Pattern location verification'
+    )
+    expect(patternCheck?.passed).toBe(false)
+    expect(patternCheck?.error).toContain('not found')
+
+    await cleanupTestProject(projectPath)
+  })
+
+  it('should fail when file count is inaccurate', async () => {
+    const projectPath = await createTestProject({
+      hasPackageJson: true,
+      files: [
+        { path: 'src/a.ts', content: '' },
+        { path: 'src/b.ts', content: '' },
+        { path: 'src/c.ts', content: '' },
+      ], // 4 files total (package.json + 3 .ts files)
+    })
+
+    const analysis = {
+      projectId: 'test',
+      languages: ['TypeScript'],
+      frameworks: [],
+      configFiles: [],
+      fileCount: 100, // Way off (actual is ~4)
+      patterns: [],
+      antiPatterns: [],
+      analyzedAt: '2026-02-10T00:00:00.000Z',
+      status: 'draft' as const,
+    }
+
+    const result = await semanticVerify(analysis, projectPath)
+
+    const fileCountCheck = result.checks.find(
+      (c: SemanticCheckResult) => c.name === 'File count verification'
+    )
+    expect(fileCountCheck?.passed).toBe(false)
+    expect(fileCountCheck?.error).toContain('mismatch')
+
+    await cleanupTestProject(projectPath)
+  })
+
+  it('should fail when anti-pattern files are missing', async () => {
+    const projectPath = await createTestProject({
+      hasPackageJson: true,
+      files: [{ path: 'src/index.ts', content: '' }],
+    })
+
+    const analysis = {
+      projectId: 'test',
+      languages: ['TypeScript'],
+      frameworks: [],
+      configFiles: [],
+      fileCount: 1,
+      patterns: [],
+      antiPatterns: [
+        { issue: 'Missing types', file: 'src/bad.ts', suggestion: 'Add types' }, // File doesn't exist
+      ],
+      analyzedAt: '2026-02-10T00:00:00.000Z',
+      status: 'draft' as const,
+    }
+
+    const result = await semanticVerify(analysis, projectPath)
+
+    const antiPatternCheck = result.checks.find(
+      (c: SemanticCheckResult) => c.name === 'Anti-pattern file verification'
+    )
+    expect(antiPatternCheck?.passed).toBe(false)
+    expect(antiPatternCheck?.error).toContain('not found')
+
+    await cleanupTestProject(projectPath)
+  })
+
+  it('should skip checks when no data to verify', async () => {
+    const projectPath = await createTestProject({
+      hasPackageJson: true,
+    })
+
+    const analysis = {
+      projectId: 'test',
+      languages: [], // No languages declared
+      frameworks: [], // No frameworks declared
+      configFiles: [],
+      fileCount: 1,
+      patterns: [], // No patterns with locations
+      antiPatterns: [], // No anti-patterns
+      analyzedAt: '2026-02-10T00:00:00.000Z',
+      status: 'draft' as const,
+    }
+
+    const result = await semanticVerify(analysis, projectPath)
+
+    expect(result.passed).toBe(true) // All checks skipped, so passes
+    expect(
+      result.checks.every((c: SemanticCheckResult) => c.output?.includes('skipped') || c.passed)
+    ).toBe(true)
+
+    await cleanupTestProject(projectPath)
+  })
+
+  it('should accept file count within tolerance (10%)', async () => {
+    const projectPath = await createTestProject({
+      hasPackageJson: true,
+      files: [
+        { path: 'src/a.ts', content: '' },
+        { path: 'src/b.ts', content: '' },
+        { path: 'src/c.ts', content: '' },
+        { path: 'src/d.ts', content: '' },
+        { path: 'src/e.ts', content: '' },
+      ], // 6 files total
+    })
+
+    const analysis = {
+      projectId: 'test',
+      languages: ['TypeScript'],
+      frameworks: [],
+      configFiles: [],
+      fileCount: 6, // Within 10% tolerance
+      patterns: [],
+      antiPatterns: [],
+      analyzedAt: '2026-02-10T00:00:00.000Z',
+      status: 'draft' as const,
+    }
+
+    const result = await semanticVerify(analysis, projectPath)
+
+    const fileCountCheck = result.checks.find(
+      (c: SemanticCheckResult) => c.name === 'File count verification'
+    )
+    expect(fileCountCheck?.passed).toBe(true)
+
+    await cleanupTestProject(projectPath)
+  })
+
+  it('should handle partial framework matches (case insensitive)', async () => {
+    const projectPath = await createTestProject({
+      hasPackageJson: true,
+      packageJsonDeps: { '@hono/node-server': '^1.0.0' }, // Hono as part of package name
+    })
+
+    const analysis = {
+      projectId: 'test',
+      languages: [],
+      frameworks: ['Hono'], // Should match @hono/node-server
+      configFiles: [],
+      fileCount: 1,
+      patterns: [],
+      antiPatterns: [],
+      analyzedAt: '2026-02-10T00:00:00.000Z',
+      status: 'draft' as const,
+    }
+
+    const result = await semanticVerify(analysis, projectPath)
+
+    const frameworkCheck = result.checks.find(
+      (c: SemanticCheckResult) => c.name === 'Framework verification'
+    )
+    expect(frameworkCheck?.passed).toBe(true)
+
+    await cleanupTestProject(projectPath)
   })
 })
