@@ -8,7 +8,7 @@
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { eventBus, inferEventType } from '../events'
+import { inferEventType, syncEventBus } from '../events'
 import type { Storage } from '../types'
 import { isNotFoundError } from '../types/fs'
 
@@ -49,7 +49,7 @@ class FileStorage implements Storage {
     await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8')
 
     // Publish event for sync
-    eventBus.publish({
+    syncEventBus.publish({
       type: inferEventType(pathArray, 'write'),
       path: pathArray,
       data,
@@ -100,7 +100,7 @@ class FileStorage implements Storage {
       await fs.unlink(filePath)
 
       // Publish event for sync
-      eventBus.publish({
+      syncEventBus.publish({
         type: inferEventType(pathArray, 'delete'),
         path: pathArray,
         data: null,

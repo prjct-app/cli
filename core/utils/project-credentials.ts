@@ -15,7 +15,7 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { getErrorMessage } from '../types/fs'
-import { fileExists } from './fs-helpers'
+import { fileExists } from './file-helper'
 import { type CredentialKey, getCredential } from './keychain'
 
 interface LinearCredentials {

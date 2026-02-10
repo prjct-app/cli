@@ -2,8 +2,8 @@ import fsSync from 'node:fs'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import readline from 'node:readline'
-import { STORAGE_LIMITS } from '../constants'
 import { isNotFoundError } from '../types/fs'
+import { STORAGE_LIMITS } from './constants'
 
 /**
  * JSONL Helper - Centralized JSONL parsing and writing

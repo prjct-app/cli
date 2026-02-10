@@ -17,7 +17,6 @@ import {
   pointsToTimeRange,
 } from '../domain/fibonacci'
 import { linearService } from '../integrations/linear'
-import outcomeRecorder from '../outcomes/recorder'
 import { generateUUID } from '../schemas'
 import type { TaskFeedback } from '../schemas/state'
 import { queueStorage, stateStorage } from '../storage'
@@ -35,6 +34,7 @@ import {
   runWorkflowHooks,
   setWorkflowPreference,
 } from '../workflow/workflow-preferences'
+import outcomeRecorder from '../workflows/outcome-recorder'
 import { configManager, dateHelper, out, PrjctCommandsBase } from './base'
 
 export class WorkflowCommands extends PrjctCommandsBase {

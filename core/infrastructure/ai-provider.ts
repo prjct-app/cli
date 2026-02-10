@@ -22,7 +22,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
 import { compareSemver } from '../schemas/model'
-import { fileExists } from '../utils/fs-helpers'
+import { fileExists } from '../utils/file-helper'
 import { readProviderCache, writeProviderCache } from '../utils/provider-cache'
 
 const execAsync = promisify(exec)

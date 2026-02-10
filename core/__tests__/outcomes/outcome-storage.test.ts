@@ -14,10 +14,10 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import pathManager from '../../infrastructure/path-manager'
-import { OutcomeStorage } from '../../outcomes/outcome-storage'
 import type { FeatureOutcome } from '../../schemas/outcomes'
 import { prjctDb } from '../../storage/database'
 import type { ShippedJson } from '../../types'
+import { OutcomeStorage } from '../../workflows/outcome-storage'
 
 // =============================================================================
 // Test Setup

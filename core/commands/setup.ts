@@ -9,7 +9,7 @@ import commandInstaller from '../infrastructure/command-installer'
 import pathManager from '../infrastructure/path-manager'
 import type { CommandResult, SetupOptions } from '../types'
 import { getErrorMessage } from '../types/fs'
-import { fileExists } from '../utils/fs-helpers'
+import { fileExists } from '../utils/file-helper'
 import { VERSION } from '../utils/version'
 import { PrjctCommandsBase } from './base'
 

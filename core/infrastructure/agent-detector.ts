@@ -7,7 +7,7 @@
 
 import path from 'node:path'
 import type { DetectedAgent } from '../types'
-import { fileExists } from '../utils/fs-helpers'
+import { fileExists } from '../utils/file-helper'
 
 declare const global: typeof globalThis & {
   mcp?: { filesystem?: unknown }

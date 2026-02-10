@@ -16,7 +16,7 @@ import chalk from 'chalk'
 import { detectAllProviders, Providers } from '../infrastructure/ai-provider'
 import { getErrorMessage } from '../types/fs'
 import type { AIProviderName } from '../types/provider'
-import { fileExists } from '../utils/fs-helpers'
+import { fileExists } from '../utils/file-helper'
 import { VERSION } from '../utils/version'
 
 // True color gradient (cyan -> blue -> purple -> pink)

@@ -12,7 +12,7 @@ import { ideasStorage, queueStorage } from '../storage'
 import type { CommandResult, InitOptions, ProjectContext } from '../types'
 import { getErrorMessage } from '../types/fs'
 import { showNextSteps } from '../utils/next-steps'
-import { OnboardingWizard } from '../wizard'
+import { OnboardingWizard } from '../workflows'
 import {
   configManager,
   contextBuilder,
@@ -201,7 +201,7 @@ export class PlanningCommands extends PrjctCommandsBase {
   /**
    * Print next steps after initialization
    */
-  private _printNextSteps(wizardResult: import('../wizard').WizardResult | null): void {
+  private _printNextSteps(wizardResult: import('../workflows').WizardResult | null): void {
     console.log('')
     console.log('  Quick start:')
     console.log('    prjct sync     Update context after changes')

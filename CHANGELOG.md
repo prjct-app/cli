@@ -1,5 +1,49 @@
 # Changelog
 
+## [1.24.0] - 2026-02-10
+
+### Refactor
+
+- **Consolidate core modules** (PRJ-292): Reduced `core/` from 27 to 20 directories by merging overlapping modules, splitting large files, and eliminating legacy duplicates
+  - Merged `bus/` + `events/` into `events/` (pub-sub.ts, sync-events.ts)
+  - Merged `ai-tools/` + `context-tools/` into `tools/` (ai/, context/ subdirs)
+  - Merged `plugin/` + `agents/` into `agentic/` (hooks, plugin-loader, plugin-registry, performance)
+  - Merged `wizard/` + `outcomes/` into `workflows/` (onboarding, outcome-analyzer/recorder/learner/storage)
+  - Absorbed `context/` into `agentic/` and `constants/` into `utils/`
+  - Split 4 large files (5400+ lines total):
+    - `memory-system.ts` (1547 → 279) into memory-stores.ts, pattern-store.ts, semantic-memories.ts
+    - `sync-service.ts` (1562 → 837) into sync-analyzer.ts, sync-agent-gen.ts
+    - `setup.ts` (1061 → 775) into setup-cursor.ts, setup-windsurf.ts
+    - `analysis.ts` (1274 → 850) into analysis-helpers.ts
+  - Eliminated legacy `fs-helpers.ts` (16 importers migrated to `file-helper.ts`)
+  - Removed all type re-exports, duplicated code, and backward-compat shims
+  - 84 files changed, +2638/-3182, tsc clean, 1057 tests pass
+
+### Implementation Details
+
+Large-scale module consolidation to reduce cognitive load and improve maintainability. Each merge followed the pattern: move files, update relative imports across all importers, clean barrel index.ts files, verify with tsc + tests. Used parallel background agents for independent file splits.
+
+Key patterns: CachedStore<T> abstract base class for disk-backed stores, standalone helper function extraction for large command classes, editor-specific code isolation (Cursor/Windsurf).
+
+### Learnings
+
+- Parallel agents work well for independent file splits (3 simultaneous splits completed successfully)
+- Pre-existing circular deps in commands<->services chain (3 cycles) — not introduced by this refactor
+- Known flaky test (intermittent timing issue) — passes on re-run
+
+### Test Plan
+
+#### For QA
+1. `npx tsc -p core/tsconfig.json --noEmit` — zero errors
+2. `bun test` — 1057 tests pass
+3. `prjct sync` in any project — works identically
+4. Deleted dirs don't exist: bus/, ai-tools/, context-tools/, plugin/, agents/, wizard/, outcomes/, context/, constants/
+5. New dirs exist: tools/ai/, tools/context/, workflows/, events/
+
+#### For Users
+**What changed:** Internal module reorganization only
+**Breaking changes:** None for CLI users. Internal import paths changed (affects contributors).
+
 ## [1.23.0] - 2026-02-10
 
 ### Features

@@ -14,8 +14,8 @@ import {
   formatForWindsurf,
   getFormatter,
   type ProjectContext,
-} from '../../ai-tools/formatters'
-import { AI_TOOLS, getAIToolConfig } from '../../ai-tools/registry'
+} from '../../tools/ai/formatters'
+import { AI_TOOLS, getAIToolConfig } from '../../tools/ai/registry'
 import { type ContextSources, cite, defaultSources } from '../../utils/citations'
 
 // =============================================================================

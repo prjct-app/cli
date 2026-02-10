@@ -17,7 +17,7 @@ import { getProviderPaths } from '../infrastructure/command-installer'
 import pathManager from '../infrastructure/path-manager'
 import type { CommandResult, UninstallOptions } from '../types'
 import { getErrorMessage } from '../types/fs'
-import { fileExists } from '../utils/fs-helpers'
+import { fileExists } from '../utils/file-helper'
 import { PrjctCommandsBase } from './base'
 
 // Markers for prjct section in CLAUDE.md

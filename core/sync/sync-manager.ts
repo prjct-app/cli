@@ -5,7 +5,7 @@
  * Handles the coordination between local storage (EventBus) and remote API (SyncClient).
  */
 
-import eventBus from '../events'
+import { syncEventBus } from '../events'
 import type { IdeaPriority } from '../schemas/ideas'
 import type { Priority, TaskSection, TaskType } from '../schemas/state'
 import { ideasStorage } from '../storage/ideas-storage'
@@ -99,7 +99,7 @@ class SyncManager {
 
     try {
       // Get pending events
-      const pending = await eventBus.getPending(projectId)
+      const pending = await syncEventBus.getPending(projectId)
 
       if (pending.length === 0) {
         return { success: true, skipped: true, reason: 'no_pending' }
@@ -110,8 +110,8 @@ class SyncManager {
 
       if (result.success) {
         // Clear pending events on success
-        await eventBus.clearPending(projectId)
-        await eventBus.updateLastSync(projectId)
+        await syncEventBus.clearPending(projectId)
+        await syncEventBus.updateLastSync(projectId)
 
         return {
           success: true,
@@ -155,7 +155,7 @@ class SyncManager {
 
     try {
       // Get last sync timestamp
-      const lastSync = await eventBus.getLastSync(projectId)
+      const lastSync = await syncEventBus.getLastSync(projectId)
       const since = lastSync?.timestamp
 
       // Pull from server
@@ -175,7 +175,7 @@ class SyncManager {
       const applied = await this.applyPulledEvents(projectId, result.events)
 
       // Update last sync timestamp
-      await eventBus.updateLastSync(projectId)
+      await syncEventBus.updateLastSync(projectId)
 
       return {
         success: true,

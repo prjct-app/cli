@@ -12,7 +12,7 @@
 
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
-import { getTimeout } from '../constants'
+import { getTimeout } from '../utils/constants'
 import { dependencyValidator } from './dependency-validator'
 
 const execAsync = promisify(exec)

@@ -11,7 +11,6 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { outcomeAnalyzer } from '../outcomes'
 import type { CommandContextEntry } from '../schemas/command-context'
 import { queueStorage, stateStorage } from '../storage'
 import type {
@@ -27,8 +26,9 @@ import type {
   ThinkBlock,
 } from '../types'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
-import { fileExists } from '../utils/fs-helpers'
+import { fileExists } from '../utils/file-helper'
 import { PACKAGE_ROOT } from '../utils/version'
+import { outcomeAnalyzer } from '../workflows'
 import { buildAntiHallucinationBlock, type ProjectGroundTruth } from './anti-hallucination'
 import { loadCommandContextConfig, resolveCommandContextFull } from './command-context'
 import { buildEnvironmentBlock } from './environment-block'

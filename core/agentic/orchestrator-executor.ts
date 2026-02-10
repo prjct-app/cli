@@ -18,15 +18,14 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
-import { findRelevantFiles } from '../context-tools/files-tool'
-import { getRecentFiles } from '../context-tools/recent-tool'
-import { extractSignatures } from '../context-tools/signatures-tool'
 import { calculateVelocity, formatVelocityContext } from '../domain/velocity'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
-import outcomeRecorder from '../outcomes/recorder'
 import { DEFAULT_VELOCITY_CONFIG } from '../schemas/velocity'
 import { analysisStorage, stateStorage } from '../storage'
+import { findRelevantFiles } from '../tools/context/files-tool'
+import { getRecentFiles } from '../tools/context/recent-tool'
+import { extractSignatures } from '../tools/context/signatures-tool'
 import type {
   LoadedAgent,
   LoadedSkill,
@@ -36,6 +35,7 @@ import type {
   SealedAnalysisContext,
 } from '../types'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
+import outcomeRecorder from '../workflows/outcome-recorder'
 import domainClassifier, { type ProjectContext } from './domain-classifier'
 import { parseFrontmatter } from './template-loader'
 

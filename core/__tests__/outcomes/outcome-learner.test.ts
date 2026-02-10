@@ -19,9 +19,9 @@ import os from 'node:os'
 import path from 'node:path'
 import { SemanticMemories } from '../../agentic/memory-system'
 import pathManager from '../../infrastructure/path-manager'
-import { OutcomeMemoryLearner } from '../../outcomes/outcome-learner'
 import type { FeatureOutcome } from '../../schemas/outcomes'
 import type { TaskHistoryEntry } from '../../schemas/state'
+import { OutcomeMemoryLearner } from '../../workflows/outcome-learner'
 
 // =============================================================================
 // Test Setup

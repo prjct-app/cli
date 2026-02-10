@@ -7,12 +7,12 @@
 
 import chalk from 'chalk'
 import { calculateVelocity, projectCompletion } from '../domain/velocity'
-import outcomeRecorder from '../outcomes/recorder'
 import type { VelocityConfig } from '../schemas/velocity'
 import { DEFAULT_VELOCITY_CONFIG } from '../schemas/velocity'
 import { velocityStorage } from '../storage/velocity-storage'
 import type { CommandResult } from '../types'
 import { getErrorMessage } from '../types/fs'
+import outcomeRecorder from '../workflows/outcome-recorder'
 import { configManager, out, PrjctCommandsBase } from './base'
 
 export class VelocityCommands extends PrjctCommandsBase {

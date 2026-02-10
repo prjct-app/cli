@@ -10,9 +10,7 @@
  * @version 2.0
  */
 
-import { agentPerformanceTracker } from '../agents'
 import { hasIndexes, rankFiles } from '../domain/file-ranker'
-import { outcomeAnalyzer } from '../outcomes'
 import type {
   ContextDomain,
   DomainAnalysis,
@@ -22,7 +20,9 @@ import type {
   StackInfo,
   TaskType,
 } from '../types'
+import { outcomeAnalyzer } from '../workflows'
 import domainClassifier, { classifyWithHeuristic, type ProjectContext } from './domain-classifier'
+import agentPerformanceTracker from './performance'
 
 // Re-export types for convenience
 export type {
