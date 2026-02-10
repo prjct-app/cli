@@ -15,6 +15,7 @@ import type {
   StateJson,
   Subtask,
   SubtaskCompletionData,
+  TaskHistoryEntry,
 } from '../schemas/state'
 import { StateJsonSchema, SubtaskCompletionDataSchema } from '../schemas/state'
 import { getTimestamp, toRelative } from '../utils/date-helper'
@@ -220,6 +221,7 @@ class StateStorage extends StorageManager<StateJson> {
 
   /**
    * Complete current task
+   * Creates a TaskHistoryEntry and adds it to taskHistory with FIFO eviction
    */
   async completeTask(projectId: string): Promise<CurrentTask | null> {
     const state = await this.read(projectId)
@@ -231,10 +233,22 @@ class StateStorage extends StorageManager<StateJson> {
 
     this.validateTransition(state, 'done')
 
+    const completedAt = getTimestamp()
+
+    // Create task history entry for completed task
+    const historyEntry = this.createTaskHistoryEntry(completedTask, completedAt)
+
+    // Get existing task history (or empty array if not present)
+    const existingHistory = state.taskHistory || []
+
+    // Add new entry to beginning, enforce max limit with FIFO eviction
+    const taskHistory = [historyEntry, ...existingHistory].slice(0, this.maxTaskHistory)
+
     await this.update(projectId, () => ({
       currentTask: null,
       previousTask: null,
-      lastUpdated: getTimestamp(),
+      taskHistory,
+      lastUpdated: completedAt,
     }))
 
     // Publish incremental event
@@ -242,14 +256,51 @@ class StateStorage extends StorageManager<StateJson> {
       taskId: completedTask.id,
       description: completedTask.description,
       startedAt: completedTask.startedAt,
-      completedAt: getTimestamp(),
+      completedAt,
     })
 
     return completedTask
   }
 
+  /**
+   * Create a TaskHistoryEntry from a completed task
+   */
+  private createTaskHistoryEntry(task: CurrentTask, completedAt: string): TaskHistoryEntry {
+    // Extended task properties (may be present in storage but not in schema)
+    const taskAny = task as any
+
+    // Extract subtask summaries (only completed subtasks with summaries)
+    const subtaskSummaries = (task.subtasks || [])
+      .filter((st) => st.status === 'completed' && st.summary)
+      .map((st) => st.summary!)
+
+    // Calculate outcome description from subtask summaries
+    const outcome =
+      subtaskSummaries.length > 0
+        ? subtaskSummaries.map((s) => s.title).join(', ')
+        : 'Task completed'
+
+    return {
+      taskId: task.id,
+      title: taskAny.parentDescription || task.description,
+      classification: taskAny.type || 'improvement',
+      startedAt: task.startedAt,
+      completedAt,
+      subtaskCount: task.subtasks?.length || 0,
+      subtaskSummaries,
+      outcome,
+      branchName: taskAny.branch || 'unknown',
+      linearId: task.linearId,
+      linearUuid: task.linearUuid,
+      prUrl: taskAny.prUrl,
+    }
+  }
+
   /** Max number of paused tasks (configurable) */
   private maxPausedTasks = 5
+
+  /** Max number of task history entries (configurable) */
+  private maxTaskHistory = 20
 
   /** Staleness threshold in days */
   private stalenessThresholdDays = 30
