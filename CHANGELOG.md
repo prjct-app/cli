@@ -5,6 +5,13 @@
 ### Features
 
 - add retry with exponential backoff for agent and tool operations (#162)
+- **Task history array** (PRJ-281): Replace single previousTask with bounded task history for pattern learning
+  - TaskHistoryEntry schema captures completed task metadata: title, classification, timestamps, subtasks, outcome, branch, Linear IDs
+  - Automatic history push on task completion with FIFO eviction (max 20 entries)
+  - Context injection: shows 3 recent same-type tasks when active, 5 recent when idle
+  - Accessor methods: getTaskHistory(), getMostRecentTask(), getTaskHistoryByType()
+  - Backward compatible: undefined taskHistory initializes as empty array
+  - Comprehensive test suite with 20 test cases (998 tests total pass)
 
 
 ## [1.20.0] - 2026-02-09
@@ -91,6 +98,38 @@ Built RetryPolicy utility with exponential backoff, error classification, and ci
 - **Error classification strategies:** Using error code sets (EBUSY, EAGAIN) for transient vs (ENOENT, EPERM) for permanent enables automatic decision-making
 - **Promise.allSettled() for resilient parallel operations:** Prevents one failure from blocking other operations, enables partial success
 - **Circuit breaker implementation:** Per-operation state tracking prevents cascading failures while allowing recovery
+
+#### Task History Array (PRJ-281)
+
+Replaced single previousTask field with bounded task history array to enable pattern learning and cross-task context for AI agents. When tasks complete, metadata is automatically captured and stored with FIFO eviction.
+
+**Modified modules:**
+- `core/schemas/state.ts` — Added TaskHistoryEntrySchema with 9 fields, updated StateJsonSchema, exported TaskHistoryEntry type, updated DEFAULT_STATE
+- `core/storage/state-storage.ts` — Updated completeTask() to push history entries, added createTaskHistoryEntry() helper, added 3 accessor methods, updated toMarkdown() for context injection, updated getDefault()
+- `core/__tests__/storage/state-storage-history.test.ts` (468 lines) — 20 comprehensive tests covering push, eviction, backward compatibility, accessors, and context injection
+- `README.md` — Added Task History section with usage documentation
+- `CHANGELOG.md` — Documented task history feature
+
+**Schema fields (TaskHistoryEntry):**
+1. `taskId` — Task UUID
+2. `title` — Parent task description
+3. `classification` — feature, bug, improvement, chore
+4. `startedAt` — ISO8601 timestamp
+5. `completedAt` — ISO8601 timestamp
+6. `subtaskCount` — Total number of subtasks
+7. `subtaskSummaries` — Array of SubtaskSummary objects (for completed subtasks)
+8. `outcome` — Brief description of what was accomplished
+9. `branchName` — Git branch used
+10. `linearId` (optional) — Linear issue ID if linked
+11. `linearUuid` (optional) — Linear internal UUID
+12. `prUrl` (optional) — PR URL if shipped
+
+**Key features:**
+- FIFO eviction at 20 entries (newest first, oldest dropped)
+- Automatic push on completeTask() — no explicit calls needed
+- Backward compatible: taskHistory is optional, defaults to empty array
+- Context injection filters by classification when task active (max 3), shows 5 recent when idle
+- Zero breaking changes: all 998 tests pass (20 new + 978 existing)
 
 ### Test Plan
 
