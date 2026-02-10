@@ -19,6 +19,7 @@ import {
 import { linearService } from '../integrations/linear'
 import outcomeRecorder from '../outcomes/recorder'
 import { generateUUID } from '../schemas'
+import type { TaskFeedback } from '../schemas/state'
 import { queueStorage, stateStorage } from '../storage'
 import type { CommandResult } from '../types'
 import { getErrorMessage } from '../types/fs'
@@ -174,10 +175,11 @@ export class WorkflowCommands extends PrjctCommandsBase {
 
   /**
    * /p:done - Complete current task
+   * Optionally accepts structured feedback for the task-to-analysis feedback loop (PRJ-272)
    */
   async done(
     projectPath: string = process.cwd(),
-    options: { skipHooks?: boolean } = {}
+    options: { skipHooks?: boolean; feedback?: TaskFeedback } = {}
   ): Promise<CommandResult> {
     try {
       const initResult = await this.ensureProjectInit(projectPath)
@@ -249,7 +251,8 @@ export class WorkflowCommands extends PrjctCommandsBase {
       }
 
       // Write-through: Complete task (JSON → MD → Event)
-      await stateStorage.completeTask(projectId)
+      // Pass feedback for the task-to-analysis feedback loop (PRJ-272)
+      await stateStorage.completeTask(projectId, options.feedback)
 
       // Sync to Linear if task has linearId
       const linearId = (currentTask as { linearId?: string }).linearId

@@ -1,5 +1,54 @@
 # Changelog
 
+## [1.22.0] - 2026-02-10
+
+### Features
+
+- **Task-to-analysis feedback loop** (PRJ-272): Tasks report discoveries back into analysis and agent generation
+  - TaskFeedbackSchema: stackConfirmed, patternsDiscovered, agentAccuracy (with rating enum), issuesEncountered
+  - Optional `feedback` field on TaskHistoryEntry for backward compatibility
+  - `getAggregatedFeedback()` consolidates patterns, stack confirmations, and issues across task history
+  - Recurring issues (2+ occurrences) automatically promoted to "known gotchas"
+  - Sync incorporates feedback: patterns populate analysis draft, gotchas become anti-patterns
+  - Agent generator injects "Recent Learnings" section into domain agents with patterns, gotchas, and accuracy notes
+  - Workflow `done()` accepts and passes feedback through to storage
+  - 22 new tests covering schema validation, persistence, aggregation, gotcha promotion, and backward compatibility (1020 total)
+
+### Implementation Details
+
+Closes the knowledge loop between task execution and project analysis. Previously, discoveries made during tasks were lost when sessions ended. Now, structured feedback persists in task history and feeds into the next sync cycle.
+
+**Data flow:** `p. done` (feedback captured) → `taskHistory[].feedback` → `p. sync` → `analysis.patterns` + `agents/*.md` "Recent Learnings"
+
+**Modified modules:**
+- `core/schemas/state.ts` — Added TaskFeedbackSchema, extended TaskHistoryEntrySchema with optional feedback field
+- `core/storage/state-storage.ts` — completeTask() accepts feedback, createTaskHistoryEntry() attaches it, getAggregatedFeedback() provides read-side API, toMarkdown() shows feedback in context
+- `core/commands/workflow.ts` — done() passes feedback through options to completeTask()
+- `core/services/sync-service.ts` — saveDraftAnalysis() loads aggregated feedback, injectFeedbackSection() adds learnings to agents
+- `core/services/agent-generator.ts` — generate() accepts TaskFeedbackContext, injectFeedbackSection() appends learnings to domain agents
+- `core/__tests__/storage/state-storage-feedback.test.ts` — 22 comprehensive tests
+
+### Learnings
+
+- **SyncService duplicates AgentGenerator:** Both have their own `generateDomainAgent()` — feedback injection needed in both places
+- **Write-Through pattern:** All state flows JSON → MD → Event; feedback follows the same pattern
+- **Backward compatibility via optional fields:** Adding `feedback?: TaskFeedback` to existing schema requires zero migration
+
+### Test Plan
+
+#### For QA
+1. Complete a task with `p. done` — verify feedback stored in `taskHistory[0].feedback`
+2. Complete multiple tasks with same issue — verify gotcha promotion (2+ occurrences)
+3. Run `p. sync` after tasks with feedback — verify analysis draft has patterns
+4. Run `p. sync` with agent regeneration — verify "Recent Learnings" in domain agents
+5. Complete task WITHOUT feedback — verify backward compatibility
+6. Run `bun test` — all 1020 tests pass
+
+#### For Users
+**What changed:** Task discoveries now persist and improve future agent context automatically.
+**How to use:** Automatic via `p. done` template. No user action required.
+**Breaking changes:** None.
+
 ## [1.21.0] - 2026-02-10
 
 ### Features

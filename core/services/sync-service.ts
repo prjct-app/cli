@@ -77,6 +77,12 @@ class SyncService {
   private projectId: string | null = null
   private globalPath: string = ''
   private cliVersion: string = '0.0.0'
+  /** Task feedback context for agent generation (PRJ-272) */
+  private taskFeedbackContext?: {
+    patternsDiscovered: string[]
+    knownGotchas: string[]
+    agentAccuracy: Array<{ agent: string; rating: string; note?: string }>
+  }
 
   constructor() {
     this.projectPath = process.cwd()
@@ -246,9 +252,32 @@ class SyncService {
       }
 
       // 4. Generate all files (depends on gathered data)
+      // Load task feedback for agent generation (PRJ-272)
+      let taskFeedbackContext:
+        | {
+            patternsDiscovered: string[]
+            knownGotchas: string[]
+            agentAccuracy: Array<{ agent: string; rating: string; note?: string }>
+          }
+        | undefined
+      if (shouldRegenerateAgents) {
+        try {
+          const feedback = await stateStorage.getAggregatedFeedback(this.projectId!)
+          if (
+            feedback.patternsDiscovered.length > 0 ||
+            feedback.knownGotchas.length > 0 ||
+            feedback.agentAccuracy.length > 0
+          ) {
+            taskFeedbackContext = feedback
+          }
+        } catch {
+          // Feedback loading failure should not block agent generation
+        }
+      }
+
       // Skip agent regeneration if nothing structural changed
       const agents = shouldRegenerateAgents
-        ? await this.generateAgents(stack, stats)
+        ? await this.generateAgents(stack, stats, taskFeedbackContext)
         : await this.loadExistingAgents()
       const skills = this.configureSkills(agents)
       const skillsInstalled = shouldRegenerateAgents ? await this.autoInstallSkills(agents) : []
@@ -658,8 +687,14 @@ class SyncService {
 
   private async generateAgents(
     stack: StackDetection,
-    stats: ProjectStats
+    stats: ProjectStats,
+    feedbackContext?: {
+      patternsDiscovered: string[]
+      knownGotchas: string[]
+      agentAccuracy: Array<{ agent: string; rating: string; note?: string }>
+    }
   ): Promise<SyncAgentInfo[]> {
+    this.taskFeedbackContext = feedbackContext
     const agents: SyncAgentInfo[] = []
     const agentsPath = path.join(this.globalPath, 'agents')
 
@@ -837,7 +872,56 @@ class SyncService {
       content = this.generateMinimalDomainAgent(name, stats, stack)
     }
 
+    // Inject task feedback learnings (PRJ-272)
+    content = this.injectFeedbackSection(content, name)
+
     await fs.writeFile(path.join(agentsPath, `${name}.md`), content, 'utf-8')
+  }
+
+  /**
+   * Inject a "Recent Learnings" section into agent content from task feedback (PRJ-272)
+   */
+  private injectFeedbackSection(content: string, agentName: string): string {
+    if (!this.taskFeedbackContext) return content
+
+    const { patternsDiscovered, knownGotchas, agentAccuracy } = this.taskFeedbackContext
+
+    const agentNotes = agentAccuracy.filter(
+      (a) => a.agent === `${agentName}.md` || a.agent === agentName
+    )
+
+    const hasContent =
+      patternsDiscovered.length > 0 || knownGotchas.length > 0 || agentNotes.length > 0
+    if (!hasContent) return content
+
+    const lines: string[] = ['\n## Recent Learnings (from completed tasks)\n']
+
+    if (patternsDiscovered.length > 0) {
+      lines.push('### Discovered Patterns')
+      for (const pattern of patternsDiscovered) {
+        lines.push(`- ${pattern}`)
+      }
+      lines.push('')
+    }
+
+    if (knownGotchas.length > 0) {
+      lines.push('### Known Gotchas')
+      for (const gotcha of knownGotchas) {
+        lines.push(`- ${gotcha}`)
+      }
+      lines.push('')
+    }
+
+    if (agentNotes.length > 0) {
+      lines.push('### Agent Accuracy Notes')
+      for (const note of agentNotes) {
+        const desc = note.note ? ` — ${note.note}` : ''
+        lines.push(`- ${note.rating}${desc}`)
+      }
+      lines.push('')
+    }
+
+    return content + lines.join('\n')
   }
 
   private generateMinimalWorkflowAgent(name: string): string {
@@ -1253,6 +1337,7 @@ You are the ${name} expert for this project. Apply best practices for the detect
   /**
    * Save sync results as a draft analysis.
    * Preserves existing sealed analysis — only the draft is overwritten.
+   * Incorporates task feedback from completed tasks (PRJ-272).
    */
   private async saveDraftAnalysis(
     git: GitData,
@@ -1262,14 +1347,40 @@ You are the ${name} expert for this project. Apply best practices for the detect
     try {
       const commitHash = git.recentCommits[0]?.hash || null
 
+      // Load aggregated feedback from completed tasks (PRJ-272)
+      let patterns: Array<{ name: string; description: string; location?: string }> = []
+      let antiPatterns: Array<{ issue: string; file: string; suggestion: string }> = []
+      try {
+        const feedback = await stateStorage.getAggregatedFeedback(this.projectId!)
+
+        // Convert discovered patterns to CodePattern objects
+        if (feedback.patternsDiscovered.length > 0) {
+          patterns = feedback.patternsDiscovered.map((p) => ({
+            name: p,
+            description: `Discovered during task execution: ${p}`,
+          }))
+        }
+
+        // Convert known gotchas (recurring issues) to AntiPattern objects
+        if (feedback.knownGotchas.length > 0) {
+          antiPatterns = feedback.knownGotchas.map((g) => ({
+            issue: g,
+            file: 'multiple',
+            suggestion: `Recurring issue reported across tasks: ${g}`,
+          }))
+        }
+      } catch {
+        // Feedback aggregation failure should not block analysis
+      }
+
       await analysisStorage.saveDraft(this.projectId!, {
         projectId: this.projectId!,
         languages: stats.languages,
         frameworks: stats.frameworks,
         configFiles: [],
         fileCount: stats.fileCount,
-        patterns: [],
-        antiPatterns: [],
+        patterns,
+        antiPatterns,
         analyzedAt: dateHelper.getTimestamp(),
         status: 'draft',
         commitHash: commitHash ?? undefined,

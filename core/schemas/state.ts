@@ -111,6 +111,27 @@ export const PreviousTaskSchema = z.object({
   pauseReason: z.string().optional(),
 })
 
+// Task feedback captured during completion (PRJ-272)
+// Enables the task-to-analysis feedback loop: tasks report discoveries back to analysis
+export const TaskFeedbackSchema = z.object({
+  // Stack confirmations - tech confirmed/used during the task
+  stackConfirmed: z.array(z.string()).optional(), // ["React 18", "TypeScript strict mode"]
+  // Patterns discovered during the task
+  patternsDiscovered: z.array(z.string()).optional(), // ["API routes follow /api/v1/{resource}"]
+  // Agent accuracy - how well domain agents performed
+  agentAccuracy: z
+    .array(
+      z.object({
+        agent: z.string(), // "backend.md"
+        rating: z.enum(['helpful', 'neutral', 'inaccurate']),
+        note: z.string().optional(), // "Missing Tailwind context"
+      })
+    )
+    .optional(),
+  // Issues encountered during the task
+  issuesEncountered: z.array(z.string()).optional(), // ["ESLint conflicts with Prettier"]
+})
+
 // Task history entry for completed tasks
 // Stores historical context to enable pattern learning and cross-task correlation
 export const TaskHistoryEntrySchema = z.object({
@@ -126,6 +147,7 @@ export const TaskHistoryEntrySchema = z.object({
   linearId: z.string().optional(), // Linear issue ID if linked
   linearUuid: z.string().optional(), // Linear internal UUID
   prUrl: z.string().optional(), // PR URL if shipped
+  feedback: TaskFeedbackSchema.optional(), // Task-to-analysis feedback (PRJ-272)
 })
 
 export const StateJsonSchema = z.object({
@@ -199,6 +221,7 @@ export type SubtaskProgress = z.infer<typeof SubtaskProgressSchema>
 
 export type CurrentTask = z.infer<typeof CurrentTaskSchema>
 export type PreviousTask = z.infer<typeof PreviousTaskSchema>
+export type TaskFeedback = z.infer<typeof TaskFeedbackSchema>
 export type TaskHistoryEntry = z.infer<typeof TaskHistoryEntrySchema>
 export type StateJson = z.infer<typeof StateJsonSchema>
 export type QueueTask = z.infer<typeof QueueTaskSchema>

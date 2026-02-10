@@ -15,6 +15,7 @@ import type {
   StateJson,
   Subtask,
   SubtaskCompletionData,
+  TaskFeedback,
   TaskHistoryEntry,
 } from '../schemas/state'
 import { StateJsonSchema, SubtaskCompletionDataSchema } from '../schemas/state'
@@ -167,6 +168,12 @@ class StateStorage extends StorageManager<StateJson> {
             )
             .raw(`   Outcome: ${entry.outcome}`)
           if (entry.linearId) m.raw(`   Linear: ${entry.linearId}`)
+          if (entry.feedback?.patternsDiscovered?.length) {
+            m.raw(`   Patterns: ${entry.feedback.patternsDiscovered.join(', ')}`)
+          }
+          if (entry.feedback?.issuesEncountered?.length) {
+            m.raw(`   Gotchas: ${entry.feedback.issuesEncountered.join(', ')}`)
+          }
         })
         m.blank().italic('Task history helps identify patterns and improve decisions')
       })
@@ -251,8 +258,9 @@ class StateStorage extends StorageManager<StateJson> {
   /**
    * Complete current task
    * Creates a TaskHistoryEntry and adds it to taskHistory with FIFO eviction
+   * Optionally accepts structured feedback for the task-to-analysis feedback loop (PRJ-272)
    */
-  async completeTask(projectId: string): Promise<CurrentTask | null> {
+  async completeTask(projectId: string, feedback?: TaskFeedback): Promise<CurrentTask | null> {
     const state = await this.read(projectId)
     const completedTask = state.currentTask
 
@@ -264,8 +272,8 @@ class StateStorage extends StorageManager<StateJson> {
 
     const completedAt = getTimestamp()
 
-    // Create task history entry for completed task
-    const historyEntry = this.createTaskHistoryEntry(completedTask, completedAt)
+    // Create task history entry for completed task (with optional feedback)
+    const historyEntry = this.createTaskHistoryEntry(completedTask, completedAt, feedback)
 
     // Get existing task history with backward compatibility
     const existingHistory = this.getTaskHistoryFromState(state)
@@ -293,8 +301,13 @@ class StateStorage extends StorageManager<StateJson> {
 
   /**
    * Create a TaskHistoryEntry from a completed task
+   * Optionally includes structured feedback for the feedback loop (PRJ-272)
    */
-  private createTaskHistoryEntry(task: CurrentTask, completedAt: string): TaskHistoryEntry {
+  private createTaskHistoryEntry(
+    task: CurrentTask,
+    completedAt: string,
+    feedback?: TaskFeedback
+  ): TaskHistoryEntry {
     // Extended task properties (may be present in storage but not in schema)
     const taskAny = task as any
 
@@ -309,7 +322,7 @@ class StateStorage extends StorageManager<StateJson> {
         ? subtaskSummaries.map((s) => s.title).join(', ')
         : 'Task completed'
 
-    return {
+    const entry: TaskHistoryEntry = {
       taskId: task.id,
       title: taskAny.parentDescription || task.description,
       classification: taskAny.type || 'improvement',
@@ -323,6 +336,13 @@ class StateStorage extends StorageManager<StateJson> {
       linearUuid: task.linearUuid,
       prUrl: taskAny.prUrl,
     }
+
+    // Attach feedback if provided (PRJ-272)
+    if (feedback) {
+      entry.feedback = feedback
+    }
+
+    return entry
   }
 
   /** Max number of paused tasks (configurable) */
@@ -577,6 +597,56 @@ class StateStorage extends StorageManager<StateJson> {
     const state = await this.read(projectId)
     const history = this.getTaskHistoryFromState(state)
     return history.filter((t) => t.classification === classification)
+  }
+
+  /**
+   * Aggregate feedback from all task history entries (PRJ-272)
+   * Used by sync to feed task discoveries back into analysis and agent generation.
+   * Returns consolidated patterns, stack confirmations, issues, and agent accuracy.
+   */
+  async getAggregatedFeedback(projectId: string): Promise<{
+    stackConfirmed: string[]
+    patternsDiscovered: string[]
+    agentAccuracy: Array<{ agent: string; rating: string; note?: string }>
+    issuesEncountered: string[]
+    knownGotchas: string[]
+  }> {
+    const history = await this.getTaskHistory(projectId)
+    const entriesWithFeedback = history.filter((h) => h.feedback)
+
+    const stackConfirmed: string[] = []
+    const patternsDiscovered: string[] = []
+    const agentAccuracy: Array<{ agent: string; rating: string; note?: string }> = []
+    const allIssues: string[] = []
+
+    for (const entry of entriesWithFeedback) {
+      const fb = entry.feedback!
+      if (fb.stackConfirmed) stackConfirmed.push(...fb.stackConfirmed)
+      if (fb.patternsDiscovered) patternsDiscovered.push(...fb.patternsDiscovered)
+      if (fb.agentAccuracy) agentAccuracy.push(...fb.agentAccuracy)
+      if (fb.issuesEncountered) allIssues.push(...fb.issuesEncountered)
+    }
+
+    // Deduplicate patterns and stack confirmations
+    const uniqueStack = [...new Set(stackConfirmed)]
+    const uniquePatterns = [...new Set(patternsDiscovered)]
+
+    // Promote recurring issues (2+) to known gotchas
+    const issueCounts = new Map<string, number>()
+    for (const issue of allIssues) {
+      issueCounts.set(issue, (issueCounts.get(issue) || 0) + 1)
+    }
+    const knownGotchas = [...issueCounts.entries()]
+      .filter(([_, count]) => count >= 2)
+      .map(([issue]) => issue)
+
+    return {
+      stackConfirmed: uniqueStack,
+      patternsDiscovered: uniquePatterns,
+      agentAccuracy,
+      issuesEncountered: [...new Set(allIssues)],
+      knownGotchas,
+    }
   }
 
   // =========== Subtask Methods ===========
