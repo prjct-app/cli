@@ -19,7 +19,7 @@ import type {
 } from '../types'
 import { getErrorMessage } from '../types/fs'
 import { agentStream } from '../utils/agent-stream'
-import { fileExists } from '../utils/fs-helpers'
+import { fileExists } from '../utils/file-helper'
 import { printSubtaskProgress, type SubtaskDisplay } from '../utils/subtask-table'
 import chainOfThought from './chain-of-thought'
 import contextBuilder from './context-builder'

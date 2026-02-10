@@ -143,7 +143,7 @@ if (args[0] === 'start' || args[0] === 'setup') {
     process.exitCode = 1
   } else {
     const done = await trackSession('context')
-    const { runContextTool } = await import('../core/context-tools')
+    const { runContextTool } = await import('../core/tools/context')
     const result = await runContextTool(args.slice(1), projectId, projectPath)
     console.log(JSON.stringify(result, null, 2))
     process.exitCode = result.tool === 'error' ? 1 : 0

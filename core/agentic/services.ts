@@ -22,8 +22,8 @@
  * ```
  */
 
-import { outcomeAnalyzer, outcomeRecorder } from '../outcomes'
 import { ideasStorage, queueStorage, shippedStorage, stateStorage } from '../storage'
+import { outcomeAnalyzer, outcomeRecorder } from '../workflows'
 import agentRouter from './agent-router'
 import chainOfThought from './chain-of-thought'
 import contextBuilder from './context-builder'
@@ -44,7 +44,7 @@ const storageManagers = {
   shipped: shippedStorage,
 }
 
-import { agentPerformanceTracker } from '../agents'
+import agentPerformanceTracker from './performance'
 
 /**
  * Agentic services interface.

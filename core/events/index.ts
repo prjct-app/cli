@@ -1,8 +1,8 @@
 /**
- * Event Bus for Sync
+ * Events Module
  *
- * Barrel export for events module
+ * Unified event system: pub/sub EventBus + sync SyncEventBus.
  */
 
-export type { SyncEvent, SyncEventType } from '../types'
-export { default, eventBus, inferEventType } from './events'
+export { EventBus, emit, eventBus } from './pub-sub'
+export { inferEventType, SyncEventBus, syncEventBus } from './sync-events'

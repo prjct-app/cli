@@ -5,7 +5,7 @@
  * points-to-time conversion and historical suggestion.
  */
 
-import outcomeRecorder from '../outcomes/recorder'
+import outcomeRecorder from '../workflows/outcome-recorder'
 
 // =============================================================================
 // Constants

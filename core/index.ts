@@ -17,7 +17,7 @@ import performanceTracker from './infrastructure/performance-tracker'
 import { sessionTracker } from './services/session-tracker'
 import { getErrorMessage, getErrorStack } from './types/fs'
 import { getError } from './utils/error-messages'
-import { fileExists } from './utils/fs-helpers'
+import { fileExists } from './utils/file-helper'
 import out from './utils/output'
 
 interface ParsedCommandArgs {

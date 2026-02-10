@@ -25,7 +25,7 @@ import {
 } from '../../schemas/issues'
 import { getProjectPath } from '../../schemas/schemas'
 import { getErrorMessage } from '../../types/fs'
-import { fileExists } from '../../utils/fs-helpers'
+import { fileExists } from '../../utils/file-helper'
 import type { Issue } from '../issue-tracker/types'
 import { linearService } from './service'
 

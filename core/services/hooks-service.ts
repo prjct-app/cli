@@ -16,7 +16,7 @@ import path from 'node:path'
 import chalk from 'chalk'
 import configManager from '../infrastructure/config-manager'
 import { getErrorMessage } from '../types/fs'
-import { fileExists } from '../utils/fs-helpers'
+import { fileExists } from '../utils/file-helper'
 import out from '../utils/output'
 
 // ============================================================================

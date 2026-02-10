@@ -10,7 +10,7 @@ import os from 'node:os'
 import path from 'node:path'
 import chalk from 'chalk'
 import { getErrorMessage } from '../types/fs'
-import { fileExists } from '../utils/fs-helpers'
+import { fileExists } from '../utils/file-helper'
 
 interface UpdateCache {
   lastCheck: number

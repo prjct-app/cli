@@ -13,8 +13,9 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { eventBus, type SyncEvent } from '../events'
+import { syncEventBus } from '../events'
 import pathManager from '../infrastructure/path-manager'
+import type { SyncEvent } from '../types'
 import { TTLCache } from '../utils/cache'
 import { getTimestamp } from '../utils/date-helper'
 import { prjctDb } from './database'
@@ -130,7 +131,7 @@ export abstract class StorageManager<T> {
   }
 
   /**
-   * Publish sync event to eventBus
+   * Publish sync event to syncEventBus
    */
   protected async publishEvent(
     projectId: string,
@@ -145,7 +146,7 @@ export abstract class StorageManager<T> {
       projectId,
     }
 
-    await eventBus.publish(event)
+    await syncEventBus.publish(event)
   }
 
   /**

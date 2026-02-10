@@ -17,7 +17,6 @@ import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
 import chalk from 'chalk'
 import memorySystem from '../agentic/memory-system'
-import { WORKFLOW_HELP } from '../constants'
 import type {
   HookCommand,
   HookPhase,
@@ -26,6 +25,7 @@ import type {
   WorkflowPreference,
 } from '../types'
 import { getErrorMessage } from '../types/fs'
+import { WORKFLOW_HELP } from '../utils/constants'
 
 const execAsync = promisify(exec)
 

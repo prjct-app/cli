@@ -10,10 +10,10 @@
  */
 
 import chalk from 'chalk'
-import { OUTPUT_LIMITS } from '../constants'
 import type { ErrorCode, ErrorWithHint } from '../types/errors'
 import type { Output, OutputMetrics, OutputTier, TierConfig } from '../types/output'
 import branding from './branding'
+import { OUTPUT_LIMITS } from './constants'
 import { getError } from './error-messages'
 
 const _FRAMES = branding.spinner.frames
