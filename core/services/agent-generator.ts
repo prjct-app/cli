@@ -37,6 +37,13 @@ export interface ProjectStats {
   frameworks: string[]
 }
 
+/** Aggregated task feedback for agent generation (PRJ-272) */
+export interface TaskFeedbackContext {
+  patternsDiscovered: string[]
+  knownGotchas: string[]
+  agentAccuracy: Array<{ agent: string; rating: string; note?: string }>
+}
+
 // ============================================================================
 // AGENT GENERATOR CLASS
 // ============================================================================
@@ -50,11 +57,20 @@ export class AgentGenerator {
     this.templatesPath = templatesPath || path.join(__dirname, '..', '..', 'templates', 'subagents')
   }
 
+  /** Task feedback context for agent generation (PRJ-272) */
+  private feedbackContext?: TaskFeedbackContext
+
   /**
    * Generate all agents based on stack detection
+   * Optionally accepts task feedback to influence agent content (PRJ-272)
    */
-  async generate(stack: StackDetection, stats: ProjectStats): Promise<AgentInfo[]> {
+  async generate(
+    stack: StackDetection,
+    stats: ProjectStats,
+    feedbackContext?: TaskFeedbackContext
+  ): Promise<AgentInfo[]> {
     const agents: AgentInfo[] = []
+    this.feedbackContext = feedbackContext
 
     // Purge old agents
     await this.purgeOldAgents()
@@ -227,6 +243,7 @@ export class AgentGenerator {
 
   /**
    * Generate a single domain agent
+   * Injects task feedback learnings when available (PRJ-272)
    */
   private async generateDomainAgent(
     name: string,
@@ -248,7 +265,59 @@ export class AgentGenerator {
       content = this.generateMinimalDomainAgent(name, stats, stack)
     }
 
+    // Inject task feedback learnings (PRJ-272)
+    content = this.injectFeedbackSection(content, name)
+
     await this.writeAgentWithPreservation(`${name}.md`, content)
+  }
+
+  /**
+   * Inject a "Recent Learnings" section into agent content from task feedback (PRJ-272)
+   * Only injects if there are relevant patterns, gotchas, or agent accuracy notes
+   */
+  private injectFeedbackSection(content: string, agentName: string): string {
+    if (!this.feedbackContext) return content
+
+    const { patternsDiscovered, knownGotchas, agentAccuracy } = this.feedbackContext
+
+    // Filter agent accuracy notes relevant to this agent
+    const agentNotes = agentAccuracy.filter(
+      (a) => a.agent === `${agentName}.md` || a.agent === agentName
+    )
+
+    const hasContent =
+      patternsDiscovered.length > 0 || knownGotchas.length > 0 || agentNotes.length > 0
+
+    if (!hasContent) return content
+
+    const lines: string[] = ['\n## Recent Learnings (from completed tasks)\n']
+
+    if (patternsDiscovered.length > 0) {
+      lines.push('### Discovered Patterns')
+      for (const pattern of patternsDiscovered) {
+        lines.push(`- ${pattern}`)
+      }
+      lines.push('')
+    }
+
+    if (knownGotchas.length > 0) {
+      lines.push('### Known Gotchas')
+      for (const gotcha of knownGotchas) {
+        lines.push(`- ${gotcha}`)
+      }
+      lines.push('')
+    }
+
+    if (agentNotes.length > 0) {
+      lines.push('### Agent Accuracy Notes')
+      for (const note of agentNotes) {
+        const desc = note.note ? ` — ${note.note}` : ''
+        lines.push(`- ${note.rating}${desc}`)
+      }
+      lines.push('')
+    }
+
+    return content + lines.join('\n')
   }
 
   /**
