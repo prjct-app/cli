@@ -14,6 +14,7 @@ import {
   AnalysisItemSchema,
   AnalysisStatusSchema,
   parseAnalysis,
+  type SemanticCheckResult,
   safeParseAnalysis,
 } from '../../schemas/analysis'
 
@@ -355,7 +356,7 @@ describe('semantic verification', () => {
     expect(result.passed).toBe(true)
     expect(result.failedCount).toBe(0)
     expect(result.passedCount).toBeGreaterThan(0)
-    expect(result.checks.every((c) => c.passed)).toBe(true)
+    expect(result.checks.every((c: SemanticCheckResult) => c.passed)).toBe(true)
 
     await cleanupTestProject(projectPath)
   })
@@ -384,7 +385,9 @@ describe('semantic verification', () => {
     expect(result.passed).toBe(false)
     expect(result.failedCount).toBeGreaterThan(0)
 
-    const frameworkCheck = result.checks.find((c) => c.name === 'Framework verification')
+    const frameworkCheck = result.checks.find(
+      (c: SemanticCheckResult) => c.name === 'Framework verification'
+    )
     expect(frameworkCheck?.passed).toBe(false)
     expect(frameworkCheck?.error).toContain('not found in dependencies')
 
@@ -411,7 +414,9 @@ describe('semantic verification', () => {
 
     const result = await semanticVerify(analysis, projectPath)
 
-    const frameworkCheck = result.checks.find((c) => c.name === 'Framework verification')
+    const frameworkCheck = result.checks.find(
+      (c: SemanticCheckResult) => c.name === 'Framework verification'
+    )
     expect(frameworkCheck?.passed).toBe(false)
     expect(frameworkCheck?.error).toContain('package.json not found')
 
@@ -440,7 +445,9 @@ describe('semantic verification', () => {
 
     const result = await semanticVerify(analysis, projectPath)
 
-    const languageCheck = result.checks.find((c) => c.name === 'Language verification')
+    const languageCheck = result.checks.find(
+      (c: SemanticCheckResult) => c.name === 'Language verification'
+    )
     expect(languageCheck?.passed).toBe(false)
     expect(languageCheck?.error).toContain('without matching files')
 
@@ -470,7 +477,9 @@ describe('semantic verification', () => {
 
     const result = await semanticVerify(analysis, projectPath)
 
-    const patternCheck = result.checks.find((c) => c.name === 'Pattern location verification')
+    const patternCheck = result.checks.find(
+      (c: SemanticCheckResult) => c.name === 'Pattern location verification'
+    )
     expect(patternCheck?.passed).toBe(false)
     expect(patternCheck?.error).toContain('not found')
 
@@ -501,7 +510,9 @@ describe('semantic verification', () => {
 
     const result = await semanticVerify(analysis, projectPath)
 
-    const fileCountCheck = result.checks.find((c) => c.name === 'File count verification')
+    const fileCountCheck = result.checks.find(
+      (c: SemanticCheckResult) => c.name === 'File count verification'
+    )
     expect(fileCountCheck?.passed).toBe(false)
     expect(fileCountCheck?.error).toContain('mismatch')
 
@@ -530,7 +541,9 @@ describe('semantic verification', () => {
 
     const result = await semanticVerify(analysis, projectPath)
 
-    const antiPatternCheck = result.checks.find((c) => c.name === 'Anti-pattern file verification')
+    const antiPatternCheck = result.checks.find(
+      (c: SemanticCheckResult) => c.name === 'Anti-pattern file verification'
+    )
     expect(antiPatternCheck?.passed).toBe(false)
     expect(antiPatternCheck?.error).toContain('not found')
 
@@ -557,7 +570,9 @@ describe('semantic verification', () => {
     const result = await semanticVerify(analysis, projectPath)
 
     expect(result.passed).toBe(true) // All checks skipped, so passes
-    expect(result.checks.every((c) => c.output?.includes('skipped') || c.passed)).toBe(true)
+    expect(
+      result.checks.every((c: SemanticCheckResult) => c.output?.includes('skipped') || c.passed)
+    ).toBe(true)
 
     await cleanupTestProject(projectPath)
   })
@@ -588,7 +603,9 @@ describe('semantic verification', () => {
 
     const result = await semanticVerify(analysis, projectPath)
 
-    const fileCountCheck = result.checks.find((c) => c.name === 'File count verification')
+    const fileCountCheck = result.checks.find(
+      (c: SemanticCheckResult) => c.name === 'File count verification'
+    )
     expect(fileCountCheck?.passed).toBe(true)
 
     await cleanupTestProject(projectPath)
@@ -614,7 +631,9 @@ describe('semantic verification', () => {
 
     const result = await semanticVerify(analysis, projectPath)
 
-    const frameworkCheck = result.checks.find((c) => c.name === 'Framework verification')
+    const frameworkCheck = result.checks.find(
+      (c: SemanticCheckResult) => c.name === 'Framework verification'
+    )
     expect(frameworkCheck?.passed).toBe(true)
 
     await cleanupTestProject(projectPath)
