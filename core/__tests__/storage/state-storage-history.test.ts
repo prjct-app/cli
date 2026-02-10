@@ -79,14 +79,16 @@ afterEach(async () => {
 /**
  * Create a mock task for testing
  */
-function createMockTask(overrides: Partial<CurrentTask> = {}): CurrentTask {
+function createMockTask(
+  overrides: Partial<CurrentTask> & Record<string, unknown> = {}
+): CurrentTask {
   return {
     id: `task-${Date.now()}`,
     description: 'Test task',
     startedAt: new Date().toISOString(),
     sessionId: `session-${Date.now()}`,
     ...overrides,
-  }
+  } as CurrentTask
 }
 
 /**
