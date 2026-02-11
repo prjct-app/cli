@@ -14,6 +14,7 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { getTemplateContent, listTemplates } from '../agentic/template-loader'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import { fileExists } from '../utils/file-helper'
 import log from '../utils/logger'
@@ -53,32 +54,49 @@ export async function installWindsurfProject(projectRoot: string): Promise<{
 
     const routerDest = path.join(rulesDir, 'prjct.md')
 
-    const routerSource = path.join(PACKAGE_ROOT, 'templates', 'windsurf', 'router.md')
-    const windsurfWorkflowsSource = path.join(PACKAGE_ROOT, 'templates', 'windsurf', 'workflows')
-
     // Ensure directories exist
     await fs.mkdir(rulesDir, { recursive: true })
     await fs.mkdir(workflowsDir, { recursive: true })
 
     // Copy router.md -> .windsurf/rules/prjct.md
-    if (await fileExists(routerSource)) {
-      await fs.copyFile(routerSource, routerDest)
+    const routerContent = getTemplateContent('windsurf/router.md')
+    if (routerContent) {
+      await fs.writeFile(routerDest, routerContent, 'utf-8')
       result.rulesCreated = true
+    } else {
+      const routerSource = path.join(PACKAGE_ROOT, 'templates', 'windsurf', 'router.md')
+      if (await fileExists(routerSource)) {
+        await fs.copyFile(routerSource, routerDest)
+        result.rulesCreated = true
+      }
     }
 
     // Copy individual workflow files -> .windsurf/workflows/
-    // This enables /sync, /task, /done, /ship, etc. syntax in Windsurf
-    if (await fileExists(windsurfWorkflowsSource)) {
-      const workflowFiles = (await fs.readdir(windsurfWorkflowsSource)).filter((f) =>
-        f.endsWith('.md')
-      )
-
-      for (const file of workflowFiles) {
-        const src = path.join(windsurfWorkflowsSource, file)
-        const dest = path.join(workflowsDir, file)
-        await fs.copyFile(src, dest)
+    const bundledWorkflows = listTemplates('windsurf/workflows/')
+    if (bundledWorkflows.length > 0) {
+      for (const key of bundledWorkflows) {
+        if (key.endsWith('.md')) {
+          const content = getTemplateContent(key)
+          if (content) {
+            const fileName = path.basename(key)
+            await fs.writeFile(path.join(workflowsDir, fileName), content, 'utf-8')
+          }
+        }
       }
-      result.workflowsCreated = workflowFiles.length > 0
+      result.workflowsCreated = bundledWorkflows.length > 0
+    } else {
+      const windsurfWorkflowsSource = path.join(PACKAGE_ROOT, 'templates', 'windsurf', 'workflows')
+      if (await fileExists(windsurfWorkflowsSource)) {
+        const workflowFiles = (await fs.readdir(windsurfWorkflowsSource)).filter((f) =>
+          f.endsWith('.md')
+        )
+        for (const file of workflowFiles) {
+          const src = path.join(windsurfWorkflowsSource, file)
+          const dest = path.join(workflowsDir, file)
+          await fs.copyFile(src, dest)
+        }
+        result.workflowsCreated = workflowFiles.length > 0
+      }
     }
 
     // Update .gitignore to exclude prjct Windsurf routers

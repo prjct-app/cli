@@ -13,6 +13,7 @@
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { getTemplateContent } from '../agentic/template-loader'
 import { getErrorMessage } from '../errors'
 import type { ProjectStats, StackDetection, SyncAgentInfo } from '../types'
 import * as dateHelper from '../utils/date-helper'
@@ -140,21 +141,27 @@ export async function resolveTemplateIncludes(content: string): Promise<string> 
   let resolved = content
   for (const match of matches) {
     const partialName = match[1]
-    const partialPath = path.join(
-      __dirname,
-      '..',
-      '..',
-      'templates',
-      'subagents',
-      `${partialName}.md`
-    )
-    try {
-      const partialContent = await fs.readFile(partialPath, 'utf-8')
-      resolved = resolved.replace(match[0], partialContent.trim())
-    } catch {
-      // Partial not found — leave marker for debugging
-      resolved = resolved.replace(match[0], `<!-- partial "${partialName}" not found -->`)
+
+    // Try bundle first, then filesystem
+    let partialContent = getTemplateContent(`subagents/${partialName}.md`)
+    if (!partialContent) {
+      const partialPath = path.join(
+        __dirname,
+        '..',
+        '..',
+        'templates',
+        'subagents',
+        `${partialName}.md`
+      )
+      try {
+        partialContent = await fs.readFile(partialPath, 'utf-8')
+      } catch {
+        // Partial not found — leave marker for debugging
+        resolved = resolved.replace(match[0], `<!-- partial "${partialName}" not found -->`)
+        continue
+      }
     }
+    resolved = resolved.replace(match[0], partialContent.trim())
   }
 
   return resolved

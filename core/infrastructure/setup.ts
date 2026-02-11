@@ -22,6 +22,7 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import chalk from 'chalk'
+import { getTemplateContent, listTemplates } from '../agentic/template-loader'
 import { dependencyValidator } from '../services/dependency-validator'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import type { AIProviderConfig, AIProviderName } from '../types/provider'
@@ -255,13 +256,18 @@ export async function run(): Promise<SetupResults> {
 async function installGeminiRouter(): Promise<boolean> {
   try {
     const geminiCommandsDir = path.join(os.homedir(), '.gemini', 'commands')
-    const routerSource = path.join(PACKAGE_ROOT, 'templates', 'commands', 'p.toml')
     const routerDest = path.join(geminiCommandsDir, 'p.toml')
 
-    // Ensure commands directory exists
     await fs.mkdir(geminiCommandsDir, { recursive: true })
 
-    // Copy router
+    // Try bundle first, then filesystem
+    const bundled = getTemplateContent('commands/p.toml')
+    if (bundled) {
+      await fs.writeFile(routerDest, bundled, 'utf-8')
+      return true
+    }
+
+    const routerSource = path.join(PACKAGE_ROOT, 'templates', 'commands', 'p.toml')
     if (await fileExists(routerSource)) {
       await fs.copyFile(routerSource, routerDest)
       return true
@@ -280,13 +286,15 @@ async function installGeminiGlobalConfig(): Promise<{ success: boolean; action: 
   try {
     const geminiDir = path.join(os.homedir(), '.gemini')
     const globalConfigPath = path.join(geminiDir, 'GEMINI.md')
-    const templatePath = path.join(PACKAGE_ROOT, 'templates', 'global', 'GEMINI.md')
-
     // Ensure ~/.gemini directory exists
     await fs.mkdir(geminiDir, { recursive: true })
 
-    // Read template content
-    const templateContent = await fs.readFile(templatePath, 'utf-8')
+    // Read template content - try bundle first
+    let templateContent = getTemplateContent('global/GEMINI.md')
+    if (!templateContent) {
+      const templatePath = path.join(PACKAGE_ROOT, 'templates', 'global', 'GEMINI.md')
+      templateContent = await fs.readFile(templatePath, 'utf-8')
+    }
 
     // Check if global config already exists
     let existingContent = ''
@@ -361,21 +369,22 @@ export async function installAntigravitySkill(): Promise<{
     const antigravitySkillsDir = path.join(os.homedir(), '.gemini', 'antigravity', 'skills')
     const prjctSkillDir = path.join(antigravitySkillsDir, 'prjct')
     const skillMdPath = path.join(prjctSkillDir, 'SKILL.md')
-    const templatePath = path.join(PACKAGE_ROOT, 'templates', 'antigravity', 'SKILL.md')
-
     // Ensure skills directory exists
     await fs.mkdir(prjctSkillDir, { recursive: true })
 
     // Check if SKILL.md already exists
     const skillExists = await fileExists(skillMdPath)
 
-    // Read template content
-    if (!(await fileExists(templatePath))) {
-      log.warn('Antigravity SKILL.md template not found')
-      return { success: false, action: null }
+    // Read template content - try bundle first
+    let templateContent = getTemplateContent('antigravity/SKILL.md')
+    if (!templateContent) {
+      const templatePath = path.join(PACKAGE_ROOT, 'templates', 'antigravity', 'SKILL.md')
+      if (!(await fileExists(templatePath))) {
+        log.warn('Antigravity SKILL.md template not found')
+        return { success: false, action: null }
+      }
+      templateContent = await fs.readFile(templatePath, 'utf-8')
     }
-
-    const templateContent = await fs.readFile(templatePath, 'utf-8')
 
     // Write SKILL.md
     await fs.writeFile(skillMdPath, templateContent, 'utf-8')

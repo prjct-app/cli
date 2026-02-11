@@ -15,6 +15,7 @@
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { getTemplateContent, listTemplates } from '../agentic/template-loader'
 import type {
   CheckResult,
   GlobalConfigResult,
@@ -51,9 +52,13 @@ interface ModuleConfig {
  */
 async function loadModuleConfig(): Promise<ModuleConfig | null> {
   try {
+    // Try bundled templates first, fall back to filesystem
+    const content = getTemplateContent('global/modules/module-config.json')
+    if (content) return JSON.parse(content) as ModuleConfig
+
     const configPath = path.join(PACKAGE_ROOT, 'templates/global/modules/module-config.json')
-    const content = await fs.readFile(configPath, 'utf-8')
-    return JSON.parse(content) as ModuleConfig
+    const fsContent = await fs.readFile(configPath, 'utf-8')
+    return JSON.parse(fsContent) as ModuleConfig
   } catch {
     return null
   }
@@ -66,10 +71,11 @@ async function loadModuleConfig(): Promise<ModuleConfig | null> {
  */
 export async function composeGlobalTemplate(profile?: string): Promise<string> {
   const config = await loadModuleConfig()
-  const modulesDir = path.join(PACKAGE_ROOT, 'templates/global/modules')
 
   // Fallback to legacy template if config not found
   if (!config) {
+    const legacy = getTemplateContent('global/CLAUDE.md')
+    if (legacy) return legacy
     const legacyPath = path.join(PACKAGE_ROOT, 'templates/global/CLAUDE.md')
     return fs.readFile(legacyPath, 'utf-8')
   }
@@ -78,9 +84,10 @@ export async function composeGlobalTemplate(profile?: string): Promise<string> {
   const selectedProfile = config.profiles[profileName]
 
   if (!selectedProfile) {
-    // Fallback to default profile
     const defaultProfile = config.profiles[config.default]
     if (!defaultProfile) {
+      const legacy = getTemplateContent('global/CLAUDE.md')
+      if (legacy) return legacy
       const legacyPath = path.join(PACKAGE_ROOT, 'templates/global/CLAUDE.md')
       return fs.readFile(legacyPath, 'utf-8')
     }
@@ -93,14 +100,20 @@ export async function composeGlobalTemplate(profile?: string): Promise<string> {
   parts.push('<!-- prjct:start - DO NOT REMOVE THIS MARKER -->')
 
   for (const moduleName of modules) {
-    try {
-      const modulePath = path.join(modulesDir, moduleName)
-      const content = await fs.readFile(modulePath, 'utf-8')
+    // Try bundle first, then filesystem
+    const content = getTemplateContent(`global/modules/${moduleName}`)
+    if (content) {
       parts.push('')
       parts.push(content)
-    } catch {
-      // Module not found, skip
-      console.warn(`Module not found: ${moduleName}`)
+    } else {
+      try {
+        const modulePath = path.join(PACKAGE_ROOT, 'templates/global/modules', moduleName)
+        const fsContent = await fs.readFile(modulePath, 'utf-8')
+        parts.push('')
+        parts.push(fsContent)
+      } catch {
+        console.warn(`Module not found: ${moduleName}`)
+      }
     }
   }
 
@@ -130,15 +143,26 @@ export async function getProfileForCommand(command: string): Promise<string> {
 export async function installDocs(): Promise<{ success: boolean; error?: string }> {
   try {
     const docsDir = path.join(os.homedir(), '.prjct-cli', 'docs')
-    const templateDocsDir = path.join(PACKAGE_ROOT, 'templates/global/docs')
-
-    // Ensure docs directory exists
     await fs.mkdir(docsDir, { recursive: true })
 
-    // Read all doc files from template
-    const docFiles = await fs.readdir(templateDocsDir)
+    // Try bundled templates first
+    const docKeys = listTemplates('global/docs/')
+    if (docKeys.length > 0) {
+      for (const key of docKeys) {
+        if (key.endsWith('.md')) {
+          const content = getTemplateContent(key)
+          if (content) {
+            const fileName = path.basename(key)
+            await fs.writeFile(path.join(docsDir, fileName), content, 'utf-8')
+          }
+        }
+      }
+      return { success: true }
+    }
 
-    // Copy each doc file
+    // Fall back to filesystem
+    const templateDocsDir = path.join(PACKAGE_ROOT, 'templates/global/docs')
+    const docFiles = await fs.readdir(templateDocsDir)
     for (const file of docFiles) {
       if (file.endsWith('.md')) {
         const srcPath = path.join(templateDocsDir, file)
@@ -182,23 +206,35 @@ export async function installGlobalConfig(): Promise<GlobalConfigResult> {
     // Read template content - use modular composition (PRJ-94)
     let templateContent = ''
     try {
-      // First try provider-specific template
-      templateContent = await fs.readFile(templatePath, 'utf-8')
+      // First try provider-specific template (bundle then filesystem)
+      const bundled = getTemplateContent(`global/${activeProvider.contextFile}`)
+      if (bundled) {
+        templateContent = bundled
+      } else {
+        templateContent = await fs.readFile(templatePath, 'utf-8')
+      }
     } catch (_error) {
       // Use modular composition for Claude (PRJ-94)
       if (providerName === 'claude') {
         try {
           templateContent = await composeGlobalTemplate('standard')
         } catch {
-          // Final fallback to legacy template
+          const fallback = getTemplateContent('global/CLAUDE.md')
+          if (fallback) {
+            templateContent = fallback
+          } else {
+            const fallbackTemplatePath = path.join(PACKAGE_ROOT, 'templates/global/CLAUDE.md')
+            templateContent = await fs.readFile(fallbackTemplatePath, 'utf-8')
+          }
+        }
+      } else {
+        const fallback = getTemplateContent('global/CLAUDE.md')
+        if (fallback) {
+          templateContent = fallback
+        } else {
           const fallbackTemplatePath = path.join(PACKAGE_ROOT, 'templates/global/CLAUDE.md')
           templateContent = await fs.readFile(fallbackTemplatePath, 'utf-8')
         }
-      } else {
-        // Fallback for other providers
-        const fallbackTemplatePath = path.join(PACKAGE_ROOT, 'templates/global/CLAUDE.md')
-        templateContent = await fs.readFile(fallbackTemplatePath, 'utf-8')
-        // If it is Gemini, we should rename Claude to Gemini in the fallback content
         if (providerName === 'gemini') {
           templateContent = templateContent.replace(/Claude/g, 'Gemini')
         }
@@ -339,11 +375,17 @@ export class CommandInstaller {
    * Get list of command files to install
    */
   async getCommandFiles(): Promise<string[]> {
+    // Try bundled templates first
+    const bundled = listTemplates('commands/')
+    if (bundled.length > 0) {
+      return bundled.filter((k) => k.endsWith('.md')).map((k) => k.replace('commands/', ''))
+    }
+
+    // Fall back to filesystem
     try {
       const files = await fs.readdir(this.templatesDir)
       return files.filter((f) => f.endsWith('.md'))
     } catch (_error) {
-      // Fallback to core commands if template directory not accessible (ENOENT or other)
       return [
         'init.md',
         'now.md',
@@ -396,11 +438,17 @@ export class CommandInstaller {
 
       for (const file of commandFiles) {
         try {
-          const sourcePath = path.join(this.templatesDir, file)
           const destPath = path.join(this.claudeCommandsPath, file)
 
-          const content = await fs.readFile(sourcePath, 'utf-8')
-          await fs.writeFile(destPath, content, 'utf-8')
+          // Try bundle first, then filesystem
+          const bundled = getTemplateContent(`commands/${file}`)
+          if (bundled) {
+            await fs.writeFile(destPath, bundled, 'utf-8')
+          } else {
+            const sourcePath = path.join(this.templatesDir, file)
+            const content = await fs.readFile(sourcePath, 'utf-8')
+            await fs.writeFile(destPath, content, 'utf-8')
+          }
 
           installed.push(file.replace('.md', ''))
         } catch (error) {
@@ -533,6 +581,11 @@ export class CommandInstaller {
    * Verify command template exists
    */
   async verifyTemplate(commandName: string): Promise<boolean> {
+    // Check bundle first
+    const bundled = getTemplateContent(`commands/${commandName}.md`)
+    if (bundled) return true
+
+    // Fall back to filesystem
     try {
       const templatePath = path.join(this.templatesDir, `${commandName}.md`)
       await fs.access(templatePath)
@@ -555,12 +608,17 @@ export class CommandInstaller {
     const routerFile = activeProvider.name === 'gemini' ? 'p.toml' : 'p.md'
 
     try {
-      const routerSource = path.join(this.templatesDir, routerFile)
       const routerDest = path.join(activeProvider.configDir, 'commands', routerFile)
-
-      // Ensure commands directory exists
       await fs.mkdir(path.dirname(routerDest), { recursive: true })
 
+      // Try bundle first, then filesystem
+      const bundled = getTemplateContent(`commands/${routerFile}`)
+      if (bundled) {
+        await fs.writeFile(routerDest, bundled, 'utf-8')
+        return true
+      }
+
+      const routerSource = path.join(this.templatesDir, routerFile)
       const content = await fs.readFile(routerSource, 'utf-8')
       await fs.writeFile(routerDest, content, 'utf-8')
       return true
@@ -652,15 +710,20 @@ export class CommandInstaller {
       // Install/update all template files (always overwrite)
       for (const file of templateFiles) {
         try {
-          const sourcePath = path.join(this.templatesDir, file)
           const destPath = path.join(this.claudeCommandsPath, file)
 
           // Check if file exists in installed location
           const exists = installedFiles.includes(file)
 
-          // Read and write (always overwrite to ensure latest version)
-          const content = await fs.readFile(sourcePath, 'utf-8')
-          await fs.writeFile(destPath, content, 'utf-8')
+          // Try bundle first, then filesystem
+          const bundled = getTemplateContent(`commands/${file}`)
+          if (bundled) {
+            await fs.writeFile(destPath, bundled, 'utf-8')
+          } else {
+            const sourcePath = path.join(this.templatesDir, file)
+            const content = await fs.readFile(sourcePath, 'utf-8')
+            await fs.writeFile(destPath, content, 'utf-8')
+          }
 
           if (!exists) {
             results.added++

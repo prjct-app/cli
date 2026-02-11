@@ -40,6 +40,7 @@ import {
   truncateToTokenBudget,
 } from './injection-validator'
 import { deduplicateTechStack } from './tech-normalizer'
+import { getTemplateContent, listTemplates } from './template-loader'
 import type { TokenBudgetCoordinator } from './token-budget'
 
 // =============================================================================
@@ -206,6 +207,10 @@ class PromptBuilder {
    * These modules extend the base global CLAUDE.md for complex operations
    */
   async loadModule(moduleName: string): Promise<string | null> {
+    // Try bundle first
+    const bundled = getTemplateContent(`global/modules/${moduleName}`)
+    if (bundled) return bundled
+
     const modulePath = path.join(PACKAGE_ROOT, 'templates/global/modules', moduleName)
     return this.getTemplate(modulePath)
   }
@@ -235,19 +240,33 @@ class PromptBuilder {
       return this._checklistsCache
     }
 
-    const checklistsDir = path.join(__dirname, '..', '..', 'templates', 'checklists')
     const checklists: Record<string, string> = {}
 
     try {
-      if (await fileExists(checklistsDir)) {
-        const files = (await fs.readdir(checklistsDir)).filter((f: string) => f.endsWith('.md'))
-        for (const file of files) {
-          const name = file.replace('.md', '')
-          const templatePath = path.join(checklistsDir, file)
-          // Use getTemplate for individual files to leverage per-file caching
-          const content = await this.getTemplate(templatePath)
-          if (content) {
-            checklists[name] = content
+      // Try bundled templates first
+      const bundledKeys = listTemplates('checklists/')
+      if (bundledKeys.length > 0) {
+        for (const key of bundledKeys) {
+          if (key.endsWith('.md')) {
+            const content = getTemplateContent(key)
+            if (content) {
+              const name = path.basename(key, '.md')
+              checklists[name] = content
+            }
+          }
+        }
+      } else {
+        // Fall back to filesystem
+        const checklistsDir = path.join(PACKAGE_ROOT, 'templates', 'checklists')
+        if (await fileExists(checklistsDir)) {
+          const files = (await fs.readdir(checklistsDir)).filter((f: string) => f.endsWith('.md'))
+          for (const file of files) {
+            const name = file.replace('.md', '')
+            const templatePath = path.join(checklistsDir, file)
+            const content = await this.getTemplate(templatePath)
+            if (content) {
+              checklists[name] = content
+            }
           }
         }
       }
