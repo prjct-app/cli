@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.24.0] - 2026-02-11
+
+### Features
+
+- implement daemon mode with IPC socket for near-zero startup (PRJ-302) (#170)
+
+### Bug Fixes
+
+- remove source shebang causing SyntaxError in compiled linear CLI (#169)
+
+
 ## [1.24.1] - 2026-02-10
 
 ### Bug Fixes
