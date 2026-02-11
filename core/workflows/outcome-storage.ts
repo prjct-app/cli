@@ -18,7 +18,7 @@ import {
 } from '../schemas/outcomes'
 import { StorageManager } from '../storage/storage-manager'
 import type { ShippedFeature, ShippedJson } from '../types'
-import { getTimestamp, toRelative } from '../utils/date-helper'
+import { getTimestamp } from '../utils/date-helper'
 
 export class OutcomeStorage extends StorageManager<OutcomesJson> {
   constructor() {
@@ -29,73 +29,8 @@ export class OutcomeStorage extends StorageManager<OutcomesJson> {
     return { ...DEFAULT_OUTCOMES, lastUpdated: '' }
   }
 
-  protected getMdFilename(): string {
-    return 'outcomes.md'
-  }
-
-  protected getLayer(): string {
-    return 'progress'
-  }
-
   protected getEventType(action: 'update' | 'create' | 'delete'): string {
     return `outcomes.${action}d`
-  }
-
-  protected toMarkdown(data: OutcomesJson): string {
-    const lines = ['# OUTCOMES', '']
-
-    if (data.outcomes.length === 0 && (!data.taskOutcomes || data.taskOutcomes.length === 0)) {
-      lines.push('_No outcomes recorded yet._')
-      lines.push('')
-      return lines.join('\n')
-    }
-
-    // Recent feature outcomes (last 5)
-    const recent = data.outcomes
-      .sort((a, b) => new Date(b.shippedAt).getTime() - new Date(a.shippedAt).getTime())
-      .slice(0, 5)
-
-    if (recent.length > 0) {
-      lines.push('## Recent Outcomes')
-      lines.push('')
-
-      for (const outcome of recent) {
-        const success = outcome.success?.overallSuccess ?? 'unknown'
-        const roi = outcome.roi.roiScore
-        const rel = toRelative(outcome.shippedAt)
-        lines.push(`- **${outcome.featureName}** (${success}, ROI: ${roi}) - ${rel}`)
-
-        if (outcome.learnings.whatWorked.length > 0) {
-          lines.push(`  What worked: ${outcome.learnings.whatWorked.slice(0, 2).join(', ')}`)
-        }
-        if (outcome.learnings.whatDidnt.length > 0) {
-          lines.push(`  Issues: ${outcome.learnings.whatDidnt.slice(0, 2).join(', ')}`)
-        }
-      }
-      lines.push('')
-    }
-
-    // Aggregates
-    if (data.aggregates) {
-      lines.push('## Aggregate Metrics')
-      lines.push('')
-      lines.push(`- Features: ${data.aggregates.totalFeatures}`)
-      lines.push(`- Estimation Accuracy: ${data.aggregates.averageEstimationAccuracy}%`)
-      lines.push(`- Success Rate: ${data.aggregates.averageSuccessRate}%`)
-      lines.push(`- Average ROI: ${data.aggregates.averageROI}`)
-      lines.push('')
-
-      if (data.aggregates.topLearnings.length > 0) {
-        lines.push('### Top Learnings')
-        lines.push('')
-        for (const learning of data.aggregates.topLearnings.slice(0, 5)) {
-          lines.push(`- ${learning.insight} (${learning.frequency}x)`)
-        }
-        lines.push('')
-      }
-    }
-
-    return lines.join('\n')
   }
 
   // =========================================================================

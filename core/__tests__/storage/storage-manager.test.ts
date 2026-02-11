@@ -35,20 +35,8 @@ class TestStorageManager extends StorageManager<TestData> {
     super('test-data.json')
   }
 
-  protected getLayer(): string {
-    return 'context'
-  }
-
   protected getDefault(): TestData {
     return { value: '', count: 0, items: [] }
-  }
-
-  protected toMarkdown(data: TestData): string {
-    return `# Test Data\n\nValue: ${data.value}\nCount: ${data.count}\nItems: ${data.items.join(', ')}`
-  }
-
-  protected getMdFilename(): string {
-    return 'test-data.md'
   }
 
   protected getEventType(action: 'update' | 'create' | 'delete'): string {
@@ -154,25 +142,6 @@ describe('StorageManager', () => {
       await expect(fs.access(storagePath)).rejects.toThrow()
     })
 
-    it('should create context markdown file', async () => {
-      const testData: TestData = {
-        value: 'markdown-test',
-        count: 5,
-        items: ['x', 'y'],
-      }
-
-      await manager.write(testProjectId, testData)
-
-      // Verify markdown file exists
-      const contextPath = path.join(tmpRoot!, testProjectId, 'context', 'test-data.md')
-      const content = await fs.readFile(contextPath, 'utf-8')
-
-      expect(content).toContain('# Test Data')
-      expect(content).toContain('Value: markdown-test')
-      expect(content).toContain('Count: 5')
-      expect(content).toContain('Items: x, y')
-    })
-
     it('should overwrite existing data', async () => {
       const data1: TestData = { value: 'first', count: 1, items: [] }
       const data2: TestData = { value: 'second', count: 2, items: ['new'] }
@@ -226,21 +195,6 @@ describe('StorageManager', () => {
 
       // Project dir should exist (created by SQLite)
       const stat = await fs.stat(projectDir)
-      expect(stat.isDirectory()).toBe(true)
-    })
-
-    it('should create context directory if it does not exist', async () => {
-      const testData: TestData = { value: 'ctx-test', count: 1, items: [] }
-
-      // Directory shouldn't exist yet
-      const contextDir = path.join(tmpRoot!, testProjectId, 'context')
-      await expect(fs.access(contextDir)).rejects.toThrow()
-
-      // Write should create it
-      await manager.write(testProjectId, testData)
-
-      // Now it should exist
-      const stat = await fs.stat(contextDir)
       expect(stat.isDirectory()).toBe(true)
     })
 

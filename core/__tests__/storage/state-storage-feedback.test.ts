@@ -362,51 +362,6 @@ describe('Feedback Aggregation', () => {
 })
 
 // =============================================================================
-// Tests: Context Injection (Markdown Generation)
-// =============================================================================
-
-describe('Feedback in Markdown Context', () => {
-  it('should include patterns in task history markdown', async () => {
-    const task = createMockTask({ description: 'Task with patterns' })
-    await stateStorage.startTask(testProjectId, task)
-    await stateStorage.completeTask(testProjectId, {
-      patternsDiscovered: ['Uses barrel exports'],
-    })
-
-    const state = await stateStorage.read(testProjectId)
-    // Access the private toMarkdown via the generated context
-    const md = (stateStorage as any).toMarkdown(state)
-
-    expect(md).toContain('Patterns: Uses barrel exports')
-  })
-
-  it('should include gotchas in task history markdown', async () => {
-    const task = createMockTask({ description: 'Task with gotchas' })
-    await stateStorage.startTask(testProjectId, task)
-    await stateStorage.completeTask(testProjectId, {
-      issuesEncountered: ['Port 3000 already in use'],
-    })
-
-    const state = await stateStorage.read(testProjectId)
-    const md = (stateStorage as any).toMarkdown(state)
-
-    expect(md).toContain('Gotchas: Port 3000 already in use')
-  })
-
-  it('should NOT show feedback section when feedback is empty', async () => {
-    const task = createMockTask({ description: 'Task without feedback' })
-    await stateStorage.startTask(testProjectId, task)
-    await stateStorage.completeTask(testProjectId)
-
-    const state = await stateStorage.read(testProjectId)
-    const md = (stateStorage as any).toMarkdown(state)
-
-    expect(md).not.toContain('Patterns:')
-    expect(md).not.toContain('Gotchas:')
-  })
-})
-
-// =============================================================================
 // Tests: Mixed Feedback and Non-Feedback Tasks
 // =============================================================================
 

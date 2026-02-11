@@ -58,12 +58,10 @@ import type {
   SyncOptions,
   VerificationReport,
 } from '../types'
-import type { ContextSources } from '../utils/citations'
 import * as dateHelper from '../utils/date-helper'
 import log from '../utils/logger'
 import { outcomeMemoryLearner } from '../workflows/outcome-learner'
 import { outcomeStorage } from '../workflows/outcome-storage'
-import { ContextFileGenerator } from './context-generator'
 import { localStateGenerator } from './local-state-generator'
 import { memoryService } from './memory-service'
 import {
@@ -294,7 +292,7 @@ class SyncService {
       const skills = configureSkills(agents, this.projectId!, this.globalPath)
       const skillsInstalled = shouldRegenerateAgents ? await autoInstallSkills(agents) : []
       const sources = buildSources(stats, commands)
-      const contextFiles = await this.generateContextFiles(git, stats, commands, agents, sources)
+      const contextFiles: string[] = []
 
       // 5. Generate AI tool context files (multi-agent output)
       const projectContext: ProjectContext = {
@@ -411,26 +409,6 @@ class SyncService {
     await Promise.all(
       dirs.map((dir) => fs.mkdir(path.join(this.globalPath, dir), { recursive: true }))
     )
-  }
-
-  // ==========================================================================
-  // CONTEXT FILE GENERATION
-  // ==========================================================================
-
-  private async generateContextFiles(
-    git: GitData,
-    stats: ProjectStats,
-    commands: ProjectCommands,
-    agents: SyncAgentInfo[],
-    sources?: ContextSources
-  ): Promise<string[]> {
-    const generator = new ContextFileGenerator({
-      projectId: this.projectId!,
-      projectPath: this.projectPath,
-      globalPath: this.globalPath,
-    })
-
-    return generator.generate(git, stats, commands, agents, sources)
   }
 
   // ==========================================================================

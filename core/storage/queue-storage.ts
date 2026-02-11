@@ -24,66 +24,8 @@ class QueueStorage extends StorageManager<QueueJson> {
     }
   }
 
-  protected getMdFilename(): string {
-    return 'next.md'
-  }
-
-  protected getLayer(): string {
-    return 'core'
-  }
-
   protected getEventType(action: 'update' | 'create' | 'delete'): string {
     return `queue.${action}d`
-  }
-
-  protected toMarkdown(data: QueueJson): string {
-    const lines = ['# Priority Queue', '']
-
-    const activeTasks = data.tasks.filter((t) => t.section === 'active' && !t.completed)
-    const backlogTasks = data.tasks.filter((t) => t.section === 'backlog' && !t.completed)
-    const previouslyActive = data.tasks.filter(
-      (t) => t.section === 'previously_active' && !t.completed
-    )
-
-    // Active section
-    lines.push('## Active Tasks')
-    if (activeTasks.length > 0) {
-      activeTasks.forEach((task, i) => {
-        const checkbox = task.completed ? '[x]' : '[ ]'
-        const priority = task.priority !== 'medium' ? ` [${task.priority.toUpperCase()}]` : ''
-        const agent = task.agent ? ` @${task.agent}` : ''
-        const origin = task.originFeature ? ` (from: ${task.originFeature})` : ''
-        const bug = task.type === 'bug' ? ' \u{1F41B}' : ''
-        lines.push(`${i + 1}. ${checkbox}${bug}${priority} ${task.description}${agent}${origin}`)
-      })
-    } else {
-      lines.push('_No active tasks_')
-    }
-    lines.push('')
-
-    // Previously active section (if any)
-    if (previouslyActive.length > 0) {
-      lines.push('## Previously Active')
-      previouslyActive.forEach((task) => {
-        lines.push(`- [ ] ${task.description}`)
-      })
-      lines.push('')
-    }
-
-    // Backlog section
-    lines.push('## Backlog')
-    if (backlogTasks.length > 0) {
-      backlogTasks.forEach((task) => {
-        const priority = task.priority !== 'medium' ? ` [${task.priority.toUpperCase()}]` : ''
-        const bug = task.type === 'bug' ? ' \u{1F41B}' : ''
-        lines.push(`- [ ]${bug}${priority} ${task.description}`)
-      })
-    } else {
-      lines.push('_No backlog items_')
-    }
-    lines.push('')
-
-    return lines.join('\n')
   }
 
   // =========== Domain Methods ===========

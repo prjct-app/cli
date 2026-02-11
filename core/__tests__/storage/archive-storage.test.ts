@@ -255,7 +255,7 @@ describe('Archive Storage', () => {
       expect(records).toHaveLength(1)
     })
 
-    it('should exclude dormant ideas from markdown context', async () => {
+    it('should track dormant status in SQLite', async () => {
       await ideasStorage.write(testProjectId, {
         ideas: [
           {
@@ -278,13 +278,15 @@ describe('Archive Storage', () => {
         lastUpdated: getTimestamp(),
       })
 
-      // Read the generated markdown context file
-      const contextPath = pathManager.getFilePath(testProjectId, 'planning', 'ideas.md')
-      const md = await fs.readFile(contextPath, 'utf-8')
+      // Read back from storage — dormant ideas preserved in SQLite
+      const data = await ideasStorage.read(testProjectId)
+      const active = data.ideas.filter((i) => i.status === 'pending')
+      const dormant = data.ideas.filter((i) => i.status === 'dormant')
 
-      expect(md).toContain('Active idea')
-      expect(md).not.toContain('Dormant idea')
-      expect(md).toContain('1 dormant idea(s) excluded from context')
+      expect(active).toHaveLength(1)
+      expect(active[0].text).toBe('Active idea')
+      expect(dormant).toHaveLength(1)
+      expect(dormant[0].text).toBe('Dormant idea')
     })
   })
 

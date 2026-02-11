@@ -42,20 +42,8 @@ class TestStorageManager extends StorageManager<TestData> {
     super('test-data.json')
   }
 
-  protected getLayer(): string {
-    return 'context'
-  }
-
   protected getDefault(): TestData {
     return { value: '', count: 0, items: [] }
-  }
-
-  protected toMarkdown(data: TestData): string {
-    return `# Test\nValue: ${data.value}`
-  }
-
-  protected getMdFilename(): string {
-    return 'test-data.md'
   }
 
   protected getEventType(action: 'update' | 'create' | 'delete'): string {

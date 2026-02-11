@@ -16,7 +16,6 @@ import {
   type DailyStats,
   DEFAULT_METRICS,
   estimateCostSaved,
-  formatCost,
   type MetricsJson,
   MetricsJsonSchema,
 } from '../schemas/metrics'
@@ -32,87 +31,8 @@ class MetricsStorage extends StorageManager<MetricsJson> {
     return { ...DEFAULT_METRICS }
   }
 
-  protected getMdFilename(): string {
-    return 'metrics.md'
-  }
-
-  protected getLayer(): string {
-    return 'context'
-  }
-
   protected getEventType(action: 'update' | 'create' | 'delete'): string {
     return `metrics.${action}d`
-  }
-
-  protected toMarkdown(data: MetricsJson): string {
-    const lines = ['# Value Dashboard 📊', '']
-
-    if (data.syncCount === 0) {
-      lines.push('_No metrics yet. Run `prjct sync` to start tracking._')
-      lines.push('')
-      return lines.join('\n')
-    }
-
-    // Token Savings
-    lines.push('## 💰 Token Savings')
-    lines.push('')
-    lines.push(`- **Total saved**: ${this.formatTokens(data.totalTokensSaved)} tokens`)
-    lines.push(
-      `- **Compression**: ${(data.avgCompressionRate * 100).toFixed(0)}% average reduction`
-    )
-    lines.push(
-      `- **Estimated cost saved**: ${formatCost(estimateCostSaved(data.totalTokensSaved))}`
-    )
-    lines.push('')
-
-    // Performance
-    lines.push('## ⚡ Performance')
-    lines.push('')
-    lines.push(`- **Syncs completed**: ${data.syncCount.toLocaleString()}`)
-    lines.push(`- **Avg sync time**: ${this.formatDuration(data.avgSyncDuration)}`)
-    if (data.watchTriggers > 0) {
-      lines.push(`- **Watch triggers**: ${data.watchTriggers.toLocaleString()} auto-syncs`)
-    }
-    lines.push('')
-
-    // Agent Usage
-    if (data.agentUsage.length > 0) {
-      lines.push('## 🤖 Agent Usage')
-      lines.push('')
-      const sortedAgents = [...data.agentUsage].sort((a, b) => b.usageCount - a.usageCount)
-      const totalUsage = sortedAgents.reduce((sum, a) => sum + a.usageCount, 0)
-
-      sortedAgents.slice(0, 5).forEach((agent) => {
-        const pct = totalUsage > 0 ? ((agent.usageCount / totalUsage) * 100).toFixed(0) : 0
-        lines.push(`- **${agent.agentName}**: ${pct}% (${agent.usageCount} uses)`)
-      })
-      lines.push('')
-    }
-
-    // Trend (last 30 days)
-    if (data.dailyStats.length > 0) {
-      lines.push('## 📈 30-Day Trend')
-      lines.push('')
-      const last30 = this.getLast30Days(data.dailyStats)
-      const totalLast30 = last30.reduce((sum, d) => sum + d.tokensSaved, 0)
-      lines.push(`- **Tokens saved**: ${this.formatTokens(totalLast30)}`)
-      lines.push(`- **Syncs**: ${last30.reduce((sum, d) => sum + d.syncs, 0)}`)
-      lines.push('')
-      lines.push('```')
-      lines.push(this.generateSparkline(last30))
-      lines.push('```')
-      lines.push('')
-    }
-
-    // Footer
-    lines.push('---')
-    lines.push('')
-    if (data.firstSync) {
-      lines.push(`_Tracking since ${new Date(data.firstSync).toLocaleDateString()}_`)
-    }
-    lines.push('')
-
-    return lines.join('\n')
   }
 
   // =========== Domain Methods ===========
@@ -263,8 +183,6 @@ class MetricsStorage extends StorageManager<MetricsJson> {
       .sort((a, b) => a.date.localeCompare(b.date))
   }
 
-  // =========== Helper Methods ===========
-
   private getLast30Days(dailyStats: DailyStats[]): DailyStats[] {
     const cutoff = new Date()
     cutoff.setDate(cutoff.getDate() - 30)
@@ -282,38 +200,6 @@ class MetricsStorage extends StorageManager<MetricsJson> {
     const endStr = end.toISOString().split('T')[0]
 
     return dailyStats.filter((d) => d.date >= startStr && d.date < endStr)
-  }
-
-  private formatTokens(tokens: number): string {
-    if (tokens >= 1_000_000) {
-      return `${(tokens / 1_000_000).toFixed(1)}M`
-    }
-    if (tokens >= 1_000) {
-      return `${(tokens / 1_000).toFixed(1)}K`
-    }
-    return tokens.toLocaleString()
-  }
-
-  private formatDuration(ms: number): string {
-    if (ms < 1000) {
-      return `${Math.round(ms)}ms`
-    }
-    return `${(ms / 1000).toFixed(1)}s`
-  }
-
-  private generateSparkline(dailyStats: DailyStats[]): string {
-    if (dailyStats.length === 0) return ''
-
-    const chars = '▁▂▃▄▅▆▇█'
-    const values = dailyStats.map((d) => d.tokensSaved)
-    const max = Math.max(...values, 1)
-
-    return values
-      .map((v) => {
-        const idx = Math.min(Math.floor((v / max) * (chars.length - 1)), chars.length - 1)
-        return chars[idx]
-      })
-      .join('')
   }
 }
 

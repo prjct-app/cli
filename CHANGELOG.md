@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.27.1] - 2026-02-11
+
+### Removed
+- Dead context generators (`ContextFileGenerator`, legacy `generateContext()`) — no readers existed
+- StorageManager MD write-through (`toMarkdown()`, `getLayer()`, `getMdFilename()`) from base class and 8 subclasses
+- ~1,750 lines of orphaned code; writes are faster (no MD file I/O on state changes)
+
 ## [1.27.0] - 2026-02-11
 
 ### Features
