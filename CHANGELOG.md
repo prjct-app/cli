@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.28.0] - 2026-02-11
+
+### Features
+
+- agentic Linear template without MCP dependency
+
+
 ## [1.27.1] - 2026-02-11
 
 ### Bug Fixes
