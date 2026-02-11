@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.25.1] - 2026-02-10
+## [1.23.1] - 2026-02-10
 
 ### Bug Fix
 
@@ -24,9 +24,20 @@ The source file `core/cli/linear.ts` had `#!/usr/bin/env bun` on line 1. esbuild
 4. `grep -c '#!/' dist/cli/linear.mjs` — returns `1`
 
 #### For Users
-**What changed:** Fixed `prjct linear` commands failing with SyntaxError after v1.25.0.
-**How to use:** Update to v1.25.1 — no action needed.
+**What changed:** Fixed `prjct linear` commands failing with SyntaxError after v1.23.0.
+**How to use:** Update to v1.23.1 — no action needed.
 **Breaking changes:** None.
+
+## [1.23.0] - 2026-02-11
+
+### Features
+
+- compile and ship dist/ instead of raw TypeScript source (PRJ-294) (#168)
+- add outcome-to-memory auto-learning (PRJ-283) (#166)
+
+### Refactoring
+
+- consolidate core modules from 27 to 20 directories (PRJ-292) (#167)
 
 ## [1.25.0] - 2026-02-10
 
