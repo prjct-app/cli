@@ -1,11 +1,6 @@
 ---
 allowed-tools: [Read, Write, Bash, Glob, Grep, AskUserQuestion, Task]
 description: 'Create a PRD using the Chief Architect agent'
-timestamp-rule: 'GetTimestamp() for all timestamps'
-architecture: 'Write-Through (JSON → MD → Events)'
-storage-layer: true
-source-of-truth: 'storage/prds.json'
-claude-context: 'context/prd.md'
 subagent: 'chief-architect'
 ---
 
@@ -17,19 +12,18 @@ subagent: 'chief-architect'
 
 ## Context Variables
 
-- `{projectId}`: From `.prjct/prjct.config.json`
-- `{globalPath}`: `~/.prjct-cli/projects/{projectId}`
 - `{title}`: PRD title from arguments
 - `{timestamp}`: Current timestamp (GetTimestamp())
 
 ---
 
-## Step 1: Read Config
+## Step 1: Validate Project
 
-READ: `.prjct/prjct.config.json`
-EXTRACT: `projectId`
+```bash
+prjct status --json 2>/dev/null || echo "NO_PROJECT"
+```
 
-IF file not found:
+IF output contains "NO_PROJECT":
   OUTPUT: "No prjct project. Run /p:init first."
   STOP
 
@@ -37,37 +31,26 @@ IF file not found:
 
 ## Step 2: Check for Existing PRD
 
-READ: `{globalPath}/storage/prds.json`
+```bash
+# Check existing PRDs via CLI (SQLite)
+prjct prd list --json 2>/dev/null || echo '{"prds":[]}'
+```
 
-IF file exists:
-  SEARCH for PRD with similar title (fuzzy match)
+SEARCH for PRD with similar title (fuzzy match)
 
-  IF found:
-    OUTPUT: "A PRD for '{similar title}' already exists (status: {status})"
-    ASK: "Do you want to:"
-    [A] Create a new PRD anyway
-    [B] View existing PRD
-    [C] Update existing PRD
+IF found:
+  OUTPUT: "A PRD for '{similar title}' already exists (status: {status})"
+  ASK: "Do you want to:"
+  [A] Create a new PRD anyway
+  [B] View existing PRD
+  [C] Update existing PRD
 
-    IF [B]: Show existing PRD and STOP
-    IF [C]: Load existing PRD for editing
-
----
-
-## Step 3: Initialize PRD Storage (if needed)
-
-IF `{globalPath}/storage/prds.json` does NOT exist:
-  CREATE empty prds.json:
-  ```json
-  {
-    "prds": [],
-    "lastUpdated": "{timestamp}"
-  }
-  ```
+  IF [B]: Show existing PRD and STOP
+  IF [C]: Load existing PRD for editing
 
 ---
 
-## Step 4: Load Chief Architect Agent
+## Step 3: Load Chief Architect Agent
 
 READ: `templates/subagents/workflow/chief-architect.md`
 
@@ -76,7 +59,7 @@ Follow its methodology based on the feature size.
 
 ---
 
-## Step 5: Execute Chief Architect Methodology
+## Step 4: Execute Chief Architect Methodology
 
 The Chief Architect will:
 
@@ -90,7 +73,7 @@ The Chief Architect will:
    - XL: All 8 phases
 4. **Estimate** - Calculate effort
 5. **Define Success** - Quantifiable metrics
-6. **Save** - Write to prds.json
+6. **Save** - Persist to SQLite via CLI
 
 ### Phase Quick Reference
 
@@ -107,11 +90,11 @@ The Chief Architect will:
 
 ---
 
-## Step 6: Save PRD
+## Step 5: Save PRD
 
 After Chief Architect completes:
 
-### 6.1 Generate IDs
+### 5.1 Generate IDs
 
 ```bash
 # Generate PRD ID
@@ -121,147 +104,26 @@ bun -e "console.log('prd_' + crypto.randomUUID().slice(0,8))" 2>/dev/null || nod
 bun -e "console.log(new Date().toISOString())" 2>/dev/null || node -e "console.log(new Date().toISOString())"
 ```
 
-### 6.2 Write to Storage
+### 5.2 Save via CLI
 
-READ: `{globalPath}/storage/prds.json`
-ADD new PRD to `prds` array
-UPDATE `lastUpdated`
-WRITE: `{globalPath}/storage/prds.json`
-
-### 6.3 Generate Context
-
-WRITE: `{globalPath}/context/prd.md`
-
-```markdown
-# PRD: {title}
-
-**ID:** {prd_id}
-**Status:** Draft
-**Size:** {size}
-**Created:** {timestamp}
-**Estimated:** {estimatedHours}h
-
----
-
-## Problem Statement
-
-{problem.statement}
-
-**Target User:** {problem.targetUser}
-**Impact:** {problem.impact}
-**Frequency:** {problem.frequency}
-
-### Pain Points
-{FOR EACH problem.painPoints}
-- {painPoint}
-{END FOR}
-
----
-
-## Success Criteria
-
-### Metrics
-
-| Metric | Baseline | Target | Unit |
-|--------|----------|--------|------|
-{FOR EACH successCriteria.metrics}
-| {metric.name} | {metric.baseline || 'N/A'} | {metric.target} | {metric.unit} |
-{END FOR}
-
-### Acceptance Criteria
-
-{FOR EACH successCriteria.acceptanceCriteria}
-- [ ] {ac}
-{END FOR}
-
----
-
-## Estimation
-
-| Area | Hours |
-|------|-------|
-{FOR EACH estimation.breakdown}
-| {area} | {hours} |
-{END FOR}
-| **Total** | **{estimation.estimatedHours}** |
-
-**Confidence:** {estimation.confidence}
-
----
-
-## MVP Scope
-
-### P0 - Must Have
-{FOR EACH roadmap.mvp.p0}
-- {item}
-{END FOR}
-
-### P1 - Should Have
-{FOR EACH roadmap.mvp.p1}
-- {item}
-{END FOR}
-
-### P2 - Nice to Have
-{FOR EACH roadmap.mvp.p2}
-- {item}
-{END FOR}
-
----
-
-## Risks
-
-{FOR EACH roadmap.risks}
-### {risk.type}: {risk.description}
-- **Probability:** {risk.probability}
-- **Impact:** {risk.impact}
-- **Mitigation:** {risk.mitigation}
-{END FOR}
-
----
-
-## Next Steps
-
-1. Review this PRD
-2. Run `p. plan` to add to roadmap
-3. Run `p. task "{title}"` to start implementation
+```bash
+# The CLI saves the PRD to SQLite and generates context files
+prjct prd save --json '{"id":"{prd_id}","title":"{title}","size":"{size}",...}'
 ```
 
-### 6.4 Log to Memory
-
-APPEND to: `{globalPath}/memory/events.jsonl`
-
-```json
-{"ts":"{timestamp}","action":"prd_created","prdId":"{prd_id}","title":"{title}","size":"{size}","estimatedHours":{hours},"phases":{phasesExecuted}}
-```
+# Events are logged automatically by the CLI
 
 ---
 
-## Step 7: Link to Roadmap (Optional)
+## Step 6: Link to Roadmap (Optional)
 
 ASK: "Do you want to add this PRD to the roadmap now?"
 [A] Yes - run /p:plan
 [B] No - keep as draft
 
 IF [A]:
-  READ: `{globalPath}/storage/roadmap.json`
-
-  ADD feature entry:
-  ```json
-  {
-    "id": "feat_{uuid8}",
-    "name": "{title}",
-    "status": "planned",
-    "prdId": "{prd_id}",
-    "legacy": false,
-    "impact": "{problem.impact}",
-    "progress": 0,
-    "tasks": [],
-    "createdAt": "{timestamp}"
-  }
-  ```
-
-  UPDATE PRD with featureId link
-  WRITE both files
+  Run `p. plan add {prd_id}` to add the PRD to the roadmap.
+  The CLI handles all SQLite persistence.
 
 ---
 
@@ -291,7 +153,7 @@ IF [A]:
 
 ---
 
-📄 Full PRD: `{globalPath}/context/prd.md`
+Full PRD saved by CLI.
 
 **Next Steps:**
 1. Review the PRD
@@ -328,14 +190,10 @@ The PRD structure maps directly to PM tools:
 
 ### Enforcement
 
-The enforcement level is read from `prjct.config.json`:
+The enforcement level is configured in the project settings:
 
-```json
-{
-  "orchestration": {
-    "prdRequired": "standard"  // strict | standard | relaxed | off
-  }
-}
+```
+Levels: strict | standard | relaxed | off
 ```
 
 - **strict**: Block task creation without PRD

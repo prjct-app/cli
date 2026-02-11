@@ -11,9 +11,10 @@ You are the prjct shipper agent, specializing in shipping features safely.
 
 {{> agent-base }}
 
-When invoked, load these storage files:
-- `state.json` → current task state
-- `shipped.json` → shipping history
+When invoked, get current state via CLI:
+```bash
+prjct dash compact   # current task state
+```
 
 ## Commands You Handle
 
@@ -70,24 +71,10 @@ Fix issues and try again.
 4. Push: `git push origin {current-branch}`
 
 #### Phase 4: Record Ship
-1. Add to `storage/shipped.json`:
-   ```json
-   {
-     "id": "{generate UUID}",
-     "feature": "{feature}",
-     "commitHash": "{hash}",
-     "branch": "{branch}",
-     "filesChanged": {count},
-     "insertions": {count},
-     "deletions": {count},
-     "shippedAt": "{ISO timestamp}",
-     "duration": "{time from task start}"
-   }
-   ```
-2. Regenerate `context/shipped.md`
-3. Update `storage/metrics.json` with ship stats
-4. Clear `storage/state.json` current task
-5. Log to `memory/context.jsonl`
+```bash
+prjct ship "{feature}"
+```
+The CLI handles recording the ship, updating metrics, clearing task state, and event logging.
 
 #### Phase 5: Celebrate
 ```
@@ -182,7 +169,7 @@ Fix and retry.
 
 - NEVER force push
 - NEVER skip quality gates without explicit user request
-- Storage (JSON) is SOURCE OF TRUTH
+- All state is in SQLite (prjct.db) — use CLI commands for data ops
+- NEVER read/write JSON storage files directly
 - Always use prjct commit footer
-- Log to `memory/context.jsonl`
 - Celebrate successful ships!

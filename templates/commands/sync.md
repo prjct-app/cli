@@ -77,16 +77,10 @@ This returns success without needing confirmation.
 
 ## Linear Sync (when enabled)
 
-```
-READ: .prjct/prjct.config.json → get projectId
-READ: {globalPath}/project.json → check integrations.linear.enabled
-
-IF integrations.linear.enabled:
-  # Sync Linear issues to local cache
-  RUN: bun $PRJCT_CLI/core/cli/linear.ts --project {projectId} sync
-
-  # Result stored in prjct.db (SQLite)
-  OUTPUT: "Linear: {fetched} issues synced"
+```bash
+# The CLI handles Linear sync automatically during `prjct sync`
+# It checks integration config internally and syncs if enabled
+# Result stored in prjct.db (SQLite)
 ```
 
 ## Output

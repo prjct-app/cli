@@ -2,19 +2,20 @@
 
 ### Setup
 1. Read `.prjct/prjct.config.json` → extract `projectId`
-2. Set `globalPath = ~/.prjct-cli/projects/{projectId}`
+2. All data is in SQLite (`prjct.db`) — accessed via `prjct` CLI commands
 
-### Available Storage
+### Data Access
 
-| File | Contents |
-|------|----------|
-| `{globalPath}/storage/state.json` | Current task & subtasks |
-| `{globalPath}/storage/queue.json` | Task queue |
-| `{globalPath}/storage/shipped.json` | Shipping history |
-| `{globalPath}/storage/roadmap.json` | Feature roadmap |
+| CLI Command | Data |
+|-------------|------|
+| `prjct dash compact` | Current task & state |
+| `prjct next` | Task queue |
+| `prjct task "desc"` | Start task |
+| `prjct done` | Complete task |
+| `prjct pause "reason"` | Pause task |
+| `prjct resume` | Resume task |
 
 ### Rules
-- Storage (JSON) is **SOURCE OF TRUTH**
-- Context (MD) is **GENERATED** from storage
+- All state is in **SQLite** — use `prjct` CLI for all data ops
+- NEVER read/write JSON storage files directly
 - NEVER hardcode timestamps — use system time
-- Log significant actions to `{globalPath}/memory/events.jsonl`

@@ -128,6 +128,8 @@ async function main(): Promise<void> {
       result = await commands.cleanup(options)
     } else if (commandName === 'setup') {
       result = await commands.setup(options)
+    } else if (commandName === 'update') {
+      result = await commands.update(options)
     } else {
       // Standard commands - type-safe invocation
       const param = parsedArgs.join(' ') || null

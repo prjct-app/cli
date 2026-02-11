@@ -591,12 +591,8 @@ WRITE: `{globalPath}/context/prd.md`
 3. Run `/p:task` to start implementation
 ```
 
-**Log to memory:**
-
-APPEND to: `{globalPath}/memory/events.jsonl`
-```json
-{"ts":"{timestamp}","action":"prd_created","prdId":"{prd_id}","title":"{title}","size":"{size}","estimatedHours":{hours}}
-```
+**Log event:**
+The CLI handles event logging internally when commands are executed.
 
 ---
 

@@ -1,9 +1,6 @@
 ---
 allowed-tools: [Read, Write, Bash]
 description: 'View snapshot history and undo/redo changes'
-timestamp-rule: 'GetTimestamp() for ALL timestamps'
-architecture: 'Write-Through (JSON → MD → Events)'
-storage-layer: true
 ---
 
 # p. history - Snapshot History & Undo/Redo
@@ -14,11 +11,7 @@ Unified command for viewing snapshot history and managing undo/redo operations.
 
 ## Context Variables
 
-- `{projectId}`: From `.prjct/prjct.config.json`
-- `{globalPath}`: `~/.prjct-cli/projects/{projectId}`
-- `{snapshotDir}`: `{globalPath}/snapshots`
-- `{memoryPath}`: `{globalPath}/memory/events.jsonl`
-- `{redoStackPath}`: `{snapshotDir}/redo-stack.json`
+- `{snapshotDir}`: Resolved by CLI from project config
 - `{limit}`: Number of snapshots to show (default: 10)
 
 ---
@@ -35,17 +28,14 @@ Unified command for viewing snapshot history and managing undo/redo operations.
 
 ## Step 1: Validate Project
 
+```bash
+# The CLI validates the project and resolves paths internally
+prjct status --json 2>/dev/null || echo "NO_PROJECT"
 ```
-READ: .prjct/prjct.config.json
-EXTRACT: projectId
 
-IF file not found:
+IF output contains "NO_PROJECT":
   OUTPUT: "No prjct project. Run `p. init` first."
   STOP
-
-SET: globalPath = ~/.prjct-cli/projects/{projectId}
-SET: snapshotDir = {globalPath}/snapshots
-```
 
 ---
 
@@ -96,13 +86,11 @@ CAPTURE as {currentHash}
 
 ### Check Redo Stack
 
-READ: `{redoStackPath}`
-
-IF file exists AND not empty AND not "[]":
-  PARSE as JSON array
-  COUNT items as {redoCount}
-ELSE:
-  {redoCount} = 0
+```bash
+# Redo stack is managed by the CLI in SQLite
+prjct history redo-count 2>/dev/null || echo "0"
+```
+CAPTURE as {redoCount}
 
 ### Output
 
@@ -170,19 +158,7 @@ COUNT files as {fileCount}
 
 ### Save Current State to Redo Stack
 
-READ: `{redoStackPath}` (create if not exists with `[]`)
-PARSE as JSON array
-
-ADD to array:
-```json
-{
-  "hash": "{currentHash}",
-  "message": "{currentMessage}",
-  "timestamp": "{GetTimestamp()}"
-}
-```
-
-WRITE: `{redoStackPath}`
+# The CLI saves redo state to SQLite automatically
 
 ### Restore Previous Snapshot
 
@@ -194,21 +170,9 @@ Copy files back to project for each file in {affectedFiles}:
 - Source: `{snapshotDir}/{file}`
 - Destination: `{projectPath}/{file}`
 
-### Log to Memory
-
-APPEND to: `{memoryPath}`
-```json
-{"timestamp":"{GetTimestamp()}","action":"snapshot_undo","from":"{currentHash}","to":"{previousHash}","files":{fileCount}}
-```
-
-### Log to Manifest
-
-APPEND to: `{snapshotDir}/manifest.jsonl`
-```json
-{"type":"undo","from":"{currentHash}","to":"{previousHash}","timestamp":"{GetTimestamp()}","files":{fileCount}}
-```
-
 ### Output
+
+# Events are logged automatically by the CLI
 
 ```
 ⏪ Undone: {currentMessage}
@@ -227,23 +191,18 @@ Restores a previously undone snapshot.
 
 ### Check Redo Stack
 
-READ: `{redoStackPath}`
+```bash
+# The CLI checks redo state from SQLite
+prjct history redo-peek 2>/dev/null || echo "NO_REDO"
+```
 
-IF file not found OR empty OR equals "[]":
+IF output contains "NO_REDO":
   OUTPUT: "Nothing to redo. Use `p. history undo` first."
   STOP
 
-PARSE as JSON array
-GET last item as {redoSnapshot}
-
-IF array is empty:
-  OUTPUT: "Nothing to redo. Use `p. history undo` first."
-  STOP
-
-EXTRACT from {redoSnapshot}:
+EXTRACT from output:
 - `{redoHash}`: hash
 - `{redoMessage}`: message
-- `{redoTimestamp}`: timestamp
 
 ### Get Current State
 
@@ -275,26 +234,10 @@ Copy files back to project for each file in {affectedFiles}:
 - Source: `{snapshotDir}/{file}`
 - Destination: `{projectPath}/{file}`
 
-### Remove from Redo Stack
+### Update Redo Stack
 
-READ: `{redoStackPath}`
-PARSE as JSON array
-REMOVE last item
-WRITE: `{redoStackPath}`
-
-### Log to Memory
-
-APPEND to: `{memoryPath}`
-```json
-{"timestamp":"{GetTimestamp()}","action":"snapshot_redo","from":"{currentHash}","to":"{redoHash}","files":{fileCount}}
-```
-
-### Log to Manifest
-
-APPEND to: `{snapshotDir}/manifest.jsonl`
-```json
-{"type":"redo","from":"{currentHash}","to":"{redoHash}","timestamp":"{GetTimestamp()}","files":{fileCount}}
-```
+# The CLI manages redo stack state in SQLite automatically
+# Events are logged automatically by the CLI
 
 ### Output
 

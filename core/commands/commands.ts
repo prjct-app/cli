@@ -31,6 +31,7 @@ import { PerformanceCommands } from './performance'
 import { PlanningCommands } from './planning'
 import { SetupCommands } from './setup'
 import { ShippingCommands } from './shipping'
+import { UpdateCommands } from './update'
 import { VelocityCommands } from './velocity'
 import { WorkflowCommands } from './workflow'
 
@@ -48,6 +49,7 @@ class PrjctCommands {
   private maintenance: MaintenanceCommands
   private analysis: AnalysisCommands
   private setupCmds: SetupCommands
+  private updateCmds: UpdateCommands
   private velocityCmds: VelocityCommands
   private contextCmds: ContextCommands
 
@@ -66,6 +68,7 @@ class PrjctCommands {
     this.maintenance = new MaintenanceCommands()
     this.analysis = new AnalysisCommands()
     this.setupCmds = new SetupCommands()
+    this.updateCmds = new UpdateCommands()
     this.velocityCmds = new VelocityCommands()
     this.contextCmds = new ContextCommands()
 
@@ -262,6 +265,13 @@ class PrjctCommands {
 
   async setup(options: SetupOptions = {}): Promise<CommandResult> {
     return this.setupCmds.setup(options)
+  }
+
+  async update(
+    options: { all?: boolean; 'dry-run'?: boolean } = {},
+    projectPath: string = process.cwd()
+  ): Promise<CommandResult> {
+    return this.updateCmds.update(options, projectPath)
   }
 
   async installStatusLine(): Promise<{ success: boolean; error?: string }> {

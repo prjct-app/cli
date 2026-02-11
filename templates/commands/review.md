@@ -1,10 +1,6 @@
 ---
 allowed-tools: [Bash, Read, Write, Task, AskUserQuestion]
 description: 'Code review with MCP agent and GitHub approvals'
-timestamp-rule: 'GetTimestamp() for ALL timestamps'
-architecture: 'Write-Through (JSON -> MD -> Events)'
-storage-layer: true
-source-of-truth: 'storage/state.json'
 ---
 
 # /p:review
@@ -17,25 +13,19 @@ Run MCP code review agent and wait for GitHub PR approvals.
 /p:review [--skip-mcp]    # Skip MCP agent review
 ```
 
-## Context Variables
-- `{projectId}`: From `.prjct/prjct.config.json`
-- `{globalPath}`: `~/.prjct-cli/projects/{projectId}`
-- `{statePath}`: `{globalPath}/storage/state.json`
-- `{memoryPath}`: `{globalPath}/memory/events.jsonl`
-- `{syncPath}`: `{globalPath}/sync/pending.json`
-
 ## Step 1: Validate Project
 
-READ: `.prjct/prjct.config.json`
-EXTRACT: `projectId`
+```bash
+prjct status --json 2>/dev/null || echo "NO_PROJECT"
+```
 
-IF file not found:
+IF output contains "NO_PROJECT":
   OUTPUT: "No prjct project. Run /p:init first."
   STOP
 
 ## Step 2: Validate Workflow Phase
 
-READ: `{globalPath}/storage/state.json`
+Parse CLI output for current task state.
 
 IF currentTask is null:
   OUTPUT: "No active task. Use p. task to start one."
@@ -198,36 +188,13 @@ ELSE:
 
 ## Step 6: Update Workflow Phase
 
-SET: {now} = GetTimestamp()
+The CLI updates the workflow phase and checkpoints in SQLite:
 
-SET: currentTask.workflow.phase = "review"
-SET: currentTask.workflow.checkpoints.review = {
-  "completedAt": "{now}",
-  "data": {
-    "mcpScore": {mcpScore},
-    "approvals": {approvals},
-    "prUrl": "{prUrl}",
-    "prNumber": {prNumber}
-  }
-}
-SET: currentTask.workflow.lastCheckpoint = "review"
-SET: currentTask.branch.prUrl = "{prUrl}"
-SET: currentTask.branch.prNumber = {prNumber}
-
-WRITE: `{statePath}`
-
-## Step 7: Log Events
-
-APPEND to `{memoryPath}`:
-```json
-{"timestamp":"{now}","action":"phase_advanced","taskId":"{currentTask.id}","from":"test","to":"review"}
-{"timestamp":"{now}","action":"checkpoint_completed","taskId":"{currentTask.id}","checkpoint":"review","data":{"mcpScore":{mcpScore},"approvals":{approvals.length}}}
+```bash
+prjct review complete --mcp-score {mcpScore} --pr-url "{prUrl}" --pr-number {prNumber}
 ```
 
-APPEND to `{syncPath}`:
-```json
-{"type":"workflow.phase_advanced","data":{"taskId":"{currentTask.id}","from":"test","to":"review","prUrl":"{prUrl}"},"timestamp":"{now}"}
-```
+# Events are logged automatically by the CLI
 
 ## Output
 

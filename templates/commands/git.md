@@ -1,9 +1,6 @@
 ---
 allowed-tools: [Bash, Read, Write, AskUserQuestion]
 description: 'Smart git operations with context'
-architecture: 'Write-Through (JSON → MD → Events)'
-storage-layer: true
-source-of-truth: 'storage/state.json'
 ---
 
 # /p:git - Smart Git Operations
@@ -51,10 +48,7 @@ ABORT.
 ```
 
 ## Context Variables
-- `{projectId}`: From `.prjct/prjct.config.json`
-- `{globalPath}`: `~/.prjct-cli/projects/{projectId}`
-- `{statePath}`: `{globalPath}/storage/state.json`
-- `{memoryPath}`: `{globalPath}/memory/events.jsonl`
+- Task state is managed by the CLI in SQLite
 
 ## Flow: commit
 
@@ -146,9 +140,9 @@ EOF
 
 **⛔ The prjct footer is MANDATORY. No exceptions.**
 
-### Step 4: Log to Memory
+### Step 4: Log Event
 
-APPEND to `{globalPath}/memory/events.jsonl`
+# Events are logged automatically by the CLI
 
 ## Flow: push
 

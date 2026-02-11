@@ -61,8 +61,7 @@ This rule applies to ALL prjct operations. No exceptions.
 ```
 1. Read .prjct/prjct.config.json → get projectId
 2. Set globalPath = ~/.prjct-cli/projects/{projectId}
-3. Execute command using globalPath for all writes
-4. Log to {globalPath}/memory/events.jsonl
+3. Use `prjct` CLI commands for all storage operations (CLI handles SQLite internally)
 ```
 
 ### 3. Timestamps & UUIDs
@@ -86,14 +85,9 @@ Generated with [p/](https://www.prjct.app/)
 
 ### 5. Storage Rules (CROSS-AGENT COMPATIBILITY)
 
-**NEVER use temporary files** - Write directly to final destination:
-- WRONG: Create `.tmp/file.json`, then `mv` to final path
-- CORRECT: Write directly to `{globalPath}/storage/state.json`
+**All storage goes through SQLite** via `prjct` CLI commands. Never read or write JSON storage files directly.
 
-**JSON formatting** - Always use consistent format:
-- 2-space indentation
-- No trailing commas
-- Keys in logical order (as defined in storage schemas)
+**NEVER** use temporary files or direct file writes for storage.
 
 **Timestamps**: Always ISO-8601 with milliseconds (`.000Z`)
 **UUIDs**: Always v4 format (lowercase)
@@ -134,35 +128,31 @@ p. sync  →  p. task "description"  →  [work]  →  p. done  →  p. ship
 ## ARCHITECTURE: Write-Through Pattern
 
 ```
-User Action → Storage (JSON) → Context (MD) → Sync Events
+User Action → Storage (SQLite) → Context (MD)
 ```
 
 | Layer | Path | Purpose |
 |-------|------|---------|
-| **Storage** | `storage/*.json` | Source of truth |
+| **Storage** | `prjct.db` | Source of truth (SQLite) |
 | **Context** | `context/*.md` | AI-readable summaries |
-| **Memory** | `memory/events.jsonl` | Audit trail (append-only) |
 | **Agents** | `agents/*.md` | Domain specialists |
 | **Sync** | `sync/pending.json` | Backend sync queue |
 
 ### File Structure
 ```
 ~/.prjct-cli/projects/{projectId}/
-├── storage/
-│   ├── state.json      # Current task (SOURCE OF TRUTH)
-│   ├── queue.json      # Task queue
-│   └── shipped.json    # Shipped features
+├── prjct.db            # SQLite database (SOURCE OF TRUTH)
 ├── context/
 │   ├── now.md          # Current task (generated)
 │   └── next.md         # Queue (generated)
 ├── config/
 │   └── skills.json     # Agent-to-skill mappings
-├── memory/
-│   └── events.jsonl    # Audit trail
 ├── agents/             # Domain specialists (auto-generated)
 └── sync/
     └── pending.json    # Events for backend
 ```
+
+> **All storage reads/writes go through `prjct` CLI commands. Never read or write JSON storage files directly.**
 
 ---
 
@@ -175,7 +165,7 @@ User Action → Storage (JSON) → Context (MD) → Sync Events
 4. **Ask** - Clarify ambiguities
 5. **Design** - Propose 2-3 approaches, get approval
 6. **Break down** - Create actionable subtasks
-7. **Track** - Update storage/state.json
+7. **Track** - Update state via `prjct` CLI
 
 ### When Completing Tasks (`p. done`)
 1. Check if there are more subtasks
@@ -195,7 +185,7 @@ User Action → Storage (JSON) → Context (MD) → Sync Events
 - **Explore before coding** - Understand codebase first
 - **Ask when uncertain** - Clarify ambiguities
 - **Adapt templates** - Templates are guidance, not rigid scripts
-- **Log everything** - Append to memory/events.jsonl
+- **Let CLI handle storage** - Use `prjct` CLI for all state changes
 
 ---
 

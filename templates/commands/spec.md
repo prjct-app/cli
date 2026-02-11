@@ -1,22 +1,14 @@
 ---
 allowed-tools: [Read, Write, Glob, GetTimestamp, GetDate]
 description: 'Spec-driven development for complex features'
-timestamp-rule: 'GetTimestamp() and GetDate() for ALL timestamps'
 think-triggers: [explore_to_edit, complex_analysis]
-architecture: 'Write-Through (JSON → MD → Events)'
-storage-layer: true
-source-of-truth: 'storage/specs.json'
-claude-context: 'context/specs/'
 ---
 
 # /p:spec - Spec-Driven Development
 
 Spec-Driven Development. Creates detailed specifications for complex features before implementation.
 
-## Architecture: Write-Through Pattern
-
-**Source of Truth**: `storage/specs.json`
-**Claude Context**: `context/specs/{slug}.md` (generated)
+# All spec data is stored in SQLite via the CLI
 
 ## Think First
 
@@ -27,11 +19,7 @@ Before creating spec, analyze:
 4. What questions should I ask the user before proceeding?
 
 ## Context Variables
-- `{projectId}`: From `.prjct/prjct.config.json`
-- `{globalPath}`: `~/.prjct-cli/projects/{projectId}`
-- `{specsStoragePath}`: `{globalPath}/storage/specs.json`
-- `{specsContextPath}`: `{globalPath}/context/specs/`
-- `{queuePath}`: `{globalPath}/storage/queue.json`
+- Spec data is managed by the CLI in SQLite
 
 ## Purpose
 
@@ -55,9 +43,9 @@ For features that require:
 /p:spec "Dark Mode"
 1. Analyze: Context, patterns, dependencies
 2. Propose: Requirements + Design + Tasks
-3. Write: `storage/specs.json` + generate `context/specs/{slug}.md`
+3. Save: Via CLI to SQLite
 4. Ask: User approval
-5. On approve: Add tasks to `storage/queue.json`, start first
+5. On approve: Add tasks to queue via CLI, start first
 ```
 
 ## Spec Structure
@@ -90,27 +78,10 @@ For features that require:
 - {edge cases to consider}
 ```
 
-## Storage Format
+## Storage
 
-### storage/specs.json
-```json
-{
-  "specs": [
-    {
-      "id": "{specId}",
-      "name": "{feature}",
-      "slug": "{feature-slug}",
-      "status": "PENDING_APPROVAL",
-      "requirements": [...],
-      "design": {...},
-      "tasks": [...],
-      "createdAt": "{timestamp}",
-      "approvedAt": null
-    }
-  ],
-  "lastUpdated": "{timestamp}"
-}
-```
+All spec data is persisted to SQLite by the CLI (`prjct spec`).
+The CLI handles creating, listing, and updating specs.
 
 ## Validation
 

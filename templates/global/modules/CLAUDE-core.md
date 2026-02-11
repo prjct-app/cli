@@ -60,8 +60,7 @@ p. ship X   → ~/.claude/commands/p/ship.md
 ```
 1. Read .prjct/prjct.config.json → get projectId
 2. Set globalPath = ~/.prjct-cli/projects/{projectId}
-3. Execute command using globalPath for all writes
-4. Log to {globalPath}/memory/events.jsonl
+3. Use `prjct` CLI commands for all storage operations (CLI handles SQLite internally)
 ```
 
 ### 3. Timestamps & UUIDs

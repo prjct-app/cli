@@ -19,6 +19,7 @@ import { commandRegistry } from './registry'
 import { SetupCommands } from './setup'
 import { ShippingCommands } from './shipping'
 import { UninstallCommands } from './uninstall'
+import { UpdateCommands } from './update'
 import { VelocityCommands } from './velocity'
 import { WorkflowCommands } from './workflow'
 
@@ -34,6 +35,7 @@ const setup = new SetupCommands()
 const context = new ContextCommands()
 const velocityCmd = new VelocityCommands()
 const uninstallCmd = new UninstallCommands()
+const updateCmd = new UpdateCommands()
 
 /**
  * Register categories
@@ -103,6 +105,7 @@ export function registerAllCommands(): void {
   commandRegistry.registerMethod('start', setup, 'start', getMeta('start'))
   commandRegistry.registerMethod('setup', setup, 'setup', getMeta('setup'))
   commandRegistry.registerMethod('uninstall', uninstallCmd, 'uninstall', getMeta('uninstall'))
+  commandRegistry.registerMethod('update', updateCmd, 'update', getMeta('update'))
 
   // Context command (for Claude templates)
   commandRegistry.registerMethod('context', context, 'context', getMeta('context'))
@@ -124,4 +127,5 @@ export {
   context,
   velocityCmd,
   uninstallCmd,
+  updateCmd,
 }

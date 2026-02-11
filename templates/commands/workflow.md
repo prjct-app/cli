@@ -6,22 +6,18 @@ allowed-tools: [Read, Write, Bash, AskUserQuestion]
 
 Manage workflow preferences using natural language.
 
-## Step 1: Resolve Project Paths
+## Step 1: Get Current Preferences
 
 ```bash
-# Get projectId from local config
-cat .prjct/prjct.config.json | grep -o '"projectId"[[:space:]]*:[[:space:]]*"[^"]*"' | cut -d'"' -f4
+# The CLI manages workflow preferences in SQLite
+prjct workflow --json 2>/dev/null || echo '{"preferences":[]}'
 ```
-
-Set `globalPath = ~/.prjct-cli/projects/{projectId}`
 
 ---
 
 ## If NO argument provided
 
-Show current workflow preferences:
-
-READ `{globalPath}/config/workflow-preferences.json` (or empty object)
+Show current workflow preferences (from CLI output):
 
 **When preferences exist:**
 ```
@@ -75,30 +71,17 @@ AskUserQuestion:
       description: "Use once and discard"
 ```
 
-3. **Save preference**:
+3. **Save preference** via CLI:
 
-READ `{globalPath}/config/workflow-preferences.json` (or create empty object)
+```bash
+# Add preference
+prjct workflow set --hook "{before|after|skip}" --command "{task|done|ship|sync}" --action "{command to run}" --scope "{permanent|session|once}"
 
-For adding/updating:
-```json
-{
-  "preferences": [
-    {
-      "hook": "{before|after|skip}",
-      "command": "{task|done|ship|sync}",
-      "action": "{command to run}",
-      "scope": "{permanent|session|once}",
-      "createdAt": "{timestamp}"
-    }
-  ]
-}
+# Remove preference
+prjct workflow remove --hook "{hook}" --command "{command}"
 ```
 
-WRITE `{globalPath}/config/workflow-preferences.json`
-
-For removal:
-- Filter out preferences matching the hook and command
-- Write updated file
+# Events are logged automatically by the CLI
 
 4. **Confirm**:
 

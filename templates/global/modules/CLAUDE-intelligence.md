@@ -7,7 +7,7 @@
 4. **Ask** - Clarify ambiguities (use AskUserQuestion)
 5. **Design** - Propose 2-3 approaches, get approval
 6. **Break down** - Create actionable subtasks
-7. **Track** - Update storage/state.json
+7. **Track** - Update state via `prjct` CLI
 
 ### When Completing Tasks (`p. done`)
 1. Check if there are more subtasks
@@ -26,40 +26,38 @@
 - **Read before write** - Always read existing files before modifying
 - **Explore before coding** - Use Task(Explore) to understand codebase
 - **Ask when uncertain** - Use AskUserQuestion to clarify
-- **Log everything** - Append to memory/events.jsonl
+- **Let CLI handle storage** - Use `prjct` CLI for all state changes
 
 ---
 
 ## ARCHITECTURE: Write-Through Pattern
 
 ```
-User Action → Storage (JSON) → Context (MD) → Sync Events
+User Action → Storage (SQLite) → Context (MD)
 ```
 
 | Layer | Path | Purpose |
 |-------|------|---------|
-| **Storage** | `storage/*.json` | Source of truth |
+| **Storage** | `prjct.db` | Source of truth (SQLite) |
 | **Context** | `context/*.md` | Claude-readable summaries |
-| **Memory** | `memory/events.jsonl` | Audit trail (append-only) |
 | **Agents** | `agents/*.md` | Domain specialists |
 | **Sync** | `sync/pending.json` | Backend sync queue |
 
 ### File Structure
 ```
 ~/.prjct-cli/projects/{projectId}/
-├── storage/
-│   ├── state.json      # Current task (SOURCE OF TRUTH)
-│   ├── queue.json      # Task queue
-│   └── shipped.json    # Shipped features
+├── prjct.db            # SQLite database (SOURCE OF TRUTH)
 ├── context/
 │   ├── now.md          # Current task (generated)
 │   └── next.md         # Queue (generated)
-├── memory/
-│   └── events.jsonl    # Audit trail
+├── config/
+│   └── skills.json     # Agent-to-skill mappings
 ├── agents/             # Domain specialists (auto-generated)
 └── sync/
     └── pending.json    # Events for backend
 ```
+
+> **All storage reads/writes go through `prjct` CLI commands, which use SQLite internally. Never read or write JSON storage files directly.**
 
 ---
 

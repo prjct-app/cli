@@ -224,6 +224,7 @@ class PerformanceTracker {
   async getReport(projectId: string, days: number = 7): Promise<PerformanceReport> {
     const sinceDate = new Date()
     sinceDate.setDate(sinceDate.getDate() - days)
+    sinceDate.setHours(0, 0, 0, 0)
 
     const entries = await this.getMetrics(projectId, sinceDate)
     const report: PerformanceReport = {

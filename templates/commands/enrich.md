@@ -24,17 +24,14 @@ User types `p. enrich PRJ-123` → Claude fetches ticket → Analyzes codebase �
 ### CLI Helper for Linear
 
 ```bash
-PRJCT_CLI=$(npm root -g)/prjct-cli
-PROJECT_ID=$(cat .prjct/prjct.config.json | jq -r '.projectId')
-
 # Fetch issue
-ISSUE=$(bun $PRJCT_CLI/core/cli/linear.ts --project $PROJECT_ID get PRJ-123)
+prjct linear get PRJ-123
 
 # Update description with PRD
-bun $PRJCT_CLI/core/cli/linear.ts --project $PROJECT_ID update PRJ-123 '{"description":"..."}'
+prjct linear update PRJ-123 '{"description":"..."}'
 
 # Or add as comment
-bun $PRJCT_CLI/core/cli/linear.ts --project $PROJECT_ID comment PRJ-123 "## PRD\n..."
+prjct linear comment PRJ-123 "## PRD\n..."
 ```
 
 ---
@@ -51,7 +48,7 @@ Detect input format:
 
 ```bash
 # For Linear
-ISSUE=$(bun $PRJCT_CLI/core/cli/linear.ts --project $PROJECT_ID get "$IDENTIFIER")
+ISSUE=$(prjct linear get "$IDENTIFIER" --json)
 ```
 
 Extract: `id`, `title`, `description`, `status`, `priority`
@@ -131,30 +128,17 @@ OPTIONS:
 
 ```bash
 # Update description
-bun $PRJCT_CLI/core/cli/linear.ts --project $PROJECT_ID update PRJ-123 '{"description":"# PRD\n..."}'
+prjct linear update PRJ-123 '{"description":"# PRD\n..."}'
 
 # Or add comment
-bun $PRJCT_CLI/core/cli/linear.ts --project $PROJECT_ID comment PRJ-123 "## PRD\n..."
+prjct linear comment PRJ-123 "## PRD\n..."
 ```
 
 ---
 
 ## Step 8: Save Locally
 
-```bash
-WRITE: {globalPath}/storage/enriched/{id}.json
-```
-
-```json
-{
-  "id": "PRJ-123",
-  "enrichedAt": "2026-01-29T...",
-  "type": "story",
-  "points": 5,
-  "filesAffected": ["src/auth.ts", "src/login.tsx"],
-  "prd": "..."
-}
-```
+# The CLI saves enrichment data to SQLite automatically
 
 ---
 

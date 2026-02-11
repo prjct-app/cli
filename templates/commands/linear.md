@@ -21,29 +21,27 @@ description: 'Linear issue tracker integration via SDK'
 
 ---
 
-## Execution Method: SDK CLI
+## Execution Method: prjct CLI
 
-All commands use this CLI helper (NOT MCP tools):
+All commands use the `prjct linear` CLI (NOT MCP tools):
 
 ```bash
-PRJCT_CLI=$(npm root -g)/prjct-cli
-PROJECT_ID=$(cat .prjct/prjct.config.json | jq -r '.projectId')
-bun $PRJCT_CLI/core/cli/linear.ts --project $PROJECT_ID <command> [args...]
+prjct linear <command> [args...]
 ```
+
+The CLI resolves the project internally from `.prjct/prjct.config.json`.
 
 ---
 
 ## Step 1: Validate Project
 
+```bash
+prjct status --json 2>/dev/null || echo "NO_PROJECT"
 ```
-READ: .prjct/prjct.config.json
-EXTRACT: projectId
-SET: globalPath = ~/.prjct-cli/projects/{projectId}
 
-IF file not found:
+IF output contains "NO_PROJECT":
   OUTPUT: "No prjct project. Run `p. init` first."
   STOP
-```
 
 ---
 
@@ -81,7 +79,7 @@ Analyze $ARGUMENTS to determine what user wants:
 
 2. **Store and test via CLI**
    ```bash
-   RESULT=$(bun $PRJCT_CLI/core/cli/linear.ts --project $PROJECT_ID setup "$API_KEY")
+   RESULT=$(prjct linear setup "$API_KEY")
    ```
 
 3. **Parse result** - Contains `{ success, teams, defaultTeam }`
@@ -92,7 +90,7 @@ Analyze $ARGUMENTS to determine what user wants:
    OPTIONS: teams from result
 
    # Re-run setup with team selection
-   bun $PRJCT_CLI/core/cli/linear.ts --project $PROJECT_ID setup "$API_KEY" "$TEAM_ID"
+   prjct linear setup "$API_KEY" "$TEAM_ID"
    ```
 
 ### Output
@@ -113,7 +111,7 @@ Next: `p. linear` to see your issues
 **Trigger**: `p. linear` (no arguments)
 
 ```bash
-RESULT=$(bun $PRJCT_CLI/core/cli/linear.ts --project $PROJECT_ID list)
+RESULT=$(prjct linear list)
 ```
 
 ### Output
@@ -137,7 +135,7 @@ Next: `p. linear 123` for details, `p. linear start 123` to begin
 **Trigger**: `p. linear 123` or `p. linear PRJ-123`
 
 ```bash
-RESULT=$(bun $PRJCT_CLI/core/cli/linear.ts --project $PROJECT_ID get "PRJ-123")
+RESULT=$(prjct linear get "PRJ-123")
 ```
 
 ### Output
@@ -165,10 +163,10 @@ Next: `p. linear start 123` to begin, `p. task "PRJ-123"` to track in prjct
 
 ```bash
 # 1. Get issue info
-ISSUE=$(bun $PRJCT_CLI/core/cli/linear.ts --project $PROJECT_ID get "PRJ-123")
+ISSUE=$(prjct linear get "PRJ-123")
 
 # 2. Mark in progress
-bun $PRJCT_CLI/core/cli/linear.ts --project $PROJECT_ID start "PRJ-123"
+prjct linear start "PRJ-123"
 
 # 3. Create git branch
 git checkout -b "feature/PRJ-123-{slug}"
@@ -192,7 +190,7 @@ Next: Work on the task, then `p. done`
 **Trigger**: `p. linear done 123`
 
 ```bash
-bun $PRJCT_CLI/core/cli/linear.ts --project $PROJECT_ID done "PRJ-123"
+prjct linear done "PRJ-123"
 ```
 
 ### Output
@@ -211,10 +209,10 @@ Linear: Done
 
 ```bash
 # Get default team from credentials
-TEAMS=$(bun $PRJCT_CLI/core/cli/linear.ts --project $PROJECT_ID teams)
+TEAMS=$(prjct linear teams)
 
 # Create issue
-RESULT=$(bun $PRJCT_CLI/core/cli/linear.ts --project $PROJECT_ID create '{"title":"...","teamId":"..."}')
+RESULT=$(prjct linear create '{"title":"...","teamId":"..."}')
 ```
 
 ### Output
@@ -234,7 +232,7 @@ Next: `p. linear start 126` to begin
 **Trigger**: `p. linear comment 123 "Progress update..."`
 
 ```bash
-bun $PRJCT_CLI/core/cli/linear.ts --project $PROJECT_ID comment "PRJ-123" "Progress update..."
+prjct linear comment "PRJ-123" "Progress update..."
 ```
 
 ### Output
@@ -250,7 +248,7 @@ bun $PRJCT_CLI/core/cli/linear.ts --project $PROJECT_ID comment "PRJ-123" "Progr
 **Trigger**: `p. linear update 123` (then ask what to update)
 
 ```bash
-bun $PRJCT_CLI/core/cli/linear.ts --project $PROJECT_ID update "PRJ-123" '{"description":"..."}'
+prjct linear update "PRJ-123" '{"description":"..."}'
 ```
 
 ---
@@ -270,7 +268,7 @@ bun $PRJCT_CLI/core/cli/linear.ts --project $PROJECT_ID update "PRJ-123" '{"desc
 
 Credentials are stored **per-project** to support multiple Linear workspaces:
 
-**Location**: `~/.prjct-cli/projects/{projectId}/config/credentials.json`
+**Location**: Stored securely via the CLI in SQLite
 
 **Fallback chain**:
 1. Project credentials (per-project)

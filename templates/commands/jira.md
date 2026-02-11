@@ -13,9 +13,8 @@ Manage JIRA issues directly from prjct using the REST API for fast performance.
 
 ## Context Variables
 
-- `{projectId}`: From `.prjct/prjct.config.json`
-- `{globalPath}`: `~/.prjct-cli/projects/{projectId}`
 - `{args}`: User-provided arguments (subcommand)
+- Project config is resolved internally by the CLI
 
 ---
 
@@ -47,15 +46,13 @@ export JIRA_API_TOKEN="your-token"
 
 ## Step 1: Validate Project
 
+```bash
+prjct status --json 2>/dev/null || echo "NO_PROJECT"
 ```
-READ: .prjct/prjct.config.json
-EXTRACT: projectId
-SET: globalPath = ~/.prjct-cli/projects/{projectId}
 
-IF file not found:
+IF output contains "NO_PROJECT":
   OUTPUT: "No prjct project. Run `p. init` first."
   STOP
-```
 
 ---
 
@@ -111,22 +108,11 @@ IF not all set:
    OPTIONS: List of projects
    ```
 
-5. **Save config to project.json**
-   ```json
-   {
-     "integrations": {
-       "jira": {
-         "enabled": true,
-         "provider": "jira",
-         "authMode": "api-token",
-         "baseUrl": "{baseUrl}",
-         "projectKey": "{projectKey}",
-         "projectName": "{projectName}",
-         "setupAt": "{timestamp}"
-       }
-     }
-   }
+5. **Save config via CLI**
+   ```bash
+   prjct jira setup --base-url "{baseUrl}" --project-key "{projectKey}"
    ```
+   The CLI persists integration config to SQLite.
 
 ### Output
 
@@ -240,7 +226,7 @@ Cache is automatically invalidated on writes (create, update, status changes).
 | What | Where |
 |------|-------|
 | Credentials | Environment variables: `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN` |
-| Config | `{globalPath}/project.json` → `integrations.jira` |
+| Config | Stored in SQLite via CLI |
 
 ---
 

@@ -136,10 +136,7 @@ git pull origin main
 
 **⛔ This step is MANDATORY if there's a linked issue.**
 
-```
-READ: {globalPath}/storage/state.json
-GET: currentTask.linearId, currentTask.jiraId
-```
+Check CLI output from Step 1 for linked issue IDs (linearId, jiraId).
 
 **IF linearId exists:**
 ```bash
@@ -166,19 +163,12 @@ OUTPUT: "✓ No issue tracker linked"
 
 ### STEP 8: Complete Task State
 
-```
-UPDATE: {globalPath}/storage/state.json
-
-SET: previousTask = currentTask
-SET: previousTask.status = "completed"
-SET: previousTask.completedAt = {timestamp}
-SET: currentTask = null
+```bash
+# The CLI completes the task in SQLite
+prjct done --merged
 ```
 
-APPEND to `{globalPath}/memory/events.jsonl`:
-```json
-{"type":"task_completed","taskId":"{id}","linearId":"{linearId}","prNumber":"{prNumber}","timestamp":"{timestamp}"}
-```
+# Events are logged automatically by the CLI
 
 ---
 

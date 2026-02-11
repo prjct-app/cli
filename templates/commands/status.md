@@ -6,31 +6,18 @@ allowed-tools: [Read, Bash]
 
 Visual workflow status showing current position in the prjct lifecycle.
 
-## Step 1: Resolve Project Paths
+## Step 1: Get Project State
 
 ```bash
-# Get projectId from local config
-cat .prjct/prjct.config.json | grep -o '"projectId"[[:space:]]*:[[:space:]]*"[^"]*"' | cut -d'"' -f4
-```
-
-Set `globalPath = ~/.prjct-cli/projects/{projectId}`
-
-## Step 2: Read State and Context
-
-READ:
-- `{globalPath}/storage/state.json` → current task, paused, previous
-- `{globalPath}/storage/queue.json` → upcoming tasks
-- `{globalPath}/storage/shipped.json` → recent ships
-- `{globalPath}/project.json` → lastSync timestamp
-
-```bash
-# Get staleness info
+# Get all state info from CLI (handles SQLite internally)
 prjct status --json 2>/dev/null || echo '{"isStale": false}'
 ```
 
-## Step 3: Determine Workflow Position
+The CLI returns current task, paused tasks, queue count, shipped info, and staleness.
 
-Based on state.json, determine current position:
+## Step 2: Determine Workflow Position
+
+Based on CLI output, determine current position:
 
 ```
 IF no currentTask AND no previousTask:
@@ -45,7 +32,7 @@ ELSE:
   position = "idle"
 ```
 
-## Step 4: Calculate Progress
+## Step 3: Calculate Progress
 
 ```
 IF currentTask.subtasks exists:
@@ -62,7 +49,7 @@ empty = 10 - filled
 bar = "█" × filled + "░" × empty
 ```
 
-## Step 5: Format Subtask Tree
+## Step 4: Format Subtask Tree
 
 ```
 FOR EACH subtask in currentTask.subtasks:

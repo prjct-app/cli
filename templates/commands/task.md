@@ -1,5 +1,5 @@
 ---
-allowed-tools: [Read, Write, Bash, Task, Glob, Grep, AskUserQuestion]
+allowed-tools: [Read, Bash, Task, Glob, Grep, AskUserQuestion]
 ---
 
 # p. task "$ARGUMENTS"
@@ -17,24 +17,17 @@ IF $ARGUMENTS is empty:
   DO NOT proceed with empty task
 ```
 
-### Check 2: Resolve Project Paths
+### Check 2: Check for Active Task
 
 ```bash
-# Get projectId from local config
-cat .prjct/prjct.config.json | grep -o '"projectId"[[:space:]]*:[[:space:]]*"[^"]*"' | cut -d'"' -f4
+prjct dash compact
 ```
 
-Set `globalPath = ~/.prjct-cli/projects/{projectId}`
-
-### Check 3: Check for Active Task
-
 ```
-READ: {globalPath}/storage/state.json
-
-IF currentTask exists AND currentTask.status == "active":
+IF output shows an active task (🎯):
   OUTPUT:
   """
-  ⚠️ Active task detected: {currentTask.description}
+  ⚠️ Active task detected.
 
   Options:
   1. Complete current task first → `p. done`
@@ -45,9 +38,12 @@ IF currentTask exists AND currentTask.status == "active":
   ASK: "What would you like to do?"
   WAIT for explicit choice
   DO NOT automatically switch tasks
+
+  IF "Switch anyway":
+    prjct pause "switching to new task"
 ```
 
-### Check 4: Validate Git State
+### Check 3: Validate Git State
 
 ```bash
 git status --porcelain
@@ -75,70 +71,36 @@ IF `$ARGUMENTS` matches pattern `/^[A-Z]+-\d+$/` (e.g., PRJ-123, PROJ-456):
 
 **⛔ CRITICAL: READ LOCAL, WRITE REMOTE (Token Efficiency)**
 
+```bash
+# Read from local cache (SQLite) - NEVER call API for issue details
+prjct linear get-local "$ARGUMENTS"
 ```
-READ: {globalPath}/project.json
-CHECK: integrations.linear OR integrations.jira
 
-IF integrations.linear.enabled:
-  # ═══════════════════════════════════════════════════════════════
-  # READ FROM LOCAL CACHE (SQLite) - NEVER call API for issue details
-  # This saves 1000s of tokens by not re-reading descriptions/AC
-  # ═══════════════════════════════════════════════════════════════
-
-  RUN: prjct linear get-local "$ARGUMENTS"
-  # Returns the cached issue directly from SQLite (prjct.db)
-
-  IF issue NOT found in local cache:
-    # Only sync if issue not cached (rare case)
-    OUTPUT: "Issue not in cache. Syncing..."
-    RUN: prjct linear sync
-    RUN: prjct linear get-local "$ARGUMENTS"  # Re-read after sync
-
-  IF issue found:
-    # Use cached data - DO NOT re-fetch from API
-    SET: task.linearId = issue.identifier     # "PRJ-123"
-    SET: task.linearUuid = issue.id           # Linear internal UUID
-    SET: task.description = issue.title       # From cache, not API
-    SET: $ARGUMENTS = issue.title
-
-    # ═══════════════════════════════════════════════════════════════
-    # WRITE TO REMOTE - Only status updates go to API
-    # USE prjct CLI DIRECTLY - NOT $PRJCT_CLI (may be unset)
-    # ═══════════════════════════════════════════════════════════════
-    RUN: prjct linear start "{task.linearId}"
-
-    OUTPUT: "Linked to Linear: {issue.identifier} - {issue.title}"
-    OUTPUT: "Linear: → In Progress ✓"
-
-ELSE IF integrations.jira.enabled:
-  # ═══════════════════════════════════════════════════════════════
-  # READ FROM LOCAL CACHE (SQLite) - Same pattern as Linear
-  # ═══════════════════════════════════════════════════════════════
-
-  RUN: prjct jira get-local "$ARGUMENTS"
-  # Returns the cached issue directly from SQLite (prjct.db)
-
-  IF issue NOT found in local cache:
-    OUTPUT: "Issue not in cache. Syncing..."
-    RUN: prjct jira sync
-    RUN: prjct jira get-local "$ARGUMENTS"
-
-  IF issue found:
-    SET: task.externalId = issue.externalId
-    SET: task.externalProvider = "jira"
-    SET: task.description = issue.title
-    SET: $ARGUMENTS = issue.title
-
-    # WRITE TO REMOTE - Only status update
-    # USE prjct CLI DIRECTLY
-    RUN: prjct jira transition "$ARGUMENTS" "In Progress"
-
-    OUTPUT: "Linked to JIRA: {issue.externalId} - {issue.title}"
-    OUTPUT: "JIRA: In Progress"
-
-ELSE:
-  OUTPUT: "Issue tracker not configured. Run `p. linear setup` or `p. jira setup`"
 ```
+IF issue NOT found in local cache:
+  OUTPUT: "Issue not in cache. Syncing..."
+  prjct linear sync
+  prjct linear get-local "$ARGUMENTS"
+
+IF issue found:
+  SET: task.linearId = issue.identifier
+  SET: task.linearUuid = issue.id
+  SET: task.description = issue.title
+  SET: $ARGUMENTS = issue.title
+
+  # WRITE TO REMOTE - Only status updates go to API
+  prjct linear start "{task.linearId}"
+
+  OUTPUT: "Linked to Linear: {issue.identifier} - {issue.title}"
+  OUTPUT: "Linear: → In Progress ✓"
+```
+
+**For JIRA:**
+```bash
+prjct jira get-local "$ARGUMENTS"
+```
+
+Same pattern - read local, write remote.
 
 ---
 
@@ -148,7 +110,6 @@ ELSE:
 
 ```
 USE Task(Explore) → find similar code, affected files
-READ {globalPath}/agents/*.md → get domain patterns (if they exist)
 ```
 
 ### Step B: Classify Task
@@ -165,17 +126,6 @@ Default: **feature**
 ### Step C: Break Down into Subtasks
 
 Create 2-5 actionable subtasks based on the task description.
-
-### Step C.5: Define Expected Value
-
-**Before showing the plan, identify expected outcomes:**
-
-Based on exploration and task analysis, determine:
-- **Expected value type**: feature | bugfix | performance | dx | refactor | infrastructure
-- **Expected impact**: high | medium | low
-- **Success criteria**: What makes this task "done well" (1-2 bullet points)
-
-This will be stored in state.json and compared against actual outcomes in `p. done`.
 
 ### Step D: Show Plan and Get Approval (BLOCKING)
 
@@ -196,7 +146,7 @@ Subtasks:
 
 Will do:
 1. Create feature branch from current branch
-2. Initialize task tracking in state.json
+2. Initialize task tracking
 3. Begin work on first subtask
 {If Linear: 4. Update issue status to In Progress}
 ```
@@ -216,21 +166,15 @@ AskUserQuestion:
       description: "Change type, branch name, or subtasks"
 ```
 
-**Handle responses:**
-
-**If "Modify plan":**
-- Ask: "What would you like to change?"
-- Update plan accordingly
-- Ask again with Yes/No options only
-
 **If "No, cancel":**
 ```
 OUTPUT: "✅ Task creation cancelled"
-STOP - Do not continue
+STOP
 ```
 
-**If "Yes, start task":**
-CONTINUE to Step E
+**If "Modify plan":** Ask what to change, update, re-confirm.
+
+**If "Yes, start task":** CONTINUE to Step E
 
 ### Step E: Create Branch (if needed)
 
@@ -241,60 +185,19 @@ git branch --show-current
 ```
 IF current branch == "main" OR "master":
   OUTPUT: "Creating feature branch: {type}/{slug}"
-
   git checkout -b {type}/{slug}
-
-  IF git command fails:
-    OUTPUT: "Failed to create branch. Check git status."
-    STOP
 ```
 
-### Step F: Write State
+### Step F: Start Task via CLI
 
-Generate UUID and timestamp:
 ```bash
-# UUID
-node -e "console.log(require('crypto').randomUUID())"
-
-# Timestamp
-node -e "console.log(new Date().toISOString())"
+prjct task "$ARGUMENTS"
 ```
 
-WRITE `{globalPath}/storage/state.json`:
-```json
-{
-  "currentTask": {
-    "id": "{uuid}",
-    "description": "{first subtask description}",
-    "type": "{type}",
-    "status": "active",
-    "startedAt": "{timestamp}",
-    "subtasks": [
-      {"description": "{subtask 1}", "status": "active"},
-      {"description": "{subtask 2}", "status": "pending"},
-      {"description": "{subtask 3}", "status": "pending"}
-    ],
-    "currentSubtaskIndex": 0,
-    "parentDescription": "$ARGUMENTS",
-    "branch": "{type}/{slug}",
-    "linearId": "{identifier or null}",
-    "linearUuid": "{uuid or null}",
-    "expectedValue": {
-      "type": "{feature|bugfix|performance|dx|refactor|infrastructure}",
-      "impact": "{high|medium|low}",
-      "successCriteria": ["criterion 1", "criterion 2"]
-    }
-  },
-  "pausedTasks": []
-}
-```
-
-### Step G: Log Event
-
-APPEND to `{globalPath}/memory/events.jsonl`:
-```json
-{"type":"task_started","taskId":"{uuid}","description":"$ARGUMENTS","timestamp":"{timestamp}","branch":"{branch}"}
-```
+The CLI handles:
+- Creating task entry in SQLite
+- Setting task state to active
+- Event logging
 
 ---
 

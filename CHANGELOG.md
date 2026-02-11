@@ -1,5 +1,36 @@
 # Changelog
 
+## [1.26.0] - 2026-02-10
+
+### Features
+
+- **`prjct update` command**: New CLI command that migrates all projects from JSON to SQLite and sweeps leftover JSON files. Supports `--all` (all projects) and `--dry-run` flags.
+- **Template purge — zero JSON I/O**: Rewrote all 49 template files (commands, subagents, global instructions) to use `prjct` CLI commands instead of direct JSON file reads/writes. Templates now delegate all data operations to the CLI, which handles SQLite internally.
+- **Fix performance-tracker date filter**: `getReport(id, 0)` now correctly means "today" instead of "this exact millisecond".
+
+### Changes
+
+- 27 command templates simplified to use CLI commands (`prjct task`, `prjct done`, `prjct ship`, etc.)
+- 8 global instruction files updated (CLAUDE-core/intelligence/storage, ANTIGRAVITY, GEMINI, CURSOR, WINDSURF, STORAGE-SPEC)
+- 7 subagent/context templates updated (agent-base, orchestrator, planner, shipper, workflow, dashboard, roadmap)
+- New `core/commands/update.ts` with `UpdateCommands` class
+- Registered in command-data, register, index, and commands facade
+
+### Test Plan
+
+#### For QA
+1. Run `bun test` — all 1057 tests pass
+2. Run `bun run build` — build completes
+3. Run `prjct update --dry-run` — shows preview without changes
+4. Run `prjct update` — migrates/sweeps remaining JSON files
+5. Run `prjct update --all` — processes all projects
+6. Grep templates: `grep -r "storage/state.json" templates/` — zero I/O matches
+7. Run `p. task "test"` then `p. done` — works end-to-end
+
+#### For Users
+**What changed:** All AI agent templates now use CLI commands. Run `prjct update --all` after upgrading to clean up legacy JSON files.
+**Breaking changes:** None
+
 ## [1.25.0] - 2026-02-10
 
 ### Features

@@ -1,10 +1,6 @@
 ---
 allowed-tools: [Bash, Read, Write]
 description: 'Verify workflow completion and close task'
-timestamp-rule: 'GetTimestamp() for ALL timestamps'
-architecture: 'Write-Through (JSON -> MD -> Events)'
-storage-layer: true
-source-of-truth: 'storage/state.json'
 ---
 
 # /p:verify
@@ -17,26 +13,19 @@ Verify all workflow checkpoints are complete and close the task.
 /p:verify
 ```
 
-## Context Variables
-- `{projectId}`: From `.prjct/prjct.config.json`
-- `{globalPath}`: `~/.prjct-cli/projects/{projectId}`
-- `{statePath}`: `{globalPath}/storage/state.json`
-- `{memoryPath}`: `{globalPath}/memory/events.jsonl`
-- `{syncPath}`: `{globalPath}/sync/pending.json`
-- `{nowContextPath}`: `{globalPath}/context/now.md`
-
 ## Step 1: Validate Project
 
-READ: `.prjct/prjct.config.json`
-EXTRACT: `projectId`
+```bash
+prjct status --json 2>/dev/null || echo "NO_PROJECT"
+```
 
-IF file not found:
+IF output contains "NO_PROJECT":
   OUTPUT: "No prjct project. Run /p:init first."
   STOP
 
 ## Step 2: Validate Workflow Phase
 
-READ: `{globalPath}/storage/state.json`
+Parse CLI output for current task state.
 
 IF currentTask is null:
   OUTPUT: "No active task. Nothing to verify."
@@ -100,56 +89,12 @@ SET: {releaseUrl} = checkpoints.release.data.releaseUrl
 
 ## Step 5: Complete Workflow
 
-SET: currentTask.workflow.phase = "verify"
-SET: currentTask.workflow.checkpoints.verify = {
-  "completedAt": "{now}",
-  "data": {
-    "verified": true,
-    "totalDuration": "{totalDuration}"
-  }
-}
-SET: currentTask.workflow.completedAt = "{now}"
-SET: currentTask.workflow.lastCheckpoint = "verify"
-
-### Move to previousTask
-SET: state.previousTask = {
-  ...currentTask,
-  "status": "completed",
-  "completedAt": "{now}"
-}
-SET: state.currentTask = null
-SET: state.lastUpdated = "{now}"
-
-WRITE: `{statePath}`
-
-## Step 6: Generate Context
-
-WRITE: `{nowContextPath}`
-
-```markdown
-# NOW
-
-_No active task_
-
-Last completed: {previousTask.description}
-Duration: {totalDuration}
-Version: {version}
-
-Use p. task to start new work.
+```bash
+# The CLI completes the workflow, moves task to previousTask, and generates context
+prjct verify complete
 ```
 
-## Step 7: Log Events
-
-APPEND to `{memoryPath}`:
-```json
-{"timestamp":"{now}","action":"workflow_completed","taskId":"{previousTask.id}","duration":"{totalDuration}","checkpoints":11}
-{"timestamp":"{now}","action":"checkpoint_completed","taskId":"{previousTask.id}","checkpoint":"verify"}
-```
-
-APPEND to `{syncPath}`:
-```json
-{"type":"workflow.completed","data":{"taskId":"{previousTask.id}","duration":"{totalDuration}","version":"{version}"},"timestamp":"{now}"}
-```
+# Events are logged automatically by the CLI
 
 ## Output
 
