@@ -150,7 +150,7 @@ export function clearCache(): void {
  */
 export function getTemplateContent(relativePath: string): string | null {
   const bundle = loadBundle()
-  if (bundle && bundle[relativePath]) {
+  if (bundle?.[relativePath]) {
     return bundle[relativePath]
   }
 

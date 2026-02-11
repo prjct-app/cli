@@ -12,6 +12,10 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
+import { ideasStorage } from '../storage/ideas-storage'
+import { queueStorage } from '../storage/queue-storage'
+import { shippedStorage } from '../storage/shipped-storage'
+import { stateStorage } from '../storage/state-storage'
 import type {
   ContextGeneratorConfig,
   GitData,
@@ -204,14 +208,16 @@ Load from \`~/.prjct-cli/projects/${this.config.projectId}/agents/\`:
    * Generate now.md - current task status
    */
   private async generateNowMd(contextPath: string): Promise<void> {
-    let currentTask = null
+    let currentTask: Record<string, unknown> | null = null
     try {
-      const statePath = path.join(this.config.globalPath, 'storage', 'state.json')
-      const state = JSON.parse(await fs.readFile(statePath, 'utf-8'))
-      currentTask = state.currentTask
+      const state = await stateStorage.read(this.config.projectId)
+      currentTask = state.currentTask as Record<string, unknown> | null
     } catch {
-      // No state file
+      // No state
     }
+
+    const branch = currentTask?.branch as { name?: string } | string | undefined
+    const branchDisplay = typeof branch === 'string' ? branch : branch?.name
 
     const content = currentTask
       ? `# NOW
@@ -219,7 +225,7 @@ Load from \`~/.prjct-cli/projects/${this.config.projectId}/agents/\`:
 **${currentTask.description}**
 
 Started: ${currentTask.startedAt}
-${currentTask.branch ? `Branch: ${currentTask.branch.name}` : ''}
+${branchDisplay ? `Branch: ${branchDisplay}` : ''}
 `
       : `# NOW
 
@@ -237,10 +243,10 @@ Use \`p. task "description"\` to start working.
   private async generateNextMd(contextPath: string): Promise<void> {
     let queue: { tasks: { description: string; priority?: string }[] } = { tasks: [] }
     try {
-      const queuePath = path.join(this.config.globalPath, 'storage', 'queue.json')
-      queue = JSON.parse(await fs.readFile(queuePath, 'utf-8'))
+      const queueData = await queueStorage.read(this.config.projectId)
+      queue = { tasks: queueData.tasks || [] }
     } catch {
-      // No queue file
+      // No queue data
     }
 
     const content = `# NEXT
@@ -263,10 +269,10 @@ ${
   private async generateIdeasMd(contextPath: string): Promise<void> {
     let ideas: { ideas: { text: string; priority?: string }[] } = { ideas: [] }
     try {
-      const ideasPath = path.join(this.config.globalPath, 'storage', 'ideas.json')
-      ideas = JSON.parse(await fs.readFile(ideasPath, 'utf-8'))
+      const ideasData = await ideasStorage.read(this.config.projectId)
+      ideas = { ideas: ideasData.ideas || [] }
     } catch {
-      // No ideas file
+      // No ideas data
     }
 
     const content = `# IDEAS
@@ -289,10 +295,10 @@ ${
       shipped: [],
     }
     try {
-      const shippedPath = path.join(this.config.globalPath, 'storage', 'shipped.json')
-      shipped = JSON.parse(await fs.readFile(shippedPath, 'utf-8'))
+      const shippedData = await shippedStorage.read(this.config.projectId)
+      shipped = { shipped: shippedData.shipped || [] }
     } catch {
-      // No shipped file
+      // No shipped data
     }
 
     const content = `# SHIPPED 🚀

@@ -15,6 +15,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import chalk from 'chalk'
 import configManager from '../infrastructure/config-manager'
+import { prjctDb } from '../storage/database'
 import { getErrorMessage } from '../types/fs'
 import { fileExists } from '../utils/file-helper'
 import out from '../utils/output'
@@ -644,16 +645,9 @@ class HooksService {
     if (!projectId) return null
 
     try {
-      const projectJsonPath = path.join(
-        process.env.HOME || '',
-        '.prjct-cli',
-        'projects',
-        projectId,
-        'project.json'
-      )
-      if (!(await fileExists(projectJsonPath))) return null
-      const project = JSON.parse(await fs.readFile(projectJsonPath, 'utf-8'))
-      return project.hooks || null
+      const project = prjctDb.getDoc<Record<string, unknown>>(projectId, 'project')
+      if (!project) return null
+      return (project.hooks as HookConfig) || null
     } catch {
       return null
     }
@@ -664,18 +658,9 @@ class HooksService {
     if (!projectId) return
 
     try {
-      const projectJsonPath = path.join(
-        process.env.HOME || '',
-        '.prjct-cli',
-        'projects',
-        projectId,
-        'project.json'
-      )
-      if (!(await fileExists(projectJsonPath))) return
-
-      const project = JSON.parse(await fs.readFile(projectJsonPath, 'utf-8'))
+      const project = prjctDb.getDoc<Record<string, unknown>>(projectId, 'project') || {}
       project.hooks = config
-      await fs.writeFile(projectJsonPath, JSON.stringify(project, null, 2))
+      prjctDb.setDoc(projectId, 'project', project)
     } catch {
       // Non-fatal
     }

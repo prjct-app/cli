@@ -118,7 +118,7 @@ When a template says "STOP" or has a ⛔ symbol:
 **⛔ READ LOCAL, WRITE REMOTE** - This is NON-NEGOTIABLE.
 
 ```
-READ:  ALWAYS from local cache (issues.json) - NEVER call API
+READ:  ALWAYS from local cache (prjct.db) - NEVER call API
 WRITE: Status updates go to remote API (start, done, comment)
 ```
 
@@ -129,8 +129,8 @@ WRITE: Status updates go to remote API (start, done, comment)
 
 **The pattern:**
 ```
-p. sync         → Fetch ALL issues once → Cache to issues.json
-p. task PRJ-123 → READ from issues.json (NOT API!)
+p. sync         → Fetch ALL issues once → Cache to prjct.db
+p. task PRJ-123 → READ from prjct.db (NOT API!)
                 → WRITE status "In Progress" to API
 p. done         → WRITE status "Done" to API
 ```
@@ -190,21 +190,18 @@ Generated with [p/](https://www.prjct.app/)
 
 ### 5. Storage Rules (CROSS-AGENT COMPATIBILITY)
 
-**NEVER use temporary files** - Write directly to final destination:
-- WRONG: Create `.tmp/file.json`, then `mv` to final path
-- CORRECT: Write directly to `{globalPath}/storage/state.json`
+**All storage goes through SQLite** (`prjct.db`):
+- Use `StorageManager.read()` / `StorageManager.write()` for state, queue, ideas, shipped
+- Use `prjctDb.getDoc()` / `prjctDb.setDoc()` for project metadata, issues cache
+- NEVER write JSON files to `storage/` directory (those files no longer exist)
 
-**JSON formatting** - Always use consistent format:
-- 2-space indentation
-- No trailing commas
-- Keys in logical order (as defined in storage schemas)
-
-**Atomic writes for JSON**:
-```javascript
-// Read → Modify → Write (no temp files)
-const data = JSON.parse(fs.readFileSync(path, 'utf-8'))
-data.newField = value
-fs.writeFileSync(path, JSON.stringify(data, null, 2))
+**Atomic writes via SQLite WAL mode**:
+```typescript
+// StorageManager pattern:
+await stateStorage.update(projectId, (state) => {
+  state.field = newValue
+  return state
+})
 ```
 
 **Timestamps**: Always ISO-8601 with milliseconds (`.000Z`)
@@ -281,31 +278,25 @@ p. sync  →  p. task "description"  →  [work]  →  p. done  →  p. ship
 ## ARCHITECTURE: Write-Through Pattern
 
 ```
-User Action → Storage (JSON) → Context (MD) → Sync Events
+User Action → Storage (SQLite) → Context (MD) → Sync Events
 ```
 
 | Layer | Path | Purpose |
 |-------|------|---------|
-| **Storage** | `storage/*.json` | Source of truth |
+| **Storage** | `prjct.db` | Source of truth (SQLite) |
 | **Context** | `context/*.md` | Claude-readable summaries |
-| **Memory** | `memory/events.jsonl` | Audit trail (append-only) |
 | **Agents** | `agents/*.md` | Domain specialists |
 | **Sync** | `sync/pending.json` | Backend sync queue |
 
 ### File Structure
 ```
 ~/.prjct-cli/projects/{projectId}/
-├── storage/
-│   ├── state.json      # Current task (SOURCE OF TRUTH)
-│   ├── queue.json      # Task queue
-│   └── shipped.json    # Shipped features
+├── prjct.db            # SQLite database (SOURCE OF TRUTH)
 ├── context/
 │   ├── now.md          # Current task (generated)
 │   └── next.md         # Queue (generated)
 ├── config/
-│   └── skills.json     # Agent-to-skill mappings (NEW)
-├── memory/
-│   └── events.jsonl    # Audit trail
+│   └── skills.json     # Agent-to-skill mappings
 ├── agents/             # Domain specialists (auto-generated)
 └── sync/
     └── pending.json    # Events for backend

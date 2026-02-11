@@ -2,30 +2,26 @@
  * Linear Sync Layer
  *
  * Bidirectional sync between Linear and local prjct storage.
- * Uses issues.json as local cache with 30-minute staleness.
+ * Uses SQLite (prjct.db) as local cache with 30-minute staleness.
  *
  * Architecture:
  *   Linear (source of truth)
  *          ↕
  *     Sync Layer (this file)
  *          ↕
- *   storage/issues.json ← FULL COPY of Linear issues
+ *   prjct.db kv_store('issues') ← FULL COPY of Linear issues
  *          ↕
- *   state.json.currentTask.linearId ← DIRECT LINK
+ *   state.currentTask.linearId ← DIRECT LINK
  */
 
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
 import {
   type CachedIssue,
   createEmptyIssues,
   type IssuesJson,
-  parseIssues,
   type SyncResult,
 } from '../../schemas/issues'
-import { getProjectPath } from '../../schemas/schemas'
+import { prjctDb } from '../../storage/database'
 import { getErrorMessage } from '../../types/fs'
-import { fileExists } from '../../utils/file-helper'
 import type { Issue } from '../issue-tracker/types'
 import { linearService } from './service'
 
@@ -38,14 +34,6 @@ export class LinearSync {
    * This is the main sync operation - call on `p. sync`
    */
   async pullAll(projectId: string): Promise<SyncResult> {
-    const storagePath = join(getProjectPath(projectId), 'storage')
-    const issuesPath = join(storagePath, 'issues.json')
-
-    // Ensure storage directory exists
-    if (!(await fileExists(storagePath))) {
-      await mkdir(storagePath, { recursive: true })
-    }
-
     const timestamp = new Date().toISOString()
     const errors: Array<{ issueId: string; error: string }> = []
 
@@ -66,7 +54,7 @@ export class LinearSync {
         }
       }
 
-      // Write to issues.json
+      // Write to SQLite
       const issuesJson: IssuesJson = {
         provider: 'linear',
         lastSync: timestamp,
@@ -74,7 +62,7 @@ export class LinearSync {
         issues: issuesMap,
       }
 
-      await writeFile(issuesPath, JSON.stringify(issuesJson, null, 2))
+      prjctDb.setDoc(projectId, 'issues', issuesJson)
 
       return {
         provider: 'linear',
@@ -103,7 +91,7 @@ export class LinearSync {
    * Local-first approach for performance
    */
   async getIssue(projectId: string, identifier: string): Promise<CachedIssue | null> {
-    const issuesJson = await this.loadIssues(projectId)
+    const issuesJson = this.loadIssues(projectId)
 
     // Check local cache first
     if (issuesJson?.issues[identifier]) {
@@ -128,7 +116,7 @@ export class LinearSync {
       const cachedIssue = this.toCachedIssue(issue, timestamp)
 
       // Update cache with this single issue
-      await this.updateIssueInCache(projectId, identifier, cachedIssue)
+      this.updateIssueInCache(projectId, identifier, cachedIssue)
 
       return cachedIssue
     } catch {
@@ -145,7 +133,7 @@ export class LinearSync {
    * Use for fast lookups when you know the issue should be cached
    */
   async getIssueLocal(projectId: string, identifier: string): Promise<CachedIssue | null> {
-    const issuesJson = await this.loadIssues(projectId)
+    const issuesJson = this.loadIssues(projectId)
     return issuesJson?.issues[identifier] || null
   }
 
@@ -166,13 +154,13 @@ export class LinearSync {
     }
 
     // Update local cache to reflect the change
-    const issuesJson = await this.loadIssues(projectId)
+    const issuesJson = this.loadIssues(projectId)
     if (issuesJson?.issues[identifier]) {
       const cachedStatus = status === 'done' ? 'done' : 'in_progress'
       issuesJson.issues[identifier].status = cachedStatus
       issuesJson.issues[identifier].fetchedAt = new Date().toISOString()
 
-      await this.saveIssues(projectId, issuesJson)
+      this.saveIssues(projectId, issuesJson)
     }
   }
 
@@ -181,7 +169,7 @@ export class LinearSync {
    * Staleness = lastSync is older than staleAfter threshold
    */
   async isStale(projectId: string): Promise<boolean> {
-    const issuesJson = await this.loadIssues(projectId)
+    const issuesJson = this.loadIssues(projectId)
 
     if (!issuesJson || !issuesJson.lastSync) {
       return true // No cache = stale
@@ -203,7 +191,7 @@ export class LinearSync {
     issueCount: number
     isStale: boolean
   }> {
-    const issuesJson = await this.loadIssues(projectId)
+    const issuesJson = this.loadIssues(projectId)
 
     if (!issuesJson) {
       return {
@@ -226,7 +214,7 @@ export class LinearSync {
    * List all cached issues
    */
   async listCachedIssues(projectId: string): Promise<CachedIssue[]> {
-    const issuesJson = await this.loadIssues(projectId)
+    const issuesJson = this.loadIssues(projectId)
     if (!issuesJson) return []
 
     return Object.values(issuesJson.issues)
@@ -237,53 +225,35 @@ export class LinearSync {
   // =============================================================================
 
   /**
-   * Load issues.json from disk
+   * Load issues from SQLite
    */
-  private async loadIssues(projectId: string): Promise<IssuesJson | null> {
-    const issuesPath = join(getProjectPath(projectId), 'storage', 'issues.json')
-
-    if (!(await fileExists(issuesPath))) {
-      return null
-    }
-
+  private loadIssues(projectId: string): IssuesJson | null {
     try {
-      const content = await readFile(issuesPath, 'utf-8')
-      return parseIssues(JSON.parse(content))
+      return prjctDb.getDoc<IssuesJson>(projectId, 'issues')
     } catch {
       return null
     }
   }
 
   /**
-   * Save issues.json to disk
+   * Save issues to SQLite
    */
-  private async saveIssues(projectId: string, issuesJson: IssuesJson): Promise<void> {
-    const storagePath = join(getProjectPath(projectId), 'storage')
-    const issuesPath = join(storagePath, 'issues.json')
-
-    if (!(await fileExists(storagePath))) {
-      await mkdir(storagePath, { recursive: true })
-    }
-
-    await writeFile(issuesPath, JSON.stringify(issuesJson, null, 2))
+  private saveIssues(projectId: string, issuesJson: IssuesJson): void {
+    prjctDb.setDoc(projectId, 'issues', issuesJson)
   }
 
   /**
    * Update a single issue in the cache
    */
-  private async updateIssueInCache(
-    projectId: string,
-    identifier: string,
-    issue: CachedIssue
-  ): Promise<void> {
-    let issuesJson = await this.loadIssues(projectId)
+  private updateIssueInCache(projectId: string, identifier: string, issue: CachedIssue): void {
+    let issuesJson = this.loadIssues(projectId)
 
     if (!issuesJson) {
       issuesJson = createEmptyIssues('linear')
     }
 
     issuesJson.issues[identifier] = issue
-    await this.saveIssues(projectId, issuesJson)
+    this.saveIssues(projectId, issuesJson)
   }
 
   /**

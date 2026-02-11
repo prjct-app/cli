@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.25.0] - 2026-02-10
+
+### Features
+
+- **Kill all JSON file I/O — everything to SQLite (PRJ-303)**: Migrated 4 modules that were still reading/writing JSON files directly, bypassing the SQLite migration. All storage now goes through `prjctDb` or `StorageManager`.
+
+### Changes
+
+- `core/integrations/linear/sync.ts` — Replaced `readFile`/`writeFile` on `issues.json` with `prjctDb.getDoc/setDoc`
+- `core/services/context-generator.ts` — Replaced direct `state.json`, `queue.json`, `ideas.json`, `shipped.json` reads with `stateStorage`, `queueStorage`, `ideasStorage`, `shippedStorage`
+- `core/services/sync-service.ts` — `updateProjectJson` and `updateStateJson` now use `prjctDb`/`stateStorage` instead of `fs.readFile`/`fs.writeFile`
+- `core/services/hooks-service.ts` — `getHookConfig`/`saveHookConfig` now use `prjctDb.getDoc/setDoc` for `project.json` data
+- `core/storage/migrate-json.ts` — Added `sweepLegacyJson()` that runs on every sync to import and delete any ghost JSON files
+- Templates updated to reference `prjct.db` instead of `storage/*.json`
+
+### Test Plan
+
+#### For QA
+1. Run `bun test` — 1057 tests pass
+2. Run `prjct linear sync` — issues stored in `prjct.db`, no `issues.json` on disk
+3. Run `prjct sync --yes` — regenerates context without JSON file errors
+4. Verify `ls ~/.prjct-cli/projects/*/storage/` has no `.json` files
+5. Run `prjct status` — works without JSON files
+
+#### For Users
+**What changed:** Internal storage optimization — no user action needed.
+**Breaking changes:** None
+
 ## [1.24.1] - 2026-02-11
 
 ### Bug Fixes

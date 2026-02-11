@@ -81,18 +81,18 @@ CHECK: integrations.linear OR integrations.jira
 
 IF integrations.linear.enabled:
   # ═══════════════════════════════════════════════════════════════
-  # READ FROM LOCAL CACHE - NEVER call API for issue details
+  # READ FROM LOCAL CACHE (SQLite) - NEVER call API for issue details
   # This saves 1000s of tokens by not re-reading descriptions/AC
   # ═══════════════════════════════════════════════════════════════
 
-  READ: {globalPath}/storage/issues.json
-  FIND: issue where identifier == "$ARGUMENTS"
+  RUN: prjct linear get-local "$ARGUMENTS"
+  # Returns the cached issue directly from SQLite (prjct.db)
 
   IF issue NOT found in local cache:
     # Only sync if issue not cached (rare case)
     OUTPUT: "Issue not in cache. Syncing..."
     RUN: prjct linear sync
-    READ: {globalPath}/storage/issues.json  # Re-read after sync
+    RUN: prjct linear get-local "$ARGUMENTS"  # Re-read after sync
 
   IF issue found:
     # Use cached data - DO NOT re-fetch from API
@@ -112,16 +112,16 @@ IF integrations.linear.enabled:
 
 ELSE IF integrations.jira.enabled:
   # ═══════════════════════════════════════════════════════════════
-  # READ FROM LOCAL CACHE - Same pattern as Linear
+  # READ FROM LOCAL CACHE (SQLite) - Same pattern as Linear
   # ═══════════════════════════════════════════════════════════════
 
-  READ: {globalPath}/storage/issues.json
-  FIND: issue where externalId == "$ARGUMENTS"
+  RUN: prjct jira get-local "$ARGUMENTS"
+  # Returns the cached issue directly from SQLite (prjct.db)
 
   IF issue NOT found in local cache:
     OUTPUT: "Issue not in cache. Syncing..."
     RUN: prjct jira sync
-    READ: {globalPath}/storage/issues.json
+    RUN: prjct jira get-local "$ARGUMENTS"
 
   IF issue found:
     SET: task.externalId = issue.externalId
