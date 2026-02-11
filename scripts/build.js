@@ -51,6 +51,26 @@ function clean() {
 }
 
 /**
+ * esbuild plugin: strip shebangs from source files.
+ * Prevents double-shebang when banner also injects one.
+ */
+function stripShebangPlugin() {
+  return {
+    name: 'strip-shebang',
+    setup(build) {
+      build.onLoad({ filter: /\.[cm]?[jt]sx?$/ }, async (args) => {
+        const source = await require('node:fs/promises').readFile(args.path, 'utf-8')
+        if (!source.startsWith('#!')) return undefined
+        return {
+          contents: source.replace(/^#![^\n]*\n/, ''),
+          loader: args.path.endsWith('.ts') ? 'ts' : 'js',
+        }
+      })
+    },
+  }
+}
+
+/**
  * Build CLI entry point and Linear CLI
  */
 async function buildJs() {
@@ -95,6 +115,7 @@ const __dirname = __pathDirname(__filename);`,
     minify: true,
     keepNames: true,
     packages: 'external',
+    plugins: [stripShebangPlugin()],
     banner: {
       js: `#!/usr/bin/env node
 import { fileURLToPath as __fileURLToPath } from 'url';
@@ -117,6 +138,7 @@ const __dirname = __pathDirname(__filename);`,
     minify: true,
     keepNames: true,
     packages: 'external',
+    plugins: [stripShebangPlugin()],
     banner: {
       js: `#!/usr/bin/env node
 import { fileURLToPath as __fileURLToPath } from 'url';
