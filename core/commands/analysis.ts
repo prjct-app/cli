@@ -5,7 +5,6 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import prompts from 'prompts'
-import { generateContext } from '../agentic/context-generator'
 import memorySystem from '../agentic/memory-system'
 import analyzer from '../domain/analyzer'
 import commandInstaller from '../infrastructure/command-installer'
@@ -97,8 +96,6 @@ export class AnalysisCommands extends PrjctCommandsBase {
         fileCount: analysisData.fileCount,
         gitCommits: analysisData.gitStats.totalCommits,
       })
-
-      await generateContext(projectId!, projectPath)
 
       const aiProvider = require('../infrastructure/ai-provider')
       const activeProvider = await aiProvider.getActiveProvider()

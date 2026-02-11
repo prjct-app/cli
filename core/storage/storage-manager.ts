@@ -1,20 +1,13 @@
 /**
  * Storage Manager Base Class (PRJ-303: SQLite-backed)
  *
- * Write-through pattern:
- * 1. Write to SQLite kv_store (primary)
- * 2. Regenerate MD in context/
- * 3. Publish event for backend sync
- *
+ * Write path: SQLite kv_store + cache + event
  * Read path: cache → SQLite → default
  *
  * Subclasses implement specific data types (state, queue, ideas, shipped).
  */
 
-import fs from 'node:fs/promises'
-import path from 'node:path'
 import { syncEventBus } from '../events'
-import pathManager from '../infrastructure/path-manager'
 import type { SyncEvent } from '../types'
 import { TTLCache } from '../utils/cache'
 import { getTimestamp } from '../utils/date-helper'
@@ -38,34 +31,9 @@ export abstract class StorageManager<T> {
   }
 
   /**
-   * Get file path for context MD
-   * Uses layer-based paths to match MdBaseManager structure
-   */
-  protected getContextPath(projectId: string, mdFilename: string): string {
-    const layer = this.getLayer()
-    return pathManager.getFilePath(projectId, layer, mdFilename)
-  }
-
-  /**
-   * Get the layer for context MD files
-   * Override in subclasses: 'core' | 'planning' | 'progress'
-   */
-  protected abstract getLayer(): string
-
-  /**
    * Get default data structure
    */
   protected abstract getDefault(): T
-
-  /**
-   * Convert data to markdown for Claude
-   */
-  protected abstract toMarkdown(data: T): string
-
-  /**
-   * Get MD filename for context generation
-   */
-  protected abstract getMdFilename(): string
 
   /**
    * Get event type for sync
@@ -98,26 +66,15 @@ export abstract class StorageManager<T> {
   }
 
   /**
-   * Write data to storage + regenerate context + publish event.
-   * SQLite primary + MD context regeneration.
+   * Write data to storage.
+   * SQLite primary + cache update.
    */
   async write(projectId: string, data: T): Promise<void> {
-    const contextPath = this.getContextPath(projectId, this.getMdFilename())
-
-    // Ensure context directory exists
-    await fs.mkdir(path.dirname(contextPath), { recursive: true })
-
     // 1. Write to SQLite kv_store (primary)
     prjctDb.setDoc(projectId, this.getStoreKey(), data)
 
-    // 2. Regenerate MD for Claude
-    const md = this.toMarkdown(data)
-    await fs.writeFile(contextPath, md, 'utf-8')
-
-    // 3. Update cache
+    // 2. Update cache
     this.cache.set(projectId, data)
-
-    // 4. Publish event for backend sync (NOT included in this call - subclass handles)
   }
 
   /**

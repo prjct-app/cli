@@ -8,7 +8,7 @@
 import { generateUUID } from '../schemas'
 import { ShippedJsonSchema } from '../schemas/shipped'
 import type { ShippedFeature, ShippedJson } from '../types'
-import { getDaysAgo, getTimestamp, toRelative } from '../utils/date-helper'
+import { getDaysAgo, getTimestamp } from '../utils/date-helper'
 import { ARCHIVE_POLICIES, archiveStorage } from './archive-storage'
 import { StorageManager } from './storage-manager'
 
@@ -24,75 +24,8 @@ class ShippedStorage extends StorageManager<ShippedJson> {
     }
   }
 
-  protected getMdFilename(): string {
-    return 'shipped.md'
-  }
-
-  protected getLayer(): string {
-    return 'progress'
-  }
-
   protected getEventType(action: 'update' | 'create' | 'delete'): string {
     return `shipped.${action}d`
-  }
-
-  protected toMarkdown(data: ShippedJson): string {
-    const lines = ['# SHIPPED \u{1F680}', '']
-
-    if (data.shipped.length === 0) {
-      lines.push('_No features shipped yet. Use /p:ship to celebrate!_')
-      lines.push('')
-      return lines.join('\n')
-    }
-
-    // Group by month
-    const byMonth = new Map<string, ShippedFeature[]>()
-
-    data.shipped.forEach((ship) => {
-      const date = new Date(ship.shippedAt)
-      const month = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' })
-
-      if (!byMonth.has(month)) {
-        byMonth.set(month, [])
-      }
-      byMonth.get(month)!.push(ship)
-    })
-
-    // Render by month (most recent first)
-    const sortedMonths = Array.from(byMonth.keys()).sort((a, b) => {
-      const dateA = new Date(byMonth.get(a)![0].shippedAt)
-      const dateB = new Date(byMonth.get(b)![0].shippedAt)
-      return dateB.getTime() - dateA.getTime()
-    })
-
-    sortedMonths.forEach((month) => {
-      lines.push(`## ${month}`)
-      lines.push('')
-
-      const ships = byMonth
-        .get(month)!
-        .sort((a, b) => new Date(b.shippedAt).getTime() - new Date(a.shippedAt).getTime())
-
-      ships.forEach((ship) => {
-        const rel = toRelative(ship.shippedAt)
-        const version = ship.version ? ` v${ship.version}` : ''
-        const duration = ship.duration ? ` (${ship.duration})` : ''
-        lines.push(`- **${ship.name}**${version}${duration} - ${rel}`)
-        if (ship.description) {
-          lines.push(`  _${ship.description}_`)
-        }
-      })
-
-      lines.push('')
-    })
-
-    // Stats
-    lines.push('---')
-    lines.push('')
-    lines.push(`**Total shipped:** ${data.shipped.length}`)
-    lines.push('')
-
-    return lines.join('\n')
   }
 
   // =========== Domain Methods ===========

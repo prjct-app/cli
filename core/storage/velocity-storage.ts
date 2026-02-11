@@ -37,67 +37,8 @@ class VelocityStorage extends StorageManager<VelocityStoreData> {
     }
   }
 
-  protected getMdFilename(): string {
-    return 'velocity.md'
-  }
-
-  protected getLayer(): string {
-    return 'progress'
-  }
-
   protected getEventType(action: 'update' | 'create' | 'delete'): string {
     return `velocity.${action}d`
-  }
-
-  protected toMarkdown(data: VelocityStoreData): string {
-    const { metrics } = data
-    const lines = ['# Velocity', '']
-
-    if (metrics.sprints.length === 0) {
-      lines.push('_No velocity data yet. Complete tasks with estimates to build velocity history._')
-      lines.push('')
-      return lines.join('\n')
-    }
-
-    // Summary
-    lines.push(`**Average**: ${metrics.averageVelocity} pts/sprint`)
-    lines.push(`**Trend**: ${formatTrendIcon(metrics.velocityTrend)} ${metrics.velocityTrend}`)
-    lines.push(`**Estimation Accuracy**: ${metrics.estimationAccuracy}%`)
-    lines.push('')
-
-    // Sprint table
-    lines.push('## Sprint History')
-    lines.push('')
-    lines.push('| Sprint | Points | Tasks | Accuracy | Variance |')
-    lines.push('|--------|--------|-------|----------|----------|')
-
-    const recentSprints = metrics.sprints.slice(-6)
-    for (const sprint of recentSprints) {
-      lines.push(
-        `| ${sprint.sprintNumber} | ${sprint.pointsCompleted} | ${sprint.tasksCompleted} | ${sprint.estimationAccuracy}% | ${sprint.avgVariance > 0 ? '+' : ''}${sprint.avgVariance}% |`
-      )
-    }
-    lines.push('')
-
-    // Patterns
-    if (metrics.underEstimated.length > 0 || metrics.overEstimated.length > 0) {
-      lines.push('## Estimation Patterns')
-      lines.push('')
-
-      for (const p of metrics.underEstimated) {
-        lines.push(
-          `- ⚠ **${p.category}**: underestimated by avg ${p.avgVariance}% (${p.taskCount} tasks)`
-        )
-      }
-      for (const p of metrics.overEstimated) {
-        lines.push(
-          `- ✓ **${p.category}**: overestimated by avg ${p.avgVariance}% (${p.taskCount} tasks)`
-        )
-      }
-      lines.push('')
-    }
-
-    return lines.join('\n')
   }
 
   // ===========================================================================
@@ -126,21 +67,6 @@ class VelocityStorage extends StorageManager<VelocityStoreData> {
   async getMetrics(projectId: string): Promise<VelocityMetrics> {
     const data = await this.read(projectId)
     return data.metrics
-  }
-}
-
-// =============================================================================
-// Helpers
-// =============================================================================
-
-function formatTrendIcon(trend: string): string {
-  switch (trend) {
-    case 'improving':
-      return '↑'
-    case 'declining':
-      return '↓'
-    default:
-      return '→'
   }
 }
 

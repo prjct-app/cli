@@ -8,7 +8,7 @@
 import { generateUUID } from '../schemas'
 import { IdeasJsonSchema } from '../schemas/ideas'
 import type { Idea, IdeaPriority, IdeaStatus, IdeasJson } from '../types'
-import { getDaysAgo, getTimestamp, toRelative } from '../utils/date-helper'
+import { getDaysAgo, getTimestamp } from '../utils/date-helper'
 import { ARCHIVE_POLICIES, archiveStorage } from './archive-storage'
 import { StorageManager } from './storage-manager'
 
@@ -24,68 +24,8 @@ class IdeasStorage extends StorageManager<IdeasJson> {
     }
   }
 
-  protected getMdFilename(): string {
-    return 'ideas.md'
-  }
-
-  protected getLayer(): string {
-    return 'planning'
-  }
-
   protected getEventType(action: 'update' | 'create' | 'delete'): string {
     return `ideas.${action}d`
-  }
-
-  protected toMarkdown(data: IdeasJson): string {
-    const lines = ['# IDEAS \u{1F4A1}', '']
-
-    const pending = data.ideas.filter((i) => i.status === 'pending')
-    const converted = data.ideas.filter((i) => i.status === 'converted')
-    const archived = data.ideas.filter((i) => i.status === 'archived')
-    const dormant = data.ideas.filter((i) => i.status === 'dormant')
-
-    // Brain Dump (pending only — dormant excluded from LLM context)
-    lines.push('## Brain Dump')
-    if (pending.length > 0) {
-      pending.forEach((idea) => {
-        const rel = toRelative(idea.addedAt)
-        const tags = idea.tags.length > 0 ? ` ${idea.tags.map((t) => `#${t}`).join(' ')}` : ''
-        const priority = idea.priority !== 'medium' ? ` [${idea.priority.toUpperCase()}]` : ''
-        lines.push(`- ${idea.text}${priority} _(${rel})_${tags}`)
-      })
-    } else {
-      lines.push('_No pending ideas_')
-    }
-    lines.push('')
-
-    // Converted
-    if (converted.length > 0) {
-      lines.push('## Converted')
-      converted.forEach((idea) => {
-        const rel = toRelative(idea.addedAt)
-        const feat = idea.convertedTo ? ` \u2192 ${idea.convertedTo}` : ''
-        lines.push(`- \u2713 ${idea.text}${feat} _(${rel})_`)
-      })
-      lines.push('')
-    }
-
-    // Archived
-    if (archived.length > 0) {
-      lines.push('## Archived')
-      archived.forEach((idea) => {
-        const rel = toRelative(idea.addedAt)
-        lines.push(`- ${idea.text} _(${rel})_`)
-      })
-      lines.push('')
-    }
-
-    // Dormant count only (details excluded from LLM context)
-    if (dormant.length > 0) {
-      lines.push(`_${dormant.length} dormant idea(s) excluded from context_`)
-      lines.push('')
-    }
-
-    return lines.join('\n')
   }
 
   // =========== Domain Methods ===========

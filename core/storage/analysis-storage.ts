@@ -60,54 +60,8 @@ class AnalysisStorage extends StorageManager<AnalysisStoreData> {
     }
   }
 
-  protected getMdFilename(): string {
-    return 'analysis.md'
-  }
-
-  protected getLayer(): string {
-    return 'analysis'
-  }
-
   protected getEventType(action: 'update' | 'create' | 'delete'): string {
     return `analysis.${action}d`
-  }
-
-  protected toMarkdown(data: AnalysisStoreData): string {
-    const lines = ['# Analysis Status', '']
-
-    // Show sealed analysis if available
-    if (data.sealed) {
-      lines.push('## Sealed Analysis')
-      lines.push(`- **Status**: sealed`)
-      lines.push(`- **Commit**: \`${data.sealed.commitHash || 'unknown'}\``)
-      lines.push(`- **Sealed at**: ${data.sealed.sealedAt || 'unknown'}`)
-      lines.push(`- **Languages**: ${data.sealed.languages.join(', ') || 'none'}`)
-      lines.push(`- **Frameworks**: ${data.sealed.frameworks.join(', ') || 'none'}`)
-      lines.push(`- **Files**: ${data.sealed.fileCount}`)
-      if (data.sealed.patterns.length > 0) {
-        lines.push(`- **Patterns**: ${data.sealed.patterns.map((p) => p.name).join(', ')}`)
-      }
-      lines.push('')
-    }
-
-    // Show draft if different from sealed
-    if (data.draft && data.draft.status === 'draft') {
-      lines.push('## Draft Analysis')
-      lines.push(`- **Status**: draft (not yet sealed)`)
-      lines.push(`- **Commit**: \`${data.draft.commitHash || 'unknown'}\``)
-      lines.push(`- **Analyzed at**: ${data.draft.analyzedAt}`)
-      lines.push(`- **Languages**: ${data.draft.languages.join(', ') || 'none'}`)
-      lines.push(`- **Frameworks**: ${data.draft.frameworks.join(', ') || 'none'}`)
-      lines.push(`- **Files**: ${data.draft.fileCount}`)
-      lines.push('')
-    }
-
-    if (!data.sealed && !data.draft) {
-      lines.push('_No analysis available. Run `p. sync` to generate._')
-      lines.push('')
-    }
-
-    return lines.join('\n')
   }
 
   // ===========================================================================

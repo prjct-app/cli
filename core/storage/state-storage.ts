@@ -19,8 +19,7 @@ import type {
   TaskHistoryEntry,
 } from '../schemas/state'
 import { StateJsonSchema, SubtaskCompletionDataSchema } from '../schemas/state'
-import { getTimestamp, toRelative } from '../utils/date-helper'
-import { md } from '../utils/markdown-builder'
+import { getTimestamp } from '../utils/date-helper'
 import type { WorkflowCommand } from '../workflow/state-machine'
 import { workflowStateMachine } from '../workflow/state-machine'
 import { archiveStorage } from './archive-storage'
@@ -41,144 +40,8 @@ class StateStorage extends StorageManager<StateJson> {
     }
   }
 
-  protected getMdFilename(): string {
-    return 'now.md'
-  }
-
-  protected getLayer(): string {
-    return 'core'
-  }
-
   protected getEventType(action: 'update' | 'create' | 'delete'): string {
     return `state.${action}d`
-  }
-
-  protected toMarkdown(data: StateJson): string {
-    return md()
-      .h1('NOW')
-      .when(!!data.currentTask, (m) => {
-        const task = data.currentTask!
-        m.bold(task.description)
-          .blank()
-          .raw(`Started: ${toRelative(task.startedAt)}`)
-          .raw(`Session: ${task.sessionId}`)
-          .maybe(task.featureId, (m, id) => m.raw(`Feature: ${id}`))
-
-        // Subtask progress table
-        if (task.subtasks && task.subtasks.length > 0) {
-          m.blank()
-            .h2('Subtasks Progress')
-            .raw(
-              `**Progress**: ${task.subtaskProgress?.completed || 0}/${task.subtaskProgress?.total || 0} (${task.subtaskProgress?.percentage || 0}%)`
-            )
-            .blank()
-            .raw('| # | Domain | Description | Status | Agent |')
-            .raw('|---|--------|-------------|--------|-------|')
-
-          task.subtasks.forEach((subtask, index) => {
-            const statusIcon =
-              subtask.status === 'completed'
-                ? '✅'
-                : subtask.status === 'in_progress'
-                  ? '▶️'
-                  : subtask.status === 'failed'
-                    ? '❌'
-                    : subtask.status === 'skipped'
-                      ? '⏭️'
-                      : subtask.status === 'blocked'
-                        ? '🚫'
-                        : '⏳'
-            const isActive = index === task.currentSubtaskIndex ? ' **← Active**' : ''
-            m.raw(
-              `| ${index + 1} | ${subtask.domain} | ${subtask.description} | ${statusIcon} ${subtask.status}${isActive} | ${subtask.agent} |`
-            )
-          })
-
-          // Current subtask details
-          const currentSubtask = task.subtasks[task.currentSubtaskIndex || 0]
-          if (currentSubtask && currentSubtask.status === 'in_progress') {
-            m.blank()
-              .h3('Current Subtask')
-              .raw(`**#${(task.currentSubtaskIndex || 0) + 1}**: ${currentSubtask.description}`)
-              .raw(`**Agent**: ${currentSubtask.agent}`)
-              .raw(`**Domain**: ${currentSubtask.domain}`)
-
-            // Show dependencies
-            if (currentSubtask.dependsOn.length > 0) {
-              m.raw(`**Depends on**: ${currentSubtask.dependsOn.join(', ')}`)
-            }
-          }
-
-          // Show last completed subtask summary if available
-          const completedSubtasks = task.subtasks.filter(
-            (s) => s.status === 'completed' && s.summary
-          )
-          if (completedSubtasks.length > 0) {
-            const lastCompleted = completedSubtasks[completedSubtasks.length - 1]
-            if (lastCompleted.summary) {
-              m.blank()
-                .h3('Previous Subtask Output')
-                .raw(`**${lastCompleted.summary.title}**`)
-                .raw(lastCompleted.summary.description)
-                .maybe(lastCompleted.summary.outputForNextAgent, (m, output) =>
-                  m.blank().raw(`**Available for next agent**: ${output}`)
-                )
-            }
-          }
-        }
-      })
-      .when(!data.currentTask, (m) => {
-        m.italic('No active task. Use /p:work to start.')
-      })
-      .when((data.pausedTasks?.length || 0) > 0 || !!data.previousTask, (m) => {
-        const paused = data.pausedTasks?.length
-          ? data.pausedTasks
-          : data.previousTask
-            ? [data.previousTask]
-            : []
-        if (paused.length === 0) return
-        m.hr().h2(`Paused (${paused.length})`)
-        paused.forEach((prev, i) => {
-          m.raw(`${i + 1}. **${prev.description}**`).raw(`   Paused: ${toRelative(prev.pausedAt)}`)
-          if (prev.pauseReason) m.raw(`   Reason: ${prev.pauseReason}`)
-        })
-        m.blank().italic('Use /p:resume to continue')
-      })
-      .when((data.taskHistory?.length || 0) > 0, (m) => {
-        const history = this.getTaskHistoryFromState(data)
-        if (history.length === 0) return
-
-        // Filter by current task classification if available
-        const currentTaskType = (data.currentTask as any)?.type
-        const relevantHistory = currentTaskType
-          ? history.filter((h) => h.classification === currentTaskType).slice(0, 3)
-          : history.slice(0, 5)
-
-        if (relevantHistory.length === 0) return
-
-        m.hr().h2(
-          currentTaskType
-            ? `Recent ${currentTaskType} tasks (${relevantHistory.length})`
-            : `Recent tasks (${relevantHistory.length})`
-        )
-        relevantHistory.forEach((entry, i) => {
-          m.raw(`${i + 1}. **${entry.title}** (${entry.classification})`)
-            .raw(
-              `   Completed: ${toRelative(entry.completedAt)} | ${entry.subtaskCount} subtask${entry.subtaskCount > 1 ? 's' : ''}`
-            )
-            .raw(`   Outcome: ${entry.outcome}`)
-          if (entry.linearId) m.raw(`   Linear: ${entry.linearId}`)
-          if (entry.feedback?.patternsDiscovered?.length) {
-            m.raw(`   Patterns: ${entry.feedback.patternsDiscovered.join(', ')}`)
-          }
-          if (entry.feedback?.issuesEncountered?.length) {
-            m.raw(`   Gotchas: ${entry.feedback.issuesEncountered.join(', ')}`)
-          }
-        })
-        m.blank().italic('Task history helps identify patterns and improve decisions')
-      })
-      .blank()
-      .build()
   }
 
   // =========== Transition Validation ===========
