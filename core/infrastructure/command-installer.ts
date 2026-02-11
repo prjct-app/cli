@@ -375,16 +375,23 @@ export class CommandInstaller {
    * Get list of command files to install
    */
   async getCommandFiles(): Promise<string[]> {
+    // Router files are installed separately by installRouter()
+    // Exclude them from subcommand list to avoid duplicates in ~/.claude/commands/p/
+    const routerFiles = new Set(['p.md', 'p.toml'])
+
     // Try bundled templates first
     const bundled = listTemplates('commands/')
     if (bundled.length > 0) {
-      return bundled.filter((k) => k.endsWith('.md')).map((k) => k.replace('commands/', ''))
+      return bundled
+        .filter((k) => k.endsWith('.md'))
+        .map((k) => k.replace('commands/', ''))
+        .filter((f) => !routerFiles.has(f))
     }
 
     // Fall back to filesystem
     try {
       const files = await fs.readdir(this.templatesDir)
-      return files.filter((f) => f.endsWith('.md'))
+      return files.filter((f) => f.endsWith('.md') && !routerFiles.has(f))
     } catch (_error) {
       return [
         'init.md',
