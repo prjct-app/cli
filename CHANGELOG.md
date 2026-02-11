@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.27.1] - 2026-02-11
+
+### Bug Fixes
+
+- exclude router files (p.md/p.toml) from subcommand installation
+
+
 ## [1.27.0] - 2026-02-11
 
 ### Features
