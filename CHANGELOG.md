@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.25.0] - 2026-02-11
+
+### Features
+
+- kill all JSON file I/O — everything to SQLite (PRJ-303) (#172)
+
+
 ## [1.25.0] - 2026-02-10
 
 ### Features
