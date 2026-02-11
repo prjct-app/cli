@@ -1,5 +1,3 @@
-#!/usr/bin/env bun
-
 /**
  * Linear CLI - Bridge between templates and SDK
  *
