@@ -2,7 +2,7 @@
  * SQLite Database Manager (PRJ-303)
  *
  * Single SQLite database per project replaces 7+ JSON files.
- * Uses Bun's built-in SQLite (`bun:sqlite`) — zero external deps.
+ * Uses bun:sqlite (native) on Bun, better-sqlite3 on Node.js.
  *
  * Benefits over JSON files:
  * - Atomic writes (WAL mode, no race conditions)
@@ -15,13 +15,55 @@
  * - Normalized tables: For indexed queries on frequently accessed entities
  * - `events` table: Append-only event log (replaces events.jsonl)
  *
- * @version 1.0.0
+ * @version 2.0.0
  */
 
-import { Database, type SQLQueryBindings } from 'bun:sqlite'
 import fs from 'node:fs'
 import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
+import { isBun } from '../utils/runtime'
+
+// =============================================================================
+// SQLite Compatibility Layer (bun:sqlite + better-sqlite3)
+// =============================================================================
+
+/** Bind parameter types accepted by both drivers */
+type SqliteBindings = string | number | bigint | Buffer | null | undefined
+
+/** Minimal prepared-statement interface shared by both drivers */
+interface SqliteStatement {
+  get(...params: SqliteBindings[]): unknown
+  all(...params: SqliteBindings[]): unknown[]
+  run(...params: SqliteBindings[]): void
+}
+
+/** Minimal database interface shared by bun:sqlite and better-sqlite3 */
+interface SqliteDatabase {
+  prepare(sql: string): SqliteStatement
+  run(sql: string): void
+  close(): void
+  transaction<T>(fn: (...args: SqliteDatabase[]) => T): (...args: SqliteDatabase[]) => T
+}
+
+/**
+ * Open a SQLite database using the runtime-appropriate driver.
+ * bun:sqlite on Bun, better-sqlite3 on Node.js.
+ *
+ * better-sqlite3 uses `exec()` for raw SQL where bun:sqlite uses `run()`,
+ * so we patch `run` onto the better-sqlite3 instance for API parity.
+ */
+function openDatabase(dbPath: string): SqliteDatabase {
+  if (isBun()) {
+    const { Database } = require('bun:sqlite')
+    return new Database(dbPath, { create: true }) as SqliteDatabase
+  }
+  const BetterSqlite3 = require('better-sqlite3')
+  const db = new BetterSqlite3(dbPath)
+  // better-sqlite3 uses exec() for raw SQL; bun:sqlite uses run()
+  const origExec = db.exec.bind(db)
+  db.run = (sql: string) => origExec(sql)
+  return db as SqliteDatabase
+}
 
 // =============================================================================
 // Types
@@ -30,7 +72,7 @@ import pathManager from '../infrastructure/path-manager'
 export interface Migration {
   version: number
   name: string
-  up: (db: Database) => void
+  up: (db: SqliteDatabase) => void
 }
 
 export interface MigrationRecord {
@@ -47,7 +89,7 @@ const migrations: Migration[] = [
   {
     version: 1,
     name: 'initial-schema',
-    up: (db: Database) => {
+    up: (db: SqliteDatabase) => {
       db.run(`
         -- =======================================================================
         -- Document storage (backward-compatible with JSON file pattern)
@@ -268,7 +310,7 @@ const migrations: Migration[] = [
   {
     version: 2,
     name: 'archives-table',
-    up: (db: Database) => {
+    up: (db: SqliteDatabase) => {
       db.run(`
         -- =======================================================================
         -- Archives: Stale data moved out of active storage (PRJ-267)
@@ -296,7 +338,7 @@ const migrations: Migration[] = [
 // =============================================================================
 
 class PrjctDatabase {
-  private connections = new Map<string, Database>()
+  private connections = new Map<string, SqliteDatabase>()
 
   /**
    * Get the database file path for a project.
@@ -309,7 +351,7 @@ class PrjctDatabase {
    * Get or create a database connection for a project.
    * Lazily opens the database, runs migrations, and enables WAL mode.
    */
-  getDb(projectId: string): Database {
+  getDb(projectId: string): SqliteDatabase {
     const existing = this.connections.get(projectId)
     if (existing) return existing
 
@@ -319,7 +361,7 @@ class PrjctDatabase {
     if (!fs.existsSync(dbDir)) {
       fs.mkdirSync(dbDir, { recursive: true })
     }
-    const db = new Database(dbPath, { create: true })
+    const db = openDatabase(dbPath)
 
     // Enable WAL mode for concurrent reads + single writer
     db.run('PRAGMA journal_mode = WAL')
@@ -473,7 +515,7 @@ class PrjctDatabase {
   query<T = Record<string, unknown>>(
     projectId: string,
     sql: string,
-    ...params: SQLQueryBindings[]
+    ...params: SqliteBindings[]
   ): T[] {
     const db = this.getDb(projectId)
     return db.prepare(sql).all(...params) as T[]
@@ -482,7 +524,7 @@ class PrjctDatabase {
   /**
    * Execute a raw SQL statement (INSERT/UPDATE/DELETE).
    */
-  run(projectId: string, sql: string, ...params: SQLQueryBindings[]): void {
+  run(projectId: string, sql: string, ...params: SqliteBindings[]): void {
     const db = this.getDb(projectId)
     db.prepare(sql).run(...params)
   }
@@ -493,7 +535,7 @@ class PrjctDatabase {
   get<T = Record<string, unknown>>(
     projectId: string,
     sql: string,
-    ...params: SQLQueryBindings[]
+    ...params: SqliteBindings[]
   ): T | null {
     const db = this.getDb(projectId)
     return (db.prepare(sql).get(...params) as T) ?? null
@@ -502,7 +544,7 @@ class PrjctDatabase {
   /**
    * Run multiple statements in a transaction.
    */
-  transaction<T>(projectId: string, fn: (db: Database) => T): T {
+  transaction<T>(projectId: string, fn: (db: SqliteDatabase) => T): T {
     const db = this.getDb(projectId)
     return db.transaction(fn)(db)
   }
@@ -514,7 +556,7 @@ class PrjctDatabase {
   /**
    * Run all pending migrations.
    */
-  private runMigrations(db: Database): void {
+  private runMigrations(db: SqliteDatabase): void {
     // Create migrations table if it doesn't exist
     db.run(`
       CREATE TABLE IF NOT EXISTS _migrations (
@@ -573,3 +615,4 @@ class PrjctDatabase {
 export const prjctDb = new PrjctDatabase()
 export default prjctDb
 export { PrjctDatabase }
+export type { SqliteDatabase, SqliteStatement, SqliteBindings }
