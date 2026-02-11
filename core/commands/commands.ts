@@ -31,6 +31,7 @@ import { PerformanceCommands } from './performance'
 import { PlanningCommands } from './planning'
 import { SetupCommands } from './setup'
 import { ShippingCommands } from './shipping'
+import { UpdateCommands } from './update'
 import { VelocityCommands } from './velocity'
 import { WorkflowCommands } from './workflow'
 
@@ -48,6 +49,7 @@ class PrjctCommands {
   private maintenance: MaintenanceCommands
   private analysis: AnalysisCommands
   private setupCmds: SetupCommands
+  private updateCmds: UpdateCommands
   private velocityCmds: VelocityCommands
   private contextCmds: ContextCommands
 
@@ -66,6 +68,7 @@ class PrjctCommands {
     this.maintenance = new MaintenanceCommands()
     this.analysis = new AnalysisCommands()
     this.setupCmds = new SetupCommands()
+    this.updateCmds = new UpdateCommands()
     this.velocityCmds = new VelocityCommands()
     this.contextCmds = new ContextCommands()
 
@@ -77,23 +80,42 @@ class PrjctCommands {
 
   // ========== Workflow Commands ==========
 
-  async done(projectPath: string = process.cwd()): Promise<CommandResult> {
-    return this.workflow.done(projectPath)
+  async task(
+    description: string | null = null,
+    projectPath: string = process.cwd(),
+    options: { md?: boolean; skipHooks?: boolean } = {}
+  ): Promise<CommandResult> {
+    return this.workflow.now(description, projectPath, options)
   }
 
-  async next(projectPath: string = process.cwd()): Promise<CommandResult> {
-    return this.workflow.next(projectPath)
+  async done(
+    projectPath: string = process.cwd(),
+    options: { md?: boolean } = {}
+  ): Promise<CommandResult> {
+    return this.workflow.done(projectPath, options)
   }
 
-  async pause(reason: string = '', projectPath: string = process.cwd()): Promise<CommandResult> {
-    return this.workflow.pause(reason, projectPath)
+  async next(
+    projectPath: string = process.cwd(),
+    options: { md?: boolean } = {}
+  ): Promise<CommandResult> {
+    return this.workflow.next(projectPath, options)
+  }
+
+  async pause(
+    reason: string = '',
+    projectPath: string = process.cwd(),
+    options: { md?: boolean } = {}
+  ): Promise<CommandResult> {
+    return this.workflow.pause(reason, projectPath, options)
   }
 
   async resume(
     taskId: string | null = null,
-    projectPath: string = process.cwd()
+    projectPath: string = process.cwd(),
+    options: { md?: boolean } = {}
   ): Promise<CommandResult> {
-    return this.workflow.resume(taskId, projectPath)
+    return this.workflow.resume(taskId, projectPath, options)
   }
 
   async workflowPrefs(
@@ -112,12 +134,20 @@ class PrjctCommands {
     return this.planning.init(idea, projectPath)
   }
 
-  async bug(description: string, projectPath: string = process.cwd()): Promise<CommandResult> {
-    return this.planning.bug(description, projectPath)
+  async bug(
+    description: string,
+    projectPath: string = process.cwd(),
+    options: { md?: boolean } = {}
+  ): Promise<CommandResult> {
+    return this.planning.bug(description, projectPath, options)
   }
 
-  async idea(description: string, projectPath: string = process.cwd()): Promise<CommandResult> {
-    return this.planning.idea(description, projectPath)
+  async idea(
+    description: string,
+    projectPath: string = process.cwd(),
+    options: { md?: boolean } = {}
+  ): Promise<CommandResult> {
+    return this.planning.idea(description, projectPath, options)
   }
 
   async spec(
@@ -129,17 +159,22 @@ class PrjctCommands {
 
   // ========== Shipping Commands ==========
 
-  async ship(feature: string | null, projectPath: string = process.cwd()): Promise<CommandResult> {
-    return this.shipping.ship(feature, projectPath)
+  async ship(
+    feature: string | null,
+    projectPath: string = process.cwd(),
+    options: { md?: boolean } = {}
+  ): Promise<CommandResult> {
+    return this.shipping.ship(feature, projectPath, { ...options })
   }
 
   // ========== Analytics Commands ==========
 
   async dash(
     view: string = 'default',
-    projectPath: string = process.cwd()
+    projectPath: string = process.cwd(),
+    options: { md?: boolean } = {}
   ): Promise<CommandResult> {
-    return this.analytics.dash(view, projectPath)
+    return this.analytics.dash(view, projectPath, options)
   }
 
   async help(topic: string = '', projectPath: string = process.cwd()): Promise<CommandResult> {
@@ -210,6 +245,7 @@ class PrjctCommands {
       preview?: boolean
       yes?: boolean
       json?: boolean
+      md?: boolean
       package?: string
       full?: boolean
     } = {}
@@ -226,7 +262,7 @@ class PrjctCommands {
 
   async status(
     projectPath: string = process.cwd(),
-    options: { json?: boolean } = {}
+    options: { json?: boolean; md?: boolean } = {}
   ): Promise<CommandResult> {
     return this.analysis.status(projectPath, options)
   }
@@ -262,6 +298,13 @@ class PrjctCommands {
 
   async setup(options: SetupOptions = {}): Promise<CommandResult> {
     return this.setupCmds.setup(options)
+  }
+
+  async update(
+    options: { all?: boolean; 'dry-run'?: boolean } = {},
+    projectPath: string = process.cwd()
+  ): Promise<CommandResult> {
+    return this.updateCmds.update(options, projectPath)
   }
 
   async installStatusLine(): Promise<{ success: boolean; error?: string }> {

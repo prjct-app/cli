@@ -445,6 +445,22 @@ export const COMMANDS: CommandMeta[] = [
     ],
   },
   {
+    name: 'update',
+    group: 'setup',
+    description: 'Migrate all projects from JSON to SQLite',
+    usage: { claude: null, terminal: 'prjct update [--all] [--dry-run]' },
+    params: '[--all] [--dry-run]',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: false,
+    features: [
+      'Migrates JSON storage files to SQLite',
+      'Sweeps leftover JSON files',
+      '--all flag processes all projects on machine',
+      '--dry-run to preview without changes',
+    ],
+  },
+  {
     name: 'uninstall',
     group: 'setup',
     description: 'Complete system removal of prjct',

@@ -2,17 +2,18 @@
  * Cleanup Commands
  *
  * Memory and project file cleanup operations.
+ * Storage: SQLite events table
  */
 
-import path from 'node:path'
 import { memoryService } from '../services'
 import { ideasStorage, queueStorage } from '../storage'
+import prjctDb from '../storage/database'
 import type { CleanupOptions, CommandResult } from '../types'
-import { getErrorMessage, isNotFoundError } from '../types/fs'
-import { configManager, dateHelper, jsonlHelper, out, pathManager } from './base'
+import { getErrorMessage } from '../types/fs'
+import { configManager, dateHelper, out } from './base'
 
 /**
- * Memory cleanup helper
+ * Memory cleanup helper - prunes old memory events
  */
 export async function cleanupMemory(projectPath: string): Promise<{
   success: boolean
@@ -21,29 +22,26 @@ export async function cleanupMemory(projectPath: string): Promise<{
   const projectId = await configManager.getProjectId(projectPath)
 
   const results = { rotated: [] as string[], totalSize: 0, freedSpace: 0 }
-  const jsonlFiles = [
-    pathManager.getFilePath(projectId!, 'memory', 'context.jsonl'),
-    pathManager.getFilePath(projectId!, 'progress', 'shipped.md'),
-    pathManager.getFilePath(projectId!, 'planning', 'ideas.md'),
-  ]
 
-  for (const filePath of jsonlFiles) {
-    try {
-      const sizeMB = await jsonlHelper.getFileSizeMB(filePath)
-      if (sizeMB > 0) {
-        results.totalSize += sizeMB
-        const rotated = await jsonlHelper.rotateJsonLinesIfNeeded(filePath, 10)
-        if (rotated) {
-          results.rotated.push(path.basename(filePath))
-          results.freedSpace += sizeMB
-        }
-      }
-    } catch (error) {
-      // Skip file if not found, otherwise log unexpected errors
-      if (!isNotFoundError(error)) {
-        console.error(`Cleanup warning for ${filePath}: ${getErrorMessage(error)}`)
-      }
-    }
+  if (!projectId) return { success: true, results }
+
+  // Count memory events and prune if over threshold
+  const countRow = prjctDb.get<{ cnt: number }>(
+    projectId,
+    "SELECT COUNT(*) as cnt FROM events WHERE type LIKE 'memory.%'"
+  )
+  const total = countRow?.cnt ?? 0
+
+  if (total > 500) {
+    // Keep last 500, delete the rest
+    const toDelete = total - 500
+    prjctDb.run(
+      projectId,
+      "DELETE FROM events WHERE id IN (SELECT id FROM events WHERE type LIKE 'memory.%' ORDER BY id ASC LIMIT ?)",
+      toDelete
+    )
+    results.rotated.push('memory-events')
+    results.freedSpace = toDelete
   }
 
   return { success: true, results }
@@ -54,8 +52,23 @@ export async function cleanupMemory(projectPath: string): Promise<{
  */
 export async function cleanupMemoryInternal(projectPath: string): Promise<void> {
   const projectId = await configManager.getProjectId(projectPath)
-  const memoryPath = pathManager.getFilePath(projectId!, 'memory', 'context.jsonl')
-  await jsonlHelper.rotateJsonLinesIfNeeded(memoryPath, 10)
+  if (!projectId) return
+
+  // Prune old memory events beyond 500
+  const countRow = prjctDb.get<{ cnt: number }>(
+    projectId,
+    "SELECT COUNT(*) as cnt FROM events WHERE type LIKE 'memory.%'"
+  )
+  const total = countRow?.cnt ?? 0
+
+  if (total > 500) {
+    const toDelete = total - 500
+    prjctDb.run(
+      projectId,
+      "DELETE FROM events WHERE id IN (SELECT id FROM events WHERE type LIKE 'memory.%' ORDER BY id ASC LIMIT ?)",
+      toDelete
+    )
+  }
 }
 
 /**
@@ -86,23 +99,22 @@ export async function cleanup(
     const cleaned: string[] = []
 
     // Clean memory (keep last 100 entries)
-    const memoryPath = pathManager.getFilePath(projectId, 'memory', 'context.jsonl')
-    try {
-      const entries = await jsonlHelper.readJsonLines(memoryPath)
+    const countRow = prjctDb.get<{ cnt: number }>(
+      projectId,
+      "SELECT COUNT(*) as cnt FROM events WHERE type LIKE 'memory.%'"
+    )
+    const total = countRow?.cnt ?? 0
 
-      if (entries.length > 100) {
-        const kept = entries.slice(-100)
-        await jsonlHelper.writeJsonLines(memoryPath, kept)
-        cleaned.push(`Memory: ${entries.length - 100} old entries removed`)
-      } else {
-        cleaned.push('Memory: No cleanup needed')
-      }
-    } catch (error) {
-      if (isNotFoundError(error)) {
-        cleaned.push('Memory: No file found')
-      } else {
-        cleaned.push(`Memory: Error - ${getErrorMessage(error)}`)
-      }
+    if (total > 100) {
+      const toDelete = total - 100
+      prjctDb.run(
+        projectId,
+        "DELETE FROM events WHERE id IN (SELECT id FROM events WHERE type LIKE 'memory.%' ORDER BY id ASC LIMIT ?)",
+        toDelete
+      )
+      cleaned.push(`Memory: ${toDelete} old entries removed`)
+    } else {
+      cleaned.push('Memory: No cleanup needed')
     }
 
     // Clean ideas using ideasStorage
@@ -114,11 +126,7 @@ export async function cleanup(
         cleaned.push('Ideas: No cleanup needed')
       }
     } catch (error) {
-      if (isNotFoundError(error)) {
-        cleaned.push('Ideas: No file found')
-      } else {
-        cleaned.push(`Ideas: Error - ${getErrorMessage(error)}`)
-      }
+      cleaned.push(`Ideas: Error - ${getErrorMessage(error)}`)
     }
 
     // Check queue for completed tasks using queueStorage
@@ -134,11 +142,7 @@ export async function cleanup(
         cleaned.push('Queue: No completed tasks')
       }
     } catch (error) {
-      if (isNotFoundError(error)) {
-        cleaned.push('Queue: No file found')
-      } else {
-        cleaned.push(`Queue: Error - ${getErrorMessage(error)}`)
-      }
+      cleaned.push(`Queue: Error - ${getErrorMessage(error)}`)
     }
 
     await cleanupMemoryInternal(projectPath)

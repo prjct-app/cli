@@ -1,15 +1,11 @@
 ---
-allowed-tools: [Read, Write]
-description: 'Design systems'
+allowed-tools: [Bash, Read, Write]
 ---
 
-# /p:design
+# p. design $ARGUMENTS
 
-## Types
-architecture | api | component | database | flow
+```bash
+prjct design $ARGUMENTS --md
+```
 
-## Flow
-Parse → Generate ASCII diagrams → Specs → Save `designs/{target}-{type}.md`
-
-## Response
-`🎨 {target} design | Saved: designs/{target}-{type}.md`
+Follow the instructions in the CLI output.

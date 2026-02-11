@@ -33,10 +33,9 @@ await generator.generateDynamicAgent('agent-name', {
 
 **Global**: `~/.prjct-cli/projects/{id}/`
 ```
-storage/   # state.json, queue.json
+prjct.db   # SQLite database (all state)
 context/   # now.md, next.md
 agents/    # domain specialists
-memory/    # events.jsonl
 ```
 
 **Local**: `.prjct/prjct.config.json` (read-only)
@@ -63,6 +62,6 @@ memory/    # events.jsonl
 
 ## Implementation
 
-- Atomic operations
-- Log to `memory/events.jsonl`
-- Handle missing files gracefully
+- Atomic operations via `prjct` CLI
+- CLI handles all state persistence (SQLite)
+- Handle missing config gracefully

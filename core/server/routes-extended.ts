@@ -3,26 +3,21 @@
  *
  * New endpoints for multi-project management and quick actions.
  * These complement the existing routes in routes.ts
+ * All storage reads/writes go through SQLite via storage APIs.
  *
- * @version 2.0.0
+ * @version 3.0.0
  */
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { Hono } from 'hono'
-import * as jsonc from 'jsonc-parser'
 import pathManager from '../infrastructure/path-manager'
-import { isNotFoundError } from '../types/fs'
-import type {
-  IdeasJson,
-  ProjectJson,
-  QueueJson,
-  QueueTask,
-  RoadmapJson,
-  ShippedJson,
-  StateJson,
-  StateTask,
-} from '../types/storage'
+import { prjctDb } from '../storage/database'
+import { ideasStorage } from '../storage/ideas-storage'
+import { queueStorage } from '../storage/queue-storage'
+import { shippedStorage } from '../storage/shipped-storage'
+import { stateStorage } from '../storage/state-storage'
+import type { ProjectJson, QueueTask, StateTask } from '../types/storage'
 
 // =============================================================================
 // HELPERS
@@ -31,40 +26,8 @@ import type {
 const GLOBAL_BASE = pathManager.getGlobalBasePath()
 const PROJECTS_DIR = path.join(GLOBAL_BASE, 'projects')
 
-async function readJsonFile<T>(filePath: string): Promise<T | null> {
-  try {
-    const content = await fs.readFile(filePath, 'utf-8')
-    const errors: jsonc.ParseError[] = []
-    const result = jsonc.parse(content, errors)
-    return errors.length > 0 ? null : result
-  } catch (error) {
-    if (isNotFoundError(error)) {
-      return null
-    }
-    throw error
-  }
-}
-
-async function writeJsonFile(filePath: string, data: unknown): Promise<boolean> {
-  try {
-    await fs.mkdir(path.dirname(filePath), { recursive: true })
-    await fs.writeFile(filePath, `${JSON.stringify(data, null, 2)}\n`, 'utf-8')
-    return true
-  } catch (error) {
-    if (isNotFoundError(error)) {
-      return false
-    }
-    throw error
-  }
-}
-
-function getProjectPath(projectId: string): string {
-  return path.join(PROJECTS_DIR, projectId)
-}
-
-async function getProjectConfig(projectId: string): Promise<ProjectJson | null> {
-  const configPath = path.join(getProjectPath(projectId), 'project.json')
-  return await readJsonFile<ProjectJson>(configPath)
+function getProjectConfig(projectId: string): ProjectJson | null {
+  return prjctDb.getDoc<ProjectJson>(projectId, 'project')
 }
 
 async function calculateDuration(startedAt: string | undefined): Promise<string> {
@@ -101,24 +64,20 @@ export function createExtendedRoutes(): Hono {
 
       const projects = await Promise.all(
         projectIds.map(async (id) => {
-          const projectPath = getProjectPath(id)
-
           // Read config
-          const config = await getProjectConfig(id)
+          const config = getProjectConfig(id)
 
           // Read state
-          const state = await readJsonFile<StateJson>(path.join(projectPath, 'storage/state.json'))
+          const state = await stateStorage.read(id)
 
           // Read queue for count
-          const queue = await readJsonFile<QueueJson>(path.join(projectPath, 'storage/queue.json'))
+          const queue = await queueStorage.read(id)
 
           // Read ideas for count
-          const ideas = await readJsonFile<IdeasJson>(path.join(projectPath, 'storage/ideas.json'))
+          const ideas = await ideasStorage.read(id)
 
           // Read shipped for count
-          const shipped = await readJsonFile<ShippedJson>(
-            path.join(projectPath, 'storage/shipped.json')
-          )
+          const shipped = await shippedStorage.read(id)
 
           const currentTask = state?.currentTask
           const duration = await calculateDuration(currentTask?.startedAt)
@@ -161,21 +120,21 @@ export function createExtendedRoutes(): Hono {
   // -------------------------------------------------------------------------
   api.get('/projects/:id/full', async (c) => {
     const projectId = c.req.param('id')
-    const projectPath = getProjectPath(projectId)
 
     try {
-      const [config, state, queue, ideas, shipped, roadmap] = await Promise.all([
-        getProjectConfig(projectId),
-        readJsonFile<StateJson>(path.join(projectPath, 'storage/state.json')),
-        readJsonFile<QueueJson>(path.join(projectPath, 'storage/queue.json')),
-        readJsonFile<IdeasJson>(path.join(projectPath, 'storage/ideas.json')),
-        readJsonFile<ShippedJson>(path.join(projectPath, 'storage/shipped.json')),
-        readJsonFile<RoadmapJson>(path.join(projectPath, 'planning/roadmap.json')),
+      const [config, state, queue, ideas, shipped] = await Promise.all([
+        Promise.resolve(getProjectConfig(projectId)),
+        stateStorage.read(projectId),
+        queueStorage.read(projectId),
+        ideasStorage.read(projectId),
+        shippedStorage.read(projectId),
       ])
+      const roadmap = prjctDb.getDoc(projectId, 'roadmap')
 
       // Calculate current task duration
       if (state?.currentTask?.startedAt) {
-        state.currentTask.duration = await calculateDuration(state.currentTask.startedAt)
+        ;(state.currentTask as StateTask & { duration?: string }).duration =
+          await calculateDuration(state.currentTask.startedAt)
       }
 
       // Calculate stats
@@ -224,11 +183,9 @@ export function createExtendedRoutes(): Hono {
   // -------------------------------------------------------------------------
   api.post('/projects/:id/task/complete', async (c) => {
     const projectId = c.req.param('id')
-    const projectPath = getProjectPath(projectId)
-    const statePath = path.join(projectPath, 'storage/state.json')
 
     try {
-      const state = await readJsonFile<StateJson>(statePath)
+      const state = await stateStorage.read(projectId)
 
       if (!state?.currentTask) {
         return c.json({ success: false, error: 'No active task' }, 400)
@@ -237,13 +194,13 @@ export function createExtendedRoutes(): Hono {
       const completedTask = state.currentTask
 
       // Update state
-      const newState: StateJson = {
+      const newState = {
         currentTask: null,
         previousTask: null,
         lastUpdated: new Date().toISOString(),
       }
 
-      await writeJsonFile(statePath, newState)
+      await stateStorage.write(projectId, newState as Parameters<typeof stateStorage.write>[1])
 
       return c.json({
         success: true,
@@ -260,14 +217,12 @@ export function createExtendedRoutes(): Hono {
   // -------------------------------------------------------------------------
   api.post('/projects/:id/task/pause', async (c) => {
     const projectId = c.req.param('id')
-    const projectPath = getProjectPath(projectId)
-    const statePath = path.join(projectPath, 'storage/state.json')
 
     try {
       const body = await c.req.json().catch(() => ({}))
       const reason = body.reason
 
-      const state = await readJsonFile<StateJson>(statePath)
+      const state = await stateStorage.read(projectId)
 
       if (!state?.currentTask) {
         return c.json({ success: false, error: 'No active task' }, 400)
@@ -282,13 +237,13 @@ export function createExtendedRoutes(): Hono {
         pauseReason: reason,
       }
 
-      const newState: StateJson = {
+      const newState = {
         currentTask: null,
         previousTask: pausedTask,
         lastUpdated: new Date().toISOString(),
       }
 
-      await writeJsonFile(statePath, newState)
+      await stateStorage.write(projectId, newState as Parameters<typeof stateStorage.write>[1])
 
       return c.json({
         success: true,
@@ -305,11 +260,9 @@ export function createExtendedRoutes(): Hono {
   // -------------------------------------------------------------------------
   api.post('/projects/:id/task/resume', async (c) => {
     const projectId = c.req.param('id')
-    const projectPath = getProjectPath(projectId)
-    const statePath = path.join(projectPath, 'storage/state.json')
 
     try {
-      const state = await readJsonFile<StateJson>(statePath)
+      const state = await stateStorage.read(projectId)
 
       if (!state?.previousTask) {
         return c.json({ success: false, error: 'No paused task' }, 400)
@@ -323,13 +276,13 @@ export function createExtendedRoutes(): Hono {
         sessionId: `sess_${Date.now().toString(36)}`,
       }
 
-      const newState: StateJson = {
+      const newState = {
         currentTask: resumedTask,
         previousTask: null,
         lastUpdated: new Date().toISOString(),
       }
 
-      await writeJsonFile(statePath, newState)
+      await stateStorage.write(projectId, newState as Parameters<typeof stateStorage.write>[1])
 
       return c.json({
         success: true,
@@ -346,9 +299,6 @@ export function createExtendedRoutes(): Hono {
   // -------------------------------------------------------------------------
   api.post('/projects/:id/queue/start', async (c) => {
     const projectId = c.req.param('id')
-    const projectPath = getProjectPath(projectId)
-    const statePath = path.join(projectPath, 'storage/state.json')
-    const queuePath = path.join(projectPath, 'storage/queue.json')
 
     try {
       const body = await c.req.json()
@@ -358,8 +308,10 @@ export function createExtendedRoutes(): Hono {
         return c.json({ success: false, error: 'taskId required' }, 400)
       }
 
-      const state = await readJsonFile<StateJson>(statePath)
-      const queue = await readJsonFile<QueueJson>(queuePath)
+      const [state, queue] = await Promise.all([
+        stateStorage.read(projectId),
+        queueStorage.read(projectId),
+      ])
 
       // Check if there's already an active task
       if (state?.currentTask) {
@@ -383,13 +335,13 @@ export function createExtendedRoutes(): Hono {
       }
 
       // Update state
-      const newState: StateJson = {
+      const newState = {
         currentTask: newTask,
         previousTask: null,
         lastUpdated: new Date().toISOString(),
       }
 
-      await writeJsonFile(statePath, newState)
+      await stateStorage.write(projectId, newState as Parameters<typeof stateStorage.write>[1])
 
       return c.json({
         success: true,
@@ -406,8 +358,6 @@ export function createExtendedRoutes(): Hono {
   // -------------------------------------------------------------------------
   api.post('/projects/:id/ideas', async (c) => {
     const projectId = c.req.param('id')
-    const projectPath = getProjectPath(projectId)
-    const ideasPath = path.join(projectPath, 'storage/ideas.json')
 
     try {
       const body = await c.req.json()
@@ -417,28 +367,14 @@ export function createExtendedRoutes(): Hono {
         return c.json({ success: false, error: 'text required' }, 400)
       }
 
-      const ideas: IdeasJson = (await readJsonFile<IdeasJson>(ideasPath)) || {
-        ideas: [],
-        lastUpdated: '',
-      }
-
-      const newIdea = {
-        id: `idea_${Date.now().toString(36)}`,
-        text,
-        status: 'pending' as const,
-        priority: (priority || 'medium') as 'low' | 'medium' | 'high',
+      const idea = await ideasStorage.addIdea(projectId, text, {
+        priority: priority || 'medium',
         tags: tags as string[],
-        addedAt: new Date().toISOString(),
-      }
-
-      ideas.ideas.unshift(newIdea) // Prepend
-      ideas.lastUpdated = new Date().toISOString()
-
-      await writeJsonFile(ideasPath, ideas)
+      })
 
       return c.json({
         success: true,
-        idea: newIdea,
+        idea,
         message: `Captured: ${text.slice(0, 50)}...`,
       })
     } catch (error) {
@@ -461,14 +397,10 @@ export function createExtendedRoutes(): Hono {
       let activeProjects = 0
 
       for (const id of projectIds) {
-        const projectPath = getProjectPath(id)
-
-        const state = await readJsonFile<StateJson>(path.join(projectPath, 'storage/state.json'))
-        const queue = await readJsonFile<QueueJson>(path.join(projectPath, 'storage/queue.json'))
-        const ideas = await readJsonFile<IdeasJson>(path.join(projectPath, 'storage/ideas.json'))
-        const shipped = await readJsonFile<ShippedJson>(
-          path.join(projectPath, 'storage/shipped.json')
-        )
+        const state = await stateStorage.read(id)
+        const queue = await queueStorage.read(id)
+        const ideas = await ideasStorage.read(id)
+        const shipped = await shippedStorage.read(id)
 
         if (state?.currentTask) activeProjects++
 
@@ -506,7 +438,7 @@ export function createExtendedRoutes(): Hono {
       let targetProjectId: string | null = null
       if (cwd) {
         for (const id of projectIds) {
-          const config = await getProjectConfig(id)
+          const config = getProjectConfig(id)
           // Check both 'path' and 'repoPath' fields
           const projectPath = config?.repoPath || config?.path
           // Match if cwd starts with project path (handles subdirectories)
@@ -526,16 +458,15 @@ export function createExtendedRoutes(): Hono {
       const idsToCheck = targetProjectId ? [targetProjectId] : projectIds
 
       for (const id of idsToCheck) {
-        const projectPath = getProjectPath(id)
-        const state = await readJsonFile<StateJson>(path.join(projectPath, 'storage/state.json'))
-        const config = await getProjectConfig(id)
+        const state = await stateStorage.read(id)
+        const config = getProjectConfig(id)
 
         if (state?.currentTask) {
           activeProject = { id, name: config?.name || id, path: config?.repoPath || config?.path }
           activeTask = {
             ...state.currentTask,
             duration: await calculateDuration(state.currentTask.startedAt),
-          }
+          } as StateTask & { duration?: string }
           break
         }
 

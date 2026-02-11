@@ -10,6 +10,7 @@ import { ContextBuilder } from '../../agentic/context-builder'
 import { MemorySystem, PatternStore } from '../../agentic/memory-system'
 import pathManager from '../../infrastructure/path-manager'
 import { SessionLogManager } from '../../session/session-log-manager'
+import { prjctDb } from '../../storage'
 import { TTLCache } from '../../utils/cache'
 
 const TEST_GLOBAL_BASE_DIR = path.join(process.cwd(), '.tmp', 'prjct-cli-cache-tests')
@@ -159,14 +160,7 @@ describe('Cache Eviction Policies (PRJ-288)', () => {
       const store = new PatternStore()
       const projectId = getTestProjectId()
 
-      // Manually write a patterns file with oversized contexts
-      const filePath = path.join(
-        pathManager.getGlobalProjectPath(projectId),
-        'memory',
-        'patterns.json'
-      )
-      await fs.mkdir(path.dirname(filePath), { recursive: true })
-
+      // Write oversized patterns directly to SQLite
       const oversizedPatterns = {
         version: 1,
         decisions: {
@@ -184,7 +178,7 @@ describe('Cache Eviction Policies (PRJ-288)', () => {
         workflows: {},
         counters: {},
       }
-      await fs.writeFile(filePath, JSON.stringify(oversizedPatterns, null, 2), 'utf-8')
+      prjctDb.setDoc(projectId, 'memory:patterns', oversizedPatterns)
 
       // Load triggers afterLoad which should truncate
       const patterns = await store.load(projectId)
@@ -202,14 +196,6 @@ describe('Cache Eviction Policies (PRJ-288)', () => {
     it('should archive decisions older than 90 days', async () => {
       const store = new PatternStore()
       const projectId = getTestProjectId()
-
-      // Write patterns with a stale and an active decision
-      const filePath = path.join(
-        pathManager.getGlobalProjectPath(projectId),
-        'memory',
-        'patterns.json'
-      )
-      await fs.mkdir(path.dirname(filePath), { recursive: true })
 
       const now = new Date()
       const staleDate = new Date(now.getTime() - 100 * 24 * 60 * 60 * 1000) // 100 days ago
@@ -241,9 +227,10 @@ describe('Cache Eviction Policies (PRJ-288)', () => {
         workflows: {},
         counters: {},
       }
-      await fs.writeFile(filePath, JSON.stringify(patterns, null, 2), 'utf-8')
+      // Write patterns directly to SQLite
+      prjctDb.setDoc(projectId, 'memory:patterns', patterns)
 
-      // Reset store cache to force disk read
+      // Reset store cache to force SQLite read
       store.reset()
       const archived = await store.archiveStaleDecisions(projectId)
       expect(archived).toBe(1)
@@ -253,15 +240,14 @@ describe('Cache Eviction Policies (PRJ-288)', () => {
       expect(updated.decisions['active-key']).toBeDefined()
       expect(updated.decisions['stale-key']).toBeUndefined()
 
-      // Verify archive file was created
-      const archivePath = path.join(
-        pathManager.getGlobalProjectPath(projectId),
-        'memory',
-        'patterns-archive.json'
+      // Verify archive was saved to SQLite
+      const archiveContent = prjctDb.getDoc<Record<string, { value: string }>>(
+        projectId,
+        'memory:patterns-archive'
       )
-      const archiveContent = JSON.parse(await fs.readFile(archivePath, 'utf-8'))
-      expect(archiveContent['stale-key']).toBeDefined()
-      expect(archiveContent['stale-key'].value).toBe('old')
+      expect(archiveContent).not.toBeNull()
+      expect(archiveContent!['stale-key']).toBeDefined()
+      expect(archiveContent!['stale-key'].value).toBe('old')
     })
 
     it('should return 0 when no stale decisions exist', async () => {

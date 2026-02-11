@@ -2,11 +2,13 @@
 
 **Canonical specification for prjct storage format.**
 
-This document defines the exact format for all storage files. Both Claude and Gemini agents MUST produce **identical output** for the same operations to ensure cross-agent compatibility and future remote sync.
+All storage is managed by the `prjct` CLI which uses SQLite (`prjct.db`) internally. **NEVER read or write JSON storage files directly. Use `prjct` CLI commands for all storage operations.**
 
 ---
 
-## Directory Structure
+## Current Storage: SQLite (prjct.db)
+
+All reads and writes go through the `prjct` CLI, which manages a SQLite database (`prjct.db`) with WAL mode for safe concurrent access.
 
 ```
 ~/.prjct-cli/projects/{projectId}/
@@ -21,13 +23,20 @@ This document defines the exact format for all storage files. Both Claude and Ge
     └── pending.json    # Events for backend sync
 ```
 
-> **Note**: All data previously stored in `storage/*.json`, `memory/events.jsonl`, and `memory/learnings.jsonl` now lives in `prjct.db` (SQLite). The `storage/` and `memory/` directories are no longer used for new data.
+### How to interact with storage
+
+- **Read state**: Use `prjct status`, `prjct dash`, `prjct next` CLI commands
+- **Write state**: Use `prjct` CLI commands (task, done, pause, resume, etc.)
+- **Sync issues**: Use `prjct linear sync` or `prjct jira sync`
+- **Never** read/write JSON files in `storage/` or `memory/` directories
 
 ---
 
-## JSON Schemas
+## LEGACY JSON Schemas (for reference only)
 
-### state.json
+> **WARNING**: These JSON schemas are LEGACY documentation only. The `storage/` and `memory/` directories are no longer used. All data lives in `prjct.db` (SQLite). Do NOT read or write these files.
+
+### state.json (LEGACY)
 
 ```json
 {
@@ -58,7 +67,7 @@ This document defines the exact format for all storage files. Both Claude and Ge
 }
 ```
 
-### queue.json
+### queue.json (LEGACY)
 
 ```json
 {
@@ -75,7 +84,7 @@ This document defines the exact format for all storage files. Both Claude and Ge
 }
 ```
 
-### shipped.json
+### shipped.json (LEGACY)
 
 ```json
 {
@@ -92,9 +101,9 @@ This document defines the exact format for all storage files. Both Claude and Ge
 }
 ```
 
-### events.jsonl (append-only)
+### events.jsonl (LEGACY - now stored in SQLite `events` table)
 
-One JSON object per line. NEVER modify existing lines.
+Previously append-only JSONL. Now stored in SQLite.
 
 ```jsonl
 {"type":"task.created","timestamp":"2024-01-15T10:30:00.000Z","data":{"taskId":"uuid","title":"string"}}
@@ -113,11 +122,9 @@ One JSON object per line. NEVER modify existing lines.
 - `subtask.completed` - Subtask completed
 - `feature.shipped` - Feature shipped
 
-### learnings.jsonl (append-only, LLM Knowledge)
+### learnings.jsonl (LEGACY - now stored in SQLite)
 
-**Purpose**: LLM-to-LLM knowledge transfer. Captures patterns, approaches, and decisions for future semantic retrieval. NOT human documentation.
-
-One JSON object per line. NEVER modify existing lines.
+Previously used for LLM-to-LLM knowledge transfer. Now stored in SQLite.
 
 ```jsonl
 {"taskId":"uuid","linearId":"PRJ-123","timestamp":"2024-01-15T10:40:00.000Z","learnings":{"patterns":["Use NestedContextResolver for hierarchical discovery"],"approaches":["Mirror existing method structure when extending"],"decisions":["Extended class rather than wrapper for consistency"],"gotchas":["Must handle null parent case"]},"value":{"type":"feature","impact":"high","description":"Hierarchical AGENTS.md support for monorepos"},"filesChanged":["core/resolver.ts","core/types.ts"],"tags":["agents","hierarchy","monorepo"]}
@@ -239,11 +246,11 @@ prjctDb.setDoc(projectId, 'key', data)
 
 ### NEVER Do These
 
+- Read or write JSON files in `storage/` or `memory/` directories
 - Use `.tmp/` directories
 - Use `mv` or `rename` operations for storage files
 - Create backup files like `*.bak` or `*.old`
-- Modify existing lines in `events.jsonl`
-- Use different JSON formatting between agents
+- Bypass `prjct` CLI to write directly to `prjct.db`
 
 ---
 
@@ -267,9 +274,8 @@ p. done  # Should work seamlessly
 # Switch back to Claude
 p. ship  # Should read Gemini's changes correctly
 
-# Verify JSON format
-cat ~/.prjct-cli/projects/{id}/storage/state.json | python -m json.tool
-# Must be valid, formatted JSON
+# All agents read from the same prjct.db via CLI commands
+prjct status  # Works from any agent
 ```
 
 ### Remote Sync Flow
@@ -354,7 +360,7 @@ Only these remote writes are allowed:
 p. sync (explicit)
      │
      ▼
-Remote API ──────> Local Cache (issues.json)
+Remote API ──────> Local Cache (prjct.db)
                         │
                         ▼
               All reads from here (0 latency, 0 extra tokens)

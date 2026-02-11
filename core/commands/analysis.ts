@@ -13,9 +13,20 @@ import { formatCost } from '../schemas/metrics'
 import { createStalenessChecker, syncService } from '../services'
 import { formatDiffPreview, formatFullDiff, generateSyncDiff } from '../services/diff-generator'
 import { analysisStorage } from '../storage/analysis-storage'
+import { prjctDb } from '../storage/database'
 import { metricsStorage } from '../storage/metrics-storage'
 import type { AnalyzeOptions, CommandResult, ProjectContext } from '../types'
 import { getErrorMessage } from '../types/fs'
+import {
+  mdDone,
+  mdJoin,
+  mdList,
+  mdNextSteps,
+  mdSection,
+  mdStats,
+  mdWarn,
+} from '../utils/md-formatter'
+import { getNextSteps } from '../utils/next-steps'
 import out from '../utils/output'
 import {
   formatDuration,
@@ -148,6 +159,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
       preview?: boolean
       yes?: boolean
       json?: boolean
+      md?: boolean
       package?: string
       full?: boolean
     } = {}
@@ -197,6 +209,8 @@ export class AnalysisCommands extends PrjctCommandsBase {
           console.log(
             JSON.stringify({ success: result.success, package: pkg.name, path: pkg.relativePath })
           )
+        } else if (options.md) {
+          console.log(mdDone(`Synced package: ${pkg.name}`))
         } else {
           out.done(`Synced package: ${pkg.name}`)
         }
@@ -214,7 +228,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
       }
 
       // Detect non-interactive mode (LLM or piped input)
-      const isNonInteractive = !process.stdin.isTTY || options.json
+      const isNonInteractive = !process.stdin.isTTY || options.json || options.md
 
       // For preview mode or when we have existing content, show diff first
       if (existingContent && !options.yes) {
@@ -229,6 +243,10 @@ export class AnalysisCommands extends PrjctCommandsBase {
         })
 
         if (!result.success) {
+          if (options.md) {
+            console.log(mdJoin(`## Sync Failed`, `> ${result.error || 'Unknown error'}`))
+            return { success: false, error: result.error }
+          }
           if (isNonInteractive) {
             console.log(JSON.stringify({ success: false, error: result.error || 'Sync failed' }))
             return { success: false, error: result.error }
@@ -253,6 +271,10 @@ export class AnalysisCommands extends PrjctCommandsBase {
         }
 
         if (!diff.hasChanges) {
+          if (options.md) {
+            console.log(mdDone('No changes detected', 'Context is up to date.'))
+            return { success: true, message: 'No changes' }
+          }
           if (isNonInteractive) {
             console.log(
               JSON.stringify({
@@ -271,6 +293,39 @@ export class AnalysisCommands extends PrjctCommandsBase {
         const restoreOriginal = async () => {
           if (existingContent != null) {
             await fs.writeFile(claudeMdPath, existingContent, 'utf-8')
+          }
+        }
+
+        // Markdown non-interactive mode
+        if (options.md) {
+          await restoreOriginal()
+
+          const changeItems: string[] = []
+          for (const s of diff.added) changeItems.push(`Added: ${s.name} (${s.lineCount} lines)`)
+          for (const s of diff.modified)
+            changeItems.push(`Modified: ${s.name} (${s.lineCount} lines)`)
+          for (const s of diff.removed)
+            changeItems.push(`Removed: ${s.name} (${s.lineCount} lines)`)
+
+          const md = mdJoin(
+            `## Sync Preview`,
+            changeItems.length > 0
+              ? mdSection('Changes', mdList(changeItems), 3)
+              : 'No section changes.',
+            mdStats({
+              'Tokens before': diff.tokensBefore,
+              'Tokens after': diff.tokensAfter,
+              'Token delta': diff.tokenDelta > 0 ? `+${diff.tokenDelta}` : String(diff.tokenDelta),
+            }),
+            `> Run \`prjct sync --yes\` to apply changes.`
+          )
+          console.log(md)
+
+          return {
+            success: true,
+            isPreview: true,
+            diff,
+            message: 'Preview complete (awaiting confirmation)',
           }
         }
 
@@ -368,7 +423,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
       }
 
       // First sync or --yes flag - proceed directly
-      out.spin('Syncing project...')
+      if (!options.md) out.spin('Syncing project...')
 
       // Use syncService to do EVERYTHING in one call
       const result = await syncService.sync(projectPath, {
@@ -377,14 +432,52 @@ export class AnalysisCommands extends PrjctCommandsBase {
       })
 
       if (!result.success) {
-        out.fail(result.error || 'Sync failed')
+        if (options.md) {
+          console.log(mdJoin(`## Sync Failed`, `> ${result.error || 'Unknown error'}`))
+        } else {
+          out.fail(result.error || 'Sync failed')
+        }
         return { success: false, error: result.error }
       }
 
-      out.stop()
+      if (!options.md) out.stop()
+
+      if (options.md) {
+        const elapsed = Date.now() - startTime
+        const contextFilesCount =
+          result.contextFiles.length + (result.aiTools?.filter((t) => t.success).length || 0)
+        const agentCount = result.agents.length
+
+        const steps = getNextSteps('sync')
+        const md = mdJoin(
+          mdDone(
+            `Sync Complete`,
+            mdStats({
+              Duration: `${(elapsed / 1000).toFixed(1)}s`,
+              Agents: `${agentCount} generated`,
+              'Files indexed': result.stats.fileCount,
+              'Context files': contextFilesCount,
+            })
+          ),
+          result.git.hasChanges ? mdWarn('Uncommitted changes detected') : null,
+          mdNextSteps(steps.map((s) => ({ label: s.desc, command: s.cmd })))
+        )
+        console.log(md)
+
+        return {
+          success: true,
+          data: result,
+          metrics: { elapsed, contextFilesCount, agentCount, fileCount: result.stats.fileCount },
+        }
+      }
+
       return showSyncResult(result, startTime)
     } catch (error) {
-      out.fail(getErrorMessage(error))
+      if (options.md) {
+        console.log(mdJoin(`## Sync Failed`, `> ${getErrorMessage(error)}`))
+      } else {
+        out.fail(getErrorMessage(error))
+      }
       return { success: false, error: getErrorMessage(error) }
     }
   }
@@ -445,13 +538,10 @@ export class AnalysisCommands extends PrjctCommandsBase {
       }
 
       // Get project info for header
-      const globalPath = pathManager.getGlobalProjectPath(projectId)
       let projectName = 'Unknown'
       try {
-        const projectJson = JSON.parse(
-          await fs.readFile(path.join(globalPath, 'project.json'), 'utf-8')
-        )
-        projectName = projectJson.name || 'Unknown'
+        const projectDoc = prjctDb.getDoc<Record<string, unknown>>(projectId, 'project')
+        projectName = (projectDoc?.name as string) || 'Unknown'
       } catch {
         // Use fallback
       }
@@ -584,7 +674,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
    */
   async status(
     projectPath: string = process.cwd(),
-    options: { json?: boolean } = {}
+    options: { json?: boolean; md?: boolean } = {}
   ): Promise<CommandResult> {
     try {
       const initResult = await this.ensureProjectInit(projectPath)
@@ -620,6 +710,41 @@ export class AnalysisCommands extends PrjctCommandsBase {
             analysis: analysisStatus,
           })
         )
+        return {
+          success: true,
+          data: { ...status, session: sessionInfo, analysis: analysisStatus },
+        }
+      }
+
+      // Markdown output mode
+      if (options.md) {
+        const projectName = path.basename(projectPath)
+        const staleness = status.isStale ? 'stale' : 'fresh'
+        const lastSync =
+          status.daysSinceSync > 0
+            ? `${status.daysSinceSync} day${status.daysSinceSync !== 1 ? 's' : ''} ago`
+            : 'today'
+
+        const analysisItems: string[] = []
+        if (analysisStatus.hasSealed) {
+          analysisItems.push(`Sealed: ${analysisStatus.sealedCommit} (${analysisStatus.sealedAt})`)
+        }
+        if (analysisStatus.hasDraft) {
+          analysisItems.push(`Draft: ${analysisStatus.draftCommit} (pending seal)`)
+        }
+
+        const md = mdJoin(
+          `## Status: ${projectName}`,
+          mdStats({
+            Staleness: staleness,
+            'Last sync': lastSync,
+            'Commits since sync': status.commitsSinceSync,
+            Reason: status.reason,
+          }),
+          analysisItems.length > 0 ? mdSection('Analysis', mdList(analysisItems), 3) : null
+        )
+        console.log(md)
+
         return {
           success: true,
           data: { ...status, session: sessionInfo, analysis: analysisStatus },
@@ -790,14 +915,11 @@ export class AnalysisCommands extends PrjctCommandsBase {
         return { success: false, error: 'No project ID found' }
       }
 
-      // Get project path from project.json
-      const globalPath = pathManager.getGlobalProjectPath(projectId)
+      // Get project path from project doc
       let repoPath = projectPath
       try {
-        const projectJson = JSON.parse(
-          await fs.readFile(path.join(globalPath, 'project.json'), 'utf-8')
-        )
-        repoPath = projectJson.repoPath || projectPath
+        const projectDoc = prjctDb.getDoc<Record<string, unknown>>(projectId, 'project')
+        repoPath = (projectDoc?.repoPath as string) || projectPath
       } catch {
         // Use fallback projectPath
       }

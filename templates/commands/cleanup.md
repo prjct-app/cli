@@ -1,19 +1,11 @@
 ---
-allowed-tools: [Read, Edit, Bash]
-description: 'Code cleanup'
+allowed-tools: [Bash, Read, Edit]
 ---
 
-# /p:cleanup
+# p. cleanup $ARGUMENTS
 
-## Types
-- **code**: Remove logs, dead code
-- **imports**: Clean unused
-- **files**: Remove temp/empty
-- **deps**: Find unused
-- **all**: Everything
+```bash
+prjct cleanup $ARGUMENTS --md
+```
 
-## Flow
-Parse type → Backup → Clean → Validate → Log
-
-## Response
-`🧹 Cleaned: {N} logs, {N} dead code, {N} imports | Freed: {X}MB`
+Follow the instructions in the CLI output.

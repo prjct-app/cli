@@ -129,7 +129,7 @@ export async function composeGlobalTemplate(profile?: string): Promise<string> {
  */
 export async function getProfileForCommand(command: string): Promise<string> {
   const config = await loadModuleConfig()
-  if (!config) return 'standard'
+  if (!config) return 'default'
   return config.commandProfiles[command] || config.default
 }
 
@@ -217,7 +217,7 @@ export async function installGlobalConfig(): Promise<GlobalConfigResult> {
       // Use modular composition for Claude (PRJ-94)
       if (providerName === 'claude') {
         try {
-          templateContent = await composeGlobalTemplate('standard')
+          templateContent = await composeGlobalTemplate()
         } catch {
           const fallback = getTemplateContent('global/CLAUDE.md')
           if (fallback) {

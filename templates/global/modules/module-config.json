@@ -1,36 +1,12 @@
 {
   "description": "Configuration for modular CLAUDE.md composition",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "profiles": {
-    "full": {
-      "description": "All modules - maximum context (~2300 tokens)",
-      "modules": [
-        "CLAUDE-core.md",
-        "CLAUDE-commands.md",
-        "CLAUDE-git.md",
-        "CLAUDE-storage.md",
-        "CLAUDE-intelligence.md"
-      ]
-    },
-    "standard": {
-      "description": "Standard modules - balanced (~1400 tokens)",
-      "modules": ["CLAUDE-core.md", "CLAUDE-commands.md", "CLAUDE-git.md"]
-    },
-    "minimal": {
-      "description": "Core only - minimum context (~500 tokens)",
+    "default": {
+      "description": "Ultra-thin — CLI provides context via --md flag",
       "modules": ["CLAUDE-core.md"]
     }
   },
-  "default": "standard",
-  "commandProfiles": {
-    "sync": "minimal",
-    "next": "minimal",
-    "dash": "minimal",
-    "pause": "minimal",
-    "resume": "minimal",
-    "task": "full",
-    "done": "standard",
-    "ship": "full",
-    "bug": "full"
-  }
+  "default": "default",
+  "commandProfiles": {}
 }

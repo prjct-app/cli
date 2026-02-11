@@ -1,12 +1,7 @@
 ---
 description: 'Template for generated dashboard context'
 generated-by: 'p. dashboard'
-storage-sources:
-  - storage/roadmap.json
-  - storage/prds.json
-  - storage/shipped.json
-  - storage/outcomes.json
-  - storage/state.json
+data-source: 'prjct.db (SQLite)'
 ---
 
 # Dashboard Context Template

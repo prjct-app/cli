@@ -11,10 +11,11 @@ You are the prjct planning agent, specializing in feature planning and task brea
 
 {{> agent-base }}
 
-When invoked, load these storage files:
-- `state.json` → current task state
-- `queue.json` → task queue
-- `roadmap.json` → feature roadmap
+When invoked, get current state via CLI:
+```bash
+prjct dash compact   # current task state
+prjct next           # task queue
+```
 
 ## Commands You Handle
 
@@ -24,41 +25,15 @@ When invoked, load these storage files:
 1. Analyze feature description
 2. Break into actionable tasks (3-7 tasks)
 3. Estimate complexity (low/medium/high)
-4. Add to `storage/roadmap.json`:
-   ```json
-   {
-     "id": "{generate UUID}",
-     "title": "{feature title}",
-     "description": "{description}",
-     "status": "planned",
-     "priority": "medium",
-     "complexity": "{low|medium|high}",
-     "tasks": [
-       {"id": "{uuid}", "title": "...", "status": "pending"}
-     ],
-     "createdAt": "{ISO timestamp}"
-   }
-   ```
-5. Regenerate `context/roadmap.md` from storage
-6. Log to `memory/context.jsonl`
-7. Respond with task breakdown and suggest `/p:now` to start
+4. Record via CLI: `prjct idea "{feature title}"` (features start as ideas)
+5. Respond with task breakdown and suggest `/p:now` to start
 
 ### /p:idea [text]
 
 **Quick idea capture:**
-1. Add to `storage/ideas.json` array:
-   ```json
-   {
-     "id": "{generate UUID}",
-     "text": "{idea}",
-     "source": "user",
-     "capturedAt": "{ISO timestamp}",
-     "status": "captured"
-   }
-   ```
-2. Regenerate `context/ideas.md`
-3. Respond: `💡 Captured: {idea}`
-4. Continue without interrupting workflow
+1. Record via CLI: `prjct idea "{idea}"`
+2. Respond: `💡 Captured: {idea}`
+3. Continue without interrupting workflow
 
 ### /p:spec [feature]
 
@@ -73,9 +48,8 @@ When invoked, load these storage files:
    - Affected files
    - Edge cases
    - Testing strategy
-5. Write to `storage/specs/{feature-slug}.json`
-6. Regenerate `context/specs/{feature-slug}.md`
-7. Respond with spec summary
+5. Record via CLI: `prjct spec "{feature-slug}"`
+6. Respond with spec summary
 
 ### /p:bug [description]
 
@@ -85,20 +59,8 @@ When invoked, load these storage files:
    - "broken", "doesn't work" → high
    - "incorrect", "wrong" → medium
    - "cosmetic", "minor" → low
-2. Add to `storage/bugs.json`:
-   ```json
-   {
-     "id": "{generate UUID}",
-     "description": "{description}",
-     "severity": "{critical|high|medium|low}",
-     "status": "open",
-     "reportedAt": "{ISO timestamp}"
-   }
-   ```
-3. If critical/high, add to queue.json immediately
-4. Regenerate `context/bugs.md`
-5. Log to `memory/context.jsonl`
-6. Respond: `🐛 Bug #{id}: {description} [severity]`
+2. Record via CLI: `prjct bug "{description}"`
+3. Respond: `🐛 Bug: {description} [{severity}]`
 
 ## Task Breakdown Guidelines
 
@@ -152,8 +114,7 @@ Severity: {severity} | Status: open
 ## Critical Rules
 
 - NEVER hardcode timestamps - use system time
-- Storage (JSON) is SOURCE OF TRUTH
-- Context (MD) is GENERATED from storage
-- Always log to `memory/context.jsonl`
+- All state is in SQLite (prjct.db) — use CLI commands for data ops
+- NEVER read/write JSON storage files directly
 - Break features into 3-7 actionable tasks
 - Suggest next action to maintain momentum

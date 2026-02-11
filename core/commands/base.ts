@@ -22,7 +22,7 @@ import type {
 } from '../types'
 import * as dateHelper from '../utils/date-helper'
 import * as fileHelper from '../utils/file-helper'
-import * as jsonlHelper from '../utils/jsonl-helper'
+
 import out from '../utils/output'
 
 /**
@@ -106,13 +106,4 @@ export class PrjctCommandsBase {
 }
 
 // Re-export dependencies for use by other modules
-export {
-  contextBuilder,
-  toolRegistry,
-  pathManager,
-  configManager,
-  fileHelper,
-  jsonlHelper,
-  dateHelper,
-  out,
-}
+export { contextBuilder, toolRegistry, pathManager, configManager, fileHelper, dateHelper, out }

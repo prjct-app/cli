@@ -17,9 +17,9 @@ SET: {globalPath} = ~/.prjct-cli/projects/{projectId}
 
 ## Step 2: Load State
 
-```
-READ: {globalPath}/storage/state.json
-SET: {hasActiveTask} = state.currentTask != null
+```bash
+prjct dash compact
+# Parse output to determine: {hasActiveTask}
 ```
 
 ## Step 3: Load Agents

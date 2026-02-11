@@ -11,6 +11,7 @@ import { promisify } from 'node:util'
 import { emit } from '../events'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
+import { prjctDb } from '../storage/database'
 import type { Session, SessionMetrics } from '../types'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import { calculateDuration, formatDuration, generateId } from './utils'
@@ -376,22 +377,10 @@ export class TaskSessionManager {
    * Log event to memory
    */
   async logEvent(action: string, data: Record<string, unknown>): Promise<void> {
-    const globalPath = pathManager.getGlobalProjectPath(this.projectId!)
-    const memoryPath = path.join(globalPath, 'memory', 'context.jsonl')
-
-    const entry = `${JSON.stringify({
-      timestamp: new Date().toISOString(),
-      action,
-      ...data,
-    })}\n`
-
     try {
-      await fs.appendFile(memoryPath, entry)
-    } catch (error) {
-      // Memory file might not exist - that's ok
-      if (!isNotFoundError(error)) {
-        throw error
-      }
+      prjctDb.appendEvent(this.projectId!, `session.${action}`, data)
+    } catch {
+      // Database might not be initialized yet - that's ok
     }
   }
 

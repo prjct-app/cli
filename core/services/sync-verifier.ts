@@ -11,6 +11,7 @@ import { exec } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { promisify } from 'node:util'
+import { stateStorage } from '../storage'
 import type {
   VerificationCheck,
   VerificationCheckResult,
@@ -60,29 +61,27 @@ const BUILTIN_CHECKS = {
   },
 
   /**
-   * Verify generated JSON files are valid
+   * Verify state data is valid in SQLite
    */
   async jsonFilesValid(globalPath: string): Promise<VerificationCheckResult> {
     const start = Date.now()
-    const jsonFiles = ['storage/state.json']
     const invalid: string[] = []
 
-    for (const file of jsonFiles) {
-      const filePath = path.join(globalPath, file)
-      try {
-        const content = await fs.readFile(filePath, 'utf-8')
-        JSON.parse(content)
-      } catch (error) {
-        if (!isNotFoundError(error)) {
-          invalid.push(`${file}: ${error instanceof SyntaxError ? 'invalid JSON' : 'read error'}`)
-        }
+    // Extract projectId from globalPath (last segment)
+    const projectId = path.basename(globalPath)
+
+    try {
+      await stateStorage.read(projectId)
+    } catch (error) {
+      if (!isNotFoundError(error)) {
+        invalid.push(`state: ${getErrorMessage(error)}`)
       }
     }
 
     return {
-      name: 'JSON files valid',
+      name: 'State data valid',
       passed: invalid.length === 0,
-      output: invalid.length === 0 ? `${jsonFiles.length} files validated` : undefined,
+      output: invalid.length === 0 ? '1 store validated' : undefined,
       error: invalid.length > 0 ? invalid.join('; ') : undefined,
       durationMs: Date.now() - start,
     }

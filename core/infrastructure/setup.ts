@@ -24,6 +24,7 @@ import path from 'node:path'
 import chalk from 'chalk'
 import { getTemplateContent } from '../agentic/template-loader'
 import { dependencyValidator } from '../services/dependency-validator'
+import { prjctDb } from '../storage/database'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import type { AIProviderConfig, AIProviderName } from '../types/provider'
 import { getTimeout } from '../utils/constants'
@@ -423,27 +424,20 @@ async function migrateProjectsCliVersion(): Promise<void> {
     let migrated = 0
 
     for (const projectId of projectDirs) {
-      const projectJsonPath = path.join(projectsDir, projectId, 'project.json')
-
-      if (!(await fileExists(projectJsonPath))) {
-        continue
-      }
-
       try {
-        const content = await fs.readFile(projectJsonPath, 'utf8')
-        const project = JSON.parse(content)
+        const project = prjctDb.getDoc<Record<string, unknown>>(projectId, 'project')
+        if (!project) {
+          continue
+        }
 
         // Only update if cliVersion is missing or different
         if (project.cliVersion !== VERSION) {
           project.cliVersion = VERSION
-          await fs.writeFile(projectJsonPath, JSON.stringify(project, null, 2))
+          prjctDb.setDoc(projectId, 'project', project)
           migrated++
         }
-      } catch (error) {
-        // Skip invalid project.json files (missing or malformed JSON)
-        if (!isNotFoundError(error) && !(error instanceof SyntaxError)) {
-          throw error
-        }
+      } catch {
+        // Skip projects with database issues
       }
     }
 

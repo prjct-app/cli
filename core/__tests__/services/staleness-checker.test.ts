@@ -14,6 +14,7 @@ import os from 'node:os'
 import path from 'node:path'
 import pathManager from '../../infrastructure/path-manager'
 import { createStalenessChecker, type StalenessStatus } from '../../services/staleness-checker'
+import { prjctDb } from '../../storage'
 
 // =============================================================================
 // Test Setup
@@ -35,6 +36,7 @@ describe('StalenessChecker', () => {
   })
 
   afterEach(async () => {
+    prjctDb.close(testProjectId)
     pathManager.getGlobalProjectPath = originalGetGlobalProjectPath
 
     if (tmpRoot) {
@@ -56,14 +58,9 @@ describe('StalenessChecker', () => {
       expect(status.reason).toContain('No sync history found')
     })
 
-    it('should report stale when no lastSyncCommit in project.json', async () => {
-      // Create project.json without lastSyncCommit
-      const projectPath = path.join(tmpRoot!, testProjectId)
-      await fs.mkdir(projectPath, { recursive: true })
-      await fs.writeFile(
-        path.join(projectPath, 'project.json'),
-        JSON.stringify({ name: 'test', lastSync: new Date().toISOString() })
-      )
+    it('should report stale when no lastSyncCommit in project doc', async () => {
+      // Write project doc to SQLite without lastSyncCommit
+      prjctDb.setDoc(testProjectId, 'project', { name: 'test', lastSync: new Date().toISOString() })
 
       const checker = createStalenessChecker(process.cwd())
       const status = await checker.check(testProjectId)

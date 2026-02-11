@@ -43,13 +43,8 @@ All commands use the `p.` prefix.
 
 ## State Context
 
-Before executing commands, load state:
-
-```
-READ: .prjct/prjct.config.json → get projectId
-SET: globalPath = ~/.prjct-cli/projects/{projectId}
-READ: {globalPath}/storage/state.json (if exists)
-```
+All state is managed by the `prjct` CLI via SQLite (prjct.db).
+Templates should use CLI commands for data operations — never read/write JSON storage files directly.
 
 ## Error Handling
 

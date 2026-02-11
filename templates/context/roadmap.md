@@ -1,7 +1,7 @@
 ---
 description: 'Template for generated roadmap context'
 generated-by: 'p. plan, p. sync'
-storage-source: 'storage/roadmap.json'
+data-source: 'prjct.db (SQLite)'
 ---
 
 # Roadmap Context Template

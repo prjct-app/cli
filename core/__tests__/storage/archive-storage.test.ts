@@ -393,31 +393,26 @@ describe('Archive Storage', () => {
 
   describe('memory log capping', () => {
     it('should cap memory entries at max limit', async () => {
-      const memoryPath = pathManager.getFilePath(testProjectId, 'memory', 'context.jsonl')
-
-      // Write more entries than the limit
-      const entries: string[] = []
+      // Write more entries than the limit to SQLite events table
       const total = ARCHIVE_POLICIES.MEMORY_MAX_ENTRIES + 50
       for (let i = 0; i < total; i++) {
-        entries.push(
-          JSON.stringify({
-            timestamp: new Date(Date.now() - (total - i) * 1000).toISOString(),
-            action: `action-${i}`,
-            data: { index: i },
-          })
-        )
+        prjctDb.appendEvent(testProjectId, `memory.action-${i}`, {
+          action: `action-${i}`,
+          index: i,
+        })
       }
-      await fs.writeFile(memoryPath, `${entries.join('\n')}\n`, 'utf-8')
 
       // Import and use memoryService
       const { memoryService } = await import('../../services/memory-service')
       const capped = await memoryService.capEntries(testProjectId)
       expect(capped).toBe(50)
 
-      // File should now have exactly max entries
-      const content = await fs.readFile(memoryPath, 'utf-8')
-      const remaining = content.trim().split('\n').filter(Boolean)
-      expect(remaining).toHaveLength(ARCHIVE_POLICIES.MEMORY_MAX_ENTRIES)
+      // SQLite should now have exactly max entries
+      const countRow = prjctDb.get<{ cnt: number }>(
+        testProjectId,
+        "SELECT COUNT(*) as cnt FROM events WHERE type LIKE 'memory.%'"
+      )
+      expect(countRow!.cnt).toBe(ARCHIVE_POLICIES.MEMORY_MAX_ENTRIES)
 
       // Archive should have the overflow
       const records = archiveStorage.getArchived(testProjectId, 'memory_entry')
@@ -425,13 +420,10 @@ describe('Archive Storage', () => {
     })
 
     it('should not cap if under limit', async () => {
-      const memoryPath = pathManager.getFilePath(testProjectId, 'memory', 'context.jsonl')
-
-      const entries: string[] = []
+      // Write a few entries under the limit to SQLite
       for (let i = 0; i < 10; i++) {
-        entries.push(JSON.stringify({ timestamp: getTimestamp(), action: `a-${i}`, data: {} }))
+        prjctDb.appendEvent(testProjectId, `memory.a-${i}`, { action: `a-${i}`, data: {} })
       }
-      await fs.writeFile(memoryPath, `${entries.join('\n')}\n`, 'utf-8')
 
       const { memoryService } = await import('../../services/memory-service')
       const capped = await memoryService.capEntries(testProjectId)

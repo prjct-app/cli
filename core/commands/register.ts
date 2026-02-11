@@ -19,6 +19,7 @@ import { commandRegistry } from './registry'
 import { SetupCommands } from './setup'
 import { ShippingCommands } from './shipping'
 import { UninstallCommands } from './uninstall'
+import { UpdateCommands } from './update'
 import { VelocityCommands } from './velocity'
 import { WorkflowCommands } from './workflow'
 
@@ -34,6 +35,7 @@ const setup = new SetupCommands()
 const context = new ContextCommands()
 const velocityCmd = new VelocityCommands()
 const uninstallCmd = new UninstallCommands()
+const updateCmd = new UpdateCommands()
 
 /**
  * Register categories
@@ -58,6 +60,7 @@ export function registerAllCommands(): void {
   const getMeta = (name: string) => COMMANDS.find((c) => c.name === name)
 
   // Workflow commands
+  commandRegistry.registerMethod('task', workflow, 'now', getMeta('task'))
   commandRegistry.registerMethod('done', workflow, 'done', getMeta('done'))
   commandRegistry.registerMethod('next', workflow, 'next', getMeta('next'))
   commandRegistry.registerMethod('pause', workflow, 'pause', getMeta('pause'))
@@ -103,6 +106,7 @@ export function registerAllCommands(): void {
   commandRegistry.registerMethod('start', setup, 'start', getMeta('start'))
   commandRegistry.registerMethod('setup', setup, 'setup', getMeta('setup'))
   commandRegistry.registerMethod('uninstall', uninstallCmd, 'uninstall', getMeta('uninstall'))
+  commandRegistry.registerMethod('update', updateCmd, 'update', getMeta('update'))
 
   // Context command (for Claude templates)
   commandRegistry.registerMethod('context', context, 'context', getMeta('context'))
@@ -113,15 +117,16 @@ registerAllCommands()
 
 // Export command group instances for direct access (legacy support)
 export {
+  analysis,
   workflow,
   planning,
   shipping,
   analytics,
   performance,
   maintenance,
-  analysis,
   setup,
   context,
   velocityCmd,
   uninstallCmd,
+  updateCmd,
 }
