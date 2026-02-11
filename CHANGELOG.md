@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.26.0] - 2026-02-11
+
+### Features
+
+- kill JSON I/O + skill-on-demand --md architecture (PRJ-303) (#173)
+
+
 ## [1.27.0] - 2026-02-11
 
 ### Features
