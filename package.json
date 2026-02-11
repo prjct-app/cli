@@ -1,8 +1,8 @@
 {
   "name": "prjct-cli",
-  "version": "1.24.0",
+  "version": "1.25.0",
   "description": "Context layer for AI agents. Project context for Claude Code, Gemini CLI, and more.",
-  "main": "core/index.ts",
+  "main": "dist/bin/prjct.mjs",
   "bin": {
     "prjct": "bin/prjct"
   },
@@ -86,16 +86,15 @@
   },
   "files": [
     "assets/",
-    "bin/",
-    "core/",
+    "bin/prjct",
     "dist/",
-    "templates/",
     "scripts/postinstall.js",
     "scripts/install.sh",
     "LICENSE",
     "README.md",
     "CHANGELOG.md"
   ],
+  "prepublishOnly": "node scripts/build.js",
   "trustedDependencies": [
     "chalk",
     "prompts"

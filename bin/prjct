@@ -47,7 +47,6 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # This runs EVERY time prjct is called, ensuring setup even if postinstall failed
 ensure_setup() {
   CLAUDE_COMMANDS="$HOME/.claude/commands"
-  PMD_SRC="$ROOT_DIR/templates/commands/p.md"
   PMD_DEST="$CLAUDE_COMMANDS/p.md"
 
   # Create dir if needed
@@ -55,14 +54,22 @@ ensure_setup() {
     mkdir -p "$CLAUDE_COMMANDS" 2>/dev/null
   fi
 
-  # Copy p.md if source exists and dest doesn't OR dest is older
+  # Try source template first (dev mode), then extract from bundle (production)
+  PMD_SRC="$ROOT_DIR/templates/commands/p.md"
+  BUNDLE="$ROOT_DIR/dist/templates.json"
+
   if [ -f "$PMD_SRC" ]; then
-    if [ ! -f "$PMD_DEST" ]; then
-      cp "$PMD_SRC" "$PMD_DEST" 2>/dev/null
-    elif [ "$PMD_SRC" -nt "$PMD_DEST" ]; then
-      # Source is newer, update
+    # Dev mode: copy from source templates
+    if [ ! -f "$PMD_DEST" ] || [ "$PMD_SRC" -nt "$PMD_DEST" ]; then
       cp "$PMD_SRC" "$PMD_DEST" 2>/dev/null
     fi
+  elif [ -f "$BUNDLE" ] && [ ! -f "$PMD_DEST" ]; then
+    # Production: extract from bundle using node
+    node -e "
+      const b=JSON.parse(require('fs').readFileSync('$BUNDLE','utf8'));
+      const c=b['commands/p.md'];
+      if(c)require('fs').writeFileSync('$PMD_DEST',c);
+    " 2>/dev/null
   fi
 
   # Also ensure statusline (best effort)
@@ -110,22 +117,32 @@ check_node() {
   command -v node >/dev/null 2>&1
 }
 
-# Run with bun (native TypeScript)
+# Run with bun (native TypeScript in dev, compiled in production)
 run_with_bun() {
-  exec bun "$SCRIPT_DIR/prjct.ts" "$@"
+  # Dev mode: raw TypeScript is faster
+  if [ -f "$SCRIPT_DIR/prjct.ts" ]; then
+    exec bun "$SCRIPT_DIR/prjct.ts" "$@"
+  fi
+  # Production: use compiled dist
+  exec bun "$ROOT_DIR/dist/bin/prjct.mjs" "$@"
 }
 
 # Run with node (compiled JavaScript)
 run_with_node() {
   DIST_BIN="$ROOT_DIR/dist/bin/prjct.mjs"
 
-  # Check if compiled version exists
   if [ ! -f "$DIST_BIN" ]; then
-    echo "Building for Node.js (first run)..."
-    node "$ROOT_DIR/scripts/build.js" || {
-      echo "Error: Build failed. Please ensure you have write permissions."
+    # Dev mode: try to build
+    if [ -f "$ROOT_DIR/scripts/build.js" ] && [ -d "$ROOT_DIR/core" ]; then
+      echo "Building for Node.js (first run)..."
+      node "$ROOT_DIR/scripts/build.js" || {
+        echo "Error: Build failed. Run 'npm run build' manually."
+        exit 1
+      }
+    else
+      echo "Error: Compiled output not found. Run 'npm run build' first."
       exit 1
-    }
+    fi
   fi
 
   exec node "$DIST_BIN" "$@"

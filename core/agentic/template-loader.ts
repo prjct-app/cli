@@ -2,21 +2,48 @@
  * Template Loader
  * Loads and parses command templates with frontmatter.
  *
+ * Supports two modes:
+ * - Production: reads from dist/templates.json (single bundled file)
+ * - Development: reads from templates/commands/ (individual files)
+ *
  * @module agentic/template-loader
  */
 
+import fsSync from 'node:fs'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { TemplateError } from '../errors'
 import type { Frontmatter, ParsedTemplate } from '../types'
+import { PACKAGE_ROOT } from '../utils/version'
 
 // ============ Module State (LRU Cache) ============
 
-const TEMPLATES_DIR = path.join(__dirname, '..', '..', 'templates', 'commands')
 const MAX_CACHE_SIZE = 50
 
 const cache = new Map<string, ParsedTemplate>()
 const cacheOrder: string[] = []
+
+// Lazily loaded template bundle (production mode)
+let templateBundle: Record<string, string> | null = null
+let bundleLoaded = false
+
+// ============ Bundle Loading ============
+
+function loadBundle(): Record<string, string> | null {
+  if (bundleLoaded) return templateBundle
+
+  bundleLoaded = true
+  const bundlePath = path.join(PACKAGE_ROOT, 'dist', 'templates.json')
+
+  try {
+    const content = fsSync.readFileSync(bundlePath, 'utf-8')
+    templateBundle = JSON.parse(content)
+    return templateBundle
+  } catch {
+    // Bundle not available (dev mode) — fall back to filesystem
+    return null
+  }
+}
 
 // ============ Cache Helpers ============
 
@@ -76,23 +103,35 @@ export async function load(commandName: string): Promise<ParsedTemplate> {
     return cache.get(commandName)!
   }
 
-  const templatePath = path.join(TEMPLATES_DIR, `${commandName}.md`)
+  let rawContent: string | undefined
 
-  try {
-    const rawContent = await fs.readFile(templatePath, 'utf-8')
-    const parsed = parseFrontmatter(rawContent)
-
-    // Evict LRU if needed before adding
-    evictLru()
-
-    // Cache result
-    cache.set(commandName, parsed)
-    cacheOrder.push(commandName)
-
-    return parsed
-  } catch (_error) {
-    throw TemplateError.notFound(commandName)
+  // Try bundled templates first (production)
+  const bundle = loadBundle()
+  if (bundle) {
+    const key = `commands/${commandName}.md`
+    rawContent = bundle[key]
   }
+
+  // Fall back to filesystem (development)
+  if (!rawContent) {
+    const templatePath = path.join(PACKAGE_ROOT, 'templates', 'commands', `${commandName}.md`)
+    try {
+      rawContent = await fs.readFile(templatePath, 'utf-8')
+    } catch (_error) {
+      throw TemplateError.notFound(commandName)
+    }
+  }
+
+  const parsed = parseFrontmatter(rawContent)
+
+  // Evict LRU if needed before adding
+  evictLru()
+
+  // Cache result
+  cache.set(commandName, parsed)
+  cacheOrder.push(commandName)
+
+  return parsed
 }
 
 export async function getAllowedTools(commandName: string): Promise<string[]> {
@@ -105,5 +144,51 @@ export function clearCache(): void {
   cacheOrder.length = 0
 }
 
-const templateLoader = { load, parseFrontmatter, getAllowedTools, clearCache }
+/**
+ * Get raw template content by relative path (e.g., "global/CLAUDE.md")
+ * Used by command-installer and other modules that need non-command templates.
+ */
+export function getTemplateContent(relativePath: string): string | null {
+  const bundle = loadBundle()
+  if (bundle && bundle[relativePath]) {
+    return bundle[relativePath]
+  }
+
+  // Fall back to filesystem
+  const filePath = path.join(PACKAGE_ROOT, 'templates', relativePath)
+  try {
+    return fsSync.readFileSync(filePath, 'utf-8')
+  } catch {
+    return null
+  }
+}
+
+/**
+ * List all template files matching a prefix (e.g., "commands/")
+ * Returns relative paths like ["commands/p.md", "commands/task.md", ...]
+ */
+export function listTemplates(prefix: string): string[] {
+  const bundle = loadBundle()
+  if (bundle) {
+    return Object.keys(bundle).filter((key) => key.startsWith(prefix))
+  }
+
+  // Fall back to filesystem
+  const dir = path.join(PACKAGE_ROOT, 'templates', prefix)
+  try {
+    const files = fsSync.readdirSync(dir)
+    return files.map((f) => `${prefix}${f}`)
+  } catch {
+    return []
+  }
+}
+
+const templateLoader = {
+  load,
+  parseFrontmatter,
+  getAllowedTools,
+  clearCache,
+  getTemplateContent,
+  listTemplates,
+}
 export default templateLoader

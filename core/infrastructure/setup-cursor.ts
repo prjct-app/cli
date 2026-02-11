@@ -9,6 +9,7 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { getTemplateContent, listTemplates } from '../agentic/template-loader'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import { fileExists } from '../utils/file-helper'
 import log from '../utils/logger'
@@ -46,30 +47,49 @@ export async function installCursorProject(projectRoot: string): Promise<{
 
     const routerMdcDest = path.join(rulesDir, 'prjct.mdc')
 
-    const routerMdcSource = path.join(PACKAGE_ROOT, 'templates', 'cursor', 'router.mdc')
-    const cursorCommandsSource = path.join(PACKAGE_ROOT, 'templates', 'cursor', 'commands')
-
     // Ensure directories exist
     await fs.mkdir(rulesDir, { recursive: true })
     await fs.mkdir(commandsDir, { recursive: true })
 
     // Copy router.mdc -> .cursor/rules/prjct.mdc
-    if (await fileExists(routerMdcSource)) {
-      await fs.copyFile(routerMdcSource, routerMdcDest)
+    const routerContent = getTemplateContent('cursor/router.mdc')
+    if (routerContent) {
+      await fs.writeFile(routerMdcDest, routerContent, 'utf-8')
       result.rulesCreated = true
+    } else {
+      const routerMdcSource = path.join(PACKAGE_ROOT, 'templates', 'cursor', 'router.mdc')
+      if (await fileExists(routerMdcSource)) {
+        await fs.copyFile(routerMdcSource, routerMdcDest)
+        result.rulesCreated = true
+      }
     }
 
     // Copy individual command files -> .cursor/commands/
-    // This enables /sync, /task, /done, /ship, etc. syntax in Cursor
-    if (await fileExists(cursorCommandsSource)) {
-      const commandFiles = (await fs.readdir(cursorCommandsSource)).filter((f) => f.endsWith('.md'))
-
-      for (const file of commandFiles) {
-        const src = path.join(cursorCommandsSource, file)
-        const dest = path.join(commandsDir, file)
-        await fs.copyFile(src, dest)
+    const bundledCommands = listTemplates('cursor/commands/')
+    if (bundledCommands.length > 0) {
+      for (const key of bundledCommands) {
+        if (key.endsWith('.md')) {
+          const content = getTemplateContent(key)
+          if (content) {
+            const fileName = path.basename(key)
+            await fs.writeFile(path.join(commandsDir, fileName), content, 'utf-8')
+          }
+        }
       }
-      result.commandsCreated = commandFiles.length > 0
+      result.commandsCreated = bundledCommands.length > 0
+    } else {
+      const cursorCommandsSource = path.join(PACKAGE_ROOT, 'templates', 'cursor', 'commands')
+      if (await fileExists(cursorCommandsSource)) {
+        const commandFiles = (await fs.readdir(cursorCommandsSource)).filter((f) =>
+          f.endsWith('.md')
+        )
+        for (const file of commandFiles) {
+          const src = path.join(cursorCommandsSource, file)
+          const dest = path.join(commandsDir, file)
+          await fs.copyFile(src, dest)
+        }
+        result.commandsCreated = commandFiles.length > 0
+      }
     }
 
     // Update .gitignore to exclude prjct Cursor routers

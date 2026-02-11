@@ -1,5 +1,46 @@
 # Changelog
 
+## [1.25.0] - 2026-02-10
+
+### Infrastructure
+
+- **Compile and ship dist/** (PRJ-294): Package no longer ships raw TypeScript source. Compiled, minified JavaScript with source maps instead.
+  - Rewrote `scripts/build.js` v3.0: produces minified ESM bundles via esbuild with source maps
+  - Bundled 127 template files into single `dist/templates.json` (408KB)
+  - Main CLI compiled to `dist/bin/prjct.mjs` (600KB minified), Linear CLI to `dist/cli/linear.mjs` (27KB)
+  - Package reduced from 1.1MB/480 files to 971KB/27 files
+  - All template consumers use bundle-first pattern via `getTemplateContent()` and `listTemplates()` helpers
+  - Dual-mode operation: dev mode (raw TS via bun) and production mode (compiled dist/) both work
+  - Updated `bin/prjct` shell script for dev vs production detection
+  - Updated 8 modules to use template bundle: command-installer, setup, setup-cursor, setup-windsurf, prompt-builder, sync-agent-gen, template-loader, bin/prjct.ts
+
+### Implementation Details
+
+Rewrote the build system to produce compiled JavaScript output instead of shipping raw TypeScript. The key innovation is the bundle-first pattern: `getTemplateContent()` tries the bundled JSON first, falls back to filesystem for dev mode. This unified API replaced scattered `fs.readFile` calls across 8 modules. The shell script (`bin/prjct`) detects dev vs production by checking if `prjct.ts` exists.
+
+### Learnings
+
+- Bundle-first pattern (try JSON bundle, fall back to filesystem) provides clean dev/prod abstraction
+- ESM requires banner injection for `__dirname`/`__filename` since they don't exist in ESM scope
+- npm auto-includes `main` field target in package even when not in `files` array
+- `packages: 'external'` in esbuild avoids bundling node_modules into dist/
+- `keepNames: true` preserves function names despite minification, helpful for debugging
+
+### Test Plan
+
+#### For QA
+1. `npm pack` — verify tarball contains only dist/, bin/prjct, assets/, scripts, README, LICENSE, CHANGELOG
+2. `bun dist/bin/prjct.mjs version` — CLI runs from compiled output
+3. `bun dist/bin/prjct.mjs sync --json` — full sync works with bundled templates
+4. `prjct linear list` — linear CLI subprocess resolves correctly
+5. Verify `dist/templates.json` contains all 127 template files
+6. Dev mode: `bun bin/prjct.ts version` still runs raw TypeScript
+
+#### For Users
+**What changed:** Package is now smaller and ships compiled JavaScript instead of raw TypeScript source.
+**How to use:** No changes — all `prjct` commands work identically.
+**Breaking changes:** None
+
 ## [1.24.0] - 2026-02-10
 
 ### Refactor

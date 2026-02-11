@@ -19,7 +19,7 @@ import { detectAllProviders } from '../core/infrastructure/ai-provider'
 import configManager from '../core/infrastructure/config-manager'
 import editorsConfig from '../core/infrastructure/editors-config'
 import { DEFAULT_PORT, startServer } from '../core/server/server'
-import { fileExists } from '../core/utils/fs-helpers'
+import { fileExists } from '../core/utils/file-helper'
 import { invalidateProviderCache } from '../core/utils/provider-cache'
 import { VERSION } from '../core/utils/version'
 
@@ -210,6 +210,7 @@ if (args[0] === 'start' || args[0] === 'setup') {
 } else if (args[0] === 'linear') {
   // Linear CLI subcommand - direct access to Linear SDK
   const { spawn } = await import('node:child_process')
+  const fs = await import('node:fs')
   const projectPath = process.cwd()
   const projectId = await configManager.getProjectId(projectPath)
 
@@ -217,21 +218,45 @@ if (args[0] === 'start' || args[0] === 'setup') {
     console.error('No prjct project found. Run "prjct init" first.')
     process.exitCode = 1
   } else {
-    // Get the path to the linear CLI
-    const linearCliPath = path.join(__dirname, '..', 'core', 'cli', 'linear.ts')
+    // Resolve linear CLI path: prefer source (dev) → compiled (production)
+    const srcPath = path.join(__dirname, '..', 'core', 'cli', 'linear.ts')
+    const distPath = path.join(__dirname, '..', 'dist', 'cli', 'linear.mjs')
+    // When running from dist/bin/, the compiled path is adjacent
+    const distPathAdjacent = path.join(__dirname, '..', 'cli', 'linear.mjs')
 
-    // Forward args to linear CLI, adding --project flag
-    const linearArgs = ['--project', projectId, ...args.slice(1)]
+    let linearCliPath: string
+    let runtime: string
 
-    // Use bun to run the CLI
-    const child = spawn('bun', [linearCliPath, ...linearArgs], {
-      stdio: 'inherit',
-      cwd: projectPath,
-    })
+    if (fs.existsSync(srcPath)) {
+      // Dev mode: use raw TypeScript with bun
+      linearCliPath = srcPath
+      runtime = 'bun'
+    } else if (fs.existsSync(distPathAdjacent)) {
+      // Production (running from dist/bin/): compiled JS adjacent
+      linearCliPath = distPathAdjacent
+      runtime = 'node'
+    } else if (fs.existsSync(distPath)) {
+      // Production (running from bin/): compiled JS in dist/
+      linearCliPath = distPath
+      runtime = 'node'
+    } else {
+      console.error('Linear CLI not found. Run "npm run build" first.')
+      process.exitCode = 1
+      linearCliPath = ''
+      runtime = ''
+    }
 
-    child.on('close', (code) => {
-      process.exitCode = code || 0
-    })
+    if (linearCliPath) {
+      const linearArgs = ['--project', projectId, ...args.slice(1)]
+      const child = spawn(runtime, [linearCliPath, ...linearArgs], {
+        stdio: 'inherit',
+        cwd: projectPath,
+      })
+
+      child.on('close', (code) => {
+        process.exitCode = code || 0
+      })
+    }
   }
 } else if (args[0] === 'help' || args[0] === '-h' || args[0] === '--help') {
   // Show help - bypass setup check to always show help
