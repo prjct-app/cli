@@ -47,6 +47,7 @@ function clean() {
   fs.mkdirSync(DIST, { recursive: true })
   fs.mkdirSync(path.join(DIST, 'bin'), { recursive: true })
   fs.mkdirSync(path.join(DIST, 'cli'), { recursive: true })
+  fs.mkdirSync(path.join(DIST, 'daemon'), { recursive: true })
 }
 
 /**
@@ -55,28 +56,31 @@ function clean() {
 async function buildJs() {
   const esbuild = require('esbuild')
 
-  // 1. CLI entry point (ESM, minified, sourcemapped)
-  console.log('  → dist/bin/prjct.mjs')
+  // 1a. CLI core bundle (heavy, only loaded when daemon unavailable)
+  console.log('  → dist/bin/prjct-core.mjs')
   const mainResult = await esbuild.build({
     entryPoints: [path.join(ROOT, 'bin/prjct.ts')],
-    outfile: path.join(DIST, 'bin', 'prjct.mjs'),
+    outfile: path.join(DIST, 'bin', 'prjct-core.mjs'),
     bundle: true,
     platform: 'node',
     target: 'node18',
     format: 'esm',
-    sourcemap: true,
     minify: true,
     keepNames: true,
     packages: 'external',
     metafile: true,
     banner: {
-      js: `#!/usr/bin/env node
-import { fileURLToPath as __fileURLToPath } from 'url';
+      js: `import { fileURLToPath as __fileURLToPath } from 'url';
 import { dirname as __pathDirname } from 'path';
 const __filename = __fileURLToPath(import.meta.url);
 const __dirname = __pathDirname(__filename);`,
     },
   })
+
+  // 1b. Thin shim entry point (tries daemon first, ~3KB, <15ms parse)
+  console.log('  → dist/bin/prjct.mjs (daemon shim)')
+  const shimSource = generateDaemonShim()
+  fs.writeFileSync(path.join(DIST, 'bin', 'prjct.mjs'), shimSource)
   fs.chmodSync(path.join(DIST, 'bin', 'prjct.mjs'), 0o755)
 
   // 2. Linear CLI (ESM, minified — spawned as subprocess)
@@ -88,7 +92,6 @@ const __dirname = __pathDirname(__filename);`,
     platform: 'node',
     target: 'node18',
     format: 'esm',
-    sourcemap: true,
     minify: true,
     keepNames: true,
     packages: 'external',
@@ -102,7 +105,59 @@ const __dirname = __pathDirname(__filename);`,
   })
   fs.chmodSync(path.join(DIST, 'cli', 'linear.mjs'), 0o755)
 
+  // 3. Daemon entry point (ESM, minified — spawned as background process)
+  console.log('  → dist/daemon/entry.mjs')
+  await esbuild.build({
+    entryPoints: [path.join(ROOT, 'core/daemon/entry.ts')],
+    outfile: path.join(DIST, 'daemon', 'entry.mjs'),
+    bundle: true,
+    platform: 'node',
+    target: 'node18',
+    format: 'esm',
+    minify: true,
+    keepNames: true,
+    packages: 'external',
+    banner: {
+      js: `#!/usr/bin/env node
+import { fileURLToPath as __fileURLToPath } from 'url';
+import { dirname as __pathDirname } from 'path';
+const __filename = __fileURLToPath(import.meta.url);
+const __dirname = __pathDirname(__filename);`,
+    },
+  })
+  fs.chmodSync(path.join(DIST, 'daemon', 'entry.mjs'), 0o755)
+
   return mainResult.metafile
+}
+
+/**
+ * Generate the daemon shim — a tiny (<3KB) CLI entry point that:
+ * 1. Checks if daemon socket exists (fs.existsSync)
+ * 2. If yes: connects, sends command, prints output, exits
+ * 3. If no: dynamically imports the heavy prjct-core.mjs bundle
+ *
+ * This avoids parsing the ~600KB core bundle when daemon handles the command.
+ */
+function generateDaemonShim() {
+  return `#!/usr/bin/env node
+import{connect}from"node:net";import{existsSync}from"node:fs";import{randomUUID}from"node:crypto";import{homedir}from"node:os";
+const sockPath=homedir()+"/.prjct-cli/run/daemon.sock";
+const args=process.argv.slice(2);
+const cmd=args.find(a=>!a.startsWith("-"));
+const skip=new Set(["daemon","start","setup","dev","web","serve","context","hooks","doctor","uninstall","watch","linear","help","-h","--help","version","-v","--version"]);
+if(cmd&&!skip.has(cmd)&&process.env.PRJCT_NO_DAEMON!=="1"&&existsSync(sockPath)){
+  const cArgs=[],cOpts={};
+  for(let i=0;i<args.length;i++){const a=args[i];if(a.startsWith("--")){const r=a.slice(2);if(r.includes("=")){const e=r.indexOf("=");cOpts[r.slice(0,e)]=r.slice(e+1)}else if(i+1<args.length&&!args[i+1].startsWith("--")){cOpts[r]=args[++i]}else{cOpts[r]=true}}else if(a.startsWith("-")&&a.length===2){cOpts[a.slice(1)]=true}else if(i>0){cArgs.push(a)}}
+  const msg=JSON.stringify({id:randomUUID(),command:cmd,args:cArgs,options:cOpts,cwd:process.cwd()})+"\\n";
+  const sock=connect(sockPath);let buf="",done=false;
+  const t=setTimeout(()=>{if(!done){done=true;sock.destroy();fallback()}},5000);
+  sock.on("connect",()=>sock.write(msg));
+  sock.on("data",c=>{buf+=c.toString();const n=buf.indexOf("\\n");if(n!==-1){const r=JSON.parse(buf.slice(0,n));done=true;clearTimeout(t);sock.end();if(r.stdout)console.log(r.stdout);if(r.stderr)console.error(r.stderr);process.exit(r.exitCode)}});
+  sock.on("error",()=>{if(!done){done=true;clearTimeout(t);fallback()}});
+  sock.on("close",()=>{if(!done){done=true;clearTimeout(t);fallback()}});
+}else{fallback()}
+async function fallback(){await import("./prjct-core.mjs")}
+`
 }
 
 /**
@@ -147,13 +202,20 @@ function bundleTemplates() {
 function printSummary() {
   console.log('\nBuild output:')
 
-  const files = [
-    'bin/prjct.mjs',
-    'bin/prjct.mjs.map',
-    'cli/linear.mjs',
-    'cli/linear.mjs.map',
-    'templates.json',
-  ]
+  // List all files in dist/ (including code-split chunks)
+  const files = []
+  function walkDist(dir, prefix) {
+    const entries = fs.readdirSync(dir, { withFileTypes: true })
+    for (const entry of entries) {
+      const rel = prefix ? `${prefix}/${entry.name}` : entry.name
+      if (entry.isDirectory()) {
+        walkDist(path.join(dir, entry.name), rel)
+      } else {
+        files.push(rel)
+      }
+    }
+  }
+  walkDist(DIST, '')
 
   let totalSize = 0
   for (const file of files) {

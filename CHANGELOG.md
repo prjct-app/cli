@@ -1,5 +1,44 @@
 # Changelog
 
+## [1.24.0] - 2026-02-10
+
+### Features
+
+- **Daemon mode with IPC socket**: Background daemon process keeps CLI modules warm in memory. Commands are routed through a Unix domain socket using NDJSON protocol, achieving 1.6ms IPC roundtrip. Production startup drops from ~1060ms to ~220ms (4.8x speedup).
+- **Thin shim entry point**: Production build now uses a 1.6KB shim (`prjct.mjs`) that tries the daemon first, only loading the full 613KB core bundle (`prjct-core.mjs`) when the daemon is unavailable.
+- **Auto-start daemon**: First CLI invocation automatically spawns the daemon in background for future commands. 30-minute idle auto-shutdown.
+- **Daemon lifecycle commands**: `prjct daemon start|stop|status` for manual control. Supports `--foreground`, `--port=N`, `--no-http` flags.
+
+### Security
+
+- **Removed source maps from production build**: `.map` files previously embedded full `sourcesContent` including credential management code (`keychain.ts`, `project-credentials.ts`). Source maps are now completely removed from `dist/`.
+
+### Implementation Details
+
+Daemon mode with Unix socket IPC for near-zero CLI startup. The daemon pre-loads `PrjctCommands`, `CommandRegistry`, and storage caches once, then reuses them across invocations. The thin shim entry point avoids parsing the heavy core bundle when the daemon handles the command. ESM static imports are hoisted before any code runs, so all imports in `bin/prjct.ts` are now dynamic to enable the fast path.
+
+### Learnings
+
+- ESM hoists static imports — placing code before `import` statements doesn't help; all imports must be dynamic for a true fast path
+- esbuild code splitting creates ~60 chunk files, not suitable for CLI distribution; explicit two-file shim is cleaner
+- `process.stdin.unref()` doesn't exist in Bun — needs try/catch guard
+- Unix domain sockets with NDJSON are ideal for local IPC: secure (file permissions), fast, debuggable
+
+### Test Plan
+
+#### For QA
+1. `prjct daemon start` — verify socket at `~/.prjct-cli/run/daemon.sock`
+2. `prjct daemon status` — shows PID, uptime, commands served
+3. `prjct sync --json --yes` — works via IPC with valid JSON output
+4. `prjct daemon stop` — clean shutdown, socket removed
+5. Run any command without daemon — falls back to direct execution
+6. Verify `dist/` contains NO `.map` files or `sourcesContent`
+
+#### For Users
+**What changed:** CLI commands are now routed through a background daemon for faster execution.
+**How to use:** Automatic — daemon starts on first use, stops after 30min idle. Use `PRJCT_NO_DAEMON=1` to disable.
+**Breaking changes:** None.
+
 ## [1.23.1] - 2026-02-10
 
 ### Bug Fix
