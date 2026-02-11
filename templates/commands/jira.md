@@ -167,7 +167,7 @@ Next: `p. jira start PROJ-123` to begin work
 1. Fetch all assigned issues
    CALL: jiraService.fetchAssignedIssues({ limit: 50 })
 
-2. Save to {globalPath}/storage/issues.json
+2. Save to prjct.db (SQLite)
 
 3. Show summary
 

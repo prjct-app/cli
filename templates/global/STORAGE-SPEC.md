@@ -10,22 +10,18 @@ This document defines the exact format for all storage files. Both Claude and Ge
 
 ```
 ~/.prjct-cli/projects/{projectId}/
-├── storage/
-│   ├── state.json      # Current task (SOURCE OF TRUTH)
-│   ├── queue.json      # Task queue
-│   └── shipped.json    # Shipped features
+├── prjct.db            # SQLite database (SOURCE OF TRUTH for all storage)
 ├── context/
-│   ├── now.md          # Current task (generated from state.json)
-│   └── next.md         # Queue (generated from queue.json)
+│   ├── now.md          # Current task (generated from prjct.db)
+│   └── next.md         # Queue (generated from prjct.db)
 ├── config/
 │   └── skills.json     # Agent-to-skill mappings
-├── memory/
-│   ├── events.jsonl    # Audit trail (append-only)
-│   └── learnings.jsonl # LLM knowledge base (append-only)
 ├── agents/             # Domain specialists (auto-generated)
 └── sync/
     └── pending.json    # Events for backend sync
 ```
+
+> **Note**: All data previously stored in `storage/*.json`, `memory/events.jsonl`, and `memory/learnings.jsonl` now lives in `prjct.db` (SQLite). The `storage/` and `memory/` directories are no longer used for new data.
 
 ---
 
@@ -224,16 +220,21 @@ bun -e "console.log(crypto.randomUUID())" 2>/dev/null || node -e "console.log(re
 
 ```
 WRONG: Create `.tmp/file.json`, then `mv` to final path
-CORRECT: Write directly to `{globalPath}/storage/state.json`
+CORRECT: Use prjctDb.setDoc() or StorageManager.write() to write to SQLite
 ```
 
 ### Atomic Updates
 
-```javascript
-// Read → Modify → Write (no temp files)
-const data = JSON.parse(fs.readFileSync(path, 'utf-8'))
-data.newField = value
-fs.writeFileSync(path, JSON.stringify(data, null, 2))
+All writes go through SQLite which handles atomicity via WAL mode:
+```typescript
+// StorageManager pattern (preferred):
+await stateStorage.update(projectId, (state) => {
+  state.field = newValue
+  return state
+})
+
+// Direct kv_store pattern:
+prjctDb.setDoc(projectId, 'key', data)
 ```
 
 ### NEVER Do These
@@ -274,7 +275,7 @@ cat ~/.prjct-cli/projects/{id}/storage/state.json | python -m json.tool
 ### Remote Sync Flow
 
 ```
-Local Storage (Claude/Gemini)
+Local Storage: prjct.db (Claude/Gemini)
         ↓
     sync/pending.json (events queue)
         ↓
@@ -295,7 +296,7 @@ Local Storage (Claude/Gemini)
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  READ: ALWAYS from local cache (issues.json)           │
+│  READ: ALWAYS from local cache (prjct.db)              │
 │  WRITE: Status updates go to remote API                │
 │  NEVER: Re-fetch issue details after initial sync      │
 └─────────────────────────────────────────────────────────┘
@@ -313,21 +314,24 @@ Local Storage (Claude/Gemini)
 ### The Pattern
 
 ```
-p. sync          → Fetch ALL issues once → Write to issues.json
-p. task PRJ-123  → READ from issues.json (NOT API)
+p. sync          → Fetch ALL issues once → Write to prjct.db
+p. task PRJ-123  → READ from prjct.db (NOT API)
                  → WRITE status "In Progress" to API
-p. done          → READ state.json (local)
+p. done          → READ state from prjct.db (local)
                  → WRITE status "Done" to API
 ```
 
-### Cache Files
+### Cache Locations (all in prjct.db)
 
-| Cache File | Source | Purpose |
+| SQLite Key | Source | Purpose |
 |------------|--------|---------|
-| `storage/issues.json` | Linear/JIRA API | Issue titles, descriptions, AC (READ ONLY after sync) |
-| `storage/state.json` | Local operations | Current task state |
-| `memory/learnings.jsonl` | Task completions | LLM knowledge for future sessions |
-| `memory/events.jsonl` | All operations | Audit trail + future sync |
+| `issues` | Linear/JIRA API | Issue titles, descriptions, AC (READ ONLY after sync) |
+| `state` | Local operations | Current task state |
+| `queue` | Local operations | Task queue |
+| `shipped` | Local operations | Shipped features |
+| `ideas` | Local operations | Captured ideas |
+| `project` | Sync operations | Project metadata |
+| `events` table | All operations | Audit trail + future sync |
 
 ### ⛔ NEVER Do These
 
@@ -371,12 +375,12 @@ WITHOUT cache (BAD):
 
 WITH cache (GOOD):
   p. sync (once per session)
-  → All issues cached locally
+  → All issues cached in prjct.db
   p. task PRJ-123
-  → Read issues.json (0ms, already in context from sync)
+  → Read from prjct.db (<1ms, indexed SQLite lookup)
   → Work...
   → Write status to API (fire & forget)
-  Total: 0ms read latency, 0 extra tokens
+  Total: <1ms read latency, 0 extra tokens
 ```
 
 ### Cache Invalidation
@@ -387,5 +391,5 @@ WITH cache (GOOD):
 
 ---
 
-**Version**: 1.1.0
-**Last Updated**: 2026-02-05
+**Version**: 2.0.0
+**Last Updated**: 2026-02-10

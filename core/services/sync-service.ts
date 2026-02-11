@@ -32,9 +32,10 @@ import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import { analysisStorage } from '../storage/analysis-storage'
 import { archiveStorage } from '../storage/archive-storage'
+import { prjctDb } from '../storage/database'
 import { ideasStorage } from '../storage/ideas-storage'
 import { metricsStorage } from '../storage/metrics-storage'
-import { migrateJsonToSqlite } from '../storage/migrate-json'
+import { migrateJsonToSqlite, sweepLegacyJson } from '../storage/migrate-json'
 import { queueStorage } from '../storage/queue-storage'
 import { shippedStorage } from '../storage/shipped-storage'
 import { stateStorage } from '../storage/state-storage'
@@ -146,6 +147,17 @@ class SyncService {
       // 2b. Auto-migrate JSON → SQLite (idempotent, skips if already done)
       await ensureDirsPromise
       await migrateJsonToSqlite(this.projectId)
+
+      // 2c. Sweep leftover JSON files → import to SQLite → delete
+      // Runs every sync to catch ghosts from old code or failed migrations
+      try {
+        const swept = await sweepLegacyJson(this.projectId)
+        if (swept > 0) {
+          log.info('Swept legacy JSON files into SQLite', { swept })
+        }
+      } catch (error) {
+        log.debug('Legacy JSON sweep failed (non-critical)', { error: getErrorMessage(error) })
+      }
 
       // 3. Gather all data IN PARALLEL (30-50% speedup)
       // These operations are independent and can run concurrently
@@ -426,18 +438,9 @@ class SyncService {
   // ==========================================================================
 
   private async updateProjectJson(git: GitData, stats: ProjectStats): Promise<void> {
-    const projectJsonPath = path.join(this.globalPath, 'project.json')
-
-    // Read existing
-    let existing: Record<string, unknown> = {}
-    try {
-      existing = JSON.parse(await fs.readFile(projectJsonPath, 'utf-8'))
-    } catch (error) {
-      log.debug('No existing project.json', {
-        path: projectJsonPath,
-        error: getErrorMessage(error),
-      })
-    }
+    // Read existing from SQLite
+    const existing: Record<string, unknown> =
+      prjctDb.getDoc<Record<string, unknown>>(this.projectId!, 'project') || {}
 
     const updated = {
       ...existing,
@@ -459,7 +462,7 @@ class SyncService {
       lastSyncBranch: git.branch,
     }
 
-    await fs.writeFile(projectJsonPath, JSON.stringify(updated, null, 2), 'utf-8')
+    prjctDb.setDoc(this.projectId!, 'project', updated)
   }
 
   // ==========================================================================
@@ -467,15 +470,9 @@ class SyncService {
   // ==========================================================================
 
   private async updateStateJson(stats: ProjectStats, stack: StackDetection): Promise<void> {
-    const statePath = path.join(this.globalPath, 'storage', 'state.json')
-
-    // Read existing
-    let state: Record<string, unknown> = {}
-    try {
-      state = JSON.parse(await fs.readFile(statePath, 'utf-8'))
-    } catch (error) {
-      log.debug('No existing state.json', { path: statePath, error: getErrorMessage(error) })
-    }
+    // Read existing from SQLite via stateStorage
+    const stateData = await stateStorage.read(this.projectId!)
+    const state: Record<string, unknown> = { ...stateData }
 
     // Update with enterprise fields
     state.projectId = this.projectId
@@ -503,7 +500,7 @@ class SyncService {
       nextAction: 'Run `p. task "description"` to start working',
     }
 
-    await fs.writeFile(statePath, JSON.stringify(state, null, 2), 'utf-8')
+    await stateStorage.write(this.projectId!, state as import('../schemas/state').StateJson)
 
     // Also generate local .prjct-state.md (PRJ-112)
     try {

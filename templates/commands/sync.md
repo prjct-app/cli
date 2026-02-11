@@ -85,7 +85,7 @@ IF integrations.linear.enabled:
   # Sync Linear issues to local cache
   RUN: bun $PRJCT_CLI/core/cli/linear.ts --project {projectId} sync
 
-  # Result stored in {globalPath}/storage/issues.json
+  # Result stored in prjct.db (SQLite)
   OUTPUT: "Linear: {fetched} issues synced"
 ```
 

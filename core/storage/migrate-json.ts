@@ -717,4 +717,158 @@ async function readJsonSafe(filePath: string): Promise<unknown | null> {
   }
 }
 
+// =============================================================================
+// Legacy JSON Sweep (runs every sync)
+// =============================================================================
+
+/**
+ * Sweep & destroy any leftover JSON files that should be in SQLite.
+ *
+ * Unlike migrateJsonToSqlite (which runs once), this runs on EVERY sync.
+ * If old code or a failed migration left behind JSON files, this picks them
+ * up, imports to SQLite, and deletes them.
+ *
+ * Also handles project.json at the globalPath root (now stored as kv_store 'project').
+ */
+export async function sweepLegacyJson(projectId: string): Promise<number> {
+  const globalPath = pathManager.getGlobalProjectPath(projectId)
+  const storagePath = path.join(globalPath, 'storage')
+  let swept = 0
+
+  // Ensure DB is ready
+  prjctDb.getDb(projectId)
+
+  // 1. Sweep storage/*.json files
+  for (const { filename, key } of STORAGE_FILES) {
+    const filePath = path.join(storagePath, filename)
+    const data = await readJsonSafe(filePath)
+    if (data === null) continue
+
+    // Import to SQLite (overwrite — the JSON file is newer if it exists)
+    prjctDb.setDoc(projectId, key, data)
+    populateNormalized(projectId, key, data)
+
+    // Delete the ghost
+    try {
+      await fs.unlink(filePath)
+    } catch {
+      // Already gone or permission issue — don't care
+    }
+    swept++
+  }
+
+  // 2. Sweep project.json at globalPath root
+  const projectJsonPath = path.join(globalPath, 'project.json')
+  const projectData = await readJsonSafe(projectJsonPath)
+  if (projectData !== null) {
+    prjctDb.setDoc(projectId, 'project', projectData)
+    try {
+      await fs.unlink(projectJsonPath)
+    } catch {
+      // ignore
+    }
+    swept++
+  }
+
+  // 3. Sweep memory/*.jsonl files
+  const memoryPath = path.join(globalPath, 'memory')
+  for (const jsonlFile of ['events.jsonl', 'learnings.jsonl']) {
+    const filePath = path.join(memoryPath, jsonlFile)
+    try {
+      const content = await fs.readFile(filePath, 'utf-8')
+      const lines = content.split('\n').filter((l) => l.trim())
+      if (lines.length === 0) {
+        await fs.unlink(filePath)
+        swept++
+        continue
+      }
+
+      const db = prjctDb.getDb(projectId)
+      if (jsonlFile === 'events.jsonl') {
+        const stmt = db.prepare(
+          'INSERT INTO events (type, task_id, data, timestamp) VALUES (?, ?, ?, ?)'
+        )
+        db.transaction(() => {
+          for (const line of lines) {
+            try {
+              const event = JSON.parse(line) as Record<string, unknown>
+              stmt.run(
+                (event.type ?? event.action ?? 'unknown') as string,
+                (event.taskId ?? event.task_id ?? null) as string | null,
+                line,
+                (event.timestamp ?? event.ts ?? new Date().toISOString()) as string
+              )
+            } catch {
+              // skip malformed
+            }
+          }
+        })()
+      } else {
+        const stmt = db.prepare(
+          'INSERT OR REPLACE INTO memory (key, domain, value, confidence, updated_at) VALUES (?, ?, ?, ?, ?)'
+        )
+        db.transaction(() => {
+          for (const line of lines) {
+            try {
+              const entry = JSON.parse(line) as Record<string, unknown>
+              const key = `learning:${entry.taskId ?? entry.timestamp ?? Date.now()}`
+              const tags = entry.tags as string[] | undefined
+              stmt.run(
+                key,
+                tags?.[0] ?? null,
+                line,
+                1.0,
+                (entry.timestamp ?? new Date().toISOString()) as string
+              )
+            } catch {
+              // skip malformed
+            }
+          }
+        })()
+      }
+
+      await fs.unlink(filePath)
+      swept++
+    } catch {
+      // File doesn't exist — good
+    }
+  }
+
+  // 4. Sweep index/*.json files
+  const indexPath = path.join(globalPath, 'index')
+  const allIndexFiles = [
+    ...INDEX_FILES.map((f) => f.filename),
+    'checksums.json',
+    'file-scores.json',
+  ]
+  for (const filename of allIndexFiles) {
+    const filePath = path.join(indexPath, filename)
+    const data = await readJsonSafe(filePath)
+    if (data === null) continue
+
+    const indexFile = INDEX_FILES.find((f) => f.filename === filename)
+    if (indexFile) {
+      prjctDb.run(
+        projectId,
+        'INSERT OR REPLACE INTO index_meta (key, data, updated_at) VALUES (?, ?, ?)',
+        indexFile.key,
+        JSON.stringify(data),
+        new Date().toISOString()
+      )
+      populateIndexTables(projectId, indexFile.key, data)
+    }
+    // checksums.json and file-scores.json get handled by their specialized migrators
+    // but we still delete them
+
+    try {
+      await fs.unlink(filePath)
+    } catch {
+      // ignore
+    }
+    swept++
+  }
+
+  return swept
+}
+
 export default migrateJsonToSqlite
