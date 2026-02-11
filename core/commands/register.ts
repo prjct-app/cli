@@ -60,6 +60,7 @@ export function registerAllCommands(): void {
   const getMeta = (name: string) => COMMANDS.find((c) => c.name === name)
 
   // Workflow commands
+  commandRegistry.registerMethod('task', workflow, 'now', getMeta('task'))
   commandRegistry.registerMethod('done', workflow, 'done', getMeta('done'))
   commandRegistry.registerMethod('next', workflow, 'next', getMeta('next'))
   commandRegistry.registerMethod('pause', workflow, 'pause', getMeta('pause'))

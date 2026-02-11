@@ -22,6 +22,18 @@ import type { TaskFeedback } from '../schemas/state'
 import { queueStorage, stateStorage } from '../storage'
 import type { CommandResult } from '../types'
 import { getErrorMessage } from '../types/fs'
+import {
+  mdDone,
+  mdJoin,
+  mdList,
+  mdNextSteps,
+  mdRules,
+  mdSection,
+  mdStats,
+  mdSubtasks,
+  mdTaskHeader,
+  mdWarn,
+} from '../utils/md-formatter'
 import { showNextSteps, showStateInfo } from '../utils/next-steps'
 import { getLinearApiKey, getProjectCredentials } from '../utils/project-credentials'
 import {
@@ -44,7 +56,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
   async now(
     task: string | null = null,
     projectPath: string = process.cwd(),
-    options: { skipHooks?: boolean } = {}
+    options: { skipHooks?: boolean; md?: boolean } = {}
   ): Promise<CommandResult> {
     try {
       const initResult = await this.ensureProjectInit(projectPath)
@@ -52,7 +64,11 @@ export class WorkflowCommands extends PrjctCommandsBase {
 
       const projectId = await configManager.getProjectId(projectPath)
       if (!projectId) {
-        out.failWithHint('NO_PROJECT_ID')
+        if (options.md) {
+          console.log('> No project ID found. Run `prjct init` first.')
+        } else {
+          out.failWithHint('NO_PROJECT_ID')
+        }
         return { success: false, error: 'No project ID found' }
       }
 
@@ -70,7 +86,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
         const result = await commandExecutor.execute('task', { task }, projectPath)
 
         if (!result.success) {
-          out.fail(result.error || 'Failed to execute task')
+          if (!options.md) out.fail(result.error || 'Failed to execute task')
           return { success: false, error: result.error }
         }
 
@@ -112,11 +128,35 @@ export class WorkflowCommands extends PrjctCommandsBase {
 
         // Build metrics from orchestrator context
         const agentCount = result.orchestratorContext?.agents?.length || availableAgents.length
-        out.done(`${task}`, {
-          agents: agentCount > 0 ? agentCount : undefined,
-        })
-        showStateInfo('working')
-        showNextSteps('task')
+
+        if (options.md) {
+          // Markdown output for LLM consumption
+          const subtaskList =
+            (result as { subtasks?: Array<{ description: string; status: string }> }).subtasks || []
+          const header = mdTaskHeader({
+            description: taskDescription,
+            branch: (result as { branch?: string }).branch,
+            linearId,
+            type: (result as { type?: string }).type,
+          })
+          const subtasksMd = subtaskList.length > 0 ? mdSubtasks(subtaskList, 0) : ''
+          const rules = mdRules([
+            'All commits must include footer: `Generated with [p/](https://www.prjct.app/)`',
+            'Never commit directly to main/master',
+          ])
+          const next = mdNextSteps([
+            { label: 'Find relevant files', command: `prjct context files "${task}"` },
+            { label: 'Complete subtask', command: 'prjct done --md' },
+            { label: 'Pause task', command: 'prjct pause --md' },
+          ])
+          console.log(mdJoin(header, subtasksMd, rules, next))
+        } else {
+          out.done(`${task}`, {
+            agents: agentCount > 0 ? agentCount : undefined,
+          })
+          showStateInfo('working')
+          showNextSteps('task')
+        }
 
         await this.logToMemory(projectPath, 'task_started', {
           task,
@@ -160,15 +200,48 @@ export class WorkflowCommands extends PrjctCommandsBase {
         const currentTask = await stateStorage.getCurrentTask(projectId)
 
         if (!currentTask) {
-          out.warn('no active task')
+          if (options.md) {
+            console.log(mdWarn('No active task'))
+          } else {
+            out.warn('no active task')
+          }
           return { success: true, message: 'No active task' }
         }
 
-        out.done(`working on: ${currentTask.description}`)
+        if (options.md) {
+          // Markdown output for current task status
+          const duration = currentTask.startedAt
+            ? dateHelper.calculateDuration(new Date(currentTask.startedAt))
+            : undefined
+          const header = mdTaskHeader({
+            description: currentTask.description,
+            status: 'active',
+            branch: (currentTask as { branch?: string }).branch,
+            linearId: (currentTask as { linearId?: string }).linearId,
+            type: (currentTask as { type?: string }).type,
+            duration,
+          })
+          const subtasks =
+            (currentTask as { subtasks?: Array<{ description: string; status: string }> })
+              .subtasks || []
+          const currentIndex = (currentTask as { currentSubtaskIndex?: number }).currentSubtaskIndex
+          const subtasksMd = subtasks.length > 0 ? mdSubtasks(subtasks, currentIndex) : ''
+          const next = mdNextSteps([
+            { label: 'Complete subtask', command: 'prjct done --md' },
+            { label: 'Pause task', command: 'prjct pause --md' },
+          ])
+          console.log(mdJoin(header, subtasksMd, next))
+        } else {
+          out.done(`working on: ${currentTask.description}`)
+        }
         return { success: true, task: currentTask.description, currentTask }
       }
     } catch (error) {
-      out.fail(getErrorMessage(error))
+      if (options.md) {
+        console.log(`> Error: ${getErrorMessage(error)}`)
+      } else {
+        out.fail(getErrorMessage(error))
+      }
       return { success: false, error: getErrorMessage(error) }
     }
   }
@@ -179,7 +252,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
    */
   async done(
     projectPath: string = process.cwd(),
-    options: { skipHooks?: boolean; feedback?: TaskFeedback } = {}
+    options: { skipHooks?: boolean; feedback?: TaskFeedback; md?: boolean } = {}
   ): Promise<CommandResult> {
     try {
       const initResult = await this.ensureProjectInit(projectPath)
@@ -263,19 +336,37 @@ export class WorkflowCommands extends PrjctCommandsBase {
           if (apiKey && creds.linear?.teamId) {
             await linearService.initializeFromApiKey(apiKey, creds.linear.teamId)
             await linearService.markDone(linearId)
-            out.done(`${task}${duration ? ` (${duration}${varianceDisplay})` : ''} → Linear ✓`)
-          } else {
-            out.done(`${task}${duration ? ` (${duration}${varianceDisplay})` : ''}`)
           }
         } catch {
           // Linear sync failed silently - don't block the workflow
-          out.done(`${task}${duration ? ` (${duration}${varianceDisplay})` : ''}`)
         }
-      } else {
-        out.done(`${task}${duration ? ` (${duration}${varianceDisplay})` : ''}`)
       }
-      showStateInfo('completed')
-      showNextSteps('done')
+
+      if (options.md) {
+        const durationSuffix = duration ? ` (${duration})` : ''
+        console.log(
+          mdJoin(
+            mdDone('Subtask Complete', `**Completed:** ${task}${durationSuffix}`),
+            mdStats({
+              Duration: duration || 'unknown',
+              ...(varianceDisplay ? { Variance: varianceDisplay.replace(' | ', '') } : {}),
+            }),
+            mdNextSteps([
+              { label: 'Complete next subtask', command: 'p. done' },
+              { label: 'Ship when ready', command: 'p. ship' },
+            ])
+          )
+        )
+      } else {
+        const displaySuffix = duration ? ` (${duration}${varianceDisplay})` : ''
+        if (linearId) {
+          out.done(`${task}${displaySuffix} → Linear ✓`)
+        } else {
+          out.done(`${task}${displaySuffix}`)
+        }
+        showStateInfo('completed')
+        showNextSteps('done')
+      }
 
       await this.logToMemory(projectPath, 'task_completed', {
         task,
@@ -302,7 +393,10 @@ export class WorkflowCommands extends PrjctCommandsBase {
   /**
    * /p:next - Show priority queue
    */
-  async next(projectPath: string = process.cwd()): Promise<CommandResult> {
+  async next(
+    projectPath: string = process.cwd(),
+    options: { md?: boolean } = {}
+  ): Promise<CommandResult> {
     try {
       const initResult = await this.ensureProjectInit(projectPath)
       if (!initResult.success) return initResult
@@ -317,12 +411,31 @@ export class WorkflowCommands extends PrjctCommandsBase {
       const tasks = await queueStorage.getActiveTasks(projectId)
 
       if (tasks.length === 0) {
-        out.warn('queue empty')
+        if (options.md) {
+          console.log(mdWarn('Queue is empty'))
+        } else {
+          out.warn('queue empty')
+        }
         return { success: true, message: 'Queue is empty' }
       }
 
-      out.done(`${tasks.length} task${tasks.length !== 1 ? 's' : ''} queued`)
-      showNextSteps('next')
+      if (options.md) {
+        const items = tasks.map((t) => {
+          const typeBadge = t.type ? ` [${t.type}]` : ''
+          const priority = t.priority ? ` ${t.priority}` : ''
+          return `${t.description}${typeBadge}${priority}`
+        })
+        console.log(
+          mdJoin(
+            mdSection('Queue', `${tasks.length} task${tasks.length !== 1 ? 's' : ''}`),
+            mdList(items, true),
+            mdNextSteps([{ label: 'Start working', command: `p. task "${tasks[0].description}"` }])
+          )
+        )
+      } else {
+        out.done(`${tasks.length} task${tasks.length !== 1 ? 's' : ''} queued`)
+        showNextSteps('next')
+      }
 
       return { success: true, tasks, count: tasks.length }
     } catch (error) {
@@ -334,7 +447,11 @@ export class WorkflowCommands extends PrjctCommandsBase {
   /**
    * /p:pause - Pause active task to handle interruption
    */
-  async pause(reason: string = '', projectPath: string = process.cwd()): Promise<CommandResult> {
+  async pause(
+    reason: string = '',
+    projectPath: string = process.cwd(),
+    options: { md?: boolean } = {}
+  ): Promise<CommandResult> {
     try {
       const initResult = await this.ensureProjectInit(projectPath)
       if (!initResult.success) return initResult
@@ -348,17 +465,43 @@ export class WorkflowCommands extends PrjctCommandsBase {
       const currentTask = await stateStorage.getCurrentTask(projectId)
 
       if (!currentTask) {
-        out.warn('no active task to pause')
+        if (options.md) {
+          console.log(mdWarn('No active task to pause'))
+        } else {
+          out.warn('no active task to pause')
+        }
         return { success: false, message: 'No active task to pause' }
+      }
+
+      // Calculate duration worked before pausing
+      let durationWorked = ''
+      if (currentTask.startedAt) {
+        durationWorked = dateHelper.calculateDuration(new Date(currentTask.startedAt))
       }
 
       // Write-through: Pause task (JSON → MD → Event)
       await stateStorage.pauseTask(projectId, reason)
 
-      const taskDesc = currentTask.description.slice(0, 40)
-      out.done(`paused: ${taskDesc}${reason ? ` (${reason})` : ''}`)
-      showStateInfo('paused')
-      showNextSteps('pause')
+      if (options.md) {
+        console.log(
+          mdJoin(
+            mdDone('Task Paused', `**Paused:** ${currentTask.description}`),
+            mdStats({
+              Reason: reason || undefined,
+              'Duration worked': durationWorked || undefined,
+            }),
+            mdNextSteps([
+              { label: 'Resume this task', command: 'p. resume' },
+              { label: 'Start something new', command: 'p. task' },
+            ])
+          )
+        )
+      } else {
+        const taskDesc = currentTask.description.slice(0, 40)
+        out.done(`paused: ${taskDesc}${reason ? ` (${reason})` : ''}`)
+        showStateInfo('paused')
+        showNextSteps('pause')
+      }
 
       await this.logToMemory(projectPath, 'task_paused', {
         task: currentTask.description,
@@ -378,7 +521,8 @@ export class WorkflowCommands extends PrjctCommandsBase {
    */
   async resume(
     _taskId: string | null = null,
-    projectPath: string = process.cwd()
+    projectPath: string = process.cwd(),
+    options: { md?: boolean } = {}
   ): Promise<CommandResult> {
     try {
       const initResult = await this.ensureProjectInit(projectPath)
@@ -393,7 +537,11 @@ export class WorkflowCommands extends PrjctCommandsBase {
       // Check if already working on a task
       const currentTask = await stateStorage.getCurrentTask(projectId)
       if (currentTask) {
-        out.warn('already working on a task')
+        if (options.md) {
+          console.log(mdWarn(`Already working on: ${currentTask.description}`))
+        } else {
+          out.warn('already working on a task')
+        }
         return { success: false, message: `Already working on: ${currentTask.description}` }
       }
 
@@ -401,13 +549,26 @@ export class WorkflowCommands extends PrjctCommandsBase {
       const resumed = await stateStorage.resumeTask(projectId)
 
       if (!resumed) {
-        out.warn('no paused task to resume')
+        if (options.md) {
+          console.log(mdWarn('No paused task found'))
+        } else {
+          out.warn('no paused task to resume')
+        }
         return { success: false, message: 'No paused task found' }
       }
 
-      out.done(`resumed: ${resumed.description.slice(0, 40)}`)
-      showStateInfo('working')
-      showNextSteps('resume')
+      if (options.md) {
+        console.log(
+          mdJoin(
+            mdDone('Task Resumed', `**Resumed:** ${resumed.description}`),
+            mdNextSteps([{ label: 'Continue working, then finish', command: 'p. done' }])
+          )
+        )
+      } else {
+        out.done(`resumed: ${resumed.description.slice(0, 40)}`)
+        showStateInfo('working')
+        showNextSteps('resume')
+      }
 
       await this.logToMemory(projectPath, 'task_resumed', {
         task: resumed.description,

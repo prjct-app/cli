@@ -11,6 +11,7 @@ import type { Priority, TaskSection, TaskType } from '../schemas/state'
 import { ideasStorage, queueStorage } from '../storage'
 import type { CommandResult, InitOptions, ProjectContext } from '../types'
 import { getErrorMessage } from '../types/fs'
+import { mdJoin, mdNextSteps, mdSection, mdStats } from '../utils/md-formatter'
 import { showNextSteps } from '../utils/next-steps'
 import { OnboardingWizard } from '../workflows'
 import {
@@ -313,23 +314,27 @@ export class PlanningCommands extends PrjctCommandsBase {
   /**
    * /p:bug - Report and track bugs with auto-prioritization
    */
-  async bug(description: string, projectPath: string = process.cwd()): Promise<CommandResult> {
+  async bug(
+    description: string,
+    projectPath: string = process.cwd(),
+    options: { md?: boolean } = {}
+  ): Promise<CommandResult> {
     try {
       const initResult = await this.ensureProjectInit(projectPath)
       if (!initResult.success) return initResult
 
       if (!description) {
-        out.fail('bug description required')
+        if (!options.md) out.fail('bug description required')
         return { success: false, error: 'Description required' }
       }
 
       const projectId = await configManager.getProjectId(projectPath)
       if (!projectId) {
-        out.failWithHint('NO_PROJECT_ID')
+        if (!options.md) out.failWithHint('NO_PROJECT_ID')
         return { success: false, error: 'No project ID found' }
       }
 
-      out.spin('tracking bug...')
+      if (!options.md) out.spin('tracking bug...')
 
       const context = (await contextBuilder.build(projectPath, { description })) as ProjectContext
       const severity = this._detectBugSeverity(description)
@@ -367,12 +372,25 @@ export class PlanningCommands extends PrjctCommandsBase {
         timestamp: dateHelper.getTimestamp(),
       })
 
-      out.done(`bug [${severity}] → ${agent}`)
-      showNextSteps('bug')
+      if (options.md) {
+        console.log(
+          mdJoin(
+            mdSection('Bug Reported', description),
+            mdStats({ Severity: severity, Priority: priority, Agent: agent }),
+            mdNextSteps([
+              { label: 'Fix now', command: `prjct task "fix: ${description}" --md` },
+              { label: 'View queue', command: 'prjct next --md' },
+            ])
+          )
+        )
+      } else {
+        out.done(`bug [${severity}] → ${agent}`)
+        showNextSteps('bug')
+      }
 
       return { success: true, bug: description, severity, agent }
     } catch (error) {
-      out.fail(getErrorMessage(error))
+      if (!options.md) out.fail(getErrorMessage(error))
       return { success: false, error: getErrorMessage(error) }
     }
   }
@@ -473,19 +491,23 @@ export class PlanningCommands extends PrjctCommandsBase {
   /**
    * /p:idea - Transform ideas into architectures or quick captures
    */
-  async idea(description: string, projectPath: string = process.cwd()): Promise<CommandResult> {
+  async idea(
+    description: string,
+    projectPath: string = process.cwd(),
+    options: { md?: boolean } = {}
+  ): Promise<CommandResult> {
     try {
       const initResult = await this.ensureProjectInit(projectPath)
       if (!initResult.success) return initResult
 
       if (!description) {
-        out.fail('idea description required')
+        if (!options.md) out.fail('idea description required')
         return { success: false, error: 'Idea description required' }
       }
 
       const projectId = await configManager.getProjectId(projectPath)
       if (!projectId) {
-        out.failWithHint('NO_PROJECT_ID')
+        if (!options.md) out.failWithHint('NO_PROJECT_ID')
         return { success: false, error: 'No project ID found' }
       }
 
@@ -496,7 +518,7 @@ export class PlanningCommands extends PrjctCommandsBase {
 
       if (isComplex) {
         // Complex idea → Create architecture session
-        out.spin('analyzing idea...')
+        if (!options.md) out.spin('analyzing idea...')
 
         const globalPath = pathManager.getGlobalProjectPath(projectId)
         const sessionPath = path.join(globalPath, 'planning', 'architect-session.md')
@@ -523,13 +545,23 @@ Generated: ${new Date().toLocaleString()}
           timestamp: dateHelper.getTimestamp(),
         })
 
-        out.done('architecture session created')
-        console.log('\n💡 Use /p:architect execute to continue planning\n')
+        if (options.md) {
+          console.log(
+            mdJoin(
+              mdSection('Idea Captured', description),
+              mdStats({ Mode: 'architecture' }),
+              mdNextSteps([{ label: 'Continue planning', command: 'prjct architect execute' }])
+            )
+          )
+        } else {
+          out.done('architecture session created')
+          console.log('\n💡 Use /p:architect execute to continue planning\n')
+        }
 
         return { success: true, mode: 'architecture', idea: description }
       } else {
         // Simple idea → Quick capture (JSON → MD → Event)
-        out.spin('capturing idea...')
+        if (!options.md) out.spin('capturing idea...')
 
         await ideasStorage.addIdea(projectId, description)
 
@@ -538,13 +570,26 @@ Generated: ${new Date().toLocaleString()}
           timestamp: dateHelper.getTimestamp(),
         })
 
-        out.done(`idea captured: ${description.slice(0, 40)}`)
-        showNextSteps('idea')
+        if (options.md) {
+          console.log(
+            mdJoin(
+              mdSection('Idea Captured', description),
+              mdStats({ Mode: 'capture' }),
+              mdNextSteps([
+                { label: 'Start working on it', command: `prjct task "${description}" --md` },
+                { label: 'View ideas', command: 'prjct dash ideas' },
+              ])
+            )
+          )
+        } else {
+          out.done(`idea captured: ${description.slice(0, 40)}`)
+          showNextSteps('idea')
+        }
 
         return { success: true, mode: 'capture', idea: description }
       }
     } catch (error) {
-      out.fail(getErrorMessage(error))
+      if (!options.md) out.fail(getErrorMessage(error))
       return { success: false, error: getErrorMessage(error) }
     }
   }

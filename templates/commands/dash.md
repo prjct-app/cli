@@ -2,38 +2,12 @@
 allowed-tools: [Bash]
 ---
 
-# p. dash
+# p. dash $ARGUMENTS
 
-## ⚡ FAST COMMAND — Execute Immediately
-
-```bash
-prjct dash
-```
-
-Parse the CLI output and display to the user.
-
----
-
-## Compact View (`p. dash compact`)
+Supports views: `compact`, `week`, `month`, `roadmap` (default: full dashboard).
 
 ```bash
-prjct dash compact
+prjct dash ${ARGUMENTS || ""} --md
 ```
 
-## Week View (`p. dash week`)
-
-```bash
-prjct dash week
-```
-
-## Month View (`p. dash month`)
-
-```bash
-prjct dash month
-```
-
-## Roadmap View (`p. dash roadmap`)
-
-```bash
-prjct dash roadmap
-```
+Follow the instructions in the CLI output.

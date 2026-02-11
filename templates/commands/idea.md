@@ -1,37 +1,13 @@
 ---
-allowed-tools: [Bash]
+allowed-tools: [Bash, AskUserQuestion]
 ---
 
-# p. idea "$ARGUMENTS"
+# p. idea $ARGUMENTS
 
-## Step 1: Validate Arguments
-
-```
-IF $ARGUMENTS is empty:
-  ASK: "What's your idea?"
-  WAIT for response
-```
-
-## Step 2: Capture Idea
+If $ARGUMENTS is empty, ASK the user for their idea.
 
 ```bash
-prjct idea "$ARGUMENTS"
+prjct idea "$ARGUMENTS" --md
 ```
 
-The CLI handles:
-- Detecting simple vs complex ideas
-- Priority classification
-- Storing in SQLite
-- Event logging
-
----
-
-## Output
-
-```
-💡 $ARGUMENTS
-
-Next:
-- Start work → `p. task "$ARGUMENTS"`
-- See ideas → `p. dash`
-```
+Follow the instructions in the CLI output.

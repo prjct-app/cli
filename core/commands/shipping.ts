@@ -8,7 +8,8 @@ import memorySystem from '../agentic/memory-system'
 import { shippedStorage, stateStorage } from '../storage'
 import type { CommandResult } from '../types'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
-import { showNextSteps } from '../utils/next-steps'
+import { mdDone, mdJoin, mdList, mdNextSteps, mdSection } from '../utils/md-formatter'
+import { getNextSteps, showNextSteps } from '../utils/next-steps'
 import { detectProjectCommands } from '../utils/project-commands'
 import { runWorkflowHooks } from '../workflow/workflow-preferences'
 import { configManager, dateHelper, fileHelper, out, PrjctCommandsBase, toolRegistry } from './base'
@@ -52,7 +53,7 @@ export class ShippingCommands extends PrjctCommandsBase {
   async ship(
     feature: string | null,
     projectPath: string = process.cwd(),
-    options: { skipHooks?: boolean } = {}
+    options: { skipHooks?: boolean; md?: boolean } = {}
   ): Promise<CommandResult> {
     try {
       const initResult = await this.ensureProjectInit(projectPath)
@@ -81,22 +82,24 @@ export class ShippingCommands extends PrjctCommandsBase {
       }
 
       // Ship steps with progress indicator
-      out.step(1, 5, `Linting ${featureName}...`)
+      if (!options.md) out.step(1, 5, `Linting ${featureName}...`)
       const lintResult = await this._runLint(projectPath)
 
-      out.step(2, 5, 'Running tests...')
+      if (!options.md) out.step(2, 5, 'Running tests...')
       const testResult = await this._runTests(projectPath)
 
-      out.step(3, 5, 'Updating version...')
+      if (!options.md) out.step(3, 5, 'Updating version...')
       const newVersion = await this._bumpVersion(projectPath)
       await this._updateChangelog(featureName, newVersion, projectPath)
 
-      out.step(4, 5, 'Committing...')
+      if (!options.md) out.step(4, 5, 'Committing...')
       const commitResult = await this._createShipCommit(featureName, projectPath)
 
+      let pushStatus = 'skipped'
       if (commitResult.success) {
-        out.step(5, 5, 'Pushing...')
-        await this._gitPush(projectPath)
+        if (!options.md) out.step(5, 5, 'Pushing...')
+        const pushResult = await this._gitPush(projectPath)
+        pushStatus = pushResult.success ? 'pushed' : pushResult.message
       }
 
       // Write-through: Record shipped feature (JSON → MD → Event)
@@ -131,8 +134,27 @@ export class ShippingCommands extends PrjctCommandsBase {
         skipHooks: options.skipHooks,
       })
 
-      out.done(`v${newVersion} shipped`)
-      showNextSteps('ship')
+      if (options.md) {
+        const steps = getNextSteps('ship')
+        const md = mdJoin(
+          mdDone(`Shipped: ${featureName}`, `Version: ${newVersion}`),
+          mdSection(
+            'Results',
+            mdList([
+              `Lint: ${lintResult.message}`,
+              `Tests: ${testResult.message}`,
+              `Commit: ${commitResult.success ? 'created' : commitResult.message}`,
+              `Push: ${pushStatus}`,
+            ]),
+            3
+          ),
+          mdNextSteps(steps.map((s) => ({ label: s.desc, command: s.cmd })))
+        )
+        console.log(md)
+      } else {
+        out.done(`v${newVersion} shipped`)
+        showNextSteps('ship')
+      }
 
       return { success: true, feature: featureName, version: newVersion }
     } catch (error) {

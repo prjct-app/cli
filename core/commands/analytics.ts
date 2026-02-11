@@ -8,6 +8,7 @@ import { createStalenessChecker } from '../services'
 import { ideasStorage, prjctDb, queueStorage, shippedStorage, stateStorage } from '../storage'
 import type { CommandResult, ProjectContext } from '../types'
 import { getErrorMessage } from '../types/fs'
+import { mdJoin, mdList, mdNextSteps, mdSection } from '../utils/md-formatter'
 import {
   configManager,
   contextBuilder,
@@ -31,7 +32,8 @@ export class AnalyticsCommands extends PrjctCommandsBase {
    */
   async dash(
     view: string = 'default',
-    projectPath: string = process.cwd()
+    projectPath: string = process.cwd(),
+    options: { md?: boolean } = {}
   ): Promise<CommandResult> {
     try {
       const initResult = await this.ensureProjectInit(projectPath)
@@ -140,60 +142,97 @@ export class AnalyticsCommands extends PrjctCommandsBase {
       }
 
       // Default view - project overview
-      console.log(`\n📊 DASHBOARD - ${projectName}\n`)
-      console.log('═'.repeat(50))
+      if (options.md) {
+        // Markdown output
+        const currentFocus = currentTask
+          ? `${currentTask.description}${currentTask.startedAt ? ` (started ${dateHelper.calculateDuration(new Date(currentTask.startedAt))} ago)` : ''}`
+          : 'No active task'
 
-      // Check staleness (PRJ-120)
-      const checker = createStalenessChecker(projectPath)
-      const stalenessStatus = await checker.check(projectId)
-      const stalenessWarning = checker.getWarning(stalenessStatus)
-      if (stalenessWarning) {
-        console.log(`\n${stalenessWarning}`)
-      }
+        const queueItems =
+          queueTasks.length > 0
+            ? queueTasks.slice(0, 5).map((t) => {
+                const priority = t.priority ? ` [${t.priority}]` : ''
+                return `${t.description}${priority}`
+              })
+            : ['Queue is empty']
 
-      // Current task
-      console.log('\n🎯 CURRENT FOCUS')
-      if (currentTask) {
-        console.log(`   ${currentTask.description}`)
-        if (currentTask.startedAt) {
-          const elapsed = dateHelper.calculateDuration(new Date(currentTask.startedAt))
-          console.log(`   Started: ${elapsed} ago`)
+        const shipItems =
+          shipped.length > 0
+            ? shipped.slice(0, 5).map((s) => {
+                const date = s.shippedAt ? new Date(s.shippedAt).toLocaleDateString() : ''
+                return `${s.name}${date ? ` (${date})` : ''}`
+              })
+            : ['Nothing shipped yet']
+
+        const md = mdJoin(
+          `## Dashboard: ${projectName}`,
+          mdSection('Current Focus', currentFocus, 3),
+          mdSection(`Queue (${queueTasks.length})`, mdList(queueItems, true), 3),
+          mdSection('Recent Ships', mdList(shipItems), 3),
+          mdSection('Ideas', `${ideas.length} pending`, 3),
+          mdNextSteps([
+            { label: 'Start task', command: 'p. task' },
+            { label: 'Complete', command: 'p. done' },
+            { label: 'Ship', command: 'p. ship' },
+          ])
+        )
+        console.log(md)
+      } else {
+        console.log(`\n📊 DASHBOARD - ${projectName}\n`)
+        console.log('═'.repeat(50))
+
+        // Check staleness (PRJ-120)
+        const checker = createStalenessChecker(projectPath)
+        const stalenessStatus = await checker.check(projectId)
+        const stalenessWarning = checker.getWarning(stalenessStatus)
+        if (stalenessWarning) {
+          console.log(`\n${stalenessWarning}`)
         }
-      } else {
-        console.log('   No active task. Use /p:work to start.')
-      }
 
-      // Queue
-      console.log('\n📋 QUEUE')
-      if (queueTasks.length === 0) {
-        console.log('   Queue is empty')
-      } else {
-        queueTasks.slice(0, 3).forEach((t, i) => {
-          const priority = t.priority ? `[${t.priority}]` : ''
-          console.log(`   ${i + 1}. ${t.description.slice(0, 40)} ${priority}`)
-        })
-        if (queueTasks.length > 3) {
-          console.log(`   ... and ${queueTasks.length - 3} more`)
+        // Current task
+        console.log('\n🎯 CURRENT FOCUS')
+        if (currentTask) {
+          console.log(`   ${currentTask.description}`)
+          if (currentTask.startedAt) {
+            const elapsed = dateHelper.calculateDuration(new Date(currentTask.startedAt))
+            console.log(`   Started: ${elapsed} ago`)
+          }
+        } else {
+          console.log('   No active task. Use /p:work to start.')
         }
+
+        // Queue
+        console.log('\n📋 QUEUE')
+        if (queueTasks.length === 0) {
+          console.log('   Queue is empty')
+        } else {
+          queueTasks.slice(0, 3).forEach((t, i) => {
+            const priority = t.priority ? `[${t.priority}]` : ''
+            console.log(`   ${i + 1}. ${t.description.slice(0, 40)} ${priority}`)
+          })
+          if (queueTasks.length > 3) {
+            console.log(`   ... and ${queueTasks.length - 3} more`)
+          }
+        }
+
+        // Recent ships
+        console.log('\n🚀 RECENT SHIPS')
+        if (shipped.length === 0) {
+          console.log('   Nothing shipped yet')
+        } else {
+          shipped.slice(0, 3).forEach((s) => {
+            const date = s.shippedAt ? new Date(s.shippedAt).toLocaleDateString() : ''
+            console.log(`   • ${s.name} ${date ? `(${date})` : ''}`)
+          })
+        }
+
+        // Ideas
+        console.log('\n💡 IDEAS')
+        console.log(`   ${ideas.length} pending ideas`)
+
+        console.log(`\n${'═'.repeat(50)}`)
+        console.log('💡 /p:work to start | /p:done to complete | /p:ship to ship\n')
       }
-
-      // Recent ships
-      console.log('\n🚀 RECENT SHIPS')
-      if (shipped.length === 0) {
-        console.log('   Nothing shipped yet')
-      } else {
-        shipped.slice(0, 3).forEach((s) => {
-          const date = s.shippedAt ? new Date(s.shippedAt).toLocaleDateString() : ''
-          console.log(`   • ${s.name} ${date ? `(${date})` : ''}`)
-        })
-      }
-
-      // Ideas
-      console.log('\n💡 IDEAS')
-      console.log(`   ${ideas.length} pending ideas`)
-
-      console.log(`\n${'═'.repeat(50)}`)
-      console.log('💡 /p:work to start | /p:done to complete | /p:ship to ship\n')
 
       await this.logToMemory(projectPath, 'dash_viewed', {
         view,

@@ -17,7 +17,7 @@ import { ideasStorage } from '../storage/ideas-storage'
 import { queueStorage } from '../storage/queue-storage'
 import { shippedStorage } from '../storage/shipped-storage'
 import { stateStorage } from '../storage/state-storage'
-import type { ProjectJson, QueueTask, StateJson, StateTask } from '../types/storage'
+import type { ProjectJson, QueueTask, StateTask } from '../types/storage'
 
 // =============================================================================
 // HELPERS
@@ -133,7 +133,8 @@ export function createExtendedRoutes(): Hono {
 
       // Calculate current task duration
       if (state?.currentTask?.startedAt) {
-        state.currentTask.duration = await calculateDuration(state.currentTask.startedAt)
+        ;(state.currentTask as StateTask & { duration?: string }).duration =
+          await calculateDuration(state.currentTask.startedAt)
       }
 
       // Calculate stats
@@ -193,13 +194,13 @@ export function createExtendedRoutes(): Hono {
       const completedTask = state.currentTask
 
       // Update state
-      const newState: StateJson = {
+      const newState = {
         currentTask: null,
         previousTask: null,
         lastUpdated: new Date().toISOString(),
       }
 
-      await stateStorage.write(projectId, newState)
+      await stateStorage.write(projectId, newState as Parameters<typeof stateStorage.write>[1])
 
       return c.json({
         success: true,
@@ -236,13 +237,13 @@ export function createExtendedRoutes(): Hono {
         pauseReason: reason,
       }
 
-      const newState: StateJson = {
+      const newState = {
         currentTask: null,
         previousTask: pausedTask,
         lastUpdated: new Date().toISOString(),
       }
 
-      await stateStorage.write(projectId, newState)
+      await stateStorage.write(projectId, newState as Parameters<typeof stateStorage.write>[1])
 
       return c.json({
         success: true,
@@ -275,13 +276,13 @@ export function createExtendedRoutes(): Hono {
         sessionId: `sess_${Date.now().toString(36)}`,
       }
 
-      const newState: StateJson = {
+      const newState = {
         currentTask: resumedTask,
         previousTask: null,
         lastUpdated: new Date().toISOString(),
       }
 
-      await stateStorage.write(projectId, newState)
+      await stateStorage.write(projectId, newState as Parameters<typeof stateStorage.write>[1])
 
       return c.json({
         success: true,
@@ -334,13 +335,13 @@ export function createExtendedRoutes(): Hono {
       }
 
       // Update state
-      const newState: StateJson = {
+      const newState = {
         currentTask: newTask,
         previousTask: null,
         lastUpdated: new Date().toISOString(),
       }
 
-      await stateStorage.write(projectId, newState)
+      await stateStorage.write(projectId, newState as Parameters<typeof stateStorage.write>[1])
 
       return c.json({
         success: true,
@@ -465,7 +466,7 @@ export function createExtendedRoutes(): Hono {
           activeTask = {
             ...state.currentTask,
             duration: await calculateDuration(state.currentTask.startedAt),
-          }
+          } as StateTask & { duration?: string }
           break
         }
 

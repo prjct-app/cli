@@ -254,6 +254,8 @@ async function executeCommand(request: DaemonRequest): Promise<import('../types'
   const param = request.args.join(' ') || null
   const opts = request.options
 
+  const md = opts.md === true
+
   // Commands that need options routed through PrjctCommands
   switch (request.command) {
     case 'sync':
@@ -262,11 +264,12 @@ async function executeCommand(request: DaemonRequest): Promise<import('../types'
         preview: opts.preview === true || opts['dry-run'] === true,
         yes: opts.yes === true,
         json: opts.json === true,
+        md,
         package: opts.package ? String(opts.package) : undefined,
         full: opts.full === true,
       })
     case 'status':
-      return commands!.status(request.cwd, { json: opts.json === true })
+      return commands!.status(request.cwd, { json: opts.json === true, md })
     case 'stats':
       return commands!.stats(request.cwd, {
         json: opts.json === true,
@@ -279,6 +282,24 @@ async function executeCommand(request: DaemonRequest): Promise<import('../types'
         json: opts.json === true,
         semantic: opts.semantic === true,
       })
+    case 'task':
+      return commands!.task(param, request.cwd, { md })
+    case 'done':
+      return commands!.done(request.cwd, { md })
+    case 'next':
+      return commands!.next(request.cwd, { md })
+    case 'pause':
+      return commands!.pause(param || '', request.cwd, { md })
+    case 'resume':
+      return commands!.resume(param, request.cwd, { md })
+    case 'bug':
+      return commands!.bug(param || '', request.cwd, { md })
+    case 'idea':
+      return commands!.idea(param || '', request.cwd, { md })
+    case 'ship':
+      return commands!.ship(param, request.cwd, { md })
+    case 'dash':
+      return commands!.dash(param || 'default', request.cwd, { md })
     case 'design':
       return commands!.design(param || '', opts)
     case 'analyze':

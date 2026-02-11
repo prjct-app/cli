@@ -133,20 +133,22 @@ async function main(): Promise<void> {
     } else {
       // Standard commands - type-safe invocation
       const param = parsedArgs.join(' ') || null
+      const md = options.md === true
       const standardCommands: Record<string, (p: string | null) => Promise<CommandResult>> = {
         // Core workflow
-        done: () => commands.done(),
-        next: () => commands.next(),
-        pause: (p) => commands.pause(p || ''),
-        resume: (p) => commands.resume(p),
+        task: (p) => commands.task(p, process.cwd(), { md }),
+        done: () => commands.done(process.cwd(), { md }),
+        next: () => commands.next(process.cwd(), { md }),
+        pause: (p) => commands.pause(p || '', process.cwd(), { md }),
+        resume: (p) => commands.resume(p, process.cwd(), { md }),
         // Planning
         init: (p) => commands.init(p),
-        bug: (p) => commands.bug(p || ''),
-        idea: (p) => commands.idea(p || ''),
+        bug: (p) => commands.bug(p || '', process.cwd(), { md }),
+        idea: (p) => commands.idea(p || '', process.cwd(), { md }),
         spec: (p) => commands.spec(p),
-        ship: (p) => commands.ship(p),
+        ship: (p) => commands.ship(p, process.cwd(), { md }),
         // Analytics
-        dash: (p) => commands.dash(p || 'default'),
+        dash: (p) => commands.dash(p || 'default', process.cwd(), { md }),
         stats: () =>
           commands.stats(process.cwd(), {
             json: options.json === true,
@@ -155,6 +157,7 @@ async function main(): Promise<void> {
         status: () =>
           commands.status(process.cwd(), {
             json: options.json === true,
+            md,
           }),
         help: (p) => commands.help(p || ''),
         perf: (p) => commands.perf(p || '7'),
@@ -171,6 +174,7 @@ async function main(): Promise<void> {
             preview: options.preview === true || options['dry-run'] === true,
             yes: options.yes === true,
             json: options.json === true,
+            md,
             package: options.package ? String(options.package) : undefined,
             full: options.full === true,
           }),

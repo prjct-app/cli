@@ -1,5 +1,34 @@
 # Changelog
 
+## [1.27.0] - 2026-02-11
+
+### Features
+
+- **`--md` flag on all CLI commands**: New LLM-optimized markdown output mode for all commands (`prjct task --md`, `prjct done --md`, `prjct sync --md`, etc.). Produces clean markdown with task context, relevant files, subtasks, and next steps — designed for agent consumption.
+- **Ultra-thin templates**: All 36 command templates reduced from 6,066 → ~600 total lines (~90% reduction). Fast commands are ~10 lines, smart commands ~30 lines. Templates delegate data/formatting to CLI `--md` output, preserving agentic intelligence (exploration, planning, clarification).
+- **Ultra-thin global instructions**: CLAUDE.md reduced from 488 → 16 lines (~97% reduction). GEMINI.md, WINDSURF.md, ANTIGRAVITY.md, CURSOR.mdc similarly reduced. Zero wasted context tokens.
+- **New `md-formatter.ts` utility**: Shared markdown formatting functions (`mdTaskHeader`, `mdSubtasks`, `mdRelevantFiles`, `mdInstructions`, `mdNextSteps`, etc.) used by all command groups.
+- **Fix: `task` command registration**: `prjct task` was listed in command-data but had no handler in registry or CLI routing. Now properly registered and routed through both normal CLI and daemon paths.
+
+### Changes
+
+- 36 command templates rewritten (auth, bug, cleanup, dash, design, done, enrich, git, history, idea, impact, init, jira, learnings, linear, merge, next, pause, plan, prd, resume, review, serve, setup, ship, skill, spec, status, sync, task, test, update, verify, workflow, analyze)
+- 5 global templates rewritten (CLAUDE.md, GEMINI.md, WINDSURF.md, ANTIGRAVITY.md, CURSOR.mdc)
+- 6 CLAUDE.md modules deprecated (CLAUDE-commands, CLAUDE-git, CLAUDE-storage, CLAUDE-intelligence simplified to stubs; CLAUDE-core reduced to 14 lines; module-config.json single profile)
+- `dist/templates.json` reduced from 358 KB → 177.6 KB (~50% reduction)
+- All command groups (workflow, planning, shipping, analytics, analysis) accept `{ md?: boolean }` option
+- Daemon `executeCommand` now has explicit cases for all workflow commands with `--md` passthrough
+- `core/index.ts` standardCommands map passes `md` flag to all handlers
+
+### Metrics
+
+| Metric | Before | After | Reduction |
+|--------|--------|-------|-----------|
+| CLAUDE.md (always loaded) | 488 lines | 16 lines | 97% |
+| Templates total lines | 6,066 | ~600 | 90% |
+| `dist/templates.json` | 358 KB | 177.6 KB | 50% |
+| Context tokens per session | ~6,500 | ~350 | 95% |
+
 ## [1.26.1] - 2026-02-10
 
 ### Added
