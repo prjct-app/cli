@@ -3,27 +3,7 @@
 ## [1.27.6] - 2026-02-11
 
 ### Added
-- dual-runtime-sqlite
-
-## [1.27.5] - 2026-02-11
-
-### Added
-- dual-runtime-sqlite
-
-## [1.27.4] - 2026-02-11
-
-### Added
-- dual-runtime-sqlite
-
-## [1.27.3] - 2026-02-11
-
-### Added
-- current work
-
-## [1.27.2] - 2026-02-11
-
-### Added
-- current work
+- Dual-runtime SQLite — bun:sqlite + better-sqlite3 for Node.js compatibility
 
 ## [1.27.1] - 2026-02-11
 
@@ -31,6 +11,12 @@
 - Dead context generators (`ContextFileGenerator`, legacy `generateContext()`) — no readers existed
 - StorageManager MD write-through (`toMarkdown()`, `getLayer()`, `getMdFilename()`) from base class and 8 subclasses
 - ~1,750 lines of orphaned code; writes are faster (no MD file I/O on state changes)
+
+## [1.26.0] - 2026-02-11
+
+### Features
+
+- kill JSON I/O + skill-on-demand --md architecture (PRJ-303) (#173)
 
 ## [1.27.0] - 2026-02-11
 
