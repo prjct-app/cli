@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.24.1] - 2026-02-11
+
+### Bug Fixes
+
+- strip shebangs in build via esbuild plugin (#171)
+
+
 ## [1.24.2] - 2026-02-10
 
 ### Bug Fixes
