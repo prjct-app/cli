@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.23.0] - 2026-02-11
+
+### Features
+
+- compile and ship dist/ instead of raw TypeScript source (PRJ-294) (#168)
+- add outcome-to-memory auto-learning (PRJ-283) (#166)
+
+### Refactoring
+
+- consolidate core modules from 27 to 20 directories (PRJ-292) (#167)
+
+
 ## [1.25.0] - 2026-02-10
 
 ### Infrastructure
