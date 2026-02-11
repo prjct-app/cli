@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.24.1] - 2026-02-10
+
+### Bug Fixes
+
+- **Remove source shebangs from compiled entry points**: `core/daemon/entry.ts` and `core/cli/lint-meta-commentary.ts` had shebangs (`#!/usr/bin/env node`, `#!/usr/bin/env bun`) that caused dual shebangs in compiled `.mjs` output. Node.js only strips the first-line shebang, so the second became a SyntaxError. The build script's `banner` option is the single source of truth for shebang injection.
+
 ## [1.24.0] - 2026-02-10
 
 ### Features

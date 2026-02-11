@@ -1,4 +1,3 @@
-#!/usr/bin/env bun
 /**
  * Lint rule: no-meta-commentary
  *
