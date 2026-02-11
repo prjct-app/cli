@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.24.2] - 2026-02-10
+
+### Bug Fixes
+
+- **Strip shebangs in build via esbuild plugin**: Added a `stripShebangPlugin` to the build script that removes shebangs from source files before bundling. This prevents double-shebang SyntaxErrors when source files (e.g. `#!/usr/bin/env bun`) are compiled with a banner that also injects a shebang. The previous fix (v1.24.1) removed shebangs manually from known files; this fix handles it generically for all future source files.
+
+### Test Plan
+
+#### For QA
+1. Add `#!/usr/bin/env bun` to any source `.ts` file used as an entry point
+2. Run `node scripts/build.js`
+3. Verify compiled output has exactly one shebang (`#!/usr/bin/env node`) — not two
+4. Run `node dist/cli/linear.mjs --help` — should work without SyntaxError
+
+#### For Users
+**What changed:** Build-time fix — no user action needed.
+**Breaking changes:** None
+
 ## [1.24.0] - 2026-02-11
 
 ### Features
@@ -9,7 +27,6 @@
 ### Bug Fixes
 
 - remove source shebang causing SyntaxError in compiled linear CLI (#169)
-
 
 ## [1.24.1] - 2026-02-10
 
