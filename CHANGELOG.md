@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.27.0] - 2026-02-11
+
+### Features
+
+- dual-runtime SQLite — bun:sqlite + better-sqlite3 (#174)
+
+
 ## [1.27.6] - 2026-02-11
 
 ### Added
