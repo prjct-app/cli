@@ -9,10 +9,7 @@
  * @see PRJ-109
  */
 
-import fs from 'node:fs/promises'
-import path from 'node:path'
-import pathManager from '../infrastructure/path-manager'
-import { isNotFoundError } from '../types/fs'
+import { prjctDb } from '../storage/database'
 import { formatDuration, getTimestamp } from '../utils/date-helper'
 
 // =============================================================================
@@ -65,7 +62,6 @@ export interface SessionInfo {
 // CONSTANTS
 // =============================================================================
 
-const SESSION_FILENAME = 'session.json'
 const DEFAULT_IDLE_TIMEOUT_MS = 30 * 60 * 1000 // 30 minutes
 const MAX_COMMAND_HISTORY = 50
 const MAX_FILE_HISTORY = 200
@@ -75,33 +71,23 @@ const MAX_FILE_HISTORY = 200
 // =============================================================================
 
 class SessionTracker {
-  private getPath(projectId: string): string {
-    return pathManager.getStoragePath(projectId, SESSION_FILENAME)
-  }
-
   /**
-   * Read session file from disk
+   * Read session data from SQLite
    */
   private async read(projectId: string): Promise<SessionFile> {
-    const filePath = this.getPath(projectId)
     try {
-      const content = await fs.readFile(filePath, 'utf-8')
-      return JSON.parse(content) as SessionFile
-    } catch (error) {
-      if (isNotFoundError(error) || error instanceof SyntaxError) {
-        return this.getDefault()
-      }
-      throw error
+      const doc = prjctDb.getDoc<SessionFile>(projectId, 'session-tracker')
+      return doc ?? this.getDefault()
+    } catch {
+      return this.getDefault()
     }
   }
 
   /**
-   * Write session file to disk
+   * Write session data to SQLite
    */
   private async write(projectId: string, data: SessionFile): Promise<void> {
-    const filePath = this.getPath(projectId)
-    await fs.mkdir(path.dirname(filePath), { recursive: true })
-    await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8')
+    prjctDb.setDoc(projectId, 'session-tracker', data)
   }
 
   private getDefault(): SessionFile {

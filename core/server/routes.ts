@@ -2,61 +2,25 @@
  * REST API Routes for prjct-cli
  *
  * Provides endpoints for reading and managing project state.
+ * All storage reads/writes go through SQLite via storage APIs.
  *
- * @version 1.0.0
+ * @version 2.0.0
  */
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { Hono } from 'hono'
-import * as jsonc from 'jsonc-parser'
 import pathManager from '../infrastructure/path-manager'
+import { prjctDb } from '../storage/database'
+import { ideasStorage } from '../storage/ideas-storage'
+import { queueStorage } from '../storage/queue-storage'
+import { shippedStorage } from '../storage/shipped-storage'
+import { stateStorage } from '../storage/state-storage'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import log from '../utils/logger'
 
-// Storage paths relative to project data directory
-const STORAGE_PATHS = {
-  state: 'storage/state.json',
-  queue: 'storage/queue.json',
-  ideas: 'storage/ideas.json',
-  shipped: 'storage/shipped.json',
-  roadmap: 'planning/roadmap.json',
-}
-
 /**
- * Read JSON file with JSONC support
- */
-async function readJsonFile<T>(filePath: string): Promise<T | null> {
-  try {
-    const content = await fs.readFile(filePath, 'utf-8')
-    const errors: jsonc.ParseError[] = []
-    const result = jsonc.parse(content, errors)
-    return errors.length > 0 ? null : result
-  } catch (error) {
-    // ENOENT or parse error - expected for new projects
-    if (!isNotFoundError(error) && !(error instanceof SyntaxError)) {
-      log.error(`JSON read error: ${getErrorMessage(error)}`)
-    }
-    return null
-  }
-}
-
-/**
- * Write JSON file
- */
-async function writeJsonFile(filePath: string, data: unknown): Promise<boolean> {
-  try {
-    await fs.mkdir(path.dirname(filePath), { recursive: true })
-    await fs.writeFile(filePath, `${JSON.stringify(data, null, 2)}\n`, 'utf-8')
-    return true
-  } catch (error) {
-    log.error(`JSON write error: ${getErrorMessage(error)}`)
-    return false
-  }
-}
-
-/**
- * Get global project path
+ * Get global project path (still needed for context MD file reads)
  */
 function getProjectDataPath(projectId: string): string {
   return pathManager.getGlobalProjectPath(projectId)
@@ -71,34 +35,25 @@ export function createRoutes(projectId: string, _projectPath: string): Hono {
 
   // GET /state - Current task state
   api.get('/state', async (c) => {
-    const data = await readJsonFile(path.join(dataPath, STORAGE_PATHS.state))
-    if (!data) {
-      return c.json({ currentTask: null, lastUpdated: '' })
-    }
+    const data = await stateStorage.read(projectId)
     return c.json(data)
   })
 
   // GET /queue - Task queue
   api.get('/queue', async (c) => {
-    const data = await readJsonFile(path.join(dataPath, STORAGE_PATHS.queue))
-    if (!data) {
-      return c.json({ tasks: [], lastUpdated: '' })
-    }
+    const data = await queueStorage.read(projectId)
     return c.json(data)
   })
 
   // GET /ideas - Ideas backlog
   api.get('/ideas', async (c) => {
-    const data = await readJsonFile(path.join(dataPath, STORAGE_PATHS.ideas))
-    if (!data) {
-      return c.json({ ideas: [], lastUpdated: '' })
-    }
+    const data = await ideasStorage.read(projectId)
     return c.json(data)
   })
 
   // GET /roadmap - Feature roadmap
   api.get('/roadmap', async (c) => {
-    const data = await readJsonFile(path.join(dataPath, STORAGE_PATHS.roadmap))
+    const data = prjctDb.getDoc(projectId, 'roadmap')
     if (!data) {
       return c.json({ features: [], backlog: [], lastUpdated: '' })
     }
@@ -107,30 +62,27 @@ export function createRoutes(projectId: string, _projectPath: string): Hono {
 
   // GET /shipped - Shipped items
   api.get('/shipped', async (c) => {
-    const data = await readJsonFile(path.join(dataPath, STORAGE_PATHS.shipped))
-    if (!data) {
-      return c.json({ items: [], lastUpdated: '' })
-    }
+    const data = await shippedStorage.read(projectId)
     return c.json(data)
   })
 
   // GET /dashboard - Combined dashboard data
   api.get('/dashboard', async (c) => {
-    const [state, queue, ideas, roadmap, shipped] = await Promise.all([
-      readJsonFile(path.join(dataPath, STORAGE_PATHS.state)),
-      readJsonFile(path.join(dataPath, STORAGE_PATHS.queue)),
-      readJsonFile(path.join(dataPath, STORAGE_PATHS.ideas)),
-      readJsonFile(path.join(dataPath, STORAGE_PATHS.roadmap)),
-      readJsonFile(path.join(dataPath, STORAGE_PATHS.shipped)),
+    const [state, queue, ideas, shipped] = await Promise.all([
+      stateStorage.read(projectId),
+      queueStorage.read(projectId),
+      ideasStorage.read(projectId),
+      shippedStorage.read(projectId),
     ])
+    const roadmap = prjctDb.getDoc(projectId, 'roadmap')
 
     return c.json({
       projectId,
-      state: state || { currentTask: null, lastUpdated: '' },
-      queue: queue || { tasks: [], lastUpdated: '' },
-      ideas: ideas || { ideas: [], lastUpdated: '' },
+      state,
+      queue,
+      ideas,
       roadmap: roadmap || { features: [], backlog: [], lastUpdated: '' },
-      shipped: shipped || { items: [], lastUpdated: '' },
+      shipped,
       timestamp: new Date().toISOString(),
     })
   })
@@ -139,12 +91,8 @@ export function createRoutes(projectId: string, _projectPath: string): Hono {
   api.post('/state', async (c) => {
     try {
       const body = await c.req.json()
-      const filePath = path.join(dataPath, STORAGE_PATHS.state)
-      const success = await writeJsonFile(filePath, body)
-      if (success) {
-        return c.json({ success: true })
-      }
-      return c.json({ success: false, error: 'Failed to write' }, 500)
+      await stateStorage.write(projectId, body)
+      return c.json({ success: true })
     } catch (e) {
       return c.json({ success: false, error: String(e) }, 400)
     }

@@ -9,9 +9,7 @@
  * @version 1.0.0
  */
 
-import fs from 'node:fs/promises'
-import path from 'node:path'
-import pathManager from '../infrastructure/path-manager'
+import prjctDb from '../storage/database'
 import type { CompactedContext, CompactionConfig, ConversationTurn } from '../types'
 import { getTimestamp } from '../utils/date-helper'
 
@@ -175,46 +173,20 @@ export function needsCompaction(turns: ConversationTurn[], config: CompactionCon
 }
 
 /**
- * Save compacted context to file
+ * Save compacted context to SQLite
  */
-export async function saveCompactedContext(
-  projectId: string,
-  context: CompactedContext
-): Promise<string> {
-  const dirPath = path.join(pathManager.getGlobalProjectPath(projectId), 'memory')
-  const filePath = path.join(dirPath, 'compacted.jsonl')
-
-  await fs.mkdir(dirPath, { recursive: true })
-
-  const line = `${JSON.stringify(context)}\n`
-  await fs.appendFile(filePath, line, 'utf-8')
-
-  return filePath
+export function saveCompactedContext(projectId: string, context: CompactedContext): void {
+  const existing = prjctDb.getDoc<CompactedContext[]>(projectId, 'compacted-contexts') ?? []
+  existing.push(context)
+  prjctDb.setDoc(projectId, 'compacted-contexts', existing)
 }
 
 /**
  * Load recent compacted contexts
  */
-export async function loadCompactedContexts(
-  projectId: string,
-  limit = 5
-): Promise<CompactedContext[]> {
-  const filePath = path.join(
-    pathManager.getGlobalProjectPath(projectId),
-    'memory',
-    'compacted.jsonl'
-  )
-
-  try {
-    const content = await fs.readFile(filePath, 'utf-8')
-    const lines = content.trim().split('\n').filter(Boolean)
-    const contexts = lines.map((line) => JSON.parse(line) as CompactedContext)
-
-    // Return most recent
-    return contexts.slice(-limit)
-  } catch (_error) {
-    return []
-  }
+export function loadCompactedContexts(projectId: string, limit = 5): CompactedContext[] {
+  const contexts = prjctDb.getDoc<CompactedContext[]>(projectId, 'compacted-contexts') ?? []
+  return contexts.slice(-limit)
 }
 
 /**

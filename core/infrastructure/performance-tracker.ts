@@ -4,14 +4,11 @@
  * Instruments startup time, memory usage, context correctness,
  * subtask handoff rate, and command durations.
  *
- * Storage: ~/.prjct-cli/projects/{projectId}/storage/performance.jsonl
- * Rotation: 5MB (via jsonl-helper)
+ * Storage: SQLite events table (type prefix: 'perf.')
  *
  * @see PRJ-297
  */
 
-import fs from 'node:fs/promises'
-import path from 'node:path'
 import type {
   ContextCorrectness,
   MemorySnapshot,
@@ -21,16 +18,7 @@ import type {
   PerformanceReport,
   SubtaskHandoff,
 } from '../schemas/performance'
-import { getTimestamp } from '../utils/date-helper'
-import { appendJsonLineWithRotation, filterJsonLines } from '../utils/jsonl-helper'
-import pathManager from './path-manager'
-
-// =============================================================================
-// CONSTANTS
-// =============================================================================
-
-const PERF_FILENAME = 'performance.jsonl'
-const ROTATION_SIZE_MB = 5
+import prjctDb from '../storage/database'
 
 // =============================================================================
 // PERFORMANCE TRACKER
@@ -38,21 +26,6 @@ const ROTATION_SIZE_MB = 5
 
 class PerformanceTracker {
   private marks: Map<string, bigint> = new Map()
-
-  /**
-   * Get the performance.jsonl path for a project
-   */
-  private getPath(projectId: string): string {
-    return pathManager.getStoragePath(projectId, PERF_FILENAME)
-  }
-
-  /**
-   * Ensure the storage directory exists
-   */
-  private async ensureDir(projectId: string): Promise<void> {
-    const filePath = this.getPath(projectId)
-    await fs.mkdir(path.dirname(filePath), { recursive: true })
-  }
 
   // ===========================================================================
   // Timing
@@ -82,23 +55,18 @@ class PerformanceTracker {
   /**
    * Record a timing metric to storage
    */
-  async recordTiming(
+  recordTiming(
     projectId: string,
     metric: MetricName,
     durationMs: number,
     context?: Record<string, unknown>
-  ): Promise<void> {
-    await this.ensureDir(projectId)
-
-    const entry: PerformanceMetric = {
-      timestamp: getTimestamp(),
+  ): void {
+    prjctDb.appendEvent(projectId, `perf.${metric}`, {
       metric,
       value: Math.round(durationMs * 100) / 100, // 2 decimal places
       unit: 'ms',
       context,
-    }
-
-    await appendJsonLineWithRotation(this.getPath(projectId), entry, ROTATION_SIZE_MB)
+    })
   }
 
   // ===========================================================================
@@ -121,31 +89,23 @@ class PerformanceTracker {
   /**
    * Record a memory snapshot to storage
    */
-  async recordMemory(
-    projectId: string,
-    context?: Record<string, unknown>
-  ): Promise<MemorySnapshot> {
-    await this.ensureDir(projectId)
-
+  recordMemory(projectId: string, context?: Record<string, unknown>): MemorySnapshot {
     const snapshot = this.snapshotMemory()
-    const filePath = this.getPath(projectId)
-    const ts = getTimestamp()
 
-    const entries: PerformanceMetric[] = [
-      { timestamp: ts, metric: 'heap_used', value: snapshot.heapUsed, unit: 'bytes', context },
-      { timestamp: ts, metric: 'heap_total', value: snapshot.heapTotal, unit: 'bytes', context },
-      { timestamp: ts, metric: 'rss', value: snapshot.rss, unit: 'bytes', context },
-      {
-        timestamp: ts,
-        metric: 'external_memory',
-        value: snapshot.external,
-        unit: 'bytes',
-        context,
-      },
+    const metrics: Array<{ metric: MetricName; value: number; unit: string }> = [
+      { metric: 'heap_used', value: snapshot.heapUsed, unit: 'bytes' },
+      { metric: 'heap_total', value: snapshot.heapTotal, unit: 'bytes' },
+      { metric: 'rss', value: snapshot.rss, unit: 'bytes' },
+      { metric: 'external_memory', value: snapshot.external, unit: 'bytes' },
     ]
 
-    for (const entry of entries) {
-      await appendJsonLineWithRotation(filePath, entry, ROTATION_SIZE_MB)
+    for (const m of metrics) {
+      prjctDb.appendEvent(projectId, `perf.${m.metric}`, {
+        metric: m.metric,
+        value: m.value,
+        unit: m.unit,
+        context,
+      })
     }
 
     return snapshot
@@ -158,19 +118,14 @@ class PerformanceTracker {
   /**
    * Record whether a task received sync context
    */
-  async recordContextCorrectness(
+  recordContextCorrectness(
     projectId: string,
     data: Omit<ContextCorrectness, 'timestamp' | 'metric'>
-  ): Promise<void> {
-    await this.ensureDir(projectId)
-
-    const entry: ContextCorrectness = {
-      timestamp: getTimestamp(),
+  ): void {
+    prjctDb.appendEvent(projectId, 'perf.context_correctness', {
       metric: 'context_correctness',
       ...data,
-    }
-
-    await appendJsonLineWithRotation(this.getPath(projectId), entry, ROTATION_SIZE_MB)
+    })
   }
 
   // ===========================================================================
@@ -180,19 +135,14 @@ class PerformanceTracker {
   /**
    * Record whether a subtask's output field was populated on completion
    */
-  async recordSubtaskHandoff(
+  recordSubtaskHandoff(
     projectId: string,
     data: Omit<SubtaskHandoff, 'timestamp' | 'metric'>
-  ): Promise<void> {
-    await this.ensureDir(projectId)
-
-    const entry: SubtaskHandoff = {
-      timestamp: getTimestamp(),
+  ): void {
+    prjctDb.appendEvent(projectId, 'perf.subtask_handoff', {
       metric: 'subtask_handoff',
       ...data,
-    }
-
-    await appendJsonLineWithRotation(this.getPath(projectId), entry, ROTATION_SIZE_MB)
+    })
   }
 
   // ===========================================================================
@@ -202,9 +152,7 @@ class PerformanceTracker {
   /**
    * Read all metrics for a project within a date range
    */
-  async getMetrics(projectId: string, sinceDate?: Date): Promise<PerformanceEntry[]> {
-    const filePath = this.getPath(projectId)
-
+  getMetrics(projectId: string, sinceDate?: Date): PerformanceEntry[] {
     if (!sinceDate) {
       // Default: last 7 days
       sinceDate = new Date()
@@ -213,20 +161,28 @@ class PerformanceTracker {
 
     const sinceIso = sinceDate.toISOString()
 
-    return filterJsonLines<PerformanceEntry>(filePath, (entry) => {
-      return entry.timestamp >= sinceIso
+    const rows = prjctDb.query<{ data: string; timestamp: string }>(
+      projectId,
+      'SELECT data, timestamp FROM events WHERE type LIKE ? AND timestamp >= ? ORDER BY id DESC',
+      'perf.%',
+      sinceIso
+    )
+
+    return rows.map((row) => {
+      const parsed = JSON.parse(row.data)
+      return { ...parsed, timestamp: row.timestamp } as PerformanceEntry
     })
   }
 
   /**
    * Generate a performance report for a project
    */
-  async getReport(projectId: string, days: number = 7): Promise<PerformanceReport> {
+  getReport(projectId: string, days: number = 7): PerformanceReport {
     const sinceDate = new Date()
     sinceDate.setDate(sinceDate.getDate() - days)
     sinceDate.setHours(0, 0, 0, 0)
 
-    const entries = await this.getMetrics(projectId, sinceDate)
+    const entries = this.getMetrics(projectId, sinceDate)
     const report: PerformanceReport = {
       period: `${days}d`,
     }

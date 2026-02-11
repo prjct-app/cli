@@ -15,6 +15,7 @@ import path from 'node:path'
 import chalk from 'chalk'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
+import { stateStorage } from '../storage'
 import out from '../utils/output'
 import { VERSION } from '../utils/version'
 
@@ -292,7 +293,7 @@ class DoctorService {
   }
 
   private async checkStateFile(): Promise<CheckResult> {
-    if (!this.globalPath) {
+    if (!this.globalPath || !this.projectId) {
       return {
         name: 'task state',
         status: 'warn',
@@ -300,11 +301,8 @@ class DoctorService {
       }
     }
 
-    const statePath = path.join(this.globalPath, 'storage', 'state.json')
-
     try {
-      const content = await fs.readFile(statePath, 'utf-8')
-      const state = JSON.parse(content)
+      const state = await stateStorage.read(this.projectId)
 
       if (state.currentTask) {
         return {
@@ -323,7 +321,7 @@ class DoctorService {
       return {
         name: 'task state',
         status: 'ok',
-        message: 'no state file (normal for new projects)',
+        message: 'no state data (normal for new projects)',
         optional: true,
       }
     }

@@ -2,23 +2,18 @@
  * Memory Stores - Base class, Session, History, and Domain Mapping
  *
  * Contains the foundational building blocks of the memory system:
- * - CachedStore<T> abstract base class for disk-backed stores
+ * - CachedStore<T> abstract base class for SQLite-backed stores
  * - SessionStore (Tier 1) - ephemeral, single command context
- * - HistoryStore (Tier 3) - append-only JSONL audit log
+ * - HistoryStore (Tier 3) - append-only event log
  * - Domain tag mapping and semantic domain resolution
  *
  * @module agentic/memory-stores
  */
 
-import fs from 'node:fs/promises'
-import path from 'node:path'
-import pathManager from '../infrastructure/path-manager'
-import { isNotFoundError } from '../types/fs'
+import prjctDb from '../storage/database'
 import type { HistoryEntry, HistoryEventType, KnownDomain, MemoryTag } from '../types/memory'
 import { KNOWN_DOMAINS, MEMORY_TAGS } from '../types/memory'
-import { getTimestamp, getTodayKey } from '../utils/date-helper'
-import { ensureDir } from '../utils/file-helper'
-import { appendJsonLine, getLastJsonLines } from '../utils/jsonl-helper'
+import { getTimestamp } from '../utils/date-helper'
 
 // =============================================================================
 // Semantic Domain Mapping (PRJ-300)
@@ -185,26 +180,15 @@ export function resolveCanonicalDomains(domain: string): KnownDomain[] {
 // =============================================================================
 
 /**
- * Abstract base class for project-scoped, disk-backed stores with in-memory caching.
+ * Abstract base class for project-scoped, SQLite-backed stores with in-memory caching.
  *
- * Provides lazy loading, automatic directory creation on save, and project-scoped
- * cache invalidation. Subclasses only need to define the filename, default data
- * structure, and optionally a subdirectory or post-load normalization hook.
+ * Provides lazy loading and project-scoped cache invalidation.
+ * Subclasses only need to define the filename (used as doc key), default data
+ * structure, and optionally a post-load normalization hook.
  *
  * Extended by {@link PatternStore} and {@link SemanticMemories}.
  *
  * @typeParam T - The shape of the stored data (e.g., `Patterns`, `MemoryDatabase`)
- *
- * @example
- * ```ts
- * class MyStore extends CachedStore<MyData> {
- *   protected getFilename() { return 'my-data.json' }
- *   protected getDefault() { return { items: [] } }
- * }
- *
- * const store = new MyStore()
- * const data = await store.load('project-id')
- * ```
  */
 export abstract class CachedStore<T> {
   private _data: T | null = null
@@ -213,59 +197,36 @@ export abstract class CachedStore<T> {
 
   /**
    * Return the filename for this store (e.g., `'patterns.json'`).
-   * @returns The JSON filename used for disk persistence
+   * Used to derive the kv_store key.
    */
   protected abstract getFilename(): string
 
   /**
-   * Return the default data structure when the file does not exist on disk.
-   * @returns A fresh default instance of `T`
+   * Return the default data structure when no data exists.
    */
   protected abstract getDefault(): T
 
   /**
-   * Optional subdirectory within the project's `memory/` folder.
-   * Override to nest the store file under a subfolder.
-   *
-   * @returns Subdirectory name, or `null` to store directly in `memory/`
+   * Optional subdirectory (used in key derivation).
    */
   protected getSubdirectory(): string | null {
     return null
   }
 
   /**
-   * Build the full filesystem path for this store's JSON file.
-   *
-   * @param projectId - The project identifier used for path resolution
-   * @returns Absolute path to the store file
-   *   (e.g., `~/.prjct-cli/projects/{id}/memory/patterns.json`)
+   * Derive the kv_store key from filename and subdirectory.
    */
-  protected getPath(projectId: string): string {
-    const basePath = path.join(pathManager.getGlobalProjectPath(projectId), 'memory')
-
+  private getStoreKey(): string {
+    const base = this.getFilename().replace('.json', '')
     const subdir = this.getSubdirectory()
     if (subdir) {
-      return path.join(basePath, subdir, this.getFilename())
+      return `memory:${subdir}:${base}`
     }
-
-    return path.join(basePath, this.getFilename())
+    return `memory:${base}`
   }
 
   /**
-   * Load data from disk with project-scoped caching.
-   *
-   * Returns cached data immediately if already loaded for the same project.
-   * Otherwise reads from disk, falling back to {@link getDefault} when the
-   * file does not exist. Calls {@link afterLoad} after a successful disk read.
-   *
-   * @param projectId - The project identifier
-   * @returns The loaded (or cached) data
-   * @throws {Error} If the file read fails for reasons other than ENOENT
-   *
-   * @example
-   * ```ts
-   * const patterns = await patternStore.load('my-project-id')
-   * ```
+   * Load data from SQLite with project-scoped caching.
    */
   async load(projectId: string): Promise<T> {
     // Return cached if same project and loaded
@@ -273,20 +234,15 @@ export abstract class CachedStore<T> {
       return this._data
     }
 
-    // Load from disk
-    const filePath = this.getPath(projectId)
+    // Load from SQLite
+    const key = this.getStoreKey()
+    const doc = prjctDb.getDoc<T>(projectId, key)
 
-    try {
-      const content = await fs.readFile(filePath, 'utf-8')
-      this._data = JSON.parse(content) as T
-      // Allow subclasses to normalize data after load
+    if (doc !== null) {
+      this._data = doc
       this.afterLoad(this._data)
-    } catch (error) {
-      if (isNotFoundError(error)) {
-        this._data = this.getDefault()
-      } else {
-        throw error
-      }
+    } else {
+      this._data = this.getDefault()
     }
 
     this._loaded = true
@@ -296,48 +252,32 @@ export abstract class CachedStore<T> {
   }
 
   /**
-   * Hook for subclasses to normalize or migrate data after loading from disk.
-   *
-   * Called once per disk read (not on cache hits). Override to ensure
-   * structural invariants — e.g., adding missing index keys.
-   *
-   * @param _data - The freshly loaded data to normalize (mutate in place)
+   * Hook for subclasses to normalize or migrate data after loading.
    */
   protected afterLoad(_data: T): void {
     // Override in subclass if needed
   }
 
   /**
-   * Persist the current in-memory data to disk.
-   *
-   * Creates parent directories automatically if they don't exist.
-   * No-op if no data has been loaded yet.
-   *
-   * @param projectId - The project identifier for path resolution
-   * @throws {Error} If the file write fails
+   * Persist the current in-memory data to SQLite.
    */
   async save(projectId: string): Promise<void> {
     if (!this._data) return
 
-    const filePath = this.getPath(projectId)
-    await fs.mkdir(path.dirname(filePath), { recursive: true })
-    await fs.writeFile(filePath, JSON.stringify(this._data, null, 2), 'utf-8')
+    const key = this.getStoreKey()
+    prjctDb.setDoc(projectId, key, this._data)
   }
 
   /**
-   * Access the cached data without triggering a disk read.
-   *
-   * @returns The cached data, or `null` if nothing has been loaded
+   * Access the cached data without triggering a load.
    */
   protected getData(): T | null {
     return this._data
   }
 
   /**
-   * Replace the in-memory data directly. Does not persist to disk —
+   * Replace the in-memory data directly. Does not persist —
    * call {@link save} afterwards if persistence is needed.
-   *
-   * @param data - The new data to cache
    */
   protected setData(data: T): void {
     this._data = data
@@ -345,19 +285,6 @@ export abstract class CachedStore<T> {
 
   /**
    * Atomically load, transform, and save data in one operation.
-   *
-   * @param projectId - The project identifier
-   * @param updater - Pure function that receives current data and returns updated data
-   * @returns The updated data after saving
-   * @throws {Error} If load or save fails
-   *
-   * @example
-   * ```ts
-   * await store.update('my-project', (data) => ({
-   *   ...data,
-   *   count: data.count + 1,
-   * }))
-   * ```
    */
   async update(projectId: string, updater: (data: T) => T): Promise<T> {
     const data = await this.load(projectId)
@@ -369,10 +296,6 @@ export abstract class CachedStore<T> {
 
   /**
    * Check whether data has been loaded into the cache.
-   *
-   * @param projectId - If provided, checks that data is loaded for this specific project.
-   *   If omitted, returns `true` if any project's data is cached.
-   * @returns `true` if data is loaded (and matches the project, when specified)
    */
   isLoaded(projectId?: string): boolean {
     if (projectId) {
@@ -382,8 +305,7 @@ export abstract class CachedStore<T> {
   }
 
   /**
-   * Clear the in-memory cache, forcing a fresh disk read on the next {@link load} call.
-   * Does not delete or modify the file on disk.
+   * Clear the in-memory cache, forcing a fresh load on the next call.
    */
   reset(): void {
     this._data = null
@@ -423,41 +345,29 @@ export class SessionStore {
 
 /**
  * History - Tier 3
- * Append-only JSONL audit log with temporal fragmentation.
+ * Append-only event log stored in SQLite events table.
  */
 export class HistoryStore {
-  private _getSessionPath(projectId: string): string {
-    const now = new Date()
-    const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-    const day = getTodayKey()
-
-    return path.join(
-      pathManager.getGlobalProjectPath(projectId),
-      'memory',
-      'sessions',
-      yearMonth,
-      `${day}.jsonl`
-    )
-  }
-
   async appendHistory(
     projectId: string,
     entry: Record<string, unknown> & { type: HistoryEventType }
   ): Promise<void> {
-    const sessionPath = this._getSessionPath(projectId)
-    await ensureDir(path.dirname(sessionPath))
-
     const logEntry: HistoryEntry = {
       ts: getTimestamp(),
       ...entry,
       type: entry.type,
     }
 
-    await appendJsonLine(sessionPath, logEntry)
+    prjctDb.appendEvent(projectId, `history.${entry.type}`, logEntry)
   }
 
   async getRecentHistory(projectId: string, limit: number = 20): Promise<HistoryEntry[]> {
-    const sessionPath = this._getSessionPath(projectId)
-    return getLastJsonLines<HistoryEntry>(sessionPath, limit)
+    const rows = prjctDb.query<{ data: string; timestamp: string }>(
+      projectId,
+      "SELECT data, timestamp FROM events WHERE type LIKE 'history.%' ORDER BY id DESC LIMIT ?",
+      limit
+    )
+
+    return rows.reverse().map((row) => JSON.parse(row.data) as HistoryEntry)
   }
 }

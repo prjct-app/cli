@@ -116,13 +116,13 @@ registerAllCommands()
 
 // Export command group instances for direct access (legacy support)
 export {
+  analysis,
   workflow,
   planning,
   shipping,
   analytics,
   performance,
   maintenance,
-  analysis,
   setup,
   context,
   velocityCmd,

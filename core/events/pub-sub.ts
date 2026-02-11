@@ -7,10 +7,8 @@
  * @version 1.0.0
  */
 
-import fs from 'node:fs/promises'
-import path from 'node:path'
 import { getErrorMessage } from '../errors'
-import pathManager from '../infrastructure/path-manager'
+import { prjctDb } from '../storage/database'
 import {
   type AnalysisCompletedPayload,
   type EventCallback,
@@ -204,15 +202,7 @@ class EventBus {
    */
   async logEvent(eventData: EventData): Promise<void> {
     try {
-      const globalPath = pathManager.getGlobalProjectPath(this.projectId!)
-      const eventsPath = path.join(globalPath, 'memory', 'events.jsonl')
-
-      // Ensure directory exists
-      await fs.mkdir(path.dirname(eventsPath), { recursive: true })
-
-      // Append event
-      const line = `${JSON.stringify(eventData)}\n`
-      await fs.appendFile(eventsPath, line)
+      prjctDb.appendEvent(this.projectId!, eventData.type, eventData as Record<string, unknown>)
     } catch (error) {
       log.debug('Failed to log event:', getErrorMessage(error))
     }

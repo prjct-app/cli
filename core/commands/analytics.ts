@@ -5,17 +5,15 @@
 
 import path from 'node:path'
 import { createStalenessChecker } from '../services'
-import { ideasStorage, queueStorage, shippedStorage, stateStorage } from '../storage'
+import { ideasStorage, prjctDb, queueStorage, shippedStorage, stateStorage } from '../storage'
 import type { CommandResult, ProjectContext } from '../types'
 import { getErrorMessage } from '../types/fs'
 import {
   configManager,
   contextBuilder,
   dateHelper,
-  jsonlHelper,
   out,
   PrjctCommandsBase,
-  pathManager,
   toolRegistry,
 } from './base'
 import { commandRegistry } from './registry'
@@ -73,11 +71,19 @@ export class AnalyticsCommands extends PrjctCommandsBase {
         const days = view === 'week' ? 7 : 30
         const startDate = dateHelper.getDaysAgo(days)
 
-        const memoryPath = pathManager.getFilePath(projectId, 'memory', 'context.jsonl')
         let entries: MemoryEntry[] = []
         try {
-          const allEntries = (await jsonlHelper.readJsonLines(memoryPath)) as MemoryEntry[]
-          entries = allEntries.filter((e) => new Date(e.timestamp) >= startDate)
+          const sinceIso = startDate.toISOString()
+          const rows = prjctDb.query<{ data: string; timestamp: string }>(
+            projectId,
+            'SELECT data, timestamp FROM events WHERE type LIKE ? AND timestamp >= ? ORDER BY id DESC',
+            'memory.%',
+            sinceIso
+          )
+          entries = rows.map((row) => {
+            const parsed = JSON.parse(row.data)
+            return { ...parsed, timestamp: row.timestamp } as MemoryEntry
+          })
         } catch {
           entries = []
         }

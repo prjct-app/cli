@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.26.1] - 2026-02-10
+
+### Added
+- purge JSON I/O from templates + prjct update command
+
 ## [1.26.0] - 2026-02-10
 
 ### Features

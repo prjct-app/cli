@@ -4,11 +4,10 @@
  * Tests for:
  * - Timing marks (start/end)
  * - Memory snapshots
- * - Metric recording to JSONL
+ * - Metric recording to SQLite
  * - Context correctness recording
  * - Subtask handoff recording
  * - Report generation
- * - JSONL rotation
  *
  * @see PRJ-297
  */
@@ -19,8 +18,7 @@ import os from 'node:os'
 import path from 'node:path'
 import pathManager from '../../infrastructure/path-manager'
 import { performanceTracker } from '../../infrastructure/performance-tracker'
-import type { PerformanceEntry, PerformanceMetric } from '../../schemas/performance'
-import * as jsonlHelper from '../../utils/jsonl-helper'
+import prjctDb from '../../storage/database'
 
 // =============================================================================
 // Test Setup
@@ -29,7 +27,6 @@ import * as jsonlHelper from '../../utils/jsonl-helper'
 let tmpRoot: string | null = null
 let testProjectId: string
 
-const originalGetStoragePath = pathManager.getStoragePath.bind(pathManager)
 const originalGetGlobalProjectPath = pathManager.getGlobalProjectPath.bind(pathManager)
 
 describe('PerformanceTracker', () => {
@@ -37,18 +34,16 @@ describe('PerformanceTracker', () => {
     tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'prjct-perf-test-'))
     testProjectId = 'test-project-perf'
 
-    pathManager.getStoragePath = (projectId: string, filename: string) => {
-      return path.join(tmpRoot!, projectId, 'storage', filename)
-    }
-
     pathManager.getGlobalProjectPath = (projectId: string) => {
       return path.join(tmpRoot!, projectId)
     }
   })
 
   afterEach(async () => {
-    pathManager.getStoragePath = originalGetStoragePath
     pathManager.getGlobalProjectPath = originalGetGlobalProjectPath
+
+    // Close SQLite connection before cleaning up
+    prjctDb.close(testProjectId)
 
     if (tmpRoot) {
       await fs.rm(tmpRoot, { recursive: true, force: true })
@@ -100,27 +95,27 @@ describe('PerformanceTracker', () => {
       expect(snapshot.heapTotal).toBeGreaterThan(0)
       expect(snapshot.rss).toBeGreaterThan(0)
       expect(snapshot.external).toBeGreaterThanOrEqual(0)
-      // heapUsed can momentarily exceed heapTotal during GC, so just
-      // verify both are positive numbers in a reasonable range
       expect(snapshot.heapTotal).toBeGreaterThan(1024 * 1024) // > 1MB
     })
 
-    it('should record memory to JSONL', async () => {
-      const snapshot = await performanceTracker.recordMemory(testProjectId)
+    it('should record memory to SQLite', () => {
+      const snapshot = performanceTracker.recordMemory(testProjectId)
 
       expect(snapshot.heapUsed).toBeGreaterThan(0)
 
-      // Verify JSONL file was created
-      const filePath = pathManager.getStoragePath(testProjectId, 'performance.jsonl')
-      const entries = await jsonlHelper.readJsonLines<PerformanceMetric>(filePath)
+      // Verify events were written to SQLite
+      const events = prjctDb.query<{ type: string; data: string }>(
+        testProjectId,
+        "SELECT type, data FROM events WHERE type LIKE 'perf.%' ORDER BY id"
+      )
 
       // Should have 4 entries (heap_used, heap_total, rss, external_memory)
-      expect(entries.length).toBe(4)
-      expect(entries.map((e) => e.metric)).toEqual([
-        'heap_used',
-        'heap_total',
-        'rss',
-        'external_memory',
+      expect(events.length).toBe(4)
+      expect(events.map((e) => e.type)).toEqual([
+        'perf.heap_used',
+        'perf.heap_total',
+        'perf.rss',
+        'perf.external_memory',
       ])
     })
   })
@@ -130,39 +125,46 @@ describe('PerformanceTracker', () => {
   // ===========================================================================
 
   describe('metric recording', () => {
-    it('should record timing metric to JSONL', async () => {
-      await performanceTracker.recordTiming(testProjectId, 'startup_time', 350.5)
+    it('should record timing metric to SQLite', () => {
+      performanceTracker.recordTiming(testProjectId, 'startup_time', 350.5)
 
-      const filePath = pathManager.getStoragePath(testProjectId, 'performance.jsonl')
-      const entries = await jsonlHelper.readJsonLines<PerformanceMetric>(filePath)
+      const events = prjctDb.query<{ type: string; data: string }>(
+        testProjectId,
+        "SELECT type, data FROM events WHERE type = 'perf.startup_time'"
+      )
 
-      expect(entries.length).toBe(1)
-      expect(entries[0].metric).toBe('startup_time')
-      expect(entries[0].value).toBe(350.5)
-      expect(entries[0].unit).toBe('ms')
-      expect(entries[0].timestamp).toBeTruthy()
+      expect(events.length).toBe(1)
+      const parsed = JSON.parse(events[0].data)
+      expect(parsed.metric).toBe('startup_time')
+      expect(parsed.value).toBe(350.5)
+      expect(parsed.unit).toBe('ms')
     })
 
-    it('should record timing with context', async () => {
-      await performanceTracker.recordTiming(testProjectId, 'command_duration', 120, {
+    it('should record timing with context', () => {
+      performanceTracker.recordTiming(testProjectId, 'command_duration', 120, {
         command: 'sync',
       })
 
-      const filePath = pathManager.getStoragePath(testProjectId, 'performance.jsonl')
-      const entries = await jsonlHelper.readJsonLines<PerformanceMetric>(filePath)
+      const events = prjctDb.query<{ data: string }>(
+        testProjectId,
+        "SELECT data FROM events WHERE type = 'perf.command_duration'"
+      )
 
-      expect(entries[0].context).toEqual({ command: 'sync' })
+      const parsed = JSON.parse(events[0].data)
+      expect(parsed.context).toEqual({ command: 'sync' })
     })
 
-    it('should append multiple metrics', async () => {
-      await performanceTracker.recordTiming(testProjectId, 'startup_time', 300)
-      await performanceTracker.recordTiming(testProjectId, 'startup_time', 250)
-      await performanceTracker.recordTiming(testProjectId, 'command_duration', 50)
+    it('should append multiple metrics', () => {
+      performanceTracker.recordTiming(testProjectId, 'startup_time', 300)
+      performanceTracker.recordTiming(testProjectId, 'startup_time', 250)
+      performanceTracker.recordTiming(testProjectId, 'command_duration', 50)
 
-      const filePath = pathManager.getStoragePath(testProjectId, 'performance.jsonl')
-      const entries = await jsonlHelper.readJsonLines<PerformanceMetric>(filePath)
+      const events = prjctDb.query<{ type: string }>(
+        testProjectId,
+        "SELECT type FROM events WHERE type LIKE 'perf.%'"
+      )
 
-      expect(entries.length).toBe(3)
+      expect(events.length).toBe(3)
     })
   })
 
@@ -171,21 +173,23 @@ describe('PerformanceTracker', () => {
   // ===========================================================================
 
   describe('context correctness', () => {
-    it('should record context correctness entry', async () => {
-      await performanceTracker.recordContextCorrectness(testProjectId, {
+    it('should record context correctness entry', () => {
+      performanceTracker.recordContextCorrectness(testProjectId, {
         taskId: 'task_123',
         receivedSync: true,
         syncFieldsInjected: ['analysis', 'patterns'],
       })
 
-      const filePath = pathManager.getStoragePath(testProjectId, 'performance.jsonl')
-      const entries = await jsonlHelper.readJsonLines<PerformanceEntry>(filePath)
+      const events = prjctDb.query<{ data: string }>(
+        testProjectId,
+        "SELECT data FROM events WHERE type = 'perf.context_correctness'"
+      )
 
-      expect(entries.length).toBe(1)
-      const entry = entries[0] as Record<string, unknown>
-      expect(entry.metric).toBe('context_correctness')
-      expect(entry.taskId).toBe('task_123')
-      expect(entry.receivedSync).toBe(true)
+      expect(events.length).toBe(1)
+      const parsed = JSON.parse(events[0].data)
+      expect(parsed.metric).toBe('context_correctness')
+      expect(parsed.taskId).toBe('task_123')
+      expect(parsed.receivedSync).toBe(true)
     })
   })
 
@@ -194,20 +198,22 @@ describe('PerformanceTracker', () => {
   // ===========================================================================
 
   describe('subtask handoff', () => {
-    it('should record handoff entry', async () => {
-      await performanceTracker.recordSubtaskHandoff(testProjectId, {
+    it('should record handoff entry', () => {
+      performanceTracker.recordSubtaskHandoff(testProjectId, {
         taskId: 'task_456',
         subtaskId: 'subtask-001',
         outputPopulated: true,
       })
 
-      const filePath = pathManager.getStoragePath(testProjectId, 'performance.jsonl')
-      const entries = await jsonlHelper.readJsonLines<PerformanceEntry>(filePath)
+      const events = prjctDb.query<{ data: string }>(
+        testProjectId,
+        "SELECT data FROM events WHERE type = 'perf.subtask_handoff'"
+      )
 
-      expect(entries.length).toBe(1)
-      const entry = entries[0] as Record<string, unknown>
-      expect(entry.metric).toBe('subtask_handoff')
-      expect(entry.outputPopulated).toBe(true)
+      expect(events.length).toBe(1)
+      const parsed = JSON.parse(events[0].data)
+      expect(parsed.metric).toBe('subtask_handoff')
+      expect(parsed.outputPopulated).toBe(true)
     })
   })
 
@@ -216,8 +222,8 @@ describe('PerformanceTracker', () => {
   // ===========================================================================
 
   describe('report generation', () => {
-    it('should return empty report when no data', async () => {
-      const report = await performanceTracker.getReport(testProjectId)
+    it('should return empty report when no data', () => {
+      const report = performanceTracker.getReport(testProjectId)
 
       expect(report.period).toBe('7d')
       expect(report.startup).toBeUndefined()
@@ -226,12 +232,12 @@ describe('PerformanceTracker', () => {
       expect(report.subtaskHandoff).toBeUndefined()
     })
 
-    it('should aggregate startup time metrics', async () => {
-      await performanceTracker.recordTiming(testProjectId, 'startup_time', 300)
-      await performanceTracker.recordTiming(testProjectId, 'startup_time', 400)
-      await performanceTracker.recordTiming(testProjectId, 'startup_time', 500)
+    it('should aggregate startup time metrics', () => {
+      performanceTracker.recordTiming(testProjectId, 'startup_time', 300)
+      performanceTracker.recordTiming(testProjectId, 'startup_time', 400)
+      performanceTracker.recordTiming(testProjectId, 'startup_time', 500)
 
-      const report = await performanceTracker.getReport(testProjectId)
+      const report = performanceTracker.getReport(testProjectId)
 
       expect(report.startup).toBeDefined()
       expect(report.startup!.avg).toBe(400)
@@ -240,27 +246,27 @@ describe('PerformanceTracker', () => {
       expect(report.startup!.count).toBe(3)
     })
 
-    it('should aggregate memory metrics', async () => {
-      await performanceTracker.recordMemory(testProjectId)
+    it('should aggregate memory metrics', () => {
+      performanceTracker.recordMemory(testProjectId)
 
-      const report = await performanceTracker.getReport(testProjectId)
+      const report = performanceTracker.getReport(testProjectId)
 
       expect(report.memory).toBeDefined()
       expect(report.memory!.avgHeapMB).toBeGreaterThan(0)
       expect(report.memory!.peakHeapMB).toBeGreaterThan(0)
     })
 
-    it('should aggregate context correctness', async () => {
-      await performanceTracker.recordContextCorrectness(testProjectId, {
+    it('should aggregate context correctness', () => {
+      performanceTracker.recordContextCorrectness(testProjectId, {
         taskId: 't1',
         receivedSync: true,
       })
-      await performanceTracker.recordContextCorrectness(testProjectId, {
+      performanceTracker.recordContextCorrectness(testProjectId, {
         taskId: 't2',
         receivedSync: false,
       })
 
-      const report = await performanceTracker.getReport(testProjectId)
+      const report = performanceTracker.getReport(testProjectId)
 
       expect(report.contextCorrectness).toBeDefined()
       expect(report.contextCorrectness!.total).toBe(2)
@@ -268,24 +274,24 @@ describe('PerformanceTracker', () => {
       expect(report.contextCorrectness!.rate).toBe(50)
     })
 
-    it('should aggregate subtask handoff', async () => {
-      await performanceTracker.recordSubtaskHandoff(testProjectId, {
+    it('should aggregate subtask handoff', () => {
+      performanceTracker.recordSubtaskHandoff(testProjectId, {
         taskId: 't1',
         subtaskId: 's1',
         outputPopulated: true,
       })
-      await performanceTracker.recordSubtaskHandoff(testProjectId, {
+      performanceTracker.recordSubtaskHandoff(testProjectId, {
         taskId: 't1',
         subtaskId: 's2',
         outputPopulated: true,
       })
-      await performanceTracker.recordSubtaskHandoff(testProjectId, {
+      performanceTracker.recordSubtaskHandoff(testProjectId, {
         taskId: 't1',
         subtaskId: 's3',
         outputPopulated: false,
       })
 
-      const report = await performanceTracker.getReport(testProjectId)
+      const report = performanceTracker.getReport(testProjectId)
 
       expect(report.subtaskHandoff).toBeDefined()
       expect(report.subtaskHandoff!.total).toBe(3)
@@ -293,18 +299,18 @@ describe('PerformanceTracker', () => {
       expect(report.subtaskHandoff!.rate).toBe(67)
     })
 
-    it('should aggregate command durations', async () => {
-      await performanceTracker.recordTiming(testProjectId, 'command_duration', 100, {
+    it('should aggregate command durations', () => {
+      performanceTracker.recordTiming(testProjectId, 'command_duration', 100, {
         command: 'sync',
       })
-      await performanceTracker.recordTiming(testProjectId, 'command_duration', 200, {
+      performanceTracker.recordTiming(testProjectId, 'command_duration', 200, {
         command: 'sync',
       })
-      await performanceTracker.recordTiming(testProjectId, 'command_duration', 50, {
+      performanceTracker.recordTiming(testProjectId, 'command_duration', 50, {
         command: 'status',
       })
 
-      const report = await performanceTracker.getReport(testProjectId)
+      const report = performanceTracker.getReport(testProjectId)
 
       expect(report.commandDurations).toBeDefined()
       expect(report.commandDurations!.sync).toBeDefined()
@@ -314,12 +320,12 @@ describe('PerformanceTracker', () => {
       expect(report.commandDurations!.status.avg).toBe(50)
     })
 
-    it('should filter by date range', async () => {
+    it('should filter by date range', () => {
       // Record some metrics
-      await performanceTracker.recordTiming(testProjectId, 'startup_time', 300)
+      performanceTracker.recordTiming(testProjectId, 'startup_time', 300)
 
       // Report for 0 days (should find nothing before today)
-      const report = await performanceTracker.getReport(testProjectId, 0)
+      const report = performanceTracker.getReport(testProjectId, 0)
       // With 0 days, sinceDate = today, so entries from "now" should still match
       // because the filter is >= sinceIso (same day)
       expect(report.startup).toBeDefined()

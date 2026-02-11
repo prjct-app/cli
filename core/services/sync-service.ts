@@ -21,7 +21,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { SemanticMemories } from '../agentic/memory-system'
-import { indexProject } from '../domain/bm25'
+import { indexProject as indexBm25 } from '../domain/bm25'
 import { affectedDomains, propagateChanges } from '../domain/change-propagator'
 import { detectChanges, hasHashRegistry, saveHashes } from '../domain/file-hasher'
 import { indexCoChanges } from '../domain/git-cochange'
@@ -252,7 +252,7 @@ class SyncService {
       if (shouldRebuildIndexes) {
         try {
           await Promise.all([
-            indexProject(this.projectPath, this.projectId!),
+            indexBm25(this.projectPath, this.projectId!),
             indexImports(this.projectPath, this.projectId!),
             indexCoChanges(this.projectPath, this.projectId!),
           ])
@@ -518,18 +518,12 @@ class SyncService {
   // ==========================================================================
 
   private async logToMemory(git: GitData, stats: ProjectStats): Promise<void> {
-    const memoryPath = path.join(this.globalPath, 'memory', 'events.jsonl')
-
-    const event = {
-      ts: dateHelper.getTimestamp(),
-      action: 'sync',
+    prjctDb.appendEvent(this.projectId!, 'sync', {
       branch: git.branch,
       uncommitted: git.hasChanges,
       fileCount: stats.fileCount,
       commitCount: git.commits,
-    }
-
-    await fs.appendFile(memoryPath, `${JSON.stringify(event)}\n`, 'utf-8')
+    })
   }
 
   // ==========================================================================

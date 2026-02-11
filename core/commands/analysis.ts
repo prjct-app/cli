@@ -13,6 +13,7 @@ import { formatCost } from '../schemas/metrics'
 import { createStalenessChecker, syncService } from '../services'
 import { formatDiffPreview, formatFullDiff, generateSyncDiff } from '../services/diff-generator'
 import { analysisStorage } from '../storage/analysis-storage'
+import { prjctDb } from '../storage/database'
 import { metricsStorage } from '../storage/metrics-storage'
 import type { AnalyzeOptions, CommandResult, ProjectContext } from '../types'
 import { getErrorMessage } from '../types/fs'
@@ -445,13 +446,10 @@ export class AnalysisCommands extends PrjctCommandsBase {
       }
 
       // Get project info for header
-      const globalPath = pathManager.getGlobalProjectPath(projectId)
       let projectName = 'Unknown'
       try {
-        const projectJson = JSON.parse(
-          await fs.readFile(path.join(globalPath, 'project.json'), 'utf-8')
-        )
-        projectName = projectJson.name || 'Unknown'
+        const projectDoc = prjctDb.getDoc<Record<string, unknown>>(projectId, 'project')
+        projectName = (projectDoc?.name as string) || 'Unknown'
       } catch {
         // Use fallback
       }
@@ -790,14 +788,11 @@ export class AnalysisCommands extends PrjctCommandsBase {
         return { success: false, error: 'No project ID found' }
       }
 
-      // Get project path from project.json
-      const globalPath = pathManager.getGlobalProjectPath(projectId)
+      // Get project path from project doc
       let repoPath = projectPath
       try {
-        const projectJson = JSON.parse(
-          await fs.readFile(path.join(globalPath, 'project.json'), 'utf-8')
-        )
-        repoPath = projectJson.repoPath || projectPath
+        const projectDoc = prjctDb.getDoc<Record<string, unknown>>(projectId, 'project')
+        repoPath = (projectDoc?.repoPath as string) || projectPath
       } catch {
         // Use fallback projectPath
       }

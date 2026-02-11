@@ -284,7 +284,7 @@ export class OrchestratorExecutor {
     const globalPath = pathManager.getGlobalProjectPath(projectId)
     const availableAgents = await this.getAvailableAgentNames(globalPath)
 
-    // Load state.json for project domain info
+    // Load state from SQLite for project domain info
     let projectDomains = {
       hasFrontend: false,
       hasBackend: true,
@@ -293,11 +293,9 @@ export class OrchestratorExecutor {
       hasDocker: false,
     }
     try {
-      const statePath = path.join(globalPath, 'storage', 'state.json')
-      const stateContent = await fs.readFile(statePath, 'utf-8')
-      const state = JSON.parse(stateContent)
+      const state = (await stateStorage.read(projectId)) as Record<string, unknown>
       if (state.domains) {
-        projectDomains = state.domains
+        projectDomains = state.domains as typeof projectDomains
       }
     } catch {
       // Use defaults

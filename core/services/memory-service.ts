@@ -2,15 +2,13 @@
  * MemoryService - Event logging and memory management
  *
  * Handles logging actions to memory for audit trail and context building.
+ * Storage: SQLite events table (type prefix: 'memory.')
  */
 
 import configManager from '../infrastructure/config-manager'
-import pathManager from '../infrastructure/path-manager'
 import { ARCHIVE_POLICIES, archiveStorage } from '../storage/archive-storage'
+import prjctDb from '../storage/database'
 import type { MemoryServiceEntry } from '../types'
-import { getErrorMessage, isNotFoundError } from '../types/fs'
-import { getTimestamp } from '../utils/date-helper'
-import * as jsonlHelper from '../utils/jsonl-helper'
 
 export class MemoryService {
   /**
@@ -26,21 +24,10 @@ export class MemoryService {
       const projectId = await configManager.getProjectId(projectPath)
       if (!projectId) return
 
-      const memoryPath = pathManager.getFilePath(projectId, 'memory', 'context.jsonl')
-
-      const entry: MemoryServiceEntry = {
-        timestamp: getTimestamp(),
-        action,
-        data,
-        author,
-      }
-
-      await jsonlHelper.appendJsonLine(memoryPath, entry)
+      prjctDb.appendEvent(projectId, `memory.${action}`, { ...data, author })
     } catch (error) {
-      // Non-critical - don't fail the command, but log unexpected errors
-      if (!isNotFoundError(error)) {
-        console.error(`Memory log error: ${getErrorMessage(error)}`)
-      }
+      // Non-critical - don't fail the command
+      console.error(`Memory log error: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
@@ -52,14 +39,24 @@ export class MemoryService {
       const projectId = await configManager.getProjectId(projectPath)
       if (!projectId) return []
 
-      const memoryPath = pathManager.getFilePath(projectId, 'memory', 'context.jsonl')
-      const entries = await jsonlHelper.readJsonLines<MemoryServiceEntry>(memoryPath)
-      return entries.slice(-limit)
+      const rows = prjctDb.query<{ type: string; data: string; timestamp: string }>(
+        projectId,
+        "SELECT type, data, timestamp FROM events WHERE type LIKE 'memory.%' ORDER BY id DESC LIMIT ?",
+        limit
+      )
+
+      return rows.reverse().map((row) => {
+        const parsed = JSON.parse(row.data)
+        const { author, ...data } = parsed
+        return {
+          timestamp: row.timestamp,
+          action: row.type.replace('memory.', ''),
+          data,
+          author,
+        } as MemoryServiceEntry
+      })
     } catch (error) {
-      // ENOENT or parse error - return empty (expected for new projects)
-      if (!isNotFoundError(error) && !(error instanceof SyntaxError)) {
-        console.error(`Memory read error: ${getErrorMessage(error)}`)
-      }
+      console.error(`Memory read error: ${error instanceof Error ? error.message : String(error)}`)
       return []
     }
   }
@@ -92,8 +89,31 @@ export class MemoryService {
     action: string,
     limit: number = 50
   ): Promise<MemoryServiceEntry[]> {
-    const entries = await this.getRecent(projectPath, 1000)
-    return entries.filter((entry) => entry.action === action).slice(-limit)
+    try {
+      const projectId = await configManager.getProjectId(projectPath)
+      if (!projectId) return []
+
+      const rows = prjctDb.query<{ type: string; data: string; timestamp: string }>(
+        projectId,
+        'SELECT type, data, timestamp FROM events WHERE type = ? ORDER BY id DESC LIMIT ?',
+        `memory.${action}`,
+        limit
+      )
+
+      return rows.reverse().map((row) => {
+        const parsed = JSON.parse(row.data)
+        const { author, ...data } = parsed
+        return {
+          timestamp: row.timestamp,
+          action: row.type.replace('memory.', ''),
+          data,
+          author,
+        } as MemoryServiceEntry
+      })
+    } catch (error) {
+      console.error(`Memory read error: ${error instanceof Error ? error.message : String(error)}`)
+      return []
+    }
   }
 
   /**
@@ -104,13 +124,9 @@ export class MemoryService {
       const projectId = await configManager.getProjectId(projectPath)
       if (!projectId) return
 
-      const memoryPath = pathManager.getFilePath(projectId, 'memory', 'context.jsonl')
-      await jsonlHelper.writeJsonLines(memoryPath, [])
+      prjctDb.run(projectId, "DELETE FROM events WHERE type LIKE 'memory.%'")
     } catch (error) {
-      // Non-critical - but log unexpected errors
-      if (!isNotFoundError(error)) {
-        console.error(`Memory clear error: ${getErrorMessage(error)}`)
-      }
+      console.error(`Memory clear error: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
@@ -123,14 +139,22 @@ export class MemoryService {
     limit: number = 100
   ): Promise<Record<string, unknown>[]> {
     try {
-      const memoryPath = pathManager.getFilePath(projectId, 'memory', 'context.jsonl')
-      const entries = await jsonlHelper.readJsonLines<Record<string, unknown>>(memoryPath)
-      return entries.slice(-limit)
+      const rows = prjctDb.query<{ type: string; data: string; timestamp: string }>(
+        projectId,
+        "SELECT type, data, timestamp FROM events WHERE type LIKE 'memory.%' ORDER BY id DESC LIMIT ?",
+        limit
+      )
+
+      return rows.reverse().map((row) => {
+        const parsed = JSON.parse(row.data)
+        return {
+          timestamp: row.timestamp,
+          action: row.type.replace('memory.', ''),
+          ...parsed,
+        }
+      })
     } catch (error) {
-      // ENOENT or parse error - return empty
-      if (!isNotFoundError(error) && !(error instanceof SyntaxError)) {
-        console.error(`Memory read error: ${getErrorMessage(error)}`)
-      }
+      console.error(`Memory read error: ${error instanceof Error ? error.message : String(error)}`)
       return []
     }
   }
@@ -142,36 +166,55 @@ export class MemoryService {
    */
   async capEntries(projectId: string): Promise<number> {
     try {
-      const memoryPath = pathManager.getFilePath(projectId, 'memory', 'context.jsonl')
-      const entries = await jsonlHelper.readJsonLines<MemoryServiceEntry>(memoryPath)
+      const countRow = prjctDb.get<{ cnt: number }>(
+        projectId,
+        "SELECT COUNT(*) as cnt FROM events WHERE type LIKE 'memory.%'"
+      )
 
-      if (entries.length <= ARCHIVE_POLICIES.MEMORY_MAX_ENTRIES) {
+      const total = countRow?.cnt ?? 0
+      if (total <= ARCHIVE_POLICIES.MEMORY_MAX_ENTRIES) {
         return 0
       }
 
-      const overflow = entries.slice(0, entries.length - ARCHIVE_POLICIES.MEMORY_MAX_ENTRIES)
-      const kept = entries.slice(-ARCHIVE_POLICIES.MEMORY_MAX_ENTRIES)
+      const overflow = total - ARCHIVE_POLICIES.MEMORY_MAX_ENTRIES
+
+      // Get the oldest overflow entries for archiving
+      const oldestRows = prjctDb.query<{
+        id: number
+        type: string
+        data: string
+        timestamp: string
+      }>(
+        projectId,
+        "SELECT id, type, data, timestamp FROM events WHERE type LIKE 'memory.%' ORDER BY id ASC LIMIT ?",
+        overflow
+      )
 
       // Archive overflow entries in batch
       archiveStorage.archiveMany(
         projectId,
-        overflow.map((entry, i) => ({
+        oldestRows.map((row, i) => ({
           entityType: 'memory_entry' as const,
-          entityId: `memory-${entry.timestamp || i}`,
-          entityData: entry,
-          summary: entry.action,
+          entityId: `memory-${row.timestamp || i}`,
+          entityData: { type: row.type, data: JSON.parse(row.data), timestamp: row.timestamp },
+          summary: row.type.replace('memory.', ''),
           reason: 'overflow',
         }))
       )
 
-      // Rewrite file with only kept entries
-      await jsonlHelper.writeJsonLines(memoryPath, kept)
-
-      return overflow.length
-    } catch (error) {
-      if (!isNotFoundError(error)) {
-        console.error(`Memory cap error: ${getErrorMessage(error)}`)
+      // Delete the oldest overflow entries
+      const maxIdToDelete = oldestRows[oldestRows.length - 1]?.id
+      if (maxIdToDelete !== undefined) {
+        prjctDb.run(
+          projectId,
+          "DELETE FROM events WHERE type LIKE 'memory.%' AND id <= ?",
+          maxIdToDelete
+        )
       }
+
+      return overflow
+    } catch (error) {
+      console.error(`Memory cap error: ${error instanceof Error ? error.message : String(error)}`)
       return 0
     }
   }

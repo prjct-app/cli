@@ -8,10 +8,7 @@
  * @module agentic/pattern-store
  */
 
-import fs from 'node:fs/promises'
-import path from 'node:path'
-import pathManager from '../infrastructure/path-manager'
-import { isNotFoundError } from '../types/fs'
+import prjctDb from '../storage/database'
 import type { Patterns, Preference, Workflow } from '../types/memory'
 import { calculateConfidence } from '../types/memory'
 import { getTimestamp } from '../utils/date-helper'
@@ -244,11 +241,6 @@ export class PatternStore extends CachedStore<Patterns> {
     }
   }
 
-  private _getArchivePath(projectId: string): string {
-    const basePath = path.join(pathManager.getGlobalProjectPath(projectId), 'memory')
-    return path.join(basePath, 'patterns-archive.json')
-  }
-
   async archiveStaleDecisions(projectId: string): Promise<number> {
     const patterns = await this.load(projectId)
     const now = Date.now()
@@ -264,15 +256,9 @@ export class PatternStore extends CachedStore<Patterns> {
 
     if (staleKeys.length === 0) return 0
 
-    // Load or create archive
-    const archivePath = this._getArchivePath(projectId)
-    let archive: Record<string, unknown> = {}
-    try {
-      const content = await fs.readFile(archivePath, 'utf-8')
-      archive = JSON.parse(content)
-    } catch (error) {
-      if (!isNotFoundError(error)) throw error
-    }
+    // Load or create archive from SQLite
+    const archive: Record<string, unknown> =
+      prjctDb.getDoc<Record<string, unknown>>(projectId, 'memory:patterns-archive') ?? {}
 
     // Move stale decisions to archive
     for (const key of staleKeys) {
@@ -281,8 +267,7 @@ export class PatternStore extends CachedStore<Patterns> {
     }
 
     // Save archive and pruned patterns
-    await fs.mkdir(path.dirname(archivePath), { recursive: true })
-    await fs.writeFile(archivePath, JSON.stringify(archive, null, 2), 'utf-8')
+    prjctDb.setDoc(projectId, 'memory:patterns-archive', archive)
     await this.save(projectId)
 
     return staleKeys.length
