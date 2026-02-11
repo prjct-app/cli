@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.25.1] - 2026-02-10
+
+### Bug Fix
+
+- **Fix dual shebang in compiled linear CLI**: Removed `#!/usr/bin/env bun` from `core/cli/linear.ts` source file. The build script (esbuild) already injects `#!/usr/bin/env node` via banner, so the source shebang was duplicated in `dist/cli/linear.mjs` — causing `SyntaxError: Invalid or unexpected token` on Node.js for all `prjct linear` commands.
+
+### Root Cause
+
+The source file `core/cli/linear.ts` had `#!/usr/bin/env bun` on line 1. esbuild preserved it during compilation, and the build banner injected `#!/usr/bin/env node` — resulting in two shebangs. Node.js only strips line 1's shebang, so line 2 (`#!/usr/bin/env bun`) was parsed as JavaScript and threw a SyntaxError.
+
+### Learnings
+
+- Source files compiled by esbuild should NOT have shebangs — the build script's `banner` option is the single source of truth for shebang injection
+- Only the first line shebang is stripped by Node.js; any subsequent shebang lines cause parse errors
+
+### Test Plan
+
+#### For QA
+1. `head -1 dist/cli/linear.mjs` — single `#!/usr/bin/env node` shebang
+2. `node dist/cli/linear.mjs --help` — no SyntaxError
+3. `prjct linear list` — works end-to-end
+4. `grep -c '#!/' dist/cli/linear.mjs` — returns `1`
+
+#### For Users
+**What changed:** Fixed `prjct linear` commands failing with SyntaxError after v1.25.0.
+**How to use:** Update to v1.25.1 — no action needed.
+**Breaking changes:** None.
+
 ## [1.25.0] - 2026-02-10
 
 ### Infrastructure
