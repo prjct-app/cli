@@ -9,8 +9,8 @@
  * 5. Generation + summary
  */
 
+import * as p from '@clack/prompts'
 import chalk from 'chalk'
-import prompts from 'prompts'
 import out from '../utils/output'
 
 // ============================================================================
@@ -113,9 +113,6 @@ export class OnboardingWizard {
 
   constructor(projectPath: string = process.cwd()) {
     this.projectPath = projectPath
-
-    // Handle Ctrl+C gracefully
-    prompts.override({})
   }
 
   // ==========================================================================
@@ -126,7 +123,7 @@ export class OnboardingWizard {
    * Run the full wizard flow
    */
   async run(): Promise<WizardResult> {
-    this.printWelcome()
+    p.intro(chalk.cyan.bold('⚡ prjct-cli setup'))
 
     const steps: WizardStep[] = [
       { id: 'project-type', title: 'Project Type', run: () => this.stepProjectType() },
@@ -138,7 +135,6 @@ export class OnboardingWizard {
 
     for (const step of steps) {
       this.currentStep++
-      this.printStepHeader(step.title)
 
       const shouldContinue = await step.run()
 
@@ -147,6 +143,7 @@ export class OnboardingWizard {
       }
     }
 
+    p.outro(chalk.green('Setup complete!'))
     return this.buildResult(false)
   }
 
@@ -180,28 +177,27 @@ export class OnboardingWizard {
   private async stepProjectType(): Promise<boolean> {
     this.detectedType = await this.detectProjectType()
 
-    const response = await prompts(
-      {
-        type: 'select',
-        name: 'projectType',
-        message:
-          this.detectedType !== 'unknown'
-            ? `Detected: ${this.getProjectTypeLabel(this.detectedType)}. Is this correct?`
-            : 'What type of project is this?',
-        choices: PROJECT_TYPES.map((pt) => ({
-          title: pt.title,
-          description: pt.description,
-          value: pt.value,
-          selected: pt.value === this.detectedType,
-        })),
-        initial: PROJECT_TYPES.findIndex((pt) => pt.value === this.detectedType),
-      },
-      { onCancel: () => this.handleCancel() }
-    )
+    const initialIndex = PROJECT_TYPES.findIndex((pt) => pt.value === this.detectedType)
 
-    if (this.aborted) return false
+    const projectType = await p.select({
+      message:
+        this.detectedType !== 'unknown'
+          ? `Detected: ${this.getProjectTypeLabel(this.detectedType)}. Is this correct?`
+          : 'What type of project is this?',
+      options: PROJECT_TYPES.map((pt) => ({
+        label: pt.title,
+        hint: pt.description,
+        value: pt.value,
+      })),
+      initialValue: initialIndex >= 0 ? PROJECT_TYPES[initialIndex].value : undefined,
+    })
 
-    this.confirmedType = response.projectType || this.detectedType
+    if (p.isCancel(projectType)) {
+      this.handleCancel()
+      return false
+    }
+
+    this.confirmedType = projectType || this.detectedType
     return true
   }
 
@@ -211,27 +207,23 @@ export class OnboardingWizard {
   private async stepAIAgents(): Promise<boolean> {
     const detectedAgents = await this.detectInstalledAgents()
 
-    const response = await prompts(
-      {
-        type: 'multiselect',
-        name: 'agents',
-        message: 'Which AI agents do you use?',
-        choices: AI_AGENTS.map((agent) => ({
-          title: agent.title,
-          description: agent.description,
-          value: agent.value,
-          selected: detectedAgents.includes(agent.value),
-        })),
-        hint: '- Space to select, Enter to confirm',
-        instructions: false,
-        min: 1,
-      },
-      { onCancel: () => this.handleCancel() }
-    )
+    const agents = await p.multiselect({
+      message: 'Which AI agents do you use?',
+      options: AI_AGENTS.map((agent) => ({
+        label: agent.title,
+        hint: agent.description,
+        value: agent.value,
+      })),
+      initialValues: detectedAgents,
+      required: true,
+    })
 
-    if (this.aborted) return false
+    if (p.isCancel(agents)) {
+      this.handleCancel()
+      return false
+    }
 
-    this.selectedAgents = response.agents || ['claude']
+    this.selectedAgents = agents.length > 0 ? agents : ['claude']
     return true
   }
 
@@ -242,48 +234,47 @@ export class OnboardingWizard {
     this.detectedStack = await this.detectStack()
 
     const stackDisplay = this.formatStackDisplay(this.detectedStack)
-    console.log(chalk.dim(`\n  Detected: ${stackDisplay}\n`))
+    p.note(stackDisplay, 'Detected stack')
 
-    const response = await prompts(
-      {
-        type: 'confirm',
-        name: 'confirmed',
-        message: 'Is this stack correct?',
-        initial: true,
-      },
-      { onCancel: () => this.handleCancel() }
-    )
+    const confirmed = await p.confirm({
+      message: 'Is this stack correct?',
+      initialValue: true,
+    })
 
-    if (this.aborted) return false
+    if (p.isCancel(confirmed)) {
+      this.handleCancel()
+      return false
+    }
 
-    if (response.confirmed) {
+    if (confirmed) {
       this.confirmedStack = this.detectedStack
     } else {
-      // Allow manual override
-      const manualResponse = await prompts(
-        [
-          {
-            type: 'text',
-            name: 'language',
-            message: 'Primary language:',
-            initial: this.detectedStack.language,
+      const manual = await p.group(
+        {
+          language: () =>
+            p.text({
+              message: 'Primary language:',
+              defaultValue: this.detectedStack.language,
+            }),
+          framework: () =>
+            p.text({
+              message: 'Framework (optional):',
+              defaultValue: this.detectedStack.framework || '',
+            }),
+        },
+        {
+          onCancel: () => {
+            this.handleCancel()
           },
-          {
-            type: 'text',
-            name: 'framework',
-            message: 'Framework (optional):',
-            initial: this.detectedStack.framework || '',
-          },
-        ],
-        { onCancel: () => this.handleCancel() }
+        }
       )
 
       if (this.aborted) return false
 
       this.confirmedStack = {
         ...this.detectedStack,
-        language: manualResponse.language || this.detectedStack.language,
-        framework: manualResponse.framework || undefined,
+        language: manual.language || this.detectedStack.language,
+        framework: manual.framework || undefined,
       }
     }
 
@@ -294,35 +285,41 @@ export class OnboardingWizard {
    * Step 4: Preferences Collection
    */
   private async stepPreferences(): Promise<boolean> {
-    const response = await prompts(
-      [
-        {
-          type: 'select',
-          name: 'verbosity',
-          message: 'Output verbosity:',
-          choices: [
-            { title: 'Minimal', description: 'Essential output only', value: 'minimal' },
-            { title: 'Normal (Recommended)', description: 'Balanced information', value: 'normal' },
-            { title: 'Verbose', description: 'Detailed logging', value: 'verbose' },
-          ],
-          initial: 1,
+    const prefs = await p.group(
+      {
+        verbosity: () =>
+          p.select({
+            message: 'Output verbosity:',
+            options: [
+              { label: 'Minimal', hint: 'Essential output only', value: 'minimal' as const },
+              {
+                label: 'Normal (Recommended)',
+                hint: 'Balanced information',
+                value: 'normal' as const,
+              },
+              { label: 'Verbose', hint: 'Detailed logging', value: 'verbose' as const },
+            ],
+            initialValue: 'normal' as const,
+          }),
+        autoSync: () =>
+          p.confirm({
+            message: 'Auto-sync context on file changes?',
+            initialValue: true,
+          }),
+      },
+      {
+        onCancel: () => {
+          this.handleCancel()
         },
-        {
-          type: 'confirm',
-          name: 'autoSync',
-          message: 'Auto-sync context on file changes?',
-          initial: true,
-        },
-      ],
-      { onCancel: () => this.handleCancel() }
+      }
     )
 
     if (this.aborted) return false
 
     this.preferences = {
-      verbosity: response.verbosity || 'normal',
-      autoSync: response.autoSync ?? true,
-      telemetry: false, // Default off, can be enabled later
+      verbosity: prefs.verbosity || 'normal',
+      autoSync: prefs.autoSync ?? true,
+      telemetry: false,
     }
 
     return true
@@ -332,29 +329,23 @@ export class OnboardingWizard {
    * Step 5: Summary + Generation
    */
   private async stepSummary(): Promise<boolean> {
-    console.log('')
-    console.log(chalk.bold('  Configuration Summary'))
-    console.log(chalk.dim(`  ${'─'.repeat(40)}`))
-    console.log(`  ${chalk.cyan('Project Type:')} ${this.getProjectTypeLabel(this.confirmedType)}`)
-    console.log(
-      `  ${chalk.cyan('AI Agents:')} ${this.selectedAgents.map((a) => this.getAgentLabel(a)).join(', ')}`
-    )
-    console.log(`  ${chalk.cyan('Stack:')} ${this.formatStackDisplay(this.confirmedStack)}`)
-    console.log(`  ${chalk.cyan('Verbosity:')} ${this.preferences.verbosity}`)
-    console.log(`  ${chalk.cyan('Auto-sync:')} ${this.preferences.autoSync ? 'Yes' : 'No'}`)
-    console.log('')
+    const summaryLines = [
+      `${chalk.cyan('Project Type:')} ${this.getProjectTypeLabel(this.confirmedType)}`,
+      `${chalk.cyan('AI Agents:')} ${this.selectedAgents.map((a) => this.getAgentLabel(a)).join(', ')}`,
+      `${chalk.cyan('Stack:')} ${this.formatStackDisplay(this.confirmedStack)}`,
+      `${chalk.cyan('Verbosity:')} ${this.preferences.verbosity}`,
+      `${chalk.cyan('Auto-sync:')} ${this.preferences.autoSync ? 'Yes' : 'No'}`,
+    ].join('\n')
 
-    const response = await prompts(
-      {
-        type: 'confirm',
-        name: 'proceed',
-        message: 'Generate configuration with these settings?',
-        initial: true,
-      },
-      { onCancel: () => this.handleCancel() }
-    )
+    p.note(summaryLines, 'Configuration Summary')
 
-    if (this.aborted || !response.proceed) {
+    const proceed = await p.confirm({
+      message: 'Generate configuration with these settings?',
+      initialValue: true,
+    })
+
+    if (p.isCancel(proceed) || !proceed) {
+      if (p.isCancel(proceed)) this.handleCancel()
       return false
     }
 
@@ -567,22 +558,9 @@ export class OnboardingWizard {
   // Helper Methods
   // ==========================================================================
 
-  private printWelcome(): void {
-    console.log('')
-    console.log(chalk.bold.cyan('  Welcome to prjct-cli!'))
-    console.log(chalk.dim("  Let's set up your project in 60 seconds."))
-    console.log('')
-  }
-
-  private printStepHeader(title: string): void {
-    console.log('')
-    console.log(chalk.dim(`  Step ${this.currentStep}/${this.totalSteps}: ${title}`))
-    console.log('')
-  }
-
   private handleCancel(): void {
     this.aborted = true
-    console.log(chalk.yellow('\n  Setup cancelled. Run again anytime.\n'))
+    p.cancel('Setup cancelled. Run again anytime.')
   }
 
   private getProjectTypeLabel(type: ProjectType): string {

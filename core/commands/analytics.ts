@@ -8,7 +8,7 @@ import { createStalenessChecker } from '../services'
 import { ideasStorage, prjctDb, queueStorage, shippedStorage, stateStorage } from '../storage'
 import type { CommandResult, ProjectContext } from '../types'
 import { getErrorMessage } from '../types/fs'
-import { mdJoin, mdList, mdNextSteps, mdSection } from '../utils/md-formatter'
+import { mdList, mdNextSteps, mdOutput, mdSection } from '../utils/md-formatter'
 import {
   configManager,
   contextBuilder,
@@ -164,12 +164,12 @@ export class AnalyticsCommands extends PrjctCommandsBase {
               })
             : ['Nothing shipped yet']
 
-        const md = mdJoin(
-          `## Dashboard: ${projectName}`,
-          mdSection('Current Focus', currentFocus, 3),
-          mdSection(`Queue (${queueTasks.length})`, mdList(queueItems, true), 3),
-          mdSection('Recent Ships', mdList(shipItems), 3),
-          mdSection('Ideas', `${ideas.length} pending`, 3),
+        const md = mdOutput(
+          `## ⚡ Dashboard: ${projectName}`,
+          mdSection('Current Focus', currentFocus),
+          mdSection(`Queue (${queueTasks.length})`, mdList(queueItems, true)),
+          mdSection('Recent Ships', mdList(shipItems)),
+          mdSection('Ideas', `${ideas.length} pending`),
           mdNextSteps([
             { label: 'Start task', command: 'p. task' },
             { label: 'Complete', command: 'p. done' },

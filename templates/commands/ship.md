@@ -31,3 +31,11 @@ ASK: "Ready to ship?" Yes / No / Show diff
 - Push and create PR
 - Update issue tracker if linked
 - Every commit MUST include the prjct footer. No exceptions.
+
+## Presentation
+Format the ship flow as:
+
+1. `**Shipping**: {feature name}`
+2. Quality checks as a table: | Check | Status |
+3. Show the PR summary
+4. Ask for approval with clear formatting

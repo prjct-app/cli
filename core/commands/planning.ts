@@ -11,7 +11,7 @@ import type { Priority, TaskSection, TaskType } from '../schemas/state'
 import { ideasStorage, queueStorage } from '../storage'
 import type { CommandResult, InitOptions, ProjectContext } from '../types'
 import { getErrorMessage } from '../types/fs'
-import { mdJoin, mdNextSteps, mdSection, mdStats } from '../utils/md-formatter'
+import { mdNextSteps, mdOutput, mdSection, mdStats } from '../utils/md-formatter'
 import { showNextSteps } from '../utils/next-steps'
 import { OnboardingWizard } from '../workflows'
 import {
@@ -374,7 +374,7 @@ export class PlanningCommands extends PrjctCommandsBase {
 
       if (options.md) {
         console.log(
-          mdJoin(
+          mdOutput(
             mdSection('Bug Reported', description),
             mdStats({ Severity: severity, Priority: priority, Agent: agent }),
             mdNextSteps([
@@ -547,7 +547,7 @@ Generated: ${new Date().toLocaleString()}
 
         if (options.md) {
           console.log(
-            mdJoin(
+            mdOutput(
               mdSection('Idea Captured', description),
               mdStats({ Mode: 'architecture' }),
               mdNextSteps([{ label: 'Continue planning', command: 'prjct architect execute' }])
@@ -572,7 +572,7 @@ Generated: ${new Date().toLocaleString()}
 
         if (options.md) {
           console.log(
-            mdJoin(
+            mdOutput(
               mdSection('Idea Captured', description),
               mdStats({ Mode: 'capture' }),
               mdNextSteps([

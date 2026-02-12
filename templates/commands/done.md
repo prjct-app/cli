@@ -19,3 +19,11 @@ Summarize what was done and what the next subtask needs to know.
 
 ## Step 4: Follow CLI next steps
 The CLI output indicates what to do next (next subtask, ship, etc.)
+
+## Presentation
+Format your completion summary as:
+
+1. `**Subtask complete**: {what was done}`
+2. Brief summary of changes (2-3 lines max)
+3. If next subtask exists, preview what's next
+4. Show next commands as a table

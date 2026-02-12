@@ -1,11 +1,15 @@
 # Changelog
 
+## [1.30.2] - 2026-02-12
+
+### Added
+- exquisite-terminal-ux
+
 ## [1.30.1] - 2026-02-12
 
 ### Bug Fixes
 
 - guard analysis array accesses against undefined (n.push crash) (#178)
-
 
 ## [1.30.1] - 2026-02-11
 

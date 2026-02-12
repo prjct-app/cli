@@ -7,6 +7,7 @@
 import AgentRouter from '../agentic/agent-router'
 import { AgentError } from '../errors'
 import * as agentDetector from '../infrastructure/agent-detector'
+import ClaudeAgent from '../infrastructure/claude-agent'
 import type { AgentAssignmentResult, AgentInfo, ProjectContext } from '../types'
 import { defaultAgentRetryPolicy } from '../utils/retry'
 
@@ -44,8 +45,7 @@ export class AgentService {
         throw AgentError.notSupported(this.agentInfo?.type ?? 'unknown')
       }
 
-      const { default: Agent } = await import(`../infrastructure/${agentType}-agent`)
-      this.agent = new Agent()
+      this.agent = new ClaudeAgent()
 
       return this.agent
     }, 'agent-initialization')

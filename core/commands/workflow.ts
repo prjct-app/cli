@@ -30,9 +30,9 @@ import { getErrorMessage, isNotFoundError } from '../types/fs'
 import {
   mdActionRequired,
   mdDone,
-  mdJoin,
   mdList,
   mdNextSteps,
+  mdOutput,
   mdRelevantFiles,
   mdRules,
   mdSection,
@@ -164,7 +164,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
             { label: 'Pause task', command: 'prjct pause --md' },
           ])
 
-          console.log(mdJoin(header, projectContext, files, rules, patterns, next))
+          console.log(mdOutput(header, projectContext, files, rules, patterns, next))
 
           await this.logToMemory(projectPath, 'task_started', {
             task,
@@ -281,7 +281,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
             { label: 'Complete subtask', command: 'prjct done --md' },
             { label: 'Pause task', command: 'prjct pause --md' },
           ])
-          console.log(mdJoin(header, subtasksMd, next))
+          console.log(mdOutput(header, subtasksMd, next))
         } else {
           out.done(`working on: ${currentTask.description}`)
         }
@@ -416,7 +416,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
       if (options.md) {
         const durationSuffix = duration ? ` (${duration})` : ''
         console.log(
-          mdJoin(
+          mdOutput(
             mdDone('Completed', `${task}${durationSuffix}`),
             mdStats({
               Duration: duration || 'unknown',
@@ -500,7 +500,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
           return `${t.description}${typeBadge}${priority}`
         })
         console.log(
-          mdJoin(
+          mdOutput(
             mdSection('Queue', `${tasks.length} task${tasks.length !== 1 ? 's' : ''}`),
             mdList(items, true),
             mdNextSteps([{ label: 'Start working', command: `p. task "${tasks[0].description}"` }])
@@ -560,7 +560,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
 
       if (options.md) {
         console.log(
-          mdJoin(
+          mdOutput(
             mdDone('Task Paused', `**Paused:** ${currentTask.description}`),
             mdStats({
               Reason: reason || undefined,
@@ -645,7 +645,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
 
       if (options.md) {
         console.log(
-          mdJoin(
+          mdOutput(
             mdDone('Task Resumed', `**Resumed:** ${resumed.description}`),
             mdNextSteps([{ label: 'Continue working, then finish', command: 'p. done' }])
           )
@@ -800,12 +800,12 @@ function buildProjectContext(
   let commandsBlock: string | null = null
   if (commands && Object.keys(commands).length > 0) {
     const items = Object.entries(commands).map(
-      ([key, value]) => `${key.charAt(0).toUpperCase() + key.slice(1)}: ${value}`
+      ([key, value]) => `${key.charAt(0).toUpperCase() + key.slice(1)}: \`${value}\``
     )
-    commandsBlock = `Commands\n${mdList(items)}`
+    commandsBlock = `### Commands\n${mdList(items)}`
   }
 
-  const projectSection = statsBlock ? `Project\n${statsBlock}` : null
+  const projectSection = statsBlock ? `### Project\n${statsBlock}` : null
   return [projectSection, commandsBlock].filter(Boolean).join('\n\n') || null
 }
 
@@ -837,18 +837,18 @@ function buildPatterns(analysis: AnalysisSchema | null): string | null {
   const patterns = analysis.patterns
   if (Array.isArray(patterns) && patterns.length > 0) {
     const items = patterns.map((p) => {
-      const loc = p.location ? ` — ${p.location}` : ''
-      return `- ${p.name}: ${p.description}${loc}`
+      const loc = p.location ? ` — \`${p.location}\`` : ''
+      return `- **${p.name}**: ${p.description}${loc}`
     })
-    sections.push(`Patterns (follow these)\n${items.join('\n')}`)
+    sections.push(`### Patterns (follow these)\n${items.join('\n')}`)
   }
 
   const antiPatterns = analysis.antiPatterns
   if (Array.isArray(antiPatterns) && antiPatterns.length > 0) {
     const items = antiPatterns.map((a) => {
-      return `- ${a.issue} — ${a.file} → ${a.suggestion}`
+      return `- **${a.issue}** — \`${a.file}\` → ${a.suggestion}`
     })
-    sections.push(`Anti-patterns (avoid these)\n${items.join('\n')}`)
+    sections.push(`### Anti-patterns (avoid these)\n${items.join('\n')}`)
   }
 
   return sections.length > 0 ? sections.join('\n\n') : null

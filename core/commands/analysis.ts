@@ -4,7 +4,7 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import prompts from 'prompts'
+import * as p from '@clack/prompts'
 import memorySystem from '../agentic/memory-system'
 import analyzer from '../domain/analyzer'
 import commandInstaller from '../infrastructure/command-installer'
@@ -18,9 +18,9 @@ import type { AnalyzeOptions, CommandResult, ProjectContext } from '../types'
 import { getErrorMessage } from '../types/fs'
 import {
   mdDone,
-  mdJoin,
   mdList,
   mdNextSteps,
+  mdOutput,
   mdSection,
   mdStats,
   mdWarn,
@@ -207,7 +207,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
             JSON.stringify({ success: result.success, package: pkg.name, path: pkg.relativePath })
           )
         } else if (options.md) {
-          console.log(mdDone(`Synced package: ${pkg.name}`))
+          console.log(mdOutput(mdDone(`Synced package: ${pkg.name}`)))
         } else {
           out.done(`Synced package: ${pkg.name}`)
         }
@@ -241,7 +241,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
 
         if (!result.success) {
           if (options.md) {
-            console.log(mdJoin(`## Sync Failed`, `> ${result.error || 'Unknown error'}`))
+            console.log(mdOutput(`## ❌ Sync Failed`, `> ${result.error || 'Unknown error'}`))
             return { success: false, error: result.error }
           }
           if (isNonInteractive) {
@@ -269,7 +269,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
 
         if (!diff.hasChanges) {
           if (options.md) {
-            console.log(mdDone('No changes detected', 'Context is up to date.'))
+            console.log(mdOutput(mdDone('No changes detected', 'Context is up to date.')))
             return { success: true, message: 'No changes' }
           }
           if (isNonInteractive) {
@@ -304,10 +304,10 @@ export class AnalysisCommands extends PrjctCommandsBase {
           for (const s of diff.removed)
             changeItems.push(`Removed: ${s.name} (${s.lineCount} lines)`)
 
-          const md = mdJoin(
-            `## Sync Preview`,
+          const md = mdOutput(
+            `## ⚡ Sync Preview`,
             changeItems.length > 0
-              ? mdSection('Changes', mdList(changeItems), 3)
+              ? mdSection('Changes', mdList(changeItems))
               : 'No section changes.',
             mdStats({
               'Tokens before': diff.tokensBefore,
@@ -382,32 +382,28 @@ export class AnalysisCommands extends PrjctCommandsBase {
         }
 
         // Interactive confirmation (TTY mode only)
-        const response = await prompts({
-          type: 'select',
-          name: 'action',
+        const action = await p.select({
           message: 'Apply these changes?',
-          choices: [
-            { title: 'Yes, apply changes', value: 'apply' },
-            { title: 'No, cancel', value: 'cancel' },
-            { title: 'Show full diff', value: 'diff' },
+          options: [
+            { label: 'Yes, apply changes', value: 'apply' },
+            { label: 'No, cancel', value: 'cancel' },
+            { label: 'Show full diff', value: 'diff' },
           ],
         })
 
-        if (response.action === 'cancel' || !response.action) {
+        if (p.isCancel(action) || action === 'cancel') {
           await restoreOriginal()
           out.warn('Sync cancelled — no changes applied')
           return { success: false, message: 'Cancelled by user' }
         }
 
-        if (response.action === 'diff') {
+        if (action === 'diff') {
           console.log(`\n${formatFullDiff(diff)}`)
-          const confirm = await prompts({
-            type: 'confirm',
-            name: 'apply',
+          const confirmApply = await p.confirm({
             message: 'Apply these changes?',
-            initial: true,
+            initialValue: true,
           })
-          if (!confirm.apply) {
+          if (p.isCancel(confirmApply) || !confirmApply) {
             await restoreOriginal()
             out.warn('Sync cancelled — no changes applied')
             return { success: false, message: 'Cancelled by user' }
@@ -430,7 +426,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
 
       if (!result.success) {
         if (options.md) {
-          console.log(mdJoin(`## Sync Failed`, `> ${result.error || 'Unknown error'}`))
+          console.log(mdOutput(`## ❌ Sync Failed`, `> ${result.error || 'Unknown error'}`))
         } else {
           out.fail(result.error || 'Sync failed')
         }
@@ -446,16 +442,14 @@ export class AnalysisCommands extends PrjctCommandsBase {
         const agentCount = result.agents.length
 
         const steps = getNextSteps('sync')
-        const md = mdJoin(
-          mdDone(
-            `Sync Complete`,
-            mdStats({
-              Duration: `${(elapsed / 1000).toFixed(1)}s`,
-              Agents: `${agentCount} generated`,
-              'Files indexed': result.stats.fileCount,
-              'Context files': contextFilesCount,
-            })
-          ),
+        const md = mdOutput(
+          mdDone(`Sync Complete`),
+          mdStats({
+            Duration: `${(elapsed / 1000).toFixed(1)}s`,
+            Agents: `${agentCount} generated`,
+            'Files indexed': result.stats.fileCount,
+            'Context files': contextFilesCount,
+          }),
           result.git.hasChanges ? mdWarn('Uncommitted changes detected') : null,
           mdNextSteps(steps.map((s) => ({ label: s.desc, command: s.cmd })))
         )
@@ -471,7 +465,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
       return showSyncResult(result, startTime)
     } catch (error) {
       if (options.md) {
-        console.log(mdJoin(`## Sync Failed`, `> ${getErrorMessage(error)}`))
+        console.log(mdOutput(`## ❌ Sync Failed`, `> ${getErrorMessage(error)}`))
       } else {
         out.fail(getErrorMessage(error))
       }
@@ -730,15 +724,15 @@ export class AnalysisCommands extends PrjctCommandsBase {
           analysisItems.push(`Draft: ${analysisStatus.draftCommit} (pending seal)`)
         }
 
-        const md = mdJoin(
-          `## Status: ${projectName}`,
+        const md = mdOutput(
+          `## ⚡ Status: ${projectName}`,
           mdStats({
             Staleness: staleness,
             'Last sync': lastSync,
             'Commits since sync': status.commitsSinceSync,
             Reason: status.reason,
           }),
-          analysisItems.length > 0 ? mdSection('Analysis', mdList(analysisItems), 3) : null
+          analysisItems.length > 0 ? mdSection('Analysis', mdList(analysisItems)) : null
         )
         console.log(md)
 
