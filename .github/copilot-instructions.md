@@ -7,10 +7,7 @@ This is prjct-cli, a JavaScript project.
 - Type: enterprise
 - Stack: Hono
 
-## Conventions
-- Follow JavaScript conventions
-- Match existing code patterns
-- Keep code clean and readable
+> Run `p. sync` to populate project intelligence
 
 <!-- source: package.json, detected -->
 ## Commands
