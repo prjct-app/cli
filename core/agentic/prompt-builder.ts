@@ -713,7 +713,9 @@ class PromptBuilder {
       // falling back to repo conventions. Deduplicate with normalized matching.
       const rawStack = [
         ...(sa?.frameworks || []),
-        ...(orchestratorContext?.project?.conventions || []),
+        ...(Array.isArray(orchestratorContext?.project?.conventions)
+          ? orchestratorContext.project.conventions
+          : []),
       ]
       const groundTruth: ProjectGroundTruth = {
         projectPath,

@@ -90,10 +90,12 @@ async function buildJs() {
     packages: 'external',
     metafile: true,
     banner: {
-      js: `import { fileURLToPath as __fileURLToPath } from 'url';
+      js: `import { createRequire as __createRequire } from 'module';
+import { fileURLToPath as __fileURLToPath } from 'url';
 import { dirname as __pathDirname } from 'path';
-const __filename = __fileURLToPath(import.meta.url);
-const __dirname = __pathDirname(__filename);`,
+var require = __createRequire(import.meta.url);
+var __filename = __fileURLToPath(import.meta.url);
+var __dirname = __pathDirname(__filename);`,
     },
   })
 
@@ -118,10 +120,12 @@ const __dirname = __pathDirname(__filename);`,
     plugins: [stripShebangPlugin()],
     banner: {
       js: `#!/usr/bin/env node
+import { createRequire as __createRequire } from 'module';
 import { fileURLToPath as __fileURLToPath } from 'url';
 import { dirname as __pathDirname } from 'path';
-const __filename = __fileURLToPath(import.meta.url);
-const __dirname = __pathDirname(__filename);`,
+var require = __createRequire(import.meta.url);
+var __filename = __fileURLToPath(import.meta.url);
+var __dirname = __pathDirname(__filename);`,
     },
   })
   fs.chmodSync(path.join(DIST, 'cli', 'linear.mjs'), 0o755)
@@ -141,10 +145,12 @@ const __dirname = __pathDirname(__filename);`,
     plugins: [stripShebangPlugin()],
     banner: {
       js: `#!/usr/bin/env node
+import { createRequire as __createRequire } from 'module';
 import { fileURLToPath as __fileURLToPath } from 'url';
 import { dirname as __pathDirname } from 'path';
-const __filename = __fileURLToPath(import.meta.url);
-const __dirname = __pathDirname(__filename);`,
+var require = __createRequire(import.meta.url);
+var __filename = __fileURLToPath(import.meta.url);
+var __dirname = __pathDirname(__filename);`,
     },
   })
   fs.chmodSync(path.join(DIST, 'daemon', 'entry.mjs'), 0o755)

@@ -314,7 +314,7 @@ export class OrchestratorExecutor {
       context
     )
 
-    const domains = [classification.primaryDomain, ...classification.secondaryDomains]
+    const domains = [classification.primaryDomain, ...(classification.secondaryDomains || [])]
 
     // Filter to domains that have corresponding agents
     const validDomains = domains.filter((domain) =>

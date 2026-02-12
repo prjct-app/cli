@@ -9,10 +9,9 @@
 // Section Formatters
 // =============================================================================
 
-/** Format a markdown heading with content */
-export function mdSection(title: string, content: string, level: 2 | 3 = 2): string {
-  const prefix = '#'.repeat(level)
-  return `${prefix} ${title}\n${content}`
+/** Format a section heading with content */
+export function mdSection(title: string, content: string, _level: 2 | 3 = 2): string {
+  return `${title}\n${content}`
 }
 
 /** Format an ordered or unordered list */
@@ -42,13 +41,13 @@ interface TaskInfo {
 /** Format task header block */
 export function mdTaskHeader(task: TaskInfo): string {
   const parts: string[] = []
-  if (task.branch) parts.push(`Branch: \`${task.branch}\``)
+  if (task.branch) parts.push(`Branch: ${task.branch}`)
   if (task.linearId) parts.push(`Linear: ${task.linearId}`)
   if (task.type) parts.push(`Type: ${task.type}`)
   if (task.duration) parts.push(`Duration: ${task.duration}`)
 
   const meta = parts.length > 0 ? `\n${parts.join(' | ')}` : ''
-  return `## ${task.description}${meta}`
+  return `Task: ${task.description}${meta}`
 }
 
 interface SubtaskItem {
@@ -63,7 +62,7 @@ export function mdSubtasks(subtasks: SubtaskItem[], currentIndex?: number): stri
     const current = i === currentIndex ? ' ← current' : ''
     return `${checked ? '- [x]' : '- [ ]'} ${s.description}${current}`
   })
-  return `### Subtasks\n${items.join('\n')}`
+  return `Subtasks\n${items.join('\n')}`
 }
 
 // =============================================================================
@@ -82,19 +81,19 @@ export function mdRelevantFiles(files: FileRef[]): string {
   const items = files.map((f) => {
     const range = f.lineRange ? `:${f.lineRange}` : ''
     const desc = f.description ? ` — ${f.description}` : ''
-    return `- \`${f.path}${range}\`${desc}`
+    return `- ${f.path}${range}${desc}`
   })
-  return `### Relevant files\n${items.join('\n')}`
+  return `Relevant files\n${items.join('\n')}`
 }
 
 /** Format numbered instructions */
 export function mdInstructions(instructions: string[]): string {
-  return `### Instructions\n${mdList(instructions, true)}`
+  return `Instructions\n${mdList(instructions, true)}`
 }
 
 /** Format rules block */
 export function mdRules(rules: string[]): string {
-  return `### Rules\n${mdList(rules)}`
+  return `Rules\n${mdList(rules)}`
 }
 
 // =============================================================================
@@ -108,8 +107,8 @@ interface NextStep {
 
 /** Format next steps with commands */
 export function mdNextSteps(steps: NextStep[]): string {
-  const items = steps.map((s) => `- ${s.label}: \`${s.command}\``)
-  return `### Next\n${items.join('\n')}`
+  const items = steps.map((s) => `- ${s.label}: ${s.command}`)
+  return `Next\n${items.join('\n')}`
 }
 
 // =============================================================================
@@ -121,7 +120,7 @@ export function mdStats(stats: Record<string, string | number | null | undefined
   const lines: string[] = []
   for (const [key, value] of Object.entries(stats)) {
     if (value != null) {
-      lines.push(`- **${key}:** ${value}`)
+      lines.push(`- ${key}: ${value}`)
     }
   }
   return lines.join('\n')
@@ -129,7 +128,7 @@ export function mdStats(stats: Record<string, string | number | null | undefined
 
 /** Format a success/completion message */
 export function mdDone(message: string, details?: string): string {
-  return details ? `## ${message} ✓\n${details}` : `## ${message} ✓`
+  return details ? `${message}\n${details}` : message
 }
 
 /** Format a warning message */
@@ -149,4 +148,33 @@ export function mdError(message: string): string {
 /** Join multiple markdown sections with blank lines */
 export function mdJoin(...sections: (string | null | undefined | false)[]): string {
   return sections.filter(Boolean).join('\n\n')
+}
+
+// =============================================================================
+// Actionable Response (for LLM consumption)
+// =============================================================================
+
+interface MdOption {
+  label: string
+  command?: string
+}
+
+/**
+ * Output a structured JSON response that LLMs interpret as actionable.
+ * Used when a business rule blocks an action and the user must decide.
+ */
+export function mdActionRequired(
+  status: string,
+  reason: string,
+  options: MdOption[],
+  context?: Record<string, string>
+): void {
+  console.log(
+    JSON.stringify({
+      status,
+      reason,
+      ...context,
+      options,
+    })
+  )
 }
