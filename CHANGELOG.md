@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.29.0] - 2026-02-12
+
+### Features
+
+- JSON conflict handling + fix prjct start overwrite (#175)
+
+
 ## [1.28.2] - 2026-02-11
 
 ### Added
