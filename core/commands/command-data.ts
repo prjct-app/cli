@@ -213,6 +213,21 @@ export const COMMANDS: CommandMeta[] = [
     ],
   },
   {
+    name: 'sessions',
+    group: 'core',
+    description: 'Show recent sessions across all projects with resume context',
+    usage: { claude: '/p:sessions', terminal: 'prjct sessions [--cleanup]' },
+    params: '[--cleanup]',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: false,
+    features: [
+      'Cross-project session listing',
+      'Resume context with LLM hints',
+      'Auto-cleanup of stale snapshots',
+    ],
+  },
+  {
     name: 'suggest',
     group: 'core',
     description: 'Smart recommendations based on project state',

@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.29.1] - 2026-02-11
+
+### Added
+- Session continuity and project-switch context preservation (PRJ-285)
+- `prjct sessions` command for cross-project session listing
+- Session snapshots captured on pause, cleared on completion
+- LLM continuity context injected on task resume
+
 ## [1.29.0] - 2026-02-12
 
 ### Features
