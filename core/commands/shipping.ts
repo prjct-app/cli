@@ -6,12 +6,13 @@
 import path from 'node:path'
 import memorySystem from '../agentic/memory-system'
 import { shippedStorage, stateStorage } from '../storage'
+import { workflowRuleStorage } from '../storage/workflow-rule-storage'
 import type { CommandResult } from '../types'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import { mdDone, mdList, mdNextSteps, mdOutput, mdSection } from '../utils/md-formatter'
 import { getNextSteps, showNextSteps } from '../utils/next-steps'
 import { detectProjectCommands } from '../utils/project-commands'
-import { runWorkflowHooks } from '../workflow/workflow-preferences'
+import { executeWorkflowRules } from '../workflow/workflow-engine'
 import { configManager, dateHelper, fileHelper, out, PrjctCommandsBase, toolRegistry } from './base'
 
 export class ShippingCommands extends PrjctCommandsBase {
@@ -66,19 +67,27 @@ export class ShippingCommands extends PrjctCommandsBase {
       }
 
       let featureName = feature
-      if (!featureName) {
-        // Read from storage (JSON is source of truth)
-        const currentTask = await stateStorage.getCurrentTask(projectId)
-        featureName = currentTask?.description || 'current work'
+
+      // Complete current task implicitly before shipping
+      const currentTask = await stateStorage.getCurrentTask(projectId)
+      if (currentTask) {
+        if (!featureName) featureName = currentTask.description || 'current work'
+        await stateStorage.completeTask(projectId)
       }
 
-      // Run before_ship hooks (using memory-based preferences)
-      const beforeResult = await runWorkflowHooks(projectId, 'before', 'ship', {
+      if (!featureName) featureName = 'current work'
+
+      // Run before_ship rules (gates + hooks)
+      const beforeResult = await executeWorkflowRules(projectId, 'ship', 'before', {
         projectPath,
-        skipHooks: options.skipHooks,
+        skipRules: options.skipHooks,
       })
       if (!beforeResult.success) {
-        return { success: false, error: `Hook failed: ${beforeResult.failed}` }
+        const msg =
+          beforeResult.gatesFailed.length > 0
+            ? `Blocked: ${beforeResult.gatesFailed.join(', ')}`
+            : `Hook failed: ${beforeResult.hooksFailed.join(', ')}`
+        return { success: false, error: msg }
       }
 
       // Ship steps with progress indicator
@@ -87,6 +96,21 @@ export class ShippingCommands extends PrjctCommandsBase {
 
       if (!options.md) out.step(2, 5, 'Running tests...')
       const testResult = await this._runTests(projectPath)
+
+      // Run custom ship steps (after built-in quality checks, before version bump)
+      const customSteps = workflowRuleStorage
+        .getRulesForCommand(projectId, 'ship')
+        .filter((r) => r.type === 'step' && r.enabled)
+      for (const step of customSteps) {
+        if (!options.md) out.step(2, 5, `Running step: ${step.action}...`)
+        const { exitCode } = await this._runWithExitCode(step.action)
+        if (exitCode !== 0) {
+          const msg = `Custom step failed: ${step.action}`
+          if (options.md) console.log(`> ${msg}`)
+          else out.fail(msg)
+          return { success: false, error: msg }
+        }
+      }
 
       if (!options.md) out.step(3, 5, 'Updating version...')
       const newVersion = await this._bumpVersion(projectPath)
@@ -128,10 +152,10 @@ export class ShippingCommands extends PrjctCommandsBase {
         })
       }
 
-      // Run after_ship hooks
-      await runWorkflowHooks(projectId, 'after', 'ship', {
+      // Run after_ship rules
+      await executeWorkflowRules(projectId, 'ship', 'after', {
         projectPath,
-        skipHooks: options.skipHooks,
+        skipRules: options.skipHooks,
       })
 
       if (options.md) {

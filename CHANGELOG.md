@@ -1,11 +1,15 @@
 # Changelog
 
+## [1.32.1] - 2026-02-12
+
+### Added
+- Phase 2: Dynamic workflow customization — hooks, gates, and custom steps via `prjct workflow`
+
 ## [1.32.0] - 2026-02-12
 
 ### Features
 
 - session continuity and project-switch context preservation (PRJ-285) (#177)
-
 
 ## [1.31.0] - 2026-02-12
 

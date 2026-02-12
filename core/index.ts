@@ -147,6 +147,8 @@ async function main(): Promise<void> {
         idea: (p) => commands.idea(p || '', process.cwd(), { md }),
         spec: (p) => commands.spec(p),
         ship: (p) => commands.ship(p, process.cwd(), { md }),
+        // Workflow
+        workflow: (p) => commands.workflowPrefs(p, process.cwd(), { md }),
         // Sessions (PRJ-285)
         sessions: () => commands.sessions(process.cwd(), { md, cleanup: options.cleanup === true }),
         // Analytics

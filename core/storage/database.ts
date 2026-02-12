@@ -331,6 +331,31 @@ const migrations: Migration[] = [
       `)
     },
   },
+  {
+    version: 3,
+    name: 'workflow-rules-table',
+    up: (db: SqliteDatabase) => {
+      db.run(`
+        -- =======================================================================
+        -- Workflow Rules: hooks, gates, and custom steps (Phase 2)
+        -- =======================================================================
+        CREATE TABLE workflow_rules (
+          id          INTEGER PRIMARY KEY AUTOINCREMENT,
+          type        TEXT NOT NULL,
+          command     TEXT NOT NULL,
+          position    TEXT NOT NULL,
+          action      TEXT NOT NULL,
+          description TEXT,
+          enabled     INTEGER NOT NULL DEFAULT 1,
+          timeout_ms  INTEGER NOT NULL DEFAULT 60000,
+          created_at  TEXT NOT NULL,
+          sort_order  INTEGER NOT NULL DEFAULT 0
+        );
+
+        CREATE INDEX idx_workflow_rules_command ON workflow_rules(command);
+      `)
+    },
+  },
 ]
 
 // =============================================================================

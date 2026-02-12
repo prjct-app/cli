@@ -120,9 +120,10 @@ class PrjctCommands {
 
   async workflowPrefs(
     input: string | null = null,
-    projectPath: string = process.cwd()
+    projectPath: string = process.cwd(),
+    options: { md?: boolean } = {}
   ): Promise<CommandResult> {
-    return this.workflow.workflow(input, projectPath)
+    return this.workflow.workflow(input, projectPath, options)
   }
 
   async sessions(
