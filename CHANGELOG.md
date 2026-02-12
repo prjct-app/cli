@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.32.0] - 2026-02-12
+
+### Features
+
+- session continuity and project-switch context preservation (PRJ-285) (#177)
+
+
 ## [1.31.0] - 2026-02-12
 
 ### Features
