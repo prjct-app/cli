@@ -37,6 +37,51 @@ export interface ProjectContext {
     domain: string[]
   }
   sources?: ContextSources
+  analysis?: {
+    patterns: Array<{ name: string; description: string; location?: string }>
+    antiPatterns: Array<{ issue: string; file: string; suggestion: string }>
+    packageManager?: string
+    sourceDir?: string
+    testDir?: string
+  }
+}
+
+// =============================================================================
+// Analysis Helpers
+// =============================================================================
+
+type Analysis = NonNullable<ProjectContext['analysis']>
+
+function formatPatterns(patterns: Analysis['patterns'], limit?: number): string {
+  const items = limit ? patterns.slice(0, limit) : patterns
+  return items
+    .map((p) => `- **${p.name}**: ${p.description}${p.location ? ` (${p.location})` : ''}`)
+    .join('\n')
+}
+
+function formatAntiPatterns(antiPatterns: Analysis['antiPatterns'], limit?: number): string {
+  const items = limit ? antiPatterns.slice(0, limit) : antiPatterns
+  return items.map((ap) => `- **${ap.issue}** in \`${ap.file}\` — ${ap.suggestion}`).join('\n')
+}
+
+function formatStructure(analysis: Analysis): string {
+  const parts: string[] = []
+  if (analysis.packageManager) parts.push(`- Package Manager: \`${analysis.packageManager}\``)
+  if (analysis.sourceDir) parts.push(`- Source: \`${analysis.sourceDir}/\``)
+  if (analysis.testDir) parts.push(`- Tests: \`${analysis.testDir}/\``)
+  return parts.length > 0 ? `\n### Project Structure\n\n${parts.join('\n')}\n` : ''
+}
+
+function formatAnalysisForClaude(analysis: Analysis): string {
+  const parts: string[] = []
+  if (analysis.patterns.length > 0) {
+    parts.push(`\n### Code Patterns (Follow These)\n\n${formatPatterns(analysis.patterns)}`)
+  }
+  if (analysis.antiPatterns.length > 0) {
+    parts.push(`\n### Anti-Patterns (Avoid These)\n\n${formatAntiPatterns(analysis.antiPatterns)}`)
+  }
+  parts.push(formatStructure(analysis))
+  return parts.join('\n')
 }
 
 /**
@@ -75,7 +120,7 @@ ${cite(s.languages)}
 - **Languages**: ${ctx.languages.join(', ') || 'Not detected'}
 ${cite(s.frameworks)}
 - **Frameworks**: ${ctx.frameworks.join(', ') || 'Not detected'}
-
+${ctx.analysis ? formatAnalysisForClaude(ctx.analysis) : `\n> Run \`p. sync\` to populate project intelligence\n`}
 ---
 
 ## PRJCT RULES
@@ -164,20 +209,26 @@ export function formatForCursor(ctx: ProjectContext, _config: AIToolConfig): str
   lines.push(`- Build: \`${ctx.commands.build}\``)
   lines.push('')
 
-  // Code style - language agnostic
-  lines.push('## Code Style')
-  lines.push(`- Follow ${ctx.ecosystem} conventions`)
-  lines.push('- Match existing code patterns in this project')
-  lines.push('- Use idiomatic constructs for the language')
-  lines.push('')
-
-  // Best practices
-  lines.push('## Best Practices')
-  lines.push('- Write clean, readable code')
-  lines.push('- Add comments only for complex logic')
-  lines.push('- Keep functions small and focused')
-  lines.push('- Handle errors appropriately')
-  lines.push('- Write tests for new functionality')
+  // Analysis-driven intelligence
+  if (ctx.analysis) {
+    if (ctx.analysis.patterns.length > 0) {
+      lines.push('## Code Patterns')
+      lines.push(formatPatterns(ctx.analysis.patterns))
+      lines.push('')
+    }
+    if (ctx.analysis.antiPatterns.length > 0) {
+      lines.push('## Anti-Patterns (Avoid)')
+      lines.push(formatAntiPatterns(ctx.analysis.antiPatterns))
+      lines.push('')
+    }
+    const structure = formatStructure(ctx.analysis)
+    if (structure) {
+      lines.push(structure.trim())
+      lines.push('')
+    }
+  } else {
+    lines.push('> Run `p. sync` to populate project intelligence')
+  }
 
   return lines.join('\n')
 }
@@ -202,12 +253,22 @@ export function formatForCopilot(ctx: ProjectContext, _config: AIToolConfig): st
   lines.push(`- Stack: ${ctx.frameworks.join(', ') || ctx.ecosystem}`)
   lines.push('')
 
-  // Conventions
-  lines.push('## Conventions')
-  lines.push(`- Follow ${ctx.ecosystem} conventions`)
-  lines.push('- Match existing code patterns')
-  lines.push('- Keep code clean and readable')
-  lines.push('')
+  // Analysis-driven intelligence (capped for Copilot's token budget)
+  if (ctx.analysis) {
+    if (ctx.analysis.patterns.length > 0) {
+      lines.push('## Code Patterns')
+      lines.push(formatPatterns(ctx.analysis.patterns, 5))
+      lines.push('')
+    }
+    if (ctx.analysis.antiPatterns.length > 0) {
+      lines.push('## Anti-Patterns')
+      lines.push(formatAntiPatterns(ctx.analysis.antiPatterns, 3))
+      lines.push('')
+    }
+  } else {
+    lines.push('> Run `p. sync` to populate project intelligence')
+    lines.push('')
+  }
 
   // Commands
   lines.push(cite(s.commands))
@@ -265,12 +326,20 @@ export function formatForWindsurf(ctx: ProjectContext, _config: AIToolConfig): s
   lines.push('```')
   lines.push('')
 
-  // Code style - language agnostic
-  lines.push('## Rules')
-  lines.push(`- Follow ${ctx.ecosystem} conventions`)
-  lines.push('- Match existing project patterns')
-  lines.push('- Clean code, minimal comments')
-  lines.push('- Test new functionality')
+  // Analysis-driven intelligence
+  if (ctx.analysis) {
+    if (ctx.analysis.patterns.length > 0) {
+      lines.push('## Code Patterns')
+      lines.push(formatPatterns(ctx.analysis.patterns))
+      lines.push('')
+    }
+    if (ctx.analysis.antiPatterns.length > 0) {
+      lines.push('## Anti-Patterns (Avoid)')
+      lines.push(formatAntiPatterns(ctx.analysis.antiPatterns))
+    }
+  } else {
+    lines.push('> Run `p. sync` to populate project intelligence')
+  }
 
   return lines.join('\n')
 }
@@ -280,7 +349,7 @@ export function formatForWindsurf(ctx: ProjectContext, _config: AIToolConfig): s
  * JSON config with system message and context providers
  */
 export function formatForContinue(ctx: ProjectContext, _config: AIToolConfig): string {
-  const systemMessage = [
+  const messageParts = [
     `You are working on ${ctx.name}, a ${ctx.projectType} ${ctx.ecosystem} project.`,
     '',
     `Stack: ${ctx.languages.join(', ')}${ctx.frameworks.length > 0 ? ` with ${ctx.frameworks.join(', ')}` : ''}`,
@@ -290,9 +359,23 @@ export function formatForContinue(ctx: ProjectContext, _config: AIToolConfig): s
     `- Dev: ${ctx.commands.dev}`,
     `- Test: ${ctx.commands.test}`,
     `- Build: ${ctx.commands.build}`,
-    '',
-    `Follow ${ctx.ecosystem} conventions. Match existing code patterns.`,
-  ].join('\n')
+  ]
+  if (ctx.analysis?.patterns?.length) {
+    messageParts.push('', 'Code Patterns:')
+    for (const p of ctx.analysis.patterns) {
+      messageParts.push(`- ${p.name}: ${p.description}`)
+    }
+  }
+  if (ctx.analysis?.antiPatterns?.length) {
+    messageParts.push('', 'Anti-Patterns (Avoid):')
+    for (const ap of ctx.analysis.antiPatterns) {
+      messageParts.push(`- ${ap.issue} in ${ap.file} — ${ap.suggestion}`)
+    }
+  }
+  if (!ctx.analysis) {
+    messageParts.push('', 'Run `p. sync` to populate project intelligence.')
+  }
+  const systemMessage = messageParts.join('\n')
 
   const continueConfig = {
     systemMessage,
@@ -324,6 +407,80 @@ export function formatForContinue(ctx: ProjectContext, _config: AIToolConfig): s
 }
 
 /**
+ * Format context for OpenAI Codex (AGENTS.md)
+ * Plain markdown — no frontmatter (AGENTS.md spec)
+ */
+export function formatForCodex(ctx: ProjectContext, _config: AIToolConfig): string {
+  const lines: string[] = []
+
+  lines.push(`# ${ctx.name} — Project Context`)
+  lines.push('<!-- Generated by prjct — https://prjct.app -->')
+  lines.push('')
+
+  // Tech Stack
+  lines.push('## Tech Stack')
+  if (ctx.languages.length > 0) {
+    lines.push(`- Languages: ${ctx.languages.join(', ')}`)
+  }
+  if (ctx.frameworks.length > 0) {
+    lines.push(`- Frameworks: ${ctx.frameworks.join(', ')}`)
+  }
+  if (ctx.analysis?.packageManager) {
+    lines.push(`- Package Manager: ${ctx.analysis.packageManager}`)
+  }
+  lines.push('')
+
+  // Commands
+  lines.push('## Commands')
+  lines.push('')
+  lines.push('| Action | Command |')
+  lines.push('|--------|---------|')
+  lines.push(`| Install | \`${ctx.commands.install}\` |`)
+  lines.push(`| Dev | \`${ctx.commands.dev}\` |`)
+  lines.push(`| Test | \`${ctx.commands.test}\` |`)
+  lines.push(`| Build | \`${ctx.commands.build}\` |`)
+  lines.push('')
+
+  // Project Structure
+  if (ctx.analysis?.sourceDir || ctx.analysis?.testDir) {
+    lines.push('## Project Structure')
+    if (ctx.analysis.sourceDir) lines.push(`- Source: \`${ctx.analysis.sourceDir}/\``)
+    if (ctx.analysis.testDir) lines.push(`- Tests: \`${ctx.analysis.testDir}/\``)
+    lines.push('')
+  }
+
+  // Analysis-driven intelligence
+  if (ctx.analysis) {
+    if (ctx.analysis.patterns.length > 0) {
+      lines.push('## Code Patterns')
+      lines.push('')
+      lines.push(formatPatterns(ctx.analysis.patterns))
+      lines.push('')
+    }
+    if (ctx.analysis.antiPatterns.length > 0) {
+      lines.push('## Anti-Patterns (Avoid)')
+      lines.push('')
+      lines.push(formatAntiPatterns(ctx.analysis.antiPatterns))
+      lines.push('')
+    }
+  } else {
+    lines.push('> Run `p. sync` to populate project intelligence')
+    lines.push('')
+  }
+
+  // Workflow
+  lines.push('## prjct Workflow')
+  lines.push('')
+  lines.push('Run `prjct` CLI commands for project management:')
+  lines.push('- `prjct sync` — Analyze project, regenerate context')
+  lines.push('- `prjct task "desc"` — Start a task')
+  lines.push('- `prjct done` — Complete current subtask')
+  lines.push('- `prjct ship "name"` — Ship feature with PR')
+
+  return lines.join('\n')
+}
+
+/**
  * Get formatter function for a tool
  */
 export function getFormatter(
@@ -335,6 +492,7 @@ export function getFormatter(
     copilot: formatForCopilot,
     windsurf: formatForWindsurf,
     continue: formatForContinue,
+    codex: formatForCodex,
   }
 
   return formatters[toolId] || null

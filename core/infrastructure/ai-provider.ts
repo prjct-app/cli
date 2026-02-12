@@ -178,6 +178,33 @@ export const WindsurfProvider: AIProviderConfig = {
 }
 
 /**
+ * OpenAI Codex CLI provider configuration
+ *
+ * Agent-first CLI that uses AGENTS.md for project context.
+ * Skills live in .agents/skills/ (project) or ~/.codex/skills/ (global).
+ *
+ * @see https://github.com/openai/codex
+ */
+export const CodexProvider: AIProviderConfig = {
+  name: 'codex',
+  displayName: 'OpenAI Codex',
+  cliCommand: 'codex',
+  configDir: path.join(os.homedir(), '.codex'),
+  contextFile: 'AGENTS.md',
+  skillsDir: path.join(os.homedir(), '.codex', 'skills'),
+  commandsDir: '.agents/skills',
+  commandFormat: 'md',
+  settingsFile: null,
+  projectSettingsFile: null,
+  ignoreFile: '.codexignore',
+  websiteUrl: 'https://openai.com/codex',
+  docsUrl: 'https://github.com/openai/codex',
+  defaultModel: null,
+  supportedModels: [],
+  minCliVersion: null,
+}
+
+/**
  * All available providers
  */
 export const Providers: Record<AIProviderName, AIProviderConfig> = {
@@ -186,6 +213,7 @@ export const Providers: Record<AIProviderName, AIProviderConfig> = {
   cursor: CursorProvider,
   antigravity: AntigravityProvider,
   windsurf: WindsurfProvider,
+  codex: CodexProvider,
 }
 
 // =============================================================================
@@ -346,6 +374,7 @@ export function getProviderBranding(provider: AIProviderName): ProviderBranding 
     cursor: '⚡ prjct + Cursor',
     antigravity: '⚡ prjct + Antigravity',
     windsurf: '⚡ prjct + Windsurf',
+    codex: '⚡ prjct + Codex',
   }
 
   return {
@@ -467,6 +496,51 @@ export async function detectAntigravity(): Promise<AntigravityDetection> {
     fileExists(configPath),
     fileExists(skillPath),
   ])
+
+  return {
+    installed,
+    skillInstalled,
+    configPath: installed ? configPath : undefined,
+  }
+}
+
+// =============================================================================
+// Codex Detection
+// =============================================================================
+
+/**
+ * Result of Codex detection
+ */
+export interface CodexDetection {
+  /** Whether `codex` CLI is available */
+  installed: boolean
+
+  /** Whether prjct skill is installed */
+  skillInstalled: boolean
+
+  /** Path to config directory */
+  configPath?: string
+}
+
+/**
+ * Detect if OpenAI Codex CLI is installed
+ *
+ * Detection: check for `codex` CLI command or ~/.codex/ directory.
+ */
+export async function detectCodex(): Promise<CodexDetection> {
+  const configPath = CodexProvider.configDir
+  if (!configPath) {
+    return { installed: false, skillInstalled: false }
+  }
+
+  const cliPath = await whichCommand('codex')
+  const skillPath = path.join(configPath, 'skills', 'prjct', 'SKILL.md')
+  const [dirExists, skillInstalled] = await Promise.all([
+    fileExists(configPath),
+    fileExists(skillPath),
+  ])
+
+  const installed = !!cliPath || dirExists
 
   return {
     installed,

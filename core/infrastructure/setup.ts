@@ -34,6 +34,7 @@ import { PACKAGE_ROOT, VERSION } from '../utils/version'
 import {
   detectAllProviders,
   detectAntigravity,
+  detectCodex,
   detectProvider,
   Providers,
   selectProvider,
@@ -237,6 +238,15 @@ export async function run(): Promise<SetupResults> {
     }
   }
 
+  // Step 2c: Install for Codex if detected
+  const codexDetection = await detectCodex()
+  if (codexDetection.installed) {
+    const codexResult = await installCodexSkill()
+    if (codexResult.success) {
+      console.log(`   ${chalk.green('✓')} Codex skill installed`)
+    }
+  }
+
   // Step 3: Save version in editors-config
   await editorsConfig.saveConfig(VERSION, await installer.getInstallPath(), selection.provider)
 
@@ -403,6 +413,51 @@ export async function installAntigravitySkill(): Promise<{
 export async function needsAntigravityInstallation(): Promise<boolean> {
   const detection = await detectAntigravity()
   return detection.installed && !detection.skillInstalled
+}
+
+// =============================================================================
+// Codex Installation (Skills-based)
+// =============================================================================
+
+/**
+ * Install prjct as a skill for OpenAI Codex
+ *
+ * Codex uses SKILL.md files in ~/.codex/skills/
+ * Following the same pattern as Antigravity.
+ */
+export async function installCodexSkill(): Promise<{
+  success: boolean
+  action: string | null
+}> {
+  try {
+    const codexSkillsDir = path.join(os.homedir(), '.codex', 'skills')
+    const prjctSkillDir = path.join(codexSkillsDir, 'prjct')
+    const skillMdPath = path.join(prjctSkillDir, 'SKILL.md')
+    // Ensure skills directory exists
+    await fs.mkdir(prjctSkillDir, { recursive: true })
+
+    // Check if SKILL.md already exists
+    const skillExists = await fileExists(skillMdPath)
+
+    // Read template content - try bundle first
+    let templateContent = getTemplateContent('codex/SKILL.md')
+    if (!templateContent) {
+      const templatePath = path.join(PACKAGE_ROOT, 'templates', 'codex', 'SKILL.md')
+      if (!(await fileExists(templatePath))) {
+        log.warn('Codex SKILL.md template not found')
+        return { success: false, action: null }
+      }
+      templateContent = await fs.readFile(templatePath, 'utf-8')
+    }
+
+    // Write SKILL.md
+    await fs.writeFile(skillMdPath, templateContent, 'utf-8')
+
+    return { success: true, action: skillExists ? 'updated' : 'created' }
+  } catch (error) {
+    log.warn(`Codex skill warning: ${getErrorMessage(error)}`)
+    return { success: false, action: null }
+  }
 }
 
 /**

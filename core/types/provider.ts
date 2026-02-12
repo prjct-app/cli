@@ -20,7 +20,7 @@
 /**
  * Supported AI provider names
  */
-export type AIProviderName = 'claude' | 'gemini' | 'cursor' | 'antigravity' | 'windsurf'
+export type AIProviderName = 'claude' | 'gemini' | 'cursor' | 'antigravity' | 'windsurf' | 'codex'
 
 /**
  * Command format for each provider
