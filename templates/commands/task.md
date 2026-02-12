@@ -28,3 +28,13 @@ If CLI output is JSON with `options`, present them to the user with AskUserQuest
 - Work through subtasks in order
 - When done with a subtask: `prjct done --md`
 - Every git commit MUST include footer: `Generated with [p/](https://www.prjct.app/)`
+
+## Presentation
+When showing task context to the user, format your response as:
+
+1. Start with a brief status line: `**Task started**: {description}`
+2. Show the subtask table from CLI output
+3. List 2-3 key files you'll work on with `code formatting` for paths
+4. End with your approach (concise, 2-3 bullets)
+
+Keep responses scannable. Use tables for structured data. Use `code formatting` for file paths and commands.

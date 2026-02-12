@@ -1,6 +1,6 @@
 {
   "name": "prjct-cli",
-  "version": "1.30.1",
+  "version": "1.30.2",
   "description": "Context layer for AI agents. Project context for Claude Code, Gemini CLI, and more.",
   "main": "dist/bin/prjct.mjs",
   "bin": {
@@ -51,6 +51,7 @@
   "author": "prjct.app",
   "license": "MIT",
   "dependencies": {
+    "@clack/prompts": "^1.0.0",
     "@hono/node-server": "^1.13.7",
     "@linear/sdk": "^29.0.0",
     "better-sqlite3": "^12.6.2",
@@ -60,7 +61,6 @@
     "glob": "^13.0.1",
     "hono": "^4.11.3",
     "jsonc-parser": "^3.3.1",
-    "prompts": "^2.4.2",
     "zod": "^3.24.1"
   },
   "devDependencies": {
@@ -68,7 +68,6 @@
     "@types/better-sqlite3": "^7.6.13",
     "@types/bun": "latest",
     "@types/chokidar": "^2.1.7",
-    "@types/prompts": "^2.4.9",
     "esbuild": "^0.25.0",
     "lefthook": "^2.1.0",
     "typescript": "^5.9.3"
@@ -98,7 +97,6 @@
   ],
   "prepublishOnly": "node scripts/build.js",
   "trustedDependencies": [
-    "chalk",
-    "prompts"
+    "chalk"
   ]
 }

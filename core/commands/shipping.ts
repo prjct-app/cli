@@ -8,7 +8,7 @@ import memorySystem from '../agentic/memory-system'
 import { shippedStorage, stateStorage } from '../storage'
 import type { CommandResult } from '../types'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
-import { mdDone, mdJoin, mdList, mdNextSteps, mdSection } from '../utils/md-formatter'
+import { mdDone, mdList, mdNextSteps, mdOutput, mdSection } from '../utils/md-formatter'
 import { getNextSteps, showNextSteps } from '../utils/next-steps'
 import { detectProjectCommands } from '../utils/project-commands'
 import { runWorkflowHooks } from '../workflow/workflow-preferences'
@@ -136,7 +136,7 @@ export class ShippingCommands extends PrjctCommandsBase {
 
       if (options.md) {
         const steps = getNextSteps('ship')
-        const md = mdJoin(
+        const md = mdOutput(
           mdDone(`Shipped: ${featureName}`, `Version: ${newVersion}`),
           mdSection(
             'Results',
@@ -145,8 +145,7 @@ export class ShippingCommands extends PrjctCommandsBase {
               `Tests: ${testResult.message}`,
               `Commit: ${commitResult.success ? 'created' : commitResult.message}`,
               `Push: ${pushStatus}`,
-            ]),
-            3
+            ])
           ),
           mdNextSteps(steps.map((s) => ({ label: s.desc, command: s.cmd })))
         )

@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.30.2] - 2026-02-12
+
+### Added
+- exquisite-terminal-ux
+
 ## [1.30.1] - 2026-02-11
 
 ### Added
