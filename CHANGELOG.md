@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.28.2] - 2026-02-11
+
+### Added
+- json conflict handling in templates
+
+## [1.28.1] - 2026-02-11
+
+### Added
+- test feature
+
 ## [1.28.0] - 2026-02-11
 
 ### Features

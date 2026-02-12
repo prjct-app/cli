@@ -13,6 +13,7 @@ import os from 'node:os'
 import path from 'node:path'
 import readline from 'node:readline'
 import chalk from 'chalk'
+import { getTemplateContent, listTemplates } from '../agentic/template-loader'
 import { detectAllProviders, Providers } from '../infrastructure/ai-provider'
 import { getErrorMessage } from '../types/fs'
 import type { AIProviderName } from '../types/provider'
@@ -225,6 +226,44 @@ async function installRouter(provider: AIProviderName): Promise<boolean> {
 }
 
 /**
+ * Install subcommand templates (task.md, done.md, etc.) to provider commands dir
+ */
+async function installSubcommands(provider: AIProviderName): Promise<boolean> {
+  const config = Providers[provider]
+  if (!config.configDir) return false
+
+  try {
+    // Claude uses p/ subdirectory, Gemini uses commands/ directly
+    const commandsDir =
+      provider === 'gemini'
+        ? path.join(config.configDir, 'commands')
+        : path.join(config.configDir, 'commands', 'p')
+    await fs.mkdir(commandsDir, { recursive: true })
+
+    const routerFiles = new Set(['p.md', 'p.toml'])
+    const bundledKeys = listTemplates('commands/')
+    const commandFiles = bundledKeys
+      .filter((k) => k.endsWith('.md'))
+      .map((k) => k.replace('commands/', ''))
+      .filter((f) => !routerFiles.has(f))
+
+    for (const file of commandFiles) {
+      const content = getTemplateContent(`commands/${file}`)
+      if (content) {
+        await fs.writeFile(path.join(commandsDir, file), content, 'utf-8')
+      }
+    }
+
+    return true
+  } catch (error) {
+    console.error(
+      `  ${chalk.yellow('⚠')} Failed to install ${provider} subcommands: ${getErrorMessage(error)}`
+    )
+    return false
+  }
+}
+
+/**
  * Install global config for a CLI-based provider (Claude/Gemini)
  * Note: Cursor uses project-level config, not global
  */
@@ -342,20 +381,6 @@ function showCompletion(providers: AIProviderName[]): void {
 export async function runStart(): Promise<void> {
   showBanner()
 
-  // Check if already configured
-  const configPath = path.join(os.homedir(), '.prjct-cli', 'config', 'installed-editors.json')
-  if (await fileExists(configPath)) {
-    const existing = JSON.parse(await fs.readFile(configPath, 'utf-8'))
-    if (existing.version === VERSION) {
-      console.log(`  ${chalk.yellow('ℹ')} Already configured for v${VERSION}`)
-      console.log(`  ${chalk.dim('Run with --force to reconfigure')}\n`)
-
-      if (!process.argv.includes('--force')) {
-        return
-      }
-    }
-  }
-
   // Select providers
   const selectedProviders = await selectProviders()
 
@@ -367,9 +392,10 @@ export async function runStart(): Promise<void> {
     process.stdout.write(`  ${chalk.dim('•')} ${config.displayName}... `)
 
     const routerOk = await installRouter(provider)
+    const subcommandsOk = await installSubcommands(provider)
     const configOk = await installGlobalConfig(provider)
 
-    if (routerOk && configOk) {
+    if (routerOk && subcommandsOk && configOk) {
       console.log(chalk.green('✓'))
     } else if (routerOk || configOk) {
       console.log(chalk.yellow('partial'))

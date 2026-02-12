@@ -11,6 +11,7 @@ If $ARGUMENTS is empty, ASK the user what task to start.
 ```bash
 prjct task "$ARGUMENTS" --md
 ```
+If CLI output is JSON with `options`, present them to the user with AskUserQuestion and execute the chosen command.
 
 ## Step 3: Understand before acting (USE YOUR INTELLIGENCE)
 - Read the relevant files from the CLI output

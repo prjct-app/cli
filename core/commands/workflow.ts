@@ -8,6 +8,8 @@
  * TypeScript provides infrastructure; Claude decides via templates.
  */
 
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import commandExecutor from '../agentic/command-executor'
 import { templateExecutor } from '../agentic/template-executor'
 import {
@@ -16,23 +18,27 @@ import {
   pointsToMinutes,
   pointsToTimeRange,
 } from '../domain/fibonacci'
+import pathManager from '../infrastructure/path-manager'
 import { linearService } from '../integrations/linear'
 import { generateUUID } from '../schemas'
+import type { AnalysisSchema } from '../schemas/analysis'
 import type { TaskFeedback } from '../schemas/state'
-import { queueStorage, stateStorage } from '../storage'
+import { analysisStorage, queueStorage, stateStorage } from '../storage'
+import { findRelevantFiles } from '../tools/context/files-tool'
 import type { CommandResult } from '../types'
-import { getErrorMessage } from '../types/fs'
+import { getErrorMessage, isNotFoundError } from '../types/fs'
 import {
+  mdActionRequired,
   mdDone,
   mdJoin,
   mdList,
   mdNextSteps,
+  mdRelevantFiles,
   mdRules,
   mdSection,
   mdStats,
   mdSubtasks,
   mdTaskHeader,
-  mdWarn,
 } from '../utils/md-formatter'
 import { showNextSteps, showStateInfo } from '../utils/next-steps'
 import { getLinearApiKey, getProjectCredentials } from '../utils/project-credentials'
@@ -82,14 +88,6 @@ export class WorkflowCommands extends PrjctCommandsBase {
           return { success: false, error: `Hook failed: ${beforeResult.failed}` }
         }
 
-        // AGENTIC: Use CommandExecutor for full orchestration support
-        const result = await commandExecutor.execute('task', { task }, projectPath)
-
-        if (!result.success) {
-          if (!options.md) out.fail(result.error || 'Failed to execute task')
-          return { success: false, error: result.error }
-        }
-
         // Check if task is a Linear issue ID (e.g., PRJ-139)
         let linearId: string | undefined
         let taskDescription = task
@@ -104,7 +102,6 @@ export class WorkflowCommands extends PrjctCommandsBase {
               if (issue) {
                 linearId = task
                 taskDescription = `${task}: ${issue.title}`
-                // Mark as in progress in Linear
                 await linearService.markInProgress(task)
               }
             }
@@ -113,7 +110,84 @@ export class WorkflowCommands extends PrjctCommandsBase {
           }
         }
 
-        // Write-through: JSON → MD → Event
+        if (options.md) {
+          // --md path: rich context provider, no orchestration
+          // Check for active task before starting — friendly message instead of error
+          const existingTask = await stateStorage.getCurrentTask(projectId)
+          if (existingTask) {
+            mdActionRequired(
+              'blocked',
+              'task_already_active',
+              [
+                { label: 'Complete current task first', command: 'prjct done --md' },
+                { label: 'Pause current and start this one', command: 'prjct pause --md' },
+                { label: 'Cancel' },
+              ],
+              { current_task: existingTask.description, requested_task: taskDescription }
+            )
+            return { success: true, message: 'Task already active', currentTask: existingTask }
+          }
+
+          // Start task immediately — no executor to fail
+          await stateStorage.startTask(projectId, {
+            id: generateUUID(),
+            description: taskDescription,
+            sessionId: generateUUID(),
+            linearId,
+          } as Parameters<typeof stateStorage.startTask>[1])
+
+          // Load project context in parallel (non-blocking, graceful)
+          const globalPath = pathManager.getGlobalProjectPath(projectId)
+          const [branch, analysis, repoAnalysisRaw, relevantFilesResult] = await Promise.all([
+            getGitBranch(),
+            analysisStorage.getActive(projectId).catch(() => null),
+            loadRepoAnalysis(globalPath),
+            findRelevantFiles(taskDescription, projectPath, { maxFiles: 8, minScore: 0.15 }).catch(
+              () => ({ files: [], metrics: { filesScanned: 0, filesReturned: 0, scanDuration: 0 } })
+            ),
+          ])
+
+          // Build sections
+          const header = mdTaskHeader({ description: taskDescription, branch, linearId })
+          const projectContext = buildProjectContext(analysis, repoAnalysisRaw)
+          const files = mdRelevantFiles(
+            relevantFilesResult.files.map((f) => ({
+              path: f.path,
+              description: f.reasons.join(', '),
+            }))
+          )
+          const rules = buildRules(repoAnalysisRaw)
+          const patterns = buildPatterns(analysis)
+          const next = mdNextSteps([
+            { label: 'Find relevant files', command: `prjct context files "${task}"` },
+            { label: 'Complete subtask', command: 'prjct done --md' },
+            { label: 'Pause task', command: 'prjct pause --md' },
+          ])
+
+          console.log(mdJoin(header, projectContext, files, rules, patterns, next))
+
+          await this.logToMemory(projectPath, 'task_started', {
+            task,
+            timestamp: dateHelper.getTimestamp(),
+          })
+
+          await runWorkflowHooks(projectId, 'after', 'task', {
+            projectPath,
+            skipHooks: options.skipHooks,
+          })
+
+          return { success: true, task, taskDescription }
+        }
+
+        // AGENTIC: Use CommandExecutor for full orchestration support (non-md path)
+        const result = await commandExecutor.execute('task', { task }, projectPath)
+
+        if (!result.success) {
+          out.fail(result.error || 'Failed to execute task')
+          return { success: false, error: result.error }
+        }
+
+        // Write-through: JSON → MD → Event (only after executor succeeds)
         await stateStorage.startTask(projectId, {
           id: generateUUID(),
           description: taskDescription,
@@ -129,34 +203,11 @@ export class WorkflowCommands extends PrjctCommandsBase {
         // Build metrics from orchestrator context
         const agentCount = result.orchestratorContext?.agents?.length || availableAgents.length
 
-        if (options.md) {
-          // Markdown output for LLM consumption
-          const subtaskList =
-            (result as { subtasks?: Array<{ description: string; status: string }> }).subtasks || []
-          const header = mdTaskHeader({
-            description: taskDescription,
-            branch: (result as { branch?: string }).branch,
-            linearId,
-            type: (result as { type?: string }).type,
-          })
-          const subtasksMd = subtaskList.length > 0 ? mdSubtasks(subtaskList, 0) : ''
-          const rules = mdRules([
-            'All commits must include footer: `Generated with [p/](https://www.prjct.app/)`',
-            'Never commit directly to main/master',
-          ])
-          const next = mdNextSteps([
-            { label: 'Find relevant files', command: `prjct context files "${task}"` },
-            { label: 'Complete subtask', command: 'prjct done --md' },
-            { label: 'Pause task', command: 'prjct pause --md' },
-          ])
-          console.log(mdJoin(header, subtasksMd, rules, next))
-        } else {
-          out.done(`${task}`, {
-            agents: agentCount > 0 ? agentCount : undefined,
-          })
-          showStateInfo('working')
-          showNextSteps('task')
-        }
+        out.done(`${task}`, {
+          agents: agentCount > 0 ? agentCount : undefined,
+        })
+        showStateInfo('working')
+        showNextSteps('task')
 
         await this.logToMemory(projectPath, 'task_started', {
           task,
@@ -173,14 +224,11 @@ export class WorkflowCommands extends PrjctCommandsBase {
         })
 
         return {
-          // Include full CommandExecutor result first (orchestratorContext, prompt, etc.)
           ...result,
-          // Then override with our specific values
           success: true,
           task,
           agenticMode: true,
           availableAgents,
-          // Fibonacci estimation helpers for templates
           fibonacci: {
             isValidPoint,
             pointsToMinutes,
@@ -201,7 +249,10 @@ export class WorkflowCommands extends PrjctCommandsBase {
 
         if (!currentTask) {
           if (options.md) {
-            console.log(mdWarn('No active task'))
+            mdActionRequired('idle', 'no_active_task', [
+              { label: 'Start a task', command: 'prjct task "description" --md' },
+              { label: 'Check queue', command: 'prjct next --md' },
+            ])
           } else {
             out.warn('no active task')
           }
@@ -237,12 +288,25 @@ export class WorkflowCommands extends PrjctCommandsBase {
         return { success: true, task: currentTask.description, currentTask }
       }
     } catch (error) {
+      const msg = getErrorMessage(error)
       if (options.md) {
-        console.log(`> Error: ${getErrorMessage(error)}`)
+        if (msg.includes('Cannot run') || msg.includes('working state')) {
+          mdActionRequired(
+            'blocked',
+            'state_conflict',
+            [
+              { label: 'Complete current task', command: 'prjct done --md' },
+              { label: 'Pause current task', command: 'prjct pause --md' },
+            ],
+            { error: msg.split('.')[0] }
+          )
+        } else {
+          console.log(JSON.stringify({ status: 'error', error: msg }))
+        }
       } else {
-        out.fail(getErrorMessage(error))
+        out.fail(msg)
       }
-      return { success: false, error: getErrorMessage(error) }
+      return { success: false, error: msg }
     }
   }
 
@@ -268,7 +332,14 @@ export class WorkflowCommands extends PrjctCommandsBase {
       const currentTask = await stateStorage.getCurrentTask(projectId)
 
       if (!currentTask) {
-        out.warn('no active task')
+        if (options.md) {
+          mdActionRequired('idle', 'no_active_task', [
+            { label: 'Start a task', command: 'prjct task "description" --md' },
+            { label: 'Check queue', command: 'prjct next --md' },
+          ])
+        } else {
+          out.warn('no active task')
+        }
         return { success: true, message: 'No active task to complete' }
       }
 
@@ -346,7 +417,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
         const durationSuffix = duration ? ` (${duration})` : ''
         console.log(
           mdJoin(
-            mdDone('Subtask Complete', `**Completed:** ${task}${durationSuffix}`),
+            mdDone('Completed', `${task}${durationSuffix}`),
             mdStats({
               Duration: duration || 'unknown',
               ...(varianceDisplay ? { Variance: varianceDisplay.replace(' | ', '') } : {}),
@@ -412,7 +483,10 @@ export class WorkflowCommands extends PrjctCommandsBase {
 
       if (tasks.length === 0) {
         if (options.md) {
-          console.log(mdWarn('Queue is empty'))
+          mdActionRequired('empty', 'queue_empty', [
+            { label: 'Add a task', command: 'prjct task "description" --md' },
+            { label: 'Add a bug', command: 'prjct bug "description" --md' },
+          ])
         } else {
           out.warn('queue empty')
         }
@@ -466,11 +540,13 @@ export class WorkflowCommands extends PrjctCommandsBase {
 
       if (!currentTask) {
         if (options.md) {
-          console.log(mdWarn('No active task to pause'))
+          mdActionRequired('idle', 'no_active_task', [
+            { label: 'Start a task', command: 'prjct task "description" --md' },
+          ])
         } else {
           out.warn('no active task to pause')
         }
-        return { success: false, message: 'No active task to pause' }
+        return { success: true, message: 'No active task to pause' }
       }
 
       // Calculate duration worked before pausing
@@ -538,11 +614,19 @@ export class WorkflowCommands extends PrjctCommandsBase {
       const currentTask = await stateStorage.getCurrentTask(projectId)
       if (currentTask) {
         if (options.md) {
-          console.log(mdWarn(`Already working on: ${currentTask.description}`))
+          mdActionRequired(
+            'blocked',
+            'task_already_active',
+            [
+              { label: 'Continue working', command: 'prjct done --md' },
+              { label: 'Pause and switch', command: 'prjct pause --md' },
+            ],
+            { current_task: currentTask.description }
+          )
         } else {
           out.warn('already working on a task')
         }
-        return { success: false, message: `Already working on: ${currentTask.description}` }
+        return { success: true, message: `Already working on: ${currentTask.description}` }
       }
 
       // Write-through: Resume task (JSON → MD → Event)
@@ -550,11 +634,13 @@ export class WorkflowCommands extends PrjctCommandsBase {
 
       if (!resumed) {
         if (options.md) {
-          console.log(mdWarn('No paused task found'))
+          mdActionRequired('idle', 'no_paused_task', [
+            { label: 'Start a new task', command: 'prjct task "description" --md' },
+          ])
         } else {
           out.warn('no paused task to resume')
         }
-        return { success: false, message: 'No paused task found' }
+        return { success: true, message: 'No paused task found' }
       }
 
       if (options.md) {
@@ -651,6 +737,121 @@ function formatMinutesToDuration(minutes: number): string {
   const hours = Math.floor(minutes / 60)
   const mins = minutes % 60
   return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`
+}
+
+/** Get current git branch name */
+async function getGitBranch(): Promise<string | undefined> {
+  try {
+    const { execSync } = await import('node:child_process')
+    return execSync('git branch --show-current', { encoding: 'utf-8' }).trim() || undefined
+  } catch {
+    return undefined
+  }
+}
+
+/** Load repo-analysis.json from global project path */
+async function loadRepoAnalysis(globalPath: string): Promise<Record<string, unknown> | null> {
+  try {
+    const analysisPath = path.join(globalPath, 'analysis', 'repo-analysis.json')
+    const content = await fs.readFile(analysisPath, 'utf-8')
+    return JSON.parse(content)
+  } catch (error) {
+    if (isNotFoundError(error)) return null
+    return null
+  }
+}
+
+/** Build project context section from sealed analysis + repo-analysis */
+function buildProjectContext(
+  analysis: AnalysisSchema | null,
+  repoAnalysis: Record<string, unknown> | null
+): string | null {
+  if (!analysis && !repoAnalysis) return null
+
+  const ecosystem = (repoAnalysis?.ecosystem as string) || null
+  const languages = analysis?.languages?.join(', ') || null
+  const frameworks = analysis?.frameworks?.join(', ') || null
+  const packageManager = analysis?.packageManager || null
+  const sourceDir =
+    analysis?.sourceDir ||
+    ((repoAnalysis?.structure as Record<string, unknown>)?.srcDir as string) ||
+    null
+  const testDir =
+    analysis?.testDir ||
+    ((repoAnalysis?.structure as Record<string, unknown>)?.testDir as string) ||
+    null
+
+  const stats: Record<string, string | number | null | undefined> = {}
+  if (ecosystem) stats.Ecosystem = ecosystem
+  if (languages) stats.Languages = languages
+  if (frameworks) stats.Frameworks = frameworks
+  if (packageManager) stats['Package manager'] = packageManager
+  if (sourceDir || testDir) {
+    const parts: string[] = []
+    if (sourceDir) parts.push(`${sourceDir}`)
+    if (testDir) parts.push(`Tests: ${testDir}`)
+    stats.Source = parts.join(' | ')
+  }
+
+  const statsBlock = mdStats(stats)
+
+  // Commands section from repo-analysis
+  const commands = repoAnalysis?.commands as Record<string, string> | undefined
+  let commandsBlock: string | null = null
+  if (commands && Object.keys(commands).length > 0) {
+    const items = Object.entries(commands).map(
+      ([key, value]) => `${key.charAt(0).toUpperCase() + key.slice(1)}: ${value}`
+    )
+    commandsBlock = `Commands\n${mdList(items)}`
+  }
+
+  const projectSection = statsBlock ? `Project\n${statsBlock}` : null
+  return [projectSection, commandsBlock].filter(Boolean).join('\n\n') || null
+}
+
+/** Build rules section from hardcoded rules + repo-analysis rules */
+function buildRules(repoAnalysis: Record<string, unknown> | null): string {
+  const rules: string[] = [
+    'All commits must include footer: Generated with [p/](https://www.prjct.app/)',
+    'Never commit directly to main/master',
+  ]
+
+  const repoRules = repoAnalysis?.rules
+  if (Array.isArray(repoRules)) {
+    for (const rule of repoRules) {
+      if (typeof rule === 'string' && !rules.some((r) => r.toLowerCase() === rule.toLowerCase())) {
+        rules.push(rule)
+      }
+    }
+  }
+
+  return mdRules(rules)
+}
+
+/** Build patterns & anti-patterns sections from sealed analysis */
+function buildPatterns(analysis: AnalysisSchema | null): string | null {
+  if (!analysis) return null
+
+  const sections: string[] = []
+
+  const patterns = analysis.patterns
+  if (Array.isArray(patterns) && patterns.length > 0) {
+    const items = patterns.map((p) => {
+      const loc = p.location ? ` — ${p.location}` : ''
+      return `- ${p.name}: ${p.description}${loc}`
+    })
+    sections.push(`Patterns (follow these)\n${items.join('\n')}`)
+  }
+
+  const antiPatterns = analysis.antiPatterns
+  if (Array.isArray(antiPatterns) && antiPatterns.length > 0) {
+    const items = antiPatterns.map((a) => {
+      return `- ${a.issue} — ${a.file} → ${a.suggestion}`
+    })
+    sections.push(`Anti-patterns (avoid these)\n${items.join('\n')}`)
+  }
+
+  return sections.length > 0 ? sections.join('\n\n') : null
 }
 
 /** Format a variance in minutes to a string like "+30m" or "-15m" */
