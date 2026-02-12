@@ -703,6 +703,17 @@ export interface RealCodebaseContext {
 /**
  * Full orchestrator context returned after execution
  */
+/**
+ * Context degradation tracking (PRJ-277).
+ * Reports which context tools succeeded/failed so the LLM can adjust behavior.
+ */
+export interface ContextDegradation {
+  /** Overall degradation level */
+  level: 'full' | 'partial' | 'minimal'
+  /** Names of tools that failed (e.g., 'realContext', 'sealedAnalysis', 'velocity') */
+  failedTools: string[]
+}
+
 export interface OrchestratorContext {
   /** Domains detected for this task */
   detectedDomains: string[]
@@ -728,6 +739,8 @@ export interface OrchestratorContext {
   sealedAnalysis?: SealedAnalysisContext | null
   /** Velocity context for estimation guidance (PRJ-296) */
   velocityContext?: string | null
+  /** Context degradation tracking (PRJ-277) */
+  contextDegradation?: ContextDegradation
 }
 
 /**

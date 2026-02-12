@@ -742,6 +742,20 @@ class PromptBuilder {
     // the LLM needs to work with, presented after it knows the rules.
     // =========================================================================
 
+    // Context degradation notice (PRJ-277)
+    if (
+      orchestratorContext?.contextDegradation?.level !== 'full' &&
+      orchestratorContext?.contextDegradation
+    ) {
+      const deg = orchestratorContext.contextDegradation
+      parts.push('\n### CONTEXT DEGRADATION NOTICE\n\n')
+      parts.push(`**Level**: ${deg.level}\n`)
+      parts.push(`**Unavailable**: ${deg.failedTools.join(', ')}\n`)
+      parts.push(
+        'Some context tools failed. Explore the codebase manually for missing context.\n\n'
+      )
+    }
+
     // Codebase context (proactively gathered)
     if (orchestratorContext?.realContext) {
       const rc = orchestratorContext.realContext
