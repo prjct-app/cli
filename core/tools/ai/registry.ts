@@ -69,6 +69,15 @@ export const AI_TOOLS: Record<string, AIToolConfig> = {
     format: 'json',
     description: 'Continue.dev open-source AI assistant',
   },
+  codex: {
+    id: 'codex',
+    name: 'OpenAI Codex',
+    outputFile: 'AGENTS.md',
+    outputPath: 'repo',
+    maxTokens: 4000,
+    format: 'detailed',
+    description: 'OpenAI Codex CLI',
+  },
 }
 
 /**
@@ -81,7 +90,7 @@ export const DEFAULT_AI_TOOLS = ['claude']
 /**
  * IDE tools - require explicit opt-in (--editors flag)
  */
-export const IDE_AI_TOOLS = ['cursor', 'windsurf', 'copilot', 'continue']
+export const IDE_AI_TOOLS = ['cursor', 'windsurf', 'copilot', 'continue', 'codex']
 
 /**
  * All supported tool IDs
@@ -171,6 +180,11 @@ export async function detectInstalledTools(repoPath: string = process.cwd()): Pr
     (await fileExists(path.join(os.homedir(), '.continue')))
   ) {
     detected.push('continue')
+  }
+
+  // Codex: check for command or .agents/ directory in repo
+  if ((await commandExists('codex')) || (await fileExists(path.join(repoPath, '.agents')))) {
+    detected.push('codex')
   }
 
   return detected

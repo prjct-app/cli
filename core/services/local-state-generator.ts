@@ -13,7 +13,8 @@ import path from 'node:path'
 import type { StateJson } from '../schemas/state'
 import { isNotFoundError } from '../types/fs'
 
-const LOCAL_STATE_FILENAME = '.prjct-state.md'
+const LOCAL_STATE_FILENAME = '.prjct/.prjct-state.md'
+const LEGACY_STATE_FILENAME = '.prjct-state.md'
 
 // Extended runtime types (state.json has fields not in strict schema)
 interface RuntimeTask {
@@ -41,19 +42,30 @@ class LocalStateGenerator {
    */
   async generate(projectPath: string, state: StateJson): Promise<void> {
     const filePath = path.join(projectPath, LOCAL_STATE_FILENAME)
+    await fs.mkdir(path.dirname(filePath), { recursive: true })
     const content = this.toMarkdown(state)
     await fs.writeFile(filePath, content, 'utf-8')
+
+    // One-time cleanup of legacy .prjct-state.md in project root
+    try {
+      const legacyPath = path.join(projectPath, LEGACY_STATE_FILENAME)
+      await fs.unlink(legacyPath)
+    } catch (error) {
+      if (!isNotFoundError(error)) throw error
+    }
   }
 
   /**
    * Remove local state file
    */
   async remove(projectPath: string): Promise<void> {
-    const filePath = path.join(projectPath, LOCAL_STATE_FILENAME)
-    try {
-      await fs.unlink(filePath)
-    } catch (error) {
-      if (!isNotFoundError(error)) throw error
+    // Remove both new and legacy locations
+    for (const filename of [LOCAL_STATE_FILENAME, LEGACY_STATE_FILENAME]) {
+      try {
+        await fs.unlink(path.join(projectPath, filename))
+      } catch (error) {
+        if (!isNotFoundError(error)) throw error
+      }
     }
   }
 

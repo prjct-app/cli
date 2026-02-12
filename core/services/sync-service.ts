@@ -294,6 +294,23 @@ class SyncService {
       const sources = buildSources(stats, commands)
       const contextFiles: string[] = []
 
+      // 4b. Load analysis data for AI tool context enrichment
+      let analysisData: ProjectContext['analysis']
+      try {
+        const analysis = await analysisStorage.getActive(this.projectId)
+        if (analysis?.patterns?.length || analysis?.antiPatterns?.length) {
+          analysisData = {
+            patterns: analysis.patterns,
+            antiPatterns: analysis.antiPatterns,
+            packageManager: analysis.packageManager,
+            sourceDir: analysis.sourceDir,
+            testDir: analysis.testDir,
+          }
+        }
+      } catch {
+        /* non-blocking */
+      }
+
       // 5. Generate AI tool context files (multi-agent output)
       const projectContext: ProjectContext = {
         projectId: this.projectId,
@@ -314,6 +331,7 @@ class SyncService {
           domain: agents.filter((a) => a.type === 'domain').map((a) => a.name),
         },
         sources,
+        analysis: analysisData,
       }
 
       const aiToolResults = await generateAIToolContexts(

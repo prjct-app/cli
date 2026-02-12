@@ -25,6 +25,7 @@ export type {
   ChainOfThoughtState,
   ChangedFile,
   // Context types
+  ContextDegradation,
   ContextDomain,
   ContextState,
   DomainAnalysis,

@@ -4,7 +4,7 @@
  */
 
 import fs from 'node:fs/promises'
-import { isNotFoundError } from '../types/fs'
+import { getErrorMessage, isNotFoundError } from '../types/fs'
 
 declare const global: typeof globalThis & {
   mcp?: {
@@ -74,8 +74,8 @@ class ClaudeAgent {
       if (global.mcp?.filesystem) {
         return await global.mcp.filesystem.read(filePath)
       }
-    } catch (_error) {
-      // MCP not available or failed - fall through to fs (intentional catch-all)
+    } catch (error) {
+      console.warn(`MCP readFile failed, falling back to fs: ${getErrorMessage(error)}`)
     }
 
     return await fs.readFile(filePath, 'utf8')
@@ -89,8 +89,8 @@ class ClaudeAgent {
       if (global.mcp?.filesystem) {
         return await global.mcp.filesystem.write(filePath, content)
       }
-    } catch (_error) {
-      // MCP not available or failed - fall through to fs (intentional catch-all)
+    } catch (error) {
+      console.warn(`MCP writeFile failed, falling back to fs: ${getErrorMessage(error)}`)
     }
 
     await fs.writeFile(filePath, content, 'utf8')
@@ -104,8 +104,8 @@ class ClaudeAgent {
       if (global.mcp?.filesystem) {
         return await global.mcp.filesystem.list(dirPath)
       }
-    } catch (_error) {
-      // MCP not available or failed - fall through to fs (intentional catch-all)
+    } catch (error) {
+      console.warn(`MCP listDirectory failed, falling back to fs: ${getErrorMessage(error)}`)
     }
 
     return await fs.readdir(dirPath)

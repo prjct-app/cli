@@ -5,7 +5,7 @@
 ### Features
 
 - JSON conflict handling + fix prjct start overwrite (#175)
-
+- Enrich AI formatters with analysis data + add Codex support (PRJ-277)
 
 ## [1.28.2] - 2026-02-11
 

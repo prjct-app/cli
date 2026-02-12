@@ -27,6 +27,7 @@ import { findRelevantFiles } from '../tools/context/files-tool'
 import { getRecentFiles } from '../tools/context/recent-tool'
 import { extractSignatures } from '../tools/context/signatures-tool'
 import type {
+  ContextDegradation,
   LoadedAgent,
   LoadedSkill,
   OrchestratorContext,
@@ -81,11 +82,32 @@ export class OrchestratorExecutor {
     const skills = await this.loadSkills(agents)
 
     // Step 6: Gather real codebase context, sealed analysis, and velocity in parallel
-    const [realContext, sealedAnalysis, velocityContext] = await Promise.all([
+    // PRJ-277: Use Promise.allSettled so individual failures don't crash the orchestrator
+    const settled = await Promise.allSettled([
       this.gatherRealContext(taskDescription, projectPath),
       this.loadSealedAnalysis(projectId),
       this.loadVelocityContext(projectId),
     ])
+
+    const toolNames = ['realContext', 'sealedAnalysis', 'velocity'] as const
+    const failedTools: string[] = []
+    const results = settled.map((result, i) => {
+      if (result.status === 'fulfilled') return result.value
+      failedTools.push(toolNames[i])
+      console.warn(`Context tool "${toolNames[i]}" failed: ${getErrorMessage(result.reason)}`)
+      return undefined
+    })
+
+    const [realContext, sealedAnalysis, velocityContext] = results as [
+      RealCodebaseContext | undefined,
+      SealedAnalysisContext | null | undefined,
+      string | null | undefined,
+    ]
+
+    const contextDegradation: ContextDegradation = {
+      level: failedTools.length === 0 ? 'full' : failedTools.length >= 2 ? 'minimal' : 'partial',
+      failedTools,
+    }
 
     // Step 7: Determine if fragmentation is needed
     const requiresFragmentation = this.shouldFragment(domains, taskDescription)
@@ -109,8 +131,9 @@ export class OrchestratorExecutor {
         conventions: repoAnalysis?.conventions || [],
       },
       realContext,
-      sealedAnalysis,
-      velocityContext,
+      sealedAnalysis: sealedAnalysis ?? null,
+      velocityContext: velocityContext ?? null,
+      contextDegradation,
     }
   }
 
