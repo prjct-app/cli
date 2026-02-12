@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.30.0] - 2026-02-12
+
+### Features
+
+- enrich AI formatters with analysis data + add Codex support (#176)
+
+
 ## [1.29.0] - 2026-02-12
 
 ### Features
