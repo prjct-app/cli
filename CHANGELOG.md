@@ -1,12 +1,34 @@
 # Changelog
 
-## [1.29.1] - 2026-02-11
+## [1.31.0] - 2026-02-12
+
+### Features
+
+- exquisite terminal UX — rich markdown formatters + branded output (#179)
+
+
+## [1.30.2] - 2026-02-12
 
 ### Added
-- Session continuity and project-switch context preservation (PRJ-285)
-- `prjct sessions` command for cross-project session listing
-- Session snapshots captured on pause, cleared on completion
-- LLM continuity context injected on task resume
+- exquisite-terminal-ux
+
+## [1.30.1] - 2026-02-12
+
+### Bug Fixes
+
+- guard analysis array accesses against undefined (n.push crash) (#178)
+
+## [1.30.1] - 2026-02-11
+
+### Added
+- current work
+
+## [1.30.0] - 2026-02-12
+
+### Features
+
+- enrich AI formatters with analysis data + add Codex support (#176)
+
 
 ## [1.29.0] - 2026-02-12
 

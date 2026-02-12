@@ -74,10 +74,10 @@ function formatStructure(analysis: Analysis): string {
 
 function formatAnalysisForClaude(analysis: Analysis): string {
   const parts: string[] = []
-  if (analysis.patterns.length > 0) {
+  if (analysis.patterns?.length > 0) {
     parts.push(`\n### Code Patterns (Follow These)\n\n${formatPatterns(analysis.patterns)}`)
   }
-  if (analysis.antiPatterns.length > 0) {
+  if (analysis.antiPatterns?.length > 0) {
     parts.push(`\n### Anti-Patterns (Avoid These)\n\n${formatAntiPatterns(analysis.antiPatterns)}`)
   }
   parts.push(formatStructure(analysis))
@@ -211,12 +211,12 @@ export function formatForCursor(ctx: ProjectContext, _config: AIToolConfig): str
 
   // Analysis-driven intelligence
   if (ctx.analysis) {
-    if (ctx.analysis.patterns.length > 0) {
+    if (ctx.analysis.patterns?.length > 0) {
       lines.push('## Code Patterns')
       lines.push(formatPatterns(ctx.analysis.patterns))
       lines.push('')
     }
-    if (ctx.analysis.antiPatterns.length > 0) {
+    if (ctx.analysis.antiPatterns?.length > 0) {
       lines.push('## Anti-Patterns (Avoid)')
       lines.push(formatAntiPatterns(ctx.analysis.antiPatterns))
       lines.push('')
@@ -255,12 +255,12 @@ export function formatForCopilot(ctx: ProjectContext, _config: AIToolConfig): st
 
   // Analysis-driven intelligence (capped for Copilot's token budget)
   if (ctx.analysis) {
-    if (ctx.analysis.patterns.length > 0) {
+    if (ctx.analysis.patterns?.length > 0) {
       lines.push('## Code Patterns')
       lines.push(formatPatterns(ctx.analysis.patterns, 5))
       lines.push('')
     }
-    if (ctx.analysis.antiPatterns.length > 0) {
+    if (ctx.analysis.antiPatterns?.length > 0) {
       lines.push('## Anti-Patterns')
       lines.push(formatAntiPatterns(ctx.analysis.antiPatterns, 3))
       lines.push('')
@@ -328,12 +328,12 @@ export function formatForWindsurf(ctx: ProjectContext, _config: AIToolConfig): s
 
   // Analysis-driven intelligence
   if (ctx.analysis) {
-    if (ctx.analysis.patterns.length > 0) {
+    if (ctx.analysis.patterns?.length > 0) {
       lines.push('## Code Patterns')
       lines.push(formatPatterns(ctx.analysis.patterns))
       lines.push('')
     }
-    if (ctx.analysis.antiPatterns.length > 0) {
+    if (ctx.analysis.antiPatterns?.length > 0) {
       lines.push('## Anti-Patterns (Avoid)')
       lines.push(formatAntiPatterns(ctx.analysis.antiPatterns))
     }
@@ -451,13 +451,13 @@ export function formatForCodex(ctx: ProjectContext, _config: AIToolConfig): stri
 
   // Analysis-driven intelligence
   if (ctx.analysis) {
-    if (ctx.analysis.patterns.length > 0) {
+    if (ctx.analysis.patterns?.length > 0) {
       lines.push('## Code Patterns')
       lines.push('')
       lines.push(formatPatterns(ctx.analysis.patterns))
       lines.push('')
     }
-    if (ctx.analysis.antiPatterns.length > 0) {
+    if (ctx.analysis.antiPatterns?.length > 0) {
       lines.push('## Anti-Patterns (Avoid)')
       lines.push('')
       lines.push(formatAntiPatterns(ctx.analysis.antiPatterns))

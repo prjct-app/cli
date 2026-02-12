@@ -300,8 +300,8 @@ class SyncService {
         const analysis = await analysisStorage.getActive(this.projectId)
         if (analysis?.patterns?.length || analysis?.antiPatterns?.length) {
           analysisData = {
-            patterns: analysis.patterns,
-            antiPatterns: analysis.antiPatterns,
+            patterns: analysis.patterns ?? [],
+            antiPatterns: analysis.antiPatterns ?? [],
             packageManager: analysis.packageManager,
             sourceDir: analysis.sourceDir,
             testDir: analysis.testDir,

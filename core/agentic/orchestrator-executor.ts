@@ -241,14 +241,14 @@ export class OrchestratorExecutor {
       if (!analysis) return null
 
       return {
-        languages: analysis.languages,
-        frameworks: analysis.frameworks,
+        languages: analysis.languages ?? [],
+        frameworks: analysis.frameworks ?? [],
         packageManager: analysis.packageManager,
         sourceDir: analysis.sourceDir,
         testDir: analysis.testDir,
-        fileCount: analysis.fileCount,
-        patterns: analysis.patterns,
-        antiPatterns: analysis.antiPatterns,
+        fileCount: analysis.fileCount ?? 0,
+        patterns: analysis.patterns ?? [],
+        antiPatterns: analysis.antiPatterns ?? [],
         status: analysis.status ?? 'draft',
         commitHash: analysis.commitHash,
       }
