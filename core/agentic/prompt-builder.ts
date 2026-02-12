@@ -570,10 +570,10 @@ class PromptBuilder {
 
       // Inject sealed analysis data (PRJ-260)
       if (sa) {
-        if (sa.languages.length > 0) {
+        if (sa.languages?.length > 0) {
           parts.push(`**Languages**: ${sa.languages.join(', ')}\n`)
         }
-        if (sa.frameworks.length > 0) {
+        if (sa.frameworks?.length > 0) {
           parts.push(`**Frameworks**: ${sa.frameworks.join(', ')}\n`)
         }
         if (sa.packageManager) {
@@ -590,14 +590,14 @@ class PromptBuilder {
           `**Analysis Status**: ${sa.status}${sa.commitHash ? ` (commit: ${sa.commitHash.slice(0, 8)})` : ''}\n`
         )
 
-        if (sa.patterns.length > 0) {
+        if (sa.patterns?.length > 0) {
           parts.push('\n### Code Patterns (Follow These)\n')
           for (const p of sa.patterns) {
             parts.push(`- **${p.name}**: ${p.description}${p.location ? ` (${p.location})` : ''}\n`)
           }
         }
 
-        if (sa.antiPatterns.length > 0) {
+        if (sa.antiPatterns?.length > 0) {
           parts.push('\n### Anti-Patterns (Avoid These)\n')
           for (const ap of sa.antiPatterns) {
             parts.push(`- **${ap.issue}** in \`${ap.file}\` — ${ap.suggestion}\n`)
