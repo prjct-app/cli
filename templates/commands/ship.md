@@ -4,6 +4,10 @@ allowed-tools: [Bash, Read, AskUserQuestion]
 
 # p. ship $ARGUMENTS
 
+## Step 0: Complete task (implicit)
+The ship workflow automatically completes the current task before shipping.
+This means `p. done` is implicit — you do NOT need to run it separately before shipping.
+
 ## Pre-flight (BLOCKING)
 ```bash
 git branch --show-current

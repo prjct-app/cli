@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.31.1] - 2026-02-12
+
+### Added
+- Phase 2: Dynamic workflow customization — hooks, gates, and custom steps via `prjct workflow`
+
 ## [1.31.0] - 2026-02-12
 
 ### Features

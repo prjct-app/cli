@@ -300,6 +300,8 @@ async function executeCommand(request: DaemonRequest): Promise<import('../types'
       return commands!.ship(param, request.cwd, { md })
     case 'dash':
       return commands!.dash(param || 'default', request.cwd, { md })
+    case 'workflow':
+      return commands!.workflowPrefs(param, request.cwd, { md })
     case 'sessions':
       return commands!.sessions(request.cwd, { md, cleanup: opts.cleanup === true })
     case 'design':

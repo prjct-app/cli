@@ -25,6 +25,8 @@ import type { AnalysisSchema } from '../schemas/analysis'
 import type { TaskFeedback } from '../schemas/state'
 import { sessionSnapshotManager } from '../session/session-snapshot'
 import { analysisStorage, queueStorage, stateStorage } from '../storage'
+import type { WorkflowRule } from '../storage/workflow-rule-storage'
+import { workflowRuleStorage } from '../storage/workflow-rule-storage'
 import { findRelevantFiles } from '../tools/context/files-tool'
 import type { CommandResult } from '../types'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
@@ -43,16 +45,8 @@ import {
 } from '../utils/md-formatter'
 import { showNextSteps, showStateInfo } from '../utils/next-steps'
 import { getLinearApiKey, getProjectCredentials } from '../utils/project-credentials'
-import {
-  formatWorkflowPreferences,
-  type HookCommand,
-  type HookPhase,
-  listWorkflowPreferences,
-  type PreferenceScope,
-  removeWorkflowPreference,
-  runWorkflowHooks,
-  setWorkflowPreference,
-} from '../workflow/workflow-preferences'
+import { executeWorkflowRules } from '../workflow/workflow-engine'
+import { listWorkflowPreferences } from '../workflow/workflow-preferences'
 import outcomeRecorder from '../workflows/outcome-recorder'
 import { configManager, dateHelper, out, PrjctCommandsBase } from './base'
 
@@ -80,13 +74,17 @@ export class WorkflowCommands extends PrjctCommandsBase {
       }
 
       if (task) {
-        // Run before_task hooks (using memory-based preferences)
-        const beforeResult = await runWorkflowHooks(projectId, 'before', 'task', {
+        // Run before_task rules (gates + hooks)
+        const beforeResult = await executeWorkflowRules(projectId, 'task', 'before', {
           projectPath,
-          skipHooks: options.skipHooks,
+          skipRules: options.skipHooks,
         })
         if (!beforeResult.success) {
-          return { success: false, error: `Hook failed: ${beforeResult.failed}` }
+          const msg =
+            beforeResult.gatesFailed.length > 0
+              ? `Blocked: ${beforeResult.gatesFailed.join(', ')}`
+              : `Hook failed: ${beforeResult.hooksFailed.join(', ')}`
+          return { success: false, error: msg }
         }
 
         // Check if task is a Linear issue ID (e.g., PRJ-139)
@@ -186,9 +184,9 @@ export class WorkflowCommands extends PrjctCommandsBase {
             timestamp: dateHelper.getTimestamp(),
           })
 
-          await runWorkflowHooks(projectId, 'after', 'task', {
+          await executeWorkflowRules(projectId, 'task', 'after', {
             projectPath,
-            skipHooks: options.skipHooks,
+            skipRules: options.skipHooks,
           })
 
           return { success: true, task, taskDescription }
@@ -232,10 +230,10 @@ export class WorkflowCommands extends PrjctCommandsBase {
           timestamp: dateHelper.getTimestamp(),
         })
 
-        // Run after_task hooks
-        await runWorkflowHooks(projectId, 'after', 'task', {
+        // Run after_task rules
+        await executeWorkflowRules(projectId, 'task', 'after', {
           projectPath,
-          skipHooks: options.skipHooks,
+          skipRules: options.skipHooks,
         })
 
         return {
@@ -358,13 +356,17 @@ export class WorkflowCommands extends PrjctCommandsBase {
         return { success: true, message: 'No active task to complete' }
       }
 
-      // Run before_done hooks (using memory-based preferences)
-      const beforeResult = await runWorkflowHooks(projectId, 'before', 'done', {
+      // Run before_done rules (gates + hooks)
+      const beforeResult = await executeWorkflowRules(projectId, 'done', 'before', {
         projectPath,
-        skipHooks: options.skipHooks,
+        skipRules: options.skipHooks,
       })
       if (!beforeResult.success) {
-        return { success: false, error: `Hook failed: ${beforeResult.failed}` }
+        const msg =
+          beforeResult.gatesFailed.length > 0
+            ? `Blocked: ${beforeResult.gatesFailed.join(', ')}`
+            : `Hook failed: ${beforeResult.hooksFailed.join(', ')}`
+        return { success: false, error: msg }
       }
 
       const task = currentTask.description
@@ -470,10 +472,10 @@ export class WorkflowCommands extends PrjctCommandsBase {
         timestamp: dateHelper.getTimestamp(),
       })
 
-      // Run after_done hooks
-      await runWorkflowHooks(projectId, 'after', 'done', {
+      // Run after_done rules
+      await executeWorkflowRules(projectId, 'done', 'after', {
         projectPath,
-        skipHooks: options.skipHooks,
+        skipRules: options.skipHooks,
       })
 
       return { success: true, task, duration }
@@ -706,14 +708,20 @@ export class WorkflowCommands extends PrjctCommandsBase {
   }
 
   /**
-   * /p:workflow - View and manage workflow preferences
+   * /p:workflow - View and manage workflow rules
    *
-   * When called without arguments, shows current preferences.
-   * With arguments, parses natural language and updates preferences.
+   * Subcommands:
+   *   (none)         Show all rules
+   *   <command>      Show rules for a specific command (task, done, ship, sync)
+   *   add "action" before|after <command>   Add a hook
+   *   gate <command> "action"               Add a gate (blocking)
+   *   rm <id>        Remove a rule by ID
+   *   reset          Remove all rules
    */
   async workflow(
     input: string | null = null,
-    projectPath: string = process.cwd()
+    projectPath: string = process.cwd(),
+    options: { md?: boolean } = {}
   ): Promise<CommandResult> {
     try {
       const initResult = await this.ensureProjectInit(projectPath)
@@ -721,46 +729,326 @@ export class WorkflowCommands extends PrjctCommandsBase {
 
       const projectId = await configManager.getProjectId(projectPath)
       if (!projectId) {
-        out.failWithHint('NO_PROJECT_ID')
+        if (options.md) {
+          console.log('> No project ID found. Run `prjct init` first.')
+        } else {
+          out.failWithHint('NO_PROJECT_ID')
+        }
         return { success: false, error: 'No project ID found' }
       }
 
-      if (!input) {
-        // Show current preferences
-        const preferences = await listWorkflowPreferences(projectId)
-        console.log(formatWorkflowPreferences(preferences))
-        return { success: true, preferences }
-      }
+      const trimmed = input?.trim() ?? ''
+      // Parse: extract the subcommand keyword
+      // Need to handle quoted strings carefully
+      const subcommand = trimmed.split(/\s+/)[0]?.toLowerCase()
 
-      // Return info for template-based processing
-      // The template/LLM will parse the natural language and call the appropriate functions
-      return {
-        success: true,
-        projectId,
-        input,
-        // Export functions for template use
-        setWorkflowPreference: async (pref: {
-          hook: HookPhase
-          command: HookCommand
-          action: string
-          scope: PreferenceScope
-        }) => {
-          await setWorkflowPreference(projectId, {
-            ...pref,
-            createdAt: dateHelper.getTimestamp(),
-          })
-        },
-        removeWorkflowPreference: async (hook: HookPhase, command: HookCommand) => {
-          await removeWorkflowPreference(projectId, hook, command)
-        },
-        listWorkflowPreferences: async () => {
-          return listWorkflowPreferences(projectId)
-        },
+      switch (subcommand) {
+        case 'add':
+          return this._workflowAdd(trimmed.slice(3).trim(), projectId, options)
+        case 'gate':
+          return this._workflowGate(trimmed.slice(4).trim(), projectId, options)
+        case 'rm':
+          return this._workflowRm(trimmed.slice(2).trim(), projectId, options)
+        case 'reset':
+          return this._workflowReset(projectId, options)
+        default:
+          // Show rules, optionally filtered by command name
+          return this._workflowShow(subcommand || null, projectId, options)
       }
     } catch (error) {
-      out.fail(getErrorMessage(error))
+      if (options.md) {
+        console.log(`> Error: ${getErrorMessage(error)}`)
+      } else {
+        out.fail(getErrorMessage(error))
+      }
       return { success: false, error: getErrorMessage(error) }
     }
+  }
+
+  /**
+   * Parse a quoted or unquoted action string from input.
+   * Returns [action, rest] where rest is the remaining unparsed input.
+   */
+  private _parseAction(input: string): [string, string] {
+    const trimmed = input.trim()
+    if (trimmed.startsWith('"')) {
+      const endQuote = trimmed.indexOf('"', 1)
+      if (endQuote === -1) return [trimmed.slice(1), '']
+      return [trimmed.slice(1, endQuote), trimmed.slice(endQuote + 1).trim()]
+    }
+    if (trimmed.startsWith("'")) {
+      const endQuote = trimmed.indexOf("'", 1)
+      if (endQuote === -1) return [trimmed.slice(1), '']
+      return [trimmed.slice(1, endQuote), trimmed.slice(endQuote + 1).trim()]
+    }
+    // Unquoted: take everything up to 'before' or 'after' keyword
+    const match = trimmed.match(/^(.+?)\s+(before|after)\s+/i)
+    if (match) return [match[1].trim(), trimmed.slice(match[1].length).trim()]
+    return [trimmed, '']
+  }
+
+  /**
+   * Add a hook rule: "npm test" before ship
+   */
+  private async _workflowAdd(
+    input: string,
+    projectId: string,
+    options: { md?: boolean }
+  ): Promise<CommandResult> {
+    // Parse: "action" before|after command
+    const [action, rest] = this._parseAction(input)
+    if (!action || !rest) {
+      const msg = 'Usage: prjct workflow add "command" before|after <task|done|ship|sync>'
+      if (options.md) console.log(`> ${msg}`)
+      else out.warn(msg)
+      return { success: false, error: msg }
+    }
+
+    const parts = rest.split(/\s+/)
+    const position = parts[0]?.toLowerCase()
+    const command = parts[1]?.toLowerCase()
+
+    if (!position || !['before', 'after'].includes(position)) {
+      const msg = 'Position must be "before" or "after"'
+      if (options.md) console.log(`> ${msg}`)
+      else out.warn(msg)
+      return { success: false, error: msg }
+    }
+
+    if (!command || !['task', 'done', 'ship', 'sync'].includes(command)) {
+      const msg = 'Command must be one of: task, done, ship, sync'
+      if (options.md) console.log(`> ${msg}`)
+      else out.warn(msg)
+      return { success: false, error: msg }
+    }
+
+    const ruleId = workflowRuleStorage.addRule(projectId, {
+      type: 'hook',
+      command,
+      position,
+      action,
+      description: null,
+      enabled: true,
+      timeoutMs: 60000,
+      createdAt: new Date().toISOString(),
+      sortOrder: 0,
+    })
+
+    if (options.md) {
+      console.log(
+        mdOutput(
+          mdDone('Rule Added', `#${ruleId} [hook] ${position} ${command} → \`${action}\``),
+          mdNextSteps([
+            { label: 'View all rules', command: 'prjct workflow --md' },
+            { label: 'Remove this rule', command: `prjct workflow rm ${ruleId} --md` },
+          ])
+        )
+      )
+    } else {
+      out.done(`rule #${ruleId} added: [hook] ${position} ${command} → ${action}`)
+    }
+
+    return { success: true, ruleId }
+  }
+
+  /**
+   * Add a gate rule: ship "npm test"
+   */
+  private async _workflowGate(
+    input: string,
+    projectId: string,
+    options: { md?: boolean }
+  ): Promise<CommandResult> {
+    // Parse: command "action"
+    const parts = input.trim().split(/\s+/)
+    const command = parts[0]?.toLowerCase()
+
+    if (!command || !['task', 'done', 'ship', 'sync'].includes(command)) {
+      const msg = 'Usage: prjct workflow gate <task|done|ship|sync> "command"'
+      if (options.md) console.log(`> ${msg}`)
+      else out.warn(msg)
+      return { success: false, error: msg }
+    }
+
+    const actionInput = input.slice(input.indexOf(command) + command.length).trim()
+    const [action] = this._parseAction(actionInput)
+
+    if (!action) {
+      const msg = 'Usage: prjct workflow gate <command> "shell command"'
+      if (options.md) console.log(`> ${msg}`)
+      else out.warn(msg)
+      return { success: false, error: msg }
+    }
+
+    const ruleId = workflowRuleStorage.addRule(projectId, {
+      type: 'gate',
+      command,
+      position: 'before',
+      action,
+      description: null,
+      enabled: true,
+      timeoutMs: 60000,
+      createdAt: new Date().toISOString(),
+      sortOrder: 0,
+    })
+
+    if (options.md) {
+      console.log(
+        mdOutput(
+          mdDone('Gate Added', `#${ruleId} [gate] before ${command} → \`${action}\``),
+          mdNextSteps([
+            { label: 'View all rules', command: 'prjct workflow --md' },
+            { label: 'Remove this gate', command: `prjct workflow rm ${ruleId} --md` },
+          ])
+        )
+      )
+    } else {
+      out.done(`gate #${ruleId} added: before ${command} → ${action}`)
+    }
+
+    return { success: true, ruleId }
+  }
+
+  /**
+   * Remove a rule by ID
+   */
+  private async _workflowRm(
+    input: string,
+    projectId: string,
+    options: { md?: boolean }
+  ): Promise<CommandResult> {
+    const ruleId = parseInt(input.trim(), 10)
+    if (Number.isNaN(ruleId)) {
+      const msg = 'Usage: prjct workflow rm <rule-id>'
+      if (options.md) console.log(`> ${msg}`)
+      else out.warn(msg)
+      return { success: false, error: msg }
+    }
+
+    const removed = workflowRuleStorage.removeRule(projectId, ruleId)
+    if (!removed) {
+      const msg = `Rule #${ruleId} not found`
+      if (options.md) console.log(`> ${msg}`)
+      else out.warn(msg)
+      return { success: false, error: msg }
+    }
+
+    if (options.md) {
+      console.log(mdOutput(mdDone('Rule Removed', `Removed rule #${ruleId}`)))
+    } else {
+      out.done(`removed rule #${ruleId}`)
+    }
+
+    return { success: true }
+  }
+
+  /**
+   * Reset all workflow rules
+   */
+  private async _workflowReset(
+    projectId: string,
+    options: { md?: boolean }
+  ): Promise<CommandResult> {
+    const count = workflowRuleStorage.resetRules(projectId)
+
+    if (options.md) {
+      console.log(mdOutput(mdDone('Rules Reset', `Removed ${count} rule${count !== 1 ? 's' : ''}`)))
+    } else {
+      out.done(`reset: removed ${count} rule${count !== 1 ? 's' : ''}`)
+    }
+
+    return { success: true, count }
+  }
+
+  /**
+   * Show workflow rules (optionally filtered by command)
+   */
+  private async _workflowShow(
+    command: string | null,
+    projectId: string,
+    options: { md?: boolean }
+  ): Promise<CommandResult> {
+    const validCommands = ['task', 'done', 'ship', 'sync']
+
+    let rules: WorkflowRule[]
+    if (command && validCommands.includes(command)) {
+      rules = workflowRuleStorage.getRulesForCommand(projectId, command)
+    } else {
+      rules = workflowRuleStorage.getAllRules(projectId)
+    }
+
+    // Also get legacy preferences for display
+    const legacyPrefs = await listWorkflowPreferences(projectId)
+
+    if (rules.length === 0 && legacyPrefs.length === 0) {
+      if (options.md) {
+        console.log(
+          mdOutput(
+            mdSection('Workflow Rules', 'No rules configured'),
+            mdNextSteps([
+              { label: 'Add a hook', command: 'prjct workflow add "npm test" before ship --md' },
+              { label: 'Add a gate', command: 'prjct workflow gate ship "npm test" --md' },
+            ])
+          )
+        )
+      } else {
+        out.warn('no workflow rules configured')
+        console.log('')
+        console.log('  Add a hook:  prjct workflow add "npm test" before ship')
+        console.log('  Add a gate:  prjct workflow gate ship "npm test"')
+        console.log('  Reset all:   prjct workflow reset')
+      }
+      return { success: true, rules: [], legacy: legacyPrefs }
+    }
+
+    if (options.md) {
+      const items: string[] = []
+      for (const r of rules) {
+        const enabled = r.enabled ? '' : ' (disabled)'
+        items.push(`#${r.id} [${r.type}] ${r.position} ${r.command} → \`${r.action}\`${enabled}`)
+      }
+      for (const p of legacyPrefs) {
+        items.push(`[legacy] ${p.key} → \`${p.action}\` (${p.scope})`)
+      }
+
+      const title = command ? `Workflow Rules: ${command}` : 'Workflow Rules'
+      console.log(
+        mdOutput(
+          mdSection(title, `${rules.length} rule${rules.length !== 1 ? 's' : ''}`),
+          mdList(items),
+          mdNextSteps([
+            { label: 'Add a hook', command: 'prjct workflow add "cmd" before ship --md' },
+            { label: 'Add a gate', command: 'prjct workflow gate ship "cmd" --md' },
+            { label: 'Remove a rule', command: 'prjct workflow rm <id> --md' },
+          ])
+        )
+      )
+    } else {
+      const title = command ? `WORKFLOW RULES: ${command.toUpperCase()}` : 'WORKFLOW RULES'
+      console.log('')
+      console.log(title)
+      console.log('──────────────────────────────────')
+
+      for (const r of rules) {
+        const enabled = r.enabled ? '' : ' (disabled)'
+        console.log(
+          `  #${r.id} [${r.type}]   ${r.position.padEnd(6)} ${r.command.padEnd(5)}  → ${r.action}${enabled}`
+        )
+      }
+
+      if (legacyPrefs.length > 0) {
+        console.log('')
+        console.log('  Legacy preferences:')
+        for (const p of legacyPrefs) {
+          console.log(`  [legacy] ${p.key.padEnd(15)} → ${p.action} (${p.scope})`)
+        }
+      }
+
+      console.log('')
+      console.log('Commands: add | gate | rm | reset')
+    }
+
+    return { success: true, rules, legacy: legacyPrefs }
   }
 
   /**

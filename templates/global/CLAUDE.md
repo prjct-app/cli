@@ -11,6 +11,8 @@ Rules:
 - Path resolution: `.prjct/prjct.config.json` → `~/.prjct-cli/projects/{projectId}`
 - All storage through `prjct` CLI (SQLite internally)
 - Templates are MANDATORY workflows — follow every step
+- WORKFLOW IS MANDATORY: After completing work, ALWAYS run `p. ship`
+- NEVER end a session without shipping or pausing
 
 **Auto-managed by prjct-cli** | https://prjct.app
 <!-- prjct:end - DO NOT REMOVE THIS MARKER -->

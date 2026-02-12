@@ -29,6 +29,15 @@ If CLI output is JSON with `options`, present them to the user with AskUserQuest
 - When done with a subtask: `prjct done --md`
 - Every git commit MUST include footer: `Generated with [p/](https://www.prjct.app/)`
 
+## Step 6: Ship (MANDATORY)
+When all work is complete, you MUST execute the ship workflow:
+ASK: "Work complete. Ready to ship?" Ship now / Continue working / Pause
+- If Ship now: execute `p. ship` workflow (load and follow `~/.claude/commands/p/ship.md`)
+- If Continue working: stay in Step 5
+- If Pause: execute `p. pause`
+
+NEVER end a task without asking about shipping. This is non-negotiable.
+
 ## Presentation
 When showing task context to the user, format your response as:
 
