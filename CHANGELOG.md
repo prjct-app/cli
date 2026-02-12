@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.30.1] - 2026-02-12
+
+### Bug Fixes
+
+- guard analysis array accesses against undefined (n.push crash) (#178)
+
+
 ## [1.30.1] - 2026-02-11
 
 ### Added
