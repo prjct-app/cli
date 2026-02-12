@@ -23,6 +23,7 @@ import { linearService } from '../integrations/linear'
 import { generateUUID } from '../schemas'
 import type { AnalysisSchema } from '../schemas/analysis'
 import type { TaskFeedback } from '../schemas/state'
+import { sessionSnapshotManager } from '../session/session-snapshot'
 import { analysisStorage, queueStorage, stateStorage } from '../storage'
 import { findRelevantFiles } from '../tools/context/files-tool'
 import type { CommandResult } from '../types'
@@ -147,6 +148,18 @@ export class WorkflowCommands extends PrjctCommandsBase {
             ),
           ])
 
+          // Check for session snapshot (PRJ-285) — inject continuity context
+          let continuityContext: string | null = null
+          try {
+            const snapshot = sessionSnapshotManager.getSnapshot(projectId)
+            if (snapshot) {
+              continuityContext = sessionSnapshotManager.formatContinuityContext(snapshot)
+              sessionSnapshotManager.clearSnapshot(projectId)
+            }
+          } catch {
+            // Non-critical
+          }
+
           // Build sections
           const header = mdTaskHeader({ description: taskDescription, branch, linearId })
           const projectContext = buildProjectContext(analysis, repoAnalysisRaw)
@@ -164,7 +177,9 @@ export class WorkflowCommands extends PrjctCommandsBase {
             { label: 'Pause task', command: 'prjct pause --md' },
           ])
 
-          console.log(mdOutput(header, projectContext, files, rules, patterns, next))
+          console.log(
+            mdOutput(continuityContext, header, projectContext, files, rules, patterns, next)
+          )
 
           await this.logToMemory(projectPath, 'task_started', {
             task,
@@ -398,6 +413,13 @@ export class WorkflowCommands extends PrjctCommandsBase {
       // Pass feedback for the task-to-analysis feedback loop (PRJ-272)
       await stateStorage.completeTask(projectId, options.feedback)
 
+      // Clear session snapshot on completion (PRJ-285)
+      try {
+        sessionSnapshotManager.clearSnapshot(projectId)
+      } catch {
+        // Non-critical
+      }
+
       // Sync to Linear if task has linearId
       const linearId = (currentTask as { linearId?: string }).linearId
       if (linearId) {
@@ -557,6 +579,21 @@ export class WorkflowCommands extends PrjctCommandsBase {
 
       // Write-through: Pause task (JSON → MD → Event)
       await stateStorage.pauseTask(projectId, reason)
+
+      // Capture session snapshot for continuity (PRJ-285)
+      try {
+        await sessionSnapshotManager.capture(projectId, projectPath, {
+          taskDescription: currentTask.description,
+          taskStatus: 'paused',
+          sessionId: currentTask.sessionId,
+          activeSubtaskIndex: currentTask.currentSubtaskIndex,
+          subtaskCount: currentTask.subtasks?.length,
+          linearId: (currentTask as { linearId?: string }).linearId,
+          startedAt: currentTask.startedAt,
+        })
+      } catch {
+        // Snapshot capture is non-critical
+      }
 
       if (options.md) {
         console.log(
@@ -720,6 +757,80 @@ export class WorkflowCommands extends PrjctCommandsBase {
           return listWorkflowPreferences(projectId)
         },
       }
+    } catch (error) {
+      out.fail(getErrorMessage(error))
+      return { success: false, error: getErrorMessage(error) }
+    }
+  }
+
+  /**
+   * /p:sessions - Show recent sessions across all projects (PRJ-285)
+   */
+  async sessions(
+    _projectPath: string = process.cwd(),
+    options: { md?: boolean; cleanup?: boolean } = {}
+  ): Promise<CommandResult> {
+    try {
+      // Auto-clean old snapshots
+      if (options.cleanup) {
+        const cleaned = await sessionSnapshotManager.cleanup()
+        if (options.md) {
+          console.log(
+            mdDone('Cleanup', `Removed ${cleaned} stale snapshot${cleaned !== 1 ? 's' : ''}`)
+          )
+        } else {
+          out.done(`cleaned ${cleaned} stale snapshot${cleaned !== 1 ? 's' : ''}`)
+        }
+        return { success: true, cleaned }
+      }
+
+      const snapshots = await sessionSnapshotManager.listAllSnapshots()
+
+      if (snapshots.length === 0) {
+        if (options.md) {
+          mdActionRequired('empty', 'no_sessions', [
+            { label: 'Start a task', command: 'prjct task "description" --md' },
+          ])
+        } else {
+          out.warn('no recent sessions found')
+        }
+        return { success: true, message: 'No recent sessions' }
+      }
+
+      if (options.md) {
+        const items = snapshots.map((s) => {
+          const ago = dateHelper.formatDuration(Date.now() - new Date(s.timestamp).getTime())
+          const project = s.projectName || s.projectId.slice(0, 8)
+          const subtaskInfo =
+            s.subtaskCount && s.activeSubtaskIndex !== undefined
+              ? ` (${s.activeSubtaskIndex + 1}/${s.subtaskCount})`
+              : ''
+          return `[${s.taskStatus}] **${project}** — ${s.taskDescription}${subtaskInfo} (${ago} ago)`
+        })
+
+        console.log(
+          mdOutput(
+            mdSection(
+              'Recent Sessions',
+              `${snapshots.length} session${snapshots.length !== 1 ? 's' : ''} across projects`
+            ),
+            mdList(items),
+            mdNextSteps([
+              { label: 'Resume a session', command: 'prjct resume --md' },
+              { label: 'Clean old sessions', command: 'prjct sessions --cleanup --md' },
+            ])
+          )
+        )
+      } else {
+        out.done(`${snapshots.length} recent session${snapshots.length !== 1 ? 's' : ''}`)
+        for (const s of snapshots) {
+          const ago = dateHelper.formatDuration(Date.now() - new Date(s.timestamp).getTime())
+          const project = s.projectName || s.projectId.slice(0, 8)
+          console.log(`  [${s.taskStatus}] ${project} — ${s.taskDescription} (${ago} ago)`)
+        }
+      }
+
+      return { success: true, snapshots, count: snapshots.length }
     } catch (error) {
       out.fail(getErrorMessage(error))
       return { success: false, error: getErrorMessage(error) }

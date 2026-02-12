@@ -45,6 +45,8 @@ export {
   generateUUID,
   getProjectPath,
 } from './schemas'
+// Session snapshots (PRJ-285)
+export * from './session-snapshot'
 // Shipped items
 export * from './shipped'
 // State (current task + queue)

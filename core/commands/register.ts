@@ -66,6 +66,7 @@ export function registerAllCommands(): void {
   commandRegistry.registerMethod('pause', workflow, 'pause', getMeta('pause'))
   commandRegistry.registerMethod('resume', workflow, 'resume', getMeta('resume'))
   commandRegistry.registerMethod('workflow', workflow, 'workflow', getMeta('workflow'))
+  commandRegistry.registerMethod('sessions', workflow, 'sessions', getMeta('sessions'))
 
   // Planning commands
   commandRegistry.registerMethod('init', planning, 'init', getMeta('init'))

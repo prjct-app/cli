@@ -31,5 +31,8 @@ export { calculateDuration, formatDuration, generateId } from './utils'
 import { TaskSessionManager } from './task-session-manager'
 export default TaskSessionManager
 
+// Session snapshots (PRJ-285)
+export { sessionSnapshotManager } from './session-snapshot'
+
 // Alias for backward compatibility
 export { TaskSessionManager as SessionManager } from './task-session-manager'

@@ -125,6 +125,13 @@ class PrjctCommands {
     return this.workflow.workflow(input, projectPath)
   }
 
+  async sessions(
+    projectPath: string = process.cwd(),
+    options: { md?: boolean; cleanup?: boolean } = {}
+  ): Promise<CommandResult> {
+    return this.workflow.sessions(projectPath, options)
+  }
+
   // ========== Planning Commands ==========
 
   async init(
