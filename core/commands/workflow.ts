@@ -177,7 +177,9 @@ export class WorkflowCommands extends PrjctCommandsBase {
             { label: 'Pause task', command: 'prjct pause --md' },
           ])
 
-          console.log(mdOutput(header, projectContext, files, rules, patterns, next))
+          console.log(
+            mdOutput(continuityContext, header, projectContext, files, rules, patterns, next)
+          )
 
           await this.logToMemory(projectPath, 'task_started', {
             task,
