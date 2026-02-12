@@ -807,7 +807,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
         })
 
         console.log(
-          mdJoin(
+          mdOutput(
             mdSection(
               'Recent Sessions',
               `${snapshots.length} session${snapshots.length !== 1 ? 's' : ''} across projects`
