@@ -1,24 +1,11 @@
 # Changelog
 
-## [1.28.6] - 2026-02-11
+## [1.29.0] - 2026-02-12
 
-### Added
-- analysis-enriched-formatters-codex-support
+### Features
 
-## [1.28.5] - 2026-02-11
-
-### Added
-- analysis-enriched-formatters-codex-support
-
-## [1.28.4] - 2026-02-11
-
-### Added
-- current work
-
-## [1.28.3] - 2026-02-11
-
-### Added
-- current work
+- JSON conflict handling + fix prjct start overwrite (#175)
+- Enrich AI formatters with analysis data + add Codex support (PRJ-277)
 
 ## [1.28.2] - 2026-02-11
 
