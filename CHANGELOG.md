@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.31.0] - 2026-02-12
+
+### Features
+
+- exquisite terminal UX — rich markdown formatters + branded output (#179)
+
+
 ## [1.30.2] - 2026-02-12
 
 ### Added
