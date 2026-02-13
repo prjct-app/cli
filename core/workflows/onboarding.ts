@@ -95,8 +95,6 @@ const AI_AGENTS: { value: AIAgent; title: string; description: string }[] = [
 
 export class OnboardingWizard {
   private projectPath: string
-  private currentStep: number = 0
-  private totalSteps: number = 5
   private aborted: boolean = false
 
   // Collected data
@@ -134,8 +132,6 @@ export class OnboardingWizard {
     ]
 
     for (const step of steps) {
-      this.currentStep++
-
       const shouldContinue = await step.run()
 
       if (!shouldContinue || this.aborted) {

@@ -1,11 +1,15 @@
 # Changelog
 
+## [1.33.1] - 2026-02-12
+
+### Added
+- Analysis rollback to restore previous sealed version (PRJ-276)
+
 ## [1.33.0] - 2026-02-12
 
 ### Features
 
 - dynamic workflow customization — hooks, gates, and custom steps (#180)
-
 
 ## [1.32.1] - 2026-02-12
 

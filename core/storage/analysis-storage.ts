@@ -27,12 +27,19 @@ import { StorageManager } from './storage-manager'
 interface AnalysisStoreData {
   draft: AnalysisSchema | null
   sealed: AnalysisSchema | null
+  previousSealed: AnalysisSchema | null
   lastUpdated: string
 }
 
 interface SealResult {
   success: boolean
   signature?: string
+  error?: string
+}
+
+interface RollbackResult {
+  success: boolean
+  restoredSignature?: string
   error?: string
 }
 
@@ -56,6 +63,7 @@ class AnalysisStorage extends StorageManager<AnalysisStoreData> {
     return {
       draft: null,
       sealed: null,
+      previousSealed: null,
       lastUpdated: '',
     }
   }
@@ -125,6 +133,7 @@ class AnalysisStorage extends StorageManager<AnalysisStoreData> {
     await this.write(projectId, {
       draft: null, // Clear draft — it's now sealed
       sealed,
+      previousSealed: data.sealed, // Preserve previous sealed for rollback
       lastUpdated: now,
     })
 
@@ -168,18 +177,50 @@ class AnalysisStorage extends StorageManager<AnalysisStoreData> {
   async getStatus(projectId: string): Promise<{
     hasSealed: boolean
     hasDraft: boolean
+    hasPreviousSealed: boolean
     sealedCommit: string | null
     draftCommit: string | null
+    previousSealedCommit: string | null
     sealedAt: string | null
   }> {
     const data = await this.read(projectId)
     return {
       hasSealed: data.sealed !== null,
       hasDraft: data.draft !== null,
+      hasPreviousSealed: data.previousSealed !== null,
       sealedCommit: data.sealed?.commitHash ?? null,
       draftCommit: data.draft?.commitHash ?? null,
+      previousSealedCommit: data.previousSealed?.commitHash ?? null,
       sealedAt: data.sealed?.sealedAt ?? null,
     }
+  }
+
+  /**
+   * Rollback to the previous sealed analysis version.
+   * The current sealed becomes a draft, and previousSealed becomes sealed.
+   */
+  async rollback(projectId: string): Promise<RollbackResult> {
+    const data = await this.read(projectId)
+
+    if (!data.previousSealed) {
+      return { success: false, error: 'No previous sealed version to rollback to.' }
+    }
+
+    const now = getTimestamp()
+
+    await this.write(projectId, {
+      draft: data.sealed, // Current sealed becomes draft (recoverable)
+      sealed: data.previousSealed,
+      previousSealed: null, // Clear — only one level of undo
+      lastUpdated: now,
+    })
+
+    await this.publishEntityEvent(projectId, 'analysis', 'rolled_back', {
+      restoredCommit: data.previousSealed.commitHash,
+      restoredSignature: data.previousSealed.signature,
+    })
+
+    return { success: true, restoredSignature: data.previousSealed.signature }
   }
 
   /**
@@ -323,5 +364,5 @@ class AnalysisStorage extends StorageManager<AnalysisStoreData> {
 
 export const analysisStorage = new AnalysisStorage()
 export default analysisStorage
-export type { AnalysisStoreData, SealResult, StalenessCheck }
+export type { AnalysisStoreData, SealResult, StalenessCheck, RollbackResult }
 export type { SemanticVerificationReport } from '../schemas/analysis'
