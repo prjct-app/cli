@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.35.0] - 2026-02-13
+
+### Features
+
+- add diff between consecutive analysis runs (PRJ-275) (#182)
+
+
 ## [1.34.0] - 2026-02-13
 
 ### Features
