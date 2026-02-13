@@ -183,6 +183,7 @@ async function main(): Promise<void> {
             full: options.full === true,
           }),
         seal: () => commands.seal(process.cwd(), { json: options.json === true }),
+        rollback: () => commands.rollback(process.cwd(), { json: options.json === true, md }),
         verify: () =>
           commands.verify(process.cwd(), {
             json: options.json === true,

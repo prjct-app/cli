@@ -723,6 +723,11 @@ export class AnalysisCommands extends PrjctCommandsBase {
         if (analysisStatus.hasDraft) {
           analysisItems.push(`Draft: ${analysisStatus.draftCommit} (pending seal)`)
         }
+        if (analysisStatus.hasPreviousSealed) {
+          analysisItems.push(
+            `Previous: ${analysisStatus.previousSealedCommit} (rollback available)`
+          )
+        }
 
         const md = mdOutput(
           `## ⚡ Status: ${projectName}`,
@@ -757,6 +762,9 @@ export class AnalysisCommands extends PrjctCommandsBase {
         }
         if (analysisStatus.hasDraft) {
           console.log(`  Draft: ${analysisStatus.draftCommit} (pending seal)`)
+        }
+        if (analysisStatus.hasPreviousSealed) {
+          console.log(`  Previous: ${analysisStatus.previousSealedCommit} (rollback available)`)
         }
       }
 
@@ -823,6 +831,83 @@ export class AnalysisCommands extends PrjctCommandsBase {
       const errMsg = getErrorMessage(error)
       if (options.json) {
         console.log(JSON.stringify({ success: false, error: errMsg }))
+      } else {
+        out.fail(errMsg)
+      }
+      return { success: false, error: errMsg }
+    }
+  }
+
+  /**
+   * prjct rollback - Rollback to the previous sealed analysis (PRJ-276)
+   *
+   * Restores the previous sealed version. The current sealed becomes a draft.
+   * Only one level of rollback is supported.
+   */
+  async rollback(
+    projectPath: string = process.cwd(),
+    options: { json?: boolean; md?: boolean } = {}
+  ): Promise<CommandResult> {
+    try {
+      const initResult = await this.ensureProjectInit(projectPath)
+      if (!initResult.success) return initResult
+
+      const projectId = await configManager.getProjectId(projectPath)
+      if (!projectId) {
+        if (options.json) {
+          console.log(JSON.stringify({ success: false, error: 'No project ID found' }))
+        }
+        return { success: false, error: 'No project ID found' }
+      }
+
+      const result = await analysisStorage.rollback(projectId)
+
+      if (options.json) {
+        console.log(
+          JSON.stringify({
+            success: result.success,
+            restoredSignature: result.restoredSignature,
+            error: result.error,
+          })
+        )
+        return { success: result.success, error: result.error }
+      }
+
+      if (options.md) {
+        if (!result.success) {
+          console.log(mdOutput(`## ❌ Rollback Failed`, `> ${result.error}`))
+          return { success: false, error: result.error }
+        }
+
+        console.log(
+          mdOutput(
+            mdDone('Analysis Rolled Back'),
+            mdStats({
+              'Restored signature': `${result.restoredSignature?.substring(0, 16)}...`,
+              Note: 'Previous sealed version is now active. Current version moved to draft.',
+            })
+          )
+        )
+        return { success: true, data: { restoredSignature: result.restoredSignature } }
+      }
+
+      if (!result.success) {
+        out.fail(result.error || 'Rollback failed')
+        return { success: false, error: result.error }
+      }
+
+      out.done('Analysis rolled back to previous sealed version')
+      console.log(`  Restored signature: ${result.restoredSignature?.substring(0, 16)}...`)
+      console.log(`  Previous sealed version demoted to draft`)
+      console.log('')
+
+      return { success: true, data: { restoredSignature: result.restoredSignature } }
+    } catch (error) {
+      const errMsg = getErrorMessage(error)
+      if (options.json) {
+        console.log(JSON.stringify({ success: false, error: errMsg }))
+      } else if (options.md) {
+        console.log(mdOutput(`## ❌ Rollback Failed`, `> ${errMsg}`))
       } else {
         out.fail(errMsg)
       }

@@ -277,6 +277,8 @@ async function executeCommand(request: DaemonRequest): Promise<import('../types'
       })
     case 'seal':
       return commands!.seal(request.cwd, { json: opts.json === true })
+    case 'rollback':
+      return commands!.rollback(request.cwd, { json: opts.json === true, md })
     case 'verify':
       return commands!.verify(request.cwd, {
         json: opts.json === true,

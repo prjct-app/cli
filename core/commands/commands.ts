@@ -282,6 +282,13 @@ class PrjctCommands {
     return this.analysis.seal(projectPath, options)
   }
 
+  async rollback(
+    projectPath: string = process.cwd(),
+    options: { json?: boolean; md?: boolean } = {}
+  ): Promise<CommandResult> {
+    return this.analysis.rollback(projectPath, options)
+  }
+
   async verify(
     projectPath: string = process.cwd(),
     options: { json?: boolean; semantic?: boolean } = {}

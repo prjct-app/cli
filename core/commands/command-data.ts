@@ -268,6 +268,21 @@ export const COMMANDS: CommandMeta[] = [
     ],
   },
   {
+    name: 'rollback',
+    group: 'core',
+    description: 'Rollback to the previous sealed analysis version',
+    usage: { claude: '/p:rollback', terminal: 'prjct rollback' },
+    params: '[--json] [--md]',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: true,
+    features: [
+      'Restores previous sealed version as active',
+      'Current sealed moves to draft (recoverable)',
+      'One level of rollback supported',
+    ],
+  },
+  {
     name: 'verify',
     group: 'core',
     description: 'Verify integrity of sealed analysis',
