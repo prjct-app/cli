@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.34.0] - 2026-02-13
+
+### Features
+
+- add analysis rollback to restore previous sealed version (PRJ-276) (#181)
+
+
 ## [1.33.1] - 2026-02-12
 
 ### Added
