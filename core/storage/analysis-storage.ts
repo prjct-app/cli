@@ -17,6 +17,7 @@ import {
   type SemanticVerificationReport,
   semanticVerify,
 } from '../schemas/analysis'
+import { type AnalysisDiff, generateAnalysisDiff } from '../services/analysis-diff'
 import { getTimestamp } from '../utils/date-helper'
 import { StorageManager } from './storage-manager'
 
@@ -224,6 +225,20 @@ class AnalysisStorage extends StorageManager<AnalysisStoreData> {
   }
 
   /**
+   * Compute diff between draft and sealed analysis (PRJ-275).
+   * Returns null if either side is missing.
+   */
+  async diff(projectId: string): Promise<AnalysisDiff | null> {
+    const data = await this.read(projectId)
+
+    if (!data.sealed || !data.draft) {
+      return null
+    }
+
+    return generateAnalysisDiff(data.sealed, data.draft)
+  }
+
+  /**
    * Check if sealed analysis is stale (commit hash differs from current HEAD).
    */
   checkStaleness(sealedCommit: string | null, currentCommit: string | null): StalenessCheck {
@@ -366,3 +381,4 @@ export const analysisStorage = new AnalysisStorage()
 export default analysisStorage
 export type { AnalysisStoreData, SealResult, StalenessCheck, RollbackResult }
 export type { SemanticVerificationReport } from '../schemas/analysis'
+export type { AnalysisDiff, AnalysisDiffItem } from '../services/analysis-diff'

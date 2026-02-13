@@ -10,6 +10,7 @@ import analyzer from '../domain/analyzer'
 import commandInstaller from '../infrastructure/command-installer'
 import { formatCost } from '../schemas/metrics'
 import { createStalenessChecker, syncService } from '../services'
+import { formatAnalysisDiffMd, formatAnalysisDiffText } from '../services/analysis-diff'
 import { formatDiffPreview, formatFullDiff, generateSyncDiff } from '../services/diff-generator'
 import { analysisStorage } from '../storage/analysis-storage'
 import { prjctDb } from '../storage/database'
@@ -441,6 +442,17 @@ export class AnalysisCommands extends PrjctCommandsBase {
           result.contextFiles.length + (result.aiTools?.filter((t) => t.success).length || 0)
         const agentCount = result.agents.length
 
+        // Check for analysis diff (PRJ-275)
+        let analysisDiffSection: string | null = null
+        try {
+          const analysisDiff = await analysisStorage.diff(projectId)
+          if (analysisDiff?.hasChanges) {
+            analysisDiffSection = formatAnalysisDiffMd(analysisDiff)
+          }
+        } catch {
+          // Non-critical
+        }
+
         const steps = getNextSteps('sync')
         const md = mdOutput(
           mdDone(`Sync Complete`),
@@ -450,6 +462,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
             'Files indexed': result.stats.fileCount,
             'Context files': contextFilesCount,
           }),
+          analysisDiffSection,
           result.git.hasChanges ? mdWarn('Uncommitted changes detected') : null,
           mdNextSteps(steps.map((s) => ({ label: s.desc, command: s.cmd })))
         )
@@ -775,6 +788,83 @@ export class AnalysisCommands extends PrjctCommandsBase {
       const errMsg = getErrorMessage(error)
       if (options.json) {
         console.log(JSON.stringify({ success: false, error: errMsg }))
+      } else {
+        out.fail(errMsg)
+      }
+      return { success: false, error: errMsg }
+    }
+  }
+
+  /**
+   * prjct diff - Show diff between draft and sealed analysis (PRJ-275)
+   *
+   * Compares the current draft with the sealed version to show
+   * what changed: languages, frameworks, patterns, file count, etc.
+   */
+  async diff(
+    projectPath: string = process.cwd(),
+    options: { json?: boolean; md?: boolean } = {}
+  ): Promise<CommandResult> {
+    try {
+      const initResult = await this.ensureProjectInit(projectPath)
+      if (!initResult.success) return initResult
+
+      const projectId = await configManager.getProjectId(projectPath)
+      if (!projectId) {
+        if (options.json) {
+          console.log(JSON.stringify({ success: false, error: 'No project ID found' }))
+        }
+        return { success: false, error: 'No project ID found' }
+      }
+
+      const diff = await analysisStorage.diff(projectId)
+
+      if (!diff) {
+        const msg =
+          'Cannot compute diff: need both a sealed and a draft analysis. Run `p. sync` to create a draft.'
+        if (options.json) {
+          console.log(JSON.stringify({ success: false, error: msg }))
+        } else if (options.md) {
+          console.log(mdOutput(`## Analysis Diff`, `> ${msg}`))
+        } else {
+          out.warn(msg)
+        }
+        return { success: false, error: msg }
+      }
+
+      if (options.json) {
+        console.log(JSON.stringify({ success: true, ...diff }))
+        return { success: true, data: diff }
+      }
+
+      if (options.md) {
+        console.log(mdOutput(formatAnalysisDiffMd(diff)))
+        return { success: true, data: diff }
+      }
+
+      // Terminal output
+      if (!diff.hasChanges) {
+        out.done('No changes between draft and sealed analysis')
+      } else {
+        out.section('Analysis Diff')
+        console.log(formatAnalysisDiffText(diff))
+        console.log('')
+
+        const parts: string[] = []
+        if (diff.summary.added > 0) parts.push(`${diff.summary.added} added`)
+        if (diff.summary.removed > 0) parts.push(`${diff.summary.removed} removed`)
+        if (diff.summary.changed > 0) parts.push(`${diff.summary.changed} changed`)
+        out.done(parts.join(', '))
+      }
+      console.log('')
+
+      return { success: true, data: diff }
+    } catch (error) {
+      const errMsg = getErrorMessage(error)
+      if (options.json) {
+        console.log(JSON.stringify({ success: false, error: errMsg }))
+      } else if (options.md) {
+        console.log(mdOutput(`## ❌ Diff Failed`, `> ${errMsg}`))
       } else {
         out.fail(errMsg)
       }
