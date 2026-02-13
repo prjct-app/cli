@@ -9,6 +9,7 @@
  */
 
 import { type ContextSources, cite, defaultSources } from '../../utils/citations'
+import type { ProjectLearnings } from './learnings-extractor'
 import type { AIToolConfig } from './registry'
 
 export interface ProjectContext {
@@ -44,6 +45,7 @@ export interface ProjectContext {
     sourceDir?: string
     testDir?: string
   }
+  learnings?: ProjectLearnings // NUEVO: Learnings desde SQLite
 }
 
 // =============================================================================
@@ -91,7 +93,8 @@ function formatAnalysisForClaude(analysis: Analysis): string {
 export function formatForClaude(ctx: ProjectContext, _config: AIToolConfig): string {
   const s = ctx.sources || defaultSources()
 
-  return `# ${ctx.name} - Project Rules
+  return `<!-- prjct-project:start - DO NOT REMOVE THIS MARKER -->
+# ${ctx.name} - Project Rules
 <!-- projectId: ${ctx.projectId} -->
 <!-- Generated: ${new Date().toISOString()} -->
 <!-- Ecosystem: ${ctx.ecosystem} | Type: ${ctx.projectType} -->
@@ -164,6 +167,31 @@ Load from \`~/.prjct-cli/projects/${ctx.projectId}/agents/\`:
 
 **Workflow**: ${ctx.agents.workflow.join(', ')}
 **Domain**: ${ctx.agents.domain.join(', ') || 'none'}
+
+---
+
+## RECENT LEARNINGS
+
+${
+  ctx.learnings &&
+  (
+    ctx.learnings.completedTasks.length > 0 ||
+      ctx.learnings.resolvedBugs.length > 0 ||
+      ctx.learnings.shippedFeatures.length > 0
+  )
+    ? `
+### Completed Tasks
+${ctx.learnings.completedTasks.length > 0 ? ctx.learnings.completedTasks.map((t) => `- ${t.description}${t.branch ? ` (${t.branch})` : ''}`).join('\n') : '_(No completed tasks yet)_'}
+
+### Resolved Bugs
+${ctx.learnings.resolvedBugs.length > 0 ? ctx.learnings.resolvedBugs.map((b) => `- ${b.description}`).join('\n') : '_(No resolved bugs yet)_'}
+
+### Shipped Features
+${ctx.learnings.shippedFeatures.length > 0 ? ctx.learnings.shippedFeatures.map((f) => `- **${f.name}** (v${f.version})${f.description ? `: ${f.description}` : ''}`).join('\n') : '_(No shipped features yet)_'}
+`
+    : '> Run `p. sync` to populate learnings from task history'
+}
+<!-- prjct-project:end - DO NOT REMOVE THIS MARKER -->
 `
 }
 

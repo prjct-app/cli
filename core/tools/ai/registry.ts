@@ -105,6 +105,28 @@ export function getAIToolConfig(id: string): AIToolConfig | null {
 }
 
 /**
+ * Get global path where AI tool reads its config
+ * NOT internal storage - where the TOOL actually reads
+ */
+export function getGlobalConfigPath(toolId: string): string {
+  const home = os.homedir()
+
+  switch (toolId) {
+    case 'claude':
+      return path.join(home, '.claude', 'CLAUDE.md')
+    case 'gemini':
+      return path.join(home, '.gemini', 'GEMINI.md')
+    case 'codex':
+      return path.join(home, '.codex', 'CODEX.md')
+    case 'aider':
+      return path.join(home, '.aider', 'AIDER.md')
+    default:
+      // Fallback: empty string means use storage internal path
+      return ''
+  }
+}
+
+/**
  * Parse --agents flag value
  * Examples: "claude,cursor" or "all"
  */
