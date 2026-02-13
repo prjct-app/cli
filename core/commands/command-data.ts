@@ -253,6 +253,21 @@ export const COMMANDS: CommandMeta[] = [
     ],
   },
   {
+    name: 'diff',
+    group: 'core',
+    description: 'Show diff between draft and sealed analysis runs',
+    usage: { claude: '/p:diff', terminal: 'prjct diff' },
+    params: '[--json] [--md]',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: true,
+    features: [
+      'Compares draft vs sealed analysis field-by-field',
+      'Shows languages, frameworks, patterns, file count changes',
+      'Markdown and JSON output modes',
+    ],
+  },
+  {
     name: 'seal',
     group: 'core',
     description: 'Seal the current draft analysis with a commit-hash signature',

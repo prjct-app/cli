@@ -182,6 +182,7 @@ async function main(): Promise<void> {
             package: options.package ? String(options.package) : undefined,
             full: options.full === true,
           }),
+        diff: () => commands.diff(process.cwd(), { json: options.json === true, md }),
         seal: () => commands.seal(process.cwd(), { json: options.json === true }),
         rollback: () => commands.rollback(process.cwd(), { json: options.json === true, md }),
         verify: () =>

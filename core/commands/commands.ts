@@ -275,6 +275,13 @@ class PrjctCommands {
     return this.analysis.status(projectPath, options)
   }
 
+  async diff(
+    projectPath: string = process.cwd(),
+    options: { json?: boolean; md?: boolean } = {}
+  ): Promise<CommandResult> {
+    return this.analysis.diff(projectPath, options)
+  }
+
   async seal(
     projectPath: string = process.cwd(),
     options: { json?: boolean } = {}
