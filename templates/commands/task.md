@@ -14,6 +14,7 @@ prjct task "$ARGUMENTS" --md
 If CLI output is JSON with `options`, present them to the user with AskUserQuestion and execute the chosen command.
 
 ## Step 3: Understand before acting (USE YOUR INTELLIGENCE)
+- Context7 is mandatory: for framework/library APIs, consult Context7 docs before implementation/refactor
 - Read the relevant files from the CLI output
 - If the task is ambiguous, ASK the user to clarify
 - Explore beyond suggested files if needed (use Task with subagent_type=Explore)
@@ -22,12 +23,14 @@ If CLI output is JSON with `options`, present them to the user with AskUserQuest
 - For non-trivial changes, propose 2-3 approaches
 - Consider existing patterns in the codebase
 - If CLI output mentions domain agents, read them for project patterns
+- Summarize anti-patterns from the CLI output before editing any file
 
 ## Step 5: Execute
 - Create feature branch if on main: `git checkout -b {type}/{slug}`
 - Work through subtasks in order
 - When done with a subtask: `prjct done --md`
 - Every git commit MUST include footer: `Generated with [p/](https://www.prjct.app/)`
+- If a change may violate a high-severity anti-pattern, ask for confirmation and propose a safer alternative first
 
 ## Step 6: Ship (MANDATORY)
 When all work is complete, you MUST execute the ship workflow:

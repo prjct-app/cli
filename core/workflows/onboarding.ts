@@ -26,7 +26,7 @@ export type ProjectType =
   | 'monorepo'
   | 'unknown'
 
-export type AIAgent = 'claude' | 'cursor' | 'windsurf' | 'copilot' | 'gemini'
+export type AIAgent = 'claude' | 'cursor' | 'windsurf' | 'copilot' | 'gemini' | 'codex'
 
 export interface DetectedStack {
   language: string
@@ -87,6 +87,7 @@ const AI_AGENTS: { value: AIAgent; title: string; description: string }[] = [
   { value: 'windsurf', title: 'Windsurf', description: "Codeium's AI IDE" },
   { value: 'copilot', title: 'GitHub Copilot', description: "GitHub's AI pair programmer" },
   { value: 'gemini', title: 'Gemini CLI', description: "Google's Gemini in terminal" },
+  { value: 'codex', title: 'OpenAI Codex', description: "OpenAI's coding agent in terminal" },
 ]
 
 // ============================================================================
@@ -153,7 +154,8 @@ export class OnboardingWizard {
     // Auto-detect everything
     this.detectedType = await this.detectProjectType()
     this.confirmedType = this.detectedType
-    this.selectedAgents = ['claude'] // Default to Claude
+    const detectedAgents = await this.detectInstalledAgents()
+    this.selectedAgents = detectedAgents.length > 0 ? detectedAgents : ['claude']
     this.detectedStack = await this.detectStack()
     this.confirmedStack = this.detectedStack
     // Use default preferences
@@ -473,6 +475,22 @@ export class OnboardingWizard {
       agents.push('gemini')
     } catch {
       /* not installed */
+    }
+
+    // Codex: Check codex binary OR ~/.codex directory
+    try {
+      const { exec } = await import('node:child_process')
+      const { promisify } = await import('node:util')
+      const execAsync = promisify(exec)
+      await execAsync('which codex')
+      agents.push('codex')
+    } catch {
+      try {
+        await fs.access(path.join(os.homedir(), '.codex'))
+        agents.push('codex')
+      } catch {
+        /* not installed */
+      }
     }
 
     // Default to Claude if nothing detected

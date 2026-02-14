@@ -73,6 +73,16 @@ export async function showSyncResult(
     const word = installed.length === 1 ? 'skill' : 'skills'
     generatedItems.push(`${installed.length} ${word} auto-installed`)
   }
+  if (result.context7) {
+    generatedItems.push(
+      `Context7: ${result.context7.verified ? 'verified' : `not ready${result.context7.message ? ` (${result.context7.message})` : ''}`}`
+    )
+  }
+  if (result.analysisSummary) {
+    generatedItems.push(
+      `Analysis: ${result.analysisSummary.patterns} patterns | ${result.analysisSummary.antiPatterns} anti-patterns (${result.analysisSummary.criticalAntiPatterns} critical)`
+    )
+  }
 
   out.section('Generated')
   out.list(generatedItems, { bullet: '✓' })

@@ -82,6 +82,18 @@ export interface AIToolResult {
   success: boolean
 }
 
+export interface SyncContext7Status {
+  installed: boolean
+  verified: boolean
+  message?: string
+}
+
+export interface SyncAnalysisSummary {
+  patterns: number
+  antiPatterns: number
+  criticalAntiPatterns: number
+}
+
 // =============================================================================
 // Sync Result & Context Generator Config
 // =============================================================================
@@ -114,6 +126,8 @@ export interface ProjectSyncResult {
   skillsInstalled: { name: string; agent: string; status: 'installed' | 'skipped' | 'error' }[]
   contextFiles: string[]
   aiTools: AIToolResult[]
+  context7?: SyncContext7Status
+  analysisSummary?: SyncAnalysisSummary
   syncMetrics?: SyncMetrics
   verification?: VerificationReport
   incremental?: IncrementalInfo
