@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.38.3] - 2026-02-14
+
+### Bug Fixes
+
+- replace hardcoded version in server API info (PRJ-341) (#189)
+
+
 ## [1.38.2] - 2026-02-14
 
 ### Bug Fixes
