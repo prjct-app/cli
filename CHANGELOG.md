@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.36.0] - 2026-02-14
+
+### Features
+
+- Custom workflows with agentic auto-configuration (#183)
+
+
 ## [1.36.0] - 2026-02-13
 
 ### Features
