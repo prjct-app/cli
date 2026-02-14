@@ -2,6 +2,13 @@
 
 ## [1.37.1] - 2026-02-14
 
+### Bug Fixes
+
+- neutral banner colors + add Codex to provider selection (#185)
+
+
+## [1.37.1] - 2026-02-14
+
 ### Fixed
 - Banner colors: neutral warm gray gradient (was loud cyan/pink)
 - Codex provider now appears in `prjct start` selection menu
