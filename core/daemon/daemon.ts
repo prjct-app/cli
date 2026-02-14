@@ -310,6 +310,12 @@ async function executeCommand(request: DaemonRequest): Promise<import('../types'
       return commands!.sessions(request.cwd, { md, cleanup: opts.cleanup === true })
     case 'design':
       return commands!.design(param || '', opts)
+    case 'analysis-payload':
+      return commands!.analysisPayload(request.cwd, { json: opts.json === true, md })
+    case 'analysis-save-llm':
+      return commands!.saveLlmAnalysis(param || '', request.cwd, { md })
+    case 'analysis-llm':
+      return commands!.getLlmAnalysis(request.cwd, { json: opts.json === true, md })
     case 'analyze':
       return commands!.analyze(opts)
     case 'cleanup':

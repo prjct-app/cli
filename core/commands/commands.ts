@@ -303,6 +303,28 @@ class PrjctCommands {
     return this.analysis.verify(projectPath, options)
   }
 
+  async analysisPayload(
+    projectPath: string = process.cwd(),
+    options: { json?: boolean; md?: boolean } = {}
+  ): Promise<CommandResult> {
+    return this.analysis.analysisPayload(projectPath, options)
+  }
+
+  async saveLlmAnalysis(
+    analysisJson: string,
+    projectPath: string = process.cwd(),
+    options: { md?: boolean } = {}
+  ): Promise<CommandResult> {
+    return this.analysis.saveLlmAnalysis(analysisJson, projectPath, options)
+  }
+
+  async getLlmAnalysis(
+    projectPath: string = process.cwd(),
+    options: { json?: boolean; md?: boolean } = {}
+  ): Promise<CommandResult> {
+    return this.analysis.getLlmAnalysis(projectPath, options)
+  }
+
   // ========== Context Commands ==========
 
   async context(
