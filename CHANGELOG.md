@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.38.5] - 2026-02-14
+
+### Bug Fixes
+
+- skip diff preview in non-interactive sync mode (#191)
+
+
 ## [1.38.4] - 2026-02-14
 
 ### Bug Fixes
