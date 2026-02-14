@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.38.2] - 2026-02-14
+
+### Added
+- PRJ-341 replace hardcoded server version
+
 ## [1.38.1] - 2026-02-14
 
 ### Bug Fixes
