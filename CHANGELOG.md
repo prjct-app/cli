@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.38.3] - 2026-02-14
+
+### Added
+- linear sync queue reconciliation
+
 ## [1.38.2] - 2026-02-14
 
 ### Bug Fixes

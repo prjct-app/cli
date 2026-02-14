@@ -279,9 +279,13 @@ async function main(): Promise<void> {
         await initFromProject()
         const result = await linearSync.pullAll(projectId)
 
+        // Reconcile queue: mark tasks as completed if their Linear issue is done/in_review
+        const reconciled = await linearSync.reconcileQueue(projectId)
+
         output({
           success: result.errors.length === 0,
           ...result,
+          reconciled,
         })
         break
       }
