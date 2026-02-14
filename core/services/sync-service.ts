@@ -156,7 +156,7 @@ class SyncService {
       // Codex router must be healthy before generating p. task context
       const codexDetection = await detectCodex()
       if (codexDetection.installed) {
-        const codexRouter = await verifyCodexPRouterReady()
+        const codexRouter = await verifyCodexPRouterReady({ autoRepair: true })
         if (!codexRouter.verified) {
           return {
             success: false,

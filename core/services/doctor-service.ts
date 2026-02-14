@@ -368,7 +368,7 @@ class DoctorService {
 
   private async checkCodexPRouter(): Promise<CheckResult> {
     try {
-      const status = await verifyCodexPRouterReady()
+      const status = await verifyCodexPRouterReady({ autoRepair: true })
       if (!status.installed) {
         return {
           name: 'codex p-router',
