@@ -1,14 +1,16 @@
 # Changelog
 
-## [1.37.3] - 2026-02-14
+## [1.38.1] - 2026-02-14
 
-### Added
-- current work
+### Bug Fixes
 
-## [1.37.2] - 2026-02-14
+- Auto-repair Codex router metadata during sync and doctor checks (#187)
 
-### Added
-- hybrid sync pipeline
+## [1.38.0] - 2026-02-14
+
+### Features
+
+- hybrid sync pipeline - CLI + LLM analysis (#186)
 
 ## [1.37.1] - 2026-02-14
 
