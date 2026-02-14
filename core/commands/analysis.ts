@@ -11,9 +11,11 @@ import commandInstaller from '../infrastructure/command-installer'
 import { formatCost } from '../schemas/metrics'
 import { createStalenessChecker, syncService } from '../services'
 import { formatAnalysisDiffMd, formatAnalysisDiffText } from '../services/analysis-diff'
+import { buildAnalysisPayload } from '../services/analysis-payload-builder'
 import { formatDiffPreview, formatFullDiff, generateSyncDiff } from '../services/diff-generator'
 import { analysisStorage } from '../storage/analysis-storage'
 import { prjctDb } from '../storage/database'
+import llmAnalysisStorage from '../storage/llm-analysis-storage'
 import { metricsStorage } from '../storage/metrics-storage'
 import type { AnalyzeOptions, CommandResult, ProjectContext } from '../types'
 import { getErrorMessage } from '../types/fs'
@@ -482,6 +484,214 @@ export class AnalysisCommands extends PrjctCommandsBase {
       } else {
         out.fail(getErrorMessage(error))
       }
+      return { success: false, error: getErrorMessage(error) }
+    }
+  }
+
+  /**
+   * Generate analysis payload for LLM consumption.
+   * Called by the sync template to get data for the LLM to analyze.
+   */
+  async analysisPayload(
+    projectPath: string = process.cwd(),
+    options: { json?: boolean; md?: boolean } = {}
+  ): Promise<CommandResult> {
+    try {
+      const initResult = await this.ensureProjectInit(projectPath)
+      if (!initResult.success) return initResult
+
+      const projectId = await configManager.getProjectId(projectPath)
+      if (!projectId) {
+        return { success: false, error: 'No project ID found' }
+      }
+
+      // Quick sync to get fresh data (without full regeneration)
+      const result = await syncService.sync(projectPath, { aiTools: [] })
+      if (!result.success) {
+        return { success: false, error: result.error || 'Failed to gather project data' }
+      }
+
+      // Check if LLM analysis is already current
+      const currentCommit = result.git.recentCommits[0]?.hash ?? null
+      if (currentCommit && llmAnalysisStorage.isCurrent(projectId, currentCommit)) {
+        if (options.md) {
+          console.log(mdOutput(mdDone('LLM analysis is current'), '> No re-analysis needed.'))
+        } else {
+          console.log(
+            JSON.stringify({ success: true, action: 'skip', message: 'Analysis is current' })
+          )
+        }
+        return { success: true, message: 'Analysis is current' }
+      }
+
+      const payload = await buildAnalysisPayload(projectId, projectPath, result.git, result.stats)
+
+      if (options.md) {
+        // Output as structured markdown for the LLM to consume
+        console.log(
+          mdOutput(
+            `## 🔍 Analysis Payload`,
+            `> Analyze this project data and produce structured findings.`,
+            '',
+            '```json',
+            JSON.stringify(payload, null, 2),
+            '```',
+            '',
+            `> After analyzing, call: \`prjct analysis save-llm --json '{...}'\``
+          )
+        )
+      } else {
+        console.log(JSON.stringify({ success: true, payload }))
+      }
+
+      return { success: true, data: payload }
+    } catch (error) {
+      return { success: false, error: getErrorMessage(error) }
+    }
+  }
+
+  /**
+   * Save structured LLM analysis findings to SQLite.
+   * Called by the sync template after the LLM produces findings.
+   */
+  async saveLlmAnalysis(
+    analysisJson: string,
+    projectPath: string = process.cwd(),
+    options: { md?: boolean } = {}
+  ): Promise<CommandResult> {
+    try {
+      const initResult = await this.ensureProjectInit(projectPath)
+      if (!initResult.success) return initResult
+
+      const projectId = await configManager.getProjectId(projectPath)
+      if (!projectId) {
+        return { success: false, error: 'No project ID found' }
+      }
+
+      const analysis = JSON.parse(analysisJson)
+
+      // Validate basic structure
+      if (!analysis.version || !analysis.architecture || !analysis.patterns) {
+        return { success: false, error: 'Invalid LLM analysis format. Missing required fields.' }
+      }
+
+      llmAnalysisStorage.save(projectId, analysis)
+
+      if (options.md) {
+        console.log(
+          mdOutput(
+            mdDone('LLM Analysis Saved'),
+            mdStats({
+              Architecture: analysis.architecture.style,
+              Patterns: analysis.patterns.length,
+              'Anti-patterns': analysis.antiPatterns?.length || 0,
+              'Tech debt items': analysis.techDebt?.length || 0,
+              'Risk areas': analysis.riskAreas?.length || 0,
+              Conventions: analysis.conventions?.length || 0,
+            })
+          )
+        )
+      } else {
+        console.log(
+          JSON.stringify({
+            success: true,
+            message: 'LLM analysis saved',
+            stats: {
+              patterns: analysis.patterns.length,
+              antiPatterns: analysis.antiPatterns?.length || 0,
+              techDebt: analysis.techDebt?.length || 0,
+            },
+          })
+        )
+      }
+
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: getErrorMessage(error) }
+    }
+  }
+
+  /**
+   * Get the current LLM analysis for a project.
+   */
+  async getLlmAnalysis(
+    projectPath: string = process.cwd(),
+    options: { json?: boolean; md?: boolean } = {}
+  ): Promise<CommandResult> {
+    try {
+      const initResult = await this.ensureProjectInit(projectPath)
+      if (!initResult.success) return initResult
+
+      const projectId = await configManager.getProjectId(projectPath)
+      if (!projectId) {
+        return { success: false, error: 'No project ID found' }
+      }
+
+      const analysis = llmAnalysisStorage.getActive(projectId)
+
+      if (!analysis) {
+        if (options.md) {
+          console.log(mdOutput('## No LLM Analysis', '> Run `prjct sync` to generate.'))
+        } else {
+          console.log(JSON.stringify({ success: false, message: 'No LLM analysis found' }))
+        }
+        return { success: false, message: 'No LLM analysis found' }
+      }
+
+      if (options.md) {
+        const sections: string[] = [mdDone(`LLM Analysis (${analysis.architecture.style})`), '']
+
+        if (analysis.architecture.insights.length > 0) {
+          sections.push(mdSection('Architecture Insights', mdList(analysis.architecture.insights)))
+        }
+
+        if (analysis.patterns.length > 0) {
+          sections.push(
+            mdSection(
+              'Patterns',
+              mdList(
+                analysis.patterns.map((p) => `**${p.name}** — ${p.description} (${p.category})`)
+              )
+            )
+          )
+        }
+
+        if (analysis.antiPatterns.length > 0) {
+          sections.push(
+            mdSection(
+              'Anti-Patterns',
+              mdList(
+                analysis.antiPatterns.map((a) => `[${a.severity}] ${a.issue} — ${a.suggestion}`)
+              )
+            )
+          )
+        }
+
+        if (analysis.techDebt.length > 0) {
+          sections.push(
+            mdSection(
+              'Tech Debt',
+              mdList(analysis.techDebt.map((d) => `[${d.priority}/${d.effort}] ${d.description}`))
+            )
+          )
+        }
+
+        if (analysis.conventions.length > 0) {
+          sections.push(
+            mdSection(
+              'Conventions',
+              mdList(analysis.conventions.map((c) => `**${c.category}**: ${c.rule}`))
+            )
+          )
+        }
+
+        console.log(mdOutput(...sections))
+      } else {
+        console.log(JSON.stringify({ success: true, analysis }))
+      }
+
+      return { success: true, data: analysis }
+    } catch (error) {
       return { success: false, error: getErrorMessage(error) }
     }
   }

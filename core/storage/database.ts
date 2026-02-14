@@ -388,6 +388,29 @@ const migrations: Migration[] = [
       `)
     },
   },
+  {
+    version: 5,
+    name: 'llm-analysis-table',
+    up: (db: SqliteDatabase) => {
+      db.run(`
+        -- =======================================================================
+        -- LLM Analysis: Structured findings from hybrid sync pipeline
+        -- Pipeline: CLI (collect) → LLM (analyze) → CLI (store)
+        -- =======================================================================
+        CREATE TABLE llm_analysis (
+          id            INTEGER PRIMARY KEY AUTOINCREMENT,
+          commit_hash   TEXT,
+          status        TEXT NOT NULL DEFAULT 'active',
+          analysis      TEXT NOT NULL,
+          analyzed_at   TEXT NOT NULL,
+          superseded_at TEXT
+        );
+
+        CREATE INDEX idx_llm_analysis_status ON llm_analysis(status);
+        CREATE INDEX idx_llm_analysis_commit ON llm_analysis(commit_hash);
+      `)
+    },
+  },
 ]
 
 // =============================================================================

@@ -159,7 +159,7 @@ export async function updateProjectSection(
 
   // 1. Add global section first (if exists)
   if (globalSection) {
-    rebuiltContent += globalSection + '\n\n'
+    rebuiltContent += `${globalSection}\n\n`
   }
 
   // 2. Add all project sections
@@ -210,7 +210,7 @@ export async function removeProjectSection(filePath: string, projectId: string):
 
   // 1. Add global section first (if exists)
   if (globalSection) {
-    rebuiltContent += globalSection + '\n\n'
+    rebuiltContent += `${globalSection}\n\n`
   }
 
   // 2. Add remaining project sections
