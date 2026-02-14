@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.37.3] - 2026-02-14
+
+### Added
+- current work
+
+## [1.37.2] - 2026-02-14
+
+### Added
+- hybrid sync pipeline
+
 ## [1.37.1] - 2026-02-14
 
 ### Bug Fixes
