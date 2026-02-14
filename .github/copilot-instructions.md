@@ -7,7 +7,17 @@ This is prjct-cli, a JavaScript project.
 - Type: enterprise
 - Stack: Hono
 
-> Run `p. sync` to populate project intelligence
+## Code Patterns
+- **Prefer strict typing contracts**: Functions and component props should be explicitly typed; avoid implicit any boundaries.
+- **Type-first API surfaces**: Exported modules should define reusable domain types for inputs and outputs.
+- **Hono API validation via Context7**: Validate Hono APIs against current documentation through Context7 before implementation.
+- **Image rendering via next/image**: Project uses next/image for optimized image delivery. (app/** or src/**)
+- **Use UiButton abstraction**: Buttons are wrapped in UiButton instead of native button in app UI. (components/**)
+
+## Anti-Patterns
+- **Unbounded any type** in `multiple` — Use explicit types or unknown with narrowing. Add inline justification for unavoidable any.
+- **Unscoped @ts-ignore** in `multiple` — Prefer @ts-expect-error with rationale and follow-up cleanup ticket.
+- **Unchecked @ts-ignore usage** in `core/services/pattern-extractor.ts` — Use @ts-expect-error with reason or refactor typings.
 
 <!-- source: package.json, detected -->
 ## Commands
