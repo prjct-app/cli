@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.36.2] - 2026-02-13
+
+### Added
+- current work
+
+## [1.36.1] - 2026-02-13
+
+### Added
+- current work
+
 ## [1.36.0] - 2026-02-14
 
 ### Features

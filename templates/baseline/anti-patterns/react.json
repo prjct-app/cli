@@ -1,0 +1,18 @@
+{
+  "items": [
+    {
+      "issue": "State mutation in place",
+      "suggestion": "Use immutable updates and derive state from props/data flows where possible.",
+      "severity": "high",
+      "framework": "React",
+      "confidence": 0.82
+    },
+    {
+      "issue": "UI primitives bypassing design system",
+      "suggestion": "Use approved component abstractions before introducing raw HTML controls.",
+      "severity": "medium",
+      "framework": "React",
+      "confidence": 0.74
+    }
+  ]
+}

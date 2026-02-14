@@ -25,6 +25,8 @@ export { ChangelogService } from './changelog-service'
 export type { ContextSelectionOptions, SelectedContext } from './context-selector'
 // Context Selector - Task-based context selection (PRJ-85)
 export { ContextSelector, contextSelector } from './context-selector'
+export type { Context7Status } from './context7-service'
+export { context7Service } from './context7-service'
 export type { CategorizationOptions, CategorizationResult } from './file-categorizer'
 // File Categorizer - Smart Context Selection (PRJ-85)
 export { FileCategorizer, fileCategorizer } from './file-categorizer'
@@ -38,6 +40,15 @@ export { MemoryService, memoryService } from './memory-service'
 export type { ContextSection, NestedContext, ResolvedContext } from './nested-context-resolver'
 // Nested Context Resolver - Monorepo PRJCT.md inheritance (PRJ-118)
 export { NestedContextResolver } from './nested-context-resolver'
+export type { PCommandValidationResult } from './p-command-resolver'
+export { isPCommandResolveError, pCommandResolver } from './p-command-resolver'
+export {
+  type ExtractedAntiPattern,
+  type ExtractedPattern,
+  type ExtractPatternInput,
+  type ExtractPatternResult,
+  patternExtractor,
+} from './pattern-extractor'
 export type { IndexOptions, RelevantContext, ScanResult } from './project-index'
 // Project Index - Persistent scanning with scoring
 export { createProjectIndexer, ProjectIndexer, RELEVANCE_THRESHOLD } from './project-index'

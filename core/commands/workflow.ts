@@ -24,6 +24,7 @@ import { linearService } from '../integrations/linear'
 import { generateUUID } from '../schemas'
 import type { AnalysisSchema } from '../schemas/analysis'
 import type { TaskFeedback } from '../schemas/state'
+import context7Service from '../services/context7-service'
 import { sessionSnapshotManager } from '../session/session-snapshot'
 import { analysisStorage, queueStorage, stateStorage } from '../storage'
 import { customWorkflowStorage } from '../storage/custom-workflow-storage'
@@ -165,6 +166,23 @@ export class WorkflowCommands extends PrjctCommandsBase {
         }
 
         if (options.md) {
+          // Context7 is mandatory before coding tasks
+          try {
+            await context7Service.ensureReady()
+          } catch (error) {
+            mdActionRequired(
+              'blocked',
+              'context7_not_ready',
+              [
+                { label: 'Fix Context7 now', command: 'prjct start' },
+                { label: 'Retry task after fix', command: `prjct task "${taskDescription}" --md` },
+                { label: 'Cancel' },
+              ],
+              { error: getErrorMessage(error) }
+            )
+            return { success: false, error: getErrorMessage(error) }
+          }
+
           // --md path: rich context provider, no orchestration
           // Check for active task before starting — friendly message instead of error
           const existingTask = await stateStorage.getCurrentTask(projectId)
@@ -224,6 +242,11 @@ export class WorkflowCommands extends PrjctCommandsBase {
           )
           const rules = buildRules(repoAnalysisRaw)
           const patterns = buildPatterns(analysis)
+          const contextContract = buildContextContract(
+            taskDescription,
+            relevantFilesResult.files,
+            analysis
+          )
           const next = mdNextSteps([
             { label: 'Find relevant files', command: `prjct context files "${task}"` },
             { label: 'Complete subtask', command: 'prjct done --md' },
@@ -231,7 +254,16 @@ export class WorkflowCommands extends PrjctCommandsBase {
           ])
 
           console.log(
-            mdOutput(continuityContext, header, projectContext, files, rules, patterns, next)
+            mdOutput(
+              continuityContext,
+              header,
+              contextContract,
+              projectContext,
+              files,
+              rules,
+              patterns,
+              next
+            )
           )
 
           await this.logToMemory(projectPath, 'task_started', {
@@ -1914,22 +1946,60 @@ function buildPatterns(analysis: AnalysisSchema | null): string | null {
 
   const patterns = analysis.patterns
   if (Array.isArray(patterns) && patterns.length > 0) {
-    const items = patterns.map((p) => {
+    const items = patterns.slice(0, 8).map((p) => {
       const loc = p.location ? ` — \`${p.location}\`` : ''
-      return `- **${p.name}**: ${p.description}${loc}`
+      const src = p.source ? ` [${p.source}]` : ''
+      return `- **${p.name}**${src}: ${p.description}${loc}`
     })
     sections.push(`### Patterns (follow these)\n${items.join('\n')}`)
   }
 
   const antiPatterns = analysis.antiPatterns
   if (Array.isArray(antiPatterns) && antiPatterns.length > 0) {
-    const items = antiPatterns.map((a) => {
-      return `- **${a.issue}** — \`${a.file}\` → ${a.suggestion}`
+    const severityOrder = { high: 0, medium: 1, low: 2 }
+    const sorted = [...antiPatterns].sort((a, b) => {
+      const left = severityOrder[(a.severity || 'low') as keyof typeof severityOrder] ?? 2
+      const right = severityOrder[(b.severity || 'low') as keyof typeof severityOrder] ?? 2
+      return left - right
+    })
+    const items = sorted.slice(0, 8).map((a) => {
+      const sev = (a.severity || 'low').toUpperCase()
+      const src = a.source ? ` [${a.source}]` : ''
+      return `- **[${sev}] ${a.issue}**${src} — \`${a.file}\` → ${a.suggestion}`
     })
     sections.push(`### Anti-patterns (avoid these)\n${items.join('\n')}`)
   }
 
   return sections.length > 0 ? sections.join('\n\n') : null
+}
+
+function buildContextContract(
+  task: string,
+  files: Array<{ path: string; reasons: string[] }>,
+  analysis: AnalysisSchema | null
+): string {
+  const topFiles = files.slice(0, 4).map((f) => `\`${f.path}\``)
+  const topPatterns = (analysis?.patterns || []).slice(0, 3).map((p) => p.name)
+  const severityWeight = (value: string | undefined): number => {
+    if (value === 'high') return 0
+    if (value === 'medium') return 1
+    return 2
+  }
+  const topAnti = (analysis?.antiPatterns || [])
+    .sort((a, b) => severityWeight(a.severity) - severityWeight(b.severity))
+    .slice(0, 3)
+    .map((a) => `${a.issue} (${a.file})`)
+
+  const lines = [
+    '### Context Contract',
+    `- Goal: ${task}`,
+    `- Key files: ${topFiles.length > 0 ? topFiles.join(', ') : 'Run `prjct sync` to improve file targeting'}`,
+    `- Patterns: ${topPatterns.length > 0 ? topPatterns.join(' | ') : 'No patterns yet (run `prjct sync`)'}`,
+    `- Must avoid: ${topAnti.length > 0 ? topAnti.join(' | ') : 'No anti-patterns yet (run `prjct sync`)'}`,
+    '- Do now: confirm approach, follow patterns, avoid anti-patterns before editing',
+  ]
+
+  return lines.join('\n')
 }
 
 /**

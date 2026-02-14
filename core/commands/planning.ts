@@ -229,6 +229,8 @@ export class PlanningCommands extends PrjctCommandsBase {
               return '.github/copilot-instructions.md'
             case 'gemini':
               return 'GEMINI.md'
+            case 'codex':
+              return 'AGENTS.md'
             default:
               return null
           }

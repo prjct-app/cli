@@ -7,6 +7,7 @@ import path from 'node:path'
 import chalk from 'chalk'
 import commandInstaller from '../infrastructure/command-installer'
 import pathManager from '../infrastructure/path-manager'
+import context7Service from '../services/context7-service'
 import type { CommandResult, SetupOptions } from '../types'
 import { getErrorMessage } from '../types/fs'
 import { fileExists } from '../utils/file-helper'
@@ -18,49 +19,74 @@ export class SetupCommands extends PrjctCommandsBase {
    * First-time setup - Install commands to editors
    */
   async start(): Promise<CommandResult> {
-    const aiProvider = require('../infrastructure/ai-provider')
-    const activeProvider = await aiProvider.getActiveProvider()
-
-    console.log(`🚀 Setting up prjct for ${activeProvider.displayName}...\n`)
-
     const status = await commandInstaller.checkInstallation()
+    const aiProvider = require('../infrastructure/ai-provider')
+    const codexDetection = await aiProvider.detectCodex()
+    const hasCliProvider = status.claudeDetected
+    const activeProvider = hasCliProvider ? await aiProvider.getActiveProvider() : null
+    const primaryName = hasCliProvider ? activeProvider.displayName : 'OpenAI Codex'
 
-    if (!status.claudeDetected) {
-      // Note: variable name is legacy, checks active provider
+    console.log(`🚀 Setting up prjct for ${primaryName}...\n`)
+
+    if (!hasCliProvider && !codexDetection.installed) {
       return {
         success: false,
-        message:
-          `❌ ${activeProvider.displayName} not detected.\n\nPlease install it first:\n` +
-          `  - ${activeProvider.displayName}: ${activeProvider.docsUrl}`,
+        message: `❌ No supported AI provider detected.\n\nPlease install one first:\n  - Claude Code: https://docs.anthropic.com/claude-code\n  - Gemini CLI: https://geminicli.com/docs\n  - OpenAI Codex: https://github.com/openai/codex`,
       }
     }
 
-    console.log('📦 Installing /p:* commands...')
-    const result = await commandInstaller.installCommands()
+    if (hasCliProvider) {
+      console.log('📦 Installing /p:* commands...')
+      const result = await commandInstaller.installCommands()
 
-    if (!result.success) {
-      return {
-        success: false,
-        message: `❌ Installation failed: ${result.error}`,
+      if (!result.success) {
+        return {
+          success: false,
+          message: `❌ Installation failed: ${result.error}`,
+        }
+      }
+
+      console.log(
+        `\n✅ Installed ${result.installed?.length ?? 0} commands to:\n   ${pathManager.getDisplayPath(result.path || '')}`
+      )
+
+      if ((result.errors?.length ?? 0) > 0) {
+        console.log(`\n⚠️  ${result.errors?.length ?? 0} errors:`)
+        for (const e of result.errors ?? []) {
+          console.log(`   - ${e.file}: ${e.error}`)
+        }
       }
     }
 
-    console.log(
-      `\n✅ Installed ${result.installed?.length ?? 0} commands to:\n   ${pathManager.getDisplayPath(result.path || '')}`
-    )
+    if (codexDetection.installed) {
+      const { installCodexSkill, verifyCodexPRouterReady } = await import('../infrastructure/setup')
+      await installCodexSkill()
+      const codexRouter = await verifyCodexPRouterReady({ autoRepair: true })
+      if (!codexRouter.verified) {
+        return {
+          success: false,
+          message: `❌ Codex p. router is required but not ready.\n\n${codexRouter.message || 'router verification failed'}\n\nFix:\n  1. Run: prjct setup\n  2. Re-run: prjct start`,
+        }
+      }
+      console.log('✅ Installed Codex skill: ~/.codex/skills/prjct/SKILL.md')
+      console.log('✅ Codex p. router ready')
+    }
 
-    if ((result.errors?.length ?? 0) > 0) {
-      console.log(`\n⚠️  ${result.errors?.length ?? 0} errors:`)
-      for (const e of result.errors ?? []) {
-        console.log(`   - ${e.file}: ${e.error}`)
+    try {
+      await context7Service.ensureReady()
+      console.log('✅ Context7 MCP ready')
+    } catch (error) {
+      return {
+        success: false,
+        message: `❌ Context7 MCP is required but not ready.\n\n${getErrorMessage(error)}\n\nFix:\n  1. Ensure Node+npx is installed\n  2. Re-run: prjct start`,
       }
     }
 
     console.log('\n🎉 Setup complete!')
     console.log('\nNext steps:')
-    console.log(`  1. Open ${activeProvider.displayName}`)
+    console.log(`  1. Open ${primaryName}`)
     console.log('  2. Navigate to your project')
-    console.log('  3. Run: /p:init') // This might need adjustment for Gemini (p init) but /p:init is likely fine for now or we can make it dynamic
+    console.log('  3. Run: prjct init')
 
     return {
       success: true,
@@ -118,6 +144,7 @@ export class SetupCommands extends PrjctCommandsBase {
 
     const aiProvider = require('../infrastructure/ai-provider')
     const activeProvider = await aiProvider.getActiveProvider()
+    const codexDetection = await aiProvider.detectCodex()
 
     // Status line is currently Claude-only
     if (activeProvider.name === 'claude') {
@@ -127,6 +154,30 @@ export class SetupCommands extends PrjctCommandsBase {
         console.log('✅ Status line configured')
       } else {
         console.log(`⚠️  ${statusLineResult.error}`)
+      }
+    }
+
+    if (codexDetection.installed) {
+      const { installCodexSkill, verifyCodexPRouterReady } = await import('../infrastructure/setup')
+      await installCodexSkill()
+      const codexRouter = await verifyCodexPRouterReady({ autoRepair: true })
+      if (!codexRouter.verified) {
+        return {
+          success: false,
+          message: `❌ Codex p. router is required but not ready.\n\n${codexRouter.message || 'router verification failed'}\n\nFix:\n  1. Run: prjct start\n  2. Re-run: prjct setup`,
+        }
+      }
+      console.log('✅ Codex skill installed')
+      console.log('✅ Codex p. router ready')
+    }
+
+    try {
+      await context7Service.ensureReady()
+      console.log('✅ Context7 MCP ready')
+    } catch (error) {
+      return {
+        success: false,
+        message: `❌ Context7 MCP is required but not ready.\n\n${getErrorMessage(error)}\n\nFix:\n  1. Ensure Node+npx is installed\n  2. Re-run: prjct setup`,
       }
     }
 

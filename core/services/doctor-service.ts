@@ -15,9 +15,11 @@ import path from 'node:path'
 import chalk from 'chalk'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
+import { verifyCodexPRouterReady } from '../infrastructure/setup'
 import { stateStorage } from '../storage'
 import out from '../utils/output'
 import { VERSION } from '../utils/version'
+import context7Service from './context7-service'
 
 // ============================================================================
 // TYPES
@@ -184,6 +186,12 @@ class DoctorService {
     // State file
     checks.push(await this.checkStateFile())
 
+    // Context7 MCP
+    checks.push(await this.checkContext7())
+
+    // Codex p. router
+    checks.push(await this.checkCodexPRouter())
+
     return checks
   }
 
@@ -327,6 +335,71 @@ class DoctorService {
     }
   }
 
+  private async checkContext7(): Promise<CheckResult> {
+    try {
+      const status = await context7Service.verify()
+      if (!status.installed) {
+        return {
+          name: 'context7 mcp',
+          status: 'error',
+          message: 'not configured - run "prjct start"',
+        }
+      }
+      if (!status.verified) {
+        return {
+          name: 'context7 mcp',
+          status: 'error',
+          message: status.message || 'configured but verification failed',
+        }
+      }
+      return {
+        name: 'context7 mcp',
+        status: 'ok',
+        message: 'ready',
+      }
+    } catch (error) {
+      return {
+        name: 'context7 mcp',
+        status: 'error',
+        message: `check failed: ${error instanceof Error ? error.message : 'unknown error'}`,
+      }
+    }
+  }
+
+  private async checkCodexPRouter(): Promise<CheckResult> {
+    try {
+      const status = await verifyCodexPRouterReady()
+      if (!status.installed) {
+        return {
+          name: 'codex p-router',
+          status: 'ok',
+          message: 'codex not detected (check skipped)',
+          optional: true,
+        }
+      }
+
+      if (!status.verified) {
+        return {
+          name: 'codex p-router',
+          status: 'error',
+          message: status.message || 'router verification failed',
+        }
+      }
+
+      return {
+        name: 'codex p-router',
+        status: 'ok',
+        message: `ready (${status.templateSource || 'local-dev'})`,
+      }
+    } catch (error) {
+      return {
+        name: 'codex p-router',
+        status: 'error',
+        message: `check failed: ${error instanceof Error ? error.message : 'unknown error'}`,
+      }
+    }
+  }
+
   // ==========================================================================
   // RECOMMENDATIONS
   // ==========================================================================
@@ -356,6 +429,16 @@ class DoctorService {
     const claudeMissing = project.find((p) => p.name === 'CLAUDE.md' && p.status === 'error')
     if (claudeMissing && !configCheck?.status?.includes('error')) {
       recommendations.push('Run "prjct sync" to generate context files')
+    }
+
+    const context7 = project.find((p) => p.name === 'context7 mcp')
+    if (context7 && context7.status !== 'ok') {
+      recommendations.push('Run "prjct start" to install/repair Context7 MCP')
+    }
+
+    const codexRouter = project.find((p) => p.name === 'codex p-router')
+    if (codexRouter && codexRouter.status === 'error') {
+      recommendations.push('Run "prjct start" or "prjct setup" to repair Codex p. router')
     }
 
     return recommendations

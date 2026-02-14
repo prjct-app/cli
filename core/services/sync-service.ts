@@ -27,9 +27,11 @@ import { detectChanges, hasHashRegistry, saveHashes } from '../domain/file-hashe
 import { indexCoChanges } from '../domain/git-cochange'
 import { indexImports } from '../domain/import-graph'
 import { getErrorMessage } from '../errors'
+import { detectCodex } from '../infrastructure/ai-provider'
 import commandInstaller from '../infrastructure/command-installer'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
+import { verifyCodexPRouterReady } from '../infrastructure/setup'
 import { analysisStorage } from '../storage/analysis-storage'
 import { archiveStorage } from '../storage/archive-storage'
 import { prjctDb } from '../storage/database'
@@ -63,8 +65,10 @@ import * as dateHelper from '../utils/date-helper'
 import log from '../utils/logger'
 import { outcomeMemoryLearner } from '../workflows/outcome-learner'
 import { outcomeStorage } from '../workflows/outcome-storage'
+import context7Service, { type Context7Status } from './context7-service'
 import { localStateGenerator } from './local-state-generator'
 import { memoryService } from './memory-service'
+import patternExtractor from './pattern-extractor'
 import {
   autoInstallSkills,
   configureSkills,
@@ -99,14 +103,18 @@ class SyncService {
     const startTime = Date.now()
 
     // Resolve AI tools: supports 'auto', 'all', or specific list
-    // Default behavior: claude + any detected IDE tools (.cursor/, .windsurf/)
+    // Default behavior: detected CLI tools (claude/codex) + detected IDE tools
     let aiToolIds: string[]
     if (!options.aiTools || options.aiTools.length === 0) {
-      // Start with default CLI tools and add detected IDE tools
-      const detectedIdeTools = (await detectInstalledTools(projectPath)).filter(
-        (id) => !DEFAULT_AI_TOOLS.includes(id)
+      const detectedTools = await detectInstalledTools(projectPath)
+      const cliTools = detectedTools.filter((id) => DEFAULT_AI_TOOLS.includes(id) || id === 'codex')
+      const ideTools = detectedTools.filter(
+        (id) => !DEFAULT_AI_TOOLS.includes(id) && id !== 'codex'
       )
-      aiToolIds = [...DEFAULT_AI_TOOLS, ...detectedIdeTools]
+
+      // Keep backward-compatible fallback to Claude when no CLI tools are detected
+      aiToolIds = [...(cliTools.length > 0 ? cliTools : DEFAULT_AI_TOOLS), ...ideTools]
+      aiToolIds = Array.from(new Set(aiToolIds))
     } else if (options.aiTools[0] === 'auto') {
       aiToolIds = await detectInstalledTools(projectPath)
       if (aiToolIds.length === 0) aiToolIds = ['claude'] // fallback
@@ -114,6 +122,13 @@ class SyncService {
       aiToolIds = await resolveToolIds('all', projectPath)
     } else {
       aiToolIds = options.aiTools
+    }
+
+    let context7Status: Context7Status = {
+      installed: false,
+      verified: false,
+      configPath: '',
+      message: '',
     }
 
     try {
@@ -133,7 +148,58 @@ class SyncService {
           skillsInstalled: [],
           contextFiles: [],
           aiTools: [],
+          context7: { installed: false, verified: false },
           error: 'No prjct project. Run p. init first.',
+        }
+      }
+
+      // Codex router must be healthy before generating p. task context
+      const codexDetection = await detectCodex()
+      if (codexDetection.installed) {
+        const codexRouter = await verifyCodexPRouterReady()
+        if (!codexRouter.verified) {
+          return {
+            success: false,
+            projectId: this.projectId,
+            cliVersion: '',
+            git: this.emptyGitData(),
+            stats: this.emptyStats(),
+            commands: this.emptyCommands(),
+            stack: this.emptyStack(),
+            agents: [],
+            skills: [],
+            skillsInstalled: [],
+            contextFiles: [],
+            aiTools: [],
+            context7: { installed: false, verified: false },
+            error: `Codex p. router is required but not ready: ${codexRouter.message || 'verification failed'}. Run 'prjct start' or 'prjct setup' to repair.`,
+          }
+        }
+      }
+
+      // Context7 is mandatory for deterministic coding workflows
+      try {
+        context7Status = await context7Service.ensureReady()
+      } catch (error) {
+        return {
+          success: false,
+          projectId: this.projectId,
+          cliVersion: '',
+          git: this.emptyGitData(),
+          stats: this.emptyStats(),
+          commands: this.emptyCommands(),
+          stack: this.emptyStack(),
+          agents: [],
+          skills: [],
+          skillsInstalled: [],
+          contextFiles: [],
+          aiTools: [],
+          context7: {
+            installed: context7Status.installed,
+            verified: false,
+            message: getErrorMessage(error),
+          },
+          error: `Context7 MCP is required but not ready: ${getErrorMessage(error)}. Run 'prjct start' to repair.`,
         }
       }
 
@@ -356,8 +422,16 @@ class SyncService {
         this.updateProjectJson(git, stats),
         this.updateStateJson(stats, stack),
         this.logToMemory(git, stats),
-        this.saveDraftAnalysis(git, stats, stack),
+        this.saveDraftAnalysis(git, stats, stack, context7Status.verified),
       ])
+
+      const activeAnalysis = await analysisStorage.getActive(this.projectId)
+      const analysisSummary = {
+        patterns: activeAnalysis?.patterns?.length || 0,
+        antiPatterns: activeAnalysis?.antiPatterns?.length || 0,
+        criticalAntiPatterns:
+          activeAnalysis?.antiPatterns?.filter((a) => a.severity === 'high').length || 0,
+      }
 
       // 9. Record metrics for value dashboard
       const duration = Date.now() - startTime
@@ -404,6 +478,12 @@ class SyncService {
           outputFile: r.outputFile,
           success: r.success,
         })),
+        context7: {
+          installed: context7Status.installed,
+          verified: context7Status.verified,
+          message: context7Status.message,
+        },
+        analysisSummary,
         syncMetrics,
         verification,
         incremental: incrementalInfo,
@@ -422,6 +502,11 @@ class SyncService {
         skillsInstalled: [],
         contextFiles: [],
         aiTools: [],
+        context7: {
+          installed: context7Status.installed,
+          verified: context7Status.verified,
+          message: context7Status.message,
+        },
         error: getErrorMessage(error),
       }
     }
@@ -624,22 +709,49 @@ class SyncService {
   private async saveDraftAnalysis(
     git: GitData,
     stats: ProjectStats,
-    _stack: StackDetection
+    stack: StackDetection,
+    context7Verified: boolean
   ): Promise<void> {
     try {
       const commitHash = git.recentCommits[0]?.hash || null
 
       // Load aggregated feedback from completed tasks (PRJ-272)
-      let patterns: Array<{ name: string; description: string; location?: string }> = []
-      let antiPatterns: Array<{ issue: string; file: string; suggestion: string }> = []
+      let patterns: Array<{
+        name: string
+        description: string
+        location?: string
+        severity?: 'low' | 'medium' | 'high'
+        language?: string
+        framework?: string
+        source?: 'baseline' | 'repo' | 'context7' | 'feedback'
+        confidence?: number
+      }> = []
+      let antiPatterns: Array<{
+        issue: string
+        file: string
+        suggestion: string
+        severity?: 'low' | 'medium' | 'high'
+        language?: string
+        framework?: string
+        source?: 'baseline' | 'repo' | 'context7' | 'feedback'
+        confidence?: number
+      }> = []
+      let feedback:
+        | {
+            patternsDiscovered: string[]
+            knownGotchas: string[]
+          }
+        | undefined
       try {
-        const feedback = await stateStorage.getAggregatedFeedback(this.projectId!)
+        feedback = await stateStorage.getAggregatedFeedback(this.projectId!)
 
         // Convert discovered patterns to CodePattern objects
         if (feedback.patternsDiscovered.length > 0) {
           patterns = feedback.patternsDiscovered.map((p) => ({
             name: p,
             description: `Discovered during task execution: ${p}`,
+            source: 'feedback',
+            confidence: 0.74,
           }))
         }
 
@@ -649,11 +761,26 @@ class SyncService {
             issue: g,
             file: 'multiple',
             suggestion: `Recurring issue reported across tasks: ${g}`,
+            source: 'feedback',
+            severity: 'medium',
+            confidence: 0.7,
           }))
         }
       } catch {
         // Feedback aggregation failure should not block analysis
       }
+
+      const extracted = await patternExtractor.extract({
+        projectId: this.projectId!,
+        projectPath: this.projectPath,
+        languages: stats.languages,
+        frameworks: Array.from(new Set([...stats.frameworks, ...stack.frameworks])),
+        feedback,
+        context7Verified,
+      })
+
+      patterns = extracted.patterns
+      antiPatterns = extracted.antiPatterns
 
       await analysisStorage.saveDraft(this.projectId!, {
         projectId: this.projectId!,

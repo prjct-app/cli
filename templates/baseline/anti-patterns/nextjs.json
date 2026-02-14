@@ -1,0 +1,18 @@
+{
+  "items": [
+    {
+      "issue": "Raw <img> usage in Next.js components",
+      "suggestion": "Use next/image unless there is a documented exception for external constraints.",
+      "severity": "medium",
+      "framework": "Next.js",
+      "confidence": 0.86
+    },
+    {
+      "issue": "Client components without need",
+      "suggestion": "Avoid unnecessary use client directives and keep components server-first when possible.",
+      "severity": "medium",
+      "framework": "Next.js",
+      "confidence": 0.75
+    }
+  ]
+}

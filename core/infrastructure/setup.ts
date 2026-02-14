@@ -18,12 +18,15 @@
  */
 
 import { execSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import chalk from 'chalk'
 import { getTemplateContent } from '../agentic/template-loader'
+import context7Service from '../services/context7-service'
 import { dependencyValidator } from '../services/dependency-validator'
+import { isPCommandResolveError, pCommandResolver } from '../services/p-command-resolver'
 import { prjctDb } from '../storage/database'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import type { AIProviderConfig, AIProviderName } from '../types/provider'
@@ -209,8 +212,8 @@ export async function run(): Promise<SetupResults> {
         // Install status line (Claude only)
         await installStatusLine()
 
-        // Install Context7 MCP (only MCP server prjct uses)
-        await installContext7MCP()
+        // Install and verify Context7 MCP (required for coding workflows)
+        await context7Service.ensureReady()
       }
     } else if (providerName === 'gemini') {
       // Gemini provider - install router and global config
@@ -242,9 +245,17 @@ export async function run(): Promise<SetupResults> {
   const codexDetection = await detectCodex()
   if (codexDetection.installed) {
     const codexResult = await installCodexSkill()
-    if (codexResult.success) {
-      console.log(`   ${chalk.green('✓')} Codex skill installed`)
+    if (!codexResult.success) {
+      throw new Error('Codex skill installation failed')
     }
+
+    const codexRouter = await verifyCodexPRouterReady({ autoRepair: true })
+    if (!codexRouter.verified) {
+      throw new Error(codexRouter.message || 'Codex p. router verification failed')
+    }
+
+    console.log(`   ${chalk.green('✓')} Codex skill installed`)
+    console.log(`   ${chalk.green('✓')} Codex p. router ready`)
   }
 
   // Step 3: Save version in editors-config
@@ -419,6 +430,74 @@ export async function needsAntigravityInstallation(): Promise<boolean> {
 // Codex Installation (Skills-based)
 // =============================================================================
 
+const CODEX_SKILL_META_MARKER = 'prjct-codex-router'
+
+export interface CodexPRouterStatus {
+  installed: boolean
+  verified: boolean
+  skillPath: string
+  templateHash?: string
+  command?: string
+  templatePath?: string
+  templateSource?: 'package-resolve' | 'npm-root-g' | 'local-dev'
+  message?: string
+  fix?: string[]
+}
+
+function getCodexSkillPath(): string {
+  return path.join(os.homedir(), '.codex', 'skills', 'prjct', 'SKILL.md')
+}
+
+function getCodexSkillMetadata(templateHash: string): string {
+  return `<!-- ${CODEX_SKILL_META_MARKER}: ${JSON.stringify({
+    version: VERSION,
+    templateHash,
+  })} -->`
+}
+
+function parseCodexSkillMetadata(
+  content: string
+): { version?: string; templateHash?: string } | null {
+  const match = content.match(
+    new RegExp(`<!--\\s*${CODEX_SKILL_META_MARKER}:\\s*(\\{[\\s\\S]*?\\})\\s*-->`)
+  )
+  if (!match) return null
+  try {
+    return JSON.parse(match[1]) as { version?: string; templateHash?: string }
+  } catch {
+    return null
+  }
+}
+
+function hashContent(content: string): string {
+  return createHash('sha256').update(content).digest('hex')
+}
+
+async function loadCodexSkillTemplate(): Promise<string | null> {
+  const bundled = getTemplateContent('codex/SKILL.md')
+  if (bundled) return bundled
+
+  const templatePath = path.join(PACKAGE_ROOT, 'templates', 'codex', 'SKILL.md')
+  if (!(await fileExists(templatePath))) {
+    return null
+  }
+
+  return fs.readFile(templatePath, 'utf-8')
+}
+
+function buildCodexSkillContent(templateContent: string): {
+  content: string
+  templateHash: string
+} {
+  const normalized = templateContent.trimEnd()
+  const templateHash = hashContent(normalized)
+  const metadata = getCodexSkillMetadata(templateHash)
+  return {
+    content: `${normalized}\n\n${metadata}\n`,
+    templateHash,
+  }
+}
+
 /**
  * Install prjct as a skill for OpenAI Codex
  *
@@ -430,9 +509,8 @@ export async function installCodexSkill(): Promise<{
   action: string | null
 }> {
   try {
-    const codexSkillsDir = path.join(os.homedir(), '.codex', 'skills')
-    const prjctSkillDir = path.join(codexSkillsDir, 'prjct')
-    const skillMdPath = path.join(prjctSkillDir, 'SKILL.md')
+    const skillMdPath = getCodexSkillPath()
+    const prjctSkillDir = path.dirname(skillMdPath)
     // Ensure skills directory exists
     await fs.mkdir(prjctSkillDir, { recursive: true })
 
@@ -440,23 +518,135 @@ export async function installCodexSkill(): Promise<{
     const skillExists = await fileExists(skillMdPath)
 
     // Read template content - try bundle first
-    let templateContent = getTemplateContent('codex/SKILL.md')
+    const templateContent = await loadCodexSkillTemplate()
     if (!templateContent) {
-      const templatePath = path.join(PACKAGE_ROOT, 'templates', 'codex', 'SKILL.md')
-      if (!(await fileExists(templatePath))) {
-        log.warn('Codex SKILL.md template not found')
-        return { success: false, action: null }
+      log.warn('Codex SKILL.md template not found')
+      return { success: false, action: null }
+    }
+
+    const built = buildCodexSkillContent(templateContent)
+
+    if (skillExists) {
+      const existing = await fs.readFile(skillMdPath, 'utf-8').catch(() => '')
+      if (existing === built.content) {
+        return { success: true, action: 'unchanged' }
       }
-      templateContent = await fs.readFile(templatePath, 'utf-8')
     }
 
     // Write SKILL.md
-    await fs.writeFile(skillMdPath, templateContent, 'utf-8')
+    await fs.writeFile(skillMdPath, built.content, 'utf-8')
 
     return { success: true, action: skillExists ? 'updated' : 'created' }
   } catch (error) {
     log.warn(`Codex skill warning: ${getErrorMessage(error)}`)
     return { success: false, action: null }
+  }
+}
+
+export async function verifyCodexPRouterReady(
+  options: { autoRepair?: boolean } = {}
+): Promise<CodexPRouterStatus> {
+  const skillPath = getCodexSkillPath()
+  const codexDetection = await detectCodex()
+  if (!codexDetection.installed) {
+    return {
+      installed: false,
+      verified: true,
+      skillPath,
+      message: 'Codex not detected',
+    }
+  }
+
+  const templateContent = await loadCodexSkillTemplate()
+  if (!templateContent) {
+    return {
+      installed: true,
+      verified: false,
+      skillPath,
+      message: 'Codex SKILL.md template missing from prjct installation',
+      fix: ['Reinstall prjct-cli package', 'Run `prjct setup`'],
+    }
+  }
+
+  const expected = buildCodexSkillContent(templateContent)
+
+  const maybeRepair = async (): Promise<boolean> => {
+    if (!options.autoRepair) return false
+    const result = await installCodexSkill()
+    return result.success
+  }
+
+  let skillContent = ''
+  if (!(await fileExists(skillPath))) {
+    if (!(await maybeRepair())) {
+      return {
+        installed: true,
+        verified: false,
+        skillPath,
+        templateHash: expected.templateHash,
+        message: 'Codex skill missing at ~/.codex/skills/prjct/SKILL.md',
+        fix: ['Run `prjct start` to install Codex skill'],
+      }
+    }
+  }
+
+  skillContent = await fs.readFile(skillPath, 'utf-8').catch(() => '')
+  let metadata = parseCodexSkillMetadata(skillContent)
+  const metadataMatches =
+    metadata?.version === VERSION && metadata?.templateHash === expected.templateHash
+
+  if (!metadataMatches) {
+    if (!(await maybeRepair())) {
+      return {
+        installed: true,
+        verified: false,
+        skillPath,
+        templateHash: expected.templateHash,
+        message: 'Codex skill metadata mismatch (outdated router)',
+        fix: ['Run `prjct start` or `prjct setup` to refresh Codex skill'],
+      }
+    }
+
+    skillContent = await fs.readFile(skillPath, 'utf-8').catch(() => '')
+    metadata = parseCodexSkillMetadata(skillContent)
+    const repaired =
+      metadata?.version === VERSION && metadata?.templateHash === expected.templateHash
+    if (!repaired) {
+      return {
+        installed: true,
+        verified: false,
+        skillPath,
+        templateHash: expected.templateHash,
+        message: 'Codex skill could not be repaired automatically',
+        fix: ['Delete ~/.codex/skills/prjct/SKILL.md', 'Run `prjct setup`'],
+      }
+    }
+  }
+
+  try {
+    const resolved = await pCommandResolver.resolvePCommandTemplate('sync')
+    return {
+      installed: true,
+      verified: true,
+      skillPath,
+      templateHash: expected.templateHash,
+      command: resolved.command,
+      templatePath: resolved.templatePath,
+      templateSource: resolved.source,
+      message: 'Codex p. router ready',
+    }
+  } catch (error) {
+    const fix = isPCommandResolveError(error)
+      ? error.fix
+      : ['Run `prjct setup` to repair command template routing']
+    return {
+      installed: true,
+      verified: false,
+      skillPath,
+      templateHash: expected.templateHash,
+      message: error instanceof Error ? error.message : 'Failed to resolve p. sync template',
+      fix,
+    }
   }
 }
 
@@ -679,58 +869,6 @@ echo "prjct"
       // Log unexpected errors but don't crash - status line is optional
       log.warn(`Status line warning: ${getErrorMessage(error)}`)
     }
-  }
-}
-
-/**
- * Install Context7 MCP server configuration
- *
- * Context7 is the ONLY MCP server prjct uses - for library documentation lookup.
- * All issue tracker integrations (Linear, JIRA) use SDK/REST API directly.
- */
-async function installContext7MCP(): Promise<void> {
-  try {
-    const claudeDir = path.join(os.homedir(), '.claude')
-    const mcpConfigPath = path.join(claudeDir, 'mcp.json')
-
-    // Ensure ~/.claude directory exists
-    if (!(await fileExists(claudeDir))) {
-      await fs.mkdir(claudeDir, { recursive: true })
-    }
-
-    // Context7 MCP configuration
-    const context7Config = {
-      mcpServers: {
-        context7: {
-          command: 'npx',
-          args: ['-y', '@upstash/context7-mcp@latest'],
-        },
-      },
-    }
-
-    // Check if mcp.json exists
-    if (await fileExists(mcpConfigPath)) {
-      // Read existing config
-      const existingContent = await fs.readFile(mcpConfigPath, 'utf-8')
-      const existingConfig = JSON.parse(existingContent)
-
-      // Check if context7 is already configured
-      if (existingConfig.mcpServers?.context7) {
-        // Already configured, skip
-        return
-      }
-
-      // Add context7 to existing config
-      existingConfig.mcpServers = existingConfig.mcpServers || {}
-      existingConfig.mcpServers.context7 = context7Config.mcpServers.context7
-      await fs.writeFile(mcpConfigPath, JSON.stringify(existingConfig, null, 2), 'utf-8')
-    } else {
-      // Create new mcp.json with context7
-      await fs.writeFile(mcpConfigPath, JSON.stringify(context7Config, null, 2), 'utf-8')
-    }
-  } catch (error) {
-    // Non-fatal error, just log
-    log.warn(`Context7 MCP setup warning: ${getErrorMessage(error)}`)
   }
 }
 

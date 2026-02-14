@@ -69,6 +69,29 @@ export interface AIToolConfig {
 }
 
 // =============================================================================
+// p. Command Resolver Types
+// =============================================================================
+
+export type PCommandTemplateSource = 'package-resolve' | 'npm-root-g' | 'local-dev'
+export type PCommandResolveErrorCode = 'UNKNOWN_COMMAND' | 'TEMPLATE_NOT_FOUND' | 'ROUTER_NOT_READY'
+
+export interface ResolvedPTemplate {
+  command: string
+  templatePath: string
+  source: PCommandTemplateSource
+}
+
+export interface PCommandResolveError {
+  code: PCommandResolveErrorCode
+  message: string
+  fix?: string[]
+}
+
+export interface PCommandCatalog {
+  commands: string[]
+}
+
+// =============================================================================
 // Memory Service Types
 // =============================================================================
 

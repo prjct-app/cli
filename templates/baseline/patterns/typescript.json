@@ -1,0 +1,18 @@
+{
+  "items": [
+    {
+      "name": "Prefer strict typing contracts",
+      "description": "Functions and component props should be explicitly typed; avoid implicit any boundaries.",
+      "severity": "high",
+      "language": "TypeScript",
+      "confidence": 0.88
+    },
+    {
+      "name": "Type-first API surfaces",
+      "description": "Exported modules should define reusable domain types for inputs and outputs.",
+      "severity": "medium",
+      "language": "TypeScript",
+      "confidence": 0.8
+    }
+  ]
+}

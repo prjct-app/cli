@@ -8,7 +8,6 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import os from 'node:os'
 
 interface ProjectSection {
   projectId: string
@@ -100,9 +99,7 @@ export async function updateProjectSection(
 
   const contentProjectId = extractProjectId(newContent)
   if (contentProjectId !== projectId) {
-    throw new Error(
-      `ProjectId mismatch: expected ${projectId}, got ${contentProjectId || 'none'}`
-    )
+    throw new Error(`ProjectId mismatch: expected ${projectId}, got ${contentProjectId || 'none'}`)
   }
 
   // Ensure directory exists

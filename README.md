@@ -2,10 +2,11 @@
 
 **Context layer for AI coding agents.**
 
-Works with Claude Code, Gemini CLI, Antigravity, Cursor IDE, and more.
+Works with Claude Code, Gemini CLI, OpenAI Codex, Antigravity, Cursor IDE, and more.
 
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Ready-6366f1)](CLAUDE.md)
 [![Gemini CLI](https://img.shields.io/badge/Gemini%20CLI-Ready-4285F4)]()
+[![OpenAI Codex](https://img.shields.io/badge/OpenAI%20Codex-Ready-10A37F)]()
 [![Antigravity](https://img.shields.io/badge/Antigravity-Ready-EA4335)]()
 [![Cursor IDE](https://img.shields.io/badge/Cursor%20IDE-Ready-00D4AA)]()
 [![npm](https://img.shields.io/npm/v/prjct-cli)](https://www.npmjs.com/package/prjct-cli)
@@ -38,7 +39,7 @@ npm install -g prjct-cli
 
 ## Quick Start
 
-### Claude Code / Gemini CLI
+### Claude Code / Gemini CLI / OpenAI Codex
 
 ```bash
 # 1. One-time global setup
@@ -48,12 +49,14 @@ prjct start
 cd my-project
 prjct init
 
-# 3. Open in Claude Code or Gemini CLI and use:
+# 3. Open in Claude Code, Gemini CLI, or Codex and use:
 p. sync                    # Analyze project
 p. task "add user auth"    # Start a task
 p. done                    # Complete subtask
 p. ship                    # Ship with PR
 ```
+
+> **Note (Codex):** `prjct sync` generates `AGENTS.md` for project-level Codex context, `prjct start` installs `~/.codex/skills/prjct/SKILL.md`, and `prjct doctor` validates the `p.` router health.
 
 ### Google Antigravity
 
@@ -93,19 +96,19 @@ prjct init
 ### Core Workflow
 
 ```
-Claude/Gemini/Antigravity:  p. sync  →  p. task "..."  →  [code]  →  p. done  →  p. ship
+Claude/Gemini/Codex/Antigravity:  p. sync  →  p. task "..."  →  [code]  →  p. done  →  p. ship
 Cursor:                     /sync    →  /task "..."    →  [code]  →  /done    →  /ship
 ```
 
 ## How It Works
 
-| Component | Claude Code | Gemini CLI | Antigravity | Cursor IDE |
-|-----------|-------------|------------|-------------|------------|
-| Router | `~/.claude/commands/p.md` | `~/.gemini/commands/p.toml` | Skill | `.cursor/commands/*.md` |
-| Config | `~/.claude/CLAUDE.md` | `~/.gemini/GEMINI.md` | `~/.gemini/antigravity/skills/prjct/` | `.cursor/rules/prjct.mdc` |
-| Storage | `~/.prjct-cli/projects/` | `~/.prjct-cli/projects/` | `~/.prjct-cli/projects/` | `~/.prjct-cli/projects/` |
-| Scope | Global | Global | Global | Per-project |
-| Syntax | `p. command` | `p. command` | `p. command` | `/command` |
+| Component | Claude Code | Gemini CLI | OpenAI Codex | Antigravity | Cursor IDE |
+|-----------|-------------|------------|--------------|-------------|------------|
+| Router | `~/.claude/commands/p.md` | `~/.gemini/commands/p.toml` | Skill (`~/.codex/skills/prjct/SKILL.md`) | Skill | `.cursor/commands/*.md` |
+| Config | `~/.claude/CLAUDE.md` | `~/.gemini/GEMINI.md` | `AGENTS.md` | `~/.gemini/antigravity/skills/prjct/` | `.cursor/rules/prjct.mdc` |
+| Storage | `~/.prjct-cli/projects/` | `~/.prjct-cli/projects/` | `~/.prjct-cli/projects/` | `~/.prjct-cli/projects/` | `~/.prjct-cli/projects/` |
+| Scope | Global | Global | Project + Global skill | Global | Per-project |
+| Syntax | `p. command` | `p. command` | `p. command` | `p. command` | `/command` |
 
 All agents share the same project storage, so you can switch between them freely.
 
@@ -167,8 +170,8 @@ const features = await stateStorage.getTaskHistoryByType(projectId, 'feature')
 ## CLI Commands
 
 ```bash
-prjct start          # First-time setup (Claude/Gemini)
-prjct init           # Initialize project (+ Cursor setup)
+prjct start          # First-time setup (Claude/Gemini/Codex skill install)
+prjct init           # Initialize project (+ AI tool setup)
 prjct sync           # Analyze project and generate context
 prjct verify         # Verify analysis integrity (cryptographic)
 prjct verify --semantic  # Verify analysis consistency (semantic)

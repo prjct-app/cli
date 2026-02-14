@@ -21,12 +21,22 @@ export const CodePatternSchema = z.object({
   name: z.string(),
   description: z.string(),
   location: z.string().optional(),
+  severity: z.enum(['low', 'medium', 'high']).optional(),
+  language: z.string().optional(),
+  framework: z.string().optional(),
+  source: z.enum(['baseline', 'repo', 'context7', 'feedback']).optional(),
+  confidence: z.number().min(0).max(1).optional(),
 })
 
 export const AntiPatternSchema = z.object({
   issue: z.string(),
   file: z.string(),
   suggestion: z.string(),
+  severity: z.enum(['low', 'medium', 'high']).optional(),
+  language: z.string().optional(),
+  framework: z.string().optional(),
+  source: z.enum(['baseline', 'repo', 'context7', 'feedback']).optional(),
+  confidence: z.number().min(0).max(1).optional(),
 })
 
 export const AnalysisItemSchema = z.object({
