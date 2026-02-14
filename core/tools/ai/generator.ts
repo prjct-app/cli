@@ -17,6 +17,7 @@ import {
   getAIToolConfig,
   getGlobalConfigPath,
 } from './registry'
+import { updateProjectSection } from './section-updater'
 
 export interface GenerateResult {
   toolId: string
@@ -142,14 +143,14 @@ async function generateForTool(
     await fs.mkdir(path.dirname(outputPath), { recursive: true })
 
     // Read existing file to merge with markers or preserve user customizations
-    try {
-      const existingContent = await fs.readFile(outputPath, 'utf-8')
-
-      // For global tools (like Claude), use marker-replacement to coexist with global config
-      if (config.outputPath === 'global') {
-        content = mergeWithMarkers(content, existingContent, config.id)
-      } else {
-        // For repo-specific tools, use standard preserved sections
+    if (config.outputPath === 'global') {
+      // For global AI tools (Claude, Gemini, Codex, Aider, etc.)
+      // Use multi-project section updater to preserve all other projects' sections
+      await updateProjectSection(outputPath, context.projectId, content)
+    } else {
+      // For repo-specific tools, use standard preserved sections
+      try {
+        const existingContent = await fs.readFile(outputPath, 'utf-8')
         const validation = validatePreserveBlocks(existingContent)
         if (!validation.valid) {
           console.warn(`⚠️  ${config.outputFile} has invalid preserve blocks:`)
@@ -158,13 +159,13 @@ async function generateForTool(
           }
         }
         content = mergePreservedSections(content, existingContent)
+      } catch {
+        // File doesn't exist yet - use generated content as-is
       }
-    } catch {
-      // File doesn't exist yet - use generated content as-is
-    }
 
-    // Write file
-    await fs.writeFile(outputPath, content, 'utf-8')
+      // Write file (repo-specific tools)
+      await fs.writeFile(outputPath, content, 'utf-8')
+    }
 
     return {
       toolId: config.id,
