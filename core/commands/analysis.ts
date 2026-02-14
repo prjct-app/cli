@@ -231,7 +231,8 @@ export class AnalysisCommands extends PrjctCommandsBase {
       const isNonInteractive = !process.stdin.isTTY || options.json || options.md
 
       // For preview mode or when we have existing content, show diff first
-      if (existingContent && !options.yes) {
+      // Non-interactive callers (LLMs, piped input) skip diff preview and sync directly
+      if (existingContent && !options.yes && !isNonInteractive) {
         if (!isNonInteractive) {
           out.spin('Analyzing changes...')
         }
