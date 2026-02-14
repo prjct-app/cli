@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.36.4] - 2026-02-13
+
+### Fixed
+- Banner colors: neutral warm gray gradient (was loud cyan/pink)
+- Codex provider now appears in `prjct start` selection menu
+
 ## [1.36.2] - 2026-02-13
 
 ### Added

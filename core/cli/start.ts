@@ -20,12 +20,12 @@ import type { AIProviderName } from '../types/provider'
 import { fileExists } from '../utils/file-helper'
 import { VERSION } from '../utils/version'
 
-// True color gradient (cyan -> blue -> purple -> pink)
-const G1 = chalk.rgb(0, 255, 255)
-const G2 = chalk.rgb(80, 180, 255)
-const G3 = chalk.rgb(140, 120, 255)
-const G4 = chalk.rgb(200, 80, 220)
-const G5 = chalk.rgb(255, 80, 180)
+// Neutral gradient (warm gray -> white)
+const G1 = chalk.rgb(180, 180, 175)
+const G2 = chalk.rgb(200, 200, 195)
+const G3 = chalk.rgb(220, 220, 215)
+const G4 = chalk.rgb(235, 235, 230)
+const G5 = chalk.rgb(250, 250, 245)
 
 // Large block letters - PRJCT (7 lines tall)
 const BANNER = `
@@ -42,7 +42,7 @@ ${G1(' ╚═╝     ')}${G2(' ╚═╝  ╚═╝')}${G3(' ╚════╝ 
 const WELCOME_BOX = `  ${chalk.white('Context Layer for AI Agents')}  ${chalk.dim(`v${VERSION}`)}
 
   ${chalk.dim(`Project context layer for AI coding agents.
-  Works with Claude Code, Gemini CLI, and more.`)}
+  Works with Claude Code, Gemini CLI, Codex, and more.`)}
   ${chalk.cyan('https://prjct.app')}
 `
 
@@ -110,6 +110,12 @@ async function selectProviders(): Promise<AIProviderName[]> {
       displayName: 'Gemini CLI',
       installed: detection.gemini.installed,
       selected: detection.gemini.installed,
+    },
+    {
+      name: 'codex',
+      displayName: 'OpenAI Codex',
+      installed: detection.codex.installed,
+      selected: detection.codex.installed,
     },
   ]
 

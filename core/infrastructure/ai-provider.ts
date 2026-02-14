@@ -300,14 +300,22 @@ export function validateCliVersion(
 export async function detectAllProviders(refresh = false): Promise<{
   claude: ProviderDetectionResult
   gemini: ProviderDetectionResult
+  codex: ProviderDetectionResult
 }> {
   if (!refresh) {
     const cached = await readProviderCache()
     if (cached) return cached
   }
 
-  const [claude, gemini] = await Promise.all([detectProvider('claude'), detectProvider('gemini')])
-  const detection = { claude, gemini }
+  const [claude, gemini, codexDetection] = await Promise.all([
+    detectProvider('claude'),
+    detectProvider('gemini'),
+    detectCodex(),
+  ])
+  const codex: ProviderDetectionResult = {
+    installed: codexDetection.installed,
+  }
+  const detection = { claude, gemini, codex }
 
   await writeProviderCache(detection).catch(() => {})
 
