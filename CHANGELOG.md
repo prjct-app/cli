@@ -4,6 +4,13 @@
 
 ### Bug Fixes
 
+- auto-repair Codex router metadata during sync (#187)
+
+
+## [1.38.1] - 2026-02-14
+
+### Bug Fixes
+
 - Auto-repair Codex router metadata during sync and doctor checks (#187)
 
 ## [1.38.0] - 2026-02-14
