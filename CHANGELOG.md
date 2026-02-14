@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.38.2] - 2026-02-14
+
+### Bug Fixes
+
+- replace unbounded any types in workflow-rule-storage (PRJ-339) (#188)
+
+
 ## [1.38.1] - 2026-02-14
 
 ### Bug Fixes
