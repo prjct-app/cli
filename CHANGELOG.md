@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.37.0] - 2026-02-14
+
+### Features
+
+- Context7 integration, pattern extraction, and p-command resolver (#184)
+
+### Bug Fixes
+
+- preserve all projects in global AI tool configs during sync
+
+
 ## [1.36.2] - 2026-02-13
 
 ### Added
