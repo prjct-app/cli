@@ -31,7 +31,7 @@ export interface GenerateResult {
  * Merge new content with existing file using marker replacement
  * Allows multiple prjct-managed sections to coexist (e.g., global commands + project context)
  */
-function mergeWithMarkers(newContent: string, existingContent: string, toolId: string): string {
+function _mergeWithMarkers(newContent: string, existingContent: string, toolId: string): string {
   // Determine marker names based on tool
   // For Claude: Use project-specific markers to coexist with global commands
   const startMarker =

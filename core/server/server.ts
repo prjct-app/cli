@@ -13,6 +13,7 @@ import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
 import type { ServerConfig, ServerHandle, ServerInstance } from '../types'
 import { isBun } from '../utils/runtime'
+import { VERSION } from '../utils/version'
 import { createRoutes } from './routes'
 import { createExtendedRoutes } from './routes-extended'
 import { createSSEManager } from './sse'
@@ -47,7 +48,7 @@ export function createServer(config: ServerConfig): ServerInstance {
   app.get('/', (c) =>
     c.json({
       name: 'prjct-cli',
-      version: '0.20.0',
+      version: VERSION,
       projectId: config.projectId,
       endpoints: {
         health: '/health',

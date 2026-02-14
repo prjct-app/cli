@@ -4,8 +4,8 @@
 
 ### Bug Fixes
 
+- replace hardcoded version in server API info (PRJ-341)
 - replace unbounded any types in workflow-rule-storage (PRJ-339) (#188)
-
 
 ## [1.38.1] - 2026-02-14
 
