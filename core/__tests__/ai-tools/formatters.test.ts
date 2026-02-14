@@ -176,7 +176,8 @@ describe('formatForCopilot', () => {
 
     // Copilot uses plain markdown, no YAML frontmatter
     expect(result.startsWith('# Copilot Instructions')).toBe(true)
-    expect(result).not.toContain('---')
+    // Should not start with YAML frontmatter (--- on first line)
+    expect(result.startsWith('---')).toBe(false)
   })
 
   test('includes project info', () => {

@@ -5,7 +5,7 @@
 ### Bug Fixes
 
 - skip diff preview in non-interactive sync mode (#191)
-
+- all agents get full operational context (#192)
 
 ## [1.38.4] - 2026-02-14
 

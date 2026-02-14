@@ -49,6 +49,108 @@ export interface ProjectContext {
 }
 
 // =============================================================================
+// Shared Operational Context (all agents need this)
+// =============================================================================
+
+/**
+ * Generate operational context sections that ALL agents need to work.
+ * This includes prjct rules, path resolution, project state, agents, and learnings.
+ * Without these sections, agents can't properly use prjct CLI.
+ */
+function formatOperationalContext(ctx: ProjectContext, format: 'full' | 'concise'): string {
+  const lines: string[] = []
+
+  // PRJCT RULES + Path Resolution
+  if (format === 'full') {
+    lines.push('## prjct Rules')
+    lines.push('')
+    lines.push('### Path Resolution')
+    lines.push(`**ALL prjct writes go to**: \`~/.prjct-cli/projects/${ctx.projectId}/\``)
+    lines.push('- NEVER write to `.prjct/`')
+    lines.push('- NEVER write to `./` for prjct data')
+    lines.push('')
+    lines.push('### Workflow')
+    lines.push('```')
+    lines.push('p. sync → p. task "desc" → [work] → p. done → p. ship')
+    lines.push('```')
+    lines.push('')
+    lines.push('| Command | Action |')
+    lines.push('|---------|--------|')
+    lines.push('| `p. sync` | Re-analyze project |')
+    lines.push('| `p. task X` | Start task |')
+    lines.push('| `p. done` | Complete subtask |')
+    lines.push('| `p. ship X` | Ship feature |')
+    lines.push('')
+  } else {
+    lines.push('## prjct Rules')
+    lines.push('')
+    lines.push(`Path: \`~/.prjct-cli/projects/${ctx.projectId}/\``)
+    lines.push('Workflow: `p. sync` → `p. task "desc"` → work → `p. done` → `p. ship`')
+    lines.push('')
+  }
+
+  // PROJECT STATE
+  lines.push('## Project State')
+  lines.push('')
+  lines.push('| Field | Value |')
+  lines.push('|-------|-------|')
+  lines.push(`| Name | ${ctx.name} |`)
+  lines.push(`| Version | ${ctx.version} |`)
+  lines.push(`| Ecosystem | ${ctx.ecosystem} |`)
+  lines.push(`| Branch | ${ctx.branch} |`)
+  lines.push(`| Files | ~${ctx.fileCount} |`)
+  lines.push(`| Commits | ${ctx.commits} |`)
+  lines.push('')
+
+  // AGENTS
+  if (ctx.agents.workflow.length > 0 || ctx.agents.domain.length > 0) {
+    lines.push('## Agents')
+    lines.push('')
+    lines.push(`Load from \`~/.prjct-cli/projects/${ctx.projectId}/agents/\`:`)
+    lines.push('')
+    lines.push(`**Workflow**: ${ctx.agents.workflow.join(', ')}`)
+    lines.push(`**Domain**: ${ctx.agents.domain.join(', ') || 'none'}`)
+    lines.push('')
+  }
+
+  // RECENT LEARNINGS
+  if (
+    ctx.learnings &&
+    (ctx.learnings.completedTasks.length > 0 ||
+      ctx.learnings.resolvedBugs.length > 0 ||
+      ctx.learnings.shippedFeatures.length > 0)
+  ) {
+    lines.push('## Recent Learnings')
+    lines.push('')
+    if (ctx.learnings.completedTasks.length > 0) {
+      lines.push('### Completed Tasks')
+      lines.push(
+        ctx.learnings.completedTasks
+          .map((t) => `- ${t.description}${t.branch ? ` (${t.branch})` : ''}`)
+          .join('\n')
+      )
+      lines.push('')
+    }
+    if (ctx.learnings.resolvedBugs.length > 0) {
+      lines.push('### Resolved Bugs')
+      lines.push(ctx.learnings.resolvedBugs.map((b) => `- ${b.description}`).join('\n'))
+      lines.push('')
+    }
+    if (ctx.learnings.shippedFeatures.length > 0) {
+      lines.push('### Shipped Features')
+      lines.push(
+        ctx.learnings.shippedFeatures
+          .map((f) => `- **${f.name}** (v${f.version})${f.description ? `: ${f.description}` : ''}`)
+          .join('\n')
+      )
+      lines.push('')
+    }
+  }
+
+  return lines.join('\n')
+}
+
+// =============================================================================
 // Analysis Helpers
 // =============================================================================
 
@@ -258,6 +360,10 @@ export function formatForCursor(ctx: ProjectContext, _config: AIToolConfig): str
     lines.push('> Run `p. sync` to populate project intelligence')
   }
 
+  // Operational context (prjct rules, state, agents, learnings)
+  lines.push('')
+  lines.push(formatOperationalContext(ctx, 'concise'))
+
   return lines.join('\n')
 }
 
@@ -303,6 +409,10 @@ export function formatForCopilot(ctx: ProjectContext, _config: AIToolConfig): st
   lines.push('## Commands')
   lines.push(`- Test: \`${ctx.commands.test}\``)
   lines.push(`- Build: \`${ctx.commands.build}\``)
+  lines.push('')
+
+  // Operational context (prjct rules, state, agents, learnings)
+  lines.push(formatOperationalContext(ctx, 'concise'))
 
   return lines.join('\n')
 }
@@ -369,6 +479,10 @@ export function formatForWindsurf(ctx: ProjectContext, _config: AIToolConfig): s
     lines.push('> Run `p. sync` to populate project intelligence')
   }
 
+  // Operational context (prjct rules, state, agents, learnings)
+  lines.push('')
+  lines.push(formatOperationalContext(ctx, 'concise'))
+
   return lines.join('\n')
 }
 
@@ -402,6 +516,19 @@ export function formatForContinue(ctx: ProjectContext, _config: AIToolConfig): s
   }
   if (!ctx.analysis) {
     messageParts.push('', 'Run `p. sync` to populate project intelligence.')
+  }
+
+  // Operational context
+  messageParts.push('')
+  messageParts.push('prjct Rules:')
+  messageParts.push(`- All prjct data: ~/.prjct-cli/projects/${ctx.projectId}/`)
+  messageParts.push('- Workflow: p. sync → p. task "desc" → work → p. done → p. ship')
+  messageParts.push('')
+  messageParts.push(
+    `Project: ${ctx.name} v${ctx.version} | ${ctx.ecosystem} | Branch: ${ctx.branch} | Files: ~${ctx.fileCount}`
+  )
+  if (ctx.agents.workflow.length > 0) {
+    messageParts.push(`Agents: ${[...ctx.agents.workflow, ...ctx.agents.domain].join(', ')}`)
   }
   const systemMessage = messageParts.join('\n')
 
@@ -437,76 +564,71 @@ export function formatForContinue(ctx: ProjectContext, _config: AIToolConfig): s
 /**
  * Format context for OpenAI Codex (AGENTS.md)
  * Plain markdown — no frontmatter (AGENTS.md spec)
+ * Full operational context — same data as Claude gets
  */
 export function formatForCodex(ctx: ProjectContext, _config: AIToolConfig): string {
   const lines: string[] = []
 
   lines.push('<!-- prjct-project:start - DO NOT REMOVE THIS MARKER -->')
-  lines.push(`# ${ctx.name} — Project Context`)
+  lines.push(`# ${ctx.name} - Project Rules`)
   lines.push(`<!-- projectId: ${ctx.projectId} -->`)
   lines.push(`<!-- Generated: ${new Date().toISOString()} -->`)
-  lines.push('<!-- Generated by prjct — https://prjct.app -->')
+  lines.push(`<!-- Ecosystem: ${ctx.ecosystem} | Type: ${ctx.projectType} -->`)
   lines.push('')
 
   // Tech Stack
-  lines.push('## Tech Stack')
-  if (ctx.languages.length > 0) {
-    lines.push(`- Languages: ${ctx.languages.join(', ')}`)
-  }
-  if (ctx.frameworks.length > 0) {
-    lines.push(`- Frameworks: ${ctx.frameworks.join(', ')}`)
-  }
-  if (ctx.analysis?.packageManager) {
-    lines.push(`- Package Manager: ${ctx.analysis.packageManager}`)
-  }
+  lines.push(`## THIS PROJECT (${ctx.ecosystem})`)
+  lines.push('')
+  lines.push(`**Type:** ${ctx.projectType}`)
+  lines.push(`**Path:** ${ctx.repoPath}`)
   lines.push('')
 
   // Commands
-  lines.push('## Commands')
+  lines.push('### Commands (USE THESE, NOT OTHERS)')
   lines.push('')
   lines.push('| Action | Command |')
   lines.push('|--------|---------|')
-  lines.push(`| Install | \`${ctx.commands.install}\` |`)
-  lines.push(`| Dev | \`${ctx.commands.dev}\` |`)
-  lines.push(`| Test | \`${ctx.commands.test}\` |`)
+  lines.push(`| Install dependencies | \`${ctx.commands.install}\` |`)
+  lines.push(`| Run dev server | \`${ctx.commands.dev}\` |`)
+  lines.push(`| Run tests | \`${ctx.commands.test}\` |`)
   lines.push(`| Build | \`${ctx.commands.build}\` |`)
+  lines.push(`| Lint | \`${ctx.commands.lint}\` |`)
+  lines.push(`| Format | \`${ctx.commands.format}\` |`)
   lines.push('')
 
-  // Project Structure
-  if (ctx.analysis?.sourceDir || ctx.analysis?.testDir) {
-    lines.push('## Project Structure')
-    if (ctx.analysis.sourceDir) lines.push(`- Source: \`${ctx.analysis.sourceDir}/\``)
-    if (ctx.analysis.testDir) lines.push(`- Tests: \`${ctx.analysis.testDir}/\``)
-    lines.push('')
-  }
+  // Code Conventions
+  lines.push('### Code Conventions')
+  lines.push('')
+  lines.push(`- **Languages**: ${ctx.languages.join(', ') || 'Not detected'}`)
+  lines.push(`- **Frameworks**: ${ctx.frameworks.join(', ') || 'Not detected'}`)
 
   // Analysis-driven intelligence
   if (ctx.analysis) {
     if (ctx.analysis.patterns?.length > 0) {
-      lines.push('## Code Patterns')
+      lines.push('')
+      lines.push('### Code Patterns (Follow These)')
       lines.push('')
       lines.push(formatPatterns(ctx.analysis.patterns))
-      lines.push('')
     }
     if (ctx.analysis.antiPatterns?.length > 0) {
-      lines.push('## Anti-Patterns (Avoid)')
+      lines.push('')
+      lines.push('### Anti-Patterns (Avoid These)')
       lines.push('')
       lines.push(formatAntiPatterns(ctx.analysis.antiPatterns))
-      lines.push('')
     }
+    lines.push(formatStructure(ctx.analysis))
   } else {
+    lines.push('')
     lines.push('> Run `p. sync` to populate project intelligence')
     lines.push('')
   }
 
-  // Workflow
-  lines.push('## prjct Workflow')
+  lines.push('---')
   lines.push('')
-  lines.push('Run `prjct` CLI commands for project management:')
-  lines.push('- `prjct sync` — Analyze project, regenerate context')
-  lines.push('- `prjct task "desc"` — Start a task')
-  lines.push('- `prjct done` — Complete current subtask')
-  lines.push('- `prjct ship "name"` — Ship feature with PR')
+
+  // Operational context (prjct rules, state, agents, learnings)
+  lines.push(formatOperationalContext(ctx, 'full'))
+
   lines.push('<!-- prjct-project:end - DO NOT REMOVE THIS MARKER -->')
 
   return lines.join('\n')
