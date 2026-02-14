@@ -1,9 +1,20 @@
 # Changelog
 
-## [1.34.1] - 2026-02-13
+## [1.36.0] - 2026-02-13
 
-### Added
-- Custom workflows with agentic auto-configuration
+### Features
+
+- Custom workflows with agentic auto-configuration (#183)
+  - Create user-defined workflows beyond built-in (task/done/ship/sync)
+  - Dynamic template generation at ~/.claude/commands/p/{name}.md
+  - CLI commands: create, list, delete, run
+  - Full test coverage (21 new tests)
+
+## [1.35.0] - 2026-02-13
+
+### Features
+
+- add diff between consecutive analysis runs (PRJ-275) (#182)
 
 ## [1.34.0] - 2026-02-13
 
