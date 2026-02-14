@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.38.0] - 2026-02-14
+
+### Features
+
+- hybrid sync pipeline - CLI + LLM analysis (#186)
+
+
 ## [1.37.1] - 2026-02-14
 
 ### Bug Fixes
