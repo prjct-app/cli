@@ -21,9 +21,13 @@ import {
   type SyncResult,
 } from '../../schemas/issues'
 import { prjctDb } from '../../storage/database'
+import { queueStorage } from '../../storage/queue-storage'
 import { getErrorMessage } from '../../types/fs'
 import type { Issue } from '../issue-tracker/types'
 import { linearService } from './service'
+
+/** Pattern to extract Linear issue identifiers (e.g., PRJ-123) from text */
+const LINEAR_ID_PATTERN = /\b[A-Z]+-\d+\b/
 
 // Default staleness threshold: 30 minutes
 const DEFAULT_STALE_AFTER = 30 * 60 * 1000
@@ -218,6 +222,42 @@ export class LinearSync {
     if (!issuesJson) return []
 
     return Object.values(issuesJson.issues)
+  }
+
+  /**
+   * Reconcile local queue with Linear issue statuses.
+   * Marks queue tasks as completed if the linked Linear issue is done/in_review.
+   * Returns count of reconciled tasks.
+   */
+  async reconcileQueue(projectId: string): Promise<number> {
+    const issuesJson = this.loadIssues(projectId)
+    if (!issuesJson) return 0
+
+    // Build a set of identifiers for done/in_review issues
+    const resolvedIds = new Set<string>()
+    for (const [identifier, issue] of Object.entries(issuesJson.issues)) {
+      if (issue.status === 'done' || issue.status === 'in_review') {
+        resolvedIds.add(identifier)
+      }
+    }
+
+    if (resolvedIds.size === 0) return 0
+
+    // Match queue tasks by Linear identifier in description
+    const tasks = await queueStorage.getTasks(projectId)
+    let reconciled = 0
+
+    for (const task of tasks) {
+      if (task.completed) continue
+
+      const match = task.description.match(LINEAR_ID_PATTERN)
+      if (match && resolvedIds.has(match[0])) {
+        await queueStorage.completeTask(projectId, task.id)
+        reconciled++
+      }
+    }
+
+    return reconciled
   }
 
   // =============================================================================

@@ -4,8 +4,8 @@
 
 ### Bug Fixes
 
+- reconcile queue with Linear status on sync
 - replace hardcoded version in server API info (PRJ-341) (#189)
-
 
 ## [1.38.2] - 2026-02-14
 
