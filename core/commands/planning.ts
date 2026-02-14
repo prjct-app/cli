@@ -9,10 +9,12 @@ import commandInstaller from '../infrastructure/command-installer'
 import { generateUUID } from '../schemas'
 import type { Priority, TaskSection, TaskType } from '../schemas/state'
 import { ideasStorage, queueStorage } from '../storage'
+import { workflowRuleStorage } from '../storage/workflow-rule-storage'
 import type { CommandResult, InitOptions, ProjectContext } from '../types'
 import { getErrorMessage } from '../types/fs'
 import { mdNextSteps, mdOutput, mdSection, mdStats } from '../utils/md-formatter'
 import { showNextSteps } from '../utils/next-steps'
+import { detectProjectCommands } from '../utils/project-commands'
 import { OnboardingWizard } from '../workflows'
 import {
   configManager,
@@ -103,6 +105,9 @@ export class PlanningCommands extends PrjctCommandsBase {
 
       await pathManager.ensureProjectStructure(projectId)
       const globalPath = pathManager.getGlobalProjectPath(projectId)
+
+      // Seed default workflow rules for ship
+      await this._seedShipWorkflow(projectId, projectPath)
 
       const baseFiles: Record<string, string> = {
         'core/now.md': '# NOW\n\nNo current task. Use `/p:now` to set focus.\n',
@@ -702,6 +707,58 @@ Status: Draft
     } catch (error) {
       out.fail(getErrorMessage(error))
       return { success: false, error: getErrorMessage(error) }
+    }
+  }
+
+  /**
+   * Seed default workflow rules for ship command.
+   * Creates sensible defaults based on detected project tools.
+   */
+  private async _seedShipWorkflow(projectId: string, projectPath: string): Promise<void> {
+    const detected = await detectProjectCommands(projectPath)
+    let sortOrder = 0
+
+    // Gate: Prevent shipping from main/master
+    workflowRuleStorage.addRule(projectId, {
+      type: 'gate',
+      command: 'ship',
+      position: 'before',
+      action: 'git branch --show-current | grep -vE "^(main|master)$"',
+      description: 'Prevent shipping from main branch',
+      enabled: true,
+      timeoutMs: 5000,
+      sortOrder: sortOrder++,
+      createdAt: new Date().toISOString(),
+    })
+
+    // Step: Lint (if detected, non-blocking with || true)
+    if (detected.lint) {
+      workflowRuleStorage.addRule(projectId, {
+        type: 'step',
+        command: 'ship',
+        position: 'before',
+        action: `${detected.lint.command} || true`,
+        description: 'Lint code',
+        enabled: true,
+        timeoutMs: 120000,
+        sortOrder: sortOrder++,
+        createdAt: new Date().toISOString(),
+      })
+    }
+
+    // Step: Test (if detected, non-blocking with || true)
+    if (detected.test) {
+      workflowRuleStorage.addRule(projectId, {
+        type: 'step',
+        command: 'ship',
+        position: 'before',
+        action: `${detected.test.command} || true`,
+        description: 'Run tests',
+        enabled: true,
+        timeoutMs: 300000,
+        sortOrder: sortOrder++,
+        createdAt: new Date().toISOString(),
+      })
     }
   }
 }

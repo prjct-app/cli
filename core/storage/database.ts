@@ -356,6 +356,38 @@ const migrations: Migration[] = [
       `)
     },
   },
+  {
+    version: 4,
+    name: 'custom-workflows-table',
+    up: (db: SqliteDatabase) => {
+      db.run(`
+        -- =======================================================================
+        -- Custom Workflows: User-defined workflows with agentic auto-config
+        -- =======================================================================
+        CREATE TABLE custom_workflows (
+          id          INTEGER PRIMARY KEY AUTOINCREMENT,
+          name        TEXT UNIQUE NOT NULL,
+          description TEXT,
+          created_at  TEXT NOT NULL,
+          updated_at  TEXT NOT NULL,
+          is_builtin  INTEGER NOT NULL DEFAULT 0,
+          enabled     INTEGER NOT NULL DEFAULT 1,
+          metadata    TEXT
+        );
+
+        CREATE INDEX idx_custom_workflows_name ON custom_workflows(name);
+        CREATE INDEX idx_custom_workflows_enabled ON custom_workflows(enabled);
+
+        -- Seed built-in workflows (task, done, ship, sync)
+        INSERT INTO custom_workflows (name, description, is_builtin, enabled, created_at, updated_at)
+        VALUES
+          ('task', 'Start working on a task', 1, 1, datetime('now'), datetime('now')),
+          ('done', 'Complete current task/subtask', 1, 1, datetime('now'), datetime('now')),
+          ('ship', 'Ship feature with version bump and PR', 1, 1, datetime('now'), datetime('now')),
+          ('sync', 'Analyze project and regenerate context', 1, 1, datetime('now'), datetime('now'));
+      `)
+    },
+  },
 ]
 
 // =============================================================================

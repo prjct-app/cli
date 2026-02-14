@@ -83,6 +83,8 @@ export interface DetectedProjectCommands {
   lint?: DetectedCommand
   typecheck?: DetectedCommand
   test?: DetectedCommand
+  versionFile?: string
+  changelogFile?: string
 }
 
 // =============================================================================

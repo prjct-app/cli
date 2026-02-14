@@ -46,6 +46,7 @@ import {
   type ProjectContext,
   resolveToolIds,
 } from '../tools/ai'
+import { extractLearningsFromDB } from '../tools/ai/learnings-extractor'
 import type {
   GitData,
   IncrementalInfo,
@@ -311,6 +312,14 @@ class SyncService {
         /* non-blocking */
       }
 
+      // 4c. Load learnings from SQLite - Progressive Context
+      let learnings: ProjectContext['learnings']
+      try {
+        learnings = await extractLearningsFromDB(this.projectId)
+      } catch {
+        // Learnings extraction is optional - don't block on failure
+      }
+
       // 5. Generate AI tool context files (multi-agent output)
       const projectContext: ProjectContext = {
         projectId: this.projectId,
@@ -332,6 +341,7 @@ class SyncService {
         },
         sources,
         analysis: analysisData,
+        learnings, // Learnings from SQLite
       }
 
       const aiToolResults = await generateAIToolContexts(
