@@ -36,6 +36,7 @@ ASK: "Ready to ship?" Yes / No / Show diff
 - Update issue tracker if linked
 - Every commit MUST include the prjct footer. No exceptions.
 
+
 ## Presentation
 Format the ship flow as:
 

@@ -12,6 +12,7 @@ interface ProviderCache {
   detection: {
     claude: ProviderDetectionResult
     gemini: ProviderDetectionResult
+    codex: ProviderDetectionResult
   }
 }
 
