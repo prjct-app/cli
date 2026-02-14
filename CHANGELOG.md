@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.38.4] - 2026-02-14
+
+### Bug Fixes
+
+- reconcile queue with Linear status on sync (#190)
+
+
 ## [1.38.3] - 2026-02-14
 
 ### Bug Fixes
