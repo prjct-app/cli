@@ -3,51 +3,18 @@
  * Write-Through Architecture: JSON → MD → Event
  */
 
-import path from 'node:path'
 import memorySystem from '../agentic/memory-system'
+import { ChangelogService, VersionService } from '../services'
+import { syncService } from '../services/sync-service'
 import { shippedStorage, stateStorage } from '../storage'
-import { workflowRuleStorage } from '../storage/workflow-rule-storage'
 import type { CommandResult } from '../types'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import { mdDone, mdList, mdNextSteps, mdOutput, mdSection } from '../utils/md-formatter'
 import { getNextSteps, showNextSteps } from '../utils/next-steps'
-import { detectProjectCommands } from '../utils/project-commands'
 import { executeWorkflowRules } from '../workflow/workflow-engine'
-import { configManager, dateHelper, fileHelper, out, PrjctCommandsBase, toolRegistry } from './base'
+import { configManager, dateHelper, out, PrjctCommandsBase, toolRegistry } from './base'
 
 export class ShippingCommands extends PrjctCommandsBase {
-  /**
-   * Run a command and capture exit code without throwing.
-   *
-   * Reason: `toolRegistry.Bash` swallows non-zero exits into stderr; we still want a reliable success flag.
-   */
-  private async _runWithExitCode(command: string): Promise<{ exitCode: number; output: string }> {
-    const bash = toolRegistry.get('Bash')!
-    const escaped = command.replace(/"/g, '\\"')
-    const wrapped = `bash -lc "set +e; ${escaped} 2>&1; echo __EXIT:$?"`
-    const result = (await bash(wrapped)) as { stdout: string; stderr: string }
-    const output = `${result.stdout}\n${result.stderr}`.trim()
-
-    const lines = output.split('\n')
-    let marker: string | undefined
-    for (let i = lines.length - 1; i >= 0; i--) {
-      if (lines[i].startsWith('__EXIT:')) {
-        marker = lines[i]
-        break
-      }
-    }
-    const exitCode = marker ? Number(marker.replace('__EXIT:', '').trim()) : 1
-
-    // Remove marker from output for cleaner logs
-    const cleaned = output
-      .split('\n')
-      .filter((line) => !line.startsWith('__EXIT:'))
-      .join('\n')
-      .trim()
-
-    return { exitCode: Number.isFinite(exitCode) ? exitCode : 1, output: cleaned }
-  }
-
   /**
    * /p:ship - Ship feature with complete automated workflow
    */
@@ -77,7 +44,7 @@ export class ShippingCommands extends PrjctCommandsBase {
 
       if (!featureName) featureName = 'current work'
 
-      // Run before_ship rules (gates + hooks)
+      // Execute before_ship workflow (gates + steps from DB)
       const beforeResult = await executeWorkflowRules(projectId, 'ship', 'before', {
         projectPath,
         skipRules: options.skipHooks,
@@ -86,42 +53,24 @@ export class ShippingCommands extends PrjctCommandsBase {
         const msg =
           beforeResult.gatesFailed.length > 0
             ? `Blocked: ${beforeResult.gatesFailed.join(', ')}`
-            : `Hook failed: ${beforeResult.hooksFailed.join(', ')}`
+            : `Step failed: ${beforeResult.gatesFailed.join(', ')}`
         return { success: false, error: msg }
       }
 
-      // Ship steps with progress indicator
-      if (!options.md) out.step(1, 5, `Linting ${featureName}...`)
-      const lintResult = await this._runLint(projectPath)
+      // SHIP CORE (universal, stack-aware)
+      if (!options.md) out.step(1, 4, 'Bumping version...')
+      const versionService = new VersionService(projectPath)
+      const newVersion = await versionService.bump()
 
-      if (!options.md) out.step(2, 5, 'Running tests...')
-      const testResult = await this._runTests(projectPath)
+      if (!options.md) out.step(2, 4, 'Updating changelog...')
+      const changelogService = new ChangelogService(projectPath)
+      await changelogService.addFeature(newVersion, featureName)
 
-      // Run custom ship steps (after built-in quality checks, before version bump)
-      const customSteps = workflowRuleStorage
-        .getRulesForCommand(projectId, 'ship')
-        .filter((r) => r.type === 'step' && r.enabled)
-      for (const step of customSteps) {
-        if (!options.md) out.step(2, 5, `Running step: ${step.action}...`)
-        const { exitCode } = await this._runWithExitCode(step.action)
-        if (exitCode !== 0) {
-          const msg = `Custom step failed: ${step.action}`
-          if (options.md) console.log(`> ${msg}`)
-          else out.fail(msg)
-          return { success: false, error: msg }
-        }
-      }
-
-      if (!options.md) out.step(3, 5, 'Updating version...')
-      const newVersion = await this._bumpVersion(projectPath)
-      await this._updateChangelog(featureName, newVersion, projectPath)
-
-      if (!options.md) out.step(4, 5, 'Committing...')
+      if (!options.md) out.step(3, 4, 'Committing...')
       const commitResult = await this._createShipCommit(featureName, projectPath)
 
       let pushStatus = 'skipped'
       if (commitResult.success) {
-        if (!options.md) out.step(5, 5, 'Pushing...')
         const pushResult = await this._gitPush(projectPath)
         pushStatus = pushResult.success ? 'pushed' : pushResult.message
       }
@@ -140,23 +89,34 @@ export class ShippingCommands extends PrjctCommandsBase {
 
       await memorySystem.learnDecision(projectId, 'commit_footer', 'prjct', 'ship')
 
-      if (testResult.success) {
-        await memorySystem.recordDecision(projectId, 'test_before_ship', 'true', 'ship')
-      }
-
-      const isQuickShip = !lintResult.success || !testResult.success
-      if (isQuickShip) {
-        await memorySystem.recordWorkflow(projectId, 'quick_ship', {
-          description: 'Ship without full checks',
-          feature_type: featureName.toLowerCase().includes('doc') ? 'docs' : 'other',
-        })
-      }
+      // Record ship workflow
+      await memorySystem.recordWorkflow(projectId, 'ship_completed', {
+        description: 'Ship with workflow rules',
+        feature: featureName,
+        version: newVersion,
+      })
 
       // Run after_ship rules
       await executeWorkflowRules(projectId, 'ship', 'after', {
         projectPath,
         skipRules: options.skipHooks,
       })
+
+      // Auto-sync AI context after shipping to ensure agents have latest state
+      try {
+        if (!options.md) {
+          out.step(4, 4, 'Updating AI context...')
+        }
+
+        await syncService.sync(projectPath)
+
+        if (!options.md) {
+          out.done('✓ AI context updated')
+        }
+      } catch (syncError) {
+        // Log but don't fail the ship — context sync is nice-to-have
+        console.warn('⚠️  Failed to sync AI context after shipping:', getErrorMessage(syncError))
+      }
 
       if (options.md) {
         const steps = getNextSteps('ship')
@@ -165,10 +125,10 @@ export class ShippingCommands extends PrjctCommandsBase {
           mdSection(
             'Results',
             mdList([
-              `Lint: ${lintResult.message}`,
-              `Tests: ${testResult.message}`,
+              `Version: ${newVersion}`,
               `Commit: ${commitResult.success ? 'created' : commitResult.message}`,
               `Push: ${pushStatus}`,
+              `Workflow steps: ${beforeResult.stepsRun.length > 0 ? beforeResult.stepsRun.join(', ') : 'none'}`,
             ])
           ),
           mdNextSteps(steps.map((s) => ({ label: s.desc, command: s.cmd })))
@@ -183,90 +143,6 @@ export class ShippingCommands extends PrjctCommandsBase {
     } catch (error) {
       out.fail(getErrorMessage(error))
       return { success: false, error: getErrorMessage(error) }
-    }
-  }
-
-  /**
-   * Run lint checks
-   */
-  async _runLint(projectPath: string): Promise<{ success: boolean; message: string }> {
-    try {
-      const detected = await detectProjectCommands(projectPath)
-      if (!detected.lint) return { success: true, message: 'skipped (no lint detected)' }
-
-      const { exitCode } = await this._runWithExitCode(detected.lint.command)
-      return { success: exitCode === 0, message: exitCode === 0 ? 'passed' : 'failed' }
-    } catch (error) {
-      // Lint detection/execution failed - skip gracefully
-      if (isNotFoundError(error)) {
-        return { success: true, message: 'skipped (lint not found)' }
-      }
-      return { success: true, message: 'skipped (lint detection failed)' }
-    }
-  }
-
-  /**
-   * Run tests
-   */
-  async _runTests(projectPath: string): Promise<{ success: boolean; message: string }> {
-    try {
-      const detected = await detectProjectCommands(projectPath)
-      if (!detected.test) return { success: true, message: 'skipped (no tests detected)' }
-
-      const { exitCode } = await this._runWithExitCode(detected.test.command)
-      return { success: exitCode === 0, message: exitCode === 0 ? 'passed' : 'failed' }
-    } catch (error) {
-      // Test detection/execution failed - skip gracefully
-      if (isNotFoundError(error)) {
-        return { success: true, message: 'skipped (tests not found)' }
-      }
-      return { success: true, message: 'skipped (test detection failed)' }
-    }
-  }
-
-  /**
-   * Bump version
-   */
-  async _bumpVersion(projectPath: string): Promise<string> {
-    try {
-      const pkgPath = path.join(projectPath, 'package.json')
-      const pkg = await fileHelper.readJson<{ version?: string }>(pkgPath, { version: '0.0.0' })
-      const oldVersion = pkg?.version || '0.0.0'
-      const [major, minor, patch] = oldVersion.split('.').map(Number)
-      const newVersion = `${major}.${minor}.${patch + 1}`
-      if (pkg) {
-        pkg.version = newVersion
-        await fileHelper.writeJson(pkgPath, pkg)
-      }
-      return newVersion
-    } catch (error) {
-      // No package.json or parse error - return default version
-      if (isNotFoundError(error) || error instanceof SyntaxError) {
-        return '0.0.1'
-      }
-      throw error
-    }
-  }
-
-  /**
-   * Update CHANGELOG
-   */
-  async _updateChangelog(feature: string, version: string, projectPath: string): Promise<void> {
-    try {
-      const changelogPath = path.join(projectPath, 'CHANGELOG.md')
-      const changelog = await fileHelper.readFile(changelogPath, '# Changelog\n\n')
-
-      const entry = `## [${version}] - ${dateHelper.formatDate(new Date())}\n\n### Added\n- ${feature}\n\n`
-      const updated = changelog.replace('# Changelog\n\n', `# Changelog\n\n${entry}`)
-
-      await fileHelper.writeFile(changelogPath, updated)
-    } catch (error) {
-      // CHANGELOG doesn't exist or can't be written - warn but continue
-      if (isNotFoundError(error)) {
-        console.error('   Warning: CHANGELOG.md not found')
-      } else {
-        console.error('   Warning: Could not update CHANGELOG')
-      }
     }
   }
 

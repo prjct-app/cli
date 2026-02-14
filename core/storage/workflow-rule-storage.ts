@@ -5,6 +5,7 @@
  * Stores hooks, gates, and custom steps per project.
  */
 
+import { customWorkflowStorage } from './custom-workflow-storage'
 import { prjctDb } from './database'
 
 export interface WorkflowRule {
@@ -88,7 +89,67 @@ class WorkflowRuleStorage {
     return true
   }
 
+  updateRule(
+    projectId: string,
+    ruleId: number,
+    updates: Partial<Omit<WorkflowRule, 'id'>>
+  ): boolean {
+    const existing = prjctDb.get<WorkflowRuleRow>(
+      projectId,
+      'SELECT id FROM workflow_rules WHERE id = ?',
+      ruleId
+    )
+    if (!existing) return false
+
+    const fieldMap: Record<string, { column: string; transform?: (v: any) => any }> = {
+      type: { column: 'type' },
+      command: { column: 'command' },
+      position: { column: 'position' },
+      action: { column: 'action' },
+      description: { column: 'description' },
+      enabled: { column: 'enabled', transform: (v: boolean) => (v ? 1 : 0) },
+      timeoutMs: { column: 'timeout_ms' },
+      createdAt: { column: 'created_at' },
+      sortOrder: { column: 'sort_order' },
+    }
+
+    const setClauses: string[] = []
+    const values: any[] = []
+
+    for (const [key, value] of Object.entries(updates)) {
+      const mapping = fieldMap[key]
+      if (!mapping) continue
+      setClauses.push(`${mapping.column} = ?`)
+      values.push(mapping.transform ? mapping.transform(value) : value)
+    }
+
+    if (setClauses.length === 0) return true
+
+    values.push(ruleId)
+    prjctDb.run(
+      projectId,
+      `UPDATE workflow_rules SET ${setClauses.join(', ')} WHERE id = ?`,
+      ...values
+    )
+    return true
+  }
+
+  getRuleById(projectId: string, ruleId: number): WorkflowRule | null {
+    const row = prjctDb.get<WorkflowRuleRow>(
+      projectId,
+      'SELECT * FROM workflow_rules WHERE id = ?',
+      ruleId
+    )
+    return row ? rowToRule(row) : null
+  }
+
   getRulesForCommand(projectId: string, command: string): WorkflowRule[] {
+    // Validate workflow exists and is enabled
+    const workflow = customWorkflowStorage.getWorkflow(projectId, command)
+    if (!workflow || !workflow.enabled) {
+      return []
+    }
+
     const rows = prjctDb.query<WorkflowRuleRow>(
       projectId,
       'SELECT * FROM workflow_rules WHERE command = ? AND enabled = 1 ORDER BY sort_order ASC',

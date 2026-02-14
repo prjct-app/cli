@@ -68,4 +68,80 @@ describe('detectProjectCommands', () => {
     expect(detected.stack).toBe('rust')
     expect(detected.test?.command).toBe('cargo test')
   })
+
+  // Version file detection
+  it('detects package.json as version file for JS projects', async () => {
+    await writeJson(path.join(tmpRoot!, 'package.json'), {
+      name: 'x',
+      version: '1.0.0',
+      scripts: { test: 'vitest' },
+    })
+    const detected = await detectProjectCommands(tmpRoot!)
+    expect(detected.versionFile).toBe('package.json')
+  })
+
+  it('detects Cargo.toml as version file for Rust projects', async () => {
+    await writeText(path.join(tmpRoot!, 'Cargo.toml'), '[package]\nname="x"\nversion="0.1.0"\n')
+    const detected = await detectProjectCommands(tmpRoot!)
+    expect(detected.versionFile).toBe('Cargo.toml')
+  })
+
+  it('detects pyproject.toml as version file for Python projects', async () => {
+    await writeText(path.join(tmpRoot!, 'pyproject.toml'), '[tool.pytest]\n')
+    const detected = await detectProjectCommands(tmpRoot!)
+    expect(detected.versionFile).toBe('pyproject.toml')
+  })
+
+  it('detects VERSION file for Go projects', async () => {
+    await writeText(path.join(tmpRoot!, 'go.mod'), 'module example.com/test\n')
+    await writeText(path.join(tmpRoot!, 'VERSION'), '1.2.3\n')
+    const detected = await detectProjectCommands(tmpRoot!)
+    expect(detected.versionFile).toBe('VERSION')
+  })
+
+  it('detects .csproj as version file for .NET projects', async () => {
+    await writeText(path.join(tmpRoot!, 'MyApp.csproj'), '<Project></Project>\n')
+    const detected = await detectProjectCommands(tmpRoot!)
+    expect(detected.stack).toBe('dotnet')
+    expect(detected.versionFile).toBe('MyApp.csproj')
+  })
+
+  // Changelog file detection
+  it('detects CHANGELOG.md', async () => {
+    await writeJson(path.join(tmpRoot!, 'package.json'), { name: 'x', version: '1.0.0' })
+    await writeText(path.join(tmpRoot!, 'CHANGELOG.md'), '# Changelog\n')
+    const detected = await detectProjectCommands(tmpRoot!)
+    expect(detected.changelogFile).toBe('CHANGELOG.md')
+  })
+
+  it('detects HISTORY.md as changelog', async () => {
+    await writeJson(path.join(tmpRoot!, 'package.json'), { name: 'x', version: '1.0.0' })
+    await writeText(path.join(tmpRoot!, 'HISTORY.md'), '# History\n')
+    const detected = await detectProjectCommands(tmpRoot!)
+    expect(detected.changelogFile).toBe('HISTORY.md')
+  })
+
+  it('prefers CHANGELOG.md over HISTORY.md', async () => {
+    await writeJson(path.join(tmpRoot!, 'package.json'), { name: 'x', version: '1.0.0' })
+    await writeText(path.join(tmpRoot!, 'CHANGELOG.md'), '# Changelog\n')
+    await writeText(path.join(tmpRoot!, 'HISTORY.md'), '# History\n')
+    const detected = await detectProjectCommands(tmpRoot!)
+    expect(detected.changelogFile).toBe('CHANGELOG.md')
+  })
+
+  it('returns undefined for missing version/changelog files', async () => {
+    await writeText(path.join(tmpRoot!, 'go.mod'), 'module example.com/test\n')
+    const detected = await detectProjectCommands(tmpRoot!)
+    expect(detected.versionFile).toBeUndefined()
+    expect(detected.changelogFile).toBeUndefined()
+  })
+
+  it('detects version and changelog files for unknown stack', async () => {
+    await writeText(path.join(tmpRoot!, 'VERSION'), '0.1.0\n')
+    await writeText(path.join(tmpRoot!, 'CHANGES.md'), '# Changes\n')
+    const detected = await detectProjectCommands(tmpRoot!)
+    expect(detected.stack).toBe('unknown')
+    expect(detected.versionFile).toBe('VERSION')
+    expect(detected.changelogFile).toBe('CHANGES.md')
+  })
 })

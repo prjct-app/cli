@@ -48,12 +48,56 @@ function pmTest(pm: PackageManager): string {
   return 'npm test'
 }
 
+/** Version source files, ordered by priority per stack convention. */
+const VERSION_FILES = [
+  'package.json',
+  'Cargo.toml',
+  'pyproject.toml',
+  'VERSION',
+  'version.txt',
+] as const
+
+// .csproj files are detected via listFiles (glob pattern)
+const CSPROJ_EXT = '.csproj'
+
+/** Changelog files, ordered by convention popularity. */
+const CHANGELOG_FILES = ['CHANGELOG.md', 'HISTORY.md', 'NEWS.md', 'CHANGES.md'] as const
+
+/**
+ * Find the first existing version source file in the project.
+ */
+async function detectVersionFile(
+  projectPath: string,
+  files?: string[]
+): Promise<string | undefined> {
+  for (const name of VERSION_FILES) {
+    if (await fileHelper.fileExists(path.join(projectPath, name))) return name
+  }
+  // Check for .csproj files
+  const listing = files ?? (await fileHelper.listFiles(projectPath))
+  const csproj = listing.find((f) => f.endsWith(CSPROJ_EXT))
+  if (csproj) return csproj
+  return undefined
+}
+
+/**
+ * Find the first existing changelog file in the project.
+ */
+async function detectChangelogFile(projectPath: string): Promise<string | undefined> {
+  for (const name of CHANGELOG_FILES) {
+    if (await fileHelper.fileExists(path.join(projectPath, name))) return name
+  }
+  return undefined
+}
+
 /**
  * Detect the appropriate lint/typecheck/test commands for a given project.
  *
  * - JS/TS projects: uses the project package manager + scripts when present
  * - Python: prefers pytest when config is present
  * - Go/Rust/.NET/Java: uses conventional defaults
+ *
+ * Also detects version source files and changelog files for workflow seeding.
  *
  * @param {string} projectPath - Repository root.
  * @returns {Promise<DetectedProjectCommands>} detected commands (missing when not applicable).
@@ -81,46 +125,93 @@ export async function detectProjectCommands(projectPath: string): Promise<Detect
       result.test = { tool: pm, command: pmTest(pm) }
     }
 
+    result.versionFile = await detectVersionFile(projectPath)
+    result.changelogFile = await detectChangelogFile(projectPath)
+
     return result
   }
 
   // Python
   if (await fileHelper.fileExists(path.join(projectPath, 'pytest.ini'))) {
-    return { stack: 'python', test: { tool: 'pytest', command: 'pytest' } }
+    const versionFile = await detectVersionFile(projectPath)
+    const changelogFile = await detectChangelogFile(projectPath)
+    return {
+      stack: 'python',
+      test: { tool: 'pytest', command: 'pytest' },
+      versionFile,
+      changelogFile,
+    }
   }
 
   const pyproject = await fileHelper.readFile(path.join(projectPath, 'pyproject.toml'), '')
   if (pyproject.includes('[tool.pytest') || pyproject.includes('pytest')) {
-    return { stack: 'python', test: { tool: 'pytest', command: 'pytest' } }
+    const versionFile = await detectVersionFile(projectPath)
+    const changelogFile = await detectChangelogFile(projectPath)
+    return {
+      stack: 'python',
+      test: { tool: 'pytest', command: 'pytest' },
+      versionFile,
+      changelogFile,
+    }
   }
 
   // Rust
   if (await fileHelper.fileExists(path.join(projectPath, 'Cargo.toml'))) {
-    return { stack: 'rust', test: { tool: 'cargo', command: 'cargo test' } }
+    const changelogFile = await detectChangelogFile(projectPath)
+    return {
+      stack: 'rust',
+      test: { tool: 'cargo', command: 'cargo test' },
+      versionFile: 'Cargo.toml',
+      changelogFile,
+    }
   }
 
   // Go
   if (await fileHelper.fileExists(path.join(projectPath, 'go.mod'))) {
-    return { stack: 'go', test: { tool: 'go', command: 'go test ./...' } }
+    const versionFile = await detectVersionFile(projectPath)
+    const changelogFile = await detectChangelogFile(projectPath)
+    return {
+      stack: 'go',
+      test: { tool: 'go', command: 'go test ./...' },
+      versionFile,
+      changelogFile,
+    }
   }
 
   // .NET
   const files = await fileHelper.listFiles(projectPath)
   if (files.some((f) => f.endsWith('.sln') || f.endsWith('.csproj') || f.endsWith('.fsproj'))) {
-    return { stack: 'dotnet', test: { tool: 'dotnet', command: 'dotnet test' } }
+    const versionFile = await detectVersionFile(projectPath, files)
+    const changelogFile = await detectChangelogFile(projectPath)
+    return {
+      stack: 'dotnet',
+      test: { tool: 'dotnet', command: 'dotnet test' },
+      versionFile,
+      changelogFile,
+    }
   }
 
   // Java
   if (await fileHelper.fileExists(path.join(projectPath, 'pom.xml'))) {
-    return { stack: 'java', test: { tool: 'maven', command: 'mvn test' } }
+    const changelogFile = await detectChangelogFile(projectPath)
+    return {
+      stack: 'java',
+      test: { tool: 'maven', command: 'mvn test' },
+      versionFile: 'pom.xml',
+      changelogFile,
+    }
   }
   if (
     (await fileHelper.fileExists(path.join(projectPath, 'gradlew'))) &&
     ((await fileHelper.fileExists(path.join(projectPath, 'build.gradle'))) ||
       (await fileHelper.fileExists(path.join(projectPath, 'build.gradle.kts'))))
   ) {
-    return { stack: 'java', test: { tool: 'gradle', command: './gradlew test' } }
+    const changelogFile = await detectChangelogFile(projectPath)
+    return { stack: 'java', test: { tool: 'gradle', command: './gradlew test' }, changelogFile }
   }
 
-  return { stack: 'unknown' }
+  // Unknown stack - still detect version/changelog files
+  const versionFile = await detectVersionFile(projectPath)
+  const changelogFile = await detectChangelogFile(projectPath)
+  return { stack: 'unknown', versionFile, changelogFile }
 }
