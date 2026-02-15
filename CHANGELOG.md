@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.40.3] - 2026-02-15
+
+### Added
+- Provider capabilities system
+
+## [1.40.2] - 2026-02-15
+
+### Added
+- Provider capabilities system
+
 ## [1.40.1] - 2026-02-15
 
 ### Fixed

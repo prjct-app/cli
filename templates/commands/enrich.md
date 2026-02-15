@@ -12,7 +12,7 @@ If $ARGUMENTS is empty, ASK for an issue ID or description.
 prjct enrich "$ARGUMENTS" --md
 ```
 
-Use Task with subagent_type=Explore to find similar implementations and affected files.
+Search the codebase for similar implementations and affected files.
 
 ## Step 3: Publish
 ASK: "Update description / Add as comment / Just show me"

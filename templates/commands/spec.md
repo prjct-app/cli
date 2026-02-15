@@ -14,7 +14,7 @@ prjct spec "$ARGUMENTS" --md
 
 ## Step 3: Follow CLI instructions
 The CLI will guide through requirements, design decisions, and task breakdown.
-Use Task with subagent_type=Explore to analyze codebase for relevant patterns.
+Search the codebase for relevant patterns.
 
 ## Step 4: Get approval
 Show the spec to the user and get explicit approval before adding tasks to queue.

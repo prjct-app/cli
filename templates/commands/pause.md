@@ -6,13 +6,11 @@ allowed-tools: [Bash, AskUserQuestion]
 
 If no reason provided, ask the user:
 
-```
-AskUserQuestion: "Why are you pausing?" with options: Blocked, Switching task, Break, Researching
-```
+Ask the user: "Why are you pausing?" with options: Blocked, Switching task, Break, Researching
 
 ```bash
 prjct pause "$ARGUMENTS" --md
 ```
-If CLI output is JSON with `options`, present them to the user with AskUserQuestion and execute the chosen command.
+If CLI output is JSON with `options`, present the options to the user and execute the chosen command.
 
 Follow the instructions in the CLI output.

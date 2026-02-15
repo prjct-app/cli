@@ -11,13 +11,13 @@ If $ARGUMENTS is empty, ASK the user what task to start.
 ```bash
 prjct task "$ARGUMENTS" --md
 ```
-If CLI output is JSON with `options`, present them to the user with AskUserQuestion and execute the chosen command.
+If CLI output is JSON with `options`, present the options to the user and execute the chosen command.
 
 ## Step 3: Understand before acting (USE YOUR INTELLIGENCE)
 - Context7 is mandatory: for framework/library APIs, consult Context7 docs before implementation/refactor
 - Read the relevant files from the CLI output
 - If the task is ambiguous, ASK the user to clarify
-- Explore beyond suggested files if needed (use Task with subagent_type=Explore)
+- Explore beyond suggested files if needed
 
 ## Step 4: Plan the approach
 - For non-trivial changes, propose 2-3 approaches

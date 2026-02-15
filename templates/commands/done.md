@@ -8,7 +8,7 @@ allowed-tools: [Bash, Read, AskUserQuestion]
 ```bash
 prjct done --md
 ```
-If CLI output is JSON with `options`, present them to the user with AskUserQuestion and execute the chosen command.
+If CLI output is JSON with `options`, present the options to the user and execute the chosen command.
 
 ## Step 2: Verify completion
 - Review files changed: `git diff --name-only HEAD`

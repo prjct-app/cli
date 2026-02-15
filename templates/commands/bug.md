@@ -12,7 +12,7 @@ If $ARGUMENTS is empty, ASK the user for a bug description.
 prjct bug "$ARGUMENTS" --md
 ```
 
-Explore the codebase for affected files using Task with subagent_type=Explore.
+Search the codebase for affected files.
 
 ## Step 3: Fix now or queue
 ASK: "Fix this bug now?" Fix now / Queue for later
