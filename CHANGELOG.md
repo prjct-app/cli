@@ -5,10 +5,11 @@
 ### Added
 - instruction rule type + daemon stop/restart/stale detection
 
-## [1.38.9] - 2026-02-15
+## [1.38.7] - 2026-02-15
 
-### Added
-- instruction rule type + daemon stop/restart/stale detection
+### Bug Fixes
+
+- purge legacy code and fix test timeout (#193)
 
 ## [1.38.8] - 2026-02-14
 
