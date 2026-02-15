@@ -10,4 +10,4 @@ Supports: `list`, `summary`, or specific feature ID (default: most recent ship).
 prjct impact $ARGUMENTS --md
 ```
 
-Follow the instructions in the CLI output. When collecting effort data, success metrics, and learnings, use AskUserQuestion for user input.
+Follow the instructions in the CLI output. When collecting effort data, success metrics, and learnings, ask the user for input.

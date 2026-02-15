@@ -10,4 +10,4 @@ Supports: `quarter`, `prioritize`, `add <prd-id>`, `capacity` (default: show sta
 prjct plan $ARGUMENTS --md
 ```
 
-Follow the instructions in the CLI output. When selecting features or adjusting capacity, use AskUserQuestion for user input.
+Follow the instructions in the CLI output. When selecting features or adjusting capacity, ask the user for input.

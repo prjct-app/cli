@@ -17,7 +17,7 @@ This is prjct-cli, a JavaScript project.
 ## Anti-Patterns
 - **Unbounded any type** in `multiple` — Use explicit types or unknown with narrowing. Add inline justification for unavoidable any.
 - **Unscoped @ts-ignore** in `multiple` — Prefer @ts-expect-error with rationale and follow-up cleanup ticket.
-- **Unbounded any usage** in `core/storage/workflow-rule-storage.ts` — Replace with specific types or justified unknown + narrowing.
+- **Unchecked @ts-ignore usage** in `core/services/pattern-extractor.ts` — Use @ts-expect-error with reason or refactor typings.
 
 <!-- source: package.json, detected -->
 ## Commands
@@ -34,11 +34,11 @@ Workflow: `p. sync` → `p. task "desc"` → work → `p. done` → `p. ship`
 | Field | Value |
 |-------|-------|
 | Name | prjct-cli |
-| Version | 1.38.11 |
+| Version | 1.40.3 |
 | Ecosystem | JavaScript |
-| Branch | feat/update-3-phase-system-updater |
+| Branch | feat/provider-capabilities |
 | Files | ~358 |
-| Commits | 582 |
+| Commits | 586 |
 
 ## Agents
 

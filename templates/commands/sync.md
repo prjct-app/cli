@@ -8,7 +8,7 @@ allowed-tools: [Bash, AskUserQuestion]
 ```bash
 prjct sync $ARGUMENTS --md
 ```
-If CLI output is JSON with `options`, present them to the user with AskUserQuestion and execute the chosen command.
+If CLI output is JSON with `options`, present the options to the user and execute the chosen command.
 
 Follow ALL instructions in the CLI output (including LLM Analysis if present).
 

@@ -31,12 +31,64 @@ const SPAWN_TIMEOUT_MS = 2000
 import type {
   AIProviderConfig,
   AIProviderName,
+  CapabilityTier,
   CursorProjectDetection,
   ProviderBranding,
+  ProviderCapabilities,
   ProviderDetectionResult,
   ProviderSelectionResult,
   WindsurfProjectDetection,
 } from '../types/provider'
+
+// =============================================================================
+// Capability Tiers
+// =============================================================================
+
+const CAPABILITY_TIERS: Record<CapabilityTier, ProviderCapabilities> = {
+  /** Claude Code — all features */
+  full: {
+    shell: true,
+    fileRead: true,
+    fileWrite: true,
+    fileSearch: true,
+    structuredQuestions: true,
+    subagents: true,
+    webFetch: true,
+    todoTracking: true,
+  },
+  /** Gemini CLI — most features, no subagents/web/todo */
+  standard: {
+    shell: true,
+    fileRead: true,
+    fileWrite: true,
+    fileSearch: true,
+    structuredQuestions: true,
+    subagents: false,
+    webFetch: false,
+    todoTracking: false,
+  },
+  /** Codex, Cursor, Windsurf — shell + files only */
+  basic: {
+    shell: true,
+    fileRead: true,
+    fileWrite: true,
+    fileSearch: true,
+    structuredQuestions: false,
+    subagents: false,
+    webFetch: false,
+    todoTracking: false,
+  },
+}
+
+/**
+ * Get resolved capabilities for a provider, with optional overrides
+ */
+export function getCapabilities(
+  tier: CapabilityTier,
+  overrides?: Partial<ProviderCapabilities>
+): ProviderCapabilities {
+  return { ...CAPABILITY_TIERS[tier], ...overrides }
+}
 
 // =============================================================================
 // Provider Configurations
@@ -62,6 +114,7 @@ export const ClaudeProvider: AIProviderConfig = {
   defaultModel: 'sonnet',
   supportedModels: ['opus', 'sonnet', 'haiku'],
   minCliVersion: '1.0.0',
+  capabilityTier: 'full',
 }
 
 /**
@@ -84,6 +137,7 @@ export const GeminiProvider: AIProviderConfig = {
   defaultModel: '2.5-flash',
   supportedModels: ['2.5-pro', '2.5-flash', '2.0-flash'],
   minCliVersion: '1.0.0',
+  capabilityTier: 'standard',
 }
 
 /**
@@ -110,6 +164,7 @@ export const AntigravityProvider: AIProviderConfig = {
   defaultModel: null, // Platform-managed
   supportedModels: [],
   minCliVersion: null,
+  capabilityTier: 'basic',
 }
 
 /**
@@ -142,6 +197,7 @@ export const CursorProvider: AIProviderConfig = {
   defaultModel: null, // Multi-model IDE, user selects
   supportedModels: [],
   minCliVersion: null,
+  capabilityTier: 'basic',
 }
 
 /**
@@ -175,6 +231,7 @@ export const WindsurfProvider: AIProviderConfig = {
   defaultModel: null, // Multi-model IDE, user selects
   supportedModels: [],
   minCliVersion: null,
+  capabilityTier: 'basic',
 }
 
 /**
@@ -202,6 +259,7 @@ export const CodexProvider: AIProviderConfig = {
   defaultModel: null,
   supportedModels: [],
   minCliVersion: null,
+  capabilityTier: 'basic',
 }
 
 /**

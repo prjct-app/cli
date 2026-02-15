@@ -14,7 +14,7 @@ prjct prd "$ARGUMENTS" --md
 
 ## Step 3: Follow CLI methodology
 The CLI guides through discovery, sizing, and phase execution.
-Use Task with subagent_type=Explore to analyze codebase for architecture patterns.
+Search the codebase for architecture patterns.
 
 ## Step 4: Get approval
 Show the PRD summary and get explicit approval.
