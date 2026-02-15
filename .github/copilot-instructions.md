@@ -34,11 +34,11 @@ Workflow: `p. sync` → `p. task "desc"` → work → `p. done` → `p. ship`
 | Field | Value |
 |-------|-------|
 | Name | prjct-cli |
-| Version | 1.40.3 |
+| Version | 1.40.4 |
 | Ecosystem | JavaScript |
-| Branch | feat/provider-capabilities |
-| Files | ~358 |
-| Commits | 586 |
+| Branch | feat/task-estimation |
+| Files | ~360 |
+| Commits | 589 |
 
 ## Agents
 

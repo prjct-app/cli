@@ -281,9 +281,9 @@ describe('Task History - Accessor Methods', () => {
   beforeEach(async () => {
     // Setup: Complete 3 tasks with different classifications
     const tasks = [
-      { description: 'Feature task 1', type: 'feature' },
-      { description: 'Bug fix', type: 'bug' },
-      { description: 'Feature task 2', type: 'feature' },
+      { description: 'Feature task 1', type: 'feature' as const },
+      { description: 'Bug fix', type: 'bug' as const },
+      { description: 'Feature task 2', type: 'feature' as const },
     ]
 
     for (const taskData of tasks) {

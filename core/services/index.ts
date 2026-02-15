@@ -58,6 +58,8 @@ export type { StalenessConfig, StalenessStatus } from './staleness-checker'
 export { createStalenessChecker, StalenessChecker } from './staleness-checker'
 export type { SyncResult } from './sync-service'
 export { SyncService, syncService } from './sync-service'
+export type { TaskEstimate } from './task-estimation'
+export { estimateTaskForStart } from './task-estimation'
 export type { VersionFormat, VersionInfo } from './version-service'
 // Version Service - Stack-aware version detection and bumping
 export { VersionService } from './version-service'

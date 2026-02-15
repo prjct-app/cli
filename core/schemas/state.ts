@@ -85,6 +85,7 @@ export const SubtaskProgressSchema = z.object({
 export const CurrentTaskSchema = z.object({
   id: z.string(), // task_xxxxxxxx
   description: z.string(),
+  type: TaskTypeSchema.optional(), // feature, bug, improvement, chore
   startedAt: z.string(), // ISO8601
   sessionId: z.string(), // sess_xxxxxxxx
   featureId: z.string().optional(), // feat_xxxxxxxx
