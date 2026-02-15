@@ -1,9 +1,16 @@
 # Changelog
 
-## [1.39.1] - 2026-02-15
+## [1.40.1] - 2026-02-15
 
-### Added
-- fix cleanup binding error
+### Fixed
+- Sanitize SQLite bindings in JSON migration to prevent type errors
+
+## [1.40.0] - 2026-02-15
+
+### Features
+
+- redesign prjct update as 3-phase system updater (#195)
+
 
 ## [1.39.0] - 2026-02-15
 
