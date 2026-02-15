@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.39.0] - 2026-02-15
+
+### Features
+
+- instruction rule type + daemon stop/restart/stale detection (#194)
+
+
 ## [1.38.10] - 2026-02-15
 
 ### Added
