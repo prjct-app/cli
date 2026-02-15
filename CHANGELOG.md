@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.39.1] - 2026-02-15
+
+### Added
+- fix cleanup binding error
+
 ## [1.39.0] - 2026-02-15
 
 ### Features
