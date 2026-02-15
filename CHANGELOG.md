@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.42.3] - 2026-02-15
+
+### Bug Fixes
+
+- state storage updates preserve existing state to prevent data loss (#201)
+
+
 ## [1.42.4] - 2026-02-15
 
 ### Bug Fixes
