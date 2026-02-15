@@ -1,7 +1,7 @@
 import { execSync } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { listTemplates } from '../agentic/template-loader'
+import { getTemplateContent, listTemplates } from '../agentic/template-loader'
 import type {
   PCommandResolveError,
   PCommandResolveErrorCode,
@@ -69,6 +69,7 @@ function getNpmGlobalRoot(): string | null {
     const npmRoot = execSync('npm root -g', {
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'ignore'],
+      timeout: 5000,
     })
       .trim()
       .replace(/\r?\n/g, '')
@@ -156,6 +157,27 @@ class PCommandResolver {
       )
     }
 
+    // First, try the template bundle (works in installed packages where
+    // templates are bundled into dist/templates.json).
+    // Skip when PRJCT_P_RESOLVER_DISABLE_BUNDLE is set (used in tests to
+    // exercise filesystem fallback paths).
+    //
+    // NOTE: When bundle resolution succeeds, templatePath is the bundle key
+    // (e.g., "commands/sync.md"), NOT a filesystem path. Use
+    // getTemplateContent(templatePath) to read content, not fs.readFile().
+    if (!process.env.PRJCT_P_RESOLVER_DISABLE_BUNDLE) {
+      const templateKey = `commands/${validation.command}.md`
+      const bundledContent = getTemplateContent(templateKey)
+      if (bundledContent) {
+        return {
+          command: validation.command,
+          templatePath: templateKey,
+          source: 'bundle',
+        }
+      }
+    }
+
+    // Fall back to filesystem candidates (dev/source environments)
     for (const candidate of getCandidateRoots()) {
       const templatePath = path.join(
         candidate.root,

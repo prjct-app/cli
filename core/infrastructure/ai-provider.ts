@@ -543,12 +543,11 @@ export async function detectCodex(): Promise<CodexDetection> {
 
   const cliPath = await whichCommand('codex')
   const skillPath = path.join(configPath, 'skills', 'prjct', 'SKILL.md')
-  const [dirExists, skillInstalled] = await Promise.all([
-    fileExists(configPath),
-    fileExists(skillPath),
-  ])
+  const skillInstalled = await fileExists(skillPath)
 
-  const installed = !!cliPath || dirExists
+  // Require the CLI binary to be present — a leftover ~/.codex/ directory alone
+  // does not mean Codex is installed and should not block other providers.
+  const installed = !!cliPath
 
   return {
     installed,

@@ -8,6 +8,7 @@ const ENV_KEYS = [
   'PRJCT_P_RESOLVER_PACKAGE_ROOT',
   'PRJCT_P_RESOLVER_NPM_ROOT',
   'PRJCT_P_RESOLVER_LOCAL_ROOT',
+  'PRJCT_P_RESOLVER_DISABLE_BUNDLE',
 ]
 
 let tmpRoot: string | null = null
@@ -23,6 +24,8 @@ describe('pCommandResolver', () => {
   beforeEach(async () => {
     tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'prjct-p-resolver-'))
     previousEnv = Object.fromEntries(ENV_KEYS.map((key) => [key, process.env[key]]))
+    // Disable bundle lookup so tests exercise filesystem resolution paths
+    process.env.PRJCT_P_RESOLVER_DISABLE_BUNDLE = '1'
   })
 
   afterEach(async () => {
@@ -126,5 +129,19 @@ describe('pCommandResolver', () => {
       expect(isPCommandResolveError(error)).toBe(true)
       expect((error as { code?: string }).code).toBe('TEMPLATE_NOT_FOUND')
     }
+  })
+
+  it('resolves from template bundle when filesystem roots are empty', async () => {
+    const emptyRoot = path.join(tmpRoot!, 'empty')
+    await fs.mkdir(emptyRoot, { recursive: true })
+
+    process.env.PRJCT_P_RESOLVER_PACKAGE_ROOT = emptyRoot
+    process.env.PRJCT_P_RESOLVER_NPM_ROOT = emptyRoot
+    process.env.PRJCT_P_RESOLVER_LOCAL_ROOT = emptyRoot
+    delete process.env.PRJCT_P_RESOLVER_DISABLE_BUNDLE
+
+    const resolved = await pCommandResolver.resolvePCommandTemplate('sync')
+    expect(resolved.source).toBe('bundle')
+    expect(resolved.templatePath).toBe('commands/sync.md')
   })
 })

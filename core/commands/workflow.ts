@@ -64,6 +64,7 @@ type IntentType =
   | 'remove'
   | 'disable'
   | 'gate'
+  | 'instruction'
   | 'help'
   | 'reset'
   | 'init'
@@ -87,6 +88,7 @@ const INTENT_PATTERNS: Array<{ type: IntentType; patterns: RegExp }> = [
   // Exact CLI subcommands (highest priority)
   { type: 'add', patterns: /^add\b/i },
   { type: 'gate', patterns: /^gate\b/i },
+  { type: 'instruction', patterns: /^instruction\b/i },
   { type: 'remove', patterns: /^rm\b/i },
   { type: 'reset', patterns: /^reset\b/i },
   { type: 'init', patterns: /^init\b/i },
@@ -840,6 +842,8 @@ export class WorkflowCommands extends PrjctCommandsBase {
           return this._workflowAdd(intent.args, projectId, options)
         case 'gate':
           return this._workflowGate(intent.args, projectId, options)
+        case 'instruction':
+          return this._workflowInstruction(intent.args, projectId, options)
         case 'remove':
           return this._workflowRm(intent.args, projectId, options)
         case 'disable':
@@ -1069,6 +1073,81 @@ export class WorkflowCommands extends PrjctCommandsBase {
   }
 
   /**
+   * Add an instruction rule: ship before "Post review comment in Linear"
+   */
+  private async _workflowInstruction(
+    input: string,
+    projectId: string,
+    options: { md?: boolean }
+  ): Promise<CommandResult> {
+    // Parse: command before|after "instruction text"
+    const parts = input.trim().split(/\s+/)
+    const command = parts[0]?.toLowerCase()
+
+    // Validate workflow exists and is enabled
+    const workflow = customWorkflowStorage.getWorkflow(projectId, command || '')
+    if (!command || !workflow || !workflow.enabled) {
+      const workflows = customWorkflowStorage.getAllWorkflows(projectId)
+      const workflowNames = workflows.map((w) => w.name).join(', ')
+      const msg = `Workflow '${command}' not found. Available: ${workflowNames}`
+      if (options.md) console.log(`> ${msg}`)
+      else out.warn(msg)
+      return { success: false, error: msg }
+    }
+
+    const afterCommand = input.slice(input.indexOf(command) + command.length).trim()
+    const positionMatch = afterCommand.match(/^(before|after)\s+/i)
+    if (!positionMatch) {
+      const msg = 'Usage: prjct workflow instruction <command> before|after "instruction text"'
+      if (options.md) console.log(`> ${msg}`)
+      else out.warn(msg)
+      return { success: false, error: msg }
+    }
+
+    const position = positionMatch[1].toLowerCase()
+    const actionInput = afterCommand.slice(positionMatch[0].length).trim()
+    const [action] = this._parseAction(actionInput)
+
+    if (!action) {
+      const msg = 'Usage: prjct workflow instruction <command> before|after "instruction text"'
+      if (options.md) console.log(`> ${msg}`)
+      else out.warn(msg)
+      return { success: false, error: msg }
+    }
+
+    const ruleId = workflowRuleStorage.addRule(projectId, {
+      type: 'instruction',
+      command,
+      position,
+      action,
+      description: null,
+      enabled: true,
+      timeoutMs: 0,
+      createdAt: new Date().toISOString(),
+      sortOrder: 0,
+    })
+
+    if (options.md) {
+      console.log(
+        mdOutput(
+          mdDone(
+            'Instruction Added',
+            `#${ruleId} [instruction] ${position} ${command} → \`${action}\``
+          ),
+          mdNextSteps([
+            { label: 'View all rules', command: 'prjct workflow --md' },
+            { label: 'Remove this rule', command: `prjct workflow rm ${ruleId} --md` },
+          ])
+        )
+      )
+    } else {
+      out.done(`instruction #${ruleId} added: ${position} ${command} → ${action}`)
+    }
+
+    return { success: true, ruleId }
+  }
+
+  /**
    * Remove a rule by ID
    */
   private async _workflowRm(
@@ -1232,6 +1311,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
               '`prjct workflow ship` — View rules for a command',
               '`prjct workflow add "npm test" before ship` — Add a hook',
               '`prjct workflow gate ship "npm test"` — Add a blocking gate',
+              '`prjct workflow instruction ship after "Post review in Linear"` — Add an agent instruction',
               '`prjct workflow disable 3` — Disable rule #3',
               '`prjct workflow rm 3` — Remove rule #3',
               '`prjct workflow reset` — Remove all rules',
@@ -1260,6 +1340,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
       console.log('    prjct workflow <command>                 View rules for command')
       console.log('    prjct workflow add "cmd" before ship     Add a hook')
       console.log('    prjct workflow gate ship "cmd"           Add a blocking gate')
+      console.log('    prjct workflow instruction ship after "text"  Add an agent instruction')
       console.log('    prjct workflow disable <id|query>        Disable a rule')
       console.log('    prjct workflow rm <id>                   Remove a rule')
       console.log('    prjct workflow reset                     Remove all rules')
@@ -1988,8 +2069,12 @@ function buildContextContract(
  */
 function buildFlowDiagram(command: string, rules: WorkflowRule[]): string {
   const gates = rules.filter((r) => r.type === 'gate' && r.position === 'before')
+  const instructionsBefore = rules.filter(
+    (r) => r.type === 'instruction' && r.position === 'before'
+  )
   const hooksBefore = rules.filter((r) => r.type === 'hook' && r.position === 'before')
   const stepsBefore = rules.filter((r) => r.type === 'step' && r.position === 'before')
+  const instructionsAfter = rules.filter((r) => r.type === 'instruction' && r.position === 'after')
   const hooksAfter = rules.filter((r) => r.type === 'hook' && r.position === 'after')
   const stepsAfter = rules.filter((r) => r.type === 'step' && r.position === 'after')
 
@@ -2022,6 +2107,11 @@ function buildFlowDiagram(command: string, rules: WorkflowRule[]): string {
     arrow(lines)
   }
 
+  if (instructionsBefore.length > 0) {
+    drawBox('INSTRUCTIONS (before)', instructionsBefore, '📋')
+    arrow(lines)
+  }
+
   if (hooksBefore.length > 0) {
     drawBox('HOOKS (before)', hooksBefore, '>')
     arrow(lines)
@@ -2034,6 +2124,11 @@ function buildFlowDiagram(command: string, rules: WorkflowRule[]): string {
 
   // Command node
   lines.push(`   [ ${command.toUpperCase()} ]`)
+
+  if (instructionsAfter.length > 0) {
+    arrow(lines)
+    drawBox('INSTRUCTIONS (after)', instructionsAfter, '📋')
+  }
 
   if (hooksAfter.length > 0) {
     arrow(lines)

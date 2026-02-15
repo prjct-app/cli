@@ -153,27 +153,15 @@ class SyncService {
         }
       }
 
-      // Codex router must be healthy before generating p. task context
+      this.globalPath = pathManager.getGlobalProjectPath(this.projectId)
+      this.cliVersion = await this.getCliVersion()
+
+      // Codex router check — non-blocking, sync should succeed for other providers
       const codexDetection = await detectCodex()
       if (codexDetection.installed) {
         const codexRouter = await verifyCodexPRouterReady({ autoRepair: true })
         if (!codexRouter.verified) {
-          return {
-            success: false,
-            projectId: this.projectId,
-            cliVersion: '',
-            git: this.emptyGitData(),
-            stats: this.emptyStats(),
-            commands: this.emptyCommands(),
-            stack: this.emptyStack(),
-            agents: [],
-            skills: [],
-            skillsInstalled: [],
-            contextFiles: [],
-            aiTools: [],
-            context7: { installed: false, verified: false },
-            error: `Codex p. router is required but not ready: ${codexRouter.message || 'verification failed'}. Run 'prjct start' or 'prjct setup' to repair.`,
-          }
+          log.warn(`Codex p. router not ready: ${codexRouter.message || 'verification failed'}`)
         }
       }
 
@@ -184,7 +172,7 @@ class SyncService {
         return {
           success: false,
           projectId: this.projectId,
-          cliVersion: '',
+          cliVersion: this.cliVersion,
           git: this.emptyGitData(),
           stats: this.emptyStats(),
           commands: this.emptyCommands(),
@@ -202,9 +190,6 @@ class SyncService {
           error: `Context7 MCP is required but not ready: ${getErrorMessage(error)}. Run 'prjct start' to repair.`,
         }
       }
-
-      this.globalPath = pathManager.getGlobalProjectPath(this.projectId)
-      this.cliVersion = await this.getCliVersion()
 
       // 2. Ensure directories exist (non-blocking)
       const ensureDirsPromise = this.ensureDirectories()

@@ -208,6 +208,44 @@ export async function stopDaemon(): Promise<boolean> {
 }
 
 /**
+ * Force-kill the daemon using PID file when graceful stop fails.
+ * Cleans up socket and PID files afterward.
+ */
+export function forceKillDaemon(): boolean {
+  const pidPath = DAEMON_PATHS.pid()
+  const socketPath = DAEMON_PATHS.socket()
+
+  let killed = false
+
+  // Try to kill via PID file
+  if (fs.existsSync(pidPath)) {
+    const pid = parseInt(fs.readFileSync(pidPath, 'utf-8').trim(), 10)
+    if (!Number.isNaN(pid)) {
+      try {
+        process.kill(pid, 'SIGKILL')
+        killed = true
+      } catch {
+        // Process already dead
+      }
+    }
+  }
+
+  // Clean up stale files
+  try {
+    if (fs.existsSync(pidPath)) fs.unlinkSync(pidPath)
+  } catch {
+    /* ignore */
+  }
+  try {
+    if (fs.existsSync(socketPath)) fs.unlinkSync(socketPath)
+  } catch {
+    /* ignore */
+  }
+
+  return killed
+}
+
+/**
  * Spawn the daemon as a background process
  *
  * Resolves entry point following the same pattern as bin/prjct.ts:

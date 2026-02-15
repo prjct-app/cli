@@ -18,6 +18,7 @@ export interface WorkflowExecutionResult {
   gatesFailed: string[]
   hooksFailed: string[]
   stepsRun: string[]
+  instructions: string[]
   output: string
 }
 
@@ -32,6 +33,7 @@ export async function executeWorkflowRules(
     gatesFailed: [],
     hooksFailed: [],
     stepsRun: [],
+    instructions: [],
     output: '',
   }
 
@@ -66,7 +68,15 @@ export async function executeWorkflowRules(
     }
   }
 
-  // 3. Run hooks (non-blocking)
+  // 3. Collect instructions (informational, non-blocking, no shell execution)
+  const instructions = rules.filter((r) => r.type === 'instruction')
+  for (const instr of instructions) {
+    const label = instr.description || instr.action
+    console.log(`\n${chalk.dim(`[instruction] ${phase}-${command}: ${label}`)}`)
+    result.instructions.push(instr.action)
+  }
+
+  // 4. Run hooks (non-blocking)
   const hooks = rules.filter((r) => r.type === 'hook')
   for (const hook of hooks) {
     console.log(`\n${chalk.dim(`[hook] ${phase}-${command}: ${hook.action}`)}`)
@@ -88,7 +98,7 @@ export async function executeWorkflowRules(
     }
   }
 
-  // 4. Run steps (blocking, used for ship pipeline)
+  // 5. Run steps (blocking, used for ship pipeline)
   const steps = rules.filter((r) => r.type === 'step')
   for (const step of steps) {
     console.log(`\n${chalk.dim(`[step] ${command}: ${step.action}`)}`)

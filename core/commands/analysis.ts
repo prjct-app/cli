@@ -456,6 +456,43 @@ export class AnalysisCommands extends PrjctCommandsBase {
           // Non-critical
         }
 
+        // Build LLM Analysis instructions (hybrid pipeline)
+        const llmAnalysisInstructions = `## LLM Analysis (hybrid pipeline)
+
+After sync, run the analysis payload builder:
+\`\`\`bash
+prjct analysis-payload --md
+\`\`\`
+
+If the output says "Analysis is current", skip analysis.
+
+Otherwise, analyze the JSON payload and produce a structured \`LLMAnalysis\` JSON:
+
+\`\`\`json
+{
+  "version": 1,
+  "commitHash": "from payload git data",
+  "analyzedAt": "ISO timestamp",
+  "architecture": {
+    "style": "monolith|monorepo|microservices|modular-monolith",
+    "insights": ["key architectural observations"],
+    "domains": ["identified modules/domains"]
+  },
+  "patterns": [{"name": "", "description": "", "locations": [], "confidence": 0.0, "category": ""}],
+  "antiPatterns": [{"issue": "", "reasoning": "", "files": [], "suggestion": "", "severity": "low|medium|high", "confidence": 0.0}],
+  "techDebt": [{"description": "", "area": "", "effort": "small|medium|large", "impact": "", "priority": "low|medium|high"}],
+  "riskAreas": [{"path": "", "reason": "", "risk": "", "severity": "low|medium|high"}],
+  "refactorSuggestions": [{"description": "", "files": [], "benefit": "", "effort": "small|medium|large"}],
+  "projectInsights": ["key insights about the project"],
+  "conventions": [{"category": "naming|file-structure|imports|error-handling", "rule": "", "example": ""}]
+}
+\`\`\`
+
+Save the analysis:
+\`\`\`bash
+prjct analysis-save-llm '<your JSON here>' --md
+\`\`\``
+
         const steps = getNextSteps('sync')
         const md = mdOutput(
           mdDone(`Sync Complete`),
@@ -467,6 +504,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
           }),
           analysisDiffSection,
           result.git.hasChanges ? mdWarn('Uncommitted changes detected') : null,
+          llmAnalysisInstructions,
           mdNextSteps(steps.map((s) => ({ label: s.desc, command: s.cmd })))
         )
         console.log(md)
