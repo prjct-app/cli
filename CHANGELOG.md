@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.42.1] - 2026-02-15
+
+### Bug Fixes
+- fix: daemon analyze/cleanup/design commands ignore request.cwd causing cross-project contamination
+
 ## [1.42.0] - 2026-02-15
 
 ### Features
@@ -7,7 +12,6 @@
 - add task estimation service (#198)
 - add task estimation service
 - onboarding tours + help tooltips + stats grid redesign
-
 
 ## [1.41.1] - 2026-02-15
 

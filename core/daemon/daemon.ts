@@ -335,7 +335,7 @@ async function executeCommand(request: DaemonRequest): Promise<import('../types'
     case 'sessions':
       return commands!.sessions(request.cwd, { md, cleanup: opts.cleanup === true })
     case 'design':
-      return commands!.design(param || '', opts)
+      return commands!.design(param || '', opts, request.cwd)
     case 'analysis-payload':
       return commands!.analysisPayload(request.cwd, { json: opts.json === true, md })
     case 'analysis-save-llm':
@@ -343,9 +343,9 @@ async function executeCommand(request: DaemonRequest): Promise<import('../types'
     case 'analysis-llm':
       return commands!.getLlmAnalysis(request.cwd, { json: opts.json === true, md })
     case 'analyze':
-      return commands!.analyze(opts)
+      return commands!.analyze(opts, request.cwd)
     case 'cleanup':
-      return commands!.cleanup(opts)
+      return commands!.cleanup(opts, request.cwd)
     default:
       // Standard commands without special option handling
       return commandRegistry.execute(request.command, param, request.cwd)
