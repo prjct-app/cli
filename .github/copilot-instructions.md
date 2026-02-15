@@ -34,11 +34,11 @@ Workflow: `p. sync` → `p. task "desc"` → work → `p. done` → `p. ship`
 | Field | Value |
 |-------|-------|
 | Name | prjct-cli |
-| Version | 1.40.4 |
+| Version | 1.41.2 |
 | Ecosystem | JavaScript |
-| Branch | feat/task-estimation |
+| Branch | bug/daemon-cwd-missing |
 | Files | ~360 |
-| Commits | 589 |
+| Commits | 593 |
 
 ## Agents
 

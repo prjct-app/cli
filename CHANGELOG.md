@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.41.2] - 2026-02-15
+
+### Added
+- daemon cwd fix
+
 ## [1.41.1] - 2026-02-15
 
 ### Added
