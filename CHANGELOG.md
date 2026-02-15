@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.42.4] - 2026-02-15
+
+### Bug Fixes
+- fix: state storage updates now preserve existing state to prevent data loss during task completion, pause, and resume operations
+- test: add state storage integrity tests
+
 ## [1.42.3] - 2026-02-15
 
 ### Bug Fixes

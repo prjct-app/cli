@@ -144,7 +144,8 @@ class StateStorage extends StorageManager<StateJson> {
     // Add new entry to beginning, enforce max limit with FIFO eviction
     const taskHistory = [historyEntry, ...existingHistory].slice(0, this.maxTaskHistory)
 
-    await this.update(projectId, () => ({
+    await this.update(projectId, (existingState) => ({
+      ...existingState,
       currentTask: null,
       previousTask: null,
       taskHistory,
@@ -244,7 +245,8 @@ class StateStorage extends StorageManager<StateJson> {
     // Enforce max paused limit
     const pausedTasks = [pausedTask, ...existingPaused].slice(0, this.maxPausedTasks)
 
-    await this.update(projectId, () => ({
+    await this.update(projectId, (existingState) => ({
+      ...existingState,
       currentTask: null,
       previousTask: null, // deprecated, keep null for compat
       pausedTasks,
@@ -295,7 +297,8 @@ class StateStorage extends StorageManager<StateJson> {
       sessionId: generateUUID(),
     }
 
-    await this.update(projectId, () => ({
+    await this.update(projectId, (existingState) => ({
+      ...existingState,
       currentTask,
       previousTask: null, // deprecated, keep null
       pausedTasks: remaining,
