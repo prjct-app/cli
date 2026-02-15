@@ -25,6 +25,7 @@ import { generateUUID } from '../schemas'
 import type { AnalysisSchema } from '../schemas/analysis'
 import type { TaskFeedback } from '../schemas/state'
 import context7Service from '../services/context7-service'
+import estimateTaskForStart from '../services/task-estimation'
 import { sessionSnapshotManager } from '../session/session-snapshot'
 import { analysisStorage, queueStorage, stateStorage } from '../storage'
 import { customWorkflowStorage } from '../storage/custom-workflow-storage'
@@ -184,6 +185,8 @@ export class WorkflowCommands extends PrjctCommandsBase {
             return { success: false, error: getErrorMessage(error) }
           }
 
+          const estimate = await estimateTaskForStart(projectId, taskDescription)
+
           // --md path: rich context provider, no orchestration
           // Check for active task before starting — friendly message instead of error
           const existingTask = await stateStorage.getCurrentTask(projectId)
@@ -207,6 +210,9 @@ export class WorkflowCommands extends PrjctCommandsBase {
             description: taskDescription,
             sessionId: generateUUID(),
             linearId,
+            type: estimate.taskType,
+            estimatedPoints: estimate.estimatedPoints,
+            estimatedMinutes: estimate.estimatedMinutes,
           } as Parameters<typeof stateStorage.startTask>[1])
 
           // Load project context in parallel (non-blocking, graceful)
@@ -289,11 +295,16 @@ export class WorkflowCommands extends PrjctCommandsBase {
         }
 
         // Write-through: JSON → MD → Event (only after executor succeeds)
+        const estimate = await estimateTaskForStart(projectId, taskDescription)
+
         await stateStorage.startTask(projectId, {
           id: generateUUID(),
           description: taskDescription,
           sessionId: generateUUID(),
           linearId,
+          type: estimate.taskType,
+          estimatedPoints: estimate.estimatedPoints,
+          estimatedMinutes: estimate.estimatedMinutes,
         } as Parameters<typeof stateStorage.startTask>[1])
 
         // Get available agents for backward compatibility
@@ -469,6 +480,9 @@ export class WorkflowCommands extends PrjctCommandsBase {
       // Record outcome with estimation data if available
       const estimatedMinutes = (currentTask as { estimatedMinutes?: number }).estimatedMinutes
       const estimatedPoints = (currentTask as { estimatedPoints?: number }).estimatedPoints
+      const taskType =
+        (currentTask as { type?: 'feature' | 'bug' | 'improvement' | 'chore' }).type || 'feature'
+      const linearIdTag = (currentTask as { linearId?: string }).linearId
       try {
         await outcomeRecorder.record(projectId, {
           sessionId: currentTask.sessionId,
@@ -481,7 +495,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
           variance: estimatedMinutes ? formatVariance(actualMinutes - estimatedMinutes) : '+0m',
           completedAsPlanned: true,
           qualityScore: 3,
-          tags: [(currentTask as { linearId?: string }).linearId].filter(Boolean) as string[],
+          tags: [taskType, linearIdTag].filter(Boolean) as string[],
         })
       } catch {
         // Outcome recording failure should not block workflow

@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.40.4] - 2026-02-15
+
+### Added
+- task estimation
+
 ## [1.40.3] - 2026-02-15
 
 ### Added
