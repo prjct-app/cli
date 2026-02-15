@@ -53,6 +53,7 @@ export type ScoreReason =
   | `recent:${string}` // Recently modified (e.g., "3d" = 3 days)
   | `import:${number}` // Import distance from entry point
   | `extension:${string}` // File extension match
+  | `history:${string}` // Historical feedback signal
 
 /**
  * File with relevance score
