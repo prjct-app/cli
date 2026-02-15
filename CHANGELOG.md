@@ -3,6 +3,14 @@
 ## [1.42.1] - 2026-02-15
 
 ### Bug Fixes
+
+- daemon commands ignore request.cwd causing cross-project contamination (#199)
+- pass request.cwd to analyze/cleanup/design in daemon
+
+
+## [1.42.1] - 2026-02-15
+
+### Bug Fixes
 - fix: daemon analyze/cleanup/design commands ignore request.cwd causing cross-project contamination
 
 ## [1.42.0] - 2026-02-15
