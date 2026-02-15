@@ -6,6 +6,12 @@
 - fix: state storage updates now preserve existing state to prevent data loss during task completion, pause, and resume operations
 - test: add state storage integrity tests
 
+## [1.42.2] - 2026-02-15
+
+### Bug Fixes
+
+- add update to daemon bypass commands (#200)
+
 ## [1.42.3] - 2026-02-15
 
 ### Bug Fixes
