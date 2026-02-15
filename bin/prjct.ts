@@ -26,6 +26,7 @@ const _binCommands = new Set([
   'restart',
   'start',
   'setup',
+  'update',
   'dev',
   'web',
   'serve',

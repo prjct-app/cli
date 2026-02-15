@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.42.3] - 2026-02-15
+
+### Bug Fixes
+- fix: `prjct update` bypasses daemon so it runs with current binary code
+
 ## [1.42.1] - 2026-02-15
 
 ### Bug Fixes
