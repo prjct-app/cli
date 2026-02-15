@@ -27,11 +27,11 @@ import type { TaskFeedback } from '../schemas/state'
 import context7Service from '../services/context7-service'
 import estimateTaskForStart from '../services/task-estimation'
 import { sessionSnapshotManager } from '../session/session-snapshot'
-import { analysisStorage, queueStorage, stateStorage } from '../storage'
+import { analysisStorage, contextFeedbackStorage, queueStorage, stateStorage } from '../storage'
 import { customWorkflowStorage } from '../storage/custom-workflow-storage'
 import type { WorkflowRule } from '../storage/workflow-rule-storage'
 import { workflowRuleStorage } from '../storage/workflow-rule-storage'
-import { findRelevantFiles } from '../tools/context/files-tool'
+import { extractKeywords, findRelevantFiles } from '../tools/context/files-tool'
 import type { CommandResult } from '../types'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import {
@@ -217,13 +217,26 @@ export class WorkflowCommands extends PrjctCommandsBase {
 
           // Load project context in parallel (non-blocking, graceful)
           const globalPath = pathManager.getGlobalProjectPath(projectId)
+          const taskKeywords = extractKeywords(taskDescription)
+          let historicalBoosts: Map<string, number> | undefined
+          try {
+            historicalBoosts = contextFeedbackStorage.getHistoricalBoosts(projectId, taskKeywords)
+            if (historicalBoosts.size === 0) historicalBoosts = undefined
+          } catch {
+            // Cold start or DB not ready — no boosts
+          }
           const [branch, analysis, repoAnalysisRaw, relevantFilesResult] = await Promise.all([
             getGitBranch(),
             analysisStorage.getActive(projectId).catch(() => null),
             loadRepoAnalysis(globalPath),
-            findRelevantFiles(taskDescription, projectPath, { maxFiles: 8, minScore: 0.15 }).catch(
-              () => ({ files: [], metrics: { filesScanned: 0, filesReturned: 0, scanDuration: 0 } })
-            ),
+            findRelevantFiles(taskDescription, projectPath, {
+              maxFiles: 8,
+              minScore: 0.15,
+              historicalBoosts,
+            }).catch(() => ({
+              files: [],
+              metrics: { filesScanned: 0, filesReturned: 0, scanDuration: 0 },
+            })),
           ])
 
           // Check for session snapshot (PRJ-285) — inject continuity context
@@ -272,6 +285,21 @@ export class WorkflowCommands extends PrjctCommandsBase {
               next
             )
           )
+
+          // Record file suggestions for feedback loop
+          try {
+            const currentTask = await stateStorage.getCurrentTask(projectId)
+            if (currentTask) {
+              contextFeedbackStorage.recordSuggestions(
+                projectId,
+                currentTask.id,
+                taskKeywords,
+                relevantFilesResult.files.map((f) => f.path)
+              )
+            }
+          } catch {
+            // Non-blocking
+          }
 
           await this.logToMemory(projectPath, 'task_started', {
             task,
@@ -511,6 +539,16 @@ export class WorkflowCommands extends PrjctCommandsBase {
             : 0
         const sign = diff >= 0 ? '+' : ''
         varianceDisplay = ` | est: ${estimatedPoints}pt (${formatMinutesToDuration(estimatedMinutes)}) → ${sign}${pct}%`
+      }
+
+      // Record context feedback: actual files modified during task
+      try {
+        const actualFiles = await getFilesModifiedSinceTaskStart(projectPath, currentTask.startedAt)
+        if (actualFiles.length > 0) {
+          contextFeedbackStorage.completeFeedback(projectId, currentTask.id, actualFiles)
+        }
+      } catch {
+        // Non-blocking — feedback is best-effort
       }
 
       // Write-through: Complete task (JSON → MD → Event)
@@ -2155,6 +2193,51 @@ function buildFlowDiagram(command: string, rules: WorkflowRule[]): string {
   }
 
   return lines.join('\n')
+}
+
+/** Get files modified since task start using git */
+async function getFilesModifiedSinceTaskStart(
+  projectPath: string,
+  startedAt: string
+): Promise<string[]> {
+  const { execSync } = await import('node:child_process')
+  const files = new Set<string>()
+  const opts = { cwd: projectPath, encoding: 'utf-8' as const }
+
+  try {
+    const committed = execSync(
+      `git log --since="${startedAt}" --name-only --pretty=format:""`,
+      opts
+    )
+    for (const line of committed.split('\n')) {
+      const trimmed = line.trim()
+      if (trimmed) files.add(trimmed)
+    }
+  } catch {
+    // git log may fail if no commits since start
+  }
+
+  try {
+    const staged = execSync('git diff --cached --name-only', opts)
+    for (const line of staged.split('\n')) {
+      const trimmed = line.trim()
+      if (trimmed) files.add(trimmed)
+    }
+  } catch {
+    // ignore
+  }
+
+  try {
+    const unstaged = execSync('git diff --name-only', opts)
+    for (const line of unstaged.split('\n')) {
+      const trimmed = line.trim()
+      if (trimmed) files.add(trimmed)
+    }
+  } catch {
+    // ignore
+  }
+
+  return [...files]
 }
 
 /** Format a variance in minutes to a string like "+30m" or "-15m" */

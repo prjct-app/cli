@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.42.4] - 2026-02-15
+
+### Added
+- Context file suggestion reinforcement learning
+
 ## [1.42.3] - 2026-02-15
 
 ### Bug Fixes

@@ -213,6 +213,7 @@ export async function findRelevantFiles(
     maxFiles?: number
     minScore?: number
     includeTests?: boolean
+    historicalBoosts?: Map<string, number>
   } = {}
 ): Promise<FilesToolOutput> {
   const startTime = Date.now()
@@ -238,7 +239,7 @@ export async function findRelevantFiles(
       continue
     }
 
-    const score = scoreFile(filePath, keywords, gitRecency)
+    const score = scoreFile(filePath, keywords, gitRecency, options.historicalBoosts)
 
     if (score.score >= minScore) {
       scoredFiles.push(score)
@@ -268,7 +269,7 @@ export async function findRelevantFiles(
 /**
  * Extract keywords from task description
  */
-function extractKeywords(description: string): string[] {
+export function extractKeywords(description: string): string[] {
   // Convert to lowercase and split by non-word characters
   const words = description
     .toLowerCase()
@@ -453,13 +454,15 @@ async function getGitRecency(
 function scoreFile(
   filePath: string,
   keywords: string[],
-  gitRecency: Map<string, { commits: number; daysAgo: number }>
+  gitRecency: Map<string, { commits: number; daysAgo: number }>,
+  historicalBoosts?: Map<string, number>
 ): ScoredFile {
   const reasons: ScoreReason[] = []
   let keywordScore = 0
   let domainScore = 0
   let recencyScore = 0
   let importScore = 0
+  let historyScore = 0
 
   const pathLower = filePath.toLowerCase()
   const pathParts = pathLower
@@ -549,8 +552,31 @@ function scoreFile(
     }
   }
 
+  // Historical feedback signal (10% weight when available)
+  if (historicalBoosts) {
+    const boost = historicalBoosts.get(filePath)
+    if (boost !== undefined) {
+      // Map [-1, 1] to [0, 1] for scoring
+      historyScore = (boost + 1) / 2
+      if (boost > 0) {
+        reasons.push('history:boosted')
+      } else if (boost < 0) {
+        reasons.push('history:penalized')
+      }
+    }
+  }
+
   // Calculate weighted score
-  const score = keywordScore * 0.6 + domainScore * 0.2 + recencyScore * 0.15 + importScore * 0.05
+  // With history: 54% keywords, 18% domain, 13% recency, 5% imports, 10% history
+  // Without history: 60% keywords, 20% domain, 15% recency, 5% imports
+  const hasHistory = historicalBoosts && historicalBoosts.size > 0
+  const score = hasHistory
+    ? keywordScore * 0.54 +
+      domainScore * 0.18 +
+      recencyScore * 0.13 +
+      importScore * 0.05 +
+      historyScore * 0.1
+    : keywordScore * 0.6 + domainScore * 0.2 + recencyScore * 0.15 + importScore * 0.05
 
   return {
     path: filePath,

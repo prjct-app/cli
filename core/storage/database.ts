@@ -411,6 +411,31 @@ const migrations: Migration[] = [
       `)
     },
   },
+  {
+    version: 6,
+    name: 'context-feedback-table',
+    up: (db: SqliteDatabase) => {
+      db.run(`
+        -- =======================================================================
+        -- Context Feedback: RL loop for file suggestion improvement
+        -- Records suggested vs actual files per task for scoring boosts
+        -- =======================================================================
+        CREATE TABLE context_feedback (
+          id              INTEGER PRIMARY KEY AUTOINCREMENT,
+          task_id         TEXT NOT NULL,
+          keywords        TEXT NOT NULL,
+          suggested_files TEXT NOT NULL,
+          actual_files    TEXT,
+          precision       REAL,
+          recall          REAL,
+          created_at      TEXT NOT NULL,
+          completed_at    TEXT
+        );
+
+        CREATE INDEX idx_cf_task ON context_feedback(task_id);
+      `)
+    },
+  },
 ]
 
 // =============================================================================
