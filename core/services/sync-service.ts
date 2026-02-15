@@ -153,6 +153,9 @@ class SyncService {
         }
       }
 
+      this.globalPath = pathManager.getGlobalProjectPath(this.projectId)
+      this.cliVersion = await this.getCliVersion()
+
       // Codex router check — non-blocking, sync should succeed for other providers
       const codexDetection = await detectCodex()
       if (codexDetection.installed) {
@@ -169,7 +172,7 @@ class SyncService {
         return {
           success: false,
           projectId: this.projectId,
-          cliVersion: '',
+          cliVersion: this.cliVersion,
           git: this.emptyGitData(),
           stats: this.emptyStats(),
           commands: this.emptyCommands(),
@@ -187,9 +190,6 @@ class SyncService {
           error: `Context7 MCP is required but not ready: ${getErrorMessage(error)}. Run 'prjct start' to repair.`,
         }
       }
-
-      this.globalPath = pathManager.getGlobalProjectPath(this.projectId)
-      this.cliVersion = await this.getCliVersion()
 
       // 2. Ensure directories exist (non-blocking)
       const ensureDirsPromise = this.ensureDirectories()

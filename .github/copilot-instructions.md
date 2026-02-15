@@ -38,7 +38,7 @@ Workflow: `p. sync` → `p. task "desc"` → work → `p. done` → `p. ship`
 | Ecosystem | JavaScript |
 | Branch | main |
 | Files | ~358 |
-| Commits | 580 |
+| Commits | 581 |
 
 ## Agents
 

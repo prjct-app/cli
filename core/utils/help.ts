@@ -65,6 +65,17 @@ const TERMINAL_COMMANDS = [
     subcommands: ['list', 'get', 'create', 'update'],
   },
   {
+    name: 'stop',
+    description: 'Stop the background daemon',
+    example: 'prjct stop',
+    options: ['--force'],
+  },
+  {
+    name: 'restart',
+    description: 'Restart the background daemon',
+    example: 'prjct restart',
+  },
+  {
     name: 'uninstall',
     description: 'Complete system removal of prjct',
     example: 'prjct uninstall --backup',

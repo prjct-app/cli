@@ -10,7 +10,7 @@ import { prjctDb } from './database'
 
 export interface WorkflowRule {
   id: number
-  type: 'hook' | 'gate' | 'step'
+  type: 'hook' | 'gate' | 'step' | 'instruction'
   command: string
   position: string
   action: string

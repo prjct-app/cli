@@ -57,6 +57,10 @@ export interface DaemonState {
   lastActivity: number
   idleTimeoutMs: number
   idleTimer: ReturnType<typeof setTimeout> | null
+  /** Path to the entry file used to start the daemon */
+  entryPath: string | null
+  /** mtime of the entry file at daemon startup (ms since epoch) */
+  entryMtime: number | null
 }
 
 /** Paths used by the daemon */

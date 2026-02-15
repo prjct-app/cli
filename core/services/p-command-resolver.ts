@@ -69,6 +69,7 @@ function getNpmGlobalRoot(): string | null {
     const npmRoot = execSync('npm root -g', {
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'ignore'],
+      timeout: 5000,
     })
       .trim()
       .replace(/\r?\n/g, '')

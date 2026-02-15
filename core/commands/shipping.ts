@@ -97,10 +97,13 @@ export class ShippingCommands extends PrjctCommandsBase {
       })
 
       // Run after_ship rules
-      await executeWorkflowRules(projectId, 'ship', 'after', {
+      const afterResult = await executeWorkflowRules(projectId, 'ship', 'after', {
         projectPath,
         skipRules: options.skipHooks,
       })
+
+      // Collect instructions from both phases
+      const allInstructions = [...beforeResult.instructions, ...afterResult.instructions]
 
       // Auto-sync AI context after shipping to ensure agents have latest state
       try {
@@ -131,6 +134,9 @@ export class ShippingCommands extends PrjctCommandsBase {
               `Workflow steps: ${beforeResult.stepsRun.length > 0 ? beforeResult.stepsRun.join(', ') : 'none'}`,
             ])
           ),
+          allInstructions.length > 0
+            ? mdSection('Agent Instructions', mdList(allInstructions))
+            : null,
           mdNextSteps(steps.map((s) => ({ label: s.desc, command: s.cmd })))
         )
         console.log(md)

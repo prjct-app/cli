@@ -65,6 +65,17 @@ export async function startDaemon(options: {
     fs.unlinkSync(socketPath)
   }
 
+  // Resolve entry file path and mtime for stale-code detection
+  const entryPath = resolveEntryPath()
+  let entryMtime: number | null = null
+  if (entryPath) {
+    try {
+      entryMtime = fs.statSync(entryPath).mtimeMs
+    } catch {
+      // Can't stat — skip stale detection
+    }
+  }
+
   // Initialize state
   state = {
     startedAt: Date.now(),
@@ -72,6 +83,8 @@ export async function startDaemon(options: {
     lastActivity: Date.now(),
     idleTimeoutMs: IDLE_TIMEOUT_MS,
     idleTimer: null,
+    entryPath,
+    entryMtime,
   }
 
   // Pre-load modules (this is the whole point — do it once)
@@ -89,6 +102,9 @@ export async function startDaemon(options: {
 
     console.log(`prjct daemon started (PID ${process.pid})`)
     console.log(`  Socket: ${socketPath}`)
+    if (entryPath) {
+      console.log(`  Watching: ${entryPath}`)
+    }
 
     // Start idle timeout
     resetIdleTimer()
@@ -195,6 +211,16 @@ async function handleRequest(request: DaemonRequest): Promise<DaemonResponse> {
   resetIdleTimer()
   state.commandsServed++
   state.lastActivity = Date.now()
+
+  // Stale-code detection: check if the entry file was rebuilt
+  if (isCodeStale()) {
+    console.log('Build changed detected — daemon will restart after this request')
+    // Schedule restart after responding to this request
+    setTimeout(() => {
+      console.log('Daemon shutting down for code reload...')
+      shutdown(0)
+    }, 200)
+  }
 
   // Handle daemon meta-commands
   if (request.command === 'daemon') {
@@ -345,6 +371,7 @@ function handleDaemonCommand(request: DaemonRequest): DaemonResponse {
         commandsServed: state?.commandsServed ?? 0,
         lastActivity: state ? new Date(state.lastActivity).toISOString() : null,
         registeredCommands: commandRegistry.list().length,
+        stale: isCodeStale(),
       },
     }
   }
@@ -440,6 +467,58 @@ function isProcessRunning(pid: number): boolean {
   try {
     process.kill(pid, 0)
     return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Resolve a build artifact path for stale-code detection.
+ * Always uses dist/daemon/entry.mjs as the sentinel file since it gets
+ * regenerated on every `npm run build`, regardless of whether the daemon
+ * is running from source (dev/bun) or compiled (production/node).
+ */
+function resolveEntryPath(): string | null {
+  const path = require('node:path')
+
+  // Find the project root by looking for package.json
+  let dir = __dirname
+  for (let i = 0; i < 5; i++) {
+    if (fs.existsSync(path.join(dir, 'package.json'))) {
+      const sentinel = path.join(dir, 'dist', 'daemon', 'entry.mjs')
+      if (fs.existsSync(sentinel)) return sentinel
+      break
+    }
+    dir = path.dirname(dir)
+  }
+
+  // Fallback: check paths relative to this file
+  const candidates = [
+    path.join(__dirname, '..', 'daemon', 'entry.mjs'), // from dist/bin/
+    path.join(__dirname, '..', 'dist', 'daemon', 'entry.mjs'), // from bin/
+  ]
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate
+  }
+
+  // Last resort: use the script being executed
+  const scriptPath = process.argv[1]
+  if (scriptPath && fs.existsSync(scriptPath)) return scriptPath
+
+  return null
+}
+
+/**
+ * Check if the daemon's entry file has been modified since startup.
+ * Returns true if a rebuild was detected.
+ */
+function isCodeStale(): boolean {
+  if (!state?.entryPath || state.entryMtime === null) return false
+
+  try {
+    const currentMtime = fs.statSync(state.entryPath).mtimeMs
+    return currentMtime !== state.entryMtime
   } catch {
     return false
   }

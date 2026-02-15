@@ -22,6 +22,8 @@ const _fastCommand = _fastArgs.find((a) => !a.startsWith('--') && !a.startsWith(
 // Commands that bin/prjct.ts handles directly (NOT routed through daemon)
 const _binCommands = new Set([
   'daemon',
+  'stop',
+  'restart',
   'start',
   'setup',
   'dev',
@@ -217,11 +219,17 @@ async function main(): Promise<void> {
 
       if (status.running) {
         const uptime = status.uptime ? Math.round(status.uptime / 1000) : 0
-        console.log(`Daemon running (PID ${status.pid})`)
+        const stale = (status as Record<string, unknown>).stale
+        console.log(`Daemon running (PID ${status.pid})${stale ? ' ⚠ STALE' : ''}`)
         console.log(`  Uptime: ${uptime}s`)
         console.log(`  Commands served: ${status.commandsServed ?? 0}`)
         if (status.lastActivity) {
           console.log(`  Last activity: ${status.lastActivity}`)
+        }
+        if (stale) {
+          console.log(
+            `  ${chalk.yellow('⚠ Code changed since daemon started. Run: prjct restart')}`
+          )
         }
       } else {
         console.log('Daemon is not running.')
@@ -229,6 +237,61 @@ async function main(): Promise<void> {
       process.exitCode = 0
     } else {
       console.error(`Unknown daemon command: ${subcommand}. Use: start, stop, status`)
+      process.exitCode = 1
+    }
+  } else if (args[0] === 'stop') {
+    // Top-level shortcut: prjct stop → kill daemon (with force-kill fallback)
+    const { isDaemonRunning, stopDaemon, forceKillDaemon } = await import('../core/daemon/client')
+    const force = args.includes('--force') || args.includes('-f')
+
+    if (force) {
+      const killed = forceKillDaemon()
+      console.log(killed ? 'Daemon force-killed.' : 'Daemon is not running.')
+      process.exitCode = 0
+    } else if (await isDaemonRunning()) {
+      const stopped = await stopDaemon()
+      if (stopped) {
+        console.log('Daemon stopped.')
+        process.exitCode = 0
+      } else {
+        // Graceful stop failed — force kill
+        console.log('Graceful stop failed, force-killing...')
+        forceKillDaemon()
+        console.log('Daemon force-killed.')
+        process.exitCode = 0
+      }
+    } else {
+      // Check for stale files even if daemon not responding
+      forceKillDaemon()
+      console.log('Daemon is not running (cleaned up stale files).')
+      process.exitCode = 0
+    }
+  } else if (args[0] === 'restart') {
+    // Top-level shortcut: prjct restart → stop + start daemon
+    const { isDaemonRunning, stopDaemon, forceKillDaemon, spawnDaemon } = await import(
+      '../core/daemon/client'
+    )
+
+    // Stop first (graceful → force)
+    if (await isDaemonRunning()) {
+      const stopped = await stopDaemon()
+      if (!stopped) {
+        forceKillDaemon()
+      }
+      // Wait for process to fully exit
+      await new Promise((resolve) => setTimeout(resolve, 300))
+    } else {
+      // Clean up any stale files
+      forceKillDaemon()
+    }
+
+    // Start fresh
+    const started = await spawnDaemon()
+    if (started) {
+      console.log('Daemon restarted.')
+      process.exitCode = 0
+    } else {
+      console.error('Failed to restart daemon.')
       process.exitCode = 1
     }
   } else if (args[0] === 'start' || args[0] === 'setup') {
