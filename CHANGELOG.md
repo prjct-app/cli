@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.41.0] - 2026-02-15
+
+### Features
+
+- provider capabilities system + provider-agnostic templates (#197)
+
+
 ## [1.40.3] - 2026-02-15
 
 ### Added
