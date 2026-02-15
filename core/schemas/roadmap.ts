@@ -280,17 +280,6 @@ export const DEFAULT_ROADMAP: RoadmapJson = {
 // =============================================================================
 
 /**
- * Check if a feature is legacy (no PRD required)
- */
-export const isLegacyFeature = (feature: FeatureSchema): boolean => {
-  return (
-    feature.legacy === true ||
-    feature.inferredFrom === 'git' ||
-    feature.inferredFrom === 'git-branch'
-  )
-}
-
-/**
  * Calculate feature priority score (value / effort)
  */
 export const calculateFeaturePriority = (feature: FeatureSchema): number => {

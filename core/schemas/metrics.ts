@@ -109,14 +109,11 @@ export const TOKEN_COSTS = {
   'claude-opus-4.5': 0.005, // $5/M input - flagship
   'claude-sonnet-4.5': 0.003, // $3/M input - balanced
   'claude-haiku-4.5': 0.001, // $1/M input - fastest
-  // Legacy models
+  // Previous gen models
   'claude-opus-4': 0.015, // $15/M input
   'claude-sonnet-4': 0.003, // $3/M input
-  'claude-3-opus': 0.015, // $15/M input (deprecated)
-  'claude-3-sonnet': 0.003, // $3/M input (deprecated)
   // Other providers
   'gpt-4o': 0.0025, // $2.50/M input
-  'gpt-4': 0.01, // $10/M input (legacy)
   'gemini-pro': 0.00125, // $1.25/M input
   // Default: Claude Sonnet (most common for Claude Code)
   default: 0.003, // $3/M input

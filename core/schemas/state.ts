@@ -152,7 +152,7 @@ export const TaskHistoryEntrySchema = z.object({
 
 export const StateJsonSchema = z.object({
   currentTask: CurrentTaskSchema.nullable(),
-  previousTask: PreviousTaskSchema.nullable().optional(), // deprecated: use pausedTasks
+  previousTask: PreviousTaskSchema.nullable().optional(),
   pausedTasks: z.array(PreviousTaskSchema).optional(), // replaces previousTask
   taskHistory: z.array(TaskHistoryEntrySchema).optional(), // completed tasks history (max 20)
   lastUpdated: z.string(),
@@ -229,9 +229,6 @@ export type QueueJson = z.infer<typeof QueueJsonSchema>
 export type Stats = z.infer<typeof StatsSchema>
 export type RecentActivity = z.infer<typeof RecentActivitySchema>
 export type StateSchema = z.infer<typeof StateSchemaFull>
-
-// Legacy alias
-export type QueuedTask = QueueTask
 
 // =============================================================================
 // Validation Helpers

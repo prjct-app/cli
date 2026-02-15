@@ -17,8 +17,6 @@ import type { AIProviderName } from '../types/provider'
 
 interface EditorConfig {
   version: string
-  /** @deprecated Use 'provider' instead */
-  editor: string
   /** AI provider name (claude or gemini) */
   provider: AIProviderName
   lastInstall: string
@@ -76,7 +74,6 @@ class EditorsConfig {
 
       const config: EditorConfig = {
         version,
-        editor: provider, // deprecated, kept for backward compatibility
         provider,
         lastInstall: new Date().toISOString(),
         path: installPath,
@@ -97,7 +94,7 @@ class EditorsConfig {
   async getProvider(): Promise<AIProviderName | null> {
     const config = await this.loadConfig()
     if (!config) return null
-    return config.provider || (config.editor as AIProviderName) || 'claude'
+    return config.provider || 'claude'
   }
 
   /**

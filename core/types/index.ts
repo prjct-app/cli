@@ -227,7 +227,6 @@ export type {
 // Domain Types
 // =============================================================================
 export type {
-  ParsedNowFile,
   TaskStackEntry,
   TaskStackMigrationResult,
   TaskStackSummary,
@@ -311,7 +310,6 @@ export type {
   Decision,
   HistoryEntry,
   HistoryEventType,
-  LegacyMemorySource,
   Memory,
   MemoryContext,
   MemoryContextParams,

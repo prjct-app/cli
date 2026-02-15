@@ -183,8 +183,6 @@ export interface MigrationResult {
   author: Author | null
   issues: string[]
   dryRun: boolean
-  legacyRemoved?: boolean
-  legacyCleaned?: boolean
 }
 
 /**

@@ -54,7 +54,7 @@ interface ProviderSetupResult {
 }
 
 interface SetupResults {
-  provider: AIProviderName // Primary provider (for backward compat)
+  provider: AIProviderName // Primary provider
   providers: ProviderSetupResult[] // All installed providers
   cliInstalled: boolean
   commandsAdded: number

@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.38.8] - 2026-02-14
+
+### Added
+- legacy code purge phase 2
+
 ## [1.38.7] - 2026-02-14
 
 ### Added

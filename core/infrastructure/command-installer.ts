@@ -72,12 +72,11 @@ async function loadModuleConfig(): Promise<ModuleConfig | null> {
 export async function composeGlobalTemplate(profile?: string): Promise<string> {
   const config = await loadModuleConfig()
 
-  // Fallback to legacy template if config not found
   if (!config) {
-    const legacy = getTemplateContent('global/CLAUDE.md')
-    if (legacy) return legacy
-    const legacyPath = path.join(PACKAGE_ROOT, 'templates/global/CLAUDE.md')
-    return fs.readFile(legacyPath, 'utf-8')
+    const fallback = getTemplateContent('global/CLAUDE.md')
+    if (fallback) return fallback
+    const fallbackPath = path.join(PACKAGE_ROOT, 'templates/global/CLAUDE.md')
+    return fs.readFile(fallbackPath, 'utf-8')
   }
 
   const profileName = profile || config.default
@@ -86,10 +85,10 @@ export async function composeGlobalTemplate(profile?: string): Promise<string> {
   if (!selectedProfile) {
     const defaultProfile = config.profiles[config.default]
     if (!defaultProfile) {
-      const legacy = getTemplateContent('global/CLAUDE.md')
-      if (legacy) return legacy
-      const legacyPath = path.join(PACKAGE_ROOT, 'templates/global/CLAUDE.md')
-      return fs.readFile(legacyPath, 'utf-8')
+      const fallback = getTemplateContent('global/CLAUDE.md')
+      if (fallback) return fallback
+      const fallbackPath = path.join(PACKAGE_ROOT, 'templates/global/CLAUDE.md')
+      return fs.readFile(fallbackPath, 'utf-8')
     }
   }
 

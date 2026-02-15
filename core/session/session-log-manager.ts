@@ -6,20 +6,12 @@
 
 import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
-import type {
-  SessionEntry,
-  SessionLogMetadata,
-  SessionMigrationResult,
-  SessionStats,
-} from '../types'
-import { getErrorMessage } from '../types/fs'
+import type { SessionEntry, SessionLogMetadata, SessionStats } from '../types'
 import { TTLCache } from '../utils/cache'
 import * as dateHelper from '../utils/date-helper'
 import * as fileHelper from '../utils/file-helper'
 import * as jsonlHelper from '../utils/jsonl-helper'
 import { VERSION } from '../utils/version'
-import { migrateLegacyJsonl, migrateLegacyMarkdown } from './log-migration'
-
 export class SessionLogManager {
   private currentSessionCache: TTLCache<string>
   private sessionMetadataCache: TTLCache<SessionLogMetadata>
@@ -202,40 +194,6 @@ export class SessionLogManager {
       totalEntries,
       totalShips,
       averageEntriesPerDay: activeDays > 0 ? Math.round(totalEntries / activeDays) : 0,
-    }
-  }
-
-  /**
-   * Migrate legacy single-file logs to session structure
-   */
-  async migrateLegacyLogs(
-    projectId: string,
-    legacyFilePath: string,
-    sessionFilename: string
-  ): Promise<SessionMigrationResult> {
-    try {
-      const content = await fileHelper.readFile(legacyFilePath)
-
-      if (sessionFilename.endsWith('.jsonl')) {
-        return await migrateLegacyJsonl(
-          projectId,
-          content,
-          sessionFilename,
-          (sp, u) => this._updateSessionLogMetadata(sp, u),
-          (sp) => this._ensureSessionLogMetadata(sp)
-        )
-      } else {
-        const sessionPath = await this.getCurrentSession(projectId)
-        return await migrateLegacyMarkdown(sessionPath, content, sessionFilename, (sp, u) =>
-          this._updateSessionLogMetadata(sp, u)
-        )
-      }
-    } catch (error) {
-      return {
-        success: false,
-        message: `Migration failed: ${getErrorMessage(error)}`,
-        entriesMigrated: 0,
-      }
     }
   }
 

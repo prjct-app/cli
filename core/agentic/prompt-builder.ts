@@ -83,12 +83,6 @@ export type {
   ThinkBlock,
 } from '../types'
 
-// Local type aliases for backward compatibility
-type ProjectState = PromptProjectState
-type Agent = PromptAgent
-type Context = PromptContext
-type State = PromptState
-
 /**
  * Cached template entry with TTL support
  * @see PRJ-76
@@ -111,8 +105,8 @@ class PromptBuilder {
   private _checklistsCacheTime: number = 0
   private _checklistRoutingCache: string | null = null
   private _checklistRoutingCacheTime: number = 0
-  private _currentContext: Context | null = null
-  private _stateCache: Map<string, { state: ProjectState; timestamp: number }> = new Map()
+  private _currentContext: PromptContext | null = null
+  private _stateCache: Map<string, { state: PromptProjectState; timestamp: number }> = new Map()
   private _stateCacheTTL = 5000 // 5 seconds
   private _templateCache: Map<string, CachedTemplate> = new Map()
   private readonly TEMPLATE_CACHE_TTL_MS = 60_000 // 60 seconds
@@ -198,7 +192,7 @@ class PromptBuilder {
   /**
    * Set context for testing
    */
-  setContext(context: Context | null): void {
+  setContext(context: PromptContext | null): void {
     this._currentContext = context
   }
 
@@ -285,7 +279,7 @@ class PromptBuilder {
   /**
    * Get unified project state from MD managers.
    */
-  async getProjectState(projectId: string): Promise<ProjectState | null> {
+  async getProjectState(projectId: string): Promise<PromptProjectState | null> {
     if (!projectId) return null
 
     const cached = this._stateCache.get(projectId)
@@ -299,7 +293,7 @@ class PromptBuilder {
         queueStorage.read(projectId),
       ])
 
-      const state: ProjectState = {
+      const state: PromptProjectState = {
         projectId,
         currentTask: stateData.currentTask,
         queue: queueData.tasks,
@@ -439,9 +433,9 @@ class PromptBuilder {
    */
   async buildWithInjection(
     template: Template,
-    context: Context & { projectId?: string },
-    state: State,
-    agent: Agent | null = null,
+    context: PromptContext & { projectId?: string },
+    state: PromptState,
+    agent: PromptAgent | null = null,
     learnedPatterns: LearnedPatterns | null = null,
     thinkBlock: ThinkBlock | null = null,
     relevantMemories: Memory[] | null = null,
@@ -485,9 +479,9 @@ class PromptBuilder {
    */
   async build(
     template: Template,
-    context: Context,
-    state: State,
-    agent: Agent | null = null,
+    context: PromptContext,
+    state: PromptState,
+    agent: PromptAgent | null = null,
     learnedPatterns: LearnedPatterns | null = null,
     thinkBlock: ThinkBlock | null = null,
     relevantMemories: Memory[] | null = null,
@@ -962,7 +956,7 @@ class PromptBuilder {
    * Filter state data to include only relevant portions for the prompt.
    * Uses InjectionBudgetTracker to enforce cumulative token limits.
    */
-  filterRelevantState(state: State): string | null {
+  filterRelevantState(state: PromptState): string | null {
     if (!state || Object.keys(state).length === 0) return null
 
     const budgets = this.getEffectiveBudgets()
@@ -1081,7 +1075,7 @@ EXECUTE: Follow flow. Use tools. Decide.
    * Extract domain flags from state data.
    * Returns the domains object if available in the raw state.
    */
-  private extractDomains(state: State): ProjectGroundTruth['domains'] | undefined {
+  private extractDomains(state: PromptState): ProjectGroundTruth['domains'] | undefined {
     if (!state) return undefined
     // State may contain raw domains from state.json (loaded by context-builder)
     const raw = state as Record<string, unknown>

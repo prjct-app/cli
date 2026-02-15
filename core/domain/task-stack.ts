@@ -7,81 +7,11 @@ import { exec } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { promisify } from 'node:util'
-import type {
-  ParsedNowFile,
-  TaskStackEntry,
-  TaskStackMigrationResult,
-  TaskStackSummary,
-  TaskSwitchResult,
-} from '../types'
+import type { TaskStackEntry, TaskStackSummary, TaskSwitchResult } from '../types'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import log from '../utils/logger'
 
 const execAsync = promisify(exec)
-
-// =============================================================================
-// Parser
-// =============================================================================
-
-/**
- * Parse legacy now.md format
- */
-export function parseNowFile(content: string): ParsedNowFile {
-  const result: ParsedNowFile = {
-    description: '',
-    started: null,
-    agent: null,
-    complexity: null,
-    dev: null,
-  }
-
-  // Check for frontmatter
-  if (content.startsWith('---')) {
-    const frontmatterEnd = content.indexOf('---', 3)
-    if (frontmatterEnd > 0) {
-      const frontmatter = content.substring(3, frontmatterEnd)
-      const lines = frontmatter.split('\n')
-
-      for (const line of lines) {
-        if (line.includes('task:')) {
-          result.description = line.split('task:')[1].trim().replace(/['"]/g, '')
-        }
-        if (line.includes('started:')) {
-          result.started = line.split('started:')[1].trim()
-        }
-        if (line.includes('agent:')) {
-          result.agent = line.split('agent:')[1].trim()
-        }
-        if (line.includes('complexity:')) {
-          result.complexity = line.split('complexity:')[1].trim()
-        }
-        if (line.includes('dev:')) {
-          result.dev = line.split('dev:')[1].trim()
-        }
-      }
-
-      // Get description from content if not in frontmatter
-      if (!result.description) {
-        const contentBody = content.substring(frontmatterEnd + 3).trim()
-        const firstLine = contentBody.split('\n')[0]
-        if (firstLine && !firstLine.startsWith('#')) {
-          result.description = firstLine.replace(/^[*-]\s*/, '').trim()
-        }
-      }
-    }
-  } else {
-    // No frontmatter, try to extract task from content
-    const lines = content.split('\n')
-    for (const line of lines) {
-      if (line.trim() && !line.startsWith('#') && !line.startsWith('---')) {
-        result.description = line.replace(/^[*-]\s*/, '').trim()
-        break
-      }
-    }
-  }
-
-  return result
-}
 
 /**
  * Format duration in human-readable format
@@ -243,75 +173,6 @@ export class TaskStack {
     this.projectPath = projectPath
     this.stackPath = path.join(projectPath, 'core', 'stack.jsonl')
     this.nowPath = path.join(projectPath, 'core', 'now.md')
-  }
-
-  /**
-   * Initialize stack system - migrate from legacy now.md if needed
-   */
-  async initialize(): Promise<TaskStackMigrationResult> {
-    try {
-      // Check if stack already exists
-      await fs.access(this.stackPath)
-      return { migrated: false }
-    } catch (error) {
-      if (isNotFoundError(error)) {
-        // Stack doesn't exist, check for legacy now.md
-        return await this.migrateFromLegacy()
-      }
-      throw error
-    }
-  }
-
-  /**
-   * Migrate from legacy now.md to stack system
-   */
-  async migrateFromLegacy(): Promise<TaskStackMigrationResult> {
-    try {
-      const nowContent = await fs.readFile(this.nowPath, 'utf8')
-
-      if (!nowContent.trim() || nowContent.includes('No active task')) {
-        // Empty or no task, just create empty stack
-        await ensureStackFile(this.stackPath)
-        return { migrated: true, hadTask: false }
-      }
-
-      // Parse task from now.md
-      const task = parseNowFile(nowContent)
-
-      // Create initial stack entry
-      const entry: TaskStackEntry = {
-        id: `task-${Date.now()}`,
-        task: task.description || 'Migrated task',
-        agent: task.agent || 'unknown',
-        status: 'active',
-        started: task.started || new Date().toISOString(),
-        paused: null,
-        resumed: null,
-        completed: null,
-        duration: null,
-        complexity: task.complexity || 'moderate',
-        dev: task.dev || 'unknown',
-      }
-
-      // Write to stack
-      await appendToStack(this.stackPath, entry)
-
-      return { migrated: true, hadTask: true, task: entry }
-    } catch (error) {
-      // No now.md or error reading, just create empty stack
-      await ensureStackFile(this.stackPath)
-      return { migrated: true, hadTask: false, error: getErrorMessage(error) }
-    }
-  }
-
-  // Re-expose parseNowFile for compatibility
-  parseNowFile(content: string) {
-    return parseNowFile(content)
-  }
-
-  // Re-expose formatDuration for compatibility
-  formatDuration(ms: number): string {
-    return formatDuration(ms)
   }
 
   /**

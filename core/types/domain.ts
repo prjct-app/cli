@@ -28,17 +28,6 @@ export interface TaskStackEntry {
 }
 
 /**
- * Parsed content from legacy now.md file
- */
-export interface ParsedNowFile {
-  description: string
-  started: string | null
-  agent: string | null
-  complexity: string | null
-  dev: string | null
-}
-
-/**
  * Result of migrating from legacy now.md to stack
  */
 export interface TaskStackMigrationResult {

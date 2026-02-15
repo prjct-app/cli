@@ -51,7 +51,6 @@ import { showNextSteps, showStateInfo } from '../utils/next-steps'
 import { detectProjectCommands } from '../utils/project-commands'
 import { getLinearApiKey, getProjectCredentials } from '../utils/project-credentials'
 import { executeWorkflowRules } from '../workflow/workflow-engine'
-import { listWorkflowPreferences } from '../workflow/workflow-preferences'
 import outcomeRecorder from '../workflows/outcome-recorder'
 import { configManager, dateHelper, out, PrjctCommandsBase } from './base'
 
@@ -1291,10 +1290,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
       rules = workflowRuleStorage.getAllRules(projectId)
     }
 
-    // Also get legacy preferences for display
-    const legacyPrefs = await listWorkflowPreferences(projectId)
-
-    if (rules.length === 0 && legacyPrefs.length === 0) {
+    if (rules.length === 0) {
       if (options.md) {
         console.log(
           mdOutput(
@@ -1312,7 +1308,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
         console.log('  Add a gate:  prjct workflow gate ship "npm test"')
         console.log('  Reset all:   prjct workflow reset')
       }
-      return { success: true, rules: [], legacy: legacyPrefs }
+      return { success: true, rules: [] }
     }
 
     if (options.md) {
@@ -1326,20 +1322,12 @@ export class WorkflowCommands extends PrjctCommandsBase {
         diagrams.push(buildFlowDiagram(cmd, cmdRules))
       }
 
-      // Legacy preferences (if any)
-      let legacySection: string | null = null
-      if (legacyPrefs.length > 0) {
-        const items = legacyPrefs.map((p) => `[legacy] ${p.key} → \`${p.action}\` (${p.scope})`)
-        legacySection = mdSection('Legacy Preferences', mdList(items))
-      }
-
       const title = command ? `Workflow: ${command}` : 'Workflow Rules'
       const count = `${rules.length} rule${rules.length !== 1 ? 's' : ''}`
       console.log(
         mdOutput(
           mdSection(title, count),
           diagrams.length > 0 ? mdCodeBlock(diagrams.join('\n\n'), '') : null,
-          legacySection,
           mdNextSteps([
             { label: 'Add a hook', command: 'prjct workflow add "cmd" before ship --md' },
             { label: 'Add a gate', command: 'prjct workflow gate ship "cmd" --md' },
@@ -1360,19 +1348,11 @@ export class WorkflowCommands extends PrjctCommandsBase {
         )
       }
 
-      if (legacyPrefs.length > 0) {
-        console.log('')
-        console.log('  Legacy preferences:')
-        for (const p of legacyPrefs) {
-          console.log(`  [legacy] ${p.key.padEnd(15)} → ${p.action} (${p.scope})`)
-        }
-      }
-
       console.log('')
       console.log('Commands: add | gate | rm | reset')
     }
 
-    return { success: true, rules, legacy: legacyPrefs }
+    return { success: true, rules }
   }
 
   /**

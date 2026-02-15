@@ -49,7 +49,6 @@ export class PatternStore extends CachedStore<Patterns> {
     }
   }
 
-  // Convenience alias for backward compatibility
   async loadPatterns(projectId: string): Promise<Patterns> {
     return this.load(projectId)
   }
