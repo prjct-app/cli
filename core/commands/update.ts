@@ -1,12 +1,17 @@
 /**
- * Update Commands: update
- * Migrates all prjct projects from JSON → SQLite and cleans up legacy files.
+ * Update Command: prjct update
+ *
+ * Full system updater — 3 phases:
+ * 1. Package update (npm/homebrew → npm)
+ * 2. Global cleanup (all projects: migrate + sweep + reinstall commands)
+ * 3. Daemon restart
  */
 
+import { execSync } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import chalk from 'chalk'
-import configManager from '../infrastructure/config-manager'
+import { CommandInstaller } from '../infrastructure/command-installer'
 import pathManager from '../infrastructure/path-manager'
 import { migrateJsonToSqlite, sweepLegacyJson } from '../storage/migrate-json'
 import type { CommandResult } from '../types'
@@ -15,116 +20,348 @@ import out from '../utils/output'
 import { PrjctCommandsBase } from './base'
 
 interface UpdateOptions {
-  all?: boolean
   'dry-run'?: boolean
+  md?: boolean
+}
+
+interface PhaseResult {
+  success: boolean
+  details: string[]
+  errors: string[]
+}
+
+/**
+ * Detect if prjct-cli is installed via homebrew
+ */
+function isHomebrewInstall(): boolean {
+  try {
+    const result = execSync('brew list prjct-cli 2>/dev/null', { encoding: 'utf-8' })
+    return !!result
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Get current installed version
+ */
+function getCurrentVersion(): string | null {
+  try {
+    const result = execSync('npm list -g prjct-cli --depth=0 2>/dev/null', { encoding: 'utf-8' })
+    const match = result.match(/prjct-cli@([\d.]+)/)
+    return match ? match[1] : null
+  } catch {
+    return null
+  }
 }
 
 export class UpdateCommands extends PrjctCommandsBase {
   /**
-   * prjct update [--all] [--dry-run]
+   * prjct update [--dry-run] [--md]
    *
-   * Migrates JSON storage files to SQLite and cleans up leftovers.
-   * Without --all: migrates current project only.
-   * With --all: scans ~/.prjct-cli/projects/ for all projects.
+   * 3-phase system updater:
+   * 1. Package update (npm update or homebrew→npm migration)
+   * 2. Global cleanup (all projects: migrations + command reinstall)
+   * 3. Daemon restart
    */
   async update(
     options: UpdateOptions = {},
-    projectPath: string = process.cwd()
+    _projectPath: string = process.cwd()
   ): Promise<CommandResult> {
     const dryRun = options['dry-run'] === true
-    const all = options.all === true
+    const md = options.md === true
+
+    const results: { phase1: PhaseResult; phase2: PhaseResult; phase3: PhaseResult } = {
+      phase1: { success: true, details: [], errors: [] },
+      phase2: { success: true, details: [], errors: [] },
+      phase3: { success: true, details: [], errors: [] },
+    }
 
     try {
-      const projectIds = all
-        ? await this.getAllProjectIds()
-        : await this.getCurrentProjectId(projectPath)
+      // ── Phase 1: Package Update ──
+      if (!md) out.step(1, 3, 'Updating package...')
+      results.phase1 = await this.phasePackageUpdate(dryRun)
+      if (!md) out.stop()
 
-      if (projectIds.length === 0) {
-        out.warn('no projects found')
-        return { success: false, message: 'No prjct projects found to update' }
+      // ── Phase 2: Global Cleanup ──
+      if (!md) out.step(2, 3, 'Cleaning up all projects...')
+      results.phase2 = await this.phaseGlobalCleanup(dryRun)
+      if (!md) out.stop()
+
+      // ── Phase 3: Daemon Restart ──
+      if (!md) out.step(3, 3, 'Restarting daemon...')
+      results.phase3 = await this.phaseDaemonRestart(dryRun)
+      if (!md) out.stop()
+
+      // ── Output ──
+      if (md) {
+        return this.formatMdOutput(results, dryRun)
       }
 
-      if (dryRun) {
-        console.log(chalk.dim(`[dry-run] Would update ${projectIds.length} project(s)\n`))
-      }
-
-      let totalMigrated = 0
-      let totalSwept = 0
-      let errors = 0
-
-      for (const projectId of projectIds) {
-        const label = `${projectId.slice(0, 8)}...`
-
-        if (dryRun) {
-          console.log(`  ${chalk.dim('would update')} ${label}`)
-          continue
-        }
-
-        try {
-          // Step 1: Run full migration (safe to call multiple times)
-          const migrationResult = await migrateJsonToSqlite(projectId)
-
-          // Step 2: Sweep any leftover JSON files
-          const swept = await sweepLegacyJson(projectId)
-
-          const migrated = migrationResult.migratedFiles.length
-          totalMigrated += migrated
-          totalSwept += swept
-
-          if (migrated > 0 || swept > 0) {
-            console.log(
-              `  ${chalk.green('✓')} ${label}: migrated ${migrated} files, swept ${swept} leftovers`
-            )
-          } else {
-            console.log(`  ${chalk.green('✓')} ${label}: already up to date`)
-          }
-
-          if (migrationResult.errors.length > 0) {
-            for (const err of migrationResult.errors) {
-              console.log(`    ${chalk.yellow('⚠')} ${err.file}: ${err.error}`)
-            }
-            errors += migrationResult.errors.length
-          }
-        } catch (err) {
-          console.log(`  ${chalk.red('✗')} ${label}: ${getErrorMessage(err)}`)
-          errors++
-        }
-      }
-
-      if (dryRun) {
-        out.done(`dry run complete (${projectIds.length} projects)`)
-        return { success: true, message: `Would update ${projectIds.length} project(s)` }
-      }
-
-      // Summary
-      const summary = []
-      if (totalMigrated > 0) summary.push(`${totalMigrated} files migrated`)
-      if (totalSwept > 0) summary.push(`${totalSwept} leftovers swept`)
-      if (errors > 0) summary.push(`${errors} errors`)
-
-      if (summary.length === 0) {
-        out.done(`${projectIds.length} project(s) already up to date`)
-      } else {
-        out.done(`${projectIds.length} project(s) updated: ${summary.join(', ')}`)
-      }
-
-      return {
-        success: errors === 0,
-        message: `Updated ${projectIds.length} project(s)`,
-      }
+      return this.formatTerminalOutput(results, dryRun)
     } catch (error) {
+      if (!md) out.stop()
       out.fail(getErrorMessage(error))
       return { success: false, error: getErrorMessage(error) }
     }
   }
 
-  /**
-   * Get current project's ID from cwd
-   */
-  private async getCurrentProjectId(projectPath: string): Promise<string[]> {
-    const projectId = await configManager.getProjectId(projectPath)
-    return projectId ? [projectId] : []
+  // ── Phase 1: Package Update ──
+
+  private async phasePackageUpdate(dryRun: boolean): Promise<PhaseResult> {
+    const result: PhaseResult = { success: true, details: [], errors: [] }
+    const versionBefore = getCurrentVersion()
+
+    if (dryRun) {
+      const homebrew = isHomebrewInstall()
+      if (homebrew) {
+        result.details.push('Would uninstall homebrew formula')
+        result.details.push('Would install via npm: npm install -g prjct-cli')
+      } else {
+        result.details.push('Would run: npm update -g prjct-cli')
+      }
+      return result
+    }
+
+    try {
+      const homebrew = isHomebrewInstall()
+
+      if (homebrew) {
+        // Migrate from homebrew to npm
+        try {
+          execSync('brew uninstall prjct-cli 2>/dev/null', { stdio: 'pipe' })
+          result.details.push('Uninstalled homebrew formula')
+        } catch {
+          result.details.push('Homebrew uninstall skipped (not found)')
+        }
+
+        execSync('npm install -g prjct-cli', { stdio: 'pipe' })
+        result.details.push('Installed via npm')
+      } else {
+        execSync('npm update -g prjct-cli', { stdio: 'pipe' })
+        result.details.push('npm update complete')
+      }
+
+      // Verify version
+      const versionAfter = getCurrentVersion()
+      if (versionBefore && versionAfter && versionBefore !== versionAfter) {
+        result.details.push(`${versionBefore} → ${versionAfter}`)
+      } else if (versionAfter) {
+        result.details.push(`v${versionAfter} (already latest)`)
+      }
+    } catch (err) {
+      result.success = false
+      result.errors.push(getErrorMessage(err))
+    }
+
+    return result
   }
+
+  // ── Phase 2: Global Cleanup ──
+
+  private async phaseGlobalCleanup(dryRun: boolean): Promise<PhaseResult> {
+    const result: PhaseResult = { success: true, details: [], errors: [] }
+
+    // 2a. Migrate all projects
+    const projectIds = await this.getAllProjectIds()
+
+    if (projectIds.length === 0) {
+      result.details.push('No projects found')
+    } else {
+      let totalMigrated = 0
+      let totalSwept = 0
+
+      for (const projectId of projectIds) {
+        if (dryRun) continue
+
+        try {
+          const migrationResult = await migrateJsonToSqlite(projectId)
+          const swept = await sweepLegacyJson(projectId)
+          totalMigrated += migrationResult.migratedFiles.length
+          totalSwept += swept
+
+          if (migrationResult.errors.length > 0) {
+            for (const err of migrationResult.errors) {
+              result.errors.push(`${projectId.slice(0, 8)}: ${err.file}: ${err.error}`)
+            }
+          }
+        } catch (err) {
+          result.errors.push(`${projectId.slice(0, 8)}: ${getErrorMessage(err)}`)
+        }
+      }
+
+      if (dryRun) {
+        result.details.push(`Would migrate ${projectIds.length} project(s)`)
+      } else {
+        const parts = [`${projectIds.length} project(s) checked`]
+        if (totalMigrated > 0) parts.push(`${totalMigrated} files migrated`)
+        if (totalSwept > 0) parts.push(`${totalSwept} leftovers swept`)
+        result.details.push(parts.join(', '))
+      }
+    }
+
+    // 2b. Reinstall editor commands + global config
+    if (dryRun) {
+      result.details.push('Would reinstall editor commands')
+      result.details.push('Would reinstall global config')
+    } else {
+      try {
+        const installer = new CommandInstaller()
+        const installResult = await installer.installCommands()
+        result.details.push(
+          `Editor commands reinstalled (${installResult.installed?.length || 0} providers)`
+        )
+      } catch (err) {
+        result.errors.push(`Commands: ${getErrorMessage(err)}`)
+      }
+
+      try {
+        const installer = new CommandInstaller()
+        await installer.installGlobalConfig()
+        result.details.push('Global config reinstalled')
+      } catch (err) {
+        result.errors.push(`Global config: ${getErrorMessage(err)}`)
+      }
+    }
+
+    if (result.errors.length > 0) result.success = false
+    return result
+  }
+
+  // ── Phase 3: Daemon Restart ──
+
+  private async phaseDaemonRestart(dryRun: boolean): Promise<PhaseResult> {
+    const result: PhaseResult = { success: true, details: [], errors: [] }
+
+    if (dryRun) {
+      result.details.push('Would restart daemon')
+      return result
+    }
+
+    try {
+      const { isDaemonRunning, stopDaemon, forceKillDaemon, spawnDaemon } = await import(
+        '../daemon/client'
+      )
+
+      // Stop (graceful → force)
+      if (await isDaemonRunning()) {
+        const stopped = await stopDaemon()
+        if (!stopped) {
+          forceKillDaemon()
+        }
+        await new Promise((resolve) => setTimeout(resolve, 300))
+        result.details.push('Daemon stopped')
+      } else {
+        // Clean up stale files
+        forceKillDaemon()
+        result.details.push('No running daemon (cleaned stale files)')
+      }
+
+      // Respawn
+      const started = await spawnDaemon()
+      if (started) {
+        result.details.push('Daemon restarted')
+      } else {
+        result.success = false
+        result.errors.push('Failed to restart daemon')
+      }
+    } catch (err) {
+      result.success = false
+      result.errors.push(getErrorMessage(err))
+    }
+
+    return result
+  }
+
+  // ── Output Formatting ──
+
+  private formatTerminalOutput(
+    results: { phase1: PhaseResult; phase2: PhaseResult; phase3: PhaseResult },
+    dryRun: boolean
+  ): CommandResult {
+    const allSuccess = results.phase1.success && results.phase2.success && results.phase3.success
+    const allErrors = [...results.phase1.errors, ...results.phase2.errors, ...results.phase3.errors]
+
+    console.log('')
+
+    const phases = [
+      { label: 'Package', result: results.phase1 },
+      { label: 'Cleanup', result: results.phase2 },
+      { label: 'Daemon', result: results.phase3 },
+    ]
+
+    for (const { label, result } of phases) {
+      const icon = result.success ? chalk.green('✓') : chalk.red('✗')
+      console.log(`  ${icon} ${chalk.bold(label)}`)
+      for (const detail of result.details) {
+        console.log(`    ${chalk.dim(detail)}`)
+      }
+      for (const err of result.errors) {
+        console.log(`    ${chalk.yellow('⚠')} ${err}`)
+      }
+    }
+
+    console.log('')
+
+    if (dryRun) {
+      out.done('Dry run complete — no changes made')
+    } else if (allSuccess) {
+      out.done('System updated')
+    } else {
+      out.warn(`Updated with ${allErrors.length} error(s)`)
+    }
+
+    return {
+      success: allSuccess,
+      message: dryRun ? 'Dry run complete' : allSuccess ? 'System updated' : 'Updated with errors',
+    }
+  }
+
+  private formatMdOutput(
+    results: { phase1: PhaseResult; phase2: PhaseResult; phase3: PhaseResult },
+    dryRun: boolean
+  ): CommandResult {
+    const allSuccess = results.phase1.success && results.phase2.success && results.phase3.success
+    const lines: string[] = []
+
+    lines.push(dryRun ? '# Update (Dry Run)' : '# System Update')
+    lines.push('')
+
+    const phases = [
+      { label: 'Package Update', result: results.phase1 },
+      { label: 'Global Cleanup', result: results.phase2 },
+      { label: 'Daemon Restart', result: results.phase3 },
+    ]
+
+    for (const { label, result } of phases) {
+      const icon = result.success ? '✅' : '❌'
+      lines.push(`## ${icon} ${label}`)
+      for (const detail of result.details) {
+        lines.push(`- ${detail}`)
+      }
+      for (const err of result.errors) {
+        lines.push(`- ⚠️ ${err}`)
+      }
+      lines.push('')
+    }
+
+    if (!dryRun) {
+      lines.push(
+        allSuccess
+          ? '**Status:** All phases completed successfully.'
+          : '**Status:** Completed with errors.'
+      )
+    }
+
+    console.log(lines.join('\n'))
+
+    return {
+      success: allSuccess,
+      message: dryRun ? 'Dry run complete' : allSuccess ? 'System updated' : 'Updated with errors',
+    }
+  }
+
+  // ── Helpers ──
 
   /**
    * Scan ~/.prjct-cli/projects/ for all project directories

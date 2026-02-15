@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.38.12] - 2026-02-15
+
+### Added
+- redesign prjct update as 3-phase system updater
+
+## [1.38.11] - 2026-02-15
+
+### Added
+- redesign prjct update as 3-phase system updater
+
 ## [1.38.10] - 2026-02-15
 
 ### Added
