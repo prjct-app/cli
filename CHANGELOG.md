@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.40.0] - 2026-02-15
+
+### Features
+
+- redesign prjct update as 3-phase system updater (#195)
+
+
 ## [1.39.0] - 2026-02-15
 
 ### Features
