@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.38.7] - 2026-02-15
+
+### Bug Fixes
+
+- purge legacy code and fix test timeout (#193)
+
+
 ## [1.38.8] - 2026-02-14
 
 ### Added
