@@ -12,11 +12,14 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import chalk from 'chalk'
 import { CommandInstaller } from '../infrastructure/command-installer'
+import editorsConfig from '../infrastructure/editors-config'
 import pathManager from '../infrastructure/path-manager'
+import UpdateChecker from '../infrastructure/update-checker'
 import { migrateJsonToSqlite, sweepLegacyJson } from '../storage/migrate-json'
 import type { CommandResult } from '../types'
 import { getErrorMessage } from '../types/fs'
 import out from '../utils/output'
+import { VERSION } from '../utils/version'
 import { PrjctCommandsBase } from './base'
 
 interface UpdateOptions {
@@ -92,6 +95,21 @@ export class UpdateCommands extends PrjctCommandsBase {
       if (!md) out.step(3, 3, 'Restarting daemon...')
       results.phase3 = await this.phaseDaemonRestart(dryRun)
       if (!md) out.stop()
+
+      // ── Post-update: stamp version + clear cache ──
+      if (!dryRun) {
+        try {
+          await editorsConfig.updateVersion(VERSION)
+        } catch {
+          // Non-blocking
+        }
+        try {
+          const checker = new UpdateChecker()
+          await checker.writeCache({ lastCheck: 0, latestVersion: '' })
+        } catch {
+          // Non-blocking
+        }
+      }
 
       // ── Output ──
       if (md) {

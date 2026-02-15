@@ -513,8 +513,13 @@ ${chalk.cyan.bold('  Welcome to prjct!')}
         const lastVersion = await editorsConfig.getLastVersion()
         if (lastVersion && lastVersion !== VERSION) {
           console.log(`\n${chalk.yellow('ℹ')} Updating prjct v${lastVersion} → v${VERSION}...\n`)
-          const { default: setup } = await import('../core/infrastructure/setup')
-          await setup.run()
+          try {
+            const { default: setup } = await import('../core/infrastructure/setup')
+            await setup.run()
+          } catch {
+            // setup.run() may fail (e.g. provider detection) — stamp version anyway
+            await editorsConfig.updateVersion(VERSION).catch(() => {})
+          }
         }
       } catch {
         // Silent fail
