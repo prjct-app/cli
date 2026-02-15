@@ -3,13 +3,13 @@
  * Installs prjct commands in Claude Code and other AI CLI agents.
  *
  * Architecture:
- * - Claude: Full command sync to ~/.claude/commands/p/ (workaround for bug #2422)
- * - Gemini: Simple router (p.toml) to ~/.gemini/commands/ (handled by setup.ts)
+ * - Claude: Single router (p.md) in ~/.claude/commands/ — ONE entry point
+ * - Gemini: Simple router (p.toml) in ~/.gemini/commands/
  *
- * This module handles the more complex Claude installation.
- * For Gemini, see setup.ts::installGeminiRouter()
+ * The router loads templates at runtime from the npm package.
+ * No subcommand files are installed — this prevents skill conflicts.
  *
- * @version 0.6.0 - Multi-provider support
+ * @version 0.7.0 - Single source of truth (no p/ subdirectory)
  */
 
 import fs from 'node:fs/promises'
@@ -320,8 +320,8 @@ export async function installGlobalConfig(): Promise<GlobalConfigResult> {
 
 export class CommandInstaller {
   homeDir: string
-  claudeCommandsPath = ''
-  claudeConfigPath = ''
+  commandsPath = ''
+  configPath = ''
   templatesDir: string
   private _initialized = false
 
@@ -336,15 +336,10 @@ export class CommandInstaller {
     const aiProvider = require('./ai-provider')
     const activeProvider = await aiProvider.getActiveProvider()
 
-    // Command paths are provider-specific
-    if (activeProvider.name === 'gemini') {
-      this.claudeCommandsPath = path.join(activeProvider.configDir, 'commands')
-    } else {
-      // Claude: Commands are in p/ subdirectory to avoid cluttering commands/
-      this.claudeCommandsPath = path.join(activeProvider.configDir, 'commands', 'p')
-    }
+    // All providers use commands/ directly — no p/ subdirectory
+    this.commandsPath = path.join(activeProvider.configDir, 'commands')
 
-    this.claudeConfigPath = activeProvider.configDir
+    this.configPath = activeProvider.configDir
     this._initialized = true
   }
 
@@ -354,7 +349,7 @@ export class CommandInstaller {
   async detectActiveProvider(): Promise<boolean> {
     await this.ensureInit()
     try {
-      await fs.access(this.claudeConfigPath)
+      await fs.access(this.configPath)
       return true
     } catch (error) {
       if (isNotFoundError(error)) {
@@ -365,18 +360,10 @@ export class CommandInstaller {
   }
 
   /**
-   * Detect if Claude is installed (legacy support)
-   */
-  async detectClaude(): Promise<boolean> {
-    return this.detectActiveProvider()
-  }
-
-  /**
    * Get list of command files to install
    */
   async getCommandFiles(): Promise<string[]> {
     // Router files are installed separately by installRouter()
-    // Exclude them from subcommand list to avoid duplicates in ~/.claude/commands/p/
     const routerFiles = new Set(['p.md', 'p.toml'])
 
     // Try bundled templates first
@@ -389,32 +376,8 @@ export class CommandInstaller {
     }
 
     // Fall back to filesystem
-    try {
-      const files = await fs.readdir(this.templatesDir)
-      return files.filter((f) => f.endsWith('.md') && !routerFiles.has(f))
-    } catch (_error) {
-      return [
-        'init.md',
-        'now.md',
-        'done.md',
-        'ship.md',
-        'next.md',
-        'idea.md',
-        'recap.md',
-        'progress.md',
-        'stuck.md',
-        'context.md',
-        'analyze.md',
-        'sync.md',
-        'roadmap.md',
-        'task.md',
-        'git.md',
-        'fix.md',
-        'test.md',
-        'cleanup.md',
-        'design.md',
-      ]
-    }
+    const files = await fs.readdir(this.templatesDir)
+    return files.filter((f) => f.endsWith('.md') && !routerFiles.has(f))
   }
 
   /**
@@ -433,41 +396,12 @@ export class CommandInstaller {
     }
 
     try {
-      // Install the router to enable "p. task" trigger
       await this.installRouter()
-
-      // Ensure commands directory exists
-      await fs.mkdir(this.claudeCommandsPath, { recursive: true })
-
-      const commandFiles = await this.getCommandFiles()
-      const installed: string[] = []
-      const errors: Array<{ file: string; error: string }> = []
-
-      for (const file of commandFiles) {
-        try {
-          const destPath = path.join(this.claudeCommandsPath, file)
-
-          // Try bundle first, then filesystem
-          const bundled = getTemplateContent(`commands/${file}`)
-          if (bundled) {
-            await fs.writeFile(destPath, bundled, 'utf-8')
-          } else {
-            const sourcePath = path.join(this.templatesDir, file)
-            const content = await fs.readFile(sourcePath, 'utf-8')
-            await fs.writeFile(destPath, content, 'utf-8')
-          }
-
-          installed.push(file.replace('.md', ''))
-        } catch (error) {
-          errors.push({ file, error: getErrorMessage(error) })
-        }
-      }
 
       return {
         success: true,
-        installed,
-        errors,
-        path: this.claudeCommandsPath,
+        installed: ['p (router)'],
+        path: this.commandsPath,
       }
     } catch (error) {
       return {
@@ -482,33 +416,26 @@ export class CommandInstaller {
    */
   async uninstallCommands(): Promise<UninstallResult> {
     try {
-      const commandFiles = await this.getCommandFiles()
       const uninstalled: string[] = []
-      const errors: Array<{ file: string; error: string }> = []
 
-      for (const file of commandFiles) {
-        try {
-          const filePath = path.join(this.claudeCommandsPath, file)
-          await fs.unlink(filePath)
-          uninstalled.push(file.replace('.md', ''))
-        } catch (error) {
-          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-            errors.push({ file, error: getErrorMessage(error) })
-          }
-        }
-      }
+      // Remove the router (p.md)
+      const aiProvider = require('./ai-provider')
+      const activeProvider = await aiProvider.getActiveProvider()
+      const routerFile = activeProvider.name === 'gemini' ? 'p.toml' : 'p.md'
+      const routerPath = path.join(this.commandsPath, routerFile)
 
-      // Try to remove the /p directory if empty
       try {
-        await fs.rmdir(this.claudeCommandsPath)
-      } catch (_error) {
-        // Directory not empty or doesn't exist - that's fine (ENOTEMPTY or ENOENT)
+        await fs.unlink(routerPath)
+        uninstalled.push('p (router)')
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+          return { success: false, error: getErrorMessage(error) }
+        }
       }
 
       return {
         success: true,
         uninstalled,
-        errors,
       }
     } catch (error) {
       return {
@@ -522,33 +449,34 @@ export class CommandInstaller {
    * Check if commands are already installed
    */
   async checkInstallation(): Promise<CheckResult> {
-    const claudeDetected = await this.detectClaude()
+    const providerDetected = await this.detectActiveProvider()
 
-    if (!claudeDetected) {
+    if (!providerDetected) {
       return {
         installed: false,
-        claudeDetected: false,
+        providerDetected: false,
       }
     }
 
     try {
-      await fs.access(this.claudeCommandsPath)
-      const files = await fs.readdir(this.claudeCommandsPath)
-      const installedCommands = files
-        .filter((f) => f.endsWith('.md'))
-        .map((f) => f.replace('.md', ''))
+      const aiProvider = require('./ai-provider')
+      const activeProvider = await aiProvider.getActiveProvider()
+      const routerFile = activeProvider.name === 'gemini' ? 'p.toml' : 'p.md'
+      const routerPath = path.join(this.commandsPath, routerFile)
+
+      await fs.access(routerPath)
 
       return {
-        installed: installedCommands.length > 0,
-        claudeDetected: true,
-        commands: installedCommands,
-        path: this.claudeCommandsPath,
+        installed: true,
+        providerDetected: true,
+        commands: ['p (router)'],
+        path: this.commandsPath,
       }
     } catch (error) {
       if (isNotFoundError(error)) {
         return {
           installed: false,
-          claudeDetected: true,
+          providerDetected: true,
           commands: [],
         }
       }
@@ -557,45 +485,33 @@ export class CommandInstaller {
   }
 
   /**
-   * Update commands (reinstall with latest templates)
-   */
-  async updateCommands(): Promise<InstallResult> {
-    // Simply reinstall - will overwrite with latest templates
-    console.log('Updating commands with latest templates...')
-    const result = await this.installCommands()
-    if (result.success && result.installed) {
-      console.log(`Updated ${result.installed.length} commands`)
-    }
-    return result
-  }
-
-  /**
-   * Install to all detected editors (alias for installCommands)
-   */
-  async installToAll(): Promise<InstallResult> {
-    return await this.installCommands()
-  }
-
-  /**
    * Get installation path for Claude commands
    */
   async getInstallPath(): Promise<string> {
     await this.ensureInit()
-    return this.claudeCommandsPath
+    return this.commandsPath
   }
 
   /**
-   * Verify command template exists
+   * Install the router (p.md for Claude, p.toml for Gemini) to commands directory
+   * This enables the "p. task" natural language trigger
    */
-  async verifyTemplate(commandName: string): Promise<boolean> {
-    // Check bundle first
-    const bundled = getTemplateContent(`commands/${commandName}.md`)
-    if (bundled) return true
+  async installRouter(): Promise<boolean> {
+    const aiProvider = require('./ai-provider')
+    const activeProvider = await aiProvider.getActiveProvider()
 
-    // Fall back to filesystem
+    if (activeProvider.name === 'gemini') {
+      // Gemini uses TOML — keep static
+      return this.installStaticRouter('p.toml')
+    }
+
+    // Claude: generate dynamic router with current command list
     try {
-      const templatePath = path.join(this.templatesDir, `${commandName}.md`)
-      await fs.access(templatePath)
+      const routerDest = path.join(activeProvider.configDir, 'commands', 'p.md')
+      await fs.mkdir(path.dirname(routerDest), { recursive: true })
+
+      const content = await this.generateRouterContent()
+      await fs.writeFile(routerDest, content, 'utf-8')
       return true
     } catch (error) {
       if (isNotFoundError(error)) {
@@ -606,19 +522,16 @@ export class CommandInstaller {
   }
 
   /**
-   * Install the router (p.md for Claude, p.toml for Gemini) to commands directory
-   * This enables the "p. task" natural language trigger
+   * Install a static router file (used for Gemini p.toml)
    */
-  async installRouter(): Promise<boolean> {
+  private async installStaticRouter(routerFile: string): Promise<boolean> {
     const aiProvider = require('./ai-provider')
     const activeProvider = await aiProvider.getActiveProvider()
-    const routerFile = activeProvider.name === 'gemini' ? 'p.toml' : 'p.md'
 
     try {
       const routerDest = path.join(activeProvider.configDir, 'commands', routerFile)
       await fs.mkdir(path.dirname(routerDest), { recursive: true })
 
-      // Try bundle first, then filesystem
       const bundled = getTemplateContent(`commands/${routerFile}`)
       if (bundled) {
         await fs.writeFile(routerDest, bundled, 'utf-8')
@@ -638,33 +551,114 @@ export class CommandInstaller {
   }
 
   /**
-   * Remove legacy p.*.md files from commands root directory
-   * These were replaced by the p/ subdirectory structure in v0.50+
+   * Generate dynamic router content from available templates
    */
-  async removeLegacyCommands(): Promise<number> {
-    const aiProvider = require('./ai-provider')
-    const activeProvider = await aiProvider.getActiveProvider()
-    const commandsRoot = path.join(activeProvider.configDir, 'commands')
+  private async generateRouterContent(): Promise<string> {
+    const commandFiles = await this.getCommandFiles()
 
-    let removed = 0
-
-    try {
-      const files = await fs.readdir(commandsRoot)
-      const legacyFiles = files.filter((f) => f.startsWith('p.') && f.endsWith('.md'))
-
-      for (const file of legacyFiles) {
-        try {
-          await fs.unlink(path.join(commandsRoot, file))
-          removed++
-        } catch {
-          // Ignore errors removing individual files
-        }
-      }
-    } catch {
-      // Ignore errors if directory doesn't exist
+    // Build Quick Reference table from available commands
+    const commandDescriptions: Record<string, string> = {
+      task: 'Start a task',
+      done: 'Complete current subtask',
+      ship: 'Ship feature with PR + version bump',
+      sync: 'Analyze project, regenerate agents',
+      pause: 'Pause current task',
+      resume: 'Resume paused task',
+      next: 'Show priority queue',
+      idea: 'Quick idea capture',
+      bug: 'Report bug with auto-priority',
+      dash: 'Dashboard view',
+      status: 'Project status check',
+      linear: 'Linear integration (via SDK)',
+      jira: 'JIRA integration (via REST API)',
+      init: 'Initialize prjct in a project',
+      analyze: 'Deep repository analysis',
+      plan: 'Create implementation plan',
+      design: 'UI/UX design workflow',
+      test: 'Test workflow',
+      cleanup: 'Code cleanup',
+      git: 'Git operations',
+      review: 'Code review',
+      history: 'Task history & undo/redo',
+      sessions: 'Session management',
+      workflow: 'Workflow management',
+      enrich: 'Enrich task context',
+      impact: 'Impact analysis',
+      learnings: 'View learned patterns',
+      merge: 'Merge workflow',
+      prd: 'Product requirements doc',
+      serve: 'Start dev server',
+      setup: 'Setup prjct',
+      skill: 'Skill management',
+      spec: 'Technical specification',
+      update: 'Update prjct',
+      verify: 'Verify analysis integrity',
+      auth: 'Authentication',
     }
 
-    return removed
+    // Filter to only available commands
+    const tableRows: string[] = []
+    for (const file of commandFiles) {
+      const name = file.replace('.md', '')
+      const desc = commandDescriptions[name] || `${name} command`
+      tableRows.push(
+        `| \`p. ${name}${['task', 'idea', 'bug', 'ship'].includes(name) ? ' <desc>' : ''}\` | ${desc} |`
+      )
+    }
+
+    return `---
+description: 'prjct CLI - Context layer for AI agents'
+allowed-tools: [Read, Write, Edit, Bash, Glob, Grep, Task, AskUserQuestion, TodoWrite, WebFetch]
+---
+
+# prjct Command Router
+
+**ARGUMENTS**: $ARGUMENTS
+
+All commands use the \`p.\` prefix.
+
+## Quick Reference
+
+| Command | Description |
+|---------|-------------|
+${tableRows.join('\n')}
+
+## Execution
+
+\`\`\`
+1. PARSE: $ARGUMENTS → extract command (first word)
+2. GET npm root: npm root -g
+3. LOAD template: {npmRoot}/prjct-cli/templates/commands/{command}.md
+4. EXECUTE template
+\`\`\`
+
+## Command Aliases
+
+| Input | Redirects To |
+|-------|--------------|
+| \`p. undo\` | \`p. history undo\` |
+| \`p. redo\` | \`p. history redo\` |
+
+## State Context
+
+All state is managed by the \`prjct\` CLI via SQLite (prjct.db).
+Templates should use CLI commands for data operations — never read/write JSON storage files directly.
+
+## Error Handling
+
+| Error | Action |
+|-------|--------|
+| Unknown command | "Unknown command: {command}. Run \`p. help\` for available commands." |
+| No project | "No prjct project. Run \`p. init\` first." |
+| Template not found | "Template not found: {command}.md" |
+
+## NOW: Execute
+
+1. Parse command from $ARGUMENTS
+2. Handle aliases (undo → history undo, redo → history redo)
+3. Run \`npm root -g\` to get template path
+4. Load and execute command template
+`
   }
 
   /**
@@ -684,69 +678,14 @@ export class CommandInstaller {
     }
 
     try {
-      // Install the p.md router to enable "p. task" trigger
       await this.installRouter()
 
-      // Ensure commands directory exists
-      await fs.mkdir(this.claudeCommandsPath, { recursive: true })
-
-      // Get current state
-      const templateFiles = await this.getCommandFiles()
-      let installedFiles: string[] = []
-
-      try {
-        installedFiles = await fs.readdir(this.claudeCommandsPath)
-        installedFiles = installedFiles.filter((f) => f.endsWith('.md'))
-      } catch (error) {
-        if (isNotFoundError(error)) {
-          // Directory doesn't exist yet
-          installedFiles = []
-        } else {
-          throw error
-        }
-      }
-
-      const results: SyncResult = {
+      return {
         success: true,
         added: 0,
-        updated: 0,
+        updated: 1,
         removed: 0,
-        errors: [],
-      }
-
-      // Install/update all template files (always overwrite)
-      for (const file of templateFiles) {
-        try {
-          const destPath = path.join(this.claudeCommandsPath, file)
-
-          // Check if file exists in installed location
-          const exists = installedFiles.includes(file)
-
-          // Try bundle first, then filesystem
-          const bundled = getTemplateContent(`commands/${file}`)
-          if (bundled) {
-            await fs.writeFile(destPath, bundled, 'utf-8')
-          } else {
-            const sourcePath = path.join(this.templatesDir, file)
-            const content = await fs.readFile(sourcePath, 'utf-8')
-            await fs.writeFile(destPath, content, 'utf-8')
-          }
-
-          if (!exists) {
-            results.added++
-          } else {
-            results.updated++
-          }
-        } catch (error) {
-          results.errors!.push({ file, error: getErrorMessage(error) })
-        }
-      }
-
-      // Remove legacy p.*.md files from commands root (old naming convention)
-      // These were replaced by p/ subdirectory structure
-      await this.removeLegacyCommands()
-
-      return results
+      } as SyncResult
     } catch (error) {
       return {
         success: false,
@@ -787,7 +726,7 @@ export function getProviderPaths(): {
   const homeDir = os.homedir()
   return {
     claude: {
-      commands: path.join(homeDir, '.claude', 'commands', 'p'),
+      commands: path.join(homeDir, '.claude', 'commands'),
       config: path.join(homeDir, '.claude'),
       router: path.join(homeDir, '.claude', 'commands', 'p.md'),
     },

@@ -77,7 +77,7 @@ export interface UninstallResult {
  */
 export interface CheckResult {
   installed: boolean
-  claudeDetected: boolean
+  providerDetected: boolean
   commands?: string[]
   path?: string
 }

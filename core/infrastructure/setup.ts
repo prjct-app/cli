@@ -9,8 +9,8 @@
  * 5. Save version in editors-config
  *
  * Supports multiple AI CLI agents:
- * - Claude Code: ~/.claude/commands/p/, CLAUDE.md
- * - Gemini CLI: ~/.gemini/commands/p/, GEMINI.md
+ * - Claude Code: ~/.claude/commands/p.md, CLAUDE.md
+ * - Gemini CLI: ~/.gemini/commands/p.toml, GEMINI.md
  *
  * This module is called from:
  * - core/index.js (on first CLI use)
@@ -185,9 +185,9 @@ export async function run(): Promise<SetupResults> {
 
     // Step 2: Install commands and config for this provider
     if (providerName === 'claude') {
-      const claudeDetected = await installer.detectClaude()
+      const providerDetected = await installer.detectActiveProvider()
 
-      if (claudeDetected) {
+      if (providerDetected) {
         // Sync commands
         const syncResult = await installer.syncCommands()
         if (syncResult.success) {

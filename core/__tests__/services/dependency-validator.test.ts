@@ -111,9 +111,9 @@ describe('DependencyValidator', () => {
   })
 
   describe('checkAll', () => {
-    it('should return status for all default tools', () => {
-      const results = dependencyValidator.checkAll()
-      expect(results.size).toBeGreaterThan(0)
+    it('should return status for multiple specified tools', () => {
+      const results = dependencyValidator.checkAll(['git', 'node', 'npm'])
+      expect(results.size).toBe(3)
       expect(results.has('git')).toBe(true)
       expect(results.has('node')).toBe(true)
     })
