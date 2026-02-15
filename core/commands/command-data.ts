@@ -38,6 +38,7 @@ export const COMMANDS: CommandMeta[] = [
     implemented: true,
     hasTemplate: true,
     requiresProject: false,
+    requiresLlm: true,
     features: [
       'Architect mode for blank projects',
       'Auto tech stack recommendation',
@@ -53,6 +54,7 @@ export const COMMANDS: CommandMeta[] = [
     implemented: true,
     hasTemplate: true,
     requiresProject: true,
+    requiresLlm: true,
     features: ['Simple ideas -> Quick capture', 'Complex ideas -> Full architecture'],
   },
   {
@@ -64,6 +66,7 @@ export const COMMANDS: CommandMeta[] = [
     implemented: true,
     hasTemplate: true,
     requiresProject: true,
+    requiresLlm: true,
     features: [
       'Agentic type classification',
       '7-phase workflow',
@@ -80,6 +83,7 @@ export const COMMANDS: CommandMeta[] = [
     implemented: true,
     hasTemplate: true,
     requiresProject: true,
+    requiresLlm: true,
   },
   {
     name: 'pause',
@@ -90,6 +94,7 @@ export const COMMANDS: CommandMeta[] = [
     implemented: true,
     hasTemplate: true,
     requiresProject: true,
+    requiresLlm: true,
     blockingRules: { check: 'Active task exists', message: 'No active task to pause' },
   },
   {
@@ -101,6 +106,7 @@ export const COMMANDS: CommandMeta[] = [
     implemented: true,
     hasTemplate: true,
     requiresProject: true,
+    requiresLlm: true,
   },
   {
     name: 'next',
@@ -111,6 +117,7 @@ export const COMMANDS: CommandMeta[] = [
     implemented: true,
     hasTemplate: true,
     requiresProject: true,
+    requiresLlm: true,
   },
   {
     name: 'done',
@@ -120,6 +127,7 @@ export const COMMANDS: CommandMeta[] = [
     implemented: true,
     hasTemplate: true,
     requiresProject: true,
+    requiresLlm: true,
   },
   {
     name: 'ship',
@@ -130,6 +138,7 @@ export const COMMANDS: CommandMeta[] = [
     implemented: true,
     hasTemplate: true,
     requiresProject: true,
+    requiresLlm: true,
   },
   {
     name: 'bug',
@@ -140,6 +149,7 @@ export const COMMANDS: CommandMeta[] = [
     implemented: true,
     hasTemplate: true,
     requiresProject: true,
+    requiresLlm: true,
   },
   {
     name: 'dash',
@@ -150,6 +160,7 @@ export const COMMANDS: CommandMeta[] = [
     implemented: true,
     hasTemplate: true,
     requiresProject: true,
+    requiresLlm: true,
   },
   {
     name: 'stats',
@@ -160,6 +171,7 @@ export const COMMANDS: CommandMeta[] = [
     implemented: true,
     hasTemplate: true,
     requiresProject: true,
+    requiresLlm: true,
     features: ['Token savings tracking', 'Compression metrics', 'Cost estimates', '30-day trends'],
   },
   {
@@ -170,6 +182,7 @@ export const COMMANDS: CommandMeta[] = [
     implemented: true,
     hasTemplate: true,
     requiresProject: true,
+    requiresLlm: true,
     features: [
       'Incremental sync: only re-analyzes changed files (default)',
       'Force full sync: --full bypasses incremental cache',
@@ -187,6 +200,7 @@ export const COMMANDS: CommandMeta[] = [
     implemented: true,
     hasTemplate: false,
     requiresProject: true,
+    requiresLlm: true,
     features: [
       'Startup time tracking',
       'Memory usage snapshots',
@@ -204,6 +218,7 @@ export const COMMANDS: CommandMeta[] = [
     implemented: true,
     hasTemplate: false,
     requiresProject: true,
+    requiresLlm: true,
     features: [
       'Sprint-by-sprint velocity breakdown',
       'Trend detection (improving/stable/declining)',
@@ -221,6 +236,7 @@ export const COMMANDS: CommandMeta[] = [
     implemented: true,
     hasTemplate: false,
     requiresProject: false,
+    requiresLlm: true,
     features: [
       'Cross-project session listing',
       'Resume context with LLM hints',
@@ -235,6 +251,7 @@ export const COMMANDS: CommandMeta[] = [
     implemented: true,
     hasTemplate: true,
     requiresProject: true,
+    requiresLlm: true,
   },
   {
     name: 'status',
@@ -245,6 +262,7 @@ export const COMMANDS: CommandMeta[] = [
     implemented: true,
     hasTemplate: false,
     requiresProject: true,
+    requiresLlm: true,
     features: [
       'Compares current HEAD with last sync commit',
       'Counts commits and days since sync',
@@ -261,6 +279,7 @@ export const COMMANDS: CommandMeta[] = [
     implemented: true,
     hasTemplate: false,
     requiresProject: true,
+    requiresLlm: true,
     features: [
       'Compares draft vs sealed analysis field-by-field',
       'Shows languages, frameworks, patterns, file count changes',
@@ -276,6 +295,7 @@ export const COMMANDS: CommandMeta[] = [
     implemented: true,
     hasTemplate: false,
     requiresProject: true,
+    requiresLlm: true,
     features: [
       'Locks draft analysis with SHA-256 signature',
       'Only sealed analysis feeds task context',
@@ -291,6 +311,7 @@ export const COMMANDS: CommandMeta[] = [
     implemented: true,
     hasTemplate: false,
     requiresProject: true,
+    requiresLlm: true,
     features: [
       'Restores previous sealed version as active',
       'Current sealed moves to draft (recoverable)',
@@ -306,6 +327,7 @@ export const COMMANDS: CommandMeta[] = [
     implemented: true,
     hasTemplate: false,
     requiresProject: true,
+    requiresLlm: true,
     features: [
       'Recomputes SHA-256 signature and compares',
       'Detects if sealed analysis was modified',
@@ -333,6 +355,7 @@ export const COMMANDS: CommandMeta[] = [
     hasTemplate: true,
     requiresProject: true,
     isOptional: true,
+    requiresLlm: true,
   },
   {
     name: 'cleanup',
@@ -343,6 +366,7 @@ export const COMMANDS: CommandMeta[] = [
     hasTemplate: true,
     requiresProject: true,
     isOptional: true,
+    requiresLlm: true,
   },
   {
     name: 'analyze',
@@ -353,6 +377,7 @@ export const COMMANDS: CommandMeta[] = [
     hasTemplate: true,
     requiresProject: true,
     isOptional: true,
+    requiresLlm: true,
   },
   {
     name: 'undo',
@@ -363,6 +388,7 @@ export const COMMANDS: CommandMeta[] = [
     hasTemplate: true,
     requiresProject: true,
     isOptional: true,
+    requiresLlm: true,
     features: ['Git-based snapshots', 'Preserves redo history'],
   },
   {
@@ -374,6 +400,7 @@ export const COMMANDS: CommandMeta[] = [
     hasTemplate: true,
     requiresProject: true,
     isOptional: true,
+    requiresLlm: true,
   },
   {
     name: 'history',
@@ -384,6 +411,7 @@ export const COMMANDS: CommandMeta[] = [
     hasTemplate: true,
     requiresProject: true,
     isOptional: true,
+    requiresLlm: true,
   },
   {
     name: 'recover',
@@ -394,6 +422,7 @@ export const COMMANDS: CommandMeta[] = [
     hasTemplate: true,
     requiresProject: true,
     isOptional: true,
+    requiresLlm: true,
   },
   {
     name: 'git',
@@ -405,6 +434,7 @@ export const COMMANDS: CommandMeta[] = [
     hasTemplate: true,
     requiresProject: true,
     isOptional: true,
+    requiresLlm: true,
   },
   {
     name: 'test',
@@ -415,6 +445,7 @@ export const COMMANDS: CommandMeta[] = [
     hasTemplate: true,
     requiresProject: true,
     isOptional: true,
+    requiresLlm: true,
   },
   {
     name: 'workflow',
@@ -426,6 +457,7 @@ export const COMMANDS: CommandMeta[] = [
     hasTemplate: true,
     requiresProject: true,
     isOptional: true,
+    requiresLlm: true,
     features: [
       'Natural language configuration',
       'Before/after hooks for task, done, ship, sync',
@@ -461,6 +493,7 @@ export const COMMANDS: CommandMeta[] = [
     implemented: true,
     hasTemplate: true,
     requiresProject: true,
+    requiresLlm: true,
   },
   {
     name: 'auth',
@@ -471,6 +504,7 @@ export const COMMANDS: CommandMeta[] = [
     implemented: true,
     hasTemplate: true,
     requiresProject: false,
+    requiresLlm: true,
   },
   {
     name: 'context',
@@ -492,16 +526,16 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'update',
     group: 'setup',
-    description: 'Migrate all projects from JSON to SQLite',
-    usage: { claude: null, terminal: 'prjct update [--all] [--dry-run]' },
-    params: '[--all] [--dry-run]',
+    description: 'Update prjct system-wide: package + migrations + daemon restart',
+    usage: { claude: null, terminal: 'prjct update [--dry-run]' },
+    params: '[--dry-run]',
     implemented: true,
     hasTemplate: false,
     requiresProject: false,
     features: [
-      'Migrates JSON storage files to SQLite',
-      'Sweeps leftover JSON files',
-      '--all flag processes all projects on machine',
+      'Phase 1: npm update (migrates homebrew → npm if needed)',
+      'Phase 2: All projects — migrate, sweep, reinstall commands',
+      'Phase 3: Daemon stop + restart with new code',
       '--dry-run to preview without changes',
     ],
   },

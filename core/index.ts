@@ -91,7 +91,18 @@ async function main(): Promise<void> {
     // 4. Parse arguments
     const { parsedArgs, options } = parseCommandArgs(cmd, rawArgs)
 
-    // 4.5. Validate required params
+    // 4.5. Block commands that require LLM processing when run in raw terminal
+    const isLlmContext = !process.stdin.isTTY || options.md === true || options.json === true
+    if (cmd.requiresLlm && !isLlmContext) {
+      out.failWithHint({
+        message: `'prjct ${commandName}' requires an AI agent to process its output`,
+        hint: `Use 'p. ${commandName}' inside Claude/Cursor, or add --md flag`,
+      })
+      out.end()
+      process.exit(1)
+    }
+
+    // 4.6. Validate required params
     const paramError = validateCommandParams(cmd, parsedArgs)
     if (paramError) {
       out.failWithHint(paramError)

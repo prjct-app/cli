@@ -332,6 +332,7 @@ export interface CommandMeta {
   blockingRules?: BlockingRules
   features?: string[]
   isOptional?: boolean
+  requiresLlm?: boolean
   deprecated?: boolean
   replacedBy?: string
 }

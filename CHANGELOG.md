@@ -5,7 +5,7 @@
 ### Features
 
 - instruction rule type + daemon stop/restart/stale detection (#194)
-
+- redesign prjct update as 3-phase system updater
 
 ## [1.38.10] - 2026-02-15
 

@@ -345,7 +345,7 @@ class PrjctCommands {
   }
 
   async update(
-    options: { all?: boolean; 'dry-run'?: boolean } = {},
+    options: { 'dry-run'?: boolean; md?: boolean } = {},
     projectPath: string = process.cwd()
   ): Promise<CommandResult> {
     return this.updateCmds.update(options, projectPath)
