@@ -72,7 +72,7 @@ export interface AIToolConfig {
 // p. Command Resolver Types
 // =============================================================================
 
-export type PCommandTemplateSource = 'package-resolve' | 'npm-root-g' | 'local-dev'
+export type PCommandTemplateSource = 'package-resolve' | 'npm-root-g' | 'local-dev' | 'bundle'
 export type PCommandResolveErrorCode = 'UNKNOWN_COMMAND' | 'TEMPLATE_NOT_FOUND' | 'ROUTER_NOT_READY'
 
 export interface ResolvedPTemplate {

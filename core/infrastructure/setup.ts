@@ -30,6 +30,7 @@ import { isPCommandResolveError, pCommandResolver } from '../services/p-command-
 import { prjctDb } from '../storage/database'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import type { AIProviderConfig, AIProviderName } from '../types/provider'
+import type { PCommandTemplateSource } from '../types/services'
 import { getTimeout } from '../utils/constants'
 import { fileExists } from '../utils/file-helper'
 import log from '../utils/logger'
@@ -439,7 +440,7 @@ export interface CodexPRouterStatus {
   templateHash?: string
   command?: string
   templatePath?: string
-  templateSource?: 'package-resolve' | 'npm-root-g' | 'local-dev'
+  templateSource?: PCommandTemplateSource
   message?: string
   fix?: string[]
 }

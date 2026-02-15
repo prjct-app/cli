@@ -153,27 +153,12 @@ class SyncService {
         }
       }
 
-      // Codex router must be healthy before generating p. task context
+      // Codex router check — non-blocking, sync should succeed for other providers
       const codexDetection = await detectCodex()
       if (codexDetection.installed) {
         const codexRouter = await verifyCodexPRouterReady({ autoRepair: true })
         if (!codexRouter.verified) {
-          return {
-            success: false,
-            projectId: this.projectId,
-            cliVersion: '',
-            git: this.emptyGitData(),
-            stats: this.emptyStats(),
-            commands: this.emptyCommands(),
-            stack: this.emptyStack(),
-            agents: [],
-            skills: [],
-            skillsInstalled: [],
-            contextFiles: [],
-            aiTools: [],
-            context7: { installed: false, verified: false },
-            error: `Codex p. router is required but not ready: ${codexRouter.message || 'verification failed'}. Run 'prjct start' or 'prjct setup' to repair.`,
-          }
+          log.warn(`Codex p. router not ready: ${codexRouter.message || 'verification failed'}`)
         }
       }
 

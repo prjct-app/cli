@@ -548,7 +548,9 @@ export async function detectCodex(): Promise<CodexDetection> {
     fileExists(skillPath),
   ])
 
-  const installed = !!cliPath || dirExists
+  // Require the CLI binary to be present — a leftover ~/.codex/ directory alone
+  // does not mean Codex is installed and should not block other providers.
+  const installed = !!cliPath
 
   return {
     installed,
