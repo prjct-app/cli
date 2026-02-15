@@ -131,7 +131,7 @@ export const SyncError = NamedError.create(
 )
 
 // =============================================================================
-// Legacy Error Classes (Preserved for Backward Compatibility)
+// Error Classes
 // =============================================================================
 
 /**
@@ -145,52 +145,8 @@ export class PrjctError extends Error {
     super(message)
     this.name = 'PrjctError'
     this.code = code
-    this.isOperational = true // Distinguishes from programming errors
+    this.isOperational = true
     Error.captureStackTrace?.(this, this.constructor)
-  }
-}
-
-/**
- * Configuration-related errors
- */
-export class ConfigError extends PrjctError {
-  constructor(message: string, code = 'CONFIG_ERROR') {
-    super(message, code)
-    this.name = 'ConfigError'
-  }
-
-  static notFound(path: string): ConfigError {
-    return new ConfigError(`Configuration not found: ${path}`, 'CONFIG_NOT_FOUND')
-  }
-
-  static invalid(reason: string): ConfigError {
-    return new ConfigError(`Invalid configuration: ${reason}`, 'CONFIG_INVALID')
-  }
-
-  static parseError(path: string): ConfigError {
-    return new ConfigError(`Failed to parse configuration: ${path}`, 'CONFIG_PARSE_ERROR')
-  }
-}
-
-/**
- * Storage and file system errors
- */
-export class StorageError extends PrjctError {
-  constructor(message: string, code = 'STORAGE_ERROR') {
-    super(message, code)
-    this.name = 'StorageError'
-  }
-
-  static readFailed(path: string): StorageError {
-    return new StorageError(`Failed to read: ${path}`, 'STORAGE_READ_FAILED')
-  }
-
-  static writeFailed(path: string): StorageError {
-    return new StorageError(`Failed to write: ${path}`, 'STORAGE_WRITE_FAILED')
-  }
-
-  static notFound(path: string): StorageError {
-    return new StorageError(`File not found: ${path}`, 'STORAGE_NOT_FOUND')
   }
 }
 
@@ -213,28 +169,6 @@ export class ProjectError extends PrjctError {
 
   static invalidId(projectId: string): ProjectError {
     return new ProjectError(`Invalid project ID: ${projectId}`, 'PROJECT_INVALID_ID')
-  }
-}
-
-/**
- * Command execution errors
- */
-export class CommandError extends PrjctError {
-  constructor(message: string, code = 'COMMAND_ERROR') {
-    super(message, code)
-    this.name = 'CommandError'
-  }
-
-  static notFound(commandName: string): CommandError {
-    return new CommandError(`Command not found: ${commandName}`, 'COMMAND_NOT_FOUND')
-  }
-
-  static invalidParams(reason: string): CommandError {
-    return new CommandError(`Invalid parameters: ${reason}`, 'COMMAND_INVALID_PARAMS')
-  }
-
-  static executionFailed(commandName: string, reason: string): CommandError {
-    return new CommandError(`Command '${commandName}' failed: ${reason}`, 'COMMAND_EXEC_FAILED')
   }
 }
 
@@ -279,33 +213,6 @@ export class AgentError extends PrjctError {
  */
 export function isPrjctError(error: unknown): error is PrjctError {
   return error instanceof PrjctError
-}
-
-/**
- * Type guard for specific error types
- */
-export function isConfigError(error: unknown): error is ConfigError {
-  return error instanceof ConfigError
-}
-
-export function isStorageError(error: unknown): error is StorageError {
-  return error instanceof StorageError
-}
-
-export function isProjectError(error: unknown): error is ProjectError {
-  return error instanceof ProjectError
-}
-
-export function isCommandError(error: unknown): error is CommandError {
-  return error instanceof CommandError
-}
-
-export function isTemplateError(error: unknown): error is TemplateError {
-  return error instanceof TemplateError
-}
-
-export function isAgentError(error: unknown): error is AgentError {
-  return error instanceof AgentError
 }
 
 /**

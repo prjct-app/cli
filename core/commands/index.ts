@@ -10,7 +10,6 @@
 
 // Types
 export * from '../types'
-// Legacy exports (backwards compat)
 export { default, PrjctCommands } from './commands'
 // Command registration (auto-runs on import)
 export { registerAllCommands } from './register'

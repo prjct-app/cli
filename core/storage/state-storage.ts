@@ -314,20 +314,10 @@ class StateStorage extends StorageManager<StateJson> {
   }
 
   /**
-   * Get paused tasks from state, migrating from legacy previousTask if needed
+   * Get paused tasks from state
    */
   private getPausedTasksFromState(state: StateJson): PreviousTask[] {
-    const paused = state.pausedTasks || []
-
-    // Migrate legacy previousTask into array if present
-    if (state.previousTask && state.previousTask.status === 'paused') {
-      const alreadyInArray = paused.some((t) => t.id === state.previousTask!.id)
-      if (!alreadyInArray) {
-        return [state.previousTask, ...paused]
-      }
-    }
-
-    return paused
+    return state.pausedTasks || []
   }
 
   /**

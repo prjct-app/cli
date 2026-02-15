@@ -16,7 +16,6 @@ import { TTLCache } from '../utils/cache'
 // Re-export types for convenience
 export type { ContextPaths, ContextState, ProjectContext } from '../types'
 
-// Type aliases exported for backward compatibility (used by external consumers)
 export type Paths = ContextPaths
 export type Context = ProjectContext
 export type State = ContextState

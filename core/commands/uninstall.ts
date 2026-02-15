@@ -172,20 +172,7 @@ async function gatherUninstallItems(): Promise<UninstallItem[]> {
     exists: claudeMdExists && hasPrjctSection,
   })
 
-  // 3. ~/.claude/commands/p/ (prjct commands)
-  const claudeCommandsPath = providerPaths.claude.commands
-  const claudeCommandsExists = await fileExists(claudeCommandsPath)
-  const claudeCommandsSize = claudeCommandsExists ? await getDirectorySize(claudeCommandsPath) : 0
-
-  items.push({
-    path: claudeCommandsPath,
-    type: 'directory',
-    description: 'Claude commands',
-    size: claudeCommandsSize,
-    exists: claudeCommandsExists,
-  })
-
-  // 4. ~/.claude/commands/p.md (router)
+  // 3. ~/.claude/commands/p.md (router)
   const claudeRouterPath = providerPaths.claude.router
   const claudeRouterExists = await fileExists(claudeRouterPath)
 

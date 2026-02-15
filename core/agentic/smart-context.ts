@@ -36,7 +36,6 @@ export type {
   StackInfo,
 } from '../types'
 
-// Type alias exported for backward compatibility (used by external consumers)
 export type ProjectState = SmartContextProjectState
 
 // Map ClassificationDomain → ContextDomain

@@ -22,7 +22,7 @@ export class SetupCommands extends PrjctCommandsBase {
     const status = await commandInstaller.checkInstallation()
     const aiProvider = require('../infrastructure/ai-provider')
     const codexDetection = await aiProvider.detectCodex()
-    const hasCliProvider = status.claudeDetected
+    const hasCliProvider = status.providerDetected
     const activeProvider = hasCliProvider ? await aiProvider.getActiveProvider() : null
     const primaryName = hasCliProvider ? activeProvider.displayName : 'OpenAI Codex'
 
@@ -106,7 +106,7 @@ export class SetupCommands extends PrjctCommandsBase {
     }
 
     console.log('📦 Installing /p:* commands...')
-    const result = await commandInstaller.updateCommands()
+    const result = await commandInstaller.installCommands()
 
     if (!result.success) {
       return {

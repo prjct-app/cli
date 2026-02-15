@@ -1,11 +1,20 @@
 # Changelog
 
+## [1.38.8] - 2026-02-14
+
+### Added
+- legacy code purge phase 2
+
+## [1.38.7] - 2026-02-14
+
+### Added
+- legacy code purge + test fix
+
 ## [1.38.6] - 2026-02-14
 
 ### Bug Fixes
 
 - all agents get full operational context (#192)
-
 
 ## [1.38.5] - 2026-02-14
 

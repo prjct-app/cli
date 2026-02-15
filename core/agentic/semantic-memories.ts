@@ -75,7 +75,6 @@ export class SemanticMemories extends CachedStore<MemoryDatabase> {
     return tags.filter((t): t is MemoryTag => allowed.has(t as MemoryTag))
   }
 
-  // Convenience alias for backward compatibility
   async loadMemories(projectId: string): Promise<MemoryDatabase> {
     return this.load(projectId)
   }

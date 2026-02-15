@@ -88,9 +88,6 @@ export type CommitInfo = z.infer<typeof CommitInfoSchema>
 export type ShippedItemSchema = z.infer<typeof ShippedItemSchema>
 export type ShippedJson = z.infer<typeof ShippedJsonSchema>
 
-// Legacy type for backwards compatibility
-export type ShippedSchema = ShippedItemSchema[]
-
 // =============================================================================
 // Validation Helpers
 // =============================================================================

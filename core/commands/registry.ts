@@ -107,7 +107,7 @@ export class CommandRegistry {
 
   /**
    * Register a bound method from an existing command group
-   * Bridges legacy command classes to the registry pattern
+   * Bridges command classes to the registry pattern
    */
   registerMethod<T extends object>(
     name: string,
@@ -120,10 +120,9 @@ export class CommandRegistry {
       throw new Error(`${String(methodName)} is not a function`)
     }
 
-    // Create a wrapper that adapts legacy method signature to HandlerFn
+    // Create a wrapper that adapts method signature to HandlerFn
     const wrapper: HandlerFn<unknown> = async (params, context) => {
-      // Legacy commands expect (param?, projectPath) signature
-      // Most commands use first param + projectPath
+      // Commands expect (param?, projectPath) signature
       type LegacyMethod = (...args: unknown[]) => Promise<CommandResult>
       if (params !== undefined && params !== null) {
         return (method as LegacyMethod).call(instance, params, context.projectPath)

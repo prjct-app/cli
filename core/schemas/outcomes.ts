@@ -277,10 +277,6 @@ export type FeatureOutcome = z.infer<typeof FeatureOutcomeSchema>
 export type AggregateMetrics = z.infer<typeof AggregateMetricsSchema>
 export type OutcomesJson = z.infer<typeof OutcomesJsonSchema>
 
-// Legacy type for backwards compatibility
-export type OutcomeSchema = TaskOutcome
-export type OutcomesSchema = TaskOutcome[]
-
 // =============================================================================
 // Validation Helpers
 // =============================================================================

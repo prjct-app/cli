@@ -116,7 +116,7 @@ export function registerAllCommands(): void {
 // Auto-register on import
 registerAllCommands()
 
-// Export command group instances for direct access (legacy support)
+// Export command group instances for direct access
 export {
   analysis,
   workflow,

@@ -86,9 +86,6 @@ export type IdeaRole = z.infer<typeof IdeaRoleSchema>
 export type IdeaSchema = z.infer<typeof IdeaItemSchema>
 export type IdeasJson = z.infer<typeof IdeasJsonSchema>
 
-// Legacy type for backwards compatibility
-export type IdeasSchema = IdeaSchema[]
-
 // =============================================================================
 // Validation Helpers
 // =============================================================================

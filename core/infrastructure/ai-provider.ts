@@ -328,7 +328,7 @@ export async function detectAllProviders(refresh = false): Promise<{
  * Priority:
  * 1. Check project config for saved provider preference
  * 2. Auto-detect single installed provider
- * 3. Default to Claude if both installed (backward compatibility)
+ * 3. Default to Claude if both installed
  */
 export async function getActiveProvider(
   projectProvider?: AIProviderName
@@ -349,7 +349,7 @@ export async function getActiveProvider(
     return GeminiProvider
   }
 
-  // Default to Claude for backward compatibility
+  // Default to Claude
   return ClaudeProvider
 }
 

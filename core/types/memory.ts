@@ -52,12 +52,6 @@ export interface Memory {
 }
 
 /**
- * Legacy source type - use InputSource for new code.
- * @deprecated Use InputSource from agentic.ts instead
- */
-export type LegacyMemorySource = 'user' | 'system' | 'learned'
-
-/**
  * Metadata associated with a memory entry.
  */
 export interface MemoryMetadata {
@@ -69,8 +63,6 @@ export interface MemoryMetadata {
   taskId?: string
   /** Related feature name */
   feature?: string
-  /** Source of the memory (legacy - use inputSource for new code) */
-  source?: LegacyMemorySource
   /** Input source category for traceability (PRJ-102) */
   inputSource?: InputSource
 }

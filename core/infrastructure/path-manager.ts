@@ -325,14 +325,14 @@ class PathManager {
   }
 
   /**
-   * Get the Claude directory path (~/.claude) - Legacy support
+   * Get the Claude directory path (~/.claude)
    */
   getClaudeDir(): string {
     return path.join(os.homedir(), '.claude')
   }
 
   /**
-   * Get the Claude settings file path (~/.claude/settings.json) - Legacy support
+   * Get the Claude settings file path (~/.claude/settings.json)
    */
   getClaudeSettingsPath(): string {
     return path.join(this.getClaudeDir(), 'settings.json')

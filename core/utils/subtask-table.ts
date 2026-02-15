@@ -221,7 +221,3 @@ export function createSubtaskAnimation(subtasks: SubtaskDisplay[]) {
 export function renderProgressLine(completed: number, total: number): string {
   return `  ${chalk.dim('Progress:')} ${completed}/${total} subtasks complete`
 }
-
-// Legacy exports for backwards compatibility
-export const renderSubtaskTable = renderSubtaskProgress
-export const printSubtaskTable = printSubtaskProgress
