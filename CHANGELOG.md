@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.40.1] - 2026-02-15
+
+### Fixed
+- Sanitize SQLite bindings in JSON migration to prevent type errors
+
 ## [1.40.0] - 2026-02-15
 
 ### Features

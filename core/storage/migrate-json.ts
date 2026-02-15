@@ -275,22 +275,22 @@ function populateTasksFromState(projectId: string, state: Record<string, unknown
     if (!task || !task.id) return
 
     insertTask.run(
-      task.id as string,
-      (task.description ?? task.parentDescription ?? '') as string,
-      (task.type ?? null) as string | null,
-      (status ?? task.status ?? 'unknown') as string,
-      (task.parentDescription ?? null) as string | null,
-      (task.branch ?? null) as string | null,
-      (task.linearId ?? null) as string | null,
-      (task.linearUuid ?? null) as string | null,
-      (task.sessionId ?? null) as string | null,
-      (task.featureId ?? null) as string | null,
-      (task.startedAt ?? new Date().toISOString()) as string,
-      (task.completedAt ?? null) as string | null,
-      (task.shippedAt ?? null) as string | null,
-      (task.pausedAt ?? null) as string | null,
-      (task.pauseReason ?? null) as string | null,
-      (task.prUrl ?? null) as string | null,
+      toStr(task.id) ?? `task-${Date.now()}`,
+      toStr(task.description ?? task.parentDescription) ?? '',
+      toStr(task.type),
+      toStr(status ?? task.status) ?? 'unknown',
+      toStr(task.parentDescription),
+      toStr(task.branch),
+      toStr(task.linearId),
+      toStr(task.linearUuid),
+      toStr(task.sessionId),
+      toStr(task.featureId),
+      toStr(task.startedAt) ?? new Date().toISOString(),
+      toStr(task.completedAt),
+      toStr(task.shippedAt),
+      toStr(task.pausedAt),
+      toStr(task.pauseReason),
+      toStr(task.prUrl),
       task.expectedValue ? JSON.stringify(task.expectedValue) : null,
       JSON.stringify(task)
     )
@@ -301,17 +301,17 @@ function populateTasksFromState(projectId: string, state: Record<string, unknown
       for (let i = 0; i < subtasks.length; i++) {
         const st = subtasks[i]
         insertSubtask.run(
-          (st.id ?? `subtask-${i}`) as string,
-          task.id as string,
-          (st.description ?? '') as string,
-          (st.status ?? 'pending') as string,
-          (st.domain ?? null) as string | null,
-          (st.agent ?? null) as string | null,
+          toStr(st.id) ?? `subtask-${i}`,
+          toStr(task.id),
+          toStr(st.description) ?? '',
+          toStr(st.status) ?? 'pending',
+          toStr(st.domain),
+          toStr(st.agent),
           i,
           st.dependsOn ? JSON.stringify(st.dependsOn) : null,
-          (st.startedAt ?? null) as string | null,
-          (st.completedAt ?? null) as string | null,
-          (st.output ?? null) as string | null,
+          toStr(st.startedAt),
+          toStr(st.completedAt),
+          toStr(st.output),
           st.summary ? JSON.stringify(st.summary) : null
         )
       }
@@ -343,16 +343,16 @@ function populateQueueTasks(projectId: string, data: Record<string, unknown>): v
 
   for (const t of tasks) {
     stmt.run(
-      t.id as string,
-      (t.description ?? '') as string,
-      (t.type ?? null) as string | null,
-      (t.priority ?? null) as string | null,
-      (t.section ?? null) as string | null,
-      (t.createdAt ?? new Date().toISOString()) as string,
+      toStr(t.id) ?? `queue-${Date.now()}`,
+      toStr(t.description) ?? '',
+      toStr(t.type),
+      toStr(t.priority),
+      toStr(t.section),
+      toStr(t.createdAt) ?? new Date().toISOString(),
       t.completed ? 1 : 0,
-      (t.completedAt ?? null) as string | null,
-      (t.featureId ?? null) as string | null,
-      (t.featureName ?? null) as string | null
+      toStr(t.completedAt),
+      toStr(t.featureId),
+      toStr(t.featureName)
     )
   }
 }
@@ -370,14 +370,14 @@ function populateIdeas(projectId: string, data: Record<string, unknown>): void {
 
   for (const idea of ideas) {
     stmt.run(
-      idea.id as string,
-      (idea.text ?? '') as string,
-      (idea.status ?? 'pending') as string,
-      (idea.priority ?? 'medium') as string,
+      toStr(idea.id) ?? `idea-${Date.now()}`,
+      toStr(idea.text) ?? '',
+      toStr(idea.status) ?? 'pending',
+      toStr(idea.priority) ?? 'medium',
       idea.tags ? JSON.stringify(idea.tags) : null,
-      (idea.addedAt ?? new Date().toISOString()) as string,
-      (idea.convertedTo ?? null) as string | null,
-      (idea.details ?? null) as string | null,
+      toStr(idea.addedAt) ?? new Date().toISOString(),
+      toStr(idea.convertedTo),
+      toStr(idea.details),
       JSON.stringify(idea)
     )
   }
@@ -396,13 +396,13 @@ function populateShippedFeatures(projectId: string, data: Record<string, unknown
 
   for (const feature of shipped) {
     stmt.run(
-      feature.id as string,
-      (feature.name ?? '') as string,
-      (feature.shippedAt ?? new Date().toISOString()) as string,
-      (feature.version ?? '0.0.0') as string,
-      (feature.description ?? null) as string | null,
-      (feature.type ?? null) as string | null,
-      (feature.duration ?? null) as string | null,
+      toStr(feature.id) ?? `ship-${Date.now()}`,
+      toStr(feature.name) ?? '',
+      toStr(feature.shippedAt) ?? new Date().toISOString(),
+      toStr(feature.version) ?? '0.0.0',
+      toStr(feature.description),
+      toStr(feature.type),
+      toStr(feature.duration),
       JSON.stringify(feature)
     )
   }
@@ -421,11 +421,11 @@ function populateMetricsDaily(projectId: string, data: Record<string, unknown>):
 
   for (const day of dailyStats) {
     stmt.run(
-      day.date as string,
-      (day.tokensSaved ?? 0) as number,
-      (day.syncs ?? 0) as number,
-      (day.avgCompressionRate ?? 0) as number,
-      (day.totalDuration ?? 0) as number
+      toStr(day.date) ?? new Date().toISOString().slice(0, 10),
+      toNum(day.tokensSaved) ?? 0,
+      toNum(day.syncs) ?? 0,
+      toNum(day.avgCompressionRate) ?? 0,
+      toNum(day.totalDuration) ?? 0
     )
   }
 }
@@ -442,11 +442,11 @@ function populateAnalysis(projectId: string, data: Record<string, unknown>): voi
     if (!analysis) return
     stmt.run(
       id,
-      (analysis.status ?? 'unknown') as string,
-      (analysis.commitHash ?? null) as string | null,
-      (analysis.signature ?? null) as string | null,
-      (analysis.sealedAt ?? null) as string | null,
-      (analysis.analyzedAt ?? null) as string | null,
+      toStr(analysis.status) ?? 'unknown',
+      toStr(analysis.commitHash),
+      toStr(analysis.signature),
+      toStr(analysis.sealedAt),
+      toStr(analysis.analyzedAt),
       JSON.stringify(analysis)
     )
   }
@@ -477,12 +477,9 @@ function populateCategoriesIndex(projectId: string, cache: Record<string, unknow
   `)
 
   for (const fc of fileCategories) {
-    stmt.run(
-      fc.path as string,
-      fc.categories ? JSON.stringify(fc.categories) : null,
-      (fc.primaryDomain ?? null) as string | null,
-      fc.path as string
-    )
+    const p = toStr(fc.path)
+    if (!p) continue
+    stmt.run(p, fc.categories ? JSON.stringify(fc.categories) : null, toStr(fc.primaryDomain), p)
   }
 }
 
@@ -548,14 +545,9 @@ async function migrateFileScores(
 
     db.transaction(() => {
       for (const file of scores) {
-        stmt.run(
-          file.path as string,
-          (file.score ?? 0) as number,
-          (file.size ?? null) as number | null,
-          (file.mtime ?? null) as string | null,
-          file.path as string,
-          file.path as string
-        )
+        const p = toStr(file.path)
+        if (!p) continue
+        stmt.run(p, toNum(file.score) ?? 0, toNum(file.size), toStr(file.mtime), p, p)
       }
     })()
 
@@ -590,9 +582,9 @@ async function migrateEventsJsonl(
       for (const line of lines) {
         try {
           const event = JSON.parse(line) as Record<string, unknown>
-          const type = (event.type ?? event.action ?? 'unknown') as string
-          const taskId = (event.taskId ?? event.task_id ?? null) as string | null
-          const timestamp = (event.timestamp ?? event.ts ?? new Date().toISOString()) as string
+          const type = toStr(event.type ?? event.action) ?? 'unknown'
+          const taskId = toStr(event.taskId ?? event.task_id)
+          const timestamp = toStr(event.timestamp ?? event.ts) ?? new Date().toISOString()
           stmt.run(type, taskId, line, timestamp)
         } catch {
           // Skip malformed lines
@@ -635,10 +627,10 @@ async function migrateLearningsJsonl(
       for (const line of lines) {
         try {
           const entry = JSON.parse(line) as Record<string, unknown>
-          const key = `learning:${entry.taskId ?? entry.timestamp ?? Date.now()}`
+          const key = `learning:${toStr(entry.taskId ?? entry.timestamp) ?? Date.now()}`
           const tags = entry.tags as string[] | undefined
-          const domain = tags && tags.length > 0 ? tags[0] : null
-          stmt.run(key, domain, line, 1.0, (entry.timestamp ?? new Date().toISOString()) as string)
+          const domain = tags && tags.length > 0 ? toStr(tags[0]) : null
+          stmt.run(key, domain, line, 1.0, toStr(entry.timestamp) ?? new Date().toISOString())
         } catch {
           // Skip malformed lines
         }
@@ -699,6 +691,30 @@ async function cleanupJsonFiles(
   // Delete memory JSONL files
   await deleteFile(path.join(memoryPath, 'events.jsonl'), 'cleanup:memory/events.jsonl')
   await deleteFile(path.join(memoryPath, 'learnings.jsonl'), 'cleanup:memory/learnings.jsonl')
+}
+
+// =============================================================================
+// Binding Sanitizers
+// =============================================================================
+
+/** Coerce unknown JSON value to string | null safe for SQLite binding */
+function toStr(v: unknown): string | null {
+  if (v === null || v === undefined) return null
+  if (typeof v === 'string') return v
+  if (typeof v === 'number' || typeof v === 'boolean' || typeof v === 'bigint') return String(v)
+  // Objects/arrays — stringify rather than crash
+  return JSON.stringify(v)
+}
+
+/** Coerce unknown JSON value to number | null safe for SQLite binding */
+function toNum(v: unknown): number | null {
+  if (v === null || v === undefined) return null
+  if (typeof v === 'number') return v
+  if (typeof v === 'string') {
+    const n = Number(v)
+    return Number.isNaN(n) ? null : n
+  }
+  return null
 }
 
 // =============================================================================
@@ -793,10 +809,10 @@ export async function sweepLegacyJson(projectId: string): Promise<number> {
             try {
               const event = JSON.parse(line) as Record<string, unknown>
               stmt.run(
-                (event.type ?? event.action ?? 'unknown') as string,
-                (event.taskId ?? event.task_id ?? null) as string | null,
+                toStr(event.type ?? event.action) ?? 'unknown',
+                toStr(event.taskId ?? event.task_id),
                 line,
-                (event.timestamp ?? event.ts ?? new Date().toISOString()) as string
+                toStr(event.timestamp ?? event.ts) ?? new Date().toISOString()
               )
             } catch {
               // skip malformed
@@ -811,14 +827,14 @@ export async function sweepLegacyJson(projectId: string): Promise<number> {
           for (const line of lines) {
             try {
               const entry = JSON.parse(line) as Record<string, unknown>
-              const key = `learning:${entry.taskId ?? entry.timestamp ?? Date.now()}`
+              const key = `learning:${toStr(entry.taskId ?? entry.timestamp) ?? Date.now()}`
               const tags = entry.tags as string[] | undefined
               stmt.run(
                 key,
-                tags?.[0] ?? null,
+                toStr(tags?.[0]),
                 line,
                 1.0,
-                (entry.timestamp ?? new Date().toISOString()) as string
+                toStr(entry.timestamp) ?? new Date().toISOString()
               )
             } catch {
               // skip malformed
