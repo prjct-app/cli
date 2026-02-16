@@ -6,6 +6,7 @@
 
 import path from 'node:path'
 import { memoryService } from '../services'
+import { TaskSessionManager } from '../session/task-session-manager'
 import type { CommandResult } from '../types'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import { configManager, dateHelper, fileHelper, out, pathManager } from './base'
@@ -34,20 +35,13 @@ export async function recover(projectPath: string = process.cwd()): Promise<Comm
 
     out.spin('checking for abandoned sessions...')
 
-    // Check for current session file
-    const sessionPath = pathManager.getFilePath(projectId, 'progress', 'sessions/current.json')
+    // Check for current session in SQLite
+    const sessionManager = new TaskSessionManager(projectPath)
+    const currentSession = await sessionManager.getCurrent()
 
-    let sessionData: SessionData | null = null
-    try {
-      const content = await fileHelper.readFile(sessionPath)
-      sessionData = JSON.parse(content)
-    } catch (error) {
-      if (isNotFoundError(error) || error instanceof SyntaxError) {
-        sessionData = null
-      } else {
-        throw error
-      }
-    }
+    const sessionData: SessionData | null = currentSession
+      ? { task: currentSession.task, startedAt: currentSession.startedAt }
+      : null
 
     if (!sessionData || !sessionData.task) {
       out.warn('no abandoned session found')
