@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.44.2] - 2026-02-16
+
+### Bug Fixes
+
+- legacy previousTask not migrated to pausedTasks (PRJ-345) (#206)
+
+
 ## [1.44.3] - 2026-02-16
 
 ### Bug Fixes
