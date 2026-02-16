@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.44.3] - 2026-02-15
+
+### Added
+- Fix legacy previousTask migration to pausedTasks
+
 ## [1.44.2] - 2026-02-15
 
 ### Added

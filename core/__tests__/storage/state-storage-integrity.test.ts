@@ -154,6 +154,48 @@ describe('StateStorage integrity', () => {
     expect(state.currentTask?.type).toBe('feature')
   })
 
+  it('resumeTask picks up legacy previousTask (PRJ-345)', async () => {
+    // Simulate legacy state: previousTask exists but pausedTasks is empty/missing
+    await stateStorage.startTask(
+      testProjectId,
+      createMockTask({
+        description: 'Legacy paused task',
+        linearId: 'PRJ-345',
+        type: 'bug',
+      })
+    )
+    await stateStorage.pauseTask(testProjectId, 'legacy pause')
+
+    // Manually rewrite state to simulate legacy format: previousTask instead of pausedTasks
+    const state = await stateStorage.read(testProjectId)
+    const legacyTask = state.pausedTasks?.[0]
+    expect(legacyTask).toBeDefined()
+
+    // Write state with legacy previousTask field, empty pausedTasks
+    await stateStorage.update(testProjectId, (s) => ({
+      ...s,
+      previousTask: legacyTask!,
+      pausedTasks: [],
+    }))
+
+    // Verify legacy state shape
+    const legacyState = await stateStorage.read(testProjectId)
+    expect(legacyState.pausedTasks?.length).toBe(0)
+    expect(legacyState.previousTask).toBeDefined()
+
+    // Resume should pick up the legacy previousTask
+    const resumed = await stateStorage.resumeTask(testProjectId)
+    expect(resumed).not.toBeNull()
+    expect(resumed?.description).toBe('Legacy paused task')
+    expect(resumed?.linearId).toBe('PRJ-345')
+    expect(resumed?.type).toBe('bug')
+
+    // After resume, previousTask should be cleared
+    const finalState = await stateStorage.read(testProjectId)
+    expect(finalState.previousTask).toBeNull()
+    expect(finalState.pausedTasks?.length).toBe(0)
+  })
+
   it('completeTask preserves existing pausedTasks', async () => {
     await stateStorage.startTask(testProjectId, createMockTask({ description: 'Paused task' }))
     await stateStorage.pauseTask(testProjectId)
