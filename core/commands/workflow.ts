@@ -337,8 +337,6 @@ export class WorkflowCommands extends PrjctCommandsBase {
 
         // Get available agents for backward compatibility
         const availableAgents = await templateExecutor.getAvailableAgents(projectPath)
-        const _agentsList =
-          availableAgents.length > 0 ? availableAgents.join(', ') : 'none (run p. sync)'
 
         // Build metrics from orchestrator context
         const agentCount = result.orchestratorContext?.agents?.length || availableAgents.length
