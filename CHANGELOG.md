@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.43.1] - 2026-02-15
+
+### Added
+- Sessions migrated to SQLite
+
 ## [1.43.0] - 2026-02-15
 
 ### Features
