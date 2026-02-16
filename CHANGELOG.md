@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.44.0] - 2026-02-16
+
+### Features
+
+- migrate sessions from JSON files to SQLite (#204)
+
+
 ## [1.43.1] - 2026-02-15
 
 ### Added
