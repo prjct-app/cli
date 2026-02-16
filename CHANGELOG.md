@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.44.1] - 2026-02-16
+
+### Bug Fixes
+
+- resumeTask and pauseTask preserve business metadata (PRJ-344) (#205)
+
+
 ## [1.44.2] - 2026-02-15
 
 ### Added
