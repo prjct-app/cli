@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.44.3] - 2026-02-16
+
+### Bug Fixes
+
+- widen retry test timing tolerances (PRJ-346) (#207)
+
+
 ## [1.44.2] - 2026-02-16
 
 ### Bug Fixes
