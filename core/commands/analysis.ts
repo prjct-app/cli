@@ -109,7 +109,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
       }
 
       console.log('✅ Analysis complete!\n')
-      console.log('📄 Full report: analysis/repo-summary.md')
+      console.log(`📄 Full report: ${pathManager.getDisplayPath(summaryPath)}`)
       console.log(`📝 Context: ~/.prjct-cli/projects/${projectId}/${activeProvider.contextFile}\n`)
       console.log('Next steps:')
       console.log('• /p:sync → Generate agents based on stack')
