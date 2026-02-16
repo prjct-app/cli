@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.44.5] - 2026-02-16
+
+### Bug Fixes
+
+- remove unused _agentsList in workflow (PRJ-347) (#209)
+
+
 ## [1.44.4] - 2026-02-16
 
 ### Bug Fixes
