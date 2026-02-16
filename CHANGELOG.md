@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.44.4] - 2026-02-16
+
+### Bug Fixes
+
+- analyze shows actual report path (PRJ-348) (#208)
+
+
 ## [1.44.3] - 2026-02-16
 
 ### Bug Fixes
