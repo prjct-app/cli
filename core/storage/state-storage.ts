@@ -318,7 +318,14 @@ class StateStorage extends StorageManager<StateJson> {
    * Get paused tasks from state
    */
   private getPausedTasksFromState(state: StateJson): PreviousTask[] {
-    return state.pausedTasks || []
+    if (state.pausedTasks && state.pausedTasks.length > 0) {
+      return state.pausedTasks
+    }
+    // Migrate legacy previousTask into pausedTasks (PRJ-345)
+    if (state.previousTask) {
+      return [state.previousTask]
+    }
+    return []
   }
 
   /**

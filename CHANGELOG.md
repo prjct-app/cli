@@ -1,21 +1,16 @@
 # Changelog
 
+## [1.44.3] - 2026-02-16
+
+### Bug Fixes
+
+- legacy previousTask not migrated to pausedTasks (PRJ-345)
+
 ## [1.44.1] - 2026-02-16
 
 ### Bug Fixes
 
 - resumeTask and pauseTask preserve business metadata (PRJ-344) (#205)
-
-
-## [1.44.2] - 2026-02-15
-
-### Added
-- Fix resume/pause metadata loss
-
-## [1.44.1] - 2026-02-15
-
-### Added
-- Fix resume/pause metadata loss
 
 ## [1.44.0] - 2026-02-16
 
