@@ -110,6 +110,18 @@ export const PreviousTaskSchema = z.object({
   startedAt: z.string(), // ISO8601
   pausedAt: z.string(), // ISO8601
   pauseReason: z.string().optional(),
+  // Business metadata preserved across pause/resume (PRJ-344)
+  type: TaskTypeSchema.optional(),
+  sessionId: z.string().optional(),
+  featureId: z.string().optional(),
+  subtasks: z.array(SubtaskSchema).optional(),
+  currentSubtaskIndex: z.number().optional(),
+  subtaskProgress: SubtaskProgressSchema.optional(),
+  linearId: z.string().optional(),
+  linearUuid: z.string().optional(),
+  estimatedPoints: z.number().optional(),
+  estimatedMinutes: z.number().optional(),
+  modelMetadata: ModelMetadataSchema.optional(),
 })
 
 // Task feedback captured during completion (PRJ-272)
