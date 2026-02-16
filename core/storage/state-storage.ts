@@ -231,10 +231,8 @@ class StateStorage extends StorageManager<StateJson> {
     this.validateTransition(state, 'pause')
 
     const pausedTask: PreviousTask = {
-      id: state.currentTask.id,
-      description: state.currentTask.description,
+      ...state.currentTask,
       status: 'paused',
-      startedAt: state.currentTask.startedAt,
       pausedAt: getTimestamp(),
       pauseReason: reason,
     }
@@ -290,11 +288,11 @@ class StateStorage extends StorageManager<StateJson> {
     const target = pausedTasks[targetIndex]
     const remaining = pausedTasks.filter((_, i) => i !== targetIndex)
 
+    const { status: _, pausedAt: __, pauseReason: ___, ...preserved } = target
     const currentTask: CurrentTask = {
-      id: target.id,
-      description: target.description,
+      ...preserved,
       startedAt: getTimestamp(),
-      sessionId: generateUUID(),
+      sessionId: target.sessionId ?? generateUUID(),
     }
 
     await this.update(projectId, (existingState) => ({

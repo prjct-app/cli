@@ -102,6 +102,58 @@ describe('StateStorage integrity', () => {
     expect(state.pausedTasks?.length).toBe(0)
   })
 
+  it('pauseTask preserves business metadata (PRJ-344)', async () => {
+    await stateStorage.startTask(
+      testProjectId,
+      createMockTask({
+        description: 'Task with metadata',
+        type: 'bug',
+        linearId: 'PRJ-344',
+        linearUuid: 'uuid-abc-123',
+        estimatedPoints: 5,
+        estimatedMinutes: 120,
+        featureId: 'feat_xyz',
+      })
+    )
+    await stateStorage.pauseTask(testProjectId, 'switching context')
+
+    const state = await stateStorage.read(testProjectId)
+    const paused = state.pausedTasks?.[0]
+    expect(paused).toBeDefined()
+    expect(paused?.description).toBe('Task with metadata')
+    expect(paused?.linearId).toBe('PRJ-344')
+    expect(paused?.linearUuid).toBe('uuid-abc-123')
+    expect(paused?.estimatedPoints).toBe(5)
+    expect(paused?.estimatedMinutes).toBe(120)
+    expect(paused?.featureId).toBe('feat_xyz')
+    expect(paused?.type).toBe('bug')
+  })
+
+  it('resumeTask preserves business metadata (PRJ-344)', async () => {
+    await stateStorage.startTask(
+      testProjectId,
+      createMockTask({
+        description: 'Task with metadata',
+        type: 'feature',
+        linearId: 'PRJ-100',
+        linearUuid: 'uuid-def-456',
+        estimatedPoints: 8,
+        featureId: 'feat_abc',
+      })
+    )
+    await stateStorage.pauseTask(testProjectId)
+    await stateStorage.resumeTask(testProjectId)
+
+    const state = await stateStorage.read(testProjectId)
+    expect(state.currentTask).toBeDefined()
+    expect(state.currentTask?.description).toBe('Task with metadata')
+    expect(state.currentTask?.linearId).toBe('PRJ-100')
+    expect(state.currentTask?.linearUuid).toBe('uuid-def-456')
+    expect(state.currentTask?.estimatedPoints).toBe(8)
+    expect(state.currentTask?.featureId).toBe('feat_abc')
+    expect(state.currentTask?.type).toBe('feature')
+  })
+
   it('completeTask preserves existing pausedTasks', async () => {
     await stateStorage.startTask(testProjectId, createMockTask({ description: 'Paused task' }))
     await stateStorage.pauseTask(testProjectId)

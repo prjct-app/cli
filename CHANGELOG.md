@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.44.2] - 2026-02-15
+
+### Added
+- Fix resume/pause metadata loss
+
+## [1.44.1] - 2026-02-15
+
+### Added
+- Fix resume/pause metadata loss
+
 ## [1.44.0] - 2026-02-16
 
 ### Features
