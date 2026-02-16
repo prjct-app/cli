@@ -740,6 +740,16 @@ async function migrateSessionFiles(
   } catch {
     // Archive dir doesn't exist — that's fine
   }
+
+  // Remove empty sessions directory (only if no other files remain)
+  try {
+    const remaining = await fs.readdir(sessionsPath)
+    if (remaining.length === 0) {
+      await fs.rmdir(sessionsPath).catch(() => {})
+    }
+  } catch {
+    // Already gone
+  }
 }
 
 // =============================================================================
@@ -945,37 +955,77 @@ export async function sweepLegacyJson(projectId: string): Promise<number> {
     }
   }
 
-  // 4. Sweep sessions/*.json files
+  // 4. Sweep sessions/ JSON files (current.json + archive/*.json)
   const sessionsPath = path.join(globalPath, 'sessions')
+  const sessionInsert = (session: Record<string, unknown>) => {
+    if (!session || !session.id) return
+    const db = prjctDb.getDb(projectId)
+    db.prepare(`
+      INSERT OR IGNORE INTO sessions
+      (id, project_id, task, status, started_at, paused_at, completed_at, duration, metrics, timeline)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      toStr(session.id),
+      toStr(session.projectId) ?? projectId,
+      toStr(session.task) ?? '',
+      toStr(session.status) ?? 'completed',
+      toStr(session.startedAt) ?? new Date().toISOString(),
+      toStr(session.pausedAt),
+      toStr(session.completedAt),
+      toNum(session.duration) ?? 0,
+      session.metrics ? JSON.stringify(session.metrics) : '{}',
+      session.timeline ? JSON.stringify(session.timeline) : '[]'
+    )
+  }
+
+  // 4a. Sweep current.json
   const currentJsonPath = path.join(sessionsPath, 'current.json')
   const currentSessionData = await readJsonSafe(currentJsonPath)
   if (currentSessionData !== null) {
-    const session = currentSessionData as Record<string, unknown>
-    if (session.id) {
-      const db = prjctDb.getDb(projectId)
-      db.prepare(`
-        INSERT OR IGNORE INTO sessions
-        (id, project_id, task, status, started_at, paused_at, completed_at, duration, metrics, timeline)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        toStr(session.id),
-        toStr(session.projectId) ?? projectId,
-        toStr(session.task) ?? '',
-        toStr(session.status) ?? 'completed',
-        toStr(session.startedAt) ?? new Date().toISOString(),
-        toStr(session.pausedAt),
-        toStr(session.completedAt),
-        toNum(session.duration) ?? 0,
-        session.metrics ? JSON.stringify(session.metrics) : '{}',
-        session.timeline ? JSON.stringify(session.timeline) : '[]'
-      )
-    }
-    try {
-      await fs.unlink(currentJsonPath)
-    } catch {
-      // ignore
-    }
+    sessionInsert(currentSessionData as Record<string, unknown>)
+    await fs.unlink(currentJsonPath).catch(() => {})
     swept++
+  }
+
+  // 4b. Sweep archive/*.json
+  const archiveDir = path.join(sessionsPath, 'archive')
+  try {
+    const months = await fs.readdir(archiveDir)
+    for (const month of months) {
+      const monthDir = path.join(archiveDir, month)
+      try {
+        const stat = await fs.stat(monthDir)
+        if (!stat.isDirectory()) continue
+        const files = await fs.readdir(monthDir)
+        for (const file of files) {
+          if (!file.endsWith('.json')) continue
+          const data = await readJsonSafe(path.join(monthDir, file))
+          if (data !== null) {
+            sessionInsert(data as Record<string, unknown>)
+            await fs.unlink(path.join(monthDir, file)).catch(() => {})
+            swept++
+          }
+        }
+        // Remove empty month directory
+        const remaining = await fs.readdir(monthDir)
+        if (remaining.length === 0) await fs.rmdir(monthDir).catch(() => {})
+      } catch {
+        // skip
+      }
+    }
+    // Remove empty archive directory
+    const remainingMonths = await fs.readdir(archiveDir).catch(() => [] as string[])
+    if (remainingMonths.length === 0) await fs.rmdir(archiveDir).catch(() => {})
+  } catch {
+    // archive dir doesn't exist
+  }
+
+  // 4c. Remove empty sessions directory
+  try {
+    const remaining = await fs.readdir(sessionsPath)
+    if (remaining.length === 0) await fs.rmdir(sessionsPath).catch(() => {})
+  } catch {
+    // already gone
   }
 
   // 5. Sweep index/*.json files
