@@ -34,17 +34,17 @@ Workflow: `p. sync` → `p. task "desc"` → work → `p. done` → `p. ship`
 | Field | Value |
 |-------|-------|
 | Name | prjct-cli |
-| Version | 1.42.4 |
+| Version | 1.43.1 |
 | Ecosystem | JavaScript |
-| Branch | feat/context-feedback-rl |
+| Branch | feat/sessions-to-sqlite |
 | Files | ~363 |
-| Commits | 602 |
+| Commits | 607 |
 
 ## Agents
 
 Load from `~/.prjct-cli/projects/bc401c41-c8b9-436a-ac78-c91cac82ab4f/agents/`:
 
-**Workflow**: prjct-workflow, prjct-shipper, prjct-planner
+**Workflow**: prjct-workflow, prjct-planner, prjct-shipper
 **Domain**: backend, database
 
 ## Recent Learnings

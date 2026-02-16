@@ -2,10 +2,12 @@
 
 ## [1.43.1] - 2026-02-15
 
+### Added
+- Sessions migrated to SQLite
+
 ### Bug Fixes
 
 - update command shows stale version on every run (#203)
-
 
 ## [1.43.0] - 2026-02-15
 

@@ -162,7 +162,11 @@ export async function migrateJsonToSqlite(projectId: string): Promise<MigrationR
     // Step 8: Migrate learnings.jsonl → memory table
     await migrateLearningsJsonl(projectId, memoryPath, result)
 
-    // Step 9: Clean up source JSON files (backup already exists)
+    // Step 9: Migrate session JSON files → sessions table
+    const sessionsPath = path.join(globalPath, 'sessions')
+    await migrateSessionFiles(projectId, sessionsPath, result)
+
+    // Step 10: Clean up source JSON files (backup already exists)
     if (result.errors.length === 0) {
       await cleanupJsonFiles(storagePath, indexPath, memoryPath, result)
     }
@@ -648,6 +652,107 @@ async function migrateLearningsJsonl(
 }
 
 // =============================================================================
+// Session File Migration
+// =============================================================================
+
+async function migrateSessionFiles(
+  projectId: string,
+  sessionsPath: string,
+  result: MigrationResult
+): Promise<void> {
+  const db = prjctDb.getDb(projectId)
+  const stmt = db.prepare(`
+    INSERT OR IGNORE INTO sessions
+    (id, project_id, task, status, started_at, paused_at, completed_at, duration, metrics, timeline)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `)
+
+  const insertSession = (session: Record<string, unknown>) => {
+    if (!session || !session.id) return
+    stmt.run(
+      toStr(session.id),
+      toStr(session.projectId) ?? projectId,
+      toStr(session.task) ?? '',
+      toStr(session.status) ?? 'completed',
+      toStr(session.startedAt) ?? new Date().toISOString(),
+      toStr(session.pausedAt),
+      toStr(session.completedAt),
+      toNum(session.duration) ?? 0,
+      session.metrics ? JSON.stringify(session.metrics) : '{}',
+      session.timeline ? JSON.stringify(session.timeline) : '[]'
+    )
+  }
+
+  // Migrate current.json
+  const currentPath = path.join(sessionsPath, 'current.json')
+  const currentData = await readJsonSafe(currentPath)
+  if (currentData !== null) {
+    try {
+      insertSession(currentData as Record<string, unknown>)
+      result.migratedFiles.push('sessions/current.json')
+      await fs.unlink(currentPath).catch(() => {})
+    } catch (err) {
+      result.errors.push({ file: 'sessions/current.json', error: String(err) })
+    }
+  }
+
+  // Migrate archive/*.json files
+  const archiveDir = path.join(sessionsPath, 'archive')
+  try {
+    const months = await fs.readdir(archiveDir)
+    for (const month of months) {
+      const monthDir = path.join(archiveDir, month)
+      try {
+        const stat = await fs.stat(monthDir)
+        if (!stat.isDirectory()) continue
+        const files = await fs.readdir(monthDir)
+        for (const file of files) {
+          if (!file.endsWith('.json')) continue
+          const filePath = path.join(monthDir, file)
+          const data = await readJsonSafe(filePath)
+          if (data !== null) {
+            try {
+              insertSession(data as Record<string, unknown>)
+              result.migratedFiles.push(`sessions/archive/${month}/${file}`)
+              await fs.unlink(filePath).catch(() => {})
+            } catch (err) {
+              result.errors.push({
+                file: `sessions/archive/${month}/${file}`,
+                error: String(err),
+              })
+            }
+          }
+        }
+        // Remove empty month directory
+        const remaining = await fs.readdir(monthDir)
+        if (remaining.length === 0) {
+          await fs.rmdir(monthDir).catch(() => {})
+        }
+      } catch {
+        // Skip non-directory entries
+      }
+    }
+    // Remove empty archive directory
+    const remainingMonths = await fs.readdir(archiveDir).catch(() => [] as string[])
+    if (remainingMonths.length === 0) {
+      await fs.rmdir(archiveDir).catch(() => {})
+    }
+  } catch {
+    // Archive dir doesn't exist — that's fine
+  }
+
+  // Remove empty sessions directory (only if no other files remain)
+  try {
+    const remaining = await fs.readdir(sessionsPath)
+    if (remaining.length === 0) {
+      await fs.rmdir(sessionsPath).catch(() => {})
+    }
+  } catch {
+    // Already gone
+  }
+}
+
+// =============================================================================
 // JSON Cleanup (post-migration)
 // =============================================================================
 
@@ -850,7 +955,80 @@ export async function sweepLegacyJson(projectId: string): Promise<number> {
     }
   }
 
-  // 4. Sweep index/*.json files
+  // 4. Sweep sessions/ JSON files (current.json + archive/*.json)
+  const sessionsPath = path.join(globalPath, 'sessions')
+  const sessionInsert = (session: Record<string, unknown>) => {
+    if (!session || !session.id) return
+    const db = prjctDb.getDb(projectId)
+    db.prepare(`
+      INSERT OR IGNORE INTO sessions
+      (id, project_id, task, status, started_at, paused_at, completed_at, duration, metrics, timeline)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      toStr(session.id),
+      toStr(session.projectId) ?? projectId,
+      toStr(session.task) ?? '',
+      toStr(session.status) ?? 'completed',
+      toStr(session.startedAt) ?? new Date().toISOString(),
+      toStr(session.pausedAt),
+      toStr(session.completedAt),
+      toNum(session.duration) ?? 0,
+      session.metrics ? JSON.stringify(session.metrics) : '{}',
+      session.timeline ? JSON.stringify(session.timeline) : '[]'
+    )
+  }
+
+  // 4a. Sweep current.json
+  const currentJsonPath = path.join(sessionsPath, 'current.json')
+  const currentSessionData = await readJsonSafe(currentJsonPath)
+  if (currentSessionData !== null) {
+    sessionInsert(currentSessionData as Record<string, unknown>)
+    await fs.unlink(currentJsonPath).catch(() => {})
+    swept++
+  }
+
+  // 4b. Sweep archive/*.json
+  const archiveDir = path.join(sessionsPath, 'archive')
+  try {
+    const months = await fs.readdir(archiveDir)
+    for (const month of months) {
+      const monthDir = path.join(archiveDir, month)
+      try {
+        const stat = await fs.stat(monthDir)
+        if (!stat.isDirectory()) continue
+        const files = await fs.readdir(monthDir)
+        for (const file of files) {
+          if (!file.endsWith('.json')) continue
+          const data = await readJsonSafe(path.join(monthDir, file))
+          if (data !== null) {
+            sessionInsert(data as Record<string, unknown>)
+            await fs.unlink(path.join(monthDir, file)).catch(() => {})
+            swept++
+          }
+        }
+        // Remove empty month directory
+        const remaining = await fs.readdir(monthDir)
+        if (remaining.length === 0) await fs.rmdir(monthDir).catch(() => {})
+      } catch {
+        // skip
+      }
+    }
+    // Remove empty archive directory
+    const remainingMonths = await fs.readdir(archiveDir).catch(() => [] as string[])
+    if (remainingMonths.length === 0) await fs.rmdir(archiveDir).catch(() => {})
+  } catch {
+    // archive dir doesn't exist
+  }
+
+  // 4c. Remove empty sessions directory
+  try {
+    const remaining = await fs.readdir(sessionsPath)
+    if (remaining.length === 0) await fs.rmdir(sessionsPath).catch(() => {})
+  } catch {
+    // already gone
+  }
+
+  // 5. Sweep index/*.json files
   const indexPath = path.join(globalPath, 'index')
   const allIndexFiles = [
     ...INDEX_FILES.map((f) => f.filename),

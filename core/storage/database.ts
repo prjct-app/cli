@@ -436,6 +436,33 @@ const migrations: Migration[] = [
       `)
     },
   },
+  {
+    version: 7,
+    name: 'sessions-table',
+    up: (db: SqliteDatabase) => {
+      db.run(`
+        -- =======================================================================
+        -- Sessions: Task lifecycle tracking (replaces current.json + archive/)
+        -- =======================================================================
+        CREATE TABLE sessions (
+          id            TEXT PRIMARY KEY,
+          project_id    TEXT NOT NULL,
+          task          TEXT NOT NULL,
+          status        TEXT NOT NULL,
+          started_at    TEXT NOT NULL,
+          paused_at     TEXT,
+          completed_at  TEXT,
+          duration      INTEGER NOT NULL DEFAULT 0,
+          metrics       TEXT NOT NULL DEFAULT '{}',
+          timeline      TEXT NOT NULL DEFAULT '[]'
+        );
+
+        CREATE INDEX idx_sessions_project ON sessions(project_id);
+        CREATE INDEX idx_sessions_status ON sessions(status);
+        CREATE INDEX idx_sessions_completed ON sessions(completed_at);
+      `)
+    },
+  },
 ]
 
 // =============================================================================

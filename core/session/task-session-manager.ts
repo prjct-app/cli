@@ -2,15 +2,14 @@
  * TaskSessionManager Class
  * Manages task lifecycle: create, pause, resume, complete
  * Tracks metrics, timeline, and archives completed sessions.
+ *
+ * Storage: SQLite sessions table (migration 7)
  */
 
 import { exec } from 'node:child_process'
-import fs from 'node:fs/promises'
-import path from 'node:path'
 import { promisify } from 'node:util'
 import { emit } from '../events'
 import configManager from '../infrastructure/config-manager'
-import pathManager from '../infrastructure/path-manager'
 import { prjctDb } from '../storage/database'
 import type { Session, SessionMetrics } from '../types'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
@@ -18,16 +17,42 @@ import { calculateDuration, formatDuration, generateId } from './utils'
 
 const execAsync = promisify(exec)
 
+interface SessionRow {
+  id: string
+  project_id: string
+  task: string
+  status: string
+  started_at: string
+  paused_at: string | null
+  completed_at: string | null
+  duration: number
+  metrics: string
+  timeline: string
+}
+
+function rowToSession(row: SessionRow): Session {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    task: row.task,
+    status: row.status as Session['status'],
+    startedAt: row.started_at,
+    pausedAt: row.paused_at,
+    completedAt: row.completed_at,
+    duration: row.duration,
+    metrics: JSON.parse(row.metrics),
+    timeline: JSON.parse(row.timeline),
+  }
+}
+
 export class TaskSessionManager {
   private projectPath: string
   private projectId: string | null
-  private sessionDir: string | null
   private initialized: boolean
 
   constructor(projectPath: string) {
     this.projectPath = projectPath
     this.projectId = null
-    this.sessionDir = null
     this.initialized = false
   }
 
@@ -39,11 +64,8 @@ export class TaskSessionManager {
     if (!this.projectId) {
       throw new Error('No prjct project found. Run /p:init first.')
     }
-
-    const globalPath = pathManager.getGlobalProjectPath(this.projectId)
-    this.sessionDir = path.join(globalPath, 'sessions')
-
-    await fs.mkdir(this.sessionDir, { recursive: true })
+    // Ensure DB is ready (triggers migrations)
+    prjctDb.getDb(this.projectId)
     this.initialized = true
   }
 
@@ -60,16 +82,13 @@ export class TaskSessionManager {
   async getCurrent(): Promise<Session | null> {
     if (!this.initialized) await this.initialize()
 
-    const currentPath = path.join(this.sessionDir!, 'current.json')
-    try {
-      const content = await fs.readFile(currentPath, 'utf-8')
-      return JSON.parse(content)
-    } catch (error) {
-      if (isNotFoundError(error) || error instanceof SyntaxError) {
-        return null
-      }
-      throw error
-    }
+    const row = prjctDb.get<SessionRow>(
+      this.projectId!,
+      "SELECT * FROM sessions WHERE project_id = ? AND status IN ('active', 'paused') ORDER BY started_at DESC LIMIT 1",
+      this.projectId!
+    )
+
+    return row ? rowToSession(row) : null
   }
 
   /**
@@ -106,10 +125,10 @@ export class TaskSessionManager {
       timeline: [{ type: 'start', at: now }],
     }
 
-    // Save as current session
-    await this.saveCurrent(session)
+    // Save to SQLite
+    this.saveSession(session)
 
-    // Log to session history
+    // Log to event log
     await this.logEvent('session_started', { sessionId: session.id, task })
 
     // Emit event for plugins
@@ -153,7 +172,7 @@ export class TaskSessionManager {
     current.status = 'active'
     current.timeline.push({ type: 'resume', at: now })
 
-    await this.saveCurrent(current)
+    this.saveSession(current)
     await this.logEvent('session_resumed', { sessionId: current.id })
 
     // Emit event for plugins
@@ -187,7 +206,7 @@ export class TaskSessionManager {
     current.duration = calculateDuration(current)
     current.timeline.push({ type: 'pause', at: now })
 
-    await this.saveCurrent(current)
+    this.saveSession(current)
     await this.logEvent('session_paused', { sessionId: current.id, duration: current.duration })
 
     // Emit event for plugins
@@ -219,11 +238,8 @@ export class TaskSessionManager {
     current.metrics = await this.calculateMetrics(current)
     current.timeline.push({ type: 'complete', at: now })
 
-    // Archive session
-    await this.archive(current)
-
-    // Clear current
-    await this.clearCurrent()
+    // Update in SQLite (no separate archive step needed)
+    this.saveSession(current)
 
     // Log completion
     await this.logEvent('session_completed', {
@@ -288,10 +304,7 @@ export class TaskSessionManager {
         metrics.linesRemoved = parseInt(match[3], 10) || 0
       }
     } catch (error) {
-      // Keep existing metrics if git fails (not a repo, git not installed, etc.)
-      // This is expected in non-git projects
       if (!isNotFoundError(error)) {
-        // Log unexpected errors but don't fail
         console.error(`Metrics calculation warning: ${getErrorMessage(error)}`)
       }
     }
@@ -300,77 +313,40 @@ export class TaskSessionManager {
   }
 
   /**
-   * Save current session
+   * Save session to SQLite (insert or update)
    */
-  async saveCurrent(session: Session): Promise<void> {
-    const currentPath = path.join(this.sessionDir!, 'current.json')
-    await fs.writeFile(currentPath, JSON.stringify(session, null, 2))
-  }
-
-  /**
-   * Clear current session file
-   */
-  async clearCurrent(): Promise<void> {
-    const currentPath = path.join(this.sessionDir!, 'current.json')
-    try {
-      await fs.unlink(currentPath)
-    } catch (error) {
-      // File might not exist - that's ok
-      if (!isNotFoundError(error)) {
-        throw error
-      }
-    }
-  }
-
-  /**
-   * Archive completed session
-   */
-  async archive(session: Session): Promise<void> {
-    const date = new Date(session.completedAt!)
-    const yearMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-    const archiveDir = path.join(this.sessionDir!, 'archive', yearMonth)
-
-    await fs.mkdir(archiveDir, { recursive: true })
-
-    const archivePath = path.join(archiveDir, `${session.id}.json`)
-    await fs.writeFile(archivePath, JSON.stringify(session, null, 2))
+  private saveSession(session: Session): void {
+    prjctDb.run(
+      this.projectId!,
+      `INSERT OR REPLACE INTO sessions (id, project_id, task, status, started_at, paused_at, completed_at, duration, metrics, timeline)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      session.id,
+      session.projectId,
+      session.task,
+      session.status,
+      session.startedAt,
+      session.pausedAt ?? null,
+      session.completedAt ?? null,
+      session.duration,
+      JSON.stringify(session.metrics),
+      JSON.stringify(session.timeline)
+    )
   }
 
   /**
    * Get session history
    */
-  async getHistory(limit: number = 10): Promise<Session[]> {
+  async getHistory(limit = 10): Promise<Session[]> {
     if (!this.initialized) await this.initialize()
 
-    const sessions: Session[] = []
-    const archiveDir = path.join(this.sessionDir!, 'archive')
+    const rows = prjctDb.query<SessionRow>(
+      this.projectId!,
+      "SELECT * FROM sessions WHERE project_id = ? AND status = 'completed' ORDER BY completed_at DESC LIMIT ?",
+      this.projectId!,
+      limit
+    )
 
-    try {
-      const months = await fs.readdir(archiveDir)
-      const sortedMonths = months.sort().reverse()
-
-      for (const month of sortedMonths) {
-        if (sessions.length >= limit) break
-
-        const monthDir = path.join(archiveDir, month)
-        const files = await fs.readdir(monthDir)
-
-        for (const file of files.sort().reverse()) {
-          if (sessions.length >= limit) break
-          if (!file.endsWith('.json')) continue
-
-          const content = await fs.readFile(path.join(monthDir, file), 'utf-8')
-          sessions.push(JSON.parse(content))
-        }
-      }
-    } catch (error) {
-      // Archive might not exist yet
-      if (!isNotFoundError(error) && !(error instanceof SyntaxError)) {
-        throw error
-      }
-    }
-
-    return sessions
+    return rows.map(rowToSession)
   }
 
   /**
