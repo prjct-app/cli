@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.45.2] - 2026-02-17
+
+### Bug Fixes
+
+- Jira/Linear MCP OAuth setup - guides user through mcp-remote auth (#212)
+
+
 ## [1.45.2] - 2026-02-16
 
 ### Added
