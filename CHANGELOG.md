@@ -2,13 +2,9 @@
 
 ## [1.45.8] - 2026-02-16
 
-### Added
-- fix provider cache crash and MCP tool access
+### Bug Fixes
 
-## [1.45.7] - 2026-02-16
-
-### Added
-- fix provider cache crash and MCP tool access
+- Provider cache crash on missing codex key; router allowed-tools: ["*"] for MCP access; legacy p/ dir cleanup
 
 ## [1.45.6] - 2026-02-17
 
