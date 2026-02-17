@@ -4,6 +4,16 @@
       "command": "npx",
       "args": ["-y", "@upstash/context7-mcp@latest"],
       "description": "Library documentation lookup"
+    },
+    "linear": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://mcp.linear.app/mcp"],
+      "description": "Linear MCP server (OAuth)"
+    },
+    "jira": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://mcp.atlassian.com/v1/mcp"],
+      "description": "Atlassian MCP server for Jira (OAuth)"
     }
   },
   "usage": {
@@ -13,7 +23,7 @@
     }
   },
   "integrations": {
-    "linear": "SDK - Set LINEAR_API_KEY env var",
-    "jira": "REST API - Set JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN env vars"
+    "linear": "MCP - Run `prjct linear setup`",
+    "jira": "MCP - Run `prjct jira setup`"
   }
 }

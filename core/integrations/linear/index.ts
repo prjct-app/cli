@@ -1,6 +1,6 @@
 /**
  * Linear Integration
- * Issue tracker provider for Linear using @linear/sdk
+ * Issue tracker provider for Linear via MCP (OAuth in AI client)
  */
 
 // Cache utilities

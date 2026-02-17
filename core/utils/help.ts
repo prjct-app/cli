@@ -60,9 +60,15 @@ const TERMINAL_COMMANDS = [
   },
   {
     name: 'linear',
-    description: 'Linear issue tracker CLI',
-    example: 'prjct linear list',
-    subcommands: ['list', 'get', 'create', 'update'],
+    description: 'Linear issue tracker MCP setup/status',
+    example: 'prjct linear setup',
+    subcommands: ['setup', 'status'],
+  },
+  {
+    name: 'jira',
+    description: 'Jira issue tracker MCP setup/status',
+    example: 'prjct jira setup',
+    subcommands: ['setup', 'status'],
   },
   {
     name: 'stop',

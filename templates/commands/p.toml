@@ -28,7 +28,7 @@ If arguments = "task fix the login bug":
 ## Available Commands
 
 task, done, ship, sync, init, idea, dash, next, pause, resume, bug,
-linear, feature, prd, plan, review, merge, git, test, cleanup,
+linear, jira, feature, prd, plan, review, merge, git, test, cleanup,
 design, analyze, history, enrich, update
 
 ## Action

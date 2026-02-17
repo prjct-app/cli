@@ -20,7 +20,6 @@ import {
 } from '../domain/fibonacci'
 import pathManager from '../infrastructure/path-manager'
 import { templateGenerator } from '../infrastructure/template-generator'
-import { linearService } from '../integrations/linear'
 import { generateUUID } from '../schemas'
 import type { AnalysisSchema } from '../schemas/analysis'
 import type { TaskFeedback } from '../schemas/state'
@@ -50,7 +49,6 @@ import {
 } from '../utils/md-formatter'
 import { showNextSteps, showStateInfo } from '../utils/next-steps'
 import { detectProjectCommands } from '../utils/project-commands'
-import { getLinearApiKey, getProjectCredentials } from '../utils/project-credentials'
 import { executeWorkflowRules } from '../workflow/workflow-engine'
 import outcomeRecorder from '../workflows/outcome-recorder'
 import { configManager, dateHelper, out, PrjctCommandsBase } from './base'
@@ -147,24 +145,11 @@ export class WorkflowCommands extends PrjctCommandsBase {
 
         // Check if task is a Linear issue ID (e.g., PRJ-139)
         let linearId: string | undefined
-        let taskDescription = task
+        const taskDescription = task
         const linearPattern = /^[A-Z]+-\d+$/
         if (linearPattern.test(task)) {
-          try {
-            const creds = await getProjectCredentials(projectId)
-            const apiKey = await getLinearApiKey(projectId)
-            if (apiKey && creds.linear?.teamId) {
-              await linearService.initializeFromApiKey(apiKey, creds.linear.teamId)
-              const issue = await linearService.fetchIssue(task)
-              if (issue) {
-                linearId = task
-                taskDescription = `${task}: ${issue.title}`
-                await linearService.markInProgress(task)
-              }
-            }
-          } catch {
-            // Linear fetch failed - continue with task as-is
-          }
+          // Keep local issue linking. Status transitions are MCP-only.
+          linearId = task
         }
 
         if (options.md) {
@@ -560,20 +545,8 @@ export class WorkflowCommands extends PrjctCommandsBase {
         // Non-critical
       }
 
-      // Sync to Linear if task has linearId
+      // Linear status sync is MCP-only and handled by the AI client toolchain.
       const linearId = (currentTask as { linearId?: string }).linearId
-      if (linearId) {
-        try {
-          const creds = await getProjectCredentials(projectId)
-          const apiKey = await getLinearApiKey(projectId)
-          if (apiKey && creds.linear?.teamId) {
-            await linearService.initializeFromApiKey(apiKey, creds.linear.teamId)
-            await linearService.markDone(linearId)
-          }
-        } catch {
-          // Linear sync failed silently - don't block the workflow
-        }
-      }
 
       if (options.md) {
         const durationSuffix = duration ? ` (${duration})` : ''
@@ -593,7 +566,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
       } else {
         const displaySuffix = duration ? ` (${duration}${varianceDisplay})` : ''
         if (linearId) {
-          out.done(`${task}${displaySuffix} → Linear ✓`)
+          out.done(`${task}${displaySuffix} → Linear linked (update via MCP)`)
         } else {
           out.done(`${task}${displaySuffix}`)
         }

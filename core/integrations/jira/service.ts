@@ -43,20 +43,15 @@ export class JiraService {
   }
 
   /**
-   * Initialize from credentials directly
-   * Convenience method for simple setup
+   * Backward-compatible initializer.
+   * Jira is MCP-only; email/token are ignored.
    */
   async initializeFromCredentials(
     baseUrl: string,
-    email: string,
-    apiToken: string,
+    _email: string,
+    _apiToken: string,
     projectKey?: string
   ): Promise<void> {
-    // Set env vars for the provider
-    process.env.JIRA_BASE_URL = baseUrl
-    process.env.JIRA_EMAIL = email
-    process.env.JIRA_API_TOKEN = apiToken
-
     const config: JiraConfig = {
       enabled: true,
       provider: 'jira',
@@ -234,7 +229,7 @@ export class JiraService {
   private ensureInitialized(): void {
     if (!this.initialized) {
       throw new Error(
-        'JIRA service not initialized. Call jiraService.initialize() first or run `p. jira setup`.'
+        'JIRA service not initialized. Call jiraService.initialize() first or run `prjct jira setup`.'
       )
     }
   }

@@ -4,28 +4,26 @@ allowed-tools: [Bash, AskUserQuestion]
 
 # p. linear $ARGUMENTS
 
-## Parse Intent
+Linear is MCP-only.
 
-Understand what the user wants:
-- "actualiza el status de 273" → update PRJ-273 status
-- "mark 303 as done" → mark PRJ-303 as done
-- "get 273" → fetch issue
-- "list" → list issues
-- "setup" → configure
+## Setup / Status
 
-## Execute
+For setup and diagnostics, run:
 
-**For status updates** (actualiza, cambiar, update status):
-1. Extract issue ID (e.g., "273" → "PRJ-273")
-2. Ask user: "What status do you want for PRJ-273? (In Progress, Done, Todo, Canceled)"
-3. Map response to Linear state:
-   - "In Progress" / "Doing" → use `prjct linear start PRJ-273`
-   - "Done" / "Complete" → use `prjct linear done PRJ-273`
-   - Other → use `prjct linear update PRJ-273 '{"stateId":"<state>"}'`
-
-**For other commands:**
 ```bash
 prjct linear $ARGUMENTS --md
 ```
 
-Follow the CLI output.
+Supported CLI subcommands:
+- `setup` → writes Linear MCP server config to `~/.claude/mcp.json`
+- `status` → verifies Linear MCP entry exists
+
+## Issue Operations (list/get/start/done/update/comment)
+
+Do NOT use SDK/API-token flows.
+
+Instead:
+1. Confirm MCP is configured (`prjct linear setup` if needed)
+2. Use Linear MCP tools available in the current AI client/session
+3. If MCP tools are unavailable, explain that Linear operations require an MCP-enabled client
+

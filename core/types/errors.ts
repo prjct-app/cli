@@ -59,7 +59,7 @@ export const ERRORS = {
   },
   LINEAR_NOT_CONFIGURED: {
     message: 'Linear integration not configured',
-    hint: "Run 'p. linear setup' to configure Linear",
+    hint: "Run 'prjct linear setup' to configure Linear MCP",
   },
   LINEAR_API_ERROR: {
     message: 'Linear API error',

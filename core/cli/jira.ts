@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * Linear CLI - MCP setup/status helper
+ * Jira CLI - MCP setup/status helper
  *
- * Usage: bun core/cli/linear.ts <command> [flags]
+ * Usage: bun core/cli/jira.ts <command> [flags]
  *
  * Commands:
- *   setup    - Configure Linear MCP server in ~/.claude/mcp.json
- *   status   - Check Linear MCP configuration status
+ *   setup    - Configure Jira MCP server in ~/.claude/mcp.json
+ *   status   - Check Jira MCP configuration status
  */
 
 import { getErrorMessage } from '../types/fs'
@@ -55,38 +55,38 @@ function error(message: string, code = 1): never {
 }
 
 async function setup(): Promise<void> {
-  const result = await upsertMcpServer('linear', MCP_SERVER_PRESETS.linear)
+  const result = await upsertMcpServer('jira', MCP_SERVER_PRESETS.jira)
   output({
     success: true,
-    provider: 'linear',
+    provider: 'jira',
     mode: 'mcp',
     path: result.path,
     updated: result.changed,
     nextSteps: [
       'Open your MCP-enabled AI client.',
-      'Run any Linear operation to complete OAuth authorization when prompted.',
+      'Run any Jira operation to complete OAuth authorization when prompted.',
     ],
   })
 }
 
 async function status(): Promise<void> {
   const configPath = getClaudeMcpConfigPath()
-  const configured = await hasMcpServer('linear', configPath)
+  const configured = await hasMcpServer('jira', configPath)
 
   output({
-    provider: 'linear',
+    provider: 'jira',
     mode: 'mcp',
     configured,
     path: configPath,
     hint: configured
-      ? 'Linear MCP is configured. OAuth happens inside your AI client.'
-      : 'Run `prjct linear setup` to configure Linear MCP.',
+      ? 'Jira MCP is configured. OAuth happens inside your AI client.'
+      : 'Run `prjct jira setup` to configure Jira MCP.',
   })
 }
 
 function legacyCommandError(name: string): never {
   error(
-    `Command "${name}" was removed from CLI direct mode. Use Linear MCP tools from your AI client after running "prjct linear setup".`
+    `Command "${name}" was removed from CLI direct mode. Use Jira MCP tools from your AI client after running "prjct jira setup".`
   )
 }
 
@@ -106,28 +106,22 @@ async function main(): Promise<void> {
       case '-h':
       case undefined:
         output({
-          usage: 'prjct linear <command>',
+          usage: 'prjct jira <command>',
           commands: {
-            setup: 'Configure Linear MCP server',
-            status: 'Check Linear MCP configuration',
+            setup: 'Configure Jira MCP server',
+            status: 'Check Jira MCP configuration',
           },
-          note: 'Direct SDK/API operations were removed. Linear is MCP-only.',
+          note: 'Direct REST/API-token operations were removed. Jira is MCP-only.',
         })
         break
 
-      case 'list':
-      case 'list-team':
-      case 'get':
-      case 'get-local':
       case 'sync':
-      case 'sync-status':
-      case 'create':
-      case 'update':
       case 'start':
       case 'done':
-      case 'comment':
-      case 'teams':
-      case 'projects':
+      case 'list':
+      case 'get':
+      case 'create':
+      case 'update':
         legacyCommandError(command)
         break
 

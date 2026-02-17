@@ -464,6 +464,30 @@ export const COMMANDS: CommandMeta[] = [
       'Permanent, session, or one-time preferences',
     ],
   },
+  {
+    name: 'linear',
+    group: 'optional',
+    description: 'Linear integration via MCP (setup/status + MCP tool workflow)',
+    usage: { claude: '/p:linear [command]', terminal: 'prjct linear [command]' },
+    params: '[setup|status]',
+    implemented: true,
+    hasTemplate: true,
+    requiresProject: true,
+    isOptional: true,
+    requiresLlm: true,
+  },
+  {
+    name: 'jira',
+    group: 'optional',
+    description: 'Jira integration via MCP (setup/status + MCP tool workflow)',
+    usage: { claude: '/p:jira [command]', terminal: 'prjct jira [command]' },
+    params: '[setup|status]',
+    implemented: true,
+    hasTemplate: true,
+    requiresProject: true,
+    isOptional: true,
+    requiresLlm: true,
+  },
 
   // ===== SETUP COMMANDS =====
   {
