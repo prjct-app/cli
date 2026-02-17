@@ -153,11 +153,13 @@ export class UpdateCommands extends PrjctCommandsBase {
           result.details.push('Homebrew uninstall skipped (not found)')
         }
 
-        execSync('npm install -g prjct-cli', { stdio: 'pipe' })
+        execSync('npm install -g prjct-cli@latest', { stdio: 'pipe' })
         result.details.push('Installed via npm')
       } else {
-        execSync('npm update -g prjct-cli', { stdio: 'pipe' })
-        result.details.push('npm update complete')
+        // Use install @latest instead of update to bypass semver range constraints
+        // and always fetch the true latest from the registry
+        execSync('npm install -g prjct-cli@latest', { stdio: 'pipe' })
+        result.details.push('npm install complete')
       }
 
       // Verify version
