@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.45.4] - 2026-02-17
+
+### Bug Fixes
+
+- MCP OAuth token cache mismatch - pin mcp-remote, allow MCP tools in templates (#214)
+
+
 ## [1.45.6] - 2026-02-17
 
 ### Bug Fixes
