@@ -8,20 +8,17 @@ Jira is MCP-only — no API tokens, no REST calls.
 
 ## Step 0: Check MCP readiness (ALWAYS, except for `setup`)
 
-Before any Jira operation (except `setup`), check if Jira MCP tools are available in your tool list.
-Look for tools starting with `mcp__jira` or `mcp__atlassian`.
+Look for tools starting with `mcp__jira` or `mcp__atlassian` in your tool list.
 
 **If tools ARE available** → proceed with the requested operation below.
 
-**If tools are NOT available** → run setup:
+**If NOT available** → run: `prjct jira status --md` and interpret:
 
-```bash
-prjct jira status --md
-```
-
-If status shows `configured: false` → run `p. jira setup`.
-If status shows `configured: true` → tools were loaded but aren't active in this session.
-Tell the user: "Close and reopen Claude Code to activate Jira MCP tools."
+| Status | Action |
+|--------|--------|
+| `configured: false` | Run `p. jira setup` |
+| `configured: true, oauthReady: false` | Tell user to run in a terminal: `npx -y mcp-remote@0.1.38 https://mcp.atlassian.com/v1/mcp` then restart their AI client |
+| `configured: true, oauthReady: true` | Tell user to restart their AI client |
 
 **Do NOT attempt MCP tool calls if Jira tools are not in your tool list.**
 
