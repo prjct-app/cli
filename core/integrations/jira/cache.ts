@@ -37,12 +37,22 @@ export const projectsCache = new TTLCache<Array<{ id: string; name: string; key?
 })
 
 /**
+ * Cache for sprint-scoped issue lists (active sprint or backlog)
+ * Key format: "sprint:active" | "sprint:backlog"
+ */
+export const sprintIssuesCache = new TTLCache<Issue[]>({
+  ttl: JIRA_CACHE_TTL,
+  maxSize: 10,
+})
+
+/**
  * Clear all JIRA caches
  */
 export function clearJiraCache(): void {
   issueCache.clear()
   assignedIssuesCache.clear()
   projectsCache.clear()
+  sprintIssuesCache.clear()
 }
 
 /**
@@ -53,5 +63,6 @@ export function getJiraCacheStats() {
     issues: issueCache.stats(),
     assignedIssues: assignedIssuesCache.stats(),
     projects: projectsCache.stats(),
+    sprintIssues: sprintIssuesCache.stats(),
   }
 }

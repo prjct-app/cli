@@ -27,7 +27,7 @@ All reads and writes go through the `prjct` CLI, which manages a SQLite database
 
 - **Read state**: Use `prjct status`, `prjct dash`, `prjct next` CLI commands
 - **Write state**: Use `prjct` CLI commands (task, done, pause, resume, etc.)
-- **Sync issues**: Use `prjct linear sync` or `prjct jira sync`
+- **Issue tracker setup**: Use `prjct linear setup` or `prjct jira setup` (MCP/OAuth)
 - **Never** read/write JSON files in `storage/` or `memory/` directories
 
 ---
@@ -294,106 +294,33 @@ Local Storage: prjct.db (Claude/Gemini)
 
 ---
 
-## Local Caching Strategy (CRITICAL)
+## MCP Issue Tracker Strategy
 
-### ⛔ MUST: Read Local, Write Remote
+Issue tracker integrations are MCP-only.
 
-**This is NON-NEGOTIABLE for token efficiency and latency.**
+### Rules
 
-```
-┌─────────────────────────────────────────────────────────┐
-│  READ: ALWAYS from local cache (prjct.db)              │
-│  WRITE: Status updates go to remote API                │
-│  NEVER: Re-fetch issue details after initial sync      │
-└─────────────────────────────────────────────────────────┘
-```
+- `prjct` CLI does not call Linear/Jira SDKs or REST APIs directly.
+- Issue operations (`sync`, `list`, `get`, `start`, `done`, `update`, etc.) are delegated to MCP tools in the AI client.
+- `p. sync` refreshes project context and agent artifacts, not issue tracker payloads.
+- Local storage keeps task linkage metadata (for example `linearId`) and project workflow state in SQLite.
 
-### Why This Matters
+### Setup
 
-| Problem | Without Local Cache | With Local Cache |
-|---------|---------------------|------------------|
-| **Token usage** | Re-read full issue (title, description, AC) every time | Read once, cache forever |
-| **API latency** | 200-500ms per API call | 0ms (local file read) |
-| **API costs** | Multiple calls per task | 1 sync call, then local |
-| **Context bloat** | Full issue in every LLM context | Minimal, only what's needed |
+- `prjct linear setup`
+- `prjct jira setup`
 
-### The Pattern
+### Operational Model
 
 ```
-p. sync          → Fetch ALL issues once → Write to prjct.db
-p. task PRJ-123  → READ from prjct.db (NOT API)
-                 → WRITE status "In Progress" to API
-p. done          → READ state from prjct.db (local)
-                 → WRITE status "Done" to API
+AI client MCP tools <-> Linear/Jira
+          |
+          v
+       prjct workflow state (prjct.db)
 ```
 
-### Cache Locations (all in prjct.db)
-
-| SQLite Key | Source | Purpose |
-|------------|--------|---------|
-| `issues` | Linear/JIRA API | Issue titles, descriptions, AC (READ ONLY after sync) |
-| `state` | Local operations | Current task state |
-| `queue` | Local operations | Task queue |
-| `shipped` | Local operations | Shipped features |
-| `ideas` | Local operations | Captured ideas |
-| `project` | Sync operations | Project metadata |
-| `events` table | All operations | Audit trail + future sync |
-
-### ⛔ NEVER Do These
-
-- **NEVER** call API to get issue details during `p. task` - use local cache
-- **NEVER** re-fetch issue description/AC after initial sync
-- **NEVER** load full issue context into LLM when you already have it cached
-- **NEVER** make API calls for READ operations (except explicit `p. sync`)
-
-### ALLOWED API Calls
-
-Only these remote writes are allowed:
-- `linear.ts start {id}` - Update status to "In Progress"
-- `linear.ts done {id}` - Update status to "Done"
-- `linear.ts comment {id} "..."` - Add completion comment
-- `jira.ts transition {id} "..."` - Update JIRA status
-
-### Sync Strategy
-
-```
-p. sync (explicit)
-     │
-     ▼
-Remote API ──────> Local Cache (prjct.db)
-                        │
-                        ▼
-              All reads from here (0 latency, 0 extra tokens)
-                        │
-                        ▼
-              Status writes ──────> Remote API (fire & forget)
-```
-
-### Token Efficiency Example
-
-```
-WITHOUT cache (BAD):
-  p. task PRJ-123
-  → API call: fetch issue (500ms, 2000 tokens for description+AC)
-  → Work...
-  → API call: fetch issue again for status update (500ms, 2000 tokens)
-  Total: 1000ms latency, 4000 wasted tokens
-
-WITH cache (GOOD):
-  p. sync (once per session)
-  → All issues cached in prjct.db
-  p. task PRJ-123
-  → Read from prjct.db (<1ms, indexed SQLite lookup)
-  → Work...
-  → Write status to API (fire & forget)
-  Total: <1ms read latency, 0 extra tokens
-```
-
-### Cache Invalidation
-
-- `p. sync` forces full refresh from remote
-- TTL-based staleness detection (warns user, doesn't auto-fetch)
-- Manual refresh via `prjct linear sync` or `prjct jira sync`
+The CLI remains the source of truth for local project/task state.
+Issue-system mutations happen through MCP operations in the active AI session.
 
 ---
 

@@ -182,6 +182,11 @@ async function main(): Promise<void> {
         undo: () => commands.undo(),
         redo: () => commands.redo(),
         history: () => commands.history(),
+        enrich: (p) =>
+          commands.enrich(p, process.cwd(), {
+            md,
+            json: options.json === true,
+          }),
         // Setup
         sync: () =>
           commands.sync(process.cwd(), {

@@ -22,8 +22,8 @@ All commands use the `p.` prefix.
 | `p. next` | Show priority queue |
 | `p. idea <desc>` | Quick idea capture |
 | `p. bug <desc>` | Report bug with auto-priority |
-| `p. linear` | Linear integration (via SDK) |
-| `p. jira` | JIRA integration (via REST API) |
+| `p. linear` | Linear integration (via MCP) |
+| `p. jira` | JIRA integration (via MCP) |
 
 ## Execution
 

@@ -44,22 +44,6 @@ export class LinearService {
   }
 
   /**
-   * Initialize from API key directly
-   * Convenience method for simple setup
-   */
-  async initializeFromApiKey(apiKey: string, teamId?: string): Promise<void> {
-    const config: LinearConfig = {
-      enabled: true,
-      provider: 'linear',
-      apiKey,
-      defaultTeamId: teamId,
-      syncOn: { task: true, done: true, ship: true },
-      enrichment: { enabled: true, updateProvider: true },
-    }
-    await this.initialize(config)
-  }
-
-  /**
    * Get issues assigned to current user (cached)
    */
   async fetchAssignedIssues(options?: FetchOptions): Promise<Issue[]> {
@@ -250,7 +234,7 @@ export class LinearService {
   private ensureInitialized(): void {
     if (!this.initialized) {
       throw new Error(
-        'Linear service not initialized. Call linearService.initialize() first or run `p. linear setup`.'
+        'Linear service not initialized. Call linearService.initialize() first or run `prjct linear setup`.'
       )
     }
   }

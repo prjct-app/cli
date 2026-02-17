@@ -6,7 +6,6 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, mock } from 'bun:test'
 import fs from 'node:fs'
 import fsPromises from 'node:fs/promises'
-import os from 'node:os'
 import path from 'node:path'
 // Import dependencies to mock
 import chainOfThought from '../../agentic/chain-of-thought'
@@ -31,7 +30,9 @@ import toolRegistry from '../../agentic/tool-registry'
 // =============================================================================
 
 const TEST_BASE_DIR = path.join(process.cwd(), '.tmp', 'prjct-cli-tests', 'command-executor')
-const RUNNING_FILE = path.join(os.homedir(), '.prjct-cli', '.running')
+const TEST_PRJCT_HOME = path.join(TEST_BASE_DIR, 'prjct-home')
+const RUNNING_FILE = path.join(TEST_PRJCT_HOME, '.running')
+const ORIGINAL_PRJCT_CLI_HOME = process.env.PRJCT_CLI_HOME
 
 let testCounter = 0
 const getTestProjectId = () => `test-cmd-exec-${Date.now()}-${++testCounter}`
@@ -84,9 +85,16 @@ function createMockState(overrides = {}) {
 describe('CommandExecutor', () => {
   beforeAll(async () => {
     await fsPromises.mkdir(TEST_BASE_DIR, { recursive: true })
+    process.env.PRJCT_CLI_HOME = TEST_PRJCT_HOME
   })
 
   afterAll(async () => {
+    if (ORIGINAL_PRJCT_CLI_HOME === undefined) {
+      delete process.env.PRJCT_CLI_HOME
+    } else {
+      process.env.PRJCT_CLI_HOME = ORIGINAL_PRJCT_CLI_HOME
+    }
+
     try {
       await fsPromises.rm(TEST_BASE_DIR, { recursive: true, force: true })
     } catch (_error) {

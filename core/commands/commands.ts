@@ -237,6 +237,14 @@ class PrjctCommands {
     return this.maintenance.history(projectPath)
   }
 
+  async enrich(
+    input: string | null = null,
+    projectPath: string = process.cwd(),
+    options: { md?: boolean; json?: boolean } = {}
+  ): Promise<CommandResult> {
+    return this.maintenance.enrich(input, projectPath, options)
+  }
+
   // ========== Analysis Commands ==========
 
   async analyze(

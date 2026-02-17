@@ -236,13 +236,18 @@ Both verification modes support `--json` flag for programmatic use.
 | `DEBUG` | _(unset)_ | Fallback debug flag (used if `PRJCT_DEBUG` is not set). Values: `1`, `true`, or `prjct`. |
 | `CI` | _(unset)_ | Set automatically in CI environments. Skips interactive prompts. |
 
-### JIRA Integration
+### Issue Tracker MCP (Linear + Jira)
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `JIRA_BASE_URL` | _(none)_ | JIRA instance URL (e.g., `https://myorg.atlassian.net`). |
-| `JIRA_EMAIL` | _(none)_ | Email for JIRA API authentication. |
-| `JIRA_API_TOKEN` | _(none)_ | API token for JIRA authentication. Generate at [Atlassian API tokens](https://id.atlassian.com/manage-profile/security/api-tokens). |
+Issue trackers are configured via MCP (OAuth in your AI client), not API tokens.
+
+| Command | Description |
+|---------|-------------|
+| `prjct linear setup` | Configure Linear MCP server in `~/.claude/mcp.json`. |
+| `prjct linear status` | Verify Linear MCP config. |
+| `prjct linear <sync|list|get|create|update|start|done|comment>` | Delegate Linear operation to MCP tools in your AI client. |
+| `prjct jira setup` | Configure Jira MCP server in `~/.claude/mcp.json`. |
+| `prjct jira status` | Verify Jira MCP config. |
+| `prjct jira <sync|list|get|create|update|start|done|transition|comment>` | Delegate Jira operation to MCP tools in your AI client. |
 
 ### Agent Detection (Auto-set)
 
@@ -264,10 +269,8 @@ PRJCT_DEBUG=1 prjct sync
 # Use a custom storage location
 PRJCT_CLI_HOME=/tmp/prjct-test prjct init
 
-# Configure JIRA integration via env vars
-export JIRA_BASE_URL=https://myorg.atlassian.net
-export JIRA_EMAIL=you@example.com
-export JIRA_API_TOKEN=your-api-token
+# Configure Linear + Jira via MCP
+prjct linear setup
 prjct jira setup
 ```
 

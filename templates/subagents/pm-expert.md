@@ -41,9 +41,9 @@ Each project can have a **different issue tracker**. Configuration is stored per
 
 | Provider | Status | Auth |
 |----------|--------|------|
-| Linear | ✅ Ready | `LINEAR_API_KEY` |
+| Linear | ✅ Ready | MCP (OAuth) |
 | GitHub Issues | 🔜 Soon | `GITHUB_TOKEN` |
-| Jira | 🔜 Soon | `JIRA_API_TOKEN` |
+| Jira | 🔜 Soon | MCP (OAuth) |
 | Monday | 🔜 Soon | `MONDAY_API_KEY` |
 | None | ✅ Ready | - |
 

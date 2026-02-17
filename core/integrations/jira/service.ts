@@ -17,6 +17,7 @@ import {
   getJiraCacheStats,
   issueCache,
   projectsCache,
+  sprintIssuesCache,
 } from './cache'
 import { jiraProvider } from './client'
 
@@ -40,32 +41,6 @@ export class JiraService {
 
     await jiraProvider.initialize(config)
     this.initialized = true
-  }
-
-  /**
-   * Initialize from credentials directly
-   * Convenience method for simple setup
-   */
-  async initializeFromCredentials(
-    baseUrl: string,
-    email: string,
-    apiToken: string,
-    projectKey?: string
-  ): Promise<void> {
-    // Set env vars for the provider
-    process.env.JIRA_BASE_URL = baseUrl
-    process.env.JIRA_EMAIL = email
-    process.env.JIRA_API_TOKEN = apiToken
-
-    const config: JiraConfig = {
-      enabled: true,
-      provider: 'jira',
-      baseUrl,
-      projectKey,
-      syncOn: { task: true, done: true, ship: true },
-      enrichment: { enabled: true, updateProvider: true },
-    }
-    await this.initialize(config)
   }
 
   /**
@@ -199,6 +174,52 @@ export class JiraService {
   }
 
   /**
+   * Get issues assigned to current user in the active sprint (cached)
+   */
+  async fetchActiveSprintIssues(options?: FetchOptions): Promise<Issue[]> {
+    this.ensureInitialized()
+
+    const cacheKey = 'sprint:active'
+    const cached = sprintIssuesCache.get(cacheKey)
+    if (cached) {
+      return cached
+    }
+
+    const issues = await jiraProvider.fetchActiveSprintIssues(options)
+    sprintIssuesCache.set(cacheKey, issues)
+
+    for (const issue of issues) {
+      issueCache.set(`issue:${issue.id}`, issue)
+      issueCache.set(`issue:${issue.externalId}`, issue)
+    }
+
+    return issues
+  }
+
+  /**
+   * Get issues assigned to current user in the backlog (cached)
+   */
+  async fetchBacklogIssues(options?: FetchOptions): Promise<Issue[]> {
+    this.ensureInitialized()
+
+    const cacheKey = 'sprint:backlog'
+    const cached = sprintIssuesCache.get(cacheKey)
+    if (cached) {
+      return cached
+    }
+
+    const issues = await jiraProvider.fetchBacklogIssues(options)
+    sprintIssuesCache.set(cacheKey, issues)
+
+    for (const issue of issues) {
+      issueCache.set(`issue:${issue.id}`, issue)
+      issueCache.set(`issue:${issue.externalId}`, issue)
+    }
+
+    return issues
+  }
+
+  /**
    * Get available projects (cached)
    */
   async getProjects(): Promise<Array<{ id: string; name: string; key?: string }>> {
@@ -209,7 +230,7 @@ export class JiraService {
       return cached
     }
 
-    const projects = await jiraProvider.getTeams()
+    const projects = await jiraProvider.getProjects()
     projectsCache.set('projects', projects)
     return projects
   }
@@ -234,7 +255,7 @@ export class JiraService {
   private ensureInitialized(): void {
     if (!this.initialized) {
       throw new Error(
-        'JIRA service not initialized. Call jiraService.initialize() first or run `p. jira setup`.'
+        'JIRA service not initialized. Call jiraService.initialize() first or run `prjct jira setup`.'
       )
     }
   }

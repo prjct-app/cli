@@ -21,11 +21,11 @@
 
 const { execSync } = require('node:child_process')
 const fs = require('node:fs')
+const os = require('node:os')
 const path = require('node:path')
 
 const ROOT = path.resolve(__dirname, '..')
 const PACKAGE_JSON = path.join(ROOT, 'package.json')
-const DIST = path.join(ROOT, 'dist')
 
 // Colors
 const RED = '\x1b[31m'
@@ -51,7 +51,11 @@ function error(msg) {
 }
 
 function exec(cmd, options = {}) {
-  return execSync(cmd, { cwd: ROOT, encoding: 'utf8', ...options }).trim()
+  const env = { ...process.env }
+  if (!env.NPM_CONFIG_CACHE) {
+    env.NPM_CONFIG_CACHE = path.join(os.tmpdir(), 'prjct-npm-cache')
+  }
+  return execSync(cmd, { cwd: ROOT, encoding: 'utf8', env, ...options }).trim()
 }
 
 function execSilent(cmd) {
@@ -107,127 +111,8 @@ function validate() {
 
 async function build() {
   log('\n🔨 Step 2: Build\n')
-
-  const esbuild = require('esbuild')
-
-  // Clean dist
-  if (fs.existsSync(DIST)) {
-    fs.rmSync(DIST, { recursive: true })
-  }
-  fs.mkdirSync(DIST, { recursive: true })
-
-  // Create directory structure
-  fs.mkdirSync(path.join(DIST, 'bin'), { recursive: true })
-  fs.mkdirSync(path.join(DIST, 'core', 'infrastructure'), { recursive: true })
-  fs.mkdirSync(path.join(DIST, 'core', 'utils'), { recursive: true })
-
-  // 1. Build CLI entry point (ESM for bin/prjct wrapper)
-  info('Building bin/prjct.mjs...')
-  await esbuild.build({
-    entryPoints: [path.join(ROOT, 'bin/prjct.ts')],
-    outfile: path.join(DIST, 'bin', 'prjct.mjs'),
-    bundle: true,
-    platform: 'node',
-    target: 'node18',
-    format: 'esm',
-    sourcemap: false,
-    minify: false,
-    keepNames: true,
-    packages: 'external',
-    banner: {
-      js: `#!/usr/bin/env node
-import { fileURLToPath as __fileURLToPath } from 'url';
-import { dirname as __pathDirname } from 'path';
-const __filename = __fileURLToPath(import.meta.url);
-const __dirname = __pathDirname(__filename);`,
-    },
-  })
-  fs.chmodSync(path.join(DIST, 'bin', 'prjct.mjs'), 0o755)
-  success('bin/prjct.mjs')
-
-  // 2. Build setup module (CJS for postinstall)
-  info('Building core/infrastructure/setup.js...')
-  await esbuild.build({
-    entryPoints: [path.join(ROOT, 'core/infrastructure/setup.ts')],
-    outfile: path.join(DIST, 'core', 'infrastructure', 'setup.js'),
-    bundle: true,
-    platform: 'node',
-    target: 'node18',
-    format: 'cjs',
-    sourcemap: false,
-    minify: false,
-    keepNames: true,
-    packages: 'external',
-    external: ['../utils/version'], // Will be built separately
-  })
-  success('core/infrastructure/setup.js')
-
-  // 3. Build command-installer (CJS, used by setup)
-  info('Building core/infrastructure/command-installer.js...')
-  await esbuild.build({
-    entryPoints: [path.join(ROOT, 'core/infrastructure/command-installer.ts')],
-    outfile: path.join(DIST, 'core', 'infrastructure', 'command-installer.js'),
-    bundle: true,
-    platform: 'node',
-    target: 'node18',
-    format: 'cjs',
-    sourcemap: false,
-    minify: false,
-    keepNames: true,
-    packages: 'external',
-  })
-  success('core/infrastructure/command-installer.js')
-
-  // 4. Build editors-config (CJS, used by setup)
-  info('Building core/infrastructure/editors-config.js...')
-  await esbuild.build({
-    entryPoints: [path.join(ROOT, 'core/infrastructure/editors-config.ts')],
-    outfile: path.join(DIST, 'core', 'infrastructure', 'editors-config.js'),
-    bundle: true,
-    platform: 'node',
-    target: 'node18',
-    format: 'cjs',
-    sourcemap: false,
-    minify: false,
-    keepNames: true,
-    packages: 'external',
-  })
-  success('core/infrastructure/editors-config.js')
-
-  // 5. Build version util (CJS)
-  info('Building core/utils/version.js...')
-  await esbuild.build({
-    entryPoints: [path.join(ROOT, 'core/utils/version.ts')],
-    outfile: path.join(DIST, 'core', 'utils', 'version.js'),
-    bundle: true,
-    platform: 'node',
-    target: 'node18',
-    format: 'cjs',
-    sourcemap: false,
-    minify: false,
-    keepNames: true,
-    packages: 'external',
-  })
-  success('core/utils/version.js')
-
-  // Verify all files exist
-  const requiredFiles = [
-    'bin/prjct.mjs',
-    'core/infrastructure/setup.js',
-    'core/infrastructure/command-installer.js',
-    'core/infrastructure/editors-config.js',
-    'core/utils/version.js',
-  ]
-
-  for (const file of requiredFiles) {
-    const fullPath = path.join(DIST, file)
-    if (!fs.existsSync(fullPath)) {
-      error(`Missing: ${file}`)
-      process.exit(1)
-    }
-  }
-
-  success(`Build complete: ${requiredFiles.length} files`)
+  exec('node scripts/build.js', { stdio: 'inherit' })
+  success('Build complete')
 }
 
 // =============================================================================

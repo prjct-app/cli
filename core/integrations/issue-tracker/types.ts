@@ -34,6 +34,19 @@ export interface Issue {
     name: string
     key?: string
   }
+  /** Active sprint this issue belongs to (Jira only) */
+  sprint?: {
+    id: string
+    name: string
+    state?: 'active' | 'closed' | 'future'
+    startDate?: string
+    endDate?: string
+  }
+  /** Board this issue is on (Jira only) */
+  board?: {
+    id: string
+    name: string
+  }
   url: string
   createdAt: string
   updatedAt: string
@@ -179,9 +192,7 @@ export interface IssueTrackerProvider {
 export interface IssueTrackerConfig {
   enabled: boolean
   provider: IssueProvider
-  // API authentication
-  apiKey?: string
-  accessToken?: string
+  // Authentication is handled via MCP OAuth in the AI client session.
   // Default team/project for new issues
   defaultTeamId?: string
   defaultProjectId?: string
@@ -261,6 +272,19 @@ export interface FetchOptions {
    * Team filter (when scope is 'team')
    */
   teamId?: string
+
+  /**
+   * Sprint scope filter (Jira only)
+   * 'active'  — issues in the current active sprint
+   * 'backlog' — issues not assigned to any sprint (backlog)
+   * 'all'     — both sprint and backlog (default for fetchAssignedIssues)
+   */
+  sprintScope?: 'active' | 'backlog' | 'all'
+
+  /**
+   * Board ID filter (Jira only) — scope sprint/backlog to a specific board
+   */
+  boardId?: string
 }
 
 // =============================================================================

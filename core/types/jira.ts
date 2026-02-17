@@ -48,4 +48,4 @@ export interface JiraProject {
   name: string
 }
 
-export type JiraAuthMode = 'api-token' | 'mcp' | 'none'
+export type JiraAuthMode = 'mcp' | 'none'

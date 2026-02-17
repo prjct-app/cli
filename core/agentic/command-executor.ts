@@ -37,18 +37,22 @@ import toolRegistry from './tool-registry'
 // Status Signal
 // =============================================================================
 
-const RUNNING_FILE = path.join(os.homedir(), '.prjct-cli', '.running')
+function getRunningFilePath(): string {
+  const base = process.env.PRJCT_CLI_HOME?.trim() || path.join(os.homedir(), '.prjct-cli')
+  return path.join(base, '.running')
+}
 
 /**
  * Signal that a command is running (for status line)
  */
 export async function signalStart(commandName: string): Promise<void> {
   try {
-    const dir = path.dirname(RUNNING_FILE)
+    const runningFile = getRunningFilePath()
+    const dir = path.dirname(runningFile)
     if (!(await fileExists(dir))) {
       await fs.mkdir(dir, { recursive: true })
     }
-    await fs.writeFile(RUNNING_FILE, `/p:${commandName}`)
+    await fs.writeFile(runningFile, `/p:${commandName}`)
   } catch (_error) {
     // Silently ignore - status line is optional
   }
@@ -59,8 +63,9 @@ export async function signalStart(commandName: string): Promise<void> {
  */
 export async function signalEnd(): Promise<void> {
   try {
-    if (await fileExists(RUNNING_FILE)) {
-      await fs.unlink(RUNNING_FILE)
+    const runningFile = getRunningFilePath()
+    if (await fileExists(runningFile)) {
+      await fs.unlink(runningFile)
     }
   } catch (_error) {
     // Silently ignore - status line is optional
