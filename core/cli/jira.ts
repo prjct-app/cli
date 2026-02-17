@@ -9,6 +9,7 @@ import { getErrorMessage } from '../types/fs'
 import {
   getClaudeMcpConfigPath,
   hasMcpServer,
+  MCP_REMOTE_AUTH_COMMANDS,
   MCP_SERVER_PRESETS,
   upsertMcpServer,
 } from '../utils/mcp-config'
@@ -57,11 +58,11 @@ async function setup(): Promise<void> {
     updated: result.changed,
     nextSteps: [
       'STEP 1 (done): MCP config written to mcp.json.',
-      'STEP 2: Open a NEW terminal and run: npx -y mcp-remote https://mcp.atlassian.com/v1/mcp',
+      `STEP 2: Open a NEW terminal and run: ${MCP_REMOTE_AUTH_COMMANDS.jira}`,
       'STEP 2: A browser will open for OAuth — complete the authorization.',
       'STEP 3: Close and reopen Claude Code. Jira MCP tools will be ready.',
     ],
-    authCommand: 'npx -y mcp-remote https://mcp.atlassian.com/v1/mcp',
+    authCommand: MCP_REMOTE_AUTH_COMMANDS.jira,
   })
 }
 

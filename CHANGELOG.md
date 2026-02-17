@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.45.6] - 2026-02-17
+
+### Bug Fixes
+
+- MCP OAuth token cache mismatch - pin mcp-remote version + allow MCP tools in templates (#214)
+
+## [1.45.5] - 2026-02-17
+
+### Bug Fixes
+
+- MCP OAuth token cache mismatch - pin mcp-remote version + allow MCP tools in templates (#214)
+
+## [1.45.4] - 2026-02-17
+
+### Bug Fixes
+
+- p. workflow agentic natural language parsing (#213)
+
 ## [1.45.3] - 2026-02-17
 
 ### Bug Fixes

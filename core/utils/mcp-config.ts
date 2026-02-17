@@ -15,17 +15,28 @@ interface MCPConfig {
   [key: string]: unknown
 }
 
+// Pin mcp-remote version to avoid token cache mismatch:
+// mcp-remote stores OAuth tokens in ~/.mcp-auth/mcp-remote-{version}/
+// If mcp.json and the manual auth step use different versions, Claude Code
+// won't find the cached tokens and silently fails to authenticate.
+const MCP_REMOTE_VERSION = 'mcp-remote@0.1.38'
+
 export const MCP_SERVER_PRESETS: Record<'linear' | 'jira', MCPServerConfig> = {
   linear: {
     command: 'npx',
-    args: ['-y', 'mcp-remote', 'https://mcp.linear.app/mcp'],
+    args: ['-y', MCP_REMOTE_VERSION, 'https://mcp.linear.app/mcp'],
     description: 'Linear MCP server (OAuth)',
   },
   jira: {
     command: 'npx',
-    args: ['-y', 'mcp-remote', 'https://mcp.atlassian.com/v1/mcp'],
+    args: ['-y', MCP_REMOTE_VERSION, 'https://mcp.atlassian.com/v1/mcp'],
     description: 'Atlassian MCP server for Jira (OAuth)',
   },
+}
+
+export const MCP_REMOTE_AUTH_COMMANDS: Record<'linear' | 'jira', string> = {
+  linear: `npx -y ${MCP_REMOTE_VERSION} https://mcp.linear.app/mcp`,
+  jira: `npx -y ${MCP_REMOTE_VERSION} https://mcp.atlassian.com/v1/mcp`,
 }
 
 export function getClaudeMcpConfigPath(): string {
