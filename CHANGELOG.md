@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.45.2] - 2026-02-16
+
+### Added
+- fix: Jira/Linear MCP OAuth setup
+
 ## [1.45.1] - 2026-02-17
 
 ### Bug Fixes

@@ -1,7 +1,7 @@
 <!-- prjct-project:start - DO NOT REMOVE THIS MARKER -->
 # prjct-cli - Project Rules
 <!-- projectId: bc401c41-c8b9-436a-ac78-c91cac82ab4f -->
-<!-- Generated: 2026-02-17T01:52:38.973Z -->
+<!-- Generated: 2026-02-17T02:56:23.371Z -->
 <!-- Ecosystem: JavaScript | Type: enterprise -->
 
 ## THIS PROJECT (JavaScript)
@@ -69,11 +69,11 @@ p. sync → p. task "desc" → [work] → p. done → p. ship
 | Field | Value |
 |-------|-------|
 | Name | prjct-cli |
-| Version | 1.44.10 |
+| Version | 1.45.2 |
 | Ecosystem | JavaScript |
-| Branch | bug/daemon-restart-after-update |
+| Branch | fix/jira-linear-mcp-setup-templates |
 | Files | ~362 |
-| Commits | 621 |
+| Commits | 623 |
 
 ## Agents
 
