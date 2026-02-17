@@ -9,6 +9,7 @@ import { getErrorMessage } from '../types/fs'
 import {
   getClaudeMcpConfigPath,
   hasMcpServer,
+  MCP_REMOTE_AUTH_COMMANDS,
   MCP_SERVER_PRESETS,
   upsertMcpServer,
 } from '../utils/mcp-config'
@@ -57,11 +58,11 @@ async function setup(): Promise<void> {
     updated: result.changed,
     nextSteps: [
       'STEP 1 (done): MCP config written to mcp.json.',
-      'STEP 2: Open a NEW terminal and run: npx -y mcp-remote https://mcp.linear.app/mcp',
+      `STEP 2: Open a NEW terminal and run: ${MCP_REMOTE_AUTH_COMMANDS.linear}`,
       'STEP 2: A browser will open for OAuth — complete the authorization.',
       'STEP 3: Close and reopen Claude Code. Linear MCP tools will be ready.',
     ],
-    authCommand: 'npx -y mcp-remote https://mcp.linear.app/mcp',
+    authCommand: MCP_REMOTE_AUTH_COMMANDS.linear,
   })
 }
 

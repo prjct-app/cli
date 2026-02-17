@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.45.4] - 2026-02-16
+
+### Added
+- fix: p. workflow agentic natural language parsing
+
+## [1.45.3] - 2026-02-16
+
+### Added
+- fix: p. workflow agentic natural language parsing
+
 ## [1.45.2] - 2026-02-16
 
 ### Added
