@@ -43,27 +43,6 @@ export class JiraService {
   }
 
   /**
-   * Backward-compatible initializer.
-   * Jira is MCP-only; email/token are ignored.
-   */
-  async initializeFromCredentials(
-    baseUrl: string,
-    _email: string,
-    _apiToken: string,
-    projectKey?: string
-  ): Promise<void> {
-    const config: JiraConfig = {
-      enabled: true,
-      provider: 'jira',
-      baseUrl,
-      projectKey,
-      syncOn: { task: true, done: true, ship: true },
-      enrichment: { enabled: true, updateProvider: true },
-    }
-    await this.initialize(config)
-  }
-
-  /**
    * Get issues assigned to current user (cached)
    */
   async fetchAssignedIssues(options?: FetchOptions): Promise<Issue[]> {

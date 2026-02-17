@@ -92,9 +92,7 @@ export class IssueTrackerManager {
    * Fetch assigned issues
    */
   async fetchAssignedIssues(options?: FetchOptions): Promise<Issue[]> {
-    if (!this.activeProvider) {
-      throw new Error('No issue tracker configured')
-    }
+    if (!this.activeProvider) return []
     return this.activeProvider.fetchAssignedIssues(options)
   }
 
@@ -102,9 +100,7 @@ export class IssueTrackerManager {
    * Fetch single issue
    */
   async fetchIssue(id: string): Promise<Issue | null> {
-    if (!this.activeProvider) {
-      throw new Error('No issue tracker configured')
-    }
+    if (!this.activeProvider) return null
     return this.activeProvider.fetchIssue(id)
   }
 
@@ -113,7 +109,9 @@ export class IssueTrackerManager {
    */
   async createIssue(input: CreateIssueInput): Promise<Issue> {
     if (!this.activeProvider) {
-      throw new Error('No issue tracker configured')
+      throw new Error(
+        'No issue tracker configured. Run `prjct linear setup` or `prjct jira setup` first.'
+      )
     }
     return this.activeProvider.createIssue(input)
   }
@@ -122,9 +120,7 @@ export class IssueTrackerManager {
    * Mark issue in progress
    */
   async markInProgress(id: string): Promise<void> {
-    if (!this.activeProvider) {
-      throw new Error('No issue tracker configured')
-    }
+    if (!this.activeProvider) return
     return this.activeProvider.markInProgress(id)
   }
 
@@ -132,9 +128,7 @@ export class IssueTrackerManager {
    * Mark issue done
    */
   async markDone(id: string): Promise<void> {
-    if (!this.activeProvider) {
-      throw new Error('No issue tracker configured')
-    }
+    if (!this.activeProvider) return
     return this.activeProvider.markDone(id)
   }
 
@@ -176,9 +170,7 @@ export class IssueTrackerManager {
    * Update issue with enrichment in provider
    */
   async pushEnrichment(issue: Issue, enrichment: EnrichmentResult): Promise<Issue> {
-    if (!this.activeProvider) {
-      throw new Error('No issue tracker configured')
-    }
+    if (!this.activeProvider) return issue
 
     if (!this.config?.enrichment.updateProvider) {
       console.log('[issue-tracker] Skipping provider update (disabled)')
@@ -206,7 +198,14 @@ export class IssueTrackerManager {
     }
   ): Promise<SyncResult> {
     if (!this.activeProvider) {
-      throw new Error('No issue tracker configured')
+      return {
+        provider: 'none',
+        fetched: 0,
+        enriched: 0,
+        updated: 0,
+        errors: [],
+        timestamp: new Date().toISOString(),
+      }
     }
 
     const result: SyncResult = {

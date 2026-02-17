@@ -94,6 +94,7 @@ export function registerAllCommands(): void {
   commandRegistry.registerMethod('undo', maintenance, 'undo', getMeta('undo'))
   commandRegistry.registerMethod('redo', maintenance, 'redo', getMeta('redo'))
   commandRegistry.registerMethod('history', maintenance, 'history', getMeta('history'))
+  commandRegistry.registerMethod('enrich', maintenance, 'enrich', getMeta('enrich'))
 
   // Analysis commands
   commandRegistry.registerMethod('analyze', analysis, 'analyze', getMeta('analyze'))

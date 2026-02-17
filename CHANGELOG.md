@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.44.8] - 2026-02-16
+
+### Added
+- MCP Issue Trackers
+
+## [1.44.7] - 2026-02-16
+
+### Added
+- MCP Issue Trackers
+
+## [1.44.6] - 2026-02-16
+
+### Added
+- MCP Issue Trackers
+
+## [1.44.5] - 2026-02-16
+
+### Added
+- mcp-only-issue-trackers
+
 ## [1.44.4] - 2026-02-16
 
 ### Bug Fixes

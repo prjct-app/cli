@@ -179,9 +179,7 @@ export interface IssueTrackerProvider {
 export interface IssueTrackerConfig {
   enabled: boolean
   provider: IssueProvider
-  // API authentication
-  apiKey?: string
-  accessToken?: string
+  // Authentication is handled via MCP OAuth in the AI client session.
   // Default team/project for new issues
   defaultTeamId?: string
   defaultProjectId?: string

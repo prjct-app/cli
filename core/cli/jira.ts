@@ -1,12 +1,8 @@
 #!/usr/bin/env node
 /**
- * Jira CLI - MCP setup/status helper
+ * Jira CLI - MCP command gateway
  *
  * Usage: bun core/cli/jira.ts <command> [flags]
- *
- * Commands:
- *   setup    - Configure Jira MCP server in ~/.claude/mcp.json
- *   status   - Check Jira MCP configuration status
  */
 
 import { getErrorMessage } from '../types/fs'
@@ -19,17 +15,14 @@ import {
 
 const args = process.argv.slice(2)
 
-// Keep compatibility with existing wrapper that injects --project.
-const projectIdx = args.indexOf('--project')
-if (projectIdx !== -1) {
-  args.splice(projectIdx, 2)
-}
-
 const jsonIdx = args.indexOf('--json')
 const jsonMode = jsonIdx !== -1
 if (jsonMode) args.splice(jsonIdx, 1)
 
-const [command] = args
+const mdIdx = args.indexOf('--md')
+if (mdIdx !== -1) args.splice(mdIdx, 1)
+
+const [command, ...commandArgs] = args
 
 function output(data: unknown): void {
   if (jsonMode) {
@@ -84,10 +77,27 @@ async function status(): Promise<void> {
   })
 }
 
-function legacyCommandError(name: string): never {
-  error(
-    `Command "${name}" was removed from CLI direct mode. Use Jira MCP tools from your AI client after running "prjct jira setup".`
-  )
+async function runMcpOperation(name: string, opArgs: string[]): Promise<void> {
+  const configPath = getClaudeMcpConfigPath()
+  const configured = await hasMcpServer('jira', configPath)
+
+  if (!configured) {
+    error('Jira MCP is not configured. Run `prjct jira setup` first.')
+  }
+
+  output({
+    success: true,
+    provider: 'jira',
+    mode: 'mcp',
+    delegated: true,
+    command: name,
+    args: opArgs,
+    hint: 'Run this operation using Jira MCP tools in your current AI client session.',
+    nextSteps: [
+      'Open your MCP-enabled AI client/session.',
+      `Execute the Jira MCP operation for "${name}".`,
+    ],
+  })
 }
 
 async function main(): Promise<void> {
@@ -110,8 +120,16 @@ async function main(): Promise<void> {
           commands: {
             setup: 'Configure Jira MCP server',
             status: 'Check Jira MCP configuration',
+            sync: 'Delegate issue sync via MCP tools',
+            list: 'Delegate issue listing via MCP tools',
+            get: 'Delegate issue retrieval via MCP tools',
+            create: 'Delegate issue creation via MCP tools',
+            update: 'Delegate issue update via MCP tools',
+            start: 'Delegate status transition to in-progress via MCP tools',
+            done: 'Delegate status transition to done via MCP tools',
+            transition: 'Delegate workflow transition via MCP tools',
           },
-          note: 'Direct REST/API-token operations were removed. Jira is MCP-only.',
+          note: 'Jira is MCP-only.',
         })
         break
 
@@ -122,7 +140,11 @@ async function main(): Promise<void> {
       case 'get':
       case 'create':
       case 'update':
-        legacyCommandError(command)
+      case 'transition':
+      case 'comment':
+      case 'projects':
+      case 'boards':
+        await runMcpOperation(command, commandArgs)
         break
 
       default:

@@ -1,7 +1,7 @@
 <!-- prjct-project:start - DO NOT REMOVE THIS MARKER -->
 # prjct-cli - Project Rules
 <!-- projectId: bc401c41-c8b9-436a-ac78-c91cac82ab4f -->
-<!-- Generated: 2026-02-16T23:51:08.286Z -->
+<!-- Generated: 2026-02-17T00:43:53.009Z -->
 <!-- Ecosystem: JavaScript | Type: enterprise -->
 
 ## THIS PROJECT (JavaScript)
@@ -69,11 +69,11 @@ p. sync → p. task "desc" → [work] → p. done → p. ship
 | Field | Value |
 |-------|-------|
 | Name | prjct-cli |
-| Version | 1.44.4 |
+| Version | 1.44.6 |
 | Ecosystem | JavaScript |
-| Branch | main |
-| Files | ~363 |
-| Commits | 617 |
+| Branch | release/mcp-issue-trackers-mcp |
+| Files | ~362 |
+| Commits | 618 |
 
 ## Agents
 

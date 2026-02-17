@@ -44,21 +44,6 @@ export class LinearService {
   }
 
   /**
-   * Backward-compatible initializer.
-   * Linear is MCP-only; API key is ignored.
-   */
-  async initializeFromApiKey(_apiKey: string, teamId?: string): Promise<void> {
-    const config: LinearConfig = {
-      enabled: true,
-      provider: 'linear',
-      defaultTeamId: teamId,
-      syncOn: { task: true, done: true, ship: true },
-      enrichment: { enabled: true, updateProvider: true },
-    }
-    await this.initialize(config)
-  }
-
-  /**
    * Get issues assigned to current user (cached)
    */
   async fetchAssignedIssues(options?: FetchOptions): Promise<Issue[]> {

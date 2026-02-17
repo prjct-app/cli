@@ -244,8 +244,10 @@ Issue trackers are configured via MCP (OAuth in your AI client), not API tokens.
 |---------|-------------|
 | `prjct linear setup` | Configure Linear MCP server in `~/.claude/mcp.json`. |
 | `prjct linear status` | Verify Linear MCP config. |
+| `prjct linear <sync|list|get|create|update|start|done|comment>` | Delegate Linear operation to MCP tools in your AI client. |
 | `prjct jira setup` | Configure Jira MCP server in `~/.claude/mcp.json`. |
 | `prjct jira status` | Verify Jira MCP config. |
+| `prjct jira <sync|list|get|create|update|start|done|transition|comment>` | Delegate Jira operation to MCP tools in your AI client. |
 
 ### Agent Detection (Auto-set)
 

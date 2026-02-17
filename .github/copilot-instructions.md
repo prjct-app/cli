@@ -34,11 +34,11 @@ Workflow: `p. sync` → `p. task "desc"` → work → `p. done` → `p. ship`
 | Field | Value |
 |-------|-------|
 | Name | prjct-cli |
-| Version | 1.44.4 |
+| Version | 1.44.6 |
 | Ecosystem | JavaScript |
-| Branch | main |
-| Files | ~363 |
-| Commits | 617 |
+| Branch | release/mcp-issue-trackers-mcp |
+| Files | ~362 |
+| Commits | 618 |
 
 ## Agents
 
