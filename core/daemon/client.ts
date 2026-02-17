@@ -298,8 +298,12 @@ export async function spawnDaemon(): Promise<boolean> {
   child.unref()
   fs.closeSync(logFd)
 
-  // Wait briefly for daemon to start
-  await new Promise((resolve) => setTimeout(resolve, 500))
+  // Poll until daemon is live (up to 3s, especially important after updates)
+  const deadline = Date.now() + 3000
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    if (await isDaemonRunning()) return true
+  }
 
-  return isDaemonRunning()
+  return false
 }
