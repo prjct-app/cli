@@ -22,6 +22,7 @@ export async function readProviderCache(): Promise<ProviderCache['detection'] | 
     const cache: ProviderCache = JSON.parse(raw)
 
     if (!cache.timestamp || !cache.detection) return null
+    if (!cache.detection.claude || !cache.detection.gemini || !cache.detection.codex) return null
 
     const age = Date.now() - new Date(cache.timestamp).getTime()
     if (age > TTL_MS) return null

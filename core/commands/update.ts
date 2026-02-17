@@ -231,6 +231,8 @@ export class UpdateCommands extends PrjctCommandsBase {
         result.details.push(
           `Editor commands reinstalled (${installResult.installed?.length || 0} providers)`
         )
+        const cleaned = await installer.cleanupLegacyCommands()
+        if (cleaned) result.details.push('Removed legacy p/ subdirectory')
       } catch (err) {
         result.errors.push(`Commands: ${getErrorMessage(err)}`)
       }

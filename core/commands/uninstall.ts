@@ -13,7 +13,7 @@ import os from 'node:os'
 import path from 'node:path'
 import readline from 'node:readline'
 import chalk from 'chalk'
-import { getProviderPaths } from '../infrastructure/command-installer'
+import { CommandInstaller, getProviderPaths } from '../infrastructure/command-installer'
 import pathManager from '../infrastructure/path-manager'
 import type { CommandResult, UninstallOptions } from '../types'
 import { getErrorMessage } from '../types/fs'
@@ -337,6 +337,14 @@ async function performUninstall(
     } catch (error) {
       errors.push(`${item.path}: ${getErrorMessage(error)}`)
     }
+  }
+
+  // Remove legacy p/ subdirectory (pre-v1.25 architecture)
+  try {
+    const installer = new CommandInstaller()
+    await installer.cleanupLegacyCommands()
+  } catch {
+    // Non-fatal
   }
 
   // Uninstall package managers
