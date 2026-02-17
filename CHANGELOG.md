@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.45.11] - 2026-02-16
+
+### Added
+- fix: include templates/ in npm package files — templates missing from published package
+
+## [1.45.10] - 2026-02-16
+
+### Added
+- fix: include templates/ in npm package files — templates missing from published package
+
 ## [1.45.9] - 2026-02-16
 
 ### Added
