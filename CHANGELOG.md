@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.45.8] - 2026-02-16
+
+### Added
+- fix provider cache crash and MCP tool access
+
+## [1.45.7] - 2026-02-16
+
+### Added
+- fix provider cache crash and MCP tool access
+
 ## [1.45.6] - 2026-02-17
 
 ### Bug Fixes

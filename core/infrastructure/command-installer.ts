@@ -588,7 +588,6 @@ export class CommandInstaller {
       prd: 'Product requirements doc',
       serve: 'Start dev server',
       setup: 'Setup prjct',
-      skill: 'Skill management',
       spec: 'Technical specification',
       update: 'Update prjct',
       verify: 'Verify analysis integrity',
@@ -607,7 +606,7 @@ export class CommandInstaller {
 
     return `---
 description: 'prjct CLI - Context layer for AI agents'
-allowed-tools: [Read, Write, Edit, Bash, Glob, Grep, Task, AskUserQuestion, TodoWrite, WebFetch]
+allowed-tools: ["*"]
 ---
 
 # prjct Command Router
@@ -694,6 +693,25 @@ Templates should use CLI commands for data operations — never read/write JSON 
         removed: 0,
       }
     }
+  }
+
+  /**
+   * Remove legacy ~/.claude/commands/p/ subdirectory (pre-v1.25 architecture).
+   * Those stale files (jira.md, linear.md, etc.) stay on disk forever otherwise.
+   */
+  async cleanupLegacyCommands(): Promise<boolean> {
+    await this.ensureInit()
+    const pSubdirPath = path.join(this.commandsPath, 'p')
+    try {
+      const stat = await fs.stat(pSubdirPath).catch(() => null)
+      if (stat?.isDirectory()) {
+        await fs.rm(pSubdirPath, { recursive: true, force: true })
+        return true
+      }
+    } catch {
+      // already gone
+    }
+    return false
   }
 
   /**
