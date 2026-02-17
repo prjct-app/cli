@@ -1,7 +1,7 @@
 <!-- prjct-project:start - DO NOT REMOVE THIS MARKER -->
 # prjct-cli - Project Rules
 <!-- projectId: bc401c41-c8b9-436a-ac78-c91cac82ab4f -->
-<!-- Generated: 2026-02-17T04:58:41.447Z -->
+<!-- Generated: 2026-02-17T19:04:08.548Z -->
 <!-- Ecosystem: JavaScript | Type: enterprise -->
 
 ## THIS PROJECT (JavaScript)
@@ -69,17 +69,17 @@ p. sync → p. task "desc" → [work] → p. done → p. ship
 | Field | Value |
 |-------|-------|
 | Name | prjct-cli |
-| Version | 1.45.11 |
+| Version | 1.45.8 |
 | Ecosystem | JavaScript |
-| Branch | fix/workflow-template-agentic-add |
-| Files | ~362 |
+| Branch | feat/post-oauth-verify-command |
+| Files | ~363 |
 | Commits | 635 |
 
 ## Agents
 
 Load from `~/.prjct-cli/projects/bc401c41-c8b9-436a-ac78-c91cac82ab4f/agents/`:
 
-**Workflow**: prjct-workflow, prjct-shipper, prjct-planner
+**Workflow**: prjct-workflow, prjct-planner, prjct-shipper
 **Domain**: backend, database
 
 ## Recent Learnings

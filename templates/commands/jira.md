@@ -12,13 +12,8 @@ Look for tools starting with `mcp__jira` or `mcp__atlassian` in your tool list.
 
 **If tools ARE available** → proceed with the requested operation below.
 
-**If NOT available** → run: `prjct jira status --md` and interpret:
-
-| Status | Action |
-|--------|--------|
-| `configured: false` | Run `p. jira setup` |
-| `configured: true, oauthReady: false` | Tell user to run in a terminal: `npx -y mcp-remote@0.1.38 https://mcp.atlassian.com/v1/mcp` then restart their AI client |
-| `configured: true, oauthReady: true` | Tell user to restart their AI client |
+**If NOT available** → run `prjct jira status --md` and follow the instructions in the output.
+The CLI auto-validates tokens, auto-migrates from legacy versions, and auto-cleans corrupted state. Trust its diagnosis.
 
 **Do NOT attempt MCP tool calls if Jira tools are not in your tool list.**
 
@@ -28,12 +23,15 @@ Look for tools starting with `mcp__jira` or `mcp__atlassian` in your tool list.
 
 Run step by step:
 
-### Step 1: Write MCP config
+### Step 1: Write MCP config + auto-repair
 ```bash
 prjct jira setup --md
 ```
 
-### Step 2: Complete OAuth in terminal (REQUIRED before restarting)
+Setup now auto-cleans corrupted tokens and auto-migrates from legacy mcp-remote versions.
+If setup reports "ready" → skip to Step 3.
+
+### Step 2: Complete OAuth in terminal (only if setup says OAuth is required)
 
 Tell the user to open a NEW terminal and run this **exact** command (version pinned to match mcp.json):
 ```
@@ -48,6 +46,14 @@ This will:
 Tell the user: **Complete the authorization in the browser, then come back here.**
 
 Wait for the user to confirm they completed OAuth before continuing.
+
+### Step 2.5: Verify OAuth worked
+```bash
+prjct jira verify --md
+```
+
+This scans `~/.mcp-auth/`, validates tokens, auto-migrates from legacy versions, and gives a clear READY / NOT READY verdict.
+If NOT READY → follow the instructions in the output.
 
 ### Step 3: Restart Claude Code
 
