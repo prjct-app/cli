@@ -5,6 +5,10 @@
 ### Added
 - post-oauth verify command
 
+### Bug Fixes
+
+- add jira/linear/status to global AI config command lists (#217)
+
 ## [1.45.7] - 2026-02-17
 
 ### Bug Fixes
