@@ -1,9 +1,18 @@
 # Changelog
 
-## [1.44.10] - 2026-02-16
+## [1.45.1] - 2026-02-17
 
-### Added
-- fix: prjct update - daemon restart and latest version detection
+### Bug Fixes
+
+- prjct update now uses npm install @latest to always fetch true latest version
+- daemon restart failure is non-fatal warning, not an error
+- spawnDaemon polls up to 3s for daemon readiness after install
+
+## [1.45.0] - 2026-02-17
+
+### Features
+
+- migrate linear/jira integrations to MCP-only (#210)
 
 ## [1.44.9] - 2026-02-16
 
