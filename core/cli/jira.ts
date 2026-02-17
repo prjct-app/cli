@@ -77,7 +77,40 @@ async function status(): Promise<void> {
   })
 }
 
-async function runMcpOperation(name: string, opArgs: string[]): Promise<void> {
+async function runMcpOperation(
+  name: string,
+  opArgs: string[],
+  extra?: { hint?: string; jql?: string; scope?: string }
+): Promise<void> {
+  const configPath = getClaudeMcpConfigPath()
+  const configured = await hasMcpServer('jira', configPath)
+
+  if (!configured) {
+    error('Jira MCP is not configured. Run `prjct jira setup` first.')
+  }
+
+  const result: Record<string, unknown> = {
+    success: true,
+    provider: 'jira',
+    mode: 'mcp',
+    delegated: true,
+    command: name,
+    args: opArgs,
+    hint:
+      extra?.hint ?? 'Run this operation using Jira MCP tools in your current AI client session.',
+    nextSteps: [
+      'Open your MCP-enabled AI client/session.',
+      `Execute the Jira MCP operation for "${name}".`,
+    ],
+  }
+
+  if (extra?.jql) result.jql = extra.jql
+  if (extra?.scope) result.scope = extra.scope
+
+  output(result)
+}
+
+async function sprintOperation(opArgs: string[]): Promise<void> {
   const configPath = getClaudeMcpConfigPath()
   const configured = await hasMcpServer('jira', configPath)
 
@@ -90,12 +123,39 @@ async function runMcpOperation(name: string, opArgs: string[]): Promise<void> {
     provider: 'jira',
     mode: 'mcp',
     delegated: true,
-    command: name,
+    command: 'sprint',
+    scope: 'active_sprint',
     args: opArgs,
-    hint: 'Run this operation using Jira MCP tools in your current AI client session.',
+    jql: 'sprint = currentSprint() AND assignee = currentUser() ORDER BY priority DESC',
+    hint: 'Fetch your issues in the active sprint via Jira MCP tools.',
     nextSteps: [
-      'Open your MCP-enabled AI client/session.',
-      `Execute the Jira MCP operation for "${name}".`,
+      'Use the Jira MCP search tool with the JQL above to list your active sprint issues.',
+      'Issues returned include sprint metadata (sprint name, start/end dates).',
+    ],
+  })
+}
+
+async function backlogOperation(opArgs: string[]): Promise<void> {
+  const configPath = getClaudeMcpConfigPath()
+  const configured = await hasMcpServer('jira', configPath)
+
+  if (!configured) {
+    error('Jira MCP is not configured. Run `prjct jira setup` first.')
+  }
+
+  output({
+    success: true,
+    provider: 'jira',
+    mode: 'mcp',
+    delegated: true,
+    command: 'backlog',
+    scope: 'backlog',
+    args: opArgs,
+    jql: 'sprint is EMPTY AND assignee = currentUser() AND statusCategory != Done ORDER BY priority DESC',
+    hint: 'Fetch your backlog issues (not in any sprint) via Jira MCP tools.',
+    nextSteps: [
+      'Use the Jira MCP search tool with the JQL above to list your backlog issues.',
+      'Backlog issues have no sprint assigned — differentiate from sprint issues by the sprint field being empty.',
     ],
   })
 }
@@ -120,6 +180,8 @@ async function main(): Promise<void> {
           commands: {
             setup: 'Configure Jira MCP server',
             status: 'Check Jira MCP configuration',
+            sprint: 'List your issues in the active sprint (MCP)',
+            backlog: 'List your backlog issues not in any sprint (MCP)',
             sync: 'Delegate issue sync via MCP tools',
             list: 'Delegate issue listing via MCP tools',
             get: 'Delegate issue retrieval via MCP tools',
@@ -129,8 +191,16 @@ async function main(): Promise<void> {
             done: 'Delegate status transition to done via MCP tools',
             transition: 'Delegate workflow transition via MCP tools',
           },
-          note: 'Jira is MCP-only.',
+          note: 'Jira is MCP-only. sprint/backlog provide JQL for your AI client MCP session.',
         })
+        break
+
+      case 'sprint':
+        await sprintOperation(commandArgs)
+        break
+
+      case 'backlog':
+        await backlogOperation(commandArgs)
         break
 
       case 'sync':

@@ -95,6 +95,24 @@ export class JiraProvider implements IssueTrackerProvider {
     return this.mcpOnly('getProjects')
   }
 
+  /**
+   * Fetch issues assigned to current user in the active sprint (MCP-only)
+   * JQL equivalent: sprint = currentSprint() AND assignee = currentUser()
+   */
+  async fetchActiveSprintIssues(_options?: FetchOptions): Promise<Issue[]> {
+    this.ensureConfigured()
+    return this.mcpOnly('fetchActiveSprintIssues')
+  }
+
+  /**
+   * Fetch issues assigned to current user in the backlog (MCP-only)
+   * JQL equivalent: sprint is EMPTY AND assignee = currentUser()
+   */
+  async fetchBacklogIssues(_options?: FetchOptions): Promise<Issue[]> {
+    this.ensureConfigured()
+    return this.mcpOnly('fetchBacklogIssues')
+  }
+
   private ensureConfigured(): void {
     if (!this.isConfigured()) {
       throw new Error('JIRA not initialized. Run `prjct jira setup` to configure MCP.')

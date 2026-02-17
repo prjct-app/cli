@@ -17,6 +17,7 @@ import {
   getJiraCacheStats,
   issueCache,
   projectsCache,
+  sprintIssuesCache,
 } from './cache'
 import { jiraProvider } from './client'
 
@@ -170,6 +171,52 @@ export class JiraService {
     // Invalidate caches
     issueCache.delete(`issue:${id}`)
     assignedIssuesCache.clear()
+  }
+
+  /**
+   * Get issues assigned to current user in the active sprint (cached)
+   */
+  async fetchActiveSprintIssues(options?: FetchOptions): Promise<Issue[]> {
+    this.ensureInitialized()
+
+    const cacheKey = 'sprint:active'
+    const cached = sprintIssuesCache.get(cacheKey)
+    if (cached) {
+      return cached
+    }
+
+    const issues = await jiraProvider.fetchActiveSprintIssues(options)
+    sprintIssuesCache.set(cacheKey, issues)
+
+    for (const issue of issues) {
+      issueCache.set(`issue:${issue.id}`, issue)
+      issueCache.set(`issue:${issue.externalId}`, issue)
+    }
+
+    return issues
+  }
+
+  /**
+   * Get issues assigned to current user in the backlog (cached)
+   */
+  async fetchBacklogIssues(options?: FetchOptions): Promise<Issue[]> {
+    this.ensureInitialized()
+
+    const cacheKey = 'sprint:backlog'
+    const cached = sprintIssuesCache.get(cacheKey)
+    if (cached) {
+      return cached
+    }
+
+    const issues = await jiraProvider.fetchBacklogIssues(options)
+    sprintIssuesCache.set(cacheKey, issues)
+
+    for (const issue of issues) {
+      issueCache.set(`issue:${issue.id}`, issue)
+      issueCache.set(`issue:${issue.externalId}`, issue)
+    }
+
+    return issues
   }
 
   /**
