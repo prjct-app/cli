@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.46.0] - 2026-02-17
+
+### Features
+
+- post-OAuth verify command for MCP health check (#218)
+
+### Performance
+
+- feat: post-OAuth verify command for MCP health check (#218)
+
+
 ## [1.45.8] - 2026-02-17
 
 ### Added
