@@ -183,7 +183,7 @@ export class JiraService {
       return cached
     }
 
-    const projects = await jiraProvider.getTeams()
+    const projects = await jiraProvider.getProjects()
     projectsCache.set('projects', projects)
     return projects
   }

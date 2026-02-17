@@ -33,6 +33,7 @@ import { workflowRuleStorage } from '../storage/workflow-rule-storage'
 import { extractKeywords, findRelevantFiles } from '../tools/context/files-tool'
 import type { CommandResult } from '../types'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
+import { getClaudeMcpConfigPath, hasMcpServer } from '../utils/mcp-config'
 import {
   mdActionRequired,
   mdCodeBlock,
@@ -547,6 +548,10 @@ export class WorkflowCommands extends PrjctCommandsBase {
 
       // Linear status sync is MCP-only and handled by the AI client toolchain.
       const linearId = (currentTask as { linearId?: string }).linearId
+      const linearMcpReady =
+        linearId != null
+          ? await hasMcpServer('linear', getClaudeMcpConfigPath()).catch(() => false)
+          : false
 
       if (options.md) {
         const durationSuffix = duration ? ` (${duration})` : ''
@@ -565,7 +570,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
         )
       } else {
         const displaySuffix = duration ? ` (${duration}${varianceDisplay})` : ''
-        if (linearId) {
+        if (linearId && linearMcpReady) {
           out.done(`${task}${displaySuffix} → Linear linked (update via MCP)`)
         } else {
           out.done(`${task}${displaySuffix}`)
