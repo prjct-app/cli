@@ -1,49 +1,14 @@
 # Changelog
 
-## [1.45.5] - 2026-02-17
+## [1.45.4] - 2026-02-16
 
-### Bug Fixes
+### Added
+- fix: p. workflow agentic natural language parsing
 
-- provider cache crash, MCP tool access, legacy cleanup (#215)
+## [1.45.3] - 2026-02-16
 
-
-## [1.45.8] - 2026-02-16
-
-### Bug Fixes
-
-- Provider cache crash on missing codex key; router allowed-tools: ["*"] for MCP access; legacy p/ dir cleanup
-
-## [1.45.6] - 2026-02-17
-
-### Bug Fixes
-
-- MCP OAuth token cache mismatch - pin mcp-remote version + allow MCP tools in templates (#214)
-
-## [1.45.5] - 2026-02-17
-
-### Bug Fixes
-
-- MCP OAuth token cache mismatch - pin mcp-remote version + allow MCP tools in templates (#214)
-
-## [1.45.4] - 2026-02-17
-
-### Bug Fixes
-
-- p. workflow agentic natural language parsing (#213)
-
-## [1.45.3] - 2026-02-17
-
-### Bug Fixes
-
-- p. workflow agentic natural language parsing (#213)
-
-
-## [1.45.2] - 2026-02-17
-
-### Bug Fixes
-
-- Jira/Linear MCP OAuth setup - guides user through mcp-remote auth (#212)
-
+### Added
+- fix: p. workflow agentic natural language parsing
 
 ## [1.45.2] - 2026-02-16
 
