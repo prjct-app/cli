@@ -56,9 +56,12 @@ async function setup(): Promise<void> {
     path: result.path,
     updated: result.changed,
     nextSteps: [
-      'Open your MCP-enabled AI client.',
-      'Run any Jira operation to complete OAuth authorization when prompted.',
+      'STEP 1 (done): MCP config written to mcp.json.',
+      'STEP 2: Open a NEW terminal and run: npx -y mcp-remote https://mcp.atlassian.com/v1/mcp',
+      'STEP 2: A browser will open for OAuth — complete the authorization.',
+      'STEP 3: Close and reopen Claude Code. Jira MCP tools will be ready.',
     ],
+    authCommand: 'npx -y mcp-remote https://mcp.atlassian.com/v1/mcp',
   })
 }
 
