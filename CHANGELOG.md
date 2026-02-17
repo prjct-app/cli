@@ -4,6 +4,13 @@
 
 ### Bug Fixes
 
+- prjct update - daemon restart and latest version detection (#211)
+
+
+## [1.45.1] - 2026-02-17
+
+### Bug Fixes
+
 - prjct update now uses npm install @latest to always fetch true latest version
 - daemon restart failure is non-fatal warning, not an error
 - spawnDaemon polls up to 3s for daemon readiness after install
