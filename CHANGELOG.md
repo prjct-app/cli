@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.44.10] - 2026-02-16
+
+### Added
+- fix: prjct update - daemon restart and latest version detection
+
 ## [1.44.9] - 2026-02-16
 
 ### Added
