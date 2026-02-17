@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.45.8] - 2026-02-17
+
+### Added
+- post-oauth verify command
+
 ## [1.45.7] - 2026-02-17
 
 ### Bug Fixes
