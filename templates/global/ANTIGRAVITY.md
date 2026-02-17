@@ -1,7 +1,7 @@
 <!-- prjct:start - DO NOT REMOVE THIS MARKER -->
 # p/ — Context layer for AI agents
 
-Commands: `p. sync` `p. task` `p. done` `p. ship` `p. pause` `p. resume` `p. bug` `p. dash` `p. next`
+Commands: `p. sync` `p. task` `p. done` `p. ship` `p. pause` `p. resume` `p. bug` `p. dash` `p. next` `p. jira` `p. linear` `p. status` + 25 more
 
 When user types a p command, execute the corresponding prjct CLI command with `--md` flag for context.
 

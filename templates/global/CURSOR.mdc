@@ -6,7 +6,7 @@ alwaysApply: true
 <!-- prjct:start - DO NOT REMOVE THIS MARKER -->
 # p/ — Context layer for AI agents
 
-Commands: `/sync` `/task` `/done` `/ship` `/pause` `/resume` `/bug` `/dash` `/next`
+Commands: `/sync` `/task` `/done` `/ship` `/pause` `/resume` `/bug` `/dash` `/next` `/jira` `/linear` `/status` + 25 more
 
 When user triggers a command, execute the corresponding prjct CLI command with `--md` flag for context.
 

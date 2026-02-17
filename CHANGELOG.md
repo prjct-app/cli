@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.45.7] - 2026-02-17
+
+### Added
+- fix: jira command not recognized in global config
+
 ## [1.45.6] - 2026-02-17
 
 ### Bug Fixes
