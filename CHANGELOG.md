@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.45.0] - 2026-02-17
+
+### Features
+
+- migrate linear/jira integrations to MCP-only (#210)
+
+
 ## [1.44.9] - 2026-02-16
 
 ### Added
