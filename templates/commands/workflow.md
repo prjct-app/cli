@@ -4,72 +4,66 @@ allowed-tools: [Bash, AskUserQuestion]
 
 # p. workflow $ARGUMENTS
 
-## Step 1: Parse intent via CLI
+## Step 1: Parse intent
 
 If $ARGUMENTS is empty, show current rules:
 ```bash
 prjct workflow --md
 ```
-Follow the CLI output.
 
-If $ARGUMENTS is provided, delegate to CLI intent detection:
+**If $ARGUMENTS contains natural language, DO NOT pass it raw to the CLI.**
+The CLI only accepts structured args — you must parse the intent yourself first.
+
+Parse:
+- **Action**: add / remove / list / create / delete / reset
+- **Command**: the shell command to run (infer from description)
+- **Position**: `before` or `after` (from words like "after", "después de", "before", "antes de")
+- **Workflow**: `task` / `done` / `ship` / `sync` (infer from context)
+
+**Inference examples**:
+| Natural language | → | Structured |
+|---|---|---|
+| "después del merge revisa npm" | → | `add "npm view prjct-cli version" after ship` |
+| "after ship check npm version" | → | `add "npm view prjct-cli version" after ship` |
+| "before task run tests" | → | `add "npm test" before task` |
+| "check lint before ship" | → | `add "npm run lint" before ship` |
+| "after done show git log" | → | `add "git log --oneline -5" after done` |
+
+If any of the three values (command, position, workflow) is ambiguous → ASK before running.
+
+## Step 2: Execute
+
+### Add a rule
 ```bash
-prjct workflow "$ARGUMENTS" --md
+prjct workflow add "$COMMAND" $POSITION $WORKFLOW --md
 ```
 
-## Step 2: Handle workflow lifecycle
-
-### Creating Custom Workflows
-
-If user wants to CREATE a workflow:
-1. Ask for workflow name (lowercase, alphanumeric + hyphens, e.g., "qa", "deploy-prod")
-2. Ask for description (brief explanation of what the workflow does)
-3. Execute:
-```bash
-prjct workflow create "$NAME" "$DESCRIPTION" --md
-```
-
-### Listing Workflows
-
-If user wants to LIST workflows:
+### List rules
 ```bash
 prjct workflow list --md
 ```
-Shows both built-in (task, done, ship, sync) and custom workflows.
 
-### Deleting Workflows
-
-If user wants to DELETE a workflow:
-1. Confirm (built-in workflows cannot be deleted)
-2. Execute:
-```bash
-prjct workflow delete "$NAME" --md
-```
-
-## Step 3: Handle incomplete intents
-
-If the CLI output indicates missing information (e.g., add without a command, position, or action):
-
-ASK the user to clarify:
-- **Adding a rule**: What shell command? Which workflow? Before or after?
-- **Removing/disabling**: Which rule ID? (Show the matches from CLI output)
-- **Gate**: Which workflow to gate? What check must pass?
-- **Creating workflow**: What name? What description?
-
-Then re-run with complete arguments:
-```bash
-prjct workflow add "$ACTION" $POSITION $COMMAND --md
-```
-
-## Step 4: Confirm destructive actions
-
-For `reset` (removes all rules), ASK: "Remove all workflow rules?" Yes / Cancel
-
-For `remove` or `disable` with search results showing multiple matches, present the matches and ASK which one to act on, then execute:
+### Remove a rule
 ```bash
 prjct workflow rm $RULE_ID --md
 ```
 
-## Step 5: Follow CLI output
+### Create custom workflow
+```bash
+prjct workflow create "$NAME" "$DESCRIPTION" --md
+```
 
-Present the final result from CLI markdown. The CLI supports bilingual natural language (English/Spanish) -- pass user input as-is.
+### Delete custom workflow
+```bash
+prjct workflow delete "$NAME" --md
+```
+
+## Step 3: Confirm destructive actions
+
+For `reset` (removes all rules): ASK "Remove all workflow rules?" Yes / Cancel
+
+For `remove` with multiple matches: show matches and ASK which one to remove.
+
+## Step 4: Present result
+
+Show the CLI markdown output to the user.
