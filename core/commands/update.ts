@@ -153,11 +153,13 @@ export class UpdateCommands extends PrjctCommandsBase {
           result.details.push('Homebrew uninstall skipped (not found)')
         }
 
-        execSync('npm install -g prjct-cli', { stdio: 'pipe' })
+        execSync('npm install -g prjct-cli@latest', { stdio: 'pipe' })
         result.details.push('Installed via npm')
       } else {
-        execSync('npm update -g prjct-cli', { stdio: 'pipe' })
-        result.details.push('npm update complete')
+        // Use install @latest instead of update to bypass semver range constraints
+        // and always fetch the true latest from the registry
+        execSync('npm install -g prjct-cli@latest', { stdio: 'pipe' })
+        result.details.push('npm install complete')
       }
 
       // Verify version
@@ -275,13 +277,12 @@ export class UpdateCommands extends PrjctCommandsBase {
         result.details.push('No running daemon (cleaned stale files)')
       }
 
-      // Respawn
+      // Respawn (non-fatal: daemon auto-starts on next command if this fails)
       const started = await spawnDaemon()
       if (started) {
         result.details.push('Daemon restarted')
       } else {
-        result.success = false
-        result.errors.push('Failed to restart daemon')
+        result.details.push('Daemon will start automatically on next use')
       }
     } catch (err) {
       result.success = false
@@ -297,19 +298,20 @@ export class UpdateCommands extends PrjctCommandsBase {
     results: { phase1: PhaseResult; phase2: PhaseResult; phase3: PhaseResult },
     dryRun: boolean
   ): CommandResult {
-    const allSuccess = results.phase1.success && results.phase2.success && results.phase3.success
-    const allErrors = [...results.phase1.errors, ...results.phase2.errors, ...results.phase3.errors]
+    // Daemon restart is non-fatal: package + cleanup determine overall success
+    const allSuccess = results.phase1.success && results.phase2.success
+    const allErrors = [...results.phase1.errors, ...results.phase2.errors]
 
     console.log('')
 
     const phases = [
-      { label: 'Package', result: results.phase1 },
-      { label: 'Cleanup', result: results.phase2 },
-      { label: 'Daemon', result: results.phase3 },
+      { label: 'Package', result: results.phase1, fatal: true },
+      { label: 'Cleanup', result: results.phase2, fatal: true },
+      { label: 'Daemon', result: results.phase3, fatal: false },
     ]
 
-    for (const { label, result } of phases) {
-      const icon = result.success ? chalk.green('✓') : chalk.red('✗')
+    for (const { label, result, fatal } of phases) {
+      const icon = result.success ? chalk.green('✓') : fatal ? chalk.red('✗') : chalk.yellow('⚠')
       console.log(`  ${icon} ${chalk.bold(label)}`)
       for (const detail of result.details) {
         console.log(`    ${chalk.dim(detail)}`)
@@ -339,20 +341,21 @@ export class UpdateCommands extends PrjctCommandsBase {
     results: { phase1: PhaseResult; phase2: PhaseResult; phase3: PhaseResult },
     dryRun: boolean
   ): CommandResult {
-    const allSuccess = results.phase1.success && results.phase2.success && results.phase3.success
+    // Daemon restart is non-fatal
+    const allSuccess = results.phase1.success && results.phase2.success
     const lines: string[] = []
 
     lines.push(dryRun ? '# Update (Dry Run)' : '# System Update')
     lines.push('')
 
     const phases = [
-      { label: 'Package Update', result: results.phase1 },
-      { label: 'Global Cleanup', result: results.phase2 },
-      { label: 'Daemon Restart', result: results.phase3 },
+      { label: 'Package Update', result: results.phase1, fatal: true },
+      { label: 'Global Cleanup', result: results.phase2, fatal: true },
+      { label: 'Daemon Restart', result: results.phase3, fatal: false },
     ]
 
-    for (const { label, result } of phases) {
-      const icon = result.success ? '✅' : '❌'
+    for (const { label, result, fatal } of phases) {
+      const icon = result.success ? '✅' : fatal ? '❌' : '⚠️'
       lines.push(`## ${icon} ${label}`)
       for (const detail of result.details) {
         lines.push(`- ${detail}`)
