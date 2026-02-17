@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.45.6] - 2026-02-17
+
+### Bug Fixes
+
+- multi-provider MCP setup + OAuth status fix (v1.45.9) (#216)
+
+
 ## [1.45.11] - 2026-02-16
 
 ### Added
