@@ -2,7 +2,9 @@
 
 ## [1.45.7] - 2026-02-17
 
-### Added
+### Bug Fixes
+
+- release workflow respects package.json version when higher than last tag
 - fix: jira command not recognized in global config
 
 ## [1.45.6] - 2026-02-17
