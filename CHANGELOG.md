@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.45.5] - 2026-02-17
+
+### Bug Fixes
+
+- provider cache crash, MCP tool access, legacy cleanup (#215)
+
+
 ## [1.45.8] - 2026-02-16
 
 ### Bug Fixes
