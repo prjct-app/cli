@@ -7,11 +7,11 @@
 
 import { getErrorMessage } from '../types/fs'
 import {
-  getClaudeMcpConfigPath,
-  hasMcpServer,
+  checkOAuthTokens,
+  hasMcpServerAny,
   MCP_REMOTE_AUTH_COMMANDS,
   MCP_SERVER_PRESETS,
-  upsertMcpServer,
+  upsertMcpServerAll,
 } from '../utils/mcp-config'
 
 const args = process.argv.slice(2)
@@ -49,35 +49,35 @@ function error(message: string, code = 1): never {
 }
 
 async function setup(): Promise<void> {
-  const result = await upsertMcpServer('jira', MCP_SERVER_PRESETS.jira)
+  const results = await upsertMcpServerAll('jira', MCP_SERVER_PRESETS.jira)
   output({
     success: true,
     provider: 'jira',
     mode: 'mcp',
-    path: result.path,
-    updated: result.changed,
+    installedIn: results.map((r) => ({ provider: r.provider, path: r.path, updated: r.changed })),
     nextSteps: [
-      'STEP 1 (done): MCP config written to mcp.json.',
+      `STEP 1 (done): MCP config written to ${results.map((r) => r.provider).join(', ')}.`,
       `STEP 2: Open a NEW terminal and run: ${MCP_REMOTE_AUTH_COMMANDS.jira}`,
       'STEP 2: A browser will open for OAuth — complete the authorization.',
-      'STEP 3: Close and reopen Claude Code. Jira MCP tools will be ready.',
+      'STEP 3: Restart your AI client. Jira MCP tools will be ready.',
     ],
     authCommand: MCP_REMOTE_AUTH_COMMANDS.jira,
   })
 }
 
 async function status(): Promise<void> {
-  const configPath = getClaudeMcpConfigPath()
-  const configured = await hasMcpServer('jira', configPath)
+  const mcpStatus = await hasMcpServerAny('jira')
+  const oauth = mcpStatus.configured ? await checkOAuthTokens('jira') : null
 
   output({
     provider: 'jira',
     mode: 'mcp',
-    configured,
-    path: configPath,
-    hint: configured
-      ? 'Jira MCP is configured. OAuth happens inside your AI client.'
-      : 'Run `prjct jira setup` to configure Jira MCP.',
+    configured: mcpStatus.configured,
+    oauthReady: oauth?.ready ?? false,
+    providers: mcpStatus.providers,
+    hint: !mcpStatus.configured
+      ? 'Run `prjct jira setup` to configure Jira MCP.'
+      : (oauth?.hint ?? ''),
   })
 }
 
@@ -86,8 +86,7 @@ async function runMcpOperation(
   opArgs: string[],
   extra?: { hint?: string; jql?: string; scope?: string }
 ): Promise<void> {
-  const configPath = getClaudeMcpConfigPath()
-  const configured = await hasMcpServer('jira', configPath)
+  const { configured } = await hasMcpServerAny('jira')
 
   if (!configured) {
     error('Jira MCP is not configured. Run `prjct jira setup` first.')
@@ -115,8 +114,7 @@ async function runMcpOperation(
 }
 
 async function sprintOperation(opArgs: string[]): Promise<void> {
-  const configPath = getClaudeMcpConfigPath()
-  const configured = await hasMcpServer('jira', configPath)
+  const { configured } = await hasMcpServerAny('jira')
 
   if (!configured) {
     error('Jira MCP is not configured. Run `prjct jira setup` first.')
@@ -140,8 +138,7 @@ async function sprintOperation(opArgs: string[]): Promise<void> {
 }
 
 async function backlogOperation(opArgs: string[]): Promise<void> {
-  const configPath = getClaudeMcpConfigPath()
-  const configured = await hasMcpServer('jira', configPath)
+  const { configured } = await hasMcpServerAny('jira')
 
   if (!configured) {
     error('Jira MCP is not configured. Run `prjct jira setup` first.')

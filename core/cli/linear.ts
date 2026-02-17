@@ -7,11 +7,11 @@
 
 import { getErrorMessage } from '../types/fs'
 import {
-  getClaudeMcpConfigPath,
-  hasMcpServer,
+  checkOAuthTokens,
+  hasMcpServerAny,
   MCP_REMOTE_AUTH_COMMANDS,
   MCP_SERVER_PRESETS,
-  upsertMcpServer,
+  upsertMcpServerAll,
 } from '../utils/mcp-config'
 
 const args = process.argv.slice(2)
@@ -49,41 +49,40 @@ function error(message: string, code = 1): never {
 }
 
 async function setup(): Promise<void> {
-  const result = await upsertMcpServer('linear', MCP_SERVER_PRESETS.linear)
+  const results = await upsertMcpServerAll('linear', MCP_SERVER_PRESETS.linear)
   output({
     success: true,
     provider: 'linear',
     mode: 'mcp',
-    path: result.path,
-    updated: result.changed,
+    installedIn: results.map((r) => ({ provider: r.provider, path: r.path, updated: r.changed })),
     nextSteps: [
-      'STEP 1 (done): MCP config written to mcp.json.',
+      `STEP 1 (done): MCP config written to ${results.map((r) => r.provider).join(', ')}.`,
       `STEP 2: Open a NEW terminal and run: ${MCP_REMOTE_AUTH_COMMANDS.linear}`,
       'STEP 2: A browser will open for OAuth — complete the authorization.',
-      'STEP 3: Close and reopen Claude Code. Linear MCP tools will be ready.',
+      'STEP 3: Restart your AI client. Linear MCP tools will be ready.',
     ],
     authCommand: MCP_REMOTE_AUTH_COMMANDS.linear,
   })
 }
 
 async function status(): Promise<void> {
-  const configPath = getClaudeMcpConfigPath()
-  const configured = await hasMcpServer('linear', configPath)
+  const mcpStatus = await hasMcpServerAny('linear')
+  const oauth = mcpStatus.configured ? await checkOAuthTokens('linear') : null
 
   output({
     provider: 'linear',
     mode: 'mcp',
-    configured,
-    path: configPath,
-    hint: configured
-      ? 'Linear MCP is configured. OAuth happens inside your AI client.'
-      : 'Run `prjct linear setup` to configure Linear MCP.',
+    configured: mcpStatus.configured,
+    oauthReady: oauth?.ready ?? false,
+    providers: mcpStatus.providers,
+    hint: !mcpStatus.configured
+      ? 'Run `prjct linear setup` to configure Linear MCP.'
+      : (oauth?.hint ?? ''),
   })
 }
 
 async function runMcpOperation(name: string, opArgs: string[]): Promise<void> {
-  const configPath = getClaudeMcpConfigPath()
-  const configured = await hasMcpServer('linear', configPath)
+  const { configured } = await hasMcpServerAny('linear')
 
   if (!configured) {
     error('Linear MCP is not configured. Run `prjct linear setup` first.')

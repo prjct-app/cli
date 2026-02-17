@@ -8,20 +8,17 @@ Linear is MCP-only — no SDK, no API tokens.
 
 ## Step 0: Check MCP readiness (ALWAYS, except for `setup`)
 
-Before any Linear operation (except `setup`), check if Linear MCP tools are available in your tool list.
-Look for tools starting with `mcp__linear`.
+Look for tools starting with `mcp__linear` in your tool list.
 
 **If tools ARE available** → proceed with the requested operation below.
 
-**If tools are NOT available** → run setup:
+**If NOT available** → run: `prjct linear status --md` and interpret:
 
-```bash
-prjct linear status --md
-```
-
-If status shows `configured: false` → run `p. linear setup`.
-If status shows `configured: true` → tools were loaded but aren't active in this session.
-Tell the user: "Close and reopen Claude Code to activate Linear MCP tools."
+| Status | Action |
+|--------|--------|
+| `configured: false` | Run `p. linear setup` |
+| `configured: true, oauthReady: false` | Tell user to run in a terminal: `npx -y mcp-remote@0.1.38 https://mcp.linear.app/mcp` then restart their AI client |
+| `configured: true, oauthReady: true` | Tell user to restart their AI client |
 
 **Do NOT attempt MCP tool calls if Linear tools are not in your tool list.**
 

@@ -1,17 +1,29 @@
 # Changelog
 
-## [1.45.5] - 2026-02-17
+## [1.45.11] - 2026-02-16
 
-### Bug Fixes
+### Added
+- fix: include templates/ in npm package files — templates missing from published package
 
-- provider cache crash, MCP tool access, legacy cleanup (#215)
+## [1.45.10] - 2026-02-16
 
+### Added
+- fix: include templates/ in npm package files — templates missing from published package
+
+## [1.45.9] - 2026-02-16
+
+### Added
+- multi-provider MCP setup + OAuth status fix
 
 ## [1.45.8] - 2026-02-16
 
-### Bug Fixes
+### Added
+- fix provider cache crash and MCP tool access
 
-- Provider cache crash on missing codex key; router allowed-tools: ["*"] for MCP access; legacy p/ dir cleanup
+## [1.45.7] - 2026-02-16
+
+### Added
+- fix provider cache crash and MCP tool access
 
 ## [1.45.6] - 2026-02-17
 
