@@ -1,9 +1,9 @@
 <!-- prjct:start - DO NOT REMOVE THIS MARKER -->
 # p/ — Context layer for AI agents
 
-Commands: `p. sync` `p. task` `p. done` `p. ship` `p. pause` `p. resume` `p. bug` `p. dash` `p. next`
+Commands: `p. sync` `p. task` `p. done` `p. ship` `p. pause` `p. resume` `p. bug` `p. dash` `p. next` `p. jira` `p. linear` `p. status` + 25 more
 
-When user types `p. <command>`, READ the template from `~/.claude/commands/p/{command}.md` and execute step by step.
+When user types `p. <command>`, it invokes the `/p` slash command which loads and executes the correct template.
 
 Rules:
 - Never commit to main/master directly
