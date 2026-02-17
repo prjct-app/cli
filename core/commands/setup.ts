@@ -59,27 +59,32 @@ export class SetupCommands extends PrjctCommandsBase {
     }
 
     if (codexDetection.installed) {
-      const { installCodexSkill, verifyCodexPRouterReady } = await import('../infrastructure/setup')
-      await installCodexSkill()
-      const codexRouter = await verifyCodexPRouterReady({ autoRepair: true })
-      if (!codexRouter.verified) {
-        return {
-          success: false,
-          message: `❌ Codex p. router is required but not ready.\n\n${codexRouter.message || 'router verification failed'}\n\nFix:\n  1. Run: prjct setup\n  2. Re-run: prjct start`,
+      try {
+        const { installCodexSkill, verifyCodexPRouterReady } = await import(
+          '../infrastructure/setup'
+        )
+        await installCodexSkill()
+        const codexRouter = await verifyCodexPRouterReady({ autoRepair: true })
+        if (codexRouter.verified) {
+          console.log('✅ Installed Codex skill: ~/.codex/skills/prjct/SKILL.md')
+          console.log('✅ Codex p. router ready')
+        } else {
+          console.log(
+            `⚠️  Codex skill setup incomplete: ${codexRouter.message || 'router verification failed'}`
+          )
+          console.log('   Run `prjct setup` to retry Codex configuration.')
         }
+      } catch (error) {
+        console.log(`⚠️  Codex skill setup failed (non-blocking): ${getErrorMessage(error)}`)
       }
-      console.log('✅ Installed Codex skill: ~/.codex/skills/prjct/SKILL.md')
-      console.log('✅ Codex p. router ready')
     }
 
     try {
       await context7Service.ensureReady()
       console.log('✅ Context7 MCP ready')
     } catch (error) {
-      return {
-        success: false,
-        message: `❌ Context7 MCP is required but not ready.\n\n${getErrorMessage(error)}\n\nFix:\n  1. Ensure Node+npx is installed\n  2. Re-run: prjct start`,
-      }
+      console.log(`⚠️  Context7 MCP not ready: ${getErrorMessage(error)}`)
+      console.log('   Context7 enhances API lookups. Run `prjct start` again to retry.')
     }
 
     console.log('\n🎉 Setup complete!')
@@ -158,27 +163,32 @@ export class SetupCommands extends PrjctCommandsBase {
     }
 
     if (codexDetection.installed) {
-      const { installCodexSkill, verifyCodexPRouterReady } = await import('../infrastructure/setup')
-      await installCodexSkill()
-      const codexRouter = await verifyCodexPRouterReady({ autoRepair: true })
-      if (!codexRouter.verified) {
-        return {
-          success: false,
-          message: `❌ Codex p. router is required but not ready.\n\n${codexRouter.message || 'router verification failed'}\n\nFix:\n  1. Run: prjct start\n  2. Re-run: prjct setup`,
+      try {
+        const { installCodexSkill, verifyCodexPRouterReady } = await import(
+          '../infrastructure/setup'
+        )
+        await installCodexSkill()
+        const codexRouter = await verifyCodexPRouterReady({ autoRepair: true })
+        if (codexRouter.verified) {
+          console.log('✅ Codex skill installed')
+          console.log('✅ Codex p. router ready')
+        } else {
+          console.log(
+            `⚠️  Codex skill setup incomplete: ${codexRouter.message || 'router verification failed'}`
+          )
+          console.log('   Run `prjct setup` again to retry Codex configuration.')
         }
+      } catch (error) {
+        console.log(`⚠️  Codex skill setup failed (non-blocking): ${getErrorMessage(error)}`)
       }
-      console.log('✅ Codex skill installed')
-      console.log('✅ Codex p. router ready')
     }
 
     try {
       await context7Service.ensureReady()
       console.log('✅ Context7 MCP ready')
     } catch (error) {
-      return {
-        success: false,
-        message: `❌ Context7 MCP is required but not ready.\n\n${getErrorMessage(error)}\n\nFix:\n  1. Ensure Node+npx is installed\n  2. Re-run: prjct setup`,
-      }
+      console.log(`⚠️  Context7 MCP not ready: ${getErrorMessage(error)}`)
+      console.log('   Context7 enhances API lookups. Run `prjct setup` again to retry.')
     }
 
     console.log('\n🎉 Setup complete!\n')
