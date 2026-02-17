@@ -116,12 +116,30 @@ jobs:
           if [ -z "$LAST_TAG" ]; then
             LAST_TAG="v0.0.0"
           fi
-          CURRENT_VERSION=${LAST_TAG#v}
+          TAG_VERSION=${LAST_TAG#v}
+
+          # Also read package.json version (prjct ship bumps it without creating tags)
+          PKG_VERSION=$(node -p "require('./package.json').version")
+
+          # Use whichever is higher as the base for version calculation
+          compare_versions() {
+            local v1="$1" v2="$2"
+            IFS='.' read -r a1 b1 c1 <<< "$v1"
+            IFS='.' read -r a2 b2 c2 <<< "$v2"
+            if [ "$a1" -gt "$a2" ] || ( [ "$a1" -eq "$a2" ] && [ "$b1" -gt "$b2" ] ) || \
+               ( [ "$a1" -eq "$a2" ] && [ "$b1" -eq "$b2" ] && [ "$c1" -gt "$c2" ] ); then
+              echo "$v1"
+            else
+              echo "$v2"
+            fi
+          }
+          CURRENT_VERSION=$(compare_versions "$TAG_VERSION" "$PKG_VERSION")
+          echo "📦 Base version: tag=$TAG_VERSION pkg=$PKG_VERSION using=$CURRENT_VERSION"
 
           # Parse current version
           IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
 
-          # Get commits since last tag
+          # Get commits since last tag (use the actual git tag, not the computed base)
           COMMITS=$(git log $LAST_TAG..HEAD --pretty=format:"%s%n%b" 2>/dev/null || git log --pretty=format:"%s%n%b")
 
           # Determine bump type
