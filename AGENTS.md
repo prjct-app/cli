@@ -1,7 +1,7 @@
 <!-- prjct-project:start - DO NOT REMOVE THIS MARKER -->
 # prjct-cli - Project Rules
 <!-- projectId: bc401c41-c8b9-436a-ac78-c91cac82ab4f -->
-<!-- Generated: 2026-02-17T00:43:53.009Z -->
+<!-- Generated: 2026-02-17T01:04:05.821Z -->
 <!-- Ecosystem: JavaScript | Type: enterprise -->
 
 ## THIS PROJECT (JavaScript)
@@ -69,7 +69,7 @@ p. sync → p. task "desc" → [work] → p. done → p. ship
 | Field | Value |
 |-------|-------|
 | Name | prjct-cli |
-| Version | 1.44.6 |
+| Version | 1.44.8 |
 | Ecosystem | JavaScript |
 | Branch | release/mcp-issue-trackers-mcp |
 | Files | ~362 |
@@ -79,7 +79,7 @@ p. sync → p. task "desc" → [work] → p. done → p. ship
 
 Load from `~/.prjct-cli/projects/bc401c41-c8b9-436a-ac78-c91cac82ab4f/agents/`:
 
-**Workflow**: prjct-workflow, prjct-planner, prjct-shipper
+**Workflow**: prjct-workflow, prjct-shipper, prjct-planner
 **Domain**: backend, database
 
 ## Recent Learnings

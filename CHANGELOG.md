@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.44.9] - 2026-02-16
+
+### Added
+- JIRA Sprint/Backlog Differentiation
+
 ## [1.44.8] - 2026-02-16
 
 ### Added
