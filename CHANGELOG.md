@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.46.3] - 2026-02-18
+
+### Added
+- daemon production hardening
+
+## [1.46.2] - 2026-02-18
+
+### Added
+- daemon production hardening
+
 ## [1.46.1] - 2026-02-18
 
 ### Bug Fixes

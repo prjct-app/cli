@@ -12,7 +12,7 @@ import type { CleanupOptions, CommandResult, DesignOptions } from '../types'
 import { PrjctCommandsBase } from './base'
 
 // Import individual command functions
-import { cleanup, cleanupMemory, cleanupMemoryInternal } from './cleanup'
+import { cleanup, cleanupMemory, cleanupMemoryInternal, cleanupProjects } from './cleanup'
 import { design } from './design'
 import { history, recover, redo, undo } from './snapshots'
 
@@ -33,6 +33,11 @@ export class MaintenanceCommands extends PrjctCommandsBase {
     const initResult = await this.ensureProjectInit(projectPath)
     if (!initResult.success) return initResult
     return cleanup(options, projectPath)
+  }
+
+  // Project cleanup (stale/test directories)
+  async cleanupProjects(options: { dryRun?: boolean; md?: boolean } = {}): Promise<CommandResult> {
+    return cleanupProjects(options)
   }
 
   // Design operations

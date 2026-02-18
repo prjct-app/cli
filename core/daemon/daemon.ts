@@ -31,6 +31,9 @@ import {
   MAX_BUFFER_SIZE,
 } from './protocol'
 
+/** Run WAL checkpoint every N requests to reclaim disk space */
+const WAL_CHECKPOINT_INTERVAL = 50
+
 let ipcServer: Server | null = null
 let httpServer: ServerInstance | null = null
 let commands: PrjctCommands | null = null
@@ -66,6 +69,9 @@ export async function startDaemon(options: {
   if (fs.existsSync(socketPath)) {
     fs.unlinkSync(socketPath)
   }
+
+  // Rotate log if over 1 MB
+  rotateLog()
 
   // Resolve entry file path and mtime for stale-code detection
   const entryPath = resolveEntryPath()
@@ -228,6 +234,11 @@ async function handleRequest(request: DaemonRequest): Promise<DaemonResponse> {
   state.commandsServed++
   state.lastActivity = Date.now()
 
+  // Periodic WAL checkpoint to reclaim disk space
+  if (state.commandsServed % WAL_CHECKPOINT_INTERVAL === 0) {
+    prjctDb.checkpointAll()
+  }
+
   // Stale-code detection: check if the entry file was rebuilt
   if (isCodeStale()) {
     console.log('Build changed detected — daemon will restart after this request')
@@ -362,6 +373,8 @@ async function executeCommand(request: DaemonRequest): Promise<import('../types'
       return commands!.analyze(opts, request.cwd)
     case 'cleanup':
       return commands!.cleanup(opts, request.cwd)
+    case 'cleanup-projects':
+      return commands!.cleanupProjects({ dryRun: opts['dry-run'] === true, md })
     default:
       // Standard commands without special option handling
       return commandRegistry.execute(request.command, param, request.cwd)
@@ -526,6 +539,31 @@ function resolveEntryPath(): string | null {
   if (scriptPath && fs.existsSync(scriptPath)) return scriptPath
 
   return null
+}
+
+/**
+ * Rotate daemon log if it exceeds 1 MB.
+ * Keeps one backup (.1) and truncates the current log.
+ */
+const MAX_LOG_BYTES = 1024 * 1024 // 1 MB
+
+function rotateLog(): void {
+  const logPath = DAEMON_PATHS.log()
+  try {
+    const stat = fs.statSync(logPath)
+    if (stat.size > MAX_LOG_BYTES) {
+      const backupPath = `${logPath}.1`
+      // Remove old backup, rename current, create fresh
+      try {
+        fs.unlinkSync(backupPath)
+      } catch {
+        /* no previous backup */
+      }
+      fs.renameSync(logPath, backupPath)
+    }
+  } catch {
+    // Log file doesn't exist yet — nothing to rotate
+  }
 }
 
 /**

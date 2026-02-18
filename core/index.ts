@@ -137,6 +137,11 @@ async function main(): Promise<void> {
       result = await commands.analyze(options)
     } else if (commandName === 'cleanup') {
       result = await commands.cleanup(options)
+    } else if (commandName === 'cleanup-projects') {
+      result = await commands.cleanupProjects({
+        dryRun: options['dry-run'] === true,
+        md: options.md === true,
+      })
     } else if (commandName === 'setup') {
       result = await commands.setup(options)
     } else if (commandName === 'update') {

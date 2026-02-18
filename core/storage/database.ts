@@ -566,6 +566,20 @@ class PrjctDatabase {
   }
 
   /**
+   * Run WAL checkpoint on all open connections to reclaim WAL file space.
+   * Uses TRUNCATE mode to reset WAL file to zero bytes.
+   */
+  checkpointAll(): void {
+    for (const [_projectId, db] of this.connections) {
+      try {
+        db.run('PRAGMA wal_checkpoint(TRUNCATE)')
+      } catch {
+        // Connection may have been closed externally — skip
+      }
+    }
+  }
+
+  /**
    * Check if a database exists for a project (without creating one).
    */
   exists(projectId: string): boolean {
