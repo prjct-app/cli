@@ -469,8 +469,12 @@ const migrations: Migration[] = [
 // Database Manager
 // =============================================================================
 
+/** Max concurrent DB connections before evicting least-recently-used */
+const MAX_DB_CONNECTIONS = 3
+
 class PrjctDatabase {
   private connections = new Map<string, SqliteDatabase>()
+  private accessOrder: string[] = []
 
   /**
    * Get the database file path for a project.
@@ -485,7 +489,15 @@ class PrjctDatabase {
    */
   getDb(projectId: string): SqliteDatabase {
     const existing = this.connections.get(projectId)
-    if (existing) return existing
+    if (existing) {
+      this.touchAccessOrder(projectId)
+      return existing
+    }
+
+    // Evict LRU connection if at capacity
+    if (this.connections.size >= MAX_DB_CONNECTIONS) {
+      this.evictLru()
+    }
 
     const dbPath = this.getDbPath(projectId)
     // Ensure parent directory exists before creating DB
@@ -502,12 +514,13 @@ class PrjctDatabase {
     db.run('PRAGMA synchronous = NORMAL')
     db.run('PRAGMA cache_size = -2000') // 2MB cache
     db.run('PRAGMA temp_store = MEMORY')
-    db.run('PRAGMA mmap_size = 268435456') // 256MB mmap
+    db.run('PRAGMA mmap_size = 33554432') // 32MB mmap
 
     // Run pending migrations
     this.runMigrations(db)
 
     this.connections.set(projectId, db)
+    this.touchAccessOrder(projectId)
     return db
   }
 
@@ -520,12 +533,35 @@ class PrjctDatabase {
       if (db) {
         db.close()
         this.connections.delete(projectId)
+        this.accessOrder = this.accessOrder.filter((id) => id !== projectId)
       }
     } else {
       this.connections.forEach((db) => {
         db.close()
       })
       this.connections.clear()
+      this.accessOrder = []
+    }
+  }
+
+  /**
+   * Move a projectId to the end of the access order (most recently used).
+   */
+  private touchAccessOrder(projectId: string): void {
+    this.accessOrder = this.accessOrder.filter((id) => id !== projectId)
+    this.accessOrder.push(projectId)
+  }
+
+  /**
+   * Evict the least recently used database connection.
+   */
+  private evictLru(): void {
+    if (this.accessOrder.length === 0) return
+    const lruId = this.accessOrder.shift()!
+    const db = this.connections.get(lruId)
+    if (db) {
+      db.close()
+      this.connections.delete(lruId)
     }
   }
 

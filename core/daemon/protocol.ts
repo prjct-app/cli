@@ -81,6 +81,9 @@ export const DAEMON_PATHS = {
 /** Default idle timeout before auto-shutdown (30 minutes) */
 export const IDLE_TIMEOUT_MS = 30 * 60 * 1000
 
+/** Maximum buffer size per connection before rejecting (1 MB) */
+export const MAX_BUFFER_SIZE = 1024 * 1024
+
 /** Encode a message for sending over socket */
 export function encodeMessage(msg: DaemonRequest | DaemonResponse): Buffer {
   return Buffer.from(`${JSON.stringify(msg)}\n`)

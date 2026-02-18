@@ -19,6 +19,7 @@ import { commandRegistry } from '../commands/registry'
 import '../commands/register'
 import configManager from '../infrastructure/config-manager'
 import { createServer as createHttpServer, DEFAULT_PORT } from '../server/server'
+import prjctDb from '../storage/database'
 import type { ServerInstance } from '../types'
 import {
   DAEMON_PATHS,
@@ -27,6 +28,7 @@ import {
   type DaemonState,
   encodeMessage,
   IDLE_TIMEOUT_MS,
+  MAX_BUFFER_SIZE,
 } from './protocol'
 
 let ipcServer: Server | null = null
@@ -164,6 +166,20 @@ function handleConnection(socket: Socket): void {
 
   socket.on('data', async (chunk) => {
     buffer += chunk.toString()
+
+    // Guard against unbounded buffer growth from malformed clients
+    if (buffer.length > MAX_BUFFER_SIZE) {
+      const errorResponse: DaemonResponse = {
+        id: 'unknown',
+        success: false,
+        exitCode: 1,
+        stderr: 'Request too large',
+      }
+      socket.write(encodeMessage(errorResponse))
+      socket.destroy()
+      buffer = ''
+      return
+    }
 
     // Process complete messages (newline-delimited)
     let newlineIdx: number
@@ -440,6 +456,9 @@ export function shutdown(exitCode: number): void {
     ipcServer.close()
     ipcServer = null
   }
+
+  // Close all database connections
+  prjctDb.close()
 
   // Clean up files
   const socketPath = DAEMON_PATHS.socket()

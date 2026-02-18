@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.45.10] - 2026-02-18
+
+### Added
+- daemon memory leak fixes
+
+## [1.45.9] - 2026-02-18
+
+### Added
+- daemon memory leak fixes
+
 ## [1.45.8] - 2026-02-17
 
 ### Added
