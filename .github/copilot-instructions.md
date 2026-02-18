@@ -34,11 +34,11 @@ Workflow: `p. sync` → `p. task "desc"` → work → `p. done` → `p. ship`
 | Field | Value |
 |-------|-------|
 | Name | prjct-cli |
-| Version | 1.45.10 |
+| Version | 1.46.1 |
 | Ecosystem | JavaScript |
-| Branch | fix/daemon-memory-leaks |
+| Branch | main |
 | Files | ~363 |
-| Commits | 637 |
+| Commits | 640 |
 
 ## Agents
 

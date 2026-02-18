@@ -1,7 +1,7 @@
 <!-- prjct-project:start - DO NOT REMOVE THIS MARKER -->
 # prjct-cli - Project Rules
 <!-- projectId: bc401c41-c8b9-436a-ac78-c91cac82ab4f -->
-<!-- Generated: 2026-02-18T20:27:14.024Z -->
+<!-- Generated: 2026-02-18T22:06:24.852Z -->
 <!-- Ecosystem: JavaScript | Type: enterprise -->
 
 ## THIS PROJECT (JavaScript)
@@ -69,11 +69,11 @@ p. sync → p. task "desc" → [work] → p. done → p. ship
 | Field | Value |
 |-------|-------|
 | Name | prjct-cli |
-| Version | 1.45.10 |
+| Version | 1.46.1 |
 | Ecosystem | JavaScript |
-| Branch | fix/daemon-memory-leaks |
+| Branch | main |
 | Files | ~363 |
-| Commits | 637 |
+| Commits | 640 |
 
 ## Agents
 
