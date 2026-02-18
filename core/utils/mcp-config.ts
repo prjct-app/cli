@@ -325,7 +325,7 @@ export async function checkOAuthTokens(provider: 'jira' | 'linear'): Promise<{
   const mcpAuthDir = path.join(os.homedir(), '.mcp-auth')
   const versionDir = path.join(mcpAuthDir, `mcp-remote-${version}`)
 
-  let migrated = false
+  let _migrated = false
   let cleaned = false
 
   // Step 1: Validate existing tokens (not just file existence)
@@ -360,7 +360,7 @@ export async function checkOAuthTokens(provider: 'jira' | 'linear'): Promise<{
   // Step 3: Attempt migration from legacy version dirs
   const migration = await migrateOAuthTokens()
   if (migration.migrated) {
-    migrated = true
+    _migrated = true
     systemDb.setMcpHealth(provider, {
       status: 'healthy',
       tokenVersion: version,

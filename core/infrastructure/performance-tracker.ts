@@ -24,6 +24,9 @@ import prjctDb from '../storage/database'
 // PERFORMANCE TRACKER
 // =============================================================================
 
+/** Max age for stale marks before cleanup (5 minutes in nanoseconds) */
+const STALE_MARK_NS = BigInt(5 * 60 * 1_000_000_000)
+
 class PerformanceTracker {
   private marks: Map<string, bigint> = new Map()
 
@@ -36,6 +39,7 @@ class PerformanceTracker {
    * Uses process.hrtime.bigint() for nanosecond precision.
    */
   markStart(label: string): void {
+    this.pruneStaleMarks()
     this.marks.set(label, process.hrtime.bigint())
   }
 
@@ -50,6 +54,20 @@ class PerformanceTracker {
     const end = process.hrtime.bigint()
     this.marks.delete(label)
     return Number(end - start) / 1_000_000 // ns → ms
+  }
+
+  /**
+   * Remove marks older than STALE_MARK_NS to prevent unbounded growth
+   * from unmatched markStart calls (e.g. on error paths).
+   */
+  private pruneStaleMarks(): void {
+    if (this.marks.size < 10) return
+    const now = process.hrtime.bigint()
+    for (const [label, start] of this.marks) {
+      if (now - start > STALE_MARK_NS) {
+        this.marks.delete(label)
+      }
+    }
   }
 
   /**
