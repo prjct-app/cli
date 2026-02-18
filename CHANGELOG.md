@@ -1,14 +1,16 @@
 # Changelog
 
-## [1.45.10] - 2026-02-18
+## [1.46.1] - 2026-02-18
 
-### Added
-- daemon memory leak fixes
+### Bug Fixes
 
-## [1.45.9] - 2026-02-18
+- Daemon memory leaks: LRU connection pool, buffer cap, DB cleanup on shutdown
 
-### Added
-- daemon memory leak fixes
+## [1.46.0] - 2026-02-17
+
+### Features
+
+- post-OAuth verify command for MCP health check (#218)
 
 ## [1.45.8] - 2026-02-17
 
