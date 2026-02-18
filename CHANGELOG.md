@@ -2,13 +2,15 @@
 
 ## [1.46.3] - 2026-02-18
 
-### Added
-- daemon production hardening
+### Bug Fixes
+
+- Daemon production hardening: WAL checkpoint, log rotation, project cleanup (#220)
 
 ## [1.46.2] - 2026-02-18
 
-### Added
-- daemon production hardening
+### Bug Fixes
+
+- daemon memory leaks — LRU pool, buffer cap, DB cleanup (#219)
 
 ## [1.46.1] - 2026-02-18
 
