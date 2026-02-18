@@ -213,6 +213,10 @@ class PrjctCommands {
     return this.maintenance.cleanup(options, projectPath)
   }
 
+  async cleanupProjects(options: { dryRun?: boolean; md?: boolean } = {}): Promise<CommandResult> {
+    return this.maintenance.cleanupProjects(options)
+  }
+
   async design(
     target: string | null = null,
     options: DesignOptions = {},

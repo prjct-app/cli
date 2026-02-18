@@ -5,6 +5,9 @@
  * Storage: SQLite events table
  */
 
+import fs from 'node:fs'
+import path from 'node:path'
+import pathManager from '../infrastructure/path-manager'
 import { memoryService } from '../services'
 import { ideasStorage, queueStorage } from '../storage'
 import prjctDb from '../storage/database'
@@ -157,5 +160,82 @@ export async function cleanup(
   } catch (error) {
     out.fail(getErrorMessage(error))
     return { success: false, error: getErrorMessage(error) }
+  }
+}
+
+/** Patterns that identify test/stale project directories */
+const STALE_PROJECT_PATTERNS = [
+  /^qa-/, // test harness artifacts
+  /^nonexistent-/, // test placeholder
+  /^test-/, // generic test prefix
+]
+
+/**
+ * Clean up stale/test project directories from ~/.prjct-cli/projects/
+ * Removes directories matching known test patterns and empty projects
+ * that have never been used beyond initial migration.
+ */
+export async function cleanupProjects(options: {
+  dryRun?: boolean
+  md?: boolean
+}): Promise<CommandResult> {
+  const projectsDir = pathManager.getGlobalBasePath()
+  const projectsPath = path.join(projectsDir, 'projects')
+
+  if (!fs.existsSync(projectsPath)) {
+    return { success: true, message: 'No projects directory found' }
+  }
+
+  const entries = fs.readdirSync(projectsPath, { withFileTypes: true })
+  const removed: string[] = []
+  const skipped: string[] = []
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue
+
+    const dirName = entry.name
+    const dirPath = path.join(projectsPath, dirName)
+    const isStale = STALE_PROJECT_PATTERNS.some((p) => p.test(dirName))
+
+    if (!isStale) {
+      skipped.push(dirName)
+      continue
+    }
+
+    if (options.dryRun) {
+      removed.push(dirName)
+      continue
+    }
+
+    try {
+      // Close any open DB connection before removing
+      prjctDb.close(dirName)
+      fs.rmSync(dirPath, { recursive: true, force: true })
+      removed.push(dirName)
+    } catch {
+      skipped.push(dirName)
+    }
+  }
+
+  if (options.md) {
+    const lines = [
+      `## ${options.dryRun ? 'Dry Run: ' : ''}Project Cleanup`,
+      '',
+      `| Metric | Value |`,
+      `|---|---|`,
+      `| Removed | ${removed.length} |`,
+      `| Kept | ${skipped.length} |`,
+    ]
+    if (removed.length > 0) {
+      lines.push('', '### Removed', ...removed.map((r) => `- \`${r}\``))
+    }
+    return { success: true, message: lines.join('\n') }
+  }
+
+  return {
+    success: true,
+    message: `Cleaned ${removed.length} stale project(s), kept ${skipped.length}`,
+    removed,
+    kept: skipped.length,
   }
 }

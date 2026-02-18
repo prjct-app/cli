@@ -1,7 +1,7 @@
 <!-- prjct-project:start - DO NOT REMOVE THIS MARKER -->
 # prjct-cli - Project Rules
 <!-- projectId: bc401c41-c8b9-436a-ac78-c91cac82ab4f -->
-<!-- Generated: 2026-02-17T19:04:08.548Z -->
+<!-- Generated: 2026-02-18T22:06:24.852Z -->
 <!-- Ecosystem: JavaScript | Type: enterprise -->
 
 ## THIS PROJECT (JavaScript)
@@ -38,10 +38,10 @@
 
 - **Unbounded any type** in `multiple` — Use explicit types or unknown with narrowing. Add inline justification for unavoidable any.
 - **Unscoped @ts-ignore** in `multiple` — Prefer @ts-expect-error with rationale and follow-up cleanup ticket.
+- **Unbounded any usage** in `core/storage/workflow-rule-storage.ts` — Replace with specific types or justified unknown + narrowing.
 - **Unchecked @ts-ignore usage** in `core/services/pattern-extractor.ts` — Use @ts-expect-error with reason or refactor typings.
 - **Unbounded any usage** in `core/__tests__/services/pattern-extractor.test.ts` — Replace with specific types or justified unknown + narrowing.
 - **Unbounded any usage** in `core/__tests__/domain/bm25.test.ts` — Replace with specific types or justified unknown + narrowing.
-- **Unbounded any usage** in `core/storage/workflow-rule-storage.ts` — Replace with specific types or justified unknown + narrowing.
 
 ---
 
@@ -69,17 +69,17 @@ p. sync → p. task "desc" → [work] → p. done → p. ship
 | Field | Value |
 |-------|-------|
 | Name | prjct-cli |
-| Version | 1.45.8 |
+| Version | 1.46.1 |
 | Ecosystem | JavaScript |
-| Branch | feat/post-oauth-verify-command |
+| Branch | main |
 | Files | ~363 |
-| Commits | 635 |
+| Commits | 640 |
 
 ## Agents
 
 Load from `~/.prjct-cli/projects/bc401c41-c8b9-436a-ac78-c91cac82ab4f/agents/`:
 
-**Workflow**: prjct-workflow, prjct-planner, prjct-shipper
+**Workflow**: prjct-planner, prjct-shipper, prjct-workflow
 **Domain**: backend, database
 
 ## Recent Learnings

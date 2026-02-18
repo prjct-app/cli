@@ -369,6 +369,17 @@ export const COMMANDS: CommandMeta[] = [
     requiresLlm: true,
   },
   {
+    name: 'cleanup-projects',
+    group: 'optional',
+    description: 'Remove stale/test project directories',
+    usage: { claude: '/p:cleanup-projects', terminal: 'prjct cleanup-projects [--dry-run]' },
+    params: '[--dry-run] [--md]',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: false,
+    isOptional: true,
+  },
+  {
     name: 'analyze',
     group: 'optional',
     description: 'Analyze repository and sync tasks',

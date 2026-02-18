@@ -17,7 +17,7 @@ This is prjct-cli, a JavaScript project.
 ## Anti-Patterns
 - **Unbounded any type** in `multiple` — Use explicit types or unknown with narrowing. Add inline justification for unavoidable any.
 - **Unscoped @ts-ignore** in `multiple` — Prefer @ts-expect-error with rationale and follow-up cleanup ticket.
-- **Unchecked @ts-ignore usage** in `core/services/pattern-extractor.ts` — Use @ts-expect-error with reason or refactor typings.
+- **Unbounded any usage** in `core/storage/workflow-rule-storage.ts` — Replace with specific types or justified unknown + narrowing.
 
 <!-- source: package.json, detected -->
 ## Commands
@@ -34,17 +34,17 @@ Workflow: `p. sync` → `p. task "desc"` → work → `p. done` → `p. ship`
 | Field | Value |
 |-------|-------|
 | Name | prjct-cli |
-| Version | 1.45.8 |
+| Version | 1.46.1 |
 | Ecosystem | JavaScript |
-| Branch | feat/post-oauth-verify-command |
+| Branch | main |
 | Files | ~363 |
-| Commits | 635 |
+| Commits | 640 |
 
 ## Agents
 
 Load from `~/.prjct-cli/projects/bc401c41-c8b9-436a-ac78-c91cac82ab4f/agents/`:
 
-**Workflow**: prjct-workflow, prjct-planner, prjct-shipper
+**Workflow**: prjct-planner, prjct-shipper, prjct-workflow
 **Domain**: backend, database
 
 ## Recent Learnings

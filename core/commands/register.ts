@@ -89,6 +89,12 @@ export function registerAllCommands(): void {
 
   // Maintenance commands
   commandRegistry.registerMethod('cleanup', maintenance, 'cleanup', getMeta('cleanup'))
+  commandRegistry.registerMethod(
+    'cleanup-projects',
+    maintenance,
+    'cleanupProjects',
+    getMeta('cleanup-projects')
+  )
   commandRegistry.registerMethod('design', maintenance, 'design', getMeta('design'))
   commandRegistry.registerMethod('recover', maintenance, 'recover', getMeta('recover'))
   commandRegistry.registerMethod('undo', maintenance, 'undo', getMeta('undo'))
