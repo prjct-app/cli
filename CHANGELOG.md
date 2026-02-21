@@ -1,11 +1,16 @@
 # Changelog
 
+## [1.46.5] - 2026-02-20
+
+### Bug Fixes
+
+- structural fixes for pattern ranking
+
 ## [1.46.4] - 2026-02-18
 
 ### Bug Fixes
 
 - daemon production hardening — WAL checkpoint, log rotation, project cleanup (#220)
-
 
 ## [1.46.3] - 2026-02-18
 

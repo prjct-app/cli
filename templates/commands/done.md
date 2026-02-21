@@ -14,10 +14,23 @@ If CLI output is JSON with `options`, present the options to the user and execut
 - Review files changed: `git diff --name-only HEAD`
 - Ensure work is complete and tested
 
-## Step 3: Handoff context
+## Step 3: Pattern compliance check
+
+If a Pattern Commitment table was created during the "Pattern commitment" step of the task workflow, review each committed pattern against the actual changes:
+
+| Pattern | Status | Evidence |
+|---------|--------|----------|
+| (name) | FOLLOWED | `path/file.ts:line` — used correct abstraction |
+| (name) | VIOLATED | reason — e.g., needed `use client` for interactivity |
+
+Report any VIOLATED pattern with a clear reason. The user decides whether to accept the violation.
+
+If no commitment table exists (e.g., project not synced, or patterns were empty), skip this step.
+
+## Step 4: Handoff context
 Summarize what was done and what the next subtask needs to know.
 
-## Step 4: Follow CLI next steps → Ship
+## Step 5: Follow CLI next steps → Ship
 After completing, you MUST ask:
 ASK: "Subtask done. Ready to ship or continue to next subtask?"
 - Ship now → execute `p. ship` workflow (load and follow `~/.claude/commands/p/ship.md`)

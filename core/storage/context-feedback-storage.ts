@@ -84,6 +84,21 @@ class ContextFeedbackStorage {
   }
 
   /**
+   * Get the most recent feedback row for a task (to read precision/recall after completeFeedback).
+   */
+  getFeedback(
+    projectId: string,
+    taskId: string
+  ): { precision: number | null; recall: number | null } | null {
+    const row = prjctDb.get<ContextFeedbackRow>(
+      projectId,
+      'SELECT precision, recall FROM context_feedback WHERE task_id = ? ORDER BY id DESC LIMIT 1',
+      taskId
+    )
+    return row ? { precision: row.precision, recall: row.recall } : null
+  }
+
+  /**
    * Get historical boost scores for file suggestions.
    *
    * Analyzes last 50 completed feedback records, weights by keyword overlap

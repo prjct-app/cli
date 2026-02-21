@@ -32,3 +32,14 @@ ${CYAN}${BOLD}   prjct${RESET} ${DIM}v${VERSION}${RESET}
 
    ${DIM}Supports: Claude Code, Gemini CLI, or both${RESET}
 `)
+
+// Auto-install Bun for optimal performance (best-effort)
+try {
+  const { execSync } = require('node:child_process')
+  const ensureBun = path.join(__dirname, 'ensure-bun.sh')
+  if (fs.existsSync(ensureBun)) {
+    execSync(`sh "${ensureBun}"`, { stdio: 'inherit', timeout: 30000 })
+  }
+} catch (_err) {
+  console.log(`   ${DIM}Bun not installed — using Node.js (slower)${RESET}`)
+}

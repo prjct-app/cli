@@ -28,6 +28,7 @@ import estimateTaskForStart from '../services/task-estimation'
 import { sessionSnapshotManager } from '../session/session-snapshot'
 import { analysisStorage, contextFeedbackStorage, queueStorage, stateStorage } from '../storage'
 import { customWorkflowStorage } from '../storage/custom-workflow-storage'
+import { indexStorage } from '../storage/index-storage'
 import type { WorkflowRule } from '../storage/workflow-rule-storage'
 import { workflowRuleStorage } from '../storage/workflow-rule-storage'
 import { extractKeywords, findRelevantFiles } from '../tools/context/files-tool'
@@ -36,13 +37,13 @@ import { getErrorMessage, isNotFoundError } from '../types/fs'
 import { getClaudeMcpConfigPath, hasMcpServer } from '../utils/mcp-config'
 import {
   mdActionRequired,
+  mdCallout,
   mdCodeBlock,
   mdDone,
   mdList,
   mdNextSteps,
   mdOutput,
   mdRelevantFiles,
-  mdRules,
   mdSection,
   mdStats,
   mdSubtasks,
@@ -211,12 +212,22 @@ export class WorkflowCommands extends PrjctCommandsBase {
           } catch {
             // Cold start or DB not ready — no boosts
           }
+
+          // Dynamic token budget based on task type
+          const tokenBudgetByType: Record<string, number> = {
+            bug: 30,
+            chore: 40,
+            improvement: 80,
+            feature: 100,
+          }
+          const maxFilesForTask = (tokenBudgetByType[estimate.taskType] ?? 80) >= 80 ? 15 : 10
+
           const [branch, analysis, repoAnalysisRaw, relevantFilesResult] = await Promise.all([
             getGitBranch(),
             analysisStorage.getActive(projectId).catch(() => null),
             loadRepoAnalysis(globalPath),
             findRelevantFiles(taskDescription, projectPath, {
-              maxFiles: 8,
+              maxFiles: maxFilesForTask,
               minScore: 0.15,
               historicalBoosts,
             }).catch(() => ({
@@ -237,8 +248,53 @@ export class WorkflowCommands extends PrjctCommandsBase {
             // Non-critical
           }
 
+          // Analysis staleness check — warn if >7 days old
+          let stalenessWarning: string | null = null
+          if (analysis?.analyzedAt) {
+            const analyzedDate = new Date(analysis.analyzedAt)
+            const daysSinceAnalysis = Math.floor(
+              (Date.now() - analyzedDate.getTime()) / (1000 * 60 * 60 * 24)
+            )
+            if (daysSinceAnalysis > 7) {
+              stalenessWarning = mdCallout(
+                'warn',
+                `Analysis is ${daysSinceAnalysis} days old. Run \`p. sync\` to refresh patterns and file index.`
+              )
+            }
+          } else if (!analysis) {
+            stalenessWarning = mdCallout(
+              'info',
+              'No project analysis found. Run `p. sync` for better context targeting.'
+            )
+          }
+
+          // Surface historically useful files from feedback loop
+          let historicalFilesSection: string | null = null
+          if (historicalBoosts && historicalBoosts.size > 0) {
+            const topBoosted = [...historicalBoosts.entries()]
+              .filter(([, score]) => score > 0.3)
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 5)
+            if (topBoosted.length > 0) {
+              const items = topBoosted.map(([file]) => `\`${file}\``)
+              historicalFilesSection = `### Previously Useful Files\n${items.join(', ')}`
+            }
+          }
+
+          // Detect domains from task keywords + project-specific domains
+          const detectedDomains = detectDomainsFromTask(taskDescription, projectId)
+
           // Build sections
-          const header = mdTaskHeader({ description: taskDescription, branch, linearId })
+          const header = mdTaskHeader({
+            description: taskDescription,
+            branch,
+            linearId,
+            type: estimate.taskType,
+            estimatedPoints: estimate.estimatedPoints,
+            estimatedMinutes: estimate.estimatedMinutes,
+            estimateSource: estimate.source,
+            domains: detectedDomains,
+          })
           const projectContext = buildProjectContext(analysis, repoAnalysisRaw)
           const files = mdRelevantFiles(
             relevantFilesResult.files.map((f) => ({
@@ -246,12 +302,15 @@ export class WorkflowCommands extends PrjctCommandsBase {
               description: f.reasons.join(', '),
             }))
           )
-          const rules = buildRules(repoAnalysisRaw)
-          const patterns = buildPatterns(analysis)
+          const relevantFilePaths = relevantFilesResult.files.map((f) => f.path)
+          const patterns = buildPatternBriefing(analysis, relevantFilePaths)
           const contextContract = buildContextContract(
             taskDescription,
             relevantFilesResult.files,
-            analysis
+            analysis,
+            estimate,
+            detectedDomains,
+            repoAnalysisRaw
           )
           const next = mdNextSteps([
             { label: 'Find relevant files', command: `prjct context files "${task}"` },
@@ -262,11 +321,12 @@ export class WorkflowCommands extends PrjctCommandsBase {
           console.log(
             mdOutput(
               continuityContext,
+              stalenessWarning,
               header,
               contextContract,
               projectContext,
               files,
-              rules,
+              historicalFilesSection,
               patterns,
               next
             )
@@ -526,10 +586,19 @@ export class WorkflowCommands extends PrjctCommandsBase {
       }
 
       // Record context feedback: actual files modified during task
+      let modifiedFiles: string[] = []
+      let feedbackPrecision: number | null = null
+      let feedbackRecall: number | null = null
       try {
-        const actualFiles = await getFilesModifiedSinceTaskStart(projectPath, currentTask.startedAt)
-        if (actualFiles.length > 0) {
-          contextFeedbackStorage.completeFeedback(projectId, currentTask.id, actualFiles)
+        modifiedFiles = await getFilesModifiedSinceTaskStart(projectPath, currentTask.startedAt)
+        if (modifiedFiles.length > 0) {
+          contextFeedbackStorage.completeFeedback(projectId, currentTask.id, modifiedFiles)
+          // Read back the precision/recall metrics
+          const feedbackRow = contextFeedbackStorage.getFeedback(projectId, currentTask.id)
+          if (feedbackRow) {
+            feedbackPrecision = feedbackRow.precision
+            feedbackRecall = feedbackRow.recall
+          }
         }
       } catch {
         // Non-blocking — feedback is best-effort
@@ -555,6 +624,22 @@ export class WorkflowCommands extends PrjctCommandsBase {
 
       if (options.md) {
         const durationSuffix = duration ? ` (${duration})` : ''
+
+        // Build modified files section
+        let modifiedFilesSection: string | null = null
+        if (modifiedFiles.length > 0) {
+          const fileList = modifiedFiles.slice(0, 20).map((f) => `\`${f}\``)
+          modifiedFilesSection = `### Files Modified (${modifiedFiles.length})\n${fileList.join(', ')}`
+        }
+
+        // Build feedback accuracy section
+        let feedbackSection: string | null = null
+        if (feedbackPrecision !== null && feedbackRecall !== null) {
+          const precPct = Math.round(feedbackPrecision * 100)
+          const recPct = Math.round(feedbackRecall * 100)
+          feedbackSection = `### Context Accuracy\n| Metric | Value |\n|--------|-------|\n| Precision | ${precPct}% of suggested files were used |\n| Recall | ${recPct}% of modified files were suggested |`
+        }
+
         console.log(
           mdOutput(
             mdDone('Completed', `${task}${durationSuffix}`),
@@ -562,6 +647,8 @@ export class WorkflowCommands extends PrjctCommandsBase {
               Duration: duration || 'unknown',
               ...(varianceDisplay ? { Variance: varianceDisplay.replace(' | ', '') } : {}),
             }),
+            modifiedFilesSection,
+            feedbackSection,
             mdNextSteps([
               { label: 'Complete next subtask', command: 'p. done' },
               { label: 'Ship when ready', command: 'p. ship' },
@@ -2008,85 +2095,281 @@ function buildProjectContext(
   return [projectSection, commandsBlock].filter(Boolean).join('\n\n') || null
 }
 
-/** Build rules section from hardcoded rules + repo-analysis rules */
-function buildRules(repoAnalysis: Record<string, unknown> | null): string {
-  const rules: string[] = [
-    'All commits must include footer: Generated with [p/](https://www.prjct.app/)',
+// =============================================================================
+// Pattern Ranking Helpers (exported for testing)
+// =============================================================================
+
+/**
+ * Rank patterns by metadata relevance (no hardcoded keywords).
+ * Uses: source priority, framework/language match, confidence, location overlap.
+ */
+export function rankPatterns<
+  T extends {
+    source?: string
+    framework?: string
+    language?: string
+    confidence?: number
+    location?: string
+    name: string
+    description: string
+  },
+>(
+  patterns: T[],
+  analysis: { frameworks?: string[]; languages?: string[] } | null,
+  relevantFilePaths: string[],
+  limit: number
+): T[] {
+  if (patterns.length === 0) return []
+
+  const frameworks = new Set((analysis?.frameworks || []).map((f) => f.toLowerCase()))
+  const languages = new Set((analysis?.languages || []).map((l) => l.toLowerCase()))
+
+  const scored = patterns.map((p) => {
+    let score = 0
+
+    // Source priority: repo patterns are project-specific, most valuable
+    if (p.source === 'repo') score += 100
+    else if (p.source === 'context7') score += 60
+    else if (p.source === 'feedback') score += 50
+    else if (p.source === 'baseline') score += 10
+
+    // Framework match: pattern's framework matches project frameworks
+    if (p.framework && frameworks.has(p.framework.toLowerCase())) score += 40
+
+    // Language match: pattern's language matches project languages
+    if (p.language && languages.has(p.language.toLowerCase())) score += 20
+
+    // Confidence: direct signal from analysis (0-1 → 0-30 points)
+    if (typeof p.confidence === 'number') score += Math.round(p.confidence * 30)
+
+    // Location overlap: pattern's location glob matches any relevant file path
+    if (p.location && relevantFilePaths.length > 0) {
+      const locParts = p.location
+        .toLowerCase()
+        .replace(/\*+/g, '')
+        .split(/[/,\s]+/)
+        .filter(Boolean)
+      if (
+        locParts.some((part) => relevantFilePaths.some((fp) => fp.toLowerCase().includes(part)))
+      ) {
+        score += 25
+      }
+    }
+
+    return { pattern: p, score }
+  })
+
+  scored.sort((a, b) => b.score - a.score)
+  return scored.slice(0, limit).map((s) => s.pattern)
+}
+
+/** Deduplicate strings by lowercase comparison */
+export function deduplicateDecisions(decisions: string[]): string[] {
+  const seen = new Set<string>()
+  return decisions.filter((d) => {
+    const key = d
+      .toLowerCase()
+      .replace(/[`*_()]/g, '')
+      .trim()
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
+/** Detect domains from task description using project-specific domains */
+function detectDomainsFromTask(description: string, projectId?: string): string[] {
+  const normalizedDesc = description.toLowerCase()
+  const detected = new Set<string>()
+
+  if (projectId) {
+    try {
+      const domainsData = indexStorage.readDomainsSync(projectId)
+      if (domainsData?.domains) {
+        for (const domain of domainsData.domains) {
+          if (normalizedDesc.includes(domain.name.toLowerCase())) {
+            detected.add(domain.name)
+            continue
+          }
+          for (const kw of domain.keywords) {
+            if (normalizedDesc.includes(kw.toLowerCase())) {
+              detected.add(domain.name)
+              break
+            }
+          }
+        }
+      }
+    } catch {
+      // Index not ready — use baseline only
+    }
+  }
+
+  return detected.size > 0 ? [...detected] : ['general']
+}
+
+// =============================================================================
+// Pattern Briefing & Context Contract
+// =============================================================================
+
+/**
+ * Build domain-filtered pattern briefing with paired anti-patterns.
+ * Each pattern is paired with its most relevant violation.
+ * Output uses standard markdown (agents.md compatible — works across Claude, Codex, Jules, Cursor).
+ */
+export function buildPatternBriefing(
+  analysis: AnalysisSchema | null,
+  relevantFilePaths: string[]
+): string | null {
+  if (!analysis) return null
+
+  const patterns = analysis.patterns
+  const antiPatterns = analysis.antiPatterns
+  if (!Array.isArray(patterns) || patterns.length === 0) return null
+
+  const filtered = rankPatterns(patterns, analysis, relevantFilePaths, 5)
+
+  // Track used anti-patterns to avoid reuse across briefing blocks
+  const usedAntiPatterns = new Set<number>()
+
+  const blocks = filtered.map((p, i) => {
+    const src = p.source ? ` [${p.source}]` : ''
+    const loc = p.location ? ` (\`${p.location}\`)` : ''
+
+    // Find matching anti-pattern by keyword overlap (best match, no reuse)
+    const patternWords = p.name
+      .toLowerCase()
+      .split(/[\s\-_/]+/)
+      .filter((w) => w.length > 2)
+    let matchingAnti: (typeof antiPatterns)[number] | undefined
+    if (Array.isArray(antiPatterns)) {
+      for (let j = 0; j < antiPatterns.length; j++) {
+        if (usedAntiPatterns.has(j)) continue
+        const antiText = `${antiPatterns[j].issue} ${antiPatterns[j].suggestion}`.toLowerCase()
+        if (patternWords.some((word) => antiText.includes(word))) {
+          matchingAnti = antiPatterns[j]
+          usedAntiPatterns.add(j)
+          break
+        }
+      }
+    }
+
+    const lines = [`**${i + 1}. ${p.name}**${src}`, `   ${p.description}${loc}`]
+
+    if (matchingAnti) {
+      lines.push(`   - VIOLATION: ${matchingAnti.issue} — ${matchingAnti.suggestion}`)
+    }
+
+    return lines.join('\n')
+  })
+
+  return `### Pattern Briefing (for this task)\n\n${blocks.join('\n\n')}`
+}
+
+/**
+ * Build context contract with Locked Decisions and Task Patterns.
+ * Uses standard markdown structure compatible with agents.md spec
+ * (works across Claude, Codex, Jules, Cursor, and other coding agents).
+ */
+export function buildContextContract(
+  task: string,
+  files: Array<{ path: string; reasons: string[] }>,
+  analysis: AnalysisSchema | null,
+  estimate?: {
+    taskType: string
+    estimatedPoints: number
+    estimatedMinutes: number
+    source: string
+  },
+  domains?: string[],
+  repoAnalysis?: Record<string, unknown> | null
+): string {
+  const relevantFilePaths = files.map((f) => f.path)
+  const topFiles = files.slice(0, 6).map((f) => `\`${f.path}\``)
+
+  const lines = ['### Context Contract', `- **Goal**: ${task}`]
+
+  if (estimate) {
+    lines.push(
+      `- **Scope**: ${estimate.taskType} · ~${estimate.estimatedPoints}pts · ~${estimate.estimatedMinutes}min (${estimate.source})`
+    )
+  }
+
+  if (domains && domains.length > 0) {
+    lines.push(`- **Domains**: ${domains.join(', ')}`)
+  }
+
+  const syncHint = 'Run `prjct sync` to improve file targeting'
+  lines.push(`- **Key files**: ${topFiles.length > 0 ? topFiles.join(', ') : syncHint}`)
+
+  // --- Locked Decisions (NON-NEGOTIABLE) ---
+  const lockedDecisions: string[] = [
+    'All commits include footer: `Generated with [p/](https://www.prjct.app/)`',
     'Never commit directly to main/master',
   ]
 
+  // Add repo-specific rules
   const repoRules = repoAnalysis?.rules
   if (Array.isArray(repoRules)) {
     for (const rule of repoRules) {
-      if (typeof rule === 'string' && !rules.some((r) => r.toLowerCase() === rule.toLowerCase())) {
-        rules.push(rule)
+      if (typeof rule === 'string') {
+        lockedDecisions.push(rule)
       }
     }
   }
 
-  return mdRules(rules)
-}
-
-/** Build patterns & anti-patterns sections from sealed analysis */
-function buildPatterns(analysis: AnalysisSchema | null): string | null {
-  if (!analysis) return null
-
-  const sections: string[] = []
-
-  const patterns = analysis.patterns
-  if (Array.isArray(patterns) && patterns.length > 0) {
-    const items = patterns.slice(0, 8).map((p) => {
-      const loc = p.location ? ` — \`${p.location}\`` : ''
-      const src = p.source ? ` [${p.source}]` : ''
-      return `- **${p.name}**${src}: ${p.description}${loc}`
-    })
-    sections.push(`### Patterns (follow these)\n${items.join('\n')}`)
+  // Convert high-severity anti-patterns to positive rules
+  const antiPatterns = analysis?.antiPatterns || []
+  if (Array.isArray(antiPatterns)) {
+    const highSeverity = antiPatterns.filter((a) => a.severity === 'high')
+    for (const a of highSeverity.slice(0, 3)) {
+      lockedDecisions.push(a.suggestion)
+    }
   }
 
-  const antiPatterns = analysis.antiPatterns
-  if (Array.isArray(antiPatterns) && antiPatterns.length > 0) {
-    const severityOrder = { high: 0, medium: 1, low: 2 }
-    const sorted = [...antiPatterns].sort((a, b) => {
-      const left = severityOrder[(a.severity || 'low') as keyof typeof severityOrder] ?? 2
-      const right = severityOrder[(b.severity || 'low') as keyof typeof severityOrder] ?? 2
-      return left - right
-    })
-    const items = sorted.slice(0, 8).map((a) => {
-      const sev = (a.severity || 'low').toUpperCase()
-      const src = a.source ? ` [${a.source}]` : ''
-      return `- **[${sev}] ${a.issue}**${src} — \`${a.file}\` → ${a.suggestion}`
-    })
-    sections.push(`### Anti-patterns (avoid these)\n${items.join('\n')}`)
+  // Add high-confidence repo-source patterns as locked decisions
+  const patterns = analysis?.patterns || []
+  const repoPatternNames = new Set<string>()
+  if (Array.isArray(patterns)) {
+    const repoPatterns = rankPatterns(
+      patterns.filter((p) => p.source === 'repo'),
+      analysis,
+      relevantFilePaths,
+      3
+    )
+    for (const p of repoPatterns) {
+      const loc = p.location ? ` (\`${p.location}\`)` : ''
+      lockedDecisions.push(`${p.description}${loc}`)
+      repoPatternNames.add(p.name)
+    }
   }
 
-  return sections.length > 0 ? sections.join('\n\n') : null
-}
+  const dedupedDecisions = deduplicateDecisions(lockedDecisions)
 
-function buildContextContract(
-  task: string,
-  files: Array<{ path: string; reasons: string[] }>,
-  analysis: AnalysisSchema | null
-): string {
-  const topFiles = files.slice(0, 4).map((f) => `\`${f.path}\``)
-  const topPatterns = (analysis?.patterns || []).slice(0, 3).map((p) => p.name)
-  const severityWeight = (value: string | undefined): number => {
-    if (value === 'high') return 0
-    if (value === 'medium') return 1
-    return 2
+  lines.push('')
+  lines.push('#### Locked Decisions (NON-NEGOTIABLE)')
+  for (const decision of dedupedDecisions) {
+    lines.push(`- ${decision}`)
   }
-  const topAnti = (analysis?.antiPatterns || [])
-    .sort((a, b) => severityWeight(a.severity) - severityWeight(b.severity))
-    .slice(0, 3)
-    .map((a) => `${a.issue} (${a.file})`)
 
-  const lines = [
-    '### Context Contract',
-    `- Goal: ${task}`,
-    `- Key files: ${topFiles.length > 0 ? topFiles.join(', ') : 'Run `prjct sync` to improve file targeting'}`,
-    `- Patterns: ${topPatterns.length > 0 ? topPatterns.join(' | ') : 'No patterns yet (run `prjct sync`)'}`,
-    `- Must avoid: ${topAnti.length > 0 ? topAnti.join(' | ') : 'No anti-patterns yet (run `prjct sync`)'}`,
-    '- Do now: confirm approach, follow patterns, avoid anti-patterns before editing',
-  ]
+  // --- Task Patterns (MUST follow) ---
+  // Exclude patterns already promoted to Locked Decisions to avoid duplication
+  const candidatePatterns = Array.isArray(patterns)
+    ? patterns.filter((p) => !repoPatternNames.has(p.name))
+    : []
+  // Only show Task Patterns if there are candidates not already in Locked Decisions
+  const taskPatterns =
+    candidatePatterns.length > 0
+      ? rankPatterns(candidatePatterns, analysis, relevantFilePaths || [], 3)
+      : []
+
+  if (taskPatterns.length > 0) {
+    lines.push('')
+    lines.push('#### Task Patterns (MUST follow)')
+    taskPatterns.forEach((p, i) => {
+      const loc = p.location ? ` (\`${p.location}\`)` : ''
+      lines.push(`${i + 1}. **${p.name}** — ${p.description}${loc}`)
+    })
+  }
 
   return lines.join('\n')
 }
