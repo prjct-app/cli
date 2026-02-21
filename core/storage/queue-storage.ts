@@ -8,6 +8,7 @@
 import { generateUUID } from '../schemas'
 import type { Priority, QueueJson, QueueTask, TaskSection } from '../schemas/state'
 import { QueueJsonSchema } from '../schemas/state'
+import { sortBySectionAndPriority } from '../utils/collection-filters'
 import { getDaysAgo, getTimestamp } from '../utils/date-helper'
 import { ARCHIVE_POLICIES, archiveStorage } from './archive-storage'
 import { StorageManager } from './storage-manager'
@@ -59,7 +60,7 @@ class QueueStorage extends StorageManager<QueueJson> {
    */
   async getNextTask(projectId: string): Promise<QueueTask | null> {
     const tasks = await this.getActiveTasks(projectId)
-    return this.sortTasks(tasks)[0] || null
+    return sortBySectionAndPriority(tasks)[0] || null
   }
 
   /**
@@ -240,37 +241,6 @@ class QueueStorage extends StorageManager<QueueJson> {
     })
 
     return stale.length
-  }
-
-  /**
-   * Sort tasks by priority and section
-   */
-  private sortTasks(tasks: QueueTask[]): QueueTask[] {
-    const priorityOrder: Record<Priority, number> = {
-      critical: 0,
-      high: 1,
-      medium: 2,
-      low: 3,
-    }
-
-    const sectionOrder: Record<TaskSection, number> = {
-      active: 0,
-      previously_active: 1,
-      backlog: 2,
-    }
-
-    return [...tasks].sort((a, b) => {
-      // Section first
-      const sectionDiff = sectionOrder[a.section] - sectionOrder[b.section]
-      if (sectionDiff !== 0) return sectionDiff
-
-      // Then priority
-      const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority]
-      if (priorityDiff !== 0) return priorityDiff
-
-      // Then creation date
-      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-    })
   }
 }
 
