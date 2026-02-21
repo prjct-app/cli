@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.46.7] - 2026-02-21
+
+### Refactoring
+
+- extract context contract builder from workflow.ts (#222)
+
+
 ## [1.46.6] - 2026-02-21
 
 ### Refactor
