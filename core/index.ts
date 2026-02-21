@@ -4,7 +4,7 @@
  * This file is required by bin/prjct after setup verification
  */
 
-import { PrjctCommands } from './commands/index'
+import { PrjctCommands } from './commands/commands'
 import { commandRegistry } from './commands/registry'
 import './commands/register' // Ensure commands are registered
 import os from 'node:os'

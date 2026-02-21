@@ -28,7 +28,7 @@ import type {
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import { fileExists } from '../utils/file-helper'
 import { PACKAGE_ROOT } from '../utils/version'
-import { outcomeAnalyzer } from '../workflows'
+import outcomeAnalyzer from '../workflows/outcome-analyzer'
 import { buildAntiHallucinationBlock, type ProjectGroundTruth } from './anti-hallucination'
 import { loadCommandContextConfig, resolveCommandContextFull } from './command-context'
 import { buildEnvironmentBlock } from './environment-block'

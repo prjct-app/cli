@@ -7,7 +7,7 @@
  * Subclasses implement specific data types (state, queue, ideas, shipped).
  */
 
-import { syncEventBus } from '../events'
+import { syncEventBus } from '../events/sync-events'
 import type { SyncEvent } from '../types'
 import { TTLCache } from '../utils/cache'
 import { getTimestamp } from '../utils/date-helper'

@@ -8,7 +8,7 @@
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { inferEventType, syncEventBus } from '../events'
+import { inferEventType, syncEventBus } from '../events/sync-events'
 import type { Storage } from '../types'
 import { isNotFoundError } from '../types/fs'
 

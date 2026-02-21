@@ -15,7 +15,7 @@ import { getErrorMessage } from '../types/fs'
 import { mdNextSteps, mdOutput, mdSection, mdStats } from '../utils/md-formatter'
 import { showNextSteps } from '../utils/next-steps'
 import { detectProjectCommands } from '../utils/project-commands'
-import { OnboardingWizard } from '../workflows'
+import { OnboardingWizard } from '../workflows/onboarding'
 import {
   configManager,
   contextBuilder,
@@ -207,7 +207,9 @@ export class PlanningCommands extends PrjctCommandsBase {
   /**
    * Print next steps after initialization
    */
-  private _printNextSteps(wizardResult: import('../workflows').WizardResult | null): void {
+  private _printNextSteps(
+    wizardResult: import('../workflows/onboarding').WizardResult | null
+  ): void {
     console.log('')
     console.log('  Quick start:')
     console.log('    prjct sync     Update context after changes')

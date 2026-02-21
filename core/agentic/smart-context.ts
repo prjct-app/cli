@@ -20,7 +20,7 @@ import type {
   StackInfo,
   TaskType,
 } from '../types'
-import { outcomeAnalyzer } from '../workflows'
+import outcomeAnalyzer from '../workflows/outcome-analyzer'
 import domainClassifier, { classifyWithHeuristic, type ProjectContext } from './domain-classifier'
 import agentPerformanceTracker from './performance'
 

@@ -41,14 +41,10 @@ import { migrateJsonToSqlite, sweepLegacyJson } from '../storage/migrate-json'
 import { queueStorage } from '../storage/queue-storage'
 import { shippedStorage } from '../storage/shipped-storage'
 import { stateStorage } from '../storage/state-storage'
-import {
-  DEFAULT_AI_TOOLS,
-  detectInstalledTools,
-  generateAIToolContexts,
-  type ProjectContext,
-  resolveToolIds,
-} from '../tools/ai'
+import type { ProjectContext } from '../tools/ai/formatters'
+import { generateAIToolContexts } from '../tools/ai/generator'
 import { extractLearningsFromDB } from '../tools/ai/learnings-extractor'
+import { DEFAULT_AI_TOOLS, detectInstalledTools, resolveToolIds } from '../tools/ai/registry'
 import type {
   GitData,
   IncrementalInfo,

@@ -5,7 +5,9 @@
  */
 
 export * from '../types/context-tools'
-export * from './ai'
+export * from './ai/formatters'
+export * from './ai/generator'
+export * from './ai/registry'
 export {
   analyzeImports,
   extractDirectorySignatures,

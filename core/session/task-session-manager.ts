@@ -8,7 +8,7 @@
 
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
-import { emit } from '../events'
+import { emit } from '../events/pub-sub'
 import configManager from '../infrastructure/config-manager'
 import { prjctDb } from '../storage/database'
 import type { Session, SessionMetrics } from '../types'

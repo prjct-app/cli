@@ -14,7 +14,7 @@
 import fs from 'node:fs'
 import type { Server, Socket } from 'node:net'
 import { createServer as createNetServer } from 'node:net'
-import { PrjctCommands } from '../commands/index'
+import { PrjctCommands } from '../commands/commands'
 import { commandRegistry } from '../commands/registry'
 import '../commands/register'
 import configManager from '../infrastructure/config-manager'
