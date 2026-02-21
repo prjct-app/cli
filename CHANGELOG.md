@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.47.1] - 2026-02-21
+
+### Refactoring
+
+- centralize type definitions to core/types/ (#224)
+
+
 ## [1.47.0] - 2026-02-21
 
 ### Features
