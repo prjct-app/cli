@@ -1,11 +1,16 @@
 # Changelog
 
+## [1.46.6] - 2026-02-21
+
+### Refactor
+
+- Extract context contract builder from workflow.ts
+
 ## [1.46.5] - 2026-02-21
 
 ### Bug Fixes
 
 - structural fixes for pattern ranking audit (#221)
-
 
 ## [1.46.5] - 2026-02-20
 

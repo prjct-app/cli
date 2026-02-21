@@ -11,7 +11,7 @@ import {
   buildPatternBriefing,
   deduplicateDecisions,
   rankPatterns,
-} from '../../commands/workflow'
+} from '../../commands/context-contract'
 import type { AnalysisSchema } from '../../schemas/analysis'
 
 // =============================================================================
