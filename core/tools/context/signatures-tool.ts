@@ -18,9 +18,9 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import type { CodeSignature, SignaturesToolOutput, SignatureType } from '../../types/context-tools'
 import { isNotFoundError } from '../../types/fs'
 import { measureCompression, noCompression } from './token-counter'
-import type { CodeSignature, SignaturesToolOutput, SignatureType } from './types'
 
 // =============================================================================
 // Language Support

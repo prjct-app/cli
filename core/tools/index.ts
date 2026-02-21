@@ -4,6 +4,7 @@
  * Unified tools: AI context generation + smart context filtering.
  */
 
+export * from '../types/context-tools'
 export * from './ai'
 export {
   analyzeImports,
@@ -16,4 +17,3 @@ export {
   summarizeFile,
 } from './context'
 export * from './context/token-counter'
-export * from './context/types'

@@ -16,6 +16,7 @@
  */
 
 import { metricsStorage } from '../../storage/metrics-storage'
+import type { ContextToolOutput, ContextToolUsage } from '../../types/context-tools'
 import { getErrorMessage } from '../../types/fs'
 import { getTimestamp } from '../../utils/date-helper'
 import { findRelevantFiles } from './files-tool'
@@ -24,7 +25,6 @@ import { getRecentFiles } from './recent-tool'
 import { extractDirectorySignatures, extractSignatures } from './signatures-tool'
 import { summarizeDirectory, summarizeFile } from './summary-tool'
 import { combineMetrics } from './token-counter'
-import type { ContextToolOutput, ContextToolUsage } from './types'
 
 // =============================================================================
 // CLI Dispatcher
@@ -429,6 +429,6 @@ export {
 
 // Note: runContextTool is already exported at its definition (line 48)
 
-export * from './token-counter'
 // Re-export types
-export * from './types'
+export * from '../../types/context-tools'
+export * from './token-counter'

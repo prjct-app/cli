@@ -14,11 +14,11 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import type { PublicAPIEntry, SummaryToolOutput } from '../../types/context-tools'
 import { isNotFoundError } from '../../types/fs'
 import { analyzeImports } from './imports-tool'
 import { extractSignatures } from './signatures-tool'
 import { measureCompression, noCompression } from './token-counter'
-import type { PublicAPIEntry, SummaryToolOutput } from './types'
 
 // =============================================================================
 // Docstring Patterns

@@ -11,7 +11,7 @@
  * @version 1.0.0
  */
 
-import type { TokenMetrics } from './types'
+import type { TokenMetrics } from '../../types/context-tools'
 
 // =============================================================================
 // Constants

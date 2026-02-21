@@ -15,8 +15,8 @@ import { exec as execCallback } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { promisify } from 'node:util'
+import type { FilesToolOutput, ScoredFile, ScoreReason } from '../../types/context-tools'
 import { isNotFoundError } from '../../types/fs'
-import type { FilesToolOutput, ScoredFile, ScoreReason } from './types'
 
 const exec = promisify(execCallback)
 
