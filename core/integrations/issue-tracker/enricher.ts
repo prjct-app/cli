@@ -7,6 +7,10 @@
  */
 
 import { getErrorMessage } from '../../types/fs'
+import type {
+  EnrichmentResult,
+  IssueEnricherProjectContext as ProjectContext,
+} from '../../types/integrations'
 import type { EnrichedIssue, Issue } from './types'
 
 // =============================================================================
@@ -118,27 +122,7 @@ ${acList}
 `.trim()
 }
 
-// =============================================================================
-// Types
-// =============================================================================
-
-export interface ProjectContext {
-  name: string
-  techStack: string[]
-  keyDirectories: string[]
-  recentCommits?: string[]
-  patterns?: Record<string, string>
-}
-
-export interface EnrichmentResult {
-  description: string
-  acceptanceCriteria: string[]
-  affectedFiles: string[]
-  technicalNotes: string
-  estimatedComplexity: 'trivial' | 'small' | 'medium' | 'large' | 'epic'
-  suggestedApproach?: string
-  relatedCode?: Array<{ file: string; relevance: string }>
-}
+// Types moved to core/types/integrations.ts
 
 // =============================================================================
 // Enrichment Helpers

@@ -8,31 +8,7 @@
  * @version 1.0.0
  */
 
-// =============================================================================
-// Types
-// =============================================================================
-
-export interface RetryOptions {
-  /** Maximum number of retry attempts (default: 3) */
-  maxAttempts: number
-
-  /** Base delay in milliseconds for exponential backoff (default: 1000) */
-  baseDelayMs: number
-
-  /** Maximum delay in milliseconds (default: 8000) */
-  maxDelayMs: number
-
-  /** Number of consecutive failures before opening circuit (default: 5) */
-  circuitBreakerThreshold?: number
-
-  /** Time in milliseconds to keep circuit open (default: 60000) */
-  circuitBreakerTimeoutMs?: number
-}
-
-export interface CircuitState {
-  consecutiveFailures: number
-  openedAt: number | null
-}
+import type { CircuitState, RetryOptions } from '../types/utils.js'
 
 // =============================================================================
 // Error Classification

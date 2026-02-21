@@ -40,7 +40,8 @@ export const EnvironmentBlockInputSchema = z.object({
   provider: z.string().optional(),
 })
 
-export type EnvironmentBlockInput = z.input<typeof EnvironmentBlockInputSchema>
+// EnvironmentBlockInput type moved to core/types/agentic.ts
+import type { EnvironmentBlockInput } from '../types/agentic.js'
 
 // =============================================================================
 // Runtime Detection

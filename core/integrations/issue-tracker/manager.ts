@@ -4,15 +4,17 @@
  */
 
 import { getErrorMessage } from '../../types/fs'
+import type {
+  EnrichmentResult,
+  IssueEnricherProjectContext as ProjectContext,
+} from '../../types/integrations'
 import { jiraProvider } from '../jira/client'
 import { linearProvider } from '../linear/client'
 import {
   buildEnrichedIssue,
-  type EnrichmentResult,
   formatEnrichmentAsMarkdown,
   generateEnrichmentPrompt,
   generateQuickEnrichment,
-  type ProjectContext,
 } from './enricher'
 import type {
   CreateIssueInput,

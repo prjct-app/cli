@@ -19,140 +19,17 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
 import { isNotFoundError } from '../types/fs'
+import type {
+  CategoriesCache,
+  DiscoveredDomains,
+  FileChecksums,
+  ProjectIndex,
+  ScoredFile,
+} from '../types/storage.js'
 import { getTimestamp } from '../utils/date-helper'
 import { prjctDb } from './database'
 
 // Note: fs, path, pathManager, isNotFoundError still needed for clearIndex, calculateChecksum
-
-// ============================================================================
-// TYPES
-// ============================================================================
-
-export interface LanguageStats {
-  count: number // Number of files
-  totalLines: number // Total lines of code
-  totalSize: number // Total bytes
-}
-
-export interface ConfigFileEntry {
-  path: string
-  type: string // "package.json", "Cargo.toml", etc.
-  checksum: string
-  parsed?: Record<string, unknown>
-}
-
-export interface DirectoryEntry {
-  path: string
-  type: 'source' | 'test' | 'config' | 'build' | 'vendor' | 'docs' | 'unknown'
-  fileCount: number
-}
-
-export interface ScoredFile {
-  path: string
-  score: number
-  size: number
-  mtime: string // ISO timestamp
-  categories?: string[] // Domain categories: ['payments', 'api', 'backend']
-}
-
-export interface DetectedPattern {
-  name: string // "monorepo", "api-first", "component-based"
-  confidence: number // 0-1
-  evidence: string[] // Files/dirs that evidence this pattern
-}
-
-export interface DetectedStack {
-  ecosystem: string // "JavaScript", "Python", "Rust", etc.
-  frameworks: string[] // Detected frameworks
-  hasTests: boolean
-  hasDocker: boolean
-  hasCi: boolean
-  buildTool: string | null
-}
-
-export interface ProjectIndex {
-  version: string
-  projectPath: string
-  lastFullScan: string // ISO timestamp
-  lastIncrementalUpdate: string // ISO timestamp
-
-  // Language detection by extension
-  languages: Record<string, LanguageStats>
-
-  // Config files found
-  configFiles: ConfigFileEntry[]
-
-  // Directory structure (top-level relevant)
-  directories: DirectoryEntry[]
-
-  // Files with score > threshold
-  relevantFiles: ScoredFile[]
-
-  // Detected patterns
-  patterns: DetectedPattern[]
-
-  // Stack detection
-  detectedStack: DetectedStack
-
-  // Metrics
-  totalFiles: number
-  totalSize: number // Total bytes
-  totalLines: number // Total LOC
-  scanDuration: number // ms
-}
-
-export interface FileChecksums {
-  version: string
-  lastUpdated: string
-  checksums: Record<string, string> // path -> checksum
-}
-
-// ============================================================================
-// DOMAIN & CATEGORY TYPES (for Smart Context Selection)
-// ============================================================================
-
-/**
- * A domain discovered by LLM analysis of the project
- */
-export interface DomainDefinition {
-  name: string // "payments", "shipping", "inventory"
-  description: string // "Handles payment processing, Stripe integration"
-  keywords: string[] // ["stripe", "checkout", "billing"]
-  filePatterns: string[] // ["**/payments/**", "**/billing/**"]
-  fileCount: number // Number of files in this domain
-}
-
-/**
- * Discovered domains for a project
- */
-export interface DiscoveredDomains {
-  version: string
-  projectId: string
-  domains: DomainDefinition[]
-  discoveredAt: string // ISO timestamp
-}
-
-/**
- * Category assignment for a single file
- */
-export interface FileCategory {
-  path: string
-  categories: string[] // ['payments', 'users', 'api']
-  primaryDomain: string // 'payments'
-  confidence: number // 0-1
-  categorizedAt: string // ISO timestamp
-  method: 'llm' | 'heuristic' // How it was categorized
-}
-
-/**
- * Cache of file categorizations
- */
-export interface CategoriesCache {
-  version: string
-  lastUpdate: string
-  fileCategories: FileCategory[]
-  domainIndex: Record<string, string[]> // domain -> file paths
-}
 
 // ============================================================================
 // DEFAULTS

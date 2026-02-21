@@ -13,62 +13,12 @@ import type { FeatureOutcome } from '../schemas/outcomes'
 import type { TaskHistoryEntry } from '../schemas/state'
 import type { MemoryTag } from '../types/memory'
 import { MEMORY_TAGS } from '../types/memory'
+import type {
+  OutcomeLearnerExtractedPattern as ExtractedPattern,
+  LearningResult,
+  PatternCategory,
+} from '../types/workflows.js'
 import { getTimestamp } from '../utils/date-helper'
-
-// =============================================================================
-// Types
-// =============================================================================
-
-/** A pattern extracted from outcome analysis */
-export interface ExtractedPattern {
-  /** Pattern description */
-  pattern: string
-  /** Number of times observed */
-  occurrences: number
-  /** Confidence: low (1-2), medium (3-4), high (5+) */
-  confidence: 'low' | 'medium' | 'high'
-  /** Category for memory tagging */
-  category: PatternCategory
-  /** Source tasks that contributed to this pattern */
-  sourceTasks: string[]
-}
-
-export type PatternCategory =
-  | 'file_cochange'
-  | 'tech_stack'
-  | 'architecture'
-  | 'estimation'
-  | 'workflow'
-  | 'gotcha'
-
-/** File co-change pattern: files that are frequently modified together */
-export interface FileCochangePattern {
-  /** File paths that change together */
-  files: string[]
-  /** Number of tasks where these files co-changed */
-  occurrences: number
-  /** Task types where this co-change happens */
-  taskTypes: string[]
-}
-
-/** Result of auto-learning process */
-export interface LearningResult {
-  /** Patterns extracted */
-  patternsExtracted: number
-  /** Patterns that met confidence threshold */
-  patternsQualified: number
-  /** Memories created or updated */
-  memoriesInjected: number
-  /** Patterns below threshold (not injected) */
-  patternsSkipped: number
-  /** Details of what was learned */
-  details: Array<{
-    pattern: string
-    action: 'created' | 'updated' | 'skipped'
-    confidence: string
-    reason?: string
-  }>
-}
 
 // Minimum occurrences for auto-injection into memory
 const CONFIDENCE_THRESHOLD = 3

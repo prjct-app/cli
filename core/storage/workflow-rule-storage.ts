@@ -5,21 +5,9 @@
  * Stores hooks, gates, and custom steps per project.
  */
 
+import type { WorkflowRule } from '../types/storage.js'
 import { customWorkflowStorage } from './custom-workflow-storage'
-import { prjctDb } from './database'
-
-export interface WorkflowRule {
-  id: number
-  type: 'hook' | 'gate' | 'step' | 'instruction'
-  command: string
-  position: string
-  action: string
-  description: string | null
-  enabled: boolean
-  timeoutMs: number
-  createdAt: string
-  sortOrder: number
-}
+import { prjctDb, type SqliteBindings } from './database'
 
 interface WorkflowRuleRow {
   id: number
@@ -101,26 +89,30 @@ class WorkflowRuleStorage {
     )
     if (!existing) return false
 
-    const fieldMap: Record<string, { column: string; transform?: (v: any) => any }> = {
+    const fieldMap: Record<
+      string,
+      { column: string; transform?: (v: SqliteBindings) => SqliteBindings }
+    > = {
       type: { column: 'type' },
       command: { column: 'command' },
       position: { column: 'position' },
       action: { column: 'action' },
       description: { column: 'description' },
-      enabled: { column: 'enabled', transform: (v: boolean) => (v ? 1 : 0) },
+      enabled: { column: 'enabled', transform: (v: SqliteBindings) => (v ? 1 : 0) },
       timeoutMs: { column: 'timeout_ms' },
       createdAt: { column: 'created_at' },
       sortOrder: { column: 'sort_order' },
     }
 
     const setClauses: string[] = []
-    const values: any[] = []
+    const values: SqliteBindings[] = []
 
     for (const [key, value] of Object.entries(updates)) {
       const mapping = fieldMap[key]
       if (!mapping) continue
       setClauses.push(`${mapping.column} = ?`)
-      values.push(mapping.transform ? mapping.transform(value) : value)
+      const bindValue = value as SqliteBindings
+      values.push(mapping.transform ? mapping.transform(bindValue) : bindValue)
     }
 
     if (setClauses.length === 0) return true

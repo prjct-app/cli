@@ -13,28 +13,7 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
-// =============================================================================
-// Types
-// =============================================================================
-
-export interface SkillLockSource {
-  type: 'github' | 'local' | 'registry'
-  url: string
-  sha?: string
-}
-
-export interface SkillLockEntry {
-  name: string
-  source: SkillLockSource
-  installedAt: string
-  filePath: string
-}
-
-export interface SkillLockFile {
-  version: 1
-  generatedAt: string
-  skills: Record<string, SkillLockEntry>
-}
+import type { SkillLockEntry, SkillLockFile } from '../types/services.js'
 
 // =============================================================================
 // Lock File Service

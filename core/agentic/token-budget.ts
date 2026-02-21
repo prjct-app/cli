@@ -37,30 +37,11 @@ export const MODEL_CONTEXT_WINDOWS: Record<string, number> = {
 /** Ratio of context window reserved for input (rest for output) */
 export const INPUT_RATIO = 0.65
 
+import type { BudgetAllocation, BudgetCategory, BudgetUsage } from '../types/agentic.js'
+
 // =============================================================================
 // Budget Categories
 // =============================================================================
-
-/** Budget category identifiers ordered by priority */
-export type BudgetCategory = 'state' | 'injection' | 'files'
-
-/** Budget allocation result for each category */
-export interface BudgetAllocation {
-  state: number
-  injection: number
-  files: number
-  inputBudget: number
-  outputReserve: number
-  contextWindow: number
-}
-
-/** Usage tracking per category */
-export interface BudgetUsage {
-  category: BudgetCategory
-  allocated: number
-  used: number
-  remaining: number
-}
 
 // =============================================================================
 // Default Allocation Ratios (within input budget)

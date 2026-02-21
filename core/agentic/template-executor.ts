@@ -13,41 +13,8 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
+import type { AgenticPromptInfo, TemplateExecutionContext } from '../types/agentic.js'
 import { isNotFoundError } from '../types/fs'
-
-// =============================================================================
-// Types
-// =============================================================================
-
-export interface TemplateExecutionContext {
-  projectPath: string
-  projectId: string
-  globalPath: string
-  command: string
-  args: string
-
-  // Agent information
-  agentName: string
-  agentSettingsPath: string
-
-  // Paths for agent (not content)
-  paths: {
-    orchestrator: string
-    agentRouting: string
-    taskFragmentation: string
-    commandTemplate: string
-    repoAnalysis: string
-    agentsDir: string
-    skillsDir: string
-    stateJson: string
-  }
-}
-
-export interface AgenticPromptInfo {
-  prompt: string
-  context: TemplateExecutionContext
-  requiresOrchestration: boolean
-}
 
 // Commands that require orchestration (task routing, fragmentation)
 const ORCHESTRATED_COMMANDS = ['task', 'done', 'ship', 'resume', 'bug', 'enrich']

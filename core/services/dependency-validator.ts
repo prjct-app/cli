@@ -12,26 +12,8 @@
  */
 
 import { execSync } from 'node:child_process'
+import type { ToolDefinition, ToolStatus } from '../types/services.js'
 import { createError, type ErrorWithHint } from '../utils/error-messages'
-
-// ============================================================================
-// TYPES
-// ============================================================================
-
-export interface ToolDefinition {
-  name: string
-  command: string // Command to check availability (e.g., 'git --version')
-  versionRegex?: RegExp // Regex to extract version from output
-  required: boolean // If false, missing tool is a warning, not error
-  installHint: string // How to install if missing
-  docs?: string // Documentation URL
-}
-
-export interface ToolStatus {
-  available: boolean
-  version?: string
-  error?: ErrorWithHint
-}
 
 // ============================================================================
 // TOOL DEFINITIONS

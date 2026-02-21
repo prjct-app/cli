@@ -6,14 +6,9 @@ import { promisify } from 'node:util'
 import { getTemplateContent } from '../agentic/template-loader'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 
-const execFileAsync = promisify(execFile)
+import type { Context7Status } from '../types/services.js'
 
-export interface Context7Status {
-  installed: boolean
-  verified: boolean
-  configPath: string
-  message?: string
-}
+const execFileAsync = promisify(execFile)
 
 interface Context7TemplateConfig {
   mcpServers?: {

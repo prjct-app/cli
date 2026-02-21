@@ -9,32 +9,9 @@
  */
 
 import path from 'node:path'
+import type { ChangelogDetection, ChangelogEntry, ChangelogFormat } from '../types/services.js'
 import * as dateHelper from '../utils/date-helper'
 import * as fileHelper from '../utils/file-helper'
-
-// ============================================================================
-// TYPES
-// ============================================================================
-
-export type ChangelogFormat = 'keepachangelog' | 'markdown'
-
-export interface ChangelogDetection {
-  /** Absolute path to the detected changelog file */
-  filePath: string
-  /** Filename (e.g. "CHANGELOG.md") */
-  fileName: string
-  /** Detected format */
-  format: ChangelogFormat
-  /** Whether the file already existed or was created */
-  created: boolean
-}
-
-export interface ChangelogEntry {
-  version: string
-  date?: string
-  sections?: Record<string, string[]>
-  description?: string
-}
 
 // ============================================================================
 // CONSTANTS

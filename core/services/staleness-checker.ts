@@ -11,30 +11,10 @@ import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
 import { prjctDb } from '../storage/database'
 import { getErrorMessage } from '../types/fs'
-import { type SessionInfo, sessionTracker } from './session-tracker'
+import type { SessionInfo, StalenessConfig, StalenessStatus } from '../types/services.js'
+import { sessionTracker } from './session-tracker'
 
 const execAsync = promisify(exec)
-
-// =============================================================================
-// TYPES
-// =============================================================================
-
-export interface StalenessStatus {
-  isStale: boolean
-  reason: string | null
-  lastSyncCommit: string | null
-  currentCommit: string | null
-  commitsSinceSync: number
-  daysSinceSync: number
-  changedFiles: string[]
-  significantChanges: string[] // Files that likely affect context (package.json, etc.)
-}
-
-export interface StalenessConfig {
-  commitThreshold: number // Number of commits before considered stale (default: 10)
-  dayThreshold: number // Days before considered stale (default: 3)
-  significantFiles: string[] // Files that trigger staleness warning
-}
 
 const DEFAULT_CONFIG: StalenessConfig = {
   commitThreshold: 10,

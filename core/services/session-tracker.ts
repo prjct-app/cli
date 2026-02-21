@@ -10,53 +10,8 @@
  */
 
 import { prjctDb } from '../storage/database'
+import type { SessionData, SessionFile, SessionInfo } from '../types/services.js'
 import { formatDuration, getTimestamp } from '../utils/date-helper'
-
-// =============================================================================
-// TYPES
-// =============================================================================
-
-export interface CommandRecord {
-  command: string
-  timestamp: string
-  durationMs: number
-}
-
-export interface FileRecord {
-  path: string
-  operation: 'read' | 'write'
-  timestamp: string
-}
-
-export interface SessionData {
-  id: string
-  projectId: string
-  status: 'active' | 'expired'
-  createdAt: string
-  lastActivity: string
-  commands: CommandRecord[]
-  files: FileRecord[]
-}
-
-export interface SessionFile {
-  current: SessionData | null
-  config: {
-    idleTimeoutMs: number
-  }
-}
-
-export interface SessionInfo {
-  active: boolean
-  id: string | null
-  duration: string | null
-  idleSince: string | null
-  idleMs: number
-  expiresIn: string | null
-  commandCount: number
-  commands: string[]
-  filesRead: number
-  filesWritten: number
-}
 
 // =============================================================================
 // CONSTANTS

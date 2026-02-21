@@ -56,7 +56,8 @@ export const ProjectGroundTruthSchema = z.object({
   analysisPackageManager: z.string().optional(),
 })
 
-export type ProjectGroundTruth = z.input<typeof ProjectGroundTruthSchema>
+// ProjectGroundTruth type moved to core/types/agentic.ts
+import type { ProjectGroundTruth } from '../types/agentic.js'
 
 // =============================================================================
 // Domain Mapping

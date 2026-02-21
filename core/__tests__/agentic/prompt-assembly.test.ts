@@ -10,12 +10,10 @@
  */
 
 import { beforeEach, describe, expect, it } from 'bun:test'
-import {
-  buildAntiHallucinationBlock,
-  type ProjectGroundTruth,
-} from '../../agentic/anti-hallucination'
-import { buildEnvironmentBlock, type EnvironmentBlockInput } from '../../agentic/environment-block'
+import { buildAntiHallucinationBlock } from '../../agentic/anti-hallucination'
+import { buildEnvironmentBlock } from '../../agentic/environment-block'
 import promptBuilder, { PROMPT_SECTION_ORDER } from '../../agentic/prompt-builder'
+import type { EnvironmentBlockInput, ProjectGroundTruth } from '../../types/agentic'
 
 // =============================================================================
 // Environment Block

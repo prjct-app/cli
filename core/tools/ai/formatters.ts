@@ -8,45 +8,9 @@
  * - Windsurf: Similar to Cursor
  */
 
-import { type ContextSources, cite, defaultSources } from '../../utils/citations'
-import type { ProjectLearnings } from './learnings-extractor'
+import type { AIToolProjectContext as ProjectContext } from '../../types/context-tools'
+import { cite, defaultSources } from '../../utils/citations'
 import type { AIToolConfig } from './registry'
-
-export interface ProjectContext {
-  projectId: string
-  name: string
-  version: string
-  ecosystem: string
-  projectType: string
-  languages: string[]
-  frameworks: string[]
-  repoPath: string
-  branch: string
-  fileCount: number
-  commits: number
-  hasChanges: boolean
-  commands: {
-    install: string
-    dev: string
-    test: string
-    build: string
-    lint: string
-    format: string
-  }
-  agents: {
-    workflow: string[]
-    domain: string[]
-  }
-  sources?: ContextSources
-  analysis?: {
-    patterns: Array<{ name: string; description: string; location?: string }>
-    antiPatterns: Array<{ issue: string; file: string; suggestion: string }>
-    packageManager?: string
-    sourceDir?: string
-    testDir?: string
-  }
-  learnings?: ProjectLearnings // NUEVO: Learnings desde SQLite
-}
 
 // =============================================================================
 // Shared Operational Context (all agents need this)

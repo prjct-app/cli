@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import path from 'node:path'
-import { computeHashes, diffHashes, type FileHash } from '../../domain/file-hasher'
+import { computeHashes, diffHashes } from '../../domain/file-hasher'
+import type { FileHash } from '../../types/domain.js'
 
 describe('file-hasher', () => {
   // =========================================================================

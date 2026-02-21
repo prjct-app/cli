@@ -13,39 +13,16 @@
  */
 
 import path from 'node:path'
-import {
-  type CategoriesCache,
-  type DiscoveredDomains,
-  type DomainDefinition,
-  type FileCategory,
-  INDEX_VERSION,
-  indexStorage,
-  type ScoredFile,
-} from '../storage/index-storage'
+import { INDEX_VERSION, indexStorage } from '../storage/index-storage'
+import type { CategorizationOptions, CategorizationResult } from '../types/services.js'
+import type {
+  CategoriesCache,
+  DiscoveredDomains,
+  DomainDefinition,
+  FileCategory,
+  ScoredFile,
+} from '../types/storage.js'
 import { getTimestamp } from '../utils/date-helper'
-
-// ============================================================================
-// TYPES
-// ============================================================================
-
-export interface CategorizationResult {
-  domains: DomainDefinition[]
-  categories: FileCategory[]
-  metrics: {
-    totalFiles: number
-    categorizedFiles: number
-    domainsDiscovered: number
-    llmCalls: number
-    usedHeuristics: boolean
-  }
-}
-
-export interface CategorizationOptions {
-  batchSize?: number // Files per LLM call (default: 20)
-  maxDomains?: number // Max domains to discover (default: 15)
-  useLLM?: boolean // Use LLM or heuristics only (default: true)
-  projectId?: string // For caching
-}
 
 // ============================================================================
 // HEURISTIC PATTERNS

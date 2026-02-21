@@ -10,17 +10,13 @@ import fs from 'node:fs/promises'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import type { ContextState } from '../types/agentic'
-import type { ContextPaths, ProjectContext } from '../types/core'
+import type { ProjectContext } from '../types/core'
 import { isNotFoundError } from '../types/fs'
 import { TTLCache } from '../utils/cache'
 
-// Re-export types for convenience
-export type { ContextState } from '../types/agentic'
-export type { ContextPaths, ProjectContext } from '../types/core'
-
-export type Paths = ContextPaths
-export type Context = ProjectContext
-export type State = ContextState
+// Type aliases for backward compatibility (originals moved to core/types/)
+type Context = ProjectContext
+type State = ContextState
 
 interface CachedFile {
   content: string | null

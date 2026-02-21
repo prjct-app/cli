@@ -92,3 +92,114 @@ export interface DetectedProjectCommands {
 // =============================================================================
 
 export type Runtime = 'bun' | 'node'
+
+// =============================================================================
+// MCP Config Types
+// =============================================================================
+
+export interface MCPServerConfig {
+  command: string
+  args: string[]
+  env?: Record<string, string>
+  description?: string
+}
+
+export interface ProviderMcpPath {
+  provider: string
+  configPath: string
+  /** Gemini: write into existing settings.json; Claude: standalone mcp.json */
+  mergeIntoExisting: boolean
+}
+
+export interface TokenValidationResult {
+  valid: boolean
+  reason?: string
+}
+
+export interface TokenDirScan {
+  version: string
+  path: string
+  isCurrent: boolean
+  files: string[]
+  tokenFile: string | null
+  valid: boolean
+  reason?: string
+  hasAccessToken: boolean
+  hasRefreshToken: boolean
+  expiresIn?: number
+}
+
+// =============================================================================
+// Constants Types
+// =============================================================================
+
+export type RoadmapStatusKey = 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED' | 'BLOCKED'
+
+export type Status = 'pending' | 'in_progress' | 'completed' | 'blocked' | 'paused'
+
+export type Priority = 'low' | 'medium' | 'high' | 'critical'
+
+export type PlanStatusValue =
+  | 'gathering'
+  | 'analyzing'
+  | 'proposing'
+  | 'awaiting_approval'
+  | 'approved'
+  | 'rejected'
+  | 'executing'
+  | 'completed'
+  | 'aborted'
+
+export type TimeoutKey =
+  | 'TOOL_CHECK'
+  | 'GIT_OPERATION'
+  | 'GIT_CLONE'
+  | 'API_REQUEST'
+  | 'NPM_INSTALL'
+  | 'WORKFLOW_HOOK'
+
+// =============================================================================
+// Preserve Sections Types
+// =============================================================================
+
+export interface PreservedSection {
+  id: string
+  content: string
+  startIndex: number
+  endIndex: number
+}
+
+// =============================================================================
+// Retry Types
+// =============================================================================
+
+export interface RetryOptions {
+  /** Maximum number of retry attempts (default: 3) */
+  maxAttempts: number
+  /** Base delay in milliseconds for exponential backoff (default: 1000) */
+  baseDelayMs: number
+  /** Maximum delay in milliseconds (default: 8000) */
+  maxDelayMs: number
+  /** Number of consecutive failures before opening circuit (default: 5) */
+  circuitBreakerThreshold?: number
+  /** Time in milliseconds to keep circuit open (default: 60000) */
+  circuitBreakerTimeoutMs?: number
+}
+
+export interface CircuitState {
+  consecutiveFailures: number
+  openedAt: number | null
+}
+
+// =============================================================================
+// Subtask Display Types
+// =============================================================================
+
+export type SubtaskStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'blocked'
+
+export interface SubtaskDisplay {
+  id: string
+  domain: string
+  description: string
+  status: SubtaskStatus
+}

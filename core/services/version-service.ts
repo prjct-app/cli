@@ -18,22 +18,10 @@
 import { exec } from 'node:child_process'
 import path from 'node:path'
 import { promisify } from 'node:util'
+import type { VersionInfo } from '../types/services.js'
 import * as fileHelper from '../utils/file-helper'
 
 const execAsync = promisify(exec)
-
-// =============================================================================
-// Types
-// =============================================================================
-
-export type VersionFormat = 'json' | 'toml' | 'xml' | 'plaintext' | 'git-tag'
-
-export interface VersionInfo {
-  current: string
-  next: string
-  file: string | null
-  format: VersionFormat
-}
 
 // =============================================================================
 // VersionService

@@ -14,11 +14,7 @@
  */
 
 import { describe, expect, it } from 'bun:test'
-import {
-  buildReprompt,
-  type ValidationFailure,
-  validateLLMResponse,
-} from '../../agentic/response-validator'
+import { buildReprompt, validateLLMResponse } from '../../agentic/response-validator'
 import { TaskClassificationSchema } from '../../schemas/classification'
 import {
   AgentAssignmentSchema,
@@ -26,6 +22,7 @@ import {
   renderSchemaForPrompt,
   SubtaskBreakdownSchema,
 } from '../../schemas/llm-output'
+import type { ValidationFailure } from '../../types/agentic'
 
 // =============================================================================
 // validateLLMResponse

@@ -101,6 +101,10 @@ export const CurrentTaskSchema = z.object({
   estimatedMinutes: z.number().optional(), // Derived from points
   // Model specification - which AI model was used (PRJ-265)
   modelMetadata: ModelMetadataSchema.optional(),
+  // Extended properties populated during task lifecycle
+  parentDescription: z.string().optional(), // Original parent task description
+  branch: z.string().optional(), // Git branch used for this task
+  prUrl: z.string().optional(), // PR URL if shipped
 })
 
 export const PreviousTaskSchema = z.object({

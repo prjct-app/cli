@@ -4,12 +4,12 @@ import path from 'node:path'
 import { systemDb } from '../storage/system-database'
 import { getErrorMessage } from '../types/fs'
 
-export interface MCPServerConfig {
-  command: string
-  args: string[]
-  env?: Record<string, string>
-  description?: string
-}
+import type {
+  MCPServerConfig,
+  ProviderMcpPath,
+  TokenDirScan,
+  TokenValidationResult,
+} from '../types/utils.js'
 
 interface MCPConfig {
   mcpServers?: Record<string, MCPServerConfig>
@@ -52,12 +52,7 @@ export function getClaudeMcpConfigPath(): string {
   return path.join(os.homedir(), '.claude', 'mcp.json')
 }
 
-export interface ProviderMcpPath {
-  provider: string
-  configPath: string
-  /** Gemini: write into existing settings.json; Claude: standalone mcp.json */
-  mergeIntoExisting: boolean
-}
+// ProviderMcpPath type moved to core/types/utils.ts
 
 /**
  * Returns MCP config paths for all installed AI provider CLIs.
@@ -150,10 +145,7 @@ export async function hasMcpServerAny(serverName: string): Promise<{
 // Token Validation & Migration
 // =============================================================================
 
-export interface TokenValidationResult {
-  valid: boolean
-  reason?: string
-}
+// TokenValidationResult type moved to core/types/utils.ts
 
 /**
  * Validate token files in a directory — checks content, not just existence.
@@ -414,18 +406,7 @@ export async function checkOAuthTokens(provider: 'jira' | 'linear'): Promise<{
 // Token Directory Scanning
 // =============================================================================
 
-export interface TokenDirScan {
-  version: string
-  path: string
-  isCurrent: boolean
-  files: string[]
-  tokenFile: string | null
-  valid: boolean
-  reason?: string
-  hasAccessToken: boolean
-  hasRefreshToken: boolean
-  expiresIn?: number
-}
+// TokenDirScan type moved to core/types/utils.ts
 
 /**
  * Scan ALL ~/.mcp-auth/mcp-remote-* directories and return a full inventory.

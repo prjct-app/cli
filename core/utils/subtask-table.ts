@@ -43,14 +43,7 @@ const SHOW_CURSOR = '\x1b[?25h'
 // Spinner frames (dots animation)
 const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
 
-export type SubtaskStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'blocked'
-
-export interface SubtaskDisplay {
-  id: string
-  domain: string
-  description: string
-  status: SubtaskStatus
-}
+import type { SubtaskDisplay, SubtaskStatus } from '../types/utils.js'
 
 /**
  * Format a single subtask line

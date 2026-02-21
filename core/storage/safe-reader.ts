@@ -14,14 +14,7 @@
 import fs from 'node:fs/promises'
 import type { ZodError } from 'zod'
 import { isNotFoundError } from '../types/fs'
-
-/**
- * Minimal interface for Zod-like validation.
- * Decoupled from Zod generics to avoid strict type parameter matching.
- */
-export interface ValidationSchema {
-  safeParse(data: unknown): { success: boolean; error?: ZodError }
-}
+import type { ValidationSchema } from '../types/storage.js'
 
 /**
  * Read and validate a JSON file against a Zod schema.

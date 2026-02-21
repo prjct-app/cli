@@ -13,23 +13,8 @@
  * @version 1.0.0
  */
 
-import type { FileDiff } from './file-hasher'
+import type { FileDiff, PropagatedChanges } from '../types/domain.js'
 import { loadGraph } from './import-graph'
-
-// =============================================================================
-// Types
-// =============================================================================
-
-export interface PropagatedChanges {
-  /** Files that changed directly (added + modified from hash diff) */
-  directlyChanged: string[]
-  /** Files that import a directly changed file (1 level deep) */
-  affectedByImports: string[]
-  /** Union of directlyChanged + affectedByImports (deduplicated) */
-  allAffected: string[]
-  /** Files that were deleted */
-  deleted: string[]
-}
 
 // =============================================================================
 // Propagation

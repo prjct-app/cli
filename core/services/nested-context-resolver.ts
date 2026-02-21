@@ -15,99 +15,15 @@ import pathManager, {
   type MonorepoInfo,
   type MonorepoPackage,
 } from '../infrastructure/path-manager'
+import type {
+  AgentDefinition,
+  ContextSection,
+  NestedAgents,
+  NestedContext,
+  ResolvedAgents,
+  ResolvedContext,
+} from '../types/services.js'
 import * as fileHelper from '../utils/file-helper'
-
-// ============================================================================
-// TYPES
-// ============================================================================
-
-export interface NestedContext {
-  /** Absolute path to the PRJCT.md file */
-  path: string
-  /** Relative path from monorepo root */
-  relativePath: string
-  /** Depth in the directory tree (0 = root) */
-  depth: number
-  /** Parent context (null for root) */
-  parent: NestedContext | null
-  /** Child contexts */
-  children: NestedContext[]
-  /** Raw content of the PRJCT.md file */
-  content: string
-  /** Parsed sections from the PRJCT.md */
-  sections: ContextSection[]
-  /** Associated package info (if in a monorepo package) */
-  package: MonorepoPackage | null
-}
-
-export interface ContextSection {
-  /** Section name (e.g., "Rules", "Patterns", "Stack") */
-  name: string
-  /** Section content */
-  content: string
-  /** Whether this section should override parent */
-  override: boolean
-}
-
-export interface ResolvedContext {
-  /** The final merged content */
-  content: string
-  /** Sources that contributed to this context (from root to leaf) */
-  sources: string[]
-  /** Sections that were overridden */
-  overrides: string[]
-}
-
-// ============================================================================
-// AGENTS.md TYPES
-// ============================================================================
-
-export interface AgentDefinition {
-  /** Agent name (e.g., "frontend", "backend", "database") */
-  name: string
-  /** Description of what this agent handles */
-  description: string
-  /** Domain this agent specializes in */
-  domain?: string
-  /** Trigger phrases that activate this agent */
-  triggers?: string[]
-  /** Rules/guidelines for this agent */
-  rules?: string[]
-  /** Code patterns this agent follows */
-  patterns?: string[]
-  /** Example interactions */
-  examples?: string[]
-  /** Whether this agent overrides parent definition */
-  override?: boolean
-}
-
-export interface NestedAgents {
-  /** Absolute path to the AGENTS.md file */
-  path: string
-  /** Relative path from monorepo root */
-  relativePath: string
-  /** Depth in the directory tree (0 = root) */
-  depth: number
-  /** Parent agents file (null for root) */
-  parent: NestedAgents | null
-  /** Child agents files */
-  children: NestedAgents[]
-  /** Raw content of the AGENTS.md file */
-  content: string
-  /** Parsed agent definitions */
-  agents: AgentDefinition[]
-  /** Associated package info (if in a monorepo package) */
-  package: MonorepoPackage | null
-}
-
-export interface ResolvedAgents {
-  /** The merged agent definitions (deeper overrides shallower) */
-  agents: AgentDefinition[]
-  /** Sources that contributed to these agents (from root to leaf) */
-  sources: string[]
-  /** Agents that were overridden */
-  overrides: string[]
-}
 
 // ============================================================================
 // NESTED CONTEXT RESOLVER

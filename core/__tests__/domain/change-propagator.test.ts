@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { affectedDomains, propagateChanges } from '../../domain/change-propagator'
-import type { FileDiff } from '../../domain/file-hasher'
+import type { FileDiff } from '../../types/domain.js'
 
 describe('change-propagator', () => {
   // =========================================================================

@@ -7,9 +7,13 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import type {
+  GenerateResult,
+  AIToolProjectContext as ProjectContext,
+} from '../../types/context-tools'
 import { getErrorMessage } from '../../types/fs'
 import { mergePreservedSections, validatePreserveBlocks } from '../../utils/preserve-sections'
-import { getFormatter, type ProjectContext } from './formatters'
+import { getFormatter } from './formatters'
 import {
   AI_TOOLS,
   type AIToolConfig,
@@ -18,14 +22,6 @@ import {
   getGlobalConfigPath,
 } from './registry'
 import { updateProjectSection } from './section-updater'
-
-export interface GenerateResult {
-  toolId: string
-  outputFile: string
-  outputPath: string
-  success: boolean
-  error?: string
-}
 
 /**
  * Merge new content with existing file using marker replacement

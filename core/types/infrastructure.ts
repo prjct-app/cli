@@ -208,3 +208,41 @@ export interface AuthorConfigStatus {
   isComplete: boolean
   recommendations: string[]
 }
+
+// =============================================================================
+// Setup Types
+// =============================================================================
+
+export interface CodexPRouterStatus {
+  installed: boolean
+  verified: boolean
+  skillPath: string
+  templateHash?: string
+  command?: string
+  templatePath?: string
+  templateSource?: import('../types/services').PCommandTemplateSource
+  message?: string
+  fix?: string[]
+}
+
+// =============================================================================
+// AI Provider Types
+// =============================================================================
+
+export interface AntigravityDetection {
+  /** Whether ~/.gemini/antigravity/ exists */
+  installed: boolean
+  /** Whether prjct skill is installed */
+  skillInstalled: boolean
+  /** Path to config directory */
+  configPath?: string
+}
+
+export interface CodexDetection {
+  /** Whether `codex` CLI is available */
+  installed: boolean
+  /** Whether prjct skill is installed */
+  skillInstalled: boolean
+  /** Path to config directory */
+  configPath?: string
+}

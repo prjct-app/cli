@@ -14,26 +14,7 @@
  */
 
 import type { z } from 'zod'
-
-// =============================================================================
-// Types
-// =============================================================================
-
-export interface ValidationSuccess<T> {
-  success: true
-  data: T
-}
-
-export interface ValidationFailure {
-  success: false
-  error: string
-  /** Raw parsed JSON (may be partial) */
-  rawParsed: unknown
-  /** Zod validation issues */
-  issues: string[]
-}
-
-export type ValidationResult<T> = ValidationSuccess<T> | ValidationFailure
+import type { ValidationFailure, ValidationResult } from '../types/agentic.js'
 
 // =============================================================================
 // Core Validation

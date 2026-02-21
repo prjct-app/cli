@@ -30,7 +30,6 @@ import { isPCommandResolveError, pCommandResolver } from '../services/p-command-
 import { prjctDb } from '../storage/database'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import type { AIProviderConfig, AIProviderName } from '../types/provider'
-import type { PCommandTemplateSource } from '../types/services'
 import { getTimeout } from '../utils/constants'
 import { fileExists } from '../utils/file-helper'
 import log from '../utils/logger'
@@ -433,17 +432,7 @@ export async function needsAntigravityInstallation(): Promise<boolean> {
 
 const CODEX_SKILL_META_MARKER = 'prjct-codex-router'
 
-export interface CodexPRouterStatus {
-  installed: boolean
-  verified: boolean
-  skillPath: string
-  templateHash?: string
-  command?: string
-  templatePath?: string
-  templateSource?: PCommandTemplateSource
-  message?: string
-  fix?: string[]
-}
+import type { CodexPRouterStatus } from '../types/infrastructure.js'
 
 function getCodexSkillPath(): string {
   return path.join(os.homedir(), '.codex', 'skills', 'prjct', 'SKILL.md')

@@ -11,50 +11,15 @@
 
 import * as p from '@clack/prompts'
 import chalk from 'chalk'
+import type {
+  AIAgent,
+  OnboardingDetectedStack as DetectedStack,
+  ProjectType,
+  WizardPreferences,
+  WizardResult,
+  WizardStep,
+} from '../types/workflows.js'
 import out from '../utils/output'
-
-// ============================================================================
-// Types
-// ============================================================================
-
-export type ProjectType =
-  | 'web-app'
-  | 'api-backend'
-  | 'fullstack'
-  | 'cli-tool'
-  | 'library'
-  | 'monorepo'
-  | 'unknown'
-
-export type AIAgent = 'claude' | 'cursor' | 'windsurf' | 'copilot' | 'gemini' | 'codex'
-
-export interface DetectedStack {
-  language: string
-  framework?: string
-  runtime?: string
-  packageManager?: string
-  technologies: string[]
-}
-
-export interface WizardPreferences {
-  verbosity: 'minimal' | 'normal' | 'verbose'
-  autoSync: boolean
-  telemetry: boolean
-}
-
-export interface WizardResult {
-  projectType: ProjectType
-  agents: AIAgent[]
-  stack: DetectedStack
-  preferences: WizardPreferences
-  skipped: boolean
-}
-
-export interface WizardStep {
-  id: string
-  title: string
-  run: () => Promise<boolean> // Returns true if should continue, false to abort
-}
 
 // ============================================================================
 // Constants

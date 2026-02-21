@@ -6,24 +6,7 @@
  */
 
 import { prjctDb } from '../../storage/database'
-
-export interface ProjectLearnings {
-  completedTasks: Array<{
-    description: string
-    completedAt: string
-    branch: string | null
-  }>
-  resolvedBugs: Array<{
-    description: string
-    resolution: string
-  }>
-  shippedFeatures: Array<{
-    name: string
-    description: string
-    version: string
-  }>
-  patterns: string[] // Patrones descubiertos
-}
+import type { ProjectLearnings } from '../../types/context-tools'
 
 /**
  * Extrae learnings desde SQLite

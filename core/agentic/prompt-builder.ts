@@ -25,12 +25,13 @@ import type {
   Template,
   ThinkBlock,
 } from '../types/agentic'
+import type { ProjectGroundTruth } from '../types/agentic.js'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import type { Memory } from '../types/memory'
 import { fileExists } from '../utils/file-helper'
 import { PACKAGE_ROOT } from '../utils/version'
 import outcomeAnalyzer from '../workflows/outcome-analyzer'
-import { buildAntiHallucinationBlock, type ProjectGroundTruth } from './anti-hallucination'
+import { buildAntiHallucinationBlock } from './anti-hallucination'
 import { loadCommandContextConfig, resolveCommandContextFull } from './command-context'
 import { buildEnvironmentBlock } from './environment-block'
 import {
@@ -48,13 +49,7 @@ import type { TokenBudgetCoordinator } from './token-budget'
 // Section Priority (PRJ-301)
 // =============================================================================
 
-/**
- * Prompt section priorities for budget trimming.
- * When token budget is tight, optional sections are dropped first.
- *
- * @see PRJ-301
- */
-export type SectionPriority = 'critical' | 'important' | 'optional'
+// SectionPriority type moved to core/types/agentic.ts
 
 /**
  * Canonical section ordering for prompt assembly.
@@ -74,15 +69,7 @@ export const PROMPT_SECTION_ORDER = [
   'efficiency', // Token efficiency directive
 ] as const
 
-// Re-export types for convenience
-export type {
-  Frontmatter,
-  LearnedPatterns,
-  PlanInfo,
-  Template,
-  ThinkBlock,
-} from '../types/agentic'
-export type { Memory } from '../types/memory'
+// Type re-exports removed — import directly from core/types/agentic and core/types/memory
 
 /**
  * Cached template entry with TTL support

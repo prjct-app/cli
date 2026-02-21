@@ -41,10 +41,10 @@ import { migrateJsonToSqlite, sweepLegacyJson } from '../storage/migrate-json'
 import { queueStorage } from '../storage/queue-storage'
 import { shippedStorage } from '../storage/shipped-storage'
 import { stateStorage } from '../storage/state-storage'
-import type { ProjectContext } from '../tools/ai/formatters'
 import { generateAIToolContexts } from '../tools/ai/generator'
 import { extractLearningsFromDB } from '../tools/ai/learnings-extractor'
 import { DEFAULT_AI_TOOLS, detectInstalledTools, resolveToolIds } from '../tools/ai/registry'
+import type { AIToolProjectContext as ProjectContext } from '../types/context-tools'
 import type {
   GitData,
   IncrementalInfo,
@@ -55,13 +55,14 @@ import type {
   SyncMetrics,
   SyncOptions,
 } from '../types/project-sync'
+import type { Context7Status } from '../types/services.js'
 import type { StackDetection } from '../types/stack'
 import type { VerificationReport } from '../types/sync-verifier'
 import * as dateHelper from '../utils/date-helper'
 import log from '../utils/logger'
 import { outcomeMemoryLearner } from '../workflows/outcome-learner'
 import { outcomeStorage } from '../workflows/outcome-storage'
-import context7Service, { type Context7Status } from './context7-service'
+import context7Service from './context7-service'
 import { localStateGenerator } from './local-state-generator'
 import { memoryService } from './memory-service'
 import patternExtractor from './pattern-extractor'

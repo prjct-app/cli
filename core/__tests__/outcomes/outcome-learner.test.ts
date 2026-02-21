@@ -179,7 +179,7 @@ describe('File Co-change Patterns', () => {
   })
 
   it('handles tasks with no subtask summaries', () => {
-    const history = [createTaskHistory({ subtaskSummaries: undefined as any })]
+    const history = [createTaskHistory({ subtaskSummaries: [] })]
     const patterns = learner.extractFileCochangePatterns(history)
     expect(patterns.length).toBe(0)
   })
@@ -621,12 +621,7 @@ describe('Edge Cases', () => {
   it('handles tasks with null/missing feedback fields', () => {
     const history = [
       createTaskHistory({
-        feedback: {
-          stackConfirmed: undefined as any,
-          patternsDiscovered: undefined as any,
-          agentAccuracy: undefined as any,
-          issuesEncountered: undefined as any,
-        },
+        feedback: {},
       }),
     ]
 

@@ -9,49 +9,14 @@
  */
 
 import path from 'node:path'
-import NestedContextResolver, {
-  type AgentDefinition,
-  type NestedAgents,
-  type ResolvedAgents,
-} from './nested-context-resolver'
-
-// ============================================================================
-// TYPES
-// ============================================================================
-
-export interface HierarchicalAgent {
-  /** Agent name (e.g., "frontend", "backend") */
-  name: string
-  /** Resolved description from hierarchy */
-  description: string
-  /** Domain specialization */
-  domain: string | null
-  /** Merged triggers from all levels */
-  triggers: string[]
-  /** Merged rules from all levels */
-  rules: string[]
-  /** Merged patterns from all levels */
-  patterns: string[]
-  /** Sources that contributed to this agent (paths) */
-  sources: string[]
-  /** Whether this agent was overridden at some level */
-  wasOverridden: boolean
-  /** Effort level hint for Claude's adaptive reasoning depth */
-  effort?: 'low' | 'medium' | 'high' | 'max'
-}
-
-export interface AgentResolutionResult {
-  /** Resolved agents for the target path */
-  agents: HierarchicalAgent[]
-  /** Root path of the resolution */
-  rootPath: string
-  /** Target path that was resolved */
-  targetPath: string
-  /** All AGENTS.md files discovered */
-  discoveredFiles: string[]
-  /** Agents that were overridden during resolution */
-  overriddenAgents: string[]
-}
+import type {
+  AgentDefinition,
+  AgentResolutionResult,
+  HierarchicalAgent,
+  NestedAgents,
+  ResolvedAgents,
+} from '../types/services.js'
+import NestedContextResolver from './nested-context-resolver'
 
 // ============================================================================
 // HIERARCHICAL AGENT RESOLVER

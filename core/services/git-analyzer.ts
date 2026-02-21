@@ -12,26 +12,11 @@
 
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
+import type { GitData } from '../types/services.js'
 import { getTimeout } from '../utils/constants'
 import { dependencyValidator } from './dependency-validator'
 
 const execAsync = promisify(exec)
-
-// ============================================================================
-// TYPES
-// ============================================================================
-
-export interface GitData {
-  branch: string
-  commits: number
-  contributors: number
-  hasChanges: boolean
-  stagedFiles: string[]
-  modifiedFiles: string[]
-  untrackedFiles: string[]
-  recentCommits: { hash: string; message: string; date: string }[]
-  weeklyCommits: number
-}
 
 // ============================================================================
 // GIT ANALYZER CLASS

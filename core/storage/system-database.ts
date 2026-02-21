@@ -11,6 +11,7 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
+import type { McpHealthRow, McpHealthStatus } from '../types/storage.js'
 import { isBun } from '../utils/runtime'
 
 // =============================================================================
@@ -41,29 +42,6 @@ function openDatabase(dbPath: string): SqliteDatabase {
   const origExec = db.exec.bind(db)
   db.run = (sql: string) => origExec(sql)
   return db as SqliteDatabase
-}
-
-// =============================================================================
-// Types
-// =============================================================================
-
-export interface McpHealthRow {
-  provider: string
-  status: 'healthy' | 'unhealthy' | 'unconfigured'
-  last_checked: string
-  last_error: string | null
-  token_version: string | null
-  config_valid: number
-  oauth_valid: number
-  updated_at: string
-}
-
-export interface McpHealthStatus {
-  status: 'healthy' | 'unhealthy' | 'unconfigured'
-  lastError?: string | null
-  tokenVersion?: string | null
-  configValid?: boolean
-  oauthValid?: boolean
 }
 
 // =============================================================================

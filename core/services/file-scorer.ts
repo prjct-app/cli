@@ -14,41 +14,7 @@
  */
 
 import path from 'node:path'
-
-// ============================================================================
-// TYPES
-// ============================================================================
-
-export interface FileScore {
-  path: string
-  score: number
-  factors: {
-    recency: number // 0-20
-    centrality: number // 0-25
-    configRelevance: number // 0-20
-    nameRelevance: number // 0-15
-    sizeOptimal: number // 0-10
-    gitActivity: number // 0-10
-  }
-}
-
-export interface FileStats {
-  path: string
-  size: number // bytes
-  mtime: Date // modification time
-  lines?: number // line count
-  imports?: string[] // files this imports
-  importedBy?: string[] // files that import this
-  recentCommits?: number // commits in last 30 days
-}
-
-export interface ScoringContext {
-  allFiles: Map<string, FileStats>
-  configFiles: Set<string>
-  maxFileSize: number
-  maxRecentCommits: number
-  now: Date
-}
+import type { FileScore, FileStats, ScoringContext } from '../types/services.js'
 
 // ============================================================================
 // CONSTANTS

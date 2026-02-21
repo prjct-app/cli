@@ -17,35 +17,12 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import prjctDb from '../storage/database'
-
-// =============================================================================
-// Types
-// =============================================================================
-
-/** Adjacency list: file → list of files it imports (resolved paths) */
-export type ImportAdjacency = Record<string, string[]>
-
-/** Reverse adjacency: file → list of files that import it */
-export type ReverseAdjacency = Record<string, string[]>
-
-export interface ImportGraph {
-  /** Forward edges: file imports these files */
-  forward: ImportAdjacency
-  /** Reverse edges: file is imported by these files */
-  reverse: ReverseAdjacency
-  /** Total number of files in the graph */
-  fileCount: number
-  /** Total number of edges */
-  edgeCount: number
-  /** Build timestamp */
-  builtAt: string
-}
-
-export interface ImportScore {
-  path: string
-  score: number
-  depth: number
-}
+import type {
+  ImportAdjacency,
+  ImportGraph,
+  ImportScore,
+  ReverseAdjacency,
+} from '../types/domain.js'
 
 // =============================================================================
 // Constants

@@ -5,6 +5,7 @@
  * points-to-time conversion and historical suggestion.
  */
 
+import type { FibonacciPoint } from '../types/domain.js'
 import outcomeRecorder from '../workflows/outcome-recorder'
 
 // =============================================================================
@@ -13,7 +14,6 @@ import outcomeRecorder from '../workflows/outcome-recorder'
 
 /** Valid Fibonacci story points */
 export const FIBONACCI_POINTS = [1, 2, 3, 5, 8, 13, 21] as const
-export type FibonacciPoint = (typeof FIBONACCI_POINTS)[number]
 
 /** Default points-to-minutes mapping */
 const DEFAULT_MINUTES_MAP: Record<FibonacciPoint, { min: number; max: number; typical: number }> = {

@@ -29,3 +29,25 @@ export interface IntegrationsConfig {
   linear?: import('../integrations/issue-tracker/types').LinearConfig
   jira?: import('../integrations/issue-tracker/types').JiraConfig
 }
+
+// =============================================================================
+// Issue Enricher Types
+// =============================================================================
+
+export interface IssueEnricherProjectContext {
+  name: string
+  techStack: string[]
+  keyDirectories: string[]
+  recentCommits?: string[]
+  patterns?: Record<string, string>
+}
+
+export interface EnrichmentResult {
+  description: string
+  acceptanceCriteria: string[]
+  affectedFiles: string[]
+  technicalNotes: string
+  estimatedComplexity: 'trivial' | 'small' | 'medium' | 'large' | 'epic'
+  suggestedApproach?: string
+  relatedCode?: Array<{ file: string; relevance: string }>
+}
