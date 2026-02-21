@@ -51,12 +51,12 @@ import type {
   ProjectCommands,
   ProjectStats,
   ProjectSyncResult,
-  StackDetection,
   SyncAgentInfo,
   SyncMetrics,
   SyncOptions,
-  VerificationReport,
-} from '../types'
+} from '../types/project-sync'
+import type { StackDetection } from '../types/stack'
+import type { VerificationReport } from '../types/sync-verifier'
 import * as dateHelper from '../utils/date-helper'
 import log from '../utils/logger'
 import { outcomeMemoryLearner } from '../workflows/outcome-learner'
@@ -933,4 +933,4 @@ class SyncService {
 
 export const syncService = new SyncService()
 export { SyncService }
-export type { ProjectSyncResult as SyncResult } from '../types'
+export type { ProjectSyncResult as SyncResult } from '../types/project-sync'

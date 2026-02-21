@@ -6,7 +6,8 @@
  * @version 1.0.0
  */
 
-import type { ContextState, ProjectContext } from '../types'
+import type { ContextState } from '../types/agentic'
+import type { ProjectContext } from '../types/core'
 
 // Type aliases for compatibility with ProjectContext from contextBuilder.build()
 type Context = Pick<ProjectContext, 'projectId' | 'projectPath' | 'params'>

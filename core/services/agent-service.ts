@@ -8,7 +8,8 @@ import AgentRouter from '../agentic/agent-router'
 import { AgentError } from '../errors'
 import * as agentDetector from '../infrastructure/agent-detector'
 import ClaudeAgent from '../infrastructure/claude-agent'
-import type { AgentAssignmentResult, AgentInfo, ProjectContext } from '../types'
+import type { AgentAssignmentResult, AgentInfo } from '../types/agents'
+import type { ProjectContext } from '../types/core'
 import { defaultAgentRetryPolicy } from '../utils/retry'
 
 // Valid agent types - whitelist for security (prevents path traversal)

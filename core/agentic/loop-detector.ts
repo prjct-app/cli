@@ -26,7 +26,7 @@ import type {
   HallucinationPattern,
   HallucinationResult,
   OutputAnalysis,
-} from '../types'
+} from '../types/agentic'
 
 // =============================================================================
 // Constants

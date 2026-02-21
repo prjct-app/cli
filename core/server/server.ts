@@ -11,7 +11,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
-import type { ServerConfig, ServerHandle, ServerInstance } from '../types'
+import type { ServerConfig, ServerHandle, ServerInstance } from '../types/server'
 import { isBun } from '../utils/runtime'
 import { VERSION } from '../utils/version'
 import { createRoutes } from './routes'

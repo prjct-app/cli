@@ -5,7 +5,7 @@
 
 import { beforeEach, describe, expect, it } from 'bun:test'
 import planMode, { PLAN_STATUS } from '../../agentic/plan-mode'
-import type { ApprovalContext, ProposedPlan } from '../../types'
+import type { ApprovalContext, ProposedPlan } from '../../types/agentic'
 
 // Helper to create complete ProposedPlan objects
 const createPlan = (overrides: Partial<ProposedPlan> = {}): ProposedPlan => ({

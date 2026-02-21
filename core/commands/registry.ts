@@ -7,7 +7,15 @@
 
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
-import type { CommandResult } from '../types'
+import type {
+  CategoryInfo,
+  CommandHandler,
+  CommandMeta,
+  CommandResult,
+  ExecutionContext,
+  HandlerFn,
+  RegistryStats,
+} from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import { getTimestamp } from '../utils/date-helper'
 
@@ -17,21 +25,12 @@ export type {
   CategoryInfo,
   CommandHandler,
   CommandMeta,
-  CommandValidationResult as ValidationResult,
   ExecutionContext,
   HandlerFn,
   RegistryCommandUsage as CommandUsage,
   RegistryStats,
-} from '../types'
-
-import type {
-  CategoryInfo,
-  CommandHandler,
-  CommandMeta,
-  ExecutionContext,
-  HandlerFn,
-  RegistryStats,
-} from '../types'
+  ValidationResult,
+} from '../types/commands'
 
 /**
  * Command Registry - Routes commands to handlers

@@ -12,7 +12,7 @@ import { memoryService } from '../services/memory-service'
 import prjctDb from '../storage/database'
 import { ideasStorage } from '../storage/ideas-storage'
 import { queueStorage } from '../storage/queue-storage'
-import type { CleanupOptions, CommandResult } from '../types'
+import type { CleanupOptions, CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import { configManager, dateHelper, out } from './base'
 

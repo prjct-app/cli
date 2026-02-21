@@ -6,7 +6,7 @@
  * - LazyCache: Single-project lazy loading cache (for memory system)
  */
 
-import type { CacheEntry, CacheOptions, CacheStats } from '../types'
+import type { CacheEntry, CacheOptions, CacheStats } from '../types/utils'
 
 /**
  * TTL Cache with LRU eviction

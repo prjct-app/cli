@@ -18,9 +18,9 @@
  */
 
 import crypto from 'node:crypto'
-import type { WebhookConfig, WebhookPayload, WebhookPluginContext } from '../../types'
-import { EventTypes } from '../../types'
+import { EventTypes } from '../../types/bus'
 import { getErrorMessage } from '../../types/fs'
+import type { WebhookConfig, WebhookPayload, WebhookPluginContext } from '../../types/plugin'
 import { HookPoints } from '../hooks'
 
 const plugin = {

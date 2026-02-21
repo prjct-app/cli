@@ -14,11 +14,12 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { globSync } from 'glob'
-import type { MonorepoInfo, MonorepoPackage, SessionInfo } from '../types'
+import type { MonorepoInfo, MonorepoPackage } from '../types/infrastructure'
+import type { SessionInfo } from '../types/session'
 import * as dateHelper from '../utils/date-helper'
 import * as fileHelper from '../utils/file-helper'
 
-export type { MonorepoInfo, MonorepoPackage } from '../types'
+export type { MonorepoInfo, MonorepoPackage } from '../types/infrastructure'
 
 class PathManager {
   globalBaseDir: string

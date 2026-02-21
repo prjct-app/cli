@@ -16,14 +16,14 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { getTemplateContent, listTemplates } from '../agentic/template-loader'
+import { getErrorMessage, isNotFoundError } from '../types/fs'
 import type {
   CheckResult,
   GlobalConfigResult,
   InstallResult,
   SyncResult,
   UninstallResult,
-} from '../types'
-import { getErrorMessage, isNotFoundError } from '../types/fs'
+} from '../types/infrastructure'
 import { PACKAGE_ROOT } from '../utils/version'
 
 // =============================================================================

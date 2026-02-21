@@ -11,9 +11,9 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import type { StackDetection, StackPackageJson } from '../types'
+import type { StackDetection, StackPackageJson } from '../types/stack'
 
-export type { StackDetection, StackPackageJson } from '../types'
+export type { StackDetection, StackPackageJson } from '../types/stack'
 
 // ============================================================================
 // STACK DETECTOR

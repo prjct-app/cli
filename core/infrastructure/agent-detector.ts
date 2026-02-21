@@ -6,7 +6,7 @@
  */
 
 import path from 'node:path'
-import type { DetectedAgent } from '../types'
+import type { DetectedAgent } from '../types/infrastructure'
 import { fileExists } from '../utils/file-helper'
 
 declare const global: typeof globalThis & {

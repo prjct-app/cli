@@ -8,7 +8,7 @@ import chalk from 'chalk'
 import commandInstaller from '../infrastructure/command-installer'
 import pathManager from '../infrastructure/path-manager'
 import context7Service from '../services/context7-service'
-import type { CommandResult, SetupOptions } from '../types'
+import type { CommandResult, SetupOptions } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import { fileExists } from '../utils/file-helper'
 import {

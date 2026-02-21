@@ -9,7 +9,7 @@
  */
 
 import chalk from 'chalk'
-import type { DiffOptions, ParsedMarkdownSection, SyncDiff } from '../types'
+import type { DiffOptions, ParsedMarkdownSection, SyncDiff } from '../types/diff'
 
 export type {
   DiffOptions,
@@ -17,7 +17,7 @@ export type {
   ParsedMarkdownSection,
   PreservedInfo,
   SyncDiff,
-} from '../types'
+} from '../types/diff'
 
 // =============================================================================
 // Constants

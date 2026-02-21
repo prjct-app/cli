@@ -11,7 +11,8 @@ import type { Priority, TaskSection, TaskType } from '../schemas/state'
 import { ideasStorage } from '../storage/ideas-storage'
 import { queueStorage } from '../storage/queue-storage'
 import { workflowRuleStorage } from '../storage/workflow-rule-storage'
-import type { CommandResult, InitOptions, ProjectContext } from '../types'
+import type { CommandResult, InitOptions } from '../types/commands'
+import type { ProjectContext } from '../types/core'
 import { getErrorMessage } from '../types/fs'
 import { mdNextSteps, mdOutput, mdSection, mdStats } from '../utils/md-formatter'
 import { showNextSteps } from '../utils/next-steps'
@@ -38,7 +39,7 @@ async function getAnalysisCommands(): Promise<import('./analysis').AnalysisComma
   return _analysisCommands
 }
 
-export type { InitOptions } from '../types'
+export type { InitOptions } from '../types/commands'
 
 export class PlanningCommands extends PrjctCommandsBase {
   /**

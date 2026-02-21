@@ -16,7 +16,7 @@ import {
   projectCompletion,
 } from '../../domain/velocity'
 import type { VelocityConfig } from '../../schemas/velocity'
-import type { Outcome } from '../../types'
+import type { Outcome } from '../../types/outcomes'
 
 // =============================================================================
 // Test Helpers

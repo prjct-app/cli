@@ -5,7 +5,7 @@
  * Powers the learning loop for better estimates and agent selection.
  */
 
-import type { AgentMetrics, DetectedPattern, Outcome, OutcomeSummary } from '../types'
+import type { AgentMetrics, DetectedPattern, Outcome, OutcomeSummary } from '../types/outcomes'
 import outcomeRecorder from './outcome-recorder'
 
 /**

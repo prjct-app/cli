@@ -14,8 +14,8 @@ import { queryFiles } from '../domain/bm25'
 import { analysisStorage } from '../storage/analysis-storage'
 import llmAnalysisStorage from '../storage/llm-analysis-storage'
 import { stateStorage } from '../storage/state-storage'
-import type { GitData, ProjectStats } from '../types'
 import type { AnalysisPayload } from '../types/llm-analysis'
+import type { GitData, ProjectStats } from '../types/project-sync'
 import log from '../utils/logger'
 
 /** Max characters per code sample to keep payload compact */

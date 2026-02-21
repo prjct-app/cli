@@ -8,7 +8,7 @@
  */
 
 import { syncEventBus } from '../events/sync-events'
-import type { SyncEvent } from '../types'
+import type { SyncEvent } from '../types/events'
 import { TTLCache } from '../utils/cache'
 import { getTimestamp } from '../utils/date-helper'
 import { prjctDb } from './database'

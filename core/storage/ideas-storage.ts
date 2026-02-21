@@ -7,7 +7,7 @@
 
 import { IdeasJsonSchema } from '../schemas/ideas'
 import { generateUUID } from '../schemas/schemas'
-import type { Idea, IdeaPriority, IdeaStatus, IdeasJson } from '../types'
+import type { Idea, IdeaPriority, IdeaStatus, IdeasJson } from '../types/storage'
 import { getDaysAgo, getTimestamp } from '../utils/date-helper'
 import { ARCHIVE_POLICIES, archiveStorage } from './archive-storage'
 import { StorageManager } from './storage-manager'

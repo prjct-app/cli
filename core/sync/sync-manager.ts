@@ -19,7 +19,7 @@ import type {
   SyncPullResult,
   SyncManagerResult as SyncResult,
   SyncStatus,
-} from '../types'
+} from '../types/sync'
 import authConfig from './auth-config'
 import { syncClient } from './sync-client'
 

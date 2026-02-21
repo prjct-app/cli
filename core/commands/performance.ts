@@ -7,7 +7,7 @@
 
 import chalk from 'chalk'
 import performanceTracker from '../infrastructure/performance-tracker'
-import type { CommandResult } from '../types'
+import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import { configManager, out, PrjctCommandsBase } from './base'
 

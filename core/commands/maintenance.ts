@@ -8,7 +8,7 @@
  */
 
 import { findRelevantFiles } from '../tools/context/files-tool'
-import type { CleanupOptions, CommandResult, DesignOptions } from '../types'
+import type { CleanupOptions, CommandResult, DesignOptions } from '../types/commands'
 import { PrjctCommandsBase } from './base'
 
 // Import individual command functions

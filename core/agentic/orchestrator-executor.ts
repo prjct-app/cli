@@ -35,7 +35,7 @@ import type {
   OrchestratorSubtask,
   RealCodebaseContext,
   SealedAnalysisContext,
-} from '../types'
+} from '../types/agentic'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import outcomeRecorder from '../workflows/outcome-recorder'
 import domainClassifier, { type ProjectContext } from './domain-classifier'

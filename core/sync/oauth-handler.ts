@@ -6,7 +6,7 @@
  * 2. Browser (future): Full OAuth device flow
  */
 
-import type { AuthResult } from '../types'
+import type { AuthResult } from '../types/sync'
 import { authConfig } from './auth-config'
 import { syncClient } from './sync-client'
 

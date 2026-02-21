@@ -6,7 +6,7 @@
 
 import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
-import type { SessionEntry, SessionLogMetadata, SessionStats } from '../types'
+import type { SessionEntry, SessionLogMetadata, SessionStats } from '../types/session'
 import { TTLCache } from '../utils/cache'
 import * as dateHelper from '../utils/date-helper'
 import * as fileHelper from '../utils/file-helper'

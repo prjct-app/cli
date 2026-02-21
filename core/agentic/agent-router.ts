@@ -15,11 +15,11 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
-import type { Agent, AssignmentContext } from '../types'
+import type { Agent, AssignmentContext } from '../types/agents'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 
 // Re-export types for convenience
-export type { Agent, AssignmentContext } from '../types'
+export type { Agent, AssignmentContext } from '../types/agents'
 
 /**
  * Routes tasks to specialized agents based on Claude's decisions.

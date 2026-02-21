@@ -13,7 +13,7 @@ import {
   type PermissionLevel,
   type PermissionsConfig,
 } from '../schemas/permissions'
-import type { PermissionCheckResult } from '../types'
+import type { PermissionCheckResult } from '../types/infrastructure'
 
 /**
  * Simple glob pattern matching

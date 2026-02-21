@@ -18,15 +18,13 @@ import type {
   FullContext,
   SmartContextProjectState,
   StackInfo,
-  TaskType,
-} from '../types'
+} from '../types/agentic'
+import type { TaskType } from '../types/agents'
 import outcomeAnalyzer from '../workflows/outcome-analyzer'
 import domainClassifier, { classifyWithHeuristic, type ProjectContext } from './domain-classifier'
 import agentPerformanceTracker from './performance'
 
-// Re-export types for convenience
 export type {
-  AgentInfo,
   ContextDomain,
   FeatureInfo,
   FilteredContext,
@@ -34,7 +32,9 @@ export type {
   FullContext,
   PatternInfo,
   StackInfo,
-} from '../types'
+} from '../types/agentic'
+// Re-export types for convenience
+export type { AgentInfo } from '../types/agents'
 
 export type ProjectState = SmartContextProjectState
 

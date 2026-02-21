@@ -18,7 +18,8 @@ import { analysisStorage } from '../storage/analysis-storage'
 import { prjctDb } from '../storage/database'
 import llmAnalysisStorage from '../storage/llm-analysis-storage'
 import { metricsStorage } from '../storage/metrics-storage'
-import type { AnalyzeOptions, CommandResult, ProjectContext } from '../types'
+import type { AnalyzeOptions, CommandResult } from '../types/commands'
+import type { ProjectContext } from '../types/core'
 import { getErrorMessage } from '../types/fs'
 import {
   mdDone,

@@ -1,5 +1,5 @@
 import path from 'node:path'
-import type { DetectedProjectCommands } from '../types'
+import type { DetectedProjectCommands } from '../types/utils'
 import * as fileHelper from './file-helper'
 
 type PackageManager = 'npm' | 'pnpm' | 'yarn' | 'bun'

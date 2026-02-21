@@ -34,7 +34,7 @@ import { stateStorage } from '../storage/state-storage'
 import type { WorkflowRule } from '../storage/workflow-rule-storage'
 import { workflowRuleStorage } from '../storage/workflow-rule-storage'
 import { extractKeywords, findRelevantFiles } from '../tools/context/files-tool'
-import type { CommandResult } from '../types'
+import type { CommandResult } from '../types/commands'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import { getClaudeMcpConfigPath, hasMcpServer } from '../utils/mcp-config'
 import {

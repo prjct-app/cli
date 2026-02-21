@@ -11,7 +11,7 @@
 
 import { exec as execCallback } from 'node:child_process'
 import { promisify } from 'node:util'
-import type { AuthorConfigStatus, DetectedAuthorInfo } from '../types'
+import type { AuthorConfigStatus, DetectedAuthorInfo } from '../types/infrastructure'
 
 const exec = promisify(execCallback)
 

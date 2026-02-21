@@ -18,7 +18,7 @@ import {
   type VelocityMetrics,
   type VelocityTrend,
 } from '../schemas/velocity'
-import type { Outcome } from '../types'
+import type { Outcome } from '../types/outcomes'
 
 // =============================================================================
 // Types

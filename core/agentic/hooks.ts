@@ -8,7 +8,7 @@
  */
 
 import { eventBus } from '../events/pub-sub'
-import { EventTypes } from '../types'
+import { EventTypes } from '../types/bus'
 import { getErrorMessage } from '../types/fs'
 
 /**

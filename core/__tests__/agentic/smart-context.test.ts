@@ -5,7 +5,8 @@
 
 import { describe, expect, it } from 'bun:test'
 import smartContext, { SmartContext } from '../../agentic/smart-context'
-import type { ContextDomain, TaskType } from '../../types'
+import type { ContextDomain } from '../../types/agentic'
+import type { TaskType } from '../../types/agents'
 
 describe('SmartContext PRJ-84', () => {
   describe('detectDomain', () => {

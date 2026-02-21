@@ -8,7 +8,7 @@
  */
 
 import { formatDistanceToNowStrict } from 'date-fns'
-import type { DateComponents } from '../types'
+import type { DateComponents } from '../types/utils'
 
 /**
  * Format a date to YYYY-MM-DD format

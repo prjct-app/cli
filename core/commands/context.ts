@@ -21,7 +21,7 @@ import orchestratorExecutor from '../agentic/orchestrator-executor'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import { stateStorage } from '../storage/state-storage'
-import type { CommandResult } from '../types'
+import type { CommandResult } from '../types/commands'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 
 // =============================================================================

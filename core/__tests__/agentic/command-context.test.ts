@@ -18,7 +18,7 @@ import {
   trackClassification,
 } from '../../agentic/command-context'
 import type { CommandContextEntry } from '../../schemas/command-context'
-import type { Template } from '../../types'
+import type { Template } from '../../types/agentic'
 
 // =============================================================================
 // Config Loading

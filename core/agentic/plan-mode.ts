@@ -20,7 +20,7 @@ import type {
   PlanStep,
   PlanStepResult,
   ProposedPlan,
-} from '../types'
+} from '../types/agentic'
 import { getTimestamp } from '../utils/date-helper'
 
 export {
