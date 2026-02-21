@@ -5,7 +5,7 @@
  * Generates context/shipped.md for Claude
  */
 
-import { generateUUID } from '../schemas'
+import { generateUUID } from '../schemas/schemas'
 import { ShippedJsonSchema } from '../schemas/shipped'
 import type { ShippedFeature, ShippedJson } from '../types'
 import { getDaysAgo, getTimestamp } from '../utils/date-helper'

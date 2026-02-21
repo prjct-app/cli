@@ -12,7 +12,10 @@ import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import UpdateChecker from '../infrastructure/update-checker'
 // Services
-import { agentService, breakdownService, memoryService, projectService } from '../services'
+import { agentService } from '../services/agent-service'
+import { breakdownService } from '../services/breakdown-service'
+import { memoryService } from '../services/memory-service'
+import { projectService } from '../services/project-service'
 import type {
   AgentAssignmentResult,
   AgentInfo,

@@ -8,7 +8,7 @@
  * Pattern from: Devin AI, Windsurf, Kiro
  */
 
-import { generateUUID } from '../schemas'
+import { generateUUID } from '../schemas/schemas'
 import type {
   ApprovalContext,
   ApprovalPrompt,

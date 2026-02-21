@@ -5,7 +5,7 @@
  * Generates context/next.md for Claude
  */
 
-import { generateUUID } from '../schemas'
+import { generateUUID } from '../schemas/schemas'
 import type { Priority, QueueJson, QueueTask, TaskSection } from '../schemas/state'
 import { QueueJsonSchema } from '../schemas/state'
 import { sortBySectionAndPriority } from '../utils/collection-filters'

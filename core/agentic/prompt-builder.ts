@@ -12,7 +12,8 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import type { CommandContextEntry } from '../schemas/command-context'
-import { queueStorage, stateStorage } from '../storage'
+import { queueStorage } from '../storage/queue-storage'
+import { stateStorage } from '../storage/state-storage'
 import type {
   LearnedPatterns,
   Memory,

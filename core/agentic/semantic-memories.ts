@@ -8,7 +8,7 @@
  * @module agentic/semantic-memories
  */
 
-import { generateUUID } from '../schemas'
+import { generateUUID } from '../schemas/schemas'
 import type {
   KnownDomain,
   Memory,

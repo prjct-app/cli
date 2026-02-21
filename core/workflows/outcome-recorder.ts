@@ -7,7 +7,7 @@
 
 import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
-import { generateUUID } from '../schemas'
+import { generateUUID } from '../schemas/schemas'
 import type { Outcome, OutcomeFilter, OutcomeInput } from '../types'
 import * as fileHelper from '../utils/file-helper'
 

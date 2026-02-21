@@ -20,7 +20,7 @@ import path from 'node:path'
 import orchestratorExecutor from '../agentic/orchestrator-executor'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
-import { stateStorage } from '../storage'
+import { stateStorage } from '../storage/state-storage'
 import type { CommandResult } from '../types'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 

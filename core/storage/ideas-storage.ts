@@ -5,8 +5,8 @@
  * Generates context/ideas.md for Claude
  */
 
-import { generateUUID } from '../schemas'
 import { IdeasJsonSchema } from '../schemas/ideas'
+import { generateUUID } from '../schemas/schemas'
 import type { Idea, IdeaPriority, IdeaStatus, IdeasJson } from '../types'
 import { getDaysAgo, getTimestamp } from '../utils/date-helper'
 import { ARCHIVE_POLICIES, archiveStorage } from './archive-storage'

@@ -5,7 +5,7 @@
  */
 
 import path from 'node:path'
-import { memoryService } from '../services'
+import { memoryService } from '../services/memory-service'
 import { TaskSessionManager } from '../session/task-session-manager'
 import type { CommandResult } from '../types'
 import { getErrorMessage, isNotFoundError } from '../types/fs'

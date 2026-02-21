@@ -2,7 +2,7 @@
  * Session Utilities
  */
 
-import { generateUUID } from '../schemas'
+import { generateUUID } from '../schemas/schemas'
 import type { Session } from '../types'
 
 /**

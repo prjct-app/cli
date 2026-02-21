@@ -11,7 +11,7 @@ import { exec } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { promisify } from 'node:util'
-import { stateStorage } from '../storage'
+import { stateStorage } from '../storage/state-storage'
 import type {
   VerificationCheck,
   VerificationCheckResult,
