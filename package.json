@@ -81,8 +81,8 @@
   "homepage": "https://prjct.app",
   "packageManager": "bun@1.2.23",
   "engines": {
-    "node": ">=18.0.0",
-    "bun": ">=1.0.0"
+    "bun": ">=1.0.0",
+    "node": ">=18.0.0"
   },
   "files": [
     "assets/",
@@ -90,6 +90,7 @@
     "dist/",
     "templates/",
     "scripts/postinstall.js",
+    "scripts/ensure-bun.sh",
     "scripts/install.sh",
     "LICENSE",
     "README.md",

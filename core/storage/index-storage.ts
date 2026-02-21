@@ -421,6 +421,21 @@ class IndexStorage {
   }
 
   /**
+   * Read domains synchronously (for use in sync code paths like domain detection).
+   */
+  readDomainsSync(projectId: string): DiscoveredDomains | null {
+    try {
+      const data = this.getIndexMeta<DiscoveredDomains>(projectId, 'domains')
+      if (data !== null && data.version === INDEX_VERSION) {
+        return data
+      }
+    } catch {
+      // SQLite not available
+    }
+    return null
+  }
+
+  /**
    * Write discovered domains to SQLite.
    */
   async writeDomains(projectId: string, domains: DiscoveredDomains): Promise<void> {

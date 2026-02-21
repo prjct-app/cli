@@ -624,11 +624,40 @@ ${tableRows.join('\n')}
 ## Execution
 
 \`\`\`
-1. PARSE: $ARGUMENTS → extract command (first word)
-2. GET npm root: npm root -g
-3. LOAD template: {npmRoot}/prjct-cli/templates/commands/{command}.md
-4. EXECUTE template
+1. PARSE: $ARGUMENTS → extract command (first word) + remaining args
+2. CHECK: if command is in Passthrough list below → run directly (no template needed)
+3. ELSE: GET npm root (npm root -g) → LOAD template: {npmRoot}/prjct-cli/templates/commands/{command}.md → EXECUTE
 \`\`\`
+
+## Passthrough Commands (run directly — no template needed)
+
+These commands just need the CLI output. Run them directly:
+
+| Command | Run |
+|---------|-----|
+| status | \`prjct status {args} --md\` |
+| analyze | \`prjct analyze {args} --md\` |
+| learnings | \`prjct learnings --md\` |
+| verify | \`prjct verify {args} --md\` |
+| update | \`prjct update --md\` |
+| serve | \`prjct serve {args} --md\` |
+| cleanup | \`prjct cleanup {args} --md\` |
+| auth | \`prjct auth {args} --md\` |
+| skill | \`prjct skill {args} --md\` |
+| sessions | \`prjct sessions {args} --md\` |
+| next | \`prjct next {args} --md\` — if output has \`options\`, present to user |
+| pause | \`prjct pause "{args}" --md\` — if no reason, ask user why (Blocked/Switching/Break/Researching) |
+| resume | \`prjct resume {args} --md\` — if output has \`options\`, present to user; switch branch if told |
+| dash | \`prjct dash {args} --md\` — present tables from output as scannable dashboard |
+
+Follow the instructions in the CLI output.
+
+## Template Commands (require template file)
+
+task, done, ship, sync, bug, idea, plan, design, test, review, git, merge, history,
+workflow, enrich, impact, prd, spec, init, setup, jira, linear
+
+Load these via: \`{npmRoot}/prjct-cli/templates/commands/{command}.md\`
 
 ## Command Aliases
 
@@ -654,8 +683,8 @@ Templates should use CLI commands for data operations — never read/write JSON 
 
 1. Parse command from $ARGUMENTS
 2. Handle aliases (undo → history undo, redo → history redo)
-3. Run \`npm root -g\` to get template path
-4. Load and execute command template
+3. If passthrough command → run CLI directly
+4. Else → load and execute command template
 `
   }
 

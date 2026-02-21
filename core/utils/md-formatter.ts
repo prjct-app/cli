@@ -102,6 +102,10 @@ interface TaskInfo {
   linearId?: string
   duration?: string
   startedAt?: string
+  estimatedPoints?: number
+  estimatedMinutes?: number
+  estimateSource?: string
+  domains?: string[]
 }
 
 /** Format task header block as H2 with metadata blockquote */
@@ -110,6 +114,9 @@ export function mdTaskHeader(task: TaskInfo): string {
   if (task.branch) parts.push(`Branch: \`${task.branch}\``)
   if (task.linearId) parts.push(`Linear: \`${task.linearId}\``)
   if (task.type) parts.push(`Type: ${task.type}`)
+  if (task.estimatedPoints) parts.push(`~${task.estimatedPoints}pts`)
+  if (task.estimatedMinutes) parts.push(`~${task.estimatedMinutes}min`)
+  if (task.domains && task.domains.length > 0) parts.push(`Domains: ${task.domains.join(', ')}`)
   if (task.duration) parts.push(`Duration: ${task.duration}`)
   if (task.status) parts.push(`Status: ${task.status}`)
 

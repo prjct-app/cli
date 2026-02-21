@@ -11,6 +11,7 @@
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import { connect } from 'node:net'
+import { isBunAvailable } from '../utils/runtime'
 import {
   DAEMON_PATHS,
   type DaemonRequest,
@@ -272,13 +273,13 @@ export async function spawnDaemon(): Promise<boolean> {
     entryPath = srcPath
     runtime = 'bun'
   } else if (fs.existsSync(distPathAdjacent)) {
-    // Production (running from dist/): compiled JS adjacent
+    // Production (running from dist/): prefer bun if available
     entryPath = distPathAdjacent
-    runtime = 'node'
+    runtime = isBunAvailable() ? 'bun' : 'node'
   } else if (fs.existsSync(distPath)) {
-    // Production (running from bin/): compiled JS in dist/
+    // Production (running from bin/): prefer bun if available
     entryPath = distPath
-    runtime = 'node'
+    runtime = isBunAvailable() ? 'bun' : 'node'
   } else {
     return false
   }

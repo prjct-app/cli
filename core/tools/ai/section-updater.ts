@@ -83,6 +83,10 @@ function extractGlobalSection(content: string): string | null {
 /**
  * Update or add a project section in CLAUDE.md
  *
+ * Only the ACTIVE project (the one being synced) is kept in the file.
+ * Other project sections are removed to prevent context pollution —
+ * LLMs lose focus when they see rules from 5 different projects.
+ *
  * @param filePath - Path to CLAUDE.md (usually ~/.claude/CLAUDE.md)
  * @param projectId - Unique project identifier
  * @param newContent - New content for this project (must include markers and projectId comment)
@@ -125,36 +129,8 @@ export async function updateProjectSection(
   // Extract global section (preserve it)
   const globalSection = extractGlobalSection(existingContent)
 
-  // Find all existing project sections
-  const existingSections = findProjectSections(existingContent)
-
-  // Check if this projectId already has a section
-  const existingSectionIndex = existingSections.findIndex((s) => s.projectId === projectId)
-
-  let updatedSections: ProjectSection[]
-  if (existingSectionIndex !== -1) {
-    // Update existing section
-    updatedSections = [...existingSections]
-    updatedSections[existingSectionIndex] = {
-      projectId,
-      startIndex: 0, // Will be recalculated
-      endIndex: 0, // Will be recalculated
-      content: newContent,
-    }
-  } else {
-    // Add new section
-    updatedSections = [
-      ...existingSections,
-      {
-        projectId,
-        startIndex: 0,
-        endIndex: 0,
-        content: newContent,
-      },
-    ]
-  }
-
-  // Rebuild file content
+  // Rebuild file: global section + ONLY the active project
+  // Other project sections are dropped to prevent context pollution
   let rebuiltContent = ''
 
   // 1. Add global section first (if exists)
@@ -162,14 +138,8 @@ export async function updateProjectSection(
     rebuiltContent += `${globalSection}\n\n`
   }
 
-  // 2. Add all project sections
-  for (const section of updatedSections) {
-    rebuiltContent += section.content
-    // Add spacing between sections for readability
-    if (section !== updatedSections[updatedSections.length - 1]) {
-      rebuiltContent += '\n\n'
-    }
-  }
+  // 2. Add ONLY the current project section
+  rebuiltContent += newContent
 
   // Write atomically (temp file + rename for safety)
   await writeFileAtomic(filePath, rebuiltContent)
