@@ -531,19 +531,9 @@ export async function needsWindsurfRouterRegeneration(projectRoot: string): Prom
 // Antigravity Detection
 // =============================================================================
 
-/**
- * Result of Antigravity detection
- */
-export interface AntigravityDetection {
-  /** Whether ~/.gemini/antigravity/ exists */
-  installed: boolean
+import type { AntigravityDetection, CodexDetection } from '../types/infrastructure.js'
 
-  /** Whether prjct skill is installed */
-  skillInstalled: boolean
-
-  /** Path to config directory */
-  configPath?: string
-}
+// AntigravityDetection type moved to core/types/infrastructure.ts
 
 /**
  * Detect if Google Antigravity is installed
@@ -574,19 +564,7 @@ export async function detectAntigravity(): Promise<AntigravityDetection> {
 // Codex Detection
 // =============================================================================
 
-/**
- * Result of Codex detection
- */
-export interface CodexDetection {
-  /** Whether `codex` CLI is available */
-  installed: boolean
-
-  /** Whether prjct skill is installed */
-  skillInstalled: boolean
-
-  /** Path to config directory */
-  configPath?: string
-}
+// CodexDetection type moved to core/types/infrastructure.ts
 
 /**
  * Detect if OpenAI Codex CLI is installed

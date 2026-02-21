@@ -1,7 +1,8 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { safeRead, type ValidationSchema } from '../storage/safe-reader'
+import { safeRead } from '../storage/safe-reader'
 import { isNotFoundError } from '../types/fs'
+import type { ValidationSchema } from '../types/storage.js'
 
 /**
  * File Helper - Centralized file operations with error handling

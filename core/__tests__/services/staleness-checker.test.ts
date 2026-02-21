@@ -13,8 +13,9 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import pathManager from '../../infrastructure/path-manager'
-import { createStalenessChecker, type StalenessStatus } from '../../services/staleness-checker'
+import { createStalenessChecker } from '../../services/staleness-checker'
 import { prjctDb } from '../../storage/database'
+import type { StalenessStatus } from '../../types/services.js'
 
 // =============================================================================
 // Test Setup

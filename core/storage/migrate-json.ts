@@ -21,20 +21,8 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
 import { isNotFoundError } from '../types/fs'
+import type { MigrationResult } from '../types/storage.js'
 import { prjctDb } from './database'
-
-// =============================================================================
-// Types
-// =============================================================================
-
-export interface MigrationResult {
-  success: boolean
-  migratedFiles: string[]
-  skippedFiles: string[]
-  errors: Array<{ file: string; error: string }>
-  backupDir: string | null
-  duration: number
-}
 
 // =============================================================================
 // File Definitions

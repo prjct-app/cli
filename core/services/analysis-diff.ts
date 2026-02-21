@@ -9,29 +9,7 @@
  */
 
 import type { AnalysisSchema } from '../schemas/analysis'
-
-// =============================================================================
-// Types
-// =============================================================================
-
-export interface AnalysisDiffItem {
-  field: string
-  type: 'added' | 'removed' | 'changed'
-  before?: string
-  after?: string
-}
-
-export interface AnalysisDiff {
-  hasChanges: boolean
-  items: AnalysisDiffItem[]
-  summary: {
-    added: number
-    removed: number
-    changed: number
-  }
-  beforeCommit: string | null
-  afterCommit: string | null
-}
+import type { AnalysisDiff, AnalysisDiffItem } from '../types/services.js'
 
 // =============================================================================
 // Diff Logic

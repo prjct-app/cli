@@ -17,31 +17,11 @@ import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import { verifyCodexPRouterReady } from '../infrastructure/setup'
 import { stateStorage } from '../storage/state-storage'
+import type { CheckResult, DoctorResult } from '../types/services.js'
 import { checkOAuthTokens, hasMcpServerAny, validateMcpConfig } from '../utils/mcp-config'
 import out from '../utils/output'
 import { VERSION } from '../utils/version'
 import context7Service from './context7-service'
-
-// ============================================================================
-// TYPES
-// ============================================================================
-
-interface CheckResult {
-  name: string
-  status: 'ok' | 'warn' | 'error'
-  version?: string
-  message?: string
-  optional?: boolean
-}
-
-interface DoctorResult {
-  success: boolean
-  tools: CheckResult[]
-  project: CheckResult[]
-  recommendations: string[]
-  hasErrors: boolean
-  hasWarnings: boolean
-}
 
 // ============================================================================
 // DOCTOR SERVICE
@@ -570,4 +550,5 @@ class DoctorService {
 }
 
 export const doctorService = new DoctorService()
-export { DoctorService, type DoctorResult, type CheckResult }
+export { DoctorService }
+export type { CheckResult, DoctorResult } from '../types/services.js'

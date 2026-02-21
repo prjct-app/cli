@@ -16,27 +16,17 @@ import type {
   DomainAnalysis,
   FilteredContext,
   FullContext,
-  SmartContextProjectState,
   StackInfo,
 } from '../types/agentic'
+import type { DomainClassifierProjectContext as ProjectContext } from '../types/agentic.js'
 import type { TaskType } from '../types/agents'
 import outcomeAnalyzer from '../workflows/outcome-analyzer'
-import domainClassifier, { classifyWithHeuristic, type ProjectContext } from './domain-classifier'
+import domainClassifier, { classifyWithHeuristic } from './domain-classifier'
 import agentPerformanceTracker from './performance'
 
-export type {
-  ContextDomain,
-  FeatureInfo,
-  FilteredContext,
-  FilterMetrics,
-  FullContext,
-  PatternInfo,
-  StackInfo,
-} from '../types/agentic'
-// Re-export types for convenience
-export type { AgentInfo } from '../types/agents'
+// Type re-exports removed — import directly from core/types/agentic and core/types/agents
 
-export type ProjectState = SmartContextProjectState
+// ProjectState type moved to core/types/agentic.ts
 
 // Map ClassificationDomain → ContextDomain
 function toContextDomain(domain: string): ContextDomain {

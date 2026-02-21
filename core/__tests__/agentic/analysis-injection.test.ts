@@ -8,12 +8,13 @@
  */
 
 import { beforeEach, describe, expect, it } from 'bun:test'
-import {
-  buildAntiHallucinationBlock,
-  type ProjectGroundTruth,
-} from '../../agentic/anti-hallucination'
+import { buildAntiHallucinationBlock } from '../../agentic/anti-hallucination'
 import promptBuilder from '../../agentic/prompt-builder'
-import type { OrchestratorContext, SealedAnalysisContext } from '../../types/agentic'
+import type {
+  OrchestratorContext,
+  ProjectGroundTruth,
+  SealedAnalysisContext,
+} from '../../types/agentic'
 
 // =============================================================================
 // Test Fixtures

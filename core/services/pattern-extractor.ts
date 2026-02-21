@@ -3,6 +3,12 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { getTemplateContent } from '../agentic/template-loader'
 import { prjctDb } from '../storage/database'
+import type {
+  ExtractedAntiPattern,
+  ExtractedPattern,
+  ExtractPatternInput,
+  ExtractPatternResult,
+} from '../types/services.js'
 
 type RuleSource = 'baseline' | 'repo' | 'context7' | 'feedback'
 type Severity = 'low' | 'medium' | 'high'
@@ -25,46 +31,6 @@ interface BaselineAntiPattern {
   language?: string
   framework?: string
   confidence?: number
-}
-
-export interface ExtractedPattern {
-  name: string
-  description: string
-  location?: string
-  severity?: Severity
-  language?: string
-  framework?: string
-  source: RuleSource
-  confidence?: number
-}
-
-export interface ExtractedAntiPattern {
-  issue: string
-  file: string
-  suggestion: string
-  severity?: Severity
-  language?: string
-  framework?: string
-  source: RuleSource
-  confidence?: number
-}
-
-export interface ExtractPatternInput {
-  projectId: string
-  projectPath: string
-  languages: string[]
-  frameworks: string[]
-  feedback?: {
-    patternsDiscovered: string[]
-    knownGotchas: string[]
-  }
-  context7Verified: boolean
-}
-
-export interface ExtractPatternResult {
-  patterns: ExtractedPattern[]
-  antiPatterns: ExtractedAntiPattern[]
-  repoPathHash: string
 }
 
 interface BaselineFile<T> {

@@ -4,11 +4,8 @@
  */
 
 import { describe, expect, it } from 'bun:test'
-import {
-  classifyWithHeuristic,
-  hashDescription,
-  type ProjectContext,
-} from '../../agentic/domain-classifier'
+import { classifyWithHeuristic, hashDescription } from '../../agentic/domain-classifier'
+import type { DomainClassifierProjectContext as ProjectContext } from '../../types/agentic'
 
 // Default project context for testing (all domains available)
 const fullContext: ProjectContext = {

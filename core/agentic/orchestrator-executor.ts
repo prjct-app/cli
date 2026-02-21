@@ -33,12 +33,13 @@ import type {
   LoadedSkill,
   OrchestratorContext,
   OrchestratorSubtask,
+  DomainClassifierProjectContext as ProjectContext,
   RealCodebaseContext,
   SealedAnalysisContext,
 } from '../types/agentic'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import outcomeRecorder from '../workflows/outcome-recorder'
-import domainClassifier, { type ProjectContext } from './domain-classifier'
+import domainClassifier from './domain-classifier'
 import { parseFrontmatter } from './template-loader'
 
 const execAsync = promisify(execCallback)

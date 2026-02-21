@@ -69,17 +69,7 @@ function openDatabase(dbPath: string): SqliteDatabase {
 // Types
 // =============================================================================
 
-export interface Migration {
-  version: number
-  name: string
-  up: (db: SqliteDatabase) => void
-}
-
-export interface MigrationRecord {
-  version: number
-  name: string
-  applied_at: string
-}
+import type { Migration, MigrationRecord } from '../types/storage.js'
 
 // =============================================================================
 // Schema Migrations

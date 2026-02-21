@@ -371,6 +371,53 @@ export interface ValidationResult {
 // Note: AgentInfo and AgentAssignmentResult moved to agents.ts
 
 // ============================================
+// Context Output Types
+// ============================================
+
+/**
+ * Output of the context command
+ */
+export interface ContextOutput {
+  projectId: string
+  globalPath: string
+  currentTask: {
+    id: string
+    description: string
+    startedAt: string
+    subtasks?: Array<{
+      id: string
+      description: string
+      status: string
+      domain: string
+    }>
+    currentSubtaskIndex?: number
+  } | null
+  domains: string[]
+  primaryDomain: string | null
+  agents: Array<{
+    name: string
+    domain: string
+    filePath: string
+    skills: string[]
+    preview: string
+  }>
+  subtasks: Array<{
+    id: string
+    description: string
+    domain: string
+    agent: string
+    status: string
+    order: number
+  }> | null
+  repoAnalysis: {
+    ecosystem: string
+    frameworks: string[]
+    hasTests: boolean
+    technologies: string[]
+  }
+}
+
+// ============================================
 // Global Config Types (command-related)
 // ============================================
 

@@ -13,9 +13,9 @@ import {
   formatForCursor,
   formatForWindsurf,
   getFormatter,
-  type ProjectContext,
 } from '../../tools/ai/formatters'
 import { AI_TOOLS, getAIToolConfig } from '../../tools/ai/registry'
+import type { AIToolProjectContext as ProjectContext } from '../../types/context-tools'
 import { type ContextSources, cite, defaultSources } from '../../utils/citations'
 
 // =============================================================================

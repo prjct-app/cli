@@ -14,21 +14,7 @@ import type { TokenBudgetCoordinator } from './token-budget'
 // Token Budget Configuration
 // =============================================================================
 
-/** Configurable token budgets per injection section */
-export interface InjectionBudgets {
-  /** Auto-injected context (task + queue + patterns) */
-  autoContext: number
-  /** Per-agent content in orchestrator */
-  agentContent: number
-  /** Per-skill content in orchestrator */
-  skillContent: number
-  /** State data section */
-  stateData: number
-  /** Memories section */
-  memories: number
-  /** Total prompt ceiling (all sections combined) */
-  totalPrompt: number
-}
+import type { InjectionBudgets } from '../types/agentic.js'
 
 /** Default budgets (in estimated tokens, ~4 chars per token) */
 export const DEFAULT_BUDGETS: InjectionBudgets = {

@@ -17,7 +17,8 @@ import {
   type SemanticVerificationReport,
   semanticVerify,
 } from '../schemas/analysis'
-import { type AnalysisDiff, generateAnalysisDiff } from '../services/analysis-diff'
+import { generateAnalysisDiff } from '../services/analysis-diff'
+import type { AnalysisDiff } from '../types/services.js'
 import { getTimestamp } from '../utils/date-helper'
 import { StorageManager } from './storage-manager'
 
@@ -381,4 +382,4 @@ export const analysisStorage = new AnalysisStorage()
 export default analysisStorage
 export type { AnalysisStoreData, SealResult, StalenessCheck, RollbackResult }
 export type { SemanticVerificationReport } from '../schemas/analysis'
-export type { AnalysisDiff, AnalysisDiffItem } from '../services/analysis-diff'
+export type { AnalysisDiff, AnalysisDiffItem } from '../types/services.js'

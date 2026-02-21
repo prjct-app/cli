@@ -30,24 +30,8 @@ import { getErrorMessage, isNotFoundError } from '../types/fs'
 
 const CACHE_TTL_MS = 60 * 60 * 1000 // 1 hour
 
-// =============================================================================
-// Project Context (passed to classifier)
-// =============================================================================
-
-export interface ProjectContext {
-  /** Domains detected during sync */
-  domains: {
-    hasFrontend: boolean
-    hasBackend: boolean
-    hasDatabase: boolean
-    hasTesting: boolean
-    hasDocker: boolean
-  }
-  /** Available agent names (without .md extension) */
-  agents: string[]
-  /** Project stack info */
-  stack?: { language?: string; framework?: string }
-}
+// ProjectContext type moved to core/types/agentic.ts as DomainClassifierProjectContext
+import type { DomainClassifierProjectContext as ProjectContext } from '../types/agentic.js'
 
 // =============================================================================
 // Hashing

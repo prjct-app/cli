@@ -18,9 +18,10 @@ import type {
   SimpleExecutionResult,
 } from '../types/agentic'
 import { getErrorMessage } from '../types/fs'
+import type { SubtaskDisplay } from '../types/utils'
 import { agentStream } from '../utils/agent-stream'
 import { fileExists } from '../utils/file-helper'
-import { printSubtaskProgress, type SubtaskDisplay } from '../utils/subtask-table'
+import { printSubtaskProgress } from '../utils/subtask-table'
 import chainOfThought from './chain-of-thought'
 import contextBuilder from './context-builder'
 import groundTruth from './ground-truth'

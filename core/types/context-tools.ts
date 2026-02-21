@@ -252,3 +252,78 @@ export type ContextToolOutput =
   | { tool: 'recent'; result: RecentToolOutput }
   | { tool: 'summary'; result: SummaryToolOutput }
   | { tool: 'error'; result: { error: string; code: string } }
+
+// =============================================================================
+// AI Tools Types (extracted from core/tools/ai/)
+// =============================================================================
+
+/**
+ * Learnings extracted from SQLite database
+ */
+export interface ProjectLearnings {
+  completedTasks: Array<{
+    description: string
+    completedAt: string
+    branch: string | null
+  }>
+  resolvedBugs: Array<{
+    description: string
+    resolution: string
+  }>
+  shippedFeatures: Array<{
+    name: string
+    description: string
+    version: string
+  }>
+  patterns: string[]
+}
+
+/**
+ * Project context for AI tool formatters
+ */
+export interface AIToolProjectContext {
+  projectId: string
+  name: string
+  version: string
+  ecosystem: string
+  projectType: string
+  languages: string[]
+  frameworks: string[]
+  repoPath: string
+  branch: string
+  fileCount: number
+  commits: number
+  hasChanges: boolean
+  commands: {
+    install: string
+    dev: string
+    test: string
+    build: string
+    lint: string
+    format: string
+  }
+  agents: {
+    workflow: string[]
+    domain: string[]
+  }
+  sources?: import('../utils/citations').ContextSources
+  analysis?: {
+    patterns: Array<{ name: string; description: string; location?: string }>
+    antiPatterns: Array<{ issue: string; file: string; suggestion: string }>
+    packageManager?: string
+    sourceDir?: string
+    testDir?: string
+  }
+  learnings?: ProjectLearnings
+}
+
+/**
+ * Result of generating context for a single AI tool
+ */
+export interface GenerateResult {
+  toolId: string
+  outputFile: string
+  outputPath: string
+  success: boolean
+  error?: string
+}

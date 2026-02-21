@@ -19,8 +19,8 @@ import type {
   TaskHistoryEntry,
 } from '../schemas/state'
 import { StateJsonSchema, SubtaskCompletionDataSchema } from '../schemas/state'
+import type { WorkflowCommand } from '../types/workflow'
 import { getTimestamp } from '../utils/date-helper'
-import type { WorkflowCommand } from '../workflow/state-machine'
 import { workflowStateMachine } from '../workflow/state-machine'
 import { archiveStorage } from './archive-storage'
 import { StorageManager } from './storage-manager'
@@ -172,9 +172,6 @@ class StateStorage extends StorageManager<StateJson> {
     completedAt: string,
     feedback?: TaskFeedback
   ): TaskHistoryEntry {
-    // Extended task properties (may be present in storage but not in schema)
-    const taskAny = task as any
-
     // Extract subtask summaries (only completed subtasks with summaries)
     const subtaskSummaries = (task.subtasks || [])
       .filter((st) => st.status === 'completed' && st.summary)
@@ -188,17 +185,17 @@ class StateStorage extends StorageManager<StateJson> {
 
     const entry: TaskHistoryEntry = {
       taskId: task.id,
-      title: taskAny.parentDescription || task.description,
-      classification: taskAny.type || 'improvement',
+      title: task.parentDescription || task.description,
+      classification: task.type || 'improvement',
       startedAt: task.startedAt,
       completedAt,
       subtaskCount: task.subtasks?.length || 0,
       subtaskSummaries,
       outcome,
-      branchName: taskAny.branch || 'unknown',
+      branchName: task.branch || 'unknown',
       linearId: task.linearId,
       linearUuid: task.linearUuid,
-      prUrl: taskAny.prUrl,
+      prUrl: task.prUrl,
     }
 
     // Attach feedback if provided (PRJ-272)

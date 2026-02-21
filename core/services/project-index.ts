@@ -19,46 +19,27 @@ import { exec } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { promisify } from 'node:util'
-import {
-  type ConfigFileEntry,
-  type DetectedPattern,
-  type DetectedStack,
-  type DirectoryEntry,
-  getDefaultIndex,
-  INDEX_VERSION,
-  indexStorage,
-  type LanguageStats,
-  type ProjectIndex,
-  type ScoredFile,
-} from '../storage/index-storage'
+import { getDefaultIndex, INDEX_VERSION, indexStorage } from '../storage/index-storage'
+import type {
+  FileStats,
+  IndexOptions,
+  RelevantContext,
+  ScanResult,
+  ScoringContext,
+} from '../types/services.js'
+import type {
+  ConfigFileEntry,
+  DetectedPattern,
+  DetectedStack,
+  DirectoryEntry,
+  LanguageStats,
+  ProjectIndex,
+  ScoredFile,
+} from '../types/storage.js'
 import { getTimestamp } from '../utils/date-helper'
-import { type FileStats, fileScorer, RELEVANCE_THRESHOLD, type ScoringContext } from './file-scorer'
+import { fileScorer, RELEVANCE_THRESHOLD } from './file-scorer'
 
 const execAsync = promisify(exec)
-
-// ============================================================================
-// TYPES
-// ============================================================================
-
-export interface IndexOptions {
-  forceFullScan?: boolean // Force full scan even if index exists
-  maxFiles?: number // Limit number of files to scan (for large repos)
-  excludePatterns?: string[] // Additional patterns to exclude
-}
-
-export interface ScanResult {
-  index: ProjectIndex
-  fromCache: boolean
-  changedFiles: number
-  scanDuration: number
-}
-
-export interface RelevantContext {
-  files: ScoredFile[]
-  estimatedTokens: number
-  originalTokens: number
-  compressionRate: number
-}
 
 // ============================================================================
 // CONSTANTS

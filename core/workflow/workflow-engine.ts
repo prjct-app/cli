@@ -13,14 +13,7 @@ import { getErrorMessage } from '../types/fs'
 
 const execAsync = promisify(exec)
 
-export interface WorkflowExecutionResult {
-  success: boolean
-  gatesFailed: string[]
-  hooksFailed: string[]
-  stepsRun: string[]
-  instructions: string[]
-  output: string
-}
+import type { WorkflowExecutionResult } from '../types/workflow.js'
 
 export async function executeWorkflowRules(
   projectId: string,

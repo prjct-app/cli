@@ -12,36 +12,10 @@
  * @version 1.0.0
  */
 
+import type { RankedFile, RankingConfig } from '../types/domain.js'
 import { loadIndex, queryFiles } from './bm25'
 import { scoreFromSeeds as cochangeScore, loadMatrix } from './git-cochange'
 import { scoreFromSeeds as importScore, loadGraph } from './import-graph'
-
-// =============================================================================
-// Types
-// =============================================================================
-
-export interface RankedFile {
-  path: string
-  finalScore: number
-  signals: {
-    bm25: number
-    imports: number
-    cochange: number
-  }
-}
-
-export interface RankingConfig {
-  /** Weight for BM25 text relevance (default: 0.5) */
-  bm25Weight?: number
-  /** Weight for import graph proximity (default: 0.3) */
-  importWeight?: number
-  /** Weight for git co-change correlation (default: 0.2) */
-  cochangeWeight?: number
-  /** Maximum number of results (default: 15) */
-  topN?: number
-  /** Maximum depth for import graph traversal (default: 2) */
-  importDepth?: number
-}
 
 const DEFAULT_CONFIG: Required<RankingConfig> = {
   bm25Weight: 0.5,

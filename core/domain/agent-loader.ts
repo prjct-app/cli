@@ -13,10 +13,9 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
-import HierarchicalAgentResolver, {
-  type HierarchicalAgent,
-} from '../services/hierarchical-agent-resolver'
+import HierarchicalAgentResolver from '../services/hierarchical-agent-resolver'
 import { isNotFoundError } from '../types/fs'
+import type { HierarchicalAgent } from '../types/services.js'
 
 interface Agent {
   name: string

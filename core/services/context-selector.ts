@@ -12,22 +12,9 @@
  * - Faster task understanding
  */
 
-import { type DomainDefinition, indexStorage, type ScoredFile } from '../storage/index-storage'
-
-// ============================================================================
-// TYPES
-// ============================================================================
-
-export interface SelectedContext {
-  files: ScoredFile[]
-  domains: string[]
-  metrics: {
-    totalFiles: number
-    selectedFiles: number
-    compressionRate: number
-    estimatedTokensSaved: number
-  }
-}
+import { indexStorage } from '../storage/index-storage'
+import type { ContextSelectionOptions, SelectedContext } from '../types/services.js'
+import type { DomainDefinition, ScoredFile } from '../types/storage.js'
 
 /**
  * Default token budget for context selection.
@@ -37,13 +24,6 @@ export interface SelectedContext {
  * @see PRJ-266
  */
 const DEFAULT_TOKEN_BUDGET = 80_000
-
-export interface ContextSelectionOptions {
-  maxFiles?: number // Max files to return (default: 50)
-  minScore?: number // Min relevance score (default: 30)
-  includeGeneral?: boolean // Include 'general' domain files (default: true)
-  tokenBudget?: number // Max estimated tokens (default: 80000, or from coordinator)
-}
 
 // ============================================================================
 // DOMAIN DETECTION PATTERNS

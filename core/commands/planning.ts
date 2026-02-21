@@ -209,9 +209,7 @@ export class PlanningCommands extends PrjctCommandsBase {
   /**
    * Print next steps after initialization
    */
-  private _printNextSteps(
-    wizardResult: import('../workflows/onboarding').WizardResult | null
-  ): void {
+  private _printNextSteps(wizardResult: import('../types/workflows').WizardResult | null): void {
     console.log('')
     console.log('  Quick start:')
     console.log('    prjct sync     Update context after changes')

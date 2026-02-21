@@ -21,52 +21,8 @@ import orchestratorExecutor from '../agentic/orchestrator-executor'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import { stateStorage } from '../storage/state-storage'
-import type { CommandResult } from '../types/commands'
+import type { CommandResult, ContextOutput } from '../types/commands'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
-
-// =============================================================================
-// Types
-// =============================================================================
-
-export interface ContextOutput {
-  projectId: string
-  globalPath: string
-  currentTask: {
-    id: string
-    description: string
-    startedAt: string
-    subtasks?: Array<{
-      id: string
-      description: string
-      status: string
-      domain: string
-    }>
-    currentSubtaskIndex?: number
-  } | null
-  domains: string[]
-  primaryDomain: string | null
-  agents: Array<{
-    name: string
-    domain: string
-    filePath: string
-    skills: string[]
-    preview: string
-  }>
-  subtasks: Array<{
-    id: string
-    description: string
-    domain: string
-    agent: string
-    status: string
-    order: number
-  }> | null
-  repoAnalysis: {
-    ecosystem: string
-    frameworks: string[]
-    hasTests: boolean
-    technologies: string[]
-  }
-}
 
 // =============================================================================
 // Context Commands Class

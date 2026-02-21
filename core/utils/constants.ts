@@ -91,7 +91,8 @@ export const ROADMAP_STATUS = {
   BLOCKED: 'Blocked',
 } as const
 
-export type RoadmapStatusKey = keyof typeof ROADMAP_STATUS
+// RoadmapStatusKey type moved to core/types/utils.ts
+import type { RoadmapStatusKey } from '../types/utils.js'
 
 /**
  * ROADMAP file format patterns.
@@ -150,7 +151,7 @@ export const STATUS = {
   PAUSED: 'paused',
 } as const
 
-export type Status = (typeof STATUS)[keyof typeof STATUS]
+// Status type moved to core/types/utils.ts
 
 /**
  * Priority levels.
@@ -162,7 +163,7 @@ export const PRIORITY = {
   CRITICAL: 'critical',
 } as const
 
-export type Priority = (typeof PRIORITY)[keyof typeof PRIORITY]
+// Priority type moved to core/types/utils.ts
 
 // =============================================================================
 // Plan Mode Constants
@@ -183,7 +184,7 @@ export const PLAN_STATUS = {
   ABORTED: 'aborted',
 } as const
 
-export type PlanStatusValue = (typeof PLAN_STATUS)[keyof typeof PLAN_STATUS]
+// PlanStatusValue type moved to core/types/utils.ts
 
 /**
  * Commands that require planning mode
@@ -246,7 +247,8 @@ export const TIMEOUTS = {
   WORKFLOW_HOOK: 60_000,
 } as const
 
-export type TimeoutKey = keyof typeof TIMEOUTS
+// TimeoutKey type moved to core/types/utils.ts
+import type { TimeoutKey } from '../types/utils.js'
 
 /**
  * Get timeout value with optional environment variable override.

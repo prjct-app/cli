@@ -17,34 +17,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import prjctDb from '../storage/database'
-
-// =============================================================================
-// Types
-// =============================================================================
-
-export interface BM25Document {
-  path: string
-  tokens: string[]
-  length: number
-}
-
-export interface BM25Index {
-  /** Map of file path → token list and document length */
-  documents: Record<string, { tokens: string[]; length: number }>
-  /** Inverted index: token → list of (path, term frequency) */
-  invertedIndex: Record<string, Array<{ path: string; tf: number }>>
-  /** Average document length across all documents */
-  avgDocLength: number
-  /** Total number of indexed documents */
-  totalDocs: number
-  /** Build timestamp */
-  builtAt: string
-}
-
-export interface BM25Score {
-  path: string
-  score: number
-}
+import type { BM25Index, BM25Score } from '../types/domain.js'
 
 // =============================================================================
 // Constants

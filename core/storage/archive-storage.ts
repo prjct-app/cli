@@ -9,6 +9,12 @@
  */
 
 import { generateUUID } from '../schemas/schemas'
+import type {
+  ArchiveEntityType,
+  ArchiveItem,
+  ArchiveRecord,
+  ArchiveStats,
+} from '../types/storage.js'
 import { getTimestamp } from '../utils/date-helper'
 import { prjctDb } from './database'
 
@@ -23,39 +29,6 @@ export const ARCHIVE_POLICIES = {
   PAUSED_TASK_DAYS: 30,
   MEMORY_MAX_ENTRIES: 500,
 } as const
-
-// =============================================================================
-// Types
-// =============================================================================
-
-export type ArchiveEntityType = 'shipped' | 'idea' | 'queue_task' | 'paused_task' | 'memory_entry'
-
-export interface ArchiveRecord {
-  id: string
-  entity_type: ArchiveEntityType
-  entity_id: string
-  entity_data: string
-  summary: string | null
-  archived_at: string
-  reason: string
-}
-
-export interface ArchiveItem {
-  entityType: ArchiveEntityType
-  entityId: string
-  entityData: unknown
-  summary?: string
-  reason: string
-}
-
-export interface ArchiveStats {
-  shipped: number
-  idea: number
-  queue_task: number
-  paused_task: number
-  memory_entry: number
-  total: number
-}
 
 // =============================================================================
 // Archive Storage

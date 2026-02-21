@@ -16,31 +16,9 @@
 import { exec as execCallback } from 'node:child_process'
 import { promisify } from 'node:util'
 import prjctDb from '../storage/database'
+import type { CoChangeIndex, CoChangeMatrix, CoChangeScore } from '../types/domain.js'
 
 const exec = promisify(execCallback)
-
-// =============================================================================
-// Types
-// =============================================================================
-
-/** Co-change matrix: file → { related_file: similarity_score } */
-export type CoChangeMatrix = Record<string, Record<string, number>>
-
-export interface CoChangeIndex {
-  /** The co-change similarity matrix */
-  matrix: CoChangeMatrix
-  /** Number of commits analyzed */
-  commitsAnalyzed: number
-  /** Total unique files seen */
-  filesAnalyzed: number
-  /** Build timestamp */
-  builtAt: string
-}
-
-export interface CoChangeScore {
-  path: string
-  score: number
-}
 
 // =============================================================================
 // Constants

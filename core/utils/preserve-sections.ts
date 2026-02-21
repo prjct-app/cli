@@ -17,12 +17,7 @@
  * @module utils/preserve-sections
  */
 
-export interface PreservedSection {
-  id: string
-  content: string
-  startIndex: number
-  endIndex: number
-}
+import type { PreservedSection } from '../types/utils.js'
 
 // Markers for preserved sections
 const PRESERVE_START = '<!-- prjct:preserve -->'

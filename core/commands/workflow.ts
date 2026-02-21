@@ -12,12 +12,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import commandExecutor from '../agentic/command-executor'
 import { templateExecutor } from '../agentic/template-executor'
-import {
-  type FibonacciPoint,
-  isValidPoint,
-  pointsToMinutes,
-  pointsToTimeRange,
-} from '../domain/fibonacci'
+import { isValidPoint, pointsToMinutes, pointsToTimeRange } from '../domain/fibonacci'
 import pathManager from '../infrastructure/path-manager'
 import { templateGenerator } from '../infrastructure/template-generator'
 import type { AnalysisSchema } from '../schemas/analysis'
@@ -31,11 +26,12 @@ import { contextFeedbackStorage } from '../storage/context-feedback-storage'
 import { customWorkflowStorage } from '../storage/custom-workflow-storage'
 import { queueStorage } from '../storage/queue-storage'
 import { stateStorage } from '../storage/state-storage'
-import type { WorkflowRule } from '../storage/workflow-rule-storage'
 import { workflowRuleStorage } from '../storage/workflow-rule-storage'
 import { extractKeywords, findRelevantFiles } from '../tools/context/files-tool'
 import type { CommandResult } from '../types/commands'
+import type { FibonacciPoint } from '../types/domain.js'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
+import type { WorkflowRule } from '../types/storage.js'
 import { getClaudeMcpConfigPath, hasMcpServer } from '../utils/mcp-config'
 import {
   mdActionRequired,

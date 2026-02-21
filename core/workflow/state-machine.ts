@@ -8,13 +8,7 @@
  *         completed ──reopen──→ working
  */
 
-// =============================================================================
-// Types
-// =============================================================================
-
-export type WorkflowState = 'idle' | 'working' | 'paused' | 'completed' | 'shipped'
-
-export type WorkflowCommand = 'task' | 'done' | 'pause' | 'resume' | 'ship' | 'next' | 'reopen'
+import type { WorkflowCommand, WorkflowState } from '../types/workflow.js'
 
 interface StateDefinition {
   transitions: WorkflowCommand[]

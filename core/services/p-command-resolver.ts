@@ -6,16 +6,10 @@ import type {
   PCommandResolveError,
   PCommandResolveErrorCode,
   PCommandTemplateSource,
+  PCommandValidationResult,
   ResolvedPTemplate,
 } from '../types/services'
 import { PACKAGE_ROOT } from '../utils/version'
-
-export interface PCommandValidationResult {
-  valid: boolean
-  command: string
-  code?: PCommandResolveErrorCode
-  message?: string
-}
 
 interface CandidateRoot {
   source: PCommandTemplateSource

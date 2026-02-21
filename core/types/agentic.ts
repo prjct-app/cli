@@ -771,3 +771,216 @@ export interface SealedAnalysisContext {
   /** Git commit hash when analysis was performed */
   commitHash?: string
 }
+
+// =============================================================================
+// Response Validator Types
+// =============================================================================
+
+export interface ValidationSuccess<T> {
+  success: true
+  data: T
+}
+
+export interface ValidationFailure {
+  success: false
+  error: string
+  /** Raw parsed JSON (may be partial) */
+  rawParsed: unknown
+  /** Zod validation issues */
+  issues: string[]
+}
+
+export type ValidationResult<T> = ValidationSuccess<T> | ValidationFailure
+
+// =============================================================================
+// Token Budget Types
+// =============================================================================
+
+/** Budget category identifiers ordered by priority */
+export type BudgetCategory = 'state' | 'injection' | 'files'
+
+/** Budget allocation result for each category */
+export interface BudgetAllocation {
+  state: number
+  injection: number
+  files: number
+  inputBudget: number
+  outputReserve: number
+  contextWindow: number
+}
+
+/** Usage tracking per category */
+export interface BudgetUsage {
+  category: BudgetCategory
+  allocated: number
+  used: number
+  remaining: number
+}
+
+// =============================================================================
+// Agentic Services Types
+// =============================================================================
+
+/**
+ * Re-exported from core/agentic/services.ts.
+ * Import the actual `AgenticServices` from there for its `typeof` members.
+ */
+
+// =============================================================================
+// Hook Types
+// =============================================================================
+
+export type HookPoint = string
+
+// =============================================================================
+// Context Builder Convenience Aliases
+// =============================================================================
+
+// Note: Paths, Context, State are re-exports of ContextPaths, ProjectContext,
+// ContextState from core/types/core and core/types/agentic respectively.
+
+// =============================================================================
+// Anti-Hallucination Types
+// =============================================================================
+
+export interface ProjectGroundTruth {
+  /** Project root path */
+  projectPath: string
+  /** Programming language (e.g., 'TypeScript', 'JavaScript', 'Python') */
+  language?: string
+  /** Primary framework (e.g., 'Hono', 'Next.js', 'Express') */
+  framework?: string
+  /** Technology stack items (e.g., ['Hono', 'Zod', 'Vitest']) */
+  techStack?: string[]
+  /** Domain flags from sealed analysis */
+  domains?: {
+    hasFrontend?: boolean
+    hasBackend?: boolean
+    hasDatabase?: boolean
+    hasTesting?: boolean
+    hasDocker?: boolean
+  }
+  /** Total files in project */
+  fileCount?: number
+  /** Available agent names (e.g., ['backend', 'testing']) */
+  availableAgents?: string[]
+  /** Sealed analysis languages — used to ground available tech (PRJ-260) */
+  analysisLanguages?: string[]
+  /** Sealed analysis frameworks — used to ground available tech (PRJ-260) */
+  analysisFrameworks?: string[]
+  /** Package manager from sealed analysis (PRJ-260) */
+  analysisPackageManager?: string
+}
+
+// =============================================================================
+// Environment Block Types
+// =============================================================================
+
+export interface EnvironmentBlockInput {
+  /** Project display name */
+  projectName: string
+  /** Absolute path to project root */
+  projectPath: string
+  /** Whether the project is a git repository */
+  isGitRepo?: boolean
+  /** Current git branch name */
+  gitBranch?: string
+  /** Operating system platform (auto-detected if not provided) */
+  platform?: string
+  /** JavaScript runtime (auto-detected if not provided) */
+  runtime?: string
+  /** Current date in ISO format (auto-generated if not provided) */
+  date?: string
+  /** AI model identifier (e.g., 'opus', 'sonnet', '2.5-pro') */
+  model?: string
+  /** AI provider name (e.g., 'claude', 'gemini', 'cursor') */
+  provider?: string
+}
+
+// =============================================================================
+// Prompt Builder Types (Section Priority)
+// =============================================================================
+
+/**
+ * Prompt section priorities for budget trimming.
+ */
+export type SectionPriority = 'critical' | 'important' | 'optional'
+
+// =============================================================================
+// Injection Validator Types
+// =============================================================================
+
+/** Configurable token budgets per injection section */
+export interface InjectionBudgets {
+  /** Auto-injected context (task + queue + patterns) */
+  autoContext: number
+  /** Per-agent content in orchestrator */
+  agentContent: number
+  /** Per-skill content in orchestrator */
+  skillContent: number
+  /** State data section */
+  stateData: number
+  /** Memories section */
+  memories: number
+  /** Total prompt ceiling (all sections combined) */
+  totalPrompt: number
+}
+
+// =============================================================================
+// Template Executor Types
+// =============================================================================
+
+export interface TemplateExecutionContext {
+  projectPath: string
+  projectId: string
+  globalPath: string
+  command: string
+  args: string
+
+  // Agent information
+  agentName: string
+  agentSettingsPath: string
+
+  // Paths for agent (not content)
+  paths: {
+    orchestrator: string
+    agentRouting: string
+    taskFragmentation: string
+    commandTemplate: string
+    repoAnalysis: string
+    agentsDir: string
+    skillsDir: string
+    stateJson: string
+  }
+}
+
+export interface AgenticPromptInfo {
+  prompt: string
+  context: TemplateExecutionContext
+  requiresOrchestration: boolean
+}
+
+// =============================================================================
+// Domain Classifier Types
+// =============================================================================
+
+export interface DomainClassifierProjectContext {
+  /** Domains detected during sync */
+  domains: {
+    hasFrontend: boolean
+    hasBackend: boolean
+    hasDatabase: boolean
+    hasTesting: boolean
+    hasDocker: boolean
+  }
+  /** Available agent names (without .md extension) */
+  agents: string[]
+  /** Project stack info */
+  stack?: { language?: string; framework?: string }
+}
+
+// =============================================================================
+// Smart Context Types
+// =============================================================================
+
+export type ProjectState = SmartContextProjectState

@@ -5,18 +5,8 @@
  * Built-in workflows (task, done, ship, sync) are immutable and cannot be deleted.
  */
 
+import type { CustomWorkflow } from '../types/storage.js'
 import prjctDb from './database'
-
-export interface CustomWorkflow {
-  id: number
-  name: string
-  description: string | null
-  createdAt: string
-  updatedAt: string
-  isBuiltin: boolean
-  enabled: boolean
-  metadata: Record<string, unknown> | null
-}
 
 interface CustomWorkflowRow {
   id: number

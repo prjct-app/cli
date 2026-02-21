@@ -14,29 +14,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import prjctDb from '../storage/database'
-
-// =============================================================================
-// Types
-// =============================================================================
-
-export interface FileHash {
-  path: string
-  hash: string
-  size: number
-  mtime: string
-}
-
-export interface FileDiff {
-  added: string[]
-  modified: string[]
-  deleted: string[]
-  unchanged: string[]
-}
-
-export interface HashRegistry {
-  files: Map<string, FileHash>
-  builtAt: string
-}
+import type { FileDiff, FileHash } from '../types/domain.js'
 
 // =============================================================================
 // Constants

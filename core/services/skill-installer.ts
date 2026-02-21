@@ -21,38 +21,17 @@ import path from 'node:path'
 import { promisify } from 'node:util'
 import { glob } from 'glob'
 import { getErrorMessage } from '../types/fs'
+import type {
+  InstalledSkill,
+  InstallResult,
+  ParsedSource,
+  SkillLockEntry,
+} from '../types/services.js'
 import { getTimeout } from '../utils/constants'
 import { dependencyValidator } from './dependency-validator'
-import type { SkillLockEntry } from './skill-lock'
 import { skillLock } from './skill-lock'
 
 const exec = promisify(execCallback)
-
-// =============================================================================
-// Types
-// =============================================================================
-
-export interface ParsedSource {
-  type: 'github' | 'local'
-  owner?: string
-  repo?: string
-  skillName?: string
-  localPath?: string
-  url: string
-}
-
-export interface InstalledSkill {
-  name: string
-  filePath: string
-  source: ParsedSource
-  sha?: string
-}
-
-export interface InstallResult {
-  installed: InstalledSkill[]
-  skipped: string[]
-  errors: string[]
-}
 
 // =============================================================================
 // Source Parsing

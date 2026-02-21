@@ -16,17 +16,11 @@ import path from 'node:path'
 import { getTemplateContent } from '../agentic/template-loader'
 import { getErrorMessage } from '../errors'
 import type { ProjectStats, SyncAgentInfo } from '../types/project-sync'
+import type { TaskFeedbackContext } from '../types/services.js'
 import type { StackDetection } from '../types/stack'
 import * as dateHelper from '../utils/date-helper'
 import log from '../utils/logger'
 import { skillInstaller } from './skill-installer'
-
-/** Task feedback context for agent generation (PRJ-272) */
-export interface TaskFeedbackContext {
-  patternsDiscovered: string[]
-  knownGotchas: string[]
-  agentAccuracy: Array<{ agent: string; rating: string; note?: string }>
-}
 
 // ============================================================================
 // AGENT GENERATION

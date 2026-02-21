@@ -9,6 +9,7 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import type { AgentInfo, ProjectStats, TaskFeedbackContext } from '../types/services.js'
 import {
   hasPreservedSections,
   mergePreservedSections,
@@ -16,33 +17,6 @@ import {
 } from '../utils/preserve-sections'
 import { defaultToolRetryPolicy } from '../utils/retry'
 import type { StackDetection } from './stack-detector'
-
-// ============================================================================
-// TYPES
-// ============================================================================
-
-export interface AgentInfo {
-  name: string
-  type: 'workflow' | 'domain'
-  skill?: string
-}
-
-export interface ProjectStats {
-  fileCount: number
-  version: string
-  name: string
-  ecosystem: string
-  projectType: string
-  languages: string[]
-  frameworks: string[]
-}
-
-/** Aggregated task feedback for agent generation (PRJ-272) */
-export interface TaskFeedbackContext {
-  patternsDiscovered: string[]
-  knownGotchas: string[]
-  agentAccuracy: Array<{ agent: string; rating: string; note?: string }>
-}
 
 // ============================================================================
 // AGENT GENERATOR CLASS
