@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.46.5] - 2026-02-21
+
+### Bug Fixes
+
+- structural fixes for pattern ranking audit (#221)
+
+
 ## [1.46.5] - 2026-02-20
 
 ### Bug Fixes
