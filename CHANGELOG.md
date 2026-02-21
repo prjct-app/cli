@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.47.0] - 2026-02-21
+
+### Features
+
+- fix: analytics data pipeline — heartbeat realtime state, screen sizes, time on page
+
+### Refactoring
+
+- eliminate barrel files, duplicates, and dead code (#223)
+- clean up hybrid re-exports and delete tools barrel
+- eliminate core/types/index.ts barrel (90 importers)
+- eliminate 4 medium barrel files (schemas, storage, services, agentic)
+- eliminate 12 leaf barrel files
+- consolidate scattered types into core/types/
+- remove duplicate sorting logic and dead markdown-builder
+
+
 ## [1.46.7] - 2026-02-21
 
 ### Refactoring
