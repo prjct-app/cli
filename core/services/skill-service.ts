@@ -19,9 +19,8 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { glob } from 'glob'
-
-import type { Skill, SkillMetadata, SkillSearchResult } from '../types'
 import type { AIProviderName } from '../types/provider'
+import type { Skill, SkillMetadata, SkillSearchResult } from '../types/services'
 
 /**
  * Parse YAML-like frontmatter from markdown

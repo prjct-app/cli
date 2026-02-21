@@ -5,7 +5,7 @@
  * Used by registry for introspection and help display.
  */
 
-import type { CategoryInfo, CommandMeta } from '../types'
+import type { CategoryInfo, CommandMeta } from '../types/commands'
 
 // Category definitions
 export const CATEGORIES: Record<string, CategoryInfo> = {

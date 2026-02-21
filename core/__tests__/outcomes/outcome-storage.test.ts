@@ -16,7 +16,7 @@ import path from 'node:path'
 import pathManager from '../../infrastructure/path-manager'
 import type { FeatureOutcome } from '../../schemas/outcomes'
 import { prjctDb } from '../../storage/database'
-import type { ShippedJson } from '../../types'
+import type { ShippedJson } from '../../types/storage'
 import { OutcomeStorage } from '../../workflows/outcome-storage'
 
 // =============================================================================

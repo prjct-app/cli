@@ -41,26 +41,22 @@ import { migrateJsonToSqlite, sweepLegacyJson } from '../storage/migrate-json'
 import { queueStorage } from '../storage/queue-storage'
 import { shippedStorage } from '../storage/shipped-storage'
 import { stateStorage } from '../storage/state-storage'
-import {
-  DEFAULT_AI_TOOLS,
-  detectInstalledTools,
-  generateAIToolContexts,
-  type ProjectContext,
-  resolveToolIds,
-} from '../tools/ai'
+import type { ProjectContext } from '../tools/ai/formatters'
+import { generateAIToolContexts } from '../tools/ai/generator'
 import { extractLearningsFromDB } from '../tools/ai/learnings-extractor'
+import { DEFAULT_AI_TOOLS, detectInstalledTools, resolveToolIds } from '../tools/ai/registry'
 import type {
   GitData,
   IncrementalInfo,
   ProjectCommands,
   ProjectStats,
   ProjectSyncResult,
-  StackDetection,
   SyncAgentInfo,
   SyncMetrics,
   SyncOptions,
-  VerificationReport,
-} from '../types'
+} from '../types/project-sync'
+import type { StackDetection } from '../types/stack'
+import type { VerificationReport } from '../types/sync-verifier'
 import * as dateHelper from '../utils/date-helper'
 import log from '../utils/logger'
 import { outcomeMemoryLearner } from '../workflows/outcome-learner'
@@ -937,4 +933,4 @@ class SyncService {
 
 export const syncService = new SyncService()
 export { SyncService }
-export type { ProjectSyncResult as SyncResult } from '../types'
+export type { ProjectSyncResult as SyncResult } from '../types/project-sync'

@@ -4,7 +4,7 @@
  * Handles task breakdown, severity detection, and complexity estimation.
  */
 
-import type { ComplexityEstimate, Severity } from '../types'
+import type { ComplexityEstimate, Severity } from '../types/services'
 
 export class BreakdownService {
   /**

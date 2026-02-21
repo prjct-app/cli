@@ -8,7 +8,7 @@
 import configManager from '../infrastructure/config-manager'
 import { ARCHIVE_POLICIES, archiveStorage } from '../storage/archive-storage'
 import prjctDb from '../storage/database'
-import type { MemoryServiceEntry } from '../types'
+import type { MemoryServiceEntry } from '../types/services'
 
 export class MemoryService {
   /**

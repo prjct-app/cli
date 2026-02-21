@@ -8,7 +8,7 @@
  * Pattern from: Devin AI, Windsurf, Kiro
  */
 
-import { generateUUID } from '../schemas'
+import { generateUUID } from '../schemas/schemas'
 import type {
   ApprovalContext,
   ApprovalPrompt,
@@ -20,7 +20,7 @@ import type {
   PlanStep,
   PlanStepResult,
   ProposedPlan,
-} from '../types'
+} from '../types/agentic'
 import { getTimestamp } from '../utils/date-helper'
 
 export {

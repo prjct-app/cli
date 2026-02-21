@@ -14,7 +14,7 @@
  */
 
 import type { CommandContextEntry } from '../schemas/command-context'
-import type { Template } from '../types'
+import type { Template } from '../types/agentic'
 
 // Keywords that indicate code-modifying commands
 const CODE_KEYWORDS = [

@@ -16,7 +16,7 @@ import type {
   OrchestratorContext,
   PromptContext,
   SimpleExecutionResult,
-} from '../types'
+} from '../types/agentic'
 import { getErrorMessage } from '../types/fs'
 import { agentStream } from '../utils/agent-stream'
 import { fileExists } from '../utils/file-helper'

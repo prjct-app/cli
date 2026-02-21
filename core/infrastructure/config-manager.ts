@@ -14,7 +14,8 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import * as jsonc from 'jsonc-parser'
 import { getErrorMessage } from '../errors'
-import type { Author, GlobalConfig, LocalConfig } from '../types'
+import type { Author } from '../types/commands'
+import type { GlobalConfig, LocalConfig } from '../types/config'
 import { isNotFoundError } from '../types/fs'
 import { getTimestamp } from '../utils/date-helper'
 import { VERSION } from '../utils/version'
@@ -22,7 +23,8 @@ import * as authorDetector from './author-detector'
 import pathManager from './path-manager'
 
 // Re-export types for convenience
-export type { Author, GlobalConfig, LocalConfig } from '../types'
+export type { Author } from '../types/commands'
+export type { GlobalConfig, LocalConfig } from '../types/config'
 
 /**
  * Parse JSON or JSONC content safely

@@ -5,8 +5,8 @@
  */
 
 import path from 'node:path'
-import { memoryService } from '../services'
-import type { CommandResult, DesignOptions } from '../types'
+import { memoryService } from '../services/memory-service'
+import type { CommandResult, DesignOptions } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import { configManager, dateHelper, fileHelper, out, pathManager } from './base'
 

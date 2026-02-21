@@ -7,8 +7,8 @@
 
 import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
-import { generateUUID } from '../schemas'
-import type { Outcome, OutcomeFilter, OutcomeInput } from '../types'
+import { generateUUID } from '../schemas/schemas'
+import type { Outcome, OutcomeFilter, OutcomeInput } from '../types/outcomes'
 import * as fileHelper from '../utils/file-helper'
 
 const OUTCOMES_DIR = 'outcomes'

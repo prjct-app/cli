@@ -11,14 +11,14 @@ import { exec } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { promisify } from 'node:util'
-import { stateStorage } from '../storage'
+import { stateStorage } from '../storage/state-storage'
+import { getErrorMessage, isNotFoundError } from '../types/fs'
 import type {
   VerificationCheck,
   VerificationCheckResult,
   VerificationConfig,
   VerificationReport,
-} from '../types'
-import { getErrorMessage, isNotFoundError } from '../types/fs'
+} from '../types/sync-verifier'
 
 const execAsync = promisify(exec)
 
@@ -27,7 +27,7 @@ export type {
   VerificationCheckResult,
   VerificationConfig,
   VerificationReport,
-} from '../types'
+} from '../types/sync-verifier'
 
 // =============================================================================
 // BUILT-IN CHECKS

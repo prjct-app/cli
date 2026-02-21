@@ -12,10 +12,10 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import type { CommandContextEntry } from '../schemas/command-context'
-import { queueStorage, stateStorage } from '../storage'
+import { queueStorage } from '../storage/queue-storage'
+import { stateStorage } from '../storage/state-storage'
 import type {
   LearnedPatterns,
-  Memory,
   OrchestratorContext,
   PlanInfo,
   PromptAgent,
@@ -24,11 +24,12 @@ import type {
   PromptState,
   Template,
   ThinkBlock,
-} from '../types'
+} from '../types/agentic'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
+import type { Memory } from '../types/memory'
 import { fileExists } from '../utils/file-helper'
 import { PACKAGE_ROOT } from '../utils/version'
-import { outcomeAnalyzer } from '../workflows'
+import outcomeAnalyzer from '../workflows/outcome-analyzer'
 import { buildAntiHallucinationBlock, type ProjectGroundTruth } from './anti-hallucination'
 import { loadCommandContextConfig, resolveCommandContextFull } from './command-context'
 import { buildEnvironmentBlock } from './environment-block'
@@ -77,11 +78,11 @@ export const PROMPT_SECTION_ORDER = [
 export type {
   Frontmatter,
   LearnedPatterns,
-  Memory,
   PlanInfo,
   Template,
   ThinkBlock,
-} from '../types'
+} from '../types/agentic'
+export type { Memory } from '../types/memory'
 
 /**
  * Cached template entry with TTL support

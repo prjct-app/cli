@@ -4,10 +4,12 @@
  */
 
 import memorySystem from '../agentic/memory-system'
-import { ChangelogService, VersionService } from '../services'
+import { ChangelogService } from '../services/changelog-service'
 import { syncService } from '../services/sync-service'
-import { shippedStorage, stateStorage } from '../storage'
-import type { CommandResult } from '../types'
+import { VersionService } from '../services/version-service'
+import { shippedStorage } from '../storage/shipped-storage'
+import { stateStorage } from '../storage/state-storage'
+import type { CommandResult } from '../types/commands'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import { mdDone, mdList, mdNextSteps, mdOutput, mdSection } from '../utils/md-formatter'
 import { getNextSteps, showNextSteps } from '../utils/next-steps'

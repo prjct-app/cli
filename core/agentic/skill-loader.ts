@@ -8,7 +8,8 @@
  */
 
 import skillService from '../services/skill-service'
-import type { FormattedSkill, Skill, SkillContext } from '../types'
+import type { FormattedSkill, SkillContext } from '../types/agentic'
+import type { Skill } from '../types/services'
 
 /**
  * Format a skill for inclusion in prompts

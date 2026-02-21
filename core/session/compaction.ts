@@ -10,10 +10,10 @@
  */
 
 import prjctDb from '../storage/database'
-import type { CompactedContext, CompactionConfig, ConversationTurn } from '../types'
+import type { CompactedContext, CompactionConfig, ConversationTurn } from '../types/session'
 import { getTimestamp } from '../utils/date-helper'
 
-export type { CompactedContext, CompactionConfig, ConversationTurn } from '../types'
+export type { CompactedContext, CompactionConfig, ConversationTurn } from '../types/session'
 
 const DEFAULT_CONFIG: Required<CompactionConfig> = {
   maxTurns: 50,

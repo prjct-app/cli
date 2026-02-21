@@ -6,7 +6,7 @@
  */
 
 import pathManager from '../infrastructure/path-manager'
-import type { SyncEvent, SyncEventType } from '../types'
+import type { SyncEvent, SyncEventType } from '../types/events'
 import { getTimestamp } from '../utils/date-helper'
 import * as fileHelper from '../utils/file-helper'
 

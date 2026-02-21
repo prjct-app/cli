@@ -12,14 +12,13 @@ import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import UpdateChecker from '../infrastructure/update-checker'
 // Services
-import { agentService, breakdownService, memoryService, projectService } from '../services'
-import type {
-  AgentAssignmentResult,
-  AgentInfo,
-  Author,
-  CommandResult,
-  ProjectContext,
-} from '../types'
+import { agentService } from '../services/agent-service'
+import { breakdownService } from '../services/breakdown-service'
+import { memoryService } from '../services/memory-service'
+import { projectService } from '../services/project-service'
+import type { AgentAssignmentResult, AgentInfo } from '../types/agents'
+import type { Author, CommandResult } from '../types/commands'
+import type { ProjectContext } from '../types/core'
 import * as dateHelper from '../utils/date-helper'
 import * as fileHelper from '../utils/file-helper'
 

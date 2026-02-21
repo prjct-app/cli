@@ -29,7 +29,7 @@ import {
   type SnapshotRestoredPayload,
   type TaskCompletedPayload,
   type TaskCreatedPayload,
-} from '../types'
+} from '../types/bus'
 import { EVENT_LIMITS } from '../utils/constants'
 import log from '../utils/logger'
 

@@ -9,7 +9,7 @@
 
 import type { Context } from 'hono'
 import { streamSSE } from 'hono/streaming'
-import type { SSEClient, SSEInternalClient, SSEManager } from '../types'
+import type { SSEClient, SSEInternalClient, SSEManager } from '../types/server'
 
 /** Maximum client connection lifetime in ms (1 hour) */
 const MAX_CLIENT_TTL_MS = 60 * 60 * 1000

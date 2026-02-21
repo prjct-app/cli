@@ -15,7 +15,7 @@ import {
   CommandContextConfigSchema,
   type CommandContextEntry,
 } from '../schemas/command-context'
-import type { Template } from '../types'
+import type { Template } from '../types/agentic'
 import { PACKAGE_ROOT } from '../utils/version'
 import { classifyCommand } from './command-classifier'
 

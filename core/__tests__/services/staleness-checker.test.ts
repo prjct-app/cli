@@ -14,7 +14,7 @@ import os from 'node:os'
 import path from 'node:path'
 import pathManager from '../../infrastructure/path-manager'
 import { createStalenessChecker, type StalenessStatus } from '../../services/staleness-checker'
-import { prjctDb } from '../../storage'
+import { prjctDb } from '../../storage/database'
 
 // =============================================================================
 // Test Setup

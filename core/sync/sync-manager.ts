@@ -5,7 +5,7 @@
  * Handles the coordination between local storage (EventBus) and remote API (SyncClient).
  */
 
-import { syncEventBus } from '../events'
+import { syncEventBus } from '../events/sync-events'
 import type { IdeaPriority } from '../schemas/ideas'
 import type { Priority, TaskSection, TaskType } from '../schemas/state'
 import { ideasStorage } from '../storage/ideas-storage'
@@ -19,7 +19,7 @@ import type {
   SyncPullResult,
   SyncManagerResult as SyncResult,
   SyncStatus,
-} from '../types'
+} from '../types/sync'
 import authConfig from './auth-config'
 import { syncClient } from './sync-client'
 

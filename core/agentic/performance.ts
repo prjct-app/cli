@@ -13,7 +13,7 @@ import type {
   AgentSuggestion,
   AgentTaskRecord,
   TaskType,
-} from '../types'
+} from '../types/agents'
 import * as fileHelper from '../utils/file-helper'
 
 const PERFORMANCE_DIR = 'analysis'

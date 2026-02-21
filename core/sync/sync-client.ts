@@ -7,13 +7,8 @@
  * PRJ-111: Includes configurable timeout support via AbortController.
  */
 
-import type {
-  SyncBatchResult,
-  SyncClientError,
-  SyncEvent,
-  SyncPullResult,
-  SyncStatus,
-} from '../types'
+import type { SyncEvent } from '../types/events'
+import type { SyncBatchResult, SyncClientError, SyncPullResult, SyncStatus } from '../types/sync'
 import { getTimeout } from '../utils/constants'
 import authConfig from './auth-config'
 

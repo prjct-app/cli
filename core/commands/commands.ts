@@ -14,15 +14,15 @@
  * - Context: context
  */
 
+import type { AgentInfo } from '../types/agents'
 import type {
-  AgentInfo,
   AnalyzeOptions,
   Author,
   CleanupOptions,
   CommandResult,
   DesignOptions,
   SetupOptions,
-} from '../types'
+} from '../types/commands'
 import { AnalysisCommands } from './analysis'
 import { AnalyticsCommands } from './analytics'
 import { ContextCommands } from './context'

@@ -13,7 +13,7 @@ import fsSync from 'node:fs'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { TemplateError } from '../errors'
-import type { Frontmatter, ParsedTemplate } from '../types'
+import type { Frontmatter, ParsedTemplate } from '../types/agentic'
 import { PACKAGE_ROOT } from '../utils/version'
 
 // ============ Module State (LRU Cache) ============

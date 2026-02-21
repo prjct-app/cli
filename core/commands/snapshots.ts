@@ -5,9 +5,9 @@
  */
 
 import path from 'node:path'
-import { memoryService } from '../services'
+import { memoryService } from '../services/memory-service'
 import { TaskSessionManager } from '../session/task-session-manager'
-import type { CommandResult } from '../types'
+import type { CommandResult } from '../types/commands'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import { configManager, dateHelper, fileHelper, out, pathManager } from './base'
 

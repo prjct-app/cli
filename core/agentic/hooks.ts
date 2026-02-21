@@ -7,8 +7,8 @@
  * @version 1.0.0
  */
 
-import { eventBus } from '../events'
-import { EventTypes } from '../types'
+import { eventBus } from '../events/pub-sub'
+import { EventTypes } from '../types/bus'
 import { getErrorMessage } from '../types/fs'
 
 /**

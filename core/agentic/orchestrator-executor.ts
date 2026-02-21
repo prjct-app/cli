@@ -22,7 +22,8 @@ import { calculateVelocity, formatVelocityContext } from '../domain/velocity'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import { DEFAULT_VELOCITY_CONFIG } from '../schemas/velocity'
-import { analysisStorage, stateStorage } from '../storage'
+import { analysisStorage } from '../storage/analysis-storage'
+import { stateStorage } from '../storage/state-storage'
 import { findRelevantFiles } from '../tools/context/files-tool'
 import { getRecentFiles } from '../tools/context/recent-tool'
 import { extractSignatures } from '../tools/context/signatures-tool'
@@ -34,7 +35,7 @@ import type {
   OrchestratorSubtask,
   RealCodebaseContext,
   SealedAnalysisContext,
-} from '../types'
+} from '../types/agentic'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import outcomeRecorder from '../workflows/outcome-recorder'
 import domainClassifier, { type ProjectContext } from './domain-classifier'

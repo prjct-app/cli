@@ -6,16 +6,18 @@
 import path from 'node:path'
 import * as authorDetector from '../infrastructure/author-detector'
 import commandInstaller from '../infrastructure/command-installer'
-import { generateUUID } from '../schemas'
+import { generateUUID } from '../schemas/schemas'
 import type { Priority, TaskSection, TaskType } from '../schemas/state'
-import { ideasStorage, queueStorage } from '../storage'
+import { ideasStorage } from '../storage/ideas-storage'
+import { queueStorage } from '../storage/queue-storage'
 import { workflowRuleStorage } from '../storage/workflow-rule-storage'
-import type { CommandResult, InitOptions, ProjectContext } from '../types'
+import type { CommandResult, InitOptions } from '../types/commands'
+import type { ProjectContext } from '../types/core'
 import { getErrorMessage } from '../types/fs'
 import { mdNextSteps, mdOutput, mdSection, mdStats } from '../utils/md-formatter'
 import { showNextSteps } from '../utils/next-steps'
 import { detectProjectCommands } from '../utils/project-commands'
-import { OnboardingWizard } from '../workflows'
+import { OnboardingWizard } from '../workflows/onboarding'
 import {
   configManager,
   contextBuilder,
@@ -37,7 +39,7 @@ async function getAnalysisCommands(): Promise<import('./analysis').AnalysisComma
   return _analysisCommands
 }
 
-export type { InitOptions } from '../types'
+export type { InitOptions } from '../types/commands'
 
 export class PlanningCommands extends PrjctCommandsBase {
   /**
@@ -207,7 +209,9 @@ export class PlanningCommands extends PrjctCommandsBase {
   /**
    * Print next steps after initialization
    */
-  private _printNextSteps(wizardResult: import('../workflows').WizardResult | null): void {
+  private _printNextSteps(
+    wizardResult: import('../workflows/onboarding').WizardResult | null
+  ): void {
     console.log('')
     console.log('  Quick start:')
     console.log('    prjct sync     Update context after changes')

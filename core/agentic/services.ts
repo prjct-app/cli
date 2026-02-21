@@ -22,8 +22,12 @@
  * ```
  */
 
-import { ideasStorage, queueStorage, shippedStorage, stateStorage } from '../storage'
-import { outcomeAnalyzer, outcomeRecorder } from '../workflows'
+import { ideasStorage } from '../storage/ideas-storage'
+import { queueStorage } from '../storage/queue-storage'
+import { shippedStorage } from '../storage/shipped-storage'
+import { stateStorage } from '../storage/state-storage'
+import outcomeAnalyzer from '../workflows/outcome-analyzer'
+import outcomeRecorder from '../workflows/outcome-recorder'
 import agentRouter from './agent-router'
 import chainOfThought from './chain-of-thought'
 import contextBuilder from './context-builder'

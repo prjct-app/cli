@@ -4,9 +4,14 @@
  */
 
 import path from 'node:path'
-import { createStalenessChecker } from '../services'
-import { ideasStorage, prjctDb, queueStorage, shippedStorage, stateStorage } from '../storage'
-import type { CommandResult, ProjectContext } from '../types'
+import { createStalenessChecker } from '../services/staleness-checker'
+import { prjctDb } from '../storage/database'
+import { ideasStorage } from '../storage/ideas-storage'
+import { queueStorage } from '../storage/queue-storage'
+import { shippedStorage } from '../storage/shipped-storage'
+import { stateStorage } from '../storage/state-storage'
+import type { CommandResult } from '../types/commands'
+import type { ProjectContext } from '../types/core'
 import { getErrorMessage } from '../types/fs'
 import { mdList, mdNextSteps, mdOutput, mdSection } from '../utils/md-formatter'
 import {

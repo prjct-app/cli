@@ -9,12 +9,14 @@
 import fs from 'node:fs/promises'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
-import type { ContextPaths, ContextState, ProjectContext } from '../types'
+import type { ContextState } from '../types/agentic'
+import type { ContextPaths, ProjectContext } from '../types/core'
 import { isNotFoundError } from '../types/fs'
 import { TTLCache } from '../utils/cache'
 
 // Re-export types for convenience
-export type { ContextPaths, ContextState, ProjectContext } from '../types'
+export type { ContextState } from '../types/agentic'
+export type { ContextPaths, ProjectContext } from '../types/core'
 
 export type Paths = ContextPaths
 export type Context = ProjectContext

@@ -14,13 +14,13 @@
 import fs from 'node:fs'
 import type { Server, Socket } from 'node:net'
 import { createServer as createNetServer } from 'node:net'
-import { PrjctCommands } from '../commands/index'
+import { PrjctCommands } from '../commands/commands'
 import { commandRegistry } from '../commands/registry'
 import '../commands/register'
 import configManager from '../infrastructure/config-manager'
 import { createServer as createHttpServer, DEFAULT_PORT } from '../server/server'
 import prjctDb from '../storage/database'
-import type { ServerInstance } from '../types'
+import type { ServerInstance } from '../types/server'
 import {
   DAEMON_PATHS,
   type DaemonRequest,
@@ -303,7 +303,9 @@ async function handleRequest(request: DaemonRequest): Promise<DaemonResponse> {
  * Execute a command, routing options-dependent commands through PrjctCommands
  * (mirrors the routing in core/index.ts)
  */
-async function executeCommand(request: DaemonRequest): Promise<import('../types').CommandResult> {
+async function executeCommand(
+  request: DaemonRequest
+): Promise<import('../types/commands').CommandResult> {
   const param = request.args.join(' ') || null
   const opts = request.options
 

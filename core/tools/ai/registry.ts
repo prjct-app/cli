@@ -13,12 +13,12 @@ import { exec } from 'node:child_process'
 import os from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
-import type { AIToolConfig } from '../../types'
+import type { AIToolConfig } from '../../types/services'
 import { fileExists } from '../../utils/file-helper'
 
 const execAsync = promisify(exec)
 
-export type { AIToolConfig } from '../../types'
+export type { AIToolConfig } from '../../types/services'
 
 /**
  * Supported AI tools registry

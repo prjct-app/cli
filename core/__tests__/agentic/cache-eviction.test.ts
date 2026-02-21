@@ -10,7 +10,7 @@ import { ContextBuilder } from '../../agentic/context-builder'
 import { MemorySystem, PatternStore } from '../../agentic/memory-system'
 import pathManager from '../../infrastructure/path-manager'
 import { SessionLogManager } from '../../session/session-log-manager'
-import { prjctDb } from '../../storage'
+import { prjctDb } from '../../storage/database'
 import { TTLCache } from '../../utils/cache'
 
 const TEST_GLOBAL_BASE_DIR = path.join(process.cwd(), '.tmp', 'prjct-cli-cache-tests')

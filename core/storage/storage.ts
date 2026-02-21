@@ -8,9 +8,9 @@
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { inferEventType, syncEventBus } from '../events'
-import type { Storage } from '../types'
+import { inferEventType, syncEventBus } from '../events/sync-events'
 import { isNotFoundError } from '../types/fs'
+import type { Storage } from '../types/storage'
 
 class FileStorage implements Storage {
   private projectId: string

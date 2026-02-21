@@ -7,7 +7,7 @@ import { exec } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { promisify } from 'node:util'
-import type { TaskStackEntry, TaskStackSummary, TaskSwitchResult } from '../types'
+import type { TaskStackEntry, TaskStackSummary, TaskSwitchResult } from '../types/domain'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import log from '../utils/logger'
 

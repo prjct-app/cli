@@ -2,8 +2,8 @@
  * Session Utilities
  */
 
-import { generateUUID } from '../schemas'
-import type { Session } from '../types'
+import { generateUUID } from '../schemas/schemas'
+import type { Session } from '../types/session'
 
 /**
  * Generate unique session ID (re-export from schemas)

@@ -8,11 +8,11 @@
 
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
-import { emit } from '../events'
+import { emit } from '../events/pub-sub'
 import configManager from '../infrastructure/config-manager'
 import { prjctDb } from '../storage/database'
-import type { Session, SessionMetrics } from '../types'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
+import type { Session, SessionMetrics } from '../types/session'
 import { calculateDuration, formatDuration, generateId } from './utils'
 
 const execAsync = promisify(exec)

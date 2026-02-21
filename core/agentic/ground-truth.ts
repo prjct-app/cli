@@ -17,7 +17,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
 
-import type { GroundTruthContext, VerificationResult, Verifier } from '../types'
+import type { GroundTruthContext, VerificationResult, Verifier } from '../types/agentic'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 
 const execAsync = promisify(exec)

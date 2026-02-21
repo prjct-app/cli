@@ -8,7 +8,7 @@
  * loaded into LLM context files.
  */
 
-import { generateUUID } from '../schemas'
+import { generateUUID } from '../schemas/schemas'
 import { getTimestamp } from '../utils/date-helper'
 import { prjctDb } from './database'
 

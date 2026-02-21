@@ -13,7 +13,7 @@ import {
   type ProjectGroundTruth,
 } from '../../agentic/anti-hallucination'
 import promptBuilder from '../../agentic/prompt-builder'
-import type { OrchestratorContext, SealedAnalysisContext } from '../../types'
+import type { OrchestratorContext, SealedAnalysisContext } from '../../types/agentic'
 
 // =============================================================================
 // Test Fixtures

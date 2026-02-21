@@ -7,7 +7,7 @@
  * @version 1.0.0
  */
 
-import type { Runtime } from '../types'
+import type { Runtime } from '../types/utils'
 
 /**
  * Detect the current JavaScript runtime

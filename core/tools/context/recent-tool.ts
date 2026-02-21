@@ -10,7 +10,7 @@
 
 import { exec as execCallback } from 'node:child_process'
 import { promisify } from 'node:util'
-import type { HotFile, RecentToolOutput } from './types'
+import type { HotFile, RecentToolOutput } from '../../types/context-tools'
 
 const exec = promisify(execCallback)
 

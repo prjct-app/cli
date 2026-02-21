@@ -17,14 +17,14 @@ import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
 import chalk from 'chalk'
 import memorySystem from '../agentic/memory-system'
+import { getErrorMessage } from '../types/fs'
 import type {
   HookCommand,
   HookPhase,
   HookResult,
   PreferenceScope,
   WorkflowPreference,
-} from '../types'
-import { getErrorMessage } from '../types/fs'
+} from '../types/workflow'
 import { WORKFLOW_HELP } from '../utils/constants'
 
 const execAsync = promisify(exec)
@@ -35,7 +35,7 @@ export type {
   HookResult,
   PreferenceScope,
   WorkflowPreference,
-} from '../types'
+} from '../types/workflow'
 
 // Session and once preferences (in-memory)
 const sessionPreferences: Map<string, WorkflowPreference> = new Map()

@@ -7,7 +7,7 @@
 
 import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
-import type { AuthConfig } from '../types'
+import type { AuthConfig } from '../types/sync'
 import * as fileHelper from '../utils/file-helper'
 
 const DEFAULT_API_URL = 'https://api.prjct.app'

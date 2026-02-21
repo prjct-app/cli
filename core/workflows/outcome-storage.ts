@@ -17,7 +17,7 @@ import {
   determineSuccessLevel,
 } from '../schemas/outcomes'
 import { StorageManager } from '../storage/storage-manager'
-import type { ShippedFeature, ShippedJson } from '../types'
+import type { ShippedFeature, ShippedJson } from '../types/storage'
 import { getTimestamp } from '../utils/date-helper'
 
 export class OutcomeStorage extends StorageManager<OutcomesJson> {

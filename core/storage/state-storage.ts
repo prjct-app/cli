@@ -8,7 +8,7 @@
  * to projectPath. This class only has projectId.
  */
 
-import { generateUUID } from '../schemas'
+import { generateUUID } from '../schemas/schemas'
 import type {
   CurrentTask,
   PreviousTask,

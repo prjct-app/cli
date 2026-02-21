@@ -11,9 +11,9 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { eventBus } from '../events'
+import { eventBus } from '../events/pub-sub'
 import pathManager from '../infrastructure/path-manager'
-import type { EventCallback } from '../types'
+import type { EventCallback } from '../types/bus'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import { hookSystem } from './hooks'
 
