@@ -269,6 +269,23 @@ export async function installGlobalConfig(): Promise<GlobalConfigResult> {
       const startMarker = '<!-- prjct:start - DO NOT REMOVE THIS MARKER -->'
       const endMarker = '<!-- prjct:end - DO NOT REMOVE THIS MARKER -->'
 
+      // Strip legacy prjct-project sections (static context generation removed)
+      const projectStartMarker = '<!-- prjct-project:start - DO NOT REMOVE THIS MARKER -->'
+      const projectEndMarker = '<!-- prjct-project:end - DO NOT REMOVE THIS MARKER -->'
+      if (
+        existingContent.includes(projectStartMarker) &&
+        existingContent.includes(projectEndMarker)
+      ) {
+        const beforeProject = existingContent.substring(
+          0,
+          existingContent.indexOf(projectStartMarker)
+        )
+        const afterProject = existingContent.substring(
+          existingContent.indexOf(projectEndMarker) + projectEndMarker.length
+        )
+        existingContent = `${(beforeProject + afterProject).replace(/\n{3,}/g, '\n\n').trim()}\n`
+      }
+
       // Check if markers exist in existing file
       const hasMarkers =
         existingContent.includes(startMarker) && existingContent.includes(endMarker)

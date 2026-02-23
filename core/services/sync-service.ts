@@ -41,10 +41,6 @@ import { migrateJsonToSqlite, sweepLegacyJson } from '../storage/migrate-json'
 import { queueStorage } from '../storage/queue-storage'
 import { shippedStorage } from '../storage/shipped-storage'
 import { stateStorage } from '../storage/state-storage'
-import { generateAIToolContexts } from '../tools/ai/generator'
-import { extractLearningsFromDB } from '../tools/ai/learnings-extractor'
-import { DEFAULT_AI_TOOLS, detectInstalledTools, resolveToolIds } from '../tools/ai/registry'
-import type { AIToolProjectContext as ProjectContext } from '../types/context-tools'
 import type {
   GitData,
   IncrementalInfo,
@@ -72,7 +68,7 @@ import {
   generateAgents,
   loadExistingAgents,
 } from './sync-agent-gen'
-import { analyzeGit, buildSources, detectCommands, detectStack, gatherStats } from './sync-analyzer'
+import { analyzeGit, detectCommands, detectStack, gatherStats } from './sync-analyzer'
 import { syncVerifier } from './sync-verifier'
 
 // ============================================================================
@@ -98,28 +94,6 @@ class SyncService {
   ): Promise<ProjectSyncResult> {
     this.projectPath = projectPath
     const startTime = Date.now()
-
-    // Resolve AI tools: supports 'auto', 'all', or specific list
-    // Default behavior: detected CLI tools (claude/codex) + detected IDE tools
-    let aiToolIds: string[]
-    if (!options.aiTools || options.aiTools.length === 0) {
-      const detectedTools = await detectInstalledTools(projectPath)
-      const cliTools = detectedTools.filter((id) => DEFAULT_AI_TOOLS.includes(id) || id === 'codex')
-      const ideTools = detectedTools.filter(
-        (id) => !DEFAULT_AI_TOOLS.includes(id) && id !== 'codex'
-      )
-
-      // Keep backward-compatible fallback to Claude when no CLI tools are detected
-      aiToolIds = [...(cliTools.length > 0 ? cliTools : DEFAULT_AI_TOOLS), ...ideTools]
-      aiToolIds = Array.from(new Set(aiToolIds))
-    } else if (options.aiTools[0] === 'auto') {
-      aiToolIds = await detectInstalledTools(projectPath)
-      if (aiToolIds.length === 0) aiToolIds = ['claude'] // fallback
-    } else if (options.aiTools[0] === 'all') {
-      aiToolIds = await resolveToolIds('all', projectPath)
-    } else {
-      aiToolIds = options.aiTools
-    }
 
     let context7Status: Context7Status = {
       installed: false,
@@ -340,66 +314,9 @@ class SyncService {
         : await loadExistingAgents(this.globalPath)
       const skills = configureSkills(agents, this.projectId!, this.globalPath)
       const skillsInstalled = shouldRegenerateAgents ? await autoInstallSkills(agents) : []
-      const sources = buildSources(stats, commands)
       const contextFiles: string[] = []
 
-      // 4b. Load analysis data for AI tool context enrichment
-      let analysisData: ProjectContext['analysis']
-      try {
-        const analysis = await analysisStorage.getActive(this.projectId)
-        if (analysis?.patterns?.length || analysis?.antiPatterns?.length) {
-          analysisData = {
-            patterns: analysis.patterns ?? [],
-            antiPatterns: analysis.antiPatterns ?? [],
-            packageManager: analysis.packageManager,
-            sourceDir: analysis.sourceDir,
-            testDir: analysis.testDir,
-          }
-        }
-      } catch {
-        /* non-blocking */
-      }
-
-      // 4c. Load learnings from SQLite - Progressive Context
-      let learnings: ProjectContext['learnings']
-      try {
-        learnings = await extractLearningsFromDB(this.projectId)
-      } catch {
-        // Learnings extraction is optional - don't block on failure
-      }
-
-      // 5. Generate AI tool context files (multi-agent output)
-      const projectContext: ProjectContext = {
-        projectId: this.projectId,
-        name: stats.name,
-        version: stats.version,
-        ecosystem: stats.ecosystem,
-        projectType: stats.projectType,
-        languages: stats.languages,
-        frameworks: stats.frameworks,
-        repoPath: this.projectPath,
-        branch: git.branch,
-        fileCount: stats.fileCount,
-        commits: git.commits,
-        hasChanges: git.hasChanges,
-        commands,
-        agents: {
-          workflow: agents.filter((a) => a.type === 'workflow').map((a) => a.name),
-          domain: agents.filter((a) => a.type === 'domain').map((a) => a.name),
-        },
-        sources,
-        analysis: analysisData,
-        learnings, // Learnings from SQLite
-      }
-
-      const aiToolResults = await generateAIToolContexts(
-        projectContext,
-        this.globalPath,
-        this.projectPath,
-        aiToolIds
-      )
-
-      // 6-8. Update files IN PARALLEL (write to different files)
+      // 5. Update files IN PARALLEL (write to different files)
       await Promise.all([
         this.updateProjectJson(git, stats),
         this.updateStateJson(stats, stack),
@@ -455,11 +372,7 @@ class SyncService {
         skills,
         skillsInstalled,
         contextFiles,
-        aiTools: aiToolResults.map((r) => ({
-          toolId: r.toolId,
-          outputFile: r.outputFile,
-          success: r.success,
-        })),
+        aiTools: [],
         context7: {
           installed: context7Status.installed,
           verified: context7Status.verified,

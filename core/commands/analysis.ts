@@ -443,8 +443,6 @@ export class AnalysisCommands extends PrjctCommandsBase {
 
       if (options.md) {
         const elapsed = Date.now() - startTime
-        const contextFilesCount =
-          result.contextFiles.length + (result.aiTools?.filter((t) => t.success).length || 0)
         const agentCount = result.agents.length
 
         // Check for analysis diff (PRJ-275)
@@ -502,7 +500,6 @@ prjct analysis-save-llm '<your JSON here>' --md
             Duration: `${(elapsed / 1000).toFixed(1)}s`,
             Agents: `${agentCount} generated`,
             'Files indexed': result.stats.fileCount,
-            'Context files': contextFilesCount,
           }),
           analysisDiffSection,
           result.git.hasChanges ? mdWarn('Uncommitted changes detected') : null,
@@ -514,7 +511,7 @@ prjct analysis-save-llm '<your JSON here>' --md
         return {
           success: true,
           data: result,
-          metrics: { elapsed, contextFilesCount, agentCount, fileCount: result.stats.fileCount },
+          metrics: { elapsed, agentCount, fileCount: result.stats.fileCount },
         }
       }
 

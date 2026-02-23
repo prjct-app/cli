@@ -2,7 +2,7 @@
  * Sync Agent Generation — Agent generation functions extracted from SyncService.
  *
  * Standalone exported functions for:
- * - Agent generation (workflow + domain)
+ * - Agent generation (workflow only)
  * - Existing agent loading
  * - Template include resolution
  * - Skill configuration and auto-installation
@@ -28,9 +28,9 @@ import { skillInstaller } from './skill-installer'
 
 export async function generateAgents(
   globalPath: string,
-  stack: StackDetection,
-  stats: ProjectStats,
-  feedbackContext?: TaskFeedbackContext
+  _stack: StackDetection,
+  _stats: ProjectStats,
+  _feedbackContext?: TaskFeedbackContext
 ): Promise<SyncAgentInfo[]> {
   const agents: SyncAgentInfo[] = []
   const agentsPath = path.join(globalPath, 'agents')
@@ -52,38 +52,6 @@ export async function generateAgents(
   await Promise.all(workflowAgents.map((name) => generateWorkflowAgent(name, agentsPath)))
   for (const name of workflowAgents) {
     agents.push({ name, type: 'workflow' })
-  }
-
-  // Domain agents (based on stack) - COLLECT AND GENERATE IN PARALLEL
-  const domainAgentsToGenerate: { name: string; skill?: string }[] = []
-
-  if (stack.hasFrontend) {
-    domainAgentsToGenerate.push({ name: 'frontend', skill: 'javascript-typescript' })
-    domainAgentsToGenerate.push({ name: 'uxui', skill: 'frontend-design' })
-  }
-  if (stack.hasBackend) {
-    domainAgentsToGenerate.push({ name: 'backend', skill: 'javascript-typescript' })
-  }
-  if (stack.hasDatabase) {
-    domainAgentsToGenerate.push({ name: 'database' })
-  }
-  if (stack.hasTesting) {
-    domainAgentsToGenerate.push({ name: 'testing', skill: 'developer-kit' })
-  }
-  if (stack.hasDocker) {
-    domainAgentsToGenerate.push({ name: 'devops', skill: 'developer-kit' })
-  }
-
-  // Generate all domain agents IN PARALLEL
-  await Promise.all(
-    domainAgentsToGenerate.map((agent) =>
-      generateDomainAgent(agent.name, agentsPath, stats, stack, feedbackContext)
-    )
-  )
-
-  // Add to agents list
-  for (const agent of domainAgentsToGenerate) {
-    agents.push({ name: agent.name, type: 'domain', skill: agent.skill })
   }
 
   return agents
@@ -193,106 +161,6 @@ export async function generateWorkflowAgent(name: string, agentsPath: string): P
 }
 
 // ============================================================================
-// DOMAIN AGENT GENERATION
-// ============================================================================
-
-export async function generateDomainAgent(
-  name: string,
-  agentsPath: string,
-  stats: ProjectStats,
-  stack: StackDetection,
-  feedbackContext?: TaskFeedbackContext
-): Promise<void> {
-  // Try to read template
-  let content = ''
-  try {
-    const templatePath = path.join(
-      __dirname,
-      '..',
-      '..',
-      'templates',
-      'subagents',
-      'domain',
-      `${name}.md`
-    )
-    content = await fs.readFile(templatePath, 'utf-8')
-
-    // Resolve includes before variable replacement
-    content = await resolveTemplateIncludes(content)
-
-    // Inject project-specific context
-    content = content.replace('{projectName}', stats.name)
-    content = content.replace('{frameworks}', stack.frameworks.join(', ') || 'None detected')
-    content = content.replace('{ecosystem}', stats.ecosystem)
-  } catch (error) {
-    log.debug('Domain agent template not found, generating minimal', {
-      name,
-      error: getErrorMessage(error),
-    })
-    content = generateMinimalDomainAgent(name, stats, stack)
-  }
-
-  // Inject task feedback learnings (PRJ-272)
-  content = injectFeedbackSection(content, name, feedbackContext)
-
-  await fs.writeFile(path.join(agentsPath, `${name}.md`), content, 'utf-8')
-}
-
-// ============================================================================
-// FEEDBACK INJECTION
-// ============================================================================
-
-/**
- * Inject a "Recent Learnings" section into agent content from task feedback (PRJ-272)
- */
-export function injectFeedbackSection(
-  content: string,
-  agentName: string,
-  feedbackContext?: TaskFeedbackContext
-): string {
-  if (!feedbackContext) return content
-
-  const { patternsDiscovered, knownGotchas, agentAccuracy } = feedbackContext
-
-  const agentNotes = agentAccuracy.filter(
-    (a) => a.agent === `${agentName}.md` || a.agent === agentName
-  )
-
-  const hasContent =
-    patternsDiscovered.length > 0 || knownGotchas.length > 0 || agentNotes.length > 0
-  if (!hasContent) return content
-
-  const lines: string[] = ['\n## Recent Learnings (from completed tasks)\n']
-
-  if (patternsDiscovered.length > 0) {
-    lines.push('### Discovered Patterns')
-    for (const pattern of patternsDiscovered) {
-      lines.push(`- ${pattern}`)
-    }
-    lines.push('')
-  }
-
-  if (knownGotchas.length > 0) {
-    lines.push('### Known Gotchas')
-    for (const gotcha of knownGotchas) {
-      lines.push(`- ${gotcha}`)
-    }
-    lines.push('')
-  }
-
-  if (agentNotes.length > 0) {
-    lines.push('### Agent Accuracy Notes')
-    for (const note of agentNotes) {
-      const desc = note.note ? ` — ${note.note}` : ''
-      lines.push(`- ${note.rating}${desc}`)
-    }
-    lines.push('')
-  }
-
-  return content + lines.join('\n')
-}
-
-// ============================================================================
 // MINIMAL AGENT GENERATORS
 // ============================================================================
 
@@ -319,34 +187,6 @@ When invoked:
 1. Read \`.prjct/prjct.config.json\` → extract \`projectId\`
 2. Read \`~/.prjct-cli/projects/{projectId}/storage/state.json\`
 3. Execute requested operation
-`
-}
-
-export function generateMinimalDomainAgent(
-  name: string,
-  stats: ProjectStats,
-  stack: StackDetection
-): string {
-  return `---
-name: ${name}
-description: ${name.charAt(0).toUpperCase() + name.slice(1)} specialist for ${stats.name}
-tools: Read, Write, Glob, Grep
-skills: []
----
-
-# ${name.toUpperCase()} AGENT
-
-Domain specialist for ${name} tasks.
-
-## Project Context
-
-- **Project**: ${stats.name}
-- **Ecosystem**: ${stats.ecosystem}
-- **Frameworks**: ${stack.frameworks.join(', ') || 'None detected'}
-
-## Your Role
-
-You are the ${name} expert for this project. Apply best practices for the detected stack.
 `
 }
 
