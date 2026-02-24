@@ -72,8 +72,8 @@ export const AI_TOOLS: Record<string, AIToolConfig> = {
   codex: {
     id: 'codex',
     name: 'OpenAI Codex',
-    outputFile: 'AGENTS.md',
-    outputPath: 'repo',
+    outputFile: 'CODEX.md',
+    outputPath: 'global',
     maxTokens: 4000,
     format: 'detailed',
     description: 'OpenAI Codex CLI',

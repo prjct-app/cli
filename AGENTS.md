@@ -1,84 +1,51 @@
-<!-- prjct-project:start - DO NOT REMOVE THIS MARKER -->
-# prjct-cli - Project Rules
-<!-- projectId: bc401c41-c8b9-436a-ac78-c91cac82ab4f -->
-<!-- Generated: 2026-02-23T18:29:37.079Z -->
-<!-- Ecosystem: JavaScript | Type: enterprise -->
+# prjct-cli
 
-## THIS PROJECT (JavaScript)
+CLI tool that generates runtime context for AI coding agents. TypeScript + Hono.
 
-**Type:** enterprise
-**Path:** /Users/jj/Apps/prjct-cli
-
-### Commands (USE THESE, NOT OTHERS)
+## Commands
 
 | Action | Command |
 |--------|---------|
-| Install dependencies | `npm install` |
-| Run dev server | `npm run dev` |
-| Run tests | `npm test` |
 | Build | `npm run build` |
+| Test | `npm test` |
 | Lint | `npm run lint` |
 | Format | `npm run format` |
 
-### Code Conventions
+## Architecture
 
-- **Languages**: TypeScript
-- **Frameworks**: Hono
-
-### Code Patterns (Follow These)
-
-- **Prefer strict typing contracts**: Functions and component props should be explicitly typed; avoid implicit any boundaries.
-- **Type-first API surfaces**: Exported modules should define reusable domain types for inputs and outputs.
-- **Hono API validation via Context7**: Validate Hono APIs against current documentation through Context7 before implementation.
-- **Image rendering via next/image**: Project uses next/image for optimized image delivery. (app/** or src/**)
-- **Use UiButton abstraction**: Buttons are wrapped in UiButton instead of native button in app UI. (components/**)
-- **Strict type/lint hygiene**: Detected 4 any, 2 ts-ignore, 0 raw img potential violations.
-
-### Anti-Patterns (Avoid These)
-
-- **Unbounded any type** in `multiple` — Use explicit types or unknown with narrowing. Add inline justification for unavoidable any.
-- **Unscoped @ts-ignore** in `multiple` — Prefer @ts-expect-error with rationale and follow-up cleanup ticket.
-- **Unchecked @ts-ignore usage** in `core/services/pattern-extractor.ts` — Use @ts-expect-error with reason or refactor typings.
-- **Unbounded any usage** in `core/__tests__/services/pattern-extractor.test.ts` — Replace with specific types or justified unknown + narrowing.
-- **Unbounded any usage** in `core/__tests__/domain/bm25.test.ts` — Replace with specific types or justified unknown + narrowing.
-
----
-
-## prjct Rules
-
-### Path Resolution
-**ALL prjct writes go to**: `~/.prjct-cli/projects/bc401c41-c8b9-436a-ac78-c91cac82ab4f/`
-- NEVER write to `.prjct/`
-- NEVER write to `./` for prjct data
-
-### Workflow
 ```
-p. sync → p. task "desc" → [work] → p. done → p. ship
+core/
+  commands/       CLI command handlers (analysis, planning, workflow)
+  services/       Business logic (sync-service, context-selector, memory-service)
+  domain/         Algorithms (bm25, import-graph, git-cochange, file-ranker)
+  agentic/        Agent runtime (orchestrator, context-builder, smart-context)
+  storage/        SQLite persistence (database.ts, metrics-storage, state-storage)
+  types/          All type definitions (project-sync, domain, commands, services)
+  infrastructure/ Config, path resolution, command installation
+templates/
+  commands/       Skill templates (task.md, ship.md, sync.md)
+  subagents/      Agent templates (workflow only: prjct-workflow, planner, shipper)
 ```
 
-| Command | Action |
-|---------|--------|
-| `p. sync` | Re-analyze project |
-| `p. task X` | Start task |
-| `p. done` | Complete subtask |
-| `p. ship X` | Ship feature |
+## Key paths
 
-## Project State
+- Project data: `~/.prjct-cli/projects/{projectId}/`
+- Global rules: `~/.claude/CLAUDE.md` (between `<!-- prjct:start -->` markers)
+- Agent files: `~/.prjct-cli/projects/{projectId}/agents/*.md`
+- SQLite DB: `~/.prjct-cli/prjct.db`
+- Never write prjct data to repo root or `.prjct/`
 
-| Field | Value |
-|-------|-------|
-| Name | prjct-cli |
-| Version | 1.47.2 |
-| Ecosystem | JavaScript |
-| Branch | refactor/kill-static-context-generation |
-| Files | ~336 |
-| Commits | 657 |
+## Sync pipeline (sync-service.ts)
 
-## Agents
+1. Git analysis → stats → stack detection
+2. Build indexes: BM25 (text search), import graph, co-change matrix
+3. Generate workflow agents from templates
+4. Record metrics from real index data (not estimates)
+5. Install global CLAUDE.md section + verify
 
-Load from `~/.prjct-cli/projects/bc401c41-c8b9-436a-ac78-c91cac82ab4f/agents/`:
+## Conventions
 
-**Workflow**: prjct-workflow, prjct-planner, prjct-shipper
-**Domain**: backend, database
-
-<!-- prjct-project:end - DO NOT REMOVE THIS MARKER -->
+- Strict TypeScript, no `any` without justification
+- All storage through SQLite (`core/storage/database.ts`)
+- Tests with `bun:test` — run `npm test`
+- Biome for lint/format (pre-commit hook via lefthook)

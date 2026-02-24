@@ -195,7 +195,6 @@ async function main(): Promise<void> {
         // Setup
         sync: () =>
           commands.sync(process.cwd(), {
-            aiTools: options.agents ? String(options.agents).split(',') : undefined,
             preview: options.preview === true || options['dry-run'] === true,
             yes: options.yes === true,
             json: options.json === true,

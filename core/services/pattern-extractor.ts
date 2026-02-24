@@ -10,7 +10,6 @@ import type {
   ExtractPatternResult,
 } from '../types/services.js'
 
-type RuleSource = 'baseline' | 'repo' | 'context7' | 'feedback'
 type Severity = 'low' | 'medium' | 'high'
 
 interface BaselinePattern {

@@ -165,11 +165,7 @@ export class PlanningCommands extends PrjctCommandsBase {
           out.step(4, 4, 'Generating agents...')
 
           // Pass wizard agent selection to sync if available
-          if (wizardResult?.agents) {
-            await analysis.sync(projectPath, { aiTools: wizardResult.agents })
-          } else {
-            await analysis.sync(projectPath)
-          }
+          await analysis.sync(projectPath)
 
           out.done('initialized')
           this._printNextSteps(wizardResult)

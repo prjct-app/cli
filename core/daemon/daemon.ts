@@ -315,7 +315,6 @@ async function executeCommand(
   switch (request.command) {
     case 'sync':
       return commands!.sync(request.cwd, {
-        aiTools: opts.agents ? String(opts.agents).split(',') : undefined,
         preview: opts.preview === true || opts['dry-run'] === true,
         yes: opts.yes === true,
         json: opts.json === true,

@@ -157,7 +157,6 @@ export class AnalysisCommands extends PrjctCommandsBase {
   async sync(
     projectPath: string = process.cwd(),
     options: {
-      aiTools?: string[]
       preview?: boolean
       yes?: boolean
       json?: boolean
@@ -202,7 +201,6 @@ export class AnalysisCommands extends PrjctCommandsBase {
 
         // Sync only the specified package
         const result = await syncService.sync(projectPath, {
-          aiTools: options.aiTools,
           packagePath: pkg.path,
           packageName: pkg.name,
         })
@@ -241,7 +239,6 @@ export class AnalysisCommands extends PrjctCommandsBase {
 
         // Do a dry-run sync to see what would change
         const result = await syncService.sync(projectPath, {
-          aiTools: options.aiTools,
           full: options.full,
         })
 
@@ -426,7 +423,6 @@ export class AnalysisCommands extends PrjctCommandsBase {
 
       // Use syncService to do EVERYTHING in one call
       const result = await syncService.sync(projectPath, {
-        aiTools: options.aiTools,
         full: options.full,
       })
 
@@ -494,13 +490,21 @@ prjct analysis-save-llm '<your JSON here>' --md
 \`\`\``
 
         const steps = getNextSteps('sync')
+        const idx = result.syncMetrics?.indexes
+        const mdStatsObj: Record<string, string | number> = {
+          Duration: `${(elapsed / 1000).toFixed(1)}s`,
+          Agents: `${agentCount} generated`,
+          'Files indexed': result.stats.fileCount,
+        }
+        if (idx?.bm25Files) {
+          const totalTokens = idx.bm25Files * (idx.bm25AvgTokens || 0)
+          mdStatsObj['Tokens indexed'] = `${Math.round(totalTokens / 1000)}K`
+          mdStatsObj['Import edges'] = idx.importEdges || 0
+          mdStatsObj['Co-change commits'] = idx.cochangeCommits || 0
+        }
         const md = mdOutput(
           mdDone(`Sync Complete`),
-          mdStats({
-            Duration: `${(elapsed / 1000).toFixed(1)}s`,
-            Agents: `${agentCount} generated`,
-            'Files indexed': result.stats.fileCount,
-          }),
+          mdStats(mdStatsObj),
           analysisDiffSection,
           result.git.hasChanges ? mdWarn('Uncommitted changes detected') : null,
           llmAnalysisInstructions,
@@ -544,7 +548,7 @@ prjct analysis-save-llm '<your JSON here>' --md
       }
 
       // Quick sync to get fresh data (without full regeneration)
-      const result = await syncService.sync(projectPath, { aiTools: [] })
+      const result = await syncService.sync(projectPath)
       if (!result.success) {
         return { success: false, error: result.error || 'Failed to gather project data' }
       }

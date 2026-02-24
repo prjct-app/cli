@@ -59,13 +59,32 @@ export interface SyncAgentInfo {
 
 export interface SyncMetrics {
   duration: number
+  /** Real total tokens from BM25 index (actual project source tokens) */
   originalSize: number
+  /** Tokens in agent context files loaded into AI conversation */
   filteredSize: number
+  /** Compression ratio: (original - filtered) / original */
   compressionRate: number
+  /** Index statistics from BM25, import graph, co-change */
+  indexes?: {
+    /** BM25: total files indexed */
+    bm25Files?: number
+    /** BM25: average tokens per file */
+    bm25AvgTokens?: number
+    /** BM25: vocabulary size (unique terms) */
+    bm25VocabSize?: number
+    /** Import graph: total import edges */
+    importEdges?: number
+    /** Import graph: files in graph */
+    importFiles?: number
+    /** Co-change: commits analyzed */
+    cochangeCommits?: number
+    /** Co-change: files with change history */
+    cochangeFiles?: number
+  }
 }
 
 export interface SyncOptions {
-  aiTools?: string[]
   preview?: boolean
   skipConfirmation?: boolean
   packagePath?: string
@@ -74,12 +93,6 @@ export interface SyncOptions {
   full?: boolean
   /** Pre-computed list of changed files (from watch service) */
   changedFiles?: string[]
-}
-
-export interface AIToolResult {
-  toolId: string
-  outputFile: string
-  success: boolean
 }
 
 export interface SyncContext7Status {
@@ -124,8 +137,6 @@ export interface ProjectSyncResult {
   agents: SyncAgentInfo[]
   skills: { agent: string; skill: string }[]
   skillsInstalled: { name: string; agent: string; status: 'installed' | 'skipped' | 'error' }[]
-  contextFiles: string[]
-  aiTools: AIToolResult[]
   context7?: SyncContext7Status
   analysisSummary?: SyncAnalysisSummary
   syncMetrics?: SyncMetrics

@@ -21,11 +21,11 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { SemanticMemories } from '../agentic/memory-system'
-import { indexProject as indexBm25 } from '../domain/bm25'
+import { indexProject as indexBm25, loadIndex as loadBm25Index } from '../domain/bm25'
 import { affectedDomains, propagateChanges } from '../domain/change-propagator'
 import { detectChanges, hasHashRegistry, saveHashes } from '../domain/file-hasher'
-import { indexCoChanges } from '../domain/git-cochange'
-import { indexImports } from '../domain/import-graph'
+import { indexCoChanges, loadMatrix as loadCoChangeMatrix } from '../domain/git-cochange'
+import { indexImports, loadGraph as loadImportGraph } from '../domain/import-graph'
 import { getErrorMessage } from '../errors'
 import { detectCodex } from '../infrastructure/ai-provider'
 import commandInstaller from '../infrastructure/command-installer'
@@ -117,8 +117,6 @@ class SyncService {
           agents: [],
           skills: [],
           skillsInstalled: [],
-          contextFiles: [],
-          aiTools: [],
           context7: { installed: false, verified: false },
           error: 'No prjct project. Run p. init first.',
         }
@@ -151,8 +149,6 @@ class SyncService {
           agents: [],
           skills: [],
           skillsInstalled: [],
-          contextFiles: [],
-          aiTools: [],
           context7: {
             installed: context7Status.installed,
             verified: false,
@@ -314,7 +310,6 @@ class SyncService {
         : await loadExistingAgents(this.globalPath)
       const skills = configureSkills(agents, this.projectId!, this.globalPath)
       const skillsInstalled = shouldRegenerateAgents ? await autoInstallSkills(agents) : []
-      const contextFiles: string[] = []
 
       // 5. Update files IN PARALLEL (write to different files)
       await Promise.all([
@@ -334,7 +329,7 @@ class SyncService {
 
       // 9. Record metrics for value dashboard
       const duration = Date.now() - startTime
-      const syncMetrics = await this.recordSyncMetrics(stats, contextFiles, agents, duration)
+      const syncMetrics = await this.recordSyncMetrics(stats, agents, duration)
 
       // 9b. Archive stale data (PRJ-267)
       await this.archiveStaleData()
@@ -371,8 +366,6 @@ class SyncService {
         agents,
         skills,
         skillsInstalled,
-        contextFiles,
-        aiTools: [],
         context7: {
           installed: context7Status.installed,
           verified: context7Status.verified,
@@ -395,8 +388,6 @@ class SyncService {
         agents: [],
         skills: [],
         skillsInstalled: [],
-        contextFiles: [],
-        aiTools: [],
         context7: {
           installed: context7Status.installed,
           verified: context7Status.verified,
@@ -519,33 +510,38 @@ class SyncService {
   /**
    * Record sync metrics for the value dashboard
    *
-   * Calculates token savings by comparing:
-   * - Original: Estimated tokens if we sent all source files
-   * - Filtered: Actual tokens in generated context files
-   *
-   * Token estimation: ~4 chars per token (industry standard)
+   * Uses REAL token counts from the BM25 index (actual project tokens)
+   * instead of estimates. filteredSize = agent context files that get
+   * loaded into the AI conversation.
    */
   private async recordSyncMetrics(
     stats: ProjectStats,
-    contextFiles: string[],
     agents: SyncAgentInfo[],
     duration: number
   ): Promise<SyncMetrics> {
     const CHARS_PER_TOKEN = 4
 
-    // Calculate filtered size (actual context files generated)
-    let filteredChars = 0
-    for (const file of contextFiles) {
-      try {
-        const filePath = path.join(this.globalPath, file)
-        const content = await fs.readFile(filePath, 'utf-8')
-        filteredChars += content.length
-      } catch (error) {
-        log.debug('Context file not found for metrics', { file, error: getErrorMessage(error) })
+    // Real original size from BM25 index (actual tokens indexed from source files)
+    let originalSize = 0
+    try {
+      const bm25 = loadBm25Index(this.projectId!)
+      if (bm25) {
+        // Sum actual token counts from every indexed file
+        for (const doc of Object.values(bm25.documents)) {
+          originalSize += doc.length
+        }
       }
+    } catch (error) {
+      log.debug('Could not load BM25 index for metrics', { error: getErrorMessage(error) })
     }
 
-    // Also count agent files
+    // Fallback: if no index yet (first sync before indexing), use file count estimate
+    if (originalSize === 0) {
+      originalSize = stats.fileCount * 200
+    }
+
+    // Real filtered size: agent files that actually get loaded into context
+    let filteredChars = 0
     for (const agent of agents) {
       try {
         const agentPath = path.join(this.globalPath, 'agents', `${agent.name}.md`)
@@ -561,13 +557,6 @@ class SyncService {
 
     const filteredSize = Math.floor(filteredChars / CHARS_PER_TOKEN)
 
-    // Estimate original size (what it would take without prjct)
-    // Conservative estimate: avg 500 tokens per source file
-    // Plus overhead for manually creating context
-    const avgTokensPerFile = 500
-    const originalSize = stats.fileCount * avgTokensPerFile
-
-    // Calculate compression rate
     const compressionRate =
       originalSize > 0 ? Math.max(0, (originalSize - filteredSize) / originalSize) : 0
 
@@ -578,10 +567,33 @@ class SyncService {
         filteredSize,
         duration,
         isWatch: false,
-        agents: agents.filter((a) => a.type === 'domain').map((a) => a.name),
+        agents: agents.map((a) => a.name),
       })
     } catch (error) {
       log.debug('Failed to record sync metrics', { error: getErrorMessage(error) })
+    }
+
+    // Collect real index stats
+    const indexes: NonNullable<SyncMetrics['indexes']> = {}
+    try {
+      const bm25 = loadBm25Index(this.projectId!)
+      if (bm25) {
+        indexes.bm25Files = bm25.totalDocs
+        indexes.bm25AvgTokens = Math.round(bm25.avgDocLength)
+        indexes.bm25VocabSize = Object.keys(bm25.invertedIndex).length
+      }
+      const graph = loadImportGraph(this.projectId!)
+      if (graph) {
+        indexes.importEdges = graph.edgeCount
+        indexes.importFiles = graph.fileCount
+      }
+      const cochange = loadCoChangeMatrix(this.projectId!)
+      if (cochange) {
+        indexes.cochangeCommits = cochange.commitsAnalyzed
+        indexes.cochangeFiles = cochange.filesAnalyzed
+      }
+    } catch (error) {
+      log.debug('Could not load index stats', { error: getErrorMessage(error) })
     }
 
     return {
@@ -589,6 +601,7 @@ class SyncService {
       originalSize,
       filteredSize,
       compressionRate,
+      indexes,
     }
   }
 

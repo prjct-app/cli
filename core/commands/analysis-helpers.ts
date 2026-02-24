@@ -26,10 +26,7 @@ export async function showSyncResult(
   startTime: number
 ): Promise<CommandResult> {
   const elapsed = Date.now() - startTime
-  const contextFilesCount =
-    result.contextFiles.length + (result.aiTools?.filter((t) => t.success).length || 0)
   const agentCount = result.agents.length
-  const domainAgentCount = result.agents.filter((a) => a.type === 'domain').length
 
   // Update global config (silent - don't clutter output)
   await commandInstaller.installGlobalConfig()
@@ -38,32 +35,25 @@ export async function showSyncResult(
   out.done(`Synced ${result.stats.name || 'project'} (${(elapsed / 1000).toFixed(1)}s)`)
   console.log('')
 
-  // SUMMARY BOX
-  const compressionPct = result.syncMetrics?.compressionRate
-    ? Math.round(result.syncMetrics.compressionRate * 100)
-    : 0
+  // SUMMARY BOX — real data from indexes
   const framework = result.stats.frameworks.length > 0 ? ` (${result.stats.frameworks[0]})` : ''
+  const idx = result.syncMetrics?.indexes
   const boxLines = [
-    `${result.stats.fileCount} files → ${contextFilesCount} context | ${agentCount} agents${compressionPct > 10 ? ` | ${compressionPct}% reduction` : ''}`,
+    `${result.stats.fileCount} files indexed | ${agentCount} agents`,
     `Stack: ${result.stats.ecosystem}${framework} | Branch: ${result.git.branch}`,
   ]
+  if (idx?.bm25Files) {
+    const totalTokens = idx.bm25Files * (idx.bm25AvgTokens || 0)
+    boxLines.push(
+      `Index: ${formatTokens(totalTokens)} tokens | ${idx.bm25VocabSize || 0} terms | ${idx.importEdges || 0} imports`
+    )
+  }
   out.box('Sync Summary', boxLines.join('\n'))
 
   // CHANGES SECTION
   const generatedItems: string[] = []
-  if (result.contextFiles.length > 0) {
-    generatedItems.push(`${result.contextFiles.length} context files`)
-  }
-  const successTools = result.aiTools?.filter((t) => t.success) || []
-  if (successTools.length > 0) {
-    generatedItems.push(`AI tools: ${successTools.map((t) => t.toolId).join(', ')}`)
-  }
   if (agentCount > 0) {
-    const agentSummary =
-      domainAgentCount > 0
-        ? `${agentCount} agents (${domainAgentCount} domain)`
-        : `${agentCount} agents`
-    generatedItems.push(agentSummary)
+    generatedItems.push(`${agentCount} workflow agents`)
   }
   if (result.skills.length > 0) {
     const skillWord = result.skills.length === 1 ? 'skill' : 'skills'
@@ -123,7 +113,6 @@ export async function showSyncResult(
     data: result,
     metrics: {
       elapsed,
-      contextFilesCount,
       agentCount,
       fileCount: result.stats.fileCount,
     },
@@ -289,13 +278,13 @@ export function generateStatsMarkdown(
     lines.push('')
   }
 
-  lines.push('## 💰 Token Savings')
+  lines.push('## 💰 Context Efficiency')
   lines.push('')
   lines.push(`| Metric | Value |`)
   lines.push(`|--------|-------|`)
-  lines.push(`| Total saved | ${formatTokens(summary.totalTokensSaved)} tokens |`)
+  lines.push(`| Tokens reduced | ${formatTokens(summary.totalTokensSaved)} |`)
   lines.push(`| Compression | ${(summary.compressionRate * 100).toFixed(0)}% |`)
-  lines.push(`| Cost saved | ${formatCost(summary.estimatedCostSaved)} |`)
+  lines.push(`| Est. cost saved | ${formatCost(summary.estimatedCostSaved)} |`)
   lines.push('')
 
   lines.push('## ⚡ Performance')

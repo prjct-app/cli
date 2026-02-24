@@ -1,48 +1,16 @@
-# Copilot Instructions
+# prjct-cli — Copilot Instructions
 
-This is prjct-cli, a JavaScript project.
+TypeScript CLI tool. Context layer for AI coding agents.
 
-<!-- source: package.json, detected -->
-## Project Info
-- Type: enterprise
-- Stack: Hono
-
-## Code Patterns
-- **Prefer strict typing contracts**: Functions and component props should be explicitly typed; avoid implicit any boundaries.
-- **Type-first API surfaces**: Exported modules should define reusable domain types for inputs and outputs.
-- **Hono API validation via Context7**: Validate Hono APIs against current documentation through Context7 before implementation.
-- **Image rendering via next/image**: Project uses next/image for optimized image delivery. (app/** or src/**)
-- **Use UiButton abstraction**: Buttons are wrapped in UiButton instead of native button in app UI. (components/**)
-
-## Anti-Patterns
-- **Unbounded any type** in `multiple` — Use explicit types or unknown with narrowing. Add inline justification for unavoidable any.
-- **Unscoped @ts-ignore** in `multiple` — Prefer @ts-expect-error with rationale and follow-up cleanup ticket.
-- **Unchecked @ts-ignore usage** in `core/services/pattern-extractor.ts` — Use @ts-expect-error with reason or refactor typings.
-
-<!-- source: package.json, detected -->
 ## Commands
+
 - Test: `npm test`
 - Build: `npm run build`
+- Lint: `npm run lint`
 
-## prjct Rules
+## Rules
 
-Path: `~/.prjct-cli/projects/bc401c41-c8b9-436a-ac78-c91cac82ab4f/`
-Workflow: `p. sync` → `p. task "desc"` → work → `p. done` → `p. ship`
-
-## Project State
-
-| Field | Value |
-|-------|-------|
-| Name | prjct-cli |
-| Version | 1.47.2 |
-| Ecosystem | JavaScript |
-| Branch | refactor/kill-static-context-generation |
-| Files | ~336 |
-| Commits | 657 |
-
-## Agents
-
-Load from `~/.prjct-cli/projects/bc401c41-c8b9-436a-ac78-c91cac82ab4f/agents/`:
-
-**Workflow**: prjct-workflow, prjct-planner, prjct-shipper
-**Domain**: backend, database
+- Strict TypeScript, no untyped `any`
+- All storage through SQLite (`core/storage/database.ts`)
+- Never write prjct data to repo root — use `~/.prjct-cli/projects/{projectId}/`
+- Biome for lint/format

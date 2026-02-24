@@ -270,8 +270,8 @@ class WatchService {
 
       if (result.success) {
         if (!this.options.quiet) {
-          const agents = result.agents.filter((a) => a.type === 'domain').map((a) => a.name)
-          const agentStr = agents.length > 0 ? ` [${agents.join(', ')}]` : ''
+          const agentCount = result.agents.length
+          const agentStr = agentCount > 0 ? ` [${agentCount} agents]` : ''
           console.log(`${chalk.dim(`[${timestamp}]`)} ${chalk.green('✓')} Synced${agentStr}`)
         }
       } else {
