@@ -29,12 +29,7 @@ describe('patternExtractor', () => {
     }
   })
 
-  it('extracts baseline + repo anti-patterns and stores isolated rules', async () => {
-    await fs.writeFile(
-      path.join(projectPath, 'component.tsx'),
-      "import Image from 'next/image'\nexport function C(){ const value:any = 1; return <img src='/x' /> }"
-    )
-
+  it('extracts context7 + feedback patterns and stores rules', async () => {
     const result = await patternExtractor.extract({
       projectId,
       projectPath,
@@ -49,8 +44,9 @@ describe('patternExtractor', () => {
 
     expect(result.patterns.length).toBeGreaterThan(0)
     expect(result.antiPatterns.length).toBeGreaterThan(0)
-    expect(result.antiPatterns.some((a) => a.issue.toLowerCase().includes('any'))).toBe(true)
     expect(result.patterns.some((p) => p.source === 'context7')).toBe(true)
+    expect(result.patterns.some((p) => p.source === 'feedback')).toBe(true)
+    expect(result.antiPatterns.some((a) => a.source === 'feedback')).toBe(true)
 
     const saved = prjctDb.getDoc<{
       repoPathHash: string
@@ -62,5 +58,18 @@ describe('patternExtractor', () => {
     expect(saved?.repoPathHash).toBe(result.repoPathHash)
     expect(saved?.patterns.length).toBeGreaterThan(0)
     expect(saved?.antiPatterns.length).toBeGreaterThan(0)
+  })
+
+  it('returns empty patterns when no feedback or context7', async () => {
+    const result = await patternExtractor.extract({
+      projectId,
+      projectPath,
+      languages: ['TypeScript'],
+      frameworks: ['Next.js'],
+      context7Verified: false,
+    })
+
+    expect(result.patterns).toEqual([])
+    expect(result.antiPatterns).toEqual([])
   })
 })

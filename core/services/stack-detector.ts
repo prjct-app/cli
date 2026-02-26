@@ -12,6 +12,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import type { StackDetection, StackPackageJson } from '../types/stack'
+import { fileExists } from '../utils/file-helper'
 
 export type { StackDetection, StackPackageJson } from '../types/stack'
 
@@ -161,7 +162,7 @@ export class StackDetector {
     const dockerFiles = ['Dockerfile', 'docker-compose.yml', 'docker-compose.yaml', '.dockerignore']
 
     for (const file of dockerFiles) {
-      if (await this.fileExists(file)) {
+      if (await this.fileExistsInProject(file)) {
         return true
       }
     }
@@ -216,13 +217,8 @@ export class StackDetector {
   /**
    * Check if a file exists in the project
    */
-  private async fileExists(filename: string): Promise<boolean> {
-    try {
-      await fs.access(path.join(this.projectPath, filename))
-      return true
-    } catch {
-      return false
-    }
+  private async fileExistsInProject(filename: string): Promise<boolean> {
+    return fileExists(path.join(this.projectPath, filename))
   }
 }
 

@@ -13,25 +13,14 @@
  * @version 1.0.0
  */
 
-import { exec as execCallback } from 'node:child_process'
-import { promisify } from 'node:util'
+import {
+  COCHANGE_MAX_FILES_PER_COMMIT,
+  COCHANGE_MIN_FILE_OCCURRENCES,
+  COCHANGE_MIN_SIMILARITY,
+} from '../constants/algorithms'
 import prjctDb from '../storage/database'
 import type { CoChangeIndex, CoChangeMatrix, CoChangeScore } from '../types/domain.js'
-
-const exec = promisify(execCallback)
-
-// =============================================================================
-// Constants
-// =============================================================================
-
-/** Minimum Jaccard similarity to include in the matrix */
-const MIN_SIMILARITY = 0.1
-
-/** Minimum times a file must appear in commits to be included */
-const MIN_FILE_OCCURRENCES = 2
-
-/** Maximum number of files in a single commit to consider (skip merges/bulk) */
-const MAX_FILES_PER_COMMIT = 30
+import { execAsync } from '../utils/exec'
 
 // =============================================================================
 // Git Log Parsing
@@ -46,7 +35,7 @@ const MAX_FILES_PER_COMMIT = 30
  */
 async function parseGitLog(projectPath: string, maxCommits = 100): Promise<Set<string>[]> {
   try {
-    const { stdout } = await exec(
+    const { stdout } = await execAsync(
       `git log --name-only --pretty=format:'---COMMIT---' -${maxCommits}`,
       { cwd: projectPath, maxBuffer: 10 * 1024 * 1024 }
     )
@@ -57,7 +46,11 @@ async function parseGitLog(projectPath: string, maxCommits = 100): Promise<Set<s
     for (const line of stdout.split('\n')) {
       const trimmed = line.trim()
       if (trimmed === '---COMMIT---') {
-        if (currentFiles && currentFiles.size > 0 && currentFiles.size <= MAX_FILES_PER_COMMIT) {
+        if (
+          currentFiles &&
+          currentFiles.size > 0 &&
+          currentFiles.size <= COCHANGE_MAX_FILES_PER_COMMIT
+        ) {
           commits.push(currentFiles)
         }
         currentFiles = new Set()
@@ -70,7 +63,11 @@ async function parseGitLog(projectPath: string, maxCommits = 100): Promise<Set<s
     }
 
     // Don't forget the last commit
-    if (currentFiles && currentFiles.size > 0 && currentFiles.size <= MAX_FILES_PER_COMMIT) {
+    if (
+      currentFiles &&
+      currentFiles.size > 0 &&
+      currentFiles.size <= COCHANGE_MAX_FILES_PER_COMMIT
+    ) {
       commits.push(currentFiles)
     }
 
@@ -133,13 +130,13 @@ export async function buildMatrix(projectPath: string, maxCommits = 100): Promis
     const countB = fileCommitCount.get(fileB) || 0
 
     // Skip rare files
-    if (countA < MIN_FILE_OCCURRENCES || countB < MIN_FILE_OCCURRENCES) continue
+    if (countA < COCHANGE_MIN_FILE_OCCURRENCES || countB < COCHANGE_MIN_FILE_OCCURRENCES) continue
 
     // Jaccard similarity
     const unionCount = countA + countB - count
     const similarity = unionCount > 0 ? count / unionCount : 0
 
-    if (similarity < MIN_SIMILARITY) continue
+    if (similarity < COCHANGE_MIN_SIMILARITY) continue
 
     // Store bidirectionally
     if (!matrix[fileA]) matrix[fileA] = {}

@@ -6,6 +6,7 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { writeJson } from '../utils/file-helper'
 
 interface ArchitectureContext {
   [key: string]: unknown
@@ -68,7 +69,6 @@ class ArchitectureGenerator {
       architecture: 'templates/design/architecture.md',
       'data-design': 'templates/design/database.md',
       'tech-stack': 'templates/design/architecture.md',
-      roadmap: 'templates/commands/feature.md',
     }
     return templateMap[phase] || null
   }
@@ -82,7 +82,7 @@ class ArchitectureGenerator {
     await fs.mkdir(archPath, { recursive: true })
 
     // Save summary
-    await fs.writeFile(path.join(archPath, 'summary.json'), JSON.stringify(architecture, null, 2))
+    await writeJson(path.join(archPath, 'summary.json'), architecture)
 
     // AGENTIC: Claude generates and saves phase files directly
     return archPath

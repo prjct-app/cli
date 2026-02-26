@@ -37,7 +37,6 @@ import { buildEnvironmentBlock } from './environment-block'
 import {
   budgetsFromCoordinator,
   DEFAULT_BUDGETS,
-  filterSkillsByDomains,
   InjectionBudgetTracker,
   truncateToTokenBudget,
 } from './injection-validator'
@@ -93,11 +92,13 @@ class PromptBuilder {
   private _checklistsCacheTime: number = 0
   private _checklistRoutingCache: string | null = null
   private _checklistRoutingCacheTime: number = 0
-  private _currentContext: PromptContext | null = null
   private _stateCache: Map<string, { state: PromptProjectState; timestamp: number }> = new Map()
   private _stateCacheTTL = 5000 // 5 seconds
   private _templateCache: Map<string, CachedTemplate> = new Map()
   private readonly TEMPLATE_CACHE_TTL_MS = 60_000 // 60 seconds
+
+  /** Current context for testing access */
+  private _currentContext: PromptContext | null = null
 
   /** Active token budget coordinator (PRJ-266) */
   private _coordinator: TokenBudgetCoordinator | null = null
@@ -474,8 +475,10 @@ class PromptBuilder {
     thinkBlock: ThinkBlock | null = null,
     relevantMemories: Memory[] | null = null,
     planInfo: PlanInfo | null = null,
-    orchestratorContext: OrchestratorContext | null = null
+    orchestratorContext: OrchestratorContext | null = null,
+    options?: { skipNativeContext?: boolean }
   ): Promise<string> {
+    const skipNativeContext = options?.skipNativeContext ?? false
     const parts: string[] = []
 
     // Store context for use in helper methods
@@ -572,17 +575,22 @@ class PromptBuilder {
           `**Analysis Status**: ${sa.status}${sa.commitHash ? ` (commit: ${sa.commitHash.slice(0, 8)})` : ''}\n`
         )
 
-        if (sa.patterns?.length > 0) {
-          parts.push('\n### Code Patterns (Follow These)\n')
-          for (const p of sa.patterns) {
-            parts.push(`- **${p.name}**: ${p.description}${p.location ? ` (${p.location})` : ''}\n`)
+        // Patterns and anti-patterns: skip when Claude Code loads them via native skills
+        if (!skipNativeContext) {
+          if (sa.patterns?.length > 0) {
+            parts.push('\n### Code Patterns (Follow These)\n')
+            for (const p of sa.patterns) {
+              parts.push(
+                `- **${p.name}**: ${p.description}${p.location ? ` (${p.location})` : ''}\n`
+              )
+            }
           }
-        }
 
-        if (sa.antiPatterns?.length > 0) {
-          parts.push('\n### Anti-Patterns (Avoid These)\n')
-          for (const ap of sa.antiPatterns) {
-            parts.push(`- **${ap.issue}** in \`${ap.file}\` — ${ap.suggestion}\n`)
+          if (sa.antiPatterns?.length > 0) {
+            parts.push('\n### Anti-Patterns (Avoid These)\n')
+            for (const ap of sa.antiPatterns) {
+              parts.push(`- **${ap.issue}** in \`${ap.file}\` — ${ap.suggestion}\n`)
+            }
           }
         }
       }
@@ -590,29 +598,32 @@ class PromptBuilder {
       parts.push('\n')
     }
 
-    const needsPatterns = commandContext.patterns
-    const codePatternsContent = state?.codePatterns || ''
-    if (needsPatterns && codePatternsContent && codePatternsContent.trim()) {
-      const patternSummary = this.extractPatternSummary(codePatternsContent)
-      if (patternSummary) {
-        parts.push('## CODE PATTERNS\n')
-        parts.push(patternSummary)
-        parts.push('\nFull patterns: Read analysis/patterns.md\n')
+    // Code patterns summary: skip when Claude Code loads them via native skills
+    if (!skipNativeContext) {
+      const needsPatterns = commandContext.patterns
+      const codePatternsContent = state?.codePatterns || ''
+      if (needsPatterns && codePatternsContent && codePatternsContent.trim()) {
+        const patternSummary = this.extractPatternSummary(codePatternsContent)
+        if (patternSummary) {
+          parts.push('## CODE PATTERNS\n')
+          parts.push(patternSummary)
+          parts.push('\nFull patterns: Read analysis/patterns.md\n')
+        }
       }
-    }
 
-    const analysisContent = state?.analysis || ''
-    if (needsPatterns && analysisContent && analysisContent.trim()) {
-      const stackMatch =
-        analysisContent.match(/Stack[:\s]+([^\n]+)/i) ||
-        analysisContent.match(/Technology[:\s]+([^\n]+)/i)
-      const stack = stackMatch ? stackMatch[1].trim() : 'detected'
+      const analysisContent = state?.analysis || ''
+      if (needsPatterns && analysisContent && analysisContent.trim()) {
+        const stackMatch =
+          analysisContent.match(/Stack[:\s]+([^\n]+)/i) ||
+          analysisContent.match(/Technology[:\s]+([^\n]+)/i)
+        const stack = stackMatch ? stackMatch[1].trim() : 'detected'
 
-      parts.push(`\n## STACK\nStack: ${stack}\n`)
-      if (!codePatternsContent) {
-        parts.push(
-          'Read analysis/repo-summary.md + similar files before coding. Match patterns exactly.\n'
-        )
+        parts.push(`\n## STACK\nStack: ${stack}\n`)
+        if (!codePatternsContent) {
+          parts.push(
+            'Read analysis/repo-summary.md + similar files before coding. Match patterns exactly.\n'
+          )
+        }
       }
     }
 
@@ -620,43 +631,6 @@ class PromptBuilder {
     // SECTION 4: CAPABILITIES (important)
     // Available agents, skills, modules, plan mode.
     // =========================================================================
-
-    if (orchestratorContext) {
-      // Loaded agents
-      if (orchestratorContext.agents.length > 0) {
-        parts.push('\n### LOADED AGENTS (Project-Specific Specialists)\n\n')
-        for (const orcAgent of orchestratorContext.agents) {
-          parts.push(`#### Agent: ${orcAgent.name} (${orcAgent.domain})\n`)
-          if (orcAgent.effort) parts.push(`Effort: ${orcAgent.effort}\n`)
-          if (orcAgent.model) parts.push(`Model: ${orcAgent.model}\n`)
-          if (orcAgent.skills.length > 0) {
-            parts.push(`Skills: ${orcAgent.skills.join(', ')}\n`)
-          }
-          const truncatedContent = truncateToTokenBudget(
-            orcAgent.content,
-            this.getEffectiveBudgets().agentContent
-          )
-          parts.push(`\`\`\`markdown\n${truncatedContent}\n\`\`\`\n\n`)
-        }
-      }
-
-      // Loaded skills (filtered by domain)
-      const relevantSkills = filterSkillsByDomains(
-        orchestratorContext.skills,
-        orchestratorContext.detectedDomains
-      )
-      if (relevantSkills.length > 0) {
-        parts.push('### LOADED SKILLS (From Agent Frontmatter)\n\n')
-        for (const skill of relevantSkills) {
-          parts.push(`#### Skill: ${skill.name}\n`)
-          const truncatedContent = truncateToTokenBudget(
-            skill.content,
-            this.getEffectiveBudgets().skillContent
-          )
-          parts.push(`\`\`\`markdown\n${truncatedContent}\n\`\`\`\n\n`)
-        }
-      }
-    }
 
     // Additional modules for SMART commands (PRJ-94/PRJ-298)
     const additionalModules = this.getModulesForCommand(commandName, commandContext)
@@ -706,7 +680,6 @@ class PromptBuilder {
         techStack: deduplicateTechStack(rawStack),
         domains: this.extractDomains(state),
         fileCount: context.files?.length || context.filteredSize || 0,
-        availableAgents: orchestratorContext?.agents?.map((a) => a.name) || [],
         // Inject sealed analysis data for enriched grounding (PRJ-260)
         analysisLanguages: sa?.languages || [],
         analysisFrameworks: sa?.frameworks || [],
@@ -1030,16 +1003,7 @@ class PromptBuilder {
    * (e.g., no project path available).
    */
   buildCriticalRules(): string {
-    const fileCount = this._currentContext?.files?.length || this._currentContext?.filteredSize || 0
-    return `
-## RULES (CRITICAL)
-1. **READ FIRST**: Use Read tool BEFORE modifying any file. Never assume code structure.
-2. **MATCH PATTERNS**: Follow existing style, architecture, naming, imports exactly.
-3. **NO HALLUCINATIONS**: Don't invent files, functions, or paths. If unsure, READ first.
-4. **GIT SAFETY**: Never use checkout/reset --hard/clean. Always check status first.
-5. **VERIFY**: After writing, confirm code matches project patterns.
-Context: ${fileCount} files available. Read what you need.
-`
+    return ''
   }
 
   /**
@@ -1047,16 +1011,7 @@ Context: ${fileCount} files available. Read what you need.
    * Instructs the LLM to be concise and avoid wasting tokens on preamble.
    */
   buildEfficiencyDirective(): string {
-    return `
-## OUTPUT RULES
-- Be concise. Maximum 4 lines of explanation unless asked for detail.
-- No preamble ("Here is...", "I'll help you...", "Based on...").
-- No postamble (summaries, next steps suggestions unless asked).
-- When executing code: show the code, not the explanation.
-- Prefer structured output (JSON) over free text when applicable.
-
-EXECUTE: Follow flow. Use tools. Decide.
-`
+    return ''
   }
 
   /**

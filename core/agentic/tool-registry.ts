@@ -6,16 +6,13 @@
  * @version 1.0.0
  */
 
-import { exec } from 'node:child_process'
 import fs from 'node:fs/promises'
-import { promisify } from 'node:util'
 import type { ToolFunction, ToolRegistryInterface } from '../types/agentic'
+import { execAsync } from '../utils/exec'
 import { defaultToolRetryPolicy, isPermanentError, isTransientError } from '../utils/retry'
 
 // Re-export types for convenience
 export type { ToolFunction, ToolRegistryInterface } from '../types/agentic'
-
-const execAsync = promisify(exec)
 
 const toolRegistry: ToolRegistryInterface = {
   tools: new Map(),

@@ -123,9 +123,7 @@ class OAuthHandler {
    * Open URL in default browser
    */
   async openBrowser(url: string): Promise<void> {
-    const { exec } = await import('node:child_process')
-    const { promisify } = await import('node:util')
-    const execAsync = promisify(exec)
+    const { execAsync } = await import('../utils/exec')
 
     const platform = process.platform
     const command =

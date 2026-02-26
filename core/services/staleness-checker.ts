@@ -7,14 +7,11 @@
  * Pattern from Warp Agent: "Use VCS to detect recent changes"
  */
 
-import { exec } from 'node:child_process'
-import { promisify } from 'node:util'
 import { prjctDb } from '../storage/database'
 import { getErrorMessage } from '../types/fs'
 import type { SessionInfo, StalenessConfig, StalenessStatus } from '../types/services.js'
+import { execAsync } from '../utils/exec'
 import { sessionTracker } from './session-tracker'
-
-const execAsync = promisify(exec)
 
 const DEFAULT_CONFIG: StalenessConfig = {
   commitThreshold: 10,

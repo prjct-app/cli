@@ -9,16 +9,14 @@
  * @version 1.0.0
  */
 
-import { exec } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { promisify } from 'node:util'
 import { emit } from '../events/pub-sub'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import { isNotFoundError } from '../types/fs'
-
-const execAsync = promisify(exec)
+import { execAsync } from '../utils/exec'
+import { dirExists, writeJson } from '../utils/file-helper'
 
 interface SnapshotInfo {
   hash: string | null
@@ -75,14 +73,8 @@ class SnapshotManager {
 
     // Initialize bare git repo if not exists
     const gitDir = path.join(this.snapshotDir, '.git')
-    try {
-      await fs.access(gitDir)
-    } catch (error) {
-      if (isNotFoundError(error)) {
-        await this.initGitRepo()
-      } else {
-        throw error
-      }
+    if (!(await dirExists(gitDir))) {
+      await this.initGitRepo()
     }
 
     this.initialized = true
@@ -389,7 +381,7 @@ class SnapshotManager {
     const stack = await this.getRedoStack()
     stack.push(snapshot)
     const stackPath = path.join(this.snapshotDir!, 'redo-stack.json')
-    await fs.writeFile(stackPath, JSON.stringify(stack, null, 2))
+    await writeJson(stackPath, stack)
   }
 
   /**
@@ -399,7 +391,7 @@ class SnapshotManager {
     const stack = await this.getRedoStack()
     const snapshot = stack.pop()
     const stackPath = path.join(this.snapshotDir!, 'redo-stack.json')
-    await fs.writeFile(stackPath, JSON.stringify(stack, null, 2))
+    await writeJson(stackPath, stack)
     return snapshot
   }
 

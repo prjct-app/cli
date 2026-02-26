@@ -16,38 +16,12 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { BM25_B, BM25_K1 } from '../constants/algorithms'
 import prjctDb from '../storage/database'
 import type { BM25Index, BM25Score } from '../types/domain.js'
+import { batchProcess, walkDir } from '../utils/file-helper'
 
-// =============================================================================
-// Constants
-// =============================================================================
-
-/** BM25 tuning: term frequency saturation */
-const K1 = 1.2
-/** BM25 tuning: document length normalization */
-const B = 0.75
-
-/** File extensions to index */
-const INDEXABLE_EXTENSIONS = new Set([
-  '.ts',
-  '.tsx',
-  '.js',
-  '.jsx',
-  '.mjs',
-  '.cjs',
-  '.py',
-  '.go',
-  '.rs',
-  '.java',
-  '.cs',
-  '.rb',
-  '.php',
-  '.vue',
-  '.svelte',
-])
-
-/** Common stop words to exclude from indexing */
+/** Common stop words to exclude from BM25 indexing */
 const STOP_WORDS = new Set([
   'the',
   'a',
@@ -128,23 +102,6 @@ const STOP_WORDS = new Set([
   'boolean',
   'object',
   'array',
-])
-
-/** Directories to skip during indexing */
-const SKIP_DIRS = new Set([
-  'node_modules',
-  '.git',
-  'dist',
-  'build',
-  'out',
-  '.next',
-  'coverage',
-  '.cache',
-  '.turbo',
-  '.vercel',
-  '__pycache__',
-  'vendor',
-  'target',
 ])
 
 // =============================================================================
@@ -283,76 +240,44 @@ export function tokenizeQuery(query: string): string[] {
 // =============================================================================
 
 /**
- * Recursively list all indexable files in a project.
- */
-async function listFiles(dir: string, projectPath: string): Promise<string[]> {
-  const files: string[] = []
-  const entries = await fs.readdir(dir, { withFileTypes: true })
-
-  for (const entry of entries) {
-    if (SKIP_DIRS.has(entry.name)) continue
-
-    const fullPath = path.join(dir, entry.name)
-    if (entry.isDirectory()) {
-      files.push(...(await listFiles(fullPath, projectPath)))
-    } else if (entry.isFile()) {
-      const ext = path.extname(entry.name).toLowerCase()
-      if (INDEXABLE_EXTENSIONS.has(ext)) {
-        files.push(path.relative(projectPath, fullPath))
-      }
-    }
-  }
-
-  return files
-}
-
-/**
  * Build a BM25 index for all files in a project.
  *
  * Performance target: <5 seconds for 500-file project.
  */
 export async function buildIndex(projectPath: string): Promise<BM25Index> {
-  const files = await listFiles(projectPath, projectPath)
+  const files = await walkDir(projectPath)
 
   const documents: BM25Index['documents'] = {}
   const invertedIndex: BM25Index['invertedIndex'] = {}
   let totalLength = 0
 
   // Process files in parallel batches of 50
-  const BATCH_SIZE = 50
-  for (let i = 0; i < files.length; i += BATCH_SIZE) {
-    const batch = files.slice(i, i + BATCH_SIZE)
-    const results = await Promise.all(
-      batch.map(async (filePath) => {
-        try {
-          const content = await fs.readFile(path.join(projectPath, filePath), 'utf-8')
-          const tokens = tokenizeFile(content, filePath)
-          return { filePath, tokens }
-        } catch {
-          return { filePath, tokens: [] as string[] }
-        }
-      })
-    )
+  const results = await batchProcess(files, 50, async (filePath) => {
+    try {
+      const content = await fs.readFile(path.join(projectPath, filePath), 'utf-8')
+      const tokens = tokenizeFile(content, filePath)
+      return tokens.length > 0 ? { filePath, tokens } : null
+    } catch {
+      return null
+    }
+  })
 
-    for (const { filePath, tokens } of results) {
-      if (tokens.length === 0) continue
+  for (const { filePath, tokens } of results) {
+    documents[filePath] = { tokens, length: tokens.length }
+    totalLength += tokens.length
 
-      documents[filePath] = { tokens, length: tokens.length }
-      totalLength += tokens.length
+    // Build term frequency map for this document
+    const tfMap = new Map<string, number>()
+    for (const token of tokens) {
+      tfMap.set(token, (tfMap.get(token) || 0) + 1)
+    }
 
-      // Build term frequency map for this document
-      const tfMap = new Map<string, number>()
-      for (const token of tokens) {
-        tfMap.set(token, (tfMap.get(token) || 0) + 1)
+    // Add to inverted index
+    for (const [token, tf] of tfMap) {
+      if (!invertedIndex[token]) {
+        invertedIndex[token] = []
       }
-
-      // Add to inverted index
-      for (const [token, tf] of tfMap) {
-        if (!invertedIndex[token]) {
-          invertedIndex[token] = []
-        }
-        invertedIndex[token].push({ path: filePath, tf })
-      }
+      invertedIndex[token].push({ path: filePath, tf })
     }
   }
 
@@ -402,8 +327,8 @@ export function score(query: string, index: BM25Index): BM25Score[] {
       if (!doc) continue
 
       // BM25 term score
-      const numerator = tf * (K1 + 1)
-      const denominator = tf + K1 * (1 - B + B * (doc.length / index.avgDocLength))
+      const numerator = tf * (BM25_K1 + 1)
+      const denominator = tf + BM25_K1 * (1 - BM25_B + BM25_B * (doc.length / index.avgDocLength))
       const termScore = tokenIdf * (numerator / denominator)
 
       scores.set(docPath, (scores.get(docPath) || 0) + termScore)

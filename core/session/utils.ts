@@ -4,6 +4,7 @@
 
 import { generateUUID } from '../schemas/schemas'
 import type { Session } from '../types/session'
+import { formatDuration as formatDurationMs } from '../utils/date-helper'
 
 /**
  * Generate unique session ID (re-export from schemas)
@@ -37,15 +38,8 @@ export function calculateDuration(session: Session): number {
 }
 
 /**
- * Format duration as human readable
+ * Format duration as human readable (accepts seconds)
  */
 export function formatDuration(seconds: number): string {
-  if (seconds < 60) return `${seconds}s`
-  if (seconds < 3600) return `${Math.round(seconds / 60)}m`
-
-  const hours = Math.floor(seconds / 3600)
-  const minutes = Math.round((seconds % 3600) / 60)
-
-  if (minutes === 0) return `${hours}h`
-  return `${hours}h ${minutes}m`
+  return formatDurationMs(seconds * 1000)
 }

@@ -12,141 +12,16 @@
  * - Faster task understanding
  */
 
+import { CHARS_PER_TOKEN, DEFAULT_TOKEN_BUDGET } from '../constants/token'
 import { indexStorage } from '../storage/index-storage'
 import type { ContextSelectionOptions, SelectedContext } from '../types/services.js'
 import type { DomainDefinition, ScoredFile } from '../types/storage.js'
-
-/**
- * Default token budget for context selection.
- * When a TokenBudgetCoordinator is available, this is overridden
- * by the coordinator's file allocation.
- *
- * @see PRJ-266
- */
-const DEFAULT_TOKEN_BUDGET = 80_000
-
-// ============================================================================
-// DOMAIN DETECTION PATTERNS
-// ============================================================================
-
-/**
- * Keywords that indicate specific domains in task descriptions
- */
-const DOMAIN_KEYWORDS: Record<string, string[]> = {
-  payments: [
-    'payment',
-    'pay',
-    'stripe',
-    'billing',
-    'checkout',
-    'invoice',
-    'subscription',
-    'charge',
-    'refund',
-    'transaction',
-    'pricing',
-    'price',
-  ],
-  auth: [
-    'auth',
-    'login',
-    'logout',
-    'signup',
-    'sign up',
-    'sign in',
-    'register',
-    'password',
-    'session',
-    'token',
-    'jwt',
-    'oauth',
-    'sso',
-    'permission',
-    'role',
-    'access',
-    'user',
-  ],
-  api: [
-    'api',
-    'endpoint',
-    'route',
-    'rest',
-    'graphql',
-    'webhook',
-    'request',
-    'response',
-    'http',
-    'fetch',
-    'axios',
-  ],
-  database: [
-    'database',
-    'db',
-    'model',
-    'schema',
-    'migration',
-    'query',
-    'sql',
-    'prisma',
-    'drizzle',
-    'mongoose',
-    'sequelize',
-    'typeorm',
-  ],
-  frontend: [
-    'component',
-    'page',
-    'view',
-    'ui',
-    'button',
-    'form',
-    'modal',
-    'layout',
-    'style',
-    'css',
-    'react',
-    'vue',
-    'svelte',
-    'html',
-  ],
-  testing: [
-    'test',
-    'spec',
-    'unit',
-    'e2e',
-    'cypress',
-    'jest',
-    'vitest',
-    'mocha',
-    'coverage',
-    'mock',
-  ],
-  integrations: [
-    'integration',
-    'integrate',
-    'connect',
-    'sync',
-    'webhook',
-    'oauth',
-    'linear',
-    'jira',
-    'github',
-    'slack',
-    'discord',
-  ],
-  config: ['config', 'configuration', 'setting', 'env', 'environment', 'setup'],
-  utilities: ['util', 'utility', 'helper', 'lib', 'common', 'shared', 'tool'],
-  services: ['service', 'handler', 'processor', 'worker', 'job', 'queue', 'cron'],
-  types: ['type', 'interface', 'dto', 'schema', 'definition'],
-}
 
 // ============================================================================
 // CONTEXT SELECTOR CLASS
 // ============================================================================
 
 export class ContextSelector {
-  private readonly CHARS_PER_TOKEN = 4
-
   // ==========================================================================
   // MAIN METHODS
   // ==========================================================================
@@ -211,7 +86,7 @@ export class ContextSelector {
     const budgetedFiles: ScoredFile[] = []
 
     for (const file of selectedFiles) {
-      const fileTokens = Math.ceil(file.size / this.CHARS_PER_TOKEN)
+      const fileTokens = Math.ceil(file.size / CHARS_PER_TOKEN)
       if (estimatedTokens + fileTokens > tokenBudget) {
         break
       }
@@ -224,7 +99,7 @@ export class ContextSelector {
 
     // Calculate metrics
     const totalTokens = Math.ceil(
-      index.relevantFiles.reduce((sum, f) => sum + f.size, 0) / this.CHARS_PER_TOKEN
+      index.relevantFiles.reduce((sum, f) => sum + f.size, 0) / CHARS_PER_TOKEN
     )
     const compressionRate = totalTokens > 0 ? (totalTokens - estimatedTokens) / totalTokens : 0
 
@@ -241,23 +116,13 @@ export class ContextSelector {
   }
 
   /**
-   * Detect domains from task description
+   * Detect domains from task description using project-specific domains only.
    */
   detectTaskDomains(description: string, projectDomains: DomainDefinition[]): string[] {
     const normalizedDesc = description.toLowerCase()
     const detectedDomains = new Set<string>()
 
-    // Check against keyword patterns
-    for (const [domain, keywords] of Object.entries(DOMAIN_KEYWORDS)) {
-      for (const keyword of keywords) {
-        if (normalizedDesc.includes(keyword)) {
-          detectedDomains.add(domain)
-          break
-        }
-      }
-    }
-
-    // Check against project-specific domains
+    // Check against project-specific domains (real project data)
     for (const domain of projectDomains) {
       // Check domain name
       if (normalizedDesc.includes(domain.name.toLowerCase())) {
@@ -272,13 +137,6 @@ export class ContextSelector {
           break
         }
       }
-    }
-
-    // If no domains detected, return common ones based on task type
-    if (detectedDomains.size === 0) {
-      // Default to common development domains
-      detectedDomains.add('services')
-      detectedDomains.add('api')
     }
 
     return Array.from(detectedDomains)
@@ -350,7 +208,7 @@ export class ContextSelector {
     const selectedFiles: ScoredFile[] = []
 
     for (const file of filteredFiles) {
-      const fileTokens = Math.ceil(file.size / this.CHARS_PER_TOKEN)
+      const fileTokens = Math.ceil(file.size / CHARS_PER_TOKEN)
       if (estimatedTokens + fileTokens > tokenBudget) {
         break
       }
@@ -361,7 +219,7 @@ export class ContextSelector {
       estimatedTokens += fileTokens
     }
 
-    const totalTokens = Math.ceil(files.reduce((sum, f) => sum + f.size, 0) / this.CHARS_PER_TOKEN)
+    const totalTokens = Math.ceil(files.reduce((sum, f) => sum + f.size, 0) / CHARS_PER_TOKEN)
 
     return {
       files: selectedFiles,
@@ -373,35 +231,6 @@ export class ContextSelector {
         estimatedTokensSaved: totalTokens - estimatedTokens,
       },
     }
-  }
-
-  /**
-   * Suggest related domains based on detected ones
-   */
-  suggestRelatedDomains(domains: string[]): string[] {
-    const related = new Set<string>()
-
-    const relationships: Record<string, string[]> = {
-      payments: ['api', 'database', 'services'],
-      auth: ['api', 'database', 'users'],
-      api: ['services', 'types'],
-      database: ['types', 'services'],
-      frontend: ['types', 'utilities'],
-      testing: ['services', 'api'],
-    }
-
-    for (const domain of domains) {
-      const relatedDomains = relationships[domain]
-      if (relatedDomains) {
-        for (const r of relatedDomains) {
-          if (!domains.includes(r)) {
-            related.add(r)
-          }
-        }
-      }
-    }
-
-    return Array.from(related)
   }
 }
 

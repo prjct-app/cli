@@ -6,16 +6,13 @@
  * Storage: SQLite sessions table (migration 7)
  */
 
-import { exec } from 'node:child_process'
-import { promisify } from 'node:util'
 import { emit } from '../events/pub-sub'
 import configManager from '../infrastructure/config-manager'
 import { prjctDb } from '../storage/database'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import type { Session, SessionMetrics } from '../types/session'
+import { execAsync } from '../utils/exec'
 import { calculateDuration, formatDuration, generateId } from './utils'
-
-const execAsync = promisify(exec)
 
 interface SessionRow {
   id: string

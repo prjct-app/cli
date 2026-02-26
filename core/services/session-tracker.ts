@@ -9,15 +9,12 @@
  * @see PRJ-109
  */
 
+import { SESSION_IDLE_TIMEOUT_MS } from '../constants/timings'
 import { prjctDb } from '../storage/database'
 import type { SessionData, SessionFile, SessionInfo } from '../types/services.js'
+import { isExpired as isTTLExpired } from '../utils/cache'
 import { formatDuration, getTimestamp } from '../utils/date-helper'
 
-// =============================================================================
-// CONSTANTS
-// =============================================================================
-
-const DEFAULT_IDLE_TIMEOUT_MS = 30 * 60 * 1000 // 30 minutes
 const MAX_COMMAND_HISTORY = 50
 const MAX_FILE_HISTORY = 200
 
@@ -49,7 +46,7 @@ class SessionTracker {
     return {
       current: null,
       config: {
-        idleTimeoutMs: DEFAULT_IDLE_TIMEOUT_MS,
+        idleTimeoutMs: SESSION_IDLE_TIMEOUT_MS,
       },
     }
   }
@@ -58,9 +55,7 @@ class SessionTracker {
    * Check if a session has expired based on idle timeout
    */
   private isExpired(session: SessionData, timeoutMs: number): boolean {
-    const lastActivity = new Date(session.lastActivity).getTime()
-    const now = Date.now()
-    return now - lastActivity > timeoutMs
+    return isTTLExpired(session.lastActivity, timeoutMs)
   }
 
   /**

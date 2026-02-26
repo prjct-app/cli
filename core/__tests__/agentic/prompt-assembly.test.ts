@@ -104,7 +104,6 @@ describe('Anti-Hallucination Block (PRJ-301)', () => {
         hasDocker: false,
       },
       fileCount: 292,
-      availableAgents: ['backend', 'testing'],
     }
 
     const block = buildAntiHallucinationBlock(truth)
@@ -117,22 +116,19 @@ describe('Anti-Hallucination Block (PRJ-301)', () => {
 
     // Unavailability (no frontend, no database, no docker)
     expect(block).toContain('NOT PRESENT:')
-    expect(block).toContain('Frontend (UI/components)')
-    expect(block).toContain('Database (SQL/ORM)')
-    expect(block).toContain('Docker/containers')
+    expect(block).toContain('frontend')
+    expect(block).toContain('database')
+    expect(block).toContain('docker')
 
     // Should NOT list present domains as absent
     expect(block).not.toContain('NOT PRESENT: Backend')
     expect(block).not.toContain('NOT PRESENT: Testing')
 
-    // Agents
-    expect(block).toContain('AGENTS: backend, testing')
+    // No agents section
+    expect(block).not.toContain('AGENTS:')
 
     // Grounding rules
     expect(block).toContain('SCOPE: Only files in `/home/user/my-app` are accessible.')
-    expect(block).toContain('Do NOT infer or guess paths')
-    expect(block).toContain('NEVER assume a library is available')
-    expect(block).toContain('trust this section')
 
     // File count
     expect(block).toContain('292 files in project')
@@ -239,7 +235,7 @@ describe('Prompt Section Ordering (PRJ-301)', () => {
     expect(taskPos).toBeLessThan(50)
   })
 
-  it('should place efficiency directive at the end', async () => {
+  it('should not include efficiency directive (LLM-over-heuristic)', async () => {
     const template = {
       frontmatter: { description: 'Test' },
       content: '## Flow\nStep 1',
@@ -248,12 +244,8 @@ describe('Prompt Section Ordering (PRJ-301)', () => {
 
     const prompt = await builder.build(template, context, {})
 
-    const efficiencyPos = prompt.indexOf('OUTPUT RULES')
-    const executePos = prompt.indexOf('EXECUTE:')
-    expect(efficiencyPos).toBeGreaterThan(-1)
-    expect(executePos).toBeGreaterThan(-1)
-    // Should be in the last ~300 chars of the prompt
-    expect(prompt.length - executePos).toBeLessThan(300)
+    expect(prompt).not.toContain('OUTPUT RULES')
+    expect(prompt).not.toContain('EXECUTE:')
   })
 })
 
@@ -269,7 +261,7 @@ describe('Token Efficiency Directive (PRJ-301)', () => {
     builder.resetContext()
   })
 
-  it('should include efficiency rules in every prompt', async () => {
+  it('should return empty efficiency directive (LLM-over-heuristic)', async () => {
     const template = {
       frontmatter: { description: 'Test' },
       content: '## Flow\nStep 1',
@@ -278,19 +270,12 @@ describe('Token Efficiency Directive (PRJ-301)', () => {
 
     const prompt = await builder.build(template, context, {})
 
-    expect(prompt).toContain('OUTPUT RULES')
-    expect(prompt).toContain('Be concise')
-    expect(prompt).toContain('No preamble')
-    expect(prompt).toContain('No postamble')
-    expect(prompt).toContain('EXECUTE:')
+    expect(prompt).not.toContain('OUTPUT RULES')
   })
 
-  it('should build efficiency directive as standalone method', () => {
+  it('should build efficiency directive as empty string', () => {
     const directive = builder.buildEfficiencyDirective()
 
-    expect(directive).toContain('Maximum 4 lines')
-    expect(directive).toContain('No preamble')
-    expect(directive).toContain('Prefer structured output')
-    expect(directive).toContain('EXECUTE:')
+    expect(directive).toBe('')
   })
 })

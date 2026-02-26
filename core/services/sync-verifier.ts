@@ -7,10 +7,8 @@
  * @see PRJ-106
  */
 
-import { exec } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { promisify } from 'node:util'
 import { stateStorage } from '../storage/state-storage'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import type {
@@ -19,8 +17,8 @@ import type {
   VerificationConfig,
   VerificationReport,
 } from '../types/sync-verifier'
-
-const execAsync = promisify(exec)
+import { execAsync } from '../utils/exec'
+import { fileExists } from '../utils/file-helper'
 
 export type {
   VerificationCheck,
@@ -44,9 +42,7 @@ const BUILTIN_CHECKS = {
 
     for (const file of expected) {
       const filePath = path.join(globalPath, file)
-      try {
-        await fs.access(filePath)
-      } catch {
+      if (!(await fileExists(filePath))) {
         missing.push(file)
       }
     }

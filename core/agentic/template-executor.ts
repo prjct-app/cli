@@ -9,18 +9,11 @@
  * @version 1.0.0
  */
 
-import fs from 'node:fs/promises'
 import path from 'node:path'
+import { ORCHESTRATED_COMMANDS, SIMPLE_COMMANDS } from '../constants/commands'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import type { AgenticPromptInfo, TemplateExecutionContext } from '../types/agentic.js'
-import { isNotFoundError } from '../types/fs'
-
-// Commands that require orchestration (task routing, fragmentation)
-const ORCHESTRATED_COMMANDS = ['task', 'done', 'ship', 'resume', 'bug', 'enrich']
-
-// Commands that do NOT need orchestration
-const SIMPLE_COMMANDS = ['init', 'sync', 'pause', 'next', 'dash', 'history', 'undo', 'redo']
 
 // =============================================================================
 // Template Executor Class
@@ -78,11 +71,9 @@ export class TemplateExecutor {
       agentSettingsPath: await pathManager.getAgentSettingsPath(),
       paths: {
         orchestrator: path.join(templatesDir, 'agentic', 'orchestrator.md'),
-        agentRouting: path.join(templatesDir, 'agentic', 'agent-routing.md'),
         taskFragmentation: path.join(templatesDir, 'agentic', 'task-fragmentation.md'),
         commandTemplate: path.join(templatesDir, 'commands', `${command}.md`),
         repoAnalysis: path.join(globalPath, 'analysis', 'repo-analysis.json'),
-        agentsDir: path.join(globalPath, 'agents'),
         skillsDir: activeProvider.skillsDir,
         stateJson: path.join(globalPath, 'storage', 'state.json'),
       },
@@ -100,35 +91,6 @@ export class TemplateExecutor {
   }
 
   /**
-   * Check if agents exist for the project
-   */
-  async hasAgents(projectPath: string): Promise<boolean> {
-    try {
-      const projectId = await this.getProjectId(projectPath)
-      const agentsDir = path.join(pathManager.getGlobalProjectPath(projectId), 'agents')
-      const files = await fs.readdir(agentsDir)
-      return files.some((f) => f.endsWith('.md'))
-    } catch (error) {
-      if (isNotFoundError(error)) return false
-      return false
-    }
-  }
-
-  /**
-   * Get list of available agent names
-   */
-  async getAvailableAgents(projectPath: string): Promise<string[]> {
-    try {
-      const projectId = await this.getProjectId(projectPath)
-      const agentsDir = path.join(pathManager.getGlobalProjectPath(projectId), 'agents')
-      const files = await fs.readdir(agentsDir)
-      return files.filter((f) => f.endsWith('.md')).map((f) => f.replace('.md', ''))
-    } catch {
-      return []
-    }
-  }
-
-  /**
    * Build prompt that tells agent to execute templates agentically
    */
   buildAgenticPrompt(context: TemplateExecutionContext): AgenticPromptInfo {
@@ -140,87 +102,34 @@ export class TemplateExecutor {
 You are executing a prjct command as ${context.agentName}. Follow the template-first approach.
 
 ### Context
-- Agent: ${context.agentName}
-- Settings: ${context.agentSettingsPath}
 - Command: ${context.command}
 - Args: ${context.args}
 - Project: ${context.projectPath}
 - Project ID: ${context.projectId}
 
 ### Paths (Read as needed)
-- Orchestrator: ${context.paths.orchestrator}
-- Agent Routing: ${context.paths.agentRouting}
-- Task Fragmentation: ${context.paths.taskFragmentation}
 - Command Template: ${context.paths.commandTemplate}
 - Repo Analysis: ${context.paths.repoAnalysis}
-- Agents Directory: ${context.paths.agentsDir}
 - Skills Directory: ${context.paths.skillsDir}
 - State JSON: ${context.paths.stateJson}
 
 ### Instructions
 
 1. **Read the command template** (${context.paths.commandTemplate})
-
-2. **Check if orchestration is needed**
-   - This command ${requiresOrchestration ? 'REQUIRES' : 'does NOT require'} orchestration
-   ${
-     requiresOrchestration
-       ? `
-3. **Orchestration steps:**
-   - Read: ${context.paths.orchestrator}
+${
+  requiresOrchestration
+    ? `
+2. **Orchestration:**
    - Read: ${context.paths.repoAnalysis} to understand project technologies
    - Analyze the task: "${context.args}"
-   - Determine which domains are ACTUALLY relevant based on:
-     a) What the task requires
-     b) What technologies exist in this project
-     c) What agents are available in ${context.paths.agentsDir}
-
-   - **IMPORTANT**: The agents in ${context.paths.agentsDir} are already project-specific
-     (they were generated during p. sync with the actual project technologies)
-
-   - ALWAYS use the specialist if one exists for the domain
-   - Only use the generalist if there is NO agent for that domain
-
-   - Check if task should be fragmented (read: ${context.paths.taskFragmentation})
-   - If agents loaded, check their skills and load from ${context.paths.skillsDir}
+   - Determine which domains are relevant
+   - Check if task should be fragmented into subtasks
 `
-       : `
-3. **Simple execution:**
-   - Execute the command template directly
-   - No agent routing needed
+    : `
+2. **Execute the command template directly**
 `
-   }
-
-4. **Execute the command template** with full context
-
-5. **Return results**
-
-### Agentic Decision Making
-
-YOU decide:
-- Whether to run orchestration (based on command type)
-- Which domains the task involves (frontend, backend, database, etc.)
-- Whether to fragment the task into subtasks
-- Which specialist agents to delegate to
-
-ALWAYS:
-- Use specialist agents when they exist (they're already project-specific)
-- Delegate subtasks to the appropriate specialist via Task tool
-- Let specialists handle their domain (they have the project patterns)
-- Generate and store summaries when subtasks complete
-
-ONLY use generalist when:
-- No specialist agent exists for that domain
-- Task is completely outside project scope
-- Extreme edge case
-
-### Subtask Management
-
-When fragmenting tasks:
-1. Store subtasks in state.json under currentTask.subtasks
-2. Track progress: currentSubtaskIndex, subtaskProgress
-3. Each completed subtask generates a summary
-4. Pass summary to next agent for context handoff
+}
+3. **Return results**
 `
 
     return {

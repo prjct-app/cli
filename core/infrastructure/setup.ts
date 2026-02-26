@@ -18,7 +18,6 @@
  */
 
 import { execSync } from 'node:child_process'
-import { createHash } from 'node:crypto'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -26,12 +25,12 @@ import chalk from 'chalk'
 import { getTemplateContent } from '../agentic/template-loader'
 import context7Service from '../services/context7-service'
 import { dependencyValidator } from '../services/dependency-validator'
-import { isPCommandResolveError, pCommandResolver } from '../services/p-command-resolver'
 import { prjctDb } from '../storage/database'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import type { AIProviderConfig, AIProviderName } from '../types/provider'
 import { getTimeout } from '../utils/constants'
-import { fileExists } from '../utils/file-helper'
+import { fileExists, readJson, writeJson } from '../utils/file-helper'
+import { sha256 } from '../utils/hash'
 import log from '../utils/logger'
 import { PACKAGE_ROOT, VERSION } from '../utils/version'
 import {
@@ -44,6 +43,7 @@ import {
 } from './ai-provider'
 import installer from './command-installer'
 import editorsConfig from './editors-config'
+import { mergeWithMarkers } from './ide-project-installer'
 
 interface ProviderSetupResult {
   provider: AIProviderName
@@ -273,30 +273,26 @@ export async function run(): Promise<SetupResults> {
 }
 
 /**
- * Install the p.toml router for Gemini CLI
+ * Cleanup legacy Gemini router (p.toml) if it exists.
+ * Router is deprecated — skills handle workflows natively.
  */
 async function installGeminiRouter(): Promise<boolean> {
   try {
     const geminiCommandsDir = path.join(os.homedir(), '.gemini', 'commands')
     const routerDest = path.join(geminiCommandsDir, 'p.toml')
 
-    await fs.mkdir(geminiCommandsDir, { recursive: true })
-
-    // Try bundle first, then filesystem
-    const bundled = getTemplateContent('commands/p.toml')
-    if (bundled) {
-      await fs.writeFile(routerDest, bundled, 'utf-8')
+    // Clean up legacy router if it exists
+    try {
+      await fs.unlink(routerDest)
       return true
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return false // Already gone
+      }
+      throw error
     }
-
-    const routerSource = path.join(PACKAGE_ROOT, 'templates', 'commands', 'p.toml')
-    if (await fileExists(routerSource)) {
-      await fs.copyFile(routerSource, routerDest)
-      return true
-    }
-    return false
   } catch (error) {
-    log.warn(`Gemini router warning: ${getErrorMessage(error)}`)
+    log.warn(`Gemini router cleanup warning: ${getErrorMessage(error)}`)
     return false
   }
 }
@@ -333,40 +329,18 @@ async function installGeminiGlobalConfig(): Promise<{ success: boolean; action: 
       }
     }
 
-    if (!configExists) {
-      // Create new file with full template
-      await fs.writeFile(globalConfigPath, templateContent, 'utf-8')
-      return { success: true, action: 'created' }
-    }
-
-    // File exists - perform intelligent merge
     const startMarker = '<!-- prjct:start - DO NOT REMOVE THIS MARKER -->'
     const endMarker = '<!-- prjct:end - DO NOT REMOVE THIS MARKER -->'
 
-    const hasMarkers = existingContent.includes(startMarker) && existingContent.includes(endMarker)
-
-    if (!hasMarkers) {
-      // No markers - append prjct section at the end
-      const updatedContent = `${existingContent}\n\n${templateContent}`
-      await fs.writeFile(globalConfigPath, updatedContent, 'utf-8')
-      return { success: true, action: 'appended' }
-    }
-
-    // Markers exist - replace content between markers
-    const beforeMarker = existingContent.substring(0, existingContent.indexOf(startMarker))
-    const afterMarker = existingContent.substring(
-      existingContent.indexOf(endMarker) + endMarker.length
+    const merged = mergeWithMarkers(
+      configExists ? existingContent : '',
+      templateContent,
+      startMarker,
+      endMarker
     )
 
-    // Extract prjct section from template
-    const prjctSection = templateContent.substring(
-      templateContent.indexOf(startMarker),
-      templateContent.indexOf(endMarker) + endMarker.length
-    )
-
-    const updatedContent = beforeMarker + prjctSection + afterMarker
-    await fs.writeFile(globalConfigPath, updatedContent, 'utf-8')
-    return { success: true, action: 'updated' }
+    await fs.writeFile(globalConfigPath, merged.content, 'utf-8')
+    return { success: true, action: merged.action }
   } catch (error) {
     log.warn(`Gemini config warning: ${getErrorMessage(error)}`)
     return { success: false, action: null }
@@ -460,7 +434,7 @@ function parseCodexSkillMetadata(
 }
 
 function hashContent(content: string): string {
-  return createHash('sha256').update(content).digest('hex')
+  return sha256(content)
 }
 
 async function loadCodexSkillTemplate(): Promise<string | null> {
@@ -613,30 +587,12 @@ export async function verifyCodexPRouterReady(
     }
   }
 
-  try {
-    const resolved = await pCommandResolver.resolvePCommandTemplate('sync')
-    return {
-      installed: true,
-      verified: true,
-      skillPath,
-      templateHash: expected.templateHash,
-      command: resolved.command,
-      templatePath: resolved.templatePath,
-      templateSource: resolved.source,
-      message: 'Codex p. router ready',
-    }
-  } catch (error) {
-    const fix = isPCommandResolveError(error)
-      ? error.fix
-      : ['Run `prjct setup` to repair command template routing']
-    return {
-      installed: true,
-      verified: false,
-      skillPath,
-      templateHash: expected.templateHash,
-      message: error instanceof Error ? error.message : 'Failed to resolve p. sync template',
-      fix,
-    }
+  return {
+    installed: true,
+    verified: true,
+    skillPath,
+    templateHash: expected.templateHash,
+    message: 'Codex p. router ready',
   }
 }
 
@@ -698,7 +654,7 @@ async function ensureStatusLineSettings(
   let settings: Record<string, unknown> = {}
   if (await fileExists(settingsPath)) {
     try {
-      settings = JSON.parse(await fs.readFile(settingsPath, 'utf8'))
+      settings = (await readJson<Record<string, unknown>>(settingsPath)) ?? {}
     } catch (error) {
       // Invalid JSON, start fresh - but propagate unexpected errors
       if (!(error instanceof SyntaxError)) {
@@ -707,7 +663,7 @@ async function ensureStatusLineSettings(
     }
   }
   settings.statusLine = { type: 'command', command: statusLinePath }
-  await fs.writeFile(settingsPath, JSON.stringify(settings, null, 2))
+  await writeJson(settingsPath, settings)
 }
 
 /**

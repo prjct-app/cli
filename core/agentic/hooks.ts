@@ -43,7 +43,6 @@ const HookPoints = {
 } as const
 
 // HookPoint type moved to core/types/agentic.ts
-type HookPoint = (typeof HookPoints)[keyof typeof HookPoints]
 type HookHandler = (data: unknown, context?: unknown) => unknown | Promise<unknown>
 
 interface HookEntry {

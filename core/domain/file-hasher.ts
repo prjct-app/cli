@@ -15,72 +15,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import prjctDb from '../storage/database'
 import type { FileDiff, FileHash } from '../types/domain.js'
-
-// =============================================================================
-// Constants
-// =============================================================================
-
-const INDEXABLE_EXTENSIONS = new Set([
-  '.ts',
-  '.tsx',
-  '.js',
-  '.jsx',
-  '.mjs',
-  '.cjs',
-  '.json',
-  '.md',
-  '.css',
-  '.scss',
-  '.html',
-  '.vue',
-  '.svelte',
-  '.py',
-  '.go',
-  '.rs',
-  '.yaml',
-  '.yml',
-  '.toml',
-])
-
-const SKIP_DIRS = new Set([
-  'node_modules',
-  '.git',
-  'dist',
-  'build',
-  'out',
-  '.next',
-  'coverage',
-  '.cache',
-  '.turbo',
-  '.vercel',
-  '.prjct',
-])
-
-// =============================================================================
-// File Discovery
-// =============================================================================
-
-async function listProjectFiles(dir: string, projectPath: string): Promise<string[]> {
-  const files: string[] = []
-  const entries = await fs.readdir(dir, { withFileTypes: true }).catch(() => [])
-
-  for (const entry of entries) {
-    const name = String(entry.name)
-    if (SKIP_DIRS.has(name)) continue
-    if (name.startsWith('.') && name !== '.env.example') continue
-
-    const fullPath = path.join(dir, name)
-    if (entry.isDirectory()) {
-      files.push(...(await listProjectFiles(fullPath, projectPath)))
-    } else if (entry.isFile()) {
-      const ext = path.extname(name).toLowerCase()
-      if (INDEXABLE_EXTENSIONS.has(ext)) {
-        files.push(path.relative(projectPath, fullPath))
-      }
-    }
-  }
-  return files
-}
+import { batchProcess, walkDir } from '../utils/file-helper'
 
 // =============================================================================
 // Hashing
@@ -111,37 +46,29 @@ function hashContent(content: string): string {
  * Performance target: <100ms for 500 files.
  */
 export async function computeHashes(projectPath: string): Promise<Map<string, FileHash>> {
-  const filePaths = await listProjectFiles(projectPath, projectPath)
+  const filePaths = await walkDir(projectPath, {
+    skipDotfiles: true,
+    dotfileAllowlist: ['.env.example'],
+  })
   const hashes = new Map<string, FileHash>()
 
-  const BATCH_SIZE = 100
-  for (let i = 0; i < filePaths.length; i += BATCH_SIZE) {
-    const batch = filePaths.slice(i, i + BATCH_SIZE)
-    const results = await Promise.all(
-      batch.map(async (filePath) => {
-        try {
-          const fullPath = path.join(projectPath, filePath)
-          const [content, stat] = await Promise.all([
-            fs.readFile(fullPath, 'utf-8'),
-            fs.stat(fullPath),
-          ])
-          return {
-            path: filePath,
-            hash: hashContent(content),
-            size: stat.size,
-            mtime: stat.mtime.toISOString(),
-          } satisfies FileHash
-        } catch {
-          return null
-        }
-      })
-    )
-
-    for (const result of results) {
-      if (result) {
-        hashes.set(result.path, result)
-      }
+  const results = await batchProcess(filePaths, 100, async (filePath) => {
+    try {
+      const fullPath = path.join(projectPath, filePath)
+      const [content, stat] = await Promise.all([fs.readFile(fullPath, 'utf-8'), fs.stat(fullPath)])
+      return {
+        path: filePath,
+        hash: hashContent(content),
+        size: stat.size,
+        mtime: stat.mtime.toISOString(),
+      } satisfies FileHash
+    } catch {
+      return null
     }
+  })
+
+  for (const result of results) {
+    hashes.set(result.path, result)
   }
 
   return hashes

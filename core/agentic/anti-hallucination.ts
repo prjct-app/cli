@@ -46,8 +46,6 @@ export const ProjectGroundTruthSchema = z.object({
     .optional(),
   /** Total files in project */
   fileCount: z.number().optional(),
-  /** Available agent names (e.g., ['backend', 'testing']) */
-  availableAgents: z.array(z.string()).default([]),
   /** Sealed analysis languages — used to ground available tech (PRJ-260) */
   analysisLanguages: z.array(z.string()).default([]),
   /** Sealed analysis frameworks — used to ground available tech (PRJ-260) */
@@ -58,19 +56,6 @@ export const ProjectGroundTruthSchema = z.object({
 
 // ProjectGroundTruth type moved to core/types/agentic.ts
 import type { ProjectGroundTruth } from '../types/agentic.js'
-
-// =============================================================================
-// Domain Mapping
-// =============================================================================
-
-/** Map domain flags to human-readable technology categories */
-const DOMAIN_LABELS: Record<string, string> = {
-  hasFrontend: 'Frontend (UI/components)',
-  hasBackend: 'Backend (APIs/servers)',
-  hasDatabase: 'Database (SQL/ORM)',
-  hasTesting: 'Testing (unit/integration)',
-  hasDocker: 'Docker/containers',
-}
 
 // =============================================================================
 // Generator
@@ -112,27 +97,16 @@ export function buildAntiHallucinationBlock(truth: ProjectGroundTruth): string {
   if (truth.domains) {
     const absent = Object.entries(truth.domains)
       .filter(([, hasIt]) => !hasIt)
-      .map(([key]) => DOMAIN_LABELS[key])
-      .filter(Boolean)
+      .map(([key]) => key.replace(/^has/, '').toLowerCase())
 
     if (absent.length > 0) {
       parts.push(`NOT PRESENT: ${absent.join(', ')}`)
     }
   }
 
-  // 3. Available agents
-  const availableAgents = truth.availableAgents ?? []
-  if (availableAgents.length > 0) {
-    parts.push(`AGENTS: ${availableAgents.join(', ')}`)
-  }
-
-  // 4. Scope and grounding rules
+  // 3. Scope and grounding rules
   parts.push('')
   parts.push(`SCOPE: Only files in \`${truth.projectPath}\` are accessible.`)
-  parts.push('RULE: Use ONLY file paths explicitly shown in context. Do NOT infer or guess paths.')
-  parts.push('RULE: NEVER assume a library is available. Check package.json/imports first.')
-  parts.push('RULE: If previous context contradicts this section, trust this section.')
-  parts.push('RULE: Read files BEFORE modifying. Never assume code structure.')
 
   if (truth.fileCount) {
     parts.push(`\nContext: ${truth.fileCount} files in project.`)

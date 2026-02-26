@@ -8,7 +8,6 @@ import { z } from 'zod'
 import {
   DEFAULT_BUDGETS,
   estimateTokens,
-  filterSkillsByDomains,
   InjectionBudgetTracker,
   safeInject,
   safeInjectString,
@@ -123,63 +122,6 @@ describe('estimateTokens', () => {
 })
 
 // =============================================================================
-// filterSkillsByDomains
-// =============================================================================
-
-describe('filterSkillsByDomains', () => {
-  const skills = [
-    { name: 'react-patterns', content: 'React component patterns and hooks' },
-    { name: 'api-design', content: 'RESTful API design and endpoint patterns' },
-    { name: 'jest-testing', content: 'Jest test patterns and assertions' },
-    { name: 'docker-deploy', content: 'Docker and Kubernetes deployment' },
-    { name: 'general-coding', content: 'General coding best practices' },
-  ]
-
-  it('returns all skills when no domains detected', () => {
-    expect(filterSkillsByDomains(skills, [])).toEqual(skills)
-  })
-
-  it('returns all skills when skills array is empty', () => {
-    expect(filterSkillsByDomains([], ['frontend'])).toEqual([])
-  })
-
-  it('filters to frontend-relevant skills', () => {
-    const result = filterSkillsByDomains(skills, ['frontend'])
-    expect(result.some((s) => s.name === 'react-patterns')).toBe(true)
-    expect(result.some((s) => s.name === 'docker-deploy')).toBe(false)
-  })
-
-  it('filters to backend-relevant skills', () => {
-    const result = filterSkillsByDomains(skills, ['backend'])
-    expect(result.some((s) => s.name === 'api-design')).toBe(true)
-    expect(result.some((s) => s.name === 'react-patterns')).toBe(false)
-  })
-
-  it('filters to testing-relevant skills', () => {
-    const result = filterSkillsByDomains(skills, ['testing'])
-    expect(result.some((s) => s.name === 'jest-testing')).toBe(true)
-  })
-
-  it('supports multiple domains', () => {
-    const result = filterSkillsByDomains(skills, ['frontend', 'testing'])
-    expect(result.some((s) => s.name === 'react-patterns')).toBe(true)
-    expect(result.some((s) => s.name === 'jest-testing')).toBe(true)
-    expect(result.some((s) => s.name === 'docker-deploy')).toBe(false)
-  })
-
-  it('matches domain name itself as keyword', () => {
-    const customSkills = [{ name: 'devops-helper', content: 'general devops tools' }]
-    const result = filterSkillsByDomains(customSkills, ['devops'])
-    expect(result).toHaveLength(1)
-  })
-
-  it('is case insensitive', () => {
-    const result = filterSkillsByDomains(skills, ['Frontend'])
-    expect(result.some((s) => s.name === 'react-patterns')).toBe(true)
-  })
-})
-
-// =============================================================================
 // InjectionBudgetTracker
 // =============================================================================
 
@@ -239,8 +181,6 @@ describe('InjectionBudgetTracker', () => {
 describe('DEFAULT_BUDGETS', () => {
   it('has all required fields', () => {
     expect(DEFAULT_BUDGETS.autoContext).toBeGreaterThan(0)
-    expect(DEFAULT_BUDGETS.agentContent).toBeGreaterThan(0)
-    expect(DEFAULT_BUDGETS.skillContent).toBeGreaterThan(0)
     expect(DEFAULT_BUDGETS.stateData).toBeGreaterThan(0)
     expect(DEFAULT_BUDGETS.memories).toBeGreaterThan(0)
     expect(DEFAULT_BUDGETS.totalPrompt).toBeGreaterThan(0)
@@ -248,8 +188,6 @@ describe('DEFAULT_BUDGETS', () => {
 
   it('totalPrompt is larger than individual budgets', () => {
     expect(DEFAULT_BUDGETS.totalPrompt).toBeGreaterThan(DEFAULT_BUDGETS.autoContext)
-    expect(DEFAULT_BUDGETS.totalPrompt).toBeGreaterThan(DEFAULT_BUDGETS.agentContent)
-    expect(DEFAULT_BUDGETS.totalPrompt).toBeGreaterThan(DEFAULT_BUDGETS.skillContent)
     expect(DEFAULT_BUDGETS.totalPrompt).toBeGreaterThan(DEFAULT_BUDGETS.stateData)
   })
 })

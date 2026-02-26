@@ -11,7 +11,6 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import commandExecutor from '../agentic/command-executor'
-import { templateExecutor } from '../agentic/template-executor'
 import { isValidPoint, pointsToMinutes, pointsToTimeRange } from '../domain/fibonacci'
 import pathManager from '../infrastructure/path-manager'
 import { templateGenerator } from '../infrastructure/template-generator'
@@ -20,6 +19,7 @@ import { generateUUID } from '../schemas/schemas'
 import type { TaskFeedback } from '../schemas/state'
 import context7Service from '../services/context7-service'
 import estimateTaskForStart from '../services/task-estimation'
+import { getGitBranch } from '../session/git-helpers'
 import { sessionSnapshotManager } from '../session/session-snapshot'
 import { analysisStorage } from '../storage/analysis-storage'
 import { contextFeedbackStorage } from '../storage/context-feedback-storage'
@@ -226,7 +226,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
           const maxFilesForTask = (tokenBudgetByType[estimate.taskType] ?? 80) >= 80 ? 15 : 10
 
           const [branch, analysis, repoAnalysisRaw, relevantFilesResult] = await Promise.all([
-            getGitBranch(),
+            getGitBranch(projectPath),
             analysisStorage.getActive(projectId).catch(() => null),
             loadRepoAnalysis(globalPath),
             findRelevantFiles(taskDescription, projectPath, {
@@ -384,22 +384,12 @@ export class WorkflowCommands extends PrjctCommandsBase {
           estimatedMinutes: estimate.estimatedMinutes,
         } as Parameters<typeof stateStorage.startTask>[1])
 
-        // Get available agents for backward compatibility
-        const availableAgents = await templateExecutor.getAvailableAgents(projectPath)
-
-        // Build metrics from orchestrator context
-        const agentCount = result.orchestratorContext?.agents?.length || availableAgents.length
-
-        out.done(`${task}`, {
-          agents: agentCount > 0 ? agentCount : undefined,
-        })
+        out.done(`${task}`)
         showStateInfo('working')
         showNextSteps('task')
 
         await this.logToMemory(projectPath, 'task_started', {
           task,
-          agenticMode: true,
-          availableAgents,
           orchestratorContext: result.orchestratorContext,
           timestamp: dateHelper.getTimestamp(),
         })
@@ -414,8 +404,6 @@ export class WorkflowCommands extends PrjctCommandsBase {
           ...result,
           success: true,
           task,
-          agenticMode: true,
-          availableAgents,
           fibonacci: {
             isValidPoint,
             pointsToMinutes,
@@ -2014,6 +2002,85 @@ export class WorkflowCommands extends PrjctCommandsBase {
       return { success: false, error: getErrorMessage(error) }
     }
   }
+
+  /**
+   * /p:tokens - Record token usage on active task
+   * Accumulates input/output tokens for cost tracking and efficiency comparison
+   */
+  async tokens(
+    args: string = '',
+    projectPath: string = process.cwd(),
+    options: { md?: boolean } = {}
+  ): Promise<CommandResult> {
+    try {
+      const initResult = await this.ensureProjectInit(projectPath)
+      if (!initResult.success) return initResult
+
+      const projectId = await configManager.getProjectId(projectPath)
+      if (!projectId) {
+        out.failWithHint('NO_PROJECT_ID')
+        return { success: false, error: 'No project ID found' }
+      }
+
+      const currentTask = await stateStorage.getCurrentTask(projectId)
+      if (!currentTask) {
+        if (options.md) {
+          mdActionRequired('idle', 'no_active_task', [
+            { label: 'Start a task first', command: 'prjct task "description" --md' },
+          ])
+        } else {
+          out.warn('no active task — start one first to track tokens')
+        }
+        return { success: false, error: 'No active task' }
+      }
+
+      // Parse: "tokens <in> <out>"
+      const parts = args.trim().split(/\s+/)
+      const tokensIn = parseInt(parts[0], 10)
+      const tokensOut = parseInt(parts[1], 10)
+
+      if (Number.isNaN(tokensIn) || Number.isNaN(tokensOut)) {
+        const msg = 'Usage: prjct tokens <input_tokens> <output_tokens>'
+        if (options.md) {
+          console.log(mdOutput(mdSection('Tokens', msg)))
+        } else {
+          out.fail(msg)
+        }
+        return { success: false, error: msg }
+      }
+
+      const totals = await stateStorage.addTokens(projectId, tokensIn, tokensOut)
+      if (!totals) {
+        return { success: false, error: 'Failed to record tokens' }
+      }
+
+      if (options.md) {
+        console.log(
+          mdOutput(
+            mdSection(
+              'Tokens Recorded',
+              `+${tokensIn.toLocaleString()} in / +${tokensOut.toLocaleString()} out`
+            ),
+            mdStats({
+              'Total In': totals.tokensIn.toLocaleString(),
+              'Total Out': totals.tokensOut.toLocaleString(),
+              Total: (totals.tokensIn + totals.tokensOut).toLocaleString(),
+              Task: currentTask.description,
+            })
+          )
+        )
+      } else {
+        out.done(
+          `tokens recorded: ${totals.tokensIn.toLocaleString()} in / ${totals.tokensOut.toLocaleString()} out`
+        )
+      }
+
+      return { success: true, tokensIn: totals.tokensIn, tokensOut: totals.tokensOut }
+    } catch (error) {
+      out.fail(getErrorMessage(error))
+      return { success: false, error: getErrorMessage(error) }
+    }
+  }
 }
 
 // =============================================================================
@@ -2026,16 +2093,6 @@ function formatMinutesToDuration(minutes: number): string {
   const hours = Math.floor(minutes / 60)
   const mins = minutes % 60
   return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`
-}
-
-/** Get current git branch name */
-async function getGitBranch(): Promise<string | undefined> {
-  try {
-    const { execSync } = await import('node:child_process')
-    return execSync('git branch --show-current', { encoding: 'utf-8' }).trim() || undefined
-  } catch {
-    return undefined
-  }
 }
 
 /** Load repo-analysis.json from global project path */

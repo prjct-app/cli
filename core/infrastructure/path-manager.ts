@@ -128,7 +128,7 @@ class PathManager {
 
     const projectPath = this.getGlobalProjectPath(projectId)
 
-    const layers = ['core', 'progress', 'planning', 'analysis', 'memory', 'agents']
+    const layers = ['core', 'progress', 'planning', 'analysis', 'memory']
 
     for (const layer of layers) {
       await fileHelper.ensureDir(path.join(projectPath, layer))
@@ -337,17 +337,6 @@ class PathManager {
    */
   getClaudeSettingsPath(): string {
     return path.join(this.getClaudeDir(), 'settings.json')
-  }
-
-  /**
-   * Get the agents directory path for a project
-   * If projectId is null, returns the global agents directory
-   */
-  getAgentsPath(projectId: string | null): string {
-    if (projectId) {
-      return path.join(this.getGlobalProjectPath(projectId), 'agents')
-    }
-    return path.join(this.globalBaseDir, 'agents')
   }
 
   /**

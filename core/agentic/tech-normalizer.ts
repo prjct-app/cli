@@ -4,56 +4,10 @@
  * Normalized matching for tech stack / framework names.
  * Handles:
  * - Compound names: "React + TypeScript" → ["react", "typescript"]
- * - Framework aliases: "nextjs" → "next.js"
- * - Framework families: "Next.js" → react family
  * - Case-insensitive, whitespace-insensitive matching
  */
 
-// =============================================================================
-// Framework Families
-// =============================================================================
-
-/**
- * Map framework names to their family (meta-framework → base framework).
- * Used to verify that "Next.js" matches expected "react".
- */
-const FRAMEWORK_FAMILIES: Record<string, string> = {
-  'next.js': 'react',
-  nextjs: 'react',
-  remix: 'react',
-  gatsby: 'react',
-  'react native': 'react',
-  expo: 'react',
-  nuxt: 'vue',
-  'nuxt.js': 'vue',
-  nuxtjs: 'vue',
-  sveltekit: 'svelte',
-  analog: 'angular',
-  astro: 'multi',
-  vite: 'multi',
-}
-
-/**
- * Aliases that normalize to a canonical name.
- */
-const FRAMEWORK_ALIASES: Record<string, string> = {
-  nextjs: 'next.js',
-  nuxtjs: 'nuxt.js',
-  expressjs: 'express',
-  fastifyjs: 'fastify',
-  'react.js': 'react',
-  'vue.js': 'vue',
-  'svelte.js': 'svelte',
-  'angular.js': 'angular',
-  angularjs: 'angular',
-  'node.js': 'node',
-  nodejs: 'node',
-  ts: 'typescript',
-  js: 'javascript',
-  pg: 'postgres',
-  postgresql: 'postgres',
-  mongo: 'mongodb',
-}
+import { uniqueBy } from '../utils/collection-filters'
 
 // =============================================================================
 // Core Functions
@@ -61,26 +15,14 @@ const FRAMEWORK_ALIASES: Record<string, string> = {
 
 /**
  * Normalize a single framework/tech name.
- * Strips whitespace, lowercases, resolves aliases.
+ * Strips whitespace and lowercases.
  *
  * @example
  * normalizeFrameworkName("Next.js") → "next.js"
  * normalizeFrameworkName("  TypeScript ") → "typescript"
- * normalizeFrameworkName("NodeJS") → "node"
  */
 export function normalizeFrameworkName(name: string): string {
-  const trimmed = name.trim().toLowerCase()
-
-  // Check aliases
-  const aliasKey = trimmed.replace(/[.\s-]/g, '')
-  if (FRAMEWORK_ALIASES[aliasKey]) {
-    return FRAMEWORK_ALIASES[aliasKey]
-  }
-  if (FRAMEWORK_ALIASES[trimmed]) {
-    return FRAMEWORK_ALIASES[trimmed]
-  }
-
-  return trimmed
+  return name.trim().toLowerCase()
 }
 
 /**
@@ -105,23 +47,21 @@ export function extractTechNames(compound: string): string[] {
 
 /**
  * Get the framework family for a tech name.
- * Returns the base framework or the name itself if no family exists.
+ * Returns the normalized name — the LLM already knows framework relationships.
  *
  * @example
- * getFrameworkFamily("next.js") → "react"
- * getFrameworkFamily("nuxt") → "vue"
- * getFrameworkFamily("express") → "express"
+ * getFrameworkFamily("next.js") → "next.js"
+ * getFrameworkFamily("Express") → "express"
  */
 export function getFrameworkFamily(name: string): string {
-  const normalized = normalizeFrameworkName(name)
-  return FRAMEWORK_FAMILIES[normalized] || normalized
+  return normalizeFrameworkName(name)
 }
 
 /**
- * Check if two tech names match (direct or via family).
+ * Check if two tech names match (direct match or compound contains).
  *
  * @example
- * matchesTech("Next.js", "react") → true (Next.js is React family)
+ * matchesTech("React", "react") → true
  * matchesTech("React + TypeScript", "react") → true (contains react)
  * matchesTech("Vue", "react") → false
  */
@@ -132,12 +72,7 @@ export function matchesTech(actual: string, expected: string): boolean {
   const actualNames = extractTechNames(actual)
 
   for (const name of actualNames) {
-    // Direct match
     if (name === expectedNorm) return true
-    // Family match
-    if (getFrameworkFamily(name) === expectedNorm) return true
-    // Reverse family match
-    if (getFrameworkFamily(expectedNorm) === name) return true
   }
 
   return false
@@ -149,19 +84,8 @@ export function matchesTech(actual: string, expected: string): boolean {
  *
  * @example
  * deduplicateTechStack(["React", "react", "Next.js"]) → ["React", "Next.js"]
- * deduplicateTechStack(["TypeScript", "ts"]) → ["TypeScript"]
+ * deduplicateTechStack(["TypeScript", "typescript"]) → ["TypeScript"]
  */
 export function deduplicateTechStack(stack: string[]): string[] {
-  const seen = new Set<string>()
-  const result: string[] = []
-
-  for (const name of stack) {
-    const normalized = normalizeFrameworkName(name)
-    if (!seen.has(normalized)) {
-      seen.add(normalized)
-      result.push(name)
-    }
-  }
-
-  return result
+  return uniqueBy(stack, normalizeFrameworkName)
 }

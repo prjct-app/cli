@@ -12,7 +12,6 @@ import { ideasStorage } from '../storage/ideas-storage'
 import { queueStorage } from '../storage/queue-storage'
 import { workflowRuleStorage } from '../storage/workflow-rule-storage'
 import type { CommandResult, InitOptions } from '../types/commands'
-import type { ProjectContext } from '../types/core'
 import { getErrorMessage } from '../types/fs'
 import { mdNextSteps, mdOutput, mdSection, mdStats } from '../utils/md-formatter'
 import { showNextSteps } from '../utils/next-steps'
@@ -20,7 +19,6 @@ import { detectProjectCommands } from '../utils/project-commands'
 import { OnboardingWizard } from '../workflows/onboarding'
 import {
   configManager,
-  contextBuilder,
   dateHelper,
   fileHelper,
   out,
@@ -165,11 +163,7 @@ export class PlanningCommands extends PrjctCommandsBase {
           out.step(4, 4, 'Generating agents...')
 
           // Pass wizard agent selection to sync if available
-          if (wizardResult?.agents) {
-            await analysis.sync(projectPath, { aiTools: wizardResult.agents })
-          } else {
-            await analysis.sync(projectPath)
-          }
+          await analysis.sync(projectPath)
 
           out.done('initialized')
           this._printNextSteps(wizardResult)
@@ -270,50 +264,32 @@ export class PlanningCommands extends PrjctCommandsBase {
 
       out.spin(`planning ${description}...`)
 
-      const context = (await contextBuilder.build(projectPath, { description })) as ProjectContext
       const tasks = this._breakdownFeatureTasks(description)
       const featureId = generateUUID()
-
-      const tasksWithAgents: { task: string; agent: string }[] = []
-      for (const taskDesc of tasks) {
-        const agentResult = await this._assignAgentForTask(taskDesc, projectPath, context)
-        const agent = agentResult.agent?.name || 'generalist'
-        tasksWithAgents.push({ task: taskDesc, agent })
-      }
 
       // Write-through: Add tasks (JSON → MD → Event)
       await queueStorage.addTasks(
         projectId,
-        tasksWithAgents.map((t) => ({
-          description: t.task,
+        tasks.map((task) => ({
+          description: task,
           priority: 'medium' as Priority,
           type: 'feature' as TaskType,
           section: 'active' as TaskSection,
           featureId,
           originFeature: description,
-          agent: t.agent,
         }))
       )
 
       await this.logToMemory(projectPath, 'feature_planned', {
         feature: description,
         featureId,
-        tasks: tasksWithAgents.length,
-        assignments: tasksWithAgents.map((t) => ({ task: t.task, agent: t.agent })),
+        tasks: tasks.length,
         timestamp: dateHelper.getTimestamp(),
       })
 
-      const agentCounts = tasksWithAgents.reduce((acc: Record<string, number>, t) => {
-        acc[t.agent] = (acc[t.agent] || 0) + 1
-        return acc
-      }, {})
-      const agentSummary = Object.entries(agentCounts)
-        .map(([a, c]) => `${a}:${c}`)
-        .join(' ')
+      out.done(`${tasks.length} tasks planned`)
 
-      out.done(`${tasks.length} tasks [${agentSummary}]`)
-
-      return { success: true, feature: description, featureId, tasks: tasksWithAgents }
+      return { success: true, feature: description, featureId, tasks }
     } catch (error) {
       out.fail(getErrorMessage(error))
       return { success: false, error: getErrorMessage(error) }
@@ -345,15 +321,7 @@ export class PlanningCommands extends PrjctCommandsBase {
 
       if (!options.md) out.spin('tracking bug...')
 
-      const context = (await contextBuilder.build(projectPath, { description })) as ProjectContext
       const severity = this._detectBugSeverity(description)
-
-      const agentResult = await this._assignAgentForTask(
-        `fix bug: ${description}`,
-        projectPath,
-        context
-      )
-      const agent = agentResult.agent?.name || 'generalist'
 
       // Map severity to Priority type
       const priorityMap: Record<string, Priority> = {
@@ -370,14 +338,12 @@ export class PlanningCommands extends PrjctCommandsBase {
         priority,
         type: 'bug' as TaskType,
         section: 'active' as TaskSection,
-        agent,
       })
 
       await this.logToMemory(projectPath, 'bug_reported', {
         bug: description,
         severity,
         priority,
-        agent,
         timestamp: dateHelper.getTimestamp(),
       })
 
@@ -385,7 +351,7 @@ export class PlanningCommands extends PrjctCommandsBase {
         console.log(
           mdOutput(
             mdSection('Bug Reported', description),
-            mdStats({ Severity: severity, Priority: priority, Agent: agent }),
+            mdStats({ Severity: severity, Priority: priority }),
             mdNextSteps([
               { label: 'Fix now', command: `prjct task "fix: ${description}" --md` },
               { label: 'View queue', command: 'prjct next --md' },
@@ -393,11 +359,11 @@ export class PlanningCommands extends PrjctCommandsBase {
           )
         )
       } else {
-        out.done(`bug [${severity}] → ${agent}`)
+        out.done(`bug [${severity}] [${priority}]`)
         showNextSteps('bug')
       }
 
-      return { success: true, bug: description, severity, agent }
+      return { success: true, bug: description, severity }
     } catch (error) {
       if (!options.md) out.fail(getErrorMessage(error))
       return { success: false, error: getErrorMessage(error) }

@@ -13,6 +13,7 @@ import type { ContextState } from '../types/agentic'
 import type { ProjectContext } from '../types/core'
 import { isNotFoundError } from '../types/fs'
 import { TTLCache } from '../utils/cache'
+import { fileExists as fileExistsHelper } from '../utils/file-helper'
 
 // Type aliases for backward compatibility (originals moved to core/types/)
 type Context = ProjectContext
@@ -258,15 +259,7 @@ class ContextBuilder {
    * Check file existence
    */
   async fileExists(filePath: string): Promise<boolean> {
-    try {
-      await fs.access(filePath)
-      return true
-    } catch (error) {
-      if (isNotFoundError(error)) {
-        return false
-      }
-      throw error
-    }
+    return fileExistsHelper(filePath)
   }
 
   /**

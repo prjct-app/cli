@@ -8,11 +8,8 @@
  * @version 1.0.0
  */
 
-import { exec as execCallback } from 'node:child_process'
-import { promisify } from 'node:util'
 import type { HotFile, RecentToolOutput } from '../../types/context-tools'
-
-const exec = promisify(execCallback)
+import { execAsync } from '../../utils/exec'
 
 // =============================================================================
 // Constants
@@ -110,7 +107,7 @@ export async function getRecentFiles(
  */
 async function getHotFilesFromCommits(projectPath: string, commits: number): Promise<HotFile[]> {
   // Get file change counts and last modified times
-  const { stdout } = await exec(
+  const { stdout } = await execAsync(
     `git log -${commits} --pretty=format:"%ct" --name-only | awk '
       /^[0-9]+$/ { timestamp=$1; next }
       NF {
@@ -190,29 +187,23 @@ async function getBranchOnlyFiles(projectPath: string): Promise<{
   branchOnlyFiles: string[]
   analysisWindow: string
 }> {
-  // Get current branch
-  const { stdout: branchOutput } = await exec('git branch --show-current', {
-    cwd: projectPath,
-  })
-  const _currentBranch = branchOutput.trim()
-
   // Determine base branch (main or master)
   let baseBranch = 'main'
   try {
-    await exec('git rev-parse --verify main', { cwd: projectPath })
+    await execAsync('git rev-parse --verify main', { cwd: projectPath })
   } catch {
     baseBranch = 'master'
   }
 
   // Get files changed in this branch
-  const { stdout: diffOutput } = await exec(`git diff --name-only ${baseBranch}...HEAD`, {
+  const { stdout: diffOutput } = await execAsync(`git diff --name-only ${baseBranch}...HEAD`, {
     cwd: projectPath,
   })
 
   const branchOnlyFiles = diffOutput.trim().split('\n').filter(Boolean)
 
   // Get change counts for these files in the branch
-  const { stdout: logOutput } = await exec(
+  const { stdout: logOutput } = await execAsync(
     `git log ${baseBranch}..HEAD --pretty=format:"%ct" --name-only | awk '
       /^[0-9]+$/ { timestamp=$1; next }
       NF {

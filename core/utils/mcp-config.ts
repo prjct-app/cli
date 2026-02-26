@@ -3,13 +3,13 @@ import os from 'node:os'
 import path from 'node:path'
 import { systemDb } from '../storage/system-database'
 import { getErrorMessage } from '../types/fs'
-
 import type {
   MCPServerConfig,
   ProviderMcpPath,
   TokenDirScan,
   TokenValidationResult,
 } from '../types/utils.js'
+import { dirExists, writeJson } from './file-helper'
 
 interface MCPConfig {
   mcpServers?: Record<string, MCPServerConfig>
@@ -76,28 +76,22 @@ export async function getActiveMcpConfigPaths(): Promise<ProviderMcpPath[]> {
 
   // Claude Code — check ~/.claude/ exists
   const claudeDir = path.join(homeDir, '.claude')
-  try {
-    await fs.access(claudeDir)
+  if (await dirExists(claudeDir)) {
     paths.push({
       provider: 'claude',
       configPath: path.join(claudeDir, 'mcp.json'),
       mergeIntoExisting: false,
     })
-  } catch {
-    /* not installed */
   }
 
   // Gemini CLI — check ~/.gemini/ exists
   const geminiDir = path.join(homeDir, '.gemini')
-  try {
-    await fs.access(geminiDir)
+  if (await dirExists(geminiDir)) {
     paths.push({
       provider: 'gemini',
       configPath: path.join(geminiDir, 'settings.json'),
       mergeIntoExisting: true,
     })
-  } catch {
-    /* not installed */
   }
 
   return paths
@@ -518,8 +512,7 @@ export async function writeMcpConfig(
   config: MCPConfig,
   configPath = getClaudeMcpConfigPath()
 ): Promise<void> {
-  await fs.mkdir(path.dirname(configPath), { recursive: true })
-  await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8')
+  await writeJson(configPath, config)
 }
 
 export async function upsertMcpServer(

@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.47.3] - 2026-02-26
+
+### Added
+- current work
+
+## [1.47.2] - 2026-02-23
+
+### Added
+- kill static context generation
+
 ## [1.47.1] - 2026-02-21
 
 ### Refactoring

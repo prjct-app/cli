@@ -1,8 +1,6 @@
-# /ship - Ship feature with PR + version bump
+# /ship - Ship feature
 
 **ARGUMENTS**: {{args}}
 
-Run `npm root -g` to get npm global root, then read and execute:
-`{npmRoot}/prjct-cli/templates/commands/ship.md`
-
-Pass the arguments as the feature name (optional).
+Run: `prjct ship {{args}} --md`
+Follow CLI output.

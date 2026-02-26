@@ -8,11 +8,8 @@
  * Configuration should be template-driven, not code-driven.
  */
 
-import { exec } from 'node:child_process'
-import { promisify } from 'node:util'
 import { getErrorMessage } from '../types/fs'
-
-const execAsync = promisify(exec)
+import { execAsync } from '../utils/exec'
 
 interface Recommendation {
   install: string

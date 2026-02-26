@@ -17,17 +17,10 @@
  * @see https://docs.windsurf.com/windsurf/cascade/memories
  */
 
-import { exec } from 'node:child_process'
 import os from 'node:os'
 import path from 'node:path'
-import { promisify } from 'node:util'
+import { PROVIDER_SPAWN_TIMEOUT_MS } from '../constants/timings'
 import { compareSemver } from '../schemas/model'
-import { fileExists } from '../utils/file-helper'
-import { readProviderCache, writeProviderCache } from '../utils/provider-cache'
-
-const execAsync = promisify(exec)
-const SPAWN_TIMEOUT_MS = 2000
-
 import type {
   AIProviderConfig,
   AIProviderName,
@@ -39,6 +32,10 @@ import type {
   ProviderSelectionResult,
   WindsurfProjectDetection,
 } from '../types/provider'
+
+import { execAsync } from '../utils/exec'
+import { fileExists } from '../utils/file-helper'
+import { readProviderCache, writeProviderCache } from '../utils/provider-cache'
 
 // =============================================================================
 // Capability Tiers
@@ -283,7 +280,7 @@ export const Providers: Record<AIProviderName, AIProviderConfig> = {
  */
 async function whichCommand(command: string): Promise<string | null> {
   try {
-    const { stdout } = await execAsync(`which ${command}`, { timeout: SPAWN_TIMEOUT_MS })
+    const { stdout } = await execAsync(`which ${command}`, { timeout: PROVIDER_SPAWN_TIMEOUT_MS })
     return stdout.trim()
   } catch {
     return null
@@ -295,7 +292,9 @@ async function whichCommand(command: string): Promise<string | null> {
  */
 async function getCliVersion(command: string): Promise<string | null> {
   try {
-    const { stdout } = await execAsync(`${command} --version`, { timeout: SPAWN_TIMEOUT_MS })
+    const { stdout } = await execAsync(`${command} --version`, {
+      timeout: PROVIDER_SPAWN_TIMEOUT_MS,
+    })
     // Extract version number from output (e.g., "claude 1.0.0" -> "1.0.0")
     const match = stdout.match(/\d+\.\d+\.\d+/)
     return match ? match[0] : stdout.trim()

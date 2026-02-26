@@ -2,6 +2,8 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import type { ProviderDetectionResult } from '../types/provider'
+import { isExpired } from './cache'
+import { writeJson } from './file-helper'
 
 const CACHE_DIR = path.join(os.homedir(), '.prjct-cli', 'cache')
 const CACHE_FILE = path.join(CACHE_DIR, 'providers.json')
@@ -24,8 +26,7 @@ export async function readProviderCache(): Promise<ProviderCache['detection'] | 
     if (!cache.timestamp || !cache.detection) return null
     if (!cache.detection.claude || !cache.detection.gemini || !cache.detection.codex) return null
 
-    const age = Date.now() - new Date(cache.timestamp).getTime()
-    if (age > TTL_MS) return null
+    if (isExpired(cache.timestamp, TTL_MS)) return null
 
     return cache.detection
   } catch {
@@ -38,8 +39,7 @@ export async function writeProviderCache(detection: ProviderCache['detection']):
     timestamp: new Date().toISOString(),
     detection,
   }
-  await fs.mkdir(CACHE_DIR, { recursive: true })
-  await fs.writeFile(CACHE_FILE, JSON.stringify(cache, null, 2))
+  await writeJson(CACHE_FILE, cache)
 }
 
 export async function invalidateProviderCache(): Promise<void> {

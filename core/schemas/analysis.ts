@@ -9,6 +9,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { z } from 'zod'
 import { isNotFoundError } from '../types/fs'
+import { fileExists } from '../utils/file-helper'
 import { ModelMetadataSchema } from './model'
 
 // =============================================================================
@@ -318,10 +319,9 @@ export async function verifyPatternLocations(
     const location = pattern.location!
     const filePath = path.join(projectPath, location)
 
-    try {
-      await fs.access(filePath)
+    if (await fileExists(filePath)) {
       verified.push(location)
-    } catch {
+    } else {
       missing.push(`${pattern.name} (${location})`)
     }
   }
@@ -408,10 +408,9 @@ export async function verifyAntiPatternFiles(
   for (const antiPattern of analysis.antiPatterns) {
     const filePath = path.join(projectPath, antiPattern.file)
 
-    try {
-      await fs.access(filePath)
+    if (await fileExists(filePath)) {
       verified.push(antiPattern.file)
-    } catch {
+    } else {
       missing.push(`${antiPattern.issue} (${antiPattern.file})`)
     }
   }

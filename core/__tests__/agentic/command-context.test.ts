@@ -157,7 +157,7 @@ describe('resolveCommandContextFull', () => {
 // =============================================================================
 
 describe('classifyCommand', () => {
-  it('should classify code-modifying commands with Write tool', () => {
+  it('should return sensible default for any command', () => {
     const template: Template = {
       frontmatter: {
         name: 'p:scaffold',
@@ -170,9 +170,11 @@ describe('classifyCommand', () => {
     const result = classifyCommand('scaffold', template)
     expect(result.agents).toBe(true)
     expect(result.patterns).toBe(true)
+    expect(result.checklist).toBe(false)
+    expect(result.modules).toEqual([])
   })
 
-  it('should classify info commands as needing no context', () => {
+  it('should return same default for info commands', () => {
     const template: Template = {
       frontmatter: {
         name: 'p:stats',
@@ -183,11 +185,11 @@ describe('classifyCommand', () => {
     }
 
     const result = classifyCommand('stats', template)
-    expect(result.agents).toBe(false)
-    expect(result.patterns).toBe(false)
+    expect(result.agents).toBe(true)
+    expect(result.patterns).toBe(true)
   })
 
-  it('should classify quality commands with checklists', () => {
+  it('should return same default for quality commands', () => {
     const template: Template = {
       frontmatter: {
         name: 'p:verify',
@@ -198,7 +200,9 @@ describe('classifyCommand', () => {
     }
 
     const result = classifyCommand('verify', template)
-    expect(result.checklist).toBe(true)
+    expect(result.agents).toBe(true)
+    expect(result.patterns).toBe(true)
+    expect(result.checklist).toBe(false)
   })
 })
 

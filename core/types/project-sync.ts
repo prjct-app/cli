@@ -2,7 +2,7 @@
  * Project Sync Types
  *
  * Shared types for sync-service and context-generator.
- * Single source of truth for GitData, ProjectStats, ProjectCommands, SyncAgentInfo.
+ * Single source of truth for GitData, ProjectStats, ProjectCommands.
  */
 
 import type { SyncDiff } from './diff'
@@ -46,26 +46,38 @@ export interface ProjectCommands {
   format: string
 }
 
-/** Agent info as produced by sync/context (name, type, skill). Distinct from types/agents.AgentInfo. */
-export interface SyncAgentInfo {
-  name: string
-  type: 'workflow' | 'domain'
-  skill?: string
-}
-
 // =============================================================================
 // Sync Metrics & Options
 // =============================================================================
 
 export interface SyncMetrics {
   duration: number
+  /** Real total tokens from BM25 index (actual project source tokens) */
   originalSize: number
+  /** Tokens in agent context files loaded into AI conversation */
   filteredSize: number
+  /** Compression ratio: (original - filtered) / original */
   compressionRate: number
+  /** Index statistics from BM25, import graph, co-change */
+  indexes?: {
+    /** BM25: total files indexed */
+    bm25Files?: number
+    /** BM25: average tokens per file */
+    bm25AvgTokens?: number
+    /** BM25: vocabulary size (unique terms) */
+    bm25VocabSize?: number
+    /** Import graph: total import edges */
+    importEdges?: number
+    /** Import graph: files in graph */
+    importFiles?: number
+    /** Co-change: commits analyzed */
+    cochangeCommits?: number
+    /** Co-change: files with change history */
+    cochangeFiles?: number
+  }
 }
 
 export interface SyncOptions {
-  aiTools?: string[]
   preview?: boolean
   skipConfirmation?: boolean
   packagePath?: string
@@ -74,12 +86,6 @@ export interface SyncOptions {
   full?: boolean
   /** Pre-computed list of changed files (from watch service) */
   changedFiles?: string[]
-}
-
-export interface AIToolResult {
-  toolId: string
-  outputFile: string
-  success: boolean
 }
 
 export interface SyncContext7Status {
@@ -107,8 +113,6 @@ export interface IncrementalInfo {
   filesUnchanged: number
   /** Whether indexes were rebuilt */
   indexesRebuilt: boolean
-  /** Whether agents were regenerated */
-  agentsRegenerated: boolean
   /** Domains affected by changes */
   affectedDomains: string[]
 }
@@ -121,16 +125,15 @@ export interface ProjectSyncResult {
   stats: ProjectStats
   commands: ProjectCommands
   stack: StackDetection
-  agents: SyncAgentInfo[]
-  skills: { agent: string; skill: string }[]
-  skillsInstalled: { name: string; agent: string; status: 'installed' | 'skipped' | 'error' }[]
-  contextFiles: string[]
-  aiTools: AIToolResult[]
   context7?: SyncContext7Status
   analysisSummary?: SyncAnalysisSummary
   syncMetrics?: SyncMetrics
   verification?: VerificationReport
   incremental?: IncrementalInfo
+  generatedSkills?: {
+    generated: { name: string; path: string }[]
+    skipped: { name: string; reason: string }[]
+  }
   error?: string
   isPreview?: boolean
   previewDiff?: SyncDiff

@@ -18,6 +18,7 @@ import type { Author } from '../types/commands'
 import type { GlobalConfig, LocalConfig } from '../types/config'
 import { isNotFoundError } from '../types/fs'
 import { getTimestamp } from '../utils/date-helper'
+import { writeJson } from '../utils/file-helper'
 import { VERSION } from '../utils/version'
 import * as authorDetector from './author-detector'
 import pathManager from './path-manager'
@@ -71,12 +72,7 @@ class ConfigManager {
    */
   async writeConfig(projectPath: string, config: LocalConfig): Promise<void> {
     const configPath = pathManager.getLocalConfigPath(projectPath)
-    const configDir = pathManager.getLegacyPrjctPath(projectPath)
-
-    await fs.mkdir(configDir, { recursive: true })
-
-    const content = JSON.stringify(config, null, 2)
-    await fs.writeFile(configPath, `${content}\n`, 'utf-8')
+    await writeJson(configPath, config)
   }
 
   /**
@@ -107,12 +103,7 @@ class ConfigManager {
    */
   async writeGlobalConfig(projectId: string, config: GlobalConfig): Promise<void> {
     const configPath = pathManager.getGlobalProjectConfigPath(projectId)
-    const configDir = pathManager.getGlobalProjectPath(projectId)
-
-    await fs.mkdir(configDir, { recursive: true })
-
-    const content = JSON.stringify(config, null, 2)
-    await fs.writeFile(configPath, `${content}\n`, 'utf-8')
+    await writeJson(configPath, config)
   }
 
   /**

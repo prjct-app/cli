@@ -10,6 +10,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
+import { fileExists } from '../utils/file-helper'
 import { pluginLoader } from './plugin-loader'
 
 type PluginSource = 'builtin' | 'global' | 'project'
@@ -77,7 +78,7 @@ class PluginRegistry {
           }
 
           // Check if file exists
-          await fs.access(pluginPath)
+          if (!(await fileExists(pluginPath))) continue
 
           // Read plugin metadata without loading
           const metadata = await this.readPluginMetadata(pluginPath)

@@ -1,14 +1,12 @@
-import { execFile } from 'node:child_process'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { promisify } from 'node:util'
 import { getTemplateContent } from '../agentic/template-loader'
+import { CONTEXT7_VERIFY_TTL_MS } from '../constants/timings'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
-
 import type { Context7Status } from '../types/services.js'
-
-const execFileAsync = promisify(execFile)
+import { execFileAsync } from '../utils/exec'
+import { writeJson } from '../utils/file-helper'
 
 interface Context7TemplateConfig {
   mcpServers?: {
@@ -24,7 +22,6 @@ const CONTEXT7_DEFAULT = {
   command: 'npx',
   args: ['-y', '@upstash/context7-mcp@latest'],
 }
-const VERIFY_TTL_MS = 5 * 60 * 1000
 let cachedVerify: { at: number; status: Context7Status } | null = null
 
 function parseTemplateConfig(): Context7TemplateConfig {
@@ -82,7 +79,7 @@ class Context7Service {
 
     mcpServers.context7 = getContext7Config()
     config.mcpServers = mcpServers
-    await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8')
+    await writeJson(configPath, config)
     cachedVerify = null
 
     return {
@@ -94,7 +91,7 @@ class Context7Service {
   }
 
   async verify(): Promise<Context7Status> {
-    if (cachedVerify && Date.now() - cachedVerify.at < VERIFY_TTL_MS) {
+    if (cachedVerify && Date.now() - cachedVerify.at < CONTEXT7_VERIFY_TTL_MS) {
       return cachedVerify.status
     }
 

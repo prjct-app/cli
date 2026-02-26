@@ -11,14 +11,11 @@
  * - Auto-cleans snapshots older than 30 days
  */
 
-import { exec } from 'node:child_process'
-import { promisify } from 'node:util'
 import pathManager from '../infrastructure/path-manager'
 import type { SessionSnapshot } from '../schemas/session-snapshot'
 import { prjctDb } from '../storage/database'
 import { formatDuration, getTimestamp } from '../utils/date-helper'
-
-const execAsync = promisify(exec)
+import { getGitBranch, getModifiedFiles } from './git-helpers'
 
 const SNAPSHOT_KEY = 'session-snapshot'
 const MAX_AGE_DAYS = 30
@@ -41,8 +38,8 @@ class SessionSnapshotManager {
       startedAt?: string
     }
   ): Promise<SessionSnapshot> {
-    const branch = await this.getGitBranch(projectPath)
-    const filesModified = await this.getModifiedFiles(projectPath)
+    const branch = await getGitBranch(projectPath)
+    const filesModified = await getModifiedFiles(projectPath)
     const durationWorkedSec = options.startedAt
       ? Math.round((Date.now() - new Date(options.startedAt).getTime()) / 1000)
       : undefined
@@ -213,33 +210,6 @@ class SessionSnapshotManager {
     }
 
     return parts.join(' ')
-  }
-
-  private async getGitBranch(projectPath: string): Promise<string | undefined> {
-    try {
-      const { stdout } = await execAsync('git branch --show-current', {
-        cwd: projectPath,
-      })
-      return stdout.trim() || undefined
-    } catch {
-      return undefined
-    }
-  }
-
-  private async getModifiedFiles(projectPath: string): Promise<string[]> {
-    try {
-      const { stdout } = await execAsync(
-        'git diff --name-only HEAD 2>/dev/null || git diff --name-only 2>/dev/null',
-        { cwd: projectPath }
-      )
-      return stdout
-        .trim()
-        .split('\n')
-        .filter((f) => f.length > 0)
-        .slice(0, 20)
-    } catch {
-      return []
-    }
   }
 }
 

@@ -4,33 +4,28 @@
  * EXECUTES orchestration in TypeScript - not just paths.
  * This module:
  * 1. Detects domains from task description
- * 2. Loads relevant agents from {globalPath}/agents/
- * 3. Loads skills from agent frontmatter
- * 4. Determines if task should be fragmented
- * 5. Creates subtasks in state.json if fragmented
+ * 2. Gathers real codebase context, sealed analysis, and velocity
+ * 3. Determines if task should be fragmented
+ * 4. Creates subtasks in state.json if fragmented
  *
  * @module agentic/orchestrator-executor
  * @version 1.0.0
  */
 
-import { exec as execCallback } from 'node:child_process'
 import fs from 'node:fs/promises'
-import os from 'node:os'
 import path from 'node:path'
-import { promisify } from 'node:util'
 import { calculateVelocity, formatVelocityContext } from '../domain/velocity'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import { DEFAULT_VELOCITY_CONFIG } from '../schemas/velocity'
 import { analysisStorage } from '../storage/analysis-storage'
+import llmAnalysisStorage from '../storage/llm-analysis-storage'
 import { stateStorage } from '../storage/state-storage'
 import { findRelevantFiles } from '../tools/context/files-tool'
 import { getRecentFiles } from '../tools/context/recent-tool'
 import { extractSignatures } from '../tools/context/signatures-tool'
 import type {
   ContextDegradation,
-  LoadedAgent,
-  LoadedSkill,
   OrchestratorContext,
   OrchestratorSubtask,
   DomainClassifierProjectContext as ProjectContext,
@@ -38,11 +33,9 @@ import type {
   SealedAnalysisContext,
 } from '../types/agentic'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
+import { execAsync } from '../utils/exec'
 import outcomeRecorder from '../workflows/outcome-recorder'
 import domainClassifier from './domain-classifier'
-import { parseFrontmatter } from './template-loader'
-
-const execAsync = promisify(execCallback)
 
 /**
  * Domain dependency order - earlier domains should complete first
@@ -77,13 +70,7 @@ export class OrchestratorExecutor {
     // Step 3: Detect domains from task + project context
     const { domains, primary } = await this.detectDomains(taskDescription, projectId, repoAnalysis)
 
-    // Step 4: Load agents for detected domains
-    const agents = await this.loadAgents(domains, projectId)
-
-    // Step 5: Load skills from agent frontmatter
-    const skills = await this.loadSkills(agents)
-
-    // Step 6: Gather real codebase context, sealed analysis, and velocity in parallel
+    // Step 4: Gather real codebase context, sealed analysis, and velocity in parallel
     // PRJ-277: Use Promise.allSettled so individual failures don't crash the orchestrator
     const settled = await Promise.allSettled([
       this.gatherRealContext(taskDescription, projectPath),
@@ -111,20 +98,18 @@ export class OrchestratorExecutor {
       failedTools,
     }
 
-    // Step 7: Determine if fragmentation is needed
+    // Step 5: Determine if fragmentation is needed
     const requiresFragmentation = this.shouldFragment(domains, taskDescription)
 
-    // Step 8: Create subtasks if fragmentation is required
+    // Step 6: Create subtasks if fragmentation is required
     let subtasks: OrchestratorSubtask[] | null = null
     if (requiresFragmentation && command === 'task') {
-      subtasks = await this.createSubtasks(taskDescription, domains, agents, projectId)
+      subtasks = await this.createSubtasks(taskDescription, domains, [], projectId)
     }
 
     return {
       detectedDomains: domains,
       primaryDomain: primary,
-      agents,
-      skills,
       requiresFragmentation,
       subtasks,
       project: {
@@ -239,6 +224,52 @@ export class OrchestratorExecutor {
    */
   private async loadSealedAnalysis(projectId: string): Promise<SealedAnalysisContext | null> {
     try {
+      // Prefer LLM analysis (agentic, real data) over heuristic analysis
+      const llmAnalysis = llmAnalysisStorage.getActive(projectId)
+      if (llmAnalysis) {
+        // Derive sourceDir/testDir from conventions if available
+        const sourceConvention = llmAnalysis.conventions.find(
+          (c) => c.category === 'file-structure' && /source|src/i.test(c.rule)
+        )
+        const testConvention = llmAnalysis.conventions.find(
+          (c) => c.category === 'file-structure' && /test/i.test(c.rule)
+        )
+
+        return {
+          languages: llmAnalysis.stack?.languages ?? [],
+          frameworks: llmAnalysis.stack?.frameworks ?? [],
+          packageManager: llmAnalysis.stack?.packageManager,
+          sourceDir: sourceConvention?.example,
+          testDir: testConvention?.example,
+          fileCount: 0, // Not tracked in LLM analysis
+          patterns: llmAnalysis.patterns.map((p) => ({
+            name: p.name,
+            description: p.description,
+            location: p.locations?.[0],
+          })),
+          antiPatterns: llmAnalysis.antiPatterns.map((a) => ({
+            issue: a.issue,
+            file: a.files?.[0] ?? 'multiple',
+            suggestion: a.suggestion,
+          })),
+          status: 'sealed',
+          commitHash: llmAnalysis.commitHash ?? undefined,
+        }
+      }
+
+      // Fallback to heuristic analysis
+      return this.loadHeuristicAnalysis(projectId)
+    } catch {
+      // Graceful degradation — analysis is optional enhancement
+      return null
+    }
+  }
+
+  /**
+   * Fallback: load analysis from heuristic analysis storage.
+   */
+  private async loadHeuristicAnalysis(projectId: string): Promise<SealedAnalysisContext | null> {
+    try {
       const analysis = await analysisStorage.getActive(projectId)
       if (!analysis) return null
 
@@ -255,7 +286,6 @@ export class OrchestratorExecutor {
         commitHash: analysis.commitHash,
       }
     } catch {
-      // Graceful degradation — analysis is optional enhancement
       return null
     }
   }
@@ -307,7 +337,6 @@ export class OrchestratorExecutor {
     repoAnalysis: { ecosystem: string; technologies?: string[] } | null
   ): Promise<{ domains: string[]; primary: string }> {
     const globalPath = pathManager.getGlobalProjectPath(projectId)
-    const availableAgents = await this.getAvailableAgentNames(globalPath)
 
     // Load state from SQLite for project domain info
     let projectDomains = {
@@ -328,7 +357,6 @@ export class OrchestratorExecutor {
 
     const context: ProjectContext = {
       domains: projectDomains,
-      agents: availableAgents,
       stack: repoAnalysis ? { language: repoAnalysis.ecosystem } : undefined,
     }
 
@@ -341,149 +369,11 @@ export class OrchestratorExecutor {
 
     const domains = [classification.primaryDomain, ...(classification.secondaryDomains || [])]
 
-    // Filter to domains that have corresponding agents
-    const validDomains = domains.filter((domain) =>
-      availableAgents.some(
-        (agent) =>
-          agent === domain || agent.includes(domain) || domain.includes(agent.replace('.md', ''))
-      )
-    )
-
-    if (validDomains.length === 0) {
+    if (domains.length === 0) {
       return { domains: ['general'], primary: 'general' }
     }
 
-    return { domains: validDomains, primary: validDomains[0] }
-  }
-
-  /**
-   * Get list of available agent file names
-   */
-  private async getAvailableAgentNames(globalPath: string): Promise<string[]> {
-    try {
-      const agentsDir = path.join(globalPath, 'agents')
-      const files = await fs.readdir(agentsDir)
-      return files.filter((f) => f.endsWith('.md')).map((f) => f.replace('.md', ''))
-    } catch {
-      return []
-    }
-  }
-
-  /**
-   * Load agents for the detected domains
-   *
-   * Reads agent markdown files from {globalPath}/agents/
-   * and extracts their content and skills from frontmatter.
-   *
-   * Uses parallel file reads for performance (PRJ-110).
-   */
-  async loadAgents(domains: string[], projectId: string): Promise<LoadedAgent[]> {
-    const globalPath = pathManager.getGlobalProjectPath(projectId)
-    const agentsDir = path.join(globalPath, 'agents')
-
-    // Load all domain agents in parallel
-    const agentPromises = domains.map(async (domain): Promise<LoadedAgent | null> => {
-      // Try exact match first, then variations
-      const possibleNames = [`${domain}.md`, `${domain}-agent.md`, `prjct-${domain}.md`]
-
-      for (const fileName of possibleNames) {
-        const filePath = path.join(agentsDir, fileName)
-        try {
-          const content = await fs.readFile(filePath, 'utf-8')
-          const { frontmatter, body } = this.parseAgentFile(content)
-
-          return {
-            name: fileName.replace('.md', ''),
-            domain,
-            content: body,
-            skills: frontmatter.skills || [],
-            filePath,
-            effort: frontmatter.effort as LoadedAgent['effort'],
-            model: frontmatter.model as string | undefined,
-          }
-        } catch {
-          // Try next variation
-        }
-      }
-      return null
-    })
-
-    const results = await Promise.all(agentPromises)
-    return results.filter((agent): agent is LoadedAgent => agent !== null)
-  }
-
-  /**
-   * Parse agent markdown file to extract frontmatter and body
-   */
-  private parseAgentFile(content: string): {
-    frontmatter: { skills?: string[]; [key: string]: unknown }
-    body: string
-  } {
-    const parsed = parseFrontmatter(content)
-
-    // Convert skills from string to array if needed
-    const frontmatter = { ...parsed.frontmatter }
-    if (typeof frontmatter.skills === 'string') {
-      // Handle comma-separated string
-      frontmatter.skills = (frontmatter.skills as string).split(',').map((s) => s.trim())
-    }
-
-    return {
-      frontmatter: frontmatter as { skills?: string[]; [key: string]: unknown },
-      body: parsed.content,
-    }
-  }
-
-  /**
-   * Load skills from agent frontmatter
-   *
-   * Skills are stored in ~/.claude/skills/{name}.md
-   *
-   * Uses parallel file reads for performance (PRJ-110).
-   */
-  async loadSkills(agents: LoadedAgent[]): Promise<LoadedSkill[]> {
-    const skillsDir = path.join(os.homedir(), '.claude', 'skills')
-
-    // Collect unique skill names from all agents, tracking which agents need them
-    const skillToAgents = new Map<string, string[]>()
-    for (const agent of agents) {
-      for (const skillName of agent.skills) {
-        const existing = skillToAgents.get(skillName) || []
-        existing.push(agent.name)
-        skillToAgents.set(skillName, existing)
-      }
-    }
-
-    // Load all skills in parallel
-    const skillPromises = Array.from(skillToAgents.keys()).map(
-      async (skillName): Promise<LoadedSkill | null> => {
-        // Check both patterns: flat file and subdirectory (ecosystem standard)
-        const flatPath = path.join(skillsDir, `${skillName}.md`)
-        const subdirPath = path.join(skillsDir, skillName, 'SKILL.md')
-
-        // Prefer subdirectory format (ecosystem standard)
-        try {
-          const content = await fs.readFile(subdirPath, 'utf-8')
-          return { name: skillName, content, filePath: subdirPath }
-        } catch {
-          // Fall back to flat file
-          try {
-            const content = await fs.readFile(flatPath, 'utf-8')
-            return { name: skillName, content, filePath: flatPath }
-          } catch {
-            // Skill not found — log warning with agent context
-            const agentNames = skillToAgents.get(skillName) || []
-            console.warn(
-              `⚠ Skill "${skillName}" not installed (needed by: ${agentNames.join(', ')}). Run \`prjct sync\` to auto-install.`
-            )
-            return null
-          }
-        }
-      }
-    )
-
-    const results = await Promise.all(skillPromises)
-    return results.filter((skill): skill is LoadedSkill => skill !== null)
+    return { domains, primary: domains[0] }
   }
 
   /**
@@ -530,7 +420,7 @@ export class OrchestratorExecutor {
   async createSubtasks(
     taskDescription: string,
     domains: string[],
-    agents: LoadedAgent[],
+    _agents: unknown[],
     projectId: string
   ): Promise<OrchestratorSubtask[]> {
     // Sort domains by dependency order
@@ -543,9 +433,7 @@ export class OrchestratorExecutor {
 
     // Create subtask for each domain
     const subtasks: OrchestratorSubtask[] = sortedDomains.map((domain, index) => {
-      // Find the agent for this domain
-      const agent = agents.find((a) => a.domain === domain)
-      const agentFile = agent ? `${agent.name}.md` : `${domain}.md`
+      const agentFile = `${domain}.md`
 
       // Determine dependencies - each subtask depends on previous ones
       const dependsOn = sortedDomains.slice(0, index).map((_d, i) => `subtask-${i + 1}`)

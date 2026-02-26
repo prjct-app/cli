@@ -4,28 +4,24 @@
  */
 
 import { TTLCache } from '../../utils/cache'
-import type { Issue } from '../issue-tracker/types'
+import { createTrackerCaches } from '../issue-tracker/cache-factory'
 
-// 5-minute TTL for Linear API responses
 const LINEAR_CACHE_TTL = 5 * 60 * 1000 // 300000ms
+
+// Common caches shared with other trackers
+const common = createTrackerCaches<{ id: string; name: string }>()
 
 /**
  * Cache for individual issues (by ID or identifier)
  * Key format: "issue:{id}" or "issue:{identifier}"
  */
-export const issueCache = new TTLCache<Issue>({
-  ttl: LINEAR_CACHE_TTL,
-  maxSize: 100,
-})
+export const issueCache = common.issues
 
 /**
  * Cache for assigned issues list
  * Key format: "assigned:{userId}" or "assigned:me"
  */
-export const assignedIssuesCache = new TTLCache<Issue[]>({
-  ttl: LINEAR_CACHE_TTL,
-  maxSize: 10,
-})
+export const assignedIssuesCache = common.assignedIssues
 
 /**
  * Cache for teams list
@@ -40,19 +36,14 @@ export const teamsCache = new TTLCache<Array<{ id: string; name: string; key?: s
  * Cache for projects list
  * Key format: "projects"
  */
-export const projectsCache = new TTLCache<Array<{ id: string; name: string }>>({
-  ttl: LINEAR_CACHE_TTL,
-  maxSize: 5,
-})
+export const projectsCache = common.projects
 
 /**
  * Clear all Linear caches
  */
 export function clearLinearCache(): void {
-  issueCache.clear()
-  assignedIssuesCache.clear()
+  common.clearAll()
   teamsCache.clear()
-  projectsCache.clear()
 }
 
 /**
@@ -60,9 +51,7 @@ export function clearLinearCache(): void {
  */
 export function getLinearCacheStats() {
   return {
-    issues: issueCache.stats(),
-    assignedIssues: assignedIssuesCache.stats(),
+    ...common.stats(),
     teams: teamsCache.stats(),
-    projects: projectsCache.stats(),
   }
 }

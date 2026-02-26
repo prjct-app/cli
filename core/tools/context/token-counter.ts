@@ -11,21 +11,8 @@
  * @version 1.0.0
  */
 
+import { CHARS_PER_TOKEN } from '../../constants/token'
 import type { TokenMetrics } from '../../types/context-tools'
-
-// =============================================================================
-// Constants
-// =============================================================================
-
-/**
- * Average characters per token
- *
- * Based on empirical analysis of Claude/GPT tokenizers:
- * - Code averages ~3.5-4.5 chars/token
- * - English text averages ~4-5 chars/token
- * - We use 4 as a conservative middle ground
- */
-const CHARS_PER_TOKEN = 4
 
 /**
  * Model pricing per 1000 tokens (January 2026)

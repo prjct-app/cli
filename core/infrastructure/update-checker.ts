@@ -4,13 +4,12 @@
  * @version 0.5.0
  */
 
-import fs from 'node:fs/promises'
 import https from 'node:https'
 import os from 'node:os'
 import path from 'node:path'
 import chalk from 'chalk'
 import { getErrorMessage } from '../types/fs'
-import { fileExists } from '../utils/file-helper'
+import { fileExists, readJson, writeJson } from '../utils/file-helper'
 
 interface UpdateCache {
   lastCheck: number
@@ -42,8 +41,8 @@ class UpdateChecker {
   async getCurrentVersion(): Promise<string | null> {
     try {
       const packageJsonPath = path.join(__dirname, '..', '..', 'package.json')
-      const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf8'))
-      return packageJson.version
+      const packageJson = await readJson<{ version?: string }>(packageJsonPath)
+      return packageJson?.version ?? null
     } catch (error) {
       console.error('Error reading package version:', getErrorMessage(error))
       return null
@@ -124,8 +123,7 @@ class UpdateChecker {
   async readCache(): Promise<UpdateCache | null> {
     try {
       if (await fileExists(this.cacheFile)) {
-        const cache = JSON.parse(await fs.readFile(this.cacheFile, 'utf8'))
-        return cache
+        return await readJson<UpdateCache>(this.cacheFile)
       }
     } catch (_error) {
       // Cache file doesn't exist or is corrupted - expected
@@ -138,12 +136,7 @@ class UpdateChecker {
    */
   async writeCache(data: UpdateCache): Promise<void> {
     try {
-      // Ensure cache directory exists
-      if (!(await fileExists(this.cacheDir))) {
-        await fs.mkdir(this.cacheDir, { recursive: true })
-      }
-
-      await fs.writeFile(this.cacheFile, JSON.stringify(data, null, 2), 'utf8')
+      await writeJson(this.cacheFile, data)
     } catch (_error) {
       // Fail silently - cache is not critical
     }

@@ -4,16 +4,13 @@
  * Handles ALL sync operations in a single TypeScript execution:
  * - Git analysis
  * - Project stats
- * - Context file generation
- * - Agent generation
- * - Skill configuration
+ * - Native skill generation
  * - State updates
  *
  * This eliminates the need for Claude to make 50+ individual tool calls.
  * Instead, one command does everything.
  *
  * Analysis/stats functions extracted to ./sync-analyzer.ts
- * Agent generation functions extracted to ./sync-agent-gen.ts
  *
  * @version 2.0.0
  */
@@ -21,11 +18,11 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { SemanticMemories } from '../agentic/memory-system'
-import { indexProject as indexBm25 } from '../domain/bm25'
+import { indexProject as indexBm25, loadIndex as loadBm25Index } from '../domain/bm25'
 import { affectedDomains, propagateChanges } from '../domain/change-propagator'
 import { detectChanges, hasHashRegistry, saveHashes } from '../domain/file-hasher'
-import { indexCoChanges } from '../domain/git-cochange'
-import { indexImports } from '../domain/import-graph'
+import { indexCoChanges, loadMatrix as loadCoChangeMatrix } from '../domain/git-cochange'
+import { indexImports, loadGraph as loadImportGraph } from '../domain/import-graph'
 import { getErrorMessage } from '../errors'
 import { detectCodex } from '../infrastructure/ai-provider'
 import commandInstaller from '../infrastructure/command-installer'
@@ -36,22 +33,19 @@ import { analysisStorage } from '../storage/analysis-storage'
 import { archiveStorage } from '../storage/archive-storage'
 import { prjctDb } from '../storage/database'
 import { ideasStorage } from '../storage/ideas-storage'
+import llmAnalysisStorage from '../storage/llm-analysis-storage'
 import { metricsStorage } from '../storage/metrics-storage'
 import { migrateJsonToSqlite, sweepLegacyJson } from '../storage/migrate-json'
 import { queueStorage } from '../storage/queue-storage'
 import { shippedStorage } from '../storage/shipped-storage'
 import { stateStorage } from '../storage/state-storage'
-import { generateAIToolContexts } from '../tools/ai/generator'
-import { extractLearningsFromDB } from '../tools/ai/learnings-extractor'
-import { DEFAULT_AI_TOOLS, detectInstalledTools, resolveToolIds } from '../tools/ai/registry'
-import type { AIToolProjectContext as ProjectContext } from '../types/context-tools'
+import { velocityStorage } from '../storage/velocity-storage'
 import type {
   GitData,
   IncrementalInfo,
   ProjectCommands,
   ProjectStats,
   ProjectSyncResult,
-  SyncAgentInfo,
   SyncMetrics,
   SyncOptions,
 } from '../types/project-sync'
@@ -59,6 +53,7 @@ import type { Context7Status } from '../types/services.js'
 import type { StackDetection } from '../types/stack'
 import type { VerificationReport } from '../types/sync-verifier'
 import * as dateHelper from '../utils/date-helper'
+import { readJson } from '../utils/file-helper'
 import log from '../utils/logger'
 import { outcomeMemoryLearner } from '../workflows/outcome-learner'
 import { outcomeStorage } from '../workflows/outcome-storage'
@@ -66,13 +61,8 @@ import context7Service from './context7-service'
 import { localStateGenerator } from './local-state-generator'
 import { memoryService } from './memory-service'
 import patternExtractor from './pattern-extractor'
-import {
-  autoInstallSkills,
-  configureSkills,
-  generateAgents,
-  loadExistingAgents,
-} from './sync-agent-gen'
-import { analyzeGit, buildSources, detectCommands, detectStack, gatherStats } from './sync-analyzer'
+import { skillGenerator } from './skill-generator'
+import { analyzeGit, detectCommands, detectStack, gatherStats } from './sync-analyzer'
 import { syncVerifier } from './sync-verifier'
 
 // ============================================================================
@@ -99,28 +89,6 @@ class SyncService {
     this.projectPath = projectPath
     const startTime = Date.now()
 
-    // Resolve AI tools: supports 'auto', 'all', or specific list
-    // Default behavior: detected CLI tools (claude/codex) + detected IDE tools
-    let aiToolIds: string[]
-    if (!options.aiTools || options.aiTools.length === 0) {
-      const detectedTools = await detectInstalledTools(projectPath)
-      const cliTools = detectedTools.filter((id) => DEFAULT_AI_TOOLS.includes(id) || id === 'codex')
-      const ideTools = detectedTools.filter(
-        (id) => !DEFAULT_AI_TOOLS.includes(id) && id !== 'codex'
-      )
-
-      // Keep backward-compatible fallback to Claude when no CLI tools are detected
-      aiToolIds = [...(cliTools.length > 0 ? cliTools : DEFAULT_AI_TOOLS), ...ideTools]
-      aiToolIds = Array.from(new Set(aiToolIds))
-    } else if (options.aiTools[0] === 'auto') {
-      aiToolIds = await detectInstalledTools(projectPath)
-      if (aiToolIds.length === 0) aiToolIds = ['claude'] // fallback
-    } else if (options.aiTools[0] === 'all') {
-      aiToolIds = await resolveToolIds('all', projectPath)
-    } else {
-      aiToolIds = options.aiTools
-    }
-
     let context7Status: Context7Status = {
       installed: false,
       verified: false,
@@ -140,11 +108,6 @@ class SyncService {
           stats: this.emptyStats(),
           commands: this.emptyCommands(),
           stack: this.emptyStack(),
-          agents: [],
-          skills: [],
-          skillsInstalled: [],
-          contextFiles: [],
-          aiTools: [],
           context7: { installed: false, verified: false },
           error: 'No prjct project. Run p. init first.',
         }
@@ -152,6 +115,11 @@ class SyncService {
 
       this.globalPath = pathManager.getGlobalProjectPath(this.projectId)
       this.cliVersion = await this.getCliVersion()
+
+      // Cleanup legacy agent files generated by prjct (replaced by skills)
+      await fs
+        .rm(path.join(this.globalPath, 'agents'), { recursive: true, force: true })
+        .catch(() => {})
 
       // Codex router check — non-blocking, sync should succeed for other providers
       const codexDetection = await detectCodex()
@@ -174,11 +142,6 @@ class SyncService {
           stats: this.emptyStats(),
           commands: this.emptyCommands(),
           stack: this.emptyStack(),
-          agents: [],
-          skills: [],
-          skillsInstalled: [],
-          contextFiles: [],
-          aiTools: [],
           context7: {
             installed: context7Status.installed,
             verified: false,
@@ -220,7 +183,6 @@ class SyncService {
       const isFullSync = options.full === true
       let incrementalInfo: IncrementalInfo | undefined
       let shouldRebuildIndexes = true
-      let shouldRegenerateAgents = true
       let changedDomains = new Set<string>()
 
       if (!isFullSync && hasHashRegistry(this.projectId!)) {
@@ -231,13 +193,11 @@ class SyncService {
           if (totalChanged === 0 && !options.changedFiles?.length) {
             // Nothing changed — skip expensive rebuilds
             shouldRebuildIndexes = false
-            shouldRegenerateAgents = false
             incrementalInfo = {
               isIncremental: true,
               filesChanged: 0,
               filesUnchanged: diff.unchanged.length,
               indexesRebuilt: false,
-              agentsRegenerated: false,
               affectedDomains: [],
             }
           } else {
@@ -253,23 +213,11 @@ class SyncService {
             })
             shouldRebuildIndexes = hasSourceChanges
 
-            // Only regenerate agents if stack/domains might have changed
-            // (new files added to previously empty domains, or config files changed)
-            const configChanged = propagated.directlyChanged.some(
-              (f) =>
-                f === 'package.json' ||
-                f === 'tsconfig.json' ||
-                f.includes('Dockerfile') ||
-                f.includes('docker-compose')
-            )
-            shouldRegenerateAgents = configChanged
-
             incrementalInfo = {
               isIncremental: true,
               filesChanged: totalChanged,
               filesUnchanged: diff.unchanged.length,
               indexesRebuilt: shouldRebuildIndexes,
-              agentsRegenerated: shouldRegenerateAgents,
               affectedDomains: Array.from(changedDomains),
             }
           }
@@ -310,96 +258,151 @@ class SyncService {
         }
       }
 
-      // 4. Generate all files (depends on gathered data)
-      // Load task feedback for agent generation (PRJ-272)
-      let taskFeedbackContext:
-        | {
-            patternsDiscovered: string[]
-            knownGotchas: string[]
-            agentAccuracy: Array<{ agent: string; rating: string; note?: string }>
-          }
-        | undefined
-      if (shouldRegenerateAgents) {
-        try {
-          const feedback = await stateStorage.getAggregatedFeedback(this.projectId!)
-          if (
-            feedback.patternsDiscovered.length > 0 ||
-            feedback.knownGotchas.length > 0 ||
-            feedback.agentAccuracy.length > 0
-          ) {
-            taskFeedbackContext = feedback
-          }
-        } catch {
-          // Feedback loading failure should not block agent generation
-        }
-      }
-
-      // Skip agent regeneration if nothing structural changed
-      const agents = shouldRegenerateAgents
-        ? await generateAgents(this.globalPath, stack, stats, taskFeedbackContext)
-        : await loadExistingAgents(this.globalPath)
-      const skills = configureSkills(agents, this.projectId!, this.globalPath)
-      const skillsInstalled = shouldRegenerateAgents ? await autoInstallSkills(agents) : []
-      const sources = buildSources(stats, commands)
-      const contextFiles: string[] = []
-
-      // 4b. Load analysis data for AI tool context enrichment
-      let analysisData: ProjectContext['analysis']
+      // 4. Generate native workflow skills (installed to ~/.claude/skills/)
+      // Collect rich context from SQLite for context-rich skills
+      let generatedSkills: import('../types/project-sync').ProjectSyncResult['generatedSkills']
       try {
-        const analysis = await analysisStorage.getActive(this.projectId)
-        if (analysis?.patterns?.length || analysis?.antiPatterns?.length) {
-          analysisData = {
-            patterns: analysis.patterns ?? [],
-            antiPatterns: analysis.antiPatterns ?? [],
-            packageManager: analysis.packageManager,
-            sourceDir: analysis.sourceDir,
-            testDir: analysis.testDir,
-          }
+        const [
+          llmAnalysis,
+          activeAnalysisForSkills,
+          recentShippedFeatures,
+          velocityData,
+          backlog,
+          taskHistory,
+          allPausedTasks,
+          feedbackForSkills,
+          currentTask,
+          ideaCounts,
+          shippedCount,
+        ] = await Promise.all([
+          Promise.resolve(llmAnalysisStorage.getActive(this.projectId!)).catch(() => null),
+          analysisStorage.getActive(this.projectId!).catch(() => null),
+          shippedStorage.getRecent(this.projectId!, 3).catch(() => []),
+          velocityStorage.getMetrics(this.projectId!).catch(() => null),
+          queueStorage.getBacklog(this.projectId!).catch(() => []),
+          stateStorage.getTaskHistory(this.projectId!).catch(() => []),
+          stateStorage.getAllPausedTasks(this.projectId!).catch(() => []),
+          stateStorage.getAggregatedFeedback(this.projectId!).catch(() => null),
+          stateStorage.getCurrentTask(this.projectId!).catch(() => null),
+          ideasStorage
+            .getCounts(this.projectId!)
+            .catch(() => ({ pending: 0, converted: 0, archived: 0 })),
+          shippedStorage.getCount(this.projectId!).catch(() => 0),
+        ])
+
+        const conditionCtx = {
+          backlogCount: backlog.length,
+          completedTaskCount: taskHistory.length,
+          pausedTaskCount: allPausedTasks.length,
+          hasActiveTask: !!currentTask,
         }
-      } catch {
-        /* non-blocking */
+
+        // Prefer LLM analysis patterns (accurate), fallback to heuristic
+        // Filter out source='repo' patterns — those were heuristic regex detections (next/image, UiButton, etc.)
+        // that are unreliable. Real patterns come from LLM analysis or baseline/feedback.
+        const patterns = llmAnalysis
+          ? llmAnalysis.patterns.map((p) => ({
+              name: p.name,
+              description: p.description,
+              location: p.locations?.[0],
+            }))
+          : (activeAnalysisForSkills?.patterns ?? [])
+              .filter((p: Record<string, unknown>) => p.source !== 'repo')
+              .map((p) => ({
+                name: p.name,
+                description: p.description,
+                location: p.location,
+              }))
+
+        const antiPatterns = llmAnalysis
+          ? llmAnalysis.antiPatterns.map((a) => ({
+              issue: a.issue,
+              file: a.files?.[0] ?? 'multiple',
+              suggestion: a.suggestion,
+              severity: a.severity ?? 'medium',
+            }))
+          : (activeAnalysisForSkills?.antiPatterns ?? [])
+              .filter((a: Record<string, unknown>) => a.source !== 'repo')
+              .map((a) => ({
+                issue: a.issue,
+                file: a.file,
+                suggestion: a.suggestion,
+                severity: a.severity ?? 'medium',
+              }))
+
+        // Commands: LLM analysis > heuristic detectCommands
+        const resolvedCommands = llmAnalysis?.commands
+          ? {
+              install: llmAnalysis.commands.install ?? commands.install,
+              run: commands.run,
+              test: llmAnalysis.commands.test ?? commands.test,
+              build: llmAnalysis.commands.build ?? commands.build,
+              dev: llmAnalysis.commands.dev ?? commands.dev,
+              lint: llmAnalysis.commands.lint ?? commands.lint,
+              format: llmAnalysis.commands.format ?? commands.format,
+            }
+          : commands
+
+        // Build rich context for skill bodies
+        const richContext = {
+          version: stats.version,
+          fileCount: stats.fileCount,
+          patterns,
+          antiPatterns,
+          recentShipped: recentShippedFeatures.map((s) => ({
+            name: s.name,
+            type: s.type ?? 'feature',
+            duration: s.duration,
+            filesChanged: s.changes?.length,
+          })),
+          velocity: velocityData
+            ? {
+                avgPoints: velocityData.averageVelocity,
+                trend: velocityData.velocityTrend,
+                accuracy: velocityData.estimationAccuracy,
+              }
+            : null,
+          backlogCount: backlog.length,
+          completedTaskCount: taskHistory.length,
+          pausedTaskCount: allPausedTasks.length,
+          knownGotchas: feedbackForSkills?.knownGotchas ?? [],
+          userPatterns: feedbackForSkills?.patternsDiscovered ?? [],
+
+          // Task state for rich skills
+          hasActiveTask: !!currentTask,
+          activeTaskDescription: currentTask?.description ?? '',
+          pausedTasks: allPausedTasks.map((t) => ({
+            description: t.description,
+            pausedAt: ((t as Record<string, unknown>).pausedAt as string) ?? '',
+          })),
+          topBacklog: backlog.slice(0, 3).map((t) => ({
+            description: t.description,
+            priority: ((t as Record<string, unknown>).priority as string) ?? 'medium',
+          })),
+          ideasCount: ideaCounts?.pending ?? 0,
+          shippedCount: shippedCount,
+        }
+
+        generatedSkills = await skillGenerator.generateAndInstall(
+          {
+            success: true,
+            projectId: this.projectId!,
+            cliVersion: this.cliVersion,
+            git,
+            stats,
+            commands: resolvedCommands,
+            stack,
+          },
+          conditionCtx,
+          richContext
+        )
+      } catch (error) {
+        log.debug('Native skill generation failed (non-critical)', {
+          error: getErrorMessage(error),
+        })
       }
 
-      // 4c. Load learnings from SQLite - Progressive Context
-      let learnings: ProjectContext['learnings']
-      try {
-        learnings = await extractLearningsFromDB(this.projectId)
-      } catch {
-        // Learnings extraction is optional - don't block on failure
-      }
-
-      // 5. Generate AI tool context files (multi-agent output)
-      const projectContext: ProjectContext = {
-        projectId: this.projectId,
-        name: stats.name,
-        version: stats.version,
-        ecosystem: stats.ecosystem,
-        projectType: stats.projectType,
-        languages: stats.languages,
-        frameworks: stats.frameworks,
-        repoPath: this.projectPath,
-        branch: git.branch,
-        fileCount: stats.fileCount,
-        commits: git.commits,
-        hasChanges: git.hasChanges,
-        commands,
-        agents: {
-          workflow: agents.filter((a) => a.type === 'workflow').map((a) => a.name),
-          domain: agents.filter((a) => a.type === 'domain').map((a) => a.name),
-        },
-        sources,
-        analysis: analysisData,
-        learnings, // Learnings from SQLite
-      }
-
-      const aiToolResults = await generateAIToolContexts(
-        projectContext,
-        this.globalPath,
-        this.projectPath,
-        aiToolIds
-      )
-
-      // 6-8. Update files IN PARALLEL (write to different files)
+      // 5. Update files IN PARALLEL (write to different files)
       await Promise.all([
         this.updateProjectJson(git, stats),
         this.updateStateJson(stats, stack),
@@ -417,7 +420,7 @@ class SyncService {
 
       // 9. Record metrics for value dashboard
       const duration = Date.now() - startTime
-      const syncMetrics = await this.recordSyncMetrics(stats, contextFiles, agents, duration)
+      const syncMetrics = await this.recordSyncMetrics(stats, duration)
 
       // 9b. Archive stale data (PRJ-267)
       await this.archiveStaleData()
@@ -451,15 +454,6 @@ class SyncService {
         stats,
         commands,
         stack,
-        agents,
-        skills,
-        skillsInstalled,
-        contextFiles,
-        aiTools: aiToolResults.map((r) => ({
-          toolId: r.toolId,
-          outputFile: r.outputFile,
-          success: r.success,
-        })),
         context7: {
           installed: context7Status.installed,
           verified: context7Status.verified,
@@ -469,6 +463,7 @@ class SyncService {
         syncMetrics,
         verification,
         incremental: incrementalInfo,
+        generatedSkills,
       }
     } catch (error) {
       return {
@@ -479,11 +474,6 @@ class SyncService {
         stats: this.emptyStats(),
         commands: this.emptyCommands(),
         stack: this.emptyStack(),
-        agents: [],
-        skills: [],
-        skillsInstalled: [],
-        contextFiles: [],
-        aiTools: [],
         context7: {
           installed: context7Status.installed,
           verified: context7Status.verified,
@@ -499,7 +489,7 @@ class SyncService {
   // ==========================================================================
 
   private async ensureDirectories(): Promise<void> {
-    const dirs = ['storage', 'context', 'agents', 'memory', 'analysis', 'config', 'sync']
+    const dirs = ['storage', 'context', 'memory', 'analysis', 'config', 'sync']
     // Create all directories IN PARALLEL
     await Promise.all(
       dirs.map((dir) => fs.mkdir(path.join(this.globalPath, dir), { recursive: true }))
@@ -606,55 +596,33 @@ class SyncService {
   /**
    * Record sync metrics for the value dashboard
    *
-   * Calculates token savings by comparing:
-   * - Original: Estimated tokens if we sent all source files
-   * - Filtered: Actual tokens in generated context files
-   *
-   * Token estimation: ~4 chars per token (industry standard)
+   * Uses REAL token counts from the BM25 index (actual project tokens)
+   * instead of estimates. filteredSize = agent context files that get
+   * loaded into the AI conversation.
    */
-  private async recordSyncMetrics(
-    stats: ProjectStats,
-    contextFiles: string[],
-    agents: SyncAgentInfo[],
-    duration: number
-  ): Promise<SyncMetrics> {
-    const CHARS_PER_TOKEN = 4
-
-    // Calculate filtered size (actual context files generated)
-    let filteredChars = 0
-    for (const file of contextFiles) {
-      try {
-        const filePath = path.join(this.globalPath, file)
-        const content = await fs.readFile(filePath, 'utf-8')
-        filteredChars += content.length
-      } catch (error) {
-        log.debug('Context file not found for metrics', { file, error: getErrorMessage(error) })
+  private async recordSyncMetrics(stats: ProjectStats, duration: number): Promise<SyncMetrics> {
+    // Real original size from BM25 index (actual tokens indexed from source files)
+    let originalSize = 0
+    try {
+      const bm25 = loadBm25Index(this.projectId!)
+      if (bm25) {
+        // Sum actual token counts from every indexed file
+        for (const doc of Object.values(bm25.documents)) {
+          originalSize += doc.length
+        }
       }
+    } catch (error) {
+      log.debug('Could not load BM25 index for metrics', { error: getErrorMessage(error) })
     }
 
-    // Also count agent files
-    for (const agent of agents) {
-      try {
-        const agentPath = path.join(this.globalPath, 'agents', `${agent.name}.md`)
-        const content = await fs.readFile(agentPath, 'utf-8')
-        filteredChars += content.length
-      } catch (error) {
-        log.debug('Agent file not found for metrics', {
-          agent: agent.name,
-          error: getErrorMessage(error),
-        })
-      }
+    // Fallback: if no index yet (first sync before indexing), use file count estimate
+    if (originalSize === 0) {
+      originalSize = stats.fileCount * 200
     }
 
-    const filteredSize = Math.floor(filteredChars / CHARS_PER_TOKEN)
+    // No agent files to measure — skills are loaded natively by Claude Code
+    const filteredSize = 0
 
-    // Estimate original size (what it would take without prjct)
-    // Conservative estimate: avg 500 tokens per source file
-    // Plus overhead for manually creating context
-    const avgTokensPerFile = 500
-    const originalSize = stats.fileCount * avgTokensPerFile
-
-    // Calculate compression rate
     const compressionRate =
       originalSize > 0 ? Math.max(0, (originalSize - filteredSize) / originalSize) : 0
 
@@ -665,10 +633,32 @@ class SyncService {
         filteredSize,
         duration,
         isWatch: false,
-        agents: agents.filter((a) => a.type === 'domain').map((a) => a.name),
       })
     } catch (error) {
       log.debug('Failed to record sync metrics', { error: getErrorMessage(error) })
+    }
+
+    // Collect real index stats
+    const indexes: NonNullable<SyncMetrics['indexes']> = {}
+    try {
+      const bm25 = loadBm25Index(this.projectId!)
+      if (bm25) {
+        indexes.bm25Files = bm25.totalDocs
+        indexes.bm25AvgTokens = Math.round(bm25.avgDocLength)
+        indexes.bm25VocabSize = Object.keys(bm25.invertedIndex).length
+      }
+      const graph = loadImportGraph(this.projectId!)
+      if (graph) {
+        indexes.importEdges = graph.edgeCount
+        indexes.importFiles = graph.fileCount
+      }
+      const cochange = loadCoChangeMatrix(this.projectId!)
+      if (cochange) {
+        indexes.cochangeCommits = cochange.commitsAnalyzed
+        indexes.cochangeFiles = cochange.filesAnalyzed
+      }
+    } catch (error) {
+      log.debug('Could not load index stats', { error: getErrorMessage(error) })
     }
 
     return {
@@ -676,6 +666,7 @@ class SyncService {
       originalSize,
       filteredSize,
       compressionRate,
+      indexes,
     }
   }
 
@@ -872,8 +863,8 @@ class SyncService {
     try {
       // Try to read from package.json in the module
       const pkgPath = path.join(__dirname, '..', '..', 'package.json')
-      const pkg = JSON.parse(await fs.readFile(pkgPath, 'utf-8'))
-      return pkg.version || '0.0.0'
+      const pkg = await readJson<{ version?: string }>(pkgPath)
+      return pkg?.version || '0.0.0'
     } catch (error) {
       log.debug('Failed to read CLI version', { error: getErrorMessage(error) })
       return '0.0.0'

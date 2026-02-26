@@ -3,8 +3,8 @@
  */
 
 import { describe, expect, it } from 'bun:test'
+import { FIBONACCI_POINTS } from '../../constants/algorithms'
 import {
-  FIBONACCI_POINTS,
   findClosestPoint,
   formatMinutes,
   isValidPoint,

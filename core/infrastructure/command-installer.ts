@@ -1,15 +1,11 @@
 /**
  * Command Installer
- * Installs prjct commands in Claude Code and other AI CLI agents.
+ * Installs prjct global config in Claude Code and other AI CLI agents.
  *
- * Architecture:
- * - Claude: Single router (p.md) in ~/.claude/commands/ — ONE entry point
- * - Gemini: Simple router (p.toml) in ~/.gemini/commands/
+ * Simplified: No more router, templates, or module system.
+ * prjct = data helper. Skills handle workflows natively.
  *
- * The router loads templates at runtime from the npm package.
- * No subcommand files are installed — this prevents skill conflicts.
- *
- * @version 0.7.0 - Single source of truth (no p/ subdirectory)
+ * @version 1.0.0 - Post-template deprecation
  */
 
 import fs from 'node:fs/promises'
@@ -24,113 +20,30 @@ import type {
   SyncResult,
   UninstallResult,
 } from '../types/infrastructure'
-import { PACKAGE_ROOT } from '../utils/version'
+import { fileExists } from '../utils/file-helper'
+import { mergeWithMarkers } from './ide-project-installer'
 
 // =============================================================================
-// Module Types
+// Inline CLAUDE.md content (replaces template files + module system)
 // =============================================================================
 
-interface ModuleProfile {
-  description: string
-  modules: string[]
-}
+const GLOBAL_CLAUDE_MD_CONTENT = `<!-- prjct:start - DO NOT REMOVE THIS MARKER -->
+# p/ — Context layer for AI agents
 
-interface ModuleConfig {
-  description: string
-  version: string
-  profiles: Record<string, ModuleProfile>
-  default: string
-  commandProfiles: Record<string, string>
-}
+Skills auto-activate for: task, done, pause, resume, ship, next, sync, bug, workflow, enrich, linear, jira, plan, velocity, tokens
+Other commands: run \`prjct <command> --md\` and follow CLI output
 
-// =============================================================================
-// Modular Template Composition (PRJ-94)
-// =============================================================================
+Flow: idea → roadmap → next → task → done → ship → next (cycle until plan complete)
 
-/**
- * Load module configuration
- */
-async function loadModuleConfig(): Promise<ModuleConfig | null> {
-  try {
-    // Try bundled templates first, fall back to filesystem
-    const content = getTemplateContent('global/modules/module-config.json')
-    if (content) return JSON.parse(content) as ModuleConfig
+Data:
+- prjct runs → LLM generates relevant data → prjct stores it → LLM requests it from prjct → LLM uses it
+- Commit footer: \`Generated with [p/](https://www.prjct.app/)\`
+- Path resolution: \`.prjct/prjct.config.json\` → \`~/.prjct-cli/projects/{projectId}\`
+- Storage: \`prjct\` CLI (SQLite internally)
 
-    const configPath = path.join(PACKAGE_ROOT, 'templates/global/modules/module-config.json')
-    const fsContent = await fs.readFile(configPath, 'utf-8')
-    return JSON.parse(fsContent) as ModuleConfig
-  } catch {
-    return null
-  }
-}
-
-/**
- * Compose global template from modules based on profile
- * @param profile - Profile name ('full', 'standard', 'minimal') or null for default
- * @returns Composed template content with markers
- */
-export async function composeGlobalTemplate(profile?: string): Promise<string> {
-  const config = await loadModuleConfig()
-
-  if (!config) {
-    const fallback = getTemplateContent('global/CLAUDE.md')
-    if (fallback) return fallback
-    const fallbackPath = path.join(PACKAGE_ROOT, 'templates/global/CLAUDE.md')
-    return fs.readFile(fallbackPath, 'utf-8')
-  }
-
-  const profileName = profile || config.default
-  const selectedProfile = config.profiles[profileName]
-
-  if (!selectedProfile) {
-    const defaultProfile = config.profiles[config.default]
-    if (!defaultProfile) {
-      const fallback = getTemplateContent('global/CLAUDE.md')
-      if (fallback) return fallback
-      const fallbackPath = path.join(PACKAGE_ROOT, 'templates/global/CLAUDE.md')
-      return fs.readFile(fallbackPath, 'utf-8')
-    }
-  }
-
-  const modules = (selectedProfile || config.profiles[config.default]).modules
-
-  // Load and compose modules
-  const parts: string[] = []
-  parts.push('<!-- prjct:start - DO NOT REMOVE THIS MARKER -->')
-
-  for (const moduleName of modules) {
-    // Try bundle first, then filesystem
-    const content = getTemplateContent(`global/modules/${moduleName}`)
-    if (content) {
-      parts.push('')
-      parts.push(content)
-    } else {
-      try {
-        const modulePath = path.join(PACKAGE_ROOT, 'templates/global/modules', moduleName)
-        const fsContent = await fs.readFile(modulePath, 'utf-8')
-        parts.push('')
-        parts.push(fsContent)
-      } catch {
-        console.warn(`Module not found: ${moduleName}`)
-      }
-    }
-  }
-
-  parts.push('')
-  parts.push('<!-- prjct:end - DO NOT REMOVE THIS MARKER -->')
-  parts.push('')
-
-  return parts.join('\n')
-}
-
-/**
- * Get recommended profile for a command
- */
-export async function getProfileForCommand(command: string): Promise<string> {
-  const config = await loadModuleConfig()
-  if (!config) return 'default'
-  return config.commandProfiles[command] || config.default
-}
+**Auto-managed by prjct-cli** | https://prjct.app
+<!-- prjct:end - DO NOT REMOVE THIS MARKER -->
+`
 
 // =============================================================================
 // Global Config
@@ -160,15 +73,20 @@ export async function installDocs(): Promise<{ success: boolean; error?: string 
     }
 
     // Fall back to filesystem
+    const { PACKAGE_ROOT } = require('../utils/version')
     const templateDocsDir = path.join(PACKAGE_ROOT, 'templates/global/docs')
-    const docFiles = await fs.readdir(templateDocsDir)
-    for (const file of docFiles) {
-      if (file.endsWith('.md')) {
-        const srcPath = path.join(templateDocsDir, file)
-        const destPath = path.join(docsDir, file)
-        const content = await fs.readFile(srcPath, 'utf-8')
-        await fs.writeFile(destPath, content, 'utf-8')
+    try {
+      const docFiles = await fs.readdir(templateDocsDir)
+      for (const file of docFiles) {
+        if (file.endsWith('.md')) {
+          const srcPath = path.join(templateDocsDir, file)
+          const destPath = path.join(docsDir, file)
+          const content = await fs.readFile(srcPath, 'utf-8')
+          await fs.writeFile(destPath, content, 'utf-8')
+        }
       }
+    } catch {
+      // No docs directory — that's fine
     }
 
     return { success: true }
@@ -200,42 +118,30 @@ export async function installGlobalConfig(): Promise<GlobalConfigResult> {
     await fs.mkdir(activeProvider.configDir, { recursive: true })
 
     const globalConfigPath = path.join(activeProvider.configDir, activeProvider.contextFile)
-    const templatePath = path.join(PACKAGE_ROOT, 'templates', 'global', activeProvider.contextFile)
 
-    // Read template content - use modular composition (PRJ-94)
-    let templateContent = ''
-    try {
-      // First try provider-specific template (bundle then filesystem)
+    // Use inline content for Claude, or provider-specific template for others
+    let templateContent = GLOBAL_CLAUDE_MD_CONTENT
+
+    if (providerName !== 'claude') {
+      // Try provider-specific template (bundle then filesystem)
       const bundled = getTemplateContent(`global/${activeProvider.contextFile}`)
       if (bundled) {
         templateContent = bundled
       } else {
-        templateContent = await fs.readFile(templatePath, 'utf-8')
-      }
-    } catch (_error) {
-      // Use modular composition for Claude (PRJ-94)
-      if (providerName === 'claude') {
+        const { PACKAGE_ROOT } = require('../utils/version')
+        const templatePath = path.join(
+          PACKAGE_ROOT,
+          'templates',
+          'global',
+          activeProvider.contextFile
+        )
         try {
-          templateContent = await composeGlobalTemplate()
+          templateContent = await fs.readFile(templatePath, 'utf-8')
         } catch {
-          const fallback = getTemplateContent('global/CLAUDE.md')
-          if (fallback) {
-            templateContent = fallback
-          } else {
-            const fallbackTemplatePath = path.join(PACKAGE_ROOT, 'templates/global/CLAUDE.md')
-            templateContent = await fs.readFile(fallbackTemplatePath, 'utf-8')
+          // Fall back to inline content with provider name swap
+          if (providerName === 'gemini') {
+            templateContent = GLOBAL_CLAUDE_MD_CONTENT.replace(/Claude/g, 'Gemini')
           }
-        }
-      } else {
-        const fallback = getTemplateContent('global/CLAUDE.md')
-        if (fallback) {
-          templateContent = fallback
-        } else {
-          const fallbackTemplatePath = path.join(PACKAGE_ROOT, 'templates/global/CLAUDE.md')
-          templateContent = await fs.readFile(fallbackTemplatePath, 'utf-8')
-        }
-        if (providerName === 'gemini') {
-          templateContent = templateContent.replace(/Claude/g, 'Gemini')
         }
       }
     }
@@ -249,60 +155,44 @@ export async function installGlobalConfig(): Promise<GlobalConfigResult> {
       fileExists = true
     } catch (error) {
       if (isNotFoundError(error)) {
-        // File doesn't exist, will create new
         fileExists = false
       } else {
         throw error
       }
     }
 
-    if (!fileExists) {
-      // Create new file with full template
-      await fs.writeFile(globalConfigPath, templateContent, 'utf-8')
-      return {
-        success: true,
-        action: 'created',
-        path: globalConfigPath,
-      }
-    } else {
-      // File exists - perform intelligent merge
-      const startMarker = '<!-- prjct:start - DO NOT REMOVE THIS MARKER -->'
-      const endMarker = '<!-- prjct:end - DO NOT REMOVE THIS MARKER -->'
+    // Strip legacy prjct-project sections (static context generation removed)
+    const projectStartMarker = '<!-- prjct-project:start - DO NOT REMOVE THIS MARKER -->'
+    const projectEndMarker = '<!-- prjct-project:end - DO NOT REMOVE THIS MARKER -->'
+    if (
+      existingContent.includes(projectStartMarker) &&
+      existingContent.includes(projectEndMarker)
+    ) {
+      const beforeProject = existingContent.substring(
+        0,
+        existingContent.indexOf(projectStartMarker)
+      )
+      const afterProject = existingContent.substring(
+        existingContent.indexOf(projectEndMarker) + projectEndMarker.length
+      )
+      existingContent = `${(beforeProject + afterProject).replace(/\n{3,}/g, '\n\n').trim()}\n`
+    }
 
-      // Check if markers exist in existing file
-      const hasMarkers =
-        existingContent.includes(startMarker) && existingContent.includes(endMarker)
+    const startMarker = '<!-- prjct:start - DO NOT REMOVE THIS MARKER -->'
+    const endMarker = '<!-- prjct:end - DO NOT REMOVE THIS MARKER -->'
 
-      if (!hasMarkers) {
-        // No markers - append prjct section at the end
-        const updatedContent = `${existingContent}\n\n${templateContent}`
-        await fs.writeFile(globalConfigPath, updatedContent, 'utf-8')
-        return {
-          success: true,
-          action: 'appended',
-          path: globalConfigPath,
-        }
-      } else {
-        // Markers exist - replace content between markers
-        const beforeMarker = existingContent.substring(0, existingContent.indexOf(startMarker))
-        const afterMarker = existingContent.substring(
-          existingContent.indexOf(endMarker) + endMarker.length
-        )
+    const merged = mergeWithMarkers(
+      fileExists ? existingContent : '',
+      templateContent,
+      startMarker,
+      endMarker
+    )
 
-        // Extract prjct section from template
-        const prjctSection = templateContent.substring(
-          templateContent.indexOf(startMarker),
-          templateContent.indexOf(endMarker) + endMarker.length
-        )
-
-        const updatedContent = beforeMarker + prjctSection + afterMarker
-        await fs.writeFile(globalConfigPath, updatedContent, 'utf-8')
-        return {
-          success: true,
-          action: 'updated',
-          path: globalConfigPath,
-        }
-      }
+    await fs.writeFile(globalConfigPath, merged.content, 'utf-8')
+    return {
+      success: true,
+      action: merged.action,
+      path: globalConfigPath,
     }
   } catch (error) {
     return {
@@ -321,12 +211,10 @@ export class CommandInstaller {
   homeDir: string
   commandsPath = ''
   configPath = ''
-  templatesDir: string
   private _initialized = false
 
   constructor() {
     this.homeDir = os.homedir()
-    this.templatesDir = path.join(PACKAGE_ROOT, 'templates', 'commands')
   }
 
   private async ensureInit(): Promise<void> {
@@ -335,9 +223,7 @@ export class CommandInstaller {
     const aiProvider = require('./ai-provider')
     const activeProvider = await aiProvider.getActiveProvider()
 
-    // All providers use commands/ directly — no p/ subdirectory
     this.commandsPath = path.join(activeProvider.configDir, 'commands')
-
     this.configPath = activeProvider.configDir
     this._initialized = true
   }
@@ -347,40 +233,11 @@ export class CommandInstaller {
    */
   async detectActiveProvider(): Promise<boolean> {
     await this.ensureInit()
-    try {
-      await fs.access(this.configPath)
-      return true
-    } catch (error) {
-      if (isNotFoundError(error)) {
-        return false
-      }
-      throw error
-    }
+    return fileExists(this.configPath)
   }
 
   /**
-   * Get list of command files to install
-   */
-  async getCommandFiles(): Promise<string[]> {
-    // Router files are installed separately by installRouter()
-    const routerFiles = new Set(['p.md', 'p.toml'])
-
-    // Try bundled templates first
-    const bundled = listTemplates('commands/')
-    if (bundled.length > 0) {
-      return bundled
-        .filter((k) => k.endsWith('.md'))
-        .map((k) => k.replace('commands/', ''))
-        .filter((f) => !routerFiles.has(f))
-    }
-
-    // Fall back to filesystem
-    const files = await fs.readdir(this.templatesDir)
-    return files.filter((f) => f.endsWith('.md') && !routerFiles.has(f))
-  }
-
-  /**
-   * Install commands to active AI agent
+   * Install commands to active AI agent (no-op — router deprecated)
    */
   async installCommands(): Promise<InstallResult> {
     const providerDetected = await this.detectActiveProvider()
@@ -394,41 +251,34 @@ export class CommandInstaller {
       }
     }
 
-    try {
-      await this.installRouter()
+    // Clean up legacy router if it exists
+    await this.cleanupRouter()
 
-      return {
-        success: true,
-        installed: ['p (router)'],
-        path: this.commandsPath,
-      }
-    } catch (error) {
-      return {
-        success: false,
-        error: getErrorMessage(error),
-      }
+    return {
+      success: true,
+      installed: [],
+      path: this.commandsPath,
     }
   }
 
   /**
-   * Uninstall commands from Claude
+   * Uninstall commands from provider
    */
   async uninstallCommands(): Promise<UninstallResult> {
     try {
       const uninstalled: string[] = []
 
-      // Remove the router (p.md)
-      const aiProvider = require('./ai-provider')
-      const activeProvider = await aiProvider.getActiveProvider()
-      const routerFile = activeProvider.name === 'gemini' ? 'p.toml' : 'p.md'
-      const routerPath = path.join(this.commandsPath, routerFile)
-
-      try {
-        await fs.unlink(routerPath)
-        uninstalled.push('p (router)')
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-          return { success: false, error: getErrorMessage(error) }
+      // Clean up legacy router files
+      await this.ensureInit()
+      for (const routerFile of ['p.md', 'p.toml']) {
+        const routerPath = path.join(this.commandsPath, routerFile)
+        try {
+          await fs.unlink(routerPath)
+          uninstalled.push(routerFile)
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+            return { success: false, error: getErrorMessage(error) }
+          }
         }
       }
 
@@ -445,7 +295,7 @@ export class CommandInstaller {
   }
 
   /**
-   * Check if commands are already installed
+   * Check if commands are installed (skills-based — no router needed)
    */
   async checkInstallation(): Promise<CheckResult> {
     const providerDetected = await this.detectActiveProvider()
@@ -457,34 +307,17 @@ export class CommandInstaller {
       }
     }
 
-    try {
-      const aiProvider = require('./ai-provider')
-      const activeProvider = await aiProvider.getActiveProvider()
-      const routerFile = activeProvider.name === 'gemini' ? 'p.toml' : 'p.md'
-      const routerPath = path.join(this.commandsPath, routerFile)
-
-      await fs.access(routerPath)
-
-      return {
-        installed: true,
-        providerDetected: true,
-        commands: ['p (router)'],
-        path: this.commandsPath,
-      }
-    } catch (error) {
-      if (isNotFoundError(error)) {
-        return {
-          installed: false,
-          providerDetected: true,
-          commands: [],
-        }
-      }
-      throw error
+    // Skills-based installation — always considered "installed" if provider is detected
+    return {
+      installed: true,
+      providerDetected: true,
+      commands: [],
+      path: this.commandsPath,
     }
   }
 
   /**
-   * Get installation path for Claude commands
+   * Get installation path for commands
    */
   async getInstallPath(): Promise<string> {
     await this.ensureInit()
@@ -492,204 +325,7 @@ export class CommandInstaller {
   }
 
   /**
-   * Install the router (p.md for Claude, p.toml for Gemini) to commands directory
-   * This enables the "p. task" natural language trigger
-   */
-  async installRouter(): Promise<boolean> {
-    const aiProvider = require('./ai-provider')
-    const activeProvider = await aiProvider.getActiveProvider()
-
-    if (activeProvider.name === 'gemini') {
-      // Gemini uses TOML — keep static
-      return this.installStaticRouter('p.toml')
-    }
-
-    // Claude: generate dynamic router with current command list
-    try {
-      const routerDest = path.join(activeProvider.configDir, 'commands', 'p.md')
-      await fs.mkdir(path.dirname(routerDest), { recursive: true })
-
-      const content = await this.generateRouterContent()
-      await fs.writeFile(routerDest, content, 'utf-8')
-      return true
-    } catch (error) {
-      if (isNotFoundError(error)) {
-        return false
-      }
-      throw error
-    }
-  }
-
-  /**
-   * Install a static router file (used for Gemini p.toml)
-   */
-  private async installStaticRouter(routerFile: string): Promise<boolean> {
-    const aiProvider = require('./ai-provider')
-    const activeProvider = await aiProvider.getActiveProvider()
-
-    try {
-      const routerDest = path.join(activeProvider.configDir, 'commands', routerFile)
-      await fs.mkdir(path.dirname(routerDest), { recursive: true })
-
-      const bundled = getTemplateContent(`commands/${routerFile}`)
-      if (bundled) {
-        await fs.writeFile(routerDest, bundled, 'utf-8')
-        return true
-      }
-
-      const routerSource = path.join(this.templatesDir, routerFile)
-      const content = await fs.readFile(routerSource, 'utf-8')
-      await fs.writeFile(routerDest, content, 'utf-8')
-      return true
-    } catch (error) {
-      if (isNotFoundError(error)) {
-        return false
-      }
-      throw error
-    }
-  }
-
-  /**
-   * Generate dynamic router content from available templates
-   */
-  private async generateRouterContent(): Promise<string> {
-    const commandFiles = await this.getCommandFiles()
-
-    // Build Quick Reference table from available commands
-    const commandDescriptions: Record<string, string> = {
-      task: 'Start a task',
-      done: 'Complete current subtask',
-      ship: 'Ship feature with PR + version bump',
-      sync: 'Analyze project, regenerate agents',
-      pause: 'Pause current task',
-      resume: 'Resume paused task',
-      next: 'Show priority queue',
-      idea: 'Quick idea capture',
-      bug: 'Report bug with auto-priority',
-      dash: 'Dashboard view',
-      status: 'Project status check',
-      linear: 'Linear integration (via MCP)',
-      jira: 'JIRA integration (via MCP)',
-      init: 'Initialize prjct in a project',
-      analyze: 'Deep repository analysis',
-      plan: 'Create implementation plan',
-      design: 'UI/UX design workflow',
-      test: 'Test workflow',
-      cleanup: 'Code cleanup',
-      git: 'Git operations',
-      review: 'Code review',
-      history: 'Task history & undo/redo',
-      sessions: 'Session management',
-      workflow: 'Workflow management',
-      enrich: 'Enrich task context',
-      impact: 'Impact analysis',
-      learnings: 'View learned patterns',
-      merge: 'Merge workflow',
-      prd: 'Product requirements doc',
-      serve: 'Start dev server',
-      setup: 'Setup prjct',
-      spec: 'Technical specification',
-      update: 'Update prjct',
-      verify: 'Verify analysis integrity',
-      auth: 'Authentication',
-    }
-
-    // Filter to only available commands
-    const tableRows: string[] = []
-    for (const file of commandFiles) {
-      const name = file.replace('.md', '')
-      const desc = commandDescriptions[name] || `${name} command`
-      tableRows.push(
-        `| \`p. ${name}${['task', 'idea', 'bug', 'ship'].includes(name) ? ' <desc>' : ''}\` | ${desc} |`
-      )
-    }
-
-    return `---
-description: 'prjct CLI - Context layer for AI agents'
-allowed-tools: ["*"]
----
-
-# prjct Command Router
-
-**ARGUMENTS**: $ARGUMENTS
-
-All commands use the \`p.\` prefix.
-
-## Quick Reference
-
-| Command | Description |
-|---------|-------------|
-${tableRows.join('\n')}
-
-## Execution
-
-\`\`\`
-1. PARSE: $ARGUMENTS → extract command (first word) + remaining args
-2. CHECK: if command is in Passthrough list below → run directly (no template needed)
-3. ELSE: GET npm root (npm root -g) → LOAD template: {npmRoot}/prjct-cli/templates/commands/{command}.md → EXECUTE
-\`\`\`
-
-## Passthrough Commands (run directly — no template needed)
-
-These commands just need the CLI output. Run them directly:
-
-| Command | Run |
-|---------|-----|
-| status | \`prjct status {args} --md\` |
-| analyze | \`prjct analyze {args} --md\` |
-| learnings | \`prjct learnings --md\` |
-| verify | \`prjct verify {args} --md\` |
-| update | \`prjct update --md\` |
-| serve | \`prjct serve {args} --md\` |
-| cleanup | \`prjct cleanup {args} --md\` |
-| auth | \`prjct auth {args} --md\` |
-| skill | \`prjct skill {args} --md\` |
-| sessions | \`prjct sessions {args} --md\` |
-| next | \`prjct next {args} --md\` — if output has \`options\`, present to user |
-| pause | \`prjct pause "{args}" --md\` — if no reason, ask user why (Blocked/Switching/Break/Researching) |
-| resume | \`prjct resume {args} --md\` — if output has \`options\`, present to user; switch branch if told |
-| dash | \`prjct dash {args} --md\` — present tables from output as scannable dashboard |
-
-Follow the instructions in the CLI output.
-
-## Template Commands (require template file)
-
-task, done, ship, sync, bug, idea, plan, design, test, review, git, merge, history,
-workflow, enrich, impact, prd, spec, init, setup, jira, linear
-
-Load these via: \`{npmRoot}/prjct-cli/templates/commands/{command}.md\`
-
-## Command Aliases
-
-| Input | Redirects To |
-|-------|--------------|
-| \`p. undo\` | \`p. history undo\` |
-| \`p. redo\` | \`p. history redo\` |
-
-## State Context
-
-All state is managed by the \`prjct\` CLI via SQLite (prjct.db).
-Templates should use CLI commands for data operations — never read/write JSON storage files directly.
-
-## Error Handling
-
-| Error | Action |
-|-------|--------|
-| Unknown command | "Unknown command: {command}. Run \`p. help\` for available commands." |
-| No project | "No prjct project. Run \`p. init\` first." |
-| Template not found | "Template not found: {command}.md" |
-
-## NOW: Execute
-
-1. Parse command from $ARGUMENTS
-2. Handle aliases (undo → history undo, redo → history redo)
-3. If passthrough command → run CLI directly
-4. Else → load and execute command template
-`
-  }
-
-  /**
-   * Sync commands - intelligent update that detects and removes orphans
+   * Sync commands - cleanup legacy router + update global config
    */
   async syncCommands(): Promise<SyncResult> {
     const providerDetected = await this.detectActiveProvider()
@@ -705,13 +341,14 @@ Templates should use CLI commands for data operations — never read/write JSON 
     }
 
     try {
-      await this.installRouter()
+      // Clean up legacy router files
+      const cleaned = await this.cleanupRouter()
 
       return {
         success: true,
         added: 0,
-        updated: 1,
-        removed: 0,
+        updated: 0,
+        removed: cleaned ? 1 : 0,
       } as SyncResult
     } catch (error) {
       return {
@@ -722,6 +359,29 @@ Templates should use CLI commands for data operations — never read/write JSON 
         removed: 0,
       }
     }
+  }
+
+  /**
+   * Remove legacy router files (p.md, p.toml) from commands directory.
+   * Migration step — these are no longer needed with skills-based architecture.
+   */
+  async cleanupRouter(): Promise<boolean> {
+    await this.ensureInit()
+    let cleaned = false
+
+    for (const routerFile of ['p.md', 'p.toml']) {
+      const routerPath = path.join(this.commandsPath, routerFile)
+      try {
+        await fs.unlink(routerPath)
+        cleaned = true
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+          // Log but don't fail
+        }
+      }
+    }
+
+    return cleaned
   }
 
   /**
@@ -748,6 +408,72 @@ Templates should use CLI commands for data operations — never read/write JSON 
    */
   async installGlobalConfig(): Promise<GlobalConfigResult> {
     return installGlobalConfig()
+  }
+
+  /**
+   * Full legacy cleanup — removes ALL stale prjct artifacts from all providers.
+   * Called during `prjct update` to ensure clean migration.
+   *
+   * Cleans:
+   * - ~/.claude/commands/p.md, p.toml (legacy routers)
+   * - ~/.claude/commands/p/ (pre-v1.25 subdirectory)
+   * - ~/.gemini/commands/p.toml (legacy Gemini router)
+   * - ~/.gemini/commands/p/ (legacy Gemini subdirectory)
+   * - Homebrew formula remnants
+   * - Old global config content (replaced via marker swap in installGlobalConfig)
+   */
+  async cleanupAllLegacy(): Promise<{ cleaned: string[] }> {
+    const home = os.homedir()
+    const cleaned: string[] = []
+
+    // Legacy router files across all CLI providers
+    const legacyFiles = [
+      path.join(home, '.claude', 'commands', 'p.md'),
+      path.join(home, '.claude', 'commands', 'p.toml'),
+      path.join(home, '.gemini', 'commands', 'p.md'),
+      path.join(home, '.gemini', 'commands', 'p.toml'),
+    ]
+
+    for (const filePath of legacyFiles) {
+      try {
+        await fs.unlink(filePath)
+        cleaned.push(filePath)
+      } catch {
+        // Already gone
+      }
+    }
+
+    // Legacy subdirectories (pre-v1.25 architecture)
+    const legacyDirs = [
+      path.join(home, '.claude', 'commands', 'p'),
+      path.join(home, '.gemini', 'commands', 'p'),
+    ]
+
+    for (const dirPath of legacyDirs) {
+      try {
+        const stat = await fs.stat(dirPath).catch(() => null)
+        if (stat?.isDirectory()) {
+          await fs.rm(dirPath, { recursive: true, force: true })
+          cleaned.push(dirPath)
+        }
+      } catch {
+        // Already gone
+      }
+    }
+
+    // Legacy homebrew config/metadata
+    const brewLegacy = [path.join(home, '.prjct-cli', 'config', 'homebrew-migrated')]
+
+    for (const filePath of brewLegacy) {
+      try {
+        await fs.unlink(filePath)
+        cleaned.push(filePath)
+      } catch {
+        // Already gone
+      }
+    }
+
+    return { cleaned }
   }
 
   /**
@@ -781,21 +507,6 @@ export function getProviderPaths(): {
       config: path.join(homeDir, '.gemini'),
       router: path.join(homeDir, '.gemini', 'commands', 'p.toml'),
     },
-  }
-}
-
-/**
- * Check if provider router is installed
- */
-export async function isRouterInstalled(provider: 'claude' | 'gemini'): Promise<boolean> {
-  const paths = getProviderPaths()
-  const routerPath = paths[provider].router
-
-  try {
-    await fs.access(routerPath)
-    return true
-  } catch {
-    return false
   }
 }
 

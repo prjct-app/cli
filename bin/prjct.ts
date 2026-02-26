@@ -114,14 +114,25 @@ async function main(): Promise<void> {
     const home = os.homedir()
     const detection = await detectAllProviders()
 
+    // Check that global config has prjct section (routers deprecated — skills are native)
     if (detection.claude.installed) {
-      const claudeRouter = path.join(home, '.claude', 'commands', 'p.md')
-      if (!(await fileExists(claudeRouter))) return false
+      const claudeMd = path.join(home, '.claude', 'CLAUDE.md')
+      try {
+        const content = await import('node:fs/promises').then((f) => f.readFile(claudeMd, 'utf-8'))
+        if (!content.includes('prjct:start')) return false
+      } catch {
+        return false
+      }
     }
 
     if (detection.gemini.installed) {
-      const geminiRouter = path.join(home, '.gemini', 'commands', 'p.toml')
-      if (!(await fileExists(geminiRouter))) return false
+      const geminiMd = path.join(home, '.gemini', 'GEMINI.md')
+      try {
+        const content = await import('node:fs/promises').then((f) => f.readFile(geminiMd, 'utf-8'))
+        if (!content.includes('prjct:start')) return false
+      } catch {
+        return false
+      }
     }
 
     if (!detection.claude.installed && !detection.gemini.installed) return true

@@ -3,11 +3,9 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
-import { exec as execCallback } from 'node:child_process'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { promisify } from 'node:util'
 import { indexProject } from '../../domain/bm25'
 import { hasIndexes, rankFiles } from '../../domain/file-ranker'
 import { indexCoChanges } from '../../domain/git-cochange'
@@ -15,7 +13,7 @@ import { indexImports } from '../../domain/import-graph'
 import pathManager from '../../infrastructure/path-manager'
 import prjctDb from '../../storage/database'
 
-const exec = promisify(execCallback)
+import { execAsync } from '../../utils/exec'
 
 describe('FileRanker', () => {
   let testDir: string
@@ -31,9 +29,9 @@ describe('FileRanker', () => {
     pathManager.getGlobalProjectPath = () => testDir
 
     // Initialize git repo
-    await exec('git init', { cwd: testDir })
-    await exec('git config user.email "test@test.com"', { cwd: testDir })
-    await exec('git config user.name "Test"', { cwd: testDir })
+    await execAsync('git init', { cwd: testDir })
+    await execAsync('git config user.email "test@test.com"', { cwd: testDir })
+    await execAsync('git config user.name "Test"', { cwd: testDir })
   })
 
   afterEach(async () => {
@@ -57,7 +55,7 @@ describe('FileRanker', () => {
     it('should return true after building indexes', async () => {
       // Create a test file
       await fs.writeFile(path.join(testDir, 'app.ts'), 'export function main() {}')
-      await exec('git add -A && git commit -m "init"', { cwd: testDir })
+      await execAsync('git add -A && git commit -m "init"', { cwd: testDir })
 
       await indexProject(testDir, testProjectId)
       await indexImports(testDir, testProjectId)
@@ -97,13 +95,13 @@ describe('FileRanker', () => {
       )
 
       // Create git history with co-changes
-      await exec('git add -A && git commit -m "init"', { cwd: testDir })
+      await execAsync('git add -A && git commit -m "init"', { cwd: testDir })
       await fs.writeFile(path.join(testDir, 'auth.ts'), `export class AuthService { v2() {} }`)
       await fs.writeFile(
         path.join(testDir, 'middleware.ts'),
         `export function authMiddleware() { v2 }`
       )
-      await exec('git add -A && git commit -m "update auth"', { cwd: testDir })
+      await execAsync('git add -A && git commit -m "update auth"', { cwd: testDir })
 
       // Build all indexes
       await indexProject(testDir, testProjectId)
@@ -133,7 +131,7 @@ describe('FileRanker', () => {
         path.join(testDir, 'auth.ts'),
         `// Authentication\nexport class AuthService {}`
       )
-      await exec('git add -A && git commit -m "init"', { cwd: testDir })
+      await execAsync('git add -A && git commit -m "init"', { cwd: testDir })
 
       await indexProject(testDir, testProjectId)
       await indexImports(testDir, testProjectId)
@@ -158,7 +156,7 @@ describe('FileRanker', () => {
           `// Service module ${i}\nexport function service${i}() {}`
         )
       }
-      await exec('git add -A && git commit -m "init"', { cwd: testDir })
+      await execAsync('git add -A && git commit -m "init"', { cwd: testDir })
 
       await indexProject(testDir, testProjectId)
 

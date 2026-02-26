@@ -11,14 +11,12 @@
  * @version 1.0.0
  */
 
-import { exec as execCallback } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { promisify } from 'node:util'
 import type { FilesToolOutput, ScoredFile, ScoreReason } from '../../types/context-tools'
 import { isNotFoundError } from '../../types/fs'
 
-const exec = promisify(execCallback)
+import { execAsync } from '../../utils/exec'
 
 // =============================================================================
 // Domain Keywords
@@ -419,7 +417,7 @@ async function getGitRecency(
 
   try {
     // Get files changed in last 30 commits with their commit counts
-    const { stdout } = await exec(
+    const { stdout } = await execAsync(
       `git log -30 --pretty=format:"%H %ct" --name-only | awk '
         /^[a-f0-9]{40}/ { commit=$1; timestamp=$2; next }
         NF { files[$0]++; if (!lastmod[$0]) lastmod[$0]=timestamp }

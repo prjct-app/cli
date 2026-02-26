@@ -101,6 +101,9 @@ export const CurrentTaskSchema = z.object({
   estimatedMinutes: z.number().optional(), // Derived from points
   // Model specification - which AI model was used (PRJ-265)
   modelMetadata: ModelMetadataSchema.optional(),
+  // Token usage tracking (input + output)
+  tokensIn: z.number().optional(), // Total input tokens consumed
+  tokensOut: z.number().optional(), // Total output tokens generated
   // Extended properties populated during task lifecycle
   parentDescription: z.string().optional(), // Original parent task description
   branch: z.string().optional(), // Git branch used for this task
@@ -126,6 +129,9 @@ export const PreviousTaskSchema = z.object({
   estimatedPoints: z.number().optional(),
   estimatedMinutes: z.number().optional(),
   modelMetadata: ModelMetadataSchema.optional(),
+  // Token usage tracking preserved across pause/resume
+  tokensIn: z.number().optional(),
+  tokensOut: z.number().optional(),
 })
 
 // Task feedback captured during completion (PRJ-272)
@@ -165,6 +171,9 @@ export const TaskHistoryEntrySchema = z.object({
   linearUuid: z.string().optional(), // Linear internal UUID
   prUrl: z.string().optional(), // PR URL if shipped
   feedback: TaskFeedbackSchema.optional(), // Task-to-analysis feedback (PRJ-272)
+  // Token usage totals at completion
+  tokensIn: z.number().optional(), // Total input tokens consumed
+  tokensOut: z.number().optional(), // Total output tokens generated
 })
 
 export const StateJsonSchema = z.object({

@@ -3,35 +3,15 @@
  * Manages task breakdown and hierarchical task tracking.
  */
 
-import { exec } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { promisify } from 'node:util'
 import type { TaskStackEntry, TaskStackSummary, TaskSwitchResult } from '../types/domain'
-import { getErrorMessage, isNotFoundError } from '../types/fs'
+import { getErrorMessage } from '../types/fs'
+import { formatDuration } from '../utils/date-helper'
+import { execAsync } from '../utils/exec'
+import { fileExists } from '../utils/file-helper'
 import log from '../utils/logger'
-
-const execAsync = promisify(exec)
-
-/**
- * Format duration in human-readable format
- */
-export function formatDuration(ms: number): string {
-  const seconds = Math.floor(ms / 1000)
-  const minutes = Math.floor(seconds / 60)
-  const hours = Math.floor(minutes / 60)
-  const days = Math.floor(hours / 24)
-
-  if (days > 0) {
-    return `${days}d ${hours % 24}h`
-  } else if (hours > 0) {
-    return `${hours}h ${minutes % 60}m`
-  } else if (minutes > 0) {
-    return `${minutes}m`
-  } else {
-    return `${seconds}s`
-  }
-}
+export { formatDuration }
 
 // =============================================================================
 // Storage
@@ -41,15 +21,8 @@ export function formatDuration(ms: number): string {
  * Ensure stack file exists
  */
 export async function ensureStackFile(stackPath: string): Promise<void> {
-  try {
-    await fs.access(stackPath)
-  } catch (error) {
-    if (isNotFoundError(error)) {
-      // Create empty file
-      await fs.writeFile(stackPath, '')
-    } else {
-      throw error
-    }
+  if (!(await fileExists(stackPath))) {
+    await fs.writeFile(stackPath, '')
   }
 }
 

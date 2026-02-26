@@ -174,3 +174,44 @@ export function toRelative(date: string | Date): string {
   const d = typeof date === 'string' ? new Date(date) : date
   return formatDistanceToNowStrict(d, { addSuffix: true })
 }
+
+/**
+ * Parse a duration string like "2h 30m" or "45s" to minutes.
+ * Supports: "2h", "30m", "1h 30m", "2h30m", "90m", "45s" (rounds up to 1m)
+ */
+/**
+ * Parse a variance string like "+30m" or "-2h" to signed minutes.
+ * "+30m" -> 30, "-15m" -> -15, "+2h" -> 120, "-1h" -> -60
+ */
+export function parseVarianceMinutes(variance: string): number {
+  const match = variance.match(/^([+-])(\d+)([mh])$/)
+  if (!match) return 0
+
+  const sign = match[1] === '-' ? -1 : 1
+  const value = Number.parseInt(match[2], 10)
+  const unit = match[3]
+
+  return sign * (unit === 'h' ? value * 60 : value)
+}
+
+export function parseDurationMinutes(duration: string): number {
+  let minutes = 0
+
+  const hourMatch = duration.match(/(\d+)h/)
+  if (hourMatch) {
+    minutes += Number.parseInt(hourMatch[1], 10) * 60
+  }
+
+  const minMatch = duration.match(/(\d+)m/)
+  if (minMatch) {
+    minutes += Number.parseInt(minMatch[1], 10)
+  }
+
+  const secMatch = duration.match(/(\d+)s/)
+  if (secMatch && minutes === 0) {
+    // Only count seconds if no hours/minutes (round up to 1 min)
+    minutes = 1
+  }
+
+  return minutes
+}

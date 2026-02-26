@@ -220,29 +220,96 @@ export class UpdateCommands extends PrjctCommandsBase {
       }
     }
 
-    // 2b. Reinstall editor commands + global config
+    // 2b. Full legacy cleanup + reinstall
     if (dryRun) {
+      result.details.push('Would clean all legacy artifacts')
       result.details.push('Would reinstall editor commands')
-      result.details.push('Would reinstall global config')
+      result.details.push('Would reinstall global config (all providers)')
     } else {
+      // Clean ALL legacy artifacts first (routers, subdirs, homebrew remnants)
+      try {
+        const installer = new CommandInstaller()
+        const legacyResult = await installer.cleanupAllLegacy()
+        if (legacyResult.cleaned.length > 0) {
+          result.details.push(`Cleaned ${legacyResult.cleaned.length} legacy artifact(s)`)
+        }
+      } catch (err) {
+        result.errors.push(`Legacy cleanup: ${getErrorMessage(err)}`)
+      }
+
+      // Reinstall editor commands
       try {
         const installer = new CommandInstaller()
         const installResult = await installer.installCommands()
         result.details.push(
           `Editor commands reinstalled (${installResult.installed?.length || 0} providers)`
         )
-        const cleaned = await installer.cleanupLegacyCommands()
-        if (cleaned) result.details.push('Removed legacy p/ subdirectory')
       } catch (err) {
         result.errors.push(`Commands: ${getErrorMessage(err)}`)
       }
 
+      // Reinstall global config (replaces old prjct section between markers)
       try {
         const installer = new CommandInstaller()
         await installer.installGlobalConfig()
-        result.details.push('Global config reinstalled')
+        result.details.push('Global config updated (prjct section replaced)')
       } catch (err) {
         result.errors.push(`Global config: ${getErrorMessage(err)}`)
+      }
+
+      // Install global config for ALL detected providers (not just active)
+      try {
+        const { detectAllProviders } = await import('../infrastructure/ai-provider')
+        const detection = await detectAllProviders()
+        const home = path.join(require('node:os').homedir())
+
+        // Claude: installGlobalConfig already handles active provider
+        // Gemini: ensure GEMINI.md is also updated
+        if (detection.gemini.installed) {
+          const geminiPath = path.join(home, '.gemini', 'GEMINI.md')
+          try {
+            const geminiContent = await fs.readFile(geminiPath, 'utf-8')
+            const startMarker = '<!-- prjct:start - DO NOT REMOVE THIS MARKER -->'
+            const endMarker = '<!-- prjct:end - DO NOT REMOVE THIS MARKER -->'
+
+            if (geminiContent.includes(startMarker) && geminiContent.includes(endMarker)) {
+              // Read fresh template
+              const templatePath = path.join(
+                path.dirname(require.resolve('../../package.json')),
+                'templates',
+                'global',
+                'GEMINI.md'
+              )
+              const template = await fs.readFile(templatePath, 'utf-8')
+              const prjctSection = template.substring(
+                template.indexOf(startMarker),
+                template.indexOf(endMarker) + endMarker.length
+              )
+
+              const before = geminiContent.substring(0, geminiContent.indexOf(startMarker))
+              const after = geminiContent.substring(
+                geminiContent.indexOf(endMarker) + endMarker.length
+              )
+
+              // Strip legacy prjct-project sections
+              let cleaned = before + prjctSection + after
+              const projStart = '<!-- prjct-project:start - DO NOT REMOVE THIS MARKER -->'
+              const projEnd = '<!-- prjct-project:end - DO NOT REMOVE THIS MARKER -->'
+              if (cleaned.includes(projStart) && cleaned.includes(projEnd)) {
+                const bp = cleaned.substring(0, cleaned.indexOf(projStart))
+                const ap = cleaned.substring(cleaned.indexOf(projEnd) + projEnd.length)
+                cleaned = `${(bp + ap).replace(/\n{3,}/g, '\n\n').trim()}\n`
+              }
+
+              await fs.writeFile(geminiPath, cleaned, 'utf-8')
+              result.details.push('Gemini global config updated')
+            }
+          } catch {
+            // Gemini not configured — skip
+          }
+        }
+      } catch {
+        // Provider detection failed — non-critical
       }
     }
 

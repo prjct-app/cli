@@ -6,6 +6,7 @@
  */
 
 import type { AgentMetrics, DetectedPattern, Outcome, OutcomeSummary } from '../types/outcomes'
+import { parseDurationMinutes, parseVarianceMinutes } from '../utils/date-helper'
 import outcomeRecorder from './outcome-recorder'
 
 /**
@@ -96,8 +97,8 @@ export class OutcomeAnalyzer {
       // Calculate estimate accuracy for this agent
       const accurateEstimates = agentOutcomes.filter((o) => {
         if (!o.variance) return false
-        const variance = this.parseVariance(o.variance)
-        const estimated = this.parseDuration(o.estimatedDuration)
+        const variance = parseVarianceMinutes(o.variance)
+        const estimated = parseDurationMinutes(o.estimatedDuration)
         if (estimated === 0) return false
         return Math.abs(variance) / estimated <= 0.2
       })
@@ -141,7 +142,7 @@ export class OutcomeAnalyzer {
 
     // Pattern: Consistent underestimation
     const underestimated = outcomes.filter((o) => {
-      const variance = this.parseVariance(o.variance)
+      const variance = parseVarianceMinutes(o.variance)
       return variance > 0
     })
     if (underestimated.length / outcomes.length > 0.6) {
@@ -155,7 +156,7 @@ export class OutcomeAnalyzer {
 
     // Pattern: Consistent overestimation
     const overestimated = outcomes.filter((o) => {
-      const variance = this.parseVariance(o.variance)
+      const variance = parseVarianceMinutes(o.variance)
       return variance < 0
     })
     if (overestimated.length / outcomes.length > 0.6) {
@@ -216,7 +217,7 @@ export class OutcomeAnalyzer {
 
     // Calculate average actual duration
     const totalMinutes = relevant.reduce((sum, o) => {
-      return sum + this.parseDuration(o.actualDuration)
+      return sum + parseDurationMinutes(o.actualDuration)
     }, 0)
 
     const avgMinutes = Math.round(totalMinutes / relevant.length)
@@ -245,39 +246,6 @@ export class OutcomeAnalyzer {
 
     // Return the one with highest success rate
     return suitable.sort((a, b) => b.successRate - a.successRate)[0].agent
-  }
-
-  /**
-   * Parse variance string to minutes.
-   */
-  private parseVariance(variance: string): number {
-    const match = variance.match(/^([+-])(\d+)([mh])$/)
-    if (!match) return 0
-
-    const sign = match[1] === '-' ? -1 : 1
-    const value = parseInt(match[2], 10)
-    const unit = match[3]
-
-    return sign * (unit === 'h' ? value * 60 : value)
-  }
-
-  /**
-   * Parse duration string to minutes.
-   */
-  private parseDuration(duration: string): number {
-    let minutes = 0
-
-    const hourMatch = duration.match(/(\d+)h/)
-    if (hourMatch) {
-      minutes += parseInt(hourMatch[1], 10) * 60
-    }
-
-    const minMatch = duration.match(/(\d+)m/)
-    if (minMatch) {
-      minutes += parseInt(minMatch[1], 10)
-    }
-
-    return minutes
   }
 }
 

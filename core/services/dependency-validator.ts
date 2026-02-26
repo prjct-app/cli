@@ -13,6 +13,7 @@
 
 import { execSync } from 'node:child_process'
 import type { ToolDefinition, ToolStatus } from '../types/services.js'
+import { isExpired } from '../utils/cache'
 import { createError, type ErrorWithHint } from '../utils/error-messages'
 
 // ============================================================================
@@ -258,7 +259,7 @@ class DependencyValidator {
     if (!timestamp) return null
 
     // Check if cache is expired
-    if (Date.now() - timestamp > this.cacheTimeout) {
+    if (isExpired(timestamp, this.cacheTimeout)) {
       this.cache.delete(toolName)
       this.cacheTimestamps.delete(toolName)
       return null

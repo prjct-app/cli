@@ -322,11 +322,9 @@ describe('execute', () => {
         agentSettingsPath: '',
         paths: {
           orchestrator: '',
-          agentRouting: '',
           taskFragmentation: '',
           commandTemplate: '',
           repoAnalysis: '',
-          agentsDir: '',
           skillsDir: '',
           stateJson: '',
         },

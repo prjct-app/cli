@@ -4,7 +4,8 @@
  */
 
 import fs from 'node:fs/promises'
-import { getErrorMessage, isNotFoundError } from '../types/fs'
+import { getErrorMessage } from '../types/fs'
+import { fileExists as fileExistsHelper } from '../utils/file-helper'
 
 declare const global: typeof globalThis & {
   mcp?: {
@@ -115,15 +116,7 @@ class ClaudeAgent {
    * Check if file exists
    */
   async fileExists(filePath: string): Promise<boolean> {
-    try {
-      await fs.access(filePath)
-      return true
-    } catch (error) {
-      if (isNotFoundError(error)) {
-        return false
-      }
-      throw error // Permission or other unexpected errors should propagate
-    }
+    return fileExistsHelper(filePath)
   }
 
   /**

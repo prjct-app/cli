@@ -261,7 +261,6 @@ class PrjctCommands {
   async sync(
     projectPath: string = process.cwd(),
     options: {
-      aiTools?: string[]
       preview?: boolean
       yes?: boolean
       json?: boolean

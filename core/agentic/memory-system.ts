@@ -27,10 +27,8 @@ import { SemanticMemories } from './semantic-memories'
 // Re-export everything from sub-modules so existing importers don't break
 export {
   CachedStore,
-  DOMAIN_TAG_MAP,
   HistoryStore,
   resolveCanonicalDomains,
-  SEMANTIC_DOMAIN_KEYWORDS,
   SessionStore,
 } from './memory-stores'
 export { PatternStore } from './pattern-store'

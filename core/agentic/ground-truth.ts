@@ -11,33 +11,21 @@
  * Source: Devin, Cursor, Augment Code patterns
  */
 
-import { exec } from 'node:child_process'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { promisify } from 'node:util'
 
 import type { GroundTruthContext, VerificationResult, Verifier } from '../types/agentic'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
-
-const execAsync = promisify(exec)
+import { execAsync } from '../utils/exec'
+import { fileExists } from '../utils/file-helper'
 
 // =============================================================================
 // Utilities
 // =============================================================================
 
-/**
- * Format duration from milliseconds to human-readable string
- */
-export function formatDuration(ms: number): string {
-  const hours = Math.floor(ms / (1000 * 60 * 60))
-  const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60))
-
-  if (hours > 0) {
-    return `${hours}h ${minutes}m`
-  }
-  return `${minutes}m`
-}
+import { formatDuration } from '../utils/date-helper'
+export { formatDuration }
 
 /**
  * Escape special regex characters in a string
@@ -484,17 +472,12 @@ export async function verifySync(context: GroundTruthContext): Promise<Verificat
   // 2. Check if global storage exists
   const projectId = (actual.config as { projectId?: string })?.projectId
   const globalProjectPath = path.join(os.homedir(), '.prjct-cli/projects', projectId || '')
-  try {
-    await fs.access(globalProjectPath)
+  if (await fileExists(globalProjectPath)) {
     actual.globalStorageExists = true
-  } catch (error) {
-    if (isNotFoundError(error)) {
-      actual.globalStorageExists = false
-      warnings.push('Global storage missing')
-      recommendations.push('Run /p:init to recreate')
-    } else {
-      throw error
-    }
+  } else {
+    actual.globalStorageExists = false
+    warnings.push('Global storage missing')
+    recommendations.push('Run /p:init to recreate')
   }
 
   return {
@@ -519,14 +502,8 @@ export async function verifyAnalyze(context: GroundTruthContext): Promise<Verifi
   actual.detectedFiles = []
 
   for (const file of files) {
-    try {
-      await fs.access(path.join(context.projectPath, file))
+    if (await fileExists(path.join(context.projectPath, file))) {
       ;(actual.detectedFiles as string[]).push(file)
-    } catch (error) {
-      // ENOENT expected - file doesn't exist
-      if (!isNotFoundError(error)) {
-        throw error
-      }
     }
   }
 
@@ -572,21 +549,16 @@ export async function verifySpec(context: GroundTruthContext): Promise<Verificat
 
   // 1. Check specs directory exists
   const specsPath = context.paths.specs
-  try {
-    await fs.access(specsPath)
+  if (await fileExists(specsPath)) {
     actual.specsExists = true
 
     // List existing specs
     const files = await fs.readdir(specsPath)
     actual.existingSpecs = files.filter((f) => f.endsWith('.md'))
     actual.specCount = (actual.existingSpecs as string[]).length
-  } catch (error) {
-    if (isNotFoundError(error)) {
-      actual.specsExists = false
-      actual.specCount = 0
-    } else {
-      throw error
-    }
+  } else {
+    actual.specsExists = false
+    actual.specCount = 0
   }
 
   // 2. Check for duplicate spec name

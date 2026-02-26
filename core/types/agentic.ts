@@ -116,7 +116,6 @@ export interface SmartContextProjectState {
 
 export interface FullContext {
   state: SmartContextProjectState | null
-  agents: AgentInfo[]
   roadmap: FeatureInfo[]
   patterns: PatternInfo[]
   stack: StackInfo
@@ -125,19 +124,11 @@ export interface FullContext {
 }
 
 export interface FilteredContext {
-  agents: AgentInfo[]
   roadmap: FeatureInfo[]
   patterns: PatternInfo[]
   stack: Partial<StackInfo>
   files: string[]
   metrics: FilterMetrics
-}
-
-export interface AgentInfo extends SourcedItem {
-  name: string
-  domain: ContextDomain
-  skills: string[]
-  successRate?: number
 }
 
 export interface FeatureInfo extends SourcedItem {
@@ -496,8 +487,6 @@ export interface ExecutionResult {
   agenticExecContext?: unknown
   agenticPrompt?: string
   requiresOrchestration?: boolean
-  agentsPath?: string
-  agentRoutingPath?: string
   orchestratorPath?: string
   taskFragmentationPath?: string
   reasoning?: unknown
@@ -641,28 +630,6 @@ export interface LearnedPatterns {
 // =============================================================================
 
 /**
- * A loaded agent with its content
- */
-export interface LoadedAgent extends SourcedItem {
-  name: string
-  domain: string
-  content: string
-  skills: string[]
-  filePath: string
-  effort?: 'low' | 'medium' | 'high' | 'max'
-  model?: string
-}
-
-/**
- * A loaded skill with its content
- */
-export interface LoadedSkill {
-  name: string
-  content: string
-  filePath: string
-}
-
-/**
  * Subtask for task fragmentation
  */
 export interface OrchestratorSubtask {
@@ -719,10 +686,6 @@ export interface OrchestratorContext {
   detectedDomains: string[]
   /** Primary domain (most important) */
   primaryDomain: string
-  /** Loaded agents with their content */
-  agents: LoadedAgent[]
-  /** Loaded skills from agent frontmatter */
-  skills: LoadedSkill[]
   /** Whether task requires fragmentation (3+ domains) */
   requiresFragmentation: boolean
   /** Subtasks if fragmented, null otherwise */
@@ -862,8 +825,6 @@ export interface ProjectGroundTruth {
   }
   /** Total files in project */
   fileCount?: number
-  /** Available agent names (e.g., ['backend', 'testing']) */
-  availableAgents?: string[]
   /** Sealed analysis languages — used to ground available tech (PRJ-260) */
   analysisLanguages?: string[]
   /** Sealed analysis frameworks — used to ground available tech (PRJ-260) */
@@ -914,10 +875,6 @@ export type SectionPriority = 'critical' | 'important' | 'optional'
 export interface InjectionBudgets {
   /** Auto-injected context (task + queue + patterns) */
   autoContext: number
-  /** Per-agent content in orchestrator */
-  agentContent: number
-  /** Per-skill content in orchestrator */
-  skillContent: number
   /** State data section */
   stateData: number
   /** Memories section */
@@ -941,14 +898,12 @@ export interface TemplateExecutionContext {
   agentName: string
   agentSettingsPath: string
 
-  // Paths for agent (not content)
+  // Paths for execution (not content)
   paths: {
     orchestrator: string
-    agentRouting: string
     taskFragmentation: string
     commandTemplate: string
     repoAnalysis: string
-    agentsDir: string
     skillsDir: string
     stateJson: string
   }
@@ -973,8 +928,6 @@ export interface DomainClassifierProjectContext {
     hasTesting: boolean
     hasDocker: boolean
   }
-  /** Available agent names (without .md extension) */
-  agents: string[]
   /** Project stack info */
   stack?: { language?: string; framework?: string }
 }

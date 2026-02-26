@@ -9,17 +9,14 @@
  * @module infrastructure/author-detector
  */
 
-import { exec as execCallback } from 'node:child_process'
-import { promisify } from 'node:util'
 import type { AuthorConfigStatus, DetectedAuthorInfo } from '../types/infrastructure'
-
-const exec = promisify(execCallback)
+import { execAsync } from '../utils/exec'
 
 // ============ Internal Helpers ============
 
 async function execCommand(command: string): Promise<{ success: boolean; output: string }> {
   try {
-    const { stdout } = await exec(command, { timeout: 5000 })
+    const { stdout } = await execAsync(command, { timeout: 5000 })
     return { success: true, output: stdout.trim() }
   } catch (_error) {
     return { success: false, output: '' }

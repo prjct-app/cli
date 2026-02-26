@@ -14,7 +14,6 @@
  * Location: SQLite DB at ~/.prjct-cli/projects/{projectId}/prjct.db
  */
 
-import crypto from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
@@ -27,9 +26,10 @@ import type {
   ScoredFile,
 } from '../types/storage.js'
 import { getTimestamp } from '../utils/date-helper'
+import { md5 } from '../utils/hash'
 import { prjctDb } from './database'
 
-// Note: fs, path, pathManager, isNotFoundError still needed for clearIndex, calculateChecksum
+// Note: fs, path, pathManager, isNotFoundError still needed for clearIndex, calculateChecksum, ensureIndexDir
 
 // ============================================================================
 // DEFAULTS
@@ -159,7 +159,7 @@ class IndexStorage {
   async calculateChecksum(filePath: string): Promise<string> {
     try {
       const content = await fs.readFile(filePath)
-      return crypto.createHash('md5').update(content).digest('hex')
+      return md5(content)
     } catch {
       return ''
     }

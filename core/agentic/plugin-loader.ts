@@ -15,6 +15,7 @@ import { eventBus } from '../events/pub-sub'
 import pathManager from '../infrastructure/path-manager'
 import type { EventCallback } from '../types/bus'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
+import { fileExists } from '../utils/file-helper'
 import { hookSystem } from './hooks'
 
 type PluginSource = 'builtin' | 'global' | 'project'
@@ -178,7 +179,7 @@ class PluginLoader {
   ): Promise<void> {
     try {
       // Check if file exists
-      await fs.access(pluginPath)
+      if (!(await fileExists(pluginPath))) return
 
       // Import the plugin dynamically
       const pluginModule = await import(pluginPath)

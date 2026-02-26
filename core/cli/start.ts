@@ -17,7 +17,7 @@ import { getTemplateContent, listTemplates } from '../agentic/template-loader'
 import { detectAllProviders, Providers } from '../infrastructure/ai-provider'
 import { getErrorMessage } from '../types/fs'
 import type { AIProviderName } from '../types/provider'
-import { fileExists } from '../utils/file-helper'
+import { fileExists, writeJson } from '../utils/file-helper'
 import { VERSION } from '../utils/version'
 
 // Neutral gradient (warm gray -> white)
@@ -337,10 +337,7 @@ async function installGlobalConfig(provider: AIProviderName): Promise<boolean> {
  * Save setup configuration
  */
 async function saveSetupConfig(providers: AIProviderName[]): Promise<void> {
-  const configDir = path.join(os.homedir(), '.prjct-cli', 'config')
-  await fs.mkdir(configDir, { recursive: true })
-
-  const configPath = path.join(configDir, 'installed-editors.json')
+  const configPath = path.join(os.homedir(), '.prjct-cli', 'config', 'installed-editors.json')
   const config = {
     version: VERSION,
     providers,
@@ -350,7 +347,7 @@ async function saveSetupConfig(providers: AIProviderName[]): Promise<void> {
     path: path.join(os.homedir(), `.${providers[0]}`, 'commands'),
   }
 
-  await fs.writeFile(configPath, JSON.stringify(config, null, 2))
+  await writeJson(configPath, config)
 }
 
 /**
