@@ -22,18 +22,9 @@ import {
   validateMcpConfig,
 } from '../utils/mcp-config'
 import { mdCallout, mdCodeBlock, mdList, mdOutput, mdSection, mdTable } from '../utils/md-formatter'
+import { parseCliArgs } from './arg-parser'
 
-const args = process.argv.slice(2)
-
-const jsonIdx = args.indexOf('--json')
-const jsonMode = jsonIdx !== -1
-if (jsonMode) args.splice(jsonIdx, 1)
-
-const mdIdx = args.indexOf('--md')
-const mdMode = mdIdx !== -1
-if (mdMode) args.splice(mdIdx, 1)
-
-const [command, ...commandArgs] = args
+const { command, commandArgs, jsonMode, mdMode } = parseCliArgs()
 
 function output(data: unknown): void {
   if (jsonMode) {

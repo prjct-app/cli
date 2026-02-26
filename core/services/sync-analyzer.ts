@@ -11,18 +11,15 @@
  * @version 1.0.0
  */
 
-import { exec } from 'node:child_process'
-import fs from 'node:fs/promises'
 import path from 'node:path'
-import { promisify } from 'node:util'
 import { getErrorMessage } from '../errors'
 import type { GitData, ProjectCommands, ProjectStats } from '../types/project-sync'
 import type { StackDetection } from '../types/stack'
 import { type ContextSources, defaultSources, type SourceInfo } from '../utils/citations'
+import { execAsync } from '../utils/exec'
+import { fileExists, readJson } from '../utils/file-helper'
 import log from '../utils/logger'
 import { StackDetector } from './stack-detector'
-
-const execAsync = promisify(exec)
 
 // ============================================================================
 // GIT ANALYSIS
@@ -108,14 +105,12 @@ export async function analyzeGit(projectPath: string): Promise<GitData> {
 // PROJECT STATS
 // ============================================================================
 
-async function fileExists(projectPath: string, filename: string): Promise<boolean> {
-  try {
-    await fs.access(path.join(projectPath, filename))
-    return true
-  } catch (error) {
-    log.debug('File not found', { filename, error: getErrorMessage(error) })
-    return false
+async function fileExistsInProject(projectPath: string, filename: string): Promise<boolean> {
+  const exists = await fileExists(path.join(projectPath, filename))
+  if (!exists) {
+    log.debug('File not found', { filename })
   }
+  return exists
 }
 
 export async function gatherStats(projectPath: string): Promise<ProjectStats> {
@@ -144,24 +139,18 @@ export async function gatherStats(projectPath: string): Promise<ProjectStats> {
   // Read package.json
   try {
     const pkgPath = path.join(projectPath, 'package.json')
-    const pkg = JSON.parse(await fs.readFile(pkgPath, 'utf-8'))
-    stats.version = pkg.version || '0.0.0'
-    stats.name = pkg.name || stats.name
+    const pkg = await readJson<Record<string, unknown>>(pkgPath)
+    if (!pkg) throw new Error('No package.json found')
+    stats.version = (pkg.version as string) || '0.0.0'
+    stats.name = (pkg.name as string) || stats.name
     stats.ecosystem = 'JavaScript'
 
-    const deps = { ...pkg.dependencies, ...pkg.devDependencies }
-
-    // Detect frameworks
-    if (deps.react || deps['react-dom']) stats.frameworks.push('React')
-    if (deps.next) stats.frameworks.push('Next.js')
-    if (deps.vue) stats.frameworks.push('Vue')
-    if (deps.express) stats.frameworks.push('Express')
-    if (deps.hono) stats.frameworks.push('Hono')
-    if (deps['@angular/core']) stats.frameworks.push('Angular')
-    if (deps.svelte) stats.frameworks.push('Svelte')
-
-    // Detect languages
-    if (pkg.devDependencies?.typescript || (await fileExists(projectPath, 'tsconfig.json'))) {
+    // Detect language (factual: tsconfig.json exists or typescript in devDeps)
+    // Frameworks are NOT detected here — the LLM analysis provides accurate stack info
+    if (
+      (pkg.devDependencies as Record<string, unknown>)?.typescript ||
+      (await fileExistsInProject(projectPath, 'tsconfig.json'))
+    ) {
       stats.languages.push('TypeScript')
     } else {
       stats.languages.push('JavaScript')
@@ -170,18 +159,16 @@ export async function gatherStats(projectPath: string): Promise<ProjectStats> {
     log.debug('No package.json found', { path: projectPath, error: getErrorMessage(error) })
   }
 
-  // Check other ecosystems
-  if (await fileExists(projectPath, 'Cargo.toml')) {
+  // Detect primary ecosystem from manifest files (factual, no framework inference)
+  if (await fileExistsInProject(projectPath, 'Cargo.toml')) {
     stats.ecosystem = 'Rust'
     stats.languages.push('Rust')
-  }
-  if (await fileExists(projectPath, 'go.mod')) {
+  } else if (await fileExistsInProject(projectPath, 'go.mod')) {
     stats.ecosystem = 'Go'
     stats.languages.push('Go')
-  }
-  if (
-    (await fileExists(projectPath, 'requirements.txt')) ||
-    (await fileExists(projectPath, 'pyproject.toml'))
+  } else if (
+    (await fileExistsInProject(projectPath, 'requirements.txt')) ||
+    (await fileExistsInProject(projectPath, 'pyproject.toml'))
   ) {
     stats.ecosystem = 'Python'
     stats.languages.push('Python')
@@ -213,7 +200,10 @@ export async function detectCommands(projectPath: string): Promise<ProjectComman
   }
 
   // Detect package manager
-  if (await fileExists(projectPath, 'bun.lockb')) {
+  if (
+    (await fileExistsInProject(projectPath, 'bun.lockb')) ||
+    (await fileExistsInProject(projectPath, 'bun.lock'))
+  ) {
     commands.install = 'bun install'
     commands.run = 'bun run'
     commands.test = 'bun test'
@@ -221,7 +211,7 @@ export async function detectCommands(projectPath: string): Promise<ProjectComman
     commands.dev = 'bun run dev'
     commands.lint = 'bun run lint'
     commands.format = 'bun run format'
-  } else if (await fileExists(projectPath, 'pnpm-lock.yaml')) {
+  } else if (await fileExistsInProject(projectPath, 'pnpm-lock.yaml')) {
     commands.install = 'pnpm install'
     commands.run = 'pnpm run'
     commands.test = 'pnpm test'
@@ -229,7 +219,7 @@ export async function detectCommands(projectPath: string): Promise<ProjectComman
     commands.dev = 'pnpm run dev'
     commands.lint = 'pnpm run lint'
     commands.format = 'pnpm run format'
-  } else if (await fileExists(projectPath, 'yarn.lock')) {
+  } else if (await fileExistsInProject(projectPath, 'yarn.lock')) {
     commands.install = 'yarn'
     commands.run = 'yarn'
     commands.test = 'yarn test'
@@ -240,7 +230,7 @@ export async function detectCommands(projectPath: string): Promise<ProjectComman
   }
 
   // Non-JS ecosystems
-  if (await fileExists(projectPath, 'Cargo.toml')) {
+  if (await fileExistsInProject(projectPath, 'Cargo.toml')) {
     commands.install = 'cargo build'
     commands.run = 'cargo run'
     commands.test = 'cargo test'
@@ -250,7 +240,7 @@ export async function detectCommands(projectPath: string): Promise<ProjectComman
     commands.format = 'cargo fmt'
   }
 
-  if (await fileExists(projectPath, 'go.mod')) {
+  if (await fileExistsInProject(projectPath, 'go.mod')) {
     commands.install = 'go mod download'
     commands.run = 'go run .'
     commands.test = 'go test ./...'

@@ -2,7 +2,7 @@
  * Project Sync Types
  *
  * Shared types for sync-service and context-generator.
- * Single source of truth for GitData, ProjectStats, ProjectCommands, SyncAgentInfo.
+ * Single source of truth for GitData, ProjectStats, ProjectCommands.
  */
 
 import type { SyncDiff } from './diff'
@@ -44,13 +44,6 @@ export interface ProjectCommands {
   dev: string
   lint: string
   format: string
-}
-
-/** Agent info as produced by sync/context (name, type, skill). Distinct from types/agents.AgentInfo. */
-export interface SyncAgentInfo {
-  name: string
-  type: 'workflow' | 'domain'
-  skill?: string
 }
 
 // =============================================================================
@@ -120,8 +113,6 @@ export interface IncrementalInfo {
   filesUnchanged: number
   /** Whether indexes were rebuilt */
   indexesRebuilt: boolean
-  /** Whether agents were regenerated */
-  agentsRegenerated: boolean
   /** Domains affected by changes */
   affectedDomains: string[]
 }
@@ -134,14 +125,15 @@ export interface ProjectSyncResult {
   stats: ProjectStats
   commands: ProjectCommands
   stack: StackDetection
-  agents: SyncAgentInfo[]
-  skills: { agent: string; skill: string }[]
-  skillsInstalled: { name: string; agent: string; status: 'installed' | 'skipped' | 'error' }[]
   context7?: SyncContext7Status
   analysisSummary?: SyncAnalysisSummary
   syncMetrics?: SyncMetrics
   verification?: VerificationReport
   incremental?: IncrementalInfo
+  generatedSkills?: {
+    generated: { name: string; path: string }[]
+    skipped: { name: string; reason: string }[]
+  }
   error?: string
   isPreview?: boolean
   previewDiff?: SyncDiff

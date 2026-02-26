@@ -16,6 +16,7 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { IMPORT_REGEX, RESOLVE_EXTENSIONS } from '../constants/file-patterns'
 import prjctDb from '../storage/database'
 import type {
   ImportAdjacency,
@@ -23,34 +24,7 @@ import type {
   ImportScore,
   ReverseAdjacency,
 } from '../types/domain.js'
-
-// =============================================================================
-// Constants
-// =============================================================================
-
-const INDEXABLE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'])
-
-const SKIP_DIRS = new Set([
-  'node_modules',
-  '.git',
-  'dist',
-  'build',
-  'out',
-  '.next',
-  'coverage',
-  '.cache',
-  '.turbo',
-  '.vercel',
-])
-
-/** Extensions to try when resolving imports */
-const RESOLVE_EXTENSIONS = ['', '.ts', '.tsx', '.js', '.jsx', '/index.ts', '/index.js']
-
-// =============================================================================
-// Import Extraction (lightweight — no dep on imports-tool for build speed)
-// =============================================================================
-
-const IMPORT_REGEX = /(?:import|from)\s+['"]([^'"]+)['"]/g
+import { batchProcess, walkDir } from '../utils/file-helper'
 
 /**
  * Extract internal import paths from file content.
@@ -105,74 +79,43 @@ async function resolveImport(
 // =============================================================================
 
 /**
- * Recursively list all indexable files.
- */
-async function listFiles(dir: string, projectPath: string): Promise<string[]> {
-  const files: string[] = []
-  const entries = await fs.readdir(dir, { withFileTypes: true })
-
-  for (const entry of entries) {
-    if (SKIP_DIRS.has(entry.name)) continue
-
-    const fullPath = path.join(dir, entry.name)
-    if (entry.isDirectory()) {
-      files.push(...(await listFiles(fullPath, projectPath)))
-    } else if (entry.isFile()) {
-      const ext = path.extname(entry.name).toLowerCase()
-      if (INDEXABLE_EXTENSIONS.has(ext)) {
-        files.push(path.relative(projectPath, fullPath))
-      }
-    }
-  }
-  return files
-}
-
-/**
  * Build the import graph for a project.
  *
  * Performance target: <3 seconds for 500-file project.
  */
 export async function buildGraph(projectPath: string): Promise<ImportGraph> {
-  const files = await listFiles(projectPath, projectPath)
+  const files = await walkDir(projectPath)
   const forward: ImportAdjacency = {}
   const reverse: ReverseAdjacency = {}
   let edgeCount = 0
 
-  // Process files in parallel batches
-  const BATCH_SIZE = 50
-  for (let i = 0; i < files.length; i += BATCH_SIZE) {
-    const batch = files.slice(i, i + BATCH_SIZE)
-    const results = await Promise.all(
-      batch.map(async (filePath) => {
-        try {
-          const content = await fs.readFile(path.join(projectPath, filePath), 'utf-8')
-          const sources = extractImportSources(content)
-          const resolved: string[] = []
+  // Process files in parallel batches of 50
+  const results = await batchProcess(files, 50, async (filePath) => {
+    try {
+      const content = await fs.readFile(path.join(projectPath, filePath), 'utf-8')
+      const sources = extractImportSources(content)
+      const resolved: string[] = []
 
-          for (const source of sources) {
-            const target = await resolveImport(source, filePath, projectPath)
-            if (target && target !== filePath) {
-              resolved.push(target)
-            }
-          }
-
-          return { filePath, imports: resolved }
-        } catch {
-          return { filePath, imports: [] as string[] }
+      for (const source of sources) {
+        const target = await resolveImport(source, filePath, projectPath)
+        if (target && target !== filePath) {
+          resolved.push(target)
         }
-      })
-    )
-
-    for (const { filePath, imports } of results) {
-      if (imports.length === 0) continue
-
-      forward[filePath] = imports
-      edgeCount += imports.length
-
-      for (const target of imports) {
-        if (!reverse[target]) reverse[target] = []
-        reverse[target].push(filePath)
       }
+
+      return resolved.length > 0 ? { filePath, imports: resolved } : null
+    } catch {
+      return null
+    }
+  })
+
+  for (const { filePath, imports } of results) {
+    forward[filePath] = imports
+    edgeCount += imports.length
+
+    for (const target of imports) {
+      if (!reverse[target]) reverse[target] = []
+      reverse[target].push(filePath)
     }
   }
 

@@ -18,6 +18,7 @@ import pathManager from '../infrastructure/path-manager'
 import { verifyCodexPRouterReady } from '../infrastructure/setup'
 import { stateStorage } from '../storage/state-storage'
 import type { CheckResult, DoctorResult } from '../types/services.js'
+import { fileExists } from '../utils/file-helper'
 import { checkOAuthTokens, hasMcpServerAny, validateMcpConfig } from '../utils/mcp-config'
 import out from '../utils/output'
 import { VERSION } from '../utils/version'
@@ -183,19 +184,17 @@ class DoctorService {
   private async checkPrjctConfig(): Promise<CheckResult> {
     const configPath = path.join(this.projectPath, '.prjct', 'prjct.config.json')
 
-    try {
-      await fs.access(configPath)
+    if (await fileExists(configPath)) {
       return {
         name: 'prjct config',
         status: 'ok',
         message: 'initialized',
       }
-    } catch {
-      return {
-        name: 'prjct config',
-        status: 'error',
-        message: 'not initialized - run "prjct init"',
-      }
+    }
+    return {
+      name: 'prjct config',
+      status: 'error',
+      message: 'not initialized - run "prjct init"',
     }
   }
 

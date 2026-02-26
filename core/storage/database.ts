@@ -453,6 +453,19 @@ const migrations: Migration[] = [
       `)
     },
   },
+  {
+    version: 8,
+    name: 'task-token-tracking',
+    up: (db: SqliteDatabase) => {
+      db.run(`
+        -- =======================================================================
+        -- Token usage tracking per task (input + output)
+        -- =======================================================================
+        ALTER TABLE tasks ADD COLUMN tokens_in INTEGER DEFAULT 0;
+        ALTER TABLE tasks ADD COLUMN tokens_out INTEGER DEFAULT 0;
+      `)
+    },
+  },
 ]
 
 // =============================================================================

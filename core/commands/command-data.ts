@@ -228,6 +228,22 @@ export const COMMANDS: CommandMeta[] = [
     ],
   },
   {
+    name: 'tokens',
+    group: 'core',
+    description: 'Record token usage (input + output) on the active task',
+    usage: { claude: '/p:tokens', terminal: 'prjct tokens <in> <out>' },
+    params: '<input_tokens> <output_tokens>',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: true,
+    requiresLlm: false,
+    features: [
+      'Accumulates tokens per task',
+      'Persisted to task history on completion',
+      'Enables cost comparison across tasks',
+    ],
+  },
+  {
     name: 'sessions',
     group: 'core',
     description: 'Show recent sessions across all projects with resume context',

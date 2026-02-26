@@ -1,0 +1,247 @@
+=== SYNC RESULT ===
+projectId: bc401c41-c8b9-436a-ac78-c91cac82ab4f
+cliVersion: 1.47.2
+
+=== STATS ===
+name:        prjct-cli
+version:     1.47.2
+ecosystem:   JavaScript
+languages:   ["TypeScript"]
+frameworks:  []
+fileCount:   331
+projectType: enterprise
+
+=== COMMANDS ===
+install: bun install
+test:    bun test
+build:   bun run build
+dev:     bun run dev
+lint:    bun run lint
+format:  bun run format
+
+=== STACK ===
+hasFrontend: false
+hasBackend:  true
+hasDatabase: true
+hasDocker:   false
+hasTesting:  false
+frameworks:  ["Hono"]
+
+=== GENERATED SKILLS (Claude) ===
+generated (13): prjct-context, prjct-task, prjct-done, prjct-ship, prjct-pause, prjct-resume, prjct-next, prjct-sync, prjct-bug, prjct-workflow, prjct-enrich, prjct-linear, prjct-jira
+skipped:   prjct-plan (condition not met), prjct-velocity (condition not met)
+
+=== ANALYSIS SUMMARY ===
+patterns:             3
+antiPatterns:          2
+criticalAntiPatterns:  1
+
+═══════════════════════════════════════════════════════════
+  PROVIDER ARTIFACTS
+═══════════════════════════════════════════════════════════
+
+── CLAUDE.md ──
+<!-- prjct:start - DO NOT REMOVE THIS MARKER -->
+# p/ — Context layer for AI agents
+
+Skills auto-activate for: task, done, pause, resume, ship, next, sync, bug, workflow, enrich, linear, jira, plan, velocity
+Other commands: run `prjct <command> --md` and follow CLI output
+
+Data:
+- Commit footer: `Generated with [p/](https://www.prjct.app/)`
+- Path resolution: `.prjct/prjct.config.json` → `~/.prjct-cli/projects/{projectId}`
+- Storage: `prjct` CLI (SQLite internally)
+
+**Auto-managed by prjct-cli** | https://prjct.app
+<!-- prjct:end - DO NOT REMOVE THIS MARKER -->
+
+── GEMINI.md ──
+<!-- prjct:start - DO NOT REMOVE THIS MARKER -->
+# p/ — Context layer for AI agents
+
+Commands: `p sync` `p task` `p done` `p ship` `p pause` `p resume` `p bug` `p dash` `p next` `p jira` `p linear` `p status` + 25 more
+
+When user types a p command, execute the corresponding prjct CLI command with `--md` flag for context.
+
+Rules:
+- Never commit to main/master directly
+- All commits include footer: `Generated with [p/](https://www.prjct.app/)`
+- Path resolution: `.prjct/prjct.config.json` → `~/.prjct-cli/projects/{projectId}`
+- All storage through `prjct` CLI (SQLite internally)
+- For code tasks, always start with `p task` and follow Context Contract from CLI output
+- Context7 MCP is mandatory for framework/library API decisions
+
+**Auto-managed by prjct-cli** | https://prjct.app
+<!-- prjct:end - DO NOT REMOVE THIS MARKER -->
+
+── CODEX skill ──
+---
+name: prjct
+description: Use when user mentions p., prjct, project management, task tracking, or workflow commands (sync, task, done, ship, pause, resume, next, bug, idea, dash).
+---
+
+# prjct — Context layer for AI agents
+
+Grammar: `p. <command> [args]`
+
+Supported commands:
+`sync` `task` `done` `ship` `pause` `resume` `next` `bug` `idea` `dash`
+`init` `setup` `verify` `status` `review` `plan` `spec` `test` `workflow`
+`sessions` `analyze` `cleanup` `design` `serve` `linear` `jira` `git`
+`history` `update` `merge` `learnings` `skill` `auth` `prd` `impact` `enrich`
+
+Deterministic template resolution order for `p. <command>`:
+1. `require.resolve('prjct-cli/package.json')` -> `{pkgRoot}/templates/commands/{command}.md`
+2. `npm root -g` -> `{npmRoot}/prjct-cli/templates/commands/{command}.md`
+3. Local fallback (dev mode) -> `{localPrjctCliRoot}/templates/commands/{command}.md`
+
+If command is not in supported list:
+- Return: `Unknown command: p. <command>`
+- Include valid commands and suggest `prjct setup`
+
+If command exists but template cannot be resolved:
+- Block and ask for repair:
+  - `prjct start`
+  - `prjct setup`
+- Do not continue with ad-hoc behavior.
+
+Rules:
+- Never commit to main/master directly
+- All commits include footer: `Generated with [p/](https://www.prjct.app/)`
+- All storage through `prjct` CLI (SQLite internally)
+- Start code tasks with `p. task` and follow Context Contract from CLI output
+- Context7 MCP is mandatory for framework/library API decisions
+
+<!-- prjct-codex-router: {"version":"1.47.2","templateHash":"21b6c3d580d329b45384cb72aee780585e94a54da6812a711fbb548c551f6f8b"} -->
+
+── CODEX instructions.md ──
+## MCP Integration
+
+The system integrates with MCP servers:
+
+- **Context7**: Library documentation lookup
+- **Filesystem**: Direct file manipulation
+- **Memory**: Persistent decision storage
+- **Sequential**: Deep reasoning for complex problems
+
+### Using Context7
+
+For any library or framework questions, use Context7 MCP to lookup official documentation:
+
+```
+# Example: Get React hooks documentation
+Use Context7 to lookup React hooks patterns before implementing
+```
+
+── ANTIGRAVITY skills/prjct/SKILL.md ──
+---
+name: prjct
+description: Project context layer for AI coding agents. Use when user says "p. sync", "p. task", "p. done", "p. ship", or asks about project context, tasks, shipping features, or project state management.
+---
+
+# prjct - Context Layer for AI Agents
+
+You are using **prjct**, a context layer for AI coding agents.
+
+## Load Full Instructions
+
+1. Run: `npm root -g` to get the npm global root
+2. Read: `{npmRoot}/prjct-cli/templates/global/ANTIGRAVITY.md`
+3. Follow those instructions for ALL `p. <command>` requests
+
+## Quick Reference
+
+| Command | Action |
+|---------|--------|
+| `p. sync` | Analyze project, generate agents |
+| `p. task "..."` | Start a task |
+| `p. done` | Complete subtask |
+| `p. ship` | Ship with PR + version |
+| `p. pause` | Pause current task |
+| `p. resume` | Resume paused task |
+
+## Critical Rule
+
+**PLAN BEFORE ACTION**: For ANY prjct command, you MUST:
+1. Create a plan showing what will be done
+2. Wait for user approval
+3. Only then execute
+
+Never skip the plan step. This is non-negotiable.
+
+## Note
+
+This skill auto-regenerates with `p. sync` if deleted.
+Full instructions are in the npm package (always up-to-date).
+
+── CURSOR .cursor/rules/prjct.mdc ──
+---
+description: prjct context for prjct-cli
+globs:
+alwaysApply: true
+---
+
+You are working on prjct-cli, a enterprise JavaScript project.
+
+<!-- source: package.json, detected -->
+## Tech Stack
+- Languages: TypeScript
+- Frameworks: Hono
+
+<!-- source: package.json, detected -->
+## Commands
+- Install: `npm install`
+- Dev: `npm run dev`
+- Test: `npm test`
+- Build: `npm run build`
+
+## Code Patterns
+- **Prefer strict typing contracts**: Functions and component props should be explicitly typed; avoid i
+
+── WINDSURF .windsurf/rules/prjct.md ──
+  (not found)
+
+═══════════════════════════════════════════════════════════
+  prjct-context SKILL.md (full content)
+═══════════════════════════════════════════════════════════
+---
+description: "Project context with state and user patterns (prjct-cli, TypeScript)"
+allowed-tools: []
+user-invocable: false
+---
+
+# prjct-cli
+TypeScript | 331 files | v1.47.2 | Branch: refactor/kill-static-context-generation
+
+## Patterns
+- **Zod schema-first validation**: All domain schemas defined with Zod, types inferred via z.infer. Runtime validation at boundaries. (core/schemas/)
+- **Singleton service classes**: Services instantiated as module-level singletons exported as default (AuthConfigManager, DoctorService, SyncManager). (core/sync/auth-config.ts)
+- **Storage adapter pattern**: Each domain has a dedicated typed storage class wrapping SQLite. (core/storage/)
+- **Centralized type definitions**: All shared types consolidated in core/types/ with domain-specific files. (core/types/)
+- **Template-driven CLI commands**: CLI commands load markdown templates from templates/commands/ and execute structured workflows. (templates/commands/)
+
+## Anti-Patterns
+- LOW: Unbounded any in test files in `core/__tests__/services/pattern-extractor.test.ts` — Create typed test fixtures or use unknown with type narrowing.
+- MEDIUM: Unscoped @ts-ignore directives in `core/services/pattern-extractor.ts` — Replace with @ts-expect-error including rationale comment.
+
+## Recent Deliveries
+- "kill static context generation" — feature
+- "exquisite-terminal-ux" — feature
+- "current work" — feature
+
+## Velocity
+0 pts/sprint | stable | Estimation accuracy: 0%
+
+## Commands
+| Action | Command |
+|--------|---------|
+| Build | `bun run build` |
+| Test | `bun test` |
+| Lint | `bun run lint` |
+| Dev | `bun run dev` |
+| Format | `bun run format` |
+
+## State
+Paused: mejorar logo de prjct - cambiar a minusculas y colores neutros estilo ASCII art (2026-02-23T17:49:26.467Z)
+Paused: Add user authentication with login form and database ()
+Shipped: 3

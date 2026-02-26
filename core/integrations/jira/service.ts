@@ -4,13 +4,8 @@
  * All operations are cached with 5-minute TTL.
  */
 
-import type {
-  CreateIssueInput,
-  FetchOptions,
-  Issue,
-  JiraConfig,
-  UpdateIssueInput,
-} from '../issue-tracker/types'
+import { BaseIssueTrackerService } from '../issue-tracker/base-service'
+import type { FetchOptions, Issue, JiraConfig } from '../issue-tracker/types'
 import {
   assignedIssuesCache,
   clearJiraCache,
@@ -21,15 +16,29 @@ import {
 } from './cache'
 import { jiraProvider } from './client'
 
-export class JiraService {
-  private initialized = false
-  private userId: string | null = null
+export class JiraService extends BaseIssueTrackerService {
+  protected readonly serviceName = 'JIRA'
+  protected readonly setupCommand = 'prjct jira setup'
+  protected readonly provider = jiraProvider
+  protected readonly caches = {
+    issues: issueCache,
+    assignedIssues: assignedIssuesCache,
+    clearAll: () => {
+      issueCache.clear()
+      assignedIssuesCache.clear()
+    },
+    stats: () => ({
+      issues: issueCache.stats(),
+      assignedIssues: assignedIssuesCache.stats(),
+    }),
+  }
 
-  /**
-   * Check if service is ready
-   */
-  isReady(): boolean {
-    return this.initialized && jiraProvider.isConfigured()
+  protected clearAllCaches(): void {
+    clearJiraCache()
+  }
+
+  protected getAllCacheStats() {
+    return getJiraCacheStats()
   }
 
   /**
@@ -37,34 +46,7 @@ export class JiraService {
    * Must be called before any operations
    */
   async initialize(config: JiraConfig): Promise<void> {
-    if (this.initialized) return
-
-    await jiraProvider.initialize(config)
-    this.initialized = true
-  }
-
-  /**
-   * Get issues assigned to current user (cached)
-   */
-  async fetchAssignedIssues(options?: FetchOptions): Promise<Issue[]> {
-    this.ensureInitialized()
-
-    const cacheKey = `assigned:${this.userId || 'me'}`
-    const cached = assignedIssuesCache.get(cacheKey)
-    if (cached) {
-      return cached
-    }
-
-    const issues = await jiraProvider.fetchAssignedIssues(options)
-    assignedIssuesCache.set(cacheKey, issues)
-
-    // Also cache individual issues
-    for (const issue of issues) {
-      issueCache.set(`issue:${issue.id}`, issue)
-      issueCache.set(`issue:${issue.externalId}`, issue)
-    }
-
-    return issues
+    return super.initialize(config)
   }
 
   /**
@@ -83,94 +65,9 @@ export class JiraService {
     assignedIssuesCache.set(cacheKey, issues)
 
     // Also cache individual issues
-    for (const issue of issues) {
-      issueCache.set(`issue:${issue.id}`, issue)
-      issueCache.set(`issue:${issue.externalId}`, issue)
-    }
+    this.cacheIssues(issues)
 
     return issues
-  }
-
-  /**
-   * Get a single issue by key (like "ENG-123") or ID (cached)
-   */
-  async fetchIssue(id: string): Promise<Issue | null> {
-    this.ensureInitialized()
-
-    // Check cache first
-    const cacheKey = `issue:${id}`
-    const cached = issueCache.get(cacheKey)
-    if (cached) {
-      return cached
-    }
-
-    const issue = await jiraProvider.fetchIssue(id)
-    if (issue) {
-      // Cache by both ID and key
-      issueCache.set(`issue:${issue.id}`, issue)
-      issueCache.set(`issue:${issue.externalId}`, issue)
-    }
-
-    return issue
-  }
-
-  /**
-   * Create a new issue (invalidates assigned cache)
-   */
-  async createIssue(input: CreateIssueInput): Promise<Issue> {
-    this.ensureInitialized()
-
-    const issue = await jiraProvider.createIssue(input)
-
-    // Cache the new issue
-    issueCache.set(`issue:${issue.id}`, issue)
-    issueCache.set(`issue:${issue.externalId}`, issue)
-
-    // Invalidate assigned issues cache (new issue may be assigned)
-    assignedIssuesCache.clear()
-
-    return issue
-  }
-
-  /**
-   * Update an issue (invalidates cache for that issue)
-   */
-  async updateIssue(id: string, input: UpdateIssueInput): Promise<Issue> {
-    this.ensureInitialized()
-
-    const issue = await jiraProvider.updateIssue(id, input)
-
-    // Update cache
-    issueCache.set(`issue:${issue.id}`, issue)
-    issueCache.set(`issue:${issue.externalId}`, issue)
-
-    return issue
-  }
-
-  /**
-   * Mark issue as in progress (invalidates cache)
-   */
-  async markInProgress(id: string): Promise<void> {
-    this.ensureInitialized()
-
-    await jiraProvider.markInProgress(id)
-
-    // Invalidate caches
-    issueCache.delete(`issue:${id}`)
-    assignedIssuesCache.clear()
-  }
-
-  /**
-   * Mark issue as done (invalidates cache)
-   */
-  async markDone(id: string): Promise<void> {
-    this.ensureInitialized()
-
-    await jiraProvider.markDone(id)
-
-    // Invalidate caches
-    issueCache.delete(`issue:${id}`)
-    assignedIssuesCache.clear()
   }
 
   /**
@@ -188,10 +85,7 @@ export class JiraService {
     const issues = await jiraProvider.fetchActiveSprintIssues(options)
     sprintIssuesCache.set(cacheKey, issues)
 
-    for (const issue of issues) {
-      issueCache.set(`issue:${issue.id}`, issue)
-      issueCache.set(`issue:${issue.externalId}`, issue)
-    }
+    this.cacheIssues(issues)
 
     return issues
   }
@@ -211,10 +105,7 @@ export class JiraService {
     const issues = await jiraProvider.fetchBacklogIssues(options)
     sprintIssuesCache.set(cacheKey, issues)
 
-    for (const issue of issues) {
-      issueCache.set(`issue:${issue.id}`, issue)
-      issueCache.set(`issue:${issue.externalId}`, issue)
-    }
+    this.cacheIssues(issues)
 
     return issues
   }
@@ -233,31 +124,6 @@ export class JiraService {
     const projects = await jiraProvider.getProjects()
     projectsCache.set('projects', projects)
     return projects
-  }
-
-  /**
-   * Clear all caches
-   */
-  clearCache(): void {
-    clearJiraCache()
-  }
-
-  /**
-   * Get cache statistics for debugging
-   */
-  getCacheStats() {
-    return getJiraCacheStats()
-  }
-
-  /**
-   * Ensure service is initialized
-   */
-  private ensureInitialized(): void {
-    if (!this.initialized) {
-      throw new Error(
-        'JIRA service not initialized. Call jiraService.initialize() first or run `prjct jira setup`.'
-      )
-    }
   }
 }
 

@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { SKIP_DIRS } from '../constants/file-patterns'
 import { safeRead } from '../storage/safe-reader'
 import { isNotFoundError } from '../types/fs'
 import type { ValidationSchema } from '../types/storage.js'
@@ -12,6 +13,79 @@ import type { ValidationSchema } from '../types/storage.js'
  * - Consistent error handling
  * - JSON read/write patterns
  */
+
+// =============================================================================
+// Walk & Batch Utilities
+// =============================================================================
+
+export interface WalkOptions {
+  /** Skip files/dirs starting with '.' (default: false) */
+  skipDotfiles?: boolean
+  /** Allow specific dotfiles even when skipDotfiles is true */
+  dotfileAllowlist?: string[]
+  /** Stop collecting after N files */
+  maxFiles?: number
+}
+
+/**
+ * Recursively walk a directory and return relative file paths.
+ *
+ * Skips common non-source directories (node_modules, .git, dist, etc).
+ * Returns paths relative to rootPath.
+ */
+export async function walkDir(rootPath: string, options: WalkOptions = {}): Promise<string[]> {
+  const files: string[] = []
+  const maxFiles = options.maxFiles ?? Infinity
+  const allowSet = options.dotfileAllowlist ? new Set(options.dotfileAllowlist) : null
+
+  async function walk(dir: string): Promise<void> {
+    if (files.length >= maxFiles) return
+
+    const entries = await fs.readdir(dir, { withFileTypes: true }).catch(() => [])
+
+    for (const entry of entries) {
+      if (files.length >= maxFiles) break
+
+      const name = String(entry.name)
+      if (SKIP_DIRS.has(name)) continue
+
+      // Dotfile handling
+      if (options.skipDotfiles && name.startsWith('.')) {
+        if (!allowSet || !allowSet.has(name)) continue
+      }
+
+      const fullPath = path.join(dir, name)
+      if (entry.isDirectory()) {
+        await walk(fullPath)
+      } else if (entry.isFile()) {
+        files.push(path.relative(rootPath, fullPath))
+      }
+    }
+  }
+
+  await walk(rootPath)
+  return files
+}
+
+/**
+ * Process items in parallel batches, collecting non-null results.
+ */
+export async function batchProcess<T, R>(
+  items: T[],
+  batchSize: number,
+  fn: (item: T) => Promise<R | null>
+): Promise<R[]> {
+  const results: R[] = []
+  for (let i = 0; i < items.length; i += batchSize) {
+    const batchResults = await Promise.all(items.slice(i, i + batchSize).map(fn))
+    for (const r of batchResults) if (r !== null) results.push(r)
+  }
+  return results
+}
+
+// =============================================================================
+// File Operations
+// =============================================================================
 
 interface ListFilesOptions {
   filesOnly?: boolean
@@ -48,6 +122,8 @@ export async function readJson<T = unknown>(
  * Write object to JSON file (pretty-printed)
  */
 export async function writeJson(filePath: string, data: unknown, indent = 2): Promise<void> {
+  const dir = path.dirname(filePath)
+  await fs.mkdir(dir, { recursive: true })
   const content = JSON.stringify(data, null, indent)
   await fs.writeFile(filePath, content, 'utf-8')
 }

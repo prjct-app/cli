@@ -11,168 +11,21 @@
  */
 
 import prjctDb from '../storage/database'
-import type { HistoryEntry, HistoryEventType, KnownDomain, MemoryTag } from '../types/memory'
-import { KNOWN_DOMAINS, MEMORY_TAGS } from '../types/memory'
+import type { HistoryEntry, HistoryEventType, KnownDomain } from '../types/memory'
+import { KNOWN_DOMAINS } from '../types/memory'
 import { getTimestamp } from '../utils/date-helper'
-
-// =============================================================================
-// Semantic Domain Mapping (PRJ-300)
-// =============================================================================
-
-/**
- * Map each known domain to its relevant MEMORY_TAGS.
- * More comprehensive than the previous mapping — includes TECH_STACK and
- * DEPENDENCIES where they apply.
- */
-export const DOMAIN_TAG_MAP: Record<string, MemoryTag[]> = {
-  frontend: [
-    MEMORY_TAGS.CODE_STYLE,
-    MEMORY_TAGS.FILE_STRUCTURE,
-    MEMORY_TAGS.ARCHITECTURE,
-    MEMORY_TAGS.TECH_STACK,
-  ],
-  backend: [
-    MEMORY_TAGS.CODE_STYLE,
-    MEMORY_TAGS.ARCHITECTURE,
-    MEMORY_TAGS.DEPENDENCIES,
-    MEMORY_TAGS.TECH_STACK,
-  ],
-  devops: [
-    MEMORY_TAGS.SHIP_WORKFLOW,
-    MEMORY_TAGS.TEST_BEHAVIOR,
-    MEMORY_TAGS.DEPENDENCIES,
-    MEMORY_TAGS.ARCHITECTURE,
-  ],
-  docs: [MEMORY_TAGS.CODE_STYLE, MEMORY_TAGS.NAMING_CONVENTION, MEMORY_TAGS.FILE_STRUCTURE],
-  testing: [MEMORY_TAGS.TEST_BEHAVIOR, MEMORY_TAGS.CODE_STYLE, MEMORY_TAGS.DEPENDENCIES],
-  database: [
-    MEMORY_TAGS.ARCHITECTURE,
-    MEMORY_TAGS.NAMING_CONVENTION,
-    MEMORY_TAGS.TECH_STACK,
-    MEMORY_TAGS.DEPENDENCIES,
-  ],
-  general: Object.values(MEMORY_TAGS) as MemoryTag[],
-}
-
-/**
- * Semantic keywords for each domain.
- * Used to resolve unknown domain strings (e.g., "uxui" -> frontend)
- * and for partial scoring when memory tags relate semantically.
- * @see PRJ-300
- */
-export const SEMANTIC_DOMAIN_KEYWORDS: Record<string, string[]> = {
-  frontend: [
-    'ui',
-    'ux',
-    'uxui',
-    'css',
-    'styling',
-    'component',
-    'layout',
-    'design',
-    'responsive',
-    'react',
-    'vue',
-    'svelte',
-    'angular',
-    'html',
-    'tailwind',
-    'sass',
-    'web',
-    'accessibility',
-    'a11y',
-  ],
-  backend: [
-    'api',
-    'server',
-    'route',
-    'endpoint',
-    'rest',
-    'graphql',
-    'middleware',
-    'worker',
-    'queue',
-    'auth',
-    'hono',
-    'express',
-    'service',
-    'microservice',
-  ],
-  devops: [
-    'ci',
-    'cd',
-    'docker',
-    'kubernetes',
-    'deploy',
-    'infra',
-    'infrastructure',
-    'monitoring',
-    'cloud',
-    'aws',
-    'gcp',
-    'azure',
-    'pipeline',
-    'helm',
-    'terraform',
-  ],
-  docs: ['documentation', 'readme', 'guide', 'tutorial', 'wiki', 'changelog', 'jsdoc', 'typedoc'],
-  testing: [
-    'test',
-    'spec',
-    'e2e',
-    'unit',
-    'integration',
-    'coverage',
-    'mock',
-    'vitest',
-    'jest',
-    'playwright',
-    'cypress',
-  ],
-  database: [
-    'db',
-    'sql',
-    'schema',
-    'migration',
-    'query',
-    'orm',
-    'prisma',
-    'mongo',
-    'postgres',
-    'redis',
-    'drizzle',
-    'sqlite',
-  ],
-  general: [],
-}
 
 /**
  * Resolve a domain string to canonical known domain(s).
- * Known domains pass through; unknown domains are matched via semantic keywords.
+ * Known domains pass through; unknown domains default to general.
  * Exported for testing.
  * @see PRJ-300
  */
 export function resolveCanonicalDomains(domain: string): KnownDomain[] {
-  // Exact match
   if ((KNOWN_DOMAINS as readonly string[]).includes(domain)) {
     return [domain as KnownDomain]
   }
-
-  // Semantic resolution — find canonical domains whose keywords match
-  const normalized = domain.toLowerCase().replace(/[-_\s]/g, '')
-  const matches: KnownDomain[] = []
-
-  for (const [canonical, keywords] of Object.entries(SEMANTIC_DOMAIN_KEYWORDS)) {
-    if (canonical === 'general') continue
-    for (const kw of keywords) {
-      if (normalized.includes(kw) || kw.includes(normalized)) {
-        matches.push(canonical as KnownDomain)
-        break
-      }
-    }
-  }
-
-  return matches.length > 0 ? matches : ['general']
+  return ['general']
 }
 
 // =============================================================================

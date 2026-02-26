@@ -5,26 +5,10 @@
  * points-to-time conversion and historical suggestion.
  */
 
+import { FIBONACCI_MINUTES_MAP, FIBONACCI_POINTS } from '../constants/algorithms'
 import type { FibonacciPoint } from '../types/domain.js'
+import { parseDurationMinutes } from '../utils/date-helper'
 import outcomeRecorder from '../workflows/outcome-recorder'
-
-// =============================================================================
-// Constants
-// =============================================================================
-
-/** Valid Fibonacci story points */
-export const FIBONACCI_POINTS = [1, 2, 3, 5, 8, 13, 21] as const
-
-/** Default points-to-minutes mapping */
-const DEFAULT_MINUTES_MAP: Record<FibonacciPoint, { min: number; max: number; typical: number }> = {
-  1: { min: 5, max: 15, typical: 10 },
-  2: { min: 15, max: 30, typical: 20 },
-  3: { min: 30, max: 60, typical: 45 },
-  5: { min: 60, max: 120, typical: 90 },
-  8: { min: 120, max: 240, typical: 180 },
-  13: { min: 240, max: 480, typical: 360 },
-  21: { min: 480, max: 960, typical: 720 },
-}
 
 // =============================================================================
 // Validation
@@ -42,7 +26,7 @@ export const isValidPoint = (n: number): n is FibonacciPoint =>
 export const pointsToMinutes = (
   points: FibonacciPoint
 ): { min: number; max: number; typical: number } => {
-  return DEFAULT_MINUTES_MAP[points]
+  return FIBONACCI_MINUTES_MAP[points]
 }
 
 /** Format a minute count as a human-readable duration */
@@ -80,7 +64,7 @@ export const suggestFromHistory = async (
 
   // Calculate average actual duration in minutes
   const totalMinutes = relevant.reduce((sum, o) => {
-    return sum + parseDuration(o.actualDuration)
+    return sum + parseDurationMinutes(o.actualDuration)
   }, 0)
   const avgMinutes = totalMinutes / relevant.length
 
@@ -100,7 +84,7 @@ export const findClosestPoint = (minutes: number): FibonacciPoint => {
   let smallestDiff = Number.POSITIVE_INFINITY
 
   for (const point of FIBONACCI_POINTS) {
-    const diff = Math.abs(DEFAULT_MINUTES_MAP[point].typical - minutes)
+    const diff = Math.abs(FIBONACCI_MINUTES_MAP[point].typical - minutes)
     if (diff < smallestDiff) {
       smallestDiff = diff
       closest = point
@@ -108,21 +92,4 @@ export const findClosestPoint = (minutes: number): FibonacciPoint => {
   }
 
   return closest
-}
-
-/** Parse a duration string like "2h 30m" to minutes */
-const parseDuration = (duration: string): number => {
-  let minutes = 0
-
-  const hourMatch = duration.match(/(\d+)h/)
-  if (hourMatch) {
-    minutes += Number.parseInt(hourMatch[1], 10) * 60
-  }
-
-  const minMatch = duration.match(/(\d+)m/)
-  if (minMatch) {
-    minutes += Number.parseInt(minMatch[1], 10)
-  }
-
-  return minutes
 }

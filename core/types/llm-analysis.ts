@@ -37,6 +37,21 @@ export interface LLMAnalysis {
   // Knowledge
   projectInsights: string[]
   conventions: Convention[]
+
+  // Stack & commands (optional for backward compat with existing analyses)
+  commands?: {
+    build?: string
+    test?: string
+    lint?: string
+    dev?: string
+    format?: string
+    install?: string
+  }
+  stack?: {
+    languages: string[]
+    frameworks: string[]
+    packageManager?: string
+  }
 }
 
 export interface ArchitectureInsight {

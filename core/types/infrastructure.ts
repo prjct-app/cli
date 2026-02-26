@@ -41,7 +41,6 @@ export type LayerType =
   | 'progress'
   | 'analysis'
   | 'memory'
-  | 'agents'
   | 'sessions'
   | 'sync'
   | 'storage'
@@ -171,7 +170,6 @@ export interface AgentConfig {
   commandPrefix: string
   responseStyle: string
   dataDir: string
-  agentsDir: string | null
   commandsDir: string | null
 }
 
@@ -218,9 +216,7 @@ export interface CodexPRouterStatus {
   verified: boolean
   skillPath: string
   templateHash?: string
-  command?: string
-  templatePath?: string
-  templateSource?: import('../types/services').PCommandTemplateSource
+  templateSource?: string
   message?: string
   fix?: string[]
 }

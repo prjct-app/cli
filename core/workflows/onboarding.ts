@@ -19,6 +19,7 @@ import type {
   WizardResult,
   WizardStep,
 } from '../types/workflows.js'
+import { dirExists, fileExists } from '../utils/file-helper'
 import out from '../utils/output'
 
 // ============================================================================
@@ -396,65 +397,44 @@ export class OnboardingWizard {
    * Detect installed AI agents from config files
    */
   async detectInstalledAgents(): Promise<AIAgent[]> {
-    const fs = await import('node:fs/promises')
     const path = await import('node:path')
     const os = await import('node:os')
 
     const agents: AIAgent[] = []
 
     // Claude Code: Check ~/.claude directory
-    try {
-      await fs.access(path.join(os.homedir(), '.claude'))
+    if (await dirExists(path.join(os.homedir(), '.claude'))) {
       agents.push('claude')
-    } catch {
-      /* not installed */
     }
 
     // Cursor: Check for .cursorrules in project
-    try {
-      await fs.access(path.join(this.projectPath, '.cursorrules'))
+    if (await fileExists(path.join(this.projectPath, '.cursorrules'))) {
       agents.push('cursor')
-    } catch {
-      /* not installed */
     }
 
     // Windsurf: Check for .windsurfrules
-    try {
-      await fs.access(path.join(this.projectPath, '.windsurfrules'))
+    if (await fileExists(path.join(this.projectPath, '.windsurfrules'))) {
       agents.push('windsurf')
-    } catch {
-      /* not installed */
     }
 
     // Copilot: Check for .github/copilot-instructions.md
-    try {
-      await fs.access(path.join(this.projectPath, '.github', 'copilot-instructions.md'))
+    if (await fileExists(path.join(this.projectPath, '.github', 'copilot-instructions.md'))) {
       agents.push('copilot')
-    } catch {
-      /* not installed */
     }
 
     // Gemini: Check ~/.gemini
-    try {
-      await fs.access(path.join(os.homedir(), '.gemini'))
+    if (await dirExists(path.join(os.homedir(), '.gemini'))) {
       agents.push('gemini')
-    } catch {
-      /* not installed */
     }
 
     // Codex: Check codex binary OR ~/.codex directory
     try {
-      const { exec } = await import('node:child_process')
-      const { promisify } = await import('node:util')
-      const execAsync = promisify(exec)
+      const { execAsync } = await import('../utils/exec')
       await execAsync('which codex')
       agents.push('codex')
     } catch {
-      try {
-        await fs.access(path.join(os.homedir(), '.codex'))
+      if (await dirExists(path.join(os.homedir(), '.codex'))) {
         agents.push('codex')
-      } catch {
-        /* not installed */
       }
     }
 

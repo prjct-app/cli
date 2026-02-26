@@ -12,6 +12,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import type { StateJson } from '../schemas/state'
 import { isNotFoundError } from '../types/fs'
+import { fileExists } from '../utils/file-helper'
 
 const LOCAL_STATE_FILENAME = '.prjct/.prjct-state.md'
 
@@ -62,12 +63,7 @@ class LocalStateGenerator {
    */
   async exists(projectPath: string): Promise<boolean> {
     const filePath = path.join(projectPath, LOCAL_STATE_FILENAME)
-    try {
-      await fs.access(filePath)
-      return true
-    } catch {
-      return false
-    }
+    return fileExists(filePath)
   }
 
   /**

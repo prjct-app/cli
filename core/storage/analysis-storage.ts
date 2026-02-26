@@ -10,7 +10,6 @@
  * Only sealed analysis feeds task context.
  */
 
-import { createHash } from 'node:crypto'
 import type { AnalysisSchema } from '../schemas/analysis'
 import {
   AnalysisItemSchema,
@@ -20,6 +19,7 @@ import {
 import { generateAnalysisDiff } from '../services/analysis-diff'
 import type { AnalysisDiff } from '../types/services.js'
 import { getTimestamp } from '../utils/date-helper'
+import { sha256 } from '../utils/hash'
 import { StorageManager } from './storage-manager'
 
 // =============================================================================
@@ -374,7 +374,7 @@ class AnalysisStorage extends StorageManager<AnalysisStoreData> {
       commitHash: analysis.commitHash,
     }
 
-    return createHash('sha256').update(JSON.stringify(canonical)).digest('hex')
+    return sha256(JSON.stringify(canonical))
   }
 }
 

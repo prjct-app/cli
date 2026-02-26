@@ -16,9 +16,8 @@ import { agentService } from '../services/agent-service'
 import { breakdownService } from '../services/breakdown-service'
 import { memoryService } from '../services/memory-service'
 import { projectService } from '../services/project-service'
-import type { AgentAssignmentResult, AgentInfo } from '../types/agents'
+import type { AgentInfo } from '../types/agents'
 import type { Author, CommandResult } from '../types/commands'
-import type { ProjectContext } from '../types/core'
 import * as dateHelper from '../utils/date-helper'
 import * as fileHelper from '../utils/file-helper'
 
@@ -93,14 +92,6 @@ export class PrjctCommandsBase {
 
   _detectBugSeverity(description: string): string {
     return breakdownService.detectBugSeverity(description)
-  }
-
-  async _assignAgentForTask(
-    task: string,
-    projectPath: string,
-    context: ProjectContext
-  ): Promise<AgentAssignmentResult> {
-    return agentService.assignForTask(task, projectPath, context)
   }
 }
 

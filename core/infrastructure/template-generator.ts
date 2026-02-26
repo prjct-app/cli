@@ -14,6 +14,7 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
+import { fileExists } from '../utils/file-helper'
 
 export class TemplateGenerator {
   private commandsPath: string
@@ -70,13 +71,8 @@ export class TemplateGenerator {
    * Check if a workflow template exists
    */
   async templateExists(workflowName: string): Promise<boolean> {
-    try {
-      const templatePath = path.join(this.commandsPath, `${workflowName}.md`)
-      await fs.access(templatePath)
-      return true
-    } catch {
-      return false
-    }
+    const templatePath = path.join(this.commandsPath, `${workflowName}.md`)
+    return fileExists(templatePath)
   }
 
   /**

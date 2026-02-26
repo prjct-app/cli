@@ -1,0 +1,58 @@
+---
+description: prjct context for prjct-cli
+globs:
+alwaysApply: true
+---
+
+You are working on prjct-cli, a enterprise JavaScript project.
+
+<!-- source: package.json, detected -->
+## Tech Stack
+- Languages: TypeScript
+- Frameworks: Hono
+
+<!-- source: package.json, detected -->
+## Commands
+- Install: `npm install`
+- Dev: `npm run dev`
+- Test: `npm test`
+- Build: `npm run build`
+
+## Code Patterns
+- **Prefer strict typing contracts**: Functions and component props should be explicitly typed; avoid implicit any boundaries.
+- **Type-first API surfaces**: Exported modules should define reusable domain types for inputs and outputs.
+- **Hono API validation via Context7**: Validate Hono APIs against current documentation through Context7 before implementation.
+- **Image rendering via next/image**: Project uses next/image for optimized image delivery. (app/** or src/**)
+- **Use UiButton abstraction**: Buttons are wrapped in UiButton instead of native button in app UI. (components/**)
+- **Strict type/lint hygiene**: Detected 4 any, 2 ts-ignore, 0 raw img potential violations.
+
+## Anti-Patterns (Avoid)
+- **Unbounded any type** in `multiple` — Use explicit types or unknown with narrowing. Add inline justification for unavoidable any.
+- **Unscoped @ts-ignore** in `multiple` — Prefer @ts-expect-error with rationale and follow-up cleanup ticket.
+- **Unchecked @ts-ignore usage** in `core/services/pattern-extractor.ts` — Use @ts-expect-error with reason or refactor typings.
+- **Unbounded any usage** in `core/__tests__/services/pattern-extractor.test.ts` — Replace with specific types or justified unknown + narrowing.
+- **Unbounded any usage** in `core/__tests__/domain/bm25.test.ts` — Replace with specific types or justified unknown + narrowing.
+
+
+## prjct Rules
+
+Path: `~/.prjct-cli/projects/bc401c41-c8b9-436a-ac78-c91cac82ab4f/`
+Workflow: `p. sync` → `p. task "desc"` → work → `p. done` → `p. ship`
+
+## Project State
+
+| Field | Value |
+|-------|-------|
+| Name | prjct-cli |
+| Version | 1.47.2 |
+| Ecosystem | JavaScript |
+| Branch | refactor/kill-static-context-generation |
+| Files | ~336 |
+| Commits | 658 |
+
+## Agents
+
+Load from `~/.prjct-cli/projects/bc401c41-c8b9-436a-ac78-c91cac82ab4f/agents/`:
+
+**Workflow**: prjct-workflow, prjct-shipper, prjct-planner
+**Domain**: backend, database

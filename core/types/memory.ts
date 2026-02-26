@@ -95,7 +95,7 @@ export type KnownDomain = (typeof KNOWN_DOMAINS)[number]
 /**
  * Task domain — accepts known domains with autocomplete + any string for
  * semantic resolution. Unknown domains are resolved to the closest canonical
- * domain via SEMANTIC_DOMAIN_KEYWORDS.
+ * domain or falls back to 'general'.
  * @see PRJ-107, PRJ-300
  */
 export type TaskDomain = KnownDomain | (string & {})

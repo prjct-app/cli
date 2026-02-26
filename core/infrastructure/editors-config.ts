@@ -14,6 +14,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { getErrorMessage } from '../types/fs'
 import type { AIProviderName } from '../types/provider'
+import { fileExists, writeJson } from '../utils/file-helper'
 
 interface EditorConfig {
   version: string
@@ -79,7 +80,7 @@ class EditorsConfig {
         path: installPath,
       }
 
-      await fs.writeFile(this.configFile, JSON.stringify(config, null, 2), 'utf-8')
+      await writeJson(this.configFile, config)
 
       return true
     } catch (error) {
@@ -126,7 +127,7 @@ class EditorsConfig {
       config.version = version
       config.lastInstall = new Date().toISOString()
 
-      await fs.writeFile(this.configFile, JSON.stringify(config, null, 2), 'utf-8')
+      await writeJson(this.configFile, config)
 
       return true
     } catch (error) {
@@ -139,12 +140,7 @@ class EditorsConfig {
    * Check if config file exists
    */
   async configExists(): Promise<boolean> {
-    try {
-      await fs.access(this.configFile)
-      return true
-    } catch (_error) {
-      return false
-    }
+    return fileExists(this.configFile)
   }
 
   /**

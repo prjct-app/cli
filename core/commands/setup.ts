@@ -10,7 +10,7 @@ import pathManager from '../infrastructure/path-manager'
 import context7Service from '../services/context7-service'
 import type { CommandResult, SetupOptions } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
-import { fileExists } from '../utils/file-helper'
+import { fileExists, readJson, writeJson } from '../utils/file-helper'
 import {
   getClaudeMcpConfigPath,
   hasMcpServer,
@@ -324,7 +324,7 @@ echo "⚡ prjct"
       let settings: Record<string, unknown> = {}
       if (await fileExists(settingsPath)) {
         try {
-          settings = JSON.parse(await fs.readFile(settingsPath, 'utf8'))
+          settings = (await readJson<Record<string, unknown>>(settingsPath)) ?? {}
         } catch (_error) {
           // Invalid JSON, start fresh
         }
@@ -335,7 +335,7 @@ echo "⚡ prjct"
         command: statusLinePath,
       }
 
-      await fs.writeFile(settingsPath, JSON.stringify(settings, null, 2))
+      await writeJson(settingsPath, settings)
 
       return { success: true }
     } catch (error) {

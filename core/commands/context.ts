@@ -58,7 +58,6 @@ export class ContextCommands {
           currentTask: null,
           domains: [],
           primaryDomain: null,
-          agents: [],
           subtasks: null,
           repoAnalysis: {
             ecosystem: 'unknown',
@@ -119,14 +118,6 @@ export class ContextCommands {
         currentTask,
         domains: orchestratorContext?.detectedDomains || [],
         primaryDomain: orchestratorContext?.primaryDomain || null,
-        agents:
-          orchestratorContext?.agents.map((a) => ({
-            name: a.name,
-            domain: a.domain,
-            filePath: a.filePath,
-            skills: a.skills,
-            preview: a.content.substring(0, 500),
-          })) || [],
         subtasks:
           orchestratorContext?.subtasks?.map((st) => ({
             id: st.id,

@@ -14,6 +14,7 @@ import type {
   AgentTaskRecord,
   TaskType,
 } from '../types/agents'
+import { parseDurationMinutes } from '../utils/date-helper'
 import * as fileHelper from '../utils/file-helper'
 
 const PERFORMANCE_DIR = 'analysis'
@@ -170,7 +171,7 @@ export class AgentPerformanceTracker {
     if (records.length === 0) return '0m'
 
     const totalMinutes = records.reduce((sum, r) => {
-      return sum + this.parseDuration(r.actualDuration)
+      return sum + parseDurationMinutes(r.actualDuration)
     }, 0)
 
     const avgMinutes = Math.round(totalMinutes / records.length)
@@ -190,8 +191,8 @@ export class AgentPerformanceTracker {
     if (records.length === 0) return 0
 
     const accurateCount = records.filter((r) => {
-      const estimated = this.parseDuration(r.estimatedDuration)
-      const actual = this.parseDuration(r.actualDuration)
+      const estimated = parseDurationMinutes(r.estimatedDuration)
+      const actual = parseDurationMinutes(r.actualDuration)
       if (estimated === 0) return false
       return Math.abs(actual - estimated) / estimated <= 0.2
     }).length
@@ -246,25 +247,6 @@ export class AgentPerformanceTracker {
     const previousSuccess = previous.filter((r) => r.success).length / 5
 
     return recentSuccess > previousSuccess
-  }
-
-  /**
-   * Parse duration string to minutes.
-   */
-  private parseDuration(duration: string): number {
-    let minutes = 0
-
-    const hourMatch = duration.match(/(\d+)h/)
-    if (hourMatch) {
-      minutes += parseInt(hourMatch[1], 10) * 60
-    }
-
-    const minMatch = duration.match(/(\d+)m/)
-    if (minMatch) {
-      minutes += parseInt(minMatch[1], 10)
-    }
-
-    return minutes
   }
 
   /**

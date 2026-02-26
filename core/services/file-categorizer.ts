@@ -12,7 +12,6 @@
  * - Caching for efficiency
  */
 
-import path from 'node:path'
 import { INDEX_VERSION, indexStorage } from '../storage/index-storage'
 import type { CategorizationOptions, CategorizationResult } from '../types/services.js'
 import type {
@@ -23,46 +22,6 @@ import type {
   ScoredFile,
 } from '../types/storage.js'
 import { getTimestamp } from '../utils/date-helper'
-
-// ============================================================================
-// HEURISTIC PATTERNS
-// ============================================================================
-
-/**
- * Fallback heuristic patterns for when LLM is unavailable
- * Maps directory/filename patterns to domain names
- */
-const HEURISTIC_PATTERNS: { pattern: RegExp; domain: string }[] = [
-  // Payment-related
-  { pattern: /\b(payment|stripe|billing|checkout|invoice)/i, domain: 'payments' },
-
-  // User/Auth
-  { pattern: /\b(auth|login|signup|user|session|password|oauth)/i, domain: 'auth' },
-
-  // API
-  { pattern: /\b(api|endpoint|route|controller)/i, domain: 'api' },
-
-  // Database
-  { pattern: /\b(model|schema|migration|database|db|prisma|drizzle)/i, domain: 'database' },
-
-  // Frontend
-  { pattern: /\b(component|page|view|layout|ui|button|form|modal)/i, domain: 'frontend' },
-
-  // Testing
-  { pattern: /\b(test|spec|__tests__|e2e|cypress)/i, domain: 'testing' },
-
-  // Configuration
-  { pattern: /\b(config|setting|env)/i, domain: 'config' },
-
-  // Utilities
-  { pattern: /\b(util|helper|lib|common|shared)/i, domain: 'utilities' },
-
-  // Services/Business Logic
-  { pattern: /\b(service|handler|processor|worker)/i, domain: 'services' },
-
-  // Types/Interfaces
-  { pattern: /\b(type|interface|dto)/i, domain: 'types' },
-]
 
 // ============================================================================
 // FILE CATEGORIZER CLASS
@@ -157,44 +116,21 @@ export class FileCategorizer {
   // ==========================================================================
 
   /**
-   * Discover domains using heuristics (fallback)
+   * Discover domains from directory structure (fallback)
    */
   discoverDomainsHeuristic(files: ScoredFile[]): DomainDefinition[] {
-    const domainCounts = new Map<string, number>()
-    const domainPatterns = new Map<string, Set<string>>()
-
-    // Count files matching each heuristic pattern
-    for (const file of files) {
-      const filePath = file.path.toLowerCase()
-      for (const { pattern, domain } of HEURISTIC_PATTERNS) {
-        if (pattern.test(filePath)) {
-          domainCounts.set(domain, (domainCounts.get(domain) || 0) + 1)
-          if (!domainPatterns.has(domain)) {
-            domainPatterns.set(domain, new Set())
-          }
-          // Extract the matched directory as a pattern
-          const dir = path.dirname(file.path)
-          domainPatterns.get(domain)!.add(`**/${path.basename(dir)}/**`)
-        }
-      }
-    }
-
-    // Also detect domains from common directory names
+    // Use only real directory names — factual data from the project
     const dirDomains = this.extractDirectoryDomains(files)
-    for (const [domain, count] of dirDomains) {
-      domainCounts.set(domain, (domainCounts.get(domain) || 0) + count)
-    }
 
     // Build domain definitions for domains with at least 2 files
     const domains: DomainDefinition[] = []
-    for (const [name, count] of domainCounts) {
+    for (const [name, count] of dirDomains) {
       if (count >= 2) {
-        const heuristic = HEURISTIC_PATTERNS.find((h) => h.domain === name)
         domains.push({
           name,
           description: `Files related to ${name}`,
-          keywords: heuristic ? [name] : [name],
-          filePatterns: Array.from(domainPatterns.get(name) || []),
+          keywords: [name],
+          filePatterns: [`**/${name}/**`],
           fileCount: count,
         })
       }
@@ -230,7 +166,7 @@ export class FileCategorizer {
   }
 
   /**
-   * Categorize files using heuristics (fallback)
+   * Categorize files using discovered domain keywords and filePatterns (fallback)
    */
   categorizeFilesHeuristic(files: ScoredFile[], domains: DomainDefinition[]): FileCategory[] {
     const categories: FileCategory[] = []
@@ -240,7 +176,7 @@ export class FileCategorizer {
       const matchedDomains: { domain: string; score: number }[] = []
       const filePath = file.path.toLowerCase()
 
-      // Check against each domain's keywords and patterns
+      // Check against each domain's keywords and filePatterns
       for (const domain of domains) {
         let score = 0
 
@@ -248,13 +184,6 @@ export class FileCategorizer {
         for (const keyword of domain.keywords) {
           if (filePath.includes(keyword.toLowerCase())) {
             score += 1
-          }
-        }
-
-        // Check heuristic patterns
-        for (const { pattern, domain: patternDomain } of HEURISTIC_PATTERNS) {
-          if (patternDomain === domain.name && pattern.test(filePath)) {
-            score += 2
           }
         }
 

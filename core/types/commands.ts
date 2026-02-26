@@ -394,13 +394,6 @@ export interface ContextOutput {
   } | null
   domains: string[]
   primaryDomain: string | null
-  agents: Array<{
-    name: string
-    domain: string
-    filePath: string
-    skills: string[]
-    preview: string
-  }>
   subtasks: Array<{
     id: string
     description: string

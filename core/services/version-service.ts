@@ -15,13 +15,10 @@
  * No external parsing libraries - uses regex for TOML/XML.
  */
 
-import { exec } from 'node:child_process'
 import path from 'node:path'
-import { promisify } from 'node:util'
 import type { VersionInfo } from '../types/services.js'
+import { execAsync } from '../utils/exec'
 import * as fileHelper from '../utils/file-helper'
-
-const execAsync = promisify(exec)
 
 // =============================================================================
 // VersionService

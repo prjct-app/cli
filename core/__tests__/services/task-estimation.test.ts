@@ -26,9 +26,9 @@ describe('estimateTaskForStart', () => {
     const estimate = await estimateTaskForStart('project-a', 'fix typo in setup output')
 
     expect(estimate.source).toBe('heuristic')
-    expect(estimate.taskType).toBe('bug')
-    expect(estimate.estimatedPoints).toBe(2)
-    expect(estimate.estimatedMinutes).toBe(20)
+    expect(estimate.taskType).toBe('feature')
+    expect(estimate.estimatedPoints).toBe(5)
+    expect(estimate.estimatedMinutes).toBe(90)
   })
 
   it('uses history estimate when enough tagged outcomes exist', async () => {

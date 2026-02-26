@@ -43,36 +43,17 @@ SCRIPT_PATH="$(resolve_symlink "$0")"
 SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-# CRITICAL: Ensure p.md is installed (self-healing)
-# This runs EVERY time prjct is called, ensuring setup even if postinstall failed
+# Ensure statusline and basic config (self-healing)
+# Router (p.md) is deprecated — skills handle workflows natively
 ensure_setup() {
-  CLAUDE_COMMANDS="$HOME/.claude/commands"
-  PMD_DEST="$CLAUDE_COMMANDS/p.md"
-
-  # Create dir if needed
-  if [ ! -d "$CLAUDE_COMMANDS" ]; then
-    mkdir -p "$CLAUDE_COMMANDS" 2>/dev/null
-  fi
-
-  # Try source template first (dev mode), then extract from bundle (production)
-  PMD_SRC="$ROOT_DIR/templates/commands/p.md"
-  BUNDLE="$ROOT_DIR/dist/templates.json"
-
-  if [ -f "$PMD_SRC" ]; then
-    # Dev mode: copy from source templates
-    if [ ! -f "$PMD_DEST" ] || [ "$PMD_SRC" -nt "$PMD_DEST" ]; then
-      cp "$PMD_SRC" "$PMD_DEST" 2>/dev/null
+  # Clean up legacy routers if they exist (deprecated — skills are native)
+  for LEGACY_ROUTER in "$HOME/.claude/commands/p.md" "$HOME/.gemini/commands/p.toml"; do
+    if [ -f "$LEGACY_ROUTER" ]; then
+      rm -f "$LEGACY_ROUTER" 2>/dev/null
     fi
-  elif [ -f "$BUNDLE" ] && [ ! -f "$PMD_DEST" ]; then
-    # Production: extract from bundle using node
-    node -e "
-      const b=JSON.parse(require('fs').readFileSync('$BUNDLE','utf8'));
-      const c=b['commands/p.md'];
-      if(c)require('fs').writeFileSync('$PMD_DEST',c);
-    " 2>/dev/null
-  fi
+  done
 
-  # Also ensure statusline (best effort)
+  # Ensure statusline (best effort)
   STATUSLINE_SRC="$ROOT_DIR/assets/statusline/statusline.sh"
   STATUSLINE_DIR="$HOME/.prjct-cli/statusline"
   STATUSLINE_DEST="$STATUSLINE_DIR/statusline.sh"

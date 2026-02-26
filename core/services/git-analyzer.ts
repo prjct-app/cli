@@ -10,13 +10,10 @@
  * @version 1.1.0
  */
 
-import { exec } from 'node:child_process'
-import { promisify } from 'node:util'
 import type { GitData } from '../types/services.js'
 import { getTimeout } from '../utils/constants'
+import { execAsync } from '../utils/exec'
 import { dependencyValidator } from './dependency-validator'
-
-const execAsync = promisify(exec)
 
 // ============================================================================
 // GIT ANALYZER CLASS

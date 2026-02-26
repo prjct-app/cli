@@ -17,10 +17,9 @@ import {
   calculateInputBudget,
   calculateOutputReserve,
   getContextWindow,
-  INPUT_RATIO,
-  MODEL_CONTEXT_WINDOWS,
   TokenBudgetCoordinator,
 } from '../../agentic/token-budget'
+import { INPUT_RATIO, MODEL_CONTEXT_WINDOWS } from '../../constants/models'
 
 // =============================================================================
 // getContextWindow
@@ -253,8 +252,6 @@ describe('budgetsFromCoordinator', () => {
     expect(budgets.totalPrompt).toBe(coordinator.getAllocationFor('injection'))
     // Per-section budgets remain at defaults
     expect(budgets.autoContext).toBe(500)
-    expect(budgets.agentContent).toBe(400)
-    expect(budgets.skillContent).toBe(500)
     expect(budgets.stateData).toBe(1000)
     expect(budgets.memories).toBe(600)
   })

@@ -10,13 +10,11 @@
  * @version 0.6.0 - Fully agentic refactor
  */
 
-import { exec as execCallback } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { promisify } from 'node:util'
 import { isNotFoundError } from '../types/fs'
-
-const exec = promisify(execCallback)
+import { execAsync } from '../utils/exec'
+import { fileExists as fileExistsHelper } from '../utils/file-helper'
 
 interface PackageJson {
   name?: string
@@ -197,7 +195,7 @@ class CodebaseAnalyzer {
    */
   async getFileExtensions(): Promise<FileExtensions> {
     try {
-      const { stdout } = await exec(
+      const { stdout } = await execAsync(
         'find . -type f ! -path "*/node_modules/*" ! -path "*/.git/*" ! -path "*/dist/*" ! -path "*/.next/*" | sed "s/.*\\./\\./" | sort | uniq -c | sort -rn',
         { cwd: this.projectPath! }
       )
@@ -274,7 +272,7 @@ class CodebaseAnalyzer {
    */
   async getGitLog(limit: number = 50): Promise<string> {
     try {
-      const { stdout } = await exec(`git log -n ${limit} --pretty=format:"%h|%an|%ar|%s"`, {
+      const { stdout } = await execAsync(`git log -n ${limit} --pretty=format:"%h|%an|%ar|%s"`, {
         cwd: this.projectPath!,
       })
       return stdout
@@ -289,15 +287,15 @@ class CodebaseAnalyzer {
    */
   async getGitStats(): Promise<GitStats> {
     try {
-      const { stdout: totalCommits } = await exec('git rev-list --count HEAD', {
+      const { stdout: totalCommits } = await execAsync('git rev-list --count HEAD', {
         cwd: this.projectPath!,
       })
 
-      const { stdout: contributors } = await exec('git log --format="%an" | sort -u | wc -l', {
+      const { stdout: contributors } = await execAsync('git log --format="%an" | sort -u | wc -l', {
         cwd: this.projectPath!,
       })
 
-      const { stdout: firstCommit } = await exec(
+      const { stdout: firstCommit } = await execAsync(
         'git log --reverse --pretty=format:"%ar" | head -1',
         {
           cwd: this.projectPath!,
@@ -324,7 +322,7 @@ class CodebaseAnalyzer {
    */
   async countFiles(): Promise<number> {
     try {
-      const { stdout } = await exec(
+      const { stdout } = await execAsync(
         'find . -type f ! -path "*/node_modules/*" ! -path "*/.git/*" ! -path "*/dist/*" | wc -l',
         { cwd: this.projectPath! }
       )
@@ -339,15 +337,7 @@ class CodebaseAnalyzer {
    * Check if file exists
    */
   async fileExists(filename: string): Promise<boolean> {
-    try {
-      await fs.access(path.join(this.projectPath!, filename))
-      return true
-    } catch (error) {
-      if (isNotFoundError(error)) {
-        return false
-      }
-      throw error
-    }
+    return fileExistsHelper(path.join(this.projectPath!, filename))
   }
 
   /**
@@ -370,7 +360,7 @@ class CodebaseAnalyzer {
    */
   async findFiles(pattern: string): Promise<string[]> {
     try {
-      const { stdout } = await exec(
+      const { stdout } = await execAsync(
         `find . -type f -name "${pattern}" ! -path "*/node_modules/*" ! -path "*/.git/*"`,
         { cwd: this.projectPath! }
       )

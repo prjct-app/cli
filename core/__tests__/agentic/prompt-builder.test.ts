@@ -16,43 +16,12 @@ describe('PromptBuilder', () => {
     builder.resetContext()
   })
 
-  describe('Critical Rules (Compressed)', () => {
-    it('should include git safety rules', () => {
+  describe('Critical Rules (removed — LLM-over-heuristic)', () => {
+    it('should return empty string (rules are in host LLM system prompt)', () => {
       builder.setContext({ files: [], filteredSize: 0 })
       const rules = builder.buildCriticalRules()
 
-      expect(rules).toContain('GIT SAFETY')
-      expect(rules).toContain('checkout')
-      expect(rules).toContain('reset')
-    })
-
-    it('should include read-first requirement', () => {
-      builder.setContext({ files: [], filteredSize: 0 })
-      const rules = builder.buildCriticalRules()
-
-      expect(rules).toContain('READ FIRST')
-      expect(rules).toContain('Read tool')
-    })
-
-    it('should include pattern matching requirement', () => {
-      builder.setContext({ files: [], filteredSize: 0 })
-      const rules = builder.buildCriticalRules()
-
-      expect(rules).toContain('MATCH PATTERNS')
-    })
-
-    it('should include no-hallucination rules', () => {
-      builder.setContext({ files: [], filteredSize: 0 })
-      const rules = builder.buildCriticalRules()
-
-      expect(rules).toContain('NO HALLUCINATIONS')
-    })
-
-    it('should show file count in context', () => {
-      builder.setContext({ files: ['a.js', 'b.js', 'c.js'] })
-      const rules = builder.buildCriticalRules()
-
-      expect(rules).toContain('3 files available')
+      expect(rules).toBe('')
     })
   })
 

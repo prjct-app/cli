@@ -11,6 +11,7 @@ import path from 'node:path'
 import { inferEventType, syncEventBus } from '../events/sync-events'
 import { isNotFoundError } from '../types/fs'
 import type { Storage } from '../types/storage'
+import { fileExists, writeJson } from '../utils/file-helper'
 
 class FileStorage implements Storage {
   private projectId: string
@@ -42,11 +43,8 @@ class FileStorage implements Storage {
   async write<T>(pathArray: string[], data: T): Promise<void> {
     const filePath = this.pathToFile(pathArray)
 
-    // Ensure directory exists
-    await fs.mkdir(path.dirname(filePath), { recursive: true })
-
     // Write data
-    await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8')
+    await writeJson(filePath, data)
 
     // Publish event for sync
     syncEventBus.publish({
@@ -122,16 +120,7 @@ class FileStorage implements Storage {
 
   async exists(pathArray: string[]): Promise<boolean> {
     const filePath = this.pathToFile(pathArray)
-
-    try {
-      await fs.access(filePath)
-      return true
-    } catch (error) {
-      if (isNotFoundError(error)) {
-        return false
-      }
-      throw error
-    }
+    return fileExists(filePath)
   }
 
   /**
@@ -164,8 +153,7 @@ class FileStorage implements Storage {
 
     index.updatedAt = new Date().toISOString()
 
-    await fs.mkdir(path.dirname(indexPath), { recursive: true })
-    await fs.writeFile(indexPath, JSON.stringify(index, null, 2), 'utf-8')
+    await writeJson(indexPath, index)
   }
 }
 

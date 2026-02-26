@@ -14,6 +14,7 @@ import os from 'node:os'
 import path from 'node:path'
 
 import type { SkillLockEntry, SkillLockFile } from '../types/services.js'
+import { writeJson } from '../utils/file-helper'
 
 // =============================================================================
 // Lock File Service
@@ -50,9 +51,8 @@ async function read(): Promise<SkillLockFile> {
  */
 async function write(lockFile: SkillLockFile): Promise<void> {
   const lockPath = getLockFilePath()
-  await fs.mkdir(path.dirname(lockPath), { recursive: true })
   lockFile.generatedAt = new Date().toISOString()
-  await fs.writeFile(lockPath, JSON.stringify(lockFile, null, 2), 'utf-8')
+  await writeJson(lockPath, lockFile)
 }
 
 /**

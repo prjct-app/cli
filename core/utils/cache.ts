@@ -9,6 +9,15 @@
 import type { CacheEntry, CacheOptions, CacheStats } from '../types/utils'
 
 /**
+ * Check if a timestamp has exceeded a TTL threshold.
+ * Accepts both ISO string timestamps and numeric (epoch ms) timestamps.
+ */
+export function isExpired(timestamp: string | number, ttlMs: number): boolean {
+  const ts = typeof timestamp === 'string' ? new Date(timestamp).getTime() : timestamp
+  return Date.now() - ts > ttlMs
+}
+
+/**
  * TTL Cache with LRU eviction
  *
  * Used by StorageManager for project-keyed caching.

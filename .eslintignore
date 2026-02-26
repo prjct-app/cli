@@ -1,8 +1,0 @@
-node_modules/
-website/
-dist/
-build/
-*.min.js
-.config/
-docs/
-core/services/

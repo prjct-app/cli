@@ -10,10 +10,8 @@
  * @version 1.0.0
  */
 
-import { exec as execCallback } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { promisify } from 'node:util'
 import type {
   DependencyNode,
   ImportedBy,
@@ -22,7 +20,7 @@ import type {
 } from '../../types/context-tools'
 import { isNotFoundError } from '../../types/fs'
 
-const exec = promisify(execCallback)
+import { execAsync } from '../../utils/exec'
 
 // =============================================================================
 // Import Patterns by Language
@@ -324,7 +322,6 @@ async function findImportedBy(filePath: string, projectPath: string): Promise<Im
 
   // Get the base name without extension for matching
   const baseName = path.basename(filePath, path.extname(filePath))
-  const _dirName = path.dirname(filePath)
 
   try {
     // Use ripgrep if available, otherwise grep
@@ -337,7 +334,7 @@ async function findImportedBy(filePath: string, projectPath: string): Promise<Im
 
     const pattern = searchPatterns.join('|')
 
-    const { stdout } = await exec(
+    const { stdout } = await execAsync(
       `grep -r -l -E '${pattern}' --include='*.ts' --include='*.tsx' --include='*.js' --include='*.jsx' . 2>/dev/null || true`,
       { cwd: projectPath, maxBuffer: 10 * 1024 * 1024 }
     )

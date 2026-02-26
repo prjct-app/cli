@@ -55,8 +55,6 @@ function makeOrchestratorContext(
   return {
     detectedDomains: ['backend', 'testing'],
     primaryDomain: 'backend',
-    agents: [],
-    skills: [],
     requiresFragmentation: false,
     subtasks: null,
     project: {

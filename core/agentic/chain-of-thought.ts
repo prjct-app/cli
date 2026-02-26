@@ -30,10 +30,7 @@ interface ReasoningResult {
   confidence: number
 }
 
-/**
- * Commands that require chain of thought reasoning
- */
-const REASONING_REQUIRED_COMMANDS = ['ship', 'feature', 'spec', 'cleanup', 'migrate']
+import { REASONING_REQUIRED_COMMANDS } from '../constants/commands'
 
 /**
  * Check if command requires reasoning

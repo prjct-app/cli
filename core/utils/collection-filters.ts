@@ -207,3 +207,16 @@ export function uniqueByField<T, K extends keyof T>(items: T[], field: K): T[] {
     return true
   })
 }
+
+/**
+ * Remove duplicates using a key function
+ */
+export function uniqueBy<T>(items: T[], keyFn: (item: T) => string): T[] {
+  const seen = new Set<string>()
+  return items.filter((item) => {
+    const key = keyFn(item)
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}

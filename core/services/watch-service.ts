@@ -270,9 +270,7 @@ class WatchService {
 
       if (result.success) {
         if (!this.options.quiet) {
-          const agentCount = result.agents.length
-          const agentStr = agentCount > 0 ? ` [${agentCount} agents]` : ''
-          console.log(`${chalk.dim(`[${timestamp}]`)} ${chalk.green('✓')} Synced${agentStr}`)
+          console.log(`${chalk.dim(`[${timestamp}]`)} ${chalk.green('✓')} Synced`)
         }
       } else {
         console.error(

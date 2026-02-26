@@ -26,7 +26,6 @@ export async function showSyncResult(
   startTime: number
 ): Promise<CommandResult> {
   const elapsed = Date.now() - startTime
-  const agentCount = result.agents.length
 
   // Update global config (silent - don't clutter output)
   await commandInstaller.installGlobalConfig()
@@ -39,7 +38,7 @@ export async function showSyncResult(
   const framework = result.stats.frameworks.length > 0 ? ` (${result.stats.frameworks[0]})` : ''
   const idx = result.syncMetrics?.indexes
   const boxLines = [
-    `${result.stats.fileCount} files indexed | ${agentCount} agents`,
+    `${result.stats.fileCount} files indexed`,
     `Stack: ${result.stats.ecosystem}${framework} | Branch: ${result.git.branch}`,
   ]
   if (idx?.bm25Files) {
@@ -52,17 +51,10 @@ export async function showSyncResult(
 
   // CHANGES SECTION
   const generatedItems: string[] = []
-  if (agentCount > 0) {
-    generatedItems.push(`${agentCount} workflow agents`)
-  }
-  if (result.skills.length > 0) {
-    const skillWord = result.skills.length === 1 ? 'skill' : 'skills'
-    generatedItems.push(`${result.skills.length} ${skillWord}`)
-  }
-  const installed = result.skillsInstalled?.filter((s) => s.status === 'installed') || []
-  if (installed.length > 0) {
-    const word = installed.length === 1 ? 'skill' : 'skills'
-    generatedItems.push(`${installed.length} ${word} auto-installed`)
+  if (result.generatedSkills?.generated && result.generatedSkills.generated.length > 0) {
+    const count = result.generatedSkills.generated.length
+    const word = count === 1 ? 'skill' : 'skills'
+    generatedItems.push(`${count} ${word} generated`)
   }
   if (result.context7) {
     generatedItems.push(
@@ -113,7 +105,6 @@ export async function showSyncResult(
     data: result,
     metrics: {
       elapsed,
-      agentCount,
       fileCount: result.stats.fileCount,
     },
   }

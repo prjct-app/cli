@@ -19,8 +19,6 @@ import type { InjectionBudgets } from '../types/agentic.js'
 /** Default budgets (in estimated tokens, ~4 chars per token) */
 export const DEFAULT_BUDGETS: InjectionBudgets = {
   autoContext: 500,
-  agentContent: 400,
-  skillContent: 500,
   stateData: 1000,
   memories: 600,
   totalPrompt: 8000,
@@ -41,8 +39,7 @@ export function budgetsFromCoordinator(coordinator: TokenBudgetCoordinator): Inj
   }
 }
 
-// Approximate chars-per-token ratio
-const CHARS_PER_TOKEN = 4
+import { CHARS_PER_TOKEN } from '../constants/token'
 
 // =============================================================================
 // Safe Injection
@@ -96,51 +93,6 @@ export function truncateToTokenBudget(text: string, maxTokens: number): string {
  */
 export function estimateTokens(text: string): number {
   return Math.ceil(text.length / CHARS_PER_TOKEN)
-}
-
-// =============================================================================
-// Skill Filtering
-// =============================================================================
-
-/** Domain keywords for matching skills to task domains */
-const DOMAIN_KEYWORDS: Record<string, string[]> = {
-  frontend: ['react', 'vue', 'svelte', 'css', 'html', 'ui', 'component', 'frontend', 'web', 'dom'],
-  backend: ['api', 'server', 'backend', 'endpoint', 'route', 'middleware', 'database', 'sql'],
-  testing: ['test', 'spec', 'jest', 'vitest', 'cypress', 'playwright', 'coverage', 'assert'],
-  devops: ['docker', 'ci', 'cd', 'deploy', 'kubernetes', 'terraform', 'pipeline', 'github-actions'],
-  docs: ['documentation', 'readme', 'guide', 'tutorial', 'markdown'],
-  design: ['design', 'ux', 'ui', 'figma', 'wireframe', 'layout', 'accessibility'],
-}
-
-/**
- * Filter skills by relevance to detected task domains.
- * Returns only skills whose content matches the task's domains.
- */
-export function filterSkillsByDomains(
-  skills: { name: string; content: string }[],
-  detectedDomains: string[]
-): { name: string; content: string }[] {
-  if (detectedDomains.length === 0 || skills.length === 0) return skills
-
-  // Build keyword set from detected domains
-  const relevantKeywords = new Set<string>()
-  for (const domain of detectedDomains) {
-    const keywords = DOMAIN_KEYWORDS[domain.toLowerCase()]
-    if (keywords) {
-      for (const kw of keywords) relevantKeywords.add(kw)
-    }
-    // Also add the domain name itself
-    relevantKeywords.add(domain.toLowerCase())
-  }
-
-  return skills.filter((skill) => {
-    const text = `${skill.name} ${skill.content}`.toLowerCase()
-    // Keep skill if any relevant keyword appears in its name or content
-    for (const kw of relevantKeywords) {
-      if (text.includes(kw)) return true
-    }
-    return false
-  })
 }
 
 // =============================================================================

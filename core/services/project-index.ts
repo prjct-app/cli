@@ -15,10 +15,10 @@
  * Storage location: ~/.prjct-cli/projects/{projectId}/index/
  */
 
-import { exec } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { promisify } from 'node:util'
+import { CONFIG_FILES, SKIP_DIRS as IGNORE_DIRS } from '../constants/file-patterns'
+import { CHARS_PER_TOKEN } from '../constants/token'
 import { getDefaultIndex, INDEX_VERSION, indexStorage } from '../storage/index-storage'
 import type {
   FileStats,
@@ -37,102 +37,9 @@ import type {
   ScoredFile,
 } from '../types/storage.js'
 import { getTimestamp } from '../utils/date-helper'
+import { execAsync } from '../utils/exec'
+import { batchProcess, fileExists, walkDir } from '../utils/file-helper'
 import { fileScorer, RELEVANCE_THRESHOLD } from './file-scorer'
-
-const execAsync = promisify(exec)
-
-// ============================================================================
-// CONSTANTS
-// ============================================================================
-
-// Source file extensions to scan
-const SOURCE_EXTENSIONS = new Set([
-  '.ts',
-  '.tsx',
-  '.js',
-  '.jsx',
-  '.mjs',
-  '.cjs', // JavaScript/TypeScript
-  '.py',
-  '.pyw', // Python
-  '.go', // Go
-  '.rs', // Rust
-  '.java',
-  '.kt',
-  '.scala', // JVM
-  '.c',
-  '.cpp',
-  '.h',
-  '.hpp', // C/C++
-  '.rb', // Ruby
-  '.php', // PHP
-  '.swift', // Swift
-  '.cs', // C#
-  '.vue',
-  '.svelte', // Frontend frameworks
-])
-
-// Config file names to track
-const CONFIG_FILES = new Set([
-  'package.json',
-  'tsconfig.json',
-  'vite.config.ts',
-  'vite.config.js',
-  'next.config.js',
-  'next.config.mjs',
-  'next.config.ts',
-  'webpack.config.js',
-  'rollup.config.js',
-  'esbuild.config.js',
-  'jest.config.js',
-  'jest.config.ts',
-  'vitest.config.ts',
-  'vitest.config.js',
-  'tailwind.config.js',
-  'tailwind.config.ts',
-  'postcss.config.js',
-  '.eslintrc',
-  '.eslintrc.js',
-  '.eslintrc.json',
-  '.prettierrc',
-  '.prettierrc.js',
-  '.prettierrc.json',
-  'Cargo.toml',
-  'go.mod',
-  'pyproject.toml',
-  'requirements.txt',
-  'setup.py',
-  'Dockerfile',
-  'docker-compose.yml',
-  'docker-compose.yaml',
-  '.env',
-  '.env.local',
-  '.env.development',
-  '.env.production',
-])
-
-// Directories to ignore
-const IGNORE_DIRS = new Set([
-  'node_modules',
-  '.git',
-  '.next',
-  '.nuxt',
-  'dist',
-  'build',
-  'out',
-  'coverage',
-  '.turbo',
-  '.cache',
-  '.parcel-cache',
-  '__pycache__',
-  '.pytest_cache',
-  'target', // Rust
-  'vendor', // Go/PHP
-  '.venv',
-  'venv', // Python
-  'eggs',
-  '*.egg-info',
-])
 
 // Directory type detection patterns
 const DIR_TYPE_PATTERNS: { type: DirectoryEntry['type']; patterns: RegExp[] }[] = [
@@ -418,7 +325,6 @@ export class ProjectIndexer {
       }
     }
 
-    const CHARS_PER_TOKEN = 4
     let estimatedTokens = 0
     const selectedFiles: ScoredFile[] = []
 
@@ -461,33 +367,28 @@ export class ProjectIndexer {
       const excludeDirs = Array.from(IGNORE_DIRS)
         .map((d) => `-not -path "*/${d}/*"`)
         .join(' ')
-      const extensions = Array.from(SOURCE_EXTENSIONS)
-        .map((e) => `-name "*${e}"`)
-        .join(' -o ')
 
-      const { stdout } = await execAsync(
-        `find . -type f \\( ${extensions} \\) ${excludeDirs} | head -n ${maxFiles}`,
-        { cwd: this.projectPath, maxBuffer: 10 * 1024 * 1024 }
-      )
+      const { stdout } = await execAsync(`find . -type f ${excludeDirs} | head -n ${maxFiles}`, {
+        cwd: this.projectPath,
+        maxBuffer: 10 * 1024 * 1024,
+      })
 
       const paths = stdout.trim().split('\n').filter(Boolean)
 
       // Process files in parallel batches
-      const batchSize = 100
-      for (let i = 0; i < paths.length; i += batchSize) {
-        const batch = paths.slice(i, i + batchSize)
-        const results = await Promise.all(
-          batch.map((p) => this.getFileStats(p.replace(/^\.\//, '')))
-        )
-        for (const stats of results) {
-          if (stats) {
-            files.set(stats.path, stats)
-          }
-        }
+      const results = await batchProcess(paths, 100, (p) =>
+        this.getFileStats(p.replace(/^\.\//, ''))
+      )
+      for (const stats of results) {
+        files.set(stats.path, stats)
       }
     } catch {
       // Fallback to recursive directory walk
-      await this.walkDirectory('.', files, maxFiles)
+      const paths = await walkDir(this.projectPath, { maxFiles })
+      const results = await batchProcess(paths, 100, (p) => this.getFileStats(p))
+      for (const stats of results) {
+        files.set(stats.path, stats)
+      }
     }
 
     return files
@@ -532,45 +433,6 @@ export class ProjectIndexer {
     }
   }
 
-  /**
-   * Recursive directory walk (fallback)
-   */
-  private async walkDirectory(
-    dir: string,
-    files: Map<string, FileStats>,
-    maxFiles: number
-  ): Promise<void> {
-    if (files.size >= maxFiles) return
-
-    const fullDir = path.join(this.projectPath, dir)
-
-    try {
-      const entries = await fs.readdir(fullDir, { withFileTypes: true })
-
-      for (const entry of entries) {
-        if (files.size >= maxFiles) break
-
-        const relativePath = path.join(dir, entry.name).replace(/^\.\//, '')
-
-        if (entry.isDirectory()) {
-          if (!IGNORE_DIRS.has(entry.name)) {
-            await this.walkDirectory(relativePath, files, maxFiles)
-          }
-        } else if (entry.isFile()) {
-          const ext = path.extname(entry.name)
-          if (SOURCE_EXTENSIONS.has(ext)) {
-            const stats = await this.getFileStats(relativePath)
-            if (stats) {
-              files.set(relativePath, stats)
-            }
-          }
-        }
-      }
-    } catch {
-      // Directory may not be accessible
-    }
-  }
-
   // ==========================================================================
   // CONFIG & DIRECTORY ANALYSIS
   // ==========================================================================
@@ -584,8 +446,7 @@ export class ProjectIndexer {
     for (const configName of CONFIG_FILES) {
       const configPath = path.join(this.projectPath, configName)
 
-      try {
-        await fs.access(configPath)
+      if (await fileExists(configPath)) {
         const checksum = await indexStorage.calculateChecksum(configPath)
 
         const entry: ConfigFileEntry = {
@@ -605,8 +466,6 @@ export class ProjectIndexer {
         }
 
         configs.push(entry)
-      } catch {
-        // Config file doesn't exist
       }
     }
 
@@ -742,11 +601,8 @@ export class ProjectIndexer {
     )
 
     // Check for CI configs
-    try {
-      await fs.access(path.join(this.projectPath, '.github', 'workflows'))
+    if (await fileExists(path.join(this.projectPath, '.github', 'workflows'))) {
       stack.hasCi = true
-    } catch {
-      // No GitHub Actions
     }
 
     return stack

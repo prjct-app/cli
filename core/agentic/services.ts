@@ -28,7 +28,6 @@ import { shippedStorage } from '../storage/shipped-storage'
 import { stateStorage } from '../storage/state-storage'
 import outcomeAnalyzer from '../workflows/outcome-analyzer'
 import outcomeRecorder from '../workflows/outcome-recorder'
-import agentRouter from './agent-router'
 import chainOfThought from './chain-of-thought'
 import contextBuilder from './context-builder'
 import groundTruth from './ground-truth'
@@ -110,12 +109,6 @@ export interface AgenticServices {
   planning: typeof planMode
 
   /**
-   * Agent router - routes tasks to appropriate agents
-   * @see agentRouter
-   */
-  router: typeof agentRouter
-
-  /**
    * Smart context - intelligent context filtering by task type
    * @see smartContext
    */
@@ -160,7 +153,6 @@ export const services: AgenticServices = {
   truth: groundTruth,
   reasoning: chainOfThought,
   planning: planMode,
-  router: agentRouter,
   smartContext: smartContext,
   data: storageManagers,
   outcomes: outcomeRecorder,

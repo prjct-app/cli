@@ -14,11 +14,9 @@
  * @version 1.1.0
  */
 
-import { exec as execCallback } from 'node:child_process'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { promisify } from 'node:util'
 import { glob } from 'glob'
 import { getErrorMessage } from '../types/fs'
 import type {
@@ -28,10 +26,10 @@ import type {
   SkillLockEntry,
 } from '../types/services.js'
 import { getTimeout } from '../utils/constants'
+import { execAsync } from '../utils/exec'
+import { fileExists } from '../utils/file-helper'
 import { dependencyValidator } from './dependency-validator'
 import { skillLock } from './skill-lock'
-
-const exec = promisify(execCallback)
 
 // =============================================================================
 // Source Parsing
@@ -102,13 +100,10 @@ async function discoverSkills(dir: string): Promise<Array<{ name: string; filePa
   const skills: Array<{ name: string; filePath: string }> = []
 
   // Pattern 1: {dir}/SKILL.md (root-level skill)
-  try {
-    const rootSkill = path.join(dir, 'SKILL.md')
-    await fs.access(rootSkill)
+  const rootSkill = path.join(dir, 'SKILL.md')
+  if (await fileExists(rootSkill)) {
     const dirName = path.basename(dir)
     skills.push({ name: dirName, filePath: rootSkill })
-  } catch {
-    // No root SKILL.md
   }
 
   // Pattern 2: {dir}/*/SKILL.md (subdirectory skills)
@@ -235,12 +230,14 @@ async function installFromGitHub(source: ParsedSource): Promise<InstallResult> {
     // Clone with depth 1 for speed
     // PRJ-111: Configurable timeout (default: 60s, override via PRJCT_TIMEOUT_GIT_CLONE)
     const cloneUrl = `https://github.com/${source.owner}/${source.repo}.git`
-    await exec(`git clone --depth 1 ${cloneUrl} ${tmpDir}`, { timeout: getTimeout('GIT_CLONE') })
+    await execAsync(`git clone --depth 1 ${cloneUrl} ${tmpDir}`, {
+      timeout: getTimeout('GIT_CLONE'),
+    })
 
     // Get the commit SHA
     let sha: string | undefined
     try {
-      const { stdout } = await exec('git rev-parse HEAD', {
+      const { stdout } = await execAsync('git rev-parse HEAD', {
         cwd: tmpDir,
         timeout: getTimeout('TOOL_CHECK'),
       })
@@ -309,9 +306,7 @@ async function installFromLocal(source: ParsedSource): Promise<InstallResult> {
   const result: InstallResult = { installed: [], skipped: [], errors: [] }
   const localPath = source.localPath!
 
-  try {
-    await fs.access(localPath)
-  } catch {
+  if (!(await fileExists(localPath))) {
     result.errors.push(`Local path not found: ${localPath}`)
     return result
   }

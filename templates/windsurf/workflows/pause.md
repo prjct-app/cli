@@ -1,4 +1,6 @@
 # /pause - Pause current task
 
-Run `npm root -g` to get npm global root, then read and execute:
-`{npmRoot}/prjct-cli/templates/commands/pause.md`
+**ARGUMENTS**: {{args}}
+
+Run: `prjct pause {{args}} --md`
+Follow CLI output.

@@ -9,6 +9,7 @@
  * - Completion projections
  */
 
+import { DAY_INDEX } from '../constants/algorithms'
 import {
   type CompletionProjection,
   DEFAULT_VELOCITY_CONFIG,
@@ -19,21 +20,7 @@ import {
   type VelocityTrend,
 } from '../schemas/velocity'
 import type { Outcome } from '../types/outcomes'
-
-// =============================================================================
-// Types
-// =============================================================================
-
-/** Day-of-week index (0=Sunday, 1=Monday, ..., 6=Saturday) */
-const DAY_INDEX: Record<string, number> = {
-  sunday: 0,
-  monday: 1,
-  tuesday: 2,
-  wednesday: 3,
-  thursday: 4,
-  friday: 5,
-  saturday: 6,
-}
+import { parseDurationMinutes } from '../utils/date-helper'
 
 // =============================================================================
 // Sprint Boundary Calculation
@@ -370,31 +357,8 @@ function parseVariancePercent(outcome: Outcome): number {
   return Math.round(((actual - estimated) / estimated) * 100)
 }
 
-/**
- * Parse duration string to minutes.
- * Supports: "2h", "30m", "1h 30m", "2h30m", "90m", "45s" (→ 1m)
- */
-export function parseDurationMinutes(duration: string): number {
-  let minutes = 0
-
-  const hourMatch = duration.match(/(\d+)h/)
-  if (hourMatch) {
-    minutes += Number.parseInt(hourMatch[1], 10) * 60
-  }
-
-  const minMatch = duration.match(/(\d+)m/)
-  if (minMatch) {
-    minutes += Number.parseInt(minMatch[1], 10)
-  }
-
-  const secMatch = duration.match(/(\d+)s/)
-  if (secMatch && minutes === 0) {
-    // Only count seconds if no hours/minutes (round up to 1 min)
-    minutes = 1
-  }
-
-  return minutes
-}
+// Re-export for backward compatibility
+export { parseDurationMinutes }
 
 /**
  * Format velocity for LLM context injection.

@@ -21,7 +21,7 @@ import type {
 import type { DomainClassifierProjectContext as ProjectContext } from '../types/agentic.js'
 import type { TaskType } from '../types/agents'
 import outcomeAnalyzer from '../workflows/outcome-analyzer'
-import domainClassifier, { classifyWithHeuristic } from './domain-classifier'
+import domainClassifier from './domain-classifier'
 import agentPerformanceTracker from './performance'
 
 // Type re-exports removed — import directly from core/types/agentic and core/types/agents
@@ -50,28 +50,14 @@ class SmartContext {
   /**
    * Detect the domain of a task from its description.
    *
-   * Synchronous version using the improved heuristic (word-boundary matching).
-   * For full LLM-based classification, use classifyDomain().
+   * Returns general classification. For full LLM-based classification,
+   * use classifyDomain().
    */
-  detectDomain(taskDescription: string): DomainAnalysis {
-    // Default context when no project info is available
-    const defaultContext: ProjectContext = {
-      domains: {
-        hasFrontend: true,
-        hasBackend: true,
-        hasDatabase: true,
-        hasTesting: true,
-        hasDocker: true,
-      },
-      agents: [],
-    }
-
-    const result = classifyWithHeuristic(taskDescription, defaultContext)
-
+  detectDomain(_taskDescription: string): DomainAnalysis {
     return {
-      primary: toContextDomain(result.primaryDomain),
-      secondary: result.secondaryDomains.map(toContextDomain),
-      confidence: result.confidence,
+      primary: 'general',
+      secondary: [],
+      confidence: 0.3,
     }
   }
 
@@ -113,19 +99,6 @@ class SmartContext {
 
     // Include primary and secondary domains
     const relevantDomains = [taskDomain, ...secondary, 'general']
-
-    // Filter agents
-    const filteredAgents = fullContext.agents.filter((agent) =>
-      relevantDomains.includes(agent.domain)
-    )
-
-    // Enrich with performance data
-    for (const agent of filteredAgents) {
-      const perf = await agentPerformanceTracker.getAgentPerformance(projectId, agent.name)
-      if (perf) {
-        agent.successRate = perf.successRate
-      }
-    }
 
     // Filter roadmap
     const filteredRoadmap = fullContext.roadmap.filter((feature) =>
@@ -178,7 +151,6 @@ class SmartContext {
     // Calculate metrics
     const originalSize = this.estimateSize(fullContext)
     const filteredSize = this.estimateSize({
-      agents: filteredAgents,
       roadmap: filteredRoadmap,
       patterns: filteredPatterns,
       stack: filteredStack,
@@ -186,7 +158,6 @@ class SmartContext {
     })
 
     return {
-      agents: filteredAgents,
       roadmap: filteredRoadmap,
       patterns: filteredPatterns,
       stack: filteredStack,
@@ -208,7 +179,7 @@ class SmartContext {
     files: string[],
     taskDescription: string,
     projectId: string,
-    domain: ContextDomain
+    _domain: ContextDomain
   ): string[] {
     try {
       const indexes = hasIndexes(projectId)
@@ -222,63 +193,8 @@ class SmartContext {
       // Index not available — fall through to regex filter
     }
 
-    return this.filterFiles(files, domain)
-  }
-
-  /**
-   * Filter files by domain.
-   */
-  private filterFiles(files: string[], domain: ContextDomain): string[] {
-    const patterns: Record<ContextDomain, RegExp[]> = {
-      frontend: [
-        /\.(tsx?|jsx?|vue|svelte)$/,
-        /components?\//i,
-        /pages?\//i,
-        /views?\//i,
-        /styles?\//i,
-        /hooks?\//i,
-      ],
-      backend: [
-        /\.(ts|js|py|go|rs|java)$/,
-        /api\//i,
-        /routes?\//i,
-        /controllers?\//i,
-        /services?\//i,
-        /models?\//i,
-        /handlers?\//i,
-      ],
-      devops: [
-        /\.(ya?ml|toml|dockerfile|tf)$/i,
-        /docker/i,
-        /\.github\//i,
-        /deploy/i,
-        /infra/i,
-        /k8s/i,
-      ],
-      docs: [/\.(md|mdx|rst|txt)$/i, /docs?\//i, /readme/i, /changelog/i],
-      testing: [/\.(test|spec)\./i, /tests?\//i, /__tests__\//i, /e2e\//i, /fixtures?\//i],
-      general: [],
-    }
-
-    const domainPatterns = patterns[domain]
-    if (domainPatterns.length === 0) {
-      return files // Return all for general domain
-    }
-
-    // Always include config files
-    const configPatterns = [/package\.json$/, /tsconfig\.json$/, /\.config\.(ts|js)$/]
-
-    return files.filter((file) => {
-      // Include if matches domain patterns
-      if (domainPatterns.some((p) => p.test(file))) {
-        return true
-      }
-      // Include config files
-      if (configPatterns.some((p) => p.test(file))) {
-        return true
-      }
-      return false
-    })
+    // No BM25 index available — return all files and let the LLM decide relevance
+    return files
   }
 
   /**
@@ -286,7 +202,6 @@ class SmartContext {
    */
   private estimateSize(
     context: Partial<{
-      agents: unknown[]
       roadmap: unknown[]
       patterns: unknown[]
       stack: unknown
@@ -297,7 +212,6 @@ class SmartContext {
     let size = 0
 
     // Rough estimates: each item ~50 tokens, files ~10 tokens each
-    size += (context.agents?.length || 0) * 50
     size += (context.roadmap?.length || 0) * 50
     size += (context.patterns?.length || 0) * 30
     size += context.stack ? 100 : 0

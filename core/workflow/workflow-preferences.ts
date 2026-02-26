@@ -13,8 +13,6 @@
  * @module workflow/workflow-preferences
  */
 
-import { exec } from 'node:child_process'
-import { promisify } from 'node:util'
 import chalk from 'chalk'
 import memorySystem from '../agentic/memory-system'
 import { getErrorMessage } from '../types/fs'
@@ -27,7 +25,7 @@ import type {
 } from '../types/workflow'
 import { WORKFLOW_HELP } from '../utils/constants'
 
-const execAsync = promisify(exec)
+import { execAsync } from '../utils/exec'
 
 export type {
   HookCommand,

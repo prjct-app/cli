@@ -439,7 +439,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
 
       if (options.md) {
         const elapsed = Date.now() - startTime
-        const agentCount = result.agents.length
+        const skillCount = result.generatedSkills?.generated?.length ?? 0
 
         // Check for analysis diff (PRJ-275)
         let analysisDiffSection: string | null = null
@@ -480,7 +480,9 @@ Otherwise, analyze the JSON payload and produce a structured \`LLMAnalysis\` JSO
   "riskAreas": [{"path": "", "reason": "", "risk": "", "severity": "low|medium|high"}],
   "refactorSuggestions": [{"description": "", "files": [], "benefit": "", "effort": "small|medium|large"}],
   "projectInsights": ["key insights about the project"],
-  "conventions": [{"category": "naming|file-structure|imports|error-handling", "rule": "", "example": ""}]
+  "conventions": [{"category": "naming|file-structure|imports|error-handling", "rule": "", "example": ""}],
+  "commands": {"build": "", "test": "", "lint": "", "dev": "", "format": "", "install": ""},
+  "stack": {"languages": [], "frameworks": [], "packageManager": "npm|bun|pnpm|yarn|cargo|go"}
 }
 \`\`\`
 
@@ -493,7 +495,7 @@ prjct analysis-save-llm '<your JSON here>' --md
         const idx = result.syncMetrics?.indexes
         const mdStatsObj: Record<string, string | number> = {
           Duration: `${(elapsed / 1000).toFixed(1)}s`,
-          Agents: `${agentCount} generated`,
+          Skills: `${skillCount} generated`,
           'Files indexed': result.stats.fileCount,
         }
         if (idx?.bm25Files) {
@@ -515,7 +517,7 @@ prjct analysis-save-llm '<your JSON here>' --md
         return {
           success: true,
           data: result,
-          metrics: { elapsed, agentCount, fileCount: result.stats.fileCount },
+          metrics: { elapsed, skillCount, fileCount: result.stats.fileCount },
         }
       }
 

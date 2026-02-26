@@ -14,22 +14,9 @@ describe('tech-normalizer', () => {
       expect(normalizeFrameworkName('React')).toBe('react')
     })
 
-    it('should resolve aliases', () => {
-      expect(normalizeFrameworkName('NodeJS')).toBe('node')
-      expect(normalizeFrameworkName('ts')).toBe('typescript')
-      expect(normalizeFrameworkName('js')).toBe('javascript')
-      expect(normalizeFrameworkName('pg')).toBe('postgres')
-      expect(normalizeFrameworkName('postgresql')).toBe('postgres')
-    })
-
     it('should preserve dotted names', () => {
       expect(normalizeFrameworkName('Next.js')).toBe('next.js')
-      expect(normalizeFrameworkName('Vue.js')).toBe('vue')
-    })
-
-    it('should handle nextjs alias', () => {
-      expect(normalizeFrameworkName('nextjs')).toBe('next.js')
-      expect(normalizeFrameworkName('nuxtjs')).toBe('nuxt.js')
+      expect(normalizeFrameworkName('Vue.js')).toBe('vue.js')
     })
   })
 
@@ -56,23 +43,8 @@ describe('tech-normalizer', () => {
   })
 
   describe('getFrameworkFamily', () => {
-    it('should resolve meta-frameworks to base', () => {
-      expect(getFrameworkFamily('next.js')).toBe('react')
-      expect(getFrameworkFamily('Next.js')).toBe('react')
-      expect(getFrameworkFamily('Remix')).toBe('react')
-      expect(getFrameworkFamily('Gatsby')).toBe('react')
-    })
-
-    it('should resolve Vue meta-frameworks', () => {
-      expect(getFrameworkFamily('nuxt')).toBe('vue')
-      expect(getFrameworkFamily('Nuxt.js')).toBe('vue')
-    })
-
-    it('should resolve Svelte meta-framework', () => {
-      expect(getFrameworkFamily('SvelteKit')).toBe('svelte')
-    })
-
-    it('should return name itself for base frameworks', () => {
+    it('should return normalized name (LLM knows framework relationships)', () => {
+      expect(getFrameworkFamily('Next.js')).toBe('next.js')
       expect(getFrameworkFamily('React')).toBe('react')
       expect(getFrameworkFamily('Express')).toBe('express')
       expect(getFrameworkFamily('Hono')).toBe('hono')
@@ -83,12 +55,6 @@ describe('tech-normalizer', () => {
     it('should match exact names (case-insensitive)', () => {
       expect(matchesTech('React', 'react')).toBe(true)
       expect(matchesTech('react', 'React')).toBe(true)
-    })
-
-    it('should match via framework family', () => {
-      expect(matchesTech('Next.js', 'react')).toBe(true)
-      expect(matchesTech('Nuxt', 'vue')).toBe(true)
-      expect(matchesTech('SvelteKit', 'svelte')).toBe(true)
     })
 
     it('should match compound names', () => {
@@ -112,11 +78,6 @@ describe('tech-normalizer', () => {
       expect(deduplicateTechStack(['React', 'react', 'REACT'])).toEqual(['React'])
     })
 
-    it('should remove alias duplicates', () => {
-      expect(deduplicateTechStack(['TypeScript', 'ts'])).toEqual(['TypeScript'])
-      expect(deduplicateTechStack(['Node.js', 'nodejs'])).toEqual(['Node.js'])
-    })
-
     it('should preserve unique entries', () => {
       expect(deduplicateTechStack(['React', 'Next.js', 'TypeScript'])).toEqual([
         'React',
@@ -126,7 +87,7 @@ describe('tech-normalizer', () => {
     })
 
     it('should preserve first occurrence casing', () => {
-      expect(deduplicateTechStack(['Next.js', 'nextjs', 'NEXT.JS'])).toEqual(['Next.js'])
+      expect(deduplicateTechStack(['Next.js', 'next.js', 'NEXT.JS'])).toEqual(['Next.js'])
     })
 
     it('should handle empty array', () => {

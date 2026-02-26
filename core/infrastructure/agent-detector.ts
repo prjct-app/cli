@@ -37,7 +37,6 @@ const CLAUDE_AGENT: DetectedAgent = {
     commandPrefix: '/p:',
     responseStyle: 'rich',
     dataDir: '.prjct',
-    agentsDir: '~/.claude/agents',
     commandsDir: '~/.claude/commands/p',
   },
   environment: {
@@ -66,7 +65,6 @@ const TERMINAL_AGENT: DetectedAgent = {
     commandPrefix: 'prjct',
     responseStyle: 'cli',
     dataDir: '.prjct',
-    agentsDir: null,
     commandsDir: null,
   },
   environment: {

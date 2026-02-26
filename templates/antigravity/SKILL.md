@@ -1,39 +1,20 @@
 ---
 name: prjct
-description: Project context layer for AI coding agents. Use when user says "p. sync", "p. task", "p. done", "p. ship", or asks about project context, tasks, shipping features, or project state management.
+description: Use when user mentions p., prjct, task tracking, or workflow commands.
 ---
 
-# prjct - Context Layer for AI Agents
+# prjct — Context layer for AI agents
 
-You are using **prjct**, a context layer for AI coding agents.
+Grammar: `p. <command> [args]` or `prjct <command> --md`
 
-## Load Full Instructions
+Core commands: sync, task, done, ship, pause, resume, next, bug, workflow, tokens
+Integrations: linear, jira, enrich
+Other: run `prjct <command> --md` and follow CLI output
 
-1. Run: `npm root -g` to get the npm global root
-2. Read: `{npmRoot}/prjct-cli/templates/global/ANTIGRAVITY.md`
-3. Follow those instructions for ALL `p. <command>` requests
+Flow: idea → roadmap → next → task → done → ship → next (cycle until plan complete)
 
-## Quick Reference
-
-| Command | Action |
-|---------|--------|
-| `p. sync` | Analyze project, generate agents |
-| `p. task "..."` | Start a task |
-| `p. done` | Complete subtask |
-| `p. ship` | Ship with PR + version |
-| `p. pause` | Pause current task |
-| `p. resume` | Resume paused task |
-
-## Critical Rule
-
-**PLAN BEFORE ACTION**: For ANY prjct command, you MUST:
-1. Create a plan showing what will be done
-2. Wait for user approval
-3. Only then execute
-
-Never skip the plan step. This is non-negotiable.
-
-## Note
-
-This skill auto-regenerates with `p. sync` if deleted.
-Full instructions are in the npm package (always up-to-date).
+Rules:
+- prjct runs → LLM generates relevant data → prjct stores it → LLM requests it from prjct → LLM uses it
+- All commits include footer: `Generated with [p/](https://www.prjct.app/)`
+- All storage through `prjct` CLI (SQLite internally)
+- Start code tasks with `p. task` and follow Context Contract from CLI output

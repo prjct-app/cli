@@ -203,6 +203,10 @@ class StateStorage extends StorageManager<StateJson> {
       entry.feedback = feedback
     }
 
+    // Carry token usage totals
+    if (task.tokensIn) entry.tokensIn = task.tokensIn
+    if (task.tokensOut) entry.tokensOut = task.tokensOut
+
     return entry
   }
 
@@ -505,6 +509,35 @@ class StateStorage extends StorageManager<StateJson> {
       issuesEncountered: [...new Set(allIssues)],
       knownGotchas,
     }
+  }
+
+  // =========== Token Tracking ===========
+
+  /**
+   * Add token usage to current task (accumulates)
+   */
+  async addTokens(
+    projectId: string,
+    tokensIn: number,
+    tokensOut: number
+  ): Promise<{ tokensIn: number; tokensOut: number } | null> {
+    const state = await this.read(projectId)
+    if (!state.currentTask) return null
+
+    const newIn = (state.currentTask.tokensIn || 0) + tokensIn
+    const newOut = (state.currentTask.tokensOut || 0) + tokensOut
+
+    await this.update(projectId, (s) => ({
+      ...s,
+      currentTask: {
+        ...s.currentTask!,
+        tokensIn: newIn,
+        tokensOut: newOut,
+      },
+      lastUpdated: getTimestamp(),
+    }))
+
+    return { tokensIn: newIn, tokensOut: newOut }
   }
 
   // =========== Subtask Methods ===========

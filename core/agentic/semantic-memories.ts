@@ -10,7 +10,6 @@
 
 import { generateUUID } from '../schemas/schemas'
 import type {
-  KnownDomain,
   Memory,
   MemoryContext,
   MemoryDatabase,
@@ -23,12 +22,7 @@ import type {
 import { MEMORY_TAGS } from '../types/memory'
 import { getTimestamp } from '../utils/date-helper'
 
-import {
-  CachedStore,
-  DOMAIN_TAG_MAP,
-  resolveCanonicalDomains,
-  SEMANTIC_DOMAIN_KEYWORDS,
-} from './memory-stores'
+import { CachedStore } from './memory-stores'
 
 // =============================================================================
 // Semantic Memories
@@ -357,66 +351,12 @@ export class SemanticMemories extends CachedStore<MemoryDatabase> {
   }
 
   /**
-   * Compute semantic domain match score (0-25 points).
-   *
-   * Two-pass scoring:
-   * 1. Exact MEMORY_TAG match: memory tag in domain's tag list -> 10 pts each
-   * 2. Semantic match: memory tag relates to domain via keywords -> 5 pts each
-   *
-   * Unknown domains are resolved to canonical domain(s) via SEMANTIC_DOMAIN_KEYWORDS.
-   * @see PRJ-107, PRJ-300
+   * Semantic domain match score.
+   * Domain-based scoring removed (LLM-over-heuristic). Returns 0.
+   * Memories are filtered by other criteria (text match, tag match, recency).
    */
-  private _getSemanticDomainScore(domain: TaskDomain, memoryTags: string[]): number {
-    // Resolve to canonical domain(s)
-    const canonicals = this._resolveCanonicalDomains(domain)
-    if (canonicals.length === 0) return 0
-
-    // Collect all relevant MEMORY_TAGS for the canonical domains
-    const relevantTags = new Set<string>()
-    for (const canonical of canonicals) {
-      const tags = DOMAIN_TAG_MAP[canonical]
-      if (tags) {
-        for (const tag of tags) relevantTags.add(tag)
-      }
-    }
-
-    // Collect semantic keywords for the canonical domains
-    const domainKeywords = new Set<string>()
-    for (const canonical of canonicals) {
-      const keywords = SEMANTIC_DOMAIN_KEYWORDS[canonical]
-      if (keywords) {
-        for (const kw of keywords) domainKeywords.add(kw)
-      }
-    }
-
-    let score = 0
-
-    for (const tag of memoryTags) {
-      // Pass 1: exact MEMORY_TAG match (10 pts)
-      if (relevantTags.has(tag)) {
-        score += 10
-        continue
-      }
-      // Pass 2: semantic keyword match (5 pts)
-      const normalized = tag.toLowerCase().replace(/[-_\s]/g, '')
-      for (const kw of domainKeywords) {
-        if (normalized.includes(kw) || kw.includes(normalized)) {
-          score += 5
-          break
-        }
-      }
-    }
-
-    return Math.min(25, score)
-  }
-
-  /**
-   * Resolve a domain string to canonical known domain(s).
-   * Delegates to module-level resolveCanonicalDomains().
-   * @see PRJ-300
-   */
-  private _resolveCanonicalDomains(domain: TaskDomain): KnownDomain[] {
-    return resolveCanonicalDomains(domain)
+  private _getSemanticDomainScore(_domain: TaskDomain, _memoryTags: string[]): number {
+    return 0
   }
 
   /**

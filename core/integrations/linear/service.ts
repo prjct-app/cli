@@ -4,13 +4,8 @@
  * All operations are cached with 5-minute TTL.
  */
 
-import type {
-  CreateIssueInput,
-  FetchOptions,
-  Issue,
-  LinearConfig,
-  UpdateIssueInput,
-} from '../issue-tracker/types'
+import { BaseIssueTrackerService } from '../issue-tracker/base-service'
+import type { FetchOptions, Issue, LinearConfig } from '../issue-tracker/types'
 import {
   assignedIssuesCache,
   clearLinearCache,
@@ -21,15 +16,29 @@ import {
 } from './cache'
 import { linearProvider } from './client'
 
-export class LinearService {
-  private initialized = false
-  private userId: string | null = null
+export class LinearService extends BaseIssueTrackerService {
+  protected readonly serviceName = 'Linear'
+  protected readonly setupCommand = 'prjct linear setup'
+  protected readonly provider = linearProvider
+  protected readonly caches = {
+    issues: issueCache,
+    assignedIssues: assignedIssuesCache,
+    clearAll: () => {
+      issueCache.clear()
+      assignedIssuesCache.clear()
+    },
+    stats: () => ({
+      issues: issueCache.stats(),
+      assignedIssues: assignedIssuesCache.stats(),
+    }),
+  }
 
-  /**
-   * Check if service is ready
-   */
-  isReady(): boolean {
-    return this.initialized && linearProvider.isConfigured()
+  protected clearAllCaches(): void {
+    clearLinearCache()
+  }
+
+  protected getAllCacheStats() {
+    return getLinearCacheStats()
   }
 
   /**
@@ -37,34 +46,7 @@ export class LinearService {
    * Must be called before any operations
    */
   async initialize(config: LinearConfig): Promise<void> {
-    if (this.initialized) return
-
-    await linearProvider.initialize(config)
-    this.initialized = true
-  }
-
-  /**
-   * Get issues assigned to current user (cached)
-   */
-  async fetchAssignedIssues(options?: FetchOptions): Promise<Issue[]> {
-    this.ensureInitialized()
-
-    const cacheKey = `assigned:${this.userId || 'me'}`
-    const cached = assignedIssuesCache.get(cacheKey)
-    if (cached) {
-      return cached
-    }
-
-    const issues = await linearProvider.fetchAssignedIssues(options)
-    assignedIssuesCache.set(cacheKey, issues)
-
-    // Also cache individual issues
-    for (const issue of issues) {
-      issueCache.set(`issue:${issue.id}`, issue)
-      issueCache.set(`issue:${issue.externalId}`, issue)
-    }
-
-    return issues
+    return super.initialize(config)
   }
 
   /**
@@ -83,95 +65,9 @@ export class LinearService {
     assignedIssuesCache.set(cacheKey, issues)
 
     // Also cache individual issues
-    for (const issue of issues) {
-      issueCache.set(`issue:${issue.id}`, issue)
-      issueCache.set(`issue:${issue.externalId}`, issue)
-    }
+    this.cacheIssues(issues)
 
     return issues
-  }
-
-  /**
-   * Get a single issue by ID or identifier (cached)
-   * Accepts UUID or identifier like "PRJ-123"
-   */
-  async fetchIssue(id: string): Promise<Issue | null> {
-    this.ensureInitialized()
-
-    // Check cache first
-    const cacheKey = `issue:${id}`
-    const cached = issueCache.get(cacheKey)
-    if (cached) {
-      return cached
-    }
-
-    const issue = await linearProvider.fetchIssue(id)
-    if (issue) {
-      // Cache by both ID and externalId
-      issueCache.set(`issue:${issue.id}`, issue)
-      issueCache.set(`issue:${issue.externalId}`, issue)
-    }
-
-    return issue
-  }
-
-  /**
-   * Create a new issue (invalidates assigned cache)
-   */
-  async createIssue(input: CreateIssueInput): Promise<Issue> {
-    this.ensureInitialized()
-
-    const issue = await linearProvider.createIssue(input)
-
-    // Cache the new issue
-    issueCache.set(`issue:${issue.id}`, issue)
-    issueCache.set(`issue:${issue.externalId}`, issue)
-
-    // Invalidate assigned issues cache (new issue may be assigned)
-    assignedIssuesCache.clear()
-
-    return issue
-  }
-
-  /**
-   * Update an issue (invalidates cache for that issue)
-   */
-  async updateIssue(id: string, input: UpdateIssueInput): Promise<Issue> {
-    this.ensureInitialized()
-
-    const issue = await linearProvider.updateIssue(id, input)
-
-    // Update cache
-    issueCache.set(`issue:${issue.id}`, issue)
-    issueCache.set(`issue:${issue.externalId}`, issue)
-
-    return issue
-  }
-
-  /**
-   * Mark issue as in progress (invalidates cache)
-   */
-  async markInProgress(id: string): Promise<void> {
-    this.ensureInitialized()
-
-    await linearProvider.markInProgress(id)
-
-    // Invalidate caches
-    issueCache.delete(`issue:${id}`)
-    assignedIssuesCache.clear()
-  }
-
-  /**
-   * Mark issue as done (invalidates cache)
-   */
-  async markDone(id: string): Promise<void> {
-    this.ensureInitialized()
-
-    await linearProvider.markDone(id)
-
-    // Invalidate caches
-    issueCache.delete(`issue:${id}`)
-    assignedIssuesCache.clear()
   }
 
   /**
@@ -212,31 +108,6 @@ export class LinearService {
     const projects = await linearProvider.getProjects()
     projectsCache.set('projects', projects)
     return projects
-  }
-
-  /**
-   * Clear all caches
-   */
-  clearCache(): void {
-    clearLinearCache()
-  }
-
-  /**
-   * Get cache statistics for debugging
-   */
-  getCacheStats() {
-    return getLinearCacheStats()
-  }
-
-  /**
-   * Ensure service is initialized
-   */
-  private ensureInitialized(): void {
-    if (!this.initialized) {
-      throw new Error(
-        'Linear service not initialized. Call linearService.initialize() first or run `prjct linear setup`.'
-      )
-    }
   }
 }
 

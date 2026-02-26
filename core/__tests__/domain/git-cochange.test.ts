@@ -3,14 +3,11 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
-import { exec as execCallback } from 'node:child_process'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { promisify } from 'node:util'
 import { buildMatrix, scoreFromSeeds } from '../../domain/git-cochange'
-
-const exec = promisify(execCallback)
+import { execAsync } from '../../utils/exec'
 
 describe('GitCoChange', () => {
   let testDir: string
@@ -20,9 +17,9 @@ describe('GitCoChange', () => {
     await fs.mkdir(testDir, { recursive: true })
 
     // Initialize a git repo
-    await exec('git init', { cwd: testDir })
-    await exec('git config user.email "test@test.com"', { cwd: testDir })
-    await exec('git config user.name "Test"', { cwd: testDir })
+    await execAsync('git init', { cwd: testDir })
+    await execAsync('git config user.email "test@test.com"', { cwd: testDir })
+    await execAsync('git config user.name "Test"', { cwd: testDir })
   })
 
   afterEach(async () => {
@@ -39,14 +36,14 @@ describe('GitCoChange', () => {
       for (let i = 0; i < 5; i++) {
         await fs.writeFile(path.join(testDir, 'auth.ts'), `export const v${i} = ${i}`)
         await fs.writeFile(path.join(testDir, 'middleware.ts'), `export const v${i} = ${i}`)
-        await exec('git add -A', { cwd: testDir })
-        await exec(`git commit -m "commit ${i}"`, { cwd: testDir })
+        await execAsync('git add -A', { cwd: testDir })
+        await execAsync(`git commit -m "commit ${i}"`, { cwd: testDir })
       }
 
       // Create a file that changes independently
       await fs.writeFile(path.join(testDir, 'unrelated.ts'), 'export const x = 1')
-      await exec('git add -A', { cwd: testDir })
-      await exec('git commit -m "unrelated"', { cwd: testDir })
+      await execAsync('git add -A', { cwd: testDir })
+      await execAsync('git commit -m "unrelated"', { cwd: testDir })
 
       const index = await buildMatrix(testDir, 100)
 
@@ -63,8 +60,8 @@ describe('GitCoChange', () => {
       for (let i = 0; i < 3; i++) {
         await fs.writeFile(path.join(testDir, 'a.ts'), `const v${i} = ${i}`)
         await fs.writeFile(path.join(testDir, 'b.ts'), `const v${i} = ${i}`)
-        await exec('git add -A', { cwd: testDir })
-        await exec(`git commit -m "commit ${i}"`, { cwd: testDir })
+        await execAsync('git add -A', { cwd: testDir })
+        await execAsync(`git commit -m "commit ${i}"`, { cwd: testDir })
       }
 
       const index = await buildMatrix(testDir, 100)
@@ -92,8 +89,8 @@ describe('GitCoChange', () => {
       for (let i = 0; i < 5; i++) {
         await fs.writeFile(path.join(testDir, 'auth.ts'), `v${i}`)
         await fs.writeFile(path.join(testDir, 'session.ts'), `v${i}`)
-        await exec('git add -A', { cwd: testDir })
-        await exec(`git commit -m "commit ${i}"`, { cwd: testDir })
+        await execAsync('git add -A', { cwd: testDir })
+        await execAsync(`git commit -m "commit ${i}"`, { cwd: testDir })
       }
 
       const index = await buildMatrix(testDir, 100)
@@ -108,8 +105,8 @@ describe('GitCoChange', () => {
       for (let i = 0; i < 3; i++) {
         await fs.writeFile(path.join(testDir, 'a.ts'), `v${i}`)
         await fs.writeFile(path.join(testDir, 'b.ts'), `v${i}`)
-        await exec('git add -A', { cwd: testDir })
-        await exec(`git commit -m "commit ${i}"`, { cwd: testDir })
+        await execAsync('git add -A', { cwd: testDir })
+        await execAsync(`git commit -m "commit ${i}"`, { cwd: testDir })
       }
 
       const index = await buildMatrix(testDir, 100)

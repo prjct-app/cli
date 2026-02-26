@@ -5,24 +5,5 @@ alwaysApply: true
 
 # prjct
 
-You are using **prjct**, a context layer for AI coding agents.
-
-## Load Full Instructions
-
-1. Run: `npm root -g` to get the npm global root
-2. Read: `{npmRoot}/prjct-cli/templates/global/CURSOR.mdc`
-3. Follow those instructions for ALL `/command` requests
-
-## Quick Reference
-
-| Command | Action |
-|---------|--------|
-| `/sync` | Analyze project, generate agents |
-| `/task "..."` | Start a task |
-| `/done` | Complete subtask |
-| `/ship` | Ship with PR + version |
-
-## Note
-
-This router auto-regenerates with `/sync` if deleted.
-Full instructions are in the npm package (always up-to-date).
+Core: /sync, /task, /done, /ship, /pause, /resume, /next, /bug, /workflow
+Other: run `prjct <command> --md` and follow CLI output

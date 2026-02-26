@@ -192,13 +192,6 @@ export class CommandExecutor {
             agentStream.orchestrate(orchestratorContext.detectedDomains)
           }
 
-          // Show each agent being activated
-          for (const agent of orchestratorContext.agents) {
-            const domain = agent.domain || agent.name.replace('.md', '')
-            agentStream.startAgent(agent.name, domain, `Loading ${domain} specialist...`)
-            agentStream.endAgent(true)
-          }
-
           // Show subtasks if fragmented
           if (orchestratorContext.requiresFragmentation && orchestratorContext.subtasks) {
             const subtaskDisplay: SubtaskDisplay[] = orchestratorContext.subtasks.map((s) => ({
@@ -218,8 +211,6 @@ export class CommandExecutor {
       // Build context with agent routing info for Claude delegation
       const context: PromptContext = {
         ...metadataContext,
-        agentsPath: agenticExecContext.paths.agentsDir,
-        agentRoutingPath: agenticExecContext.paths.agentRouting,
         orchestratorPath: agenticExecContext.paths.orchestrator,
         taskFragmentationPath: agenticExecContext.paths.taskFragmentation,
         agenticDelegation: true,
@@ -270,8 +261,13 @@ export class CommandExecutor {
           template.frontmatter['allowed-tools'] || []
         ),
       }
-      // Agent is null - Claude assigns via Task tool using agent-routing.md
+      // Agent is null - Claude uses skills natively
       // Pass orchestratorContext for domain/agent/subtask injection
+      // Skip native context (agents/skills/patterns) for Claude Code — it loads them natively
+      const aiProvider = require('../infrastructure/ai-provider')
+      const activeProvider = await aiProvider.getActiveProvider()
+      const isClaudeProvider = activeProvider.name === 'claude'
+
       const prompt = await promptBuilder.build(
         template,
         context,
@@ -281,7 +277,8 @@ export class CommandExecutor {
         null,
         relevantMemories,
         planInfo,
-        orchestratorContext
+        orchestratorContext,
+        { skipNativeContext: isClaudeProvider }
       )
 
       // Log agentic mode
@@ -307,8 +304,6 @@ export class CommandExecutor {
         agenticExecContext,
         agenticPrompt: agenticInfo.prompt,
         requiresOrchestration: agenticInfo.requiresOrchestration,
-        agentsPath: context.agentsPath as string,
-        agentRoutingPath: context.agentRoutingPath as string,
         orchestratorPath: agenticExecContext.paths.orchestrator,
         taskFragmentationPath: agenticExecContext.paths.taskFragmentation,
         reasoning,

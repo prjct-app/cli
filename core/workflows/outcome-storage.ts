@@ -18,7 +18,7 @@ import {
 } from '../schemas/outcomes'
 import { StorageManager } from '../storage/storage-manager'
 import type { ShippedFeature, ShippedJson } from '../types/storage'
-import { getTimestamp } from '../utils/date-helper'
+import { getTimestamp, parseDurationMinutes } from '../utils/date-helper'
 
 export class OutcomeStorage extends StorageManager<OutcomesJson> {
   constructor() {
@@ -141,7 +141,7 @@ export class OutcomeStorage extends StorageManager<OutcomesJson> {
    * Convert a single ShippedFeature to FeatureOutcome.
    */
   private convertShippedToOutcome(ship: ShippedFeature): FeatureOutcome {
-    const durationMinutes = ship.duration ? this.parseDurationString(ship.duration) : 60
+    const durationMinutes = ship.duration ? parseDurationMinutes(ship.duration) || 60 : 60
     const estimatedHours = durationMinutes / 60
     const actualHours = durationMinutes / 60
     const variance = calculateVariance(estimatedHours, actualHours)
@@ -197,25 +197,6 @@ export class OutcomeStorage extends StorageManager<OutcomesJson> {
       shippedAt: ship.shippedAt,
       legacy: true,
     }
-  }
-
-  /**
-   * Parse duration string like "2h 30m" to minutes.
-   */
-  private parseDurationString(duration: string): number {
-    let minutes = 0
-
-    const hourMatch = duration.match(/(\d+)h/)
-    if (hourMatch) {
-      minutes += parseInt(hourMatch[1], 10) * 60
-    }
-
-    const minMatch = duration.match(/(\d+)m/)
-    if (minMatch) {
-      minutes += parseInt(minMatch[1], 10)
-    }
-
-    return minutes || 60 // Default 1h if unparseable
   }
 }
 

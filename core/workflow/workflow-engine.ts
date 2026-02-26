@@ -5,15 +5,11 @@
  * Replaces runWorkflowHooks() as the single entry point.
  */
 
-import { exec } from 'node:child_process'
-import { promisify } from 'node:util'
 import chalk from 'chalk'
 import { workflowRuleStorage } from '../storage/workflow-rule-storage'
 import { getErrorMessage } from '../types/fs'
-
-const execAsync = promisify(exec)
-
 import type { WorkflowExecutionResult } from '../types/workflow.js'
+import { execAsync } from '../utils/exec'
 
 export async function executeWorkflowRules(
   projectId: string,
