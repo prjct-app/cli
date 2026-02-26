@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.47.4] - 2026-02-26
+
+### Refactoring
+
+- remove static context generation system (#225)
+
+
 ## [1.47.3] - 2026-02-26
 
 ### Added
