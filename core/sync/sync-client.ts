@@ -11,6 +11,7 @@ import type { SyncEvent } from '../types/events'
 import type { SyncBatchResult, SyncClientError, SyncPullResult, SyncStatus } from '../types/sync'
 import { getTimeout } from '../utils/constants'
 import authConfig from './auth-config'
+import { mapCliEventsToWebFormat } from './event-mapper'
 
 // ============================================
 // Sync Client
@@ -33,6 +34,9 @@ class SyncClient {
       throw this.createError('AUTH_REQUIRED', 'No API key configured')
     }
 
+    // Transform CLI events to web format before sending
+    const webEvents = mapCliEventsToWebFormat(projectId, events)
+
     const response = await this.fetchWithRetry(`${apiUrl}/sync/batch`, {
       method: 'POST',
       headers: {
@@ -41,12 +45,7 @@ class SyncClient {
       },
       body: JSON.stringify({
         projectId,
-        events: events.map((e) => ({
-          type: e.type,
-          path: e.path,
-          data: e.data,
-          timestamp: e.timestamp,
-        })),
+        events: webEvents,
       }),
     })
 

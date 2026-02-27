@@ -219,6 +219,8 @@ async function main(): Promise<void> {
         start: () => commands.start(),
         // Context (for Claude templates)
         context: (p) => commands.context(p),
+        // Auth (cloud sync)
+        auth: (p) => commands.auth(p, { md }),
       }
 
       const handler = standardCommands[commandName]

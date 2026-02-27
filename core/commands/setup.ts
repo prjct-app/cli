@@ -8,6 +8,8 @@ import chalk from 'chalk'
 import commandInstaller from '../infrastructure/command-installer'
 import pathManager from '../infrastructure/path-manager'
 import context7Service from '../services/context7-service'
+import authConfig from '../sync/auth-config'
+import { syncClient } from '../sync/sync-client'
 import type { CommandResult, SetupOptions } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import { fileExists } from '../utils/file-helper'
@@ -21,6 +23,89 @@ import { VERSION } from '../utils/version'
 import { PrjctCommandsBase } from './base'
 
 export class SetupCommands extends PrjctCommandsBase {
+  /**
+   * Manage cloud authentication (login, logout, status)
+   */
+  async auth(action: string | null = null, options: { md?: boolean } = {}): Promise<CommandResult> {
+    const subcommand = action?.split(' ')[0] || 'status'
+    const args = action?.split(' ').slice(1) || []
+
+    switch (subcommand) {
+      case 'login': {
+        const apiKey = args[0]
+        if (!apiKey) {
+          return {
+            success: false,
+            message: options.md
+              ? '## Error\nUsage: `prjct auth login <apiKey> [--url <url>]`'
+              : '❌ Usage: prjct auth login <apiKey> [--url <url>]',
+          }
+        }
+
+        // Parse --url flag from remaining args
+        let apiUrl: string | undefined
+        const urlIdx = args.indexOf('--url')
+        if (urlIdx !== -1 && args[urlIdx + 1]) {
+          apiUrl = args[urlIdx + 1]
+        }
+
+        // Save auth with API key (userId and email will be populated on first sync)
+        await authConfig.write({
+          apiKey,
+          ...(apiUrl ? { apiUrl } : {}),
+        })
+
+        // Test connection
+        const connected = await syncClient.testConnection()
+
+        if (connected) {
+          return {
+            success: true,
+            message: options.md
+              ? `## Auth\n- **Status**: Connected\n- **Key**: \`${apiKey.substring(0, 12)}...\`\n- **API**: ${apiUrl || 'default'}`
+              : `✅ Connected! API key saved.\n   Key: ${apiKey.substring(0, 12)}...`,
+          }
+        } else {
+          return {
+            success: true,
+            message: options.md
+              ? `## Auth\n- **Status**: Key saved (server unreachable)\n- **Key**: \`${apiKey.substring(0, 12)}...\``
+              : `⚠️  API key saved, but server is unreachable.\n   Key: ${apiKey.substring(0, 12)}...\n   The key will be used when the server becomes available.`,
+          }
+        }
+      }
+
+      case 'logout': {
+        await authConfig.clearAuth()
+        return {
+          success: true,
+          message: options.md
+            ? '## Auth\n- **Status**: Logged out'
+            : '✅ Logged out. Auth credentials cleared.',
+        }
+      }
+
+      case 'status':
+      default: {
+        const status = await authConfig.getStatus()
+        if (options.md) {
+          return {
+            success: true,
+            message: status.authenticated
+              ? `## Auth Status\n- **Authenticated**: Yes\n- **Email**: ${status.email || 'N/A'}\n- **Key**: \`${status.apiKeyPrefix}\`\n- **Last auth**: ${status.lastAuth || 'N/A'}`
+              : '## Auth Status\n- **Authenticated**: No\n- Run `prjct auth login <apiKey>` to connect',
+          }
+        }
+        return {
+          success: true,
+          message: status.authenticated
+            ? `🔐 Authenticated\n   Email: ${status.email || 'N/A'}\n   Key:   ${status.apiKeyPrefix}\n   Last:  ${status.lastAuth || 'N/A'}`
+            : '🔓 Not authenticated\n   Run: prjct auth login <apiKey>',
+        }
+      }
+    }
+  }
+
   /**
    * First-time setup - Install commands to editors
    */
