@@ -541,7 +541,7 @@ ${chalk.cyan('https://prjct.app')}
     const routersInstalled = await checkRoutersInstalled()
 
     // Commands that work without full setup
-    const noSetupRequired = new Set(['auth', 'init'])
+    const noSetupRequired = new Set(['auth', 'login', 'logout', 'init'])
 
     if (!noSetupRequired.has(args[0]) && (!(await fileExists(configPath)) || !routersInstalled)) {
       console.log(`

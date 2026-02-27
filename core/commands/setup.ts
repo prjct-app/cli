@@ -1,8 +1,9 @@
 /**
- * Setup Commands: start, setup, installStatusLine, showAsciiArt
+ * Setup Commands: start, setup, login, installStatusLine, showAsciiArt
  */
 
 import fs from 'node:fs/promises'
+import http from 'node:http'
 import path from 'node:path'
 import chalk from 'chalk'
 import commandInstaller from '../infrastructure/command-installer'
@@ -12,6 +13,7 @@ import authConfig from '../sync/auth-config'
 import { syncClient } from '../sync/sync-client'
 import type { CommandResult, SetupOptions } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
+import { execAsync } from '../utils/exec'
 import { fileExists, readJson, writeJson } from '../utils/file-helper'
 import {
   getClaudeMcpConfigPath,
@@ -37,8 +39,8 @@ export class SetupCommands extends PrjctCommandsBase {
           return {
             success: false,
             message: options.md
-              ? '## Error\nUsage: `prjct auth login <apiKey> [--url <url>]`'
-              : '❌ Usage: prjct auth login <apiKey> [--url <url>]',
+              ? '## Error\nUsage: `prjct login [--url <url>]`'
+              : '❌ Usage: prjct login [--url <url>]',
           }
         }
 
@@ -93,17 +95,149 @@ export class SetupCommands extends PrjctCommandsBase {
             success: true,
             message: status.authenticated
               ? `## Auth Status\n- **Authenticated**: Yes\n- **Email**: ${status.email || 'N/A'}\n- **Key**: \`${status.apiKeyPrefix}\`\n- **Last auth**: ${status.lastAuth || 'N/A'}`
-              : '## Auth Status\n- **Authenticated**: No\n- Run `prjct auth login <apiKey>` to connect',
+              : '## Auth Status\n- **Authenticated**: No\n- Run `prjct login` to connect',
           }
         }
         return {
           success: true,
           message: status.authenticated
             ? `🔐 Authenticated\n   Email: ${status.email || 'N/A'}\n   Key:   ${status.apiKeyPrefix}\n   Last:  ${status.lastAuth || 'N/A'}`
-            : '🔓 Not authenticated\n   Run: prjct auth login <apiKey>',
+            : '🔓 Not authenticated\n   Run: prjct login',
         }
       }
     }
+  }
+
+  /**
+   * Browser-based login: opens browser, user authenticates with OTP, CLI gets API key automatically.
+   * Usage: prjct login [--url <webUrl>]
+   */
+  async login(options: { md?: boolean; url?: string } = {}): Promise<CommandResult> {
+    // Check if already authenticated
+    const status = await authConfig.getStatus()
+    if (status.authenticated) {
+      return {
+        success: true,
+        message: options.md
+          ? `## Already Authenticated\n- **Email**: ${status.email}\n- **Key**: \`${status.apiKeyPrefix}\`\n\nRun \`prjct logout\` first to re-authenticate.`
+          : `🔐 Already authenticated as ${status.email}\n   Run: prjct logout   to sign out first`,
+      }
+    }
+
+    const webUrl = options.url || process.env.PRJCT_WEB_URL || 'http://localhost:3000'
+
+    return new Promise<CommandResult>((resolve) => {
+      const server = http.createServer(async (req, res) => {
+        const url = new URL(req.url || '/', `http://127.0.0.1`)
+
+        if (url.pathname === '/callback') {
+          const apiKey = url.searchParams.get('key')
+          const email = url.searchParams.get('email')
+          const userId = url.searchParams.get('user_id')
+
+          if (apiKey) {
+            // Save auth
+            await authConfig.saveAuth(apiKey, userId || '', email || '')
+
+            // Also save the web URL as the API URL
+            const apiUrl = `${webUrl}/api`
+            await authConfig.write({ apiUrl })
+
+            // Send success HTML to browser
+            res.writeHead(200, { 'Content-Type': 'text/html' })
+            res.end(`<!DOCTYPE html>
+<html><head><title>prjct CLI Connected</title>
+<style>body{font-family:system-ui;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;background:#0a0a0a;color:#fff}
+.card{text-align:center;padding:2rem}.check{font-size:4rem;margin-bottom:1rem}h1{margin:0 0 .5rem}p{color:#888;margin:0}</style></head>
+<body><div class="card"><div class="check">✅</div><h1>CLI Connected!</h1><p>You can close this tab and return to your terminal.</p></div></body></html>`)
+          } else {
+            res.writeHead(400, { 'Content-Type': 'text/html' })
+            res.end('<html><body><h1>Error: No API key received</h1></body></html>')
+          }
+
+          // Close server and resolve
+          server.close()
+
+          if (apiKey) {
+            resolve({
+              success: true,
+              message: options.md
+                ? `## Authenticated\n- **Email**: ${email}\n- **Key**: \`${apiKey.substring(0, 12)}...\``
+                : `✅ Authenticated as ${email}\n   Key: ${apiKey.substring(0, 12)}...`,
+            })
+          } else {
+            resolve({
+              success: false,
+              message: '❌ Authentication failed: no API key received',
+            })
+          }
+          return
+        }
+
+        // Any other path — 404
+        res.writeHead(404)
+        res.end('Not found')
+      })
+
+      // Listen on random port
+      server.listen(0, '127.0.0.1', async () => {
+        const addr = server.address()
+        if (!addr || typeof addr === 'string') {
+          server.close()
+          resolve({ success: false, message: '❌ Failed to start callback server' })
+          return
+        }
+
+        const port = addr.port
+        const loginUrl = `${webUrl}/login?redirect=${encodeURIComponent(`/api/auth/cli-login?port=${port}`)}`
+
+        console.log(`\n🌐 Opening browser to authenticate...`)
+        console.log(chalk.dim(`   ${loginUrl}\n`))
+
+        // Open browser
+        const platform = process.platform
+        const openCmd =
+          platform === 'darwin'
+            ? `open "${loginUrl}"`
+            : platform === 'win32'
+              ? `start "${loginUrl}"`
+              : `xdg-open "${loginUrl}"`
+
+        try {
+          await execAsync(openCmd)
+        } catch {
+          console.log(`⚠️  Could not open browser. Please visit:\n   ${loginUrl}`)
+        }
+
+        console.log('⏳ Waiting for authentication...')
+        console.log(chalk.dim('   (press Ctrl+C to cancel)\n'))
+      })
+
+      // Timeout after 5 minutes
+      setTimeout(
+        () => {
+          server.close()
+          resolve({
+            success: false,
+            message: '❌ Authentication timed out. Run `prjct login` to try again.',
+          })
+        },
+        5 * 60 * 1000
+      )
+    })
+  }
+
+  /**
+   * Logout — clear auth credentials
+   */
+  async logout(): Promise<CommandResult> {
+    const status = await authConfig.getStatus()
+    if (!status.authenticated) {
+      return { success: true, message: '🔓 Already logged out.' }
+    }
+
+    await authConfig.clearAuth()
+    return { success: true, message: '✅ Logged out. Auth credentials cleared.' }
   }
 
   /**
