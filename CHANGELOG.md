@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.50.0] - 2026-02-27
+
+### Features
+
+- auth UX overhaul — out.* utilities, branded browser page, auto-sync (#229)
+
+
 ## [1.49.0] - 2026-02-27
 
 ### Features
