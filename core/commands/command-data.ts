@@ -550,9 +550,8 @@ export const COMMANDS: CommandMeta[] = [
     usage: { claude: '/p:auth [action]', terminal: 'prjct auth [action]' },
     params: '[login|logout|status]',
     implemented: true,
-    hasTemplate: true,
+    hasTemplate: false,
     requiresProject: false,
-    requiresLlm: true,
   },
   {
     name: 'context',

@@ -113,6 +113,7 @@ export function registerAllCommands(): void {
   // Setup commands
   commandRegistry.registerMethod('start', setup, 'start', getMeta('start'))
   commandRegistry.registerMethod('setup', setup, 'setup', getMeta('setup'))
+  commandRegistry.registerMethod('auth', setup, 'auth', getMeta('auth'))
   commandRegistry.registerMethod('uninstall', uninstallCmd, 'uninstall', getMeta('uninstall'))
   commandRegistry.registerMethod('update', updateCmd, 'update', getMeta('update'))
 
