@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.48.1] - 2026-02-27
+
+### Bug Fixes
+
+- wire auth command in registry and bypass setup check (#227)
+
+
 ## [1.48.0] - 2026-02-27
 
 ### Features
