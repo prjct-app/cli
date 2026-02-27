@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.48.0] - 2026-02-27
+
+### Features
+
+- CLI↔Web bidirectional sync (#226)
+
+
 ## [1.47.4] - 2026-02-26
 
 ### Refactoring
