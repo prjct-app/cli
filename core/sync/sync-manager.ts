@@ -12,6 +12,7 @@ import { ideasStorage } from '../storage/ideas-storage'
 import { queueStorage } from '../storage/queue-storage'
 import { shippedStorage } from '../storage/shipped-storage'
 import { stateStorage } from '../storage/state-storage'
+import type { SyncEvent } from '../types/events'
 import type {
   PullResult,
   PushResult,
@@ -105,8 +106,12 @@ class SyncManager {
         return { success: true, skipped: true, reason: 'no_pending' }
       }
 
+      // Prepend a project upsert event to ensure the project exists on the web side
+      const projectEvent = await this.createProjectLinkEvent(projectId)
+      const eventsToSend = projectEvent ? [projectEvent, ...pending] : pending
+
       // Push to server
-      const result: SyncBatchResult = await syncClient.pushEvents(projectId, pending)
+      const result: SyncBatchResult = await syncClient.pushEvents(projectId, eventsToSend)
 
       if (result.success) {
         // Clear pending events on success
@@ -197,11 +202,12 @@ class SyncManager {
 
   /**
    * Apply pulled events to local storage
+   * Accepts events in web format (entity_type/event_type) or legacy CLI format (type with dots)
    * Returns number of events successfully applied
    */
   async applyPulledEvents(
     projectId: string,
-    events: Array<{ type: string; path: string[]; data: unknown; timestamp: string }>
+    events: Array<Record<string, unknown>>
   ): Promise<number> {
     let applied = 0
 
@@ -210,8 +216,8 @@ class SyncManager {
         await this.applyEvent(projectId, event)
         applied++
       } catch (error) {
-        // Log but continue with other events
-        console.error(`Failed to apply event ${event.type}:`, error)
+        const eventLabel = (event.entity_type as string) || (event.type as string) || 'unknown'
+        console.error(`Failed to apply event ${eventLabel}:`, error)
       }
     }
 
@@ -220,105 +226,156 @@ class SyncManager {
 
   /**
    * Apply a single event to local storage
+   * Supports both web format (entity_type + event_type) and legacy CLI format (type: "entity.action")
    */
-  private async applyEvent(
-    projectId: string,
-    event: { type: string; path: string[]; data: unknown; timestamp: string }
-  ): Promise<void> {
-    const [entity, action] = event.type.split('.') as [string, string]
-    const data = event.data as Record<string, unknown>
+  private async applyEvent(projectId: string, event: Record<string, unknown>): Promise<void> {
+    // Normalize: support both web format and legacy CLI format
+    let entityType: string
+    let eventType: string
+    let data: Record<string, unknown>
 
-    switch (entity) {
-      case 'task':
-        await this.applyTaskEvent(projectId, action, data)
+    if (event.entity_type) {
+      // Web format
+      entityType = event.entity_type as string
+      eventType = event.event_type as string
+      data = (event.data as Record<string, unknown>) || {}
+    } else {
+      // Legacy CLI format: type = "entity.action"
+      const [entity, action] = ((event.type as string) || '').split('.')
+      const legacyEntityMap: Record<string, string> = {
+        task: 'tasks',
+        idea: 'ideas',
+        feature: 'roadmap_features',
+        shipped: 'shipped_items',
+        queue: 'queue_tasks',
+        project: 'projects',
+      }
+      entityType = legacyEntityMap[entity] || entity
+      eventType = action === 'deleted' ? 'delete' : 'upsert'
+      data = (event.data as Record<string, unknown>) || {}
+    }
+
+    if (eventType === 'delete') {
+      // For deletes, we'd need entity-specific delete logic
+      // For now, skip — local storage doesn't support targeted deletes easily
+      return
+    }
+
+    switch (entityType) {
+      case 'tasks':
+        await this.applyTaskUpsert(projectId, data)
         break
-      case 'idea':
-        await this.applyIdeaEvent(projectId, action, data)
+      case 'ideas':
+        await this.applyIdeaUpsert(projectId, data)
         break
-      case 'shipped':
-        await this.applyShippedEvent(projectId, action, data)
+      case 'shipped_items':
+        await this.applyShippedUpsert(projectId, data)
         break
-      // Add more entity handlers as needed
+      case 'queue_tasks':
+        await this.applyQueueUpsert(projectId, data)
+        break
+      case 'roadmap_features':
+        // Roadmap data is stored in kv_store as JSON — skip for now
+        // as it requires more complex merge logic
+        break
+      case 'projects':
+        // Project config updates are handled at the sync level
+        break
     }
   }
 
-  private async applyTaskEvent(
-    projectId: string,
-    action: string,
-    data: Record<string, unknown>
-  ): Promise<void> {
-    switch (action) {
-      case 'started':
-        // Update state if this is a newer task
-        await stateStorage.update(projectId, (state) => {
-          if (!state.currentTask || (data.id as string) !== state.currentTask.id) {
-            return {
-              ...state,
-              currentTask: {
-                id: data.id as string,
-                description: data.description as string,
-                startedAt: data.startedAt as string,
-                sessionId: data.sessionId as string,
-              },
-            }
+  private async applyTaskUpsert(projectId: string, data: Record<string, unknown>): Promise<void> {
+    const status = (data.status as string) || ''
+
+    if (status === 'active' || data.started_at || data.startedAt) {
+      // Active task — update state
+      await stateStorage.update(projectId, (state) => {
+        if (!state.currentTask || (data.id as string) !== state.currentTask.id) {
+          return {
+            ...state,
+            currentTask: {
+              id: data.id as string,
+              description: data.description as string,
+              startedAt: (data.started_at as string) || (data.startedAt as string),
+              sessionId: (data.session_id as string) || (data.sessionId as string) || '',
+            },
           }
-          return state
-        })
-        break
-      case 'completed':
-        // Clear current task if it matches
-        await stateStorage.update(projectId, (state) => {
-          if (state.currentTask?.id === data.id) {
-            return { ...state, currentTask: null }
-          }
-          return state
-        })
-        break
-      case 'created':
-        // Add to queue
-        await queueStorage.addTask(projectId, {
-          description: data.description as string,
-          priority: (data.priority as Priority) || 'medium',
-          type: (data.type as TaskType) || 'feature',
-          section: 'backlog' as TaskSection,
-        })
-        break
-    }
-  }
-
-  private async applyIdeaEvent(
-    projectId: string,
-    action: string,
-    data: Record<string, unknown>
-  ): Promise<void> {
-    switch (action) {
-      case 'created':
-        await ideasStorage.addIdea(projectId, (data.title as string) || (data.text as string), {
-          priority: (data.priority as IdeaPriority) || 'medium',
-        })
-        break
-      case 'archived':
-        await ideasStorage.update(projectId, (ideas) => ({
-          ...ideas,
-          ideas: ideas.ideas.map((idea) =>
-            idea.id === data.id ? { ...idea, status: 'archived' as const } : idea
-          ),
-        }))
-        break
-    }
-  }
-
-  private async applyShippedEvent(
-    projectId: string,
-    action: string,
-    data: Record<string, unknown>
-  ): Promise<void> {
-    if (action === 'created') {
-      await shippedStorage.addShipped(projectId, {
-        name: (data.name as string) || (data.title as string),
-        version: data.version as string,
-        description: data.description as string,
+        }
+        return state
       })
+    } else if (status === 'completed') {
+      // Clear current task if it matches
+      await stateStorage.update(projectId, (state) => {
+        if (state.currentTask?.id === data.id) {
+          return { ...state, currentTask: null }
+        }
+        return state
+      })
+    } else {
+      // Queued/backlog task — add to queue
+      await queueStorage.addTask(projectId, {
+        description: data.description as string,
+        priority: (data.priority as Priority) || 'medium',
+        type: (data.type as TaskType) || 'feature',
+        section: 'backlog' as TaskSection,
+      })
+    }
+  }
+
+  private async applyIdeaUpsert(projectId: string, data: Record<string, unknown>): Promise<void> {
+    const status = (data.status as string) || 'active'
+
+    if (status === 'archived') {
+      await ideasStorage.update(projectId, (ideas) => ({
+        ...ideas,
+        ideas: ideas.ideas.map((idea) =>
+          idea.id === data.id ? { ...idea, status: 'archived' as const } : idea
+        ),
+      }))
+    } else {
+      await ideasStorage.addIdea(projectId, (data.title as string) || (data.text as string) || '', {
+        priority: (data.priority as IdeaPriority) || 'medium',
+      })
+    }
+  }
+
+  private async applyShippedUpsert(
+    projectId: string,
+    data: Record<string, unknown>
+  ): Promise<void> {
+    await shippedStorage.addShipped(projectId, {
+      name: (data.name as string) || (data.title as string) || '',
+      version: (data.version as string) || '',
+      description: (data.description as string) || '',
+    })
+  }
+
+  private async applyQueueUpsert(projectId: string, data: Record<string, unknown>): Promise<void> {
+    await queueStorage.addTask(projectId, {
+      description: (data.description as string) || '',
+      priority: (data.priority as Priority) || 'medium',
+      type: (data.type as TaskType) || 'feature',
+      section: (data.section as TaskSection) || 'backlog',
+    })
+  }
+
+  /**
+   * Create a project link event to ensure the web side knows about this CLI project
+   */
+  private async createProjectLinkEvent(projectId: string): Promise<SyncEvent | null> {
+    try {
+      return {
+        type: 'project.updated',
+        path: ['project'],
+        data: {
+          id: projectId,
+          cli_project_id: projectId,
+        },
+        timestamp: new Date().toISOString(),
+        projectId,
+      }
+    } catch {
+      return null
     }
   }
 }

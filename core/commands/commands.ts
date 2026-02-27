@@ -345,6 +345,12 @@ class PrjctCommands {
     return this.contextCmds.context(input, projectPath)
   }
 
+  // ========== Auth Commands ==========
+
+  async auth(action: string | null = null, options: { md?: boolean } = {}): Promise<CommandResult> {
+    return this.setupCmds.auth(action, options)
+  }
+
   // ========== Setup Commands ==========
 
   async start(): Promise<CommandResult> {
