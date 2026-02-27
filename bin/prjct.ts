@@ -540,7 +540,10 @@ ${chalk.cyan('https://prjct.app')}
     const configPath = path.join(os.homedir(), '.prjct-cli', 'config', 'installed-editors.json')
     const routersInstalled = await checkRoutersInstalled()
 
-    if (!(await fileExists(configPath)) || !routersInstalled) {
+    // Commands that work without full setup
+    const noSetupRequired = new Set(['auth', 'init'])
+
+    if (!noSetupRequired.has(args[0]) && (!(await fileExists(configPath)) || !routersInstalled)) {
       console.log(`
 ${chalk.cyan.bold('  Welcome to prjct!')}
 
