@@ -219,6 +219,8 @@ async function main(): Promise<void> {
         // Context (for Claude templates)
         context: (p) => commands.context(p),
         // Auth (cloud sync)
+        login: () => commands.login({ md, url: options.url ? String(options.url) : undefined }),
+        logout: () => commands.logout(),
         auth: (p) => commands.auth(p, { md }),
       }
 

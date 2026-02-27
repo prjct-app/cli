@@ -351,6 +351,14 @@ class PrjctCommands {
     return this.setupCmds.auth(action, options)
   }
 
+  async login(options: { md?: boolean; url?: string } = {}): Promise<CommandResult> {
+    return this.setupCmds.login(options)
+  }
+
+  async logout(): Promise<CommandResult> {
+    return this.setupCmds.logout()
+  }
+
   // ========== Setup Commands ==========
 
   async start(): Promise<CommandResult> {
