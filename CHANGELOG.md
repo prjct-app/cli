@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.49.0] - 2026-02-27
+
+### Features
+
+- prjct login — browser-based OTP auth (#228)
+
+
 ## [1.48.1] - 2026-02-27
 
 ### Bug Fixes
