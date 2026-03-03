@@ -43,6 +43,7 @@ export class PatternStore extends CachedStore<Patterns> {
 
   protected afterLoad(patterns: Patterns): void {
     for (const decision of Object.values(patterns.decisions)) {
+      if (!Array.isArray(decision.contexts)) decision.contexts = []
       if (decision.contexts.length > PatternStore.MAX_CONTEXTS) {
         decision.contexts = decision.contexts.slice(-PatternStore.MAX_CONTEXTS)
       }

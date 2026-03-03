@@ -97,9 +97,6 @@ class PromptBuilder {
   private _templateCache: Map<string, CachedTemplate> = new Map()
   private readonly TEMPLATE_CACHE_TTL_MS = 60_000 // 60 seconds
 
-  /** Current context for testing access */
-  private _currentContext: PromptContext | null = null
-
   /** Active token budget coordinator (PRJ-266) */
   private _coordinator: TokenBudgetCoordinator | null = null
 
