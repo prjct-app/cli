@@ -171,16 +171,12 @@ class PromptBuilder {
   /**
    * Reset context (for testing)
    */
-  resetContext(): void {
-    this._currentContext = null
-  }
+  resetContext(): void {}
 
   /**
    * Set context for testing
    */
-  setContext(context: PromptContext | null): void {
-    this._currentContext = context
-  }
+  setContext(_context: PromptContext | null): void {}
 
   /**
    * Load a specific CLAUDE module for SMART commands (PRJ-94)
@@ -478,8 +474,7 @@ class PromptBuilder {
     const skipNativeContext = options?.skipNativeContext ?? false
     const parts: string[] = []
 
-    // Store context for use in helper methods
-    this._currentContext = context
+    // Context available via function parameter
 
     // PRJ-298: Config-driven command context (replaces 4 hardcoded lists)
     const commandName = template.frontmatter?.name?.replace('p:', '') || ''
