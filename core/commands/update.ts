@@ -424,13 +424,13 @@ export class UpdateCommands extends PrjctCommandsBase {
     ]
 
     for (const { label, result, fatal } of phases) {
-      const icon = result.success ? '✅' : fatal ? '❌' : '⚠️'
-      lines.push(`## ${icon} ${label}`)
+      const status = result.success ? 'OK' : fatal ? 'FAILED' : 'WARNING'
+      lines.push(`## ${label} (${status})`)
       for (const detail of result.details) {
         lines.push(`- ${detail}`)
       }
       for (const err of result.errors) {
-        lines.push(`- ⚠️ ${err}`)
+        lines.push(`- WARNING: ${err}`)
       }
       lines.push('')
     }

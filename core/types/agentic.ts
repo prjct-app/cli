@@ -704,6 +704,48 @@ export interface OrchestratorContext {
   velocityContext?: string | null
   /** Context degradation tracking (PRJ-277) */
   contextDegradation?: ContextDegradation
+  /** RPI phase context (research → plan → implement) */
+  rpiContext?: RpiContext | null
+}
+
+// =============================================================================
+// Context Health (Dex Horthy context management)
+// =============================================================================
+
+/** Context zone based on usage percentage of input budget */
+export type ContextZone = 'smart' | 'warning' | 'dumb'
+
+/** Current context health status with zone and usage metrics */
+export interface ContextHealthStatus {
+  zone: ContextZone
+  usagePercent: number
+  usedTokens: number
+  budgetTokens: number
+  recommendation: string | null
+}
+
+/** Records a zone transition event */
+export interface ZoneTransition {
+  from: ContextZone
+  to: ContextZone
+  usagePercent: number
+  timestamp: string
+  action: string | null
+}
+
+// =============================================================================
+// RPI Flow (Research → Plan → Implement)
+// =============================================================================
+
+/** Current phase of the RPI flow */
+export type RpiPhase = 'research' | 'plan' | 'implement'
+
+/** Context for the active RPI phase */
+export interface RpiContext {
+  phase: RpiPhase
+  researchDoc?: string
+  planDoc?: string
+  scopedFiles?: string[]
 }
 
 /**

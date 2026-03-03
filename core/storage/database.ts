@@ -466,6 +466,43 @@ const migrations: Migration[] = [
       `)
     },
   },
+  {
+    version: 9,
+    name: 'context-health-tables',
+    up: (db: SqliteDatabase) => {
+      db.run(`
+        -- =======================================================================
+        -- Context Zone Events: Track zone transitions for health analytics
+        -- =======================================================================
+        CREATE TABLE context_zone_events (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          project_id TEXT NOT NULL,
+          session_id TEXT,
+          zone_from TEXT NOT NULL,
+          zone_to TEXT NOT NULL,
+          usage_percent REAL NOT NULL,
+          action TEXT,
+          timestamp TEXT NOT NULL
+        );
+
+        CREATE INDEX idx_cze_project ON context_zone_events(project_id);
+
+        -- =======================================================================
+        -- Context Compactions: Track compaction events
+        -- =======================================================================
+        CREATE TABLE context_compactions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          project_id TEXT NOT NULL,
+          format TEXT NOT NULL DEFAULT 'standard',
+          original_turns INTEGER NOT NULL,
+          files_count INTEGER NOT NULL DEFAULT 0,
+          timestamp TEXT NOT NULL
+        );
+
+        CREATE INDEX idx_cc_project ON context_compactions(project_id);
+      `)
+    },
+  },
 ]
 
 // =============================================================================

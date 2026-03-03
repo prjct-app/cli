@@ -30,6 +30,7 @@ import type {
   OrchestratorSubtask,
   DomainClassifierProjectContext as ProjectContext,
   RealCodebaseContext,
+  RpiContext,
   SealedAnalysisContext,
 } from '../types/agentic'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
@@ -107,6 +108,9 @@ export class OrchestratorExecutor {
       subtasks = await this.createSubtasks(taskDescription, domains, [], projectId)
     }
 
+    // Step 7: Resolve RPI phase
+    const rpiContext = this.resolveRpiPhase(projectId)
+
     return {
       detectedDomains: domains,
       primaryDomain: primary,
@@ -121,7 +125,47 @@ export class OrchestratorExecutor {
       sealedAnalysis: sealedAnalysis ?? null,
       velocityContext: velocityContext ?? null,
       contextDegradation,
+      rpiContext,
     }
+  }
+
+  /**
+   * Resolve the current RPI phase from stored artifacts.
+   * Phase detection: no research → research, no plan → plan, both exist → implement.
+   */
+  private resolveRpiPhase(projectId: string): RpiContext | null {
+    try {
+      const { prjctDb } = require('../storage/database')
+      const researchDoc = prjctDb.getDoc(projectId, 'rpi:current:research')
+      const planDoc = prjctDb.getDoc(projectId, 'rpi:current:plan')
+
+      if (!researchDoc) {
+        return { phase: 'research' }
+      }
+
+      if (!planDoc) {
+        return { phase: 'plan', researchDoc }
+      }
+
+      // Both exist → implement phase. Extract scoped files from plan.
+      const scopedFiles = this.extractScopedFilesFromPlan(planDoc)
+      return { phase: 'implement', researchDoc, planDoc, scopedFiles }
+    } catch {
+      // RPI resolution failure is non-blocking
+      return null
+    }
+  }
+
+  /**
+   * Extract file paths mentioned in a plan document.
+   */
+  private extractScopedFilesFromPlan(planDoc: string): string[] {
+    const filePattern = /`([a-zA-Z0-9_\-./]+\.[a-zA-Z]{1,6})`/g
+    const files = new Set<string>()
+    for (const match of planDoc.matchAll(filePattern)) {
+      files.add(match[1])
+    }
+    return [...files].slice(0, 20)
   }
 
   /**

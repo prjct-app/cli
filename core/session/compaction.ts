@@ -10,10 +10,21 @@
  */
 
 import prjctDb from '../storage/database'
-import type { CompactedContext, CompactionConfig, ConversationTurn } from '../types/session'
+import type { ContextHealthStatus } from '../types/agentic'
+import type {
+  CompactedContext,
+  CompactionConfig,
+  ConversationTurn,
+  TruthSnapshot,
+} from '../types/session'
 import { getTimestamp } from '../utils/date-helper'
 
-export type { CompactedContext, CompactionConfig, ConversationTurn } from '../types/session'
+export type {
+  CompactedContext,
+  CompactionConfig,
+  ConversationTurn,
+  TruthSnapshot,
+} from '../types/session'
 
 const DEFAULT_CONFIG: Required<CompactionConfig> = {
   maxTurns: 50,
@@ -153,9 +164,19 @@ export function compactContext(
 }
 
 /**
- * Check if compaction is needed
+ * Check if compaction is needed.
+ * When healthStatus is provided, compaction triggers at the warning zone boundary (40%).
  */
-export function needsCompaction(turns: ConversationTurn[], config: CompactionConfig = {}): boolean {
+export function needsCompaction(
+  turns: ConversationTurn[],
+  config: CompactionConfig = {},
+  healthStatus?: ContextHealthStatus
+): boolean {
+  // Zone-aware: compact when outside smart zone
+  if (healthStatus && healthStatus.zone !== 'smart') {
+    return true
+  }
+
   const cfg = { ...DEFAULT_CONFIG, ...config }
 
   // Check turn count
@@ -215,6 +236,204 @@ export function formatCompactedForPrompt(context: CompactedContext): string {
 
   lines.push(`*Compacted from ${context.originalTurns} turns at ${context.compactedAt}*`)
   lines.push('</compacted-context>')
+
+  return lines.join('\n')
+}
+
+// =============================================================================
+// Truth Snapshots
+// =============================================================================
+
+/** File reference pattern: path.ts:42 or path.ts:10-20 */
+const FILE_REF_PATTERN = /([a-zA-Z0-9_\-./]+\.[a-zA-Z]{1,6})(?::(\d+(?:-\d+)?))?/g
+
+/** Test result patterns */
+const TEST_PASS_PATTERN = /(?:✅|PASS)\s+(.+?)(?:\s*[-–]\s*(.+))?$/gm
+const TEST_FAIL_PATTERN = /(?:❌|FAIL)\s+(.+?)(?:\s*[-–]\s*(.+))?$/gm
+const TEST_SKIP_PATTERN = /(?:⏭️|SKIP)\s+(.+?)(?:\s*[-–]\s*(.+))?$/gm
+
+/** Code flow pattern: A → B → C */
+const CODE_FLOW_PATTERN = /([a-zA-Z0-9_./]+(?:\s*→\s*[a-zA-Z0-9_./]+)+)/g
+
+/**
+ * Extract file references from conversation turns.
+ * Parses file.ts:42 patterns and file modification mentions.
+ */
+function extractFileReferences(
+  turns: ConversationTurn[],
+  filesModified: string[]
+): TruthSnapshot['fileReferences'] {
+  const refs = new Map<string, TruthSnapshot['fileReferences'][0]>()
+
+  // Files from extractKeyInfo (modified)
+  for (const f of filesModified) {
+    refs.set(f, { path: f, role: 'modified' })
+  }
+
+  // Parse file:line references from content
+  for (const turn of turns) {
+    for (const match of turn.content.matchAll(FILE_REF_PATTERN)) {
+      const filePath = match[1]
+      const lineRange = match[2]
+
+      // Skip very short or non-file-looking matches
+      if (!filePath.includes('.') || filePath.length < 3) continue
+
+      if (!refs.has(filePath)) {
+        const isTest = filePath.includes('test') || filePath.includes('spec')
+        refs.set(filePath, {
+          path: filePath,
+          lineRange,
+          role: isTest ? 'test' : 'read',
+        })
+      } else if (lineRange && !refs.get(filePath)!.lineRange) {
+        refs.get(filePath)!.lineRange = lineRange
+      }
+    }
+  }
+
+  return [...refs.values()].slice(0, 30)
+}
+
+/**
+ * Extract code flows from conversation turns.
+ * Parses → chains and import patterns.
+ */
+function extractCodeFlows(turns: ConversationTurn[]): TruthSnapshot['codeFlows'] {
+  const flows: TruthSnapshot['codeFlows'] = []
+
+  for (const turn of turns) {
+    for (const match of turn.content.matchAll(CODE_FLOW_PATTERN)) {
+      const chain = match[1]
+      const files = chain.split(/\s*→\s*/).filter((f) => f.includes('.'))
+      if (files.length >= 2) {
+        flows.push({ description: chain.trim(), files })
+      }
+    }
+  }
+
+  return [...new Map(flows.map((f) => [f.description, f])).values()].slice(0, 10)
+}
+
+/**
+ * Extract test results from conversation turns.
+ */
+function extractTestResults(turns: ConversationTurn[]): TruthSnapshot['testResults'] {
+  const results: TruthSnapshot['testResults'] = []
+
+  for (const turn of turns) {
+    for (const match of turn.content.matchAll(TEST_PASS_PATTERN)) {
+      results.push({ file: match[1].trim(), status: 'pass', summary: match[2]?.trim() || 'passed' })
+    }
+    for (const match of turn.content.matchAll(TEST_FAIL_PATTERN)) {
+      results.push({ file: match[1].trim(), status: 'fail', summary: match[2]?.trim() || 'failed' })
+    }
+    for (const match of turn.content.matchAll(TEST_SKIP_PATTERN)) {
+      results.push({
+        file: match[1].trim(),
+        status: 'skip',
+        summary: match[2]?.trim() || 'skipped',
+      })
+    }
+  }
+
+  return results.slice(0, 20)
+}
+
+/**
+ * Compact conversation to a truth snapshot.
+ * Extends standard compaction with structured file references, code flows, and test results.
+ */
+export function compactToTruthSnapshot(
+  turns: ConversationTurn[],
+  config: CompactionConfig = {},
+  gitState?: { branch: string; uncommittedFiles: string[]; taskDescription: string | null }
+): TruthSnapshot {
+  const base = compactContext(turns, config)
+
+  const fileReferences = extractFileReferences(turns, base.filesModified)
+  const codeFlows = extractCodeFlows(turns)
+  const testResults = extractTestResults(turns)
+
+  return {
+    ...base,
+    fileReferences,
+    codeFlows,
+    testResults,
+    currentState: gitState ?? {
+      branch: 'unknown',
+      uncommittedFiles: [],
+      taskDescription: null,
+    },
+    format: 'truth_snapshot',
+    version: 1,
+  }
+}
+
+/**
+ * Format a truth snapshot for prompt injection.
+ * Produces structured markdown with <truth-snapshot> tags.
+ */
+export function formatTruthSnapshotForPrompt(snapshot: TruthSnapshot): string {
+  const lines = ['<truth-snapshot>']
+
+  // Current state
+  if (snapshot.currentState) {
+    lines.push('### Current State')
+    lines.push(`Branch: \`${snapshot.currentState.branch}\``)
+    if (snapshot.currentState.taskDescription) {
+      lines.push(`Task: ${snapshot.currentState.taskDescription}`)
+    }
+    if (snapshot.currentState.uncommittedFiles.length > 0) {
+      lines.push(`Uncommitted: ${snapshot.currentState.uncommittedFiles.join(', ')}`)
+    }
+    lines.push('')
+  }
+
+  // Summary
+  lines.push(snapshot.summary)
+  lines.push('')
+
+  // File references
+  if (snapshot.fileReferences.length > 0) {
+    lines.push('### Files')
+    for (const ref of snapshot.fileReferences) {
+      const line = ref.lineRange ? `:${ref.lineRange}` : ''
+      lines.push(`- [${ref.role}] \`${ref.path}${line}\``)
+    }
+    lines.push('')
+  }
+
+  // Code flows
+  if (snapshot.codeFlows.length > 0) {
+    lines.push('### Code Flows')
+    for (const flow of snapshot.codeFlows) {
+      lines.push(`- ${flow.description}`)
+    }
+    lines.push('')
+  }
+
+  // Decisions
+  if (snapshot.decisions.length > 0) {
+    lines.push('### Decisions')
+    for (const d of snapshot.decisions) {
+      lines.push(`- ${d}`)
+    }
+    lines.push('')
+  }
+
+  // Test results
+  if (snapshot.testResults.length > 0) {
+    lines.push('### Test Results')
+    for (const t of snapshot.testResults) {
+      const icon = t.status === 'pass' ? '✅' : t.status === 'fail' ? '❌' : '⏭️'
+      lines.push(`- ${icon} ${t.file}: ${t.summary}`)
+    }
+    lines.push('')
+  }
+
+  lines.push(`*Truth snapshot from ${snapshot.originalTurns} turns at ${snapshot.compactedAt}*`)
+  lines.push('</truth-snapshot>')
 
   return lines.join('\n')
 }

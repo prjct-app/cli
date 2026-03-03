@@ -5,6 +5,7 @@
 
 import path from 'node:path'
 import { createStalenessChecker } from '../services/staleness-checker'
+import { contextZoneStorage } from '../storage/context-zone-storage'
 import { prjctDb } from '../storage/database'
 import { ideasStorage } from '../storage/ideas-storage'
 import { queueStorage } from '../storage/queue-storage'
@@ -13,7 +14,7 @@ import { stateStorage } from '../storage/state-storage'
 import type { CommandResult } from '../types/commands'
 import type { ProjectContext } from '../types/core'
 import { getErrorMessage } from '../types/fs'
-import { mdList, mdNextSteps, mdOutput, mdSection } from '../utils/md-formatter'
+import { mdList, mdNextSteps, mdOutput, mdSection, mdTable } from '../utils/md-formatter'
 import {
   configManager,
   contextBuilder,
@@ -157,7 +158,8 @@ export class AnalyticsCommands extends PrjctCommandsBase {
           queueTasks.length > 0
             ? queueTasks.slice(0, 5).map((t) => {
                 const priority = t.priority ? ` [${t.priority}]` : ''
-                return `${t.description}${priority}`
+                const desc = t.description.replace(/^[\u{1F300}-\u{1F9FF}]\s*/u, '')
+                return `${desc}${priority}`
               })
             : ['Queue is empty']
 
@@ -169,16 +171,38 @@ export class AnalyticsCommands extends PrjctCommandsBase {
               })
             : ['Nothing shipped yet']
 
+        // Context health summary
+        let contextHealthSection: string | null = null
+        try {
+          const summary = contextZoneStorage.getSummary(projectId, 7)
+          if (summary.smartPercent < 100 || summary.compactions > 0) {
+            contextHealthSection =
+              '### Context Health (7d)\n' +
+              mdTable(
+                ['Zone', '%'],
+                [
+                  ['Smart', `${summary.smartPercent}%`],
+                  ['Warning', `${summary.warningPercent}%`],
+                  ['Dumb', `${summary.dumbPercent}%`],
+                  ['Compactions', `${summary.compactions}`],
+                ]
+              )
+          }
+        } catch {
+          // Context health is non-blocking — tables may not exist yet
+        }
+
         const md = mdOutput(
-          `## ⚡ Dashboard: ${projectName}`,
+          `## Dashboard: ${projectName}`,
           mdSection('Current Focus', currentFocus),
           mdSection(`Queue (${queueTasks.length})`, mdList(queueItems, true)),
           mdSection('Recent Ships', mdList(shipItems)),
           mdSection('Ideas', `${ideas.length} pending`),
+          contextHealthSection,
           mdNextSteps([
-            { label: 'Start task', command: 'p. task' },
-            { label: 'Complete', command: 'p. done' },
-            { label: 'Ship', command: 'p. ship' },
+            { label: 'Start task', command: 'prjct task "..." --md' },
+            { label: 'Complete', command: 'prjct done --md' },
+            { label: 'Ship', command: 'prjct ship --md' },
           ])
         )
         console.log(md)

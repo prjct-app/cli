@@ -1,15 +1,8 @@
 /**
  * Markdown formatter utilities for --md flag output
  *
- * Produces rich, structured markdown optimized for Claude Code's terminal.
- * Used by all CLI commands when invoked with --md.
- *
- * Design system:
- * - Branded header/footer with ⚡ prjct
- * - H2 for primary content, H3 for sections
- * - Tables for structured data (subtasks, stats, next steps)
- * - Callouts for status messages (success/warn/error/info)
- * - Code formatting for paths and commands
+ * Produces lean, structured markdown for LLM consumption.
+ * Zero emojis. Zero filler. Every token earns its place.
  */
 
 import { getVersion } from './version'
@@ -18,15 +11,15 @@ import { getVersion } from './version'
 // Branding & Layout
 // =============================================================================
 
-/** Branded header */
+/** Branded header — single line, no emoji */
 export function mdHeader(): string {
-  return '⚡ prjct\n\n---'
+  return '---'
 }
 
 /** Branded footer with version */
 export function mdFooter(): string {
   const version = getVersion()
-  return `---\n⚡ prjct · v${version}`
+  return `---\nprjct v${version}`
 }
 
 /** Horizontal rule divider */
@@ -38,7 +31,7 @@ export function mdDivider(): string {
 // Output Wrapper
 // =============================================================================
 
-/** Wrap any --md output with branded header and footer */
+/** Wrap any --md output with header and footer */
 export function mdOutput(...sections: (string | null | undefined | false)[]): string {
   return mdJoin(mdHeader(), ...sections.filter(Boolean), mdFooter())
 }
@@ -65,10 +58,10 @@ export function mdBadge(label: string, value: string): string {
   return `**${label}**: \`${value}\``
 }
 
-/** Callout block with emoji and bold message */
+/** Callout block with bold message */
 export function mdCallout(type: 'success' | 'warn' | 'error' | 'info', message: string): string {
-  const emoji = { success: '✅', warn: '⚠️', error: '❌', info: 'ℹ️' }[type]
-  return `> ${emoji} **${message}**`
+  const prefix = { success: 'OK', warn: 'WARNING', error: 'ERROR', info: 'INFO' }[type]
+  return `> **${prefix}:** ${message}`
 }
 
 // =============================================================================
@@ -121,7 +114,7 @@ export function mdTaskHeader(task: TaskInfo): string {
   if (task.status) parts.push(`Status: ${task.status}`)
 
   const meta = parts.length > 0 ? `\n> ${parts.join(' | ')}` : ''
-  return `## ⚡ ${task.description}${meta}`
+  return `## ${task.description}${meta}`
 }
 
 interface SubtaskItem {
@@ -129,21 +122,21 @@ interface SubtaskItem {
   status: string
 }
 
-/** Format subtasks as a markdown table with status icons */
+/** Format subtasks as a markdown table */
 export function mdSubtasks(subtasks: SubtaskItem[], currentIndex?: number): string {
   const headers = ['#', 'Status', 'Description']
   const rows = subtasks.map((s, i) => {
     const num = String(i + 1)
-    let icon: string
+    let status: string
     if (s.status === 'completed') {
-      icon = '✅'
+      status = 'done'
     } else if (i === currentIndex) {
-      icon = '🔄'
+      status = 'current'
     } else {
-      icon = '⬜'
+      status = 'pending'
     }
-    const current = i === currentIndex ? ' **← current**' : ''
-    return [num, icon, `${s.description}${current}`]
+    const current = i === currentIndex ? ' **<- current**' : ''
+    return [num, status, `${s.description}${current}`]
   })
   return `### Subtasks\n${mdTable(headers, rows)}`
 }
@@ -210,17 +203,17 @@ export function mdStats(stats: Record<string, string | number | null | undefined
 
 /** Format a success/completion message */
 export function mdDone(message: string, details?: string): string {
-  return details ? `## ✅ ${message}\n> ${details}` : `## ✅ ${message}`
+  return details ? `## ${message}\n> ${details}` : `## ${message}`
 }
 
 /** Format a warning message (bold) */
 export function mdWarn(message: string): string {
-  return `> ⚠️ **${message}**`
+  return `> **WARNING:** ${message}`
 }
 
 /** Format an error message (bold) */
 export function mdError(message: string): string {
-  return `> ❌ **${message}**`
+  return `> **ERROR:** ${message}`
 }
 
 // =============================================================================
@@ -242,8 +235,7 @@ interface MdOption {
 }
 
 /**
- * Output a structured JSON response that LLMs interpret as actionable.
- * Used when a business rule blocks an action and the user must decide.
+ * Output a structured response when an action is blocked.
  */
 export function mdActionRequired(
   status: string,
@@ -251,12 +243,18 @@ export function mdActionRequired(
   options: MdOption[],
   context?: Record<string, string>
 ): void {
-  console.log(
-    JSON.stringify({
-      status,
-      reason,
-      ...context,
-      options,
-    })
-  )
+  const reasonText = reason.replace(/_/g, ' ')
+  const lines = [`> **${status}**: ${reasonText}`]
+  if (context) {
+    for (const [k, v] of Object.entries(context)) {
+      lines.push(`> ${k}: ${v}`)
+    }
+  }
+  if (options.length > 0) {
+    lines.push('')
+    for (const opt of options) {
+      lines.push(`- ${opt.label}: \`${opt.command}\``)
+    }
+  }
+  console.log(lines.join('\n'))
 }

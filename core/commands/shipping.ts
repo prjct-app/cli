@@ -124,7 +124,7 @@ export class ShippingCommands extends PrjctCommandsBase {
       }
 
       if (options.md) {
-        const steps = getNextSteps('ship')
+        const steps = getNextSteps('ship', true)
         const md = mdOutput(
           mdDone(`Shipped: ${featureName}`, `Version: ${newVersion}`),
           mdSection(

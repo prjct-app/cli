@@ -14,7 +14,6 @@ import commandExecutor from '../agentic/command-executor'
 import { isValidPoint, pointsToMinutes, pointsToTimeRange } from '../domain/fibonacci'
 import pathManager from '../infrastructure/path-manager'
 import { templateGenerator } from '../infrastructure/template-generator'
-import type { AnalysisSchema } from '../schemas/analysis'
 import { generateUUID } from '../schemas/schemas'
 import type { TaskFeedback } from '../schemas/state'
 import context7Service from '../services/context7-service'
@@ -28,6 +27,7 @@ import { queueStorage } from '../storage/queue-storage'
 import { stateStorage } from '../storage/state-storage'
 import { workflowRuleStorage } from '../storage/workflow-rule-storage'
 import { extractKeywords, findRelevantFiles } from '../tools/context/files-tool'
+import type { RpiContext } from '../types/agentic'
 import type { CommandResult } from '../types/commands'
 import type { FibonacciPoint } from '../types/domain.js'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
@@ -225,7 +225,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
           }
           const maxFilesForTask = (tokenBudgetByType[estimate.taskType] ?? 80) >= 80 ? 15 : 10
 
-          const [branch, analysis, repoAnalysisRaw, relevantFilesResult] = await Promise.all([
+          const [branch, analysis, , relevantFilesResult] = await Promise.all([
             getGitBranch(projectPath),
             analysisStorage.getActive(projectId).catch(() => null),
             loadRepoAnalysis(globalPath),
@@ -298,7 +298,6 @@ export class WorkflowCommands extends PrjctCommandsBase {
             estimateSource: estimate.source,
             domains: detectedDomains,
           })
-          const projectContext = buildProjectContext(analysis, repoAnalysisRaw)
           const files = mdRelevantFiles(
             relevantFilesResult.files.map((f) => ({
               path: f.path,
@@ -307,30 +306,29 @@ export class WorkflowCommands extends PrjctCommandsBase {
           )
           const relevantFilePaths = relevantFilesResult.files.map((f) => f.path)
           const patterns = buildPatternBriefing(analysis, relevantFilePaths)
-          const contextContract = buildContextContract(
-            taskDescription,
-            relevantFilesResult.files,
-            analysis,
-            estimate,
-            detectedDomains,
-            repoAnalysisRaw
-          )
+          const contextContract = buildContextContract(relevantFilesResult.files, analysis)
           const next = mdNextSteps([
-            { label: 'Find relevant files', command: `prjct context files "${task}"` },
+            { label: 'Find relevant files', command: 'prjct context files "..."' },
             { label: 'Complete subtask', command: 'prjct done --md' },
             { label: 'Pause task', command: 'prjct pause --md' },
           ])
 
+          // Build efficiency + RPI sections
+          const efficiencySection = buildEfficiencySection()
+          const rpiSection = buildRpiSection(projectId)
+
+          // projectContext (ecosystem, commands) omitted — lives in CLAUDE.md global context
           console.log(
             mdOutput(
               continuityContext,
               stalenessWarning,
               header,
               contextContract,
-              projectContext,
               files,
               historicalFilesSection,
               patterns,
+              rpiSection,
+              efficiencySection,
               next
             )
           )
@@ -631,6 +629,25 @@ export class WorkflowCommands extends PrjctCommandsBase {
           feedbackSection = `### Context Accuracy\n| Metric | Value |\n|--------|-------|\n| Precision | ${precPct}% of suggested files were used |\n| Recall | ${recPct}% of modified files were suggested |`
         }
 
+        // RPI phase guidance
+        let rpiSection: string | null = null
+        try {
+          const { prjctDb } = require('../storage/database')
+          const hasResearch = prjctDb.getDoc(projectId, 'rpi:current:research')
+          const hasPlan = prjctDb.getDoc(projectId, 'rpi:current:plan')
+          if (!hasResearch) {
+            rpiSection =
+              '### RPI Phase: Research Complete\n' +
+              'Save your research findings with `prjct compact --md` before planning.'
+          } else if (!hasPlan) {
+            rpiSection =
+              '### RPI Phase: Plan Ready\n' +
+              'Research is available. Create your implementation plan next.'
+          }
+        } catch {
+          // RPI guidance is non-blocking
+        }
+
         console.log(
           mdOutput(
             mdDone('Completed', `${task}${durationSuffix}`),
@@ -640,9 +657,10 @@ export class WorkflowCommands extends PrjctCommandsBase {
             }),
             modifiedFilesSection,
             feedbackSection,
+            rpiSection,
             mdNextSteps([
-              { label: 'Complete next subtask', command: 'p. done' },
-              { label: 'Ship when ready', command: 'p. ship' },
+              { label: 'Complete next subtask', command: 'prjct done --md' },
+              { label: 'Ship when ready', command: 'prjct ship --md' },
             ])
           )
         )
@@ -715,13 +733,15 @@ export class WorkflowCommands extends PrjctCommandsBase {
         const items = tasks.map((t) => {
           const typeBadge = t.type ? ` [${t.type}]` : ''
           const priority = t.priority ? ` ${t.priority}` : ''
-          return `${t.description}${typeBadge}${priority}`
+          // Strip legacy emoji prefixes from stored descriptions
+          const desc = t.description.replace(/^[\u{1F300}-\u{1F9FF}]\s*/u, '')
+          return `${desc}${typeBadge}${priority}`
         })
         console.log(
           mdOutput(
             mdSection('Queue', `${tasks.length} task${tasks.length !== 1 ? 's' : ''}`),
             mdList(items, true),
-            mdNextSteps([{ label: 'Start working', command: `p. task "${tasks[0].description}"` }])
+            mdNextSteps([{ label: 'Start top task', command: 'prjct task "..." --md' }])
           )
         )
       } else {
@@ -800,8 +820,8 @@ export class WorkflowCommands extends PrjctCommandsBase {
               'Duration worked': durationWorked || undefined,
             }),
             mdNextSteps([
-              { label: 'Resume this task', command: 'p. resume' },
-              { label: 'Start something new', command: 'p. task' },
+              { label: 'Resume this task', command: 'prjct resume --md' },
+              { label: 'Start something new', command: 'prjct task "..." --md' },
             ])
           )
         )
@@ -880,7 +900,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
         console.log(
           mdOutput(
             mdDone('Task Resumed', `**Resumed:** ${resumed.description}`),
-            mdNextSteps([{ label: 'Continue working, then finish', command: 'p. done' }])
+            mdNextSteps([{ label: 'Continue working, then finish', command: 'prjct done --md' }])
           )
         )
       } else {
@@ -2088,6 +2108,94 @@ export class WorkflowCommands extends PrjctCommandsBase {
 // =============================================================================
 
 /** Format minutes to a human-readable duration string */
+// =============================================================================
+// Context Health & RPI Helpers (for --md output)
+// =============================================================================
+
+/**
+ * Build efficiency directive section for --md output.
+ * This is what Claude Code actually reads — must include sub-agent guidance.
+ */
+function buildEfficiencySection(): string {
+  const lines = [
+    '### Efficiency',
+    '- Be concise. No preamble, no filler.',
+    '- **Use sub-agents (Agent tool) for exploration that produces >5 file reads.** Sub-agents isolate context and prevent the main conversation from bloating.',
+    '- Prefer `file:line` references over dumping full file contents.',
+    '- When context grows large, use `prjct compact --md` to create a truth snapshot.',
+  ]
+  return lines.join('\n')
+}
+
+/**
+ * Resolve RPI phase and build advisory section for --md output.
+ * Returns null if RPI data is unavailable.
+ */
+function buildRpiSection(projectId: string): string | null {
+  try {
+    const { prjctDb } = require('../storage/database')
+    const researchDoc = prjctDb.getDoc(projectId, 'rpi:current:research')
+    const planDoc = prjctDb.getDoc(projectId, 'rpi:current:plan')
+
+    let rpi: RpiContext
+    if (!researchDoc) {
+      rpi = { phase: 'research' }
+    } else if (!planDoc) {
+      rpi = { phase: 'plan', researchDoc }
+    } else {
+      rpi = { phase: 'implement', researchDoc, planDoc }
+    }
+
+    const lines: string[] = ['### RPI Phase']
+
+    switch (rpi.phase) {
+      case 'research':
+        lines.push(
+          '**Phase: RESEARCH** — Explore the codebase first. Use the **Agent tool** (sub-agents) for broad exploration.',
+          'Produce a truth snapshot: exact files + lines, function call chains, test locations.',
+          'Save findings with `prjct compact --md` when done exploring.'
+        )
+        break
+      case 'plan':
+        lines.push(
+          '**Phase: PLAN** — Create an implementation plan with real code snippets.',
+          'Reference exact files and line numbers from research.',
+          'Use sub-agents to verify assumptions if needed.'
+        )
+        if (rpi.researchDoc) {
+          lines.push('', '<research-context>', rpi.researchDoc, '</research-context>')
+        }
+        break
+      case 'implement':
+        lines.push(
+          '**Phase: IMPLEMENT** — Execute the plan. Minimal exploration.',
+          'Work only with the scoped files. Avoid reading new files unless absolutely necessary.'
+        )
+        if (rpi.planDoc) {
+          // Extract scoped files from plan
+          const filePattern = /`([a-zA-Z0-9_\-./]+\.[a-zA-Z]{1,6})`/g
+          const scopedFiles = new Set<string>()
+          for (const match of rpi.planDoc.matchAll(filePattern)) {
+            scopedFiles.add(match[1])
+          }
+          if (scopedFiles.size > 0) {
+            lines.push(
+              `**Scoped Files**: ${[...scopedFiles]
+                .slice(0, 20)
+                .map((f) => `\`${f}\``)
+                .join(', ')}`
+            )
+          }
+        }
+        break
+    }
+
+    return lines.join('\n')
+  } catch {
+    return null
+  }
+}
+
 function formatMinutesToDuration(minutes: number): string {
   if (minutes < 60) return `${minutes}m`
   const hours = Math.floor(minutes / 60)
@@ -2105,54 +2213,6 @@ async function loadRepoAnalysis(globalPath: string): Promise<Record<string, unkn
     if (isNotFoundError(error)) return null
     return null
   }
-}
-
-/** Build project context section from sealed analysis + repo-analysis */
-function buildProjectContext(
-  analysis: AnalysisSchema | null,
-  repoAnalysis: Record<string, unknown> | null
-): string | null {
-  if (!analysis && !repoAnalysis) return null
-
-  const ecosystem = (repoAnalysis?.ecosystem as string) || null
-  const languages = analysis?.languages?.join(', ') || null
-  const frameworks = analysis?.frameworks?.join(', ') || null
-  const packageManager = analysis?.packageManager || null
-  const sourceDir =
-    analysis?.sourceDir ||
-    ((repoAnalysis?.structure as Record<string, unknown>)?.srcDir as string) ||
-    null
-  const testDir =
-    analysis?.testDir ||
-    ((repoAnalysis?.structure as Record<string, unknown>)?.testDir as string) ||
-    null
-
-  const stats: Record<string, string | number | null | undefined> = {}
-  if (ecosystem) stats.Ecosystem = ecosystem
-  if (languages) stats.Languages = languages
-  if (frameworks) stats.Frameworks = frameworks
-  if (packageManager) stats['Package manager'] = packageManager
-  if (sourceDir || testDir) {
-    const parts: string[] = []
-    if (sourceDir) parts.push(`${sourceDir}`)
-    if (testDir) parts.push(`Tests: ${testDir}`)
-    stats.Source = parts.join(' | ')
-  }
-
-  const statsBlock = mdStats(stats)
-
-  // Commands section from repo-analysis
-  const commands = repoAnalysis?.commands as Record<string, string> | undefined
-  let commandsBlock: string | null = null
-  if (commands && Object.keys(commands).length > 0) {
-    const items = Object.entries(commands).map(
-      ([key, value]) => `${key.charAt(0).toUpperCase() + key.slice(1)}: \`${value}\``
-    )
-    commandsBlock = `### Commands\n${mdList(items)}`
-  }
-
-  const projectSection = statsBlock ? `### Project\n${statsBlock}` : null
-  return [projectSection, commandsBlock].filter(Boolean).join('\n\n') || null
 }
 
 // Context contract, pattern ranking, and pattern briefing are in ./context-contract.ts

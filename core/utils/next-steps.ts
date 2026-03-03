@@ -77,12 +77,12 @@ export function showNextSteps(command: string, options: { quiet?: boolean } = {}
 /**
  * Get next steps for a command (for programmatic use)
  */
-export function getNextSteps(command: string): NextStep[] {
+export function getNextSteps(command: string, md = false): NextStep[] {
   const resultingState = COMMAND_TO_STATE[command] || 'idle'
   const validCommands = workflowStateMachine.getValidCommands(resultingState)
 
   return validCommands.map((cmd) => ({
-    cmd: `p. ${cmd}`,
+    cmd: md ? `prjct ${cmd} --md` : `p. ${cmd}`,
     desc: CMD_DESCRIPTIONS[cmd] || cmd,
   }))
 }

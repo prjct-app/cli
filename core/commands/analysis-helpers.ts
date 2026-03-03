@@ -236,7 +236,7 @@ export function generateStatsMarkdown(
 
   // Session Activity (PRJ-89)
   if (sessionActivity) {
-    lines.push("## 🎯 Today's Activity")
+    lines.push("## Today's Activity")
     lines.push('')
     lines.push(`| Metric | Value |`)
     lines.push(`|--------|-------|`)
@@ -257,7 +257,7 @@ export function generateStatsMarkdown(
 
   // Patterns Learned (PRJ-89)
   if (patternsSummary && (patternsSummary.decisions > 0 || patternsSummary.preferences > 0)) {
-    lines.push('## 🧠 Patterns Learned')
+    lines.push('## Patterns Learned')
     lines.push('')
     lines.push(`| Type | Count |`)
     lines.push(`|------|-------|`)
@@ -269,7 +269,7 @@ export function generateStatsMarkdown(
     lines.push('')
   }
 
-  lines.push('## 💰 Context Efficiency')
+  lines.push('## Context Efficiency')
   lines.push('')
   lines.push(`| Metric | Value |`)
   lines.push(`|--------|-------|`)
@@ -278,7 +278,7 @@ export function generateStatsMarkdown(
   lines.push(`| Est. cost saved | ${formatCost(summary.estimatedCostSaved)} |`)
   lines.push('')
 
-  lines.push('## ⚡ Performance')
+  lines.push('## Performance')
   lines.push('')
   lines.push(`| Metric | Value |`)
   lines.push(`|--------|-------|`)
@@ -287,7 +287,7 @@ export function generateStatsMarkdown(
   lines.push('')
 
   if (summary.topAgents.length > 0) {
-    lines.push('## 🤖 Agent Usage')
+    lines.push('## Agent Usage')
     lines.push('')
     lines.push(`| Agent | Usage |`)
     lines.push(`|-------|-------|`)
@@ -299,7 +299,7 @@ export function generateStatsMarkdown(
     lines.push('')
   }
 
-  lines.push('## 📈 30-Day Trend')
+  lines.push('## 30-Day Trend')
   lines.push('')
   lines.push(`- Tokens saved: ${formatTokens(summary.last30DaysTokens)}`)
   if (summary.trend !== 0) {

@@ -409,33 +409,16 @@ describe('buildContextContract', () => {
     { path: 'src/utils.ts', reasons: ['utility'] },
   ]
 
-  it('includes goal, scope, and domains', () => {
-    const result = buildContextContract(
-      'add voting system',
-      baseFiles,
-      null,
-      { taskType: 'feature', estimatedPoints: 5, estimatedMinutes: 45, source: 'heuristic' },
-      ['frontend', 'database']
-    )
-    expect(result).toContain('**Goal**: add voting system')
-    expect(result).toContain('**Scope**: feature')
-    expect(result).toContain('**Domains**: frontend, database')
+  it('only contains key files and optional anti-patterns (no goal/scope/domains)', () => {
+    const result = buildContextContract(baseFiles, null)
+    expect(result).toContain('Context Contract')
+    expect(result).toContain('`src/app.tsx`')
+    expect(result).not.toContain('**Goal**')
+    expect(result).not.toContain('**Scope**')
+    expect(result).not.toContain('**Domains**')
   })
 
-  it('always includes hardcoded locked decisions', () => {
-    const result = buildContextContract('task', [], null)
-    expect(result).toContain('Locked Decisions (NON-NEGOTIABLE)')
-    expect(result).toContain('Generated with [p/]')
-    expect(result).toContain('Never commit directly to main/master')
-  })
-
-  it('adds repo rules to locked decisions', () => {
-    const repoAnalysis = { rules: ['Always run lint before commit'] }
-    const result = buildContextContract('task', [], null, undefined, undefined, repoAnalysis)
-    expect(result).toContain('Always run lint before commit')
-  })
-
-  it('converts high-severity anti-patterns to locked decisions', () => {
+  it('surfaces high-severity anti-patterns as task-specific guards', () => {
     const analysis = makeAnalysis({
       antiPatterns: [
         {
@@ -447,143 +430,44 @@ describe('buildContextContract', () => {
         { issue: 'Minor issue', file: 'y.ts', suggestion: 'Minor fix', severity: 'low' },
       ],
     })
-    const result = buildContextContract('task', [], analysis)
+    const result = buildContextContract([], analysis)
+    expect(result).toContain('Avoid (high-severity)')
     expect(result).toContain('Use explicit types')
-    expect(result).not.toContain('Minor fix') // low severity should not appear in locked
+    expect(result).not.toContain('Minor fix')
   })
 
-  it('promotes repo-source patterns to locked decisions', () => {
-    const analysis = makeAnalysis({
-      patterns: [
-        {
-          name: 'UiButton',
-          description: 'Use UiButton for all buttons',
-          location: 'components/**',
-          source: 'repo',
-        },
-        { name: 'Baseline', description: 'A baseline pattern', source: 'baseline' },
-      ],
-    })
-    const result = buildContextContract('task', [], analysis, undefined, ['frontend'])
-    expect(result).toContain('Use UiButton for all buttons')
-  })
-
-  it('does NOT duplicate repo patterns in Task Patterns section', () => {
-    const analysis = makeAnalysis({
-      patterns: [
-        { name: 'RepoPattern', description: 'A repo pattern', source: 'repo' },
-        { name: 'BaselinePattern', description: 'A baseline pattern', source: 'baseline' },
-      ],
-    })
-    const result = buildContextContract('task', [], analysis, undefined, ['general'])
-
-    // RepoPattern should only appear in Locked Decisions, not Task Patterns
-    const lockedSection = result.split('#### Task Patterns')[0]
-    const taskSection = result.split('#### Task Patterns')[1] || ''
-
-    expect(lockedSection).toContain('A repo pattern')
-    // Task Patterns should have BaselinePattern, NOT RepoPattern
-    if (taskSection) {
-      expect(taskSection).not.toContain('RepoPattern')
-      expect(taskSection).toContain('BaselinePattern')
-    }
-  })
-
-  it('omits Task Patterns when all patterns are repo-source (no duplication)', () => {
-    const analysis = makeAnalysis({
-      patterns: [
-        { name: 'Repo1', description: 'First repo pattern', source: 'repo' },
-        { name: 'Repo2', description: 'Second repo pattern', source: 'repo' },
-        { name: 'Repo3', description: 'Third repo pattern', source: 'repo' },
-      ],
-    })
-    const result = buildContextContract('task', [], analysis, undefined, ['general'])
-    // All 3 promoted to Locked Decisions, no candidates left → NO Task Patterns section
-    expect(result).not.toContain('Task Patterns')
-  })
-
-  it('deduplicates locked decisions', () => {
+  it('omits avoid section when no high-severity anti-patterns', () => {
     const analysis = makeAnalysis({
       antiPatterns: [
-        {
-          issue: 'Bad types',
-          file: 'x.ts',
-          suggestion: 'Never commit directly to main/master',
-          severity: 'high',
-        },
+        { issue: 'Minor issue', file: 'y.ts', suggestion: 'Minor fix', severity: 'low' },
       ],
     })
-    const result = buildContextContract('task', [], analysis)
-    // Should not have "Never commit directly to main/master" twice
-    const matches = result.match(/Never commit directly to main\/master/g) || []
-    expect(matches.length).toBe(1)
+    const result = buildContextContract([], analysis)
+    expect(result).not.toContain('Avoid')
   })
 
   it('shows key files', () => {
-    const result = buildContextContract('task', baseFiles, null)
+    const result = buildContextContract(baseFiles, null)
     expect(result).toContain('`src/app.tsx`')
     expect(result).toContain('`src/utils.ts`')
   })
 
   it('shows sync hint when no files available', () => {
-    const result = buildContextContract('task', [], null)
+    const result = buildContextContract([], null)
     expect(result).toContain('prjct sync')
   })
 
-  it('ranks Task Patterns by metadata using files param', () => {
+  it('does NOT include Locked Decisions or Task Patterns', () => {
     const analysis = makeAnalysis({
       patterns: [
         { name: 'Generic pattern', description: 'A generic baseline', source: 'baseline' },
-        { name: 'Context7 pattern', description: 'From docs', source: 'context7' },
       ],
     })
     const result = buildContextContract(
-      'task',
       [{ path: 'src/app.tsx', reasons: ['entry point'] }],
-      analysis,
-      undefined,
-      ['general']
+      analysis
     )
-    // Task Patterns should prefer context7 over baseline due to higher score
-    const taskSection = result.split('#### Task Patterns')[1] || ''
-    if (taskSection) {
-      const ctx7Idx = taskSection.indexOf('Context7 pattern')
-      const genIdx = taskSection.indexOf('Generic pattern')
-      if (ctx7Idx >= 0 && genIdx >= 0) {
-        expect(ctx7Idx).toBeLessThan(genIdx)
-      }
-    }
-  })
-
-  it('ranks repo patterns in Locked Decisions by metadata (not array order)', () => {
-    const analysis = makeAnalysis({
-      patterns: [
-        {
-          name: 'LowConf repo',
-          description: 'Low confidence repo pattern',
-          source: 'repo',
-          confidence: 0.1,
-        },
-        {
-          name: 'HighConf repo',
-          description: 'High confidence repo pattern',
-          source: 'repo',
-          confidence: 0.9,
-        },
-        {
-          name: 'MidConf repo',
-          description: 'Mid confidence repo pattern',
-          source: 'repo',
-          confidence: 0.5,
-        },
-        { name: 'Extra repo', description: 'Extra repo pattern', source: 'repo', confidence: 0.2 },
-      ],
-    })
-    const result = buildContextContract('task', [], analysis)
-    // Top 3 by score should be HighConf, MidConf, LowConf (or Extra) — HighConf must appear
-    expect(result).toContain('High confidence repo pattern')
-    expect(result).toContain('Mid confidence repo pattern')
-    // Extra (0.2) or LowConf (0.1) should NOT appear since only top 3 are taken
-    // and HighConf(0.9), MidConf(0.5), and one of the lower ones fills 3 slots
+    expect(result).not.toContain('Task Patterns')
+    expect(result).not.toContain('Locked Decisions')
   })
 })

@@ -235,7 +235,7 @@ describe('Prompt Section Ordering (PRJ-301)', () => {
     expect(taskPos).toBeLessThan(50)
   })
 
-  it('should not include efficiency directive (LLM-over-heuristic)', async () => {
+  it('should include static efficiency directive', async () => {
     const template = {
       frontmatter: { description: 'Test' },
       content: '## Flow\nStep 1',
@@ -244,8 +244,12 @@ describe('Prompt Section Ordering (PRJ-301)', () => {
 
     const prompt = await builder.build(template, context, {})
 
-    expect(prompt).not.toContain('OUTPUT RULES')
-    expect(prompt).not.toContain('EXECUTE:')
+    expect(prompt).toContain('EFFICIENCY')
+    expect(prompt).toContain('Be concise')
+    expect(prompt).toContain('sub-agents')
+    // Should NOT contain dynamic zone warnings without health monitor
+    expect(prompt).not.toContain('CONTEXT WARNING')
+    expect(prompt).not.toContain('CONTEXT CRITICAL')
   })
 })
 
@@ -261,7 +265,7 @@ describe('Token Efficiency Directive (PRJ-301)', () => {
     builder.resetContext()
   })
 
-  it('should return empty efficiency directive (LLM-over-heuristic)', async () => {
+  it('should include efficiency directive with static rules', async () => {
     const template = {
       frontmatter: { description: 'Test' },
       content: '## Flow\nStep 1',
@@ -270,12 +274,16 @@ describe('Token Efficiency Directive (PRJ-301)', () => {
 
     const prompt = await builder.build(template, context, {})
 
-    expect(prompt).not.toContain('OUTPUT RULES')
+    expect(prompt).toContain('EFFICIENCY')
+    expect(prompt).toContain('Be concise')
   })
 
-  it('should build efficiency directive as empty string', () => {
+  it('should build efficiency directive with static rules', () => {
     const directive = builder.buildEfficiencyDirective()
 
-    expect(directive).toBe('')
+    expect(directive).toContain('EFFICIENCY')
+    expect(directive).toContain('Be concise')
+    expect(directive).toContain('sub-agents')
+    expect(directive).toContain('file:line')
   })
 })
