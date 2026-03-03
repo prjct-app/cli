@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.50.2] - 2026-03-03
+
+### Bug Fixes
+
+- guard against undefined decision.contexts in pattern-store (#230)
+
+
 ## [1.50.1] - 2026-03-02
 
 ### Fixed
