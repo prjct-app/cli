@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.51.0] - 2026-03-03
+
+### Features
+
+- context health system + clean --md output (#231)
+
+
 ## [1.50.3] - 2026-03-03
 
 ### Added
