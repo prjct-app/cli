@@ -48,8 +48,9 @@ async function main(): Promise<void> {
 
   // === DYNAMIC COMMAND EXECUTION ===
 
-  // Show branding header
-  out.start()
+  // Show branding header (skip in --md mode — LLM output is self-contained)
+  const isMdMode = rawArgs.includes('--md')
+  if (!isMdMode) out.start()
 
   try {
     // 1. Find command in registry
@@ -63,7 +64,7 @@ async function main(): Promise<void> {
       out.failWithHint(
         getError('UNKNOWN_COMMAND', { message: `Unknown command: ${commandName}`, hint })
       )
-      out.end()
+      if (!isMdMode) out.end()
       process.exit(1)
     }
 
@@ -73,7 +74,7 @@ async function main(): Promise<void> {
         ? `Use 'prjct ${cmd.replacedBy}' instead`
         : "Run 'prjct --help' to see available commands"
       out.failWithHint({ message: `Command '${commandName}' is deprecated`, hint })
-      out.end()
+      if (!isMdMode) out.end()
       process.exit(1)
     }
 
@@ -84,7 +85,7 @@ async function main(): Promise<void> {
         hint: "Run 'prjct --help' to see available commands",
         docs: 'https://github.com/jlopezlira/prjct-cli',
       })
-      out.end()
+      if (!isMdMode) out.end()
       process.exit(1)
     }
 
@@ -98,7 +99,7 @@ async function main(): Promise<void> {
         message: `'prjct ${commandName}' requires an AI agent to process its output`,
         hint: `Use 'p. ${commandName}' inside Claude/Cursor, or add --md flag`,
       })
-      out.end()
+      if (!isMdMode) out.end()
       process.exit(1)
     }
 
@@ -106,7 +107,7 @@ async function main(): Promise<void> {
     const paramError = validateCommandParams(cmd, parsedArgs)
     if (paramError) {
       out.failWithHint(paramError)
-      out.end()
+      if (!isMdMode) out.end()
       process.exit(1)
     }
 
@@ -270,7 +271,7 @@ async function main(): Promise<void> {
     }
 
     // Show branding footer
-    out.end()
+    if (!isMdMode) out.end()
     process.exit(result?.success ? 0 : 1)
   } catch (error) {
     console.error('Error:', getErrorMessage(error))
@@ -278,7 +279,7 @@ async function main(): Promise<void> {
       console.error(getErrorStack(error))
     }
     // Show branding footer even on error
-    out.end()
+    if (!isMdMode) out.end()
     process.exit(1)
   }
 }

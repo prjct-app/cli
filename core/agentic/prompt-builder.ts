@@ -33,6 +33,7 @@ import { PACKAGE_ROOT } from '../utils/version'
 import outcomeAnalyzer from '../workflows/outcome-analyzer'
 import { buildAntiHallucinationBlock } from './anti-hallucination'
 import { loadCommandContextConfig, resolveCommandContextFull } from './command-context'
+import type { ContextHealthMonitor } from './context-health'
 import { buildEnvironmentBlock } from './environment-block'
 import {
   budgetsFromCoordinator,
@@ -100,6 +101,9 @@ class PromptBuilder {
   /** Active token budget coordinator (PRJ-266) */
   private _coordinator: TokenBudgetCoordinator | null = null
 
+  /** Context health monitor for zone-aware directives */
+  private _healthMonitor: ContextHealthMonitor | null = null
+
   /**
    * Get a template with TTL caching.
    * Returns cached content if within TTL, otherwise loads from disk.
@@ -153,6 +157,18 @@ class PromptBuilder {
   /** Get the active coordinator (may be null) */
   getCoordinator(): TokenBudgetCoordinator | null {
     return this._coordinator
+  }
+
+  /**
+   * Set the context health monitor for zone-aware efficiency directives.
+   */
+  setHealthMonitor(monitor: ContextHealthMonitor | null): void {
+    this._healthMonitor = monitor
+  }
+
+  /** Get the active health monitor (may be null) */
+  getHealthMonitor(): ContextHealthMonitor | null {
+    return this._healthMonitor
   }
 
   /**
@@ -800,6 +816,48 @@ class PromptBuilder {
       }
     }
 
+    // =========================================================================
+    // SECTION 6.5: RPI PHASE (advisory)
+    // Research → Plan → Implement workflow guidance
+    // =========================================================================
+
+    if (orchestratorContext?.rpiContext) {
+      const rpi = orchestratorContext.rpiContext
+      parts.push('\n### RPI PHASE\n\n')
+
+      switch (rpi.phase) {
+        case 'research':
+          parts.push(
+            '**Phase: RESEARCH** — Explore the codebase. Produce a truth snapshot: ' +
+              'exact files + lines, function call chains, test locations. ' +
+              'Use sub-agents for broad exploration.\n'
+          )
+          break
+        case 'plan':
+          parts.push(
+            '**Phase: PLAN** — Create an implementation plan with real code snippets. ' +
+              'Reference exact files and line numbers from research.\n'
+          )
+          if (rpi.researchDoc) {
+            parts.push(`\n<research-context>\n${rpi.researchDoc}\n</research-context>\n`)
+          }
+          break
+        case 'implement':
+          parts.push(
+            '**Phase: IMPLEMENT** — Execute the plan. Minimal exploration. ' +
+              'Work only with the scoped files below.\n'
+          )
+          if (rpi.planDoc) {
+            parts.push(`\n<plan-context>\n${rpi.planDoc}\n</plan-context>\n`)
+          }
+          if (rpi.scopedFiles && rpi.scopedFiles.length > 0) {
+            parts.push(`\n**Scoped Files**: ${rpi.scopedFiles.map((f) => `\`${f}\``).join(', ')}\n`)
+          }
+          break
+      }
+      parts.push('\n')
+    }
+
     parts.push('\n---\n')
 
     // =========================================================================
@@ -1000,10 +1058,38 @@ class PromptBuilder {
 
   /**
    * Build token efficiency directive (PRJ-301).
-   * Instructs the LLM to be concise and avoid wasting tokens on preamble.
+   * Static rules (always present) + dynamic rules (zone-dependent).
    */
   buildEfficiencyDirective(): string {
-    return ''
+    const parts: string[] = []
+
+    // Static rules (~100 tokens, always present)
+    parts.push('\n## EFFICIENCY\n')
+    parts.push('- Be concise. No preamble, no filler.\n')
+    parts.push('- Use sub-agents for exploration that produces >5 file reads.\n')
+    parts.push('- Prefer file:line references over dumping full file contents.\n')
+
+    // Dynamic rules (zone-dependent)
+    if (this._healthMonitor) {
+      const status = this._healthMonitor.getStatus()
+
+      if (status.zone === 'warning') {
+        parts.push(
+          `\n**CONTEXT WARNING** (${Math.round(status.usagePercent)}% used): ` +
+            'Use sub-agents for all exploration. Consider compacting conversation.\n'
+        )
+      } else if (status.zone === 'dumb') {
+        parts.push(
+          `\n**CONTEXT CRITICAL** (${Math.round(status.usagePercent)}% used): ` +
+            'STOP expanding context. Work only with referenced files. Compact now.\n'
+        )
+      }
+
+      // Check for transitions at build time
+      this._healthMonitor.checkTransition()
+    }
+
+    return parts.join('')
   }
 
   /**

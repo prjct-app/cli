@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.50.3] - 2026-03-03
+
+### Added
+- clean md output: remove emojis, redundancy, hardcoded schema from --md prompts
+
 ## [1.50.2] - 2026-03-03
 
 ### Bug Fixes

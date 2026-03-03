@@ -244,7 +244,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
 
         if (!result.success) {
           if (options.md) {
-            console.log(mdOutput(`## ❌ Sync Failed`, `> ${result.error || 'Unknown error'}`))
+            console.log(mdOutput(`## Sync Failed`, `> ${result.error || 'Unknown error'}`))
             return { success: false, error: result.error }
           }
           if (isNonInteractive) {
@@ -308,7 +308,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
             changeItems.push(`Removed: ${s.name} (${s.lineCount} lines)`)
 
           const md = mdOutput(
-            `## ⚡ Sync Preview`,
+            `## Sync Preview`,
             changeItems.length > 0
               ? mdSection('Changes', mdList(changeItems))
               : 'No section changes.',
@@ -428,7 +428,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
 
       if (!result.success) {
         if (options.md) {
-          console.log(mdOutput(`## ❌ Sync Failed`, `> ${result.error || 'Unknown error'}`))
+          console.log(mdOutput(`## Sync Failed`, `> ${result.error || 'Unknown error'}`))
         } else {
           out.fail(result.error || 'Sync failed')
         }
@@ -452,46 +452,15 @@ export class AnalysisCommands extends PrjctCommandsBase {
           // Non-critical
         }
 
-        // Build LLM Analysis instructions (hybrid pipeline)
-        const llmAnalysisInstructions = `## LLM Analysis (hybrid pipeline)
+        // Only show analysis instructions if analysis is stale
+        const currentCommit = result.git.recentCommits[0]?.hash ?? null
+        const analysisIsCurrent =
+          currentCommit && llmAnalysisStorage.isCurrent(projectId, currentCommit)
+        const llmAnalysisInstructions = analysisIsCurrent
+          ? null
+          : `### Next: Run \`prjct analysis-payload --md\` to update project analysis`
 
-After sync, run the analysis payload builder:
-\`\`\`bash
-prjct analysis-payload --md
-\`\`\`
-
-If the output says "Analysis is current", skip analysis.
-
-Otherwise, analyze the JSON payload and produce a structured \`LLMAnalysis\` JSON:
-
-\`\`\`json
-{
-  "version": 1,
-  "commitHash": "from payload git data",
-  "analyzedAt": "ISO timestamp",
-  "architecture": {
-    "style": "monolith|monorepo|microservices|modular-monolith",
-    "insights": ["key architectural observations"],
-    "domains": ["identified modules/domains"]
-  },
-  "patterns": [{"name": "", "description": "", "locations": [], "confidence": 0.0, "category": ""}],
-  "antiPatterns": [{"issue": "", "reasoning": "", "files": [], "suggestion": "", "severity": "low|medium|high", "confidence": 0.0}],
-  "techDebt": [{"description": "", "area": "", "effort": "small|medium|large", "impact": "", "priority": "low|medium|high"}],
-  "riskAreas": [{"path": "", "reason": "", "risk": "", "severity": "low|medium|high"}],
-  "refactorSuggestions": [{"description": "", "files": [], "benefit": "", "effort": "small|medium|large"}],
-  "projectInsights": ["key insights about the project"],
-  "conventions": [{"category": "naming|file-structure|imports|error-handling", "rule": "", "example": ""}],
-  "commands": {"build": "", "test": "", "lint": "", "dev": "", "format": "", "install": ""},
-  "stack": {"languages": [], "frameworks": [], "packageManager": "npm|bun|pnpm|yarn|cargo|go"}
-}
-\`\`\`
-
-Save the analysis:
-\`\`\`bash
-prjct analysis-save-llm '<your JSON here>' --md
-\`\`\``
-
-        const steps = getNextSteps('sync')
+        const steps = getNextSteps('sync', true)
         const idx = result.syncMetrics?.indexes
         const mdStatsObj: Record<string, string | number> = {
           Duration: `${(elapsed / 1000).toFixed(1)}s`,
@@ -524,7 +493,7 @@ prjct analysis-save-llm '<your JSON here>' --md
       return showSyncResult(result, startTime)
     } catch (error) {
       if (options.md) {
-        console.log(mdOutput(`## ❌ Sync Failed`, `> ${getErrorMessage(error)}`))
+        console.log(mdOutput(`## Sync Failed`, `> ${getErrorMessage(error)}`))
       } else {
         out.fail(getErrorMessage(error))
       }
@@ -571,17 +540,73 @@ prjct analysis-save-llm '<your JSON here>' --md
       const payload = await buildAnalysisPayload(projectId, projectPath, result.git, result.stats)
 
       if (options.md) {
-        // Output as structured markdown for the LLM to consume
+        // Output schema + payload for LLM analysis
+        const schema = {
+          version: 1,
+          commitHash: 'string (from git data)',
+          analyzedAt: 'ISO timestamp',
+          architecture: {
+            style: 'monolith|monorepo|microservices|modular-monolith',
+            insights: ['string'],
+            domains: ['string'],
+          },
+          patterns: [
+            {
+              name: '',
+              description: '',
+              locations: ['file paths'],
+              confidence: 0.0,
+              category: 'architecture|data-flow|error-handling|testing',
+            },
+          ],
+          antiPatterns: [
+            {
+              issue: '',
+              reasoning: '',
+              files: [],
+              suggestion: '',
+              severity: 'low|medium|high',
+              confidence: 0.0,
+            },
+          ],
+          techDebt: [
+            {
+              description: '',
+              area: '',
+              effort: 'small|medium|large',
+              impact: '',
+              priority: 'low|medium|high',
+            },
+          ],
+          riskAreas: [{ path: '', reason: '', risk: '', severity: 'low|medium|high' }],
+          refactorSuggestions: [
+            { description: '', files: [], benefit: '', effort: 'small|medium|large' },
+          ],
+          projectInsights: ['string'],
+          conventions: [
+            { category: 'naming|file-structure|imports|error-handling', rule: '', example: '' },
+          ],
+          commands: { build: '', test: '', lint: '', dev: '', format: '', install: '' },
+          stack: {
+            languages: ['string'],
+            frameworks: ['string'],
+            packageManager: 'detected from project',
+          },
+        }
+
         console.log(
           mdOutput(
-            `## 🔍 Analysis Payload`,
-            `> Analyze this project data and produce structured findings.`,
-            '',
+            `## Analysis Payload`,
+            `> Analyze this data and return a JSON object matching the schema below.`,
+            '### Expected output schema',
+            '```json',
+            JSON.stringify(schema, null, 2),
+            '```',
+            '### Project data',
             '```json',
             JSON.stringify(payload, null, 2),
             '```',
-            '',
-            `> After analyzing, call: \`prjct analysis save-llm --json '{...}'\``
+            `> Save result: \`prjct analysis-save-llm '<JSON>' --md\``
           )
         )
       } else {
@@ -997,7 +1022,7 @@ prjct analysis-save-llm '<your JSON here>' --md
         }
 
         const md = mdOutput(
-          `## ⚡ Status: ${projectName}`,
+          `## Status: ${projectName}`,
           mdStats({
             Staleness: staleness,
             'Last sync': lastSync,
@@ -1118,7 +1143,7 @@ prjct analysis-save-llm '<your JSON here>' --md
       if (options.json) {
         console.log(JSON.stringify({ success: false, error: errMsg }))
       } else if (options.md) {
-        console.log(mdOutput(`## ❌ Diff Failed`, `> ${errMsg}`))
+        console.log(mdOutput(`## Diff Failed`, `> ${errMsg}`))
       } else {
         out.fail(errMsg)
       }
@@ -1219,7 +1244,7 @@ prjct analysis-save-llm '<your JSON here>' --md
 
       if (options.md) {
         if (!result.success) {
-          console.log(mdOutput(`## ❌ Rollback Failed`, `> ${result.error}`))
+          console.log(mdOutput(`## Rollback Failed`, `> ${result.error}`))
           return { success: false, error: result.error }
         }
 
@@ -1251,7 +1276,7 @@ prjct analysis-save-llm '<your JSON here>' --md
       if (options.json) {
         console.log(JSON.stringify({ success: false, error: errMsg }))
       } else if (options.md) {
-        console.log(mdOutput(`## ❌ Rollback Failed`, `> ${errMsg}`))
+        console.log(mdOutput(`## Rollback Failed`, `> ${errMsg}`))
       } else {
         out.fail(errMsg)
       }

@@ -334,7 +334,7 @@ export class PlanningCommands extends PrjctCommandsBase {
 
       // Write-through: Add bug task (JSON → MD → Event)
       await queueStorage.addTask(projectId, {
-        description: `🐛 ${description}`,
+        description: description,
         priority,
         type: 'bug' as TaskType,
         section: 'active' as TaskSection,

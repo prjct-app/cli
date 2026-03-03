@@ -183,109 +183,34 @@ export function buildPatternBriefing(
 }
 
 /**
- * Build context contract with Locked Decisions and Task Patterns.
- * Uses standard markdown structure compatible with agents.md spec
- * (works across Claude, Codex, Jules, Cursor, and other coding agents).
+ * Build context contract — key files + high-severity anti-pattern guards.
+ * Goal, scope, domains already live in the task header (no duplication).
  */
 export function buildContextContract(
-  task: string,
   files: Array<{ path: string; reasons: string[] }>,
-  analysis: AnalysisSchema | null,
-  estimate?: {
-    taskType: string
-    estimatedPoints: number
-    estimatedMinutes: number
-    source: string
-  },
-  domains?: string[],
-  repoAnalysis?: Record<string, unknown> | null
+  analysis: AnalysisSchema | null
 ): string {
-  const relevantFilePaths = files.map((f) => f.path)
   const topFiles = files.slice(0, 6).map((f) => `\`${f.path}\``)
 
-  const lines = ['### Context Contract', `- **Goal**: ${task}`]
-
-  if (estimate) {
-    lines.push(
-      `- **Scope**: ${estimate.taskType} · ~${estimate.estimatedPoints}pts · ~${estimate.estimatedMinutes}min (${estimate.source})`
-    )
-  }
-
-  if (domains && domains.length > 0) {
-    lines.push(`- **Domains**: ${domains.join(', ')}`)
-  }
-
   const syncHint = 'Run `prjct sync` to improve file targeting'
-  lines.push(`- **Key files**: ${topFiles.length > 0 ? topFiles.join(', ') : syncHint}`)
-
-  // --- Locked Decisions (NON-NEGOTIABLE) ---
-  const lockedDecisions: string[] = [
-    'All commits include footer: `Generated with [p/](https://www.prjct.app/)`',
-    'Never commit directly to main/master',
+  const lines = [
+    '### Context Contract',
+    `- **Key files**: ${topFiles.length > 0 ? topFiles.join(', ') : syncHint}`,
   ]
 
-  // Add repo-specific rules
-  const repoRules = repoAnalysis?.rules
-  if (Array.isArray(repoRules)) {
-    for (const rule of repoRules) {
-      if (typeof rule === 'string') {
-        lockedDecisions.push(rule)
-      }
-    }
-  }
-
-  // Convert high-severity anti-patterns to positive rules
+  // Locked Decisions & Task Patterns removed — they live in CLAUDE.md global context
+  // (commit rules, repo rules, commands, ecosystem info are all injected at install time).
+  // Only high-severity anti-patterns are surfaced here as task-specific guards.
   const antiPatterns = analysis?.antiPatterns || []
   if (Array.isArray(antiPatterns)) {
     const highSeverity = antiPatterns.filter((a) => a.severity === 'high')
-    for (const a of highSeverity.slice(0, 3)) {
-      lockedDecisions.push(a.suggestion)
+    if (highSeverity.length > 0) {
+      lines.push('')
+      lines.push('#### Avoid (high-severity)')
+      for (const a of highSeverity.slice(0, 3)) {
+        lines.push(`- ${a.suggestion}`)
+      }
     }
-  }
-
-  // Add high-confidence repo-source patterns as locked decisions
-  const patterns = analysis?.patterns || []
-  const repoPatternNames = new Set<string>()
-  if (Array.isArray(patterns)) {
-    const repoPatterns = rankPatterns(
-      patterns.filter((p) => p.source === 'repo'),
-      analysis,
-      relevantFilePaths,
-      3
-    )
-    for (const p of repoPatterns) {
-      const loc = p.location ? ` (\`${p.location}\`)` : ''
-      lockedDecisions.push(`${p.description}${loc}`)
-      repoPatternNames.add(p.name)
-    }
-  }
-
-  const dedupedDecisions = deduplicateDecisions(lockedDecisions)
-
-  lines.push('')
-  lines.push('#### Locked Decisions (NON-NEGOTIABLE)')
-  for (const decision of dedupedDecisions) {
-    lines.push(`- ${decision}`)
-  }
-
-  // --- Task Patterns (MUST follow) ---
-  // Exclude patterns already promoted to Locked Decisions to avoid duplication
-  const candidatePatterns = Array.isArray(patterns)
-    ? patterns.filter((p) => !repoPatternNames.has(p.name))
-    : []
-  // Only show Task Patterns if there are candidates not already in Locked Decisions
-  const taskPatterns =
-    candidatePatterns.length > 0
-      ? rankPatterns(candidatePatterns, analysis, relevantFilePaths || [], 3)
-      : []
-
-  if (taskPatterns.length > 0) {
-    lines.push('')
-    lines.push('#### Task Patterns (MUST follow)')
-    taskPatterns.forEach((p, i) => {
-      const loc = p.location ? ` (\`${p.location}\`)` : ''
-      lines.push(`${i + 1}. **${p.name}** — ${p.description}${loc}`)
-    })
   }
 
   return lines.join('\n')

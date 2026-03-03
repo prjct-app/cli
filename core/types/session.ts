@@ -133,3 +133,28 @@ export interface CompactionConfig {
   preserveRecent?: number
   summaryMaxLength?: number
 }
+
+/** Enhanced compacted context with structured file references and code flows */
+export interface TruthSnapshot extends CompactedContext {
+  fileReferences: Array<{
+    path: string
+    lineRange?: string
+    role: 'modified' | 'read' | 'created' | 'test'
+  }>
+  codeFlows: Array<{
+    description: string
+    files: string[]
+  }>
+  testResults: Array<{
+    file: string
+    status: 'pass' | 'fail' | 'skip'
+    summary: string
+  }>
+  currentState: {
+    branch: string
+    uncommittedFiles: string[]
+    taskDescription: string | null
+  }
+  format: 'truth_snapshot'
+  version: 1
+}
