@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.50.1] - 2026-03-02
+
+### Fixed
+- Fix crash in pattern-store when decision.contexts is undefined (legacy data)
+
 ## [1.50.0] - 2026-02-27
 
 ### Features
