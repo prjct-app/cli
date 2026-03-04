@@ -23,6 +23,7 @@ import pathManager from '../infrastructure/path-manager'
 import { stateStorage } from '../storage/state-storage'
 import type { CommandResult, ContextOutput } from '../types/commands'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
+import { mdBadge, mdJoin, mdOutput, mdSection, mdStats, mdTaskHeader } from '../utils/md-formatter'
 
 // =============================================================================
 // Context Commands Class
@@ -41,7 +42,8 @@ export class ContextCommands {
    */
   async context(
     input: string | null = null,
-    projectPath: string = process.cwd()
+    projectPath: string = process.cwd(),
+    options: { md?: boolean } = {}
   ): Promise<CommandResult> {
     try {
       // Parse input: first word is command, rest is arguments
@@ -135,12 +137,15 @@ export class ContextCommands {
         },
       }
 
-      // Output JSON to stdout
-      console.log(JSON.stringify(output, null, 2))
+      if (options.md) {
+        console.log(this.formatContextMd(output))
+      } else {
+        console.log(JSON.stringify(output, null, 2))
+      }
 
       return {
         success: true,
-        message: '', // Empty message - JSON output is the result
+        message: '', // Empty message - stdout output is the result
       }
     } catch (error) {
       return {
@@ -148,6 +153,58 @@ export class ContextCommands {
         message: `Context error: ${getErrorMessage(error)}`,
       }
     }
+  }
+
+  /**
+   * Format context output as markdown for LLM consumption
+   */
+  private formatContextMd(output: ContextOutput): string {
+    const sections: string[] = []
+
+    // Project info
+    sections.push(
+      mdSection(
+        'Project',
+        mdJoin(mdBadge('ID', output.projectId), mdBadge('Path', output.globalPath))
+      )
+    )
+
+    // Current task
+    if (output.currentTask) {
+      const task = output.currentTask
+      sections.push(
+        mdTaskHeader({
+          description: task.description,
+          status: 'in-progress',
+        })
+      )
+      if (task.subtasks && task.subtasks.length > 0) {
+        const items = task.subtasks.map(
+          (st) =>
+            `- [${st.status === 'completed' ? 'x' : ' '}] ${st.description}${st.domain ? ` (${st.domain})` : ''}`
+        )
+        sections.push(items.join('\n'))
+      }
+    } else {
+      sections.push('> No active task')
+    }
+
+    // Repo analysis
+    if (output.repoAnalysis) {
+      sections.push(
+        mdSection(
+          'Stack',
+          mdStats({
+            Ecosystem: output.repoAnalysis.ecosystem,
+            Frameworks: output.repoAnalysis.frameworks.join(', ') || 'none',
+            Tests: output.repoAnalysis.hasTests ? 'yes' : 'no',
+            Tech: output.repoAnalysis.technologies.join(', ') || 'none',
+          })
+        )
+      )
+    }
+
+    return mdOutput(...sections)
   }
 
   /**

@@ -340,9 +340,10 @@ class PrjctCommands {
 
   async context(
     input: string | null = null,
-    projectPath: string = process.cwd()
+    projectPath: string = process.cwd(),
+    options: { md?: boolean } = {}
   ): Promise<CommandResult> {
-    return this.contextCmds.context(input, projectPath)
+    return this.contextCmds.context(input, projectPath, options)
   }
 
   // ========== Auth Commands ==========

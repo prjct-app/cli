@@ -339,10 +339,22 @@ async function main(): Promise<void> {
       process.exitCode = 1
     } else {
       const done = await trackSession('context')
-      const { runContextTool } = await import('../core/tools/context')
-      const result = await runContextTool(args.slice(1), projectId, projectPath)
-      console.log(JSON.stringify(result, null, 2))
-      process.exitCode = result.tool === 'error' ? 1 : 0
+      // Strip --md and --json flags before passing to context tools
+      const contextArgs = args.slice(1).filter((a) => a !== '--md' && a !== '--json')
+      const mdMode = args.includes('--md')
+
+      if (contextArgs.length === 0) {
+        // No subcommand: return project context
+        const { ContextCommands } = await import('../core/commands/context')
+        const contextCmds = new ContextCommands()
+        const result = await contextCmds.context(null, projectPath, { md: mdMode })
+        process.exitCode = result.success ? 0 : 1
+      } else {
+        const { runContextTool } = await import('../core/tools/context')
+        const result = await runContextTool(contextArgs, projectId, projectPath)
+        console.log(JSON.stringify(result, null, 2))
+        process.exitCode = result.tool === 'error' ? 1 : 0
+      }
       done()
     }
   } else if (args[0] === 'hooks') {
