@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.51.3] - 2026-03-04
+
+### Bug Fixes
+
+- sync auto-includes analysis payload (#233)
+
+
 ## [1.51.2] - 2026-03-04
 
 ### Fixed
