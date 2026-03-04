@@ -86,16 +86,6 @@ export interface SessionStats {
 }
 
 /**
- * Result from session migration.
- */
-export interface SessionMigrationResult {
-  success: boolean
-  message: string
-  entriesMigrated: number
-  sessionsCreated?: number
-}
-
-/**
  * Session file information.
  */
 export interface SessionInfo {
