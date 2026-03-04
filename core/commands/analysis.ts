@@ -452,13 +452,89 @@ export class AnalysisCommands extends PrjctCommandsBase {
           // Non-critical
         }
 
-        // Only show analysis instructions if analysis is stale
+        // Auto-include analysis payload if analysis is stale (instead of suggesting manual step)
         const currentCommit = result.git.recentCommits[0]?.hash ?? null
         const analysisIsCurrent =
           currentCommit && llmAnalysisStorage.isCurrent(projectId, currentCommit)
-        const llmAnalysisInstructions = analysisIsCurrent
-          ? null
-          : `### Next: Run \`prjct analysis-payload --md\` to update project analysis`
+        let llmAnalysisInstructions: string | null = null
+        if (!analysisIsCurrent) {
+          try {
+            const payload = await buildAnalysisPayload(
+              projectId,
+              projectPath,
+              result.git,
+              result.stats
+            )
+            const schema = {
+              version: 1,
+              commitHash: 'string (from git data)',
+              analyzedAt: 'ISO timestamp',
+              architecture: {
+                style: 'monolith|monorepo|microservices|modular-monolith',
+                insights: ['string'],
+                domains: ['string'],
+              },
+              patterns: [
+                {
+                  name: '',
+                  description: '',
+                  locations: ['file paths'],
+                  confidence: 0.0,
+                  category: 'architecture|data-flow|error-handling|testing',
+                },
+              ],
+              antiPatterns: [
+                {
+                  issue: '',
+                  reasoning: '',
+                  files: [],
+                  suggestion: '',
+                  severity: 'low|medium|high',
+                  confidence: 0.0,
+                },
+              ],
+              techDebt: [
+                {
+                  description: '',
+                  area: '',
+                  effort: 'small|medium|large',
+                  impact: '',
+                  priority: 'low|medium|high',
+                },
+              ],
+              riskAreas: [{ path: '', reason: '', risk: '', severity: 'low|medium|high' }],
+              refactorSuggestions: [
+                { description: '', files: [], benefit: '', effort: 'small|medium|large' },
+              ],
+              projectInsights: ['string'],
+              conventions: [
+                { category: 'naming|file-structure|imports|error-handling', rule: '', example: '' },
+              ],
+              commands: { build: '', test: '', lint: '', dev: '', format: '', install: '' },
+              stack: {
+                languages: ['string'],
+                frameworks: ['string'],
+                packageManager: 'detected from project',
+              },
+            }
+            llmAnalysisInstructions = [
+              `## Analysis Payload`,
+              `> Analyze this data and return a JSON object matching the schema below.`,
+              '### Expected output schema',
+              '```json',
+              JSON.stringify(schema, null, 2),
+              '```',
+              '### Project data',
+              '```json',
+              JSON.stringify(payload, null, 2),
+              '```',
+              `> Save result: \`prjct analysis-save-llm '<JSON>' --md\``,
+            ].join('\n')
+          } catch {
+            // Fall back to manual instruction if payload build fails
+            llmAnalysisInstructions = `### Next: Run \`prjct analysis-payload --md\` to update project analysis`
+          }
+        }
 
         const steps = getNextSteps('sync', true)
         const idx = result.syncMetrics?.indexes
