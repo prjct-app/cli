@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.51.2] - 2026-03-03
+
+### Fixed
+- sync now auto-includes analysis payload instead of suggesting a manual step
+
 ## [1.51.0] - 2026-03-03
 
 ### Features
