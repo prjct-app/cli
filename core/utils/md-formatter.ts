@@ -22,11 +22,6 @@ export function mdFooter(): string {
   return `---\nprjct v${version}`
 }
 
-/** Horizontal rule divider */
-export function mdDivider(): string {
-  return '---'
-}
-
 // =============================================================================
 // Output Wrapper
 // =============================================================================
@@ -76,11 +71,6 @@ export function mdSection(title: string, content: string, _level: 2 | 3 = 3): st
 /** Format an ordered or unordered list */
 export function mdList(items: string[], ordered = false): string {
   return items.map((item, i) => (ordered ? `${i + 1}. ${item}` : `- ${item}`)).join('\n')
-}
-
-/** Format a checklist (subtask style) */
-export function mdChecklist(items: Array<{ text: string; checked: boolean }>): string {
-  return items.map((item) => `${item.checked ? '- [x]' : '- [ ]'} ${item.text}`).join('\n')
 }
 
 // =============================================================================
@@ -160,16 +150,6 @@ export function mdRelevantFiles(files: FileRef[]): string {
     return `- \`${f.path}${range}\`${desc}`
   })
   return `### Relevant Files\n${items.join('\n')}`
-}
-
-/** Format numbered instructions */
-export function mdInstructions(instructions: string[]): string {
-  return `### Instructions\n${mdList(instructions, true)}`
-}
-
-/** Format rules block */
-export function mdRules(rules: string[]): string {
-  return `### Rules\n${mdList(rules)}`
 }
 
 // =============================================================================

@@ -51,20 +51,6 @@ export interface SourcedItem {
   _source?: SourceMetadata
 }
 
-/**
- * Create source metadata with current timestamp.
- */
-export function createSourceMetadata(
-  source: InputSource,
-  options: Partial<Omit<SourceMetadata, 'source'>> = {}
-): SourceMetadata {
-  return {
-    source,
-    capturedAt: new Date().toISOString(),
-    ...options,
-  }
-}
-
 // =============================================================================
 // Tool Registry Types
 // =============================================================================
@@ -90,12 +76,6 @@ export interface ToolRegistry {
   get(name: string): ToolFunction | undefined
   list(): string[]
   has(name: string): boolean
-}
-
-export interface BashResult {
-  stdout: string
-  stderr: string
-  code: number
 }
 
 // =============================================================================
@@ -208,11 +188,6 @@ export interface PromptState {
   analysis?: string
   [key: string]: unknown
 }
-
-/**
- * Learned patterns from memory (Record version)
- */
-export type LearnedPatternsRecord = Record<string, string | null>
 
 export interface ThinkBlock {
   plan?: string[]

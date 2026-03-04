@@ -12,16 +12,6 @@ import type { ContextSources, SourceInfo } from '../types/citations'
 export type { ContextSources, SourceInfo, SourceType } from '../types/citations'
 
 /**
- * Generate an HTML citation comment
- *
- * @example cite({ file: 'package.json', type: 'detected' })
- * // => '<!-- source: package.json, detected -->'
- */
-export function cite(source: SourceInfo): string {
-  return `<!-- source: ${source.file}, ${source.type} -->`
-}
-
-/**
  * Create default sources (all unknown) - used as fallback
  */
 export function defaultSources(): ContextSources {
