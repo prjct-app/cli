@@ -17,7 +17,7 @@
 
 import path from 'node:path'
 import type { VersionInfo } from '../types/services.js'
-import { execAsync } from '../utils/exec'
+import { execAsync, execFileAsync } from '../utils/exec'
 import * as fileHelper from '../utils/file-helper'
 
 // =============================================================================
@@ -198,7 +198,7 @@ export class VersionService {
     if (!info.file) {
       // git-tag: create a new tag
       if (info.format === 'git-tag') {
-        await execAsync(`git tag v${info.next}`, { cwd: this.projectPath })
+        await execFileAsync('git', ['tag', `v${info.next}`], { cwd: this.projectPath })
       }
       return
     }

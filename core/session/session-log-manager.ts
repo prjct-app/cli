@@ -242,8 +242,19 @@ export class SessionLogManager {
     sessionPath: string,
     updates: Partial<SessionLogMetadata>
   ): Promise<void> {
-    const metadata = (await this._getSessionLogMetadata(sessionPath)) || {}
-    Object.assign(metadata, updates)
+    const metadata = (await this._getSessionLogMetadata(sessionPath)) || ({} as SessionLogMetadata)
+    const allowedKeys: (keyof SessionLogMetadata)[] = [
+      'created',
+      'lastActivity',
+      'entryCount',
+      'shipCount',
+      'version',
+    ]
+    for (const key of allowedKeys) {
+      if (key in updates) {
+        ;(metadata as Record<string, unknown>)[key] = updates[key]
+      }
+    }
 
     const metadataPath = path.join(sessionPath, 'session-meta.json')
     await fileHelper.writeJson(metadataPath, metadata)

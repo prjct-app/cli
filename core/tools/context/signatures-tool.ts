@@ -325,6 +325,20 @@ export async function extractSignatures(
   // Resolve to absolute path
   const absolutePath = path.isAbsolute(filePath) ? filePath : path.join(projectPath, filePath)
 
+  // Prevent path traversal — resolved path must stay within projectPath
+  const resolvedProject = path.resolve(projectPath)
+  const resolvedFile = path.resolve(absolutePath)
+  if (!resolvedFile.startsWith(resolvedProject + path.sep) && resolvedFile !== resolvedProject) {
+    return {
+      file: filePath,
+      language: 'unknown',
+      signatures: [],
+      fallback: true,
+      fallbackReason: 'Path traversal denied: file is outside project directory',
+      metrics: noCompression(''),
+    }
+  }
+
   // Read file content
   let content: string
   try {

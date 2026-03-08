@@ -11,6 +11,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
+import { secureHeaders } from 'hono/secure-headers'
 import type { ServerConfig, ServerHandle, ServerInstance } from '../types/server'
 import { isBun } from '../utils/runtime'
 import { VERSION } from '../utils/version'
@@ -25,14 +26,25 @@ export function createServer(config: ServerConfig): ServerInstance {
   const app = new Hono()
   const sseManager = createSSEManager()
 
+  // Security headers
+  app.use('*', secureHeaders())
+
   // Middleware
   if (config.enableCors !== false) {
     app.use(
       '*',
       cors({
-        origin: '*',
+        origin: (origin) => {
+          if (!origin) return origin
+          try {
+            const url = new URL(origin)
+            return url.hostname === 'localhost' || url.hostname === '127.0.0.1' ? origin : null
+          } catch {
+            return null
+          }
+        },
         allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-        allowHeaders: ['Content-Type', 'Authorization'],
+        allowHeaders: ['Content-Type'],
       })
     )
   }

@@ -13,7 +13,7 @@ import { stateStorage } from '../storage/state-storage'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import * as dateHelper from '../utils/date-helper'
-import { execAsync } from '../utils/exec'
+import { execAsync, execFileAsync } from '../utils/exec'
 import { mdDone, mdList, mdNextSteps, mdOutput, mdSection } from '../utils/md-formatter'
 import { getNextSteps, showNextSteps } from '../utils/next-steps'
 import out from '../utils/output'
@@ -170,7 +170,7 @@ export class ShippingCommands extends PrjctCommandsBase {
 
       const commitMsg = `feat: ${feature}\n\nGenerated with [p/](https://www.prjct.app/)`
 
-      await execAsync(`git commit -m "${commitMsg.replace(/"/g, '\\"')}"`)
+      await execFileAsync('git', ['commit', '-m', commitMsg])
 
       return { success: true, message: 'Committed' }
     } catch (error) {

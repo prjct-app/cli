@@ -91,10 +91,25 @@ export function createRoutes(projectId: string, _projectPath: string): Hono {
   api.post('/state', async (c) => {
     try {
       const body = await c.req.json()
-      await stateStorage.write(projectId, body)
+
+      // Validate required structure
+      if (!body || typeof body !== 'object' || Array.isArray(body)) {
+        return c.json({ success: false, error: 'Invalid state object' }, 400)
+      }
+
+      // Only allow known state fields
+      const allowedKeys = ['currentTask', 'previousTask', 'lastUpdated']
+      const sanitized: Record<string, unknown> = {}
+      for (const key of allowedKeys) {
+        if (key in body) {
+          sanitized[key] = body[key]
+        }
+      }
+
+      await stateStorage.write(projectId, sanitized as Parameters<typeof stateStorage.write>[1])
       return c.json({ success: true })
-    } catch (e) {
-      return c.json({ success: false, error: String(e) }, 400)
+    } catch {
+      return c.json({ success: false, error: 'Internal server error' }, 400)
     }
   })
 

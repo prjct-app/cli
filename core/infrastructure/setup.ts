@@ -17,7 +17,7 @@
  * - scripts/postinstall.js (if npm scripts are enabled)
  */
 
-import { execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -98,7 +98,7 @@ async function installAICLI(provider: AIProviderConfig): Promise<boolean> {
     console.log(chalk.yellow(`📦 ${provider.displayName} not found. Installing...`))
     console.log('')
     // PRJ-111: Add timeout to npm install (default: 2 minutes, configurable via PRJCT_TIMEOUT_NPM_INSTALL)
-    execSync(`npm install -g ${packageName}`, {
+    execFileSync('npm', ['install', '-g', packageName], {
       stdio: 'inherit',
       timeout: getTimeout('NPM_INSTALL'),
     })

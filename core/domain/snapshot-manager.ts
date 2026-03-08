@@ -15,7 +15,7 @@ import { emit } from '../events/pub-sub'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import { isNotFoundError } from '../types/fs'
-import { execAsync } from '../utils/exec'
+import { execAsync, execFileAsync } from '../utils/exec'
 import { dirExists, writeJson } from '../utils/file-helper'
 
 interface SnapshotInfo {
@@ -147,7 +147,7 @@ class SnapshotManager {
     await execAsync(`git add -A`, { cwd: this.snapshotDir! })
 
     const commitMsg = `${message}\n\nFiles: ${changedFiles.length}\nTimestamp: ${timestamp}`
-    await execAsync(`git commit -m "${commitMsg.replace(/"/g, '\\"')}"`, { cwd: this.snapshotDir! })
+    await execFileAsync('git', ['commit', '-m', commitMsg], { cwd: this.snapshotDir! })
 
     // Get commit hash
     const { stdout } = await execAsync(`git rev-parse HEAD`, { cwd: this.snapshotDir! })
