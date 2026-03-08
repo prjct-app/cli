@@ -383,9 +383,10 @@ class PromptBuilder {
     relevantMemories: Memory[] | null = null,
     planInfo: PlanInfo | null = null,
     orchestratorContext: OrchestratorContext | null = null,
-    options?: { skipNativeContext?: boolean }
+    options?: { skipNativeContext?: boolean; mcpActive?: boolean }
   ): Promise<string> {
     const skipNativeContext = options?.skipNativeContext ?? false
+    const mcpActive = options?.mcpActive ?? false
     const parts: string[] = []
 
     // Default command context
@@ -657,7 +658,8 @@ class PromptBuilder {
       parts.push(`Confidence: ${Math.round((thinkBlock.confidence || 0.5) * 100)}%\n`)
     }
 
-    if (relevantMemories && relevantMemories.length > 0) {
+    // Skip memories when MCP prjct is active (available on-demand via tools)
+    if (!mcpActive && relevantMemories && relevantMemories.length > 0) {
       parts.push('\n## CONTEXT (apply these)\n')
       for (const memory of relevantMemories) {
         parts.push(`- **${memory.title}**: ${memory.content}\n`)

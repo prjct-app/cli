@@ -20,6 +20,7 @@ import { getErrorMessage } from '../types/fs'
 import type { SubtaskDisplay } from '../types/utils'
 import { agentStream } from '../utils/agent-stream'
 import { fileExists } from '../utils/file-helper'
+import { hasMcpServer } from '../utils/mcp-config'
 import { printSubtaskProgress } from '../utils/subtask-table'
 import contextBuilder from './context-builder'
 import loopDetector from './loop-detector'
@@ -186,9 +187,13 @@ export class CommandExecutor {
       const state = await contextBuilder.loadState(metadataContext)
 
       // 5. MEMORY: Load learned patterns AND relevant memories for this command
+      // When MCP prjct server is active, skip upfront memory injection —
+      // the LLM can pull memories on-demand via prjct_mem_search/prjct_mem_context
+      const mcpActive = await hasMcpServer('prjct')
       let learnedPatterns = null
       let relevantMemories = null
       if (metadataContext.projectId) {
+        // Learned patterns are always loaded (~200 tokens, always useful)
         learnedPatterns = {
           commit_footer: await memorySystem.getSmartDecision(
             metadataContext.projectId,
@@ -208,12 +213,14 @@ export class CommandExecutor {
           ),
         }
 
-        // Get relevant memories for context
-        relevantMemories = await memorySystem.getRelevantMemories(
-          metadataContext.projectId,
-          { commandName, params },
-          5
-        )
+        // Skip upfront memory loading when MCP is active (on-demand via tools)
+        if (!mcpActive) {
+          relevantMemories = await memorySystem.getRelevantMemories(
+            metadataContext.projectId,
+            { commandName, params },
+            5
+          )
+        }
       }
 
       // 6. Build prompt
@@ -240,7 +247,7 @@ export class CommandExecutor {
         relevantMemories,
         planInfo,
         orchestratorContext,
-        { skipNativeContext: isClaudeProvider }
+        { skipNativeContext: isClaudeProvider, mcpActive }
       )
 
       // Log agentic mode
