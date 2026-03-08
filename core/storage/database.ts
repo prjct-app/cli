@@ -605,6 +605,53 @@ const migrations: Migration[] = [
       }
     },
   },
+  {
+    version: 11,
+    name: 'agent-sessions',
+    up: (db: SqliteDatabase) => {
+      db.run(`
+        -- =======================================================================
+        -- Agent Sessions: Track AI agent work sessions across compactions
+        -- =======================================================================
+        CREATE TABLE IF NOT EXISTS agent_sessions (
+          id          TEXT PRIMARY KEY,
+          project_id  TEXT NOT NULL,
+          directory   TEXT,
+          task_id     TEXT,
+          goal        TEXT,
+          started_at  TEXT NOT NULL,
+          ended_at    TEXT,
+          summary     TEXT,
+          files_touched TEXT,
+          created_at  TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_agent_sessions_project ON agent_sessions(project_id);
+        CREATE INDEX IF NOT EXISTS idx_agent_sessions_task ON agent_sessions(task_id);
+
+        -- =======================================================================
+        -- User Prompts: Capture what the user asked (intent tracking)
+        -- =======================================================================
+        CREATE TABLE IF NOT EXISTS user_prompts (
+          id          TEXT PRIMARY KEY,
+          project_id  TEXT NOT NULL,
+          session_id  TEXT,
+          content     TEXT NOT NULL,
+          created_at  TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_user_prompts_project ON user_prompts(project_id);
+        CREATE INDEX IF NOT EXISTS idx_user_prompts_session ON user_prompts(session_id);
+      `)
+
+      // Add session_id column to memories (links observations to agent sessions)
+      try {
+        db.run('ALTER TABLE memories ADD COLUMN session_id TEXT')
+      } catch {
+        // Column may already exist
+      }
+    },
+  },
 ]
 
 // =============================================================================
