@@ -92,7 +92,7 @@ export async function undo(projectPath: string = process.cwd()): Promise<Command
     await fileHelper.ensureDir(snapshotsPath)
 
     // Check git status
-    const { execSync } = await import('node:child_process')
+    const { execFileSync, execSync } = await import('node:child_process')
 
     try {
       const status = execSync('git status --porcelain', {
@@ -109,7 +109,7 @@ export async function undo(projectPath: string = process.cwd()): Promise<Command
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
       const stashMessage = `prjct-undo-${timestamp}`
 
-      execSync(`git stash push -m "${stashMessage}"`, {
+      execFileSync('git', ['stash', 'push', '-m', stashMessage], {
         cwd: projectPath,
         encoding: 'utf-8',
       })

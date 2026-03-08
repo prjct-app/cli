@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.52.2] - 2026-03-07
+
+### Added
+- security hardening
+
+## [1.52.1] - 2026-03-07
+
+### Added
+- security hardening
+
 ## [1.51.4] - 2026-03-04
 
 ### Chores

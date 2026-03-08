@@ -11,7 +11,7 @@
  * @see PRJ-114
  */
 
-import { execSync } from 'node:child_process'
+import { execFileSync, execSync } from 'node:child_process'
 import type { ToolDefinition, ToolStatus } from '../types/services.js'
 import { isExpired } from '../utils/cache'
 import { createError, type ErrorWithHint } from '../utils/error-messages'
@@ -225,9 +225,20 @@ class DependencyValidator {
   }
 
   private checkUnknownTool(toolName: string): ToolStatus {
+    // Validate toolName to prevent command injection
+    if (!/^[a-zA-Z0-9_-]+$/.test(toolName)) {
+      return {
+        available: false,
+        error: createError(
+          `Invalid tool name: ${toolName}`,
+          'Tool names must only contain alphanumeric characters, hyphens, and underscores'
+        ),
+      }
+    }
+
     try {
-      // Try running with --version (common convention)
-      execSync(`${toolName} --version`, {
+      // Use execFileSync to avoid shell injection
+      execFileSync(toolName, ['--version'], {
         encoding: 'utf-8',
         stdio: ['pipe', 'pipe', 'pipe'],
         timeout: 5000,
@@ -236,7 +247,7 @@ class DependencyValidator {
     } catch {
       // Try running with -v
       try {
-        execSync(`${toolName} -v`, {
+        execFileSync(toolName, ['-v'], {
           encoding: 'utf-8',
           stdio: ['pipe', 'pipe', 'pipe'],
           timeout: 5000,

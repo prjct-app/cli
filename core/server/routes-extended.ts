@@ -110,8 +110,8 @@ export function createExtendedRoutes(): Hono {
       })
 
       return c.json({ projects })
-    } catch (error) {
-      return c.json({ projects: [], error: String(error) }, 500)
+    } catch {
+      return c.json({ projects: [], error: 'Internal server error' }, 500)
     }
   })
 
@@ -173,8 +173,8 @@ export function createExtendedRoutes(): Hono {
         },
         timestamp: new Date().toISOString(),
       })
-    } catch (error) {
-      return c.json({ error: String(error) }, 500)
+    } catch {
+      return c.json({ error: 'Internal server error' }, 500)
     }
   })
 
@@ -207,8 +207,8 @@ export function createExtendedRoutes(): Hono {
         completedTask,
         message: `Completed: ${completedTask.description}`,
       })
-    } catch (error) {
-      return c.json({ success: false, error: String(error) }, 500)
+    } catch {
+      return c.json({ success: false, error: 'Internal server error' }, 500)
     }
   })
 
@@ -220,7 +220,7 @@ export function createExtendedRoutes(): Hono {
 
     try {
       const body = await c.req.json().catch(() => ({}))
-      const reason = body.reason
+      const reason = typeof body.reason === 'string' ? body.reason.slice(0, 500) : undefined
 
       const state = await stateStorage.read(projectId)
 
@@ -250,8 +250,8 @@ export function createExtendedRoutes(): Hono {
         pausedTask,
         message: `Paused: ${pausedTask.description}`,
       })
-    } catch (error) {
-      return c.json({ success: false, error: String(error) }, 500)
+    } catch {
+      return c.json({ success: false, error: 'Internal server error' }, 500)
     }
   })
 
@@ -289,8 +289,8 @@ export function createExtendedRoutes(): Hono {
         resumedTask,
         message: `Resumed: ${resumedTask.description}`,
       })
-    } catch (error) {
-      return c.json({ success: false, error: String(error) }, 500)
+    } catch {
+      return c.json({ success: false, error: 'Internal server error' }, 500)
     }
   })
 
@@ -304,8 +304,12 @@ export function createExtendedRoutes(): Hono {
       const body = await c.req.json()
       const { taskId } = body
 
-      if (!taskId) {
-        return c.json({ success: false, error: 'taskId required' }, 400)
+      if (!taskId || typeof taskId !== 'string') {
+        return c.json({ success: false, error: 'taskId required (string)' }, 400)
+      }
+
+      if (taskId.length > 200) {
+        return c.json({ success: false, error: 'taskId too long' }, 400)
       }
 
       const [state, queue] = await Promise.all([
@@ -348,8 +352,8 @@ export function createExtendedRoutes(): Hono {
         task: newTask,
         message: `Started: ${newTask.description}`,
       })
-    } catch (error) {
-      return c.json({ success: false, error: String(error) }, 500)
+    } catch {
+      return c.json({ success: false, error: 'Internal server error' }, 500)
     }
   })
 
@@ -363,13 +367,23 @@ export function createExtendedRoutes(): Hono {
       const body = await c.req.json()
       const { text, priority = 'medium', tags = [] } = body
 
-      if (!text) {
-        return c.json({ success: false, error: 'text required' }, 400)
+      if (!text || typeof text !== 'string') {
+        return c.json({ success: false, error: 'text required (string)' }, 400)
       }
 
+      if (text.length > 5000) {
+        return c.json({ success: false, error: 'text too long (max 5000 chars)' }, 400)
+      }
+
+      const validPriorities = ['low', 'medium', 'high', 'critical']
+      const safePriority = validPriorities.includes(priority) ? priority : 'medium'
+      const safeTags = Array.isArray(tags)
+        ? tags.filter((t): t is string => typeof t === 'string').slice(0, 20)
+        : []
+
       const idea = await ideasStorage.addIdea(projectId, text, {
-        priority: priority || 'medium',
-        tags: tags as string[],
+        priority: safePriority,
+        tags: safeTags,
       })
 
       return c.json({
@@ -377,8 +391,8 @@ export function createExtendedRoutes(): Hono {
         idea,
         message: `Captured: ${text.slice(0, 50)}...`,
       })
-    } catch (error) {
-      return c.json({ success: false, error: String(error) }, 500)
+    } catch {
+      return c.json({ success: false, error: 'Internal server error' }, 500)
     }
   })
 
@@ -417,8 +431,8 @@ export function createExtendedRoutes(): Hono {
         totalShipped,
         timestamp: new Date().toISOString(),
       })
-    } catch (error) {
-      return c.json({ error: String(error) }, 500)
+    } catch {
+      return c.json({ error: 'Internal server error' }, 500)
     }
   })
 
@@ -488,8 +502,8 @@ export function createExtendedRoutes(): Hono {
         cwd: cwd || null,
         timestamp: new Date().toISOString(),
       })
-    } catch (error) {
-      return c.json({ error: String(error) }, 500)
+    } catch {
+      return c.json({ error: 'Internal server error' }, 500)
     }
   })
 

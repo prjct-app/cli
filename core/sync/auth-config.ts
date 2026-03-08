@@ -5,6 +5,7 @@
  * Used by SyncClient to authenticate with prjct API
  */
 
+import fs from 'node:fs/promises'
 import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
 import type { AuthConfig } from '../types/sync'
@@ -61,6 +62,8 @@ class AuthConfigManager {
 
     await fileHelper.ensureDir(path.dirname(this.configPath))
     await fileHelper.writeJson(this.configPath, updated)
+    // Restrict file permissions to owner-only (0600) since it contains API keys
+    await fs.chmod(this.configPath, 0o600)
     this.cachedConfig = updated
   }
 

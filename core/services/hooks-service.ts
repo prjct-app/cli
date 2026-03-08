@@ -196,7 +196,8 @@ ${sectionName}:
 `
 
     // If the hook section already exists, add command to it
-    const sectionRegex = new RegExp(`^${sectionName}:\\s*$`, 'm')
+    const escapedSection = sectionName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const sectionRegex = new RegExp(`^${escapedSection}:\\s*$`, 'm')
     if (sectionRegex.test(content)) {
       // Insert command into existing section
       content = content.replace(
