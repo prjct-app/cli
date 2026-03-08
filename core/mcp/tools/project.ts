@@ -1,7 +1,7 @@
 /**
- * MCP Project Tools (4 tools)
+ * MCP Project Tools (6 tools)
  *
- * Wraps existing storage modules for task status, velocity, analysis, and patterns.
+ * Wraps existing storage modules for task status, velocity, analysis, patterns, and outcomes.
  */
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
@@ -158,6 +158,149 @@ export function registerProjectTools(server: McpServer) {
           const p = val as { value: unknown; confidence: string }
           parts.push(`- **${key}**: ${p.value} (${p.confidence})`)
         }
+      }
+
+      return { content: [{ type: 'text', text: parts.join('\n') }] }
+    }
+  )
+
+  s.tool(
+    'prjct_outcomes_search',
+    'Search completed task outcomes — what worked, what failed, duration, blockers',
+    {
+      projectPath: z.string().describe('Project directory path'),
+      query: z.string().describe('Search query (matches task description, blockers, patterns)'),
+      limit: z.number().optional().default(10).describe('Max results'),
+    },
+    async (args: { projectPath: string; query: string; limit: number }) => {
+      const projectId = await resolveProjectId(args.projectPath)
+      const outcomes = await outcomeRecorder.getAll(projectId)
+
+      if (outcomes.length === 0) {
+        return { content: [{ type: 'text', text: 'No outcomes recorded yet.' }] }
+      }
+
+      const queryLower = args.query.toLowerCase()
+      const keywords = queryLower.split(/\s+/)
+
+      // Score each outcome by keyword overlap
+      const scored = outcomes
+        .map((o) => {
+          const searchable =
+            `${o.task} ${o.command} ${(o.blockers || []).join(' ')} ${o.patternDetected || ''} ${(o.tags || []).join(' ')}`.toLowerCase()
+          const score = keywords.filter((kw) => searchable.includes(kw)).length
+          return { outcome: o, score }
+        })
+        .filter((s) => s.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, args.limit)
+
+      if (scored.length === 0) {
+        return { content: [{ type: 'text', text: `No outcomes matching "${args.query}".` }] }
+      }
+
+      const lines = scored.map(({ outcome: o }) => {
+        const status = o.completedAsPlanned ? 'success' : 'issues'
+        const parts = [`- **${o.task}** [${status}, ${o.actualDuration}]`]
+        if (o.variance) parts.push(`  Variance: ${o.variance}`)
+        if (o.blockers?.length) parts.push(`  Blockers: ${o.blockers.join(', ')}`)
+        if (o.patternDetected) parts.push(`  Pattern: ${o.patternDetected}`)
+        return parts.join('\n')
+      })
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `## Outcomes matching "${args.query}" (${scored.length}/${outcomes.length})\n\n${lines.join('\n')}`,
+          },
+        ],
+      }
+    }
+  )
+
+  s.tool(
+    'prjct_outcomes_similar',
+    'Find similar past tasks and their outcomes: avg duration, success rate, common blockers',
+    {
+      projectPath: z.string().describe('Project directory path'),
+      task: z.string().describe('Task description to find similar outcomes for'),
+    },
+    async (args: { projectPath: string; task: string }) => {
+      const projectId = await resolveProjectId(args.projectPath)
+      const outcomes = await outcomeRecorder.getAll(projectId)
+
+      if (outcomes.length === 0) {
+        return { content: [{ type: 'text', text: 'No outcomes recorded yet.' }] }
+      }
+
+      const queryWords = new Set(
+        args.task
+          .toLowerCase()
+          .split(/\s+/)
+          .filter((w) => w.length > 2)
+      )
+
+      // Score similarity by word overlap
+      const similar = outcomes
+        .map((o) => {
+          const taskWords = new Set(
+            o.task
+              .toLowerCase()
+              .split(/\s+/)
+              .filter((w) => w.length > 2)
+          )
+          const overlap = [...queryWords].filter((w) => taskWords.has(w)).length
+          const similarity = queryWords.size > 0 ? overlap / queryWords.size : 0
+          return { outcome: o, similarity }
+        })
+        .filter((s) => s.similarity >= 0.2)
+        .sort((a, b) => b.similarity - a.similarity)
+        .slice(0, 10)
+
+      if (similar.length === 0) {
+        return { content: [{ type: 'text', text: 'No similar past tasks found.' }] }
+      }
+
+      // Aggregate stats
+      const successCount = similar.filter((s) => s.outcome.completedAsPlanned).length
+      const successRate = Math.round((successCount / similar.length) * 100)
+
+      const durations = similar
+        .map((s) => {
+          const match = s.outcome.actualDuration.match(/(\d+)/)
+          return match ? Number.parseInt(match[1]) : 0
+        })
+        .filter((d) => d > 0)
+      const avgDuration =
+        durations.length > 0
+          ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
+          : 0
+
+      const allBlockers = similar.flatMap((s) => s.outcome.blockers || [])
+      const blockerCounts: Record<string, number> = {}
+      for (const b of allBlockers) {
+        blockerCounts[b] = (blockerCounts[b] || 0) + 1
+      }
+      const topBlockers = Object.entries(blockerCounts)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 3)
+
+      const parts = [
+        `## Similar Tasks (${similar.length} matches)`,
+        `\n**Success rate**: ${successRate}% (${successCount}/${similar.length})`,
+      ]
+      if (avgDuration > 0) parts.push(`**Avg duration**: ${avgDuration}m`)
+      if (topBlockers.length > 0) {
+        parts.push(`**Common blockers**: ${topBlockers.map(([b, c]) => `${b} (${c}x)`).join(', ')}`)
+      }
+
+      parts.push('\n### Past tasks')
+      for (const { outcome: o, similarity } of similar) {
+        const status = o.completedAsPlanned ? 'ok' : 'issues'
+        parts.push(
+          `- [${status}] **${o.task}** — ${o.actualDuration} (${Math.round(similarity * 100)}% similar)`
+        )
       }
 
       return { content: [{ type: 'text', text: parts.join('\n') }] }
