@@ -68,6 +68,7 @@ describe('MCP Context Intelligence Tools (backend)', () => {
         to: 'warning',
         usagePercent: 75,
         timestamp: new Date().toISOString(),
+        action: null,
       })
 
       contextZoneStorage.recordTransition(TEST_PROJECT_ID, {
@@ -101,7 +102,7 @@ describe('MCP Context Intelligence Tools (backend)', () => {
       })
 
       await memorySystem.appendHistory(TEST_PROJECT_ID, {
-        type: 'preference',
+        type: 'decision',
         key: 'editor',
         value: 'vim',
       })

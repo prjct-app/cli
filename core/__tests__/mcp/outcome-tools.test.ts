@@ -11,6 +11,7 @@ import type { Outcome } from '../../types/outcomes'
 
 const makeOutcome = (overrides: Partial<Outcome> = {}): Outcome => ({
   id: `test-${Date.now()}-${Math.random()}`,
+  sessionId: 'test-session',
   task: 'Test task',
   command: 'done',
   startedAt: new Date(Date.now() - 3600000).toISOString(),
@@ -19,7 +20,7 @@ const makeOutcome = (overrides: Partial<Outcome> = {}): Outcome => ({
   actualDuration: '1h',
   variance: '+0m',
   completedAsPlanned: true,
-  qualityScore: 8,
+  qualityScore: 5 as const,
   ...overrides,
 })
 

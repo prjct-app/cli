@@ -256,7 +256,7 @@ export class PatternStore extends CachedStore<Patterns> {
 
     const workflows: Record<string, { confidence: string; count: number }> = {}
     for (const [key, w] of Object.entries(patterns.workflows)) {
-      workflows[key] = { confidence: w.confidence, count: w.count }
+      workflows[key] = { confidence: w.confidence ?? 'low', count: w.count }
     }
 
     return { decisions, preferences, workflows }
