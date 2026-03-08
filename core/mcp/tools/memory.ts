@@ -1,5 +1,5 @@
 /**
- * MCP Memory Tools (7 tools)
+ * MCP Memory Tools (8 tools)
  *
  * Wraps SemanticMemories (FTS5-backed).
  * Progressive disclosure: search returns compact results, use mem_get for full content.
@@ -361,6 +361,82 @@ export function registerMemoryTools(server: McpServer) {
       }
 
       return { content: [{ type: 'text', text: lines.join('\n') }] }
+    }
+  )
+
+  s.tool(
+    'prjct_mem_capture_passive',
+    'Extract structured learnings from text and save each as a memory. Looks for "Key Learnings:", "Discoveries:", "Lessons:", or "## Learnings" sections.',
+    {
+      projectPath: z.string().describe('Project directory path'),
+      text: z.string().describe('Text to extract learnings from (e.g. agent output)'),
+      sessionId: z.string().optional().describe('Current session ID'),
+    },
+    async (args: { projectPath: string; text: string; sessionId?: string }) => {
+      const projectId = await resolveProjectId(args.projectPath)
+
+      // Extract learnings from structured sections
+      const patterns = [
+        /(?:^|\n)#{1,3}\s*(?:Key\s+)?Learnings?\s*:?\s*\n([\s\S]*?)(?=\n#{1,3}\s|\n---|\n\*\*[A-Z]|$)/i,
+        /(?:^|\n)#{1,3}\s*Discoveries?\s*:?\s*\n([\s\S]*?)(?=\n#{1,3}\s|\n---|\n\*\*[A-Z]|$)/i,
+        /(?:^|\n)#{1,3}\s*Lessons?\s*:?\s*\n([\s\S]*?)(?=\n#{1,3}\s|\n---|\n\*\*[A-Z]|$)/i,
+        /(?:^|\n)\*\*(?:Key\s+)?Learnings?\*\*\s*:?\s*\n([\s\S]*?)(?=\n\*\*[A-Z]|\n#{1,3}\s|\n---|$)/i,
+      ]
+
+      const extracted: string[] = []
+      for (const pattern of patterns) {
+        const match = args.text.match(pattern)
+        if (match?.[1]) {
+          // Split by bullet points or numbered items
+          const items = match[1]
+            .split(/\n[-*•]\s+|\n\d+[.)]\s+/)
+            .map((s) => s.trim())
+            .filter((s) => s.length > 10)
+          extracted.push(...items)
+        }
+      }
+
+      if (extracted.length === 0) {
+        return { content: [{ type: 'text', text: 'No structured learnings found in text.' }] }
+      }
+
+      // Deduplicate
+      const unique = [...new Set(extracted)]
+      const savedIds: string[] = []
+
+      for (const learning of unique.slice(0, 10)) {
+        const title = learning.slice(0, 80).replace(/\n/g, ' ')
+        const cleanContent = truncateContent(stripPrivateTags(learning))
+        const id = await memories.createMemory(projectId, {
+          title,
+          content: cleanContent,
+          tags: [],
+          topicKey: `learning/${title
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .slice(0, 40)}`,
+          userTriggered: false,
+        })
+
+        if (args.sessionId) {
+          prjctDb.run(
+            projectId,
+            'UPDATE memories SET session_id = ? WHERE id = ?',
+            args.sessionId,
+            id
+          )
+        }
+        savedIds.push(id)
+      }
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Extracted and saved ${savedIds.length} learnings:\n${savedIds.map((id, i) => `- ${unique[i].slice(0, 60)}... (${id})`).join('\n')}`,
+          },
+        ],
+      }
     }
   )
 }
