@@ -49,6 +49,7 @@ function clean() {
   fs.mkdirSync(path.join(DIST, 'bin'), { recursive: true })
   fs.mkdirSync(path.join(DIST, 'cli'), { recursive: true })
   fs.mkdirSync(path.join(DIST, 'daemon'), { recursive: true })
+  fs.mkdirSync(path.join(DIST, 'mcp'), { recursive: true })
 }
 
 /**
@@ -180,6 +181,31 @@ var __dirname = __pathDirname(__filename);`,
     },
   })
   fs.chmodSync(path.join(DIST, 'daemon', 'entry.mjs'), 0o755)
+
+  // 5. MCP Server (ESM, minified — stdio entry for MCP protocol)
+  console.log('  → dist/mcp/server.mjs')
+  await esbuild.build({
+    entryPoints: [path.join(ROOT, 'core/mcp/entry.ts')],
+    outfile: path.join(DIST, 'mcp', 'server.mjs'),
+    bundle: true,
+    platform: 'node',
+    target: 'node18',
+    format: 'esm',
+    minify: true,
+    keepNames: true,
+    packages: 'external',
+    plugins: [stripShebangPlugin()],
+    banner: {
+      js: `#!/usr/bin/env node
+import { createRequire as __createRequire } from 'module';
+import { fileURLToPath as __fileURLToPath } from 'url';
+import { dirname as __pathDirname } from 'path';
+var require = __createRequire(import.meta.url);
+var __filename = __fileURLToPath(import.meta.url);
+var __dirname = __pathDirname(__filename);`,
+    },
+  })
+  fs.chmodSync(path.join(DIST, 'mcp', 'server.mjs'), 0o755)
 
   return mainResult.metafile
 }

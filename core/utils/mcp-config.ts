@@ -22,7 +22,29 @@ interface MCPConfig {
 // won't find the cached tokens and silently fails to authenticate.
 const MCP_REMOTE_VERSION = 'mcp-remote@0.1.38'
 
-export const MCP_SERVER_PRESETS: Record<'linear' | 'jira', MCPServerConfig> = {
+/**
+ * Get the prjct MCP server config, resolving the path from the installed package.
+ */
+function getPrjctMcpConfig(): MCPServerConfig {
+  try {
+    const pkgDir = path.dirname(require.resolve('prjct-cli/package.json'))
+    return {
+      command: 'node',
+      args: [path.join(pkgDir, 'dist', 'mcp', 'server.mjs')],
+      description: 'prjct data layer (memories, analysis, files, workflows)',
+    }
+  } catch {
+    // Fallback: use global npx
+    return {
+      command: 'npx',
+      args: ['-y', 'prjct-cli', 'mcp'],
+      description: 'prjct data layer (memories, analysis, files, workflows)',
+    }
+  }
+}
+
+export const MCP_SERVER_PRESETS: Record<'linear' | 'jira' | 'prjct', MCPServerConfig> = {
+  prjct: getPrjctMcpConfig(),
   linear: {
     command: 'npx',
     args: ['-y', MCP_REMOTE_VERSION, 'https://mcp.linear.app/mcp'],
