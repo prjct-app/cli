@@ -4,6 +4,7 @@
  */
 
 import memorySystem from '../agentic/memory-system'
+import configManager from '../infrastructure/config-manager'
 import { ChangelogService } from '../services/changelog-service'
 import { syncService } from '../services/sync-service'
 import { VersionService } from '../services/version-service'
@@ -11,10 +12,13 @@ import { shippedStorage } from '../storage/shipped-storage'
 import { stateStorage } from '../storage/state-storage'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
+import * as dateHelper from '../utils/date-helper'
+import { execAsync } from '../utils/exec'
 import { mdDone, mdList, mdNextSteps, mdOutput, mdSection } from '../utils/md-formatter'
 import { getNextSteps, showNextSteps } from '../utils/next-steps'
+import out from '../utils/output'
 import { executeWorkflowRules } from '../workflow/workflow-engine'
-import { configManager, dateHelper, out, PrjctCommandsBase, toolRegistry } from './base'
+import { PrjctCommandsBase } from './base'
 
 export class ShippingCommands extends PrjctCommandsBase {
   /**
@@ -162,11 +166,11 @@ export class ShippingCommands extends PrjctCommandsBase {
     _projectPath: string
   ): Promise<{ success: boolean; message: string }> {
     try {
-      await toolRegistry.get('Bash')!('git add .')
+      await execAsync('git add .')
 
       const commitMsg = `feat: ${feature}\n\nGenerated with [p/](https://www.prjct.app/)`
 
-      await toolRegistry.get('Bash')!(`git commit -m "${commitMsg.replace(/"/g, '\\"')}"`)
+      await execAsync(`git commit -m "${commitMsg.replace(/"/g, '\\"')}"`)
 
       return { success: true, message: 'Committed' }
     } catch (error) {
@@ -183,7 +187,7 @@ export class ShippingCommands extends PrjctCommandsBase {
    */
   async _gitPush(_projectPath: string): Promise<{ success: boolean; message: string }> {
     try {
-      await toolRegistry.get('Bash')!('git push')
+      await execAsync('git push')
       return { success: true, message: 'Pushed to remote' }
     } catch (error) {
       // Git push failed - no remote, auth issue, or git not found

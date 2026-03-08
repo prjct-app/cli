@@ -21,7 +21,6 @@ import crypto from 'node:crypto'
 import { EventTypes } from '../../types/bus'
 import { getErrorMessage } from '../../types/fs'
 import type { WebhookConfig, WebhookPayload, WebhookPluginContext } from '../../types/plugin'
-import { HookPoints } from '../hooks'
 
 const plugin = {
   name: 'webhook',
@@ -84,7 +83,7 @@ const plugin = {
    * Hook handlers
    */
   hooks: {
-    [HookPoints.AFTER_FEATURE_SHIP]: async (data: {
+    afterFeatureShip: async (data: {
       feature: string
       version: string
       timestamp: string

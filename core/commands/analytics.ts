@@ -3,7 +3,10 @@
  * Unified dashboard and contextual help - MD-First Architecture
  */
 
+import fs from 'node:fs/promises'
 import path from 'node:path'
+import contextBuilder from '../agentic/context-builder'
+import configManager from '../infrastructure/config-manager'
 import { createStalenessChecker } from '../services/staleness-checker'
 import { contextZoneStorage } from '../storage/context-zone-storage'
 import { prjctDb } from '../storage/database'
@@ -14,15 +17,10 @@ import { stateStorage } from '../storage/state-storage'
 import type { CommandResult } from '../types/commands'
 import type { ProjectContext } from '../types/core'
 import { getErrorMessage } from '../types/fs'
+import * as dateHelper from '../utils/date-helper'
 import { mdList, mdNextSteps, mdOutput, mdSection, mdTable } from '../utils/md-formatter'
-import {
-  configManager,
-  contextBuilder,
-  dateHelper,
-  out,
-  PrjctCommandsBase,
-  toolRegistry,
-} from './base'
+import out from '../utils/output'
+import { PrjctCommandsBase } from './base'
 import { commandRegistry } from './registry'
 
 interface MemoryEntry {
@@ -119,9 +117,12 @@ export class AnalyticsCommands extends PrjctCommandsBase {
       if (view === 'roadmap') {
         // Roadmap view
         const context = (await contextBuilder.build(projectPath)) as ProjectContext
-        const roadmapContent = (await toolRegistry.get('Read')!(context.paths.roadmap)) as
-          | string
-          | null
+        let roadmapContent: string | null = null
+        try {
+          roadmapContent = await fs.readFile(context.paths.roadmap, 'utf-8')
+        } catch {
+          roadmapContent = null
+        }
 
         console.log(`\n🗺️  ROADMAP - ${projectName}\n`)
         console.log('═'.repeat(50))

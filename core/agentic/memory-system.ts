@@ -24,16 +24,6 @@ import { HistoryStore, SessionStore } from './memory-stores'
 import { PatternStore } from './pattern-store'
 import { SemanticMemories } from './semantic-memories'
 
-// Re-export everything from sub-modules so existing importers don't break
-export {
-  CachedStore,
-  HistoryStore,
-  resolveCanonicalDomains,
-  SessionStore,
-} from './memory-stores'
-export { PatternStore } from './pattern-store'
-export { SemanticMemories } from './semantic-memories'
-
 // =============================================================================
 // Memory System (Main Class)
 // =============================================================================

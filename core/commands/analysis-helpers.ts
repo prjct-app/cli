@@ -13,9 +13,9 @@ import { formatCost } from '../schemas/metrics'
 import { memoryService } from '../services/memory-service'
 import type { syncService } from '../services/sync-service'
 import type { CommandResult } from '../types/commands'
+import * as dateHelper from '../utils/date-helper'
 import { showNextSteps } from '../utils/next-steps'
 import out from '../utils/output'
-import { dateHelper } from './base'
 
 // =============================================================================
 // Sync Result Display

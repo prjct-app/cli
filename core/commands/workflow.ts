@@ -12,6 +12,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import commandExecutor from '../agentic/command-executor'
 import { isValidPoint, pointsToMinutes, pointsToTimeRange } from '../domain/fibonacci'
+import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import { templateGenerator } from '../infrastructure/template-generator'
 import { generateUUID } from '../schemas/schemas'
@@ -32,6 +33,7 @@ import type { CommandResult } from '../types/commands'
 import type { FibonacciPoint } from '../types/domain.js'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import type { WorkflowRule } from '../types/storage.js'
+import * as dateHelper from '../utils/date-helper'
 import { getClaudeMcpConfigPath, hasMcpServer } from '../utils/mcp-config'
 import {
   mdActionRequired,
@@ -48,10 +50,11 @@ import {
   mdTaskHeader,
 } from '../utils/md-formatter'
 import { showNextSteps, showStateInfo } from '../utils/next-steps'
+import out from '../utils/output'
 import { detectProjectCommands } from '../utils/project-commands'
 import { executeWorkflowRules } from '../workflow/workflow-engine'
 import outcomeRecorder from '../workflows/outcome-recorder'
-import { configManager, dateHelper, out, PrjctCommandsBase } from './base'
+import { PrjctCommandsBase } from './base'
 import {
   buildContextContract,
   buildPatternBriefing,

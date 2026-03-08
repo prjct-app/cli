@@ -7,6 +7,7 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
+import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import { memoryService } from '../services/memory-service'
 import prjctDb from '../storage/database'
@@ -14,7 +15,8 @@ import { ideasStorage } from '../storage/ideas-storage'
 import { queueStorage } from '../storage/queue-storage'
 import type { CleanupOptions, CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
-import { configManager, dateHelper, out } from './base'
+import * as dateHelper from '../utils/date-helper'
+import out from '../utils/output'
 
 /**
  * Memory cleanup helper - prunes old memory events

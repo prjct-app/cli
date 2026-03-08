@@ -8,7 +8,7 @@
  * Flow: Completed Tasks → Pattern Extraction → Memory Injection
  */
 
-import type { SemanticMemories } from '../agentic/memory-system'
+import type { SemanticMemories } from '../agentic/semantic-memories'
 import type { FeatureOutcome } from '../schemas/outcomes'
 import type { TaskHistoryEntry } from '../schemas/state'
 import type { MemoryTag } from '../types/memory'

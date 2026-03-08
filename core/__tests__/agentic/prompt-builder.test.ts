@@ -16,15 +16,6 @@ describe('PromptBuilder', () => {
     builder.resetContext()
   })
 
-  describe('Critical Rules (removed — LLM-over-heuristic)', () => {
-    it('should return empty string (rules are in host LLM system prompt)', () => {
-      builder.setContext({ files: [], filteredSize: 0 })
-      const rules = builder.buildCriticalRules()
-
-      expect(rules).toBe('')
-    })
-  })
-
   describe('State Filtering', () => {
     it('should preserve full content for critical files', () => {
       const state = {
@@ -156,7 +147,7 @@ describe('PromptBuilder', () => {
       expect(prompt).toContain('TASK:')
       expect(prompt).toContain('TOOLS:')
       expect(prompt).toContain('Flow')
-      expect(prompt).toContain('CONSTRAINTS (Read Before Acting)')
+      expect(prompt).toContain('CONSTRAINTS')
       expect(prompt).toContain('## FILES:')
     })
 

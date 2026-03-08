@@ -6,22 +6,13 @@
  */
 
 import commandExecutor from '../agentic/command-executor'
-import contextBuilder from '../agentic/context-builder'
-import toolRegistry from '../agentic/tool-registry'
-import configManager from '../infrastructure/config-manager'
-import pathManager from '../infrastructure/path-manager'
 import UpdateChecker from '../infrastructure/update-checker'
-// Services
 import { agentService } from '../services/agent-service'
 import { breakdownService } from '../services/breakdown-service'
 import { memoryService } from '../services/memory-service'
 import { projectService } from '../services/project-service'
 import type { AgentInfo } from '../types/agents'
 import type { Author, CommandResult } from '../types/commands'
-import * as dateHelper from '../utils/date-helper'
-import * as fileHelper from '../utils/file-helper'
-
-import out from '../utils/output'
 
 /**
  * Base class with shared state and utilities
@@ -94,6 +85,3 @@ export class PrjctCommandsBase {
     return breakdownService.detectBugSeverity(description)
   }
 }
-
-// Re-export dependencies for use by other modules
-export { contextBuilder, toolRegistry, pathManager, configManager, fileHelper, dateHelper, out }

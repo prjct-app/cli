@@ -22,8 +22,6 @@ import {
   GENERAL_CLASSIFICATION,
   type TaskClassification,
 } from '../schemas/classification'
-// ProjectContext type moved to core/types/agentic.ts as DomainClassifierProjectContext
-import type { DomainClassifierProjectContext as ProjectContext } from '../types/agentic.js'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import { isExpired } from '../utils/cache'
 import { writeJson } from '../utils/file-helper'
@@ -102,8 +100,7 @@ export class DomainClassifier {
   async classify(
     description: string,
     projectId: string,
-    globalPath: string,
-    _context: ProjectContext
+    globalPath: string
   ): Promise<{
     classification: TaskClassification
     source: 'cache' | 'history' | 'llm' | 'heuristic'

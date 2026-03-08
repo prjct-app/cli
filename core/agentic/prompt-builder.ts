@@ -6,15 +6,16 @@
  * Auto-injects unified state, learned patterns, and performance stats.
  *
  * @module agentic/prompt-builder
- * @version 5.0
+ * @version 6.0
  */
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import type { CommandContextEntry } from '../schemas/command-context'
+import { CHARS_PER_TOKEN } from '../constants/token'
 import { queueStorage } from '../storage/queue-storage'
 import { stateStorage } from '../storage/state-storage'
 import type {
+  InjectionBudgets,
   LearnedPatterns,
   OrchestratorContext,
   PlanInfo,
@@ -25,55 +26,77 @@ import type {
   Template,
   ThinkBlock,
 } from '../types/agentic'
-import type { ProjectGroundTruth } from '../types/agentic.js'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import type { Memory } from '../types/memory'
 import { fileExists } from '../utils/file-helper'
 import { PACKAGE_ROOT } from '../utils/version'
 import outcomeAnalyzer from '../workflows/outcome-analyzer'
-import { buildAntiHallucinationBlock } from './anti-hallucination'
-import { loadCommandContextConfig, resolveCommandContextFull } from './command-context'
-import type { ContextHealthMonitor } from './context-health'
-import { buildEnvironmentBlock } from './environment-block'
-import {
-  budgetsFromCoordinator,
-  DEFAULT_BUDGETS,
-  InjectionBudgetTracker,
-  truncateToTokenBudget,
-} from './injection-validator'
-import { deduplicateTechStack } from './tech-normalizer'
 import { getTemplateContent, listTemplates } from './template-loader'
-import type { TokenBudgetCoordinator } from './token-budget'
+
+// =============================================================================
+// Token Budget Utilities (inlined from injection-validator)
+// =============================================================================
+
+const DEFAULT_BUDGETS: InjectionBudgets = {
+  autoContext: 500,
+  stateData: 1000,
+  memories: 600,
+  totalPrompt: 8000,
+}
+
+function truncateToTokenBudget(text: string, maxTokens: number): string {
+  const maxChars = maxTokens * CHARS_PER_TOKEN
+  if (text.length <= maxChars) return text
+  return `${text.substring(0, maxChars)}\n... (truncated to ~${maxTokens} tokens)`
+}
+
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / CHARS_PER_TOKEN)
+}
+
+class InjectionBudgetTracker {
+  private used = 0
+  private budgets: InjectionBudgets
+
+  constructor(budgets: Partial<InjectionBudgets> = {}) {
+    this.budgets = { ...DEFAULT_BUDGETS, ...budgets }
+  }
+
+  addSection(content: string, sectionBudget: number): string {
+    const truncated = truncateToTokenBudget(content, sectionBudget)
+    const tokens = estimateTokens(truncated)
+
+    if (this.used + tokens > this.budgets.totalPrompt) {
+      const remaining = this.budgets.totalPrompt - this.used
+      if (remaining <= 0) return ''
+      const fitted = truncateToTokenBudget(truncated, remaining)
+      this.used += estimateTokens(fitted)
+      return fitted
+    }
+
+    this.used += tokens
+    return truncated
+  }
+}
 
 // =============================================================================
 // Section Priority (PRJ-301)
 // =============================================================================
 
-// SectionPriority type moved to core/types/agentic.ts
-
-/**
- * Canonical section ordering for prompt assembly.
- * Based on research of 25+ system prompts from Claude Code, Gemini, ChatGPT.
- *
- * @see PRJ-301
- */
 export const PROMPT_SECTION_ORDER = [
-  'identity', // Who the model is (agent + role)
-  'environment', // Where: project, git, platform, model
-  'ground_truth', // Sealed analysis: ecosystem, stack, patterns
-  'capabilities', // Tools, agents, skills, plan mode
-  'constraints', // Anti-hallucination rules (BEFORE task context)
-  'task_context', // Files, state, memories, learned patterns
-  'task', // Template content + subtasks (the actual instructions)
-  'output_schema', // Structured response format
-  'efficiency', // Token efficiency directive
+  'identity',
+  'environment',
+  'ground_truth',
+  'capabilities',
+  'constraints',
+  'task_context',
+  'task',
+  'output_schema',
+  'efficiency',
 ] as const
-
-// Type re-exports removed — import directly from core/types/agentic and core/types/memory
 
 /**
  * Cached template entry with TTL support
- * @see PRJ-76
  */
 interface CachedTemplate {
   content: string
@@ -84,9 +107,6 @@ interface CachedTemplate {
  * Builds prompts for Claude using templates, context, and learned patterns.
  * Supports plan mode, think blocks, and quality checklists.
  * Auto-injects unified state and performance insights.
- *
- * Uses lazy loading for templates with 60s TTL cache.
- * @see PRJ-76
  */
 class PromptBuilder {
   private _checklistsCache: Record<string, string> | null = null
@@ -94,21 +114,10 @@ class PromptBuilder {
   private _checklistRoutingCache: string | null = null
   private _checklistRoutingCacheTime: number = 0
   private _stateCache: Map<string, { state: PromptProjectState; timestamp: number }> = new Map()
-  private _stateCacheTTL = 5000 // 5 seconds
+  private _stateCacheTTL = 5000
   private _templateCache: Map<string, CachedTemplate> = new Map()
-  private readonly TEMPLATE_CACHE_TTL_MS = 60_000 // 60 seconds
+  private readonly TEMPLATE_CACHE_TTL_MS = 60_000
 
-  /** Active token budget coordinator (PRJ-266) */
-  private _coordinator: TokenBudgetCoordinator | null = null
-
-  /** Context health monitor for zone-aware directives */
-  private _healthMonitor: ContextHealthMonitor | null = null
-
-  /**
-   * Get a template with TTL caching.
-   * Returns cached content if within TTL, otherwise loads from disk.
-   * @see PRJ-76
-   */
   async getTemplate(templatePath: string): Promise<string | null> {
     const cached = this._templateCache.get(templatePath)
     const now = Date.now()
@@ -132,10 +141,6 @@ class PromptBuilder {
     return null
   }
 
-  /**
-   * Clear the template cache (for testing or forced refresh)
-   * @see PRJ-76
-   */
   clearTemplateCache(): void {
     this._templateCache.clear()
     this._checklistsCache = null
@@ -144,62 +149,10 @@ class PromptBuilder {
     this._checklistRoutingCacheTime = 0
   }
 
-  /**
-   * Set the token budget coordinator for model-aware budget management.
-   * When set, budget allocations flow from the coordinator instead of defaults.
-   *
-   * @see PRJ-266
-   */
-  setCoordinator(coordinator: TokenBudgetCoordinator | null): void {
-    this._coordinator = coordinator
-  }
-
-  /** Get the active coordinator (may be null) */
-  getCoordinator(): TokenBudgetCoordinator | null {
-    return this._coordinator
-  }
-
-  /**
-   * Set the context health monitor for zone-aware efficiency directives.
-   */
-  setHealthMonitor(monitor: ContextHealthMonitor | null): void {
-    this._healthMonitor = monitor
-  }
-
-  /** Get the active health monitor (may be null) */
-  getHealthMonitor(): ContextHealthMonitor | null {
-    return this._healthMonitor
-  }
-
-  /**
-   * Get effective injection budgets.
-   * Uses coordinator allocation when available, falls back to DEFAULT_BUDGETS.
-   *
-   * @see PRJ-266
-   */
-  private getEffectiveBudgets() {
-    if (this._coordinator) {
-      return budgetsFromCoordinator(this._coordinator)
-    }
-    return DEFAULT_BUDGETS
-  }
-
-  /**
-   * Reset context (for testing)
-   */
   resetContext(): void {}
-
-  /**
-   * Set context for testing
-   */
   setContext(_context: PromptContext | null): void {}
 
-  /**
-   * Load a specific CLAUDE module for SMART commands (PRJ-94)
-   * These modules extend the base global CLAUDE.md for complex operations
-   */
   async loadModule(moduleName: string): Promise<string | null> {
-    // Try bundle first
     const bundled = getTemplateContent(`global/modules/${moduleName}`)
     if (bundled) return bundled
 
@@ -207,27 +160,9 @@ class PromptBuilder {
     return this.getTemplate(modulePath)
   }
 
-  /**
-   * Get additional modules needed for SMART commands (PRJ-94)
-   * Now config-driven via command-context.config.json (PRJ-298)
-   */
-  getModulesForCommand(_commandName: string, commandContext?: CommandContextEntry): string[] {
-    if (commandContext) {
-      return commandContext.modules
-    }
-    // Fallback if called without config (shouldn't happen after PRJ-298)
-    return []
-  }
-
-  /**
-   * Load quality checklists from templates/checklists/
-   * Uses lazy loading with TTL cache.
-   * @see PRJ-76
-   */
   async loadChecklists(): Promise<Record<string, string>> {
     const now = Date.now()
 
-    // Check if cache is still valid
     if (this._checklistsCache && now - this._checklistsCacheTime < this.TEMPLATE_CACHE_TTL_MS) {
       return this._checklistsCache
     }
@@ -235,7 +170,6 @@ class PromptBuilder {
     const checklists: Record<string, string> = {}
 
     try {
-      // Try bundled templates first
       const bundledKeys = listTemplates('checklists/')
       if (bundledKeys.length > 0) {
         for (const key of bundledKeys) {
@@ -248,7 +182,6 @@ class PromptBuilder {
           }
         }
       } else {
-        // Fall back to filesystem
         const checklistsDir = path.join(PACKAGE_ROOT, 'templates', 'checklists')
         if (await fileExists(checklistsDir)) {
           const files = (await fs.readdir(checklistsDir)).filter((f: string) => f.endsWith('.md'))
@@ -263,7 +196,6 @@ class PromptBuilder {
         }
       }
     } catch (error) {
-      // Silent fail - checklists are optional enhancement
       if (!isNotFoundError(error)) {
         console.error(`Checklist loading warning: ${getErrorMessage(error)}`)
       }
@@ -274,9 +206,6 @@ class PromptBuilder {
     return checklists
   }
 
-  /**
-   * Get unified project state from MD managers.
-   */
   async getProjectState(projectId: string): Promise<PromptProjectState | null> {
     if (!projectId) return null
 
@@ -307,10 +236,6 @@ class PromptBuilder {
     }
   }
 
-  /**
-   * Build auto-injected context from MD state.
-   * This is automatically added to every prompt.
-   */
   async buildInjectedContext(projectId: string): Promise<string | null> {
     if (!projectId) return null
 
@@ -319,11 +244,9 @@ class PromptBuilder {
 
     const parts: string[] = []
 
-    // Current state
     parts.push('## AUTO-INJECTED CONTEXT')
     parts.push('')
 
-    // Current task
     if (state.currentTask) {
       const elapsed = this.calculateElapsed(state.currentTask.startedAt)
       parts.push(`**Current Task**: ${state.currentTask.description}`)
@@ -333,7 +256,6 @@ class PromptBuilder {
     }
     parts.push('')
 
-    // Queue summary
     if (state.queue.length > 0) {
       parts.push(`**Queue**: ${state.queue.length} tasks pending`)
       const top3 = state.queue.slice(0, 3)
@@ -346,7 +268,6 @@ class PromptBuilder {
     }
     parts.push('')
 
-    // Get detected patterns from outcomes
     try {
       const patterns = await outcomeAnalyzer.detectPatterns(projectId)
       if (patterns.length > 0) {
@@ -360,7 +281,6 @@ class PromptBuilder {
         parts.push('')
       }
     } catch (error) {
-      // Outcomes not available yet - expected for new projects
       if (!isNotFoundError(error) && !(error instanceof SyntaxError)) {
         console.error(`Outcome detection warning: ${getErrorMessage(error)}`)
       }
@@ -370,12 +290,9 @@ class PromptBuilder {
     parts.push('')
 
     const result = parts.join('\n')
-    return truncateToTokenBudget(result, this.getEffectiveBudgets().autoContext)
+    return truncateToTokenBudget(result, DEFAULT_BUDGETS.autoContext)
   }
 
-  /**
-   * Calculate elapsed time from ISO timestamp.
-   */
   private calculateElapsed(isoTimestamp: string): string {
     const start = new Date(isoTimestamp).getTime()
     const now = Date.now()
@@ -390,15 +307,9 @@ class PromptBuilder {
     return `${minutes}m`
   }
 
-  /**
-   * Load checklist routing template for Claude to decide which checklists apply
-   * Uses lazy loading with TTL cache.
-   * @see PRJ-76
-   */
   async loadChecklistRouting(): Promise<string | null> {
     const now = Date.now()
 
-    // Check if cache is still valid
     if (
       this._checklistRoutingCache &&
       now - this._checklistRoutingCacheTime < this.TEMPLATE_CACHE_TTL_MS
@@ -415,7 +326,6 @@ class PromptBuilder {
       'checklist-routing.md'
     )
 
-    // Use getTemplate for consistent caching behavior
     const content = await this.getTemplate(routingPath)
     if (content) {
       this._checklistRoutingCache = content
@@ -425,10 +335,6 @@ class PromptBuilder {
     return this._checklistRoutingCache || null
   }
 
-  /**
-   * Build a complete prompt with auto-injected context.
-   * This is the preferred method - automatically includes state and insights.
-   */
   async buildWithInjection(
     template: Template,
     context: PromptContext & { projectId?: string },
@@ -441,7 +347,6 @@ class PromptBuilder {
   ): Promise<string> {
     const parts: string[] = []
 
-    // Auto-inject unified context first
     if (context.projectId) {
       const injected = await this.buildInjectedContext(context.projectId)
       if (injected) {
@@ -449,7 +354,6 @@ class PromptBuilder {
       }
     }
 
-    // Build the rest using existing method
     const basePrompt = await this.build(
       template,
       context,
@@ -468,12 +372,6 @@ class PromptBuilder {
 
   /**
    * Build a complete prompt for Claude from template, context, and enhancements.
-   *
-   * Section ordering follows research-backed pattern (PRJ-301):
-   * Identity → Environment → Ground Truth → Capabilities → Constraints →
-   * Task Context → Task → Output Schema → Efficiency
-   *
-   * @deprecated Use buildWithInjection for auto-injected context
    */
   async build(
     template: Template,
@@ -490,28 +388,20 @@ class PromptBuilder {
     const skipNativeContext = options?.skipNativeContext ?? false
     const parts: string[] = []
 
-    // Context available via function parameter
-
-    // PRJ-298: Config-driven command context (replaces 4 hardcoded lists)
+    // Default command context
     const commandName = template.frontmatter?.name?.replace('p:', '') || ''
-    let commandContext: CommandContextEntry
-    try {
-      const config = await loadCommandContextConfig()
-      const resolved = resolveCommandContextFull(config, commandName, template)
-      commandContext = resolved.entry
-    } catch {
-      // Fallback: sensible defaults if config fails to load
-      commandContext = { agents: true, patterns: true, checklist: false, modules: [] }
+    const commandContext = {
+      agents: true,
+      patterns: true,
+      checklist: false,
+      modules: [] as string[],
     }
 
     // =========================================================================
-    // SECTION 1: IDENTITY (critical)
-    // Tell the LLM what it is before anything else.
+    // SECTION 1: IDENTITY
     // =========================================================================
 
-    const needsAgent = commandContext.agents
-
-    if (agent && needsAgent) {
+    if (agent && commandContext.agents) {
       parts.push(`# AGENT: ${agent.name}\n`)
       if (agent.role) parts.push(`Role: ${agent.role}\n`)
       if (agent.skills?.length) parts.push(`Skills: ${agent.skills.join(', ')}\n`)
@@ -530,28 +420,22 @@ class PromptBuilder {
     }
 
     // =========================================================================
-    // SECTION 2: ENVIRONMENT (important)
-    // Structured env block: project, git, platform, model.
+    // SECTION 2: ENVIRONMENT
     // =========================================================================
 
     const projectPath = (context as { projectPath?: string }).projectPath
     if (projectPath) {
-      const projectName = orchestratorContext?.project?.id
-        ? path.basename(projectPath)
-        : path.basename(projectPath)
-      const envBlock = buildEnvironmentBlock({
-        projectName,
-        projectPath,
-        isGitRepo: true,
-        gitBranch: orchestratorContext?.realContext?.gitBranch,
-      })
-      parts.push(`\n${envBlock}\n`)
+      const projectName = path.basename(projectPath)
+      const envLines = [`project: ${projectName}`, `path: ${projectPath}`, `git: true`]
+      if (orchestratorContext?.realContext?.gitBranch) {
+        envLines.push(`branch: ${orchestratorContext.realContext.gitBranch}`)
+      }
+      envLines.push(`date: ${new Date().toISOString().split('T')[0]}`)
+      parts.push(`\n<env>\n${envLines.join('\n')}\n</env>\n`)
     }
 
     // =========================================================================
-    // SECTION 3: GROUND TRUTH (important)
-    // Sealed analysis: ecosystem, domains, stack, code patterns.
-    // LLM knows the project reality before seeing task context.
+    // SECTION 3: GROUND TRUTH
     // =========================================================================
 
     if (orchestratorContext) {
@@ -561,7 +445,6 @@ class PromptBuilder {
       parts.push(`**Primary Domain**: ${orchestratorContext.primaryDomain}\n`)
       parts.push(`**Domains**: ${orchestratorContext.detectedDomains.join(', ')}\n`)
 
-      // Inject sealed analysis data (PRJ-260)
       if (sa) {
         if (sa.languages?.length > 0) {
           parts.push(`**Languages**: ${sa.languages.join(', ')}\n`)
@@ -583,7 +466,6 @@ class PromptBuilder {
           `**Analysis Status**: ${sa.status}${sa.commitHash ? ` (commit: ${sa.commitHash.slice(0, 8)})` : ''}\n`
         )
 
-        // Patterns and anti-patterns: skip when Claude Code loads them via native skills
         if (!skipNativeContext) {
           if (sa.patterns?.length > 0) {
             parts.push('\n### Code Patterns (Follow These)\n')
@@ -606,11 +488,9 @@ class PromptBuilder {
       parts.push('\n')
     }
 
-    // Code patterns summary: skip when Claude Code loads them via native skills
     if (!skipNativeContext) {
-      const needsPatterns = commandContext.patterns
       const codePatternsContent = state?.codePatterns || ''
-      if (needsPatterns && codePatternsContent && codePatternsContent.trim()) {
+      if (commandContext.patterns && codePatternsContent && codePatternsContent.trim()) {
         const patternSummary = this.extractPatternSummary(codePatternsContent)
         if (patternSummary) {
           parts.push('## CODE PATTERNS\n')
@@ -620,7 +500,7 @@ class PromptBuilder {
       }
 
       const analysisContent = state?.analysis || ''
-      if (needsPatterns && analysisContent && analysisContent.trim()) {
+      if (commandContext.patterns && analysisContent && analysisContent.trim()) {
         const stackMatch =
           analysisContent.match(/Stack[:\s]+([^\n]+)/i) ||
           analysisContent.match(/Technology[:\s]+([^\n]+)/i)
@@ -636,14 +516,11 @@ class PromptBuilder {
     }
 
     // =========================================================================
-    // SECTION 4: CAPABILITIES (important)
-    // Available agents, skills, modules, plan mode.
+    // SECTION 4: CAPABILITIES
     // =========================================================================
 
-    // Additional modules for SMART commands (PRJ-94/PRJ-298)
-    const additionalModules = this.getModulesForCommand(commandName, commandContext)
-    if (additionalModules.length > 0) {
-      for (const moduleName of additionalModules) {
+    if (commandContext.modules.length > 0) {
+      for (const moduleName of commandContext.modules) {
         const moduleContent = await this.loadModule(moduleName)
         if (moduleContent) {
           parts.push('\n')
@@ -652,7 +529,6 @@ class PromptBuilder {
       }
     }
 
-    // Plan mode / approval
     if (planInfo?.isPlanning) {
       parts.push(
         `\n## PLAN MODE\nRead-only. Gather info → Analyze → Propose plan → Wait for approval.\n`
@@ -666,46 +542,28 @@ class PromptBuilder {
     }
 
     // =========================================================================
-    // SECTION 5: CONSTRAINTS (critical)
-    // Anti-hallucination rules BEFORE task context.
-    // LLM has constraints loaded before processing code/files.
+    // SECTION 5: CONSTRAINTS
     // =========================================================================
 
     if (projectPath) {
+      parts.push(`\n## CONSTRAINTS\nSCOPE: Only files in \`${projectPath}\` are accessible.\n`)
+
       const sa = orchestratorContext?.sealedAnalysis
-      // PRJ-300: prefer sealed analysis frameworks as primary tech stack,
-      // falling back to repo conventions. Deduplicate with normalized matching.
-      const rawStack = [
-        ...(sa?.frameworks || []),
-        ...(Array.isArray(orchestratorContext?.project?.conventions)
-          ? orchestratorContext.project.conventions
-          : []),
-      ]
-      const groundTruth: ProjectGroundTruth = {
-        projectPath,
-        language: orchestratorContext?.project?.ecosystem,
-        framework: sa?.frameworks?.[0],
-        techStack: deduplicateTechStack(rawStack),
-        domains: this.extractDomains(state),
-        fileCount: context.files?.length || context.filteredSize || 0,
-        // Inject sealed analysis data for enriched grounding (PRJ-260)
-        analysisLanguages: sa?.languages || [],
-        analysisFrameworks: sa?.frameworks || [],
-        analysisPackageManager: sa?.packageManager,
+      if (sa) {
+        const available = [...(sa.languages || []), ...(sa.frameworks || [])].filter(Boolean)
+        if (available.length > 0) {
+          parts.push(`AVAILABLE: ${available.join(', ')}\n`)
+        }
+        if (sa.packageManager) {
+          parts.push(`PACKAGE MANAGER: ${sa.packageManager}\n`)
+        }
       }
-      parts.push(`\n${buildAntiHallucinationBlock(groundTruth)}\n`)
-    } else {
-      // Fallback: compressed rules when no project context available
-      parts.push(this.buildCriticalRules())
     }
 
     // =========================================================================
-    // SECTION 6: TASK CONTEXT (important)
-    // Files, codebase context, state, memories, patterns — all the data
-    // the LLM needs to work with, presented after it knows the rules.
+    // SECTION 6: TASK CONTEXT
     // =========================================================================
 
-    // Context degradation notice (PRJ-277)
     if (
       orchestratorContext?.contextDegradation?.level !== 'full' &&
       orchestratorContext?.contextDegradation
@@ -719,7 +577,6 @@ class PromptBuilder {
       )
     }
 
-    // Codebase context (proactively gathered)
     if (orchestratorContext?.realContext) {
       const rc = orchestratorContext.realContext
       parts.push('\n### CODEBASE CONTEXT\n\n')
@@ -754,7 +611,6 @@ class PromptBuilder {
       }
     }
 
-    // File list
     const files = context.files || []
     if (files.length > 0) {
       const top5 = files.slice(0, 5).join(', ')
@@ -764,7 +620,6 @@ class PromptBuilder {
       parts.push(`\n## PROJECT: ${projectPath}\nRead files before modifying.\n\n`)
     }
 
-    // Project state
     const relevantState = this.filterRelevantState(state)
     if (relevantState) {
       parts.push('\n## PRJCT STATE (Project Management Data)\n')
@@ -772,14 +627,12 @@ class PromptBuilder {
       parts.push('\n')
     }
 
-    // Velocity context (PRJ-296) — estimation guidance from historical data
     if (orchestratorContext?.velocityContext) {
       parts.push('\n### VELOCITY (Historical Estimation Data)\n\n')
       parts.push(orchestratorContext.velocityContext)
       parts.push('\n\n')
     }
 
-    // Learned patterns
     if (learnedPatterns && Object.keys(learnedPatterns).some((k) => learnedPatterns[k])) {
       parts.push('\n## PROJECT DEFAULTS (apply automatically)\n')
       for (const [key, value] of Object.entries(learnedPatterns)) {
@@ -789,7 +642,6 @@ class PromptBuilder {
       }
     }
 
-    // Think block
     if (thinkBlock?.plan && thinkBlock.plan.length > 0) {
       parts.push('\n## THINK FIRST (reasoning from analysis)\n')
       if (thinkBlock.conclusions && thinkBlock.conclusions.length > 0) {
@@ -805,7 +657,6 @@ class PromptBuilder {
       parts.push(`Confidence: ${Math.round((thinkBlock.confidence || 0.5) * 100)}%\n`)
     }
 
-    // Relevant memories
     if (relevantMemories && relevantMemories.length > 0) {
       parts.push('\n## CONTEXT (apply these)\n')
       for (const memory of relevantMemories) {
@@ -817,8 +668,7 @@ class PromptBuilder {
     }
 
     // =========================================================================
-    // SECTION 6.5: RPI PHASE (advisory)
-    // Research → Plan → Implement workflow guidance
+    // SECTION 6.5: RPI PHASE
     // =========================================================================
 
     if (orchestratorContext?.rpiContext) {
@@ -861,14 +711,11 @@ class PromptBuilder {
     parts.push('\n---\n')
 
     // =========================================================================
-    // SECTION 7: TASK (critical)
-    // Template content (actual instructions) + subtasks.
-    // LLM reads this AFTER knowing identity, env, rules, and context.
+    // SECTION 7: TASK
     // =========================================================================
 
     parts.push(template.content)
 
-    // Subtasks (if fragmented)
     if (orchestratorContext?.requiresFragmentation && orchestratorContext.subtasks) {
       parts.push('\n### SUBTASKS (Execute in Order)\n\n')
       parts.push(
@@ -901,7 +748,6 @@ class PromptBuilder {
           parts.push(`Dependencies: ${currentSubtask.dependsOn.join(', ')}\n`)
         }
 
-        // Inject previous subtask handoff for context continuity (PRJ-262)
         if (currentSubtask.handoff) {
           const h = currentSubtask.handoff
           parts.push('\n### Previous Subtask Handoff\n\n')
@@ -923,11 +769,9 @@ class PromptBuilder {
     }
 
     // =========================================================================
-    // SECTION 8: OUTPUT (important)
-    // Output schema and quality checklists.
+    // SECTION 8: OUTPUT
     // =========================================================================
 
-    // Output schema (PRJ-264)
     const schemaType = this.getSchemaTypeForCommand(commandName)
     if (schemaType) {
       const { renderSchemaForPrompt } = await import('../schemas/llm-output')
@@ -937,7 +781,6 @@ class PromptBuilder {
       }
     }
 
-    // Quality checklists (PRJ-298)
     if (commandContext.checklist) {
       const routing = await this.loadChecklistRouting()
       const checklists = await this.loadChecklists()
@@ -954,24 +797,21 @@ class PromptBuilder {
     }
 
     // =========================================================================
-    // SECTION 9: EFFICIENCY (critical)
-    // Token efficiency directive — be concise, no preamble.
+    // SECTION 9: EFFICIENCY
     // =========================================================================
 
-    parts.push(this.buildEfficiencyDirective())
+    parts.push('\n## EFFICIENCY\n')
+    parts.push('- Be concise. No preamble, no filler.\n')
+    parts.push('- Use sub-agents for exploration that produces >5 file reads.\n')
+    parts.push('- Prefer file:line references over dumping full file contents.\n')
 
     return parts.join('')
   }
 
-  /**
-   * Filter state data to include only relevant portions for the prompt.
-   * Uses InjectionBudgetTracker to enforce cumulative token limits.
-   */
   filterRelevantState(state: PromptState): string | null {
     if (!state || Object.keys(state).length === 0) return null
 
-    const budgets = this.getEffectiveBudgets()
-    const tracker = new InjectionBudgetTracker({ totalPrompt: budgets.stateData })
+    const tracker = new InjectionBudgetTracker({ totalPrompt: DEFAULT_BUDGETS.stateData })
     const criticalFiles = ['now', 'next', 'context', 'analysis', 'codePatterns']
     const relevant: string[] = []
 
@@ -986,9 +826,6 @@ class PromptBuilder {
     return relevant.length > 0 ? relevant.join('\n\n') : null
   }
 
-  /**
-   * Build an analysis prompt for pre-action investigation tasks
-   */
   buildAnalysis(
     analysisType: string,
     context: { projectPath: string; projectId?: string }
@@ -1006,9 +843,6 @@ class PromptBuilder {
     return parts.join('')
   }
 
-  /**
-   * Extract compressed pattern summary
-   */
   extractPatternSummary(content: string): string | null {
     if (!content) return null
 
@@ -1031,14 +865,10 @@ class PromptBuilder {
     }
 
     const joined = parts.join('\n')
-    const result = truncateToTokenBudget(joined, 200) // ~800 chars
+    const result = truncateToTokenBudget(joined, 200)
     return result || null
   }
 
-  /**
-   * Map command names to their expected output schema type.
-   * Returns null for commands that don't need structured output.
-   */
   private getSchemaTypeForCommand(commandName: string): string | null {
     const schemaMap: Record<string, string> = {
       task: 'subtaskBreakdown',
@@ -1046,74 +876,7 @@ class PromptBuilder {
     }
     return schemaMap[commandName] ?? null
   }
-
-  /**
-   * Build critical anti-hallucination rules section.
-   * Used as fallback when full anti-hallucination block can't be built
-   * (e.g., no project path available).
-   */
-  buildCriticalRules(): string {
-    return ''
-  }
-
-  /**
-   * Build token efficiency directive (PRJ-301).
-   * Static rules (always present) + dynamic rules (zone-dependent).
-   */
-  buildEfficiencyDirective(): string {
-    const parts: string[] = []
-
-    // Static rules (~100 tokens, always present)
-    parts.push('\n## EFFICIENCY\n')
-    parts.push('- Be concise. No preamble, no filler.\n')
-    parts.push('- Use sub-agents for exploration that produces >5 file reads.\n')
-    parts.push('- Prefer file:line references over dumping full file contents.\n')
-
-    // Dynamic rules (zone-dependent)
-    if (this._healthMonitor) {
-      const status = this._healthMonitor.getStatus()
-
-      if (status.zone === 'warning') {
-        parts.push(
-          `\n**CONTEXT WARNING** (${Math.round(status.usagePercent)}% used): ` +
-            'Use sub-agents for all exploration. Consider compacting conversation.\n'
-        )
-      } else if (status.zone === 'dumb') {
-        parts.push(
-          `\n**CONTEXT CRITICAL** (${Math.round(status.usagePercent)}% used): ` +
-            'STOP expanding context. Work only with referenced files. Compact now.\n'
-        )
-      }
-
-      // Check for transitions at build time
-      this._healthMonitor.checkTransition()
-    }
-
-    return parts.join('')
-  }
-
-  /**
-   * Extract domain flags from state data.
-   * Returns the domains object if available in the raw state.
-   */
-  private extractDomains(state: PromptState): ProjectGroundTruth['domains'] | undefined {
-    if (!state) return undefined
-    // State may contain raw domains from state.json (loaded by context-builder)
-    const raw = state as Record<string, unknown>
-    if (raw.domains && typeof raw.domains === 'object') {
-      const d = raw.domains as Record<string, boolean>
-      return {
-        hasFrontend: d.hasFrontend ?? false,
-        hasBackend: d.hasBackend ?? false,
-        hasDatabase: d.hasDatabase ?? false,
-        hasTesting: d.hasTesting ?? false,
-        hasDocker: d.hasDocker ?? false,
-      }
-    }
-    return undefined
-  }
 }
 
 const promptBuilder = new PromptBuilder()
 export default promptBuilder
-export { PromptBuilder }

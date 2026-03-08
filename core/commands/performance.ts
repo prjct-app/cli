@@ -6,10 +6,12 @@
  */
 
 import chalk from 'chalk'
+import configManager from '../infrastructure/config-manager'
 import performanceTracker from '../infrastructure/performance-tracker'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
-import { configManager, out, PrjctCommandsBase } from './base'
+import out from '../utils/output'
+import { PrjctCommandsBase } from './base'
 
 // Target thresholds for display
 const TARGETS = {

@@ -5,10 +5,14 @@
  */
 
 import path from 'node:path'
+import configManager from '../infrastructure/config-manager'
+import pathManager from '../infrastructure/path-manager'
 import { memoryService } from '../services/memory-service'
 import type { CommandResult, DesignOptions } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
-import { configManager, dateHelper, fileHelper, out, pathManager } from './base'
+import * as dateHelper from '../utils/date-helper'
+import * as fileHelper from '../utils/file-helper'
+import out from '../utils/output'
 
 /**
  * /p:design - Design system architecture, APIs, and components

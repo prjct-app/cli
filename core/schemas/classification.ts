@@ -2,7 +2,7 @@
  * Task Classification Schema
  *
  * Defines the structure for LLM-based domain classification results.
- * Replaces hardcoded keyword lists with structured classification output.
+ * Domains are free-form strings — the LLM decides domain names.
  *
  * @see PRJ-299
  */
@@ -13,16 +13,7 @@ import { z } from 'zod'
 // Classification Schemas
 // =============================================================================
 
-export const ClassificationDomainSchema = z.enum([
-  'frontend',
-  'backend',
-  'database',
-  'devops',
-  'testing',
-  'docs',
-  'uxui',
-  'general',
-])
+export const ClassificationDomainSchema = z.string()
 
 export const TaskClassificationSchema = z.object({
   /** Primary domain for this task */

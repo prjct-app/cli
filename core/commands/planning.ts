@@ -3,9 +3,12 @@
  * Write-Through Architecture: JSON → MD → Event
  */
 
+import fs from 'node:fs/promises'
 import path from 'node:path'
 import * as authorDetector from '../infrastructure/author-detector'
 import commandInstaller from '../infrastructure/command-installer'
+import configManager from '../infrastructure/config-manager'
+import pathManager from '../infrastructure/path-manager'
 import { generateUUID } from '../schemas/schemas'
 import type { Priority, TaskSection, TaskType } from '../schemas/state'
 import { ideasStorage } from '../storage/ideas-storage'
@@ -13,19 +16,14 @@ import { queueStorage } from '../storage/queue-storage'
 import { workflowRuleStorage } from '../storage/workflow-rule-storage'
 import type { CommandResult, InitOptions } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
+import * as dateHelper from '../utils/date-helper'
+import * as fileHelper from '../utils/file-helper'
 import { mdNextSteps, mdOutput, mdSection, mdStats } from '../utils/md-formatter'
 import { showNextSteps } from '../utils/next-steps'
+import out from '../utils/output'
 import { detectProjectCommands } from '../utils/project-commands'
 import { OnboardingWizard } from '../workflows/onboarding'
-import {
-  configManager,
-  dateHelper,
-  fileHelper,
-  out,
-  PrjctCommandsBase,
-  pathManager,
-  toolRegistry,
-} from './base'
+import { PrjctCommandsBase } from './base'
 
 // Lazy-loaded to avoid circular dependencies
 let _analysisCommands: import('./analysis').AnalysisCommands | null = null
@@ -148,7 +146,7 @@ export class PlanningCommands extends PrjctCommandsBase {
       }
 
       for (const [filePath, content] of Object.entries(baseFiles)) {
-        await toolRegistry.get('Write')!(path.join(globalPath, filePath), content)
+        await fs.writeFile(path.join(globalPath, filePath), content)
       }
 
       const isEmpty = await this._detectEmptyDirectory(projectPath)
@@ -181,7 +179,7 @@ export class PlanningCommands extends PrjctCommandsBase {
         out.spin('architect mode...')
         const sessionPath = path.join(globalPath, 'planning', 'architect-session.md')
         const sessionContent = `# Architect Session\n\n## Idea\n${idea}\n\n## Status\nInitialized - awaiting stack recommendation\n\nGenerated: ${new Date().toLocaleString()}\n`
-        await toolRegistry.get('Write')!(sessionPath, sessionContent)
+        await fs.writeFile(sessionPath, sessionContent)
 
         await commandInstaller.installGlobalConfig()
 
@@ -513,7 +511,7 @@ Initialized - awaiting architecture design
 
 Generated: ${new Date().toLocaleString()}
 `
-        await toolRegistry.get('Write')!(sessionPath, sessionContent)
+        await fs.writeFile(sessionPath, sessionContent)
 
         await this.logToMemory(projectPath, 'idea_architecture_started', {
           idea: description,
@@ -662,7 +660,7 @@ Created: ${new Date().toLocaleString()}
 Status: Draft
 `
 
-      await toolRegistry.get('Write')!(specFile, specContent)
+      await fs.writeFile(specFile, specContent)
 
       await this.logToMemory(projectPath, 'spec_created', {
         feature: featureName,

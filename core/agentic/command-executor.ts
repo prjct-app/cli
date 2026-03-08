@@ -3,36 +3,31 @@
  * Orchestrates command execution with agentic delegation.
  *
  * @module agentic/command-executor
- * @version 3.4
+ * @version 4.0
  */
 
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { ORCHESTRATED_COMMANDS, SIMPLE_COMMANDS } from '../constants/commands'
 import type {
   ApprovalContext,
   ExecutionResult,
-  ExecutionToolsFn,
   OrchestratorContext,
   PromptContext,
-  SimpleExecutionResult,
 } from '../types/agentic'
 import { getErrorMessage } from '../types/fs'
 import type { SubtaskDisplay } from '../types/utils'
 import { agentStream } from '../utils/agent-stream'
 import { fileExists } from '../utils/file-helper'
 import { printSubtaskProgress } from '../utils/subtask-table'
-import chainOfThought from './chain-of-thought'
 import contextBuilder from './context-builder'
-import groundTruth from './ground-truth'
 import loopDetector from './loop-detector'
 import memorySystem from './memory-system'
 import orchestratorExecutor from './orchestrator-executor'
 import planMode from './plan-mode'
 import promptBuilder from './prompt-builder'
-import templateExecutor from './template-executor'
 import templateLoader from './template-loader'
-import toolRegistry from './tool-registry'
 
 // =============================================================================
 // Status Signal
@@ -93,6 +88,15 @@ export class CommandExecutor {
   }
 
   /**
+   * Check if a command requires orchestration
+   */
+  private requiresOrchestration(command: string): boolean {
+    if (ORCHESTRATED_COMMANDS.includes(command)) return true
+    if (SIMPLE_COMMANDS.includes(command)) return false
+    return true
+  }
+
+  /**
    * Execute a prjct command with full agentic delegation
    */
   async execute(
@@ -126,7 +130,7 @@ export class CommandExecutor {
       // 2. Build METADATA context only (lazy loading - no file reads yet)
       const metadataContext = await contextBuilder.build(projectPath, params)
 
-      // 2.55. P3.4 PLAN MODE: Check if command requires planning
+      // 2.5. PLAN MODE: Check if command requires planning
       const requiresPlanning = planMode.requiresPlanning(commandName)
       const isDestructive = planMode.isDestructive(commandName)
       const isInPlanningMode = planMode.isInPlanningMode(metadataContext.projectId!)
@@ -139,47 +143,10 @@ export class CommandExecutor {
         activePlan = planMode.getActivePlan(metadataContext.projectId!)
       }
 
-      // 2.6. GROUND TRUTH: Verify actual state before critical operations
-      let groundTruthResult = null
-      if (groundTruth.requiresVerification(commandName)) {
-        const preState = await contextBuilder.loadStateForCommand(metadataContext, commandName)
-        groundTruthResult = await groundTruth.verify(commandName, metadataContext, preState)
-
-        // Log warnings but don't block (user can override)
-        if (!groundTruthResult.verified && groundTruthResult.warnings.length > 0) {
-          console.log(groundTruth.formatWarnings(groundTruthResult))
-        }
-      }
-
-      // 2.8. CHAIN OF THOUGHT: Reasoning for critical commands
-      let reasoning = null
-      if (chainOfThought.requiresReasoning(commandName)) {
-        const reasoningState = await contextBuilder.loadStateForCommand(
-          metadataContext,
-          commandName
-        )
-        reasoning = await chainOfThought.reason(commandName, metadataContext, reasoningState)
-
-        // If reasoning shows critical issues, warn but continue
-        if (reasoning.reasoning && !reasoning.reasoning.allPassed) {
-          console.log('⚠️  Chain of Thought detected issues:')
-          console.log(chainOfThought.formatPlan(reasoning))
-        }
-      }
-
-      // 3. AGENTIC: Template-first execution
-      // Claude decides agent assignment via templates - no hardcoded routing
+      // 3. ORCHESTRATOR: Execute orchestration for commands that require it
       const taskDescription = (params.task as string) || (params.description as string) || ''
-      const agenticExecContext = await templateExecutor.buildContext(
-        commandName,
-        taskDescription,
-        projectPath
-      )
-      const agenticInfo = templateExecutor.buildAgenticPrompt(agenticExecContext)
-
-      // 3.5. ORCHESTRATOR: Execute orchestration for commands that require it
       let orchestratorContext: OrchestratorContext | null = null
-      if (templateExecutor.requiresOrchestration(commandName) && taskDescription) {
+      if (this.requiresOrchestration(commandName) && taskDescription) {
         try {
           orchestratorContext = await orchestratorExecutor.execute(
             commandName,
@@ -208,19 +175,17 @@ export class CommandExecutor {
         }
       }
 
-      // Build context with agent routing info for Claude delegation
+      // Build context
       const context: PromptContext = {
         ...metadataContext,
-        orchestratorPath: agenticExecContext.paths.orchestrator,
-        taskFragmentationPath: agenticExecContext.paths.taskFragmentation,
         agenticDelegation: true,
         agenticMode: true,
       }
 
-      // 6. Load state with filtered context
+      // 4. Load state with filtered context
       const state = await contextBuilder.loadState(metadataContext)
 
-      // 7. MEMORY: Load learned patterns AND relevant memories for this command
+      // 5. MEMORY: Load learned patterns AND relevant memories for this command
       let learnedPatterns = null
       let relevantMemories = null
       if (metadataContext.projectId) {
@@ -243,7 +208,7 @@ export class CommandExecutor {
           ),
         }
 
-        // P3.3: Get relevant memories for context
+        // Get relevant memories for context
         relevantMemories = await memorySystem.getRelevantMemories(
           metadataContext.projectId,
           { commandName, params },
@@ -251,7 +216,7 @@ export class CommandExecutor {
         )
       }
 
-      // 9. Build prompt - NO agent assignment here, Claude decides via templates
+      // 6. Build prompt
       const planInfo = {
         isPlanning: requiresPlanning || isInPlanningMode,
         requiresApproval: isDestructive && !params.approved,
@@ -261,9 +226,6 @@ export class CommandExecutor {
           template.frontmatter['allowed-tools'] || []
         ),
       }
-      // Agent is null - Claude uses skills natively
-      // Pass orchestratorContext for domain/agent/subtask injection
-      // Skip native context (agents/skills/patterns) for Claude Code — it loads them natively
       const aiProvider = require('../infrastructure/ai-provider')
       const activeProvider = await aiProvider.getActiveProvider()
       const isClaudeProvider = activeProvider.name === 'claude'
@@ -283,9 +245,6 @@ export class CommandExecutor {
 
       // Log agentic mode
       console.log(`🤖 Template-first execution: Claude reads templates and decides`)
-      if (agenticInfo.requiresOrchestration) {
-        console.log(`   → Orchestration: ${agenticExecContext.paths.orchestrator}`)
-      }
 
       // Record successful attempt
       loopDetector.recordSuccess(commandName, loopContext)
@@ -301,13 +260,6 @@ export class CommandExecutor {
         prompt,
         agenticDelegation: true,
         agenticMode: true,
-        agenticExecContext,
-        agenticPrompt: agenticInfo.prompt,
-        requiresOrchestration: agenticInfo.requiresOrchestration,
-        orchestratorPath: agenticExecContext.paths.orchestrator,
-        taskFragmentationPath: agenticExecContext.paths.taskFragmentation,
-        reasoning,
-        groundTruth: groundTruthResult,
         learnedPatterns,
         relevantMemories,
         orchestratorContext,
@@ -349,8 +301,6 @@ export class CommandExecutor {
             planMode.rejectPlan(metadataContext.projectId!, reason),
           getApprovalPrompt: () =>
             planMode.generateApprovalPrompt(commandName, {
-              // Reason: `context` here is the command execution context, not the plan-mode ApprovalContext.
-              // Provide required fields with safe defaults to avoid unsafe casting.
               changedFiles: [],
               filesToDelete: [],
               operation: ((): ApprovalContext['operation'] => {
@@ -401,64 +351,6 @@ export class CommandExecutor {
         error: getErrorMessage(error),
         attemptNumber: attemptInfo.attemptNumber,
         isLooping: attemptInfo.isLooping,
-      }
-    }
-  }
-
-  /**
-   * Execute tool with permission check
-   */
-  async executeTool(toolName: string, args: unknown[], allowedTools: string[]): Promise<unknown> {
-    // Check if tool is allowed
-    if (!toolRegistry.isAllowed(toolName, allowedTools)) {
-      throw new Error(`Tool ${toolName} not allowed for this command`)
-    }
-
-    // Get tool function
-    const tool = toolRegistry.get(toolName)
-    if (!tool) {
-      throw new Error(`Tool ${toolName} not found`)
-    }
-
-    // Execute tool
-    return await tool(...args)
-  }
-
-  /**
-   * Simple execution for direct tool access (legacy migration helper)
-   */
-  async executeSimple(
-    commandName: string,
-    executionFn: ExecutionToolsFn,
-    projectPath: string
-  ): Promise<SimpleExecutionResult> {
-    try {
-      // Load template to get allowed tools
-      const template = await templateLoader.load(commandName)
-      const allowedTools = template.frontmatter['allowed-tools'] || []
-
-      // Build context
-      const context = await contextBuilder.build(projectPath)
-
-      // Create tools proxy that checks permissions
-      const tools = {
-        read: async (filePath: string) => this.executeTool('Read', [filePath], allowedTools),
-        write: async (filePath: string, content: string) =>
-          this.executeTool('Write', [filePath, content], allowedTools),
-        bash: async (command: string) => this.executeTool('Bash', [command], allowedTools),
-      }
-
-      // Execute user function with tools
-      const result = await executionFn(tools, context)
-
-      return {
-        success: true,
-        result,
-      }
-    } catch (error) {
-      return {
-        success: false,
-        error: getErrorMessage(error),
       }
     }
   }

@@ -28,7 +28,6 @@ import type {
   ContextDegradation,
   OrchestratorContext,
   OrchestratorSubtask,
-  DomainClassifierProjectContext as ProjectContext,
   RealCodebaseContext,
   RpiContext,
   SealedAnalysisContext,
@@ -37,11 +36,6 @@ import { getErrorMessage, isNotFoundError } from '../types/fs'
 import { execAsync } from '../utils/exec'
 import outcomeRecorder from '../workflows/outcome-recorder'
 import domainClassifier from './domain-classifier'
-
-/**
- * Domain dependency order - earlier domains should complete first
- */
-const DOMAIN_DEPENDENCY_ORDER = ['database', 'backend', 'frontend', 'testing', 'devops']
 
 // =============================================================================
 // Orchestrator Executor Class
@@ -378,37 +372,14 @@ export class OrchestratorExecutor {
   async detectDomains(
     taskDescription: string,
     projectId: string,
-    repoAnalysis: { ecosystem: string; technologies?: string[] } | null
+    _repoAnalysis: { ecosystem: string; technologies?: string[] } | null
   ): Promise<{ domains: string[]; primary: string }> {
     const globalPath = pathManager.getGlobalProjectPath(projectId)
-
-    // Load state from SQLite for project domain info
-    let projectDomains = {
-      hasFrontend: false,
-      hasBackend: true,
-      hasDatabase: false,
-      hasTesting: false,
-      hasDocker: false,
-    }
-    try {
-      const state = (await stateStorage.read(projectId)) as Record<string, unknown>
-      if (state.domains) {
-        projectDomains = state.domains as typeof projectDomains
-      }
-    } catch {
-      // Use defaults
-    }
-
-    const context: ProjectContext = {
-      domains: projectDomains,
-      stack: repoAnalysis ? { language: repoAnalysis.ecosystem } : undefined,
-    }
 
     const { classification } = await domainClassifier.classify(
       taskDescription,
       projectId,
-      globalPath,
-      context
+      globalPath
     )
 
     const domains = [classification.primaryDomain, ...(classification.secondaryDomains || [])]
@@ -467,13 +438,8 @@ export class OrchestratorExecutor {
     _agents: unknown[],
     projectId: string
   ): Promise<OrchestratorSubtask[]> {
-    // Sort domains by dependency order
-    const sortedDomains = [...domains].sort((a, b) => {
-      const orderA = DOMAIN_DEPENDENCY_ORDER.indexOf(a)
-      const orderB = DOMAIN_DEPENDENCY_ORDER.indexOf(b)
-      // Unknown domains go last
-      return (orderA === -1 ? 99 : orderA) - (orderB === -1 ? 99 : orderB)
-    })
+    // Preserve domain order as provided (LLM decides ordering)
+    const sortedDomains = [...domains]
 
     // Create subtask for each domain
     const subtasks: OrchestratorSubtask[] = sortedDomains.map((domain, index) => {
@@ -508,21 +474,8 @@ export class OrchestratorExecutor {
     return subtasks
   }
 
-  /**
-   * Generate a domain-specific subtask description
-   */
   private generateSubtaskDescription(fullTask: string, domain: string): string {
-    const domainDescriptions: Record<string, string> = {
-      database: 'Set up data layer: schema, models, migrations',
-      backend: 'Implement API: routes, controllers, services, validation',
-      frontend: 'Build UI: components, forms, state management',
-      testing: 'Write tests: unit, integration, e2e',
-      devops: 'Configure deployment: CI/CD, environment, containers',
-      uxui: 'Design user experience: flows, accessibility, styling',
-    }
-
-    const prefix = domainDescriptions[domain] || `Handle ${domain} aspects`
-    return `[${domain.toUpperCase()}] ${prefix} for: ${fullTask.substring(0, 80)}${fullTask.length > 80 ? '...' : ''}`
+    return `[${domain.toUpperCase()}] Handle ${domain} aspects for: ${fullTask.substring(0, 80)}${fullTask.length > 80 ? '...' : ''}`
   }
 }
 

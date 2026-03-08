@@ -17,7 +17,7 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { SemanticMemories } from '../agentic/memory-system'
+import { SemanticMemories } from '../agentic/semantic-memories'
 import { indexProject as indexBm25, loadIndex as loadBm25Index } from '../domain/bm25'
 import { affectedDomains, propagateChanges } from '../domain/change-propagator'
 import { detectChanges, hasHashRegistry, saveHashes } from '../domain/file-hasher'

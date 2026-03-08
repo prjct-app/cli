@@ -5,11 +5,15 @@
  */
 
 import path from 'node:path'
+import configManager from '../infrastructure/config-manager'
+import pathManager from '../infrastructure/path-manager'
 import { memoryService } from '../services/memory-service'
 import { TaskSessionManager } from '../session/task-session-manager'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
-import { configManager, dateHelper, fileHelper, out, pathManager } from './base'
+import * as dateHelper from '../utils/date-helper'
+import * as fileHelper from '../utils/file-helper'
+import out from '../utils/output'
 
 interface SnapshotHistory {
   snapshots: { id: string; timestamp: string; message: string }[]

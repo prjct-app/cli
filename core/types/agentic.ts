@@ -82,7 +82,7 @@ export interface ToolRegistry {
 // Context Types
 // =============================================================================
 
-export type ContextDomain = 'frontend' | 'backend' | 'devops' | 'docs' | 'testing' | 'general'
+export type ContextDomain = string
 
 export interface ContextState {
   [key: string]: string | null
@@ -930,23 +930,6 @@ export interface AgenticPromptInfo {
   prompt: string
   context: TemplateExecutionContext
   requiresOrchestration: boolean
-}
-
-// =============================================================================
-// Domain Classifier Types
-// =============================================================================
-
-export interface DomainClassifierProjectContext {
-  /** Domains detected during sync */
-  domains: {
-    hasFrontend: boolean
-    hasBackend: boolean
-    hasDatabase: boolean
-    hasTesting: boolean
-    hasDocker: boolean
-  }
-  /** Project stack info */
-  stack?: { language?: string; framework?: string }
 }
 
 // =============================================================================

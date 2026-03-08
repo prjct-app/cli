@@ -77,11 +77,9 @@ describe('validateLLMResponse', () => {
 
   it('should fail on valid JSON with wrong schema', () => {
     const raw = JSON.stringify({
-      primaryDomain: 'invalid-domain',
-      secondaryDomains: [],
-      confidence: 0.9,
-      filePatterns: [],
-      relevantAgents: [],
+      primaryDomain: 123,
+      secondaryDomains: 'not-an-array',
+      confidence: 'not-a-number',
     })
 
     const result = validateLLMResponse(raw, TaskClassificationSchema)

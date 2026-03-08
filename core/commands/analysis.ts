@@ -5,9 +5,12 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import * as p from '@clack/prompts'
+import contextBuilder from '../agentic/context-builder'
 import memorySystem from '../agentic/memory-system'
 import analyzer from '../domain/analyzer'
 import commandInstaller from '../infrastructure/command-installer'
+import configManager from '../infrastructure/config-manager'
+import pathManager from '../infrastructure/path-manager'
 import { formatCost } from '../schemas/metrics'
 import { formatAnalysisDiffMd, formatAnalysisDiffText } from '../services/analysis-diff'
 import { buildAnalysisPayload } from '../services/analysis-payload-builder'
@@ -21,6 +24,7 @@ import { metricsStorage } from '../storage/metrics-storage'
 import type { AnalyzeOptions, CommandResult } from '../types/commands'
 import type { ProjectContext } from '../types/core'
 import { getErrorMessage } from '../types/fs'
+import * as dateHelper from '../utils/date-helper'
 import {
   mdDone,
   mdList,
@@ -41,14 +45,7 @@ import {
   getSessionActivity,
   showSyncResult,
 } from './analysis-helpers'
-import {
-  configManager,
-  contextBuilder,
-  dateHelper,
-  PrjctCommandsBase,
-  pathManager,
-  toolRegistry,
-} from './base'
+import { PrjctCommandsBase } from './base'
 
 export class AnalysisCommands extends PrjctCommandsBase {
   /**
@@ -94,7 +91,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
       const summaryPath =
         context.paths.analysis || pathManager.getFilePath(projectId!, 'analysis', 'repo-summary.md')
 
-      await toolRegistry.get('Write')!(summaryPath, summary)
+      await fs.writeFile(summaryPath, summary, 'utf-8')
 
       await this.logToMemory(projectPath, 'repository_analyzed', {
         timestamp: dateHelper.getTimestamp(),
