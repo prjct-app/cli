@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.52.3] - 2026-03-08
+
+### Bug Fixes
+
+- security hardening — command injection, CORS, path traversal, error disclosure (#235)
+- security hardening — command injection, CORS, path traversal, error disclosure
+
+
 ## [1.52.2] - 2026-03-07
 
 ### Added
