@@ -1,7 +1,7 @@
 /**
  * prjct MCP Server
  *
- * Exposes project data via Model Context Protocol (23 tools).
+ * Exposes project data via Model Context Protocol (24 tools).
  * Wraps existing storage and context modules — no new logic.
  *
  * @module mcp/server
@@ -11,6 +11,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { registerFileTools } from './tools/files'
 import { registerMemoryTools } from './tools/memory'
 import { registerProjectTools } from './tools/project'
+import { registerReviewTools } from './tools/review'
 import { registerSessionTools } from './tools/session'
 import { registerWorkflowTools } from './tools/workflow'
 
@@ -54,6 +55,7 @@ export function createServer(): McpServer {
   registerProjectTools(server)
   registerFileTools(server)
   registerWorkflowTools(server)
+  registerReviewTools(server)
 
   return server
 }
