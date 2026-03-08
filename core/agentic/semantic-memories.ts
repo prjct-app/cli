@@ -1,82 +1,73 @@
 /**
- * Semantic Memories - Tagged, searchable memory store
+ * Semantic Memories - FTS5-backed searchable memory store
  *
- * P3.3: Tagged, searchable, CRUD memory operations.
- * Supports domain-based filtering, relevance scoring,
- * and auto-remember functionality.
+ * SQLite FTS5 replaces in-memory `.includes()` search.
+ * BM25 ranking, SHA-256 dedup, topic_key upsert, soft-delete.
  *
  * @module agentic/semantic-memories
  */
 
 import { generateUUID } from '../schemas/schemas'
+import prjctDb from '../storage/database'
 import type {
   Memory,
   MemoryContext,
-  MemoryDatabase,
   MemoryRetrievalResult,
   MemoryTag,
   RelevantMemoryQuery,
-  ScoredMemory,
-  TaskDomain,
 } from '../types/memory'
 import { MEMORY_TAGS } from '../types/memory'
 import { getTimestamp } from '../utils/date-helper'
-
-import { CachedStore } from './memory-stores'
+import { sha256Short } from '../utils/hash'
 
 // =============================================================================
-// Semantic Memories
+// Row type from SQLite
 // =============================================================================
 
-/**
- * Semantic Memories
- * P3.3: Tagged, searchable, CRUD memory operations.
- */
-export class SemanticMemories extends CachedStore<MemoryDatabase> {
-  protected getFilename(): string {
-    return 'memories.json'
-  }
+interface MemoryRow {
+  id: string
+  project_id: string
+  title: string
+  content: string
+  tags: string | null
+  topic_key: string | null
+  content_hash: string | null
+  user_triggered: number
+  revision_count: number
+  confidence: string | null
+  observation_count: number
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+}
 
-  protected getDefault(): MemoryDatabase {
-    return {
-      version: 1,
-      memories: [],
-      index: this._createEmptyIndex(),
-    }
+function rowToMemory(row: MemoryRow): Memory {
+  return {
+    id: row.id,
+    title: row.title,
+    content: row.content,
+    tags: row.tags ? (row.tags.split(',').filter(Boolean) as MemoryTag[]) : [],
+    userTriggered: row.user_triggered === 1,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    confidence: row.confidence as Memory['confidence'],
+    observationCount: row.observation_count || undefined,
   }
+}
 
-  protected afterLoad(db: MemoryDatabase): void {
-    this._normalizeIndex(db)
-  }
+// =============================================================================
+// Semantic Memories (FTS5)
+// =============================================================================
 
-  private _createEmptyIndex(): Record<string, string[]> {
-    const tags = Object.values(MEMORY_TAGS)
-    const index: Record<string, string[]> = {}
-    for (const tag of tags) index[tag] = []
-    return index
-  }
-
-  private _normalizeIndex(db: MemoryDatabase): void {
-    // Reason: older persisted files may not include newer tags; ensure all tags are present.
-    const tags = Object.values(MEMORY_TAGS)
-    for (const tag of tags) {
-      if (!db.index[tag]) db.index[tag] = []
-    }
-  }
-
+export class SemanticMemories {
   private _coerceTags(tags: string[]): MemoryTag[] {
     const allowed = new Set<MemoryTag>(Object.values(MEMORY_TAGS) as MemoryTag[])
     return tags.filter((t): t is MemoryTag => allowed.has(t as MemoryTag))
   }
 
-  async loadMemories(projectId: string): Promise<MemoryDatabase> {
-    return this.load(projectId)
-  }
-
-  async saveMemories(projectId: string): Promise<void> {
-    return this.save(projectId)
-  }
-
+  /**
+   * Create a memory. Deduplicates by content_hash and upserts by topic_key.
+   */
   async createMemory(
     projectId: string,
     {
@@ -84,30 +75,71 @@ export class SemanticMemories extends CachedStore<MemoryDatabase> {
       content,
       tags = [],
       userTriggered = false,
-    }: { title: string; content: string; tags?: string[]; userTriggered?: boolean }
+      topicKey,
+    }: {
+      title: string
+      content: string
+      tags?: string[]
+      userTriggered?: boolean
+      topicKey?: string
+    }
   ): Promise<string> {
-    const db = await this.load(projectId)
     const parsedTags = this._coerceTags(tags)
+    const tagsStr = parsedTags.join(',')
     const now = getTimestamp()
+    const contentHash = sha256Short(content)
 
-    const memory: Memory = {
-      id: generateUUID(),
+    // Dedup: if same content_hash exists for this project, skip
+    const existing = prjctDb.get<{ id: string }>(
+      projectId,
+      'SELECT id FROM memories WHERE project_id = ? AND content_hash = ? AND deleted_at IS NULL',
+      projectId,
+      contentHash
+    )
+    if (existing) return existing.id
+
+    // Topic key upsert: if same topic_key exists, update instead
+    if (topicKey) {
+      const topicRow = prjctDb.get<MemoryRow>(
+        projectId,
+        'SELECT * FROM memories WHERE project_id = ? AND topic_key = ? AND deleted_at IS NULL',
+        projectId,
+        topicKey
+      )
+      if (topicRow) {
+        prjctDb.run(
+          projectId,
+          `UPDATE memories SET title = ?, content = ?, tags = ?, content_hash = ?,
+           revision_count = revision_count + 1, updated_at = ? WHERE id = ?`,
+          title,
+          content,
+          tagsStr,
+          contentHash,
+          now,
+          topicRow.id
+        )
+        return topicRow.id
+      }
+    }
+
+    const id = generateUUID()
+    prjctDb.run(
+      projectId,
+      `INSERT INTO memories
+        (id, project_id, title, content, tags, topic_key, content_hash, user_triggered, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      id,
+      projectId,
       title,
       content,
-      tags: parsedTags,
-      userTriggered,
-      createdAt: now,
-      updatedAt: now,
-    }
-
-    db.memories.push(memory)
-
-    for (const tag of parsedTags) {
-      db.index[tag].push(memory.id)
-    }
-
-    await this.save(projectId)
-    return memory.id
+      tagsStr,
+      topicKey ?? null,
+      contentHash,
+      userTriggered ? 1 : 0,
+      now,
+      now
+    )
+    return id
   }
 
   async updateMemory(
@@ -115,48 +147,51 @@ export class SemanticMemories extends CachedStore<MemoryDatabase> {
     memoryId: string,
     updates: { title?: string; content?: string; tags?: string[] }
   ): Promise<boolean> {
-    const db = await this.load(projectId)
+    const existing = prjctDb.get<MemoryRow>(
+      projectId,
+      'SELECT * FROM memories WHERE id = ? AND project_id = ? AND deleted_at IS NULL',
+      memoryId,
+      projectId
+    )
+    if (!existing) return false
 
-    const index = db.memories.findIndex((m) => m.id === memoryId)
-    if (index === -1) return false
+    const title = updates.title ?? existing.title
+    const content = updates.content ?? existing.content
+    const tags = updates.tags ? this._coerceTags(updates.tags).join(',') : existing.tags
+    const contentHash = updates.content ? sha256Short(content) : existing.content_hash
 
-    const memory = db.memories[index]
-    const oldTags = memory.tags || []
-
-    if (updates.title) memory.title = updates.title
-    if (updates.content) memory.content = updates.content
-    if (updates.tags) {
-      const newTags = this._coerceTags(updates.tags)
-      for (const tag of oldTags) {
-        db.index[tag] = db.index[tag].filter((id: string) => id !== memoryId)
-      }
-      for (const tag of newTags) {
-        db.index[tag].push(memoryId)
-      }
-      memory.tags = newTags
-    }
-
-    memory.updatedAt = getTimestamp()
-    await this.save(projectId)
+    prjctDb.run(
+      projectId,
+      `UPDATE memories SET title = ?, content = ?, tags = ?, content_hash = ?,
+       revision_count = revision_count + 1, updated_at = ? WHERE id = ?`,
+      title,
+      content,
+      tags,
+      contentHash,
+      getTimestamp(),
+      memoryId
+    )
     return true
   }
 
+  /**
+   * Soft-delete a memory (sets deleted_at).
+   */
   async deleteMemory(projectId: string, memoryId: string): Promise<boolean> {
-    const db = await this.load(projectId)
+    const existing = prjctDb.get<{ id: string }>(
+      projectId,
+      'SELECT id FROM memories WHERE id = ? AND project_id = ? AND deleted_at IS NULL',
+      memoryId,
+      projectId
+    )
+    if (!existing) return false
 
-    const index = db.memories.findIndex((m) => m.id === memoryId)
-    if (index === -1) return false
-
-    const memory = db.memories[index]
-
-    for (const tag of memory.tags || []) {
-      if (db.index[tag]) {
-        db.index[tag] = db.index[tag].filter((id) => id !== memoryId)
-      }
-    }
-
-    db.memories.splice(index, 1)
-    await this.save(projectId)
+    prjctDb.run(
+      projectId,
+      'UPDATE memories SET deleted_at = ? WHERE id = ?',
+      getTimestamp(),
+      memoryId
+    )
     return true
   }
 
@@ -165,81 +200,122 @@ export class SemanticMemories extends CachedStore<MemoryDatabase> {
     tags: string[],
     matchAll: boolean = false
   ): Promise<Memory[]> {
-    const db = await this.load(projectId)
-    const parsedTags = this._coerceTags(tags)
+    const rows = prjctDb.query<MemoryRow>(
+      projectId,
+      'SELECT * FROM memories WHERE project_id = ? AND deleted_at IS NULL ORDER BY updated_at DESC',
+      projectId
+    )
 
-    if (matchAll) {
-      return db.memories.filter((m) => parsedTags.every((tag) => (m.tags || []).includes(tag)))
-    } else {
-      const matchingIds = new Set<string>()
-      for (const tag of parsedTags) {
-        const ids = db.index[tag]
-        for (const id of ids) {
-          matchingIds.add(id)
-        }
+    const parsedTags = this._coerceTags(tags)
+    const filtered = rows.filter((row) => {
+      const rowTags = row.tags ? row.tags.split(',') : []
+      if (matchAll) {
+        return parsedTags.every((tag) => rowTags.includes(tag))
       }
-      return db.memories.filter((m) => matchingIds.has(m.id))
+      return parsedTags.some((tag) => rowTags.includes(tag))
+    })
+
+    return filtered.map(rowToMemory)
+  }
+
+  /**
+   * FTS5 full-text search with BM25 ranking.
+   * Falls back to LIKE if FTS query syntax is invalid.
+   */
+  async searchMemories(projectId: string, query: string): Promise<Memory[]> {
+    try {
+      const rows = prjctDb.query<MemoryRow>(
+        projectId,
+        `SELECT m.* FROM memories m
+         JOIN memories_fts fts ON m.rowid = fts.rowid
+         WHERE memories_fts MATCH ? AND m.project_id = ? AND m.deleted_at IS NULL
+         ORDER BY bm25(memories_fts) LIMIT 20`,
+        query,
+        projectId
+      )
+      return rows.map(rowToMemory)
+    } catch {
+      // FTS query syntax error — fall back to LIKE
+      const safeQuery = `%${query}%`
+      const rows = prjctDb.query<MemoryRow>(
+        projectId,
+        `SELECT * FROM memories
+         WHERE project_id = ? AND deleted_at IS NULL
+         AND (title LIKE ? OR content LIKE ?)
+         ORDER BY updated_at DESC LIMIT 20`,
+        projectId,
+        safeQuery,
+        safeQuery
+      )
+      return rows.map(rowToMemory)
     }
   }
 
-  async searchMemories(projectId: string, query: string): Promise<Memory[]> {
-    const db = await this.load(projectId)
-    const queryLower = query.toLowerCase()
-
-    return db.memories.filter(
-      (m) =>
-        m.title.toLowerCase().includes(queryLower) || m.content.toLowerCase().includes(queryLower)
-    )
-  }
-
+  /**
+   * Get memories relevant to the current context using FTS5 + scoring.
+   */
   async getRelevantMemories(
     projectId: string,
     context: MemoryContext,
     limit: number = 5
   ): Promise<Memory[]> {
-    const db = await this.load(projectId)
+    // Build a query string from context
+    const parts: string[] = []
+    if (context.commandName) parts.push(context.commandName)
+    if (context.params?.description) parts.push(String(context.params.description))
+    if (context.params?.task) parts.push(String(context.params.task))
+    if (context.params?.feature) parts.push(String(context.params.feature))
 
-    const scored = db.memories.map((memory) => {
-      let score = 0
+    if (parts.length === 0) {
+      // No context — return most recent
+      const rows = prjctDb.query<MemoryRow>(
+        projectId,
+        'SELECT * FROM memories WHERE project_id = ? AND deleted_at IS NULL ORDER BY updated_at DESC LIMIT ?',
+        projectId,
+        limit
+      )
+      return rows.map(rowToMemory)
+    }
 
-      const contextTags = this._extractContextTags(context)
-      for (const tag of memory.tags || []) {
-        if (contextTags.includes(tag)) score += 10
-      }
-
-      const age = Date.now() - new Date(memory.updatedAt).getTime()
-      const daysSinceUpdate = age / (1000 * 60 * 60 * 24)
-      score += Math.max(0, 5 - daysSinceUpdate)
-
-      if (memory.userTriggered) score += 5
-
-      const keywords = this._extractKeywords(context)
-      for (const keyword of keywords) {
-        if (memory.content.toLowerCase().includes(keyword)) score += 2
-        if (memory.title.toLowerCase().includes(keyword)) score += 3
-      }
-
-      return { ...memory, _score: score }
-    })
-
-    return scored
-      .filter((m) => m._score > 0)
-      .sort((a, b) => b._score - a._score)
-      .slice(0, limit)
-      .map(({ _score, ...memory }) => memory as Memory)
+    // Use FTS5 search with combined keywords
+    const query = parts.join(' ')
+    try {
+      const rows = prjctDb.query<MemoryRow>(
+        projectId,
+        `SELECT m.* FROM memories m
+         JOIN memories_fts fts ON m.rowid = fts.rowid
+         WHERE memories_fts MATCH ? AND m.project_id = ? AND m.deleted_at IS NULL
+         ORDER BY bm25(memories_fts) LIMIT ?`,
+        query,
+        projectId,
+        limit
+      )
+      return rows.map(rowToMemory)
+    } catch {
+      // FTS query syntax error — fall back to recent
+      const rows = prjctDb.query<MemoryRow>(
+        projectId,
+        'SELECT * FROM memories WHERE project_id = ? AND deleted_at IS NULL ORDER BY updated_at DESC LIMIT ?',
+        projectId,
+        limit
+      )
+      return rows.map(rowToMemory)
+    }
   }
 
   /**
-   * Enhanced memory retrieval with domain-based filtering and metrics.
-   * Implements selective memory retrieval based on task relevance.
-   * @see PRJ-107
+   * Enhanced memory retrieval with metrics.
    */
   async getRelevantMemoriesWithMetrics(
     projectId: string,
     query: RelevantMemoryQuery
   ): Promise<MemoryRetrievalResult> {
-    const db = await this.load(projectId)
-    const totalMemories = db.memories.length
+    const totalRow = prjctDb.get<{ count: number }>(
+      projectId,
+      'SELECT COUNT(*) as count FROM memories WHERE project_id = ? AND deleted_at IS NULL',
+      projectId
+    )
+    const totalMemories = totalRow?.count ?? 0
 
     if (totalMemories === 0) {
       return {
@@ -255,193 +331,48 @@ export class SemanticMemories extends CachedStore<MemoryDatabase> {
     }
 
     const maxResults = query.maxResults ?? 10
-    const minRelevance = query.minRelevance ?? 10
 
-    // Score all memories
-    const scored: ScoredMemory[] = db.memories.map((memory) => {
-      const breakdown = {
+    // Use FTS5 if we have a task description
+    const context: { commandName?: string; params?: Record<string, unknown> } = {}
+    if (query.commandName) context.commandName = query.commandName
+    if (query.taskDescription) context.params = { description: query.taskDescription }
+
+    const memories = await this.getRelevantMemories(projectId, context, maxResults)
+
+    // Assign simple relevance scores (FTS5 bm25 handles ranking)
+    const scored = memories.map((m, i) => ({
+      ...m,
+      relevanceScore: Math.max(10, 100 - i * 10),
+      scoreBreakdown: {
         domainMatch: 0,
         tagMatch: 0,
         recency: 0,
         confidence: 0,
-        keywords: 0,
-        userTriggered: 0,
-      }
+        keywords: Math.max(10, 100 - i * 10),
+        userTriggered: m.userTriggered ? 5 : 0,
+      },
+    }))
 
-      // Domain match scoring (0-25 points) — semantic matching (PRJ-300)
-      if (query.taskDomain) {
-        breakdown.domainMatch = this._getSemanticDomainScore(query.taskDomain, memory.tags || [])
-      }
-
-      // Tag match from command context (0-20 points)
-      if (query.commandName) {
-        const commandTags = this._getCommandTags(query.commandName)
-        const matchingTags = (memory.tags || []).filter((tag) => commandTags.includes(tag))
-        breakdown.tagMatch = Math.min(20, matchingTags.length * 8)
-      }
-
-      // Recency scoring (0-15 points)
-      const age = Date.now() - new Date(memory.updatedAt).getTime()
-      const daysSinceUpdate = age / (1000 * 60 * 60 * 24)
-      breakdown.recency = Math.max(0, Math.round(15 - daysSinceUpdate * 0.5))
-
-      // Confidence scoring (0-20 points) - PRJ-104 integration
-      if (memory.confidence) {
-        breakdown.confidence =
-          memory.confidence === 'high' ? 20 : memory.confidence === 'medium' ? 12 : 5
-      } else if (memory.observationCount) {
-        // Fallback to observation count
-        breakdown.confidence = Math.min(20, memory.observationCount * 3)
-      }
-
-      // Keyword matching (0-15 points)
-      if (query.taskDescription) {
-        const keywords = this._extractKeywordsFromText(query.taskDescription)
-        let keywordScore = 0
-        for (const keyword of keywords) {
-          if (memory.content.toLowerCase().includes(keyword)) keywordScore += 2
-          if (memory.title.toLowerCase().includes(keyword)) keywordScore += 3
-        }
-        breakdown.keywords = Math.min(15, keywordScore)
-      }
-
-      // User triggered bonus (0-5 points)
-      if (memory.userTriggered) {
-        breakdown.userTriggered = 5
-      }
-
-      const relevanceScore =
-        breakdown.domainMatch +
-        breakdown.tagMatch +
-        breakdown.recency +
-        breakdown.confidence +
-        breakdown.keywords +
-        breakdown.userTriggered
-
-      return {
-        ...memory,
-        relevanceScore,
-        scoreBreakdown: breakdown,
-      }
-    })
-
-    // Filter by minimum relevance
-    const considered = scored.filter((m) => m.relevanceScore >= minRelevance)
-
-    // Sort by relevance and take top N
-    const sorted = considered.sort((a, b) => b.relevanceScore - a.relevanceScore)
-    const returned = sorted.slice(0, maxResults)
-
-    // Calculate average relevance
     const avgRelevanceScore =
-      returned.length > 0
-        ? Math.round(returned.reduce((sum, m) => sum + m.relevanceScore, 0) / returned.length)
+      scored.length > 0
+        ? Math.round(scored.reduce((sum, m) => sum + m.relevanceScore, 0) / scored.length)
         : 0
 
     return {
-      memories: returned,
+      memories: scored,
       metrics: {
         totalMemories,
-        memoriesConsidered: considered.length,
-        memoriesReturned: returned.length,
-        filteringRatio: totalMemories > 0 ? returned.length / totalMemories : 0,
+        memoriesConsidered: totalMemories,
+        memoriesReturned: scored.length,
+        filteringRatio: totalMemories > 0 ? scored.length / totalMemories : 0,
         avgRelevanceScore,
       },
     }
   }
 
   /**
-   * Semantic domain match score.
-   * Domain-based scoring removed (LLM-over-heuristic). Returns 0.
-   * Memories are filtered by other criteria (text match, tag match, recency).
+   * Auto-remember a decision (upserts by decision type as topic_key).
    */
-  private _getSemanticDomainScore(_domain: TaskDomain, _memoryTags: string[]): number {
-    return 0
-  }
-
-  /**
-   * Map command to relevant memory tags.
-   * @see PRJ-107
-   */
-  private _getCommandTags(commandName: string): MemoryTag[] {
-    const commandTags: Record<string, MemoryTag[]> = {
-      ship: [MEMORY_TAGS.COMMIT_STYLE, MEMORY_TAGS.SHIP_WORKFLOW, MEMORY_TAGS.TEST_BEHAVIOR],
-      feature: [MEMORY_TAGS.ARCHITECTURE, MEMORY_TAGS.CODE_STYLE],
-      done: [MEMORY_TAGS.SHIP_WORKFLOW],
-      analyze: [MEMORY_TAGS.TECH_STACK, MEMORY_TAGS.ARCHITECTURE],
-      spec: [MEMORY_TAGS.ARCHITECTURE, MEMORY_TAGS.CODE_STYLE],
-      task: [MEMORY_TAGS.BRANCH_NAMING, MEMORY_TAGS.CODE_STYLE],
-      sync: [MEMORY_TAGS.TECH_STACK, MEMORY_TAGS.ARCHITECTURE, MEMORY_TAGS.DEPENDENCIES],
-      test: [MEMORY_TAGS.TEST_BEHAVIOR],
-      bug: [MEMORY_TAGS.CODE_STYLE, MEMORY_TAGS.TEST_BEHAVIOR],
-    }
-    return commandTags[commandName] || []
-  }
-
-  /**
-   * Extract keywords from text for matching.
-   */
-  private _extractKeywordsFromText(text: string): string[] {
-    const words = text.toLowerCase().split(/\s+/)
-    const stopWords = new Set([
-      'the',
-      'a',
-      'an',
-      'is',
-      'are',
-      'to',
-      'for',
-      'and',
-      'or',
-      'in',
-      'on',
-      'at',
-      'by',
-      'with',
-      'from',
-      'as',
-      'it',
-      'this',
-      'that',
-      'be',
-      'have',
-      'has',
-    ])
-    return words.filter((w) => w.length > 2 && !stopWords.has(w))
-  }
-
-  private _extractContextTags(context: MemoryContext): string[] {
-    const tags: string[] = []
-
-    const commandTags: Record<string, string[]> = {
-      ship: [MEMORY_TAGS.COMMIT_STYLE, MEMORY_TAGS.SHIP_WORKFLOW, MEMORY_TAGS.TEST_BEHAVIOR],
-      feature: [MEMORY_TAGS.ARCHITECTURE, MEMORY_TAGS.CODE_STYLE],
-      done: [MEMORY_TAGS.SHIP_WORKFLOW],
-      analyze: [MEMORY_TAGS.TECH_STACK, MEMORY_TAGS.ARCHITECTURE],
-      spec: [MEMORY_TAGS.ARCHITECTURE, MEMORY_TAGS.CODE_STYLE],
-    }
-
-    if (context.commandName && commandTags[context.commandName]) {
-      tags.push(...commandTags[context.commandName])
-    }
-
-    return tags
-  }
-
-  private _extractKeywords(context: MemoryContext): string[] {
-    const keywords: string[] = []
-
-    if (context.params?.description) {
-      keywords.push(...(context.params.description as string).toLowerCase().split(/\s+/))
-    }
-    if (context.params?.feature) {
-      keywords.push(...(context.params.feature as string).toLowerCase().split(/\s+/))
-    }
-
-    const stopWords = ['the', 'a', 'an', 'is', 'are', 'to', 'for', 'and', 'or', 'in']
-    return keywords.filter((k) => k.length > 2 && !stopWords.includes(k))
-  }
-
   async autoRemember(
     projectId: string,
     decisionType: string,
@@ -459,41 +390,67 @@ export class SemanticMemories extends CachedStore<MemoryDatabase> {
 
     const tags = tagMap[decisionType] || []
 
-    const existing = await this.searchMemories(projectId, decisionType)
-    if (existing.length > 0) {
-      await this.updateMemory(projectId, existing[0].id, {
-        content: `${decisionType}: ${value}`,
-        tags,
-      })
-    } else {
-      await this.createMemory(projectId, {
-        title: `Preference: ${decisionType}`,
-        content: `${decisionType}: ${value}${context ? `\nContext: ${context}` : ''}`,
-        tags,
-        userTriggered: true,
-      })
-    }
+    await this.createMemory(projectId, {
+      title: `Preference: ${decisionType}`,
+      content: `${decisionType}: ${value}${context ? `\nContext: ${context}` : ''}`,
+      tags,
+      userTriggered: true,
+      topicKey: `preference:${decisionType}`,
+    })
   }
 
   async getAllMemories(projectId: string): Promise<Memory[]> {
-    const db = await this.load(projectId)
-    return db.memories
+    const rows = prjctDb.query<MemoryRow>(
+      projectId,
+      'SELECT * FROM memories WHERE project_id = ? AND deleted_at IS NULL ORDER BY updated_at DESC',
+      projectId
+    )
+    return rows.map(rowToMemory)
   }
 
   async getMemoryStats(projectId: string) {
-    const db = await this.load(projectId)
+    const rows = prjctDb.query<MemoryRow>(
+      projectId,
+      'SELECT * FROM memories WHERE project_id = ? AND deleted_at IS NULL',
+      projectId
+    )
 
     const tagCounts: Record<string, number> = {}
-    for (const [tag, ids] of Object.entries(db.index)) {
-      tagCounts[tag] = ids.length
+    for (const row of rows) {
+      const tags = row.tags ? row.tags.split(',').filter(Boolean) : []
+      for (const tag of tags) {
+        tagCounts[tag] = (tagCounts[tag] || 0) + 1
+      }
     }
 
     return {
-      totalMemories: db.memories.length,
-      userTriggered: db.memories.filter((m) => m.userTriggered).length,
+      totalMemories: rows.length,
+      userTriggered: rows.filter((r) => r.user_triggered === 1).length,
       tagCounts,
-      oldestMemory: db.memories[0]?.createdAt,
-      newestMemory: db.memories[db.memories.length - 1]?.createdAt,
+      oldestMemory: rows[rows.length - 1]?.created_at,
+      newestMemory: rows[0]?.created_at,
     }
+  }
+
+  /**
+   * Load memories (backward compat — returns MemoryDatabase shape).
+   */
+  async loadMemories(projectId: string) {
+    const memories = await this.getAllMemories(projectId)
+    return { version: 1, memories, index: {} }
+  }
+
+  /**
+   * Save memories (no-op — SQLite is always persisted).
+   */
+  async saveMemories(_projectId: string): Promise<void> {
+    // No-op: SQLite writes are immediate
+  }
+
+  /**
+   * Reset (for testing).
+   */
+  reset(): void {
+    // No in-memory cache to reset — SQLite is the source of truth
   }
 }

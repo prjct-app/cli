@@ -503,6 +503,108 @@ const migrations: Migration[] = [
       `)
     },
   },
+  {
+    version: 10,
+    name: 'fts5-memories',
+    up: (db: SqliteDatabase) => {
+      db.run(`
+        -- =======================================================================
+        -- Memories: Tagged, searchable memory store (replaces memories.json)
+        -- =======================================================================
+        CREATE TABLE IF NOT EXISTS memories (
+          id              TEXT PRIMARY KEY,
+          project_id      TEXT NOT NULL,
+          title           TEXT NOT NULL,
+          content         TEXT NOT NULL,
+          tags            TEXT,
+          topic_key       TEXT,
+          content_hash    TEXT,
+          user_triggered  INTEGER NOT NULL DEFAULT 0,
+          revision_count  INTEGER NOT NULL DEFAULT 1,
+          confidence      TEXT,
+          observation_count INTEGER DEFAULT 0,
+          created_at      TEXT NOT NULL,
+          updated_at      TEXT NOT NULL,
+          deleted_at      TEXT
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_memories_project ON memories(project_id);
+        CREATE INDEX IF NOT EXISTS idx_memories_topic ON memories(topic_key);
+        CREATE INDEX IF NOT EXISTS idx_memories_hash ON memories(content_hash);
+        CREATE INDEX IF NOT EXISTS idx_memories_deleted ON memories(deleted_at);
+
+        -- FTS5 virtual table for full-text search with BM25 ranking
+        CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
+          title, content, tags,
+          content='memories', content_rowid='rowid'
+        );
+
+        -- Triggers to keep FTS index in sync
+        CREATE TRIGGER IF NOT EXISTS memories_ai AFTER INSERT ON memories BEGIN
+          INSERT INTO memories_fts(rowid, title, content, tags)
+          VALUES (NEW.rowid, NEW.title, NEW.content, NEW.tags);
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS memories_ad AFTER DELETE ON memories BEGIN
+          INSERT INTO memories_fts(memories_fts, rowid, title, content, tags)
+          VALUES ('delete', OLD.rowid, OLD.title, OLD.content, OLD.tags);
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS memories_au AFTER UPDATE ON memories BEGIN
+          INSERT INTO memories_fts(memories_fts, rowid, title, content, tags)
+          VALUES ('delete', OLD.rowid, OLD.title, OLD.content, OLD.tags);
+          INSERT INTO memories_fts(rowid, title, content, tags)
+          VALUES (NEW.rowid, NEW.title, NEW.content, NEW.tags);
+        END;
+      `)
+
+      // Migrate existing memories from kv_store (memories.json → SQLite)
+      try {
+        const row = db.prepare("SELECT data FROM kv_store WHERE key = 'memory:memories'").get() as {
+          data: string
+        } | null
+        if (row) {
+          const legacy = JSON.parse(row.data) as {
+            memories?: Array<{
+              id: string
+              title: string
+              content: string
+              tags?: string[]
+              userTriggered?: boolean
+              createdAt: string
+              updatedAt: string
+              confidence?: string
+              observationCount?: number
+            }>
+          }
+          if (legacy.memories && legacy.memories.length > 0) {
+            const insert = db.prepare(`
+              INSERT OR IGNORE INTO memories
+                (id, project_id, title, content, tags, content_hash, user_triggered, confidence, observation_count, created_at, updated_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `)
+            for (const m of legacy.memories) {
+              insert.run(
+                m.id,
+                '_migrated',
+                m.title,
+                m.content,
+                (m.tags || []).join(','),
+                null,
+                m.userTriggered ? 1 : 0,
+                m.confidence ?? null,
+                m.observationCount ?? 0,
+                m.createdAt,
+                m.updatedAt
+              )
+            }
+          }
+        }
+      } catch {
+        // Migration is best-effort — old data may not exist
+      }
+    },
+  },
 ]
 
 // =============================================================================
