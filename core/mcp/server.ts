@@ -1,7 +1,7 @@
 /**
  * prjct MCP Server
  *
- * Exposes project data via Model Context Protocol (47 tools).
+ * Exposes project data via Model Context Protocol (48 tools).
  * Wraps existing storage and context modules — no new logic.
  *
  * @module mcp/server
@@ -54,6 +54,7 @@ const MEMORY_PROTOCOL = `## prjct Memory Protocol
 - prjct_archive_stale — periodically clean up old decisions
 - prjct_confirm — when user confirms a decision/preference, boost confidence
 - prjct_analysis_staleness — check if project analysis needs refresh
+- prjct_mem_consolidate — merge duplicate memories (run periodically)
 
 ### On session end:
 1. Call prjct_session_summary with Goal/Accomplished/Discoveries/Next Steps/Files

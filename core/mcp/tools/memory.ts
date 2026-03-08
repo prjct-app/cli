@@ -1,5 +1,5 @@
 /**
- * MCP Memory Tools (13 tools)
+ * MCP Memory Tools (14 tools)
  *
  * Wraps SemanticMemories (FTS5-backed).
  * Progressive disclosure: search returns compact results, use mem_get for full content.
@@ -7,6 +7,8 @@
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
+import memorySystem from '../../agentic/memory-system'
+import { PatternStore } from '../../agentic/pattern-store'
 import { SemanticMemories } from '../../agentic/semantic-memories'
 import prjctDb from '../../storage/database'
 import { stateStorage } from '../../storage/state-storage'
@@ -14,6 +16,7 @@ import { resolveProjectId } from '../resolve'
 import { safeMcpCall } from './error-handler'
 
 const memories = new SemanticMemories()
+const patternStore = new PatternStore()
 
 /** Max content length before truncation on save */
 const MAX_CONTENT_LENGTH = 3000
@@ -159,16 +162,57 @@ export function registerMemoryTools(server: McpServer) {
           args.limit,
           args.offset
         )
-        if (results.length === 0) {
+
+        // Also search pattern store (decisions + preferences) for unified results
+        const queryLower = args.query.toLowerCase()
+        const patternLines: string[] = []
+        try {
+          const detailed = await patternStore.getPatternsSummaryDetailed(projectId)
+          for (const [key, d] of Object.entries(detailed.decisions)) {
+            if (
+              key.toLowerCase().includes(queryLower) ||
+              d.value.toLowerCase().includes(queryLower)
+            ) {
+              patternLines.push(
+                `- **[decision] ${key}**: ${d.value} (confidence: ${d.confidence}, seen: ${d.count}x)`
+              )
+            }
+          }
+          for (const [key, p] of Object.entries(detailed.preferences)) {
+            const valStr = typeof p.value === 'string' ? p.value : JSON.stringify(p.value)
+            if (
+              key.toLowerCase().includes(queryLower) ||
+              valStr.toLowerCase().includes(queryLower)
+            ) {
+              patternLines.push(
+                `- **[preference] ${key}**: ${valStr} (confidence: ${p.confidence})`
+              )
+            }
+          }
+        } catch {
+          // Pattern store may not have data yet
+        }
+
+        if (results.length === 0 && patternLines.length === 0) {
           return { content: [{ type: 'text', text: 'No memories found.' }] }
         }
-        const lines = results.map((m) => {
-          const snippet = m.content.slice(0, 120).replace(/\n/g, ' ')
-          const tags = m.tags.length > 0 ? ` [${m.tags.join(', ')}]` : ''
-          return `- **${m.title}** (id: ${m.id})${tags}\n  ${snippet}${m.content.length > 120 ? '...' : ''}`
-        })
-        const text = `Found ${results.length} memories:\n\n${lines.join('\n')}`
-        return { content: [{ type: 'text', text }] }
+
+        const parts: string[] = []
+
+        if (results.length > 0) {
+          const lines = results.map((m) => {
+            const snippet = m.content.slice(0, 120).replace(/\n/g, ' ')
+            const tags = m.tags.length > 0 ? ` [${m.tags.join(', ')}]` : ''
+            return `- **${m.title}** (id: ${m.id})${tags}\n  ${snippet}${m.content.length > 120 ? '...' : ''}`
+          })
+          parts.push(`Found ${results.length} memories:\n\n${lines.join('\n')}`)
+        }
+
+        if (patternLines.length > 0) {
+          parts.push(`\n### Matching Patterns (${patternLines.length})\n${patternLines.join('\n')}`)
+        }
+
+        return { content: [{ type: 'text', text: parts.join('\n') }] }
       }
     )
   )
@@ -620,6 +664,30 @@ export function registerMemoryTools(server: McpServer) {
         }
       }
     )
+  )
+
+  s.tool(
+    'prjct_mem_consolidate',
+    'Find and merge duplicate/similar memories (same title). Returns count merged.',
+    {
+      projectPath: z.string().describe('Project directory path'),
+    },
+    safeMcpCall('prjct_mem_consolidate', async (args: { projectPath: string }) => {
+      const projectId = await resolveProjectId(args.projectPath)
+      const result = await memorySystem.consolidateMemories(projectId)
+
+      if (result.merged === 0) {
+        return { content: [{ type: 'text', text: 'No duplicate memories found.' }] }
+      }
+
+      const parts = [`## Consolidation Complete`, `Merged: ${result.merged} duplicate memories\n`]
+
+      for (const group of result.groups) {
+        parts.push(`- Kept ${group.kept}, merged ${group.merged.length} duplicates`)
+      }
+
+      return { content: [{ type: 'text', text: parts.join('\n') }] }
+    })
   )
 
   s.tool(

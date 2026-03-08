@@ -105,6 +105,14 @@ export class MemorySystem {
     return this._semanticMemories.getAllMemories(projectId)
   }
 
+  findSimilar(projectId: string, memoryId: string, limit?: number): Promise<Memory[]> {
+    return this._semanticMemories.findSimilar(projectId, memoryId, limit)
+  }
+
+  consolidateMemories(projectId: string) {
+    return this._semanticMemories.consolidateMemories(projectId)
+  }
+
   getMemoryStats(projectId: string) {
     return this._semanticMemories.getMemoryStats(projectId)
   }

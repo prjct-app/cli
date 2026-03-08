@@ -197,7 +197,7 @@ describe('SemanticMemories (FTS5)', () => {
     })
   })
 
-  describe('findByTags', () => {
+  describe('findByTags (SQL-based)', () => {
     it('should find memories by any matching tag', async () => {
       await memories.createMemory(TEST_PROJECT_ID, {
         title: 'Code style',
@@ -237,6 +237,97 @@ describe('SemanticMemories (FTS5)', () => {
       expect(
         results.every((m) => m.tags.includes('code_style') && m.tags.includes('test_behavior'))
       ).toBe(true)
+    })
+
+    it('should return empty for empty tags array', async () => {
+      const results = await memories.findByTags(TEST_PROJECT_ID, [])
+      expect(results).toEqual([])
+    })
+
+    it('should not false-match partial tag names', async () => {
+      await memories.createMemory(TEST_PROJECT_ID, {
+        title: 'Code style only',
+        content: 'Should not match code_style_extended',
+        tags: ['code_style'],
+      })
+
+      // Search for a tag that doesn't exist but is a prefix of code_style
+      const results = await memories.findByTags(TEST_PROJECT_ID, ['code_style_extended' as never])
+      expect(results.length).toBe(0)
+    })
+  })
+
+  describe('consolidateMemories', () => {
+    it('should merge memories with identical titles', async () => {
+      await memories.createMemory(TEST_PROJECT_ID, {
+        title: 'Duplicate finding',
+        content: 'First version of content',
+        tags: ['code_style'],
+      })
+
+      // Different content but same title — will be a separate memory (diff hash)
+      await memories.createMemory(TEST_PROJECT_ID, {
+        title: 'Duplicate finding',
+        content: 'Second version of content',
+        tags: ['architecture'],
+      })
+
+      const result = await memories.consolidateMemories(TEST_PROJECT_ID)
+      expect(result.merged).toBeGreaterThanOrEqual(1)
+      expect(result.groups.length).toBeGreaterThanOrEqual(1)
+
+      // After consolidation, only one memory with that title should remain
+      const all = await memories.getAllMemories(TEST_PROJECT_ID)
+      const remaining = all.filter((m) => m.title === 'Duplicate finding')
+      expect(remaining.length).toBe(1)
+      // Merged content should contain both versions
+      expect(remaining[0].content).toContain('First version')
+      expect(remaining[0].content).toContain('Second version')
+      // Tags should be merged
+      expect(remaining[0].tags).toContain('code_style')
+      expect(remaining[0].tags).toContain('architecture')
+    })
+
+    it('should return zero when no duplicates exist', async () => {
+      await memories.createMemory(TEST_PROJECT_ID, {
+        title: 'Unique title A',
+        content: 'Unique content A',
+      })
+
+      await memories.createMemory(TEST_PROJECT_ID, {
+        title: 'Unique title B',
+        content: 'Unique content B',
+      })
+
+      const result = await memories.consolidateMemories(TEST_PROJECT_ID)
+      expect(result.merged).toBe(0)
+      expect(result.groups).toEqual([])
+    })
+  })
+
+  describe('findSimilar', () => {
+    it('should find similar memories via FTS5', async () => {
+      const id = await memories.createMemory(TEST_PROJECT_ID, {
+        title: 'React hooks patterns',
+        content: 'Always use useEffect cleanup functions in React components',
+        tags: ['code_style'],
+      })
+
+      await memories.createMemory(TEST_PROJECT_ID, {
+        title: 'React component best practices',
+        content: 'React components should always clean up side effects in useEffect',
+        tags: ['code_style'],
+      })
+
+      const similar = await memories.findSimilar(TEST_PROJECT_ID, id)
+      expect(similar.length).toBeGreaterThanOrEqual(1)
+      // Should not include the source memory itself
+      expect(similar.every((m) => m.id !== id)).toBe(true)
+    })
+
+    it('should return empty for non-existent memory', async () => {
+      const similar = await memories.findSimilar(TEST_PROJECT_ID, 'nonexistent-id')
+      expect(similar).toEqual([])
     })
   })
 

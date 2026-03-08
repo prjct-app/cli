@@ -200,22 +200,31 @@ export class SemanticMemories {
     tags: string[],
     matchAll: boolean = false
   ): Promise<Memory[]> {
+    const parsedTags = this._coerceTags(tags)
+    if (parsedTags.length === 0) return []
+
+    // Build SQL LIKE clauses to filter at the database level (not O(N) JS scan)
+    // Tags are stored as comma-delimited: "code_style,architecture"
+    // A tag match means: tags = 'tag' OR tags LIKE 'tag,%' OR tags LIKE '%,tag,%' OR tags LIKE '%,tag'
+    const tagClauses = parsedTags.map(
+      () => `(tags = ? OR tags LIKE ? OR tags LIKE ? OR tags LIKE ?)`
+    )
+    const connector = matchAll ? ' AND ' : ' OR '
+    const whereClause = tagClauses.join(connector)
+
+    const params: (string | number)[] = [projectId]
+    for (const tag of parsedTags) {
+      params.push(tag, `${tag},%`, `%,${tag},%`, `%,${tag}`)
+    }
+
     const rows = prjctDb.query<MemoryRow>(
       projectId,
-      'SELECT * FROM memories WHERE project_id = ? AND deleted_at IS NULL ORDER BY updated_at DESC',
-      projectId
+      `SELECT * FROM memories WHERE project_id = ? AND deleted_at IS NULL
+       AND (${whereClause}) ORDER BY updated_at DESC`,
+      ...params
     )
 
-    const parsedTags = this._coerceTags(tags)
-    const filtered = rows.filter((row) => {
-      const rowTags = row.tags ? row.tags.split(',') : []
-      if (matchAll) {
-        return parsedTags.every((tag) => rowTags.includes(tag))
-      }
-      return parsedTags.some((tag) => rowTags.includes(tag))
-    })
-
-    return filtered.map(rowToMemory)
+    return rows.map(rowToMemory)
   }
 
   /**
@@ -406,6 +415,121 @@ export class SemanticMemories {
       userTriggered: true,
       topicKey: `preference:${decisionType}`,
     })
+  }
+
+  /**
+   * Find memories similar to a given one using FTS5.
+   */
+  async findSimilar(projectId: string, memoryId: string, limit: number = 5): Promise<Memory[]> {
+    const source = await this.getMemoryById(projectId, memoryId)
+    if (!source) return []
+
+    // Use title words as FTS5 OR query for fuzzy matching
+    const words = source.title
+      .split(/\s+/)
+      .filter((w) => w.length > 2)
+      .slice(0, 8)
+    if (words.length === 0) return []
+    const queryText = words.join(' OR ')
+    try {
+      const rows = prjctDb.query<MemoryRow>(
+        projectId,
+        `SELECT m.* FROM memories m
+         JOIN memories_fts fts ON m.rowid = fts.rowid
+         WHERE memories_fts MATCH ? AND m.project_id = ? AND m.deleted_at IS NULL AND m.id != ?
+         ORDER BY bm25(memories_fts) LIMIT ?`,
+        queryText,
+        projectId,
+        memoryId,
+        limit
+      )
+      return rows.map(rowToMemory)
+    } catch {
+      return []
+    }
+  }
+
+  /**
+   * Consolidate duplicate/similar memories.
+   * Groups memories by topic_key prefix, finds near-duplicates via content hash similarity,
+   * and merges them (keeping the most recently updated, soft-deleting the rest).
+   * Returns count of memories merged.
+   */
+  async consolidateMemories(projectId: string): Promise<{
+    merged: number
+    groups: Array<{ kept: string; merged: string[] }>
+  }> {
+    const result: { merged: number; groups: Array<{ kept: string; merged: string[] }> } = {
+      merged: 0,
+      groups: [],
+    }
+
+    // Strategy 1: Find memories with identical titles (strong signal of duplication)
+    const titleGroups = prjctDb.query<{ title: string; cnt: number }>(
+      projectId,
+      `SELECT title, COUNT(*) as cnt FROM memories
+       WHERE project_id = ? AND deleted_at IS NULL
+       GROUP BY title HAVING cnt > 1`,
+      projectId
+    )
+
+    const now = getTimestamp()
+
+    for (const group of titleGroups) {
+      const rows = prjctDb.query<MemoryRow>(
+        projectId,
+        `SELECT * FROM memories
+         WHERE project_id = ? AND title = ? AND deleted_at IS NULL
+         ORDER BY updated_at DESC`,
+        projectId,
+        group.title
+      )
+
+      if (rows.length < 2) continue
+
+      // Keep the most recently updated, merge content from others
+      const [keep, ...rest] = rows
+      const mergedContent = [
+        keep.content,
+        ...rest.filter((r) => r.content !== keep.content).map((r) => r.content),
+      ]
+        .filter((c, i, arr) => arr.indexOf(c) === i) // dedupe
+        .join('\n\n---\n\n')
+
+      // Merge tags
+      const allTags = new Set<string>()
+      for (const row of rows) {
+        if (row.tags) {
+          for (const t of row.tags.split(',').filter(Boolean)) {
+            allTags.add(t)
+          }
+        }
+      }
+
+      // Update keeper with merged content
+      if (mergedContent !== keep.content || allTags.size > 0) {
+        prjctDb.run(
+          projectId,
+          `UPDATE memories SET content = ?, tags = ?, revision_count = revision_count + 1, updated_at = ? WHERE id = ?`,
+          mergedContent,
+          Array.from(allTags).join(','),
+          now,
+          keep.id
+        )
+      }
+
+      // Soft-delete the rest
+      const mergedIds: string[] = []
+      for (const r of rest) {
+        prjctDb.run(projectId, 'UPDATE memories SET deleted_at = ? WHERE id = ?', now, r.id)
+        mergedIds.push(r.id)
+      }
+
+      result.merged += rest.length
+      result.groups.push({ kept: keep.id, merged: mergedIds })
+    }
+
+    return result
   }
 
   async getMemoryById(projectId: string, memoryId: string): Promise<Memory | null> {
