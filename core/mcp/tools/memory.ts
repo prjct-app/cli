@@ -1,5 +1,5 @@
 /**
- * MCP Memory Tools (8 tools)
+ * MCP Memory Tools (13 tools)
  *
  * Wraps SemanticMemories (FTS5-backed).
  * Progressive disclosure: search returns compact results, use mem_get for full content.
@@ -9,7 +9,9 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import { SemanticMemories } from '../../agentic/semantic-memories'
 import prjctDb from '../../storage/database'
+import { stateStorage } from '../../storage/state-storage'
 import { resolveProjectId } from '../resolve'
+import { safeMcpCall } from './error-handler'
 
 const memories = new SemanticMemories()
 
@@ -104,36 +106,38 @@ export function registerMemoryTools(server: McpServer) {
         .describe('Topic key for upsert (e.g. decision/auth-strategy, bug/cors-issue)'),
       sessionId: z.string().optional().describe('Current session ID to link this memory to'),
     },
-    async (args: {
-      projectPath: string
-      title: string
-      content: string
-      tags?: string[]
-      topicKey?: string
-      sessionId?: string
-    }) => {
-      const projectId = await resolveProjectId(args.projectPath)
-      const cleanContent = truncateContent(stripPrivateTags(args.content))
-      const id = await memories.createMemory(projectId, {
-        title: args.title,
-        content: cleanContent,
-        tags: args.tags,
-        topicKey: args.topicKey,
-        userTriggered: true,
-      })
+    safeMcpCall(
+      'prjct_mem_save',
+      async (args: {
+        projectPath: string
+        title: string
+        content: string
+        tags?: string[]
+        topicKey?: string
+        sessionId?: string
+      }) => {
+        const projectId = await resolveProjectId(args.projectPath)
+        const cleanContent = truncateContent(stripPrivateTags(args.content))
+        const id = await memories.createMemory(projectId, {
+          title: args.title,
+          content: cleanContent,
+          tags: args.tags,
+          topicKey: args.topicKey,
+          userTriggered: true,
+        })
 
-      // Link to session if provided
-      if (args.sessionId) {
-        prjctDb.run(
-          projectId,
-          'UPDATE memories SET session_id = ? WHERE id = ?',
-          args.sessionId,
-          id
-        )
+        if (args.sessionId) {
+          prjctDb.run(
+            projectId,
+            'UPDATE memories SET session_id = ? WHERE id = ?',
+            args.sessionId,
+            id
+          )
+        }
+
+        return { content: [{ type: 'text', text: `Memory saved: ${id}` }] }
       }
-
-      return { content: [{ type: 'text', text: `Memory saved: ${id}` }] }
-    }
+    )
   )
 
   s.tool(
@@ -142,22 +146,31 @@ export function registerMemoryTools(server: McpServer) {
     {
       projectPath: z.string().describe('Project directory path'),
       query: z.string().describe('Search query'),
+      limit: z.number().optional().default(20).describe('Max results (default 20)'),
+      offset: z.number().optional().default(0).describe('Offset for pagination (default 0)'),
     },
-    async (args: { projectPath: string; query: string }) => {
-      const projectId = await resolveProjectId(args.projectPath)
-      const results = await memories.searchMemories(projectId, args.query)
-      if (results.length === 0) {
-        return { content: [{ type: 'text', text: 'No memories found.' }] }
+    safeMcpCall(
+      'prjct_mem_search',
+      async (args: { projectPath: string; query: string; limit: number; offset: number }) => {
+        const projectId = await resolveProjectId(args.projectPath)
+        const results = await memories.searchMemories(
+          projectId,
+          args.query,
+          args.limit,
+          args.offset
+        )
+        if (results.length === 0) {
+          return { content: [{ type: 'text', text: 'No memories found.' }] }
+        }
+        const lines = results.map((m) => {
+          const snippet = m.content.slice(0, 120).replace(/\n/g, ' ')
+          const tags = m.tags.length > 0 ? ` [${m.tags.join(', ')}]` : ''
+          return `- **${m.title}** (id: ${m.id})${tags}\n  ${snippet}${m.content.length > 120 ? '...' : ''}`
+        })
+        const text = `Found ${results.length} memories:\n\n${lines.join('\n')}`
+        return { content: [{ type: 'text', text }] }
       }
-      // Compact format: ID + title + snippet (progressive disclosure)
-      const lines = results.map((m) => {
-        const snippet = m.content.slice(0, 120).replace(/\n/g, ' ')
-        const tags = m.tags.length > 0 ? ` [${m.tags.join(', ')}]` : ''
-        return `- **${m.title}** (id: ${m.id})${tags}\n  ${snippet}${m.content.length > 120 ? '...' : ''}`
-      })
-      const text = `Found ${results.length} memories:\n\n${lines.join('\n')}`
-      return { content: [{ type: 'text', text }] }
-    }
+    )
   )
 
   s.tool(
@@ -167,10 +180,9 @@ export function registerMemoryTools(server: McpServer) {
       projectPath: z.string().describe('Project directory path'),
       memoryId: z.string().describe('Memory ID'),
     },
-    async (args: { projectPath: string; memoryId: string }) => {
+    safeMcpCall('prjct_mem_get', async (args: { projectPath: string; memoryId: string }) => {
       const projectId = await resolveProjectId(args.projectPath)
-      const all = await memories.getAllMemories(projectId)
-      const memory = all.find((m) => m.id === args.memoryId)
+      const memory = await memories.getMemoryById(projectId, args.memoryId)
       if (!memory) {
         return { content: [{ type: 'text', text: `Memory ${args.memoryId} not found.` }] }
       }
@@ -182,7 +194,7 @@ export function registerMemoryTools(server: McpServer) {
           },
         ],
       }
-    }
+    })
   )
 
   s.tool(
@@ -192,13 +204,13 @@ export function registerMemoryTools(server: McpServer) {
       projectPath: z.string().describe('Project directory path'),
       memoryId: z.string().describe('Memory ID to delete'),
     },
-    async (args: { projectPath: string; memoryId: string }) => {
+    safeMcpCall('prjct_mem_delete', async (args: { projectPath: string; memoryId: string }) => {
       const projectId = await resolveProjectId(args.projectPath)
       const deleted = await memories.deleteMemory(projectId, args.memoryId)
       return {
         content: [{ type: 'text', text: deleted ? 'Memory deleted.' : 'Memory not found.' }],
       }
-    }
+    })
   )
 
   s.tool(
@@ -209,19 +221,22 @@ export function registerMemoryTools(server: McpServer) {
       task: z.string().describe('Task description for relevance matching'),
       limit: z.number().optional().default(5).describe('Max results'),
     },
-    async (args: { projectPath: string; task: string; limit: number }) => {
-      const projectId = await resolveProjectId(args.projectPath)
-      const results = await memories.getRelevantMemories(
-        projectId,
-        { params: { description: args.task } },
-        args.limit
-      )
-      if (results.length === 0) {
-        return { content: [{ type: 'text', text: 'No relevant memories.' }] }
+    safeMcpCall(
+      'prjct_mem_context',
+      async (args: { projectPath: string; task: string; limit: number }) => {
+        const projectId = await resolveProjectId(args.projectPath)
+        const results = await memories.getRelevantMemories(
+          projectId,
+          { params: { description: args.task } },
+          args.limit
+        )
+        if (results.length === 0) {
+          return { content: [{ type: 'text', text: 'No relevant memories.' }] }
+        }
+        const text = results.map((m) => `- **${m.title}**: ${m.content.slice(0, 200)}`).join('\n')
+        return { content: [{ type: 'text', text }] }
       }
-      const text = results.map((m) => `- **${m.title}**: ${m.content.slice(0, 200)}`).join('\n')
-      return { content: [{ type: 'text', text }] }
-    }
+    )
   )
 
   s.tool(
@@ -231,10 +246,9 @@ export function registerMemoryTools(server: McpServer) {
       projectPath: z.string().describe('Project directory path'),
       memoryId: z.string().describe('Memory ID to center timeline on'),
     },
-    async (args: { projectPath: string; memoryId: string }) => {
+    safeMcpCall('prjct_mem_timeline', async (args: { projectPath: string; memoryId: string }) => {
       const projectId = await resolveProjectId(args.projectPath)
 
-      // Get the target memory
       const target = prjctDb.get<MemoryRow>(
         projectId,
         'SELECT * FROM memories WHERE id = ? AND project_id = ? AND deleted_at IS NULL',
@@ -245,25 +259,23 @@ export function registerMemoryTools(server: McpServer) {
         return { content: [{ type: 'text', text: `Memory ${args.memoryId} not found.` }] }
       }
 
-      // Get neighbors: same session if available, otherwise chronological
       let neighbors: MemoryRow[]
       if (target.session_id) {
         neighbors = prjctDb.query<MemoryRow>(
           projectId,
           `SELECT * FROM memories
-           WHERE project_id = ? AND session_id = ? AND deleted_at IS NULL
-           ORDER BY created_at ASC`,
+             WHERE project_id = ? AND session_id = ? AND deleted_at IS NULL
+             ORDER BY created_at ASC`,
           projectId,
           target.session_id
         )
       } else {
-        // Get ±5 chronologically
         const before = prjctDb
           .query<MemoryRow>(
             projectId,
             `SELECT * FROM memories
-           WHERE project_id = ? AND deleted_at IS NULL AND created_at < ?
-           ORDER BY created_at DESC LIMIT 5`,
+             WHERE project_id = ? AND deleted_at IS NULL AND created_at < ?
+             ORDER BY created_at DESC LIMIT 5`,
             projectId,
             target.created_at
           )
@@ -272,8 +284,8 @@ export function registerMemoryTools(server: McpServer) {
         const after = prjctDb.query<MemoryRow>(
           projectId,
           `SELECT * FROM memories
-           WHERE project_id = ? AND deleted_at IS NULL AND created_at > ?
-           ORDER BY created_at ASC LIMIT 5`,
+             WHERE project_id = ? AND deleted_at IS NULL AND created_at > ?
+             ORDER BY created_at ASC LIMIT 5`,
           projectId,
           target.created_at
         )
@@ -300,7 +312,7 @@ export function registerMemoryTools(server: McpServer) {
           },
         ],
       }
-    }
+    })
   )
 
   s.tool(
@@ -311,57 +323,57 @@ export function registerMemoryTools(server: McpServer) {
       title: z.string().describe('Memory title'),
       content: z.string().describe('Memory content'),
     },
-    async (args: { projectPath: string; title: string; content: string }) => {
-      const combined = `${args.title} ${args.content}`.toLowerCase()
+    safeMcpCall(
+      'prjct_mem_suggest_topic',
+      async (args: { projectPath: string; title: string; content: string }) => {
+        const combined = `${args.title} ${args.content}`.toLowerCase()
 
-      // Score each family by keyword matches
-      let bestFamily = TOPIC_FAMILIES[0]
-      let bestScore = 0
-      for (const family of TOPIC_FAMILIES) {
-        const score = family.keywords.filter((kw) => combined.includes(kw)).length
-        if (score > bestScore) {
-          bestScore = score
-          bestFamily = family
+        let bestFamily = TOPIC_FAMILIES[0]
+        let bestScore = 0
+        for (const family of TOPIC_FAMILIES) {
+          const score = family.keywords.filter((kw) => combined.includes(kw)).length
+          if (score > bestScore) {
+            bestScore = score
+            bestFamily = family
+          }
         }
-      }
 
-      // Generate slug from title
-      const slug = args.title
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '')
-        .slice(0, 40)
+        const slug = args.title
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '')
+          .slice(0, 40)
 
-      const suggested = `${bestFamily.prefix}/${slug}`
+        const suggested = `${bestFamily.prefix}/${slug}`
 
-      // Check if this topic_key already exists
-      const projectId = await resolveProjectId(args.projectPath)
-      const existing = prjctDb.get<{ id: string; title: string }>(
-        projectId,
-        'SELECT id, title FROM memories WHERE project_id = ? AND topic_key = ? AND deleted_at IS NULL',
-        projectId,
-        suggested
-      )
-
-      const lines = [
-        `Suggested topic_key: \`${suggested}\``,
-        `Family: ${bestFamily.prefix} — ${bestFamily.description}`,
-        `Confidence: ${bestScore === 0 ? 'low (no keyword matches, defaulted)' : bestScore >= 3 ? 'high' : 'medium'}`,
-      ]
-
-      if (existing) {
-        lines.push(
-          `\nNote: This topic_key already exists → will UPDATE "${existing.title}" (id: ${existing.id})`
+        const projectId = await resolveProjectId(args.projectPath)
+        const existing = prjctDb.get<{ id: string; title: string }>(
+          projectId,
+          'SELECT id, title FROM memories WHERE project_id = ? AND topic_key = ? AND deleted_at IS NULL',
+          projectId,
+          suggested
         )
-      }
 
-      lines.push('\nAvailable families:')
-      for (const f of TOPIC_FAMILIES) {
-        lines.push(`- \`${f.prefix}/*\` — ${f.description}`)
-      }
+        const lines = [
+          `Suggested topic_key: \`${suggested}\``,
+          `Family: ${bestFamily.prefix} — ${bestFamily.description}`,
+          `Confidence: ${bestScore === 0 ? 'low (no keyword matches, defaulted)' : bestScore >= 3 ? 'high' : 'medium'}`,
+        ]
 
-      return { content: [{ type: 'text', text: lines.join('\n') }] }
-    }
+        if (existing) {
+          lines.push(
+            `\nNote: This topic_key already exists → will UPDATE "${existing.title}" (id: ${existing.id})`
+          )
+        }
+
+        lines.push('\nAvailable families:')
+        for (const f of TOPIC_FAMILIES) {
+          lines.push(`- \`${f.prefix}/*\` — ${f.description}`)
+        }
+
+        return { content: [{ type: 'text', text: lines.join('\n') }] }
+      }
+    )
   )
 
   s.tool(
@@ -372,71 +384,299 @@ export function registerMemoryTools(server: McpServer) {
       text: z.string().describe('Text to extract learnings from (e.g. agent output)'),
       sessionId: z.string().optional().describe('Current session ID'),
     },
-    async (args: { projectPath: string; text: string; sessionId?: string }) => {
-      const projectId = await resolveProjectId(args.projectPath)
+    safeMcpCall(
+      'prjct_mem_capture_passive',
+      async (args: { projectPath: string; text: string; sessionId?: string }) => {
+        const projectId = await resolveProjectId(args.projectPath)
 
-      // Extract learnings from structured sections
-      const patterns = [
-        /(?:^|\n)#{1,3}\s*(?:Key\s+)?Learnings?\s*:?\s*\n([\s\S]*?)(?=\n#{1,3}\s|\n---|\n\*\*[A-Z]|$)/i,
-        /(?:^|\n)#{1,3}\s*Discoveries?\s*:?\s*\n([\s\S]*?)(?=\n#{1,3}\s|\n---|\n\*\*[A-Z]|$)/i,
-        /(?:^|\n)#{1,3}\s*Lessons?\s*:?\s*\n([\s\S]*?)(?=\n#{1,3}\s|\n---|\n\*\*[A-Z]|$)/i,
-        /(?:^|\n)\*\*(?:Key\s+)?Learnings?\*\*\s*:?\s*\n([\s\S]*?)(?=\n\*\*[A-Z]|\n#{1,3}\s|\n---|$)/i,
+        const patterns = [
+          /(?:^|\n)#{1,3}\s*(?:Key\s+)?Learnings?\s*:?\s*\n([\s\S]*?)(?=\n#{1,3}\s|\n---|\n\*\*[A-Z]|$)/i,
+          /(?:^|\n)#{1,3}\s*Discoveries?\s*:?\s*\n([\s\S]*?)(?=\n#{1,3}\s|\n---|\n\*\*[A-Z]|$)/i,
+          /(?:^|\n)#{1,3}\s*Lessons?\s*:?\s*\n([\s\S]*?)(?=\n#{1,3}\s|\n---|\n\*\*[A-Z]|$)/i,
+          /(?:^|\n)\*\*(?:Key\s+)?Learnings?\*\*\s*:?\s*\n([\s\S]*?)(?=\n\*\*[A-Z]|\n#{1,3}\s|\n---|$)/i,
+        ]
+
+        const extracted: string[] = []
+        for (const pattern of patterns) {
+          const match = args.text.match(pattern)
+          if (match?.[1]) {
+            const items = match[1]
+              .split(/\n[-*•]\s+|\n\d+[.)]\s+/)
+              .map((s) => s.trim())
+              .filter((s) => s.length > 10)
+            extracted.push(...items)
+          }
+        }
+
+        if (extracted.length === 0) {
+          return { content: [{ type: 'text', text: 'No structured learnings found in text.' }] }
+        }
+
+        const unique = [...new Set(extracted)]
+        const savedIds: string[] = []
+
+        for (const learning of unique.slice(0, 10)) {
+          const title = learning.slice(0, 80).replace(/\n/g, ' ')
+          const cleanContent = truncateContent(stripPrivateTags(learning))
+          const id = await memories.createMemory(projectId, {
+            title,
+            content: cleanContent,
+            tags: [],
+            topicKey: `learning/${title
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, '-')
+              .slice(0, 40)}`,
+            userTriggered: false,
+          })
+
+          if (args.sessionId) {
+            prjctDb.run(
+              projectId,
+              'UPDATE memories SET session_id = ? WHERE id = ?',
+              args.sessionId,
+              id
+            )
+          }
+          savedIds.push(id)
+        }
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Extracted and saved ${savedIds.length} learnings:\n${savedIds.map((id, i) => `- ${unique[i].slice(0, 60)}... (${id})`).join('\n')}`,
+            },
+          ],
+        }
+      }
+    )
+  )
+
+  // =========================================================================
+  // Sprint 11: New tools — update, stats, tags
+  // =========================================================================
+
+  s.tool(
+    'prjct_mem_update',
+    'Update an existing memory by ID. Partial updates supported (title, content, tags).',
+    {
+      projectPath: z.string().describe('Project directory path'),
+      memoryId: z.string().describe('Memory ID to update'),
+      title: z.string().optional().describe('New title'),
+      content: z.string().optional().describe('New content'),
+      tags: z.array(z.string()).optional().describe('New tags'),
+    },
+    safeMcpCall(
+      'prjct_mem_update',
+      async (args: {
+        projectPath: string
+        memoryId: string
+        title?: string
+        content?: string
+        tags?: string[]
+      }) => {
+        const projectId = await resolveProjectId(args.projectPath)
+        const updates: { title?: string; content?: string; tags?: string[] } = {}
+        if (args.title) updates.title = args.title
+        if (args.content) updates.content = truncateContent(stripPrivateTags(args.content))
+        if (args.tags) updates.tags = args.tags
+
+        const updated = await memories.updateMemory(projectId, args.memoryId, updates)
+        return {
+          content: [
+            {
+              type: 'text',
+              text: updated ? `Memory ${args.memoryId} updated.` : 'Memory not found.',
+            },
+          ],
+        }
+      }
+    )
+  )
+
+  s.tool(
+    'prjct_mem_stats',
+    'Memory statistics: total count, user-triggered count, tag distribution, age range',
+    {
+      projectPath: z.string().describe('Project directory path'),
+    },
+    safeMcpCall('prjct_mem_stats', async (args: { projectPath: string }) => {
+      const projectId = await resolveProjectId(args.projectPath)
+      const stats = await memories.getMemoryStats(projectId)
+
+      const parts = [
+        '## Memory Stats',
+        `Total: ${stats.totalMemories}`,
+        `User-triggered: ${stats.userTriggered}`,
+        `Auto-captured: ${stats.totalMemories - stats.userTriggered}`,
       ]
 
-      const extracted: string[] = []
-      for (const pattern of patterns) {
-        const match = args.text.match(pattern)
-        if (match?.[1]) {
-          // Split by bullet points or numbered items
-          const items = match[1]
-            .split(/\n[-*•]\s+|\n\d+[.)]\s+/)
-            .map((s) => s.trim())
-            .filter((s) => s.length > 10)
-          extracted.push(...items)
+      if (stats.oldestMemory) parts.push(`Oldest: ${stats.oldestMemory}`)
+      if (stats.newestMemory) parts.push(`Newest: ${stats.newestMemory}`)
+
+      const tagEntries = Object.entries(stats.tagCounts)
+      if (tagEntries.length > 0) {
+        parts.push('\n### Tags')
+        for (const [tag, count] of tagEntries.sort(([, a], [, b]) => b - a)) {
+          parts.push(`- ${tag}: ${count}`)
         }
       }
 
-      if (extracted.length === 0) {
-        return { content: [{ type: 'text', text: 'No structured learnings found in text.' }] }
-      }
+      return { content: [{ type: 'text', text: parts.join('\n') }] }
+    })
+  )
 
-      // Deduplicate
-      const unique = [...new Set(extracted)]
-      const savedIds: string[] = []
+  s.tool(
+    'prjct_mem_tags',
+    'Find memories by tags (matchAll: require all tags, default: match any)',
+    {
+      projectPath: z.string().describe('Project directory path'),
+      tags: z.array(z.string()).describe('Tags to search for'),
+      matchAll: z
+        .boolean()
+        .optional()
+        .default(false)
+        .describe('Require all tags to match (default: any)'),
+    },
+    safeMcpCall(
+      'prjct_mem_tags',
+      async (args: { projectPath: string; tags: string[]; matchAll: boolean }) => {
+        const projectId = await resolveProjectId(args.projectPath)
+        const results = await memories.findByTags(projectId, args.tags, args.matchAll)
 
-      for (const learning of unique.slice(0, 10)) {
-        const title = learning.slice(0, 80).replace(/\n/g, ' ')
-        const cleanContent = truncateContent(stripPrivateTags(learning))
-        const id = await memories.createMemory(projectId, {
-          title,
-          content: cleanContent,
-          tags: [],
-          topicKey: `learning/${title
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, '-')
-            .slice(0, 40)}`,
-          userTriggered: false,
+        if (results.length === 0) {
+          return { content: [{ type: 'text', text: 'No memories found with those tags.' }] }
+        }
+
+        const lines = results.map((m) => {
+          const snippet = m.content.slice(0, 120).replace(/\n/g, ' ')
+          const tags = m.tags.length > 0 ? ` [${m.tags.join(', ')}]` : ''
+          return `- **${m.title}** (id: ${m.id})${tags}\n  ${snippet}${m.content.length > 120 ? '...' : ''}`
         })
 
-        if (args.sessionId) {
-          prjctDb.run(
-            projectId,
-            'UPDATE memories SET session_id = ? WHERE id = ?',
-            args.sessionId,
-            id
-          )
+        return {
+          content: [
+            { type: 'text', text: `Found ${results.length} memories:\n\n${lines.join('\n')}` },
+          ],
         }
-        savedIds.push(id)
+      }
+    )
+  )
+
+  // =========================================================================
+  // Sprint 15: mem_topic + feedback_aggregate
+  // =========================================================================
+
+  s.tool(
+    'prjct_mem_topic',
+    'Browse memories by topic_key prefix (e.g. "bug/*", "decision/*")',
+    {
+      projectPath: z.string().describe('Project directory path'),
+      prefix: z.string().describe('Topic key prefix to match (e.g. "bug/", "decision/")'),
+      limit: z.number().optional().default(20).describe('Max results (default 20)'),
+    },
+    safeMcpCall(
+      'prjct_mem_topic',
+      async (args: { projectPath: string; prefix: string; limit: number }) => {
+        const projectId = await resolveProjectId(args.projectPath)
+
+        // Normalize prefix: ensure it ends with % for LIKE query
+        const likePattern = args.prefix.endsWith('*')
+          ? `${args.prefix.slice(0, -1)}%`
+          : args.prefix.endsWith('%')
+            ? args.prefix
+            : `${args.prefix}%`
+
+        const rows = prjctDb.query<MemoryRow>(
+          projectId,
+          `SELECT * FROM memories
+           WHERE project_id = ? AND topic_key LIKE ? AND deleted_at IS NULL
+           ORDER BY updated_at DESC LIMIT ?`,
+          projectId,
+          likePattern,
+          args.limit
+        )
+
+        if (rows.length === 0) {
+          return {
+            content: [
+              { type: 'text', text: `No memories found with topic prefix "${args.prefix}".` },
+            ],
+          }
+        }
+
+        const lines = rows.map((m) => {
+          const snippet = m.content.slice(0, 120).replace(/\n/g, ' ')
+          return `- **${m.title}** (topic: ${m.topic_key}, id: ${m.id})\n  ${snippet}${m.content.length > 120 ? '...' : ''}`
+        })
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `## Memories: ${args.prefix} (${rows.length})\n\n${lines.join('\n')}`,
+            },
+          ],
+        }
+      }
+    )
+  )
+
+  s.tool(
+    'prjct_feedback_aggregate',
+    'Aggregated task feedback: confirmed stack, gotchas, agent accuracy',
+    {
+      projectPath: z.string().describe('Project directory path'),
+    },
+    safeMcpCall('prjct_feedback_aggregate', async (args: { projectPath: string }) => {
+      const projectId = await resolveProjectId(args.projectPath)
+      const feedback = await stateStorage.getAggregatedFeedback(projectId)
+
+      const parts = ['## Aggregated Task Feedback']
+
+      if (feedback.stackConfirmed.length > 0) {
+        parts.push(`\n### Confirmed Stack`)
+        parts.push(feedback.stackConfirmed.join(', '))
       }
 
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Extracted and saved ${savedIds.length} learnings:\n${savedIds.map((id, i) => `- ${unique[i].slice(0, 60)}... (${id})`).join('\n')}`,
-          },
-        ],
+      if (feedback.patternsDiscovered.length > 0) {
+        parts.push(`\n### Patterns Discovered`)
+        for (const p of feedback.patternsDiscovered) {
+          parts.push(`- ${p}`)
+        }
       }
-    }
+
+      if (feedback.knownGotchas.length > 0) {
+        parts.push(`\n### Known Gotchas`)
+        for (const g of feedback.knownGotchas) {
+          parts.push(`- ${g}`)
+        }
+      }
+
+      if (feedback.agentAccuracy.length > 0) {
+        parts.push(`\n### Agent Accuracy`)
+        for (const a of feedback.agentAccuracy) {
+          parts.push(`- ${a.agent}: ${a.rating}${a.note ? ` — ${a.note}` : ''}`)
+        }
+      }
+
+      if (feedback.issuesEncountered.length > 0) {
+        parts.push(`\n### Issues Encountered`)
+        for (const i of feedback.issuesEncountered) {
+          parts.push(`- ${i}`)
+        }
+      }
+
+      const isEmpty =
+        feedback.stackConfirmed.length === 0 &&
+        feedback.patternsDiscovered.length === 0 &&
+        feedback.knownGotchas.length === 0
+
+      if (isEmpty) {
+        parts.push('\nNo task feedback recorded yet.')
+      }
+
+      return { content: [{ type: 'text', text: parts.join('\n') }] }
+    })
   )
 }

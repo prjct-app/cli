@@ -15,10 +15,17 @@ import * as fileHelper from '../utils/file-helper'
 const OUTCOMES_DIR = 'outcomes'
 const OUTCOMES_FILE = 'outcomes.jsonl'
 
+interface CacheEntry {
+  outcomes: Outcome[]
+  mtime: number
+}
+
 /**
  * OutcomeRecorder - Records and retrieves execution outcomes.
  */
 export class OutcomeRecorder {
+  private _cache = new Map<string, CacheEntry>()
+
   /**
    * Get outcomes directory path for a project.
    */
@@ -51,11 +58,14 @@ export class OutcomeRecorder {
     // Append to JSONL
     await fileHelper.appendLine(outcomesPath, JSON.stringify(outcome))
 
+    // Invalidate cache on write
+    this._cache.delete(projectId)
+
     return outcome
   }
 
   /**
-   * Get all outcomes for a project.
+   * Get all outcomes for a project (mtime-cached).
    */
   async getAll(projectId: string): Promise<Outcome[]> {
     const outcomesPath = this.getOutcomesPath(projectId)
@@ -64,16 +74,42 @@ export class OutcomeRecorder {
       return []
     }
 
-    const content = await fileHelper.readFile(outcomesPath)
-    if (!content.trim()) {
-      return []
-    }
+    // Check mtime-based cache
+    try {
+      const { statSync } = await import('node:fs')
+      const stat = statSync(outcomesPath)
+      const mtime = stat.mtimeMs
+      const cached = this._cache.get(projectId)
+      if (cached && cached.mtime === mtime) {
+        return cached.outcomes
+      }
 
-    return content
-      .trim()
-      .split('\n')
-      .filter((line) => line.trim())
-      .map((line) => JSON.parse(line) as Outcome)
+      const content = await fileHelper.readFile(outcomesPath)
+      if (!content.trim()) {
+        return []
+      }
+
+      const outcomes = content
+        .trim()
+        .split('\n')
+        .filter((line) => line.trim())
+        .map((line) => JSON.parse(line) as Outcome)
+
+      this._cache.set(projectId, { outcomes, mtime })
+      return outcomes
+    } catch {
+      // Fallback to direct read without caching
+      const content = await fileHelper.readFile(outcomesPath)
+      if (!content.trim()) {
+        return []
+      }
+
+      return content
+        .trim()
+        .split('\n')
+        .filter((line) => line.trim())
+        .map((line) => JSON.parse(line) as Outcome)
+    }
   }
 
   /**

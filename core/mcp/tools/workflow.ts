@@ -10,6 +10,7 @@ import { customWorkflowStorage } from '../../storage/custom-workflow-storage'
 import { stateStorage } from '../../storage/state-storage'
 import { workflowRuleStorage } from '../../storage/workflow-rule-storage'
 import { resolveProjectId } from '../resolve'
+import { safeMcpCall } from './error-handler'
 
 // MCP SDK TS2589 workaround: cast server to avoid deep type instantiation
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -25,7 +26,7 @@ export function registerWorkflowTools(server: McpServer) {
       projectPath: z.string().describe('Project directory path'),
       command: z.string().describe('Command name (task, done, ship, sync, etc.)'),
     },
-    async (args: { projectPath: string; command: string }) => {
+    safeMcpCall('prjct_workflow_rules', async (args: { projectPath: string; command: string }) => {
       const projectId = await resolveProjectId(args.projectPath)
       const rules = workflowRuleStorage.getRulesForCommand(projectId, args.command)
 
@@ -52,7 +53,7 @@ export function registerWorkflowTools(server: McpServer) {
       }
 
       return { content: [{ type: 'text', text: parts.join('\n') }] }
-    }
+    })
   )
 
   s.tool(
@@ -61,7 +62,7 @@ export function registerWorkflowTools(server: McpServer) {
     {
       projectPath: z.string().describe('Project directory path'),
     },
-    async (args: { projectPath: string }) => {
+    safeMcpCall('prjct_workflow_list', async (args: { projectPath: string }) => {
       const projectId = await resolveProjectId(args.projectPath)
       const workflows = customWorkflowStorage.getAllWorkflows(projectId)
 
@@ -80,7 +81,7 @@ export function registerWorkflowTools(server: McpServer) {
           { type: 'text', text: `## Workflows (${workflows.length})\n\n${lines.join('\n')}` },
         ],
       }
-    }
+    })
   )
 
   s.tool(
@@ -89,7 +90,7 @@ export function registerWorkflowTools(server: McpServer) {
     {
       projectPath: z.string().describe('Project directory path'),
     },
-    async (args: { projectPath: string }) => {
+    safeMcpCall('prjct_workflow_status', async (args: { projectPath: string }) => {
       const projectId = await resolveProjectId(args.projectPath)
       const currentTask = await stateStorage.getCurrentTask(projectId)
       const allRules = workflowRuleStorage.getAllRules(projectId)
@@ -114,6 +115,6 @@ export function registerWorkflowTools(server: McpServer) {
       }
 
       return { content: [{ type: 'text', text: parts.join('\n') }] }
-    }
+    })
   )
 }

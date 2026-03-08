@@ -241,6 +241,27 @@ export class PatternStore extends CachedStore<Patterns> {
     }
   }
 
+  async getPatternsSummaryDetailed(projectId: string) {
+    const patterns = await this.load(projectId)
+
+    const decisions: Record<string, { value: string; confidence: string; count: number }> = {}
+    for (const [key, d] of Object.entries(patterns.decisions)) {
+      decisions[key] = { value: d.value, confidence: d.confidence, count: d.count }
+    }
+
+    const preferences: Record<string, { value: unknown; confidence: string }> = {}
+    for (const [key, p] of Object.entries(patterns.preferences)) {
+      preferences[key] = { value: p.value, confidence: p.confidence }
+    }
+
+    const workflows: Record<string, { confidence: string; count: number }> = {}
+    for (const [key, w] of Object.entries(patterns.workflows)) {
+      workflows[key] = { confidence: w.confidence, count: w.count }
+    }
+
+    return { decisions, preferences, workflows }
+  }
+
   async archiveStaleDecisions(projectId: string): Promise<number> {
     const patterns = await this.load(projectId)
     const now = Date.now()

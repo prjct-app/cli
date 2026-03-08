@@ -222,16 +222,23 @@ export class SemanticMemories {
    * FTS5 full-text search with BM25 ranking.
    * Falls back to LIKE if FTS query syntax is invalid.
    */
-  async searchMemories(projectId: string, query: string): Promise<Memory[]> {
+  async searchMemories(
+    projectId: string,
+    query: string,
+    limit: number = 20,
+    offset: number = 0
+  ): Promise<Memory[]> {
     try {
       const rows = prjctDb.query<MemoryRow>(
         projectId,
         `SELECT m.* FROM memories m
          JOIN memories_fts fts ON m.rowid = fts.rowid
          WHERE memories_fts MATCH ? AND m.project_id = ? AND m.deleted_at IS NULL
-         ORDER BY bm25(memories_fts) LIMIT 20`,
+         ORDER BY bm25(memories_fts) LIMIT ? OFFSET ?`,
         query,
-        projectId
+        projectId,
+        limit,
+        offset
       )
       return rows.map(rowToMemory)
     } catch {
@@ -242,10 +249,12 @@ export class SemanticMemories {
         `SELECT * FROM memories
          WHERE project_id = ? AND deleted_at IS NULL
          AND (title LIKE ? OR content LIKE ?)
-         ORDER BY updated_at DESC LIMIT 20`,
+         ORDER BY updated_at DESC LIMIT ? OFFSET ?`,
         projectId,
         safeQuery,
-        safeQuery
+        safeQuery,
+        limit,
+        offset
       )
       return rows.map(rowToMemory)
     }
@@ -397,6 +406,16 @@ export class SemanticMemories {
       userTriggered: true,
       topicKey: `preference:${decisionType}`,
     })
+  }
+
+  async getMemoryById(projectId: string, memoryId: string): Promise<Memory | null> {
+    const row = prjctDb.get<MemoryRow>(
+      projectId,
+      'SELECT * FROM memories WHERE id = ? AND project_id = ? AND deleted_at IS NULL',
+      memoryId,
+      projectId
+    )
+    return row ? rowToMemory(row) : null
   }
 
   async getAllMemories(projectId: string): Promise<Memory[]> {

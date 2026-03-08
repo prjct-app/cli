@@ -10,6 +10,7 @@ import { stateStorage } from '../../storage/state-storage'
 import { findRelevantFiles } from '../../tools/context/files-tool'
 import { extractSignatures } from '../../tools/context/signatures-tool'
 import { resolveProjectId } from '../resolve'
+import { safeMcpCall } from './error-handler'
 
 // MCP SDK TS2589 workaround: cast server to avoid deep type instantiation
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -26,22 +27,25 @@ export function registerFileTools(server: McpServer) {
       query: z.string().describe('Task or query to find relevant files for'),
       maxFiles: z.number().optional().default(10).describe('Max files to return'),
     },
-    async (args: { projectPath: string; query: string; maxFiles: number }) => {
-      const result = await findRelevantFiles(args.query, args.projectPath, {
-        maxFiles: args.maxFiles,
-        minScore: 0.1,
-      })
+    safeMcpCall(
+      'prjct_relevant_files',
+      async (args: { projectPath: string; query: string; maxFiles: number }) => {
+        const result = await findRelevantFiles(args.query, args.projectPath, {
+          maxFiles: args.maxFiles,
+          minScore: 0.1,
+        })
 
-      if (result.files.length === 0) {
-        return { content: [{ type: 'text', text: 'No relevant files found.' }] }
+        if (result.files.length === 0) {
+          return { content: [{ type: 'text', text: 'No relevant files found.' }] }
+        }
+
+        const lines = result.files.map(
+          (f) => `- \`${f.path}\` (score: ${Math.round(f.score * 100)}%) — ${f.reasons.join(', ')}`
+        )
+        const text = `## Relevant Files (${result.files.length}/${result.metrics.filesScanned} scanned)\n\n${lines.join('\n')}`
+        return { content: [{ type: 'text', text }] }
       }
-
-      const lines = result.files.map(
-        (f) => `- \`${f.path}\` (score: ${Math.round(f.score * 100)}%) — ${f.reasons.join(', ')}`
-      )
-      const text = `## Relevant Files (${result.files.length}/${result.metrics.filesScanned} scanned)\n\n${lines.join('\n')}`
-      return { content: [{ type: 'text', text }] }
-    }
+    )
   )
 
   s.tool(
@@ -51,7 +55,7 @@ export function registerFileTools(server: McpServer) {
       projectPath: z.string().describe('Project directory path'),
       filePath: z.string().describe('Relative file path to extract signatures from'),
     },
-    async (args: { projectPath: string; filePath: string }) => {
+    safeMcpCall('prjct_signatures', async (args: { projectPath: string; filePath: string }) => {
       const result = await extractSignatures(args.filePath, args.projectPath)
 
       if (result.signatures.length === 0) {
@@ -76,7 +80,7 @@ export function registerFileTools(server: McpServer) {
         : ''
       const text = `## ${result.file} (${result.language})\n\`\`\`\n${lines.join('\n')}\n\`\`\`${compression}`
       return { content: [{ type: 'text', text }] }
-    }
+    })
   )
 
   s.tool(
@@ -86,7 +90,7 @@ export function registerFileTools(server: McpServer) {
       projectPath: z.string().describe('Project directory path'),
       limit: z.number().optional().default(10).describe('Max results'),
     },
-    async (args: { projectPath: string; limit: number }) => {
+    safeMcpCall('prjct_history', async (args: { projectPath: string; limit: number }) => {
       const projectId = await resolveProjectId(args.projectPath)
       const history = await stateStorage.getTaskHistory(projectId)
 
@@ -104,6 +108,6 @@ export function registerFileTools(server: McpServer) {
 
       const text = `## Task History (${history.length} total)\n\n${lines.join('\n')}`
       return { content: [{ type: 'text', text }] }
-    }
+    })
   )
 }

@@ -205,6 +205,10 @@ export class MemorySystem {
     return this._patternStore.getPatternsSummary(projectId)
   }
 
+  getPatternsSummaryDetailed(projectId: string) {
+    return this._patternStore.getPatternsSummaryDetailed(projectId)
+  }
+
   archiveStaleDecisions(projectId: string): Promise<number> {
     return this._patternStore.archiveStaleDecisions(projectId)
   }

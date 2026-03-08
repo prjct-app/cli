@@ -7,15 +7,19 @@
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
+import { SemanticMemories } from '../../agentic/semantic-memories'
 import { generateUUID } from '../../schemas/schemas'
 import prjctDb from '../../storage/database'
 import { stateStorage } from '../../storage/state-storage'
 import { getTimestamp } from '../../utils/date-helper'
 import { resolveProjectId } from '../resolve'
+import { safeMcpCall } from './error-handler'
 
 // MCP SDK TS2589 workaround: cast server to avoid deep type instantiation
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type S = any
+
+const memories = new SemanticMemories()
 
 interface AgentSessionRow {
   id: string
@@ -56,19 +60,18 @@ export function registerSessionTools(server: McpServer) {
       projectPath: z.string().describe('Project directory path'),
       goal: z.string().optional().describe('Session goal or objective'),
     },
-    async (args: { projectPath: string; goal?: string }) => {
+    safeMcpCall('prjct_session_start', async (args: { projectPath: string; goal?: string }) => {
       const projectId = await resolveProjectId(args.projectPath)
       const now = getTimestamp()
       const id = generateUUID()
 
-      // Auto-link to active prjct task
       const currentTask = await stateStorage.getCurrentTask(projectId)
       const taskId = currentTask?.id ?? null
 
       prjctDb.run(
         projectId,
         `INSERT INTO agent_sessions (id, project_id, directory, task_id, goal, started_at, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
         id,
         projectId,
         args.projectPath,
@@ -86,7 +89,7 @@ export function registerSessionTools(server: McpServer) {
       if (args.goal) parts.push(`Goal: ${args.goal}`)
 
       return { content: [{ type: 'text', text: parts.join('\n') }] }
-    }
+    })
   )
 
   s.tool(
@@ -97,30 +100,33 @@ export function registerSessionTools(server: McpServer) {
       sessionId: z.string().describe('Session ID to end'),
       summary: z.string().optional().describe('Brief session summary'),
     },
-    async (args: { projectPath: string; sessionId: string; summary?: string }) => {
-      const projectId = await resolveProjectId(args.projectPath)
-      const now = getTimestamp()
+    safeMcpCall(
+      'prjct_session_end',
+      async (args: { projectPath: string; sessionId: string; summary?: string }) => {
+        const projectId = await resolveProjectId(args.projectPath)
+        const now = getTimestamp()
 
-      const session = prjctDb.get<AgentSessionRow>(
-        projectId,
-        'SELECT * FROM agent_sessions WHERE id = ? AND project_id = ?',
-        args.sessionId,
-        projectId
-      )
-      if (!session) {
-        return { content: [{ type: 'text', text: `Session ${args.sessionId} not found.` }] }
+        const session = prjctDb.get<AgentSessionRow>(
+          projectId,
+          'SELECT * FROM agent_sessions WHERE id = ? AND project_id = ?',
+          args.sessionId,
+          projectId
+        )
+        if (!session) {
+          return { content: [{ type: 'text', text: `Session ${args.sessionId} not found.` }] }
+        }
+
+        prjctDb.run(
+          projectId,
+          'UPDATE agent_sessions SET ended_at = ?, summary = ? WHERE id = ?',
+          now,
+          args.summary ?? null,
+          args.sessionId
+        )
+
+        return { content: [{ type: 'text', text: 'Session ended.' }] }
       }
-
-      prjctDb.run(
-        projectId,
-        'UPDATE agent_sessions SET ended_at = ?, summary = ? WHERE id = ?',
-        now,
-        args.summary ?? null,
-        args.sessionId
-      )
-
-      return { content: [{ type: 'text', text: 'Session ended.' }] }
-    }
+    )
   )
 
   s.tool(
@@ -135,40 +141,43 @@ export function registerSessionTools(server: McpServer) {
       nextSteps: z.string().optional().describe('What should happen next'),
       filesTouched: z.array(z.string()).optional().describe('Files modified during session'),
     },
-    async (args: {
-      projectPath: string
-      sessionId: string
-      goal: string
-      accomplished: string
-      discoveries?: string
-      nextSteps?: string
-      filesTouched?: string[]
-    }) => {
-      const projectId = await resolveProjectId(args.projectPath)
-      const now = getTimestamp()
+    safeMcpCall(
+      'prjct_session_summary',
+      async (args: {
+        projectPath: string
+        sessionId: string
+        goal: string
+        accomplished: string
+        discoveries?: string
+        nextSteps?: string
+        filesTouched?: string[]
+      }) => {
+        const projectId = await resolveProjectId(args.projectPath)
+        const now = getTimestamp()
 
-      const parts = [`## Goal\n${args.goal}`, `## Accomplished\n${args.accomplished}`]
-      if (args.discoveries) parts.push(`## Discoveries\n${args.discoveries}`)
-      if (args.nextSteps) parts.push(`## Next Steps\n${args.nextSteps}`)
+        const parts = [`## Goal\n${args.goal}`, `## Accomplished\n${args.accomplished}`]
+        if (args.discoveries) parts.push(`## Discoveries\n${args.discoveries}`)
+        if (args.nextSteps) parts.push(`## Next Steps\n${args.nextSteps}`)
 
-      const summary = parts.join('\n\n')
-      const filesTouched = args.filesTouched ? JSON.stringify(args.filesTouched) : null
+        const summary = parts.join('\n\n')
+        const filesTouched = args.filesTouched ? JSON.stringify(args.filesTouched) : null
 
-      prjctDb.run(
-        projectId,
-        'UPDATE agent_sessions SET ended_at = ?, summary = ?, goal = ?, files_touched = ? WHERE id = ? AND project_id = ?',
-        now,
-        summary,
-        args.goal,
-        filesTouched,
-        args.sessionId,
-        projectId
-      )
+        prjctDb.run(
+          projectId,
+          'UPDATE agent_sessions SET ended_at = ?, summary = ?, goal = ?, files_touched = ? WHERE id = ? AND project_id = ?',
+          now,
+          summary,
+          args.goal,
+          filesTouched,
+          args.sessionId,
+          projectId
+        )
 
-      return {
-        content: [{ type: 'text', text: `Session summary saved (${summary.length} chars).` }],
+        return {
+          content: [{ type: 'text', text: `Session summary saved (${summary.length} chars).` }],
+        }
       }
-    }
+    )
   )
 
   s.tool(
@@ -179,107 +188,133 @@ export function registerSessionTools(server: McpServer) {
       content: z.string().describe('User prompt text'),
       sessionId: z.string().optional().describe('Current session ID'),
     },
-    async (args: { projectPath: string; content: string; sessionId?: string }) => {
-      const projectId = await resolveProjectId(args.projectPath)
-      const id = generateUUID()
+    safeMcpCall(
+      'prjct_prompt_save',
+      async (args: { projectPath: string; content: string; sessionId?: string }) => {
+        const projectId = await resolveProjectId(args.projectPath)
+        const id = generateUUID()
 
-      prjctDb.run(
-        projectId,
-        'INSERT INTO user_prompts (id, project_id, session_id, content, created_at) VALUES (?, ?, ?, ?, ?)',
-        id,
-        projectId,
-        args.sessionId ?? null,
-        args.content,
-        getTimestamp()
-      )
+        prjctDb.run(
+          projectId,
+          'INSERT INTO user_prompts (id, project_id, session_id, content, created_at) VALUES (?, ?, ?, ?, ?)',
+          id,
+          projectId,
+          args.sessionId ?? null,
+          args.content,
+          getTimestamp()
+        )
 
-      return { content: [{ type: 'text', text: `Prompt saved: ${id}` }] }
-    }
+        return { content: [{ type: 'text', text: `Prompt saved: ${id}` }] }
+      }
+    )
   )
 
   s.tool(
     'prjct_session_context',
-    'Recover context after compaction: last session + recent memories + active task state',
+    'Recover context after compaction: last session + relevant/recent memories + active task state',
     {
       projectPath: z.string().describe('Project directory path'),
+      memoryLimit: z.number().optional().default(5).describe('Max memories to include (default 5)'),
+      promptLimit: z.number().optional().default(3).describe('Max prompts to include (default 3)'),
     },
-    async (args: { projectPath: string }) => {
-      const projectId = await resolveProjectId(args.projectPath)
-      const parts: string[] = []
+    safeMcpCall(
+      'prjct_session_context',
+      async (args: { projectPath: string; memoryLimit: number; promptLimit: number }) => {
+        const projectId = await resolveProjectId(args.projectPath)
+        const parts: string[] = []
 
-      // 1. Active task
-      const currentTask = await stateStorage.getCurrentTask(projectId)
-      if (currentTask) {
-        parts.push('## Active Task')
-        parts.push(`**${currentTask.description}**`)
-        if (currentTask.branch) parts.push(`Branch: ${currentTask.branch}`)
-        parts.push(`Started: ${currentTask.startedAt}`)
-      } else {
-        parts.push('## No Active Task')
-      }
-
-      // 2. Last session summary
-      const lastSession = prjctDb.get<AgentSessionRow>(
-        projectId,
-        `SELECT * FROM agent_sessions WHERE project_id = ?
-         ORDER BY started_at DESC LIMIT 1`,
-        projectId
-      )
-      if (lastSession) {
-        parts.push('\n## Last Session')
-        if (lastSession.goal) parts.push(`Goal: ${lastSession.goal}`)
-        if (lastSession.summary) parts.push(lastSession.summary)
-        if (lastSession.ended_at) {
-          parts.push(`Ended: ${lastSession.ended_at}`)
+        // 1. Active task
+        const currentTask = await stateStorage.getCurrentTask(projectId)
+        if (currentTask) {
+          parts.push('## Active Task')
+          parts.push(`**${currentTask.description}**`)
+          if (currentTask.branch) parts.push(`Branch: ${currentTask.branch}`)
+          parts.push(`Started: ${currentTask.startedAt}`)
         } else {
-          parts.push('Status: **still open** (may have been interrupted)')
+          parts.push('## No Active Task')
         }
-        if (lastSession.files_touched) {
-          try {
-            const files = JSON.parse(lastSession.files_touched) as string[]
-            if (files.length > 0) parts.push(`Files: ${files.join(', ')}`)
-          } catch {
-            /* ignore parse errors */
+
+        // 2. Last session summary
+        const lastSession = prjctDb.get<AgentSessionRow>(
+          projectId,
+          `SELECT * FROM agent_sessions WHERE project_id = ?
+           ORDER BY started_at DESC LIMIT 1`,
+          projectId
+        )
+        if (lastSession) {
+          parts.push('\n## Last Session')
+          if (lastSession.goal) parts.push(`Goal: ${lastSession.goal}`)
+          if (lastSession.summary) parts.push(lastSession.summary)
+          if (lastSession.ended_at) {
+            parts.push(`Ended: ${lastSession.ended_at}`)
+          } else {
+            parts.push('Status: **still open** (may have been interrupted)')
+          }
+          if (lastSession.files_touched) {
+            try {
+              const files = JSON.parse(lastSession.files_touched) as string[]
+              if (files.length > 0) parts.push(`Files: ${files.join(', ')}`)
+            } catch {
+              /* ignore parse errors */
+            }
           }
         }
-      }
 
-      // 3. Recent memories (last 5)
-      const recentMemories = prjctDb.query<MemoryRow>(
-        projectId,
-        `SELECT id, title, content, tags, updated_at FROM memories
-         WHERE project_id = ? AND deleted_at IS NULL
-         ORDER BY updated_at DESC LIMIT 5`,
-        projectId
-      )
-      if (recentMemories.length > 0) {
-        parts.push('\n## Recent Memories')
-        for (const m of recentMemories) {
-          parts.push(
-            `- **${m.title}**: ${m.content.slice(0, 150)}${m.content.length > 150 ? '...' : ''}`
+        // 3. Relevant memories (task-based) or recent memories (fallback)
+        if (currentTask) {
+          const relevant = await memories.getRelevantMemories(
+            projectId,
+            { params: { description: currentTask.description } },
+            args.memoryLimit
           )
+          if (relevant.length > 0) {
+            parts.push('\n## Relevant Memories')
+            for (const m of relevant) {
+              parts.push(
+                `- **${m.title}**: ${m.content.slice(0, 150)}${m.content.length > 150 ? '...' : ''}`
+              )
+            }
+          }
+        } else {
+          const recentMemories = prjctDb.query<MemoryRow>(
+            projectId,
+            `SELECT id, title, content, tags, updated_at FROM memories
+             WHERE project_id = ? AND deleted_at IS NULL
+             ORDER BY updated_at DESC LIMIT ?`,
+            projectId,
+            args.memoryLimit
+          )
+          if (recentMemories.length > 0) {
+            parts.push('\n## Recent Memories')
+            for (const m of recentMemories) {
+              parts.push(
+                `- **${m.title}**: ${m.content.slice(0, 150)}${m.content.length > 150 ? '...' : ''}`
+              )
+            }
+          }
         }
-      }
 
-      // 4. Recent prompts (last 3)
-      const recentPrompts = prjctDb.query<UserPromptRow>(
-        projectId,
-        `SELECT * FROM user_prompts WHERE project_id = ?
-         ORDER BY created_at DESC LIMIT 3`,
-        projectId
-      )
-      if (recentPrompts.length > 0) {
-        parts.push('\n## Recent User Prompts')
-        for (const p of recentPrompts) {
-          parts.push(`- ${p.content.slice(0, 200)}${p.content.length > 200 ? '...' : ''}`)
+        // 4. Recent prompts
+        const recentPrompts = prjctDb.query<UserPromptRow>(
+          projectId,
+          `SELECT * FROM user_prompts WHERE project_id = ?
+           ORDER BY created_at DESC LIMIT ?`,
+          projectId,
+          args.promptLimit
+        )
+        if (recentPrompts.length > 0) {
+          parts.push('\n## Recent User Prompts')
+          for (const p of recentPrompts) {
+            parts.push(`- ${p.content.slice(0, 200)}${p.content.length > 200 ? '...' : ''}`)
+          }
         }
-      }
 
-      if (parts.length === 0) {
-        return { content: [{ type: 'text', text: 'No session context available.' }] }
-      }
+        if (parts.length === 0) {
+          return { content: [{ type: 'text', text: 'No session context available.' }] }
+        }
 
-      return { content: [{ type: 'text', text: parts.join('\n') }] }
-    }
+        return { content: [{ type: 'text', text: parts.join('\n') }] }
+      }
+    )
   )
 }

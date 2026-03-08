@@ -1,5 +1,5 @@
 /**
- * MCP Project Tools (6 tools)
+ * MCP Project Tools (9 tools)
  *
  * Wraps existing storage modules for task status, velocity, analysis, patterns, and outcomes.
  */
@@ -14,6 +14,7 @@ import { queueStorage } from '../../storage/queue-storage'
 import { stateStorage } from '../../storage/state-storage'
 import outcomeRecorder from '../../workflows/outcome-recorder'
 import { resolveProjectId } from '../resolve'
+import { safeMcpCall } from './error-handler'
 
 // MCP SDK TS2589 workaround: cast server to avoid deep type instantiation
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -28,7 +29,7 @@ export function registerProjectTools(server: McpServer) {
     {
       projectPath: z.string().describe('Project directory path'),
     },
-    async (args: { projectPath: string }) => {
+    safeMcpCall('prjct_task_status', async (args: { projectPath: string }) => {
       const projectId = await resolveProjectId(args.projectPath)
       const current = await stateStorage.getCurrentTask(projectId)
       const queue = await queueStorage.getActiveTasks(projectId)
@@ -50,7 +51,7 @@ export function registerProjectTools(server: McpServer) {
       }
 
       return { content: [{ type: 'text', text: parts.join('\n') }] }
-    }
+    })
   )
 
   s.tool(
@@ -59,7 +60,7 @@ export function registerProjectTools(server: McpServer) {
     {
       projectPath: z.string().describe('Project directory path'),
     },
-    async (args: { projectPath: string }) => {
+    safeMcpCall('prjct_velocity', async (args: { projectPath: string }) => {
       const projectId = await resolveProjectId(args.projectPath)
       const outcomes = await outcomeRecorder.getAll(projectId)
 
@@ -74,7 +75,7 @@ export function registerProjectTools(server: McpServer) {
 
       const text = formatVelocityContext(metrics)
       return { content: [{ type: 'text', text }] }
-    }
+    })
   )
 
   s.tool(
@@ -83,7 +84,7 @@ export function registerProjectTools(server: McpServer) {
     {
       projectPath: z.string().describe('Project directory path'),
     },
-    async (args: { projectPath: string }) => {
+    safeMcpCall('prjct_analysis', async (args: { projectPath: string }) => {
       const projectId = await resolveProjectId(args.projectPath)
       const analysis = llmAnalysisStorage.getActive(projectId)
 
@@ -125,18 +126,18 @@ export function registerProjectTools(server: McpServer) {
       }
 
       return { content: [{ type: 'text', text: parts.join('\n') }] }
-    }
+    })
   )
 
   s.tool(
     'prjct_patterns',
-    'Learned decisions: commit style, branch naming, preferences',
+    'Learned decisions, preferences, and workflows with confidence tracking',
     {
       projectPath: z.string().describe('Project directory path'),
     },
-    async (args: { projectPath: string }) => {
+    safeMcpCall('prjct_patterns', async (args: { projectPath: string }) => {
       const projectId = await resolveProjectId(args.projectPath)
-      const summary = await memorySystem.getPatternsSummary(projectId)
+      const summary = await memorySystem.getPatternsSummaryDetailed(projectId)
 
       if (!summary) {
         return { content: [{ type: 'text', text: 'No patterns learned yet.' }] }
@@ -144,24 +145,29 @@ export function registerProjectTools(server: McpServer) {
 
       const parts: string[] = ['## Learned Patterns']
 
-      if (summary.decisions && Object.keys(summary.decisions).length > 0) {
+      if (Object.keys(summary.decisions).length > 0) {
         parts.push('\n### Decisions')
-        for (const [key, val] of Object.entries(summary.decisions)) {
-          const d = val as { value: string; confidence: string; count: number }
+        for (const [key, d] of Object.entries(summary.decisions)) {
           parts.push(`- **${key}**: ${d.value} (${d.confidence}, ${d.count}x)`)
         }
       }
 
-      if (summary.preferences && Object.keys(summary.preferences).length > 0) {
+      if (Object.keys(summary.preferences).length > 0) {
         parts.push('\n### Preferences')
-        for (const [key, val] of Object.entries(summary.preferences)) {
-          const p = val as { value: unknown; confidence: string }
+        for (const [key, p] of Object.entries(summary.preferences)) {
           parts.push(`- **${key}**: ${p.value} (${p.confidence})`)
         }
       }
 
+      if (Object.keys(summary.workflows).length > 0) {
+        parts.push('\n### Workflows')
+        for (const [key, w] of Object.entries(summary.workflows)) {
+          parts.push(`- **${key}**: ${w.confidence}, ${w.count}x`)
+        }
+      }
+
       return { content: [{ type: 'text', text: parts.join('\n') }] }
-    }
+    })
   )
 
   s.tool(
@@ -171,52 +177,55 @@ export function registerProjectTools(server: McpServer) {
       projectPath: z.string().describe('Project directory path'),
       query: z.string().describe('Search query (matches task description, blockers, patterns)'),
       limit: z.number().optional().default(10).describe('Max results'),
+      offset: z.number().optional().default(0).describe('Offset for pagination (default 0)'),
     },
-    async (args: { projectPath: string; query: string; limit: number }) => {
-      const projectId = await resolveProjectId(args.projectPath)
-      const outcomes = await outcomeRecorder.getAll(projectId)
+    safeMcpCall(
+      'prjct_outcomes_search',
+      async (args: { projectPath: string; query: string; limit: number; offset: number }) => {
+        const projectId = await resolveProjectId(args.projectPath)
+        const outcomes = await outcomeRecorder.getAll(projectId)
 
-      if (outcomes.length === 0) {
-        return { content: [{ type: 'text', text: 'No outcomes recorded yet.' }] }
-      }
+        if (outcomes.length === 0) {
+          return { content: [{ type: 'text', text: 'No outcomes recorded yet.' }] }
+        }
 
-      const queryLower = args.query.toLowerCase()
-      const keywords = queryLower.split(/\s+/)
+        const queryLower = args.query.toLowerCase()
+        const keywords = queryLower.split(/\s+/)
 
-      // Score each outcome by keyword overlap
-      const scored = outcomes
-        .map((o) => {
-          const searchable =
-            `${o.task} ${o.command} ${(o.blockers || []).join(' ')} ${o.patternDetected || ''} ${(o.tags || []).join(' ')}`.toLowerCase()
-          const score = keywords.filter((kw) => searchable.includes(kw)).length
-          return { outcome: o, score }
+        const scored = outcomes
+          .map((o) => {
+            const searchable =
+              `${o.task} ${o.command} ${(o.blockers || []).join(' ')} ${o.patternDetected || ''} ${(o.tags || []).join(' ')}`.toLowerCase()
+            const score = keywords.filter((kw) => searchable.includes(kw)).length
+            return { outcome: o, score }
+          })
+          .filter((s) => s.score > 0)
+          .sort((a, b) => b.score - a.score)
+          .slice(args.offset, args.offset + args.limit)
+
+        if (scored.length === 0) {
+          return { content: [{ type: 'text', text: `No outcomes matching "${args.query}".` }] }
+        }
+
+        const lines = scored.map(({ outcome: o }) => {
+          const status = o.completedAsPlanned ? 'success' : 'issues'
+          const parts = [`- **${o.task}** [${status}, ${o.actualDuration}]`]
+          if (o.variance) parts.push(`  Variance: ${o.variance}`)
+          if (o.blockers?.length) parts.push(`  Blockers: ${o.blockers.join(', ')}`)
+          if (o.patternDetected) parts.push(`  Pattern: ${o.patternDetected}`)
+          return parts.join('\n')
         })
-        .filter((s) => s.score > 0)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, args.limit)
 
-      if (scored.length === 0) {
-        return { content: [{ type: 'text', text: `No outcomes matching "${args.query}".` }] }
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `## Outcomes matching "${args.query}" (${scored.length}/${outcomes.length})\n\n${lines.join('\n')}`,
+            },
+          ],
+        }
       }
-
-      const lines = scored.map(({ outcome: o }) => {
-        const status = o.completedAsPlanned ? 'success' : 'issues'
-        const parts = [`- **${o.task}** [${status}, ${o.actualDuration}]`]
-        if (o.variance) parts.push(`  Variance: ${o.variance}`)
-        if (o.blockers?.length) parts.push(`  Blockers: ${o.blockers.join(', ')}`)
-        if (o.patternDetected) parts.push(`  Pattern: ${o.patternDetected}`)
-        return parts.join('\n')
-      })
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `## Outcomes matching "${args.query}" (${scored.length}/${outcomes.length})\n\n${lines.join('\n')}`,
-          },
-        ],
-      }
-    }
+    )
   )
 
   s.tool(
@@ -226,7 +235,7 @@ export function registerProjectTools(server: McpServer) {
       projectPath: z.string().describe('Project directory path'),
       task: z.string().describe('Task description to find similar outcomes for'),
     },
-    async (args: { projectPath: string; task: string }) => {
+    safeMcpCall('prjct_outcomes_similar', async (args: { projectPath: string; task: string }) => {
       const projectId = await resolveProjectId(args.projectPath)
       const outcomes = await outcomeRecorder.getAll(projectId)
 
@@ -241,7 +250,6 @@ export function registerProjectTools(server: McpServer) {
           .filter((w) => w.length > 2)
       )
 
-      // Score similarity by word overlap
       const similar = outcomes
         .map((o) => {
           const taskWords = new Set(
@@ -262,14 +270,13 @@ export function registerProjectTools(server: McpServer) {
         return { content: [{ type: 'text', text: 'No similar past tasks found.' }] }
       }
 
-      // Aggregate stats
       const successCount = similar.filter((s) => s.outcome.completedAsPlanned).length
       const successRate = Math.round((successCount / similar.length) * 100)
 
       const durations = similar
         .map((s) => {
           const match = s.outcome.actualDuration.match(/(\d+)/)
-          return match ? Number.parseInt(match[1]) : 0
+          return match ? Number.parseInt(match[1], 10) : 0
         })
         .filter((d) => d > 0)
       const avgDuration =
@@ -304,6 +311,169 @@ export function registerProjectTools(server: McpServer) {
       }
 
       return { content: [{ type: 'text', text: parts.join('\n') }] }
-    }
+    })
+  )
+
+  // =========================================================================
+  // Sprint 16: outcomes_recent + estimate_accuracy + velocity_detail
+  // =========================================================================
+
+  s.tool(
+    'prjct_outcomes_recent',
+    'Last N outcomes with optional command/agent filter',
+    {
+      projectPath: z.string().describe('Project directory path'),
+      count: z.number().optional().default(10).describe('Number of recent outcomes (default 10)'),
+      command: z.string().optional().describe('Filter by command (e.g. "done", "ship")'),
+      agent: z.string().optional().describe('Filter by agent used'),
+    },
+    safeMcpCall(
+      'prjct_outcomes_recent',
+      async (args: { projectPath: string; count: number; command?: string; agent?: string }) => {
+        const projectId = await resolveProjectId(args.projectPath)
+
+        let outcomes: Awaited<ReturnType<typeof outcomeRecorder.getAll>>
+        if (args.command) {
+          outcomes = await outcomeRecorder.getByCommand(projectId, args.command)
+          outcomes = outcomes.slice(-args.count)
+        } else if (args.agent) {
+          outcomes = await outcomeRecorder.getByAgent(projectId, args.agent)
+          outcomes = outcomes.slice(-args.count)
+        } else {
+          outcomes = await outcomeRecorder.getRecent(projectId, args.count)
+        }
+
+        if (outcomes.length === 0) {
+          return { content: [{ type: 'text', text: 'No outcomes found.' }] }
+        }
+
+        const parts = [`## Recent Outcomes (${outcomes.length})`]
+        const filterInfo = args.command
+          ? ` [command: ${args.command}]`
+          : args.agent
+            ? ` [agent: ${args.agent}]`
+            : ''
+        if (filterInfo) parts[0] += filterInfo
+
+        parts.push('')
+
+        for (const o of outcomes) {
+          const status = o.completedAsPlanned ? 'ok' : 'issues'
+          const line = [`- [${status}] **${o.task}** — ${o.actualDuration}`]
+          if (o.command) line.push(`  Command: ${o.command}`)
+          if (o.variance) line.push(`  Variance: ${o.variance}`)
+          if (o.blockers?.length) line.push(`  Blockers: ${o.blockers.join(', ')}`)
+          parts.push(line.join('\n'))
+        }
+
+        return { content: [{ type: 'text', text: parts.join('\n') }] }
+      }
+    )
+  )
+
+  s.tool(
+    'prjct_estimate_accuracy',
+    'Overall estimation accuracy % + per-category over/under patterns',
+    {
+      projectPath: z.string().describe('Project directory path'),
+    },
+    safeMcpCall('prjct_estimate_accuracy', async (args: { projectPath: string }) => {
+      const projectId = await resolveProjectId(args.projectPath)
+      const outcomes = await outcomeRecorder.getAll(projectId)
+
+      if (outcomes.length === 0) {
+        return { content: [{ type: 'text', text: 'No outcome data yet.' }] }
+      }
+
+      const accuracy = await outcomeRecorder.getEstimateAccuracy(projectId)
+      const metrics = calculateVelocity(outcomes, DEFAULT_VELOCITY_CONFIG)
+
+      const parts = [
+        '## Estimation Accuracy',
+        `Overall: ${accuracy}%`,
+        `Total outcomes: ${outcomes.length}`,
+      ]
+
+      if (metrics.overEstimated.length > 0) {
+        parts.push('\n### Over-Estimated (finish faster than expected)')
+        for (const p of metrics.overEstimated) {
+          parts.push(`- **${p.category}**: ${p.avgVariance}% faster (${p.taskCount} tasks)`)
+        }
+      }
+
+      if (metrics.underEstimated.length > 0) {
+        parts.push('\n### Under-Estimated (take longer than expected)')
+        for (const p of metrics.underEstimated) {
+          parts.push(`- **${p.category}**: ${p.avgVariance}% longer (${p.taskCount} tasks)`)
+        }
+      }
+
+      if (metrics.overEstimated.length === 0 && metrics.underEstimated.length === 0) {
+        parts.push('\nNo significant estimation patterns detected.')
+      }
+
+      return { content: [{ type: 'text', text: parts.join('\n') }] }
+    })
+  )
+
+  s.tool(
+    'prjct_velocity_detail',
+    'Sprint-by-sprint breakdown + completion projection',
+    {
+      projectPath: z.string().describe('Project directory path'),
+      remainingPoints: z
+        .number()
+        .optional()
+        .describe('Remaining story points for completion projection'),
+    },
+    safeMcpCall(
+      'prjct_velocity_detail',
+      async (args: { projectPath: string; remainingPoints?: number }) => {
+        const projectId = await resolveProjectId(args.projectPath)
+        const outcomes = await outcomeRecorder.getAll(projectId)
+
+        if (outcomes.length === 0) {
+          return { content: [{ type: 'text', text: 'No outcome data yet.' }] }
+        }
+
+        const metrics = calculateVelocity(outcomes, DEFAULT_VELOCITY_CONFIG)
+
+        if (metrics.sprints.length === 0) {
+          return { content: [{ type: 'text', text: 'Not enough data for velocity.' }] }
+        }
+
+        const parts = [
+          '## Velocity Detail',
+          `Average: ${metrics.averageVelocity} pts/sprint`,
+          `Trend: ${metrics.velocityTrend}`,
+          `Estimation accuracy: ${metrics.estimationAccuracy}%`,
+          `\n### Sprints (${metrics.sprints.length})`,
+        ]
+
+        for (const s of metrics.sprints) {
+          parts.push(
+            `- Sprint ${s.sprintNumber}: ${s.pointsCompleted} pts, ${s.tasksCompleted} tasks, accuracy ${s.estimationAccuracy}%${s.avgVariance ? `, variance ${s.avgVariance > 0 ? '+' : ''}${s.avgVariance}%` : ''}`
+          )
+        }
+
+        if (args.remainingPoints && metrics.averageVelocity > 0) {
+          const { projectCompletion: projectCompletionFn } = await import('../../domain/velocity')
+          const projection = projectCompletionFn(
+            args.remainingPoints,
+            metrics.averageVelocity,
+            DEFAULT_VELOCITY_CONFIG
+          )
+
+          parts.push('\n### Completion Projection')
+          parts.push(`Remaining: ${projection.totalPoints} points`)
+          parts.push(`Sprints needed: ${projection.sprints}`)
+          if (projection.estimatedDate) {
+            parts.push(`Estimated completion: ${projection.estimatedDate.slice(0, 10)}`)
+          }
+        }
+
+        return { content: [{ type: 'text', text: parts.join('\n') }] }
+      }
+    )
   )
 }
