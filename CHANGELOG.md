@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.52.4] - 2026-03-26
+
+### Bug Fixes
+- fix: guard feedback array spreads with `Array.isArray()` in `getAggregatedFeedback` — prevents `s.push is not a function` crash when stored feedback contains non-array values
+
 ## [1.52.3] - 2026-03-08
 
 ### Bug Fixes

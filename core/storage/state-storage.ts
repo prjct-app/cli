@@ -483,10 +483,10 @@ class StateStorage extends StorageManager<StateJson> {
 
     for (const entry of entriesWithFeedback) {
       const fb = entry.feedback!
-      if (fb.stackConfirmed) stackConfirmed.push(...fb.stackConfirmed)
-      if (fb.patternsDiscovered) patternsDiscovered.push(...fb.patternsDiscovered)
-      if (fb.agentAccuracy) agentAccuracy.push(...fb.agentAccuracy)
-      if (fb.issuesEncountered) allIssues.push(...fb.issuesEncountered)
+      if (Array.isArray(fb.stackConfirmed)) stackConfirmed.push(...fb.stackConfirmed)
+      if (Array.isArray(fb.patternsDiscovered)) patternsDiscovered.push(...fb.patternsDiscovered)
+      if (Array.isArray(fb.agentAccuracy)) agentAccuracy.push(...fb.agentAccuracy)
+      if (Array.isArray(fb.issuesEncountered)) allIssues.push(...fb.issuesEncountered)
     }
 
     // Deduplicate patterns and stack confirmations
