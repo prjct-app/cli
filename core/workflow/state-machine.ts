@@ -60,14 +60,29 @@ const WORKFLOW_STATES: Record<WorkflowState, StateDefinition> = {
 
 export class WorkflowStateMachine {
   /**
-   * Get current state from storage state
+   * Get current state from storage state.
+   * When workspaceId is provided, looks up the task in activeTasks[] first
+   * (multi-agent parallel mode). Falls back to currentTask for legacy/single mode.
    */
-  getCurrentState(storageState: {
-    currentTask?: Record<string, unknown> | null
-    pausedTasks?: unknown[]
-    previousTask?: Record<string, unknown> | null
-  }): WorkflowState {
-    const task = storageState?.currentTask
+  getCurrentState(
+    storageState: {
+      currentTask?: Record<string, unknown> | null
+      pausedTasks?: unknown[]
+      previousTask?: Record<string, unknown> | null
+      activeTasks?: Array<Record<string, unknown>>
+    },
+    workspaceId?: string
+  ): WorkflowState {
+    // Multi-agent mode: look up task by workspaceId in activeTasks
+    let task: Record<string, unknown> | null | undefined = null
+    if (workspaceId && storageState?.activeTasks?.length) {
+      task = storageState.activeTasks.find((t) => t.workspaceId === workspaceId)
+    }
+
+    // Fallback to single-task mode
+    if (!task) {
+      task = storageState?.currentTask
+    }
 
     if (!task) {
       // Check if there are paused tasks (array or legacy previousTask)

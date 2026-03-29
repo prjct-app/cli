@@ -529,6 +529,52 @@ export const COMMANDS: CommandMeta[] = [
     requiresLlm: true,
   },
 
+  {
+    name: 'worktree',
+    group: 'optional',
+    description: 'Manage git worktrees for parallel agent sessions',
+    usage: { claude: null, terminal: 'prjct worktree [command]' },
+    params: '[create|list|remove|clean] [slug]',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: true,
+    isOptional: true,
+    features: [
+      'Create isolated worktrees per task',
+      'Auto-setup: .env copy, dependency install, config symlink',
+      'Clean up completed worktrees',
+    ],
+  },
+  {
+    name: 'parallel',
+    group: 'optional',
+    description: 'Manage parallel agent sessions across worktrees',
+    usage: { claude: null, terminal: 'prjct parallel [command]' },
+    params: '[status|spawn|plan|dispatch|join|cleanup]',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: true,
+    isOptional: true,
+    features: [
+      'Spawn tasks in isolated worktrees',
+      'Plan dispatch from Linear/Jira tickets',
+      'Track all active agent sessions',
+      'Join completed branches',
+    ],
+  },
+  {
+    name: 'conductor',
+    group: 'optional',
+    description: 'Conductor.build integration for multi-agent workflows',
+    usage: { claude: null, terminal: 'prjct conductor [command]' },
+    params: '[init|status]',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: true,
+    isOptional: true,
+    features: ['Scaffold conductor.json + setup/teardown scripts', 'Detect Conductor environment'],
+  },
+
   // ===== SETUP COMMANDS =====
   {
     name: 'start',

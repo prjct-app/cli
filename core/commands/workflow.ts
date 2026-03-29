@@ -180,33 +180,97 @@ export class WorkflowCommands extends PrjctCommandsBase {
 
           const estimate = await estimateTaskForStart(projectId, taskDescription)
 
-          // --md path: rich context provider, no orchestration
-          // Check for active task before starting — friendly message instead of error
+          // Parallel-by-default: if a task is already active, auto-create a worktree
+          // for the new task instead of blocking. Each task runs in isolation.
           const existingTask = await stateStorage.getCurrentTask(projectId)
-          if (existingTask) {
-            mdActionRequired(
-              'blocked',
-              'task_already_active',
-              [
-                { label: 'Complete current task first', command: 'prjct done --md' },
-                { label: 'Pause current and start this one', command: 'prjct pause --md' },
-                { label: 'Cancel' },
-              ],
-              { current_task: existingTask.description, requested_task: taskDescription }
+          const activeWorkspaceTasks = await stateStorage.getActiveTasks(projectId)
+          const { worktreeService } = await import('../services/worktree-service')
+          const currentWorktree = await worktreeService.detect(projectPath)
+
+          // Block ONLY if THIS specific worktree already has a task
+          if (currentWorktree) {
+            const conflictInThisWorktree = activeWorkspaceTasks.find(
+              (t) => t.worktreePath === currentWorktree.path
             )
-            return { success: true, message: 'Task already active', currentTask: existingTask }
+            if (conflictInThisWorktree) {
+              mdActionRequired(
+                'blocked',
+                'task_already_active',
+                [
+                  { label: 'Complete current task first', command: 'prjct done --md' },
+                  { label: 'Pause current and start this one', command: 'prjct pause --md' },
+                ],
+                {
+                  current_task: conflictInThisWorktree.description,
+                  requested_task: taskDescription,
+                }
+              )
+              return {
+                success: true,
+                message: 'Task already active in this worktree',
+                currentTask: conflictInThisWorktree,
+              }
+            }
           }
 
-          // Start task immediately — no executor to fail
-          await stateStorage.startTask(projectId, {
-            id: generateUUID(),
-            description: taskDescription,
-            sessionId: generateUUID(),
-            linearId,
-            type: estimate.taskType,
-            estimatedPoints: estimate.estimatedPoints,
-            estimatedMinutes: estimate.estimatedMinutes,
-          } as Parameters<typeof stateStorage.startTask>[1])
+          // Auto-worktree: if main tree has an active task, create a new worktree
+          let taskWorktreePath: string | undefined
+          const needsWorktree = existingTask && !currentWorktree
+          if (needsWorktree) {
+            const slug = taskDescription
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, '-')
+              .replace(/^-|-$/g, '')
+              .slice(0, 40)
+            try {
+              const wt = await worktreeService.create(projectPath, slug)
+              await worktreeService.setup(wt.path, projectPath)
+              taskWorktreePath = wt.path
+              mdCallout('info', `Parallel session created: \`${wt.branch}\` at \`${wt.path}\``)
+            } catch {
+              // Worktree creation failed — fall back to pause-and-start
+              mdActionRequired(
+                'blocked',
+                'task_already_active',
+                [
+                  { label: 'Complete current task first', command: 'prjct done --md' },
+                  { label: 'Pause current and start this one', command: 'prjct pause --md' },
+                ],
+                { current_task: existingTask.description, requested_task: taskDescription }
+              )
+              return { success: true, message: 'Task already active', currentTask: existingTask }
+            }
+          }
+
+          // Start task — as workspace task if in worktree, or as main task
+          if (taskWorktreePath || currentWorktree) {
+            const workspaceId = generateUUID()
+            await stateStorage.startTaskInWorkspace(
+              projectId,
+              {
+                id: generateUUID(),
+                description: taskDescription,
+                sessionId: generateUUID(),
+                workspaceId,
+                worktreePath: taskWorktreePath || currentWorktree!.path,
+                linearId,
+                type: estimate.taskType,
+                estimatedPoints: estimate.estimatedPoints,
+                estimatedMinutes: estimate.estimatedMinutes,
+              },
+              workspaceId
+            )
+          } else {
+            await stateStorage.startTask(projectId, {
+              id: generateUUID(),
+              description: taskDescription,
+              sessionId: generateUUID(),
+              linearId,
+              type: estimate.taskType,
+              estimatedPoints: estimate.estimatedPoints,
+              estimatedMinutes: estimate.estimatedMinutes,
+            } as Parameters<typeof stateStorage.startTask>[1])
+          }
 
           // Load project context in parallel (non-blocking, graceful)
           const globalPath = pathManager.getGlobalProjectPath(projectId)
@@ -504,8 +568,21 @@ export class WorkflowCommands extends PrjctCommandsBase {
         return { success: false, error: 'No project ID found' }
       }
 
-      // Read from storage
-      const currentTask = await stateStorage.getCurrentTask(projectId)
+      // Workspace-aware: check for task in current worktree first, then fallback to main
+      const { worktreeService } = await import('../services/worktree-service')
+      const currentWorktree = await worktreeService.detect(projectPath)
+      let currentTask = await stateStorage.getCurrentTask(projectId)
+      let completingWorkspaceId: string | undefined
+
+      if (currentWorktree) {
+        // In a worktree — find the workspace task for this path
+        const activeTasks = await stateStorage.getActiveTasks(projectId)
+        const workspaceTask = activeTasks.find((t) => t.worktreePath === currentWorktree.path)
+        if (workspaceTask) {
+          currentTask = workspaceTask
+          completingWorkspaceId = workspaceTask.workspaceId
+        }
+      }
 
       if (!currentTask) {
         if (options.md) {
@@ -598,7 +675,15 @@ export class WorkflowCommands extends PrjctCommandsBase {
 
       // Write-through: Complete task (JSON → MD → Event)
       // Pass feedback for the task-to-analysis feedback loop (PRJ-272)
-      await stateStorage.completeTask(projectId, options.feedback)
+      if (completingWorkspaceId) {
+        await stateStorage.completeTaskInWorkspace(
+          projectId,
+          completingWorkspaceId,
+          options.feedback
+        )
+      } else {
+        await stateStorage.completeTask(projectId, options.feedback)
+      }
 
       // Clear session snapshot on completion (PRJ-285)
       try {

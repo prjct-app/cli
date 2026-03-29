@@ -13,6 +13,7 @@ import { AnalyticsCommands } from './analytics'
 import { CATEGORIES, COMMANDS } from './command-data'
 import { ContextCommands } from './context'
 import { MaintenanceCommands } from './maintenance'
+import { ParallelCommands } from './parallel'
 import { PerformanceCommands } from './performance'
 import { PlanningCommands } from './planning'
 import { commandRegistry } from './registry'
@@ -34,6 +35,7 @@ const analysis = new AnalysisCommands()
 const setup = new SetupCommands()
 const context = new ContextCommands()
 const velocityCmd = new VelocityCommands()
+const parallel = new ParallelCommands()
 const uninstallCmd = new UninstallCommands()
 const updateCmd = new UpdateCommands()
 
@@ -122,6 +124,11 @@ export function registerAllCommands(): void {
 
   // Context command (for Claude templates)
   commandRegistry.registerMethod('context', context, 'context', getMeta('context'))
+
+  // Parallel agent commands
+  commandRegistry.registerMethod('parallel', parallel, 'parallel', getMeta('parallel'))
+  commandRegistry.registerMethod('worktree', parallel, 'parallel', getMeta('worktree'))
+  commandRegistry.registerMethod('conductor', parallel, 'parallel', getMeta('conductor'))
 }
 
 // Auto-register on import
@@ -138,6 +145,7 @@ export {
   maintenance,
   setup,
   context,
+  parallel,
   velocityCmd,
   uninstallCmd,
   updateCmd,

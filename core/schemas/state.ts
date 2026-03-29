@@ -176,11 +176,24 @@ export const TaskHistoryEntrySchema = z.object({
   tokensOut: z.number().optional(), // Total output tokens generated
 })
 
+// Workspace-scoped task for multi-agent parallel sessions
+// Extends CurrentTask with workspace isolation fields
+export const WorkspaceTaskSchema = CurrentTaskSchema.extend({
+  workspaceId: z.string(), // UUID or worktree path hash
+  worktreePath: z.string().optional(), // null = main worktree
+  agentSessionId: z.string().optional(), // binding to specific agent session
+  // Issue tracker binding (linearId already in CurrentTask)
+  jiraId: z.string().optional(), // Jira issue key (PROJ-123)
+  jiraUuid: z.string().optional(), // Jira issue UUID
+  dispatchedFrom: z.string().optional(), // "linear-sprint" | "jira-backlog" | "manual"
+})
+
 export const StateJsonSchema = z.object({
   currentTask: CurrentTaskSchema.nullable(),
   previousTask: PreviousTaskSchema.nullable().optional(),
   pausedTasks: z.array(PreviousTaskSchema).optional(), // replaces previousTask
   taskHistory: z.array(TaskHistoryEntrySchema).optional(), // completed tasks history (max 20)
+  activeTasks: z.array(WorkspaceTaskSchema).optional(), // parallel workspace tasks
   lastUpdated: z.string(),
 })
 
@@ -246,6 +259,7 @@ export type SubtaskCompletionData = z.infer<typeof SubtaskCompletionDataSchema>
 export type SubtaskProgress = z.infer<typeof SubtaskProgressSchema>
 
 export type CurrentTask = z.infer<typeof CurrentTaskSchema>
+export type WorkspaceTask = z.infer<typeof WorkspaceTaskSchema>
 export type PreviousTask = z.infer<typeof PreviousTaskSchema>
 export type TaskFeedback = z.infer<typeof TaskFeedbackSchema>
 export type TaskHistoryEntry = z.infer<typeof TaskHistoryEntrySchema>
@@ -290,6 +304,7 @@ export const DEFAULT_STATE: StateJson = {
   currentTask: null,
   pausedTasks: [],
   taskHistory: [],
+  activeTasks: [],
   lastUpdated: '',
 }
 

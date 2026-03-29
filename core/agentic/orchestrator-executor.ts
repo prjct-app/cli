@@ -427,10 +427,11 @@ export class OrchestratorExecutor {
   }
 
   /**
-   * Create subtasks for a fragmented task
+   * Create subtasks for a fragmented task.
    *
-   * Orders subtasks by domain dependency (database -> backend -> frontend)
-   * and stores them in state.json
+   * Uses dependency-aware ordering: domains with natural dependencies
+   * (database → backend → frontend) are chained sequentially.
+   * Independent domains get dependsOn: [] and can run in parallel.
    */
   async createSubtasks(
     taskDescription: string,
@@ -438,28 +439,31 @@ export class OrchestratorExecutor {
     _agents: unknown[],
     projectId: string
   ): Promise<OrchestratorSubtask[]> {
-    // Preserve domain order as provided (LLM decides ordering)
     const sortedDomains = [...domains]
+    const deps = this.buildDependencyGraph(sortedDomains)
 
-    // Create subtask for each domain
     const subtasks: OrchestratorSubtask[] = sortedDomains.map((domain, index) => {
       const agentFile = `${domain}.md`
-
-      // Determine dependencies - each subtask depends on previous ones
-      const dependsOn = sortedDomains.slice(0, index).map((_d, i) => `subtask-${i + 1}`)
+      const dependsOn = deps.get(domain) || []
+      // First subtask with no deps starts immediately
+      const isFirstReady =
+        dependsOn.length === 0 &&
+        index ===
+          sortedDomains.indexOf(
+            sortedDomains.find((d) => (deps.get(d) || []).length === 0) || domain
+          )
 
       return {
         id: `subtask-${index + 1}`,
         description: this.generateSubtaskDescription(taskDescription, domain),
         domain,
         agent: agentFile,
-        status: index === 0 ? 'in_progress' : 'pending',
+        status: isFirstReady ? 'in_progress' : 'pending',
         dependsOn,
         order: index + 1,
       }
     })
 
-    // Store subtasks in state.json via state storage
     await stateStorage.createSubtasks(
       projectId,
       subtasks.map((st) => ({
@@ -472,6 +476,87 @@ export class OrchestratorExecutor {
     )
 
     return subtasks
+  }
+
+  /**
+   * Build a dependency graph for domains.
+   * Known dependency chains: database → backend → frontend.
+   * Domains outside the chain (testing, devops, docs) are independent.
+   */
+  private buildDependencyGraph(domains: string[]): Map<string, string[]> {
+    const deps = new Map<string, string[]>()
+
+    // Known sequential dependency chain (order matters)
+    const CHAIN = ['database', 'backend', 'api', 'frontend', 'ui']
+
+    // Map domain names to subtask IDs
+    const domainToId = new Map<string, string>()
+    for (let i = 0; i < domains.length; i++) {
+      domainToId.set(domains[i], `subtask-${i + 1}`)
+    }
+
+    for (const domain of domains) {
+      const chainIndex = CHAIN.indexOf(domain)
+      if (chainIndex <= 0) {
+        // Not in chain, or first in chain → no dependencies
+        deps.set(domain, [])
+        continue
+      }
+
+      // Find the nearest predecessor in the chain that is also in our domains
+      const predecessors: string[] = []
+      for (let i = chainIndex - 1; i >= 0; i--) {
+        const pred = CHAIN[i]
+        if (domains.includes(pred)) {
+          const predId = domainToId.get(pred)
+          if (predId) predecessors.push(predId)
+          break // only direct predecessor, not transitive
+        }
+      }
+      deps.set(domain, predecessors)
+    }
+
+    return deps
+  }
+
+  /**
+   * Get parallel lanes from subtasks.
+   * Groups subtasks into independent lanes that can run concurrently.
+   * Each lane is a sequence of dependent subtasks.
+   */
+  getParallelLanes(subtasks: OrchestratorSubtask[]): OrchestratorSubtask[][] {
+    // Find root subtasks (no dependencies)
+    const roots = subtasks.filter((st) => st.dependsOn.length === 0)
+
+    // Build lanes: each root starts a lane, following dependents
+    const lanes: OrchestratorSubtask[][] = []
+    const visited = new Set<string>()
+
+    for (const root of roots) {
+      const lane: OrchestratorSubtask[] = [root]
+      visited.add(root.id)
+
+      // Follow the dependency chain
+      let current = root
+      while (true) {
+        const next = subtasks.find((st) => !visited.has(st.id) && st.dependsOn.includes(current.id))
+        if (!next) break
+        lane.push(next)
+        visited.add(next.id)
+        current = next
+      }
+
+      lanes.push(lane)
+    }
+
+    // Add any orphaned subtasks as single-item lanes
+    for (const st of subtasks) {
+      if (!visited.has(st.id)) {
+        lanes.push([st])
+      }
+    }
+
+    return lanes
   }
 
   private generateSubtaskDescription(fullTask: string, domain: string): string {
