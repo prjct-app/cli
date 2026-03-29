@@ -225,13 +225,33 @@ class ConfigManager {
   }
 
   /**
-   * Get the project ID from config, or generate it if config doesn't exist
+   * Get the project ID from config, or generate it if config doesn't exist.
+   * When running from a git worktree, falls back to the main worktree's config
+   * so all worktrees share the same projectId.
    */
   async getProjectId(projectPath: string): Promise<string> {
     const config = await this.readConfig(projectPath)
     if (config?.projectId) {
       return config.projectId
     }
+
+    // Worktree fallback: check if this is a child worktree and read main config
+    try {
+      const { worktreeService } = await import('../services/worktree-service')
+      const worktreeInfo = await worktreeService.detect(projectPath)
+      if (worktreeInfo) {
+        const mainPath = await worktreeService.getMainWorktree(projectPath)
+        if (mainPath !== projectPath) {
+          const mainConfig = await this.readConfig(mainPath)
+          if (mainConfig?.projectId) {
+            return mainConfig.projectId
+          }
+        }
+      }
+    } catch {
+      // worktree detection failed — not critical, fall through
+    }
+
     return pathManager.generateProjectId(projectPath)
   }
 

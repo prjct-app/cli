@@ -17,6 +17,7 @@ import type {
   SubtaskCompletionData,
   TaskFeedback,
   TaskHistoryEntry,
+  WorkspaceTask,
 } from '../schemas/state'
 import { StateJsonSchema, SubtaskCompletionDataSchema } from '../schemas/state'
 import type { WorkflowCommand } from '../types/workflow'
@@ -36,6 +37,7 @@ class StateStorage extends StorageManager<StateJson> {
       previousTask: null,
       pausedTasks: [],
       taskHistory: [],
+      activeTasks: [],
       lastUpdated: '',
     }
   }
@@ -402,6 +404,7 @@ class StateStorage extends StorageManager<StateJson> {
       currentTask: null,
       previousTask: null,
       pausedTasks: [],
+      activeTasks: [],
       lastUpdated: getTimestamp(),
     }))
   }
@@ -509,6 +512,128 @@ class StateStorage extends StorageManager<StateJson> {
       issuesEncountered: [...new Set(allIssues)],
       knownGotchas,
     }
+  }
+
+  // =========== Workspace-Aware Methods (Multi-Agent Parallel) ===========
+
+  /**
+   * Start a task in a specific workspace (for parallel agent sessions).
+   * Adds to activeTasks[] without affecting currentTask.
+   */
+  async startTaskInWorkspace(
+    projectId: string,
+    task: Omit<WorkspaceTask, 'startedAt'>,
+    workspaceId: string
+  ): Promise<WorkspaceTask> {
+    const workspaceTask: WorkspaceTask = {
+      ...task,
+      workspaceId,
+      startedAt: getTimestamp(),
+    }
+
+    await this.update(projectId, (state) => ({
+      ...state,
+      activeTasks: [...(state.activeTasks || []), workspaceTask],
+      lastUpdated: getTimestamp(),
+    }))
+
+    await this.publishEvent(projectId, 'task.started', {
+      taskId: workspaceTask.id,
+      description: workspaceTask.description,
+      startedAt: workspaceTask.startedAt,
+      sessionId: workspaceTask.sessionId,
+      workspaceId,
+    })
+
+    return workspaceTask
+  }
+
+  /**
+   * Get the active task for a specific workspace.
+   */
+  async getCurrentTaskForWorkspace(
+    projectId: string,
+    workspaceId: string
+  ): Promise<WorkspaceTask | null> {
+    const state = await this.read(projectId)
+    return (state.activeTasks || []).find((t) => t.workspaceId === workspaceId) ?? null
+  }
+
+  /**
+   * Complete a task in a specific workspace.
+   * Removes from activeTasks[], adds to taskHistory.
+   */
+  async completeTaskInWorkspace(
+    projectId: string,
+    workspaceId: string,
+    feedback?: TaskFeedback
+  ): Promise<WorkspaceTask | null> {
+    const state = await this.read(projectId)
+    const activeTasks = state.activeTasks || []
+    const task = activeTasks.find((t) => t.workspaceId === workspaceId)
+    if (!task) return null
+
+    const completedAt = getTimestamp()
+    const historyEntry = this.createTaskHistoryEntry(task, completedAt, feedback)
+    const existingHistory = this.getTaskHistoryFromState(state)
+    const taskHistory = [historyEntry, ...existingHistory].slice(0, this.maxTaskHistory)
+
+    await this.update(projectId, (s) => ({
+      ...s,
+      activeTasks: (s.activeTasks || []).filter((t) => t.workspaceId !== workspaceId),
+      taskHistory,
+      lastUpdated: completedAt,
+    }))
+
+    await this.publishEvent(projectId, 'task.completed', {
+      taskId: task.id,
+      description: task.description,
+      startedAt: task.startedAt,
+      completedAt,
+      workspaceId,
+    })
+
+    return task
+  }
+
+  /**
+   * Get all active workspace tasks.
+   */
+  async getActiveTasks(projectId: string): Promise<WorkspaceTask[]> {
+    const state = await this.read(projectId)
+    return state.activeTasks || []
+  }
+
+  /**
+   * Get count of active workspace tasks.
+   */
+  async getActiveTaskCount(projectId: string): Promise<number> {
+    const state = await this.read(projectId)
+    return (state.activeTasks || []).length
+  }
+
+  /**
+   * Update fields on a workspace task (partial update).
+   */
+  async updateWorkspaceTask(
+    projectId: string,
+    workspaceId: string,
+    fields: Partial<WorkspaceTask>
+  ): Promise<WorkspaceTask | null> {
+    const state = await this.read(projectId)
+    const activeTasks = state.activeTasks || []
+    const index = activeTasks.findIndex((t) => t.workspaceId === workspaceId)
+    if (index === -1) return null
+
+    const updated: WorkspaceTask = { ...activeTasks[index], ...fields, workspaceId }
+
+    await this.update(projectId, (s) => {
+      const tasks = [...(s.activeTasks || [])]
+      tasks[index] = updated
+      return { ...s, activeTasks: tasks, lastUpdated: getTimestamp() }
+    })
+
+    return updated
   }
 
   // =========== Token Tracking ===========

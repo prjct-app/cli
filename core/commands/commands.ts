@@ -27,6 +27,7 @@ import { AnalysisCommands } from './analysis'
 import { AnalyticsCommands } from './analytics'
 import { ContextCommands } from './context'
 import { MaintenanceCommands } from './maintenance'
+import { ParallelCommands } from './parallel'
 import { PerformanceCommands } from './performance'
 import { PlanningCommands } from './planning'
 import { SetupCommands } from './setup'
@@ -52,6 +53,7 @@ class PrjctCommands {
   private updateCmds: UpdateCommands
   private velocityCmds: VelocityCommands
   private contextCmds: ContextCommands
+  private parallelCmds: ParallelCommands
 
   // Shared state
   agent: unknown
@@ -71,6 +73,7 @@ class PrjctCommands {
     this.updateCmds = new UpdateCommands()
     this.velocityCmds = new VelocityCommands()
     this.contextCmds = new ContextCommands()
+    this.parallelCmds = new ParallelCommands()
 
     this.agent = null
     this.agentInfo = null
@@ -131,6 +134,38 @@ class PrjctCommands {
     options: { md?: boolean; cleanup?: boolean } = {}
   ): Promise<CommandResult> {
     return this.workflow.sessions(projectPath, options)
+  }
+
+  // ========== Parallel Agent Commands ==========
+
+  async parallel(
+    subcommand: string | null = null,
+    projectPath: string = process.cwd(),
+    options: {
+      md?: boolean
+      max?: number
+      fromQueue?: boolean
+      fromLinear?: boolean
+      fromJira?: boolean
+      includeBacklog?: boolean
+    } = {}
+  ): Promise<CommandResult> {
+    return this.parallelCmds.parallel(subcommand, projectPath, options)
+  }
+
+  async parallelSpawn(
+    description: string,
+    projectPath: string = process.cwd(),
+    options: { md?: boolean } = {}
+  ): Promise<CommandResult> {
+    return this.parallelCmds.spawn(description, projectPath, options)
+  }
+
+  async parallelBatch(
+    descriptions: string[],
+    projectPath: string = process.cwd()
+  ): Promise<CommandResult> {
+    return this.parallelCmds.batchSpawn(descriptions, projectPath)
   }
 
   // ========== Planning Commands ==========

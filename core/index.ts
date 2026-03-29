@@ -131,7 +131,22 @@ async function main(): Promise<void> {
     let result: CommandResult | undefined
 
     // Commands with special option handling
-    if (commandName === 'design') {
+    if (commandName === 'parallel' && parsedArgs[0] === 'spawn' && parsedArgs.length > 1) {
+      // prjct parallel spawn "task description"
+      const description = parsedArgs.slice(1).join(' ')
+      result = await commands.parallelSpawn(description, process.cwd(), { md: options.md === true })
+    } else if (commandName === 'parallel' && parsedArgs[0] === 'batch') {
+      // prjct parallel batch "task1" "task2" "task3"
+      const descriptions = parsedArgs.slice(1)
+      if (descriptions.length === 0) {
+        out.failWithHint({
+          message: 'No tasks provided',
+          hint: 'Usage: prjct parallel batch "task1" "task2" "task3"',
+        })
+        process.exit(1)
+      }
+      result = await commands.parallelBatch(descriptions, process.cwd())
+    } else if (commandName === 'design') {
       const target = parsedArgs.join(' ')
       result = await commands.design(target, options)
     } else if (commandName === 'analyze') {
@@ -223,6 +238,18 @@ async function main(): Promise<void> {
         login: () => commands.login({ md, url: options.url ? String(options.url) : undefined }),
         logout: () => commands.logout(),
         auth: (p) => commands.auth(p, { md }),
+        // Parallel agent sessions
+        parallel: (p) =>
+          commands.parallel(p, process.cwd(), {
+            md,
+            max: options.max ? Number(options.max) : undefined,
+            fromQueue: options['from-queue'] === true,
+            fromLinear: options['from-linear'] === true,
+            fromJira: options['from-jira'] === true,
+            includeBacklog: options['include-backlog'] === true,
+          }),
+        worktree: (p) => commands.parallel(p, process.cwd(), { md }),
+        conductor: (p) => commands.parallel(p, process.cwd(), { md }),
       }
 
       const handler = standardCommands[commandName]
