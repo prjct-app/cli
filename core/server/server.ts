@@ -8,6 +8,8 @@
  * @version 1.1.0
  */
 
+import fs from 'node:fs'
+import path from 'node:path'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
@@ -56,8 +58,8 @@ export function createServer(config: ServerConfig): ServerInstance {
   // Health check
   app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }))
 
-  // API info
-  app.get('/', (c) =>
+  // API info (JSON) — available at /api for programmatic clients
+  app.get('/api', (c) =>
     c.json({
       name: 'prjct-cli',
       version: VERSION,
@@ -70,7 +72,6 @@ export function createServer(config: ServerConfig): ServerInstance {
         roadmap: '/api/roadmap',
         shipped: '/api/shipped',
         events: '/api/events',
-        // Extended endpoints for status-bar
         projects: '/api/projects',
         projectFull: '/api/projects/:id/full',
         statusBarCompact: '/api/status-bar/compact',
@@ -91,6 +92,57 @@ export function createServer(config: ServerConfig): ServerInstance {
   app.get('/api/events', (c) => {
     return sseManager.handleConnection(c)
   })
+
+  // Serve web dashboard (built React app from dist/web/)
+  // Try multiple paths: relative to __dirname, process.cwd, and package root
+  const candidates = [
+    path.resolve(__dirname, '..', 'dist', 'web'),
+    path.resolve(__dirname, '..', '..', 'dist', 'web'),
+    path.resolve(process.cwd(), 'dist', 'web'),
+    path.resolve(__dirname, '..', 'web'),
+  ]
+  const webDir = candidates.find((d) => fs.existsSync(path.join(d, 'index.html'))) || null
+
+  if (webDir) {
+    const MIME_TYPES: Record<string, string> = {
+      '.html': 'text/html',
+      '.js': 'application/javascript',
+      '.css': 'text/css',
+      '.json': 'application/json',
+      '.svg': 'image/svg+xml',
+      '.png': 'image/png',
+      '.ico': 'image/x-icon',
+      '.woff2': 'font/woff2',
+    }
+
+    // Static assets (files with extensions)
+    app.get('/assets/*', async (c) => {
+      const filePath = path.join(webDir, c.req.path)
+      try {
+        const content = fs.readFileSync(filePath)
+        const ext = path.extname(filePath)
+        return new Response(content, {
+          headers: {
+            'Content-Type': MIME_TYPES[ext] || 'application/octet-stream',
+            'Cache-Control': 'public, max-age=31536000, immutable',
+          },
+        })
+      } catch {
+        return c.notFound()
+      }
+    })
+
+    // SPA fallback: serve index.html for all non-API routes
+    app.get('*', (c) => {
+      if (c.req.path.startsWith('/api')) return c.notFound()
+      try {
+        const html = fs.readFileSync(path.join(webDir, 'index.html'), 'utf-8')
+        return c.html(html)
+      } catch {
+        return c.json({ error: 'Dashboard not built. Run: cd web && bun run build' }, 404)
+      }
+    })
+  }
 
   let server: ServerHandle = null
 

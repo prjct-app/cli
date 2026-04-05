@@ -14,7 +14,8 @@
       "!**/build",
       "!**/coverage",
       "!**/*.min.js",
-      "!**/bun.lock"
+      "!**/bun.lock",
+      "!web"
     ]
   },
   "formatter": {

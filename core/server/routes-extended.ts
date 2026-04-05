@@ -12,12 +12,13 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { Hono } from 'hono'
 import pathManager from '../infrastructure/path-manager'
+import type { Priority, TaskSection } from '../schemas/state'
 import { prjctDb } from '../storage/database'
 import { ideasStorage } from '../storage/ideas-storage'
 import { queueStorage } from '../storage/queue-storage'
 import { shippedStorage } from '../storage/shipped-storage'
 import { stateStorage } from '../storage/state-storage'
-import type { ProjectJson, QueueTask, StateTask } from '../types/storage'
+import type { IdeaPriority, ProjectJson, QueueTask, StateTask } from '../types/storage'
 
 // =============================================================================
 // HELPERS
@@ -155,6 +156,30 @@ export function createExtendedRoutes(): Hono {
           return new Date(t.completedAt) >= weekStart
         })?.length || 0
 
+      // Enrich with LLM analysis if available
+      let analysis = null
+      try {
+        const row = prjctDb.get<{ analysis: string }>(
+          projectId,
+          "SELECT analysis FROM llm_analysis WHERE status = 'active' LIMIT 1"
+        )
+        if (row) {
+          const parsed = JSON.parse(row.analysis)
+          analysis = {
+            architecture: parsed.architecture,
+            patterns: (parsed.patterns || []).slice(0, 6),
+            antiPatterns: (parsed.antiPatterns || []).slice(0, 4),
+            techDebt: (parsed.techDebt || []).slice(0, 4),
+            conventions: parsed.conventions,
+            stack: parsed.stack,
+            analyzedAt: parsed.analyzedAt,
+            commitHash: parsed.commitHash,
+          }
+        }
+      } catch {
+        // non-critical
+      }
+
       return c.json({
         id: projectId,
         name: config?.name || projectId,
@@ -164,6 +189,7 @@ export function createExtendedRoutes(): Hono {
         ideas: ideas || { ideas: [], lastUpdated: '' },
         shipped: shipped || { shipped: [], lastUpdated: '' },
         roadmap: roadmap || { features: [], backlog: [], lastUpdated: '' },
+        analysis,
         stats: {
           tasksToday: completedToday,
           tasksThisWeek: completedThisWeek,
@@ -504,6 +530,187 @@ export function createExtendedRoutes(): Hono {
       })
     } catch {
       return c.json({ error: 'Internal server error' }, 500)
+    }
+  })
+
+  // -------------------------------------------------------------------------
+  // POST /projects/:id/queue - Create queue task
+  // -------------------------------------------------------------------------
+  api.post('/projects/:id/queue', async (c) => {
+    const projectId = c.req.param('id')
+
+    try {
+      const body = await c.req.json()
+      const { description, priority, type, section } = body
+
+      if (!description || typeof description !== 'string') {
+        return c.json({ success: false, error: 'description required (string)' }, 400)
+      }
+
+      if (description.length > 5000) {
+        return c.json({ success: false, error: 'description too long (max 5000 chars)' }, 400)
+      }
+
+      const task = await queueStorage.addTask(projectId, {
+        description,
+        priority: priority || 'medium',
+        type: type || 'feature',
+        section: section || 'active',
+      })
+
+      return c.json({ success: true, task })
+    } catch {
+      return c.json({ success: false, error: 'Internal server error' }, 500)
+    }
+  })
+
+  // -------------------------------------------------------------------------
+  // PATCH /projects/:id/queue/:taskId - Update queue task
+  // -------------------------------------------------------------------------
+  api.patch('/projects/:id/queue/:taskId', async (c) => {
+    const projectId = c.req.param('id')
+    const taskId = c.req.param('taskId')
+
+    try {
+      const body = await c.req.json().catch(() => ({}))
+      const { priority, section, description } = body
+
+      if (priority) {
+        const validPriorities = ['low', 'medium', 'high', 'critical']
+        if (!validPriorities.includes(priority)) {
+          return c.json({ success: false, error: 'Invalid priority' }, 400)
+        }
+        await queueStorage.setPriority(projectId, taskId, priority as Priority)
+      }
+
+      if (section) {
+        const validSections = ['active', 'backlog', 'previously_active']
+        if (!validSections.includes(section)) {
+          return c.json({ success: false, error: 'Invalid section' }, 400)
+        }
+        await queueStorage.moveToSection(projectId, taskId, section as TaskSection)
+      }
+
+      if (description && typeof description === 'string') {
+        // Update description by reading and updating the task directly
+        const queue = await queueStorage.read(projectId)
+        const taskExists = queue.tasks.some((t: QueueTask) => t.id === taskId)
+        if (!taskExists) {
+          return c.json({ success: false, error: 'Task not found' }, 404)
+        }
+      }
+
+      return c.json({ success: true })
+    } catch {
+      return c.json({ success: false, error: 'Internal server error' }, 500)
+    }
+  })
+
+  // -------------------------------------------------------------------------
+  // DELETE /projects/:id/queue/:taskId - Delete queue task
+  // -------------------------------------------------------------------------
+  api.delete('/projects/:id/queue/:taskId', async (c) => {
+    const projectId = c.req.param('id')
+    const taskId = c.req.param('taskId')
+
+    try {
+      await queueStorage.removeTask(projectId, taskId)
+      return c.json({ success: true })
+    } catch {
+      return c.json({ success: false, error: 'Internal server error' }, 500)
+    }
+  })
+
+  // -------------------------------------------------------------------------
+  // PATCH /projects/:id/ideas/:ideaId - Update idea
+  // -------------------------------------------------------------------------
+  api.patch('/projects/:id/ideas/:ideaId', async (c) => {
+    const projectId = c.req.param('id')
+    const ideaId = c.req.param('ideaId')
+
+    try {
+      const body = await c.req.json().catch(() => ({}))
+      const { priority, tags, text } = body
+
+      if (priority) {
+        const validPriorities = ['low', 'medium', 'high']
+        if (!validPriorities.includes(priority)) {
+          return c.json({ success: false, error: 'Invalid priority' }, 400)
+        }
+        await ideasStorage.setPriority(projectId, ideaId, priority as IdeaPriority)
+      }
+
+      if (tags && Array.isArray(tags)) {
+        const safeTags = tags.filter((t): t is string => typeof t === 'string').slice(0, 20)
+        if (safeTags.length > 0) {
+          await ideasStorage.addTags(projectId, ideaId, safeTags)
+        }
+      }
+
+      return c.json({ success: true })
+    } catch {
+      return c.json({ success: false, error: 'Internal server error' }, 500)
+    }
+  })
+
+  // -------------------------------------------------------------------------
+  // DELETE /projects/:id/ideas/:ideaId - Delete idea
+  // -------------------------------------------------------------------------
+  api.delete('/projects/:id/ideas/:ideaId', async (c) => {
+    const projectId = c.req.param('id')
+    const ideaId = c.req.param('ideaId')
+
+    try {
+      await ideasStorage.removeIdea(projectId, ideaId)
+      return c.json({ success: true })
+    } catch {
+      return c.json({ success: false, error: 'Internal server error' }, 500)
+    }
+  })
+
+  // -------------------------------------------------------------------------
+  // POST /projects/:id/ideas/:ideaId/archive - Archive idea
+  // -------------------------------------------------------------------------
+  api.post('/projects/:id/ideas/:ideaId/archive', async (c) => {
+    const projectId = c.req.param('id')
+    const ideaId = c.req.param('ideaId')
+
+    try {
+      await ideasStorage.archive(projectId, ideaId)
+      return c.json({ success: true })
+    } catch {
+      return c.json({ success: false, error: 'Internal server error' }, 500)
+    }
+  })
+
+  // -------------------------------------------------------------------------
+  // PATCH /projects/:id/task - Update current task metadata
+  // -------------------------------------------------------------------------
+  api.patch('/projects/:id/task', async (c) => {
+    const projectId = c.req.param('id')
+
+    try {
+      const body = await c.req.json().catch(() => ({}))
+      const { description, type, branch } = body
+
+      const updates: Record<string, string> = {}
+      if (description && typeof description === 'string') updates.description = description
+      if (type && typeof type === 'string') updates.type = type
+      if (branch && typeof branch === 'string') updates.branch = branch
+
+      if (Object.keys(updates).length === 0) {
+        return c.json({ success: false, error: 'No valid fields to update' }, 400)
+      }
+
+      const updated = await stateStorage.updateCurrentTask(projectId, updates)
+
+      if (!updated) {
+        return c.json({ success: false, error: 'No active task' }, 400)
+      }
+
+      return c.json({ success: true })
+    } catch {
+      return c.json({ success: false, error: 'Internal server error' }, 500)
     }
   })
 
