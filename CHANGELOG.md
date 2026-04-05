@@ -1,11 +1,17 @@
 # Changelog
 
-## [1.53.2] - 2026-04-04
+## [1.54.0] - 2026-04-05
 
 ### Features
-- Obsidian vault integration — CLI commands (`prjct obsidian setup/export/status`), 8 MCP tools (read, write, search, list, export, import, stats, status), Kanban board export, Canvas roadmap, daily notes, Dataview dashboards, path security (traversal prevention, extension whitelist)
+
+- multi-agent parallel sessions with auto-worktree isolation (#237)
+- Obsidian vault integration — CLI commands, 8 MCP tools, Kanban board, Canvas roadmap, Dataview dashboards, path security
 - Sync skill generates `_insights.md` via LLM when Obsidian is configured
 - Linear CSV import script with per-project Kanban boards and tags
+
+### Bug Fixes
+
+- guard feedback array spreads preventing s.push crash (#236)
 
 ## [1.53.1] - 2026-04-04
 
