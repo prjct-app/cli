@@ -12,6 +12,7 @@ import { registerCodeIntelTools } from './tools/code-intel'
 import { registerContextTools } from './tools/context'
 import { registerFileTools } from './tools/files'
 import { registerMemoryTools } from './tools/memory'
+import { registerObsidianTools } from './tools/obsidian'
 import { registerPatternTools } from './tools/patterns'
 import { registerProjectTools } from './tools/project'
 import { registerReviewTools } from './tools/review'
@@ -76,6 +77,7 @@ export function createServer(): McpServer {
   registerPatternTools(server)
   registerCodeIntelTools(server)
   registerContextTools(server)
+  registerObsidianTools(server)
 
   return server
 }

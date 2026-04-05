@@ -385,6 +385,27 @@ Present results: tables, analysis findings, anti-patterns, conventions.
 - Skill regeneration (this skill and others)
 - Index building (BM25, import graph, co-change)
 - Pattern extraction and analysis
+
+## Obsidian Integration
+After completing analysis, check if Obsidian is configured:
+\`\`\`bash
+prjct obsidian status --md
+\`\`\`
+If configured, write project insights to the vault using the MCP tool \`prjct_obsidian_write\`:
+- notePath: \`_insights.md\`
+- frontmatter: \`{ prjct_type: "insights", updated: "YYYY-MM-DD" }\`
+- content: Your analysis written in natural language (NOT tables or templates)
+
+Write like a PM briefing the team. Include:
+- Project status: active task, queue depth, blockers, what needs attention
+- Architecture: style, key patterns, domains identified
+- Recent progress: last deliveries with their impact
+- Risks: anti-patterns found, tech debt, areas of concern
+- Decisions: key technical choices and rationale
+- Velocity: trend, estimation accuracy, capacity
+- Next priorities: what should be tackled next and why
+
+Be specific — cite issue IDs, file paths, concrete numbers. Skip this step if Obsidian is not configured.
 `,
   },
   {

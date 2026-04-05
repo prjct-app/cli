@@ -574,6 +574,24 @@ export const COMMANDS: CommandMeta[] = [
     isOptional: true,
     features: ['Scaffold conductor.json + setup/teardown scripts', 'Detect Conductor environment'],
   },
+  {
+    name: 'obsidian',
+    group: 'optional',
+    description: 'Obsidian vault integration — Kanban board, KB, and bidirectional sync',
+    usage: { claude: '/p:obsidian [command]', terminal: 'prjct obsidian [command]' },
+    params: '[setup|export|status]',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: true,
+    isOptional: true,
+    features: [
+      'Export tasks as Kanban board with Obsidian Kanban plugin support',
+      'Export queue, shipped, and roadmap as Obsidian notes',
+      'Generate Canvas roadmap with dependency arrows',
+      'Daily standup notes with task progress',
+      'Dataview-compatible frontmatter on all files',
+    ],
+  },
 
   // ===== SETUP COMMANDS =====
   {
