@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.54.0] - 2026-04-05
+
+### Features
+
+- multi-agent parallel sessions with auto-worktree isolation (#237)
+
+### Bug Fixes
+
+- guard feedback array spreads preventing s.push crash (#236)
+
+
 ## [1.53.1] - 2026-04-04
 
 ### Docs
