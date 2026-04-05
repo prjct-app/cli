@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.53.1] - 2026-04-04
+
+### Docs
+- update README with full command reference, Windsurf support, MCP server, parallel sessions, code intelligence, web dashboard, cloud sync, and architecture overview
+
 ## [1.52.4] - 2026-03-26
 
 ### Bug Fixes
