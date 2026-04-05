@@ -197,6 +197,35 @@ export function mdError(message: string): string {
 }
 
 // =============================================================================
+// Obsidian / Frontmatter Utilities
+// =============================================================================
+
+/** Generate YAML frontmatter block for Obsidian-compatible markdown */
+export function mdFrontmatter(fields: Record<string, unknown>): string {
+  const lines: string[] = ['---']
+  for (const [key, value] of Object.entries(fields)) {
+    if (value === undefined || value === null) continue
+    if (Array.isArray(value)) {
+      lines.push(`${key}: [${value.map((v) => String(v)).join(', ')}]`)
+    } else if (typeof value === 'object') {
+    } else {
+      lines.push(`${key}: ${String(value)}`)
+    }
+  }
+  lines.push('---')
+  return lines.join('\n')
+}
+
+/** Build an Obsidian note: frontmatter + title + body sections */
+export function mdObsidianNote(
+  frontmatter: Record<string, unknown>,
+  title: string,
+  ...sections: (string | null | undefined | false)[]
+): string {
+  return [mdFrontmatter(frontmatter), `# ${title}`, ...sections.filter(Boolean)].join('\n\n')
+}
+
+// =============================================================================
 // Composition Helper
 // =============================================================================
 

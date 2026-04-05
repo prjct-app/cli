@@ -5,11 +5,13 @@
 ### Features
 
 - multi-agent parallel sessions with auto-worktree isolation (#237)
+- Obsidian vault integration — CLI commands, 8 MCP tools, Kanban board, Canvas roadmap, Dataview dashboards, path security
+- Sync skill generates `_insights.md` via LLM when Obsidian is configured
+- Linear CSV import script with per-project Kanban boards and tags
 
 ### Bug Fixes
 
 - guard feedback array spreads preventing s.push crash (#236)
-
 
 ## [1.53.1] - 2026-04-04
 

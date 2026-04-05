@@ -27,6 +27,7 @@ import { AnalysisCommands } from './analysis'
 import { AnalyticsCommands } from './analytics'
 import { ContextCommands } from './context'
 import { MaintenanceCommands } from './maintenance'
+import { ObsidianCommands } from './obsidian'
 import { ParallelCommands } from './parallel'
 import { PerformanceCommands } from './performance'
 import { PlanningCommands } from './planning'
@@ -53,6 +54,7 @@ class PrjctCommands {
   private updateCmds: UpdateCommands
   private velocityCmds: VelocityCommands
   private contextCmds: ContextCommands
+  private obsidianCmds: ObsidianCommands
   private parallelCmds: ParallelCommands
 
   // Shared state
@@ -73,6 +75,7 @@ class PrjctCommands {
     this.updateCmds = new UpdateCommands()
     this.velocityCmds = new VelocityCommands()
     this.contextCmds = new ContextCommands()
+    this.obsidianCmds = new ObsidianCommands()
     this.parallelCmds = new ParallelCommands()
 
     this.agent = null
@@ -166,6 +169,15 @@ class PrjctCommands {
     projectPath: string = process.cwd()
   ): Promise<CommandResult> {
     return this.parallelCmds.batchSpawn(descriptions, projectPath)
+  }
+
+  // ========== Obsidian Commands ==========
+
+  async obsidian(
+    subcommand: string | null = null,
+    projectPath: string = process.cwd()
+  ): Promise<CommandResult> {
+    return this.obsidianCmds.obsidian(subcommand, projectPath)
   }
 
   // ========== Planning Commands ==========
