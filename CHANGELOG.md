@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.56.0] - 2026-04-06
+
+### Features
+
+- web dashboard — Linear-style UI, full API, workflows, task detail
+- CRUD API endpoints + static file serving for web dashboard
+
+### Bug Fixes
+
+- biome lint + typecheck errors for clean push
+- revert accent to neutral, sidebar/tabs cleanup
+
+
 ## [1.54.2] - 2026-04-06
 
 ### Added
