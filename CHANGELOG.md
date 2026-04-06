@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.56.2] - 2026-04-06
+
+### Bug Fixes
+
+- obsidian status neutral message when not configured (#242)
+
+
 ## [1.56.1] - 2026-04-06
 
 ### Fixed
