@@ -99,6 +99,7 @@ export interface StateJson {
 export interface QueueTask {
   id: string
   description: string
+  body?: string
   type?: string
   priority?: string
   section?: string
@@ -107,6 +108,15 @@ export interface QueueTask {
   completedAt?: string
   featureId?: string
   featureName?: string
+}
+
+export interface TaskComment {
+  id: string
+  taskId: string
+  author: string
+  content: string
+  createdAt: string
+  updatedAt: string
 }
 
 export interface QueueJson {

@@ -652,6 +652,31 @@ const migrations: Migration[] = [
       }
     },
   },
+  {
+    version: 12,
+    name: 'task-body-and-comments',
+    up: (db: SqliteDatabase) => {
+      // Add body column for markdown descriptions on queue tasks
+      try {
+        db.run('ALTER TABLE queue_tasks ADD COLUMN body TEXT')
+      } catch {
+        // Column may already exist
+      }
+
+      db.run(`
+        CREATE TABLE IF NOT EXISTS queue_task_comments (
+          id          TEXT PRIMARY KEY,
+          task_id     TEXT NOT NULL,
+          author      TEXT NOT NULL DEFAULT 'user',
+          content     TEXT NOT NULL,
+          created_at  TEXT NOT NULL,
+          updated_at  TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_qtc_task_id ON queue_task_comments(task_id);
+      `)
+    },
+  },
 ]
 
 // =============================================================================

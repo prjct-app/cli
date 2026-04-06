@@ -12,12 +12,20 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { Hono } from 'hono'
 import pathManager from '../infrastructure/path-manager'
-import type { Priority, TaskSection } from '../schemas/state'
+import { archiveStorage } from '../storage/archive-storage'
+import { commentStorage } from '../storage/comment-storage'
+import { contextZoneStorage } from '../storage/context-zone-storage'
+import { customWorkflowStorage } from '../storage/custom-workflow-storage'
 import { prjctDb } from '../storage/database'
 import { ideasStorage } from '../storage/ideas-storage'
+import { indexStorage } from '../storage/index-storage'
+import { llmAnalysisStorage } from '../storage/llm-analysis-storage'
+import { metricsStorage } from '../storage/metrics-storage'
 import { queueStorage } from '../storage/queue-storage'
 import { shippedStorage } from '../storage/shipped-storage'
 import { stateStorage } from '../storage/state-storage'
+import { velocityStorage } from '../storage/velocity-storage'
+import { workflowRuleStorage } from '../storage/workflow-rule-storage'
 import type { IdeaPriority, ProjectJson, QueueTask, StateTask } from '../types/storage'
 
 // =============================================================================
@@ -83,10 +91,18 @@ export function createExtendedRoutes(): Hono {
           const currentTask = state?.currentTask
           const duration = await calculateDuration(currentTask?.startedAt)
 
+          // Cast config to access all fields
+          const cfg = config as Record<string, unknown> | null
+
           return {
             id,
-            name: config?.name || id.slice(0, 8),
-            path: config?.path || null,
+            name: cfg?.name || id.slice(0, 8),
+            path: cfg?.repoPath || cfg?.path || null,
+            stack: cfg?.stack || null,
+            branch: cfg?.currentBranch || null,
+            fileCount: cfg?.fileCount || null,
+            lastSync: cfg?.lastSync || null,
+            version: cfg?.version || null,
             currentTask: currentTask
               ? {
                   ...currentTask,
@@ -98,6 +114,8 @@ export function createExtendedRoutes(): Hono {
               queueCount: queue?.tasks?.filter((t: QueueTask) => !t.completed)?.length || 0,
               ideasCount: ideas?.ideas?.filter((i) => i.status === 'pending')?.length || 0,
               shippedCount: shipped?.shipped?.length || 0,
+              tasksToday: 0,
+              tasksThisWeek: 0,
             },
           }
         })
@@ -565,6 +583,22 @@ export function createExtendedRoutes(): Hono {
   })
 
   // -------------------------------------------------------------------------
+  // GET /projects/:id/queue/:taskId - Get single task
+  // -------------------------------------------------------------------------
+  api.get('/projects/:id/queue/:taskId', async (c) => {
+    const projectId = c.req.param('id')
+    const taskId = c.req.param('taskId')
+    try {
+      const task = await queueStorage.getTask(projectId, taskId)
+      if (!task) return c.json({ error: 'Task not found' }, 404)
+      const comments = commentStorage.getComments(projectId, taskId)
+      return c.json({ task, comments })
+    } catch (e) {
+      return c.json({ error: String(e) }, 500)
+    }
+  })
+
+  // -------------------------------------------------------------------------
   // PATCH /projects/:id/queue/:taskId - Update queue task
   // -------------------------------------------------------------------------
   api.patch('/projects/:id/queue/:taskId', async (c) => {
@@ -573,31 +607,27 @@ export function createExtendedRoutes(): Hono {
 
     try {
       const body = await c.req.json().catch(() => ({}))
-      const { priority, section, description } = body
+      const updates: Record<string, string> = {}
 
-      if (priority) {
-        const validPriorities = ['low', 'medium', 'high', 'critical']
-        if (!validPriorities.includes(priority)) {
+      if (body.priority && typeof body.priority === 'string') {
+        const validPriorities = ['low', 'medium', 'high', 'critical', 'normal', 'urgent']
+        if (!validPriorities.includes(body.priority))
           return c.json({ success: false, error: 'Invalid priority' }, 400)
-        }
-        await queueStorage.setPriority(projectId, taskId, priority as Priority)
+        updates.priority = body.priority
       }
-
-      if (section) {
+      if (body.section && typeof body.section === 'string') {
         const validSections = ['active', 'backlog', 'previously_active']
-        if (!validSections.includes(section)) {
+        if (!validSections.includes(body.section))
           return c.json({ success: false, error: 'Invalid section' }, 400)
-        }
-        await queueStorage.moveToSection(projectId, taskId, section as TaskSection)
+        updates.section = body.section
       }
+      if (typeof body.description === 'string') updates.description = body.description
+      if (typeof body.body === 'string') updates.body = body.body
+      if (typeof body.type === 'string') updates.type = body.type
 
-      if (description && typeof description === 'string') {
-        // Update description by reading and updating the task directly
-        const queue = await queueStorage.read(projectId)
-        const taskExists = queue.tasks.some((t: QueueTask) => t.id === taskId)
-        if (!taskExists) {
-          return c.json({ success: false, error: 'Task not found' }, 404)
-        }
+      if (Object.keys(updates).length > 0) {
+        const result = await queueStorage.updateTask(projectId, taskId, updates)
+        if (!result) return c.json({ success: false, error: 'Task not found' }, 404)
       }
 
       return c.json({ success: true })
@@ -618,6 +648,54 @@ export function createExtendedRoutes(): Hono {
       return c.json({ success: true })
     } catch {
       return c.json({ success: false, error: 'Internal server error' }, 500)
+    }
+  })
+
+  // -------------------------------------------------------------------------
+  // POST /projects/:id/queue/:taskId/comments - Add comment
+  // -------------------------------------------------------------------------
+  api.post('/projects/:id/queue/:taskId/comments', async (c) => {
+    const projectId = c.req.param('id')
+    const taskId = c.req.param('taskId')
+    try {
+      const body = await c.req.json()
+      const { content, author } = body as { content: string; author?: string }
+      if (!content?.trim()) return c.json({ error: 'Content required' }, 400)
+      const comment = commentStorage.addComment(projectId, taskId, content.trim(), author)
+      return c.json({ comment })
+    } catch (e) {
+      return c.json({ error: String(e) }, 500)
+    }
+  })
+
+  // -------------------------------------------------------------------------
+  // PATCH /projects/:id/queue/:taskId/comments/:commentId - Update comment
+  // -------------------------------------------------------------------------
+  api.patch('/projects/:id/queue/:taskId/comments/:commentId', async (c) => {
+    const projectId = c.req.param('id')
+    const commentId = c.req.param('commentId')
+    try {
+      const body = await c.req.json()
+      const { content } = body as { content: string }
+      if (!content?.trim()) return c.json({ error: 'Content required' }, 400)
+      const ok = commentStorage.updateComment(projectId, commentId, content.trim())
+      return ok ? c.json({ success: true }) : c.json({ error: 'Not found' }, 404)
+    } catch (e) {
+      return c.json({ error: String(e) }, 500)
+    }
+  })
+
+  // -------------------------------------------------------------------------
+  // DELETE /projects/:id/queue/:taskId/comments/:commentId - Delete comment
+  // -------------------------------------------------------------------------
+  api.delete('/projects/:id/queue/:taskId/comments/:commentId', (c) => {
+    const projectId = c.req.param('id')
+    const commentId = c.req.param('commentId')
+    try {
+      commentStorage.deleteComment(projectId, commentId)
+      return c.json({ success: true })
+    } catch (e) {
+      return c.json({ error: String(e) }, 500)
     }
   })
 
@@ -711,6 +789,427 @@ export function createExtendedRoutes(): Hono {
       return c.json({ success: true })
     } catch {
       return c.json({ success: false, error: 'Internal server error' }, 500)
+    }
+  })
+
+  // -------------------------------------------------------------------------
+  // PATCH /projects/:id - Update project metadata (name)
+  // -------------------------------------------------------------------------
+  api.patch('/projects/:id', async (c) => {
+    const projectId = c.req.param('id')
+    try {
+      const body = await c.req.json().catch(() => ({}))
+      const { name, description, stack, techStack, repoPath } = body as {
+        name?: string
+        description?: string
+        stack?: string
+        techStack?: string[]
+        repoPath?: string
+      }
+
+      const globalPath = pathManager.getGlobalProjectPath(projectId)
+      const configPath = path.join(globalPath, 'project.json')
+
+      let config: Record<string, unknown> = {}
+      try {
+        const raw = await fs.readFile(configPath, 'utf-8')
+        config = JSON.parse(raw)
+      } catch {
+        config = { projectId }
+      }
+
+      if (name !== undefined) config.name = name
+      if (description !== undefined) config.description = description
+      if (stack !== undefined) config.stack = stack
+      if (techStack !== undefined) config.techStack = techStack
+      if (repoPath !== undefined) config.repoPath = repoPath
+
+      await fs.mkdir(path.dirname(configPath), { recursive: true })
+      await fs.writeFile(configPath, JSON.stringify(config, null, 2))
+
+      return c.json({ success: true })
+    } catch {
+      return c.json({ success: false, error: 'Internal server error' }, 500)
+    }
+  })
+
+  // -------------------------------------------------------------------------
+  // DELETE /projects/:id - Delete project data
+  // -------------------------------------------------------------------------
+  api.delete('/projects/:id', async (c) => {
+    const projectId = c.req.param('id')
+    try {
+      // Close DB connection
+      prjctDb.close(projectId)
+
+      // Remove project directory
+      const globalPath = pathManager.getGlobalProjectPath(projectId)
+      await fs.rm(globalPath, { recursive: true, force: true })
+
+      return c.json({ success: true })
+    } catch (e) {
+      return c.json({ success: false, error: String(e) }, 500)
+    }
+  })
+
+  // -------------------------------------------------------------------------
+  // Workflow Graph (visual edges/connections)
+  // -------------------------------------------------------------------------
+  api.get('/projects/:id/workflow-graph', (c) => {
+    const projectId = c.req.param('id')
+    try {
+      const doc = prjctDb.getDoc<{ edges: unknown[] }>(projectId, 'workflow-graph')
+      return c.json({ edges: doc?.edges || [] })
+    } catch {
+      return c.json({ edges: [] })
+    }
+  })
+
+  api.put('/projects/:id/workflow-graph', async (c) => {
+    const projectId = c.req.param('id')
+    try {
+      const body = await c.req.json()
+      const { edges } = body as { edges: unknown[] }
+      prjctDb.setDoc(projectId, 'workflow-graph', { edges: edges || [] })
+      return c.json({ success: true })
+    } catch (e) {
+      return c.json({ success: false, error: String(e) }, 500)
+    }
+  })
+
+  // -------------------------------------------------------------------------
+  // Workflow APIs
+  // -------------------------------------------------------------------------
+
+  // GET /projects/:id/workflows — list all workflows
+  api.get('/projects/:id/workflows', (c) => {
+    const projectId = c.req.param('id')
+    try {
+      const workflows = customWorkflowStorage.getAllWorkflows(projectId)
+      const rules = workflowRuleStorage.getAllRules(projectId)
+      return c.json({ workflows, rules })
+    } catch {
+      return c.json({ workflows: [], rules: [] })
+    }
+  })
+
+  // PATCH /projects/:id/workflows/:name — toggle workflow enabled
+  api.patch('/projects/:id/workflows/:name', async (c) => {
+    const { id: projectId, name } = c.req.param()
+    try {
+      const body = await c.req.json().catch(() => ({}))
+      const { enabled } = body as { enabled?: boolean }
+      const workflow = customWorkflowStorage.getWorkflow(projectId, name)
+      if (!workflow) return c.json({ success: false, error: 'Workflow not found' }, 404)
+      customWorkflowStorage.updateWorkflow(projectId, name, {
+        enabled: enabled ?? !workflow.enabled,
+      })
+      return c.json({ success: true })
+    } catch (e) {
+      return c.json({ success: false, error: String(e) }, 500)
+    }
+  })
+
+  // POST /projects/:id/workflow-rules — add a rule
+  api.post('/projects/:id/workflow-rules', async (c) => {
+    const projectId = c.req.param('id')
+    try {
+      const body = await c.req.json()
+      const { type, command, position, action, description, enabled, timeoutMs } = body as {
+        type: string
+        command: string
+        position: string
+        action: string
+        description?: string
+        enabled?: boolean
+        timeoutMs?: number
+      }
+      const id = workflowRuleStorage.addRule(projectId, {
+        type: type as 'hook' | 'gate' | 'step' | 'instruction',
+        command,
+        position,
+        action,
+        description: description || null,
+        enabled: enabled ?? true,
+        timeoutMs: timeoutMs ?? 30000,
+        createdAt: new Date().toISOString(),
+        sortOrder: 0,
+      })
+      return c.json({ success: true, id })
+    } catch (e) {
+      return c.json({ success: false, error: String(e) }, 500)
+    }
+  })
+
+  // PATCH /projects/:id/workflow-rules/:ruleId — update a rule
+  api.patch('/projects/:id/workflow-rules/:ruleId', async (c) => {
+    const projectId = c.req.param('id')
+    const ruleId = Number(c.req.param('ruleId'))
+    try {
+      const body = await c.req.json()
+      workflowRuleStorage.updateRule(projectId, ruleId, body)
+      return c.json({ success: true })
+    } catch (e) {
+      return c.json({ success: false, error: String(e) }, 500)
+    }
+  })
+
+  // DELETE /projects/:id/workflow-rules/:ruleId — delete a rule
+  api.delete('/projects/:id/workflow-rules/:ruleId', (c) => {
+    const projectId = c.req.param('id')
+    const ruleId = Number(c.req.param('ruleId'))
+    try {
+      workflowRuleStorage.removeRule(projectId, ruleId)
+      return c.json({ success: true })
+    } catch (e) {
+      return c.json({ success: false, error: String(e) }, 500)
+    }
+  })
+
+  // =========================================================================
+  // DATA APIs — expose ALL project data to web dashboard
+  // =========================================================================
+
+  // GET /projects/:id/metrics — token savings, compression, daily stats
+  api.get('/projects/:id/metrics', async (c) => {
+    const projectId = c.req.param('id')
+    try {
+      const summary = await metricsStorage.getSummary(projectId)
+      const dailyStats = await metricsStorage.getDailyStats(projectId, 90)
+      return c.json({ ...summary, dailyStats })
+    } catch {
+      return c.json({ totalTokensSaved: 0, avgCompressionRate: 0, syncCount: 0, dailyStats: [] })
+    }
+  })
+
+  // GET /projects/:id/velocity — sprint velocity, trends
+  api.get('/projects/:id/velocity', async (c) => {
+    const projectId = c.req.param('id')
+    try {
+      const metrics = await velocityStorage.getMetrics(projectId)
+      return c.json(metrics)
+    } catch {
+      return c.json({ averageVelocity: 0, velocityTrend: 'stable', sprints: [] })
+    }
+  })
+
+  // GET /projects/:id/analysis/full — complete LLM analysis (not sliced)
+  api.get('/projects/:id/analysis/full', (c) => {
+    const projectId = c.req.param('id')
+    try {
+      const active = llmAnalysisStorage.getActive(projectId)
+      const history = llmAnalysisStorage.getHistory(projectId, 10)
+      return c.json({ analysis: active, history })
+    } catch {
+      return c.json({ analysis: null, history: [] })
+    }
+  })
+
+  // GET /projects/:id/index — project structure, languages, domains
+  api.get('/projects/:id/index', async (c) => {
+    const projectId = c.req.param('id')
+    try {
+      const index = await indexStorage.readIndex(projectId)
+      const domains = await indexStorage.readDomains(projectId)
+      const scores = await indexStorage.readScores(projectId)
+      const categories = await indexStorage.readCategories(projectId)
+      return c.json({ index, domains, scores: scores?.slice(0, 100), categories })
+    } catch {
+      return c.json({ index: null, domains: null, scores: [], categories: null })
+    }
+  })
+
+  // GET /projects/:id/archives — archived items
+  api.get('/projects/:id/archives', (c) => {
+    const projectId = c.req.param('id')
+    const type = c.req.query('type') || undefined
+    const limit = Number(c.req.query('limit')) || 50
+    try {
+      const items = archiveStorage.getArchived(projectId, type as any, limit)
+      const stats = archiveStorage.getStats(projectId)
+      return c.json({ items, stats })
+    } catch {
+      return c.json({ items: [], stats: { total: 0, byType: {} } })
+    }
+  })
+
+  // GET /projects/:id/context-health — context zone analytics
+  api.get('/projects/:id/context-health', (c) => {
+    const projectId = c.req.param('id')
+    try {
+      const summary = contextZoneStorage.getSummary(projectId, 30)
+      const transitions = contextZoneStorage.getTransitions(projectId, 50)
+      return c.json({ summary, transitions })
+    } catch {
+      return c.json({ summary: null, transitions: [] })
+    }
+  })
+
+  // GET /projects/:id/context-feedback — file suggestion accuracy
+  api.get('/projects/:id/context-feedback', (c) => {
+    const projectId = c.req.param('id')
+    try {
+      const rows = prjctDb.query<Record<string, unknown>>(
+        projectId,
+        'SELECT * FROM context_feedback ORDER BY created_at DESC LIMIT 50'
+      )
+      return c.json({ feedback: rows })
+    } catch {
+      return c.json({ feedback: [] })
+    }
+  })
+
+  // GET /projects/:id/state/full — complete state with paused tasks + full history
+  api.get('/projects/:id/state/full', async (c) => {
+    const projectId = c.req.param('id')
+    try {
+      const state = await stateStorage.read(projectId)
+      return c.json(state)
+    } catch {
+      return c.json({
+        currentTask: null,
+        previousTask: null,
+        pausedTasks: [],
+        taskHistory: [],
+        lastUpdated: '',
+      })
+    }
+  })
+
+  // =========================================================================
+  // REMAINING DATA — events, memory, sessions, tasks, kv raw, subtasks
+  // =========================================================================
+
+  // GET /projects/:id/events — activity/event log (paginated)
+  api.get('/projects/:id/events', (c) => {
+    const projectId = c.req.param('id')
+    const limit = Number(c.req.query('limit')) || 100
+    const offset = Number(c.req.query('offset')) || 0
+    const type = c.req.query('type') || undefined
+    try {
+      const events = type
+        ? prjctDb.query<Record<string, unknown>>(
+            projectId,
+            'SELECT * FROM events WHERE type = ? ORDER BY timestamp DESC LIMIT ? OFFSET ?',
+            type,
+            limit,
+            offset
+          )
+        : prjctDb.query<Record<string, unknown>>(
+            projectId,
+            'SELECT * FROM events ORDER BY timestamp DESC LIMIT ? OFFSET ?',
+            limit,
+            offset
+          )
+      const total = prjctDb.get<{ c: number }>(projectId, 'SELECT COUNT(*) as c FROM events')
+      return c.json({ events, total: total?.c || 0, limit, offset })
+    } catch {
+      return c.json({ events: [], total: 0 })
+    }
+  })
+
+  // GET /projects/:id/memory — project memory/learnings
+  api.get('/projects/:id/memory', (c) => {
+    const projectId = c.req.param('id')
+    try {
+      const items = prjctDb.query<Record<string, unknown>>(
+        projectId,
+        'SELECT * FROM memory ORDER BY updated_at DESC LIMIT 200'
+      )
+      return c.json({ items })
+    } catch {
+      return c.json({ items: [] })
+    }
+  })
+
+  // GET /projects/:id/sessions — work sessions
+  api.get('/projects/:id/sessions', (c) => {
+    const projectId = c.req.param('id')
+    try {
+      const sessions = prjctDb.query<Record<string, unknown>>(
+        projectId,
+        'SELECT * FROM sessions ORDER BY started_at DESC LIMIT 50'
+      )
+      const agentSessions = prjctDb.query<Record<string, unknown>>(
+        projectId,
+        'SELECT * FROM agent_sessions ORDER BY started_at DESC LIMIT 50'
+      )
+      return c.json({ sessions, agentSessions })
+    } catch {
+      return c.json({ sessions: [], agentSessions: [] })
+    }
+  })
+
+  // GET /projects/:id/tasks — normalized tasks table (completed tasks with subtasks)
+  api.get('/projects/:id/tasks', (c) => {
+    const projectId = c.req.param('id')
+    try {
+      const tasks = prjctDb.query<Record<string, unknown>>(
+        projectId,
+        'SELECT * FROM tasks ORDER BY started_at DESC LIMIT 100'
+      )
+      const subtasks = prjctDb.query<Record<string, unknown>>(
+        projectId,
+        'SELECT * FROM subtasks ORDER BY sort_order ASC'
+      )
+      return c.json({ tasks, subtasks })
+    } catch {
+      return c.json({ tasks: [], subtasks: [] })
+    }
+  })
+
+  // GET /projects/:id/kv — all kv_store keys (raw data access)
+  api.get('/projects/:id/kv', (c) => {
+    const projectId = c.req.param('id')
+    try {
+      const keys = prjctDb.query<{ key: string; value: string }>(
+        projectId,
+        'SELECT key, value FROM kv_store ORDER BY key'
+      )
+      const result: Record<string, unknown> = {}
+      for (const row of keys) {
+        try {
+          result[row.key] = JSON.parse(row.value)
+        } catch {
+          result[row.key] = row.value
+        }
+      }
+      return c.json(result)
+    } catch {
+      return c.json({})
+    }
+  })
+
+  // GET /projects/:id/issues — synced external issues (Linear/Jira)
+  api.get('/projects/:id/issues', (c) => {
+    const projectId = c.req.param('id')
+    try {
+      const doc = prjctDb.getDoc<{ issues: unknown[] }>(projectId, 'issues')
+      return c.json({ issues: doc?.issues || [] })
+    } catch {
+      return c.json({ issues: [] })
+    }
+  })
+
+  // GET /projects/:id/roadmap — full roadmap data
+  api.get('/projects/:id/roadmap', (c) => {
+    const projectId = c.req.param('id')
+    try {
+      const doc = prjctDb.getDoc<Record<string, unknown>>(projectId, 'roadmap')
+      return c.json(doc || { features: [], backlog: [] })
+    } catch {
+      return c.json({ features: [], backlog: [] })
+    }
+  })
+
+  // GET /projects/:id/config — full project config
+  api.get('/projects/:id/config', async (c) => {
+    const projectId = c.req.param('id')
+    try {
+      const config = getProjectConfig(projectId)
+      return c.json(config || { projectId })
+    } catch {
+      return c.json({ projectId })
     }
   })
 
