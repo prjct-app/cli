@@ -68,6 +68,7 @@ export function ProjectPage({ onCreateIssue, createOpen, onCloseCreate }: { onCr
     { to: 'shipped', label: 'Shipped', count: (shipped.shipped || []).length },
     { to: 'calendar', label: 'Calendar' },
     { to: 'workflows', label: 'Workflows' },
+    { to: 'activity', label: 'Activity' },
   ]
 
   return (
@@ -127,6 +128,8 @@ function EditProjectDialog({ data, projectId, onClose, refresh }: {
   const [saving, setSaving] = useState(false)
   const analysis = data.analysis
   const features = data.roadmap?.features || []
+  const { data: configData } = useApi(() => api.projectConfig(projectId).catch(() => null), [projectId])
+  const config = configData as Record<string, any> | null
 
   async function handleSave() {
     setSaving(true)
@@ -153,6 +156,25 @@ function EditProjectDialog({ data, projectId, onClose, refresh }: {
             </div>
             <p className="text-[11px] text-muted-foreground mt-2">Detected during sync. Run <code className="bg-surface-2 px-1 py-0.5 rounded text-[11px]">prjct sync</code> to update.</p>
           </Sect>
+          {config?.integrations && (
+            <Sect title="Integrations">
+              <div className="grid grid-cols-2 gap-4">
+                {config.integrations.linear?.enabled && (
+                  <>
+                    <Ro label="Linear" value="Connected" />
+                    <Ro label="Team" value={config.integrations.linear.teamName || config.integrations.linear.teamKey || '—'} />
+                  </>
+                )}
+                {config.integrations.jira?.enabled && (
+                  <Ro label="Jira" value="Connected" />
+                )}
+                {!config.integrations.linear?.enabled && !config.integrations.jira?.enabled && (
+                  <Ro label="Status" value="No integrations configured" />
+                )}
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-2">Manage via <code className="bg-surface-2 px-1 py-0.5 rounded text-[11px]">prjct linear sync</code> or <code className="bg-surface-2 px-1 py-0.5 rounded text-[11px]">prjct jira sync</code></p>
+            </Sect>
+          )}
           {features.length > 0 && (
             <Sect title="Roadmap">
               {features.map(f => (

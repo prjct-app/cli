@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Rocket, Search } from 'lucide-react'
+import { MoreHorizontal, Rocket, Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { EmptyState } from '@/components/ui/empty-state'
 import { FilterDropdown } from '@/components/ui/filter-dropdown'
@@ -59,28 +59,33 @@ export function ShippedTab() {
             description={hasActiveFilter ? 'Try adjusting your filters' : 'Completed releases will appear here'}
           />
         ) : (
-          <div>
+          <div className="space-y-1.5">
             {filtered.map((item, i) => (
-              <div key={item.id || i} className="flex gap-4 py-3 border-b border-border last:border-0">
-                <div className="flex flex-col items-center pt-0.5">
-                  <Rocket className={cn("h-4 w-4 shrink-0", typeColor(item.type))} />
-                  {i < filtered.length - 1 && <div className="w-px flex-1 bg-border mt-1.5" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium">{item.name}</p>
-                  <div className="flex items-center gap-2 mt-1 flex-wrap">
-                    {item.version && (
-                      <span className="font-mono text-micro bg-surface-2 text-foreground px-2 py-0.5 rounded-full">
-                        {item.version}
-                      </span>
-                    )}
-                    {item.type && (
-                      <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-micro font-medium capitalize", typeColor(item.type))}>
-                        {item.type}
-                      </span>
-                    )}
-                    <span className="text-micro text-muted-foreground ml-auto">{formatDate(item.shippedAt)}</span>
+              <div key={item.id || i} className="group rounded-lg border border-border bg-card px-3.5 py-3 transition-colors hover:border-foreground/15">
+                {/* Row 1: Version badge */}
+                {item.version && (
+                  <div className="mb-1">
+                    <span className="font-mono text-micro bg-surface-2 text-foreground px-2 py-0.5 rounded-full">
+                      {item.version}
+                    </span>
                   </div>
+                )}
+                {/* Row 2: Icon + name */}
+                <div className="flex items-start gap-2">
+                  <Rocket className={cn("h-3.5 w-3.5 mt-0.5 shrink-0", typeColor(item.type))} />
+                  <p className="text-[13px] leading-snug text-foreground/90 flex-1">{item.name}</p>
+                </div>
+                {/* Row 3: ... + type pill + date */}
+                <div className="flex items-center gap-1.5 mt-2">
+                  <button type="button" className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground/20 group-hover:text-muted-foreground/50 transition-colors">
+                    <MoreHorizontal className="h-3 w-3" />
+                  </button>
+                  {item.type && (
+                    <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-micro font-medium capitalize", typeColor(item.type))}>
+                      {item.type}
+                    </span>
+                  )}
+                  <span className="text-[11px] text-muted-foreground/40 ml-auto">{formatDate(item.shippedAt)}</span>
                 </div>
               </div>
             ))}

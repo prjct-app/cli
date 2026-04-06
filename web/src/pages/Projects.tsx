@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FolderOpen, Pencil, Search, Trash2 } from 'lucide-react'
+import { FolderOpen, Inbox, Lightbulb, Pencil, Rocket, Search, Trash2, Zap } from 'lucide-react'
 import { api, type ProjectSummary } from '@/api/client'
 import { useApi } from '@/hooks/useApi'
+import { StatCard } from '@/components/ui/stat-card'
 import { timeAgo } from '@/lib/dates'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -13,6 +14,7 @@ import { cn } from '@/lib/utils'
 
 export function ProjectsPage() {
   const { data: projects, loading, refresh } = useApi(() => api.projects())
+  const { data: globalStats } = useApi(() => api.globalStats().catch(() => null))
   const [filter, setFilter] = useState('')
   const [renaming, setRenaming] = useState<ProjectSummary | null>(null)
   const [newName, setNewName] = useState('')
@@ -46,6 +48,17 @@ export function ProjectsPage() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="max-w-6xl mx-auto px-6 py-6">
+        {/* Global stats */}
+        {globalStats && (
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
+            <StatCard label="Projects" value={(globalStats as any).totalProjects} icon={FolderOpen} />
+            <StatCard label="Active" value={(globalStats as any).activeProjects} icon={Zap} />
+            <StatCard label="Tasks" value={(globalStats as any).totalTasks} icon={Inbox} />
+            <StatCard label="Ideas" value={(globalStats as any).totalIdeas} icon={Lightbulb} />
+            <StatCard label="Shipped" value={(globalStats as any).totalShipped} icon={Rocket} />
+          </div>
+        )}
+
         <div className="flex items-center justify-between mb-5">
           <div>
             <h1 className="text-xl font-semibold tracking-tight">Projects</h1>
@@ -74,58 +87,33 @@ export function ProjectsPage() {
             className="rounded-lg border border-dashed border-border"
           />
         ) : (
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
-            {/* Header */}
-            <div className="grid grid-cols-[1fr_200px_100px_60px_60px_60px_70px_70px] gap-3 px-4 py-2.5 bg-surface-2/60 border-b border-border text-micro font-medium text-muted-foreground uppercase tracking-wider">
-              <div>Name</div>
-              <div>Path</div>
-              <div>Stack</div>
-              <div className="text-center">Queue</div>
-              <div className="text-center">Ideas</div>
-              <div className="text-center">Shipped</div>
-              <div className="text-center">Sync</div>
-              <div />
-            </div>
-
-            {/* Rows */}
+          <div className="space-y-1.5">
             {filtered.map((p) => {
               const s = p.stats || { queueCount: 0, ideasCount: 0, shippedCount: 0 }
-              const total = s.queueCount + s.ideasCount + s.shippedCount
               return (
                 <div
                   key={p.id}
                   onClick={() => navigate(`/project/${p.id}/board`)}
-                  className="grid grid-cols-[1fr_200px_100px_60px_60px_60px_70px_70px] gap-3 px-4 py-2.5 border-b border-border last:border-0 hover:bg-surface-2 cursor-pointer transition-colors items-center group text-sm"
+                  className="group rounded-lg border border-border bg-card px-3.5 py-3 cursor-pointer transition-colors hover:border-foreground/15"
                 >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span
-                      className={cn(
-                        "h-2 w-2 rounded-full shrink-0",
-                        p.currentTask ? "bg-emerald-500 shadow-[0_0_4px_theme(colors.emerald.500)]" : "bg-muted-foreground/40"
-                      )}
-                    />
-                    <span className="font-medium truncate">{p.name}</span>
+                  {/* Row 1: Name + active dot */}
+                  <div className="flex items-center gap-2 min-w-0 mb-1">
+                    <span className={cn("h-2 w-2 rounded-full shrink-0", p.currentTask ? "bg-emerald-500" : "bg-muted-foreground/30")} />
+                    <span className="text-sm font-medium truncate">{p.name}</span>
+                    {p.stack && <span className="text-micro text-muted-foreground bg-surface-2 rounded-full px-2 py-0.5 shrink-0">{p.stack}</span>}
                   </div>
-                  <div className="text-muted-foreground text-xs font-mono truncate">{shortPath(p.path)}</div>
-                  <div>{p.stack && <span className="text-xs text-muted-foreground truncate">{p.stack}</span>}</div>
-                  <div className="text-center tabular-nums text-xs">{s.queueCount > 0 ? <span className="font-medium">{s.queueCount}</span> : <span className="text-muted-foreground/30">—</span>}</div>
-                  <div className="text-center tabular-nums text-xs">{s.ideasCount > 0 ? <span className="font-medium">{s.ideasCount}</span> : <span className="text-muted-foreground/30">—</span>}</div>
-                  <div className="text-center tabular-nums text-xs">{s.shippedCount > 0 ? <span className="font-medium">{s.shippedCount}</span> : <span className="text-muted-foreground/30">—</span>}</div>
-                  <div className="text-center text-xs text-muted-foreground tabular-nums">{timeAgo(p.lastSync)}</div>
-                  <div className="flex justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
-                    <IconButton
-                      label="Rename"
-                      icon={Pencil}
-                      size="sm"
-                      onClick={() => { setRenaming(p); setNewName(p.name) }}
-                    />
-                    <IconButton
-                      label="Delete"
-                      icon={Trash2}
-                      size="sm"
-                      tone="destructive"
-                      onClick={() => setDeleting(p)}
-                    />
+                  {/* Row 2: Path */}
+                  {p.path && <p className="text-[11px] text-muted-foreground/50 font-mono truncate mb-1.5">{shortPath(p.path)}</p>}
+                  {/* Row 3: Stats + actions */}
+                  <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                    {s.queueCount > 0 && <span className="tabular-nums"><span className="font-medium text-foreground/70">{s.queueCount}</span> queue</span>}
+                    {s.ideasCount > 0 && <span className="tabular-nums"><span className="font-medium text-foreground/70">{s.ideasCount}</span> ideas</span>}
+                    {s.shippedCount > 0 && <span className="tabular-nums"><span className="font-medium text-foreground/70">{s.shippedCount}</span> shipped</span>}
+                    <span className="text-muted-foreground/40 tabular-nums">{timeAgo(p.lastSync)}</span>
+                    <div className="ml-auto flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                      <IconButton label="Rename" icon={Pencil} size="sm" onClick={() => { setRenaming(p); setNewName(p.name) }} />
+                      <IconButton label="Delete" icon={Trash2} size="sm" tone="destructive" onClick={() => setDeleting(p)} />
+                    </div>
                   </div>
                 </div>
               )

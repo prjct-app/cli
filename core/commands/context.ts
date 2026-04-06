@@ -68,7 +68,7 @@ export class ContextCommands {
             technologies: [],
           },
         }
-        console.log(JSON.stringify(output, null, 2))
+        console.log(JSON.stringify(output))
         return {
           success: false,
           message: 'No prjct project. Run `p. init` first.',
@@ -140,7 +140,7 @@ export class ContextCommands {
       if (options.md) {
         console.log(this.formatContextMd(output))
       } else {
-        console.log(JSON.stringify(output, null, 2))
+        console.log(JSON.stringify(output))
       }
 
       return {

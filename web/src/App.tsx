@@ -9,6 +9,7 @@ import { ShippedTab } from './pages/tabs/ShippedTab'
 import { OverviewTab } from './pages/tabs/OverviewTab'
 import { CalendarTab } from './pages/tabs/CalendarTab'
 import { WorkflowTab } from './pages/tabs/WorkflowTab'
+import { ActivityTab } from './pages/tabs/ActivityTab'
 import { TaskDetailPage } from './pages/TaskDetail'
 import { CommandPalette } from './components/CommandPalette'
 import { CreateIssueModal } from './components/CreateIssueModal'
@@ -37,6 +38,7 @@ export default function App() {
             <Route path="overview" element={<OverviewTab />} />
             <Route path="calendar" element={<CalendarTab />} />
             <Route path="workflows" element={<WorkflowTab />} />
+            <Route path="activity" element={<ActivityTab />} />
           </Route>
         </Route>
       </Routes>

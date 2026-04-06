@@ -164,6 +164,86 @@ export interface SerializedEdge {
   animated?: boolean
 }
 
+// ─── Analytics types ───
+
+export interface MetricsSummary {
+  totalTokensSaved: number
+  estimatedCostSaved: number
+  compressionRate: number
+  syncCount: number
+  avgSyncDuration: number
+  topAgents: { agentName: string; usageCount: number; tokensSaved: number }[]
+  last30DaysTokens: number
+  trend: number
+  dailyStats: { date: string; tokensSaved: number; syncs: number; avgCompressionRate: number; totalDuration: number }[]
+}
+
+export interface VelocityMetrics {
+  sprints: { sprintNumber: number; startDate: string; endDate: string; pointsCompleted: number; tasksCompleted: number; avgVariance: number; estimationAccuracy: number }[]
+  averageVelocity: number
+  velocityTrend: string
+  estimationAccuracy: number
+  overEstimated: { category: string; avgVariance: number; taskCount: number }[]
+  underEstimated: { category: string; avgVariance: number; taskCount: number }[]
+  lastUpdated: string
+}
+
+export interface ContextHealth {
+  summary: { smartPercent: number; warningPercent: number; dumbPercent: number; compactions: number } | null
+  transitions: { from: string; to: string; usagePercent: number; timestamp: string; action: string | null }[]
+}
+
+export interface ProjectEvent {
+  id: number
+  type: string
+  timestamp: string
+  [key: string]: unknown
+}
+
+export interface MemoryEntry {
+  id: number
+  key: string
+  value: string
+  category?: string
+  updated_at: string
+  [key: string]: unknown
+}
+
+export interface SessionEntry {
+  id: string | number
+  started_at: string
+  ended_at?: string
+  duration_ms?: number
+  [key: string]: unknown
+}
+
+export interface ArchiveEntry {
+  id: number
+  entity_type: string
+  entity_id: string
+  entity_data: string
+  summary?: string
+  archived_at: string
+  reason?: string
+}
+
+export interface GlobalStats {
+  totalProjects: number
+  activeProjects: number
+  totalTasks: number
+  totalIdeas: number
+  totalShipped: number
+  timestamp: string
+}
+
+function qs(params?: Record<string, string | number | undefined>): string {
+  if (!params) return ''
+  const p = new URLSearchParams()
+  for (const [k, v] of Object.entries(params)) { if (v !== undefined) p.set(k, String(v)) }
+  const s = p.toString()
+  return s ? `?${s}` : ''
+}
+
 export const api = {
   projects: () => request<{ projects: ProjectSummary[] }>('/projects').then((r) => r.projects),
   project: (id: string) => request<ProjectFull>(`/projects/${id}/full`),
@@ -200,4 +280,26 @@ export const api = {
     request(`/projects/${id}/workflow-rules/${ruleId}`, { method: 'PATCH', body: JSON.stringify(updates) }),
   deleteWorkflowRule: (id: string, ruleId: number) =>
     request(`/projects/${id}/workflow-rules/${ruleId}`, { method: 'DELETE' }),
+  // ─── Analytics ───
+  metrics: (id: string) => request<MetricsSummary>(`/projects/${id}/metrics`),
+  velocity: (id: string) => request<VelocityMetrics>(`/projects/${id}/velocity`),
+  contextHealth: (id: string) => request<ContextHealth>(`/projects/${id}/context-health`),
+  contextFeedback: (id: string) => request<{ feedback: Record<string, unknown>[] }>(`/projects/${id}/context-feedback`),
+  analysisFull: (id: string) => request<{ analysis: Analysis | null; history: { id: number; commitHash: string | null; status: string; analyzedAt: string; patternCount: number }[] }>(`/projects/${id}/analysis/full`),
+  projectIndex: (id: string) => request<{ index: Record<string, unknown> | null; domains: Record<string, unknown> | null; scores: Record<string, unknown>[]; categories: Record<string, unknown> | null }>(`/projects/${id}/index`),
+  stateFull: (id: string) => request<{ currentTask: Task | null; previousTask: Task | null; pausedTasks: Task[]; taskHistory: TaskHistory[]; lastUpdated: string }>(`/projects/${id}/state/full`),
+  projectConfig: (id: string) => request<Record<string, unknown>>(`/projects/${id}/config`),
+  roadmapFull: (id: string) => request<{ features: Feature[]; backlog: Feature[]; lastUpdated?: string }>(`/projects/${id}/roadmap`),
+  // ─── Activity ───
+  events: (id: string, opts?: { limit?: number; offset?: number; type?: string }) =>
+    request<{ events: ProjectEvent[]; total: number; limit: number; offset: number }>(`/projects/${id}/events${qs(opts as Record<string, string | number | undefined>)}`),
+  memory: (id: string) => request<{ items: MemoryEntry[] }>(`/projects/${id}/memory`),
+  sessions: (id: string) => request<{ sessions: SessionEntry[]; agentSessions: SessionEntry[] }>(`/projects/${id}/sessions`),
+  // ─── External ───
+  issues: (id: string) => request<{ issues: Record<string, unknown>[] }>(`/projects/${id}/issues`),
+  tasks: (id: string) => request<{ tasks: TaskHistory[]; subtasks: Record<string, unknown>[] }>(`/projects/${id}/tasks`),
+  archives: (id: string, opts?: { type?: string; limit?: number }) =>
+    request<{ items: ArchiveEntry[]; stats: { total: number; byType: Record<string, number> } }>(`/projects/${id}/archives${qs(opts as Record<string, string | number | undefined>)}`),
+  // ─── Global ───
+  globalStats: () => request<GlobalStats>('/stats/global'),
 }

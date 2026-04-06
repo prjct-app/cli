@@ -125,7 +125,7 @@ export function createExtendedRoutes(): Hono {
       projects.sort((a, b) => {
         if (a.currentTask && !b.currentTask) return -1
         if (!a.currentTask && b.currentTask) return 1
-        return (a.name || '').localeCompare(b.name || '')
+        return String(a.name || '').localeCompare(String(b.name || ''))
       })
 
       return c.json({ projects })
@@ -708,7 +708,7 @@ export function createExtendedRoutes(): Hono {
 
     try {
       const body = await c.req.json().catch(() => ({}))
-      const { priority, tags, text } = body
+      const { priority, tags } = body
 
       if (priority) {
         const validPriorities = ['low', 'medium', 'high']

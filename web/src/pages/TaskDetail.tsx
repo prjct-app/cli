@@ -314,7 +314,7 @@ function Comment({ comment, projectId, taskId, refresh }: {
   return (
     <div className="group flex gap-3 py-3">
       <div className="w-7 flex justify-center shrink-0">
-        <span className="h-7 w-7 rounded-full bg-indigo-600 flex items-center justify-center text-[10px] font-bold text-white">
+        <span className="h-7 w-7 rounded-full bg-surface-3 flex items-center justify-center text-[10px] font-bold text-foreground/70">
           {comment.author[0].toUpperCase()}
         </span>
       </div>
@@ -338,7 +338,7 @@ function Comment({ comment, projectId, taskId, refresh }: {
             </div>
           </div>
         ) : (
-          <div className="rounded-lg bg-surface-1 border border-border/60 px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap">
+          <div className="rounded-lg bg-card border border-border px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap">
             {comment.content}
           </div>
         )}

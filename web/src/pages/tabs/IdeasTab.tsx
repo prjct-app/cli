@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Check, Lightbulb, Search, Trash2 } from 'lucide-react'
+import { Check, Lightbulb, MoreHorizontal, Search, Trash2 } from 'lucide-react'
 import { api } from '@/api/client'
 import { Input } from '@/components/ui/input'
 import { IconButton } from '@/components/ui/icon-button'
@@ -7,7 +7,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { FilterDropdown } from '@/components/ui/filter-dropdown'
 import { cn } from '@/lib/utils'
 import { useTabCtx } from '../Project'
-import { priorityStripe, priorityColor } from '@/lib/taskStyles'
+import { priorityColor } from '@/lib/taskStyles'
 import { formatDate } from '@/lib/dates'
 
 export function IdeasTab() {
@@ -68,47 +68,50 @@ export function IdeasTab() {
             description={hasActiveFilter ? 'Try adjusting your filters' : 'Ask Claude to capture ideas for you'}
           />
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {filtered.map((idea) => (
               <div
                 key={idea.id}
-                className={cn(
-                  "group rounded-lg border border-border border-l-4 bg-card p-3",
-                  "hover:border-foreground/20 hover:bg-surface-2 transition-colors",
-                  priorityStripe(idea.priority)
-                )}
+                className="group rounded-lg border border-border bg-card px-3.5 py-3 transition-colors hover:border-foreground/15"
               >
-                <div className="flex items-start gap-3">
-                  <Lightbulb className={cn("h-4 w-4 mt-0.5 shrink-0", priorityColor(idea.priority))} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm leading-snug">{idea.text}</p>
-                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                      <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-micro font-medium capitalize", priorityColor(idea.priority))}>
-                        {idea.priority}
-                      </span>
-                      {(idea.tags || []).map(tag => (
-                        <span key={tag} className="text-micro text-muted-foreground bg-surface-2 rounded-full px-2 py-0.5">
-                          #{tag}
-                        </span>
-                      ))}
-                      <span className="text-micro text-muted-foreground ml-auto">{formatDate(idea.addedAt)}</span>
-                    </div>
-                  </div>
-                  <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
-                    <IconButton
-                      label="Archive"
-                      icon={Check}
-                      size="sm"
-                      onClick={() => api.archiveIdea(projectId, idea.id).then(refresh)}
-                    />
-                    <IconButton
-                      label="Delete"
-                      icon={Trash2}
-                      size="sm"
-                      tone="destructive"
-                      onClick={() => api.deleteIdea(projectId, idea.id).then(refresh)}
-                    />
-                  </div>
+                {/* Row 1: Priority badge */}
+                <div className="flex items-center gap-2 mb-1">
+                  <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-micro font-medium capitalize", priorityColor(idea.priority))}>
+                    {idea.priority}
+                  </span>
+                </div>
+                {/* Row 2: Icon + text */}
+                <div className="flex items-start gap-2">
+                  <Lightbulb className={cn("h-3.5 w-3.5 mt-0.5 shrink-0", priorityColor(idea.priority))} />
+                  <p className="text-[13px] leading-snug text-foreground/90 flex-1">{idea.text}</p>
+                </div>
+                {/* Row 3: Tags + actions */}
+                <div className="flex items-center gap-1.5 mt-2">
+                  <button type="button" className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground/20 group-hover:text-muted-foreground/50 transition-colors">
+                    <MoreHorizontal className="h-3 w-3" />
+                  </button>
+                  {(idea.tags || []).map(tag => (
+                    <span key={tag} className="text-micro text-muted-foreground bg-surface-2 rounded-full px-2 py-0.5">
+                      #{tag}
+                    </span>
+                  ))}
+                  <span className="text-[11px] text-muted-foreground/40 ml-auto">Created {formatDate(idea.addedAt)}</span>
+                </div>
+                {/* Row 4: Hover actions */}
+                <div className="flex gap-0.5 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <IconButton
+                    label="Archive"
+                    icon={Check}
+                    size="sm"
+                    onClick={() => api.archiveIdea(projectId, idea.id).then(refresh)}
+                  />
+                  <IconButton
+                    label="Delete"
+                    icon={Trash2}
+                    size="sm"
+                    tone="destructive"
+                    onClick={() => api.deleteIdea(projectId, idea.id).then(refresh)}
+                  />
                 </div>
               </div>
             ))}

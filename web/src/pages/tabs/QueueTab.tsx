@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Check, Circle, Inbox, Play, Search, X } from 'lucide-react'
+import { Check, Circle, Inbox, MoreHorizontal, Play, Search, X } from 'lucide-react'
 import { api } from '@/api/client'
 import { Input } from '@/components/ui/input'
 import { IconButton } from '@/components/ui/icon-button'
@@ -9,7 +9,7 @@ import { FilterDropdown } from '@/components/ui/filter-dropdown'
 import { cn } from '@/lib/utils'
 import { useTabCtx } from '../Project'
 import { PRIORITY_LABEL, TYPE_LABEL } from '@/lib/taskStyles'
-import { timeAgo } from '@/lib/dates'
+import { formatDate } from '@/lib/dates'
 
 const TYPE_DOT: Record<string, string> = {
   bug: 'bg-red-500', feature: 'bg-indigo-500', improvement: 'bg-teal-500', security: 'bg-purple-500', chore: 'bg-muted-foreground/50', fix: 'bg-red-500',
@@ -61,32 +61,48 @@ export function QueueTab() {
         {hasFilter && <button type="button" onClick={() => { setSearch(''); setTypeFilter([]); setPriorityFilter([]) }} className="text-xs text-muted-foreground hover:text-foreground">Clear</button>}
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto p-4">
         {filtered.length === 0 ? (
           <EmptyState icon={Inbox} title={hasFilter ? 'No matches' : 'Queue is empty'} description={hasFilter ? 'Try adjusting your filters' : 'Issues will appear here'} />
         ) : (
-          <div>
+          <div className="space-y-1.5 max-w-4xl">
             {filtered.map(t => (
               <div
                 key={t.id}
                 onClick={() => navigate(`/project/${projectId}/task/${t.id}`)}
-                className="flex items-center gap-3 px-5 py-2 border-b border-border cursor-pointer hover:bg-surface-2 transition-colors group"
+                className="group rounded-lg border border-border bg-card px-3.5 py-3 cursor-pointer transition-colors hover:border-foreground/15"
               >
-                <StatusIcon section={t.section} />
-                <PriorityIcon p={t.priority} />
-                <span className="text-[13px] flex-1 truncate text-foreground/90">{t.description}</span>
-                {t.type && (
-                  <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground shrink-0">
-                    <span className={cn("h-[7px] w-[7px] rounded-full", TYPE_DOT[t.type] || 'bg-muted-foreground/30')} />
-                    {TYPE_LABEL[t.type] || t.type}
-                  </span>
+                {/* Row 1: ID */}
+                {t.id.length < 20 && (
+                  <p className="text-[11px] text-muted-foreground/50 tabular-nums mb-1">{t.id}</p>
                 )}
-                <span className="text-[11px] text-muted-foreground/50 shrink-0 w-20 text-right">{timeAgo(t.createdAt)}</span>
-                <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5 shrink-0" onClick={e => e.stopPropagation()}>
-                  {t.section !== 'active' && (
-                    <IconButton label="Start" icon={Play} size="sm" onClick={() => api.updateQueueTask(projectId, t.id, { section: 'active' }).then(refresh)} />
+                {/* Row 2: Status + title */}
+                <div className="flex items-start gap-2">
+                  <StatusIcon section={t.section} />
+                  <p className="text-[13px] leading-snug text-foreground/90 line-clamp-2 flex-1">{t.description}</p>
+                </div>
+                {/* Row 3: Priority + ... + label pill */}
+                <div className="flex items-center gap-1.5 mt-2">
+                  <PriorityIcon p={t.priority} />
+                  <button type="button" className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground/20 group-hover:text-muted-foreground/50 transition-colors" onClick={e => e.stopPropagation()}>
+                    <MoreHorizontal className="h-3 w-3" />
+                  </button>
+                  {t.type && (
+                    <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground ml-auto shrink-0 bg-surface-2 rounded-full px-2 py-0.5">
+                      <span className={cn("h-[6px] w-[6px] rounded-full", TYPE_DOT[t.type] || 'bg-muted-foreground/30')} />
+                      {TYPE_LABEL[t.type] || t.type}
+                    </span>
                   )}
-                  <IconButton label="Delete" icon={X} size="sm" tone="destructive" onClick={() => api.deleteQueueTask(projectId, t.id).then(refresh)} />
+                </div>
+                {/* Row 4: Date + actions */}
+                <div className="flex items-center mt-1.5">
+                  <p className="text-[11px] text-muted-foreground/40">Created {formatDate(t.createdAt)}</p>
+                  <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5" onClick={e => e.stopPropagation()}>
+                    {t.section !== 'active' && (
+                      <IconButton label="Start" icon={Play} size="sm" onClick={() => api.updateQueueTask(projectId, t.id, { section: 'active' }).then(refresh)} />
+                    )}
+                    <IconButton label="Delete" icon={X} size="sm" tone="destructive" onClick={() => api.deleteQueueTask(projectId, t.id).then(refresh)} />
+                  </div>
                 </div>
               </div>
             ))}

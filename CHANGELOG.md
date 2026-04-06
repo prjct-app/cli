@@ -1,11 +1,14 @@
 # Changelog
 
-## [1.55.0] - 2026-04-05
+## [1.54.2] - 2026-04-06
 
-### Features
+### Added
+- current work
 
-- Obsidian vault integration (#240)
+## [1.54.1] - 2026-04-06
 
+### Added
+- current work
 
 ## [1.54.0] - 2026-04-05
 
