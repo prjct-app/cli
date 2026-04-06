@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.56.1] - 2026-04-06
+
+### Fixed
+- Obsidian status no longer shows warning when not configured — Obsidian is optional, all data stored in SQLite by default
+
 ## [1.56.0] - 2026-04-06
 
 ### Features

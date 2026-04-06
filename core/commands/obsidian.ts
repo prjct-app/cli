@@ -216,18 +216,22 @@ export class ObsidianCommands extends PrjctCommandsBase {
 
     const config = await this.getObsidianConfig(projectId)
     if (!config) {
-      const msg = 'Obsidian not configured. Run: prjct obsidian setup --vault-path /path/to/vault'
+      const msg =
+        'Obsidian integration is not enabled. All data is stored in the local database by default.'
       if (!options.md) {
-        out.warn(msg)
+        out.info(msg)
       }
       return {
         success: true,
         message: options.md
           ? mdOutput(
-              mdCallout('info', 'Obsidian not configured'),
+              mdCallout(
+                'info',
+                'Obsidian integration is not enabled. All data is stored in the local database by default.'
+              ),
               mdNextSteps([
                 {
-                  label: 'Configure Obsidian vault',
+                  label: 'Enable Obsidian (optional)',
                   command: 'prjct obsidian setup --vault-path /path/to/vault',
                 },
               ])
