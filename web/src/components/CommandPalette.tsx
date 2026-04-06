@@ -96,7 +96,7 @@ export function CommandPalette({ onCreateIssue }: CommandPaletteProps) {
                     key={t.id}
                     value={t.id}
                     onSelect={() => go(`/project/${activeProject || projects[0]?.id}/task/${t.id}`)}
-                    className="flex items-center gap-2.5 px-2 py-1.5 rounded-[4px] cursor-pointer text-sm aria-selected:bg-accent transition-colors"
+                    className="flex items-center gap-2.5 px-2 py-1.5 rounded-[4px] cursor-pointer text-sm aria-selected:bg-surface-2 transition-colors"
                   >
                     <PriorityIcon priority={t.priority} size="sm" />
                     <StatusIcon section={t.section} completed={t.completed} />
@@ -121,7 +121,7 @@ export function CommandPalette({ onCreateIssue }: CommandPaletteProps) {
                     key={p.id}
                     value={`project-${p.name}`}
                     onSelect={() => go(`/project/${p.id}/board`)}
-                    className="flex items-center gap-2.5 px-2 py-1.5 rounded-[4px] cursor-pointer text-sm aria-selected:bg-accent transition-colors"
+                    className="flex items-center gap-2.5 px-2 py-1.5 rounded-[4px] cursor-pointer text-sm aria-selected:bg-surface-2 transition-colors"
                   >
                     <FolderOpen className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
                     <span className="flex-1 truncate">{p.name}</span>
@@ -137,13 +137,13 @@ export function CommandPalette({ onCreateIssue }: CommandPaletteProps) {
                 <Command.Item
                   value="create-issue"
                   onSelect={() => { setOpen(false); onCreateIssue() }}
-                  className="flex items-center gap-2.5 px-2 py-1.5 rounded-[4px] cursor-pointer text-sm aria-selected:bg-accent transition-colors"
+                  className="flex items-center gap-2.5 px-2 py-1.5 rounded-[4px] cursor-pointer text-sm aria-selected:bg-surface-2 transition-colors"
                 >
                   <Plus className="h-3.5 w-3.5 text-muted-foreground/60" />
                   <span>Create new issue</span>
                 </Command.Item>
               )}
-              <Command.Item value="go-board" onSelect={() => go('/')} className="flex items-center gap-2.5 px-2 py-1.5 rounded-[4px] cursor-pointer text-sm aria-selected:bg-accent transition-colors">
+              <Command.Item value="go-board" onSelect={() => go('/')} className="flex items-center gap-2.5 px-2 py-1.5 rounded-[4px] cursor-pointer text-sm aria-selected:bg-surface-2 transition-colors">
                 <Columns3 className="h-3.5 w-3.5 text-muted-foreground/60" />
                 <span>All projects</span>
               </Command.Item>

@@ -76,7 +76,7 @@ export function Layout({ onCreateIssue }: { onCreateIssue?: () => void }) {
             end
             className={({ isActive }) => cn(
               "flex items-center gap-2 px-2 py-[5px] rounded-[4px] transition-colors",
-              isActive ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+              isActive ? "text-foreground bg-surface-2" : "text-muted-foreground hover:text-foreground hover:bg-surface-2/30"
             )}
           >
             All projects
@@ -86,7 +86,7 @@ export function Layout({ onCreateIssue }: { onCreateIssue?: () => void }) {
             <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70">Your projects</span>
           </div>
 
-          {loading && [1,2,3].map(i => <div key={i} className="h-[26px] bg-accent/20 rounded-[4px] mb-px animate-pulse" />)}
+          {loading && [1,2,3].map(i => <div key={i} className="h-[26px] bg-surface-2/40 rounded-[4px] mb-px animate-pulse" />)}
 
           {all.map((p) => (
             <div key={p.id} className="group flex items-center rounded-[4px]">
@@ -94,7 +94,7 @@ export function Layout({ onCreateIssue }: { onCreateIssue?: () => void }) {
                 to={`/project/${p.id}/board`}
                 className={({ isActive }) => cn(
                   "flex-1 flex items-center gap-2 px-2 py-[5px] min-w-0 rounded-[4px] transition-colors",
-                  isActive ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                  isActive ? "text-foreground bg-surface-2" : "text-muted-foreground hover:text-foreground hover:bg-surface-2/30"
                 )}
               >
                 <span className={cn(

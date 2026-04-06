@@ -83,15 +83,15 @@ export function ProjectPage({ onCreateIssue, createOpen, onCloseCreate }: { onCr
         <IconButton label="Edit project" icon={Settings} size="sm" className="ml-1" onClick={() => setEditOpen(true)} />
       </div>
 
-      {/* Tabs — Linear style pill tabs */}
-      <div className="shrink-0 px-4 py-1.5 border-b border-border flex items-center gap-0.5">
+      {/* Tabs */}
+      <div className="shrink-0 px-4 border-b border-border flex items-center gap-0">
         {tabs.map(t => (
           <NavLink
             key={t.to}
             to={t.to}
             className={({ isActive }) => cn(
-              "inline-flex items-center gap-1 px-2.5 py-1 text-[13px] rounded-[4px] transition-colors",
-              isActive ? "bg-accent text-foreground font-medium" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+              "inline-flex items-center gap-1 px-3 py-2 text-[13px] transition-colors border-b-2 -mb-px",
+              isActive ? "border-b-foreground text-foreground font-medium" : "border-b-transparent text-muted-foreground hover:text-foreground"
             )}
           >
             {t.label}

@@ -146,7 +146,7 @@ export function CreateIssueModal({ projectId, open, onClose, onCreated }: Props)
               size="sm"
               onClick={handleCreate}
               disabled={!title.trim() || saving}
-              className="h-7 px-4 text-xs bg-indigo-600 hover:bg-indigo-500 text-white rounded-md"
+              className="h-7 px-4 text-xs bg-emerald-600 hover:bg-emerald-500 text-white rounded-md"
             >
               {saving ? 'Creating…' : 'Create issue'}
             </Button>

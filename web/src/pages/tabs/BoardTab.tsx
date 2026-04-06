@@ -121,11 +121,11 @@ export function BoardTab() {
       <div className="shrink-0 px-5 py-2 border-b border-border flex items-center gap-2 flex-wrap">
         <div className="flex items-center rounded-[4px] border border-border overflow-hidden mr-1">
           <button type="button" onClick={() => store.setView(projectId, 'board')}
-            className={cn("inline-flex items-center gap-1.5 px-2 py-1 text-[11px] transition-colors", view === 'board' ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground")}>
+            className={cn("inline-flex items-center gap-1.5 px-2 py-1 text-[11px] transition-colors", view === 'board' ? "bg-surface-2 text-foreground" : "text-muted-foreground hover:text-foreground")}>
             <Columns3 className="h-3 w-3" /> Board
           </button>
           <button type="button" onClick={() => store.setView(projectId, 'table')}
-            className={cn("inline-flex items-center gap-1.5 px-2 py-1 text-[11px] transition-colors border-l border-border", view === 'table' ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground")}>
+            className={cn("inline-flex items-center gap-1.5 px-2 py-1 text-[11px] transition-colors border-l border-border", view === 'table' ? "bg-surface-2 text-foreground" : "text-muted-foreground hover:text-foreground")}>
             <List className="h-3 w-3" /> Table
           </button>
         </div>
@@ -205,7 +205,7 @@ function KanbanColumn({ colKey, label, items, isOver, draggingId, hasFilter, pro
   const shown = items.slice(0, visible)
 
   return (
-    <div className={cn("flex-1 min-w-[280px] flex flex-col border-r border-border last:border-r-0", isOver && "bg-accent/30")}
+    <div className={cn("flex-1 min-w-[280px] flex flex-col border-r border-border last:border-r-0", isOver && "bg-surface-2/40")}
       onDragOver={e => { e.preventDefault(); onDragOver() }} onDragLeave={onDragLeave} onDrop={onDrop}>
       <div className="flex items-center gap-2 px-4 py-2 text-[13px] shrink-0">
         <StatusIcon section={colKey} />
