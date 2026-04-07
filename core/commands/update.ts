@@ -19,7 +19,7 @@ import { migrateJsonToSqlite, sweepLegacyJson } from '../storage/migrate-json'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import out from '../utils/output'
-import { VERSION, resetPackageRoot } from '../utils/version'
+import { resetPackageRoot, VERSION } from '../utils/version'
 import { PrjctCommandsBase } from './base'
 
 interface UpdateOptions {
@@ -285,7 +285,7 @@ export class UpdateCommands extends PrjctCommandsBase {
               const { getTemplateContent } = await import('../agentic/template-loader')
               const template = getTemplateContent('global/GEMINI.md')
 
-              if (template && template.includes(startMarker) && template.includes(endMarker)) {
+              if (template?.includes(startMarker) && template.includes(endMarker)) {
                 const prjctSection = template.substring(
                   template.indexOf(startMarker),
                   template.indexOf(endMarker) + endMarker.length
@@ -469,7 +469,10 @@ export class UpdateCommands extends PrjctCommandsBase {
    */
   private redirectToInstalledPackage(): void {
     try {
-      const npmRoot = execSync('npm root -g', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }).trim()
+      const npmRoot = execSync('npm root -g', {
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+      }).trim()
       const installedPkg = path.join(npmRoot, 'prjct-cli')
       const pkgJsonPath = path.join(installedPkg, 'package.json')
 
