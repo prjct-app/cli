@@ -19,7 +19,7 @@ import { migrateJsonToSqlite, sweepLegacyJson } from '../storage/migrate-json'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import out from '../utils/output'
-import { VERSION } from '../utils/version'
+import { VERSION, resetPackageRoot } from '../utils/version'
 import { PrjctCommandsBase } from './base'
 
 interface UpdateOptions {
@@ -85,6 +85,14 @@ export class UpdateCommands extends PrjctCommandsBase {
       if (!md) out.step(1, 3, 'Updating package...')
       results.phase1 = await this.phasePackageUpdate(dryRun)
       if (!md) out.stop()
+
+      // After Phase 1, redirect to the INSTALLED package.
+      // The running process may have started from source (npm link / bun link)
+      // or from the old install. All Phase 2+3 operations must use the
+      // newly installed files, not the source/old paths.
+      if (!dryRun && results.phase1.success) {
+        this.redirectToInstalledPackage()
+      }
 
       // ── Phase 2: Global Cleanup ──
       if (!md) out.step(2, 3, 'Cleaning up all projects...')
@@ -273,36 +281,34 @@ export class UpdateCommands extends PrjctCommandsBase {
             const endMarker = '<!-- prjct:end - DO NOT REMOVE THIS MARKER -->'
 
             if (geminiContent.includes(startMarker) && geminiContent.includes(endMarker)) {
-              // Read fresh template
-              const templatePath = path.join(
-                path.dirname(require.resolve('../../package.json')),
-                'templates',
-                'global',
-                'GEMINI.md'
-              )
-              const template = await fs.readFile(templatePath, 'utf-8')
-              const prjctSection = template.substring(
-                template.indexOf(startMarker),
-                template.indexOf(endMarker) + endMarker.length
-              )
+              // Read template from bundle (installed files), not source
+              const { getTemplateContent } = await import('../agentic/template-loader')
+              const template = getTemplateContent('global/GEMINI.md')
 
-              const before = geminiContent.substring(0, geminiContent.indexOf(startMarker))
-              const after = geminiContent.substring(
-                geminiContent.indexOf(endMarker) + endMarker.length
-              )
+              if (template && template.includes(startMarker) && template.includes(endMarker)) {
+                const prjctSection = template.substring(
+                  template.indexOf(startMarker),
+                  template.indexOf(endMarker) + endMarker.length
+                )
 
-              // Strip legacy prjct-project sections
-              let cleaned = before + prjctSection + after
-              const projStart = '<!-- prjct-project:start - DO NOT REMOVE THIS MARKER -->'
-              const projEnd = '<!-- prjct-project:end - DO NOT REMOVE THIS MARKER -->'
-              if (cleaned.includes(projStart) && cleaned.includes(projEnd)) {
-                const bp = cleaned.substring(0, cleaned.indexOf(projStart))
-                const ap = cleaned.substring(cleaned.indexOf(projEnd) + projEnd.length)
-                cleaned = `${(bp + ap).replace(/\n{3,}/g, '\n\n').trim()}\n`
+                const before = geminiContent.substring(0, geminiContent.indexOf(startMarker))
+                const after = geminiContent.substring(
+                  geminiContent.indexOf(endMarker) + endMarker.length
+                )
+
+                // Strip legacy prjct-project sections
+                let cleaned = before + prjctSection + after
+                const projStart = '<!-- prjct-project:start - DO NOT REMOVE THIS MARKER -->'
+                const projEnd = '<!-- prjct-project:end - DO NOT REMOVE THIS MARKER -->'
+                if (cleaned.includes(projStart) && cleaned.includes(projEnd)) {
+                  const bp = cleaned.substring(0, cleaned.indexOf(projStart))
+                  const ap = cleaned.substring(cleaned.indexOf(projEnd) + projEnd.length)
+                  cleaned = `${(bp + ap).replace(/\n{3,}/g, '\n\n').trim()}\n`
+                }
+
+                await fs.writeFile(geminiPath, cleaned, 'utf-8')
+                result.details.push('Gemini global config updated')
               }
-
-              await fs.writeFile(geminiPath, cleaned, 'utf-8')
-              result.details.push('Gemini global config updated')
             }
           } catch {
             // Gemini not configured — skip
@@ -452,6 +458,46 @@ export class UpdateCommands extends PrjctCommandsBase {
   }
 
   // ── Helpers ──
+
+  /**
+   * After Phase 1 installs the new package via npm, redirect PACKAGE_ROOT
+   * and template cache to the INSTALLED package location.
+   *
+   * Without this, the running process keeps using paths from whatever
+   * started it (source tree via npm link, old install, etc.).
+   * Phase 2+3 must operate on the installed files, not source.
+   */
+  private redirectToInstalledPackage(): void {
+    try {
+      const npmRoot = execSync('npm root -g', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }).trim()
+      const installedPkg = path.join(npmRoot, 'prjct-cli')
+      const pkgJsonPath = path.join(installedPkg, 'package.json')
+
+      // Verify it's a real install (not a symlink back to source)
+      const { existsSync, lstatSync, readFileSync } = require('node:fs')
+      if (!existsSync(pkgJsonPath)) return
+
+      const stat = lstatSync(installedPkg)
+      if (stat.isSymbolicLink()) return // still linked to source — can't redirect
+
+      // Verify it's actually prjct-cli
+      try {
+        const pkg = JSON.parse(readFileSync(pkgJsonPath, 'utf-8'))
+        if (pkg.name !== 'prjct-cli') return
+      } catch {
+        return
+      }
+
+      // Reset PACKAGE_ROOT to the installed location
+      resetPackageRoot(installedPkg)
+
+      // Reset template bundle cache so next read picks up installed templates
+      const { resetBundle } = require('../agentic/template-loader')
+      resetBundle()
+    } catch {
+      // Non-blocking: fall through to use current PACKAGE_ROOT
+    }
+  }
 
   /**
    * Scan ~/.prjct-cli/projects/ for all project directories

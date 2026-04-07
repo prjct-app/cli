@@ -98,14 +98,22 @@ check_node() {
   command -v node >/dev/null 2>&1
 }
 
-# Run with bun (native TypeScript in dev, compiled in production)
+# Run with bun (compiled dist preferred, TypeScript only for explicit dev)
 run_with_bun() {
-  # Dev mode: raw TypeScript is faster
+  # Always prefer compiled dist — works for npm install, npm link, bun link
+  if [ -f "$ROOT_DIR/dist/bin/prjct.mjs" ]; then
+    # Explicit dev mode: PRJCT_DEV=1 forces raw TypeScript (faster iteration)
+    if [ "$PRJCT_DEV" = "1" ] && [ -f "$SCRIPT_DIR/prjct.ts" ]; then
+      exec bun "$SCRIPT_DIR/prjct.ts" "$@"
+    fi
+    exec bun "$ROOT_DIR/dist/bin/prjct.mjs" "$@"
+  fi
+  # No dist: fall back to raw TypeScript (first run before build)
   if [ -f "$SCRIPT_DIR/prjct.ts" ]; then
     exec bun "$SCRIPT_DIR/prjct.ts" "$@"
   fi
-  # Production: use compiled dist
-  exec bun "$ROOT_DIR/dist/bin/prjct.mjs" "$@"
+  echo "Error: No entry point found. Run 'npm run build' first."
+  exit 1
 }
 
 # Run with node (compiled JavaScript)
@@ -113,7 +121,7 @@ run_with_node() {
   DIST_BIN="$ROOT_DIR/dist/bin/prjct.mjs"
 
   if [ ! -f "$DIST_BIN" ]; then
-    # Dev mode: try to build
+    # No dist: try to build if this looks like a dev checkout
     if [ -f "$ROOT_DIR/scripts/build.js" ] && [ -d "$ROOT_DIR/core" ]; then
       echo "Building for Node.js (first run)..."
       node "$ROOT_DIR/scripts/build.js" || {

@@ -145,6 +145,16 @@ export function clearCache(): void {
 }
 
 /**
+ * Reset the template bundle so the next loadBundle() re-reads from disk.
+ * Called after `prjct update` installs a new version to pick up new templates.
+ */
+export function resetBundle(): void {
+  templateBundle = null
+  bundleLoaded = false
+  clearCache()
+}
+
+/**
  * Get raw template content by relative path (e.g., "global/CLAUDE.md")
  * Used by command-installer and other modules that need non-command templates.
  */

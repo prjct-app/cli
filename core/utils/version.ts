@@ -124,5 +124,16 @@ export function needsMigration(fromVersion: string, toVersion: string | null = n
   return compareVersions(fromVersion, target) < 0
 }
 
+/**
+ * Reset the cached package root to a new path.
+ * Used by `prjct update` after npm install to redirect
+ * from source/old paths to the newly installed package.
+ */
+export function resetPackageRoot(newRoot: string): void {
+  cachedPackageRoot = newRoot
+  cachedVersion = null
+  cachedPackageJson = null
+}
+
 export const VERSION = getVersion()
 export const PACKAGE_ROOT = getPackageRoot()
