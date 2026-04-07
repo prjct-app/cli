@@ -117,7 +117,7 @@ export class MaintenanceCommands extends PrjctCommandsBase {
     }
 
     if (options.json) {
-      console.log(JSON.stringify(payload, null, 2))
+      console.log(JSON.stringify(payload))
       return { success: true }
     }
 

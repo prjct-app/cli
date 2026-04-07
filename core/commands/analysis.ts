@@ -47,6 +47,16 @@ import {
 } from './analysis-helpers'
 import { PrjctCommandsBase } from './base'
 
+/** Compact schema reference for LLM — avoids dumping 50+ lines of JSON examples */
+const ANALYSIS_SCHEMA_COMPACT = `{version:1, commitHash, analyzedAt,
+  architecture:{style:"monolith|monorepo|microservices|modular-monolith", insights:[], domains:[]},
+  patterns:[{name, description, locations:[], confidence:0-1, category:"architecture|data-flow|error-handling|testing"}],
+  antiPatterns:[{issue, reasoning, files:[], suggestion, severity:"low|medium|high", confidence:0-1}],
+  techDebt:[{description, area, effort:"small|medium|large", impact, priority:"low|medium|high"}],
+  riskAreas:[{path, reason, risk, severity}], refactorSuggestions:[{description, files:[], benefit, effort}],
+  projectInsights:[], conventions:[{category, rule, example}],
+  commands:{build, test, lint, dev, format, install}, stack:{languages:[], frameworks:[], packageManager}}`
+
 export class AnalysisCommands extends PrjctCommandsBase {
   /**
    * /p:analyze - Analyze repository and generate summary
@@ -462,70 +472,18 @@ export class AnalysisCommands extends PrjctCommandsBase {
               result.git,
               result.stats
             )
-            const schema = {
-              version: 1,
-              commitHash: 'string (from git data)',
-              analyzedAt: 'ISO timestamp',
-              architecture: {
-                style: 'monolith|monorepo|microservices|modular-monolith',
-                insights: ['string'],
-                domains: ['string'],
-              },
-              patterns: [
-                {
-                  name: '',
-                  description: '',
-                  locations: ['file paths'],
-                  confidence: 0.0,
-                  category: 'architecture|data-flow|error-handling|testing',
-                },
-              ],
-              antiPatterns: [
-                {
-                  issue: '',
-                  reasoning: '',
-                  files: [],
-                  suggestion: '',
-                  severity: 'low|medium|high',
-                  confidence: 0.0,
-                },
-              ],
-              techDebt: [
-                {
-                  description: '',
-                  area: '',
-                  effort: 'small|medium|large',
-                  impact: '',
-                  priority: 'low|medium|high',
-                },
-              ],
-              riskAreas: [{ path: '', reason: '', risk: '', severity: 'low|medium|high' }],
-              refactorSuggestions: [
-                { description: '', files: [], benefit: '', effort: 'small|medium|large' },
-              ],
-              projectInsights: ['string'],
-              conventions: [
-                { category: 'naming|file-structure|imports|error-handling', rule: '', example: '' },
-              ],
-              commands: { build: '', test: '', lint: '', dev: '', format: '', install: '' },
-              stack: {
-                languages: ['string'],
-                frameworks: ['string'],
-                packageManager: 'detected from project',
-              },
-            }
             llmAnalysisInstructions = [
               `## Analysis Payload`,
-              `> Analyze this data and return a JSON object matching the schema below.`,
-              '### Expected output schema',
-              '```json',
-              JSON.stringify(schema, null, 2),
+              `> Analyze this project data. Return JSON matching the schema.`,
+              '### Schema',
               '```',
-              '### Project data',
-              '```json',
-              JSON.stringify(payload, null, 2),
+              ANALYSIS_SCHEMA_COMPACT,
               '```',
-              `> Save result: \`prjct analysis-save-llm '<JSON>' --md\``,
+              '### Data',
+              '```json',
+              JSON.stringify(payload),
+              '```',
+              `> Save: \`prjct analysis-save-llm '<JSON>' --md\``,
             ].join('\n')
           } catch {
             // Fall back to manual instruction if payload build fails
@@ -546,12 +504,25 @@ export class AnalysisCommands extends PrjctCommandsBase {
           mdStatsObj['Import edges'] = idx.importEdges || 0
           mdStatsObj['Co-change commits'] = idx.cochangeCommits || 0
         }
+        // Check if Obsidian is configured for this project
+        let obsidianSection: string | null = null
+        try {
+          const globalConfig = await configManager.readGlobalConfig(projectId)
+          const obsidianConfig = globalConfig?.integrations?.obsidian
+          if (obsidianConfig?.vaultPath) {
+            obsidianSection = `### Obsidian\nConfigured: \`${obsidianConfig.vaultPath}\`\nWrite \`_insights.md\` to vault after analysis.`
+          }
+        } catch {
+          // Non-critical
+        }
+
         const md = mdOutput(
           mdDone(`Sync Complete`),
           mdStats(mdStatsObj),
           analysisDiffSection,
           result.git.hasChanges ? mdWarn('Uncommitted changes detected') : null,
           llmAnalysisInstructions,
+          obsidianSection,
           mdNextSteps(steps.map((s) => ({ label: s.desc, command: s.cmd })))
         )
         console.log(md)
@@ -613,73 +584,19 @@ export class AnalysisCommands extends PrjctCommandsBase {
       const payload = await buildAnalysisPayload(projectId, projectPath, result.git, result.stats)
 
       if (options.md) {
-        // Output schema + payload for LLM analysis
-        const schema = {
-          version: 1,
-          commitHash: 'string (from git data)',
-          analyzedAt: 'ISO timestamp',
-          architecture: {
-            style: 'monolith|monorepo|microservices|modular-monolith',
-            insights: ['string'],
-            domains: ['string'],
-          },
-          patterns: [
-            {
-              name: '',
-              description: '',
-              locations: ['file paths'],
-              confidence: 0.0,
-              category: 'architecture|data-flow|error-handling|testing',
-            },
-          ],
-          antiPatterns: [
-            {
-              issue: '',
-              reasoning: '',
-              files: [],
-              suggestion: '',
-              severity: 'low|medium|high',
-              confidence: 0.0,
-            },
-          ],
-          techDebt: [
-            {
-              description: '',
-              area: '',
-              effort: 'small|medium|large',
-              impact: '',
-              priority: 'low|medium|high',
-            },
-          ],
-          riskAreas: [{ path: '', reason: '', risk: '', severity: 'low|medium|high' }],
-          refactorSuggestions: [
-            { description: '', files: [], benefit: '', effort: 'small|medium|large' },
-          ],
-          projectInsights: ['string'],
-          conventions: [
-            { category: 'naming|file-structure|imports|error-handling', rule: '', example: '' },
-          ],
-          commands: { build: '', test: '', lint: '', dev: '', format: '', install: '' },
-          stack: {
-            languages: ['string'],
-            frameworks: ['string'],
-            packageManager: 'detected from project',
-          },
-        }
-
         console.log(
           mdOutput(
             `## Analysis Payload`,
-            `> Analyze this data and return a JSON object matching the schema below.`,
-            '### Expected output schema',
-            '```json',
-            JSON.stringify(schema, null, 2),
+            `> Analyze this project data. Return JSON matching the schema.`,
+            '### Schema',
             '```',
-            '### Project data',
-            '```json',
-            JSON.stringify(payload, null, 2),
+            ANALYSIS_SCHEMA_COMPACT,
             '```',
-            `> Save result: \`prjct analysis-save-llm '<JSON>' --md\``
+            '### Data',
+            '```json',
+            JSON.stringify(payload),
+            '```',
+            `> Save: \`prjct analysis-save-llm '<JSON>' --md\``
           )
         )
       } else {
@@ -784,36 +701,37 @@ export class AnalysisCommands extends PrjctCommandsBase {
         const sections: string[] = [mdDone(`LLM Analysis (${analysis.architecture.style})`), '']
 
         if (analysis.architecture.insights.length > 0) {
-          sections.push(mdSection('Architecture Insights', mdList(analysis.architecture.insights)))
+          sections.push(
+            mdSection('Architecture Insights', mdList(analysis.architecture.insights.slice(0, 5)))
+          )
         }
 
         if (analysis.patterns.length > 0) {
+          const shown = analysis.patterns.slice(0, 8)
           sections.push(
             mdSection(
-              'Patterns',
-              mdList(
-                analysis.patterns.map((p) => `**${p.name}** — ${p.description} (${p.category})`)
-              )
+              `Patterns (${analysis.patterns.length})`,
+              mdList(shown.map((p) => `**${p.name}** — ${p.description} (${p.category})`))
             )
           )
         }
 
         if (analysis.antiPatterns.length > 0) {
+          const shown = analysis.antiPatterns.slice(0, 5)
           sections.push(
             mdSection(
-              'Anti-Patterns',
-              mdList(
-                analysis.antiPatterns.map((a) => `[${a.severity}] ${a.issue} — ${a.suggestion}`)
-              )
+              `Anti-Patterns (${analysis.antiPatterns.length})`,
+              mdList(shown.map((a) => `[${a.severity}] ${a.issue} — ${a.suggestion}`))
             )
           )
         }
 
         if (analysis.techDebt.length > 0) {
+          const shown = analysis.techDebt.slice(0, 5)
           sections.push(
             mdSection(
-              'Tech Debt',
-              mdList(analysis.techDebt.map((d) => `[${d.priority}/${d.effort}] ${d.description}`))
+              `Tech Debt (${analysis.techDebt.length})`,
+              mdList(shown.map((d) => `[${d.priority}/${d.effort}] ${d.description}`))
             )
           )
         }
@@ -822,14 +740,22 @@ export class AnalysisCommands extends PrjctCommandsBase {
           sections.push(
             mdSection(
               'Conventions',
-              mdList(analysis.conventions.map((c) => `**${c.category}**: ${c.rule}`))
+              mdList(analysis.conventions.slice(0, 5).map((c) => `**${c.category}**: ${c.rule}`))
             )
           )
         }
 
         console.log(mdOutput(...sections))
       } else {
-        console.log(JSON.stringify({ success: true, analysis }))
+        // Cap arrays for context efficiency
+        const compact = {
+          ...analysis,
+          patterns: analysis.patterns.slice(0, 10),
+          antiPatterns: analysis.antiPatterns.slice(0, 6),
+          techDebt: analysis.techDebt.slice(0, 6),
+          conventions: analysis.conventions.slice(0, 6),
+        }
+        console.log(JSON.stringify({ success: true, analysis: compact }))
       }
 
       return { success: true, data: analysis }
@@ -884,12 +810,12 @@ export class AnalysisCommands extends PrjctCommandsBase {
           compressionRate: summary.compressionRate,
           syncCount: summary.syncCount,
           avgSyncDuration: summary.avgSyncDuration,
-          topAgents: summary.topAgents,
+          topAgents: summary.topAgents.slice(0, 5),
           last30DaysTokens: summary.last30DaysTokens,
           trend: summary.trend,
-          dailyStats,
+          dailyStats: dailyStats.slice(0, 7),
         }
-        console.log(JSON.stringify(jsonOutput, null, 2))
+        console.log(JSON.stringify(jsonOutput))
         return { success: true, data: jsonOutput }
       }
 

@@ -705,8 +705,9 @@ export class WorkflowCommands extends PrjctCommandsBase {
         // Build modified files section
         let modifiedFilesSection: string | null = null
         if (modifiedFiles.length > 0) {
-          const fileList = modifiedFiles.slice(0, 20).map((f) => `\`${f}\``)
-          modifiedFilesSection = `### Files Modified (${modifiedFiles.length})\n${fileList.join(', ')}`
+          const fileList = modifiedFiles.slice(0, 10).map((f) => `\`${f}\``)
+          const more = modifiedFiles.length > 10 ? `, +${modifiedFiles.length - 10} more` : ''
+          modifiedFilesSection = `### Files Modified (${modifiedFiles.length})\n${fileList.join(', ')}${more}`
         }
 
         // Build feedback accuracy section
@@ -818,13 +819,14 @@ export class WorkflowCommands extends PrjctCommandsBase {
       }
 
       if (options.md) {
-        const items = tasks.map((t) => {
+        const shown = tasks.slice(0, 10)
+        const items = shown.map((t) => {
           const typeBadge = t.type ? ` [${t.type}]` : ''
           const priority = t.priority ? ` ${t.priority}` : ''
-          // Strip legacy emoji prefixes from stored descriptions
           const desc = t.description.replace(/^[\u{1F300}-\u{1F9FF}]\s*/u, '')
           return `${desc}${typeBadge}${priority}`
         })
+        if (tasks.length > 10) items.push(`...and ${tasks.length - 10} more`)
         console.log(
           mdOutput(
             mdSection('Queue', `${tasks.length} task${tasks.length !== 1 ? 's' : ''}`),
@@ -1484,16 +1486,18 @@ export class WorkflowCommands extends PrjctCommandsBase {
     }
 
     // Multiple matches — ask user to be more specific
+    const capped = matches.slice(0, 5)
     if (options.md) {
-      const items = matches.map(
+      const items = capped.map(
         (r) => `#${r.id} [${r.type}] ${r.position} ${r.command} -> \`${r.action}\``
       )
+      if (matches.length > 5) items.push(`...and ${matches.length - 5} more`)
       console.log(
         mdOutput(
           mdSection('Multiple matches', `${matches.length} rules match "${trimmed}"`),
           mdList(items),
           mdNextSteps(
-            matches.map((r) => ({
+            capped.map((r) => ({
               label: `Disable #${r.id}`,
               command: `prjct workflow disable ${r.id} --md`,
             }))
@@ -1502,9 +1506,10 @@ export class WorkflowCommands extends PrjctCommandsBase {
       )
     } else {
       out.warn(`${matches.length} rules match "${trimmed}" — specify an ID:`)
-      for (const r of matches) {
+      for (const r of capped) {
         console.log(`  #${r.id} [${r.type}] ${r.position} ${r.command} -> ${r.action}`)
       }
+      if (matches.length > 5) console.log(`  ...and ${matches.length - 5} more`)
     }
 
     return { success: true, matches: matches.map((r) => r.id) }
@@ -2072,7 +2077,8 @@ export class WorkflowCommands extends PrjctCommandsBase {
       }
 
       if (options.md) {
-        const items = snapshots.map((s) => {
+        const shown = snapshots.slice(0, 10)
+        const items = shown.map((s) => {
           const ago = dateHelper.formatDuration(Date.now() - new Date(s.timestamp).getTime())
           const project = s.projectName || s.projectId.slice(0, 8)
           const subtaskInfo =
@@ -2081,6 +2087,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
               : ''
           return `[${s.taskStatus}] **${project}** — ${s.taskDescription}${subtaskInfo} (${ago} ago)`
         })
+        if (snapshots.length > 10) items.push(`...and ${snapshots.length - 10} more`)
 
         console.log(
           mdOutput(

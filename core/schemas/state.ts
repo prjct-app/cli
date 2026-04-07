@@ -200,6 +200,7 @@ export const StateJsonSchema = z.object({
 export const QueueTaskSchema = z.object({
   id: z.string(), // task_xxxxxxxx
   description: z.string(),
+  body: z.string().optional(), // markdown description
   priority: PrioritySchema,
   type: TaskTypeSchema, // detect from emoji 🐛=bug
   featureId: z.string().optional(),

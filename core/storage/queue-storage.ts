@@ -188,6 +188,42 @@ class QueueStorage extends StorageManager<QueueJson> {
   }
 
   /**
+   * Get a single task by ID
+   */
+  async getTask(projectId: string, taskId: string): Promise<QueueTask | null> {
+    const queue = await this.read(projectId)
+    return queue.tasks.find((t) => t.id === taskId) || null
+  }
+
+  /**
+   * Update task fields (description, body, type, priority, section)
+   */
+  async updateTask(
+    projectId: string,
+    taskId: string,
+    updates: Partial<Pick<QueueTask, 'description' | 'body' | 'type' | 'priority' | 'section'>>
+  ): Promise<QueueTask | null> {
+    let updated: QueueTask | null = null
+
+    await this.update(projectId, (queue) => ({
+      tasks: queue.tasks.map((t) => {
+        if (t.id === taskId) {
+          updated = { ...t, ...updates }
+          return updated
+        }
+        return t
+      }),
+      lastUpdated: getTimestamp(),
+    }))
+
+    if (updated) {
+      await this.publishEvent(projectId, 'queue.task_updated', { taskId })
+    }
+
+    return updated
+  }
+
+  /**
    * Clear completed tasks
    */
   async clearCompleted(projectId: string): Promise<number> {

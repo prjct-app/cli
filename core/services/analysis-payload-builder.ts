@@ -18,14 +18,14 @@ import type { AnalysisPayload } from '../types/llm-analysis'
 import type { GitData, ProjectStats } from '../types/project-sync'
 import log from '../utils/logger'
 
-/** Max characters per code sample to keep payload compact */
-const MAX_SAMPLE_CHARS = 3000
-/** Max number of code samples to include */
-const MAX_SAMPLES = 15
-/** Max recent commits to include */
-const MAX_COMMITS = 15
+/** Max characters per code sample — keep tight, LLM has repo access */
+const MAX_SAMPLE_CHARS = 800
+/** Max number of code samples — just enough to detect architecture */
+const MAX_SAMPLES = 6
+/** Max recent commits — enough for context, not history */
+const MAX_COMMITS = 8
 /** Max task history entries */
-const MAX_TASKS = 10
+const MAX_TASKS = 5
 
 /**
  * Build the analysis payload for LLM consumption.

@@ -1,5 +1,58 @@
 # Changelog
 
+## [1.56.2] - 2026-04-06
+
+### Bug Fixes
+
+- obsidian status neutral message when not configured (#242)
+
+
+## [1.56.1] - 2026-04-06
+
+### Fixed
+- Obsidian status no longer shows warning when not configured — Obsidian is optional, all data stored in SQLite by default
+
+## [1.56.0] - 2026-04-06
+
+### Features
+
+- web dashboard — Linear-style UI, full API, workflows, task detail
+- CRUD API endpoints + static file serving for web dashboard
+
+### Bug Fixes
+
+- biome lint + typecheck errors for clean push
+- revert accent to neutral, sidebar/tabs cleanup
+
+
+## [1.54.2] - 2026-04-06
+
+### Added
+- current work
+
+## [1.54.1] - 2026-04-06
+
+### Added
+- current work
+
+## [1.54.0] - 2026-04-05
+
+### Features
+
+- multi-agent parallel sessions with auto-worktree isolation (#237)
+- Obsidian vault integration — CLI commands, 8 MCP tools, Kanban board, Canvas roadmap, Dataview dashboards, path security
+- Sync skill generates `_insights.md` via LLM when Obsidian is configured
+- Linear CSV import script with per-project Kanban boards and tags
+
+### Bug Fixes
+
+- guard feedback array spreads preventing s.push crash (#236)
+
+## [1.53.1] - 2026-04-04
+
+### Docs
+- update README with full command reference, Windsurf support, MCP server, parallel sessions, code intelligence, web dashboard, cloud sync, and architecture overview
+
 ## [1.52.4] - 2026-03-26
 
 ### Bug Fixes
