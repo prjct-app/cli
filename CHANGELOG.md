@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.56.4] - 2026-04-07
+
+### Added
+- fix update to use installed files instead of source
+
+## [1.56.3] - 2026-04-07
+
+### Added
+- fix update to use installed files instead of source
+
 ## [1.56.2] - 2026-04-06
 
 ### Bug Fixes
