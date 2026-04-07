@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.56.6] - 2026-04-07
+
+### Bug Fixes
+
+- resolve biome check lint and format errors (#244)
+- prefer installed dist over source files (#243)
+
+
 ## [1.56.5] - 2026-04-07
 
 ### Added
