@@ -19,8 +19,6 @@ import type { SessionInfo } from '../types/session'
 import * as dateHelper from '../utils/date-helper'
 import * as fileHelper from '../utils/file-helper'
 
-export type { MonorepoInfo, MonorepoPackage } from '../types/infrastructure'
-
 class PathManager {
   globalBaseDir: string
   globalProjectsDir: string

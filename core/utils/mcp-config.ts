@@ -81,7 +81,7 @@ export function getClaudeMcpConfigPath(): string {
  * Claude: ~/.claude/mcp.json
  * Gemini: ~/.gemini/settings.json (mcpServers key merged in)
  */
-export async function getActiveMcpConfigPaths(): Promise<ProviderMcpPath[]> {
+async function getActiveMcpConfigPaths(): Promise<ProviderMcpPath[]> {
   // In test mode, only return the Claude test path
   if (process.env.PRJCT_TEST_MODE === '1') {
     return [
@@ -167,7 +167,7 @@ export async function hasMcpServerAny(serverName: string): Promise<{
  * Validate token files in a directory — checks content, not just existence.
  * Looks for *_tokens.json files and verifies they contain valid OAuth data.
  */
-export async function validateTokenFiles(dir: string): Promise<TokenValidationResult> {
+async function validateTokenFiles(dir: string): Promise<TokenValidationResult> {
   let files: string[]
   try {
     files = await fs.readdir(dir)
@@ -517,7 +517,7 @@ export async function scanTokenDirectories(): Promise<{
   return { expectedVersion, dirs }
 }
 
-export async function readMcpConfig(configPath = getClaudeMcpConfigPath()): Promise<MCPConfig> {
+async function readMcpConfig(configPath = getClaudeMcpConfigPath()): Promise<MCPConfig> {
   try {
     const raw = await fs.readFile(configPath, 'utf-8')
     return JSON.parse(raw) as MCPConfig
@@ -530,7 +530,7 @@ export async function readMcpConfig(configPath = getClaudeMcpConfigPath()): Prom
   }
 }
 
-export async function writeMcpConfig(
+async function writeMcpConfig(
   config: MCPConfig,
   configPath = getClaudeMcpConfigPath()
 ): Promise<void> {

@@ -1,16 +1,13 @@
 /**
  * Subtask Progress Display
  *
- * Clean, minimal visual display of subtask progress.
- * No tables - just a clean list with animated status.
- *
  * @see PRJ-138
  * @module utils/subtask-table
  */
 
 import chalk from 'chalk'
+import type { SubtaskDisplay } from '../types/utils.js'
 
-// Color palette for domains (cycle through these)
 const DOMAIN_COLOR_PALETTE = [
   chalk.cyan,
   chalk.magenta,
@@ -22,10 +19,6 @@ const DOMAIN_COLOR_PALETTE = [
   chalk.cyanBright,
 ]
 
-/**
- * Get consistent color for a domain name using hash
- * Same domain name always returns same color
- */
 function getDomainColor(domain: string): (text: string) => string {
   let hash = 0
   for (const char of domain) {
@@ -36,18 +29,6 @@ function getDomainColor(domain: string): (text: string) => string {
   return DOMAIN_COLOR_PALETTE[index]
 }
 
-// Terminal control sequences (not colors - chalk doesn't handle these)
-const HIDE_CURSOR = '\x1b[?25l'
-const SHOW_CURSOR = '\x1b[?25h'
-
-// Spinner frames (dots animation)
-const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
-
-import type { SubtaskDisplay, SubtaskStatus } from '../types/utils.js'
-
-/**
- * Format a single subtask line
- */
 function formatSubtaskLine(
   index: number,
   subtask: SubtaskDisplay,
@@ -85,10 +66,7 @@ function formatSubtaskLine(
   return `  ${num}   ${domain} ${desc}  ${status}`
 }
 
-/**
- * Render static subtask progress (no animation)
- */
-export function renderSubtaskProgress(subtasks: SubtaskDisplay[]): string {
+function renderSubtaskProgress(subtasks: SubtaskDisplay[]): string {
   if (subtasks.length === 0) return ''
 
   const lines: string[] = []
@@ -106,111 +84,6 @@ export function renderSubtaskProgress(subtasks: SubtaskDisplay[]): string {
   return lines.join('\n')
 }
 
-/**
- * Print static subtask progress
- */
 export function printSubtaskProgress(subtasks: SubtaskDisplay[]): void {
   console.log(renderSubtaskProgress(subtasks))
-}
-
-/**
- * Animated subtask progress with spinner
- * Returns a controller to update/stop the animation
- */
-export function createSubtaskAnimation(subtasks: SubtaskDisplay[]) {
-  let frameIndex = 0
-  let intervalId: ReturnType<typeof setInterval> | null = null
-  let lastOutput = ''
-
-  const render = () => {
-    const spinnerFrame = SPINNER_FRAMES[frameIndex % SPINNER_FRAMES.length]
-    const lines: string[] = []
-
-    lines.push('')
-    lines.push(`  ${chalk.bold.white('SUBTASK PROGRESS')}`)
-    lines.push(`  ${chalk.dim('─'.repeat(58))}`)
-
-    for (let i = 0; i < subtasks.length; i++) {
-      lines.push(formatSubtaskLine(i, subtasks[i], spinnerFrame))
-    }
-
-    lines.push('')
-
-    return lines.join('\n')
-  }
-
-  const clear = () => {
-    if (lastOutput) {
-      const lineCount = lastOutput.split('\n').length
-      // Move up and clear each line
-      process.stdout.write(`\x1b[${lineCount}A`)
-      for (let i = 0; i < lineCount; i++) {
-        process.stdout.write('\x1b[2K\n')
-      }
-      process.stdout.write(`\x1b[${lineCount}A`)
-    }
-  }
-
-  const draw = () => {
-    clear()
-    lastOutput = render()
-    process.stdout.write(lastOutput)
-    frameIndex++
-  }
-
-  return {
-    /**
-     * Start the animation
-     */
-    start: () => {
-      process.stdout.write(HIDE_CURSOR)
-      lastOutput = render()
-      process.stdout.write(lastOutput)
-      intervalId = setInterval(draw, 80)
-    },
-
-    /**
-     * Update subtask status
-     */
-    update: (index: number, status: SubtaskStatus) => {
-      if (index >= 0 && index < subtasks.length) {
-        subtasks[index].status = status
-      }
-    },
-
-    /**
-     * Stop animation and show final state
-     */
-    stop: () => {
-      if (intervalId) {
-        clearInterval(intervalId)
-        intervalId = null
-      }
-      clear()
-      // Print final state with static icons
-      const finalLines: string[] = []
-      finalLines.push('')
-      finalLines.push(`  ${chalk.bold.white('SUBTASK PROGRESS')}`)
-      finalLines.push(`  ${chalk.dim('─'.repeat(58))}`)
-      for (let i = 0; i < subtasks.length; i++) {
-        finalLines.push(formatSubtaskLine(i, subtasks[i], '▶'))
-      }
-      finalLines.push('')
-      process.stdout.write(finalLines.join('\n'))
-      process.stdout.write(SHOW_CURSOR)
-    },
-
-    /**
-     * Get current subtasks state
-     */
-    getSubtasks: () => [...subtasks],
-  }
-}
-
-/**
- * Simple progress line
- * Output: "Progress: 2/4 subtasks complete"
- */
-export function renderProgressLine(completed: number, total: number): string {
-  return `  ${chalk.dim('Progress:')} ${completed}/${total} subtasks complete`
 }

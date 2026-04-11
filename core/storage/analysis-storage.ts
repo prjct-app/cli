@@ -381,5 +381,3 @@ class AnalysisStorage extends StorageManager<AnalysisStoreData> {
 export const analysisStorage = new AnalysisStorage()
 export default analysisStorage
 export type { AnalysisStoreData, SealResult, StalenessCheck, RollbackResult }
-export type { SemanticVerificationReport } from '../schemas/analysis'
-export type { AnalysisDiff, AnalysisDiffItem } from '../types/services.js'

@@ -154,8 +154,3 @@ export class MaintenanceCommands extends PrjctCommandsBase {
     }
   }
 }
-
-// Re-export individual functions for direct use
-export { cleanup, cleanupMemory, cleanupMemoryInternal } from './cleanup'
-export { design } from './design'
-export { history, recover, redo, undo } from './snapshots'

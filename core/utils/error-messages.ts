@@ -11,9 +11,6 @@
 import type { ErrorCode, ErrorWithHint } from '../types/errors'
 import { ERRORS } from '../types/errors'
 
-export type { ErrorCode, ErrorWithHint } from '../types/errors'
-export { ERRORS } from '../types/errors'
-
 /**
  * Get error with optional overrides
  */

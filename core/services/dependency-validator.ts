@@ -12,9 +12,10 @@
  */
 
 import { execFileSync, execSync } from 'node:child_process'
+import type { ErrorWithHint } from '../types/errors'
 import type { ToolDefinition, ToolStatus } from '../types/services.js'
 import { isExpired } from '../utils/cache'
-import { createError, type ErrorWithHint } from '../utils/error-messages'
+import { createError } from '../utils/error-messages'
 
 // ============================================================================
 // TOOL DEFINITIONS

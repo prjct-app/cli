@@ -1,5 +1,48 @@
 # Changelog
 
+## [1.56.8] - 2026-04-10
+
+### Removed
+- **Dead code purge (-9400 LOC).** Deleted 43 unused files including the entire
+  `core/integrations/` subtree (Linear/Jira integration replaced by the MCP
+  gateway CLIs in `core/cli/linear.ts` and `core/cli/jira.ts`), orphan schemas
+  (`prd`, `issues`, `permissions`, `agents`, `command-context`, `enriched-task`,
+  `project`), orphan services (`skill-service`, `skill-installer`, `skill-lock`,
+  `context-selector`, `file-categorizer`, `git-analyzer`), orphan domain files
+  (`snapshot-manager`, `architecture-generator`, `context-estimator`,
+  `task-stack`), and various agentic/session/utility files.
+- **24 re-export lines** across 16 files (`core/utils/output.ts`,
+  `core/utils/error-messages.ts`, `core/commands/maintenance.ts`, and others).
+  Import directly from the source module per the no-barrel rule.
+- **Unused functions** trimmed from `core/utils/collection-filters.ts`,
+  `core/utils/runtime.ts`, `core/utils/jsonl-helper.ts`,
+  `core/utils/subtask-table.ts`, and `core/utils/mcp-config.ts`.
+
+### Added
+- **`knip.json`** and `bun run knip` script for dead code detection. Entry
+  points reflect the five build targets from `scripts/build.js` plus tests.
+- **`docs/architecture.md`** — layered architecture walkthrough, retrieval
+  triad (BM25 + import graph + git co-change) with ASCII diagram, schemas
+  pattern, storage and testing conventions, enforced code rules.
+- **`docs/sqlite-migration.md`** — why v1.24.1 moved from JSON to SQLite,
+  what `migrate-json.ts` does, how to inspect `prjct.db` with `sqlite3`,
+  and troubleshooting recipes.
+- **56 new tests** across `core/__tests__/sync/` (event-mapper, auth-config,
+  sync-client, sync-manager — 39 tests) and
+  `core/__tests__/tools/context/token-counter.test.ts` (17 tests).
+
+### Changed
+- **Biome lint rules hardened.** `noUnusedVariables`, `noUnusedImports`, and
+  `noVoidTypeReturn` are now `"error"` (were `"warn"`). CI blocks on any
+  violation.
+- **`AGENTS.md`** updated with a "Code rules" section (no barrels, SQLite
+  only, Biome errors blocking, Zod as source of truth) and references to the
+  new architecture docs.
+- **`.gitignore`** no longer ignores `docs/` so documentation is versioned.
+
+### Tests
+- Full suite: **1013 pass / 0 fail** (was 957).
+
 ## [1.56.6] - 2026-04-07
 
 ### Bug Fixes

@@ -23,10 +23,6 @@ import { VERSION } from '../utils/version'
 import * as authorDetector from './author-detector'
 import pathManager from './path-manager'
 
-// Re-export types for convenience
-export type { Author } from '../types/commands'
-export type { GlobalConfig, LocalConfig } from '../types/config'
-
 /**
  * Parse JSON or JSONC content safely
  * Supports comments (line and block style) in config files

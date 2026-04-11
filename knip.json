@@ -1,0 +1,16 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "bin/prjct.ts",
+    "core/index.ts",
+    "core/cli/linear.ts",
+    "core/cli/jira.ts",
+    "core/daemon/entry.ts",
+    "core/mcp/entry.ts",
+    "core/cli/lint-meta-commentary.ts",
+    "scripts/*.{js,ts}",
+    "core/__tests__/**/*.test.ts"
+  ],
+  "project": ["core/**/*.ts", "bin/**/*.ts", "scripts/**/*.{js,ts}"],
+  "ignore": ["core/storage/migrate-json.ts", "core/types/**"]
+}

@@ -14,12 +14,6 @@ import { z } from 'zod'
 import { ClassificationDomainSchema, TaskClassificationSchema } from './classification'
 
 // =============================================================================
-// Re-export classification schema (it IS an LLM output schema)
-// =============================================================================
-
-export { TaskClassificationSchema } from './classification'
-
-// =============================================================================
 // Agent Assignment Schema
 // =============================================================================
 
