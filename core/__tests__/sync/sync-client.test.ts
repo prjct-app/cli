@@ -66,7 +66,8 @@ describe('SyncClient.pushEvents', () => {
   })
 
   it('posts transformed events to /sync/batch', async () => {
-    stubFetch(() => jsonResponse(200, { succeeded: 1, failed: 0 }))
+    const payload = { success: true, processed: 1, errors: [], syncedAt: '2026-04-10T00:00:00Z' }
+    stubFetch(() => jsonResponse(200, payload))
 
     const events: SyncEvent[] = [
       {
@@ -80,7 +81,7 @@ describe('SyncClient.pushEvents', () => {
 
     const result = await syncClient.pushEvents('proj-1', events)
 
-    expect(result).toEqual({ succeeded: 1, failed: 0 })
+    expect(result).toEqual(payload)
     expect(calls).toHaveLength(1)
     expect(calls[0].url).toContain('/sync/batch')
     expect(calls[0].init?.method).toBe('POST')
