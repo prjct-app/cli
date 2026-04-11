@@ -16,5 +16,5 @@ When to use:
 Best practices:
 - Provide clear, detailed prompts
 - Launch multiple agents in parallel when independent
-- Use Explore for codebase questions
+- Prefer direct Glob/Grep for simple exploration. Subagents inherit all MCP tool schemas from the parent session and can start heavy — only delegate to Explore when the search is genuinely open-ended and benefits from parallel rounds
 - Use Plan for implementation design
