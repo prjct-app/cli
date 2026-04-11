@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.56.10] - 2026-04-11
+
+### Bug Fixes
+
+- prefer direct Glob/Grep over Explore subagent (#247)
+- chore: dead code purge + architecture docs (v1.56.8) (#246)
+
+
 ## [1.56.9] - 2026-04-11
 
 ### Changed
