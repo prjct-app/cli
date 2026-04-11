@@ -411,20 +411,3 @@ OUTPUT:
   Each output includes metrics showing token savings.
 `.trim()
 }
-
-// =============================================================================
-// Exports
-// =============================================================================
-
-export {
-  // Individual tools for programmatic use
-  findRelevantFiles,
-  extractSignatures,
-  extractDirectorySignatures,
-  analyzeImports,
-  getRecentFiles,
-  summarizeFile,
-  summarizeDirectory,
-}
-
-// Note: runContextTool is already exported at its definition (line 48)

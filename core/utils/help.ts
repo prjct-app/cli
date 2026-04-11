@@ -126,10 +126,7 @@ const GLOBAL_FLAGS = [
   { flag: '-h, --help', description: 'Show this help message' },
 ]
 
-/**
- * Format the main help output
- */
-export function formatMainHelp(): string {
+function formatMainHelp(): string {
   const lines: string[] = []
 
   // Header
@@ -194,10 +191,7 @@ export function formatMainHelp(): string {
   return lines.join('\n')
 }
 
-/**
- * Format help for a specific terminal command
- */
-export function formatTerminalCommandHelp(commandName: string): string | null {
+function formatTerminalCommandHelp(commandName: string): string | null {
   const cmd = TERMINAL_COMMANDS.find((c) => c.name === commandName)
   if (!cmd) return null
 
@@ -230,10 +224,7 @@ export function formatTerminalCommandHelp(commandName: string): string | null {
   return lines.join('\n')
 }
 
-/**
- * Format help for an AI agent command
- */
-export function formatAgentCommandHelp(commandName: string): string | null {
+function formatAgentCommandHelp(commandName: string): string | null {
   const cmd = COMMANDS.find((c) => c.name === commandName)
   if (!cmd) return null
 
@@ -285,10 +276,7 @@ export function formatAgentCommandHelp(commandName: string): string | null {
   return lines.join('\n')
 }
 
-/**
- * Format help for a specific command (auto-detect type)
- */
-export function formatCommandHelp(commandName: string): string {
+function formatCommandHelp(commandName: string): string {
   // Try terminal command first
   const terminalHelp = formatTerminalCommandHelp(commandName)
   if (terminalHelp) return terminalHelp
@@ -305,10 +293,7 @@ Run 'prjct help' to see all available commands.
 `
 }
 
-/**
- * Format list of all commands grouped by category
- */
-export function formatCommandList(): string {
+function formatCommandList(): string {
   const lines: string[] = []
 
   lines.push('')

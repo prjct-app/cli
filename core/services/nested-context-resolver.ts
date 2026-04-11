@@ -11,10 +11,8 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import pathManager, {
-  type MonorepoInfo,
-  type MonorepoPackage,
-} from '../infrastructure/path-manager'
+import pathManager from '../infrastructure/path-manager'
+import type { MonorepoInfo, MonorepoPackage } from '../types/infrastructure'
 import type {
   AgentDefinition,
   ContextSection,

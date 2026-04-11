@@ -14,8 +14,6 @@ import path from 'node:path'
 import type { StackDetection, StackPackageJson } from '../types/stack'
 import { fileExists } from '../utils/file-helper'
 
-export type { StackDetection, StackPackageJson } from '../types/stack'
-
 // ============================================================================
 // STACK DETECTOR
 // ============================================================================

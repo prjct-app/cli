@@ -11,14 +11,9 @@
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import { connect } from 'node:net'
+import type { DaemonRequest, DaemonResponse, DaemonStatus } from '../types/daemon'
 import { isBunAvailable } from '../utils/runtime'
-import {
-  DAEMON_PATHS,
-  type DaemonRequest,
-  type DaemonResponse,
-  type DaemonStatus,
-  encodeMessage,
-} from './protocol'
+import { DAEMON_PATHS, encodeMessage } from './protocol'
 
 /**
  * Check if the daemon is running (socket file exists + responds to ping)

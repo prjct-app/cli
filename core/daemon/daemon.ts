@@ -20,16 +20,9 @@ import '../commands/register'
 import configManager from '../infrastructure/config-manager'
 import { createServer as createHttpServer, DEFAULT_PORT } from '../server/server'
 import prjctDb from '../storage/database'
+import type { DaemonRequest, DaemonResponse, DaemonState } from '../types/daemon'
 import type { ServerInstance } from '../types/server'
-import {
-  DAEMON_PATHS,
-  type DaemonRequest,
-  type DaemonResponse,
-  type DaemonState,
-  encodeMessage,
-  IDLE_TIMEOUT_MS,
-  MAX_BUFFER_SIZE,
-} from './protocol'
+import { DAEMON_PATHS, encodeMessage, IDLE_TIMEOUT_MS, MAX_BUFFER_SIZE } from './protocol'
 
 /** Run WAL checkpoint every N requests to reclaim disk space */
 const WAL_CHECKPOINT_INTERVAL = 50

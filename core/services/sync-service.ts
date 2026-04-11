@@ -925,4 +925,3 @@ class SyncService {
 
 export const syncService = new SyncService()
 export { SyncService }
-export type { ProjectSyncResult as SyncResult } from '../types/project-sync'

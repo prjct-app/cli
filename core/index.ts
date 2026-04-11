@@ -320,7 +320,7 @@ async function main(): Promise<void> {
 function validateCommandParams(
   cmd: CommandMeta,
   parsedArgs: string[]
-): import('./utils/error-messages').ErrorWithHint | null {
+): import('./types/errors').ErrorWithHint | null {
   if (!cmd.params) return null
 
   // Extract required params: tokens wrapped in <angle brackets>

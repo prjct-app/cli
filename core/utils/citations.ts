@@ -9,8 +9,6 @@
 
 import type { ContextSources, SourceInfo } from '../types/citations'
 
-export type { ContextSources, SourceInfo, SourceType } from '../types/citations'
-
 /**
  * Create default sources (all unknown) - used as fallback
  */

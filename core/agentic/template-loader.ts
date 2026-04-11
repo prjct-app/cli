@@ -62,7 +62,7 @@ function evictLru(): void {
 
 // ============ Parsing Functions ============
 
-export function parseFrontmatter(content: string): ParsedTemplate {
+function parseFrontmatter(content: string): ParsedTemplate {
   const frontmatterRegex = /^---\n([\s\S]+?)\n---\n([\s\S]*)$/
   const match = content.match(frontmatterRegex)
 
@@ -96,7 +96,7 @@ export function parseFrontmatter(content: string): ParsedTemplate {
 
 // ============ Main Functions ============
 
-export async function load(commandName: string): Promise<ParsedTemplate> {
+async function load(commandName: string): Promise<ParsedTemplate> {
   // Check cache first
   if (cache.has(commandName)) {
     updateLruOrder(commandName)
@@ -134,12 +134,12 @@ export async function load(commandName: string): Promise<ParsedTemplate> {
   return parsed
 }
 
-export async function getAllowedTools(commandName: string): Promise<string[]> {
+async function getAllowedTools(commandName: string): Promise<string[]> {
   const template = await load(commandName)
   return template.frontmatter['allowed-tools'] || []
 }
 
-export function clearCache(): void {
+function clearCache(): void {
   cache.clear()
   cacheOrder.length = 0
 }
