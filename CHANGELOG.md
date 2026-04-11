@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.56.9] - 2026-04-11
+
+### Changed
+- `templates/tools/task.txt`: prefer direct `Glob`/`Grep` for simple
+  exploration; only delegate to `Explore` subagent when the search is
+  open-ended. Subagents inherit all MCP tool schemas from the parent
+  session and can start with heavy context, so prescriptive delegation
+  was hurting more than helping.
+
 ## [1.56.8] - 2026-04-10
 
 ### Removed
