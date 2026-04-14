@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.56.12] - 2026-04-14
+
+### Bug Fixes
+
+- exclude .worktrees from indexing (#248)
+
+
 ## [1.56.11] - 2026-04-13
 
 ### Fixed
