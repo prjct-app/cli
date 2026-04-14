@@ -21,6 +21,7 @@ export const SKIP_DIRS = new Set([
   'eggs',
   '*.egg-info',
   '.prjct',
+  '.worktrees',
 ])
 
 /** Config file names to track */

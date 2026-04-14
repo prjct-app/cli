@@ -83,6 +83,19 @@ describe('ImportGraph', () => {
       const graph = await buildGraph(testDir)
       expect(graph.fileCount).toBe(1)
     })
+
+    it('should skip .worktrees directory', async () => {
+      await fs.mkdir(path.join(testDir, '.worktrees', 'test-task'), { recursive: true })
+      await fs.writeFile(
+        path.join(testDir, '.worktrees', 'test-task', 'auth.ts'),
+        `import { db } from './db'\nexport class Auth {}`
+      )
+      await fs.writeFile(path.join(testDir, 'auth.ts'), `export function login() {}`)
+
+      const graph = await buildGraph(testDir)
+      expect(graph.fileCount).toBe(1)
+      expect(graph.forward['.worktrees/test-task/auth.ts']).toBeUndefined()
+    })
   })
 
   describe('scoreFromSeeds', () => {

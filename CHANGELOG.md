@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.56.11] - 2026-04-13
+
+### Fixed
+- Exclude `.worktrees` from BM25 and import graph indexing to eliminate duplicate search results
+- Exclude `.worktrees` from biome config to prevent nested root configuration errors
+
 ## [1.56.10] - 2026-04-11
 
 ### Bug Fixes
@@ -66,7 +72,6 @@
 
 - resolve biome check lint and format errors (#244)
 - prefer installed dist over source files (#243)
-
 
 ## [1.56.5] - 2026-04-07
 
