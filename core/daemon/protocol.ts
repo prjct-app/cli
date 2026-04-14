@@ -9,8 +9,6 @@
  * Each message is a single JSON object terminated by \n.
  */
 
-export type { DaemonRequest, DaemonResponse, DaemonState, DaemonStatus } from '../types/daemon'
-
 import type { DaemonRequest, DaemonResponse } from '../types/daemon'
 
 /** Paths used by the daemon */

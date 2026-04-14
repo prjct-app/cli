@@ -35,8 +35,6 @@ async function getAnalysisCommands(): Promise<import('./analysis').AnalysisComma
   return _analysisCommands
 }
 
-export type { InitOptions } from '../types/commands'
-
 export class PlanningCommands extends PrjctCommandsBase {
   /**
    * /p:init - Initialize prjct project with interactive wizard

@@ -30,9 +30,9 @@
     "rules": {
       "recommended": true,
       "correctness": {
-        "noUnusedVariables": "warn",
-        "noUnusedImports": "warn",
-        "noVoidTypeReturn": "warn"
+        "noUnusedVariables": "error",
+        "noUnusedImports": "error",
+        "noVoidTypeReturn": "error"
       },
       "complexity": {
         "noBannedTypes": "warn"

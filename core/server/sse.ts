@@ -187,6 +187,3 @@ export function createSSEManager(): SSEManager {
     },
   }
 }
-
-export type { SSEEventType } from '../types/server'
-export { SSE_EVENTS } from '../types/server'

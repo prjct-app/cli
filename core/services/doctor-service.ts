@@ -550,4 +550,3 @@ class DoctorService {
 
 export const doctorService = new DoctorService()
 export { DoctorService }
-export type { CheckResult, DoctorResult } from '../types/services.js'

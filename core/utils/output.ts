@@ -19,8 +19,6 @@ import { getError } from './error-messages'
 const _FRAMES = branding.spinner.frames
 const SPEED = branding.spinner.speed
 
-export type { Output, OutputMetrics, OutputTier, TierConfig } from '../types/output'
-
 export const OUTPUT_TIERS: Record<OutputTier, TierConfig> = {
   silent: { maxLines: 0, maxCharsPerLine: 0, showMetrics: false },
   minimal: { maxLines: 1, maxCharsPerLine: 65, showMetrics: false },
@@ -398,6 +396,4 @@ const out: Output = {
   },
 }
 
-export type { ErrorCode, ErrorWithHint } from './error-messages'
-export { createError, ERRORS, getError } from './error-messages'
 export default out

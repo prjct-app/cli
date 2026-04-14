@@ -1,19 +1,77 @@
 # Changelog
 
-## [1.56.8] - 2026-04-13
+## [1.56.11] - 2026-04-13
+
+### Fixed
+- Exclude `.worktrees` from BM25 and import graph indexing to eliminate duplicate search results
+- Exclude `.worktrees` from biome config to prevent nested root configuration errors
+
+## [1.56.10] - 2026-04-11
+
+### Bug Fixes
+
+- prefer direct Glob/Grep over Explore subagent (#247)
+- chore: dead code purge + architecture docs (v1.56.8) (#246)
+
+
+## [1.56.9] - 2026-04-11
+
+### Changed
+- `templates/tools/task.txt`: prefer direct `Glob`/`Grep` for simple
+  exploration; only delegate to `Explore` subagent when the search is
+  open-ended. Subagents inherit all MCP tool schemas from the parent
+  session and can start with heavy context, so prescriptive delegation
+  was hurting more than helping.
+
+## [1.56.8] - 2026-04-10
+
+### Removed
+- **Dead code purge (-9400 LOC).** Deleted 43 unused files including the entire
+  `core/integrations/` subtree (Linear/Jira integration replaced by the MCP
+  gateway CLIs in `core/cli/linear.ts` and `core/cli/jira.ts`), orphan schemas
+  (`prd`, `issues`, `permissions`, `agents`, `command-context`, `enriched-task`,
+  `project`), orphan services (`skill-service`, `skill-installer`, `skill-lock`,
+  `context-selector`, `file-categorizer`, `git-analyzer`), orphan domain files
+  (`snapshot-manager`, `architecture-generator`, `context-estimator`,
+  `task-stack`), and various agentic/session/utility files.
+- **24 re-export lines** across 16 files (`core/utils/output.ts`,
+  `core/utils/error-messages.ts`, `core/commands/maintenance.ts`, and others).
+  Import directly from the source module per the no-barrel rule.
+- **Unused functions** trimmed from `core/utils/collection-filters.ts`,
+  `core/utils/runtime.ts`, `core/utils/jsonl-helper.ts`,
+  `core/utils/subtask-table.ts`, and `core/utils/mcp-config.ts`.
 
 ### Added
-- Exclude .worktrees from indexing
+- **`knip.json`** and `bun run knip` script for dead code detection. Entry
+  points reflect the five build targets from `scripts/build.js` plus tests.
+- **`docs/architecture.md`** — layered architecture walkthrough, retrieval
+  triad (BM25 + import graph + git co-change) with ASCII diagram, schemas
+  pattern, storage and testing conventions, enforced code rules.
+- **`docs/sqlite-migration.md`** — why v1.24.1 moved from JSON to SQLite,
+  what `migrate-json.ts` does, how to inspect `prjct.db` with `sqlite3`,
+  and troubleshooting recipes.
+- **56 new tests** across `core/__tests__/sync/` (event-mapper, auth-config,
+  sync-client, sync-manager — 39 tests) and
+  `core/__tests__/tools/context/token-counter.test.ts` (17 tests).
 
-## [1.56.7] - 2026-04-13
+### Changed
+- **Biome lint rules hardened.** `noUnusedVariables`, `noUnusedImports`, and
+  `noVoidTypeReturn` are now `"error"` (were `"warn"`). CI blocks on any
+  violation.
+- **`AGENTS.md`** updated with a "Code rules" section (no barrels, SQLite
+  only, Biome errors blocking, Zod as source of truth) and references to the
+  new architecture docs.
+- **`.gitignore`** no longer ignores `docs/` so documentation is versioned.
 
-### Added
-- Exclude .worktrees from indexing
+### Tests
+- Full suite: **1013 pass / 0 fail** (was 957).
 
-## [1.56.6] - 2026-04-09
+## [1.56.6] - 2026-04-07
 
-### Added
-- test task
+### Bug Fixes
+
+- resolve biome check lint and format errors (#244)
+- prefer installed dist over source files (#243)
 
 ## [1.56.5] - 2026-04-07
 

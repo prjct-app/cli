@@ -13,9 +13,10 @@
 
 import path from 'node:path'
 import { getErrorMessage } from '../errors'
+import type { ContextSources, SourceInfo } from '../types/citations'
 import type { GitData, ProjectCommands, ProjectStats } from '../types/project-sync'
 import type { StackDetection } from '../types/stack'
-import { type ContextSources, defaultSources, type SourceInfo } from '../utils/citations'
+import { defaultSources } from '../utils/citations'
 import { execAsync } from '../utils/exec'
 import { fileExists, readJson } from '../utils/file-helper'
 import log from '../utils/logger'
