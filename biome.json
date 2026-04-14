@@ -15,7 +15,8 @@
       "!**/coverage",
       "!**/*.min.js",
       "!**/bun.lock",
-      "!web"
+      "!web",
+      "!.worktrees"
     ]
   },
   "formatter": {

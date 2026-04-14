@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.56.8] - 2026-04-13
+
+### Added
+- Exclude .worktrees from indexing
+
+## [1.56.7] - 2026-04-13
+
+### Added
+- Exclude .worktrees from indexing
+
+## [1.56.6] - 2026-04-09
+
+### Added
+- test task
+
 ## [1.56.5] - 2026-04-07
 
 ### Added

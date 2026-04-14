@@ -26,14 +26,16 @@ export function inferEventType(pathArray: string[], action: 'write' | 'delete'):
 class SyncEventBus {
   async publish(event: SyncEvent): Promise<void> {
     const filePath = pathManager.getSyncPendingPath(event.projectId)
-    const pending = (await fileHelper.readJson<SyncEvent[]>(filePath, [])) ?? []
+    const raw = (await fileHelper.readJson<SyncEvent[]>(filePath, [])) ?? []
+    const pending = Array.isArray(raw) ? raw : []
     pending.push(event)
     await fileHelper.writeJson(filePath, pending)
   }
 
   async getPending(projectId: string): Promise<SyncEvent[]> {
     const filePath = pathManager.getSyncPendingPath(projectId)
-    return (await fileHelper.readJson<SyncEvent[]>(filePath, [])) ?? []
+    const raw = (await fileHelper.readJson<SyncEvent[]>(filePath, [])) ?? []
+    return Array.isArray(raw) ? raw : []
   }
 
   async clearPending(projectId: string): Promise<void> {

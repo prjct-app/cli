@@ -208,6 +208,21 @@ describe('BM25', () => {
       expect(Object.keys(index.documents)).toContain('app.ts')
     })
 
+    it('should skip .worktrees directory', async () => {
+      await fs.mkdir(path.join(testDir, '.worktrees', 'test-task', 'core'), { recursive: true })
+      await fs.mkdir(path.join(testDir, 'core'), { recursive: true })
+      await fs.writeFile(
+        path.join(testDir, '.worktrees', 'test-task', 'core', 'auth.ts'),
+        'export function login() {}'
+      )
+      await fs.writeFile(path.join(testDir, 'core', 'auth.ts'), 'export function login() {}')
+
+      const index = await buildIndex(testDir)
+      const paths = Object.keys(index.documents)
+      expect(paths).toContain(path.join('core', 'auth.ts'))
+      expect(paths.every((p) => !p.includes('.worktrees'))).toBe(true)
+    })
+
     it('should handle empty query', async () => {
       await fs.writeFile(path.join(testDir, 'app.ts'), 'export function main() {}')
 

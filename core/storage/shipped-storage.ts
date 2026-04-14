@@ -62,7 +62,7 @@ class ShippedStorage extends StorageManager<ShippedJson> {
     }
 
     await this.update(projectId, (data) => ({
-      shipped: [shipped, ...data.shipped], // Prepend
+      shipped: [shipped, ...(Array.isArray(data.shipped) ? data.shipped : [])],
       lastUpdated: getTimestamp(),
     }))
 
