@@ -131,25 +131,7 @@ async function main(): Promise<void> {
     let result: CommandResult | undefined
 
     // Commands with special option handling
-    if (commandName === 'parallel' && parsedArgs[0] === 'spawn' && parsedArgs.length > 1) {
-      // prjct parallel spawn "task description"
-      const description = parsedArgs.slice(1).join(' ')
-      result = await commands.parallelSpawn(description, process.cwd(), { md: options.md === true })
-    } else if (commandName === 'parallel' && parsedArgs[0] === 'batch') {
-      // prjct parallel batch "task1" "task2" "task3"
-      const descriptions = parsedArgs.slice(1)
-      if (descriptions.length === 0) {
-        out.failWithHint({
-          message: 'No tasks provided',
-          hint: 'Usage: prjct parallel batch "task1" "task2" "task3"',
-        })
-        process.exit(1)
-      }
-      result = await commands.parallelBatch(descriptions, process.cwd())
-    } else if (commandName === 'design') {
-      const target = parsedArgs.join(' ')
-      result = await commands.design(target, options)
-    } else if (commandName === 'analyze') {
+    if (commandName === 'analyze') {
       result = await commands.analyze(options)
     } else if (commandName === 'cleanup') {
       result = await commands.cleanup(options)
@@ -175,29 +157,16 @@ async function main(): Promise<void> {
         resume: (p) => commands.resume(p, process.cwd(), { md }),
         // Planning
         init: (p) => commands.init(p),
-        bug: (p) => commands.bug(p || '', process.cwd(), { md }),
-        idea: (p) => commands.idea(p || '', process.cwd(), { md }),
-        spec: (p) => commands.spec(p),
         ship: (p) => commands.ship(p, process.cwd(), { md }),
         // Workflow
         workflow: (p) => commands.workflowPrefs(p, process.cwd(), { md }),
         // Sessions (PRJ-285)
         sessions: () => commands.sessions(process.cwd(), { md, cleanup: options.cleanup === true }),
-        // Analytics
-        dash: (p) => commands.dash(p || 'default', process.cwd(), { md }),
-        stats: () =>
-          commands.stats(process.cwd(), {
-            json: options.json === true,
-            export: options.export === true,
-          }),
         status: () =>
           commands.status(process.cwd(), {
             json: options.json === true,
             md,
           }),
-        help: (p) => commands.help(p || ''),
-        perf: (p) => commands.perf(p || '7'),
-        velocity: (p) => commands.velocity(p || '0'),
         // Maintenance
         recover: () => commands.recover(),
         undo: () => commands.undo(),
@@ -238,18 +207,6 @@ async function main(): Promise<void> {
         login: () => commands.login({ md, url: options.url ? String(options.url) : undefined }),
         logout: () => commands.logout(),
         auth: (p) => commands.auth(p, { md }),
-        // Parallel agent sessions
-        parallel: (p) =>
-          commands.parallel(p, process.cwd(), {
-            md,
-            max: options.max ? Number(options.max) : undefined,
-            fromQueue: options['from-queue'] === true,
-            fromLinear: options['from-linear'] === true,
-            fromJira: options['from-jira'] === true,
-            includeBacklog: options['include-backlog'] === true,
-          }),
-        worktree: (p) => commands.parallel(p, process.cwd(), { md }),
-        conductor: (p) => commands.parallel(p, process.cwd(), { md }),
       }
 
       const handler = standardCommands[commandName]

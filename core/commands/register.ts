@@ -9,33 +9,25 @@
  */
 
 import { AnalysisCommands } from './analysis'
-import { AnalyticsCommands } from './analytics'
 import { CATEGORIES, COMMANDS } from './command-data'
 import { ContextCommands } from './context'
 import { MaintenanceCommands } from './maintenance'
-import { ParallelCommands } from './parallel'
-import { PerformanceCommands } from './performance'
 import { PlanningCommands } from './planning'
 import { commandRegistry } from './registry'
 import { SetupCommands } from './setup'
 import { ShippingCommands } from './shipping'
 import { UninstallCommands } from './uninstall'
 import { UpdateCommands } from './update'
-import { VelocityCommands } from './velocity'
 import { WorkflowCommands } from './workflow'
 
 // Singleton instances of command groups
 const workflow = new WorkflowCommands()
 const planning = new PlanningCommands()
 const shipping = new ShippingCommands()
-const analytics = new AnalyticsCommands()
-const performance = new PerformanceCommands()
 const maintenance = new MaintenanceCommands()
 const analysis = new AnalysisCommands()
 const setup = new SetupCommands()
 const context = new ContextCommands()
-const velocityCmd = new VelocityCommands()
-const parallel = new ParallelCommands()
 const uninstallCmd = new UninstallCommands()
 const updateCmd = new UpdateCommands()
 
@@ -80,16 +72,6 @@ export function registerAllCommands(): void {
   // Shipping commands
   commandRegistry.registerMethod('ship', shipping, 'ship', getMeta('ship'))
 
-  // Analytics commands
-  commandRegistry.registerMethod('dash', analytics, 'dash', getMeta('dash'))
-  commandRegistry.registerMethod('help', analytics, 'help', getMeta('help'))
-
-  // Performance commands
-  commandRegistry.registerMethod('perf', performance, 'perf', getMeta('perf'))
-
-  // Velocity commands
-  commandRegistry.registerMethod('velocity', velocityCmd, 'velocity', getMeta('velocity'))
-
   // Maintenance commands
   commandRegistry.registerMethod('cleanup', maintenance, 'cleanup', getMeta('cleanup'))
   commandRegistry.registerMethod(
@@ -124,11 +106,6 @@ export function registerAllCommands(): void {
 
   // Context command (for Claude templates)
   commandRegistry.registerMethod('context', context, 'context', getMeta('context'))
-
-  // Parallel agent commands
-  commandRegistry.registerMethod('parallel', parallel, 'parallel', getMeta('parallel'))
-  commandRegistry.registerMethod('worktree', parallel, 'parallel', getMeta('worktree'))
-  commandRegistry.registerMethod('conductor', parallel, 'parallel', getMeta('conductor'))
 }
 
 // Auto-register on import
@@ -140,13 +117,9 @@ export {
   workflow,
   planning,
   shipping,
-  analytics,
-  performance,
   maintenance,
   setup,
   context,
-  parallel,
-  velocityCmd,
   uninstallCmd,
   updateCmd,
 }

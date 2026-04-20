@@ -24,16 +24,12 @@ import type {
   SetupOptions,
 } from '../types/commands'
 import { AnalysisCommands } from './analysis'
-import { AnalyticsCommands } from './analytics'
 import { ContextCommands } from './context'
 import { MaintenanceCommands } from './maintenance'
-import { ParallelCommands } from './parallel'
-import { PerformanceCommands } from './performance'
 import { PlanningCommands } from './planning'
 import { SetupCommands } from './setup'
 import { ShippingCommands } from './shipping'
 import { UpdateCommands } from './update'
-import { VelocityCommands } from './velocity'
 import { WorkflowCommands } from './workflow'
 
 /**
@@ -45,15 +41,11 @@ class PrjctCommands {
   private workflow: WorkflowCommands
   private planning: PlanningCommands
   private shipping: ShippingCommands
-  private analytics: AnalyticsCommands
-  private performanceCmds: PerformanceCommands
   private maintenance: MaintenanceCommands
   private analysis: AnalysisCommands
   private setupCmds: SetupCommands
   private updateCmds: UpdateCommands
-  private velocityCmds: VelocityCommands
   private contextCmds: ContextCommands
-  private parallelCmds: ParallelCommands
 
   // Shared state
   agent: unknown
@@ -65,15 +57,11 @@ class PrjctCommands {
     this.workflow = new WorkflowCommands()
     this.planning = new PlanningCommands()
     this.shipping = new ShippingCommands()
-    this.analytics = new AnalyticsCommands()
-    this.performanceCmds = new PerformanceCommands()
     this.maintenance = new MaintenanceCommands()
     this.analysis = new AnalysisCommands()
     this.setupCmds = new SetupCommands()
     this.updateCmds = new UpdateCommands()
-    this.velocityCmds = new VelocityCommands()
     this.contextCmds = new ContextCommands()
-    this.parallelCmds = new ParallelCommands()
 
     this.agent = null
     this.agentInfo = null
@@ -136,38 +124,6 @@ class PrjctCommands {
     return this.workflow.sessions(projectPath, options)
   }
 
-  // ========== Parallel Agent Commands ==========
-
-  async parallel(
-    subcommand: string | null = null,
-    projectPath: string = process.cwd(),
-    options: {
-      md?: boolean
-      max?: number
-      fromQueue?: boolean
-      fromLinear?: boolean
-      fromJira?: boolean
-      includeBacklog?: boolean
-    } = {}
-  ): Promise<CommandResult> {
-    return this.parallelCmds.parallel(subcommand, projectPath, options)
-  }
-
-  async parallelSpawn(
-    description: string,
-    projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
-  ): Promise<CommandResult> {
-    return this.parallelCmds.spawn(description, projectPath, options)
-  }
-
-  async parallelBatch(
-    descriptions: string[],
-    projectPath: string = process.cwd()
-  ): Promise<CommandResult> {
-    return this.parallelCmds.batchSpawn(descriptions, projectPath)
-  }
-
   // ========== Planning Commands ==========
 
   async init(
@@ -208,35 +164,6 @@ class PrjctCommands {
     options: { md?: boolean } = {}
   ): Promise<CommandResult> {
     return this.shipping.ship(feature, projectPath, { ...options })
-  }
-
-  // ========== Analytics Commands ==========
-
-  async dash(
-    view: string = 'default',
-    projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
-  ): Promise<CommandResult> {
-    return this.analytics.dash(view, projectPath, options)
-  }
-
-  async help(topic: string = '', projectPath: string = process.cwd()): Promise<CommandResult> {
-    return this.analytics.help(topic, projectPath)
-  }
-
-  // ========== Performance Commands ==========
-
-  async perf(period: string = '7', projectPath: string = process.cwd()): Promise<CommandResult> {
-    return this.performanceCmds.perf(period, projectPath)
-  }
-
-  // ========== Velocity Commands ==========
-
-  async velocity(
-    backlogPoints: string = '0',
-    projectPath: string = process.cwd()
-  ): Promise<CommandResult> {
-    return this.velocityCmds.velocity(backlogPoints, projectPath)
   }
 
   // ========== Maintenance Commands ==========
