@@ -207,15 +207,12 @@ export class PrimitiveCommands extends PrjctCommandsBase {
       })
 
       // Keep the agent-crawlable wiki in sync so subagents reading
-      // `.prjct/wiki/_generated/` see the new entry without waiting for
-      // the next ship. Best-effort — a wiki failure must not break the
-      // remember call.
-      try {
-        const { generateWiki } = await import('../services/wiki-generator')
-        await generateWiki(projectPath, pid.value)
-      } catch {
-        // Non-critical
-      }
+      // `.prjct/wiki/_generated/` see the new entry. In daemon mode this
+      // returns before the regen runs; in raw CLI mode it awaits, since
+      // process.exit would drop the promise. The incremental manifest
+      // keeps the cost near-zero for the typical 1-entry delta.
+      const { regenerateWikiDeferred } = await import('../services/wiki-generator')
+      await regenerateWikiDeferred(projectPath, pid.value)
 
       if (options.md) console.log(`✓ remembered ${type}: ${content}`)
       else out.done(`remembered ${type}`)

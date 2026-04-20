@@ -40,6 +40,11 @@ export async function startDaemon(options: {
   noHttp?: boolean
   foreground?: boolean
 }): Promise<void> {
+  // Flag child services (wiki-generator etc.) can check to know they're
+  // running under the long-lived daemon — lets them fire-and-forget safe
+  // work that would otherwise be killed by `process.exit()` in the CLI.
+  process.env.PRJCT_IN_DAEMON = '1'
+
   const socketPath = DAEMON_PATHS.socket()
   const pidPath = DAEMON_PATHS.pid()
   const runDir = DAEMON_PATHS.runDir()

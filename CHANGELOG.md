@@ -1,5 +1,52 @@
 # Changelog
 
+## [2.0.0-alpha.5] - 2026-04-20
+
+Wiki performance pass — answers the "SQLite vs Obsidian markdown graph"
+question by making the hybrid (SQLite source-of-truth + markdown cache)
+cheap enough that there's no reason to pick only one.
+
+### Incremental regen (O-1)
+`core/services/wiki-generator.ts` now keeps a `.manifest.json` of
+`{relPath: sha256}` per generated file. On regen:
+- build every file body in memory
+- sha256 each, diff against the manifest
+- write only files whose hash changed
+- delete files that were in the old manifest but not the new
+- always rewrite the manifest itself (tiny)
+
+For the common delta (one new memory entry touching 1-2 files), the
+wiki now writes those 1-2 files instead of the whole tree. ~100ms →
+<5ms in the write-bound case.
+
+### Deferred under daemon (O-2)
+New `regenerateWikiDeferred(projectPath, projectId)`. When the daemon
+sets `PRJCT_IN_DAEMON=1`, it fires the regen via `setImmediate` and
+returns immediately — the CLI response flushes before the regen
+touches disk. CLI path (no daemon) still awaits because
+`process.exit` would drop the pending promise. `primitives.remember`
+and `shipping.ship` call the deferred wrapper.
+
+### File-size cap via chunking (O-3)
+Any memory bucket (type or tag-value pair) with more than 50 entries
+is paginated:
+
+```
+memory/decision.md         ← index with links
+memory/decision/chunk-1.md ← 50 entries
+memory/decision/chunk-2.md ← 50 entries
+…
+```
+
+Tag pages go deeper: `tags/<key>/<value>.md` instead of cramming all
+values under a single `tags/<key>.md`. An agent that reads one chunk
+or one tag page stays under ~5K tokens regardless of corpus size.
+
+### Bottom line
+The hybrid is now the right answer on every axis: SQLite still wins
+writes + complex queries, markdown still wins LLM comprehension +
+token-per-read, and the cost of keeping them in sync is near-zero.
+
 ## [2.0.0-alpha.4] - 2026-04-20
 
 Quality pass — applies every finding from the three-round line-by-line

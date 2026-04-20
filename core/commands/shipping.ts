@@ -128,10 +128,11 @@ export class ShippingCommands extends PrjctCommandsBase {
       }
 
       // Regenerate the agent-crawlable wiki so subagents can read the latest
-      // ship + memory snapshot with plain Read/Glob — no CLI round-trip.
+      // ship + memory snapshot with plain Read/Glob. Incremental + deferred
+      // under daemon so the ship response isn't held up.
       try {
-        const { generateWiki } = await import('../services/wiki-generator')
-        await generateWiki(projectPath, projectId)
+        const { regenerateWikiDeferred } = await import('../services/wiki-generator')
+        await regenerateWikiDeferred(projectPath, projectId)
       } catch (wikiError) {
         console.warn('⚠️  Wiki regeneration failed (non-blocking):', getErrorMessage(wikiError))
       }
