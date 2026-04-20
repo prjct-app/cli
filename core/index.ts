@@ -51,11 +51,18 @@ async function main(): Promise<void> {
   // `prjct tag type:<bug|feature|chore>`. If the user types `prjct fix
   // login bug`, we treat that as a task description. Explicit verbs
   // (task, ship, tag, …) still win.
+  //
+  // Exception: a single-word input that's a near-match of a real verb
+  // (edit distance ≤ 2, no whitespace) is probably a typo. Surface the
+  // did-you-mean instead of silently creating `prjct task "shipp"`.
   if (commandName && !commandRegistry.getByName(commandName)) {
-    const fullDescription = [commandName, ...rawArgs.filter((a) => !a.startsWith('-'))].join(' ')
-    const passthroughFlags = rawArgs.filter((a) => a.startsWith('-'))
-    commandName = 'task'
-    rawArgs = [fullDescription, ...passthroughFlags]
+    const looksLikeTypo = rawArgs.length === 0 && findClosestCommand(commandName) !== null
+    if (!looksLikeTypo) {
+      const fullDescription = [commandName, ...rawArgs.filter((a) => !a.startsWith('-'))].join(' ')
+      const passthroughFlags = rawArgs.filter((a) => a.startsWith('-'))
+      commandName = 'task'
+      rawArgs = [fullDescription, ...passthroughFlags]
+    }
   }
 
   // === DYNAMIC COMMAND EXECUTION ===

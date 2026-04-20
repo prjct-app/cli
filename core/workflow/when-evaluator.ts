@@ -73,14 +73,37 @@ export function parseWhen(expr: string): Condition[] {
   return conditions
 }
 
+// Cache of compiled glob → RegExp. The same condition is often evaluated
+// against N files and reused across workflow invocations, so compiling
+// once pays off immediately.
+const globCache = new Map<string, RegExp>()
+
 function globToRegex(glob: string): RegExp {
-  // Minimal glob → regex. `**` → `.*`, `*` → `[^/]*`, `.` → `\.`.
-  const escaped = glob
-    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-    .replace(/\*\*/g, '§§')
-    .replace(/\*/g, '[^/]*')
-    .replace(/§§/g, '.*')
-  return new RegExp(`^${escaped}$`)
+  const cached = globCache.get(glob)
+  if (cached) return cached
+
+  // Minimal glob → regex. Walk the string once to avoid the `**`/`*`
+  // ordering hazard a replace chain has (and any unicode-placeholder
+  // tricks that break on exotic inputs).
+  let out = ''
+  for (let i = 0; i < glob.length; i++) {
+    const c = glob[i]
+    if (c === '*') {
+      if (glob[i + 1] === '*') {
+        out += '.*'
+        i++
+      } else {
+        out += '[^/]*'
+      }
+    } else if (/[.+^${}()|[\]\\]/.test(c)) {
+      out += `\\${c}`
+    } else {
+      out += c
+    }
+  }
+  const re = new RegExp(`^${out}$`)
+  globCache.set(glob, re)
+  return re
 }
 
 function matchCondition(cond: Condition, ctx: WhenContext): boolean {
