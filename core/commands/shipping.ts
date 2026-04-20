@@ -127,6 +127,15 @@ export class ShippingCommands extends PrjctCommandsBase {
         console.warn('⚠️  Failed to sync AI context after shipping:', getErrorMessage(syncError))
       }
 
+      // Regenerate the agent-crawlable wiki so subagents can read the latest
+      // ship + memory snapshot with plain Read/Glob — no CLI round-trip.
+      try {
+        const { generateWiki } = await import('../services/wiki-generator')
+        await generateWiki(projectPath, projectId)
+      } catch (wikiError) {
+        console.warn('⚠️  Wiki regeneration failed (non-blocking):', getErrorMessage(wikiError))
+      }
+
       if (options.md) {
         const steps = getNextSteps('ship', true)
         const md = mdOutput(

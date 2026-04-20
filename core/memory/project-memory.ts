@@ -34,6 +34,15 @@ export type MemoryType =
   | 'anti-pattern'
   | 'shipped'
 
+/**
+ * Where an entry came from. Lets Claude calibrate trust:
+ *   declared  — user / LLM wrote this via `prjct remember`
+ *   extracted — auto-recorded from verifiable project state (ships, tags)
+ *   inferred  — pattern-extractor or heuristic guess; weakest signal
+ *   ambiguous — mixed provenance or confidence unclear
+ */
+export type MemoryProvenance = 'declared' | 'extracted' | 'inferred' | 'ambiguous'
+
 export interface MemoryEntry {
   /** Stable identifier for `prjct remember forget <id>` */
   id: string
@@ -44,6 +53,7 @@ export interface MemoryEntry {
   rememberedAt: string
   /** Task id that captured this, if any */
   source?: string
+  provenance: MemoryProvenance
 }
 
 interface RecallOpts {
@@ -82,10 +92,15 @@ function safeJson<T>(raw: string, fallback: T): T {
 
 function rowToEntry(row: EventRow): MemoryEntry {
   const type = row.type.replace(/^memory\.remember\./, '') as MemoryType
-  const data = safeJson<{ content?: string; tags?: Record<string, string>; source?: string }>(
-    row.data,
-    {}
-  )
+  const data = safeJson<{
+    content?: string
+    tags?: Record<string, string>
+    source?: string
+    provenance?: MemoryProvenance
+  }>(row.data, {})
+  // Entries written via `prjct remember` default to `declared` — the user
+  // (or Claude) explicitly captured them. PR 4 work can override when
+  // auto-capturing from pattern extraction, etc.
   return {
     id: `mem_${row.id}`,
     type,
@@ -93,6 +108,7 @@ function rowToEntry(row: EventRow): MemoryEntry {
     tags: data.tags ?? {},
     rememberedAt: row.timestamp,
     source: data.source,
+    provenance: data.provenance ?? 'declared',
   }
 }
 
@@ -102,6 +118,7 @@ function shippedRowToEntry(row: ShippedRow): MemoryEntry {
     : {}
   const tagBase: Record<string, string> = meta.tags ?? {}
   if (row.type) tagBase.type = row.type
+  // Ships are verifiable project state — high-confidence extracted signal.
   return {
     id: `ship_${row.id}`,
     type: 'shipped',
@@ -109,6 +126,7 @@ function shippedRowToEntry(row: ShippedRow): MemoryEntry {
     tags: tagBase,
     rememberedAt: row.shipped_at,
     source: meta.taskId,
+    provenance: 'extracted',
   }
 }
 
@@ -135,12 +153,20 @@ export const projectMemory = {
    */
   async remember(
     projectPath: string,
-    args: { type: MemoryType; content: string; tags?: Record<string, string>; source?: string }
+    args: {
+      type: MemoryType
+      content: string
+      tags?: Record<string, string>
+      source?: string
+      /** Defaults to `declared` — user/LLM asserted this directly. */
+      provenance?: MemoryProvenance
+    }
   ): Promise<void> {
     await memoryService.log(projectPath, `remember.${args.type}`, {
       content: args.content,
       tags: args.tags ?? {},
       source: args.source,
+      provenance: args.provenance ?? 'declared',
     })
   },
 
@@ -229,6 +255,15 @@ export function formatMemoryMd(entries: MemoryEntry[]): string {
   ]
   const lines: string[] = []
 
+  // Provenance prefixes — cheap trust signal for Claude when reading
+  // memory. Declared is strongest (user wrote it); inferred is weakest.
+  const PROV_PREFIX: Record<MemoryProvenance, string> = {
+    declared: 'DECL',
+    extracted: 'EXTR',
+    inferred: 'INFR',
+    ambiguous: 'AMBG',
+  }
+
   for (const type of order) {
     const items = groups.get(type)
     if (!items || items.length === 0) continue
@@ -238,7 +273,8 @@ export function formatMemoryMd(entries: MemoryEntry[]): string {
         .map(([k, v]) => `${k}=${v}`)
         .join(' ')
       const tagSuffix = tags ? `  _(${tags})_` : ''
-      lines.push(`- [${e.id}] ${e.content}${tagSuffix}`)
+      const prov = PROV_PREFIX[e.provenance]
+      lines.push(`- \`${prov}\` [${e.id}] ${e.content}${tagSuffix}`)
     }
     lines.push('')
   }

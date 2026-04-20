@@ -259,4 +259,5 @@ export type ContextToolOutput =
   | { tool: 'summary'; result: SummaryToolOutput }
   | { tool: 'memory'; result: MemoryToolOutput }
   | { tool: 'learnings'; result: MemoryToolOutput }
+  | { tool: 'wiki'; result: MemoryToolOutput }
   | { tool: 'error'; result: { error: string; code: string } }

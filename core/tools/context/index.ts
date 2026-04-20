@@ -88,6 +88,10 @@ export async function runContextTool(
         result = await runMemoryTool(toolArgs, projectPath, { kind: 'learnings' })
         break
 
+      case 'wiki':
+        result = await runWikiTool(projectPath)
+        break
+
       case 'help':
         return {
           tool: 'error',
@@ -167,6 +171,26 @@ async function runFilesTool(args: string[], projectPath: string): Promise<Contex
 
   const result = await findRelevantFiles(taskDescription, projectPath, options)
   return { tool: 'files', result }
+}
+
+async function runWikiTool(projectPath: string): Promise<ContextToolOutput> {
+  const configManager = (await import('../../infrastructure/config-manager')).default
+  const projectId = await configManager.getProjectId(projectPath)
+  if (!projectId) {
+    return {
+      tool: 'error',
+      result: { error: 'No prjct project. Run `prjct init` first.', code: 'NO_PROJECT' },
+    }
+  }
+  const { generateWiki } = await import('../../services/wiki-generator')
+  const { wikiRoot, filesWritten } = await generateWiki(projectPath, projectId)
+  return {
+    tool: 'wiki',
+    result: {
+      markdown: `> Wiki rebuilt at \`${wikiRoot}\` — ${filesWritten} files. Read \`${wikiRoot}/index.md\` with the Read tool.`,
+      entryCount: filesWritten,
+    },
+  }
 }
 
 async function runMemoryTool(

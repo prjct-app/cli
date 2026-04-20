@@ -1,5 +1,56 @@
 # Changelog
 
+## [2.0.0-alpha.3] - 2026-04-20
+
+Fourth alpha — adds two high-leverage borrows from the graphify review:
+provenance tags on memory entries and an agent-crawlable wiki under
+`.prjct/wiki/`.
+
+### Memory provenance
+Every `MemoryEntry` now carries a `provenance` field so Claude can
+calibrate trust when reading memory:
+
+  DECL  — declared by user / LLM via `prjct remember`
+  EXTR  — extracted from verifiable project state (ships, tags)
+  INFR  — inferred by pattern extractor or heuristic (weakest)
+  AMBG  — mixed / unclear
+
+Surfaced as a prefix in `prjct context memory --md`:
+
+    ### DECISION
+    - `DECL` [mem_15] use SQLite
+    ### LEARNING
+    - `DECL` [mem_8] bun faster than npm  _(area=perf)_
+
+Ships auto-tag as `EXTR`; user `remember` calls default to `DECL`. Future
+pattern/heuristic-backed entries can override with `INFR`.
+
+### Agent-crawlable wiki
+New `core/services/wiki-generator.ts` writes `.prjct/wiki/` on every
+`prjct ship`:
+
+    .prjct/wiki/
+      index.md            — entry point with links to everything
+      ships/<slug>.md     — one file per shipped feature
+      memory/<type>.md    — one file per memory type
+      tags/<key>.md       — one file per tag key
+
+Subagents can read these with native Read/Glob — no CLI round-trip into
+SQLite, zero tokens until the file is opened. New `prjct context wiki`
+rebuilds on demand.
+
+### Why these, not the rest of graphify
+graphify's knowledge-graph engine (NetworkX + Leiden + vis.js) is a
+harness pattern that duplicates what the LLM + file-scorer already do for
+a solo-dev codebase. Multimodal PDF ingest is out of scope. The
+long-running `--watch` daemon burns tokens. The `--mcp` server fragments
+the toolbox. We took the two ideas that fit the v2 philosophy and left
+the rest.
+
+Hash cache + post-commit hook were already present in prjct
+(`core/domain/file-hasher.ts` + `core/services/hooks-service.ts`) — no
+duplication needed.
+
 ## [2.0.0-alpha.2] - 2026-04-19
 
 Third alpha — finishes the workflow engine upgrades from the Phase 4 plan.
