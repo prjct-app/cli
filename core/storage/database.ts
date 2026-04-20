@@ -677,6 +677,35 @@ const migrations: Migration[] = [
       `)
     },
   },
+  {
+    version: 13,
+    name: 'workflow-rules-v2',
+    up: (db: SqliteDatabase) => {
+      // v2 workflow engine: conditional rules, parallel hooks, gate caching.
+      try {
+        db.run('ALTER TABLE workflow_rules ADD COLUMN when_expr TEXT')
+      } catch {
+        // Column may already exist
+      }
+      try {
+        db.run('ALTER TABLE workflow_rules ADD COLUMN parallel INTEGER NOT NULL DEFAULT 1')
+      } catch {
+        // Column may already exist
+      }
+
+      db.run(`
+        CREATE TABLE IF NOT EXISTS workflow_rule_cache (
+          rule_id       INTEGER NOT NULL,
+          context_hash  TEXT NOT NULL,
+          ran_at        TEXT NOT NULL,
+          ttl_ms        INTEGER NOT NULL DEFAULT 3600000,
+          PRIMARY KEY (rule_id, context_hash)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_wrc_rule ON workflow_rule_cache(rule_id);
+      `)
+    },
+  },
 ]
 
 // =============================================================================

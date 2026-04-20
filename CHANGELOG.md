@@ -1,5 +1,49 @@
 # Changelog
 
+## [2.0.0-alpha.2] - 2026-04-19
+
+Third alpha — finishes the workflow engine upgrades from the Phase 4 plan.
+Custom workflows can now be written once and execute efficiently.
+
+### Conditional rules
+New `when_expr` column on `workflow_rules` with a tiny DSL:
+
+```
+when: tags:type=bug
+when: branch~main files:*.ts
+when: tags:domain=frontend
+```
+
+Supported: `tags:key=value` / `tags:key~value` (contains), `branch=` / `branch~`,
+`files:<glob>` (glob against the current diff). Multiple tokens AND
+together. Empty / null → unconditional.
+
+### Parallel hooks
+Hooks now run concurrently via `Promise.all` by default. Opt out per rule
+with `parallel: false` — those run sequentially ahead of the batch so
+ordering-dependent cleanups still work. Gates and steps stay sequential.
+Typical speedup on the common "3 independent hooks" case: ~3x.
+
+### Gate result cache
+Gate passes are cached in a new `workflow_rule_cache` table, keyed on
+`(files changed, tags, branch)`. Default TTL 1 h. Only successful passes
+are cached — failures always re-run so the user sees a fresh error. Any
+rule edit invalidates its cache. The win: `tsc` / `eslint` gates don't
+re-run on every task start when nothing relevant has moved.
+
+### Schema
+New migration `v13 workflow-rules-v2`:
+- `workflow_rules.when_expr TEXT` (nullable)
+- `workflow_rules.parallel INTEGER NOT NULL DEFAULT 1`
+- `workflow_rule_cache(rule_id, context_hash, ran_at, ttl_ms)` table
+
+All backward-compatible: existing rules keep running without `when_expr`
+and with parallel=true.
+
+### New files
+- `core/workflow/when-evaluator.ts` — DSL parser + evaluator (~100 LOC)
+- `core/workflow/gate-cache.ts` — cache API + SHA-256 context hasher
+
 ## [2.0.0-alpha.1] - 2026-04-19
 
 Second alpha — finishes the four-PR arc planned for v2 so the new shape is

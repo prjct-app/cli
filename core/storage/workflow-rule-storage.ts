@@ -6,6 +6,7 @@
  */
 
 import type { WorkflowRule } from '../types/storage.js'
+import { gateCache } from '../workflow/gate-cache'
 import { customWorkflowStorage } from './custom-workflow-storage'
 import { prjctDb, type SqliteBindings } from './database'
 
@@ -20,6 +21,8 @@ interface WorkflowRuleRow {
   timeout_ms: number
   created_at: string
   sort_order: number
+  when_expr: string | null
+  parallel: number | null
 }
 
 function rowToRule(row: WorkflowRuleRow): WorkflowRule {
@@ -34,6 +37,8 @@ function rowToRule(row: WorkflowRuleRow): WorkflowRule {
     timeoutMs: row.timeout_ms,
     createdAt: row.created_at,
     sortOrder: row.sort_order,
+    whenExpr: row.when_expr ?? null,
+    parallel: row.parallel === null ? true : row.parallel === 1,
   }
 }
 
@@ -48,8 +53,8 @@ class WorkflowRuleStorage {
 
     prjctDb.run(
       projectId,
-      `INSERT INTO workflow_rules (type, command, position, action, description, enabled, timeout_ms, created_at, sort_order)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO workflow_rules (type, command, position, action, description, enabled, timeout_ms, created_at, sort_order, when_expr, parallel)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       rule.type,
       rule.command,
       rule.position,
@@ -58,7 +63,9 @@ class WorkflowRuleStorage {
       rule.enabled ? 1 : 0,
       rule.timeoutMs,
       rule.createdAt,
-      sortOrder
+      sortOrder,
+      rule.whenExpr ?? null,
+      rule.parallel === false ? 0 : 1
     )
 
     const inserted = prjctDb.get<{ id: number }>(projectId, 'SELECT last_insert_rowid() as id')
@@ -74,6 +81,7 @@ class WorkflowRuleStorage {
     if (!existing) return false
 
     prjctDb.run(projectId, 'DELETE FROM workflow_rules WHERE id = ?', ruleId)
+    gateCache.invalidate(projectId, ruleId)
     return true
   }
 
@@ -102,6 +110,8 @@ class WorkflowRuleStorage {
       timeoutMs: { column: 'timeout_ms' },
       createdAt: { column: 'created_at' },
       sortOrder: { column: 'sort_order' },
+      whenExpr: { column: 'when_expr' },
+      parallel: { column: 'parallel', transform: (v: SqliteBindings) => (v === false ? 0 : 1) },
     }
 
     const setClauses: string[] = []
@@ -123,6 +133,9 @@ class WorkflowRuleStorage {
       `UPDATE workflow_rules SET ${setClauses.join(', ')} WHERE id = ?`,
       ...values
     )
+    // Any rule change invalidates its cached pass — the shell command
+    // or condition may have changed.
+    gateCache.invalidate(projectId, ruleId)
     return true
   }
 

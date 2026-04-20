@@ -1,8 +1,12 @@
 /**
- * Workflow Engine (Phase 2)
+ * Workflow Engine (v2)
  *
- * Unified rule execution for hooks, gates, and steps.
- * Replaces runWorkflowHooks() as the single entry point.
+ * Unified rule execution for hooks, gates, steps, and instructions. v2
+ * adds:
+ *   - conditional rules via `when_expr` (see when-evaluator.ts)
+ *   - parallel hook execution (opt-out per rule)
+ *   - gate result caching keyed on (files changed, tags, branch)
+ *   - `status:<value>` steps routed to the state machine
  */
 
 import chalk from 'chalk'
@@ -10,14 +14,12 @@ import { memoryService } from '../services/memory-service'
 import { stateStorage } from '../storage/state-storage'
 import { workflowRuleStorage } from '../storage/workflow-rule-storage'
 import { getErrorMessage } from '../types/fs'
+import type { WorkflowRule } from '../types/storage.js'
 import type { WorkflowExecutionResult } from '../types/workflow.js'
 import { execAsync } from '../utils/exec'
+import { gateCache, hashContext } from './gate-cache'
+import { evaluateWhen, type WhenContext } from './when-evaluator'
 
-/**
- * Recognise status-transition actions. `action: "status:done"` flows
- * through the state-machine path instead of execAsync. Workflow authors
- * can mix shell steps and status transitions in the same pipeline.
- */
 const STATUS_ACTION_PREFIX = 'status:'
 
 async function runStatusTransition(
@@ -37,6 +39,81 @@ async function runStatusTransition(
   })
 }
 
+async function runShellAction(rule: WorkflowRule, projectPath: string): Promise<void> {
+  await execAsync(rule.action, {
+    timeout: rule.timeoutMs,
+    cwd: projectPath,
+    env: { ...process.env },
+  })
+}
+
+async function runRuleAction(
+  rule: WorkflowRule,
+  projectId: string,
+  projectPath: string
+): Promise<void> {
+  if (rule.action.startsWith(STATUS_ACTION_PREFIX)) {
+    const target = rule.action.slice(STATUS_ACTION_PREFIX.length).trim()
+    if (!target) throw new Error(`Empty status target in action '${rule.action}'`)
+    await runStatusTransition(projectId, projectPath, target)
+    return
+  }
+  await runShellAction(rule, projectPath)
+}
+
+async function buildWhenContext(projectId: string, projectPath: string): Promise<WhenContext> {
+  let branch = ''
+  try {
+    const { getGitBranch } = await import('../session/git-helpers')
+    branch = (await getGitBranch(projectPath)) || ''
+  } catch {
+    // Branch detection is best-effort
+  }
+
+  let filesChanged: string[] = []
+  try {
+    const { execSync } = await import('node:child_process')
+    const opts = { cwd: projectPath, encoding: 'utf-8' as const }
+    const staged = execSync('git diff --cached --name-only', opts)
+    const unstaged = execSync('git diff --name-only', opts)
+    filesChanged = [
+      ...new Set(
+        [...staged.split('\n'), ...unstaged.split('\n')].map((l) => l.trim()).filter(Boolean)
+      ),
+    ]
+  } catch {
+    // No git / no changes
+  }
+
+  let tags: Record<string, string> = {}
+  try {
+    const active = await stateStorage.getCurrentTask(projectId)
+    if (active?.type) tags.type = active.type
+    // `task.tagged` events hold the richer tag dictionary — use the most
+    // recent one for the active task so `tags:domain=frontend` etc. work.
+    const { default: prjctDb } = await import('../storage/database')
+    type EvtRow = { data: string }
+    const row = prjctDb.get<EvtRow>(
+      projectId,
+      "SELECT data FROM events WHERE type = 'memory.task.tagged' ORDER BY id DESC LIMIT 1"
+    )
+    if (row) {
+      try {
+        const parsed = JSON.parse(row.data) as { taskId?: string; tags?: Record<string, string> }
+        if (active && parsed.taskId === active.id && parsed.tags) {
+          tags = { ...tags, ...parsed.tags }
+        }
+      } catch {
+        // ignore malformed row
+      }
+    }
+  } catch {
+    // Tag lookup is best-effort
+  }
+
+  return { branch, filesChanged, tags }
+}
+
 export async function executeWorkflowRules(
   projectId: string,
   command: string,
@@ -54,36 +131,45 @@ export async function executeWorkflowRules(
 
   if (options.skipRules) return result
 
-  // 1. Get rules from the new workflow_rules table
   const allRules = workflowRuleStorage.getRulesForCommand(projectId, command)
-  const rules = allRules.filter((r) => r.position === phase)
+  const phased = allRules.filter((r) => r.position === phase)
+  const projectPath = options.projectPath || process.cwd()
 
-  // 2. Run gates first (before phase only) — ALL must pass
+  // Build the context once — individual conditional checks reuse it.
+  const whenCtx = await buildWhenContext(projectId, projectPath)
+  const contextHash = hashContext(whenCtx)
+
+  const rules = phased.filter((r) => evaluateWhen(r.whenExpr, whenCtx))
+
+  // 1. Gates — blocking, with cache. Cache applies only to fresh greens.
   const gates = rules.filter((r) => r.type === 'gate')
   for (const gate of gates) {
     const label = gate.description || gate.action
-    console.log(`\n${chalk.dim(`[gate] ${phase}-${command}: ${gate.action}`)}`)
 
+    if (gateCache.isFresh(projectId, gate.id, contextHash)) {
+      console.log(`\n${chalk.dim(`[gate] ${phase}-${command}: ${gate.action}`)}`)
+      console.log(`${chalk.green('✓')} ${chalk.dim('gate skipped (cached)')}`)
+      continue
+    }
+
+    console.log(`\n${chalk.dim(`[gate] ${phase}-${command}: ${gate.action}`)}`)
     try {
       const startTime = Date.now()
-      await execAsync(gate.action, {
-        timeout: gate.timeoutMs,
-        cwd: options.projectPath || process.cwd(),
-        env: { ...process.env },
-      })
+      await runRuleAction(gate, projectId, projectPath)
       const elapsed = Date.now() - startTime
       const timeStr = elapsed > 1000 ? `${(elapsed / 1000).toFixed(1)}s` : `${elapsed}ms`
       console.log(`${chalk.green('✓')} ${chalk.dim(`gate passed (${timeStr})`)}`)
+      gateCache.record(projectId, gate.id, contextHash)
     } catch (error) {
       console.log(`${chalk.red('✗')} gate failed: ${label}`)
       result.gatesFailed.push(label)
       result.success = false
       result.output += `Gate failed: ${label}\n${getErrorMessage(error)}\n`
-      return result // gates are blocking — stop immediately
+      return result
     }
   }
 
-  // 3. Collect instructions (informational, non-blocking, no shell execution)
+  // 2. Instructions — non-blocking, no shell.
   const instructions = rules.filter((r) => r.type === 'instruction')
   for (const instr of instructions) {
     const label = instr.description || instr.action
@@ -91,18 +177,18 @@ export async function executeWorkflowRules(
     result.instructions.push(instr.action)
   }
 
-  // 4. Run hooks (non-blocking)
+  // 3. Hooks — non-blocking. Parallel by default (via Promise.all); hooks
+  //    with `parallel: false` run sequentially ahead of the batch so
+  //    order-dependent cleanups still work.
   const hooks = rules.filter((r) => r.type === 'hook')
-  for (const hook of hooks) {
-    console.log(`\n${chalk.dim(`[hook] ${phase}-${command}: ${hook.action}`)}`)
+  const serialHooks = hooks.filter((h) => h.parallel === false)
+  const parallelHooks = hooks.filter((h) => h.parallel !== false)
 
+  const runHook = async (hook: WorkflowRule): Promise<void> => {
+    console.log(`\n${chalk.dim(`[hook] ${phase}-${command}: ${hook.action}`)}`)
     try {
       const startTime = Date.now()
-      await execAsync(hook.action, {
-        timeout: hook.timeoutMs,
-        cwd: options.projectPath || process.cwd(),
-        env: { ...process.env },
-      })
+      await runRuleAction(hook, projectId, projectPath)
       const elapsed = Date.now() - startTime
       const timeStr = elapsed > 1000 ? `${(elapsed / 1000).toFixed(1)}s` : `${elapsed}ms`
       console.log(`${chalk.green('✓')} ${chalk.dim(`(${timeStr})`)}`)
@@ -113,28 +199,21 @@ export async function executeWorkflowRules(
     }
   }
 
-  // 5. Run steps (blocking, used for ship pipeline).
-  //    Steps with `action: "status:<value>"` are handled by the state
-  //    machine instead of shell exec so workflows can drive status
-  //    transitions declaratively.
+  for (const hook of serialHooks) {
+    await runHook(hook)
+  }
+  if (parallelHooks.length > 0) {
+    await Promise.all(parallelHooks.map(runHook))
+  }
+
+  // 4. Steps — blocking, sequential. `status:<value>` steps drive the
+  //    state machine instead of shelling out.
   const steps = rules.filter((r) => r.type === 'step')
   for (const step of steps) {
-    const isStatusStep = step.action.startsWith(STATUS_ACTION_PREFIX)
     console.log(`\n${chalk.dim(`[step] ${command}: ${step.action}`)}`)
-
     try {
       const startTime = Date.now()
-      if (isStatusStep) {
-        const target = step.action.slice(STATUS_ACTION_PREFIX.length).trim()
-        if (!target) throw new Error(`Empty status target in action '${step.action}'`)
-        await runStatusTransition(projectId, options.projectPath || process.cwd(), target)
-      } else {
-        await execAsync(step.action, {
-          timeout: step.timeoutMs,
-          cwd: options.projectPath || process.cwd(),
-          env: { ...process.env },
-        })
-      }
+      await runRuleAction(step, projectId, projectPath)
       const elapsed = Date.now() - startTime
       const timeStr = elapsed > 1000 ? `${(elapsed / 1000).toFixed(1)}s` : `${elapsed}ms`
       console.log(`${chalk.green('✓')} ${chalk.dim(`step passed (${timeStr})`)}`)
@@ -144,7 +223,7 @@ export async function executeWorkflowRules(
       result.gatesFailed.push(step.description || step.action)
       result.success = false
       result.output += `Step failed: ${step.action}\n${getErrorMessage(error)}\n`
-      return result // steps block on failure
+      return result
     }
   }
 
