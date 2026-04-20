@@ -2,15 +2,15 @@
  * v2 Primitives: status, tag, remember
  *
  * Minimal, composable verbs that let Claude drive work without the CLI
- * imposing opinions. Each is ~40-80 LOC.
+ * imposing opinions.
  *
  * - status: inline status change on active task (escape hatch, Linear-style)
  * - tag: Claude attaches key:value tags to active task (e.g. type:bug)
  * - remember: Claude saves project memory entries (fact, decision, learning…)
  */
 
-import configManager from '../infrastructure/config-manager'
-import { type MemoryType, projectMemory } from '../memory/project-memory'
+import { STATUS_CHANGE_ACTION } from '../memory/events'
+import { MEMORY_TYPES, type MemoryType, projectMemory } from '../memory/project-memory'
 import type { TaskType } from '../schemas/state'
 import { memoryService } from '../services/memory-service'
 import { stateStorage } from '../storage/state-storage'
@@ -18,25 +18,38 @@ import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import out from '../utils/output'
 import { PrjctCommandsBase } from './base'
-
-const MEMORY_TYPES: readonly MemoryType[] = [
-  'fact',
-  'decision',
-  'learning',
-  'gotcha',
-  'pattern',
-  'anti-pattern',
-  'shipped',
-]
+import { requireActiveTask, requireProjectId } from './guards'
 
 const TASK_TYPE_VALUES: readonly TaskType[] = ['feature', 'bug', 'improvement', 'chore']
+
+/**
+ * Secret patterns we refuse to persist as-is. Conservative list — any hit
+ * triggers a warning and the user has to re-run with `--force` if they
+ * really want to record it. Better a false positive than a committed key.
+ */
+const SECRET_PATTERNS: ReadonlyArray<{ name: string; re: RegExp }> = [
+  { name: 'sk-… token', re: /\bsk-[A-Za-z0-9_-]{16,}/ },
+  { name: 'GitHub PAT', re: /\bghp_[A-Za-z0-9]{30,}/ },
+  { name: 'GitHub server PAT', re: /\bghs_[A-Za-z0-9]{30,}/ },
+  { name: 'AWS access key', re: /\bAKIA[0-9A-Z]{16}\b/ },
+  { name: 'Slack token', re: /\bxox[abps]-[A-Za-z0-9-]{10,}/ },
+  {
+    name: 'bearer JWT-ish',
+    re: /\beyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\b/,
+  },
+]
+
+function scanForSecrets(text: string): string[] {
+  const hits: string[] = []
+  for (const { name, re } of SECRET_PATTERNS) if (re.test(text)) hits.push(name)
+  return hits
+}
 
 export class PrimitiveCommands extends PrjctCommandsBase {
   /**
    * /p:status <value>
    *
-   * Escape hatch for changing the active task's status without routing through
-   * a workflow. Mirrors Linear's inline status dropdown. Workflows are the
+   * Escape hatch for changing the active task's status. Workflows are the
    * primary mechanism; this exists for quick overrides.
    */
   async status(
@@ -48,33 +61,27 @@ export class PrimitiveCommands extends PrjctCommandsBase {
       const initResult = await this.ensureProjectInit(projectPath)
       if (!initResult.success) return initResult
 
-      const projectId = await configManager.getProjectId(projectPath)
-      if (!projectId) {
-        out.failWithHint('NO_PROJECT_ID')
-        return { success: false, error: 'No project ID found' }
-      }
+      const pid = await requireProjectId(projectPath)
+      if (!pid.ok) return pid.result
 
-      const active = await stateStorage.getCurrentTask(projectId)
-      if (!active) {
-        const msg = 'No active task — start one with `prjct task "<desc>"`'
-        if (options.md) console.log(`> ${msg}`)
-        else out.warn('no active task')
-        return { success: false, error: msg }
-      }
+      const task = await requireActiveTask(pid.value, options)
+      if (!task.ok) return task.result
+
+      const active = task.value
+      // Recover the last status transition (if any) for this task so the
+      // no-args `prjct status` reflects reality, not the task `type` tag.
+      const lastStatus = await readLastStatus(pid.value, active.id)
 
       if (!value) {
-        const line = `Task: ${active.id}  |  Status: ${active.type ?? 'unset'}`
+        const line = `Task: ${active.id}  |  Type: ${active.type ?? 'unset'}  |  Status: ${lastStatus ?? 'active'}`
         if (options.md) console.log(line)
         else out.info(line)
-        return { success: true, taskId: active.id, status: active.type }
+        return { success: true, taskId: active.id, status: lastStatus ?? 'active' }
       }
 
-      // Persist via memory event; the v2 workflow engine is the canonical
-      // status-change path (coming in PR 4). Until then this writes the
-      // event so UI/history can reflect it.
-      await memoryService.log(projectPath, 'status.changed', {
+      await memoryService.log(projectPath, STATUS_CHANGE_ACTION, {
         taskId: active.id,
-        from: active.type ?? null,
+        from: lastStatus ?? null,
         to: value,
       })
 
@@ -92,10 +99,8 @@ export class PrimitiveCommands extends PrjctCommandsBase {
   /**
    * /p:tag <k:v> [<k:v>...]
    *
-   * Attach key:value tags to the active task. Claude decides what to tag
-   * (type:bug, domain:frontend, priority:high, …). If `type` is tagged and
-   * matches a known task type, the tasks.type column is updated; everything
-   * else is stored as a memory event so it survives across sessions.
+   * Attach tags to the active task. `type:<taskType>` is promoted to the
+   * task column; everything else is stored as a memory event.
    */
   async tag(
     args: string | null = null,
@@ -106,51 +111,30 @@ export class PrimitiveCommands extends PrjctCommandsBase {
       const initResult = await this.ensureProjectInit(projectPath)
       if (!initResult.success) return initResult
 
-      const projectId = await configManager.getProjectId(projectPath)
-      if (!projectId) {
-        out.failWithHint('NO_PROJECT_ID')
-        return { success: false, error: 'No project ID found' }
-      }
+      const pid = await requireProjectId(projectPath)
+      if (!pid.ok) return pid.result
 
-      const active = await stateStorage.getCurrentTask(projectId)
-      if (!active) {
-        const msg = 'No active task — start one with `prjct task "<desc>"`'
-        if (options.md) console.log(`> ${msg}`)
-        else out.warn('no active task')
-        return { success: false, error: msg }
-      }
+      const task = await requireActiveTask(pid.value, options)
+      if (!task.ok) return task.result
 
       if (!args) {
         out.info('Usage: prjct tag <key:value> [<key:value>...]')
         return { success: false, error: 'No tags provided' }
       }
 
-      const pairs = args
-        .split(/\s+/)
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .map((pair): [string, string] | null => {
-          const idx = pair.indexOf(':')
-          if (idx <= 0) return null
-          return [pair.slice(0, idx), pair.slice(idx + 1)]
-        })
-        .filter((p): p is [string, string] => p !== null)
-
-      if (pairs.length === 0) {
+      const tags = parseTagPairs(args)
+      if (Object.keys(tags).length === 0) {
         out.fail('no valid k:v pairs (expected `key:value`)')
         return { success: false, error: 'Invalid tag format' }
       }
 
-      const tags: Record<string, string> = Object.fromEntries(pairs)
-
-      // If Claude tagged `type:<taskType>`, promote to the task column.
       const typeTag = tags.type
       if (typeTag && (TASK_TYPE_VALUES as readonly string[]).includes(typeTag)) {
-        await stateStorage.updateCurrentTask(projectId, { type: typeTag as TaskType })
+        await stateStorage.updateCurrentTask(pid.value, { type: typeTag as TaskType })
       }
 
       await memoryService.log(projectPath, 'task.tagged', {
-        taskId: active.id,
+        taskId: task.value.id,
         tags,
       })
 
@@ -159,7 +143,7 @@ export class PrimitiveCommands extends PrjctCommandsBase {
         .join(', ')
       if (options.md) console.log(`✓ tagged ${pretty}`)
       else out.done(`tagged ${pretty}`)
-      return { success: true, taskId: active.id, tags }
+      return { success: true, taskId: task.value.id, tags }
     } catch (error) {
       const msg = getErrorMessage(error)
       out.fail(msg)
@@ -168,16 +152,15 @@ export class PrimitiveCommands extends PrjctCommandsBase {
   }
 
   /**
-   * /p:remember <type> "<content>" [--tags k:v,...]
+   * /p:remember <type> "<content>" [--tags k:v,...] [--force]
    *
-   * Claude captures a project memory entry. Types: fact | decision | learning
-   * | gotcha | pattern | anti-pattern | shipped. Storage is event-based for
-   * now; PR 4 consolidates into a first-class project-memory API.
+   * Claude captures a project memory entry. Refuses to store content that
+   * looks like a secret unless `--force` is passed.
    */
   async remember(
     args: string | null = null,
     projectPath: string = process.cwd(),
-    options: { md?: boolean; tags?: string } = {}
+    options: { md?: boolean; tags?: string; force?: boolean } = {}
   ): Promise<CommandResult> {
     try {
       const initResult = await this.ensureProjectInit(projectPath)
@@ -185,52 +168,37 @@ export class PrimitiveCommands extends PrjctCommandsBase {
 
       if (!args) {
         out.info(
-          'Usage: prjct remember <type> "<content>" [--tags k:v,...]\n' +
-            `Types: ${MEMORY_TYPES.join(' | ')}`
+          `Usage: prjct remember <type> "<content>" [--tags k:v,...]\nTypes: ${MEMORY_TYPES.join(' | ')}`
         )
         return { success: false, error: 'Missing args' }
       }
 
-      // First whitespace-separated token is the type.
-      const trimmed = args.trim()
-      const firstSpace = trimmed.search(/\s/)
-      if (firstSpace <= 0) {
-        out.fail('expected `<type> "<content>"`')
-        return { success: false, error: 'Invalid format' }
+      const parsed = parseRememberArgs(args)
+      if (!parsed.ok) {
+        out.fail(parsed.error)
+        return { success: false, error: parsed.error }
+      }
+      const { type, content } = parsed
+
+      const secretHits = scanForSecrets(content)
+      if (secretHits.length > 0 && !options.force) {
+        const hit = secretHits.join(', ')
+        out.fail(
+          `refusing to store memory that looks like a secret (${hit}). Re-run with --force if intentional.`
+        )
+        return { success: false, error: 'Secret-like content detected' }
       }
 
-      const typeStr = trimmed.slice(0, firstSpace).toLowerCase()
-      if (!(MEMORY_TYPES as readonly string[]).includes(typeStr)) {
-        out.fail(`unknown type '${typeStr}'. Valid: ${MEMORY_TYPES.join(' | ')}`)
-        return { success: false, error: 'Invalid memory type' }
-      }
-      const type = typeStr as MemoryType
+      const tags = parseFlagTags(options.tags)
 
-      // Content: strip surrounding quotes if present.
-      let content = trimmed.slice(firstSpace + 1).trim()
-      if (
-        (content.startsWith('"') && content.endsWith('"')) ||
-        (content.startsWith("'") && content.endsWith("'"))
-      ) {
-        content = content.slice(1, -1)
-      }
-      if (!content) {
-        out.fail('content is required')
-        return { success: false, error: 'Missing content' }
-      }
+      const pid = await requireProjectId(projectPath)
+      if (!pid.ok) return pid.result
 
-      const tags: Record<string, string> = {}
-      if (options.tags) {
-        for (const raw of options.tags.split(',')) {
-          const pair = raw.trim()
-          const idx = pair.indexOf(':')
-          if (idx > 0) tags[pair.slice(0, idx)] = pair.slice(idx + 1)
-        }
-      }
+      // `remember` works even without an active task — you might be
+      // capturing a fact before kicking off work. Just record without
+      // source in that case.
+      const active = await stateStorage.getCurrentTask(pid.value)
 
-      const active = await stateStorage
-        .getCurrentTask(await configManager.getProjectId(projectPath).catch(() => ''))
-        .catch(() => null)
       await projectMemory.remember(projectPath, {
         type,
         content,
@@ -248,4 +216,85 @@ export class PrimitiveCommands extends PrjctCommandsBase {
       return { success: false, error: msg }
     }
   }
+}
+
+// =============================================================================
+// Helpers (unexported)
+// =============================================================================
+
+function parseTagPairs(args: string): Record<string, string> {
+  const pairs = args
+    .split(/\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((pair): [string, string] | null => {
+      const idx = pair.indexOf(':')
+      if (idx <= 0) return null
+      return [pair.slice(0, idx), pair.slice(idx + 1)]
+    })
+    .filter((p): p is [string, string] => p !== null)
+  return Object.fromEntries(pairs)
+}
+
+function parseFlagTags(raw: string | undefined): Record<string, string> {
+  if (!raw) return {}
+  const tags: Record<string, string> = {}
+  for (const token of raw.split(',')) {
+    const pair = token.trim()
+    const idx = pair.indexOf(':')
+    if (idx > 0) tags[pair.slice(0, idx)] = pair.slice(idx + 1)
+  }
+  return tags
+}
+
+type ParsedRemember = { ok: true; type: MemoryType; content: string } | { ok: false; error: string }
+
+function parseRememberArgs(args: string): ParsedRemember {
+  const trimmed = args.trim()
+  const firstSpace = trimmed.search(/\s/)
+  if (firstSpace <= 0) return { ok: false, error: 'expected `<type> "<content>"`' }
+
+  const typeStr = trimmed.slice(0, firstSpace).toLowerCase()
+  if (!(MEMORY_TYPES as readonly string[]).includes(typeStr)) {
+    return { ok: false, error: `unknown type '${typeStr}'. Valid: ${MEMORY_TYPES.join(' | ')}` }
+  }
+  const type = typeStr as MemoryType
+
+  let content = trimmed.slice(firstSpace + 1).trim()
+  if (
+    (content.startsWith('"') && content.endsWith('"')) ||
+    (content.startsWith("'") && content.endsWith("'"))
+  ) {
+    content = content.slice(1, -1)
+  }
+  if (!content) return { ok: false, error: 'content is required' }
+  return { ok: true, type, content }
+}
+
+/**
+ * Read the most recent status transition for a task out of the memory
+ * event log. Events outlive the task column (which only holds `type`) so
+ * we can show a real status in `prjct status` without a schema change.
+ */
+async function readLastStatus(projectId: string, taskId: string): Promise<string | null> {
+  try {
+    const { default: prjctDb } = await import('../storage/database')
+    type Row = { data: string }
+    const rows = prjctDb.query<Row>(
+      projectId,
+      'SELECT data FROM events WHERE type = ? ORDER BY id DESC LIMIT 10',
+      `memory.${STATUS_CHANGE_ACTION}`
+    )
+    for (const row of rows) {
+      try {
+        const parsed = JSON.parse(row.data) as { taskId?: string; to?: string }
+        if (parsed.taskId === taskId && parsed.to) return parsed.to
+      } catch {
+        // ignore malformed row
+      }
+    }
+  } catch {
+    // non-critical
+  }
+  return null
 }

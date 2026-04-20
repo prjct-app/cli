@@ -24,15 +24,23 @@
 
 import { memoryService } from '../services/memory-service'
 import prjctDb from '../storage/database'
+import { REMEMBER_ACTION_PREFIX, REMEMBER_EVENT_PREFIX } from './events'
 
-export type MemoryType =
-  | 'fact'
-  | 'decision'
-  | 'learning'
-  | 'gotcha'
-  | 'pattern'
-  | 'anti-pattern'
-  | 'shipped'
+/**
+ * Exported list so callers (primitives, wiki, context tools) share a single
+ * source of truth. Derive the union type from the tuple.
+ */
+export const MEMORY_TYPES = [
+  'fact',
+  'decision',
+  'learning',
+  'gotcha',
+  'pattern',
+  'anti-pattern',
+  'shipped',
+] as const
+
+export type MemoryType = (typeof MEMORY_TYPES)[number]
 
 /**
  * Where an entry came from. Lets Claude calibrate trust:
@@ -91,7 +99,7 @@ function safeJson<T>(raw: string, fallback: T): T {
 }
 
 function rowToEntry(row: EventRow): MemoryEntry {
-  const type = row.type.replace(/^memory\.remember\./, '') as MemoryType
+  const type = row.type.slice(REMEMBER_EVENT_PREFIX.length) as MemoryType
   const data = safeJson<{
     content?: string
     tags?: Record<string, string>
@@ -162,7 +170,7 @@ export const projectMemory = {
       provenance?: MemoryProvenance
     }
   ): Promise<void> {
-    await memoryService.log(projectPath, `remember.${args.type}`, {
+    await memoryService.log(projectPath, `${REMEMBER_ACTION_PREFIX}${args.type}`, {
       content: args.content,
       tags: args.tags ?? {},
       source: args.source,
@@ -178,7 +186,8 @@ export const projectMemory = {
     const limit = opts.limit ?? 25
     const rows = prjctDb.query<EventRow>(
       projectId,
-      "SELECT id, type, data, timestamp FROM events WHERE type LIKE 'memory.remember.%' ORDER BY id DESC LIMIT ?",
+      'SELECT id, type, data, timestamp FROM events WHERE type LIKE ? ORDER BY id DESC LIMIT ?',
+      `${REMEMBER_EVENT_PREFIX}%`,
       Math.max(limit * 4, 100)
     )
     const shipped = prjctDb.query<ShippedRow>(

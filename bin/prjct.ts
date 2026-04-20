@@ -43,30 +43,14 @@ const _binCommands = new Set([
   '--version',
 ])
 
-// v2 verbs registered in the command registry — used for auto-route detection.
-// Must stay in sync with core/commands/register.ts. Anything not here AND not
-// in _binCommands is treated as a task description.
-const _registeredVerbs = new Set([
-  'task',
-  'ship',
-  'tag',
-  'remember',
-  'status',
-  'workflow',
-  'tokens',
-  'sessions',
-  'init',
-  'analyze',
-  'sync',
-  'login',
-  'logout',
-  'auth',
-])
+// v2 verbs registered in the command registry — imported from the single
+// source of truth so adding a verb only requires updating one list.
+const { REGISTERED_VERBS_SET } = await import('../core/commands/verb-names')
 
 // v2 auto-route: if the first positional isn't a known verb, treat the
 // whole argv as a task description and rewrite to `prjct task "<argv>"`.
 // Explicit verbs still win.
-if (_fastCommand && !_binCommands.has(_fastCommand) && !_registeredVerbs.has(_fastCommand)) {
+if (_fastCommand && !_binCommands.has(_fastCommand) && !REGISTERED_VERBS_SET.has(_fastCommand)) {
   const description = _fastArgs.filter((a) => !a.startsWith('-')).join(' ')
   const flags = _fastArgs.filter((a) => a.startsWith('-'))
   _fastCommand = 'task'
