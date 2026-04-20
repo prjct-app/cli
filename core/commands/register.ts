@@ -13,7 +13,6 @@ import { AnalyticsCommands } from './analytics'
 import { CATEGORIES, COMMANDS } from './command-data'
 import { ContextCommands } from './context'
 import { MaintenanceCommands } from './maintenance'
-import { ObsidianCommands } from './obsidian'
 import { ParallelCommands } from './parallel'
 import { PerformanceCommands } from './performance'
 import { PlanningCommands } from './planning'
@@ -36,7 +35,6 @@ const analysis = new AnalysisCommands()
 const setup = new SetupCommands()
 const context = new ContextCommands()
 const velocityCmd = new VelocityCommands()
-const obsidian = new ObsidianCommands()
 const parallel = new ParallelCommands()
 const uninstallCmd = new UninstallCommands()
 const updateCmd = new UpdateCommands()
@@ -127,9 +125,6 @@ export function registerAllCommands(): void {
   // Context command (for Claude templates)
   commandRegistry.registerMethod('context', context, 'context', getMeta('context'))
 
-  // Obsidian integration
-  commandRegistry.registerMethod('obsidian', obsidian, 'obsidian', getMeta('obsidian'))
-
   // Parallel agent commands
   commandRegistry.registerMethod('parallel', parallel, 'parallel', getMeta('parallel'))
   commandRegistry.registerMethod('worktree', parallel, 'parallel', getMeta('worktree'))
@@ -150,7 +145,6 @@ export {
   maintenance,
   setup,
   context,
-  obsidian,
   parallel,
   velocityCmd,
   uninstallCmd,

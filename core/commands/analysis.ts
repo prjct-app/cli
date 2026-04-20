@@ -504,25 +504,12 @@ export class AnalysisCommands extends PrjctCommandsBase {
           mdStatsObj['Import edges'] = idx.importEdges || 0
           mdStatsObj['Co-change commits'] = idx.cochangeCommits || 0
         }
-        // Check if Obsidian is configured for this project
-        let obsidianSection: string | null = null
-        try {
-          const globalConfig = await configManager.readGlobalConfig(projectId)
-          const obsidianConfig = globalConfig?.integrations?.obsidian
-          if (obsidianConfig?.vaultPath) {
-            obsidianSection = `### Obsidian\nConfigured: \`${obsidianConfig.vaultPath}\`\nWrite \`_insights.md\` to vault after analysis.`
-          }
-        } catch {
-          // Non-critical
-        }
-
         const md = mdOutput(
           mdDone(`Sync Complete`),
           mdStats(mdStatsObj),
           analysisDiffSection,
           result.git.hasChanges ? mdWarn('Uncommitted changes detected') : null,
           llmAnalysisInstructions,
-          obsidianSection,
           mdNextSteps(steps.map((s) => ({ label: s.desc, command: s.cmd })))
         )
         console.log(md)

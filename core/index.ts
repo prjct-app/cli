@@ -250,8 +250,6 @@ async function main(): Promise<void> {
           }),
         worktree: (p) => commands.parallel(p, process.cwd(), { md }),
         conductor: (p) => commands.parallel(p, process.cwd(), { md }),
-        // Obsidian integration
-        obsidian: (p) => commands.obsidian(p, process.cwd()),
       }
 
       const handler = standardCommands[commandName]
