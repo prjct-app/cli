@@ -34,6 +34,8 @@ const _binCommands = new Set([
   'hooks',
   'doctor',
   'uninstall',
+  'claude',
+  'hook',
   'watch',
   'help',
   '-h',
@@ -376,6 +378,51 @@ async function main(): Promise<void> {
     const exitCode = await hooksService.run(process.cwd(), subcommand)
     process.exitCode = exitCode
     done()
+  } else if (args[0] === 'claude') {
+    // `prjct claude install|uninstall|status` — manage Claude Code hooks in ~/.claude/settings.json.
+    const subcommand = args[1] ?? 'status'
+    const { InstallCommands } = await import('../core/commands/install')
+    const cmd = new InstallCommands()
+    const mdMode = args.includes('--md')
+    let result
+    if (subcommand === 'install') result = await cmd.install(null, process.cwd(), { md: mdMode })
+    else if (subcommand === 'uninstall')
+      result = await cmd.uninstall(null, process.cwd(), { md: mdMode })
+    else {
+      const s = await cmd.status()
+      if (s.success) {
+        console.log(
+          mdMode
+            ? `# prjct Claude Code hooks\n\n- installed: ${s.installed}\n- expected: ${s.expected}\n`
+            : `installed: ${s.installed}/${s.expected}`
+        )
+        result = s
+      } else {
+        console.error(s.error)
+        result = s
+      }
+    }
+    process.exitCode = result.success ? 0 : 1
+  } else if (args[0] === 'hook') {
+    // `prjct hook <name>` — runs a single Claude Code hook. Invoked by
+    // the entries installed via `prjct claude install`. Reads stdin,
+    // writes JSON to stdout, exits 0 even on internal failure so the
+    // host session is never disturbed.
+    const hookName = args[1]
+    const projectPath = process.cwd()
+    try {
+      if (hookName === 'session-start') {
+        const { runSessionStartHook } = await import('../core/hooks/session-start')
+        await runSessionStartHook(projectPath)
+      } else {
+        // Unknown hook: emit empty object, stay out of the way.
+        process.stdout.write('{}\n')
+      }
+      process.exitCode = 0
+    } catch {
+      process.stdout.write('{}\n')
+      process.exitCode = 0
+    }
   } else if (args[0] === 'doctor') {
     const done = await trackSession('doctor')
     const { doctorService } = await import('../core/services/doctor-service')
