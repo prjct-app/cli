@@ -189,83 +189,43 @@ describe('SkillGenerator', () => {
   })
 
   describe('definitions', () => {
-    it('has 16 skill definitions', () => {
-      expect(SKILL_DEFINITIONS).toHaveLength(16)
+    it('has 4 skill definitions', () => {
+      expect(SKILL_DEFINITIONS).toHaveLength(4)
     })
 
-    it('all unconditional skills return true for empty context', () => {
+    it('all skills are unconditional in v2', () => {
       const ctx = makeConditionContext()
       const unconditional = SKILL_DEFINITIONS.filter((d) => d.condition(ctx))
-      // All except prjct-plan (backlog > 0) and prjct-velocity (completedTaskCount >= 5)
-      expect(unconditional.length).toBe(14)
+      expect(unconditional.length).toBe(4)
     })
 
-    it('prjct-plan requires backlog > 0', () => {
-      const plan = SKILL_DEFINITIONS.find((d) => d.name === 'prjct-plan')!
-      expect(plan.condition(makeConditionContext({ backlogCount: 0 }))).toBe(false)
-      expect(plan.condition(makeConditionContext({ backlogCount: 1 }))).toBe(true)
-    })
-
-    it('prjct-velocity requires >= 5 completed tasks', () => {
-      const velocity = SKILL_DEFINITIONS.find((d) => d.name === 'prjct-velocity')!
-      expect(velocity.condition(makeConditionContext({ completedTaskCount: 4 }))).toBe(false)
-      expect(velocity.condition(makeConditionContext({ completedTaskCount: 5 }))).toBe(true)
-    })
-
-    it('contains exactly the 16 expected skills', () => {
+    it('contains exactly the 4 expected v2 skills', () => {
       const names = SKILL_DEFINITIONS.map((d) => d.name)
-      expect(names).toEqual([
-        'prjct-context',
-        'prjct-task',
-        'prjct-done',
-        'prjct-ship',
-        'prjct-pause',
-        'prjct-resume',
-        'prjct-next',
-        'prjct-sync',
-        'prjct-bug',
-        'prjct-workflow',
-        'prjct-enrich',
-        'prjct-linear',
-        'prjct-jira',
-        'prjct-plan',
-        'prjct-velocity',
-        'prjct-tokens',
-      ])
+      expect(names).toEqual(['prjct-context', 'prjct-task', 'prjct-ship', 'prjct-workflow'])
     })
   })
 
   describe('generateAndInstall', () => {
-    it('generates 14 unconditional skills with empty conditions', async () => {
+    it('generates all 4 skills with empty conditions', async () => {
       const result = await generator.generateAndInstall(makeSyncResult())
-      expect(result.generated).toHaveLength(14)
-      expect(result.skipped).toHaveLength(2)
+      expect(result.generated).toHaveLength(4)
+      expect(result.skipped).toHaveLength(0)
 
       const names = result.generated.map((s) => s.name)
       expect(names).toContain('prjct-context')
       expect(names).toContain('prjct-task')
-      expect(names).toContain('prjct-done')
       expect(names).toContain('prjct-ship')
-      expect(names).toContain('prjct-pause')
-      expect(names).toContain('prjct-resume')
-      expect(names).toContain('prjct-next')
-      expect(names).toContain('prjct-sync')
-      expect(names).toContain('prjct-bug')
       expect(names).toContain('prjct-workflow')
-      expect(names).toContain('prjct-enrich')
-      expect(names).toContain('prjct-linear')
-      expect(names).toContain('prjct-jira')
-      expect(names).toContain('prjct-tokens')
     })
 
-    it('generates all 16 skills when conditions are met', async () => {
+    it('generates all 4 skills regardless of condition context', async () => {
       const result = await generator.generateAndInstall(makeSyncResult(), {
         backlogCount: 3,
         completedTaskCount: 10,
         pausedTaskCount: 1,
         hasActiveTask: true,
       })
-      expect(result.generated).toHaveLength(16)
+      expect(result.generated).toHaveLength(4)
       expect(result.skipped).toHaveLength(0)
     })
 
@@ -328,54 +288,6 @@ describe('SkillGenerator', () => {
       expect(secondDash).toBeGreaterThan(0)
     })
 
-    it('skipped skills report reason', async () => {
-      const result = await generator.generateAndInstall(makeSyncResult())
-      const skippedNames = result.skipped.map((s) => s.name)
-      expect(skippedNames).toContain('prjct-plan')
-      expect(skippedNames).toContain('prjct-velocity')
-      for (const s of result.skipped) {
-        expect(s.reason).toBe('condition not met')
-      }
-    })
-
-    it('cleans up stale skills when condition is no longer met', async () => {
-      // First: generate with conditions met (all 16 skills)
-      const result1 = await generator.generateAndInstall(makeSyncResult(), {
-        backlogCount: 3,
-        completedTaskCount: 10,
-        pausedTaskCount: 1,
-        hasActiveTask: true,
-      })
-      expect(result1.generated).toHaveLength(16)
-
-      // Verify plan skill was created at the path reported
-      const planSkill = result1.generated.find((s) => s.name === 'prjct-plan')!
-      const planExists = await fs
-        .access(planSkill.path)
-        .then(() => true)
-        .catch(() => false)
-      expect(planExists).toBe(true)
-
-      // Get the plan directory from the generated path
-      const planDir = path.dirname(planSkill.path)
-
-      // Second: generate with conditions NOT met (backlog = 0)
-      const result2 = await generator.generateAndInstall(makeSyncResult(), {
-        backlogCount: 0,
-        completedTaskCount: 3,
-        pausedTaskCount: 0,
-        hasActiveTask: false,
-      })
-
-      // prjct-plan should be skipped AND its directory cleaned up
-      expect(result2.skipped.map((s) => s.name)).toContain('prjct-plan')
-      const planStillExists = await fs
-        .access(planDir)
-        .then(() => true)
-        .catch(() => false)
-      expect(planStillExists).toBe(false)
-    })
-
     it('regenerates skills on every call (always fresh)', async () => {
       // First generation
       await generator.generateAndInstall(makeSyncResult())
@@ -403,13 +315,15 @@ describe('SkillGenerator', () => {
       expect(content).not.toContain('feat/awesome')
     })
 
-    it('contains workflow with CLI commands (prjct task, prjct done, prjct ship)', async () => {
+    it('prjct-task skill references v2 primitives', async () => {
       const result = await generator.generateAndInstall(makeSyncResult())
       const taskSkill = result.generated.find((s) => s.name === 'prjct-task')!
       const content = await fs.readFile(taskSkill.path, 'utf-8')
       expect(content).toContain('prjct task "$ARGUMENTS" --md')
-      expect(content).toContain('prjct done --md')
       expect(content).toContain('prjct ship --md')
+      expect(content).toContain('prjct tag')
+      expect(content).toContain('prjct context')
+      expect(content).toContain('prjct remember')
     })
   })
 
@@ -594,23 +508,9 @@ describe('SkillGenerator', () => {
       expect(shipContent).not.toContain('Storage Layer Abstraction')
       expect(shipContent).not.toContain('21 pts/sprint')
 
-      const bugSkill = result.generated.find((s) => s.name === 'prjct-bug')!
-      const bugContent = await fs.readFile(bugSkill.path, 'utf-8')
-      expect(bugContent).not.toContain('Unbounded any type')
-    })
-
-    it('conditional skills still respect conditions with rich context', async () => {
-      const rich = makeRichContext()
-
-      // backlogCount: 0 should still skip prjct-plan
-      const result = await generator.generateAndInstall(
-        makeSyncResult(),
-        makeConditionContext({ backlogCount: 0, completedTaskCount: 3 }),
-        rich
-      )
-      const names = result.generated.map((s) => s.name)
-      expect(names).not.toContain('prjct-plan')
-      expect(names).not.toContain('prjct-velocity')
+      const taskSkill = result.generated.find((s) => s.name === 'prjct-task')!
+      const taskContent = await fs.readFile(taskSkill.path, 'utf-8')
+      expect(taskContent).not.toContain('Unbounded any type')
     })
 
     it('no skill contains behavioral instructions like "Context7 mandatory"', async () => {
@@ -657,59 +557,6 @@ describe('SkillGenerator', () => {
     })
   })
 
-  describe('skills with inline state data', () => {
-    it('prjct-done shows active task description', async () => {
-      const rich = makeRichContext()
-      const result = await generator.generateAndInstall(
-        makeSyncResult(),
-        makeConditionContext({ hasActiveTask: true }),
-        rich
-      )
-      const doneSkill = result.generated.find((s) => s.name === 'prjct-done')!
-      const content = await fs.readFile(doneSkill.path, 'utf-8')
-      expect(content).toContain('Implement skill generator expansion')
-    })
-
-    it('prjct-pause shows active task description', async () => {
-      const rich = makeRichContext()
-      const result = await generator.generateAndInstall(
-        makeSyncResult(),
-        makeConditionContext({ hasActiveTask: true }),
-        rich
-      )
-      const pauseSkill = result.generated.find((s) => s.name === 'prjct-pause')!
-      const content = await fs.readFile(pauseSkill.path, 'utf-8')
-      expect(content).toContain('Implement skill generator expansion')
-    })
-
-    it('prjct-resume lists paused tasks', async () => {
-      const rich = makeRichContext()
-      const result = await generator.generateAndInstall(
-        makeSyncResult(),
-        makeConditionContext({ pausedTaskCount: 1 }),
-        rich
-      )
-      const resumeSkill = result.generated.find((s) => s.name === 'prjct-resume')!
-      const content = await fs.readFile(resumeSkill.path, 'utf-8')
-      expect(content).toContain('Fix auth flow')
-      expect(content).toContain('2026-02-24')
-    })
-
-    it('prjct-next shows top backlog items', async () => {
-      const rich = makeRichContext()
-      const result = await generator.generateAndInstall(
-        makeSyncResult(),
-        makeConditionContext({ backlogCount: 5 }),
-        rich
-      )
-      const nextSkill = result.generated.find((s) => s.name === 'prjct-next')!
-      const content = await fs.readFile(nextSkill.path, 'utf-8')
-      expect(content).toContain('5 items in backlog')
-      expect(content).toContain('Add webhook support')
-      expect(content).toContain('high')
-    })
-  })
-
   describe('prjct-workflow', () => {
     it('mentions gates, hooks, and NL support', async () => {
       const result = await generator.generateAndInstall(makeSyncResult())
@@ -719,16 +566,6 @@ describe('SkillGenerator', () => {
       expect(content).toContain('Hooks')
       expect(content).toContain('English')
       expect(content).toContain('Spanish')
-    })
-  })
-
-  describe('prjct-sync body', () => {
-    it('does NOT mention agent generation', async () => {
-      const result = await generator.generateAndInstall(makeSyncResult())
-      const syncSkill = result.generated.find((s) => s.name === 'prjct-sync')!
-      const content = await fs.readFile(syncSkill.path, 'utf-8')
-      expect(content).not.toContain('Agent generation')
-      expect(content).not.toContain('workflow agents')
     })
   })
 })

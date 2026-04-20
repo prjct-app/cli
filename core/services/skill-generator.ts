@@ -233,44 +233,44 @@ ${formatRichContext(ctx)}`,
   // ── Core Workflow — State machine ─────────────────────────────────────
   {
     name: 'prjct-task',
-    description: 'Start a task with full project context',
+    description:
+      'Start a task. Toolbox-style — you decide the how; prjct holds context and memory.',
     allowedTools: ['Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep', 'Task', 'AskUserQuestion'],
     condition: () => true,
     body: (_ctx) => `## Workflow
 
-### Register Task
+### 1. Register
 \`\`\`bash
 prjct task "$ARGUMENTS" --md
 \`\`\`
-Read the Context Contract from CLI output — it has file paths, subtasks, and scope.
-If CLI output is JSON with \`options\`, present choices to user.
+Returns task id + branch + status.
 
-### Execute
-- Create feature branch if on main: \`git checkout -b {type}/{slug}\`
-- Work through subtasks; mark each done: \`prjct done --md\`
-### Ship
-When complete: \`p. ship\` or \`prjct ship --md\`
-`,
-  },
-  {
-    name: 'prjct-done',
-    description:
-      'Marks the current task as complete and feeds the feedback loop. Use when the user says "done", "finished", "ship it", or wants to complete current work. Completion data flows to sync → skill regeneration.',
-    allowedTools: ['Bash', 'AskUserQuestion'],
-    condition: () => true,
-    body: (ctx) => {
-      const lines = ['## Workflow']
-      if (ctx.hasActiveTask) {
-        lines.push(`\nActive task: **${ctx.activeTaskDescription}**`)
-      }
-      lines.push(`
+### 2. Tag (if you have a strong signal)
+If the task is clearly a bug / chore / improvement, tag it. Otherwise leave
+it untagged — prjct does NOT guess.
 \`\`\`bash
-prjct done "$ARGUMENTS" --md
+prjct tag type:bug
+prjct tag domain:frontend priority:high
 \`\`\`
-Read CLI output for completion summary and next steps.
-`)
-      return lines.join('\n')
-    },
+
+### 3. Work
+Use your own tools (Read, Grep, Edit). Pull context on demand:
+- \`prjct context files "<desc>"\` — relevant files, scored
+- \`prjct context patterns\` — project patterns
+- \`prjct context memory <topic>\` — remembered facts, decisions, gotchas
+
+### 4. Capture learnings (optional, cheap)
+When you discover something a future LLM should know:
+\`\`\`bash
+prjct remember learning "editing X without updating Y breaks Z"
+prjct remember decision "chose SQLite over Postgres — app is local"
+\`\`\`
+
+### 5. Finish
+- Ship: \`prjct ship --md\` (runs the ship workflow)
+- Change status inline: \`prjct status <value>\`
+- Or run any custom workflow: \`prjct <workflow-name>\`
+`,
   },
   {
     name: 'prjct-ship',
@@ -298,112 +298,6 @@ ASK: "Ready to ship?" Yes / No / Show diff
 `,
   },
   {
-    name: 'prjct-pause',
-    description:
-      'Pauses the active task to handle an interruption. Use when the user needs to switch context, handle something urgent, or stop current work temporarily.',
-    allowedTools: ['Bash', 'AskUserQuestion'],
-    condition: () => true,
-    body: (ctx) => {
-      const lines = ['## Workflow']
-      if (ctx.hasActiveTask) {
-        lines.push(`\nActive task: **${ctx.activeTaskDescription}**`)
-      }
-      lines.push(`
-\`\`\`bash
-prjct pause "$ARGUMENTS" --md
-\`\`\`
-Read CLI output for pause confirmation and context saved.
-`)
-      return lines.join('\n')
-    },
-  },
-  {
-    name: 'prjct-resume',
-    description:
-      'Resumes a paused task. Use when the user says "resume", "continue", "pick up where I left off", or wants to return to previous work.',
-    allowedTools: ['Bash', 'Read', 'AskUserQuestion'],
-    condition: () => true,
-    body: (ctx) => {
-      const lines = ['## Workflow']
-      if (ctx.pausedTasks.length > 0) {
-        lines.push('\n### Paused Tasks')
-        for (const t of ctx.pausedTasks.slice(0, 5)) {
-          lines.push(`- **${t.description}** (paused ${t.pausedAt})`)
-        }
-      }
-      lines.push(`
-\`\`\`bash
-prjct resume "$ARGUMENTS" --md
-\`\`\`
-Read CLI output for restored context and next steps.
-`)
-      return lines.join('\n')
-    },
-  },
-  {
-    name: 'prjct-next',
-    description:
-      'Shows the priority queue and recommends what to work on next. Use when the user asks "what should I do?", "what\'s next?", or is between tasks.',
-    allowedTools: ['Bash', 'AskUserQuestion'],
-    condition: () => true,
-    body: (ctx) => {
-      const lines = ['## Workflow']
-      if (ctx.backlogCount > 0) {
-        lines.push(`\n${ctx.backlogCount} items in backlog.`)
-        if (ctx.topBacklog.length > 0) {
-          lines.push('Top priorities:')
-          for (const t of ctx.topBacklog) {
-            lines.push(`- [${t.priority}] ${t.description}`)
-          }
-        }
-      }
-      lines.push(`
-\`\`\`bash
-prjct next --md
-\`\`\`
-Present the prioritized list and help user pick a task.
-`)
-      return lines.join('\n')
-    },
-  },
-  {
-    name: 'prjct-sync',
-    description: 'Re-analyze project and regenerate context',
-    allowedTools: ['Bash', 'AskUserQuestion'],
-    condition: () => true,
-    body: (_ctx) => `## Workflow
-
-\`\`\`bash
-prjct sync $ARGUMENTS --md
-\`\`\`
-Read CLI output for analysis results.
-Present results: tables, analysis findings, anti-patterns, conventions.
-
-## What sync does
-- Git analysis (branch, changes, recent commits)
-- Project stats (files, stack, frameworks)
-- Skill regeneration (this skill and others)
-- Index building (BM25, import graph, co-change)
-- Pattern extraction and analysis
-
-`,
-  },
-  {
-    name: 'prjct-bug',
-    description: 'Report and track a bug with auto-priority',
-    allowedTools: ['Bash', 'Task', 'AskUserQuestion'],
-    condition: () => true,
-    body: (_ctx) => `## Workflow
-
-1. If no description provided, ASK the user for details
-2. Run \`prjct bug "$ARGUMENTS" --md\`
-3. Search the codebase for affected files
-4. ASK: "Fix this bug now?" Fix now / Queue for later
-5. If fix now: create branch \`bug/{slug}\` and start working
-6. If queue: done — bug is tracked
-`,
-  },
-  {
     name: 'prjct-workflow',
     description:
       'Configures workflow gates, hooks, steps, and instructions via natural language (English/Spanish). Use when the user wants to customize the task→done→ship cycle with before/after hooks, quality gates, or custom steps.',
@@ -422,105 +316,6 @@ Supports natural language in English and Spanish:
 - Gates: block transitions until conditions are met
 - Hooks: run commands before/after state transitions
 - Steps: add custom workflow stages
-`,
-  },
-
-  // ── Integrations — Enrichment pipeline ────────────────────────────────
-  {
-    name: 'prjct-enrich',
-    description:
-      'Finds relevant files for issues by analyzing local code. Input to linear/jira sync pipeline.',
-    allowedTools: ['Bash', 'Read', 'Grep', 'Glob', 'AskUserQuestion'],
-    condition: () => true,
-    body: (_ctx) => `## Workflow
-
-\`\`\`bash
-prjct enrich "$ARGUMENTS" --md
-\`\`\`
-Read CLI output for enrichment data.
-`,
-  },
-  {
-    name: 'prjct-linear',
-    description:
-      'Linear integration — sync issues, create/update tasks, manage projects. Use when the user mentions Linear, wants to sync issues, or manage work items in Linear.',
-    allowedTools: ['Bash', 'AskUserQuestion'],
-    condition: () => true,
-    body: (_ctx) => `## Workflow
-
-\`\`\`bash
-prjct linear "$ARGUMENTS" --md
-\`\`\`
-Read CLI output for Linear sync results.
-`,
-  },
-  {
-    name: 'prjct-jira',
-    description:
-      'Jira integration — sync issues, transitions, boards. Use when the user mentions Jira, wants to sync tickets, or manage work in Jira.',
-    allowedTools: ['Bash', 'AskUserQuestion'],
-    condition: () => true,
-    body: (_ctx) => `## Workflow
-
-\`\`\`bash
-prjct jira "$ARGUMENTS" --md
-\`\`\`
-Read CLI output for Jira sync results.
-`,
-  },
-
-  // ── Conditional: Metrics ───────────────────────────────────────────────
-  {
-    name: 'prjct-plan',
-    description: 'Plan work with real velocity and backlog',
-    allowedTools: ['Bash', 'Read', 'AskUserQuestion'],
-    condition: (ctx) => ctx.backlogCount > 0,
-    body: (_ctx) => `## Workflow
-
-1. Run \`prjct next --md\` to see prioritized backlog
-2. Review velocity data: \`prjct dash --md\`
-3. Discuss priorities with the user
-4. Start chosen task: \`p. task "description"\`
-`,
-  },
-  {
-    name: 'prjct-velocity',
-    description: 'Show delivery velocity and metrics',
-    allowedTools: ['Bash', 'Read'],
-    condition: (ctx) => ctx.completedTaskCount >= 5,
-    body: (_ctx) => `## Workflow
-
-1. Run \`prjct dash --md\` for full metrics dashboard
-2. Present velocity, estimation accuracy, and burndown
-3. Highlight trends: improving, stable, or declining
-
-## Metrics Available
-- Tasks completed per week
-- Average task duration
-- Points delivered vs estimated
-- Shipping frequency
-`,
-  },
-
-  // ── Token Tracking ──────────────────────────────────────────────────────
-  {
-    name: 'prjct-tokens',
-    description:
-      'Record token usage on the active task. Auto-invoke BEFORE completing a task (done/ship) to track input/output tokens for cost analysis.',
-    allowedTools: ['Bash'],
-    condition: () => true,
-    body: (_ctx) => `## Workflow
-
-Report your token usage on the active task:
-
-\`\`\`bash
-prjct tokens <input_tokens> <output_tokens>
-\`\`\`
-
-**IMPORTANT**: Call this BEFORE \`prjct done\` or \`prjct ship\` so token usage is persisted to task history.
-
-Tokens accumulate — call multiple times during a task and they add up.
-Token totals are saved to task history on completion for cost comparison across tasks.
 `,
   },
 ]
