@@ -1,5 +1,42 @@
 # Changelog
 
+## [2.0.0-alpha.1] - 2026-04-19
+
+Second alpha — finishes the four-PR arc planned for v2 so the new shape is
+usable, not just carved out.
+
+### Auto-route (PR 2)
+- `prjct arregla el checkout lento` → `prjct task "arregla el checkout lento"`.
+  Unknown verbs flow straight to task; explicit verbs still win. Works with
+  and without the daemon (bin/prjct.ts uses a hardcoded allowlist, core
+  dispatcher checks the registry).
+
+### Lazy context (PR 3)
+- `prjct task` output collapsed from ~2,400 chars to ~400. No more eager
+  `findRelevantFiles` / pattern briefing / RPI / efficiency sections at
+  task start — Claude pulls them on demand.
+- New context topics:
+    prjct context memory [topic]       → facts, decisions, learnings…
+    prjct context learnings [topic]    → learning + anti-pattern + gotcha
+
+### Project memory API (PR 4)
+- `core/memory/project-memory.ts` — one surface over events-table entries
+  (from `prjct remember`) and `shipped_features` rows. Exposes
+  `remember / recall / similar` plus a compact markdown renderer.
+- `prjct remember` auto-captures the active task id as `source`.
+
+### Workflow engine (PR 4)
+- Step actions with prefix `status:` run through the state-machine instead
+  of `execAsync`. Custom workflows can now do:
+    - step: lint
+    - step: test
+    - step: status:shipped
+  and the final step closes the loop declaratively.
+
+### Fixes
+- `tag` param spec `<pairs...>` — previous `<k:v> [<k:v>...]` tripped
+  `validateCommandParams` and blocked valid invocations.
+
 ## [2.0.0-alpha.0] - 2026-04-19
 
 **BREAKING.** First alpha of the v2 rewrite — "toolbox for LLMs, not harness".
