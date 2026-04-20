@@ -12,6 +12,7 @@ import { AnalysisCommands } from './analysis'
 import { CATEGORIES, COMMANDS } from './command-data'
 import { ContextCommands } from './context'
 import { PlanningCommands } from './planning'
+import { PrimitiveCommands } from './primitives'
 import { commandRegistry } from './registry'
 import { SetupCommands } from './setup'
 import { ShippingCommands } from './shipping'
@@ -26,6 +27,7 @@ const shipping = new ShippingCommands()
 const analysis = new AnalysisCommands()
 const setup = new SetupCommands()
 const context = new ContextCommands()
+const primitives = new PrimitiveCommands()
 const uninstallCmd = new UninstallCommands()
 const updateCmd = new UpdateCommands()
 
@@ -80,10 +82,25 @@ export function registerAllCommands(): void {
 
   // Context command (for Claude templates)
   commandRegistry.registerMethod('context', context, 'context', getMeta('context'))
+
+  // v2 primitives
+  commandRegistry.registerMethod('status', primitives, 'status', getMeta('status'))
+  commandRegistry.registerMethod('tag', primitives, 'tag', getMeta('tag'))
+  commandRegistry.registerMethod('remember', primitives, 'remember', getMeta('remember'))
 }
 
 // Auto-register on import
 registerAllCommands()
 
 // Export command group instances for direct access
-export { analysis, workflow, planning, shipping, setup, context, uninstallCmd, updateCmd }
+export {
+  analysis,
+  workflow,
+  planning,
+  shipping,
+  setup,
+  context,
+  primitives,
+  uninstallCmd,
+  updateCmd,
+}

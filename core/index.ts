@@ -149,11 +149,6 @@ async function main(): Promise<void> {
         ship: (p) => commands.ship(p, process.cwd(), { md }),
         // Workflow
         workflow: (p) => commands.workflowPrefs(p, process.cwd(), { md }),
-        status: () =>
-          commands.status(process.cwd(), {
-            json: options.json === true,
-            md,
-          }),
         // Setup
         sync: () =>
           commands.sync(process.cwd(), {
@@ -180,6 +175,14 @@ async function main(): Promise<void> {
         start: () => commands.start(),
         // Context (for Claude templates)
         context: (p) => commands.context(p),
+        // v2 primitives
+        status: (p) => commands.status(p, process.cwd(), { md }),
+        tag: (p) => commands.tag(p, process.cwd(), { md }),
+        remember: (p) =>
+          commands.remember(p, process.cwd(), {
+            md,
+            tags: options.tags ? String(options.tags) : undefined,
+          }),
         // Auth (cloud sync)
         login: () => commands.login({ md, url: options.url ? String(options.url) : undefined }),
         logout: () => commands.logout(),

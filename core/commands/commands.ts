@@ -19,6 +19,7 @@ import type { AnalyzeOptions, Author, CommandResult, SetupOptions } from '../typ
 import { AnalysisCommands } from './analysis'
 import { ContextCommands } from './context'
 import { PlanningCommands } from './planning'
+import { PrimitiveCommands } from './primitives'
 import { SetupCommands } from './setup'
 import { ShippingCommands } from './shipping'
 import { UpdateCommands } from './update'
@@ -37,6 +38,7 @@ class PrjctCommands {
   private setupCmds: SetupCommands
   private updateCmds: UpdateCommands
   private contextCmds: ContextCommands
+  private primitivesCmds: PrimitiveCommands
 
   // Shared state
   agent: unknown
@@ -52,6 +54,7 @@ class PrjctCommands {
     this.setupCmds = new SetupCommands()
     this.updateCmds = new UpdateCommands()
     this.contextCmds = new ContextCommands()
+    this.primitivesCmds = new PrimitiveCommands()
 
     this.agent = null
     this.agentInfo = null
@@ -149,13 +152,6 @@ class PrjctCommands {
     return this.analysis.stats(projectPath, options)
   }
 
-  async status(
-    projectPath: string = process.cwd(),
-    options: { json?: boolean; md?: boolean } = {}
-  ): Promise<CommandResult> {
-    return this.analysis.status(projectPath, options)
-  }
-
   async diff(
     projectPath: string = process.cwd(),
     options: { json?: boolean; md?: boolean } = {}
@@ -214,6 +210,32 @@ class PrjctCommands {
     options: { md?: boolean } = {}
   ): Promise<CommandResult> {
     return this.contextCmds.context(input, projectPath, options)
+  }
+
+  // ========== v2 Primitives ==========
+
+  async status(
+    value: string | null = null,
+    projectPath: string = process.cwd(),
+    options: { md?: boolean } = {}
+  ): Promise<CommandResult> {
+    return this.primitivesCmds.status(value, projectPath, options)
+  }
+
+  async tag(
+    args: string | null = null,
+    projectPath: string = process.cwd(),
+    options: { md?: boolean } = {}
+  ): Promise<CommandResult> {
+    return this.primitivesCmds.tag(args, projectPath, options)
+  }
+
+  async remember(
+    args: string | null = null,
+    projectPath: string = process.cwd(),
+    options: { md?: boolean; tags?: string } = {}
+  ): Promise<CommandResult> {
+    return this.primitivesCmds.remember(args, projectPath, options)
   }
 
   // ========== Auth Commands ==========
