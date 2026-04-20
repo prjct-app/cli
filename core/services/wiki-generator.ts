@@ -38,6 +38,7 @@ import { formatMemoryMd, type MemoryEntry, projectMemory } from '../memory/proje
 import { analysisStorage } from '../storage/analysis-storage'
 import shippedStorage from '../storage/shipped-storage'
 import type { ShippedFeature } from '../types/storage'
+import { ensureCapturedReadme } from './wiki-ingest'
 
 // Generated output goes into a dedicated subdir so user notes placed in
 // `.prjct/wiki/` (e.g. `my-notes.md`) survive wiki rebuilds. Only this
@@ -418,10 +419,15 @@ export async function generateWiki(
     await writeFile(
       wikiRoot,
       'README.md',
-      `# Project Wiki\n\nAuto-generated content lives in \`${GENERATED_SUBDIR}/\`. Start at [${GENERATED_SUBDIR}/index.md](${GENERATED_SUBDIR}/index.md).\n\nAny markdown you put here (alongside \`${GENERATED_SUBDIR}/\`) survives rebuilds.\n`
+      `# Project Wiki\n\nOpen this folder as an Obsidian vault to browse project memory.\n\n- Auto-generated content lives in \`${GENERATED_SUBDIR}/\` — start at [${GENERATED_SUBDIR}/index.md](${GENERATED_SUBDIR}/index.md). Do not edit; it rebuilds on \`prjct ship\` / \`prjct remember\`.\n- Drop notes into \`captured/\` with frontmatter, then run \`prjct context wiki sync\` to ingest them into project memory. See [captured/README.md](captured/README.md).\n- Any other markdown you place here survives rebuilds.\n`
     )
     filesWritten++
   }
+
+  // Seed the captured dropzone with a README so users who open the vault
+  // in Obsidian discover the capture workflow. No-op if the README
+  // already exists.
+  await ensureCapturedReadme(projectPath)
 
   return { wikiRoot, filesWritten, filesSkipped, filesRemoved }
 }

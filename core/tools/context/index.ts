@@ -89,7 +89,7 @@ export async function runContextTool(
         break
 
       case 'wiki':
-        result = await runWikiTool(projectPath)
+        result = await runWikiTool(projectPath, toolArgs)
         break
 
       case 'help':
@@ -173,8 +173,7 @@ async function runFilesTool(args: string[], projectPath: string): Promise<Contex
   return { tool: 'files', result }
 }
 
-async function runWikiTool(projectPath: string): Promise<ContextToolOutput> {
-  const configManager = (await import('../../infrastructure/config-manager')).default
+async function runWikiTool(projectPath: string, args: string[] = []): Promise<ContextToolOutput> {
   const projectId = await configManager.getProjectId(projectPath)
   if (!projectId) {
     return {
@@ -182,13 +181,61 @@ async function runWikiTool(projectPath: string): Promise<ContextToolOutput> {
       result: { error: 'No prjct project. Run `prjct init` first.', code: 'NO_PROJECT' },
     }
   }
+
+  const subcommand = args[0]
+  if (subcommand === 'sync') {
+    return runWikiSyncTool(projectPath, projectId, args.slice(1))
+  }
+
   const { generateWiki } = await import('../../services/wiki-generator')
   const { wikiRoot, filesWritten } = await generateWiki(projectPath, projectId)
   return {
     tool: 'wiki',
     result: {
-      markdown: `> Wiki rebuilt at \`${wikiRoot}\` — ${filesWritten} files. Read \`${wikiRoot}/index.md\` with the Read tool.`,
+      markdown: `> Wiki rebuilt at \`${wikiRoot}\` — ${filesWritten} files. Read \`${wikiRoot}/_generated/index.md\` with the Read tool.`,
       entryCount: filesWritten,
+    },
+  }
+}
+
+async function runWikiSyncTool(
+  projectPath: string,
+  projectId: string,
+  args: string[]
+): Promise<ContextToolOutput> {
+  const force = args.includes('--force')
+  const { ingestCapturedNotes } = await import('../../services/wiki-ingest')
+  const { regenerateWikiDeferred } = await import('../../services/wiki-generator')
+
+  const result = await ingestCapturedNotes(projectPath, { force })
+
+  // Regen the read-only side so the fresh entries appear under _generated.
+  if (result.ingested > 0) {
+    await regenerateWikiDeferred(projectPath, projectId)
+  }
+
+  const lines: string[] = []
+  lines.push(`> Ingested ${result.ingested} note(s) from \`.prjct/wiki/captured/\`.`)
+  if (result.skipped.length > 0) {
+    lines.push('', '**Skipped:**')
+    for (const s of result.skipped) lines.push(`- \`${s.file}\` — ${s.reason}`)
+  }
+  if (result.errors.length > 0) {
+    lines.push('', '**Errors:**')
+    for (const e of result.errors) lines.push(`- \`${e.file}\` — ${e.error}`)
+  }
+  if (result.ingested === 0 && result.skipped.length === 0 && result.errors.length === 0) {
+    lines.push(
+      '',
+      'Nothing to ingest. Drop markdown notes with frontmatter into `.prjct/wiki/captured/` and re-run.'
+    )
+  }
+
+  return {
+    tool: 'wiki',
+    result: {
+      markdown: lines.join('\n'),
+      entryCount: result.ingested,
     },
   }
 }
@@ -477,6 +524,28 @@ TOOLS:
     Example:
       prjct context summary core/auth/service.ts
       prjct context summary core/services/ --recursive
+
+  memory [topic]
+    Recall project memory entries (facts, decisions, learnings, ...).
+    Optional topic filters by keyword across content and tag values.
+
+    Example:
+      prjct context memory
+      prjct context memory auth
+
+  learnings [topic]
+    Shortcut for the learnings-focused slice (learning / anti-pattern / gotcha).
+
+  wiki [sync] [--force]
+    Without a subcommand: rebuild \`.prjct/wiki/_generated/\`.
+    With \`sync\`: ingest user-authored notes from \`.prjct/wiki/captured/\`
+    into project memory, then rebuild. Pass \`--force\` to accept
+    secret-like content.
+
+    Example:
+      prjct context wiki
+      prjct context wiki sync
+      prjct context wiki sync --force
 
 OUTPUT:
   All tools output JSON for easy parsing by AI agents.

@@ -11,6 +11,7 @@
 
 import { STATUS_CHANGE_ACTION } from '../memory/events'
 import { MEMORY_TYPES, type MemoryType, projectMemory } from '../memory/project-memory'
+import { scanForSecrets } from '../memory/secret-scanner'
 import type { TaskType } from '../schemas/state'
 import { memoryService } from '../services/memory-service'
 import { stateStorage } from '../storage/state-storage'
@@ -21,29 +22,6 @@ import { PrjctCommandsBase } from './base'
 import { requireActiveTask, requireProjectId } from './guards'
 
 const TASK_TYPE_VALUES: readonly TaskType[] = ['feature', 'bug', 'improvement', 'chore']
-
-/**
- * Secret patterns we refuse to persist as-is. Conservative list — any hit
- * triggers a warning and the user has to re-run with `--force` if they
- * really want to record it. Better a false positive than a committed key.
- */
-const SECRET_PATTERNS: ReadonlyArray<{ name: string; re: RegExp }> = [
-  { name: 'sk-… token', re: /\bsk-[A-Za-z0-9_-]{16,}/ },
-  { name: 'GitHub PAT', re: /\bghp_[A-Za-z0-9]{30,}/ },
-  { name: 'GitHub server PAT', re: /\bghs_[A-Za-z0-9]{30,}/ },
-  { name: 'AWS access key', re: /\bAKIA[0-9A-Z]{16}\b/ },
-  { name: 'Slack token', re: /\bxox[abps]-[A-Za-z0-9-]{10,}/ },
-  {
-    name: 'bearer JWT-ish',
-    re: /\beyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\b/,
-  },
-]
-
-function scanForSecrets(text: string): string[] {
-  const hits: string[] = []
-  for (const { name, re } of SECRET_PATTERNS) if (re.test(text)) hits.push(name)
-  return hits
-}
 
 export class PrimitiveCommands extends PrjctCommandsBase {
   /**
