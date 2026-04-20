@@ -16,8 +16,8 @@
 // === DAEMON FAST PATH ===
 // Only uses node builtins + daemon protocol/client — zero heavy imports.
 // If daemon handles the command, process.exit() skips all remaining code.
-const _fastArgs = process.argv.slice(2)
-const _fastCommand = _fastArgs.find((a) => !a.startsWith('--') && !a.startsWith('-'))
+let _fastArgs = process.argv.slice(2)
+let _fastCommand = _fastArgs.find((a) => !a.startsWith('--') && !a.startsWith('-'))
 
 // Commands that bin/prjct.ts handles directly (NOT routed through daemon)
 const _binCommands = new Set([
@@ -42,6 +42,36 @@ const _binCommands = new Set([
   '-v',
   '--version',
 ])
+
+// v2 verbs registered in the command registry — used for auto-route detection.
+// Must stay in sync with core/commands/register.ts. Anything not here AND not
+// in _binCommands is treated as a task description.
+const _registeredVerbs = new Set([
+  'task',
+  'ship',
+  'tag',
+  'remember',
+  'status',
+  'workflow',
+  'tokens',
+  'sessions',
+  'init',
+  'analyze',
+  'sync',
+  'login',
+  'logout',
+  'auth',
+])
+
+// v2 auto-route: if the first positional isn't a known verb, treat the
+// whole argv as a task description and rewrite to `prjct task "<argv>"`.
+// Explicit verbs still win.
+if (_fastCommand && !_binCommands.has(_fastCommand) && !_registeredVerbs.has(_fastCommand)) {
+  const description = _fastArgs.filter((a) => !a.startsWith('-')).join(' ')
+  const flags = _fastArgs.filter((a) => a.startsWith('-'))
+  _fastCommand = 'task'
+  _fastArgs = ['task', description, ...flags]
+}
 
 if (_fastCommand && !_binCommands.has(_fastCommand) && process.env.PRJCT_NO_DAEMON !== '1') {
   const fs = await import('node:fs')

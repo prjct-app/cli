@@ -20,12 +20,11 @@ import context7Service from '../services/context7-service'
 import estimateTaskForStart from '../services/task-estimation'
 import { getGitBranch } from '../session/git-helpers'
 import { sessionSnapshotManager } from '../session/session-snapshot'
-import { analysisStorage } from '../storage/analysis-storage'
 import { contextFeedbackStorage } from '../storage/context-feedback-storage'
 import { customWorkflowStorage } from '../storage/custom-workflow-storage'
 import { stateStorage } from '../storage/state-storage'
 import { workflowRuleStorage } from '../storage/workflow-rule-storage'
-import { extractKeywords, findRelevantFiles } from '../tools/context/files-tool'
+import { extractKeywords } from '../tools/context/files-tool'
 import type { RpiContext } from '../types/agentic'
 import type { CommandResult } from '../types/commands'
 import type { FibonacciPoint } from '../types/domain.js'
@@ -40,7 +39,6 @@ import {
   mdList,
   mdNextSteps,
   mdOutput,
-  mdRelevantFiles,
   mdSection,
   mdSubtasks,
   mdTaskHeader,
@@ -50,11 +48,6 @@ import out from '../utils/output'
 import { detectProjectCommands } from '../utils/project-commands'
 import { executeWorkflowRules } from '../workflow/workflow-engine'
 import { PrjctCommandsBase } from './base'
-import {
-  buildContextContract,
-  buildPatternBriefing,
-  detectDomainsFromTask,
-} from './context-contract'
 
 // =============================================================================
 // Intent Detection Types
@@ -268,7 +261,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
           }
 
           // Load project context in parallel (non-blocking, graceful)
-          const globalPath = pathManager.getGlobalProjectPath(projectId)
+          const _globalPath = pathManager.getGlobalProjectPath(projectId)
           const taskKeywords = extractKeywords(taskDescription)
           let historicalBoosts: Map<string, number> | undefined
           try {
@@ -278,30 +271,13 @@ export class WorkflowCommands extends PrjctCommandsBase {
             // Cold start or DB not ready — no boosts
           }
 
-          // Dynamic token budget based on task type
-          const tokenBudgetByType: Record<string, number> = {
-            bug: 30,
-            chore: 40,
-            improvement: 80,
-            feature: 100,
-          }
-          const maxFilesForTask = (tokenBudgetByType[estimate.taskType] ?? 80) >= 80 ? 15 : 10
+          // v2: lazy context. Task start emits the bare minimum; Claude
+          // fetches files/patterns/memory on demand via `prjct context <topic>`.
+          // This keeps the conversation lean — heavy context lived above as
+          // ~400-600 tokens of speculative data Claude often didn't need.
+          const branch = await getGitBranch(projectPath)
 
-          const [branch, analysis, , relevantFilesResult] = await Promise.all([
-            getGitBranch(projectPath),
-            analysisStorage.getActive(projectId).catch(() => null),
-            loadRepoAnalysis(globalPath),
-            findRelevantFiles(taskDescription, projectPath, {
-              maxFiles: maxFilesForTask,
-              minScore: 0.15,
-              historicalBoosts,
-            }).catch(() => ({
-              files: [],
-              metrics: { filesScanned: 0, filesReturned: 0, scanDuration: 0 },
-            })),
-          ])
-
-          // Check for session snapshot (PRJ-285) — inject continuity context
+          // Session snapshot is state, not speculation — keep it.
           let continuityContext: string | null = null
           try {
             const snapshot = sessionSnapshotManager.getSnapshot(projectId)
@@ -313,103 +289,21 @@ export class WorkflowCommands extends PrjctCommandsBase {
             // Non-critical
           }
 
-          // Analysis staleness check — warn if >7 days old
-          let stalenessWarning: string | null = null
-          if (analysis?.analyzedAt) {
-            const analyzedDate = new Date(analysis.analyzedAt)
-            const daysSinceAnalysis = Math.floor(
-              (Date.now() - analyzedDate.getTime()) / (1000 * 60 * 60 * 24)
-            )
-            if (daysSinceAnalysis > 7) {
-              stalenessWarning = mdCallout(
-                'warn',
-                `Analysis is ${daysSinceAnalysis} days old. Run \`p. sync\` to refresh patterns and file index.`
-              )
-            }
-          } else if (!analysis) {
-            stalenessWarning = mdCallout(
-              'info',
-              'No project analysis found. Run `p. sync` for better context targeting.'
-            )
-          }
-
-          // Surface historically useful files from feedback loop
-          let historicalFilesSection: string | null = null
-          if (historicalBoosts && historicalBoosts.size > 0) {
-            const topBoosted = [...historicalBoosts.entries()]
-              .filter(([, score]) => score > 0.3)
-              .sort((a, b) => b[1] - a[1])
-              .slice(0, 5)
-            if (topBoosted.length > 0) {
-              const items = topBoosted.map(([file]) => `\`${file}\``)
-              historicalFilesSection = `### Previously Useful Files\n${items.join(', ')}`
-            }
-          }
-
-          // Detect domains from task keywords + project-specific domains
-          const detectedDomains = detectDomainsFromTask(taskDescription, projectId)
-
-          // Build sections
           const header = mdTaskHeader({
             description: taskDescription,
             branch,
             linearId,
             type: estimate.taskType,
-            estimatedPoints: estimate.estimatedPoints,
-            estimatedMinutes: estimate.estimatedMinutes,
-            estimateSource: estimate.source,
-            domains: detectedDomains,
           })
-          const files = mdRelevantFiles(
-            relevantFilesResult.files.map((f) => ({
-              path: f.path,
-              description: f.reasons.join(', '),
-            }))
-          )
-          const relevantFilePaths = relevantFilesResult.files.map((f) => f.path)
-          const patterns = buildPatternBriefing(analysis, relevantFilePaths)
-          const contextContract = buildContextContract(relevantFilesResult.files, analysis)
           const next = mdNextSteps([
             { label: 'Find relevant files', command: 'prjct context files "..."' },
+            { label: 'Pull project memory', command: 'prjct context memory <topic>' },
             { label: 'Tag the task', command: 'prjct tag type:bug domain:auth' },
-            { label: 'Capture a learning', command: 'prjct remember learning "..."' },
+            { label: 'Capture learnings', command: 'prjct remember learning "..."' },
             { label: 'Ship when done', command: 'prjct ship --md' },
           ])
 
-          // Build efficiency + RPI sections
-          const efficiencySection = buildEfficiencySection()
-          const rpiSection = buildRpiSection(projectId)
-
-          // projectContext (ecosystem, commands) omitted — lives in CLAUDE.md global context
-          console.log(
-            mdOutput(
-              continuityContext,
-              stalenessWarning,
-              header,
-              contextContract,
-              files,
-              historicalFilesSection,
-              patterns,
-              rpiSection,
-              efficiencySection,
-              next
-            )
-          )
-
-          // Record file suggestions for feedback loop
-          try {
-            const currentTask = await stateStorage.getCurrentTask(projectId)
-            if (currentTask) {
-              contextFeedbackStorage.recordSuggestions(
-                projectId,
-                currentTask.id,
-                taskKeywords,
-                relevantFilesResult.files.map((f) => f.path)
-              )
-            }
-          } catch {
-            // Non-blocking
-          }
+          console.log(mdOutput(continuityContext, header, next))
 
           await this.logToMemory(projectPath, 'task_started', {
             task,
@@ -1590,7 +1484,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
  * Build efficiency directive section for --md output.
  * This is what Claude Code actually reads — must include sub-agent guidance.
  */
-function buildEfficiencySection(): string {
+function _buildEfficiencySection(): string {
   const lines = [
     '### Efficiency',
     '- Be concise. No preamble, no filler.',
@@ -1605,7 +1499,7 @@ function buildEfficiencySection(): string {
  * Resolve RPI phase and build advisory section for --md output.
  * Returns null if RPI data is unavailable.
  */
-function buildRpiSection(projectId: string): string | null {
+function _buildRpiSection(projectId: string): string | null {
   try {
     const { prjctDb } = require('../storage/database')
     const researchDoc = prjctDb.getDoc(projectId, 'rpi:current:research')
@@ -1678,7 +1572,7 @@ function _formatMinutesToDuration(minutes: number): string {
 }
 
 /** Load repo-analysis.json from global project path */
-async function loadRepoAnalysis(globalPath: string): Promise<Record<string, unknown> | null> {
+async function _loadRepoAnalysis(globalPath: string): Promise<Record<string, unknown> | null> {
   try {
     const analysisPath = path.join(globalPath, 'analysis', 'repo-analysis.json')
     const content = await fs.readFile(analysisPath, 'utf-8')

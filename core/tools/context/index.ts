@@ -15,6 +15,8 @@
  * @version 1.0.0
  */
 
+import configManager from '../../infrastructure/config-manager'
+import { formatMemoryMd, type MemoryType, projectMemory } from '../../memory/project-memory'
 import { metricsStorage } from '../../storage/metrics-storage'
 import type { ContextToolOutput, ContextToolUsage } from '../../types/context-tools'
 import { getErrorMessage } from '../../types/fs'
@@ -76,6 +78,14 @@ export async function runContextTool(
 
       case 'summary':
         result = await runSummaryTool(toolArgs, projectPath)
+        break
+
+      case 'memory':
+        result = await runMemoryTool(toolArgs, projectPath, { kind: 'memory' })
+        break
+
+      case 'learnings':
+        result = await runMemoryTool(toolArgs, projectPath, { kind: 'learnings' })
         break
 
       case 'help':
@@ -157,6 +167,44 @@ async function runFilesTool(args: string[], projectPath: string): Promise<Contex
 
   const result = await findRelevantFiles(taskDescription, projectPath, options)
   return { tool: 'files', result }
+}
+
+async function runMemoryTool(
+  args: string[],
+  projectPath: string,
+  opts: { kind: 'memory' | 'learnings' }
+): Promise<ContextToolOutput> {
+  const projectId = await configManager.getProjectId(projectPath)
+  if (!projectId) {
+    return {
+      tool: 'error',
+      result: {
+        error: 'No prjct project. Run `prjct init` first.',
+        code: 'NO_PROJECT',
+      },
+    }
+  }
+
+  const topic =
+    args
+      .filter((a) => !a.startsWith('-'))
+      .join(' ')
+      .trim() || undefined
+
+  // `learnings` is a typed slice of memory focused on what the project
+  // has *learned* the hard way. Everything else comes through `memory`.
+  const LEARNINGS_TYPES: MemoryType[] = ['learning', 'anti-pattern', 'gotcha']
+  const types = opts.kind === 'learnings' ? LEARNINGS_TYPES : undefined
+
+  const entries = projectMemory.recall(projectId, { topic, types, limit: 30 })
+  return {
+    tool: opts.kind,
+    result: {
+      markdown: formatMemoryMd(entries),
+      entryCount: entries.length,
+      topic,
+    },
+  }
 }
 
 async function runSignaturesTool(args: string[], projectPath: string): Promise<ContextToolOutput> {

@@ -6,10 +6,36 @@
  */
 
 import chalk from 'chalk'
+import { memoryService } from '../services/memory-service'
+import { stateStorage } from '../storage/state-storage'
 import { workflowRuleStorage } from '../storage/workflow-rule-storage'
 import { getErrorMessage } from '../types/fs'
 import type { WorkflowExecutionResult } from '../types/workflow.js'
 import { execAsync } from '../utils/exec'
+
+/**
+ * Recognise status-transition actions. `action: "status:done"` flows
+ * through the state-machine path instead of execAsync. Workflow authors
+ * can mix shell steps and status transitions in the same pipeline.
+ */
+const STATUS_ACTION_PREFIX = 'status:'
+
+async function runStatusTransition(
+  projectId: string,
+  projectPath: string,
+  target: string
+): Promise<void> {
+  const active = await stateStorage.getCurrentTask(projectId)
+  if (!active) {
+    throw new Error(`Cannot transition to '${target}': no active task`)
+  }
+  await memoryService.log(projectPath, 'status.changed', {
+    taskId: active.id,
+    from: active.type ?? null,
+    to: target,
+    source: 'workflow',
+  })
+}
 
 export async function executeWorkflowRules(
   projectId: string,
@@ -87,18 +113,28 @@ export async function executeWorkflowRules(
     }
   }
 
-  // 5. Run steps (blocking, used for ship pipeline)
+  // 5. Run steps (blocking, used for ship pipeline).
+  //    Steps with `action: "status:<value>"` are handled by the state
+  //    machine instead of shell exec so workflows can drive status
+  //    transitions declaratively.
   const steps = rules.filter((r) => r.type === 'step')
   for (const step of steps) {
+    const isStatusStep = step.action.startsWith(STATUS_ACTION_PREFIX)
     console.log(`\n${chalk.dim(`[step] ${command}: ${step.action}`)}`)
 
     try {
       const startTime = Date.now()
-      await execAsync(step.action, {
-        timeout: step.timeoutMs,
-        cwd: options.projectPath || process.cwd(),
-        env: { ...process.env },
-      })
+      if (isStatusStep) {
+        const target = step.action.slice(STATUS_ACTION_PREFIX.length).trim()
+        if (!target) throw new Error(`Empty status target in action '${step.action}'`)
+        await runStatusTransition(projectId, options.projectPath || process.cwd(), target)
+      } else {
+        await execAsync(step.action, {
+          timeout: step.timeoutMs,
+          cwd: options.projectPath || process.cwd(),
+          env: { ...process.env },
+        })
+      }
       const elapsed = Date.now() - startTime
       const timeStr = elapsed > 1000 ? `${(elapsed / 1000).toFixed(1)}s` : `${elapsed}ms`
       console.log(`${chalk.green('✓')} ${chalk.dim(`step passed (${timeStr})`)}`)

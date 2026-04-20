@@ -31,7 +31,7 @@ interface CommandResult {
 }
 
 async function main(): Promise<void> {
-  const [commandName, ...rawArgs] = process.argv.slice(2)
+  let [commandName, ...rawArgs] = process.argv.slice(2)
 
   // === SPECIAL COMMANDS (version, help) ===
 
@@ -44,6 +44,18 @@ async function main(): Promise<void> {
   if (['-h', '--help', undefined].includes(commandName)) {
     displayHelp()
     process.exit(0)
+  }
+
+  // === v2 auto-route: unknown verb → prjct task "<full args>" ===
+  // Prjct doesn't classify intent; Claude tags the task afterwards with
+  // `prjct tag type:<bug|feature|chore>`. If the user types `prjct fix
+  // login bug`, we treat that as a task description. Explicit verbs
+  // (task, ship, tag, …) still win.
+  if (commandName && !commandRegistry.getByName(commandName)) {
+    const fullDescription = [commandName, ...rawArgs.filter((a) => !a.startsWith('-'))].join(' ')
+    const passthroughFlags = rawArgs.filter((a) => a.startsWith('-'))
+    commandName = 'task'
+    rawArgs = [fullDescription, ...passthroughFlags]
   }
 
   // === DYNAMIC COMMAND EXECUTION ===

@@ -10,6 +10,7 @@
  */
 
 import configManager from '../infrastructure/config-manager'
+import { type MemoryType, projectMemory } from '../memory/project-memory'
 import type { TaskType } from '../schemas/state'
 import { memoryService } from '../services/memory-service'
 import { stateStorage } from '../storage/state-storage'
@@ -18,7 +19,7 @@ import { getErrorMessage } from '../types/fs'
 import out from '../utils/output'
 import { PrjctCommandsBase } from './base'
 
-const MEMORY_TYPES = [
+const MEMORY_TYPES: readonly MemoryType[] = [
   'fact',
   'decision',
   'learning',
@@ -26,9 +27,7 @@ const MEMORY_TYPES = [
   'pattern',
   'anti-pattern',
   'shipped',
-] as const
-
-type MemoryType = (typeof MEMORY_TYPES)[number]
+]
 
 const TASK_TYPE_VALUES: readonly TaskType[] = ['feature', 'bug', 'improvement', 'chore']
 
@@ -229,10 +228,14 @@ export class PrimitiveCommands extends PrjctCommandsBase {
         }
       }
 
-      await memoryService.log(projectPath, `remember.${type}`, {
+      const active = await stateStorage
+        .getCurrentTask(await configManager.getProjectId(projectPath).catch(() => ''))
+        .catch(() => null)
+      await projectMemory.remember(projectPath, {
         type,
         content,
         tags,
+        source: active?.id,
       })
 
       if (options.md) console.log(`✓ remembered ${type}: ${content}`)
