@@ -105,7 +105,6 @@ export class PlanningCommands extends PrjctCommandsBase {
         'progress/metrics.md': '# METRICS\n\n',
         'planning/ideas.md': '# IDEAS 💡\n\n## Brain Dump\n\n',
         'planning/roadmap.md': '# ROADMAP\n\n',
-        'planning/specs/.gitkeep': '# Specs directory - created by /p:spec\n',
         'memory/context.jsonl': '',
         'memory/patterns.json': JSON.stringify(
           {

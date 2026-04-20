@@ -3,9 +3,7 @@
   "theme": "default",
   "cacheTTL": {
     "prjct": 30,
-    "git": 5,
-    "linear": 60,
-    "jira": 60
+    "git": 5
   },
   "components": {
     "prjct_icon": {
@@ -16,17 +14,6 @@
       "enabled": false,
       "position": 1,
       "maxLength": 25
-    },
-    "linear": {
-      "enabled": true,
-      "position": 2,
-      "showPriority": true
-    },
-    "jira": {
-      "enabled": false,
-      "position": 2,
-      "showPriority": true,
-      "showStatus": false
     },
     "dir": {
       "enabled": true,
