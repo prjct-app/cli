@@ -133,13 +133,6 @@ async function main(): Promise<void> {
     // Commands with special option handling
     if (commandName === 'analyze') {
       result = await commands.analyze(options)
-    } else if (commandName === 'cleanup') {
-      result = await commands.cleanup(options)
-    } else if (commandName === 'cleanup-projects') {
-      result = await commands.cleanupProjects({
-        dryRun: options['dry-run'] === true,
-        md: options.md === true,
-      })
     } else if (commandName === 'setup') {
       result = await commands.setup(options)
     } else if (commandName === 'update') {
@@ -166,16 +159,6 @@ async function main(): Promise<void> {
           commands.status(process.cwd(), {
             json: options.json === true,
             md,
-          }),
-        // Maintenance
-        recover: () => commands.recover(),
-        undo: () => commands.undo(),
-        redo: () => commands.redo(),
-        history: () => commands.history(),
-        enrich: (p) =>
-          commands.enrich(p, process.cwd(), {
-            md,
-            json: options.json === true,
           }),
         // Setup
         sync: () =>

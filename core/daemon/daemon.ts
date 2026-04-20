@@ -365,10 +365,6 @@ async function executeCommand(
       return commands!.getLlmAnalysis(request.cwd, { json: opts.json === true, md })
     case 'analyze':
       return commands!.analyze(opts, request.cwd)
-    case 'cleanup':
-      return commands!.cleanup(opts, request.cwd)
-    case 'cleanup-projects':
-      return commands!.cleanupProjects({ dryRun: opts['dry-run'] === true, md })
     default:
       // Standard commands without special option handling
       return commandRegistry.execute(request.command, param, request.cwd)

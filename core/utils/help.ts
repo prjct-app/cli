@@ -59,11 +59,6 @@ const TERMINAL_COMMANDS = [
     subcommands: ['files', 'signatures', 'imports', 'recent', 'summary'],
   },
   {
-    name: 'enrich',
-    description: 'Prepare issue enrichment context from local code',
-    example: 'prjct enrich "PROJ-123 improve auth flow" --md',
-  },
-  {
     name: 'stop',
     description: 'Stop the background daemon',
     example: 'prjct stop',

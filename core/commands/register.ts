@@ -11,7 +11,6 @@
 import { AnalysisCommands } from './analysis'
 import { CATEGORIES, COMMANDS } from './command-data'
 import { ContextCommands } from './context'
-import { MaintenanceCommands } from './maintenance'
 import { PlanningCommands } from './planning'
 import { commandRegistry } from './registry'
 import { SetupCommands } from './setup'
@@ -24,7 +23,6 @@ import { WorkflowCommands } from './workflow'
 const workflow = new WorkflowCommands()
 const planning = new PlanningCommands()
 const shipping = new ShippingCommands()
-const maintenance = new MaintenanceCommands()
 const analysis = new AnalysisCommands()
 const setup = new SetupCommands()
 const context = new ContextCommands()
@@ -65,27 +63,9 @@ export function registerAllCommands(): void {
 
   // Planning commands
   commandRegistry.registerMethod('init', planning, 'init', getMeta('init'))
-  commandRegistry.registerMethod('bug', planning, 'bug', getMeta('bug'))
-  commandRegistry.registerMethod('idea', planning, 'idea', getMeta('idea'))
-  commandRegistry.registerMethod('spec', planning, 'spec', getMeta('spec'))
 
   // Shipping commands
   commandRegistry.registerMethod('ship', shipping, 'ship', getMeta('ship'))
-
-  // Maintenance commands
-  commandRegistry.registerMethod('cleanup', maintenance, 'cleanup', getMeta('cleanup'))
-  commandRegistry.registerMethod(
-    'cleanup-projects',
-    maintenance,
-    'cleanupProjects',
-    getMeta('cleanup-projects')
-  )
-  commandRegistry.registerMethod('design', maintenance, 'design', getMeta('design'))
-  commandRegistry.registerMethod('recover', maintenance, 'recover', getMeta('recover'))
-  commandRegistry.registerMethod('undo', maintenance, 'undo', getMeta('undo'))
-  commandRegistry.registerMethod('redo', maintenance, 'redo', getMeta('redo'))
-  commandRegistry.registerMethod('history', maintenance, 'history', getMeta('history'))
-  commandRegistry.registerMethod('enrich', maintenance, 'enrich', getMeta('enrich'))
 
   // Analysis commands
   commandRegistry.registerMethod('analyze', analysis, 'analyze', getMeta('analyze'))
@@ -112,14 +92,4 @@ export function registerAllCommands(): void {
 registerAllCommands()
 
 // Export command group instances for direct access
-export {
-  analysis,
-  workflow,
-  planning,
-  shipping,
-  maintenance,
-  setup,
-  context,
-  uninstallCmd,
-  updateCmd,
-}
+export { analysis, workflow, planning, shipping, setup, context, uninstallCmd, updateCmd }

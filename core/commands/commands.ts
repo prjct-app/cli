@@ -15,17 +15,9 @@
  */
 
 import type { AgentInfo } from '../types/agents'
-import type {
-  AnalyzeOptions,
-  Author,
-  CleanupOptions,
-  CommandResult,
-  DesignOptions,
-  SetupOptions,
-} from '../types/commands'
+import type { AnalyzeOptions, Author, CommandResult, SetupOptions } from '../types/commands'
 import { AnalysisCommands } from './analysis'
 import { ContextCommands } from './context'
-import { MaintenanceCommands } from './maintenance'
 import { PlanningCommands } from './planning'
 import { SetupCommands } from './setup'
 import { ShippingCommands } from './shipping'
@@ -41,7 +33,6 @@ class PrjctCommands {
   private workflow: WorkflowCommands
   private planning: PlanningCommands
   private shipping: ShippingCommands
-  private maintenance: MaintenanceCommands
   private analysis: AnalysisCommands
   private setupCmds: SetupCommands
   private updateCmds: UpdateCommands
@@ -57,7 +48,6 @@ class PrjctCommands {
     this.workflow = new WorkflowCommands()
     this.planning = new PlanningCommands()
     this.shipping = new ShippingCommands()
-    this.maintenance = new MaintenanceCommands()
     this.analysis = new AnalysisCommands()
     this.setupCmds = new SetupCommands()
     this.updateCmds = new UpdateCommands()
@@ -164,51 +154,6 @@ class PrjctCommands {
     options: { md?: boolean } = {}
   ): Promise<CommandResult> {
     return this.shipping.ship(feature, projectPath, { ...options })
-  }
-
-  // ========== Maintenance Commands ==========
-
-  async cleanup(
-    options: CleanupOptions = {},
-    projectPath: string = process.cwd()
-  ): Promise<CommandResult> {
-    return this.maintenance.cleanup(options, projectPath)
-  }
-
-  async cleanupProjects(options: { dryRun?: boolean; md?: boolean } = {}): Promise<CommandResult> {
-    return this.maintenance.cleanupProjects(options)
-  }
-
-  async design(
-    target: string | null = null,
-    options: DesignOptions = {},
-    projectPath: string = process.cwd()
-  ): Promise<CommandResult> {
-    return this.maintenance.design(target, options, projectPath)
-  }
-
-  async recover(projectPath: string = process.cwd()): Promise<CommandResult> {
-    return this.maintenance.recover(projectPath)
-  }
-
-  async undo(projectPath: string = process.cwd()): Promise<CommandResult> {
-    return this.maintenance.undo(projectPath)
-  }
-
-  async redo(projectPath: string = process.cwd()): Promise<CommandResult> {
-    return this.maintenance.redo(projectPath)
-  }
-
-  async history(projectPath: string = process.cwd()): Promise<CommandResult> {
-    return this.maintenance.history(projectPath)
-  }
-
-  async enrich(
-    input: string | null = null,
-    projectPath: string = process.cwd(),
-    options: { md?: boolean; json?: boolean } = {}
-  ): Promise<CommandResult> {
-    return this.maintenance.enrich(input, projectPath, options)
   }
 
   // ========== Analysis Commands ==========
