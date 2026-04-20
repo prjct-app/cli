@@ -63,13 +63,9 @@ export function registerAllCommands(): void {
   // Shipping commands
   commandRegistry.registerMethod('ship', shipping, 'ship', getMeta('ship'))
 
-  // Analysis commands
+  // Analysis commands (kept for internal sync workflow)
   commandRegistry.registerMethod('analyze', analysis, 'analyze', getMeta('analyze'))
   commandRegistry.registerMethod('sync', analysis, 'sync', getMeta('sync'))
-  commandRegistry.registerMethod('stats', analysis, 'stats', getMeta('stats'))
-  commandRegistry.registerMethod('status', analysis, 'status', getMeta('status'))
-  commandRegistry.registerMethod('seal', analysis, 'seal', getMeta('seal'))
-  commandRegistry.registerMethod('verify', analysis, 'verify', getMeta('verify'))
 
   // Setup commands
   commandRegistry.registerMethod('start', setup, 'start', getMeta('start'))

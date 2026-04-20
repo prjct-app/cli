@@ -89,29 +89,6 @@ class PrjctCommands {
     return this.planning.init(idea, projectPath)
   }
 
-  async bug(
-    description: string,
-    projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
-  ): Promise<CommandResult> {
-    return this.planning.bug(description, projectPath, options)
-  }
-
-  async idea(
-    description: string,
-    projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
-  ): Promise<CommandResult> {
-    return this.planning.idea(description, projectPath, options)
-  }
-
-  async spec(
-    featureName: string | null = null,
-    projectPath: string = process.cwd()
-  ): Promise<CommandResult> {
-    return this.planning.spec(featureName, projectPath)
-  }
-
   // ========== Shipping Commands ==========
 
   async ship(
@@ -143,63 +120,6 @@ class PrjctCommands {
     } = {}
   ): Promise<CommandResult> {
     return this.analysis.sync(projectPath, options)
-  }
-
-  async stats(
-    projectPath: string = process.cwd(),
-    options: { json?: boolean; export?: boolean } = {}
-  ): Promise<CommandResult> {
-    return this.analysis.stats(projectPath, options)
-  }
-
-  async diff(
-    projectPath: string = process.cwd(),
-    options: { json?: boolean; md?: boolean } = {}
-  ): Promise<CommandResult> {
-    return this.analysis.diff(projectPath, options)
-  }
-
-  async seal(
-    projectPath: string = process.cwd(),
-    options: { json?: boolean } = {}
-  ): Promise<CommandResult> {
-    return this.analysis.seal(projectPath, options)
-  }
-
-  async rollback(
-    projectPath: string = process.cwd(),
-    options: { json?: boolean; md?: boolean } = {}
-  ): Promise<CommandResult> {
-    return this.analysis.rollback(projectPath, options)
-  }
-
-  async verify(
-    projectPath: string = process.cwd(),
-    options: { json?: boolean; semantic?: boolean } = {}
-  ): Promise<CommandResult> {
-    return this.analysis.verify(projectPath, options)
-  }
-
-  async analysisPayload(
-    projectPath: string = process.cwd(),
-    options: { json?: boolean; md?: boolean } = {}
-  ): Promise<CommandResult> {
-    return this.analysis.analysisPayload(projectPath, options)
-  }
-
-  async saveLlmAnalysis(
-    analysisJson: string,
-    projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
-  ): Promise<CommandResult> {
-    return this.analysis.saveLlmAnalysis(analysisJson, projectPath, options)
-  }
-
-  async getLlmAnalysis(
-    projectPath: string = process.cwd(),
-    options: { json?: boolean; md?: boolean } = {}
-  ): Promise<CommandResult> {
-    return this.analysis.getLlmAnalysis(projectPath, options)
   }
 
   // ========== Context Commands ==========

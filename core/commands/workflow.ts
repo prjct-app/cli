@@ -192,8 +192,8 @@ export class WorkflowCommands extends PrjctCommandsBase {
                 'blocked',
                 'task_already_active',
                 [
-                  { label: 'Complete current task first', command: 'prjct done --md' },
-                  { label: 'Pause current and start this one', command: 'prjct pause --md' },
+                  { label: 'Ship current task first', command: 'prjct ship --md' },
+                  { label: 'Set current task to blocked', command: 'prjct status blocked' },
                 ],
                 {
                   current_task: conflictInThisWorktree.description,
@@ -228,8 +228,8 @@ export class WorkflowCommands extends PrjctCommandsBase {
                 'blocked',
                 'task_already_active',
                 [
-                  { label: 'Complete current task first', command: 'prjct done --md' },
-                  { label: 'Pause current and start this one', command: 'prjct pause --md' },
+                  { label: 'Ship current task first', command: 'prjct ship --md' },
+                  { label: 'Set current task to blocked', command: 'prjct status blocked' },
                 ],
                 { current_task: existingTask.description, requested_task: taskDescription }
               )
@@ -371,8 +371,9 @@ export class WorkflowCommands extends PrjctCommandsBase {
           const contextContract = buildContextContract(relevantFilesResult.files, analysis)
           const next = mdNextSteps([
             { label: 'Find relevant files', command: 'prjct context files "..."' },
-            { label: 'Complete subtask', command: 'prjct done --md' },
-            { label: 'Pause task', command: 'prjct pause --md' },
+            { label: 'Tag the task', command: 'prjct tag type:bug domain:auth' },
+            { label: 'Capture a learning', command: 'prjct remember learning "..."' },
+            { label: 'Ship when done', command: 'prjct ship --md' },
           ])
 
           // Build efficiency + RPI sections
@@ -486,7 +487,6 @@ export class WorkflowCommands extends PrjctCommandsBase {
           if (options.md) {
             mdActionRequired('idle', 'no_active_task', [
               { label: 'Start a task', command: 'prjct task "description" --md' },
-              { label: 'Check queue', command: 'prjct next --md' },
             ])
           } else {
             out.warn('no active task')
@@ -513,8 +513,8 @@ export class WorkflowCommands extends PrjctCommandsBase {
           const currentIndex = (currentTask as { currentSubtaskIndex?: number }).currentSubtaskIndex
           const subtasksMd = subtasks.length > 0 ? mdSubtasks(subtasks, currentIndex) : ''
           const next = mdNextSteps([
-            { label: 'Complete subtask', command: 'prjct done --md' },
-            { label: 'Pause task', command: 'prjct pause --md' },
+            { label: 'Ship when done', command: 'prjct ship --md' },
+            { label: 'Change status inline', command: 'prjct status <value>' },
           ])
           console.log(mdOutput(header, subtasksMd, next))
         } else {
@@ -530,8 +530,8 @@ export class WorkflowCommands extends PrjctCommandsBase {
             'blocked',
             'state_conflict',
             [
-              { label: 'Complete current task', command: 'prjct done --md' },
-              { label: 'Pause current task', command: 'prjct pause --md' },
+              { label: 'Ship current task', command: 'prjct ship --md' },
+              { label: 'Change status inline', command: 'prjct status <value>' },
             ],
             { error: msg.split('.')[0] }
           )
@@ -1596,7 +1596,7 @@ function buildEfficiencySection(): string {
     '- Be concise. No preamble, no filler.',
     '- **Use sub-agents (Agent tool) for exploration that produces >5 file reads.** Sub-agents isolate context and prevent the main conversation from bloating.',
     '- Prefer `file:line` references over dumping full file contents.',
-    '- When context grows large, use `prjct compact --md` to create a truth snapshot.',
+    '- Capture learnings as you go: `prjct remember learning "..."`.',
   ]
   return lines.join('\n')
 }
@@ -1627,7 +1627,7 @@ function buildRpiSection(projectId: string): string | null {
         lines.push(
           '**Phase: RESEARCH** — Explore the codebase first. Use the **Agent tool** (sub-agents) for broad exploration.',
           'Produce a truth snapshot: exact files + lines, function call chains, test locations.',
-          'Save findings with `prjct compact --md` when done exploring.'
+          'Capture key findings with `prjct remember fact|gotcha|decision "..."`.'
         )
         break
       case 'plan':
@@ -1688,15 +1688,6 @@ async function loadRepoAnalysis(globalPath: string): Promise<Record<string, unkn
     return null
   }
 }
-
-// Context contract, pattern ranking, and pattern briefing are in ./context-contract.ts
-// Re-export for backward compatibility
-export {
-  buildContextContract,
-  buildPatternBriefing,
-  deduplicateDecisions,
-  rankPatterns,
-} from './context-contract'
 
 /**
  * Build an ASCII flow diagram for a single command's workflow rules.

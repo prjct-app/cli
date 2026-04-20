@@ -119,7 +119,7 @@ export const COMMANDS: CommandMeta[] = [
     group: 'core',
     description: 'Attach k:v tags to the active task (type:bug, domain:frontend, …)',
     usage: { claude: '/p:tag type:bug', terminal: 'prjct tag type:bug domain:auth' },
-    params: '<k:v> [<k:v>...]',
+    params: '<pairs...>',
     implemented: true,
     hasTemplate: false,
     requiresProject: true,
