@@ -206,6 +206,17 @@ export class PrimitiveCommands extends PrjctCommandsBase {
         source: active?.id,
       })
 
+      // Keep the agent-crawlable wiki in sync so subagents reading
+      // `.prjct/wiki/_generated/` see the new entry without waiting for
+      // the next ship. Best-effort — a wiki failure must not break the
+      // remember call.
+      try {
+        const { generateWiki } = await import('../services/wiki-generator')
+        await generateWiki(projectPath, pid.value)
+      } catch {
+        // Non-critical
+      }
+
       if (options.md) console.log(`✓ remembered ${type}: ${content}`)
       else out.done(`remembered ${type}`)
 

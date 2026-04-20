@@ -1,5 +1,68 @@
 # Changelog
 
+## [2.0.0-alpha.4] - 2026-04-20
+
+Quality pass — applies every finding from the three-round line-by-line
+review. No new user-facing verbs; everything is tightening what's already
+in alpha.3.
+
+### DRY
+- `core/commands/verb-names.ts` — single source for the auto-route
+  allowlist, imported by both bin (zero-heavy-imports path) and the
+  daemon dispatcher. Adding a verb touches one list instead of two.
+- `core/memory/events.ts` — constants for event prefixes so
+  `'memory.remember.%'`, `'memory.task.tagged'`, etc. stop drifting
+  between writer and reader.
+- `core/commands/guards.ts` — `requireProjectId` / `requireActiveTask`
+  helpers kill the duplicated 3-line preamble every v2 primitive used to
+  carry.
+- `MEMORY_TYPES` is now a single `const` tuple in `project-memory.ts`
+  with the `MemoryType` union derived from it. `primitives.ts` imports it
+  instead of maintaining a parallel list.
+
+### Perf
+- Workflow engine hot path: dynamic imports moved to static top-level,
+  the two `git diff` execs run in parallel, and `buildWhenContext` is
+  skipped entirely unless a rule in this phase actually reads it
+  (conditional rule or gate). Saves ~30ms on the plain hook/step case.
+- `when-evaluator.globToRegex` single-pass walker with a compile cache.
+  Same pattern tested against N files only compiles once.
+
+### Bugs / UX
+- `prjct status` (no args) now shows the real task status recovered from
+  `status.changed` events instead of misrepresenting the task `type` tag
+  as the status.
+- Auto-route no longer swallows typos: a single-token input within
+  edit-distance 2 of a known verb surfaces a `did you mean` instead of
+  silently creating `prjct task "shipp"`.
+
+### Security
+- Wiki lives at `.prjct/wiki/_generated/`. The top-level `.prjct/wiki/`
+  is user-owned — any notes you put there survive rebuilds. Only the
+  generated subdir gets wiped.
+- Workflow rules gain `trust_source` (schema v14). Rules with
+  `trustSource === 'imported'` refuse to run their shell action, buying
+  forward-compat for a future template registry without shipping it as
+  an arbitrary-code-execution vector.
+- `prjct remember` refuses content matching obvious secret patterns
+  (sk-… tokens, GitHub PATs, AWS access keys, Slack tokens, bearer
+  JWT-ish strings) unless `--force` is passed.
+
+### Cleanup / smell
+- Magic numbers in `recall()` replaced with `OVERFETCH_FACTOR` and
+  `DEFAULT_RECALL_LIMIT` constants with comments explaining the 4×.
+- Wiki regenerates on `prjct remember` too — not just `prjct ship`.
+  Subagents reading `_generated/` see newly captured memory without
+  waiting for the next ship.
+- Wiki now surfaces inferred `patterns` + `anti-patterns` from
+  `prjct sync`, rendered at `_generated/patterns.md` with an
+  INFR provenance note so agents can weight them accordingly.
+- Fragile `§§` glob placeholder replaced by a single-pass walker.
+
+### Schema
+New migration v14 `workflow-rules-trust-source`:
+- `workflow_rules.trust_source TEXT NOT NULL DEFAULT 'local'`
+
 ## [2.0.0-alpha.3] - 2026-04-20
 
 Fourth alpha — adds two high-leverage borrows from the graphify review:

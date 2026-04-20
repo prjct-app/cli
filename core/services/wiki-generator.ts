@@ -21,6 +21,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { formatMemoryMd, type MemoryEntry, projectMemory } from '../memory/project-memory'
+import { analysisStorage } from '../storage/analysis-storage'
 import shippedStorage from '../storage/shipped-storage'
 import type { ShippedFeature } from '../types/storage'
 
@@ -96,6 +97,7 @@ export async function generateWiki(
   const ships = await shippedStorage.getAll(projectId)
   const entries = projectMemory.recall(projectId, { limit: 500 })
   const declaredEntries = entries.filter((e) => e.type !== 'shipped')
+  const analysis = await analysisStorage.getActive(projectId).catch(() => null)
   const byType = new Map<string, MemoryEntry[]>()
   for (const entry of declaredEntries) {
     const bucket = byType.get(entry.type) ?? []
@@ -124,6 +126,36 @@ export async function generateWiki(
   for (const [key, items] of byTag) {
     const body = [`# Tag: ${key}`, '', formatMemoryMd(items), ''].join('\n')
     await writeFile(generatedRoot, `tags/${slugify(key)}.md`, body)
+    filesWritten++
+  }
+
+  // Patterns + anti-patterns from the most recent project analysis.
+  // These are distinct from memory entries: memory is user/agent-declared;
+  // these are inferred by pattern-extractor during `prjct sync`. Surfaced
+  // so an agent reading the wiki gets the full picture.
+  const patterns = analysis?.patterns ?? []
+  const antiPatterns = analysis?.antiPatterns ?? []
+  if (patterns.length > 0 || antiPatterns.length > 0) {
+    const lines: string[] = ['# Patterns (inferred)', '']
+    if (patterns.length > 0) {
+      lines.push('## Patterns')
+      for (const p of patterns) {
+        const loc =
+          p.locations && p.locations.length > 0 ? ` — ${p.locations.slice(0, 3).join(', ')}` : ''
+        lines.push(`- **${p.name}**: ${p.description}${loc}`)
+      }
+      lines.push('')
+    }
+    if (antiPatterns.length > 0) {
+      lines.push('## Anti-patterns')
+      for (const a of antiPatterns) {
+        const file = a.files && a.files.length > 0 ? ` (${a.files[0]})` : ''
+        lines.push(`- **${a.issue}**${file} — ${a.suggestion}`)
+      }
+      lines.push('')
+    }
+    lines.push('> Source: `prjct sync` analysis. Provenance: INFR.')
+    await writeFile(generatedRoot, 'patterns.md', `${lines.join('\n')}\n`)
     filesWritten++
   }
 
@@ -162,8 +194,23 @@ export async function generateWiki(
     indexLines.push('')
   }
 
-  if (ships.length === 0 && declaredEntries.length === 0) {
-    indexLines.push('> No ships or memory entries yet. Run `prjct remember` or `prjct ship`.')
+  if (patterns.length > 0 || antiPatterns.length > 0) {
+    indexLines.push('## Inferred')
+    indexLines.push(
+      `- [patterns](patterns.md) — ${patterns.length} patterns, ${antiPatterns.length} anti-patterns`
+    )
+    indexLines.push('')
+  }
+
+  if (
+    ships.length === 0 &&
+    declaredEntries.length === 0 &&
+    patterns.length === 0 &&
+    antiPatterns.length === 0
+  ) {
+    indexLines.push(
+      '> No ships, memory, or patterns yet. Run `prjct remember`, `prjct ship`, or `prjct sync`.'
+    )
   }
 
   await writeFile(generatedRoot, 'index.md', `${indexLines.join('\n')}\n`)

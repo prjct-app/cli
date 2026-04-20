@@ -75,6 +75,11 @@ interface RecallOpts {
   limit?: number
 }
 
+const DEFAULT_RECALL_LIMIT = 25
+/** Row-count multiplier to give in-memory filters room to work. */
+const OVERFETCH_FACTOR = 4
+const MIN_OVERFETCH = 100
+
 interface EventRow {
   id: number
   type: string
@@ -183,17 +188,22 @@ export const projectMemory = {
    * Returns an empty array on failure — callers treat recall as best-effort.
    */
   recall(projectId: string, opts: RecallOpts = {}): MemoryEntry[] {
-    const limit = opts.limit ?? 25
+    const limit = opts.limit ?? DEFAULT_RECALL_LIMIT
+    // We over-fetch from each source so in-memory filters (topic/tags/types)
+    // still have headroom to return `limit` results. 4× is a heuristic:
+    // enough for the common "filter by one type" case, cheap enough
+    // otherwise.
+    const overfetch = Math.max(limit * OVERFETCH_FACTOR, MIN_OVERFETCH)
     const rows = prjctDb.query<EventRow>(
       projectId,
       'SELECT id, type, data, timestamp FROM events WHERE type LIKE ? ORDER BY id DESC LIMIT ?',
       `${REMEMBER_EVENT_PREFIX}%`,
-      Math.max(limit * 4, 100)
+      overfetch
     )
     const shipped = prjctDb.query<ShippedRow>(
       projectId,
       'SELECT id, name, type, shipped_at, data FROM shipped_features ORDER BY shipped_at DESC LIMIT ?',
-      Math.max(limit * 4, 50)
+      overfetch
     )
 
     let entries: MemoryEntry[] = [...rows.map(rowToEntry), ...shipped.map(shippedRowToEntry)]
