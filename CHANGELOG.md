@@ -1,5 +1,44 @@
 # Changelog
 
+## [2.0.0-alpha.0] - 2026-04-19
+
+**BREAKING.** First alpha of the v2 rewrite — "toolbox for LLMs, not harness".
+
+### Removed integrations (pure MCP gateways, no native value)
+- `prjct jira` — use Jira MCP directly
+- `prjct linear` — use Linear MCP directly
+- `prjct obsidian` — use Obsidian MCP or a custom hook
+
+### Removed verbs (status-changes & ceremony)
+- `done`, `pause`, `resume`, `next` — status transitions, handled by workflows or `prjct status`
+- `bug`, `idea`, `spec` — replaced by `prjct task` + `prjct tag type:bug`
+- `cleanup`, `undo`, `redo`, `history`, `recover`, `enrich`, `design` — maintenance ceremony
+- `dash`, `stats`, `perf`, `velocity`, `tokens`, `sessions` — observability, not primitives
+- `worktree`, `parallel`, `conductor` — harness patterns
+
+### New primitives
+- `prjct status [value]` — inline task status change (Linear-style escape hatch)
+- `prjct tag <k:v> [<k:v>...]` — Claude attaches tags; no heuristic classifier
+- `prjct remember <type> "<content>"` — capture project memory (fact, decision, learning, gotcha, pattern, anti-pattern, shipped)
+
+### CLI surface (v2 minimal)
+- Core: `task`, `ship`, `workflow`, `context`, `status`, `tag`, `remember`
+- Bootstrap: `init`, `setup`, `login`, `logout`, `update`, `uninstall`
+
+### Skills (~/.claude/skills/)
+- Kept: `prjct-context`, `prjct-task` (toolbox-style rewrite), `prjct-ship`, `prjct-workflow`
+- Dropped: 12 dead skills matching removed commands
+
+### Stats
+- ~7,000 LOC removed across integrations, aux commands, templates, and tests
+- Skills bundle: 16 → 4  |  templates bundle: 71 → 52 files
+- Build output: 1.61 MB → 1.40 MB (-13%)
+
+### Coming next (not in this alpha)
+- PR 2 — dispatcher auto-route (`prjct "fix bug"` → `prjct task`)
+- PR 3 — lazy context injection (`prjct task` < 50 tokens)
+- PR 4 — workflow engine upgrade: status-transitions as steps, conditionals, parallel hooks, cache, rich project-memory API
+
 ## [1.56.12] - 2026-04-14
 
 ### Bug Fixes
