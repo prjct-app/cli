@@ -144,17 +144,11 @@ async function main(): Promise<void> {
       const standardCommands: Record<string, (p: string | null) => Promise<CommandResult>> = {
         // Core workflow
         task: (p) => commands.task(p, process.cwd(), { md }),
-        done: () => commands.done(process.cwd(), { md }),
-        next: () => commands.next(process.cwd(), { md }),
-        pause: (p) => commands.pause(p || '', process.cwd(), { md }),
-        resume: (p) => commands.resume(p, process.cwd(), { md }),
         // Planning
         init: (p) => commands.init(p),
         ship: (p) => commands.ship(p, process.cwd(), { md }),
         // Workflow
         workflow: (p) => commands.workflowPrefs(p, process.cwd(), { md }),
-        // Sessions (PRJ-285)
-        sessions: () => commands.sessions(process.cwd(), { md, cleanup: options.cleanup === true }),
         status: () =>
           commands.status(process.cwd(), {
             json: options.json === true,

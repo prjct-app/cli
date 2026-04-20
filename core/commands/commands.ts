@@ -69,49 +69,12 @@ class PrjctCommands {
     return this.workflow.now(description, projectPath, options)
   }
 
-  async done(
-    projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
-  ): Promise<CommandResult> {
-    return this.workflow.done(projectPath, options)
-  }
-
-  async next(
-    projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
-  ): Promise<CommandResult> {
-    return this.workflow.next(projectPath, options)
-  }
-
-  async pause(
-    reason: string = '',
-    projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
-  ): Promise<CommandResult> {
-    return this.workflow.pause(reason, projectPath, options)
-  }
-
-  async resume(
-    taskId: string | null = null,
-    projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
-  ): Promise<CommandResult> {
-    return this.workflow.resume(taskId, projectPath, options)
-  }
-
   async workflowPrefs(
     input: string | null = null,
     projectPath: string = process.cwd(),
     options: { md?: boolean } = {}
   ): Promise<CommandResult> {
     return this.workflow.workflow(input, projectPath, options)
-  }
-
-  async sessions(
-    projectPath: string = process.cwd(),
-    options: { md?: boolean; cleanup?: boolean } = {}
-  ): Promise<CommandResult> {
-    return this.workflow.sessions(projectPath, options)
   }
 
   // ========== Planning Commands ==========
