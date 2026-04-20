@@ -35,8 +35,6 @@ const _binCommands = new Set([
   'doctor',
   'uninstall',
   'watch',
-  'linear',
-  'jira',
   'help',
   '-h',
   '--help',
@@ -404,82 +402,6 @@ async function main(): Promise<void> {
         console.error(result.error)
         process.exitCode = 1
       }
-    }
-  } else if (args[0] === 'linear') {
-    const { spawn } = await import('node:child_process')
-    const fs = await import('node:fs')
-    const projectPath = process.cwd()
-    const srcPath = path.join(__dirname, '..', 'core', 'cli', 'linear.ts')
-    const distPath = path.join(__dirname, '..', 'dist', 'cli', 'linear.mjs')
-    const distPathAdjacent = path.join(__dirname, '..', 'cli', 'linear.mjs')
-
-    let linearCliPath: string
-    let runtime: string
-
-    if (fs.existsSync(srcPath)) {
-      linearCliPath = srcPath
-      runtime = 'bun'
-    } else if (fs.existsSync(distPathAdjacent)) {
-      linearCliPath = distPathAdjacent
-      runtime = 'node'
-    } else if (fs.existsSync(distPath)) {
-      linearCliPath = distPath
-      runtime = 'node'
-    } else {
-      console.error('Linear CLI not found. Run "npm run build" first.')
-      process.exitCode = 1
-      linearCliPath = ''
-      runtime = ''
-    }
-
-    if (linearCliPath) {
-      const linearArgs = [...args.slice(1)]
-      const child = spawn(runtime, [linearCliPath, ...linearArgs], {
-        stdio: 'inherit',
-        cwd: projectPath,
-      })
-
-      child.on('close', (code) => {
-        process.exitCode = code || 0
-      })
-    }
-  } else if (args[0] === 'jira') {
-    const { spawn } = await import('node:child_process')
-    const fs = await import('node:fs')
-    const projectPath = process.cwd()
-    const srcPath = path.join(__dirname, '..', 'core', 'cli', 'jira.ts')
-    const distPath = path.join(__dirname, '..', 'dist', 'cli', 'jira.mjs')
-    const distPathAdjacent = path.join(__dirname, '..', 'cli', 'jira.mjs')
-
-    let jiraCliPath: string
-    let runtime: string
-
-    if (fs.existsSync(srcPath)) {
-      jiraCliPath = srcPath
-      runtime = 'bun'
-    } else if (fs.existsSync(distPathAdjacent)) {
-      jiraCliPath = distPathAdjacent
-      runtime = 'node'
-    } else if (fs.existsSync(distPath)) {
-      jiraCliPath = distPath
-      runtime = 'node'
-    } else {
-      console.error('Jira CLI not found. Run "npm run build" first.')
-      process.exitCode = 1
-      jiraCliPath = ''
-      runtime = ''
-    }
-
-    if (jiraCliPath) {
-      const jiraArgs = [...args.slice(1)]
-      const child = spawn(runtime, [jiraCliPath, ...jiraArgs], {
-        stdio: 'inherit',
-        cwd: projectPath,
-      })
-
-      child.on('close', (code) => {
-        process.exitCode = code || 0
-      })
     }
   } else if (args[0] === 'help' || args[0] === '-h' || args[0] === '--help') {
     const { getHelp } = await import('../core/utils/help')

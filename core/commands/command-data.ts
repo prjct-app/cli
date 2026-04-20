@@ -504,32 +504,6 @@ export const COMMANDS: CommandMeta[] = [
     ],
   },
   {
-    name: 'linear',
-    group: 'optional',
-    description: 'Linear integration via MCP (setup/status + delegated operations)',
-    usage: { claude: '/p:linear [command]', terminal: 'prjct linear [command]' },
-    params: '[setup|status|sync|list|get|create|update|start|done|comment|teams|projects]',
-    implemented: true,
-    hasTemplate: true,
-    requiresProject: false,
-    isOptional: true,
-    requiresLlm: true,
-  },
-  {
-    name: 'jira',
-    group: 'optional',
-    description: 'Jira integration via MCP (setup/status + delegated operations)',
-    usage: { claude: '/p:jira [command]', terminal: 'prjct jira [command]' },
-    params:
-      '[setup|status|sync|list|get|create|update|start|done|transition|comment|projects|boards]',
-    implemented: true,
-    hasTemplate: true,
-    requiresProject: false,
-    isOptional: true,
-    requiresLlm: true,
-  },
-
-  {
     name: 'worktree',
     group: 'optional',
     description: 'Manage git worktrees for parallel agent sessions',
@@ -557,7 +531,6 @@ export const COMMANDS: CommandMeta[] = [
     isOptional: true,
     features: [
       'Spawn tasks in isolated worktrees',
-      'Plan dispatch from Linear/Jira tickets',
       'Track all active agent sessions',
       'Join completed branches',
     ],

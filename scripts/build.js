@@ -5,8 +5,6 @@
  *
  * Produces a complete dist/ for npm publishing:
  * - dist/bin/prjct.mjs     CLI entry point (ESM, minified, sourcemapped)
- * - dist/cli/linear.mjs    Linear CLI subprocess (ESM, minified)
- * - dist/cli/jira.mjs      Jira CLI subprocess (ESM, minified)
  * - dist/templates.json    All templates bundled into single JSON
  *
  * @version 3.0.0
@@ -107,57 +105,7 @@ var __dirname = __pathDirname(__filename);`,
   fs.writeFileSync(path.join(DIST, 'bin', 'prjct.mjs'), shimSource)
   fs.chmodSync(path.join(DIST, 'bin', 'prjct.mjs'), 0o755)
 
-  // 2. Linear CLI (ESM, minified — spawned as subprocess)
-  console.log('  → dist/cli/linear.mjs')
-  await esbuild.build({
-    entryPoints: [path.join(ROOT, 'core/cli/linear.ts')],
-    outfile: path.join(DIST, 'cli', 'linear.mjs'),
-    bundle: true,
-    platform: 'node',
-    target: 'node18',
-    format: 'esm',
-    minify: true,
-    keepNames: true,
-    packages: 'external',
-    plugins: [stripShebangPlugin()],
-    banner: {
-      js: `#!/usr/bin/env node
-import { createRequire as __createRequire } from 'module';
-import { fileURLToPath as __fileURLToPath } from 'url';
-import { dirname as __pathDirname } from 'path';
-var require = __createRequire(import.meta.url);
-var __filename = __fileURLToPath(import.meta.url);
-var __dirname = __pathDirname(__filename);`,
-    },
-  })
-  fs.chmodSync(path.join(DIST, 'cli', 'linear.mjs'), 0o755)
-
-  // 3. Jira CLI (ESM, minified — spawned as subprocess)
-  console.log('  → dist/cli/jira.mjs')
-  await esbuild.build({
-    entryPoints: [path.join(ROOT, 'core/cli/jira.ts')],
-    outfile: path.join(DIST, 'cli', 'jira.mjs'),
-    bundle: true,
-    platform: 'node',
-    target: 'node18',
-    format: 'esm',
-    minify: true,
-    keepNames: true,
-    packages: 'external',
-    plugins: [stripShebangPlugin()],
-    banner: {
-      js: `#!/usr/bin/env node
-import { createRequire as __createRequire } from 'module';
-import { fileURLToPath as __fileURLToPath } from 'url';
-import { dirname as __pathDirname } from 'path';
-var require = __createRequire(import.meta.url);
-var __filename = __fileURLToPath(import.meta.url);
-var __dirname = __pathDirname(__filename);`,
-    },
-  })
-  fs.chmodSync(path.join(DIST, 'cli', 'jira.mjs'), 0o755)
-
-  // 4. Daemon entry point (ESM, minified — spawned as background process)
+  // 2. Daemon entry point (ESM, minified — spawned as background process)
   console.log('  → dist/daemon/entry.mjs')
   await esbuild.build({
     entryPoints: [path.join(ROOT, 'core/daemon/entry.ts')],
@@ -224,7 +172,7 @@ import{connect}from"node:net";import{existsSync}from"node:fs";import{randomUUID}
 const sockPath=homedir()+"/.prjct-cli/run/daemon.sock";
 const args=process.argv.slice(2);
 const cmd=args.find(a=>!a.startsWith("-"));
-const skip=new Set(["daemon","start","setup","update","dev","web","serve","context","hooks","doctor","uninstall","watch","linear","jira","help","-h","--help","version","-v","--version"]);
+const skip=new Set(["daemon","start","setup","update","dev","web","serve","context","hooks","doctor","uninstall","watch","help","-h","--help","version","-v","--version"]);
 if(cmd&&!skip.has(cmd)&&process.env.PRJCT_NO_DAEMON!=="1"&&existsSync(sockPath)){
   const cArgs=[],cOpts={};
   for(let i=0;i<args.length;i++){const a=args[i];if(a.startsWith("--")){const r=a.slice(2);if(r.includes("=")){const e=r.indexOf("=");cOpts[r.slice(0,e)]=r.slice(e+1)}else if(i+1<args.length&&!args[i+1].startsWith("--")){cOpts[r]=args[++i]}else{cOpts[r]=true}}else if(a.startsWith("-")&&a.length===2){cOpts[a.slice(1)]=true}else if(i>0){cArgs.push(a)}}
