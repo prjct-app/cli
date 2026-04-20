@@ -24,7 +24,11 @@ import { formatMemoryMd, type MemoryEntry, projectMemory } from '../memory/proje
 import shippedStorage from '../storage/shipped-storage'
 import type { ShippedFeature } from '../types/storage'
 
-const WIKI_DIRNAME = '.prjct/wiki'
+// Generated output goes into a dedicated subdir so user notes placed in
+// `.prjct/wiki/` (e.g. `my-notes.md`) survive wiki rebuilds. Only this
+// subdir gets wiped.
+const WIKI_ROOT_DIRNAME = '.prjct/wiki'
+const GENERATED_SUBDIR = '_generated'
 
 function slugify(value: string): string {
   return (
@@ -82,9 +86,12 @@ export async function generateWiki(
   wikiRoot: string
   filesWritten: number
 }> {
-  const wikiRoot = path.join(projectPath, WIKI_DIRNAME)
-  await fs.rm(wikiRoot, { recursive: true, force: true })
-  await fs.mkdir(wikiRoot, { recursive: true })
+  const wikiRoot = path.join(projectPath, WIKI_ROOT_DIRNAME)
+  const generatedRoot = path.join(wikiRoot, GENERATED_SUBDIR)
+  // Only the _generated/ subdir gets wiped — the user's own notes at
+  // `.prjct/wiki/*.md` are preserved across rebuilds.
+  await fs.rm(generatedRoot, { recursive: true, force: true })
+  await fs.mkdir(generatedRoot, { recursive: true })
 
   const ships = await shippedStorage.getAll(projectId)
   const entries = projectMemory.recall(projectId, { limit: 500 })
@@ -102,30 +109,32 @@ export async function generateWiki(
   // Ships
   for (const ship of ships) {
     const slug = slugify(ship.name)
-    await writeFile(wikiRoot, `ships/${slug}.md`, formatShipBody(ship))
+    await writeFile(generatedRoot, `ships/${slug}.md`, formatShipBody(ship))
     filesWritten++
   }
 
   // Memory by type
   for (const [type, items] of byType) {
     const body = [`# ${type.toUpperCase()}`, '', formatMemoryMd(items), ''].join('\n')
-    await writeFile(wikiRoot, `memory/${type}.md`, body)
+    await writeFile(generatedRoot, `memory/${type}.md`, body)
     filesWritten++
   }
 
   // Memory by tag key
   for (const [key, items] of byTag) {
     const body = [`# Tag: ${key}`, '', formatMemoryMd(items), ''].join('\n')
-    await writeFile(wikiRoot, `tags/${slugify(key)}.md`, body)
+    await writeFile(generatedRoot, `tags/${slugify(key)}.md`, body)
     filesWritten++
   }
 
   // Index
   const indexLines: string[] = []
-  indexLines.push('# Project Wiki')
+  indexLines.push('# Project Wiki (generated)')
   indexLines.push('')
   indexLines.push('Agent-crawlable snapshot of project memory. Regenerated on `prjct ship`.')
   indexLines.push('Read directly with Read/Glob — no CLI round-trip needed.')
+  indexLines.push('')
+  indexLines.push('> Auto-generated. Your own notes under `.prjct/wiki/` are preserved.')
   indexLines.push('')
 
   if (ships.length > 0) {
@@ -157,8 +166,24 @@ export async function generateWiki(
     indexLines.push('> No ships or memory entries yet. Run `prjct remember` or `prjct ship`.')
   }
 
-  await writeFile(wikiRoot, 'index.md', `${indexLines.join('\n')}\n`)
+  await writeFile(generatedRoot, 'index.md', `${indexLines.join('\n')}\n`)
   filesWritten++
+
+  // Top-level README pointer. Only written if the user hasn't placed their
+  // own README.md at `.prjct/wiki/` — we never clobber user files.
+  const topReadmePath = path.join(wikiRoot, 'README.md')
+  const topReadmeExists = await fs.stat(topReadmePath).then(
+    () => true,
+    () => false
+  )
+  if (!topReadmeExists) {
+    await writeFile(
+      wikiRoot,
+      'README.md',
+      `# Project Wiki\n\nAuto-generated content lives in \`${GENERATED_SUBDIR}/\`. Start at [${GENERATED_SUBDIR}/index.md](${GENERATED_SUBDIR}/index.md).\n\nAny markdown you put here (alongside \`${GENERATED_SUBDIR}/\`) survives rebuilds.\n`
+    )
+    filesWritten++
+  }
 
   return { wikiRoot, filesWritten }
 }

@@ -44,6 +44,15 @@ async function runStatusTransition(
 }
 
 async function runShellAction(rule: WorkflowRule, projectPath: string): Promise<void> {
+  // Imported (shared-template) rules aren't auto-executed yet — a future
+  // release will add an approval prompt. For now, fail loud so a template
+  // registry can't sneak arbitrary shell onto a user's machine.
+  if (rule.trustSource === 'imported') {
+    throw new Error(
+      `Refusing to run imported rule without approval: ${rule.description || rule.action}. ` +
+        'Re-create the rule locally if you trust it.'
+    )
+  }
   await execAsync(rule.action, {
     timeout: rule.timeoutMs,
     cwd: projectPath,

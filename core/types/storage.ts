@@ -405,6 +405,13 @@ export interface WorkflowRule {
    * by gates and steps — those stay sequential.
    */
   parallel: boolean
+  /**
+   * Where the rule's shell action came from. `local` (default) runs as
+   * the user authored it. `imported` indicates the rule was pulled from a
+   * shared template — reserved for a future template registry so the
+   * engine can refuse unfamiliar shell actions until approved.
+   */
+  trustSource: 'local' | 'imported'
 }
 
 // =============================================================================

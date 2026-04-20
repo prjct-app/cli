@@ -706,6 +706,23 @@ const migrations: Migration[] = [
       `)
     },
   },
+  {
+    version: 14,
+    name: 'workflow-rules-trust-source',
+    up: (db: SqliteDatabase) => {
+      // `trust_source` tags where a rule came from. `local` (default) runs
+      // without prompting — the user wrote it themselves. `imported` means
+      // it came from a shared template and the engine should refuse to run
+      // its shell action until the user explicitly approves. No behavioral
+      // change in alpha.4 (every existing rule is local) — the column just
+      // buys forward-compat for template importing in a later release.
+      try {
+        db.run("ALTER TABLE workflow_rules ADD COLUMN trust_source TEXT NOT NULL DEFAULT 'local'")
+      } catch {
+        // Column may already exist
+      }
+    },
+  },
 ]
 
 // =============================================================================
