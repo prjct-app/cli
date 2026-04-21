@@ -442,12 +442,45 @@ async function main(): Promise<void> {
     const hookName = args[1]
     const projectPath = process.cwd()
     try {
-      if (hookName === 'session-start') {
-        const { runSessionStartHook } = await import('../core/hooks/session-start')
-        await runSessionStartHook(projectPath)
-      } else {
-        // Unknown hook: emit empty object, stay out of the way.
-        process.stdout.write('{}\n')
+      switch (hookName) {
+        case 'session-start': {
+          const { runSessionStartHook } = await import('../core/hooks/session-start')
+          await runSessionStartHook(projectPath)
+          break
+        }
+        case 'prompt': {
+          const { runPromptHook } = await import('../core/hooks/prompt')
+          await runPromptHook(projectPath)
+          break
+        }
+        case 'pre-commit': {
+          const { runPreCommitHook } = await import('../core/hooks/pre-commit')
+          await runPreCommitHook(projectPath)
+          break
+        }
+        case 'post-edit': {
+          const { runPostEditHook } = await import('../core/hooks/post-edit')
+          await runPostEditHook(projectPath)
+          break
+        }
+        case 'stop': {
+          const { runStopHook } = await import('../core/hooks/stop')
+          await runStopHook(projectPath)
+          break
+        }
+        case 'subagent-start': {
+          const { runSubagentStartHook } = await import('../core/hooks/subagent-start')
+          await runSubagentStartHook(projectPath)
+          break
+        }
+        case 'cwd-changed': {
+          const { runCwdChangedHook } = await import('../core/hooks/cwd-changed')
+          await runCwdChangedHook(projectPath)
+          break
+        }
+        default:
+          // Unknown hook: emit empty object, stay out of the way.
+          process.stdout.write('{}\n')
       }
       process.exitCode = 0
     } catch {

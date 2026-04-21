@@ -18,19 +18,13 @@
 import configManager from '../infrastructure/config-manager'
 import { formatMemoryMd, type MemoryEntry, projectMemory } from '../memory/project-memory'
 import type { ProjectPersona } from '../types/config'
+import { buildHookOutput, emit, readStdinSafe, safeRun } from './_shared'
 
 const MAX_CHARS = 2500
 const RECENT_MEMORY_LIMIT = 5
 
 interface HookInput {
   source?: 'startup' | 'resume' | 'clear' | 'compact'
-}
-
-interface HookOutput {
-  hookSpecificOutput?: {
-    hookEventName: 'SessionStart'
-    additionalContext: string
-  }
 }
 
 /**
@@ -99,40 +93,9 @@ function formatPersona(persona: ProjectPersona): string {
  * Never throws; hook failures must not break the host session.
  */
 export async function runSessionStartHook(projectPath: string = process.cwd()): Promise<void> {
-  try {
-    await readStdinSafe()
+  await safeRun(async () => {
+    await readStdinSafe<HookInput>()
     const context = await buildSessionContext(projectPath)
-    const output: HookOutput = context
-      ? {
-          hookSpecificOutput: {
-            hookEventName: 'SessionStart',
-            additionalContext: context,
-          },
-        }
-      : {}
-    process.stdout.write(`${JSON.stringify(output)}\n`)
-  } catch {
-    // Never surface errors to the host — emit empty object, stay out of the way.
-    process.stdout.write('{}\n')
-  }
-}
-
-async function readStdinSafe(): Promise<HookInput> {
-  if (process.stdin.isTTY) return {}
-  return new Promise((resolve) => {
-    const chunks: Buffer[] = []
-    process.stdin.on('data', (c: Buffer) => chunks.push(c))
-    process.stdin.on('end', () => {
-      try {
-        const raw = Buffer.concat(chunks).toString('utf-8').trim()
-        if (!raw) return resolve({})
-        resolve(JSON.parse(raw) as HookInput)
-      } catch {
-        resolve({})
-      }
-    })
-    process.stdin.on('error', () => resolve({}))
-    // Safety: if stdin never closes (bad caller), timeout after 200ms.
-    setTimeout(() => resolve({}), 200)
+    emit(buildHookOutput('SessionStart', context))
   })
 }

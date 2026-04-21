@@ -218,107 +218,72 @@ function formatRichContext(ctx: SkillContext): string {
 // SKILL DEFINITIONS
 // ============================================================================
 
+/**
+ * Anti-harness skill template (canonical Anthropic shape).
+ *
+ * The body is `Use when` + `What's here` + `Gotchas` — zero numbered
+ * steps, zero "first X then Y", zero "pre-flight BLOCKING" language.
+ * prjct describes state; Claude decides CÓMO.
+ *
+ * Rich project data (persona, active task, recent shipped, patterns,
+ * …) is injected by `formatRichContext(ctx)` so the single skill
+ * still carries project-specific signal without being prescriptive.
+ */
 const SKILL_DEFINITIONS: SkillDefinition[] = [
-  // ── Non-invocable context ──────────────────────────────────────────────
   {
-    name: 'prjct-context',
-    description: 'Project context with state and user patterns',
-    allowedTools: [],
-    userInvocable: false,
-    condition: () => true,
-    body: (ctx) => `${formatProjectHeader(ctx)}
-${formatRichContext(ctx)}`,
-  },
-
-  // ── Core Workflow — State machine ─────────────────────────────────────
-  {
-    name: 'prjct-task',
+    name: 'prjct',
     description:
-      'Start a task. Toolbox-style — you decide the how; prjct holds context and memory.',
-    allowedTools: ['Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep', 'Task', 'AskUserQuestion'],
+      'Persona-aware project memory + workflows. Use when you need prior decisions, learnings, or to run a registered workflow.',
+    allowedTools: ['Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep', 'Task'],
     condition: () => true,
-    body: (_ctx) => `## Workflow
-
-### 1. Register
-\`\`\`bash
-prjct task "$ARGUMENTS" --md
-\`\`\`
-Returns task id + branch + status.
-
-### 2. Tag (if you have a strong signal)
-If the task is clearly a bug / chore / improvement, tag it. Otherwise leave
-it untagged — prjct does NOT guess.
-\`\`\`bash
-prjct tag type:bug
-prjct tag domain:frontend priority:high
-\`\`\`
-
-### 3. Work
-Use your own tools (Read, Grep, Edit). Pull context on demand:
-- \`prjct context files "<desc>"\` — relevant files, scored
-- \`prjct context patterns\` — project patterns
-- \`prjct context memory <topic>\` — remembered facts, decisions, gotchas
-
-### 4. Capture learnings (optional, cheap)
-When you discover something a future LLM should know:
-\`\`\`bash
-prjct remember learning "editing X without updating Y breaks Z"
-prjct remember decision "chose SQLite over Postgres — app is local"
-\`\`\`
-
-### 5. Finish
-- Ship: \`prjct ship --md\` (runs the ship workflow)
-- Change status inline: \`prjct status <value>\`
-- Or run any custom workflow: \`prjct <workflow-name>\`
-`,
-  },
-  {
-    name: 'prjct-ship',
-    description:
-      'Ship feature: PR, version bump, changelog. Auto-completes active task if one exists before shipping.',
-    allowedTools: ['Bash', 'Read', 'AskUserQuestion'],
-    condition: () => true,
-    body: (_ctx) => `## Workflow
-
-### Pre-flight (BLOCKING)
-1. Verify NOT on main/master: \`git branch --show-current\`
-2. Verify GitHub auth: \`gh auth status\`
-
-### Ship
-\`\`\`bash
-prjct ship "$ARGUMENTS" --md
-\`\`\`
-Review what will be committed, versioned, and PR'd.
-ASK: "Ready to ship?" Yes / No / Show diff
-
-### Finalize
-- Commit with prjct footer: \`Generated with [p/](https://www.prjct.app/)\`
-- Push and create PR
-- Update issue tracker if linked
-`,
-  },
-  {
-    name: 'prjct-workflow',
-    description:
-      'Configures workflow gates, hooks, steps, and instructions via natural language (English/Spanish). Use when the user wants to customize the task→done→ship cycle with before/after hooks, quality gates, or custom steps.',
-    allowedTools: ['Bash', 'AskUserQuestion'],
-    condition: () => true,
-    body: (_ctx) => `## Workflow
-
-\`\`\`bash
-prjct workflow "$ARGUMENTS" --md
-\`\`\`
-Read CLI output for hook configuration results.
-
-Supports natural language in English and Spanish:
-- "before ship, run tests"
-- "antes de ship, correr tests"
-- Gates: block transitions until conditions are met
-- Hooks: run commands before/after state transitions
-- Steps: add custom workflow stages
-`,
+    body: (ctx) => buildPrjctSkillBody(ctx),
   },
 ]
+
+function buildPrjctSkillBody(ctx: SkillContext): string {
+  return [
+    '# prjct',
+    '',
+    `## Use when`,
+    '',
+    'You want to:',
+    '- recall prior project decisions, learnings, or shipped features',
+    '- capture a thought, todo, or insight without a commitment',
+    '- run a workflow the project already registered',
+    '- understand your role and the MCPs available in this project',
+    '',
+    "## What's here",
+    '',
+    formatProjectHeader(ctx),
+    '',
+    formatRichContext(ctx),
+    '',
+    '### Primitives',
+    '',
+    '- `prjct capture "<anything>"` — inbox dump (zero ceremony)',
+    '- `prjct remember <type> "<content>" [--tags]` — typed memory entry',
+    '- `prjct context memory [topic]` — recall with optional keyword filter',
+    '- `prjct workflow list` / `prjct workflow run <name>` — registered workflows',
+    '- `prjct seed list` — active packs (memory types + workflow slots)',
+    '',
+    'Base memory types: `fact · decision · learning · gotcha · pattern · anti-pattern · shipped · inbox · todo · idea · insight · question · source · person`. Any lowercase string works (e.g. `recipe`, `okr`, `stakeholder`).',
+    '',
+    '### Data paths',
+    '',
+    '- `.prjct/wiki/_generated/` — agent-crawlable markdown (regenerated on ship/remember)',
+    '- `.prjct/wiki/captured/` — drop notes with frontmatter, run `prjct context wiki sync` to ingest',
+    '- `.prjct/prjct.config.json` — persona + active packs',
+    '',
+    '## Gotchas',
+    '',
+    '- Memory recall is best-effort — an empty result means no match, not "nothing exists".',
+    '- Tags are freeform strings — reuse existing vocabulary before inventing new keys.',
+    '- Secret-like content is refused by `remember` and `capture` unless `--force`.',
+    '- Bare `prjct "<text>"` routes to `capture` (inbox), not `task`. Use `prjct task` explicitly for work that needs a branch/worktree.',
+    '- Hooks in `~/.claude/settings.json` already inject persona + topical memory on SessionStart / UserPromptSubmit — you rarely need to call prjct by hand at session start.',
+    '',
+  ].join('\n')
+}
 
 // ============================================================================
 // HELPERS
