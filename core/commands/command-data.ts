@@ -146,6 +146,42 @@ export const COMMANDS: CommandMeta[] = [
     ],
   },
   {
+    name: 'seed',
+    group: 'core',
+    description: 'Manage declarative packs (persona, memory types, workflow slots, hook signals)',
+    usage: {
+      claude: '/p:seed list',
+      terminal: 'prjct seed add pm,daily',
+    },
+    params: '[add|remove|list|suggest] [pack,pack,...]',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: true,
+    features: [
+      'Packs declare signals only — no bash is written',
+      'Add or remove multi-persona contexts per project',
+      'Auto-detect suggestion from project stack',
+    ],
+  },
+  {
+    name: 'install',
+    group: 'core',
+    description: 'Install Claude Code hooks (~/.claude/settings.json merge-safe)',
+    usage: {
+      claude: '/p:install',
+      terminal: 'prjct install',
+    },
+    params: '',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: false,
+    features: [
+      'Writes 7 passive hooks: SessionStart, UserPromptSubmit, …',
+      'Idempotent; existing non-prjct hooks stay intact',
+      'Remove with `prjct claude uninstall`',
+    ],
+  },
+  {
     name: 'diff',
     group: 'core',
     description: 'Show diff between draft and sealed analysis runs',

@@ -89,6 +89,12 @@ export class PlanningCommands extends PrjctCommandsBase {
       const config = await configManager.createConfig(projectPath, author)
       const projectId = config.projectId
 
+      // Apply --pack / --persona into the config so hooks (SessionStart, etc.)
+      // can read them immediately. Packs declare signals only — activation
+      // never writes workflow scripts. Auto-detect fires when neither flag
+      // is explicitly set so fresh repos still get sensible defaults.
+      await this._applyInitialPacksAndPersona(projectPath, opts)
+
       out.step(2, 4, 'Creating structure...')
 
       await pathManager.ensureProjectStructure(projectId)
@@ -228,6 +234,45 @@ export class PlanningCommands extends PrjctCommandsBase {
 
     console.log('  Docs: https://prjct.app/docs')
     console.log('')
+  }
+
+  /**
+   * Apply `--pack` / `--persona` flags — or auto-detect when neither is
+   * set — into the fresh config. Declarative: sets `persona.role`,
+   * `persona.mcps`, `persona.packs`. No scripts written.
+   */
+  private async _applyInitialPacksAndPersona(
+    projectPath: string,
+    opts: InitOptions
+  ): Promise<void> {
+    const { activatePacks, detectSuggestedPacks } = await import('../packs/pack-manager')
+    let packNames: string[] = []
+    if (opts.pack) {
+      packNames = opts.pack
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    } else if (!opts.persona) {
+      // No explicit intent from the caller → fall back to auto-detect so
+      // fresh repos still get sensible default packs (e.g. code+daily
+      // on a package.json repo).
+      packNames = await detectSuggestedPacks(projectPath)
+    }
+
+    if (packNames.length > 0) {
+      await activatePacks(projectPath, packNames, { suggestPersona: true })
+    }
+
+    // If the caller explicitly set a persona role, lift it into config.
+    if (opts.persona) {
+      const configManagerInner = (await import('../infrastructure/config-manager')).default
+      const existing = await configManagerInner.readConfig(projectPath)
+      if (existing) {
+        const persona = existing.persona ?? { role: opts.persona }
+        persona.role = opts.persona
+        await configManagerInner.writeConfig(projectPath, { ...existing, persona })
+      }
+    }
   }
 
   /**

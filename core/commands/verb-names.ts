@@ -23,6 +23,8 @@ export const REGISTERED_VERBS = [
   'login',
   'logout',
   'auth',
+  'seed',
+  'install',
 ] as const
 
 export type RegisteredVerb = (typeof REGISTERED_VERBS)[number]

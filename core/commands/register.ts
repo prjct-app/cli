@@ -11,9 +11,11 @@
 import { AnalysisCommands } from './analysis'
 import { CATEGORIES, COMMANDS } from './command-data'
 import { ContextCommands } from './context'
+import { InstallCommands } from './install'
 import { PlanningCommands } from './planning'
 import { PrimitiveCommands } from './primitives'
 import { commandRegistry } from './registry'
+import { SeedCommands } from './seed'
 import { SetupCommands } from './setup'
 import { ShippingCommands } from './shipping'
 import { UninstallCommands } from './uninstall'
@@ -30,6 +32,8 @@ const context = new ContextCommands()
 const primitives = new PrimitiveCommands()
 const uninstallCmd = new UninstallCommands()
 const updateCmd = new UpdateCommands()
+const seedCmd = new SeedCommands()
+const installCmd = new InstallCommands()
 
 /**
  * Register categories
@@ -83,6 +87,12 @@ export function registerAllCommands(): void {
   commandRegistry.registerMethod('status', primitives, 'status', getMeta('status'))
   commandRegistry.registerMethod('tag', primitives, 'tag', getMeta('tag'))
   commandRegistry.registerMethod('remember', primitives, 'remember', getMeta('remember'))
+
+  // v2 alpha.8: pack system — seeds are declarative signals (memory types,
+  // workflow slot names, hook signals). `seed` subcommands manage which
+  // packs are active per project. `install` wires Claude Code hooks.
+  commandRegistry.registerMethod('seed', seedCmd, 'seed', getMeta('seed'))
+  commandRegistry.registerMethod('install', installCmd, 'install', getMeta('install'))
 }
 
 // Auto-register on import

@@ -36,6 +36,8 @@ const _binCommands = new Set([
   'uninstall',
   'claude',
   'hook',
+  'seed',
+  'install',
   'watch',
   'help',
   '-h',
@@ -378,6 +380,33 @@ async function main(): Promise<void> {
     const exitCode = await hooksService.run(process.cwd(), subcommand)
     process.exitCode = exitCode
     done()
+  } else if (args[0] === 'seed') {
+    // `prjct seed add|remove|list|suggest [args]` — manage active packs.
+    const sub = args[1] ?? 'list'
+    const rest = args
+      .slice(2)
+      .filter((a) => !a.startsWith('-'))
+      .join(',')
+    const mdMode = args.includes('--md')
+    const { SeedCommands } = await import('../core/commands/seed')
+    const cmd = new SeedCommands()
+    let result: { success: boolean; error?: string } = { success: false, error: 'unknown' }
+    if (sub === 'add') result = await cmd.add(rest || null, process.cwd(), { md: mdMode })
+    else if (sub === 'remove')
+      result = await cmd.remove(rest || null, process.cwd(), { md: mdMode })
+    else if (sub === 'list') result = await cmd.list(null, process.cwd(), { md: mdMode })
+    else if (sub === 'suggest') result = await cmd.suggest(null, process.cwd(), { md: mdMode })
+    else {
+      console.error(`Unknown seed subcommand: ${sub}. Use: add, remove, list, suggest.`)
+    }
+    process.exitCode = result.success ? 0 : 1
+  } else if (args[0] === 'install') {
+    // `prjct install` is a convenience alias for `prjct claude install`.
+    const { InstallCommands } = await import('../core/commands/install')
+    const cmd = new InstallCommands()
+    const mdMode = args.includes('--md')
+    const result = await cmd.install(null, process.cwd(), { md: mdMode })
+    process.exitCode = result.success ? 0 : 1
   } else if (args[0] === 'claude') {
     // `prjct claude install|uninstall|status` — manage Claude Code hooks in ~/.claude/settings.json.
     const subcommand = args[1] ?? 'status'

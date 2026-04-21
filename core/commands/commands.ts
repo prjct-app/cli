@@ -18,8 +18,10 @@ import type { AgentInfo } from '../types/agents'
 import type { AnalyzeOptions, Author, CommandResult, SetupOptions } from '../types/commands'
 import { AnalysisCommands } from './analysis'
 import { ContextCommands } from './context'
+import { InstallCommands } from './install'
 import { PlanningCommands } from './planning'
 import { PrimitiveCommands } from './primitives'
+import { SeedCommands } from './seed'
 import { SetupCommands } from './setup'
 import { ShippingCommands } from './shipping'
 import { UpdateCommands } from './update'
@@ -39,6 +41,8 @@ class PrjctCommands {
   private updateCmds: UpdateCommands
   private contextCmds: ContextCommands
   private primitivesCmds: PrimitiveCommands
+  private seedCmds: SeedCommands
+  private installCmds: InstallCommands
 
   // Shared state
   agent: unknown
@@ -55,6 +59,8 @@ class PrjctCommands {
     this.updateCmds = new UpdateCommands()
     this.contextCmds = new ContextCommands()
     this.primitivesCmds = new PrimitiveCommands()
+    this.seedCmds = new SeedCommands()
+    this.installCmds = new InstallCommands()
 
     this.agent = null
     this.agentInfo = null
@@ -83,10 +89,10 @@ class PrjctCommands {
   // ========== Planning Commands ==========
 
   async init(
-    idea: string | null = null,
+    optionsOrIdea: import('../types/commands').InitOptions | string | null = null,
     projectPath: string = process.cwd()
   ): Promise<CommandResult> {
-    return this.planning.init(idea, projectPath)
+    return this.planning.init(optionsOrIdea, projectPath)
   }
 
   // ========== Shipping Commands ==========
@@ -156,6 +162,23 @@ class PrjctCommands {
     options: { md?: boolean; tags?: string } = {}
   ): Promise<CommandResult> {
     return this.primitivesCmds.remember(args, projectPath, options)
+  }
+
+  // v2 alpha.8: declarative packs + Claude Code hook install
+  async seed(
+    input: string | null = null,
+    projectPath: string = process.cwd(),
+    options: { md?: boolean } = {}
+  ): Promise<CommandResult> {
+    return this.seedCmds.seed(input, projectPath, options)
+  }
+
+  async install(
+    _arg: string | null = null,
+    projectPath: string = process.cwd(),
+    options: { md?: boolean } = {}
+  ): Promise<CommandResult> {
+    return this.installCmds.install(null, projectPath, options)
   }
 
   // ========== Auth Commands ==========

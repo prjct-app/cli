@@ -163,8 +163,15 @@ async function main(): Promise<void> {
       const standardCommands: Record<string, (p: string | null) => Promise<CommandResult>> = {
         // Core workflow
         task: (p) => commands.task(p, process.cwd(), { md }),
-        // Planning
-        init: (p) => commands.init(p),
+        // Planning — init accepts --pack / --persona / --yes to pre-seed
+        // packs and persona without the interactive wizard.
+        init: (p) =>
+          commands.init({
+            idea: p,
+            yes: options.yes === true,
+            pack: options.pack ? String(options.pack) : undefined,
+            persona: options.persona ? String(options.persona) : undefined,
+          }),
         ship: (p) => commands.ship(p, process.cwd(), { md }),
         // Workflow
         workflow: (p) => commands.workflowPrefs(p, process.cwd(), { md }),
@@ -206,6 +213,9 @@ async function main(): Promise<void> {
         login: () => commands.login({ md, url: options.url ? String(options.url) : undefined }),
         logout: () => commands.logout(),
         auth: (p) => commands.auth(p, { md }),
+        // v2 alpha.8 packs + Claude Code hook install
+        seed: (p) => commands.seed(p, process.cwd(), { md }),
+        install: () => commands.install(null, process.cwd(), { md }),
       }
 
       const handler = standardCommands[commandName]
