@@ -187,19 +187,6 @@ async function main(): Promise<void> {
             package: options.package ? String(options.package) : undefined,
             full: options.full === true,
           }),
-        diff: () => commands.diff(process.cwd(), { json: options.json === true, md }),
-        seal: () => commands.seal(process.cwd(), { json: options.json === true }),
-        rollback: () => commands.rollback(process.cwd(), { json: options.json === true, md }),
-        verify: () =>
-          commands.verify(process.cwd(), {
-            json: options.json === true,
-            semantic: options.semantic === true,
-          }),
-        'analysis-payload': () =>
-          commands.analysisPayload(process.cwd(), { json: options.json === true, md }),
-        'analysis-save-llm': (p) => commands.saveLlmAnalysis(p || '', process.cwd(), { md }),
-        'analysis-llm': () =>
-          commands.getLlmAnalysis(process.cwd(), { json: options.json === true, md }),
         start: () => commands.start(),
         // Context (for Claude templates)
         context: (p) => commands.context(p),

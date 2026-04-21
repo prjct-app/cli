@@ -120,7 +120,13 @@ class WorkflowRuleStorage {
       createdAt: { column: 'created_at' },
       sortOrder: { column: 'sort_order' },
       whenExpr: { column: 'when_expr' },
-      parallel: { column: 'parallel', transform: (v: SqliteBindings) => (v === false ? 0 : 1) },
+      parallel: {
+        column: 'parallel',
+        // Caller passes boolean (WorkflowRule['parallel']). The map types
+        // everything as SqliteBindings for uniformity, so widen explicitly
+        // before the comparison — tsc correctly refuses the raw check.
+        transform: (v: SqliteBindings) => ((v as boolean | number) === false ? 0 : 1),
+      },
       trustSource: { column: 'trust_source' },
     }
 
