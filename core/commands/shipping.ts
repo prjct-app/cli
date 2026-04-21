@@ -3,7 +3,6 @@
  * Write-Through Architecture: JSON → MD → Event
  */
 
-import memorySystem from '../agentic/memory-system'
 import configManager from '../infrastructure/config-manager'
 import { ChangelogService } from '../services/changelog-service'
 import { syncService } from '../services/sync-service'
@@ -93,14 +92,11 @@ export class ShippingCommands extends PrjctCommandsBase {
         timestamp: dateHelper.getTimestamp(),
       })
 
-      await memorySystem.learnDecision(projectId, 'commit_footer', 'prjct', 'ship')
-
-      // Record ship workflow
-      await memorySystem.recordWorkflow(projectId, 'ship_completed', {
-        description: 'Ship with workflow rules',
-        feature: featureName,
-        version: newVersion,
-      })
+      // Ship is already recorded in `shipped_features` by
+      // shippedStorage.addShipped above, which is what project-memory
+      // reads as `type=shipped`. The old `learnDecision` /
+      // `recordWorkflow` calls wrote into the pre-v2 memory-system
+      // (deleted in Phase C) — redundant with shipped_features.
 
       // Run after_ship rules
       const afterResult = await executeWorkflowRules(projectId, 'ship', 'after', {

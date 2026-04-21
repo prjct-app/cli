@@ -11,7 +11,7 @@
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
-import memorySystem from '../../agentic/memory-system'
+import { formatMemoryMd, projectMemory } from '../../memory/project-memory'
 import llmAnalysisStorage from '../../storage/llm-analysis-storage'
 import { queueStorage } from '../../storage/queue-storage'
 import { stateStorage } from '../../storage/state-storage'
@@ -109,42 +109,20 @@ export function registerProjectTools(server: McpServer) {
 
   s.tool(
     'prjct_patterns',
-    'Learned decisions, preferences, and workflows with confidence tracking',
+    'Project memory grouped by type (decision / pattern / anti-pattern / gotcha). Powered by projectMemory — same source the CLI memory verbs read.',
     {
       projectPath: z.string().describe('Project directory path'),
     },
     safeMcpCall('prjct_patterns', async (args: { projectPath: string }) => {
       const projectId = await resolveProjectId(args.projectPath)
-      const summary = await memorySystem.getPatternsSummaryDetailed(projectId)
-
-      if (!summary) {
-        return { content: [{ type: 'text', text: 'No patterns learned yet.' }] }
+      const entries = projectMemory.recall(projectId, {
+        types: ['decision', 'pattern', 'anti-pattern', 'gotcha'],
+        limit: 50,
+      })
+      if (entries.length === 0) {
+        return { content: [{ type: 'text', text: 'No decisions or patterns captured yet.' }] }
       }
-
-      const parts: string[] = ['## Learned Patterns']
-
-      if (Object.keys(summary.decisions).length > 0) {
-        parts.push('\n### Decisions')
-        for (const [key, d] of Object.entries(summary.decisions)) {
-          parts.push(`- **${key}**: ${d.value} (${d.confidence}, ${d.count}x)`)
-        }
-      }
-
-      if (Object.keys(summary.preferences).length > 0) {
-        parts.push('\n### Preferences')
-        for (const [key, p] of Object.entries(summary.preferences)) {
-          parts.push(`- **${key}**: ${p.value} (${p.confidence})`)
-        }
-      }
-
-      if (Object.keys(summary.workflows).length > 0) {
-        parts.push('\n### Workflows')
-        for (const [key, w] of Object.entries(summary.workflows)) {
-          parts.push(`- **${key}**: ${w.confidence}, ${w.count}x`)
-        }
-      }
-
-      return { content: [{ type: 'text', text: parts.join('\n') }] }
+      return { content: [{ type: 'text', text: formatMemoryMd(entries) }] }
     })
   )
 }

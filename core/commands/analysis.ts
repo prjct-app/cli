@@ -5,7 +5,6 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import * as p from '@clack/prompts'
-import memorySystem from '../agentic/memory-system'
 import analyzer from '../domain/analyzer'
 import commandInstaller from '../infrastructure/command-installer'
 import configManager from '../infrastructure/config-manager'
@@ -784,8 +783,17 @@ export class AnalysisCommands extends PrjctCommandsBase {
       // Get session activity (today's events)
       const sessionActivity = await getSessionActivity(projectId)
 
-      // Get learned patterns
-      const patternsSummary = await memorySystem.getPatternsSummary(projectId)
+      // Learned-patterns summary (decisions/preferences/workflows) was
+      // backed by the pre-v2 memory-system — deleted in Phase C. The
+      // stats page still shows zeros for backward-compat with callers
+      // that read the shape; project memory now lives under
+      // `prjct memory list` / `context memory`.
+      const patternsSummary = {
+        decisions: 0,
+        preferences: 0,
+        workflows: 0,
+        learnedDecisions: 0,
+      }
 
       // JSON output mode
       if (options.json) {

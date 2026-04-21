@@ -9,13 +9,9 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { registerCodeIntelTools } from './tools/code-intel'
-import { registerContextTools } from './tools/context'
 import { registerFileTools } from './tools/files'
 import { registerMemoryTools } from './tools/memory'
-import { registerPatternTools } from './tools/patterns'
 import { registerProjectTools } from './tools/project'
-import { registerReviewTools } from './tools/review'
-import { registerSessionTools } from './tools/session'
 import { registerWorkflowTools } from './tools/workflow'
 
 /**
@@ -50,14 +46,10 @@ export function createServer(): McpServer {
   )
 
   registerMemoryTools(server)
-  registerSessionTools(server)
   registerProjectTools(server)
   registerFileTools(server)
   registerWorkflowTools(server)
-  registerReviewTools(server)
-  registerPatternTools(server)
   registerCodeIntelTools(server)
-  registerContextTools(server)
 
   return server
 }
