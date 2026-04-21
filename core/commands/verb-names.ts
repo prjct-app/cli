@@ -14,8 +14,6 @@ export const REGISTERED_VERBS = [
   'remember',
   'status',
   'workflow',
-  'tokens',
-  'sessions',
   'init',
   'analyze',
   'sync',
