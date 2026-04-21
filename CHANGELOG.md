@@ -1,5 +1,94 @@
 # Changelog
 
+## [2.0.0-alpha.12] - 2026-04-21
+
+Summary of the alpha.6 → alpha.12 arc and the dead-code / harness sweep
+that closed it. Covers five commits on `v2/cut`: 28eb87e0, e3a163cb,
+4c661bde, d59612a5, b1cd664f.
+
+### Added (alpha.6 → alpha.11, landed earlier in the arc)
+- **Hook pack**: `prjct claude install` writes 7 passive hooks into
+  `~/.claude/settings.json` (SessionStart / UserPromptSubmit /
+  PreToolUse / PostToolUse / Stop / SubagentStart / CwdChanged).
+  Each hook emits `additionalContext` from project memory + persona;
+  nothing blocks unless a hand-rolled workflow rule says so.
+- **Persona per project** (`.prjct/prjct.config.json#persona`):
+  `role`, `focus`, `mcps`, `packs`. Injected by every hook.
+- **Packs (5)**: `code`, `daily`, `pm`, `founder`, `research` as
+  declarative JSON manifests — no bash seeded, just memory types +
+  workflow-slot names + hook signals + suggested persona.
+- **`prjct capture`** — GTD inbox verb. Bare `prjct "..."` now
+  routes here (was `task`).
+- **14 base memory types + user-defined**: `fact`, `decision`,
+  `learning`, `gotcha`, `pattern`, `anti-pattern`, `shipped`,
+  `inbox`, `todo`, `idea`, `insight`, `question`, `source`,
+  `person`. Any lowercase identifier also accepted.
+- **Workflow step types**: `script:<path>`, `mcp:<server>:<tool>`,
+  `persona:context`. Scripts live in `.prjct/workflows/*.sh` and
+  receive `PRJCT_BRANCH` / `PRJCT_FILES_CHANGED` / `PRJCT_TAGS` env.
+
+### Removed (this sweep — 16,859 LOC across 58 files)
+- **Outcome subsystem** (`outcome-recorder/storage/learner/analyzer`):
+  zero write callsites anywhere in the codebase; every read returned
+  empty. Downstream velocity / estimate-history / learn-from-outcomes
+  features went with it.
+- **Agentic stack** (`command-executor`, `loop-detector`,
+  `plan-mode`, `context-builder`, `prompt-builder`,
+  `orchestrator-executor`, `memory-system`, `semantic-memories`,
+  `pattern-store`, `memory-stores`, `domain-classifier`,
+  `response-validator`). `workflow.now()` (`prjct task` entry
+  point) rewired to persist via `stateStorage` directly +
+  `executeWorkflowRules`; no more detour through the orchestration
+  chain.
+- **Pre-v2 MCP tools** (`patterns.ts`, `session.ts`, `review.ts`,
+  `context.ts`): duplicated what `projectMemory` already does.
+  `prjct_mem_save / _list / _similar / _forget` in `memory.ts` is
+  now the single MCP memory surface, wired to `projectMemory`.
+  `prjct_patterns` in `project.ts` reads the same store.
+- **Six outcome-backed MCP tools** (`prjct_velocity`,
+  `_outcomes_search`, `_outcomes_similar`, `_outcomes_recent`,
+  `_estimate_accuracy`, `_velocity_detail`).
+- **Ghost verbs** (`sessions`, `tokens` — no handlers).
+- **Harness CLI context subtools** (`files`, `signatures`,
+  `imports`, `recent`, `summary` under `prjct context` — Claude has
+  Glob / Grep / Read / git natively). Internals kept for MCP.
+- **Seven phantom dispatcher entries** (`diff`, `seal`, `rollback`,
+  `verify`, `analysis-payload`, `analysis-save-llm`, `analysis-llm`)
+  that routed to methods deleted in earlier alphas — 8 pre-existing
+  TS errors gone.
+- **Gate cache** + **bilingual NL parser** in `workflow.ts` (alpha.10).
+- **Obsolete config files / types / utils**: `core/cli/arg-parser`,
+  `core/events/pub-sub`, `core/schemas/roadmap`,
+  `core/session/task-session-manager`, `core/session/utils`,
+  `core/commands/context-contract`, `core/schemas/outcomes`,
+  `core/schemas/classification`, `core/schemas/llm-output`,
+  `core/constants/commands`, `core/session/session-log-manager`,
+  `core/tools/context/recent-tool`, `core/utils/agent-stream`,
+  `core/utils/jsonl-helper`, `core/utils/subtask-table`.
+
+### Changed
+- `workflow.now()` 346 → ~120 LOC. `prjct task` (no arg) now shows
+  the active task instead of failing validation; `command-data.ts`
+  marks the description optional.
+- `context.ts#context` emits the same JSON shape but `domains` /
+  `primaryDomain` / `subtasks` are empty — no more intent guessing.
+  Use `prjct tag` to classify explicitly.
+- `analysis.ts` inlines `pathManager.getFilePath` instead of pulling
+  `contextBuilder`. Stats endpoint keeps its output shape for
+  backward compat; `patternsSummary` fields are zeros.
+- `shipping.ts` drops `memorySystem.learnDecision` /
+  `recordWorkflow` calls — redundant with `shippedStorage.addShipped`
+  (which `projectMemory` reads as `type=shipped`).
+- MCP server registers 5 tool groups (was 9): memory, project,
+  files, workflow, code-intel.
+
+### Verified
+`prjct init --pack … --persona …`, `sync`, `task` (with + without
+arg), `remember`, `capture`, `context memory`, `seed list`,
+`SessionStart` / `CwdChanged` hooks with persona — all green on a
+fresh tmp project. `bun test`: 756 pass / 0 fail. `tsc --noEmit`: 0
+errors (was 8 pre-existing). `knip`: 0 unused files.
+
 ## [2.0.0-alpha.5] - 2026-04-20
 
 Wiki performance pass — answers the "SQLite vs Obsidian markdown graph"
