@@ -6,7 +6,6 @@
  */
 
 import type { WorkflowRule } from '../types/storage.js'
-import { gateCache } from '../workflow/gate-cache'
 import { customWorkflowStorage } from './custom-workflow-storage'
 import { prjctDb, type SqliteBindings } from './database'
 
@@ -92,7 +91,6 @@ class WorkflowRuleStorage {
     if (!existing) return false
 
     prjctDb.run(projectId, 'DELETE FROM workflow_rules WHERE id = ?', ruleId)
-    gateCache.invalidate(projectId, ruleId)
     return true
   }
 
@@ -145,9 +143,6 @@ class WorkflowRuleStorage {
       `UPDATE workflow_rules SET ${setClauses.join(', ')} WHERE id = ?`,
       ...values
     )
-    // Any rule change invalidates its cached pass — the shell command
-    // or condition may have changed.
-    gateCache.invalidate(projectId, ruleId)
     return true
   }
 

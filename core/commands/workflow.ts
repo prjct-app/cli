@@ -76,30 +76,30 @@ interface WorkflowIntent {
   confidence: 'exact' | 'fuzzy'
 }
 
-/** Bilingual intent patterns (English + Spanish) */
+/**
+ * Exact keyword dispatch — one English verb per intent.
+ *
+ * Alpha.10 removed the bilingual natural-language patterns (`añade`,
+ * `muestra`, `bloquea`, etc.) that used to guess the user's intent.
+ * That was harness: prjct was deciding what the user "meant" from
+ * fuzzy phrasing instead of just taking instructions. If Claude or
+ * the human wants to author a rule, they pass the exact keyword —
+ * no guessing.
+ */
 const INTENT_PATTERNS: Array<{ type: IntentType; patterns: RegExp }> = [
-  // Help must come before view to avoid "how"/"como" being consumed as view
-  { type: 'help', patterns: /^(?:help|ayuda|c[oó]mo|how)\b/i },
-  // Exact CLI subcommands (highest priority)
+  { type: 'help', patterns: /^help\b/i },
   { type: 'add', patterns: /^add\b/i },
   { type: 'gate', patterns: /^gate\b/i },
   { type: 'instruction', patterns: /^instruction\b/i },
   { type: 'remove', patterns: /^rm\b/i },
   { type: 'reset', patterns: /^reset\b/i },
   { type: 'init', patterns: /^init\b/i },
-  { type: 'create', patterns: /^(?:create|crear|new|nuevo)\b/i },
-  { type: 'list', patterns: /^(?:list|listar|show all|mostrar todos)\b/i },
-  { type: 'delete', patterns: /^(?:delete|borrar|remove workflow)\b/i },
+  { type: 'create', patterns: /^(?:create|new)\b/i },
+  { type: 'list', patterns: /^list\b/i },
+  { type: 'delete', patterns: /^delete\b/i },
   { type: 'run', patterns: /^run\b/i },
-  // Natural language patterns (bilingual)
-  { type: 'view', patterns: /^(?:muestra|show|ver|display|mostrar)\b/i },
-  { type: 'add', patterns: /^(?:a[nñ]ade|agrega|pon|nueva?)\b/i },
-  { type: 'remove', patterns: /^(?:quita|remove|elimina|borra|borrar)\b/i },
-  {
-    type: 'disable',
-    patterns: /^(?:deshabilita|disable|no\s+corras|apaga|turn\s+off|desactiva)\b/i,
-  },
-  { type: 'gate', patterns: /^(?:bloquea|block|protect|protege)\b/i },
+  { type: 'disable', patterns: /^disable\b/i },
+  { type: 'view', patterns: /^(?:show|view)\b/i },
 ]
 
 export class WorkflowCommands extends PrjctCommandsBase {
@@ -538,14 +538,14 @@ export class WorkflowCommands extends PrjctCommandsBase {
       if (match) {
         const consumed = match[0]
         const args = trimmed.slice(consumed.length).trim()
-        // 'exact' for CLI keyword matches, 'fuzzy' for NL patterns
-        const isExact = /^(?:add|gate|rm|reset|init|help)\b/i.test(consumed)
-        return { type, args, confidence: isExact ? 'exact' : 'fuzzy' }
+        return { type, args, confidence: 'exact' }
       }
     }
 
-    // No pattern matched — default to 'view' with the full input as args
-    return { type: 'view', args: trimmed, confidence: 'fuzzy' }
+    // No keyword matched — treat as view (lists current rules) rather
+    // than silently misinterpreting. `prjct workflow help` is always
+    // available for discovery.
+    return { type: 'view', args: trimmed, confidence: 'exact' }
   }
 
   /**
