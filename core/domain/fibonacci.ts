@@ -7,8 +7,6 @@
 
 import { FIBONACCI_MINUTES_MAP, FIBONACCI_POINTS } from '../constants/algorithms'
 import type { FibonacciPoint } from '../types/domain.js'
-import { parseDurationMinutes } from '../utils/date-helper'
-import outcomeRecorder from '../workflows/outcome-recorder'
 
 // =============================================================================
 // Validation
@@ -43,36 +41,17 @@ export const pointsToTimeRange = (points: FibonacciPoint): string => {
   return `${formatMinutes(range.min)}–${formatMinutes(range.max)}`
 }
 
-// =============================================================================
-// Historical Suggestion
-// =============================================================================
-
 /**
- * Suggest a point estimate based on historical outcomes for similar task types.
- * Returns null if not enough data (< 3 outcomes).
+ * Historical suggestion was backed by `outcomeRecorder`, which had zero
+ * write callsites anywhere in the codebase — the data source was always
+ * empty. Stubbed to always return null so the CLI path stays alive but
+ * doesn't pretend to have history. If we revive an outcome feed later
+ * (e.g. driven by the Stop hook), this is where the query goes.
  */
 export const suggestFromHistory = async (
-  projectId: string,
-  taskType: string
-): Promise<{ points: FibonacciPoint; basedOn: number } | null> => {
-  const outcomes = await outcomeRecorder.getAll(projectId)
-
-  // Filter by task type tag
-  const relevant = outcomes.filter((o) => o.tags?.includes(taskType))
-
-  if (relevant.length < 3) return null
-
-  // Calculate average actual duration in minutes
-  const totalMinutes = relevant.reduce((sum, o) => {
-    return sum + parseDurationMinutes(o.actualDuration)
-  }, 0)
-  const avgMinutes = totalMinutes / relevant.length
-
-  // Find closest Fibonacci point by typical time
-  const closest = findClosestPoint(avgMinutes)
-
-  return { points: closest, basedOn: relevant.length }
-}
+  _projectId: string,
+  _taskType: string
+): Promise<{ points: FibonacciPoint; basedOn: number } | null> => null
 
 // =============================================================================
 // Helpers

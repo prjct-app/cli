@@ -14,10 +14,8 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { calculateVelocity, formatVelocityContext } from '../domain/velocity'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
-import { DEFAULT_VELOCITY_CONFIG } from '../schemas/velocity'
 import { analysisStorage } from '../storage/analysis-storage'
 import llmAnalysisStorage from '../storage/llm-analysis-storage'
 import { stateStorage } from '../storage/state-storage'
@@ -34,7 +32,6 @@ import type {
 } from '../types/agentic'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import { execAsync } from '../utils/exec'
-import outcomeRecorder from '../workflows/outcome-recorder'
 import domainClassifier from './domain-classifier'
 
 // =============================================================================
@@ -329,21 +326,14 @@ export class OrchestratorExecutor {
   }
 
   /**
-   * Load velocity context for estimation guidance (PRJ-296).
-   * Returns formatted string for prompt injection, or null if no data.
+   * Velocity context required historical outcome data. The outcome
+   * subsystem had zero writers and was removed, so this always returns
+   * null now. Kept as a hook point — if we revive an outcome feed
+   * (e.g. via the Stop hook capturing task durations), restore the
+   * implementation here.
    */
-  private async loadVelocityContext(projectId: string): Promise<string | null> {
-    try {
-      const outcomes = await outcomeRecorder.getAll(projectId)
-      if (outcomes.length === 0) return null
-
-      const metrics = calculateVelocity(outcomes, DEFAULT_VELOCITY_CONFIG)
-      if (metrics.sprints.length === 0) return null
-
-      return formatVelocityContext(metrics)
-    } catch {
-      return null
-    }
+  private async loadVelocityContext(_projectId: string): Promise<string | null> {
+    return null
   }
 
   /**

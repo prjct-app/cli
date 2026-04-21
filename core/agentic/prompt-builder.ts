@@ -30,7 +30,6 @@ import { getErrorMessage, isNotFoundError } from '../types/fs'
 import type { Memory } from '../types/memory'
 import { fileExists } from '../utils/file-helper'
 import { PACKAGE_ROOT } from '../utils/version'
-import outcomeAnalyzer from '../workflows/outcome-analyzer'
 import { getTemplateContent, listTemplates } from './template-loader'
 
 // =============================================================================
@@ -268,23 +267,11 @@ class PromptBuilder {
     }
     parts.push('')
 
-    try {
-      const patterns = await outcomeAnalyzer.detectPatterns(projectId)
-      if (patterns.length > 0) {
-        parts.push('**Project Conventions**')
-        for (const pattern of patterns.slice(0, 3)) {
-          parts.push(`- ${pattern.description}`)
-          if (pattern.suggestedAction) {
-            parts.push(`  → ${pattern.suggestedAction}`)
-          }
-        }
-        parts.push('')
-      }
-    } catch (error) {
-      if (!isNotFoundError(error) && !(error instanceof SyntaxError)) {
-        console.error(`Outcome detection warning: ${getErrorMessage(error)}`)
-      }
-    }
+    // Outcome-pattern detection was backed by the outcome-analyzer
+    // subsystem (always empty, zero writers) — removed. Project
+    // conventions now live in memory as `pattern` / `decision`
+    // entries, surfaced by the persona+memory hook injection.
+    void projectId
 
     parts.push('---')
     parts.push('')
