@@ -1,46 +1,37 @@
 /**
- * Workflow Commands: work (now), done, next, pause, resume
- * Core task management - Write-Through Architecture
+ * Workflow Commands — `now` (task start) + `workflow` CRUD + `run`.
  *
- * Uses storage layer: JSON (source) → MD (context) → Event (sync)
- *
- * AGENTIC: Uses template-executor for Claude-driven decisions.
- * TypeScript provides infrastructure; Claude decides via templates.
+ * Lean path: `prjct task "<desc>"` registers a task, runs the
+ * before_task workflow rules, emits a minimal context block, and
+ * runs after_task rules. All the agentic orchestration (command
+ * executor, loop detector, plan mode, orchestrator-executor,
+ * prompt-builder, context-builder) was dropped — it was harness.
+ * Context arrives via hooks; Claude pulls on demand via the memory
+ * verbs.
  */
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import commandExecutor from '../agentic/command-executor'
-import { isValidPoint, pointsToMinutes, pointsToTimeRange } from '../domain/fibonacci'
 import configManager from '../infrastructure/config-manager'
-import pathManager from '../infrastructure/path-manager'
 import { templateGenerator } from '../infrastructure/template-generator'
 import { generateUUID } from '../schemas/schemas'
-import context7Service from '../services/context7-service'
-import estimateTaskForStart from '../services/task-estimation'
 import { getGitBranch } from '../session/git-helpers'
-import { sessionSnapshotManager } from '../session/session-snapshot'
-import { contextFeedbackStorage } from '../storage/context-feedback-storage'
 import { customWorkflowStorage } from '../storage/custom-workflow-storage'
 import { stateStorage } from '../storage/state-storage'
 import { workflowRuleStorage } from '../storage/workflow-rule-storage'
-import { extractKeywords } from '../tools/context/files-tool'
 import type { RpiContext } from '../types/agentic'
 import type { CommandResult } from '../types/commands'
-import type { FibonacciPoint } from '../types/domain.js'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import type { WorkflowRule } from '../types/storage.js'
 import * as dateHelper from '../utils/date-helper'
 import {
   mdActionRequired,
-  mdCallout,
   mdCodeBlock,
   mdDone,
   mdList,
   mdNextSteps,
   mdOutput,
   mdSection,
-  mdSubtasks,
   mdTaskHeader,
 } from '../utils/md-formatter'
 import { showNextSteps, showStateInfo } from '../utils/next-steps'
@@ -104,7 +95,12 @@ const INTENT_PATTERNS: Array<{ type: IntentType; patterns: RegExp }> = [
 
 export class WorkflowCommands extends PrjctCommandsBase {
   /**
-   * /p:now - Set or show current task
+   * `prjct task "<desc>"` — register the task, run before/after rules,
+   * emit a lean context block. Everything that used to go through the
+   * agentic orchestration stack (commandExecutor → contextBuilder +
+   * promptBuilder + orchestratorExecutor) was harness — dropped.
+   * Context flows via hooks now; the memory verbs let Claude pull
+   * more when it wants it.
    */
   async now(
     task: string | null = null,
@@ -117,326 +113,131 @@ export class WorkflowCommands extends PrjctCommandsBase {
 
       const projectId = await configManager.getProjectId(projectPath)
       if (!projectId) {
-        if (options.md) {
-          console.log('> No project ID found. Run `prjct init` first.')
-        } else {
-          out.failWithHint('NO_PROJECT_ID')
-        }
+        out.failWithHint('NO_PROJECT_ID')
         return { success: false, error: 'No project ID found' }
       }
 
-      if (task) {
-        // Run before_task rules (gates + hooks)
-        const beforeResult = await executeWorkflowRules(projectId, 'task', 'before', {
-          projectPath,
-          skipRules: options.skipHooks,
-        })
-        if (!beforeResult.success) {
-          const msg =
-            beforeResult.gatesFailed.length > 0
-              ? `Blocked: ${beforeResult.gatesFailed.join(', ')}`
-              : `Hook failed: ${beforeResult.hooksFailed.join(', ')}`
-          return { success: false, error: msg }
-        }
+      // No task arg → show the active one (or none).
+      if (!task) return this._showActiveTask(projectId, options)
 
-        // Check if task is a Linear issue ID (e.g., PRJ-139)
-        let linearId: string | undefined
-        const taskDescription = task
-        const linearPattern = /^[A-Z]+-\d+$/
-        if (linearPattern.test(task)) {
-          // Keep local issue linking. Status transitions are MCP-only.
-          linearId = task
-        }
+      // before_task workflow rules (gates may block, hooks may nudge).
+      const beforeResult = await executeWorkflowRules(projectId, 'task', 'before', {
+        projectPath,
+        skipRules: options.skipHooks,
+      })
+      if (!beforeResult.success) {
+        const msg =
+          beforeResult.gatesFailed.length > 0
+            ? `Blocked: ${beforeResult.gatesFailed.join(', ')}`
+            : `Hook failed: ${beforeResult.hooksFailed.join(', ')}`
+        return { success: false, error: msg }
+      }
 
-        if (options.md) {
-          // Context7 is mandatory before coding tasks
-          try {
-            await context7Service.ensureReady()
-          } catch (error) {
-            mdActionRequired(
-              'blocked',
-              'context7_not_ready',
-              [
-                { label: 'Fix Context7 now', command: 'prjct start' },
-                { label: 'Retry task after fix', command: `prjct task "${taskDescription}" --md` },
-                { label: 'Cancel' },
-              ],
-              { error: getErrorMessage(error) }
-            )
-            return { success: false, error: getErrorMessage(error) }
-          }
+      // Optional Linear issue linkage — matches e.g. `PRJ-42`. Pure tag,
+      // no external status transitions (Linear MCP handles those).
+      const linearId = /^[A-Z]+-\d+$/.test(task) ? task : undefined
+      const taskDescription = task
 
-          const estimate = await estimateTaskForStart(projectId, taskDescription)
+      const taskId = generateUUID()
+      await stateStorage.startTask(projectId, {
+        id: taskId,
+        description: taskDescription,
+        sessionId: generateUUID(),
+        linearId,
+      } as Parameters<typeof stateStorage.startTask>[1])
 
-          // Parallel-by-default: if a task is already active, auto-create a worktree
-          // for the new task instead of blocking. Each task runs in isolation.
-          const existingTask = await stateStorage.getCurrentTask(projectId)
-          const activeWorkspaceTasks = await stateStorage.getActiveTasks(projectId)
-          const { worktreeService } = await import('../services/worktree-service')
-          const currentWorktree = await worktreeService.detect(projectPath)
+      await this.logToMemory(projectPath, 'task_started', {
+        task: taskDescription,
+        taskId,
+        timestamp: dateHelper.getTimestamp(),
+      })
 
-          // Block ONLY if THIS specific worktree already has a task
-          if (currentWorktree) {
-            const conflictInThisWorktree = activeWorkspaceTasks.find(
-              (t) => t.worktreePath === currentWorktree.path
-            )
-            if (conflictInThisWorktree) {
-              mdActionRequired(
-                'blocked',
-                'task_already_active',
+      await executeWorkflowRules(projectId, 'task', 'after', {
+        projectPath,
+        skipRules: options.skipHooks,
+      })
+
+      const branch = await getGitBranch(projectPath).catch(() => '')
+
+      if (options.md) {
+        console.log(
+          mdOutput(
+            mdTaskHeader({ description: taskDescription, status: 'active' }),
+            mdSection(
+              'State',
+              mdList(
                 [
-                  { label: 'Ship current task first', command: 'prjct ship --md' },
-                  { label: 'Set current task to blocked', command: 'prjct status blocked' },
-                ],
-                {
-                  current_task: conflictInThisWorktree.description,
-                  requested_task: taskDescription,
-                }
+                  `Task: \`${taskId}\``,
+                  branch ? `Branch: \`${branch}\`` : null,
+                  linearId ? `Linear: \`${linearId}\`` : null,
+                  beforeResult.instructions.length > 0
+                    ? `Agent instructions: ${beforeResult.instructions.length}`
+                    : null,
+                ].filter((s): s is string => s !== null)
               )
-              return {
-                success: true,
-                message: 'Task already active in this worktree',
-                currentTask: conflictInThisWorktree,
-              }
-            }
-          }
-
-          // Auto-worktree: if main tree has an active task, create a new worktree
-          let taskWorktreePath: string | undefined
-          const needsWorktree = existingTask && !currentWorktree
-          if (needsWorktree) {
-            const slug = taskDescription
-              .toLowerCase()
-              .replace(/[^a-z0-9]+/g, '-')
-              .replace(/^-|-$/g, '')
-              .slice(0, 40)
-            try {
-              const wt = await worktreeService.create(projectPath, slug)
-              await worktreeService.setup(wt.path, projectPath)
-              taskWorktreePath = wt.path
-              mdCallout('info', `Parallel session created: \`${wt.branch}\` at \`${wt.path}\``)
-            } catch {
-              // Worktree creation failed — fall back to pause-and-start
-              mdActionRequired(
-                'blocked',
-                'task_already_active',
-                [
-                  { label: 'Ship current task first', command: 'prjct ship --md' },
-                  { label: 'Set current task to blocked', command: 'prjct status blocked' },
-                ],
-                { current_task: existingTask.description, requested_task: taskDescription }
-              )
-              return { success: true, message: 'Task already active', currentTask: existingTask }
-            }
-          }
-
-          // Start task — as workspace task if in worktree, or as main task
-          if (taskWorktreePath || currentWorktree) {
-            const workspaceId = generateUUID()
-            await stateStorage.startTaskInWorkspace(
-              projectId,
-              {
-                id: generateUUID(),
-                description: taskDescription,
-                sessionId: generateUUID(),
-                workspaceId,
-                worktreePath: taskWorktreePath || currentWorktree!.path,
-                linearId,
-                type: estimate.taskType,
-                estimatedPoints: estimate.estimatedPoints,
-                estimatedMinutes: estimate.estimatedMinutes,
-              },
-              workspaceId
-            )
-          } else {
-            await stateStorage.startTask(projectId, {
-              id: generateUUID(),
-              description: taskDescription,
-              sessionId: generateUUID(),
-              linearId,
-              type: estimate.taskType,
-              estimatedPoints: estimate.estimatedPoints,
-              estimatedMinutes: estimate.estimatedMinutes,
-            } as Parameters<typeof stateStorage.startTask>[1])
-          }
-
-          // Load project context in parallel (non-blocking, graceful)
-          const _globalPath = pathManager.getGlobalProjectPath(projectId)
-          const taskKeywords = extractKeywords(taskDescription)
-          let historicalBoosts: Map<string, number> | undefined
-          try {
-            historicalBoosts = contextFeedbackStorage.getHistoricalBoosts(projectId, taskKeywords)
-            if (historicalBoosts.size === 0) historicalBoosts = undefined
-          } catch {
-            // Cold start or DB not ready — no boosts
-          }
-
-          // v2: lazy context. Task start emits the bare minimum; Claude
-          // fetches files/patterns/memory on demand via `prjct context <topic>`.
-          // This keeps the conversation lean — heavy context lived above as
-          // ~400-600 tokens of speculative data Claude often didn't need.
-          const branch = await getGitBranch(projectPath)
-
-          // Session snapshot is state, not speculation — keep it.
-          let continuityContext: string | null = null
-          try {
-            const snapshot = sessionSnapshotManager.getSnapshot(projectId)
-            if (snapshot) {
-              continuityContext = sessionSnapshotManager.formatContinuityContext(snapshot)
-              sessionSnapshotManager.clearSnapshot(projectId)
-            }
-          } catch {
-            // Non-critical
-          }
-
-          const header = mdTaskHeader({
-            description: taskDescription,
-            branch,
-            linearId,
-            type: estimate.taskType,
-          })
-          const next = mdNextSteps([
-            { label: 'Find relevant files', command: 'prjct context files "..."' },
-            { label: 'Pull project memory', command: 'prjct context memory <topic>' },
-            { label: 'Tag the task', command: 'prjct tag type:bug domain:auth' },
-            { label: 'Capture learnings', command: 'prjct remember learning "..."' },
-            { label: 'Ship when done', command: 'prjct ship --md' },
-          ])
-
-          console.log(mdOutput(continuityContext, header, next))
-
-          await this.logToMemory(projectPath, 'task_started', {
-            task,
-            timestamp: dateHelper.getTimestamp(),
-          })
-
-          await executeWorkflowRules(projectId, 'task', 'after', {
-            projectPath,
-            skipRules: options.skipHooks,
-          })
-
-          return { success: true, task, taskDescription }
-        }
-
-        // AGENTIC: Use CommandExecutor for full orchestration support (non-md path)
-        const result = await commandExecutor.execute('task', { task }, projectPath)
-
-        if (!result.success) {
-          out.fail(result.error || 'Failed to execute task')
-          return { success: false, error: result.error }
-        }
-
-        // Write-through: JSON → MD → Event (only after executor succeeds)
-        const estimate = await estimateTaskForStart(projectId, taskDescription)
-
-        await stateStorage.startTask(projectId, {
-          id: generateUUID(),
-          description: taskDescription,
-          sessionId: generateUUID(),
-          linearId,
-          type: estimate.taskType,
-          estimatedPoints: estimate.estimatedPoints,
-          estimatedMinutes: estimate.estimatedMinutes,
-        } as Parameters<typeof stateStorage.startTask>[1])
-
-        out.done(`${task}`)
+            ),
+            beforeResult.instructions.length > 0
+              ? mdSection('Agent Instructions', mdList(beforeResult.instructions))
+              : null,
+            mdNextSteps([
+              { label: 'Pull project memory', command: 'prjct context memory <topic>' },
+              { label: 'Tag the task', command: 'prjct tag type:bug domain:auth' },
+              { label: 'Capture learnings', command: 'prjct remember learning "..."' },
+              { label: 'Ship when done', command: 'prjct ship --md' },
+            ])
+          )
+        )
+      } else {
+        out.done(`Task: ${taskDescription}`)
         showStateInfo('working')
         showNextSteps('task')
-
-        await this.logToMemory(projectPath, 'task_started', {
-          task,
-          orchestratorContext: result.orchestratorContext,
-          timestamp: dateHelper.getTimestamp(),
-        })
-
-        // Run after_task rules
-        await executeWorkflowRules(projectId, 'task', 'after', {
-          projectPath,
-          skipRules: options.skipHooks,
-        })
-
-        return {
-          ...result,
-          success: true,
-          task,
-          fibonacci: {
-            isValidPoint,
-            pointsToMinutes,
-            pointsToTimeRange,
-            storeEstimate: async (points: FibonacciPoint) => {
-              const minutes = pointsToMinutes(points)
-              await stateStorage.updateCurrentTask(projectId, {
-                estimatedPoints: points,
-                estimatedMinutes: minutes.typical,
-              })
-              return minutes
-            },
-          },
-        }
-      } else {
-        // Read from storage (JSON is source of truth)
-        const currentTask = await stateStorage.getCurrentTask(projectId)
-
-        if (!currentTask) {
-          if (options.md) {
-            mdActionRequired('idle', 'no_active_task', [
-              { label: 'Start a task', command: 'prjct task "description" --md' },
-            ])
-          } else {
-            out.warn('no active task')
-          }
-          return { success: true, message: 'No active task' }
-        }
-
-        if (options.md) {
-          // Markdown output for current task status
-          const duration = currentTask.startedAt
-            ? dateHelper.calculateDuration(new Date(currentTask.startedAt))
-            : undefined
-          const header = mdTaskHeader({
-            description: currentTask.description,
-            status: 'active',
-            branch: (currentTask as { branch?: string }).branch,
-            linearId: (currentTask as { linearId?: string }).linearId,
-            type: (currentTask as { type?: string }).type,
-            duration,
-          })
-          const subtasks =
-            (currentTask as { subtasks?: Array<{ description: string; status: string }> })
-              .subtasks || []
-          const currentIndex = (currentTask as { currentSubtaskIndex?: number }).currentSubtaskIndex
-          const subtasksMd = subtasks.length > 0 ? mdSubtasks(subtasks, currentIndex) : ''
-          const next = mdNextSteps([
-            { label: 'Ship when done', command: 'prjct ship --md' },
-            { label: 'Change status inline', command: 'prjct status <value>' },
-          ])
-          console.log(mdOutput(header, subtasksMd, next))
-        } else {
-          out.done(`working on: ${currentTask.description}`)
-        }
-        return { success: true, task: currentTask.description, currentTask }
       }
+
+      return { success: true, task: taskDescription, taskId }
     } catch (error) {
       const msg = getErrorMessage(error)
-      if (options.md) {
-        if (msg.includes('Cannot run') || msg.includes('working state')) {
-          mdActionRequired(
-            'blocked',
-            'state_conflict',
-            [
-              { label: 'Ship current task', command: 'prjct ship --md' },
-              { label: 'Change status inline', command: 'prjct status <value>' },
-            ],
-            { error: msg.split('.')[0] }
-          )
-        } else {
-          console.log(JSON.stringify({ status: 'error', error: msg }))
-        }
-      } else {
-        out.fail(msg)
-      }
+      if (options.md) console.log(`> ${msg}`)
+      else out.fail(msg)
       return { success: false, error: msg }
     }
+  }
+
+  /**
+   * Render the active task when `prjct task` is called without args.
+   * Null-path when nothing's active — clean exit, no pressure.
+   */
+  private async _showActiveTask(
+    projectId: string,
+    options: { md?: boolean }
+  ): Promise<CommandResult> {
+    const active = await stateStorage.getCurrentTask(projectId)
+    if (!active) {
+      const msg = 'no active task. `prjct task "<description>"` to start one.'
+      if (options.md) console.log(`> ${msg}`)
+      else out.info(msg)
+      return { success: true, message: 'no active task' }
+    }
+    if (options.md) {
+      console.log(
+        mdOutput(
+          mdTaskHeader({ description: active.description, status: 'active' }),
+          mdSection(
+            'State',
+            mdList(
+              [
+                `Task: \`${active.id}\``,
+                active.branch ? `Branch: \`${active.branch}\`` : null,
+                active.linearId ? `Linear: \`${active.linearId}\`` : null,
+                `Started: ${active.startedAt}`,
+              ].filter((s): s is string => s !== null)
+            )
+          )
+        )
+      )
+    } else {
+      out.info(`Active: ${active.description}`)
+    }
+    return { success: true, currentTask: active }
   }
 
   /**

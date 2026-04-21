@@ -48,18 +48,16 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'task',
     group: 'core',
-    description: 'Start task with agentic classification and 7-phase workflow',
+    description: 'Register a task (or show the active one)',
     usage: { claude: '/p:task "<description>"', terminal: 'prjct task "<description>"' },
-    params: '<description>',
+    params: '[description]',
     implemented: true,
     hasTemplate: true,
     requiresProject: true,
-    requiresLlm: true,
     features: [
-      'Agentic type classification',
-      '7-phase workflow',
-      'Git branch management',
-      'Task breakdown',
+      'No arg → shows the active task (or none)',
+      'Writes to stateStorage; runs before/after workflow rules',
+      'Optional Linear issue link when the arg matches `[A-Z]+-\\d+`',
     ],
   },
   {

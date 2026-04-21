@@ -5,7 +5,6 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import * as p from '@clack/prompts'
-import contextBuilder from '../agentic/context-builder'
 import memorySystem from '../agentic/memory-system'
 import analyzer from '../domain/analyzer'
 import commandInstaller from '../infrastructure/command-installer'
@@ -21,7 +20,6 @@ import { prjctDb } from '../storage/database'
 import llmAnalysisStorage from '../storage/llm-analysis-storage'
 import { metricsStorage } from '../storage/metrics-storage'
 import type { AnalyzeOptions, CommandResult } from '../types/commands'
-import type { ProjectContext } from '../types/core'
 import { getErrorMessage } from '../types/fs'
 import * as dateHelper from '../utils/date-helper'
 import {
@@ -71,7 +69,11 @@ export class AnalysisCommands extends PrjctCommandsBase {
 
       analyzer.init(projectPath)
 
-      const context = (await contextBuilder.build(projectPath, options)) as ProjectContext
+      // Inline path resolution — `contextBuilder.build` (pre-v2 agentic
+      // harness) was only consulted for `paths.analysis`. Going direct
+      // to `pathManager` keeps this callsite alive without the wider
+      // context-builder graph.
+      void options
 
       const analysisData = {
         packageJson: await analyzer.readPackageJson(),
@@ -97,8 +99,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
       const summary = generateAnalysisSummary(analysisData, projectPath)
 
       const projectId = await configManager.getProjectId(projectPath)
-      const summaryPath =
-        context.paths.analysis || pathManager.getFilePath(projectId!, 'analysis', 'repo-summary.md')
+      const summaryPath = pathManager.getFilePath(projectId!, 'analysis', 'repo-summary.md')
 
       await fs.writeFile(summaryPath, summary, 'utf-8')
 
