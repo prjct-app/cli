@@ -240,9 +240,16 @@ function parseRememberArgs(args: string): ParsedRemember {
   const firstSpace = trimmed.search(/\s/)
   if (firstSpace <= 0) return { ok: false, error: 'expected `<type> "<content>"`' }
 
-  const typeStr = trimmed.slice(0, firstSpace).toLowerCase()
-  if (!(MEMORY_TYPES as readonly string[]).includes(typeStr)) {
-    return { ok: false, error: `unknown type '${typeStr}'. Valid: ${MEMORY_TYPES.join(' | ')}` }
+  // Types are freeform — base types (fact, decision, learning, insight,
+  // okr, person, ...) are the common vocabulary; custom ones like
+  // `recipe` or `workout` persist without ceremony. Just disallow empty
+  // and obvious garbage.
+  const typeStr = trimmed.slice(0, firstSpace).toLowerCase().trim()
+  if (!typeStr || !/^[a-z][a-z0-9-]*$/.test(typeStr)) {
+    return {
+      ok: false,
+      error: `invalid type '${typeStr}'. Lowercase letters + dashes only. Base types: ${MEMORY_TYPES.join(', ')}`,
+    }
   }
   const type = typeStr as MemoryType
 

@@ -25,6 +25,7 @@ export const REGISTERED_VERBS = [
   'auth',
   'seed',
   'install',
+  'capture',
 ] as const
 
 export type RegisteredVerb = (typeof REGISTERED_VERBS)[number]

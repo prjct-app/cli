@@ -9,6 +9,7 @@
  */
 
 import { AnalysisCommands } from './analysis'
+import { CaptureCommands } from './capture'
 import { CATEGORIES, COMMANDS } from './command-data'
 import { ContextCommands } from './context'
 import { InstallCommands } from './install'
@@ -34,6 +35,7 @@ const uninstallCmd = new UninstallCommands()
 const updateCmd = new UpdateCommands()
 const seedCmd = new SeedCommands()
 const installCmd = new InstallCommands()
+const captureCmd = new CaptureCommands()
 
 /**
  * Register categories
@@ -93,6 +95,10 @@ export function registerAllCommands(): void {
   // packs are active per project. `install` wires Claude Code hooks.
   commandRegistry.registerMethod('seed', seedCmd, 'seed', getMeta('seed'))
   commandRegistry.registerMethod('install', installCmd, 'install', getMeta('install'))
+
+  // v2 alpha.9: `capture` — GTD inbox. Also the target of the bare
+  // `prjct "<text>"` auto-route (replacing `task` — see core/index.ts).
+  commandRegistry.registerMethod('capture', captureCmd, 'capture', getMeta('capture'))
 }
 
 // Auto-register on import

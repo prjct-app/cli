@@ -52,13 +52,15 @@ const _binCommands = new Set([
 const { REGISTERED_VERBS_SET } = await import('../core/commands/verb-names')
 
 // v2 auto-route: if the first positional isn't a known verb, treat the
-// whole argv as a task description and rewrite to `prjct task "<argv>"`.
-// Explicit verbs still win.
+// whole argv as GTD-style inbox capture → `prjct capture "<argv>"`.
+// Explicit verbs still win. Capture is zero-ceremony; if the user
+// wanted a task (branch/worktree), they type `prjct task "..."`
+// explicitly.
 if (_fastCommand && !_binCommands.has(_fastCommand) && !REGISTERED_VERBS_SET.has(_fastCommand)) {
   const description = _fastArgs.filter((a) => !a.startsWith('-')).join(' ')
   const flags = _fastArgs.filter((a) => a.startsWith('-'))
-  _fastCommand = 'task'
-  _fastArgs = ['task', description, ...flags]
+  _fastCommand = 'capture'
+  _fastArgs = ['capture', description, ...flags]
 }
 
 if (_fastCommand && !_binCommands.has(_fastCommand) && process.env.PRJCT_NO_DAEMON !== '1') {

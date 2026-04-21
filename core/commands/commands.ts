@@ -17,6 +17,7 @@
 import type { AgentInfo } from '../types/agents'
 import type { AnalyzeOptions, Author, CommandResult, SetupOptions } from '../types/commands'
 import { AnalysisCommands } from './analysis'
+import { CaptureCommands } from './capture'
 import { ContextCommands } from './context'
 import { InstallCommands } from './install'
 import { PlanningCommands } from './planning'
@@ -43,6 +44,7 @@ class PrjctCommands {
   private primitivesCmds: PrimitiveCommands
   private seedCmds: SeedCommands
   private installCmds: InstallCommands
+  private captureCmds: CaptureCommands
 
   // Shared state
   agent: unknown
@@ -61,6 +63,7 @@ class PrjctCommands {
     this.primitivesCmds = new PrimitiveCommands()
     this.seedCmds = new SeedCommands()
     this.installCmds = new InstallCommands()
+    this.captureCmds = new CaptureCommands()
 
     this.agent = null
     this.agentInfo = null
@@ -179,6 +182,14 @@ class PrjctCommands {
     options: { md?: boolean } = {}
   ): Promise<CommandResult> {
     return this.installCmds.install(null, projectPath, options)
+  }
+
+  async capture(
+    content: string | null = null,
+    projectPath: string = process.cwd(),
+    options: { md?: boolean; tags?: string; force?: boolean } = {}
+  ): Promise<CommandResult> {
+    return this.captureCmds.capture(content, projectPath, options)
   }
 
   // ========== Auth Commands ==========

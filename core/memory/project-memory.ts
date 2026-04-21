@@ -27,10 +27,19 @@ import prjctDb from '../storage/database'
 import { REMEMBER_ACTION_PREFIX, REMEMBER_EVENT_PREFIX } from './events'
 
 /**
- * Exported list so callers (primitives, wiki, context tools) share a single
- * source of truth. Derive the union type from the tuple.
+ * Base memory types — the ones we ship on every project regardless of
+ * which pack is active. Additional types come from `packs/*` manifests
+ * (e.g. `insight`, `okr`, `stakeholder`). Users can also save to any
+ * type they invent — `MemoryType` is intentionally just `string` so
+ * the API stays open. See `isKnownMemoryType()` when you need to check
+ * whether a string matches a base type.
+ *
+ * Rationale: imposing a rigid ontology would be harness. Tags + types
+ * are freeform; Claude (and the human) decide what makes sense for
+ * this project.
  */
-export const MEMORY_TYPES = [
+export const BASE_MEMORY_TYPES = [
+  // Code-centric (always useful — kept from v1 for continuity)
   'fact',
   'decision',
   'learning',
@@ -38,9 +47,34 @@ export const MEMORY_TYPES = [
   'pattern',
   'anti-pattern',
   'shipped',
+  // GTD / day-to-day (capture, triage, review)
+  'inbox',
+  'todo',
+  'idea',
+  // PM / Research (insights, questions, sources)
+  'insight',
+  'question',
+  'source',
+  // Founder / Ops (people, stakeholders, goals)
+  'person',
 ] as const
 
-export type MemoryType = (typeof MEMORY_TYPES)[number]
+/** @deprecated use BASE_MEMORY_TYPES. Kept as alias for backward compat. */
+export const MEMORY_TYPES = BASE_MEMORY_TYPES
+
+export type BaseMemoryType = (typeof BASE_MEMORY_TYPES)[number]
+
+/**
+ * Freeform memory type — any non-empty string. Base types are listed
+ * in `BASE_MEMORY_TYPES` for discovery/validation; user-defined types
+ * like `recipe` or `workout` persist without special handling.
+ */
+export type MemoryType = string
+
+/** True when the given value matches a base (well-known) memory type. */
+export function isKnownMemoryType(value: string): value is BaseMemoryType {
+  return (BASE_MEMORY_TYPES as readonly string[]).includes(value)
+}
 
 /**
  * Where an entry came from. Lets Claude calibrate trust:

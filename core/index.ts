@@ -46,21 +46,23 @@ async function main(): Promise<void> {
     process.exit(0)
   }
 
-  // === v2 auto-route: unknown verb → prjct task "<full args>" ===
-  // Prjct doesn't classify intent; Claude tags the task afterwards with
-  // `prjct tag type:<bug|feature|chore>`. If the user types `prjct fix
-  // login bug`, we treat that as a task description. Explicit verbs
-  // (task, ship, tag, …) still win.
+  // === v2 auto-route: unknown verb → prjct capture "<full args>" ===
+  // GTD-style: 80% of dumps during the day aren't commitments — they're
+  // inbox items. Capture writes memory with `type=inbox` without the
+  // ceremony of a task (no id, no branch, no worktree). If Claude
+  // later wants structure, it can retype via a clarify workflow.
+  //
+  // Explicit verbs (task, ship, tag, capture, …) still win.
   //
   // Exception: a single-word input that's a near-match of a real verb
   // (edit distance ≤ 2, no whitespace) is probably a typo. Surface the
-  // did-you-mean instead of silently creating `prjct task "shipp"`.
+  // did-you-mean instead of silently capturing "shipp".
   if (commandName && !commandRegistry.getByName(commandName)) {
     const looksLikeTypo = rawArgs.length === 0 && findClosestCommand(commandName) !== null
     if (!looksLikeTypo) {
       const fullDescription = [commandName, ...rawArgs.filter((a) => !a.startsWith('-'))].join(' ')
       const passthroughFlags = rawArgs.filter((a) => a.startsWith('-'))
-      commandName = 'task'
+      commandName = 'capture'
       rawArgs = [fullDescription, ...passthroughFlags]
     }
   }
@@ -216,6 +218,13 @@ async function main(): Promise<void> {
         // v2 alpha.8 packs + Claude Code hook install
         seed: (p) => commands.seed(p, process.cwd(), { md }),
         install: () => commands.install(null, process.cwd(), { md }),
+        // v2 alpha.9 GTD capture — also target of bare-dispatch auto-route.
+        capture: (p) =>
+          commands.capture(p, process.cwd(), {
+            md,
+            tags: options.tags ? String(options.tags) : undefined,
+            force: options.force === true,
+          }),
       }
 
       const handler = standardCommands[commandName]

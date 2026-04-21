@@ -198,10 +198,13 @@ function parseNote(raw: string): ParseResult {
   const { type, tags, error } = parseFrontmatter(frontmatter)
   if (error) return { ok: false, error }
   if (!type) return { ok: false, error: 'missing `type` in frontmatter' }
-  if (!(MEMORY_TYPES as readonly string[]).includes(type)) {
+
+  // Types are freeform — allow any lowercase identifier. Base types are
+  // listed for discovery, custom ones persist without ceremony.
+  if (!/^[a-z][a-z0-9-]*$/.test(type)) {
     return {
       ok: false,
-      error: `invalid type '${type}'. Valid: ${MEMORY_TYPES.join(' | ')}`,
+      error: `invalid type '${type}'. Lowercase letters + dashes only. Base types: ${MEMORY_TYPES.join(', ')}`,
     }
   }
 

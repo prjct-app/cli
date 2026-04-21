@@ -141,8 +141,26 @@ export const COMMANDS: CommandMeta[] = [
     hasTemplate: false,
     requiresProject: true,
     features: [
-      'Types: fact, decision, learning, gotcha, pattern, anti-pattern, shipped',
+      'Types: fact, decision, learning, gotcha, pattern, anti-pattern, shipped, inbox, todo, idea, insight, question, source, person — plus user-defined',
       'Grows the project memory consumable via `prjct context memory`',
+    ],
+  },
+  {
+    name: 'capture',
+    group: 'core',
+    description: 'GTD-style universal inbox — dump anything to project memory with zero ceremony',
+    usage: {
+      claude: '/p:capture "<anything>"',
+      terminal: 'prjct capture "call Ana re pricing" --tags domain:sales',
+    },
+    params: '"<content>" [--tags k:v,...]',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: true,
+    features: [
+      'Writes memory type=inbox; Claude retypes later via a clarify workflow',
+      'No task id, no branch, no worktree — just persists',
+      'Bare `prjct "<text>"` auto-routes to `capture`',
     ],
   },
   {
