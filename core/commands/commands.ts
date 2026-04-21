@@ -15,26 +15,17 @@
  */
 
 import type { AgentInfo } from '../types/agents'
-import type {
-  AnalyzeOptions,
-  Author,
-  CleanupOptions,
-  CommandResult,
-  DesignOptions,
-  SetupOptions,
-} from '../types/commands'
+import type { AnalyzeOptions, Author, CommandResult, SetupOptions } from '../types/commands'
 import { AnalysisCommands } from './analysis'
-import { AnalyticsCommands } from './analytics'
+import { CaptureCommands } from './capture'
 import { ContextCommands } from './context'
-import { MaintenanceCommands } from './maintenance'
-import { ObsidianCommands } from './obsidian'
-import { ParallelCommands } from './parallel'
-import { PerformanceCommands } from './performance'
+import { InstallCommands } from './install'
 import { PlanningCommands } from './planning'
+import { PrimitiveCommands } from './primitives'
+import { SeedCommands } from './seed'
 import { SetupCommands } from './setup'
 import { ShippingCommands } from './shipping'
 import { UpdateCommands } from './update'
-import { VelocityCommands } from './velocity'
 import { WorkflowCommands } from './workflow'
 
 /**
@@ -46,16 +37,14 @@ class PrjctCommands {
   private workflow: WorkflowCommands
   private planning: PlanningCommands
   private shipping: ShippingCommands
-  private analytics: AnalyticsCommands
-  private performanceCmds: PerformanceCommands
-  private maintenance: MaintenanceCommands
   private analysis: AnalysisCommands
   private setupCmds: SetupCommands
   private updateCmds: UpdateCommands
-  private velocityCmds: VelocityCommands
   private contextCmds: ContextCommands
-  private obsidianCmds: ObsidianCommands
-  private parallelCmds: ParallelCommands
+  private primitivesCmds: PrimitiveCommands
+  private seedCmds: SeedCommands
+  private installCmds: InstallCommands
+  private captureCmds: CaptureCommands
 
   // Shared state
   agent: unknown
@@ -67,16 +56,14 @@ class PrjctCommands {
     this.workflow = new WorkflowCommands()
     this.planning = new PlanningCommands()
     this.shipping = new ShippingCommands()
-    this.analytics = new AnalyticsCommands()
-    this.performanceCmds = new PerformanceCommands()
-    this.maintenance = new MaintenanceCommands()
     this.analysis = new AnalysisCommands()
     this.setupCmds = new SetupCommands()
     this.updateCmds = new UpdateCommands()
-    this.velocityCmds = new VelocityCommands()
     this.contextCmds = new ContextCommands()
-    this.obsidianCmds = new ObsidianCommands()
-    this.parallelCmds = new ParallelCommands()
+    this.primitivesCmds = new PrimitiveCommands()
+    this.seedCmds = new SeedCommands()
+    this.installCmds = new InstallCommands()
+    this.captureCmds = new CaptureCommands()
 
     this.agent = null
     this.agentInfo = null
@@ -94,36 +81,6 @@ class PrjctCommands {
     return this.workflow.now(description, projectPath, options)
   }
 
-  async done(
-    projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
-  ): Promise<CommandResult> {
-    return this.workflow.done(projectPath, options)
-  }
-
-  async next(
-    projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
-  ): Promise<CommandResult> {
-    return this.workflow.next(projectPath, options)
-  }
-
-  async pause(
-    reason: string = '',
-    projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
-  ): Promise<CommandResult> {
-    return this.workflow.pause(reason, projectPath, options)
-  }
-
-  async resume(
-    taskId: string | null = null,
-    projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
-  ): Promise<CommandResult> {
-    return this.workflow.resume(taskId, projectPath, options)
-  }
-
   async workflowPrefs(
     input: string | null = null,
     projectPath: string = process.cwd(),
@@ -132,84 +89,13 @@ class PrjctCommands {
     return this.workflow.workflow(input, projectPath, options)
   }
 
-  async sessions(
-    projectPath: string = process.cwd(),
-    options: { md?: boolean; cleanup?: boolean } = {}
-  ): Promise<CommandResult> {
-    return this.workflow.sessions(projectPath, options)
-  }
-
-  // ========== Parallel Agent Commands ==========
-
-  async parallel(
-    subcommand: string | null = null,
-    projectPath: string = process.cwd(),
-    options: {
-      md?: boolean
-      max?: number
-      fromQueue?: boolean
-      fromLinear?: boolean
-      fromJira?: boolean
-      includeBacklog?: boolean
-    } = {}
-  ): Promise<CommandResult> {
-    return this.parallelCmds.parallel(subcommand, projectPath, options)
-  }
-
-  async parallelSpawn(
-    description: string,
-    projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
-  ): Promise<CommandResult> {
-    return this.parallelCmds.spawn(description, projectPath, options)
-  }
-
-  async parallelBatch(
-    descriptions: string[],
-    projectPath: string = process.cwd()
-  ): Promise<CommandResult> {
-    return this.parallelCmds.batchSpawn(descriptions, projectPath)
-  }
-
-  // ========== Obsidian Commands ==========
-
-  async obsidian(
-    subcommand: string | null = null,
-    projectPath: string = process.cwd()
-  ): Promise<CommandResult> {
-    return this.obsidianCmds.obsidian(subcommand, projectPath)
-  }
-
   // ========== Planning Commands ==========
 
   async init(
-    idea: string | null = null,
+    optionsOrIdea: import('../types/commands').InitOptions | string | null = null,
     projectPath: string = process.cwd()
   ): Promise<CommandResult> {
-    return this.planning.init(idea, projectPath)
-  }
-
-  async bug(
-    description: string,
-    projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
-  ): Promise<CommandResult> {
-    return this.planning.bug(description, projectPath, options)
-  }
-
-  async idea(
-    description: string,
-    projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
-  ): Promise<CommandResult> {
-    return this.planning.idea(description, projectPath, options)
-  }
-
-  async spec(
-    featureName: string | null = null,
-    projectPath: string = process.cwd()
-  ): Promise<CommandResult> {
-    return this.planning.spec(featureName, projectPath)
+    return this.planning.init(optionsOrIdea, projectPath)
   }
 
   // ========== Shipping Commands ==========
@@ -220,80 +106,6 @@ class PrjctCommands {
     options: { md?: boolean } = {}
   ): Promise<CommandResult> {
     return this.shipping.ship(feature, projectPath, { ...options })
-  }
-
-  // ========== Analytics Commands ==========
-
-  async dash(
-    view: string = 'default',
-    projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
-  ): Promise<CommandResult> {
-    return this.analytics.dash(view, projectPath, options)
-  }
-
-  async help(topic: string = '', projectPath: string = process.cwd()): Promise<CommandResult> {
-    return this.analytics.help(topic, projectPath)
-  }
-
-  // ========== Performance Commands ==========
-
-  async perf(period: string = '7', projectPath: string = process.cwd()): Promise<CommandResult> {
-    return this.performanceCmds.perf(period, projectPath)
-  }
-
-  // ========== Velocity Commands ==========
-
-  async velocity(
-    backlogPoints: string = '0',
-    projectPath: string = process.cwd()
-  ): Promise<CommandResult> {
-    return this.velocityCmds.velocity(backlogPoints, projectPath)
-  }
-
-  // ========== Maintenance Commands ==========
-
-  async cleanup(
-    options: CleanupOptions = {},
-    projectPath: string = process.cwd()
-  ): Promise<CommandResult> {
-    return this.maintenance.cleanup(options, projectPath)
-  }
-
-  async cleanupProjects(options: { dryRun?: boolean; md?: boolean } = {}): Promise<CommandResult> {
-    return this.maintenance.cleanupProjects(options)
-  }
-
-  async design(
-    target: string | null = null,
-    options: DesignOptions = {},
-    projectPath: string = process.cwd()
-  ): Promise<CommandResult> {
-    return this.maintenance.design(target, options, projectPath)
-  }
-
-  async recover(projectPath: string = process.cwd()): Promise<CommandResult> {
-    return this.maintenance.recover(projectPath)
-  }
-
-  async undo(projectPath: string = process.cwd()): Promise<CommandResult> {
-    return this.maintenance.undo(projectPath)
-  }
-
-  async redo(projectPath: string = process.cwd()): Promise<CommandResult> {
-    return this.maintenance.redo(projectPath)
-  }
-
-  async history(projectPath: string = process.cwd()): Promise<CommandResult> {
-    return this.maintenance.history(projectPath)
-  }
-
-  async enrich(
-    input: string | null = null,
-    projectPath: string = process.cwd(),
-    options: { md?: boolean; json?: boolean } = {}
-  ): Promise<CommandResult> {
-    return this.maintenance.enrich(input, projectPath, options)
   }
 
   // ========== Analysis Commands ==========
@@ -319,70 +131,6 @@ class PrjctCommands {
     return this.analysis.sync(projectPath, options)
   }
 
-  async stats(
-    projectPath: string = process.cwd(),
-    options: { json?: boolean; export?: boolean } = {}
-  ): Promise<CommandResult> {
-    return this.analysis.stats(projectPath, options)
-  }
-
-  async status(
-    projectPath: string = process.cwd(),
-    options: { json?: boolean; md?: boolean } = {}
-  ): Promise<CommandResult> {
-    return this.analysis.status(projectPath, options)
-  }
-
-  async diff(
-    projectPath: string = process.cwd(),
-    options: { json?: boolean; md?: boolean } = {}
-  ): Promise<CommandResult> {
-    return this.analysis.diff(projectPath, options)
-  }
-
-  async seal(
-    projectPath: string = process.cwd(),
-    options: { json?: boolean } = {}
-  ): Promise<CommandResult> {
-    return this.analysis.seal(projectPath, options)
-  }
-
-  async rollback(
-    projectPath: string = process.cwd(),
-    options: { json?: boolean; md?: boolean } = {}
-  ): Promise<CommandResult> {
-    return this.analysis.rollback(projectPath, options)
-  }
-
-  async verify(
-    projectPath: string = process.cwd(),
-    options: { json?: boolean; semantic?: boolean } = {}
-  ): Promise<CommandResult> {
-    return this.analysis.verify(projectPath, options)
-  }
-
-  async analysisPayload(
-    projectPath: string = process.cwd(),
-    options: { json?: boolean; md?: boolean } = {}
-  ): Promise<CommandResult> {
-    return this.analysis.analysisPayload(projectPath, options)
-  }
-
-  async saveLlmAnalysis(
-    analysisJson: string,
-    projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
-  ): Promise<CommandResult> {
-    return this.analysis.saveLlmAnalysis(analysisJson, projectPath, options)
-  }
-
-  async getLlmAnalysis(
-    projectPath: string = process.cwd(),
-    options: { json?: boolean; md?: boolean } = {}
-  ): Promise<CommandResult> {
-    return this.analysis.getLlmAnalysis(projectPath, options)
-  }
-
   // ========== Context Commands ==========
 
   async context(
@@ -391,6 +139,57 @@ class PrjctCommands {
     options: { md?: boolean } = {}
   ): Promise<CommandResult> {
     return this.contextCmds.context(input, projectPath, options)
+  }
+
+  // ========== v2 Primitives ==========
+
+  async status(
+    value: string | null = null,
+    projectPath: string = process.cwd(),
+    options: { md?: boolean } = {}
+  ): Promise<CommandResult> {
+    return this.primitivesCmds.status(value, projectPath, options)
+  }
+
+  async tag(
+    args: string | null = null,
+    projectPath: string = process.cwd(),
+    options: { md?: boolean } = {}
+  ): Promise<CommandResult> {
+    return this.primitivesCmds.tag(args, projectPath, options)
+  }
+
+  async remember(
+    args: string | null = null,
+    projectPath: string = process.cwd(),
+    options: { md?: boolean; tags?: string } = {}
+  ): Promise<CommandResult> {
+    return this.primitivesCmds.remember(args, projectPath, options)
+  }
+
+  // v2 alpha.8: declarative packs + Claude Code hook install
+  async seed(
+    input: string | null = null,
+    projectPath: string = process.cwd(),
+    options: { md?: boolean } = {}
+  ): Promise<CommandResult> {
+    return this.seedCmds.seed(input, projectPath, options)
+  }
+
+  async install(
+    _arg: string | null = null,
+    projectPath: string = process.cwd(),
+    options: { md?: boolean } = {}
+  ): Promise<CommandResult> {
+    return this.installCmds.install(null, projectPath, options)
+  }
+
+  async capture(
+    content: string | null = null,
+    projectPath: string = process.cwd(),
+    options: { md?: boolean; tags?: string; force?: boolean } = {}
+  ): Promise<CommandResult> {
+    return this.captureCmds.capture(content, projectPath, options)
   }
 
   // ========== Auth Commands ==========

@@ -165,6 +165,10 @@ export interface InitOptions {
   yes?: boolean
   /** Initial idea for architect mode */
   idea?: string | null
+  /** Comma-separated pack names to activate (e.g. "code,daily"). */
+  pack?: string
+  /** Persona role label to declare (e.g. "PM", "Founder"). */
+  persona?: string
 }
 
 // ============================================

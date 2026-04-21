@@ -31,38 +31,9 @@ describe('estimateTaskForStart', () => {
     expect(estimate.estimatedMinutes).toBe(90)
   })
 
-  it('uses history estimate when enough tagged outcomes exist', async () => {
-    const projectId = 'project-b'
-    const outcomesDir = path.join(tmpRoot!, projectId, 'outcomes')
-    await fs.mkdir(outcomesDir, { recursive: true })
-
-    const line = (minutes: string) =>
-      JSON.stringify({
-        sessionId: `s-${minutes}`,
-        command: 'done',
-        task: 'historical feature',
-        startedAt: '2026-02-10T00:00:00.000Z',
-        completedAt: '2026-02-10T01:00:00.000Z',
-        estimatedDuration: '2h',
-        actualDuration: minutes,
-        variance: '+0m',
-        completedAsPlanned: true,
-        qualityScore: 3,
-        tags: ['feature'],
-        id: `id-${minutes}`,
-      })
-
-    await fs.writeFile(
-      path.join(outcomesDir, 'outcomes.jsonl'),
-      `${[line('3h'), line('2h 45m'), line('3h 15m')].join('\n')}\n`,
-      'utf-8'
-    )
-
-    const estimate = await estimateTaskForStart(projectId, 'add oauth login flow')
-
-    expect(estimate.source).toBe('history')
-    expect(estimate.taskType).toBe('feature')
-    expect(estimate.estimatedPoints).toBe(8)
-    expect(estimate.estimatedMinutes).toBe(180)
-  })
+  // The history-based estimate path was backed by the outcome-* subsystem,
+  // which had zero writers and was removed. `suggestFromHistory` now
+  // always returns null, so estimates always fall back to heuristics.
+  // When a real outcome feed lands (e.g. via a Stop hook that records
+  // durations), reinstate this test alongside the data source.
 })

@@ -218,332 +218,72 @@ function formatRichContext(ctx: SkillContext): string {
 // SKILL DEFINITIONS
 // ============================================================================
 
+/**
+ * Anti-harness skill template (canonical Anthropic shape).
+ *
+ * The body is `Use when` + `What's here` + `Gotchas` — zero numbered
+ * steps, zero "first X then Y", zero "pre-flight BLOCKING" language.
+ * prjct describes state; Claude decides CÓMO.
+ *
+ * Rich project data (persona, active task, recent shipped, patterns,
+ * …) is injected by `formatRichContext(ctx)` so the single skill
+ * still carries project-specific signal without being prescriptive.
+ */
 const SKILL_DEFINITIONS: SkillDefinition[] = [
-  // ── Non-invocable context ──────────────────────────────────────────────
   {
-    name: 'prjct-context',
-    description: 'Project context with state and user patterns',
-    allowedTools: [],
-    userInvocable: false,
-    condition: () => true,
-    body: (ctx) => `${formatProjectHeader(ctx)}
-${formatRichContext(ctx)}`,
-  },
-
-  // ── Core Workflow — State machine ─────────────────────────────────────
-  {
-    name: 'prjct-task',
-    description: 'Start a task with full project context',
-    allowedTools: ['Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep', 'Task', 'AskUserQuestion'],
-    condition: () => true,
-    body: (_ctx) => `## Workflow
-
-### Register Task
-\`\`\`bash
-prjct task "$ARGUMENTS" --md
-\`\`\`
-Read the Context Contract from CLI output — it has file paths, subtasks, and scope.
-If CLI output is JSON with \`options\`, present choices to user.
-
-### Execute
-- Create feature branch if on main: \`git checkout -b {type}/{slug}\`
-- Work through subtasks; mark each done: \`prjct done --md\`
-### Ship
-When complete: \`p. ship\` or \`prjct ship --md\`
-`,
-  },
-  {
-    name: 'prjct-done',
+    name: 'prjct',
     description:
-      'Marks the current task as complete and feeds the feedback loop. Use when the user says "done", "finished", "ship it", or wants to complete current work. Completion data flows to sync → skill regeneration.',
-    allowedTools: ['Bash', 'AskUserQuestion'],
+      'Persona-aware project memory + workflows. Use when you need prior decisions, learnings, or to run a registered workflow.',
+    allowedTools: ['Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep', 'Task'],
     condition: () => true,
-    body: (ctx) => {
-      const lines = ['## Workflow']
-      if (ctx.hasActiveTask) {
-        lines.push(`\nActive task: **${ctx.activeTaskDescription}**`)
-      }
-      lines.push(`
-\`\`\`bash
-prjct done "$ARGUMENTS" --md
-\`\`\`
-Read CLI output for completion summary and next steps.
-`)
-      return lines.join('\n')
-    },
-  },
-  {
-    name: 'prjct-ship',
-    description:
-      'Ship feature: PR, version bump, changelog. Auto-completes active task if one exists before shipping.',
-    allowedTools: ['Bash', 'Read', 'AskUserQuestion'],
-    condition: () => true,
-    body: (_ctx) => `## Workflow
-
-### Pre-flight (BLOCKING)
-1. Verify NOT on main/master: \`git branch --show-current\`
-2. Verify GitHub auth: \`gh auth status\`
-
-### Ship
-\`\`\`bash
-prjct ship "$ARGUMENTS" --md
-\`\`\`
-Review what will be committed, versioned, and PR'd.
-ASK: "Ready to ship?" Yes / No / Show diff
-
-### Finalize
-- Commit with prjct footer: \`Generated with [p/](https://www.prjct.app/)\`
-- Push and create PR
-- Update issue tracker if linked
-`,
-  },
-  {
-    name: 'prjct-pause',
-    description:
-      'Pauses the active task to handle an interruption. Use when the user needs to switch context, handle something urgent, or stop current work temporarily.',
-    allowedTools: ['Bash', 'AskUserQuestion'],
-    condition: () => true,
-    body: (ctx) => {
-      const lines = ['## Workflow']
-      if (ctx.hasActiveTask) {
-        lines.push(`\nActive task: **${ctx.activeTaskDescription}**`)
-      }
-      lines.push(`
-\`\`\`bash
-prjct pause "$ARGUMENTS" --md
-\`\`\`
-Read CLI output for pause confirmation and context saved.
-`)
-      return lines.join('\n')
-    },
-  },
-  {
-    name: 'prjct-resume',
-    description:
-      'Resumes a paused task. Use when the user says "resume", "continue", "pick up where I left off", or wants to return to previous work.',
-    allowedTools: ['Bash', 'Read', 'AskUserQuestion'],
-    condition: () => true,
-    body: (ctx) => {
-      const lines = ['## Workflow']
-      if (ctx.pausedTasks.length > 0) {
-        lines.push('\n### Paused Tasks')
-        for (const t of ctx.pausedTasks.slice(0, 5)) {
-          lines.push(`- **${t.description}** (paused ${t.pausedAt})`)
-        }
-      }
-      lines.push(`
-\`\`\`bash
-prjct resume "$ARGUMENTS" --md
-\`\`\`
-Read CLI output for restored context and next steps.
-`)
-      return lines.join('\n')
-    },
-  },
-  {
-    name: 'prjct-next',
-    description:
-      'Shows the priority queue and recommends what to work on next. Use when the user asks "what should I do?", "what\'s next?", or is between tasks.',
-    allowedTools: ['Bash', 'AskUserQuestion'],
-    condition: () => true,
-    body: (ctx) => {
-      const lines = ['## Workflow']
-      if (ctx.backlogCount > 0) {
-        lines.push(`\n${ctx.backlogCount} items in backlog.`)
-        if (ctx.topBacklog.length > 0) {
-          lines.push('Top priorities:')
-          for (const t of ctx.topBacklog) {
-            lines.push(`- [${t.priority}] ${t.description}`)
-          }
-        }
-      }
-      lines.push(`
-\`\`\`bash
-prjct next --md
-\`\`\`
-Present the prioritized list and help user pick a task.
-`)
-      return lines.join('\n')
-    },
-  },
-  {
-    name: 'prjct-sync',
-    description: 'Re-analyze project and regenerate context',
-    allowedTools: ['Bash', 'AskUserQuestion'],
-    condition: () => true,
-    body: (_ctx) => `## Workflow
-
-\`\`\`bash
-prjct sync $ARGUMENTS --md
-\`\`\`
-Read CLI output for analysis results.
-Present results: tables, analysis findings, anti-patterns, conventions.
-
-## What sync does
-- Git analysis (branch, changes, recent commits)
-- Project stats (files, stack, frameworks)
-- Skill regeneration (this skill and others)
-- Index building (BM25, import graph, co-change)
-- Pattern extraction and analysis
-
-## Obsidian Integration
-After completing analysis, check if Obsidian is configured:
-\`\`\`bash
-prjct obsidian status --md
-\`\`\`
-If configured, write project insights to the vault using the MCP tool \`prjct_obsidian_write\`:
-- notePath: \`_insights.md\`
-- frontmatter: \`{ prjct_type: "insights", updated: "YYYY-MM-DD" }\`
-- content: Your analysis written in natural language (NOT tables or templates)
-
-Write like a PM briefing the team. Include:
-- Project status: active task, queue depth, blockers, what needs attention
-- Architecture: style, key patterns, domains identified
-- Recent progress: last deliveries with their impact
-- Risks: anti-patterns found, tech debt, areas of concern
-- Decisions: key technical choices and rationale
-- Velocity: trend, estimation accuracy, capacity
-- Next priorities: what should be tackled next and why
-
-Be specific — cite issue IDs, file paths, concrete numbers. Skip this step if Obsidian is not configured.
-`,
-  },
-  {
-    name: 'prjct-bug',
-    description: 'Report and track a bug with auto-priority',
-    allowedTools: ['Bash', 'Task', 'AskUserQuestion'],
-    condition: () => true,
-    body: (_ctx) => `## Workflow
-
-1. If no description provided, ASK the user for details
-2. Run \`prjct bug "$ARGUMENTS" --md\`
-3. Search the codebase for affected files
-4. ASK: "Fix this bug now?" Fix now / Queue for later
-5. If fix now: create branch \`bug/{slug}\` and start working
-6. If queue: done — bug is tracked
-`,
-  },
-  {
-    name: 'prjct-workflow',
-    description:
-      'Configures workflow gates, hooks, steps, and instructions via natural language (English/Spanish). Use when the user wants to customize the task→done→ship cycle with before/after hooks, quality gates, or custom steps.',
-    allowedTools: ['Bash', 'AskUserQuestion'],
-    condition: () => true,
-    body: (_ctx) => `## Workflow
-
-\`\`\`bash
-prjct workflow "$ARGUMENTS" --md
-\`\`\`
-Read CLI output for hook configuration results.
-
-Supports natural language in English and Spanish:
-- "before ship, run tests"
-- "antes de ship, correr tests"
-- Gates: block transitions until conditions are met
-- Hooks: run commands before/after state transitions
-- Steps: add custom workflow stages
-`,
-  },
-
-  // ── Integrations — Enrichment pipeline ────────────────────────────────
-  {
-    name: 'prjct-enrich',
-    description:
-      'Finds relevant files for issues by analyzing local code. Input to linear/jira sync pipeline.',
-    allowedTools: ['Bash', 'Read', 'Grep', 'Glob', 'AskUserQuestion'],
-    condition: () => true,
-    body: (_ctx) => `## Workflow
-
-\`\`\`bash
-prjct enrich "$ARGUMENTS" --md
-\`\`\`
-Read CLI output for enrichment data.
-`,
-  },
-  {
-    name: 'prjct-linear',
-    description:
-      'Linear integration — sync issues, create/update tasks, manage projects. Use when the user mentions Linear, wants to sync issues, or manage work items in Linear.',
-    allowedTools: ['Bash', 'AskUserQuestion'],
-    condition: () => true,
-    body: (_ctx) => `## Workflow
-
-\`\`\`bash
-prjct linear "$ARGUMENTS" --md
-\`\`\`
-Read CLI output for Linear sync results.
-`,
-  },
-  {
-    name: 'prjct-jira',
-    description:
-      'Jira integration — sync issues, transitions, boards. Use when the user mentions Jira, wants to sync tickets, or manage work in Jira.',
-    allowedTools: ['Bash', 'AskUserQuestion'],
-    condition: () => true,
-    body: (_ctx) => `## Workflow
-
-\`\`\`bash
-prjct jira "$ARGUMENTS" --md
-\`\`\`
-Read CLI output for Jira sync results.
-`,
-  },
-
-  // ── Conditional: Metrics ───────────────────────────────────────────────
-  {
-    name: 'prjct-plan',
-    description: 'Plan work with real velocity and backlog',
-    allowedTools: ['Bash', 'Read', 'AskUserQuestion'],
-    condition: (ctx) => ctx.backlogCount > 0,
-    body: (_ctx) => `## Workflow
-
-1. Run \`prjct next --md\` to see prioritized backlog
-2. Review velocity data: \`prjct dash --md\`
-3. Discuss priorities with the user
-4. Start chosen task: \`p. task "description"\`
-`,
-  },
-  {
-    name: 'prjct-velocity',
-    description: 'Show delivery velocity and metrics',
-    allowedTools: ['Bash', 'Read'],
-    condition: (ctx) => ctx.completedTaskCount >= 5,
-    body: (_ctx) => `## Workflow
-
-1. Run \`prjct dash --md\` for full metrics dashboard
-2. Present velocity, estimation accuracy, and burndown
-3. Highlight trends: improving, stable, or declining
-
-## Metrics Available
-- Tasks completed per week
-- Average task duration
-- Points delivered vs estimated
-- Shipping frequency
-`,
-  },
-
-  // ── Token Tracking ──────────────────────────────────────────────────────
-  {
-    name: 'prjct-tokens',
-    description:
-      'Record token usage on the active task. Auto-invoke BEFORE completing a task (done/ship) to track input/output tokens for cost analysis.',
-    allowedTools: ['Bash'],
-    condition: () => true,
-    body: (_ctx) => `## Workflow
-
-Report your token usage on the active task:
-
-\`\`\`bash
-prjct tokens <input_tokens> <output_tokens>
-\`\`\`
-
-**IMPORTANT**: Call this BEFORE \`prjct done\` or \`prjct ship\` so token usage is persisted to task history.
-
-Tokens accumulate — call multiple times during a task and they add up.
-Token totals are saved to task history on completion for cost comparison across tasks.
-`,
+    body: (ctx) => buildPrjctSkillBody(ctx),
   },
 ]
+
+function buildPrjctSkillBody(ctx: SkillContext): string {
+  return [
+    '# prjct',
+    '',
+    `## Use when`,
+    '',
+    'You want to:',
+    '- recall prior project decisions, learnings, or shipped features',
+    '- capture a thought, todo, or insight without a commitment',
+    '- run a workflow the project already registered',
+    '- understand your role and the MCPs available in this project',
+    '',
+    "## What's here",
+    '',
+    formatProjectHeader(ctx),
+    '',
+    formatRichContext(ctx),
+    '',
+    '### Primitives',
+    '',
+    '- `prjct capture "<anything>"` — inbox dump (zero ceremony)',
+    '- `prjct remember <type> "<content>" [--tags]` — typed memory entry',
+    '- `prjct context memory [topic]` — recall with optional keyword filter',
+    '- `prjct workflow list` / `prjct workflow run <name>` — registered workflows',
+    '- `prjct seed list` — active packs (memory types + workflow slots)',
+    '',
+    'Base memory types: `fact · decision · learning · gotcha · pattern · anti-pattern · shipped · inbox · todo · idea · insight · question · source · person`. Any lowercase string works (e.g. `recipe`, `okr`, `stakeholder`).',
+    '',
+    '### Data paths',
+    '',
+    '- `.prjct/wiki/_generated/` — agent-crawlable markdown (regenerated on ship/remember)',
+    '- `.prjct/wiki/captured/` — drop notes with frontmatter, run `prjct context wiki sync` to ingest',
+    '- `.prjct/prjct.config.json` — persona + active packs',
+    '',
+    '## Gotchas',
+    '',
+    '- Memory recall is best-effort — an empty result means no match, not "nothing exists".',
+    '- Tags are freeform strings — reuse existing vocabulary before inventing new keys.',
+    '- Secret-like content is refused by `remember` and `capture` unless `--force`.',
+    '- Bare `prjct "<text>"` routes to `capture` (inbox), not `task`. Use `prjct task` explicitly for work that needs a branch/worktree.',
+    '- Hooks in `~/.claude/settings.json` already inject persona + topical memory on SessionStart / UserPromptSubmit — you rarely need to call prjct by hand at session start.',
+    '',
+  ].join('\n')
+}
 
 // ============================================================================
 // HELPERS

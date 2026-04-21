@@ -1,15 +1,287 @@
 /**
- * Workflow Engine (Phase 2)
+ * Workflow Engine (v2)
  *
- * Unified rule execution for hooks, gates, and steps.
- * Replaces runWorkflowHooks() as the single entry point.
+ * Unified rule execution for hooks, gates, steps, and instructions.
+ *
+ * Current capabilities:
+ *   - conditional rules via `when_expr` (see when-evaluator.ts)
+ *   - parallel hook execution (opt-out per rule)
+ *   - action prefixes that route to specialized handlers:
+ *       `status:<value>` → state machine transition
+ *       `script:<path>`  → run a bash script from `.prjct/workflows/<path>`
+ *       `mcp:<server>:<tool>[:<json>]` → emit an MCP-call instruction to
+ *         the LLM (prjct-cli can't hold an MCP connection; we declare
+ *         the QUÉ and let Claude call the CÓMO)
+ *       `persona:context`  → re-inject the project persona into output
+ *
+ * Alpha.10 removed: gate result caching and the Spanish/English NL
+ * intent parser in `core/commands/workflow.ts`. Both were harness —
+ * cache made "gate didn't run" invisible; NL parser guessed intent
+ * instead of letting Claude (or the human) author rules directly.
  */
 
+import { execSync } from 'node:child_process'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import chalk from 'chalk'
+import { STATUS_CHANGE_ACTION, TAG_EVENT_TYPE } from '../memory/events'
+import { memoryService } from '../services/memory-service'
+import { getGitBranch } from '../session/git-helpers'
+import prjctDb from '../storage/database'
+import { stateStorage } from '../storage/state-storage'
 import { workflowRuleStorage } from '../storage/workflow-rule-storage'
+import type { LocalConfig, ProjectPersona } from '../types/config'
 import { getErrorMessage } from '../types/fs'
+import type { WorkflowRule } from '../types/storage.js'
 import type { WorkflowExecutionResult } from '../types/workflow.js'
 import { execAsync } from '../utils/exec'
+import { evaluateWhen, type WhenContext } from './when-evaluator'
+
+const STATUS_ACTION_PREFIX = 'status:'
+const SCRIPT_ACTION_PREFIX = 'script:'
+const MCP_ACTION_PREFIX = 'mcp:'
+const PERSONA_CONTEXT_ACTION = 'persona:context'
+
+async function runStatusTransition(
+  projectId: string,
+  projectPath: string,
+  target: string
+): Promise<void> {
+  const active = await stateStorage.getCurrentTask(projectId)
+  if (!active) {
+    throw new Error(`Cannot transition to '${target}': no active task`)
+  }
+  await memoryService.log(projectPath, STATUS_CHANGE_ACTION, {
+    taskId: active.id,
+    from: active.type ?? null,
+    to: target,
+    source: 'workflow',
+  })
+}
+
+async function runShellAction(rule: WorkflowRule, projectPath: string): Promise<void> {
+  // Imported (shared-template) rules aren't auto-executed yet — a future
+  // release will add an approval prompt. For now, fail loud so a template
+  // registry can't sneak arbitrary shell onto a user's machine.
+  if (rule.trustSource === 'imported') {
+    throw new Error(
+      `Refusing to run imported rule without approval: ${rule.description || rule.action}. ` +
+        'Re-create the rule locally if you trust it.'
+    )
+  }
+  await execAsync(rule.action, {
+    timeout: rule.timeoutMs,
+    cwd: projectPath,
+    env: { ...process.env },
+  })
+}
+
+/**
+ * Run a user-authored bash script stored under `.prjct/workflows/<path>`.
+ * The script receives the rule args via env so users/Claude can author
+ * scripts that react to whatever tags/branch/description the task
+ * carried. We deliberately don't pass the action inline — the script
+ * path is the contract; everything else comes via env.
+ */
+async function runScriptAction(
+  rule: WorkflowRule,
+  projectPath: string,
+  whenCtx: WhenContext
+): Promise<void> {
+  if (rule.trustSource === 'imported') {
+    throw new Error(
+      `Refusing to run imported script rule without approval: ${rule.description || rule.action}.`
+    )
+  }
+  const relativePath = rule.action.slice(SCRIPT_ACTION_PREFIX.length).trim()
+  if (!relativePath) throw new Error(`Empty script path in action '${rule.action}'`)
+
+  const scriptPath = path.resolve(projectPath, '.prjct/workflows', relativePath)
+  // Security: keep scripts inside the project's workflows dir. No
+  // traversal via `../..` or absolute paths pointing elsewhere.
+  const workflowsRoot = path.resolve(projectPath, '.prjct/workflows')
+  if (!scriptPath.startsWith(`${workflowsRoot}${path.sep}`) && scriptPath !== workflowsRoot) {
+    throw new Error(`Script path escapes workflows dir: ${relativePath}`)
+  }
+  try {
+    await fs.access(scriptPath)
+  } catch {
+    throw new Error(`Script not found: .prjct/workflows/${relativePath}`)
+  }
+
+  await execAsync(`bash ${JSON.stringify(scriptPath)}`, {
+    timeout: rule.timeoutMs,
+    cwd: projectPath,
+    env: {
+      ...process.env,
+      PRJCT_BRANCH: whenCtx.branch,
+      PRJCT_FILES_CHANGED: whenCtx.filesChanged.join(','),
+      PRJCT_TAGS: Object.entries(whenCtx.tags)
+        .map(([k, v]) => `${k}=${v}`)
+        .join(','),
+    },
+  })
+}
+
+/**
+ * MCP actions are **declarative** — prjct-cli runs outside the MCP
+ * connection Claude has open in the host, so we can't actually invoke
+ * the tool ourselves. We surface the intended call as an instruction so
+ * Claude (who IS connected) picks it up and executes it. Keeps us
+ * firmly in "QUÉ not CÓMO" territory.
+ *
+ * Format: `mcp:<server>:<tool>[:<json-args>]`
+ * Example: `mcp:linear:list_issues:{"state":"open"}`
+ */
+function buildMcpInstruction(rule: WorkflowRule): string {
+  const rest = rule.action.slice(MCP_ACTION_PREFIX.length).trim()
+  const firstColon = rest.indexOf(':')
+  if (firstColon === -1) {
+    return `Call MCP tool ${JSON.stringify(rest)} (server unspecified — re-author rule with format \`mcp:<server>:<tool>[:<args>]\`).`
+  }
+  const server = rest.slice(0, firstColon)
+  const rest2 = rest.slice(firstColon + 1)
+  const argsColon = rest2.indexOf(':')
+  const tool = argsColon === -1 ? rest2 : rest2.slice(0, argsColon)
+  const args = argsColon === -1 ? '' : rest2.slice(argsColon + 1)
+
+  const label = rule.description ? ` (${rule.description})` : ''
+  return args
+    ? `Call MCP \`${server}.${tool}\` with args ${args}${label}.`
+    : `Call MCP \`${server}.${tool}\`${label}.`
+}
+
+/**
+ * `persona:context` emits the project persona as an instruction so a
+ * long-running workflow can re-anchor Claude mid-run (useful after
+ * several steps that might drift the context).
+ */
+async function buildPersonaInstruction(projectPath: string): Promise<string> {
+  try {
+    const { default: configManager } = await import('../infrastructure/config-manager')
+    const config = (await configManager.readConfig(projectPath)) as LocalConfig | null
+    const persona = config?.persona as ProjectPersona | undefined
+    if (!persona) {
+      return 'No persona declared for this project — `.prjct/prjct.config.json` has no `persona` field.'
+    }
+    const parts: string[] = [`You are **${persona.role}** in this project.`]
+    if (persona.focus) parts.push(`Focus: ${persona.focus}.`)
+    if (persona.mcps && persona.mcps.length > 0) {
+      parts.push(`MCPs available: ${persona.mcps.join(', ')}.`)
+    }
+    if (persona.packs && persona.packs.length > 0) {
+      parts.push(`Active packs: ${persona.packs.join(', ')}.`)
+    }
+    return parts.join(' ')
+  } catch (error) {
+    return `Could not resolve persona: ${getErrorMessage(error)}`
+  }
+}
+
+async function runRuleAction(
+  rule: WorkflowRule,
+  projectId: string,
+  projectPath: string,
+  whenCtx: WhenContext,
+  result: WorkflowExecutionResult
+): Promise<void> {
+  const action = rule.action
+
+  if (action.startsWith(STATUS_ACTION_PREFIX)) {
+    const target = action.slice(STATUS_ACTION_PREFIX.length).trim()
+    if (!target) throw new Error(`Empty status target in action '${action}'`)
+    await runStatusTransition(projectId, projectPath, target)
+    return
+  }
+
+  if (action.startsWith(SCRIPT_ACTION_PREFIX)) {
+    await runScriptAction(rule, projectPath, whenCtx)
+    return
+  }
+
+  if (action.startsWith(MCP_ACTION_PREFIX)) {
+    // MCP actions are declarative — surface as instructions. Claude
+    // (inside the host) decides whether/when to actually call.
+    result.instructions.push(buildMcpInstruction(rule))
+    return
+  }
+
+  if (action === PERSONA_CONTEXT_ACTION) {
+    result.instructions.push(await buildPersonaInstruction(projectPath))
+    return
+  }
+
+  await runShellAction(rule, projectPath)
+}
+
+async function buildWhenContext(projectId: string, projectPath: string): Promise<WhenContext> {
+  // All three sub-queries are best-effort — a missing branch or empty
+  // diff shouldn't stop workflow rules from running.
+  const [branch, filesChanged, tags] = await Promise.all([
+    resolveBranch(projectPath),
+    resolveChangedFiles(projectPath),
+    resolveActiveTags(projectId),
+  ])
+  return { branch, filesChanged, tags }
+}
+
+async function resolveBranch(projectPath: string): Promise<string> {
+  try {
+    return (await getGitBranch(projectPath)) || ''
+  } catch {
+    return ''
+  }
+}
+
+async function resolveChangedFiles(projectPath: string): Promise<string[]> {
+  const opts = { cwd: projectPath, encoding: 'utf-8' as const }
+  const runDiff = async (cmd: string): Promise<string[]> => {
+    try {
+      return execSync(cmd, opts)
+        .split('\n')
+        .map((l) => l.trim())
+        .filter(Boolean)
+    } catch {
+      return []
+    }
+  }
+  // Run both diffs in parallel. execSync is blocking within a task, but
+  // wrapping each in Promise.resolve lets them share the event loop tick.
+  const [staged, unstaged] = await Promise.all([
+    runDiff('git diff --cached --name-only'),
+    runDiff('git diff --name-only'),
+  ])
+  return [...new Set([...staged, ...unstaged])]
+}
+
+async function resolveActiveTags(projectId: string): Promise<Record<string, string>> {
+  try {
+    const active = await stateStorage.getCurrentTask(projectId)
+    const tags: Record<string, string> = {}
+    if (active?.type) tags.type = active.type
+    if (!active) return tags
+
+    // Most recent `memory.task.tagged` for this task carries the full
+    // dict populated by `prjct tag`.
+    type EvtRow = { data: string }
+    const row = prjctDb.get<EvtRow>(
+      projectId,
+      'SELECT data FROM events WHERE type = ? ORDER BY id DESC LIMIT 1',
+      TAG_EVENT_TYPE
+    )
+    if (row) {
+      try {
+        const parsed = JSON.parse(row.data) as { taskId?: string; tags?: Record<string, string> }
+        if (parsed.taskId === active.id && parsed.tags) return { ...tags, ...parsed.tags }
+      } catch {
+        // malformed row — fall through
+      }
+    }
+    return tags
+  } catch {
+    return {}
+  }
+}
 
 export async function executeWorkflowRules(
   projectId: string,
@@ -28,23 +300,34 @@ export async function executeWorkflowRules(
 
   if (options.skipRules) return result
 
-  // 1. Get rules from the new workflow_rules table
   const allRules = workflowRuleStorage.getRulesForCommand(projectId, command)
-  const rules = allRules.filter((r) => r.position === phase)
+  const phased = allRules.filter((r) => r.position === phase)
+  const projectPath = options.projectPath || process.cwd()
 
-  // 2. Run gates first (before phase only) — ALL must pass
+  // Only pay for the context (git diff, tag lookup, branch) when
+  // something in this phase actually reads it — conditional rules
+  // (when_expr) or gates. Saves ~30ms per invocation on workflows
+  // that are pure hooks + steps.
+  const needsContext = phased.some((r) => r.whenExpr || r.type === 'gate')
+  const whenCtx: WhenContext = needsContext
+    ? await buildWhenContext(projectId, projectPath)
+    : { branch: '', filesChanged: [], tags: {} }
+
+  const rules = phased.filter((r) => evaluateWhen(r.whenExpr, whenCtx))
+
+  // 1. Gates — blocking. No caching: if the user wants to skip a gate
+  // when nothing relevant changed, the gate script itself can short-
+  // circuit (e.g. `git diff --quiet src/ || bun test`). Caching was
+  // removed in alpha.10 because it silently hid "gate didn't run" and
+  // added API surface that didn't earn its weight.
   const gates = rules.filter((r) => r.type === 'gate')
   for (const gate of gates) {
     const label = gate.description || gate.action
-    console.log(`\n${chalk.dim(`[gate] ${phase}-${command}: ${gate.action}`)}`)
 
+    console.log(`\n${chalk.dim(`[gate] ${phase}-${command}: ${gate.action}`)}`)
     try {
       const startTime = Date.now()
-      await execAsync(gate.action, {
-        timeout: gate.timeoutMs,
-        cwd: options.projectPath || process.cwd(),
-        env: { ...process.env },
-      })
+      await runRuleAction(gate, projectId, projectPath, whenCtx, result)
       const elapsed = Date.now() - startTime
       const timeStr = elapsed > 1000 ? `${(elapsed / 1000).toFixed(1)}s` : `${elapsed}ms`
       console.log(`${chalk.green('✓')} ${chalk.dim(`gate passed (${timeStr})`)}`)
@@ -53,11 +336,11 @@ export async function executeWorkflowRules(
       result.gatesFailed.push(label)
       result.success = false
       result.output += `Gate failed: ${label}\n${getErrorMessage(error)}\n`
-      return result // gates are blocking — stop immediately
+      return result
     }
   }
 
-  // 3. Collect instructions (informational, non-blocking, no shell execution)
+  // 2. Instructions — non-blocking, no shell.
   const instructions = rules.filter((r) => r.type === 'instruction')
   for (const instr of instructions) {
     const label = instr.description || instr.action
@@ -65,18 +348,18 @@ export async function executeWorkflowRules(
     result.instructions.push(instr.action)
   }
 
-  // 4. Run hooks (non-blocking)
+  // 3. Hooks — non-blocking. Parallel by default (via Promise.all); hooks
+  //    with `parallel: false` run sequentially ahead of the batch so
+  //    order-dependent cleanups still work.
   const hooks = rules.filter((r) => r.type === 'hook')
-  for (const hook of hooks) {
-    console.log(`\n${chalk.dim(`[hook] ${phase}-${command}: ${hook.action}`)}`)
+  const serialHooks = hooks.filter((h) => h.parallel === false)
+  const parallelHooks = hooks.filter((h) => h.parallel !== false)
 
+  const runHook = async (hook: WorkflowRule): Promise<void> => {
+    console.log(`\n${chalk.dim(`[hook] ${phase}-${command}: ${hook.action}`)}`)
     try {
       const startTime = Date.now()
-      await execAsync(hook.action, {
-        timeout: hook.timeoutMs,
-        cwd: options.projectPath || process.cwd(),
-        env: { ...process.env },
-      })
+      await runRuleAction(hook, projectId, projectPath, whenCtx, result)
       const elapsed = Date.now() - startTime
       const timeStr = elapsed > 1000 ? `${(elapsed / 1000).toFixed(1)}s` : `${elapsed}ms`
       console.log(`${chalk.green('✓')} ${chalk.dim(`(${timeStr})`)}`)
@@ -87,18 +370,21 @@ export async function executeWorkflowRules(
     }
   }
 
-  // 5. Run steps (blocking, used for ship pipeline)
+  for (const hook of serialHooks) {
+    await runHook(hook)
+  }
+  if (parallelHooks.length > 0) {
+    await Promise.all(parallelHooks.map(runHook))
+  }
+
+  // 4. Steps — blocking, sequential. `status:<value>` steps drive the
+  //    state machine instead of shelling out.
   const steps = rules.filter((r) => r.type === 'step')
   for (const step of steps) {
     console.log(`\n${chalk.dim(`[step] ${command}: ${step.action}`)}`)
-
     try {
       const startTime = Date.now()
-      await execAsync(step.action, {
-        timeout: step.timeoutMs,
-        cwd: options.projectPath || process.cwd(),
-        env: { ...process.env },
-      })
+      await runRuleAction(step, projectId, projectPath, whenCtx, result)
       const elapsed = Date.now() - startTime
       const timeStr = elapsed > 1000 ? `${(elapsed / 1000).toFixed(1)}s` : `${elapsed}ms`
       console.log(`${chalk.green('✓')} ${chalk.dim(`step passed (${timeStr})`)}`)
@@ -108,7 +394,7 @@ export async function executeWorkflowRules(
       result.gatesFailed.push(step.description || step.action)
       result.success = false
       result.output += `Step failed: ${step.action}\n${getErrorMessage(error)}\n`
-      return result // steps block on failure
+      return result
     }
   }
 

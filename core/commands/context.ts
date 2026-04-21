@@ -17,7 +17,6 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import orchestratorExecutor from '../agentic/orchestrator-executor'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import { stateStorage } from '../storage/state-storage'
@@ -41,20 +40,14 @@ export class ContextCommands {
    * Returns JSON with all orchestrator data.
    */
   async context(
-    input: string | null = null,
+    _input: string | null = null,
     projectPath: string = process.cwd(),
     options: { md?: boolean } = {}
   ): Promise<CommandResult> {
     try {
-      // Parse input: first word is command, rest is arguments
-      const parts = (input || '').trim().split(/\s+/)
-      const command = parts[0] || 'task'
-      const taskDescription = parts.slice(1).join(' ')
-
-      // Get project info
       const config = await configManager.readConfig(projectPath)
       if (!config || !config.projectId) {
-        const output: Partial<ContextOutput> = {
+        const empty: Partial<ContextOutput> = {
           projectId: '',
           globalPath: '',
           currentTask: null,
@@ -68,17 +61,13 @@ export class ContextCommands {
             technologies: [],
           },
         }
-        console.log(JSON.stringify(output))
-        return {
-          success: false,
-          message: 'No prjct project. Run `p. init` first.',
-        }
+        console.log(JSON.stringify(empty))
+        return { success: false, message: 'No prjct project. Run `prjct init` first.' }
       }
 
       const projectId = config.projectId
       const globalPath = pathManager.getGlobalProjectPath(projectId)
 
-      // Get current task state
       const state = await stateStorage.read(projectId)
       const currentTask = state?.currentTask
         ? {
@@ -95,40 +84,20 @@ export class ContextCommands {
           }
         : null
 
-      // Run orchestrator if we have a task description
-      let orchestratorContext = null
-      if (taskDescription) {
-        try {
-          orchestratorContext = await orchestratorExecutor.execute(
-            command,
-            taskDescription,
-            projectPath
-          )
-        } catch (error) {
-          // Orchestration failed - continue without it
-          console.error(`Warning: Orchestrator failed: ${getErrorMessage(error)}`)
-        }
-      }
-
-      // Load repo analysis
       const repoAnalysis = await this.loadRepoAnalysis(globalPath)
 
-      // Build output
+      // Orchestrator-derived domain/subtask classification was dropped —
+      // it was harness that guessed intent from task text. Claude tags
+      // explicitly via `prjct tag` when a domain is known. Output keeps
+      // the same shape so existing consumers don't break; the fields
+      // just start out empty.
       const output: ContextOutput = {
         projectId,
         globalPath,
         currentTask,
-        domains: orchestratorContext?.detectedDomains || [],
-        primaryDomain: orchestratorContext?.primaryDomain || null,
-        subtasks:
-          orchestratorContext?.subtasks?.map((st) => ({
-            id: st.id,
-            description: st.description,
-            domain: st.domain,
-            agent: st.agent,
-            status: st.status,
-            order: st.order,
-          })) || null,
+        domains: [],
+        primaryDomain: null,
+        subtasks: null,
         repoAnalysis: {
           ecosystem: repoAnalysis?.ecosystem || 'unknown',
           frameworks: repoAnalysis?.frameworks || [],
@@ -137,21 +106,12 @@ export class ContextCommands {
         },
       }
 
-      if (options.md) {
-        console.log(this.formatContextMd(output))
-      } else {
-        console.log(JSON.stringify(output))
-      }
+      if (options.md) console.log(this.formatContextMd(output))
+      else console.log(JSON.stringify(output))
 
-      return {
-        success: true,
-        message: '', // Empty message - stdout output is the result
-      }
+      return { success: true, message: '' }
     } catch (error) {
-      return {
-        success: false,
-        message: `Context error: ${getErrorMessage(error)}`,
-      }
+      return { success: false, message: `Context error: ${getErrorMessage(error)}` }
     }
   }
 

@@ -19,7 +19,6 @@ import { verifyCodexPRouterReady } from '../infrastructure/setup'
 import { stateStorage } from '../storage/state-storage'
 import type { CheckResult, DoctorResult } from '../types/services.js'
 import { fileExists } from '../utils/file-helper'
-import { checkOAuthTokens, hasMcpServerAny, validateMcpConfig } from '../utils/mcp-config'
 import out from '../utils/output'
 import { VERSION } from '../utils/version'
 import context7Service from './context7-service'
@@ -173,10 +172,6 @@ class DoctorService {
 
     // Codex p. router
     checks.push(await this.checkCodexPRouter())
-
-    // MCP providers (Jira + Linear)
-    checks.push(await this.checkMcpProvider('jira'))
-    checks.push(await this.checkMcpProvider('linear'))
 
     return checks
   }
@@ -384,60 +379,6 @@ class DoctorService {
     }
   }
 
-  private async checkMcpProvider(provider: 'jira' | 'linear'): Promise<CheckResult> {
-    try {
-      const mcpStatus = await hasMcpServerAny(provider)
-      if (!mcpStatus.configured) {
-        return {
-          name: `${provider} mcp`,
-          status: 'ok',
-          message: 'not configured (optional)',
-          optional: true,
-        }
-      }
-
-      const configValid = await validateMcpConfig(provider)
-      if (!configValid.valid) {
-        const fixNote = configValid.autoFixed ? ' (auto-fixed)' : ''
-        return {
-          name: `${provider} mcp`,
-          status: 'warn',
-          message: `config issues${fixNote}: ${configValid.issues.join('; ')}`,
-          optional: true,
-        }
-      }
-
-      const oauth = await checkOAuthTokens(provider)
-      if (!oauth.ready) {
-        const detail = oauth.cleaned
-          ? 'corrupted tokens cleaned — re-run OAuth'
-          : oauth.migrated
-            ? 'tokens migrated — restart AI client'
-            : 'OAuth tokens missing/invalid'
-        return {
-          name: `${provider} mcp`,
-          status: 'warn',
-          message: detail,
-          optional: true,
-        }
-      }
-
-      return {
-        name: `${provider} mcp`,
-        status: 'ok',
-        message: `healthy${oauth.validated ? ' (validated)' : ''}`,
-        optional: true,
-      }
-    } catch (error) {
-      return {
-        name: `${provider} mcp`,
-        status: 'error',
-        message: `check failed: ${error instanceof Error ? error.message : 'unknown error'}`,
-        optional: true,
-      }
-    }
-  }
-
   // ==========================================================================
   // RECOMMENDATIONS
   // ==========================================================================
@@ -477,16 +418,6 @@ class DoctorService {
     const codexRouter = project.find((p) => p.name === 'codex p-router')
     if (codexRouter && codexRouter.status === 'error') {
       recommendations.push('Run "prjct start" or "prjct setup" to repair Codex p. router')
-    }
-
-    const jiraMcp = project.find((p) => p.name === 'jira mcp')
-    if (jiraMcp && jiraMcp.status !== 'ok') {
-      recommendations.push('Run "prjct jira setup" to repair Jira MCP configuration')
-    }
-
-    const linearMcp = project.find((p) => p.name === 'linear mcp')
-    if (linearMcp && linearMcp.status !== 'ok') {
-      recommendations.push('Run "prjct linear setup" to repair Linear MCP configuration')
     }
 
     return recommendations

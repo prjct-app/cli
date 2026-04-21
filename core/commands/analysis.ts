@@ -5,8 +5,6 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import * as p from '@clack/prompts'
-import contextBuilder from '../agentic/context-builder'
-import memorySystem from '../agentic/memory-system'
 import analyzer from '../domain/analyzer'
 import commandInstaller from '../infrastructure/command-installer'
 import configManager from '../infrastructure/config-manager'
@@ -15,14 +13,12 @@ import { formatCost } from '../schemas/metrics'
 import { formatAnalysisDiffMd, formatAnalysisDiffText } from '../services/analysis-diff'
 import { buildAnalysisPayload } from '../services/analysis-payload-builder'
 import { formatDiffPreview, formatFullDiff, generateSyncDiff } from '../services/diff-generator'
-import { createStalenessChecker } from '../services/staleness-checker'
 import { syncService } from '../services/sync-service'
 import { analysisStorage } from '../storage/analysis-storage'
 import { prjctDb } from '../storage/database'
 import llmAnalysisStorage from '../storage/llm-analysis-storage'
 import { metricsStorage } from '../storage/metrics-storage'
 import type { AnalyzeOptions, CommandResult } from '../types/commands'
-import type { ProjectContext } from '../types/core'
 import { getErrorMessage } from '../types/fs'
 import * as dateHelper from '../utils/date-helper'
 import {
@@ -72,7 +68,11 @@ export class AnalysisCommands extends PrjctCommandsBase {
 
       analyzer.init(projectPath)
 
-      const context = (await contextBuilder.build(projectPath, options)) as ProjectContext
+      // Inline path resolution — `contextBuilder.build` (pre-v2 agentic
+      // harness) was only consulted for `paths.analysis`. Going direct
+      // to `pathManager` keeps this callsite alive without the wider
+      // context-builder graph.
+      void options
 
       const analysisData = {
         packageJson: await analyzer.readPackageJson(),
@@ -98,8 +98,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
       const summary = generateAnalysisSummary(analysisData, projectPath)
 
       const projectId = await configManager.getProjectId(projectPath)
-      const summaryPath =
-        context.paths.analysis || pathManager.getFilePath(projectId!, 'analysis', 'repo-summary.md')
+      const summaryPath = pathManager.getFilePath(projectId!, 'analysis', 'repo-summary.md')
 
       await fs.writeFile(summaryPath, summary, 'utf-8')
 
@@ -504,25 +503,12 @@ export class AnalysisCommands extends PrjctCommandsBase {
           mdStatsObj['Import edges'] = idx.importEdges || 0
           mdStatsObj['Co-change commits'] = idx.cochangeCommits || 0
         }
-        // Check if Obsidian is configured for this project
-        let obsidianSection: string | null = null
-        try {
-          const globalConfig = await configManager.readGlobalConfig(projectId)
-          const obsidianConfig = globalConfig?.integrations?.obsidian
-          if (obsidianConfig?.vaultPath) {
-            obsidianSection = `### Obsidian\nConfigured: \`${obsidianConfig.vaultPath}\`\nWrite \`_insights.md\` to vault after analysis.`
-          }
-        } catch {
-          // Non-critical
-        }
-
         const md = mdOutput(
           mdDone(`Sync Complete`),
           mdStats(mdStatsObj),
           analysisDiffSection,
           result.git.hasChanges ? mdWarn('Uncommitted changes detected') : null,
           llmAnalysisInstructions,
-          obsidianSection,
           mdNextSteps(steps.map((s) => ({ label: s.desc, command: s.cmd })))
         )
         console.log(md)
@@ -797,8 +783,17 @@ export class AnalysisCommands extends PrjctCommandsBase {
       // Get session activity (today's events)
       const sessionActivity = await getSessionActivity(projectId)
 
-      // Get learned patterns
-      const patternsSummary = await memorySystem.getPatternsSummary(projectId)
+      // Learned-patterns summary (decisions/preferences/workflows) was
+      // backed by the pre-v2 memory-system — deleted in Phase C. The
+      // stats page still shows zeros for backward-compat with callers
+      // that read the shape; project memory now lives under
+      // `prjct memory list` / `context memory`.
+      const patternsSummary = {
+        decisions: 0,
+        preferences: 0,
+        workflows: 0,
+        learnedDecisions: 0,
+      }
 
       // JSON output mode
       if (options.json) {
@@ -943,133 +938,6 @@ export class AnalysisCommands extends PrjctCommandsBase {
     } catch (error) {
       console.error('❌ Error:', getErrorMessage(error))
       return { success: false, error: getErrorMessage(error) }
-    }
-  }
-
-  /**
-   * /p:status - Check if CLAUDE.md context is stale
-   *
-   * Uses git commit history to detect when significant changes
-   * have occurred since the last sync.
-   *
-   * @see PRJ-120
-   */
-  async status(
-    projectPath: string = process.cwd(),
-    options: { json?: boolean; md?: boolean } = {}
-  ): Promise<CommandResult> {
-    try {
-      const initResult = await this.ensureProjectInit(projectPath)
-      if (!initResult.success) return initResult
-
-      const projectId = await configManager.getProjectId(projectPath)
-      if (!projectId) {
-        if (options.json) {
-          console.log(JSON.stringify({ success: false, error: 'No project ID found' }))
-        } else {
-          out.fail('No project ID found')
-        }
-        return { success: false, error: 'No project ID found' }
-      }
-
-      // Create staleness checker and run check
-      const checker = createStalenessChecker(projectPath)
-      const status = await checker.check(projectId)
-
-      // Get session info
-      const sessionInfo = await checker.getSessionInfo(projectId)
-
-      // Get analysis status (PRJ-263)
-      const analysisStatus = await analysisStorage.getStatus(projectId)
-
-      // JSON output mode
-      if (options.json) {
-        console.log(
-          JSON.stringify({
-            success: true,
-            ...status,
-            session: sessionInfo,
-            analysis: analysisStatus,
-          })
-        )
-        return {
-          success: true,
-          data: { ...status, session: sessionInfo, analysis: analysisStatus },
-        }
-      }
-
-      // Markdown output mode
-      if (options.md) {
-        const projectName = path.basename(projectPath)
-        const staleness = status.isStale ? 'stale' : 'fresh'
-        const lastSync =
-          status.daysSinceSync > 0
-            ? `${status.daysSinceSync} day${status.daysSinceSync !== 1 ? 's' : ''} ago`
-            : 'today'
-
-        const analysisItems: string[] = []
-        if (analysisStatus.hasSealed) {
-          analysisItems.push(`Sealed: ${analysisStatus.sealedCommit} (${analysisStatus.sealedAt})`)
-        }
-        if (analysisStatus.hasDraft) {
-          analysisItems.push(`Draft: ${analysisStatus.draftCommit} (pending seal)`)
-        }
-        if (analysisStatus.hasPreviousSealed) {
-          analysisItems.push(
-            `Previous: ${analysisStatus.previousSealedCommit} (rollback available)`
-          )
-        }
-
-        const md = mdOutput(
-          `## Status: ${projectName}`,
-          mdStats({
-            Staleness: staleness,
-            'Last sync': lastSync,
-            'Commits since sync': status.commitsSinceSync,
-            Reason: status.reason,
-          }),
-          analysisItems.length > 0 ? mdSection('Analysis', mdList(analysisItems)) : null
-        )
-        console.log(md)
-
-        return {
-          success: true,
-          data: { ...status, session: sessionInfo, analysis: analysisStatus },
-        }
-      }
-
-      // Human-readable output
-      console.log('')
-      console.log(checker.formatStatus(status))
-      console.log('')
-      console.log(checker.formatSessionInfo(sessionInfo))
-
-      // Show analysis status (PRJ-263)
-      if (analysisStatus.hasSealed || analysisStatus.hasDraft) {
-        console.log('')
-        console.log('Analysis:')
-        if (analysisStatus.hasSealed) {
-          console.log(`  Sealed: ${analysisStatus.sealedCommit} (${analysisStatus.sealedAt})`)
-        }
-        if (analysisStatus.hasDraft) {
-          console.log(`  Draft: ${analysisStatus.draftCommit} (pending seal)`)
-        }
-        if (analysisStatus.hasPreviousSealed) {
-          console.log(`  Previous: ${analysisStatus.previousSealedCommit} (rollback available)`)
-        }
-      }
-
-      console.log('')
-
-      return { success: true, data: { ...status, session: sessionInfo, analysis: analysisStatus } }
-    } catch (error) {
-      const errMsg = getErrorMessage(error)
-      if (options.json) {
-        console.log(JSON.stringify({ success: false, error: errMsg }))
-      } else {
-        out.fail(errMsg)
-      }
-      return { success: false, error: errMsg }
     }
   }
 

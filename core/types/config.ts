@@ -3,7 +3,26 @@
  * Types for project and global configuration.
  */
 
-import type { IntegrationsConfig } from './integrations'
+/**
+ * Persona declaration — Claude's role in THIS project.
+ *
+ * Hooks inject this as additionalContext so Claude enters every session
+ * knowing what hat to wear. The human rotates across contexts (PM in
+ * project A, Founder in B, DEV in C); the persona makes that switch
+ * explicit without ceremony.
+ *
+ * Declarative only: lists what MCPs/packs exist, never how to use them.
+ */
+export interface ProjectPersona {
+  /** Claude's role label. Freeform, but common: PM / PO / DEV / TDD / Founder / Research / custom */
+  role: string
+  /** One-line project focus — e.g. "B2B SaaS onboarding optimization" */
+  focus?: string
+  /** MCP servers this project expects available. Purely informational signal for Claude. */
+  mcps?: string[]
+  /** Seed packs active in this project (see templates/packs/*.json) */
+  packs?: string[]
+}
 
 /**
  * Local config - stored in .prjct/prjct.config.json
@@ -32,6 +51,11 @@ export interface LocalConfig {
     }>
     failFast?: boolean
   }
+  /**
+   * Persona declaration for this project. Read by hooks to inject
+   * Claude's role + available MCPs into `additionalContext`.
+   */
+  persona?: ProjectPersona
 }
 
 /**
@@ -45,8 +69,6 @@ export interface GlobalConfig {
   version: string
   created?: string
   lastSync: string
-  // Optional external integrations (Linear, JIRA)
-  integrations?: IntegrationsConfig
 }
 
 /**

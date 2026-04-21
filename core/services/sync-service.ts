@@ -17,7 +17,6 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { SemanticMemories } from '../agentic/semantic-memories'
 import { indexProject as indexBm25, loadIndex as loadBm25Index } from '../domain/bm25'
 import { affectedDomains, propagateChanges } from '../domain/change-propagator'
 import { detectChanges, hasHashRegistry, saveHashes } from '../domain/file-hasher'
@@ -55,8 +54,6 @@ import type { VerificationReport } from '../types/sync-verifier'
 import * as dateHelper from '../utils/date-helper'
 import { readJson } from '../utils/file-helper'
 import log from '../utils/logger'
-import { outcomeMemoryLearner } from '../workflows/outcome-learner'
-import { outcomeStorage } from '../workflows/outcome-storage'
 import context7Service from './context7-service'
 import { localStateGenerator } from './local-state-generator'
 import { memoryService } from './memory-service'
@@ -815,44 +812,13 @@ class SyncService {
   }
 
   /**
-   * Auto-learn from task history and outcomes → inject into memory (PRJ-283).
-   * Extracts patterns from completed tasks and injects high-confidence
-   * learnings into the semantic memory system.
+   * Auto-learn was backed by the outcome-* subsystem, which had zero
+   * writers. Removed. When we revive an outcome feed (e.g. via the
+   * Stop hook observing edit/commit cadences), re-introduce a learner
+   * that reads from the live source instead of the empty one.
    */
   private async autoLearnFromHistory(): Promise<void> {
-    if (!this.projectId) return
-
-    try {
-      const taskHistory = await stateStorage.getTaskHistory(this.projectId)
-      if (taskHistory.length === 0) return
-
-      const semanticMemories = new SemanticMemories()
-      const result = await outcomeMemoryLearner.learnFromTaskHistory(
-        this.projectId,
-        taskHistory,
-        semanticMemories
-      )
-
-      // Also learn from feature outcomes if available
-      try {
-        const outcomes = await outcomeStorage.getFeatureOutcomes(this.projectId)
-        if (outcomes.length > 0) {
-          await outcomeMemoryLearner.learnFromOutcomes(this.projectId, outcomes, semanticMemories)
-        }
-      } catch {
-        // Outcome storage may not exist yet
-      }
-
-      if (result.memoriesInjected > 0) {
-        log.info('Auto-learned from task history', {
-          patternsExtracted: result.patternsExtracted,
-          memoriesInjected: result.memoriesInjected,
-          patternsSkipped: result.patternsSkipped,
-        })
-      }
-    } catch (error) {
-      log.debug('Auto-learning failed (non-critical)', { error: getErrorMessage(error) })
-    }
+    // no-op
   }
 
   // ==========================================================================

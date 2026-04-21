@@ -16,8 +16,8 @@
 // === DAEMON FAST PATH ===
 // Only uses node builtins + daemon protocol/client — zero heavy imports.
 // If daemon handles the command, process.exit() skips all remaining code.
-const _fastArgs = process.argv.slice(2)
-const _fastCommand = _fastArgs.find((a) => !a.startsWith('--') && !a.startsWith('-'))
+let _fastArgs = process.argv.slice(2)
+let _fastCommand = _fastArgs.find((a) => !a.startsWith('--') && !a.startsWith('-'))
 
 // Commands that bin/prjct.ts handles directly (NOT routed through daemon)
 const _binCommands = new Set([
@@ -34,9 +34,11 @@ const _binCommands = new Set([
   'hooks',
   'doctor',
   'uninstall',
+  'claude',
+  'hook',
+  'seed',
+  'install',
   'watch',
-  'linear',
-  'jira',
   'help',
   '-h',
   '--help',
@@ -44,6 +46,22 @@ const _binCommands = new Set([
   '-v',
   '--version',
 ])
+
+// v2 verbs registered in the command registry — imported from the single
+// source of truth so adding a verb only requires updating one list.
+const { REGISTERED_VERBS_SET } = await import('../core/commands/verb-names')
+
+// v2 auto-route: if the first positional isn't a known verb, treat the
+// whole argv as GTD-style inbox capture → `prjct capture "<argv>"`.
+// Explicit verbs still win. Capture is zero-ceremony; if the user
+// wanted a task (branch/worktree), they type `prjct task "..."`
+// explicitly.
+if (_fastCommand && !_binCommands.has(_fastCommand) && !REGISTERED_VERBS_SET.has(_fastCommand)) {
+  const description = _fastArgs.filter((a) => !a.startsWith('-')).join(' ')
+  const flags = _fastArgs.filter((a) => a.startsWith('-'))
+  _fastCommand = 'capture'
+  _fastArgs = ['capture', description, ...flags]
+}
 
 if (_fastCommand && !_binCommands.has(_fastCommand) && process.env.PRJCT_NO_DAEMON !== '1') {
   const fs = await import('node:fs')
@@ -364,6 +382,111 @@ async function main(): Promise<void> {
     const exitCode = await hooksService.run(process.cwd(), subcommand)
     process.exitCode = exitCode
     done()
+  } else if (args[0] === 'seed') {
+    // `prjct seed add|remove|list|suggest [args]` — manage active packs.
+    const sub = args[1] ?? 'list'
+    const rest = args
+      .slice(2)
+      .filter((a) => !a.startsWith('-'))
+      .join(',')
+    const mdMode = args.includes('--md')
+    const { SeedCommands } = await import('../core/commands/seed')
+    const cmd = new SeedCommands()
+    let result: { success: boolean; error?: string } = { success: false, error: 'unknown' }
+    if (sub === 'add') result = await cmd.add(rest || null, process.cwd(), { md: mdMode })
+    else if (sub === 'remove')
+      result = await cmd.remove(rest || null, process.cwd(), { md: mdMode })
+    else if (sub === 'list') result = await cmd.list(null, process.cwd(), { md: mdMode })
+    else if (sub === 'suggest') result = await cmd.suggest(null, process.cwd(), { md: mdMode })
+    else {
+      console.error(`Unknown seed subcommand: ${sub}. Use: add, remove, list, suggest.`)
+    }
+    process.exitCode = result.success ? 0 : 1
+  } else if (args[0] === 'install') {
+    // `prjct install` is a convenience alias for `prjct claude install`.
+    const { InstallCommands } = await import('../core/commands/install')
+    const cmd = new InstallCommands()
+    const mdMode = args.includes('--md')
+    const result = await cmd.install(null, process.cwd(), { md: mdMode })
+    process.exitCode = result.success ? 0 : 1
+  } else if (args[0] === 'claude') {
+    // `prjct claude install|uninstall|status` — manage Claude Code hooks in ~/.claude/settings.json.
+    const subcommand = args[1] ?? 'status'
+    const { InstallCommands } = await import('../core/commands/install')
+    const cmd = new InstallCommands()
+    const mdMode = args.includes('--md')
+    let result
+    if (subcommand === 'install') result = await cmd.install(null, process.cwd(), { md: mdMode })
+    else if (subcommand === 'uninstall')
+      result = await cmd.uninstall(null, process.cwd(), { md: mdMode })
+    else {
+      const s = await cmd.status()
+      if (s.success) {
+        console.log(
+          mdMode
+            ? `# prjct Claude Code hooks\n\n- installed: ${s.installed}\n- expected: ${s.expected}\n`
+            : `installed: ${s.installed}/${s.expected}`
+        )
+        result = s
+      } else {
+        console.error(s.error)
+        result = s
+      }
+    }
+    process.exitCode = result.success ? 0 : 1
+  } else if (args[0] === 'hook') {
+    // `prjct hook <name>` — runs a single Claude Code hook. Invoked by
+    // the entries installed via `prjct claude install`. Reads stdin,
+    // writes JSON to stdout, exits 0 even on internal failure so the
+    // host session is never disturbed.
+    const hookName = args[1]
+    const projectPath = process.cwd()
+    try {
+      switch (hookName) {
+        case 'session-start': {
+          const { runSessionStartHook } = await import('../core/hooks/session-start')
+          await runSessionStartHook(projectPath)
+          break
+        }
+        case 'prompt': {
+          const { runPromptHook } = await import('../core/hooks/prompt')
+          await runPromptHook(projectPath)
+          break
+        }
+        case 'pre-commit': {
+          const { runPreCommitHook } = await import('../core/hooks/pre-commit')
+          await runPreCommitHook(projectPath)
+          break
+        }
+        case 'post-edit': {
+          const { runPostEditHook } = await import('../core/hooks/post-edit')
+          await runPostEditHook(projectPath)
+          break
+        }
+        case 'stop': {
+          const { runStopHook } = await import('../core/hooks/stop')
+          await runStopHook(projectPath)
+          break
+        }
+        case 'subagent-start': {
+          const { runSubagentStartHook } = await import('../core/hooks/subagent-start')
+          await runSubagentStartHook(projectPath)
+          break
+        }
+        case 'cwd-changed': {
+          const { runCwdChangedHook } = await import('../core/hooks/cwd-changed')
+          await runCwdChangedHook(projectPath)
+          break
+        }
+        default:
+          // Unknown hook: emit empty object, stay out of the way.
+          process.stdout.write('{}\n')
+      }
+      process.exitCode = 0
+    } catch {
+      process.stdout.write('{}\n')
+      process.exitCode = 0
+    }
   } else if (args[0] === 'doctor') {
     const done = await trackSession('doctor')
     const { doctorService } = await import('../core/services/doctor-service')
@@ -404,82 +527,6 @@ async function main(): Promise<void> {
         console.error(result.error)
         process.exitCode = 1
       }
-    }
-  } else if (args[0] === 'linear') {
-    const { spawn } = await import('node:child_process')
-    const fs = await import('node:fs')
-    const projectPath = process.cwd()
-    const srcPath = path.join(__dirname, '..', 'core', 'cli', 'linear.ts')
-    const distPath = path.join(__dirname, '..', 'dist', 'cli', 'linear.mjs')
-    const distPathAdjacent = path.join(__dirname, '..', 'cli', 'linear.mjs')
-
-    let linearCliPath: string
-    let runtime: string
-
-    if (fs.existsSync(srcPath)) {
-      linearCliPath = srcPath
-      runtime = 'bun'
-    } else if (fs.existsSync(distPathAdjacent)) {
-      linearCliPath = distPathAdjacent
-      runtime = 'node'
-    } else if (fs.existsSync(distPath)) {
-      linearCliPath = distPath
-      runtime = 'node'
-    } else {
-      console.error('Linear CLI not found. Run "npm run build" first.')
-      process.exitCode = 1
-      linearCliPath = ''
-      runtime = ''
-    }
-
-    if (linearCliPath) {
-      const linearArgs = [...args.slice(1)]
-      const child = spawn(runtime, [linearCliPath, ...linearArgs], {
-        stdio: 'inherit',
-        cwd: projectPath,
-      })
-
-      child.on('close', (code) => {
-        process.exitCode = code || 0
-      })
-    }
-  } else if (args[0] === 'jira') {
-    const { spawn } = await import('node:child_process')
-    const fs = await import('node:fs')
-    const projectPath = process.cwd()
-    const srcPath = path.join(__dirname, '..', 'core', 'cli', 'jira.ts')
-    const distPath = path.join(__dirname, '..', 'dist', 'cli', 'jira.mjs')
-    const distPathAdjacent = path.join(__dirname, '..', 'cli', 'jira.mjs')
-
-    let jiraCliPath: string
-    let runtime: string
-
-    if (fs.existsSync(srcPath)) {
-      jiraCliPath = srcPath
-      runtime = 'bun'
-    } else if (fs.existsSync(distPathAdjacent)) {
-      jiraCliPath = distPathAdjacent
-      runtime = 'node'
-    } else if (fs.existsSync(distPath)) {
-      jiraCliPath = distPath
-      runtime = 'node'
-    } else {
-      console.error('Jira CLI not found. Run "npm run build" first.')
-      process.exitCode = 1
-      jiraCliPath = ''
-      runtime = ''
-    }
-
-    if (jiraCliPath) {
-      const jiraArgs = [...args.slice(1)]
-      const child = spawn(runtime, [jiraCliPath, ...jiraArgs], {
-        stdio: 'inherit',
-        cwd: projectPath,
-      })
-
-      child.on('close', (code) => {
-        process.exitCode = code || 0
-      })
     }
   } else if (args[0] === 'help' || args[0] === '-h' || args[0] === '--help') {
     const { getHelp } = await import('../core/utils/help')

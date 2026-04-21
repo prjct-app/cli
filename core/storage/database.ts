@@ -677,6 +677,52 @@ const migrations: Migration[] = [
       `)
     },
   },
+  {
+    version: 13,
+    name: 'workflow-rules-v2',
+    up: (db: SqliteDatabase) => {
+      // v2 workflow engine: conditional rules, parallel hooks, gate caching.
+      try {
+        db.run('ALTER TABLE workflow_rules ADD COLUMN when_expr TEXT')
+      } catch {
+        // Column may already exist
+      }
+      try {
+        db.run('ALTER TABLE workflow_rules ADD COLUMN parallel INTEGER NOT NULL DEFAULT 1')
+      } catch {
+        // Column may already exist
+      }
+
+      db.run(`
+        CREATE TABLE IF NOT EXISTS workflow_rule_cache (
+          rule_id       INTEGER NOT NULL,
+          context_hash  TEXT NOT NULL,
+          ran_at        TEXT NOT NULL,
+          ttl_ms        INTEGER NOT NULL DEFAULT 3600000,
+          PRIMARY KEY (rule_id, context_hash)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_wrc_rule ON workflow_rule_cache(rule_id);
+      `)
+    },
+  },
+  {
+    version: 14,
+    name: 'workflow-rules-trust-source',
+    up: (db: SqliteDatabase) => {
+      // `trust_source` tags where a rule came from. `local` (default) runs
+      // without prompting — the user wrote it themselves. `imported` means
+      // it came from a shared template and the engine should refuse to run
+      // its shell action until the user explicitly approves. No behavioral
+      // change in alpha.4 (every existing rule is local) — the column just
+      // buys forward-compat for template importing in a later release.
+      try {
+        db.run("ALTER TABLE workflow_rules ADD COLUMN trust_source TEXT NOT NULL DEFAULT 'local'")
+      } catch {
+        // Column may already exist
+      }
+    },
+  },
 ]
 
 // =============================================================================

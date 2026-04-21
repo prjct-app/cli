@@ -40,6 +40,11 @@ export async function startDaemon(options: {
   noHttp?: boolean
   foreground?: boolean
 }): Promise<void> {
+  // Flag child services (wiki-generator etc.) can check to know they're
+  // running under the long-lived daemon — lets them fire-and-forget safe
+  // work that would otherwise be killed by `process.exit()` in the CLI.
+  process.env.PRJCT_IN_DAEMON = '1'
+
   const socketPath = DAEMON_PATHS.socket()
   const pidPath = DAEMON_PATHS.pid()
   const runDir = DAEMON_PATHS.runDir()
@@ -315,60 +320,23 @@ async function executeCommand(
         package: opts.package ? String(opts.package) : undefined,
         full: opts.full === true,
       })
-    case 'status':
-      return commands!.status(request.cwd, { json: opts.json === true, md })
-    case 'stats':
-      return commands!.stats(request.cwd, {
-        json: opts.json === true,
-        export: opts.export === true,
-      })
-    case 'diff':
-      return commands!.diff(request.cwd, { json: opts.json === true, md })
-    case 'seal':
-      return commands!.seal(request.cwd, { json: opts.json === true })
-    case 'rollback':
-      return commands!.rollback(request.cwd, { json: opts.json === true, md })
-    case 'verify':
-      return commands!.verify(request.cwd, {
-        json: opts.json === true,
-        semantic: opts.semantic === true,
-      })
     case 'task':
       return commands!.task(param, request.cwd, { md })
-    case 'done':
-      return commands!.done(request.cwd, { md })
-    case 'next':
-      return commands!.next(request.cwd, { md })
-    case 'pause':
-      return commands!.pause(param || '', request.cwd, { md })
-    case 'resume':
-      return commands!.resume(param, request.cwd, { md })
-    case 'bug':
-      return commands!.bug(param || '', request.cwd, { md })
-    case 'idea':
-      return commands!.idea(param || '', request.cwd, { md })
     case 'ship':
       return commands!.ship(param, request.cwd, { md })
-    case 'dash':
-      return commands!.dash(param || 'default', request.cwd, { md })
     case 'workflow':
       return commands!.workflowPrefs(param, request.cwd, { md })
-    case 'sessions':
-      return commands!.sessions(request.cwd, { md, cleanup: opts.cleanup === true })
-    case 'design':
-      return commands!.design(param || '', opts, request.cwd)
-    case 'analysis-payload':
-      return commands!.analysisPayload(request.cwd, { json: opts.json === true, md })
-    case 'analysis-save-llm':
-      return commands!.saveLlmAnalysis(param || '', request.cwd, { md })
-    case 'analysis-llm':
-      return commands!.getLlmAnalysis(request.cwd, { json: opts.json === true, md })
     case 'analyze':
       return commands!.analyze(opts, request.cwd)
-    case 'cleanup':
-      return commands!.cleanup(opts, request.cwd)
-    case 'cleanup-projects':
-      return commands!.cleanupProjects({ dryRun: opts['dry-run'] === true, md })
+    case 'status':
+      return commands!.status(param, request.cwd, { md })
+    case 'tag':
+      return commands!.tag(param, request.cwd, { md })
+    case 'remember':
+      return commands!.remember(param, request.cwd, {
+        md,
+        tags: opts.tags ? String(opts.tags) : undefined,
+      })
     default:
       // Standard commands without special option handling
       return commandRegistry.execute(request.command, param, request.cwd)

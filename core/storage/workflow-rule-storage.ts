@@ -20,9 +20,14 @@ interface WorkflowRuleRow {
   timeout_ms: number
   created_at: string
   sort_order: number
+  when_expr: string | null
+  parallel: number | null
+  trust_source: string | null
 }
 
 function rowToRule(row: WorkflowRuleRow): WorkflowRule {
+  const trustSource: WorkflowRule['trustSource'] =
+    row.trust_source === 'imported' ? 'imported' : 'local'
   return {
     id: row.id,
     type: row.type as WorkflowRule['type'],
@@ -34,11 +39,20 @@ function rowToRule(row: WorkflowRuleRow): WorkflowRule {
     timeoutMs: row.timeout_ms,
     createdAt: row.created_at,
     sortOrder: row.sort_order,
+    whenExpr: row.when_expr ?? null,
+    parallel: row.parallel === null ? true : row.parallel === 1,
+    trustSource,
   }
 }
 
+// v2 additions (whenExpr/parallel/trustSource) are optional on the insert
+// path so pre-v2 call sites like the seed ship workflow keep compiling.
+// Defaults: no condition, parallel=true, trustSource='local'.
+type NewRuleInput = Omit<WorkflowRule, 'id' | 'whenExpr' | 'parallel' | 'trustSource'> &
+  Partial<Pick<WorkflowRule, 'whenExpr' | 'parallel' | 'trustSource'>>
+
 class WorkflowRuleStorage {
-  addRule(projectId: string, rule: Omit<WorkflowRule, 'id'>): number {
+  addRule(projectId: string, rule: NewRuleInput): number {
     const maxOrder = prjctDb.get<{ m: number | null }>(
       projectId,
       'SELECT MAX(sort_order) as m FROM workflow_rules WHERE command = ?',
@@ -48,8 +62,8 @@ class WorkflowRuleStorage {
 
     prjctDb.run(
       projectId,
-      `INSERT INTO workflow_rules (type, command, position, action, description, enabled, timeout_ms, created_at, sort_order)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO workflow_rules (type, command, position, action, description, enabled, timeout_ms, created_at, sort_order, when_expr, parallel, trust_source)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       rule.type,
       rule.command,
       rule.position,
@@ -58,7 +72,10 @@ class WorkflowRuleStorage {
       rule.enabled ? 1 : 0,
       rule.timeoutMs,
       rule.createdAt,
-      sortOrder
+      sortOrder,
+      rule.whenExpr ?? null,
+      rule.parallel === false ? 0 : 1,
+      rule.trustSource ?? 'local'
     )
 
     const inserted = prjctDb.get<{ id: number }>(projectId, 'SELECT last_insert_rowid() as id')
@@ -102,6 +119,15 @@ class WorkflowRuleStorage {
       timeoutMs: { column: 'timeout_ms' },
       createdAt: { column: 'created_at' },
       sortOrder: { column: 'sort_order' },
+      whenExpr: { column: 'when_expr' },
+      parallel: {
+        column: 'parallel',
+        // Caller passes boolean (WorkflowRule['parallel']). The map types
+        // everything as SqliteBindings for uniformity, so widen explicitly
+        // before the comparison — tsc correctly refuses the raw check.
+        transform: (v: SqliteBindings) => ((v as boolean | number) === false ? 0 : 1),
+      },
+      trustSource: { column: 'trust_source' },
     }
 
     const setClauses: string[] = []

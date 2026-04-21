@@ -245,10 +245,19 @@ export interface ContextToolUsage {
 /**
  * Union type for all tool outputs
  */
+export interface MemoryToolOutput {
+  markdown: string
+  entryCount: number
+  topic?: string
+}
+
 export type ContextToolOutput =
   | { tool: 'files'; result: FilesToolOutput }
   | { tool: 'signatures'; result: SignaturesToolOutput }
   | { tool: 'imports'; result: ImportsToolOutput }
   | { tool: 'recent'; result: RecentToolOutput }
   | { tool: 'summary'; result: SummaryToolOutput }
+  | { tool: 'memory'; result: MemoryToolOutput }
+  | { tool: 'learnings'; result: MemoryToolOutput }
+  | { tool: 'wiki'; result: MemoryToolOutput }
   | { tool: 'error'; result: { error: string; code: string } }

@@ -3,8 +3,6 @@
   "entry": [
     "bin/prjct.ts",
     "core/index.ts",
-    "core/cli/linear.ts",
-    "core/cli/jira.ts",
     "core/daemon/entry.ts",
     "core/mcp/entry.ts",
     "core/cli/lint-meta-commentary.ts",

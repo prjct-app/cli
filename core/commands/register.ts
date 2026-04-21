@@ -9,37 +9,33 @@
  */
 
 import { AnalysisCommands } from './analysis'
-import { AnalyticsCommands } from './analytics'
+import { CaptureCommands } from './capture'
 import { CATEGORIES, COMMANDS } from './command-data'
 import { ContextCommands } from './context'
-import { MaintenanceCommands } from './maintenance'
-import { ObsidianCommands } from './obsidian'
-import { ParallelCommands } from './parallel'
-import { PerformanceCommands } from './performance'
+import { InstallCommands } from './install'
 import { PlanningCommands } from './planning'
+import { PrimitiveCommands } from './primitives'
 import { commandRegistry } from './registry'
+import { SeedCommands } from './seed'
 import { SetupCommands } from './setup'
 import { ShippingCommands } from './shipping'
 import { UninstallCommands } from './uninstall'
 import { UpdateCommands } from './update'
-import { VelocityCommands } from './velocity'
 import { WorkflowCommands } from './workflow'
 
 // Singleton instances of command groups
 const workflow = new WorkflowCommands()
 const planning = new PlanningCommands()
 const shipping = new ShippingCommands()
-const analytics = new AnalyticsCommands()
-const performance = new PerformanceCommands()
-const maintenance = new MaintenanceCommands()
 const analysis = new AnalysisCommands()
 const setup = new SetupCommands()
 const context = new ContextCommands()
-const velocityCmd = new VelocityCommands()
-const obsidian = new ObsidianCommands()
-const parallel = new ParallelCommands()
+const primitives = new PrimitiveCommands()
 const uninstallCmd = new UninstallCommands()
 const updateCmd = new UpdateCommands()
+const seedCmd = new SeedCommands()
+const installCmd = new InstallCommands()
+const captureCmd = new CaptureCommands()
 
 /**
  * Register categories
@@ -65,55 +61,17 @@ export function registerAllCommands(): void {
 
   // Workflow commands
   commandRegistry.registerMethod('task', workflow, 'now', getMeta('task'))
-  commandRegistry.registerMethod('done', workflow, 'done', getMeta('done'))
-  commandRegistry.registerMethod('next', workflow, 'next', getMeta('next'))
-  commandRegistry.registerMethod('pause', workflow, 'pause', getMeta('pause'))
-  commandRegistry.registerMethod('resume', workflow, 'resume', getMeta('resume'))
   commandRegistry.registerMethod('workflow', workflow, 'workflow', getMeta('workflow'))
-  commandRegistry.registerMethod('tokens', workflow, 'tokens', getMeta('tokens'))
-  commandRegistry.registerMethod('sessions', workflow, 'sessions', getMeta('sessions'))
 
   // Planning commands
   commandRegistry.registerMethod('init', planning, 'init', getMeta('init'))
-  commandRegistry.registerMethod('bug', planning, 'bug', getMeta('bug'))
-  commandRegistry.registerMethod('idea', planning, 'idea', getMeta('idea'))
-  commandRegistry.registerMethod('spec', planning, 'spec', getMeta('spec'))
 
   // Shipping commands
   commandRegistry.registerMethod('ship', shipping, 'ship', getMeta('ship'))
 
-  // Analytics commands
-  commandRegistry.registerMethod('dash', analytics, 'dash', getMeta('dash'))
-  commandRegistry.registerMethod('help', analytics, 'help', getMeta('help'))
-
-  // Performance commands
-  commandRegistry.registerMethod('perf', performance, 'perf', getMeta('perf'))
-
-  // Velocity commands
-  commandRegistry.registerMethod('velocity', velocityCmd, 'velocity', getMeta('velocity'))
-
-  // Maintenance commands
-  commandRegistry.registerMethod('cleanup', maintenance, 'cleanup', getMeta('cleanup'))
-  commandRegistry.registerMethod(
-    'cleanup-projects',
-    maintenance,
-    'cleanupProjects',
-    getMeta('cleanup-projects')
-  )
-  commandRegistry.registerMethod('design', maintenance, 'design', getMeta('design'))
-  commandRegistry.registerMethod('recover', maintenance, 'recover', getMeta('recover'))
-  commandRegistry.registerMethod('undo', maintenance, 'undo', getMeta('undo'))
-  commandRegistry.registerMethod('redo', maintenance, 'redo', getMeta('redo'))
-  commandRegistry.registerMethod('history', maintenance, 'history', getMeta('history'))
-  commandRegistry.registerMethod('enrich', maintenance, 'enrich', getMeta('enrich'))
-
-  // Analysis commands
+  // Analysis commands (kept for internal sync workflow)
   commandRegistry.registerMethod('analyze', analysis, 'analyze', getMeta('analyze'))
   commandRegistry.registerMethod('sync', analysis, 'sync', getMeta('sync'))
-  commandRegistry.registerMethod('stats', analysis, 'stats', getMeta('stats'))
-  commandRegistry.registerMethod('status', analysis, 'status', getMeta('status'))
-  commandRegistry.registerMethod('seal', analysis, 'seal', getMeta('seal'))
-  commandRegistry.registerMethod('verify', analysis, 'verify', getMeta('verify'))
 
   // Setup commands
   commandRegistry.registerMethod('start', setup, 'start', getMeta('start'))
@@ -127,13 +85,20 @@ export function registerAllCommands(): void {
   // Context command (for Claude templates)
   commandRegistry.registerMethod('context', context, 'context', getMeta('context'))
 
-  // Obsidian integration
-  commandRegistry.registerMethod('obsidian', obsidian, 'obsidian', getMeta('obsidian'))
+  // v2 primitives
+  commandRegistry.registerMethod('status', primitives, 'status', getMeta('status'))
+  commandRegistry.registerMethod('tag', primitives, 'tag', getMeta('tag'))
+  commandRegistry.registerMethod('remember', primitives, 'remember', getMeta('remember'))
 
-  // Parallel agent commands
-  commandRegistry.registerMethod('parallel', parallel, 'parallel', getMeta('parallel'))
-  commandRegistry.registerMethod('worktree', parallel, 'parallel', getMeta('worktree'))
-  commandRegistry.registerMethod('conductor', parallel, 'parallel', getMeta('conductor'))
+  // v2 alpha.8: pack system — seeds are declarative signals (memory types,
+  // workflow slot names, hook signals). `seed` subcommands manage which
+  // packs are active per project. `install` wires Claude Code hooks.
+  commandRegistry.registerMethod('seed', seedCmd, 'seed', getMeta('seed'))
+  commandRegistry.registerMethod('install', installCmd, 'install', getMeta('install'))
+
+  // v2 alpha.9: `capture` — GTD inbox. Also the target of the bare
+  // `prjct "<text>"` auto-route (replacing `task` — see core/index.ts).
+  commandRegistry.registerMethod('capture', captureCmd, 'capture', getMeta('capture'))
 }
 
 // Auto-register on import
@@ -145,14 +110,9 @@ export {
   workflow,
   planning,
   shipping,
-  analytics,
-  performance,
-  maintenance,
   setup,
   context,
-  obsidian,
-  parallel,
-  velocityCmd,
+  primitives,
   uninstallCmd,
   updateCmd,
 }

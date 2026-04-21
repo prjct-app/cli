@@ -1,5 +1,375 @@
 # Changelog
 
+## [2.0.0-alpha.12] - 2026-04-21
+
+Summary of the alpha.6 → alpha.12 arc and the dead-code / harness sweep
+that closed it. Covers five commits on `v2/cut`: 28eb87e0, e3a163cb,
+4c661bde, d59612a5, b1cd664f.
+
+### Added (alpha.6 → alpha.11, landed earlier in the arc)
+- **Hook pack**: `prjct claude install` writes 7 passive hooks into
+  `~/.claude/settings.json` (SessionStart / UserPromptSubmit /
+  PreToolUse / PostToolUse / Stop / SubagentStart / CwdChanged).
+  Each hook emits `additionalContext` from project memory + persona;
+  nothing blocks unless a hand-rolled workflow rule says so.
+- **Persona per project** (`.prjct/prjct.config.json#persona`):
+  `role`, `focus`, `mcps`, `packs`. Injected by every hook.
+- **Packs (5)**: `code`, `daily`, `pm`, `founder`, `research` as
+  declarative JSON manifests — no bash seeded, just memory types +
+  workflow-slot names + hook signals + suggested persona.
+- **`prjct capture`** — GTD inbox verb. Bare `prjct "..."` now
+  routes here (was `task`).
+- **14 base memory types + user-defined**: `fact`, `decision`,
+  `learning`, `gotcha`, `pattern`, `anti-pattern`, `shipped`,
+  `inbox`, `todo`, `idea`, `insight`, `question`, `source`,
+  `person`. Any lowercase identifier also accepted.
+- **Workflow step types**: `script:<path>`, `mcp:<server>:<tool>`,
+  `persona:context`. Scripts live in `.prjct/workflows/*.sh` and
+  receive `PRJCT_BRANCH` / `PRJCT_FILES_CHANGED` / `PRJCT_TAGS` env.
+
+### Removed (this sweep — 16,859 LOC across 58 files)
+- **Outcome subsystem** (`outcome-recorder/storage/learner/analyzer`):
+  zero write callsites anywhere in the codebase; every read returned
+  empty. Downstream velocity / estimate-history / learn-from-outcomes
+  features went with it.
+- **Agentic stack** (`command-executor`, `loop-detector`,
+  `plan-mode`, `context-builder`, `prompt-builder`,
+  `orchestrator-executor`, `memory-system`, `semantic-memories`,
+  `pattern-store`, `memory-stores`, `domain-classifier`,
+  `response-validator`). `workflow.now()` (`prjct task` entry
+  point) rewired to persist via `stateStorage` directly +
+  `executeWorkflowRules`; no more detour through the orchestration
+  chain.
+- **Pre-v2 MCP tools** (`patterns.ts`, `session.ts`, `review.ts`,
+  `context.ts`): duplicated what `projectMemory` already does.
+  `prjct_mem_save / _list / _similar / _forget` in `memory.ts` is
+  now the single MCP memory surface, wired to `projectMemory`.
+  `prjct_patterns` in `project.ts` reads the same store.
+- **Six outcome-backed MCP tools** (`prjct_velocity`,
+  `_outcomes_search`, `_outcomes_similar`, `_outcomes_recent`,
+  `_estimate_accuracy`, `_velocity_detail`).
+- **Ghost verbs** (`sessions`, `tokens` — no handlers).
+- **Harness CLI context subtools** (`files`, `signatures`,
+  `imports`, `recent`, `summary` under `prjct context` — Claude has
+  Glob / Grep / Read / git natively). Internals kept for MCP.
+- **Seven phantom dispatcher entries** (`diff`, `seal`, `rollback`,
+  `verify`, `analysis-payload`, `analysis-save-llm`, `analysis-llm`)
+  that routed to methods deleted in earlier alphas — 8 pre-existing
+  TS errors gone.
+- **Gate cache** + **bilingual NL parser** in `workflow.ts` (alpha.10).
+- **Obsolete config files / types / utils**: `core/cli/arg-parser`,
+  `core/events/pub-sub`, `core/schemas/roadmap`,
+  `core/session/task-session-manager`, `core/session/utils`,
+  `core/commands/context-contract`, `core/schemas/outcomes`,
+  `core/schemas/classification`, `core/schemas/llm-output`,
+  `core/constants/commands`, `core/session/session-log-manager`,
+  `core/tools/context/recent-tool`, `core/utils/agent-stream`,
+  `core/utils/jsonl-helper`, `core/utils/subtask-table`.
+
+### Changed
+- `workflow.now()` 346 → ~120 LOC. `prjct task` (no arg) now shows
+  the active task instead of failing validation; `command-data.ts`
+  marks the description optional.
+- `context.ts#context` emits the same JSON shape but `domains` /
+  `primaryDomain` / `subtasks` are empty — no more intent guessing.
+  Use `prjct tag` to classify explicitly.
+- `analysis.ts` inlines `pathManager.getFilePath` instead of pulling
+  `contextBuilder`. Stats endpoint keeps its output shape for
+  backward compat; `patternsSummary` fields are zeros.
+- `shipping.ts` drops `memorySystem.learnDecision` /
+  `recordWorkflow` calls — redundant with `shippedStorage.addShipped`
+  (which `projectMemory` reads as `type=shipped`).
+- MCP server registers 5 tool groups (was 9): memory, project,
+  files, workflow, code-intel.
+
+### Verified
+`prjct init --pack … --persona …`, `sync`, `task` (with + without
+arg), `remember`, `capture`, `context memory`, `seed list`,
+`SessionStart` / `CwdChanged` hooks with persona — all green on a
+fresh tmp project. `bun test`: 756 pass / 0 fail. `tsc --noEmit`: 0
+errors (was 8 pre-existing). `knip`: 0 unused files.
+
+## [2.0.0-alpha.5] - 2026-04-20
+
+Wiki performance pass — answers the "SQLite vs Obsidian markdown graph"
+question by making the hybrid (SQLite source-of-truth + markdown cache)
+cheap enough that there's no reason to pick only one.
+
+### Incremental regen (O-1)
+`core/services/wiki-generator.ts` now keeps a `.manifest.json` of
+`{relPath: sha256}` per generated file. On regen:
+- build every file body in memory
+- sha256 each, diff against the manifest
+- write only files whose hash changed
+- delete files that were in the old manifest but not the new
+- always rewrite the manifest itself (tiny)
+
+For the common delta (one new memory entry touching 1-2 files), the
+wiki now writes those 1-2 files instead of the whole tree. ~100ms →
+<5ms in the write-bound case.
+
+### Deferred under daemon (O-2)
+New `regenerateWikiDeferred(projectPath, projectId)`. When the daemon
+sets `PRJCT_IN_DAEMON=1`, it fires the regen via `setImmediate` and
+returns immediately — the CLI response flushes before the regen
+touches disk. CLI path (no daemon) still awaits because
+`process.exit` would drop the pending promise. `primitives.remember`
+and `shipping.ship` call the deferred wrapper.
+
+### File-size cap via chunking (O-3)
+Any memory bucket (type or tag-value pair) with more than 50 entries
+is paginated:
+
+```
+memory/decision.md         ← index with links
+memory/decision/chunk-1.md ← 50 entries
+memory/decision/chunk-2.md ← 50 entries
+…
+```
+
+Tag pages go deeper: `tags/<key>/<value>.md` instead of cramming all
+values under a single `tags/<key>.md`. An agent that reads one chunk
+or one tag page stays under ~5K tokens regardless of corpus size.
+
+### Bottom line
+The hybrid is now the right answer on every axis: SQLite still wins
+writes + complex queries, markdown still wins LLM comprehension +
+token-per-read, and the cost of keeping them in sync is near-zero.
+
+## [2.0.0-alpha.4] - 2026-04-20
+
+Quality pass — applies every finding from the three-round line-by-line
+review. No new user-facing verbs; everything is tightening what's already
+in alpha.3.
+
+### DRY
+- `core/commands/verb-names.ts` — single source for the auto-route
+  allowlist, imported by both bin (zero-heavy-imports path) and the
+  daemon dispatcher. Adding a verb touches one list instead of two.
+- `core/memory/events.ts` — constants for event prefixes so
+  `'memory.remember.%'`, `'memory.task.tagged'`, etc. stop drifting
+  between writer and reader.
+- `core/commands/guards.ts` — `requireProjectId` / `requireActiveTask`
+  helpers kill the duplicated 3-line preamble every v2 primitive used to
+  carry.
+- `MEMORY_TYPES` is now a single `const` tuple in `project-memory.ts`
+  with the `MemoryType` union derived from it. `primitives.ts` imports it
+  instead of maintaining a parallel list.
+
+### Perf
+- Workflow engine hot path: dynamic imports moved to static top-level,
+  the two `git diff` execs run in parallel, and `buildWhenContext` is
+  skipped entirely unless a rule in this phase actually reads it
+  (conditional rule or gate). Saves ~30ms on the plain hook/step case.
+- `when-evaluator.globToRegex` single-pass walker with a compile cache.
+  Same pattern tested against N files only compiles once.
+
+### Bugs / UX
+- `prjct status` (no args) now shows the real task status recovered from
+  `status.changed` events instead of misrepresenting the task `type` tag
+  as the status.
+- Auto-route no longer swallows typos: a single-token input within
+  edit-distance 2 of a known verb surfaces a `did you mean` instead of
+  silently creating `prjct task "shipp"`.
+
+### Security
+- Wiki lives at `.prjct/wiki/_generated/`. The top-level `.prjct/wiki/`
+  is user-owned — any notes you put there survive rebuilds. Only the
+  generated subdir gets wiped.
+- Workflow rules gain `trust_source` (schema v14). Rules with
+  `trustSource === 'imported'` refuse to run their shell action, buying
+  forward-compat for a future template registry without shipping it as
+  an arbitrary-code-execution vector.
+- `prjct remember` refuses content matching obvious secret patterns
+  (sk-… tokens, GitHub PATs, AWS access keys, Slack tokens, bearer
+  JWT-ish strings) unless `--force` is passed.
+
+### Cleanup / smell
+- Magic numbers in `recall()` replaced with `OVERFETCH_FACTOR` and
+  `DEFAULT_RECALL_LIMIT` constants with comments explaining the 4×.
+- Wiki regenerates on `prjct remember` too — not just `prjct ship`.
+  Subagents reading `_generated/` see newly captured memory without
+  waiting for the next ship.
+- Wiki now surfaces inferred `patterns` + `anti-patterns` from
+  `prjct sync`, rendered at `_generated/patterns.md` with an
+  INFR provenance note so agents can weight them accordingly.
+- Fragile `§§` glob placeholder replaced by a single-pass walker.
+
+### Schema
+New migration v14 `workflow-rules-trust-source`:
+- `workflow_rules.trust_source TEXT NOT NULL DEFAULT 'local'`
+
+## [2.0.0-alpha.3] - 2026-04-20
+
+Fourth alpha — adds two high-leverage borrows from the graphify review:
+provenance tags on memory entries and an agent-crawlable wiki under
+`.prjct/wiki/`.
+
+### Memory provenance
+Every `MemoryEntry` now carries a `provenance` field so Claude can
+calibrate trust when reading memory:
+
+  DECL  — declared by user / LLM via `prjct remember`
+  EXTR  — extracted from verifiable project state (ships, tags)
+  INFR  — inferred by pattern extractor or heuristic (weakest)
+  AMBG  — mixed / unclear
+
+Surfaced as a prefix in `prjct context memory --md`:
+
+    ### DECISION
+    - `DECL` [mem_15] use SQLite
+    ### LEARNING
+    - `DECL` [mem_8] bun faster than npm  _(area=perf)_
+
+Ships auto-tag as `EXTR`; user `remember` calls default to `DECL`. Future
+pattern/heuristic-backed entries can override with `INFR`.
+
+### Agent-crawlable wiki
+New `core/services/wiki-generator.ts` writes `.prjct/wiki/` on every
+`prjct ship`:
+
+    .prjct/wiki/
+      index.md            — entry point with links to everything
+      ships/<slug>.md     — one file per shipped feature
+      memory/<type>.md    — one file per memory type
+      tags/<key>.md       — one file per tag key
+
+Subagents can read these with native Read/Glob — no CLI round-trip into
+SQLite, zero tokens until the file is opened. New `prjct context wiki`
+rebuilds on demand.
+
+### Why these, not the rest of graphify
+graphify's knowledge-graph engine (NetworkX + Leiden + vis.js) is a
+harness pattern that duplicates what the LLM + file-scorer already do for
+a solo-dev codebase. Multimodal PDF ingest is out of scope. The
+long-running `--watch` daemon burns tokens. The `--mcp` server fragments
+the toolbox. We took the two ideas that fit the v2 philosophy and left
+the rest.
+
+Hash cache + post-commit hook were already present in prjct
+(`core/domain/file-hasher.ts` + `core/services/hooks-service.ts`) — no
+duplication needed.
+
+## [2.0.0-alpha.2] - 2026-04-19
+
+Third alpha — finishes the workflow engine upgrades from the Phase 4 plan.
+Custom workflows can now be written once and execute efficiently.
+
+### Conditional rules
+New `when_expr` column on `workflow_rules` with a tiny DSL:
+
+```
+when: tags:type=bug
+when: branch~main files:*.ts
+when: tags:domain=frontend
+```
+
+Supported: `tags:key=value` / `tags:key~value` (contains), `branch=` / `branch~`,
+`files:<glob>` (glob against the current diff). Multiple tokens AND
+together. Empty / null → unconditional.
+
+### Parallel hooks
+Hooks now run concurrently via `Promise.all` by default. Opt out per rule
+with `parallel: false` — those run sequentially ahead of the batch so
+ordering-dependent cleanups still work. Gates and steps stay sequential.
+Typical speedup on the common "3 independent hooks" case: ~3x.
+
+### Gate result cache
+Gate passes are cached in a new `workflow_rule_cache` table, keyed on
+`(files changed, tags, branch)`. Default TTL 1 h. Only successful passes
+are cached — failures always re-run so the user sees a fresh error. Any
+rule edit invalidates its cache. The win: `tsc` / `eslint` gates don't
+re-run on every task start when nothing relevant has moved.
+
+### Schema
+New migration `v13 workflow-rules-v2`:
+- `workflow_rules.when_expr TEXT` (nullable)
+- `workflow_rules.parallel INTEGER NOT NULL DEFAULT 1`
+- `workflow_rule_cache(rule_id, context_hash, ran_at, ttl_ms)` table
+
+All backward-compatible: existing rules keep running without `when_expr`
+and with parallel=true.
+
+### New files
+- `core/workflow/when-evaluator.ts` — DSL parser + evaluator (~100 LOC)
+- `core/workflow/gate-cache.ts` — cache API + SHA-256 context hasher
+
+## [2.0.0-alpha.1] - 2026-04-19
+
+Second alpha — finishes the four-PR arc planned for v2 so the new shape is
+usable, not just carved out.
+
+### Auto-route (PR 2)
+- `prjct arregla el checkout lento` → `prjct task "arregla el checkout lento"`.
+  Unknown verbs flow straight to task; explicit verbs still win. Works with
+  and without the daemon (bin/prjct.ts uses a hardcoded allowlist, core
+  dispatcher checks the registry).
+
+### Lazy context (PR 3)
+- `prjct task` output collapsed from ~2,400 chars to ~400. No more eager
+  `findRelevantFiles` / pattern briefing / RPI / efficiency sections at
+  task start — Claude pulls them on demand.
+- New context topics:
+    prjct context memory [topic]       → facts, decisions, learnings…
+    prjct context learnings [topic]    → learning + anti-pattern + gotcha
+
+### Project memory API (PR 4)
+- `core/memory/project-memory.ts` — one surface over events-table entries
+  (from `prjct remember`) and `shipped_features` rows. Exposes
+  `remember / recall / similar` plus a compact markdown renderer.
+- `prjct remember` auto-captures the active task id as `source`.
+
+### Workflow engine (PR 4)
+- Step actions with prefix `status:` run through the state-machine instead
+  of `execAsync`. Custom workflows can now do:
+    - step: lint
+    - step: test
+    - step: status:shipped
+  and the final step closes the loop declaratively.
+
+### Fixes
+- `tag` param spec `<pairs...>` — previous `<k:v> [<k:v>...]` tripped
+  `validateCommandParams` and blocked valid invocations.
+
+## [2.0.0-alpha.0] - 2026-04-19
+
+**BREAKING.** First alpha of the v2 rewrite — "toolbox for LLMs, not harness".
+
+### Removed integrations (pure MCP gateways, no native value)
+- `prjct jira` — use Jira MCP directly
+- `prjct linear` — use Linear MCP directly
+- `prjct obsidian` — use Obsidian MCP or a custom hook
+
+### Removed verbs (status-changes & ceremony)
+- `done`, `pause`, `resume`, `next` — status transitions, handled by workflows or `prjct status`
+- `bug`, `idea`, `spec` — replaced by `prjct task` + `prjct tag type:bug`
+- `cleanup`, `undo`, `redo`, `history`, `recover`, `enrich`, `design` — maintenance ceremony
+- `dash`, `stats`, `perf`, `velocity`, `tokens`, `sessions` — observability, not primitives
+- `worktree`, `parallel`, `conductor` — harness patterns
+
+### New primitives
+- `prjct status [value]` — inline task status change (Linear-style escape hatch)
+- `prjct tag <k:v> [<k:v>...]` — Claude attaches tags; no heuristic classifier
+- `prjct remember <type> "<content>"` — capture project memory (fact, decision, learning, gotcha, pattern, anti-pattern, shipped)
+
+### CLI surface (v2 minimal)
+- Core: `task`, `ship`, `workflow`, `context`, `status`, `tag`, `remember`
+- Bootstrap: `init`, `setup`, `login`, `logout`, `update`, `uninstall`
+
+### Skills (~/.claude/skills/)
+- Kept: `prjct-context`, `prjct-task` (toolbox-style rewrite), `prjct-ship`, `prjct-workflow`
+- Dropped: 12 dead skills matching removed commands
+
+### Stats
+- ~7,000 LOC removed across integrations, aux commands, templates, and tests
+- Skills bundle: 16 → 4  |  templates bundle: 71 → 52 files
+- Build output: 1.61 MB → 1.40 MB (-13%)
+
+### Coming next (not in this alpha)
+- PR 2 — dispatcher auto-route (`prjct "fix bug"` → `prjct task`)
+- PR 3 — lazy context injection (`prjct task` < 50 tokens)
+- PR 4 — workflow engine upgrade: status-transitions as steps, conditionals, parallel hooks, cache, rich project-memory API
+
 ## [1.56.12] - 2026-04-14
 
 ### Bug Fixes

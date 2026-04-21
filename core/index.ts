@@ -31,7 +31,7 @@ interface CommandResult {
 }
 
 async function main(): Promise<void> {
-  const [commandName, ...rawArgs] = process.argv.slice(2)
+  let [commandName, ...rawArgs] = process.argv.slice(2)
 
   // === SPECIAL COMMANDS (version, help) ===
 
@@ -44,6 +44,27 @@ async function main(): Promise<void> {
   if (['-h', '--help', undefined].includes(commandName)) {
     displayHelp()
     process.exit(0)
+  }
+
+  // === v2 auto-route: unknown verb → prjct capture "<full args>" ===
+  // GTD-style: 80% of dumps during the day aren't commitments — they're
+  // inbox items. Capture writes memory with `type=inbox` without the
+  // ceremony of a task (no id, no branch, no worktree). If Claude
+  // later wants structure, it can retype via a clarify workflow.
+  //
+  // Explicit verbs (task, ship, tag, capture, …) still win.
+  //
+  // Exception: a single-word input that's a near-match of a real verb
+  // (edit distance ≤ 2, no whitespace) is probably a typo. Surface the
+  // did-you-mean instead of silently capturing "shipp".
+  if (commandName && !commandRegistry.getByName(commandName)) {
+    const looksLikeTypo = rawArgs.length === 0 && findClosestCommand(commandName) !== null
+    if (!looksLikeTypo) {
+      const fullDescription = [commandName, ...rawArgs.filter((a) => !a.startsWith('-'))].join(' ')
+      const passthroughFlags = rawArgs.filter((a) => a.startsWith('-'))
+      commandName = 'capture'
+      rawArgs = [fullDescription, ...passthroughFlags]
+    }
   }
 
   // === DYNAMIC COMMAND EXECUTION ===
@@ -131,33 +152,8 @@ async function main(): Promise<void> {
     let result: CommandResult | undefined
 
     // Commands with special option handling
-    if (commandName === 'parallel' && parsedArgs[0] === 'spawn' && parsedArgs.length > 1) {
-      // prjct parallel spawn "task description"
-      const description = parsedArgs.slice(1).join(' ')
-      result = await commands.parallelSpawn(description, process.cwd(), { md: options.md === true })
-    } else if (commandName === 'parallel' && parsedArgs[0] === 'batch') {
-      // prjct parallel batch "task1" "task2" "task3"
-      const descriptions = parsedArgs.slice(1)
-      if (descriptions.length === 0) {
-        out.failWithHint({
-          message: 'No tasks provided',
-          hint: 'Usage: prjct parallel batch "task1" "task2" "task3"',
-        })
-        process.exit(1)
-      }
-      result = await commands.parallelBatch(descriptions, process.cwd())
-    } else if (commandName === 'design') {
-      const target = parsedArgs.join(' ')
-      result = await commands.design(target, options)
-    } else if (commandName === 'analyze') {
+    if (commandName === 'analyze') {
       result = await commands.analyze(options)
-    } else if (commandName === 'cleanup') {
-      result = await commands.cleanup(options)
-    } else if (commandName === 'cleanup-projects') {
-      result = await commands.cleanupProjects({
-        dryRun: options['dry-run'] === true,
-        md: options.md === true,
-      })
     } else if (commandName === 'setup') {
       result = await commands.setup(options)
     } else if (commandName === 'update') {
@@ -169,45 +165,18 @@ async function main(): Promise<void> {
       const standardCommands: Record<string, (p: string | null) => Promise<CommandResult>> = {
         // Core workflow
         task: (p) => commands.task(p, process.cwd(), { md }),
-        done: () => commands.done(process.cwd(), { md }),
-        next: () => commands.next(process.cwd(), { md }),
-        pause: (p) => commands.pause(p || '', process.cwd(), { md }),
-        resume: (p) => commands.resume(p, process.cwd(), { md }),
-        // Planning
-        init: (p) => commands.init(p),
-        bug: (p) => commands.bug(p || '', process.cwd(), { md }),
-        idea: (p) => commands.idea(p || '', process.cwd(), { md }),
-        spec: (p) => commands.spec(p),
+        // Planning — init accepts --pack / --persona / --yes to pre-seed
+        // packs and persona without the interactive wizard.
+        init: (p) =>
+          commands.init({
+            idea: p,
+            yes: options.yes === true,
+            pack: options.pack ? String(options.pack) : undefined,
+            persona: options.persona ? String(options.persona) : undefined,
+          }),
         ship: (p) => commands.ship(p, process.cwd(), { md }),
         // Workflow
         workflow: (p) => commands.workflowPrefs(p, process.cwd(), { md }),
-        // Sessions (PRJ-285)
-        sessions: () => commands.sessions(process.cwd(), { md, cleanup: options.cleanup === true }),
-        // Analytics
-        dash: (p) => commands.dash(p || 'default', process.cwd(), { md }),
-        stats: () =>
-          commands.stats(process.cwd(), {
-            json: options.json === true,
-            export: options.export === true,
-          }),
-        status: () =>
-          commands.status(process.cwd(), {
-            json: options.json === true,
-            md,
-          }),
-        help: (p) => commands.help(p || ''),
-        perf: (p) => commands.perf(p || '7'),
-        velocity: (p) => commands.velocity(p || '0'),
-        // Maintenance
-        recover: () => commands.recover(),
-        undo: () => commands.undo(),
-        redo: () => commands.redo(),
-        history: () => commands.history(),
-        enrich: (p) =>
-          commands.enrich(p, process.cwd(), {
-            md,
-            json: options.json === true,
-          }),
         // Setup
         sync: () =>
           commands.sync(process.cwd(), {
@@ -218,40 +187,31 @@ async function main(): Promise<void> {
             package: options.package ? String(options.package) : undefined,
             full: options.full === true,
           }),
-        diff: () => commands.diff(process.cwd(), { json: options.json === true, md }),
-        seal: () => commands.seal(process.cwd(), { json: options.json === true }),
-        rollback: () => commands.rollback(process.cwd(), { json: options.json === true, md }),
-        verify: () =>
-          commands.verify(process.cwd(), {
-            json: options.json === true,
-            semantic: options.semantic === true,
-          }),
-        'analysis-payload': () =>
-          commands.analysisPayload(process.cwd(), { json: options.json === true, md }),
-        'analysis-save-llm': (p) => commands.saveLlmAnalysis(p || '', process.cwd(), { md }),
-        'analysis-llm': () =>
-          commands.getLlmAnalysis(process.cwd(), { json: options.json === true, md }),
         start: () => commands.start(),
         // Context (for Claude templates)
         context: (p) => commands.context(p),
+        // v2 primitives
+        status: (p) => commands.status(p, process.cwd(), { md }),
+        tag: (p) => commands.tag(p, process.cwd(), { md }),
+        remember: (p) =>
+          commands.remember(p, process.cwd(), {
+            md,
+            tags: options.tags ? String(options.tags) : undefined,
+          }),
         // Auth (cloud sync)
         login: () => commands.login({ md, url: options.url ? String(options.url) : undefined }),
         logout: () => commands.logout(),
         auth: (p) => commands.auth(p, { md }),
-        // Parallel agent sessions
-        parallel: (p) =>
-          commands.parallel(p, process.cwd(), {
+        // v2 alpha.8 packs + Claude Code hook install
+        seed: (p) => commands.seed(p, process.cwd(), { md }),
+        install: () => commands.install(null, process.cwd(), { md }),
+        // v2 alpha.9 GTD capture — also target of bare-dispatch auto-route.
+        capture: (p) =>
+          commands.capture(p, process.cwd(), {
             md,
-            max: options.max ? Number(options.max) : undefined,
-            fromQueue: options['from-queue'] === true,
-            fromLinear: options['from-linear'] === true,
-            fromJira: options['from-jira'] === true,
-            includeBacklog: options['include-backlog'] === true,
+            tags: options.tags ? String(options.tags) : undefined,
+            force: options.force === true,
           }),
-        worktree: (p) => commands.parallel(p, process.cwd(), { md }),
-        conductor: (p) => commands.parallel(p, process.cwd(), { md }),
-        // Obsidian integration
-        obsidian: (p) => commands.obsidian(p, process.cwd()),
       }
 
       const handler = standardCommands[commandName]

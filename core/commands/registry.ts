@@ -47,13 +47,7 @@ export class CommandRegistry {
   private handlerFns: Map<string, HandlerFn<unknown>> = new Map()
   private metadata: Map<string, CommandMeta> = new Map()
   private categories: Map<string, CategoryInfo> = new Map()
-  private noProjectCommands: Set<string> = new Set([
-    'init',
-    'setup',
-    'start',
-    'migrateAll',
-    'sessions',
-  ])
+  private noProjectCommands: Set<string> = new Set(['init', 'setup', 'start', 'migrateAll'])
 
   /**
    * Register a command handler (class-based)

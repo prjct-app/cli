@@ -393,6 +393,25 @@ export interface WorkflowRule {
   timeoutMs: number
   createdAt: string
   sortOrder: number
+  /**
+   * v2 conditional: a rule runs only when the expression matches. Tiny DSL:
+   * `tags:type=bug`, `files:*.ts`, `branch~main`, `branch=main`. Multiple
+   * conditions joined by whitespace AND. `null`/empty → always runs.
+   */
+  whenExpr: string | null
+  /**
+   * v2 hook parallelism. When true (default), hooks run concurrently via
+   * Promise.all. Set false for hooks with ordering dependencies. Ignored
+   * by gates and steps — those stay sequential.
+   */
+  parallel: boolean
+  /**
+   * Where the rule's shell action came from. `local` (default) runs as
+   * the user authored it. `imported` indicates the rule was pulled from a
+   * shared template — reserved for a future template registry so the
+   * engine can refuse unfamiliar shell actions until approved.
+   */
+  trustSource: 'local' | 'imported'
 }
 
 // =============================================================================

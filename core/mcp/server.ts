@@ -9,75 +9,47 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { registerCodeIntelTools } from './tools/code-intel'
-import { registerContextTools } from './tools/context'
 import { registerFileTools } from './tools/files'
 import { registerMemoryTools } from './tools/memory'
-import { registerObsidianTools } from './tools/obsidian'
-import { registerPatternTools } from './tools/patterns'
 import { registerProjectTools } from './tools/project'
-import { registerReviewTools } from './tools/review'
-import { registerSessionTools } from './tools/session'
 import { registerWorkflowTools } from './tools/workflow'
 
 /**
- * Memory Protocol — injected as server instructions so the agent
- * knows WHEN to save, search, and close sessions proactively.
+ * MCP server instructions — describe WHAT prjct holds, never prescribe
+ * step-by-step HOW to use it. Deterministic pipelines (“first do X, then
+ * Y”) are harness behavior; this template is the canonical anti-harness
+ * shape (Anthropic skill docs): `Use when` + `What's here` + `Gotchas`.
+ *
+ * If you find yourself adding a numbered list of steps here, stop.
  */
-const MEMORY_PROTOCOL = `## prjct Memory Protocol
+const PRJCT_INSTRUCTIONS = `# prjct — persona-aware context broker
 
-### On session start:
-1. Call prjct_session_start to register this session
-2. Call prjct_session_context to recover context from last session
-3. Call prjct_mem_search for any relevant memories to current task
+Use when you want prior project memory, state, or a registered workflow. You decide whether any of it is relevant to the current turn.
 
-### During work — SAVE when you:
-- Make a technical decision → prjct_decision_record (key/value with confidence tracking)
-- Discover a project pattern → prjct_mem_save with topic_key pattern/*
-- Fix a non-obvious bug → topic_key bug/*
-- Learn a user preference → prjct_preference_set (key/value)
-- Find an architectural constraint → topic_key architecture/*
-- Use prjct_mem_suggest_topic if unsure about the right topic_key
+## What's here
+- **Memory** (facts, decisions, learnings, gotchas, patterns, anti-patterns, insights, questions, sources, people, okrs, shipped work, inbox). Save via memory tools; recall via search/list. Tags are freeform.
+- **Session + task state** via the session and project tools.
+- **Workflows** registered in this project (can be run, listed, edited).
+- **Code intelligence** helpers (impact, related context) for navigating repos.
+- **Patterns** detected by analysis.
 
-### During work — SEARCH when you:
-- Start a new subtask (search for related memories)
-- Hit an error (search for similar bugs)
-- Need to make a decision (prjct_decision_get to check prior decisions)
-
-### Decisions & Preferences:
-- prjct_decision_record / prjct_decision_get — technical decisions with confidence tracking
-- prjct_preference_set / prjct_preference_get — user preferences
-
-### Code Intelligence:
-- prjct_impact_analysis — before reviewing changes, check what else is affected
-- prjct_related_context — find related files (imports + co-change) for context
-
-### Maintenance:
-- prjct_archive_stale — periodically clean up old decisions
-- prjct_confirm — when user confirms a decision/preference, boost confidence
-- prjct_analysis_staleness — check if project analysis needs refresh
-- prjct_mem_consolidate — merge duplicate memories (run periodically)
-
-### On session end:
-1. Call prjct_session_summary with Goal/Accomplished/Discoveries/Next Steps/Files
-2. Save any important learnings not yet captured via prjct_mem_save
-3. Call prjct_mem_capture_passive on your final output to auto-extract learnings`
+## Gotchas
+- Memory is best-effort — never assume recall returned everything; it's a query, not a lookup.
+- Topic keys are free-form strings; don't invent new vocabularies when existing ones fit.
+- Not every project defines every memory type — if one is empty, that's fine.
+- Saving a secret-looking string is refused by default. Re-save with a scrubbed version.`
 
 export function createServer(): McpServer {
   const server = new McpServer(
     { name: 'prjct', version: '1.0.0' },
-    { instructions: MEMORY_PROTOCOL }
+    { instructions: PRJCT_INSTRUCTIONS }
   )
 
   registerMemoryTools(server)
-  registerSessionTools(server)
   registerProjectTools(server)
   registerFileTools(server)
   registerWorkflowTools(server)
-  registerReviewTools(server)
-  registerPatternTools(server)
   registerCodeIntelTools(server)
-  registerContextTools(server)
-  registerObsidianTools(server)
 
   return server
 }

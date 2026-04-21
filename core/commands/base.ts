@@ -5,7 +5,6 @@
  * This class maintains backward compatibility while services handle implementation.
  */
 
-import commandExecutor from '../agentic/command-executor'
 import UpdateChecker from '../infrastructure/update-checker'
 import { agentService } from '../services/agent-service'
 import { breakdownService } from '../services/breakdown-service'
@@ -22,13 +21,11 @@ export class PrjctCommandsBase {
   prjctDir: string
   updateChecker: UpdateChecker
   updateNotificationShown: boolean
-  commandExecutor: typeof commandExecutor
 
   constructor() {
     this.prjctDir = '.prjct'
     this.updateChecker = new UpdateChecker()
     this.updateNotificationShown = false
-    this.commandExecutor = commandExecutor
   }
 
   // Agent accessors (delegate to agentService)
