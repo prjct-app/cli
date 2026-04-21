@@ -10,28 +10,41 @@ core/
   index.ts                      Main CLI dispatcher (help, command routing)
   cli/                          Standalone CLI entry points (linear.ts, jira.ts)
                                 spawned as subprocesses from bin/prjct
-  commands/                     CLI command handlers (task, sync, ship, done, …)
-  services/                     Cross-cutting business logic (sync-service,
-                                skill-generator, pattern-extractor, …)
+  commands/                     CLI command handlers (task, sync, ship,
+                                capture, remember, tag, status, seed, …)
+  hooks/                        7 Claude Code hook subcommands (session-start,
+                                prompt, pre-commit, post-edit, stop,
+                                subagent-start, cwd-changed)
+  packs/                        Pack manifests + manager (persona, memory
+                                types, workflow slots, hook signals)
+  memory/                       projectMemory — unified surface over SQLite
+                                + wiki (save / list / similar / forget / wiki)
+  workflow/                     Engine (state-machine, when-evaluator) — runs
+                                bash, mcp:, and persona:context step types
+  services/                     sync-service, skill-generator, wiki-generator,
+                                wiki-ingest, pattern-extractor
   domain/                       Pure algorithms — no IO, no singletons
                                 (bm25, import-graph, git-cochange, file-ranker)
-  agentic/                      Agent runtime (orchestrator, template-loader,
-                                command-executor, memory system)
   storage/                      SQLite persistence (one DB file per project)
   infrastructure/               Config, path resolution, install, providers
   schemas/                      Zod schemas — source of truth for runtime + types
   types/                        Plain TypeScript type aliases (no runtime code)
   utils/                        Small reusable helpers
-  workflows/                    Long-running workflows (onboarding, outcomes)
-  mcp/                          MCP server (context tools for agents)
+  mcp/                          MCP server — 5 tool groups (memory, project,
+                                files, workflow, code-intel)
   daemon/                       Background daemon (file watching, sync)
   server/                       Local HTTP + SSE server (web dashboard API)
   sync/                         Cloud sync (auth, batch, push/pull)
-  tools/context/                Context-filtering tools (files, signatures,
-                                imports, recent, summary, token-counter)
+  agentic/                      template-loader only (the v1 orchestration
+                                stack was removed in alpha.12)
 
-templates/                      Skill and command templates (thin; the CLI
-                                emits --md output that templates consume)
+templates/
+  packs/                        Declarative JSON manifests (code / daily / pm
+                                / founder / research)
+  global/                       Per-editor router templates
+                                (Claude CLAUDE.md, Gemini GEMINI.md, etc.)
+  skills/                       Anti-harness skill templates (code-review,
+                                debug, refactor)
 
 docs/                           This directory
 ```
@@ -99,8 +112,8 @@ combine in `core/domain/file-ranker.ts`:
   with configurable weights and returns the top-N ranked files.
 
 All three indexes are built once per `prjct sync` and stored in the project's
-SQLite database. Subsequent `prjct task` / `prjct context files` calls read
-from the cached index.
+SQLite database. Subsequent `prjct task` and the MCP `prjct_related` /
+`prjct_impact` / `prjct_stale` tools read from the cached index.
 
 ## Schemas: Zod as source of truth
 
@@ -133,22 +146,27 @@ migration story, inspection tips, and troubleshooting.
 
 **Never** `fs.readFile` a legacy JSON state file directly. Go through the CLI.
 
-## Skill-on-demand templates
+## Persona-aware context broker (v2)
 
-`templates/commands/*.md` files are thin (~17 lines each). They do not contain
-logic — they call the CLI with a `--md` flag and read the markdown the CLI
-emits:
+`.prjct/prjct.config.json` declares the project's persona (`role`, `focus`,
+`mcps`, `packs`). The hook pack at `core/hooks/` reads this config and
+injects `additionalContext` into the LLM on every relevant event:
 
-```bash
-prjct task "fix login" --md      # → markdown task context, ready for agent
-prjct sync --md                  # → sync report + analysis payload
-prjct status --md                # → current task + queue summary
-```
+- `SessionStart` → persona block + active task + last 3 learnings
+- `UserPromptSubmit` → topical recall from `projectMemory` (≤500 chars)
+- `PreToolUse` (Bash git commit) → anti-patterns tagged with touched files
+- `PostToolUse` (Edit/Write) → silently annotates `files_touched`
+- `Stop` → async "learned anything reusable?" prompt
+- `SubagentStart` → persona + memories for fresh-brain subagents
+- `CwdChanged` → re-contextualize on project switch
 
-The heavy lifting lives in `core/utils/md-formatter.ts` and the per-command
-implementations under `core/commands/`. This keeps templates under version
-control in the shipped package while allowing every command to feed
-structured context to any agent.
+Packs are declarative JSON manifests (`templates/packs/*.json`). They
+register memory types, name workflow slots, and declare hook signals — but
+never ship bash pipelines. Scripts are authored on demand by the human or
+the agent, using `projectMemory` + MCP as signal sources.
+
+This is the "prjct exposes the WHAT, the agent decides the HOW" invariant:
+zero numbered steps, zero prescriptive pipelines, zero harness.
 
 ## Testing
 

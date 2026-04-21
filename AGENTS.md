@@ -17,26 +17,42 @@ JSON → SQLite migration and DB inspection tips.
 | Format | `bun run format` |
 | Dead code | `bun run knip` |
 
-## Architecture
+## Architecture (v2)
 
 ```
 core/
-  commands/       CLI command handlers (analysis, planning, workflow)
-  services/       Business logic (sync-service, context-selector, memory-service)
+  commands/       CLI command handlers
+  hooks/          7 Claude Code hook subcommands (passive context injection)
+  packs/          Pack manifests + pack-manager (persona, memory types, slots)
+  memory/         projectMemory (unified surface over SQLite + wiki)
+  workflow/       Engine + state-machine + when-evaluator (declarative)
+  services/       sync-service, skill-generator, wiki-generator, wiki-ingest
   domain/         Pure algorithms (bm25, import-graph, git-cochange, file-ranker)
-  agentic/        Agent runtime (orchestrator, context-builder, smart-context)
-  storage/        SQLite persistence (database.ts, state-storage, metrics-storage)
-  schemas/        Zod schemas — source of truth for runtime validation + types
+  storage/        SQLite persistence (one DB per project)
+  schemas/        Zod schemas — source of truth
   types/          Plain TypeScript type aliases
   infrastructure/ Config, path resolution, command installation
   cli/            Standalone CLI entry points (linear.ts, jira.ts)
-  mcp/            MCP server for agent context tools
-  daemon/         Background daemon
+  mcp/            MCP server (5 tool groups: memory, project, files, workflow, code-intel)
+  daemon/         Background daemon (file watching)
+  server/         Hono HTTP + SSE (web dashboard API)
   sync/           Cloud sync (auth, batch, push/pull)
+  agentic/        template-loader only (v1 agentic stack removed in alpha.12)
 templates/
-  commands/       Skill templates (task.md, ship.md, sync.md)
-  subagents/      Agent templates (workflow only: prjct-workflow, planner, shipper)
+  packs/          Declarative JSON pack manifests (code, daily, pm, founder, research)
+  global/         Per-editor router templates (Claude, Gemini, Cursor, Windsurf)
+  skills/         Anti-harness skill templates (code-review, debug, refactor)
 ```
+
+### Removed in alpha.12 (do not reintroduce)
+- Outcome subsystem (outcome-recorder / storage / learner / analyzer)
+- Agentic orchestration stack (command-executor, plan-mode, context-builder,
+  prompt-builder, orchestrator-executor, memory-system, semantic-memories,
+  pattern-store, memory-stores, response-validator, domain-classifier)
+- Pre-v2 MCP tools (patterns.ts, session.ts, review.ts, context.ts)
+- Gate cache + bilingual NL parser in workflow.ts
+- Ghost verbs (sessions, tokens) + harness context subtools (files,
+  signatures, imports, recent, summary) — use native Glob/Grep/Read
 
 ## Key paths
 
@@ -50,9 +66,17 @@ templates/
 
 1. Git analysis → stats → stack detection
 2. Build indexes: BM25 (text search), import graph, co-change matrix
-3. Generate workflow agents from templates
+3. Generate skills + wiki from current memory
 4. Record metrics from real index data (not estimates)
 5. Install global CLAUDE.md section + verify
+
+## Hook pack (core/hooks/)
+
+`prjct install` merges 7 passive hooks into `~/.claude/settings.json`:
+SessionStart, UserPromptSubmit, PreToolUse (Bash git commit), PostToolUse
+(Edit/Write), Stop, SubagentStart, CwdChanged. They only inject
+`additionalContext`; nothing blocks unless a hand-rolled workflow rule
+explicitly does so. `prjct uninstall` cleanly removes them.
 
 ## Code rules
 

@@ -1,217 +1,214 @@
 # prjct
 
-**Context layer for AI coding agents.**
+**Persona-aware context broker for AI coding agents.**
 
 Works with Claude Code, Gemini CLI, OpenAI Codex, Antigravity, Cursor IDE, Windsurf, and more.
 
-[![Claude Code](https://img.shields.io/badge/Claude%20Code-Ready-6366f1)](CLAUDE.md)
+[![npm](https://img.shields.io/npm/v/prjct-cli)](https://www.npmjs.com/package/prjct-cli)
+[![Claude Code](https://img.shields.io/badge/Claude%20Code-Ready-6366f1)]()
 [![Gemini CLI](https://img.shields.io/badge/Gemini%20CLI-Ready-4285F4)]()
 [![OpenAI Codex](https://img.shields.io/badge/OpenAI%20Codex-Ready-10A37F)]()
-[![Antigravity](https://img.shields.io/badge/Antigravity-Ready-EA4335)]()
 [![Cursor IDE](https://img.shields.io/badge/Cursor%20IDE-Ready-00D4AA)]()
 [![Windsurf](https://img.shields.io/badge/Windsurf-Ready-7C3AED)]()
-[![npm](https://img.shields.io/npm/v/prjct-cli)](https://www.npmjs.com/package/prjct-cli)
+
+> **v2.x is alpha.** Install with `npm install -g prjct-cli@alpha`. v1.56.x remains on `latest` while the v2 surface stabilizes.
 
 ## What is prjct?
 
-prjct gives AI coding agents the context they need about your project. It maintains state between sessions, tracks progress, and ensures agents understand your codebase.
+prjct is a **context broker**, not a task manager. It declares **who your agent is in this project** (PM, founder, DEV, research…), routes the right MCPs + memory types + workflow slots for that persona, and feeds everything back to the LLM through native hooks — no skills to remember, no prescriptive pipelines.
+
+The contract is simple: **prjct exposes the WHAT, the agent decides the HOW.**
 
 ```
-Your AI Agent                              prjct
-(Claude/Gemini/Codex/Cursor/Windsurf)        |
-         |                                   |
-         |  "What am I working on?"          |
-         | --------------------------------> |
-         |                                   | Reads project context
-         |  Task: "Add user auth"            |
-         |  Branch: feature/auth             |
-         |  Subtask 2/5: API routes          |
-         | <-------------------------------- |
-         |                                   |
-         v                                   |
-    Writes code with full context            |
+Claude Code / Gemini / Cursor                prjct
+         |                                      |
+         | SessionStart hook fires              |
+         | -----------------------------------> |  reads .prjct/prjct.config.json
+         |                                      |  resolves persona + memory + MCPs
+         |  You are <role> for <project>.       |
+         |  MCPs: Linear, PostHog.              |
+         |  Recent insights: …                  |
+         | <----------------------------------- |
+         v                                      |
+   Writes code / specs / updates                |
+   with full project context                    |
 ```
 
 ## Install
 
 ```bash
+# v2 alpha (recommended for early adopters)
+npm install -g prjct-cli@alpha
+
+# v1 stable (backwards-compatible)
 npm install -g prjct-cli
 ```
 
 ## Quick Start
 
-### Claude Code / Gemini CLI / OpenAI Codex
-
 ```bash
-# 1. One-time global setup
+# 1. One-time global setup (installs routers, MCP config, skills)
 prjct start
 
-# 2. Initialize your project
+# 2. Initialize your project with a persona + pack
 cd my-project
-prjct init
+prjct init --pack code,daily            # DEV persona, default
+prjct init --pack pm,research,daily     # PM persona
+prjct init --pack founder,daily         # Founder persona
 
-# 3. Open in Claude Code, Gemini CLI, or Codex and use:
-p. sync                    # Analyze project
-p. task "add user auth"    # Start a task
-p. done                    # Complete task
-p. ship                    # Ship with PR
+# 3. Install Claude Code hooks (7 passive hooks in ~/.claude/settings.json)
+prjct install
+
+# 4. Open in your agent and work normally — hooks inject context automatically.
 ```
 
-### Cursor IDE / Windsurf
+### Core verbs
+
+| Verb | What it does |
+|---|---|
+| `prjct capture "<anything>"` | GTD-style universal inbox. Bare `prjct "<text>"` also routes here. |
+| `prjct task "<desc>"` / `prjct task` | Register a task or show the active one. |
+| `prjct tag <k:v>` | Tag the active task (`type:bug`, `domain:auth`, …). |
+| `prjct status <value>` | Inline status change on the active task. |
+| `prjct remember <type> "<content>"` | Persist a memory entry (fact, decision, learning, insight, …). |
+| `prjct ship [name]` | Run the project's `ship` workflow (commit, push, PR, persist shipped). |
+| `prjct workflow run <name>` | Run any registered workflow (`script`, `mcp`, `persona:context` steps). |
+| `prjct seed <add\|list>` | Manage packs (persona, memory types, workflow slots). |
+| `prjct sync` | Sync project state and regenerate skills / wiki. |
+
+### Inside Claude Code / Gemini CLI
 
 ```bash
-# 1. Initialize your project (no global setup needed)
-cd my-project
-prjct init
-
-# 2. Open in Cursor or Windsurf and use:
-/sync                      # Analyze project
-/task "add user auth"      # Start a task
-/done                      # Complete task
-/ship                      # Ship with PR
+p. capture "llamar a Ana re: pricing"
+p. task "add OAuth refresh"
+p. remember decision "we chose JWT + refresh rotation"
+p. ship "auth"
 ```
 
-> Cursor uses `.cursor/commands/`, Windsurf uses `.windsurf/` with YAML frontmatter. Run `/sync` to regenerate if deleted.
+Cursor / Windsurf use the same commands with `/` prefix: `/capture`, `/task`, `/ship`.
 
-### Core Workflow
+## Personas & Packs
 
-```
-Claude/Gemini/Codex:  p. sync  ->  p. task "..."  ->  [code]  ->  p. done  ->  p. ship
-Cursor/Windsurf:      /sync    ->  /task "..."    ->  [code]  ->  /done    ->  /ship
-```
+`.prjct/prjct.config.json` declares the persona. Hooks inject it every session.
 
-## How It Works
-
-| Component | Claude Code | Gemini CLI | OpenAI Codex | Antigravity | Cursor IDE | Windsurf |
-|-----------|-------------|------------|--------------|-------------|------------|----------|
-| Router | `~/.claude/commands/p.md` | `~/.gemini/commands/p.toml` | `~/.codex/skills/prjct/SKILL.md` | Skill | `.cursor/commands/*.md` | `.windsurf/*.md` |
-| Config | `~/.claude/CLAUDE.md` | `~/.gemini/GEMINI.md` | `AGENTS.md` | `~/.gemini/antigravity/skills/prjct/` | `.cursor/rules/prjct.mdc` | `.windsurf/` (YAML) |
-| Storage | `~/.prjct-cli/projects/` | `~/.prjct-cli/projects/` | `~/.prjct-cli/projects/` | `~/.prjct-cli/projects/` | `~/.prjct-cli/projects/` | `~/.prjct-cli/projects/` |
-| Syntax | `p. command` | `p. command` | `p. command` | `p. command` | `/command` | `/command` |
-
-All agents share the same SQLite-backed project storage, so you can switch between them freely.
-
-## Commands
-
-### Core Workflow
-
-| Claude/Gemini | Cursor/Windsurf | Description |
-|---------------|-----------------|-------------|
-| `p. sync` | `/sync` | Analyze project, build indexes, generate skills |
-| `p. task "desc"` | `/task "desc"` | Start task with auto-classification |
-| `p. done` | `/done` | Complete current task |
-| `p. ship "name"` | `/ship "name"` | Ship feature with PR + version bump |
-| `p. pause` | `/pause` | Pause current task |
-| `p. resume` | `/resume` | Resume paused task |
-| `p. next` | `/next` | Show priority queue or roadmap |
-| `p. bug "desc"` | `/bug "desc"` | Report and track a bug |
-| `p. idea "desc"` | `/idea "desc"` | Transform idea into technical architecture |
-| `p. spec` | `/spec` | Create detailed spec for complex features |
-| `p. dash` | `/dash` | Unified dashboard (status, progress, roadmap) |
-| `p. suggest` | `/suggest` | Smart recommendations based on project state |
-
-### Analysis & Performance
-
-| Command | Description |
-|---------|-------------|
-| `p. status` | Check if context is stale |
-| `p. perf` | Performance dashboard (startup, memory, context) |
-| `p. velocity` | Sprint-based velocity with trend detection |
-| `p. tokens <in> <out>` | Record token usage on active task |
-| `p. stats` | Value dashboard (token savings, impact) |
-| `p. sessions` | Show recent sessions across projects |
-| `p. diff` | Diff between draft and sealed analysis |
-| `p. seal` | Seal analysis with commit-hash signature |
-| `p. verify` | Verify integrity (cryptographic or `--semantic`) |
-| `p. rollback` | Rollback to previous sealed analysis |
-
-### Advanced
-
-| Command | Description |
-|---------|-------------|
-| `p. design` | Design system architecture, APIs, components |
-| `p. enrich "issue"` | Build enrichment context for an issue |
-| `p. workflow` | Configure workflow hooks via natural language |
-| `p. git` | Smart git operations with context |
-| `p. test` | Run tests with auto-fix |
-| `p. undo` / `p. redo` | Snapshot-based undo/redo |
-| `p. recover` | Recover abandoned session with context |
-| `p. linear` | Linear integration via MCP |
-| `p. jira` | Jira integration via MCP |
-| `p. obsidian` | Obsidian vault integration (setup, export, status) |
-
-### Parallel Agent Sessions
-
-Run multiple AI agents on different tasks simultaneously, each in an isolated git worktree.
-
-| Command | Description |
-|---------|-------------|
-| `p. parallel spawn "task"` | Spawn agent in isolated worktree |
-| `p. parallel status` | Show all active agents |
-| `p. parallel join` | Merge completed branches back |
-| `p. worktree create` | Create worktree (auto-copies .env, installs deps) |
-| `p. worktree list` | List active worktrees |
-| `p. worktree remove` | Clean up completed worktrees |
-| `p. conductor init` | Scaffold Conductor.build integration |
-
-## CLI Commands
-
-Commands you run directly in the terminal (outside your AI agent):
-
-```bash
-prjct start              # First-time setup wizard
-prjct init               # Initialize project
-prjct sync               # Analyze project and build indexes
-prjct doctor             # Check system health and dependencies
-prjct serve              # Start web dashboard (port 3478)
-prjct watch              # Auto-sync on file changes
-prjct hooks              # Manage git hooks for auto-sync
-prjct context            # Smart context filtering tools
-prjct enrich             # Prepare issue enrichment context
-prjct linear             # Linear MCP gateway
-prjct jira               # Jira MCP gateway
-prjct obsidian setup     # Link project to Obsidian vault
-prjct obsidian export    # Export board, queue, shipped, roadmap to vault
-prjct obsidian status    # Check Obsidian integration status
-prjct login              # Authenticate with prjct cloud (opens browser)
-prjct logout             # Sign out from prjct cloud
-prjct update             # Update CLI system-wide
-prjct stop               # Stop the background daemon
-prjct restart            # Restart the background daemon
-prjct uninstall          # Complete system removal
-prjct --version          # Show version + provider status
-prjct --help             # Show help
+```json
+{
+  "projectId": "…",
+  "persona": {
+    "role": "PM",
+    "focus": "B2B SaaS onboarding optimization",
+    "mcps": ["linear", "posthog", "gmail"],
+    "packs": ["pm", "research", "daily"]
+  }
+}
 ```
 
-## Code Intelligence
+Five built-in packs (manifests, not bash pipelines):
 
-`prjct sync` builds a triple-index system over your codebase:
+| Pack | Persona | Memory types enabled | Workflow slots |
+|---|---|---|---|
+| `code` | DEV | `fact`, `decision`, `learning`, `gotcha`, `pattern`, `anti-pattern`, `shipped` | `ship`, `review` |
+| `daily` | — | `inbox`, `todo`, `idea` | `morning`, `clarify`, `review` |
+| `pm` | PM | `decision`, `insight`, `question`, `stakeholder` | `spec`, `triage`, `update` |
+| `founder` | Founder | `goal`, `okr`, `person`, `stakeholder`, `decision` | `ship`, `review` |
+| `research` | Research | `source`, `claim`, `question`, `insight` | `research`, `review` |
 
-| Index | Purpose |
-|-------|---------|
-| **BM25** | Full-text search over file names, symbols, comments |
-| **Import Graph** | Dependency graph with forward and reverse edges |
-| **Git Co-change** | Files that frequently change together |
+Slots ship **empty** — the human or the agent authors the scripts on demand.
 
-These indexes power file ranking, impact analysis, and related-context suggestions for your AI agent.
+## Hooks (v2, opt-in)
+
+`prjct install` writes 7 passive hooks to `~/.claude/settings.json`. They inject `additionalContext`; none of them block unless a hand-rolled workflow rule says so.
+
+| Event | Injects |
+|---|---|
+| `SessionStart` | Persona + active task + last 3 learnings |
+| `UserPromptSubmit` | Topical recall from memory (≤500 chars) |
+| `PreToolUse` (Bash git commit) | Surfaces anti-patterns tagged with touched files |
+| `PostToolUse` (Edit/Write) | Silently annotates `files_touched` on active task |
+| `Stop` | Async prompt: "learned anything reusable?" |
+| `SubagentStart` | Injects persona + memories for fresh-brain subagents |
+| `CwdChanged` | Re-contextualizes on project switch |
+
+`prjct uninstall` cleanly removes them.
 
 ## MCP Server
 
-prjct exposes an MCP server with tools that AI agents can call directly:
+prjct exposes an MCP server with 5 tool groups (was 9 in v1):
 
-| Category | Tools | Examples |
-|----------|-------|---------|
-| **Memory** | 8 | Save/search memories, record decisions, manage preferences |
-| **Session** | 4 | Start sessions, recover context, record outcomes |
-| **Code Intelligence** | 3 | Impact analysis, related files, staleness check |
-| **Workflow** | 4 | Task and session management |
-| **File** | 3 | File reading and filtering |
-| **Pattern** | 3 | Pattern extraction and matching |
-| **Review** | 3 | Code review context |
-| **Project** | 4 | Project-level operations |
-| **Obsidian** | 8 | Read, write, search, list, export, import, stats, status |
+| Group | Tools |
+|---|---|
+| **memory** | `prjct_mem_save`, `_list`, `_similar`, `_forget` |
+| **project** | `prjct_patterns`, status, summary |
+| **files** | `prjct_files`, `prjct_recent` |
+| **workflow** | `prjct_workflow_list`, `_run`, `_log` |
+| **code-intel** | `prjct_related`, `_impact`, `_stale` |
 
-The memory system uses FTS5 full-text search, tracks decision outcomes ("did this work before?"), and auto-captures patterns during normal workflow.
+The broker model: if you already have `linear`, `jira`, `posthog`, `gmail` MCPs wired, prjct **does not duplicate them** — it just tells Claude they're available for the current persona and caches your insights locally.
+
+## CLI
+
+```bash
+prjct start              First-time setup wizard
+prjct init [--pack …]    Initialize project with persona + packs
+prjct install            Install Claude Code hooks
+prjct uninstall          Remove hooks / complete uninstall
+prjct sync               Sync project state + regenerate wiki
+prjct serve              Start web dashboard (port 3478)
+prjct watch              Auto-sync on file changes
+prjct doctor             Check system health
+prjct hooks              Manage git hooks for auto-sync
+prjct context            Smart context filtering for agents
+prjct stop / restart     Background daemon control
+prjct update             Update CLI system-wide
+prjct --version / --help
+```
+
+## Memory
+
+14 built-in types + user-defined lowercase identifiers:
+
+`fact`, `decision`, `learning`, `gotcha`, `pattern`, `anti-pattern`, `shipped`, `inbox`, `todo`, `idea`, `insight`, `question`, `source`, `person` — plus anything you invent (`recipe`, `workout`, `interview`, …).
+
+```bash
+prjct remember decision "we chose SQLite because app is local"
+prjct capture "check why webhook retries on 502"
+prjct memory list --type insight --since 2026-04-01
+prjct memory similar "auth refresh"
+```
+
+Memory is FTS5-backed (SQLite), persona-filtered by default, and regenerated into an Obsidian-compatible wiki at `.prjct/wiki/_generated/` on each `remember` / `ship` / `sync`.
+
+## Workflows
+
+Workflow slots declared by packs are **empty scripts**. You (or the agent) fill them:
+
+```bash
+prjct workflow list             # shows `ship (unassigned)`, `review (unassigned)`, …
+prjct workflow edit ship        # opens in $EDITOR
+
+# Or: ask the agent — "Claude, author me a ship.sh for investor updates"
+# It reads the pack manifest + memory, authors the script, you approve.
+```
+
+Three step types beyond plain bash actions:
+
+- `script:<path>` — runs `.prjct/workflows/<path>.sh` with `PRJCT_BRANCH`, `PRJCT_FILES_CHANGED`, `PRJCT_TAGS` in env.
+- `mcp:<server>:<tool>` — calls an MCP tool and passes the result to the next step.
+- `persona:context` — re-injects the persona block mid-workflow.
+
+Declarative `when_expr` filters (`tags:key=value`, `branch~main`, `files:*.ts`) survived the v2 sweep — the bilingual NL parser did not.
+
+## Code Intelligence
+
+`prjct sync` builds three indexes:
+
+| Index | Purpose |
+|---|---|
+| BM25 | Full-text search over names, symbols, comments |
+| Import graph | Forward + reverse dependency edges |
+| Git co-change | Files that change together |
+
+These power `prjct_related`, `prjct_impact`, and `prjct_stale` in the MCP.
 
 ## Web Dashboard
 
@@ -219,110 +216,61 @@ The memory system uses FTS5 full-text search, tracks decision outcomes ("did thi
 prjct serve
 ```
 
-Starts an HTTP server on port 3478 with:
-
-- REST API for project state, task queue, ideas, roadmap, shipped features
-- SSE (Server-Sent Events) for real-time updates
-- Status bar endpoint for IDE integration (`/api/status-bar/compact`)
-- Global statistics across all projects
-
-Built with Hono, supports both Bun and Node.js runtimes.
-
-## Cloud Sync
-
-```bash
-prjct login              # Browser-based OTP authentication
-prjct sync               # Bidirectional push/pull with prjct cloud
-```
-
-Cloud sync enables:
-- Cross-device project state synchronization
-- Event-sourced bidirectional push/pull
-- Automatic sync on task completion
-
-## Obsidian Integration
-
-Use Obsidian as your project management tool with Kanban boards, dashboards, and knowledge base.
-
-```bash
-prjct obsidian setup --vault-path ~/Obsidian/my-vault   # Link project to vault
-prjct obsidian export                                    # Export data to vault
-prjct obsidian status                                    # Check config
-```
-
-Features:
-- **Kanban board** with Obsidian Kanban plugin (per-project filtered views)
-- **Dataview dashboards** (active sprint, backlog, stats, by project/priority)
-- **Canvas roadmap** with dependency arrows between features
-- **Daily standup notes** with task progress and queue
-- **8 MCP tools** for AI agents to read, write, search, and import vault notes
-- **`_insights.md`** generated by LLM on each `p. sync` (architecture, risks, progress)
-- **Tags** for Graph View coloring (status, priority, labels, project)
-- **Security**: path traversal prevention, extension whitelist, blocked directories
+Hono-based HTTP server on port 3478. REST API for tasks / ideas / roadmap / shipped, SSE for real-time updates, status bar endpoint for IDE integration.
 
 ## Issue Tracker Integration
 
-Issue trackers are configured via MCP (OAuth in your AI client), not API tokens.
+Bring your own MCP — prjct doesn't duplicate trackers.
 
-```bash
-# Linear
-prjct linear setup       # Configure Linear MCP server
-prjct linear status      # Verify config
-# Then use: p. linear sync|list|get|create|update|start|done|comment
-
-# Jira
-prjct jira setup         # Configure Jira MCP server
-prjct jira status        # Verify config
-# Then use: p. jira sync|list|get|create|update|start|done|transition|comment
-```
-
-## Analysis Verification
-
-```bash
-prjct verify             # Cryptographic: hash signature integrity
-prjct verify --semantic  # Semantic: frameworks, languages, file counts match reality
-```
-
-Both modes support `--json` for programmatic use.
+- **Linear**: configure the official Linear MCP in your agent, declare it in `persona.mcps`.
+- **Jira**: same — use the official Atlassian MCP.
+- The `linear` and `jira` CLI sub-commands are v1 helpers kept for backwards compat; MCP is the v2 path.
 
 ## Environment Variables
 
 | Variable | Default | Description |
-|----------|---------|-------------|
-| `PRJCT_CLI_HOME` | `~/.prjct-cli` | Override global storage location |
-| `PRJCT_DEBUG` | _(unset)_ | Enable debug logging (`1`, `true`, or log level) |
-| `DEBUG` | _(unset)_ | Fallback debug flag (`1`, `true`, or `prjct`) |
-| `CI` | _(unset)_ | Set in CI environments; skips interactive prompts |
+|---|---|---|
+| `PRJCT_CLI_HOME` | `~/.prjct-cli` | Override global storage |
+| `PRJCT_DEBUG` | — | Enable debug logging (`1`, `true`, log level) |
+| `PRJCT_NO_DAEMON` | — | Force non-daemon path (debugging) |
+| `DEBUG` | — | Fallback debug flag |
+| `CI` | — | Skips interactive prompts |
 
 ## Architecture
 
 ```
 prjct-cli/
+  bin/prjct              Thin JS shim (daemon-first)
   core/
-    commands/       # CLI command handlers
-    domain/         # BM25, import graph, co-change, velocity
-    infrastructure/ # Config, path manager, AI provider detection
-    mcp/            # MCP server (56 tools)
-    schemas/        # Zod schemas (PRD, model, etc.)
-    server/         # Hono HTTP server + SSE
-    services/       # Memory, sync, code intel, skills, doctor
-    storage/        # SQLite via better-sqlite3
-    sync/           # Cloud sync client + event mapping
-    types/          # TypeScript type definitions
-    utils/          # Shared utilities
-  templates/        # Skill templates per editor
+    commands/            CLI command handlers
+    hooks/               7 passive Claude Code hook subcommands
+    packs/               Pack manifests + pack-manager
+    mcp/                 MCP server (5 tool groups)
+    memory/              projectMemory (v2 unified surface)
+    workflow/            Engine + state-machine + when-evaluator
+    domain/              BM25, import-graph, git-cochange
+    services/            sync, skill-generator, wiki-generator
+    storage/             SQLite (one DB per project)
+    schemas/             Zod — source of truth
+    daemon/              Background daemon (file watching)
+    server/              Hono HTTP + SSE
+    sync/                Cloud sync client
+  templates/
+    packs/               JSON pack manifests
+    global/              Per-editor router templates
 ```
 
 ## Requirements
 
-- Node.js 18+ or Bun 1.0+
-- One of: Claude Code, Gemini CLI, OpenAI Codex, Antigravity, Cursor IDE, or Windsurf
+- Node.js 22.22.2+ or Bun 1.0+
+- One of: Claude Code, Gemini CLI, OpenAI Codex, Antigravity, Cursor IDE, Windsurf
 
 ## Links
 
 - [Website](https://prjct.app)
 - [GitHub](https://github.com/jlopezlira/prjct-cli)
 - [npm](https://www.npmjs.com/package/prjct-cli)
+- [Changelog](CHANGELOG.md)
 
 ## License
 
