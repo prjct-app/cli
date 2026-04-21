@@ -290,9 +290,16 @@ jobs:
           TAG=${{ steps.version.outputs.tag }}
 
           git add -A
-          git commit -m "chore(release): v$VERSION
+          # Only commit if there are staged changes. On the manual-bump path
+          # (prjct ship already committed CHANGELOG + version.ts) there's
+          # nothing left to commit — we just need to tag what's on main.
+          if git diff --staged --quiet; then
+            echo "No staged changes — skipping commit, tagging HEAD directly"
+          else
+            git commit -m "chore(release): v$VERSION
 
           Generated with [p/](https://www.prjct.app/)"
+          fi
 
           git tag -a "$TAG" -m "Release $TAG"
 
