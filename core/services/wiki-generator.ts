@@ -977,6 +977,51 @@ async function removeFile(root: string, relPath: string): Promise<void> {
   }
 }
 
+/**
+ * Walk the generated tree and delete any .md file that isn't in the
+ * new manifest. Catches iCloud duplicate artifacts (" 2.md") and any
+ * stragglers from previous regens whose manifest got lost.
+ *
+ * Safe because `_generated/` is 100% generator-owned — user notes live
+ * above it at the vault root and in `captured/`.
+ */
+async function sweepStaleFiles(root: string, keep: Manifest): Promise<number> {
+  let removed = 0
+  const walk = async (dir: string): Promise<void> => {
+    let entries: import('node:fs').Dirent[]
+    try {
+      entries = await fs.readdir(dir, { withFileTypes: true })
+    } catch {
+      return
+    }
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name)
+      if (entry.isDirectory()) {
+        await walk(full)
+        // Prune empty directories — they accumulate after sweeps.
+        try {
+          const remaining = await fs.readdir(full)
+          if (remaining.length === 0) await fs.rmdir(full)
+        } catch {
+          // Non-critical.
+        }
+        continue
+      }
+      if (!entry.name.endsWith('.md')) continue
+      const rel = path.relative(root, full)
+      if (keep[rel]) continue
+      try {
+        await fs.rm(full, { force: true })
+        removed++
+      } catch {
+        // Non-critical.
+      }
+    }
+  }
+  await walk(root)
+  return removed
+}
+
 // =============================================================================
 // Public API
 // =============================================================================
@@ -1104,6 +1149,20 @@ export async function generateWiki(
     await removeFile(generatedRoot, oldRel)
     filesRemoved++
   }
+
+  // Filesystem-level sweep. The manifest-diff above only catches files
+  // the *previous run* also knew about; that misses two real cases:
+  //   1. iCloud Drive (macOS) silently creates " 2.md" / " 3.md"
+  //      duplicates when it thinks there's a sync collision. They
+  //      accumulate as orphans and never enter our manifest.
+  //   2. A lost manifest (deleted, partial write, user copied the
+  //      vault from elsewhere) means oldManifest is empty and every
+  //      stale file from previous regens survives.
+  // Scan the whole generated tree, and drop any .md we didn't just
+  // write. `_generated/` is 100% generated — anything in there that
+  // isn't in newManifest is cruft by definition.
+  const swept = await sweepStaleFiles(generatedRoot, newManifest)
+  filesRemoved += swept
 
   // Persist new manifest (always rewrite — it's tiny).
   await writeFile(generatedRoot, MANIFEST_FILE, `${JSON.stringify(newManifest, null, 2)}\n`)
