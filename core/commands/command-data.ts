@@ -89,6 +89,21 @@ export const COMMANDS: CommandMeta[] = [
     ],
   },
   {
+    name: 'regen',
+    group: 'core',
+    description: 'Full rebuild of the Obsidian vault for the current project',
+    usage: { claude: '/p:regen', terminal: 'prjct regen [--md]' },
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: true,
+    requiresLlm: false,
+    features: [
+      'Nukes `_generated/` and rebuilds from SQLite + CHANGELOG',
+      'Use after upgrading prjct-cli to migrate an old vault layout',
+      'Idempotent — same output if nothing changed',
+    ],
+  },
+  {
     name: 'suggest',
     group: 'core',
     description: 'Smart recommendations based on project state',

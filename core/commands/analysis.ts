@@ -596,6 +596,56 @@ export class AnalysisCommands extends PrjctCommandsBase {
   }
 
   /**
+   * Force a full rebuild of the Obsidian vault for the current project.
+   *
+   * Nukes `_generated/` and re-emits from scratch. Useful after upgrading
+   * prjct-cli (so old layouts migrate) or when the user wants a clean
+   * reset. The regular regen path is incremental via the manifest; this
+   * bypass exists specifically for "migrate this old project to the new
+   * generator output" without waiting on a trigger.
+   */
+  async regenVault(
+    projectPath: string = process.cwd(),
+    options: { md?: boolean } = {}
+  ): Promise<CommandResult> {
+    try {
+      const initResult = await this.ensureProjectInit(projectPath)
+      if (!initResult.success) return initResult
+
+      const projectId = await configManager.getProjectId(projectPath)
+      if (!projectId) {
+        return { success: false, error: 'No project ID found' }
+      }
+
+      const fs = await import('node:fs/promises')
+      const pathManager = (await import('../infrastructure/path-manager')).default
+      const configMod = await import('../infrastructure/config-manager')
+      const config = await configMod.default.readConfig(projectPath).catch(() => null)
+      const wikiRoot = pathManager.getWikiPath(projectPath, config?.vaultPath)
+      const generatedRoot = `${wikiRoot}/_generated`
+
+      // Full wipe. The generator's sweep pass handles incremental cleanup
+      // on every regen, but this command exists specifically to reset
+      // stale layouts from prior versions — start from empty.
+      await fs.rm(generatedRoot, { recursive: true, force: true })
+
+      const { generateWiki } = await import('../services/wiki-generator')
+      const result = await generateWiki(projectPath, projectId)
+
+      if (options.md) {
+        console.log(
+          `---\n\n## Vault regenerated\n\n| Metric | Value |\n|---|---|\n| Wiki root | \`${result.wikiRoot}\` |\n| Files written | ${result.filesWritten} |\n| Files skipped | ${result.filesSkipped} |\n| Files removed | ${result.filesRemoved} |\n`
+        )
+      } else {
+        console.log(JSON.stringify({ success: true, message: 'Vault regenerated', ...result }))
+      }
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: getErrorMessage(error) }
+    }
+  }
+
+  /**
    * Save structured LLM analysis findings to SQLite.
    * Called by the sync template after the LLM produces findings.
    */

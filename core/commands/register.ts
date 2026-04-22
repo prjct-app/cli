@@ -71,7 +71,14 @@ export function registerAllCommands(): void {
 
   // Analysis commands (kept for internal sync workflow)
   commandRegistry.registerMethod('analyze', analysis, 'analyze', getMeta('analyze'))
+  commandRegistry.registerMethod(
+    'analysis-save-llm',
+    analysis,
+    'saveLlmAnalysis',
+    getMeta('analysis-save-llm')
+  )
   commandRegistry.registerMethod('sync', analysis, 'sync', getMeta('sync'))
+  commandRegistry.registerMethod('regen', analysis, 'regenVault', getMeta('regen'))
 
   // Setup commands
   commandRegistry.registerMethod('start', setup, 'start', getMeta('start'))
