@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0] - 2026-04-22
+
+### Features
+
+- current work
+
+
 ## [2.0.0-alpha.12] - 2026-04-21
 
 Summary of the alpha.6 → alpha.12 arc and the dead-code / harness sweep
