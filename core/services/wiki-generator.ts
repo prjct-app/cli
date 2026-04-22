@@ -379,7 +379,11 @@ function releaseSlug(version: string): string {
   return `v${cleaned}`
 }
 
-function buildReleaseFile(entry: ReleaseEntry): string {
+function buildReleaseFile(
+  entry: ReleaseEntry,
+  prev: { entry: ReleaseEntry; slug: string } | null,
+  next: { entry: ReleaseEntry; slug: string } | null
+): string {
   const lines: string[] = []
   lines.push('---')
   lines.push(`type: release`)
@@ -390,6 +394,15 @@ function buildReleaseFile(entry: ReleaseEntry): string {
   lines.push('')
   lines.push(`# v${entry.version} — ${entry.date}`)
   lines.push('')
+
+  // Nav at the top for quick hop-scrolling through release history.
+  const navParts: string[] = []
+  if (prev) navParts.push(`← [v${prev.entry.version}](${prev.slug}.md)`)
+  navParts.push(`[releases index](index.md)`)
+  if (next) navParts.push(`[v${next.entry.version}](${next.slug}.md) →`)
+  lines.push(navParts.join(' · '))
+  lines.push('')
+
   if (entry.body) {
     lines.push(entry.body)
     lines.push('')
@@ -397,6 +410,11 @@ function buildReleaseFile(entry: ReleaseEntry): string {
     lines.push('_No changelog body._')
     lines.push('')
   }
+
+  lines.push('---')
+  lines.push('')
+  lines.push(`[project wiki](../index.md) · [releases index](index.md)`)
+  lines.push('')
   return `${lines.join('\n')}\n`
 }
 
@@ -406,10 +424,12 @@ function buildReleasesIndex(entries: Array<{ entry: ReleaseEntry; slug: string }
     `${entries.length} version entr${entries.length === 1 ? 'y' : 'ies'} parsed from \`CHANGELOG.md\`. Newest first.`
   )
   lines.push('')
+  lines.push('See also: [project wiki](../index.md)')
+  lines.push('')
   lines.push('| Date | Version | Link |')
   lines.push('|---|---|---|')
   for (const { entry, slug } of entries) {
-    lines.push(`| ${entry.date} | ${entry.version} | [[releases/${slug}]] |`)
+    lines.push(`| ${entry.date} | ${entry.version} | [v${entry.version}](${slug}.md) |`)
   }
   lines.push('')
   return `${lines.join('\n')}\n`
@@ -440,7 +460,16 @@ async function buildReleasesFiles(projectPath: string): Promise<Map<string, stri
     slugSeen.set(base, count + 1)
     const slug = count === 0 ? base : `${base}-${count + 1}b`
     decoratedEntries.push({ entry, slug })
-    out.set(`releases/${slug}.md`, buildReleaseFile(entry))
+  }
+
+  // Two-pass so each release can carry prev/next nav pointing at the
+  // decorated slugs. `entries` is newest-first → `prev` in nav means
+  // "previous in reading order" (older).
+  for (let i = 0; i < decoratedEntries.length; i++) {
+    const curr = decoratedEntries[i]
+    const newer = i > 0 ? decoratedEntries[i - 1] : null
+    const older = i + 1 < decoratedEntries.length ? decoratedEntries[i + 1] : null
+    out.set(`releases/${curr.slug}.md`, buildReleaseFile(curr.entry, older, newer))
   }
   out.set('releases/index.md', buildReleasesIndex(decoratedEntries))
   return out
@@ -635,6 +664,15 @@ function buildConceptFile(rec: ConceptRecord): string {
   )
   lines.push('')
 
+  // Back-links. Without these the file is a leaf — it shows as an
+  // orphan in Obsidian's graph view even though it's linked FROM the
+  // index. Relative markdown paths (`../index.md`) resolve deterministically
+  // regardless of the vault's Obsidian link-resolution mode.
+  lines.push('---')
+  lines.push('')
+  lines.push(`See also: [analysis index](../index.md) · [change log](../history.md)`)
+  lines.push('')
+
   return `${lines.join('\n')}\n`
 }
 
@@ -642,17 +680,32 @@ function buildConceptFile(rec: ConceptRecord): string {
  * Evolution log — one bullet per *change* across consecutive analyses.
  * When two adjacent analyses are identical by count + concept set we
  * collapse them so the log isn't a firehose of no-op saves.
+ *
+ * Concept names in each bullet are linked to their own concept file
+ * under the sibling folders (patterns/, anti-patterns/, etc.) so the
+ * history is a navigation hub, not a text dump.
  */
-function buildHistoryFile(entries: ArchiveEntry[]): string {
+function buildHistoryFile(entries: ArchiveEntry[], concepts: Map<string, ConceptRecord>): string {
   const lines: string[] = ['# Analysis evolution', '']
   lines.push(
     'One entry per analysis save where *something changed* (architecture, patterns, anti-patterns, tech debt, risks, refactors, or insights). Repeated saves with identical contents are collapsed.'
   )
   lines.push('')
+  lines.push('See also: [analysis index](index.md) · [project wiki](../index.md)')
+  lines.push('')
 
   if (entries.length === 0) {
     lines.push('> No analyses saved yet. Run `prjct sync` to generate one.')
     return `${lines.join('\n')}\n`
+  }
+
+  // Resolve a concept name to its file path (relative to history.md).
+  const linkFor = (kind: ConceptKind, name: string): string => {
+    const rec = concepts.get(conceptKey(kind, name))
+    const display = name.length > 80 ? `${name.slice(0, 77)}…` : name
+    if (!rec) return `"${display}"`
+    const folder = CONCEPT_FOLDERS[rec.kind]
+    return `[${display}](${folder}/${rec.slug}.md)`
   }
 
   const rowFor = (e: ArchiveEntry) => {
@@ -696,17 +749,18 @@ function buildHistoryFile(entries: ArchiveEntry[]): string {
 
     const parts: string[] = []
     if (prev.arch !== curr.arch) parts.push(`arch ${prev.arch} → ${curr.arch}`)
-    for (const [label, field] of [
-      ['pattern', 'patterns'],
-      ['anti-pattern', 'anti'],
-      ['tech-debt', 'debt'],
-      ['risk', 'risks'],
-      ['refactor', 'refactors'],
-      ['insight', 'insights'],
-    ] as const) {
-      const d = diffNames(prev[field], curr[field])
-      for (const n of d.added) parts.push(`+${label} "${n}"`)
-      for (const n of d.removed) parts.push(`−${label} "${n}"`)
+    const fieldMap: Array<[string, keyof ReturnType<typeof rowFor>, ConceptKind]> = [
+      ['pattern', 'patterns', 'pattern'],
+      ['anti-pattern', 'anti', 'anti-pattern'],
+      ['tech-debt', 'debt', 'tech-debt'],
+      ['risk', 'risks', 'risk-area'],
+      ['refactor', 'refactors', 'refactor'],
+      ['insight', 'insights', 'insight'],
+    ]
+    for (const [label, field, kind] of fieldMap) {
+      const d = diffNames(prev[field] as Set<string>, curr[field] as Set<string>)
+      for (const n of d.added) parts.push(`+${label} ${linkFor(kind, n)}`)
+      for (const n of d.removed) parts.push(`−${label} ${linkFor(kind, n)}`)
     }
     if (parts.length === 0) continue // collapse no-op saves
 
@@ -737,7 +791,7 @@ function buildAnalysisIndex(concepts: Map<string, ConceptRecord>): string {
     'One file per concept from `prjct sync`. Files are deduped across history — the same pattern or risk always lands at the same path, updated with first/last-seen dates.'
   )
   lines.push('')
-  lines.push('See also: [[history]] for the chronological change log.')
+  lines.push('See also: [change log](history.md) · [project wiki](../index.md)')
   lines.push('')
 
   const kindOrder: ConceptKind[] = [
@@ -763,7 +817,9 @@ function buildAnalysisIndex(concepts: Map<string, ConceptRecord>): string {
     })
     for (const rec of sorted) {
       const marker = rec.stillActive ? '' : ' _(historical)_'
-      lines.push(`- [[${folder}/${rec.slug}|${rec.name}]]${marker}`)
+      // Relative markdown link — resolves deterministically in Obsidian
+      // regardless of vault root / link resolution mode.
+      lines.push(`- [${rec.name}](${folder}/${rec.slug}.md)${marker}`)
     }
     lines.push('')
   }
@@ -781,7 +837,7 @@ function buildAnalysisArchiveFiles(entries: ArchiveEntry[]): Map<string, string>
     out.set(`analysis/${folder}/${rec.slug}.md`, buildConceptFile(rec))
   }
   out.set('analysis/index.md', buildAnalysisIndex(concepts))
-  out.set('analysis/history.md', buildHistoryFile(entries))
+  out.set('analysis/history.md', buildHistoryFile(entries, concepts))
   return out
 }
 
