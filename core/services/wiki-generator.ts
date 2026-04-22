@@ -328,8 +328,17 @@ function buildInsightsFile(a: LLMAnalysis): string | null {
 }
 
 // =============================================================================
-// Analysis archive — append-only per-run snapshots
+// Analysis folder — one file per concept, deduped across history
 // =============================================================================
+//
+// The vault is a RAG for both an LLM and a human, so we organize by
+// *what the thing is*, not by *when it was captured*. Each pattern,
+// anti-pattern, tech-debt item, risk area, refactor, and project insight
+// lives in its own markdown file named after the concept itself. Files
+// are deduped across all historical analyses (same concept → same file,
+// updated with first-seen / last-seen metadata). The only time-ordered
+// artifact is `analysis/history.md`, and it only records *changes* —
+// not a full dump per save.
 
 type ArchiveEntry = {
   id: number
@@ -340,179 +349,320 @@ type ArchiveEntry = {
   analysis: LLMAnalysis
 }
 
-/**
- * Build a short, human-readable label from the analysis content:
- * one line summarizing what a reader would care about at a glance.
- * Priority: first projectInsight → first architecture.insight →
- * top anti-pattern → top risk area → top pattern → architecture style.
- */
-function analysisHeadline(a: LLMAnalysis): string {
-  const first = (arr?: string[]): string | null =>
-    arr && arr.length > 0 && arr[0].trim() ? arr[0].trim() : null
-  const insight = first(a.projectInsights) || first(a.architecture?.insights)
-  if (insight) return insight
-  if (a.antiPatterns?.[0]?.issue) return `anti-pattern: ${a.antiPatterns[0].issue}`
-  if (a.riskAreas?.[0]?.path) return `risk: ${a.riskAreas[0].path}`
-  if (a.patterns?.[0]?.name) return `pattern: ${a.patterns[0].name}`
-  return a.architecture?.style || 'analysis'
+type ConceptKind = 'pattern' | 'anti-pattern' | 'tech-debt' | 'risk-area' | 'refactor' | 'insight'
+
+const CONCEPT_FOLDERS: Record<ConceptKind, string> = {
+  pattern: 'patterns',
+  'anti-pattern': 'anti-patterns',
+  'tech-debt': 'tech-debt',
+  'risk-area': 'risk-areas',
+  refactor: 'refactors',
+  insight: 'insights',
 }
 
 function analysisDateOnly(entry: ArchiveEntry): string {
-  // YYYY-MM-DD, safe across timezones for the filename. Humans browsing
-  // Obsidian can sort the folder alphabetically and get chronological.
   const m = (entry.analyzedAt || '').match(/^(\d{4}-\d{2}-\d{2})/)
   return m ? m[1] : 'undated'
 }
 
-function analysisSlug(entry: ArchiveEntry): string {
-  // Filename shape: `YYYY-MM-DD_<headline-slug>_id<N>.md`
-  //
-  // The date groups snapshots in Obsidian's sidebar without ceremony.
-  // The headline-slug is truncated so filenames stay scannable — the
-  // full text lives in the file's H1. The `id<N>` suffix guarantees
-  // uniqueness (two saves on the same day with the same headline get
-  // distinct files) so the archive stays append-only.
-  const date = analysisDateOnly(entry)
-  const headline = slugify(analysisHeadline(entry.analysis)).slice(0, 40) || 'analysis'
-  return `${date}_${headline}_id${entry.id}`
+/**
+ * Build a fat aggregate keyed by (kind, name) across every historical
+ * analysis. For each concept we track the latest body, the list of
+ * analyses that mentioned it, and first/last-seen dates.
+ */
+type ConceptRecord = {
+  kind: ConceptKind
+  name: string
+  slug: string
+  latestBody: Record<string, unknown>
+  firstSeen: string
+  lastSeen: string
+  seenIn: Array<{ analysisId: number; date: string; commit: string | null }>
+  stillActive: boolean
 }
 
-function buildAnalysisSnapshot(entry: ArchiveEntry): string {
-  const { analysis: a, status, commitHash, analyzedAt, supersededAt } = entry
-  const headline = analysisHeadline(a)
-  const arch = a.architecture?.style ?? '—'
-  const patternsCount = a.patterns?.length ?? 0
-  const antiCount = a.antiPatterns?.length ?? 0
-  const debtCount = a.techDebt?.length ?? 0
-  const riskCount = a.riskAreas?.length ?? 0
-  const refactorCount = a.refactorSuggestions?.length ?? 0
+function conceptKey(kind: ConceptKind, name: string): string {
+  return `${kind}::${name.trim().toLowerCase()}`
+}
 
+function collectConcepts(entries: ArchiveEntry[]): Map<string, ConceptRecord> {
+  const out = new Map<string, ConceptRecord>()
+
+  // Walk oldest → newest so lastSeen / latestBody end up on the newest
+  // occurrence. `entries` arrives newest-first from the DB.
+  const ordered = [...entries].reverse()
+
+  const touch = (
+    kind: ConceptKind,
+    name: string,
+    body: Record<string, unknown>,
+    entry: ArchiveEntry
+  ): void => {
+    if (!name || !name.trim()) return
+    const key = conceptKey(kind, name)
+    const date = analysisDateOnly(entry)
+    const existing = out.get(key)
+    if (existing) {
+      existing.lastSeen = date
+      existing.latestBody = body
+      existing.seenIn.push({ analysisId: entry.id, date, commit: entry.commitHash })
+      if (entry.status === 'active') existing.stillActive = true
+      return
+    }
+    out.set(key, {
+      kind,
+      name: name.trim(),
+      slug: slugify(name).slice(0, 60) || 'unnamed',
+      latestBody: body,
+      firstSeen: date,
+      lastSeen: date,
+      seenIn: [{ analysisId: entry.id, date, commit: entry.commitHash }],
+      stillActive: entry.status === 'active',
+    })
+  }
+
+  for (const entry of ordered) {
+    const a = entry.analysis
+    for (const p of a.patterns ?? [])
+      touch('pattern', p.name, p as unknown as Record<string, unknown>, entry)
+    for (const p of a.antiPatterns ?? [])
+      touch('anti-pattern', p.issue, p as unknown as Record<string, unknown>, entry)
+    for (const t of a.techDebt ?? [])
+      touch('tech-debt', t.description, t as unknown as Record<string, unknown>, entry)
+    for (const r of a.riskAreas ?? [])
+      touch('risk-area', r.path, r as unknown as Record<string, unknown>, entry)
+    for (const r of a.refactorSuggestions ?? [])
+      touch('refactor', r.description, r as unknown as Record<string, unknown>, entry)
+    for (const i of a.projectInsights ?? []) touch('insight', i, { description: i }, entry)
+  }
+
+  // Disambiguate slug collisions across different concept names that
+  // slugify to the same string. Within a concept kind only.
+  const seenSlugs = new Map<string, Set<string>>()
+  for (const rec of out.values()) {
+    const folder = CONCEPT_FOLDERS[rec.kind]
+    let set = seenSlugs.get(folder)
+    if (!set) {
+      set = new Set()
+      seenSlugs.set(folder, set)
+    }
+    let candidate = rec.slug
+    let n = 2
+    while (set.has(candidate)) {
+      candidate = `${rec.slug}-${n}`
+      n += 1
+    }
+    rec.slug = candidate
+    set.add(candidate)
+  }
+
+  return out
+}
+
+function buildConceptFile(rec: ConceptRecord): string {
   const lines: string[] = []
-  // YAML frontmatter keeps the machine-readable metadata out of the
-  // prose. Obsidian renders it as properties; the LLM can still parse
-  // it trivially.
+  const body = rec.latestBody
+  const seenDates = [...new Set(rec.seenIn.map((s) => s.date))]
+
   lines.push('---')
-  lines.push(`id: ${entry.id}`)
-  lines.push(`status: ${status}`)
-  lines.push(`analyzedAt: ${analyzedAt}`)
-  if (commitHash) lines.push(`commit: ${commitHash}`)
-  if (supersededAt) lines.push(`supersededAt: ${supersededAt}`)
-  lines.push(`architecture: ${arch}`)
-  lines.push(`patterns: ${patternsCount}`)
-  lines.push(`antiPatterns: ${antiCount}`)
-  lines.push(`techDebt: ${debtCount}`)
-  lines.push(`riskAreas: ${riskCount}`)
-  lines.push(`refactorSuggestions: ${refactorCount}`)
-  lines.push('tags: [analysis, snapshot]')
+  lines.push(`type: ${rec.kind}`)
+  lines.push(`name: ${JSON.stringify(rec.name)}`)
+  lines.push(`firstSeen: ${rec.firstSeen}`)
+  lines.push(`lastSeen: ${rec.lastSeen}`)
+  lines.push(`seenIn: ${rec.seenIn.length}`)
+  lines.push(`stillActive: ${rec.stillActive}`)
+  lines.push(`tags: [${rec.kind}]`)
   lines.push('---')
   lines.push('')
-  lines.push(`# ${headline}`)
+  lines.push(`# ${rec.name}`)
   lines.push('')
+
+  const desc = (body.description as string) || (body.reason as string) || (body.issue as string)
+  if (desc && desc !== rec.name) {
+    lines.push(desc)
+    lines.push('')
+  }
+
+  // Per-kind salient fields. Keep terse — full history lives at the bottom.
+  const detail: string[] = []
+  if (body.severity) detail.push(`**Severity**: ${body.severity}`)
+  if (body.priority) detail.push(`**Priority**: ${body.priority}`)
+  if (body.effort) detail.push(`**Effort**: ${body.effort}`)
+  if (body.impact) detail.push(`**Impact**: ${body.impact}`)
+  if (body.benefit) detail.push(`**Benefit**: ${body.benefit}`)
+  if (body.confidence !== undefined) detail.push(`**Confidence**: ${body.confidence}`)
+  if (body.category) detail.push(`**Category**: ${body.category}`)
+  if (body.area) detail.push(`**Area**: ${body.area}`)
+  if (body.risk) detail.push(`**Risk**: ${body.risk}`)
+  if (body.suggestion) detail.push(`**Suggestion**: ${body.suggestion}`)
+  if (body.reasoning && body.reasoning !== desc) detail.push(`**Reasoning**: ${body.reasoning}`)
+  if (detail.length > 0) {
+    lines.push(...detail.map((d) => `- ${d}`))
+    lines.push('')
+  }
+
+  const files = (body.files as string[]) || []
+  const locations = (body.locations as string[]) || []
+  const paths = [...new Set([...files, ...locations])]
+  if (paths.length > 0) {
+    lines.push('## Where')
+    for (const p of paths) lines.push(`- \`${p}\``)
+    lines.push('')
+  }
+
+  lines.push('## Seen in')
   lines.push(
-    `> ${arch} · ${patternsCount} patterns · ${antiCount} anti · ${debtCount} tech-debt · ${riskCount} risks · ${refactorCount} refactors · ${status}`
+    `First: ${rec.firstSeen} · Last: ${rec.lastSeen} · ${rec.seenIn.length} analysis run${rec.seenIn.length === 1 ? '' : 's'} (${seenDates.length} distinct date${seenDates.length === 1 ? '' : 's'})`
   )
   lines.push('')
 
-  if (a.architecture?.insights?.length) {
-    lines.push('## Architecture insights')
-    for (const i of a.architecture.insights) lines.push(`- ${i}`)
-    lines.push('')
-  }
-  if (a.patterns?.length) {
-    lines.push('## Patterns')
-    for (const p of a.patterns) lines.push(`- **${p.name}** — ${p.description}`)
-    lines.push('')
-  }
-  if (a.antiPatterns?.length) {
-    lines.push('## Anti-patterns')
-    for (const p of a.antiPatterns)
-      lines.push(`- **${p.issue}** _[${p.severity}]_ — ${p.reasoning}`)
-    lines.push('')
-  }
-  if (a.techDebt?.length) {
-    lines.push('## Tech debt')
-    for (const t of a.techDebt)
-      lines.push(`- **${t.description}** _[${t.priority}, ${t.effort}]_ — ${t.area}`)
-    lines.push('')
-  }
-  if (a.riskAreas?.length) {
-    lines.push('## Risk areas')
-    for (const r of a.riskAreas) lines.push(`- **${r.path}** _[${r.severity}]_ — ${r.reason}`)
-    lines.push('')
-  }
-  if (a.refactorSuggestions?.length) {
-    lines.push('## Refactor suggestions')
-    for (const r of a.refactorSuggestions) lines.push(`- **${r.description}** — ${r.benefit}`)
-    lines.push('')
-  }
-  if (a.projectInsights?.length) {
-    lines.push('## Project insights')
-    for (const i of a.projectInsights) lines.push(`- ${i}`)
-    lines.push('')
-  }
-  lines.push('> Frozen snapshot. Written append-only; never overwritten.')
   return `${lines.join('\n')}\n`
 }
 
 /**
- * Compute a short "what changed" delta vs. the previous (older) snapshot.
- * Returns null when there's nothing older to compare against. Kept
- * compact on purpose — the point is scannability in Obsidian, not a full
- * diff (the frozen files themselves preserve the full record).
+ * Evolution log — one bullet per *change* across consecutive analyses.
+ * When two adjacent analyses are identical by count + concept set we
+ * collapse them so the log isn't a firehose of no-op saves.
  */
-function describeDelta(curr: ArchiveEntry, prev: ArchiveEntry | undefined): string | null {
-  if (!prev) return null
-  const parts: string[] = []
-  const diff = (label: string, a: number, b: number) => {
-    const d = a - b
-    if (d !== 0) parts.push(`${d > 0 ? '+' : ''}${d} ${label}`)
+function buildHistoryFile(entries: ArchiveEntry[]): string {
+  const lines: string[] = ['# Analysis evolution', '']
+  lines.push(
+    'One entry per analysis save where *something changed* (architecture, patterns, anti-patterns, tech debt, risks, refactors, or insights). Repeated saves with identical contents are collapsed.'
+  )
+  lines.push('')
+
+  if (entries.length === 0) {
+    lines.push('> No analyses saved yet. Run `prjct sync` to generate one.')
+    return `${lines.join('\n')}\n`
   }
-  diff('patterns', curr.analysis.patterns?.length ?? 0, prev.analysis.patterns?.length ?? 0)
-  diff('anti', curr.analysis.antiPatterns?.length ?? 0, prev.analysis.antiPatterns?.length ?? 0)
-  diff('debt', curr.analysis.techDebt?.length ?? 0, prev.analysis.techDebt?.length ?? 0)
-  diff('risks', curr.analysis.riskAreas?.length ?? 0, prev.analysis.riskAreas?.length ?? 0)
-  if (
-    (curr.analysis.architecture?.style ?? '') !== (prev.analysis.architecture?.style ?? '') &&
-    curr.analysis.architecture?.style
-  ) {
-    parts.unshift(`arch → ${curr.analysis.architecture.style}`)
+
+  const rowFor = (e: ArchiveEntry) => {
+    const a = e.analysis
+    return {
+      arch: a.architecture?.style ?? '—',
+      patterns: new Set((a.patterns ?? []).map((p) => p.name)),
+      anti: new Set((a.antiPatterns ?? []).map((p) => p.issue)),
+      debt: new Set((a.techDebt ?? []).map((t) => t.description)),
+      risks: new Set((a.riskAreas ?? []).map((r) => r.path)),
+      refactors: new Set((a.refactorSuggestions ?? []).map((r) => r.description)),
+      insights: new Set(a.projectInsights ?? []),
+    }
   }
-  return parts.length > 0 ? parts.join(', ') : 'no count changes'
+
+  const diffNames = (
+    prev: Set<string>,
+    curr: Set<string>
+  ): { added: string[]; removed: string[] } => {
+    const added: string[] = []
+    const removed: string[] = []
+    for (const n of curr) if (!prev.has(n)) added.push(n)
+    for (const n of prev) if (!curr.has(n)) removed.push(n)
+    return { added, removed }
+  }
+
+  // Walk oldest → newest.
+  const ordered = [...entries].reverse()
+  let prev: ReturnType<typeof rowFor> | null = null
+  const rows: string[] = []
+
+  for (const e of ordered) {
+    const curr = rowFor(e)
+    if (prev === null) {
+      rows.push(
+        `- **${analysisDateOnly(e)}** — baseline captured (arch: ${curr.arch}, ${curr.patterns.size} patterns, ${curr.anti.size} anti, ${curr.debt.size} debt, ${curr.risks.size} risks, ${curr.refactors.size} refactors, ${curr.insights.size} insights).`
+      )
+      prev = curr
+      continue
+    }
+
+    const parts: string[] = []
+    if (prev.arch !== curr.arch) parts.push(`arch ${prev.arch} → ${curr.arch}`)
+    for (const [label, field] of [
+      ['pattern', 'patterns'],
+      ['anti-pattern', 'anti'],
+      ['tech-debt', 'debt'],
+      ['risk', 'risks'],
+      ['refactor', 'refactors'],
+      ['insight', 'insights'],
+    ] as const) {
+      const d = diffNames(prev[field], curr[field])
+      for (const n of d.added) parts.push(`+${label} "${n}"`)
+      for (const n of d.removed) parts.push(`−${label} "${n}"`)
+    }
+    if (parts.length === 0) continue // collapse no-op saves
+
+    rows.push(`- **${analysisDateOnly(e)}** — ${parts.join('; ')}.`)
+    prev = curr
+  }
+
+  if (rows.length === 0) {
+    lines.push('> No changes recorded yet.')
+  } else {
+    // Newest-first in the rendered output.
+    lines.push(...rows.reverse())
+  }
+  lines.push('')
+  return `${lines.join('\n')}\n`
+}
+
+function buildAnalysisIndex(concepts: Map<string, ConceptRecord>): string {
+  const byKind = new Map<ConceptKind, ConceptRecord[]>()
+  for (const rec of concepts.values()) {
+    const bucket = byKind.get(rec.kind) ?? []
+    bucket.push(rec)
+    byKind.set(rec.kind, bucket)
+  }
+
+  const lines: string[] = ['# Analysis', '']
+  lines.push(
+    'One file per concept from `prjct sync`. Files are deduped across history — the same pattern or risk always lands at the same path, updated with first/last-seen dates.'
+  )
+  lines.push('')
+  lines.push('See also: [[history]] for the chronological change log.')
+  lines.push('')
+
+  const kindOrder: ConceptKind[] = [
+    'pattern',
+    'anti-pattern',
+    'tech-debt',
+    'risk-area',
+    'refactor',
+    'insight',
+  ]
+
+  for (const kind of kindOrder) {
+    const bucket = byKind.get(kind)
+    if (!bucket || bucket.length === 0) continue
+    const folder = CONCEPT_FOLDERS[kind]
+    const activeCount = bucket.filter((r) => r.stillActive).length
+    lines.push(`## ${folder} (${activeCount} active / ${bucket.length} total)`)
+    lines.push('')
+    // Active first, then historical.
+    const sorted = [...bucket].sort((a, b) => {
+      if (a.stillActive !== b.stillActive) return a.stillActive ? -1 : 1
+      return a.lastSeen > b.lastSeen ? -1 : 1
+    })
+    for (const rec of sorted) {
+      const marker = rec.stillActive ? '' : ' _(historical)_'
+      lines.push(`- [[${folder}/${rec.slug}|${rec.name}]]${marker}`)
+    }
+    lines.push('')
+  }
+
+  return `${lines.join('\n')}\n`
 }
 
 function buildAnalysisArchiveFiles(entries: ArchiveEntry[]): Map<string, string> {
   const out = new Map<string, string>()
   if (entries.length === 0) return out
 
-  // entries arrive newest-first from the DB; for delta computation we
-  // want each snapshot compared against the run just older than it.
-  // Walk the list with index-based lookup so the prev pointer is explicit.
-  for (let i = 0; i < entries.length; i++) {
-    const entry = entries[i]
-    out.set(`analysis/${analysisSlug(entry)}.md`, buildAnalysisSnapshot(entry))
+  const concepts = collectConcepts(entries)
+  for (const rec of concepts.values()) {
+    const folder = CONCEPT_FOLDERS[rec.kind]
+    out.set(`analysis/${folder}/${rec.slug}.md`, buildConceptFile(rec))
   }
-
-  const indexLines: string[] = [
-    '# Analysis history',
-    '',
-    'Every `prjct analysis-save-llm` run lands here as an immutable snapshot.',
-    'Newest first. Filenames carry the date + a content-derived slug so you',
-    "can skim the folder in Obsidian; machine metadata lives in each file's",
-    'frontmatter. New saves append — previous snapshots are never overwritten.',
-    '',
-    '| Date | Status | Headline | Δ vs prev | Link |',
-    '|---|---|---|---|---|',
-  ]
-  for (let i = 0; i < entries.length; i++) {
-    const e = entries[i]
-    const prev = entries[i + 1] // older
-    const headline = analysisHeadline(e.analysis)
-    const delta = describeDelta(e, prev) ?? '—'
-    const link = `[[${analysisSlug(e)}]]`
-    indexLines.push(`| ${analysisDateOnly(e)} | ${e.status} | ${headline} | ${delta} | ${link} |`)
-  }
-  indexLines.push('')
-  out.set('analysis/index.md', `${indexLines.join('\n')}\n`)
+  out.set('analysis/index.md', buildAnalysisIndex(concepts))
+  out.set('analysis/history.md', buildHistoryFile(entries))
   return out
 }
 
@@ -594,7 +744,7 @@ function buildIndexFile(args: {
     }
     if (args.archiveCount > 0) {
       lines.push(
-        `- [analysis history](analysis/index.md) — ${args.archiveCount} frozen snapshots (append-only)`
+        `- [analysis drill-down](analysis/index.md) — ${args.archiveCount} concepts (patterns, anti-patterns, tech-debt, risks, refactors, insights) + [history](analysis/history.md)`
       )
     }
     lines.push('')
@@ -728,7 +878,10 @@ export async function generateWiki(
       patternsCount: patterns.length,
       antiPatternsCount: antiPatterns.length,
       llmAnalysis,
-      archiveCount: archiveEntries.length,
+      // "Archive" used to mean per-save snapshots; now it's the concept
+      // drill-down. Keep the same arg name so the signature stays stable
+      // but count distinct concepts across history.
+      archiveCount: collectConcepts(archiveEntries).size,
     })
   )
 
