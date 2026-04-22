@@ -42,6 +42,30 @@ export class PrimitiveCommands extends PrjctCommandsBase {
       const pid = await requireProjectId(projectPath)
       if (!pid.ok) return pid.result
 
+      // Resume-intent bypasses the active-task guard: when the current task
+      // is paused, there's no `currentTask` — we need to promote a paused
+      // one before we can check anything else.
+      const resumeIntent =
+        value !== null &&
+        ['active', 'resume', 'in_progress', 'working'].includes(value.toLowerCase())
+      if (resumeIntent) {
+        const current = await stateStorage.getCurrentTask(pid.value)
+        if (!current) {
+          const resumed = await stateStorage.resumeTask(pid.value)
+          if (resumed) {
+            await memoryService.log(projectPath, STATUS_CHANGE_ACTION, {
+              taskId: resumed.id,
+              from: 'paused',
+              to: value,
+            })
+            const msg = `status → ${value}`
+            if (options.md) console.log(`✓ ${msg}`)
+            else out.done(msg)
+            return { success: true, taskId: resumed.id, status: value }
+          }
+        }
+      }
+
       const task = await requireActiveTask(pid.value, options)
       if (!task.ok) return task.result
 
