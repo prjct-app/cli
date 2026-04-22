@@ -18,12 +18,11 @@ beforeEach(async () => {
   vaultPath = path.join(tmpRoot, 'my-vault')
   await fs.mkdir(vaultPath, { recursive: true })
 
-  fakeObsidianDir = path.join(tmpRoot, 'obsidian-config')
-  fakeObsidianJson = path.join(fakeObsidianDir, 'obsidian.json')
-
-  // Point the resolver at our sandbox by setting XDG_CONFIG_HOME — only
-  // matters on linux; mac/win paths are hardcoded.
+  // Resolver reads `$XDG_CONFIG_HOME/obsidian/obsidian.json` on Linux,
+  // so XDG_CONFIG_HOME must point at the parent of the `obsidian/` dir.
   process.env.XDG_CONFIG_HOME = tmpRoot
+  fakeObsidianDir = path.join(tmpRoot, 'obsidian')
+  fakeObsidianJson = path.join(fakeObsidianDir, 'obsidian.json')
 })
 
 afterEach(async () => {

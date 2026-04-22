@@ -17,6 +17,7 @@ import { migrateWikiLocationIfNeeded } from '../../services/wiki-migration'
 let tmpRoot: string
 let projectRoot: string
 let fakeNewVaultRoot: string
+let wikiPathSpy: ReturnType<typeof spyOn> | null = null
 
 beforeEach(async () => {
   tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'prjct-wiki-mig-'))
@@ -31,7 +32,7 @@ beforeEach(async () => {
   )
 
   // redirect the default ~/Documents/prjct/<slug>/ into our tmp sandbox
-  spyOn(pathManager, 'getWikiPath').mockImplementation(
+  wikiPathSpy = spyOn(pathManager, 'getWikiPath').mockImplementation(
     (_projectPath: string, override?: string) => {
       if (override && override.trim().length > 0) {
         // minimal override handling that mirrors the real resolver
@@ -46,8 +47,13 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
+  // Restore the spy so other test files (run in arbitrary order) see
+  // the real `pathManager.getWikiPath`. Without this, the mock can
+  // bleed into `path-manager-wiki.test.ts` on runners where tests are
+  // scheduled in a different order than on darwin.
+  wikiPathSpy?.mockRestore()
+  wikiPathSpy = null
   await fs.rm(tmpRoot, { recursive: true, force: true })
-  // clear the cached config read
   ;(configManager as { clearCache?: () => void }).clearCache?.()
 })
 
