@@ -78,29 +78,37 @@ export async function ensureObsidianVault(vaultPath: string): Promise<ObsidianRe
  *   Windows: %APPDATA%\obsidian\obsidian.json
  * Returns null if the Obsidian config dir doesn't exist — Obsidian
  * hasn't been launched on this machine, or isn't installed at all.
+ *
+ * `PRJCT_OBSIDIAN_CONFIG_DIR` takes precedence on all platforms so
+ * tests can sandbox the config dir without touching the user's real
+ * Obsidian install.
  */
 export function resolveObsidianConfigPath(): string | null {
   const home = os.homedir()
   let configDir: string
-  switch (process.platform) {
-    case 'darwin':
-      configDir = path.join(home, 'Library', 'Application Support', 'obsidian')
-      break
-    case 'win32':
-      configDir = path.join(
-        process.env.APPDATA || path.join(home, 'AppData', 'Roaming'),
-        'obsidian'
-      )
-      break
-    default:
-      configDir = path.join(process.env.XDG_CONFIG_HOME || path.join(home, '.config'), 'obsidian')
-      break
+  const envOverride = process.env.PRJCT_OBSIDIAN_CONFIG_DIR?.trim()
+  if (envOverride) {
+    configDir = envOverride
+  } else {
+    switch (process.platform) {
+      case 'darwin':
+        configDir = path.join(home, 'Library', 'Application Support', 'obsidian')
+        break
+      case 'win32':
+        configDir = path.join(
+          process.env.APPDATA || path.join(home, 'AppData', 'Roaming'),
+          'obsidian'
+        )
+        break
+      default:
+        configDir = path.join(process.env.XDG_CONFIG_HOME || path.join(home, '.config'), 'obsidian')
+        break
+    }
   }
 
   // best-effort sync check — we can't use async here since callers
   // resolve this in hot paths; fs.existsSync is cheap.
   try {
-    // biome-ignore lint/performance/useTopLevelRegex: single call, not hot loop
     if (!require('node:fs').existsSync(configDir)) return null
   } catch {
     return null

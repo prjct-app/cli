@@ -18,15 +18,16 @@ beforeEach(async () => {
   vaultPath = path.join(tmpRoot, 'my-vault')
   await fs.mkdir(vaultPath, { recursive: true })
 
-  // Resolver reads `$XDG_CONFIG_HOME/obsidian/obsidian.json` on Linux,
-  // so XDG_CONFIG_HOME must point at the parent of the `obsidian/` dir.
-  process.env.XDG_CONFIG_HOME = tmpRoot
+  // Redirect the resolver via the cross-platform env override so mac
+  // runs don't write into the user's real Obsidian config at
+  // ~/Library/Application Support/obsidian/.
   fakeObsidianDir = path.join(tmpRoot, 'obsidian')
   fakeObsidianJson = path.join(fakeObsidianDir, 'obsidian.json')
+  process.env.PRJCT_OBSIDIAN_CONFIG_DIR = fakeObsidianDir
 })
 
 afterEach(async () => {
-  delete process.env.XDG_CONFIG_HOME
+  delete process.env.PRJCT_OBSIDIAN_CONFIG_DIR
   await fs.rm(tmpRoot, { recursive: true, force: true })
 })
 
@@ -72,12 +73,7 @@ describe('ensureObsidianVault — bootstrap', () => {
   })
 })
 
-// The config-file registration paths rely on platform detection. We
-// exercise them on Linux where XDG_CONFIG_HOME gives a clean sandbox.
-const isLinux = process.platform === 'linux'
-const describeLinux = isLinux ? describe : describe.skip
-
-describeLinux('ensureObsidianVault — registration (linux sandbox)', () => {
+describe('ensureObsidianVault — registration (sandboxed via env override)', () => {
   beforeEach(async () => {
     // pre-create Obsidian config dir so resolver returns a valid path
     await fs.mkdir(fakeObsidianDir, { recursive: true })
@@ -136,17 +132,13 @@ describeLinux('ensureObsidianVault — registration (linux sandbox)', () => {
 })
 
 describe('resolveObsidianConfigPath', () => {
-  it('returns a non-null path when the config dir exists', async () => {
-    if (isLinux) {
-      await fs.mkdir(fakeObsidianDir, { recursive: true })
-      expect(resolveObsidianConfigPath()).toBe(fakeObsidianJson)
-    } else {
-      // on darwin/win we can only check whether existing returns non-null
-      // without mutating real system dirs
-      const result = resolveObsidianConfigPath()
-      if (result !== null) {
-        expect(result.endsWith('obsidian.json')).toBe(true)
-      }
-    }
+  it('returns the env-override path when PRJCT_OBSIDIAN_CONFIG_DIR is set and exists', async () => {
+    await fs.mkdir(fakeObsidianDir, { recursive: true })
+    expect(resolveObsidianConfigPath()).toBe(fakeObsidianJson)
+  })
+
+  it('returns null when the configured dir does not exist', () => {
+    // beforeEach set PRJCT_OBSIDIAN_CONFIG_DIR but didn't create the dir
+    expect(resolveObsidianConfigPath()).toBeNull()
   })
 })
