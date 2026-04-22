@@ -328,6 +328,125 @@ function buildInsightsFile(a: LLMAnalysis): string | null {
 }
 
 // =============================================================================
+// Releases folder — one file per CHANGELOG version
+// =============================================================================
+//
+// Most projects have way more history in their CHANGELOG than in the
+// young prjct SQLite tables. Parse `CHANGELOG.md` and emit one file
+// per `## [version] - date` block so every release shows up in the
+// vault as a discrete, addressable note.
+
+type ReleaseEntry = {
+  version: string
+  date: string
+  body: string
+}
+
+function parseChangelog(raw: string): ReleaseEntry[] {
+  const out: ReleaseEntry[] = []
+  const headerRe = /^## \[([^\]]+)\]\s*-\s*(\d{4}-\d{2}-\d{2})\s*$/
+  const lines = raw.split('\n')
+
+  let currentHeader: { version: string; date: string } | null = null
+  let currentBody: string[] = []
+
+  const flush = () => {
+    if (!currentHeader) return
+    out.push({
+      version: currentHeader.version,
+      date: currentHeader.date,
+      body: currentBody.join('\n').trim(),
+    })
+    currentBody = []
+  }
+
+  for (const line of lines) {
+    const match = line.match(headerRe)
+    if (match) {
+      flush()
+      currentHeader = { version: match[1], date: match[2] }
+      continue
+    }
+    if (currentHeader) currentBody.push(line)
+  }
+  flush()
+  return out
+}
+
+function releaseSlug(version: string): string {
+  // Versions like `2.0.0-alpha.12` → `v2.0.0-alpha.12`. Obsidian-safe.
+  const cleaned = version.replace(/[^a-zA-Z0-9._-]+/g, '-')
+  return `v${cleaned}`
+}
+
+function buildReleaseFile(entry: ReleaseEntry): string {
+  const lines: string[] = []
+  lines.push('---')
+  lines.push(`type: release`)
+  lines.push(`version: ${entry.version}`)
+  lines.push(`date: ${entry.date}`)
+  lines.push('tags: [release]')
+  lines.push('---')
+  lines.push('')
+  lines.push(`# v${entry.version} — ${entry.date}`)
+  lines.push('')
+  if (entry.body) {
+    lines.push(entry.body)
+    lines.push('')
+  } else {
+    lines.push('_No changelog body._')
+    lines.push('')
+  }
+  return `${lines.join('\n')}\n`
+}
+
+function buildReleasesIndex(entries: Array<{ entry: ReleaseEntry; slug: string }>): string {
+  const lines: string[] = ['# Releases', '']
+  lines.push(
+    `${entries.length} version entr${entries.length === 1 ? 'y' : 'ies'} parsed from \`CHANGELOG.md\`. Newest first.`
+  )
+  lines.push('')
+  lines.push('| Date | Version | Link |')
+  lines.push('|---|---|---|')
+  for (const { entry, slug } of entries) {
+    lines.push(`| ${entry.date} | ${entry.version} | [[releases/${slug}]] |`)
+  }
+  lines.push('')
+  return `${lines.join('\n')}\n`
+}
+
+async function buildReleasesFiles(projectPath: string): Promise<Map<string, string>> {
+  const out = new Map<string, string>()
+  const changelogPath = path.join(projectPath, 'CHANGELOG.md')
+  let raw: string
+  try {
+    raw = await fs.readFile(changelogPath, 'utf-8')
+  } catch {
+    // No CHANGELOG — not every project has one; skip silently.
+    return out
+  }
+  const entries = parseChangelog(raw)
+  if (entries.length === 0) return out
+
+  // Some CHANGELOGs repeat a version header (re-releases, authoring
+  // mistakes). Disambiguate with a `-Nb` suffix on the slug so every
+  // parsed entry survives — we'd rather show "v1.45.6-2b.md" than drop
+  // half the history on the floor.
+  const slugSeen = new Map<string, number>()
+  const decoratedEntries: Array<{ entry: ReleaseEntry; slug: string }> = []
+  for (const entry of entries) {
+    const base = releaseSlug(entry.version)
+    const count = slugSeen.get(base) ?? 0
+    slugSeen.set(base, count + 1)
+    const slug = count === 0 ? base : `${base}-${count + 1}b`
+    decoratedEntries.push({ entry, slug })
+    out.set(`releases/${slug}.md`, buildReleaseFile(entry))
+  }
+  out.set('releases/index.md', buildReleasesIndex(decoratedEntries))
+  return out
+}
+
+// =============================================================================
 // Analysis folder — one file per concept, deduped across history
 // =============================================================================
 //
@@ -674,6 +793,7 @@ function buildIndexFile(args: {
   antiPatternsCount: number
   llmAnalysis: LLMAnalysis | null
   archiveCount: number
+  releaseCount: number
 }): string {
   const { ships, memoryTypeCounts, tagKeyCounts, patternsCount, antiPatternsCount, llmAnalysis } =
     args
@@ -691,6 +811,14 @@ function buildIndexFile(args: {
     lines.push('## Ships')
     for (const ship of ships)
       lines.push(`- [${ship.name}](ships/${slugify(ship.name)}.md) — ${ship.shippedAt}`)
+    lines.push('')
+  }
+
+  if (args.releaseCount > 0) {
+    lines.push('## Releases')
+    lines.push(
+      `- [releases/index](releases/index.md) — ${args.releaseCount} versions parsed from \`CHANGELOG.md\``
+    )
     lines.push('')
   }
 
@@ -861,6 +989,16 @@ export async function generateWiki(
   const archiveEntries = llmAnalysisStorage.getAllFull(projectId)
   for (const [rel, body] of buildAnalysisArchiveFiles(archiveEntries)) files.set(rel, body)
 
+  // Parse CHANGELOG.md (if present) so every release shows up in the
+  // vault. This is usually the largest historical signal — the DB
+  // tables (ships, memory, analysis) only cover what was recorded with
+  // prjct, while CHANGELOG.md predates and outpaces the tool itself.
+  const releasesMap = await buildReleasesFiles(projectPath)
+  for (const [rel, body] of releasesMap) files.set(rel, body)
+  // Exclude the index file from the count so the overview reads "181
+  // releases" not "182 files".
+  const releaseCount = releasesMap.size > 0 ? releasesMap.size - 1 : 0
+
   const memoryTypeCounts = new Map<string, number>()
   for (const e of declared) memoryTypeCounts.set(e.type, (memoryTypeCounts.get(e.type) ?? 0) + 1)
   const tagKeyCounts = new Map<string, number>()
@@ -882,6 +1020,7 @@ export async function generateWiki(
       // drill-down. Keep the same arg name so the signature stays stable
       // but count distinct concepts across history.
       archiveCount: collectConcepts(archiveEntries).size,
+      releaseCount,
     })
   )
 
