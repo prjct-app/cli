@@ -1,5 +1,63 @@
 # Changelog
 
+## [2.2.0] - 2026-04-22
+
+Obsidian vault location moved out of the repo. Each project now has its
+own visible vault at `~/Documents/prjct/<slug>/` instead of the hidden
+`<repo>/.prjct/wiki/` path. Two reasons:
+
+1. The `.prjct/` prefix is a dotfile — Finder/Explorer hide it by
+   default, so users who opened Obsidian looking for their vault often
+   couldn't find it. The new path lives under `~/Documents/prjct/`,
+   visible without toggling hidden files.
+2. Privacy-by-default. The old path lived inside the repo and got
+   committed on any `git add -A` unless the user remembered to
+   `.gitignore` it — leaking private decisions, learnings, and gotchas
+   on push.
+
+### Changed (BREAKING — path, not API)
+- Default vault path: `~/Documents/prjct/<slug>/` where `<slug>` is
+  derived from the project directory name (basename, lowercased,
+  slugified). Callers that hard-coded `.prjct/wiki/` will no longer find
+  the vault there.
+- `core/infrastructure/path-manager.ts` exposes a new `getWikiPath()`
+  resolver as the single source of truth. Both `wiki-generator.ts` and
+  `wiki-ingest.ts` route through it.
+
+### Added
+- `vaultPath` field in `.prjct/prjct.config.json` (optional string) —
+  overrides the default. Accepts absolute paths, `~/...`, or
+  project-relative paths (e.g. `"./docs/wiki"` to keep the vault
+  in-repo). Use `"vaultPath": ".prjct/wiki"` to keep pre-2.2.0 behaviour
+  verbatim.
+- Auto-migration: the first `prjct remember`/`ship`/`context wiki sync`
+  after upgrade detects a legacy `.prjct/wiki/` folder and moves its
+  contents to the new location. Cross-filesystem moves (EXDEV) fall
+  back to copy + delete. Idempotent.
+- `.gitignore` gets a `.prjct/wiki/` entry appended when a git repo is
+  detected during migration, so the legacy folder doesn't show up in
+  `git status` if a tracked copy was ever committed.
+- Tests:
+  - `core/__tests__/infrastructure/path-manager-wiki.test.ts` covers the
+    resolver (defaults, overrides, slug collisions, project-relative
+    rollback).
+  - `core/__tests__/services/wiki-migration.test.ts` covers the move
+    (no-op cases, conflict detection, gitignore dedup).
+
+### Migration notes
+
+- **Nothing breaks for users who accept the default.** The first
+  wiki-touching command after upgrading moves your existing
+  `.prjct/wiki/` to `~/Documents/prjct/<repo-name>/` with a one-line
+  stderr notice, then continues. Second invocation is silent.
+- **To keep the old path**, add `"vaultPath": ".prjct/wiki"` to
+  `.prjct/prjct.config.json`. The migration respects the override and
+  leaves the legacy folder alone.
+- **Conflict handling**: if you somehow already have content at both
+  the legacy path and the new default, the migration refuses to
+  overwrite and prints a warning. Merge manually or pick a side via
+  `vaultPath`.
+
 ## [2.1.2] - 2026-04-22
 
 Upgrade-safety pass for clients coming from 1.x or 2.1.0. The 2.1.1

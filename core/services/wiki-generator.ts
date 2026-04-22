@@ -34,16 +34,17 @@
 import crypto from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import configManager from '../infrastructure/config-manager'
+import pathManager from '../infrastructure/path-manager'
 import { formatMemoryMd, type MemoryEntry, projectMemory } from '../memory/project-memory'
 import { analysisStorage } from '../storage/analysis-storage'
 import shippedStorage from '../storage/shipped-storage'
 import type { ShippedFeature } from '../types/storage'
 import { ensureCapturedReadme } from './wiki-ingest'
+import { migrateWikiLocationIfNeeded } from './wiki-migration'
 
 // Generated output goes into a dedicated subdir so user notes placed in
-// `.prjct/wiki/` (e.g. `my-notes.md`) survive wiki rebuilds. Only this
-// subdir gets touched.
-const WIKI_ROOT_DIRNAME = '.prjct/wiki'
+// the vault root survive wiki rebuilds. Only this subdir gets touched.
 const GENERATED_SUBDIR = '_generated'
 const MANIFEST_FILE = '.manifest.json'
 
@@ -336,7 +337,11 @@ export async function generateWiki(
   filesSkipped: number
   filesRemoved: number
 }> {
-  const wikiRoot = path.join(projectPath, WIKI_ROOT_DIRNAME)
+  // Resolve vault location (new default is ~/Documents/prjct/<slug>/);
+  // pre-2.2.0 projects get their old `.prjct/wiki/` migrated in-place.
+  await migrateWikiLocationIfNeeded(projectPath)
+  const config = await configManager.readConfig(projectPath).catch(() => null)
+  const wikiRoot = pathManager.getWikiPath(projectPath, config?.vaultPath)
   const generatedRoot = path.join(wikiRoot, GENERATED_SUBDIR)
   await fs.mkdir(generatedRoot, { recursive: true })
 

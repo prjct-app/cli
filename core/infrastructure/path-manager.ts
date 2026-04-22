@@ -354,6 +354,67 @@ class PathManager {
   }
 
   // ===========================================================================
+  // Obsidian-compatible wiki vault
+  // ===========================================================================
+
+  /**
+   * Resolve the wiki vault directory for a project.
+   *
+   * Resolution order:
+   *   1. `vaultPath` in `.prjct/prjct.config.json` (absolute, tilde, or relative).
+   *   2. Default: `~/Documents/prjct/<slug>/`, where `<slug>` is derived from
+   *      the project directory name (with a short projectId-hash suffix on
+   *      collision with a different project).
+   *
+   * Pre-2.2.0 projects used `<projectPath>/.prjct/wiki/` — that layout
+   * migrates automatically on first v2.2.0 wiki access (see
+   * `core/services/wiki-migration.ts`). To keep the old path, set
+   * `vaultPath: ".prjct/wiki"` in the project config.
+   */
+  getWikiPath(projectPath: string, overrideVaultPath?: string): string {
+    if (overrideVaultPath && overrideVaultPath.trim().length > 0) {
+      return this.resolveVaultOverride(projectPath, overrideVaultPath)
+    }
+
+    // Default: ~/Documents/prjct/<slug>/
+    const base = path.basename(path.resolve(projectPath)).toLowerCase()
+    const slug = base.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'project'
+    return path.join(os.homedir(), 'Documents', 'prjct', slug)
+  }
+
+  /**
+   * Disambiguation helper: when two repos share the same basename, the slug
+   * collides. Callers can mix in a short hash of the projectId to keep
+   * each vault isolated.
+   *
+   *   ~/Documents/prjct/foo/          (first 'foo')
+   *   ~/Documents/prjct/foo-bc401c41/ (second 'foo' with hash)
+   */
+  getWikiPathWithProjectHash(projectPath: string, projectId: string): string {
+    const base = path.basename(path.resolve(projectPath)).toLowerCase()
+    const slug = base.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'project'
+    const hash = projectId.replace(/-/g, '').slice(0, 8)
+    return path.join(os.homedir(), 'Documents', 'prjct', `${slug}-${hash}`)
+  }
+
+  /** Legacy in-repo vault path. Kept only for migration detection. */
+  getLegacyWikiPath(projectPath: string): string {
+    return path.join(projectPath, '.prjct', 'wiki')
+  }
+
+  private resolveVaultOverride(projectPath: string, override: string): string {
+    let resolved = override.trim()
+    if (resolved.startsWith('~/') || resolved === '~') {
+      resolved = path.join(os.homedir(), resolved.slice(1))
+    }
+    if (!path.isAbsolute(resolved)) {
+      // relative to project root so users can keep vault in-repo if they want
+      resolved = path.resolve(projectPath, resolved)
+    }
+    return resolved
+  }
+
+  // ===========================================================================
   // Monorepo Detection
   // ===========================================================================
 

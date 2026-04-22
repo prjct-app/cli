@@ -25,13 +25,22 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import configManager from '../infrastructure/config-manager'
+import pathManager from '../infrastructure/path-manager'
 import { MEMORY_TYPES, type MemoryType, projectMemory } from '../memory/project-memory'
 import { scanForSecrets } from '../memory/secret-scanner'
+import { migrateWikiLocationIfNeeded } from './wiki-migration'
 
-const WIKI_ROOT_DIRNAME = '.prjct/wiki'
 const CAPTURED_SUBDIR = 'captured'
 const INGESTED_SUBDIR = '_ingested'
 const README_FILENAME = 'README.md'
+
+async function resolveCapturedRoot(projectPath: string): Promise<string> {
+  await migrateWikiLocationIfNeeded(projectPath)
+  const config = await configManager.readConfig(projectPath).catch(() => null)
+  const wikiRoot = pathManager.getWikiPath(projectPath, config?.vaultPath)
+  return path.join(wikiRoot, CAPTURED_SUBDIR)
+}
 
 /**
  * Frontmatter we understand. Anything else is preserved into the body or
@@ -53,7 +62,7 @@ export async function ingestCapturedNotes(
   projectPath: string,
   opts: { force?: boolean } = {}
 ): Promise<WikiIngestResult> {
-  const capturedRoot = path.join(projectPath, WIKI_ROOT_DIRNAME, CAPTURED_SUBDIR)
+  const capturedRoot = await resolveCapturedRoot(projectPath)
   const result: WikiIngestResult = { ingested: 0, skipped: [], errors: [] }
 
   const files = await listNoteFiles(capturedRoot)
@@ -104,7 +113,7 @@ export async function ingestCapturedNotes(
  * on every regen so users who open the vault discover the workflow.
  */
 export async function ensureCapturedReadme(projectPath: string): Promise<void> {
-  const capturedRoot = path.join(projectPath, WIKI_ROOT_DIRNAME, CAPTURED_SUBDIR)
+  const capturedRoot = await resolveCapturedRoot(projectPath)
   await fs.mkdir(capturedRoot, { recursive: true })
   const readmePath = path.join(capturedRoot, README_FILENAME)
   const exists = await fs.stat(readmePath).then(

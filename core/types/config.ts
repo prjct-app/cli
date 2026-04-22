@@ -56,6 +56,23 @@ export interface LocalConfig {
    * Claude's role + available MCPs into `additionalContext`.
    */
   persona?: ProjectPersona
+  /**
+   * Override for the Obsidian-compatible wiki vault location.
+   * - Absolute path (e.g. "/Users/jj/Documents/prjct/my-app")
+   * - Or tilde-prefixed ("~/Documents/prjct/my-app")
+   * - Or project-relative ("./docs/wiki" — kept inside the repo)
+   *
+   * When unset, defaults to `~/Documents/prjct/<slug>/` where `<slug>` is
+   * derived from the repo basename (with a short hash suffix on collision).
+   *
+   * Reason this exists: the old default `.prjct/wiki/` was a hidden
+   * folder inside the repo — Obsidian users couldn't find it in Finder,
+   * and committing the repo accidentally shared private decisions/
+   * learnings. v2.2.0 moved the default to ~/Documents/prjct/ for
+   * visibility + privacy-by-default. Setting this field to `.prjct/wiki`
+   * reverts to the pre-2.2.0 behaviour.
+   */
+  vaultPath?: string
 }
 
 /**
