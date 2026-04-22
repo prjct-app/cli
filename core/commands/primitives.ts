@@ -63,6 +63,31 @@ export class PrimitiveCommands extends PrjctCommandsBase {
         to: value,
       })
 
+      // Drive the real workflow state machine so state.json and the audit
+      // log agree. Without this, `status paused` flips the audit trail but
+      // leaves state.currentTask.status='in_progress', which later blocks
+      // `prjct task` with a bogus "cannot transition from working".
+      const normalized = value.toLowerCase()
+      try {
+        if (normalized === 'done' || normalized === 'completed') {
+          await stateStorage.completeTask(pid.value)
+        } else if (normalized === 'paused' || normalized === 'pause') {
+          await stateStorage.pauseTask(pid.value)
+        } else if (
+          normalized === 'active' ||
+          normalized === 'resume' ||
+          normalized === 'in_progress' ||
+          normalized === 'working'
+        ) {
+          // Only resume if there's no active task; otherwise it's a no-op.
+          const current = await stateStorage.getCurrentTask(pid.value)
+          if (!current) await stateStorage.resumeTask(pid.value)
+        }
+      } catch {
+        // State machine rejected a redundant transition (e.g. `done` on an
+        // already-completed task). The audit log still captures intent.
+      }
+
       const msg = `status → ${value}`
       if (options.md) console.log(`✓ ${msg}`)
       else out.done(msg)
