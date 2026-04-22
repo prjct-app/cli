@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.2] - 2026-04-22
+
+### Bug Fixes
+
+- sandboxable config resolver + stop leaking to real config
+
+
 ## [2.2.1] - 2026-04-22
 
 Follow-up to 2.2.0: the vault was generated at the right location but
