@@ -340,29 +340,77 @@ type ArchiveEntry = {
   analysis: LLMAnalysis
 }
 
+/**
+ * Build a short, human-readable label from the analysis content:
+ * one line summarizing what a reader would care about at a glance.
+ * Priority: first projectInsight → first architecture.insight →
+ * top anti-pattern → top risk area → top pattern → architecture style.
+ */
+function analysisHeadline(a: LLMAnalysis): string {
+  const first = (arr?: string[]): string | null =>
+    arr && arr.length > 0 && arr[0].trim() ? arr[0].trim() : null
+  const insight = first(a.projectInsights) || first(a.architecture?.insights)
+  if (insight) return insight
+  if (a.antiPatterns?.[0]?.issue) return `anti-pattern: ${a.antiPatterns[0].issue}`
+  if (a.riskAreas?.[0]?.path) return `risk: ${a.riskAreas[0].path}`
+  if (a.patterns?.[0]?.name) return `pattern: ${a.patterns[0].name}`
+  return a.architecture?.style || 'analysis'
+}
+
+function analysisDateOnly(entry: ArchiveEntry): string {
+  // YYYY-MM-DD, safe across timezones for the filename. Humans browsing
+  // Obsidian can sort the folder alphabetically and get chronological.
+  const m = (entry.analyzedAt || '').match(/^(\d{4}-\d{2}-\d{2})/)
+  return m ? m[1] : 'undated'
+}
+
 function analysisSlug(entry: ArchiveEntry): string {
-  const ts = (entry.analyzedAt || '').replace(/[:.]/g, '-')
-  const commit = (entry.commitHash || 'nocommit').slice(0, 12)
-  // DB id disambiguates the rare case of two saves with identical
-  // analyzedAt+commit — without it the index would collapse them into
-  // one file and lose the "append-only" invariant.
-  return `${ts || 'notime'}_${commit}_id${entry.id}`
+  // Filename shape: `YYYY-MM-DD_<headline-slug>_id<N>.md`
+  //
+  // The date groups snapshots in Obsidian's sidebar without ceremony.
+  // The headline-slug is truncated so filenames stay scannable — the
+  // full text lives in the file's H1. The `id<N>` suffix guarantees
+  // uniqueness (two saves on the same day with the same headline get
+  // distinct files) so the archive stays append-only.
+  const date = analysisDateOnly(entry)
+  const headline = slugify(analysisHeadline(entry.analysis)).slice(0, 40) || 'analysis'
+  return `${date}_${headline}_id${entry.id}`
 }
 
 function buildAnalysisSnapshot(entry: ArchiveEntry): string {
   const { analysis: a, status, commitHash, analyzedAt, supersededAt } = entry
+  const headline = analysisHeadline(a)
+  const arch = a.architecture?.style ?? '—'
+  const patternsCount = a.patterns?.length ?? 0
+  const antiCount = a.antiPatterns?.length ?? 0
+  const debtCount = a.techDebt?.length ?? 0
+  const riskCount = a.riskAreas?.length ?? 0
+  const refactorCount = a.refactorSuggestions?.length ?? 0
+
   const lines: string[] = []
-  lines.push(`# Analysis snapshot — ${analyzedAt}`)
+  // YAML frontmatter keeps the machine-readable metadata out of the
+  // prose. Obsidian renders it as properties; the LLM can still parse
+  // it trivially.
+  lines.push('---')
+  lines.push(`id: ${entry.id}`)
+  lines.push(`status: ${status}`)
+  lines.push(`analyzedAt: ${analyzedAt}`)
+  if (commitHash) lines.push(`commit: ${commitHash}`)
+  if (supersededAt) lines.push(`supersededAt: ${supersededAt}`)
+  lines.push(`architecture: ${arch}`)
+  lines.push(`patterns: ${patternsCount}`)
+  lines.push(`antiPatterns: ${antiCount}`)
+  lines.push(`techDebt: ${debtCount}`)
+  lines.push(`riskAreas: ${riskCount}`)
+  lines.push(`refactorSuggestions: ${refactorCount}`)
+  lines.push('tags: [analysis, snapshot]')
+  lines.push('---')
   lines.push('')
-  lines.push(`- Status: ${status}`)
-  if (commitHash) lines.push(`- Commit: \`${commitHash}\``)
-  if (supersededAt) lines.push(`- Superseded: ${supersededAt}`)
-  lines.push(`- Architecture: ${a.architecture?.style ?? '—'}`)
-  lines.push(`- Patterns: ${a.patterns?.length ?? 0}`)
-  lines.push(`- Anti-patterns: ${a.antiPatterns?.length ?? 0}`)
-  lines.push(`- Tech debt: ${a.techDebt?.length ?? 0}`)
-  lines.push(`- Risk areas: ${a.riskAreas?.length ?? 0}`)
-  lines.push(`- Refactor suggestions: ${a.refactorSuggestions?.length ?? 0}`)
+  lines.push(`# ${headline}`)
+  lines.push('')
+  lines.push(
+    `> ${arch} · ${patternsCount} patterns · ${antiCount} anti · ${debtCount} tech-debt · ${riskCount} risks · ${refactorCount} refactors · ${status}`
+  )
   lines.push('')
 
   if (a.architecture?.insights?.length) {
@@ -406,11 +454,41 @@ function buildAnalysisSnapshot(entry: ArchiveEntry): string {
   return `${lines.join('\n')}\n`
 }
 
+/**
+ * Compute a short "what changed" delta vs. the previous (older) snapshot.
+ * Returns null when there's nothing older to compare against. Kept
+ * compact on purpose — the point is scannability in Obsidian, not a full
+ * diff (the frozen files themselves preserve the full record).
+ */
+function describeDelta(curr: ArchiveEntry, prev: ArchiveEntry | undefined): string | null {
+  if (!prev) return null
+  const parts: string[] = []
+  const diff = (label: string, a: number, b: number) => {
+    const d = a - b
+    if (d !== 0) parts.push(`${d > 0 ? '+' : ''}${d} ${label}`)
+  }
+  diff('patterns', curr.analysis.patterns?.length ?? 0, prev.analysis.patterns?.length ?? 0)
+  diff('anti', curr.analysis.antiPatterns?.length ?? 0, prev.analysis.antiPatterns?.length ?? 0)
+  diff('debt', curr.analysis.techDebt?.length ?? 0, prev.analysis.techDebt?.length ?? 0)
+  diff('risks', curr.analysis.riskAreas?.length ?? 0, prev.analysis.riskAreas?.length ?? 0)
+  if (
+    (curr.analysis.architecture?.style ?? '') !== (prev.analysis.architecture?.style ?? '') &&
+    curr.analysis.architecture?.style
+  ) {
+    parts.unshift(`arch → ${curr.analysis.architecture.style}`)
+  }
+  return parts.length > 0 ? parts.join(', ') : 'no count changes'
+}
+
 function buildAnalysisArchiveFiles(entries: ArchiveEntry[]): Map<string, string> {
   const out = new Map<string, string>()
   if (entries.length === 0) return out
 
-  for (const entry of entries) {
+  // entries arrive newest-first from the DB; for delta computation we
+  // want each snapshot compared against the run just older than it.
+  // Walk the list with index-based lookup so the prev pointer is explicit.
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i]
     out.set(`analysis/${analysisSlug(entry)}.md`, buildAnalysisSnapshot(entry))
   }
 
@@ -418,18 +496,20 @@ function buildAnalysisArchiveFiles(entries: ArchiveEntry[]): Map<string, string>
     '# Analysis history',
     '',
     'Every `prjct analysis-save-llm` run lands here as an immutable snapshot.',
-    'Filenames include the analyzedAt timestamp + short commit so new runs never',
-    'overwrite old ones — the trail is append-only.',
+    'Newest first. Filenames carry the date + a content-derived slug so you',
+    "can skim the folder in Obsidian; machine metadata lives in each file's",
+    'frontmatter. New saves append — previous snapshots are never overwritten.',
     '',
-    '| When | Status | Commit | Patterns | Anti | Tech-debt | File |',
-    '|---|---|---|---|---|---|---|',
+    '| Date | Status | Headline | Δ vs prev | Link |',
+    '|---|---|---|---|---|',
   ]
-  for (const e of entries) {
-    const commit = e.commitHash ? `\`${e.commitHash.slice(0, 12)}\`` : '—'
-    const link = `[snapshot](${analysisSlug(e)}.md)`
-    indexLines.push(
-      `| ${e.analyzedAt} | ${e.status} | ${commit} | ${e.analysis.patterns?.length ?? 0} | ${e.analysis.antiPatterns?.length ?? 0} | ${e.analysis.techDebt?.length ?? 0} | ${link} |`
-    )
+  for (let i = 0; i < entries.length; i++) {
+    const e = entries[i]
+    const prev = entries[i + 1] // older
+    const headline = analysisHeadline(e.analysis)
+    const delta = describeDelta(e, prev) ?? '—'
+    const link = `[[${analysisSlug(e)}]]`
+    indexLines.push(`| ${analysisDateOnly(e)} | ${e.status} | ${headline} | ${delta} | ${link} |`)
   }
   indexLines.push('')
   out.set('analysis/index.md', `${indexLines.join('\n')}\n`)
