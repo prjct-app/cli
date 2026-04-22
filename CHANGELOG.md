@@ -1,11 +1,75 @@
 # Changelog
 
+## [2.1.1] - 2026-04-22
+
+Closes the v2 migration gap shipped (incompletely) in `2.1.0` and
+`2.0.0-alpha.12`. The v2 sweep deleted the v1 workflow verbs (`done`,
+`pause`, `resume`, `next`, `reopen`, `dash`, `bug`, `idea`, `linear`,
+`jira`, `tokens`, `velocity`, `plan`) in favour of the `status`/`capture`
+primitives — but left the templates, state machine prompts, the
+installed `CLAUDE.md`, and the context config pointing at ghosts. The
+result was two user-visible regressions (P0 bugs):
+
+### Fixed
+- **P0 — silent-capture data loss.** Typing `prjct done`/`prjct pause`
+  on an active task no longer quietly files a note called "done" into
+  the inbox. Removed verbs now short-circuit with a migration message
+  and exit 1. Matching check added on both the fallback path
+  (`core/index.ts`) and the daemon path (`core/daemon/daemon.ts`).
+  New module: `core/commands/removed-verbs.ts` is the single source of
+  truth for the migration map.
+- **P0 — `prjct ship` degraded prereleases.** `bumpPatch` stripped the
+  prerelease suffix (`2.0.0-alpha.12` → `2.0.1`), corrupting the alpha
+  channel on every ship. Rewritten to follow semver rules:
+  `2.0.0-alpha.12` → `2.0.0-alpha.13`, `0.1.0-beta` → `0.1.0-beta.1`,
+  stable bumps unchanged. Build metadata (`+xyz`) is dropped to match
+  npm/pnpm behavior. Test coverage added in
+  `core/__tests__/services/version-service.test.ts`.
+
+### Changed
+- State machine (`core/workflow/state-machine.ts`) prompts and
+  `formatNextSteps()` now emit executable `prjct …` invocations that
+  map to the v2 CLI. `done`/`pause`/`resume`/`reopen` are surfaced as
+  `prjct status <value>`. Internal `WorkflowCommand` tokens stay for
+  lifecycle validation.
+- `canTransition()` error wording is state-transition-centric instead of
+  advertising non-existent CLI verbs.
+- `core/config/command-context.config.json` bumped to `2.0.0` and pruned
+  to registered v2 verbs only. Removed mappings for
+  `done/dash/next/pause/resume/idea/bug/spec/feature/cleanup/design/now/history/test/work/build/review/refactor/fix`.
+- `GLOBAL_CLAUDE_MD_CONTENT` (`core/infrastructure/command-installer.ts`)
+  rewritten: auto-activate list is the v2 surface; a concise v2
+  lifecycle cheat-sheet replaces the ghost-verb flow.
+- `CommandMethodName` (`core/types/commands.ts`) narrowed to registered
+  method names. `WorkflowCommand` (`core/types/workflow.ts`) no longer
+  includes `next` (never was a real transition).
+
+### Migration (for `prjct` users upgrading from v1.x)
+
+| v1 verb | v2 replacement |
+|---|---|
+| `prjct done` | `prjct status done` |
+| `prjct pause` | `prjct status paused` |
+| `prjct resume` | `prjct status active` |
+| `prjct reopen` | `prjct status active` (on completed task) |
+| `prjct next` | `prjct status` |
+| `prjct dash` | `prjct status` + web dashboard |
+| `prjct bug "…"` | `prjct capture "…" --tags bug` |
+| `prjct idea "…"` | `prjct capture "…" --tags idea` |
+| `prjct linear …` / `prjct jira …` | MCP server (`prjct seed list`) |
+| `prjct tokens` / `prjct velocity` / `prjct plan` | removed |
+
+### Operator note
+
+Upgrading from `1.x` while a long-running daemon is alive may leave a
+stale process bound to the socket. Run `prjct daemon stop` once after
+install, or kill the pid in `~/.prjct-cli/run/daemon.pid`.
+
 ## [2.1.0] - 2026-04-22
 
 ### Features
 
 - current work
-
 
 ## [2.0.0-alpha.12] - 2026-04-21
 

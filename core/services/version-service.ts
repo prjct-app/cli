@@ -259,14 +259,29 @@ function isSemver(version: string): boolean {
 }
 
 /**
- * Bump the patch component of a semantic version string.
- * e.g. "1.2.3" -> "1.2.4", "0.1.0-beta" -> "0.1.1"
+ * Bump a semantic version.
+ * - Stable: "1.2.3" -> "1.2.4"
+ * - Prerelease with numeric tail: "2.0.0-alpha.12" -> "2.0.0-alpha.13"
+ * - Prerelease without numeric tail: "0.1.0-beta" -> "0.1.0-beta.1"
+ * - Unknown format: returned unchanged.
+ * Build metadata (+xyz) is dropped, matching npm/semver tooling behavior.
  */
-function bumpPatch(version: string): string {
-  const match = version.match(/^(\d+)\.(\d+)\.(\d+)/)
+export function bumpPatch(version: string): string {
+  const match = version.match(/^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/)
   if (!match) return version
 
-  const [, major, minor, patch] = match
+  const [, major, minor, patch, pre] = match
+
+  if (pre) {
+    const parts = pre.split('.')
+    const lastIdx = parts.length - 1
+    if (/^\d+$/.test(parts[lastIdx])) {
+      parts[lastIdx] = String(Number(parts[lastIdx]) + 1)
+      return `${major}.${minor}.${patch}-${parts.join('.')}`
+    }
+    return `${major}.${minor}.${patch}-${pre}.1`
+  }
+
   return `${major}.${minor}.${Number(patch) + 1}`
 }
 

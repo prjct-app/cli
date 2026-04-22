@@ -70,23 +70,20 @@ describe('canTransition - valid', () => {
   const validTransitions: [WorkflowState, WorkflowCommand][] = [
     // idle
     ['idle', 'task'],
-    ['idle', 'next'],
     // working
     ['working', 'done'],
     ['working', 'pause'],
     // paused
     ['paused', 'resume'],
     ['paused', 'task'],
-    ['paused', 'ship'], // NEW: fast-track ship
+    ['paused', 'ship'], // fast-track ship
     // completed
     ['completed', 'ship'],
     ['completed', 'task'],
-    ['completed', 'next'],
-    ['completed', 'pause'], // NEW: reopen for review
-    ['completed', 'reopen'], // NEW: reopen for rework
+    ['completed', 'pause'], // reopen for review
+    ['completed', 'reopen'], // reopen for rework
     // shipped
     ['shipped', 'task'],
-    ['shipped', 'next'],
   ]
 
   for (const [state, command] of validTransitions) {
@@ -112,7 +109,6 @@ describe('canTransition - invalid', () => {
     ['working', 'task'],
     ['working', 'ship'],
     ['working', 'resume'],
-    ['working', 'next'],
     ['working', 'reopen'],
     ['paused', 'done'],
     ['paused', 'pause'],
@@ -166,11 +162,6 @@ describe('getNextState', () => {
   it('reopen → working', () => {
     expect(sm.getNextState('completed', 'reopen')).toBe('working')
   })
-
-  it('next preserves current state', () => {
-    expect(sm.getNextState('idle', 'next')).toBe('idle')
-    expect(sm.getNextState('completed', 'next')).toBe('completed')
-  })
 })
 
 // =============================================================================
@@ -178,8 +169,8 @@ describe('getNextState', () => {
 // =============================================================================
 
 describe('getValidCommands', () => {
-  it('idle allows task, next', () => {
-    expect(sm.getValidCommands('idle')).toEqual(['task', 'next'])
+  it('idle allows task', () => {
+    expect(sm.getValidCommands('idle')).toEqual(['task'])
   })
 
   it('working allows done, pause', () => {
@@ -190,12 +181,12 @@ describe('getValidCommands', () => {
     expect(sm.getValidCommands('paused')).toEqual(['resume', 'task', 'ship'])
   })
 
-  it('completed allows ship, task, next, pause, reopen', () => {
-    expect(sm.getValidCommands('completed')).toEqual(['ship', 'task', 'next', 'pause', 'reopen'])
+  it('completed allows ship, task, pause, reopen', () => {
+    expect(sm.getValidCommands('completed')).toEqual(['ship', 'task', 'pause', 'reopen'])
   })
 
-  it('shipped allows task, next', () => {
-    expect(sm.getValidCommands('shipped')).toEqual(['task', 'next'])
+  it('shipped allows task', () => {
+    expect(sm.getValidCommands('shipped')).toEqual(['task'])
   })
 })
 
@@ -204,13 +195,30 @@ describe('getValidCommands', () => {
 // =============================================================================
 
 describe('formatNextSteps', () => {
-  it('includes reopen in completed state steps', () => {
+  it('includes reopen (as prjct status active) in completed state steps', () => {
     const steps = sm.formatNextSteps('completed')
-    expect(steps.some((s) => s.includes('reopen'))).toBe(true)
+    expect(steps.some((s) => s.toLowerCase().includes('reopen'))).toBe(true)
   })
 
   it('includes ship in paused state steps', () => {
     const steps = sm.formatNextSteps('paused')
     expect(steps.some((s) => s.includes('ship'))).toBe(true)
+  })
+
+  it('emits executable prjct invocations (no p. skill notation)', () => {
+    for (const state of ['idle', 'working', 'paused', 'completed', 'shipped'] as const) {
+      const steps = sm.formatNextSteps(state)
+      for (const step of steps) {
+        expect(step.startsWith('prjct ')).toBe(true)
+        expect(step).not.toContain('p. ')
+      }
+    }
+  })
+
+  it('maps done/pause/resume/reopen to status primitive', () => {
+    expect(sm.formatNextSteps('working').join(' ')).toContain('prjct status done')
+    expect(sm.formatNextSteps('working').join(' ')).toContain('prjct status paused')
+    expect(sm.formatNextSteps('paused').join(' ')).toContain('prjct status active')
+    expect(sm.formatNextSteps('completed').join(' ')).toContain('prjct status active')
   })
 })

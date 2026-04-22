@@ -236,34 +236,30 @@ export interface HealthResult {
 // ============================================
 
 /**
- * Type-safe command method names (for dynamic invocation)
+ * Type-safe command method names (for dynamic invocation).
+ * Mirrors the v2 registered verbs — see core/commands/verb-names.ts.
  */
 export type CommandMethodName =
-  | 'work'
-  | 'now'
-  | 'done'
-  | 'next'
-  | 'pause'
-  | 'resume'
+  | 'now' // backing method for `prjct task`
+  | 'workflow'
   | 'init'
-  | 'feature'
-  | 'bug'
-  | 'idea'
-  | 'spec'
   | 'ship'
-  | 'dash'
-  | 'help'
-  | 'cleanup'
-  | 'design'
-  | 'recover'
-  | 'undo'
-  | 'redo'
-  | 'history'
   | 'analyze'
   | 'sync'
+  | 'context'
+  | 'status'
+  | 'tag'
+  | 'remember'
+  | 'seed'
+  | 'install'
+  | 'capture'
+  | 'auth'
+  | 'login'
+  | 'logout'
   | 'start'
   | 'setup'
-  | 'migrateAll'
+  | 'update'
+  | 'uninstall'
 
 /**
  * Function signature for standard command methods

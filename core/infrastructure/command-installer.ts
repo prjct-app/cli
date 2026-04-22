@@ -30,10 +30,12 @@ import { mergeWithMarkers } from './ide-project-installer'
 const GLOBAL_CLAUDE_MD_CONTENT = `<!-- prjct:start - DO NOT REMOVE THIS MARKER -->
 # p/ — Context layer for AI agents
 
-Skills auto-activate for: task, done, pause, resume, ship, next, sync, bug, workflow, enrich, linear, jira, plan, velocity, tokens
+Skills auto-activate for: task, ship, status, tag, remember, capture, sync, workflow, seed, install, context
 Other commands: run \`prjct <command> --md\` and follow CLI output
 
-Flow: idea → roadmap → next → task → done → ship → next (cycle until plan complete)
+Task lifecycle (v2): \`prjct task "<desc>"\` → work → \`prjct status done\` → \`prjct ship\`
+- Pause: \`prjct status paused\`  |  Resume: \`prjct status active\`  |  Reopen: \`prjct status active\` (on completed task)
+- Capture to inbox (bugs, ideas, anything): \`prjct capture "<text>" --tags bug|idea|…\`
 
 Data:
 - prjct runs → LLM generates relevant data → prjct stores it → LLM requests it from prjct → LLM uses it

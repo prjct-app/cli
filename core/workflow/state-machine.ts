@@ -28,28 +28,30 @@ interface TransitionResult {
 
 const WORKFLOW_STATES: Record<WorkflowState, StateDefinition> = {
   idle: {
-    transitions: ['task', 'next'],
-    prompt: 'p. task <description>  Start working',
+    transitions: ['task'],
+    prompt: 'prjct task <description>   Start working',
     description: 'No active task',
   },
   working: {
     transitions: ['done', 'pause'],
-    prompt: 'p. done  Complete task  |  p. pause  Switch context',
+    prompt: 'prjct status done   Complete task  |  prjct status paused   Switch context',
     description: 'Task in progress',
   },
   paused: {
     transitions: ['resume', 'task', 'ship'],
-    prompt: 'p. resume  Continue  |  p. task <new>  Start different  |  p. ship  Ship directly',
+    prompt:
+      'prjct status active   Continue  |  prjct task <new>   Start different  |  prjct ship   Ship directly',
     description: 'Task paused',
   },
   completed: {
-    transitions: ['ship', 'task', 'next', 'pause', 'reopen'],
-    prompt: 'p. ship  Ship it  |  p. task <next>  Start next  |  p. reopen  Reopen for rework',
+    transitions: ['ship', 'task', 'pause', 'reopen'],
+    prompt:
+      'prjct ship   Ship it  |  prjct task <next>   Start next  |  prjct status active   Reopen',
     description: 'Task completed',
   },
   shipped: {
-    transitions: ['task', 'next'],
-    prompt: 'p. task <description>  Start new task',
+    transitions: ['task'],
+    prompt: 'prjct task <description>   Start new task',
     description: 'Feature shipped',
   },
 }
@@ -120,13 +122,15 @@ export class WorkflowStateMachine {
       return { valid: true }
     }
 
-    // Build helpful error message
-    const validCommands = stateConfig.transitions.map((c) => `prjct ${c}`).join(', ')
+    // Error phrasing is about the lifecycle transition, not a CLI verb —
+    // callers pass internal WorkflowCommand tokens. formatNextSteps()
+    // produces the executable `prjct …` invocations for the suggestion.
+    const suggestion = this.formatNextSteps(currentState).join('  |  ')
 
     return {
       valid: false,
-      error: `Cannot run 'prjct ${command}' in ${currentState} state`,
-      suggestion: `Valid commands: ${validCommands}`,
+      error: `Cannot transition to '${command}' from '${currentState}' state`,
+      suggestion: `Valid next steps: ${suggestion}`,
     }
   }
 
@@ -147,8 +151,6 @@ export class WorkflowStateMachine {
         return 'shipped'
       case 'reopen':
         return 'working'
-      case 'next':
-        return currentState // next doesn't change state
       default:
         return currentState
     }
@@ -176,28 +178,28 @@ export class WorkflowStateMachine {
   }
 
   /**
-   * Format next steps for display
+   * Format next steps for display — emits executable `prjct` invocations
+   * that match the v2 CLI surface. Internal WorkflowCommand tokens
+   * (done/pause/resume/reopen/next) map to the v2 `status` primitive.
    */
   formatNextSteps(state: WorkflowState): string[] {
     const stateConfig = WORKFLOW_STATES[state]
     return stateConfig.transitions.map((cmd) => {
       switch (cmd) {
         case 'task':
-          return 'p. task <desc>  Start new task'
+          return 'prjct task <desc>       Start new task'
         case 'done':
-          return 'p. done         Complete current task'
+          return 'prjct status done       Complete current task'
         case 'pause':
-          return 'p. pause        Pause and switch context'
+          return 'prjct status paused     Pause and switch context'
         case 'resume':
-          return 'p. resume       Continue paused task'
+          return 'prjct status active     Continue paused task'
         case 'ship':
-          return 'p. ship         Ship the feature'
+          return 'prjct ship              Ship the feature'
         case 'reopen':
-          return 'p. reopen       Reopen for rework'
-        case 'next':
-          return 'p. next         View task queue'
+          return 'prjct status active     Reopen completed task'
         default:
-          return `p. ${cmd}`
+          return `prjct ${cmd}`
       }
     })
   }

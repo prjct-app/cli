@@ -1,32 +1,7 @@
 {
-  "version": "1.0.0",
-  "description": "Maps commands to context sections for prompt injection. Wildcard * ensures new commands get sensible defaults instead of zero context.",
+  "version": "2.0.0",
+  "description": "Maps v2 CLI verbs to context sections for prompt injection. Wildcard * ensures unmapped commands get sensible defaults instead of zero context.",
   "commands": {
-    "now": { "agents": true, "patterns": true, "checklist": true, "modules": [] },
-    "build": { "agents": true, "patterns": true, "checklist": true, "modules": [] },
-    "feature": { "agents": true, "patterns": true, "checklist": true, "modules": [] },
-    "design": { "agents": true, "patterns": true, "checklist": true, "modules": [] },
-    "fix": { "agents": true, "patterns": true, "checklist": true, "modules": [] },
-    "bug": {
-      "agents": true,
-      "patterns": true,
-      "checklist": true,
-      "modules": ["CLAUDE-intelligence.md"]
-    },
-    "test": { "agents": true, "patterns": true, "checklist": false, "modules": [] },
-    "work": {
-      "agents": true,
-      "patterns": true,
-      "checklist": true,
-      "modules": ["CLAUDE-intelligence.md", "CLAUDE-storage.md"]
-    },
-    "cleanup": { "agents": true, "patterns": true, "checklist": true, "modules": [] },
-    "spec": {
-      "agents": true,
-      "patterns": true,
-      "checklist": true,
-      "modules": ["CLAUDE-intelligence.md"]
-    },
     "init": { "agents": false, "patterns": true, "checklist": false, "modules": [] },
     "task": {
       "agents": false,
@@ -40,27 +15,15 @@
       "checklist": true,
       "modules": ["CLAUDE-intelligence.md", "CLAUDE-storage.md"]
     },
-    "done": {
-      "agents": false,
-      "patterns": false,
-      "checklist": true,
-      "modules": ["CLAUDE-storage.md"]
-    },
-    "review": { "agents": true, "patterns": true, "checklist": true, "modules": [] },
-    "refactor": {
-      "agents": true,
-      "patterns": true,
-      "checklist": true,
-      "modules": ["CLAUDE-intelligence.md"]
-    },
     "sync": { "agents": false, "patterns": false, "checklist": false, "modules": [] },
-    "dash": { "agents": false, "patterns": false, "checklist": false, "modules": [] },
-    "next": { "agents": false, "patterns": false, "checklist": false, "modules": [] },
-    "pause": { "agents": false, "patterns": false, "checklist": false, "modules": [] },
-    "resume": { "agents": false, "patterns": false, "checklist": false, "modules": [] },
-    "idea": { "agents": false, "patterns": false, "checklist": false, "modules": [] },
-    "history": { "agents": false, "patterns": false, "checklist": false, "modules": [] },
     "status": { "agents": false, "patterns": false, "checklist": false, "modules": [] },
+    "tag": { "agents": false, "patterns": false, "checklist": false, "modules": [] },
+    "remember": { "agents": false, "patterns": false, "checklist": false, "modules": [] },
+    "capture": { "agents": false, "patterns": false, "checklist": false, "modules": [] },
+    "workflow": { "agents": false, "patterns": false, "checklist": false, "modules": [] },
+    "context": { "agents": false, "patterns": false, "checklist": false, "modules": [] },
+    "seed": { "agents": false, "patterns": false, "checklist": false, "modules": [] },
+    "install": { "agents": false, "patterns": false, "checklist": false, "modules": [] },
     "*": { "agents": true, "patterns": true, "checklist": false, "modules": [] }
   }
 }

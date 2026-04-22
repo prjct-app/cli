@@ -17,6 +17,7 @@ import { createServer as createNetServer } from 'node:net'
 import { PrjctCommands } from '../commands/commands'
 import { commandRegistry } from '../commands/registry'
 import '../commands/register'
+import { isRemovedVerb, migrationMessage } from '../commands/removed-verbs'
 import configManager from '../infrastructure/config-manager'
 import { createServer as createHttpServer, DEFAULT_PORT } from '../server/server'
 import prjctDb from '../storage/database'
@@ -308,6 +309,14 @@ async function executeCommand(
   const opts = request.options
 
   const md = opts.md === true
+
+  // Short-circuit v2-removed verbs with a migration message so the daemon
+  // path matches the fallback path in core/index.ts. Otherwise users get
+  // a generic "Unknown command" from the registry with no migration hint.
+  if (isRemovedVerb(request.command) && !commandRegistry.getByName(request.command)) {
+    const msg = migrationMessage(request.command) ?? `'${request.command}' was removed in v2.`
+    return { success: false, error: msg }
+  }
 
   // Commands that need options routed through PrjctCommands
   switch (request.command) {

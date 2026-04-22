@@ -11,6 +11,7 @@ import os from 'node:os'
 import path from 'node:path'
 import chalk from 'chalk'
 import type { CommandMeta } from './commands/registry'
+import { isRemovedVerb, REMOVED_VERBS } from './commands/removed-verbs'
 import { detectAllProviders, detectAntigravity } from './infrastructure/ai-provider'
 import configManager from './infrastructure/config-manager'
 import performanceTracker from './infrastructure/performance-tracker'
@@ -44,6 +45,23 @@ async function main(): Promise<void> {
   if (['-h', '--help', undefined].includes(commandName)) {
     displayHelp()
     process.exit(0)
+  }
+
+  // === v2 removed verbs: short-circuit with migration message ===
+  // Workflow verbs that existed in v1.x (done/pause/resume/next/bug/idea/
+  // linear/jira/…) were deleted during the v2 cleanup. They must not
+  // reach the GTD auto-route below, which would silently capture them as
+  // inbox notes — a quiet data-loss bug since users expect `prjct done`
+  // to complete the active task. See `core/commands/removed-verbs.ts`.
+  if (commandName && isRemovedVerb(commandName) && !commandRegistry.getByName(commandName)) {
+    const entry = REMOVED_VERBS[commandName]
+    if (entry) {
+      out.failWithHint({
+        message: `'prjct ${commandName}' was removed in v2. ${entry.note}`,
+        hint: `Use: ${entry.replacement}`,
+      })
+      process.exit(1)
+    }
   }
 
   // === v2 auto-route: unknown verb → prjct capture "<full args>" ===
