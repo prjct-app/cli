@@ -1,5 +1,40 @@
 # Changelog
 
+## [2.2.1] - 2026-04-22
+
+Follow-up to 2.2.0: the vault was generated at the right location but
+Obsidian refused to open it via `obsidian://open?vault=<slug>` because
+the folder wasn't registered in Obsidian's global vault list. Users had
+to manually "Open folder as vault" the first time.
+
+### Added
+- `core/services/obsidian-vault.ts`: `ensureObsidianVault(vaultPath)`
+  does two things, idempotently:
+  1. Bootstraps a minimal `.obsidian/app.json` inside the vault so
+     Obsidian treats the folder as already-initialized (and skips its
+     trust prompt).
+  2. Registers the vault path in Obsidian's config file
+     (`~/Library/Application Support/obsidian/obsidian.json` on macOS,
+     `$XDG_CONFIG_HOME/obsidian/obsidian.json` on Linux,
+     `%APPDATA%\obsidian\obsidian.json` on Windows). The vault then
+     shows up in the Vault Switcher after a restart.
+  Best-effort — quietly skips registration when Obsidian isn't
+  installed (no config directory). Bootstrap still runs so the vault
+  is valid the moment the user does run Obsidian.
+- `wiki-generator.ts` calls `ensureObsidianVault(wikiRoot)` at the end
+  of every regen. `.catch(() => undefined)` guard: never fail a regen
+  because Obsidian glue misbehaved.
+- Tests in `core/__tests__/services/obsidian-vault.test.ts` cover
+  bootstrap, URL-encoding of vault names, registration append (keeps
+  prior vaults), idempotency, and the no-Obsidian-installed path.
+
+### Operator note
+
+First-time upgraders from <2.2.1: Obsidian caches its vault list in
+memory. Close Obsidian fully (⌘Q on macOS, File > Exit on Windows/
+Linux) and relaunch — the newly-registered vault will appear in the
+switcher.
+
 ## [2.2.0] - 2026-04-22
 
 Obsidian vault location moved out of the repo. Each project now has its

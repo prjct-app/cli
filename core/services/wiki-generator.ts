@@ -40,6 +40,7 @@ import { formatMemoryMd, type MemoryEntry, projectMemory } from '../memory/proje
 import { analysisStorage } from '../storage/analysis-storage'
 import shippedStorage from '../storage/shipped-storage'
 import type { ShippedFeature } from '../types/storage'
+import { ensureObsidianVault } from './obsidian-vault'
 import { ensureCapturedReadme } from './wiki-ingest'
 import { migrateWikiLocationIfNeeded } from './wiki-migration'
 
@@ -433,6 +434,12 @@ export async function generateWiki(
   // in Obsidian discover the capture workflow. No-op if the README
   // already exists.
   await ensureCapturedReadme(projectPath)
+
+  // Make the folder a one-click-open Obsidian vault: bootstrap a
+  // minimal `.obsidian/` and register the path in Obsidian's vault
+  // registry so `obsidian://open?vault=<slug>` works. Best-effort; if
+  // Obsidian isn't installed, this quietly no-ops.
+  await ensureObsidianVault(wikiRoot).catch(() => undefined)
 
   return { wikiRoot, filesWritten, filesSkipped, filesRemoved }
 }
