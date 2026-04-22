@@ -66,6 +66,23 @@ export class PrimitiveCommands extends PrjctCommandsBase {
         }
       }
 
+      // No-arg `status` should still be informative when the task is
+      // paused (no currentTask). Show the paused task rather than a bogus
+      // "no active task" — the task exists, it just isn't the focus.
+      if (!value) {
+        const current = await stateStorage.getCurrentTask(pid.value)
+        if (!current) {
+          const paused = await stateStorage.getPausedTasks(pid.value)
+          if (paused.length > 0) {
+            const t = paused[0]
+            const line = `Task: ${t.id}  |  Type: ${t.type ?? 'unset'}  |  Status: paused`
+            if (options.md) console.log(line)
+            else out.info(line)
+            return { success: true, taskId: t.id, status: 'paused' }
+          }
+        }
+      }
+
       const task = await requireActiveTask(pid.value, options)
       if (!task.ok) return task.result
 

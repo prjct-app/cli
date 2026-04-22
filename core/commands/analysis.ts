@@ -622,6 +622,12 @@ export class AnalysisCommands extends PrjctCommandsBase {
 
       llmAnalysisStorage.save(projectId, analysis)
 
+      // Keep the vault in sync — without this, analysis-save-llm writes to
+      // SQLite but the Obsidian vault (and its append-only archive) stays
+      // stale until the next remember/capture/ship happens to fire regen.
+      const { regenerateWikiDeferred } = await import('../services/wiki-generator')
+      await regenerateWikiDeferred(projectPath, projectId)
+
       if (options.md) {
         console.log(
           mdOutput(

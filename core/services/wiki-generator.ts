@@ -38,7 +38,9 @@ import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import { formatMemoryMd, type MemoryEntry, projectMemory } from '../memory/project-memory'
 import { analysisStorage } from '../storage/analysis-storage'
+import llmAnalysisStorage from '../storage/llm-analysis-storage'
 import shippedStorage from '../storage/shipped-storage'
+import type { LLMAnalysis } from '../types/llm-analysis'
 import type { ShippedFeature } from '../types/storage'
 import { ensureObsidianVault } from './obsidian-vault'
 import { ensureCapturedReadme } from './wiki-ingest'
@@ -207,8 +209,21 @@ function buildTagFiles(entries: MemoryEntry[]): Map<string, string> {
 }
 
 function buildPatternsFile(
-  patterns: { name: string; description: string; locations?: string[] }[],
-  antiPatterns: { issue: string; suggestion: string; files?: string[] }[]
+  patterns: {
+    name: string
+    description: string
+    locations?: string[]
+    category?: string
+    confidence?: number
+  }[],
+  antiPatterns: {
+    issue: string
+    suggestion: string
+    files?: string[]
+    reasoning?: string
+    severity?: string
+    confidence?: number
+  }[]
 ): string | null {
   if (patterns.length === 0 && antiPatterns.length === 0) return null
   const lines: string[] = ['# Patterns (inferred)', '']
@@ -217,7 +232,8 @@ function buildPatternsFile(
     for (const p of patterns) {
       const loc =
         p.locations && p.locations.length > 0 ? ` — ${p.locations.slice(0, 3).join(', ')}` : ''
-      lines.push(`- **${p.name}**: ${p.description}${loc}`)
+      const cat = p.category ? ` _[${p.category}]_` : ''
+      lines.push(`- **${p.name}**${cat}: ${p.description}${loc}`)
     }
     lines.push('')
   }
@@ -225,12 +241,199 @@ function buildPatternsFile(
     lines.push('## Anti-patterns')
     for (const a of antiPatterns) {
       const file = a.files && a.files.length > 0 ? ` (${a.files[0]})` : ''
-      lines.push(`- **${a.issue}**${file} — ${a.suggestion}`)
+      const sev = a.severity ? ` _[${a.severity}]_` : ''
+      lines.push(`- **${a.issue}**${sev}${file} — ${a.suggestion}`)
+      if (a.reasoning) lines.push(`  - Why: ${a.reasoning}`)
     }
     lines.push('')
   }
   lines.push('> Source: `prjct sync` analysis. Provenance: INFR.')
   return `${lines.join('\n')}\n`
+}
+
+function buildArchitectureFile(a: LLMAnalysis): string | null {
+  const { architecture, conventions } = a
+  const hasArch =
+    architecture &&
+    (architecture.style || architecture.insights?.length || architecture.domains?.length)
+  if (!hasArch && (!conventions || conventions.length === 0)) return null
+
+  const lines: string[] = ['# Architecture', '']
+  if (architecture?.style) {
+    lines.push(`**Style**: ${architecture.style}`, '')
+  }
+  if (architecture?.domains && architecture.domains.length > 0) {
+    lines.push('## Domains')
+    for (const d of architecture.domains) lines.push(`- ${d}`)
+    lines.push('')
+  }
+  if (architecture?.insights && architecture.insights.length > 0) {
+    lines.push('## Insights')
+    for (const i of architecture.insights) lines.push(`- ${i}`)
+    lines.push('')
+  }
+  if (conventions && conventions.length > 0) {
+    lines.push('## Conventions')
+    for (const c of conventions) {
+      const ex = c.example ? ` — \`${c.example}\`` : ''
+      lines.push(`- **${c.category}**: ${c.rule}${ex}`)
+    }
+    lines.push('')
+  }
+  lines.push('> Source: `prjct sync` LLM analysis.')
+  return `${lines.join('\n')}\n`
+}
+
+function buildTechDebtFile(a: LLMAnalysis): string | null {
+  const { techDebt, riskAreas, refactorSuggestions } = a
+  const total =
+    (techDebt?.length ?? 0) + (riskAreas?.length ?? 0) + (refactorSuggestions?.length ?? 0)
+  if (total === 0) return null
+
+  const lines: string[] = ['# Tech debt, risks & refactors', '']
+  if (techDebt && techDebt.length > 0) {
+    lines.push('## Tech debt')
+    for (const t of techDebt) {
+      lines.push(
+        `- **${t.description}** _[${t.priority}, ${t.effort}]_ — ${t.area}. Impact: ${t.impact}`
+      )
+    }
+    lines.push('')
+  }
+  if (riskAreas && riskAreas.length > 0) {
+    lines.push('## Risk areas')
+    for (const r of riskAreas) {
+      lines.push(`- **${r.path}** _[${r.severity}]_ — ${r.reason}. Risk: ${r.risk}`)
+    }
+    lines.push('')
+  }
+  if (refactorSuggestions && refactorSuggestions.length > 0) {
+    lines.push('## Refactor suggestions')
+    for (const r of refactorSuggestions) {
+      const files = r.files && r.files.length > 0 ? ` (${r.files.slice(0, 3).join(', ')})` : ''
+      lines.push(`- **${r.description}** _[${r.effort}]_${files} — ${r.benefit}`)
+    }
+    lines.push('')
+  }
+  lines.push('> Source: `prjct sync` LLM analysis.')
+  return `${lines.join('\n')}\n`
+}
+
+function buildInsightsFile(a: LLMAnalysis): string | null {
+  if (!a.projectInsights || a.projectInsights.length === 0) return null
+  const lines: string[] = ['# Project insights', '']
+  for (const i of a.projectInsights) lines.push(`- ${i}`)
+  lines.push('', '> Source: `prjct sync` LLM analysis.')
+  return `${lines.join('\n')}\n`
+}
+
+// =============================================================================
+// Analysis archive — append-only per-run snapshots
+// =============================================================================
+
+type ArchiveEntry = {
+  id: number
+  status: string
+  commitHash: string | null
+  analyzedAt: string
+  supersededAt: string | null
+  analysis: LLMAnalysis
+}
+
+function analysisSlug(entry: ArchiveEntry): string {
+  const ts = (entry.analyzedAt || '').replace(/[:.]/g, '-')
+  const commit = (entry.commitHash || 'nocommit').slice(0, 12)
+  // DB id disambiguates the rare case of two saves with identical
+  // analyzedAt+commit — without it the index would collapse them into
+  // one file and lose the "append-only" invariant.
+  return `${ts || 'notime'}_${commit}_id${entry.id}`
+}
+
+function buildAnalysisSnapshot(entry: ArchiveEntry): string {
+  const { analysis: a, status, commitHash, analyzedAt, supersededAt } = entry
+  const lines: string[] = []
+  lines.push(`# Analysis snapshot — ${analyzedAt}`)
+  lines.push('')
+  lines.push(`- Status: ${status}`)
+  if (commitHash) lines.push(`- Commit: \`${commitHash}\``)
+  if (supersededAt) lines.push(`- Superseded: ${supersededAt}`)
+  lines.push(`- Architecture: ${a.architecture?.style ?? '—'}`)
+  lines.push(`- Patterns: ${a.patterns?.length ?? 0}`)
+  lines.push(`- Anti-patterns: ${a.antiPatterns?.length ?? 0}`)
+  lines.push(`- Tech debt: ${a.techDebt?.length ?? 0}`)
+  lines.push(`- Risk areas: ${a.riskAreas?.length ?? 0}`)
+  lines.push(`- Refactor suggestions: ${a.refactorSuggestions?.length ?? 0}`)
+  lines.push('')
+
+  if (a.architecture?.insights?.length) {
+    lines.push('## Architecture insights')
+    for (const i of a.architecture.insights) lines.push(`- ${i}`)
+    lines.push('')
+  }
+  if (a.patterns?.length) {
+    lines.push('## Patterns')
+    for (const p of a.patterns) lines.push(`- **${p.name}** — ${p.description}`)
+    lines.push('')
+  }
+  if (a.antiPatterns?.length) {
+    lines.push('## Anti-patterns')
+    for (const p of a.antiPatterns)
+      lines.push(`- **${p.issue}** _[${p.severity}]_ — ${p.reasoning}`)
+    lines.push('')
+  }
+  if (a.techDebt?.length) {
+    lines.push('## Tech debt')
+    for (const t of a.techDebt)
+      lines.push(`- **${t.description}** _[${t.priority}, ${t.effort}]_ — ${t.area}`)
+    lines.push('')
+  }
+  if (a.riskAreas?.length) {
+    lines.push('## Risk areas')
+    for (const r of a.riskAreas) lines.push(`- **${r.path}** _[${r.severity}]_ — ${r.reason}`)
+    lines.push('')
+  }
+  if (a.refactorSuggestions?.length) {
+    lines.push('## Refactor suggestions')
+    for (const r of a.refactorSuggestions) lines.push(`- **${r.description}** — ${r.benefit}`)
+    lines.push('')
+  }
+  if (a.projectInsights?.length) {
+    lines.push('## Project insights')
+    for (const i of a.projectInsights) lines.push(`- ${i}`)
+    lines.push('')
+  }
+  lines.push('> Frozen snapshot. Written append-only; never overwritten.')
+  return `${lines.join('\n')}\n`
+}
+
+function buildAnalysisArchiveFiles(entries: ArchiveEntry[]): Map<string, string> {
+  const out = new Map<string, string>()
+  if (entries.length === 0) return out
+
+  for (const entry of entries) {
+    out.set(`analysis/${analysisSlug(entry)}.md`, buildAnalysisSnapshot(entry))
+  }
+
+  const indexLines: string[] = [
+    '# Analysis history',
+    '',
+    'Every `prjct analysis-save-llm` run lands here as an immutable snapshot.',
+    'Filenames include the analyzedAt timestamp + short commit so new runs never',
+    'overwrite old ones — the trail is append-only.',
+    '',
+    '| When | Status | Commit | Patterns | Anti | Tech-debt | File |',
+    '|---|---|---|---|---|---|---|',
+  ]
+  for (const e of entries) {
+    const commit = e.commitHash ? `\`${e.commitHash.slice(0, 12)}\`` : '—'
+    const link = `[snapshot](${analysisSlug(e)}.md)`
+    indexLines.push(
+      `| ${e.analyzedAt} | ${e.status} | ${commit} | ${e.analysis.patterns?.length ?? 0} | ${e.analysis.antiPatterns?.length ?? 0} | ${e.analysis.techDebt?.length ?? 0} | ${link} |`
+    )
+  }
+  indexLines.push('')
+  out.set('analysis/index.md', `${indexLines.join('\n')}\n`)
+  return out
 }
 
 function buildIndexFile(args: {
@@ -239,8 +442,11 @@ function buildIndexFile(args: {
   tagKeyCounts: Map<string, number>
   patternsCount: number
   antiPatternsCount: number
+  llmAnalysis: LLMAnalysis | null
+  archiveCount: number
 }): string {
-  const { ships, memoryTypeCounts, tagKeyCounts, patternsCount, antiPatternsCount } = args
+  const { ships, memoryTypeCounts, tagKeyCounts, patternsCount, antiPatternsCount, llmAnalysis } =
+    args
   const lines: string[] = [
     '# Project Wiki (generated)',
     '',
@@ -274,11 +480,43 @@ function buildIndexFile(args: {
     lines.push('')
   }
 
-  if (patternsCount > 0 || antiPatternsCount > 0) {
+  if (patternsCount > 0 || antiPatternsCount > 0 || llmAnalysis) {
     lines.push('## Inferred')
-    lines.push(
-      `- [patterns](patterns.md) — ${patternsCount} patterns, ${antiPatternsCount} anti-patterns`
-    )
+    if (patternsCount > 0 || antiPatternsCount > 0) {
+      lines.push(
+        `- [patterns](patterns.md) — ${patternsCount} patterns, ${antiPatternsCount} anti-patterns`
+      )
+    }
+    if (llmAnalysis) {
+      const archHas =
+        llmAnalysis.architecture?.style ||
+        llmAnalysis.architecture?.insights?.length ||
+        llmAnalysis.conventions?.length
+      if (archHas) {
+        lines.push(
+          `- [architecture](architecture.md) — ${llmAnalysis.architecture?.style ?? '—'}, ${llmAnalysis.conventions?.length ?? 0} conventions`
+        )
+      }
+      const debtCount =
+        (llmAnalysis.techDebt?.length ?? 0) +
+        (llmAnalysis.riskAreas?.length ?? 0) +
+        (llmAnalysis.refactorSuggestions?.length ?? 0)
+      if (debtCount > 0) {
+        lines.push(
+          `- [tech-debt](tech-debt.md) — ${llmAnalysis.techDebt?.length ?? 0} debt items, ${llmAnalysis.riskAreas?.length ?? 0} risks, ${llmAnalysis.refactorSuggestions?.length ?? 0} refactors`
+        )
+      }
+      if (llmAnalysis.projectInsights && llmAnalysis.projectInsights.length > 0) {
+        lines.push(
+          `- [insights](insights.md) — ${llmAnalysis.projectInsights.length} project insights`
+        )
+      }
+    }
+    if (args.archiveCount > 0) {
+      lines.push(
+        `- [analysis history](analysis/index.md) — ${args.archiveCount} frozen snapshots (append-only)`
+      )
+    }
     lines.push('')
   }
 
@@ -347,10 +585,11 @@ export async function generateWiki(
   await fs.mkdir(generatedRoot, { recursive: true })
 
   // --- Gather sources ---
-  const [ships, entries, analysis] = await Promise.all([
+  const [ships, entries, analysis, llmAnalysis] = await Promise.all([
     shippedStorage.getAll(projectId),
     Promise.resolve(projectMemory.recall(projectId, { limit: 5000 })),
     analysisStorage.getActive(projectId).catch(() => null),
+    Promise.resolve(llmAnalysisStorage.getActive(projectId)).catch(() => null),
   ])
   const declared = entries.filter((e) => e.type !== 'shipped')
 
@@ -363,10 +602,34 @@ export async function generateWiki(
   for (const [rel, body] of buildMemoryFiles(declared)) files.set(rel, body)
   for (const [rel, body] of buildTagFiles(declared)) files.set(rel, body)
 
-  const patterns = analysis?.patterns ?? []
-  const antiPatterns = analysis?.antiPatterns ?? []
+  // Prefer LLM analysis (richer fields) when available, fallback to heuristic.
+  const patterns = llmAnalysis?.patterns ?? analysis?.patterns ?? []
+  const antiPatterns = llmAnalysis?.antiPatterns ?? analysis?.antiPatterns ?? []
   const patternsBody = buildPatternsFile(patterns, antiPatterns)
   if (patternsBody) files.set('patterns.md', patternsBody)
+
+  // LLM-only sections: architecture, tech debt, risks, refactors, conventions,
+  // project insights. Each lands in its own markdown file so the vault stays
+  // browsable and agents can fetch them individually.
+  if (llmAnalysis) {
+    const archBody = buildArchitectureFile(llmAnalysis)
+    if (archBody) files.set('architecture.md', archBody)
+
+    const debtBody = buildTechDebtFile(llmAnalysis)
+    if (debtBody) files.set('tech-debt.md', debtBody)
+
+    const insightsBody = buildInsightsFile(llmAnalysis)
+    if (insightsBody) files.set('insights.md', insightsBody)
+  }
+
+  // Append-only analysis archive: one file per historical sync. Filenames
+  // encode the analyzedAt timestamp + short commit so each run produces a
+  // new, unique path. The manifest-diff pass never rewrites an existing
+  // snapshot because its body is deterministic in the entry — this is how
+  // the vault preserves trace across overwrites of the top-level
+  // architecture.md / tech-debt.md / insights.md.
+  const archiveEntries = llmAnalysisStorage.getAllFull(projectId)
+  for (const [rel, body] of buildAnalysisArchiveFiles(archiveEntries)) files.set(rel, body)
 
   const memoryTypeCounts = new Map<string, number>()
   for (const e of declared) memoryTypeCounts.set(e.type, (memoryTypeCounts.get(e.type) ?? 0) + 1)
@@ -384,6 +647,8 @@ export async function generateWiki(
       tagKeyCounts,
       patternsCount: patterns.length,
       antiPatternsCount: antiPatterns.length,
+      llmAnalysis,
+      archiveCount: archiveEntries.length,
     })
   )
 
