@@ -28,10 +28,14 @@ import { DAEMON_PATHS, encodeMessage, IDLE_TIMEOUT_MS, MAX_BUFFER_SIZE } from '.
 /** Run WAL checkpoint every N requests to reclaim disk space */
 const WAL_CHECKPOINT_INTERVAL = 50
 
+/** Re-check global install version every N requests (cheap readlink+readFile) */
+const VERSION_DRIFT_CHECK_INTERVAL = 10
+
 let ipcServer: Server | null = null
 let httpServer: ServerInstance | null = null
 let commands: PrjctCommands | null = null
 let state: DaemonState | null = null
+let ownVersion: string | null = null
 
 /**
  * Start the daemon process
@@ -82,6 +86,14 @@ export async function startDaemon(options: {
       // Can't stat — skip stale detection
     }
   }
+
+  // Capture our own package version so we can detect the scenario where a
+  // newer `prjct-cli` was installed globally but this long-lived daemon is
+  // still serving requests from the old build. pnpm's content-addressable
+  // store means `isCodeStale()` won't catch it — the old files stay put at
+  // a different path. We re-probe the global binary on every request
+  // (cheap) and shut ourselves down on mismatch.
+  ownVersion = readOwnPackageVersion()
 
   // Initialize state
   state = {
@@ -246,6 +258,21 @@ async function handleRequest(request: DaemonRequest): Promise<DaemonResponse> {
       console.log('Daemon shutting down for code reload...')
       shutdown(0)
     }, 200)
+  }
+
+  // Global-install drift detection: catches pnpm content-store upgrades
+  // where the old daemon's files are untouched but the user-facing `prjct`
+  // binary now points at a different version. Mtime check above won't
+  // detect that — we need a version comparison.
+  if (
+    ownVersion &&
+    state.commandsServed % VERSION_DRIFT_CHECK_INTERVAL === 0 &&
+    isGlobalVersionDrifted()
+  ) {
+    console.log(
+      `Version drift detected — daemon v${ownVersion} is stale; shutting down so the next request spawns fresh.`
+    )
+    setTimeout(() => shutdown(0), 200)
   }
 
   // Handle daemon meta-commands
@@ -550,4 +577,83 @@ function isCodeStale(): boolean {
   } catch {
     return false
   }
+}
+
+/**
+ * Walk up from __dirname to find this package's own package.json and return
+ * its `version`. Called once at startup; cached in `ownVersion`.
+ */
+function readOwnPackageVersion(): string | null {
+  const path = require('node:path')
+  let dir = __dirname
+  for (let i = 0; i < 6; i++) {
+    const pkgPath = path.join(dir, 'package.json')
+    try {
+      const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'))
+      if (pkg?.name === 'prjct-cli' && typeof pkg.version === 'string') {
+        return pkg.version
+      }
+    } catch {
+      /* not here — keep walking */
+    }
+    const parent = path.dirname(dir)
+    if (parent === dir) break
+    dir = parent
+  }
+  return null
+}
+
+/**
+ * Best-effort detection that a newer `prjct-cli` has been installed globally
+ * while this daemon is still running. Returns `true` only when we can
+ * positively identify a mismatch — on any lookup failure we return `false`
+ * (daemon keeps running; no false positives).
+ *
+ * Handles the common install layouts (pnpm, npm, volta, mise, asdf) by
+ * resolving the shell binary through known symlink paths and walking up to
+ * its `package.json`.
+ */
+function isGlobalVersionDrifted(): boolean {
+  if (!ownVersion) return false
+  const os = require('node:os')
+  const path = require('node:path')
+  const home = os.homedir()
+
+  const candidates = [
+    `${home}/Library/pnpm/prjct`, // pnpm (macOS default)
+    `${home}/.local/share/pnpm/prjct`, // pnpm (Linux)
+    `${home}/.npm-global/bin/prjct`, // npm (custom prefix)
+    '/usr/local/bin/prjct', // npm (default prefix)
+    '/opt/homebrew/bin/prjct', // homebrew symlink
+    `${home}/.volta/bin/prjct`, // volta
+    `${home}/.asdf/shims/prjct`, // asdf
+  ]
+
+  for (const symlink of candidates) {
+    let realPath: string
+    try {
+      realPath = fs.realpathSync(symlink)
+    } catch {
+      continue // not installed here
+    }
+
+    // Walk up from the resolved binary to find its package.json
+    let dir = path.dirname(realPath)
+    for (let i = 0; i < 6; i++) {
+      const pkgPath = path.join(dir, 'package.json')
+      try {
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'))
+        if (pkg?.name === 'prjct-cli' && typeof pkg.version === 'string') {
+          return pkg.version !== ownVersion
+        }
+      } catch {
+        /* keep walking */
+      }
+      const parent = path.dirname(dir)
+      if (parent === dir) break
+      dir = parent
+    }
+  }
+
+  return false // couldn't resolve any install — can't tell, assume OK
 }

@@ -723,6 +723,40 @@ const migrations: Migration[] = [
       }
     },
   },
+  {
+    version: 15,
+    name: 'disable-orphan-workflow-rules',
+    up: (db: SqliteDatabase) => {
+      // v1.x users could attach hooks to any command verb. v2 narrowed
+      // HookCommand to ['task', 'done', 'ship', 'sync'] but the rows
+      // keyed on the other verbs live on in this table — the engine
+      // never fires them, yet `prjct workflow list` still surfaces them.
+      //
+      // Disable them (enabled=0) rather than delete: the user can still
+      // see them with `--include-disabled`, rename to a v2 equivalent,
+      // and re-enable. Idempotent.
+      //
+      // NOTE: Intentionally omits `done`, `ship`, `task`, `sync` — those
+      // are still valid HookCommand values (see core/types/workflow.ts).
+      // Only hook phases that have no v2 equivalent are disabled here.
+      const orphanHookCommands = [
+        'pause',
+        'resume',
+        'reopen',
+        'next',
+        'dash',
+        'bug',
+        'idea',
+        'linear',
+        'jira',
+        'tokens',
+        'velocity',
+        'plan',
+      ]
+      const list = orphanHookCommands.map((v) => `'${v}'`).join(',')
+      db.run(`UPDATE workflow_rules SET enabled = 0 WHERE command IN (${list}) AND enabled = 1`)
+    },
+  },
 ]
 
 // =============================================================================

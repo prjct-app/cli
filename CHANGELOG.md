@@ -1,5 +1,48 @@
 # Changelog
 
+## [2.1.2] - 2026-04-22
+
+Upgrade-safety pass for clients coming from 1.x or 2.1.0. The 2.1.1
+release fixed the CLI surface but left two upgrade hazards that clients
+could hit in the wild.
+
+### Fixed
+- **Zombie daemon after global upgrade.** pnpm's content-addressable
+  store leaves the previous-version files untouched on disk when a new
+  version is installed globally, so the long-lived daemon kept serving
+  requests from the old build. The thin shim's mtime-based stale check
+  never fired. Daemon now reads its own `package.json` at startup,
+  periodically probes the globally-installed `prjct` binary
+  (pnpm/npm/volta/asdf paths covered), and shuts itself down on
+  version mismatch — the next request spawns a fresh daemon.
+  (`core/daemon/daemon.ts`)
+- **Orphan `workflow_rules` after v1 → v2.** v1 users could attach hooks
+  to command verbs that v2 narrowed `HookCommand` to `[task, done,
+  ship, sync]`. Rules keyed on `pause/resume/reopen/next/dash/bug/idea/
+  linear/jira/tokens/velocity/plan` survived the upgrade as dead rows
+  that `prjct workflow list` still surfaced. SQLite migration v15
+  disables them idempotently (enabled=0, not deleted — visible with
+  `--include-disabled` for rename/re-enable). Only the orphans —
+  `done/ship/task/sync` hooks are preserved.
+  (`core/storage/database.ts`, migration v15)
+
+### Added
+- Upgrade-path test coverage in
+  `core/__tests__/storage/upgrade-v1-to-v2.test.ts`: seeds a v1-shaped
+  DB, asserts orphan rules are disabled, valid hooks survive, and the
+  legacy task-status values (`in_progress`/`done`/etc.) still coerce
+  correctly through the state machine.
+
+### Migration notes
+
+- Upgrading from 1.x: no action required. On first `prjct <cmd>` after
+  install, any stale daemon detects the version drift and exits; the
+  next invocation starts a clean daemon and runs migration v15 the
+  first time each project's DB is touched.
+- Orphan rules show as `disabled` in `prjct workflow list
+  --include-disabled`. Rename their `command` to a v2 `HookCommand`
+  value (`task`/`done`/`ship`/`sync`) and re-enable if still relevant.
+
 ## [2.1.1] - 2026-04-22
 
 Closes the v2 migration gap shipped (incompletely) in `2.1.0` and
