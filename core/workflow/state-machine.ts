@@ -121,11 +121,11 @@ export class WorkflowStateMachine {
     }
 
     // Build helpful error message
-    const validCommands = stateConfig.transitions.map((c) => `p. ${c}`).join(', ')
+    const validCommands = stateConfig.transitions.map((c) => `prjct ${c}`).join(', ')
 
     return {
       valid: false,
-      error: `Cannot run 'p. ${command}' in ${currentState} state`,
+      error: `Cannot run 'prjct ${command}' in ${currentState} state`,
       suggestion: `Valid commands: ${validCommands}`,
     }
   }
