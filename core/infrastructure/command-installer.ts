@@ -43,6 +43,12 @@ Data:
 - Path resolution: \`.prjct/prjct.config.json\` → \`~/.prjct-cli/projects/{projectId}\`
 - Storage: \`prjct\` CLI (SQLite internally)
 
+Memory (project RAG):
+- Save with \`prjct remember <type> "<content>"\` or \`prjct capture "<text>"\` — these write to SQLite and hooks regenerate the Obsidian vault.
+- Recall via the SessionStart / UserPromptSubmit hook context that prjct injects, or \`prjct context memory [topic]\`.
+- Do **not** write to \`~/.claude/projects/<slug>/memory/\` — that is Claude Code auto-memory, disjoint from this project's RAG and invisible to other tools (Cursor, Gemini, web dashboard). In a prjct project, project memory is prjct.
+- The vault at \`~/Documents/prjct/<slug>/_generated/\` is a read-only snapshot regenerated from DB. Do not hand-edit it — fix the pipeline instead.
+
 **Auto-managed by prjct-cli** | https://prjct.app
 <!-- prjct:end - DO NOT REMOVE THIS MARKER -->
 `

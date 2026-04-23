@@ -281,6 +281,23 @@ async function installGlobalConfig(provider: AIProviderName): Promise<boolean> {
     return false
   }
 
+  // Claude has no filesystem template — its managed block lives inline in
+  // `command-installer.ts` (GLOBAL_CLAUDE_MD_CONTENT). Delegate to that
+  // single source of truth instead of silently skipping when the template
+  // isn't on disk.
+  if (provider === 'claude') {
+    try {
+      const { installGlobalConfig: installer } = await import('../infrastructure/command-installer')
+      const result = await installer()
+      return result.success
+    } catch (error) {
+      console.error(
+        `  ${chalk.yellow('⚠')} Failed to install claude config: ${getErrorMessage(error)}`
+      )
+      return false
+    }
+  }
+
   try {
     // Ensure config directory exists
     await fs.mkdir(config.configDir, { recursive: true })
@@ -289,8 +306,8 @@ async function installGlobalConfig(provider: AIProviderName): Promise<boolean> {
     const { getPackageRoot } = await import('../utils/version')
     const packageRoot = getPackageRoot()
 
-    // Copy global config
-    const configFile = provider === 'claude' ? 'CLAUDE.md' : 'GEMINI.md'
+    // Copy global config (non-Claude providers — Claude is handled above)
+    const configFile = 'GEMINI.md'
     const src = path.join(packageRoot, 'templates', 'global', configFile)
     const dest = path.join(config.configDir, configFile)
 

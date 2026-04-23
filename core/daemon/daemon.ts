@@ -364,6 +364,14 @@ async function executeCommand(
       return commands!.workflowPrefs(param, request.cwd, { md })
     case 'analyze':
       return commands!.analyze(opts, request.cwd)
+    case 'analysis-save-llm':
+      if (!param) {
+        return {
+          success: false,
+          error: 'analysis-save-llm requires a JSON payload as positional arg',
+        }
+      }
+      return commands!.saveLlmAnalysis(param, request.cwd, { md })
     case 'status':
       return commands!.status(param, request.cwd, { md })
     case 'tag':
