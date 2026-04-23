@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.3] - 2026-04-23
+
+### Refactoring
+
+- workflow-first dispatcher + ambiguity gate (#253)
+
+
 ## [2.2.2] - 2026-04-22
 
 ### Bug Fixes
