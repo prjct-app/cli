@@ -283,6 +283,18 @@ export class PlanningCommands extends PrjctCommandsBase {
     const detected = await detectProjectCommands(projectPath)
     let sortOrder = 0
 
+    // Workflow-first core: version bump, changelog, git commit/push live
+    // as rules seeded here. Non-code projects get none and ship reduces
+    // to a shipped_features write + clarification for ambiguous runs.
+    const { seedCodeShipRules } = await import('./shipping')
+    await seedCodeShipRules(projectId, projectPath)
+    // seedCodeShipRules picks its own sortOrder starting after existing
+    // rules. Re-align our local counter so gate/lint/test land after.
+    sortOrder =
+      workflowRuleStorage
+        .getRulesForCommand(projectId, 'ship')
+        .reduce((m, r) => Math.max(m, r.sortOrder ?? 0), 0) + 1
+
     // Gate: Prevent shipping from main/master
     workflowRuleStorage.addRule(projectId, {
       type: 'gate',

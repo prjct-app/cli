@@ -103,7 +103,11 @@ class PrjctCommands {
   async ship(
     feature: string | null,
     projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
+    options: {
+      md?: boolean
+      skipHooks?: boolean
+      intent?: 'register-only' | 'seed-code-workflow' | 'proceed'
+    } = {}
   ): Promise<CommandResult> {
     return this.shipping.ship(feature, projectPath, { ...options })
   }
