@@ -12,7 +12,7 @@ import { stateStorage } from '../storage/state-storage'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import * as dateHelper from '../utils/date-helper'
-import { execAsync, execFileAsync } from '../utils/exec'
+import { execFileAsync } from '../utils/exec'
 import { mdDone, mdList, mdNextSteps, mdOutput, mdSection } from '../utils/md-formatter'
 import { getNextSteps, showNextSteps } from '../utils/next-steps'
 import out from '../utils/output'
@@ -169,38 +169,36 @@ export class ShippingCommands extends PrjctCommandsBase {
    */
   async _createShipCommit(
     feature: string,
-    _projectPath: string
+    projectPath: string
   ): Promise<{ success: boolean; message: string }> {
     try {
-      await execAsync('git add .')
+      await execFileAsync('git', ['add', '.'], { cwd: projectPath })
 
       const commitMsg = `feat: ${feature}\n\nGenerated with [p/](https://www.prjct.app/)`
 
-      await execFileAsync('git', ['commit', '-m', commitMsg])
+      await execFileAsync('git', ['commit', '-m', commitMsg], { cwd: projectPath })
 
       return { success: true, message: 'Committed' }
     } catch (error) {
-      // Git commit failed - likely no changes or not a repo
       if (isNotFoundError(error)) {
         return { success: false, message: 'Git not found' }
       }
-      return { success: false, message: 'No changes to commit' }
+      return { success: false, message: `Commit failed: ${getErrorMessage(error)}` }
     }
   }
 
   /**
    * Push to remote
    */
-  async _gitPush(_projectPath: string): Promise<{ success: boolean; message: string }> {
+  async _gitPush(projectPath: string): Promise<{ success: boolean; message: string }> {
     try {
-      await execAsync('git push')
+      await execFileAsync('git', ['push'], { cwd: projectPath })
       return { success: true, message: 'Pushed to remote' }
     } catch (error) {
-      // Git push failed - no remote, auth issue, or git not found
       if (isNotFoundError(error)) {
         return { success: false, message: 'Git not found' }
       }
-      return { success: false, message: 'Push failed (no remote or auth issue)' }
+      return { success: false, message: `Push failed: ${getErrorMessage(error)}` }
     }
   }
 }
