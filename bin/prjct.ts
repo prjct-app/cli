@@ -415,7 +415,7 @@ async function main(): Promise<void> {
     const { InstallCommands } = await import('../core/commands/install')
     const cmd = new InstallCommands()
     const mdMode = args.includes('--md')
-    let result
+    let result: Awaited<ReturnType<typeof cmd.install>> | undefined
     if (subcommand === 'install') result = await cmd.install(null, process.cwd(), { md: mdMode })
     else if (subcommand === 'uninstall')
       result = await cmd.uninstall(null, process.cwd(), { md: mdMode })
@@ -640,6 +640,14 @@ ${chalk.cyan.bold('  Welcome to prjct!')}
 }
 
 main().catch((error) => {
+  // Hook contract: `prjct hook <name>` must never disturb the host
+  // session. If anything above the dispatcher throws (import failure,
+  // unhandled rejection, corrupted config), emit the empty-JSON no-op
+  // instead of the fatal banner Claude Code would surface to the user.
+  if (process.argv[2] === 'hook') {
+    process.stdout.write('{}\n')
+    process.exit(0)
+  }
   console.error('Fatal error:', (error as Error).message)
   process.exit(1)
 })

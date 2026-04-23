@@ -38,7 +38,9 @@ import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import { formatMemoryMd, type MemoryEntry, projectMemory } from '../memory/project-memory'
 import { analysisStorage } from '../storage/analysis-storage'
+import llmAnalysisStorage from '../storage/llm-analysis-storage'
 import shippedStorage from '../storage/shipped-storage'
+import type { LLMAnalysis } from '../types/llm-analysis'
 import type { ShippedFeature } from '../types/storage'
 import { ensureObsidianVault } from './obsidian-vault'
 import { ensureCapturedReadme } from './wiki-ingest'
@@ -207,8 +209,21 @@ function buildTagFiles(entries: MemoryEntry[]): Map<string, string> {
 }
 
 function buildPatternsFile(
-  patterns: { name: string; description: string; locations?: string[] }[],
-  antiPatterns: { issue: string; suggestion: string; files?: string[] }[]
+  patterns: {
+    name: string
+    description: string
+    locations?: string[]
+    category?: string
+    confidence?: number
+  }[],
+  antiPatterns: {
+    issue: string
+    suggestion: string
+    files?: string[]
+    reasoning?: string
+    severity?: string
+    confidence?: number
+  }[]
 ): string | null {
   if (patterns.length === 0 && antiPatterns.length === 0) return null
   const lines: string[] = ['# Patterns (inferred)', '']
@@ -217,7 +232,8 @@ function buildPatternsFile(
     for (const p of patterns) {
       const loc =
         p.locations && p.locations.length > 0 ? ` — ${p.locations.slice(0, 3).join(', ')}` : ''
-      lines.push(`- **${p.name}**: ${p.description}${loc}`)
+      const cat = p.category ? ` _[${p.category}]_` : ''
+      lines.push(`- **${p.name}**${cat}: ${p.description}${loc}`)
     }
     lines.push('')
   }
@@ -225,12 +241,604 @@ function buildPatternsFile(
     lines.push('## Anti-patterns')
     for (const a of antiPatterns) {
       const file = a.files && a.files.length > 0 ? ` (${a.files[0]})` : ''
-      lines.push(`- **${a.issue}**${file} — ${a.suggestion}`)
+      const sev = a.severity ? ` _[${a.severity}]_` : ''
+      lines.push(`- **${a.issue}**${sev}${file} — ${a.suggestion}`)
+      if (a.reasoning) lines.push(`  - Why: ${a.reasoning}`)
     }
     lines.push('')
   }
   lines.push('> Source: `prjct sync` analysis. Provenance: INFR.')
   return `${lines.join('\n')}\n`
+}
+
+function buildArchitectureFile(a: LLMAnalysis): string | null {
+  const { architecture, conventions } = a
+  const hasArch =
+    architecture &&
+    (architecture.style || architecture.insights?.length || architecture.domains?.length)
+  if (!hasArch && (!conventions || conventions.length === 0)) return null
+
+  const lines: string[] = ['# Architecture', '']
+  if (architecture?.style) {
+    lines.push(`**Style**: ${architecture.style}`, '')
+  }
+  if (architecture?.domains && architecture.domains.length > 0) {
+    lines.push('## Domains')
+    for (const d of architecture.domains) lines.push(`- ${d}`)
+    lines.push('')
+  }
+  if (architecture?.insights && architecture.insights.length > 0) {
+    lines.push('## Insights')
+    for (const i of architecture.insights) lines.push(`- ${i}`)
+    lines.push('')
+  }
+  if (conventions && conventions.length > 0) {
+    lines.push('## Conventions')
+    for (const c of conventions) {
+      const ex = c.example ? ` — \`${c.example}\`` : ''
+      lines.push(`- **${c.category}**: ${c.rule}${ex}`)
+    }
+    lines.push('')
+  }
+  lines.push('> Source: `prjct sync` LLM analysis.')
+  return `${lines.join('\n')}\n`
+}
+
+function buildTechDebtFile(a: LLMAnalysis): string | null {
+  const { techDebt, riskAreas, refactorSuggestions } = a
+  const total =
+    (techDebt?.length ?? 0) + (riskAreas?.length ?? 0) + (refactorSuggestions?.length ?? 0)
+  if (total === 0) return null
+
+  const lines: string[] = ['# Tech debt, risks & refactors', '']
+  if (techDebt && techDebt.length > 0) {
+    lines.push('## Tech debt')
+    for (const t of techDebt) {
+      lines.push(
+        `- **${t.description}** _[${t.priority}, ${t.effort}]_ — ${t.area}. Impact: ${t.impact}`
+      )
+    }
+    lines.push('')
+  }
+  if (riskAreas && riskAreas.length > 0) {
+    lines.push('## Risk areas')
+    for (const r of riskAreas) {
+      lines.push(`- **${r.path}** _[${r.severity}]_ — ${r.reason}. Risk: ${r.risk}`)
+    }
+    lines.push('')
+  }
+  if (refactorSuggestions && refactorSuggestions.length > 0) {
+    lines.push('## Refactor suggestions')
+    for (const r of refactorSuggestions) {
+      const files = r.files && r.files.length > 0 ? ` (${r.files.slice(0, 3).join(', ')})` : ''
+      lines.push(`- **${r.description}** _[${r.effort}]_${files} — ${r.benefit}`)
+    }
+    lines.push('')
+  }
+  lines.push('> Source: `prjct sync` LLM analysis.')
+  return `${lines.join('\n')}\n`
+}
+
+function buildInsightsFile(a: LLMAnalysis): string | null {
+  if (!a.projectInsights || a.projectInsights.length === 0) return null
+  const lines: string[] = ['# Project insights', '']
+  for (const i of a.projectInsights) lines.push(`- ${i}`)
+  lines.push('', '> Source: `prjct sync` LLM analysis.')
+  return `${lines.join('\n')}\n`
+}
+
+// =============================================================================
+// Releases folder — one file per CHANGELOG version
+// =============================================================================
+//
+// Most projects have way more history in their CHANGELOG than in the
+// young prjct SQLite tables. Parse `CHANGELOG.md` and emit one file
+// per `## [version] - date` block so every release shows up in the
+// vault as a discrete, addressable note.
+
+type ReleaseEntry = {
+  version: string
+  date: string
+  body: string
+}
+
+function parseChangelog(raw: string): ReleaseEntry[] {
+  const out: ReleaseEntry[] = []
+  const headerRe = /^## \[([^\]]+)\]\s*-\s*(\d{4}-\d{2}-\d{2})\s*$/
+  const lines = raw.split('\n')
+
+  let currentHeader: { version: string; date: string } | null = null
+  let currentBody: string[] = []
+
+  const flush = () => {
+    if (!currentHeader) return
+    out.push({
+      version: currentHeader.version,
+      date: currentHeader.date,
+      body: currentBody.join('\n').trim(),
+    })
+    currentBody = []
+  }
+
+  for (const line of lines) {
+    const match = line.match(headerRe)
+    if (match) {
+      flush()
+      currentHeader = { version: match[1], date: match[2] }
+      continue
+    }
+    if (currentHeader) currentBody.push(line)
+  }
+  flush()
+  return out
+}
+
+function releaseSlug(version: string): string {
+  // Versions like `2.0.0-alpha.12` → `v2.0.0-alpha.12`. Obsidian-safe.
+  const cleaned = version.replace(/[^a-zA-Z0-9._-]+/g, '-')
+  return `v${cleaned}`
+}
+
+function buildReleaseFile(
+  entry: ReleaseEntry,
+  prev: { entry: ReleaseEntry; slug: string } | null,
+  next: { entry: ReleaseEntry; slug: string } | null
+): string {
+  const lines: string[] = []
+  lines.push('---')
+  lines.push(`type: release`)
+  lines.push(`version: ${entry.version}`)
+  lines.push(`date: ${entry.date}`)
+  lines.push('tags: [release]')
+  lines.push('---')
+  lines.push('')
+  lines.push(`# v${entry.version} — ${entry.date}`)
+  lines.push('')
+
+  // Nav at the top for quick hop-scrolling through release history.
+  const navParts: string[] = []
+  if (prev) navParts.push(`← [v${prev.entry.version}](${prev.slug}.md)`)
+  navParts.push(`[releases index](index.md)`)
+  if (next) navParts.push(`[v${next.entry.version}](${next.slug}.md) →`)
+  lines.push(navParts.join(' · '))
+  lines.push('')
+
+  if (entry.body) {
+    lines.push(entry.body)
+    lines.push('')
+  } else {
+    lines.push('_No changelog body._')
+    lines.push('')
+  }
+
+  lines.push('---')
+  lines.push('')
+  lines.push(`[project wiki](../index.md) · [releases index](index.md)`)
+  lines.push('')
+  return `${lines.join('\n')}\n`
+}
+
+function buildReleasesIndex(entries: Array<{ entry: ReleaseEntry; slug: string }>): string {
+  const lines: string[] = ['# Releases', '']
+  lines.push(
+    `${entries.length} version entr${entries.length === 1 ? 'y' : 'ies'} parsed from \`CHANGELOG.md\`. Newest first.`
+  )
+  lines.push('')
+  lines.push('See also: [project wiki](../index.md)')
+  lines.push('')
+  lines.push('| Date | Version | Link |')
+  lines.push('|---|---|---|')
+  for (const { entry, slug } of entries) {
+    lines.push(`| ${entry.date} | ${entry.version} | [v${entry.version}](${slug}.md) |`)
+  }
+  lines.push('')
+  return `${lines.join('\n')}\n`
+}
+
+async function buildReleasesFiles(projectPath: string): Promise<Map<string, string>> {
+  const out = new Map<string, string>()
+  const changelogPath = path.join(projectPath, 'CHANGELOG.md')
+  let raw: string
+  try {
+    raw = await fs.readFile(changelogPath, 'utf-8')
+  } catch {
+    // No CHANGELOG — not every project has one; skip silently.
+    return out
+  }
+  const entries = parseChangelog(raw)
+  if (entries.length === 0) return out
+
+  // Some CHANGELOGs repeat a version header (re-releases, authoring
+  // mistakes). Disambiguate with a `-Nb` suffix on the slug so every
+  // parsed entry survives — we'd rather show "v1.45.6-2b.md" than drop
+  // half the history on the floor.
+  const slugSeen = new Map<string, number>()
+  const decoratedEntries: Array<{ entry: ReleaseEntry; slug: string }> = []
+  for (const entry of entries) {
+    const base = releaseSlug(entry.version)
+    const count = slugSeen.get(base) ?? 0
+    slugSeen.set(base, count + 1)
+    const slug = count === 0 ? base : `${base}-${count + 1}b`
+    decoratedEntries.push({ entry, slug })
+  }
+
+  // Two-pass so each release can carry prev/next nav pointing at the
+  // decorated slugs. `entries` is newest-first → `prev` in nav means
+  // "previous in reading order" (older).
+  for (let i = 0; i < decoratedEntries.length; i++) {
+    const curr = decoratedEntries[i]
+    const newer = i > 0 ? decoratedEntries[i - 1] : null
+    const older = i + 1 < decoratedEntries.length ? decoratedEntries[i + 1] : null
+    out.set(`releases/${curr.slug}.md`, buildReleaseFile(curr.entry, older, newer))
+  }
+  out.set('releases/index.md', buildReleasesIndex(decoratedEntries))
+  return out
+}
+
+// =============================================================================
+// Analysis folder — one file per concept, deduped across history
+// =============================================================================
+//
+// The vault is a RAG for both an LLM and a human, so we organize by
+// *what the thing is*, not by *when it was captured*. Each pattern,
+// anti-pattern, tech-debt item, risk area, refactor, and project insight
+// lives in its own markdown file named after the concept itself. Files
+// are deduped across all historical analyses (same concept → same file,
+// updated with first-seen / last-seen metadata). The only time-ordered
+// artifact is `analysis/history.md`, and it only records *changes* —
+// not a full dump per save.
+
+type ArchiveEntry = {
+  id: number
+  status: string
+  commitHash: string | null
+  analyzedAt: string
+  supersededAt: string | null
+  analysis: LLMAnalysis
+}
+
+type ConceptKind = 'pattern' | 'anti-pattern' | 'tech-debt' | 'risk-area' | 'refactor' | 'insight'
+
+const CONCEPT_FOLDERS: Record<ConceptKind, string> = {
+  pattern: 'patterns',
+  'anti-pattern': 'anti-patterns',
+  'tech-debt': 'tech-debt',
+  'risk-area': 'risk-areas',
+  refactor: 'refactors',
+  insight: 'insights',
+}
+
+function analysisDateOnly(entry: ArchiveEntry): string {
+  const m = (entry.analyzedAt || '').match(/^(\d{4}-\d{2}-\d{2})/)
+  return m ? m[1] : 'undated'
+}
+
+/**
+ * Build a fat aggregate keyed by (kind, name) across every historical
+ * analysis. For each concept we track the latest body, the list of
+ * analyses that mentioned it, and first/last-seen dates.
+ */
+type ConceptRecord = {
+  kind: ConceptKind
+  name: string
+  slug: string
+  latestBody: Record<string, unknown>
+  firstSeen: string
+  lastSeen: string
+  seenIn: Array<{ analysisId: number; date: string; commit: string | null }>
+  stillActive: boolean
+}
+
+function conceptKey(kind: ConceptKind, name: string): string {
+  return `${kind}::${name.trim().toLowerCase()}`
+}
+
+function collectConcepts(entries: ArchiveEntry[]): Map<string, ConceptRecord> {
+  const out = new Map<string, ConceptRecord>()
+
+  // Walk oldest → newest so lastSeen / latestBody end up on the newest
+  // occurrence. `entries` arrives newest-first from the DB.
+  const ordered = [...entries].reverse()
+
+  const touch = (
+    kind: ConceptKind,
+    name: string,
+    body: Record<string, unknown>,
+    entry: ArchiveEntry
+  ): void => {
+    if (!name || !name.trim()) return
+    const key = conceptKey(kind, name)
+    const date = analysisDateOnly(entry)
+    const existing = out.get(key)
+    if (existing) {
+      existing.lastSeen = date
+      existing.latestBody = body
+      existing.seenIn.push({ analysisId: entry.id, date, commit: entry.commitHash })
+      if (entry.status === 'active') existing.stillActive = true
+      return
+    }
+    out.set(key, {
+      kind,
+      name: name.trim(),
+      slug: slugify(name).slice(0, 60) || 'unnamed',
+      latestBody: body,
+      firstSeen: date,
+      lastSeen: date,
+      seenIn: [{ analysisId: entry.id, date, commit: entry.commitHash }],
+      stillActive: entry.status === 'active',
+    })
+  }
+
+  for (const entry of ordered) {
+    const a = entry.analysis
+    for (const p of a.patterns ?? [])
+      touch('pattern', p.name, p as unknown as Record<string, unknown>, entry)
+    for (const p of a.antiPatterns ?? [])
+      touch('anti-pattern', p.issue, p as unknown as Record<string, unknown>, entry)
+    for (const t of a.techDebt ?? [])
+      touch('tech-debt', t.description, t as unknown as Record<string, unknown>, entry)
+    for (const r of a.riskAreas ?? [])
+      touch('risk-area', r.path, r as unknown as Record<string, unknown>, entry)
+    for (const r of a.refactorSuggestions ?? [])
+      touch('refactor', r.description, r as unknown as Record<string, unknown>, entry)
+    for (const i of a.projectInsights ?? []) touch('insight', i, { description: i }, entry)
+  }
+
+  // Disambiguate slug collisions across different concept names that
+  // slugify to the same string. Within a concept kind only.
+  const seenSlugs = new Map<string, Set<string>>()
+  for (const rec of out.values()) {
+    const folder = CONCEPT_FOLDERS[rec.kind]
+    let set = seenSlugs.get(folder)
+    if (!set) {
+      set = new Set()
+      seenSlugs.set(folder, set)
+    }
+    let candidate = rec.slug
+    let n = 2
+    while (set.has(candidate)) {
+      candidate = `${rec.slug}-${n}`
+      n += 1
+    }
+    rec.slug = candidate
+    set.add(candidate)
+  }
+
+  return out
+}
+
+function buildConceptFile(rec: ConceptRecord): string {
+  const lines: string[] = []
+  const body = rec.latestBody
+  const seenDates = [...new Set(rec.seenIn.map((s) => s.date))]
+
+  lines.push('---')
+  lines.push(`type: ${rec.kind}`)
+  lines.push(`name: ${JSON.stringify(rec.name)}`)
+  lines.push(`firstSeen: ${rec.firstSeen}`)
+  lines.push(`lastSeen: ${rec.lastSeen}`)
+  lines.push(`seenIn: ${rec.seenIn.length}`)
+  lines.push(`stillActive: ${rec.stillActive}`)
+  lines.push(`tags: [${rec.kind}]`)
+  lines.push('---')
+  lines.push('')
+  lines.push(`# ${rec.name}`)
+  lines.push('')
+
+  const desc = (body.description as string) || (body.reason as string) || (body.issue as string)
+  if (desc && desc !== rec.name) {
+    lines.push(desc)
+    lines.push('')
+  }
+
+  // Per-kind salient fields. Keep terse — full history lives at the bottom.
+  const detail: string[] = []
+  if (body.severity) detail.push(`**Severity**: ${body.severity}`)
+  if (body.priority) detail.push(`**Priority**: ${body.priority}`)
+  if (body.effort) detail.push(`**Effort**: ${body.effort}`)
+  if (body.impact) detail.push(`**Impact**: ${body.impact}`)
+  if (body.benefit) detail.push(`**Benefit**: ${body.benefit}`)
+  if (body.confidence !== undefined) detail.push(`**Confidence**: ${body.confidence}`)
+  if (body.category) detail.push(`**Category**: ${body.category}`)
+  if (body.area) detail.push(`**Area**: ${body.area}`)
+  if (body.risk) detail.push(`**Risk**: ${body.risk}`)
+  if (body.suggestion) detail.push(`**Suggestion**: ${body.suggestion}`)
+  if (body.reasoning && body.reasoning !== desc) detail.push(`**Reasoning**: ${body.reasoning}`)
+  if (detail.length > 0) {
+    lines.push(...detail.map((d) => `- ${d}`))
+    lines.push('')
+  }
+
+  const files = (body.files as string[]) || []
+  const locations = (body.locations as string[]) || []
+  const paths = [...new Set([...files, ...locations])]
+  if (paths.length > 0) {
+    lines.push('## Where')
+    for (const p of paths) lines.push(`- \`${p}\``)
+    lines.push('')
+  }
+
+  lines.push('## Seen in')
+  lines.push(
+    `First: ${rec.firstSeen} · Last: ${rec.lastSeen} · ${rec.seenIn.length} analysis run${rec.seenIn.length === 1 ? '' : 's'} (${seenDates.length} distinct date${seenDates.length === 1 ? '' : 's'})`
+  )
+  lines.push('')
+
+  // Back-links. Without these the file is a leaf — it shows as an
+  // orphan in Obsidian's graph view even though it's linked FROM the
+  // index. Relative markdown paths (`../index.md`) resolve deterministically
+  // regardless of the vault's Obsidian link-resolution mode.
+  lines.push('---')
+  lines.push('')
+  lines.push(`See also: [analysis index](../index.md) · [change log](../history.md)`)
+  lines.push('')
+
+  return `${lines.join('\n')}\n`
+}
+
+/**
+ * Evolution log — one bullet per *change* across consecutive analyses.
+ * When two adjacent analyses are identical by count + concept set we
+ * collapse them so the log isn't a firehose of no-op saves.
+ *
+ * Concept names in each bullet are linked to their own concept file
+ * under the sibling folders (patterns/, anti-patterns/, etc.) so the
+ * history is a navigation hub, not a text dump.
+ */
+function buildHistoryFile(entries: ArchiveEntry[], concepts: Map<string, ConceptRecord>): string {
+  const lines: string[] = ['# Analysis evolution', '']
+  lines.push(
+    'One entry per analysis save where *something changed* (architecture, patterns, anti-patterns, tech debt, risks, refactors, or insights). Repeated saves with identical contents are collapsed.'
+  )
+  lines.push('')
+  lines.push('See also: [analysis index](index.md) · [project wiki](../index.md)')
+  lines.push('')
+
+  if (entries.length === 0) {
+    lines.push('> No analyses saved yet. Run `prjct sync` to generate one.')
+    return `${lines.join('\n')}\n`
+  }
+
+  // Resolve a concept name to its file path (relative to history.md).
+  const linkFor = (kind: ConceptKind, name: string): string => {
+    const rec = concepts.get(conceptKey(kind, name))
+    const display = name.length > 80 ? `${name.slice(0, 77)}…` : name
+    if (!rec) return `"${display}"`
+    const folder = CONCEPT_FOLDERS[rec.kind]
+    return `[${display}](${folder}/${rec.slug}.md)`
+  }
+
+  const rowFor = (e: ArchiveEntry) => {
+    const a = e.analysis
+    return {
+      arch: a.architecture?.style ?? '—',
+      patterns: new Set((a.patterns ?? []).map((p) => p.name)),
+      anti: new Set((a.antiPatterns ?? []).map((p) => p.issue)),
+      debt: new Set((a.techDebt ?? []).map((t) => t.description)),
+      risks: new Set((a.riskAreas ?? []).map((r) => r.path)),
+      refactors: new Set((a.refactorSuggestions ?? []).map((r) => r.description)),
+      insights: new Set(a.projectInsights ?? []),
+    }
+  }
+
+  const diffNames = (
+    prev: Set<string>,
+    curr: Set<string>
+  ): { added: string[]; removed: string[] } => {
+    const added: string[] = []
+    const removed: string[] = []
+    for (const n of curr) if (!prev.has(n)) added.push(n)
+    for (const n of prev) if (!curr.has(n)) removed.push(n)
+    return { added, removed }
+  }
+
+  // Walk oldest → newest.
+  const ordered = [...entries].reverse()
+  let prev: ReturnType<typeof rowFor> | null = null
+  const rows: string[] = []
+
+  for (const e of ordered) {
+    const curr = rowFor(e)
+    if (prev === null) {
+      rows.push(
+        `- **${analysisDateOnly(e)}** — baseline captured (arch: ${curr.arch}, ${curr.patterns.size} patterns, ${curr.anti.size} anti, ${curr.debt.size} debt, ${curr.risks.size} risks, ${curr.refactors.size} refactors, ${curr.insights.size} insights).`
+      )
+      prev = curr
+      continue
+    }
+
+    const parts: string[] = []
+    if (prev.arch !== curr.arch) parts.push(`arch ${prev.arch} → ${curr.arch}`)
+    const fieldMap: Array<[string, keyof ReturnType<typeof rowFor>, ConceptKind]> = [
+      ['pattern', 'patterns', 'pattern'],
+      ['anti-pattern', 'anti', 'anti-pattern'],
+      ['tech-debt', 'debt', 'tech-debt'],
+      ['risk', 'risks', 'risk-area'],
+      ['refactor', 'refactors', 'refactor'],
+      ['insight', 'insights', 'insight'],
+    ]
+    for (const [label, field, kind] of fieldMap) {
+      const d = diffNames(prev[field] as Set<string>, curr[field] as Set<string>)
+      for (const n of d.added) parts.push(`+${label} ${linkFor(kind, n)}`)
+      for (const n of d.removed) parts.push(`−${label} ${linkFor(kind, n)}`)
+    }
+    if (parts.length === 0) continue // collapse no-op saves
+
+    rows.push(`- **${analysisDateOnly(e)}** — ${parts.join('; ')}.`)
+    prev = curr
+  }
+
+  if (rows.length === 0) {
+    lines.push('> No changes recorded yet.')
+  } else {
+    // Newest-first in the rendered output.
+    lines.push(...rows.reverse())
+  }
+  lines.push('')
+  return `${lines.join('\n')}\n`
+}
+
+function buildAnalysisIndex(concepts: Map<string, ConceptRecord>): string {
+  const byKind = new Map<ConceptKind, ConceptRecord[]>()
+  for (const rec of concepts.values()) {
+    const bucket = byKind.get(rec.kind) ?? []
+    bucket.push(rec)
+    byKind.set(rec.kind, bucket)
+  }
+
+  const lines: string[] = ['# Analysis', '']
+  lines.push(
+    'One file per concept from `prjct sync`. Files are deduped across history — the same pattern or risk always lands at the same path, updated with first/last-seen dates.'
+  )
+  lines.push('')
+  lines.push('See also: [change log](history.md) · [project wiki](../index.md)')
+  lines.push('')
+
+  const kindOrder: ConceptKind[] = [
+    'pattern',
+    'anti-pattern',
+    'tech-debt',
+    'risk-area',
+    'refactor',
+    'insight',
+  ]
+
+  for (const kind of kindOrder) {
+    const bucket = byKind.get(kind)
+    if (!bucket || bucket.length === 0) continue
+    const folder = CONCEPT_FOLDERS[kind]
+    const activeCount = bucket.filter((r) => r.stillActive).length
+    lines.push(`## ${folder} (${activeCount} active / ${bucket.length} total)`)
+    lines.push('')
+    // Active first, then historical.
+    const sorted = [...bucket].sort((a, b) => {
+      if (a.stillActive !== b.stillActive) return a.stillActive ? -1 : 1
+      return a.lastSeen > b.lastSeen ? -1 : 1
+    })
+    for (const rec of sorted) {
+      const marker = rec.stillActive ? '' : ' _(historical)_'
+      // Relative markdown link — resolves deterministically in Obsidian
+      // regardless of vault root / link resolution mode.
+      lines.push(`- [${rec.name}](${folder}/${rec.slug}.md)${marker}`)
+    }
+    lines.push('')
+  }
+
+  return `${lines.join('\n')}\n`
+}
+
+function buildAnalysisArchiveFiles(entries: ArchiveEntry[]): Map<string, string> {
+  const out = new Map<string, string>()
+  if (entries.length === 0) return out
+
+  const concepts = collectConcepts(entries)
+  for (const rec of concepts.values()) {
+    const folder = CONCEPT_FOLDERS[rec.kind]
+    out.set(`analysis/${folder}/${rec.slug}.md`, buildConceptFile(rec))
+  }
+  out.set('analysis/index.md', buildAnalysisIndex(concepts))
+  out.set('analysis/history.md', buildHistoryFile(entries, concepts))
+  return out
 }
 
 function buildIndexFile(args: {
@@ -239,8 +847,12 @@ function buildIndexFile(args: {
   tagKeyCounts: Map<string, number>
   patternsCount: number
   antiPatternsCount: number
+  llmAnalysis: LLMAnalysis | null
+  archiveCount: number
+  releaseCount: number
 }): string {
-  const { ships, memoryTypeCounts, tagKeyCounts, patternsCount, antiPatternsCount } = args
+  const { ships, memoryTypeCounts, tagKeyCounts, patternsCount, antiPatternsCount, llmAnalysis } =
+    args
   const lines: string[] = [
     '# Project Wiki (generated)',
     '',
@@ -255,6 +867,14 @@ function buildIndexFile(args: {
     lines.push('## Ships')
     for (const ship of ships)
       lines.push(`- [${ship.name}](ships/${slugify(ship.name)}.md) — ${ship.shippedAt}`)
+    lines.push('')
+  }
+
+  if (args.releaseCount > 0) {
+    lines.push('## Releases')
+    lines.push(
+      `- [releases/index](releases/index.md) — ${args.releaseCount} versions parsed from \`CHANGELOG.md\``
+    )
     lines.push('')
   }
 
@@ -274,11 +894,43 @@ function buildIndexFile(args: {
     lines.push('')
   }
 
-  if (patternsCount > 0 || antiPatternsCount > 0) {
+  if (patternsCount > 0 || antiPatternsCount > 0 || llmAnalysis) {
     lines.push('## Inferred')
-    lines.push(
-      `- [patterns](patterns.md) — ${patternsCount} patterns, ${antiPatternsCount} anti-patterns`
-    )
+    if (patternsCount > 0 || antiPatternsCount > 0) {
+      lines.push(
+        `- [patterns](patterns.md) — ${patternsCount} patterns, ${antiPatternsCount} anti-patterns`
+      )
+    }
+    if (llmAnalysis) {
+      const archHas =
+        llmAnalysis.architecture?.style ||
+        llmAnalysis.architecture?.insights?.length ||
+        llmAnalysis.conventions?.length
+      if (archHas) {
+        lines.push(
+          `- [architecture](architecture.md) — ${llmAnalysis.architecture?.style ?? '—'}, ${llmAnalysis.conventions?.length ?? 0} conventions`
+        )
+      }
+      const debtCount =
+        (llmAnalysis.techDebt?.length ?? 0) +
+        (llmAnalysis.riskAreas?.length ?? 0) +
+        (llmAnalysis.refactorSuggestions?.length ?? 0)
+      if (debtCount > 0) {
+        lines.push(
+          `- [tech-debt](tech-debt.md) — ${llmAnalysis.techDebt?.length ?? 0} debt items, ${llmAnalysis.riskAreas?.length ?? 0} risks, ${llmAnalysis.refactorSuggestions?.length ?? 0} refactors`
+        )
+      }
+      if (llmAnalysis.projectInsights && llmAnalysis.projectInsights.length > 0) {
+        lines.push(
+          `- [insights](insights.md) — ${llmAnalysis.projectInsights.length} project insights`
+        )
+      }
+    }
+    if (args.archiveCount > 0) {
+      lines.push(
+        `- [analysis drill-down](analysis/index.md) — ${args.archiveCount} concepts (patterns, anti-patterns, tech-debt, risks, refactors, insights) + [history](analysis/history.md)`
+      )
+    }
     lines.push('')
   }
 
@@ -325,6 +977,51 @@ async function removeFile(root: string, relPath: string): Promise<void> {
   }
 }
 
+/**
+ * Walk the generated tree and delete any .md file that isn't in the
+ * new manifest. Catches iCloud duplicate artifacts (" 2.md") and any
+ * stragglers from previous regens whose manifest got lost.
+ *
+ * Safe because `_generated/` is 100% generator-owned — user notes live
+ * above it at the vault root and in `captured/`.
+ */
+async function sweepStaleFiles(root: string, keep: Manifest): Promise<number> {
+  let removed = 0
+  const walk = async (dir: string): Promise<void> => {
+    let entries: import('node:fs').Dirent[]
+    try {
+      entries = await fs.readdir(dir, { withFileTypes: true })
+    } catch {
+      return
+    }
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name)
+      if (entry.isDirectory()) {
+        await walk(full)
+        // Prune empty directories — they accumulate after sweeps.
+        try {
+          const remaining = await fs.readdir(full)
+          if (remaining.length === 0) await fs.rmdir(full)
+        } catch {
+          // Non-critical.
+        }
+        continue
+      }
+      if (!entry.name.endsWith('.md')) continue
+      const rel = path.relative(root, full)
+      if (keep[rel]) continue
+      try {
+        await fs.rm(full, { force: true })
+        removed++
+      } catch {
+        // Non-critical.
+      }
+    }
+  }
+  await walk(root)
+  return removed
+}
+
 // =============================================================================
 // Public API
 // =============================================================================
@@ -347,10 +1044,11 @@ export async function generateWiki(
   await fs.mkdir(generatedRoot, { recursive: true })
 
   // --- Gather sources ---
-  const [ships, entries, analysis] = await Promise.all([
+  const [ships, entries, analysis, llmAnalysis] = await Promise.all([
     shippedStorage.getAll(projectId),
     Promise.resolve(projectMemory.recall(projectId, { limit: 5000 })),
     analysisStorage.getActive(projectId).catch(() => null),
+    Promise.resolve(llmAnalysisStorage.getActive(projectId)).catch(() => null),
   ])
   const declared = entries.filter((e) => e.type !== 'shipped')
 
@@ -363,10 +1061,44 @@ export async function generateWiki(
   for (const [rel, body] of buildMemoryFiles(declared)) files.set(rel, body)
   for (const [rel, body] of buildTagFiles(declared)) files.set(rel, body)
 
-  const patterns = analysis?.patterns ?? []
-  const antiPatterns = analysis?.antiPatterns ?? []
+  // Prefer LLM analysis (richer fields) when available, fallback to heuristic.
+  const patterns = llmAnalysis?.patterns ?? analysis?.patterns ?? []
+  const antiPatterns = llmAnalysis?.antiPatterns ?? analysis?.antiPatterns ?? []
   const patternsBody = buildPatternsFile(patterns, antiPatterns)
   if (patternsBody) files.set('patterns.md', patternsBody)
+
+  // LLM-only sections: architecture, tech debt, risks, refactors, conventions,
+  // project insights. Each lands in its own markdown file so the vault stays
+  // browsable and agents can fetch them individually.
+  if (llmAnalysis) {
+    const archBody = buildArchitectureFile(llmAnalysis)
+    if (archBody) files.set('architecture.md', archBody)
+
+    const debtBody = buildTechDebtFile(llmAnalysis)
+    if (debtBody) files.set('tech-debt.md', debtBody)
+
+    const insightsBody = buildInsightsFile(llmAnalysis)
+    if (insightsBody) files.set('insights.md', insightsBody)
+  }
+
+  // Append-only analysis archive: one file per historical sync. Filenames
+  // encode the analyzedAt timestamp + short commit so each run produces a
+  // new, unique path. The manifest-diff pass never rewrites an existing
+  // snapshot because its body is deterministic in the entry — this is how
+  // the vault preserves trace across overwrites of the top-level
+  // architecture.md / tech-debt.md / insights.md.
+  const archiveEntries = llmAnalysisStorage.getAllFull(projectId)
+  for (const [rel, body] of buildAnalysisArchiveFiles(archiveEntries)) files.set(rel, body)
+
+  // Parse CHANGELOG.md (if present) so every release shows up in the
+  // vault. This is usually the largest historical signal — the DB
+  // tables (ships, memory, analysis) only cover what was recorded with
+  // prjct, while CHANGELOG.md predates and outpaces the tool itself.
+  const releasesMap = await buildReleasesFiles(projectPath)
+  for (const [rel, body] of releasesMap) files.set(rel, body)
+  // Exclude the index file from the count so the overview reads "181
+  // releases" not "182 files".
+  const releaseCount = releasesMap.size > 0 ? releasesMap.size - 1 : 0
 
   const memoryTypeCounts = new Map<string, number>()
   for (const e of declared) memoryTypeCounts.set(e.type, (memoryTypeCounts.get(e.type) ?? 0) + 1)
@@ -384,6 +1116,12 @@ export async function generateWiki(
       tagKeyCounts,
       patternsCount: patterns.length,
       antiPatternsCount: antiPatterns.length,
+      llmAnalysis,
+      // "Archive" used to mean per-save snapshots; now it's the concept
+      // drill-down. Keep the same arg name so the signature stays stable
+      // but count distinct concepts across history.
+      archiveCount: collectConcepts(archiveEntries).size,
+      releaseCount,
     })
   )
 
@@ -411,6 +1149,20 @@ export async function generateWiki(
     await removeFile(generatedRoot, oldRel)
     filesRemoved++
   }
+
+  // Filesystem-level sweep. The manifest-diff above only catches files
+  // the *previous run* also knew about; that misses two real cases:
+  //   1. iCloud Drive (macOS) silently creates " 2.md" / " 3.md"
+  //      duplicates when it thinks there's a sync collision. They
+  //      accumulate as orphans and never enter our manifest.
+  //   2. A lost manifest (deleted, partial write, user copied the
+  //      vault from elsewhere) means oldManifest is empty and every
+  //      stale file from previous regens survives.
+  // Scan the whole generated tree, and drop any .md we didn't just
+  // write. `_generated/` is 100% generated — anything in there that
+  // isn't in newManifest is cruft by definition.
+  const swept = await sweepStaleFiles(generatedRoot, newManifest)
+  filesRemoved += swept
 
   // Persist new manifest (always rewrite — it's tiny).
   await writeFile(generatedRoot, MANIFEST_FILE, `${JSON.stringify(newManifest, null, 2)}\n`)

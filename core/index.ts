@@ -205,6 +205,14 @@ async function main(): Promise<void> {
             package: options.package ? String(options.package) : undefined,
             full: options.full === true,
           }),
+        'analysis-save-llm': (p) =>
+          p
+            ? commands.saveLlmAnalysis(p, process.cwd(), { md })
+            : Promise.resolve({
+                success: false,
+                error: 'analysis-save-llm requires a JSON payload as positional arg',
+              }),
+        regen: () => commands.regenVault(process.cwd(), { md }),
         start: () => commands.start(),
         // Context (for Claude templates)
         context: (p) => commands.context(p),

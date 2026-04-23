@@ -17,6 +17,7 @@
 
 import configManager from '../infrastructure/config-manager'
 import { formatMemoryMd, type MemoryEntry, projectMemory } from '../memory/project-memory'
+import { regenerateWikiDeferred } from '../services/wiki-generator'
 import type { ProjectPersona } from '../types/config'
 import { buildHookOutput, emit, readStdinSafe, safeRun } from './_shared'
 
@@ -97,5 +98,12 @@ export async function runSessionStartHook(projectPath: string = process.cwd()): 
     await readStdinSafe<HookInput>()
     const context = await buildSessionContext(projectPath)
     emit(buildHookOutput('SessionStart', context))
+
+    // Refresh the Obsidian vault from DB so the files Claude may Read
+    // reflect current project state. Best-effort; errors are swallowed.
+    const config = await configManager.readConfig(projectPath).catch(() => null)
+    if (config?.projectId) {
+      await regenerateWikiDeferred(projectPath, config.projectId).catch(() => undefined)
+    }
   })
 }

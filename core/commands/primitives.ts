@@ -42,6 +42,47 @@ export class PrimitiveCommands extends PrjctCommandsBase {
       const pid = await requireProjectId(projectPath)
       if (!pid.ok) return pid.result
 
+      // Resume-intent bypasses the active-task guard: when the current task
+      // is paused, there's no `currentTask` — we need to promote a paused
+      // one before we can check anything else.
+      const resumeIntent =
+        value !== null &&
+        ['active', 'resume', 'in_progress', 'working'].includes(value.toLowerCase())
+      if (resumeIntent) {
+        const current = await stateStorage.getCurrentTask(pid.value)
+        if (!current) {
+          const resumed = await stateStorage.resumeTask(pid.value)
+          if (resumed) {
+            await memoryService.log(projectPath, STATUS_CHANGE_ACTION, {
+              taskId: resumed.id,
+              from: 'paused',
+              to: value,
+            })
+            const msg = `status → ${value}`
+            if (options.md) console.log(`✓ ${msg}`)
+            else out.done(msg)
+            return { success: true, taskId: resumed.id, status: value }
+          }
+        }
+      }
+
+      // No-arg `status` should still be informative when the task is
+      // paused (no currentTask). Show the paused task rather than a bogus
+      // "no active task" — the task exists, it just isn't the focus.
+      if (!value) {
+        const current = await stateStorage.getCurrentTask(pid.value)
+        if (!current) {
+          const paused = await stateStorage.getPausedTasks(pid.value)
+          if (paused.length > 0) {
+            const t = paused[0]
+            const line = `Task: ${t.id}  |  Type: ${t.type ?? 'unset'}  |  Status: paused`
+            if (options.md) console.log(line)
+            else out.info(line)
+            return { success: true, taskId: t.id, status: 'paused' }
+          }
+        }
+      }
+
       const task = await requireActiveTask(pid.value, options)
       if (!task.ok) return task.result
 
@@ -62,6 +103,31 @@ export class PrimitiveCommands extends PrjctCommandsBase {
         from: lastStatus ?? null,
         to: value,
       })
+
+      // Drive the real workflow state machine so state.json and the audit
+      // log agree. Without this, `status paused` flips the audit trail but
+      // leaves state.currentTask.status='in_progress', which later blocks
+      // `prjct task` with a bogus "cannot transition from working".
+      const normalized = value.toLowerCase()
+      try {
+        if (normalized === 'done' || normalized === 'completed') {
+          await stateStorage.completeTask(pid.value)
+        } else if (normalized === 'paused' || normalized === 'pause') {
+          await stateStorage.pauseTask(pid.value)
+        } else if (
+          normalized === 'active' ||
+          normalized === 'resume' ||
+          normalized === 'in_progress' ||
+          normalized === 'working'
+        ) {
+          // Only resume if there's no active task; otherwise it's a no-op.
+          const current = await stateStorage.getCurrentTask(pid.value)
+          if (!current) await stateStorage.resumeTask(pid.value)
+        }
+      } catch {
+        // State machine rejected a redundant transition (e.g. `done` on an
+        // already-completed task). The audit log still captures intent.
+      }
 
       const msg = `status → ${value}`
       if (options.md) console.log(`✓ ${msg}`)

@@ -83,6 +83,40 @@ class LLMAnalysisStorage {
   }
 
   /**
+   * Get every analysis ever saved (active + superseded) with full body.
+   * Used by the wiki generator to emit per-run archive files so the vault
+   * preserves a trail across analyses instead of only showing the latest.
+   */
+  getAllFull(projectId: string): Array<{
+    id: number
+    status: string
+    commitHash: string | null
+    analyzedAt: string
+    supersededAt: string | null
+    analysis: LLMAnalysis
+  }> {
+    const rows = prjctDb.query<{
+      id: number
+      commit_hash: string | null
+      status: string
+      analyzed_at: string
+      superseded_at: string | null
+      analysis: string
+    }>(
+      projectId,
+      'SELECT id, commit_hash, status, analyzed_at, superseded_at, analysis FROM llm_analysis ORDER BY id DESC'
+    )
+    return rows.map((row) => ({
+      id: row.id,
+      status: row.status,
+      commitHash: row.commit_hash,
+      analyzedAt: row.analyzed_at,
+      supersededAt: row.superseded_at,
+      analysis: JSON.parse(row.analysis) as LLMAnalysis,
+    }))
+  }
+
+  /**
    * Get history of all analyses (for debugging/audit).
    */
   getHistory(

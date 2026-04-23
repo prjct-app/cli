@@ -13,6 +13,8 @@
  */
 
 import configManager from '../infrastructure/config-manager'
+import { regenerateWikiDeferred } from '../services/wiki-generator'
+import { ingestCapturedNotes } from '../services/wiki-ingest'
 import prjctDb from '../storage/database'
 import { buildHookOutput, emit, readStdinSafe, safeRun } from './_shared'
 
@@ -70,5 +72,17 @@ export async function runStopHook(projectPath: string = process.cwd()): Promise<
     await readStdinSafe()
     const context = await buildStopContext(projectPath)
     emit(buildHookOutput('Stop', context))
+
+    // Close the loop: vault notes the user dropped into `captured/` get
+    // ingested into DB, then the `_generated/` snapshot is rewritten so
+    // both directions stay in sync each turn. Best-effort.
+    const config = await configManager.readConfig(projectPath).catch(() => null)
+    if (!config?.projectId) return
+    try {
+      await ingestCapturedNotes(projectPath)
+    } catch {
+      // Ingest failure shouldn't block regen — captured/ stays for next turn.
+    }
+    await regenerateWikiDeferred(projectPath, config.projectId).catch(() => undefined)
   })
 }

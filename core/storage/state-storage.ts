@@ -71,6 +71,14 @@ class StateStorage extends StorageManager<StateJson> {
   }
 
   /**
+   * Get paused tasks (most-recent first). Returns empty array if none.
+   */
+  async getPausedTasks(projectId: string): Promise<PreviousTask[]> {
+    const state = await this.read(projectId)
+    return this.getPausedTasksFromState(state)
+  }
+
+  /**
    * Start a new task
    */
   async startTask(projectId: string, task: Omit<CurrentTask, 'startedAt'>): Promise<CurrentTask> {

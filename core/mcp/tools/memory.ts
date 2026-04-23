@@ -27,7 +27,6 @@ import { safeMcpCall } from './error-handler'
 
 // MCP SDK TS2589 workaround: cast server to any to avoid deep type
 // instantiation during tool registration.
-// biome-ignore lint/suspicious/noExplicitAny: SDK generic instantiation is too deep for tsc
 type S = any
 
 const TYPE_DESCRIPTIONS = `Base types: ${BASE_MEMORY_TYPES.join(', ')}. Any lowercase identifier is accepted (e.g. "recipe", "okr").`

@@ -131,6 +131,21 @@ class PrjctCommands {
     return this.analysis.sync(projectPath, options)
   }
 
+  async saveLlmAnalysis(
+    analysisJson: string,
+    projectPath: string = process.cwd(),
+    options: { md?: boolean } = {}
+  ): Promise<CommandResult> {
+    return this.analysis.saveLlmAnalysis(analysisJson, projectPath, options)
+  }
+
+  async regenVault(
+    projectPath: string = process.cwd(),
+    options: { md?: boolean } = {}
+  ): Promise<CommandResult> {
+    return this.analysis.regenVault(projectPath, options)
+  }
+
   // ========== Context Commands ==========
 
   async context(
