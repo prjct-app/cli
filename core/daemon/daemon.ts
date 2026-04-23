@@ -358,8 +358,14 @@ async function executeCommand(
       })
     case 'task':
       return commands!.task(param, request.cwd, { md })
-    case 'ship':
-      return commands!.ship(param, request.cwd, { md })
+    case 'ship': {
+      const intent = typeof opts.intent === 'string' ? (opts.intent as string) : undefined
+      return commands!.ship(param, request.cwd, {
+        md,
+        intent: intent as 'register-only' | 'seed-code-workflow' | 'proceed' | undefined,
+        skipHooks: opts['skip-hooks'] === true,
+      })
+    }
     case 'workflow':
       return commands!.workflowPrefs(param, request.cwd, { md })
     case 'analyze':

@@ -8,6 +8,17 @@
 // ============================================
 
 /**
+ * Structured clarification surfaced when a command can't proceed
+ * autonomously — the agent is expected to ask the user and re-invoke
+ * with `--intent=<option>`.
+ */
+export interface CommandClarification {
+  question: string
+  options: string[]
+  state?: Record<string, unknown>
+}
+
+/**
  * Command execution result with optional extra data.
  * This is the EXTENDED version with command-specific fields.
  */
@@ -23,6 +34,8 @@ export interface CommandResult {
   feature?: string
   /** Files that were modified */
   filesModified?: string[]
+  /** Command declined to proceed; agent should ask the user. */
+  clarification?: CommandClarification
   /** Allow any additional properties for command-specific data */
   [key: string]: unknown
 }

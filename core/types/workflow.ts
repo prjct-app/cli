@@ -47,3 +47,11 @@ export interface WorkflowExecutionResult {
   instructions: string[]
   output: string
 }
+
+/**
+ * Shared state threaded through a single `executeWorkflowRules` call (and
+ * optionally across the before/after pair in the same command run).
+ * Handlers for action prefixes like `version:bump` write into it so
+ * downstream steps (`changelog:add`, `git:commit`) can read the values.
+ */
+export type WorkflowRunContext = Record<string, unknown>

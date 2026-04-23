@@ -25,7 +25,9 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import chalk from 'chalk'
 import { STATUS_CHANGE_ACTION, TAG_EVENT_TYPE } from '../memory/events'
+import { ChangelogService } from '../services/changelog-service'
 import { memoryService } from '../services/memory-service'
+import { VersionService } from '../services/version-service'
 import { getGitBranch } from '../session/git-helpers'
 import prjctDb from '../storage/database'
 import { stateStorage } from '../storage/state-storage'
@@ -33,14 +35,18 @@ import { workflowRuleStorage } from '../storage/workflow-rule-storage'
 import type { LocalConfig, ProjectPersona } from '../types/config'
 import { getErrorMessage } from '../types/fs'
 import type { WorkflowRule } from '../types/storage.js'
-import type { WorkflowExecutionResult } from '../types/workflow.js'
-import { execAsync } from '../utils/exec'
+import type { WorkflowExecutionResult, WorkflowRunContext } from '../types/workflow.js'
+import { execAsync, execFileAsync } from '../utils/exec'
 import { evaluateWhen, type WhenContext } from './when-evaluator'
 
 const STATUS_ACTION_PREFIX = 'status:'
 const SCRIPT_ACTION_PREFIX = 'script:'
 const MCP_ACTION_PREFIX = 'mcp:'
 const PERSONA_CONTEXT_ACTION = 'persona:context'
+const VERSION_BUMP_PREFIX = 'version:bump'
+const CHANGELOG_ADD_ACTION = 'changelog:add'
+const GIT_COMMIT_PREFIX = 'git:commit'
+const GIT_PUSH_ACTION = 'git:push'
 
 async function runStatusTransition(
   projectId: string,
@@ -178,12 +184,61 @@ async function buildPersonaInstruction(projectPath: string): Promise<string> {
   }
 }
 
+async function runVersionBump(projectPath: string, runCtx: WorkflowRunContext): Promise<void> {
+  const service = new VersionService(projectPath)
+  const next = await service.bump()
+  runCtx.version = next
+}
+
+async function runChangelogAdd(projectPath: string, runCtx: WorkflowRunContext): Promise<void> {
+  const version = typeof runCtx.version === 'string' ? runCtx.version : null
+  const feature = typeof runCtx.feature === 'string' ? runCtx.feature : null
+  if (!version) {
+    throw new Error('changelog:add requires a prior version:bump step (no version in runContext)')
+  }
+  if (!feature) {
+    throw new Error(
+      'changelog:add requires a feature name in runContext (set by ship before rules run)'
+    )
+  }
+  const service = new ChangelogService(projectPath)
+  await service.addFeature(version, feature)
+}
+
+function expandTemplate(template: string, runCtx: WorkflowRunContext): string {
+  return template.replace(/\$([A-Z_]+)/g, (_match, name: string) => {
+    const key = name.toLowerCase()
+    const value = runCtx[key]
+    return typeof value === 'string' ? value : ''
+  })
+}
+
+async function runGitCommit(
+  action: string,
+  projectPath: string,
+  runCtx: WorkflowRunContext
+): Promise<void> {
+  // Accept optional `git:commit:<template>` suffix. Default template uses
+  // the feature (and version, if set) from runContext.
+  const rawTemplate = action.slice(GIT_COMMIT_PREFIX.length).replace(/^:/, '').trim()
+  const template = rawTemplate || (runCtx.version ? 'feat: $FEATURE (v$VERSION)' : 'feat: $FEATURE')
+  const msg = `${expandTemplate(template, runCtx)}\n\nGenerated with [p/](https://www.prjct.app/)`
+
+  await execFileAsync('git', ['add', '.'], { cwd: projectPath })
+  await execFileAsync('git', ['commit', '-m', msg], { cwd: projectPath })
+}
+
+async function runGitPush(projectPath: string): Promise<void> {
+  await execFileAsync('git', ['push'], { cwd: projectPath })
+}
+
 async function runRuleAction(
   rule: WorkflowRule,
   projectId: string,
   projectPath: string,
   whenCtx: WhenContext,
-  result: WorkflowExecutionResult
+  result: WorkflowExecutionResult,
+  runCtx: WorkflowRunContext
 ): Promise<void> {
   const action = rule.action
 
@@ -208,6 +263,26 @@ async function runRuleAction(
 
   if (action === PERSONA_CONTEXT_ACTION) {
     result.instructions.push(await buildPersonaInstruction(projectPath))
+    return
+  }
+
+  if (action === VERSION_BUMP_PREFIX || action.startsWith(`${VERSION_BUMP_PREFIX}:`)) {
+    await runVersionBump(projectPath, runCtx)
+    return
+  }
+
+  if (action === CHANGELOG_ADD_ACTION) {
+    await runChangelogAdd(projectPath, runCtx)
+    return
+  }
+
+  if (action === GIT_COMMIT_PREFIX || action.startsWith(`${GIT_COMMIT_PREFIX}:`)) {
+    await runGitCommit(action, projectPath, runCtx)
+    return
+  }
+
+  if (action === GIT_PUSH_ACTION) {
+    await runGitPush(projectPath)
     return
   }
 
@@ -287,7 +362,11 @@ export async function executeWorkflowRules(
   projectId: string,
   command: string,
   phase: 'before' | 'after',
-  options: { projectPath?: string; skipRules?: boolean } = {}
+  options: {
+    projectPath?: string
+    skipRules?: boolean
+    runContext?: WorkflowRunContext
+  } = {}
 ): Promise<WorkflowExecutionResult> {
   const result: WorkflowExecutionResult = {
     success: true,
@@ -300,6 +379,7 @@ export async function executeWorkflowRules(
 
   if (options.skipRules) return result
 
+  const runCtx: WorkflowRunContext = options.runContext ?? {}
   const allRules = workflowRuleStorage.getRulesForCommand(projectId, command)
   const phased = allRules.filter((r) => r.position === phase)
   const projectPath = options.projectPath || process.cwd()
@@ -327,7 +407,7 @@ export async function executeWorkflowRules(
     console.log(`\n${chalk.dim(`[gate] ${phase}-${command}: ${gate.action}`)}`)
     try {
       const startTime = Date.now()
-      await runRuleAction(gate, projectId, projectPath, whenCtx, result)
+      await runRuleAction(gate, projectId, projectPath, whenCtx, result, runCtx)
       const elapsed = Date.now() - startTime
       const timeStr = elapsed > 1000 ? `${(elapsed / 1000).toFixed(1)}s` : `${elapsed}ms`
       console.log(`${chalk.green('✓')} ${chalk.dim(`gate passed (${timeStr})`)}`)
@@ -359,7 +439,7 @@ export async function executeWorkflowRules(
     console.log(`\n${chalk.dim(`[hook] ${phase}-${command}: ${hook.action}`)}`)
     try {
       const startTime = Date.now()
-      await runRuleAction(hook, projectId, projectPath, whenCtx, result)
+      await runRuleAction(hook, projectId, projectPath, whenCtx, result, runCtx)
       const elapsed = Date.now() - startTime
       const timeStr = elapsed > 1000 ? `${(elapsed / 1000).toFixed(1)}s` : `${elapsed}ms`
       console.log(`${chalk.green('✓')} ${chalk.dim(`(${timeStr})`)}`)
@@ -384,7 +464,7 @@ export async function executeWorkflowRules(
     console.log(`\n${chalk.dim(`[step] ${command}: ${step.action}`)}`)
     try {
       const startTime = Date.now()
-      await runRuleAction(step, projectId, projectPath, whenCtx, result)
+      await runRuleAction(step, projectId, projectPath, whenCtx, result, runCtx)
       const elapsed = Date.now() - startTime
       const timeStr = elapsed > 1000 ? `${(elapsed / 1000).toFixed(1)}s` : `${elapsed}ms`
       console.log(`${chalk.green('✓')} ${chalk.dim(`step passed (${timeStr})`)}`)
