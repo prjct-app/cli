@@ -1,15 +1,16 @@
 /**
  * Stop hook — fires when Claude finishes a turn.
  *
- * Nudges Claude to capture a learning if the turn produced work
- * (files edited) and no recent `remember` / `capture` fired. Pure
- * nudge: `additionalContext` only, never `decision: "block"`. Claude
- * decides whether to save anything.
+ * Nudges Claude to capture a learning if the turn produced raw edits
+ * but nothing durable got written anywhere — no ship, no capture, no
+ * remember, no status change, no tag. Pure nudge: `additionalContext`
+ * only, never `decision: "block"`.
  *
- * We skip the nudge when:
- *   - No project config.
- *   - No post_edit events recorded this session.
- *   - A recent `remember.*` event already fired in the last 30 min.
+ * We treat every `memory.*` event EXCEPT `memory.post_edit` as a
+ * checkpoint (ships, captures, remembers, tagged tasks, status
+ * transitions, bug reports, llm analysis saves…). The hook used to
+ * only look at `memory.remember.%`, which meant shipping a feature,
+ * capturing to inbox, or closing a task still left the nag firing.
  */
 
 import configManager from '../infrastructure/config-manager'
@@ -19,42 +20,47 @@ import prjctDb from '../storage/database'
 import { buildHookOutput, emit, readStdinSafe, safeRun } from './_shared'
 
 const RECENT_REMEMBER_WINDOW_MS = 30 * 60 * 1000
+const POST_EDIT_EVENT = 'memory.post_edit'
 
 export async function buildStopContext(projectPath: string): Promise<string | null> {
   const config = await configManager.readConfig(projectPath)
   if (!config?.projectId) return null
 
   const projectId = config.projectId
-
-  // Did Claude actually touch files this session? If not, nothing to
-  // reflect on.
   const sinceIso = new Date(Date.now() - RECENT_REMEMBER_WINDOW_MS).toISOString()
-  let edits: Array<{ count: number }>
-  try {
-    edits = prjctDb.query<{ count: number }>(
-      projectId,
-      'SELECT COUNT(*) as count FROM events WHERE type = ? AND timestamp > ?',
-      'memory.post_edit',
-      sinceIso
-    )
-  } catch {
-    return null
-  }
-  const editCount = edits[0]?.count ?? 0
-  if (editCount === 0) return null
 
-  // If a remember already fired in the window, don't nag.
-  let remembers: Array<{ count: number }>
+  // Single pass over the events table: count edits vs. everything else
+  // in the memory namespace. Avoids two round-trips and keeps the two
+  // counts on a consistent snapshot.
+  let rows: Array<{ type: string; count: number }>
   try {
-    remembers = prjctDb.query<{ count: number }>(
+    rows = prjctDb.query<{ type: string; count: number }>(
       projectId,
-      "SELECT COUNT(*) as count FROM events WHERE type LIKE 'memory.remember.%' AND timestamp > ?",
+      `SELECT
+         CASE WHEN type = ? THEN 'edit' ELSE 'checkpoint' END AS type,
+         COUNT(*) AS count
+       FROM events
+       WHERE type LIKE 'memory.%' AND timestamp > ?
+       GROUP BY 1`,
+      POST_EDIT_EVENT,
       sinceIso
     )
   } catch {
     return null
   }
-  if ((remembers[0]?.count ?? 0) > 0) return null
+
+  let editCount = 0
+  let checkpointCount = 0
+  for (const r of rows) {
+    if (r.type === 'edit') editCount = r.count
+    else checkpointCount = r.count
+  }
+
+  // No edits → nothing to reflect on.
+  if (editCount === 0) return null
+  // Anything durable already landed (ship, capture, remember, tag,
+  // status change…) → don't nag.
+  if (checkpointCount > 0) return null
 
   return [
     '# prjct: capture checkpoint',
