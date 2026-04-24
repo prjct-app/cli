@@ -124,7 +124,7 @@ export async function readJson<T = unknown>(
 export async function writeJson(filePath: string, data: unknown, indent = 2): Promise<void> {
   const dir = path.dirname(filePath)
   await fs.mkdir(dir, { recursive: true })
-  const content = JSON.stringify(data, null, indent)
+  const content = `${JSON.stringify(data, null, indent)}\n`
   await fs.writeFile(filePath, content, 'utf-8')
 }
 
