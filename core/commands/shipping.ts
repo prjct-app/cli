@@ -216,26 +216,54 @@ export async function seedCodeShipRules(projectId: string, projectPath: string):
   const maxSort = existing.reduce((m, r) => Math.max(m, r.sortOrder ?? 0), 0)
   let sort = maxSort + 1
 
-  const rules: Array<{ action: string; description: string; timeoutMs: number }> = [
+  // Gate: refuse to ship from main/master. Auto-seed used to skip this
+  // and only add the 4 steps, so projects that predated workflow-first
+  // would happily bump + commit + push from main. Seed it here too so
+  // the migration and fresh-init paths produce the same rule set.
+  const gates: Array<{ action: string; description: string; timeoutMs: number }> = []
+  if (isGitRepo(projectPath)) {
+    gates.push({
+      action: 'git branch --show-current | grep -vE "^(main|master)$"',
+      description: 'Prevent shipping from main branch',
+      timeoutMs: 5000,
+    })
+  }
+
+  const steps: Array<{ action: string; description: string; timeoutMs: number }> = [
     { action: 'version:bump', description: 'Bump version (stack-aware)', timeoutMs: 10000 },
     { action: 'changelog:add', description: 'Append CHANGELOG entry', timeoutMs: 10000 },
   ]
   if (isGitRepo(projectPath)) {
-    rules.push({ action: 'git:commit', description: 'Commit ship', timeoutMs: 15000 })
-    rules.push({ action: 'git:push', description: 'Push to origin', timeoutMs: 30000 })
+    steps.push({ action: 'git:commit', description: 'Commit ship', timeoutMs: 15000 })
+    steps.push({ action: 'git:push', description: 'Push to origin', timeoutMs: 30000 })
   }
 
   let added = 0
-  for (const r of rules) {
-    if (existingActions.has(r.action)) continue
+  for (const g of gates) {
+    if (existingActions.has(g.action)) continue
+    workflowRuleStorage.addRule(projectId, {
+      type: 'gate',
+      command: 'ship',
+      position: 'before',
+      action: g.action,
+      description: g.description,
+      enabled: true,
+      timeoutMs: g.timeoutMs,
+      sortOrder: sort++,
+      createdAt: now,
+    })
+    added++
+  }
+  for (const s of steps) {
+    if (existingActions.has(s.action)) continue
     workflowRuleStorage.addRule(projectId, {
       type: 'step',
       command: 'ship',
       position: 'before',
-      action: r.action,
-      description: r.description,
+      action: s.action,
+      description: s.description,
       enabled: true,
-      timeoutMs: r.timeoutMs,
+      timeoutMs: s.timeoutMs,
       sortOrder: sort++,
       createdAt: now,
     })
