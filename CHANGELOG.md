@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.9] - 2026-04-25
+
+### Bug Fixes
+
+- replicate bare-verb auto-route to capture (#258)
+
+
 ## [2.2.8] - 2026-04-25
 
 ### Bug Fixes
