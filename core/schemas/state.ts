@@ -18,7 +18,7 @@ import { ModelMetadataSchema } from './model'
 export const PrioritySchema = z.enum(['low', 'medium', 'high', 'critical'])
 export const TaskTypeSchema = z.enum(['feature', 'bug', 'improvement', 'chore'])
 export const TaskSectionSchema = z.enum(['active', 'backlog', 'previously_active'])
-export const TaskStatusSchema = z.enum([
+const TaskStatusSchema = z.enum([
   'pending',
   'in_progress',
   'completed',
@@ -27,13 +27,6 @@ export const TaskStatusSchema = z.enum([
   'failed',
   'skipped',
 ])
-export const ActivityTypeSchema = z.enum([
-  'task_completed',
-  'feature_shipped',
-  'idea_captured',
-  'session_started',
-])
-
 // Subtask summary for context handoff between agents
 export const SubtaskSummarySchema = z.object({
   title: z.string(),
@@ -76,7 +69,7 @@ export const SubtaskSchema = z.object({
 })
 
 // Subtask progress tracking
-export const SubtaskProgressSchema = z.object({
+const SubtaskProgressSchema = z.object({
   completed: z.number(),
   total: z.number(),
   percentage: z.number(),
@@ -220,30 +213,6 @@ export const QueueJsonSchema = z.object({
   lastUpdated: z.string(),
 })
 
-export const StatsSchema = z.object({
-  tasksToday: z.number(),
-  tasksThisWeek: z.number(),
-  streak: z.number(),
-  velocity: z.string(),
-  avgDuration: z.string(),
-})
-
-export const RecentActivitySchema = z.object({
-  type: ActivityTypeSchema,
-  description: z.string(),
-  timestamp: z.string(), // ISO8601
-  duration: z.string().optional(),
-})
-
-export const StateSchemaFull = z.object({
-  projectId: z.string(),
-  currentTask: CurrentTaskSchema.nullable(),
-  queue: z.array(QueueTaskSchema),
-  stats: StatsSchema,
-  recentActivity: z.array(RecentActivitySchema),
-  lastSync: z.string(), // ISO8601
-})
-
 // =============================================================================
 // Inferred Types - Backward Compatible
 // =============================================================================
@@ -251,13 +220,9 @@ export const StateSchemaFull = z.object({
 export type Priority = z.infer<typeof PrioritySchema>
 export type TaskType = z.infer<typeof TaskTypeSchema>
 export type TaskSection = z.infer<typeof TaskSectionSchema>
-export type TaskStatus = z.infer<typeof TaskStatusSchema>
-export type ActivityType = z.infer<typeof ActivityTypeSchema>
 
 export type Subtask = z.infer<typeof SubtaskSchema>
-export type SubtaskSummary = z.infer<typeof SubtaskSummarySchema>
 export type SubtaskCompletionData = z.infer<typeof SubtaskCompletionDataSchema>
-export type SubtaskProgress = z.infer<typeof SubtaskProgressSchema>
 
 export type CurrentTask = z.infer<typeof CurrentTaskSchema>
 export type WorkspaceTask = z.infer<typeof WorkspaceTaskSchema>
@@ -267,23 +232,10 @@ export type TaskHistoryEntry = z.infer<typeof TaskHistoryEntrySchema>
 export type StateJson = z.infer<typeof StateJsonSchema>
 export type QueueTask = z.infer<typeof QueueTaskSchema>
 export type QueueJson = z.infer<typeof QueueJsonSchema>
-export type Stats = z.infer<typeof StatsSchema>
-export type RecentActivity = z.infer<typeof RecentActivitySchema>
-export type StateSchema = z.infer<typeof StateSchemaFull>
 
 // =============================================================================
 // Validation Helpers
 // =============================================================================
-
-/** Parse and validate state.json content */
-export const parseState = (data: unknown): StateJson => StateJsonSchema.parse(data)
-
-/** Parse and validate queue.json content */
-export const parseQueue = (data: unknown): QueueJson => QueueJsonSchema.parse(data)
-
-/** Safe parse with error result */
-export const safeParseState = (data: unknown) => StateJsonSchema.safeParse(data)
-export const safeParseQueue = (data: unknown) => QueueJsonSchema.safeParse(data)
 
 /** Validate subtask completion data — returns errors or null */
 export const validateSubtaskCompletion = (
@@ -295,29 +247,4 @@ export const validateSubtaskCompletion = (
     success: false,
     errors: result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`),
   }
-}
-
-// =============================================================================
-// Defaults
-// =============================================================================
-
-export const DEFAULT_STATE: StateJson = {
-  currentTask: null,
-  pausedTasks: [],
-  taskHistory: [],
-  activeTasks: [],
-  lastUpdated: '',
-}
-
-export const DEFAULT_QUEUE: QueueJson = {
-  tasks: [],
-  lastUpdated: '',
-}
-
-export const DEFAULT_STATS: Stats = {
-  tasksToday: 0,
-  tasksThisWeek: 0,
-  streak: 0,
-  velocity: '0/day',
-  avgDuration: '0m',
 }

@@ -137,5 +137,5 @@ class AuthConfigManager {
   }
 }
 
-export const authConfig = new AuthConfigManager()
+const authConfig = new AuthConfigManager()
 export default authConfig

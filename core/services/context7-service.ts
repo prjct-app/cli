@@ -143,5 +143,5 @@ class Context7Service {
   }
 }
 
-export const context7Service = new Context7Service()
+const context7Service = new Context7Service()
 export default context7Service

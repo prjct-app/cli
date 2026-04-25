@@ -23,7 +23,7 @@ interface ZoneEventRow {
   timestamp: string
 }
 
-export interface ContextHealthSummary {
+interface ContextHealthSummary {
   smartPercent: number
   warningPercent: number
   dumbPercent: number

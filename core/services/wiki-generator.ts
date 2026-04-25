@@ -1,21 +1,28 @@
 /**
- * Wiki Generator — emit an agent-crawlable markdown map of the project's
- * memory + shipped history to `.prjct/wiki/_generated/`.
+ * Context Export Generator — emit an agent-readable markdown map of the
+ * project's memory + shipped history to the configured vault location
+ * (default: `~/Documents/prjct/<slug>/_generated/`; see path-manager).
  *
  * Why: prjct already holds the answers (memories, patterns, ships). The
  * fastest way for a subagent to read them is through its native Read/Glob
  * tools, not a CLI round-trip into SQLite. A static markdown tree eats
  * zero tokens until the agent opens the specific file it cares about.
  *
- * Regenerated on `prjct ship` and `prjct remember`. Regeneration is
+ * Obsidian compatibility is a side effect, not the design goal — the
+ * export happens to be a valid Obsidian vault (see `obsidian-vault.ts`
+ * for the auto-register helper), but no agent or workflow requires
+ * Obsidian to be installed.
+ *
+ * Regenerated on `prjct remember`, `prjct capture`, `prjct ship`,
+ * `prjct sync`, and the SessionStart / Stop hooks. Regeneration is
  * incremental (hash-per-file manifest) so the common case — one new
  * memory entry touching 1-2 files — rewrites those 1-2 files instead of
  * the whole tree.
  *
- * Output layout (under the repo root):
- *   .prjct/wiki/
- *     README.md                       — user-editable pointer
- *     _generated/
+ * Output layout (under the vault root):
+ *   <vault>/
+ *     captured/                       — user-writable inbox (ingested by Stop hook)
+ *     _generated/                     — regenerated; do not hand-edit
  *       .manifest.json                — {relPath: sha256} for incremental rebuild
  *       index.md                      — entry point, links to everything
  *       ships/<slug>.md               — one file per shipped feature
@@ -34,22 +41,28 @@
 import crypto from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import configManager from '../infrastructure/config-manager'
-import pathManager from '../infrastructure/path-manager'
 import { formatMemoryMd, type MemoryEntry, projectMemory } from '../memory/project-memory'
 import { analysisStorage } from '../storage/analysis-storage'
+import { prjctDb } from '../storage/database'
 import llmAnalysisStorage from '../storage/llm-analysis-storage'
 import shippedStorage from '../storage/shipped-storage'
 import type { LLMAnalysis } from '../types/llm-analysis'
 import type { ShippedFeature } from '../types/storage'
 import { ensureObsidianVault } from './obsidian-vault'
 import { ensureCapturedReadme } from './wiki-ingest'
-import { migrateWikiLocationIfNeeded } from './wiki-migration'
+import { resolveVaultRoot } from './wiki-migration'
 
 // Generated output goes into a dedicated subdir so user notes placed in
 // the vault root survive wiki rebuilds. Only this subdir gets touched.
 const GENERATED_SUBDIR = '_generated'
 const MANIFEST_FILE = '.manifest.json'
+
+// Sidecar that lets us short-circuit when no input has changed since the
+// last regen. Cheap fingerprint of (max event id, max analysis id, ship
+// count + last_ship, CHANGELOG mtime, schema version). When this matches
+// the on-disk value we skip the entire build/diff/sweep dance.
+const FINGERPRINT_FILE = '.regen-fingerprint'
+const REGEN_SCHEMA_VERSION = 1
 
 /**
  * Max entries per file. When a bucket exceeds this, it's paginated into
@@ -854,12 +867,16 @@ function buildIndexFile(args: {
   const { ships, memoryTypeCounts, tagKeyCounts, patternsCount, antiPatternsCount, llmAnalysis } =
     args
   const lines: string[] = [
-    '# Project Wiki (generated)',
+    '# Project context export (generated)',
     '',
-    'Agent-crawlable snapshot of project memory. Regenerated on `prjct ship` and `prjct remember`.',
+    'Agent-readable snapshot of project memory. Regenerated on `prjct remember`, `prjct capture`,',
+    '`prjct ship`, `prjct sync`, and the SessionStart / Stop hooks.',
     'Read directly with Read/Glob — no CLI round-trip needed.',
     '',
-    '> Auto-generated. Your own notes under `.prjct/wiki/` are preserved.',
+    '> ⚠️  **Snapshot, not source.** SQLite is the source of truth. Edits to files under',
+    '> `_generated/` are silently overwritten on the next regen. To add memory, run',
+    '> `prjct remember <type> "..."` or drop a markdown note in `../captured/` (parent directory)',
+    '> with `type:` frontmatter — the Stop hook ingests it.',
     '',
   ]
 
@@ -1022,6 +1039,42 @@ async function sweepStaleFiles(root: string, keep: Manifest): Promise<number> {
   return removed
 }
 
+/**
+ * Cheap input fingerprint — single SQL query + one stat call. Bumping
+ * REGEN_SCHEMA_VERSION invalidates every project's cache, which is the
+ * intended escape hatch when the output format changes.
+ */
+async function computeRegenFingerprint(projectPath: string, projectId: string): Promise<string> {
+  type FpRow = {
+    max_event_id: number
+    max_analysis_id: number
+    ship_count: number
+    last_ship: string | null
+  }
+  let row: FpRow | null = null
+  try {
+    row = prjctDb.get<FpRow>(
+      projectId,
+      `SELECT
+         (SELECT COALESCE(MAX(id), 0) FROM events) AS max_event_id,
+         (SELECT COALESCE(MAX(id), 0) FROM llm_analysis) AS max_analysis_id,
+         (SELECT COUNT(*) FROM shipped_features) AS ship_count,
+         (SELECT MAX(shipped_at) FROM shipped_features) AS last_ship`
+    )
+  } catch {
+    // DB might not be initialised yet — use sentinel that triggers a real regen.
+  }
+  const e = row?.max_event_id ?? 0
+  const a = row?.max_analysis_id ?? 0
+  const s = row?.ship_count ?? 0
+  const ls = row?.last_ship ?? ''
+  const changelogMtime = await fs
+    .stat(path.join(projectPath, 'CHANGELOG.md'))
+    .then((st) => Math.floor(st.mtimeMs))
+    .catch(() => 0)
+  return `v${REGEN_SCHEMA_VERSION}|e${e}|a${a}|s${s}|ls${ls}|c${changelogMtime}`
+}
+
 // =============================================================================
 // Public API
 // =============================================================================
@@ -1037,11 +1090,27 @@ export async function generateWiki(
 }> {
   // Resolve vault location (new default is ~/Documents/prjct/<slug>/);
   // pre-2.2.0 projects get their old `.prjct/wiki/` migrated in-place.
-  await migrateWikiLocationIfNeeded(projectPath)
-  const config = await configManager.readConfig(projectPath).catch(() => null)
-  const wikiRoot = pathManager.getWikiPath(projectPath, config?.vaultPath)
+  const wikiRoot = await resolveVaultRoot(projectPath)
   const generatedRoot = path.join(wikiRoot, GENERATED_SUBDIR)
   await fs.mkdir(generatedRoot, { recursive: true })
+
+  // Fast path: if no input has changed since the last successful regen,
+  // skip the entire build/diff/sweep dance. Regen runs on every hook
+  // fire (session-start, stop, remember, capture, ship, sync), so
+  // short-circuiting here saves ~50ms per call on quiet sessions. The
+  // manifest read keeps the `filesSkipped` contract honest for callers.
+  const fingerprintPath = path.join(generatedRoot, FINGERPRINT_FILE)
+  const newFingerprint = await computeRegenFingerprint(projectPath, projectId)
+  const oldFingerprint = await fs.readFile(fingerprintPath, 'utf-8').catch(() => null)
+  if (oldFingerprint === newFingerprint) {
+    const manifest = await readManifest(generatedRoot)
+    return {
+      wikiRoot,
+      filesWritten: 0,
+      filesSkipped: Object.keys(manifest).length,
+      filesRemoved: 0,
+    }
+  }
 
   // --- Gather sources ---
   const [ships, entries, analysis, llmAnalysis] = await Promise.all([
@@ -1166,6 +1235,11 @@ export async function generateWiki(
 
   // Persist new manifest (always rewrite — it's tiny).
   await writeFile(generatedRoot, MANIFEST_FILE, `${JSON.stringify(newManifest, null, 2)}\n`)
+
+  // Stamp the fingerprint last — only after a successful regen — so a
+  // crash mid-build leaves the previous fingerprint in place and forces
+  // the next call to redo the work.
+  await writeFile(generatedRoot, FINGERPRINT_FILE, newFingerprint)
 
   // Top-level README pointer, written only if absent so user files aren't clobbered.
   const topReadmePath = path.join(wikiRoot, 'README.md')

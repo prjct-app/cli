@@ -18,7 +18,7 @@ import { ModelMetadataSchema } from './model'
 
 export const AnalysisStatusSchema = z.enum(['draft', 'verified', 'sealed'])
 
-export const CodePatternSchema = z.object({
+const CodePatternSchema = z.object({
   name: z.string(),
   description: z.string(),
   location: z.string().optional(),
@@ -29,7 +29,7 @@ export const CodePatternSchema = z.object({
   confidence: z.number().min(0).max(1).optional(),
 })
 
-export const AntiPatternSchema = z.object({
+const AntiPatternSchema = z.object({
   issue: z.string(),
   file: z.string(),
   suggestion: z.string(),
@@ -72,9 +72,6 @@ export const AnalysisItemSchema = z.object({
 // Inferred Types - Backward Compatible
 // =============================================================================
 
-export type AnalysisStatus = z.infer<typeof AnalysisStatusSchema>
-export type CodePattern = z.infer<typeof CodePatternSchema>
-export type AntiPattern = z.infer<typeof AntiPatternSchema>
 /** Use z.input so optional fields with defaults (like status) remain optional in creation */
 export type AnalysisSchema = z.input<typeof AnalysisItemSchema>
 
@@ -90,17 +87,6 @@ export const safeParseAnalysis = (data: unknown) => AnalysisItemSchema.safeParse
 // =============================================================================
 // Defaults
 // =============================================================================
-
-export const DEFAULT_ANALYSIS: Omit<AnalysisSchema, 'projectId'> = {
-  languages: [],
-  frameworks: [],
-  configFiles: [],
-  fileCount: 0,
-  patterns: [],
-  antiPatterns: [],
-  analyzedAt: new Date().toISOString(),
-  status: 'draft',
-}
 
 // =============================================================================
 // Semantic Verification (PRJ-270)
@@ -152,7 +138,7 @@ const LANGUAGE_EXTENSIONS: Record<string, string[]> = {
 /**
  * Verify frameworks exist in package.json dependencies
  */
-export async function verifyFrameworks(
+async function verifyFrameworks(
   analysis: AnalysisSchema,
   projectPath: string
 ): Promise<SemanticCheckResult> {
@@ -229,7 +215,7 @@ export async function verifyFrameworks(
 /**
  * Verify languages match actual file extensions in the project
  */
-export async function verifyLanguages(
+async function verifyLanguages(
   analysis: AnalysisSchema,
   projectPath: string
 ): Promise<SemanticCheckResult> {
@@ -295,7 +281,7 @@ export async function verifyLanguages(
 /**
  * Verify pattern locations reference real files
  */
-export async function verifyPatternLocations(
+async function verifyPatternLocations(
   analysis: AnalysisSchema,
   projectPath: string
 ): Promise<SemanticCheckResult> {
@@ -346,7 +332,7 @@ export async function verifyPatternLocations(
 /**
  * Verify file count accuracy (within 10% tolerance)
  */
-export async function verifyFileCount(
+async function verifyFileCount(
   analysis: AnalysisSchema,
   projectPath: string
 ): Promise<SemanticCheckResult> {
@@ -387,7 +373,7 @@ export async function verifyFileCount(
 /**
  * Verify anti-pattern files exist
  */
-export async function verifyAntiPatternFiles(
+async function verifyAntiPatternFiles(
   analysis: AnalysisSchema,
   projectPath: string
 ): Promise<SemanticCheckResult> {

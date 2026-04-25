@@ -10,7 +10,7 @@ import { ARCHIVE_POLICIES, archiveStorage } from '../storage/archive-storage'
 import prjctDb from '../storage/database'
 import type { MemoryServiceEntry } from '../types/services'
 
-export class MemoryService {
+class MemoryService {
   /**
    * Log an action to memory
    */

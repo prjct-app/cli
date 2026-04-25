@@ -59,7 +59,7 @@ export const SubtaskHandoffSchema = z.object({
   outputPopulated: z.boolean(),
 })
 
-export const AnalysisStateSchema = z.object({
+const AnalysisStateSchema = z.object({
   timestamp: z.string(),
   metric: z.literal('analysis_state'),
   state: z.enum(['draft', 'verified', 'sealed']),
@@ -78,7 +78,7 @@ export const PerformanceEntrySchema = z.union([
 // Report Schemas
 // =============================================================================
 
-export const MetricSummarySchema = z.object({
+const MetricSummarySchema = z.object({
   avg: z.number(),
   min: z.number(),
   max: z.number(),
@@ -122,7 +122,5 @@ export type MemorySnapshot = z.infer<typeof MemorySnapshotSchema>
 export type PerformanceMetric = z.infer<typeof PerformanceMetricSchema>
 export type ContextCorrectness = z.infer<typeof ContextCorrectnessSchema>
 export type SubtaskHandoff = z.infer<typeof SubtaskHandoffSchema>
-export type AnalysisState = z.infer<typeof AnalysisStateSchema>
 export type PerformanceEntry = z.infer<typeof PerformanceEntrySchema>
-export type MetricSummary = z.infer<typeof MetricSummarySchema>
 export type PerformanceReport = z.infer<typeof PerformanceReportSchema>

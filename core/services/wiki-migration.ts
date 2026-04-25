@@ -21,12 +21,23 @@ import pathManager from '../infrastructure/path-manager'
 const GITIGNORE_MARKER = '# prjct: legacy wiki — vault moved to ~/Documents/prjct/ in 2.2.0'
 const LEGACY_GITIGNORE_LINE = '.prjct/wiki/'
 
-export interface WikiMigrationResult {
+interface WikiMigrationResult {
   moved: boolean
   reason?: 'no-legacy' | 'already-migrated' | 'user-override' | 'conflict' | 'moved'
   from?: string
   to?: string
   filesMoved?: number
+}
+
+/**
+ * Resolve the project's vault root after running the 2.2.0 migration.
+ * Single source of truth for the `migrate → readConfig → getWikiPath`
+ * dance that wiki-generator and wiki-ingest both need.
+ */
+export async function resolveVaultRoot(projectPath: string): Promise<string> {
+  await migrateWikiLocationIfNeeded(projectPath)
+  const config = await configManager.readConfig(projectPath).catch(() => null)
+  return pathManager.getWikiPath(projectPath, config?.vaultPath)
 }
 
 /**
@@ -178,7 +189,7 @@ async function fileExists(p: string): Promise<boolean> {
 }
 
 // Expose for tests
-export const __testing = {
+const __testing = {
   LEGACY_GITIGNORE_LINE,
   GITIGNORE_MARKER,
   dirHasContent,

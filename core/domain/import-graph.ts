@@ -213,12 +213,33 @@ export function scoreFromSeeds(
 
 const INDEX_KEY = 'import-graph'
 
+// Process-local mtime cache. The graph can be a few MB after JSON.parse;
+// MCP tool calls that ask for related/impact files in succession would
+// otherwise re-parse on every call. Invalidation is exact: we look up
+// the kv_store row's `updated_at` (cheap SQL) and only re-parse when it
+// has changed since the last successful load.
+const graphCache = new Map<string, { graph: ImportGraph; updatedAt: string }>()
+
 export function saveGraph(projectId: string, graph: ImportGraph): void {
   prjctDb.setDoc(projectId, INDEX_KEY, graph)
+  graphCache.delete(projectId)
 }
 
 export function loadGraph(projectId: string): ImportGraph | null {
-  return prjctDb.getDoc<ImportGraph>(projectId, INDEX_KEY)
+  const meta = prjctDb.get<{ updated_at: string }>(
+    projectId,
+    'SELECT updated_at FROM kv_store WHERE key = ?',
+    INDEX_KEY
+  )
+  if (!meta) {
+    graphCache.delete(projectId)
+    return null
+  }
+  const hit = graphCache.get(projectId)
+  if (hit && hit.updatedAt === meta.updated_at) return hit.graph
+  const graph = prjctDb.getDoc<ImportGraph>(projectId, INDEX_KEY)
+  if (graph) graphCache.set(projectId, { graph, updatedAt: meta.updated_at })
+  return graph
 }
 
 // =============================================================================

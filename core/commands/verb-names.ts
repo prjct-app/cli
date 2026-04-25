@@ -7,7 +7,7 @@
  * `__tests__/commands/verb-names.test.ts` enforces they stay in sync.
  */
 
-export const REGISTERED_VERBS = [
+const REGISTERED_VERBS = [
   'task',
   'ship',
   'tag',
@@ -27,7 +27,5 @@ export const REGISTERED_VERBS = [
   'install',
   'capture',
 ] as const
-
-export type RegisteredVerb = (typeof REGISTERED_VERBS)[number]
 
 export const REGISTERED_VERBS_SET: ReadonlySet<string> = new Set(REGISTERED_VERBS)

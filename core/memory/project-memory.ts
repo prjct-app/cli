@@ -62,7 +62,7 @@ export const BASE_MEMORY_TYPES = [
 /** @deprecated use BASE_MEMORY_TYPES. Kept as alias for backward compat. */
 export const MEMORY_TYPES = BASE_MEMORY_TYPES
 
-export type BaseMemoryType = (typeof BASE_MEMORY_TYPES)[number]
+type BaseMemoryType = (typeof BASE_MEMORY_TYPES)[number]
 
 /**
  * Freeform memory type — any non-empty string. Base types are listed
@@ -72,7 +72,7 @@ export type BaseMemoryType = (typeof BASE_MEMORY_TYPES)[number]
 export type MemoryType = string
 
 /** True when the given value matches a base (well-known) memory type. */
-export function isKnownMemoryType(value: string): value is BaseMemoryType {
+function _isKnownMemoryType(value: string): value is BaseMemoryType {
   return (BASE_MEMORY_TYPES as readonly string[]).includes(value)
 }
 

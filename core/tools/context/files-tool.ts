@@ -267,7 +267,7 @@ export async function findRelevantFiles(
 /**
  * Extract keywords from task description
  */
-export function extractKeywords(description: string): string[] {
+function extractKeywords(description: string): string[] {
   // Convert to lowercase and split by non-word characters
   const words = description
     .toLowerCase()

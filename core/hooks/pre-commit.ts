@@ -68,7 +68,7 @@ function mentionsFragment(entry: MemoryEntry, fragments: string[]): boolean {
   return false
 }
 
-export async function buildPreCommitContext(projectPath: string): Promise<string | null> {
+async function buildPreCommitContext(projectPath: string): Promise<string | null> {
   const config = await configManager.readConfig(projectPath)
   if (!config?.projectId) return null
 

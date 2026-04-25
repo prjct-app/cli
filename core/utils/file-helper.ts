@@ -18,7 +18,7 @@ import type { ValidationSchema } from '../types/storage.js'
 // Walk & Batch Utilities
 // =============================================================================
 
-export interface WalkOptions {
+interface WalkOptions {
   /** Skip files/dirs starting with '.' (default: false) */
   skipDotfiles?: boolean
   /** Allow specific dotfiles even when skipDotfiles is true */
@@ -152,49 +152,6 @@ export async function writeFile(filePath: string, content: string): Promise<void
 }
 
 /**
- * Atomic write - writes to temp file then renames (prevents partial writes)
- */
-export async function atomicWrite(filePath: string, content: string): Promise<void> {
-  const dir = path.dirname(filePath)
-  await fs.mkdir(dir, { recursive: true })
-  const tempPath = `${filePath}.${Date.now()}.tmp`
-  await fs.writeFile(tempPath, content, 'utf-8')
-  await fs.rename(tempPath, filePath)
-}
-
-/**
- * Append to text file
- */
-export async function appendToFile(filePath: string, content: string): Promise<void> {
-  await fs.appendFile(filePath, content, 'utf-8')
-}
-
-/**
- * Append a single line to file (with newline and directory creation)
- */
-export async function appendLine(filePath: string, line: string): Promise<void> {
-  const dir = path.dirname(filePath)
-  await fs.mkdir(dir, { recursive: true })
-  await fs.appendFile(filePath, `${line}\n`, 'utf-8')
-}
-
-/**
- * Prepend to text file (adds content at beginning)
- */
-export async function prependToFile(filePath: string, content: string): Promise<void> {
-  try {
-    const existing = await fs.readFile(filePath, 'utf-8')
-    await fs.writeFile(filePath, content + existing, 'utf-8')
-  } catch (error) {
-    if (isNotFoundError(error)) {
-      await fs.writeFile(filePath, content, 'utf-8')
-    } else {
-      throw error
-    }
-  }
-}
-
-/**
  * Check if file exists
  */
 export async function fileExists(filePath: string): Promise<boolean> {
@@ -232,36 +189,6 @@ export async function ensureDir(dirPath: string): Promise<void> {
 }
 
 /**
- * Delete file if it exists
- */
-export async function deleteFile(filePath: string): Promise<boolean> {
-  try {
-    await fs.unlink(filePath)
-    return true
-  } catch (error) {
-    if (isNotFoundError(error)) {
-      return false // File didn't exist
-    }
-    throw error
-  }
-}
-
-/**
- * Delete directory and all contents
- */
-export async function deleteDir(dirPath: string): Promise<boolean> {
-  try {
-    await fs.rm(dirPath, { recursive: true, force: true })
-    return true
-  } catch (error) {
-    if (isNotFoundError(error)) {
-      return false
-    }
-    throw error
-  }
-}
-
-/**
  * List files in directory
  */
 export async function listFiles(
@@ -291,64 +218,4 @@ export async function listFiles(
     }
     throw error
   }
-}
-
-/**
- * Get file size in bytes
- */
-export async function getFileSize(filePath: string): Promise<number> {
-  const stats = await fs.stat(filePath)
-  return stats.size
-}
-
-/**
- * Get file modification time
- */
-export async function getFileModifiedTime(filePath: string): Promise<Date> {
-  const stats = await fs.stat(filePath)
-  return stats.mtime
-}
-
-/**
- * Copy file
- */
-export async function copyFile(sourcePath: string, destPath: string): Promise<void> {
-  await fs.copyFile(sourcePath, destPath)
-}
-
-/**
- * Move/rename file
- */
-export async function moveFile(oldPath: string, newPath: string): Promise<void> {
-  await fs.rename(oldPath, newPath)
-}
-
-/**
- * Read file and split into lines
- */
-export async function readLines(filePath: string): Promise<string[]> {
-  const content = await readFile(filePath, '')
-  return content.split('\n')
-}
-
-/**
- * Write lines to file
- */
-export async function writeLines(filePath: string, lines: string[]): Promise<void> {
-  const content = lines.join('\n')
-  await writeFile(filePath, content)
-}
-
-/**
- * Get file extension
- */
-export function getFileExtension(filePath: string): string {
-  return path.extname(filePath)
-}
-
-/**
- * Get filename without extension
- */
-export function getFileNameWithoutExtension(filePath: string): string {
-  return path.basename(filePath, path.extname(filePath))
 }

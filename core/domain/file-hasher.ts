@@ -143,17 +143,15 @@ export function saveHashes(projectId: string, hashes: Map<string, FileHash>): vo
 }
 
 /**
- * Load file hashes from SQLite index_checksums table.
+ * Load file hashes from SQLite. Internal — invoked from `detectChanges`.
  */
-export function loadHashes(projectId: string): Map<string, FileHash> {
+function loadHashes(projectId: string): Map<string, FileHash> {
   const hashes = new Map<string, FileHash>()
-
   try {
     const rows = prjctDb.query<{ path: string; checksum: string; size: number; mtime: string }>(
       projectId,
       'SELECT path, checksum, size, mtime FROM index_checksums'
     )
-
     for (const row of rows) {
       hashes.set(row.path, {
         path: row.path,
@@ -165,7 +163,6 @@ export function loadHashes(projectId: string): Map<string, FileHash> {
   } catch {
     // Table might not exist yet or be empty
   }
-
   return hashes
 }
 

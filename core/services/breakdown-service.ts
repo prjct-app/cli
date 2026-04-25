@@ -7,7 +7,7 @@
 
 import type { ComplexityEstimate, Severity } from '../types/services'
 
-export class BreakdownService {
+class BreakdownService {
   /**
    * Break down a feature into implementation tasks
    */

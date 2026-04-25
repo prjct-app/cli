@@ -38,6 +38,6 @@ export function encodeMessage(msg: DaemonRequest | DaemonResponse): Buffer {
 }
 
 /** Decode a message received from socket */
-export function decodeMessage(data: string): DaemonRequest | DaemonResponse {
+function _decodeMessage(data: string): DaemonRequest | DaemonResponse {
   return JSON.parse(data.trim())
 }

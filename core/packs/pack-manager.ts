@@ -20,7 +20,7 @@ import {
   type PackManifest,
 } from './manifests'
 
-export interface ActivatedPackSummary {
+interface ActivatedPackSummary {
   name: string
   description: string
   memoryTypes: string[]
@@ -152,7 +152,7 @@ export async function listActivePacks(projectPath: string): Promise<ActivatedPac
 }
 
 /** Compute the effective memory types + slots + signals for a project. */
-export async function effectiveProjectSurface(projectPath: string): Promise<{
+async function _effectiveProjectSurface(projectPath: string): Promise<{
   packs: string[]
   memoryTypes: string[]
   slots: ReturnType<typeof aggregateSlots>

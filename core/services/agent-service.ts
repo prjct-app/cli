@@ -14,7 +14,7 @@ import { defaultAgentRetryPolicy } from '../utils/retry'
 const VALID_AGENT_TYPES = ['claude'] as const
 type ValidAgentType = (typeof VALID_AGENT_TYPES)[number]
 
-export class AgentService {
+class AgentService {
   private agent: unknown = null
   private agentInfo: AgentInfo | null = null
 

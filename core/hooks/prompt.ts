@@ -26,34 +26,30 @@ interface HookInput {
  * Exported for tests + for callers that want the string without the
  * hook envelope.
  */
-export async function buildPromptContext(
-  projectPath: string,
-  prompt: string
-): Promise<string | null> {
+async function buildPromptContext(projectPath: string, prompt: string): Promise<string | null> {
   const config = await configManager.readConfig(projectPath)
   if (!config?.projectId) return null
 
   const keywords = extractKeywords(prompt)
   if (keywords.length === 0) return null
 
-  // Try each keyword as a topic and dedupe by entry id. Pulling
-  // per-keyword keeps the recall targeted — a single wide search
-  // would flood with noise on long prompts.
-  const seen = new Set<string>()
+  // Single recall + in-memory filter on keyword union. The previous
+  // implementation called recall() once per keyword (up to 8 times),
+  // each re-running the same two SQL queries — a hot-path waste since
+  // recall ignores the `topic` filter at the SQL level (it filters
+  // post-fetch). One query, recency-sorted, take the first N hits.
+  const lowerKeywords = keywords.map((k) => k.toLowerCase())
+  let pool: MemoryEntry[] = []
+  try {
+    pool = projectMemory.recall(config.projectId, { limit: MAX_ENTRIES * 4 })
+  } catch {
+    return null
+  }
   const matches: MemoryEntry[] = []
-  for (const kw of keywords) {
-    let entries: MemoryEntry[] = []
-    try {
-      entries = projectMemory.recall(config.projectId, { topic: kw, limit: MAX_ENTRIES })
-    } catch {
-      return null
-    }
-    for (const e of entries) {
-      if (seen.has(e.id)) continue
-      seen.add(e.id)
-      matches.push(e)
-      if (matches.length >= MAX_ENTRIES) break
-    }
+  for (const e of pool) {
+    const hay = `${e.content} ${Object.values(e.tags).join(' ')}`.toLowerCase()
+    if (!lowerKeywords.some((kw) => hay.includes(kw))) continue
+    matches.push(e)
     if (matches.length >= MAX_ENTRIES) break
   }
 

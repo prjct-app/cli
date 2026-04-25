@@ -25,21 +25,16 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import configManager from '../infrastructure/config-manager'
-import pathManager from '../infrastructure/path-manager'
 import { MEMORY_TYPES, type MemoryType, projectMemory } from '../memory/project-memory'
 import { scanForSecrets } from '../memory/secret-scanner'
-import { migrateWikiLocationIfNeeded } from './wiki-migration'
+import { resolveVaultRoot } from './wiki-migration'
 
 const CAPTURED_SUBDIR = 'captured'
 const INGESTED_SUBDIR = '_ingested'
 const README_FILENAME = 'README.md'
 
 async function resolveCapturedRoot(projectPath: string): Promise<string> {
-  await migrateWikiLocationIfNeeded(projectPath)
-  const config = await configManager.readConfig(projectPath).catch(() => null)
-  const wikiRoot = pathManager.getWikiPath(projectPath, config?.vaultPath)
-  return path.join(wikiRoot, CAPTURED_SUBDIR)
+  return path.join(await resolveVaultRoot(projectPath), CAPTURED_SUBDIR)
 }
 
 /**
@@ -52,7 +47,7 @@ interface ParsedNote {
   content: string
 }
 
-export interface WikiIngestResult {
+interface WikiIngestResult {
   ingested: number
   skipped: { file: string; reason: string }[]
   errors: { file: string; error: string }[]

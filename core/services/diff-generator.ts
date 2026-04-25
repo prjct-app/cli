@@ -28,7 +28,7 @@ import { CHARS_PER_TOKEN } from '../constants/token'
 /**
  * Estimate token count for content
  */
-export function estimateTokens(content: string): number {
+function estimateTokens(content: string): number {
   return Math.ceil(content.length / CHARS_PER_TOKEN)
 }
 
@@ -39,7 +39,7 @@ export function estimateTokens(content: string): number {
 /**
  * Parse markdown into sections based on headers
  */
-export function parseMarkdownSections(content: string): ParsedMarkdownSection[] {
+function parseMarkdownSections(content: string): ParsedMarkdownSection[] {
   const lines = content.split('\n')
   const sections: ParsedMarkdownSection[] = []
   let currentSection: ParsedMarkdownSection | null = null

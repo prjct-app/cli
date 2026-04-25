@@ -1,21 +1,18 @@
 # prjct
 
-**Persona-aware context broker for AI coding agents.**
+**Context layer for AI coding agents.**
 
-Works with Claude Code, Gemini CLI, OpenAI Codex, Antigravity, Cursor IDE, Windsurf, and more.
+Works with Claude Code, Gemini CLI, Cursor IDE, Windsurf, OpenAI Codex, Antigravity, and more.
 
 [![npm](https://img.shields.io/npm/v/prjct-cli)](https://www.npmjs.com/package/prjct-cli)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Ready-6366f1)]()
 [![Gemini CLI](https://img.shields.io/badge/Gemini%20CLI-Ready-4285F4)]()
-[![OpenAI Codex](https://img.shields.io/badge/OpenAI%20Codex-Ready-10A37F)]()
 [![Cursor IDE](https://img.shields.io/badge/Cursor%20IDE-Ready-00D4AA)]()
 [![Windsurf](https://img.shields.io/badge/Windsurf-Ready-7C3AED)]()
 
-> **v2.x is alpha.** Install with `npm install -g prjct-cli@alpha`. v1.56.x remains on `latest` while the v2 surface stabilizes.
-
 ## What is prjct?
 
-prjct is a **context broker**, not a task manager. It declares **who your agent is in this project** (PM, founder, DEV, research…), routes the right MCPs + memory types + workflow slots for that persona, and feeds everything back to the LLM through native hooks — no skills to remember, no prescriptive pipelines.
+prjct is the **context layer** your AI agents read before they write code. It keeps project memory (decisions, learnings, gotchas, shipped work) in a local SQLite database, builds code-intelligence indexes (BM25, import graph, git co-change), and feeds the right slice back to your agent through native hooks — no skills to remember, no prompts to copy-paste.
 
 The contract is simple: **prjct exposes the WHAT, the agent decides the HOW.**
 
@@ -24,68 +21,71 @@ Claude Code / Gemini / Cursor                prjct
          |                                      |
          | SessionStart hook fires              |
          | -----------------------------------> |  reads .prjct/prjct.config.json
-         |                                      |  resolves persona + memory + MCPs
+         |                                      |  resolves persona + memory + indexes
          |  You are <role> for <project>.       |
-         |  MCPs: Linear, PostHog.              |
-         |  Recent insights: …                  |
+         |  Active task: …                      |
+         |  Recent learnings: …                 |
          | <----------------------------------- |
          v                                      |
    Writes code / specs / updates                |
    with full project context                    |
 ```
 
+State lives in SQLite. prjct also emits an **agent-readable markdown export** at `~/Documents/prjct/<slug>/_generated/` so any tool with `Read`/`Glob` (Claude Code, Gemini CLI, Cursor, your own scripts) can consume project context without a CLI round-trip. The export is a regenerated **snapshot** — never hand-edited; hooks rebuild it from the database. It happens to be a valid Obsidian vault, so you can browse it visually for free.
+
 ## Install
 
 ```bash
-# v2 alpha (recommended for early adopters)
-npm install -g prjct-cli@alpha
-
-# v1 stable (backwards-compatible)
 npm install -g prjct-cli
 ```
+
+Requires Node.js 22.22.2+ or Bun 1.0+.
 
 ## Quick Start
 
 ```bash
-# 1. One-time global setup (installs routers, MCP config, skills)
+# 1. One-time setup — configure AI providers + install commands into ~/.claude
 prjct start
 
-# 2. Initialize your project with a persona + pack
+# 2. Initialize a project
 cd my-project
-prjct init --pack code,daily            # DEV persona, default
-prjct init --pack pm,research,daily     # PM persona
-prjct init --pack founder,daily         # Founder persona
+prjct init
 
-# 3. Install Claude Code hooks (7 passive hooks in ~/.claude/settings.json)
+# 3. Install the 7 passive Claude Code hooks
 prjct install
 
-# 4. Open in your agent and work normally — hooks inject context automatically.
+# 4. Open in Claude Code / Gemini CLI / Cursor and run:
+p. sync                  # analyze the project; build indexes
 ```
+
+Hooks now inject persona, active task, and topical memory automatically every session.
+
+## Inside Claude Code / Gemini CLI
+
+```bash
+p. capture "llamar a Ana re: pricing"        # GTD inbox — anything goes
+p. task "add OAuth refresh"                   # start tracking work
+p. remember decision "we chose JWT + refresh rotation"
+p. status done                                # close the active task
+p. ship                                       # commit, push, open PR
+```
+
+Cursor / Windsurf use the same commands with a `/` prefix: `/capture`, `/task`, `/ship`.
 
 ### Core verbs
 
 | Verb | What it does |
 |---|---|
-| `prjct capture "<anything>"` | GTD-style universal inbox. Bare `prjct "<text>"` also routes here. |
-| `prjct task "<desc>"` / `prjct task` | Register a task or show the active one. |
+| `prjct capture "<text>"` | GTD-style universal inbox. Bare `prjct "<text>"` also routes here. |
+| `prjct task ["<desc>"]` | Register a task or show the active one. |
+| `prjct status <value>` | Inline status change on the active task (`done`, `paused`, `active`, …). |
 | `prjct tag <k:v>` | Tag the active task (`type:bug`, `domain:auth`, …). |
-| `prjct status <value>` | Inline status change on the active task. |
-| `prjct remember <type> "<content>"` | Persist a memory entry (fact, decision, learning, insight, …). |
-| `prjct ship [name]` | Run the project's `ship` workflow (commit, push, PR, persist shipped). |
-| `prjct workflow run <name>` | Run any registered workflow (`script`, `mcp`, `persona:context` steps). |
+| `prjct remember <type> "<content>"` | Persist a memory entry (decision, learning, gotcha, …). |
+| `prjct ship [name]` | Run the project's ship workflow (commit, push, PR, persist). |
+| `prjct sync` | Re-index files, git co-change, imports; refresh project analysis. |
+| `prjct regen` | Full rebuild of the Obsidian vault snapshot from SQLite. |
+| `prjct suggest` | Smart recommendations based on current project state. |
 | `prjct seed <add\|list>` | Manage packs (persona, memory types, workflow slots). |
-| `prjct sync` | Sync project state and regenerate skills / wiki. |
-
-### Inside Claude Code / Gemini CLI
-
-```bash
-p. capture "llamar a Ana re: pricing"
-p. task "add OAuth refresh"
-p. remember decision "we chose JWT + refresh rotation"
-p. ship "auth"
-```
-
-Cursor / Windsurf use the same commands with `/` prefix: `/capture`, `/task`, `/ship`.
 
 ## Personas & Packs
 
@@ -113,55 +113,60 @@ Five built-in packs (manifests, not bash pipelines):
 | `founder` | Founder | `goal`, `okr`, `person`, `stakeholder`, `decision` | `ship`, `review` |
 | `research` | Research | `source`, `claim`, `question`, `insight` | `research`, `review` |
 
-Slots ship **empty** — the human or the agent authors the scripts on demand.
+Slots ship **empty** — the human or the agent fills them on demand.
 
-## Hooks (v2, opt-in)
+## Hooks (opt-in)
 
-`prjct install` writes 7 passive hooks to `~/.claude/settings.json`. They inject `additionalContext`; none of them block unless a hand-rolled workflow rule says so.
+`prjct install` writes 7 passive hooks to `~/.claude/settings.json`. They inject `additionalContext`; none block by default.
 
 | Event | Injects |
 |---|---|
-| `SessionStart` | Persona + active task + last 3 learnings |
-| `UserPromptSubmit` | Topical recall from memory (≤500 chars) |
-| `PreToolUse` (Bash git commit) | Surfaces anti-patterns tagged with touched files |
+| `SessionStart` | Persona + active task + recent learnings; regenerates vault from DB |
+| `UserPromptSubmit` | Topical recall from memory matching the prompt |
+| `PreToolUse` (Bash git commit) | Anti-patterns tagged with touched files |
 | `PostToolUse` (Edit/Write) | Silently annotates `files_touched` on active task |
-| `Stop` | Async prompt: "learned anything reusable?" |
-| `SubagentStart` | Injects persona + memories for fresh-brain subagents |
+| `Stop` | Async prompt: "learn anything reusable?"; ingests captured/ then regenerates vault |
+| `SubagentStart` | Persona + memories for fresh-brain subagents |
 | `CwdChanged` | Re-contextualizes on project switch |
 
-`prjct uninstall` cleanly removes them.
+Remove with `prjct claude uninstall` (hooks only) or `prjct uninstall` (everything).
 
 ## MCP Server
 
-prjct exposes an MCP server with 5 tool groups (was 9 in v1):
+prjct exposes an MCP server with 5 tool groups:
 
 | Group | Tools |
 |---|---|
-| **memory** | `prjct_mem_save`, `_list`, `_similar`, `_forget` |
-| **project** | `prjct_patterns`, status, summary |
-| **files** | `prjct_files`, `prjct_recent` |
-| **workflow** | `prjct_workflow_list`, `_run`, `_log` |
-| **code-intel** | `prjct_related`, `_impact`, `_stale` |
+| **memory** | save, list, similar, forget |
+| **project** | patterns, status, summary |
+| **files** | files, recent |
+| **workflow** | list, run, log |
+| **code-intel** | related, impact, stale |
 
-The broker model: if you already have `linear`, `jira`, `posthog`, `gmail` MCPs wired, prjct **does not duplicate them** — it just tells Claude they're available for the current persona and caches your insights locally.
+The broker model: if you already have `linear`, `jira`, `posthog`, `gmail` MCPs wired, prjct **does not duplicate them** — it tells your agent they're available for the current persona and caches your insights locally.
 
 ## CLI
 
 ```bash
-prjct start              First-time setup wizard
-prjct init [--pack …]    Initialize project with persona + packs
-prjct install            Install Claude Code hooks
-prjct uninstall          Remove hooks / complete uninstall
-prjct sync               Sync project state + regenerate wiki
-prjct serve              Start web dashboard (port 3478)
+prjct start              First-time setup wizard (AI providers + commands)
+prjct init               Initialize project in current directory
+prjct install            Install Claude Code hooks (merge-safe)
+prjct uninstall          Complete system removal
+prjct sync               Sync project state, rebuild indexes
+prjct regen              Full vault rebuild from SQLite
+prjct serve [port]       Start web dashboard (default port 3478)
 prjct watch              Auto-sync on file changes
 prjct doctor             Check system health
-prjct hooks              Manage git hooks for auto-sync
-prjct context            Smart context filtering for agents
+prjct hooks <install|uninstall|status>  Git hooks for auto-sync
+prjct context <files|signatures|imports|recent|summary>  Smart context filters
+prjct workflow ["config"]  Configure hooks via natural language
 prjct stop / restart     Background daemon control
+prjct login / logout / auth   Cloud sync authentication
 prjct update             Update CLI system-wide
 prjct --version / --help
 ```
+
+Every command supports `--md` to emit LLM-optimized markdown for agent consumption.
 
 ## Memory
 
@@ -170,33 +175,33 @@ prjct --version / --help
 `fact`, `decision`, `learning`, `gotcha`, `pattern`, `anti-pattern`, `shipped`, `inbox`, `todo`, `idea`, `insight`, `question`, `source`, `person` — plus anything you invent (`recipe`, `workout`, `interview`, …).
 
 ```bash
-prjct remember decision "we chose SQLite because app is local"
+prjct remember decision "we chose SQLite because the app is local"
 prjct capture "check why webhook retries on 502"
-prjct memory list --type insight --since 2026-04-01
-prjct memory similar "auth refresh"
+prjct context memory "auth refresh"
 ```
 
-Memory is FTS5-backed (SQLite), persona-filtered by default, and regenerated into an Obsidian-compatible wiki at `.prjct/wiki/_generated/` on each `remember` / `ship` / `sync`.
+Memory is FTS5-backed (SQLite) and persona-filtered. Every `remember`, `capture`, `ship`, and the SessionStart / Stop hooks regenerate the agent-readable markdown export at `~/Documents/prjct/<slug>/_generated/`.
 
-## Workflows
+> SQLite is the source of truth. The export is a snapshot — never hand-edit `_generated/`; if data is missing, fix the pipeline.
 
-Workflow slots declared by packs are **empty scripts**. You (or the agent) fill them:
+### Capture from any markdown editor
 
-```bash
-prjct workflow list             # shows `ship (unassigned)`, `review (unassigned)`, …
-prjct workflow edit ship        # opens in $EDITOR
+Drop a markdown file into `~/Documents/prjct/<slug>/captured/` with a YAML frontmatter:
 
-# Or: ask the agent — "Claude, author me a ship.sh for investor updates"
-# It reads the pack manifest + memory, authors the script, you approve.
+```markdown
+---
+type: learning
+tags:
+  domain: auth
+---
+JWT refresh rotation needs the prior token's `iat` to detect replay.
 ```
 
-Three step types beyond plain bash actions:
+The Stop hook (or `prjct context wiki sync`) ingests it into SQLite, then moves it to `captured/_ingested/<timestamp>/`. Works from Obsidian, vim, iA Writer, or anything that writes a `.md` file. Frontmatter is scanned for secrets before ingest.
 
-- `script:<path>` — runs `.prjct/workflows/<path>.sh` with `PRJCT_BRANCH`, `PRJCT_FILES_CHANGED`, `PRJCT_TAGS` in env.
-- `mcp:<server>:<tool>` — calls an MCP tool and passes the result to the next step.
-- `persona:context` — re-injects the persona block mid-workflow.
+### Why a markdown export?
 
-Declarative `when_expr` filters (`tags:key=value`, `branch~main`, `files:*.ts`) survived the v2 sweep — the bilingual NL parser did not.
+Two reasons: (1) any agent with `Read`/`Glob` consumes it without an SDK or MCP handshake — the markdown tree is paged into ~5K-token chunks so a single file read stays cheap; (2) it survives `prjct uninstall` and remains human-readable. Obsidian compatibility is a side effect — `prjct install` auto-registers the vault so `obsidian://open?vault=<slug>` works in one click, but Obsidian is never required.
 
 ## Code Intelligence
 
@@ -208,23 +213,24 @@ Declarative `when_expr` filters (`tags:key=value`, `branch~main`, `files:*.ts`) 
 | Import graph | Forward + reverse dependency edges |
 | Git co-change | Files that change together |
 
-These power `prjct_related`, `prjct_impact`, and `prjct_stale` in the MCP.
+A combined ranker fuses the three signals (`core/domain/file-ranker.ts`) and powers `prjct context files`, plus `prjct_related`, `prjct_impact`, and `prjct_stale` in the MCP server.
 
 ## Web Dashboard
 
 ```bash
-prjct serve
+prjct serve              # default port 3478 ("prjct" on a phone keypad)
 ```
 
-Hono-based HTTP server on port 3478. REST API for tasks / ideas / roadmap / shipped, SSE for real-time updates, status bar endpoint for IDE integration.
+Hono-based HTTP server with REST endpoints for tasks / inbox / shipped / memory, SSE for real-time updates, and a status-bar endpoint for IDE integration.
 
 ## Issue Tracker Integration
 
 Bring your own MCP — prjct doesn't duplicate trackers.
 
-- **Linear**: configure the official Linear MCP in your agent, declare it in `persona.mcps`.
+- **Linear**: configure the official Linear MCP in your agent and declare it in `persona.mcps`.
 - **Jira**: same — use the official Atlassian MCP.
-- The `linear` and `jira` CLI sub-commands are v1 helpers kept for backwards compat; MCP is the v2 path.
+
+(The legacy v1 `linear` / `jira` sub-commands were removed in v2; MCP is the only path now.)
 
 ## Environment Variables
 
@@ -234,7 +240,7 @@ Bring your own MCP — prjct doesn't duplicate trackers.
 | `PRJCT_DEBUG` | — | Enable debug logging (`1`, `true`, log level) |
 | `PRJCT_NO_DAEMON` | — | Force non-daemon path (debugging) |
 | `DEBUG` | — | Fallback debug flag |
-| `CI` | — | Skips interactive prompts |
+| `CI` | — | Skip interactive prompts |
 
 ## Architecture
 
@@ -242,20 +248,20 @@ Bring your own MCP — prjct doesn't duplicate trackers.
 prjct-cli/
   bin/prjct              Thin JS shim (daemon-first)
   core/
-    commands/            CLI command handlers
+    cli/                 CLI command handlers + dispatcher
     hooks/               7 passive Claude Code hook subcommands
     packs/               Pack manifests + pack-manager
     mcp/                 MCP server (5 tool groups)
-    memory/              projectMemory (v2 unified surface)
-    workflow/            Engine + state-machine + when-evaluator
-    domain/              BM25, import-graph, git-cochange
-    services/            sync, skill-generator, wiki-generator
-    storage/             SQLite (one DB per project)
-    schemas/             Zod — source of truth
+    domain/              BM25, import-graph, git-cochange, file-ranker
+    services/            wiki-generator, wiki-ingest, sync, skill-generator
+    storage/             SQLite (one DB per project) — source of truth
+    schemas/             Zod — runtime validation
+    infrastructure/      path-manager, ai-provider, command-installer
     daemon/              Background daemon (file watching)
     server/              Hono HTTP + SSE
-    sync/                Cloud sync client
+    sync/                Cloud sync client + auth-config
   templates/
+    commands/            Thin per-command templates (defer to CLI --md)
     packs/               JSON pack manifests
     global/              Per-editor router templates
 ```
@@ -263,7 +269,7 @@ prjct-cli/
 ## Requirements
 
 - Node.js 22.22.2+ or Bun 1.0+
-- One of: Claude Code, Gemini CLI, OpenAI Codex, Antigravity, Cursor IDE, Windsurf
+- One of: Claude Code, Gemini CLI, Cursor IDE, Windsurf, OpenAI Codex, Antigravity
 
 ## Links
 

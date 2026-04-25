@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.2.7] - 2026-04-24
+
+### Added
+- current work
+
+## [2.2.6] - 2026-04-24
+
+### Added
+- current work
+
 ## [2.2.5] - 2026-04-24
 
 ### Bug Fixes

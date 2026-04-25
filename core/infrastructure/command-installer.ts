@@ -60,7 +60,7 @@ Memory (project RAG):
 /**
  * Install documentation files to ~/.prjct-cli/docs/
  */
-export async function installDocs(): Promise<{ success: boolean; error?: string }> {
+async function installDocs(): Promise<{ success: boolean; error?: string }> {
   try {
     const docsDir = path.join(os.homedir(), '.prjct-cli', 'docs')
     await fs.mkdir(docsDir, { recursive: true })

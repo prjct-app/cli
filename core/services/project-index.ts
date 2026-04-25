@@ -137,7 +137,7 @@ const PATTERN_DETECTORS: {
 // PROJECT INDEXER CLASS
 // ============================================================================
 
-export class ProjectIndexer {
+class ProjectIndexer {
   private projectPath: string
   private projectId: string
 

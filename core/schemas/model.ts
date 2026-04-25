@@ -14,20 +14,11 @@ import { z } from 'zod'
 // Provider-Specific Model Identifiers
 // =============================================================================
 
-/** Claude model identifiers (short names matching agent frontmatter convention) */
-export const ClaudeModelSchema = z.enum(['opus', 'sonnet', 'haiku'])
-
-/** Gemini model identifiers */
-export const GeminiModelSchema = z.enum(['2.5-pro', '2.5-flash', '2.0-flash'])
-
-/** Generic model identifier - allows any string for future providers */
-export const AIModelSchema = z.string().min(1)
-
 // =============================================================================
 // Supported Models Per Provider
 // =============================================================================
 
-export const SUPPORTED_MODELS: Record<string, readonly string[]> = {
+const SUPPORTED_MODELS: Record<string, readonly string[]> = {
   claude: ['opus', 'sonnet', 'haiku'],
   gemini: ['2.5-pro', '2.5-flash', '2.0-flash'],
   cursor: [], // Multi-model IDE, user selects model
@@ -35,7 +26,7 @@ export const SUPPORTED_MODELS: Record<string, readonly string[]> = {
   antigravity: [], // Platform-managed
 } as const
 
-export const DEFAULT_MODELS: Record<string, string> = {
+const DEFAULT_MODELS: Record<string, string> = {
   claude: 'sonnet',
   gemini: '2.5-flash',
 } as const
@@ -44,7 +35,7 @@ export const DEFAULT_MODELS: Record<string, string> = {
 // Minimum CLI Versions
 // =============================================================================
 
-export const MIN_CLI_VERSIONS: Record<string, string> = {
+const MIN_CLI_VERSIONS: Record<string, string> = {
   claude: '1.0.0',
   gemini: '1.0.0',
 } as const
@@ -69,22 +60,11 @@ export const ModelMetadataSchema = z.object({
 // Model Configuration - Per Project
 // =============================================================================
 
-/** Per-project model preference */
-export const ModelPreferenceSchema = z.object({
-  /** Preferred model for this project */
-  preferredModel: z.string().optional(),
-  /** Model used for last analysis (for mismatch detection) */
-  lastAnalysisModel: ModelMetadataSchema.optional(),
-})
-
 // =============================================================================
 // Inferred Types
 // =============================================================================
 
-export type ClaudeModel = z.infer<typeof ClaudeModelSchema>
-export type GeminiModel = z.infer<typeof GeminiModelSchema>
 export type ModelMetadata = z.infer<typeof ModelMetadataSchema>
-export type ModelPreference = z.infer<typeof ModelPreferenceSchema>
 
 // =============================================================================
 // Validation Helpers
@@ -105,11 +85,6 @@ export function getDefaultModel(provider: string): string | null {
 /** Get supported models for a provider */
 export function getSupportedModels(provider: string): readonly string[] {
   return SUPPORTED_MODELS[provider] ?? []
-}
-
-/** Get minimum CLI version for a provider */
-export function getMinCliVersion(provider: string): string | null {
-  return MIN_CLI_VERSIONS[provider] ?? null
 }
 
 /**

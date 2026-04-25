@@ -135,7 +135,7 @@ async function installAICLI(provider: AIProviderConfig): Promise<boolean> {
 /**
  * Main setup function - installs for ALL detected providers
  */
-export async function run(): Promise<SetupResults> {
+async function run(): Promise<SetupResults> {
   // Step 0: Detect all available providers
   const detection = await detectAllProviders()
   const selection = await selectProvider()
@@ -357,7 +357,7 @@ async function installGeminiGlobalConfig(): Promise<{ success: boolean; action: 
  * Antigravity uses SKILL.md files in ~/.gemini/antigravity/skills/
  * This is the recommended integration method (not MCP).
  */
-export async function installAntigravitySkill(): Promise<{
+async function installAntigravitySkill(): Promise<{
   success: boolean
   action: string | null
 }> {
@@ -395,7 +395,7 @@ export async function installAntigravitySkill(): Promise<{
 /**
  * Check if Antigravity skill needs installation or update
  */
-export async function needsAntigravityInstallation(): Promise<boolean> {
+async function _needsAntigravityInstallation(): Promise<boolean> {
   const detection = await detectAntigravity()
   return detection.installed && !detection.skillInstalled
 }

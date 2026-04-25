@@ -57,13 +57,13 @@ export const MCP_SERVER_PRESETS: Record<'linear' | 'jira' | 'prjct', MCPServerCo
   },
 }
 
-export const MCP_REMOTE_AUTH_COMMANDS: Record<'linear' | 'jira', string> = {
+const MCP_REMOTE_AUTH_COMMANDS: Record<'linear' | 'jira', string> = {
   linear: `npx -y ${MCP_REMOTE_VERSION} https://mcp.linear.app/mcp`,
   jira: `npx -y ${MCP_REMOTE_VERSION} https://mcp.atlassian.com/v1/mcp`,
 }
 
 /** Extract the pinned mcp-remote version string (e.g. "0.1.38") */
-export function getMcpRemoteVersion(): string {
+function getMcpRemoteVersion(): string {
   return MCP_REMOTE_VERSION.split('@')[1]
 }
 
@@ -123,7 +123,7 @@ async function getActiveMcpConfigPaths(): Promise<ProviderMcpPath[]> {
  * Upsert MCP server in ALL active providers.
  * Returns results per provider.
  */
-export async function upsertMcpServerAll(
+async function _upsertMcpServerAll(
   serverName: string,
   serverConfig: MCPServerConfig
 ): Promise<Array<{ provider: string; path: string; changed: boolean }>> {
@@ -139,7 +139,7 @@ export async function upsertMcpServerAll(
 /**
  * Check if MCP server is configured in ANY active provider.
  */
-export async function hasMcpServerAny(serverName: string): Promise<{
+async function _hasMcpServerAny(serverName: string): Promise<{
   configured: boolean
   providers: Array<{ provider: string; configured: boolean; path: string }>
 }> {
@@ -206,7 +206,7 @@ async function validateTokenFiles(dir: string): Promise<TokenValidationResult> {
  * Migrate OAuth tokens from legacy mcp-remote version directories.
  * Copies valid tokens from the highest legacy version to the current version dir.
  */
-export async function migrateOAuthTokens(): Promise<{
+async function migrateOAuthTokens(): Promise<{
   migrated: boolean
   from: string | null
   to: string
@@ -256,7 +256,7 @@ export async function migrateOAuthTokens(): Promise<{
  * Remove invalid token files from a directory.
  * Only cleans if tokens are actually invalid.
  */
-export async function cleanCorruptedTokens(dir: string): Promise<boolean> {
+async function cleanCorruptedTokens(dir: string): Promise<boolean> {
   const validation = await validateTokenFiles(dir)
   if (validation.valid) return false
 
@@ -277,7 +277,7 @@ export async function cleanCorruptedTokens(dir: string): Promise<boolean> {
  * Validate mcp.json entry for a provider against the expected preset.
  * Auto-fixes if malformed by re-writing from preset.
  */
-export async function validateMcpConfig(provider: 'jira' | 'linear'): Promise<{
+async function _validateMcpConfig(provider: 'jira' | 'linear'): Promise<{
   valid: boolean
   issues: string[]
   autoFixed: boolean
@@ -321,7 +321,7 @@ export async function validateMcpConfig(provider: 'jira' | 'linear'): Promise<{
  * Validates token content, auto-migrates from legacy dirs, cleans corrupted files,
  * and writes health status to system DB.
  */
-export async function checkOAuthTokens(provider: 'jira' | 'linear'): Promise<{
+async function _checkOAuthTokens(provider: 'jira' | 'linear'): Promise<{
   ready: boolean
   tokenDir: string | null
   hint: string
@@ -428,7 +428,7 @@ export async function checkOAuthTokens(provider: 'jira' | 'linear'): Promise<{
  * Scan ALL ~/.mcp-auth/mcp-remote-* directories and return a full inventory.
  * Used by the `verify` command to give users a complete picture of token state.
  */
-export async function scanTokenDirectories(): Promise<{
+async function _scanTokenDirectories(): Promise<{
   expectedVersion: string
   dirs: TokenDirScan[]
 }> {

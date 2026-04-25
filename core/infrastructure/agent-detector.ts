@@ -77,7 +77,7 @@ const TERMINAL_AGENT: DetectedAgent = {
 
 // ============ Detection Functions ============
 
-export async function isClaudeEnvironment(): Promise<boolean> {
+async function isClaudeEnvironment(): Promise<boolean> {
   // CLAUDE_AGENT / ANTHROPIC_CLAUDE: Set by Claude runtime to indicate agent environment
   if (process.env.CLAUDE_AGENT || process.env.ANTHROPIC_CLAUDE) return true
 
@@ -99,11 +99,11 @@ export async function isClaudeEnvironment(): Promise<boolean> {
   return false
 }
 
-export function getClaudeAgent(): DetectedAgent {
+function getClaudeAgent(): DetectedAgent {
   return { ...CLAUDE_AGENT }
 }
 
-export function getTerminalAgent(): DetectedAgent {
+function getTerminalAgent(): DetectedAgent {
   return { ...TERMINAL_AGENT }
 }
 
@@ -112,22 +112,4 @@ export async function detect(): Promise<DetectedAgent> {
 
   cachedAgent = (await isClaudeEnvironment()) ? getClaudeAgent() : getTerminalAgent()
   return cachedAgent
-}
-
-export function setAgent(type: string): DetectedAgent {
-  cachedAgent = type === 'claude' ? getClaudeAgent() : getTerminalAgent()
-  return cachedAgent
-}
-
-export function reset(): void {
-  cachedAgent = null
-}
-
-export async function isClaude(): Promise<boolean> {
-  if (cachedAgent) return cachedAgent.type === 'claude'
-  return isClaudeEnvironment()
-}
-
-export async function isTerminal(): Promise<boolean> {
-  return !(await isClaude())
 }

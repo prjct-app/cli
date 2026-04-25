@@ -462,7 +462,7 @@ function resetIdleTimer(): void {
 /**
  * Gracefully shut down the daemon
  */
-export function shutdown(exitCode: number): void {
+function shutdown(exitCode: number): void {
   console.log('Daemon shutting down...')
 
   // Clear idle timer

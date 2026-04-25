@@ -72,10 +72,10 @@ export type MetricsJson = z.infer<typeof MetricsJsonSchema>
 // =============================================================================
 
 /** Parse and validate metrics.json content */
-export const parseMetrics = (data: unknown): MetricsJson => MetricsJsonSchema.parse(data)
+const _parseMetrics = (data: unknown): MetricsJson => MetricsJsonSchema.parse(data)
 
 /** Safe parse with error result */
-export const safeParseMetrics = (data: unknown) => MetricsJsonSchema.safeParse(data)
+const _safeParseMetrics = (data: unknown) => MetricsJsonSchema.safeParse(data)
 
 // =============================================================================
 // Defaults
@@ -104,7 +104,7 @@ export const DEFAULT_METRICS: MetricsJson = {
  *
  * Used for estimating cost savings from context compression
  */
-export const TOKEN_COSTS = {
+const TOKEN_COSTS = {
   // Current models (2026)
   'claude-opus-4.5': 0.005, // $5/M input - flagship
   'claude-sonnet-4.5': 0.003, // $3/M input - balanced
@@ -119,7 +119,7 @@ export const TOKEN_COSTS = {
   default: 0.003, // $3/M input
 } as const
 
-export type ModelName = keyof typeof TOKEN_COSTS
+type ModelName = keyof typeof TOKEN_COSTS
 
 /**
  * Calculate estimated cost saved based on tokens

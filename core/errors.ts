@@ -4,140 +4,13 @@
  * Base error class with specific subclasses for different error domains.
  * Enables typed error handling and better error messages.
  *
- * Features:
- * - Zod-validated structured error data
- * - NamedError pattern (inspired by opencode)
- * - Type-safe error creation and handling
- *
  * @module core/errors
- * @version 2.0.0
  */
-
-import { type ZodType, z } from 'zod'
-
-// =============================================================================
-// Named Error Pattern (Zod-based)
-// =============================================================================
-
-/**
- * Creates a typed error class with Zod schema validation
- * Inspired by opencode's NamedError pattern
- *
- * @example
- * const FileNotFound = NamedError.create('FileNotFound', z.object({
- *   path: z.string(),
- *   operation: z.enum(['read', 'write', 'delete'])
- * }))
- *
- * throw FileNotFound.throw({ path: '/foo/bar', operation: 'read' })
- */
-export const NamedError = {
-  create<T extends ZodType>(name: string, schema: T) {
-    type Data = z.infer<T>
-
-    class TypedError extends Error {
-      readonly errorName: string
-      readonly data: Data
-      readonly isOperational = true
-
-      constructor(data: Data) {
-        const parsed = schema.parse(data)
-        super(`${name}: ${JSON.stringify(parsed)}`)
-        this.name = name
-        this.errorName = name
-        this.data = parsed
-        Error.captureStackTrace?.(this, this.constructor)
-      }
-
-      static throw(data: Data): never {
-        throw new TypedError(data)
-      }
-
-      static is(error: unknown): error is TypedError {
-        return error instanceof TypedError && (error as TypedError).errorName === name
-      }
-
-      static create(data: Data): TypedError {
-        return new TypedError(data)
-      }
-    }
-
-    return TypedError
-  },
-}
-
-// =============================================================================
-// Typed Error Definitions (New Pattern)
-// =============================================================================
-
-/** File operation errors with path context */
-export const FileError = NamedError.create(
-  'FileError',
-  z.object({
-    path: z.string(),
-    operation: z.enum(['read', 'write', 'delete', 'create', 'copy']),
-    reason: z.string().optional(),
-  })
-)
-
-/** Validation errors with field context */
-export const ValidationError = NamedError.create(
-  'ValidationError',
-  z.object({
-    field: z.string(),
-    expected: z.string(),
-    received: z.string().optional(),
-    message: z.string().optional(),
-  })
-)
-
-/** Permission errors */
-export const PermissionError = NamedError.create(
-  'PermissionError',
-  z.object({
-    action: z.string(),
-    resource: z.string(),
-    reason: z.string().optional(),
-  })
-)
-
-/** Task operation errors */
-export const TaskError = NamedError.create(
-  'TaskError',
-  z.object({
-    taskId: z.string().optional(),
-    operation: z.enum(['create', 'update', 'complete', 'pause', 'resume', 'delete']),
-    reason: z.string(),
-  })
-)
-
-/** Session errors */
-export const SessionError = NamedError.create(
-  'SessionError',
-  z.object({
-    sessionId: z.string().optional(),
-    reason: z.string(),
-  })
-)
-
-/** Sync errors */
-export const SyncError = NamedError.create(
-  'SyncError',
-  z.object({
-    projectId: z.string().optional(),
-    operation: z.enum(['push', 'pull', 'auth', 'connect']),
-    reason: z.string(),
-  })
-)
-
-// =============================================================================
-// Error Classes
-// =============================================================================
 
 /**
  * Base error class for all prjct errors
  */
-export class PrjctError extends Error {
+class PrjctError extends Error {
   readonly code: string
   readonly isOperational: boolean
 
@@ -211,7 +84,7 @@ export class AgentError extends PrjctError {
 /**
  * Type guard to check if error is a PrjctError
  */
-export function isPrjctError(error: unknown): error is PrjctError {
+function isPrjctError(error: unknown): error is PrjctError {
   return error instanceof PrjctError
 }
 
@@ -229,14 +102,4 @@ export function getErrorMessage(error: unknown): string {
     return error
   }
   return 'Unknown error'
-}
-
-/**
- * Extract error code safely from unknown error
- */
-export function getErrorCode(error: unknown): string {
-  if (isPrjctError(error)) {
-    return error.code
-  }
-  return 'UNKNOWN_ERROR'
 }

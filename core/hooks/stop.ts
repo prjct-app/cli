@@ -17,13 +17,17 @@ import configManager from '../infrastructure/config-manager'
 import { regenerateWikiDeferred } from '../services/wiki-generator'
 import { ingestCapturedNotes } from '../services/wiki-ingest'
 import prjctDb from '../storage/database'
+import type { LocalConfig } from '../types/config'
 import { buildHookOutput, emit, readStdinSafe, safeRun } from './_shared'
 
 const RECENT_REMEMBER_WINDOW_MS = 30 * 60 * 1000
 const POST_EDIT_EVENT = 'memory.post_edit'
 
-export async function buildStopContext(projectPath: string): Promise<string | null> {
-  const config = await configManager.readConfig(projectPath)
+export async function buildStopContext(
+  projectPath: string,
+  preloadedConfig?: LocalConfig | null
+): Promise<string | null> {
+  const config = preloadedConfig ?? (await configManager.readConfig(projectPath))
   if (!config?.projectId) return null
 
   const projectId = config.projectId
@@ -76,13 +80,14 @@ export async function buildStopContext(projectPath: string): Promise<string | nu
 export async function runStopHook(projectPath: string = process.cwd()): Promise<void> {
   await safeRun(async () => {
     await readStdinSafe()
-    const context = await buildStopContext(projectPath)
+    // Read once; pass to both the context builder and the regen call.
+    const config = await configManager.readConfig(projectPath).catch(() => null)
+    const context = await buildStopContext(projectPath, config)
     emit(buildHookOutput('Stop', context))
 
     // Close the loop: vault notes the user dropped into `captured/` get
     // ingested into DB, then the `_generated/` snapshot is rewritten so
     // both directions stay in sync each turn. Best-effort.
-    const config = await configManager.readConfig(projectPath).catch(() => null)
     if (!config?.projectId) return
     try {
       await ingestCapturedNotes(projectPath)
