@@ -14,6 +14,7 @@
 import fs from 'node:fs'
 import type { Server, Socket } from 'node:net'
 import { createServer as createNetServer } from 'node:net'
+import { findClosestCommand } from '../commands/closest-command'
 import { PrjctCommands } from '../commands/commands'
 import { commandRegistry } from '../commands/registry'
 import '../commands/register'
@@ -343,6 +344,27 @@ async function executeCommand(
   if (isRemovedVerb(request.command) && !commandRegistry.getByName(request.command)) {
     const msg = migrationMessage(request.command) ?? `'${request.command}' was removed in v2.`
     return { success: false, error: msg }
+  }
+
+  // Mirror the v2 GTD auto-route from core/index.ts: an unknown verb
+  // becomes `prjct capture "<verb plus args>"` so dumps without ceremony
+  // land in the inbox. Single-word near-typos of a real verb still bubble
+  // up as "Command not found" (handled by the default switch case below)
+  // so users don't silently capture e.g. "shipp".
+  if (
+    request.command &&
+    !commandRegistry.getByName(request.command) &&
+    !(request.args.length === 0 && findClosestCommand(request.command) !== null)
+  ) {
+    const fullDescription = [
+      request.command,
+      ...request.args.filter((a) => !a.startsWith('-')),
+    ].join(' ')
+    return commands!.capture(fullDescription, request.cwd, {
+      md,
+      tags: opts.tags ? String(opts.tags) : undefined,
+      force: opts.force === true,
+    })
   }
 
   // Commands that need options routed through PrjctCommands
