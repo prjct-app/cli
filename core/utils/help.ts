@@ -48,11 +48,6 @@ const TERMINAL_COMMANDS = [
     example: 'prjct doctor',
   },
   {
-    name: 'serve',
-    description: 'Start web dashboard server',
-    example: 'prjct serve [port]',
-  },
-  {
     name: 'context',
     description: 'Smart context filtering tools for AI',
     example: 'prjct context files "add auth"',

@@ -27,9 +27,6 @@ const _binCommands = new Set([
   'start',
   'setup',
   'update',
-  'dev',
-  'web',
-  'serve',
   'context',
   'hooks',
   'doctor',
@@ -123,7 +120,6 @@ async function main(): Promise<void> {
   const { detectAllProviders } = await import('../core/infrastructure/ai-provider')
   const configManager = (await import('../core/infrastructure/config-manager')).default
   const editorsConfig = (await import('../core/infrastructure/editors-config')).default
-  const { DEFAULT_PORT, startServer } = await import('../core/server/server')
   const { fileExists } = await import('../core/utils/file-helper')
   const { invalidateProviderCache } = await import('../core/utils/provider-cache')
   const { VERSION } = await import('../core/utils/version')
@@ -328,26 +324,6 @@ async function main(): Promise<void> {
   } else if (args[0] === 'start' || args[0] === 'setup') {
     const { runStart } = await import('../core/cli/start')
     await runStart()
-  } else if (args[0] === 'dev') {
-    console.log('Dev mode is not yet implemented.')
-    console.log('Use "prjct serve" to start the web server.')
-    process.exitCode = 0
-  } else if (args[0] === 'web' || args[0] === 'serve') {
-    try {
-      const projectPath = process.cwd()
-      const projectId = await configManager.getProjectId(projectPath)
-
-      if (!projectId) {
-        console.error('No prjct project found. Run "prjct init" first.')
-        process.exitCode = 1
-      } else {
-        const port = parseInt(args[1], 10) || DEFAULT_PORT
-        await startServer(projectId, projectPath, port)
-      }
-    } catch (error) {
-      console.error('Server error:', (error as Error).message)
-      process.exitCode = 1
-    }
   } else if (args[0] === 'context') {
     const projectPath = process.cwd()
     const projectId = await configManager.getProjectId(projectPath)
