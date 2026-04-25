@@ -335,7 +335,9 @@ export async function detectAllProviders(refresh = false): Promise<{
  * 2. Auto-detect single installed provider
  * 3. Default to Claude if both installed
  */
-async function _getActiveProvider(projectProvider?: AIProviderName): Promise<AIProviderConfig> {
+export async function getActiveProvider(
+  projectProvider?: AIProviderName
+): Promise<AIProviderConfig> {
   // If project has a saved preference, use it
   if (projectProvider && Providers[projectProvider]) {
     return Providers[projectProvider]
