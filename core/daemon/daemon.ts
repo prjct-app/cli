@@ -19,11 +19,8 @@ import { PrjctCommands } from '../commands/commands'
 import { commandRegistry } from '../commands/registry'
 import '../commands/register'
 import { isRemovedVerb, migrationMessage } from '../commands/removed-verbs'
-import configManager from '../infrastructure/config-manager'
-import { createServer as createHttpServer, DEFAULT_PORT } from '../server/server'
 import prjctDb from '../storage/database'
 import type { DaemonRequest, DaemonResponse, DaemonState } from '../types/daemon'
-import type { ServerInstance } from '../types/server'
 import { DAEMON_PATHS, encodeMessage, IDLE_TIMEOUT_MS, MAX_BUFFER_SIZE } from './protocol'
 
 /** Run WAL checkpoint every N requests to reclaim disk space */
@@ -33,7 +30,6 @@ const WAL_CHECKPOINT_INTERVAL = 50
 const VERSION_DRIFT_CHECK_INTERVAL = 10
 
 let ipcServer: Server | null = null
-let httpServer: ServerInstance | null = null
 let commands: PrjctCommands | null = null
 let state: DaemonState | null = null
 let ownVersion: string | null = null
@@ -41,11 +37,7 @@ let ownVersion: string | null = null
 /**
  * Start the daemon process
  */
-export async function startDaemon(options: {
-  port?: number
-  noHttp?: boolean
-  foreground?: boolean
-}): Promise<void> {
+export async function startDaemon(options: { foreground?: boolean }): Promise<void> {
   // Flag child services (wiki-generator etc.) can check to know they're
   // running under the long-lived daemon — lets them fire-and-forget safe
   // work that would otherwise be killed by `process.exit()` in the CLI.
@@ -134,27 +126,6 @@ export async function startDaemon(options: {
     console.error('Daemon socket error:', err.message)
     shutdown(1)
   })
-
-  // Start HTTP server (merged into daemon)
-  if (!options.noHttp) {
-    try {
-      const projectPath = process.cwd()
-      const projectId = await configManager.getProjectId(projectPath)
-
-      if (projectId) {
-        const port = options.port || DEFAULT_PORT
-        httpServer = createHttpServer({
-          port,
-          projectId,
-          projectPath,
-          enableLogging: false,
-        })
-        await httpServer.start()
-      }
-    } catch {
-      // HTTP server is optional — daemon works without it
-    }
-  }
 
   // Signal handlers for graceful shutdown
   process.on('SIGTERM', () => shutdown(0))
@@ -490,12 +461,6 @@ function shutdown(exitCode: number): void {
   // Clear idle timer
   if (state?.idleTimer) {
     clearTimeout(state.idleTimer)
-  }
-
-  // Stop HTTP server
-  if (httpServer) {
-    httpServer.stop()
-    httpServer = null
   }
 
   // Close IPC socket

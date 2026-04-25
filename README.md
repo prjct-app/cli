@@ -154,7 +154,6 @@ prjct install            Install Claude Code hooks (merge-safe)
 prjct uninstall          Complete system removal
 prjct sync               Sync project state, rebuild indexes
 prjct regen              Full vault rebuild from SQLite
-prjct serve [port]       Start web dashboard (default port 3478)
 prjct watch              Auto-sync on file changes
 prjct doctor             Check system health
 prjct hooks <install|uninstall|status>  Git hooks for auto-sync
@@ -215,14 +214,6 @@ Two reasons: (1) any agent with `Read`/`Glob` consumes it without an SDK or MCP 
 
 A combined ranker fuses the three signals (`core/domain/file-ranker.ts`) and powers `prjct context files`, plus `prjct_related`, `prjct_impact`, and `prjct_stale` in the MCP server.
 
-## Web Dashboard
-
-```bash
-prjct serve              # default port 3478 ("prjct" on a phone keypad)
-```
-
-Hono-based HTTP server with REST endpoints for tasks / inbox / shipped / memory, SSE for real-time updates, and a status-bar endpoint for IDE integration.
-
 ## Issue Tracker Integration
 
 Bring your own MCP — prjct doesn't duplicate trackers.
@@ -258,7 +249,6 @@ prjct-cli/
     schemas/             Zod — runtime validation
     infrastructure/      path-manager, ai-provider, command-installer
     daemon/              Background daemon (file watching)
-    server/              Hono HTTP + SSE
     sync/                Cloud sync client + auth-config
   templates/
     commands/            Thin per-command templates (defer to CLI --md)
