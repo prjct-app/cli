@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.8] - 2026-04-25
+
+### Bug Fixes
+
+- re-export getActiveProvider (regression from #256) (#257)
+
+
 ## [2.2.7] - 2026-04-24
 
 ### Added
