@@ -53,7 +53,7 @@ export function getTierConfig(): TierConfig {
 /**
  * Centralized icons for consistent output
  */
-export const ICONS = {
+const ICONS = {
   success: chalk.green('✓'),
   fail: chalk.red('✗'),
   warn: chalk.yellow('⚠'),
@@ -82,7 +82,7 @@ export function setQuietMode(enabled: boolean): void {
 /**
  * Check if quiet mode is enabled
  */
-export function isQuietMode(): boolean {
+function _isQuietMode(): boolean {
   return quietMode
 }
 

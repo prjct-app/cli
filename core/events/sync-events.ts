@@ -13,7 +13,7 @@ import * as fileHelper from '../utils/file-helper'
 /**
  * Infer event type from path and action
  */
-export function inferEventType(pathArray: string[], action: 'write' | 'delete'): SyncEventType {
+function _inferEventType(pathArray: string[], action: 'write' | 'delete'): SyncEventType {
   const entity = pathArray[0]
 
   if (action === 'delete') {

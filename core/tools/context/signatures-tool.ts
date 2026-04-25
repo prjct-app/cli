@@ -397,7 +397,7 @@ export async function extractSignatures(
 /**
  * Extract signatures from multiple files in a directory
  */
-export async function extractDirectorySignatures(
+async function _extractDirectorySignatures(
   dirPath: string,
   projectPath: string = process.cwd(),
   options: { recursive?: boolean } = {}

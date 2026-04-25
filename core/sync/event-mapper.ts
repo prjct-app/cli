@@ -7,7 +7,7 @@
 
 import type { SyncEvent } from '../types/events'
 
-export interface WebSyncEvent {
+interface WebSyncEvent {
   event_type: 'upsert' | 'delete'
   entity_type: string
   entity_id: string

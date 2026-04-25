@@ -45,7 +45,7 @@ export const PRJCT_HOOKS = [
   { event: 'CwdChanged', matcher: '', subcommand: 'cwd-changed' },
 ] as const
 
-export type HookSpec = (typeof PRJCT_HOOKS)[number]
+type HookSpec = (typeof PRJCT_HOOKS)[number]
 
 interface HookEntry {
   type: 'command'
@@ -65,13 +65,13 @@ interface SettingsFile {
   [key: string]: unknown
 }
 
-export interface InstallResult {
+interface InstallResult {
   settingsPath: string
   hooksWritten: number
   alreadyPresent: number
 }
 
-export interface UninstallResult {
+interface UninstallResult {
   settingsPath: string
   hooksRemoved: number
 }

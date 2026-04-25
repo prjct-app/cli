@@ -13,7 +13,7 @@ import { getErrorMessage, isNotFoundError } from '../types/fs'
 import * as fileHelper from '../utils/file-helper'
 import out from '../utils/output'
 
-export class ProjectService {
+class ProjectService {
   private currentAuthor: Author | null = null
 
   /**

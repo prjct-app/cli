@@ -47,9 +47,10 @@ function registerCategories(): void {
 }
 
 /**
- * Register all commands from existing command groups
+ * Register all commands from existing command groups.
+ * Called once on module import (side-effect at the bottom of the file).
  */
-export function registerAllCommands(): void {
+function registerAllCommands(): void {
   // Skip if already registered
   if (commandRegistry.has('work')) return
 
@@ -108,18 +109,6 @@ export function registerAllCommands(): void {
   commandRegistry.registerMethod('capture', captureCmd, 'capture', getMeta('capture'))
 }
 
-// Auto-register on import
+// Auto-register on import — this module is imported only for its side effect
+// (see `core/index.ts` and `core/daemon/daemon.ts`).
 registerAllCommands()
-
-// Export command group instances for direct access
-export {
-  analysis,
-  workflow,
-  planning,
-  shipping,
-  setup,
-  context,
-  primitives,
-  uninstallCmd,
-  updateCmd,
-}

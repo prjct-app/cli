@@ -347,20 +347,22 @@ export function score(query: string, index: BM25Index): BM25Score[] {
 
 const INDEX_KEY = 'bm25-index'
 
+// See `import-graph.loadGraph` for the rationale; same mtime cache.
+const indexCache = new Map<string, { index: BM25Index; updatedAt: string }>()
+
 /**
- * Save a BM25 index to SQLite.
+ * Persist a BM25 index to SQLite. Internal — invoked from `indexProject`.
  */
-export function saveIndex(projectId: string, index: BM25Index): void {
-  // Store only the inverted index + metadata (not raw tokens, to save space)
+function saveIndex(projectId: string, index: BM25Index): void {
   const storable = {
     invertedIndex: index.invertedIndex,
     avgDocLength: index.avgDocLength,
     totalDocs: index.totalDocs,
     builtAt: index.builtAt,
-    // Store document lengths (needed for scoring) but not full token lists
     docLengths: Object.fromEntries(Object.entries(index.documents).map(([p, d]) => [p, d.length])),
   }
   prjctDb.setDoc(projectId, INDEX_KEY, storable)
+  indexCache.delete(projectId)
 }
 
 /**
@@ -368,6 +370,17 @@ export function saveIndex(projectId: string, index: BM25Index): void {
  * Returns null if no index exists.
  */
 export function loadIndex(projectId: string): BM25Index | null {
+  const meta = prjctDb.get<{ updated_at: string }>(
+    projectId,
+    'SELECT updated_at FROM kv_store WHERE key = ?',
+    INDEX_KEY
+  )
+  if (!meta) {
+    indexCache.delete(projectId)
+    return null
+  }
+  const hit = indexCache.get(projectId)
+  if (hit && hit.updatedAt === meta.updated_at) return hit.index
   const stored = prjctDb.getDoc<{
     invertedIndex: BM25Index['invertedIndex']
     avgDocLength: number
@@ -384,13 +397,15 @@ export function loadIndex(projectId: string): BM25Index | null {
     documents[p] = { tokens: [], length }
   }
 
-  return {
+  const index: BM25Index = {
     documents,
     invertedIndex: stored.invertedIndex,
     avgDocLength: stored.avgDocLength,
     totalDocs: stored.totalDocs,
     builtAt: stored.builtAt,
   }
+  indexCache.set(projectId, { index, updatedAt: meta.updated_at })
+  return index
 }
 
 // =============================================================================

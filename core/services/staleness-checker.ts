@@ -33,7 +33,7 @@ const DEFAULT_CONFIG: StalenessConfig = {
 // STALENESS CHECKER
 // =============================================================================
 
-export class StalenessChecker {
+class StalenessChecker {
   private projectPath: string
   private config: StalenessConfig
 

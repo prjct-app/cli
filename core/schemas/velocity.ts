@@ -95,9 +95,8 @@ export const DEFAULT_VELOCITY_METRICS: VelocityMetrics = {
 // Validation Helpers
 // =============================================================================
 
-export const parseVelocityMetrics = (data: unknown): VelocityMetrics =>
-  VelocityMetricsSchema.parse(data)
+const _parseVelocityMetrics = (data: unknown): VelocityMetrics => VelocityMetricsSchema.parse(data)
 
-export const safeParseVelocityMetrics = (data: unknown) => VelocityMetricsSchema.safeParse(data)
+const _safeParseVelocityMetrics = (data: unknown) => VelocityMetricsSchema.safeParse(data)
 
-export const parseVelocityConfig = (data: unknown) => VelocityConfigSchema.parse(data)
+const _parseVelocityConfig = (data: unknown) => VelocityConfigSchema.parse(data)

@@ -83,5 +83,5 @@ class PatternExtractor {
   }
 }
 
-export const patternExtractor = new PatternExtractor()
+const patternExtractor = new PatternExtractor()
 export default patternExtractor

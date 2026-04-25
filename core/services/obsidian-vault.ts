@@ -22,7 +22,7 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
-export interface ObsidianRegistrationResult {
+interface ObsidianRegistrationResult {
   bootstrapped: boolean
   registered: boolean
   vaultName: string

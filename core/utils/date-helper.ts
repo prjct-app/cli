@@ -183,7 +183,7 @@ export function toRelative(date: string | Date): string {
  * Parse a variance string like "+30m" or "-2h" to signed minutes.
  * "+30m" -> 30, "-15m" -> -15, "+2h" -> 120, "-1h" -> -60
  */
-export function parseVarianceMinutes(variance: string): number {
+function _parseVarianceMinutes(variance: string): number {
   const match = variance.match(/^([+-])(\d+)([mh])$/)
   if (!match) return 0
 

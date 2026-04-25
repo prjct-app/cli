@@ -6,7 +6,7 @@
  * a committed key.
  */
 
-export const SECRET_PATTERNS: ReadonlyArray<{ name: string; re: RegExp }> = [
+const SECRET_PATTERNS: ReadonlyArray<{ name: string; re: RegExp }> = [
   { name: 'sk-… token', re: /\bsk-[A-Za-z0-9_-]{16,}/ },
   { name: 'GitHub PAT', re: /\bghp_[A-Za-z0-9]{30,}/ },
   { name: 'GitHub server PAT', re: /\bghs_[A-Za-z0-9]{30,}/ },

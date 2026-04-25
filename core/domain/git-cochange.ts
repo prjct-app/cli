@@ -199,12 +199,29 @@ export function scoreFromSeeds(seedFiles: string[], index: CoChangeIndex): CoCha
 
 const INDEX_KEY = 'cochange-index'
 
+// See `import-graph.loadGraph` for the rationale; same mtime cache.
+const matrixCache = new Map<string, { matrix: CoChangeIndex; updatedAt: string }>()
+
 export function saveMatrix(projectId: string, index: CoChangeIndex): void {
   prjctDb.setDoc(projectId, INDEX_KEY, index)
+  matrixCache.delete(projectId)
 }
 
 export function loadMatrix(projectId: string): CoChangeIndex | null {
-  return prjctDb.getDoc<CoChangeIndex>(projectId, INDEX_KEY)
+  const meta = prjctDb.get<{ updated_at: string }>(
+    projectId,
+    'SELECT updated_at FROM kv_store WHERE key = ?',
+    INDEX_KEY
+  )
+  if (!meta) {
+    matrixCache.delete(projectId)
+    return null
+  }
+  const hit = matrixCache.get(projectId)
+  if (hit && hit.updatedAt === meta.updated_at) return hit.matrix
+  const matrix = prjctDb.getDoc<CoChangeIndex>(projectId, INDEX_KEY)
+  if (matrix) matrixCache.set(projectId, { matrix, updatedAt: meta.updated_at })
+  return matrix
 }
 
 // =============================================================================

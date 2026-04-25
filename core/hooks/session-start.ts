@@ -18,7 +18,7 @@
 import configManager from '../infrastructure/config-manager'
 import { formatMemoryMd, type MemoryEntry, projectMemory } from '../memory/project-memory'
 import { regenerateWikiDeferred } from '../services/wiki-generator'
-import type { ProjectPersona } from '../types/config'
+import type { LocalConfig, ProjectPersona } from '../types/config'
 import { buildHookOutput, emit, readStdinSafe, safeRun } from './_shared'
 
 const MAX_CHARS = 2500
@@ -30,10 +30,16 @@ interface HookInput {
 
 /**
  * Build the additionalContext body for the current project.
- * Exported so tests + other hooks (SubagentStart) can reuse it.
+ *
+ * `preloadedConfig` lets the caller skip a duplicate disk read — the
+ * hook entry point reads config once and passes it down. Tests can
+ * keep calling this with just `projectPath` and we'll read it ourselves.
  */
-export async function buildSessionContext(projectPath: string): Promise<string | null> {
-  const config = await configManager.readConfig(projectPath)
+export async function buildSessionContext(
+  projectPath: string,
+  preloadedConfig?: LocalConfig | null
+): Promise<string | null> {
+  const config = preloadedConfig ?? (await configManager.readConfig(projectPath))
   if (!config?.projectId) return null
 
   const persona = config.persona
@@ -96,12 +102,15 @@ function formatPersona(persona: ProjectPersona): string {
 export async function runSessionStartHook(projectPath: string = process.cwd()): Promise<void> {
   await safeRun(async () => {
     await readStdinSafe<HookInput>()
-    const context = await buildSessionContext(projectPath)
+    // Read once; pass to both the context builder and the regen call so
+    // we're not doing two disk reads on a hot path that fires on every
+    // session start.
+    const config = await configManager.readConfig(projectPath).catch(() => null)
+    const context = await buildSessionContext(projectPath, config)
     emit(buildHookOutput('SessionStart', context))
 
     // Refresh the Obsidian vault from DB so the files Claude may Read
     // reflect current project state. Best-effort; errors are swallowed.
-    const config = await configManager.readConfig(projectPath).catch(() => null)
     if (config?.projectId) {
       await regenerateWikiDeferred(projectPath, config.projectId).catch(() => undefined)
     }

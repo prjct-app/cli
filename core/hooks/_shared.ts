@@ -13,7 +13,7 @@
  *   - Keyword matcher — simple substring + regex over prompt text.
  */
 
-export interface HookOutput {
+interface HookOutput {
   /** Top-level informational message. Accepted by every Claude Code hook
    *  event — the only safe channel for Stop, SubagentStart, CwdChanged,
    *  and PreToolUse since their response schemas reject
@@ -60,7 +60,7 @@ export function emit(output: HookOutput | Record<string, never>): void {
   process.stdout.write(`${JSON.stringify(output)}\n`)
 }
 
-export function emitEmpty(): void {
+function emitEmpty(): void {
   emit({})
 }
 

@@ -42,7 +42,7 @@ export type {
  * - Bound method registration from existing classes
  * - Full metadata registration from static definitions
  */
-export class CommandRegistry {
+class CommandRegistry {
   private handlers: Map<string, CommandHandler<unknown>> = new Map()
   private handlerFns: Map<string, HandlerFn<unknown>> = new Map()
   private metadata: Map<string, CommandMeta> = new Map()

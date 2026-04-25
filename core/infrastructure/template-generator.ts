@@ -16,7 +16,7 @@ import path from 'node:path'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import { fileExists } from '../utils/file-helper'
 
-export class TemplateGenerator {
+class TemplateGenerator {
   private commandsPath: string
 
   constructor() {

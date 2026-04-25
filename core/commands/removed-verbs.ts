@@ -13,7 +13,7 @@
  * classes.
  */
 
-export interface RemovedVerb {
+interface RemovedVerb {
   /** Exact replacement command, shown verbatim to the user. */
   replacement: string
   /** Short reason shown alongside the replacement. */

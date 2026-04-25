@@ -16,7 +16,7 @@ import { fileExists } from '../utils/file-helper'
 // Types
 // =============================================================================
 
-export interface WorktreeInfo {
+interface WorktreeInfo {
   /** Absolute path to the worktree directory */
   path: string
   /** Git branch checked out in this worktree */
@@ -29,7 +29,7 @@ export interface WorktreeInfo {
   slug: string
 }
 
-export interface WorktreeCreateOptions {
+interface WorktreeCreateOptions {
   /** Custom branch name (default: feat/{slug}) */
   branch?: string
   /** Base branch to create from (default: current HEAD) */

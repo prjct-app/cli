@@ -1,55 +1,51 @@
 /**
  * Shipped Schema
  *
- * Defines the structure for shipped.json - completed/shipped items.
+ * Defines the structure for shipped data — completed/shipped items.
  * Uses Zod for runtime validation and TypeScript type inference.
- * ZERO DATA LOSS - captures ALL fields from MD files.
  *
- * @version 2.0.0
+ * Public surface: `ShippedJsonSchema` (the root schema) and `ShippedJson`
+ * (the inferred type). All inner schemas are internal building blocks.
  */
 
 import { z } from 'zod'
 
-// =============================================================================
-// Zod Schemas - Source of Truth
-// =============================================================================
+const ShipTypeSchema = z.enum(['feature', 'fix', 'improvement', 'refactor'])
+const CheckStatusSchema = z.enum(['pass', 'warning', 'fail', 'skipped'])
+const ChangeTypeSchema = z.enum(['added', 'changed', 'fixed', 'removed'])
 
-export const ShipTypeSchema = z.enum(['feature', 'fix', 'improvement', 'refactor'])
-export const CheckStatusSchema = z.enum(['pass', 'warning', 'fail', 'skipped'])
-export const ChangeTypeSchema = z.enum(['added', 'changed', 'fixed', 'removed'])
-
-export const DurationSchema = z.object({
+const DurationSchema = z.object({
   hours: z.number(),
   minutes: z.number(),
   totalMinutes: z.number(),
 })
 
-export const CodeMetricsSchema = z.object({
+const CodeMetricsSchema = z.object({
   filesChanged: z.number().nullable().optional(),
   linesAdded: z.number().nullable().optional(),
   linesRemoved: z.number().nullable().optional(),
   commits: z.number().nullable().optional(),
 })
 
-export const ShipChangeSchema = z.object({
+const ShipChangeSchema = z.object({
   description: z.string(),
   type: ChangeTypeSchema.optional(),
 })
 
-export const QualityMetricsSchema = z.object({
+const QualityMetricsSchema = z.object({
   lintStatus: CheckStatusSchema.nullable().optional(),
   lintDetails: z.string().optional(),
   testStatus: CheckStatusSchema.nullable().optional(),
   testDetails: z.string().optional(),
 })
 
-export const CommitInfoSchema = z.object({
+const CommitInfoSchema = z.object({
   hash: z.string().optional(),
   message: z.string().optional(),
   branch: z.string().optional(),
 })
 
-export const ShippedItemSchema = z.object({
+const ShippedItemSchema = z.object({
   id: z.string(), // ship_xxxxxxxx
   name: z.string(),
   version: z.string().nullable().optional(),
@@ -72,35 +68,3 @@ export const ShippedJsonSchema = z.object({
   shipped: z.array(ShippedItemSchema),
   lastUpdated: z.string(),
 })
-
-// =============================================================================
-// Inferred Types - Backward Compatible
-// =============================================================================
-
-export type ShipType = z.infer<typeof ShipTypeSchema>
-export type CheckStatus = z.infer<typeof CheckStatusSchema>
-export type AgentType = 'fe' | 'be' | 'fe+be' | 'devops' | 'ai' | string
-export type Duration = z.infer<typeof DurationSchema>
-export type CodeMetrics = z.infer<typeof CodeMetricsSchema>
-export type ShipChange = z.infer<typeof ShipChangeSchema>
-export type QualityMetrics = z.infer<typeof QualityMetricsSchema>
-export type CommitInfo = z.infer<typeof CommitInfoSchema>
-export type ShippedItemSchema = z.infer<typeof ShippedItemSchema>
-export type ShippedJson = z.infer<typeof ShippedJsonSchema>
-
-// =============================================================================
-// Validation Helpers
-// =============================================================================
-
-/** Parse and validate shipped.json content */
-export const parseShipped = (data: unknown): ShippedJson => ShippedJsonSchema.parse(data)
-export const safeParseShipped = (data: unknown) => ShippedJsonSchema.safeParse(data)
-
-// =============================================================================
-// Defaults
-// =============================================================================
-
-export const DEFAULT_SHIPPED: ShippedJson = {
-  shipped: [],
-  lastUpdated: '',
-}

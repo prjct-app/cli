@@ -7,7 +7,7 @@
  * workflow-engine).
  */
 
-export const MEMORY_EVENT_PREFIX = 'memory.'
+const MEMORY_EVENT_PREFIX = 'memory.'
 
 /** Written by `prjct remember` — one row per captured memory entry. */
 export const REMEMBER_ACTION_PREFIX = 'remember.'

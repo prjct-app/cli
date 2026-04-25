@@ -258,7 +258,7 @@ export async function detectCommands(projectPath: string): Promise<ProjectComman
 // SOURCE CITATIONS
 // ============================================================================
 
-export function buildSources(stats: ProjectStats, commands: ProjectCommands): ContextSources {
+function _buildSources(stats: ProjectStats, commands: ProjectCommands): ContextSources {
   const sources = defaultSources()
 
   // Determine ecosystem source file

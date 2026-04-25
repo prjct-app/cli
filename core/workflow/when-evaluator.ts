@@ -35,7 +35,7 @@ interface Condition {
  * silently — a rule with garbage should still run (fail-open), since the
  * alternative is an undebuggable skip.
  */
-export function parseWhen(expr: string): Condition[] {
+function parseWhen(expr: string): Condition[] {
   const tokens = expr
     .split(/\s+/)
     .map((t) => t.trim())

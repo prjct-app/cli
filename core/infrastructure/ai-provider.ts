@@ -24,68 +24,14 @@ import { compareSemver } from '../schemas/model'
 import type {
   AIProviderConfig,
   AIProviderName,
-  CapabilityTier,
-  CursorProjectDetection,
   ProviderBranding,
-  ProviderCapabilities,
   ProviderDetectionResult,
   ProviderSelectionResult,
-  WindsurfProjectDetection,
 } from '../types/provider'
 
 import { execAsync } from '../utils/exec'
 import { fileExists } from '../utils/file-helper'
 import { readProviderCache, writeProviderCache } from '../utils/provider-cache'
-
-// =============================================================================
-// Capability Tiers
-// =============================================================================
-
-const CAPABILITY_TIERS: Record<CapabilityTier, ProviderCapabilities> = {
-  /** Claude Code — all features */
-  full: {
-    shell: true,
-    fileRead: true,
-    fileWrite: true,
-    fileSearch: true,
-    structuredQuestions: true,
-    subagents: true,
-    webFetch: true,
-    todoTracking: true,
-  },
-  /** Gemini CLI — most features, no subagents/web/todo */
-  standard: {
-    shell: true,
-    fileRead: true,
-    fileWrite: true,
-    fileSearch: true,
-    structuredQuestions: true,
-    subagents: false,
-    webFetch: false,
-    todoTracking: false,
-  },
-  /** Codex, Cursor, Windsurf — shell + files only */
-  basic: {
-    shell: true,
-    fileRead: true,
-    fileWrite: true,
-    fileSearch: true,
-    structuredQuestions: false,
-    subagents: false,
-    webFetch: false,
-    todoTracking: false,
-  },
-}
-
-/**
- * Get resolved capabilities for a provider, with optional overrides
- */
-export function getCapabilities(
-  tier: CapabilityTier,
-  overrides?: Partial<ProviderCapabilities>
-): ProviderCapabilities {
-  return { ...CAPABILITY_TIERS[tier], ...overrides }
-}
 
 // =============================================================================
 // Provider Configurations
@@ -144,7 +90,7 @@ export const GeminiProvider: AIProviderConfig = {
  * Config is located in ~/.gemini/antigravity/
  * Uses SKILL.md for skills and mcp_config.json for tools.
  */
-export const AntigravityProvider: AIProviderConfig = {
+const AntigravityProvider: AIProviderConfig = {
   name: 'antigravity',
   displayName: 'Google Antigravity',
   cliCommand: null, // Not a CLI command, but a platform/app
@@ -209,7 +155,7 @@ export const CursorProvider: AIProviderConfig = {
  * @see https://docs.windsurf.com/windsurf/cascade/memories
  * @see https://docs.windsurf.com/windsurf/cascade/workflows
  */
-export const WindsurfProvider: AIProviderConfig = {
+const WindsurfProvider: AIProviderConfig = {
   name: 'windsurf',
   displayName: 'Windsurf IDE',
   cliCommand: null, // Not a CLI - GUI app
@@ -239,7 +185,7 @@ export const WindsurfProvider: AIProviderConfig = {
  *
  * @see https://github.com/openai/codex
  */
-export const CodexProvider: AIProviderConfig = {
+const CodexProvider: AIProviderConfig = {
   name: 'codex',
   displayName: 'OpenAI Codex',
   cliCommand: 'codex',
@@ -304,8 +250,10 @@ async function getCliVersion(command: string): Promise<string | null> {
 }
 
 /**
- * Detect if a specific CLI-based provider is installed
- * Note: Cursor is NOT a CLI, use detectCursorProject() instead
+ * Detect if a specific CLI-based provider is installed.
+ * Cursor and Windsurf are project-level IDEs (no CLI binary), so this
+ * returns `installed: false` for them and project-level detection lives
+ * elsewhere.
  */
 export async function detectProvider(provider: AIProviderName): Promise<ProviderDetectionResult> {
   const config = Providers[provider]
@@ -387,9 +335,7 @@ export async function detectAllProviders(refresh = false): Promise<{
  * 2. Auto-detect single installed provider
  * 3. Default to Claude if both installed
  */
-export async function getActiveProvider(
-  projectProvider?: AIProviderName
-): Promise<AIProviderConfig> {
+async function _getActiveProvider(projectProvider?: AIProviderName): Promise<AIProviderConfig> {
   // If project has a saved preference, use it
   if (projectProvider && Providers[projectProvider]) {
     return Providers[projectProvider]
@@ -408,18 +354,6 @@ export async function getActiveProvider(
 
   // Default to Claude
   return ClaudeProvider
-}
-
-/**
- * Check if config directory exists for a provider
- * Returns false for project-level providers (Cursor)
- */
-export async function hasProviderConfig(provider: AIProviderName): Promise<boolean> {
-  const config = Providers[provider]
-  if (!config.configDir) {
-    return false // Cursor has no global config directory
-  }
-  return fileExists(config.configDir)
 }
 
 // =============================================================================
@@ -458,73 +392,6 @@ export function getProviderBranding(provider: AIProviderName): ProviderBranding 
  * Cursor has NO global config (~/.cursor/ doesn't exist).
  * Detection is based on project-level .cursor/ directory.
  */
-export async function detectCursorProject(projectRoot: string): Promise<CursorProjectDetection> {
-  const cursorDir = path.join(projectRoot, '.cursor')
-  const rulesDir = path.join(cursorDir, 'rules')
-  const routerPath = path.join(rulesDir, 'prjct.mdc')
-
-  const [detected, routerInstalled] = await Promise.all([
-    fileExists(cursorDir),
-    fileExists(routerPath),
-  ])
-
-  return {
-    detected,
-    routerInstalled,
-    projectRoot: detected ? projectRoot : undefined,
-  }
-}
-
-/**
- * Check if Cursor routers need to be regenerated
- */
-export async function needsCursorRouterRegeneration(projectRoot: string): Promise<boolean> {
-  const detection = await detectCursorProject(projectRoot)
-
-  // Only check if .cursor/ exists (project uses Cursor)
-  // and prjct router is missing
-  return detection.detected && !detection.routerInstalled
-}
-
-// =============================================================================
-// Windsurf Project Detection
-// =============================================================================
-
-/**
- * Detect if a project is configured for Windsurf IDE
- *
- * Windsurf has NO global config (~/.windsurf/ doesn't exist).
- * Detection is based on project-level .windsurf/ directory.
- */
-export async function detectWindsurfProject(
-  projectRoot: string
-): Promise<WindsurfProjectDetection> {
-  const windsurfDir = path.join(projectRoot, '.windsurf')
-  const rulesDir = path.join(windsurfDir, 'rules')
-  const routerPath = path.join(rulesDir, 'prjct.md')
-
-  const [detected, routerInstalled] = await Promise.all([
-    fileExists(windsurfDir),
-    fileExists(routerPath),
-  ])
-
-  return {
-    detected,
-    routerInstalled,
-    projectRoot: detected ? projectRoot : undefined,
-  }
-}
-
-/**
- * Check if Windsurf routers need to be regenerated
- */
-export async function needsWindsurfRouterRegeneration(projectRoot: string): Promise<boolean> {
-  const detection = await detectWindsurfProject(projectRoot)
-
-  // Only check if .windsurf/ exists (project uses Windsurf)
-  // and prjct router is missing
-  return detection.detected && !detection.routerInstalled
-}
 
 // =============================================================================
 // Antigravity Detection
@@ -596,50 +463,16 @@ export async function detectCodex(): Promise<CodexDetection> {
 // =============================================================================
 
 /**
- * Get full path to global context file
- * Returns null for project-level providers (Cursor)
+ * Get full path to global settings file.
+ * Returns null for project-level providers (Cursor) or providers
+ * without a settings file.
  */
-export function getGlobalContextPath(provider: AIProviderName): string | null {
-  const config = Providers[provider]
-  if (!config.configDir) {
-    return null // Cursor has no global config
-  }
-  return path.join(config.configDir, config.contextFile)
-}
-
-/**
- * Get full path to global settings file
- * Returns null for project-level providers (Cursor)
- */
-export function getGlobalSettingsPath(provider: AIProviderName): string | null {
+function _getGlobalSettingsPath(provider: AIProviderName): string | null {
   const config = Providers[provider]
   if (!config.configDir || !config.settingsFile) {
     return null // Cursor has no global settings
   }
   return path.join(config.configDir, config.settingsFile)
-}
-
-/**
- * Get full path to skills directory
- * Returns null for providers without skill support (Cursor)
- */
-export function getSkillsPath(provider: AIProviderName): string | null {
-  return Providers[provider].skillsDir
-}
-
-/**
- * Get commands directory relative to project root
- */
-export function getCommandsDir(provider: AIProviderName): string {
-  return Providers[provider].commandsDir
-}
-
-/**
- * Get full path to commands directory in a project
- */
-export function getProjectCommandsPath(provider: AIProviderName, projectRoot: string): string {
-  const config = Providers[provider]
-  return path.join(projectRoot, config.commandsDir)
 }
 
 // =============================================================================

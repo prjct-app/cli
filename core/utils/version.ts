@@ -20,7 +20,6 @@ interface PackageJson {
 }
 
 let cachedVersion: string | null = null
-let cachedPackageJson: PackageJson | null = null
 let cachedPackageRoot: string | null = null
 
 /**
@@ -68,60 +67,11 @@ export function getVersion(): string {
     const packageJsonPath = path.join(getPackageRoot(), 'package.json')
     const packageJson: PackageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'))
     cachedVersion = packageJson.version
-    cachedPackageJson = packageJson
     return cachedVersion
   } catch (error) {
     console.error('Failed to read version from package.json:', getErrorMessage(error))
     return '0.0.0'
   }
-}
-
-/**
- * Get the full package.json object
- */
-export function getPackageInfo(): PackageJson | null {
-  if (!cachedPackageJson) {
-    getVersion()
-  }
-  return cachedPackageJson
-}
-
-/**
- * Compare two semantic version strings
- * @returns -1 if v1 < v2, 0 if equal, 1 if v1 > v2
- */
-export function compareVersions(v1: string, v2: string): number {
-  const parts1 = v1.split('.').map(Number)
-  const parts2 = v2.split('.').map(Number)
-
-  for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
-    const num1 = parts1[i] || 0
-    const num2 = parts2[i] || 0
-
-    if (num1 > num2) return 1
-    if (num1 < num2) return -1
-  }
-
-  return 0
-}
-
-/**
- * Check if a config version is compatible with current version
- */
-export function isCompatible(configVersion: string): boolean {
-  const current = getVersion()
-  const [currentMajor, currentMinor] = current.split('.').map(Number)
-  const [configMajor, configMinor] = configVersion.split('.').map(Number)
-
-  return currentMajor === configMajor && currentMinor === configMinor
-}
-
-/**
- * Check if migration is needed based on version comparison
- */
-export function needsMigration(fromVersion: string, toVersion: string | null = null): boolean {
-  const target = toVersion || getVersion()
-  return compareVersions(fromVersion, target) < 0
 }
 
 /**
@@ -132,7 +82,6 @@ export function needsMigration(fromVersion: string, toVersion: string | null = n
 export function resetPackageRoot(newRoot: string): void {
   cachedPackageRoot = newRoot
   cachedVersion = null
-  cachedPackageJson = null
 }
 
 export const VERSION = getVersion()

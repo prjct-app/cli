@@ -12,12 +12,12 @@ import { getVersion } from './version'
 // =============================================================================
 
 /** Branded header — single line, no emoji */
-export function mdHeader(): string {
+function mdHeader(): string {
   return '---'
 }
 
 /** Branded footer with version */
-export function mdFooter(): string {
+function mdFooter(): string {
   const version = getVersion()
   return `---\nprjct v${version}`
 }
@@ -36,7 +36,7 @@ export function mdOutput(...sections: (string | null | undefined | false)[]): st
 // =============================================================================
 
 /** Build a markdown table from headers and rows */
-export function mdTable(headers: string[], rows: string[][]): string {
+function mdTable(headers: string[], rows: string[][]): string {
   const headerRow = `| ${headers.join(' | ')} |`
   const separator = `|${headers.map(() => '---').join('|')}|`
   const bodyRows = rows.map((row) => `| ${row.join(' | ')} |`)
@@ -51,12 +51,6 @@ export function mdCodeBlock(code: string, lang = ''): string {
 /** Inline key-value badge */
 export function mdBadge(label: string, value: string): string {
   return `**${label}**: \`${value}\``
-}
-
-/** Callout block with bold message */
-export function mdCallout(type: 'success' | 'warn' | 'error' | 'info', message: string): string {
-  const prefix = { success: 'OK', warn: 'WARNING', error: 'ERROR', info: 'INFO' }[type]
-  return `> **${prefix}:** ${message}`
 }
 
 // =============================================================================
@@ -107,50 +101,9 @@ export function mdTaskHeader(task: TaskInfo): string {
   return `## ${task.description}${meta}`
 }
 
-interface SubtaskItem {
-  description: string
-  status: string
-}
-
-/** Format subtasks as a markdown table */
-export function mdSubtasks(subtasks: SubtaskItem[], currentIndex?: number): string {
-  const headers = ['#', 'Status', 'Description']
-  const rows = subtasks.map((s, i) => {
-    const num = String(i + 1)
-    let status: string
-    if (s.status === 'completed') {
-      status = 'done'
-    } else if (i === currentIndex) {
-      status = 'current'
-    } else {
-      status = 'pending'
-    }
-    const current = i === currentIndex ? ' **<- current**' : ''
-    return [num, status, `${s.description}${current}`]
-  })
-  return `### Subtasks\n${mdTable(headers, rows)}`
-}
-
 // =============================================================================
 // Context Formatters
 // =============================================================================
-
-interface FileRef {
-  path: string
-  description?: string
-  lineRange?: string
-}
-
-/** Format relevant files list with code formatting */
-export function mdRelevantFiles(files: FileRef[]): string {
-  if (files.length === 0) return ''
-  const items = files.map((f) => {
-    const range = f.lineRange ? `:${f.lineRange}` : ''
-    const desc = f.description ? ` — ${f.description}` : ''
-    return `- \`${f.path}${range}\`${desc}`
-  })
-  return `### Relevant Files\n${items.join('\n')}`
-}
 
 // =============================================================================
 // Navigation Formatters
@@ -189,11 +142,6 @@ export function mdDone(message: string, details?: string): string {
 /** Format a warning message (bold) */
 export function mdWarn(message: string): string {
   return `> **WARNING:** ${message}`
-}
-
-/** Format an error message (bold) */
-export function mdError(message: string): string {
-  return `> **ERROR:** ${message}`
 }
 
 // =============================================================================

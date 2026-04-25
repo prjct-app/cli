@@ -63,7 +63,7 @@ export function getDefaultIndex(projectPath: string): ProjectIndex {
   }
 }
 
-export function getDefaultChecksums(): FileChecksums {
+function getDefaultChecksums(): FileChecksums {
   return {
     version: INDEX_VERSION,
     lastUpdated: '',

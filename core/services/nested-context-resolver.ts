@@ -27,7 +27,7 @@ import * as fileHelper from '../utils/file-helper'
 // NESTED CONTEXT RESOLVER
 // ============================================================================
 
-export class NestedContextResolver {
+class NestedContextResolver {
   private rootPath: string
   private monoInfo: MonorepoInfo | null = null
 
