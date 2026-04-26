@@ -104,8 +104,22 @@ if (_fastCommand && !_binCommands.has(_fastCommand) && process.env.PRJCT_NO_DAEM
       if (response.stdout) console.log(response.stdout)
       if (response.stderr) console.error(response.stderr)
       process.exit(response.exitCode)
-    } catch {
-      // Daemon connection failed — fall through to normal path
+    } catch (err) {
+      // If we successfully connected and the daemon dropped us
+      // mid-response (e.g. it shut down for a code reload), the command
+      // may have already had partial side effects. Falling through to
+      // direct execution would re-run it — earlier this caused `ship`
+      // to bump the version twice. Surface the error and let the user
+      // retry instead of silently re-executing.
+      const msg = (err as Error)?.message ?? ''
+      if (msg.includes('Connection closed before response') || msg.includes('timed out')) {
+        console.error(
+          `prjct: daemon dropped the request (${msg}). Retry: \`prjct ${_fastArgs.join(' ')}\``
+        )
+        process.exit(1)
+      }
+      // Otherwise the daemon was likely never reachable (stale socket,
+      // ECONNREFUSED) — fall through to normal direct execution.
     }
   }
 }

@@ -58,4 +58,8 @@ export interface DaemonState {
   entryPath: string | null
   /** mtime of the entry file at daemon startup (ms since epoch) */
   entryMtime: number | null
+  /** Number of requests currently being processed. Restart waits for this to hit 0. */
+  activeRequests: number
+  /** True once the daemon has decided to restart; new requests are refused. */
+  restartPending: boolean
 }
