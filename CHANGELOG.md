@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.12] - 2026-04-26
+
+### Performance
+
+- silence Stop nag + drop variable content from SessionStart (cache stability) (#261)
+
+
 ## [2.2.11] - 2026-04-25
 
 ### Added
