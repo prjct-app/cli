@@ -101,6 +101,22 @@ export async function startDaemon(options: { foreground?: boolean }): Promise<vo
     restartPending: false,
   }
 
+  // Self-heal hooks + global CLAUDE.md when the binary moved past the
+  // last sync. Runs once per fresh daemon spawn — combined with the
+  // version-drift auto-suicide below, every npm upgrade re-syncs the
+  // user's config the first time the next command spawns a new daemon.
+  // Best-effort: failures must never block daemon startup.
+  if (ownVersion) {
+    try {
+      const { isSyncCurrent, runSelfHeal } = await import('../infrastructure/self-heal')
+      if (!isSyncCurrent(ownVersion)) {
+        await runSelfHeal(ownVersion)
+      }
+    } catch {
+      // never block daemon startup
+    }
+  }
+
   // Pre-load modules (this is the whole point — do it once)
   commands = new PrjctCommands()
 

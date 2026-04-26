@@ -101,6 +101,34 @@ if (
   }
 }
 
+// === SELF-HEAL ===
+// Re-install hooks + global CLAUDE.md when the binary version has moved
+// past the last successful sync. Replaces postinstall (which is disabled
+// by --ignore-scripts and corporate security policies on many client
+// machines). Hot path is a single fs read of the stamp file; the slow
+// path (a few writes to settings.json + CLAUDE.md) only fires once per
+// version bump per machine.
+//
+// Skipped for:
+//   - `daemon`/`update`/`version` (would deadlock the upgrade flow)
+//   - `hook` (session-start fires its own self-heal; other hook events
+//     fire too often to pay even the fs-read cost)
+//   - PRJCT_NO_SELF_SYNC=1 (escape hatch)
+const _selfHealSkip = new Set(['daemon', 'update', 'version', '-v', '--version', 'hook'])
+if (_fastCommand && !_selfHealSkip.has(_fastCommand) && process.env.PRJCT_NO_SELF_SYNC !== '1') {
+  try {
+    const { VERSION } = await import('../core/utils/version')
+    if (VERSION) {
+      const { isSyncCurrent, runSelfHeal } = await import('../core/infrastructure/self-heal')
+      if (!isSyncCurrent(VERSION)) {
+        await runSelfHeal(VERSION)
+      }
+    }
+  } catch {
+    // best-effort — never block the user's command on self-heal
+  }
+}
+
 // v2 auto-route: if the first positional isn't a known verb, treat the
 // whole argv as GTD-style inbox capture → `prjct capture "<argv>"`.
 // Explicit verbs still win. Capture is zero-ceremony; if the user
