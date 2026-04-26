@@ -33,7 +33,7 @@ beforeEach(async () => {
 
   // redirect the default ~/Documents/prjct/<slug>/ into our tmp sandbox
   wikiPathSpy = spyOn(pathManager, 'getWikiPath').mockImplementation(
-    (_projectPath: string, override?: string) => {
+    async (_projectPath: string, override?: string) => {
       if (override && override.trim().length > 0) {
         // minimal override handling that mirrors the real resolver
         const trimmed = override.trim()

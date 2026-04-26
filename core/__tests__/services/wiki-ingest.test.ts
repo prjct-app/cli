@@ -53,7 +53,7 @@ beforeEach(async () => {
 
   // Sandbox: redirect vault path + global storage into tmpRoot so the
   // user's real ~/Documents/prjct and ~/.prjct-cli/projects are untouched.
-  spies.push(spyOn(pathManager, 'getWikiPath').mockImplementation(() => vaultRoot))
+  spies.push(spyOn(pathManager, 'getWikiPath').mockImplementation(async () => vaultRoot))
   spies.push(
     spyOn(pathManager, 'getGlobalProjectPath').mockImplementation((pid: string) =>
       path.join(tmpRoot, 'globals', pid)
