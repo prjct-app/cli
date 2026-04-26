@@ -1,28 +1,39 @@
 /**
- * SessionStart hook — injects persona + recent memory as additionalContext.
+ * SessionStart hook — injects persona as additionalContext.
  *
  * Anti-harness contract: this hook **describes state**, never prescribes
  * action. Output is a short markdown block Claude reads as WHAT, not HOW.
- * No "first do X, then Y" — just "here's who you are, here's what matters
- * right now". Claude decides everything else.
+ * No "first do X, then Y" — just "here's who you are". Claude decides
+ * everything else.
  *
  * Claude Code invokes this via `prjct hook session-start`. Contract:
  *   stdin:  JSON with `source` ("startup" | "resume" | "clear" | "compact")
  *   stdout: JSON { hookSpecificOutput: { hookEventName, additionalContext } }
  *   exit 0: success (even when nothing to inject — emits `{}` instead).
  *
- * We cap injection at MAX_CHARS so a noisy project doesn't blow Claude's
- * context budget on every session start.
+ * # Cache stability
+ *
+ * The output is also reused by `subagent-start` and `cwd-changed`, both
+ * of which can fire mid-session. Anthropic's prompt cache hashes the
+ * system-prompt prefix as a single block — every byte that changes
+ * between turns invalidates the entire cached prefix and forces a full
+ * re-tokenization at the un-cached input rate (10× cost).
+ *
+ * For that reason this hook is intentionally **bytes-identical given
+ * the same persona**. An earlier version interpolated "Recent memory"
+ * (the last 5 captured entries) into the body, which meant every
+ * `prjct remember`, `prjct capture`, or `prjct ship` between sessions
+ * shifted the bytes and busted the cache on resume / cwd change /
+ * subagent spawn. Per-turn topical recall already happens in the
+ * UserPromptSubmit hook (`core/hooks/prompt.ts`) and on demand via
+ * `prjct context memory <topic>` — that's the right place for
+ * variable, prompt-relevant content.
  */
 
 import configManager from '../infrastructure/config-manager'
-import { formatMemoryMd, type MemoryEntry, projectMemory } from '../memory/project-memory'
 import { regenerateWikiDeferred } from '../services/wiki-generator'
 import type { LocalConfig, ProjectPersona } from '../types/config'
 import { buildHookOutput, emit, readStdinSafe, safeRun } from './_shared'
-
-const MAX_CHARS = 2500
-const RECENT_MEMORY_LIMIT = 5
 
 interface HookInput {
   source?: 'startup' | 'resume' | 'clear' | 'compact'
@@ -43,43 +54,16 @@ export async function buildSessionContext(
   if (!config?.projectId) return null
 
   const persona = config.persona
+  if (!persona) return null
 
-  // Memory recall is best-effort — if the storage layer can't start
-  // (e.g. missing native bindings for the host node version) we still
-  // want to inject persona. Graceful degradation: no memory section is
-  // strictly better than no context at all.
-  let entries: MemoryEntry[] = []
-  try {
-    entries = projectMemory.recall(config.projectId, { limit: RECENT_MEMORY_LIMIT })
-  } catch {
-    entries = []
-  }
-
-  // Nothing useful to inject at all — skip the hook entirely.
-  if (!persona && entries.length === 0) return null
-
-  const sections: string[] = []
-  sections.push('# prjct: project context')
-  sections.push('')
-
-  if (persona) {
-    sections.push(formatPersona(persona))
-    sections.push('')
-  }
-
-  if (entries.length > 0) {
-    sections.push('## Recent memory')
-    sections.push('')
-    sections.push(formatMemoryMd(entries))
-    sections.push('')
-  }
-
-  sections.push(
-    '> Exposed as state, not prescription. Decide whether any of this matters for the current turn.'
-  )
-
-  const body = sections.join('\n')
-  return body.length > MAX_CHARS ? `${body.slice(0, MAX_CHARS - 20)}\n… [truncated]` : body
+  return [
+    '# prjct: project context',
+    '',
+    formatPersona(persona),
+    '',
+    '> Exposed as state, not prescription. Decide whether any of this matters for the current turn.',
+    '> For recall, run `prjct context memory [topic]` (per-turn topical memory is already injected by the prompt hook).',
+  ].join('\n')
 }
 
 function formatPersona(persona: ProjectPersona): string {
