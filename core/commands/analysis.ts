@@ -621,7 +621,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
       const pathManager = (await import('../infrastructure/path-manager')).default
       const configMod = await import('../infrastructure/config-manager')
       const config = await configMod.default.readConfig(projectPath).catch(() => null)
-      const wikiRoot = pathManager.getWikiPath(projectPath, config?.vaultPath)
+      const wikiRoot = await pathManager.getWikiPath(projectPath, config?.vaultPath)
       const generatedRoot = `${wikiRoot}/_generated`
 
       // Full wipe. The generator's sweep pass handles incremental cleanup

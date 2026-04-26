@@ -363,23 +363,44 @@ class PathManager {
    * Resolution order:
    *   1. `vaultPath` in `.prjct/prjct.config.json` (absolute, tilde, or relative).
    *   2. Default: `~/Documents/prjct/<slug>/`, where `<slug>` is derived from
-   *      the project directory name (with a short projectId-hash suffix on
-   *      collision with a different project).
+   *      the **main worktree** directory name. Sibling git worktrees of the
+   *      same project all resolve to the same vault — never to a per-branch
+   *      vault — so RAG context never crosses project boundaries.
    *
    * Pre-2.2.0 projects used `<projectPath>/.prjct/wiki/` — that layout
    * migrates automatically on first v2.2.0 wiki access (see
    * `core/services/wiki-migration.ts`). To keep the old path, set
    * `vaultPath: ".prjct/wiki"` in the project config.
    */
-  getWikiPath(projectPath: string, overrideVaultPath?: string): string {
+  async getWikiPath(projectPath: string, overrideVaultPath?: string): Promise<string> {
     if (overrideVaultPath && overrideVaultPath.trim().length > 0) {
       return this.resolveVaultOverride(projectPath, overrideVaultPath)
     }
 
+    const rootPath = await this.resolveProjectRootPath(projectPath)
+
     // Default: ~/Documents/prjct/<slug>/
-    const base = path.basename(path.resolve(projectPath)).toLowerCase()
+    const base = path.basename(path.resolve(rootPath)).toLowerCase()
     const slug = base.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'project'
     return path.join(os.homedir(), 'Documents', 'prjct', slug)
+  }
+
+  /**
+   * Resolve a project path to the main worktree root when applicable.
+   * Returns the input unchanged when not inside a git worktree, when git
+   * is unavailable, or when the path doesn't exist on disk. Used by vault
+   * path resolution so all worktrees of a project share one vault.
+   */
+  private async resolveProjectRootPath(projectPath: string): Promise<string> {
+    try {
+      const { worktreeService } = await import('../services/worktree-service')
+      const info = await worktreeService.detect(projectPath)
+      if (!info) return projectPath
+      const mainPath = await worktreeService.getMainWorktree(projectPath)
+      return mainPath || projectPath
+    } catch {
+      return projectPath
+    }
   }
 
   /**
