@@ -31,8 +31,10 @@
  */
 
 import configManager from '../infrastructure/config-manager'
+import { isSyncCurrent, runSelfHeal } from '../infrastructure/self-heal'
 import { regenerateWikiDeferred } from '../services/wiki-generator'
 import type { LocalConfig, ProjectPersona } from '../types/config'
+import { VERSION } from '../utils/version'
 import { buildHookOutput, emit, readStdinSafe, safeRun } from './_shared'
 
 interface HookInput {
@@ -97,6 +99,13 @@ export async function runSessionStartHook(projectPath: string = process.cwd()): 
     // reflect current project state. Best-effort; errors are swallowed.
     if (config?.projectId) {
       await regenerateWikiDeferred(projectPath, config.projectId).catch(() => undefined)
+    }
+
+    // Self-heal hooks + global CLAUDE.md when the binary moved past the
+    // last sync. Catches machines where postinstall is disabled by
+    // security policy. Hot path is one fs read of the stamp file.
+    if (!isSyncCurrent(VERSION)) {
+      await runSelfHeal(VERSION).catch(() => undefined)
     }
   })
 }
