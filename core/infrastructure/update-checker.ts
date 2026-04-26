@@ -4,6 +4,8 @@
  * @version 0.5.0
  */
 
+import { spawn } from 'node:child_process'
+import fs from 'node:fs'
 import https from 'node:https'
 import os from 'node:os'
 import path from 'node:path'
@@ -202,38 +204,146 @@ class UpdateChecker {
    */
   async getUpdateNotification(): Promise<string | null> {
     const result = await this.checkForUpdates()
-
-    if (!result || !result.updateAvailable) {
-      return null
-    }
-
-    return (
-      '\n' +
-      chalk.yellow('┌───────────────────────────────────────────────────────────┐') +
-      '\n' +
-      chalk.yellow('│') +
-      '  ' +
-      chalk.bold('Update available!') +
-      ' ' +
-      chalk.dim(`${result.currentVersion} → ${result.latestVersion}`) +
-      '  ' +
-      chalk.yellow('│') +
-      '\n' +
-      chalk.yellow('│') +
-      '                                                           ' +
-      chalk.yellow('│') +
-      '\n' +
-      chalk.yellow('│') +
-      '  Run: ' +
-      chalk.cyan('npm update -g prjct-cli') +
-      '                       ' +
-      chalk.yellow('│') +
-      '\n' +
-      chalk.yellow('└───────────────────────────────────────────────────────────┘') +
-      '\n'
-    )
+    if (!result || !result.updateAvailable) return null
+    return formatUpdateBanner(result.currentVersion, result.latestVersion)
   }
 }
 
 export default UpdateChecker
 export { UpdateChecker }
+
+// ---------------------------------------------------------------------------
+// Sync surface for the CLI exit handler
+// ---------------------------------------------------------------------------
+//
+// The CLI prints the update banner from a `process.on('exit', ...)` handler
+// so the message appears AFTER the command's own output. `'exit'` is a
+// synchronous event — no awaits, no async I/O — so the lookup has to be
+// sync. We read the cache file with `fs.readFileSync` instead of going
+// through the async `UpdateChecker` instance.
+//
+// Cache freshness is maintained by `triggerBackgroundRefreshIfStale()` which
+// spawns an unref'd child process to do the network fetch without delaying
+// the user-visible command.
+
+const CACHE_DIR = path.join(os.homedir(), '.prjct-cli', 'config')
+const CACHE_FILE = path.join(CACHE_DIR, 'update-cache.json')
+const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000
+
+function compareSemver(a: string, b: string): number {
+  const pa = a.split('.').map(Number)
+  const pb = b.split('.').map(Number)
+  for (let i = 0; i < 3; i++) {
+    const x = pa[i] || 0
+    const y = pb[i] || 0
+    if (x > y) return 1
+    if (x < y) return -1
+  }
+  return 0
+}
+
+function readCacheSync(): { lastCheck: number; latestVersion: string } | null {
+  try {
+    const raw = fs.readFileSync(CACHE_FILE, 'utf-8')
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
+
+function formatUpdateBanner(current: string, latest: string): string {
+  const headline = `Update available! ${current} → ${latest}`
+  const cmd = 'npm install -g prjct-cli@latest'
+  // Pad to whatever length the longest visible line needs — do this
+  // dynamically rather than baking widths into the literal so locale
+  // changes don't cause misalignment.
+  const inner = Math.max(headline.length, `Run: ${cmd}`.length) + 4
+  const top = `┌${'─'.repeat(inner)}┐`
+  const bot = `└${'─'.repeat(inner)}┘`
+  const pad = (s: string): string => `│  ${s}${' '.repeat(inner - s.length - 2)}│`
+  return [
+    '',
+    chalk.yellow(top),
+    chalk.yellow(pad('')),
+    chalk.yellow(`│  ${chalk.bold(headline)}${' '.repeat(inner - headline.length - 2)}│`),
+    chalk.yellow(`│  Run: ${chalk.cyan(cmd)}${' '.repeat(inner - cmd.length - 7)}│`),
+    chalk.yellow(pad('')),
+    chalk.yellow(bot),
+    '',
+  ].join('\n')
+}
+
+/**
+ * Read the cached latest version and return a printable banner if the
+ * installed version is older. Synchronous — safe to call from a
+ * `process.on('exit')` handler.
+ *
+ * Returns null when the cache is missing, the version is current, or
+ * any read/parse fails.
+ */
+export function getUpdateNotificationSync(currentVersion: string): string | null {
+  if (!currentVersion) return null
+  const cache = readCacheSync()
+  if (!cache?.latestVersion) return null
+  if (compareSemver(cache.latestVersion, currentVersion) <= 0) return null
+  return formatUpdateBanner(currentVersion, cache.latestVersion)
+}
+
+/**
+ * If the cache is older than the check interval (or missing), spawn a
+ * detached child process that refreshes the cache from npm. The child
+ * is unref'd so the main process can exit without waiting. The next
+ * `prjct` invocation will see the fresh cache and (if relevant) show
+ * the banner.
+ */
+export function triggerBackgroundRefreshIfStale(): void {
+  try {
+    const cache = readCacheSync()
+    if (cache?.lastCheck && Date.now() - cache.lastCheck < CHECK_INTERVAL_MS) return
+  } catch {
+    // proceed with refresh
+  }
+
+  try {
+    fs.mkdirSync(CACHE_DIR, { recursive: true })
+  } catch {
+    return
+  }
+
+  // Inline single-purpose script avoids depending on a separate built
+  // entry point. Uses only node builtins so it works under either
+  // bun or node without bundling.
+  const script = `
+    const https = require('node:https')
+    const fs = require('node:fs')
+    const opts = {
+      hostname: 'registry.npmjs.org',
+      path: '/prjct-cli/latest',
+      headers: { 'User-Agent': 'prjct-cli-update-checker', Accept: 'application/json' },
+    }
+    const req = https.request(opts, (res) => {
+      let data = ''
+      res.on('data', (c) => { data += c })
+      res.on('end', () => {
+        try {
+          if (res.statusCode === 200) {
+            const v = JSON.parse(data).version
+            fs.writeFileSync(${JSON.stringify(CACHE_FILE)}, JSON.stringify({ lastCheck: Date.now(), latestVersion: v }))
+          }
+        } catch {}
+      })
+    })
+    req.on('error', () => {})
+    req.setTimeout(5000, () => req.destroy())
+    req.end()
+  `
+  try {
+    const child = spawn(process.execPath, ['-e', script], {
+      detached: true,
+      stdio: 'ignore',
+    })
+    child.unref()
+  } catch {
+    // best-effort
+  }
+}

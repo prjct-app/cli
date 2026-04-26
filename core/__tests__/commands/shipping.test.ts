@@ -53,7 +53,7 @@ describe('ship() — workflow-first', () => {
   })
 
   afterEach(async () => {
-    spies.forEach((s) => s.mockRestore())
+    for (const s of spies) s.mockRestore()
     spies = []
     if (projectPath) await fs.rm(projectPath, { recursive: true, force: true })
   })
