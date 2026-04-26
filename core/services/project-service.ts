@@ -17,11 +17,35 @@ class ProjectService {
   private currentAuthor: Author | null = null
 
   /**
-   * Ensure project is initialized
+   * Ensure project is initialized.
+   *
+   * If the path is inside a git worktree of a repo that already has
+   * `.prjct/` in the main worktree, symlink the worktree's `.prjct` to
+   * the main one instead of creating a new project. This preserves
+   * "one git repo, one projectId, one DB" — without it, plain
+   * `git worktree add` followed by any prjct verb would fork a second
+   * project and split the RAG context across DBs.
    */
   async ensureInit(projectPath: string): Promise<CommandResult> {
     if (await configManager.isConfigured(projectPath)) {
       return { success: true }
+    }
+
+    try {
+      const { worktreeService } = await import('./worktree-service')
+      const wt = await worktreeService.detect(projectPath)
+      if (wt) {
+        const mainPath = await worktreeService.getMainWorktree(projectPath)
+        if (mainPath && mainPath !== projectPath) {
+          if (await configManager.isConfigured(mainPath)) {
+            await worktreeService.setup(projectPath, mainPath)
+            return { success: true }
+          }
+        }
+      }
+    } catch {
+      // Not a git repo, git unavailable, or symlink failed — fall
+      // through to a normal init at projectPath.
     }
 
     out.spin('initializing project...')

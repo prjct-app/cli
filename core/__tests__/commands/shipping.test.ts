@@ -7,7 +7,7 @@
  * `clarification` when the state is ambiguous.
  */
 
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test'
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs/promises'
 import os from 'node:os'
@@ -41,13 +41,20 @@ describe('ship() — workflow-first', () => {
   let projectPath: string
   let projectId: string
   let cmd: ShippingCommands
+  let spies: Array<ReturnType<typeof spyOn>> = []
 
   beforeEach(async () => {
     ;({ projectPath, projectId } = await freshProject())
+    // Sandbox vault inside the test temp dir so ship() never writes
+    // to the user's real ~/Documents/prjct/.
+    const vaultRoot = path.join(projectPath, '.test-vault')
+    spies.push(spyOn(pathManager, 'getWikiPath').mockImplementation(async () => vaultRoot))
     cmd = new ShippingCommands()
   })
 
   afterEach(async () => {
+    for (const s of spies) s.mockRestore()
+    spies = []
     if (projectPath) await fs.rm(projectPath, { recursive: true, force: true })
   })
 

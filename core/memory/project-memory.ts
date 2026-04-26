@@ -304,6 +304,13 @@ export function formatMemoryMd(entries: MemoryEntry[]): string {
     'gotcha',
     'pattern',
     'fact',
+    'inbox',
+    'todo',
+    'idea',
+    'insight',
+    'question',
+    'source',
+    'person',
     'shipped',
   ]
   const lines: string[] = []
@@ -317,9 +324,8 @@ export function formatMemoryMd(entries: MemoryEntry[]): string {
     ambiguous: 'AMBG',
   }
 
-  for (const type of order) {
-    const items = groups.get(type)
-    if (!items || items.length === 0) continue
+  const renderGroup = (type: string, items: MemoryEntry[]) => {
+    if (items.length === 0) return
     lines.push(`### ${type.toUpperCase()}`)
     for (const e of items) {
       const tags = Object.entries(e.tags)
@@ -330,6 +336,20 @@ export function formatMemoryMd(entries: MemoryEntry[]): string {
       lines.push(`- \`${prov}\` [${e.id}] ${e.content}${tagSuffix}`)
     }
     lines.push('')
+  }
+
+  const rendered = new Set<MemoryType>()
+  for (const type of order) {
+    const items = groups.get(type)
+    if (!items || items.length === 0) continue
+    renderGroup(type, items)
+    rendered.add(type)
+  }
+  // Render any custom types not in the canonical order so they aren't
+  // silently dropped (e.g. user-defined types from packs).
+  for (const [type, items] of groups) {
+    if (rendered.has(type)) continue
+    renderGroup(type, items)
   }
 
   return lines.join('\n').trim()

@@ -291,8 +291,16 @@ function buildPrjctSkillBody(ctx: SkillContext): string {
 
 function buildFrontmatter(skill: SkillDefinition, ctx: SkillContext): string {
   const isUserInvocable = skill.userInvocable !== false
+  // CRITICAL — cache stability: the description appears verbatim in the
+  // host model's system prompt. Project-specific suffixes like
+  // `(${name}, ${stack})` change every time `prjct sync` runs in a
+  // different cwd, busting the entire system-prompt prefix and forcing
+  // a full re-tokenization on the next turn. Keep the description
+  // STATIC. Project metadata still ships in the skill body (loaded on
+  // skill invocation), so Claude sees it when it actually needs it.
+  void ctx
   return `---
-description: "${skill.description} (${ctx.projectName}, ${ctx.stack})"
+description: "${skill.description}"
 allowed-tools: [${skill.allowedTools.map((t) => `"${t}"`).join(', ')}]
 user-invocable: ${isUserInvocable}
 ---`

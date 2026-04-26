@@ -48,6 +48,59 @@ const _binCommands = new Set([
 // source of truth so adding a verb only requires updating one list.
 const { REGISTERED_VERBS_SET } = await import('../core/commands/verb-names')
 
+// Update notice — print at process exit so the banner appears AFTER the
+// command's own output. Uses a sync read of the cached latest version;
+// the cache is refreshed in a detached background process so the
+// network call never delays the user-visible command. Skipped for
+// machine-consumed paths (`hook`, `--md`/`--json`, `--quiet`) and for
+// the updater itself. Awaited at top-level so the exit handler is
+// installed BEFORE the daemon fast path's `process.exit` runs.
+const _updateSkipCommands = new Set(['update', 'daemon', 'hook', 'version', '-v', '--version'])
+if (
+  _fastCommand &&
+  !_updateSkipCommands.has(_fastCommand) &&
+  process.stderr.isTTY &&
+  !_fastArgs.includes('--md') &&
+  !_fastArgs.includes('--json') &&
+  !_fastArgs.includes('--quiet') &&
+  !_fastArgs.includes('-q') &&
+  process.env.PRJCT_NO_UPDATE_NOTICE !== '1'
+) {
+  const { triggerBackgroundRefreshIfStale, getUpdateNotificationSync } = await import(
+    '../core/infrastructure/update-checker'
+  )
+  // Resolve the running version once, synchronously, so the exit
+  // handler (which can't await) has it ready.
+  const _fs = await import('node:fs')
+  const _path = await import('node:path')
+  let _currentVersion = ''
+  try {
+    const pkgPath = _path.resolve(
+      _path.dirname(new URL(import.meta.url).pathname),
+      '..',
+      'package.json'
+    )
+    _currentVersion = JSON.parse(_fs.readFileSync(pkgPath, 'utf-8')).version ?? ''
+  } catch {
+    /* no version, no banner */
+  }
+  try {
+    triggerBackgroundRefreshIfStale()
+  } catch {
+    /* best-effort */
+  }
+  if (_currentVersion) {
+    process.on('exit', () => {
+      try {
+        const banner = getUpdateNotificationSync(_currentVersion)
+        if (banner) process.stderr.write(banner)
+      } catch {
+        /* never block exit on a notification */
+      }
+    })
+  }
+}
+
 // v2 auto-route: if the first positional isn't a known verb, treat the
 // whole argv as GTD-style inbox capture → `prjct capture "<argv>"`.
 // Explicit verbs still win. Capture is zero-ceremony; if the user
@@ -104,8 +157,22 @@ if (_fastCommand && !_binCommands.has(_fastCommand) && process.env.PRJCT_NO_DAEM
       if (response.stdout) console.log(response.stdout)
       if (response.stderr) console.error(response.stderr)
       process.exit(response.exitCode)
-    } catch {
-      // Daemon connection failed — fall through to normal path
+    } catch (err) {
+      // If we successfully connected and the daemon dropped us
+      // mid-response (e.g. it shut down for a code reload), the command
+      // may have already had partial side effects. Falling through to
+      // direct execution would re-run it — earlier this caused `ship`
+      // to bump the version twice. Surface the error and let the user
+      // retry instead of silently re-executing.
+      const msg = (err as Error)?.message ?? ''
+      if (msg.includes('Connection closed before response') || msg.includes('timed out')) {
+        console.error(
+          `prjct: daemon dropped the request (${msg}). Retry: \`prjct ${_fastArgs.join(' ')}\``
+        )
+        process.exit(1)
+      }
+      // Otherwise the daemon was likely never reachable (stale socket,
+      // ECONNREFUSED) — fall through to normal direct execution.
     }
   }
 }

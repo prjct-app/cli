@@ -97,6 +97,8 @@ export async function startDaemon(options: { foreground?: boolean }): Promise<vo
     idleTimer: null,
     entryPath,
     entryMtime,
+    activeRequests: 0,
+    restartPending: false,
   }
 
   // Pre-load modules (this is the whole point — do it once)
@@ -212,6 +214,41 @@ async function handleRequest(request: DaemonRequest): Promise<DaemonResponse> {
     }
   }
 
+  // If we already decided to restart, refuse new work so the client
+  // takes the direct path on its first try (instead of getting a
+  // dropped socket mid-request and falling through silently).
+  if (state.restartPending) {
+    return {
+      id: request.id,
+      success: false,
+      exitCode: 1,
+      stderr: 'Daemon restarting — retry the command',
+    }
+  }
+
+  state.activeRequests++
+  try {
+    return await handleRequestInner(request)
+  } finally {
+    state.activeRequests--
+    if (state.restartPending && state.activeRequests === 0) {
+      console.log('Daemon shutting down for code reload...')
+      // Defer to next tick so the response finishes flushing to the client.
+      setImmediate(() => shutdown(0))
+    }
+  }
+}
+
+async function handleRequestInner(request: DaemonRequest): Promise<DaemonResponse> {
+  if (!state || !commands) {
+    return {
+      id: request.id,
+      success: false,
+      exitCode: 1,
+      stderr: 'Daemon not initialized',
+    }
+  }
+
   // Reset idle timer on every request
   resetIdleTimer()
   state.commandsServed++
@@ -222,14 +259,17 @@ async function handleRequest(request: DaemonRequest): Promise<DaemonResponse> {
     prjctDb.checkpointAll()
   }
 
-  // Stale-code detection: check if the entry file was rebuilt
-  if (isCodeStale()) {
+  // Stale-code detection: check if the entry file was rebuilt. Mark
+  // restart as pending and let the request finish — `finalizeRequest`
+  // shuts down once active requests drain. Earlier code did
+  // `setTimeout(shutdown, 200)`, which killed the daemon mid-request
+  // (e.g. `ship` taking 500ms+ on git:commit). The CLI then caught the
+  // dropped socket and silently fell through to direct execution,
+  // running the same command twice — visible in git history as two
+  // back-to-back release commits per `prjct ship`.
+  if (!state.restartPending && isCodeStale()) {
     console.log('Build changed detected — daemon will restart after this request')
-    // Schedule restart after responding to this request
-    setTimeout(() => {
-      console.log('Daemon shutting down for code reload...')
-      shutdown(0)
-    }, 200)
+    state.restartPending = true
   }
 
   // Global-install drift detection: catches pnpm content-store upgrades
@@ -237,6 +277,7 @@ async function handleRequest(request: DaemonRequest): Promise<DaemonResponse> {
   // binary now points at a different version. Mtime check above won't
   // detect that — we need a version comparison.
   if (
+    !state.restartPending &&
     ownVersion &&
     state.commandsServed % VERSION_DRIFT_CHECK_INTERVAL === 0 &&
     isGlobalVersionDrifted()
@@ -244,7 +285,7 @@ async function handleRequest(request: DaemonRequest): Promise<DaemonResponse> {
     console.log(
       `Version drift detected — daemon v${ownVersion} is stale; shutting down so the next request spawns fresh.`
     )
-    setTimeout(() => shutdown(0), 200)
+    state.restartPending = true
   }
 
   // Handle daemon meta-commands

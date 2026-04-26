@@ -37,7 +37,7 @@ interface WikiMigrationResult {
 export async function resolveVaultRoot(projectPath: string): Promise<string> {
   await migrateWikiLocationIfNeeded(projectPath)
   const config = await configManager.readConfig(projectPath).catch(() => null)
-  return pathManager.getWikiPath(projectPath, config?.vaultPath)
+  return await pathManager.getWikiPath(projectPath, config?.vaultPath)
 }
 
 /**
@@ -66,7 +66,7 @@ export async function migrateWikiLocationIfNeeded(
     return { moved: false, reason: 'no-legacy' }
   }
 
-  const newPath = pathManager.getWikiPath(projectPath)
+  const newPath = await pathManager.getWikiPath(projectPath)
   const newPathHasContent = await dirHasContent(newPath)
   if (newPathHasContent) {
     // Don't overwrite the user's in-progress content at the new location.

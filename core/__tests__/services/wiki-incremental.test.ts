@@ -59,7 +59,7 @@ beforeEach(async () => {
   )
 
   // Redirect every path the wiki layer might consult into our sandbox.
-  spies.push(spyOn(pathManager, 'getWikiPath').mockImplementation(() => vaultRoot))
+  spies.push(spyOn(pathManager, 'getWikiPath').mockImplementation(async () => vaultRoot))
   spies.push(
     spyOn(pathManager, 'getGlobalProjectPath').mockImplementation((pid: string) =>
       path.join(tmpRoot, 'globals', pid)
