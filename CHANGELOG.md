@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.0] - 2026-04-30
+
+### Features
+
+- opt-in multi-agent harness mode (#264)
+
+
 ## [2.2.18] - 2026-04-25
 
 ### Added
