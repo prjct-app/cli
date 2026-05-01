@@ -12,6 +12,7 @@ import path from 'node:path'
 import chalk from 'chalk'
 import { getErrorMessage } from '../types/fs'
 import { fileExists, readJson, writeJson } from '../utils/file-helper'
+import { PACKAGE_ROOT } from '../utils/version'
 
 interface UpdateCache {
   lastCheck: number
@@ -310,35 +311,14 @@ export function triggerBackgroundRefreshIfStale(): void {
     return
   }
 
-  // Inline single-purpose script avoids depending on a separate built
-  // entry point. Uses only node builtins so it works under either
-  // bun or node without bundling.
-  const script = `
-    const https = require('node:https')
-    const fs = require('node:fs')
-    const opts = {
-      hostname: 'registry.npmjs.org',
-      path: '/prjct-cli/latest',
-      headers: { 'User-Agent': 'prjct-cli-update-checker', Accept: 'application/json' },
-    }
-    const req = https.request(opts, (res) => {
-      let data = ''
-      res.on('data', (c) => { data += c })
-      res.on('end', () => {
-        try {
-          if (res.statusCode === 200) {
-            const v = JSON.parse(data).version
-            fs.writeFileSync(${JSON.stringify(CACHE_FILE)}, JSON.stringify({ lastCheck: Date.now(), latestVersion: v }))
-          }
-        } catch {}
-      })
-    })
-    req.on('error', () => {})
-    req.setTimeout(5000, () => req.destroy())
-    req.end()
-  `
+  // Spawn a separate, on-disk script (not `node -e <string>`).
+  // Avoids the dynamic-code-execution pattern that supply-chain scanners
+  // flag as suspicious. Behaviour is identical — only the delivery
+  // mechanism changed.
+  const scriptPath = path.join(PACKAGE_ROOT, 'assets', 'scripts', 'refresh-update.mjs')
+  if (!fs.existsSync(scriptPath)) return
   try {
-    const child = spawn(process.execPath, ['-e', script], {
+    const child = spawn(process.execPath, [scriptPath, CACHE_FILE], {
       detached: true,
       stdio: 'ignore',
     })
