@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.3.2] - 2026-05-01
+
+### Features
+
+- .github/workflows: Migrate workflows to Blacksmith runners (#265)
+
+### Bug Fixes
+
+- drop dynamic node -e from update checker (scanner mitigation)
+
+
 ## [2.3.1] - 2026-05-01
 
 ### Bug Fixes
