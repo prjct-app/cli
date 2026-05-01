@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.6] - 2026-05-01
+
+### Bug Fixes
+
+- add `crew` to daemon-shim skip list
+
+
 ## [2.3.5] - 2026-05-01
 
 ### Refactoring
