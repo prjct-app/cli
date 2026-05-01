@@ -98,6 +98,11 @@ jobs:
     environment: Production
     permissions:
       contents: write
+      # OIDC trusted publishing to npm — no NPM_TOKEN required.
+      # Requires the package to have a Trusted Publisher configured at
+      # https://www.npmjs.com/package/<pkg>/access pointing to this repo
+      # + workflow file + environment.
+      id-token: write
 
     steps:
       - name: Checkout
@@ -309,13 +314,17 @@ jobs:
           git push origin main
           git push origin ${{ steps.version.outputs.tag }}
 
-      - name: Publish to npm
+      - name: Upgrade npm (trusted publishing requires >=11.5.1)
         if: ${{ !inputs.dry_run }}
+        run: npm install -g npm@latest
+
+      - name: Publish to npm (OIDC trusted publisher)
+        if: ${{ !inputs.dry_run }}
+        # No token: the OIDC ID-token from `id-token: write` is sent by the
+        # npm CLI and validated against the package's Trusted Publisher
+        # configuration. `--provenance` attaches a signed attestation.
         run: |
-          npm config set //registry.npmjs.org/:_authToken "${NODE_AUTH_TOKEN}"
-          npm publish --access public --tag "${{ steps.version.outputs.npm_tag }}"
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          npm publish --provenance --access public --tag "${{ steps.version.outputs.npm_tag }}"
 
       - name: Verify npm publication
         if: ${{ !inputs.dry_run }}
