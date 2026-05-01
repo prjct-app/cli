@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.7] - 2026-05-01
+
+### Bug Fixes
+
+- regression tests for bugs surfaced in 2.3.5 → 2.3.6
+
+
 ## [2.3.6] - 2026-05-01
 
 ### Bug Fixes
