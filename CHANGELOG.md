@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.3] - 2026-05-01
+
+### Bug Fixes
+
+- bump to 2.3.3 to recover from npm publish outage
+
+
 ## [2.3.2] - 2026-05-01
 
 ### Features
