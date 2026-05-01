@@ -5,15 +5,15 @@
 > whether the project is healthy after a session.
 
 > **Customise this file for your project.** The defaults below cover the generic
-> harness invariants. Add project-specific items (lint rules, build commands,
+> crew invariants. Add project-specific items (lint rules, build commands,
 > deployment gates) under the matching section.
 
-## C1 — The harness is wired
+## C1 — The crew is wired
 
 - [ ] `.prjct/prjct.config.json` exists and points to a valid project ID.
 - [ ] `.prjct/CHECKPOINTS.md` exists (this file).
 - [ ] `.claude/agents/leader.md`, `implementer.md`, `reviewer.md` are present.
-- [ ] Project `CLAUDE.md` (or equivalent) contains the harness leader-mode block.
+- [ ] Project `CLAUDE.md` (or equivalent) contains the crew leader-mode block.
 
 ## C2 — State is coherent
 

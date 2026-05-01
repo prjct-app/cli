@@ -35,7 +35,7 @@ const _binCommands = new Set([
   'hook',
   'seed',
   'install',
-  'harness',
+  'crew',
   'watch',
   'help',
   '-h',
@@ -559,13 +559,13 @@ async function main(): Promise<void> {
       process.stdout.write('{}\n')
       process.exitCode = 0
     }
-  } else if (args[0] === 'harness') {
-    // `prjct harness install|uninstall|status` — manage the multi-agent
-    // harness bundle (leader/implementer/reviewer + CHECKPOINTS + CLAUDE.md
+  } else if (args[0] === 'crew') {
+    // `prjct crew install|uninstall|status` — manage the multi-agent
+    // crew bundle (leader/implementer/reviewer + CHECKPOINTS + CLAUDE.md
     // snippet). Strictly opt-in.
     const subcommand = args[1] ?? 'status'
-    const { HarnessCommands } = await import('../core/commands/harness')
-    const cmd = new HarnessCommands()
+    const { CrewCommands } = await import('../core/commands/crew')
+    const cmd = new CrewCommands()
     const mdMode = args.includes('--md')
     let result: Awaited<ReturnType<typeof cmd.install>>
     if (subcommand === 'install') {
@@ -575,7 +575,7 @@ async function main(): Promise<void> {
     } else if (subcommand === 'status') {
       result = await cmd.status(null, process.cwd(), { md: mdMode })
     } else {
-      console.error(`Unknown harness subcommand: ${subcommand}. Use: install, uninstall, status.`)
+      console.error(`Unknown crew subcommand: ${subcommand}. Use: install, uninstall, status.`)
       result = { success: false, error: `unknown subcommand: ${subcommand}` }
     }
     process.exitCode = result.success ? 0 : 1

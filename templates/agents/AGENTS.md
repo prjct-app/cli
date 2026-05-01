@@ -66,6 +66,6 @@ agents/    # domain specialists
 - CLI handles all state persistence (SQLite)
 - Handle missing config gracefully
 
-## Harness mode (opt-in)
+## Crew mode (opt-in)
 
-Projects that want a multi-agent workflow can run `prjct harness install` to drop a leader/implementer/reviewer trio into `.claude/agents/`, a project `CHECKPOINTS.md`, and a CLAUDE.md snippet that locks the main session into orchestrator role. Templates live in `templates/harness/`. Uninstall with `prjct harness uninstall`. Strictly opt-in — not invoked by `init`/`sync`.
+Projects that want a multi-agent workflow can run `prjct crew install` to drop a leader/implementer/reviewer trio into `.claude/agents/`, a project `CHECKPOINTS.md`, and a CLAUDE.md snippet that locks the main session into orchestrator role. Templates live in `templates/crew/`. Uninstall with `prjct crew uninstall`. Strictly opt-in — not invoked by `init`/`sync`.

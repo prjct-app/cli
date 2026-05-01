@@ -1,7 +1,7 @@
-<!-- prjct:harness:start - DO NOT REMOVE THIS MARKER -->
-## Harness leader mode
+<!-- prjct:crew:start - DO NOT REMOVE THIS MARKER -->
+## Crew leader mode
 
-This project is in **harness mode**. The main session always acts as the `leader` subagent (see `.claude/agents/leader.md`). The leader **decomposes and coordinates** — it does not implement.
+This project is in **crew mode**. The main session always acts as the `leader` subagent (see `.claude/agents/leader.md`). The leader **decomposes and coordinates** — it does not implement.
 
 ### Hard rules for the main session
 
@@ -20,4 +20,4 @@ When you launch any subagent, instruct it to **write its results to a file** (e.
 
 - Pure exploratory / read-only questions about the repo → answer directly.
 - Edits to `.prjct/`, docs, configuration, or this file → you may edit directly.
-<!-- prjct:harness:end - DO NOT REMOVE THIS MARKER -->
+<!-- prjct:crew:end - DO NOT REMOVE THIS MARKER -->

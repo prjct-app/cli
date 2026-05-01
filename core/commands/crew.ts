@@ -1,7 +1,7 @@
 /**
- * prjct harness — install/uninstall/status the harness-mode bundle.
+ * prjct crew — install/uninstall/status the crew-mode bundle.
  *
- * Harness mode is an opinionated multi-agent setup: a leader/implementer/reviewer
+ * Crew mode is an opinionated multi-agent setup: a leader/implementer/reviewer
  * trio in `.claude/agents/`, a project-level `CHECKPOINTS.md`, and a CLAUDE.md
  * snippet that locks the main session into leader role. Strictly opt-in.
  *
@@ -17,28 +17,28 @@ import { fileExists } from '../utils/file-helper'
 import out from '../utils/output'
 import { PrjctCommandsBase } from './base'
 
-const SNIPPET_START = '<!-- prjct:harness:start - DO NOT REMOVE THIS MARKER -->'
-const SNIPPET_END = '<!-- prjct:harness:end - DO NOT REMOVE THIS MARKER -->'
+const SNIPPET_START = '<!-- prjct:crew:start - DO NOT REMOVE THIS MARKER -->'
+const SNIPPET_END = '<!-- prjct:crew:end - DO NOT REMOVE THIS MARKER -->'
 
-interface HarnessFile {
-  /** Path inside the templates/harness/ tree */
+interface CrewFile {
+  /** Path inside the templates/crew/ tree */
   templateKey: string
   /** Destination relative to the project root */
   destRelative: string
 }
 
-const AGENT_FILES: HarnessFile[] = [
-  { templateKey: 'harness/agents/leader.md', destRelative: '.claude/agents/leader.md' },
-  { templateKey: 'harness/agents/implementer.md', destRelative: '.claude/agents/implementer.md' },
-  { templateKey: 'harness/agents/reviewer.md', destRelative: '.claude/agents/reviewer.md' },
+const AGENT_FILES: CrewFile[] = [
+  { templateKey: 'crew/agents/leader.md', destRelative: '.claude/agents/leader.md' },
+  { templateKey: 'crew/agents/implementer.md', destRelative: '.claude/agents/implementer.md' },
+  { templateKey: 'crew/agents/reviewer.md', destRelative: '.claude/agents/reviewer.md' },
 ]
 
-const CHECKPOINTS_FILE: HarnessFile = {
-  templateKey: 'harness/CHECKPOINTS.md',
+const CHECKPOINTS_FILE: CrewFile = {
+  templateKey: 'crew/CHECKPOINTS.md',
   destRelative: '.prjct/CHECKPOINTS.md',
 }
 
-const CLAUDE_SNIPPET_TEMPLATE = 'harness/CLAUDE-leader-mode.md'
+const CLAUDE_SNIPPET_TEMPLATE = 'crew/CLAUDE-leader-mode.md'
 const CLAUDE_FILE = 'CLAUDE.md'
 
 interface PieceStatus {
@@ -46,7 +46,7 @@ interface PieceStatus {
   installed: boolean
 }
 
-interface HarnessStatus {
+interface CrewStatus {
   agents: PieceStatus[]
   checkpoints: PieceStatus
   claudeSnippet: PieceStatus
@@ -56,7 +56,7 @@ interface HarnessStatus {
 async function readSnippet(): Promise<string> {
   const content = getTemplateContent(CLAUDE_SNIPPET_TEMPLATE)
   if (!content) {
-    throw new Error(`Missing harness template: ${CLAUDE_SNIPPET_TEMPLATE}`)
+    throw new Error(`Missing crew template: ${CLAUDE_SNIPPET_TEMPLATE}`)
   }
   return content.trim()
 }
@@ -64,7 +64,7 @@ async function readSnippet(): Promise<string> {
 async function readTemplate(key: string): Promise<string> {
   const content = getTemplateContent(key)
   if (!content) {
-    throw new Error(`Missing harness template: ${key}`)
+    throw new Error(`Missing crew template: ${key}`)
   }
   return content
 }
@@ -108,7 +108,7 @@ async function readClaudeMd(projectPath: string): Promise<string | null> {
   }
 }
 
-async function getStatus(projectPath: string): Promise<HarnessStatus> {
+async function getStatus(projectPath: string): Promise<CrewStatus> {
   const agents = await Promise.all(
     AGENT_FILES.map(async (f) => ({
       path: f.destRelative,
@@ -133,9 +133,9 @@ async function getStatus(projectPath: string): Promise<HarnessStatus> {
   return { agents, checkpoints, claudeSnippet, complete }
 }
 
-export class HarnessCommands extends PrjctCommandsBase {
+export class CrewCommands extends PrjctCommandsBase {
   /**
-   * `prjct harness install` — copy the trio + CHECKPOINTS into the project,
+   * `prjct crew install` — copy the trio + CHECKPOINTS into the project,
    * append the leader-mode snippet to CLAUDE.md (idempotent).
    */
   async install(
@@ -180,7 +180,7 @@ export class HarnessCommands extends PrjctCommandsBase {
         skipped.push(`${CLAUDE_FILE} (snippet already current)`)
       }
 
-      const summary = `harness installed (${written.length} written, ${skipped.length} kept)`
+      const summary = `crew installed (${written.length} written, ${skipped.length} kept)`
       const hookHint = [
         'Suggested next step — wire verification hooks into .claude/settings.json:',
         '  PostToolUse(Edit|Write) → run your test command',
@@ -189,13 +189,7 @@ export class HarnessCommands extends PrjctCommandsBase {
       ].join('\n')
 
       if (options.md) {
-        const lines = [
-          '# prjct harness installed',
-          '',
-          `Wrote to \`${projectPath}\`.`,
-          '',
-          '## Files',
-        ]
+        const lines = ['# prjct crew installed', '', `Wrote to \`${projectPath}\`.`, '', '## Files']
         for (const f of written) lines.push(`- written: \`${f}\``)
         for (const f of skipped) lines.push(`- kept: \`${f}\``)
         lines.push('', '## Next step', '', hookHint)
@@ -217,7 +211,7 @@ export class HarnessCommands extends PrjctCommandsBase {
   }
 
   /**
-   * `prjct harness uninstall` — remove the trio + CHECKPOINTS,
+   * `prjct crew uninstall` — remove the trio + CHECKPOINTS,
    * strip the leader-mode snippet from CLAUDE.md.
    */
   async uninstall(
@@ -257,9 +251,9 @@ export class HarnessCommands extends PrjctCommandsBase {
         removed.push(`${CLAUDE_FILE} (snippet stripped)`)
       }
 
-      const summary = `harness uninstalled (${removed.length} removed)`
+      const summary = `crew uninstalled (${removed.length} removed)`
       if (options.md) {
-        const lines = ['# prjct harness uninstalled', '']
+        const lines = ['# prjct crew uninstalled', '']
         for (const f of removed) lines.push(`- removed: \`${f}\``)
         for (const f of missing) lines.push(`- not present: \`${f}\``)
         console.log(lines.join('\n'))
@@ -277,7 +271,7 @@ export class HarnessCommands extends PrjctCommandsBase {
   }
 
   /**
-   * `prjct harness status` — report which pieces of the bundle are installed.
+   * `prjct crew status` — report which pieces of the bundle are installed.
    */
   async status(
     _arg: string | null = null,
@@ -290,7 +284,7 @@ export class HarnessCommands extends PrjctCommandsBase {
 
       if (options.md) {
         const lines = [
-          '# prjct harness status',
+          '# prjct crew status',
           '',
           `Project: \`${projectPath}\``,
           `Complete: **${status.complete ? 'yes' : 'no'}**`,
@@ -303,7 +297,7 @@ export class HarnessCommands extends PrjctCommandsBase {
         console.log(lines.join('\n'))
       } else {
         const label = status.complete ? 'complete' : 'partial'
-        out.info(`harness: ${label}`)
+        out.info(`crew: ${label}`)
         for (const a of status.agents) out.info(`  ${tag(a)}: ${a.path}`)
         out.info(`  ${tag(status.checkpoints)}: ${status.checkpoints.path}`)
         out.info(`  ${tag(status.claudeSnippet)}: ${status.claudeSnippet.path} (snippet)`)

@@ -1,5 +1,5 @@
 /**
- * `prjct harness` install/uninstall/status.
+ * `prjct crew` install/uninstall/status.
  *
  * Behavior-focused: each test runs the command against a real tmp project
  * and asserts on the resulting filesystem state. No mocks for fs.
@@ -9,22 +9,22 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { HarnessCommands } from '../../commands/harness'
+import { CrewCommands } from '../../commands/crew'
 
 async function freshProject(): Promise<string> {
-  return fs.mkdtemp(path.join(os.tmpdir(), 'prjct-harness-test-'))
+  return fs.mkdtemp(path.join(os.tmpdir(), 'prjct-crew-test-'))
 }
 
-const SNIPPET_START = '<!-- prjct:harness:start - DO NOT REMOVE THIS MARKER -->'
-const SNIPPET_END = '<!-- prjct:harness:end - DO NOT REMOVE THIS MARKER -->'
+const SNIPPET_START = '<!-- prjct:crew:start - DO NOT REMOVE THIS MARKER -->'
+const SNIPPET_END = '<!-- prjct:crew:end - DO NOT REMOVE THIS MARKER -->'
 
-describe('prjct harness', () => {
+describe('prjct crew', () => {
   let projectPath: string
-  let cmd: HarnessCommands
+  let cmd: CrewCommands
 
   beforeEach(async () => {
     projectPath = await freshProject()
-    cmd = new HarnessCommands()
+    cmd = new CrewCommands()
   })
 
   afterEach(async () => {
@@ -49,7 +49,7 @@ describe('prjct harness', () => {
     const claudeMd = await fs.readFile(path.join(projectPath, 'CLAUDE.md'), 'utf-8')
     expect(claudeMd).toContain(SNIPPET_START)
     expect(claudeMd).toContain(SNIPPET_END)
-    expect(claudeMd).toContain('Harness leader mode')
+    expect(claudeMd).toContain('Crew leader mode')
   })
 
   test('install preserves existing CLAUDE.md content', async () => {
@@ -69,8 +69,8 @@ describe('prjct harness', () => {
     await cmd.install(null, projectPath, { md: true })
 
     const claudeMd = await fs.readFile(path.join(projectPath, 'CLAUDE.md'), 'utf-8')
-    const startMatches = claudeMd.match(/prjct:harness:start/g) ?? []
-    const endMatches = claudeMd.match(/prjct:harness:end/g) ?? []
+    const startMatches = claudeMd.match(/prjct:crew:start/g) ?? []
+    const endMatches = claudeMd.match(/prjct:crew:end/g) ?? []
     expect(startMatches.length).toBe(1)
     expect(endMatches.length).toBe(1)
   })
@@ -109,7 +109,7 @@ describe('prjct harness', () => {
     expect(claudeMd).not.toContain(SNIPPET_END)
   })
 
-  test('uninstall preserves non-harness content in CLAUDE.md', async () => {
+  test('uninstall preserves non-crew content in CLAUDE.md', async () => {
     const original = '# My project\n\nSome existing instructions.\n'
     await fs.writeFile(path.join(projectPath, 'CLAUDE.md'), original, 'utf-8')
 
@@ -119,7 +119,7 @@ describe('prjct harness', () => {
     const claudeMd = await fs.readFile(path.join(projectPath, 'CLAUDE.md'), 'utf-8')
     expect(claudeMd).toContain('# My project')
     expect(claudeMd).toContain('Some existing instructions.')
-    expect(claudeMd).not.toContain('prjct:harness')
+    expect(claudeMd).not.toContain('prjct:crew')
   })
 
   test('uninstall preserves unrelated agents in .claude/agents/', async () => {
