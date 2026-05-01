@@ -20,7 +20,7 @@ jobs:
   # Run CI checks first
   ci:
     name: CI Checks
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     outputs:
       should_release: ${{ steps.check.outputs.should_release }}
 
@@ -94,7 +94,7 @@ jobs:
     name: Release
     needs: ci
     if: needs.ci.outputs.should_release == 'true'
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     environment: Production
     permissions:
       contents: write
