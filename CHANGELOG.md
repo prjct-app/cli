@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.4] - 2026-05-01
+
+### Bug Fixes
+
+- switch to OIDC trusted publishing for npm releases
+
+
 ## [2.3.3] - 2026-05-01
 
 ### Bug Fixes
