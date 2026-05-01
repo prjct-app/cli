@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.5] - 2026-05-01
+
+### Refactoring
+
+- rename `harness` command to `crew` to avoid concept collision
+
+
 ## [2.3.4] - 2026-05-01
 
 ### Bug Fixes
