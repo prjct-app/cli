@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.1] - 2026-05-01
+
+### Bug Fixes
+
+- sync bun.lock with package.json (unblock --frozen-lockfile)
+
+
 ## [2.3.0] - 2026-04-30
 
 ### Features
