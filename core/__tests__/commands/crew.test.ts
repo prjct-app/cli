@@ -156,4 +156,123 @@ describe('prjct crew', () => {
     const result = await cmd.status(null, projectPath, { md: true })
     expect(result.complete).toBe(false)
   })
+
+  // === Regression tests for bugs surfaced during 2.3.x rollout ===
+
+  test('install creates CLAUDE.md when it does not exist', async () => {
+    // Bug guarded: pre-2.3.6 code crashed when CLAUDE.md was absent in the
+    // project root. Fresh repos commonly have no CLAUDE.md yet.
+    const result = await cmd.install(null, projectPath, { md: true })
+    expect(result.success).toBe(true)
+
+    const claudeMd = await fs.readFile(path.join(projectPath, 'CLAUDE.md'), 'utf-8')
+    expect(claudeMd).toContain(SNIPPET_START)
+    expect(claudeMd).toContain('Crew leader mode')
+  })
+
+  test('uninstall is robust when CLAUDE.md was deleted post-install', async () => {
+    await cmd.install(null, projectPath, { md: true })
+    await fs.rm(path.join(projectPath, 'CLAUDE.md'))
+
+    const result = await cmd.uninstall(null, projectPath, { md: true })
+    expect(result.success).toBe(true)
+
+    // Agents still got removed; no crash.
+    const leaderExists = await fs
+      .access(path.join(projectPath, '.claude/agents/leader.md'))
+      .then(() => true)
+      .catch(() => false)
+    expect(leaderExists).toBe(false)
+  })
+
+  test('install refreshes snippet block when user corrupts the heading', async () => {
+    // Bug guarded: a user accidentally edits the snippet content (e.g. global
+    // search-replace, manual mistake). Re-running install must restore the
+    // canonical block, not append a second one.
+    await cmd.install(null, projectPath, { md: true })
+    const claudePath = path.join(projectPath, 'CLAUDE.md')
+    const before = await fs.readFile(claudePath, 'utf-8')
+    const corrupted = before.replace('Crew leader mode', 'CORRUPTED HEADING')
+    await fs.writeFile(claudePath, corrupted, 'utf-8')
+
+    await cmd.install(null, projectPath, { md: true })
+
+    const after = await fs.readFile(claudePath, 'utf-8')
+    expect(after).toContain('Crew leader mode')
+    expect(after).not.toContain('CORRUPTED HEADING')
+    // Still exactly one marker pair.
+    const startMatches = after.match(/prjct:crew:start/g) ?? []
+    expect(startMatches.length).toBe(1)
+  })
+
+  test('status detects tampered snippet (start marker removed, end remains)', async () => {
+    await cmd.install(null, projectPath, { md: true })
+    const claudePath = path.join(projectPath, 'CLAUDE.md')
+    const orig = await fs.readFile(claudePath, 'utf-8')
+    const broken = orig.replace(SNIPPET_START, '')
+    await fs.writeFile(claudePath, broken, 'utf-8')
+
+    const result = await cmd.status(null, projectPath, { md: true })
+    expect(result.complete).toBe(false)
+  })
+
+  test('partial state can be repaired by re-running install', async () => {
+    // Bug guarded: install must function as both initial-setup AND repair.
+    await cmd.install(null, projectPath, { md: true })
+    await fs.rm(path.join(projectPath, '.claude/agents/leader.md'))
+
+    await cmd.install(null, projectPath, { md: true })
+
+    const restored = await fs
+      .access(path.join(projectPath, '.claude/agents/leader.md'))
+      .then(() => true)
+      .catch(() => false)
+    expect(restored).toBe(true)
+  })
+
+  test('uninstall is robust against partial install state', async () => {
+    await cmd.install(null, projectPath, { md: true })
+    // Simulate the user manually deleting two of the three agents.
+    await fs.rm(path.join(projectPath, '.claude/agents/leader.md'))
+    await fs.rm(path.join(projectPath, '.claude/agents/reviewer.md'))
+
+    const result = await cmd.uninstall(null, projectPath, { md: true })
+    expect(result.success).toBe(true)
+
+    // Remaining agent (implementer) and CHECKPOINTS were removed.
+    const implExists = await fs
+      .access(path.join(projectPath, '.claude/agents/implementer.md'))
+      .then(() => true)
+      .catch(() => false)
+    expect(implExists).toBe(false)
+    const cpExists = await fs
+      .access(path.join(projectPath, '.prjct/CHECKPOINTS.md'))
+      .then(() => true)
+      .catch(() => false)
+    expect(cpExists).toBe(false)
+  })
+
+  test('user content added AFTER the snippet block survives reinstall + uninstall', async () => {
+    // Bug guarded: the snippet replacement must not mangle content the user
+    // appends to CLAUDE.md after the marker block.
+    await fs.writeFile(path.join(projectPath, 'CLAUDE.md'), '# project\n', 'utf-8')
+    await cmd.install(null, projectPath, { md: true })
+
+    const claudePath = path.join(projectPath, 'CLAUDE.md')
+    const withTail = `${await fs.readFile(claudePath, 'utf-8')}\n## My post-block rules\nLint before commit\n`
+    await fs.writeFile(claudePath, withTail, 'utf-8')
+
+    // Reinstall: post-block content stays.
+    await cmd.install(null, projectPath, { md: true })
+    let claude = await fs.readFile(claudePath, 'utf-8')
+    expect(claude).toContain('## My post-block rules')
+    expect(claude).toContain('Lint before commit')
+
+    // Uninstall: markers go, post-block content stays.
+    await cmd.uninstall(null, projectPath, { md: true })
+    claude = await fs.readFile(claudePath, 'utf-8')
+    expect(claude).toContain('## My post-block rules')
+    expect(claude).toContain('Lint before commit')
+    expect(claude).not.toContain('prjct:crew')
+  })
 })
