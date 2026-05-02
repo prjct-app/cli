@@ -17,6 +17,8 @@
  * user never has to guess.
  */
 
+import * as p from '@clack/prompts'
+import chalk from 'chalk'
 import { type McpServerInfo, mcpService } from '../services/mcp-service'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
@@ -39,8 +41,18 @@ export class McpCommands extends PrjctCommandsBase {
     options: McpOptions = {}
   ): Promise<CommandResult> {
     const parts = (input ?? '').trim().split(/\s+/).filter(Boolean)
-    const sub = parts[0] ?? 'list'
+    const sub = parts[0] ?? null
     const arg = parts[1] ?? null
+
+    // Default (no subcommand) → interactive multi-select in TTY, headless
+    // list output everywhere else (LLM/--md/piped). Keeps `p. mcp` from
+    // Claude/Cursor working as a structured query while making `prjct mcp`
+    // in the user's terminal a real toggle UI.
+    if (sub === null) {
+      const interactive =
+        !options.md && Boolean(process.stdin.isTTY) && Boolean(process.stdout.isTTY)
+      return interactive ? this.interactive(projectPath) : this.list(projectPath, options)
+    }
 
     switch (sub) {
       case 'list':
@@ -55,6 +67,119 @@ export class McpCommands extends PrjctCommandsBase {
         out.fail(`Unknown mcp subcommand: ${sub}. Use: list, status, deny <name>, allow <name>.`)
         return { success: false, error: 'Unknown mcp subcommand' }
     }
+  }
+
+  /**
+   * Interactive multi-select — the primary UX. Shows every MCP prjct knows
+   * about with its tool-cost estimate, lets the user toggle which ones stay
+   * enabled in this project, then writes a single diff to
+   * `.claude/settings.local.json` and prints the restart hint.
+   */
+  private async interactive(projectPath: string): Promise<CommandResult> {
+    try {
+      const servers = await mcpService.list(projectPath)
+      if (servers.length === 0) {
+        out.info('No MCP servers detected for this project.')
+        return { success: true, servers: [] }
+      }
+
+      const sumTools = (list: McpServerInfo[]) => list.reduce((n, s) => n + s.estimatedTools, 0)
+      const beforeActive = servers.filter((s) => !s.denied)
+      const beforeTools = sumTools(beforeActive)
+      const totalTools = sumTools(servers)
+
+      const projectName = projectPath.split('/').pop() ?? 'this project'
+      p.intro(chalk.cyan.bold(`MCP servers — ${projectName}`))
+      p.note(
+        [
+          `${beforeActive.length}/${servers.length} active · ~${beforeTools} of ~${totalTools} tools loaded`,
+          chalk.dim('Space toggles · Enter applies · Esc cancels'),
+        ].join('\n'),
+        'Context cost'
+      )
+
+      const sourceLabel: Record<McpServerInfo['source'], string> = {
+        cloud: 'cloud',
+        project: 'project',
+        global: 'global',
+      }
+
+      const sorted = [...servers].sort((a, b) => {
+        if (a.source !== b.source) {
+          const order: McpServerInfo['source'][] = ['cloud', 'project', 'global']
+          return order.indexOf(a.source) - order.indexOf(b.source)
+        }
+        return b.estimatedTools - a.estimatedTools
+      })
+
+      const selected = await p.multiselect({
+        message: 'Keep enabled in this project:',
+        options: sorted.map((s) => ({
+          value: s.name,
+          label: this.optionLabel(s, sourceLabel[s.source]),
+          hint: s.description,
+        })),
+        initialValues: sorted.filter((s) => !s.denied).map((s) => s.name),
+        required: false,
+      })
+
+      if (p.isCancel(selected)) {
+        p.cancel('No changes.')
+        return { success: true, cancelled: true }
+      }
+
+      const enabledNames = selected as string[]
+      const result = await mcpService.setEnabled(
+        projectPath,
+        enabledNames,
+        servers.map((s) => s.name)
+      )
+
+      const afterTools = sumTools(servers.filter((s) => enabledNames.includes(s.name)))
+      const delta = afterTools - beforeTools
+
+      if (result.nowDenied.length === 0 && result.nowAllowed.length === 0) {
+        p.outro(chalk.dim('No changes.'))
+        return { success: true, unchanged: true }
+      }
+
+      const diffLines: string[] = []
+      if (result.nowDenied.length > 0) {
+        diffLines.push(
+          chalk.red(`✗ denied (${result.nowDenied.length}): ${result.nowDenied.join(', ')}`)
+        )
+      }
+      if (result.nowAllowed.length > 0) {
+        diffLines.push(
+          chalk.green(`✓ allowed (${result.nowAllowed.length}): ${result.nowAllowed.join(', ')}`)
+        )
+      }
+      const sign = delta > 0 ? '+' : ''
+      diffLines.push('')
+      diffLines.push(
+        `Tools loaded: ${beforeTools} → ${afterTools} (${chalk.bold(`${sign}${delta}`)})`
+      )
+      p.note(
+        diffLines.join('\n'),
+        `Wrote ${this.relativeSettingsPath(result.settingsPath, projectPath)}`
+      )
+
+      p.outro(chalk.yellow('Restart Claude Code to apply (MCP config is cached at session start).'))
+      return { success: true, ...result, beforeTools, afterTools }
+    } catch (error) {
+      const msg = getErrorMessage(error)
+      out.fail(msg)
+      return { success: false, error: msg }
+    }
+  }
+
+  private optionLabel(s: McpServerInfo, source: string): string {
+    const cost = s.estimatedTools > 0 ? chalk.dim(` ~${s.estimatedTools} tools`) : ''
+    return `${chalk.dim(`[${source}]`)} ${s.displayName}${cost}`
+  }
+
+  private relativeSettingsPath(abs: string, projectPath: string): string {
+    return abs.startsWith(projectPath) ? abs.slice(projectPath.length + 1) : abs
   }
 
   private async list(projectPath: string, options: McpOptions): Promise<CommandResult> {
