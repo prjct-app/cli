@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.5.0] - 2026-05-02
+
+### Features
+
+- adopt gstack patterns — subagent dispatch + audit orchestrator + decision-brief (#291)
+
+
 ## [2.4.43] - 2026-05-02
 
 ### Added
