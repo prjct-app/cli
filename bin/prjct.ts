@@ -70,6 +70,7 @@ const _binCommands = new Set([
   'mcp',
   'prefs',
   'retro',
+  'health',
 ])
 
 // v2 verbs registered in the command registry — imported from the single
@@ -516,6 +517,14 @@ async function main(): Promise<void> {
     else {
       console.error(`Unknown seed subcommand: ${sub}. Use: add, remove, list, suggest.`)
     }
+    process.exitCode = result.success ? 0 : 1
+  } else if (args[0] === 'health') {
+    // `prjct health [--md]` — composite quality dashboard. Wraps
+    // typecheck / lint / tests / knip and reports a weighted score.
+    const mdMode = args.includes('--md')
+    const { HealthCommands } = await import('../core/commands/health')
+    const cmd = new HealthCommands()
+    const result = await cmd.health(null, process.cwd(), { md: mdMode })
     process.exitCode = result.success ? 0 : 1
   } else if (args[0] === 'retro') {
     // `prjct retro [window]` — gstack-style weekly engineering retro.
