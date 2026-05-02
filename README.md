@@ -9,18 +9,36 @@
 
 ## Install / upgrade — one paste
 
-Paste this into Claude Code (works for fresh install AND upgrade):
+Copy this prompt and paste it in Claude Code (works for fresh install AND upgrade):
 
-> Install or upgrade prjct on this machine: run `curl -sSL https://raw.githubusercontent.com/jlopezlira/prjct-cli/main/scripts/install-via-claude.sh | bash` and verify with `prjct -v`. If the cwd is a git repo, also run `prjct sync` to register it.
+```text
+Install or upgrade prjct on this machine: run `curl -sSL https://raw.githubusercontent.com/jlopezlira/prjct-cli/main/scripts/install-via-claude.sh | bash` and verify with `prjct -v`. If the cwd is a git repo, also run `prjct sync` to register it.
+```
 
-That's it. ~30 seconds. The script downloads the standalone binary for your platform from GitHub Releases (no Node/npm needed), wires hooks + the lookup-first CLAUDE.md block, and registers the project. Re-running is safe — the script detects existing installs and upgrades to the latest published version.
+~30 seconds. The script downloads the standalone binary for your platform from GitHub Releases (no Node/npm needed), wires hooks + the lookup-first CLAUDE.md block, and registers the project. Re-running is safe — the script detects existing installs and upgrades to the latest published version.
 
-Three additional upgrade paths once installed:
-- **CLI**: `prjct update` (auto-detects npm/pnpm/bun/yarn/homebrew)
-- **Silent**: `prjct config set auto-update on` (background check 1/hour throttled)
-- **Manual**: `npm install -g prjct-cli@latest` (or your package manager equivalent)
+Prefer terminal? Same effect:
 
-Full install + upgrade paths in [INSTALL_PROMPT.md](./INSTALL_PROMPT.md).
+```bash
+curl -sSL https://raw.githubusercontent.com/jlopezlira/prjct-cli/main/scripts/install-via-claude.sh | bash
+```
+
+Or via package manager:
+
+```bash
+npm install -g prjct-cli@latest
+# or: bun install -g prjct-cli@latest
+```
+
+### After install — three upgrade paths
+
+| Method | Command | When |
+|---|---|---|
+| Same prompt | re-paste the install prompt | Default. Works whether installed or not. |
+| CLI shortcut | `prjct update` | Already in a terminal. Auto-detects npm/pnpm/bun/yarn/homebrew. |
+| Silent (set once) | `prjct config set auto-update on` | Background check 1/hour throttled, logs to `~/.prjct-cli/state/auto-update.log`. |
+
+Full install + upgrade paths documented in [INSTALL_PROMPT.md](./INSTALL_PROMPT.md).
 
 ## What you get
 
