@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.11] - 2026-05-02
+
+### Bug Fixes
+
+- never silently re-run a command that may have partially run
+
+
 ## [2.3.10] - 2026-05-02
 
 ### Bug Fixes
