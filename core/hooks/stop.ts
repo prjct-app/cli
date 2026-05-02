@@ -19,6 +19,7 @@
  */
 
 import configManager from '../infrastructure/config-manager'
+import { detectAndPersistPatterns } from '../services/pattern-detector'
 import { ingestTranscript } from '../services/transcript-learner'
 import { regenerateWikiDeferred } from '../services/wiki-generator'
 import { ingestCapturedNotes, ingestWorkflowEdits } from '../services/wiki-ingest'
@@ -63,6 +64,15 @@ export async function runStopHook(projectPath: string = process.cwd()): Promise<
         // Failed parse / unexpected format → swallow. The user can
         // always run `prjct remember` explicitly.
       }
+    }
+
+    // M2: detect durable patterns (hot files for now) and persist them
+    // as learning memory entries. Lookup-first protocol means Claude
+    // finds them on next session start without inflating context.
+    try {
+      await detectAndPersistPatterns(projectPath)
+    } catch {
+      // Git failure / non-repo → swallow; nothing to do here.
     }
 
     await regenerateWikiDeferred(projectPath, config.projectId).catch(() => undefined)
