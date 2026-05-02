@@ -50,7 +50,7 @@ import { workflowRuleStorage } from '../storage/workflow-rule-storage'
 import type { LLMAnalysis } from '../types/llm-analysis'
 import type { ShippedFeature, WorkflowRule } from '../types/storage'
 import { ensureObsidianVault } from './obsidian-vault'
-import { ensureCapturedReadme } from './wiki-ingest'
+import { ensureCapturedReadme, ensureWorkflowsReadme } from './wiki-ingest'
 import { resolveVaultRoot } from './wiki-migration'
 
 // Generated output goes into a dedicated subdir so user notes placed in
@@ -1412,6 +1412,10 @@ export async function generateWiki(
   // in Obsidian discover the capture workflow. No-op if the README
   // already exists.
   await ensureCapturedReadme(projectPath)
+
+  // M1b INPUT: seed the workflows/ dropzone with its own README so users
+  // discover that they can override workflow rules from Obsidian.
+  await ensureWorkflowsReadme(projectPath)
 
   // Make the folder a one-click-open Obsidian vault: bootstrap a
   // minimal `.obsidian/` and register the path in Obsidian's vault
