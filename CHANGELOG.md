@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.12.0] - 2026-05-02
+
+### Features
+
+- inject project state per turn (UX phase 3) (#300)
+
+
 ## [2.11.0] - 2026-05-02
 
 ### Features
