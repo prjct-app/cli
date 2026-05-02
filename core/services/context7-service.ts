@@ -8,6 +8,37 @@ import type { Context7Status } from '../types/services.js'
 import { execFileAsync } from '../utils/exec'
 import { writeJson } from '../utils/file-helper'
 
+// Persistent verify cache lives at ~/.prjct-cli/state/context7-verify.json so
+// the 5-min TTL survives across CLI invocations. Without this, every fresh
+// `prjct sync` reruns `npx @upstash/context7-mcp --help` (~1.1s warm).
+function getVerifyCachePath(): string {
+  if (process.env.NODE_ENV === 'test') {
+    return path.join(os.tmpdir(), 'prjct-context7-test', 'verify-cache.json')
+  }
+  return path.join(os.homedir(), '.prjct-cli', 'state', 'context7-verify.json')
+}
+
+async function readPersistedVerify(): Promise<{ at: number; status: Context7Status } | null> {
+  try {
+    const raw = await fs.readFile(getVerifyCachePath(), 'utf-8')
+    const parsed = JSON.parse(raw) as { at: number; status: Context7Status }
+    if (typeof parsed?.at === 'number' && parsed.status) return parsed
+  } catch {
+    // missing / corrupt — fall through to fresh verify
+  }
+  return null
+}
+
+async function writePersistedVerify(at: number, status: Context7Status): Promise<void> {
+  const file = getVerifyCachePath()
+  try {
+    await fs.mkdir(path.dirname(file), { recursive: true })
+    await fs.writeFile(file, JSON.stringify({ at, status }), 'utf-8')
+  } catch {
+    // best-effort; cache miss is acceptable
+  }
+}
+
 interface Context7TemplateConfig {
   mcpServers?: {
     context7?: {
@@ -77,7 +108,21 @@ class Context7Service {
       unknown
     >
 
-    mcpServers.context7 = getContext7Config()
+    const desired = getContext7Config()
+    const current = mcpServers.context7
+    // Skip the write — and the verify-cache invalidation — when the existing
+    // entry already matches. Avoids invalidating the persisted verify cache
+    // on every `prjct sync`, which costs ~1.1s for the next smoke check.
+    if (current && JSON.stringify(current) === JSON.stringify(desired)) {
+      return {
+        installed: true,
+        verified: false,
+        configPath,
+        message: 'Context7 MCP already configured',
+      }
+    }
+
+    mcpServers.context7 = desired
     config.mcpServers = mcpServers
     await writeJson(configPath, config)
     cachedVerify = null
@@ -91,8 +136,21 @@ class Context7Service {
   }
 
   async verify(): Promise<Context7Status> {
-    if (cachedVerify && Date.now() - cachedVerify.at < CONTEXT7_VERIFY_TTL_MS) {
+    const now = Date.now()
+    if (cachedVerify && now - cachedVerify.at < CONTEXT7_VERIFY_TTL_MS) {
       return cachedVerify.status
+    }
+
+    // Persistent cache — skip the ~1.1s `npx ... --help` smoke check when
+    // a recent successful verify exists for the same configPath.
+    const persisted = await readPersistedVerify()
+    if (
+      persisted?.status.verified &&
+      now - persisted.at < CONTEXT7_VERIFY_TTL_MS &&
+      persisted.status.configPath === getConfigPath()
+    ) {
+      cachedVerify = persisted
+      return persisted.status
     }
 
     const configPath = getConfigPath()
@@ -116,7 +174,9 @@ class Context7Service {
         verified: true,
         configPath,
       }
-      cachedVerify = { at: Date.now(), status }
+      cachedVerify = { at: now, status }
+      // Persist successful verify so subsequent CLI invocations skip the smoke check.
+      await writePersistedVerify(now, status)
       return status
     } catch (error) {
       const status = {
@@ -125,7 +185,8 @@ class Context7Service {
         configPath,
         message: `Context7 smoke check failed: ${getErrorMessage(error)}`,
       }
-      cachedVerify = { at: Date.now(), status }
+      cachedVerify = { at: now, status }
+      // Don't persist failures — next invocation should retry.
       return status
     }
   }

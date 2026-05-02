@@ -220,7 +220,7 @@ export async function detectAndPersistPatterns(projectPath: string): Promise<Det
  * Uses `git log -z` so paths with newlines or quotes don't fragment the
  * parse. Returns sorted by touch count desc.
  */
-export async function detectHotFiles(projectPath: string): Promise<HotFile[]> {
+async function detectHotFiles(projectPath: string): Promise<HotFile[]> {
   // -z: NUL-separate paths inside each commit; --name-only without
   //   --diff-filter so we count any change (add/modify/rename).
   // --pretty=format:: empty so each commit emits only its file list.
@@ -277,7 +277,7 @@ interface GotchaRow {
  * Conservative: skips entries without a `topic` or `area` tag — those
  * are too noisy to group reliably.
  */
-export function detectRecurringBugs(projectId: string): RecurringBug[] {
+function detectRecurringBugs(projectId: string): RecurringBug[] {
   try {
     const { prjctDb } = require('../storage/database') as typeof import('../storage/database')
     const cutoff = new Date(Date.now() - RECURRING_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString()
@@ -332,7 +332,7 @@ interface DebtSnapshot {
  * counts the markers themselves, not surrounding context — keeps the
  * comparison meaningful turn-over-turn.
  */
-export async function measureTechDebt(projectPath: string): Promise<DebtSnapshot> {
+async function measureTechDebt(projectPath: string): Promise<DebtSnapshot> {
   try {
     const { stdout } = await execFileP('git', ['grep', '-cE', '\\b(TODO|FIXME|XXX)\\b'], {
       cwd: projectPath,

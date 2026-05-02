@@ -85,14 +85,3 @@ export async function runSelfHeal(currentVersion: string): Promise<void> {
 
   writeStamp(currentVersion)
 }
-
-/**
- * One-shot helper: cheap-check + slow-path. Safe to call from hot paths
- * — when the stamp matches the running version this returns
- * immediately after a single fs read.
- */
-export async function selfHealIfStale(currentVersion: string): Promise<void> {
-  if (process.env.PRJCT_NO_SELF_SYNC === '1') return
-  if (isSyncCurrent(currentVersion)) return
-  await runSelfHeal(currentVersion)
-}

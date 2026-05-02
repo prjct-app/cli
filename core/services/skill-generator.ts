@@ -493,4 +493,4 @@ class SkillGenerator {
 
 export const skillGenerator = new SkillGenerator()
 export { SkillGenerator, SKILL_DEFINITIONS }
-export type { SkillContext, SkillDefinition, ConditionContext }
+export type { SkillContext, ConditionContext }

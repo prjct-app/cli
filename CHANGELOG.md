@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.4.42] - 2026-05-02
+
+### Added
+- current work
+
+## [2.4.41] - 2026-05-02
+
+### Added
+- current work
+
+## [2.4.40] - 2026-05-02
+
+### Added
+- perf: cache context7 verify to disk + dead-code cleanup (3.5x faster sync direct path)
+
 ## [2.4.39] - 2026-05-02
 
 ### Added

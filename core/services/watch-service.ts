@@ -307,4 +307,4 @@ class WatchService {
 }
 
 export const watchService = new WatchService()
-export { WatchService, type WatchOptions, type WatchResult }
+export { WatchService }

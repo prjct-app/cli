@@ -5,7 +5,6 @@
     "core/index.ts",
     "core/daemon/entry.ts",
     "core/mcp/entry.ts",
-    "core/cli/lint-meta-commentary.ts",
     "scripts/*.{js,ts}",
     "core/__tests__/**/*.test.ts"
   ],
