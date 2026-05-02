@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.4.0] - 2026-05-02
+
+### Features
+
+- per-project MCP scoping — list, deny, allow
+
+### Bug Fixes
+
+- feat(mcp): per-project MCP scoping — list, deny, allow
+
+
 ## [2.3.11] - 2026-05-02
 
 ### Bug Fixes
