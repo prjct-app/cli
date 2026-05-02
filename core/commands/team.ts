@@ -234,7 +234,7 @@ function upsertBetweenMarkers(
   if (startIdx >= 0 && endIdx > startIdx) {
     const before = existing.slice(0, startIdx)
     const after = existing.slice(endIdx + endMarker.length)
-    return `${before}${block}${after}`.replace(/\n{3,}/g, '\n\n').trim() + '\n'
+    return `${`${before}${block}${after}`.replace(/\n{3,}/g, '\n\n').trim()}\n`
   }
   // No marker — append block at the end with a separator.
   const trimmed = existing.replace(/\s+$/, '')
