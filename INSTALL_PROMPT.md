@@ -6,30 +6,44 @@ Three paths, each smaller than the last. Pick the one your audience can follow.
 
 ---
 
-## Path 1 — One paste in Claude Code (recommended, harness-friendly)
+## Path 1 — One paste in Claude Code (recommended, harness-friendly + package-manager-aware)
 
-Copy the prompt below and paste it into the Claude Code chat. Claude runs `npm` directly — no sandbox restrictions, ~30 seconds end-to-end:
+Copy the prompt below and paste it into the Claude Code chat. Claude detects YOUR package manager and uses it — does NOT force npm:
 
 ```text
-Install or upgrade prjct (project memory + quality workflows for AI coding agents) on this machine:
+Install or upgrade prjct (project memory + quality workflows for AI coding agents) on this machine.
 
-1. Run `npm install -g prjct-cli@latest`
-2. Run `prjct setup` to install Claude Code hooks + the global CLAUDE.md lookup-first block
-3. If the cwd is a git repo, run `prjct sync` to register it
-4. Verify with `prjct -v` and confirm the version
+1. Detect which package manager I use globally. Check `command -v pnpm`, `command -v bun`, `command -v yarn`, `command -v npm` in that order. ALSO check `command -v prjct` — if there's an existing install, identify which package manager owns it (pnpm path, bun path, etc.) and use the SAME one to upgrade in-place. This is critical: using a different package manager creates a parallel install that shadows the existing one and breaks PATH resolution.
+
+2. Run the install with the detected package manager:
+   - pnpm: `pnpm install -g prjct-cli@latest`
+   - bun:  `bun install -g prjct-cli@latest`
+   - yarn: `yarn global add prjct-cli@latest`
+   - npm:  `npm install -g prjct-cli@latest`
+   - homebrew: `brew upgrade prjct-cli` (or `brew install prjct-cli`)
+
+3. Run `prjct setup` to install Claude Code hooks + the global CLAUDE.md lookup-first block.
+4. If the cwd is a git repo, run `prjct sync` to register it.
+5. Verify with `prjct -v` and tell me which package manager you used.
 
 After install, the prjct skill activates on requests like "review this branch", "qa the UI", "security check", or "investigate this bug" — each with a named methodology (Production Bug Hunt, OWASP+STRIDE, Iron Law, Coverage Gate). Stop hook auto-captures decisions/learnings/gotchas + detects hot files, recurring bugs, and tech-debt growth so the next session compounds.
 ```
 
-### Shorter version (if you want a one-liner prompt)
+### Shorter version (one-liner)
 
 ```text
-Install or upgrade prjct on this machine: run `npm install -g prjct-cli@latest`, then `prjct setup`, then `prjct sync` if cwd is a git repo. Verify with `prjct -v`.
+Install or upgrade prjct: detect my package manager (pnpm > bun > yarn > npm in preference order; reuse the one that owns any existing prjct install), run the matching `<pm> install -g prjct-cli@latest` (or `yarn global add` / `brew upgrade prjct-cli`), then `prjct setup`, then `prjct sync` if cwd is git. Verify with `prjct -v`.
 ```
 
-### Why npm and not the standalone binary?
+### Why detection matters
 
-The standalone binary install (`curl | bash`) is faster and Node-free, but **Claude Code's harness intentionally blocks remote `curl | bash` execution for safety** — that's a sandbox policy, not something a prompt can or should bypass. The npm path runs through Claude Code's allowed tool surface.
+If Claude assumes one package manager (say, npm) and you actually use pnpm, the install creates a SECOND prjct in your nvm bin dir while your existing pnpm install stays in `~/Library/pnpm/`. PATH resolution picks one — usually whichever is earlier — and you see a stale version. Aggressive cleanup of duplicates can leave your shell with NO working prjct.
+
+The detection-first prompt avoids this entirely. It's also why the standalone-binary script (Path 2) detects existing installs and upgrades in-place rather than blindly creating new ones.
+
+### Why detection in the prompt and not via npm?
+
+The standalone binary install (`curl | bash`) is the cleanest no-package-manager path, but **Claude Code's harness intentionally blocks remote `curl | bash` execution for safety** — that's a sandbox policy, not something a prompt can or should bypass. The package-manager path runs through Claude Code's allowed tool surface.
 
 If you want the standalone binary, see Path 2 (run yourself in a terminal).
 

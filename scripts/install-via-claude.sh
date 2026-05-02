@@ -94,21 +94,60 @@ if [ -n "$ASSET" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 2b. Package manager fallback
+# 2b. Package manager fallback — pnpm / bun / yarn / npm
+#
+# Detection order is critical to avoid creating PARALLEL installs:
+#   1. If prjct is already installed via a known package manager,
+#      use the SAME one to upgrade. Otherwise we end up with multiple
+#      copies of prjct in PATH (the user's reality on 2026-05-02 had
+#      5 concurrent installs from pnpm/bun/homebrew/npm/standalone).
+#   2. If no existing install, prefer pnpm > bun > yarn > npm in that
+#      order. Reasons: pnpm + bun are what most modern setups use; npm
+#      is the universal fallback.
 # ---------------------------------------------------------------------------
 
 if [ "$DOWNLOAD_OK" = false ]; then
   INSTALLED_VIA="pkg-manager"
   step "Falling back to package manager…"
-  if command -v bun >/dev/null 2>&1; then
-    note "using Bun $(bun --version)"
-    bun install -g prjct-cli@latest >/dev/null 2>&1 || fail "bun install failed"
-  elif command -v npm >/dev/null 2>&1; then
-    note "using npm $(npm --version)"
-    npm install -g prjct-cli@latest >/dev/null 2>&1 || fail "npm install failed"
-  else
-    fail "Neither standalone binary nor a runtime (Bun/npm) is available. Install Bun: https://bun.sh"
+
+  # Detect which package manager (if any) owns the existing prjct install
+  EXISTING_PRJCT="$(command -v prjct 2>/dev/null || true)"
+  PM=""
+  if [ -n "$EXISTING_PRJCT" ]; then
+    case "$EXISTING_PRJCT" in
+      */pnpm/*)        PM="pnpm" ;;
+      */bun/*)         PM="bun" ;;
+      */yarn/*)        PM="yarn" ;;
+      */homebrew/*|*/Cellar/*) PM="brew" ;;
+      */npm/*|*/.nvm/*|*/n/*)  PM="npm" ;;
+    esac
+    [ -n "$PM" ] && note "existing install via $PM ($EXISTING_PRJCT) — upgrading in-place"
   fi
+
+  # No existing install (or unknown PM) — pick the user's preferred one
+  if [ -z "$PM" ]; then
+    if command -v pnpm >/dev/null 2>&1; then
+      PM="pnpm"
+    elif command -v bun >/dev/null 2>&1; then
+      PM="bun"
+    elif command -v yarn >/dev/null 2>&1; then
+      PM="yarn"
+    elif command -v npm >/dev/null 2>&1; then
+      PM="npm"
+    else
+      fail "No package manager found (pnpm, bun, yarn, npm). Install one or use the standalone binary path: https://github.com/jlopezlira/prjct-cli#install"
+    fi
+    note "no existing install — using $PM (first available in pnpm > bun > yarn > npm preference order)"
+  fi
+
+  case "$PM" in
+    pnpm) pnpm install -g prjct-cli@latest >/dev/null 2>&1 || fail "pnpm install failed" ;;
+    bun)  bun install -g prjct-cli@latest >/dev/null 2>&1 || fail "bun install failed" ;;
+    yarn) yarn global add prjct-cli@latest >/dev/null 2>&1 || fail "yarn global add failed" ;;
+    npm)  npm install -g prjct-cli@latest >/dev/null 2>&1 || fail "npm install failed" ;;
+    brew) brew upgrade prjct-cli >/dev/null 2>&1 || brew install prjct-cli >/dev/null 2>&1 || fail "brew install failed" ;;
+    *)    fail "Unknown package manager: $PM" ;;
+  esac
 fi
 
 # ---------------------------------------------------------------------------
