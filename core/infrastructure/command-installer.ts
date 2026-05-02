@@ -28,26 +28,49 @@ import { mergeWithMarkers } from './ide-project-installer'
 // =============================================================================
 
 const GLOBAL_CLAUDE_MD_CONTENT = `<!-- prjct:start - DO NOT REMOVE THIS MARKER -->
-# p/ — Context layer for AI agents
+# p/ — Project knowledge layer
 
-Skills auto-activate for: task, ship, status, tag, remember, capture, sync, workflow, seed, install, context
-Other commands: run \`prjct <command> --md\` and follow CLI output
+prjct stores project memory (decisions, learnings, gotchas, patterns, ships, analyses) per project and regenerates a readable Markdown vault. **Use it — don't re-read source from scratch.**
 
-Task lifecycle (v2): \`prjct task "<desc>"\` → work → \`prjct status done\` → \`prjct ship\`
-- Pause: \`prjct status paused\`  |  Resume: \`prjct status active\`  |  Reopen: \`prjct status active\` (on completed task)
-- Capture to inbox (bugs, ideas, anything): \`prjct capture "<text>" --tags bug|idea|…\`
+You are in a prjct project when any of these signs are present: \`~/Documents/prjct/<slug>/_generated/\` exists, OR \`.prjct/\` is in cwd, OR \`~/.prjct-cli/projects/\` has an entry for the current path.
 
-Data:
-- prjct runs → LLM generates relevant data → prjct stores it → LLM requests it from prjct → LLM uses it
-- Commit footer: \`Generated with [p/](https://www.prjct.app/)\`
-- Path resolution: \`.prjct/prjct.config.json\` → \`~/.prjct-cli/projects/{projectId}\`
-- Storage: \`prjct\` CLI (SQLite internally)
+## Lookup FIRST, source LAST
 
-Memory (project RAG):
-- Save with \`prjct remember <type> "<content>"\` or \`prjct capture "<text>"\` — these write to SQLite and hooks regenerate the Obsidian vault.
-- Recall via the SessionStart / UserPromptSubmit hook context that prjct injects, or \`prjct context memory [topic]\`.
-- Do **not** write to \`~/.claude/projects/<slug>/memory/\` — that is Claude Code auto-memory, disjoint from this project's RAG and invisible to other tools (Cursor, Gemini, web dashboard). In a prjct project, project memory is prjct.
-- The vault at \`~/Documents/prjct/<slug>/_generated/\` is a read-only snapshot regenerated from DB. Do not hand-edit it — fix the pipeline instead.
+Before reading source code or running broad searches for ANY question about the project (architecture, conventions, decisions, recent ships, bugs, patterns, tech debt, past analyses), READ these vault files first using Read/Glob — no CLI round-trip:
+
+- \`~/Documents/prjct/<slug>/_generated/index.md\` — overview, ships, memory counts, patterns count
+- \`~/Documents/prjct/<slug>/_generated/architecture.md\` — domains, conventions, key insights
+- \`~/Documents/prjct/<slug>/_generated/{patterns,insights,tech-debt}.md\` — inferred state of the project
+- \`~/Documents/prjct/<slug>/_generated/memory/{decision,gotcha,learning,fact,inbox}.md\` — captured knowledge
+- \`~/Documents/prjct/<slug>/_generated/analysis/{anti-patterns,insights,patterns,refactors,risk-areas,tech-debt}/\` — past analyses by category
+- \`~/Documents/prjct/<slug>/_generated/{ships,releases,tags}/\` — history & taxonomy
+
+Only fall through to source/repo reading when the vault does not contain the answer.
+
+## Capture analyses BACK to prjct
+
+When you complete substantive work — analysis, decision, learning, gotcha discovered — persist it so the next session benefits:
+
+- \`prjct remember decision "<choice + why>"\` — choices made, with rationale
+- \`prjct remember learning "<insight>"\` — non-obvious insights gained
+- \`prjct remember gotcha "<trap + how to avoid>"\` — bugs/traps found
+- \`prjct remember fact "<verifiable claim>"\` — project facts (paths, conventions, IDs)
+- \`prjct capture "<text>" --tags type:analysis,topic:<x>\` — analytical dumps & inbox items
+
+Tag with \`--tags k:v,k:v\` for searchability. Memory persists to SQLite; vault auto-regenerates. **Default to capturing — under-capture is the failure mode that makes prjct useless.**
+
+## Workflow
+
+\`prjct task "<desc>"\` → work → \`prjct status done\` → \`prjct ship\`
+Pause/resume: \`prjct status paused\` | \`prjct status active\` (also reopens completed tasks)
+
+## Where things live
+
+- Source of truth: SQLite at \`~/.prjct-cli/projects/<id>/\` (don't read directly — use \`prjct\` CLI)
+- Read snapshot: vault at \`~/Documents/prjct/<slug>/_generated/\` (Read/Glob freely; never hand-edit — fix the pipeline)
+- Project config: \`.prjct/prjct.config.json\` in repo root
+
+The vault regenerates automatically on \`remember\`, \`capture\`, \`ship\`, \`sync\`, and the SessionStart/Stop hooks.
 
 **Auto-managed by prjct-cli** | https://prjct.app
 <!-- prjct:end - DO NOT REMOVE THIS MARKER -->
