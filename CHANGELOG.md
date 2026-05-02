@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.9] - 2026-05-02
+
+### Bug Fixes
+
+- remove orphaned context/CLAUDE.md checks; gate auto-update banner
+
+
 ## [2.3.8] - 2026-05-02
 
 ### Bug Fixes
