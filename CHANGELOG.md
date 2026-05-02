@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.10.0] - 2026-05-02
+
+### Features
+
+- prjct context-save / context-restore (gstack Fase D) (#296)
+
+
 ## [2.9.0] - 2026-05-02
 
 ### Features
