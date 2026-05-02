@@ -4,7 +4,6 @@
 
 import fs from 'node:fs/promises'
 import analyzer from '../domain/analyzer'
-import commandInstaller from '../infrastructure/command-installer'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import { formatCost } from '../schemas/metrics'
@@ -94,9 +93,11 @@ export class AnalysisCommands extends PrjctCommandsBase {
 
       const summary = generateAnalysisSummary(analysisData, projectPath)
 
-      const projectId = await configManager.getProjectId(projectPath)
-      const summaryPath = pathManager.getFilePath(projectId!, 'analysis', 'repo-summary.md')
+      const config = await configManager.readConfig(projectPath).catch(() => null)
+      const wikiRoot = await pathManager.getWikiPath(projectPath, config?.vaultPath)
+      const summaryPath = `${wikiRoot}/_generated/analysis/repo-summary.md`
 
+      await fs.mkdir(`${wikiRoot}/_generated/analysis`, { recursive: true })
       await fs.writeFile(summaryPath, summary, 'utf-8')
 
       await this.logToMemory(projectPath, 'repository_analyzed', {
@@ -105,17 +106,8 @@ export class AnalysisCommands extends PrjctCommandsBase {
         gitCommits: analysisData.gitStats.totalCommits,
       })
 
-      const aiProvider = require('../infrastructure/ai-provider')
-      const activeProvider = await aiProvider.getActiveProvider()
-
-      const globalConfigResult = await commandInstaller.installGlobalConfig()
-      if (globalConfigResult.success) {
-        console.log(`📝 Updated ${pathManager.getDisplayPath(globalConfigResult.path!)}`)
-      }
-
       console.log('✅ Analysis complete!\n')
-      console.log(`📄 Full report: ${pathManager.getDisplayPath(summaryPath)}`)
-      console.log(`📝 Context: ~/.prjct-cli/projects/${projectId}/${activeProvider.contextFile}\n`)
+      console.log(`📄 Full report: ${pathManager.getDisplayPath(summaryPath)}\n`)
       console.log('Next steps:')
       console.log('• /p:sync → Generate agents based on stack')
       console.log('• /p:feature → Add a new feature')
