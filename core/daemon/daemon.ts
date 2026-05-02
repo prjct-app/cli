@@ -448,6 +448,7 @@ async function executeCommand(
         md,
         required: opts.required === true,
         minVersion: opts['min-version'] ? String(opts['min-version']) : undefined,
+        enforce: opts.enforce === true,
       })
     case 'config':
       return commands!.config(param, request.cwd, { md })
