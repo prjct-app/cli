@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.13.0] - 2026-05-02
+
+### Features
+
+- project CLAUDE.md routing + onboarding rewrite (UX phase 4+5) (#301)
+
+
 ## [2.12.0] - 2026-05-02
 
 ### Features
