@@ -95,12 +95,22 @@ async function writeSettings(settings: SettingsFile): Promise<void> {
 
 /**
  * Shell command for a hook — delegates to the installed `prjct` binary.
- * We resolve via PATH so the hook survives node/bun upgrades; if the
- * user moves prjct to a non-PATH location they can override via env.
+ *
+ * Resilience: wraps the call in a `command -v` guard so that if `prjct`
+ * is missing from PATH (uninstall, package-manager move, broken nvm
+ * shim, post-cleanup stranding), the hook silently no-ops with exit 0
+ * rather than spamming "command not found" errors into every Claude
+ * Code session. The user can still see prjct is missing — they just
+ * see it on `prjct -v`, not on every Stop hook fire.
+ *
+ * Resolves via PATH so the hook survives node/bun upgrades; if the
+ * user moves prjct to a non-PATH location they can override via
+ * PRJCT_BIN env var.
  */
 function hookCommand(subcommand: string): string {
   const bin = process.env.PRJCT_BIN ?? 'prjct'
-  return `${bin} hook ${subcommand}`
+  // command -v works in sh/bash/zsh — what Claude Code's hook runner uses.
+  return `command -v ${bin} >/dev/null 2>&1 && ${bin} hook ${subcommand} || exit 0`
 }
 
 function isPrjctHook(entry: HookEntry): boolean {
