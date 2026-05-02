@@ -1,20 +1,29 @@
 /**
- * UserPromptSubmit hook — topical memory recall.
+ * UserPromptSubmit hook — topical memory recall + project state.
  *
- * Fires when the human submits a prompt. We extract keywords from the
- * prompt and recall matching memories, injecting up to MAX_CHARS as
- * additionalContext so Claude has the relevant prior facts without
- * needing to ask. Pure WHAT — zero "do X" prescription.
+ * Fires when the human submits a prompt. Two passes:
+ *   1. State injection — active task, branch, working tree, recent
+ *      ships. The LLM uses this to disambiguate intent ("listo" with
+ *      a dirty tree + active task + unpushed commits → ship; "listo"
+ *      with clean tree → status done).
+ *   2. Topical memory recall — keyword-match against the vault.
+ *
+ * Both pure facts. Zero "do X" prescription. The LLM decides.
  *
  * Degrades gracefully: on any error (bindings missing, no project,
  * no matches), we emit `{}` and stay out of the way.
  */
 
+import path from 'node:path'
 import configManager from '../infrastructure/config-manager'
 import { formatMemoryMd, type MemoryEntry, projectMemory } from '../memory/project-memory'
+import { shippedStorage } from '../storage/shipped-storage'
+import { stateStorage } from '../storage/state-storage'
+import { execFileAsync } from '../utils/exec'
+import { fileExists } from '../utils/file-helper'
 import { buildHookOutput, emit, extractKeywords, readStdinSafe, safeRun } from './_shared'
 
-const MAX_CHARS = 1500
+const MAX_CHARS = 1800
 const MAX_ENTRIES = 4
 
 interface HookInput {
@@ -68,6 +77,141 @@ async function buildPromptContext(projectPath: string, prompt: string): Promise<
   return body.length > MAX_CHARS ? `${body.slice(0, MAX_CHARS - 20)}\n… [truncated]` : body
 }
 
+/**
+ * Build a "# prjct: project state" block — pure facts about where the
+ * project is right now (active task, branch, working tree, recent
+ * ships). The LLM reads it to disambiguate user intent without asking.
+ *
+ * Returns null when there's nothing useful to say (no project, no
+ * git repo) so the caller can skip injection entirely.
+ */
+export async function buildProjectState(projectPath: string): Promise<string | null> {
+  const config = await configManager.readConfig(projectPath)
+  if (!config?.projectId) return null
+
+  const lines: string[] = ['# prjct: project state']
+  let hasContent = false
+
+  // Active task — most useful single fact.
+  try {
+    const activeTask = await stateStorage.getCurrentTask(config.projectId)
+    if (activeTask) {
+      const startedAgo = formatRelative(activeTask.startedAt)
+      lines.push(`- Active task: "${activeTask.description}" (${startedAgo})`)
+      hasContent = true
+    }
+  } catch {
+    /* best-effort */
+  }
+
+  // Git state — branch, working tree summary, ahead-of-origin count.
+  // Each git call is wrapped — empty repo / missing git / network all
+  // become "no signal" rather than errors.
+  if (await fileExists(path.join(projectPath, '.git'))) {
+    const git = await captureGit(projectPath)
+    if (git.branch) {
+      const wtBits: string[] = []
+      if (git.modified > 0) wtBits.push(`${git.modified} modified`)
+      if (git.staged > 0) wtBits.push(`${git.staged} staged`)
+      if (git.untracked > 0) wtBits.push(`${git.untracked} untracked`)
+      const wt = wtBits.length > 0 ? wtBits.join(', ') : 'clean'
+      const ahead = git.ahead > 0 ? `, ${git.ahead} unpushed` : ''
+      lines.push(`- Branch: ${git.branch} — working tree ${wt}${ahead}`)
+      hasContent = true
+    }
+  }
+
+  // Last shipped — useful for "what's the diff since last release?" intuition.
+  try {
+    const recent = await shippedStorage.getRecent(config.projectId, 1)
+    if (recent.length > 0) {
+      const last = recent[0]!
+      const ago = formatRelative(last.shippedAt ?? '')
+      const label = last.version ? `v${last.version}` : last.name
+      lines.push(`- Last ship: ${label} (${ago})`)
+      hasContent = true
+    }
+  } catch {
+    /* best-effort */
+  }
+
+  // Inbox depth — pure count, signals "you have things to triage".
+  try {
+    const inboxEntries = projectMemory.recall(config.projectId, {
+      types: ['inbox'],
+      limit: 50,
+    })
+    if (inboxEntries.length > 0) {
+      lines.push(`- Inbox: ${inboxEntries.length} items pending`)
+      hasContent = true
+    }
+  } catch {
+    /* best-effort */
+  }
+
+  if (!hasContent) return null
+  return lines.join('\n')
+}
+
+interface GitSnapshot {
+  branch: string
+  modified: number
+  staged: number
+  untracked: number
+  ahead: number
+}
+
+async function captureGit(projectPath: string): Promise<GitSnapshot> {
+  const empty: GitSnapshot = { branch: '', modified: 0, staged: 0, untracked: 0, ahead: 0 }
+  const safe = async (args: string[]): Promise<string> => {
+    try {
+      const r = await execFileAsync('git', args, { cwd: projectPath, timeout: 2000 })
+      return r.stdout.trim()
+    } catch {
+      return ''
+    }
+  }
+
+  const branch = await safe(['branch', '--show-current'])
+  if (!branch) return empty
+
+  const status = await safe(['status', '--porcelain'])
+  let modified = 0
+  let staged = 0
+  let untracked = 0
+  for (const line of status.split('\n')) {
+    if (!line) continue
+    const code = line.slice(0, 2)
+    if (code.startsWith('??')) untracked++
+    else {
+      if (code[0] !== ' ' && code[0] !== '?') staged++
+      if (code[1] !== ' ') modified++
+    }
+  }
+
+  // Unpushed commits vs upstream. `@{u}` returns empty when no upstream
+  // is configured (fresh local branch); treat as 0.
+  const aheadStr = await safe(['rev-list', '--count', '@{u}..HEAD'])
+  const ahead = Number.parseInt(aheadStr, 10) || 0
+
+  return { branch, modified, staged, untracked, ahead }
+}
+
+function formatRelative(isoTimestamp: string): string {
+  if (!isoTimestamp) return 'unknown'
+  const t = Date.parse(isoTimestamp)
+  if (Number.isNaN(t)) return 'unknown'
+  const seconds = Math.max(0, Math.floor((Date.now() - t) / 1000))
+  if (seconds < 60) return 'just now'
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  if (days < 30) return `${days}d ago`
+  return `${Math.floor(days / 30)}mo ago`
+}
+
 export async function runPromptHook(projectPath: string = process.cwd()): Promise<void> {
   await safeRun(async () => {
     const input = await readStdinSafe<HookInput>()
@@ -76,7 +220,21 @@ export async function runPromptHook(projectPath: string = process.cwd()): Promis
       emit({})
       return
     }
-    const context = await buildPromptContext(projectPath, prompt)
+    // Two pass: state (for intent disambiguation) + memory (for topical recall).
+    // Concatenate when both have content; either alone is fine; both null → no-op.
+    const [state, memory] = await Promise.all([
+      buildProjectState(projectPath),
+      buildPromptContext(projectPath, prompt),
+    ])
+    const blocks = [state, memory].filter((b): b is string => Boolean(b))
+    if (blocks.length === 0) {
+      emit(buildHookOutput('UserPromptSubmit', null))
+      return
+    }
+    let context = blocks.join('\n\n')
+    if (context.length > MAX_CHARS) {
+      context = `${context.slice(0, MAX_CHARS - 20)}\n… [truncated]`
+    }
     emit(buildHookOutput('UserPromptSubmit', context))
   })
 }
