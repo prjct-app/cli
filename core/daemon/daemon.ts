@@ -437,6 +437,12 @@ async function executeCommand(
         md,
         tags: opts.tags ? String(opts.tags) : undefined,
       })
+    case 'mcp':
+      // Explicit case (not registry.execute) because the registry wrapper
+      // calls `mcp(projectPath)` when param is null — which makes `mcp` parse
+      // the cwd as a subcommand. `p. mcp` from Claude Code hits exactly that
+      // path and was returning "Unknown mcp subcommand: /Users/…".
+      return commands!.mcp(param, request.cwd, { md })
     default:
       // Standard commands without special option handling
       return commandRegistry.execute(request.command, param, request.cwd)

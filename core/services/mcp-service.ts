@@ -207,6 +207,56 @@ class McpService {
     return { wasDenied: true, settingsPath }
   }
 
+  /**
+   * Atomically reconcile the denylist with a desired set of *enabled* server
+   * names. Returns which names changed sides so callers can show a diff.
+   * Used by the interactive multi-select — single file write instead of N.
+   */
+  async setEnabled(
+    projectPath: string,
+    enabledNames: string[],
+    knownNames: string[]
+  ): Promise<{
+    nowDenied: string[]
+    nowAllowed: string[]
+    settingsPath: string
+  }> {
+    const settingsPath = this.localSettingsPath(projectPath)
+    const settings = this.readJson<LocalSettings>(settingsPath) ?? {}
+    const previous = new Set((settings.deniedMcpServers ?? []).map((e) => e.serverName))
+    const enabled = new Set(enabledNames)
+
+    // Desired denylist = (previous denylist ∪ known names) − enabled names.
+    // Preserves entries we don't recognize (user may hand-edit denylist for
+    // servers prjct doesn't catalog yet).
+    const desired = new Set<string>(previous)
+    for (const name of knownNames) {
+      if (enabled.has(name)) desired.delete(name)
+      else desired.add(name)
+    }
+
+    const nowDenied: string[] = []
+    const nowAllowed: string[] = []
+    for (const name of knownNames) {
+      const wasDenied = previous.has(name)
+      const isDenied = desired.has(name)
+      if (!wasDenied && isDenied) nowDenied.push(name)
+      else if (wasDenied && !isDenied) nowAllowed.push(name)
+    }
+
+    if (nowDenied.length === 0 && nowAllowed.length === 0) {
+      return { nowDenied, nowAllowed, settingsPath }
+    }
+
+    if (desired.size === 0) {
+      delete settings.deniedMcpServers
+    } else {
+      settings.deniedMcpServers = Array.from(desired).map((serverName) => ({ serverName }))
+    }
+    this.writeJson(settingsPath, settings)
+    return { nowDenied, nowAllowed, settingsPath }
+  }
+
   // ---------------------------------------------------------------------
 
   private localSettingsPath(projectPath: string): string {

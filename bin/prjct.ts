@@ -43,6 +43,10 @@ const _binCommands = new Set([
   'version',
   '-v',
   '--version',
+  // mcp's interactive multi-select needs TTY on stdin/stdout. Daemon runs
+  // detached with no TTY, so routing through it falls back to plain `list`
+  // output. Always execute mcp in the client process so prompts work.
+  'mcp',
 ])
 
 // v2 verbs registered in the command registry — imported from the single
