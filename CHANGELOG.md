@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.7.0] - 2026-05-02
+
+### Features
+
+- gstack Fase B — question registry + 'stop asking me about X' (#293)
+
+
 ## [2.6.0] - 2026-05-02
 
 ### Features
