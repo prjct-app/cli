@@ -2,13 +2,14 @@
  * Update Command: prjct update
  *
  * Full system updater — 3 phases:
- * 1. Package update (npm/homebrew → npm)
+ * 1. Package update (auto-detects npm / pnpm / bun / yarn, plus homebrew migration)
  * 2. Global cleanup (all projects: migrate + sweep + reinstall commands)
  * 3. Daemon restart
  */
 
 import { execSync } from 'node:child_process'
 import fs from 'node:fs/promises'
+import os from 'node:os'
 import path from 'node:path'
 import chalk from 'chalk'
 import { CommandInstaller } from '../infrastructure/command-installer'
@@ -45,17 +46,141 @@ function isHomebrewInstall(): boolean {
   }
 }
 
+// ── Package manager detection ──
+
+type PkgManagerName = 'npm' | 'pnpm' | 'bun' | 'yarn'
+
+interface PkgManager {
+  name: PkgManagerName
+  installArgs: string[] // e.g. ['install', '-g', 'prjct-cli@latest']
+  /** Returns the path to the directory containing prjct-cli/, or null. */
+  getInstallRoot: () => string | null
+}
+
+const HOME = os.homedir()
+
+const MANAGERS: Record<PkgManagerName, PkgManager> = {
+  npm: {
+    name: 'npm',
+    installArgs: ['install', '-g', 'prjct-cli@latest'],
+    getInstallRoot: () => {
+      try {
+        return execSync('npm root -g', {
+          encoding: 'utf-8',
+          stdio: ['pipe', 'pipe', 'pipe'],
+        }).trim()
+      } catch {
+        return null
+      }
+    },
+  },
+  pnpm: {
+    name: 'pnpm',
+    installArgs: ['add', '-g', 'prjct-cli@latest'],
+    getInstallRoot: () => {
+      try {
+        return execSync('pnpm root -g', {
+          encoding: 'utf-8',
+          stdio: ['pipe', 'pipe', 'pipe'],
+        }).trim()
+      } catch {
+        return null
+      }
+    },
+  },
+  bun: {
+    name: 'bun',
+    installArgs: ['add', '-g', 'prjct-cli@latest'],
+    getInstallRoot: () => path.join(HOME, '.bun', 'install', 'global', 'node_modules'),
+  },
+  yarn: {
+    name: 'yarn',
+    installArgs: ['global', 'add', 'prjct-cli@latest'],
+    getInstallRoot: () => {
+      try {
+        const dir = execSync('yarn global dir', {
+          encoding: 'utf-8',
+          stdio: ['pipe', 'pipe', 'pipe'],
+        }).trim()
+        return path.join(dir, 'node_modules')
+      } catch {
+        return null
+      }
+    },
+  },
+}
+
+/** Whether `name` resolves to an executable in the current PATH. */
+function isOnPath(name: PkgManagerName): boolean {
+  try {
+    execSync(`command -v ${name}`, { stdio: 'pipe', shell: '/bin/sh' })
+    return true
+  } catch {
+    return false
+  }
+}
+
 /**
- * Get current installed version
+ * Detect which package manager owns the running prjct binary by inspecting
+ * its real path. Falls back to npm if no signal is found.
+ */
+function detectInstallerFromRunningBinary(): PkgManagerName | null {
+  const candidates = [process.argv[1], process.execPath].filter(Boolean) as string[]
+  for (const candidate of candidates) {
+    let real = candidate
+    try {
+      real = require('node:fs').realpathSync(candidate)
+    } catch {
+      // ignore
+    }
+    if (real.includes('/.bun/install/global') || real.includes('/.bun/bin/')) return 'bun'
+    if (real.includes('/Library/pnpm/') || real.includes('/.pnpm/')) return 'pnpm'
+    if (real.includes('/.local/share/pnpm/')) return 'pnpm'
+    if (real.includes('/.yarn/') || real.includes('/yarn/global')) return 'yarn'
+  }
+  return null
+}
+
+/**
+ * Pick the package manager to use for the upgrade.
+ * Priority: detected installer (if available on PATH) → first available among
+ * bun/pnpm/npm/yarn. Throws if none are available.
+ */
+function selectPackageManager(): PkgManager {
+  const detected = detectInstallerFromRunningBinary()
+  if (detected && isOnPath(detected)) return MANAGERS[detected]
+
+  for (const name of ['bun', 'pnpm', 'npm', 'yarn'] as PkgManagerName[]) {
+    if (isOnPath(name)) return MANAGERS[name]
+  }
+  throw new Error(
+    'No supported package manager found in PATH (tried npm, pnpm, bun, yarn). ' +
+      'Install one and re-run, or upgrade manually: bun add -g prjct-cli@latest'
+  )
+}
+
+/**
+ * Read the installed prjct-cli version from any known global node_modules.
+ * Independent of which package manager binary is on PATH.
  */
 function getCurrentVersion(): string | null {
-  try {
-    const result = execSync('npm list -g prjct-cli --depth=0 2>/dev/null', { encoding: 'utf-8' })
-    const match = result.match(/prjct-cli@([\d.]+)/)
-    return match ? match[1] : null
-  } catch {
-    return null
+  const roots = [
+    MANAGERS.bun.getInstallRoot(),
+    MANAGERS.pnpm.getInstallRoot(),
+    MANAGERS.npm.getInstallRoot(),
+    MANAGERS.yarn.getInstallRoot(),
+  ].filter((p): p is string => !!p)
+
+  for (const root of roots) {
+    const pkgPath = path.join(root, 'prjct-cli', 'package.json')
+    try {
+      const pkg = JSON.parse(require('node:fs').readFileSync(pkgPath, 'utf-8'))
+      if (pkg?.name === 'prjct-cli' && typeof pkg.version === 'string') return pkg.version
+    } catch {
+      // try next root
+    }
   }
+  return null
 }
 
 export class UpdateCommands extends PrjctCommandsBase {
@@ -140,20 +265,28 @@ export class UpdateCommands extends PrjctCommandsBase {
 
     if (dryRun) {
       const homebrew = isHomebrewInstall()
+      let pmName: string
+      try {
+        pmName = selectPackageManager().name
+      } catch (err) {
+        pmName = '<none-available>'
+        result.errors.push(getErrorMessage(err))
+      }
       if (homebrew) {
         result.details.push('Would uninstall homebrew formula')
-        result.details.push('Would install via npm: npm install -g prjct-cli')
+        result.details.push(`Would install via ${pmName}`)
       } else {
-        result.details.push('Would run: npm update -g prjct-cli')
+        result.details.push(`Would reinstall via ${pmName}`)
       }
       return result
     }
 
     try {
       const homebrew = isHomebrewInstall()
+      const pm = selectPackageManager()
 
       if (homebrew) {
-        // Migrate from homebrew to npm
+        // Migrate from homebrew to a node package manager
         try {
           execSync('brew uninstall prjct-cli 2>/dev/null', { stdio: 'pipe' })
           result.details.push('Uninstalled homebrew formula')
@@ -161,13 +294,13 @@ export class UpdateCommands extends PrjctCommandsBase {
           result.details.push('Homebrew uninstall skipped (not found)')
         }
 
-        execSync('npm install -g prjct-cli@latest', { stdio: 'pipe' })
-        result.details.push('Installed via npm')
+        execSync([pm.name, ...pm.installArgs].join(' '), { stdio: 'pipe' })
+        result.details.push(`Installed via ${pm.name}`)
       } else {
-        // Use install @latest instead of update to bypass semver range constraints
-        // and always fetch the true latest from the registry
-        execSync('npm install -g prjct-cli@latest', { stdio: 'pipe' })
-        result.details.push('npm install complete')
+        // Use install @latest (rather than `update`) to bypass semver range
+        // constraints and always fetch the true latest from the registry.
+        execSync([pm.name, ...pm.installArgs].join(' '), { stdio: 'pipe' })
+        result.details.push(`${pm.name} install complete`)
       }
 
       // Verify version
@@ -469,34 +602,56 @@ export class UpdateCommands extends PrjctCommandsBase {
    */
   private redirectToInstalledPackage(): void {
     try {
-      const npmRoot = execSync('npm root -g', {
-        encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'pipe'],
-      }).trim()
-      const installedPkg = path.join(npmRoot, 'prjct-cli')
-      const pkgJsonPath = path.join(installedPkg, 'package.json')
+      const { existsSync, realpathSync, readFileSync } = require('node:fs')
 
-      // Verify it's a real install (not a symlink back to source)
-      const { existsSync, lstatSync, readFileSync } = require('node:fs')
-      if (!existsSync(pkgJsonPath)) return
+      // Walk every known global node_modules root and pick the first one
+      // that holds a real prjct-cli package.json. pnpm installs as a symlink
+      // into its content-addressable store (.pnpm/prjct-cli@x.y.z/...) — that
+      // is a real install, not a link back to our source tree, so we follow
+      // symlinks via realpath and verify the resolved target is not the
+      // current source root.
+      const sourceRoot = (() => {
+        try {
+          return realpathSync(path.resolve(__dirname, '..', '..'))
+        } catch {
+          return ''
+        }
+      })()
 
-      const stat = lstatSync(installedPkg)
-      if (stat.isSymbolicLink()) return // still linked to source — can't redirect
+      const roots = [
+        MANAGERS.bun.getInstallRoot(),
+        MANAGERS.pnpm.getInstallRoot(),
+        MANAGERS.npm.getInstallRoot(),
+        MANAGERS.yarn.getInstallRoot(),
+      ].filter((p): p is string => !!p)
 
-      // Verify it's actually prjct-cli
-      try {
-        const pkg = JSON.parse(readFileSync(pkgJsonPath, 'utf-8'))
-        if (pkg.name !== 'prjct-cli') return
-      } catch {
+      for (const root of roots) {
+        const candidate = path.join(root, 'prjct-cli')
+        const pkgJsonPath = path.join(candidate, 'package.json')
+        if (!existsSync(pkgJsonPath)) continue
+
+        let resolved = candidate
+        try {
+          resolved = realpathSync(candidate)
+        } catch {
+          // ignore
+        }
+
+        // Skip if the install resolves back to our source tree (e.g. npm link)
+        if (sourceRoot && resolved === sourceRoot) continue
+
+        try {
+          const pkg = JSON.parse(readFileSync(path.join(resolved, 'package.json'), 'utf-8'))
+          if (pkg?.name !== 'prjct-cli') continue
+        } catch {
+          continue
+        }
+
+        resetPackageRoot(resolved)
+        const { resetBundle } = require('../agentic/template-loader')
+        resetBundle()
         return
       }
-
-      // Reset PACKAGE_ROOT to the installed location
-      resetPackageRoot(installedPkg)
-
-      // Reset template bundle cache so next read picks up installed templates
-      const { resetBundle } = require('../agentic/template-loader')
-      resetBundle()
     } catch {
       // Non-blocking: fall through to use current PACKAGE_ROOT
     }

@@ -1,16 +1,28 @@
 # lefthook.yml - Git hooks for prjct-cli
-# Fast, portable checks that work with npm (no bun required)
-# Tests run in CI where bun is properly installed
+#
+# Runtime detection: prefer bun (fastest, native TS), fall back to npm.
+# Some shells (zsh + nvm) install npm/yarn as lazy-loaded shell functions
+# that are invisible to subprocesses — lefthook spawns via /bin/sh, so a
+# bare `npm run X` blows up with "npm: command not found" on those setups.
+# `command -v bun` resolves real binaries only and is portable.
 
 pre-commit:
   parallel: true
   commands:
     check:
       glob: "*.{ts,tsx,js,jsx,json,md}"
-      run: npm run check
+      run: |
+        if command -v bun >/dev/null 2>&1; then bun run check
+        elif command -v npm >/dev/null 2>&1; then npm run check
+        else echo "Neither bun nor npm found in PATH" >&2; exit 1
+        fi
       stage_fixed: true
 
 pre-push:
   commands:
     typecheck:
-      run: npm run typecheck
+      run: |
+        if command -v bun >/dev/null 2>&1; then bun run typecheck
+        elif command -v npm >/dev/null 2>&1; then npm run typecheck
+        else echo "Neither bun nor npm found in PATH" >&2; exit 1
+        fi
