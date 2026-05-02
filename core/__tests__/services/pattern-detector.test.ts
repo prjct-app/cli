@@ -61,4 +61,24 @@ describe('pattern-detector — constants', () => {
   test('ignore patterns cover common noise', () => {
     expect(IGNORE_PATTERNS.length).toBeGreaterThan(5)
   })
+
+  test('recurring-bug detection uses 30 day window + 2+ threshold', () => {
+    expect(_internal.RECURRING_WINDOW_DAYS).toBe(30)
+    expect(_internal.RECURRING_THRESHOLD).toBe(2)
+  })
+
+  test('tech-debt growth threshold is 5 (avoids noise from 1-2 churn)', () => {
+    expect(_internal.TECH_DEBT_GROWTH_THRESHOLD).toBe(5)
+  })
+})
+
+describe('pattern-detector — measureTechDebt', () => {
+  test('returns a non-negative count for this repo', async () => {
+    // Integration smoke test: this repo has at least some TODO/FIXME
+    // markers. Just verify the function returns a finite, non-negative
+    // number rather than asserting an exact count.
+    const snap = await _internal.measureTechDebt(process.cwd())
+    expect(snap.totalCount).toBeGreaterThanOrEqual(0)
+    expect(Number.isFinite(snap.totalCount)).toBe(true)
+  })
 })
