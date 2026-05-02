@@ -338,8 +338,8 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
       expect(content).toMatch(/Subagent A.*review/)
       expect(content).toMatch(/Subagent B.*security/)
       expect(content).toMatch(/Subagent C.*investigate/)
-      // The skill description must advertise the new workflow.
-      expect(content).toMatch(/quality reviews \(review, qa, security, investigate, audit\)/)
+      // The skill description must advertise the heavy-review workflows.
+      expect(content).toMatch(/Heavy reviews \(audit, security, investigate\)/)
     })
 
     it('teaches the decision-brief format for non-trivial AskUserQuestion calls', async () => {
@@ -379,6 +379,79 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
       // overconfident auto-action.
       expect(content).toMatch(/outside voice is right.*Present it\. Ask\./)
       expect(content).toContain('Agreement is signal, not proof')
+    })
+  })
+
+  // Verb intent map — the LLM is the intent engine. Skill body must
+  // describe each verb in terms of the user's GOAL, not phrase patterns.
+  describe('verb intent map (UX phase 1)', () => {
+    it('declares the verb intent map with goal-based signal descriptions', async () => {
+      const result = await generator.generateAndInstall(makeSyncResult())
+      const content = await fs.readFile(result.generated[0].path, 'utf-8')
+      expect(content).toContain('## Verb intent map')
+      expect(content).toContain("recognize the user's goal, then act")
+      // Every routine verb gets its own intent description.
+      expect(content).toContain('### `task` — "I\'m starting a new piece of work"')
+      expect(content).toContain('### `capture` — "save this thought, don\'t decide anything yet"')
+      expect(content).toContain('### `remember decision`')
+      expect(content).toContain('### `remember learning`')
+      expect(content).toContain('### `remember gotcha`')
+      expect(content).toContain('### `ship`')
+      expect(content).toContain('### `health`')
+      expect(content).toContain('### `retro`')
+      expect(content).toContain('### `context-save`')
+    })
+
+    it('explicitly tells the model NOT to make the user type commands', async () => {
+      const result = await generator.generateAndInstall(makeSyncResult())
+      const content = await fs.readFile(result.generated[0].path, 'utf-8')
+      expect(content).toContain('The user does NOT type prjct commands. You do.')
+      // Skill description carries the same contract.
+      const description = content.split('description:')[1]?.split('\n')[0] ?? ''
+      expect(description).toMatch(/never make the user type commands/i)
+    })
+  })
+
+  // Suggest vs auto-execute protocol — three tiers based on blast radius.
+  describe('suggest vs auto-execute protocol (UX phase 2)', () => {
+    it('declares the three-tier protocol with verbs grouped by blast radius', async () => {
+      const result = await generator.generateAndInstall(makeSyncResult())
+      const content = await fs.readFile(result.generated[0].path, 'utf-8')
+      expect(content).toContain('## Suggest vs auto-execute')
+      expect(content).toContain('### Tier 1 — auto-execute')
+      expect(content).toContain('### Tier 2 — suggest-and-confirm')
+      expect(content).toContain('### Tier 3 — decision-brief')
+    })
+
+    it('groups capture / tag / remember / context-save / health / retro into Tier 1', async () => {
+      const result = await generator.generateAndInstall(makeSyncResult())
+      const content = await fs.readFile(result.generated[0].path, 'utf-8')
+      const tier1 = content.split('### Tier 1')[1]?.split('### Tier 2')[0] ?? ''
+      expect(tier1).toContain('`capture`')
+      expect(tier1).toContain('`tag`')
+      expect(tier1).toContain('`remember <type>`')
+      expect(tier1).toContain('`context-save`')
+      expect(tier1).toContain('`health`')
+      expect(tier1).toContain('`retro`')
+    })
+
+    it('groups ship / task / status / audit into Tier 2 (suggest-and-confirm)', async () => {
+      const result = await generator.generateAndInstall(makeSyncResult())
+      const content = await fs.readFile(result.generated[0].path, 'utf-8')
+      const tier2 = content.split('### Tier 2')[1]?.split('### Tier 3')[0] ?? ''
+      expect(tier2).toContain('`task`')
+      expect(tier2).toContain('`ship`')
+      expect(tier2).toContain('`status done | paused`')
+      expect(tier2).toContain('`audit`')
+    })
+
+    it('lists the routing anti-patterns the model must refuse', async () => {
+      const result = await generator.generateAndInstall(makeSyncResult())
+      const content = await fs.readFile(result.generated[0].path, 'utf-8')
+      // Asking permission for routine captures is the explicit failure mode.
+      expect(content).toContain('Anti-patterns to refuse')
+      expect(content).toMatch(/"Do you want me to capture that\?".*just capture it/)
+      expect(content).toMatch(/Running `ship` without surfacing the plan first/)
     })
   })
 })
