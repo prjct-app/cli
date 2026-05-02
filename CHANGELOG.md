@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.14.0] - 2026-05-02
+
+### Features
+
+- cleanup + friction-detection + proactive improvement loop (#302)
+
+
 ## [2.13.0] - 2026-05-02
 
 ### Features
