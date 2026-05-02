@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.10] - 2026-05-02
+
+### Bug Fixes
+
+- upgrade every detected global install, not just one
+
+
 ## [2.3.9] - 2026-05-02
 
 ### Bug Fixes
