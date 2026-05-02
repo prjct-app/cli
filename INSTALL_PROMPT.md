@@ -6,36 +6,44 @@ Three paths, each smaller than the last. Pick the one your audience can follow.
 
 ---
 
-## Path 1 — One paste in Claude Code (recommended, install + upgrade)
+## Path 1 — One paste in Claude Code (recommended, harness-friendly)
 
-Copy the prompt below (use the GitHub copy button on the code block) and paste it into the Claude Code chat. Claude executes it and you're done in ~30 seconds:
+Copy the prompt below and paste it into the Claude Code chat. Claude runs `npm` directly — no sandbox restrictions, ~30 seconds end-to-end:
 
 ```text
 Install or upgrade prjct (project memory + quality workflows for AI coding agents) on this machine:
 
-1. Run `curl -sSL https://raw.githubusercontent.com/jlopezlira/prjct-cli/main/scripts/install-via-claude.sh | bash`
-2. Verify with `prjct -v` (should print the latest v2.4.x)
+1. Run `npm install -g prjct-cli@latest`
+2. Run `prjct setup` to install Claude Code hooks + the global CLAUDE.md lookup-first block
 3. If the cwd is a git repo, run `prjct sync` to register it
-4. Show me the install output and confirm the version (note: it'll say "upgraded X → vY" if I had a previous version, or "installed" if fresh)
+4. Verify with `prjct -v` and confirm the version
 
-The script downloads the standalone binary for my platform from GitHub Releases (no Node/npm needed), wires hooks + the lookup-first CLAUDE.md block, and registers the project. Re-running is safe — the script detects existing installs and upgrades. After install, the prjct skill activates on requests like "review this branch", "qa the UI", "security check", or "investigate this bug" — each with a named methodology (Production Bug Hunt, OWASP+STRIDE, Iron Law, Coverage Gate). Stop hook auto-captures decisions/learnings/gotchas + detects hot files, recurring bugs, and tech-debt growth so the next session compounds.
+After install, the prjct skill activates on requests like "review this branch", "qa the UI", "security check", or "investigate this bug" — each with a named methodology (Production Bug Hunt, OWASP+STRIDE, Iron Law, Coverage Gate). Stop hook auto-captures decisions/learnings/gotchas + detects hot files, recurring bugs, and tech-debt growth so the next session compounds.
 ```
 
 ### Shorter version (if you want a one-liner prompt)
 
 ```text
-Install or upgrade prjct on this machine: run `curl -sSL https://raw.githubusercontent.com/jlopezlira/prjct-cli/main/scripts/install-via-claude.sh | bash` and verify with `prjct -v`. If the cwd is a git repo, also run `prjct sync` to register it.
+Install or upgrade prjct on this machine: run `npm install -g prjct-cli@latest`, then `prjct setup`, then `prjct sync` if cwd is a git repo. Verify with `prjct -v`.
 ```
+
+### Why npm and not the standalone binary?
+
+The standalone binary install (`curl | bash`) is faster and Node-free, but **Claude Code's harness intentionally blocks remote `curl | bash` execution for safety** — that's a sandbox policy, not something a prompt can or should bypass. The npm path runs through Claude Code's allowed tool surface.
+
+If you want the standalone binary, see Path 2 (run yourself in a terminal).
 
 ---
 
-## Path 2 — One terminal line
+## Path 2 — Standalone binary, run in your own terminal (no Node/npm needed)
 
-For users who prefer a terminal:
+If you'd rather have the standalone binary (Bun runtime embedded), open your own terminal and run:
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/jlopezlira/prjct-cli/main/scripts/install-via-claude.sh | bash
 ```
+
+> **Note:** This is a `curl | bash` install. Run it from your own terminal, not via Claude Code — the Claude Code harness blocks remote `curl | bash` for safety, and that's the right call. Trust comes from you reading the script before running it. The script is here: [scripts/install-via-claude.sh](./scripts/install-via-claude.sh).
 
 The script:
 1. Detects platform (macOS arm64/intel + Linux x64)
@@ -43,6 +51,7 @@ The script:
 3. Symlinks `~/.prjct-cli/bin/prjct` → `~/.local/bin/prjct` (added to `$PATH`)
 4. Falls back to `npm install -g prjct-cli@latest` if binary download fails
 5. Runs `prjct setup` (hooks + global CLAUDE.md) and `prjct sync` (if cwd is git repo)
+6. Warns if a stale package-manager install (pnpm / yarn / brew / bun) is shadowing the new binary on PATH
 
 ---
 
