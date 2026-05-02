@@ -12,29 +12,26 @@
 Copy this prompt and paste it in Claude Code (works for fresh install AND upgrade):
 
 ```text
-Install or upgrade prjct on this machine: run `curl -sSL https://raw.githubusercontent.com/jlopezlira/prjct-cli/main/scripts/install-via-claude.sh | bash` and verify with `prjct -v`. If the cwd is a git repo, also run `prjct sync` to register it.
+Install or upgrade prjct on this machine: run `npm install -g prjct-cli@latest`, then `prjct setup` to wire hooks, and `prjct sync` if the cwd is a git repo. Verify the version with `prjct -v`.
 ```
 
-~30 seconds. The script downloads the standalone binary for your platform from GitHub Releases (no Node/npm needed), wires hooks + the lookup-first CLAUDE.md block, and registers the project. Re-running is safe — the script detects existing installs and upgrades to the latest published version.
+~30 seconds. Claude runs npm directly (no harness restrictions), wires the SessionStart/Stop hooks + the lookup-first CLAUDE.md block, and registers the project. Re-pasting upgrades to the latest published version.
 
-Prefer terminal? Same effect:
+### Prefer no Node/npm? (run in your own terminal)
+
+If you'd rather have the standalone binary (Bun runtime embedded, no Node ecosystem needed), run this **yourself in a terminal** — it's a `curl | bash` install which Claude Code's harness intentionally blocks for safety:
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/jlopezlira/prjct-cli/main/scripts/install-via-claude.sh | bash
 ```
 
-Or via package manager:
-
-```bash
-npm install -g prjct-cli@latest
-# or: bun install -g prjct-cli@latest
-```
+The script auto-detects platform (mac arm64/intel + linux x64), downloads the right binary from GitHub Releases, sets up `~/.local/bin/prjct` on your PATH, runs `prjct setup` + `prjct sync`, and warns you if a stale package-manager install is shadowing the new binary.
 
 ### After install — three upgrade paths
 
 | Method | Command | When |
 |---|---|---|
-| Same prompt | re-paste the install prompt | Default. Works whether installed or not. |
+| Re-paste the install prompt | (same prompt above) | Default. Claude re-runs `npm install -g prjct-cli@latest` and re-verifies. |
 | CLI shortcut | `prjct update` | Already in a terminal. Auto-detects npm/pnpm/bun/yarn/homebrew. |
 | Silent (set once) | `prjct config set auto-update on` | Background check 1/hour throttled, logs to `~/.prjct-cli/state/auto-update.log`. |
 
