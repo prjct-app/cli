@@ -1,0 +1,199 @@
+/**
+ * Health Command — `prjct health`
+ *
+ * Composite quality dashboard. Wraps the project's existing tools
+ * (typecheck, lint, tests, dead-code) and reports a per-dimension
+ * pass/fail with a weighted overall score. Inspired by gstack's
+ * `/health` SKILL.md (garrytan/gstack/health).
+ *
+ * Distinct from `prjct doctor` — doctor checks the *system* state
+ * (binaries, configs, staleness). Health checks *code* quality.
+ */
+
+import path from 'node:path'
+import type { CommandResult } from '../types/commands'
+import { getErrorMessage } from '../types/fs'
+import { execAsync } from '../utils/exec'
+import { fileExists, readJson } from '../utils/file-helper'
+import out from '../utils/output'
+import { PrjctCommandsBase } from './base'
+
+interface HealthDimension {
+  name: string
+  /** The script name in package.json — e.g. `typecheck`, `lint`, `test`. */
+  scriptName: string
+  command: string | null
+  /** ISO-ish narrative description shown to the user. */
+  description: string
+  weight: number
+}
+
+interface HealthResult {
+  dimension: HealthDimension
+  status: 'pass' | 'fail' | 'skipped'
+  durationMs: number
+  /** Captured first error line / diagnostic when status=fail. */
+  diagnostic?: string
+}
+
+/**
+ * The known dimensions and their package.json script names. The
+ * runtime resolves a runner (bun preferred when available) and writes
+ * the final command at detection time.
+ */
+const KNOWN_DIMENSIONS: ReadonlyArray<Omit<HealthDimension, 'command'>> = [
+  { name: 'typecheck', scriptName: 'typecheck', description: 'TypeScript types', weight: 25 },
+  { name: 'lint', scriptName: 'lint', description: 'Lint rules', weight: 20 },
+  { name: 'tests', scriptName: 'test', description: 'Test suite', weight: 35 },
+  { name: 'dead-code', scriptName: 'knip', description: 'Dead-code scan', weight: 20 },
+]
+
+export class HealthCommands extends PrjctCommandsBase {
+  async health(
+    _arg: string | null = null,
+    projectPath: string = process.cwd(),
+    options: { md?: boolean } = {}
+  ): Promise<CommandResult> {
+    try {
+      const initResult = await this.ensureProjectInit(projectPath)
+      if (!initResult.success) return initResult
+
+      const dimensions = await detectDimensions(projectPath)
+      const results: HealthResult[] = []
+      for (const dim of dimensions) {
+        results.push(await runDimension(projectPath, dim))
+      }
+      const score = computeScore(results)
+
+      if (options.md) {
+        console.log(formatMarkdown(score, results))
+      } else {
+        console.log(formatText(score, results))
+      }
+
+      // Exit non-zero on any FAIL so CI can gate on `prjct health`.
+      const allPass = results.every((r) => r.status !== 'fail')
+      return { success: allPass, score, results: results.length }
+    } catch (error) {
+      const msg = getErrorMessage(error)
+      out.fail(msg)
+      return { success: false, error: msg }
+    }
+  }
+}
+
+// ============================================================================
+// Detection
+// ============================================================================
+
+async function detectDimensions(projectPath: string): Promise<HealthDimension[]> {
+  const pkgPath = path.join(projectPath, 'package.json')
+  if (!(await fileExists(pkgPath))) {
+    return []
+  }
+  const pkg = await readJson<{ scripts?: Record<string, string> }>(pkgPath, null)
+  const scripts = pkg?.scripts ?? {}
+
+  // Pick the runner. We resolve to the script value DIRECTLY (sh -c
+  // <script>) rather than `bun run <name>` / `npm run <name>` so the
+  // health command works regardless of which package manager is on PATH.
+  // This also dodges the "global npm not installed" failure mode in CI
+  // / sandboxed test environments.
+  return KNOWN_DIMENSIONS.filter((d) => Boolean(scripts[d.scriptName])).map((d) => ({
+    ...d,
+    command: scripts[d.scriptName] ?? null,
+  }))
+}
+
+// ============================================================================
+// Dimension execution
+// ============================================================================
+
+async function runDimension(projectPath: string, dim: HealthDimension): Promise<HealthResult> {
+  if (!dim.command) {
+    return { dimension: dim, status: 'skipped', durationMs: 0 }
+  }
+  const start = Date.now()
+  try {
+    await execAsync(dim.command, {
+      cwd: projectPath,
+      timeout: 5 * 60 * 1000,
+      maxBuffer: 16 * 1024 * 1024,
+    })
+    return { dimension: dim, status: 'pass', durationMs: Date.now() - start }
+  } catch (error) {
+    const stderr = (error as { stderr?: string }).stderr ?? ''
+    const stdout = (error as { stdout?: string }).stdout ?? ''
+    const firstNonEmpty = (stderr + '\n' + stdout)
+      .split('\n')
+      .map((l) => l.trim())
+      .find((l) => l.length > 0)
+    return {
+      dimension: dim,
+      status: 'fail',
+      durationMs: Date.now() - start,
+      diagnostic: firstNonEmpty ?? getErrorMessage(error),
+    }
+  }
+}
+
+// ============================================================================
+// Scoring
+// ============================================================================
+
+function computeScore(results: HealthResult[]): number {
+  if (results.length === 0) return 0
+  // Weighted: each pass contributes its full weight, fails contribute 0,
+  // skipped don't change the denominator (we only count present dimensions).
+  let pts = 0
+  let denom = 0
+  for (const r of results) {
+    if (r.status === 'skipped') continue
+    denom += r.dimension.weight
+    if (r.status === 'pass') pts += r.dimension.weight
+  }
+  if (denom === 0) return 0
+  return Math.round((pts / denom) * 100)
+}
+
+// ============================================================================
+// Output
+// ============================================================================
+
+function statusIcon(status: HealthResult['status']): string {
+  if (status === 'pass') return '✓'
+  if (status === 'fail') return '✗'
+  return '·'
+}
+
+function formatText(score: number, results: HealthResult[]): string {
+  if (results.length === 0) {
+    return 'health: no quality dimensions detected (add typecheck/lint/test/knip scripts to package.json)'
+  }
+  const lines: string[] = []
+  lines.push(`health: ${score}/100`)
+  for (const r of results) {
+    const dur = r.durationMs > 1000 ? `${(r.durationMs / 1000).toFixed(1)}s` : `${r.durationMs}ms`
+    const tail = r.status === 'fail' && r.diagnostic ? ` — ${r.diagnostic.slice(0, 80)}` : ''
+    lines.push(`  ${statusIcon(r.status)} ${r.dimension.name.padEnd(10)} ${dur}${tail}`)
+  }
+  return lines.join('\n')
+}
+
+function formatMarkdown(score: number, results: HealthResult[]): string {
+  if (results.length === 0) {
+    return `## Health\n\n_No quality dimensions detected. Add \`typecheck\`, \`lint\`, \`test\`, or \`knip\` scripts to \`package.json\`._\n`
+  }
+  const lines: string[] = []
+  lines.push(`## Health — ${score}/100`)
+  lines.push('')
+  lines.push('| Dimension | Status | Duration | Notes |')
+  lines.push('|---|---|---|---|')
+  for (const r of results) {
+    const dur = r.durationMs > 1000 ? `${(r.durationMs / 1000).toFixed(1)}s` : `${r.durationMs}ms`
+    const note =
+      r.status === 'fail' && r.diagnostic ? r.diagnostic.slice(0, 100).replaceAll('|', '\\|') : ''
+    lines.push(`| ${r.dimension.name} | ${r.status} | ${dur} | ${note} |`)
+  }
+  return lines.join('\n')
+}
