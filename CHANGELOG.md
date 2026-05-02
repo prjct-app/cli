@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.10.1] - 2026-05-02
+
+### Bug Fixes
+
+- zero-out every quality check (typecheck/lint/tests/knip) (#298)
+
+
 ## [2.10.0] - 2026-05-02
 
 ### Features
