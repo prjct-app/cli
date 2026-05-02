@@ -12,7 +12,7 @@
  * infrastructure function returns void and logs warnings internally.
  */
 
-import { installStatusLine as installFromInfra } from '../../infrastructure/setup'
+import { installStatusLine as installFromInfra } from '../../infrastructure/setup/statusline'
 import { getErrorMessage } from '../../types/fs'
 
 export async function installStatusLine(): Promise<{ success: boolean; error?: string }> {
