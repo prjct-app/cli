@@ -71,6 +71,8 @@ const _binCommands = new Set([
   'prefs',
   'retro',
   'health',
+  'context-save',
+  'context-restore',
 ])
 
 // v2 verbs registered in the command registry — imported from the single
@@ -517,6 +519,29 @@ async function main(): Promise<void> {
     else {
       console.error(`Unknown seed subcommand: ${sub}. Use: add, remove, list, suggest.`)
     }
+    process.exitCode = result.success ? 0 : 1
+  } else if (args[0] === 'context-save') {
+    // `prjct context-save [title] [--notes "..."]` — checkpoint working
+    // state for resume in another session / branch / workspace.
+    const title = args.slice(1).find((a) => !a.startsWith('-')) ?? null
+    const notesIdx = args.indexOf('--notes')
+    const notes = notesIdx >= 0 ? args[notesIdx + 1] : undefined
+    const mdMode = args.includes('--md')
+    const { ContextCheckpointCommands } = await import('../core/commands/context-checkpoint')
+    const cmd = new ContextCheckpointCommands()
+    const result = await cmd.save(title, process.cwd(), { md: mdMode, notes })
+    process.exitCode = result.success ? 0 : 1
+  } else if (args[0] === 'context-restore') {
+    // `prjct context-restore [<file>] [--list] [--file <name>]` —
+    // emit the most recent checkpoint (or named one).
+    const list = args.includes('--list')
+    const fileIdx = args.indexOf('--file')
+    const file = fileIdx >= 0 ? args[fileIdx + 1] : undefined
+    const positional = args.slice(1).find((a) => !a.startsWith('-')) ?? null
+    const mdMode = args.includes('--md')
+    const { ContextCheckpointCommands } = await import('../core/commands/context-checkpoint')
+    const cmd = new ContextCheckpointCommands()
+    const result = await cmd.restore(positional, process.cwd(), { md: mdMode, list, file })
     process.exitCode = result.success ? 0 : 1
   } else if (args[0] === 'health') {
     // `prjct health [--md]` — composite quality dashboard. Wraps
