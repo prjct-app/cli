@@ -350,5 +350,35 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
       expect(content).toContain('Stakes if we pick wrong')
       expect(content).toContain('Recommendation:')
     })
+
+    // Builder ethos — three condensed principles adapted from gstack's
+    // ETHOS.md. They sit ABOVE Quality workflows so the model reads them
+    // before any methodology kicks in.
+    it('embeds the three builder-ethos principles', async () => {
+      const result = await generator.generateAndInstall(makeSyncResult())
+      const content = await fs.readFile(result.generated[0].path, 'utf-8')
+      expect(content).toContain('## Builder ethos')
+      expect(content).toContain('### Boil the Lake')
+      expect(content).toContain('### Search before building')
+      expect(content).toContain('### User sovereignty')
+    })
+
+    it('places ethos before Quality workflows so it primes the model', async () => {
+      const result = await generator.generateAndInstall(makeSyncResult())
+      const content = await fs.readFile(result.generated[0].path, 'utf-8')
+      const ethosIdx = content.indexOf('## Builder ethos')
+      const qualityIdx = content.indexOf('## Quality workflows')
+      expect(ethosIdx).toBeGreaterThan(0)
+      expect(qualityIdx).toBeGreaterThan(ethosIdx)
+    })
+
+    it('includes user-sovereignty anti-patterns the model must refuse', async () => {
+      const result = await generator.generateAndInstall(makeSyncResult())
+      const content = await fs.readFile(result.generated[0].path, 'utf-8')
+      // Specific anti-patterns from gstack's ETHOS that prevent
+      // overconfident auto-action.
+      expect(content).toMatch(/outside voice is right.*Present it\. Ask\./)
+      expect(content).toContain('Agreement is signal, not proof')
+    })
   })
 })

@@ -107,6 +107,17 @@ interface RecallOpts {
   types?: MemoryType[]
   /** Max entries to return (default 25) */
   limit?: number
+  /**
+   * Collapse entries that share `(type, tags.key)` to the newest one.
+   * Entries without a `key` tag are unaffected. Default: true.
+   *
+   * Rationale: callers who `prjct remember` the same conceptual fact
+   * with the same `key` repeatedly (e.g. an updated decision) should
+   * see the latest assertion, not a stack of stale duplicates. Same
+   * "latest winner per key" pattern gstack uses in
+   * `gstack-learnings-search` (garrytan/gstack).
+   */
+  dedupeByKey?: boolean
 }
 
 const DEFAULT_RECALL_LIMIT = 25
@@ -193,6 +204,29 @@ function matchesTags(entry: MemoryEntry, tags: Record<string, string>): boolean 
   return true
 }
 
+/**
+ * Collapse entries that share `(type, tags.key)` down to the newest one.
+ * `entries` must already be sorted newest-first — this function preserves
+ * the input order and drops later (older) duplicates per group. Entries
+ * without a `key` tag are passed through unchanged.
+ */
+function dedupeLatestByKey(entries: MemoryEntry[]): MemoryEntry[] {
+  const seen = new Set<string>()
+  const out: MemoryEntry[] = []
+  for (const entry of entries) {
+    const key = entry.tags.key
+    if (!key) {
+      out.push(entry)
+      continue
+    }
+    const groupId = `${entry.type}::${key}`
+    if (seen.has(groupId)) continue
+    seen.add(groupId)
+    out.push(entry)
+  }
+  return out
+}
+
 export const projectMemory = {
   /**
    * Store an entry. Thin wrapper over memoryService so callers don't need
@@ -254,6 +288,15 @@ export const projectMemory = {
     }
 
     entries.sort((a, b) => b.rememberedAt.localeCompare(a.rememberedAt))
+
+    // Latest-winner dedupe: when an entry has a `key` tag, only the
+    // newest entry per (type, key) survives. Entries without a key fall
+    // through unchanged. Sort-then-dedupe order matters — must run AFTER
+    // sort so the first match per group is the newest.
+    if (opts.dedupeByKey !== false) {
+      entries = dedupeLatestByKey(entries)
+    }
+
     return entries.slice(0, limit)
   },
 
