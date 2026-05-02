@@ -10,7 +10,6 @@
  */
 
 import { execSync } from 'node:child_process'
-import fs from 'node:fs/promises'
 import path from 'node:path'
 import chalk from 'chalk'
 import configManager from '../infrastructure/config-manager'
@@ -158,9 +157,6 @@ class DoctorService {
     // prjct config
     checks.push(await this.checkPrjctConfig())
 
-    // CLAUDE.md
-    checks.push(await this.checkClaudeMd())
-
     // Git repo
     checks.push(await this.checkGitRepo())
 
@@ -190,55 +186,6 @@ class DoctorService {
       name: 'prjct config',
       status: 'error',
       message: 'not initialized - run "prjct init"',
-    }
-  }
-
-  private async checkClaudeMd(): Promise<CheckResult> {
-    if (!this.globalPath) {
-      return {
-        name: 'CLAUDE.md',
-        status: 'warn',
-        message: 'project not initialized',
-      }
-    }
-
-    const claudePath = path.join(this.globalPath, 'context', 'CLAUDE.md')
-
-    try {
-      const stat = await fs.stat(claudePath)
-      const ageMs = Date.now() - stat.mtimeMs
-      const ageHours = Math.floor(ageMs / (1000 * 60 * 60))
-      const ageDays = Math.floor(ageHours / 24)
-
-      let ageStr: string
-      if (ageDays > 0) {
-        ageStr = `${ageDays} day${ageDays > 1 ? 's' : ''} ago`
-      } else if (ageHours > 0) {
-        ageStr = `${ageHours} hour${ageHours > 1 ? 's' : ''} ago`
-      } else {
-        ageStr = 'recently'
-      }
-
-      // Warn if older than 24 hours
-      if (ageHours > 24) {
-        return {
-          name: 'CLAUDE.md',
-          status: 'warn',
-          message: `stale (last sync: ${ageStr})`,
-        }
-      }
-
-      return {
-        name: 'CLAUDE.md',
-        status: 'ok',
-        message: `synced ${ageStr}`,
-      }
-    } catch {
-      return {
-        name: 'CLAUDE.md',
-        status: 'error',
-        message: 'not found - run "prjct sync"',
-      }
     }
   }
 

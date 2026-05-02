@@ -709,7 +709,30 @@ ${chalk.cyan.bold('  Welcome to prjct!')}
       try {
         const lastVersion = await editorsConfig.getLastVersion()
         if (lastVersion && lastVersion !== VERSION) {
-          console.log(`\n${chalk.yellow('ℹ')} Updating prjct v${lastVersion} → v${VERSION}...\n`)
+          // Skip the banner when the user explicitly invoked `update` —
+          // that command prints its own progress and the auto-update banner
+          // would otherwise duplicate (and contradict) it.
+          const userInvokedUpdate = args[0] === 'update'
+
+          // Compare semver-ish parts. If the running binary is OLDER than
+          // the stamped version (downgrade or local dev build), don't claim
+          // we're "updating" — just stamp silently.
+          const parts = (v: string) => v.split('.').map((n) => Number.parseInt(n, 10) || 0)
+          const cmp = (a: string, b: string) => {
+            const pa = parts(a)
+            const pb = parts(b)
+            for (let i = 0; i < 3; i++) {
+              if ((pa[i] ?? 0) > (pb[i] ?? 0)) return 1
+              if ((pa[i] ?? 0) < (pb[i] ?? 0)) return -1
+            }
+            return 0
+          }
+          const isUpgrade = cmp(VERSION, lastVersion) > 0
+
+          if (!userInvokedUpdate && isUpgrade) {
+            console.log(`\n${chalk.yellow('ℹ')} Updating prjct v${lastVersion} → v${VERSION}...\n`)
+          }
+
           try {
             const { default: setup } = await import('../core/infrastructure/setup')
             await setup.run()

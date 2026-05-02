@@ -18,7 +18,6 @@ import type {
   VerificationReport,
 } from '../types/sync-verifier'
 import { execAsync } from '../utils/exec'
-import { fileExists } from '../utils/file-helper'
 
 export type {
   VerificationCheck,
@@ -32,30 +31,6 @@ export type {
 // =============================================================================
 
 const BUILTIN_CHECKS = {
-  /**
-   * Verify all expected context files exist after sync
-   */
-  async contextFilesExist(globalPath: string): Promise<VerificationCheckResult> {
-    const start = Date.now()
-    const expected = ['context/CLAUDE.md']
-    const missing: string[] = []
-
-    for (const file of expected) {
-      const filePath = path.join(globalPath, file)
-      if (!(await fileExists(filePath))) {
-        missing.push(file)
-      }
-    }
-
-    return {
-      name: 'Context files exist',
-      passed: missing.length === 0,
-      output: missing.length === 0 ? `${expected.length} files verified` : undefined,
-      error: missing.length > 0 ? `Missing: ${missing.join(', ')}` : undefined,
-      durationMs: Date.now() - start,
-    }
-  },
-
   /**
    * Verify state data is valid in SQLite
    */
@@ -149,7 +124,6 @@ class SyncVerifier {
 
     // 1. Run built-in checks
     const builtinChecks = [
-      BUILTIN_CHECKS.contextFilesExist(globalPath),
       BUILTIN_CHECKS.jsonFilesValid(globalPath),
       BUILTIN_CHECKS.noSensitiveData(globalPath),
     ]

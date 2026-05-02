@@ -3,8 +3,6 @@
  */
 
 import fs from 'node:fs/promises'
-import path from 'node:path'
-import * as p from '@clack/prompts'
 import analyzer from '../domain/analyzer'
 import commandInstaller from '../infrastructure/command-installer'
 import configManager from '../infrastructure/config-manager'
@@ -12,7 +10,6 @@ import pathManager from '../infrastructure/path-manager'
 import { formatCost } from '../schemas/metrics'
 import { formatAnalysisDiffMd, formatAnalysisDiffText } from '../services/analysis-diff'
 import { buildAnalysisPayload } from '../services/analysis-payload-builder'
-import { formatDiffPreview, formatFullDiff, generateSyncDiff } from '../services/diff-generator'
 import { syncService } from '../services/sync-service'
 import { analysisStorage } from '../storage/analysis-storage'
 import { prjctDb } from '../storage/database'
@@ -181,7 +178,6 @@ export class AnalysisCommands extends PrjctCommandsBase {
         return { success: false, error: 'No project ID found' }
       }
 
-      const globalPath = pathManager.getGlobalProjectPath(projectId)
       const startTime = Date.now()
 
       // Handle package-specific sync for monorepos
@@ -224,207 +220,9 @@ export class AnalysisCommands extends PrjctCommandsBase {
         return { success: result.success }
       }
 
-      // Generate diff preview if we have existing context
-      const claudeMdPath = path.join(globalPath, 'context', 'CLAUDE.md')
-      let existingContent: string | null = null
-      try {
-        existingContent = await fs.readFile(claudeMdPath, 'utf-8')
-      } catch {
-        // No existing file - first sync
-      }
-
-      // Detect non-interactive mode (LLM or piped input)
-      const isNonInteractive = !process.stdin.isTTY || options.json || options.md
-
-      // For preview mode or when we have existing content, show diff first
-      // Non-interactive callers (LLMs, piped input) skip diff preview and sync directly
-      if (existingContent && !options.yes && !isNonInteractive) {
-        if (!isNonInteractive) {
-          out.spin('Analyzing changes...')
-        }
-
-        // Do a dry-run sync to see what would change
-        const result = await syncService.sync(projectPath, {
-          full: options.full,
-        })
-
-        if (!result.success) {
-          if (options.md) {
-            console.log(mdOutput(`## Sync Failed`, `> ${result.error || 'Unknown error'}`))
-            return { success: false, error: result.error }
-          }
-          if (isNonInteractive) {
-            console.log(JSON.stringify({ success: false, error: result.error || 'Sync failed' }))
-            return { success: false, error: result.error }
-          }
-          out.fail(result.error || 'Sync failed')
-          return { success: false, error: result.error }
-        }
-
-        // Read the newly generated CLAUDE.md
-        let newContent: string
-        try {
-          newContent = await fs.readFile(claudeMdPath, 'utf-8')
-        } catch {
-          newContent = ''
-        }
-
-        // Generate diff
-        const diff = generateSyncDiff(existingContent, newContent)
-
-        if (!isNonInteractive) {
-          out.stop()
-        }
-
-        if (!diff.hasChanges) {
-          if (options.md) {
-            console.log(mdOutput(mdDone('No changes detected', 'Context is up to date.')))
-            return { success: true, message: 'No changes' }
-          }
-          if (isNonInteractive) {
-            console.log(
-              JSON.stringify({
-                success: true,
-                action: 'no_changes',
-                message: 'No changes detected (context is up to date)',
-              })
-            )
-            return { success: true, message: 'No changes' }
-          }
-          out.done('No changes detected (context is up to date)')
-          return { success: true, message: 'No changes' }
-        }
-
-        // Helper to restore original CLAUDE.md (undo sync's write)
-        const restoreOriginal = async () => {
-          if (existingContent != null) {
-            await fs.writeFile(claudeMdPath, existingContent, 'utf-8')
-          }
-        }
-
-        // Markdown non-interactive mode
-        if (options.md) {
-          await restoreOriginal()
-
-          const changeItems: string[] = []
-          for (const s of diff.added) changeItems.push(`Added: ${s.name} (${s.lineCount} lines)`)
-          for (const s of diff.modified)
-            changeItems.push(`Modified: ${s.name} (${s.lineCount} lines)`)
-          for (const s of diff.removed)
-            changeItems.push(`Removed: ${s.name} (${s.lineCount} lines)`)
-
-          const md = mdOutput(
-            `## Sync Preview`,
-            changeItems.length > 0
-              ? mdSection('Changes', mdList(changeItems))
-              : 'No section changes.',
-            mdStats({
-              'Tokens before': diff.tokensBefore,
-              'Tokens after': diff.tokensAfter,
-              'Token delta': diff.tokenDelta > 0 ? `+${diff.tokenDelta}` : String(diff.tokenDelta),
-            }),
-            `> Run \`prjct sync --yes\` to apply changes.`
-          )
-          console.log(md)
-
-          return {
-            success: true,
-            isPreview: true,
-            diff,
-            message: 'Preview complete (awaiting confirmation)',
-          }
-        }
-
-        // Non-interactive mode: return JSON for LLM to handle
-        if (isNonInteractive) {
-          // Restore original — LLM will call `prjct sync --yes` to apply
-          await restoreOriginal()
-
-          // Build a plain-text diff summary for LLM to show user
-          const diffSummary = {
-            added: diff.added.map((s) => ({ name: s.name, lineCount: s.lineCount })),
-            modified: diff.modified.map((s) => ({ name: s.name, lineCount: s.lineCount })),
-            removed: diff.removed.map((s) => ({ name: s.name, lineCount: s.lineCount })),
-            preserved: diff.preserved,
-            tokensBefore: diff.tokensBefore,
-            tokensAfter: diff.tokensAfter,
-            tokenDelta: diff.tokenDelta,
-          }
-
-          console.log(
-            JSON.stringify({
-              success: true,
-              action: 'confirm_required',
-              message: 'Changes detected. Confirmation required to apply.',
-              diff: diffSummary,
-              fullDiff: options.preview
-                ? {
-                    added: diff.added,
-                    modified: diff.modified,
-                    removed: diff.removed,
-                  }
-                : undefined,
-              hint: 'Run `prjct sync --yes` to apply changes',
-            })
-          )
-
-          return {
-            success: true,
-            isPreview: true,
-            diff,
-            message: 'Preview complete (awaiting confirmation)',
-          }
-        }
-
-        // Show diff preview (interactive mode)
-        console.log(formatDiffPreview(diff))
-
-        // Preview-only mode (--preview / --dry-run) - restore and don't apply
-        if (options.preview) {
-          await restoreOriginal()
-          return {
-            success: true,
-            isPreview: true,
-            diff,
-            message: 'Preview complete (no changes applied)',
-          }
-        }
-
-        // Interactive confirmation (TTY mode only)
-        const action = await p.select({
-          message: 'Apply these changes?',
-          options: [
-            { label: 'Yes, apply changes', value: 'apply' },
-            { label: 'No, cancel', value: 'cancel' },
-            { label: 'Show full diff', value: 'diff' },
-          ],
-        })
-
-        if (p.isCancel(action) || action === 'cancel') {
-          await restoreOriginal()
-          out.warn('Sync cancelled — no changes applied')
-          return { success: false, message: 'Cancelled by user' }
-        }
-
-        if (action === 'diff') {
-          console.log(`\n${formatFullDiff(diff)}`)
-          const confirmApply = await p.confirm({
-            message: 'Apply these changes?',
-            initialValue: true,
-          })
-          if (p.isCancel(confirmApply) || !confirmApply) {
-            await restoreOriginal()
-            out.warn('Sync cancelled — no changes applied')
-            return { success: false, message: 'Cancelled by user' }
-          }
-        }
-
-        // User approved — changes already applied by sync
-        out.done('Changes applied')
-        return showSyncResult(result, startTime)
-      }
-
-      // First sync or --yes flag - proceed directly
+      // Static per-project CLAUDE.md generation was removed in commit 7c091013
+      // (skill-on-demand architecture). The interactive diff-preview that used
+      // it is gone — sync runs directly and writes results.
       if (!options.md) out.spin('Syncing project...')
 
       // Use syncService to do EVERYTHING in one call
