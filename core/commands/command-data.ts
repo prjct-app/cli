@@ -424,4 +424,23 @@ export const COMMANDS: CommandMeta[] = [
       'Teammates clone repo + install prjct → ready to go',
     ],
   },
+  {
+    name: 'config',
+    group: 'core',
+    description: 'Read/write global prjct config — auto-update opt-in, suggestions toggle, etc.',
+    usage: {
+      claude: '/p:config list',
+      terminal: 'prjct config <list|get|set|unset> [key] [value]',
+    },
+    params: '<list|get|set|unset> [key] [value]',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: false,
+    features: [
+      'Stored at ~/.prjct-cli/config/global.json',
+      'Opt into silent auto-update: prjct config set auto-update on',
+      'Toggle proactive suggestions: prjct config set suggestions off',
+      'Booleans accept on/off/true/false; numbers parsed automatically',
+    ],
+  },
 ]

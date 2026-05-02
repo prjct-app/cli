@@ -11,6 +11,7 @@
 import { AnalysisCommands } from './analysis'
 import { CaptureCommands } from './capture'
 import { CATEGORIES, COMMANDS } from './command-data'
+import { ConfigCommands } from './config'
 import { ContextCommands } from './context'
 import { InstallCommands } from './install'
 import { McpCommands } from './mcp'
@@ -40,6 +41,7 @@ const installCmd = new InstallCommands()
 const captureCmd = new CaptureCommands()
 const mcpCmd = new McpCommands()
 const teamCmd = new TeamCommands()
+const configCmd = new ConfigCommands()
 
 /**
  * Register categories
@@ -119,6 +121,9 @@ function registerAllCommands(): void {
   // M4: team mode. Writes .prjct/team.json + .claude/CLAUDE.md (per-project)
   // and stages them. Teammates pick up the same expectations from the repo.
   commandRegistry.registerMethod('team', teamCmd, 'team', getMeta('team'))
+
+  // M5: global config (auto-update opt-in, suggestions toggle, …).
+  commandRegistry.registerMethod('config', configCmd, 'config', getMeta('config'))
 }
 
 // Auto-register on import — this module is imported only for its side effect
