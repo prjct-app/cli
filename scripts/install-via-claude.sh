@@ -161,8 +161,16 @@ fi
 # Done
 # ---------------------------------------------------------------------------
 
-printf "\n${GREEN}✓${NC} prjct v$NEW ready (installed via $INSTALLED_VIA).\n"
+VERB="installed"
+if [ -n "$CURRENT" ] && [ "$CURRENT" != "$NEW" ]; then
+  VERB="upgraded $CURRENT → v$NEW"
+elif [ -n "$CURRENT" ] && [ "$CURRENT" = "$NEW" ]; then
+  VERB="re-verified at v$NEW (already current)"
+fi
+
+printf "\n${GREEN}✓${NC} prjct %s (via $INSTALLED_VIA).\n" "$VERB"
 printf "${DIM}  Next:${NC}\n"
 printf "${DIM}    - Open Claude Code in any project — the lookup-first protocol kicks in automatically${NC}\n"
 printf "${DIM}    - Try: prjct capture \"a thought\"  or  prjct task \"the thing I'm working on\"${NC}\n"
 printf "${DIM}    - Quality workflows: ask Claude to \"review\", \"qa\", \"investigate\", or \"security check\" the current branch.${NC}\n"
+printf "${DIM}    - Re-run this same command anytime to upgrade to the latest version.${NC}\n"
