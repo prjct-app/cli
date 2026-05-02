@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.4.24] - 2026-05-02
+
+### Added
+- current work
+
+## [2.4.23] - 2026-05-02
+
+### Added
+- current work
+
 ## [2.4.22] - 2026-05-02
 
 ### Added
