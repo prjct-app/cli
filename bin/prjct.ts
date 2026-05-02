@@ -187,21 +187,37 @@ if (_fastCommand && !_binCommands.has(_fastCommand) && process.env.PRJCT_NO_DAEM
       if (response.stderr) console.error(response.stderr)
       process.exit(response.exitCode)
     } catch (err) {
-      // If we successfully connected and the daemon dropped us
-      // mid-response (e.g. it shut down for a code reload), the command
-      // may have already had partial side effects. Falling through to
-      // direct execution would re-run it — earlier this caused `ship`
-      // to bump the version twice. Surface the error and let the user
-      // retry instead of silently re-executing.
+      // The socket file existed when we entered this block, so the
+      // daemon was running (or had been running, with a stale socket
+      // left behind). Three failure modes:
+      //
+      //   1. ECONNREFUSED / ENOENT — stale socket, no listener. The
+      //      request never reached a daemon. Safe to fall through to
+      //      direct execution.
+      //   2. Connection closed mid-response — daemon shut down (code
+      //      reload, OOM kill) AFTER receiving the request. The
+      //      command MAY have partial side effects (`ship` bumping the
+      //      version, `git commit/push`). Re-running would double-bump.
+      //   3. Timeout — request was sent, daemon either still working or
+      //      dead. Same hazard as (2): partial side effects possible.
+      //
+      // Fall through ONLY for (1). Anything else exits 1 so the user
+      // can investigate before retrying.
       const msg = (err as Error)?.message ?? ''
-      if (msg.includes('Connection closed before response') || msg.includes('timed out')) {
+      const code = (err as NodeJS.ErrnoException)?.code ?? ''
+      const safeRetry =
+        code === 'ECONNREFUSED' ||
+        code === 'ENOENT' ||
+        msg.includes('ECONNREFUSED') ||
+        msg.includes('ENOENT')
+
+      if (!safeRetry) {
         console.error(
           `prjct: daemon dropped the request (${msg}). Retry: \`prjct ${_fastArgs.join(' ')}\``
         )
         process.exit(1)
       }
-      // Otherwise the daemon was likely never reachable (stale socket,
-      // ECONNREFUSED) — fall through to normal direct execution.
+      // Stale socket / no listener — fall through to direct execution.
     }
   }
 }
