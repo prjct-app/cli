@@ -46,8 +46,9 @@ import { analysisStorage } from '../storage/analysis-storage'
 import { prjctDb } from '../storage/database'
 import llmAnalysisStorage from '../storage/llm-analysis-storage'
 import shippedStorage from '../storage/shipped-storage'
+import { workflowRuleStorage } from '../storage/workflow-rule-storage'
 import type { LLMAnalysis } from '../types/llm-analysis'
-import type { ShippedFeature } from '../types/storage'
+import type { ShippedFeature, WorkflowRule } from '../types/storage'
 import { ensureObsidianVault } from './obsidian-vault'
 import { ensureCapturedReadme } from './wiki-ingest'
 import { resolveVaultRoot } from './wiki-migration'
@@ -62,7 +63,9 @@ const MANIFEST_FILE = '.manifest.json'
 // count + last_ship, CHANGELOG mtime, schema version). When this matches
 // the on-disk value we skip the entire build/diff/sweep dance.
 const FINGERPRINT_FILE = '.regen-fingerprint'
-const REGEN_SCHEMA_VERSION = 1
+// v2: workflows visible in vault (M1b). Bumping invalidates v1 fingerprints
+// so existing users get the new workflows/ subtree on next regen.
+const REGEN_SCHEMA_VERSION = 2
 
 /**
  * Max entries per file. When a bucket exceeds this, it's paginated into
@@ -854,6 +857,131 @@ function buildAnalysisArchiveFiles(entries: ArchiveEntry[]): Map<string, string>
   return out
 }
 
+/**
+ * Render workflow_rules from SQLite as one Markdown file per `command`
+ * under `_generated/workflows/<command>.md`. Read-only snapshot — to edit
+ * a workflow, drop a `.md` with the same schema in the parent
+ * `<vault>/workflows/` directory and the Stop hook ingests it (M1b
+ * bidirectional pipeline).
+ *
+ * Format mirrors `prjct workflow <name>` CLI output: gates first, then
+ * steps in sortOrder, then hooks/instructions. Each rule keeps its id so
+ * the user can `prjct workflow rm <id>` from the file.
+ */
+function buildWorkflowFiles(rules: WorkflowRule[]): {
+  files: Map<string, string>
+  commandCount: number
+} {
+  const files = new Map<string, string>()
+  if (rules.length === 0) return { files, commandCount: 0 }
+
+  // Group by command (the workflow name: ship, task, sync, done, etc.)
+  const byCommand = new Map<string, WorkflowRule[]>()
+  for (const rule of rules) {
+    const list = byCommand.get(rule.command) ?? []
+    list.push(rule)
+    byCommand.set(rule.command, list)
+  }
+
+  for (const [command, commandRules] of byCommand) {
+    const enabled = commandRules.filter((r) => r.enabled)
+    const gates = enabled.filter((r) => r.type === 'gate').sort((a, b) => a.sortOrder - b.sortOrder)
+    const steps = enabled.filter((r) => r.type === 'step').sort((a, b) => a.sortOrder - b.sortOrder)
+    const hooks = enabled.filter((r) => r.type === 'hook').sort((a, b) => a.sortOrder - b.sortOrder)
+    const instructions = enabled
+      .filter((r) => r.type === 'instruction')
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+    const disabled = commandRules.filter((r) => !r.enabled)
+
+    const lines: string[] = []
+    lines.push('---')
+    lines.push(`name: ${command}`)
+    lines.push(`rules: ${commandRules.length}`)
+    lines.push(`enabled: ${enabled.length}`)
+    if (disabled.length > 0) lines.push(`disabled: ${disabled.length}`)
+    lines.push('---')
+    lines.push('')
+    lines.push(`# Workflow: ${command}`)
+    lines.push('')
+
+    if (gates.length > 0) {
+      lines.push('## Gates (must pass before workflow runs)')
+      lines.push('')
+      for (const r of gates) {
+        const desc = r.description ? ` — ${r.description}` : ''
+        const when = r.whenExpr ? ` _(when: \`${r.whenExpr}\`)_` : ''
+        lines.push(`- \`${r.action}\`${desc}${when} — id: ${r.id}`)
+      }
+      lines.push('')
+    }
+
+    if (steps.length > 0) {
+      lines.push('## Steps (run in order)')
+      lines.push('')
+      let i = 1
+      for (const r of steps) {
+        const desc = r.description ?? r.action
+        lines.push(`${i}. **${desc}** — \`${r.action}\` (id: ${r.id})`)
+        i += 1
+      }
+      lines.push('')
+    }
+
+    if (hooks.length > 0) {
+      lines.push('## Hooks')
+      lines.push('')
+      for (const r of hooks) {
+        const desc = r.description ? ` — ${r.description}` : ''
+        const pos = r.position ? ` _(position: ${r.position})_` : ''
+        lines.push(`- \`${r.action}\`${desc}${pos} — id: ${r.id}`)
+      }
+      lines.push('')
+    }
+
+    if (instructions.length > 0) {
+      lines.push('## Instructions')
+      lines.push('')
+      for (const r of instructions) {
+        const desc = r.description ? ` — ${r.description}` : ''
+        lines.push(`- \`${r.action}\`${desc} — id: ${r.id}`)
+      }
+      lines.push('')
+    }
+
+    if (disabled.length > 0) {
+      lines.push('## Disabled rules')
+      lines.push('')
+      for (const r of disabled) {
+        const desc = r.description ? ` — ${r.description}` : ''
+        lines.push(`- (${r.type}) \`${r.action}\`${desc} — id: ${r.id}`)
+      }
+      lines.push('')
+    }
+
+    lines.push('---')
+    lines.push('')
+    lines.push(
+      `> Edit this workflow: drop a Markdown file at \`<vault>/workflows/${command}.md\` (NOT under \`_generated/\`) with the same frontmatter + sections. The Stop hook ingests it and overrides these rules.`
+    )
+
+    files.set(`workflows/${command}.md`, `${lines.join('\n')}\n`)
+  }
+
+  // Index file listing all workflows
+  const indexLines: string[] = ['# Workflows', '']
+  indexLines.push(
+    'Workflow definitions stored in SQLite, rendered as Markdown for inspection. To edit, see the per-workflow page.'
+  )
+  indexLines.push('')
+  for (const [command, commandRules] of byCommand) {
+    const enabled = commandRules.filter((r) => r.enabled).length
+    indexLines.push(`- [${command}](${command}.md) — ${enabled} active rule(s)`)
+  }
+  files.set('workflows/index.md', `${indexLines.join('\n')}\n`)
+
+  return { files, commandCount: byCommand.size }
+}
+
 function buildIndexFile(args: {
   ships: ShippedFeature[]
   memoryTypeCounts: Map<string, number>
@@ -863,6 +991,7 @@ function buildIndexFile(args: {
   llmAnalysis: LLMAnalysis | null
   archiveCount: number
   releaseCount: number
+  workflowCount: number
 }): string {
   const { ships, memoryTypeCounts, tagKeyCounts, patternsCount, antiPatternsCount, llmAnalysis } =
     args
@@ -891,6 +1020,14 @@ function buildIndexFile(args: {
     lines.push('## Releases')
     lines.push(
       `- [releases/index](releases/index.md) — ${args.releaseCount} versions parsed from \`CHANGELOG.md\``
+    )
+    lines.push('')
+  }
+
+  if (args.workflowCount > 0) {
+    lines.push('## Workflows')
+    lines.push(
+      `- [workflows/index](workflows/index.md) — ${args.workflowCount} workflow definition(s)`
     )
     lines.push('')
   }
@@ -1050,6 +1187,8 @@ async function computeRegenFingerprint(projectPath: string, projectId: string): 
     max_analysis_id: number
     ship_count: number
     last_ship: string | null
+    workflow_count: number
+    max_workflow_id: number
   }
   let row: FpRow | null = null
   try {
@@ -1059,7 +1198,9 @@ async function computeRegenFingerprint(projectPath: string, projectId: string): 
          (SELECT COALESCE(MAX(id), 0) FROM events) AS max_event_id,
          (SELECT COALESCE(MAX(id), 0) FROM llm_analysis) AS max_analysis_id,
          (SELECT COUNT(*) FROM shipped_features) AS ship_count,
-         (SELECT MAX(shipped_at) FROM shipped_features) AS last_ship`
+         (SELECT MAX(shipped_at) FROM shipped_features) AS last_ship,
+         (SELECT COUNT(*) FROM workflow_rules) AS workflow_count,
+         (SELECT COALESCE(MAX(id), 0) FROM workflow_rules) AS max_workflow_id`
     )
   } catch {
     // DB might not be initialised yet — use sentinel that triggers a real regen.
@@ -1068,11 +1209,13 @@ async function computeRegenFingerprint(projectPath: string, projectId: string): 
   const a = row?.max_analysis_id ?? 0
   const s = row?.ship_count ?? 0
   const ls = row?.last_ship ?? ''
+  const wc = row?.workflow_count ?? 0
+  const wmax = row?.max_workflow_id ?? 0
   const changelogMtime = await fs
     .stat(path.join(projectPath, 'CHANGELOG.md'))
     .then((st) => Math.floor(st.mtimeMs))
     .catch(() => 0)
-  return `v${REGEN_SCHEMA_VERSION}|e${e}|a${a}|s${s}|ls${ls}|c${changelogMtime}`
+  return `v${REGEN_SCHEMA_VERSION}|e${e}|a${a}|s${s}|ls${ls}|c${changelogMtime}|w${wc}/${wmax}`
 }
 
 // =============================================================================
@@ -1113,11 +1256,12 @@ export async function generateWiki(
   }
 
   // --- Gather sources ---
-  const [ships, entries, analysis, llmAnalysis] = await Promise.all([
+  const [ships, entries, analysis, llmAnalysis, workflowRules] = await Promise.all([
     shippedStorage.getAll(projectId),
     Promise.resolve(projectMemory.recall(projectId, { limit: 5000 })),
     analysisStorage.getActive(projectId).catch(() => null),
     Promise.resolve(llmAnalysisStorage.getActive(projectId)).catch(() => null),
+    Promise.resolve(workflowRuleStorage.getAllRules(projectId)).catch(() => [] as WorkflowRule[]),
   ])
   const declared = entries.filter((e) => e.type !== 'shipped')
 
@@ -1149,6 +1293,13 @@ export async function generateWiki(
     const insightsBody = buildInsightsFile(llmAnalysis)
     if (insightsBody) files.set('insights.md', insightsBody)
   }
+
+  // M1b: workflows visible in vault. Read-only snapshot from SQLite.
+  // Bidirectional editing (drop a .md in <vault>/workflows/ → ingest)
+  // happens via wiki-ingest in a separate commit.
+  const workflowResult = buildWorkflowFiles(workflowRules)
+  for (const [rel, body] of workflowResult.files) files.set(rel, body)
+  const workflowCount = workflowResult.commandCount
 
   // Append-only analysis archive: one file per historical sync. Filenames
   // encode the analyzedAt timestamp + short commit so each run produces a
@@ -1191,6 +1342,7 @@ export async function generateWiki(
       // but count distinct concepts across history.
       archiveCount: collectConcepts(archiveEntries).size,
       releaseCount,
+      workflowCount,
     })
   )
 

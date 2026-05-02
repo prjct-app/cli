@@ -202,7 +202,7 @@ describe('Wiki Generator — manifest incrementality', () => {
 
     // Verify the fingerprint sidecar exists.
     const fp = await fs.readFile(path.join(generatedRoot, '.regen-fingerprint'), 'utf-8')
-    expect(fp).toMatch(/^v1\|/)
+    expect(fp).toMatch(/^v2\|/)
 
     // Spy on the storage layer; on a no-op regen the fast path must
     // return BEFORE invoking any of these.
