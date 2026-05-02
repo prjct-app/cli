@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.6.0] - 2026-05-02
+
+### Features
+
+- gstack Fase A — ethos preamble + memory dedupe (#292)
+
+
 ## [2.5.0] - 2026-05-02
 
 ### Features
