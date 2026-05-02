@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.8.0] - 2026-05-02
+
+### Features
+
+- prjct retro — weekly engineering retrospective (gstack Fase C/6) (#294)
+
+
 ## [2.7.0] - 2026-05-02
 
 ### Features
