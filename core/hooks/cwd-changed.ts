@@ -9,18 +9,20 @@
  * If the new cwd has no prjct project, we emit `{}` — no noise.
  */
 
-import { buildHookOutput, emit, readStdinSafe, safeRun } from './_shared'
+import { runHook } from './_runner'
 import { buildSessionContext } from './session-start'
 
 interface HookInput {
   cwd?: string
 }
 
-export async function runCwdChangedHook(fallbackCwd: string = process.cwd()): Promise<void> {
-  await safeRun(async () => {
-    const input = await readStdinSafe<HookInput>()
-    const cwd = input.cwd || fallbackCwd
-    const context = await buildSessionContext(cwd)
-    emit(buildHookOutput('CwdChanged', context))
+export function runCwdChangedHook(fallbackCwd: string = process.cwd()): Promise<void> {
+  return runHook<HookInput>({
+    event: 'CwdChanged',
+    projectPath: fallbackCwd,
+    build: async (input, fallback) => {
+      const cwd = input.cwd || fallback
+      return buildSessionContext(cwd)
+    },
   })
 }

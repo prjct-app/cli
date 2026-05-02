@@ -15,7 +15,7 @@
 import { execSync } from 'node:child_process'
 import configManager from '../infrastructure/config-manager'
 import { formatMemoryMd, type MemoryEntry, projectMemory } from '../memory/project-memory'
-import { buildHookOutput, emit, readStdinSafe, safeRun } from './_shared'
+import { runHook } from './_runner'
 
 const MAX_CHARS = 1200
 const MAX_ENTRIES = 3
@@ -103,18 +103,17 @@ async function buildPreCommitContext(projectPath: string): Promise<string | null
   return body.length > MAX_CHARS ? `${body.slice(0, MAX_CHARS - 20)}\n… [truncated]` : body
 }
 
-export async function runPreCommitHook(projectPath: string = process.cwd()): Promise<void> {
-  await safeRun(async () => {
-    const input = await readStdinSafe<HookInput>()
-    // Only fire for `git commit` invocations — the matcher in
-    // settings.json already narrows to Bash, but the `if:` clause
-    // is pattern-based and the host may pass us other Bash calls.
-    const command = input.tool_input?.command ?? ''
-    if (!/\bgit\s+commit\b/.test(command)) {
-      emit({})
-      return
-    }
-    const context = await buildPreCommitContext(projectPath)
-    emit(buildHookOutput('PreToolUse', context))
+export function runPreCommitHook(projectPath: string = process.cwd()): Promise<void> {
+  return runHook<HookInput>({
+    event: 'PreToolUse',
+    projectPath,
+    build: async (input, p) => {
+      // Only fire for `git commit` invocations — the matcher in
+      // settings.json already narrows to Bash, but the `if:` clause
+      // is pattern-based and the host may pass us other Bash calls.
+      const command = input.tool_input?.command ?? ''
+      if (!/\bgit\s+commit\b/.test(command)) return null
+      return buildPreCommitContext(p)
+    },
   })
 }

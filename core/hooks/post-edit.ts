@@ -10,45 +10,37 @@
 
 import configManager from '../infrastructure/config-manager'
 import { memoryService } from '../services/memory-service'
-import { emit, readStdinSafe, safeRun } from './_shared'
+import { runHook } from './_runner'
 
-interface EditToolInput {
-  file_path?: string
-}
-
-interface WriteToolInput {
+interface EditOrWriteToolInput {
   file_path?: string
 }
 
 interface HookInput {
   tool_name?: string
-  tool_input?: EditToolInput | WriteToolInput
+  tool_input?: EditOrWriteToolInput
 }
 
-export async function runPostEditHook(projectPath: string = process.cwd()): Promise<void> {
-  await safeRun(async () => {
-    const input = await readStdinSafe<HookInput>()
-    const file = input.tool_input?.file_path
-    if (!file) {
-      emit({})
-      return
-    }
-    const config = await configManager.readConfig(projectPath)
-    if (!config?.projectId) {
-      emit({})
-      return
-    }
-    // Event-sourced — downstream hooks/workflows can query via
-    // `memoryService.getRecent()` filtering on `post_edit`. Fire and
-    // forget; any failure is non-critical.
-    try {
-      await memoryService.log(projectPath, 'post_edit', {
-        file,
-        tool: input.tool_name ?? 'unknown',
-      })
-    } catch {
-      // swallow — hook must never surface errors
-    }
-    emit({})
+export function runPostEditHook(projectPath: string = process.cwd()): Promise<void> {
+  return runHook<HookInput>({
+    event: 'PostToolUse',
+    projectPath,
+    afterEmit: async (input, p) => {
+      const file = input.tool_input?.file_path
+      if (!file) return
+      const config = await configManager.readConfig(p)
+      if (!config?.projectId) return
+      // Event-sourced — downstream hooks/workflows can query via
+      // `memoryService.getRecent()` filtering on `post_edit`. Fire and
+      // forget; any failure is non-critical.
+      try {
+        await memoryService.log(p, 'post_edit', {
+          file,
+          tool: input.tool_name ?? 'unknown',
+        })
+      } catch {
+        /* swallow — hook must never surface errors */
+      }
+    },
   })
 }

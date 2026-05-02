@@ -21,7 +21,8 @@ import { shippedStorage } from '../storage/shipped-storage'
 import { stateStorage } from '../storage/state-storage'
 import { execFileAsync } from '../utils/exec'
 import { fileExists } from '../utils/file-helper'
-import { buildHookOutput, emit, extractKeywords, readStdinSafe, safeRun } from './_shared'
+import { runHook } from './_runner'
+import { extractKeywords } from './_shared'
 
 const MAX_CHARS = 1800
 const MAX_ENTRIES = 4
@@ -263,31 +264,27 @@ function formatRelative(isoTimestamp: string): string {
   return `${Math.floor(days / 30)}mo ago`
 }
 
-export async function runPromptHook(projectPath: string = process.cwd()): Promise<void> {
-  await safeRun(async () => {
-    const input = await readStdinSafe<HookInput>()
-    const prompt = (input.prompt ?? '').trim()
-    if (!prompt) {
-      emit({})
-      return
-    }
-    // Three pass: state (for intent disambiguation) + memory (for topical
-    // recall) + improvement signals (proactive UX nudges from prior
-    // sessions). All independent, each silently null'd on failure.
-    const [state, memory, signals] = await Promise.all([
-      buildProjectState(projectPath),
-      buildPromptContext(projectPath, prompt),
-      buildImprovementSignals(projectPath),
-    ])
-    const blocks = [state, signals, memory].filter((b): b is string => Boolean(b))
-    if (blocks.length === 0) {
-      emit(buildHookOutput('UserPromptSubmit', null))
-      return
-    }
-    let context = blocks.join('\n\n')
-    if (context.length > MAX_CHARS) {
-      context = `${context.slice(0, MAX_CHARS - 20)}\n… [truncated]`
-    }
-    emit(buildHookOutput('UserPromptSubmit', context))
+export function runPromptHook(projectPath: string = process.cwd()): Promise<void> {
+  return runHook<HookInput>({
+    event: 'UserPromptSubmit',
+    projectPath,
+    build: async (input, p) => {
+      const prompt = (input.prompt ?? '').trim()
+      if (!prompt) return null
+      // Three pass: state (for intent disambiguation) + memory (for topical
+      // recall) + improvement signals (proactive UX nudges from prior
+      // sessions). All independent, each silently null'd on failure.
+      const [state, memory, signals] = await Promise.all([
+        buildProjectState(p),
+        buildPromptContext(p, prompt),
+        buildImprovementSignals(p),
+      ])
+      const blocks = [state, signals, memory].filter((b): b is string => Boolean(b))
+      if (blocks.length === 0) return null
+      const context = blocks.join('\n\n')
+      return context.length > MAX_CHARS
+        ? `${context.slice(0, MAX_CHARS - 20)}\n… [truncated]`
+        : context
+    },
   })
 }
