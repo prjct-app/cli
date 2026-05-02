@@ -64,10 +64,17 @@ export class ChangelogService {
   /**
    * Add a new version entry to the changelog.
    * Prepends the entry after the header (newest first).
+   *
+   * Idempotent: when an entry for `entry.version` already exists in the
+   * file (e.g. a prior failed ship wrote it but never committed), this
+   * is a no-op. Prevents stacked duplicate entries on ship retry.
    */
   async addEntry(entry: ChangelogEntry): Promise<void> {
     const detection = await this.detect()
     const content = await fileHelper.readFile(detection.filePath)
+    if (this.hasVersionEntry(content, entry.version, detection.format)) {
+      return
+    }
     const date = entry.date || dateHelper.formatDate(new Date())
 
     let updated: string
@@ -78,6 +85,20 @@ export class ChangelogService {
     }
 
     await fileHelper.writeFile(detection.filePath, updated)
+  }
+
+  /**
+   * Check whether the changelog already has a heading for `version`.
+   * Keep-a-Changelog format uses `## [1.2.3] - YYYY-MM-DD`, generic
+   * markdown uses `## 1.2.3 - YYYY-MM-DD`.
+   */
+  private hasVersionEntry(content: string, version: string, format: ChangelogFormat): boolean {
+    const escaped = version.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const pattern =
+      format === 'keepachangelog'
+        ? new RegExp(`^## \\[${escaped}\\]`, 'm')
+        : new RegExp(`^## ${escaped}\\b`, 'm')
+    return pattern.test(content)
   }
 
   /**
