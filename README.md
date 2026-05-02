@@ -9,13 +9,21 @@
 
 ## Install / upgrade — one paste
 
-Copy this prompt and paste it in Claude Code (works for fresh install AND upgrade):
+Copy this prompt and paste it in Claude Code (works for fresh install AND upgrade — Claude picks YOUR package manager, doesn't force npm):
 
 ```text
-Install or upgrade prjct on this machine: run `npm install -g prjct-cli@latest`, then `prjct setup` to wire hooks, and `prjct sync` if the cwd is a git repo. Verify the version with `prjct -v`.
+Install or upgrade prjct on this machine. First detect which package manager I use globally (check `command -v pnpm`, `command -v bun`, `command -v yarn`, `command -v npm` in that order; also check where any existing `prjct` install lives via `command -v prjct` and use the SAME package manager so we don't create parallel installs). Then run the matching install:
+- pnpm: `pnpm install -g prjct-cli@latest`
+- bun:  `bun install -g prjct-cli@latest`
+- yarn: `yarn global add prjct-cli@latest`
+- npm:  `npm install -g prjct-cli@latest`
+
+After install, run `prjct setup` to wire hooks, then `prjct sync` if the cwd is a git repo. Verify with `prjct -v` and tell me which package manager you used.
 ```
 
-~30 seconds. Claude runs npm directly (no harness restrictions), wires the SessionStart/Stop hooks + the lookup-first CLAUDE.md block, and registers the project. Re-pasting upgrades to the latest published version.
+~30 seconds. Claude detects YOUR package manager (pnpm, bun, yarn, npm) and uses it — critical so we don't end up with parallel installs in different package managers' bin dirs. Re-pasting upgrades to the latest published version.
+
+> **Why detection matters:** if you have `pnpm` globally and Claude runs `npm install -g prjct-cli@latest`, you end up with TWO installs in PATH. The earlier one wins, `prjct -v` reports the wrong version, and aggressive cleanup risks bricking your shell. The detection-first prompt avoids this entirely.
 
 ### Prefer no Node/npm? (run in your own terminal)
 
