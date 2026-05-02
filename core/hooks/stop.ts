@@ -19,7 +19,9 @@
  */
 
 import configManager from '../infrastructure/config-manager'
+import { detectFriction } from '../services/friction-detector'
 import { detectAndPersistPatterns } from '../services/pattern-detector'
+import { recordCleanupReport, runSessionCleanup } from '../services/session-cleanup'
 import { ingestTranscript } from '../services/transcript-learner'
 import { regenerateWikiDeferred } from '../services/wiki-generator'
 import { ingestCapturedNotes, ingestWorkflowEdits } from '../services/wiki-ingest'
@@ -73,6 +75,31 @@ export async function runStopHook(projectPath: string = process.cwd()): Promise<
       await detectAndPersistPatterns(projectPath)
     } catch {
       // Git failure / non-repo → swallow; nothing to do here.
+    }
+
+    // Session-end housekeeping (Phase A): age-out inbox, prune archives
+    // and old checkpoints, rotate stale on-disk caches. Best-effort —
+    // each step internally swallows its own failures, so the rest of
+    // the cleanup still runs even if one step trips.
+    try {
+      const cleanup = await runSessionCleanup(config.projectId)
+      await recordCleanupReport(config.projectId, cleanup)
+    } catch {
+      /* never block session end on cleanup */
+    }
+
+    // Session-end friction capture (Phase B): scan the transcript for
+    // user-pushback moments (negation, correction, complaint markers)
+    // and persist them as `improvement-signal` memory entries. The
+    // next session's Claude reads them via topical recall and
+    // synthesises improvement ideas — no regex-based classification
+    // here, only signal extraction.
+    if (input.transcript_path) {
+      try {
+        await detectFriction(projectPath, input.transcript_path, input.session_id ?? null)
+      } catch {
+        /* same contract as transcript-learner — silent best-effort */
+      }
     }
 
     await regenerateWikiDeferred(projectPath, config.projectId).catch(() => undefined)

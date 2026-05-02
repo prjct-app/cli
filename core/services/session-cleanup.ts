@@ -1,0 +1,227 @@
+/**
+ * Session cleanup — runs at the end of every Claude Code session
+ * (Stop hook). Trims age-out inbox items, prunes old archives /
+ * checkpoints, and rotates stale on-disk caches. Best-effort
+ * everywhere — a failure on one step does not block the rest.
+ *
+ * Configurable via env var `PRJCT_CLEANUP_AGGRESSIVENESS` ∈
+ * { conservative | standard | aggressive }. Default `standard`.
+ *
+ * Aggressiveness profile (days before each rule fires):
+ *   conservative: inbox 30, archives 180, checkpoints disabled
+ *   standard:     inbox 14, archives 90,  checkpoints 30
+ *   aggressive:   inbox 7,  archives 30,  checkpoints 14
+ *
+ * Returns a `CleanupReport` summarising what got moved/deleted so
+ * the next session-start hook can surface a one-line summary.
+ */
+
+import fs from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
+import pathManager from '../infrastructure/path-manager'
+import { projectMemory } from '../memory/project-memory'
+import { archiveStorage } from '../storage/archive-storage'
+import prjctDb from '../storage/database'
+
+export type CleanupAggressiveness = 'conservative' | 'standard' | 'aggressive'
+
+export interface CleanupReport {
+  inboxArchived: number
+  archivesPruned: number
+  checkpointsRemoved: number
+  context7CacheRotated: boolean
+}
+
+interface CleanupProfile {
+  inboxDays: number
+  archivesDays: number
+  /** null = never prune checkpoints. */
+  checkpointsDays: number | null
+}
+
+const PROFILES: Record<CleanupAggressiveness, CleanupProfile> = {
+  conservative: { inboxDays: 30, archivesDays: 180, checkpointsDays: null },
+  standard: { inboxDays: 14, archivesDays: 90, checkpointsDays: 30 },
+  aggressive: { inboxDays: 7, archivesDays: 30, checkpointsDays: 14 },
+}
+
+export function resolveProfile(env: NodeJS.ProcessEnv = process.env): CleanupProfile {
+  const value = (env.PRJCT_CLEANUP_AGGRESSIVENESS ?? 'standard').toLowerCase()
+  const aggressiveness =
+    value === 'conservative' || value === 'standard' || value === 'aggressive'
+      ? (value as CleanupAggressiveness)
+      : 'standard'
+  return PROFILES[aggressiveness]
+}
+
+/**
+ * Archive inbox memory entries older than `inboxDays`. The entries are
+ * NOT deleted — they go to the `archives` table (restorable) and the
+ * vault regen will drop them from the active list.
+ */
+async function archiveAgedInbox(projectId: string, inboxDays: number): Promise<number> {
+  const cutoff = Date.now() - inboxDays * 24 * 60 * 60 * 1000
+  const candidates = projectMemory.recall(projectId, { types: ['inbox'], limit: 200 })
+  const aged = candidates.filter((e) => Date.parse(e.rememberedAt) < cutoff)
+  if (aged.length === 0) return 0
+
+  // Move to archive and tombstone the original event so recall stops
+  // returning it. archive-storage stores the full payload so a future
+  // `prjct restore` (not yet implemented as a top-level CLI) can lift
+  // it back if the user changes their mind.
+  let moved = 0
+  for (const entry of aged) {
+    try {
+      archiveStorage.archive(projectId, {
+        entityType: 'memory_entry',
+        entityId: entry.id,
+        entityData: {
+          type: entry.type,
+          content: entry.content,
+          tags: entry.tags,
+          rememberedAt: entry.rememberedAt,
+        },
+        summary: entry.content.slice(0, 80),
+        reason: `inbox-age-out (>${inboxDays}d)`,
+      })
+      // Tombstone via type rewrite so recall's `type IN (...)` filter
+      // skips it. Keeps the row for forensic recovery.
+      const numericId = entry.id.startsWith('mem_') ? entry.id.slice(4) : null
+      if (numericId) {
+        prjctDb.run(
+          projectId,
+          'UPDATE events SET type = ? WHERE id = ?',
+          'memory.archived.inbox',
+          Number(numericId)
+        )
+      }
+      moved++
+    } catch {
+      // Per-entry failures are silent — keeping the loop moving is
+      // more useful than failing the whole cleanup.
+    }
+  }
+  return moved
+}
+
+/**
+ * Delete checkpoint files at
+ * `~/.prjct-cli/projects/<projectId>/checkpoints/` whose mtime is
+ * older than `daysOld`. Only the file is removed; nothing else
+ * depends on the on-disk artifact.
+ */
+async function pruneOldCheckpoints(projectId: string, daysOld: number | null): Promise<number> {
+  if (daysOld === null) return 0
+  const dir = path.join(pathManager.getGlobalProjectPath(projectId), 'checkpoints')
+  let entries: string[] = []
+  try {
+    entries = await fs.readdir(dir)
+  } catch {
+    return 0
+  }
+  const cutoff = Date.now() - daysOld * 24 * 60 * 60 * 1000
+  let removed = 0
+  for (const name of entries) {
+    if (!name.endsWith('.json')) continue
+    const full = path.join(dir, name)
+    try {
+      const stat = await fs.stat(full)
+      if (stat.mtimeMs < cutoff) {
+        await fs.unlink(full)
+        removed++
+      }
+    } catch {
+      /* skip */
+    }
+  }
+  return removed
+}
+
+/**
+ * The context7 verify cache is TTL-bound at 5 minutes (the value),
+ * but the FILE itself can stick around for weeks if the user stops
+ * running prjct sync. Rotate the file (delete; next call rebuilds it
+ * fresh) when it's older than 7 days, regardless of TTL.
+ */
+async function rotateContext7Cache(): Promise<boolean> {
+  const file = path.join(os.homedir(), '.prjct-cli', 'state', 'context7-verify.json')
+  try {
+    const stat = await fs.stat(file)
+    const ageDays = (Date.now() - stat.mtimeMs) / (24 * 60 * 60 * 1000)
+    if (ageDays > 7) {
+      await fs.unlink(file)
+      return true
+    }
+  } catch {
+    /* file missing is the expected fresh-install state */
+  }
+  return false
+}
+
+/**
+ * Run all cleanup steps. Each step is independent — the caller gets a
+ * full report even when some steps fail silently. Safe to invoke from
+ * the Stop hook.
+ */
+export async function runSessionCleanup(projectId: string): Promise<CleanupReport> {
+  const profile = resolveProfile()
+  const report: CleanupReport = {
+    inboxArchived: 0,
+    archivesPruned: 0,
+    checkpointsRemoved: 0,
+    context7CacheRotated: false,
+  }
+
+  try {
+    report.inboxArchived = await archiveAgedInbox(projectId, profile.inboxDays)
+  } catch {
+    /* keep going */
+  }
+  try {
+    report.archivesPruned = archiveStorage.pruneOldArchives(projectId, profile.archivesDays)
+  } catch {
+    /* keep going */
+  }
+  try {
+    report.checkpointsRemoved = await pruneOldCheckpoints(projectId, profile.checkpointsDays)
+  } catch {
+    /* keep going */
+  }
+  try {
+    report.context7CacheRotated = await rotateContext7Cache()
+  } catch {
+    /* keep going */
+  }
+
+  return report
+}
+
+/**
+ * Persist the cleanup report so the next session-start hook can
+ * surface it as a one-liner. Stored as a memory entry with a
+ * predictable key — the surface code just queries by tag.
+ */
+export async function recordCleanupReport(projectId: string, report: CleanupReport): Promise<void> {
+  const total =
+    report.inboxArchived +
+    report.archivesPruned +
+    report.checkpointsRemoved +
+    (report.context7CacheRotated ? 1 : 0)
+  if (total === 0) return // nothing to surface
+
+  const summary = [
+    report.inboxArchived > 0 ? `${report.inboxArchived} inbox archived` : null,
+    report.archivesPruned > 0 ? `${report.archivesPruned} archives pruned` : null,
+    report.checkpointsRemoved > 0 ? `${report.checkpointsRemoved} checkpoints removed` : null,
+    report.context7CacheRotated ? 'context7 cache rotated' : null,
+  ]
+    .filter((s): s is string => Boolean(s))
+    .join(', ')
+
+  prjctDb.appendEvent(projectId, 'memory.remember.system-event', {
+    content: `Session cleanup: ${summary}`,
+    tags: { source: 'session-cleanup', key: 'last-cleanup' },
+    provenance: 'extracted',
+  })
+}
