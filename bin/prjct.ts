@@ -19,7 +19,15 @@
 let _fastArgs = process.argv.slice(2)
 let _fastCommand = _fastArgs.find((a) => !a.startsWith('--') && !a.startsWith('-'))
 
-// Commands that bin/prjct.ts handles directly (NOT routed through daemon)
+// Commands that bin/prjct.ts handles directly (NOT routed through daemon).
+// Note: mcp must stay here because its interactive multi-select needs TTY on
+// stdin/stdout — the detached daemon process has no TTY and would silently
+// fall back to plain list output.
+//
+// IMPORTANT: when adding a command to this set, ALSO add it to the shim skip
+// set in scripts/build.js (~line 175). The daemon-shim-sync test enforces it,
+// and CI Release will fail otherwise. The test parses string literals from
+// this array, so keep entries on bare lines without inline comments.
 const _binCommands = new Set([
   'daemon',
   'stop',
@@ -43,9 +51,6 @@ const _binCommands = new Set([
   'version',
   '-v',
   '--version',
-  // mcp's interactive multi-select needs TTY on stdin/stdout. Daemon runs
-  // detached with no TTY, so routing through it falls back to plain `list`
-  // output. Always execute mcp in the client process so prompts work.
   'mcp',
 ])
 
