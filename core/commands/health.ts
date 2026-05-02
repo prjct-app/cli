@@ -114,11 +114,22 @@ async function runDimension(projectPath: string, dim: HealthDimension): Promise<
     return { dimension: dim, status: 'skipped', durationMs: 0 }
   }
   const start = Date.now()
+  // Prepend node_modules/.bin so locally-installed binaries (knip,
+  // biome, vitest, etc.) resolve regardless of the parent process'
+  // PATH. Without this, `prjct health` from a globally-installed
+  // daemon misses every devDependency-installed tool. The user's
+  // shell PATH is preserved as the suffix.
+  const localBin = path.join(projectPath, 'node_modules', '.bin')
+  const env = {
+    ...process.env,
+    PATH: `${localBin}:${process.env.PATH ?? ''}`,
+  }
   try {
     await execAsync(dim.command, {
       cwd: projectPath,
       timeout: 5 * 60 * 1000,
       maxBuffer: 16 * 1024 * 1024,
+      env,
     })
     return { dimension: dim, status: 'pass', durationMs: Date.now() - start }
   } catch (error) {
