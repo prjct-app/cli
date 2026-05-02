@@ -19,13 +19,19 @@
  */
 
 import configManager from '../infrastructure/config-manager'
+import { ingestTranscript } from '../services/transcript-learner'
 import { regenerateWikiDeferred } from '../services/wiki-generator'
 import { ingestCapturedNotes, ingestWorkflowEdits } from '../services/wiki-ingest'
 import { emit, readStdinSafe, safeRun } from './_shared'
 
+interface HookInput {
+  transcript_path?: string
+  session_id?: string
+}
+
 export async function runStopHook(projectPath: string = process.cwd()): Promise<void> {
   await safeRun(async () => {
-    await readStdinSafe()
+    const input = await readStdinSafe<HookInput>()
     emit({})
 
     // Side effects: ingest user-authored content → DB, then refresh the
@@ -46,6 +52,17 @@ export async function runStopHook(projectPath: string = process.cwd()): Promise<
       await ingestWorkflowEdits(projectPath)
     } catch {
       // Same contract — failed parses leave the file in place for the user.
+    }
+
+    // M1a: auto-capture substantive insights from the assistant's
+    // transcript. Conservative heuristics, hashed-dedup, never blocks.
+    if (input.transcript_path) {
+      try {
+        await ingestTranscript(projectPath, input.transcript_path, input.session_id ?? null)
+      } catch {
+        // Failed parse / unexpected format → swallow. The user can
+        // always run `prjct remember` explicitly.
+      }
     }
 
     await regenerateWikiDeferred(projectPath, config.projectId).catch(() => undefined)
