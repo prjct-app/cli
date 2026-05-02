@@ -15,9 +15,9 @@ import path from 'node:path'
 const CONFIG_DIR = path.join(os.homedir(), '.prjct-cli', 'config')
 const CONFIG_PATH = path.join(CONFIG_DIR, 'global.json')
 
-export type GlobalConfigValue = string | number | boolean
+type GlobalConfigValue = string | number | boolean
 
-export interface GlobalConfig {
+interface GlobalConfig {
   /** Opt into silent self-update (1/hour throttled). Default: false. */
   'auto-update'?: 'on' | 'off'
   /** ISO timestamp of last update check. Internal — set by auto-updater. */

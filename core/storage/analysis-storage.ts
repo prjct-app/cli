@@ -380,4 +380,3 @@ class AnalysisStorage extends StorageManager<AnalysisStoreData> {
 
 export const analysisStorage = new AnalysisStorage()
 export default analysisStorage
-export type { AnalysisStoreData, SealResult, StalenessCheck, RollbackResult }

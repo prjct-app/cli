@@ -769,6 +769,22 @@ const MAX_DB_CONNECTIONS = 3
 class PrjctDatabase {
   private connections = new Map<string, SqliteDatabase>()
   private accessOrder: string[] = []
+  // Cache prepared statements per-connection. WeakMap keys auto-GC when
+  // the SqliteDatabase reference is dropped during evictLru()/close().
+  private statementCache = new WeakMap<SqliteDatabase, Map<string, SqliteStatement>>()
+
+  private prepareCached(db: SqliteDatabase, sql: string): SqliteStatement {
+    let cache = this.statementCache.get(db)
+    if (!cache) {
+      cache = new Map()
+      this.statementCache.set(db, cache)
+    }
+    const hit = cache.get(sql)
+    if (hit) return hit
+    const stmt = db.prepare(sql)
+    cache.set(sql, stmt)
+    return stmt
+  }
 
   /**
    * Get the database file path for a project.
@@ -890,7 +906,7 @@ class PrjctDatabase {
    */
   getDoc<T>(projectId: string, key: string): T | null {
     const db = this.getDb(projectId)
-    const row = db.prepare('SELECT data FROM kv_store WHERE key = ?').get(key) as {
+    const row = this.prepareCached(db, 'SELECT data FROM kv_store WHERE key = ?').get(key) as {
       data: string
     } | null
     if (!row) return null
@@ -905,11 +921,10 @@ class PrjctDatabase {
     const db = this.getDb(projectId)
     const json = JSON.stringify(data)
     const now = new Date().toISOString()
-    db.prepare('INSERT OR REPLACE INTO kv_store (key, data, updated_at) VALUES (?, ?, ?)').run(
-      key,
-      json,
-      now
-    )
+    this.prepareCached(
+      db,
+      'INSERT OR REPLACE INTO kv_store (key, data, updated_at) VALUES (?, ?, ?)'
+    ).run(key, json, now)
   }
 
   /**
@@ -917,7 +932,7 @@ class PrjctDatabase {
    */
   deleteDoc(projectId: string, key: string): void {
     const db = this.getDb(projectId)
-    db.prepare('DELETE FROM kv_store WHERE key = ?').run(key)
+    this.prepareCached(db, 'DELETE FROM kv_store WHERE key = ?').run(key)
   }
 
   /**
@@ -925,7 +940,7 @@ class PrjctDatabase {
    */
   hasDoc(projectId: string, key: string): boolean {
     const db = this.getDb(projectId)
-    const row = db.prepare('SELECT 1 FROM kv_store WHERE key = ?').get(key)
+    const row = this.prepareCached(db, 'SELECT 1 FROM kv_store WHERE key = ?').get(key)
     return row !== null
   }
 
@@ -944,12 +959,10 @@ class PrjctDatabase {
   ): void {
     const db = this.getDb(projectId)
     const now = new Date().toISOString()
-    db.prepare('INSERT INTO events (type, task_id, data, timestamp) VALUES (?, ?, ?, ?)').run(
-      type,
-      taskId ?? null,
-      JSON.stringify(data),
-      now
-    )
+    this.prepareCached(
+      db,
+      'INSERT INTO events (type, task_id, data, timestamp) VALUES (?, ?, ?, ?)'
+    ).run(type, taskId ?? null, JSON.stringify(data), now)
   }
 
   /**
@@ -962,9 +975,10 @@ class PrjctDatabase {
   ): Array<{ id: number; type: string; task_id: string | null; data: string; timestamp: string }> {
     const db = this.getDb(projectId)
     if (type) {
-      return db
-        .prepare('SELECT * FROM events WHERE type = ? ORDER BY id DESC LIMIT ?')
-        .all(type, limit) as Array<{
+      return this.prepareCached(
+        db,
+        'SELECT * FROM events WHERE type = ? ORDER BY id DESC LIMIT ?'
+      ).all(type, limit) as Array<{
         id: number
         type: string
         task_id: string | null
@@ -972,7 +986,9 @@ class PrjctDatabase {
         timestamp: string
       }>
     }
-    return db.prepare('SELECT * FROM events ORDER BY id DESC LIMIT ?').all(limit) as Array<{
+    return this.prepareCached(db, 'SELECT * FROM events ORDER BY id DESC LIMIT ?').all(
+      limit
+    ) as Array<{
       id: number
       type: string
       task_id: string | null
@@ -994,7 +1010,7 @@ class PrjctDatabase {
     ...params: SqliteBindings[]
   ): T[] {
     const db = this.getDb(projectId)
-    return db.prepare(sql).all(...params) as T[]
+    return this.prepareCached(db, sql).all(...params) as T[]
   }
 
   /**
@@ -1002,7 +1018,7 @@ class PrjctDatabase {
    */
   run(projectId: string, sql: string, ...params: SqliteBindings[]): void {
     const db = this.getDb(projectId)
-    db.prepare(sql).run(...params)
+    this.prepareCached(db, sql).run(...params)
   }
 
   /**
@@ -1014,7 +1030,7 @@ class PrjctDatabase {
     ...params: SqliteBindings[]
   ): T | null {
     const db = this.getDb(projectId)
-    return (db.prepare(sql).get(...params) as T) ?? null
+    return (this.prepareCached(db, sql).get(...params) as T) ?? null
   }
 
   /**
@@ -1091,4 +1107,4 @@ class PrjctDatabase {
 export const prjctDb = new PrjctDatabase()
 export default prjctDb
 export { PrjctDatabase }
-export type { SqliteDatabase, SqliteStatement, SqliteBindings }
+export type { SqliteDatabase, SqliteBindings }

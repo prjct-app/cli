@@ -19,19 +19,6 @@ import type {
 import { getErrorMessage } from '../types/fs'
 import { getTimestamp } from '../utils/date-helper'
 
-// Re-export types for convenience
-export type {
-  BlockingRules,
-  CategoryInfo,
-  CommandHandler,
-  CommandMeta,
-  ExecutionContext,
-  HandlerFn,
-  RegistryCommandUsage as CommandUsage,
-  RegistryStats,
-  ValidationResult,
-} from '../types/commands'
-
 /**
  * Command Registry - Routes commands to handlers
  *

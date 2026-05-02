@@ -19,13 +19,6 @@ import type {
 } from '../types/sync-verifier'
 import { execAsync } from '../utils/exec'
 
-export type {
-  VerificationCheck,
-  VerificationCheckResult,
-  VerificationConfig,
-  VerificationReport,
-} from '../types/sync-verifier'
-
 // =============================================================================
 // BUILT-IN CHECKS
 // =============================================================================

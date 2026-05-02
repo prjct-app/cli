@@ -18,7 +18,7 @@ import type { GitData, ProjectCommands, ProjectStats } from '../types/project-sy
 import type { StackDetection } from '../types/stack'
 import { defaultSources } from '../utils/citations'
 import { execAsync } from '../utils/exec'
-import { fileExists, readJson } from '../utils/file-helper'
+import { fileExists, readJson, walkDir } from '../utils/file-helper'
 import log from '../utils/logger'
 import { StackDetector } from './stack-detector'
 
@@ -39,32 +39,30 @@ export async function analyzeGit(projectPath: string): Promise<GitData> {
     weeklyCommits: 0,
   }
 
-  try {
-    // Branch
-    const { stdout: branch } = await execAsync('git branch --show-current', {
-      cwd: projectPath,
-    })
-    data.branch = branch.trim() || 'main'
+  // Six independent git invocations — run in parallel. Sequential awaits
+  // here previously cost ~6× spawn latency (~500ms on warm caches).
+  const opts = { cwd: projectPath }
+  const safe = <T>(p: Promise<T>): Promise<T | null> => p.catch(() => null)
+  const [branchR, commitsR, shortlogR, statusR, gitLogR, weeklyR] = await Promise.all([
+    safe(execAsync('git branch --show-current', opts)),
+    safe(execAsync('git rev-list --count HEAD', opts)),
+    safe(execAsync('git shortlog -sn --all', opts)),
+    safe(execAsync('git status --porcelain', opts)),
+    safe(execAsync('git log --oneline -20 --pretty=format:"%h|%s|%ad" --date=short', opts)),
+    safe(execAsync('git log --oneline --since="1 week ago"', opts)),
+  ])
 
-    // Total commits
-    const { stdout: commits } = await execAsync('git rev-list --count HEAD', {
-      cwd: projectPath,
-    })
-    data.commits = parseInt(commits.trim(), 10) || 0
+  if (branchR) data.branch = branchR.stdout.trim() || 'main'
+  if (commitsR) data.commits = parseInt(commitsR.stdout.trim(), 10) || 0
 
-    // Contributors
-    const { stdout: contributors } = await execAsync('git shortlog -sn --all | wc -l', {
-      cwd: projectPath,
-    })
-    data.contributors = parseInt(contributors.trim(), 10) || 0
+  // shortlog → count non-empty lines (replaces shell pipe to wc -l)
+  if (shortlogR) {
+    data.contributors = shortlogR.stdout.split('\n').filter((l) => l.trim()).length
+  }
 
-    // Status
-    const { stdout: status } = await execAsync('git status --porcelain', {
-      cwd: projectPath,
-    })
-    const lines = status.trim().split('\n').filter(Boolean)
+  if (statusR) {
+    const lines = statusR.stdout.trim().split('\n').filter(Boolean)
     data.hasChanges = lines.length > 0
-
     for (const line of lines) {
       const code = line.substring(0, 2)
       const file = line.substring(3)
@@ -76,27 +74,25 @@ export async function analyzeGit(projectPath: string): Promise<GitData> {
         data.untrackedFiles.push(file)
       }
     }
+  }
 
-    // Recent commits
-    const { stdout: gitLog } = await execAsync(
-      'git log --oneline -20 --pretty=format:"%h|%s|%ad" --date=short',
-      { cwd: projectPath }
-    )
-    data.recentCommits = gitLog
+  if (gitLogR) {
+    data.recentCommits = gitLogR.stdout
       .split('\n')
       .filter(Boolean)
       .map((line) => {
         const [hash, message, date] = line.split('|')
         return { hash, message, date }
       })
+  }
 
-    // Weekly commits
-    const { stdout: weekly } = await execAsync('git log --oneline --since="1 week ago" | wc -l', {
-      cwd: projectPath,
-    })
-    data.weeklyCommits = parseInt(weekly.trim(), 10) || 0
-  } catch (error) {
-    log.debug('Git analysis failed (not a git repo?)', { error: getErrorMessage(error) })
+  // weekly log → count non-empty lines (replaces shell pipe to wc -l)
+  if (weeklyR) {
+    data.weeklyCommits = weeklyR.stdout.split('\n').filter((l) => l.trim()).length
+  }
+
+  if (!branchR && !commitsR && !statusR) {
+    log.debug('Git analysis failed (not a git repo?)')
   }
 
   return data
@@ -125,13 +121,12 @@ export async function gatherStats(projectPath: string): Promise<ProjectStats> {
     frameworks: [],
   }
 
-  // Count files
+  // Count source files using native walker (~6ms vs ~230ms for shell find).
+  // walkDir already skips node_modules/.git/dist via SKIP_DIRS.
   try {
-    const { stdout } = await execAsync(
-      'find . -type f \\( -name "*.js" -o -name "*.ts" -o -name "*.tsx" -o -name "*.py" -o -name "*.go" -o -name "*.rs" \\) -not -path "./node_modules/*" -not -path "./.git/*" | wc -l',
-      { cwd: projectPath }
-    )
-    stats.fileCount = parseInt(stdout.trim(), 10) || 0
+    const sourceExt = ['.js', '.ts', '.tsx', '.py', '.go', '.rs']
+    const files = await walkDir(projectPath, { skipDotfiles: true })
+    stats.fileCount = files.filter((f) => sourceExt.some((e) => f.endsWith(e))).length
   } catch (error) {
     log.debug('File count failed', { path: projectPath, error: getErrorMessage(error) })
     stats.fileCount = 0

@@ -72,4 +72,3 @@ class VelocityStorage extends StorageManager<VelocityStoreData> {
 
 export const velocityStorage = new VelocityStorage()
 export default velocityStorage
-export type { VelocityStoreData }

@@ -58,11 +58,80 @@ export class VersionService {
   /**
    * Bump the version in the detected source file.
    * Returns the new version string.
+   *
+   * Idempotent: if the working-tree version is already AHEAD of the
+   * version in `git HEAD` (i.e. a previous ship run bumped but never
+   * committed, or this method was already called this session), return
+   * the working-tree version unchanged. Prevents the "double-bump on
+   * retry" failure mode where a partial ship rerun creates v+2 instead
+   * of completing the original v+1.
    */
   async bump(): Promise<string> {
     const info = await this.detect()
+
+    // Idempotency check: only consult git when the version source is a
+    // tracked file (package.json/Cargo.toml/etc.). The git-tag source
+    // has `info.file === null` and falls through to a normal bump.
+    if (info.file) {
+      const headVersion = await this.readVersionFromGitHead(info.file, info.format)
+      if (headVersion && this.isAheadOf(info.current, headVersion)) {
+        // Working tree was already bumped (likely by a prior failed
+        // ship); reuse it instead of bumping again.
+        return info.current
+      }
+    }
+
     await this.writeVersion(info)
     return info.next
+  }
+
+  /**
+   * Read the version of `file` as it exists at `git HEAD`. Returns null
+   * when the file is untracked, the repo is fresh, or git is unavailable.
+   */
+  private async readVersionFromGitHead(
+    file: string,
+    format: VersionInfo['format']
+  ): Promise<string | null> {
+    try {
+      const relPath = path.relative(this.projectPath, file)
+      const { stdout } = await execFileAsync('git', ['show', `HEAD:${relPath}`], {
+        cwd: this.projectPath,
+      })
+      if (format === 'json') {
+        const parsed = JSON.parse(stdout) as { version?: string }
+        return parsed.version ?? null
+      }
+      if (format === 'plaintext') {
+        const value = stdout.trim()
+        return isSemver(value) ? value : null
+      }
+      if (format === 'toml') {
+        return parseTomlVersion(stdout) ?? parsePyprojectVersion(stdout)
+      }
+      if (format === 'xml') {
+        return parseCsprojVersion(stdout)
+      }
+      return null
+    } catch {
+      // file not in HEAD, not a git repo, or git missing — treat as fresh
+      return null
+    }
+  }
+
+  /**
+   * Strict semver greater-than. `2.4.40` > `2.4.39` returns true.
+   */
+  private isAheadOf(a: string, b: string): boolean {
+    const pa = a.split('.').map((n) => Number.parseInt(n, 10) || 0)
+    const pb = b.split('.').map((n) => Number.parseInt(n, 10) || 0)
+    for (let i = 0; i < 3; i++) {
+      const ai = pa[i] ?? 0
+      const bi = pb[i] ?? 0
+      if (ai > bi) return true
+      if (ai < bi) return false
+    }
+    return false
   }
 
   // ===========================================================================
