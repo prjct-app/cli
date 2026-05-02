@@ -58,9 +58,45 @@ function exec(cmd, options = {}) {
   return execSync(cmd, { cwd: ROOT, encoding: 'utf8', env, ...options }).trim()
 }
 
-function execSilent(cmd) {
+// ─── npm runtime resolution ─────────────────────────────────────────
+//
+// On zsh + nvm setups, `npm` is a lazy-loaded shell function — invisible
+// to non-interactive subprocesses. execSync inherits a minimal /bin/sh
+// env where the function isn't defined, so `npm whoami` / `npm publish`
+// blow up with exit 127 ("command not found"). Detect the real-binary
+// case once; if it's missing, route npm calls through an interactive
+// login shell so nvm's loader actually fires.
+
+let _npmRunner = null
+function npmRunner() {
+  if (_npmRunner) return _npmRunner
   try {
-    return exec(cmd, { stdio: 'pipe' })
+    const out = execSync('command -v npm', {
+      encoding: 'utf8',
+      shell: '/bin/sh',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }).trim()
+    if (out && !out.startsWith('alias ')) {
+      _npmRunner = (args) => `npm ${args}`
+      return _npmRunner
+    }
+  } catch {
+    // /bin/sh can't see the shell function — fall through.
+  }
+  const shell = process.env.SHELL || '/bin/zsh'
+  // -i (interactive) loads .zshrc / .bashrc, where nvm's npm() function
+  // is defined; -c executes the command and exits.
+  _npmRunner = (args) => `${shell} -ic 'npm ${args}'`
+  return _npmRunner
+}
+
+function execNpm(args, options = {}) {
+  return exec(npmRunner()(args), options)
+}
+
+function execNpmSilent(args) {
+  try {
+    return execNpm(args, { stdio: 'pipe' })
   } catch {
     return null
   }
@@ -94,8 +130,8 @@ function validate() {
   }
   success(`On branch: ${branch}`)
 
-  // Check npm login
-  const npmUser = execSilent('npm whoami')
+  // Check npm login (via runtime-resolved npm — see npmRunner())
+  const npmUser = execNpmSilent('whoami')
   if (!npmUser) {
     error('Not logged into npm. Run: npm login')
     process.exit(1)
@@ -222,7 +258,7 @@ function publish() {
   log('\n🚀 Step 6: Publish to npm\n')
 
   try {
-    exec('npm publish', { stdio: 'inherit' })
+    execNpm('publish', { stdio: 'inherit' })
     success('Published to npm')
   } catch (_e) {
     error('Publish failed')
