@@ -108,6 +108,55 @@ describe('settings-installer', () => {
     expect(remaining.some((h: { _prjctManaged?: boolean }) => h._prjctManaged === true)).toBe(false)
   })
 
+  test('install collapses legacy unmanaged prjct duplicates into the marked entry', async () => {
+    // Simulate JJ's machine 2026-05-01: 3 unmanaged + 1 managed copies
+    // accumulated from older installs that didn't tag entries.
+    const settingsPath = path.join(home, '.claude', 'settings.json')
+    await fs.mkdir(path.dirname(settingsPath), { recursive: true })
+    await fs.writeFile(
+      settingsPath,
+      JSON.stringify({
+        hooks: {
+          SessionStart: [
+            {
+              matcher: '',
+              hooks: [
+                { type: 'command', command: 'prjct hook session-start' },
+                { type: 'command', command: 'prjct hook session-start' },
+                { type: 'command', command: 'prjct hook session-start' },
+                { type: 'command', command: 'prjct hook session-start', _prjctManaged: true },
+                // Foreign hook must survive
+                { type: 'command', command: '/usr/local/bin/other-tool' },
+              ],
+            },
+          ],
+        },
+      }),
+      'utf-8'
+    )
+
+    await install()
+    const parsed = JSON.parse(await fs.readFile(settingsPath, 'utf-8'))
+    const sessionHooks = parsed.hooks.SessionStart[0].hooks
+
+    // Exactly 1 prjct entry remains, and it's the marked one
+    const prjctOnes = sessionHooks.filter((h: { command: string }) =>
+      /prjct\s+hook\s+session-start/.test(h.command)
+    )
+    expect(prjctOnes.length).toBe(1)
+    expect(prjctOnes[0]._prjctManaged).toBe(true)
+
+    // Foreign hook preserved
+    expect(
+      sessionHooks.some((h: { command: string }) => h.command === '/usr/local/bin/other-tool')
+    ).toBe(true)
+
+    // Idempotent: second run is a no-op
+    const second = await install()
+    expect(second.hooksWritten).toBe(0)
+    expect(second.alreadyPresent).toBe(PRJCT_HOOKS.length)
+  })
+
   test('status reports installed count', async () => {
     await install()
     const s = await status()

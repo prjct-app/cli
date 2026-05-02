@@ -107,6 +107,22 @@ function isPrjctHook(entry: HookEntry): boolean {
   return entry[MANAGED_MARKER] === true
 }
 
+/**
+ * Heuristic for legacy unmanaged duplicates: pre-marker installs wrote
+ * `prjct hook <subcommand>` entries without `_prjctManaged: true`. Each
+ * subsequent setup added a new (now-marked) entry instead of refreshing
+ * them, so settings.json accumulates 3+ copies per event in the wild
+ * (see e.g. JJ's machine 2026-05-01). Treat any unmanaged entry whose
+ * command parses as `prjct hook …` as ours-from-an-old-version and let
+ * `install()` collapse it into the canonical marked entry.
+ */
+function isLegacyPrjctHook(entry: HookEntry): boolean {
+  if (entry[MANAGED_MARKER] === true) return false
+  const cmd = entry.command?.trim() ?? ''
+  // Match both `prjct hook X` and `${PRJCT_BIN} hook X` shapes.
+  return /(^|\/|\s)prjct\s+hook\s+\S+/.test(cmd)
+}
+
 function hookEntryFor(spec: HookSpec): HookEntry {
   const entry: HookEntry = {
     type: 'command',
@@ -140,11 +156,21 @@ export async function install(): Promise<InstallResult> {
       eventEntries.push(block)
     }
 
+    // Drop any legacy unmanaged prjct entries first so we collapse stale
+    // duplicates from older installs into the single canonical marked one.
+    const beforeLen = block.hooks.length
+    block.hooks = block.hooks.filter((h) => !isLegacyPrjctHook(h))
+    const droppedLegacy = beforeLen - block.hooks.length
+
     const existing = block.hooks.find((h) => isPrjctHook(h))
     if (existing) {
       // Refresh command + if clause in case the binary path or matcher changed.
       const refreshed = hookEntryFor(spec)
-      if (existing.command === refreshed.command && existing.if === refreshed.if) {
+      if (
+        existing.command === refreshed.command &&
+        existing.if === refreshed.if &&
+        droppedLegacy === 0
+      ) {
         alreadyPresent++
       } else {
         existing.command = refreshed.command
