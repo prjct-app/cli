@@ -20,7 +20,7 @@
 
 import configManager from '../infrastructure/config-manager'
 import { regenerateWikiDeferred } from '../services/wiki-generator'
-import { ingestCapturedNotes } from '../services/wiki-ingest'
+import { ingestCapturedNotes, ingestWorkflowEdits } from '../services/wiki-ingest'
 import { emit, readStdinSafe, safeRun } from './_shared'
 
 export async function runStopHook(projectPath: string = process.cwd()): Promise<void> {
@@ -28,16 +28,26 @@ export async function runStopHook(projectPath: string = process.cwd()): Promise<
     await readStdinSafe()
     emit({})
 
-    // Side effects: ingest captured/ → DB, then refresh the _generated/
-    // snapshot. Best-effort; failures stay silent so the host session
-    // is never disturbed.
+    // Side effects: ingest user-authored content → DB, then refresh the
+    // _generated/ snapshot. Best-effort; failures stay silent so the
+    // host session is never disturbed.
     const config = await configManager.readConfig(projectPath).catch(() => null)
     if (!config?.projectId) return
+
+    // Captured notes → memory entries (existing behavior).
     try {
       await ingestCapturedNotes(projectPath)
     } catch {
       // Ingest failure shouldn't block regen — captured/ stays for next turn.
     }
+
+    // M1b INPUT: workflow overrides → workflow_rules table.
+    try {
+      await ingestWorkflowEdits(projectPath)
+    } catch {
+      // Same contract — failed parses leave the file in place for the user.
+    }
+
     await regenerateWikiDeferred(projectPath, config.projectId).catch(() => undefined)
   })
 }
