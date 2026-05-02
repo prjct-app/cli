@@ -24,9 +24,9 @@ const PREFERENCE_VALUES: readonly QuestionPreference[] = ['always-ask', 'never-a
  * Output the skill bash preamble emits before AskUserQuestion. Three
  * outcomes — the skill instructs the model to act on each.
  */
-export type PreferenceCheck = 'ASK_NORMALLY' | 'AUTO_DECIDE' | 'NEVER_ASK'
+type PreferenceCheck = 'ASK_NORMALLY' | 'AUTO_DECIDE' | 'NEVER_ASK'
 
-export interface PreferenceEntry {
+interface PreferenceEntry {
   /** Stable identifier the skill author chose, e.g. `commit-style`. */
   questionId: string
   preference: QuestionPreference

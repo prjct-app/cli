@@ -13,7 +13,7 @@
     "declaration": false,
     "outDir": "./dist",
     "rootDir": ".",
-    "types": ["bun-types"],
+    "types": ["bun"],
     "allowJs": true,
     "checkJs": false
   },

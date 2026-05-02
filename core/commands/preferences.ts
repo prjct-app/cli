@@ -23,7 +23,7 @@ import out from '../utils/output'
 import { PrjctCommandsBase } from './base'
 import { requireProjectId } from './guards'
 
-export interface PrefsOptions {
+interface PrefsOptions {
   md?: boolean
   reason?: string
 }
