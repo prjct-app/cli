@@ -443,6 +443,12 @@ async function executeCommand(
       // the cwd as a subcommand. `p. mcp` from Claude Code hits exactly that
       // path and was returning "Unknown mcp subcommand: /Users/…".
       return commands!.mcp(param, request.cwd, { md })
+    case 'team':
+      return commands!.team(param, request.cwd, {
+        md,
+        required: opts.required === true,
+        minVersion: opts['min-version'] ? String(opts['min-version']) : undefined,
+      })
     default:
       // Standard commands without special option handling
       return commandRegistry.execute(request.command, param, request.cwd)

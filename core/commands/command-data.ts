@@ -404,4 +404,24 @@ export const COMMANDS: CommandMeta[] = [
       'Backup option before deletion',
     ],
   },
+  {
+    name: 'team',
+    group: 'core',
+    description:
+      'Enroll this repo in prjct team mode — commits .prjct/team.json + .claude/CLAUDE.md so teammates pick up shared expectations',
+    usage: {
+      claude: '/p:team',
+      terminal: 'prjct team [--required] [--min-version <semver>]',
+    },
+    params: '[--required] [--min-version <semver>]',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: true,
+    features: [
+      'Writes .prjct/team.json with required/minVersion config',
+      'Adds prjct context block to .claude/CLAUDE.md (per-project)',
+      'Stages both files for the next commit (does NOT commit)',
+      'Teammates clone repo + install prjct → ready to go',
+    ],
+  },
 ]
