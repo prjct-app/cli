@@ -163,4 +163,60 @@ describe('settings-installer', () => {
     expect(s.installed).toBe(PRJCT_HOOKS.length)
     expect(s.expected).toBe(PRJCT_HOOKS.length)
   })
+
+  // Regression coverage for the no-prjct-on-PATH crash mode (May 2026).
+  // After an aggressive uninstall, every Stop hook fired "command not
+  // found: prjct" into the user's session. The fix wraps the command
+  // in a `command -v` guard so missing prjct silently no-ops with exit 0.
+  describe('hook command resilience (missing prjct binary)', () => {
+    test('every installed hook command starts with a command -v guard', async () => {
+      await install()
+      const raw = await fs.readFile(path.join(home, '.claude', 'settings.json'), 'utf-8')
+      const parsed = JSON.parse(raw)
+      for (const event of Object.keys(parsed.hooks)) {
+        for (const block of parsed.hooks[event]) {
+          for (const hook of block.hooks) {
+            if (hook._prjctManaged !== true) continue
+            expect(hook.command).toContain('command -v')
+            expect(hook.command).toContain('|| exit 0')
+            expect(hook.command).toContain('prjct hook ')
+          }
+        }
+      }
+    })
+
+    test('the guard actually exits 0 when prjct is missing (live shell smoke test)', async () => {
+      await install()
+      const raw = await fs.readFile(path.join(home, '.claude', 'settings.json'), 'utf-8')
+      const parsed = JSON.parse(raw)
+      // Pull the Stop hook command (the one that surfaced the bug).
+      const stopCommand = parsed.hooks.Stop[0].hooks[0].command
+      // Run it with an empty PATH so prjct truly cannot be found.
+      const { execSync } = await import('node:child_process')
+      let exitCode = 0
+      try {
+        execSync(stopCommand, {
+          env: { ...process.env, PATH: '/usr/bin:/bin' },
+          stdio: 'ignore',
+        })
+      } catch (err) {
+        exitCode = (err as { status?: number }).status ?? -1
+      }
+      expect(exitCode).toBe(0)
+    })
+
+    test('PRJCT_BIN env override is honored', async () => {
+      process.env.PRJCT_BIN = '/custom/path/prjct'
+      try {
+        const m = await import(`../../services/settings-installer?t=${Date.now()}`)
+        await m.install()
+        const raw = await fs.readFile(path.join(home, '.claude', 'settings.json'), 'utf-8')
+        const parsed = JSON.parse(raw)
+        const stop = parsed.hooks.Stop[0].hooks[0]
+        expect(stop.command).toContain('/custom/path/prjct')
+      } finally {
+        delete process.env.PRJCT_BIN
+      }
+    })
+  })
 })
