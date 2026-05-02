@@ -1,64 +1,81 @@
 # prjct
 
-**Context layer for AI coding agents.**
-
-Works with Claude Code, Gemini CLI, Cursor IDE, Windsurf, OpenAI Codex, Antigravity, and more.
+**Project memory + quality workflows for AI coding agents.** prjct gives Claude Code (and any agent) durable memory of your projects: decisions, learnings, gotchas, hot files, recurring bugs. Plus 5 named quality workflows (review, qa, security, investigate, ship) that persist findings back to memory so the next session compounds.
 
 [![npm](https://img.shields.io/npm/v/prjct-cli)](https://www.npmjs.com/package/prjct-cli)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Ready-6366f1)]()
 [![Gemini CLI](https://img.shields.io/badge/Gemini%20CLI-Ready-4285F4)]()
 [![Cursor IDE](https://img.shields.io/badge/Cursor%20IDE-Ready-00D4AA)]()
-[![Windsurf](https://img.shields.io/badge/Windsurf-Ready-7C3AED)]()
 
-## What is prjct?
+## Install — one paste
 
-prjct is the **context layer** your AI agents read before they write code. It keeps project memory (decisions, learnings, gotchas, shipped work) in a local SQLite database, builds code-intelligence indexes (BM25, import graph, git co-change), and feeds the right slice back to your agent through native hooks — no skills to remember, no prompts to copy-paste.
+Paste this into Claude Code:
 
-The contract is simple: **prjct exposes the WHAT, the agent decides the HOW.**
+> Install prjct on this machine: run `curl -sSL https://raw.githubusercontent.com/jlopezlira/prjct-cli/main/scripts/install-via-claude.sh | bash` and verify with `prjct -v`. If the cwd is a git repo, also run `prjct sync` to register it.
+
+That's it. ~30 seconds. The script downloads the standalone binary for your platform from GitHub Releases (no Node/npm needed), wires hooks + the lookup-first CLAUDE.md block, and registers the project. Full install paths (terminal one-liner, npm fallback, follow-up config) are documented in [INSTALL_PROMPT.md](./INSTALL_PROMPT.md).
+
+## What you get
+
+After install, **next session in any prjct project**:
+
+- **Lookup-first protocol**: Claude reads `~/Documents/prjct/<slug>/_generated/` (architecture, patterns, decisions, gotchas, recent ships) BEFORE re-exploring source. Cuts ~10K tokens of exploration per session.
+- **Auto-capture**: Stop hook scans the assistant transcript and persists durable insights (decisions/learnings/gotchas) tagged for dedup. The next session finds them in the vault.
+- **Pattern detection**: Stop hook detects hot files (>3 changes in 7 days), recurring bugs (gotchas with the same topic), tech-debt growth (TODO/FIXME count rising). All persisted as learnings, surfaced next session.
+- **5 quality workflows** activated by natural language ("review this branch", "qa the UI", "security check", "investigate this bug"):
+  - `review` — Production Bug Hunt + Completeness Gate (3 modes)
+  - `qa` — Real Browser, Atomic Fixes, Regression Tests
+  - `security` — OWASP Top 10 + STRIDE, 8/10 confidence gate, concrete exploit per finding
+  - `investigate` — Iron Law (no fix without investigation), max 3 failed hypotheses
+  - `ship` (endurecido) — Coverage Gate + Auto-Document
+
+## How it works
+
+State lives in **SQLite** at `~/.prjct-cli/projects/<id>/`. The vault at `~/Documents/prjct/<slug>/_generated/` is an auto-regenerated Markdown snapshot — agent-readable via `Read`/`Glob`, browsable in Obsidian.
 
 ```
-Claude Code / Gemini / Cursor                prjct
-         |                                      |
-         | SessionStart hook fires              |
-         | -----------------------------------> |  reads .prjct/prjct.config.json
-         |                                      |  resolves persona + memory + indexes
-         |  You are <role> for <project>.       |
-         |  Active task: …                      |
-         |  Recent learnings: …                 |
-         | <----------------------------------- |
-         v                                      |
-   Writes code / specs / updates                |
-   with full project context                    |
+Claude Code session                       prjct
+       |                                    |
+       | SessionStart hook fires            |
+       | --------------------------------> |  self-heal CLAUDE.md, regen vault
+       |                                    |  (opt-in: silent auto-update check)
+       |                                    |
+       | Lookup-first protocol kicks in:    |
+       | reads _generated/* before source   |
+       v                                    |
+  Writes code, makes decisions              |
+       |                                    |
+       | Stop hook fires                    |
+       | --------------------------------> |  ingest captured/, ingest workflows/,
+       |                                    |  scan transcript → memory,
+       |                                    |  detect hot files / recurring bugs
+       |                                    |  / tech-debt growth → memory,
+       |                                    |  regen vault
 ```
 
-State lives in SQLite. prjct also emits an **agent-readable markdown export** at `~/Documents/prjct/<slug>/_generated/` so any tool with `Read`/`Glob` (Claude Code, Gemini CLI, Cursor, your own scripts) can consume project context without a CLI round-trip. The export is a regenerated **snapshot** — never hand-edited; hooks rebuild it from the database. It happens to be a valid Obsidian vault, so you can browse it visually for free.
+State is the source of truth; the vault is recall. New knowledge enters via `prjct remember <type>`, `prjct capture`, or — automatically — the Stop hook's transcript scan.
 
-## Install
+## Quick start (post-install)
 
 ```bash
-npm install -g prjct-cli
+# In any git repo
+prjct sync                                  # register the project (auto on first prjct command)
+prjct task "add OAuth refresh"              # start tracking work
+prjct remember decision "we chose JWT + refresh rotation"
+prjct status done                           # close the active task
+prjct ship                                  # bump version, commit, push, open PR
 ```
 
-Requires Node.js 22.22.2+ or Bun 1.0+.
+In Claude Code, ask naturally:
+- "review my changes" → activates the `review` workflow with Production Bug Hunt methodology
+- "what patterns does this project use?" → Claude reads `_generated/patterns.md` directly (no `grep`)
+- "investigate why tests intermittently fail" → activates `investigate` with Iron Law
 
-## Quick Start
-
+Optional flags:
 ```bash
-# 1. One-time setup — configure AI providers + install commands into ~/.claude
-prjct start
-
-# 2. Initialize a project
-cd my-project
-prjct init
-
-# 3. Install the 7 passive Claude Code hooks
-prjct install
-
-# 4. Open in Claude Code / Gemini CLI / Cursor and run:
-p. sync                  # analyze the project; build indexes
+prjct config set auto-update on    # silent self-update (1/hour throttled)
+prjct team --enforce               # pre-commit hook blocks commits without prjct
 ```
-
-Hooks now inject persona, active task, and topical memory automatically every session.
 
 ## Inside Claude Code / Gemini CLI
 
