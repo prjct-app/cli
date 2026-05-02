@@ -7,13 +7,20 @@
 [![Gemini CLI](https://img.shields.io/badge/Gemini%20CLI-Ready-4285F4)]()
 [![Cursor IDE](https://img.shields.io/badge/Cursor%20IDE-Ready-00D4AA)]()
 
-## Install — one paste
+## Install / upgrade — one paste
 
-Paste this into Claude Code:
+Paste this into Claude Code (works for fresh install AND upgrade):
 
-> Install prjct on this machine: run `curl -sSL https://raw.githubusercontent.com/jlopezlira/prjct-cli/main/scripts/install-via-claude.sh | bash` and verify with `prjct -v`. If the cwd is a git repo, also run `prjct sync` to register it.
+> Install or upgrade prjct on this machine: run `curl -sSL https://raw.githubusercontent.com/jlopezlira/prjct-cli/main/scripts/install-via-claude.sh | bash` and verify with `prjct -v`. If the cwd is a git repo, also run `prjct sync` to register it.
 
-That's it. ~30 seconds. The script downloads the standalone binary for your platform from GitHub Releases (no Node/npm needed), wires hooks + the lookup-first CLAUDE.md block, and registers the project. Full install paths (terminal one-liner, npm fallback, follow-up config) are documented in [INSTALL_PROMPT.md](./INSTALL_PROMPT.md).
+That's it. ~30 seconds. The script downloads the standalone binary for your platform from GitHub Releases (no Node/npm needed), wires hooks + the lookup-first CLAUDE.md block, and registers the project. Re-running is safe — the script detects existing installs and upgrades to the latest published version.
+
+Three additional upgrade paths once installed:
+- **CLI**: `prjct update` (auto-detects npm/pnpm/bun/yarn/homebrew)
+- **Silent**: `prjct config set auto-update on` (background check 1/hour throttled)
+- **Manual**: `npm install -g prjct-cli@latest` (or your package manager equivalent)
+
+Full install + upgrade paths in [INSTALL_PROMPT.md](./INSTALL_PROMPT.md).
 
 ## What you get
 

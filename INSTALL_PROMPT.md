@@ -1,21 +1,23 @@
-# Install prjct via prompt (paste into Claude Code or any AI agent)
+# Install / Upgrade prjct via prompt (paste into Claude Code or any AI agent)
 
-Three install paths, each smaller than the last. Pick the one your audience can follow.
+**The same prompt installs AND upgrades.** The script detects whether prjct is already on this machine and either does a fresh install or upgrades to the latest published version. Re-running is always safe.
+
+Three paths, each smaller than the last. Pick the one your audience can follow.
 
 ---
 
-## Path 1 — One paste in Claude Code (recommended)
+## Path 1 — One paste in Claude Code (recommended, install + upgrade)
 
 Paste this into the Claude Code chat. Claude executes it and you're done in ~30 seconds:
 
-> Install prjct (project memory + quality workflows for AI coding agents) on this machine:
+> Install or upgrade prjct (project memory + quality workflows for AI coding agents) on this machine:
 >
 > 1. Run `curl -sSL https://raw.githubusercontent.com/jlopezlira/prjct-cli/main/scripts/install-via-claude.sh | bash`
-> 2. Verify with `prjct -v` (should print v2.4.x or higher)
+> 2. Verify with `prjct -v` (should print the latest v2.4.x)
 > 3. If the cwd is a git repo, run `prjct sync` to register it
-> 4. Show me the install output and confirm the version
+> 4. Show me the install output and confirm the version (note: it'll say "upgraded X → vY" if I had a previous version, or "installed" if fresh)
 >
-> The script downloads the standalone binary for my platform from GitHub Releases (no Node/npm needed), wires hooks + the lookup-first CLAUDE.md block, and registers the project. After install, the prjct skill activates on requests like "review this branch", "qa the UI", "security check", or "investigate this bug" — each with a named methodology (Production Bug Hunt, OWASP+STRIDE, Iron Law, Coverage Gate). Stop hook auto-captures decisions/learnings/gotchas + detects hot files, recurring bugs, and tech-debt growth so the next session compounds.
+> The script downloads the standalone binary for my platform from GitHub Releases (no Node/npm needed), wires hooks + the lookup-first CLAUDE.md block, and registers the project. Re-running is safe — the script detects existing installs and upgrades. After install, the prjct skill activates on requests like "review this branch", "qa the UI", "security check", or "investigate this bug" — each with a named methodology (Production Bug Hunt, OWASP+STRIDE, Iron Law, Coverage Gate). Stop hook auto-captures decisions/learnings/gotchas + detects hot files, recurring bugs, and tech-debt growth so the next session compounds.
 
 ---
 
@@ -56,6 +58,20 @@ prjct config set auto-update on    # silent self-update, throttled 1/hour
 prjct config set suggestions off   # mute proactive workflow nudges
 prjct team --enforce               # require prjct in this repo (pre-commit hook)
 ```
+
+## Upgrade (3 ways, all equivalent)
+
+| Method | Command | When to use |
+|---|---|---|
+| **Same paste prompt** | re-run Path 1 above | The default. Works whether prjct is installed or not. |
+| **CLI shortcut** | `prjct update` | If you're already in a terminal with prjct installed. Auto-detects npm/pnpm/bun/yarn/homebrew and upgrades. |
+| **Silent auto-update** | `prjct config set auto-update on` (one time) | Set and forget. Hook checks 1/hour throttled, upgrades in background, logs to `~/.prjct-cli/state/auto-update.log`. |
+
+The `install-via-claude.sh` script's output explicitly distinguishes the path:
+
+- `✓ prjct installed (via binary)` — fresh install
+- `✓ prjct upgraded 2.4.20 → v2.4.26 (via binary)` — actual upgrade
+- `✓ prjct re-verified at v2.4.26 (already current) (via binary)` — no-op (already latest)
 
 ---
 
