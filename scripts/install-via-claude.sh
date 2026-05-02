@@ -4,19 +4,19 @@
 #
 # Designed to be invoked by pasting one line into Claude Code (or any
 # AI agent's chat) and letting the agent execute it. Goal: zero terminal
-# friction.
+# friction AND zero npm/Node dependency at install time.
 #
 # Usage:
 #   curl -sSL https://raw.githubusercontent.com/jlopezlira/prjct-cli/main/scripts/install-via-claude.sh | bash
 #
 # What it does:
-#   1. Detects the runtime (bun > node)
-#   2. Installs / upgrades prjct-cli to the latest published version
-#   3. Runs `prjct setup` to install hooks + the global CLAUDE.md block
-#   4. If the cwd is a git repo, runs `prjct sync` to register the project
-#
-# Idempotent: re-running after upgrades only does the diff. Network or
-# permission failures fail loud so the user knows what to fix.
+#   1. Detects platform (mac arm64/intel + linux x64)
+#   2. Tries to download the standalone binary from the latest GitHub
+#      release (no npm needed). Falls through to npm/bun on failure.
+#   3. Installs to ~/.prjct-cli/bin/prjct, symlinks to ~/.local/bin/prjct
+#      (or /usr/local/bin/prjct as fallback)
+#   4. Runs `prjct setup` to install hooks + the global CLAUDE.md block
+#   5. If the cwd is a git repo, runs `prjct sync` to register the project
 
 set -euo pipefail
 
@@ -36,57 +36,118 @@ warn() { printf "${YELLOW}⚠${NC}  %s\n" "$1"; }
 fail() { printf "${RED}✗${NC} %s\n" "$1" >&2; exit 1; }
 note() { printf "${DIM}  %s${NC}\n" "$1"; }
 
+PRJCT_DIR="${PRJCT_DIR:-$HOME/.prjct-cli}"
+BIN_DIR="$PRJCT_DIR/bin"
+LOCAL_BIN="$HOME/.local/bin"
+
 # ---------------------------------------------------------------------------
-# 1. Runtime detection
+# 1. Platform detection
 # ---------------------------------------------------------------------------
 
-step "Detecting runtime…"
-RUNTIME=""
-if command -v bun >/dev/null 2>&1; then
-  RUNTIME="bun"
-  note "found Bun $(bun --version)"
-elif command -v npm >/dev/null 2>&1; then
-  RUNTIME="npm"
-  note "found npm $(npm --version)"
-else
-  fail "Neither Bun nor npm/Node found. Install one first: https://bun.sh or https://nodejs.org"
+step "Detecting platform…"
+KERNEL="$(uname -s | tr '[:upper:]' '[:lower:]')"
+MACHINE="$(uname -m)"
+ASSET=""
+case "$KERNEL/$MACHINE" in
+  darwin/arm64|darwin/aarch64) ASSET="prjct-darwin-arm64" ;;
+  darwin/x86_64)               ASSET="prjct-darwin-x64" ;;
+  linux/x86_64)                ASSET="prjct-linux-x64" ;;
+  *) note "no standalone binary for $KERNEL/$MACHINE — will try package manager fallback" ;;
+esac
+[ -n "$ASSET" ] && note "platform: $ASSET"
+
+# ---------------------------------------------------------------------------
+# 2a. Try standalone binary first (the user's preferred path — no npm)
+# ---------------------------------------------------------------------------
+
+INSTALLED_VIA="binary"
+DOWNLOAD_OK=false
+
+if [ -n "$ASSET" ]; then
+  step "Fetching latest release metadata…"
+  LATEST_TAG="$(curl -sSL --fail https://api.github.com/repos/jlopezlira/prjct-cli/releases/latest \
+    | grep -oE '"tag_name":\s*"[^"]+"' | head -1 | cut -d '"' -f4 || true)"
+
+  if [ -n "$LATEST_TAG" ]; then
+    URL="https://github.com/jlopezlira/prjct-cli/releases/download/$LATEST_TAG/$ASSET"
+    note "downloading $LATEST_TAG → $URL"
+    mkdir -p "$BIN_DIR"
+    if curl -sSL --fail -o "$BIN_DIR/prjct.new" "$URL"; then
+      chmod +x "$BIN_DIR/prjct.new"
+      mv "$BIN_DIR/prjct.new" "$BIN_DIR/prjct"
+      DOWNLOAD_OK=true
+    else
+      warn "binary download failed (release asset may not exist yet for this version) — falling back to package manager"
+      rm -f "$BIN_DIR/prjct.new"
+    fi
+  else
+    warn "could not query GitHub releases — falling back to package manager"
+  fi
 fi
 
 # ---------------------------------------------------------------------------
-# 2. Install or upgrade prjct-cli
+# 2b. Package manager fallback
 # ---------------------------------------------------------------------------
 
-CURRENT=""
-if command -v prjct >/dev/null 2>&1; then
-  CURRENT="$(prjct -v 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || true)"
+if [ "$DOWNLOAD_OK" = false ]; then
+  INSTALLED_VIA="pkg-manager"
+  step "Falling back to package manager…"
+  if command -v bun >/dev/null 2>&1; then
+    note "using Bun $(bun --version)"
+    bun install -g prjct-cli@latest >/dev/null 2>&1 || fail "bun install failed"
+  elif command -v npm >/dev/null 2>&1; then
+    note "using npm $(npm --version)"
+    npm install -g prjct-cli@latest >/dev/null 2>&1 || fail "npm install failed"
+  else
+    fail "Neither standalone binary nor a runtime (Bun/npm) is available. Install Bun: https://bun.sh"
+  fi
 fi
 
-if [ -n "$CURRENT" ]; then
-  step "Upgrading prjct-cli (current: v$CURRENT)…"
-else
-  step "Installing prjct-cli…"
+# ---------------------------------------------------------------------------
+# 3. Symlink so `prjct` is on PATH
+# ---------------------------------------------------------------------------
+
+if [ "$INSTALLED_VIA" = "binary" ]; then
+  step "Adding prjct to PATH…"
+  mkdir -p "$LOCAL_BIN"
+  ln -sf "$BIN_DIR/prjct" "$LOCAL_BIN/prjct"
+  if ! echo "$PATH" | tr ':' '\n' | grep -qx "$LOCAL_BIN"; then
+    # Append PATH export to the user's shell rc, with a guard comment.
+    SHELL_RC=""
+    case "${SHELL:-}" in
+      */zsh)  SHELL_RC="$HOME/.zshrc" ;;
+      */bash) SHELL_RC="$HOME/.bashrc" ;;
+    esac
+    if [ -n "$SHELL_RC" ]; then
+      if ! grep -qF "# prjct: add ~/.local/bin to PATH" "$SHELL_RC" 2>/dev/null; then
+        printf "\n# prjct: add ~/.local/bin to PATH\nexport PATH=\"\$HOME/.local/bin:\$PATH\"\n" >> "$SHELL_RC"
+        note "appended PATH export to $SHELL_RC — open a new shell or run 'source $SHELL_RC'"
+      fi
+    else
+      warn "couldn't detect your shell rc — add this to your shell config: export PATH=\"\$HOME/.local/bin:\$PATH\""
+    fi
+  fi
+  # Make `prjct` resolvable in this script run too.
+  export PATH="$LOCAL_BIN:$PATH"
 fi
 
-if [ "$RUNTIME" = "bun" ]; then
-  bun install -g prjct-cli@latest >/dev/null 2>&1 || fail "bun install failed"
-else
-  npm install -g prjct-cli@latest >/dev/null 2>&1 || fail "npm install failed"
+# Verify install
+if ! command -v prjct >/dev/null 2>&1; then
+  fail "prjct didn't end up on PATH — please add $LOCAL_BIN to your PATH manually"
 fi
 
 NEW="$(prjct -v 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || echo unknown)"
-note "installed v$NEW"
+note "installed v$NEW (via $INSTALLED_VIA)"
 
 # ---------------------------------------------------------------------------
-# 3. Setup (hooks + global CLAUDE.md)
+# 4. Setup (hooks + global CLAUDE.md)
 # ---------------------------------------------------------------------------
 
 step "Wiring hooks + global CLAUDE.md (lookup-first)…"
-# `prjct setup` is interactive when stdin is a TTY. Force the headless
-# path here so we don't hang in `bash -c` from an LLM-driven invocation.
 PRJCT_NONINTERACTIVE=1 prjct setup --quiet 2>/dev/null || warn "setup encountered non-fatal warnings; check 'prjct doctor' if anything looks off"
 
 # ---------------------------------------------------------------------------
-# 4. If we're in a git repo, register the project
+# 5. Register cwd if it's a git repo
 # ---------------------------------------------------------------------------
 
 if git rev-parse --show-toplevel >/dev/null 2>&1; then
@@ -100,8 +161,8 @@ fi
 # Done
 # ---------------------------------------------------------------------------
 
-printf "\n${GREEN}✓${NC} prjct v$NEW ready.\n"
+printf "\n${GREEN}✓${NC} prjct v$NEW ready (installed via $INSTALLED_VIA).\n"
 printf "${DIM}  Next:${NC}\n"
 printf "${DIM}    - Open Claude Code in any project — the lookup-first protocol kicks in automatically${NC}\n"
-printf "${DIM}    - Try: /p:remember decision \"…\"  or  prjct capture \"…\"${NC}\n"
-printf "${DIM}    - Quality workflows live inside the prjct skill: ask Claude to \"review\", \"qa\", \"investigate\", or \"security check\" the current branch.${NC}\n"
+printf "${DIM}    - Try: prjct capture \"a thought\"  or  prjct task \"the thing I'm working on\"${NC}\n"
+printf "${DIM}    - Quality workflows: ask Claude to \"review\", \"qa\", \"investigate\", or \"security check\" the current branch.${NC}\n"
