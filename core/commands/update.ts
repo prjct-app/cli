@@ -159,28 +159,34 @@ function selectPackageManager(): PkgManager {
   )
 }
 
-/**
- * Read the installed prjct-cli version from any known global node_modules.
- * Independent of which package manager binary is on PATH.
- */
-function getCurrentVersion(): string | null {
-  const roots = [
-    MANAGERS.bun.getInstallRoot(),
-    MANAGERS.pnpm.getInstallRoot(),
-    MANAGERS.npm.getInstallRoot(),
-    MANAGERS.yarn.getInstallRoot(),
-  ].filter((p): p is string => !!p)
+interface InstalledLocation {
+  pm: PkgManager
+  version: string
+}
 
-  for (const root of roots) {
+/**
+ * Find every package manager that has prjct-cli installed globally.
+ * Returns one entry per manager, with the version read from its package.json.
+ * Use this to update all installs (not just the running binary's manager) —
+ * users with multiple installs (e.g. bun + nvm npm) hit PATH-resolution bugs
+ * where updating one leaves the other stale and shadowing it.
+ */
+function getAllInstalledLocations(): InstalledLocation[] {
+  const found: InstalledLocation[] = []
+  for (const pm of [MANAGERS.bun, MANAGERS.pnpm, MANAGERS.npm, MANAGERS.yarn]) {
+    const root = pm.getInstallRoot()
+    if (!root) continue
     const pkgPath = path.join(root, 'prjct-cli', 'package.json')
     try {
       const pkg = JSON.parse(require('node:fs').readFileSync(pkgPath, 'utf-8'))
-      if (pkg?.name === 'prjct-cli' && typeof pkg.version === 'string') return pkg.version
+      if (pkg?.name === 'prjct-cli' && typeof pkg.version === 'string') {
+        found.push({ pm, version: pkg.version })
+      }
     } catch {
-      // try next root
+      // not installed via this manager
     }
   }
-  return null
+  return found
 }
 
 export class UpdateCommands extends PrjctCommandsBase {
@@ -261,29 +267,39 @@ export class UpdateCommands extends PrjctCommandsBase {
 
   private async phasePackageUpdate(dryRun: boolean): Promise<PhaseResult> {
     const result: PhaseResult = { success: true, details: [], errors: [] }
-    const versionBefore = getCurrentVersion()
+    const installsBefore = getAllInstalledLocations()
 
     if (dryRun) {
       const homebrew = isHomebrewInstall()
-      let pmName: string
-      try {
-        pmName = selectPackageManager().name
-      } catch (err) {
-        pmName = '<none-available>'
-        result.errors.push(getErrorMessage(err))
-      }
       if (homebrew) {
+        let pmName: string
+        try {
+          pmName = selectPackageManager().name
+        } catch (err) {
+          pmName = '<none-available>'
+          result.errors.push(getErrorMessage(err))
+        }
         result.details.push('Would uninstall homebrew formula')
         result.details.push(`Would install via ${pmName}`)
+      } else if (installsBefore.length === 0) {
+        let pmName: string
+        try {
+          pmName = selectPackageManager().name
+        } catch (err) {
+          pmName = '<none-available>'
+          result.errors.push(getErrorMessage(err))
+        }
+        result.details.push(`Would install via ${pmName}`)
       } else {
-        result.details.push(`Would reinstall via ${pmName}`)
+        for (const { pm, version } of installsBefore) {
+          result.details.push(`Would reinstall via ${pm.name} (currently v${version})`)
+        }
       }
       return result
     }
 
     try {
       const homebrew = isHomebrewInstall()
-      const pm = selectPackageManager()
 
       if (homebrew) {
         // Migrate from homebrew to a node package manager
@@ -293,23 +309,66 @@ export class UpdateCommands extends PrjctCommandsBase {
         } catch {
           result.details.push('Homebrew uninstall skipped (not found)')
         }
+      }
 
-        execSync([pm.name, ...pm.installArgs].join(' '), { stdio: 'pipe' })
-        result.details.push(`Installed via ${pm.name}`)
+      // Determine which managers to install with:
+      // - If installs already exist, update each of them (preserves user's
+      //   chosen PMs; fixes PATH-shadowing when there are duplicates).
+      // - Otherwise (homebrew migration or fresh install), use the detected PM.
+      let targets: PkgManager[]
+      if (installsBefore.length > 0) {
+        targets = installsBefore.map((i) => i.pm)
       } else {
-        // Use install @latest (rather than `update`) to bypass semver range
-        // constraints and always fetch the true latest from the registry.
-        execSync([pm.name, ...pm.installArgs].join(' '), { stdio: 'pipe' })
-        result.details.push(`${pm.name} install complete`)
+        targets = [selectPackageManager()]
       }
 
-      // Verify version
-      const versionAfter = getCurrentVersion()
-      if (versionBefore && versionAfter && versionBefore !== versionAfter) {
-        result.details.push(`${versionBefore} → ${versionAfter}`)
-      } else if (versionAfter) {
-        result.details.push(`v${versionAfter} (already latest)`)
+      for (const pm of targets) {
+        if (!isOnPath(pm.name)) {
+          result.errors.push(
+            `${pm.name} is not on PATH but has a prjct-cli install. ` +
+              `Either install ${pm.name} or remove that copy.`
+          )
+          continue
+        }
+        try {
+          // Use install @latest (rather than `update`) to bypass semver range
+          // constraints and always fetch the true latest from the registry.
+          execSync([pm.name, ...pm.installArgs].join(' '), { stdio: 'pipe' })
+          result.details.push(`${pm.name} install complete`)
+        } catch (err) {
+          result.errors.push(`${pm.name}: ${getErrorMessage(err)}`)
+        }
       }
+
+      // Per-install version transitions
+      const installsAfter = getAllInstalledLocations()
+      const beforeMap = new Map(installsBefore.map((i) => [i.pm.name, i.version]))
+      const transitions: string[] = []
+      let anyChange = false
+
+      for (const { pm, version } of installsAfter) {
+        const before = beforeMap.get(pm.name)
+        if (before && before !== version) {
+          transitions.push(`${pm.name}: ${before} → ${version}`)
+          anyChange = true
+        } else if (!before) {
+          transitions.push(`${pm.name}: installed v${version}`)
+          anyChange = true
+        }
+      }
+
+      if (transitions.length > 1) {
+        // Multiple installs: list them all so user knows everything got synced
+        for (const t of transitions) result.details.push(t)
+      } else if (transitions.length === 1) {
+        result.details.push(transitions[0]!)
+      } else if (installsAfter.length > 0) {
+        result.details.push(`v${installsAfter[0]!.version} (already latest)`)
+      }
+
+      // Warn about installs that exist post-update but weren't there before
+      // (shouldn't happen — but in case homebrew left something behind)
+      void anyChange
     } catch (err) {
       result.success = false
       result.errors.push(getErrorMessage(err))
