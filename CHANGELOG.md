@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.11.0] - 2026-05-02
+
+### Features
+
+- verb intent map + suggest/auto-execute protocol (UX phase 1+2) (#299)
+
+
 ## [2.10.1] - 2026-05-02
 
 ### Bug Fixes
