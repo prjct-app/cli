@@ -69,6 +69,7 @@ const _binCommands = new Set([
   '--version',
   'mcp',
   'prefs',
+  'retro',
 ])
 
 // v2 verbs registered in the command registry — imported from the single
@@ -515,6 +516,15 @@ async function main(): Promise<void> {
     else {
       console.error(`Unknown seed subcommand: ${sub}. Use: add, remove, list, suggest.`)
     }
+    process.exitCode = result.success ? 0 : 1
+  } else if (args[0] === 'retro') {
+    // `prjct retro [window]` — gstack-style weekly engineering retro.
+    // Window defaults to 7d; accepts NNh / NNd up to 365d.
+    const windowArg = args.slice(1).find((a) => !a.startsWith('-')) ?? null
+    const mdMode = args.includes('--md')
+    const { RetroCommands } = await import('../core/commands/retro')
+    const cmd = new RetroCommands()
+    const result = await cmd.retro(windowArg, process.cwd(), { md: mdMode })
     process.exitCode = result.success ? 0 : 1
   } else if (args[0] === 'prefs') {
     // `prjct prefs list|get|check|set|clear [...]` — gstack-inspired
