@@ -345,6 +345,24 @@ jobs:
             . || true
           sha256sum prjct-cli-$VERSION.tar.gz > checksums.txt
 
+      # M5: standalone binaries via `bun build --compile`. Embeds the bun
+      # runtime so users can install prjct without npm/node/bun. The
+      # install-via-claude.sh script auto-detects platform and downloads
+      # the right asset; npm install -g remains the documented fallback.
+      - name: Build standalone binaries
+        if: ${{ !inputs.dry_run }}
+        run: |
+          mkdir -p dist-binaries
+          # Mac arm64 + intel + Linux x64. Add windows-x64 / linux-arm64
+          # if there's demand — bun supports both.
+          for target in bun-darwin-arm64 bun-darwin-x64 bun-linux-x64; do
+            out="dist-binaries/prjct-${target#bun-}"
+            echo "Compiling $out…"
+            bun build --compile --target=$target ./bin/prjct.ts --outfile "$out"
+          done
+          (cd dist-binaries && sha256sum prjct-* >> ../checksums.txt)
+          ls -lh dist-binaries
+
       - name: Create GitHub Release
         if: ${{ !inputs.dry_run }}
         uses: softprops/action-gh-release@v2
@@ -354,16 +372,30 @@ jobs:
           files: |
             prjct-cli-${{ steps.version.outputs.new }}.tar.gz
             checksums.txt
+            dist-binaries/prjct-darwin-arm64
+            dist-binaries/prjct-darwin-x64
+            dist-binaries/prjct-linux-x64
           body: |
             ${{ steps.changelog.outputs.ENTRY }}
 
             ## Installation
 
-            ```bash
-            # Bun (recommended)
-            bun install -g prjct-cli@${{ steps.version.outputs.new }}
+            ### One-paste (no npm needed)
 
-            # npm
+            Paste this into Claude Code (or any AI agent):
+
+            ```bash
+            curl -sSL https://raw.githubusercontent.com/jlopezlira/prjct-cli/main/scripts/install-via-claude.sh | bash
+            ```
+
+            The script downloads the standalone binary for your platform
+            from this release — no Node, no npm, no Bun required at install time.
+
+            ### Package manager (fallback)
+
+            ```bash
+            bun install -g prjct-cli@${{ steps.version.outputs.new }}
+            # or
             npm install -g prjct-cli@${{ steps.version.outputs.new }}
             ```
 
