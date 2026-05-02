@@ -26,6 +26,7 @@ import { PrimitiveCommands } from './primitives'
 import { SeedCommands } from './seed'
 import { SetupCommands } from './setup'
 import { ShippingCommands } from './shipping'
+import { TeamCommands } from './team'
 import { UpdateCommands } from './update'
 import { WorkflowCommands } from './workflow'
 
@@ -47,6 +48,7 @@ class PrjctCommands {
   private installCmds: InstallCommands
   private captureCmds: CaptureCommands
   private mcpCmds: McpCommands
+  private teamCmds: TeamCommands
 
   // Shared state
   agent: unknown
@@ -67,6 +69,7 @@ class PrjctCommands {
     this.installCmds = new InstallCommands()
     this.captureCmds = new CaptureCommands()
     this.mcpCmds = new McpCommands()
+    this.teamCmds = new TeamCommands()
 
     this.agent = null
     this.agentInfo = null
@@ -220,6 +223,14 @@ class PrjctCommands {
     options: { md?: boolean } = {}
   ): Promise<CommandResult> {
     return this.mcpCmds.mcp(input, projectPath, options)
+  }
+
+  async team(
+    input: string | null = null,
+    projectPath: string = process.cwd(),
+    options: { md?: boolean; required?: boolean; minVersion?: string } = {}
+  ): Promise<CommandResult> {
+    return this.teamCmds.team(input, projectPath, options)
   }
 
   // ========== Auth Commands ==========

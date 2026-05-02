@@ -20,6 +20,7 @@ import { commandRegistry } from './registry'
 import { SeedCommands } from './seed'
 import { SetupCommands } from './setup'
 import { ShippingCommands } from './shipping'
+import { TeamCommands } from './team'
 import { UninstallCommands } from './uninstall'
 import { UpdateCommands } from './update'
 import { WorkflowCommands } from './workflow'
@@ -38,6 +39,7 @@ const seedCmd = new SeedCommands()
 const installCmd = new InstallCommands()
 const captureCmd = new CaptureCommands()
 const mcpCmd = new McpCommands()
+const teamCmd = new TeamCommands()
 
 /**
  * Register categories
@@ -113,6 +115,10 @@ function registerAllCommands(): void {
   // Per-project MCP scoping — list/deny/allow MCP servers, persisted to
   // `.claude/settings.local.json` so other projects stay untouched.
   commandRegistry.registerMethod('mcp', mcpCmd, 'mcp', getMeta('mcp'))
+
+  // M4: team mode. Writes .prjct/team.json + .claude/CLAUDE.md (per-project)
+  // and stages them. Teammates pick up the same expectations from the repo.
+  commandRegistry.registerMethod('team', teamCmd, 'team', getMeta('team'))
 }
 
 // Auto-register on import — this module is imported only for its side effect
