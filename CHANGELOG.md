@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.3.8] - 2026-05-02
+
+### Bug Fixes
+
+- runtime-resolve npm for zsh+nvm setups
+- collapse legacy unmanaged duplicates on install
+- runtime-agnostic package manager handling
+
+
 ## [2.3.7] - 2026-05-01
 
 ### Bug Fixes
