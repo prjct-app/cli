@@ -9,6 +9,7 @@ import * as authorDetector from '../infrastructure/author-detector'
 import commandInstaller from '../infrastructure/command-installer'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
+import { writeProjectClaudeMd } from '../services/project-claude-md'
 import { workflowRuleStorage } from '../storage/workflow-rule-storage'
 import type { CommandResult, InitOptions } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
@@ -183,6 +184,10 @@ export class PlanningCommands extends PrjctCommandsBase {
       }
 
       await commandInstaller.installGlobalConfig()
+      // Write the per-project CLAUDE.md routing block so Claude Code
+      // sessions in this directory pick up the prjct contract on cwd
+      // entry. Best-effort — a missing/locked file degrades silently.
+      await writeProjectClaudeMd(projectPath).catch(() => {})
 
       out.done('initialized')
       this._printNextSteps(wizardResult)
@@ -198,10 +203,20 @@ export class PlanningCommands extends PrjctCommandsBase {
    */
   private _printNextSteps(wizardResult: import('../types/workflows').WizardResult | null): void {
     console.log('')
-    console.log('  Quick start:')
-    console.log('    prjct sync     Update context after changes')
-    console.log('    prjct task     Start working on a task')
-    console.log('    prjct hooks    Auto-sync on commit/checkout')
+    console.log('  ✓ skill installed at ~/.claude/skills/prjct/')
+    console.log('  ✓ project CLAUDE.md updated with routing block')
+    console.log('')
+    console.log("  You don't run prjct commands. Claude does.")
+    console.log('')
+    console.log("  Just describe what you're doing — Claude reads the intent and")
+    console.log('  runs the right verb. Routine captures (decision, learning,')
+    console.log('  gotcha, idea) save automatically; ship and other destructive')
+    console.log('  verbs surface a one-line plan and wait for your OK.')
+    console.log('')
+    console.log('  If you want to drive manually:')
+    console.log('    prjct sync       Refresh context + skill body')
+    console.log('    prjct task       Start a task')
+    console.log('    prjct hooks      Auto-sync on commit/checkout')
     console.log('')
 
     if (wizardResult) {
