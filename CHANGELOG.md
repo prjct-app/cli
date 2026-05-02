@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.9.0] - 2026-05-02
+
+### Features
+
+- prjct health — composite quality dashboard (gstack Fase C/5) (#295)
+
+
 ## [2.8.0] - 2026-05-02
 
 ### Features
