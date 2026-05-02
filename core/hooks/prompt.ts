@@ -197,6 +197,57 @@ async function captureGit(projectPath: string): Promise<GitSnapshot> {
   return { branch, modified, staged, untracked, ahead }
 }
 
+/**
+ * Read the most recent improvement-signals captured by the friction
+ * detector at the previous session's Stop hook. Surfaces ONCE per
+ * signal: as soon as the LLM (or the user) acts on a signal, it
+ * should be addressed — repeated injection across turns is noise.
+ *
+ * Implementation note: we cap surfacing at the 3 newest signals from
+ * the last 24h, so a single noisy session can't flood the prompt
+ * context indefinitely.
+ */
+export async function buildImprovementSignals(projectPath: string): Promise<string | null> {
+  const config = await configManager.readConfig(projectPath)
+  if (!config?.projectId) return null
+
+  let signals: MemoryEntry[] = []
+  try {
+    signals = projectMemory.recall(config.projectId, {
+      types: ['improvement-signal'],
+      tags: { source: 'friction-detector' },
+      limit: 8,
+    })
+  } catch {
+    return null
+  }
+  if (signals.length === 0) return null
+
+  // Keep only signals from the last 24h. Older ones either got
+  // addressed or aren't pressing — surfacing them on every turn
+  // forever would be noise.
+  const recentCutoff = Date.now() - 24 * 60 * 60 * 1000
+  const recent = signals.filter((e) => Date.parse(e.rememberedAt) > recentCutoff).slice(0, 3)
+  if (recent.length === 0) return null
+
+  const lines: string[] = ['# prjct: improvement signals (from prior session)']
+  lines.push('')
+  lines.push(
+    `${recent.length} friction moment${recent.length === 1 ? '' : 's'} captured at last session-end. Consider whether any of these are relevant to what the user is asking now — if so, propose a fix proactively. Otherwise ignore.`
+  )
+  lines.push('')
+  for (const e of recent) {
+    const category = e.tags.category ?? 'unknown'
+    const oneLine = e.content.split('\n')[0] ?? ''
+    lines.push(`- [${category}] ${oneLine}`)
+  }
+  lines.push('')
+  lines.push(
+    '> If the user explicitly addresses one, drop it from rotation by `prjct remember decision "<resolution>" --tags resolves:improvement-signal`.'
+  )
+  return lines.join('\n')
+}
+
 function formatRelative(isoTimestamp: string): string {
   if (!isoTimestamp) return 'unknown'
   const t = Date.parse(isoTimestamp)
@@ -220,13 +271,15 @@ export async function runPromptHook(projectPath: string = process.cwd()): Promis
       emit({})
       return
     }
-    // Two pass: state (for intent disambiguation) + memory (for topical recall).
-    // Concatenate when both have content; either alone is fine; both null → no-op.
-    const [state, memory] = await Promise.all([
+    // Three pass: state (for intent disambiguation) + memory (for topical
+    // recall) + improvement signals (proactive UX nudges from prior
+    // sessions). All independent, each silently null'd on failure.
+    const [state, memory, signals] = await Promise.all([
       buildProjectState(projectPath),
       buildPromptContext(projectPath, prompt),
+      buildImprovementSignals(projectPath),
     ])
-    const blocks = [state, memory].filter((b): b is string => Boolean(b))
+    const blocks = [state, signals, memory].filter((b): b is string => Boolean(b))
     if (blocks.length === 0) {
       emit(buildHookOutput('UserPromptSubmit', null))
       return
