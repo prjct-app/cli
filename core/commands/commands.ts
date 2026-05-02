@@ -20,6 +20,7 @@ import { AnalysisCommands } from './analysis'
 import { CaptureCommands } from './capture'
 import { ContextCommands } from './context'
 import { InstallCommands } from './install'
+import { McpCommands } from './mcp'
 import { PlanningCommands } from './planning'
 import { PrimitiveCommands } from './primitives'
 import { SeedCommands } from './seed'
@@ -45,6 +46,7 @@ class PrjctCommands {
   private seedCmds: SeedCommands
   private installCmds: InstallCommands
   private captureCmds: CaptureCommands
+  private mcpCmds: McpCommands
 
   // Shared state
   agent: unknown
@@ -64,6 +66,7 @@ class PrjctCommands {
     this.seedCmds = new SeedCommands()
     this.installCmds = new InstallCommands()
     this.captureCmds = new CaptureCommands()
+    this.mcpCmds = new McpCommands()
 
     this.agent = null
     this.agentInfo = null
@@ -209,6 +212,14 @@ class PrjctCommands {
     options: { md?: boolean; tags?: string; force?: boolean } = {}
   ): Promise<CommandResult> {
     return this.captureCmds.capture(content, projectPath, options)
+  }
+
+  async mcp(
+    input: string | null = null,
+    projectPath: string = process.cwd(),
+    options: { md?: boolean } = {}
+  ): Promise<CommandResult> {
+    return this.mcpCmds.mcp(input, projectPath, options)
   }
 
   // ========== Auth Commands ==========

@@ -13,6 +13,7 @@ import { CaptureCommands } from './capture'
 import { CATEGORIES, COMMANDS } from './command-data'
 import { ContextCommands } from './context'
 import { InstallCommands } from './install'
+import { McpCommands } from './mcp'
 import { PlanningCommands } from './planning'
 import { PrimitiveCommands } from './primitives'
 import { commandRegistry } from './registry'
@@ -36,6 +37,7 @@ const updateCmd = new UpdateCommands()
 const seedCmd = new SeedCommands()
 const installCmd = new InstallCommands()
 const captureCmd = new CaptureCommands()
+const mcpCmd = new McpCommands()
 
 /**
  * Register categories
@@ -107,6 +109,10 @@ function registerAllCommands(): void {
   // v2 alpha.9: `capture` — GTD inbox. Also the target of the bare
   // `prjct "<text>"` auto-route (replacing `task` — see core/index.ts).
   commandRegistry.registerMethod('capture', captureCmd, 'capture', getMeta('capture'))
+
+  // Per-project MCP scoping — list/deny/allow MCP servers, persisted to
+  // `.claude/settings.local.json` so other projects stay untouched.
+  commandRegistry.registerMethod('mcp', mcpCmd, 'mcp', getMeta('mcp'))
 }
 
 // Auto-register on import — this module is imported only for its side effect

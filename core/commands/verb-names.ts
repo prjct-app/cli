@@ -26,6 +26,7 @@ const REGISTERED_VERBS = [
   'seed',
   'install',
   'capture',
+  'mcp',
 ] as const
 
 export const REGISTERED_VERBS_SET: ReadonlySet<string> = new Set(REGISTERED_VERBS)

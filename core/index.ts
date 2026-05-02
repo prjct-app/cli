@@ -239,6 +239,8 @@ async function main(): Promise<void> {
             tags: options.tags ? String(options.tags) : undefined,
             force: options.force === true,
           }),
+        // Per-project MCP scoping
+        mcp: (p) => commands.mcp(p, process.cwd(), { md }),
       }
 
       const handler = standardCommands[commandName]

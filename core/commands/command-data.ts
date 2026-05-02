@@ -196,6 +196,24 @@ export const COMMANDS: CommandMeta[] = [
     ],
   },
   {
+    name: 'mcp',
+    group: 'core',
+    description: 'List / deny / allow MCP servers per-project (~/.claude/settings.local.json)',
+    usage: {
+      claude: '/p:mcp list',
+      terminal: 'prjct mcp deny claude_ai_PostHog',
+    },
+    params: '[list|status|deny|allow] [serverName]',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: false,
+    features: [
+      'Project-local — never touches your other projects',
+      'Knows the well-known cloud MCPs from claude.ai (PostHog, Atlassian, etc.)',
+      'Tells you exactly what to do next (Claude Code restart) — no guessing',
+    ],
+  },
+  {
     name: 'install',
     group: 'core',
     description: 'Install Claude Code hooks (~/.claude/settings.json merge-safe)',
