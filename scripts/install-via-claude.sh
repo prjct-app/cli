@@ -40,6 +40,14 @@ PRJCT_DIR="${PRJCT_DIR:-$HOME/.prjct-cli}"
 BIN_DIR="$PRJCT_DIR/bin"
 LOCAL_BIN="$HOME/.local/bin"
 
+# Defaults for variables we read after `set -u` is in effect. Never
+# remove these — see fix line ~165 (CURRENT unbound) regression in
+# v2.4.28.
+CURRENT=""
+NEW="unknown"
+INSTALLED_VIA="unknown"
+DOWNLOAD_OK=false
+
 # ---------------------------------------------------------------------------
 # 1. Platform detection
 # ---------------------------------------------------------------------------
@@ -163,9 +171,36 @@ fi
 
 VERB="installed"
 if [ -n "$CURRENT" ] && [ "$CURRENT" != "$NEW" ]; then
-  VERB="upgraded $CURRENT → v$NEW"
+  VERB="upgraded v$CURRENT → v$NEW"
 elif [ -n "$CURRENT" ] && [ "$CURRENT" = "$NEW" ]; then
   VERB="re-verified at v$NEW (already current)"
+fi
+
+# ---------------------------------------------------------------------------
+# 6. PATH shadow detection — warn if an older `prjct` (e.g. from a stale
+#    pnpm/yarn/homebrew install) is winning the PATH lookup over the
+#    binary we just put in $LOCAL_BIN. Without this the user sees the
+#    OLD version on `prjct -v` and assumes the install failed.
+# ---------------------------------------------------------------------------
+
+ACTIVE_PRJCT="$(command -v prjct 2>/dev/null || true)"
+EXPECTED_PRJCT_BINARY="$BIN_DIR/prjct"
+EXPECTED_PRJCT_SYMLINK="$LOCAL_BIN/prjct"
+
+if [ -n "$ACTIVE_PRJCT" ] && [ "$ACTIVE_PRJCT" != "$EXPECTED_PRJCT_BINARY" ] && [ "$ACTIVE_PRJCT" != "$EXPECTED_PRJCT_SYMLINK" ]; then
+  warn "PATH shadow detected: 'prjct' resolves to $ACTIVE_PRJCT (not the install we just placed at $EXPECTED_PRJCT_SYMLINK)."
+  ACTIVE_VERSION="$($ACTIVE_PRJCT -v 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || echo unknown)"
+  printf "${DIM}    Active path version: %s — expected: v%s${NC}\n" "$ACTIVE_VERSION" "$NEW"
+  printf "${DIM}    Likely a stale pnpm / yarn / homebrew install. Remove it:${NC}\n"
+  case "$ACTIVE_PRJCT" in
+    */pnpm/*)        printf "${DIM}      pnpm rm -g prjct-cli${NC}\n" ;;
+    */yarn/*)        printf "${DIM}      yarn global remove prjct-cli${NC}\n" ;;
+    */homebrew/*|*/Cellar/*)
+                     printf "${DIM}      brew uninstall prjct-cli${NC}\n" ;;
+    */bun/*)         printf "${DIM}      bun remove -g prjct-cli${NC}\n" ;;
+    *)               printf "${DIM}      (manually remove %s)${NC}\n" "$ACTIVE_PRJCT" ;;
+  esac
+  printf "${DIM}    Then start a new shell (or 'hash -r') and re-run this install command.${NC}\n"
 fi
 
 printf "\n${GREEN}✓${NC} prjct %s (via $INSTALLED_VIA).\n" "$VERB"

@@ -56,10 +56,25 @@ export function getPackageRoot(): string {
 }
 
 /**
- * Get the current application version from package.json
+ * Get the current application version.
+ *
+ * Resolution order:
+ *   1. `process.env.PRJCT_VERSION` — baked in at build time via
+ *      `bun build --compile --define`. Standalone binaries MUST
+ *      use this path because their compiled __dirname points at the
+ *      CI runner's filesystem (which doesn't exist on the user's box).
+ *   2. `package.json` walked up from __dirname — works for source +
+ *      dist runs where the package is installed normally.
+ *   3. `'0.0.0'` — last-resort fallback so the binary still functions.
  */
 export function getVersion(): string {
   if (cachedVersion) {
+    return cachedVersion
+  }
+
+  const baked = process.env.PRJCT_VERSION
+  if (baked && /^\d+\.\d+\.\d+/.test(baked)) {
+    cachedVersion = baked
     return cachedVersion
   }
 
@@ -69,7 +84,12 @@ export function getVersion(): string {
     cachedVersion = packageJson.version
     return cachedVersion
   } catch (error) {
-    console.error('Failed to read version from package.json:', getErrorMessage(error))
+    // Stay silent in standalone binaries — the env-var fallback above
+    // covered the expected path. Logging here would surface the
+    // internal "looking for /home/runner/..." path to the user.
+    if (process.env.PRJCT_DEBUG === '1') {
+      console.error('Failed to read version from package.json:', getErrorMessage(error))
+    }
     return '0.0.0'
   }
 }

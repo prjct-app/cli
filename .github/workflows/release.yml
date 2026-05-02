@@ -354,19 +354,30 @@ jobs:
       # runtime so users can install prjct without npm/node/bun. The
       # install-via-claude.sh script auto-detects platform and downloads
       # the right asset; npm install -g remains the documented fallback.
+      #
+      # The --define for process.env.PRJCT_VERSION is critical: at
+      # runtime in the standalone binary, __dirname points at the CI
+      # runner's filesystem which doesn't exist on the user's box, so
+      # version.ts can't read package.json from disk. Baking the version
+      # in at build time solves this. Without --define every binary
+      # reports v0.0.0 with a noisy ENOENT log on first invocation.
       - name: Build standalone binaries
         if: ${{ !inputs.dry_run }}
         run: |
           mkdir -p dist-binaries
-          # Mac arm64 + intel + Linux x64. Add windows-x64 / linux-arm64
-          # if there's demand — bun supports both.
+          VERSION=${{ steps.version.outputs.new }}
           for target in bun-darwin-arm64 bun-darwin-x64 bun-linux-x64; do
             out="dist-binaries/prjct-${target#bun-}"
-            echo "Compiling $out…"
-            bun build --compile --target=$target ./bin/prjct.ts --outfile "$out"
+            echo "Compiling $out (PRJCT_VERSION=$VERSION)…"
+            bun build --compile --target=$target \
+              --define='process.env.PRJCT_VERSION="'"$VERSION"'"' \
+              ./bin/prjct.ts --outfile "$out"
           done
           (cd dist-binaries && sha256sum prjct-* >> ../checksums.txt)
           ls -lh dist-binaries
+          # Smoke check — the just-built linux binary should report the
+          # right version (we run it on the CI runner which is linux x64).
+          ./dist-binaries/prjct-linux-x64 -v | head -1
 
       - name: Create GitHub Release
         if: ${{ !inputs.dry_run }}
