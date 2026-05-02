@@ -107,5 +107,15 @@ export async function runSessionStartHook(projectPath: string = process.cwd()): 
     if (!isSyncCurrent(VERSION)) {
       await runSelfHeal(VERSION).catch(() => undefined)
     }
+
+    // M5: opt-in silent auto-update. No-op unless the user has opted
+    // in via `prjct config set auto-update on`. Throttled to 1/hour
+    // and runs detached so the session never waits.
+    try {
+      const { maybeAutoUpdate } = await import('../services/auto-updater')
+      maybeAutoUpdate(VERSION)
+    } catch {
+      // never block the session on update mechanics
+    }
   })
 }

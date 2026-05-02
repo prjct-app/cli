@@ -449,6 +449,8 @@ async function executeCommand(
         required: opts.required === true,
         minVersion: opts['min-version'] ? String(opts['min-version']) : undefined,
       })
+    case 'config':
+      return commands!.config(param, request.cwd, { md })
     default:
       // Standard commands without special option handling
       return commandRegistry.execute(request.command, param, request.cwd)

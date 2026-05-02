@@ -18,6 +18,7 @@ import type { AgentInfo } from '../types/agents'
 import type { AnalyzeOptions, Author, CommandResult, SetupOptions } from '../types/commands'
 import { AnalysisCommands } from './analysis'
 import { CaptureCommands } from './capture'
+import { ConfigCommands } from './config'
 import { ContextCommands } from './context'
 import { InstallCommands } from './install'
 import { McpCommands } from './mcp'
@@ -49,6 +50,7 @@ class PrjctCommands {
   private captureCmds: CaptureCommands
   private mcpCmds: McpCommands
   private teamCmds: TeamCommands
+  private configCmds: ConfigCommands
 
   // Shared state
   agent: unknown
@@ -70,6 +72,7 @@ class PrjctCommands {
     this.captureCmds = new CaptureCommands()
     this.mcpCmds = new McpCommands()
     this.teamCmds = new TeamCommands()
+    this.configCmds = new ConfigCommands()
 
     this.agent = null
     this.agentInfo = null
@@ -231,6 +234,14 @@ class PrjctCommands {
     options: { md?: boolean; required?: boolean; minVersion?: string } = {}
   ): Promise<CommandResult> {
     return this.teamCmds.team(input, projectPath, options)
+  }
+
+  async config(
+    input: string | null = null,
+    projectPath: string = process.cwd(),
+    options: { md?: boolean } = {}
+  ): Promise<CommandResult> {
+    return this.configCmds.config(input, projectPath, options)
   }
 
   // ========== Auth Commands ==========

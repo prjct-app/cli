@@ -19,6 +19,22 @@
 let _fastArgs = process.argv.slice(2)
 let _fastCommand = _fastArgs.find((a) => !a.startsWith('--') && !a.startsWith('-'))
 
+// M5: internal hook — `prjct __internal-auto-update <currentVersion>`
+// is invoked by the SessionStart hook as a detached child to perform a
+// silent update. Handled here BEFORE the heavy imports so the rest of
+// the CLI plumbing never loads in this child.
+if (_fastCommand === '__internal-auto-update') {
+  const currentVersion = _fastArgs[1] ?? ''
+  try {
+    const { runBackgroundCheck } = await import('../core/services/auto-updater')
+    await runBackgroundCheck(currentVersion)
+  } catch {
+    // Detached child — never crash visibly. Errors are logged to
+    // ~/.prjct-cli/state/auto-update.log inside runBackgroundCheck.
+  }
+  process.exit(0)
+}
+
 // Commands that bin/prjct.ts handles directly (NOT routed through daemon).
 // Note: mcp must stay here because its interactive multi-select needs TTY on
 // stdin/stdout — the detached daemon process has no TTY and would silently
