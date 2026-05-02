@@ -673,7 +673,7 @@ async function ensureStatusLineSettings(
  * Creates symlink at ~/.claude/prjct-statusline.sh
  * Updates CLI_VERSION in the script
  */
-async function installStatusLine(): Promise<void> {
+export async function installStatusLine(): Promise<void> {
   try {
     const claudeDir = path.join(os.homedir(), '.claude')
     const settingsPath = path.join(claudeDir, 'settings.json')
