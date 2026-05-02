@@ -172,7 +172,7 @@ import{connect}from"node:net";import{existsSync}from"node:fs";import{randomUUID}
 const sockPath=homedir()+"/.prjct-cli/run/daemon.sock";
 const args=process.argv.slice(2);
 const cmd=args.find(a=>!a.startsWith("-"));
-const skip=new Set(["daemon","stop","restart","start","setup","update","dev","web","serve","context","hooks","doctor","uninstall","watch","help","-h","--help","version","-v","--version","claude","hook","seed","install","crew","mcp"]);
+const skip=new Set(["daemon","stop","restart","start","setup","update","dev","web","serve","context","hooks","doctor","uninstall","watch","help","-h","--help","version","-v","--version","claude","hook","seed","install","crew","mcp","prefs"]);
 if(cmd&&!skip.has(cmd)&&process.env.PRJCT_NO_DAEMON!=="1"&&existsSync(sockPath)){
   const cArgs=[],cOpts={};
   for(let i=0;i<args.length;i++){const a=args[i];if(a.startsWith("--")){const r=a.slice(2);if(r.includes("=")){const e=r.indexOf("=");cOpts[r.slice(0,e)]=r.slice(e+1)}else if(i+1<args.length&&!args[i+1].startsWith("--")){cOpts[r]=args[++i]}else{cOpts[r]=true}}else if(a.startsWith("-")&&a.length===2){cOpts[a.slice(1)]=true}else if(i>0){cArgs.push(a)}}

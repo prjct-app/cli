@@ -68,6 +68,7 @@ const _binCommands = new Set([
   '-v',
   '--version',
   'mcp',
+  'prefs',
 ])
 
 // v2 verbs registered in the command registry — imported from the single
@@ -514,6 +515,20 @@ async function main(): Promise<void> {
     else {
       console.error(`Unknown seed subcommand: ${sub}. Use: add, remove, list, suggest.`)
     }
+    process.exitCode = result.success ? 0 : 1
+  } else if (args[0] === 'prefs') {
+    // `prjct prefs list|get|check|set|clear [...]` — gstack-inspired
+    // per-project AskUserQuestion preferences. The `check` subcommand
+    // emits a one-line ASK_NORMALLY|AUTO_DECIDE|NEVER_ASK so a skill
+    // preamble can branch on its output.
+    const sub = args[1] ?? 'list'
+    const positional = args.slice(2).filter((a) => !a.startsWith('-'))
+    const reasonIdx = args.indexOf('--reason')
+    const reason = reasonIdx >= 0 ? args[reasonIdx + 1] : undefined
+    const mdMode = args.includes('--md')
+    const { PreferencesCommands } = await import('../core/commands/preferences')
+    const cmd = new PreferencesCommands()
+    const result = await cmd.prefs([sub, ...positional], process.cwd(), { md: mdMode, reason })
     process.exitCode = result.success ? 0 : 1
   } else if (args[0] === 'install') {
     // `prjct install` is a convenience alias for `prjct claude install`.
