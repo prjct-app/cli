@@ -303,4 +303,52 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
       expect(content).not.toContain('Pre-flight')
     })
   })
+
+  // gstack-inspired patterns. Heavy reviews must instruct the agent to
+  // dispatch a subagent so the parent's context window doesn't fill with
+  // file reads. The audit orchestrator must demand parallel dispatch.
+  describe('subagent + orchestrator patterns', () => {
+    it('declares the subagent dispatch section with general-purpose type', async () => {
+      const result = await generator.generateAndInstall(makeSyncResult())
+      const content = await fs.readFile(result.generated[0].path, 'utf-8')
+      expect(content).toContain('### Subagent dispatch')
+      expect(content).toContain('subagent_type: "general-purpose"')
+      expect(content).toContain('context-rot defense')
+    })
+
+    it('instructs review/security/investigate to dispatch as subagents', async () => {
+      const result = await generator.generateAndInstall(makeSyncResult())
+      const content = await fs.readFile(result.generated[0].path, 'utf-8')
+      // Each heavy workflow must mention dispatching when scope is non-trivial.
+      const reviewSection = content.split('### `review`')[1]?.split('### `qa`')[0] ?? ''
+      expect(reviewSection).toContain('Dispatch as subagent')
+      const securitySection =
+        content.split('### `security`')[1]?.split('### `investigate`')[0] ?? ''
+      expect(securitySection).toContain('Dispatch as subagent')
+      const investigateSection = content.split('### `investigate`')[1]?.split('### `ship`')[0] ?? ''
+      expect(investigateSection).toContain('Dispatch the trace+hypothesis phase as a subagent')
+    })
+
+    it('exposes the audit orchestrator with parallel dispatch instructions', async () => {
+      const result = await generator.generateAndInstall(makeSyncResult())
+      const content = await fs.readFile(result.generated[0].path, 'utf-8')
+      expect(content).toContain('### `audit`')
+      expect(content).toContain('IN PARALLEL')
+      // The three sub-workflows the orchestrator runs.
+      expect(content).toMatch(/Subagent A.*review/)
+      expect(content).toMatch(/Subagent B.*security/)
+      expect(content).toMatch(/Subagent C.*investigate/)
+      // The skill description must advertise the new workflow.
+      expect(content).toMatch(/quality reviews \(review, qa, security, investigate, audit\)/)
+    })
+
+    it('teaches the decision-brief format for non-trivial AskUserQuestion calls', async () => {
+      const result = await generator.generateAndInstall(makeSyncResult())
+      const content = await fs.readFile(result.generated[0].path, 'utf-8')
+      expect(content).toContain('### Decision-brief format')
+      expect(content).toContain('ELI10:')
+      expect(content).toContain('Stakes if we pick wrong')
+      expect(content).toContain('Recommendation:')
+    })
+  })
 })
