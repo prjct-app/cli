@@ -17,11 +17,9 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { indexProject as indexBm25, loadIndex as loadBm25Index } from '../domain/bm25'
-import { affectedDomains, propagateChanges } from '../domain/change-propagator'
-import { detectChanges, hasHashRegistry, saveHashes } from '../domain/file-hasher'
-import { indexCoChanges, loadMatrix as loadCoChangeMatrix } from '../domain/git-cochange'
-import { indexImports, loadGraph as loadImportGraph } from '../domain/import-graph'
+import { indexProject as indexBm25 } from '../domain/bm25'
+import { indexCoChanges } from '../domain/git-cochange'
+import { indexImports } from '../domain/import-graph'
 import { getErrorMessage } from '../errors'
 import { detectCodex } from '../infrastructure/ai-provider'
 import commandInstaller from '../infrastructure/command-installer'
@@ -29,36 +27,29 @@ import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import { verifyCodexPRouterReady } from '../infrastructure/setup'
 import { analysisStorage } from '../storage/analysis-storage'
-import { archiveStorage } from '../storage/archive-storage'
-import { prjctDb } from '../storage/database'
 import { ideasStorage } from '../storage/ideas-storage'
 import llmAnalysisStorage from '../storage/llm-analysis-storage'
-import { metricsStorage } from '../storage/metrics-storage'
 import { migrateJsonToSqlite, sweepLegacyJson } from '../storage/migrate-json'
 import { queueStorage } from '../storage/queue-storage'
 import { shippedStorage } from '../storage/shipped-storage'
 import { stateStorage } from '../storage/state-storage'
 import { velocityStorage } from '../storage/velocity-storage'
-import type {
-  GitData,
-  IncrementalInfo,
-  ProjectCommands,
-  ProjectStats,
-  ProjectSyncResult,
-  SyncMetrics,
-  SyncOptions,
-} from '../types/project-sync'
+import type { ProjectSyncResult, SyncOptions } from '../types/project-sync'
 import type { Context7Status } from '../types/services.js'
-import type { StackDetection } from '../types/stack'
 import type { VerificationReport } from '../types/sync-verifier'
-import * as dateHelper from '../utils/date-helper'
 import { readJson } from '../utils/file-helper'
 import log from '../utils/logger'
 import context7Service from './context7-service'
-import { localStateGenerator } from './local-state-generator'
-import { memoryService } from './memory-service'
-import patternExtractor from './pattern-extractor'
 import { skillGenerator } from './skill-generator'
+import { emptyCommands, emptyGitData, emptyStack, emptyStats } from './sync/defaults'
+import { detectIncrementalChanges } from './sync/incremental'
+import { archiveStaleData, recordSyncMetrics, saveDraftAnalysis } from './sync/persistence'
+import {
+  ensureProjectDirectories,
+  logSyncEvent,
+  updateProjectDoc,
+  updateStateDoc,
+} from './sync/state-update'
 import { analyzeGit, detectCommands, detectStack, gatherStats } from './sync-analyzer'
 import { syncVerifier } from './sync-verifier'
 
@@ -101,10 +92,10 @@ class SyncService {
           success: false,
           projectId: '',
           cliVersion: '',
-          git: this.emptyGitData(),
-          stats: this.emptyStats(),
-          commands: this.emptyCommands(),
-          stack: this.emptyStack(),
+          git: emptyGitData(),
+          stats: emptyStats(),
+          commands: emptyCommands(),
+          stack: emptyStack(),
           context7: { installed: false, verified: false },
           error: 'No prjct project. Run p. init first.',
         }
@@ -135,10 +126,10 @@ class SyncService {
           success: false,
           projectId: this.projectId,
           cliVersion: this.cliVersion,
-          git: this.emptyGitData(),
-          stats: this.emptyStats(),
-          commands: this.emptyCommands(),
-          stack: this.emptyStack(),
+          git: emptyGitData(),
+          stats: emptyStats(),
+          commands: emptyCommands(),
+          stack: emptyStack(),
           context7: {
             installed: context7Status.installed,
             verified: false,
@@ -149,7 +140,7 @@ class SyncService {
       }
 
       // 2. Ensure directories exist (non-blocking)
-      const ensureDirsPromise = this.ensureDirectories()
+      const ensureDirsPromise = ensureProjectDirectories(this.globalPath)
 
       // 2b. Auto-migrate JSON → SQLite (idempotent, skips if already done)
       await ensureDirsPromise
@@ -175,69 +166,18 @@ class SyncService {
         detectStack(this.projectPath),
       ])
 
-      // 3a. Incremental change detection
-      // Determine if we can skip expensive operations based on file changes
-      const isFullSync = options.full === true
-      let incrementalInfo: IncrementalInfo | undefined
-      let shouldRebuildIndexes = true
-      let changedDomains = new Set<string>()
-
-      if (!isFullSync && hasHashRegistry(this.projectId!)) {
-        try {
-          const { diff, currentHashes } = await detectChanges(this.projectPath, this.projectId!)
-          const totalChanged = diff.added.length + diff.modified.length + diff.deleted.length
-
-          if (totalChanged === 0 && !options.changedFiles?.length) {
-            // Nothing changed — skip expensive rebuilds
-            shouldRebuildIndexes = false
-            incrementalInfo = {
-              isIncremental: true,
-              filesChanged: 0,
-              filesUnchanged: diff.unchanged.length,
-              indexesRebuilt: false,
-              affectedDomains: [],
-            }
-          } else {
-            // Some files changed — propagate through import graph
-            const propagated = propagateChanges(diff, this.projectId!)
-            changedDomains = affectedDomains(propagated.allAffected)
-
-            // Only rebuild indexes if source files changed
-            const sourceExtensions = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'])
-            const hasSourceChanges = propagated.allAffected.some((f) => {
-              const ext = f.substring(f.lastIndexOf('.'))
-              return sourceExtensions.has(ext)
-            })
-            shouldRebuildIndexes = hasSourceChanges
-
-            incrementalInfo = {
-              isIncremental: true,
-              filesChanged: totalChanged,
-              filesUnchanged: diff.unchanged.length,
-              indexesRebuilt: shouldRebuildIndexes,
-              affectedDomains: Array.from(changedDomains),
-            }
-          }
-
-          // Save updated hashes AFTER determining diff (commit new state)
-          saveHashes(this.projectId!, currentHashes)
-        } catch (error) {
-          log.debug('Incremental detection failed, falling back to full sync', {
-            error: getErrorMessage(error),
-          })
-          // Fall through to full sync
-        }
-      } else {
-        // First sync or --full flag: compute and save hashes for next time
-        try {
-          const { currentHashes } = await detectChanges(this.projectPath, this.projectId!)
-          saveHashes(this.projectId!, currentHashes)
-        } catch (error) {
-          log.debug('Hash computation failed (non-critical)', {
-            error: getErrorMessage(error),
-          })
-        }
-      }
+      // 3a. Incremental change detection — see ./sync/incremental.ts for the
+      // hash-based diff + import-graph propagation.
+      const {
+        shouldRebuildIndexes,
+        changedDomains: _changedDomains,
+        incrementalInfo,
+      } = await detectIncrementalChanges({
+        projectId: this.projectId!,
+        projectPath: this.projectPath,
+        isFullSync: options.full === true,
+        changedFilesHint: options.changedFiles,
+      })
 
       // 3b. Build file-ranking indexes IN PARALLEL (BM25, import graph, co-change)
       // Skip if no source files changed (incremental optimization)
@@ -401,10 +341,23 @@ class SyncService {
 
       // 5. Update files IN PARALLEL (write to different files)
       await Promise.all([
-        this.updateProjectJson(git, stats),
-        this.updateStateJson(stats, stack),
-        this.logToMemory(git, stats),
-        this.saveDraftAnalysis(git, stats, stack, context7Status.verified),
+        updateProjectDoc({
+          projectId: this.projectId!,
+          projectPath: this.projectPath,
+          cliVersion: this.cliVersion,
+          git,
+          stats,
+        }),
+        updateStateDoc({ projectId: this.projectId!, projectPath: this.projectPath, stats, stack }),
+        Promise.resolve(logSyncEvent(this.projectId!, git, stats)),
+        saveDraftAnalysis(
+          this.projectId!,
+          this.projectPath,
+          git,
+          stats,
+          stack,
+          context7Status.verified
+        ),
       ])
 
       const activeAnalysis = await analysisStorage.getActive(this.projectId)
@@ -417,13 +370,12 @@ class SyncService {
 
       // 9. Record metrics for value dashboard
       const duration = Date.now() - startTime
-      const syncMetrics = await this.recordSyncMetrics(stats, duration)
+      const syncMetrics = await recordSyncMetrics(this.projectId!, stats, duration)
 
       // 9b. Archive stale data (PRJ-267)
-      await this.archiveStaleData()
+      await archiveStaleData(this.projectId!)
 
       // 9c. Auto-learn from task history → memory (PRJ-283)
-      await this.autoLearnFromHistory()
 
       // 10. Update global config and commands (CLI does EVERYTHING)
       // This ensures `prjct sync` from terminal updates global CLAUDE.md and commands
@@ -467,10 +419,10 @@ class SyncService {
         success: false,
         projectId: this.projectId || '',
         cliVersion: this.cliVersion,
-        git: this.emptyGitData(),
-        stats: this.emptyStats(),
-        commands: this.emptyCommands(),
-        stack: this.emptyStack(),
+        git: emptyGitData(),
+        stats: emptyStats(),
+        commands: emptyCommands(),
+        stack: emptyStack(),
         context7: {
           installed: context7Status.installed,
           verified: context7Status.verified,
@@ -485,106 +437,17 @@ class SyncService {
   // DIRECTORY SETUP
   // ==========================================================================
 
-  private async ensureDirectories(): Promise<void> {
-    const dirs = ['storage', 'context', 'memory', 'analysis', 'config', 'sync']
-    // Create all directories IN PARALLEL
-    await Promise.all(
-      dirs.map((dir) => fs.mkdir(path.join(this.globalPath, dir), { recursive: true }))
-    )
-  }
-
   // ==========================================================================
   // PROJECT.JSON UPDATE
   // ==========================================================================
-
-  private async updateProjectJson(git: GitData, stats: ProjectStats): Promise<void> {
-    // Read existing from SQLite
-    const existing: Record<string, unknown> =
-      prjctDb.getDoc<Record<string, unknown>>(this.projectId!, 'project') || {}
-
-    const updated = {
-      ...existing,
-      projectId: this.projectId,
-      repoPath: this.projectPath,
-      name: stats.name,
-      version: stats.version,
-      cliVersion: this.cliVersion,
-      techStack: stats.frameworks,
-      fileCount: stats.fileCount,
-      commitCount: git.commits,
-      stack: stats.ecosystem,
-      currentBranch: git.branch,
-      hasUncommittedChanges: git.hasChanges,
-      createdAt: existing.createdAt || dateHelper.getTimestamp(),
-      lastSync: dateHelper.getTimestamp(),
-      // Staleness tracking (PRJ-120)
-      lastSyncCommit: git.recentCommits[0]?.hash || null,
-      lastSyncBranch: git.branch,
-    }
-
-    prjctDb.setDoc(this.projectId!, 'project', updated)
-  }
 
   // ==========================================================================
   // STATE.JSON UPDATE
   // ==========================================================================
 
-  private async updateStateJson(stats: ProjectStats, stack: StackDetection): Promise<void> {
-    // Read existing from SQLite via stateStorage
-    const stateData = await stateStorage.read(this.projectId!)
-    const state: Record<string, unknown> = { ...stateData }
-
-    // Update with enterprise fields
-    state.projectId = this.projectId
-    state.stack = {
-      language: stats.languages[0] || 'Unknown',
-      framework: stats.frameworks[0] || null,
-    }
-    state.domains = {
-      hasFrontend: stack.hasFrontend,
-      hasBackend: stack.hasBackend,
-      hasDatabase: stack.hasDatabase,
-      hasTesting: stack.hasTesting,
-      hasDocker: stack.hasDocker,
-    }
-    state.projectType = stats.projectType
-    state.metrics = {
-      totalFiles: stats.fileCount,
-    }
-    state.lastSync = dateHelper.getTimestamp()
-    state.lastUpdated = dateHelper.getTimestamp()
-    state.context = {
-      ...((state.context as Record<string, unknown>) || {}),
-      lastSession: dateHelper.getTimestamp(),
-      lastAction: 'Synced project',
-      nextAction: 'Run `p. task "description"` to start working',
-    }
-
-    await stateStorage.write(this.projectId!, state as import('../schemas/state').StateJson)
-
-    // Also generate local .prjct-state.md (PRJ-112)
-    try {
-      await localStateGenerator.generate(
-        this.projectPath,
-        state as import('../schemas/state').StateJson
-      )
-    } catch (error) {
-      log.debug('Local state generation failed (optional)', { error: getErrorMessage(error) })
-    }
-  }
-
   // ==========================================================================
   // MEMORY LOGGING
   // ==========================================================================
-
-  private async logToMemory(git: GitData, stats: ProjectStats): Promise<void> {
-    prjctDb.appendEvent(this.projectId!, 'sync', {
-      branch: git.branch,
-      uncommitted: git.hasChanges,
-      fileCount: stats.fileCount,
-      commitCount: git.commits,
-    })
-  }
 
   // ==========================================================================
   // METRICS RECORDING
@@ -597,76 +460,6 @@ class SyncService {
    * instead of estimates. filteredSize = agent context files that get
    * loaded into the AI conversation.
    */
-  private async recordSyncMetrics(stats: ProjectStats, duration: number): Promise<SyncMetrics> {
-    // Real original size from BM25 index (actual tokens indexed from source files)
-    let originalSize = 0
-    try {
-      const bm25 = loadBm25Index(this.projectId!)
-      if (bm25) {
-        // Sum actual token counts from every indexed file
-        for (const doc of Object.values(bm25.documents)) {
-          originalSize += doc.length
-        }
-      }
-    } catch (error) {
-      log.debug('Could not load BM25 index for metrics', { error: getErrorMessage(error) })
-    }
-
-    // Fallback: if no index yet (first sync before indexing), use file count estimate
-    if (originalSize === 0) {
-      originalSize = stats.fileCount * 200
-    }
-
-    // No agent files to measure — skills are loaded natively by Claude Code
-    const filteredSize = 0
-
-    const compressionRate =
-      originalSize > 0 ? Math.max(0, (originalSize - filteredSize) / originalSize) : 0
-
-    // Record to storage
-    try {
-      await metricsStorage.recordSync(this.projectId!, {
-        originalSize,
-        filteredSize,
-        duration,
-        isWatch: false,
-      })
-    } catch (error) {
-      log.debug('Failed to record sync metrics', { error: getErrorMessage(error) })
-    }
-
-    // Collect real index stats
-    const indexes: NonNullable<SyncMetrics['indexes']> = {}
-    try {
-      const bm25 = loadBm25Index(this.projectId!)
-      if (bm25) {
-        indexes.bm25Files = bm25.totalDocs
-        indexes.bm25AvgTokens = Math.round(bm25.avgDocLength)
-        indexes.bm25VocabSize = Object.keys(bm25.invertedIndex).length
-      }
-      const graph = loadImportGraph(this.projectId!)
-      if (graph) {
-        indexes.importEdges = graph.edgeCount
-        indexes.importFiles = graph.fileCount
-      }
-      const cochange = loadCoChangeMatrix(this.projectId!)
-      if (cochange) {
-        indexes.cochangeCommits = cochange.commitsAnalyzed
-        indexes.cochangeFiles = cochange.filesAnalyzed
-      }
-    } catch (error) {
-      log.debug('Could not load index stats', { error: getErrorMessage(error) })
-    }
-
-    return {
-      duration,
-      originalSize,
-      filteredSize,
-      compressionRate,
-      indexes,
-    }
-  }
-
   // ==========================================================================
   // DRAFT ANALYSIS (PRJ-263)
   // ==========================================================================
@@ -676,215 +469,18 @@ class SyncService {
    * Preserves existing sealed analysis — only the draft is overwritten.
    * Incorporates task feedback from completed tasks (PRJ-272).
    */
-  private async saveDraftAnalysis(
-    git: GitData,
-    stats: ProjectStats,
-    stack: StackDetection,
-    context7Verified: boolean
-  ): Promise<void> {
-    try {
-      const commitHash = git.recentCommits[0]?.hash || null
-
-      // Load aggregated feedback from completed tasks (PRJ-272)
-      let patterns: Array<{
-        name: string
-        description: string
-        location?: string
-        severity?: 'low' | 'medium' | 'high'
-        language?: string
-        framework?: string
-        source?: 'baseline' | 'repo' | 'context7' | 'feedback'
-        confidence?: number
-      }> = []
-      let antiPatterns: Array<{
-        issue: string
-        file: string
-        suggestion: string
-        severity?: 'low' | 'medium' | 'high'
-        language?: string
-        framework?: string
-        source?: 'baseline' | 'repo' | 'context7' | 'feedback'
-        confidence?: number
-      }> = []
-      let feedback:
-        | {
-            patternsDiscovered: string[]
-            knownGotchas: string[]
-          }
-        | undefined
-      try {
-        feedback = await stateStorage.getAggregatedFeedback(this.projectId!)
-
-        // Convert discovered patterns to CodePattern objects
-        if (feedback.patternsDiscovered.length > 0) {
-          patterns = feedback.patternsDiscovered.map((p) => ({
-            name: p,
-            description: `Discovered during task execution: ${p}`,
-            source: 'feedback',
-            confidence: 0.74,
-          }))
-        }
-
-        // Convert known gotchas (recurring issues) to AntiPattern objects
-        if (feedback.knownGotchas.length > 0) {
-          antiPatterns = feedback.knownGotchas.map((g) => ({
-            issue: g,
-            file: 'multiple',
-            suggestion: `Recurring issue reported across tasks: ${g}`,
-            source: 'feedback',
-            severity: 'medium',
-            confidence: 0.7,
-          }))
-        }
-      } catch {
-        // Feedback aggregation failure should not block analysis
-      }
-
-      const extracted = await patternExtractor.extract({
-        projectId: this.projectId!,
-        projectPath: this.projectPath,
-        languages: stats.languages,
-        frameworks: Array.from(new Set([...stats.frameworks, ...stack.frameworks])),
-        feedback,
-        context7Verified,
-      })
-
-      patterns = extracted.patterns
-      antiPatterns = extracted.antiPatterns
-
-      await analysisStorage.saveDraft(this.projectId!, {
-        projectId: this.projectId!,
-        languages: stats.languages,
-        frameworks: stats.frameworks,
-        configFiles: [],
-        fileCount: stats.fileCount,
-        patterns,
-        antiPatterns,
-        analyzedAt: dateHelper.getTimestamp(),
-        status: 'draft',
-        commitHash: commitHash ?? undefined,
-      })
-    } catch (error) {
-      log.debug('Failed to save draft analysis (non-critical)', { error: getErrorMessage(error) })
-    }
-  }
-
   // ==========================================================================
   // ARCHIVAL (PRJ-267)
   // ==========================================================================
 
-  /**
-   * Archive stale data across all storage types.
-   * Runs during sync to keep active storage lean.
-   */
-  private async archiveStaleData(): Promise<void> {
-    if (!this.projectId) return
-
-    try {
-      const [shipped, dormant, staleQueue, stalePaused, memoryCapped] = await Promise.all([
-        shippedStorage.archiveOldShipped(this.projectId).catch(() => 0),
-        ideasStorage.markDormantIdeas(this.projectId).catch(() => 0),
-        queueStorage.removeStaleCompleted(this.projectId).catch(() => 0),
-        stateStorage.archiveStalePausedTasks(this.projectId).catch(() => []),
-        memoryService.capEntries(this.projectId).catch(() => 0),
-      ])
-
-      const totalArchived =
-        shipped + dormant + staleQueue + (stalePaused as unknown[]).length + memoryCapped
-
-      if (totalArchived > 0) {
-        log.info('Archived stale data', {
-          shipped,
-          dormant,
-          staleQueue,
-          stalePaused: (stalePaused as unknown[]).length,
-          memoryCapped,
-          total: totalArchived,
-        })
-
-        // Record archive stats
-        const stats = archiveStorage.getStats(this.projectId)
-        log.debug('Archive stats', stats)
-      }
-    } catch (error) {
-      log.debug('Archival failed (non-critical)', { error: getErrorMessage(error) })
-    }
-  }
-
-  /**
-   * Auto-learn was backed by the outcome-* subsystem, which had zero
-   * writers. Removed. When we revive an outcome feed (e.g. via the
-   * Stop hook observing edit/commit cadences), re-introduce a learner
-   * that reads from the live source instead of the empty one.
-   */
-  private async autoLearnFromHistory(): Promise<void> {
-    // no-op
-  }
-
-  // ==========================================================================
-  // HELPERS
-  // ==========================================================================
-
   private async getCliVersion(): Promise<string> {
     try {
-      // Try to read from package.json in the module
       const pkgPath = path.join(__dirname, '..', '..', 'package.json')
       const pkg = await readJson<{ version?: string }>(pkgPath)
       return pkg?.version || '0.0.0'
     } catch (error) {
       log.debug('Failed to read CLI version', { error: getErrorMessage(error) })
       return '0.0.0'
-    }
-  }
-
-  // Empty data structures for error cases
-  private emptyGitData(): GitData {
-    return {
-      branch: 'main',
-      commits: 0,
-      contributors: 0,
-      hasChanges: false,
-      stagedFiles: [],
-      modifiedFiles: [],
-      untrackedFiles: [],
-      recentCommits: [],
-      weeklyCommits: 0,
-    }
-  }
-
-  private emptyStats(): ProjectStats {
-    return {
-      fileCount: 0,
-      version: '0.0.0',
-      name: 'unknown',
-      ecosystem: 'unknown',
-      projectType: 'simple',
-      languages: [],
-      frameworks: [],
-    }
-  }
-
-  private emptyCommands(): ProjectCommands {
-    return {
-      install: 'npm install',
-      run: 'npm run',
-      test: 'npm test',
-      build: 'npm run build',
-      dev: 'npm run dev',
-      lint: 'npm run lint',
-      format: 'npm run format',
-    }
-  }
-
-  private emptyStack(): StackDetection {
-    return {
-      hasFrontend: false,
-      hasBackend: false,
-      hasDatabase: false,
-      hasDocker: false,
-      hasTesting: false,
-      frontendType: null,
-      frameworks: [],
     }
   }
 }
