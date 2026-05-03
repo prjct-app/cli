@@ -333,6 +333,37 @@ export interface BlockingRules {
 /**
  * Command metadata for introspection (registry version)
  */
+/**
+ * Single source of truth for verb → handler dispatch.
+ * `register.ts` walks this to call `commandRegistry.registerMethod`,
+ * and `verb-names.ts` derives the fast-path verb set from it. Both
+ * used to maintain hand-written copies — adding a new command meant
+ * three coordinated edits across files (the "triple-touch" smell).
+ */
+export type CommandRoutingGroup =
+  | 'workflow'
+  | 'planning'
+  | 'shipping'
+  | 'analysis'
+  | 'setup'
+  | 'context'
+  | 'primitives'
+  | 'seed'
+  | 'install'
+  | 'capture'
+  | 'mcp'
+  | 'team'
+  | 'config'
+  | 'uninstall'
+  | 'update'
+
+export interface CommandRouting {
+  /** Which command-group instance owns the handler. */
+  group: CommandRoutingGroup
+  /** Method name on the group instance. */
+  method: string
+}
+
 export interface CommandMeta {
   name: string
   group: string
@@ -348,6 +379,12 @@ export interface CommandMeta {
   requiresLlm?: boolean
   deprecated?: boolean
   replacedBy?: string
+  /**
+   * Dispatch routing. Present means "wired into commandRegistry";
+   * absent means "metadata only" (help-text placeholders, future
+   * commands, deprecated verbs whose entries we keep for the user).
+   */
+  routing?: CommandRouting
 }
 
 /**
