@@ -15,6 +15,7 @@ import { scanForSecrets } from '../memory/secret-scanner'
 import type { TaskType } from '../schemas/state'
 import { memoryService } from '../services/memory-service'
 import { stateStorage } from '../storage/state-storage'
+import type { MdOption } from '../types/cli'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import out from '../utils/output'
@@ -33,7 +34,7 @@ export class PrimitiveCommands extends PrjctCommandsBase {
   async status(
     value: string | null = null,
     projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
+    options: MdOption = {}
   ): Promise<CommandResult> {
     try {
       const initResult = await this.ensureProjectInit(projectPath)
@@ -149,7 +150,7 @@ export class PrimitiveCommands extends PrjctCommandsBase {
   async tag(
     args: string | null = null,
     projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
+    options: MdOption = {}
   ): Promise<CommandResult> {
     try {
       const initResult = await this.ensureProjectInit(projectPath)

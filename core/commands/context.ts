@@ -20,6 +20,7 @@ import path from 'node:path'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
 import { stateStorage } from '../storage/state-storage'
+import type { MdOption } from '../types/cli'
 import type { CommandResult, ContextOutput } from '../types/commands'
 import { getErrorMessage, isNotFoundError } from '../types/fs'
 import { mdBadge, mdJoin, mdOutput, mdSection, mdStats, mdTaskHeader } from '../utils/md-formatter'
@@ -42,7 +43,7 @@ export class ContextCommands {
   async context(
     _input: string | null = null,
     projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
+    options: MdOption = {}
   ): Promise<CommandResult> {
     try {
       const config = await configManager.readConfig(projectPath)

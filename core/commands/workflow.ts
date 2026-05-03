@@ -20,6 +20,7 @@ import { generateUUID } from '../schemas/schemas'
 import { getGitBranch } from '../session/git-helpers'
 import { customWorkflowStorage } from '../storage/custom-workflow-storage'
 import { stateStorage } from '../storage/state-storage'
+import type { MdOption } from '../types/cli'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import * as dateHelper from '../utils/date-helper'
@@ -208,7 +209,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
   async workflow(
     input: string | null = null,
     projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
+    options: MdOption = {}
   ): Promise<CommandResult> {
     try {
       const initResult = await this.ensureProjectInit(projectPath)
@@ -279,7 +280,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
   async run(
     workflowName: string,
     projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
+    options: MdOption = {}
   ): Promise<CommandResult> {
     try {
       const initResult = await this.ensureProjectInit(projectPath)

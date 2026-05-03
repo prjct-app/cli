@@ -9,8 +9,11 @@
 
 import configManager from '../infrastructure/config-manager'
 import type { CurrentTask } from '../schemas/state'
+import { customWorkflowStorage } from '../storage/custom-workflow-storage'
 import { stateStorage } from '../storage/state-storage'
+import type { MdOption } from '../types/cli'
 import type { CommandResult } from '../types/commands'
+import { failWith } from '../utils/md-aware'
 import out from '../utils/output'
 
 type Guard<T> = { ok: true; value: T } | { ok: false; result: CommandResult }
@@ -35,14 +38,37 @@ export async function requireProjectId(projectPath: string): Promise<Guard<strin
  */
 export async function requireActiveTask(
   projectId: string,
-  options: { md?: boolean } = {}
+  options: MdOption = {}
 ): Promise<Guard<CurrentTask>> {
   const active = await stateStorage.getCurrentTask(projectId)
   if (!active) {
-    const msg = 'No active task — start one with `prjct task "<desc>"`'
-    if (options.md) console.log(`> ${msg}`)
-    else out.warn('no active task')
-    return { ok: false, result: { success: false, error: msg } }
+    return {
+      ok: false,
+      result: failWith('No active task — start one with `prjct task "<desc>"`', options),
+    }
   }
   return { ok: true, value: active }
+}
+
+/**
+ * Resolve a custom workflow by name or fail with a uniform "not found"
+ * message that lists what's available. Saves the three call sites in
+ * `workflow/rule-actions.ts` from each repeating the same DB lookup +
+ * error formatting.
+ */
+export function requireWorkflow(
+  projectId: string,
+  command: string | undefined,
+  options: MdOption = {}
+): Guard<{ name: string }> {
+  if (command) {
+    const workflow = customWorkflowStorage.getWorkflow(projectId, command)
+    if (workflow?.enabled) return { ok: true, value: { name: command } }
+  }
+  const workflows = customWorkflowStorage.getAllWorkflows(projectId)
+  const available = workflows.map((w) => w.name).join(', ')
+  return {
+    ok: false,
+    result: failWith(`Workflow '${command ?? ''}' not found. Available: ${available}`, options),
+  }
 }

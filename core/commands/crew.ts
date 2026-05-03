@@ -11,6 +11,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { getTemplateContent } from '../agentic/template-loader'
+import type { MdOption } from '../types/cli'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import { fileExists } from '../utils/file-helper'
@@ -141,7 +142,7 @@ export class CrewCommands extends PrjctCommandsBase {
   async install(
     _arg: string | null = null,
     projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
+    options: MdOption = {}
   ): Promise<CommandResult> {
     try {
       const written: string[] = []
@@ -217,7 +218,7 @@ export class CrewCommands extends PrjctCommandsBase {
   async uninstall(
     _arg: string | null = null,
     projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
+    options: MdOption = {}
   ): Promise<CommandResult> {
     try {
       const removed: string[] = []
@@ -276,7 +277,7 @@ export class CrewCommands extends PrjctCommandsBase {
   async status(
     _arg: string | null = null,
     projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
+    options: MdOption = {}
   ): Promise<CommandResult> {
     try {
       const status = await getStatus(projectPath)

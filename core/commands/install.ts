@@ -13,6 +13,7 @@ import {
   PRJCT_HOOKS,
   uninstall as uninstallHooks,
 } from '../services/settings-installer'
+import type { MdOption } from '../types/cli'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import out from '../utils/output'
@@ -25,7 +26,7 @@ export class InstallCommands extends PrjctCommandsBase {
   async install(
     _arg: string | null = null,
     _projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
+    options: MdOption = {}
   ): Promise<CommandResult> {
     try {
       const result = await installHooks()
@@ -64,7 +65,7 @@ export class InstallCommands extends PrjctCommandsBase {
   async uninstall(
     _arg: string | null = null,
     _projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
+    options: MdOption = {}
   ): Promise<CommandResult> {
     try {
       const result = await uninstallHooks()

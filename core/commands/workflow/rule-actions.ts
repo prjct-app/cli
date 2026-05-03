@@ -2,18 +2,24 @@
  * Standalone handlers for the `prjct workflow <intent>` subcommands.
  *
  * Each export is one of the 12 intent targets dispatched from
- * `WorkflowCommands.workflow()` in the parent module. They were
- * formerly private methods on the class, but every one is pure
- * over its arguments + the storage modules — no `this` access
- * beyond `parseAction`/`searchRules` (now imported as plain functions).
+ * `WorkflowCommands.workflow()` in the parent module. The shared
+ * boilerplate that previously dominated this file (the "warn-and-fail"
+ * pair, the "workflow not found" guard, the magic-number timeouts) now
+ * lives in:
+ *
+ *   - `core/utils/md-aware.ts`    — `notify*` + `failWith`
+ *   - `core/commands/guards.ts`   — `requireWorkflow`
+ *   - `core/workflow/timeouts.ts` — `WORKFLOW_TIMEOUTS`
  */
 
 import { templateGenerator } from '../../infrastructure/template-generator'
 import { customWorkflowStorage } from '../../storage/custom-workflow-storage'
 import { workflowRuleStorage } from '../../storage/workflow-rule-storage'
+import type { MdOption } from '../../types/cli'
 import type { CommandResult } from '../../types/commands'
 import { getErrorMessage } from '../../types/fs'
 import type { WorkflowRule } from '../../types/storage.js'
+import { failWith, notifyDone, notifyFail } from '../../utils/md-aware'
 import {
   mdCodeBlock,
   mdDone,
@@ -22,63 +28,75 @@ import {
   mdOutput,
   mdSection,
 } from '../../utils/md-formatter'
-import out from '../../utils/output'
 import { detectProjectCommands } from '../../utils/project-commands'
+import { WORKFLOW_TIMEOUTS } from '../../workflow/timeouts'
+import { requireWorkflow } from '../guards'
 import { parseAction, searchRules } from './intent'
 import { buildFlowDiagram } from './md-helpers'
 
-type Options = { md?: boolean }
+const VALID_RULE_COMMANDS = ['task', 'done', 'ship', 'sync'] as const
+const RULE_POSITIONS = ['before', 'after'] as const
+const MAX_LISTED_MATCHES = 5
+
+type RulePosition = (typeof RULE_POSITIONS)[number]
+
+/**
+ * Common shape for `addRule` calls — every handler passed the same
+ * `description: null, enabled: true, sortOrder: 0` defaults plus a
+ * fresh ISO timestamp. Centralised so a future schema change touches
+ * one site.
+ */
+function newRuleDefaults(): {
+  description: null
+  enabled: true
+  sortOrder: 0
+  createdAt: string
+} {
+  return {
+    description: null,
+    enabled: true,
+    sortOrder: 0,
+    createdAt: new Date().toISOString(),
+  }
+}
 
 export async function workflowAdd(
   input: string,
   projectId: string,
-  options: Options
+  options: MdOption
 ): Promise<CommandResult> {
   const [action, rest] = parseAction(input)
   if (!action || !rest) {
-    const msg = 'Usage: prjct workflow add "command" before|after <task|done|ship|sync>'
-    if (options.md) console.log(`> ${msg}`)
-    else out.warn(msg)
-    return { success: false, error: msg }
+    return failWith(
+      'Usage: prjct workflow add "command" before|after <task|done|ship|sync>',
+      options
+    )
   }
 
   const parts = rest.split(/\s+/)
-  const position = parts[0]?.toLowerCase()
+  const position = parts[0]?.toLowerCase() as RulePosition | undefined
   const command = parts[1]?.toLowerCase()
 
-  if (!position || !['before', 'after'].includes(position)) {
-    const msg = 'Position must be "before" or "after"'
-    if (options.md) console.log(`> ${msg}`)
-    else out.warn(msg)
-    return { success: false, error: msg }
+  if (!position || !RULE_POSITIONS.includes(position)) {
+    return failWith('Position must be "before" or "after"', options)
   }
 
-  const workflow = customWorkflowStorage.getWorkflow(projectId, command || '')
-  if (!command || !workflow || !workflow.enabled) {
-    const workflows = customWorkflowStorage.getAllWorkflows(projectId)
-    const workflowNames = workflows.map((w) => w.name).join(', ')
-    const msg = `Workflow '${command}' not found. Available: ${workflowNames}`
-    if (options.md) console.log(`> ${msg}`)
-    else out.warn(msg)
-    return { success: false, error: msg }
-  }
+  const guard = requireWorkflow(projectId, command, options)
+  if (!guard.ok) return guard.result
 
   const ruleId = workflowRuleStorage.addRule(projectId, {
     type: 'hook',
-    command,
+    command: guard.value.name,
     position,
     action,
-    description: null,
-    enabled: true,
-    timeoutMs: 60000,
-    createdAt: new Date().toISOString(),
-    sortOrder: 0,
+    timeoutMs: WORKFLOW_TIMEOUTS.HOOK_DEFAULT_MS,
+    ...newRuleDefaults(),
   })
 
   if (options.md) {
     console.log(
       mdOutput(
-        mdDone('Rule Added', `#${ruleId} [hook] ${position} ${command} → \`${action}\``),
+        mdDone('Rule Added', `#${ruleId} [hook] ${position} ${guard.value.name} → \`${action}\``),
         mdNextSteps([
           { label: 'View all rules', command: 'prjct workflow --md' },
           { label: 'Remove this rule', command: `prjct workflow rm ${ruleId} --md` },
@@ -86,7 +104,7 @@ export async function workflowAdd(
       )
     )
   } else {
-    out.done(`rule #${ruleId} added: [hook] ${position} ${command} → ${action}`)
+    notifyDone(`rule #${ruleId} added: [hook] ${position} ${guard.value.name} → ${action}`)
   }
 
   return { success: true, ruleId }
@@ -95,47 +113,32 @@ export async function workflowAdd(
 export async function workflowGate(
   input: string,
   projectId: string,
-  options: Options
+  options: MdOption
 ): Promise<CommandResult> {
-  const parts = input.trim().split(/\s+/)
-  const command = parts[0]?.toLowerCase()
+  const command = input.trim().split(/\s+/)[0]?.toLowerCase()
+  const guard = requireWorkflow(projectId, command, options)
+  if (!guard.ok) return guard.result
 
-  const workflow = customWorkflowStorage.getWorkflow(projectId, command || '')
-  if (!command || !workflow || !workflow.enabled) {
-    const workflows = customWorkflowStorage.getAllWorkflows(projectId)
-    const workflowNames = workflows.map((w) => w.name).join(', ')
-    const msg = `Workflow '${command}' not found. Available: ${workflowNames}`
-    if (options.md) console.log(`> ${msg}`)
-    else out.warn(msg)
-    return { success: false, error: msg }
-  }
-
-  const actionInput = input.slice(input.indexOf(command) + command.length).trim()
+  const actionInput = input.slice(input.indexOf(guard.value.name) + guard.value.name.length).trim()
   const [action] = parseAction(actionInput)
 
   if (!action) {
-    const msg = 'Usage: prjct workflow gate <command> "shell command"'
-    if (options.md) console.log(`> ${msg}`)
-    else out.warn(msg)
-    return { success: false, error: msg }
+    return failWith('Usage: prjct workflow gate <command> "shell command"', options)
   }
 
   const ruleId = workflowRuleStorage.addRule(projectId, {
     type: 'gate',
-    command,
+    command: guard.value.name,
     position: 'before',
     action,
-    description: null,
-    enabled: true,
-    timeoutMs: 60000,
-    createdAt: new Date().toISOString(),
-    sortOrder: 0,
+    timeoutMs: WORKFLOW_TIMEOUTS.GATE_DEFAULT_MS,
+    ...newRuleDefaults(),
   })
 
   if (options.md) {
     console.log(
       mdOutput(
-        mdDone('Gate Added', `#${ruleId} [gate] before ${command} → \`${action}\``),
+        mdDone('Gate Added', `#${ruleId} [gate] before ${guard.value.name} → \`${action}\``),
         mdNextSteps([
           { label: 'View all rules', command: 'prjct workflow --md' },
           { label: 'Remove this gate', command: `prjct workflow rm ${ruleId} --md` },
@@ -143,7 +146,7 @@ export async function workflowGate(
       )
     )
   } else {
-    out.done(`gate #${ruleId} added: before ${command} → ${action}`)
+    notifyDone(`gate #${ruleId} added: before ${guard.value.name} → ${action}`)
   }
 
   return { success: true, ruleId }
@@ -152,51 +155,39 @@ export async function workflowGate(
 export async function workflowInstruction(
   input: string,
   projectId: string,
-  options: Options
+  options: MdOption
 ): Promise<CommandResult> {
-  const parts = input.trim().split(/\s+/)
-  const command = parts[0]?.toLowerCase()
+  const command = input.trim().split(/\s+/)[0]?.toLowerCase()
+  const guard = requireWorkflow(projectId, command, options)
+  if (!guard.ok) return guard.result
 
-  const workflow = customWorkflowStorage.getWorkflow(projectId, command || '')
-  if (!command || !workflow || !workflow.enabled) {
-    const workflows = customWorkflowStorage.getAllWorkflows(projectId)
-    const workflowNames = workflows.map((w) => w.name).join(', ')
-    const msg = `Workflow '${command}' not found. Available: ${workflowNames}`
-    if (options.md) console.log(`> ${msg}`)
-    else out.warn(msg)
-    return { success: false, error: msg }
-  }
-
-  const afterCommand = input.slice(input.indexOf(command) + command.length).trim()
+  const afterCommand = input.slice(input.indexOf(guard.value.name) + guard.value.name.length).trim()
   const positionMatch = afterCommand.match(/^(before|after)\s+/i)
   if (!positionMatch) {
-    const msg = 'Usage: prjct workflow instruction <command> before|after "instruction text"'
-    if (options.md) console.log(`> ${msg}`)
-    else out.warn(msg)
-    return { success: false, error: msg }
+    return failWith(
+      'Usage: prjct workflow instruction <command> before|after "instruction text"',
+      options
+    )
   }
 
-  const position = positionMatch[1].toLowerCase()
+  const position = positionMatch[1].toLowerCase() as RulePosition
   const actionInput = afterCommand.slice(positionMatch[0].length).trim()
   const [action] = parseAction(actionInput)
 
   if (!action) {
-    const msg = 'Usage: prjct workflow instruction <command> before|after "instruction text"'
-    if (options.md) console.log(`> ${msg}`)
-    else out.warn(msg)
-    return { success: false, error: msg }
+    return failWith(
+      'Usage: prjct workflow instruction <command> before|after "instruction text"',
+      options
+    )
   }
 
   const ruleId = workflowRuleStorage.addRule(projectId, {
     type: 'instruction',
-    command,
+    command: guard.value.name,
     position,
     action,
-    description: null,
-    enabled: true,
-    timeoutMs: 0,
-    createdAt: new Date().toISOString(),
-    sortOrder: 0,
+    timeoutMs: WORKFLOW_TIMEOUTS.INSTRUCTION_MS,
+    ...newRuleDefaults(),
   })
 
   if (options.md) {
@@ -204,7 +195,7 @@ export async function workflowInstruction(
       mdOutput(
         mdDone(
           'Instruction Added',
-          `#${ruleId} [instruction] ${position} ${command} → \`${action}\``
+          `#${ruleId} [instruction] ${position} ${guard.value.name} → \`${action}\``
         ),
         mdNextSteps([
           { label: 'View all rules', command: 'prjct workflow --md' },
@@ -213,7 +204,7 @@ export async function workflowInstruction(
       )
     )
   } else {
-    out.done(`instruction #${ruleId} added: ${position} ${command} → ${action}`)
+    notifyDone(`instruction #${ruleId} added: ${position} ${guard.value.name} → ${action}`)
   }
 
   return { success: true, ruleId }
@@ -222,66 +213,52 @@ export async function workflowInstruction(
 export async function workflowRm(
   input: string,
   projectId: string,
-  options: Options
+  options: MdOption
 ): Promise<CommandResult> {
   const ruleId = parseInt(input.trim(), 10)
   if (Number.isNaN(ruleId)) {
-    const msg = 'Usage: prjct workflow rm <rule-id>'
-    if (options.md) console.log(`> ${msg}`)
-    else out.warn(msg)
-    return { success: false, error: msg }
+    return failWith('Usage: prjct workflow rm <rule-id>', options)
   }
 
   const removed = workflowRuleStorage.removeRule(projectId, ruleId)
-  if (!removed) {
-    const msg = `Rule #${ruleId} not found`
-    if (options.md) console.log(`> ${msg}`)
-    else out.warn(msg)
-    return { success: false, error: msg }
-  }
+  if (!removed) return failWith(`Rule #${ruleId} not found`, options)
 
   if (options.md) {
     console.log(mdOutput(mdDone('Rule Removed', `Removed rule #${ruleId}`)))
   } else {
-    out.done(`removed rule #${ruleId}`)
+    notifyDone(`removed rule #${ruleId}`)
   }
 
   return { success: true }
 }
 
-export async function workflowReset(projectId: string, options: Options): Promise<CommandResult> {
+export async function workflowReset(projectId: string, options: MdOption): Promise<CommandResult> {
   const count = workflowRuleStorage.resetRules(projectId)
-
+  const summary = `Removed ${count} rule${count !== 1 ? 's' : ''}`
   if (options.md) {
-    console.log(mdOutput(mdDone('Rules Reset', `Removed ${count} rule${count !== 1 ? 's' : ''}`)))
+    console.log(mdOutput(mdDone('Rules Reset', summary)))
   } else {
-    out.done(`reset: removed ${count} rule${count !== 1 ? 's' : ''}`)
+    notifyDone(`reset: ${summary.toLowerCase()}`)
   }
-
   return { success: true, count }
 }
 
 export async function workflowDisable(
   input: string,
   projectId: string,
-  options: Options
+  options: MdOption
 ): Promise<CommandResult> {
   const trimmed = input.trim()
-
   const ruleId = parseInt(trimmed, 10)
+
   if (!Number.isNaN(ruleId)) {
     const rule = workflowRuleStorage.getRuleById(projectId, ruleId)
-    if (!rule) {
-      const msg = `Rule #${ruleId} not found`
-      if (options.md) console.log(`> ${msg}`)
-      else out.warn(msg)
-      return { success: false, error: msg }
-    }
+    if (!rule) return failWith(`Rule #${ruleId} not found`, options)
 
     if (!rule.enabled) {
       const msg = `Rule #${ruleId} is already disabled`
       if (options.md) console.log(`> ${msg}`)
-      else out.warn(msg)
+      else notifyFail(msg)
       return { success: true, message: msg }
     }
 
@@ -298,7 +275,7 @@ export async function workflowDisable(
         )
       )
     } else {
-      out.done(`disabled rule #${ruleId}: ${rule.action}`)
+      notifyDone(`disabled rule #${ruleId}: ${rule.action}`)
     }
 
     return { success: true, ruleId }
@@ -307,37 +284,35 @@ export async function workflowDisable(
   const allRules = workflowRuleStorage.getAllRules(projectId)
   const matches = searchRules(allRules, trimmed)
 
-  if (matches.length === 0) {
-    const msg = `No rules matching "${trimmed}"`
-    if (options.md) console.log(`> ${msg}`)
-    else out.warn(msg)
-    return { success: false, error: msg }
-  }
+  if (matches.length === 0) return failWith(`No rules matching "${trimmed}"`, options)
 
   if (matches.length === 1) {
     const rule = matches[0]
     workflowRuleStorage.updateRule(projectId, rule.id, { enabled: false })
-
     if (options.md) {
       console.log(mdOutput(mdDone('Rule Disabled', `#${rule.id} [${rule.type}] ${rule.action}`)))
     } else {
-      out.done(`disabled rule #${rule.id}: ${rule.action}`)
+      notifyDone(`disabled rule #${rule.id}: ${rule.action}`)
     }
     return { success: true, ruleId: rule.id }
   }
 
-  const capped = matches.slice(0, 5)
+  // Multiple matches → ask user to be more specific.
+  const capped = matches.slice(0, MAX_LISTED_MATCHES)
+  const overflow = matches.length - MAX_LISTED_MATCHES
+  const overflowMsg = overflow > 0 ? `...and ${overflow} more` : null
+
   if (options.md) {
-    const items = capped.map(
-      (r) => `#${r.id} [${r.type}] ${r.position} ${r.command} -> \`${r.action}\``
+    const items: string[] = capped.map(
+      (r: WorkflowRule) => `#${r.id} [${r.type}] ${r.position} ${r.command} -> \`${r.action}\``
     )
-    if (matches.length > 5) items.push(`...and ${matches.length - 5} more`)
+    if (overflowMsg) items.push(overflowMsg)
     console.log(
       mdOutput(
         mdSection('Multiple matches', `${matches.length} rules match "${trimmed}"`),
         mdList(items),
         mdNextSteps(
-          capped.map((r) => ({
+          capped.map((r: WorkflowRule) => ({
             label: `Disable #${r.id}`,
             command: `prjct workflow disable ${r.id} --md`,
           }))
@@ -345,17 +320,17 @@ export async function workflowDisable(
       )
     )
   } else {
-    out.warn(`${matches.length} rules match "${trimmed}" — specify an ID:`)
+    notifyFail(`${matches.length} rules match "${trimmed}" — specify an ID:`)
     for (const r of capped) {
       console.log(`  #${r.id} [${r.type}] ${r.position} ${r.command} -> ${r.action}`)
     }
-    if (matches.length > 5) console.log(`  ...and ${matches.length - 5} more`)
+    if (overflowMsg) console.log(`  ${overflowMsg}`)
   }
 
-  return { success: true, matches: matches.map((r) => r.id) }
+  return { success: true, matches: matches.map((r: WorkflowRule) => r.id) }
 }
 
-export async function workflowHelp(options: Options): Promise<CommandResult> {
+export async function workflowHelp(options: MdOption): Promise<CommandResult> {
   if (options.md) {
     console.log(
       mdOutput(
@@ -413,16 +388,14 @@ export async function workflowHelp(options: Options): Promise<CommandResult> {
 export async function workflowShow(
   command: string | null,
   projectId: string,
-  options: Options
+  options: MdOption
 ): Promise<CommandResult> {
-  const validCommands = ['task', 'done', 'ship', 'sync']
+  const filterByCommand =
+    command !== null && (VALID_RULE_COMMANDS as readonly string[]).includes(command)
 
-  let rules: WorkflowRule[]
-  if (command && validCommands.includes(command)) {
-    rules = workflowRuleStorage.getRulesForCommand(projectId, command)
-  } else {
-    rules = workflowRuleStorage.getAllRules(projectId)
-  }
+  const rules: WorkflowRule[] = filterByCommand
+    ? workflowRuleStorage.getRulesForCommand(projectId, command)
+    : workflowRuleStorage.getAllRules(projectId)
 
   if (rules.length === 0) {
     if (options.md) {
@@ -436,7 +409,7 @@ export async function workflowShow(
         )
       )
     } else {
-      out.warn('no workflow rules configured')
+      notifyFail('no workflow rules configured')
       console.log('')
       console.log('  Add a hook:  prjct workflow add "npm test" before ship')
       console.log('  Add a gate:  prjct workflow gate ship "npm test"')
@@ -446,16 +419,15 @@ export async function workflowShow(
   }
 
   if (options.md) {
-    const commandsToShow = command ? [command] : validCommands
+    const commandsToShow = filterByCommand ? [command] : (VALID_RULE_COMMANDS as readonly string[])
     const diagrams: string[] = []
-
     for (const cmd of commandsToShow) {
       const cmdRules = rules.filter((r) => r.command === cmd)
       if (cmdRules.length === 0) continue
       diagrams.push(buildFlowDiagram(cmd, cmdRules))
     }
 
-    const title = command ? `Workflow: ${command}` : 'Workflow Rules'
+    const title = filterByCommand ? `Workflow: ${command}` : 'Workflow Rules'
     const count = `${rules.length} rule${rules.length !== 1 ? 's' : ''}`
     console.log(
       mdOutput(
@@ -469,18 +441,16 @@ export async function workflowShow(
       )
     )
   } else {
-    const title = command ? `WORKFLOW RULES: ${command.toUpperCase()}` : 'WORKFLOW RULES'
+    const title = filterByCommand ? `WORKFLOW RULES: ${command.toUpperCase()}` : 'WORKFLOW RULES'
     console.log('')
     console.log(title)
     console.log('──────────────────────────────────')
-
     for (const r of rules) {
       const enabled = r.enabled ? '' : ' (disabled)'
       console.log(
         `  #${r.id} [${r.type}]   ${r.position.padEnd(6)} ${r.command.padEnd(5)}  → ${r.action}${enabled}`
       )
     }
-
     console.log('')
     console.log('Commands: add | gate | rm | reset')
   }
@@ -491,25 +461,23 @@ export async function workflowShow(
 export async function workflowInit(
   projectId: string,
   projectPath: string,
-  options: Options
+  options: MdOption
 ): Promise<CommandResult> {
   const existingRules = workflowRuleStorage
     .getRulesForCommand(projectId, 'ship')
     .filter((r) => r.position === 'before')
 
   if (existingRules.length > 0) {
-    const msg = `Ship workflow already has ${existingRules.length} rule${existingRules.length !== 1 ? 's' : ''}. Use 'prjct workflow reset' first if you want to reinitialize.`
-    if (options.md) {
-      console.log(`> ${msg}`)
-    } else {
-      out.warn(msg)
-    }
-    return { success: false, error: msg }
+    return failWith(
+      `Ship workflow already has ${existingRules.length} rule${existingRules.length !== 1 ? 's' : ''}. Use 'prjct workflow reset' first if you want to reinitialize.`,
+      options
+    )
   }
 
   const detected = await detectProjectCommands(projectPath)
   let sortOrder = 0
   const rulesAdded: string[] = []
+  const ts = () => new Date().toISOString()
 
   const gateId = workflowRuleStorage.addRule(projectId, {
     type: 'gate',
@@ -518,9 +486,9 @@ export async function workflowInit(
     action: 'git branch --show-current | grep -vE "^(main|master)$"',
     description: 'Prevent shipping from main branch',
     enabled: true,
-    timeoutMs: 5000,
+    timeoutMs: WORKFLOW_TIMEOUTS.GATE_QUICK_MS,
     sortOrder: sortOrder++,
-    createdAt: new Date().toISOString(),
+    createdAt: ts(),
   })
   rulesAdded.push(`#${gateId} [gate] prevent main branch`)
 
@@ -532,9 +500,9 @@ export async function workflowInit(
       action: `${detected.lint.command} || true`,
       description: 'Lint code',
       enabled: true,
-      timeoutMs: 120000,
+      timeoutMs: WORKFLOW_TIMEOUTS.STEP_LINT_MS,
       sortOrder: sortOrder++,
-      createdAt: new Date().toISOString(),
+      createdAt: ts(),
     })
     rulesAdded.push(`#${lintId} [step] lint → ${detected.lint.command}`)
   }
@@ -547,9 +515,9 @@ export async function workflowInit(
       action: `${detected.test.command} || true`,
       description: 'Run tests',
       enabled: true,
-      timeoutMs: 300000,
+      timeoutMs: WORKFLOW_TIMEOUTS.STEP_TEST_MS,
       sortOrder: sortOrder++,
-      createdAt: new Date().toISOString(),
+      createdAt: ts(),
     })
     rulesAdded.push(`#${testId} [step] test → ${detected.test.command}`)
   }
@@ -566,7 +534,7 @@ export async function workflowInit(
       )
     )
   } else {
-    out.done(`initialized ${rulesAdded.length} workflow rules for ship`)
+    notifyDone(`initialized ${rulesAdded.length} workflow rules for ship`)
     for (const rule of rulesAdded) {
       console.log(`  ${rule}`)
     }
@@ -579,38 +547,28 @@ export async function workflowCreate(
   input: string,
   projectId: string,
   _projectPath: string,
-  options: Options
+  options: MdOption
 ): Promise<CommandResult> {
   const match = input.match(/^(\S+)\s+"([^"]+)"/)
   if (!match) {
-    const msg = 'Usage: prjct workflow create <name> "description"'
-    if (options.md) console.log(`> ${msg}`)
-    else out.warn(msg)
-    return { success: false, error: msg }
+    return failWith('Usage: prjct workflow create <name> "description"', options)
   }
 
   const [, name, description] = match
 
   if (!customWorkflowStorage.isValidName(name)) {
-    const msg = 'Workflow name must be lowercase alphanumeric + hyphens (e.g., "qa", "deploy-prod")'
-    if (options.md) console.log(`> ${msg}`)
-    else out.warn(msg)
-    return { success: false, error: msg }
+    return failWith(
+      'Workflow name must be lowercase alphanumeric + hyphens (e.g., "qa", "deploy-prod")',
+      options
+    )
   }
 
   if (customWorkflowStorage.isReservedName(name)) {
-    const msg = `Workflow name '${name}' is reserved`
-    if (options.md) console.log(`> ${msg}`)
-    else out.warn(msg)
-    return { success: false, error: msg }
+    return failWith(`Workflow name '${name}' is reserved`, options)
   }
 
-  const existing = customWorkflowStorage.getWorkflow(projectId, name)
-  if (existing) {
-    const msg = `Workflow '${name}' already exists`
-    if (options.md) console.log(`> ${msg}`)
-    else out.warn(msg)
-    return { success: false, error: msg }
+  if (customWorkflowStorage.getWorkflow(projectId, name)) {
+    return failWith(`Workflow '${name}' already exists`, options)
   }
 
   try {
@@ -618,12 +576,9 @@ export async function workflowCreate(
 
     const templateResult = await templateGenerator.generateWorkflowTemplate(name, description)
     if (!templateResult.success) {
-      // Rollback workflow creation if template generation fails
+      // Rollback workflow creation if template generation fails.
       customWorkflowStorage.deleteWorkflow(projectId, name)
-      const msg = `Failed to generate template: ${templateResult.error}`
-      if (options.md) console.log(`> Error: ${msg}`)
-      else out.fail(msg)
-      return { success: false, error: msg }
+      return failWith(`Failed to generate template: ${templateResult.error}`, options)
     }
 
     if (options.md) {
@@ -640,7 +595,7 @@ export async function workflowCreate(
         )
       )
     } else {
-      out.done(`created workflow: ${name}`)
+      notifyDone(`created workflow: ${name}`)
       console.log(`  ${description}`)
       console.log(`  Template: ${templateResult.path}`)
       console.log(`\nRun with: p. ${name}`)
@@ -648,39 +603,32 @@ export async function workflowCreate(
 
     return { success: true, workflowId, name, templatePath: templateResult.path }
   } catch (error) {
-    const msg = getErrorMessage(error)
-    if (options.md) console.log(`> Error: ${msg}`)
-    else out.fail(msg)
-    return { success: false, error: msg }
+    return failWith(getErrorMessage(error), options)
   }
 }
 
-export async function workflowList(projectId: string, options: Options): Promise<CommandResult> {
+export async function workflowList(projectId: string, options: MdOption): Promise<CommandResult> {
   const workflows = customWorkflowStorage.getAllWorkflows(projectId)
 
   if (workflows.length === 0) {
-    const msg = 'No workflows found'
-    if (options.md) console.log(`> ${msg}`)
-    else out.warn(msg)
+    if (options.md) console.log('> No workflows found')
+    else notifyFail('No workflows found')
     return { success: true, workflows: [] }
   }
 
   const builtin = workflows.filter((w) => w.isBuiltin)
   const custom = workflows.filter((w) => !w.isBuiltin)
+  const renderRow = (w: { name: string; description: string | null }) =>
+    `- **${w.name}** — ${w.description ?? ''}`
 
   if (options.md) {
     const sections: string[] = []
-
     if (builtin.length > 0) {
-      const items = builtin.map((w) => `- **${w.name}** — ${w.description}`)
-      sections.push(mdSection('Built-in Workflows', items.join('\n')))
+      sections.push(mdSection('Built-in Workflows', builtin.map(renderRow).join('\n')))
     }
-
     if (custom.length > 0) {
-      const items = custom.map((w) => `- **${w.name}** — ${w.description}`)
-      sections.push(mdSection('Custom Workflows', items.join('\n')))
+      sections.push(mdSection('Custom Workflows', custom.map(renderRow).join('\n')))
     }
-
     console.log(
       mdOutput(
         ...sections,
@@ -694,18 +642,14 @@ export async function workflowList(projectId: string, options: Options): Promise
       )
     )
   } else {
-    out.done(`${workflows.length} workflow${workflows.length !== 1 ? 's' : ''}`)
+    notifyDone(`${workflows.length} workflow${workflows.length !== 1 ? 's' : ''}`)
     if (builtin.length > 0) {
       console.log('\nBuilt-in:')
-      for (const w of builtin) {
-        console.log(`  ${w.name} — ${w.description}`)
-      }
+      for (const w of builtin) console.log(`  ${w.name} — ${w.description}`)
     }
     if (custom.length > 0) {
       console.log('\nCustom:')
-      for (const w of custom) {
-        console.log(`  ${w.name} — ${w.description}`)
-      }
+      for (const w of custom) console.log(`  ${w.name} — ${w.description}`)
     }
   }
 
@@ -715,40 +659,24 @@ export async function workflowList(projectId: string, options: Options): Promise
 export async function workflowDelete(
   input: string,
   projectId: string,
-  options: Options
+  options: MdOption
 ): Promise<CommandResult> {
   const name = input.trim()
-
-  if (!name) {
-    const msg = 'Usage: prjct workflow delete <name>'
-    if (options.md) console.log(`> ${msg}`)
-    else out.warn(msg)
-    return { success: false, error: msg }
-  }
+  if (!name) return failWith('Usage: prjct workflow delete <name>', options)
 
   try {
     const deleted = customWorkflowStorage.deleteWorkflow(projectId, name)
-
-    if (!deleted) {
-      const msg = `Workflow '${name}' not found`
-      if (options.md) console.log(`> ${msg}`)
-      else out.warn(msg)
-      return { success: false, error: msg }
-    }
+    if (!deleted) return failWith(`Workflow '${name}' not found`, options)
 
     await templateGenerator.deleteWorkflowTemplate(name)
 
     if (options.md) {
       console.log(mdOutput(mdDone('Workflow Deleted', `Deleted workflow: ${name}`)))
     } else {
-      out.done(`deleted workflow: ${name}`)
+      notifyDone(`deleted workflow: ${name}`)
     }
-
     return { success: true }
   } catch (error) {
-    const msg = getErrorMessage(error)
-    if (options.md) console.log(`> Error: ${msg}`)
-    else out.fail(msg)
-    return { success: false, error: msg }
+    return failWith(getErrorMessage(error), options)
   }
 }

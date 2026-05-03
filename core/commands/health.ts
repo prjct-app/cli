@@ -11,6 +11,7 @@
  */
 
 import path from 'node:path'
+import type { MdOption } from '../types/cli'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import { execAsync } from '../utils/exec'
@@ -52,7 +53,7 @@ export class HealthCommands extends PrjctCommandsBase {
   async health(
     _arg: string | null = null,
     projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
+    options: MdOption = {}
   ): Promise<CommandResult> {
     try {
       const initResult = await this.ensureProjectInit(projectPath)
