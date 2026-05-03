@@ -22,7 +22,7 @@ import { getErrorMessage } from '../types/fs'
 import { execAsync, execFileAsync } from '../utils/exec'
 import out from '../utils/output'
 import { PrjctCommandsBase } from './base'
-import { requireProjectId } from './guards'
+import { requireProject } from './guards'
 
 interface ContextCheckpoint {
   /** Schema version for the JSON document. */
@@ -53,10 +53,7 @@ export class ContextCheckpointCommands extends PrjctCommandsBase {
     options: { md?: boolean; notes?: string } = {}
   ): Promise<CommandResult> {
     try {
-      const initResult = await this.ensureProjectInit(projectPath)
-      if (!initResult.success) return initResult
-
-      const pid = await requireProjectId(projectPath)
+      const pid = await requireProject(projectPath)
       if (!pid.ok) return pid.result
 
       const cleanTitle = (title ?? 'untitled').trim().slice(0, 200) || 'untitled'
@@ -101,10 +98,7 @@ export class ContextCheckpointCommands extends PrjctCommandsBase {
     options: { md?: boolean; list?: boolean; file?: string } = {}
   ): Promise<CommandResult> {
     try {
-      const initResult = await this.ensureProjectInit(projectPath)
-      if (!initResult.success) return initResult
-
-      const pid = await requireProjectId(projectPath)
+      const pid = await requireProject(projectPath)
       if (!pid.ok) return pid.result
 
       const dir = checkpointDir(pid.value)

@@ -136,7 +136,7 @@ async function runDimension(projectPath: string, dim: HealthDimension): Promise<
   } catch (error) {
     const stderr = (error as { stderr?: string }).stderr ?? ''
     const stdout = (error as { stdout?: string }).stdout ?? ''
-    const firstNonEmpty = (stderr + '\n' + stdout)
+    const firstNonEmpty = `${stderr}\n${stdout}`
       .split('\n')
       .map((l) => l.trim())
       .find((l) => l.length > 0)
