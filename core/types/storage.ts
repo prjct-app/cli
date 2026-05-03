@@ -364,7 +364,7 @@ export interface CustomWorkflow {
 // Database Types (from database.ts)
 // =============================================================================
 
-import type { SqliteDatabase } from '../storage/database.js'
+import type { SqliteDatabase } from '../storage/database/sqlite-compat'
 
 export interface Migration {
   version: number

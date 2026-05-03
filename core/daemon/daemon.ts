@@ -14,14 +14,21 @@
 import fs from 'node:fs'
 import type { Server, Socket } from 'node:net'
 import { createServer as createNetServer } from 'node:net'
-import { findClosestCommand } from '../commands/closest-command'
 import { PrjctCommands } from '../commands/commands'
 import { commandRegistry } from '../commands/registry'
 import '../commands/register'
-import { isRemovedVerb, migrationMessage } from '../commands/removed-verbs'
 import prjctDb from '../storage/database'
 import type { DaemonRequest, DaemonResponse, DaemonState } from '../types/daemon'
+import { executeCommand } from './dispatch'
 import { DAEMON_PATHS, encodeMessage, IDLE_TIMEOUT_MS, MAX_BUFFER_SIZE } from './protocol'
+import {
+  isCodeStale as detectStaleCode,
+  isGlobalVersionDrifted,
+  isProcessRunning,
+  readOwnPackageVersion,
+  resolveEntryPath,
+  rotateLog,
+} from './staleness'
 
 /** Run WAL checkpoint every N requests to reclaim disk space */
 const WAL_CHECKPOINT_INTERVAL = 50
@@ -34,9 +41,6 @@ let commands: PrjctCommands | null = null
 let state: DaemonState | null = null
 let ownVersion: string | null = null
 
-/**
- * Start the daemon process
- */
 export async function startDaemon(options: { foreground?: boolean }): Promise<void> {
   // Flag child services (wiki-generator etc.) can check to know they're
   // running under the long-lived daemon — lets them fire-and-forget safe
@@ -47,7 +51,6 @@ export async function startDaemon(options: { foreground?: boolean }): Promise<vo
   const pidPath = DAEMON_PATHS.pid()
   const runDir = DAEMON_PATHS.runDir()
 
-  // Ensure run directory exists
   fs.mkdirSync(runDir, { recursive: true })
 
   // Check if daemon is already running
@@ -57,19 +60,14 @@ export async function startDaemon(options: { foreground?: boolean }): Promise<vo
       console.error(`Daemon already running (PID ${existingPid})`)
       process.exit(1)
     }
-    // Stale PID file — clean up
     fs.unlinkSync(pidPath)
   }
 
   // Clean up stale socket
-  if (fs.existsSync(socketPath)) {
-    fs.unlinkSync(socketPath)
-  }
+  if (fs.existsSync(socketPath)) fs.unlinkSync(socketPath)
 
-  // Rotate log if over 1 MB
   rotateLog()
 
-  // Resolve entry file path and mtime for stale-code detection
   const entryPath = resolveEntryPath()
   let entryMtime: number | null = null
   if (entryPath) {
@@ -80,15 +78,8 @@ export async function startDaemon(options: { foreground?: boolean }): Promise<vo
     }
   }
 
-  // Capture our own package version so we can detect the scenario where a
-  // newer `prjct-cli` was installed globally but this long-lived daemon is
-  // still serving requests from the old build. pnpm's content-addressable
-  // store means `isCodeStale()` won't catch it — the old files stay put at
-  // a different path. We re-probe the global binary on every request
-  // (cheap) and shut ourselves down on mismatch.
   ownVersion = readOwnPackageVersion()
 
-  // Initialize state
   state = {
     startedAt: Date.now(),
     commandsServed: 0,
@@ -102,16 +93,11 @@ export async function startDaemon(options: { foreground?: boolean }): Promise<vo
   }
 
   // Self-heal hooks + global CLAUDE.md when the binary moved past the
-  // last sync. Runs once per fresh daemon spawn — combined with the
-  // version-drift auto-suicide below, every npm upgrade re-syncs the
-  // user's config the first time the next command spawns a new daemon.
-  // Best-effort: failures must never block daemon startup.
+  // last sync. Best-effort: failures must never block daemon startup.
   if (ownVersion) {
     try {
       const { isSyncCurrent, runSelfHeal } = await import('../infrastructure/self-heal')
-      if (!isSyncCurrent(ownVersion)) {
-        await runSelfHeal(ownVersion)
-      }
+      if (!isSyncCurrent(ownVersion)) await runSelfHeal(ownVersion)
     } catch {
       // never block daemon startup
     }
@@ -120,23 +106,16 @@ export async function startDaemon(options: { foreground?: boolean }): Promise<vo
   // Pre-load modules (this is the whole point — do it once)
   commands = new PrjctCommands()
 
-  // Start IPC socket server
   ipcServer = createNetServer((socket) => handleConnection(socket))
 
   ipcServer.listen(socketPath, () => {
-    // Set socket permissions (owner read/write only)
     fs.chmodSync(socketPath, 0o600)
-
-    // Write PID file
     fs.writeFileSync(pidPath, String(process.pid))
 
     console.log(`prjct daemon started (PID ${process.pid})`)
     console.log(`  Socket: ${socketPath}`)
-    if (entryPath) {
-      console.log(`  Watching: ${entryPath}`)
-    }
+    if (entryPath) console.log(`  Watching: ${entryPath}`)
 
-    // Start idle timeout
     resetIdleTimer()
   })
 
@@ -145,18 +124,14 @@ export async function startDaemon(options: { foreground?: boolean }): Promise<vo
     shutdown(1)
   })
 
-  // Signal handlers for graceful shutdown
   process.on('SIGTERM', () => shutdown(0))
   process.on('SIGINT', () => shutdown(0))
   process.on('SIGHUP', () => {
-    // Reload: re-initialize commands (picks up new registrations)
     commands = new PrjctCommands()
     console.log('Daemon reloaded (SIGHUP)')
   })
 
-  // Keep process alive
   if (!options.foreground) {
-    // Detach stdin when running as background daemon
     try {
       process.stdin?.unref?.()
     } catch {
@@ -165,9 +140,6 @@ export async function startDaemon(options: { foreground?: boolean }): Promise<vo
   }
 }
 
-/**
- * Handle an incoming IPC connection
- */
 function handleConnection(socket: Socket): void {
   let buffer = ''
 
@@ -217,9 +189,6 @@ function handleConnection(socket: Socket): void {
   })
 }
 
-/**
- * Handle a single CLI command request
- */
 async function handleRequest(request: DaemonRequest): Promise<DaemonResponse> {
   if (!state || !commands) {
     return {
@@ -265,38 +234,29 @@ async function handleRequestInner(request: DaemonRequest): Promise<DaemonRespons
     }
   }
 
-  // Reset idle timer on every request
   resetIdleTimer()
   state.commandsServed++
   state.lastActivity = Date.now()
 
-  // Periodic WAL checkpoint to reclaim disk space
   if (state.commandsServed % WAL_CHECKPOINT_INTERVAL === 0) {
     prjctDb.checkpointAll()
   }
 
   // Stale-code detection: check if the entry file was rebuilt. Mark
-  // restart as pending and let the request finish — `finalizeRequest`
-  // shuts down once active requests drain. Earlier code did
-  // `setTimeout(shutdown, 200)`, which killed the daemon mid-request
-  // (e.g. `ship` taking 500ms+ on git:commit). The CLI then caught the
-  // dropped socket and silently fell through to direct execution,
-  // running the same command twice — visible in git history as two
-  // back-to-back release commits per `prjct ship`.
-  if (!state.restartPending && isCodeStale()) {
+  // restart as pending and let the request finish.
+  if (!state.restartPending && detectStaleCode(state.entryPath, state.entryMtime)) {
     console.log('Build changed detected — daemon will restart after this request')
     state.restartPending = true
   }
 
   // Global-install drift detection: catches pnpm content-store upgrades
   // where the old daemon's files are untouched but the user-facing `prjct`
-  // binary now points at a different version. Mtime check above won't
-  // detect that — we need a version comparison.
+  // binary now points at a different version.
   if (
     !state.restartPending &&
     ownVersion &&
     state.commandsServed % VERSION_DRIFT_CHECK_INTERVAL === 0 &&
-    isGlobalVersionDrifted()
+    isGlobalVersionDrifted(ownVersion)
   ) {
     console.log(
       `Version drift detected — daemon v${ownVersion} is stale; shutting down so the next request spawns fresh.`
@@ -304,12 +264,8 @@ async function handleRequestInner(request: DaemonRequest): Promise<DaemonRespons
     state.restartPending = true
   }
 
-  // Handle daemon meta-commands
-  if (request.command === 'daemon') {
-    return handleDaemonCommand(request)
-  }
+  if (request.command === 'daemon') return handleDaemonCommand(request)
 
-  // Handle ping (health check from client)
   if (request.command === '__ping') {
     return {
       id: request.id,
@@ -330,8 +286,7 @@ async function handleRequestInner(request: DaemonRequest): Promise<DaemonRespons
     console.error = (...args: unknown[]) => errors.push(args.map(String).join(' '))
 
     try {
-      const result = await executeCommand(request)
-
+      const result = await executeCommand(commands, request)
       return {
         id: request.id,
         success: result.success,
@@ -354,113 +309,6 @@ async function handleRequestInner(request: DaemonRequest): Promise<DaemonRespons
   }
 }
 
-/**
- * Execute a command, routing options-dependent commands through PrjctCommands
- * (mirrors the routing in core/index.ts)
- */
-async function executeCommand(
-  request: DaemonRequest
-): Promise<import('../types/commands').CommandResult> {
-  const param = request.args.join(' ') || null
-  const opts = request.options
-
-  const md = opts.md === true
-
-  // Short-circuit v2-removed verbs with a migration message so the daemon
-  // path matches the fallback path in core/index.ts. Otherwise users get
-  // a generic "Unknown command" from the registry with no migration hint.
-  if (isRemovedVerb(request.command) && !commandRegistry.getByName(request.command)) {
-    const msg = migrationMessage(request.command) ?? `'${request.command}' was removed in v2.`
-    return { success: false, error: msg }
-  }
-
-  // Mirror the v2 GTD auto-route from core/index.ts: an unknown verb
-  // becomes `prjct capture "<verb plus args>"` so dumps without ceremony
-  // land in the inbox. Single-word near-typos of a real verb still bubble
-  // up as "Command not found" (handled by the default switch case below)
-  // so users don't silently capture e.g. "shipp".
-  if (
-    request.command &&
-    !commandRegistry.getByName(request.command) &&
-    !(request.args.length === 0 && findClosestCommand(request.command) !== null)
-  ) {
-    const fullDescription = [
-      request.command,
-      ...request.args.filter((a) => !a.startsWith('-')),
-    ].join(' ')
-    return commands!.capture(fullDescription, request.cwd, {
-      md,
-      tags: opts.tags ? String(opts.tags) : undefined,
-      force: opts.force === true,
-    })
-  }
-
-  // Commands that need options routed through PrjctCommands
-  switch (request.command) {
-    case 'sync':
-      return commands!.sync(request.cwd, {
-        preview: opts.preview === true || opts['dry-run'] === true,
-        yes: opts.yes === true,
-        json: opts.json === true,
-        md,
-        package: opts.package ? String(opts.package) : undefined,
-        full: opts.full === true,
-      })
-    case 'task':
-      return commands!.task(param, request.cwd, { md })
-    case 'ship': {
-      const intent = typeof opts.intent === 'string' ? (opts.intent as string) : undefined
-      return commands!.ship(param, request.cwd, {
-        md,
-        intent: intent as 'register-only' | 'seed-code-workflow' | 'proceed' | undefined,
-        skipHooks: opts['skip-hooks'] === true,
-      })
-    }
-    case 'workflow':
-      return commands!.workflowPrefs(param, request.cwd, { md })
-    case 'analyze':
-      return commands!.analyze(opts, request.cwd)
-    case 'analysis-save-llm':
-      if (!param) {
-        return {
-          success: false,
-          error: 'analysis-save-llm requires a JSON payload as positional arg',
-        }
-      }
-      return commands!.saveLlmAnalysis(param, request.cwd, { md })
-    case 'status':
-      return commands!.status(param, request.cwd, { md })
-    case 'tag':
-      return commands!.tag(param, request.cwd, { md })
-    case 'remember':
-      return commands!.remember(param, request.cwd, {
-        md,
-        tags: opts.tags ? String(opts.tags) : undefined,
-      })
-    case 'mcp':
-      // Explicit case (not registry.execute) because the registry wrapper
-      // calls `mcp(projectPath)` when param is null — which makes `mcp` parse
-      // the cwd as a subcommand. `p. mcp` from Claude Code hits exactly that
-      // path and was returning "Unknown mcp subcommand: /Users/…".
-      return commands!.mcp(param, request.cwd, { md })
-    case 'team':
-      return commands!.team(param, request.cwd, {
-        md,
-        required: opts.required === true,
-        minVersion: opts['min-version'] ? String(opts['min-version']) : undefined,
-        enforce: opts.enforce === true,
-      })
-    case 'config':
-      return commands!.config(param, request.cwd, { md })
-    default:
-      // Standard commands without special option handling
-      return commandRegistry.execute(request.command, param, request.cwd)
-  }
-}
-
-/**
- * Handle daemon meta-commands (status, stop)
- */
 function handleDaemonCommand(request: DaemonRequest): DaemonResponse {
   const subcommand = request.args[0]
 
@@ -477,20 +325,18 @@ function handleDaemonCommand(request: DaemonRequest): DaemonResponse {
         commandsServed: state?.commandsServed ?? 0,
         lastActivity: state ? new Date(state.lastActivity).toISOString() : null,
         registeredCommands: commandRegistry.list().length,
-        stale: isCodeStale(),
+        stale: state ? detectStaleCode(state.entryPath, state.entryMtime) : false,
       },
     }
   }
 
   if (subcommand === 'stop') {
-    // Respond before shutting down
     const response: DaemonResponse = {
       id: request.id,
       success: true,
       exitCode: 0,
       stdout: 'Daemon stopping...',
     }
-    // Shut down after response is sent
     setTimeout(() => shutdown(0), 100)
     return response
   }
@@ -503,15 +349,10 @@ function handleDaemonCommand(request: DaemonRequest): DaemonResponse {
   }
 }
 
-/**
- * Reset the idle auto-shutdown timer
- */
 function resetIdleTimer(): void {
   if (!state) return
 
-  if (state.idleTimer) {
-    clearTimeout(state.idleTimer)
-  }
+  if (state.idleTimer) clearTimeout(state.idleTimer)
 
   state.idleTimer = setTimeout(() => {
     console.log(`Daemon idle for ${state!.idleTimeoutMs / 1000 / 60} minutes, shutting down`)
@@ -519,32 +360,21 @@ function resetIdleTimer(): void {
   }, state.idleTimeoutMs)
 
   // Don't keep the process alive just for the timer
-  if (state.idleTimer.unref) {
-    state.idleTimer.unref()
-  }
+  if (state.idleTimer.unref) state.idleTimer.unref()
 }
 
-/**
- * Gracefully shut down the daemon
- */
 function shutdown(exitCode: number): void {
   console.log('Daemon shutting down...')
 
-  // Clear idle timer
-  if (state?.idleTimer) {
-    clearTimeout(state.idleTimer)
-  }
+  if (state?.idleTimer) clearTimeout(state.idleTimer)
 
-  // Close IPC socket
   if (ipcServer) {
     ipcServer.close()
     ipcServer = null
   }
 
-  // Close all database connections
   prjctDb.close()
 
-  // Clean up files
   const socketPath = DAEMON_PATHS.socket()
   const pidPath = DAEMON_PATHS.pid()
 
@@ -561,172 +391,4 @@ function shutdown(exitCode: number): void {
   }
 
   process.exit(exitCode)
-}
-
-/**
- * Check if a process with the given PID is still running
- */
-function isProcessRunning(pid: number): boolean {
-  try {
-    process.kill(pid, 0)
-    return true
-  } catch {
-    return false
-  }
-}
-
-/**
- * Resolve a build artifact path for stale-code detection.
- * Always uses dist/daemon/entry.mjs as the sentinel file since it gets
- * regenerated on every `npm run build`, regardless of whether the daemon
- * is running from source (dev/bun) or compiled (production/node).
- */
-function resolveEntryPath(): string | null {
-  const path = require('node:path')
-
-  // Find the project root by looking for package.json
-  let dir = __dirname
-  for (let i = 0; i < 5; i++) {
-    if (fs.existsSync(path.join(dir, 'package.json'))) {
-      const sentinel = path.join(dir, 'dist', 'daemon', 'entry.mjs')
-      if (fs.existsSync(sentinel)) return sentinel
-      break
-    }
-    dir = path.dirname(dir)
-  }
-
-  // Fallback: check paths relative to this file
-  const candidates = [
-    path.join(__dirname, '..', 'daemon', 'entry.mjs'), // from dist/bin/
-    path.join(__dirname, '..', 'dist', 'daemon', 'entry.mjs'), // from bin/
-  ]
-
-  for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) return candidate
-  }
-
-  // Last resort: use the script being executed
-  const scriptPath = process.argv[1]
-  if (scriptPath && fs.existsSync(scriptPath)) return scriptPath
-
-  return null
-}
-
-/**
- * Rotate daemon log if it exceeds 1 MB.
- * Keeps one backup (.1) and truncates the current log.
- */
-const MAX_LOG_BYTES = 1024 * 1024 // 1 MB
-
-function rotateLog(): void {
-  const logPath = DAEMON_PATHS.log()
-  try {
-    const stat = fs.statSync(logPath)
-    if (stat.size > MAX_LOG_BYTES) {
-      const backupPath = `${logPath}.1`
-      // Remove old backup, rename current, create fresh
-      try {
-        fs.unlinkSync(backupPath)
-      } catch {
-        /* no previous backup */
-      }
-      fs.renameSync(logPath, backupPath)
-    }
-  } catch {
-    // Log file doesn't exist yet — nothing to rotate
-  }
-}
-
-/**
- * Check if the daemon's entry file has been modified since startup.
- * Returns true if a rebuild was detected.
- */
-function isCodeStale(): boolean {
-  if (!state?.entryPath || state.entryMtime === null) return false
-
-  try {
-    const currentMtime = fs.statSync(state.entryPath).mtimeMs
-    return currentMtime !== state.entryMtime
-  } catch {
-    return false
-  }
-}
-
-/**
- * Walk up from __dirname to find this package's own package.json and return
- * its `version`. Called once at startup; cached in `ownVersion`.
- */
-function readOwnPackageVersion(): string | null {
-  const path = require('node:path')
-  let dir = __dirname
-  for (let i = 0; i < 6; i++) {
-    const pkgPath = path.join(dir, 'package.json')
-    try {
-      const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'))
-      if (pkg?.name === 'prjct-cli' && typeof pkg.version === 'string') {
-        return pkg.version
-      }
-    } catch {
-      /* not here — keep walking */
-    }
-    const parent = path.dirname(dir)
-    if (parent === dir) break
-    dir = parent
-  }
-  return null
-}
-
-/**
- * Best-effort detection that a newer `prjct-cli` has been installed globally
- * while this daemon is still running. Returns `true` only when we can
- * positively identify a mismatch — on any lookup failure we return `false`
- * (daemon keeps running; no false positives).
- *
- * Handles the common install layouts (pnpm, npm, volta, mise, asdf) by
- * resolving the shell binary through known symlink paths and walking up to
- * its `package.json`.
- */
-function isGlobalVersionDrifted(): boolean {
-  if (!ownVersion) return false
-  const os = require('node:os')
-  const path = require('node:path')
-  const home = os.homedir()
-
-  const candidates = [
-    `${home}/Library/pnpm/prjct`, // pnpm (macOS default)
-    `${home}/.local/share/pnpm/prjct`, // pnpm (Linux)
-    `${home}/.npm-global/bin/prjct`, // npm (custom prefix)
-    '/usr/local/bin/prjct', // npm (default prefix)
-    '/opt/homebrew/bin/prjct', // homebrew symlink
-    `${home}/.volta/bin/prjct`, // volta
-    `${home}/.asdf/shims/prjct`, // asdf
-  ]
-
-  for (const symlink of candidates) {
-    let realPath: string
-    try {
-      realPath = fs.realpathSync(symlink)
-    } catch {
-      continue // not installed here
-    }
-
-    // Walk up from the resolved binary to find its package.json
-    let dir = path.dirname(realPath)
-    for (let i = 0; i < 6; i++) {
-      const pkgPath = path.join(dir, 'package.json')
-      try {
-        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'))
-        if (pkg?.name === 'prjct-cli' && typeof pkg.version === 'string') {
-          return pkg.version !== ownVersion
-        }
-      } catch {
-        /* keep walking */
-      }
-      const parent = path.dirname(dir)
-      if (parent === dir) break
-      dir = parent
-    }
-  }
-
-  return false // couldn't resolve any install — can't tell, assume OK
 }

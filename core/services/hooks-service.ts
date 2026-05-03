@@ -20,6 +20,16 @@ import { getErrorMessage } from '../types/fs'
 import type { HookName, HookStrategy } from '../types/services.js'
 import { fileExists } from '../utils/file-helper'
 import out from '../utils/output'
+import {
+  detectHookManagers,
+  installDirect,
+  installHusky,
+  installLefthook,
+  selectStrategy,
+  uninstallDirect,
+  uninstallHusky,
+  uninstallLefthook,
+} from './hooks-service/strategies'
 
 interface HookConfig {
   enabled: boolean
@@ -31,11 +41,7 @@ interface HookConfig {
 interface HooksStatusResult {
   installed: boolean
   strategy: HookStrategy | null
-  hooks: Array<{
-    name: HookName
-    installed: boolean
-    path: string
-  }>
+  hooks: Array<{ name: HookName; installed: boolean; path: string }>
   detectedManagers: HookStrategy[]
 }
 
@@ -46,325 +52,14 @@ interface HooksInstallResult {
   error?: string
 }
 
-// ============================================================================
-// HOOK SCRIPT TEMPLATES
-// ============================================================================
-
-/**
- * Shell script for post-commit hook
- * Runs prjct sync in quiet mode with rate limiting
- */
-function getPostCommitScript(): string {
-  return `#!/bin/sh
-# prjct auto-sync hook (post-commit)
-# Syncs project context after each commit
-# Installed by: prjct hooks install
-
-# Rate limit: skip if synced within last 30 seconds
-LOCK_FILE="\${TMPDIR:-/tmp}/prjct-sync-$(pwd | md5sum 2>/dev/null | cut -d' ' -f1 || md5 -q -s "$(pwd)").lock"
-if [ -f "$LOCK_FILE" ]; then
-  LOCK_AGE=$(( $(date +%s) - $(stat -f%m "$LOCK_FILE" 2>/dev/null || stat -c%Y "$LOCK_FILE" 2>/dev/null || echo 0) ))
-  if [ "$LOCK_AGE" -lt 30 ]; then
-    exit 0
-  fi
-fi
-
-# Run sync in background, suppress all output
-if command -v prjct >/dev/null 2>&1; then
-  touch "$LOCK_FILE"
-  prjct sync --quiet --yes >/dev/null 2>&1 &
-fi
-
-exit 0
-`
-}
-
-/**
- * Shell script for post-checkout hook
- * Syncs project context after branch switch
- */
-function getPostCheckoutScript(): string {
-  return `#!/bin/sh
-# prjct auto-sync hook (post-checkout)
-# Syncs project context after branch switch
-# Installed by: prjct hooks install
-
-# Only run on branch checkout (not file checkout)
-# $3 is the checkout type flag: 1 = branch, 0 = file
-if [ "$3" != "1" ]; then
-  exit 0
-fi
-
-# Skip if old and new refs are the same (no actual branch change)
-if [ "$1" = "$2" ]; then
-  exit 0
-fi
-
-# Rate limit: skip if synced within last 30 seconds
-LOCK_FILE="\${TMPDIR:-/tmp}/prjct-sync-$(pwd | md5sum 2>/dev/null | cut -d' ' -f1 || md5 -q -s "$(pwd)").lock"
-if [ -f "$LOCK_FILE" ]; then
-  LOCK_AGE=$(( $(date +%s) - $(stat -f%m "$LOCK_FILE" 2>/dev/null || stat -c%Y "$LOCK_FILE" 2>/dev/null || echo 0) ))
-  if [ "$LOCK_AGE" -lt 30 ]; then
-    exit 0
-  fi
-fi
-
-# Run sync in background, suppress all output
-if command -v prjct >/dev/null 2>&1; then
-  touch "$LOCK_FILE"
-  prjct sync --quiet --yes >/dev/null 2>&1 &
-fi
-
-exit 0
-`
-}
-
-// ============================================================================
-// HOOK MANAGER DETECTION
-// ============================================================================
-
-/**
- * Detect which hook managers are available in the project
- */
-async function detectHookManagers(projectPath: string): Promise<HookStrategy[]> {
-  const detected: HookStrategy[] = []
-
-  // Check for lefthook
-  if (
-    (await fileExists(path.join(projectPath, 'lefthook.yml'))) ||
-    (await fileExists(path.join(projectPath, 'lefthook.yaml')))
-  ) {
-    detected.push('lefthook')
-  }
-
-  // Check for husky
-  if (
-    (await fileExists(path.join(projectPath, '.husky'))) ||
-    (await fileExists(path.join(projectPath, '.husky', '_')))
-  ) {
-    detected.push('husky')
-  }
-
-  // Direct .git/hooks is always available if it's a git repo
-  if (await fileExists(path.join(projectPath, '.git'))) {
-    detected.push('direct')
-  }
-
-  return detected
-}
-
-/**
- * Select the best hook strategy based on what's available
- */
-function selectStrategy(detected: HookStrategy[]): HookStrategy {
-  // Prefer managed hook tools over direct
-  if (detected.includes('lefthook')) return 'lefthook'
-  if (detected.includes('husky')) return 'husky'
-  return 'direct'
-}
-
-// ============================================================================
-// INSTALLATION STRATEGIES
-// ============================================================================
-
-/**
- * Install hooks via lefthook (append to existing config)
- */
-async function installLefthook(projectPath: string, hooks: HookName[]): Promise<boolean> {
-  const configFile = (await fileExists(path.join(projectPath, 'lefthook.yml')))
-    ? 'lefthook.yml'
-    : 'lefthook.yaml'
-  const configPath = path.join(projectPath, configFile)
-
-  let content = await fs.readFile(configPath, 'utf-8')
-
-  for (const hook of hooks) {
-    const sectionName = hook // e.g. "post-commit"
-    const commandName = `prjct-sync-${hook}`
-
-    // Check if already configured
-    if (content.includes(commandName)) {
-      continue
-    }
-
-    const hookBlock = `
-${sectionName}:
-  commands:
-    ${commandName}:
-      run: prjct sync --quiet --yes
-      fail_text: "prjct sync failed (non-blocking)"
-`
-
-    // If the hook section already exists, add command to it
-    const escapedSection = sectionName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    const sectionRegex = new RegExp(`^${escapedSection}:\\s*$`, 'm')
-    if (sectionRegex.test(content)) {
-      // Insert command into existing section
-      content = content.replace(
-        sectionRegex,
-        `${sectionName}:\n  commands:\n    ${commandName}:\n      run: prjct sync --quiet --yes\n      fail_text: "prjct sync failed (non-blocking)"`
-      )
-    } else {
-      // Append new section
-      content = `${content.trimEnd()}\n${hookBlock}`
-    }
-  }
-
-  await fs.writeFile(configPath, content, 'utf-8')
-  return true
-}
-
-/**
- * Install hooks via husky
- */
-async function installHusky(projectPath: string, hooks: HookName[]): Promise<boolean> {
-  const huskyDir = path.join(projectPath, '.husky')
-
-  for (const hook of hooks) {
-    const hookPath = path.join(huskyDir, hook)
-    const script = hook === 'post-commit' ? getPostCommitScript() : getPostCheckoutScript()
-
-    if (await fileExists(hookPath)) {
-      // Append to existing hook if not already present
-      const existing = await fs.readFile(hookPath, 'utf-8')
-      if (existing.includes('prjct sync')) {
-        continue
-      }
-      await fs.appendFile(hookPath, '\n# prjct auto-sync\nprjct sync --quiet --yes &\n')
-    } else {
-      await fs.writeFile(hookPath, script, { mode: 0o755 })
-    }
-  }
-
-  return true
-}
-
-/**
- * Install hooks directly into .git/hooks/
- */
-async function installDirect(projectPath: string, hooks: HookName[]): Promise<boolean> {
-  const hooksDir = path.join(projectPath, '.git', 'hooks')
-
-  if (!(await fileExists(hooksDir))) {
-    await fs.mkdir(hooksDir, { recursive: true })
-  }
-
-  for (const hook of hooks) {
-    const hookPath = path.join(hooksDir, hook)
-    const script = hook === 'post-commit' ? getPostCommitScript() : getPostCheckoutScript()
-
-    if (await fileExists(hookPath)) {
-      const existing = await fs.readFile(hookPath, 'utf-8')
-      if (existing.includes('prjct sync')) {
-        continue // Already installed
-      }
-      // Append to existing hook
-      await fs.appendFile(
-        hookPath,
-        `\n# prjct auto-sync\n${script.split('\n').slice(1).join('\n')}`
-      )
-    } else {
-      await fs.writeFile(hookPath, script, { mode: 0o755 })
-    }
-  }
-
-  return true
-}
-
-// ============================================================================
-// UNINSTALL STRATEGIES
-// ============================================================================
-
-async function uninstallLefthook(projectPath: string): Promise<boolean> {
-  const configFile = (await fileExists(path.join(projectPath, 'lefthook.yml')))
-    ? 'lefthook.yml'
-    : 'lefthook.yaml'
-  const configPath = path.join(projectPath, configFile)
-
-  if (!(await fileExists(configPath))) return false
-
-  let content = await fs.readFile(configPath, 'utf-8')
-
-  // Remove prjct-sync commands
-  content = content.replace(/\s*prjct-sync-[\w-]+:[\s\S]*?(?=\n\S|\n*$)/g, '')
-
-  // Clean up empty sections
-  content = content.replace(/^(post-commit|post-checkout):\s*commands:\s*$/gm, '')
-
-  await fs.writeFile(configPath, `${content.trimEnd()}\n`, 'utf-8')
-  return true
-}
-
-async function uninstallHusky(projectPath: string): Promise<boolean> {
-  const huskyDir = path.join(projectPath, '.husky')
-
-  for (const hook of ['post-commit', 'post-checkout'] as HookName[]) {
-    const hookPath = path.join(huskyDir, hook)
-    if (!(await fileExists(hookPath))) continue
-
-    const content = await fs.readFile(hookPath, 'utf-8')
-    if (!content.includes('prjct sync')) continue
-
-    // Remove prjct lines
-    const cleaned = content
-      .split('\n')
-      .filter((line) => !line.includes('prjct sync') && !line.includes('prjct auto-sync'))
-      .join('\n')
-
-    if (cleaned.trim() === '#!/bin/sh' || cleaned.trim() === '#!/usr/bin/env sh') {
-      // Hook is now empty, remove it
-      await fs.unlink(hookPath)
-    } else {
-      await fs.writeFile(hookPath, cleaned, { mode: 0o755 })
-    }
-  }
-
-  return true
-}
-
-async function uninstallDirect(projectPath: string): Promise<boolean> {
-  const hooksDir = path.join(projectPath, '.git', 'hooks')
-
-  for (const hook of ['post-commit', 'post-checkout'] as HookName[]) {
-    const hookPath = path.join(hooksDir, hook)
-    if (!(await fileExists(hookPath))) continue
-
-    const content = await fs.readFile(hookPath, 'utf-8')
-    if (!content.includes('prjct sync')) continue
-
-    if (content.includes('Installed by: prjct hooks install')) {
-      // Entirely ours, remove it
-      await fs.unlink(hookPath)
-    } else {
-      // Shared hook, just remove our lines
-      const cleaned = content
-        .split('\n')
-        .filter((line) => !line.includes('prjct sync') && !line.includes('prjct auto-sync'))
-        .join('\n')
-      await fs.writeFile(hookPath, cleaned, { mode: 0o755 })
-    }
-  }
-
-  return true
-}
-
-// ============================================================================
-// HOOKS SERVICE
-// ============================================================================
-
 class HooksService {
-  /**
-   * Install git hooks for auto-sync
-   */
   async install(
     projectPath: string,
     options: { strategy?: HookStrategy; hooks?: HookName[] } = {}
   ): Promise<HooksInstallResult> {
     const hooks: HookName[] = options.hooks || ['post-commit', 'post-checkout']
 
-    // Detect available managers
     const detected = await detectHookManagers(projectPath)
-
     if (detected.length === 0) {
       return {
         success: false,
@@ -378,7 +73,6 @@ class HooksService {
 
     try {
       let success = false
-
       switch (strategy) {
         case 'lefthook':
           success = await installLefthook(projectPath, hooks)
@@ -392,7 +86,6 @@ class HooksService {
       }
 
       if (success) {
-        // Save hook config to project.json
         await this.saveHookConfig(projectPath, {
           enabled: true,
           strategy,
@@ -401,11 +94,7 @@ class HooksService {
         })
       }
 
-      return {
-        success,
-        strategy,
-        hooksInstalled: success ? hooks : [],
-      }
+      return { success, strategy, hooksInstalled: success ? hooks : [] }
     } catch (error) {
       return {
         success: false,
@@ -416,17 +105,12 @@ class HooksService {
     }
   }
 
-  /**
-   * Uninstall git hooks
-   */
   async uninstall(projectPath: string): Promise<{ success: boolean; error?: string }> {
     try {
-      // Read current config to determine strategy
       const config = await this.getHookConfig(projectPath)
       const strategy = config?.strategy || 'direct'
 
       let success = false
-
       switch (strategy) {
         case 'lefthook':
           success = await uninstallLefthook(projectPath)
@@ -439,13 +123,8 @@ class HooksService {
           break
       }
 
-      // Clear hook config
       if (success) {
-        await this.saveHookConfig(projectPath, {
-          enabled: false,
-          strategy,
-          hooks: [],
-        })
+        await this.saveHookConfig(projectPath, { enabled: false, strategy, hooks: [] })
       }
 
       return { success }
@@ -454,9 +133,6 @@ class HooksService {
     }
   }
 
-  /**
-   * Get hook installation status
-   */
   async status(projectPath: string): Promise<HooksStatusResult> {
     const detected = await detectHookManagers(projectPath)
     const config = await this.getHookConfig(projectPath)
@@ -478,12 +154,8 @@ class HooksService {
     }
   }
 
-  /**
-   * Run the hooks CLI command
-   */
   async run(projectPath: string, subcommand: string): Promise<number> {
     const projectId = await configManager.getProjectId(projectPath)
-
     if (!projectId) {
       console.error('No prjct project found. Run "prjct init" first.')
       return 1
@@ -541,12 +213,8 @@ class HooksService {
     out.section('Git Hooks Removal')
 
     const result = await this.uninstall(projectPath)
-
-    if (result.success) {
-      out.done('Hooks removed')
-    } else {
-      out.fail(result.error || 'Failed to remove hooks')
-    }
+    if (result.success) out.done('Hooks removed')
+    else out.fail(result.error || 'Failed to remove hooks')
 
     console.log('')
     out.end()
@@ -603,8 +271,7 @@ class HooksService {
         : 'lefthook.yaml'
       const configPath = path.join(projectPath, configFile)
       if (!(await fileExists(configPath))) return false
-      const content = await fs.readFile(configPath, 'utf-8')
-      return content.includes(`prjct-sync-${hook}`)
+      return (await fs.readFile(configPath, 'utf-8')).includes(`prjct-sync-${hook}`)
     }
 
     if (strategy === 'husky') {
@@ -613,7 +280,6 @@ class HooksService {
       return (await fs.readFile(hookPath, 'utf-8')).includes('prjct sync')
     }
 
-    // Direct
     const hookPath = path.join(projectPath, '.git', 'hooks', hook)
     if (!(await fileExists(hookPath))) return false
     return (await fs.readFile(hookPath, 'utf-8')).includes('prjct sync')
@@ -629,9 +295,7 @@ class HooksService {
         ? 'lefthook.yml'
         : 'lefthook.yaml'
     }
-    if (strategy === 'husky') {
-      return `.husky/${hook}`
-    }
+    if (strategy === 'husky') return `.husky/${hook}`
     return `.git/hooks/${hook}`
   }
 

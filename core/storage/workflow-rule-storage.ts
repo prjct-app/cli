@@ -7,7 +7,8 @@
 
 import type { WorkflowRule } from '../types/storage.js'
 import { customWorkflowStorage } from './custom-workflow-storage'
-import { prjctDb, type SqliteBindings } from './database'
+import { prjctDb } from './database'
+import type { SqliteBindings } from './database/sqlite-compat'
 
 interface WorkflowRuleRow {
   id: number

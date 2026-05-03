@@ -9,8 +9,8 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import pathManager from '../../infrastructure/path-manager'
-import { FileScorer } from '../../services/file-scorer'
-import { createProjectIndexer, RELEVANCE_THRESHOLD } from '../../services/project-index'
+import { FileScorer, RELEVANCE_THRESHOLD } from '../../services/file-scorer'
+import { createProjectIndexer } from '../../services/project-index'
 import { getDefaultIndex, indexStorage } from '../../storage/index-storage'
 
 describe('FileScorer', () => {
