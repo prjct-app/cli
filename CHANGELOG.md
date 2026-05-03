@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.14.1] - 2026-05-03
+
+### Refactoring
+
+- split 1522-line workflow.ts into SRP modules (#311)
+- split 746-line setup.ts into SRP modules (#303)
+- zod-validate analysis-save-llm input (#310)
+- single source of truth for verb→handler dispatch (#309)
+- IndexRegistry — unify bm25/import-graph/git-cochange (#308)
+- split 1454-line wiki-generator into pure builders (#307)
+- introduce runHook<I> runner — DRY the hook quartet (#305)
+
+
 ## [2.14.0] - 2026-05-02
 
 ### Features
