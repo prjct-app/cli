@@ -41,18 +41,19 @@ import { requireProject } from './guards'
 import { detectIntent } from './workflow/intent'
 import {
   workflowAdd,
-  workflowCreate,
-  workflowDelete,
   workflowDisable,
   workflowGate,
-  workflowHelp,
-  workflowInit,
   workflowInstruction,
-  workflowList,
   workflowReset,
   workflowRm,
-  workflowShow,
-} from './workflow/rule-actions'
+} from './workflow/rule-actions/rules'
+import { workflowHelp, workflowShow } from './workflow/rule-actions/show'
+import {
+  workflowCreate,
+  workflowDelete,
+  workflowInit,
+  workflowList,
+} from './workflow/rule-actions/workflows'
 
 export class WorkflowCommands extends PrjctCommandsBase {
   /**

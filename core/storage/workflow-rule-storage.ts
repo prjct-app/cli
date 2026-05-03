@@ -5,9 +5,10 @@
  * Stores hooks, gates, and custom steps per project.
  */
 
-import type { WorkflowRule } from '../types/storage.js'
+import type { WorkflowRule } from '../types/storage/extended'
 import { customWorkflowStorage } from './custom-workflow-storage'
-import { prjctDb, type SqliteBindings } from './database'
+import { prjctDb } from './database'
+import type { SqliteBindings } from './database/sqlite-compat'
 
 interface WorkflowRuleRow {
   id: number

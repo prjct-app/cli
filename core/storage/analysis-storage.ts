@@ -17,7 +17,7 @@ import {
   semanticVerify,
 } from '../schemas/analysis'
 import { generateAnalysisDiff } from '../services/analysis-diff'
-import type { AnalysisDiff } from '../types/services.js'
+import type { AnalysisDiff } from '../types/services/extracted'
 import { getTimestamp } from '../utils/date-helper'
 import { sha256 } from '../utils/hash'
 import { StorageManager } from './storage-manager'

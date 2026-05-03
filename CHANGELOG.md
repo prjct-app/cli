@@ -1,11 +1,16 @@
 # Changelog
 
+## [2.14.3] - 2026-05-02
+
+### Refactoring
+
+- split 19 files >500 LOC into SRP modules (#316)
+
 ## [2.14.2] - 2026-05-03
 
 ### Refactoring
 
 - DRY pass + analysis/sync-service splits (consolidates #312-#314) (#315)
-
 
 ## [2.14.1] - 2026-05-03
 

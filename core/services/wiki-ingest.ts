@@ -29,7 +29,7 @@ import configManager from '../infrastructure/config-manager'
 import { MEMORY_TYPES, type MemoryType, projectMemory } from '../memory/project-memory'
 import { scanForSecrets } from '../memory/secret-scanner'
 import { workflowRuleStorage } from '../storage/workflow-rule-storage'
-import type { WorkflowRule } from '../types/storage'
+import type { WorkflowRule } from '../types/storage/extended'
 import { resolveVaultRoot } from './wiki-migration'
 
 const CAPTURED_SUBDIR = 'captured'

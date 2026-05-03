@@ -9,9 +9,7 @@
 
 import { execSync } from 'node:child_process'
 import fs from 'node:fs/promises'
-import os from 'node:os'
 import path from 'node:path'
-import chalk from 'chalk'
 import { CommandInstaller } from '../infrastructure/command-installer'
 import editorsConfig from '../infrastructure/editors-config'
 import pathManager from '../infrastructure/path-manager'
@@ -21,173 +19,21 @@ import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import { failFromError } from '../utils/md-aware'
 import out from '../utils/output'
-import { resetPackageRoot, VERSION } from '../utils/version'
+import { VERSION } from '../utils/version'
 import { PrjctCommandsBase } from './base'
+import { formatMdOutput, formatTerminalOutput, type PhaseResult } from './update/output'
+import {
+  getAllInstalledLocations,
+  isHomebrewInstall,
+  isOnPath,
+  type PkgManager,
+  redirectToInstalledPackage,
+  selectPackageManager,
+} from './update/package-managers'
 
 interface UpdateOptions {
   'dry-run'?: boolean
   md?: boolean
-}
-
-interface PhaseResult {
-  success: boolean
-  details: string[]
-  errors: string[]
-}
-
-/**
- * Detect if prjct-cli is installed via homebrew
- */
-function isHomebrewInstall(): boolean {
-  try {
-    const result = execSync('brew list prjct-cli 2>/dev/null', { encoding: 'utf-8' })
-    return !!result
-  } catch {
-    return false
-  }
-}
-
-// ── Package manager detection ──
-
-type PkgManagerName = 'npm' | 'pnpm' | 'bun' | 'yarn'
-
-interface PkgManager {
-  name: PkgManagerName
-  installArgs: string[] // e.g. ['install', '-g', 'prjct-cli@latest']
-  /** Returns the path to the directory containing prjct-cli/, or null. */
-  getInstallRoot: () => string | null
-}
-
-const HOME = os.homedir()
-
-const MANAGERS: Record<PkgManagerName, PkgManager> = {
-  npm: {
-    name: 'npm',
-    installArgs: ['install', '-g', 'prjct-cli@latest'],
-    getInstallRoot: () => {
-      try {
-        return execSync('npm root -g', {
-          encoding: 'utf-8',
-          stdio: ['pipe', 'pipe', 'pipe'],
-        }).trim()
-      } catch {
-        return null
-      }
-    },
-  },
-  pnpm: {
-    name: 'pnpm',
-    installArgs: ['add', '-g', 'prjct-cli@latest'],
-    getInstallRoot: () => {
-      try {
-        return execSync('pnpm root -g', {
-          encoding: 'utf-8',
-          stdio: ['pipe', 'pipe', 'pipe'],
-        }).trim()
-      } catch {
-        return null
-      }
-    },
-  },
-  bun: {
-    name: 'bun',
-    installArgs: ['add', '-g', 'prjct-cli@latest'],
-    getInstallRoot: () => path.join(HOME, '.bun', 'install', 'global', 'node_modules'),
-  },
-  yarn: {
-    name: 'yarn',
-    installArgs: ['global', 'add', 'prjct-cli@latest'],
-    getInstallRoot: () => {
-      try {
-        const dir = execSync('yarn global dir', {
-          encoding: 'utf-8',
-          stdio: ['pipe', 'pipe', 'pipe'],
-        }).trim()
-        return path.join(dir, 'node_modules')
-      } catch {
-        return null
-      }
-    },
-  },
-}
-
-/** Whether `name` resolves to an executable in the current PATH. */
-function isOnPath(name: PkgManagerName): boolean {
-  try {
-    execSync(`command -v ${name}`, { stdio: 'pipe', shell: '/bin/sh' })
-    return true
-  } catch {
-    return false
-  }
-}
-
-/**
- * Detect which package manager owns the running prjct binary by inspecting
- * its real path. Falls back to npm if no signal is found.
- */
-function detectInstallerFromRunningBinary(): PkgManagerName | null {
-  const candidates = [process.argv[1], process.execPath].filter(Boolean) as string[]
-  for (const candidate of candidates) {
-    let real = candidate
-    try {
-      real = require('node:fs').realpathSync(candidate)
-    } catch {
-      // ignore
-    }
-    if (real.includes('/.bun/install/global') || real.includes('/.bun/bin/')) return 'bun'
-    if (real.includes('/Library/pnpm/') || real.includes('/.pnpm/')) return 'pnpm'
-    if (real.includes('/.local/share/pnpm/')) return 'pnpm'
-    if (real.includes('/.yarn/') || real.includes('/yarn/global')) return 'yarn'
-  }
-  return null
-}
-
-/**
- * Pick the package manager to use for the upgrade.
- * Priority: detected installer (if available on PATH) → first available among
- * bun/pnpm/npm/yarn. Throws if none are available.
- */
-function selectPackageManager(): PkgManager {
-  const detected = detectInstallerFromRunningBinary()
-  if (detected && isOnPath(detected)) return MANAGERS[detected]
-
-  for (const name of ['bun', 'pnpm', 'npm', 'yarn'] as PkgManagerName[]) {
-    if (isOnPath(name)) return MANAGERS[name]
-  }
-  throw new Error(
-    'No supported package manager found in PATH (tried npm, pnpm, bun, yarn). ' +
-      'Install one and re-run, or upgrade manually: bun add -g prjct-cli@latest'
-  )
-}
-
-interface InstalledLocation {
-  pm: PkgManager
-  version: string
-}
-
-/**
- * Find every package manager that has prjct-cli installed globally.
- * Returns one entry per manager, with the version read from its package.json.
- * Use this to update all installs (not just the running binary's manager) —
- * users with multiple installs (e.g. bun + nvm npm) hit PATH-resolution bugs
- * where updating one leaves the other stale and shadowing it.
- */
-function getAllInstalledLocations(): InstalledLocation[] {
-  const found: InstalledLocation[] = []
-  for (const pm of [MANAGERS.bun, MANAGERS.pnpm, MANAGERS.npm, MANAGERS.yarn]) {
-    const root = pm.getInstallRoot()
-    if (!root) continue
-    const pkgPath = path.join(root, 'prjct-cli', 'package.json')
-    try {
-      const pkg = JSON.parse(require('node:fs').readFileSync(pkgPath, 'utf-8'))
-      if (pkg?.name === 'prjct-cli' && typeof pkg.version === 'string') {
-        found.push({ pm, version: pkg.version })
-      }
-    } catch {
-      // not installed via this manager
-    }
-  }
-  return found
 }
 
 export class UpdateCommands extends PrjctCommandsBase {
@@ -206,10 +52,10 @@ export class UpdateCommands extends PrjctCommandsBase {
     const dryRun = options['dry-run'] === true
     const md = options.md === true
 
-    const results: { phase1: PhaseResult; phase2: PhaseResult; phase3: PhaseResult } = {
-      phase1: { success: true, details: [], errors: [] },
-      phase2: { success: true, details: [], errors: [] },
-      phase3: { success: true, details: [], errors: [] },
+    const results = {
+      phase1: { success: true, details: [], errors: [] } as PhaseResult,
+      phase2: { success: true, details: [], errors: [] } as PhaseResult,
+      phase3: { success: true, details: [], errors: [] } as PhaseResult,
     }
 
     try {
@@ -223,7 +69,7 @@ export class UpdateCommands extends PrjctCommandsBase {
       // or from the old install. All Phase 2+3 operations must use the
       // newly installed files, not the source/old paths.
       if (!dryRun && results.phase1.success) {
-        this.redirectToInstalledPackage()
+        redirectToInstalledPackage()
       }
 
       // ── Phase 2: Global Cleanup ──
@@ -251,12 +97,7 @@ export class UpdateCommands extends PrjctCommandsBase {
         }
       }
 
-      // ── Output ──
-      if (md) {
-        return this.formatMdOutput(results, dryRun)
-      }
-
-      return this.formatTerminalOutput(results, dryRun)
+      return md ? formatMdOutput(results, dryRun) : formatTerminalOutput(results, dryRun)
     } catch (error) {
       if (!md) out.stop()
       out.fail(getErrorMessage(error))
@@ -303,7 +144,6 @@ export class UpdateCommands extends PrjctCommandsBase {
       const homebrew = isHomebrewInstall()
 
       if (homebrew) {
-        // Migrate from homebrew to a node package manager
         try {
           execSync('brew uninstall prjct-cli 2>/dev/null', { stdio: 'pipe' })
           result.details.push('Uninstalled homebrew formula')
@@ -345,31 +185,23 @@ export class UpdateCommands extends PrjctCommandsBase {
       const installsAfter = getAllInstalledLocations()
       const beforeMap = new Map(installsBefore.map((i) => [i.pm.name, i.version]))
       const transitions: string[] = []
-      let anyChange = false
 
       for (const { pm, version } of installsAfter) {
         const before = beforeMap.get(pm.name)
         if (before && before !== version) {
           transitions.push(`${pm.name}: ${before} → ${version}`)
-          anyChange = true
         } else if (!before) {
           transitions.push(`${pm.name}: installed v${version}`)
-          anyChange = true
         }
       }
 
       if (transitions.length > 1) {
-        // Multiple installs: list them all so user knows everything got synced
         for (const t of transitions) result.details.push(t)
       } else if (transitions.length === 1) {
         result.details.push(transitions[0]!)
       } else if (installsAfter.length > 0) {
         result.details.push(`v${installsAfter[0]!.version} (already latest)`)
       }
-
-      // Warn about installs that exist post-update but weren't there before
-      // (shouldn't happen — but in case homebrew left something behind)
-      void anyChange
     } catch (err) {
       result.success = false
       result.errors.push(getErrorMessage(err))
@@ -464,8 +296,6 @@ export class UpdateCommands extends PrjctCommandsBase {
         const detection = await detectAllProviders()
         const home = path.join(require('node:os').homedir())
 
-        // Claude: installGlobalConfig already handles active provider
-        // Gemini: ensure GEMINI.md is also updated
         if (detection.gemini.installed) {
           const geminiPath = path.join(home, '.gemini', 'GEMINI.md')
           try {
@@ -474,7 +304,6 @@ export class UpdateCommands extends PrjctCommandsBase {
             const endMarker = '<!-- prjct:end - DO NOT REMOVE THIS MARKER -->'
 
             if (geminiContent.includes(startMarker) && geminiContent.includes(endMarker)) {
-              // Read template from bundle (installed files), not source
               const { getTemplateContent } = await import('../agentic/template-loader')
               const template = getTemplateContent('global/GEMINI.md')
 
@@ -489,7 +318,6 @@ export class UpdateCommands extends PrjctCommandsBase {
                   geminiContent.indexOf(endMarker) + endMarker.length
                 )
 
-                // Strip legacy prjct-project sections
                 let cleaned = before + prjctSection + after
                 const projStart = '<!-- prjct-project:start - DO NOT REMOVE THIS MARKER -->'
                 const projEnd = '<!-- prjct-project:end - DO NOT REMOVE THIS MARKER -->'
@@ -534,24 +362,19 @@ export class UpdateCommands extends PrjctCommandsBase {
       // Stop (graceful → force)
       if (await isDaemonRunning()) {
         const stopped = await stopDaemon()
-        if (!stopped) {
-          forceKillDaemon()
-        }
+        if (!stopped) forceKillDaemon()
         await new Promise((resolve) => setTimeout(resolve, 300))
         result.details.push('Daemon stopped')
       } else {
-        // Clean up stale files
         forceKillDaemon()
         result.details.push('No running daemon (cleaned stale files)')
       }
 
       // Respawn (non-fatal: daemon auto-starts on next command if this fails)
       const started = await spawnDaemon()
-      if (started) {
-        result.details.push('Daemon restarted')
-      } else {
-        result.details.push('Daemon will start automatically on next use')
-      }
+      result.details.push(
+        started ? 'Daemon restarted' : 'Daemon will start automatically on next use'
+      )
     } catch (err) {
       result.success = false
       result.errors.push(getErrorMessage(err))
@@ -560,162 +383,7 @@ export class UpdateCommands extends PrjctCommandsBase {
     return result
   }
 
-  // ── Output Formatting ──
-
-  private formatTerminalOutput(
-    results: { phase1: PhaseResult; phase2: PhaseResult; phase3: PhaseResult },
-    dryRun: boolean
-  ): CommandResult {
-    // Daemon restart is non-fatal: package + cleanup determine overall success
-    const allSuccess = results.phase1.success && results.phase2.success
-    const allErrors = [...results.phase1.errors, ...results.phase2.errors]
-
-    console.log('')
-
-    const phases = [
-      { label: 'Package', result: results.phase1, fatal: true },
-      { label: 'Cleanup', result: results.phase2, fatal: true },
-      { label: 'Daemon', result: results.phase3, fatal: false },
-    ]
-
-    for (const { label, result, fatal } of phases) {
-      const icon = result.success ? chalk.green('✓') : fatal ? chalk.red('✗') : chalk.yellow('⚠')
-      console.log(`  ${icon} ${chalk.bold(label)}`)
-      for (const detail of result.details) {
-        console.log(`    ${chalk.dim(detail)}`)
-      }
-      for (const err of result.errors) {
-        console.log(`    ${chalk.yellow('⚠')} ${err}`)
-      }
-    }
-
-    console.log('')
-
-    if (dryRun) {
-      out.done('Dry run complete — no changes made')
-    } else if (allSuccess) {
-      out.done('System updated')
-    } else {
-      out.warn(`Updated with ${allErrors.length} error(s)`)
-    }
-
-    return {
-      success: allSuccess,
-      message: dryRun ? 'Dry run complete' : allSuccess ? 'System updated' : 'Updated with errors',
-    }
-  }
-
-  private formatMdOutput(
-    results: { phase1: PhaseResult; phase2: PhaseResult; phase3: PhaseResult },
-    dryRun: boolean
-  ): CommandResult {
-    // Daemon restart is non-fatal
-    const allSuccess = results.phase1.success && results.phase2.success
-    const lines: string[] = []
-
-    lines.push(dryRun ? '# Update (Dry Run)' : '# System Update')
-    lines.push('')
-
-    const phases = [
-      { label: 'Package Update', result: results.phase1, fatal: true },
-      { label: 'Global Cleanup', result: results.phase2, fatal: true },
-      { label: 'Daemon Restart', result: results.phase3, fatal: false },
-    ]
-
-    for (const { label, result, fatal } of phases) {
-      const status = result.success ? 'OK' : fatal ? 'FAILED' : 'WARNING'
-      lines.push(`## ${label} (${status})`)
-      for (const detail of result.details) {
-        lines.push(`- ${detail}`)
-      }
-      for (const err of result.errors) {
-        lines.push(`- WARNING: ${err}`)
-      }
-      lines.push('')
-    }
-
-    if (!dryRun) {
-      lines.push(
-        allSuccess
-          ? '**Status:** All phases completed successfully.'
-          : '**Status:** Completed with errors.'
-      )
-    }
-
-    console.log(lines.join('\n'))
-
-    return {
-      success: allSuccess,
-      message: dryRun ? 'Dry run complete' : allSuccess ? 'System updated' : 'Updated with errors',
-    }
-  }
-
   // ── Helpers ──
-
-  /**
-   * After Phase 1 installs the new package via npm, redirect PACKAGE_ROOT
-   * and template cache to the INSTALLED package location.
-   *
-   * Without this, the running process keeps using paths from whatever
-   * started it (source tree via npm link, old install, etc.).
-   * Phase 2+3 must operate on the installed files, not source.
-   */
-  private redirectToInstalledPackage(): void {
-    try {
-      const { existsSync, realpathSync, readFileSync } = require('node:fs')
-
-      // Walk every known global node_modules root and pick the first one
-      // that holds a real prjct-cli package.json. pnpm installs as a symlink
-      // into its content-addressable store (.pnpm/prjct-cli@x.y.z/...) — that
-      // is a real install, not a link back to our source tree, so we follow
-      // symlinks via realpath and verify the resolved target is not the
-      // current source root.
-      const sourceRoot = (() => {
-        try {
-          return realpathSync(path.resolve(__dirname, '..', '..'))
-        } catch {
-          return ''
-        }
-      })()
-
-      const roots = [
-        MANAGERS.bun.getInstallRoot(),
-        MANAGERS.pnpm.getInstallRoot(),
-        MANAGERS.npm.getInstallRoot(),
-        MANAGERS.yarn.getInstallRoot(),
-      ].filter((p): p is string => !!p)
-
-      for (const root of roots) {
-        const candidate = path.join(root, 'prjct-cli')
-        const pkgJsonPath = path.join(candidate, 'package.json')
-        if (!existsSync(pkgJsonPath)) continue
-
-        let resolved = candidate
-        try {
-          resolved = realpathSync(candidate)
-        } catch {
-          // ignore
-        }
-
-        // Skip if the install resolves back to our source tree (e.g. npm link)
-        if (sourceRoot && resolved === sourceRoot) continue
-
-        try {
-          const pkg = JSON.parse(readFileSync(path.join(resolved, 'package.json'), 'utf-8'))
-          if (pkg?.name !== 'prjct-cli') continue
-        } catch {
-          continue
-        }
-
-        resetPackageRoot(resolved)
-        const { resetBundle } = require('../agentic/template-loader')
-        resetBundle()
-        return
-      }
-    } catch {
-      // Non-blocking: fall through to use current PACKAGE_ROOT
-    }
-  }
 
   /**
    * Scan ~/.prjct-cli/projects/ for all project directories

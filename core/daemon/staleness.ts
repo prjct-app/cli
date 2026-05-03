@@ -1,0 +1,159 @@
+/**
+ * Stale-code + version-drift detection for the long-running daemon.
+ *
+ * Two complementary checks:
+ * 1. mtime of `dist/daemon/entry.mjs` — catches local rebuilds.
+ * 2. version-string comparison against the global `prjct` symlink target —
+ *    catches pnpm content-store upgrades where the old daemon's files are
+ *    untouched but the user-facing binary now points elsewhere.
+ */
+
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import { DAEMON_PATHS } from './protocol'
+
+/**
+ * Resolve a build artifact path for stale-code detection.
+ * Always uses dist/daemon/entry.mjs as the sentinel file since it gets
+ * regenerated on every `npm run build`, regardless of whether the daemon
+ * is running from source (dev/bun) or compiled (production/node).
+ */
+export function resolveEntryPath(): string | null {
+  // Find the project root by looking for package.json
+  let dir = __dirname
+  for (let i = 0; i < 5; i++) {
+    if (fs.existsSync(path.join(dir, 'package.json'))) {
+      const sentinel = path.join(dir, 'dist', 'daemon', 'entry.mjs')
+      if (fs.existsSync(sentinel)) return sentinel
+      break
+    }
+    dir = path.dirname(dir)
+  }
+
+  // Fallback: check paths relative to this file
+  const candidates = [
+    path.join(__dirname, '..', 'daemon', 'entry.mjs'), // from dist/bin/
+    path.join(__dirname, '..', 'dist', 'daemon', 'entry.mjs'), // from bin/
+  ]
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate
+  }
+
+  // Last resort: use the script being executed
+  const scriptPath = process.argv[1]
+  if (scriptPath && fs.existsSync(scriptPath)) return scriptPath
+
+  return null
+}
+
+export function isCodeStale(entryPath: string | null, originalMtime: number | null): boolean {
+  if (!entryPath || originalMtime === null) return false
+
+  try {
+    const currentMtime = fs.statSync(entryPath).mtimeMs
+    return currentMtime !== originalMtime
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Walk up from __dirname to find this package's own package.json and return
+ * its `version`. Cached at startup; null if not found.
+ */
+export function readOwnPackageVersion(): string | null {
+  let dir = __dirname
+  for (let i = 0; i < 6; i++) {
+    const pkgPath = path.join(dir, 'package.json')
+    try {
+      const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'))
+      if (pkg?.name === 'prjct-cli' && typeof pkg.version === 'string') return pkg.version
+    } catch {
+      /* not here — keep walking */
+    }
+    const parent = path.dirname(dir)
+    if (parent === dir) break
+    dir = parent
+  }
+  return null
+}
+
+/**
+ * Best-effort detection that a newer `prjct-cli` has been installed globally
+ * while this daemon is still running. Returns `true` only when we can
+ * positively identify a mismatch — on any lookup failure we return `false`
+ * (daemon keeps running; no false positives).
+ */
+export function isGlobalVersionDrifted(ownVersion: string | null): boolean {
+  if (!ownVersion) return false
+  const home = os.homedir()
+
+  const candidates = [
+    `${home}/Library/pnpm/prjct`, // pnpm (macOS default)
+    `${home}/.local/share/pnpm/prjct`, // pnpm (Linux)
+    `${home}/.npm-global/bin/prjct`, // npm (custom prefix)
+    '/usr/local/bin/prjct', // npm (default prefix)
+    '/opt/homebrew/bin/prjct', // homebrew symlink
+    `${home}/.volta/bin/prjct`, // volta
+    `${home}/.asdf/shims/prjct`, // asdf
+  ]
+
+  for (const symlink of candidates) {
+    let realPath: string
+    try {
+      realPath = fs.realpathSync(symlink)
+    } catch {
+      continue // not installed here
+    }
+
+    // Walk up from the resolved binary to find its package.json
+    let dir = path.dirname(realPath)
+    for (let i = 0; i < 6; i++) {
+      const pkgPath = path.join(dir, 'package.json')
+      try {
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'))
+        if (pkg?.name === 'prjct-cli' && typeof pkg.version === 'string') {
+          return pkg.version !== ownVersion
+        }
+      } catch {
+        /* keep walking */
+      }
+      const parent = path.dirname(dir)
+      if (parent === dir) break
+      dir = parent
+    }
+  }
+
+  return false // couldn't resolve any install — can't tell, assume OK
+}
+
+const MAX_LOG_BYTES = 1024 * 1024 // 1 MB
+
+export function rotateLog(): void {
+  const logPath = DAEMON_PATHS.log()
+  try {
+    const stat = fs.statSync(logPath)
+    if (stat.size > MAX_LOG_BYTES) {
+      const backupPath = `${logPath}.1`
+      try {
+        fs.unlinkSync(backupPath)
+      } catch {
+        /* no previous backup */
+      }
+      fs.renameSync(logPath, backupPath)
+    }
+  } catch {
+    // Log file doesn't exist yet — nothing to rotate
+  }
+}
+
+export function isProcessRunning(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch {
+    return false
+  }
+}

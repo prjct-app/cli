@@ -11,8 +11,7 @@
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { getTemplateContent, listTemplates } from '../agentic/template-loader'
-import { getErrorMessage, isNotFoundError } from '../types/fs'
+import { getErrorMessage } from '../types/fs'
 import type {
   CheckResult,
   GlobalConfigResult,
@@ -21,222 +20,16 @@ import type {
   UninstallResult,
 } from '../types/infrastructure'
 import { fileExists } from '../utils/file-helper'
-import { mergeWithMarkers } from './ide-project-installer'
+import {
+  installDocs as installDocsImpl,
+  installGlobalConfig as installGlobalConfigImpl,
+} from './command-installer/global-config'
 
-// =============================================================================
-// Inline CLAUDE.md content (replaces template files + module system)
-// =============================================================================
-
-const GLOBAL_CLAUDE_MD_CONTENT = `<!-- prjct:start - DO NOT REMOVE THIS MARKER -->
-# p/ — Project knowledge layer
-
-prjct stores project memory (decisions, learnings, gotchas, patterns, ships, analyses) per project and regenerates a readable Markdown vault. **Use it — don't re-read source from scratch.**
-
-You are in a prjct project when any of these signs are present: \`~/Documents/prjct/<slug>/_generated/\` exists, OR \`.prjct/\` is in cwd, OR \`~/.prjct-cli/projects/\` has an entry for the current path.
-
-## Lookup FIRST, source LAST
-
-Before reading source code or running broad searches for ANY question about the project (architecture, conventions, decisions, recent ships, bugs, patterns, tech debt, past analyses), READ these vault files first using Read/Glob — no CLI round-trip:
-
-- \`~/Documents/prjct/<slug>/_generated/index.md\` — overview, ships, memory counts, patterns count
-- \`~/Documents/prjct/<slug>/_generated/architecture.md\` — domains, conventions, key insights
-- \`~/Documents/prjct/<slug>/_generated/{patterns,insights,tech-debt}.md\` — inferred state of the project
-- \`~/Documents/prjct/<slug>/_generated/memory/{decision,gotcha,learning,fact,inbox}.md\` — captured knowledge
-- \`~/Documents/prjct/<slug>/_generated/analysis/{anti-patterns,insights,patterns,refactors,risk-areas,tech-debt}/\` — past analyses by category
-- \`~/Documents/prjct/<slug>/_generated/{ships,releases,tags}/\` — history & taxonomy
-
-Only fall through to source/repo reading when the vault does not contain the answer.
-
-## Capture analyses BACK to prjct
-
-When you complete substantive work — analysis, decision, learning, gotcha discovered — persist it so the next session benefits:
-
-- \`prjct remember decision "<choice + why>"\` — choices made, with rationale
-- \`prjct remember learning "<insight>"\` — non-obvious insights gained
-- \`prjct remember gotcha "<trap + how to avoid>"\` — bugs/traps found
-- \`prjct remember fact "<verifiable claim>"\` — project facts (paths, conventions, IDs)
-- \`prjct capture "<text>" --tags type:analysis,topic:<x>\` — analytical dumps & inbox items
-
-Tag with \`--tags k:v,k:v\` for searchability. Memory persists to SQLite; vault auto-regenerates. **Default to capturing — under-capture is the failure mode that makes prjct useless.**
-
-## Workflow
-
-\`prjct task "<desc>"\` → work → \`prjct status done\` → \`prjct ship\`
-Pause/resume: \`prjct status paused\` | \`prjct status active\` (also reopens completed tasks)
-
-## Where things live
-
-- Source of truth: SQLite at \`~/.prjct-cli/projects/<id>/\` (don't read directly — use \`prjct\` CLI)
-- Read snapshot: vault at \`~/Documents/prjct/<slug>/_generated/\` (Read/Glob freely; never hand-edit — fix the pipeline)
-- Project config: \`.prjct/prjct.config.json\` in repo root
-
-The vault regenerates automatically on \`remember\`, \`capture\`, \`ship\`, \`sync\`, and the SessionStart/Stop hooks.
-
-**Auto-managed by prjct-cli** | https://prjct.app
-<!-- prjct:end - DO NOT REMOVE THIS MARKER -->
-`
-
-// =============================================================================
-// Global Config
-// =============================================================================
-
-/**
- * Install documentation files to ~/.prjct-cli/docs/
- */
-async function installDocs(): Promise<{ success: boolean; error?: string }> {
-  try {
-    const docsDir = path.join(os.homedir(), '.prjct-cli', 'docs')
-    await fs.mkdir(docsDir, { recursive: true })
-
-    // Try bundled templates first
-    const docKeys = listTemplates('global/docs/')
-    if (docKeys.length > 0) {
-      for (const key of docKeys) {
-        if (key.endsWith('.md')) {
-          const content = getTemplateContent(key)
-          if (content) {
-            const fileName = path.basename(key)
-            await fs.writeFile(path.join(docsDir, fileName), content, 'utf-8')
-          }
-        }
-      }
-      return { success: true }
-    }
-
-    // Fall back to filesystem
-    const { PACKAGE_ROOT } = require('../utils/version')
-    const templateDocsDir = path.join(PACKAGE_ROOT, 'templates/global/docs')
-    try {
-      const docFiles = await fs.readdir(templateDocsDir)
-      for (const file of docFiles) {
-        if (file.endsWith('.md')) {
-          const srcPath = path.join(templateDocsDir, file)
-          const destPath = path.join(docsDir, file)
-          const content = await fs.readFile(srcPath, 'utf-8')
-          await fs.writeFile(destPath, content, 'utf-8')
-        }
-      }
-    } catch {
-      // No docs directory — that's fine
-    }
-
-    return { success: true }
-  } catch (error) {
-    return { success: false, error: getErrorMessage(error) }
-  }
-}
-
-/**
- * Install or update global AI agent configuration (CLAUDE.md / GEMINI.md)
- */
+// Re-export the installGlobalConfig used by external callers (e.g. update.ts).
+// Defined here as a thin wrapper rather than a re-export for clarity.
 export async function installGlobalConfig(): Promise<GlobalConfigResult> {
-  const aiProvider = require('./ai-provider')
-  const activeProvider = await aiProvider.getActiveProvider()
-  const providerName = activeProvider.name
-
-  // Check if provider is installed
-  const detection = await aiProvider.detectProvider(providerName)
-  if (!detection.installed && !activeProvider.configDir) {
-    return {
-      success: false,
-      error: `${activeProvider.displayName} not detected`,
-      action: 'skipped',
-    }
-  }
-
-  try {
-    // Ensure config directory exists
-    await fs.mkdir(activeProvider.configDir, { recursive: true })
-
-    const globalConfigPath = path.join(activeProvider.configDir, activeProvider.contextFile)
-
-    // Use inline content for Claude, or provider-specific template for others
-    let templateContent = GLOBAL_CLAUDE_MD_CONTENT
-
-    if (providerName !== 'claude') {
-      // Try provider-specific template (bundle then filesystem)
-      const bundled = getTemplateContent(`global/${activeProvider.contextFile}`)
-      if (bundled) {
-        templateContent = bundled
-      } else {
-        const { PACKAGE_ROOT } = require('../utils/version')
-        const templatePath = path.join(
-          PACKAGE_ROOT,
-          'templates',
-          'global',
-          activeProvider.contextFile
-        )
-        try {
-          templateContent = await fs.readFile(templatePath, 'utf-8')
-        } catch {
-          // Fall back to inline content with provider name swap
-          if (providerName === 'gemini') {
-            templateContent = GLOBAL_CLAUDE_MD_CONTENT.replace(/Claude/g, 'Gemini')
-          }
-        }
-      }
-    }
-
-    // Check if global config already exists
-    let existingContent = ''
-    let fileExists = false
-
-    try {
-      existingContent = await fs.readFile(globalConfigPath, 'utf-8')
-      fileExists = true
-    } catch (error) {
-      if (isNotFoundError(error)) {
-        fileExists = false
-      } else {
-        throw error
-      }
-    }
-
-    // Strip legacy prjct-project sections (static context generation removed)
-    const projectStartMarker = '<!-- prjct-project:start - DO NOT REMOVE THIS MARKER -->'
-    const projectEndMarker = '<!-- prjct-project:end - DO NOT REMOVE THIS MARKER -->'
-    if (
-      existingContent.includes(projectStartMarker) &&
-      existingContent.includes(projectEndMarker)
-    ) {
-      const beforeProject = existingContent.substring(
-        0,
-        existingContent.indexOf(projectStartMarker)
-      )
-      const afterProject = existingContent.substring(
-        existingContent.indexOf(projectEndMarker) + projectEndMarker.length
-      )
-      existingContent = `${(beforeProject + afterProject).replace(/\n{3,}/g, '\n\n').trim()}\n`
-    }
-
-    const startMarker = '<!-- prjct:start - DO NOT REMOVE THIS MARKER -->'
-    const endMarker = '<!-- prjct:end - DO NOT REMOVE THIS MARKER -->'
-
-    const merged = mergeWithMarkers(
-      fileExists ? existingContent : '',
-      templateContent,
-      startMarker,
-      endMarker
-    )
-
-    await fs.writeFile(globalConfigPath, merged.content, 'utf-8')
-    return {
-      success: true,
-      action: merged.action,
-      path: globalConfigPath,
-    }
-  } catch (error) {
-    return {
-      success: false,
-      error: getErrorMessage(error),
-      action: 'failed',
-    }
-  }
+  return installGlobalConfigImpl()
 }
-
-// =============================================================================
-// Command Installer
-// =============================================================================
 
 export class CommandInstaller {
   homeDir: string
@@ -259,9 +52,6 @@ export class CommandInstaller {
     this._initialized = true
   }
 
-  /**
-   * Detect if active provider is installed
-   */
   async detectActiveProvider(): Promise<boolean> {
     await this.ensureInit()
     return fileExists(this.configPath)
@@ -282,24 +72,15 @@ export class CommandInstaller {
       }
     }
 
-    // Clean up legacy router if it exists
     await this.cleanupRouter()
 
-    return {
-      success: true,
-      installed: [],
-      path: this.commandsPath,
-    }
+    return { success: true, installed: [], path: this.commandsPath }
   }
 
-  /**
-   * Uninstall commands from provider
-   */
   async uninstallCommands(): Promise<UninstallResult> {
     try {
       const uninstalled: string[] = []
 
-      // Clean up legacy router files
       await this.ensureInit()
       for (const routerFile of ['p.md', 'p.toml']) {
         const routerPath = path.join(this.commandsPath, routerFile)
@@ -313,15 +94,9 @@ export class CommandInstaller {
         }
       }
 
-      return {
-        success: true,
-        uninstalled,
-      }
+      return { success: true, uninstalled }
     } catch (error) {
-      return {
-        success: false,
-        error: getErrorMessage(error),
-      }
+      return { success: false, error: getErrorMessage(error) }
     }
   }
 
@@ -332,13 +107,9 @@ export class CommandInstaller {
     const providerDetected = await this.detectActiveProvider()
 
     if (!providerDetected) {
-      return {
-        installed: false,
-        providerDetected: false,
-      }
+      return { installed: false, providerDetected: false }
     }
 
-    // Skills-based installation — always considered "installed" if provider is detected
     return {
       installed: true,
       providerDetected: true,
@@ -347,9 +118,6 @@ export class CommandInstaller {
     }
   }
 
-  /**
-   * Get installation path for commands
-   */
   async getInstallPath(): Promise<string> {
     await this.ensureInit()
     return this.commandsPath
@@ -372,7 +140,6 @@ export class CommandInstaller {
     }
 
     try {
-      // Clean up legacy router files
       const cleaned = await this.cleanupRouter()
 
       return {
@@ -394,7 +161,6 @@ export class CommandInstaller {
 
   /**
    * Remove legacy router files (p.md, p.toml) from commands directory.
-   * Migration step — these are no longer needed with skills-based architecture.
    */
   async cleanupRouter(): Promise<boolean> {
     await this.ensureInit()
@@ -417,7 +183,6 @@ export class CommandInstaller {
 
   /**
    * Remove legacy ~/.claude/commands/p/ subdirectory (pre-v1.25 architecture).
-   * Those stale files (jira.md, linear.md, etc.) stay on disk forever otherwise.
    */
   async cleanupLegacyCommands(): Promise<boolean> {
     await this.ensureInit()
@@ -434,30 +199,18 @@ export class CommandInstaller {
     return false
   }
 
-  /**
-   * Install or update global AI agent configuration (CLAUDE.md / GEMINI.md)
-   */
   async installGlobalConfig(): Promise<GlobalConfigResult> {
-    return installGlobalConfig()
+    return installGlobalConfigImpl()
   }
 
   /**
    * Full legacy cleanup — removes ALL stale prjct artifacts from all providers.
    * Called during `prjct update` to ensure clean migration.
-   *
-   * Cleans:
-   * - ~/.claude/commands/p.md, p.toml (legacy routers)
-   * - ~/.claude/commands/p/ (pre-v1.25 subdirectory)
-   * - ~/.gemini/commands/p.toml (legacy Gemini router)
-   * - ~/.gemini/commands/p/ (legacy Gemini subdirectory)
-   * - Homebrew formula remnants
-   * - Old global config content (replaced via marker swap in installGlobalConfig)
    */
   async cleanupAllLegacy(): Promise<{ cleaned: string[] }> {
     const home = os.homedir()
     const cleaned: string[] = []
 
-    // Legacy router files across all CLI providers
     const legacyFiles = [
       path.join(home, '.claude', 'commands', 'p.md'),
       path.join(home, '.claude', 'commands', 'p.toml'),
@@ -474,7 +227,6 @@ export class CommandInstaller {
       }
     }
 
-    // Legacy subdirectories (pre-v1.25 architecture)
     const legacyDirs = [
       path.join(home, '.claude', 'commands', 'p'),
       path.join(home, '.gemini', 'commands', 'p'),
@@ -492,7 +244,6 @@ export class CommandInstaller {
       }
     }
 
-    // Legacy homebrew config/metadata
     const brewLegacy = [path.join(home, '.prjct-cli', 'config', 'homebrew-migrated')]
 
     for (const filePath of brewLegacy) {
@@ -507,17 +258,10 @@ export class CommandInstaller {
     return { cleaned }
   }
 
-  /**
-   * Install documentation files to ~/.prjct-cli/docs/
-   */
   async installDocs(): Promise<{ success: boolean; error?: string }> {
-    return installDocs()
+    return installDocsImpl()
   }
 }
-
-// =============================================================================
-// Multi-Provider Support
-// =============================================================================
 
 /**
  * Get installation paths for all providers
@@ -540,10 +284,6 @@ export function getProviderPaths(): {
     },
   }
 }
-
-// =============================================================================
-// Exports
-// =============================================================================
 
 const commandInstaller = new CommandInstaller()
 export default commandInstaller

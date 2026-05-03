@@ -12,12 +12,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import {
-  type ConditionContext,
-  SKILL_DEFINITIONS,
-  type SkillContext,
-  SkillGenerator,
-} from '../../services/skill-generator'
+import { SKILL_DEFINITIONS, SkillGenerator } from '../../services/skill-generator'
+import type { ConditionContext, SkillContext } from '../../services/skill-generator/types'
 import type { ProjectSyncResult } from '../../types/project-sync'
 
 function makeSyncResult(overrides: Partial<ProjectSyncResult> = {}): ProjectSyncResult {

@@ -16,7 +16,7 @@
  */
 
 import path from 'node:path'
-import type { VersionInfo } from '../types/services.js'
+import type { VersionInfo } from '../types/services/extracted'
 import { execAsync, execFileAsync } from '../utils/exec'
 import * as fileHelper from '../utils/file-helper'
 

@@ -5,6 +5,8 @@
  * - Generate unique project identifiers from project paths
  * - Manage paths between local project and global storage
  * - Ensure directory structures exist
+ * - Resolve wiki vault paths (delegates to ./path-manager/wiki-paths)
+ * - Detect monorepos (delegates to ./path-manager/monorepo)
  *
  * @version 0.2.1
  */
@@ -13,11 +15,21 @@ import crypto from 'node:crypto'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { globSync } from 'glob'
 import type { MonorepoInfo, MonorepoPackage } from '../types/infrastructure'
 import type { SessionInfo } from '../types/session'
 import * as dateHelper from '../utils/date-helper'
 import * as fileHelper from '../utils/file-helper'
+import {
+  detectMonorepo,
+  discoverMonorepoPackages,
+  findContainingPackage,
+  findMonorepoRoot,
+} from './path-manager/monorepo'
+import {
+  getLegacyWikiPath,
+  getWikiPath,
+  getWikiPathWithProjectHash,
+} from './path-manager/wiki-paths'
 
 class PathManager {
   globalBaseDir: string
@@ -36,10 +48,6 @@ class PathManager {
 
   /**
    * Override global storage location (primarily for tests and sandboxed environments).
-   *
-   * When unset, global storage defaults to `~/.prjct-cli/`.
-   *
-   * @param {string} globalBaseDir - Base directory that will contain `projects/` and `config/`.
    */
   setGlobalBaseDir(globalBaseDir: string): void {
     this.globalBaseDir = path.resolve(globalBaseDir)
@@ -55,62 +63,41 @@ class PathManager {
     return crypto.randomUUID()
   }
 
-  /**
-   * Get the base global storage path
-   */
+  // ===========================================================================
+  // Core paths
+  // ===========================================================================
+
   getGlobalBasePath(): string {
     return this.globalBaseDir
   }
 
-  /**
-   * Get the global storage path for a project
-   */
   getGlobalProjectPath(projectId: string): string {
     return path.join(this.globalProjectsDir, projectId)
   }
 
-  /**
-   * Get the local config file path for a project
-   */
   getLocalConfigPath(projectPath: string): string {
     return path.join(projectPath, '.prjct', 'prjct.config.json')
   }
 
   /**
-   * Get the global config file path for a project
-   * This file stores authors and other system data that shouldn't be versioned
+   * Stores authors and other system data that shouldn't be versioned.
    */
   getGlobalProjectConfigPath(projectId: string): string {
     return path.join(this.getGlobalProjectPath(projectId), 'project.json')
   }
 
-  /**
-   * Get the legacy .prjct directory path
-   */
   getLegacyPrjctPath(projectPath: string): string {
     return path.join(projectPath, '.prjct')
   }
 
-  /**
-   * Check if a project has legacy .prjct directory
-   */
   async hasLegacyStructure(projectPath: string): Promise<boolean> {
-    const legacyPath = this.getLegacyPrjctPath(projectPath)
-    return await fileHelper.dirExists(legacyPath)
+    return await fileHelper.dirExists(this.getLegacyPrjctPath(projectPath))
   }
 
-  /**
-   * Check if a project has the new config file
-   */
   async hasConfig(projectPath: string): Promise<boolean> {
-    const configPath = this.getLocalConfigPath(projectPath)
-    return await fileHelper.fileExists(configPath)
+    return await fileHelper.fileExists(this.getLocalConfigPath(projectPath))
   }
 
-  /**
-   * Ensure the global directory structure exists
-   * Creates all necessary directories in ~/.prjct-cli/
-   */
   async ensureGlobalStructure(): Promise<void> {
     await fileHelper.ensureDir(this.globalBaseDir)
     await fileHelper.ensureDir(this.globalProjectsDir)
@@ -118,14 +105,12 @@ class PathManager {
   }
 
   /**
-   * Ensure the project-specific global structure exists
-   * Creates the layered directory structure for a project
+   * Creates the layered directory structure for a project.
    */
   async ensureProjectStructure(projectId: string): Promise<string> {
     await this.ensureGlobalStructure()
 
     const projectPath = this.getGlobalProjectPath(projectId)
-
     const layers = ['core', 'progress', 'planning', 'analysis', 'memory']
 
     for (const layer of layers) {
@@ -138,35 +123,28 @@ class PathManager {
     return projectPath
   }
 
+  // ===========================================================================
+  // Sessions
+  // ===========================================================================
+
   /**
-   * Get session directory path for a specific date
    * Creates hierarchical structure: sessions/YYYY/MM/DD/
    */
   getSessionPath(projectId: string, date: Date = new Date()): string {
     const { year, month, day } = dateHelper.getYearMonthDay(date)
-
     return path.join(this.getGlobalProjectPath(projectId), 'sessions', year, month, day)
   }
 
-  /**
-   * Get current session directory path (today)
-   */
   getCurrentSessionPath(projectId: string): string {
     return this.getSessionPath(projectId, new Date())
   }
 
-  /**
-   * Ensure session directory exists for a specific date
-   */
   async ensureSessionPath(projectId: string, date: Date = new Date()): Promise<string> {
     const sessionPath = this.getSessionPath(projectId, date)
     await fileHelper.ensureDir(sessionPath)
     return sessionPath
   }
 
-  /**
-   * List all session dates for a project
-   */
   async listSessions(
     projectId: string,
     year: number | null = null,
@@ -208,52 +186,41 @@ class PathManager {
 
       sessions.sort((a, b) => b.date.getTime() - a.date.getTime())
       return sessions
-    } catch (_error) {
+    } catch {
       // Sessions directory might not exist - expected for new projects
       return []
     }
   }
 
-  /**
-   * Get sessions within a date range
-   */
   async getSessionsInRange(
     projectId: string,
     fromDate: Date,
     toDate: Date = new Date()
   ): Promise<SessionInfo[]> {
     const allSessions = await this.listSessions(projectId)
-
     return allSessions.filter((session) => session.date >= fromDate && session.date <= toDate)
   }
 
-  /**
-   * Get the path for a specific file in the global structure
-   */
+  // ===========================================================================
+  // Misc paths
+  // ===========================================================================
+
   getFilePath(projectId: string, layer: string, filename: string): string {
     return path.join(this.getGlobalProjectPath(projectId), layer, filename)
   }
 
-  /**
-   * Get all project IDs in global storage
-   */
   async listProjects(): Promise<string[]> {
     try {
       await this.ensureGlobalStructure()
       const entries = await fs.readdir(this.globalProjectsDir, { withFileTypes: true })
       return entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name)
-    } catch (_error) {
-      // Global projects directory might not exist - expected
+    } catch {
       return []
     }
   }
 
-  /**
-   * Check if a project exists in global storage
-   */
   async projectExists(projectId: string): Promise<boolean> {
-    const projectPath = this.getGlobalProjectPath(projectId)
-    return await fileHelper.dirExists(projectPath)
+    return await fileHelper.dirExists(this.getGlobalProjectPath(projectId))
   }
 
   /**
@@ -261,53 +228,35 @@ class PathManager {
    */
   getDisplayPath(absolutePath: string): string {
     const homeDir = os.homedir()
-    if (absolutePath.startsWith(homeDir)) {
-      return absolutePath.replace(homeDir, '~')
-    }
+    if (absolutePath.startsWith(homeDir)) return absolutePath.replace(homeDir, '~')
     return absolutePath
   }
 
-  /**
-   * Get the auth config file path for cloud sync
-   * Stored in global config directory, not project-specific
-   */
   getAuthConfigPath(): string {
     return path.join(this.globalConfigDir, 'auth.json')
   }
 
-  /**
-   * Get the sync pending events file path for a project
-   */
   getSyncPendingPath(projectId: string): string {
     return path.join(this.getGlobalProjectPath(projectId), 'sync', 'pending.json')
   }
 
-  /**
-   * Get the last sync timestamp file path for a project
-   */
   getLastSyncPath(projectId: string): string {
     return path.join(this.getGlobalProjectPath(projectId), 'sync', 'last-sync.json')
   }
 
   /**
-   * Get the running status file path (for status signal)
    * Used to indicate when prjct CLI is actively running
    */
   getRunningStatusPath(): string {
     return path.join(this.globalBaseDir, '.running')
   }
 
-  /**
-   * Get the docs directory path
-   * Contains documentation and help files
-   */
   getDocsPath(): string {
     return path.join(this.globalBaseDir, 'docs')
   }
 
   /**
    * Get the Claude/Gemini directory path (~/.claude or ~/.gemini)
-   * Contains AI CLI configuration
    */
   async getAgentDir(): Promise<string> {
     const provider = await require('./ai-provider').getActiveProvider()
@@ -323,317 +272,62 @@ class PathManager {
     return aiProvider.getGlobalSettingsPath(provider.name)
   }
 
-  /**
-   * Get the Claude directory path (~/.claude)
-   */
   getClaudeDir(): string {
     return path.join(os.homedir(), '.claude')
   }
 
-  /**
-   * Get the Claude settings file path (~/.claude/settings.json)
-   */
   getClaudeSettingsPath(): string {
     return path.join(this.getClaudeDir(), 'settings.json')
   }
 
-  /**
-   * Get the storage file path for a project
-   * Convenience method for accessing storage layer files
-   */
   getStoragePath(projectId: string, filename: string): string {
     return path.join(this.getGlobalProjectPath(projectId), 'storage', filename)
   }
 
-  /**
-   * Get the context directory path for a project
-   * Contains generated markdown context files
-   */
   getContextPath(projectId: string): string {
     return path.join(this.getGlobalProjectPath(projectId), 'context')
   }
 
   // ===========================================================================
-  // Obsidian-compatible wiki vault
+  // Wiki vault (delegates to ./path-manager/wiki-paths)
   // ===========================================================================
 
-  /**
-   * Resolve the wiki vault directory for a project.
-   *
-   * Resolution order:
-   *   1. `vaultPath` in `.prjct/prjct.config.json` (absolute, tilde, or relative).
-   *   2. Default: `~/Documents/prjct/<slug>/`, where `<slug>` is derived from
-   *      the **main worktree** directory name. Sibling git worktrees of the
-   *      same project all resolve to the same vault — never to a per-branch
-   *      vault — so RAG context never crosses project boundaries.
-   *
-   * Pre-2.2.0 projects used `<projectPath>/.prjct/wiki/` — that layout
-   * migrates automatically on first v2.2.0 wiki access (see
-   * `core/services/wiki-migration.ts`). To keep the old path, set
-   * `vaultPath: ".prjct/wiki"` in the project config.
-   */
   async getWikiPath(projectPath: string, overrideVaultPath?: string): Promise<string> {
-    if (overrideVaultPath && overrideVaultPath.trim().length > 0) {
-      return this.resolveVaultOverride(projectPath, overrideVaultPath)
-    }
-
-    const rootPath = await this.resolveProjectRootPath(projectPath)
-
-    // Default: ~/Documents/prjct/<slug>/
-    const base = path.basename(path.resolve(rootPath)).toLowerCase()
-    const slug = base.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'project'
-    return path.join(os.homedir(), 'Documents', 'prjct', slug)
+    return getWikiPath(projectPath, overrideVaultPath)
   }
 
-  /**
-   * Resolve a project path to the main worktree root when applicable.
-   * Returns the input unchanged when not inside a git worktree, when git
-   * is unavailable, or when the path doesn't exist on disk. Used by vault
-   * path resolution so all worktrees of a project share one vault.
-   */
-  private async resolveProjectRootPath(projectPath: string): Promise<string> {
-    try {
-      const { worktreeService } = await import('../services/worktree-service')
-      const info = await worktreeService.detect(projectPath)
-      if (!info) return projectPath
-      const mainPath = await worktreeService.getMainWorktree(projectPath)
-      return mainPath || projectPath
-    } catch {
-      return projectPath
-    }
-  }
-
-  /**
-   * Disambiguation helper: when two repos share the same basename, the slug
-   * collides. Callers can mix in a short hash of the projectId to keep
-   * each vault isolated.
-   *
-   *   ~/Documents/prjct/foo/          (first 'foo')
-   *   ~/Documents/prjct/foo-bc401c41/ (second 'foo' with hash)
-   */
   getWikiPathWithProjectHash(projectPath: string, projectId: string): string {
-    const base = path.basename(path.resolve(projectPath)).toLowerCase()
-    const slug = base.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'project'
-    const hash = projectId.replace(/-/g, '').slice(0, 8)
-    return path.join(os.homedir(), 'Documents', 'prjct', `${slug}-${hash}`)
+    return getWikiPathWithProjectHash(projectPath, projectId)
   }
 
-  /** Legacy in-repo vault path. Kept only for migration detection. */
   getLegacyWikiPath(projectPath: string): string {
-    return path.join(projectPath, '.prjct', 'wiki')
-  }
-
-  private resolveVaultOverride(projectPath: string, override: string): string {
-    let resolved = override.trim()
-    if (resolved.startsWith('~/') || resolved === '~') {
-      resolved = path.join(os.homedir(), resolved.slice(1))
-    }
-    if (!path.isAbsolute(resolved)) {
-      // relative to project root so users can keep vault in-repo if they want
-      resolved = path.resolve(projectPath, resolved)
-    }
-    return resolved
+    return getLegacyWikiPath(projectPath)
   }
 
   // ===========================================================================
-  // Monorepo Detection
+  // Monorepo (delegates to ./path-manager/monorepo)
   // ===========================================================================
 
-  /**
-   * Detect if a project is a monorepo and get package information
-   */
   async detectMonorepo(projectPath: string): Promise<MonorepoInfo> {
-    const result: MonorepoInfo = {
-      isMonorepo: false,
-      type: null,
-      rootPath: projectPath,
-      packages: [],
-    }
-
-    // Check for various monorepo configurations
-    const checks = [
-      { file: 'pnpm-workspace.yaml', type: 'pnpm' as const },
-      { file: 'lerna.json', type: 'lerna' as const },
-      { file: 'nx.json', type: 'nx' as const },
-      { file: 'rush.json', type: 'rush' as const },
-      { file: 'turbo.json', type: 'turborepo' as const },
-    ]
-
-    for (const check of checks) {
-      const filePath = path.join(projectPath, check.file)
-      if (await fileHelper.fileExists(filePath)) {
-        result.isMonorepo = true
-        result.type = check.type
-        break
-      }
-    }
-
-    // Check package.json for workspaces (npm/yarn)
-    if (!result.isMonorepo) {
-      const packageJsonPath = path.join(projectPath, 'package.json')
-      if (await fileHelper.fileExists(packageJsonPath)) {
-        try {
-          const content = await fs.readFile(packageJsonPath, 'utf-8')
-          const pkg = JSON.parse(content)
-          if (pkg.workspaces) {
-            result.isMonorepo = true
-            result.type = 'npm' // Could be yarn too, but npm is more generic
-          }
-        } catch {
-          // Invalid package.json, ignore
-        }
-      }
-    }
-
-    // If it's a monorepo, discover packages
-    if (result.isMonorepo) {
-      result.packages = await this.discoverMonorepoPackages(projectPath, result.type)
-    }
-
-    return result
+    return detectMonorepo(projectPath)
   }
 
-  /**
-   * Discover all packages in a monorepo
-   */
   async discoverMonorepoPackages(
     rootPath: string,
     type: MonorepoInfo['type']
   ): Promise<MonorepoPackage[]> {
-    const packages: MonorepoPackage[] = []
-    let patterns: string[] = []
-
-    try {
-      if (type === 'pnpm') {
-        // Read pnpm-workspace.yaml
-        const yaml = await fs.readFile(path.join(rootPath, 'pnpm-workspace.yaml'), 'utf-8')
-        // Simple YAML parsing for packages array
-        const match = yaml.match(/packages:\s*\n((?:\s*-\s*.+\n?)+)/)
-        if (match) {
-          patterns = match[1]
-            .split('\n')
-            .map((line) => line.replace(/^\s*-\s*['"]?|['"]?\s*$/g, ''))
-            .filter(Boolean)
-        }
-      } else if (type === 'npm' || type === 'lerna') {
-        // Read from package.json workspaces or lerna.json
-        const packageJsonPath = path.join(rootPath, 'package.json')
-        const content = await fs.readFile(packageJsonPath, 'utf-8')
-        const pkg = JSON.parse(content)
-        if (Array.isArray(pkg.workspaces)) {
-          patterns = pkg.workspaces
-        } else if (pkg.workspaces?.packages) {
-          patterns = pkg.workspaces.packages
-        }
-
-        // Also check lerna.json
-        if (type === 'lerna') {
-          const lernaPath = path.join(rootPath, 'lerna.json')
-          if (await fileHelper.fileExists(lernaPath)) {
-            const lernaContent = await fs.readFile(lernaPath, 'utf-8')
-            const lerna = JSON.parse(lernaContent)
-            if (lerna.packages) {
-              patterns = lerna.packages
-            }
-          }
-        }
-      } else if (type === 'nx') {
-        // NX uses apps/* and libs/* by default
-        patterns = ['apps/*', 'libs/*', 'packages/*']
-      } else if (type === 'turborepo') {
-        // Turborepo reads from package.json workspaces
-        const packageJsonPath = path.join(rootPath, 'package.json')
-        const content = await fs.readFile(packageJsonPath, 'utf-8')
-        const pkg = JSON.parse(content)
-        if (Array.isArray(pkg.workspaces)) {
-          patterns = pkg.workspaces
-        }
-      }
-
-      // If no patterns found, use common defaults
-      if (patterns.length === 0) {
-        patterns = ['packages/*', 'apps/*', 'libs/*']
-      }
-
-      // Expand glob patterns to find packages
-      for (const pattern of patterns) {
-        // Skip negation patterns for now
-        if (pattern.startsWith('!')) continue
-
-        const matches = globSync(pattern, {
-          cwd: rootPath,
-          absolute: false,
-        })
-
-        for (const match of matches) {
-          const packagePath = path.join(rootPath, match)
-          const packageJsonPath = path.join(packagePath, 'package.json')
-
-          // Only include directories with package.json
-          if (await fileHelper.fileExists(packageJsonPath)) {
-            try {
-              const content = await fs.readFile(packageJsonPath, 'utf-8')
-              const pkg = JSON.parse(content)
-              const prjctMdPath = path.join(packagePath, 'PRJCT.md')
-
-              packages.push({
-                name: pkg.name || path.basename(match),
-                path: packagePath,
-                relativePath: match,
-                hasPrjctMd: await fileHelper.fileExists(prjctMdPath),
-              })
-            } catch {
-              // Invalid package.json, skip
-            }
-          }
-        }
-      }
-    } catch {
-      // Error reading monorepo config, return empty
-    }
-
-    return packages
+    return discoverMonorepoPackages(rootPath, type)
   }
 
-  /**
-   * Check if current path is within a monorepo package
-   * Returns the package info if found, null otherwise
-   */
   async findContainingPackage(
     currentPath: string,
     monoInfo: MonorepoInfo
   ): Promise<MonorepoPackage | null> {
-    if (!monoInfo.isMonorepo) return null
-
-    const normalizedCurrent = path.resolve(currentPath)
-
-    for (const pkg of monoInfo.packages) {
-      const normalizedPkg = path.resolve(pkg.path)
-      if (normalizedCurrent.startsWith(normalizedPkg)) {
-        return pkg
-      }
-    }
-
-    return null
+    return findContainingPackage(currentPath, monoInfo)
   }
 
-  /**
-   * Find monorepo root from any subdirectory
-   * Walks up the directory tree looking for monorepo markers
-   */
   async findMonorepoRoot(startPath: string): Promise<string | null> {
-    let currentPath = path.resolve(startPath)
-    const root = path.parse(currentPath).root
-
-    while (currentPath !== root) {
-      const monoInfo = await this.detectMonorepo(currentPath)
-      if (monoInfo.isMonorepo) {
-        return currentPath
-      }
-      currentPath = path.dirname(currentPath)
-    }
-
-    return null
+    return findMonorepoRoot(startPath)
   }
 }
 

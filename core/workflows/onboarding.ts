@@ -19,46 +19,14 @@ import type {
   WizardResult,
   WizardStep,
 } from '../types/workflows.js'
-import { dirExists, fileExists } from '../utils/file-helper'
 import out from '../utils/output'
-
-// ============================================================================
-// Constants
-// ============================================================================
-
-const PROJECT_TYPES: { value: ProjectType; title: string; description: string }[] = [
-  { value: 'web-app', title: 'Web Application', description: 'React, Vue, Angular, Next.js, etc.' },
-  {
-    value: 'api-backend',
-    title: 'API / Backend Service',
-    description: 'Express, Hono, FastAPI, etc.',
-  },
-  {
-    value: 'fullstack',
-    title: 'Full-Stack (Monorepo)',
-    description: 'Frontend + Backend in one repo',
-  },
-  { value: 'cli-tool', title: 'CLI Tool', description: 'Command-line application' },
-  { value: 'library', title: 'Library / Package', description: 'Reusable npm/pip/cargo package' },
-  {
-    value: 'monorepo',
-    title: 'Monorepo (Multiple Projects)',
-    description: 'Turborepo, Nx, Lerna, etc.',
-  },
-]
-
-const AI_AGENTS: { value: AIAgent; title: string; description: string }[] = [
-  { value: 'claude', title: 'Claude Code', description: "Anthropic's Claude in VS Code/CLI" },
-  { value: 'cursor', title: 'Cursor', description: 'AI-first code editor' },
-  { value: 'windsurf', title: 'Windsurf', description: "Codeium's AI IDE" },
-  { value: 'copilot', title: 'GitHub Copilot', description: "GitHub's AI pair programmer" },
-  { value: 'gemini', title: 'Gemini CLI', description: "Google's Gemini in terminal" },
-  { value: 'codex', title: 'OpenAI Codex', description: "OpenAI's coding agent in terminal" },
-]
-
-// ============================================================================
-// OnboardingWizard Class
-// ============================================================================
+import {
+  AI_AGENTS,
+  detectInstalledAgents,
+  detectProjectType,
+  detectStack,
+  PROJECT_TYPES,
+} from './onboarding/detection'
 
 export class OnboardingWizard {
   private projectPath: string
@@ -84,9 +52,6 @@ export class OnboardingWizard {
   // Public API
   // ==========================================================================
 
-  /**
-   * Run the full wizard flow
-   */
   async run(): Promise<WizardResult> {
     p.intro(chalk.cyan.bold('⚡ prjct-cli setup'))
 
@@ -100,10 +65,7 @@ export class OnboardingWizard {
 
     for (const step of steps) {
       const shouldContinue = await step.run()
-
-      if (!shouldContinue || this.aborted) {
-        return this.buildResult(true)
-      }
+      if (!shouldContinue || this.aborted) return this.buildResult(true)
     }
 
     p.outro(chalk.green('Setup complete!'))
@@ -111,23 +73,20 @@ export class OnboardingWizard {
   }
 
   /**
-   * Run in non-interactive mode (--yes flag)
-   * Uses all auto-detected values without prompting
+   * Run in non-interactive mode (--yes flag).
+   * Uses all auto-detected values without prompting.
    */
   async runNonInteractive(): Promise<WizardResult> {
     out.spin('Auto-detecting project configuration...')
 
-    // Auto-detect everything
-    this.detectedType = await this.detectProjectType()
+    this.detectedType = await detectProjectType(this.projectPath)
     this.confirmedType = this.detectedType
-    const detectedAgents = await this.detectInstalledAgents()
+    const detectedAgents = await detectInstalledAgents(this.projectPath)
     this.selectedAgents = detectedAgents.length > 0 ? detectedAgents : ['claude']
-    this.detectedStack = await this.detectStack()
+    this.detectedStack = await detectStack(this.projectPath)
     this.confirmedStack = this.detectedStack
-    // Use default preferences
 
     out.done('Configuration detected')
-
     return this.buildResult(false)
   }
 
@@ -135,11 +94,8 @@ export class OnboardingWizard {
   // Step Implementations
   // ==========================================================================
 
-  /**
-   * Step 1: Project Type Detection + Confirmation
-   */
   private async stepProjectType(): Promise<boolean> {
-    this.detectedType = await this.detectProjectType()
+    this.detectedType = await detectProjectType(this.projectPath)
 
     const initialIndex = PROJECT_TYPES.findIndex((pt) => pt.value === this.detectedType)
 
@@ -165,11 +121,8 @@ export class OnboardingWizard {
     return true
   }
 
-  /**
-   * Step 2: AI Agent Selection (multi-select)
-   */
   private async stepAIAgents(): Promise<boolean> {
-    const detectedAgents = await this.detectInstalledAgents()
+    const detectedAgents = await detectInstalledAgents(this.projectPath)
 
     const agents = await p.multiselect({
       message: 'Which AI agents do you use?',
@@ -191,19 +144,13 @@ export class OnboardingWizard {
     return true
   }
 
-  /**
-   * Step 3: Stack Detection + Confirmation
-   */
   private async stepStack(): Promise<boolean> {
-    this.detectedStack = await this.detectStack()
+    this.detectedStack = await detectStack(this.projectPath)
 
     const stackDisplay = this.formatStackDisplay(this.detectedStack)
     p.note(stackDisplay, 'Detected stack')
 
-    const confirmed = await p.confirm({
-      message: 'Is this stack correct?',
-      initialValue: true,
-    })
+    const confirmed = await p.confirm({ message: 'Is this stack correct?', initialValue: true })
 
     if (p.isCancel(confirmed)) {
       this.handleCancel()
@@ -226,11 +173,7 @@ export class OnboardingWizard {
               defaultValue: this.detectedStack.framework || '',
             }),
         },
-        {
-          onCancel: () => {
-            this.handleCancel()
-          },
-        }
+        { onCancel: () => this.handleCancel() }
       )
 
       if (this.aborted) return false
@@ -245,9 +188,6 @@ export class OnboardingWizard {
     return true
   }
 
-  /**
-   * Step 4: Preferences Collection
-   */
   private async stepPreferences(): Promise<boolean> {
     const prefs = await p.group(
       {
@@ -266,16 +206,9 @@ export class OnboardingWizard {
             initialValue: 'normal' as const,
           }),
         autoSync: () =>
-          p.confirm({
-            message: 'Auto-sync context on file changes?',
-            initialValue: true,
-          }),
+          p.confirm({ message: 'Auto-sync context on file changes?', initialValue: true }),
       },
-      {
-        onCancel: () => {
-          this.handleCancel()
-        },
-      }
+      { onCancel: () => this.handleCancel() }
     )
 
     if (this.aborted) return false
@@ -289,9 +222,6 @@ export class OnboardingWizard {
     return true
   }
 
-  /**
-   * Step 5: Summary + Generation
-   */
   private async stepSummary(): Promise<boolean> {
     const summaryLines = [
       `${chalk.cyan('Project Type:')} ${this.getProjectTypeLabel(this.confirmedType)}`,
@@ -317,204 +247,7 @@ export class OnboardingWizard {
   }
 
   // ==========================================================================
-  // Detection Methods
-  // ==========================================================================
-
-  /**
-   * Detect project type from file system
-   */
-  async detectProjectType(): Promise<ProjectType> {
-    const fs = await import('node:fs/promises')
-    const path = await import('node:path')
-
-    try {
-      const files = await fs.readdir(this.projectPath)
-
-      // Check for monorepo indicators
-      if (
-        files.includes('turbo.json') ||
-        files.includes('lerna.json') ||
-        files.includes('nx.json')
-      ) {
-        return 'monorepo'
-      }
-
-      // Check for package.json
-      if (files.includes('package.json')) {
-        const pkgPath = path.join(this.projectPath, 'package.json')
-        const pkgContent = await fs.readFile(pkgPath, 'utf-8')
-        const pkg = JSON.parse(pkgContent)
-
-        const deps = { ...pkg.dependencies, ...pkg.devDependencies }
-
-        // CLI tool indicators
-        if (pkg.bin) return 'cli-tool'
-
-        // Library indicators
-        if (pkg.main && !deps.react && !deps.vue && !deps.angular && !deps.express && !deps.hono) {
-          return 'library'
-        }
-
-        // Full-stack indicators
-        if ((deps.react || deps.vue) && (deps.express || deps.hono || deps.fastify)) {
-          return 'fullstack'
-        }
-
-        // Frontend indicators
-        if (deps.react || deps.vue || deps['@angular/core'] || deps.next || deps.nuxt) {
-          return 'web-app'
-        }
-
-        // Backend indicators
-        if (deps.express || deps.hono || deps.fastify || deps.koa || deps.nestjs) {
-          return 'api-backend'
-        }
-      }
-
-      // Python project detection
-      if (files.includes('pyproject.toml') || files.includes('setup.py')) {
-        const hasServer = files.some((f) => ['main.py', 'app.py', 'server.py'].includes(f))
-        return hasServer ? 'api-backend' : 'library'
-      }
-
-      // Go project detection
-      if (files.includes('go.mod')) {
-        return files.includes('main.go') ? 'cli-tool' : 'library'
-      }
-
-      // Rust project detection
-      if (files.includes('Cargo.toml')) {
-        return 'cli-tool' // Most Rust CLIs
-      }
-
-      return 'unknown'
-    } catch {
-      return 'unknown'
-    }
-  }
-
-  /**
-   * Detect installed AI agents from config files
-   */
-  async detectInstalledAgents(): Promise<AIAgent[]> {
-    const path = await import('node:path')
-    const os = await import('node:os')
-
-    const agents: AIAgent[] = []
-
-    // Claude Code: Check ~/.claude directory
-    if (await dirExists(path.join(os.homedir(), '.claude'))) {
-      agents.push('claude')
-    }
-
-    // Cursor: Check for .cursorrules in project
-    if (await fileExists(path.join(this.projectPath, '.cursorrules'))) {
-      agents.push('cursor')
-    }
-
-    // Windsurf: Check for .windsurfrules
-    if (await fileExists(path.join(this.projectPath, '.windsurfrules'))) {
-      agents.push('windsurf')
-    }
-
-    // Copilot: Check for .github/copilot-instructions.md
-    if (await fileExists(path.join(this.projectPath, '.github', 'copilot-instructions.md'))) {
-      agents.push('copilot')
-    }
-
-    // Gemini: Check ~/.gemini
-    if (await dirExists(path.join(os.homedir(), '.gemini'))) {
-      agents.push('gemini')
-    }
-
-    // Codex: Check codex binary OR ~/.codex directory
-    try {
-      const { execAsync } = await import('../utils/exec')
-      await execAsync('which codex')
-      agents.push('codex')
-    } catch {
-      if (await dirExists(path.join(os.homedir(), '.codex'))) {
-        agents.push('codex')
-      }
-    }
-
-    // Default to Claude if nothing detected
-    return agents.length > 0 ? agents : ['claude']
-  }
-
-  /**
-   * Detect tech stack from project files
-   */
-  async detectStack(): Promise<DetectedStack> {
-    const fs = await import('node:fs/promises')
-    const path = await import('node:path')
-
-    const stack: DetectedStack = {
-      language: 'Unknown',
-      technologies: [],
-    }
-
-    try {
-      const files = await fs.readdir(this.projectPath)
-
-      // Language detection
-      if (files.includes('package.json')) {
-        const pkgPath = path.join(this.projectPath, 'package.json')
-        const pkgContent = await fs.readFile(pkgPath, 'utf-8')
-        const pkg = JSON.parse(pkgContent)
-
-        const deps = { ...pkg.dependencies, ...pkg.devDependencies }
-
-        // TypeScript check
-        stack.language = deps.typescript ? 'TypeScript' : 'JavaScript'
-
-        // Framework detection
-        if (deps.next) stack.framework = 'Next.js'
-        else if (deps.nuxt) stack.framework = 'Nuxt'
-        else if (deps.react) stack.framework = 'React'
-        else if (deps.vue) stack.framework = 'Vue'
-        else if (deps['@angular/core']) stack.framework = 'Angular'
-        else if (deps.express) stack.framework = 'Express'
-        else if (deps.hono) stack.framework = 'Hono'
-        else if (deps.fastify) stack.framework = 'Fastify'
-        else if (deps.nestjs || deps['@nestjs/core']) stack.framework = 'NestJS'
-
-        // Runtime detection
-        if (deps.bun || deps['@types/bun']) stack.runtime = 'Bun'
-        else if (pkg.engines?.bun) stack.runtime = 'Bun'
-        else stack.runtime = 'Node.js'
-
-        // Package manager detection
-        if (files.includes('bun.lockb')) stack.packageManager = 'Bun'
-        else if (files.includes('pnpm-lock.yaml')) stack.packageManager = 'pnpm'
-        else if (files.includes('yarn.lock')) stack.packageManager = 'Yarn'
-        else if (files.includes('package-lock.json')) stack.packageManager = 'npm'
-
-        // Additional technologies
-        if (deps.prisma || deps['@prisma/client']) stack.technologies.push('Prisma')
-        if (deps.drizzle || deps['drizzle-orm']) stack.technologies.push('Drizzle')
-        if (deps.tailwindcss) stack.technologies.push('Tailwind CSS')
-        if (deps.zod) stack.technologies.push('Zod')
-        if (deps.trpc || deps['@trpc/server']) stack.technologies.push('tRPC')
-      } else if (files.includes('pyproject.toml') || files.includes('requirements.txt')) {
-        stack.language = 'Python'
-        // Could parse pyproject.toml for framework detection
-      } else if (files.includes('go.mod')) {
-        stack.language = 'Go'
-      } else if (files.includes('Cargo.toml')) {
-        stack.language = 'Rust'
-      } else if (files.includes('pom.xml') || files.includes('build.gradle')) {
-        stack.language = 'Java'
-      }
-
-      return stack
-    } catch {
-      return stack
-    }
-  }
-
-  // ==========================================================================
-  // Helper Methods
+  // Helpers
   // ==========================================================================
 
   private handleCancel(): void {

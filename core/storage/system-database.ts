@@ -11,7 +11,7 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
-import type { McpHealthRow, McpHealthStatus } from '../types/storage.js'
+import type { McpHealthRow, McpHealthStatus } from '../types/storage/extended'
 import { isBun } from '../utils/runtime'
 
 // =============================================================================
