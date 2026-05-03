@@ -1,0 +1,92 @@
+/**
+ * Shared utilities + value types for the wiki builders.
+ *
+ * Kept tiny on purpose — anything that grows past a couple of helpers
+ * should move to its own builder module instead of accreting here.
+ */
+
+import crypto from 'node:crypto'
+import type { LLMAnalysis } from '../../types/llm-analysis'
+
+/**
+ * Max entries per file. When a bucket exceeds this it's paginated into
+ * `<bucket>/chunk-1.md`, `<bucket>/chunk-2.md`, etc. with the root file
+ * becoming an index. 50 is ~3-5K tokens per chunk — small enough that
+ * an agent reading one stays under a reasonable budget.
+ */
+export const CHUNK_SIZE = 50
+
+export type Manifest = Record<string, string>
+
+export type ConceptKind =
+  | 'pattern'
+  | 'anti-pattern'
+  | 'tech-debt'
+  | 'risk-area'
+  | 'refactor'
+  | 'insight'
+
+export const CONCEPT_FOLDERS: Record<ConceptKind, string> = {
+  pattern: 'patterns',
+  'anti-pattern': 'anti-patterns',
+  'tech-debt': 'tech-debt',
+  'risk-area': 'risk-areas',
+  refactor: 'refactors',
+  insight: 'insights',
+}
+
+export type ArchiveEntry = {
+  id: number
+  status: string
+  commitHash: string | null
+  analyzedAt: string
+  supersededAt: string | null
+  analysis: LLMAnalysis
+}
+
+export type ConceptRecord = {
+  kind: ConceptKind
+  name: string
+  slug: string
+  latestBody: Record<string, unknown>
+  firstSeen: string
+  lastSeen: string
+  seenIn: Array<{ analysisId: number; date: string; commit: string | null }>
+  stillActive: boolean
+}
+
+export type ReleaseEntry = {
+  version: string
+  date: string
+  body: string
+}
+
+export function slugify(value: string): string {
+  return (
+    value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 60) || 'unnamed'
+  )
+}
+
+export function sha256(body: string): string {
+  return crypto.createHash('sha256').update(body).digest('hex').slice(0, 16)
+}
+
+export function chunkEntries<T>(entries: T[], size = CHUNK_SIZE): T[][] {
+  if (entries.length <= size) return [entries]
+  const out: T[][] = []
+  for (let i = 0; i < entries.length; i += size) out.push(entries.slice(i, i + size))
+  return out
+}
+
+export function conceptKey(kind: ConceptKind, name: string): string {
+  return `${kind}::${name.trim().toLowerCase()}`
+}
+
+export function analysisDateOnly(entry: ArchiveEntry): string {
+  const m = (entry.analyzedAt || '').match(/^(\d{4}-\d{2}-\d{2})/)
+  return m ? m[1] : 'undated'
+}
