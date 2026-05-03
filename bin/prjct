@@ -86,6 +86,21 @@ ensure_setup() {
       chmod +x "$CLAUDE_STATUSLINE" 2>/dev/null
     fi
   fi
+
+  # Ensure prjct skill is installed where Claude / Codex can see it.
+  # postinstall is unreliable (--ignore-scripts, npm policies), so the
+  # bin shim self-heals on every invocation. mtime-based: source newer
+  # than dest → overwrite. Common case (skill up-to-date) = two stats.
+  SKILL_SRC="$ROOT_DIR/templates/skills/prjct/SKILL.md"
+  if [ -f "$SKILL_SRC" ]; then
+    for SKILL_DEST in "$HOME/.claude/skills/prjct/SKILL.md" "$HOME/.codex/skills/prjct/SKILL.md"; do
+      SKILL_DIR=$(dirname "$SKILL_DEST")
+      if [ ! -f "$SKILL_DEST" ] || [ "$SKILL_SRC" -nt "$SKILL_DEST" ]; then
+        mkdir -p "$SKILL_DIR" 2>/dev/null
+        cp "$SKILL_SRC" "$SKILL_DEST" 2>/dev/null
+      fi
+    done
+  fi
 }
 
 # Check if bun is available
