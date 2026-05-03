@@ -23,6 +23,7 @@ import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import { execFileAsync } from '../utils/exec'
 import { fileExists } from '../utils/file-helper'
+import { failHard } from '../utils/md-aware'
 import out from '../utils/output'
 import { PrjctCommandsBase } from './base'
 
@@ -93,8 +94,7 @@ export class RetroCommands extends PrjctCommandsBase {
       }
     } catch (error) {
       const msg = getErrorMessage(error)
-      out.fail(msg)
-      return { success: false, error: msg }
+      return failHard(msg)
     }
   }
 }

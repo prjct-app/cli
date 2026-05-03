@@ -18,6 +18,7 @@ import { stateStorage } from '../storage/state-storage'
 import type { MdOption } from '../types/cli'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
+import { failHard } from '../utils/md-aware'
 import out from '../utils/output'
 import { PrjctCommandsBase } from './base'
 import { requireActiveTask, requireProject } from './guards'
@@ -133,8 +134,7 @@ export class PrimitiveCommands extends PrjctCommandsBase {
       return { success: true, taskId: active.id, status: value }
     } catch (error) {
       const msg = getErrorMessage(error)
-      out.fail(msg)
-      return { success: false, error: msg }
+      return failHard(msg)
     }
   }
 
@@ -185,8 +185,7 @@ export class PrimitiveCommands extends PrjctCommandsBase {
       return { success: true, taskId: task.value.id, tags }
     } catch (error) {
       const msg = getErrorMessage(error)
-      out.fail(msg)
-      return { success: false, error: msg }
+      return failHard(msg)
     }
   }
 
@@ -214,8 +213,7 @@ export class PrimitiveCommands extends PrjctCommandsBase {
 
       const parsed = parseRememberArgs(args)
       if (!parsed.ok) {
-        out.fail(parsed.error)
-        return { success: false, error: parsed.error }
+        return failHard(parsed.error)
       }
       const { type, content } = parsed
 
@@ -259,8 +257,7 @@ export class PrimitiveCommands extends PrjctCommandsBase {
       return { success: true, type, content, tags }
     } catch (error) {
       const msg = getErrorMessage(error)
-      out.fail(msg)
-      return { success: false, error: msg }
+      return failHard(msg)
     }
   }
 }

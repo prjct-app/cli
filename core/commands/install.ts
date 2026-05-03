@@ -16,7 +16,7 @@ import {
 import type { MdOption } from '../types/cli'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
-import { failFromError } from '../utils/md-aware'
+import { failFromError, failHard } from '../utils/md-aware'
 import out from '../utils/output'
 import { PrjctCommandsBase } from './base'
 
@@ -54,8 +54,7 @@ export class InstallCommands extends PrjctCommandsBase {
       return { success: true, hooksWritten: result.hooksWritten }
     } catch (error) {
       const msg = getErrorMessage(error)
-      out.fail(msg)
-      return { success: false, error: msg }
+      return failHard(msg)
     }
   }
 
@@ -81,8 +80,7 @@ export class InstallCommands extends PrjctCommandsBase {
       return { success: true, hooksRemoved: result.hooksRemoved }
     } catch (error) {
       const msg = getErrorMessage(error)
-      out.fail(msg)
-      return { success: false, error: msg }
+      return failHard(msg)
     }
   }
 
