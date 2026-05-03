@@ -1,5 +1,25 @@
 # Changelog
 
+## [Unreleased]
+
+### Features — SDD: Spec-Driven Development
+
+prjct now ships an end-to-end SDD primitive. The canonical sequence is `spec → audit-spec → task --spec → implement → ship (acceptance gate) → remember learning`.
+
+- **`prjct spec "<title>"`** — first-class verb. Drafts a spec with structured fields (goal, eli10, stakes, acceptance_criteria, scope, out_of_scope, risks, test_plan). Persists to a new `specs` SQLite table and mirrors a memory event so `prjct context memory spec` finds it.
+- **Sub-verbs:** `prjct spec list | show | update | set-status | record-review | link-task | ship | audit`.
+- **`prjct audit-spec <id>`** — emits a parallel-subagent dispatch prompt. Three reviewers (strategic / architecture / design) run in parallel via the Agent tool and write verdicts back via `prjct spec record-review`. All three pass → spec auto-promotes `draft → reviewed`.
+- **`prjct task --spec <id>`** — links a task to its spec (`tasks.linked_spec_id`). Without it, `ship` has nothing to gate against.
+- **`prjct ship` acceptance gate** — when the active task has a linked spec, ship surfaces the spec's `acceptance_criteria` as a checklist before proceeding. Override with `--no-spec-gate`.
+- **Vault rendering** — specs auto-render to `~/Documents/prjct/<slug>/_generated/specs/<slug>.md` on every regen, with a status-grouped index at `_generated/specs/_index.md`.
+- **Skill body** — Claude is taught the SDD canonical sequence and the `spec` / `audit-spec` verbs in the intent map. The skill body's verb intent map now leads with `spec` for substantive work; `task` is the right call for routine work that doesn't deserve a spec.
+- **Templates** — `templates/spec-template.md`, `templates/spec-reviewer-rubrics/{strategic,architecture,design}.md`, `templates/sdd-canonical-sequence.md`. Old `templates/planning-methodology.md` renamed to `planning-methodology-deep.md` (retained but de-defaulted).
+
+### Schema
+
+- Migration 16 adds the `specs` table and the `tasks.linked_spec_id` column. Additive — existing memory and tasks unaffected.
+- `'spec'` added to `BASE_MEMORY_TYPES`.
+
 ## [2.14.3] - 2026-05-02
 
 ### Refactoring

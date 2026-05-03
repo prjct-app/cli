@@ -36,6 +36,8 @@ interface ShipOptions {
   skipHooks?: boolean
   md?: boolean
   intent?: ShipIntent
+  /** SDD: skip the spec acceptance gate (use only on explicit user override) */
+  noSpecGate?: boolean
 }
 
 export class ShippingCommands extends PrjctCommandsBase {
@@ -52,11 +54,45 @@ export class ShippingCommands extends PrjctCommandsBase {
       let featureName = feature
 
       const currentTask = await stateStorage.getCurrentTask(projectId)
+      const linkedSpecId = currentTask?.linkedSpecId
       if (currentTask) {
         if (!featureName) featureName = currentTask.description || 'current work'
         await stateStorage.completeTask(projectId)
       }
       if (!featureName) featureName = 'current work'
+
+      // SDD acceptance gate: surface the linked spec's acceptance_criteria
+      // before ship proceeds. The CLI doesn't decide whether each criterion
+      // is met — Claude (or the human) does, per the skill body's `ship`
+      // entry. Without --no-spec-gate, we surface and continue; the agent
+      // is responsible for halting if any criterion is unmet.
+      if (linkedSpecId && !options.noSpecGate) {
+        try {
+          const { specService } = await import('../services/spec-service')
+          const spec = await specService.get(projectPath, linkedSpecId)
+          if (spec && spec.content.acceptance_criteria.length > 0) {
+            const lines: string[] = []
+            lines.push('')
+            lines.push(`## Spec acceptance gate — \`${spec.title}\` (${spec.id.slice(0, 8)})`)
+            lines.push('')
+            lines.push('Walk each criterion. STOP if any is unmet.')
+            lines.push('')
+            for (const c of spec.content.acceptance_criteria) {
+              lines.push(`- [ ] ${c}`)
+            }
+            lines.push('')
+            lines.push('Override (only with explicit user consent): `prjct ship --no-spec-gate`.')
+            lines.push('')
+            console.log(lines.join('\n'))
+
+            // Also link the eventual PR back to the spec when the user runs
+            // `prjct spec ship <id> --pr <n>` after merge — out of scope for
+            // this verb; the wiring lives on the spec command instead.
+          }
+        } catch {
+          // ignore — spec lookup is best-effort
+        }
+      }
 
       let rules = workflowRuleStorage.getRulesForCommand(projectId, 'ship')
 

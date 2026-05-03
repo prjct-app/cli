@@ -356,6 +356,7 @@ export type CommandRoutingGroup =
   | 'config'
   | 'uninstall'
   | 'update'
+  | 'spec'
 
 export interface CommandRouting {
   /** Which command-group instance owns the handler. */

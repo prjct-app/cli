@@ -67,7 +67,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
   async now(
     task: string | null = null,
     projectPath: string = process.cwd(),
-    options: { skipHooks?: boolean; md?: boolean } = {}
+    options: { skipHooks?: boolean; md?: boolean; spec?: string } = {}
   ): Promise<CommandResult> {
     try {
       const proj = await requireProject(projectPath)
@@ -96,12 +96,26 @@ export class WorkflowCommands extends PrjctCommandsBase {
       const taskDescription = task
 
       const taskId = generateUUID()
+      // SDD linkage: --spec wires this task to a spec for the ship gate.
+      const linkedSpecId = options.spec
       await stateStorage.startTask(projectId, {
         id: taskId,
         description: taskDescription,
         sessionId: generateUUID(),
         linearId,
+        linkedSpecId,
       } as Parameters<typeof stateStorage.startTask>[1])
+
+      // Mirror the linkage on the spec side so `prjct spec show <id>`
+      // lists the linked task. Best-effort — a missing spec just no-ops.
+      if (linkedSpecId) {
+        try {
+          const { specService } = await import('../services/spec-service')
+          await specService.linkTask(projectPath, linkedSpecId, taskId)
+        } catch {
+          // ignore — task creation already succeeded
+        }
+      }
 
       await this.logToMemory(projectPath, 'task_started', {
         task: taskDescription,

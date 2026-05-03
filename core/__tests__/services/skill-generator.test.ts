@@ -335,7 +335,7 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
       expect(content).toMatch(/Subagent B.*security/)
       expect(content).toMatch(/Subagent C.*investigate/)
       // The skill description must advertise the heavy-review workflows.
-      expect(content).toMatch(/Heavy reviews \(audit, security, investigate\)/)
+      expect(content).toMatch(/Heavy reviews \(audit, review, security, investigate, audit-spec\)/)
     })
 
     it('teaches the decision-brief format for non-trivial AskUserQuestion calls', async () => {

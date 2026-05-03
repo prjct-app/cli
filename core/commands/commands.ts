@@ -28,6 +28,7 @@ import { PrimitiveCommands } from './primitives'
 import { SeedCommands } from './seed'
 import { SetupCommands } from './setup'
 import { ShippingCommands } from './shipping'
+import { SpecCommands } from './spec'
 import { TeamCommands } from './team'
 import { UpdateCommands } from './update'
 import { WorkflowCommands } from './workflow'
@@ -52,6 +53,7 @@ class PrjctCommands {
   private mcpCmds: McpCommands
   private teamCmds: TeamCommands
   private configCmds: ConfigCommands
+  private specCmds: SpecCommands
 
   // Shared state
   agent: unknown
@@ -74,6 +76,7 @@ class PrjctCommands {
     this.mcpCmds = new McpCommands()
     this.teamCmds = new TeamCommands()
     this.configCmds = new ConfigCommands()
+    this.specCmds = new SpecCommands()
 
     this.agent = null
     this.agentInfo = null
@@ -86,7 +89,7 @@ class PrjctCommands {
   async task(
     description: string | null = null,
     projectPath: string = process.cwd(),
-    options: { md?: boolean; skipHooks?: boolean } = {}
+    options: { md?: boolean; skipHooks?: boolean; spec?: string } = {}
   ): Promise<CommandResult> {
     return this.workflow.now(description, projectPath, options)
   }
@@ -117,6 +120,7 @@ class PrjctCommands {
       md?: boolean
       skipHooks?: boolean
       intent?: 'register-only' | 'seed-code-workflow' | 'proceed'
+      noSpecGate?: boolean
     } = {}
   ): Promise<CommandResult> {
     return this.shipping.ship(feature, projectPath, { ...options })
@@ -308,6 +312,83 @@ class PrjctCommands {
     data: Record<string, unknown>
   ): Promise<void> {
     return this.workflow.logToMemory(projectPath, action, data)
+  }
+
+  // ========== SDD Spec Commands ==========
+
+  async spec(
+    title: string | null = null,
+    projectPath: string = process.cwd(),
+    options: {
+      md?: boolean
+      goal?: string
+      tags?: string
+    } = {}
+  ): Promise<CommandResult> {
+    return this.specCmds.draft(title, projectPath, options)
+  }
+
+  async specList(
+    projectPath: string = process.cwd(),
+    options: { md?: boolean; status?: string } = {}
+  ): Promise<CommandResult> {
+    return this.specCmds.list(null, projectPath, options)
+  }
+
+  async specShow(
+    id: string | null = null,
+    projectPath: string = process.cwd(),
+    options: { md?: boolean } = {}
+  ): Promise<CommandResult> {
+    return this.specCmds.show(id, projectPath, options)
+  }
+
+  async specUpdate(
+    id: string | null = null,
+    projectPath: string = process.cwd(),
+    options: { md?: boolean; json?: string } = {}
+  ): Promise<CommandResult> {
+    return this.specCmds.update(id, projectPath, options)
+  }
+
+  async specSetStatus(
+    id: string | null = null,
+    projectPath: string = process.cwd(),
+    options: { md?: boolean; status?: string } = {}
+  ): Promise<CommandResult> {
+    return this.specCmds.setStatus(id, projectPath, options)
+  }
+
+  async specRecordReview(
+    id: string | null = null,
+    projectPath: string = process.cwd(),
+    options: { md?: boolean; reviewer?: string; verdict?: string; notes?: string } = {}
+  ): Promise<CommandResult> {
+    return this.specCmds.recordReview(id, projectPath, options)
+  }
+
+  async specLinkTask(
+    id: string | null = null,
+    projectPath: string = process.cwd(),
+    options: { md?: boolean; taskId?: string } = {}
+  ): Promise<CommandResult> {
+    return this.specCmds.linkTask(id, projectPath, options)
+  }
+
+  async specShip(
+    id: string | null = null,
+    projectPath: string = process.cwd(),
+    options: { md?: boolean; pr?: number | string } = {}
+  ): Promise<CommandResult> {
+    return this.specCmds.ship(id, projectPath, options)
+  }
+
+  async specAudit(
+    id: string | null = null,
+    projectPath: string = process.cwd(),
+    options: { md?: boolean } = {}
+  ): Promise<CommandResult> {
+    return this.specCmds.audit(id, projectPath, options)
   }
 }
 
