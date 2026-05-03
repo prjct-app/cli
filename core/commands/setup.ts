@@ -13,6 +13,7 @@ import context7Service from '../services/context7-service'
 import authConfig from '../sync/auth-config'
 import { syncClient } from '../sync/sync-client'
 import syncManager from '../sync/sync-manager'
+import type { MdOption } from '../types/cli'
 import type { CommandResult, SetupOptions } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import { execAsync } from '../utils/exec'
@@ -31,7 +32,7 @@ export class SetupCommands extends PrjctCommandsBase {
   /**
    * Manage cloud authentication (login, logout, status)
    */
-  async auth(action: string | null = null, options: { md?: boolean } = {}): Promise<CommandResult> {
+  async auth(action: string | null = null, options: MdOption = {}): Promise<CommandResult> {
     const subcommand = action?.split(' ')[0] || 'status'
     const args = action?.split(' ').slice(1) || []
 

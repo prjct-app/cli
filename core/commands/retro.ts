@@ -18,6 +18,7 @@
  */
 
 import path from 'node:path'
+import type { MdOption } from '../types/cli'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import { execFileAsync } from '../utils/exec'
@@ -57,7 +58,7 @@ export class RetroCommands extends PrjctCommandsBase {
   async retro(
     arg: string | null = null,
     projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
+    options: MdOption = {}
   ): Promise<CommandResult> {
     try {
       const initResult = await this.ensureProjectInit(projectPath)

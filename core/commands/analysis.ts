@@ -14,6 +14,7 @@ import { analysisStorage } from '../storage/analysis-storage'
 import { prjctDb } from '../storage/database'
 import llmAnalysisStorage from '../storage/llm-analysis-storage'
 import { metricsStorage } from '../storage/metrics-storage'
+import type { MdOption } from '../types/cli'
 import type { AnalyzeOptions, CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import * as dateHelper from '../utils/date-helper'
@@ -396,7 +397,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
    */
   async regenVault(
     projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
+    options: MdOption = {}
   ): Promise<CommandResult> {
     try {
       const initResult = await this.ensureProjectInit(projectPath)
@@ -442,7 +443,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
   async saveLlmAnalysis(
     analysisJson: string,
     projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
+    options: MdOption = {}
   ): Promise<CommandResult> {
     try {
       const initResult = await this.ensureProjectInit(projectPath)
