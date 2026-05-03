@@ -6,6 +6,7 @@ import fs from 'node:fs/promises'
 import analyzer from '../domain/analyzer'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
+import { parseLlmAnalysis } from '../schemas/llm-analysis'
 import { formatCost } from '../schemas/metrics'
 import { formatAnalysisDiffMd, formatAnalysisDiffText } from '../services/analysis-diff'
 import { buildAnalysisPayload } from '../services/analysis-payload-builder'
@@ -453,12 +454,24 @@ export class AnalysisCommands extends PrjctCommandsBase {
         return { success: false, error: 'No project ID found' }
       }
 
-      const analysis = JSON.parse(analysisJson)
-
-      // Validate basic structure
-      if (!analysis.version || !analysis.architecture || !analysis.patterns) {
-        return { success: false, error: 'Invalid LLM analysis format. Missing required fields.' }
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(analysisJson)
+      } catch (error) {
+        return {
+          success: false,
+          error: `Invalid JSON: ${error instanceof Error ? error.message : 'parse failed'}`,
+        }
       }
+
+      const validation = parseLlmAnalysis(parsed)
+      if (!validation.ok) {
+        return {
+          success: false,
+          error: `Invalid LLM analysis schema: ${validation.error}`,
+        }
+      }
+      const analysis = validation.value
 
       llmAnalysisStorage.save(projectId, analysis)
 
