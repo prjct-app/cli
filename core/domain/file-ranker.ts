@@ -1,21 +1,29 @@
 /**
  * File Ranker — Combined Scoring
  *
- * Combines three signals to rank files by relevance to a task:
- * - BM25 text search (0.5 weight)
- * - Import graph proximity (0.3 weight)
- * - Git co-change correlation (0.2 weight)
+ * Combines every signal in the indexer registry to rank files by
+ * relevance to a task description. Today the registry contains:
+ *   - BM25 text search        (query-driven, default 0.5 weight)
+ *   - Import graph proximity  (seed-driven,  default 0.3 weight)
+ *   - Git co-change           (seed-driven,  default 0.2 weight)
  *
+ * Adding a new signal is a one-file change in `./indexers/registry.ts`.
  * Zero API calls. Pure math on pre-built indexes.
  *
+ * Algorithm:
+ * 1. Run every query indexer to build candidates (today: BM25 only).
+ * 2. Take top-10 candidates as seed files for graph traversal.
+ * 3. Run every seed indexer over those seeds.
+ * 4. Combine: finalScore = Σ (signal × weight).
+ *
+ * Performance target: <50ms per query (all indexes pre-loaded from SQLite).
+ *
  * @module domain/file-ranker
- * @version 1.0.0
+ * @version 1.1.0
  */
 
 import type { RankedFile, RankingConfig } from '../types/domain.js'
-import { loadIndex, queryFiles } from './bm25'
-import { scoreFromSeeds as cochangeScore, loadMatrix } from './git-cochange'
-import { scoreFromSeeds as importScore, loadGraph } from './import-graph'
+import { indexerRegistry, type QueryIndexer, type SeedIndexer } from './indexers/registry'
 
 const DEFAULT_CONFIG: Required<RankingConfig> = {
   bm25Weight: 0.5,
@@ -25,101 +33,104 @@ const DEFAULT_CONFIG: Required<RankingConfig> = {
   importDepth: 2,
 }
 
-// =============================================================================
-// Combined Ranking
-// =============================================================================
+const SEED_FILE_LIMIT = 10
 
-/**
- * Rank files by combined relevance to a task description.
- *
- * Algorithm:
- * 1. BM25: Score all files against the query
- * 2. Import graph: From top BM25 hits, follow imports 2 levels deep
- * 3. Co-change: From top BM25 hits, find co-changed files
- * 4. Normalize each signal to [0, 1]
- * 5. Combine: finalScore = bm25 * 0.5 + imports * 0.3 + cochange * 0.2
- *
- * Performance target: <50ms per query (all indexes pre-loaded from SQLite).
- */
 export function rankFiles(
   projectId: string,
   query: string,
   config: RankingConfig = {}
 ): RankedFile[] {
   const cfg = { ...DEFAULT_CONFIG, ...config }
-
-  // 1. BM25 scoring — get broad candidate set
-  const bm25Results = queryFiles(projectId, query, cfg.topN * 3) // Get more candidates
-  if (bm25Results.length === 0) return []
-
-  // Normalize BM25 scores to [0, 1]
-  const maxBm25 = bm25Results[0]?.score || 1
-  const bm25Map = new Map<string, number>()
-  for (const result of bm25Results) {
-    bm25Map.set(result.path, result.score / maxBm25)
+  const weights: Record<string, number> = {
+    bm25: cfg.bm25Weight,
+    imports: cfg.importWeight,
+    cochange: cfg.cochangeWeight,
   }
 
-  // Seed files: top BM25 hits for graph traversal
-  const seedFiles = bm25Results.slice(0, 10).map((r) => r.path)
+  const queryIndexers = indexerRegistry.filter((i): i is QueryIndexer => i.kind === 'query')
+  const seedIndexers = indexerRegistry.filter((i): i is SeedIndexer => i.kind === 'seed')
 
-  // 2. Import graph scoring
-  const importMap = new Map<string, number>()
-  const graph = loadGraph(projectId)
-  if (graph) {
-    const importResults = importScore(seedFiles, graph, cfg.importDepth)
-    const maxImport = importResults[0]?.score || 1
-    for (const result of importResults) {
-      importMap.set(result.path, result.score / maxImport)
+  // Run every query-driven indexer to build candidates. The first non-empty
+  // result also seeds the seed-driven indexers below.
+  const scoresByIndexer = new Map<string, Map<string, number>>()
+  let seedFiles: string[] = []
+  for (const idx of queryIndexers) {
+    const scores = idx.scoreFromQuery(projectId, query, cfg.topN * 3)
+    if (scores.length === 0) continue
+    scoresByIndexer.set(idx.name, new Map(scores.map((s) => [s.path, s.score])))
+    if (seedFiles.length === 0) {
+      seedFiles = scores.slice(0, SEED_FILE_LIMIT).map((s) => s.path)
     }
   }
+  if (scoresByIndexer.size === 0) return []
 
-  // 3. Co-change scoring
-  const cochangeMap = new Map<string, number>()
-  const cochangeIndex = loadMatrix(projectId)
-  if (cochangeIndex) {
-    const cochangeResults = cochangeScore(seedFiles, cochangeIndex)
-    const maxCochange = cochangeResults[0]?.score || 1
-    for (const result of cochangeResults) {
-      cochangeMap.set(result.path, result.score / maxCochange)
-    }
+  for (const idx of seedIndexers) {
+    const scores = idx.scoreFromSeeds(projectId, seedFiles, {
+      importDepth: cfg.importDepth,
+    })
+    if (scores.length === 0) continue
+    scoresByIndexer.set(idx.name, new Map(scores.map((s) => [s.path, s.score])))
   }
 
-  // 4. Collect all candidate files
-  const allFiles = new Set([...bm25Map.keys(), ...importMap.keys(), ...cochangeMap.keys()])
+  const allFiles = new Set<string>()
+  for (const map of scoresByIndexer.values()) {
+    for (const k of map.keys()) allFiles.add(k)
+  }
 
-  // 5. Combined scoring
   const ranked: RankedFile[] = []
   for (const filePath of allFiles) {
-    const bm25 = bm25Map.get(filePath) || 0
-    const imports = importMap.get(filePath) || 0
-    const cochange = cochangeMap.get(filePath) || 0
-
-    const finalScore =
-      bm25 * cfg.bm25Weight + imports * cfg.importWeight + cochange * cfg.cochangeWeight
-
+    let finalScore = 0
+    for (const [name, map] of scoresByIndexer) {
+      const s = map.get(filePath) ?? 0
+      const w = weights[name] ?? indexerRegistry.find((i) => i.name === name)?.defaultWeight ?? 0
+      finalScore += s * w
+    }
     ranked.push({
       path: filePath,
       finalScore,
-      signals: { bm25, imports, cochange },
+      signals: {
+        bm25: scoresByIndexer.get('bm25')?.get(filePath) ?? 0,
+        imports: scoresByIndexer.get('imports')?.get(filePath) ?? 0,
+        cochange: scoresByIndexer.get('cochange')?.get(filePath) ?? 0,
+      },
     })
   }
 
-  // Sort by finalScore descending, return top N
   ranked.sort((a, b) => b.finalScore - a.finalScore)
   return ranked.slice(0, cfg.topN)
 }
 
 /**
- * Check if all three indexes exist for a project.
+ * Check whether each registered index has data for this project.
+ * Public shape (`bm25`, `imports`, `cochange`) is preserved for
+ * existing callers (CLI / tests). New signals added to the registry
+ * are reachable via `hasIndexesAll(projectId)`.
  */
 export function hasIndexes(projectId: string): {
   bm25: boolean
   imports: boolean
   cochange: boolean
 } {
-  return {
-    bm25: loadIndex(projectId) !== null,
-    imports: loadGraph(projectId) !== null,
-    cochange: loadMatrix(projectId) !== null,
+  const presence: Record<string, boolean> = {}
+  for (const idx of indexerRegistry) {
+    presence[idx.name] = idx.hasIndex(projectId)
   }
+  return {
+    bm25: presence.bm25 ?? false,
+    imports: presence.imports ?? false,
+    cochange: presence.cochange ?? false,
+  }
+}
+
+/**
+ * Generic counterpart of {@link hasIndexes} — returns presence keyed
+ * by every registered indexer name. Use this when a new signal has
+ * been added to the registry and you need to inspect it.
+ */
+export function hasIndexesAll(projectId: string): Record<string, boolean> {
+  const out: Record<string, boolean> = {}
+  for (const idx of indexerRegistry) {
+    out[idx.name] = idx.hasIndex(projectId)
+  }
+  return out
 }
