@@ -20,7 +20,7 @@ import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import out from '../utils/output'
 import { PrjctCommandsBase } from './base'
-import { requireActiveTask, requireProjectId } from './guards'
+import { requireActiveTask, requireProject } from './guards'
 
 const TASK_TYPE_VALUES: readonly TaskType[] = ['feature', 'bug', 'improvement', 'chore']
 
@@ -37,10 +37,7 @@ export class PrimitiveCommands extends PrjctCommandsBase {
     options: MdOption = {}
   ): Promise<CommandResult> {
     try {
-      const initResult = await this.ensureProjectInit(projectPath)
-      if (!initResult.success) return initResult
-
-      const pid = await requireProjectId(projectPath)
+      const pid = await requireProject(projectPath)
       if (!pid.ok) return pid.result
 
       // Resume-intent bypasses the active-task guard: when the current task
@@ -153,10 +150,7 @@ export class PrimitiveCommands extends PrjctCommandsBase {
     options: MdOption = {}
   ): Promise<CommandResult> {
     try {
-      const initResult = await this.ensureProjectInit(projectPath)
-      if (!initResult.success) return initResult
-
-      const pid = await requireProjectId(projectPath)
+      const pid = await requireProject(projectPath)
       if (!pid.ok) return pid.result
 
       const task = await requireActiveTask(pid.value, options)
@@ -236,7 +230,7 @@ export class PrimitiveCommands extends PrjctCommandsBase {
 
       const tags = parseFlagTags(options.tags)
 
-      const pid = await requireProjectId(projectPath)
+      const pid = await requireProject(projectPath)
       if (!pid.ok) return pid.result
 
       // `remember` works even without an active task — you might be

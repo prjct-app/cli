@@ -9,6 +9,7 @@
 
 import configManager from '../infrastructure/config-manager'
 import type { CurrentTask } from '../schemas/state'
+import { projectService } from '../services/project-service'
 import { customWorkflowStorage } from '../storage/custom-workflow-storage'
 import { stateStorage } from '../storage/state-storage'
 import type { MdOption } from '../types/cli'
@@ -21,14 +22,38 @@ type Guard<T> = { ok: true; value: T } | { ok: false; result: CommandResult }
 /**
  * Resolve the projectId for the current repo or fail with a user-facing
  * error. Wraps the three-line boilerplate that every v2 primitive needed.
+ *
+ * In md mode emits the same message as a blockquote so agent callers
+ * see a uniform `> No project ID found...` line.
  */
-export async function requireProjectId(projectPath: string): Promise<Guard<string>> {
+export async function requireProjectId(
+  projectPath: string,
+  options: MdOption = {}
+): Promise<Guard<string>> {
   const projectId = await configManager.getProjectId(projectPath)
   if (!projectId) {
-    out.failWithHint('NO_PROJECT_ID')
+    if (options.md) {
+      console.log('> No project ID found. Run `prjct init` first.')
+    } else {
+      out.failWithHint('NO_PROJECT_ID')
+    }
     return { ok: false, result: { success: false, error: 'No project ID found' } }
   }
   return { ok: true, value: projectId }
+}
+
+/**
+ * `ensureProjectInit + requireProjectId` in a single call. Almost every
+ * command verb opens with this two-step dance; this helper saves the
+ * repetition (~24 sites pre-2.15) and forwards init failures cleanly.
+ */
+export async function requireProject(
+  projectPath: string,
+  options: MdOption = {}
+): Promise<Guard<string>> {
+  const initResult = await projectService.ensureInit(projectPath)
+  if (!initResult.success) return { ok: false, result: initResult }
+  return requireProjectId(projectPath, options)
 }
 
 /**

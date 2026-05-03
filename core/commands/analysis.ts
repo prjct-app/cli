@@ -40,6 +40,7 @@ import {
   showSyncResult,
 } from './analysis-helpers'
 import { PrjctCommandsBase } from './base'
+import { requireProject } from './guards'
 
 /** Compact schema reference for LLM — avoids dumping 50+ lines of JSON examples */
 const ANALYSIS_SCHEMA_COMPACT = `{version:1, commitHash, analyzedAt,
@@ -163,14 +164,9 @@ export class AnalysisCommands extends PrjctCommandsBase {
     } = {}
   ): Promise<CommandResult> {
     try {
-      const initResult = await this.ensureProjectInit(projectPath)
-      if (!initResult.success) return initResult
-
-      const projectId = await configManager.getProjectId(projectPath)
-      if (!projectId) {
-        out.failWithHint('NO_PROJECT_ID')
-        return { success: false, error: 'No project ID found' }
-      }
+      const proj = await requireProject(projectPath)
+      if (!proj.ok) return proj.result
+      const projectId = proj.value
 
       const startTime = Date.now()
 
@@ -332,13 +328,9 @@ export class AnalysisCommands extends PrjctCommandsBase {
     options: { json?: boolean; md?: boolean } = {}
   ): Promise<CommandResult> {
     try {
-      const initResult = await this.ensureProjectInit(projectPath)
-      if (!initResult.success) return initResult
-
-      const projectId = await configManager.getProjectId(projectPath)
-      if (!projectId) {
-        return { success: false, error: 'No project ID found' }
-      }
+      const proj = await requireProject(projectPath)
+      if (!proj.ok) return proj.result
+      const projectId = proj.value
 
       // Quick sync to get fresh data (without full regeneration)
       const result = await syncService.sync(projectPath)
@@ -401,13 +393,9 @@ export class AnalysisCommands extends PrjctCommandsBase {
     options: MdOption = {}
   ): Promise<CommandResult> {
     try {
-      const initResult = await this.ensureProjectInit(projectPath)
-      if (!initResult.success) return initResult
-
-      const projectId = await configManager.getProjectId(projectPath)
-      if (!projectId) {
-        return { success: false, error: 'No project ID found' }
-      }
+      const proj = await requireProject(projectPath)
+      if (!proj.ok) return proj.result
+      const projectId = proj.value
 
       const fs = await import('node:fs/promises')
       const pathManager = (await import('../infrastructure/path-manager')).default
@@ -447,13 +435,9 @@ export class AnalysisCommands extends PrjctCommandsBase {
     options: MdOption = {}
   ): Promise<CommandResult> {
     try {
-      const initResult = await this.ensureProjectInit(projectPath)
-      if (!initResult.success) return initResult
-
-      const projectId = await configManager.getProjectId(projectPath)
-      if (!projectId) {
-        return { success: false, error: 'No project ID found' }
-      }
+      const proj = await requireProject(projectPath)
+      if (!proj.ok) return proj.result
+      const projectId = proj.value
 
       let parsed: unknown
       try {
@@ -524,13 +508,9 @@ export class AnalysisCommands extends PrjctCommandsBase {
     options: { json?: boolean; md?: boolean } = {}
   ): Promise<CommandResult> {
     try {
-      const initResult = await this.ensureProjectInit(projectPath)
-      if (!initResult.success) return initResult
-
-      const projectId = await configManager.getProjectId(projectPath)
-      if (!projectId) {
-        return { success: false, error: 'No project ID found' }
-      }
+      const proj = await requireProject(projectPath)
+      if (!proj.ok) return proj.result
+      const projectId = proj.value
 
       const analysis = llmAnalysisStorage.getActive(projectId)
 
@@ -628,13 +608,9 @@ export class AnalysisCommands extends PrjctCommandsBase {
     options: { json?: boolean; export?: boolean } = {}
   ): Promise<CommandResult> {
     try {
-      const initResult = await this.ensureProjectInit(projectPath)
-      if (!initResult.success) return initResult
-
-      const projectId = await configManager.getProjectId(projectPath)
-      if (!projectId) {
-        return { success: false, error: 'No project ID found' }
-      }
+      const proj = await requireProject(projectPath)
+      if (!proj.ok) return proj.result
+      const projectId = proj.value
 
       // Get metrics summary
       const summary = await metricsStorage.getSummary(projectId)
@@ -1029,13 +1005,9 @@ export class AnalysisCommands extends PrjctCommandsBase {
 
     // Default: Cryptographic verification (PRJ-263)
     try {
-      const initResult = await this.ensureProjectInit(projectPath)
-      if (!initResult.success) return initResult
-
-      const projectId = await configManager.getProjectId(projectPath)
-      if (!projectId) {
-        return { success: false, error: 'No project ID found' }
-      }
+      const proj = await requireProject(projectPath)
+      if (!proj.ok) return proj.result
+      const projectId = proj.value
 
       const result = await analysisStorage.verify(projectId)
 
