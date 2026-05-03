@@ -1,34 +1,18 @@
 /**
  * Single source of truth for verbs registered in the command registry.
  *
- * Kept as a tiny string-only module so `bin/prjct.ts` can import it on the
- * daemon fast-path without dragging in the heavy command classes. Any new
- * registered verb lands here AND in `register.ts` — the CI check in
- * `__tests__/commands/verb-names.test.ts` enforces they stay in sync.
+ * Derived from the declarative `command-data.ts` routing table — any
+ * entry with a `routing` field is automatically eligible for the
+ * daemon fast-path. Adding or removing a verb is a single edit in
+ * `command-data.ts`; this file picks up the change automatically.
+ *
+ * Kept tiny so `bin/prjct.ts` can import it on the fast path without
+ * dragging in the heavy command classes. `command-data.ts` is itself
+ * pure data + types, so the import chain stays light.
  */
 
-const REGISTERED_VERBS = [
-  'task',
-  'ship',
-  'tag',
-  'remember',
-  'status',
-  'workflow',
-  'init',
-  'analyze',
-  'analysis-save-llm',
-  'sync',
-  'regen',
-  'context',
-  'login',
-  'logout',
-  'auth',
-  'seed',
-  'install',
-  'capture',
-  'mcp',
-  'team',
-  'config',
-] as const
+import { COMMANDS } from './command-data'
 
-export const REGISTERED_VERBS_SET: ReadonlySet<string> = new Set(REGISTERED_VERBS)
+export const REGISTERED_VERBS_SET: ReadonlySet<string> = new Set(
+  COMMANDS.filter((c) => c.routing).map((c) => c.name)
+)

@@ -32,6 +32,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'init',
     group: 'core',
+    routing: { group: 'planning', method: 'init' },
     description: 'Deep project analysis and initialization',
     usage: { claude: '/p:init "[idea]"', terminal: 'prjct init "[idea]"' },
     params: '[idea]',
@@ -48,6 +49,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'task',
     group: 'core',
+    routing: { group: 'workflow', method: 'now' },
     description: 'Register a task (or show the active one)',
     usage: { claude: '/p:task "<description>"', terminal: 'prjct task "<description>"' },
     params: '[description]',
@@ -63,6 +65,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'ship',
     group: 'core',
+    routing: { group: 'shipping', method: 'ship' },
     description: 'Commit, push, and celebrate shipped feature',
     usage: { claude: '/p:ship ["feature"]', terminal: 'prjct ship ["feature"]' },
     params: '[feature]',
@@ -75,6 +78,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'sync',
     group: 'core',
+    routing: { group: 'analysis', method: 'sync' },
     description: 'Sync project state and update workflow agents',
     usage: { claude: '/p:sync', terminal: 'prjct sync [--package=<name>] [--full]' },
     implemented: true,
@@ -92,6 +96,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'regen',
     group: 'core',
+    routing: { group: 'analysis', method: 'regenVault' },
     description: 'Full rebuild of the Obsidian vault for the current project',
     usage: { claude: '/p:regen', terminal: 'prjct regen [--md]' },
     implemented: true,
@@ -117,6 +122,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'status',
     group: 'core',
+    routing: { group: 'primitives', method: 'status' },
     description: 'Inline status change on the active task (Linear-style escape hatch)',
     usage: { claude: '/p:status <value>', terminal: 'prjct status <value>' },
     params: '[value]',
@@ -131,6 +137,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'tag',
     group: 'core',
+    routing: { group: 'primitives', method: 'tag' },
     description: 'Attach k:v tags to the active task (type:bug, domain:frontend, …)',
     usage: { claude: '/p:tag type:bug', terminal: 'prjct tag type:bug domain:auth' },
     params: '<pairs...>',
@@ -145,6 +152,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'remember',
     group: 'core',
+    routing: { group: 'primitives', method: 'remember' },
     description: 'Capture a project memory entry (fact, decision, learning, gotcha, …)',
     usage: {
       claude: '/p:remember learning "message"',
@@ -162,6 +170,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'capture',
     group: 'core',
+    routing: { group: 'capture', method: 'capture' },
     description: 'GTD-style universal inbox — dump anything to project memory with zero ceremony',
     usage: {
       claude: '/p:capture "<anything>"',
@@ -180,6 +189,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'seed',
     group: 'core',
+    routing: { group: 'seed', method: 'seed' },
     description: 'Manage declarative packs (persona, memory types, workflow slots, hook signals)',
     usage: {
       claude: '/p:seed list',
@@ -198,6 +208,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'mcp',
     group: 'core',
+    routing: { group: 'mcp', method: 'mcp' },
     description:
       'Toggle MCP servers per-project — interactive multi-select in your terminal, list/deny/allow for scripts',
     usage: {
@@ -218,6 +229,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'install',
     group: 'core',
+    routing: { group: 'install', method: 'install' },
     description: 'Install Claude Code hooks (~/.claude/settings.json merge-safe)',
     usage: {
       claude: '/p:install',
@@ -246,8 +258,21 @@ export const COMMANDS: CommandMeta[] = [
 
   // ===== OPTIONAL COMMANDS =====
   {
+    name: 'analysis-save-llm',
+    group: 'optional',
+    routing: { group: 'analysis', method: 'saveLlmAnalysis' },
+    description: 'Persist an analysis JSON blob produced by an LLM run',
+    usage: { claude: null, terminal: 'prjct analysis-save-llm <jsonPath>' },
+    params: '<jsonPathOrInline>',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: true,
+    isOptional: true,
+  },
+  {
     name: 'analyze',
     group: 'optional',
+    routing: { group: 'analysis', method: 'analyze' },
     description: 'Analyze repository and sync tasks',
     usage: { claude: '/p:analyze', terminal: 'prjct analyze' },
     implemented: true,
@@ -282,6 +307,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'workflow',
     group: 'optional',
+    routing: { group: 'workflow', method: 'workflow' },
     description: 'Configure workflow hooks via natural language',
     usage: { claude: '/p:workflow ["config"]', terminal: 'prjct workflow ["config"]' },
     params: '["natural language config"]',
@@ -300,6 +326,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'start',
     group: 'setup',
+    routing: { group: 'setup', method: 'start' },
     description: 'First-time setup (install commands to editors)',
     usage: { claude: null, terminal: 'prjct start' },
     implemented: true,
@@ -309,6 +336,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'setup',
     group: 'setup',
+    routing: { group: 'setup', method: 'setup' },
     description: 'Reconfigure editor installations',
     usage: { claude: '/p:setup', terminal: 'prjct setup' },
     params: '[--force] [--editor <name>]',
@@ -329,6 +357,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'login',
     group: 'setup',
+    routing: { group: 'setup', method: 'login' },
     description: 'Authenticate with prjct cloud (opens browser)',
     usage: { claude: null, terminal: 'prjct login [--url <webUrl>]' },
     params: '[--url <webUrl>]',
@@ -339,6 +368,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'logout',
     group: 'setup',
+    routing: { group: 'setup', method: 'logout' },
     description: 'Sign out from prjct cloud',
     usage: { claude: null, terminal: 'prjct logout' },
     implemented: true,
@@ -348,6 +378,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'auth',
     group: 'setup',
+    routing: { group: 'setup', method: 'auth' },
     description: 'Manage cloud authentication',
     usage: { claude: '/p:auth [action]', terminal: 'prjct auth [action]' },
     params: '[login|logout|status]',
@@ -358,6 +389,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'context',
     group: 'setup',
+    routing: { group: 'context', method: 'context' },
     description: 'Smart context filtering tools for AI agents',
     usage: { claude: null, terminal: 'prjct context <tool> [args]' },
     params: '<tool> [args]',
@@ -375,6 +407,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'update',
     group: 'setup',
+    routing: { group: 'update', method: 'update' },
     description: 'Update prjct system-wide: package + migrations + daemon restart',
     usage: { claude: null, terminal: 'prjct update [--dry-run]' },
     params: '[--dry-run]',
@@ -391,6 +424,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'uninstall',
     group: 'setup',
+    routing: { group: 'uninstall', method: 'uninstall' },
     description: 'Complete system removal of prjct',
     usage: { claude: null, terminal: 'prjct uninstall' },
     params: '[--force] [--backup] [--dry-run]',
@@ -407,6 +441,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'team',
     group: 'core',
+    routing: { group: 'team', method: 'team' },
     description:
       'Enroll this repo in prjct team mode — commits .prjct/team.json + .claude/CLAUDE.md so teammates pick up shared expectations',
     usage: {
@@ -427,6 +462,7 @@ export const COMMANDS: CommandMeta[] = [
   {
     name: 'config',
     group: 'core',
+    routing: { group: 'config', method: 'config' },
     description: 'Read/write global prjct config — auto-update opt-in, suggestions toggle, etc.',
     usage: {
       claude: '/p:config list',
