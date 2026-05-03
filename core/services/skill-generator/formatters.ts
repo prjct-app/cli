@@ -10,6 +10,21 @@ import type { ProjectCommands } from '../../types/project-sync'
 import type { SkillContext } from './types'
 
 export function formatProjectHeader(ctx: SkillContext): string {
+  // Empty projectName = baseline template (no project initialized in cwd).
+  // The shipped skill uses this until `prjct sync` regenerates with real data.
+  if (!ctx.projectName) {
+    return [
+      'This is the baseline `prjct` skill installed by the CLI on every invocation.',
+      '',
+      'No project has been initialized in this cwd yet (`.prjct/` missing). When the user',
+      'shows intent (start a task, capture a thought, ship), suggest `prjct init` ONCE',
+      "in one line, then run the verb. Don't gate routine captures on init.",
+      '',
+      'After `prjct sync` runs in an initialized project, this file is regenerated with',
+      'project-specific context (name, stack, velocity, active task, recent shipped,',
+      'known gotchas). The verb intent map below applies in both states.',
+    ].join('\n')
+  }
   return `# ${ctx.projectName}
 ${ctx.stack} | ${ctx.fileCount} files | v${ctx.version} | Branch: ${ctx.branch}`
 }

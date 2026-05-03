@@ -189,6 +189,29 @@ async function fallback(){await import("./prjct-core.mjs")}
 }
 
 /**
+ * Generate templates/skills/prjct/SKILL.md from the SSOT TS module.
+ *
+ * The static template the bin shim copies into ~/.claude/skills/prjct/
+ * is derived from `core/services/skill-generator/prjct-skill-body.ts`,
+ * the same module `prjct sync` uses to regenerate project-aware skills.
+ * Single source of truth — no risk of the static and dynamic versions
+ * drifting.
+ *
+ * Runs as a child bun process: the source is TS, build.js is plain JS.
+ */
+function generateSkillTemplate() {
+  const script = path.join(ROOT, 'scripts', 'generate-skill-template.ts')
+  // Prefer bun (fast TS execution); fall back to skipping with a warning
+  // if bun isn't on PATH (dev machines without bun still get a working
+  // build — the template just won't refresh until they install bun).
+  try {
+    execSync(`bun "${script}"`, { cwd: ROOT, stdio: 'inherit' })
+  } catch (error) {
+    console.warn(`  ⚠ skipped skill template generation (${error.message.split('\n')[0]})`)
+  }
+}
+
+/**
  * Bundle all templates into a single JSON file
  *
  * Structure: { "commands/p.md": "...", "global/CLAUDE.md": "...", ... }
@@ -275,6 +298,9 @@ async function main() {
 
   console.log('Compiling TypeScript...')
   await buildJs()
+
+  console.log('\nGenerating skill template (SSOT: prjct-skill-body.ts)...')
+  generateSkillTemplate()
 
   console.log('\nBundling templates...')
   bundleTemplates()
