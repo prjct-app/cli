@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.14.2] - 2026-05-03
+
+### Refactoring
+
+- DRY pass + analysis/sync-service splits (consolidates #312-#314) (#315)
+
+
 ## [2.14.1] - 2026-05-03
 
 ### Refactoring
