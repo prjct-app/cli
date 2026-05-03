@@ -57,7 +57,7 @@ export async function start(): Promise<CommandResult> {
   if (codexDetection.installed) {
     try {
       const { installCodexSkill, verifyCodexPRouterReady } = await import(
-        '../../infrastructure/setup'
+        '../../infrastructure/setup/codex-skill'
       )
       await installCodexSkill()
       const codexRouter = await verifyCodexPRouterReady({ autoRepair: true })
@@ -152,7 +152,7 @@ export async function setup(options: SetupOptions = {}): Promise<CommandResult> 
   if (codexDetection.installed) {
     try {
       const { installCodexSkill, verifyCodexPRouterReady } = await import(
-        '../../infrastructure/setup'
+        '../../infrastructure/setup/codex-skill'
       )
       await installCodexSkill()
       const codexRouter = await verifyCodexPRouterReady({ autoRepair: true })
