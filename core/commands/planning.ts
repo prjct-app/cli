@@ -13,6 +13,7 @@ import { writeProjectClaudeMd } from '../services/project-claude-md'
 import { workflowRuleStorage } from '../storage/workflow-rule-storage'
 import type { CommandResult, InitOptions } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
+import { failFromError } from '../utils/md-aware'
 import out from '../utils/output'
 import { detectProjectCommands } from '../utils/project-commands'
 import { OnboardingWizard } from '../workflows/onboarding'
@@ -194,7 +195,7 @@ export class PlanningCommands extends PrjctCommandsBase {
       return { success: true, projectId, wizard: wizardResult }
     } catch (error) {
       out.fail(getErrorMessage(error))
-      return { success: false, error: getErrorMessage(error) }
+      return failFromError(error)
     }
   }
 

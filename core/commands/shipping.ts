@@ -22,6 +22,7 @@ import { getErrorMessage } from '../types/fs'
 import type { WorkflowRule } from '../types/storage.js'
 import type { WorkflowRunContext } from '../types/workflow.js'
 import * as dateHelper from '../utils/date-helper'
+import { failFromError } from '../utils/md-aware'
 import { mdDone, mdList, mdNextSteps, mdOutput, mdSection } from '../utils/md-formatter'
 import { getNextSteps, showNextSteps } from '../utils/next-steps'
 import out from '../utils/output'
@@ -168,7 +169,7 @@ export class ShippingCommands extends PrjctCommandsBase {
       return { success: true, feature: featureName, version: newVersion }
     } catch (error) {
       out.fail(getErrorMessage(error))
-      return { success: false, error: getErrorMessage(error) }
+      return failFromError(error)
     }
   }
 }

@@ -18,6 +18,7 @@ import type { MdOption } from '../types/cli'
 import type { AnalyzeOptions, CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import * as dateHelper from '../utils/date-helper'
+import { failFromError } from '../utils/md-aware'
 import {
   mdDone,
   mdList,
@@ -121,7 +122,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
       }
     } catch (error) {
       console.error('❌ Error:', getErrorMessage(error))
-      return { success: false, error: getErrorMessage(error) }
+      return failFromError(error)
     }
   }
 
@@ -314,7 +315,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
       } else {
         out.fail(getErrorMessage(error))
       }
-      return { success: false, error: getErrorMessage(error) }
+      return failFromError(error)
     }
   }
 
@@ -374,7 +375,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
 
       return { success: true, data: payload }
     } catch (error) {
-      return { success: false, error: getErrorMessage(error) }
+      return failFromError(error)
     }
   }
 
@@ -420,7 +421,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
       }
       return { success: true }
     } catch (error) {
-      return { success: false, error: getErrorMessage(error) }
+      return failFromError(error)
     }
   }
 
@@ -483,7 +484,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
 
       return { success: true }
     } catch (error) {
-      return { success: false, error: getErrorMessage(error) }
+      return failFromError(error)
     }
   }
 
@@ -573,7 +574,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
 
       return { success: true, data: analysis }
     } catch (error) {
-      return { success: false, error: getErrorMessage(error) }
+      return failFromError(error)
     }
   }
 
@@ -760,7 +761,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
       }
     } catch (error) {
       console.error('❌ Error:', getErrorMessage(error))
-      return { success: false, error: getErrorMessage(error) }
+      return failFromError(error)
     }
   }
 
