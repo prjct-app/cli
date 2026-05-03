@@ -13,8 +13,10 @@ import {
   detectSuggestedPacks,
   listActivePacks,
 } from '../packs/pack-manager'
+import type { MdOption } from '../types/cli'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
+import { failHard } from '../utils/md-aware'
 import out from '../utils/output'
 import { PrjctCommandsBase } from './base'
 
@@ -27,7 +29,7 @@ export class SeedCommands extends PrjctCommandsBase {
   async seed(
     input: string | null = null,
     projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
+    options: MdOption = {}
   ): Promise<CommandResult> {
     const parts = (input ?? '').trim().split(/\s+/).filter(Boolean)
     const sub = parts[0] ?? 'list'
@@ -80,8 +82,7 @@ export class SeedCommands extends PrjctCommandsBase {
       return { success: true, ...result }
     } catch (error) {
       const msg = getErrorMessage(error)
-      out.fail(msg)
-      return { success: false, error: msg }
+      return failHard(msg)
     }
   }
 
@@ -92,7 +93,7 @@ export class SeedCommands extends PrjctCommandsBase {
   async remove(
     input: string | null = null,
     projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
+    options: MdOption = {}
   ): Promise<CommandResult> {
     try {
       if (!input) {
@@ -113,8 +114,7 @@ export class SeedCommands extends PrjctCommandsBase {
       return { success: true, ...result }
     } catch (error) {
       const msg = getErrorMessage(error)
-      out.fail(msg)
-      return { success: false, error: msg }
+      return failHard(msg)
     }
   }
 
@@ -124,7 +124,7 @@ export class SeedCommands extends PrjctCommandsBase {
   async list(
     _input: string | null = null,
     projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
+    options: MdOption = {}
   ): Promise<CommandResult> {
     try {
       const active = await listActivePacks(projectPath)
@@ -155,8 +155,7 @@ export class SeedCommands extends PrjctCommandsBase {
       return { success: true, active }
     } catch (error) {
       const msg = getErrorMessage(error)
-      out.fail(msg)
-      return { success: false, error: msg }
+      return failHard(msg)
     }
   }
 
@@ -167,7 +166,7 @@ export class SeedCommands extends PrjctCommandsBase {
   async suggest(
     _input: string | null = null,
     projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
+    options: MdOption = {}
   ): Promise<CommandResult> {
     try {
       const names = await detectSuggestedPacks(projectPath)
@@ -189,8 +188,7 @@ export class SeedCommands extends PrjctCommandsBase {
       return { success: true, suggested: names }
     } catch (error) {
       const msg = getErrorMessage(error)
-      out.fail(msg)
-      return { success: false, error: msg }
+      return failHard(msg)
     }
   }
 }

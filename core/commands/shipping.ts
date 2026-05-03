@@ -13,7 +13,6 @@
 
 import { existsSync } from 'node:fs'
 import path from 'node:path'
-import configManager from '../infrastructure/config-manager'
 import { syncService } from '../services/sync-service'
 import { shippedStorage } from '../storage/shipped-storage'
 import { stateStorage } from '../storage/state-storage'
@@ -23,11 +22,13 @@ import { getErrorMessage } from '../types/fs'
 import type { WorkflowRule } from '../types/storage.js'
 import type { WorkflowRunContext } from '../types/workflow.js'
 import * as dateHelper from '../utils/date-helper'
+import { failFromError } from '../utils/md-aware'
 import { mdDone, mdList, mdNextSteps, mdOutput, mdSection } from '../utils/md-formatter'
 import { getNextSteps, showNextSteps } from '../utils/next-steps'
 import out from '../utils/output'
 import { executeWorkflowRules } from '../workflow/workflow-engine'
 import { PrjctCommandsBase } from './base'
+import { requireProject } from './guards'
 
 type ShipIntent = 'register-only' | 'seed-code-workflow' | 'proceed'
 
@@ -44,14 +45,9 @@ export class ShippingCommands extends PrjctCommandsBase {
     options: ShipOptions = {}
   ): Promise<CommandResult> {
     try {
-      const initResult = await this.ensureProjectInit(projectPath)
-      if (!initResult.success) return initResult
-
-      const projectId = await configManager.getProjectId(projectPath)
-      if (!projectId) {
-        out.failWithHint('NO_PROJECT_ID')
-        return { success: false, error: 'No project ID found' }
-      }
+      const proj = await requireProject(projectPath)
+      if (!proj.ok) return proj.result
+      const projectId = proj.value
 
       let featureName = feature
 
@@ -173,7 +169,7 @@ export class ShippingCommands extends PrjctCommandsBase {
       return { success: true, feature: featureName, version: newVersion }
     } catch (error) {
       out.fail(getErrorMessage(error))
-      return { success: false, error: getErrorMessage(error) }
+      return failFromError(error)
     }
   }
 }

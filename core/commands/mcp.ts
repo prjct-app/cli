@@ -22,6 +22,7 @@ import chalk from 'chalk'
 import { type McpServerInfo, mcpService } from '../services/mcp-service'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
+import { failHard } from '../utils/md-aware'
 import { mdOutput, mdSection } from '../utils/md-formatter'
 import out from '../utils/output'
 import { PrjctCommandsBase } from './base'
@@ -168,8 +169,7 @@ export class McpCommands extends PrjctCommandsBase {
       return { success: true, ...result, beforeTools, afterTools }
     } catch (error) {
       const msg = getErrorMessage(error)
-      out.fail(msg)
-      return { success: false, error: msg }
+      return failHard(msg)
     }
   }
 
@@ -193,8 +193,7 @@ export class McpCommands extends PrjctCommandsBase {
       return { success: true, servers }
     } catch (error) {
       const msg = getErrorMessage(error)
-      out.fail(msg)
-      return { success: false, error: msg }
+      return failHard(msg)
     }
   }
 
@@ -210,8 +209,7 @@ export class McpCommands extends PrjctCommandsBase {
       return { success: true, denied }
     } catch (error) {
       const msg = getErrorMessage(error)
-      out.fail(msg)
-      return { success: false, error: msg }
+      return failHard(msg)
     }
   }
 
@@ -243,8 +241,7 @@ export class McpCommands extends PrjctCommandsBase {
       return { success: true, ...result }
     } catch (error) {
       const msg = getErrorMessage(error)
-      out.fail(msg)
-      return { success: false, error: msg }
+      return failHard(msg)
     }
   }
 
@@ -279,8 +276,7 @@ export class McpCommands extends PrjctCommandsBase {
       return { success: true, ...result }
     } catch (error) {
       const msg = getErrorMessage(error)
-      out.fail(msg)
-      return { success: false, error: msg }
+      return failHard(msg)
     }
   }
 

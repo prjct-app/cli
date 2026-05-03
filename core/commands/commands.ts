@@ -15,6 +15,7 @@
  */
 
 import type { AgentInfo } from '../types/agents'
+import type { MdOption } from '../types/cli'
 import type { AnalyzeOptions, Author, CommandResult, SetupOptions } from '../types/commands'
 import { AnalysisCommands } from './analysis'
 import { CaptureCommands } from './capture'
@@ -93,7 +94,7 @@ class PrjctCommands {
   async workflowPrefs(
     input: string | null = null,
     projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
+    options: MdOption = {}
   ): Promise<CommandResult> {
     return this.workflow.workflow(input, projectPath, options)
   }
@@ -147,14 +148,14 @@ class PrjctCommands {
   async saveLlmAnalysis(
     analysisJson: string,
     projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
+    options: MdOption = {}
   ): Promise<CommandResult> {
     return this.analysis.saveLlmAnalysis(analysisJson, projectPath, options)
   }
 
   async regenVault(
     projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
+    options: MdOption = {}
   ): Promise<CommandResult> {
     return this.analysis.regenVault(projectPath, options)
   }
@@ -164,7 +165,7 @@ class PrjctCommands {
   async context(
     input: string | null = null,
     projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
+    options: MdOption = {}
   ): Promise<CommandResult> {
     return this.contextCmds.context(input, projectPath, options)
   }
@@ -174,7 +175,7 @@ class PrjctCommands {
   async status(
     value: string | null = null,
     projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
+    options: MdOption = {}
   ): Promise<CommandResult> {
     return this.primitivesCmds.status(value, projectPath, options)
   }
@@ -182,7 +183,7 @@ class PrjctCommands {
   async tag(
     args: string | null = null,
     projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
+    options: MdOption = {}
   ): Promise<CommandResult> {
     return this.primitivesCmds.tag(args, projectPath, options)
   }
@@ -199,7 +200,7 @@ class PrjctCommands {
   async seed(
     input: string | null = null,
     projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
+    options: MdOption = {}
   ): Promise<CommandResult> {
     return this.seedCmds.seed(input, projectPath, options)
   }
@@ -207,7 +208,7 @@ class PrjctCommands {
   async install(
     _arg: string | null = null,
     projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
+    options: MdOption = {}
   ): Promise<CommandResult> {
     return this.installCmds.install(null, projectPath, options)
   }
@@ -223,7 +224,7 @@ class PrjctCommands {
   async mcp(
     input: string | null = null,
     projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
+    options: MdOption = {}
   ): Promise<CommandResult> {
     return this.mcpCmds.mcp(input, projectPath, options)
   }
@@ -239,14 +240,14 @@ class PrjctCommands {
   async config(
     input: string | null = null,
     projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
+    options: MdOption = {}
   ): Promise<CommandResult> {
     return this.configCmds.config(input, projectPath, options)
   }
 
   // ========== Auth Commands ==========
 
-  async auth(action: string | null = null, options: { md?: boolean } = {}): Promise<CommandResult> {
+  async auth(action: string | null = null, options: MdOption = {}): Promise<CommandResult> {
     return this.setupCmds.auth(action, options)
   }
 

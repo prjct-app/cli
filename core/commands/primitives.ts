@@ -15,11 +15,13 @@ import { scanForSecrets } from '../memory/secret-scanner'
 import type { TaskType } from '../schemas/state'
 import { memoryService } from '../services/memory-service'
 import { stateStorage } from '../storage/state-storage'
+import type { MdOption } from '../types/cli'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
+import { failHard } from '../utils/md-aware'
 import out from '../utils/output'
 import { PrjctCommandsBase } from './base'
-import { requireActiveTask, requireProjectId } from './guards'
+import { requireActiveTask, requireProject } from './guards'
 
 const TASK_TYPE_VALUES: readonly TaskType[] = ['feature', 'bug', 'improvement', 'chore']
 
@@ -33,13 +35,10 @@ export class PrimitiveCommands extends PrjctCommandsBase {
   async status(
     value: string | null = null,
     projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
+    options: MdOption = {}
   ): Promise<CommandResult> {
     try {
-      const initResult = await this.ensureProjectInit(projectPath)
-      if (!initResult.success) return initResult
-
-      const pid = await requireProjectId(projectPath)
+      const pid = await requireProject(projectPath)
       if (!pid.ok) return pid.result
 
       // Resume-intent bypasses the active-task guard: when the current task
@@ -135,8 +134,7 @@ export class PrimitiveCommands extends PrjctCommandsBase {
       return { success: true, taskId: active.id, status: value }
     } catch (error) {
       const msg = getErrorMessage(error)
-      out.fail(msg)
-      return { success: false, error: msg }
+      return failHard(msg)
     }
   }
 
@@ -149,13 +147,10 @@ export class PrimitiveCommands extends PrjctCommandsBase {
   async tag(
     args: string | null = null,
     projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
+    options: MdOption = {}
   ): Promise<CommandResult> {
     try {
-      const initResult = await this.ensureProjectInit(projectPath)
-      if (!initResult.success) return initResult
-
-      const pid = await requireProjectId(projectPath)
+      const pid = await requireProject(projectPath)
       if (!pid.ok) return pid.result
 
       const task = await requireActiveTask(pid.value, options)
@@ -190,8 +185,7 @@ export class PrimitiveCommands extends PrjctCommandsBase {
       return { success: true, taskId: task.value.id, tags }
     } catch (error) {
       const msg = getErrorMessage(error)
-      out.fail(msg)
-      return { success: false, error: msg }
+      return failHard(msg)
     }
   }
 
@@ -219,8 +213,7 @@ export class PrimitiveCommands extends PrjctCommandsBase {
 
       const parsed = parseRememberArgs(args)
       if (!parsed.ok) {
-        out.fail(parsed.error)
-        return { success: false, error: parsed.error }
+        return failHard(parsed.error)
       }
       const { type, content } = parsed
 
@@ -235,7 +228,7 @@ export class PrimitiveCommands extends PrjctCommandsBase {
 
       const tags = parseFlagTags(options.tags)
 
-      const pid = await requireProjectId(projectPath)
+      const pid = await requireProject(projectPath)
       if (!pid.ok) return pid.result
 
       // `remember` works even without an active task — you might be
@@ -264,8 +257,7 @@ export class PrimitiveCommands extends PrjctCommandsBase {
       return { success: true, type, content, tags }
     } catch (error) {
       const msg = getErrorMessage(error)
-      out.fail(msg)
-      return { success: false, error: msg }
+      return failHard(msg)
     }
   }
 }

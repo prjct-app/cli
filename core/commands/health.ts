@@ -11,11 +11,12 @@
  */
 
 import path from 'node:path'
+import type { MdOption } from '../types/cli'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import { execAsync } from '../utils/exec'
 import { fileExists, readJson } from '../utils/file-helper'
-import out from '../utils/output'
+import { failHard } from '../utils/md-aware'
 import { PrjctCommandsBase } from './base'
 
 interface HealthDimension {
@@ -52,7 +53,7 @@ export class HealthCommands extends PrjctCommandsBase {
   async health(
     _arg: string | null = null,
     projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
+    options: MdOption = {}
   ): Promise<CommandResult> {
     try {
       const initResult = await this.ensureProjectInit(projectPath)
@@ -76,8 +77,7 @@ export class HealthCommands extends PrjctCommandsBase {
       return { success: allPass, score, results: results.length }
     } catch (error) {
       const msg = getErrorMessage(error)
-      out.fail(msg)
-      return { success: false, error: msg }
+      return failHard(msg)
     }
   }
 }
@@ -135,7 +135,7 @@ async function runDimension(projectPath: string, dim: HealthDimension): Promise<
   } catch (error) {
     const stderr = (error as { stderr?: string }).stderr ?? ''
     const stdout = (error as { stdout?: string }).stdout ?? ''
-    const firstNonEmpty = (stderr + '\n' + stdout)
+    const firstNonEmpty = `${stderr}\n${stdout}`
       .split('\n')
       .map((l) => l.trim())
       .find((l) => l.length > 0)

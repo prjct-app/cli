@@ -15,14 +15,15 @@
  *   - md-helpers.ts    — buildFlowDiagram for `--md` output
  */
 
-import configManager from '../infrastructure/config-manager'
 import { generateUUID } from '../schemas/schemas'
 import { getGitBranch } from '../session/git-helpers'
 import { customWorkflowStorage } from '../storage/custom-workflow-storage'
 import { stateStorage } from '../storage/state-storage'
+import type { MdOption } from '../types/cli'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import * as dateHelper from '../utils/date-helper'
+import { failFromError } from '../utils/md-aware'
 import {
   mdActionRequired,
   mdDone,
@@ -36,6 +37,7 @@ import { showNextSteps, showStateInfo } from '../utils/next-steps'
 import out from '../utils/output'
 import { executeWorkflowRules } from '../workflow/workflow-engine'
 import { PrjctCommandsBase } from './base'
+import { requireProject } from './guards'
 import { detectIntent } from './workflow/intent'
 import {
   workflowAdd,
@@ -67,14 +69,9 @@ export class WorkflowCommands extends PrjctCommandsBase {
     options: { skipHooks?: boolean; md?: boolean } = {}
   ): Promise<CommandResult> {
     try {
-      const initResult = await this.ensureProjectInit(projectPath)
-      if (!initResult.success) return initResult
-
-      const projectId = await configManager.getProjectId(projectPath)
-      if (!projectId) {
-        out.failWithHint('NO_PROJECT_ID')
-        return { success: false, error: 'No project ID found' }
-      }
+      const proj = await requireProject(projectPath)
+      if (!proj.ok) return proj.result
+      const projectId = proj.value
 
       // No task arg → show the active one (or none).
       if (!task) return this._showActiveTask(projectId, options)
@@ -208,21 +205,12 @@ export class WorkflowCommands extends PrjctCommandsBase {
   async workflow(
     input: string | null = null,
     projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
+    options: MdOption = {}
   ): Promise<CommandResult> {
     try {
-      const initResult = await this.ensureProjectInit(projectPath)
-      if (!initResult.success) return initResult
-
-      const projectId = await configManager.getProjectId(projectPath)
-      if (!projectId) {
-        if (options.md) {
-          console.log('> No project ID found. Run `prjct init` first.')
-        } else {
-          out.failWithHint('NO_PROJECT_ID')
-        }
-        return { success: false, error: 'No project ID found' }
-      }
+      const proj = await requireProject(projectPath, options)
+      if (!proj.ok) return proj.result
+      const projectId = proj.value
 
       const trimmed = input?.trim() ?? ''
 
@@ -269,7 +257,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
       } else {
         out.fail(getErrorMessage(error))
       }
-      return { success: false, error: getErrorMessage(error) }
+      return failFromError(error)
     }
   }
 
@@ -279,21 +267,12 @@ export class WorkflowCommands extends PrjctCommandsBase {
   async run(
     workflowName: string,
     projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
+    options: MdOption = {}
   ): Promise<CommandResult> {
     try {
-      const initResult = await this.ensureProjectInit(projectPath)
-      if (!initResult.success) return initResult
-
-      const projectId = await configManager.getProjectId(projectPath)
-      if (!projectId) {
-        if (options.md) {
-          console.log('> No project ID found. Run `prjct init` first.')
-        } else {
-          out.failWithHint('NO_PROJECT_ID')
-        }
-        return { success: false, error: 'No project ID found' }
-      }
+      const proj = await requireProject(projectPath, options)
+      if (!proj.ok) return proj.result
+      const projectId = proj.value
 
       const name = workflowName.trim()
       if (!name) {

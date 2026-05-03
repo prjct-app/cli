@@ -11,9 +11,11 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { getTemplateContent } from '../agentic/template-loader'
+import type { MdOption } from '../types/cli'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import { fileExists } from '../utils/file-helper'
+import { failHard } from '../utils/md-aware'
 import out from '../utils/output'
 import { PrjctCommandsBase } from './base'
 
@@ -141,7 +143,7 @@ export class CrewCommands extends PrjctCommandsBase {
   async install(
     _arg: string | null = null,
     projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
+    options: MdOption = {}
   ): Promise<CommandResult> {
     try {
       const written: string[] = []
@@ -205,8 +207,7 @@ export class CrewCommands extends PrjctCommandsBase {
       return { success: true, written, skipped }
     } catch (error) {
       const msg = getErrorMessage(error)
-      out.fail(msg)
-      return { success: false, error: msg }
+      return failHard(msg)
     }
   }
 
@@ -217,7 +218,7 @@ export class CrewCommands extends PrjctCommandsBase {
   async uninstall(
     _arg: string | null = null,
     projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
+    options: MdOption = {}
   ): Promise<CommandResult> {
     try {
       const removed: string[] = []
@@ -265,8 +266,7 @@ export class CrewCommands extends PrjctCommandsBase {
       return { success: true, removed, missing }
     } catch (error) {
       const msg = getErrorMessage(error)
-      out.fail(msg)
-      return { success: false, error: msg }
+      return failHard(msg)
     }
   }
 
@@ -276,7 +276,7 @@ export class CrewCommands extends PrjctCommandsBase {
   async status(
     _arg: string | null = null,
     projectPath: string = process.cwd(),
-    options: { md?: boolean } = {}
+    options: MdOption = {}
   ): Promise<CommandResult> {
     try {
       const status = await getStatus(projectPath)
@@ -306,8 +306,7 @@ export class CrewCommands extends PrjctCommandsBase {
       return { success: true, complete: status.complete, status }
     } catch (error) {
       const msg = getErrorMessage(error)
-      out.fail(msg)
-      return { success: false, error: msg }
+      return failHard(msg)
     }
   }
 }

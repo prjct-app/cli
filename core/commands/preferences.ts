@@ -19,9 +19,10 @@ import {
 } from '../storage/preferences-storage'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
+import { failHard } from '../utils/md-aware'
 import out from '../utils/output'
 import { PrjctCommandsBase } from './base'
-import { requireProjectId } from './guards'
+import { requireProject } from './guards'
 
 interface PrefsOptions {
   md?: boolean
@@ -38,10 +39,7 @@ export class PreferencesCommands extends PrjctCommandsBase {
     options: PrefsOptions = {}
   ): Promise<CommandResult> {
     try {
-      const initResult = await this.ensureProjectInit(projectPath)
-      if (!initResult.success) return initResult
-
-      const pid = await requireProjectId(projectPath)
+      const pid = await requireProject(projectPath)
       if (!pid.ok) return pid.result
 
       const subcommand = args[0] ?? 'list'
@@ -64,8 +62,7 @@ export class PreferencesCommands extends PrjctCommandsBase {
       }
     } catch (error) {
       const msg = getErrorMessage(error)
-      out.fail(msg)
-      return { success: false, error: msg }
+      return failHard(msg)
     }
   }
 
