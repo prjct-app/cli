@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.15.0] - 2026-05-03
+
+### Features
+
+- prjct as a Spec-Driven Development system (#318)
+- self-heal prjct SKILL.md on every CLI invocation (#317)
+
+
 ## [Unreleased]
 
 ### Features — SDD: Spec-Driven Development
