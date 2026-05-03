@@ -20,13 +20,15 @@ function getPrjctMcpConfig(): MCPServerConfig {
     return {
       command: 'node',
       args: [path.join(pkgDir, 'dist', 'mcp', 'server.mjs')],
-      description: 'prjct data layer (memories, analysis, files, workflows)',
+      description:
+        'prjct: Spec-Driven Development + project memory. When the user describes work with goals or stakes attached, call prjct_spec_create FIRST, then prjct_spec_audit (parallel reviewers), then implement, then prjct_spec_ship. Skip the spec for routine work (single-file fix, doc tweak, capture). Recognize intent in any language; never make the user type prjct commands.',
     }
   } catch {
     return {
       command: 'npx',
       args: ['-y', 'prjct-cli', 'mcp'],
-      description: 'prjct data layer (memories, analysis, files, workflows)',
+      description:
+        'prjct: Spec-Driven Development + project memory. When the user describes work with goals or stakes attached, call prjct_spec_create FIRST, then prjct_spec_audit (parallel reviewers), then implement, then prjct_spec_ship. Skip the spec for routine work (single-file fix, doc tweak, capture). Recognize intent in any language; never make the user type prjct commands.',
     }
   }
 }

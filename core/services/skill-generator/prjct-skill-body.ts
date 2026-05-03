@@ -14,7 +14,7 @@ import { formatProjectHeader, formatRichContext } from './formatters'
 import type { SkillContext } from './types'
 
 export const PRJCT_SKILL_DESCRIPTION =
-  'Project memory + workflow runtime. Recognize what the user is trying to do and run the matching prjct verb yourself — never make the user type commands. Routine captures (capture, remember, tag) auto-execute and confirm in one line; destructive actions (ship, status done) suggest-and-confirm first. Heavy reviews (audit, security, investigate) dispatch as subagents. Lookup-first: check the vault before re-reading source.'
+  'Spec-Driven Development runtime + project memory. When the user describes a feature, fix, or initiative WITH goals or stakes attached (think rate-limiting an endpoint, fixing onboarding, building feature X that solves Y) draft a spec FIRST via `prjct spec` (Goal/Acceptance/Scope/Risks) then `audit-spec` (three parallel reviewers) then `task --spec <id>` then `ship` (acceptance gate). For routine work (single-file fix, doc tweak, GTD capture) skip the spec and use the matching verb directly. Recognize the intent in any language (es/en) and run the verb yourself — never make the user type commands. Routine captures (capture, remember, tag) auto-execute and confirm in one line; destructive verbs (ship, status done) suggest-and-confirm. Heavy reviews (audit, review, security, investigate, audit-spec) dispatch as parallel subagents. Lookup-first: check the vault before re-reading source.'
 
 export const PRJCT_SKILL_ALLOWED_TOOLS = [
   'Bash',
