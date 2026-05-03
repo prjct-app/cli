@@ -6,40 +6,23 @@ import fs from 'node:fs/promises'
 import analyzer from '../domain/analyzer'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
-import { parseLlmAnalysis } from '../schemas/llm-analysis'
-import { formatCost } from '../schemas/metrics'
-import { formatAnalysisDiffMd, formatAnalysisDiffText } from '../services/analysis-diff'
+import { formatAnalysisDiffMd } from '../services/analysis-diff'
 import { buildAnalysisPayload } from '../services/analysis-payload-builder'
 import { syncService } from '../services/sync-service'
 import { analysisStorage } from '../storage/analysis-storage'
-import { prjctDb } from '../storage/database'
 import llmAnalysisStorage from '../storage/llm-analysis-storage'
-import { metricsStorage } from '../storage/metrics-storage'
 import type { MdOption } from '../types/cli'
 import type { AnalyzeOptions, CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import * as dateHelper from '../utils/date-helper'
-import { failFromError, failHard } from '../utils/md-aware'
-import {
-  mdDone,
-  mdList,
-  mdNextSteps,
-  mdOutput,
-  mdSection,
-  mdStats,
-  mdWarn,
-} from '../utils/md-formatter'
+import { failFromError } from '../utils/md-aware'
+import { mdDone, mdNextSteps, mdOutput, mdStats, mdWarn } from '../utils/md-formatter'
 import { getNextSteps } from '../utils/next-steps'
 import out from '../utils/output'
-import {
-  formatDuration,
-  formatTokens,
-  generateAnalysisSummary,
-  generateSparkline,
-  generateStatsMarkdown,
-  getSessionActivity,
-  showSyncResult,
-} from './analysis-helpers'
+import { rollback, seal, semanticVerifyCommand, verify } from './analysis/lifecycle'
+import { getLlmAnalysis, saveLlmAnalysis } from './analysis/llm'
+import { diff, stats } from './analysis/stats'
+import { generateAnalysisSummary, showSyncResult } from './analysis-helpers'
 import { PrjctCommandsBase } from './base'
 import { requireProject } from './guards'
 
@@ -430,165 +413,15 @@ export class AnalysisCommands extends PrjctCommandsBase {
    * Save structured LLM analysis findings to SQLite.
    * Called by the sync template after the LLM produces findings.
    */
-  async saveLlmAnalysis(
-    analysisJson: string,
-    projectPath: string = process.cwd(),
-    options: MdOption = {}
-  ): Promise<CommandResult> {
-    try {
-      const proj = await requireProject(projectPath)
-      if (!proj.ok) return proj.result
-      const projectId = proj.value
-
-      let parsed: unknown
-      try {
-        parsed = JSON.parse(analysisJson)
-      } catch (error) {
-        return {
-          success: false,
-          error: `Invalid JSON: ${error instanceof Error ? error.message : 'parse failed'}`,
-        }
-      }
-
-      const validation = parseLlmAnalysis(parsed)
-      if (!validation.ok) {
-        return {
-          success: false,
-          error: `Invalid LLM analysis schema: ${validation.error}`,
-        }
-      }
-      const analysis = validation.value
-
-      llmAnalysisStorage.save(projectId, analysis)
-
-      // Keep the vault in sync — without this, analysis-save-llm writes to
-      // SQLite but the Obsidian vault (and its append-only archive) stays
-      // stale until the next remember/capture/ship happens to fire regen.
-      const { regenerateWikiDeferred } = await import('../services/wiki-generator')
-      await regenerateWikiDeferred(projectPath, projectId)
-
-      if (options.md) {
-        console.log(
-          mdOutput(
-            mdDone('LLM Analysis Saved'),
-            mdStats({
-              Architecture: analysis.architecture.style,
-              Patterns: analysis.patterns.length,
-              'Anti-patterns': analysis.antiPatterns?.length || 0,
-              'Tech debt items': analysis.techDebt?.length || 0,
-              'Risk areas': analysis.riskAreas?.length || 0,
-              Conventions: analysis.conventions?.length || 0,
-            })
-          )
-        )
-      } else {
-        console.log(
-          JSON.stringify({
-            success: true,
-            message: 'LLM analysis saved',
-            stats: {
-              patterns: analysis.patterns.length,
-              antiPatterns: analysis.antiPatterns?.length || 0,
-              techDebt: analysis.techDebt?.length || 0,
-            },
-          })
-        )
-      }
-
-      return { success: true }
-    } catch (error) {
-      return failFromError(error)
-    }
+  async saveLlmAnalysis(...args: Parameters<typeof saveLlmAnalysis>): Promise<CommandResult> {
+    return saveLlmAnalysis(...args)
   }
 
   /**
    * Get the current LLM analysis for a project.
    */
-  async getLlmAnalysis(
-    projectPath: string = process.cwd(),
-    options: { json?: boolean; md?: boolean } = {}
-  ): Promise<CommandResult> {
-    try {
-      const proj = await requireProject(projectPath)
-      if (!proj.ok) return proj.result
-      const projectId = proj.value
-
-      const analysis = llmAnalysisStorage.getActive(projectId)
-
-      if (!analysis) {
-        if (options.md) {
-          console.log(mdOutput('## No LLM Analysis', '> Run `prjct sync` to generate.'))
-        } else {
-          console.log(JSON.stringify({ success: false, message: 'No LLM analysis found' }))
-        }
-        return { success: false, message: 'No LLM analysis found' }
-      }
-
-      if (options.md) {
-        const sections: string[] = [mdDone(`LLM Analysis (${analysis.architecture.style})`), '']
-
-        if (analysis.architecture.insights.length > 0) {
-          sections.push(
-            mdSection('Architecture Insights', mdList(analysis.architecture.insights.slice(0, 5)))
-          )
-        }
-
-        if (analysis.patterns.length > 0) {
-          const shown = analysis.patterns.slice(0, 8)
-          sections.push(
-            mdSection(
-              `Patterns (${analysis.patterns.length})`,
-              mdList(shown.map((p) => `**${p.name}** — ${p.description} (${p.category})`))
-            )
-          )
-        }
-
-        if (analysis.antiPatterns.length > 0) {
-          const shown = analysis.antiPatterns.slice(0, 5)
-          sections.push(
-            mdSection(
-              `Anti-Patterns (${analysis.antiPatterns.length})`,
-              mdList(shown.map((a) => `[${a.severity}] ${a.issue} — ${a.suggestion}`))
-            )
-          )
-        }
-
-        if (analysis.techDebt.length > 0) {
-          const shown = analysis.techDebt.slice(0, 5)
-          sections.push(
-            mdSection(
-              `Tech Debt (${analysis.techDebt.length})`,
-              mdList(shown.map((d) => `[${d.priority}/${d.effort}] ${d.description}`))
-            )
-          )
-        }
-
-        if (analysis.conventions.length > 0) {
-          sections.push(
-            mdSection(
-              'Conventions',
-              mdList(analysis.conventions.slice(0, 5).map((c) => `**${c.category}**: ${c.rule}`))
-            )
-          )
-        }
-
-        console.log(mdOutput(...sections))
-      } else {
-        // Cap arrays for context efficiency
-        const compact = {
-          ...analysis,
-          patterns: analysis.patterns.slice(0, 10),
-          antiPatterns: analysis.antiPatterns.slice(0, 6),
-          techDebt: analysis.techDebt.slice(0, 6),
-          conventions: analysis.conventions.slice(0, 6),
-        }
-        console.log(JSON.stringify({ success: true, analysis: compact }))
-      }
-
-      return { success: true, data: analysis }
-    } catch (error) {
-      return failFromError(error)
-    }
+  async getLlmAnalysis(...args: Parameters<typeof getLlmAnalysis>): Promise<CommandResult> {
+    return getLlmAnalysis(...args)
   }
 
   /**
@@ -604,178 +437,8 @@ export class AnalysisCommands extends PrjctCommandsBase {
    *
    * @see PRJ-89
    */
-  async stats(
-    projectPath: string = process.cwd(),
-    options: { json?: boolean; export?: boolean } = {}
-  ): Promise<CommandResult> {
-    try {
-      const proj = await requireProject(projectPath)
-      if (!proj.ok) return proj.result
-      const projectId = proj.value
-
-      // Get metrics summary
-      const summary = await metricsStorage.getSummary(projectId)
-      const dailyStats = await metricsStorage.getDailyStats(projectId, 30)
-
-      // Get session activity (today's events)
-      const sessionActivity = await getSessionActivity(projectId)
-
-      // Learned-patterns summary (decisions/preferences/workflows) was
-      // backed by the pre-v2 memory-system — deleted in Phase C. The
-      // stats page still shows zeros for backward-compat with callers
-      // that read the shape; project memory now lives under
-      // `prjct memory list` / `context memory`.
-      const patternsSummary = {
-        decisions: 0,
-        preferences: 0,
-        workflows: 0,
-        learnedDecisions: 0,
-      }
-
-      // JSON output mode
-      if (options.json) {
-        const jsonOutput = {
-          session: sessionActivity,
-          patterns: patternsSummary,
-          totalTokensSaved: summary.totalTokensSaved,
-          estimatedCostSaved: summary.estimatedCostSaved,
-          compressionRate: summary.compressionRate,
-          syncCount: summary.syncCount,
-          avgSyncDuration: summary.avgSyncDuration,
-          topAgents: summary.topAgents.slice(0, 5),
-          last30DaysTokens: summary.last30DaysTokens,
-          trend: summary.trend,
-          dailyStats: dailyStats.slice(0, 7),
-        }
-        console.log(JSON.stringify(jsonOutput))
-        return { success: true, data: jsonOutput }
-      }
-
-      // Get project info for header
-      let projectName = 'Unknown'
-      try {
-        const projectDoc = prjctDb.getDoc<Record<string, unknown>>(projectId, 'project')
-        projectName = (projectDoc?.name as string) || 'Unknown'
-      } catch {
-        // Use fallback
-      }
-
-      // Determine first sync date
-      const metricsData = await metricsStorage.read(projectId)
-      const firstSyncDate = metricsData.firstSync
-        ? new Date(metricsData.firstSync).toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-          })
-        : 'N/A'
-
-      // ASCII Dashboard
-      console.log('')
-      console.log('╭─────────────────────────────────────────────────╮')
-      console.log('│  📊 prjct-cli Stats Dashboard                   │')
-      console.log(
-        `│  Project: ${projectName.padEnd(20).slice(0, 20)} | Since: ${firstSyncDate.padEnd(12).slice(0, 12)} │`
-      )
-      console.log('╰─────────────────────────────────────────────────╯')
-      console.log('')
-
-      // Session Activity Section (PRJ-89)
-      console.log("🎯 TODAY'S ACTIVITY")
-      if (sessionActivity.sessionDuration) {
-        console.log(`   Duration:        ${sessionActivity.sessionDuration}`)
-      }
-      console.log(`   Tasks completed: ${sessionActivity.tasksCompleted}`)
-      console.log(`   Features shipped: ${sessionActivity.featuresShipped}`)
-      if (sessionActivity.agentsUsed.length > 0) {
-        const agentStr = sessionActivity.agentsUsed
-          .slice(0, 3)
-          .map((a) => `${a.name} (${a.count}×)`)
-          .join(', ')
-        console.log(`   Agents used:     ${agentStr}`)
-      }
-      console.log('')
-
-      // Learned Patterns Section (PRJ-89)
-      if (patternsSummary.decisions > 0 || patternsSummary.preferences > 0) {
-        console.log('🧠 PATTERNS LEARNED')
-        console.log(
-          `   Decisions:    ${patternsSummary.learnedDecisions} confirmed (${patternsSummary.decisions} total)`
-        )
-        console.log(`   Preferences:  ${patternsSummary.preferences} saved`)
-        console.log(`   Workflows:    ${patternsSummary.workflows} tracked`)
-        console.log('')
-      }
-
-      // Token Savings Section
-      console.log('💰 TOKEN SAVINGS')
-      console.log(`   Total saved:     ${formatTokens(summary.totalTokensSaved)} tokens`)
-      console.log(
-        `   Compression:     ${(summary.compressionRate * 100).toFixed(0)}% average reduction`
-      )
-      console.log(`   Estimated cost:  ${formatCost(summary.estimatedCostSaved)} saved`)
-      console.log('')
-
-      // Performance Section
-      console.log('⚡ PERFORMANCE')
-      console.log(`   Syncs completed: ${summary.syncCount.toLocaleString()}`)
-      console.log(`   Avg sync time:   ${formatDuration(summary.avgSyncDuration)}`)
-      console.log('')
-
-      // Agent Usage Section
-      if (summary.topAgents.length > 0) {
-        console.log('🤖 AGENT USAGE (all time)')
-        const totalUsage = summary.topAgents.reduce((sum, a) => sum + a.usageCount, 0)
-        for (const agent of summary.topAgents) {
-          const pct = totalUsage > 0 ? ((agent.usageCount / totalUsage) * 100).toFixed(0) : 0
-          console.log(`   ${agent.agentName.padEnd(12)}: ${pct}% (${agent.usageCount} uses)`)
-        }
-        console.log('')
-      }
-
-      // 30-Day Trend Section
-      if (dailyStats.length > 0) {
-        console.log('📈 TREND (last 30 days)')
-        const sparkline = generateSparkline(dailyStats)
-        console.log(`   ${sparkline} ${formatTokens(summary.last30DaysTokens)} tokens saved`)
-
-        if (summary.trend !== 0) {
-          const trendIcon = summary.trend > 0 ? '↑' : '↓'
-          const trendSign = summary.trend > 0 ? '+' : ''
-          console.log(
-            `   ${trendIcon} ${trendSign}${summary.trend.toFixed(0)}% vs previous 30 days`
-          )
-        }
-        console.log('')
-      }
-
-      // Footer
-      console.log('───────────────────────────────────────────────────')
-      console.log(`Export: prjct stats --export > stats.md`)
-      console.log('')
-
-      // Export mode - return markdown
-      if (options.export) {
-        const markdown = generateStatsMarkdown(
-          summary,
-          dailyStats,
-          projectName,
-          firstSyncDate,
-          sessionActivity,
-          patternsSummary
-        )
-        console.log(markdown)
-        return { success: true, data: { markdown } }
-      }
-
-      return {
-        success: true,
-        data: { ...summary, session: sessionActivity, patterns: patternsSummary },
-      }
-    } catch (error) {
-      console.error('❌ Error:', getErrorMessage(error))
-      return failFromError(error)
-    }
+  async stats(...args: Parameters<typeof stats>): Promise<CommandResult> {
+    return stats(...args)
   }
 
   /**
@@ -784,75 +447,8 @@ export class AnalysisCommands extends PrjctCommandsBase {
    * Compares the current draft with the sealed version to show
    * what changed: languages, frameworks, patterns, file count, etc.
    */
-  async diff(
-    projectPath: string = process.cwd(),
-    options: { json?: boolean; md?: boolean } = {}
-  ): Promise<CommandResult> {
-    try {
-      const initResult = await this.ensureProjectInit(projectPath)
-      if (!initResult.success) return initResult
-
-      const projectId = await configManager.getProjectId(projectPath)
-      if (!projectId) {
-        if (options.json) {
-          console.log(JSON.stringify({ success: false, error: 'No project ID found' }))
-        }
-        return { success: false, error: 'No project ID found' }
-      }
-
-      const diff = await analysisStorage.diff(projectId)
-
-      if (!diff) {
-        const msg =
-          'Cannot compute diff: need both a sealed and a draft analysis. Run `p. sync` to create a draft.'
-        if (options.json) {
-          console.log(JSON.stringify({ success: false, error: msg }))
-        } else if (options.md) {
-          console.log(mdOutput(`## Analysis Diff`, `> ${msg}`))
-        } else {
-          out.warn(msg)
-        }
-        return { success: false, error: msg }
-      }
-
-      if (options.json) {
-        console.log(JSON.stringify({ success: true, ...diff }))
-        return { success: true, data: diff }
-      }
-
-      if (options.md) {
-        console.log(mdOutput(formatAnalysisDiffMd(diff)))
-        return { success: true, data: diff }
-      }
-
-      // Terminal output
-      if (!diff.hasChanges) {
-        out.done('No changes between draft and sealed analysis')
-      } else {
-        out.section('Analysis Diff')
-        console.log(formatAnalysisDiffText(diff))
-        console.log('')
-
-        const parts: string[] = []
-        if (diff.summary.added > 0) parts.push(`${diff.summary.added} added`)
-        if (diff.summary.removed > 0) parts.push(`${diff.summary.removed} removed`)
-        if (diff.summary.changed > 0) parts.push(`${diff.summary.changed} changed`)
-        out.done(parts.join(', '))
-      }
-      console.log('')
-
-      return { success: true, data: diff }
-    } catch (error) {
-      const errMsg = getErrorMessage(error)
-      if (options.json) {
-        console.log(JSON.stringify({ success: false, error: errMsg }))
-      } else if (options.md) {
-        console.log(mdOutput(`## Diff Failed`, `> ${errMsg}`))
-      } else {
-        out.fail(errMsg)
-      }
-      return { success: false, error: errMsg }
-    }
+  async diff(...args: Parameters<typeof diff>): Promise<CommandResult> {
+    return diff(...args)
   }
 
   /**
@@ -861,54 +457,8 @@ export class AnalysisCommands extends PrjctCommandsBase {
    * Locks the current draft with a SHA-256 signature.
    * Only sealed analysis feeds task context.
    */
-  async seal(
-    projectPath: string = process.cwd(),
-    options: { json?: boolean } = {}
-  ): Promise<CommandResult> {
-    try {
-      const initResult = await this.ensureProjectInit(projectPath)
-      if (!initResult.success) return initResult
-
-      const projectId = await configManager.getProjectId(projectPath)
-      if (!projectId) {
-        if (options.json) {
-          console.log(JSON.stringify({ success: false, error: 'No project ID found' }))
-        }
-        return { success: false, error: 'No project ID found' }
-      }
-
-      const result = await analysisStorage.seal(projectId)
-
-      if (options.json) {
-        console.log(
-          JSON.stringify({
-            success: result.success,
-            signature: result.signature,
-            error: result.error,
-          })
-        )
-        return { success: result.success, error: result.error }
-      }
-
-      if (!result.success) {
-        out.fail(result.error || 'Seal failed')
-        return { success: false, error: result.error }
-      }
-
-      out.done('Analysis sealed')
-      console.log(`  Signature: ${result.signature?.substring(0, 16)}...`)
-      console.log('')
-
-      return { success: true, data: { signature: result.signature } }
-    } catch (error) {
-      const errMsg = getErrorMessage(error)
-      if (options.json) {
-        console.log(JSON.stringify({ success: false, error: errMsg }))
-      } else {
-        out.fail(errMsg)
-      }
-      return { success: false, error: errMsg }
-    }
+  async seal(...args: Parameters<typeof seal>): Promise<CommandResult> {
+    return seal(...args)
   }
 
   /**
@@ -917,75 +467,8 @@ export class AnalysisCommands extends PrjctCommandsBase {
    * Restores the previous sealed version. The current sealed becomes a draft.
    * Only one level of rollback is supported.
    */
-  async rollback(
-    projectPath: string = process.cwd(),
-    options: { json?: boolean; md?: boolean } = {}
-  ): Promise<CommandResult> {
-    try {
-      const initResult = await this.ensureProjectInit(projectPath)
-      if (!initResult.success) return initResult
-
-      const projectId = await configManager.getProjectId(projectPath)
-      if (!projectId) {
-        if (options.json) {
-          console.log(JSON.stringify({ success: false, error: 'No project ID found' }))
-        }
-        return { success: false, error: 'No project ID found' }
-      }
-
-      const result = await analysisStorage.rollback(projectId)
-
-      if (options.json) {
-        console.log(
-          JSON.stringify({
-            success: result.success,
-            restoredSignature: result.restoredSignature,
-            error: result.error,
-          })
-        )
-        return { success: result.success, error: result.error }
-      }
-
-      if (options.md) {
-        if (!result.success) {
-          console.log(mdOutput(`## Rollback Failed`, `> ${result.error}`))
-          return { success: false, error: result.error }
-        }
-
-        console.log(
-          mdOutput(
-            mdDone('Analysis Rolled Back'),
-            mdStats({
-              'Restored signature': `${result.restoredSignature?.substring(0, 16)}...`,
-              Note: 'Previous sealed version is now active. Current version moved to draft.',
-            })
-          )
-        )
-        return { success: true, data: { restoredSignature: result.restoredSignature } }
-      }
-
-      if (!result.success) {
-        out.fail(result.error || 'Rollback failed')
-        return { success: false, error: result.error }
-      }
-
-      out.done('Analysis rolled back to previous sealed version')
-      console.log(`  Restored signature: ${result.restoredSignature?.substring(0, 16)}...`)
-      console.log(`  Previous sealed version demoted to draft`)
-      console.log('')
-
-      return { success: true, data: { restoredSignature: result.restoredSignature } }
-    } catch (error) {
-      const errMsg = getErrorMessage(error)
-      if (options.json) {
-        console.log(JSON.stringify({ success: false, error: errMsg }))
-      } else if (options.md) {
-        console.log(mdOutput(`## Rollback Failed`, `> ${errMsg}`))
-      } else {
-        out.fail(errMsg)
-      }
-      return { success: false, error: errMsg }
-    }
+  async rollback(...args: Parameters<typeof rollback>): Promise<CommandResult> {
+    return rollback(...args)
   }
 
   /**
@@ -995,40 +478,8 @@ export class AnalysisCommands extends PrjctCommandsBase {
    * - Default: Cryptographic verification (signature check)
    * - --semantic: Semantic verification (data accuracy check, PRJ-270)
    */
-  async verify(
-    projectPath: string = process.cwd(),
-    options: { json?: boolean; semantic?: boolean } = {}
-  ): Promise<CommandResult> {
-    // Semantic verification mode (PRJ-270)
-    if (options.semantic) {
-      return this.semanticVerify(projectPath, options)
-    }
-
-    // Default: Cryptographic verification (PRJ-263)
-    try {
-      const proj = await requireProject(projectPath)
-      if (!proj.ok) return proj.result
-      const projectId = proj.value
-
-      const result = await analysisStorage.verify(projectId)
-
-      if (options.json) {
-        console.log(JSON.stringify(result))
-        return { success: result.valid }
-      }
-
-      if (result.valid) {
-        out.done(result.message)
-      } else {
-        out.fail(result.message)
-      }
-      console.log('')
-
-      return { success: result.valid, data: result }
-    } catch (error) {
-      const errMsg = getErrorMessage(error)
-      return failHard(errMsg)
-    }
+  async verify(...args: Parameters<typeof verify>): Promise<CommandResult> {
+    return verify(...args)
   }
 
   /**
@@ -1041,75 +492,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
    * - File count is accurate
    * - Anti-pattern files exist
    */
-  async semanticVerify(
-    projectPath: string = process.cwd(),
-    options: { json?: boolean } = {}
-  ): Promise<CommandResult> {
-    try {
-      const initResult = await this.ensureProjectInit(projectPath)
-      if (!initResult.success) return initResult
-
-      const projectId = await configManager.getProjectId(projectPath)
-      if (!projectId) {
-        if (options.json) {
-          console.log(JSON.stringify({ success: false, error: 'No project ID found' }))
-        } else {
-          out.fail('No project ID found')
-        }
-        return { success: false, error: 'No project ID found' }
-      }
-
-      // Get project path from project doc
-      let repoPath = projectPath
-      try {
-        const projectDoc = prjctDb.getDoc<Record<string, unknown>>(projectId, 'project')
-        repoPath = (projectDoc?.repoPath as string) || projectPath
-      } catch {
-        // Use fallback projectPath
-      }
-
-      // Run semantic verification
-      const result = await analysisStorage.semanticVerify(projectId, repoPath)
-
-      // JSON output mode
-      if (options.json) {
-        console.log(JSON.stringify(result))
-        return { success: result.passed, data: result }
-      }
-
-      // Human-readable output
-      console.log('')
-      if (result.passed) {
-        out.done('Semantic verification passed')
-        console.log(
-          `  ${result.passedCount}/${result.checks.length} checks passed (${result.totalMs}ms)`
-        )
-      } else {
-        out.fail('Semantic verification failed')
-        console.log(`  ${result.failedCount}/${result.checks.length} checks failed`)
-      }
-      console.log('')
-
-      // Show check details
-      console.log('Check Results:')
-      for (const check of result.checks) {
-        const icon = check.passed ? '✓' : '✗'
-        const status = check.passed
-          ? `${check.output} (${check.durationMs}ms)`
-          : check.error || 'Failed'
-        console.log(`  ${icon} ${check.name}: ${status}`)
-      }
-      console.log('')
-
-      return { success: result.passed, data: result }
-    } catch (error) {
-      const errMsg = getErrorMessage(error)
-      if (options.json) {
-        console.log(JSON.stringify({ success: false, error: errMsg }))
-      } else {
-        out.fail(errMsg)
-      }
-      return { success: false, error: errMsg }
-    }
+  async semanticVerify(...args: Parameters<typeof semanticVerifyCommand>): Promise<CommandResult> {
+    return semanticVerifyCommand(...args)
   }
 }
