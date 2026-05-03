@@ -35,7 +35,7 @@ import { isSyncCurrent, runSelfHeal } from '../infrastructure/self-heal'
 import { regenerateWikiDeferred } from '../services/wiki-generator'
 import type { LocalConfig, ProjectPersona } from '../types/config'
 import { VERSION } from '../utils/version'
-import { buildHookOutput, emit, readStdinSafe, safeRun } from './_shared'
+import { runHook } from './_runner'
 
 interface HookInput {
   source?: 'startup' | 'resume' | 'clear' | 'compact'
@@ -85,37 +85,41 @@ function formatPersona(persona: ProjectPersona): string {
  * Top-level entry — read stdin, emit JSON, exit.
  * Never throws; hook failures must not break the host session.
  */
-export async function runSessionStartHook(projectPath: string = process.cwd()): Promise<void> {
-  await safeRun(async () => {
-    await readStdinSafe<HookInput>()
-    // Read once; pass to both the context builder and the regen call so
-    // we're not doing two disk reads on a hot path that fires on every
-    // session start.
-    const config = await configManager.readConfig(projectPath).catch(() => null)
-    const context = await buildSessionContext(projectPath, config)
-    emit(buildHookOutput('SessionStart', context))
+export function runSessionStartHook(projectPath: string = process.cwd()): Promise<void> {
+  // Captured by the build closure so afterEmit can reuse it without a
+  // second disk read on the hot path that fires on every session start.
+  let cachedConfig: LocalConfig | null = null
 
-    // Refresh the Obsidian vault from DB so the files Claude may Read
-    // reflect current project state. Best-effort; errors are swallowed.
-    if (config?.projectId) {
-      await regenerateWikiDeferred(projectPath, config.projectId).catch(() => undefined)
-    }
+  return runHook<HookInput>({
+    event: 'SessionStart',
+    projectPath,
+    build: async (_input, p) => {
+      cachedConfig = await configManager.readConfig(p).catch(() => null)
+      return buildSessionContext(p, cachedConfig)
+    },
+    afterEmit: async (_input, p) => {
+      // Refresh the Obsidian vault from DB so the files Claude may Read
+      // reflect current project state. Best-effort; errors are swallowed.
+      if (cachedConfig?.projectId) {
+        await regenerateWikiDeferred(p, cachedConfig.projectId).catch(() => undefined)
+      }
 
-    // Self-heal hooks + global CLAUDE.md when the binary moved past the
-    // last sync. Catches machines where postinstall is disabled by
-    // security policy. Hot path is one fs read of the stamp file.
-    if (!isSyncCurrent(VERSION)) {
-      await runSelfHeal(VERSION).catch(() => undefined)
-    }
+      // Self-heal hooks + global CLAUDE.md when the binary moved past the
+      // last sync. Catches machines where postinstall is disabled by
+      // security policy. Hot path is one fs read of the stamp file.
+      if (!isSyncCurrent(VERSION)) {
+        await runSelfHeal(VERSION).catch(() => undefined)
+      }
 
-    // M5: opt-in silent auto-update. No-op unless the user has opted
-    // in via `prjct config set auto-update on`. Throttled to 1/hour
-    // and runs detached so the session never waits.
-    try {
-      const { maybeAutoUpdate } = await import('../services/auto-updater')
-      maybeAutoUpdate(VERSION)
-    } catch {
-      // never block the session on update mechanics
-    }
+      // M5: opt-in silent auto-update. No-op unless the user has opted
+      // in via `prjct config set auto-update on`. Throttled to 1/hour
+      // and runs detached so the session never waits.
+      try {
+        const { maybeAutoUpdate } = await import('../services/auto-updater')
+        maybeAutoUpdate(VERSION)
+      } catch {
+        // never block the session on update mechanics
+      }
+    },
   })
 }

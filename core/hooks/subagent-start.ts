@@ -8,13 +8,13 @@
  * WHAT (role, MCPs, recent memory), never CÓMO.
  */
 
-import { buildHookOutput, emit, readStdinSafe, safeRun } from './_shared'
+import { runHook } from './_runner'
 import { buildSessionContext } from './session-start'
 
-export async function runSubagentStartHook(projectPath: string = process.cwd()): Promise<void> {
-  await safeRun(async () => {
-    await readStdinSafe()
-    const context = await buildSessionContext(projectPath)
-    emit(buildHookOutput('SubagentStart', context))
+export function runSubagentStartHook(projectPath: string = process.cwd()): Promise<void> {
+  return runHook({
+    event: 'SubagentStart',
+    projectPath,
+    build: (_input, p) => buildSessionContext(p),
   })
 }
