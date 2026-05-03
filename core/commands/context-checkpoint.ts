@@ -20,6 +20,7 @@ import pathManager from '../infrastructure/path-manager'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import { execAsync, execFileAsync } from '../utils/exec'
+import { failHard } from '../utils/md-aware'
 import out from '../utils/output'
 import { PrjctCommandsBase } from './base'
 import { requireProject } from './guards'
@@ -83,8 +84,7 @@ export class ContextCheckpointCommands extends PrjctCommandsBase {
       return { success: true, file: filename, title: cleanTitle }
     } catch (error) {
       const msg = getErrorMessage(error)
-      out.fail(msg)
-      return { success: false, error: msg }
+      return failHard(msg)
     }
   }
 
@@ -152,8 +152,7 @@ export class ContextCheckpointCommands extends PrjctCommandsBase {
       return { success: true, checkpoint, file: path.basename(target) }
     } catch (error) {
       const msg = getErrorMessage(error)
-      out.fail(msg)
-      return { success: false, error: msg }
+      return failHard(msg)
     }
   }
 }

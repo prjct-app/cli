@@ -45,13 +45,28 @@ export const notifyDone = (message: string, options: MdOption = {}): void =>
   notify('done', message, options)
 
 /**
- * Notify the user that the command can't proceed and return the
- * matching `CommandResult` failure. Replaces the
- * notify-then-return-error pair that was the most-duplicated block in
- * the command surface.
+ * Soft fail: validation/precondition failure where the user is expected
+ * to re-run the command with corrected input. Severity = warn.
+ *
+ * Replaces:
+ *   if (options.md) console.log(`> ${msg}`); else out.warn(msg)
+ *   return { success: false, error: msg }
  */
 export function failWith(message: string, options: MdOption = {}): CommandResult {
   notifyWarn(message, options)
+  return { success: false, error: message }
+}
+
+/**
+ * Hard fail: the command tried something and the runtime/environment
+ * couldn't satisfy it (missing tool, broken state, network error). The
+ * user can't fix this by tweaking arguments. Severity = fail.
+ *
+ * Replaces:
+ *   out.fail(msg); return { success: false, error: msg }
+ */
+export function failHard(message: string, options: MdOption = {}): CommandResult {
+  notifyFail(message, options)
   return { success: false, error: message }
 }
 

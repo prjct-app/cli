@@ -29,6 +29,7 @@ import path from 'node:path'
 import { promisify } from 'node:util'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
+import { failHard } from '../utils/md-aware'
 import { mdOutput, mdSection } from '../utils/md-formatter'
 import out from '../utils/output'
 import { VERSION } from '../utils/version'
@@ -161,8 +162,7 @@ export class TeamCommands extends PrjctCommandsBase {
       }
     } catch (error) {
       const msg = getErrorMessage(error)
-      out.fail(msg)
-      return { success: false, error: msg }
+      return failHard(msg)
     }
   }
 }

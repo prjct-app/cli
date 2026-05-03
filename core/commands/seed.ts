@@ -16,6 +16,7 @@ import {
 import type { MdOption } from '../types/cli'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
+import { failHard } from '../utils/md-aware'
 import out from '../utils/output'
 import { PrjctCommandsBase } from './base'
 
@@ -81,8 +82,7 @@ export class SeedCommands extends PrjctCommandsBase {
       return { success: true, ...result }
     } catch (error) {
       const msg = getErrorMessage(error)
-      out.fail(msg)
-      return { success: false, error: msg }
+      return failHard(msg)
     }
   }
 
@@ -114,8 +114,7 @@ export class SeedCommands extends PrjctCommandsBase {
       return { success: true, ...result }
     } catch (error) {
       const msg = getErrorMessage(error)
-      out.fail(msg)
-      return { success: false, error: msg }
+      return failHard(msg)
     }
   }
 
@@ -156,8 +155,7 @@ export class SeedCommands extends PrjctCommandsBase {
       return { success: true, active }
     } catch (error) {
       const msg = getErrorMessage(error)
-      out.fail(msg)
-      return { success: false, error: msg }
+      return failHard(msg)
     }
   }
 
@@ -190,8 +188,7 @@ export class SeedCommands extends PrjctCommandsBase {
       return { success: true, suggested: names }
     } catch (error) {
       const msg = getErrorMessage(error)
-      out.fail(msg)
-      return { success: false, error: msg }
+      return failHard(msg)
     }
   }
 }

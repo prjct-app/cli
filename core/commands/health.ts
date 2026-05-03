@@ -16,7 +16,7 @@ import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import { execAsync } from '../utils/exec'
 import { fileExists, readJson } from '../utils/file-helper'
-import out from '../utils/output'
+import { failHard } from '../utils/md-aware'
 import { PrjctCommandsBase } from './base'
 
 interface HealthDimension {
@@ -77,8 +77,7 @@ export class HealthCommands extends PrjctCommandsBase {
       return { success: allPass, score, results: results.length }
     } catch (error) {
       const msg = getErrorMessage(error)
-      out.fail(msg)
-      return { success: false, error: msg }
+      return failHard(msg)
     }
   }
 }

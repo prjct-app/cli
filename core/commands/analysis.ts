@@ -18,7 +18,7 @@ import type { MdOption } from '../types/cli'
 import type { AnalyzeOptions, CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import * as dateHelper from '../utils/date-helper'
-import { failFromError } from '../utils/md-aware'
+import { failFromError, failHard } from '../utils/md-aware'
 import {
   mdDone,
   mdList,
@@ -1014,8 +1014,7 @@ export class AnalysisCommands extends PrjctCommandsBase {
       return { success: result.valid, data: result }
     } catch (error) {
       const errMsg = getErrorMessage(error)
-      out.fail(errMsg)
-      return { success: false, error: errMsg }
+      return failHard(errMsg)
     }
   }
 
