@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.14.2] - 2026-05-02
+
+### Added
+- current work
+
 ## [2.14.1] - 2026-05-03
 
 ### Refactoring
