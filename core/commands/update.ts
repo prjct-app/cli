@@ -19,6 +19,7 @@ import UpdateChecker from '../infrastructure/update-checker'
 import { migrateJsonToSqlite, sweepLegacyJson } from '../storage/migrate-json'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
+import { failFromError } from '../utils/md-aware'
 import out from '../utils/output'
 import { resetPackageRoot, VERSION } from '../utils/version'
 import { PrjctCommandsBase } from './base'
@@ -259,7 +260,7 @@ export class UpdateCommands extends PrjctCommandsBase {
     } catch (error) {
       if (!md) out.stop()
       out.fail(getErrorMessage(error))
-      return { success: false, error: getErrorMessage(error) }
+      return failFromError(error)
     }
   }
 

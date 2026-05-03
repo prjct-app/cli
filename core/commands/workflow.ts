@@ -23,6 +23,7 @@ import type { MdOption } from '../types/cli'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import * as dateHelper from '../utils/date-helper'
+import { failFromError } from '../utils/md-aware'
 import {
   mdActionRequired,
   mdDone,
@@ -256,7 +257,7 @@ export class WorkflowCommands extends PrjctCommandsBase {
       } else {
         out.fail(getErrorMessage(error))
       }
-      return { success: false, error: getErrorMessage(error) }
+      return failFromError(error)
     }
   }
 

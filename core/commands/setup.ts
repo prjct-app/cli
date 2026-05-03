@@ -24,6 +24,7 @@ import {
   MCP_SERVER_PRESETS,
   upsertMcpServer,
 } from '../utils/mcp-config'
+import { failFromError } from '../utils/md-aware'
 import out from '../utils/output'
 import { VERSION } from '../utils/version'
 import { PrjctCommandsBase } from './base'
@@ -695,7 +696,7 @@ echo "⚡ prjct"
 
       return { success: true }
     } catch (error) {
-      return { success: false, error: getErrorMessage(error) }
+      return failFromError(error)
     }
   }
 

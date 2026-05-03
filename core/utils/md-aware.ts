@@ -17,6 +17,7 @@
 
 import type { MdOption } from '../types/cli'
 import type { CommandResult } from '../types/commands'
+import { getErrorMessage } from '../types/fs'
 import out from './output'
 
 type Severity = 'warn' | 'info' | 'fail' | 'done'
@@ -51,5 +52,20 @@ export const notifyDone = (message: string, options: MdOption = {}): void =>
  */
 export function failWith(message: string, options: MdOption = {}): CommandResult {
   notifyWarn(message, options)
+  return { success: false, error: message }
+}
+
+/**
+ * Catch-block convenience: turn a thrown error into a `CommandResult`
+ * failure with the standard error-message extraction. Replaces the
+ *   `} catch (error) { return { success: false, error: getErrorMessage(error) } }`
+ * tail that closes nearly every command method.
+ *
+ * Pass `options` to also notify the user via `notifyFail`; omit it to
+ * stay silent (the caller may already log somewhere else).
+ */
+export function failFromError(error: unknown, options?: MdOption): CommandResult {
+  const message = getErrorMessage(error)
+  if (options) notifyFail(message, options)
   return { success: false, error: message }
 }

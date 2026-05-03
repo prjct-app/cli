@@ -16,6 +16,7 @@ import {
 import type { MdOption } from '../types/cli'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
+import { failFromError } from '../utils/md-aware'
 import out from '../utils/output'
 import { PrjctCommandsBase } from './base'
 
@@ -96,7 +97,7 @@ export class InstallCommands extends PrjctCommandsBase {
       const s = await hookStatus()
       return { success: true, installed: s.installed, expected: s.expected }
     } catch (error) {
-      return { success: false, error: getErrorMessage(error) }
+      return failFromError(error)
     }
   }
 }
