@@ -14,7 +14,7 @@
 import fs from 'node:fs/promises'
 import type { ZodError } from 'zod'
 import { isNotFoundError } from '../types/fs'
-import type { ValidationSchema } from '../types/storage.js'
+import type { ValidationSchema } from '../types/storage/extended'
 
 /**
  * Read and validate a JSON file against a Zod schema.

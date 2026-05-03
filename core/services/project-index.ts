@@ -26,7 +26,7 @@ import type {
   ScanResult,
   ScoringContext,
 } from '../types/services.js'
-import type { LanguageStats, ProjectIndex, ScoredFile } from '../types/storage.js'
+import type { LanguageStats, ProjectIndex, ScoredFile } from '../types/storage/extended'
 import { getTimestamp } from '../utils/date-helper'
 import { fileScorer, RELEVANCE_THRESHOLD } from './file-scorer'
 import { detectPatterns, detectStack } from './project-index/analyzers'

@@ -24,7 +24,7 @@ import type {
   FileChecksums,
   ProjectIndex,
   ScoredFile,
-} from '../types/storage.js'
+} from '../types/storage/extended'
 import { getTimestamp } from '../utils/date-helper'
 import { md5 } from '../utils/hash'
 import { prjctDb } from './database'

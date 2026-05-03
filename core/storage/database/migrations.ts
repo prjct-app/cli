@@ -6,7 +6,7 @@
  * migration with the next sequential version number.
  */
 
-import type { Migration } from '../../types/storage.js'
+import type { Migration } from '../../types/storage/extended'
 import { INITIAL_SCHEMA_SQL } from './initial-schema.sql'
 import type { SqliteDatabase } from './sqlite-compat'
 

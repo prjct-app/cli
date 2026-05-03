@@ -1,6 +1,6 @@
 import { pointsToMinutes, suggestFromHistory } from '../domain/fibonacci'
 import type { FibonacciPoint } from '../types/domain.js'
-import type { TaskEstimate } from '../types/services.js'
+import type { TaskEstimate } from '../types/services/extracted'
 import { breakdownService } from './breakdown-service'
 
 function complexityToPoints(level: 'low' | 'medium' | 'high'): FibonacciPoint {

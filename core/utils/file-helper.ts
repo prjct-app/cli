@@ -3,7 +3,7 @@ import path from 'node:path'
 import { SKIP_DIRS } from '../constants/file-patterns'
 import { safeRead } from '../storage/safe-reader'
 import { isNotFoundError } from '../types/fs'
-import type { ValidationSchema } from '../types/storage.js'
+import type { ValidationSchema } from '../types/storage/extended'
 
 /**
  * File Helper - Centralized file operations with error handling

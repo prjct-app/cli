@@ -22,7 +22,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import type { MonorepoInfo, MonorepoPackage } from '../../types/infrastructure'
-import type { AgentDefinition, NestedAgents, ResolvedAgents } from '../../types/services.js'
+import type { AgentDefinition, NestedAgents, ResolvedAgents } from '../../types/services/extracted'
 import * as fileHelper from '../../utils/file-helper'
 import {
   buildInheritanceChain,

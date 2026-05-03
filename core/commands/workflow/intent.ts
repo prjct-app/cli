@@ -7,7 +7,7 @@
  * `./rule-actions.ts`.
  */
 
-import type { WorkflowRule } from '../../types/storage.js'
+import type { WorkflowRule } from '../../types/storage/extended'
 
 export type IntentType =
   | 'view'

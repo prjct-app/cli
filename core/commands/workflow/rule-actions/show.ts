@@ -5,7 +5,7 @@
 import { workflowRuleStorage } from '../../../storage/workflow-rule-storage'
 import type { MdOption } from '../../../types/cli'
 import type { CommandResult } from '../../../types/commands'
-import type { WorkflowRule } from '../../../types/storage.js'
+import type { WorkflowRule } from '../../../types/storage/extended'
 import { notifyFail } from '../../../utils/md-aware'
 import { mdCodeBlock, mdList, mdNextSteps, mdOutput, mdSection } from '../../../utils/md-formatter'
 import { buildFlowDiagram } from '../md-helpers'

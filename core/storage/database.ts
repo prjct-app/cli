@@ -21,7 +21,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
-import type { MigrationRecord } from '../types/storage.js'
+import type { MigrationRecord } from '../types/storage/extended'
 import { migrations } from './database/migrations'
 import {
   openDatabase,

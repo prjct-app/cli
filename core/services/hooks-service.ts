@@ -17,7 +17,7 @@ import chalk from 'chalk'
 import configManager from '../infrastructure/config-manager'
 import { prjctDb } from '../storage/database'
 import { getErrorMessage } from '../types/fs'
-import type { HookName, HookStrategy } from '../types/services.js'
+import type { HookName, HookStrategy } from '../types/services/extracted'
 import { fileExists } from '../utils/file-helper'
 import out from '../utils/output'
 import {

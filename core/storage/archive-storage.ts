@@ -14,7 +14,7 @@ import type {
   ArchiveItem,
   ArchiveRecord,
   ArchiveStats,
-} from '../types/storage.js'
+} from '../types/storage/extended'
 import { getTimestamp } from '../utils/date-helper'
 import { prjctDb } from './database'
 

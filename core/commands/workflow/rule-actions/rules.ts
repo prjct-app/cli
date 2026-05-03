@@ -6,7 +6,7 @@
 import { workflowRuleStorage } from '../../../storage/workflow-rule-storage'
 import type { MdOption } from '../../../types/cli'
 import type { CommandResult } from '../../../types/commands'
-import type { WorkflowRule } from '../../../types/storage.js'
+import type { WorkflowRule } from '../../../types/storage/extended'
 import { failWith, notifyDone, notifyFail } from '../../../utils/md-aware'
 import { mdDone, mdList, mdNextSteps, mdOutput, mdSection } from '../../../utils/md-formatter'
 import { WORKFLOW_TIMEOUTS } from '../../../workflow/timeouts'

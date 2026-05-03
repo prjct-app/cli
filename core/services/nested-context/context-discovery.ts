@@ -8,7 +8,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import type { MonorepoInfo, MonorepoPackage } from '../../types/infrastructure'
-import type { ContextSection, NestedContext, ResolvedContext } from '../../types/services.js'
+import type { ContextSection, NestedContext, ResolvedContext } from '../../types/services/extracted'
 import * as fileHelper from '../../utils/file-helper'
 import {
   buildInheritanceChain,

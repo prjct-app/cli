@@ -12,7 +12,7 @@ import type {
   DetectedStack,
   DirectoryEntry,
   ProjectIndex,
-} from '../../types/storage.js'
+} from '../../types/storage/extended'
 import { fileExists } from '../../utils/file-helper'
 
 const DIR_TYPE_PATTERNS: { type: DirectoryEntry['type']; patterns: RegExp[] }[] = [

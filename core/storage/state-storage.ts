@@ -8,7 +8,6 @@
  * to projectPath. This class only has projectId.
  */
 
-import { generateUUID } from '../schemas/schemas'
 import type {
   CurrentTask,
   PreviousTask,
@@ -19,11 +18,18 @@ import type {
   TaskHistoryEntry,
   WorkspaceTask,
 } from '../schemas/state'
-import { StateJsonSchema, SubtaskCompletionDataSchema } from '../schemas/state'
+import { StateJsonSchema } from '../schemas/state'
 import type { WorkflowCommand } from '../types/workflow'
 import { getTimestamp } from '../utils/date-helper'
 import { workflowStateMachine } from '../workflow/state-machine'
-import { archiveStorage } from './archive-storage'
+import type { LifecycleBackend } from './state-storage/lifecycle'
+import * as lifecycle from './state-storage/lifecycle'
+import type { QueryBackend } from './state-storage/queries'
+import * as queries from './state-storage/queries'
+import type { SubtaskBackend } from './state-storage/subtasks'
+import * as subtasks from './state-storage/subtasks'
+import type { WorkspaceBackend } from './state-storage/workspace'
+import * as workspace from './state-storage/workspace'
 import { StorageManager } from './storage-manager'
 
 class StateStorage extends StorageManager<StateJson> {
@@ -229,100 +235,26 @@ class StateStorage extends StorageManager<StateJson> {
   /** Staleness threshold in days */
   private stalenessThresholdDays = 30
 
-  /**
-   * Pause current task — pushes onto pausedTasks[] array
-   */
-  async pauseTask(projectId: string, reason?: string): Promise<PreviousTask | null> {
-    const state = await this.read(projectId)
+  // =========== Pause/Resume/Archive (delegated to ./state-storage/lifecycle) ===========
 
-    if (!state.currentTask) {
-      return null
+  private lifecycleBackend(): LifecycleBackend {
+    return {
+      read: this.read.bind(this),
+      update: this.update.bind(this),
+      publish: this.publishEvent.bind(this),
+      validateTransition: this.validateTransition.bind(this),
+      getPausedTasksFromState: this.getPausedTasksFromState.bind(this),
+      maxPausedTasks: this.maxPausedTasks,
+      stalenessThresholdDays: this.stalenessThresholdDays,
     }
-
-    this.validateTransition(state, 'pause')
-
-    const pausedTask: PreviousTask = {
-      ...state.currentTask,
-      status: 'paused',
-      pausedAt: getTimestamp(),
-      pauseReason: reason,
-    }
-
-    // Get existing paused tasks, migrate from previousTask if needed
-    const existingPaused = this.getPausedTasksFromState(state)
-
-    // Enforce max paused limit
-    const pausedTasks = [pausedTask, ...existingPaused].slice(0, this.maxPausedTasks)
-
-    await this.update(projectId, (existingState) => ({
-      ...existingState,
-      currentTask: null,
-      previousTask: null, // deprecated, keep null for compat
-      pausedTasks,
-      lastUpdated: getTimestamp(),
-    }))
-
-    // Publish incremental event
-    await this.publishEvent(projectId, 'task.paused', {
-      taskId: pausedTask.id,
-      description: pausedTask.description,
-      pausedAt: pausedTask.pausedAt,
-      reason,
-      pausedCount: pausedTasks.length,
-    })
-
-    return pausedTask
   }
 
-  /**
-   * Resume most recent paused task (or by ID)
-   */
+  async pauseTask(projectId: string, reason?: string): Promise<PreviousTask | null> {
+    return lifecycle.pauseTask(this.lifecycleBackend(), projectId, reason)
+  }
+
   async resumeTask(projectId: string, taskId?: string): Promise<CurrentTask | null> {
-    const state = await this.read(projectId)
-
-    // Migrate from previousTask if pausedTasks is empty
-    const pausedTasks = this.getPausedTasksFromState(state)
-
-    if (pausedTasks.length === 0) {
-      return null
-    }
-
-    this.validateTransition(state, 'resume')
-
-    // Find target task: by ID or most recent (first in array)
-    let targetIndex = 0
-    if (taskId) {
-      targetIndex = pausedTasks.findIndex((t) => t.id === taskId)
-      if (targetIndex === -1) return null
-    }
-
-    const target = pausedTasks[targetIndex]
-    const remaining = pausedTasks.filter((_, i) => i !== targetIndex)
-
-    const { status: _, pausedAt: __, pauseReason: ___, ...preserved } = target
-    const currentTask: CurrentTask = {
-      ...preserved,
-      startedAt: getTimestamp(),
-      sessionId: target.sessionId ?? generateUUID(),
-    }
-
-    await this.update(projectId, (existingState) => ({
-      ...existingState,
-      currentTask,
-      previousTask: null, // deprecated, keep null
-      pausedTasks: remaining,
-      lastUpdated: getTimestamp(),
-    }))
-
-    // Publish incremental event
-    await this.publishEvent(projectId, 'task.resumed', {
-      taskId: currentTask.id,
-      description: currentTask.description,
-      resumedAt: currentTask.startedAt,
-      remainingPaused: remaining.length,
-    })
-
-    return currentTask
+    return lifecycle.resumeTask(this.lifecycleBackend(), projectId, taskId)
   }
 
   /**
@@ -347,711 +279,191 @@ class StateStorage extends StorageManager<StateJson> {
     return state.taskHistory || []
   }
 
-  /**
-   * Get stale paused tasks (older than threshold)
-   */
   async getStalePausedTasks(projectId: string): Promise<PreviousTask[]> {
-    const state = await this.read(projectId)
-    const pausedTasks = this.getPausedTasksFromState(state)
-    const threshold = Date.now() - this.stalenessThresholdDays * 24 * 60 * 60 * 1000
-
-    return pausedTasks.filter((t) => new Date(t.pausedAt).getTime() < threshold)
+    return lifecycle.getStalePausedTasks(this.lifecycleBackend(), projectId)
   }
 
-  /**
-   * Archive stale paused tasks (PRJ-267).
-   * Persists to archive table before removing from active storage.
-   * Returns archived tasks.
-   */
   async archiveStalePausedTasks(projectId: string): Promise<PreviousTask[]> {
-    const state = await this.read(projectId)
-    const pausedTasks = this.getPausedTasksFromState(state)
-    const threshold = Date.now() - this.stalenessThresholdDays * 24 * 60 * 60 * 1000
+    return lifecycle.archiveStalePausedTasks(this.lifecycleBackend(), projectId)
+  }
 
-    const stale = pausedTasks.filter((t) => new Date(t.pausedAt).getTime() < threshold)
-    const fresh = pausedTasks.filter((t) => new Date(t.pausedAt).getTime() >= threshold)
+  // =========== Query helpers (delegated to ./state-storage/queries) ===========
 
-    if (stale.length === 0) return []
-
-    // Persist to archive table before removal
-    archiveStorage.archiveMany(
-      projectId,
-      stale.map((task) => ({
-        entityType: 'paused_task' as const,
-        entityId: task.id,
-        entityData: task,
-        summary: task.description,
-        reason: 'staleness',
-      }))
-    )
-
-    await this.update(projectId, (s) => ({
-      ...s,
-      pausedTasks: fresh,
-      previousTask: null,
-      lastUpdated: getTimestamp(),
-    }))
-
-    for (const task of stale) {
-      await this.publishEvent(projectId, 'task.archived', {
-        taskId: task.id,
-        description: task.description,
-        pausedAt: task.pausedAt,
-        reason: 'staleness',
-      })
+  private queryBackend(): QueryBackend {
+    return {
+      read: this.read.bind(this),
+      update: this.update.bind(this),
+      getPausedTasksFromState: this.getPausedTasksFromState.bind(this),
+      getTaskHistoryFromState: this.getTaskHistoryFromState.bind(this),
     }
-
-    return stale
   }
 
-  /**
-   * Clear all task state
-   */
   async clearTask(projectId: string): Promise<void> {
-    await this.update(projectId, () => ({
-      currentTask: null,
-      previousTask: null,
-      pausedTasks: [],
-      activeTasks: [],
-      lastUpdated: getTimestamp(),
-    }))
+    return queries.clearTask(this.queryBackend(), projectId)
   }
 
-  /**
-   * Check if there's an active or paused task
-   */
   async hasTask(projectId: string): Promise<boolean> {
-    const state = await this.read(projectId)
-    const paused = this.getPausedTasksFromState(state)
-    return state.currentTask !== null || paused.length > 0
+    return queries.hasTask(this.queryBackend(), projectId)
   }
 
-  /**
-   * Get most recently paused task
-   */
   async getPausedTask(projectId: string): Promise<PreviousTask | null> {
-    const state = await this.read(projectId)
-    const paused = this.getPausedTasksFromState(state)
-    return paused[0] || null
+    return queries.getPausedTask(this.queryBackend(), projectId)
   }
 
-  /**
-   * Get all paused tasks
-   */
   async getAllPausedTasks(projectId: string): Promise<PreviousTask[]> {
-    const state = await this.read(projectId)
-    return this.getPausedTasksFromState(state)
+    return queries.getAllPausedTasks(this.queryBackend(), projectId)
   }
 
-  /**
-   * Get full task history (completed tasks)
-   */
   async getTaskHistory(projectId: string): Promise<TaskHistoryEntry[]> {
-    const state = await this.read(projectId)
-    return this.getTaskHistoryFromState(state)
+    return queries.getTaskHistory(this.queryBackend(), projectId)
   }
 
-  /**
-   * Get most recent task from history
-   */
   async getMostRecentTask(projectId: string): Promise<TaskHistoryEntry | null> {
-    const state = await this.read(projectId)
-    const history = this.getTaskHistoryFromState(state)
-    return history[0] || null
+    return queries.getMostRecentTask(this.queryBackend(), projectId)
   }
 
-  /**
-   * Get task history filtered by classification
-   */
   async getTaskHistoryByType(
     projectId: string,
     classification: TaskHistoryEntry['classification']
   ): Promise<TaskHistoryEntry[]> {
-    const state = await this.read(projectId)
-    const history = this.getTaskHistoryFromState(state)
-    return history.filter((t) => t.classification === classification)
+    return queries.getTaskHistoryByType(this.queryBackend(), projectId, classification)
   }
 
-  /**
-   * Aggregate feedback from all task history entries (PRJ-272)
-   * Used by sync to feed task discoveries back into analysis and agent generation.
-   * Returns consolidated patterns, stack confirmations, issues, and agent accuracy.
-   */
-  async getAggregatedFeedback(projectId: string): Promise<{
-    stackConfirmed: string[]
-    patternsDiscovered: string[]
-    agentAccuracy: Array<{ agent: string; rating: string; note?: string }>
-    issuesEncountered: string[]
-    knownGotchas: string[]
-  }> {
-    const history = await this.getTaskHistory(projectId)
-    const entriesWithFeedback = history.filter((h) => h.feedback)
+  async getAggregatedFeedback(projectId: string) {
+    return queries.getAggregatedFeedback(this.queryBackend(), projectId)
+  }
 
-    const stackConfirmed: string[] = []
-    const patternsDiscovered: string[] = []
-    const agentAccuracy: Array<{ agent: string; rating: string; note?: string }> = []
-    const allIssues: string[] = []
+  // =========== Workspace + Tokens (delegated to ./state-storage/workspace) ===========
 
-    for (const entry of entriesWithFeedback) {
-      const fb = entry.feedback!
-      if (Array.isArray(fb.stackConfirmed)) stackConfirmed.push(...fb.stackConfirmed)
-      if (Array.isArray(fb.patternsDiscovered)) patternsDiscovered.push(...fb.patternsDiscovered)
-      if (Array.isArray(fb.agentAccuracy)) agentAccuracy.push(...fb.agentAccuracy)
-      if (Array.isArray(fb.issuesEncountered)) allIssues.push(...fb.issuesEncountered)
-    }
-
-    // Deduplicate patterns and stack confirmations
-    const uniqueStack = [...new Set(stackConfirmed)]
-    const uniquePatterns = [...new Set(patternsDiscovered)]
-
-    // Promote recurring issues (2+) to known gotchas
-    const issueCounts = new Map<string, number>()
-    for (const issue of allIssues) {
-      issueCounts.set(issue, (issueCounts.get(issue) || 0) + 1)
-    }
-    const knownGotchas = [...issueCounts.entries()]
-      .filter(([_, count]) => count >= 2)
-      .map(([issue]) => issue)
-
+  private workspaceBackend(): WorkspaceBackend {
     return {
-      stackConfirmed: uniqueStack,
-      patternsDiscovered: uniquePatterns,
-      agentAccuracy,
-      issuesEncountered: [...new Set(allIssues)],
-      knownGotchas,
+      read: this.read.bind(this),
+      update: this.update.bind(this),
+      publish: this.publishEvent.bind(this),
+      createTaskHistoryEntry: this.createTaskHistoryEntry.bind(this),
+      getTaskHistoryFromState: this.getTaskHistoryFromState.bind(this),
+      maxTaskHistory: this.maxTaskHistory,
     }
   }
 
-  // =========== Workspace-Aware Methods (Multi-Agent Parallel) ===========
-
-  /**
-   * Start a task in a specific workspace (for parallel agent sessions).
-   * Adds to activeTasks[] without affecting currentTask.
-   */
   async startTaskInWorkspace(
     projectId: string,
     task: Omit<WorkspaceTask, 'startedAt'>,
     workspaceId: string
   ): Promise<WorkspaceTask> {
-    const workspaceTask: WorkspaceTask = {
-      ...task,
-      workspaceId,
-      startedAt: getTimestamp(),
-    }
-
-    await this.update(projectId, (state) => ({
-      ...state,
-      activeTasks: [...(state.activeTasks || []), workspaceTask],
-      lastUpdated: getTimestamp(),
-    }))
-
-    await this.publishEvent(projectId, 'task.started', {
-      taskId: workspaceTask.id,
-      description: workspaceTask.description,
-      startedAt: workspaceTask.startedAt,
-      sessionId: workspaceTask.sessionId,
-      workspaceId,
-    })
-
-    return workspaceTask
+    return workspace.startTaskInWorkspace(this.workspaceBackend(), projectId, task, workspaceId)
   }
 
-  /**
-   * Get the active task for a specific workspace.
-   */
   async getCurrentTaskForWorkspace(
     projectId: string,
     workspaceId: string
   ): Promise<WorkspaceTask | null> {
-    const state = await this.read(projectId)
-    return (state.activeTasks || []).find((t) => t.workspaceId === workspaceId) ?? null
+    return workspace.getCurrentTaskForWorkspace(this.workspaceBackend(), projectId, workspaceId)
   }
 
-  /**
-   * Complete a task in a specific workspace.
-   * Removes from activeTasks[], adds to taskHistory.
-   */
   async completeTaskInWorkspace(
     projectId: string,
     workspaceId: string,
     feedback?: TaskFeedback
   ): Promise<WorkspaceTask | null> {
-    const state = await this.read(projectId)
-    const activeTasks = state.activeTasks || []
-    const task = activeTasks.find((t) => t.workspaceId === workspaceId)
-    if (!task) return null
-
-    const completedAt = getTimestamp()
-    const historyEntry = this.createTaskHistoryEntry(task, completedAt, feedback)
-    const existingHistory = this.getTaskHistoryFromState(state)
-    const taskHistory = [historyEntry, ...existingHistory].slice(0, this.maxTaskHistory)
-
-    await this.update(projectId, (s) => ({
-      ...s,
-      activeTasks: (s.activeTasks || []).filter((t) => t.workspaceId !== workspaceId),
-      taskHistory,
-      lastUpdated: completedAt,
-    }))
-
-    await this.publishEvent(projectId, 'task.completed', {
-      taskId: task.id,
-      description: task.description,
-      startedAt: task.startedAt,
-      completedAt,
+    return workspace.completeTaskInWorkspace(
+      this.workspaceBackend(),
+      projectId,
       workspaceId,
-    })
-
-    return task
+      feedback
+    )
   }
 
-  /**
-   * Get all active workspace tasks.
-   */
   async getActiveTasks(projectId: string): Promise<WorkspaceTask[]> {
-    const state = await this.read(projectId)
-    return state.activeTasks || []
+    return workspace.getActiveTasks(this.workspaceBackend(), projectId)
   }
 
-  /**
-   * Get count of active workspace tasks.
-   */
   async getActiveTaskCount(projectId: string): Promise<number> {
-    const state = await this.read(projectId)
-    return (state.activeTasks || []).length
+    return workspace.getActiveTaskCount(this.workspaceBackend(), projectId)
   }
 
-  /**
-   * Update fields on a workspace task (partial update).
-   */
   async updateWorkspaceTask(
     projectId: string,
     workspaceId: string,
     fields: Partial<WorkspaceTask>
   ): Promise<WorkspaceTask | null> {
-    const state = await this.read(projectId)
-    const activeTasks = state.activeTasks || []
-    const index = activeTasks.findIndex((t) => t.workspaceId === workspaceId)
-    if (index === -1) return null
-
-    const updated: WorkspaceTask = { ...activeTasks[index], ...fields, workspaceId }
-
-    await this.update(projectId, (s) => {
-      const tasks = [...(s.activeTasks || [])]
-      tasks[index] = updated
-      return { ...s, activeTasks: tasks, lastUpdated: getTimestamp() }
-    })
-
-    return updated
+    return workspace.updateWorkspaceTask(this.workspaceBackend(), projectId, workspaceId, fields)
   }
 
-  // =========== Token Tracking ===========
-
-  /**
-   * Add token usage to current task (accumulates)
-   */
   async addTokens(
     projectId: string,
     tokensIn: number,
     tokensOut: number
   ): Promise<{ tokensIn: number; tokensOut: number } | null> {
-    const state = await this.read(projectId)
-    if (!state.currentTask) return null
-
-    const newIn = (state.currentTask.tokensIn || 0) + tokensIn
-    const newOut = (state.currentTask.tokensOut || 0) + tokensOut
-
-    await this.update(projectId, (s) => ({
-      ...s,
-      currentTask: {
-        ...s.currentTask!,
-        tokensIn: newIn,
-        tokensOut: newOut,
-      },
-      lastUpdated: getTimestamp(),
-    }))
-
-    return { tokensIn: newIn, tokensOut: newOut }
+    return workspace.addTokens(this.workspaceBackend(), projectId, tokensIn, tokensOut)
   }
 
-  // =========== Subtask Methods ===========
+  // =========== Subtask Methods (delegated to ./state-storage/subtasks) ===========
 
-  /**
-   * Create subtasks when fragmenting a task
-   * Sets first subtask to in_progress
-   */
+  private subtaskBackend(): SubtaskBackend {
+    return {
+      read: this.read.bind(this),
+      update: this.update.bind(this),
+      publish: this.publishEvent.bind(this),
+    }
+  }
+
   async createSubtasks(
     projectId: string,
-    subtasks: Omit<Subtask, 'status' | 'startedAt' | 'completedAt' | 'output' | 'summary'>[]
+    items: Omit<Subtask, 'status' | 'startedAt' | 'completedAt' | 'output' | 'summary'>[]
   ): Promise<void> {
-    const state = await this.read(projectId)
-    if (!state.currentTask) return
-
-    // Convert input to full Subtask objects
-    const fullSubtasks: Subtask[] = subtasks.map((s, index) => ({
-      ...s,
-      status: index === 0 ? 'in_progress' : 'pending',
-      startedAt: index === 0 ? getTimestamp() : undefined,
-      dependsOn: s.dependsOn || [],
-    }))
-
-    await this.update(projectId, (current) => ({
-      ...current,
-      currentTask: {
-        ...current.currentTask!,
-        subtasks: fullSubtasks,
-        currentSubtaskIndex: 0,
-        subtaskProgress: {
-          completed: 0,
-          total: fullSubtasks.length,
-          percentage: 0,
-        },
-      },
-      lastUpdated: getTimestamp(),
-    }))
-
-    // Publish event
-    await this.publishEvent(projectId, 'subtasks.created', {
-      taskId: state.currentTask.id,
-      subtaskCount: fullSubtasks.length,
-      subtasks: fullSubtasks.map((s) => ({
-        id: s.id,
-        description: s.description,
-        domain: s.domain,
-      })),
-    })
+    return subtasks.createSubtasks(this.subtaskBackend(), projectId, items)
   }
 
-  /**
-   * Complete current subtask and advance to next.
-   * Requires output and summary for mandatory handoff (PRJ-262).
-   * Returns the next subtask (or null if all complete).
-   */
   async completeSubtask(
     projectId: string,
     completionData: SubtaskCompletionData
   ): Promise<Subtask | null> {
-    // Validate handoff data with Zod before persisting
-    const validation = SubtaskCompletionDataSchema.safeParse(completionData)
-    if (!validation.success) {
-      const errors = validation.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`)
-      throw new Error(`Subtask completion requires handoff data:\n${errors.join('\n')}`)
-    }
-
-    const { output, summary } = validation.data
-
-    const state = await this.read(projectId)
-    if (!state.currentTask?.subtasks) return null
-
-    const currentIndex = state.currentTask.currentSubtaskIndex || 0
-    const current = state.currentTask.subtasks[currentIndex]
-    if (!current) return null
-
-    // Mark current as completed with mandatory handoff
-    const updatedSubtasks = [...state.currentTask.subtasks]
-    updatedSubtasks[currentIndex] = {
-      ...current,
-      status: 'completed',
-      completedAt: getTimestamp(),
-      output,
-      summary,
-    }
-
-    // Calculate new progress
-    const completed = updatedSubtasks.filter((s) => s.status === 'completed').length
-    const total = updatedSubtasks.length
-    const percentage = Math.round((completed / total) * 100)
-
-    // Advance to next subtask if available
-    const nextIndex = currentIndex + 1
-    if (nextIndex < updatedSubtasks.length) {
-      updatedSubtasks[nextIndex] = {
-        ...updatedSubtasks[nextIndex],
-        status: 'in_progress',
-        startedAt: getTimestamp(),
-      }
-    }
-
-    await this.update(projectId, (s) => ({
-      ...s,
-      currentTask: {
-        ...s.currentTask!,
-        subtasks: updatedSubtasks,
-        currentSubtaskIndex: nextIndex < total ? nextIndex : currentIndex,
-        subtaskProgress: { completed, total, percentage },
-      },
-      lastUpdated: getTimestamp(),
-    }))
-
-    // Publish event with handoff data
-    await this.publishEvent(projectId, 'subtask.completed', {
-      taskId: state.currentTask.id,
-      subtaskId: current.id,
-      description: current.description,
-      output,
-      handoff: summary.outputForNextAgent,
-      filesChanged: summary.filesChanged.length,
-      progress: { completed, total, percentage },
-    })
-
-    // Return next subtask or null
-    return nextIndex < total ? updatedSubtasks[nextIndex] : null
+    return subtasks.completeSubtask(this.subtaskBackend(), projectId, completionData)
   }
 
-  /**
-   * Get current subtask
-   */
   async getCurrentSubtask(projectId: string): Promise<Subtask | null> {
-    const state = await this.read(projectId)
-    if (!state.currentTask?.subtasks) return null
-    const index = state.currentTask.currentSubtaskIndex || 0
-    return state.currentTask.subtasks[index] || null
+    return subtasks.getCurrentSubtask(this.subtaskBackend(), projectId)
   }
 
-  /**
-   * Get next subtask (after current)
-   */
   async getNextSubtask(projectId: string): Promise<Subtask | null> {
-    const state = await this.read(projectId)
-    if (!state.currentTask?.subtasks) return null
-    const nextIndex = (state.currentTask.currentSubtaskIndex || 0) + 1
-    return state.currentTask.subtasks[nextIndex] || null
+    return subtasks.getNextSubtask(this.subtaskBackend(), projectId)
   }
 
-  /**
-   * Get previous subtask (before current)
-   */
   async getPreviousSubtask(projectId: string): Promise<Subtask | null> {
-    const state = await this.read(projectId)
-    if (!state.currentTask?.subtasks) return null
-    const prevIndex = (state.currentTask.currentSubtaskIndex || 0) - 1
-    if (prevIndex < 0) return null
-    return state.currentTask.subtasks[prevIndex] || null
+    return subtasks.getPreviousSubtask(this.subtaskBackend(), projectId)
   }
 
-  /**
-   * Get handoff from the most recently completed subtask (PRJ-262).
-   * Returns the summary.outputForNextAgent and related context,
-   * or null if no previous subtask or no handoff data.
-   */
-  async getPreviousHandoff(projectId: string): Promise<{
-    fromSubtask: string
-    outputForNextAgent: string
-    filesChanged: Array<{ path: string; action: string }>
-    whatWasDone: string[]
-  } | null> {
-    const prev = await this.getPreviousSubtask(projectId)
-    if (!prev?.summary?.outputForNextAgent) return null
-    return {
-      fromSubtask: prev.description,
-      outputForNextAgent: prev.summary.outputForNextAgent,
-      filesChanged: prev.summary.filesChanged,
-      whatWasDone: prev.summary.whatWasDone,
-    }
+  async getPreviousHandoff(projectId: string) {
+    return subtasks.getPreviousHandoff(this.subtaskBackend(), projectId)
   }
 
-  /**
-   * Get all subtasks
-   */
   async getSubtasks(projectId: string): Promise<Subtask[]> {
-    const state = await this.read(projectId)
-    return state.currentTask?.subtasks || []
+    return subtasks.getSubtasks(this.subtaskBackend(), projectId)
   }
 
-  /**
-   * Get subtask progress
-   */
-  async getSubtaskProgress(
-    projectId: string
-  ): Promise<{ completed: number; total: number; percentage: number } | null> {
-    const state = await this.read(projectId)
-    return state.currentTask?.subtaskProgress || null
+  async getSubtaskProgress(projectId: string) {
+    return subtasks.getSubtaskProgress(this.subtaskBackend(), projectId)
   }
 
-  /**
-   * Check if task has subtasks
-   */
   async hasSubtasks(projectId: string): Promise<boolean> {
-    const state = await this.read(projectId)
-    return (state.currentTask?.subtasks?.length || 0) > 0
+    return subtasks.hasSubtasks(this.subtaskBackend(), projectId)
   }
 
-  /**
-   * Check if all subtasks are complete
-   */
   async areAllSubtasksComplete(projectId: string): Promise<boolean> {
-    const state = await this.read(projectId)
-    if (!state.currentTask?.subtasks) return true
-    return state.currentTask.subtasks.every(
-      (s) => s.status === 'completed' || s.status === 'failed' || s.status === 'skipped'
-    )
+    return subtasks.areAllSubtasksComplete(this.subtaskBackend(), projectId)
   }
 
-  /**
-   * Fail current subtask and advance to next
-   * Returns the next subtask (or null if all done/failed)
-   */
   async failSubtask(projectId: string, error: string): Promise<Subtask | null> {
-    const state = await this.read(projectId)
-    if (!state.currentTask?.subtasks) return null
-
-    const currentIndex = state.currentTask.currentSubtaskIndex || 0
-    const current = state.currentTask.subtasks[currentIndex]
-    if (!current) return null
-
-    const updatedSubtasks = [...state.currentTask.subtasks]
-    updatedSubtasks[currentIndex] = {
-      ...current,
-      status: 'failed',
-      completedAt: getTimestamp(),
-      output: `Failed: ${error}`,
-    }
-
-    // Advance to next subtask if available
-    const nextIndex = currentIndex + 1
-    const total = updatedSubtasks.length
-    if (nextIndex < total) {
-      updatedSubtasks[nextIndex] = {
-        ...updatedSubtasks[nextIndex],
-        status: 'in_progress',
-        startedAt: getTimestamp(),
-      }
-    }
-
-    // Count completed + failed + skipped as "resolved" for progress
-    const resolved = updatedSubtasks.filter(
-      (s) => s.status === 'completed' || s.status === 'failed' || s.status === 'skipped'
-    ).length
-    const percentage = Math.round((resolved / total) * 100)
-
-    await this.update(projectId, (s) => ({
-      ...s,
-      currentTask: {
-        ...s.currentTask!,
-        subtasks: updatedSubtasks,
-        currentSubtaskIndex: nextIndex < total ? nextIndex : currentIndex,
-        subtaskProgress: { completed: resolved, total, percentage },
-      },
-      lastUpdated: getTimestamp(),
-    }))
-
-    // Publish event
-    await this.publishEvent(projectId, 'subtask.failed', {
-      taskId: state.currentTask.id,
-      subtaskId: current.id,
-      description: current.description,
-      error,
-    })
-
-    return nextIndex < total ? updatedSubtasks[nextIndex] : null
+    return subtasks.failSubtask(this.subtaskBackend(), projectId, error)
   }
 
-  /**
-   * Skip current subtask with reason and advance to next
-   * Returns the next subtask (or null if all done)
-   */
   async skipSubtask(projectId: string, reason: string): Promise<Subtask | null> {
-    const state = await this.read(projectId)
-    if (!state.currentTask?.subtasks) return null
-
-    const currentIndex = state.currentTask.currentSubtaskIndex || 0
-    const current = state.currentTask.subtasks[currentIndex]
-    if (!current) return null
-
-    const updatedSubtasks = [...state.currentTask.subtasks]
-    updatedSubtasks[currentIndex] = {
-      ...current,
-      status: 'skipped',
-      completedAt: getTimestamp(),
-      output: `Skipped: ${reason}`,
-      skipReason: reason,
-    }
-
-    // Advance to next subtask if available
-    const nextIndex = currentIndex + 1
-    const total = updatedSubtasks.length
-    if (nextIndex < total) {
-      updatedSubtasks[nextIndex] = {
-        ...updatedSubtasks[nextIndex],
-        status: 'in_progress',
-        startedAt: getTimestamp(),
-      }
-    }
-
-    const resolved = updatedSubtasks.filter(
-      (s) => s.status === 'completed' || s.status === 'failed' || s.status === 'skipped'
-    ).length
-    const percentage = Math.round((resolved / total) * 100)
-
-    await this.update(projectId, (s) => ({
-      ...s,
-      currentTask: {
-        ...s.currentTask!,
-        subtasks: updatedSubtasks,
-        currentSubtaskIndex: nextIndex < total ? nextIndex : currentIndex,
-        subtaskProgress: { completed: resolved, total, percentage },
-      },
-      lastUpdated: getTimestamp(),
-    }))
-
-    await this.publishEvent(projectId, 'subtask.skipped', {
-      taskId: state.currentTask.id,
-      subtaskId: current.id,
-      description: current.description,
-      reason,
-    })
-
-    return nextIndex < total ? updatedSubtasks[nextIndex] : null
+    return subtasks.skipSubtask(this.subtaskBackend(), projectId, reason)
   }
 
-  /**
-   * Block current subtask with reason, allow proceeding to next
-   * Returns the next subtask (or null if no more)
-   */
   async blockSubtask(projectId: string, blocker: string): Promise<Subtask | null> {
-    const state = await this.read(projectId)
-    if (!state.currentTask?.subtasks) return null
-
-    const currentIndex = state.currentTask.currentSubtaskIndex || 0
-    const current = state.currentTask.subtasks[currentIndex]
-    if (!current) return null
-
-    const updatedSubtasks = [...state.currentTask.subtasks]
-    updatedSubtasks[currentIndex] = {
-      ...current,
-      status: 'blocked',
-      output: `Blocked: ${blocker}`,
-      blockReason: blocker,
-    }
-
-    // Advance to next subtask if available (blocked doesn't halt)
-    const nextIndex = currentIndex + 1
-    const total = updatedSubtasks.length
-    if (nextIndex < total) {
-      updatedSubtasks[nextIndex] = {
-        ...updatedSubtasks[nextIndex],
-        status: 'in_progress',
-        startedAt: getTimestamp(),
-      }
-    }
-
-    await this.update(projectId, (s) => ({
-      ...s,
-      currentTask: {
-        ...s.currentTask!,
-        subtasks: updatedSubtasks,
-        currentSubtaskIndex: nextIndex < total ? nextIndex : currentIndex,
-      },
-      lastUpdated: getTimestamp(),
-    }))
-
-    await this.publishEvent(projectId, 'subtask.blocked', {
-      taskId: state.currentTask.id,
-      subtaskId: current.id,
-      description: current.description,
-      blocker,
-    })
-
-    return nextIndex < total ? updatedSubtasks[nextIndex] : null
+    return subtasks.blockSubtask(this.subtaskBackend(), projectId, blocker)
   }
 }
 

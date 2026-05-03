@@ -17,7 +17,7 @@ import type {
   NestedContext,
   ResolvedAgents,
   ResolvedContext,
-} from '../types/services.js'
+} from '../types/services/extracted'
 import { AgentsDiscovery } from './nested-context/agents-discovery'
 import { ContextDiscovery } from './nested-context/context-discovery'
 

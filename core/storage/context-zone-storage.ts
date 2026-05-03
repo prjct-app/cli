@@ -5,7 +5,7 @@
  * Used by the dashboard to show zone distribution and compaction frequency.
  */
 
-import type { ZoneTransition } from '../types/agentic'
+import type { ZoneTransition } from '../types/agentic/templates-orchestration'
 import { prjctDb } from './database'
 
 // =============================================================================

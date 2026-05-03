@@ -9,7 +9,7 @@
  * masked them. Removed in this refactor.
  */
 
-import type { WorkflowRule } from '../../types/storage.js'
+import type { WorkflowRule } from '../../types/storage/extended'
 
 /**
  * Build an ASCII flow diagram for a single command's workflow rules.

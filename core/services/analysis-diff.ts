@@ -9,7 +9,7 @@
  */
 
 import type { AnalysisSchema } from '../schemas/analysis'
-import type { AnalysisDiff, AnalysisDiffItem } from '../types/services.js'
+import type { AnalysisDiff, AnalysisDiffItem } from '../types/services/extracted'
 
 // =============================================================================
 // Diff Logic

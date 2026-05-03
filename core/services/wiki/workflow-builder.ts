@@ -10,7 +10,7 @@
  * its id so the user can `prjct workflow rm <id>` from the file.
  */
 
-import type { WorkflowRule } from '../../types/storage'
+import type { WorkflowRule } from '../../types/storage/extended'
 
 export function buildWorkflowFiles(rules: WorkflowRule[]): {
   files: Map<string, string>

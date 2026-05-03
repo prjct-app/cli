@@ -9,7 +9,11 @@
  */
 
 import path from 'node:path'
-import type { ChangelogDetection, ChangelogEntry, ChangelogFormat } from '../types/services.js'
+import type {
+  ChangelogDetection,
+  ChangelogEntry,
+  ChangelogFormat,
+} from '../types/services/extracted'
 import * as dateHelper from '../utils/date-helper'
 import * as fileHelper from '../utils/file-helper'
 

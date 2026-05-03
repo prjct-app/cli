@@ -8,7 +8,7 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import type { HookName, HookStrategy } from '../../types/services.js'
+import type { HookName, HookStrategy } from '../../types/services/extracted'
 import { fileExists } from '../../utils/file-helper'
 import { getPostCheckoutScript, getPostCommitScript } from './scripts'
 
