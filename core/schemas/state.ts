@@ -89,6 +89,9 @@ export const CurrentTaskSchema = z.object({
   // Linear integration - bidirectional sync
   linearId: z.string().optional(), // "PRJ-123" - Linear identifier
   linearUuid: z.string().optional(), // Linear internal UUID for API calls
+  // SDD: linkage to a `prjct spec`. Ship reads this and surfaces the
+  // spec's acceptance_criteria as a checklist in the PR description.
+  linkedSpecId: z.string().optional(),
   // Fibonacci estimation
   estimatedPoints: z.number().optional(), // Fibonacci: 1,2,3,5,8,13,21
   estimatedMinutes: z.number().optional(), // Derived from points

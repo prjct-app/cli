@@ -26,6 +26,7 @@ import { commandRegistry } from './registry'
 import { SeedCommands } from './seed'
 import { SetupCommands } from './setup'
 import { ShippingCommands } from './shipping'
+import { SpecCommands } from './spec'
 import { TeamCommands } from './team'
 import { UninstallCommands } from './uninstall'
 import { UpdateCommands } from './update'
@@ -49,6 +50,7 @@ const groupInstances: Record<CommandRoutingGroup, object> = {
   config: new ConfigCommands(),
   uninstall: new UninstallCommands(),
   update: new UpdateCommands(),
+  spec: new SpecCommands(),
 }
 
 function registerCategories(): void {

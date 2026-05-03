@@ -479,4 +479,42 @@ export const COMMANDS: CommandMeta[] = [
       'Booleans accept on/off/true/false; numbers parsed automatically',
     ],
   },
+  // ===== SDD: spec-driven development primitives =====
+  {
+    name: 'spec',
+    group: 'core',
+    routing: { group: 'spec', method: 'draft' },
+    description:
+      'Draft a spec — Goal/Acceptance/Scope/Risks. The SDD entry point: spec → audit → task → ship.',
+    usage: {
+      claude: '/p:spec "<title>"',
+      terminal: 'prjct spec "<title>" [--goal "..."] [--tags k:v,...]',
+    },
+    params: '"<title>" [--goal] [--tags]',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: true,
+    features: [
+      'Persists in `specs` SQLite table + memory event stream',
+      'Renders to ~/Documents/prjct/<slug>/_generated/specs/<slug>.md',
+      'Sub-verbs: list, show, update, set-status, record-review, link-task, ship, audit',
+    ],
+  },
+  {
+    name: 'audit-spec',
+    group: 'core',
+    routing: { group: 'spec', method: 'audit' },
+    description:
+      'Emit subagent dispatch for parallel strategic/architecture/design review of a spec',
+    usage: { claude: '/p:audit-spec <id>', terminal: 'prjct audit-spec <id>' },
+    params: '<spec-id>',
+    implemented: true,
+    hasTemplate: false,
+    requiresProject: true,
+    features: [
+      'Emits dispatch prompt — Claude runs three Agent calls in parallel',
+      'Each reviewer writes back via `prjct spec record-review`',
+      'All three pass → spec auto-promotes draft → reviewed',
+    ],
+  },
 ]

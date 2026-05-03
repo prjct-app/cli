@@ -474,4 +474,44 @@ export const migrations: Migration[] = [
       db.run(`UPDATE workflow_rules SET enabled = 0 WHERE command IN (${list}) AND enabled = 1`)
     },
   },
+  {
+    version: 16,
+    name: 'specs-and-task-linkage',
+    up: (db: SqliteDatabase) => {
+      // SDD: specs are first-class entities. A spec captures Goal /
+      // Acceptance Criteria / Scope / Out-of-scope / Risks before
+      // implementation starts. `prjct task --spec <id>` links a task
+      // to its spec; `prjct ship` reads the linked spec's acceptance
+      // criteria as a gate.
+      //
+      // The structured fields live in `content` as JSON (validated by
+      // Zod at the service layer); top-level columns expose what we
+      // query on (status, title, timestamps, shipped_pr).
+      db.run(`
+        CREATE TABLE IF NOT EXISTS specs (
+          id              TEXT PRIMARY KEY,
+          title           TEXT NOT NULL,
+          status          TEXT NOT NULL DEFAULT 'draft',
+          content         TEXT NOT NULL,
+          tags            TEXT,
+          created_at      TEXT NOT NULL,
+          updated_at      TEXT NOT NULL,
+          shipped_at      TEXT,
+          shipped_pr      INTEGER,
+          archived_at     TEXT
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_specs_status ON specs(status);
+        CREATE INDEX IF NOT EXISTS idx_specs_created ON specs(created_at);
+      `)
+
+      // Link tasks → specs. Nullable: tasks without a spec keep working.
+      try {
+        db.run('ALTER TABLE tasks ADD COLUMN linked_spec_id TEXT')
+        db.run('CREATE INDEX IF NOT EXISTS idx_tasks_spec ON tasks(linked_spec_id)')
+      } catch {
+        // Column may already exist (re-run safety)
+      }
+    },
+  },
 ]

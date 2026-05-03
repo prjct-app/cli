@@ -57,6 +57,10 @@ export const BASE_MEMORY_TYPES = [
   'source',
   // Founder / Ops (people, stakeholders, goals)
   'person',
+  // SDD: spec is the artifact that frames work BEFORE implementation.
+  // Authoritative storage is the `specs` table; a memory event is also
+  // emitted on creation so specs surface in `prjct context memory spec`.
+  'spec',
 ] as const
 
 /** @deprecated use BASE_MEMORY_TYPES. Kept as alias for backward compat. */
