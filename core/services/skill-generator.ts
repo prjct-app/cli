@@ -24,7 +24,11 @@ import { getErrorMessage } from '../errors'
 import type { ProjectSyncResult } from '../types/project-sync'
 import type { SkillGenerationResult } from '../types/services.js'
 import log from '../utils/logger'
-import { buildPrjctSkillBody } from './skill-generator/prjct-skill-body'
+import {
+  buildPrjctSkillBody,
+  PRJCT_SKILL_ALLOWED_TOOLS,
+  PRJCT_SKILL_DESCRIPTION,
+} from './skill-generator/prjct-skill-body'
 import type { ConditionContext, SkillContext, SkillDefinition } from './skill-generator/types'
 
 // ============================================================================
@@ -41,9 +45,8 @@ import type { ConditionContext, SkillContext, SkillDefinition } from './skill-ge
 const SKILL_DEFINITIONS: SkillDefinition[] = [
   {
     name: 'prjct',
-    description:
-      'Project memory + workflow runtime. Recognize what the user is trying to do and run the matching prjct verb yourself — never make the user type commands. Routine captures (capture, remember, tag) auto-execute and confirm in one line; destructive actions (ship, status done) suggest-and-confirm first. Heavy reviews (audit, security, investigate) dispatch as subagents. Lookup-first: check the vault before re-reading source.',
-    allowedTools: ['Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep', 'Task'],
+    description: PRJCT_SKILL_DESCRIPTION,
+    allowedTools: [...PRJCT_SKILL_ALLOWED_TOOLS],
     condition: () => true,
     body: (ctx) => buildPrjctSkillBody(ctx),
   },

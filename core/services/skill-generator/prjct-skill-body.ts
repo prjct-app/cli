@@ -13,6 +13,64 @@
 import { formatProjectHeader, formatRichContext } from './formatters'
 import type { SkillContext } from './types'
 
+export const PRJCT_SKILL_DESCRIPTION =
+  'Project memory + workflow runtime. Recognize what the user is trying to do and run the matching prjct verb yourself — never make the user type commands. Routine captures (capture, remember, tag) auto-execute and confirm in one line; destructive actions (ship, status done) suggest-and-confirm first. Heavy reviews (audit, security, investigate) dispatch as subagents. Lookup-first: check the vault before re-reading source.'
+
+export const PRJCT_SKILL_ALLOWED_TOOLS = [
+  'Bash',
+  'Read',
+  'Write',
+  'Edit',
+  'Glob',
+  'Grep',
+  'Task',
+] as const
+
+/**
+ * Sentinel context used at build time to emit the baseline SKILL.md
+ * (the template that `bin/prjct` self-heals into ~/.claude/skills/prjct/).
+ * `prjct sync` later overwrites with a real, project-aware ctx.
+ */
+export function emptySkillContext(): SkillContext {
+  return {
+    projectName: '',
+    stack: '',
+    branch: '',
+    commands: { install: '', build: '', test: '', lint: '', dev: '', format: '' },
+    projectId: '',
+    version: '',
+    fileCount: 0,
+    patterns: [],
+    antiPatterns: [],
+    recentShipped: [],
+    velocity: null,
+    backlogCount: 0,
+    completedTaskCount: 0,
+    pausedTaskCount: 0,
+    knownGotchas: [],
+    hasActiveTask: false,
+    activeTaskDescription: '',
+    pausedTasks: [],
+    topBacklog: [],
+    ideasCount: 0,
+    shippedCount: 0,
+    userPatterns: [],
+  }
+}
+
+export function buildPrjctSkillFrontmatter(): string {
+  const tools = PRJCT_SKILL_ALLOWED_TOOLS.map((t) => `"${t}"`).join(', ')
+  return `---
+description: "${PRJCT_SKILL_DESCRIPTION}"
+allowed-tools: [${tools}]
+user-invocable: true
+---`
+}
+
+export function buildPrjctSkill(ctx: SkillContext): string {
+  return `${buildPrjctSkillFrontmatter()}\n\n${buildPrjctSkillBody(ctx)}\n`
+}
+
 export function buildPrjctSkillBody(ctx: SkillContext): string {
   return [
     '# prjct',
