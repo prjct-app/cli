@@ -19,7 +19,7 @@ const ImpactEffortSchema = z.object({
 
 const TechStackSchema = z.object({
   frontend: z.string().optional(), // "Next.js 14, HeroUI"
-  backend: z.string().optional(), // "Supabase (Auth, DB, RLS, Realtime)"
+  backend: z.string().optional(), // "Postgres + Auth + Realtime"
   payments: z.string().optional(), // "Stripe Billing"
   ai: z.string().optional(), // "Vercel AI SDK"
   deploy: z.string().optional(), // "Vercel"

@@ -18,11 +18,11 @@
  */
 
 import { projectMemory } from '../memory/project-memory'
-import { scanForSecrets } from '../memory/secret-scanner'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import { failHard } from '../utils/md-aware'
 import out from '../utils/output'
+import { scanForSecrets } from '../utils/secret-scanner'
 import { PrjctCommandsBase } from './base'
 
 export class CaptureCommands extends PrjctCommandsBase {

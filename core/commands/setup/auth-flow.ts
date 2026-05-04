@@ -139,6 +139,32 @@ export async function login(options: { md?: boolean; url?: string } = {}): Promi
           const apiUrl = `${webUrl}/api`
           await authConfig.write({ apiUrl })
 
+          // Phase 1.5 / B6: register this device with the server so the
+          // event bus can attribute pushes to (user_id, device_id) and
+          // the user sees a friendly hostname in their account page.
+          // Best-effort — login succeeds even if the device-register
+          // call fails (server may not yet have the endpoint).
+          try {
+            const deviceId = await authConfig.getDeviceId()
+            const hostname = await authConfig.getHostname()
+            await fetch(`${apiUrl}/devices/register`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Api-Key': apiKey,
+              },
+              body: JSON.stringify({
+                deviceId,
+                hostname,
+                platform: process.platform,
+                cliVersion: process.env.npm_package_version ?? null,
+                registeredAt: new Date().toISOString(),
+              }),
+            })
+          } catch {
+            // Server may not yet expose /devices/register — fine.
+          }
+
           res.writeHead(200, { 'Content-Type': 'text/html' })
           res.end(buildSuccessPage(email || '', apiKey.substring(0, 12)))
         } else {

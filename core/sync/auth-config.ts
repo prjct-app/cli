@@ -5,7 +5,9 @@
  * Used by SyncClient to authenticate with prjct API
  */
 
+import crypto from 'node:crypto'
 import fs from 'node:fs/promises'
+import os from 'node:os'
 import path from 'node:path'
 import pathManager from '../infrastructure/path-manager'
 import type { AuthConfig } from '../types/sync'
@@ -19,6 +21,15 @@ const DEFAULT_CONFIG: AuthConfig = {
   userId: null,
   email: null,
   lastAuth: null,
+}
+
+/**
+ * Generate a stable UUIDv4 the first time we read an auth.json that
+ * lacks one (B6 / Phase 1.5). Older auth.json files keep working —
+ * the next `write` persists the new field.
+ */
+function freshDeviceId(): string {
+  return crypto.randomUUID()
 }
 
 class AuthConfigManager {
@@ -37,7 +48,12 @@ class AuthConfigManager {
   }
 
   /**
-   * Read auth config from disk
+   * Read auth config from disk.
+   *
+   * Phase 1.5 / B6: synthesizes `deviceId` as a UUIDv4 if the
+   * persisted file lacks it, and lazily persists it back so future
+   * reads return a stable value. Non-breaking — pre-1.5 auth.json
+   * files keep working.
    */
   async read(): Promise<AuthConfig> {
     if (this.cachedConfig) {
@@ -45,8 +61,46 @@ class AuthConfigManager {
     }
 
     const config = await fileHelper.readJson<AuthConfig>(this.configPath)
-    this.cachedConfig = config ?? { ...DEFAULT_CONFIG }
+    const merged: AuthConfig = config ?? { ...DEFAULT_CONFIG }
+    let mutated = false
+    if (!merged.deviceId) {
+      merged.deviceId = freshDeviceId()
+      mutated = true
+    }
+    if (!merged.hostname) {
+      merged.hostname = os.hostname()
+      mutated = true
+    }
+    this.cachedConfig = merged
+    // Lazy persist of deviceId/hostname only if we have an existing
+    // file (don't write a fresh auth.json on a CLI that's never been
+    // logged in — that would just create empty config files).
+    if (mutated && config) {
+      try {
+        await fileHelper.writeJson(this.configPath, this.cachedConfig)
+        await fs.chmod(this.configPath, 0o600)
+      } catch {
+        // Best-effort — sync will still get a usable deviceId from cache.
+      }
+    }
     return this.cachedConfig
+  }
+
+  /**
+   * Stable UUIDv4 for THIS device. Generated lazily; persisted on the
+   * first write. Used by storages (publishEvent → SyncEvent.deviceId)
+   * and by sync_cursors as part of the (user_id, device_id, project_id)
+   * primary key.
+   */
+  async getDeviceId(): Promise<string> {
+    const config = await this.read()
+    return config.deviceId ?? freshDeviceId()
+  }
+
+  /** Hostname captured at first auth (B6) — surfaced in account UI. */
+  async getHostname(): Promise<string> {
+    const config = await this.read()
+    return config.hostname ?? os.hostname()
   }
 
   /**

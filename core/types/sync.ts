@@ -18,6 +18,11 @@ export interface AuthResult {
 
 /**
  * Authentication configuration stored in ~/.prjct-cli/config/auth.json
+ *
+ * `deviceId` (Phase 1.5 / B6) is generated as a UUID v4 the first
+ * time auth.json is read on a 1.5+ binary. Persisted on first write;
+ * non-breaking on pre-1.5 auth.json files (we synthesize it on read
+ * and lazily write it back on the next save).
  */
 export interface AuthConfig {
   apiKey: string | null
@@ -25,6 +30,10 @@ export interface AuthConfig {
   userId: string | null
   email: string | null
   lastAuth: string | null
+  /** UUIDv4. Identifies the device emitting events for sync. */
+  deviceId?: string
+  /** Hostname captured at first auth — surfaced in account UI. */
+  hostname?: string
 }
 
 // =============================================================================

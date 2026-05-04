@@ -58,13 +58,31 @@ class SyncClient {
   }
 
   /**
-   * Pull events from the server since a timestamp
+   * Pull events from the server.
+   *
+   * Phase 1.5 / B4: `since` is now a server-assigned monotonic event
+   * id (not a wall-clock timestamp). Clock skew between devices no
+   * longer skips events. The legacy `since` (timestamp string) keeps
+   * working for compatibility with pre-1.5 servers — the server
+   * accepts either field; the cli sends both when both are known.
    */
-  async pullEvents(projectId: string, since?: string): Promise<SyncPullResult> {
+  async pullEvents(
+    projectId: string,
+    sinceEventId?: number,
+    sinceTimestamp?: string
+  ): Promise<SyncPullResult> {
     const { apiUrl, apiKey } = await this.getAuthHeaders()
 
     if (!apiKey) {
       throw this.createError('AUTH_REQUIRED', 'No API key configured')
+    }
+
+    const body: Record<string, unknown> = { projectId }
+    if (typeof sinceEventId === 'number' && sinceEventId > 0) {
+      body.sinceEventId = sinceEventId
+    }
+    if (sinceTimestamp) {
+      body.since = sinceTimestamp
     }
 
     const response = await this.fetchWithRetry(`${apiUrl}/sync/pull`, {
@@ -73,10 +91,7 @@ class SyncClient {
         'Content-Type': 'application/json',
         'X-Api-Key': apiKey,
       },
-      body: JSON.stringify({
-        projectId,
-        since,
-      }),
+      body: JSON.stringify(body),
     })
 
     if (!response.ok) {

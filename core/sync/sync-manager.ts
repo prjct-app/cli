@@ -6,12 +6,6 @@
  */
 
 import { syncEventBus } from '../events/sync-events'
-import type { IdeaPriority } from '../schemas/ideas'
-import type { Priority, TaskSection, TaskType } from '../schemas/state'
-import { ideasStorage } from '../storage/ideas-storage'
-import { queueStorage } from '../storage/queue-storage'
-import { shippedStorage } from '../storage/shipped-storage'
-import { stateStorage } from '../storage/state-storage'
 import type { SyncEvent } from '../types/events'
 import type {
   PullResult,
@@ -22,7 +16,70 @@ import type {
   SyncStatus,
 } from '../types/sync'
 import authConfig from './auth-config'
+import { entityHandlers } from './entity-handlers'
 import { syncClient } from './sync-client'
+
+// ============================================
+// Event normalization (Phase 1.5 / B2)
+// ============================================
+
+interface NormalizedEvent {
+  entityType: string
+  eventType: 'upsert' | 'delete'
+  data: Record<string, unknown>
+  contentHash?: string
+}
+
+/**
+ * Normalize an inbound event from either web format
+ * (`entity_type` + `event_type`) or legacy CLI format
+ * (`type: "entity.action"`). Returns the wire shape applyEvent
+ * expects.
+ */
+function normalizeEventShape(event: Record<string, unknown>): NormalizedEvent {
+  const data = (event.data as Record<string, unknown>) ?? {}
+  const contentHash =
+    (event.content_hash as string | undefined) ?? (event.contentHash as string | undefined)
+
+  if (event.entity_type) {
+    const eventType = ((event.event_type as string) || 'upsert') === 'delete' ? 'delete' : 'upsert'
+    return {
+      entityType: event.entity_type as string,
+      eventType,
+      data,
+      contentHash,
+    }
+  }
+
+  // entityType field on the new SyncEvent (from B5 producers).
+  if (event.entityType) {
+    const et = (event.eventType as string) || 'upsert'
+    return {
+      entityType: event.entityType as string,
+      eventType: et === 'delete' ? 'delete' : 'upsert',
+      data,
+      contentHash,
+    }
+  }
+
+  // Legacy CLI format: type = "entity.action"
+  const [entity, action] = ((event.type as string) || '').split('.')
+  const legacyEntityMap: Record<string, string> = {
+    task: 'tasks',
+    idea: 'ideas',
+    feature: 'roadmap_features',
+    shipped: 'shipped_items',
+    queue: 'queue_tasks',
+    project: 'projects',
+  }
+  const tombstone = action === 'deleted' || action === 'archived' || action === 'removed'
+  return {
+    entityType: legacyEntityMap[entity] || entity || 'unknown',
+    eventType: tombstone ? 'delete' : 'upsert',
+    data,
+    contentHash,
+  }
+}
 
 // ============================================
 // Sync Manager
@@ -150,23 +207,38 @@ class SyncManager {
   }
 
   /**
-   * Pull remote changes from the server
+   * Pull remote changes from the server.
+   *
+   * Phase 1.5 / B4: cursor moved from `last-sync.json` (timestamp,
+   * clock-skew-prone) to `sync_cursors(user_id, device_id, project_id)
+   * → last_event_id`. The legacy timestamp is still sent alongside
+   * `sinceEventId` so a pre-1.5 server keeps working.
    */
   async pull(projectId: string): Promise<PullResult> {
-    // Check auth first
     if (!(await this.hasAuth())) {
       return { success: true, skipped: true, reason: 'no_auth' }
     }
 
     try {
-      // Get last sync timestamp
-      const lastSync = await syncEventBus.getLastSync(projectId)
-      const since = lastSync?.timestamp
+      const { syncCursorStorage } = await import('../storage/sync-cursor-storage')
+      const auth = await authConfig.read()
+      const deviceId = auth.deviceId ?? null
+      const userId = auth.userId ?? null
 
-      // Pull from server
-      const result: SyncPullResult = await syncClient.pullEvents(projectId, since)
+      const cursor = deviceId ? syncCursorStorage.get(projectId, userId, deviceId) : null
+      const sinceEventId = cursor?.lastEventId ?? 0
+
+      const lastSync = await syncEventBus.getLastSync(projectId)
+      const sinceTimestamp = lastSync?.timestamp
+
+      const result: SyncPullResult = await syncClient.pullEvents(
+        projectId,
+        sinceEventId,
+        sinceTimestamp
+      )
 
       if (result.events.length === 0) {
+        await syncEventBus.updateLastSync(projectId)
         return {
           success: true,
           skipped: false,
@@ -176,10 +248,21 @@ class SyncManager {
         }
       }
 
-      // Apply pulled events to local storage
       const applied = await this.applyPulledEvents(projectId, result.events)
 
-      // Update last sync timestamp
+      // Advance the cursor to the highest server_event_id we've seen.
+      // event records may carry it as `event_id` (web) or `eventId` (B5).
+      let highest = sinceEventId
+      for (const ev of result.events as Array<Record<string, unknown>>) {
+        const candidates = [ev.event_id, ev.eventId]
+        for (const c of candidates) {
+          if (typeof c === 'number' && c > highest) highest = c
+        }
+      }
+      if (deviceId && highest > sinceEventId) {
+        syncCursorStorage.advance(projectId, highest, { userId, deviceId })
+      }
+
       await syncEventBus.updateLastSync(projectId)
 
       return {
@@ -225,138 +308,66 @@ class SyncManager {
   }
 
   /**
-   * Apply a single event to local storage
-   * Supports both web format (entity_type + event_type) and legacy CLI format (type: "entity.action")
+   * Apply a single pulled event to local storage.
+   *
+   * Phase 1.5 / B2 + handler-registry refactor:
+   *   - Upsert-by-id (no more `addTask` / `addIdea` that duplicate).
+   *   - Honors `event_type === 'delete'` with entity-specific
+   *     tombstones (clear-current-task, mark-archived for ideas,
+   *     drop from queue, no-op for append-only shipped_*).
+   *   - The per-entity logic lives in `core/sync/entity-handlers/`;
+   *     this method just normalizes the event shape and dispatches.
+   *     Adding a new entity_type = new handler file + 1 line in the
+   *     registry. No edits here.
+   *   - Idempotency via content_hash: if the incoming hash matches
+   *     what we already have, skip. Last-write-wins desempata when
+   *     two devices update the same entity in parallel — the higher
+   *     server_event_id wins (callers feed events in order).
+   *
+   * Supports both web format (`entity_type` + `event_type`) and legacy
+   * CLI format (`type: "entity.action"`). Output is the same.
    */
   private async applyEvent(projectId: string, event: Record<string, unknown>): Promise<void> {
-    // Normalize: support both web format and legacy CLI format
-    let entityType: string
-    let eventType: string
-    let data: Record<string, unknown>
+    const { entityType, eventType, data, contentHash } = normalizeEventShape(event)
 
-    if (event.entity_type) {
-      // Web format
-      entityType = event.entity_type as string
-      eventType = event.event_type as string
-      data = (event.data as Record<string, unknown>) || {}
-    } else {
-      // Legacy CLI format: type = "entity.action"
-      const [entity, action] = ((event.type as string) || '').split('.')
-      const legacyEntityMap: Record<string, string> = {
-        task: 'tasks',
-        idea: 'ideas',
-        feature: 'roadmap_features',
-        shipped: 'shipped_items',
-        queue: 'queue_tasks',
-        project: 'projects',
-      }
-      entityType = legacyEntityMap[entity] || entity
-      eventType = action === 'deleted' ? 'delete' : 'upsert'
-      data = (event.data as Record<string, unknown>) || {}
-    }
-
-    if (eventType === 'delete') {
-      // For deletes, we'd need entity-specific delete logic
-      // For now, skip — local storage doesn't support targeted deletes easily
+    // Idempotency hook — re-applying the same event is a no-op.
+    if (contentHash && (await this.alreadyApplied(projectId, entityType, data, contentHash))) {
       return
     }
 
-    switch (entityType) {
-      case 'tasks':
-        await this.applyTaskUpsert(projectId, data)
-        break
-      case 'ideas':
-        await this.applyIdeaUpsert(projectId, data)
-        break
-      case 'shipped_items':
-        await this.applyShippedUpsert(projectId, data)
-        break
-      case 'queue_tasks':
-        await this.applyQueueUpsert(projectId, data)
-        break
-      case 'roadmap_features':
-        // Roadmap data is stored in kv_store as JSON — skip for now
-        // as it requires more complex merge logic
-        break
-      case 'projects':
-        // Project config updates are handled at the sync level
-        break
+    const handler = entityHandlers[entityType]
+    if (!handler) {
+      // roadmap_features / projects / unknown — pull stays idempotent
+      // by no-op. Add a handler in `core/sync/entity-handlers/` to
+      // bring a new entity_type into the apply path.
+      return
     }
-  }
 
-  private async applyTaskUpsert(projectId: string, data: Record<string, unknown>): Promise<void> {
-    const status = (data.status as string) || ''
-
-    if (status === 'active' || data.started_at || data.startedAt) {
-      // Active task — update state
-      await stateStorage.update(projectId, (state) => {
-        if (!state.currentTask || (data.id as string) !== state.currentTask.id) {
-          return {
-            ...state,
-            currentTask: {
-              id: data.id as string,
-              description: data.description as string,
-              startedAt: (data.started_at as string) || (data.startedAt as string),
-              sessionId: (data.session_id as string) || (data.sessionId as string) || '',
-            },
-          }
-        }
-        return state
-      })
-    } else if (status === 'completed') {
-      // Clear current task if it matches
-      await stateStorage.update(projectId, (state) => {
-        if (state.currentTask?.id === data.id) {
-          return { ...state, currentTask: null }
-        }
-        return state
-      })
-    } else {
-      // Queued/backlog task — add to queue
-      await queueStorage.addTask(projectId, {
-        description: data.description as string,
-        priority: (data.priority as Priority) || 'medium',
-        type: (data.type as TaskType) || 'feature',
-        section: 'backlog' as TaskSection,
-      })
+    if (eventType === 'delete') {
+      await handler.delete(projectId, data)
+      return
     }
+    await handler.upsert(projectId, data)
   }
 
-  private async applyIdeaUpsert(projectId: string, data: Record<string, unknown>): Promise<void> {
-    const status = (data.status as string) || 'active'
-
-    if (status === 'archived') {
-      await ideasStorage.update(projectId, (ideas) => ({
-        ...ideas,
-        ideas: ideas.ideas.map((idea) =>
-          idea.id === data.id ? { ...idea, status: 'archived' as const } : idea
-        ),
-      }))
-    } else {
-      await ideasStorage.addIdea(projectId, (data.title as string) || (data.text as string) || '', {
-        priority: (data.priority as IdeaPriority) || 'medium',
-      })
-    }
-  }
-
-  private async applyShippedUpsert(
-    projectId: string,
-    data: Record<string, unknown>
-  ): Promise<void> {
-    await shippedStorage.addShipped(projectId, {
-      name: (data.name as string) || (data.title as string) || '',
-      version: (data.version as string) || '',
-      description: (data.description as string) || '',
-    })
-  }
-
-  private async applyQueueUpsert(projectId: string, data: Record<string, unknown>): Promise<void> {
-    await queueStorage.addTask(projectId, {
-      description: (data.description as string) || '',
-      priority: (data.priority as Priority) || 'medium',
-      type: (data.type as TaskType) || 'feature',
-      section: (data.section as TaskSection) || 'backlog',
-    })
+  /**
+   * Idempotency probe: did we already apply an event with this
+   * content_hash for this entity? Currently a soft check (returns
+   * false on lookup failure so apply proceeds). The persistence
+   * story will firm up when we wire content_hash storage on entity
+   * rows in a follow-up.
+   */
+  private async alreadyApplied(
+    _projectId: string,
+    _entityType: string,
+    _data: Record<string, unknown>,
+    _contentHash: string
+  ): Promise<boolean> {
+    // TODO: persist content_hash per (entity_type, entity_id) so we
+    //   can short-circuit no-op events. For now the upsert paths in
+    //   each handler are themselves idempotent (id-based), so
+    //   re-applying is safe.
+    return false
   }
 
   /**

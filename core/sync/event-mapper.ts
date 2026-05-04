@@ -16,7 +16,7 @@ interface WebSyncEvent {
 }
 
 /**
- * Entity type mapping: CLI entity name → Supabase table name
+ * Entity type mapping: CLI entity name → cloud entity table
  */
 const ENTITY_TYPE_MAP: Record<string, string> = {
   task: 'tasks',

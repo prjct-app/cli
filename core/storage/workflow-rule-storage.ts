@@ -5,6 +5,7 @@
  * Stores hooks, gates, and custom steps per project.
  */
 
+import { publishCRUDSync } from '../sync/publish-helper'
 import type { WorkflowRule } from '../types/storage/extended'
 import { customWorkflowStorage } from './custom-workflow-storage'
 import { prjctDb } from './database'
@@ -80,7 +81,31 @@ class WorkflowRuleStorage {
     )
 
     const inserted = prjctDb.get<{ id: number }>(projectId, 'SELECT last_insert_rowid() as id')
-    return inserted?.id ?? 0
+    const ruleId = inserted?.id ?? 0
+    if (ruleId > 0) {
+      publishCRUDSync({
+        projectId,
+        entityType: 'workflow_rules',
+        entityId: String(ruleId),
+        eventType: 'upsert',
+        data: {
+          id: ruleId,
+          type: rule.type,
+          command: rule.command,
+          position: rule.position,
+          action: rule.action,
+          description: rule.description ?? null,
+          enabled: rule.enabled ? 1 : 0,
+          timeout_ms: rule.timeoutMs,
+          sort_order: sortOrder,
+          when_expr: rule.whenExpr ?? null,
+          parallel: rule.parallel === false ? 0 : 1,
+          trust_source: rule.trustSource ?? 'local',
+          created_at: rule.createdAt,
+        },
+      })
+    }
+    return ruleId
   }
 
   removeRule(projectId: string, ruleId: number): boolean {
@@ -92,6 +117,13 @@ class WorkflowRuleStorage {
     if (!existing) return false
 
     prjctDb.run(projectId, 'DELETE FROM workflow_rules WHERE id = ?', ruleId)
+    publishCRUDSync({
+      projectId,
+      entityType: 'workflow_rules',
+      entityId: String(ruleId),
+      eventType: 'delete',
+      data: { id: ruleId },
+    })
     return true
   }
 

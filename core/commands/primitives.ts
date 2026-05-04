@@ -11,7 +11,6 @@
 
 import { STATUS_CHANGE_ACTION } from '../memory/events'
 import { MEMORY_TYPES, type MemoryType, projectMemory } from '../memory/project-memory'
-import { scanForSecrets } from '../memory/secret-scanner'
 import type { TaskType } from '../schemas/state'
 import { memoryService } from '../services/memory-service'
 import { stateStorage } from '../storage/state-storage'
@@ -20,6 +19,7 @@ import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import { failHard } from '../utils/md-aware'
 import out from '../utils/output'
+import { scanForSecrets } from '../utils/secret-scanner'
 import { PrjctCommandsBase } from './base'
 import { requireActiveTask, requireProject } from './guards'
 

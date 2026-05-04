@@ -253,6 +253,42 @@ export const projectMemory = {
       source: args.source,
       provenance: args.provenance ?? 'declared',
     })
+
+    // Phase 1.5 / B1: also publish to the sync queue so prjct-cloud
+    // mirrors memories. memoryService.log writes to the local events
+    // table, but it doesn't enqueue a SyncEvent for push — that's
+    // what this call does. Best-effort; a sync queue write must not
+    // fail the local memory write.
+    try {
+      const { default: configManager } = await import('../infrastructure/config-manager')
+      const cfg = await configManager.readConfig(projectPath)
+      const projectId = cfg?.projectId
+      if (!projectId) return
+      const { publishCRUD } = await import('../sync/publish-helper')
+      const entityId =
+        args.tags?.spec_id ??
+        args.tags?.task_id ??
+        args.tags?.id ??
+        args.source ??
+        `mem-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+      await publishCRUD({
+        projectId,
+        entityType: 'memories',
+        entityId,
+        eventType: 'upsert',
+        data: {
+          id: entityId,
+          type: args.type,
+          content: args.content,
+          tags: args.tags ?? {},
+          source: args.source ?? null,
+          provenance: args.provenance ?? 'declared',
+          rememberedAt: new Date().toISOString(),
+        },
+      })
+    } catch {
+      // Best-effort — local memory write already succeeded.
+    }
   },
 
   /**
