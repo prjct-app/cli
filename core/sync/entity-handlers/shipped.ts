@@ -8,7 +8,7 @@
  */
 
 import { shippedStorage } from '../../storage/shipped-storage'
-import type { ApplyData, EntityHandler } from './types'
+import type { EntityHandler } from './types'
 
 export const shippedHandler: EntityHandler = {
   async upsert(projectId, data) {

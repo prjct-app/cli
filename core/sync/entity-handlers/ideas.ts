@@ -7,7 +7,7 @@
 
 import type { IdeaPriority } from '../../schemas/ideas'
 import { ideasStorage } from '../../storage/ideas-storage'
-import type { ApplyData, EntityHandler } from './types'
+import type { EntityHandler } from './types'
 
 export const ideasHandler: EntityHandler = {
   async upsert(projectId, data) {
