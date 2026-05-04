@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.16.0] - 2026-05-04
+
+### Features
+
+- Phase 1.5 — harden sync engine for prjct-cloud (B1–B8) (#319)
+
+### Bug Fixes
+
+- drop unused imports in entity-handlers (#320)
+
+
 ## [2.15.0] - 2026-05-03
 
 ### Features
