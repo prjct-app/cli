@@ -514,4 +514,96 @@ export const migrations: Migration[] = [
       }
     },
   },
+  {
+    version: 17,
+    name: 'sync-engine-wire-format',
+    up: (db: SqliteDatabase) => {
+      // Phase 1.5 (B5): extend the events table with the wire-format
+      // columns prjct-cloud expects. All additions are nullable / have
+      // safe defaults so pre-1.5 events keep deserializing — applyEvent
+      // tolerates NULL for these fields.
+      //
+      // Columns (all ALTER ADD, idempotent on rerun):
+      //   server_event_id   — monotonic id assigned by prjct-cloud after
+      //                       push. NULL until synced. Used as pull cursor.
+      //   entity_type       — canonical entity (tasks, ideas, memories,
+      //                       …); empty for legacy rows.
+      //   entity_id         — id of the entity referenced; empty for legacy.
+      //   event_type        — 'upsert' | 'delete'; empty for legacy.
+      //   device_id         — UUIDv4 of the device emitting this event.
+      //   origin_device_id  — UUIDv4 of the first creator's device.
+      //   content_hash      — sha256(payload). Idempotency key for
+      //                       applyEvent + last-write-wins desempata.
+      //   revision_count    — per-entity revision counter, increments on
+      //                       every update. Defaults to 1.
+      const columns: Array<[string, string]> = [
+        ['server_event_id', 'INTEGER'],
+        ['entity_type', 'TEXT'],
+        ['entity_id', 'TEXT'],
+        ['event_type', 'TEXT'],
+        ['device_id', 'TEXT'],
+        ['origin_device_id', 'TEXT'],
+        ['content_hash', 'TEXT'],
+        ['revision_count', 'INTEGER NOT NULL DEFAULT 1'],
+      ]
+      for (const [name, decl] of columns) {
+        try {
+          db.run(`ALTER TABLE events ADD COLUMN ${name} ${decl}`)
+        } catch {
+          // Column may already exist (re-run safety)
+        }
+      }
+      try {
+        db.run('CREATE INDEX IF NOT EXISTS idx_events_server_id ON events(server_event_id)')
+        db.run('CREATE INDEX IF NOT EXISTS idx_events_entity ON events(entity_type, entity_id)')
+        db.run('CREATE INDEX IF NOT EXISTS idx_events_device ON events(device_id)')
+      } catch {
+        // Index may already exist
+      }
+
+      // Phase 1.5 (B3): durable, concurrency-safe pending queue. Replaces
+      // sync/pending.json. Append + clear are transactional — WS apply
+      // and CLI publish can race without losing events.
+      //
+      // Each row holds a serialized SyncEvent (JSON) plus the entity
+      // metadata so we can dedupe by (entity_type, entity_id) when the
+      // server confirms a partial batch.
+      db.run(`
+        CREATE TABLE IF NOT EXISTS sync_pending (
+          id              INTEGER PRIMARY KEY AUTOINCREMENT,
+          project_id      TEXT NOT NULL,
+          entity_type     TEXT,
+          entity_id       TEXT,
+          event_type      TEXT,
+          content_hash    TEXT,
+          payload         TEXT NOT NULL,
+          enqueued_at     TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_sync_pending_project ON sync_pending(project_id);
+        CREATE INDEX IF NOT EXISTS idx_sync_pending_entity ON sync_pending(entity_type, entity_id);
+      `)
+
+      // Phase 1.5 (B4): sync_cursors per (user_id, device_id, project_id).
+      // Replaces last-sync.json. Pull uses last_event_id (server's
+      // monotonic id), not timestamp — so clock skew between devices no
+      // longer skips events.
+      //
+      // last_event_id is the highest server_event_id we have applied
+      // locally for THIS tuple. user_id may be NULL for projects shipped
+      // before the user authenticated (cleaned up at first auth).
+      db.run(`
+        CREATE TABLE IF NOT EXISTS sync_cursors (
+          user_id         TEXT,
+          device_id       TEXT NOT NULL,
+          project_id      TEXT NOT NULL,
+          last_event_id   INTEGER NOT NULL DEFAULT 0,
+          updated_at      TEXT NOT NULL,
+          PRIMARY KEY (user_id, device_id, project_id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_sync_cursors_project ON sync_cursors(project_id);
+      `)
+    },
+  },
 ]
