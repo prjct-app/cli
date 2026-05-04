@@ -5,6 +5,7 @@
  * Built-in workflows (task, done, ship, sync) are immutable and cannot be deleted.
  */
 
+import { publishCRUDSync } from '../sync/publish-helper'
 import type { CustomWorkflow } from '../types/storage/extended'
 import prjctDb from './database'
 
@@ -55,6 +56,23 @@ class CustomWorkflowStorage {
     if (!result) {
       throw new Error(`Failed to create workflow: ${workflow.name}`)
     }
+
+    publishCRUDSync({
+      projectId,
+      entityType: 'custom_workflows',
+      entityId: String(result.id),
+      eventType: 'upsert',
+      data: {
+        id: result.id,
+        name: workflow.name,
+        description: workflow.description ?? null,
+        metadata: workflow.metadata ?? null,
+        created_at: now,
+        updated_at: now,
+        is_builtin: 0,
+        enabled: 1,
+      },
+    })
 
     return result.id
   }
@@ -135,6 +153,23 @@ class CustomWorkflowStorage {
       ...values
     )
 
+    const after = this.getWorkflow(projectId, name)
+    if (after) {
+      publishCRUDSync({
+        projectId,
+        entityType: 'custom_workflows',
+        entityId: String(after.id),
+        eventType: 'upsert',
+        data: {
+          id: after.id,
+          name: after.name,
+          description: after.description ?? null,
+          enabled: after.enabled ? 1 : 0,
+          metadata: after.metadata ?? null,
+          updated_at: now,
+        },
+      })
+    }
     return true
   }
 
@@ -152,6 +187,14 @@ class CustomWorkflowStorage {
 
     // Soft delete: set enabled = 0
     prjctDb.run(projectId, 'UPDATE custom_workflows SET enabled = 0 WHERE name = ?', name)
+
+    publishCRUDSync({
+      projectId,
+      entityType: 'custom_workflows',
+      entityId: String(workflow.id),
+      eventType: 'delete',
+      data: { id: workflow.id, name },
+    })
 
     return true
   }

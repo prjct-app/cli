@@ -7,11 +7,87 @@
  * Subclasses implement specific data types (state, queue, ideas, shipped).
  */
 
+import crypto from 'node:crypto'
 import { syncEventBus } from '../events/sync-events'
 import type { SyncEvent } from '../types/events'
 import { TTLCache } from '../utils/cache'
 import { getTimestamp } from '../utils/date-helper'
 import { prjctDb } from './database'
+
+/**
+ * Map a legacy compound type ("task.started", "idea.archived") to the
+ * (entity_type, event_type) pair the cloud expects. Anything ending in
+ * "deleted" / "archived" / "removed" is treated as a tombstone; the rest
+ * is `upsert`. Unknown shapes return undefined entity (`publishEvent`
+ * tolerates this — the wire format fields stay null).
+ */
+function deriveEntityShape(legacyType: string): {
+  entityType?: string
+  eventType?: 'upsert' | 'delete'
+} {
+  const [rawEntity, rawAction] = legacyType.split('.')
+  if (!rawEntity) return {}
+  // Plural the entity name for cloud table mapping (`task` → `tasks`).
+  const entityType = rawEntity.endsWith('s') ? rawEntity : `${rawEntity}s`
+  const tombstone = rawAction === 'deleted' || rawAction === 'archived' || rawAction === 'removed'
+  return { entityType, eventType: tombstone ? 'delete' : 'upsert' }
+}
+
+function entityIdOf(eventData: unknown): string | undefined {
+  if (!eventData || typeof eventData !== 'object') return undefined
+  const obj = eventData as Record<string, unknown>
+  for (const k of ['taskId', 'task_id', 'id', 'feature_id', 'featureId', 'specId', 'spec_id']) {
+    const v = obj[k]
+    if (typeof v === 'string' && v.length > 0) return v
+  }
+  return undefined
+}
+
+function hashPayload(data: unknown): string {
+  const canonical =
+    data && typeof data === 'object' && !Array.isArray(data)
+      ? JSON.stringify(sortKeys(data as Record<string, unknown>))
+      : JSON.stringify(data)
+  return crypto.createHash('sha256').update(canonical).digest('hex')
+}
+
+function sortKeys(obj: Record<string, unknown>): Record<string, unknown> {
+  const sorted: Record<string, unknown> = {}
+  for (const k of Object.keys(obj).sort()) sorted[k] = obj[k]
+  return sorted
+}
+
+/**
+ * Lazy device-id resolution. Fully implemented in B6; returns
+ * 'unknown-device' until then so events still flow.
+ */
+let _cachedDeviceId: string | null = null
+async function _resolveDeviceId(): Promise<string> {
+  if (_cachedDeviceId) return _cachedDeviceId
+  try {
+    // Lazy import — auth-config reaches into pathManager/file-helper which
+    // would otherwise pull a heavy graph into every storage import.
+    const { default: authConfig } = await import('../sync/auth-config')
+    // `getDeviceId` is the B6 surface; until then this throws (caught below).
+    type WithDeviceId = { getDeviceId?: () => Promise<string> }
+    const ac = authConfig as unknown as WithDeviceId
+    if (typeof ac.getDeviceId === 'function') {
+      _cachedDeviceId = await ac.getDeviceId()
+      return _cachedDeviceId
+    }
+    return 'unknown-device'
+  } catch {
+    return 'unknown-device'
+  }
+}
+
+/**
+ * Reset the cached device id. Called by `auth-config.write` (B6) so the
+ * next publish picks up a freshly-generated UUID without restarting.
+ */
+export function _resetStorageManagerDeviceCache(): void {
+  _cachedDeviceId = null
+}
 
 export abstract class StorageManager<T> {
   protected filename: string
@@ -88,19 +164,33 @@ export abstract class StorageManager<T> {
   }
 
   /**
-   * Publish sync event to syncEventBus
+   * Publish sync event to syncEventBus.
+   *
+   * Phase 1.5 / B1: enriches the event with the wire format fields
+   * (entityType, entityId, eventType, contentHash, deviceId,
+   * revisionCount) so prjct-cloud's applyEvent can dedupe + last-write-
+   * wins desempata. The legacy `eventType` parameter (still
+   * "entity.action" string) drives the derivation; explicit overrides
+   * via `publishEntityEventCRUD` skip the inference.
    */
   protected async publishEvent(
     projectId: string,
     eventType: string,
     eventData: unknown
   ): Promise<void> {
+    const shape = deriveEntityShape(eventType)
     const event: SyncEvent = {
       type: eventType,
       path: [this.filename.replace('.json', '')],
       data: eventData,
       timestamp: getTimestamp(),
       projectId,
+      entityType: shape.entityType,
+      entityId: entityIdOf(eventData),
+      eventType: shape.eventType,
+      contentHash: hashPayload(eventData),
+      deviceId: await _resolveDeviceId(),
+      revisionCount: 1,
     }
 
     await syncEventBus.publish(event)

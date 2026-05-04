@@ -9,6 +9,7 @@
  */
 
 import { generateUUID } from '../schemas/schemas'
+import { publishCRUDSync } from '../sync/publish-helper'
 import type {
   ArchiveEntityType,
   ArchiveItem,
@@ -53,6 +54,21 @@ class ArchiveStorage {
       now,
       item.reason
     )
+
+    publishCRUDSync({
+      projectId,
+      entityType: 'archives',
+      entityId: id,
+      eventType: 'upsert',
+      data: {
+        id,
+        entity_type: item.entityType,
+        entity_id: item.entityId,
+        summary: item.summary ?? null,
+        reason: item.reason,
+        archived_at: now,
+      },
+    })
 
     return id
   }
