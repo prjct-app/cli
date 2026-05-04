@@ -120,7 +120,10 @@ describe('SyncClient.pullEvents', () => {
   it('calls /sync/pull with since timestamp', async () => {
     stubFetch(() => jsonResponse(200, { events: [] }))
 
-    await syncClient.pullEvents('proj-1', '2026-04-01T00:00:00Z')
+    // Phase 1.5 / B4: pullEvents takes (projectId, sinceEventId,
+    // sinceTimestamp). The legacy timestamp still rides along on the
+    // body for compatibility with pre-1.5 servers.
+    await syncClient.pullEvents('proj-1', undefined, '2026-04-01T00:00:00Z')
 
     expect(calls[0].url).toContain('/sync/pull')
     const body = JSON.parse(calls[0].init?.body as string)
