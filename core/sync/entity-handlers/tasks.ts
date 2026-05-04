@@ -14,7 +14,7 @@
 import type { Priority, TaskSection, TaskType } from '../../schemas/state'
 import { queueStorage } from '../../storage/queue-storage'
 import { stateStorage } from '../../storage/state-storage'
-import type { ApplyData, EntityHandler } from './types'
+import type { EntityHandler } from './types'
 
 export const tasksHandler: EntityHandler = {
   async upsert(projectId, data) {
