@@ -6,12 +6,6 @@
  */
 
 import { syncEventBus } from '../events/sync-events'
-import type { IdeaPriority } from '../schemas/ideas'
-import type { Priority, TaskSection, TaskType } from '../schemas/state'
-import { ideasStorage } from '../storage/ideas-storage'
-import { queueStorage } from '../storage/queue-storage'
-import { shippedStorage } from '../storage/shipped-storage'
-import { stateStorage } from '../storage/state-storage'
 import type { SyncEvent } from '../types/events'
 import type {
   PullResult,
@@ -22,6 +16,7 @@ import type {
   SyncStatus,
 } from '../types/sync'
 import authConfig from './auth-config'
+import { entityHandlers } from './entity-handlers'
 import { syncClient } from './sync-client'
 
 // ============================================
@@ -315,12 +310,17 @@ class SyncManager {
   /**
    * Apply a single pulled event to local storage.
    *
-   * Phase 1.5 / B2 rewrite:
+   * Phase 1.5 / B2 + handler-registry refactor:
    *   - Upsert-by-id (no more `addTask` / `addIdea` that duplicate).
-   *   - Honors `event_type === 'delete'` with entity-specific tombstones
-   *     (clear-current-task, mark-archived for ideas, drop from queue).
-   *   - Idempotency via content_hash: if the incoming hash matches what
-   *     we already have, skip the write. Last-write-wins desempata when
+   *   - Honors `event_type === 'delete'` with entity-specific
+   *     tombstones (clear-current-task, mark-archived for ideas,
+   *     drop from queue, no-op for append-only shipped_*).
+   *   - The per-entity logic lives in `core/sync/entity-handlers/`;
+   *     this method just normalizes the event shape and dispatches.
+   *     Adding a new entity_type = new handler file + 1 line in the
+   *     registry. No edits here.
+   *   - Idempotency via content_hash: if the incoming hash matches
+   *     what we already have, skip. Last-write-wins desempata when
    *     two devices update the same entity in parallel — the higher
    *     server_event_id wins (callers feed events in order).
    *
@@ -328,91 +328,34 @@ class SyncManager {
    * CLI format (`type: "entity.action"`). Output is the same.
    */
   private async applyEvent(projectId: string, event: Record<string, unknown>): Promise<void> {
-    const normalized = normalizeEventShape(event)
-    const { entityType, eventType, data, contentHash } = normalized
+    const { entityType, eventType, data, contentHash } = normalizeEventShape(event)
 
-    if (eventType === 'delete') {
-      await this.applyDelete(projectId, entityType, data)
-      return
-    }
-
-    // Idempotency check — re-applying the same event is a no-op.
+    // Idempotency hook — re-applying the same event is a no-op.
     if (contentHash && (await this.alreadyApplied(projectId, entityType, data, contentHash))) {
       return
     }
 
-    switch (entityType) {
-      case 'tasks':
-        await this.applyTaskUpsert(projectId, data)
-        break
-      case 'ideas':
-        await this.applyIdeaUpsert(projectId, data)
-        break
-      case 'shipped_items':
-      case 'shipped_features':
-        await this.applyShippedUpsert(projectId, data)
-        break
-      case 'queue_tasks':
-        await this.applyQueueUpsert(projectId, data)
-        break
-      case 'roadmap_features':
-      case 'projects':
-        // Roadmap + project config still merged at the sync level.
-        // No-op here keeps the pull idempotent.
-        break
+    const handler = entityHandlers[entityType]
+    if (!handler) {
+      // roadmap_features / projects / unknown — pull stays idempotent
+      // by no-op. Add a handler in `core/sync/entity-handlers/` to
+      // bring a new entity_type into the apply path.
+      return
     }
-  }
 
-  /**
-   * Apply a delete tombstone. Each entity has its own deletion shape:
-   *   - tasks      → clear currentTask if id matches
-   *   - ideas      → mark archived in place (soft-delete)
-   *   - queue_tasks → drop from the backlog
-   *   - shipped_*  → no-op (shipped is append-only history)
-   */
-  private async applyDelete(
-    projectId: string,
-    entityType: string,
-    data: Record<string, unknown>
-  ): Promise<void> {
-    const id = (data.id as string) || ''
-    if (!id && entityType !== 'shipped_items' && entityType !== 'shipped_features') return
-
-    switch (entityType) {
-      case 'tasks':
-        await stateStorage.update(projectId, (state) => {
-          if (state.currentTask?.id === id) {
-            return { ...state, currentTask: null }
-          }
-          return state
-        })
-        return
-      case 'ideas':
-        await ideasStorage.update(projectId, (ideas) => ({
-          ...ideas,
-          ideas: ideas.ideas.map((idea) =>
-            idea.id === id ? { ...idea, status: 'archived' as const } : idea
-          ),
-        }))
-        return
-      case 'queue_tasks':
-        await queueStorage.update(projectId, (queue) => ({
-          ...queue,
-          tasks: queue.tasks.filter((t) => t.id !== id),
-        }))
-        return
-      default:
-        // shipped_* + roadmap_features + projects: no-op.
-        return
+    if (eventType === 'delete') {
+      await handler.delete(projectId, data)
+      return
     }
+    await handler.upsert(projectId, data)
   }
 
   /**
    * Idempotency probe: did we already apply an event with this
    * content_hash for this entity? Currently a soft check (returns
-   * false on lookup failure so apply proceeds). The persistence story
-   * will firm up when we wire content_hash storage on entity rows in
-   * a follow-up.
+   * false on lookup failure so apply proceeds). The persistence
+   * story will firm up when we wire content_hash storage on entity
+   * rows in a follow-up.
    */
   private async alreadyApplied(
     _projectId: string,
@@ -421,130 +364,10 @@ class SyncManager {
     _contentHash: string
   ): Promise<boolean> {
     // TODO: persist content_hash per (entity_type, entity_id) so we
-    //   can short-circuit no-op events. For now the upsert paths below
-    //   are themselves idempotent (id-based), so re-applying is safe.
+    //   can short-circuit no-op events. For now the upsert paths in
+    //   each handler are themselves idempotent (id-based), so
+    //   re-applying is safe.
     return false
-  }
-
-  private async applyTaskUpsert(projectId: string, data: Record<string, unknown>): Promise<void> {
-    const id = (data.id as string) || ''
-    if (!id) return
-    const status = (data.status as string) || ''
-
-    if (status === 'completed' || status === 'shipped') {
-      // Completed task — clear currentTask if it matches; this is the
-      // delete-equivalent for `tasks` (history lives in `events`).
-      await stateStorage.update(projectId, (state) => {
-        if (state.currentTask?.id === id) {
-          return { ...state, currentTask: null }
-        }
-        return state
-      })
-      return
-    }
-
-    if (status === 'active' || data.started_at || data.startedAt) {
-      // Upsert into currentTask — replace by id, no append.
-      await stateStorage.update(projectId, (state) => ({
-        ...state,
-        currentTask: {
-          id,
-          description: data.description as string,
-          startedAt:
-            (data.started_at as string) || (data.startedAt as string) || new Date().toISOString(),
-          sessionId: (data.session_id as string) || (data.sessionId as string) || '',
-        },
-      }))
-      return
-    }
-
-    // Backlog task — upsert by id into the queue.
-    await queueStorage.update(projectId, (queue) => {
-      const existingIdx = queue.tasks.findIndex((t) => t.id === id)
-      const next = {
-        id,
-        description: data.description as string,
-        priority: (data.priority as Priority) || 'medium',
-        type: (data.type as TaskType) || 'feature',
-        section: 'backlog' as TaskSection,
-      } as (typeof queue.tasks)[number]
-      const tasks =
-        existingIdx >= 0
-          ? queue.tasks.map((t, i) => (i === existingIdx ? { ...t, ...next } : t))
-          : [...queue.tasks, next]
-      return { ...queue, tasks }
-    })
-  }
-
-  private async applyIdeaUpsert(projectId: string, data: Record<string, unknown>): Promise<void> {
-    const id = (data.id as string) || ''
-    if (!id) return
-    const text = (data.title as string) || (data.text as string) || ''
-    const priority = (data.priority as IdeaPriority) || 'medium'
-    const status = (data.status as string) || 'active'
-
-    await ideasStorage.update(projectId, (ideas) => {
-      const existingIdx = ideas.ideas.findIndex((i) => i.id === id)
-      const desiredStatus = status === 'archived' ? ('archived' as const) : ('pending' as const)
-      const next = {
-        id,
-        text,
-        priority,
-        status: desiredStatus,
-        addedAt: ideas.ideas[existingIdx]?.addedAt ?? new Date().toISOString(),
-        tags: ideas.ideas[existingIdx]?.tags ?? [],
-      } as (typeof ideas.ideas)[number]
-      const list =
-        existingIdx >= 0
-          ? ideas.ideas.map((i, idx) => (idx === existingIdx ? { ...i, ...next } : i))
-          : [...ideas.ideas, next]
-      return { ...ideas, ideas: list }
-    })
-  }
-
-  private async applyShippedUpsert(
-    projectId: string,
-    data: Record<string, unknown>
-  ): Promise<void> {
-    // Shipped is append-only history — `addShipped` is the right shape
-    // (no upsert). Dedup happens via content_hash + the sync_pending
-    // dedupe upstream.
-    await shippedStorage.addShipped(projectId, {
-      name: (data.name as string) || (data.title as string) || '',
-      version: (data.version as string) || '',
-      description: (data.description as string) || '',
-    })
-  }
-
-  private async applyQueueUpsert(projectId: string, data: Record<string, unknown>): Promise<void> {
-    const id = (data.id as string) || ''
-    if (!id) {
-      // Legacy events without id → fall back to append (preserves old
-      // behavior; new events from B1-instrumented storages always carry id).
-      await queueStorage.addTask(projectId, {
-        description: (data.description as string) || '',
-        priority: (data.priority as Priority) || 'medium',
-        type: (data.type as TaskType) || 'feature',
-        section: (data.section as TaskSection) || 'backlog',
-      })
-      return
-    }
-
-    await queueStorage.update(projectId, (queue) => {
-      const existingIdx = queue.tasks.findIndex((t) => t.id === id)
-      const next = {
-        id,
-        description: (data.description as string) || '',
-        priority: (data.priority as Priority) || 'medium',
-        type: (data.type as TaskType) || 'feature',
-        section: (data.section as TaskSection) || 'backlog',
-      } as (typeof queue.tasks)[number]
-      const tasks =
-        existingIdx >= 0
-          ? queue.tasks.map((t, i) => (i === existingIdx ? { ...t, ...next } : t))
-          : [...queue.tasks, next]
-      return { ...queue, tasks }
-    })
   }
 
   /**
