@@ -624,4 +624,27 @@ export const migrations: Migration[] = [
       }
     },
   },
+  {
+    version: 19,
+    name: 'sync-applied-hashes',
+    up: (db: SqliteDatabase) => {
+      // Phase 1.6 (B2): persist content_hash per applied entity so
+      // applyEvent can short-circuit no-op events instead of re-running
+      // the handler upsert. Side table (not a column on entity tables)
+      // so we don't have to migrate every entity schema and can evict
+      // independently of business state if cleanup is ever needed.
+      //
+      // PRIMARY KEY guarantees one row per (entity_type, entity_id) —
+      // recordApplied does an UPSERT, not an INSERT.
+      db.run(`
+        CREATE TABLE IF NOT EXISTS sync_applied_hashes (
+          entity_type     TEXT NOT NULL,
+          entity_id       TEXT NOT NULL,
+          content_hash    TEXT NOT NULL,
+          applied_at      TEXT NOT NULL,
+          PRIMARY KEY (entity_type, entity_id)
+        );
+      `)
+    },
+  },
 ]

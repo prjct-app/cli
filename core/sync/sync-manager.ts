@@ -16,8 +16,35 @@ import type {
   SyncStatus,
 } from '../types/sync'
 import authConfig from './auth-config'
-import { entityHandlers } from './entity-handlers'
+import { entityHandlers, UNKNOWN_ENTITY_TYPES } from './entity-handlers'
+import { clearApplied, getApplied, recordApplied } from './sync-applied-hashes'
 import { syncClient } from './sync-client'
+
+// Per-process dedupe for the "no local handler" warn — without this,
+// pulling a batch of 50 events for an unhandled entity_type would emit
+// 50 identical warns. Reset on process restart, which is fine: the warn
+// is a development-time signal, not a production log line.
+const WARN_LOGGED: Set<string> = new Set()
+
+function warnNoLocalHandler(entityType: string): void {
+  if (WARN_LOGGED.has(entityType)) return
+  WARN_LOGGED.add(entityType)
+  const known = UNKNOWN_ENTITY_TYPES.has(entityType)
+  const reason = known
+    ? 'CLI does not track this entity locally yet — see Phase 2 spec'
+    : 'no local handler registered'
+  console.warn(
+    `[sync] apply skipped: entity_type='${entityType}' (${reason}). code=no_local_handler`
+  )
+}
+
+/**
+ * @internal — exposed for tests so a fresh process state can be
+ * simulated without spawning a child. Do not call from prod code.
+ */
+export function _resetWarnDedupeForTest(): void {
+  WARN_LOGGED.clear()
+}
 
 // ============================================
 // Event normalization (Phase 1.5 / B2)
@@ -211,8 +238,14 @@ class SyncManager {
    *
    * Phase 1.5 / B4: cursor moved from `last-sync.json` (timestamp,
    * clock-skew-prone) to `sync_cursors(user_id, device_id, project_id)
-   * → last_event_id`. The legacy timestamp is still sent alongside
-   * `sinceEventId` so a pre-1.5 server keeps working.
+   * → last_event_id`.
+   *
+   * Phase 1.6 / B4: the legacy `sinceTimestamp` fallback is no longer
+   * sent. prjct-cloud is pre-MVP — there are no pre-1.5 servers in
+   * production for the timestamp to bridge. Sending only
+   * `sinceEventId` simplifies the wire and removes a parallel cursor
+   * that could disagree with the monotonic event_id under rebase /
+   * partial pulls.
    */
   async pull(projectId: string): Promise<PullResult> {
     if (!(await this.hasAuth())) {
@@ -228,14 +261,7 @@ class SyncManager {
       const cursor = deviceId ? syncCursorStorage.get(projectId, userId, deviceId) : null
       const sinceEventId = cursor?.lastEventId ?? 0
 
-      const lastSync = await syncEventBus.getLastSync(projectId)
-      const sinceTimestamp = lastSync?.timestamp
-
-      const result: SyncPullResult = await syncClient.pullEvents(
-        projectId,
-        sinceEventId,
-        sinceTimestamp
-      )
+      const result: SyncPullResult = await syncClient.pullEvents(projectId, sinceEventId)
 
       if (result.events.length === 0) {
         await syncEventBus.updateLastSync(projectId)
@@ -329,45 +355,59 @@ class SyncManager {
    */
   private async applyEvent(projectId: string, event: Record<string, unknown>): Promise<void> {
     const { entityType, eventType, data, contentHash } = normalizeEventShape(event)
-
-    // Idempotency hook — re-applying the same event is a no-op.
-    if (contentHash && (await this.alreadyApplied(projectId, entityType, data, contentHash))) {
-      return
-    }
+    const entityId = (data.id as string | undefined) ?? ''
 
     const handler = entityHandlers[entityType]
     if (!handler) {
-      // roadmap_features / projects / unknown — pull stays idempotent
-      // by no-op. Add a handler in `core/sync/entity-handlers/` to
-      // bring a new entity_type into the apply path.
+      // Phase 1.6 / B3: emit a stable warn instead of returning
+      // silently. Known unhandled types (roadmap_features, projects)
+      // are listed in UNKNOWN_ENTITY_TYPES; brand-new types not on
+      // either list still warn so a CI exhaustiveness test can flag
+      // them. Per-process dedupe keeps batch pulls quiet.
+      warnNoLocalHandler(entityType)
       return
     }
 
     if (eventType === 'delete') {
+      // Deletes are id-idempotent in the handlers themselves AND must
+      // not be deduped by the upsert hash trail. Otherwise a delete
+      // following an upsert with the same content_hash would short-
+      // circuit and the entity would never be removed locally.
       await handler.delete(projectId, data)
+      if (entityId) clearApplied(projectId, entityType, entityId)
       return
     }
+
+    // Upsert path: idempotency probe first (Phase 1.6 / B2). If this
+    // entity's last applied content_hash matches the incoming one,
+    // skip the handler — re-apply would be a no-op.
+    if (contentHash && this.alreadyApplied(projectId, entityType, entityId, contentHash)) {
+      return
+    }
+
     await handler.upsert(projectId, data)
+    // Record AFTER handler success — handler durability is the source
+    // of truth, this just trails what we last applied.
+    if (contentHash && entityId) {
+      recordApplied(projectId, entityType, entityId, contentHash)
+    }
   }
 
   /**
    * Idempotency probe: did we already apply an event with this
-   * content_hash for this entity? Currently a soft check (returns
-   * false on lookup failure so apply proceeds). The persistence
-   * story will firm up when we wire content_hash storage on entity
-   * rows in a follow-up.
+   * content_hash for this entity? Reads sync_applied_hashes side table
+   * (migration 19). Returns false on missing entityId, missing row, or
+   * lookup error — apply proceeds rather than blocking.
    */
-  private async alreadyApplied(
-    _projectId: string,
-    _entityType: string,
-    _data: Record<string, unknown>,
-    _contentHash: string
-  ): Promise<boolean> {
-    // TODO: persist content_hash per (entity_type, entity_id) so we
-    //   can short-circuit no-op events. For now the upsert paths in
-    //   each handler are themselves idempotent (id-based), so
-    //   re-applying is safe.
-    return false
+  private alreadyApplied(
+    projectId: string,
+    entityType: string,
+    entityId: string,
+    contentHash: string
+  ): boolean {
+    if (!entityId) return false
+    const last = getApplied(projectId, entityType, entityId)
+    return last !== null && last === contentHash
   }
 
   /**
