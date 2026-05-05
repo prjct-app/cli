@@ -16,9 +16,35 @@ import type {
   SyncStatus,
 } from '../types/sync'
 import authConfig from './auth-config'
-import { entityHandlers } from './entity-handlers'
+import { entityHandlers, UNKNOWN_ENTITY_TYPES } from './entity-handlers'
 import { clearApplied, getApplied, recordApplied } from './sync-applied-hashes'
 import { syncClient } from './sync-client'
+
+// Per-process dedupe for the "no local handler" warn — without this,
+// pulling a batch of 50 events for an unhandled entity_type would emit
+// 50 identical warns. Reset on process restart, which is fine: the warn
+// is a development-time signal, not a production log line.
+const WARN_LOGGED: Set<string> = new Set()
+
+function warnNoLocalHandler(entityType: string): void {
+  if (WARN_LOGGED.has(entityType)) return
+  WARN_LOGGED.add(entityType)
+  const known = UNKNOWN_ENTITY_TYPES.has(entityType)
+  const reason = known
+    ? 'CLI does not track this entity locally yet — see Phase 2 spec'
+    : 'no local handler registered'
+  console.warn(
+    `[sync] apply skipped: entity_type='${entityType}' (${reason}). code=no_local_handler`
+  )
+}
+
+/**
+ * @internal — exposed for tests so a fresh process state can be
+ * simulated without spawning a child. Do not call from prod code.
+ */
+export function _resetWarnDedupeForTest(): void {
+  WARN_LOGGED.clear()
+}
 
 // ============================================
 // Event normalization (Phase 1.5 / B2)
@@ -334,9 +360,12 @@ class SyncManager {
 
     const handler = entityHandlers[entityType]
     if (!handler) {
-      // roadmap_features / projects / unknown — pull stays idempotent
-      // by no-op. Add a handler in `core/sync/entity-handlers/` to
-      // bring a new entity_type into the apply path.
+      // Phase 1.6 / B3: emit a stable warn instead of returning
+      // silently. Known unhandled types (roadmap_features, projects)
+      // are listed in UNKNOWN_ENTITY_TYPES; brand-new types not on
+      // either list still warn so a CI exhaustiveness test can flag
+      // them. Per-process dedupe keeps batch pulls quiet.
+      warnNoLocalHandler(entityType)
       return
     }
 
