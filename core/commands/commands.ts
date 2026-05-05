@@ -390,6 +390,13 @@ class PrjctCommands {
   ): Promise<CommandResult> {
     return this.specCmds.audit(id, projectPath, options)
   }
+
+  async specInventory(
+    projectPath: string = process.cwd(),
+    options: { md?: boolean; json?: boolean } = {}
+  ): Promise<CommandResult> {
+    return this.specCmds.inventory(null, projectPath, options)
+  }
 }
 
 // Export both class and singleton instance

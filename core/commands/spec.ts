@@ -35,11 +35,13 @@ import { PrjctCommandsBase } from './base'
 interface SpecCmdOptions {
   md?: boolean
   status?: string
-  json?: string
+  json?: string | boolean
   notes?: string
   tags?: string
   pr?: number | string
   goal?: string
+  /** Phase 1.6 / B-CTX: skip auto-inferring codebase context on draft. */
+  skipContext?: boolean
 }
 
 export class SpecCommands extends PrjctCommandsBase {
@@ -69,6 +71,7 @@ export class SpecCommands extends PrjctCommandsBase {
         title: title.trim(),
         content: { goal },
         tags,
+        autoContext: !options.skipContext,
       })
 
       if (options.md) {
@@ -195,14 +198,15 @@ export class SpecCommands extends PrjctCommandsBase {
   ): Promise<CommandResult> {
     try {
       if (!id) return failWith('Usage: prjct spec update <id> --json \'{"goal": "...", ...}\'')
-      if (!options.json) return failWith('--json is required')
+      const jsonInput = typeof options.json === 'string' ? options.json : ''
+      if (!jsonInput) return failWith('--json is required')
 
       const initResult = await this.ensureProjectInit(projectPath)
       if (!initResult.success) return initResult
 
       let parsed: unknown
       try {
-        parsed = JSON.parse(options.json)
+        parsed = JSON.parse(jsonInput)
       } catch {
         return failWith('--json is not valid JSON')
       }
@@ -361,6 +365,55 @@ export class SpecCommands extends PrjctCommandsBase {
       const dispatch = renderAuditDispatch(spec.id, spec.title, spec.content)
       console.log(dispatch)
       return { success: true, specId: id, dispatch: 'emitted' }
+    } catch (error) {
+      return failHard(getErrorMessage(error))
+    }
+  }
+
+  /**
+   * `prjct spec inventory [--md|--json]` — coverage map per module +
+   * drift detection over shipped specs (Phase 1.6 / B-INV).
+   *
+   * Drift definition: shipped specs whose scope[] paths accumulated
+   * >5 LOC of NON-cosmetic changes between shipped_sha and HEAD.
+   * Shipped specs without shipped_sha (legacy) report drift=unknown.
+   */
+  async inventory(
+    _arg: string | null = null,
+    projectPath: string = process.cwd(),
+    options: SpecCmdOptions = {}
+  ): Promise<CommandResult> {
+    try {
+      const initResult = await this.ensureProjectInit(projectPath)
+      if (!initResult.success) return initResult
+
+      const { default: configManager } = await import('../infrastructure/config-manager')
+      const cfg = await configManager.readConfig(projectPath)
+      const projectId = cfg?.projectId
+      if (!projectId) return failWith('not a prjct project')
+
+      const { buildInventory, renderInventoryMd } = await import('../services/spec-inventory')
+      const report = await buildInventory(projectPath, projectId)
+
+      if (options.json) {
+        console.log(JSON.stringify(report, null, 2))
+      } else if (options.md) {
+        console.log(renderInventoryMd(report))
+      } else {
+        // Compact human-readable summary (no flag).
+        out.info(`${report.totalSpecs} specs across ${report.modules.length} modules`)
+        for (const m of report.modules) {
+          const pct = m.coveredPct === null ? 'n/a' : `${m.coveredPct}%`
+          const drift = m.drift === true ? ' DRIFT' : m.drift === 'unknown' ? ' ?' : ''
+          console.log(
+            `  ${m.module.padEnd(20)} ${String(m.specCount).padStart(3)} specs · ${pct.padStart(6)} covered${drift}`
+          )
+        }
+        if (report.uncoveredModules.length > 0) {
+          out.info(`${report.uncoveredModules.length} module(s) without specs`)
+        }
+      }
+      return { success: true, totalSpecs: report.totalSpecs }
     } catch (error) {
       return failHard(getErrorMessage(error))
     }

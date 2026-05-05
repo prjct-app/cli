@@ -148,6 +148,7 @@ async function routeSpecDaemon(
     'link-task',
     'ship',
     'audit',
+    'inventory',
   ])
   if (!sub || !knownSubverbs.has(sub)) {
     const title = rawArgs.join(' ') || null
@@ -195,6 +196,8 @@ async function routeSpecDaemon(
       })
     case 'audit':
       return commands.specAudit(rest, undefined, { md })
+    case 'inventory':
+      return commands.specInventory(undefined, { md, json: opts.json === true })
     default:
       return { success: false, error: `unknown spec subverb: ${sub}` }
   }
