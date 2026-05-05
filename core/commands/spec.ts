@@ -4,7 +4,7 @@
  *   prjct spec "<title>"                    # create draft (Claude fills body)
  *   prjct spec list [--status <s>]          # ranked by created_at
  *   prjct spec show <id>                    # render one (--md for vault format)
- *   prjct spec update <id> --json '{...}'   # replace content (Zod-validated)
+ *   prjct spec update <id> --json '{...}'   # PATCH content (shallow merge, Zod-validated)
  *   prjct spec set-status <id> <status>     # draft|reviewed|in_progress|shipped|archived
  *   prjct spec record-review <id> <reviewer> <pass|fail> --notes "..."
  *   prjct spec link-task <id> <task-id>
@@ -188,8 +188,16 @@ export class SpecCommands extends PrjctCommandsBase {
   }
 
   /**
-   * Replace the spec content. Pass full content as JSON via --json.
-   * Validation happens in service via SpecContentSchema.
+   * PATCH the spec content. Pass any subset of fields as JSON via --json;
+   * fields you omit are PRESERVED from the existing spec, fields you
+   * include REPLACE the existing value (shallow merge at top level).
+   *
+   * This avoids the wipe footgun where a partial payload (e.g. updating
+   * just the goal) would silently zero out reviews / acceptance_criteria
+   * / linked_tasks because their schema defaults are empty. PATCH-style
+   * semantics match user expectation and dogfood reality — when Claude
+   * iterates on a spec mid-audit, it shouldn't have to re-send every
+   * field to keep the rest intact.
    */
   async update(
     id: string | null = null,
@@ -204,14 +212,24 @@ export class SpecCommands extends PrjctCommandsBase {
       const initResult = await this.ensureProjectInit(projectPath)
       if (!initResult.success) return initResult
 
-      let parsed: unknown
+      let patch: unknown
       try {
-        parsed = JSON.parse(jsonInput)
+        patch = JSON.parse(jsonInput)
       } catch {
         return failWith('--json is not valid JSON')
       }
-      const validated = SpecContentSchema.parse(parsed)
-      const updated = await specService.update(projectPath, id, validated as SpecContent)
+      if (patch === null || typeof patch !== 'object' || Array.isArray(patch)) {
+        return failWith('--json must decode to an object')
+      }
+
+      const existing = await specService.get(projectPath, id)
+      if (!existing) return failWith(`spec not found: ${id}`)
+
+      const merged: SpecContent = SpecContentSchema.parse({
+        ...existing.content,
+        ...(patch as Record<string, unknown>),
+      })
+      const updated = await specService.update(projectPath, id, merged)
       if (!updated) return failWith(`spec not found: ${id}`)
 
       if (options.md) console.log(`✓ spec updated: ${updated.title}`)
