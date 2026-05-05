@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.17.0] - 2026-05-05
+
+### Features
+
+- Phase 1.6 — brownfield-aware SDD (auto-context + codebase reviewers + inventory) (#321)
+
+
 ## [2.16.0] - 2026-05-04
 
 ### Features
