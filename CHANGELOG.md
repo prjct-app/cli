@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.18.0] - 2026-05-05
+
+### Features
+
+- auto-breakdown spec acceptance criteria into queue tasks on audit pass (#322)
+
+
 ## [2.17.0] - 2026-05-05
 
 ### Features
