@@ -492,21 +492,30 @@ function renderSpecMarkdown(spec: {
  */
 function renderAuditDispatch(id: string, title: string, content: SpecContent): string {
   const summary = JSON.stringify(content)
+  // Phase 1.6 / B-RVW: extract scope paths so each reviewer can read
+  // the actual codebase via the Read tool instead of judging the spec
+  // in isolation.
+  const scopePaths = extractScopePaths(content.scope)
+  const scopeBlock =
+    scopePaths.length > 0
+      ? `\n\n## Codebase paths to read (from spec.scope)\n${scopePaths.map((p) => `- \`${p}\``).join('\n')}\n\nEach reviewer SHOULD use the Read tool on these paths (cap 10 per reviewer) to ground the verdict in the actual code. Cite specific symbols / files / line numbers in notes when applicable.`
+      : '\n\n## Codebase paths\n_No path-shaped scope entries found. Reviewers judge the spec body alone._'
   return [
     `# audit-spec dispatch — ${title}`,
     '',
     `Spec id: \`${id}\``,
     '',
-    'Run three review subagents IN PARALLEL via the Agent tool — one tool-use block per reviewer, all in the SAME message so they run concurrently. Each subagent reads the spec body and applies its rubric, then returns a structured verdict.',
+    'Run three review subagents IN PARALLEL via the Agent tool — one tool-use block per reviewer, all in the SAME message so they run concurrently. Each subagent reads the spec body, reads the relevant codebase paths, applies its rubric, then returns a structured verdict.',
+    scopeBlock,
     '',
     '## Reviewer A — strategic (scope sanity)',
-    'Subagent prompt: "Review this spec for strategic soundness. Does it solve a real problem? Is the goal worth the cost? Is out_of_scope coherent with goal? Is the spec OVER- or UNDER-scoped? Return verdict (pass|fail) and 2-4 sentence notes."',
+    'Subagent prompt: "Review this spec for strategic soundness. Does it solve a real problem? Is the goal worth the cost? Is out_of_scope coherent with goal? Is the spec OVER- or UNDER-scoped? Cross-reference relevant prior memory if available (decisions tagged by domain). Return verdict (pass|fail) and 2-4 sentence notes."',
     '',
     '## Reviewer B — architecture (eng feasibility)',
-    'Subagent prompt: "Review this spec for engineering feasibility. Can this be built? Is the data flow / state machine implicit in the acceptance criteria coherent? What failure modes / dependencies / edge cases are missing? Include a short ASCII diagram of the proposed architecture in notes if applicable. Return verdict (pass|fail) and 2-4 sentence notes."',
+    'Subagent prompt: "Review this spec for engineering feasibility. Read the codebase paths listed above (Read tool, cap 10 files). Can this be built ON TOP of what exists? Does the spec contradict an existing state machine, schema, or contract? What failure modes / dependencies / edge cases are missing? Include a short ASCII diagram + cite at least one concrete symbol from the codebase in notes when applicable. Return verdict (pass|fail) and 2-4 sentence notes."',
     '',
     '## Reviewer C — design (UX/DX)',
-    'Subagent prompt: "Review this spec for design quality. Rate 0-10 across {clarity, ergonomics, consistency, accessibility} for the user-facing or developer-facing surface this spec defines. Note the lowest-scoring dimension and why. Return verdict (pass if all dimensions ≥6, fail otherwise) and notes including the four scores."',
+    'Subagent prompt: "Review this spec for design quality. Rate 0-10 across {clarity, ergonomics, consistency, accessibility} for the user-facing or developer-facing surface. If scope touches existing UI/CLI patterns (read the listed paths), consistency must be judged against those — not against your priors. Return verdict (pass if all dimensions ≥6, fail otherwise) + the four scores."',
     '',
     '## Spec body (verbatim, pass to each reviewer)',
     '```json',
@@ -519,4 +528,19 @@ function renderAuditDispatch(id: string, title: string, content: SpecContent): s
     '',
     'When all three are recorded, the spec auto-promotes from `draft` → `reviewed`.',
   ].join('\n')
+}
+
+/**
+ * Pull file/dir paths from spec.scope entries (entries are typically
+ * "core/sync/sync-manager.ts — desc" — peel off the path-like prefix).
+ * Cap to 12 to stay within reviewer-tool budgets.
+ */
+function extractScopePaths(scope: string[]): string[] {
+  const out: string[] = []
+  for (const entry of scope) {
+    const m = entry.match(/[a-zA-Z0-9_./-]+\.[a-zA-Z]+/) ?? entry.match(/[a-zA-Z0-9_./-]+\//)
+    if (m && !out.includes(m[0])) out.push(m[0])
+    if (out.length >= 12) break
+  }
+  return out
 }
