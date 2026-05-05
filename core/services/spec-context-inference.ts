@@ -16,8 +16,8 @@
  * stderr warning (B-ERR-CONTRACT) but does not block spec creation.
  */
 
-import { findRelevantFiles } from '../tools/context/files-tool'
 import { projectMemory } from '../memory/project-memory'
+import { findRelevantFiles } from '../tools/context/files-tool'
 
 const PATH_CAP = 5
 const MEMORY_LIMIT = 8
@@ -58,7 +58,10 @@ export async function inferSpecContext(
     ).catch(() => []),
   ])
 
-  const paths = dedupeTopDirs(filesOut.files.map((f) => f.path), PATH_CAP)
+  const paths = dedupeTopDirs(
+    filesOut.files.map((f) => f.path),
+    PATH_CAP
+  )
   const empty = paths.length === 0 && memoryHits.length === 0
 
   if (empty) {
@@ -95,9 +98,7 @@ function buildNotesBlock(
   lines.push('<!-- auto-context:tentative -->')
   lines.push('## Existing context (auto-inferred)')
   lines.push('')
-  lines.push(
-    `_Inferred from title "${title}". Validate before audit — entries tagged tentative._`
-  )
+  lines.push(`_Inferred from title "${title}". Validate before audit — entries tagged tentative._`)
   lines.push('')
 
   if (paths.length > 0) {
@@ -132,8 +133,7 @@ export function warnNoContextMatch(title: string, suggestion?: string): void {
     level: 'warn',
     code: 'no_context_match',
     message: `No codebase or memory context matched "${title}"`,
-    suggestion:
-      suggestion ?? 'Fill spec.notes manually or run with `--skip-context` next time.',
+    suggestion: suggestion ?? 'Fill spec.notes manually or run with `--skip-context` next time.',
   }
   // stderr is reserved for diagnostics; stdout stays for command output.
   process.stderr.write(`${JSON.stringify(payload)}\n`)

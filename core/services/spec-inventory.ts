@@ -198,11 +198,7 @@ async function countModuleFiles(projectPath: string, mod: string): Promise<numbe
   return total
 }
 
-async function countCoveredFiles(
-  projectPath: string,
-  mod: string,
-  specs: Spec[]
-): Promise<number> {
+async function countCoveredFiles(projectPath: string, mod: string, specs: Spec[]): Promise<number> {
   // A file is "covered" if at least one spec.scope entry references it
   // (either by full path or by parent dir).
   const dir = path.join(projectPath, mod)
@@ -316,7 +312,9 @@ export function renderInventoryMd(report: InventoryReport): string {
   const lines: string[] = []
   lines.push('# Spec inventory')
   lines.push('')
-  lines.push(`_${report.totalSpecs} specs across ${report.modules.length} modules · generated ${report.generatedAt}_`)
+  lines.push(
+    `_${report.totalSpecs} specs across ${report.modules.length} modules · generated ${report.generatedAt}_`
+  )
   lines.push('')
 
   if (Object.keys(report.byStatus).length > 0) {

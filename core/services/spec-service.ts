@@ -18,6 +18,15 @@ import { promisify } from 'node:util'
 import configManager from '../infrastructure/config-manager'
 import { projectMemory } from '../memory/project-memory'
 import { specStorage } from '../storage/spec-storage'
+import {
+  type Spec,
+  type SpecContent,
+  SpecContentSchema,
+  type SpecReview,
+  type SpecReviewer,
+  type SpecStatus,
+} from '../types/spec'
+import { getTimestamp } from '../utils/date-helper'
 
 const execFileAsync = promisify(execFile)
 
@@ -34,15 +43,6 @@ async function readGitHead(projectPath: string): Promise<string | null> {
     return null
   }
 }
-import {
-  type Spec,
-  type SpecContent,
-  SpecContentSchema,
-  type SpecReview,
-  type SpecReviewer,
-  type SpecStatus,
-} from '../types/spec'
-import { getTimestamp } from '../utils/date-helper'
 
 class SpecService {
   /**
@@ -72,9 +72,7 @@ class SpecService {
     let notes = args.content.notes ?? ''
     const autoContext = args.autoContext !== false
     if (autoContext && !notes.trim()) {
-      const { inferSpecContext, warnNoContextMatch } = await import(
-        './spec-context-inference'
-      )
+      const { inferSpecContext, warnNoContextMatch } = await import('./spec-context-inference')
       const ctx = await inferSpecContext(args.title, projectId, projectPath)
       if (ctx.empty) {
         warnNoContextMatch(args.title)
