@@ -35,11 +35,13 @@ import { PrjctCommandsBase } from './base'
 interface SpecCmdOptions {
   md?: boolean
   status?: string
-  json?: string
+  json?: string | boolean
   notes?: string
   tags?: string
   pr?: number | string
   goal?: string
+  /** Phase 1.6 / B-CTX: skip auto-inferring codebase context on draft. */
+  skipContext?: boolean
 }
 
 export class SpecCommands extends PrjctCommandsBase {
@@ -69,6 +71,7 @@ export class SpecCommands extends PrjctCommandsBase {
         title: title.trim(),
         content: { goal },
         tags,
+        autoContext: !options.skipContext,
       })
 
       if (options.md) {
@@ -195,14 +198,15 @@ export class SpecCommands extends PrjctCommandsBase {
   ): Promise<CommandResult> {
     try {
       if (!id) return failWith('Usage: prjct spec update <id> --json \'{"goal": "...", ...}\'')
-      if (!options.json) return failWith('--json is required')
+      const jsonInput = typeof options.json === 'string' ? options.json : ''
+      if (!jsonInput) return failWith('--json is required')
 
       const initResult = await this.ensureProjectInit(projectPath)
       if (!initResult.success) return initResult
 
       let parsed: unknown
       try {
-        parsed = JSON.parse(options.json)
+        parsed = JSON.parse(jsonInput)
       } catch {
         return failWith('--json is not valid JSON')
       }
@@ -365,6 +369,55 @@ export class SpecCommands extends PrjctCommandsBase {
       return failHard(getErrorMessage(error))
     }
   }
+
+  /**
+   * `prjct spec inventory [--md|--json]` — coverage map per module +
+   * drift detection over shipped specs (Phase 1.6 / B-INV).
+   *
+   * Drift definition: shipped specs whose scope[] paths accumulated
+   * >5 LOC of NON-cosmetic changes between shipped_sha and HEAD.
+   * Shipped specs without shipped_sha (legacy) report drift=unknown.
+   */
+  async inventory(
+    _arg: string | null = null,
+    projectPath: string = process.cwd(),
+    options: SpecCmdOptions = {}
+  ): Promise<CommandResult> {
+    try {
+      const initResult = await this.ensureProjectInit(projectPath)
+      if (!initResult.success) return initResult
+
+      const { default: configManager } = await import('../infrastructure/config-manager')
+      const cfg = await configManager.readConfig(projectPath)
+      const projectId = cfg?.projectId
+      if (!projectId) return failWith('not a prjct project')
+
+      const { buildInventory, renderInventoryMd } = await import('../services/spec-inventory')
+      const report = await buildInventory(projectPath, projectId)
+
+      if (options.json) {
+        console.log(JSON.stringify(report, null, 2))
+      } else if (options.md) {
+        console.log(renderInventoryMd(report))
+      } else {
+        // Compact human-readable summary (no flag).
+        out.info(`${report.totalSpecs} specs across ${report.modules.length} modules`)
+        for (const m of report.modules) {
+          const pct = m.coveredPct === null ? 'n/a' : `${m.coveredPct}%`
+          const drift = m.drift === true ? ' DRIFT' : m.drift === 'unknown' ? ' ?' : ''
+          console.log(
+            `  ${m.module.padEnd(20)} ${String(m.specCount).padStart(3)} specs · ${pct.padStart(6)} covered${drift}`
+          )
+        }
+        if (report.uncoveredModules.length > 0) {
+          out.info(`${report.uncoveredModules.length} module(s) without specs`)
+        }
+      }
+      return { success: true, totalSpecs: report.totalSpecs }
+    } catch (error) {
+      return failHard(getErrorMessage(error))
+    }
+  }
 }
 
 function parseFlagTags(raw: string | undefined): Record<string, string> {
@@ -439,21 +492,30 @@ function renderSpecMarkdown(spec: {
  */
 function renderAuditDispatch(id: string, title: string, content: SpecContent): string {
   const summary = JSON.stringify(content)
+  // Phase 1.6 / B-RVW: extract scope paths so each reviewer can read
+  // the actual codebase via the Read tool instead of judging the spec
+  // in isolation.
+  const scopePaths = extractScopePaths(content.scope)
+  const scopeBlock =
+    scopePaths.length > 0
+      ? `\n\n## Codebase paths to read (from spec.scope)\n${scopePaths.map((p) => `- \`${p}\``).join('\n')}\n\nEach reviewer SHOULD use the Read tool on these paths (cap 10 per reviewer) to ground the verdict in the actual code. Cite specific symbols / files / line numbers in notes when applicable.`
+      : '\n\n## Codebase paths\n_No path-shaped scope entries found. Reviewers judge the spec body alone._'
   return [
     `# audit-spec dispatch — ${title}`,
     '',
     `Spec id: \`${id}\``,
     '',
-    'Run three review subagents IN PARALLEL via the Agent tool — one tool-use block per reviewer, all in the SAME message so they run concurrently. Each subagent reads the spec body and applies its rubric, then returns a structured verdict.',
+    'Run three review subagents IN PARALLEL via the Agent tool — one tool-use block per reviewer, all in the SAME message so they run concurrently. Each subagent reads the spec body, reads the relevant codebase paths, applies its rubric, then returns a structured verdict.',
+    scopeBlock,
     '',
     '## Reviewer A — strategic (scope sanity)',
-    'Subagent prompt: "Review this spec for strategic soundness. Does it solve a real problem? Is the goal worth the cost? Is out_of_scope coherent with goal? Is the spec OVER- or UNDER-scoped? Return verdict (pass|fail) and 2-4 sentence notes."',
+    'Subagent prompt: "Review this spec for strategic soundness. Does it solve a real problem? Is the goal worth the cost? Is out_of_scope coherent with goal? Is the spec OVER- or UNDER-scoped? Cross-reference relevant prior memory if available (decisions tagged by domain). Return verdict (pass|fail) and 2-4 sentence notes."',
     '',
     '## Reviewer B — architecture (eng feasibility)',
-    'Subagent prompt: "Review this spec for engineering feasibility. Can this be built? Is the data flow / state machine implicit in the acceptance criteria coherent? What failure modes / dependencies / edge cases are missing? Include a short ASCII diagram of the proposed architecture in notes if applicable. Return verdict (pass|fail) and 2-4 sentence notes."',
+    'Subagent prompt: "Review this spec for engineering feasibility. Read the codebase paths listed above (Read tool, cap 10 files). Can this be built ON TOP of what exists? Does the spec contradict an existing state machine, schema, or contract? What failure modes / dependencies / edge cases are missing? Include a short ASCII diagram + cite at least one concrete symbol from the codebase in notes when applicable. Return verdict (pass|fail) and 2-4 sentence notes."',
     '',
     '## Reviewer C — design (UX/DX)',
-    'Subagent prompt: "Review this spec for design quality. Rate 0-10 across {clarity, ergonomics, consistency, accessibility} for the user-facing or developer-facing surface this spec defines. Note the lowest-scoring dimension and why. Return verdict (pass if all dimensions ≥6, fail otherwise) and notes including the four scores."',
+    'Subagent prompt: "Review this spec for design quality. Rate 0-10 across {clarity, ergonomics, consistency, accessibility} for the user-facing or developer-facing surface. If scope touches existing UI/CLI patterns (read the listed paths), consistency must be judged against those — not against your priors. Return verdict (pass if all dimensions ≥6, fail otherwise) + the four scores."',
     '',
     '## Spec body (verbatim, pass to each reviewer)',
     '```json',
@@ -466,4 +528,19 @@ function renderAuditDispatch(id: string, title: string, content: SpecContent): s
     '',
     'When all three are recorded, the spec auto-promotes from `draft` → `reviewed`.',
   ].join('\n')
+}
+
+/**
+ * Pull file/dir paths from spec.scope entries (entries are typically
+ * "core/sync/sync-manager.ts — desc" — peel off the path-like prefix).
+ * Cap to 12 to stay within reviewer-tool budgets.
+ */
+function extractScopePaths(scope: string[]): string[] {
+  const out: string[] = []
+  for (const entry of scope) {
+    const m = entry.match(/[a-zA-Z0-9_./-]+\.[a-zA-Z]+/) ?? entry.match(/[a-zA-Z0-9_./-]+\//)
+    if (m && !out.includes(m[0])) out.push(m[0])
+    if (out.length >= 12) break
+  }
+  return out
 }

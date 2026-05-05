@@ -348,6 +348,7 @@ async function routeSpec(
     'link-task',
     'ship',
     'audit',
+    'inventory',
   ])
   if (!sub || !knownSubverbs.has(sub)) {
     return commands.spec(param, process.cwd(), {
@@ -395,6 +396,8 @@ async function routeSpec(
       })
     case 'audit':
       return commands.specAudit(rest, cwd, { md })
+    case 'inventory':
+      return commands.specInventory(cwd, { md, json: options.json === true })
     default:
       return { success: false, message: `unknown spec subverb: ${sub}` }
   }

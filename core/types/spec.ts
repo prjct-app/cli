@@ -68,6 +68,12 @@ export interface Spec {
   updatedAt: string
   shippedAt: string | null
   shippedPr: number | null
+  /**
+   * Git HEAD sha at ship time (Phase 1.6 / B-DRIFT-ANCHOR). NULL for
+   * legacy shipped specs that predate migration 18 — inventory marks
+   * those as drift=unknown.
+   */
+  shippedSha: string | null
   archivedAt: string | null
 }
 
