@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.19.0] - 2026-05-05
+
+### Features
+
+- Phase 1.6 — close the wire on Phase 1.5 (B1-B4) (#324)
+
+
 ## [2.18.1] - 2026-05-05
 
 ### Bug Fixes
