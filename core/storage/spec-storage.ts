@@ -28,6 +28,7 @@ interface SpecRow {
   updated_at: string
   shipped_at: string | null
   shipped_pr: number | null
+  shipped_sha: string | null
   archived_at: string | null
 }
 
@@ -69,6 +70,7 @@ class SpecStorage {
       updatedAt: now,
       shippedAt: null,
       shippedPr: null,
+      shippedSha: null,
       archivedAt: null,
     }
   }
@@ -154,6 +156,22 @@ class SpecStorage {
   }
 
   /**
+   * Capture the git HEAD sha at ship time. Phase 1.6 / B-DRIFT-ANCHOR:
+   * inventory uses this as the diff base for drift detection (not the
+   * shipped_at timestamp, which is fragile under rebases).
+   */
+  setShippedSha(projectId: string, id: string, sha: string): Spec | null {
+    prjctDb.run(
+      projectId,
+      'UPDATE specs SET shipped_sha = ?, updated_at = ? WHERE id = ?',
+      sha,
+      getTimestamp(),
+      id
+    )
+    return this.get(projectId, id)
+  }
+
+  /**
    * Append a task id to the spec's `linked_tasks`. Idempotent.
    */
   linkTask(projectId: string, specId: string, taskId: string): Spec | null {
@@ -201,6 +219,7 @@ class SpecStorage {
       updatedAt: row.updated_at,
       shippedAt: row.shipped_at,
       shippedPr: row.shipped_pr,
+      shippedSha: row.shipped_sha,
       archivedAt: row.archived_at,
     }
   }

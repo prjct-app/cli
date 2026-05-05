@@ -606,4 +606,22 @@ export const migrations: Migration[] = [
       `)
     },
   },
+  {
+    version: 18,
+    name: 'specs-shipped-sha',
+    up: (db: SqliteDatabase) => {
+      // Phase 1.6 (B-DRIFT-ANCHOR): ship() captures the git HEAD sha at
+      // ship time. `prjct spec inventory` uses this as the diff base for
+      // drift detection — diffing against shipped_at timestamp via
+      // `git log --since` is fragile under rebases / squash-merges.
+      //
+      // Nullable: existing shipped specs predate this migration and
+      // simply report drift=unknown until manually re-shipped.
+      try {
+        db.run('ALTER TABLE specs ADD COLUMN shipped_sha TEXT')
+      } catch {
+        // Column may already exist (re-run safety)
+      }
+    },
+  },
 ]

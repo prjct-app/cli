@@ -13,9 +13,27 @@
  * service owns persistence + invariants only.
  */
 
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
 import configManager from '../infrastructure/config-manager'
 import { projectMemory } from '../memory/project-memory'
 import { specStorage } from '../storage/spec-storage'
+
+const execFileAsync = promisify(execFile)
+
+/**
+ * Read git HEAD sha at `projectPath`. Returns null when not a git repo
+ * or git is unavailable — callers treat this as best-effort.
+ */
+async function readGitHead(projectPath: string): Promise<string | null> {
+  try {
+    const { stdout } = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: projectPath })
+    const sha = stdout.trim()
+    return /^[0-9a-f]{7,40}$/.test(sha) ? sha : null
+  } catch {
+    return null
+  }
+}
 import {
   type Spec,
   type SpecContent,
@@ -141,6 +159,14 @@ class SpecService {
     const projectId = await this.requireProjectId(projectPath)
     if (pr !== undefined) {
       specStorage.setShippedPr(projectId, specId, pr)
+    }
+    // Phase 1.6 / B-DRIFT-ANCHOR: capture the HEAD sha at ship time so
+    // `prjct spec inventory` can diff against it later. Best-effort —
+    // ship still succeeds in non-git contexts (the spec just gets
+    // drift=unknown in the inventory output).
+    const sha = await readGitHead(projectPath)
+    if (sha) {
+      specStorage.setShippedSha(projectId, specId, sha)
     }
     return specStorage.setStatus(projectId, specId, 'shipped')
   }
