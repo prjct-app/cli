@@ -167,7 +167,17 @@ class SpecService {
     if (updated && this.allReviewsPass(updated.content)) {
       // All three reviewers pass → auto-promote draft to reviewed.
       if (updated.status === 'draft') {
-        return specStorage.setStatus(projectId, id, 'reviewed')
+        const promoted = specStorage.setStatus(projectId, id, 'reviewed')
+        // Auto-breakdown: materialize acceptance_criteria as granular
+        // queue tasks so the user gets row-per-AC in the DB and vault
+        // instead of a monolithic spec document. Idempotent (skipped on
+        // re-audit when linked_tasks already populated).
+        if (promoted) {
+          const { breakdownSpecToTasks } = await import('./spec-task-breakdown')
+          await breakdownSpecToTasks(projectId, projectPath, promoted)
+          return specStorage.get(projectId, id)
+        }
+        return promoted
       }
     }
     return updated

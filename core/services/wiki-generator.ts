@@ -103,14 +103,17 @@ export async function generateWiki(
 
   // --- Gather sources ---
   const { specStorage } = await import('../storage/spec-storage')
-  const [ships, entries, analysis, llmAnalysis, workflowRules, specs] = await Promise.all([
-    shippedStorage.getAll(projectId),
-    Promise.resolve(projectMemory.recall(projectId, { limit: 5000 })),
-    analysisStorage.getActive(projectId).catch(() => null),
-    Promise.resolve(llmAnalysisStorage.getActive(projectId)).catch(() => null),
-    Promise.resolve(workflowRuleStorage.getAllRules(projectId)).catch(() => [] as WorkflowRule[]),
-    Promise.resolve(specStorage.list(projectId, { includeArchived: true })).catch(() => []),
-  ])
+  const { queueStorage } = await import('../storage/queue-storage')
+  const [ships, entries, analysis, llmAnalysis, workflowRules, specs, queueTasks] =
+    await Promise.all([
+      shippedStorage.getAll(projectId),
+      Promise.resolve(projectMemory.recall(projectId, { limit: 5000 })),
+      analysisStorage.getActive(projectId).catch(() => null),
+      Promise.resolve(llmAnalysisStorage.getActive(projectId)).catch(() => null),
+      Promise.resolve(workflowRuleStorage.getAllRules(projectId)).catch(() => [] as WorkflowRule[]),
+      Promise.resolve(specStorage.list(projectId, { includeArchived: true })).catch(() => []),
+      queueStorage.getTasks(projectId).catch(() => []),
+    ])
   const declared = entries.filter((e) => e.type !== 'shipped')
 
   // --- Build all file bodies in memory ---
@@ -121,7 +124,7 @@ export async function generateWiki(
   }
   for (const [rel, body] of buildMemoryFiles(declared)) files.set(rel, body)
   for (const [rel, body] of buildTagFiles(declared)) files.set(rel, body)
-  for (const [rel, body] of buildSpecFiles(specs)) files.set(rel, body)
+  for (const [rel, body] of buildSpecFiles(specs, queueTasks)) files.set(rel, body)
 
   // Prefer LLM analysis (richer fields) when available, fallback to heuristic.
   const patterns = llmAnalysis?.patterns ?? analysis?.patterns ?? []
