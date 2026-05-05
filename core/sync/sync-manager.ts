@@ -238,8 +238,14 @@ class SyncManager {
    *
    * Phase 1.5 / B4: cursor moved from `last-sync.json` (timestamp,
    * clock-skew-prone) to `sync_cursors(user_id, device_id, project_id)
-   * → last_event_id`. The legacy timestamp is still sent alongside
-   * `sinceEventId` so a pre-1.5 server keeps working.
+   * → last_event_id`.
+   *
+   * Phase 1.6 / B4: the legacy `sinceTimestamp` fallback is no longer
+   * sent. prjct-cloud is pre-MVP — there are no pre-1.5 servers in
+   * production for the timestamp to bridge. Sending only
+   * `sinceEventId` simplifies the wire and removes a parallel cursor
+   * that could disagree with the monotonic event_id under rebase /
+   * partial pulls.
    */
   async pull(projectId: string): Promise<PullResult> {
     if (!(await this.hasAuth())) {
@@ -255,14 +261,7 @@ class SyncManager {
       const cursor = deviceId ? syncCursorStorage.get(projectId, userId, deviceId) : null
       const sinceEventId = cursor?.lastEventId ?? 0
 
-      const lastSync = await syncEventBus.getLastSync(projectId)
-      const sinceTimestamp = lastSync?.timestamp
-
-      const result: SyncPullResult = await syncClient.pullEvents(
-        projectId,
-        sinceEventId,
-        sinceTimestamp
-      )
+      const result: SyncPullResult = await syncClient.pullEvents(projectId, sinceEventId)
 
       if (result.events.length === 0) {
         await syncEventBus.updateLastSync(projectId)

@@ -117,17 +117,40 @@ describe('SyncClient.pullEvents', () => {
     await seedAuth()
   })
 
-  it('calls /sync/pull with since timestamp', async () => {
+  it('calls /sync/pull with sinceEventId in the body', async () => {
     stubFetch(() => jsonResponse(200, { events: [] }))
 
-    // Phase 1.5 / B4: pullEvents takes (projectId, sinceEventId,
-    // sinceTimestamp). The legacy timestamp still rides along on the
-    // body for compatibility with pre-1.5 servers.
-    await syncClient.pullEvents('proj-1', undefined, '2026-04-01T00:00:00Z')
+    await syncClient.pullEvents('proj-1', 42)
 
     expect(calls[0].url).toContain('/sync/pull')
     const body = JSON.parse(calls[0].init?.body as string)
-    expect(body.since).toBe('2026-04-01T00:00:00Z')
+    expect(body.projectId).toBe('proj-1')
+    expect(body.sinceEventId).toBe(42)
+  })
+
+  it('Phase 1.6 / B4: NEVER sends `since` (legacy timestamp), even when caller passes one', async () => {
+    stubFetch(() => jsonResponse(200, { events: [] }))
+
+    // Caller still allowed to pass sinceTimestamp for source-compat —
+    // it must be silently ignored, not forwarded on the wire.
+    await syncClient.pullEvents('proj-1', 42, '2026-04-01T00:00:00Z')
+
+    const body = JSON.parse(calls[0].init?.body as string)
+    expect(body.since).toBeUndefined()
+    expect('since' in body).toBe(false)
+    // sinceEventId still rides through.
+    expect(body.sinceEventId).toBe(42)
+  })
+
+  it('omits sinceEventId when zero or missing (initial pull)', async () => {
+    stubFetch(() => jsonResponse(200, { events: [] }))
+
+    await syncClient.pullEvents('proj-1')
+
+    const body = JSON.parse(calls[0].init?.body as string)
+    expect(body.projectId).toBe('proj-1')
+    expect('sinceEventId' in body).toBe(false)
+    expect('since' in body).toBe(false)
   })
 
   it('throws AUTH_REQUIRED when unauthenticated', async () => {

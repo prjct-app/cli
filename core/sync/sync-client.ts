@@ -60,16 +60,21 @@ class SyncClient {
   /**
    * Pull events from the server.
    *
-   * Phase 1.5 / B4: `since` is now a server-assigned monotonic event
-   * id (not a wall-clock timestamp). Clock skew between devices no
-   * longer skips events. The legacy `since` (timestamp string) keeps
-   * working for compatibility with pre-1.5 servers — the server
-   * accepts either field; the cli sends both when both are known.
+   * Phase 1.6 / B4: cli sends only `sinceEventId` (server-assigned
+   * monotonic id). The legacy `since` (timestamp) is no longer sent —
+   * prjct-cloud is pre-MVP and no pre-1.5 servers exist in production
+   * that would need the timestamp fallback. Removing it eliminates a
+   * parallel cursor that could disagree with the event_id under
+   * rebase / partial pulls.
+   *
+   * The `sinceTimestamp` parameter is retained on the signature but
+   * unused; internal callers stay source-compatible. Drop the
+   * parameter in a future major bump.
    */
   async pullEvents(
     projectId: string,
     sinceEventId?: number,
-    sinceTimestamp?: string
+    _sinceTimestamp?: string
   ): Promise<SyncPullResult> {
     const { apiUrl, apiKey } = await this.getAuthHeaders()
 
@@ -80,9 +85,6 @@ class SyncClient {
     const body: Record<string, unknown> = { projectId }
     if (typeof sinceEventId === 'number' && sinceEventId > 0) {
       body.sinceEventId = sinceEventId
-    }
-    if (sinceTimestamp) {
-      body.since = sinceTimestamp
     }
 
     const response = await this.fetchWithRetry(`${apiUrl}/sync/pull`, {
