@@ -11,20 +11,26 @@
  * stream alone wouldn't carry.
  */
 
+import type { QueueTask } from '../../schemas/state'
 import { SPEC_REVIEWERS, type Spec } from '../../types/spec'
 import { slugify } from './_shared'
 
-export function buildSpecFiles(specs: Spec[]): Map<string, string> {
+export function buildSpecFiles(specs: Spec[], queueTasks: QueueTask[] = []): Map<string, string> {
   const files = new Map<string, string>()
 
   if (specs.length === 0) return files
+
+  // Index queue tasks by id so per-spec rendering can resolve linked task
+  // descriptions (otherwise "Linked tasks" would be a wall of UUIDs).
+  const taskById = new Map<string, QueueTask>()
+  for (const t of queueTasks) taskById.set(t.id, t)
 
   // Per-spec markdown
   const indexEntries: { slug: string; spec: Spec }[] = []
   for (const spec of specs) {
     const slug = slugify(spec.title) || spec.id.slice(0, 8)
     const rel = `specs/${slug}.md`
-    files.set(rel, formatSpecBody(spec))
+    files.set(rel, formatSpecBody(spec, taskById))
     indexEntries.push({ slug, spec })
   }
 
@@ -63,7 +69,7 @@ export function buildSpecFiles(specs: Spec[]): Map<string, string> {
   return files
 }
 
-function formatSpecBody(spec: Spec): string {
+function formatSpecBody(spec: Spec, taskById: Map<string, QueueTask>): string {
   const c = spec.content
   const lines: string[] = [
     `# ${spec.title}`,
@@ -119,7 +125,17 @@ function formatSpecBody(spec: Spec): string {
 
   if (c.linked_tasks.length > 0) {
     lines.push('', '## Linked tasks')
-    for (const t of c.linked_tasks) lines.push(`- ${t}`)
+    for (const id of c.linked_tasks) {
+      const task = taskById.get(id)
+      if (task) {
+        const status = task.completed ? 'x' : ' '
+        const section = task.section === 'backlog' ? ' _(backlog)_' : ''
+        lines.push(`- [${status}] ${task.description}${section} · \`${id}\``)
+      } else {
+        // Task no longer in queue (removed/completed/archived) — render id only.
+        lines.push(`- \`${id}\``)
+      }
+    }
   }
 
   if (c.notes) lines.push('', '## Notes', c.notes)
