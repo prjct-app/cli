@@ -55,9 +55,34 @@ class SpecService {
       title: string
       content: Partial<SpecContent> & { goal: string }
       tags?: Record<string, string>
+      /**
+       * Phase 1.6 / B-CTX: auto-populate `notes` with codebase + memory
+       * context inferred from the title. Default true (brownfield-aware
+       * by default). Pass false from greenfield init flows or when the
+       * caller already supplied notes.
+       */
+      autoContext?: boolean
     }
   ): Promise<Spec> {
     const projectId = await this.requireProjectId(projectPath)
+
+    // Auto-context inference (B-CTX): only if `notes` is empty and the
+    // caller didn't opt out. The composer reads `findRelevantFiles` +
+    // `projectMemory.recall` and returns a tentative Markdown block.
+    let notes = args.content.notes ?? ''
+    const autoContext = args.autoContext !== false
+    if (autoContext && !notes.trim()) {
+      const { inferSpecContext, warnNoContextMatch } = await import(
+        './spec-context-inference'
+      )
+      const ctx = await inferSpecContext(args.title, projectId, projectPath)
+      if (ctx.empty) {
+        warnNoContextMatch(args.title)
+      } else {
+        notes = ctx.notesBlock
+      }
+    }
+
     const validated = SpecContentSchema.parse({
       goal: args.content.goal,
       eli10: args.content.eli10 ?? '',
@@ -69,7 +94,7 @@ class SpecService {
       test_plan: args.content.test_plan ?? [],
       reviews: args.content.reviews,
       linked_tasks: args.content.linked_tasks ?? [],
-      notes: args.content.notes ?? '',
+      notes,
     })
 
     const spec = specStorage.create(projectId, {
