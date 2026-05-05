@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.18.1] - 2026-05-05
+
+### Bug Fixes
+
+- make spec update --json a PATCH (shallow merge), not full replace (#323)
+
+
 ## [2.18.0] - 2026-05-05
 
 ### Features
