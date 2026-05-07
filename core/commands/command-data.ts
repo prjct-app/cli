@@ -495,9 +495,10 @@ export const COMMANDS: CommandMeta[] = [
     hasTemplate: false,
     requiresProject: true,
     features: [
+      'Drafting: `prjct spec "<title>"` IS the create action — there is no `draft` subverb (aliases `draft`/`new`/`create` are tolerated and stripped)',
       'Persists in `specs` SQLite table + memory event stream',
       'Renders to ~/Documents/prjct/<slug>/_generated/specs/<slug>.md',
-      'Sub-verbs: list, show, update, set-status, record-review, link-task, ship, audit',
+      'Sub-verbs: list, show, update, set-status, record-review, link-task, ship, audit, inventory',
     ],
   },
   {

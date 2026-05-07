@@ -82,13 +82,16 @@ draft  →  reviewed  →  in_progress  →  shipped
 ## Verb cheatsheet
 
 ```
-prjct spec "<title>"                       # draft
+prjct spec "<title>"                       # draft — NO `draft` subverb, pass title directly
 prjct spec list [--status <s>]
 prjct spec show <id>
-prjct spec update <id> --json '{...}'      # replace content
+prjct spec update <id> --json '{...}'      # PATCH content (shallow merge)
 prjct spec audit <id>                      # emit subagent dispatch
 prjct spec record-review <id> --reviewer <name> --verdict <pass|fail> --notes "..."
 prjct spec link-task <id> --task-id <task>
 prjct spec ship <id> [--pr <n>]
 prjct spec set-status <id> --status archived
+prjct spec inventory [--md|--json]         # coverage map per module
 ```
+
+> **No `draft` subverb.** `prjct spec "<title>"` already creates a draft. The CLI tolerates `prjct spec draft|new|create "<title>"` as friendly aliases (the leading word is stripped) so `prjct spec draft "rate limiting"` and `prjct spec "rate limiting"` produce the same spec — but the canonical form has no leading verb.

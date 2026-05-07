@@ -350,6 +350,18 @@ async function routeSpec(
     'audit',
     'inventory',
   ])
+  // Friendly aliases: there is no `draft` subverb — `prjct spec "<title>"`
+  // IS the draft action — but agents/users routinely type
+  // `prjct spec draft "x"` (and `new`/`create`). Strip the leading word so
+  // the title doesn't get polluted with literal "draft x".
+  const draftAliases = new Set(['draft', 'new', 'create'])
+  if (sub && draftAliases.has(sub)) {
+    return commands.spec(rest, process.cwd(), {
+      md,
+      goal: options.goal ? String(options.goal) : undefined,
+      tags: options.tags ? String(options.tags) : undefined,
+    })
+  }
   if (!sub || !knownSubverbs.has(sub)) {
     return commands.spec(param, process.cwd(), {
       md,
