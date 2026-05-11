@@ -64,7 +64,10 @@
   },
   "overrides": {
     "path-to-regexp": "8.4.0",
-    "brace-expansion": "5.0.5"
+    "brace-expansion": "5.0.5",
+    "fast-uri": ">=3.1.2",
+    "hono": ">=4.12.18",
+    "ip-address": ">=10.1.1"
   },
   "devDependencies": {
     "@biomejs/biome": "2.3.13",
