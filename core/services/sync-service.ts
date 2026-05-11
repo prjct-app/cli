@@ -54,6 +54,41 @@ import { analyzeGit, detectCommands, detectStack, gatherStats } from './sync-ana
 import { syncVerifier } from './sync-verifier'
 
 // ============================================================================
+// PHASE TIMEOUT
+// ============================================================================
+
+const SYNC_PHASE_TIMEOUT_MS = Number(process.env.PRJCT_SYNC_PHASE_TIMEOUT_MS) || 60_000
+
+function withTimeout<T>(promise: Promise<T>, phase: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(
+        () => reject(new Error(`sync phase '${phase}' timed out after ${SYNC_PHASE_TIMEOUT_MS}ms`)),
+        SYNC_PHASE_TIMEOUT_MS
+      )
+    ),
+  ])
+}
+
+async function phase<T>(name: string, fn: () => Promise<T>): Promise<T> {
+  const t = Date.now()
+  log.debug('sync phase start', { phase: name })
+  try {
+    const result = await fn()
+    log.debug('sync phase done', { phase: name, ms: Date.now() - t })
+    return result
+  } catch (error) {
+    log.debug('sync phase failed', {
+      phase: name,
+      ms: Date.now() - t,
+      error: getErrorMessage(error),
+    })
+    throw error
+  }
+}
+
+// ============================================================================
 // SYNC SERVICE
 // ============================================================================
 
@@ -120,7 +155,7 @@ class SyncService {
 
       // Context7 is mandatory for deterministic coding workflows
       try {
-        context7Status = await context7Service.ensureReady()
+        context7Status = await phase('context7', () => context7Service.ensureReady())
       } catch (error) {
         return {
           success: false,
@@ -144,27 +179,34 @@ class SyncService {
 
       // 2b. Auto-migrate JSON → SQLite (idempotent, skips if already done)
       await ensureDirsPromise
-      await migrateJsonToSqlite(this.projectId)
+      await phase('migrate', () => withTimeout(migrateJsonToSqlite(this.projectId!), 'migrate'))
 
       // 2c. Sweep leftover JSON files → import to SQLite → delete
       // Runs every sync to catch ghosts from old code or failed migrations
-      try {
-        const swept = await sweepLegacyJson(this.projectId)
-        if (swept > 0) {
-          log.info('Swept legacy JSON files into SQLite', { swept })
+      await phase('sweep', async () => {
+        try {
+          const swept = await sweepLegacyJson(this.projectId!)
+          if (swept > 0) {
+            log.info('Swept legacy JSON files into SQLite', { swept })
+          }
+        } catch (error) {
+          log.debug('Legacy JSON sweep failed (non-critical)', { error: getErrorMessage(error) })
         }
-      } catch (error) {
-        log.debug('Legacy JSON sweep failed (non-critical)', { error: getErrorMessage(error) })
-      }
+      })
 
       // 3. Gather all data IN PARALLEL (30-50% speedup)
       // These operations are independent and can run concurrently
-      const [git, stats, commands, stack] = await Promise.all([
-        analyzeGit(this.projectPath),
-        gatherStats(this.projectPath),
-        detectCommands(this.projectPath),
-        detectStack(this.projectPath),
-      ])
+      const [git, stats, commands, stack] = await phase('gather', () =>
+        withTimeout(
+          Promise.all([
+            analyzeGit(this.projectPath),
+            gatherStats(this.projectPath),
+            detectCommands(this.projectPath),
+            detectStack(this.projectPath),
+          ]),
+          'gather'
+        )
+      )
 
       // 3a. Incremental change detection — see ./sync/incremental.ts for the
       // hash-based diff + import-graph propagation.
@@ -172,32 +214,41 @@ class SyncService {
         shouldRebuildIndexes,
         changedDomains: _changedDomains,
         incrementalInfo,
-      } = await detectIncrementalChanges({
-        projectId: this.projectId!,
-        projectPath: this.projectPath,
-        isFullSync: options.full === true,
-        changedFilesHint: options.changedFiles,
-      })
+      } = await phase('incremental', () =>
+        detectIncrementalChanges({
+          projectId: this.projectId!,
+          projectPath: this.projectPath,
+          isFullSync: options.full === true,
+          changedFilesHint: options.changedFiles,
+        })
+      )
 
       // 3b. Build file-ranking indexes IN PARALLEL (BM25, import graph, co-change)
       // Skip if no source files changed (incremental optimization)
       if (shouldRebuildIndexes) {
-        try {
-          await Promise.all([
-            indexBm25(this.projectPath, this.projectId!),
-            indexImports(this.projectPath, this.projectId!),
-            indexCoChanges(this.projectPath, this.projectId!),
-          ])
-        } catch (error) {
-          log.debug('File ranking index build failed (non-critical)', {
-            error: getErrorMessage(error),
-          })
-        }
+        await phase('index', async () => {
+          try {
+            await withTimeout(
+              Promise.all([
+                indexBm25(this.projectPath, this.projectId!),
+                indexImports(this.projectPath, this.projectId!),
+                indexCoChanges(this.projectPath, this.projectId!),
+              ]),
+              'index'
+            )
+          } catch (error) {
+            log.debug('File ranking index build failed (non-critical)', {
+              error: getErrorMessage(error),
+            })
+          }
+        })
       }
 
       // 4. Generate native workflow skills (installed to ~/.claude/skills/)
       // Collect rich context from SQLite for context-rich skills
       let generatedSkills: import('../types/project-sync').ProjectSyncResult['generatedSkills']
+      const skillPhaseStart = Date.now()
+      log.debug('sync phase start', { phase: 'skills' })
       try {
         const [
           llmAnalysis,
@@ -338,27 +389,35 @@ class SyncService {
           error: getErrorMessage(error),
         })
       }
+      log.debug('sync phase done', { phase: 'skills', ms: Date.now() - skillPhaseStart })
 
       // 5. Update files IN PARALLEL (write to different files)
-      await Promise.all([
-        updateProjectDoc({
-          projectId: this.projectId!,
-          projectPath: this.projectPath,
-          cliVersion: this.cliVersion,
-          git,
-          stats,
-        }),
-        updateStateDoc({ projectId: this.projectId!, projectPath: this.projectPath, stats, stack }),
-        Promise.resolve(logSyncEvent(this.projectId!, git, stats)),
-        saveDraftAnalysis(
-          this.projectId!,
-          this.projectPath,
-          git,
-          stats,
-          stack,
-          context7Status.verified
-        ),
-      ])
+      await phase('update-files', () =>
+        Promise.all([
+          updateProjectDoc({
+            projectId: this.projectId!,
+            projectPath: this.projectPath,
+            cliVersion: this.cliVersion,
+            git,
+            stats,
+          }),
+          updateStateDoc({
+            projectId: this.projectId!,
+            projectPath: this.projectPath,
+            stats,
+            stack,
+          }),
+          Promise.resolve(logSyncEvent(this.projectId!, git, stats)),
+          saveDraftAnalysis(
+            this.projectId!,
+            this.projectPath,
+            git,
+            stats,
+            stack,
+            context7Status.verified
+          ),
+        ])
+      )
 
       const activeAnalysis = await analysisStorage.getActive(this.projectId)
       const analysisSummary = {
@@ -370,30 +429,36 @@ class SyncService {
 
       // 9. Record metrics for value dashboard
       const duration = Date.now() - startTime
-      const syncMetrics = await recordSyncMetrics(this.projectId!, stats, duration)
+      const syncMetrics = await phase('metrics', () =>
+        recordSyncMetrics(this.projectId!, stats, duration)
+      )
 
       // 9b. Archive stale data (PRJ-267)
-      await archiveStaleData(this.projectId!)
+      await phase('archive', () => archiveStaleData(this.projectId!))
 
       // 9c. Auto-learn from task history → memory (PRJ-283)
 
       // 10. Update global config and commands (CLI does EVERYTHING)
       // This ensures `prjct sync` from terminal updates global CLAUDE.md and commands
-      await commandInstaller.installGlobalConfig()
-      await commandInstaller.syncCommands()
+      await phase('install-global', async () => {
+        await commandInstaller.installGlobalConfig()
+        await commandInstaller.syncCommands()
+      })
 
       // 11. Run verification checks (built-in + custom from config)
       let verification: VerificationReport | undefined
-      try {
-        const localConfig = await configManager.readConfig(this.projectPath)
-        verification = await syncVerifier.verify(
-          this.projectPath,
-          this.globalPath,
-          localConfig?.verification
-        )
-      } catch (error) {
-        log.debug('Verification failed (non-critical)', { error: getErrorMessage(error) })
-      }
+      await phase('verify', async () => {
+        try {
+          const localConfig = await configManager.readConfig(this.projectPath)
+          verification = await syncVerifier.verify(
+            this.projectPath,
+            this.globalPath,
+            localConfig?.verification
+          )
+        } catch (error) {
+          log.debug('Verification failed (non-critical)', { error: getErrorMessage(error) })
+        }
+      })
 
       return {
         success: true,
