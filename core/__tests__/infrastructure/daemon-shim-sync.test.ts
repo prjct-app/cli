@@ -62,3 +62,59 @@ describe('daemon-shim ↔ bin/prjct.ts sync', () => {
     expect(shim.has('crew')).toBe(true)
   })
 })
+
+/**
+ * Fallback-policy regression: the shim must NOT silently re-execute a command
+ * that the daemon may have already started running.
+ *
+ * Background: v2.19.1 → v2.19.2 and v2.19.3 → v2.19.4 each shipped twice
+ * because the shim's 5s timeout fell through to a full re-import of
+ * prjct-core, while the daemon's slow `ship` step kept running. Source
+ * `bin/prjct.ts` (commit d08727b8) was hardened to refuse retry on anything
+ * except ECONNREFUSED/ENOENT — the shim was missed.
+ */
+describe('daemon-shim fallback policy', () => {
+  const buildSrc = fs.readFileSync(path.join(ROOT, 'scripts/build.js'), 'utf-8')
+
+  test('timeout is 30s, matching core/daemon/client.ts sendRequest', () => {
+    expect(buildSrc).toContain('30000)')
+    // 5000 was the old hair-trigger timeout that caused the double-fire.
+    expect(buildSrc).not.toMatch(/setTimeout\([^)]*,\s*5000\)/)
+  })
+
+  test('socket error path checks ECONNREFUSED / ENOENT before fallback', () => {
+    // Must whitelist the safe-retry conditions, matching bin/prjct.ts:238-242.
+    expect(buildSrc).toContain('ECONNREFUSED')
+    expect(buildSrc).toContain('ENOENT')
+    expect(buildSrc).toMatch(/isSafeRetry|safeRetry/)
+  })
+
+  test('socket close before response does NOT silently re-import core', () => {
+    // The pre-fix shim had `sock.on("close",()=>{...;fallback()})` — that's
+    // what made ship re-run mid-flight. Reject any line that pairs
+    // `sock.on("close"` with an unconditional fallback().
+    const closeHandler = buildSrc.match(/sock\.on\("close"[^)]*\)[^;]*;?/g) ?? []
+    expect(closeHandler.length).toBeGreaterThan(0)
+    for (const h of closeHandler) {
+      // It is OK if the close handler calls refuse() or another non-recursive
+      // helper; it is NOT OK if it falls through to fallback() unconditionally.
+      const callsFallback = /fallback\(\)/.test(h)
+      const callsRefuse = /refuse\(/.test(h)
+      // If we ever fall back from close, it must be gated by a safe-retry check
+      // — which today only lives in the error handler. Close = always refuse.
+      if (callsFallback) expect(callsRefuse).toBe(true)
+    }
+  })
+
+  test('timeout path does NOT silently re-import core', () => {
+    // Same hazard: the daemon may still be working when the shim gives up.
+    const timeoutBlock = buildSrc.match(/setTimeout\(\(\)\s*=>\s*\{[^}]+\}/g) ?? []
+    const shimTimeout = timeoutBlock.find((b) => b.includes('done') && b.includes('sock'))
+    expect(shimTimeout).toBeDefined()
+    if (shimTimeout) {
+      const callsFallback = /fallback\(\)/.test(shimTimeout)
+      const callsRefuse = /refuse\(/.test(shimTimeout)
+      if (callsFallback) expect(callsRefuse).toBe(true)
+    }
+  })
+})
