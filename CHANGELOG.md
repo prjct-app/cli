@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.19.3] - 2026-05-11
+
+### Features
+
+- `prjct daemon restart` — graceful stop (with force-kill fallback) followed by a fresh spawn. Mirrors the existing top-level `prjct restart` shortcut so users who think of `daemon` as a noun discover it under the same namespace as `start`/`stop`/`status`.
+- `prjct daemon logs [--lines=N | -n N] [--all] [--follow|-f]` — prints the tail of `~/.prjct-cli/run/daemon.log`. Defaults to the last 50 lines; `--all` dumps the entire file; `-f` streams via `tail -f` and forwards SIGINT for clean exit.
+- The unknown-subcommand error now lists all five `daemon` subcommands.
+
 ## [2.19.2] - 2026-05-11
 
 ### Bug Fixes
