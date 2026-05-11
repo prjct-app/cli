@@ -167,22 +167,38 @@ var __dirname = __pathDirname(__filename);`,
  * This avoids parsing the ~600KB core bundle when daemon handles the command.
  */
 function generateDaemonShim() {
+  // Fallback policy MUST mirror bin/prjct.ts:206-251 + core/daemon/client.ts:87-145:
+  //
+  //   - Timeout = 30s (sendRequest uses 30_000).
+  //   - On socket error: fall through ONLY for ECONNREFUSED / ENOENT (stale
+  //     socket, no listener — the request never reached a daemon, safe to
+  //     re-run). Anything else (timeout, "Connection closed before response",
+  //     misc network errors) MAY mean the daemon already started executing
+  //     the request, so re-running can double-bump version / double-push.
+  //   - On socket close before response: NEVER fall through — exit 1.
+  //
+  // This blocked the bin/prjct.ts hardening from commit d08727b8 from
+  // reaching production for ~10 days (the shim is what end users actually
+  // execute via dist/bin/prjct.mjs). Any future change to the fallback
+  // policy MUST update both this string and bin/prjct.ts.
   return `#!/usr/bin/env node
 import{connect}from"node:net";import{existsSync}from"node:fs";import{randomUUID}from"node:crypto";import{homedir}from"node:os";
 const sockPath=homedir()+"/.prjct-cli/run/daemon.sock";
 const args=process.argv.slice(2);
 const cmd=args.find(a=>!a.startsWith("-"));
 const skip=new Set(["daemon","stop","restart","start","setup","update","dev","web","serve","context","hooks","doctor","uninstall","watch","help","-h","--help","version","-v","--version","claude","hook","seed","install","crew","mcp","prefs","retro","health","context-save","context-restore","spec","audit-spec"]);
+function refuse(m){console.error("prjct: daemon dropped the request ("+m+"). Retry: prjct "+args.join(" "));process.exit(1)}
+function isSafeRetry(e){const c=e&&e.code||"",m=e&&e.message||"";return c==="ECONNREFUSED"||c==="ENOENT"||m.includes("ECONNREFUSED")||m.includes("ENOENT")}
 if(cmd&&!skip.has(cmd)&&process.env.PRJCT_NO_DAEMON!=="1"&&existsSync(sockPath)){
   const cArgs=[],cOpts={};
   for(let i=0;i<args.length;i++){const a=args[i];if(a.startsWith("--")){const r=a.slice(2);if(r.includes("=")){const e=r.indexOf("=");cOpts[r.slice(0,e)]=r.slice(e+1)}else if(i+1<args.length&&!args[i+1].startsWith("--")){cOpts[r]=args[++i]}else{cOpts[r]=true}}else if(a.startsWith("-")&&a.length===2){cOpts[a.slice(1)]=true}else if(i>0){cArgs.push(a)}}
   const msg=JSON.stringify({id:randomUUID(),command:cmd,args:cArgs,options:cOpts,cwd:process.cwd()})+"\\n";
   const sock=connect(sockPath);let buf="",done=false;
-  const t=setTimeout(()=>{if(!done){done=true;sock.destroy();fallback()}},5000);
+  const t=setTimeout(()=>{if(!done){done=true;sock.destroy();refuse("timed out")}},30000);
   sock.on("connect",()=>sock.write(msg));
   sock.on("data",c=>{buf+=c.toString();const n=buf.indexOf("\\n");if(n!==-1){const r=JSON.parse(buf.slice(0,n));done=true;clearTimeout(t);sock.end();if(r.stdout)console.log(r.stdout);if(r.stderr)console.error(r.stderr);process.exit(r.exitCode)}});
-  sock.on("error",()=>{if(!done){done=true;clearTimeout(t);fallback()}});
-  sock.on("close",()=>{if(!done){done=true;clearTimeout(t);fallback()}});
+  sock.on("error",e=>{if(!done){done=true;clearTimeout(t);if(isSafeRetry(e))fallback();else refuse(e&&e.message||String(e))}});
+  sock.on("close",()=>{if(!done){done=true;clearTimeout(t);refuse("Connection closed before response")}});
 }else{fallback()}
 async function fallback(){await import("./prjct-core.mjs")}
 `
