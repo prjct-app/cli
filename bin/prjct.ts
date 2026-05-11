@@ -404,8 +404,63 @@ async function main(): Promise<void> {
         console.log('Daemon is not running.')
       }
       process.exitCode = 0
+    } else if (subcommand === 'restart') {
+      const { isDaemonRunning, stopDaemon, forceKillDaemon, spawnDaemon } = await import(
+        '../core/daemon/client'
+      )
+
+      if (await isDaemonRunning()) {
+        const stopped = await stopDaemon()
+        if (!stopped) forceKillDaemon()
+        await new Promise((resolve) => setTimeout(resolve, 300))
+      } else {
+        forceKillDaemon()
+      }
+
+      const started = await spawnDaemon()
+      if (started) {
+        console.log('Daemon restarted.')
+        process.exitCode = 0
+      } else {
+        console.error('Failed to restart daemon.')
+        process.exitCode = 1
+      }
+    } else if (subcommand === 'logs') {
+      const fs = await import('node:fs')
+      const { DAEMON_PATHS } = await import('../core/daemon/protocol')
+      const logPath = DAEMON_PATHS.log()
+
+      if (!fs.existsSync(logPath)) {
+        console.error(`No daemon log at ${logPath}. Start the daemon first.`)
+        process.exitCode = 1
+      } else {
+        const follow = args.includes('--follow') || args.includes('-f')
+        const all = args.includes('--all')
+        const linesArg =
+          args.find((a) => a.startsWith('--lines='))?.split('=')[1] ||
+          (args.includes('-n') ? args[args.indexOf('-n') + 1] : undefined)
+        const lines = linesArg ? parseInt(linesArg, 10) : 50
+
+        if (follow) {
+          const { spawn } = await import('node:child_process')
+          const child = spawn('tail', ['-n', String(lines), '-f', logPath], { stdio: 'inherit' })
+          process.on('SIGINT', () => child.kill('SIGINT'))
+          await new Promise<void>((resolve) => child.on('exit', () => resolve()))
+        } else if (all) {
+          process.stdout.write(fs.readFileSync(logPath, 'utf-8'))
+        } else {
+          const content = fs.readFileSync(logPath, 'utf-8')
+          const allLines = content.split('\n')
+          const tail = allLines.slice(-Math.max(1, lines))
+          process.stdout.write(tail.join('\n'))
+          if (!content.endsWith('\n')) process.stdout.write('\n')
+        }
+        process.exitCode = 0
+      }
     } else {
-      console.error(`Unknown daemon command: ${subcommand}. Use: start, stop, status`)
+      console.error(
+        `Unknown daemon command: ${subcommand}. Use: start, stop, restart, status, logs`
+      )
       process.exitCode = 1
     }
   } else if (args[0] === 'stop') {
