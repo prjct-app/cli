@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.19.2] - 2026-05-11
+
+### Bug Fixes
+
+- `prjct sync` hung indefinitely when the daemon held concurrent RW handles on `prjct.db` (no error, no daemon log activity). Set `PRAGMA busy_timeout = 5000` on every SQLite connection (per-project DB + system DB) before migrations run, so writer/schema lock contention waits instead of failing silently or hanging.
+- Added per-phase `log.debug` instrumentation in `syncService.sync()` covering all numbered phases (context7, migrate, sweep, gather, incremental, index, skills, update-files, metrics, archive, install-global, verify). Visible via `PRJCT_DEBUG=debug` for future hang diagnosis.
+- Wrapped heavy phases without internal abort paths (migrate, gather, index) with a 60s timeout (`Promise.race`, configurable via `PRJCT_SYNC_PHASE_TIMEOUT_MS`). On timeout, sync now fails with `sync phase '<phase>' timed out after Nms` instead of hanging from the user's perspective.
+
 ## [2.19.0] - 2026-05-05
 
 ### Features
