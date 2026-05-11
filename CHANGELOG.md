@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.19.4] - 2026-05-11
+
+### Bug Fixes
+
+- Stop `prjct ship` from creating two release commits per invocation. Root cause: the production CLI shim emitted by `generateDaemonShim()` in `scripts/build.js` had a 5s timeout and unconditionally called `fallback()` on timeout/error/close — re-importing `prjct-core.mjs` in-process while the daemon kept running. For any daemon-routed command that took longer than 5s (notably `ship`, whose push step alone is ~10s), the in-process fallback ran a second copy that saw the daemon's first commit at HEAD, bumped the version again, and produced a duplicate release commit. Sync the shim's fallback policy with the hardening from commit d08727b8 (May 1): timeout = 30s, refuse to re-execute on anything except `ECONNREFUSED`/`ENOENT`. Adds 4 regression tests in `core/__tests__/infrastructure/daemon-shim-sync.test.ts` that fail if the shim's policy drifts from the source again.
+
 ## [2.19.3] - 2026-05-11
 
 ### Features
