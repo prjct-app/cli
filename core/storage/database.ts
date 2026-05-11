@@ -82,6 +82,11 @@ class PrjctDatabase {
     // Enable WAL mode for concurrent reads + single writer
     db.run('PRAGMA journal_mode = WAL')
 
+    // Wait up to 5s on writer/schema lock contention instead of failing
+    // (or hanging silently) when the daemon holds an overlapping connection.
+    // Must run before runMigrations — migrations open a write transaction.
+    db.run('PRAGMA busy_timeout = 5000')
+
     // Performance tuning
     db.run('PRAGMA synchronous = NORMAL')
     db.run('PRAGMA cache_size = -2000') // 2MB cache
