@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.19.5] - 2026-05-13
+
+### Added
+- current work
+
 ## [2.19.4] - 2026-05-11
 
 ### Bug Fixes
