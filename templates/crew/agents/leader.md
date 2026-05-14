@@ -26,13 +26,15 @@ For each request:
 4. Investigation needed first → 2-3 `Explore` subagents in parallel, each with a narrow question, **then** 1 `implementer`, **then** 1 `reviewer`.
 5. Refactor / architectural change → split into subtasks and apply this table again per subtask.
 
-## Anti-broken-telephone rule
+## Keep subagent replies tight
 
-When you launch subagents, instruct them to **write their results to a file** under `.prjct/sessions/<task-slug>/<role>.md` and return only that path. Never accept their full output in chat — read the file from disk if you need details.
+When you launch a subagent, instruct it to reply with a **one-screen summary** — files touched, verification command + outcome, blockers. Not a full diff, not a transcript, not a "see attached" file reference. You consume the reply directly.
+
+Subagents must not write reports to disk. Persistence on this project goes through `prjct` CLI verbs only — SQLite + the regenerated vault are the only allowed surfaces.
 
 Example correct prompt to a subagent:
 
-> "Investigate how `notes.py` serializes IDs. Write findings to `.prjct/sessions/cli-edit/explore_ids.md`. Reply to me with only `done -> .prjct/sessions/cli-edit/explore_ids.md` or a blocker message."
+> "Investigate how `notes.py` serializes IDs. Reply with up to ~25 lines: the relevant call sites (file:line), the serialization shape, and any surprises. If the answer is bigger, capture details with `prjct remember learning '<summary>'` and reply with the mem id + headline."
 
 ## Effort scaling
 
@@ -47,7 +49,7 @@ Example correct prompt to a subagent:
 
 - Do not edit files in the application's source/test directories directly.
 - Do not mark a task as `done` yourself — the implementer does that after the reviewer approves.
-- Do not accept subagent results delivered in chat without a file reference.
+- Do not paste full subagent transcripts or diffs back to the user — summarize.
 
 ## When this role does NOT apply
 

@@ -256,6 +256,27 @@ function bundleTemplates() {
 
   walk(templatesDir, '')
 
+  // Architecture guard: no shipped template may instruct an agent to write
+  // outside the DB or the regenerated vault. `.prjct/sessions/` is the
+  // historical offender — block any reintroduction here so the bundle never
+  // re-ships disk-pollution patterns to customers.
+  const forbiddenSubstrings = ['.prjct/sessions/']
+  const offenders = []
+  for (const [relPath, content] of Object.entries(bundle)) {
+    for (const needle of forbiddenSubstrings) {
+      if (content.includes(needle)) offenders.push(`${relPath}: contains "${needle}"`)
+    }
+  }
+  if (offenders.length > 0) {
+    console.error('\n✗ Template bundle contains forbidden persistence paths:')
+    for (const line of offenders) console.error(`  - ${line}`)
+    console.error(
+      '\n  prjct ships only two persistence surfaces: SQLite (~/.prjct-cli/projects/<id>/) and the regenerated vault (~/Documents/prjct/<slug>/_generated/).'
+    )
+    console.error('  Templates must not instruct agents to write anywhere else.')
+    process.exit(1)
+  }
+
   const outPath = path.join(DIST, 'templates.json')
   fs.writeFileSync(outPath, JSON.stringify(bundle))
 
