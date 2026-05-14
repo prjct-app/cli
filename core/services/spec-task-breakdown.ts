@@ -4,34 +4,45 @@
  * When `audit-spec` promotes a spec from `draft` → `reviewed` (all three
  * reviewers pass), the spec's `acceptance_criteria` are materialized as
  * granular queue tasks — one per AC. Each task lands in the backlog
- * tagged with `featureId = spec.id` so the user can pick them up via
- * `prjct task` and the vault renders them as individual rows instead of
- * a single monolithic spec document.
+ * tagged with `featureId = spec.id`.
  *
- * Idempotent: if the spec already has linked_tasks, breakdown is a no-op.
- * That covers the re-audit path (a fail → pass cycle re-enters this code
- * but must not double-create tasks).
+ * Idempotency + crash recovery via the `tasks_created_at` completion
+ * marker on SpecContent:
+ *
+ *   - Marker set     → already broken down, skip.
+ *   - Marker null +
+ *     linked_tasks
+ *     non-empty      → PARTIAL breakdown (previous attempt crashed mid-
+ *                      flight). Wipe queue rows by featureId, clear
+ *                      linked_tasks, then re-run the full loop. The
+ *                      partial state cannot be transactional because
+ *                      queueStorage writes queue.json via StorageManager
+ *                      (async file I/O + event publishes, incompatible
+ *                      with sync SQLite tx). Recovery is convergent: the
+ *                      marker is set ONLY after the loop completes, so
+ *                      any crash leaves marker=null and the next caller
+ *                      re-enters the recovery branch.
+ *   - Marker null +
+ *     linked_tasks
+ *     empty          → fresh breakdown.
+ *
+ * See spec a50b32d1 AC #13.
  */
 import { projectMemory } from '../memory/project-memory'
 import { queueStorage } from '../storage/queue-storage'
 import { specStorage } from '../storage/spec-storage'
-import type { Spec } from '../types/spec'
+import type { Spec, SpecContent } from '../types/spec'
+import { getTimestamp } from '../utils/date-helper'
 
 export interface BreakdownResult {
   /** Task ids newly created. Empty when breakdown is a no-op. */
   taskIds: string[]
   /** Why we skipped (only present when taskIds is empty). */
   skippedReason?: 'no_acceptance_criteria' | 'already_broken_down'
+  /** Whether we entered the partial-recovery branch on this call. */
+  recoveredFromPartial?: boolean
 }
 
-/**
- * Materialize `spec.content.acceptance_criteria` as queue tasks.
- *
- * One AC → one queue task. The task's `description` is the AC text
- * (truncated to ~140 chars for readability); the full AC lands in `body`
- * unchanged. Tasks go to `backlog` so they don't auto-activate — the
- * user picks them up explicitly.
- */
 export async function breakdownSpecToTasks(
   projectId: string,
   projectPath: string,
@@ -41,8 +52,23 @@ export async function breakdownSpecToTasks(
   if (acs.length === 0) {
     return { taskIds: [], skippedReason: 'no_acceptance_criteria' }
   }
-  if (spec.content.linked_tasks.length > 0) {
+
+  // Entry guard: marker set ⇒ already complete.
+  if (spec.content.tasks_created_at !== null) {
     return { taskIds: [], skippedReason: 'already_broken_down' }
+  }
+
+  // Partial-recovery detection: marker null but linked_tasks non-empty
+  // means a previous attempt crashed mid-loop. Wipe + restart from scratch.
+  let recoveredFromPartial = false
+  if (spec.content.linked_tasks.length > 0) {
+    recoveredFromPartial = true
+    await queueStorage.deleteByFeatureId(projectId, spec.id)
+    const cleared: SpecContent = {
+      ...spec.content,
+      linked_tasks: [],
+    }
+    specStorage.updateContent(projectId, spec.id, cleared)
   }
 
   const newTasks = await queueStorage.addTasks(
@@ -65,20 +91,37 @@ export async function breakdownSpecToTasks(
     specStorage.linkTask(projectId, spec.id, task.id)
   }
 
+  // Completion marker — set ONLY after the full loop succeeds. A crash
+  // before this point leaves marker=null and we recover on next entry.
+  const fresh = specStorage.get(projectId, spec.id)
+  if (fresh) {
+    const withMarker: SpecContent = {
+      ...fresh.content,
+      tasks_created_at: getTimestamp(),
+    }
+    specStorage.updateContent(projectId, spec.id, withMarker)
+  }
+
   // Mirror to memory event stream so `prjct context memory spec` and the
   // user's session both surface the breakdown event.
   await projectMemory.remember(projectPath, {
     type: 'spec',
-    content: `Auto-breakdown: ${newTasks.length} tasks created from ${spec.title}`,
+    content: `Auto-breakdown: ${newTasks.length} tasks created from ${spec.title}${
+      recoveredFromPartial ? ' (recovered from partial)' : ''
+    }`,
     tags: {
       spec_id: spec.id,
       event: 'auto_breakdown',
       task_count: String(newTasks.length),
+      ...(recoveredFromPartial ? { recovered: 'partial' } : {}),
     },
     source: spec.id,
   })
 
-  return { taskIds: newTasks.map((t) => t.id) }
+  return {
+    taskIds: newTasks.map((t) => t.id),
+    ...(recoveredFromPartial ? { recoveredFromPartial: true } : {}),
+  }
 }
 
 /**

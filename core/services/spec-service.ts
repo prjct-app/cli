@@ -152,26 +152,61 @@ class SpecService {
     review: Omit<SpecReview, 'ts'>
   ): Promise<Spec | null> {
     const projectId = await this.requireProjectId(projectPath)
-    const spec = specStorage.get(projectId, id)
-    if (!spec) return null
 
-    const fullReview: SpecReview = { ...review, ts: getTimestamp() }
-    const nextContent: SpecContent = {
-      ...spec.content,
-      reviews: {
-        ...(spec.content.reviews ?? {}),
-        [reviewer]: fullReview,
-      },
+    // Optimistic-concurrency loop: read spec + its updated_at, mutate
+    // content.reviews in memory, write via casUpdate (which only succeeds
+    // if updated_at still matches). On conflict, retry up to 3 times with
+    // 50ms backoff. We CANNOT pull breakdownSpecToTasks inside a sync
+    // db.transaction — it awaits async work (queueStorage.addTasks writes
+    // JSON via StorageManager, plus event publishes + memory writes). So
+    // breakdown runs AFTER the CAS-on-content succeeds, gated by
+    // tasks_created_at idempotency. See spec a50b32d1 AC #12.
+    const MAX_ATTEMPTS = 3
+    const BACKOFF_MS = 50
+    let attempts = 0
+    let winningWriteHappenedHere = false
+    let updated: Spec | null = null
+    while (attempts < MAX_ATTEMPTS) {
+      const spec = specStorage.get(projectId, id)
+      if (!spec) return null
+
+      const fullReview: SpecReview = { ...review, ts: getTimestamp() }
+      const nextContent: SpecContent = {
+        ...spec.content,
+        reviews: {
+          ...(spec.content.reviews ?? {}),
+          [reviewer]: fullReview,
+        },
+      }
+      const ok = specStorage.casUpdate(projectId, id, nextContent, spec.updatedAt)
+      if (ok) {
+        winningWriteHappenedHere = true
+        updated = specStorage.get(projectId, id)
+        break
+      }
+      attempts++
+      if (attempts < MAX_ATTEMPTS) {
+        await new Promise((r) => setTimeout(r, BACKOFF_MS))
+      }
     }
-    const updated = specStorage.updateContent(projectId, id, nextContent)
+
+    if (!winningWriteHappenedHere) {
+      throw new Error(
+        `SPEC_RECORD_REVIEW_CONFLICT_RETRY_EXHAUSTED: ${MAX_ATTEMPTS} retries failed for spec ${id}`
+      )
+    }
+
     if (updated && this.allReviewsPass(updated.content)) {
       // All three reviewers pass → auto-promote draft to reviewed.
       if (updated.status === 'draft') {
         const promoted = specStorage.setStatus(projectId, id, 'reviewed')
         // Auto-breakdown: materialize acceptance_criteria as granular
-        // queue tasks so the user gets row-per-AC in the DB and vault
-        // instead of a monolithic spec document. Idempotent (skipped on
-        // re-audit when linked_tasks already populated).
+        // queue tasks. Now made idempotent on spec_id via the
+        // `tasks_created_at` marker (spec-task-breakdown.ts). The CAS
+        // guarantees only one writer observes draft→reviewed; the marker
+        // gates the breakdown call itself against any other source
+        // (e.g. manual `prjct spec breakdown <id>`). See spec a50b32d1
+        // AC #12 + #13.
         if (promoted) {
           const { breakdownSpecToTasks } = await import('./spec-task-breakdown')
           await breakdownSpecToTasks(projectId, projectPath, promoted)
