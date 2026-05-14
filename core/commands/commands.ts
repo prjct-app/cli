@@ -391,6 +391,14 @@ class PrjctCommands {
     return this.specCmds.audit(id, projectPath, options)
   }
 
+  async specBreakdown(
+    id: string | null = null,
+    projectPath: string = process.cwd(),
+    options: { md?: boolean; force?: boolean } = {}
+  ): Promise<CommandResult> {
+    return this.specCmds.breakdown(id, projectPath, options)
+  }
+
   async specInventory(
     projectPath: string = process.cwd(),
     options: { md?: boolean; json?: boolean } = {}

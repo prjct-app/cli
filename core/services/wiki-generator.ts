@@ -68,6 +68,33 @@ import { resolveVaultRoot } from './wiki-migration'
 // the vault root survive wiki rebuilds. Only this subdir gets touched.
 const GENERATED_SUBDIR = '_generated'
 
+/**
+ * Wrap a single builder call so an exception in one builder cannot abort
+ * the whole regen. Emits a structured log line per builder. The two
+ * builders added by spec a50b32d1 (`crew-runs`, `team`) use this; the
+ * pre-existing builders are progressively retrofitted in follow-up work.
+ *
+ * See spec a50b32d1 AC #15.
+ */
+function runBuilder<T>(
+  name: string,
+  fn: () => T,
+  onError: (e: unknown) => T
+): { result: T; ok: boolean; ms: number } {
+  const start = Date.now()
+  try {
+    const result = fn()
+    const ms = Date.now() - start
+    console.log(JSON.stringify({ builder: name, status: 'ok', ms }))
+    return { result, ok: true, ms }
+  } catch (error) {
+    const ms = Date.now() - start
+    const msg = error instanceof Error ? error.message : String(error)
+    console.log(JSON.stringify({ builder: name, status: 'error', ms, error: msg }))
+    return { result: onError(error), ok: false, ms }
+  }
+}
+
 export async function generateWiki(
   projectPath: string,
   projectId: string
@@ -104,6 +131,8 @@ export async function generateWiki(
   // --- Gather sources ---
   const { specStorage } = await import('../storage/spec-storage')
   const { queueStorage } = await import('../storage/queue-storage')
+  const { default: crewRunStorageMod } = await import('../storage/crew-run-storage')
+  const { teamEnrollmentStorage } = await import('../storage/team-enrollment-storage')
   const [ships, entries, analysis, llmAnalysis, workflowRules, specs, queueTasks] =
     await Promise.all([
       shippedStorage.getAll(projectId),
@@ -114,6 +143,20 @@ export async function generateWiki(
       Promise.resolve(specStorage.list(projectId, { includeArchived: true })).catch(() => []),
       queueStorage.getTasks(projectId).catch(() => []),
     ])
+  const crewRuns = (() => {
+    try {
+      return crewRunStorageMod.list(projectId)
+    } catch {
+      return []
+    }
+  })()
+  const teamEnrollment = (() => {
+    try {
+      return teamEnrollmentStorage.get(projectId)
+    } catch {
+      return null
+    }
+  })()
   const declared = entries.filter((e) => e.type !== 'shipped')
 
   // --- Build all file bodies in memory ---
@@ -125,6 +168,25 @@ export async function generateWiki(
   for (const [rel, body] of buildMemoryFiles(declared)) files.set(rel, body)
   for (const [rel, body] of buildTagFiles(declared)) files.set(rel, body)
   for (const [rel, body] of buildSpecFiles(specs, queueTasks)) files.set(rel, body)
+
+  // crew-runs/<slug>-<ts>.md — one file per recorded crew session.
+  // Isolated via runBuilder so a malformed run row doesn't take down
+  // the rest of the regen. See spec a50b32d1 AC #15.
+  const crewRunResult = runBuilder(
+    'crew-runs',
+    () => buildCrewRunFiles(crewRuns),
+    () => new Map<string, string>()
+  )
+  for (const [rel, body] of crewRunResult.result) files.set(rel, body)
+
+  // team.md — single page reflecting the kv_store team:enrollment row.
+  // Empty/no-enrollment is fine (we skip writing the page in that case).
+  const teamResult = runBuilder(
+    'team',
+    () => buildTeamFile(teamEnrollment),
+    () => null
+  )
+  if (teamResult.result !== null) files.set('team.md', teamResult.result)
 
   // Prefer LLM analysis (richer fields) when available, fallback to heuristic.
   const patterns = llmAnalysis?.patterns ?? analysis?.patterns ?? []
@@ -275,6 +337,85 @@ export async function generateWiki(
   await ensureObsidianVault(wikiRoot).catch(() => undefined)
 
   return { wikiRoot, filesWritten, filesSkipped, filesRemoved }
+}
+
+/**
+ * Render every crew-run row to `crew-runs/<slug>-<ts>.md`. Slug is
+ * spec_id || task_id || run.id; ts is the row's started_at timestamp.
+ *
+ * See spec a50b32d1 AC #3.
+ */
+function buildCrewRunFiles(
+  runs: ReadonlyArray<{
+    id: string
+    spec_id: string | null
+    task_id: string | null
+    started_at: string
+    ended_at: string
+    implementer_summary: string
+    files_touched: string[]
+    reviewer_verdict: 'APPROVED' | 'CHANGES_REQUESTED'
+    reviewer_notes: string | null
+  }>
+): Map<string, string> {
+  const out = new Map<string, string>()
+  for (const run of runs) {
+    const slug = run.spec_id ?? run.task_id ?? run.id
+    const safeTs = run.started_at.replace(/[:.]/g, '-')
+    const rel = `crew-runs/${slug}-${safeTs}.md`
+    const body = [
+      `# Crew run — ${slug}`,
+      '',
+      `- **run-id**: \`${run.id}\``,
+      `- **spec**: ${run.spec_id ? `\`${run.spec_id}\`` : '_(none)_'}`,
+      `- **task**: ${run.task_id ? `\`${run.task_id}\`` : '_(none)_'}`,
+      `- **started**: ${run.started_at}`,
+      `- **ended**: ${run.ended_at}`,
+      `- **verdict**: **${run.reviewer_verdict}**`,
+      '',
+      '## Implementer summary',
+      '',
+      run.implementer_summary,
+      '',
+      '## Files touched',
+      '',
+      run.files_touched.length === 0
+        ? '_(none recorded)_'
+        : run.files_touched.map((f) => `- \`${f}\``).join('\n'),
+      ...(run.reviewer_notes ? ['', '## Reviewer notes', '', run.reviewer_notes] : []),
+      '',
+    ].join('\n')
+    out.set(rel, body)
+  }
+  return out
+}
+
+/**
+ * Render the team:enrollment row (if any) as a single team.md page.
+ * Returns null when no enrollment is configured.
+ *
+ * See spec a50b32d1 AC #1.
+ */
+function buildTeamFile(
+  enrollment: {
+    required: boolean
+    minVersion: string
+    enrolledAt: string
+    enrolledBy: string | null
+  } | null
+): string | null {
+  if (enrollment === null) return null
+  return [
+    '# Team enrollment',
+    '',
+    `- **required**: ${enrollment.required}`,
+    `- **minVersion**: \`${enrollment.minVersion}\``,
+    `- **enrolledAt**: ${enrollment.enrolledAt}`,
+    `- **enrolledBy**: ${enrollment.enrolledBy ?? '_(unspecified)_'}`,
+    '',
+    'Authoritative source: `kv_store["team:enrollment"]`. The `.prjct/team.json` file in the repo is a derived mirror written atomically by `prjct team` (the pre-commit hook reads it because it must work before prjct is installed). Do not hand-edit the mirror — run `prjct team check` to detect/heal drift.',
+    '',
+  ].join('\n')
 }
 
 /**

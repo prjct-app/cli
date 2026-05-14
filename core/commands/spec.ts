@@ -17,6 +17,7 @@
  * body's intent map.
  */
 
+import configManager from '../infrastructure/config-manager'
 import { specService } from '../services/spec-service'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
@@ -383,6 +384,91 @@ export class SpecCommands extends PrjctCommandsBase {
       const dispatch = renderAuditDispatch(spec.id, spec.title, spec.content)
       console.log(dispatch)
       return { success: true, specId: id, dispatch: 'emitted' }
+    } catch (error) {
+      return failHard(getErrorMessage(error))
+    }
+  }
+
+  /**
+   * `prjct spec breakdown <id> [--force]` — manual recovery / re-trigger
+   * for breakdownSpecToTasks. Idempotent on tasks_created_at; safe to
+   * call repeatedly. Default gate: status='reviewed' or later. `--force`
+   * bypass emits an audit event (`type=spec.breakdown.forced`) and
+   * echoes the resulting mem id on stdout.
+   *
+   * See spec a50b32d1 AC #14.
+   */
+  async breakdown(
+    id: string | null = null,
+    projectPath: string = process.cwd(),
+    options: SpecCmdOptions & { force?: boolean } = {}
+  ): Promise<CommandResult> {
+    try {
+      if (!id) return failWith('Usage: prjct spec breakdown <id> [--force]')
+      const initResult = await this.ensureProjectInit(projectPath)
+      if (!initResult.success) return initResult
+
+      const spec = await specService.get(projectPath, id)
+      if (!spec) return failWith(`spec not found: ${id}`)
+
+      const GATED_STATES = new Set<SpecStatus>(['reviewed', 'shipped', 'archived'])
+      if (!GATED_STATES.has(spec.status as SpecStatus) && options.force !== true) {
+        process.stderr.write(
+          `error: spec status is '${spec.status}'; breakdown requires 'reviewed' or later. Re-run with --force if intentional.\n`
+        )
+        process.exitCode = 2
+        return {
+          success: false,
+          error: `spec status '${spec.status}' is below the breakdown gate`,
+        }
+      }
+
+      const forced = options.force === true && !GATED_STATES.has(spec.status as SpecStatus)
+      const projectId = await configManager.getProjectId(projectPath)
+      if (!projectId) return failHard('No prjct project. Run `prjct init` first.')
+      const { breakdownSpecToTasks } = await import('../services/spec-task-breakdown')
+      const result = await breakdownSpecToTasks(projectId, projectPath, spec)
+
+      let forcedEventMemId: string | null = null
+      if (forced) {
+        // Audit event so a forced breakdown shows up in `prjct context
+        // memory spec` and the event log. Free-form `type` string per
+        // publishEvent semantics.
+        const { projectMemory } = await import('../memory/project-memory')
+        const memId = await projectMemory.remember(projectPath, {
+          type: 'spec',
+          content: `prjct spec breakdown --force on '${spec.title}' (status was '${spec.status}')`,
+          tags: {
+            spec_id: spec.id,
+            event: 'spec.breakdown.forced',
+            from_status: spec.status,
+          },
+          source: spec.id,
+        })
+        forcedEventMemId = typeof memId === 'string' ? memId : null
+      }
+
+      const lines: string[] = []
+      if (forcedEventMemId) lines.push(`forced-breakdown event=${forcedEventMemId}`)
+      if (result.skippedReason === 'already_broken_down') {
+        lines.push(`skipped: already_broken_down (spec ${id})`)
+      } else if (result.skippedReason === 'no_acceptance_criteria') {
+        lines.push(`skipped: no_acceptance_criteria (spec ${id})`)
+      } else {
+        const tag = result.recoveredFromPartial ? ' (recovered from partial)' : ''
+        lines.push(`✓ breakdown: ${result.taskIds.length} task(s) linked${tag}`)
+      }
+      for (const line of lines) console.log(line)
+
+      return {
+        success: true,
+        specId: id,
+        forced,
+        forcedEventMemId,
+        taskIds: result.taskIds,
+        recoveredFromPartial: result.recoveredFromPartial === true,
+        skippedReason: result.skippedReason,
+      }
     } catch (error) {
       return failHard(getErrorMessage(error))
     }
