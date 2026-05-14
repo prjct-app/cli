@@ -39,12 +39,21 @@ describe('prjct crew', () => {
       '.claude/agents/leader.md',
       '.claude/agents/implementer.md',
       '.claude/agents/reviewer.md',
-      '.prjct/CHECKPOINTS.md',
       'CLAUDE.md',
     ]) {
       const content = await fs.readFile(path.join(projectPath, f), 'utf-8')
       expect(content.length).toBeGreaterThan(0)
     }
+
+    // Post-spec-a50b32d1: checkpoints moved from `.prjct/CHECKPOINTS.md`
+    // to kv_store. The file is no longer written by install — the
+    // reviewer template carries the content inline between markers.
+    const reviewerMd = await fs.readFile(
+      path.join(projectPath, '.claude/agents/reviewer.md'),
+      'utf-8'
+    )
+    expect(reviewerMd).toContain('<!-- prjct:checkpoints:start')
+    expect(reviewerMd).toContain('<!-- prjct:checkpoints:end -->')
 
     const claudeMd = await fs.readFile(path.join(projectPath, 'CLAUDE.md'), 'utf-8')
     expect(claudeMd).toContain(SNIPPET_START)

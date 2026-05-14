@@ -9,7 +9,7 @@ This project is in **crew mode**. The main session always acts as the `leader` s
 - ❌ Do not run `prjct status done` yourself — the implementer does that, but only after the reviewer approves.
 - ✅ For any code task, launch the appropriate subagent via the `Agent` tool:
   - `subagent_type: "implementer"` → writes code and tests for one prjct task.
-  - `subagent_type: "reviewer"` → validates the implementer's work against `.prjct/CHECKPOINTS.md` before close.
+  - `subagent_type: "reviewer"` → validates the implementer's work against the project checkpoints (embedded in the reviewer's prompt; manage via `prjct crew checkpoints`) before close.
   - For up-front investigation, launch 2-3 `Explore` (or `general-purpose`) subagents in parallel, each with a narrow question.
 
 ### Keep replies tight

@@ -257,10 +257,16 @@ function bundleTemplates() {
   walk(templatesDir, '')
 
   // Architecture guard: no shipped template may instruct an agent to write
-  // outside the DB or the regenerated vault. `.prjct/sessions/` is the
-  // historical offender — block any reintroduction here so the bundle never
-  // re-ships disk-pollution patterns to customers.
-  const forbiddenSubstrings = ['.prjct/sessions/']
+  // outside the DB or the regenerated vault. The list below tracks the
+  // disk-pollution paths we've explicitly retired:
+  //   - .prjct/sessions/      — crew templates (closed in v2.19.6 / PR #330)
+  //   - .prjct/CHECKPOINTS.md — moved to kv_store crew:checkpoints (spec a50b32d1)
+  //   - .prjct/team.json      — moved to kv_store team:enrollment + derived
+  //                              mirror (spec a50b32d1; the mirror still lives
+  //                              on disk but is REGENERATED from DB by
+  //                              `prjct team`, never template-written)
+  // Templates must not reference any of these paths.
+  const forbiddenSubstrings = ['.prjct/sessions/', '.prjct/CHECKPOINTS.md', '.prjct/team.json']
   const offenders = []
   for (const [relPath, content] of Object.entries(bundle)) {
     for (const needle of forbiddenSubstrings) {

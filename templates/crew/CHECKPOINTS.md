@@ -11,7 +11,7 @@
 ## C1 — The crew is wired
 
 - [ ] `.prjct/prjct.config.json` exists and points to a valid project ID.
-- [ ] `.prjct/CHECKPOINTS.md` exists (this file).
+- [ ] The `crew:checkpoints` row exists in kv_store (the gate criteria the reviewer applies — visible via `prjct crew checkpoints`).
 - [ ] `.claude/agents/leader.md`, `implementer.md`, `reviewer.md` are present.
 - [ ] Project `CLAUDE.md` (or equivalent) contains the crew leader-mode block.
 

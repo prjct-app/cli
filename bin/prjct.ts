@@ -715,22 +715,49 @@ async function main(): Promise<void> {
       process.exitCode = 0
     }
   } else if (args[0] === 'crew') {
-    // `prjct crew install|uninstall|status` — manage the multi-agent
-    // crew bundle (leader/implementer/reviewer + CHECKPOINTS + CLAUDE.md
-    // snippet). Strictly opt-in.
+    // `prjct crew install|uninstall|status|record-run|checkpoints …`
+    // Manages the multi-agent crew bundle. Strictly opt-in.
     const subcommand = args[1] ?? 'status'
     const { CrewCommands } = await import('../core/commands/crew')
     const cmd = new CrewCommands()
     const mdMode = args.includes('--md')
-    let result: Awaited<ReturnType<typeof cmd.install>>
+    const getFlag = (name: string): string | undefined => {
+      const idx = args.indexOf(`--${name}`)
+      if (idx >= 0 && idx + 1 < args.length && !args[idx + 1].startsWith('--')) {
+        return args[idx + 1]
+      }
+      return undefined
+    }
+    let result: { success: boolean; error?: string } = { success: false }
     if (subcommand === 'install') {
       result = await cmd.install(null, process.cwd(), { md: mdMode })
     } else if (subcommand === 'uninstall') {
       result = await cmd.uninstall(null, process.cwd(), { md: mdMode })
     } else if (subcommand === 'status') {
       result = await cmd.status(null, process.cwd(), { md: mdMode })
+    } else if (subcommand === 'checkpoints') {
+      // `prjct crew checkpoints [show|set|reset|export] [--content|--file]`
+      const checkpointsSub = args[2] ?? 'show'
+      result = await cmd.checkpoints(checkpointsSub, process.cwd(), {
+        md: mdMode,
+        content: getFlag('content'),
+        file: getFlag('file'),
+      })
+    } else if (subcommand === 'record-run') {
+      result = await cmd.recordRun(process.cwd(), {
+        md: mdMode,
+        spec: getFlag('spec'),
+        task: getFlag('task'),
+        'implementer-summary': getFlag('implementer-summary'),
+        files: getFlag('files'),
+        'reviewer-verdict': getFlag('reviewer-verdict'),
+        'reviewer-notes': getFlag('reviewer-notes'),
+        'run-id': getFlag('run-id'),
+      })
     } else {
-      console.error(`Unknown crew subcommand: ${subcommand}. Use: install, uninstall, status.`)
+      console.error(
+        `Unknown crew subcommand: ${subcommand}. Use: install, uninstall, status, checkpoints, record-run.`
+      )
       result = { success: false, error: `unknown subcommand: ${subcommand}` }
     }
     process.exitCode = result.success ? 0 : 1
