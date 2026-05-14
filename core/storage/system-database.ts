@@ -12,37 +12,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import type { McpHealthRow, McpHealthStatus } from '../types/storage/extended'
-import { isBun } from '../utils/runtime'
-
-// =============================================================================
-// SQLite Compatibility Layer (same pattern as database.ts)
-// =============================================================================
-
-type SqliteBindings = string | number | bigint | Buffer | null | undefined
-
-interface SqliteStatement {
-  get(...params: SqliteBindings[]): unknown
-  all(...params: SqliteBindings[]): unknown[]
-  run(...params: SqliteBindings[]): void
-}
-
-interface SqliteDatabase {
-  prepare(sql: string): SqliteStatement
-  run(sql: string): void
-  close(): void
-}
-
-function openDatabase(dbPath: string): SqliteDatabase {
-  if (isBun()) {
-    const { Database } = require('bun:sqlite')
-    return new Database(dbPath, { create: true }) as SqliteDatabase
-  }
-  const BetterSqlite3 = require('better-sqlite3')
-  const db = new BetterSqlite3(dbPath)
-  const origExec = db.exec.bind(db)
-  db.run = (sql: string) => origExec(sql)
-  return db as SqliteDatabase
-}
+import { openDatabase, type SqliteDatabase } from './database/sqlite-compat'
 
 // =============================================================================
 // System Database
@@ -68,10 +38,9 @@ class SystemDatabase {
       fs.mkdirSync(dbDir, { recursive: true })
     }
 
+    // openDatabase bakes in WAL + busy_timeout=5000 (daemon-safety pragmas).
     const db = openDatabase(this.dbPath)
 
-    db.run('PRAGMA journal_mode = WAL')
-    db.run('PRAGMA busy_timeout = 5000')
     db.run('PRAGMA synchronous = NORMAL')
     db.run('PRAGMA cache_size = -1000')
     db.run('PRAGMA temp_store = MEMORY')

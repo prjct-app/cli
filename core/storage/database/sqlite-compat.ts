@@ -29,8 +29,25 @@ export interface SqliteDatabase {
 /**
  * Open a SQLite database using the runtime-appropriate driver.
  * bun:sqlite on Bun, better-sqlite3 on Node.js.
+ *
+ * Every connection is opened with the correctness PRAGMAs baked in:
+ *   - journal_mode = WAL       — concurrent reads + single writer
+ *   - busy_timeout = 5000      — wait on lock contention instead of hanging
+ *                                silently when the daemon holds an overlapping
+ *                                connection (see [[gotcha_sync_hang]])
+ *
+ * Performance-tuning PRAGMAs (synchronous, cache_size, mmap_size, …) remain
+ * the caller's responsibility — they differ per database (per-project vs
+ * system) and aren't correctness-critical.
  */
 export function openDatabase(dbPath: string): SqliteDatabase {
+  const db = openRaw(dbPath)
+  db.run('PRAGMA journal_mode = WAL')
+  db.run('PRAGMA busy_timeout = 5000')
+  return db
+}
+
+function openRaw(dbPath: string): SqliteDatabase {
   if (isBun()) {
     const { Database } = require('bun:sqlite')
     return new Database(dbPath, { create: true }) as SqliteDatabase
