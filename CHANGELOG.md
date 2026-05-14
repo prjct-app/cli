@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.19.7] - 2026-05-13
+
+### Changed
+- **SQLite connection factory centralized.** `openDatabase()` in `core/storage/database/sqlite-compat.ts` now bakes `PRAGMA journal_mode=WAL` + `PRAGMA busy_timeout=5000` into every connection it returns. The duplicated PRAGMA calls in `core/storage/database.ts` and `core/storage/system-database.ts` were removed, and `system-database.ts` no longer ships its own copy of the `bun:sqlite` / `better-sqlite3` shim. Eliminates the regression class behind the v2.19.0 sync hang — a new SQLite caller cannot forget the daemon-safety pragma because the factory enforces it.
+
 ## [2.19.6] - 2026-05-13
 
 ### Fixed
