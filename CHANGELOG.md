@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.19.6] - 2026-05-13
+
+### Fixed
+- **Crew mode no longer writes `.prjct/sessions/` files into the customer's working tree.** The shipped templates (`templates/crew/agents/{leader,implementer,reviewer}.md`, `CHECKPOINTS.md`, `CLAUDE-leader-mode.md`) previously instructed subagents to persist plan / impl notes / review verdicts as loose markdown files under `.prjct/sessions/<task-slug>/<role>.md`. This violated the product invariant (SQLite + regenerated vault are the only allowed persistence surfaces) and was customer-reported. Subagents now reply inline; durable state goes through `prjct` CLI verbs only.
+
+### Added
+- Build-time guard in `scripts/build.js` that fails the bundle if any template under `templates/` reintroduces a forbidden persistence path (currently: `.prjct/sessions/`).
+- Regression test `core/__tests__/commands/crew-templates-no-disk-writes.test.ts` asserting the same invariant at unit-test time.
+
 ## [2.19.5] - 2026-05-13
 
 ### Added

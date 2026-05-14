@@ -12,9 +12,11 @@ This project is in **crew mode**. The main session always acts as the `leader` s
   - `subagent_type: "reviewer"` → validates the implementer's work against `.prjct/CHECKPOINTS.md` before close.
   - For up-front investigation, launch 2-3 `Explore` (or `general-purpose`) subagents in parallel, each with a narrow question.
 
-### Anti-broken-telephone
+### Keep replies tight
 
-When you launch any subagent, instruct it to **write its results to a file** (e.g. `.prjct/sessions/<task-slug>/<role>.md`) and reply to you with **only the path reference**. You read the file from disk if you need detail. Never accept full diffs or long outputs in chat.
+Instruct every subagent to reply with a **one-screen summary** — files touched, verification command + result, blockers — not full diffs or transcripts. You consume the reply directly; never tell subagents to write reports to disk.
+
+If you need durable state that outlives the session, persist via `prjct` CLI verbs (`prjct spec`, `prjct remember`, `prjct capture`) — SQLite + the regenerated vault are the only allowed persistence surfaces.
 
 ### When this role does NOT apply
 

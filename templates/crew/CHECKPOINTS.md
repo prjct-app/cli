@@ -37,9 +37,9 @@
 
 ## C5 — The session closed cleanly
 
-- [ ] No untracked junk in the worktree (`*.tmp`, scratch logs, accidental binaries).
-- [ ] The implementer's report exists at `.prjct/sessions/<task-slug>/impl.md`.
-- [ ] The reviewer's verdict exists at `.prjct/sessions/<task-slug>/review.md` and is `APPROVED`.
+- [ ] No untracked junk in the worktree (`*.tmp`, scratch logs, accidental binaries, any subdirectory of `.prjct/`).
+- [ ] The implementer replied inline with the summary block (STATUS / PLAN / FILES TOUCHED / VERIFICATION / NOTES).
+- [ ] The reviewer replied inline with `VERDICT: APPROVED` (first line).
 - [ ] The task's status was advanced (`prjct status done` for completed work, `prjct status paused` if intentionally paused).
 
 ---
