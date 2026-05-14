@@ -54,6 +54,12 @@ export const SpecContentSchema = z.object({
     .optional(),
   linked_tasks: z.array(z.string()).default([]),
   notes: z.string().default(''),
+  // Set ONLY after breakdownSpecToTasks completes its full loop. Acts as a
+  // completion marker for idempotency + partial-recovery: null + non-empty
+  // linked_tasks ⇒ partial breakdown; recovery wipes queue rows by featureId
+  // and re-runs the loop. Existing specs read as null via Zod's default fill
+  // (no DB migration needed; specs.content is a JSON blob).
+  tasks_created_at: z.string().nullable().default(null),
 })
 
 export type SpecContent = z.infer<typeof SpecContentSchema>

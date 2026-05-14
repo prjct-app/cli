@@ -123,6 +123,35 @@ class SpecStorage {
     return this.get(projectId, id)
   }
 
+  /**
+   * Optimistic-concurrency UPDATE on `specs.content`. Returns `true` iff
+   * the row's `updated_at` still matched `expectedUpdatedAt` at write time
+   * (i.e. nobody else has written since the caller read). Returns `false`
+   * on stale read (caller should re-read and retry).
+   *
+   * Used by recordReview (and breakdownSpecToTasks marker write) to
+   * serialize concurrent writers without pulling async work inside a sync
+   * SQLite transaction. See spec a50b32d1 AC #12.
+   */
+  casUpdate(
+    projectId: string,
+    id: string,
+    content: SpecContent,
+    expectedUpdatedAt: string
+  ): boolean {
+    const validated = SpecContentSchema.parse(content)
+    const now = getTimestamp()
+    const result = prjctDb.run(
+      projectId,
+      'UPDATE specs SET content = ?, updated_at = ? WHERE id = ? AND updated_at = ?',
+      JSON.stringify(validated),
+      now,
+      id,
+      expectedUpdatedAt
+    )
+    return result.changes === 1
+  }
+
   setStatus(projectId: string, id: string, status: SpecStatus): Spec | null {
     if (!SPEC_STATUSES.includes(status)) {
       throw new Error(`invalid spec status: ${status}`)

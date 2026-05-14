@@ -11,11 +11,22 @@ import { isBun } from '../../utils/runtime'
 /** Bind parameter types accepted by both drivers */
 export type SqliteBindings = string | number | bigint | Buffer | null | undefined
 
+/**
+ * Result of executing a prepared statement that mutates rows.
+ * Both bun:sqlite and better-sqlite3 return this shape natively from
+ * `Statement.run(...)`; the wrapper previously discarded it. Required
+ * by the optimistic-CAS path in spec-storage (`UPDATE … WHERE updated_at=?`
+ * only succeeds when `changes === 1`).
+ */
+export interface SqliteRunResult {
+  changes: number
+}
+
 /** Minimal prepared-statement interface shared by both drivers */
 export interface SqliteStatement {
   get(...params: SqliteBindings[]): unknown
   all(...params: SqliteBindings[]): unknown[]
-  run(...params: SqliteBindings[]): void
+  run(...params: SqliteBindings[]): SqliteRunResult
 }
 
 /** Minimal database interface shared by bun:sqlite and better-sqlite3 */

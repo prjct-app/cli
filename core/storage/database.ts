@@ -27,6 +27,7 @@ import {
   openDatabase,
   type SqliteBindings,
   type SqliteDatabase,
+  type SqliteRunResult,
   type SqliteStatement,
 } from './database/sqlite-compat'
 
@@ -180,6 +181,24 @@ class PrjctDatabase {
     return row !== null
   }
 
+  /**
+   * List all kv_store docs whose key starts with `prefix`. Returns
+   * deserialized rows. Used by crew-run-storage to render every
+   * `crew-run:<id>` row into the vault on regen.
+   *
+   * Caller must filter out unrelated keys if `prefix` is ambiguous;
+   * SQL pattern is `prefix || '%'` (no LIKE wildcard injection because
+   * we control the call sites).
+   */
+  listDocsByPrefix<T>(projectId: string, prefix: string): Array<{ key: string; data: T }> {
+    const db = this.getDb(projectId)
+    const rows = this.prepareCached(
+      db,
+      "SELECT key, data FROM kv_store WHERE key LIKE ? || '%' ORDER BY key"
+    ).all(prefix) as Array<{ key: string; data: string }>
+    return rows.map((r) => ({ key: r.key, data: JSON.parse(r.data) as T }))
+  }
+
   // ===========================================================================
   // Event Log
   // ===========================================================================
@@ -240,9 +259,9 @@ class PrjctDatabase {
     return this.prepareCached(db, sql).all(...params) as T[]
   }
 
-  run(projectId: string, sql: string, ...params: SqliteBindings[]): void {
+  run(projectId: string, sql: string, ...params: SqliteBindings[]): SqliteRunResult {
     const db = this.getDb(projectId)
-    this.prepareCached(db, sql).run(...params)
+    return this.prepareCached(db, sql).run(...params)
   }
 
   get<T = Record<string, unknown>>(
