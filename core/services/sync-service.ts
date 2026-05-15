@@ -194,6 +194,36 @@ class SyncService {
         }
       })
 
+      // 2d. Legacy crew-disk sweep (spec a50b32d1 AC #10) — detect
+      // pre-v2.19.7 `.prjct/CHECKPOINTS.md` and `.prjct/team.json`,
+      // migrate into kv_store, emit one-shot inbox warnings on
+      // post-migration hand-edits. mtime-cached so re-syncs are silent.
+      await phase('legacy-crew-sweep', async () => {
+        try {
+          const { legacyCrewSweep } = await import('./legacy-crew-sweep')
+          const result = await legacyCrewSweep(this.projectPath, this.projectId!)
+          if (
+            result.checkpointsMigrated ||
+            result.teamMigrated ||
+            result.checkpointsHandEditWarned ||
+            result.teamHandEditWarned ||
+            result.errors.length > 0
+          ) {
+            log.info('Legacy crew sweep ran', {
+              checkpointsMigrated: result.checkpointsMigrated,
+              teamMigrated: result.teamMigrated,
+              checkpointsHandEditWarned: result.checkpointsHandEditWarned,
+              teamHandEditWarned: result.teamHandEditWarned,
+              errors: result.errors.length,
+            })
+          }
+        } catch (error) {
+          log.debug('Legacy crew sweep failed (non-critical)', {
+            error: getErrorMessage(error),
+          })
+        }
+      })
+
       // 3. Gather all data IN PARALLEL (30-50% speedup)
       // These operations are independent and can run concurrently
       const [git, stats, commands, stack] = await phase('gather', () =>
