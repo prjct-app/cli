@@ -1,5 +1,39 @@
 # Changelog
 
+## [2.19.8] - 2026-05-14
+
+Crew-mode persistence v7 (spec a50b32d1). SQLite becomes the single source of truth for crew runs, team enrollment, and checkpoint customization. Disk mirrors exist only where an external read contract demands one (the pre-commit hook).
+
+### Breaking changes
+
+- **`.prjct/CHECKPOINTS.md` is no longer authoritative.** `prjct crew install` does not write it anymore; the reviewer agent template carries the current checkpoints content embedded between `<!-- prjct:checkpoints:start/end -->` markers, spliced in at install time from `kv_store['crew:checkpoints']`. Existing customizations are migrated automatically on first `prjct sync` post-upgrade (the disk file is left in place but no longer read at run time; delete it once you've verified the migration).
+- **`.prjct/team.json` is now a derived mirror.** `prjct team` writes the kv_store row first (DB = source of truth), then regenerates the disk file atomically (`.tmp` + `fs.rename`). The pre-commit hook string in `core/commands/team.ts` is unchanged — it still reads `.prjct/team.json` because the hook must work before prjct is installed on a new contributor's machine. **Do not hand-edit the mirror** — edits will be silently overwritten on the next team write. Run `prjct team check` to detect/heal drift.
+- **`SqliteStatement.run` return type widened** from `void` to `{ changes: number }` in the compat wrapper. Both drivers already returned this shape at runtime; the wrapper was discarding it. Non-breaking for callers that ignore the return (grep-verified — no caller in core/ consumes the value).
+
+### Added
+
+- **`prjct crew record-run`** — persists one row per crew session at kv_store key `crew-run:<id>` with `{spec_id?, task_id?, started_at, ended_at, implementer_summary, files_touched, reviewer_verdict, reviewer_notes?}`. Idempotent on caller-supplied `--run-id`. Vault renders to `~/Documents/prjct/<slug>/_generated/crew-runs/<slug>-<ts>.md`.
+- **`prjct crew checkpoints [show|set|reset|export]`** — kv_store CRUD for the reviewer's checkpoint gate. `set` errors fast (exit 2 + stderr) when stdin is a TTY and no `--content` / `--file` flag is given. `export` empty-state emits the bundled default + stderr log `(exporting bundled default; no user customization set)`.
+- **`prjct team check`** — drift detector + self-heal for `.prjct/team.json`. Canonical-JSON byte-equality between disk and DB. On drift, rewrites the mirror atomically. Three cases: adopt-disk-into-DB on migration, rewrite-mirror-on-drift, no-op on both empty.
+- **`prjct spec breakdown <id> [--force]`** — manual recovery / re-trigger for `breakdownSpecToTasks`. Default gate: status='reviewed' or later. `--force` bypass emits an audit event (`type=spec.breakdown.forced`) and echoes the mem id on stdout.
+- **`SpecContent.tasks_created_at: string | null`** — completion marker for breakdown idempotency. Zod nullable default null; absorbs legacy rows without a DB migration.
+- **`specStorage.casUpdate(projectId, specId, content, expectedUpdatedAt): boolean`** — optimistic-concurrency UPDATE on the specs table for the recordReview retry loop.
+- **`queueStorage.deleteByFeatureId(projectId, featureId): Promise<number>`** — partial-breakdown recovery helper (wipes queue rows tagged with the spec's `featureId`).
+- **`prjctDb.listDocsByPrefix<T>(projectId, prefix)`** — kv_store prefix scan, used by `crew-run-storage.list()`.
+- **`writeFileAtomic(filePath, content)`** in `core/utils/file-helper.ts` — atomic `.tmp` + `fs.rename` write.
+- **Wiki regen**: new `crew-runs/<slug>-<ts>.md` page per recorded crew session + `team.md` reflecting the enrollment row. New `runBuilder()` isolation helper wraps the two new builders so a malformed row doesn't abort the rest of the regen.
+- **Build-time architecture guard** in `scripts/build.js` — bundle fails if any shipped template references `.prjct/sessions/`, `.prjct/CHECKPOINTS.md`, or `.prjct/team.json`.
+- **Regression tests**: `spec-storage-cas.test.ts` (CAS happy path + stale read + marker preservation), `spec-task-breakdown-partial-recovery.test.ts` (fresh, idempotent re-entry, wipe-and-retry on partial state).
+
+### Fixed
+
+- **`recordReview` concurrent-write race.** Previously last-write-wins via `updateContent` — two concurrent reviewers could clobber each other's verdict. Now reads the spec + its `updated_at`, mutates `content.reviews` in memory, writes via `specStorage.casUpdate`. On rows-affected=0 → retry up to 3× with 50ms backoff. After exhaustion → throws `SPEC_RECORD_REVIEW_CONFLICT_RETRY_EXHAUSTED`. `breakdownSpecToTasks` runs OUTSIDE the CAS (it awaits async work — JSON file writes + event publishes — which cannot live inside a synchronous SQLite transaction). The CAS guarantees only one writer observes `draft→reviewed` per attempt, so breakdown fires at most once.
+- **`breakdownSpecToTasks` crash recovery.** Previously "skip if linked_tasks non-empty" left the spec wedged forever on a mid-loop crash (queue rows inserted but `linkTask` never called → re-runs early-returned). Now uses a `tasks_created_at` completion marker (set ONLY after the full loop completes) + a wipe-by-featureId recovery branch (marker null + linked_tasks non-empty → delete partial queue rows, clear linked_tasks, re-run the full loop). Convergence guaranteed by bounded retry, not transactional safety.
+
+### Migration
+
+- On first `prjct sync` post-upgrade, the sync service runs a `legacy-crew-sweep` phase that detects `.prjct/CHECKPOINTS.md` and `.prjct/team.json`, migrates their content into kv_store (`crew:checkpoints` with `source='migrated'`; `team:enrollment` + atomic mirror regen), and captures an inbox note. The legacy files are left in place — delete them when you've verified the migration. Subsequent hand-edits to the legacy files fire a one-shot inbox warning (mtime-cached so the warning doesn't repeat on every sync).
+
 ## [2.19.7] - 2026-05-13
 
 ### Changed
