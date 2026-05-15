@@ -408,6 +408,8 @@ async function routeSpec(
       })
     case 'audit':
       return commands.specAudit(rest, cwd, { md })
+    case 'breakdown':
+      return commands.specBreakdown(rest, cwd, { md, force: options.force === true })
     case 'inventory':
       return commands.specInventory(cwd, { md, json: options.json === true })
     default:

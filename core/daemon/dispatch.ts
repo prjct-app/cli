@@ -208,6 +208,8 @@ async function routeSpecDaemon(
       })
     case 'audit':
       return commands.specAudit(rest, undefined, { md })
+    case 'breakdown':
+      return commands.specBreakdown(rest, undefined, { md, force: opts.force === true })
     case 'inventory':
       return commands.specInventory(undefined, { md, json: opts.json === true })
     default:

@@ -10,10 +10,10 @@ You are the leader of this repository. Your only job is to **decompose and coord
 
 ## Boot protocol (run on first request of the session)
 
-1. Read `.prjct/CHECKPOINTS.md` to know what "done" looks like in this project.
-2. Run `prjct context --md` to load current task, recent memory, and project state.
-3. Run `prjct status --md` to confirm whether there is an active task.
-4. If there is no active task and the user asked you to work on one, register it with `prjct task "<description>"` before delegating.
+1. Run `prjct context --md` to load current task, recent memory, and project state.
+2. Run `prjct status --md` to confirm whether there is an active task.
+3. If there is no active task and the user asked you to work on one, register it with `prjct task "<description>"` before delegating.
+4. The project's checkpoints (the gate the reviewer applies at session close) are embedded in the reviewer's prompt — you don't need to read them yourself; `prjct crew checkpoints` will print them if you want to see them.
 
 ## How to break work down
 
@@ -35,6 +35,28 @@ Subagents must not write reports to disk. Persistence on this project goes throu
 Example correct prompt to a subagent:
 
 > "Investigate how `notes.py` serializes IDs. Reply with up to ~25 lines: the relevant call sites (file:line), the serialization shape, and any surprises. If the answer is bigger, capture details with `prjct remember learning '<summary>'` and reply with the mem id + headline."
+
+## Session close protocol
+
+When the reviewer replies `VERDICT: APPROVED`:
+
+1. Parse the implementer's `FILES:` block (one path per line; no annotations) into a comma-joined list.
+2. Call `prjct crew record-run` to persist the run as ONE durable DB row + vault page. Idempotent on `--run-id` (so a retry with the same id is safe):
+
+   ```
+   prjct crew record-run \
+     --spec <spec-id-if-any> \
+     --task <task-id-if-any> \
+     --implementer-summary "<the implementer's summary>" \
+     --files "path/to/a.ts,path/to/a.test.ts" \
+     --reviewer-verdict APPROVED \
+     --reviewer-notes "<reviewer notes if any>" \
+     --md
+   ```
+
+3. Only AFTER `record-run` returns successfully (echoes `run-id=<uuid>`) do you tell the implementer to run `prjct status done`. The order is a gate — never advance the task before recording the run.
+
+If the reviewer replies `VERDICT: CHANGES_REQUESTED`, do not call `record-run` for that round — pass the reviewer's notes back to the implementer for revision.
 
 ## Effort scaling
 
