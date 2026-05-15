@@ -135,6 +135,34 @@ class QueueStorage extends StorageManager<QueueJson> {
   }
 
   /**
+   * Remove every task whose `featureId` matches. Returns rows-deleted.
+   * Used by breakdownSpecToTasks partial-recovery: a crashed breakdown
+   * leaves orphan queue rows tagged with `featureId = spec.id`; recovery
+   * wipes them before re-running the loop. NOT `linkedSpecId` — that
+   * field is reserved for `prjct task --spec` invocations.
+   * See spec a50b32d1 AC #13.
+   */
+  async deleteByFeatureId(projectId: string, featureId: string): Promise<number> {
+    let deleted = 0
+    await this.update(projectId, (queue) => {
+      const before = queue.tasks.length
+      const remaining = queue.tasks.filter((t) => t.featureId !== featureId)
+      deleted = before - remaining.length
+      return {
+        tasks: remaining,
+        lastUpdated: getTimestamp(),
+      }
+    })
+    if (deleted > 0) {
+      await this.publishEvent(projectId, 'queue.tasks_removed_by_feature', {
+        featureId,
+        count: deleted,
+      })
+    }
+    return deleted
+  }
+
+  /**
    * Mark a task as completed
    */
   async completeTask(projectId: string, taskId: string): Promise<QueueTask | null> {
