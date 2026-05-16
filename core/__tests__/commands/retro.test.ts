@@ -53,6 +53,11 @@ describe('prjct retro — happy path', () => {
     expect(r.contributors).toBe(0)
   })
 
+  // Git-heavy: multiple commit() spawns + a retro git-log scan. Under
+  // full-suite parallel load the default 5s bun timeout is too tight
+  // (passes isolated, times out only when the box is saturated). Give
+  // git-spawning tests explicit headroom — the assertion is the point,
+  // not the wall-clock.
   it('groups commits per contributor and counts them', async () => {
     await commitAs('Alice', 'a@example.com', 'feat: alice 1')
     await commitAs('Bob', 'b@example.com', 'fix: bob 1')
@@ -61,7 +66,7 @@ describe('prjct retro — happy path', () => {
     expect(r.success).toBe(true)
     expect(r.commits).toBe(3)
     expect(r.contributors).toBe(2)
-  })
+  }, 20_000)
 
   it('rejects invalid window arguments', async () => {
     const r = await cmd.retro('not-a-window', dir, { md: true })
@@ -92,5 +97,5 @@ describe('prjct retro — happy path', () => {
     const r = await cmd.retro('24h', dir, { md: true })
     expect(r.success).toBe(true)
     expect(r.window).toBe('24h')
-  })
+  }, 20_000)
 })
