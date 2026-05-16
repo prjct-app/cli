@@ -221,9 +221,20 @@ class ConfigManager {
   }
 
   /**
-   * Get the project ID from config, or generate it if config doesn't exist.
-   * When running from a git worktree, falls back to the main worktree's config
-   * so all worktrees share the same projectId.
+   * Resolve the project ID from config (or the main worktree's config when
+   * running in a child worktree).
+   *
+   * Returns `''` when the path is not an initialized prjct project. It does
+   * NOT mint a new id here: `generateProjectId()` is `crypto.randomUUID()`,
+   * so minting on a config-read miss silently forks a fresh orphan project
+   * every time a path-resolution miss happens (daemon resolving the wrong
+   * cwd, config transiently unreadable, etc.) — scattering specs/memory
+   * across ghost projects with no error surfaced. Only explicit project
+   * creation (`createConfig`, i.e. `prjct init`) is allowed to mint.
+   *
+   * The empty-string sentinel is what 31/32 call sites already guard for
+   * (`if (!projectId) return "run prjct init"`), so callers fail loud
+   * instead of writing into a random new project.
    */
   async getProjectId(projectPath: string): Promise<string> {
     const config = await this.readConfig(projectPath)
@@ -248,7 +259,9 @@ class ConfigManager {
       // worktree detection failed — not critical, fall through
     }
 
-    return pathManager.generateProjectId(projectPath)
+    // Not an initialized project. Fail loud (callers guard `!projectId`),
+    // never silently mint a random orphan project.
+    return ''
   }
 
   /**
