@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.19.9] - 2026-05-16
+
+### Bug Fixes
+
+- strictly-monotonic updated_at so the CAS token can't collide (#337)
+
+
 ## [Unreleased]
 
 ### Fixed
