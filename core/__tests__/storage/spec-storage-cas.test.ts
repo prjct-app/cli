@@ -72,13 +72,11 @@ describe('specStorage.casUpdate', () => {
     const after = specStorage.get(projectId, created.id)
     expect(after?.content.eli10).toBe('updated via CAS')
     expect(after?.content.goal).toBe('test CAS happy path')
-    // updated_at is monotonic, not strictly-greater per write: getTimestamp()
-    // is ISO8601 ms-precision, so a create + casUpdate inside the same
-    // millisecond (fast CI) legitimately produce equal stamps. The CAS
-    // contract under test is "matching token → write succeeds + content
-    // updated", which the assertions above already cover; only assert the
-    // stamp did not go backwards.
-    expect((after?.updatedAt ?? '') >= original.updatedAt).toBe(true)
+    // updated_at is now STRICTLY monotonic per write (specStorage
+    // .nextUpdatedAt forces it greater than the row's current stamp so
+    // the CAS token can't collide at sub-millisecond write rates).
+    expect(after?.updatedAt).not.toBe(original.updatedAt)
+    expect((after?.updatedAt ?? '') > original.updatedAt).toBe(true)
   })
 
   test('rejects stale write (returns false) when updated_at has moved', async () => {

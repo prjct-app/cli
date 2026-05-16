@@ -34,6 +34,31 @@ interface SpecRow {
 
 class SpecStorage {
   /**
+   * Strictly-monotonic `updated_at` for a spec row.
+   *
+   * `updated_at` doubles as the optimistic-concurrency token in
+   * `casUpdate`. `getTimestamp()` is ISO8601 millisecond precision, so
+   * two writes to the same row inside one millisecond would produce an
+   * EQUAL token — a stale CAS read (`WHERE updated_at = <oldToken>`)
+   * would still match and silently succeed (last-write-wins; the
+   * conflict goes undetected). Forcing the new stamp strictly greater
+   * than the row's current one closes that sub-millisecond hole without
+   * a schema change. ISO8601 sorts chronologically as a string, so the
+   * `>` comparison and the `< vs >` SQL CAS stay correct.
+   */
+  private nextUpdatedAt(projectId: string, id: string): string {
+    const now = getTimestamp()
+    const row = prjctDb.get<{ updated_at: string }>(
+      projectId,
+      'SELECT updated_at FROM specs WHERE id = ?',
+      id
+    )
+    const prev = row?.updated_at
+    if (!prev || now > prev) return now
+    return new Date(new Date(prev).getTime() + 1).toISOString()
+  }
+
+  /**
    * Create a new spec. Returns the spec id.
    */
   create(
@@ -112,7 +137,7 @@ class SpecStorage {
 
   updateContent(projectId: string, id: string, content: SpecContent): Spec | null {
     const validated = SpecContentSchema.parse(content)
-    const now = getTimestamp()
+    const now = this.nextUpdatedAt(projectId, id)
     prjctDb.run(
       projectId,
       'UPDATE specs SET content = ?, updated_at = ? WHERE id = ?',
@@ -140,7 +165,7 @@ class SpecStorage {
     expectedUpdatedAt: string
   ): boolean {
     const validated = SpecContentSchema.parse(content)
-    const now = getTimestamp()
+    const now = this.nextUpdatedAt(projectId, id)
     const result = prjctDb.run(
       projectId,
       'UPDATE specs SET content = ?, updated_at = ? WHERE id = ? AND updated_at = ?',
@@ -156,7 +181,7 @@ class SpecStorage {
     if (!SPEC_STATUSES.includes(status)) {
       throw new Error(`invalid spec status: ${status}`)
     }
-    const now = getTimestamp()
+    const now = this.nextUpdatedAt(projectId, id)
     const extras: string[] = []
     const params: SqliteBindings[] = [status, now]
     if (status === 'shipped') {
@@ -178,7 +203,7 @@ class SpecStorage {
       projectId,
       'UPDATE specs SET shipped_pr = ?, updated_at = ? WHERE id = ?',
       pr,
-      getTimestamp(),
+      this.nextUpdatedAt(projectId, id),
       id
     )
     return this.get(projectId, id)
@@ -194,7 +219,7 @@ class SpecStorage {
       projectId,
       'UPDATE specs SET shipped_sha = ?, updated_at = ? WHERE id = ?',
       sha,
-      getTimestamp(),
+      this.nextUpdatedAt(projectId, id),
       id
     )
     return this.get(projectId, id)
