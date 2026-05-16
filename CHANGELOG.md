@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- **`getProjectId` no longer silently mints a random orphan project.** Root cause: `ConfigManager.getProjectId()` fell through to `pathManager.generateProjectId()` (`crypto.randomUUID()`) whenever `readConfig()` returned null, so any path-resolution miss (daemon resolving the wrong cwd, config transiently unreadable, case-variant path) forked a brand-new project and scattered specs/memory across ghost projects with no error surfaced. Now returns `''` — the falsy sentinel 31/32 call sites already guard with `if (!projectId)` → callers fail loud ("run prjct init") instead of writing into a random new project. Only explicit `prjct init` (`createConfig`) mints. Regression test: `core/__tests__/infrastructure/config-manager-getprojectid.test.ts`.
+
 ## [2.19.8] - 2026-05-14
 
 Crew-mode persistence v7 (spec a50b32d1). SQLite becomes the single source of truth for crew runs, team enrollment, and checkpoint customization. Disk mirrors exist only where an external read contract demands one (the pre-commit hook).
