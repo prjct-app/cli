@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.20.1] - 2026-05-17
+
+### Bug Fixes
+
+- skill-miss-detector — crew-isolation guard (no false nags after crew runs) (v2.19.10) (#339)
+
+
 ## [Unreleased]
 
 ### Fixed
