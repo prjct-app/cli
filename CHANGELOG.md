@@ -1,13 +1,15 @@
 # Changelog
 
-## [2.19.9] - 2026-05-16
+## [2.19.10] - 2026-05-17
 
-### Bug Fixes
-
-- strictly-monotonic updated_at so the CAS token can't collide (#337)
-
+### Added
+- Crew-awareness guard for skill-miss-detector: recent crew-run files_touched no longer trigger path-overlap false positives (#16 follow-up)
 
 ## [Unreleased]
+
+### Fixed
+
+- **skill-miss-detector no longer false-positives after a crew run (#16 follow-up).** Crew implementer/reviewer run as isolated subagents in the *shared* working tree, so at the leader's Stop hook `getModifiedFiles()` saw their edits and path-overlap relevance fired — but the leader transcript never carries the memory references the subagent made in its own isolated transcript, producing a false skill-miss nag for every crew-touched file. Fix: `detectSkillMisses` collects the `files_touched` of crew runs whose `ended_at` is within `CREW_RUN_RECENCY_MS` (6h) via `crewRunStorage.list` and excludes them from path-overlap relevance; token-overlap detection stays active so non-crew work in the same session is still covered. Crew itself is unchanged (it was architecturally correct). Best-effort — any failure degrades to prior behavior. Tests: `core/__tests__/services/skill-miss-detector.test.ts`.
 
 ## [2.19.9] - 2026-05-16
 
@@ -21,6 +23,7 @@
 - **`buildImprovementSignals` now carries both detectors under one block.** The recall no longer hard-filters `source:friction-detector`; friction and skill-miss signals render under the existing `# prjct: improvement signals` header with **per-source budgets** (friction ≤3, skill-miss ≤2) so a noisy friction session can't starve skill-miss out of the shared 24h window. No parallel block (session-start advisory density stays bounded). The `resolves:` prose is extended with `resolves:skill-miss`; the 24h age-out remains the actual drop-from-rotation mechanism (a real `resolves:` consumer stays owned by the memory close|forget spec).
 
 ### Fixed
+- strictly-monotonic updated_at so the CAS token can't collide (#337)
 - **`getProjectId` no longer silently mints a random orphan project.** Root cause: `ConfigManager.getProjectId()` fell through to `pathManager.generateProjectId()` (`crypto.randomUUID()`) whenever `readConfig()` returned null, so any path-resolution miss (daemon resolving the wrong cwd, config transiently unreadable, case-variant path) forked a brand-new project and scattered specs/memory across ghost projects with no error surfaced. Now returns `''` — the falsy sentinel 31/32 call sites already guard with `if (!projectId)` → callers fail loud ("run prjct init") instead of writing into a random new project. Only explicit `prjct init` (`createConfig`) mints. Regression test: `core/__tests__/infrastructure/config-manager-getprojectid.test.ts`.
 
 ## [2.19.8] - 2026-05-14

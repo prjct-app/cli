@@ -33,6 +33,7 @@ import crypto from 'node:crypto'
 import fs from 'node:fs/promises'
 import { projectMemory } from '../memory/project-memory'
 import { getModifiedFiles } from '../session/git-helpers'
+import { crewRunStorage } from '../storage/crew-run-storage'
 
 const SOURCE_TAG = 'skill-miss-detector'
 const MAX_SKILL_MISSES_PER_SESSION = 3
@@ -47,6 +48,18 @@ const CANDIDATE_TYPES = ['decision', 'gotcha', 'anti-pattern'] as const
  * tag we could match precisely.
  */
 const CAPTURED_THIS_SESSION_MS = 90 * 60 * 1000
+/**
+ * Crew-isolation guard. Crew implementer/reviewer run as isolated
+ * subagents in the SHARED working tree, so at the leader's Stop hook
+ * `getModifiedFiles()` sees their edits — but the leader transcript
+ * never carries the memory references the subagent made in its own
+ * isolated transcript. A crew run whose `ended_at` is within this
+ * window of "now" is plausibly the source of the current uncommitted
+ * changes (older runs are normally committed), so its `files_touched`
+ * are excluded from path-overlap relevance — token-overlap detection
+ * stays active for non-crew work in the same session.
+ */
+const CREW_RUN_RECENCY_MS = 6 * 60 * 60 * 1000
 /** Minimum distinctive-token overlap to call a memory "relevant" sans path hit. */
 const MIN_TOKEN_OVERLAP = 2
 /** Tokens shorter than this are too generic to be evidence of relevance. */
@@ -165,7 +178,22 @@ export async function detectSkillMisses(
     changedFiles = []
   }
 
-  const misses = analyze(transcriptText, changedFiles, candidates)
+  // Files a recent crew run touched: their edits are in the shared tree
+  // but the references happened in the subagent's isolated transcript,
+  // invisible here. Exclude them from path-overlap relevance so crew
+  // runs don't generate false nags. Best-effort — never blocks.
+  let crewFiles = new Set<string>()
+  try {
+    const cutoff = Date.now() - CREW_RUN_RECENCY_MS
+    for (const run of crewRunStorage.list(projectId)) {
+      if (Date.parse(run.ended_at) <= cutoff) continue
+      for (const f of run.files_touched) crewFiles.add(f)
+    }
+  } catch {
+    crewFiles = new Set()
+  }
+
+  const misses = analyze(transcriptText, changedFiles, candidates, crewFiles)
   if (misses.length === 0) return { signalsRecorded: 0, signalsSkipped: 0 }
 
   const existing = existingSkillMissKeys(projectId)
@@ -212,20 +240,26 @@ export async function detectSkillMisses(
 function analyze(
   transcriptText: string,
   changedFiles: string[],
-  candidates: CandidateMemory[]
+  candidates: CandidateMemory[],
+  crewFiles: Set<string> = new Set()
 ): SkillMiss[] {
   const sessionTokens = tokenize(transcriptText)
   if (sessionTokens.size === 0) return []
-  const changedStems = fileStems(changedFiles)
+  // Crew-isolation guard: a file edited by a recent crew subagent must
+  // not, by itself, make a memory "relevant" — the leader transcript is
+  // blind to whether the subagent referenced it. Token-overlap on the
+  // leader transcript still applies, so non-crew work stays covered.
+  const effectiveChanged = changedFiles.filter((f) => !crewFiles.has(f))
+  const changedStems = fileStems(effectiveChanged)
 
   const scored: Array<{ miss: SkillMiss; rank: number; overlap: number }> = []
   for (const mem of candidates) {
     const memTokens = tokenize(`${mem.content} ${mem.fileTag}`)
     if (memTokens.size === 0) continue
 
-    // Relevance signal A — a changed file this memory is about.
+    // Relevance signal A — a non-crew changed file this memory is about.
     const pathHit =
-      (mem.fileTag !== '' && changedFiles.some((f) => sharesStem(f, mem.fileTag))) ||
+      (mem.fileTag !== '' && effectiveChanged.some((f) => sharesStem(f, mem.fileTag))) ||
       [...changedStems].some((stem) => memTokens.has(stem))
 
     // Split the memory's vocabulary into a SIGNATURE (specific/long
@@ -250,9 +284,9 @@ function analyze(
     if (referenced) continue
 
     const evidenceFile =
-      mem.fileTag !== '' && changedFiles.some((f) => sharesStem(f, mem.fileTag))
+      mem.fileTag !== '' && effectiveChanged.some((f) => sharesStem(f, mem.fileTag))
         ? mem.fileTag
-        : (changedFiles.find((f) => [...fileStems([f])].some((s) => memTokens.has(s))) ?? '')
+        : (effectiveChanged.find((f) => [...fileStems([f])].some((s) => memTokens.has(s))) ?? '')
 
     scored.push({
       miss: {
