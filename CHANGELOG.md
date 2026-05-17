@@ -1,11 +1,8 @@
 # Changelog
 
-## [2.19.9] - 2026-05-16
-
-### Added
-- Skill Resolution Feedback (#16): skill-miss-detector + improvement-signals widening + prjct skill-adherence verb
-
 ## [Unreleased]
+
+## [2.19.9] - 2026-05-16
 
 ### Added
 
