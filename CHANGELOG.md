@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.20.2] - 2026-05-17
+
+### Bug Fixes
+
+- skill routing triages complexity FIRST — spec is the exception, not the default (v2.20.1) (#341)
+
+
 ## [Unreleased]
 
 ### Changed
