@@ -9,9 +9,9 @@
 
 ## [Unreleased]
 
-### Changed
+### Added
 
-- **Skill routing triages complexity FIRST — spec is the exception, not the default.** `prjct-skill-body.ts` (skill SSOT) led with "substantive work → default to `spec` first", which pushed every simple one-file change through `spec` + `audit-spec` + 3 reviewer subagents — ceremony tax that slowed ship for zero protection on a fix. Inverted: an explicit **triage** step routes simple work (≈1 file, known root cause, reversible, "fix"/"hoy") DIRECT to `task` → implement → `qa`/`review` → `ship` with no spec; `spec`/`audit-spec` reserved for genuinely complex/high-stakes framing. Prose-only, no code-path change; skill-generator suite green (31/31).
+- **Architecture guard: SQLite connection factory is now an enforced invariant.** `openDatabase()` in `core/storage/database/sqlite-compat.ts` already baked the daemon-safety PRAGMAs (`journal_mode=WAL`, `busy_timeout=5000`) into every connection, but nothing stopped a future caller from doing a raw `new Database(...)` / `require('bun:sqlite')` / `require('better-sqlite3')` and silently bypassing them — the open half of the HIGH-severity daemon-vs-CLI write-lock anti-pattern. New `core/__tests__/storage/sqlite-factory-guard.test.ts` scans `core/` + `bin/` and fails CI if any file outside the sanctioned factory acquires a driver, and separately asserts the factory keeps both PRAGMAs. Closes the anti-pattern by moving it from convention to enforced. No runtime code change.
 
 ## [2.20.1] - 2026-05-17
 
