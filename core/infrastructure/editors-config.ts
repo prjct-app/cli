@@ -10,11 +10,11 @@
  */
 
 import fs from 'node:fs/promises'
-import os from 'node:os'
 import path from 'node:path'
 import { getErrorMessage } from '../types/fs'
 import type { AIProviderName } from '../types/provider'
 import { fileExists, writeJson } from '../utils/file-helper'
+import pathManager from './path-manager'
 
 interface EditorConfig {
   version: string
@@ -25,14 +25,17 @@ interface EditorConfig {
 }
 
 class EditorsConfig {
-  homeDir: string
-  configDir: string
-  configFile: string
+  // Resolve via pathManager so PRJCT_CLI_HOME (and test-time
+  // setGlobalBaseDir overrides) are honored. Getters, not constructor
+  // snapshots: the singleton is built at import — before any override —
+  // so a frozen path would be stale. In production (no PRJCT_CLI_HOME)
+  // this is exactly `~/.prjct-cli/config`, so behavior is unchanged.
+  get configDir(): string {
+    return pathManager.globalConfigDir
+  }
 
-  constructor() {
-    this.homeDir = os.homedir()
-    this.configDir = path.join(this.homeDir, '.prjct-cli', 'config')
-    this.configFile = path.join(this.configDir, 'installed-editors.json')
+  get configFile(): string {
+    return path.join(this.configDir, 'installed-editors.json')
   }
 
   /**

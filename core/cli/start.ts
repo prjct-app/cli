@@ -15,6 +15,7 @@ import readline from 'node:readline'
 import chalk from 'chalk'
 import { getTemplateContent, listTemplates } from '../agentic/template-loader'
 import { detectAllProviders, Providers } from '../infrastructure/ai-provider'
+import pathManager from '../infrastructure/path-manager'
 import { getErrorMessage } from '../types/fs'
 import type { AIProviderName } from '../types/provider'
 import { fileExists, writeJson } from '../utils/file-helper'
@@ -354,7 +355,11 @@ async function installGlobalConfig(provider: AIProviderName): Promise<boolean> {
  * Save setup configuration
  */
 async function saveSetupConfig(providers: AIProviderName[]): Promise<void> {
-  const configPath = path.join(os.homedir(), '.prjct-cli', 'config', 'installed-editors.json')
+  // Route through pathManager so PRJCT_CLI_HOME is honored — must match the
+  // not-configured guard (bin/prjct.ts) and editors-config, which now also
+  // read this via pathManager. In production (no override) this is exactly
+  // `~/.prjct-cli/config`, so behavior is unchanged.
+  const configPath = path.join(pathManager.globalConfigDir, 'installed-editors.json')
   const config = {
     version: VERSION,
     providers,

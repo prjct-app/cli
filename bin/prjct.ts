@@ -72,6 +72,7 @@ const _binCommands = new Set([
   'retro',
   'health',
   'skill-adherence',
+  'review-risk',
   'context-save',
   'context-restore',
 ])
@@ -626,6 +627,14 @@ async function main(): Promise<void> {
     const cmd = new SkillAdherenceCommands()
     const result = await cmd.skillAdherence(windowArg, process.cwd(), { md: mdMode })
     process.exitCode = result.success ? 0 : 1
+  } else if (args[0] === 'review-risk') {
+    // `prjct review-risk [--md]` — advisory size/delivery-geometry
+    // signal (#18/19/20). Read-only; never gates or mutates git.
+    const mdMode = args.includes('--md')
+    const { ReviewRiskCommands } = await import('../core/commands/review-risk')
+    const cmd = new ReviewRiskCommands()
+    const result = await cmd.reviewRisk(null, process.cwd(), { md: mdMode })
+    process.exitCode = result.success ? 0 : 1
   } else if (args[0] === 'prefs') {
     // `prjct prefs list|get|check|set|clear [...]` — gstack-inspired
     // per-project AskUserQuestion preferences. The `check` subcommand
@@ -880,8 +889,14 @@ ${chalk.dim("Run 'prjct init' to configure (Cursor/Windsurf IDE)")}
 ${chalk.cyan('https://prjct.app')}
 `)
   } else {
-    // Default: check setup, auto-update, then run
-    const configPath = path.join(os.homedir(), '.prjct-cli', 'config', 'installed-editors.json')
+    // Default: check setup, auto-update, then run.
+    // Route through pathManager so PRJCT_CLI_HOME is honored. Using
+    // os.homedir() directly here bypassed the override — the same
+    // path-resolution class of bug as the case-variant/orphan-project
+    // footgun: the not-configured guard misfired under a relocated or
+    // isolated home (e.g. the e2e sandbox, or PRJCT_CLI_HOME setups).
+    const { default: pathManager } = await import('../core/infrastructure/path-manager')
+    const configPath = path.join(pathManager.globalConfigDir, 'installed-editors.json')
     const routersInstalled = await checkRoutersInstalled()
 
     // Commands that work without full setup
@@ -896,7 +911,16 @@ ${chalk.cyan.bold('  Welcome to prjct!')}
   ${chalk.dim(`This is a one-time setup that lets you choose between
   Claude Code, Gemini CLI, or both.`)}
 `)
-      process.exitCode = 0
+      // Fail LOUD, not silently: a non-exempt command was requested but prjct
+      // isn't configured, so the command did NOT run. Returning exit 0 here
+      // makes scripts/agents believe `prjct task`/`remember`/… succeeded when
+      // they were no-ops. Exit non-zero + an actionable stderr hint so the
+      // failure is detectable and stdout stays clean for --md consumers.
+      console.error(
+        `prjct: not configured — \`${args[0]}\` did not run. ` +
+          'Run `prjct start` (AI providers) or `prjct init` (project) first.'
+      )
+      process.exitCode = 1
     } else {
       // Auto-update if version changed
       try {
