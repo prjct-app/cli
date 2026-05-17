@@ -905,7 +905,16 @@ ${chalk.cyan.bold('  Welcome to prjct!')}
   ${chalk.dim(`This is a one-time setup that lets you choose between
   Claude Code, Gemini CLI, or both.`)}
 `)
-      process.exitCode = 0
+      // Fail LOUD, not silently: a non-exempt command was requested but prjct
+      // isn't configured, so the command did NOT run. Returning exit 0 here
+      // makes scripts/agents believe `prjct task`/`remember`/… succeeded when
+      // they were no-ops. Exit non-zero + an actionable stderr hint so the
+      // failure is detectable and stdout stays clean for --md consumers.
+      console.error(
+        `prjct: not configured — \`${args[0]}\` did not run. ` +
+          'Run `prjct start` (AI providers) or `prjct init` (project) first.'
+      )
+      process.exitCode = 1
     } else {
       // Auto-update if version changed
       try {

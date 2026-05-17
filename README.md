@@ -58,6 +58,7 @@ After install, **next session in any prjct project**:
   - `security` — OWASP Top 10 + STRIDE, 8/10 confidence gate, concrete exploit per finding
   - `investigate` — Iron Law (no fix without investigation), max 3 failed hypotheses
   - `ship` (endurecido) — Coverage Gate + Auto-Document
+- **Delivery-geometry advisory** (`prjct review-risk`): reads the committed changeset vs the merge-base and suggests a size tier (trivial/normal/large) + whether to ship direct, as one PR, or split — with the touched top-level dirs as natural split lines. Purely advisory: never gates, never mutates git.
 
 ## How it works
 
@@ -132,6 +133,7 @@ Cursor / Windsurf use the same commands with a `/` prefix: `/capture`, `/task`, 
 | `prjct sync` | Re-index files, git co-change, imports; refresh project analysis. |
 | `prjct regen` | Full rebuild of the Obsidian vault snapshot from SQLite. |
 | `prjct suggest` | Smart recommendations based on current project state. |
+| `prjct review-risk` | Advisory change-size + delivery-geometry signal for the branch (read-only; never gates, never splits). |
 | `prjct seed <add\|list>` | Manage packs (persona, memory types, workflow slots). |
 
 ## Personas & Packs
@@ -205,6 +207,7 @@ prjct watch              Auto-sync on file changes
 prjct doctor             Check system health
 prjct hooks <install|uninstall|status>  Git hooks for auto-sync
 prjct context <files|signatures|imports|recent|summary>  Smart context filters
+prjct review-risk        Advisory change-size + delivery-geometry hint (read-only)
 prjct workflow ["config"]  Configure hooks via natural language
 prjct stop / restart     Background daemon control
 prjct login / logout / auth   Cloud sync authentication
