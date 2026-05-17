@@ -889,8 +889,14 @@ ${chalk.dim("Run 'prjct init' to configure (Cursor/Windsurf IDE)")}
 ${chalk.cyan('https://prjct.app')}
 `)
   } else {
-    // Default: check setup, auto-update, then run
-    const configPath = path.join(os.homedir(), '.prjct-cli', 'config', 'installed-editors.json')
+    // Default: check setup, auto-update, then run.
+    // Route through pathManager so PRJCT_CLI_HOME is honored. Using
+    // os.homedir() directly here bypassed the override — the same
+    // path-resolution class of bug as the case-variant/orphan-project
+    // footgun: the not-configured guard misfired under a relocated or
+    // isolated home (e.g. the e2e sandbox, or PRJCT_CLI_HOME setups).
+    const { default: pathManager } = await import('../core/infrastructure/path-manager')
+    const configPath = path.join(pathManager.globalConfigDir, 'installed-editors.json')
     const routersInstalled = await checkRoutersInstalled()
 
     // Commands that work without full setup

@@ -12,7 +12,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from 'bun:test'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { makeSandbox, REPO_ROOT, type Sandbox } from './_harness'
 
@@ -20,6 +20,34 @@ setDefaultTimeout(120_000)
 
 const REPO_VERSION = JSON.parse(readFileSync(path.join(REPO_ROOT, 'package.json'), 'utf-8'))
   .version as string
+
+describe('e2e: PRJCT_CLI_HOME is honored when it differs from HOME (regression)', () => {
+  // Regression for the os.homedir() footgun: the "not configured" guard
+  // resolved its config path via os.homedir() instead of pathManager, so
+  // with PRJCT_CLI_HOME ≠ HOME, `setup` wrote installed-editors.json under
+  // PRJCT_CLI_HOME but the guard looked under HOME → every command misfired
+  // as "not configured". (Hidden whenever HOME == PRJCT_CLI_HOME.)
+  let sb: Sandbox
+
+  beforeAll(async () => {
+    sb = await makeSandbox({ splitCliHome: true })
+    expect((await sb.cli(['init'], { timeoutMs: 90_000 })).code).toBe(0)
+    expect((await sb.cli(['setup'], { timeoutMs: 90_000 })).code).toBe(0)
+  })
+  afterAll(async () => {
+    await sb.cleanup()
+  })
+
+  test('setup writes installed-editors.json under PRJCT_CLI_HOME, not HOME', () => {
+    expect(existsSync(path.join(sb.home, 'config', 'installed-editors.json'))).toBe(true)
+  })
+
+  test('a normal command is NOT misreported as "not configured"', async () => {
+    const r = await sb.cli(['task', 'split-home smoke', '--md'])
+    expect(r.code).toBe(0)
+    expect((r.stdout + r.stderr).toLowerCase()).not.toContain('not configured')
+  })
+})
 
 describe('e2e: install/upgrade onboarding contract', () => {
   let sb: Sandbox

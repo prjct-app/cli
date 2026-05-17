@@ -89,13 +89,28 @@ function runCli(
   })
 }
 
+export interface SandboxOpts {
+  seedFiles?: boolean
+  /**
+   * Point PRJCT_CLI_HOME at a directory DISTINCT from HOME. Surfaces any
+   * code that resolves prjct's data dir via os.homedir() instead of
+   * pathManager (PRJCT_CLI_HOME) — when they coincide, that bug hides.
+   */
+  splitCliHome?: boolean
+}
+
 /** Create a fresh hermetic sandbox: tmp git repo + isolated CLI home. */
-export async function makeSandbox(seedFiles = true): Promise<Sandbox> {
+export async function makeSandbox(opts: SandboxOpts | boolean = true): Promise<Sandbox> {
+  const { seedFiles = true, splitCliHome = false } =
+    typeof opts === 'boolean' ? { seedFiles: opts } : opts
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'prjct-e2e-'))
   const dir = path.join(root, 'proj')
   const home = path.join(root, 'home')
+  // When split, the prjct data dir lives somewhere HOME-independent.
+  const cliHome = splitCliHome ? path.join(root, 'cli-home') : home
   await fs.mkdir(dir, { recursive: true })
   await fs.mkdir(home, { recursive: true })
+  await fs.mkdir(cliHome, { recursive: true })
 
   await git(dir, ['init', '-q', '-b', 'main'])
   await git(dir, ['config', 'user.email', 'e2e@example.com'])
@@ -114,7 +129,7 @@ export async function makeSandbox(seedFiles = true): Promise<Sandbox> {
 
   const baseEnv: NodeJS.ProcessEnv = {
     ...process.env,
-    PRJCT_CLI_HOME: home,
+    PRJCT_CLI_HOME: cliHome,
     HOME: home,
     // keep prompts/daemons out of the way during e2e
     CI: '1',
@@ -124,7 +139,7 @@ export async function makeSandbox(seedFiles = true): Promise<Sandbox> {
 
   return {
     dir,
-    home,
+    home: cliHome,
     cli: (args, opts = {}) => runCli(args, baseEnv, opts.cwd ?? dir, opts.timeoutMs),
     cleanup: () => fs.rm(root, { recursive: true, force: true }).catch(() => {}),
   }
