@@ -72,6 +72,7 @@ const _binCommands = new Set([
   'retro',
   'health',
   'skill-adherence',
+  'review-risk',
   'context-save',
   'context-restore',
 ])
@@ -625,6 +626,14 @@ async function main(): Promise<void> {
     const { SkillAdherenceCommands } = await import('../core/commands/skill-adherence')
     const cmd = new SkillAdherenceCommands()
     const result = await cmd.skillAdherence(windowArg, process.cwd(), { md: mdMode })
+    process.exitCode = result.success ? 0 : 1
+  } else if (args[0] === 'review-risk') {
+    // `prjct review-risk [--md]` — advisory size/delivery-geometry
+    // signal (#18/19/20). Read-only; never gates or mutates git.
+    const mdMode = args.includes('--md')
+    const { ReviewRiskCommands } = await import('../core/commands/review-risk')
+    const cmd = new ReviewRiskCommands()
+    const result = await cmd.reviewRisk(null, process.cwd(), { md: mdMode })
     process.exitCode = result.success ? 0 : 1
   } else if (args[0] === 'prefs') {
     // `prjct prefs list|get|check|set|clear [...]` — gstack-inspired

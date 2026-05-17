@@ -12,6 +12,7 @@
 ### Added
 
 - **Architecture guard: SQLite connection factory is now an enforced invariant.** `openDatabase()` in `core/storage/database/sqlite-compat.ts` already baked the daemon-safety PRAGMAs (`journal_mode=WAL`, `busy_timeout=5000`) into every connection, but nothing stopped a future caller from doing a raw `new Database(...)` / `require('bun:sqlite')` / `require('better-sqlite3')` and silently bypassing them — the open half of the HIGH-severity daemon-vs-CLI write-lock anti-pattern. New `core/__tests__/storage/sqlite-factory-guard.test.ts` scans `core/` + `bin/` and fails CI if any file outside the sanctioned factory acquires a driver, and separately asserts the factory keeps both PRAGMAs. Closes the anti-pattern by moving it from convention to enforced. No runtime code change.
+- **`prjct review-risk [--md]`** — advisory size/delivery-geometry signal (minimal cut of harnesses #18/19/20). Reads the committed changeset vs the merge-base with the default branch (`git diff --shortstat`), derives a size tier (trivial/normal/large) and suggests a delivery geometry (`direct`/`single`/`split`, with the touched top-level dirs as natural split lines). Read-only/Tier-1 (retro/health shape); never gates, never splits, never mutates git; graceful no-signal when there is no base or nothing committed.
 
 ## [2.20.1] - 2026-05-17
 
