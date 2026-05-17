@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.21.0] - 2026-05-17
+
+### Features
+
+- prjct review-risk verb — advisory size/delivery-geometry signal (#18/19/20, minimal cut) (v2.20.1) (#340)
+
+
 ## [2.20.2] - 2026-05-17
 
 ### Bug Fixes
