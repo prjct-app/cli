@@ -2,11 +2,6 @@
 
 ## [2.20.1] - 2026-05-17
 
-### Added
-- current work
-
-## [Unreleased]
-
 ### Changed
 
 - **Skill routing now triages complexity FIRST — spec is the exception, not the default.** `prjct-skill-body.ts` (the skill SSOT) led with "substantive work → default to `spec` first", which pushed every simple one-file change through `spec` + `audit-spec` + 3 reviewer subagents — pure ceremony tax that slowed ship. Inverted: an explicit **triage** step routes simple work (≈1 file, known root cause, reversible, "fix"/"hoy") DIRECT to `task` → implement → `qa`/`review` → `ship` with no spec; `spec`/`audit-spec` is reserved for genuinely complex/high-stakes framing. Mirrors the Delegation/Tier protocol that was being under-applied. No code-path change — routing prose in the regenerated skill; skill-generator suite green (31/31).
