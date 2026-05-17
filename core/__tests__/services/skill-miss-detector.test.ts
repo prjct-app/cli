@@ -16,7 +16,9 @@ import path from 'node:path'
 import configManager from '../../infrastructure/config-manager'
 import pathManager from '../../infrastructure/path-manager'
 import { _internal, detectSkillMisses } from '../../services/skill-miss-detector'
+import { crewRunStorage } from '../../storage/crew-run-storage'
 import prjctDb from '../../storage/database'
+import { execFileAsync } from '../../utils/exec'
 
 interface CM {
   id: string
@@ -252,5 +254,150 @@ describe('skill-miss-detector — persistence + containment (DB)', () => {
     // Only the things we created (.prjct, .prjct-data, transcript.jsonl)
     // — the detector must not drop a report/markdown file in the project.
     expect(afterEntries).toEqual(before)
+  })
+})
+
+describe('skill-miss-detector — crew-isolation guard (analyze)', () => {
+  it('a crew-touched file does not trigger path-overlap relevance', () => {
+    const candidate = mem({
+      id: 'mem_c',
+      content: 'rotate refresh credentials hourly',
+      fileTag: 'core/auth-service.ts',
+    })
+    const transcript = 'did some unrelated plumbing work and moved on entirely'
+    // Control: no crew files → path-overlap flags it.
+    expect(_internal.analyze(transcript, ['core/auth-service.ts'], [candidate]).length).toBe(1)
+    // Guarded: the file was crew-touched → no longer relevant.
+    expect(
+      _internal.analyze(
+        transcript,
+        ['core/auth-service.ts'],
+        [candidate],
+        new Set(['core/auth-service.ts'])
+      ).length
+    ).toBe(0)
+  })
+
+  it('token-overlap still flags even when the file is crew-touched', () => {
+    const candidate = mem({
+      id: 'mem_t',
+      content: 'rotate refresh credentials hourly',
+      fileTag: 'core/auth-service.ts',
+    })
+    // Shares ≥2 TOPIC tokens (rotate, refresh, hourly) but not the
+    // signature (credentials) → relevant via tokens, still unreferenced.
+    const transcript = 'we rotate the refresh logic here but skipped the hourly cadence'
+    const out = _internal.analyze(
+      transcript,
+      ['core/auth-service.ts'],
+      [candidate],
+      new Set(['core/auth-service.ts'])
+    )
+    expect(out.length).toBe(1)
+    expect(out[0]?.reason).toBe('topic-overlap-unused')
+  })
+
+  it('a non-crew changed file is still flagged via path-overlap', () => {
+    const candidate = mem({
+      id: 'mem_n',
+      content: 'rotate refresh credentials hourly',
+      fileTag: 'core/billing-engine.ts',
+    })
+    const transcript = 'did some unrelated plumbing work and moved on entirely'
+    const out = _internal.analyze(
+      transcript,
+      ['core/billing-engine.ts'],
+      [candidate],
+      new Set(['core/auth-service.ts'])
+    )
+    expect(out.length).toBe(1)
+    expect(out[0]?.reason).toBe('path-overlap-unused')
+  })
+})
+
+describe('skill-miss-detector — crew-isolation guard (DB + git)', () => {
+  let dir: string
+  let projectId: string
+  let transcriptPath: string
+
+  function seedOldDecision(content: string, fileTag: string): void {
+    prjctDb.run(
+      projectId,
+      "INSERT INTO events (type, data, timestamp) VALUES ('memory.remember.decision', ?, ?)",
+      JSON.stringify({
+        content,
+        tags: { file: fileTag, key: `s-${Math.random().toString(36).slice(2, 8)}` },
+        provenance: 'declared',
+      }),
+      new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+    )
+  }
+
+  beforeEach(async () => {
+    prjctDb.close()
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), 'prjct-skillmiss-crew-'))
+    await execFileAsync('git', ['init', '-q', '-b', 'main'], { cwd: dir })
+    await execFileAsync('git', ['config', 'user.email', 't@example.com'], { cwd: dir })
+    await execFileAsync('git', ['config', 'user.name', 'Tester'], { cwd: dir })
+    await execFileAsync('git', ['config', 'commit.gpgsign', 'false'], { cwd: dir })
+    await fs.mkdir(path.join(dir, '.prjct'), { recursive: true })
+    await fs.mkdir(path.join(dir, 'core'), { recursive: true })
+    await fs.writeFile(path.join(dir, 'core/auth-service.ts'), 'export const v = 1\n')
+    await execFileAsync('git', ['add', '.'], { cwd: dir })
+    await execFileAsync('git', ['commit', '-q', '-m', 'init'], { cwd: dir })
+    // Uncommitted modification → getModifiedFiles() sees core/auth-service.ts.
+    await fs.writeFile(path.join(dir, 'core/auth-service.ts'), 'export const v = 2\n')
+    projectId = `skillmiss-crew-${crypto.randomUUID()}`
+    await configManager.writeConfig(dir, {
+      projectId,
+      dataPath: path.join(dir, '.prjct-data'),
+    } as Parameters<typeof configManager.writeConfig>[1])
+    await pathManager.ensureProjectStructure(projectId)
+    transcriptPath = path.join(dir, 'transcript.jsonl')
+    await fs.writeFile(
+      transcriptPath,
+      [
+        JSON.stringify({ role: 'user', content: 'do the work' }),
+        JSON.stringify({
+          role: 'assistant',
+          content: 'did some unrelated plumbing work and moved on entirely',
+        }),
+      ].join('\n')
+    )
+    seedOldDecision('rotate refresh credentials hourly', 'core/auth-service.ts')
+  })
+
+  afterEach(async () => {
+    await fs.rm(dir, { recursive: true, force: true }).catch(() => {})
+    prjctDb.close()
+  })
+
+  it('flags a path-overlap miss when NO crew run is present (control)', async () => {
+    const r = await detectSkillMisses(dir, transcriptPath, 's')
+    expect(r.signalsRecorded).toBe(1)
+  })
+
+  it('suppresses the miss when a RECENT crew run touched the file', async () => {
+    crewRunStorage.record(projectId, {
+      filesTouched: ['core/auth-service.ts'],
+      reviewerVerdict: 'APPROVED',
+      implementerSummary: 'edited auth-service',
+      endedAt: new Date().toISOString(),
+    })
+    const r = await detectSkillMisses(dir, transcriptPath, 's')
+    expect(r.signalsRecorded).toBe(0)
+  })
+
+  it('does NOT suppress when the crew run is older than the recency window', async () => {
+    const old = new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString()
+    crewRunStorage.record(projectId, {
+      filesTouched: ['core/auth-service.ts'],
+      reviewerVerdict: 'APPROVED',
+      implementerSummary: 'edited auth-service long ago',
+      startedAt: old,
+      endedAt: old,
+    })
+    const r = await detectSkillMisses(dir, transcriptPath, 's')
+    expect(r.signalsRecorded).toBe(1)
   })
 })

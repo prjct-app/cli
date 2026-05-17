@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- **skill-miss-detector no longer false-positives after a crew run (#16 follow-up).** Crew implementer/reviewer run as isolated subagents in the *shared* working tree, so at the leader's Stop hook `getModifiedFiles()` saw their edits and path-overlap relevance fired — but the leader transcript never carries the memory references the subagent made in its own isolated transcript, producing a false skill-miss nag for every crew-touched file. Fix: `detectSkillMisses` collects the `files_touched` of crew runs whose `ended_at` is within `CREW_RUN_RECENCY_MS` (6h) via `crewRunStorage.list` and excludes them from path-overlap relevance; token-overlap detection stays active so non-crew work in the same session is still covered. Crew itself is unchanged (it was architecturally correct). Best-effort — any failure degrades to prior behavior. Tests: `core/__tests__/services/skill-miss-detector.test.ts`.
+
 ## [2.20.0] - 2026-05-17
 
 ### Features
