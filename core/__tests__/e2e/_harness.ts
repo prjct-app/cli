@@ -29,8 +29,11 @@ export interface CliResult {
 export interface Sandbox {
   /** tmp working dir — a real git repo on branch `main` */
   dir: string
-  /** isolated PRJCT_CLI_HOME (and HOME) — no real data is touched */
+  /** isolated PRJCT_CLI_HOME — where ALL prjct data must land */
   home: string
+  /** the HOME env value (== home unless splitCliHome) — used to assert
+   *  no prjct data leaked to `<HOME>/.prjct-cli` */
+  osHome: string
   /** run the real CLI in this sandbox; never throws on non-zero exit */
   cli: (args: string[], opts?: { cwd?: string; timeoutMs?: number }) => Promise<CliResult>
   cleanup: () => Promise<void>
@@ -140,6 +143,7 @@ export async function makeSandbox(opts: SandboxOpts | boolean = true): Promise<S
   return {
     dir,
     home: cliHome,
+    osHome: home,
     cli: (args, opts = {}) => runCli(args, baseEnv, opts.cwd ?? dir, opts.timeoutMs),
     cleanup: () => fs.rm(root, { recursive: true, force: true }).catch(() => {}),
   }

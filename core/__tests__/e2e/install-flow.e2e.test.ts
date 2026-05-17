@@ -47,6 +47,21 @@ describe('e2e: PRJCT_CLI_HOME is honored when it differs from HOME (regression)'
     expect(r.code).toBe(0)
     expect((r.stdout + r.stderr).toLowerCase()).not.toContain('not configured')
   })
+
+  // Bullet-proof for the whole os.homedir()/.prjct-cli sweep: after a full
+  // flow, ALL prjct data must live under PRJCT_CLI_HOME and NOTHING may leak
+  // to <HOME>/.prjct-cli. If any swept site (provider-cache, update-checker,
+  // self-heal, setup projects/statusline, command-installer docs, …) still
+  // used os.homedir(), it would create <HOME>/.prjct-cli/* and fail here.
+  test('no prjct data leaks to <HOME>/.prjct-cli (entire sweep)', async () => {
+    expect((await sb.cli(['remember', 'decision', 'split-home persists'])).code).toBe(0)
+    expect((await sb.cli(['review-risk', '--md'])).code).toBe(0)
+
+    // Data is under PRJCT_CLI_HOME …
+    expect(existsSync(path.join(sb.home, 'projects'))).toBe(true)
+    // … and the os.homedir-based path was never created.
+    expect(existsSync(path.join(sb.osHome, '.prjct-cli'))).toBe(false)
+  })
 })
 
 describe('e2e: install/upgrade onboarding contract', () => {

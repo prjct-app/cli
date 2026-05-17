@@ -26,15 +26,17 @@
  */
 
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
+import pathManager from './path-manager'
 
-const STAMP_DIR = path.join(os.homedir(), '.prjct-cli', 'state')
-const STAMP_PATH = path.join(STAMP_DIR, 'installed-version')
+// Lazy: resolve via pathManager at call time (honors PRJCT_CLI_HOME and
+// test-time setGlobalBaseDir). Production === ~/.prjct-cli/state, unchanged.
+const stampDir = (): string => pathManager.getStatePath()
+const stampPath = (): string => path.join(stampDir(), 'installed-version')
 
 function readStamp(): string | null {
   try {
-    return fs.readFileSync(STAMP_PATH, 'utf-8').trim()
+    return fs.readFileSync(stampPath(), 'utf-8').trim()
   } catch {
     return null
   }
@@ -42,8 +44,8 @@ function readStamp(): string | null {
 
 function writeStamp(version: string): void {
   try {
-    fs.mkdirSync(STAMP_DIR, { recursive: true })
-    fs.writeFileSync(STAMP_PATH, version, 'utf-8')
+    fs.mkdirSync(stampDir(), { recursive: true })
+    fs.writeFileSync(stampPath(), version, 'utf-8')
   } catch {
     // best-effort
   }
