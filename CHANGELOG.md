@@ -9,6 +9,17 @@
 
 ## [Unreleased]
 
+## [2.19.9] - 2026-05-16
+
+### Added
+
+- **Skill Resolution Feedback (harness #16, spec `08344b7d`).** At Stop, `core/services/skill-miss-detector.ts` flags captured project knowledge (`decision` / `gotcha` / `anti-pattern`) that was relevant to the session's work but never referenced — a "skill-miss" — and persists it as an `improvement-signal` tagged `source:skill-miss-detector`. Transcript-primary; changed-file overlap is a best-effort booster via `getModifiedFiles()` (absent on a clean tree → degrades to token overlap, never errors). Precision-leaning: relevance needs a path hit OR ≥2 distinctive shared tokens; `inferred`-provenance and captured-this-session memories are excluded; hashed `(type,key)` dedup makes Stop re-runs idempotent (mirrors `friction-detector`).
+- **`prjct skill-adherence [window] [--md]`** — read-only QA surface: skill-misses vs resolutions over a window (7d default), with an addressed ratio. Same Tier-1 read-only contract as `prjct retro` / `prjct health`.
+
+### Changed
+
+- **`buildImprovementSignals` now carries both detectors under one block.** The recall no longer hard-filters `source:friction-detector`; friction and skill-miss signals render under the existing `# prjct: improvement signals` header with **per-source budgets** (friction ≤3, skill-miss ≤2) so a noisy friction session can't starve skill-miss out of the shared 24h window. No parallel block (session-start advisory density stays bounded). The `resolves:` prose is extended with `resolves:skill-miss`; the 24h age-out remains the actual drop-from-rotation mechanism (a real `resolves:` consumer stays owned by the memory close|forget spec).
+
 ### Fixed
 - **`getProjectId` no longer silently mints a random orphan project.** Root cause: `ConfigManager.getProjectId()` fell through to `pathManager.generateProjectId()` (`crypto.randomUUID()`) whenever `readConfig()` returned null, so any path-resolution miss (daemon resolving the wrong cwd, config transiently unreadable, case-variant path) forked a brand-new project and scattered specs/memory across ghost projects with no error surfaced. Now returns `''` — the falsy sentinel 31/32 call sites already guard with `if (!projectId)` → callers fail loud ("run prjct init") instead of writing into a random new project. Only explicit `prjct init` (`createConfig`) mints. Regression test: `core/__tests__/infrastructure/config-manager-getprojectid.test.ts`.
 

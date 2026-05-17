@@ -1,0 +1,451 @@
+/**
+ * Skill-miss detector — at Stop time, finds captured project knowledge
+ * (decision / gotcha / anti-pattern) that was RELEVANT to the work this
+ * session did but was never REFERENCED in the transcript. Persists each
+ * as an `improvement-signal` memory entry tagged `source:skill-miss-detector`.
+ *
+ * This is harness #16 (Skill Resolution Feedback) in prjct's anti-harness
+ * idiom: it is a STATE SIGNAL surfaced at the next session start (under the
+ * existing improvement-signals block), never a gate. The next session's
+ * Claude reads it and decides whether the knowledge should have been
+ * applied — we never block or enforce.
+ *
+ * Sibling of `friction-detector.ts`: same Stop-hook rail, same hashed
+ * dedup + (type,key) latest-winner mechanism, same conservative cap, same
+ * silent best-effort contract. Differs only in WHAT it detects.
+ *
+ * Precision over recall (matches friction-detector's stated philosophy):
+ *   - relevance requires path-overlap with a changed file OR >=2 shared
+ *     distinctive tokens — a single coincidental token is not enough.
+ *   - the candidate is excluded if it was captured THIS session
+ *     (recency containment) or has `inferred` provenance (low-confidence).
+ *   - "referenced" = a distinctive token of the memory appears in the
+ *     transcript; if so, the knowledge was applied — no signal.
+ *
+ * Transcript-primary: the Stop hook input is only {transcript_path,
+ * session_id} — there is no diff. Changed-file overlap is a best-effort
+ * BOOSTER fetched via getModifiedFiles() (uncommitted-only at Stop, may
+ * be empty on a clean tree); its absence never errors and never blocks
+ * token-based detection.
+ */
+
+import crypto from 'node:crypto'
+import fs from 'node:fs/promises'
+import { projectMemory } from '../memory/project-memory'
+import { getModifiedFiles } from '../session/git-helpers'
+
+const SOURCE_TAG = 'skill-miss-detector'
+const MAX_SKILL_MISSES_PER_SESSION = 3
+const MAX_EXCERPT_CHARS = 280
+/** Candidate memory types — captured project knowledge worth applying. */
+const CANDIDATE_TYPES = ['decision', 'gotcha', 'anti-pattern'] as const
+/**
+ * Recency containment: a memory captured within this window of "now" is
+ * treated as captured-this-session and never flagged (you cannot have
+ * "missed" knowledge you just wrote). Coarse but robust — Stop fires
+ * minutes after the work, and `prjct remember` rarely carries a session
+ * tag we could match precisely.
+ */
+const CAPTURED_THIS_SESSION_MS = 90 * 60 * 1000
+/** Minimum distinctive-token overlap to call a memory "relevant" sans path hit. */
+const MIN_TOKEN_OVERLAP = 2
+/** Tokens shorter than this are too generic to be evidence of relevance. */
+const MIN_TOKEN_LEN = 5
+/**
+ * A token this long is specific enough that its presence in the
+ * transcript is evidence the agent actually engaged the memory (its
+ * "signature"). Signature tokens establish APPLIED; the remaining
+ * shorter "topic" tokens establish RELEVANCE. The two sets are kept
+ * DISJOINT on purpose — otherwise the same token would prove a memory
+ * both relevant and applied, and nothing could ever be a miss.
+ */
+const SIGNATURE_TOKEN_LEN = 8
+
+// Generic words that overlap between almost any code memory and any
+// coding session — excluded so they can't manufacture false relevance.
+const STOPWORDS = new Set([
+  'should',
+  'because',
+  'project',
+  'prjct',
+  'instead',
+  'always',
+  'never',
+  'using',
+  'value',
+  'state',
+  'change',
+  'changes',
+  'update',
+  'updated',
+  'function',
+  'return',
+  'returns',
+  'error',
+  'errors',
+  'tests',
+  'testing',
+  'config',
+  'default',
+  'import',
+  'export',
+  'before',
+  'after',
+  'without',
+])
+
+interface TranscriptLine {
+  message?: { role?: string; content?: unknown }
+  role?: string
+  content?: unknown
+}
+
+interface CandidateMemory {
+  id: string
+  type: string
+  content: string
+  fileTag: string
+  rememberedAt: string
+  provenance: string
+  session: string
+}
+
+export interface SkillMiss {
+  memId: string
+  memType: string
+  excerpt: string
+  /** Changed file that made this relevant, or '' when relevance was token-only. */
+  evidenceFile: string
+  reason: 'path-overlap-unused' | 'topic-overlap-unused'
+}
+
+export interface SkillMissResult {
+  signalsRecorded: number
+  signalsSkipped: number
+}
+
+/**
+ * Public entry. Reads the transcript, recalls captured project knowledge,
+ * flags relevant-but-unreferenced entries, persists up to
+ * MAX_SKILL_MISSES_PER_SESSION as `improvement-signal` memory. Idempotent
+ * (hashed dedup against existing skill-miss entries). Best-effort: any
+ * failure (no transcript, no project, git error) returns a zero result.
+ */
+export async function detectSkillMisses(
+  projectPath: string,
+  transcriptPath: string,
+  sessionId: string | null
+): Promise<SkillMissResult> {
+  let raw = ''
+  try {
+    raw = await fs.readFile(transcriptPath, 'utf-8')
+  } catch {
+    return { signalsRecorded: 0, signalsSkipped: 0 }
+  }
+
+  const projectId = projectIdFromPath(projectPath)
+  if (!projectId) return { signalsRecorded: 0, signalsSkipped: 0 }
+
+  const transcriptText = transcriptTextOf(parseJsonl(raw))
+  if (!transcriptText) return { signalsRecorded: 0, signalsSkipped: 0 }
+
+  let candidates: CandidateMemory[]
+  try {
+    candidates = recallCandidates(projectId, sessionId)
+  } catch {
+    return { signalsRecorded: 0, signalsSkipped: 0 }
+  }
+  if (candidates.length === 0) return { signalsRecorded: 0, signalsSkipped: 0 }
+
+  // Best-effort booster — absence never blocks token-based detection.
+  let changedFiles: string[] = []
+  try {
+    changedFiles = await getModifiedFiles(projectPath)
+  } catch {
+    changedFiles = []
+  }
+
+  const misses = analyze(transcriptText, changedFiles, candidates)
+  if (misses.length === 0) return { signalsRecorded: 0, signalsSkipped: 0 }
+
+  const existing = existingSkillMissKeys(projectId)
+  let recorded = 0
+  let skipped = 0
+  for (const miss of misses.slice(0, MAX_SKILL_MISSES_PER_SESSION)) {
+    const key = hashKey(miss.memId, miss.excerpt).slice(0, 12)
+    if (existing.has(key)) {
+      skipped++
+      continue
+    }
+    try {
+      await projectMemory.remember(projectPath, {
+        type: 'improvement-signal',
+        content: formatSkillMiss(miss),
+        tags: {
+          source: SOURCE_TAG,
+          kind: 'skill-miss',
+          category: 'skill-miss',
+          relates: miss.memId,
+          file: miss.evidenceFile,
+          key,
+          ...(sessionId ? { session: sessionId } : {}),
+        },
+        provenance: 'extracted',
+      })
+      recorded++
+    } catch {
+      skipped++
+    }
+  }
+  return { signalsRecorded: recorded, signalsSkipped: skipped }
+}
+
+// ============================================================================
+// Pure core — exported via _internal for unit tests (no DB / no fs).
+// ============================================================================
+
+/**
+ * Given the session transcript text, the changed-file list, and candidate
+ * memories, return the skill-misses ordered strongest-first (path-overlap
+ * beats token-only). Pure + deterministic — the unit-test seam.
+ */
+function analyze(
+  transcriptText: string,
+  changedFiles: string[],
+  candidates: CandidateMemory[]
+): SkillMiss[] {
+  const sessionTokens = tokenize(transcriptText)
+  if (sessionTokens.size === 0) return []
+  const changedStems = fileStems(changedFiles)
+
+  const scored: Array<{ miss: SkillMiss; rank: number; overlap: number }> = []
+  for (const mem of candidates) {
+    const memTokens = tokenize(`${mem.content} ${mem.fileTag}`)
+    if (memTokens.size === 0) continue
+
+    // Relevance signal A — a changed file this memory is about.
+    const pathHit =
+      (mem.fileTag !== '' && changedFiles.some((f) => sharesStem(f, mem.fileTag))) ||
+      [...changedStems].some((stem) => memTokens.has(stem))
+
+    // Split the memory's vocabulary into a SIGNATURE (specific/long
+    // tokens — their presence proves the agent engaged this memory) and
+    // TOPIC tokens (the broader area). The sets are disjoint so the
+    // token that makes a memory relevant can never also mark it applied.
+    const signature = signatureOf(memTokens)
+    let overlap = 0
+    for (const t of memTokens) {
+      if (signature.has(t)) continue
+      if (sessionTokens.has(t)) overlap++
+    }
+
+    // Relevance signal B — shared topic vocabulary (signature excluded).
+    const relevant = pathHit || overlap >= MIN_TOKEN_OVERLAP
+    if (!relevant) continue
+
+    // Applied? A signature token of the memory appears in the transcript
+    // → the agent engaged its specific content. Touching the file alone
+    // is NOT enough (pathHit does not imply applied).
+    const referenced = [...signature].some((t) => sessionTokens.has(t))
+    if (referenced) continue
+
+    const evidenceFile =
+      mem.fileTag !== '' && changedFiles.some((f) => sharesStem(f, mem.fileTag))
+        ? mem.fileTag
+        : (changedFiles.find((f) => [...fileStems([f])].some((s) => memTokens.has(s))) ?? '')
+
+    scored.push({
+      miss: {
+        memId: mem.id,
+        memType: mem.type,
+        excerpt: mem.content.replace(/\s+/g, ' ').trim().slice(0, MAX_EXCERPT_CHARS),
+        evidenceFile,
+        reason: pathHit ? 'path-overlap-unused' : 'topic-overlap-unused',
+      },
+      // path-overlap is the stronger signal — surface it first.
+      rank: pathHit ? 2 : 1,
+      overlap,
+    })
+  }
+
+  scored.sort((a, b) => b.rank - a.rank || b.overlap - a.overlap)
+  return scored.map((s) => s.miss)
+}
+
+function parseJsonl(raw: string): TranscriptLine[] {
+  const out: TranscriptLine[] = []
+  for (const line of raw.split('\n')) {
+    if (!line.trim()) continue
+    try {
+      out.push(JSON.parse(line) as TranscriptLine)
+    } catch {
+      /* skip malformed line */
+    }
+  }
+  return out
+}
+
+/** Flatten all user + assistant turn text into one lowercased blob. */
+function transcriptTextOf(lines: TranscriptLine[]): string {
+  const parts: string[] = []
+  for (const line of lines) {
+    const role = line.role ?? line.message?.role
+    if (role !== 'user' && role !== 'assistant') continue
+    const text = textOf(line.content ?? line.message?.content)
+    if (text) parts.push(text)
+  }
+  return parts.join('\n').toLowerCase()
+}
+
+function textOf(content: unknown): string {
+  if (typeof content === 'string') return content
+  if (Array.isArray(content)) {
+    return content
+      .map((block) => {
+        if (typeof block === 'string') return block
+        if (block && typeof block === 'object' && 'text' in block) {
+          const t = (block as { text?: unknown }).text
+          return typeof t === 'string' ? t : ''
+        }
+        return ''
+      })
+      .join('\n')
+      .trim()
+  }
+  return ''
+}
+
+function tokenize(text: string): Set<string> {
+  const out = new Set<string>()
+  for (const rawTok of text.toLowerCase().split(/[^a-z0-9]+/)) {
+    if (rawTok.length < MIN_TOKEN_LEN) continue
+    if (STOPWORDS.has(rawTok)) continue
+    out.add(rawTok)
+  }
+  return out
+}
+
+/**
+ * The memory's "signature" — tokens specific enough that seeing one in
+ * the transcript proves the agent engaged this memory. Long tokens
+ * (≥ SIGNATURE_TOKEN_LEN) qualify; if a memory has none, fall back to
+ * its single longest token (deterministic: length desc, then
+ * lexicographic) so there is always an APPLIED anchor disjoint from
+ * the topic tokens.
+ */
+function signatureOf(memTokens: Set<string>): Set<string> {
+  const long = [...memTokens].filter((t) => t.length >= SIGNATURE_TOKEN_LEN)
+  if (long.length > 0) return new Set(long)
+  let best = ''
+  for (const t of memTokens) {
+    if (t.length > best.length || (t.length === best.length && t < best)) best = t
+  }
+  return best ? new Set([best]) : new Set()
+}
+
+/** Path basenames without extension, plus meaningful path segments. */
+function fileStems(files: string[]): Set<string> {
+  const stems = new Set<string>()
+  for (const f of files) {
+    for (const seg of f.split('/')) {
+      const stem = seg.replace(/\.[a-z0-9]+$/i, '').toLowerCase()
+      if (stem.length >= MIN_TOKEN_LEN && !STOPWORDS.has(stem)) stems.add(stem)
+    }
+  }
+  return stems
+}
+
+function sharesStem(file: string, other: string): boolean {
+  const a = fileStems([file])
+  for (const s of fileStems([other])) {
+    if (a.has(s)) return true
+  }
+  return false
+}
+
+function formatSkillMiss(miss: SkillMiss): string {
+  const where =
+    miss.evidenceFile !== '' ? `touched \`${miss.evidenceFile}\`` : 'worked the same area'
+  return [
+    `[skill-miss] Unused project knowledge (${miss.memType}, ${miss.memId}): "${miss.excerpt}"`,
+    `This session ${where} but never referenced it. Apply it, or supersede it via: prjct remember decision "<resolution>" --tags resolves:skill-miss,relates:${miss.memId}`,
+  ].join('\n')
+}
+
+function hashKey(memId: string, excerpt: string): string {
+  const normalised = `${memId}::${excerpt.toLowerCase().replace(/\s+/g, ' ').trim()}`
+  return crypto.createHash('sha256').update(normalised).digest('hex')
+}
+
+function recallCandidates(projectId: string, sessionId: string | null): CandidateMemory[] {
+  const entries = projectMemory.recall(projectId, {
+    types: [...CANDIDATE_TYPES],
+    limit: 120,
+  })
+  const cutoff = Date.now() - CAPTURED_THIS_SESSION_MS
+  const out: CandidateMemory[] = []
+  for (const e of entries) {
+    // Low-confidence inferences are not "missed knowledge" — only the
+    // user/LLM-asserted (declared) and verifiable (extracted) entries
+    // and ambiguous ones count.
+    if (e.provenance === 'inferred') continue
+    // Recency containment — captured this session can't be a "miss".
+    if (Date.parse(e.rememberedAt) > cutoff) continue
+    if (sessionId && e.tags.session === sessionId) continue
+    out.push({
+      id: e.id,
+      type: e.type,
+      content: e.content,
+      fileTag: e.tags.file ?? '',
+      rememberedAt: e.rememberedAt,
+      provenance: e.provenance,
+      session: e.tags.session ?? '',
+    })
+  }
+  return out
+}
+
+function existingSkillMissKeys(projectId: string): Set<string> {
+  try {
+    const entries = projectMemory.recall(projectId, {
+      types: ['improvement-signal'],
+      tags: { source: SOURCE_TAG },
+      limit: 100,
+      dedupeByKey: false,
+    })
+    const keys = new Set<string>()
+    for (const e of entries) {
+      if (e.tags.key) keys.add(e.tags.key)
+    }
+    return keys
+  } catch {
+    return new Set()
+  }
+}
+
+function projectIdFromPath(projectPath: string): string | null {
+  // Lightweight sync read — mirrors friction-detector, avoids the full
+  // config-manager round trip on the Stop hot path.
+  try {
+    const fs2 = require('node:fs') as typeof import('node:fs')
+    const path2 = require('node:path') as typeof import('node:path')
+    const file = path2.join(projectPath, '.prjct', 'prjct.config.json')
+    const parsed = JSON.parse(fs2.readFileSync(file, 'utf-8')) as { projectId?: string }
+    return parsed.projectId ?? null
+  } catch {
+    return null
+  }
+}
+
+export const _internal = {
+  analyze,
+  parseJsonl,
+  transcriptTextOf,
+  textOf,
+  tokenize,
+  fileStems,
+  sharesStem,
+  formatSkillMiss,
+  hashKey,
+  MAX_SKILL_MISSES_PER_SESSION,
+}
