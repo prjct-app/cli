@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.20.0] - 2026-05-17
+
+### Features
+
+- Skill Resolution Feedback (#16) — skill-miss detector + improvement-signals widening + prjct skill-adherence (v2.19.9) (#338)
+
+
 ## [2.19.9] - 2026-05-16
 
 ### Bug Fixes
