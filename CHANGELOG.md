@@ -1,10 +1,19 @@
 # Changelog
 
-## [2.20.1] - 2026-05-17
+## [Unreleased]
 
 ### Changed
 
-- **Skill routing now triages complexity FIRST — spec is the exception, not the default.** `prjct-skill-body.ts` (the skill SSOT) led with "substantive work → default to `spec` first", which pushed every simple one-file change through `spec` + `audit-spec` + 3 reviewer subagents — pure ceremony tax that slowed ship. Inverted: an explicit **triage** step routes simple work (≈1 file, known root cause, reversible, "fix"/"hoy") DIRECT to `task` → implement → `qa`/`review` → `ship` with no spec; `spec`/`audit-spec` is reserved for genuinely complex/high-stakes framing. Mirrors the Delegation/Tier protocol that was being under-applied. No code-path change — routing prose in the regenerated skill; skill-generator suite green (31/31).
+- **Skill routing triages complexity FIRST — spec is the exception, not the default.** `prjct-skill-body.ts` (skill SSOT) led with "substantive work → default to `spec` first", which pushed every simple one-file change through `spec` + `audit-spec` + 3 reviewer subagents — ceremony tax that slowed ship for zero protection on a fix. Inverted: an explicit **triage** step routes simple work (≈1 file, known root cause, reversible, "fix"/"hoy") DIRECT to `task` → implement → `qa`/`review` → `ship` with no spec; `spec`/`audit-spec` reserved for genuinely complex/high-stakes framing. Prose-only, no code-path change; skill-generator suite green (31/31).
+
+## [2.20.1] - 2026-05-17
+
+### Bug Fixes
+
+- skill-miss-detector — crew-isolation guard (no false nags after crew runs) (v2.19.10) (#339)
+
+
+## [Unreleased]
 
 ### Fixed
 
