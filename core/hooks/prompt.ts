@@ -199,15 +199,24 @@ async function captureGit(projectPath: string): Promise<GitSnapshot> {
 }
 
 /**
- * Read the most recent improvement-signals captured by the friction
- * detector at the previous session's Stop hook. Surfaces ONCE per
- * signal: as soon as the LLM (or the user) acts on a signal, it
- * should be addressed — repeated injection across turns is noise.
+ * Read the most recent improvement-signals captured at the previous
+ * session's Stop hook — two sources, one block:
+ *   - `friction-detector` — user-pushback moments.
+ *   - `skill-miss-detector` — captured project knowledge that was
+ *     relevant to the work but never referenced (harness #16).
  *
- * Implementation note: we cap surfacing at the 3 newest signals from
- * the last 24h, so a single noisy session can't flood the prompt
- * context indefinitely.
+ * Surfaces ONCE per signal window: as soon as the LLM (or the user)
+ * acts on one it should be addressed — repeated injection is noise.
+ *
+ * Budgets are PER SOURCE (friction ≤3, skill-miss ≤2) so a noisy
+ * friction session can't starve skill-miss signals out of the shared
+ * 24h window — that starvation was the design flaw of a single flat
+ * cap. Both render under the same header (no parallel block) to keep
+ * session-start advisory density bounded.
  */
+const FRICTION_BUDGET = 3
+const SKILL_MISS_BUDGET = 2
+
 export async function buildImprovementSignals(projectPath: string): Promise<string | null> {
   const config = await configManager.readConfig(projectPath)
   if (!config?.projectId) return null
@@ -216,8 +225,7 @@ export async function buildImprovementSignals(projectPath: string): Promise<stri
   try {
     signals = projectMemory.recall(config.projectId, {
       types: ['improvement-signal'],
-      tags: { source: 'friction-detector' },
-      limit: 8,
+      limit: 16,
     })
   } catch {
     return null
@@ -226,25 +234,41 @@ export async function buildImprovementSignals(projectPath: string): Promise<stri
 
   // Keep only signals from the last 24h. Older ones either got
   // addressed or aren't pressing — surfacing them on every turn
-  // forever would be noise.
+  // forever would be noise. (This 24h age-out IS the drop-from-rotation
+  // mechanism today; the `resolves:` prose below is advisory until a
+  // real consumer lands — owned by the memory close|forget spec.)
   const recentCutoff = Date.now() - 24 * 60 * 60 * 1000
-  const recent = signals.filter((e) => Date.parse(e.rememberedAt) > recentCutoff).slice(0, 3)
+  const recent = signals.filter((e) => Date.parse(e.rememberedAt) > recentCutoff)
   if (recent.length === 0) return null
+
+  // Per-source budget, then re-merge newest-first so the block stays
+  // chronologically coherent. Unknown sources are ignored — only the
+  // two detectors feed this block.
+  const friction = recent
+    .filter((e) => e.tags.source === 'friction-detector')
+    .slice(0, FRICTION_BUDGET)
+  const skillMiss = recent
+    .filter((e) => e.tags.source === 'skill-miss-detector')
+    .slice(0, SKILL_MISS_BUDGET)
+  const shown = [...friction, ...skillMiss].sort((a, b) =>
+    b.rememberedAt.localeCompare(a.rememberedAt)
+  )
+  if (shown.length === 0) return null
 
   const lines: string[] = ['# prjct: improvement signals (from prior session)']
   lines.push('')
   lines.push(
-    `${recent.length} friction moment${recent.length === 1 ? '' : 's'} captured at last session-end. Consider whether any of these are relevant to what the user is asking now — if so, propose a fix proactively. Otherwise ignore.`
+    `${shown.length} signal${shown.length === 1 ? '' : 's'} captured at last session-end (friction + skill-miss). Consider whether any of these are relevant to what the user is asking now — if so, propose a fix proactively. Otherwise ignore.`
   )
   lines.push('')
-  for (const e of recent) {
+  for (const e of shown) {
     const category = e.tags.category ?? 'unknown'
     const oneLine = e.content.split('\n')[0] ?? ''
     lines.push(`- [${category}] ${oneLine}`)
   }
   lines.push('')
   lines.push(
-    '> If the user explicitly addresses one, drop it from rotation by `prjct remember decision "<resolution>" --tags resolves:improvement-signal`.'
+    '> If the user explicitly addresses one, drop it from rotation by `prjct remember decision "<resolution>" --tags resolves:improvement-signal` (friction) or `--tags resolves:skill-miss` (skill-miss).'
   )
   return lines.join('\n')
 }

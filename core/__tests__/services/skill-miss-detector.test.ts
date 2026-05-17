@@ -1,0 +1,256 @@
+/**
+ * Skill-miss detector (harness #16).
+ *
+ * Pure-core tests pin the heuristic contract: relevance needs a path
+ * hit OR ≥2 distinctive shared tokens, a referenced memory is never a
+ * miss, token-only detection survives an empty changed-file list,
+ * hashKey is stable. The DB integration test pins persistence shape,
+ * idempotent dedup, inferred/recency containment, and the
+ * no-loose-files persistence rule.
+ */
+
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
+import fs from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
+import configManager from '../../infrastructure/config-manager'
+import pathManager from '../../infrastructure/path-manager'
+import { _internal, detectSkillMisses } from '../../services/skill-miss-detector'
+import prjctDb from '../../storage/database'
+
+interface CM {
+  id: string
+  type: string
+  content: string
+  fileTag: string
+  rememberedAt: string
+  provenance: string
+  session: string
+}
+
+function mem(over: Partial<CM>): CM {
+  return {
+    id: over.id ?? 'mem_1',
+    type: over.type ?? 'decision',
+    content: over.content ?? '',
+    fileTag: over.fileTag ?? '',
+    rememberedAt: over.rememberedAt ?? new Date(0).toISOString(),
+    provenance: over.provenance ?? 'declared',
+    session: over.session ?? '',
+  }
+}
+
+describe('skill-miss-detector — tokenize', () => {
+  it('drops short tokens and stopwords, lowercases', () => {
+    const t = _internal.tokenize('Always wrap the SQLite busy PRAGMA handle')
+    expect(t.has('always')).toBe(false) // stopword
+    expect(t.has('the')).toBe(false) // too short
+    expect(t.has('busy')).toBe(false) // < MIN_TOKEN_LEN (4)
+    expect(t.has('sqlite')).toBe(true)
+    expect(t.has('pragma')).toBe(true)
+    expect(t.has('handle')).toBe(true)
+  })
+})
+
+describe('skill-miss-detector — analyze', () => {
+  it('flags a relevant-but-unreferenced memory (token overlap, no git)', () => {
+    const transcript = 'edited the sqlite connection and pragma handling for the project'
+    const out = _internal.analyze(
+      transcript,
+      [],
+      [mem({ id: 'mem_42', content: 'Set sqlite pragma busy_timeout to 5000 on every handle' })]
+    )
+    expect(out.length).toBe(1)
+    expect(out[0]?.memId).toBe('mem_42')
+    expect(out[0]?.reason).toBe('topic-overlap-unused')
+    expect(out[0]?.evidenceFile).toBe('')
+  })
+
+  it('does NOT flag when a distinctive token was referenced (knowledge applied)', () => {
+    // "busy_timeout" → token "timeout" (len 7, distinctive) appears in the
+    // transcript → the memory was consulted.
+    const transcript = 'set the sqlite pragma busy timeout to 5000 like the decision said'
+    const out = _internal.analyze(
+      transcript,
+      [],
+      [mem({ content: 'Set sqlite pragma busy_timeout to 5000 on every handle' })]
+    )
+    expect(out.length).toBe(0)
+  })
+
+  it('requires ≥2 token overlap OR a path hit (false-positive containment)', () => {
+    const transcript = 'worked on the unrelated billing invoice export feature today'
+    const out = _internal.analyze(
+      transcript,
+      [],
+      [mem({ content: 'Set sqlite pragma busy_timeout to 5000' })]
+    )
+    expect(out.length).toBe(0)
+  })
+
+  it('flags via changed-file path overlap and records the evidence file', () => {
+    const transcript = 'made some edits and moved on to the next thing entirely'
+    const out = _internal.analyze(
+      transcript,
+      ['core/storage/database.ts'],
+      [
+        mem({
+          id: 'mem_7',
+          content: 'database connections need pragma busy_timeout',
+          fileTag: 'core/storage/database.ts',
+        }),
+      ]
+    )
+    expect(out.length).toBe(1)
+    expect(out[0]?.reason).toBe('path-overlap-unused')
+    expect(out[0]?.evidenceFile).toBe('core/storage/database.ts')
+  })
+
+  it('empty changed-file list never breaks token-based detection (criterion #4)', () => {
+    // Transcript shares TOPIC tokens (ranker, scoring) but never the
+    // memory's signature ("retrieval") → relevant, unreferenced → miss.
+    const transcript = 'tuned the ranker scoring and reranker heuristics today'
+    const out = _internal.analyze(
+      transcript,
+      [],
+      [mem({ content: 'retrieval ranker scoring must combine bm25 and import-graph' })]
+    )
+    expect(out.length).toBe(1)
+  })
+
+  it('orders path-overlap misses before token-only ones', () => {
+    const out = _internal.analyze(
+      'changed the ranker scoring weights and cache plumbing extensively',
+      ['core/domain/file-ranker.ts'],
+      [
+        mem({ id: 'tok', content: 'ranker scoring weights need tuning indexes' }),
+        mem({
+          id: 'pathy',
+          content: 'recompute caches eagerly',
+          fileTag: 'core/domain/file-ranker.ts',
+        }),
+      ]
+    )
+    expect(out.length).toBe(2)
+    expect(out[0]?.memId).toBe('pathy')
+  })
+})
+
+describe('skill-miss-detector — hashKey', () => {
+  it('normalises whitespace + casing and is memId-scoped', () => {
+    const a = _internal.hashKey('mem_1', 'Set  PRAGMA   busy_timeout')
+    const b = _internal.hashKey('mem_1', 'set pragma busy_timeout')
+    const c = _internal.hashKey('mem_2', 'set pragma busy_timeout')
+    expect(a).toBe(b)
+    expect(a).not.toBe(c)
+  })
+
+  it('caps misses per session conservatively', () => {
+    expect(_internal.MAX_SKILL_MISSES_PER_SESSION).toBeLessThanOrEqual(5)
+  })
+})
+
+describe('skill-miss-detector — persistence + containment (DB)', () => {
+  let dir: string
+  let projectId: string
+  let transcriptPath: string
+
+  async function seedDecision(
+    content: string,
+    opts: { ageMs?: number; provenance?: string } = {}
+  ): Promise<void> {
+    const ts = new Date(Date.now() - (opts.ageMs ?? 7 * 24 * 60 * 60 * 1000)).toISOString()
+    prjctDb.run(
+      projectId,
+      "INSERT INTO events (type, data, timestamp) VALUES ('memory.remember.decision', ?, ?)",
+      JSON.stringify({
+        content,
+        tags: { key: `seed-${Math.random().toString(36).slice(2, 8)}` },
+        provenance: opts.provenance ?? 'declared',
+      }),
+      ts
+    )
+  }
+
+  beforeEach(async () => {
+    prjctDb.close()
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), 'prjct-skillmiss-test-'))
+    await fs.mkdir(path.join(dir, '.prjct'), { recursive: true })
+    projectId = `skillmiss-${crypto.randomUUID()}`
+    await configManager.writeConfig(dir, {
+      projectId,
+      dataPath: path.join(dir, '.prjct-data'),
+    } as Parameters<typeof configManager.writeConfig>[1])
+    await pathManager.ensureProjectStructure(projectId)
+    transcriptPath = path.join(dir, 'transcript.jsonl')
+  })
+
+  afterEach(async () => {
+    await fs.rm(dir, { recursive: true, force: true }).catch(() => {})
+    prjctDb.close()
+  })
+
+  function writeTranscript(text: string): Promise<void> {
+    return fs.writeFile(
+      transcriptPath,
+      [
+        JSON.stringify({ role: 'user', content: 'do the work' }),
+        JSON.stringify({ role: 'assistant', content: text }),
+      ].join('\n')
+    )
+  }
+
+  it('persists a skill-miss as a tagged improvement-signal, idempotently', async () => {
+    await seedDecision('Set sqlite pragma busy_timeout to 5000 on every connection')
+    await writeTranscript('edited the sqlite pragma handling in the storage layer')
+
+    const r1 = await detectSkillMisses(dir, transcriptPath, 'sess-1')
+    expect(r1.signalsRecorded).toBe(1)
+
+    const signals = (await import('../../memory/project-memory')).projectMemory.recall(projectId, {
+      types: ['improvement-signal'],
+      tags: { source: 'skill-miss-detector' },
+      dedupeByKey: false,
+    })
+    expect(signals.length).toBe(1)
+    expect(signals[0]?.tags.kind).toBe('skill-miss')
+    expect(signals[0]?.tags.category).toBe('skill-miss')
+    expect(signals[0]?.tags.relates).toMatch(/^mem_/)
+    expect(signals[0]?.content).toContain('[skill-miss]')
+
+    // Re-run on the same transcript → dedup, no second row.
+    const r2 = await detectSkillMisses(dir, transcriptPath, 'sess-1')
+    expect(r2.signalsRecorded).toBe(0)
+    const after = (await import('../../memory/project-memory')).projectMemory.recall(projectId, {
+      types: ['improvement-signal'],
+      tags: { source: 'skill-miss-detector' },
+      dedupeByKey: false,
+    })
+    expect(after.length).toBe(1)
+  })
+
+  it('excludes inferred-provenance candidates', async () => {
+    await seedDecision('Set sqlite pragma busy_timeout to 5000', { provenance: 'inferred' })
+    await writeTranscript('edited the sqlite pragma handling in the storage layer')
+    const r = await detectSkillMisses(dir, transcriptPath, 's')
+    expect(r.signalsRecorded).toBe(0)
+  })
+
+  it('excludes memories captured this session (recency containment)', async () => {
+    await seedDecision('Set sqlite pragma busy_timeout to 5000', { ageMs: 60 * 1000 })
+    await writeTranscript('edited the sqlite pragma handling in the storage layer')
+    const r = await detectSkillMisses(dir, transcriptPath, 's')
+    expect(r.signalsRecorded).toBe(0)
+  })
+
+  it('writes nothing to disk outside SQLite (persistence rule)', async () => {
+    await seedDecision('Set sqlite pragma busy_timeout to 5000 on every connection')
+    await writeTranscript('edited the sqlite pragma handling in the storage layer')
+    const before = (await fs.readdir(dir)).sort()
+    await detectSkillMisses(dir, transcriptPath, 's')
+    const afterEntries = (await fs.readdir(dir)).sort()
+    // Only the things we created (.prjct, .prjct-data, transcript.jsonl)
+    // — the detector must not drop a report/markdown file in the project.
+    expect(afterEntries).toEqual(before)
+  })
+})

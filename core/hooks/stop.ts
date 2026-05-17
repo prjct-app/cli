@@ -21,6 +21,7 @@ import configManager from '../infrastructure/config-manager'
 import { detectFriction } from '../services/friction-detector'
 import { detectAndPersistPatterns } from '../services/pattern-detector'
 import { recordCleanupReport, runSessionCleanup } from '../services/session-cleanup'
+import { detectSkillMisses } from '../services/skill-miss-detector'
 import { ingestTranscript } from '../services/transcript-learner'
 import { regenerateWikiDeferred } from '../services/wiki-generator'
 import { ingestCapturedNotes, ingestWorkflowEdits } from '../services/wiki-ingest'
@@ -95,6 +96,20 @@ export function runStopHook(projectPath: string = process.cwd()): Promise<void> 
           await detectFriction(p, input.transcript_path, input.session_id ?? null)
         } catch {
           /* same contract as transcript-learner — silent best-effort */
+        }
+      }
+
+      // Session-end skill-miss capture (harness #16): flag captured
+      // project knowledge (decision/gotcha/anti-pattern) that was
+      // relevant to this session's work but never referenced. Persisted
+      // as `improvement-signal` and surfaced under the existing block at
+      // the next session start — advisory, never a gate. Same silent
+      // best-effort contract as the friction detector above.
+      if (input.transcript_path) {
+        try {
+          await detectSkillMisses(p, input.transcript_path, input.session_id ?? null)
+        } catch {
+          /* silent best-effort — must never block session end */
         }
       }
 

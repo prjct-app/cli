@@ -71,6 +71,7 @@ const _binCommands = new Set([
   'prefs',
   'retro',
   'health',
+  'skill-adherence',
   'context-save',
   'context-restore',
 ])
@@ -614,6 +615,16 @@ async function main(): Promise<void> {
     const { RetroCommands } = await import('../core/commands/retro')
     const cmd = new RetroCommands()
     const result = await cmd.retro(windowArg, process.cwd(), { md: mdMode })
+    process.exitCode = result.success ? 0 : 1
+  } else if (args[0] === 'skill-adherence') {
+    // `prjct skill-adherence [window]` — harness #16 QA surface: how
+    // often captured project knowledge went unreferenced, and how much
+    // got resolved. Read-only; window defaults to 7d.
+    const windowArg = args.slice(1).find((a) => !a.startsWith('-')) ?? null
+    const mdMode = args.includes('--md')
+    const { SkillAdherenceCommands } = await import('../core/commands/skill-adherence')
+    const cmd = new SkillAdherenceCommands()
+    const result = await cmd.skillAdherence(windowArg, process.cwd(), { md: mdMode })
     process.exitCode = result.success ? 0 : 1
   } else if (args[0] === 'prefs') {
     // `prjct prefs list|get|check|set|clear [...]` — gstack-inspired

@@ -128,7 +128,7 @@ describe('UserPromptSubmit — improvement signals', () => {
     })
     const r = await buildImprovementSignals(projectPath)
     expect(r).toContain('# prjct: improvement signals')
-    expect(r).toContain('1 friction moment captured')
+    expect(r).toContain('1 signal captured at last session-end')
     expect(r).toContain('[negation] User pushback')
   })
 
@@ -160,7 +160,7 @@ describe('UserPromptSubmit — improvement signals', () => {
     }
     const r = await buildImprovementSignals(projectPath)
     expect(r).not.toBeNull()
-    // Heading line says "3 friction moments captured" — caps verified.
-    expect(r).toMatch(/3 friction moments captured/)
+    // Friction per-source budget is 3 even when 5 exist.
+    expect(r).toMatch(/3 signals captured at last session-end/)
   })
 })
