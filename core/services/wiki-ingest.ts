@@ -362,6 +362,11 @@ export async function ingestWorkflowEdits(projectPath: string): Promise<Workflow
           timeoutMs: 60_000,
           sortOrder: r.sortOrder,
           createdAt: new Date().toISOString(),
+          // SECURITY: rules ingested from the vault originate from
+          // repo-reachable markdown — a malicious repo could commit a
+          // workflow with a shell hook. Mark `imported` so the
+          // workflow-engine approval gate refuses to auto-exec them.
+          trustSource: 'imported',
         })
       }
 
