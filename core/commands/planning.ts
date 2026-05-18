@@ -3,8 +3,6 @@
  * Write-Through Architecture: JSON → MD → Event
  */
 
-import fs from 'node:fs/promises'
-import path from 'node:path'
 import * as authorDetector from '../infrastructure/author-detector'
 import commandInstaller from '../infrastructure/command-installer'
 import configManager from '../infrastructure/config-manager'
@@ -100,51 +98,19 @@ export class PlanningCommands extends PrjctCommandsBase {
       out.step(2, 4, 'Creating structure...')
 
       await pathManager.ensureProjectStructure(projectId)
-      const globalPath = pathManager.getGlobalProjectPath(projectId)
 
       // Seed default workflow rules for ship
       await this._seedShipWorkflow(projectId, projectPath)
 
-      const baseFiles: Record<string, string> = {
-        'core/now.md': '# NOW\n\nNo current task. Use `/p:now` to set focus.\n',
-        'core/next.md': '# NEXT\n\n## Priority Queue\n\n',
-        'core/context.md': '# CONTEXT\n\n',
-        'progress/shipped.md': '# SHIPPED 🚀\n\n',
-        'progress/metrics.md': '# METRICS\n\n',
-        'planning/ideas.md': '# IDEAS 💡\n\n## Brain Dump\n\n',
-        'planning/roadmap.md': '# ROADMAP\n\n',
-        'memory/context.jsonl': '',
-        'memory/patterns.json': JSON.stringify(
-          {
-            version: 1,
-            decisions: {},
-            preferences: {},
-            workflows: {},
-            counters: {},
-          },
-          null,
-          2
-        ),
-      }
-
-      // Save wizard preferences if available
-      if (wizardResult) {
-        baseFiles['config/wizard.json'] = JSON.stringify(
-          {
-            projectType: wizardResult.projectType,
-            agents: wizardResult.agents,
-            stack: wizardResult.stack,
-            preferences: wizardResult.preferences,
-            createdAt: new Date().toISOString(),
-          },
-          null,
-          2
-        )
-      }
-
-      for (const [filePath, content] of Object.entries(baseFiles)) {
-        await fs.writeFile(path.join(globalPath, filePath), content)
-      }
+      // prjct state — current task / next / context, shipped, metrics,
+      // ideas, patterns, wizard prefs — lives ONLY in SQLite
+      // (StorageManager → prjct.db) and is surfaced through the
+      // regenerated vault. We deliberately do NOT seed legacy
+      // write-through stub files (core/*.md, progress/*.md,
+      // planning/*.md, memory/patterns.json, config/wizard.json) into
+      // the global project folder: nothing ever read them back, so they
+      // accumulated as orphaned garbage with no DB record. Nothing is
+      // persisted outside prjct.
 
       const isEmpty = await this._detectEmptyDirectory(projectPath)
       const hasCode = await this._detectExistingCode(projectPath)
@@ -174,9 +140,16 @@ export class PlanningCommands extends PrjctCommandsBase {
         }
 
         out.spin('architect mode...')
-        const sessionPath = path.join(globalPath, 'planning', 'architect-session.md')
-        const sessionContent = `# Architect Session\n\n## Idea\n${idea}\n\n## Status\nInitialized - awaiting stack recommendation\n\nGenerated: ${new Date().toLocaleString()}\n`
-        await fs.writeFile(sessionPath, sessionContent)
+        // The architect idea is project state — it goes INTO prjct
+        // (SQLite + regenerated vault), never a loose planning/*.md that
+        // would orphan with no DB record.
+        const { projectMemory } = await import('../memory/project-memory')
+        await projectMemory.remember(projectPath, {
+          type: 'idea',
+          content: idea,
+          tags: { source: 'architect-init', status: 'awaiting-stack-recommendation' },
+          source: 'architect-init',
+        })
 
         await commandInstaller.installGlobalConfig()
 

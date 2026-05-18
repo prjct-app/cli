@@ -20,13 +20,17 @@ import {
   validateCliVersion,
 } from '../../infrastructure/ai-provider'
 import {
+  AGENT_MODEL_POLICY,
+  type AgentRole,
   checkModelMismatch,
   compareSemver,
+  getAgentModelPolicy,
   getDefaultModel,
   getSupportedModels,
   isValidModelForProvider,
   type ModelMetadata,
   meetsMinVersion,
+  renderModelDirective,
 } from '../../schemas/model'
 
 // =============================================================================
@@ -268,5 +272,57 @@ describe('backwards compatibility', () => {
     const provider = 'claude'
     const resolved = preferredModel ?? getDefaultModel(provider)
     expect(resolved).toBe('sonnet')
+  })
+})
+
+describe('AGENT_MODEL_POLICY — per-role model + effort for subagent dispatch', () => {
+  it('gives ONLY the implementer the max model + max effort', () => {
+    expect(AGENT_MODEL_POLICY.implementer).toEqual({ model: 'opus', effort: 'max' })
+    // No other role may be opus/max — that is the regression being fixed.
+    for (const [role, policy] of Object.entries(AGENT_MODEL_POLICY)) {
+      if (role === 'implementer') continue
+      expect(policy.model).not.toBe('opus')
+      expect(policy.effort).not.toBe('max')
+    }
+  })
+
+  it('routes pure orchestration to haiku + decent', () => {
+    expect(AGENT_MODEL_POLICY.orchestrator).toEqual({ model: 'haiku', effort: 'decent' })
+  })
+
+  it('routes every judgment/review role to sonnet + decent', () => {
+    const reviewerRoles: AgentRole[] = [
+      'strategic-review',
+      'architecture-review',
+      'design-review',
+      'review',
+      'security',
+      'investigate',
+      'reviewer',
+    ]
+    for (const role of reviewerRoles) {
+      expect(getAgentModelPolicy(role)).toEqual({ model: 'sonnet', effort: 'decent' })
+    }
+  })
+
+  it('falls back to the reviewer tier for an unknown role — never to implementer/max', () => {
+    const policy = getAgentModelPolicy('totally-unknown-role' as AgentRole)
+    expect(policy).toEqual({ model: 'sonnet', effort: 'decent' })
+    expect(policy.model).not.toBe('opus')
+  })
+
+  it('renderModelDirective: implementer keeps full effort + opus', () => {
+    const d = renderModelDirective('implementer')
+    expect(d).toContain('model: "opus"')
+    expect(d).toContain('full reasoning effort')
+    expect(d).toContain('IMPLEMENTER')
+  })
+
+  it('renderModelDirective: non-implementer is told to drop off the parent max model', () => {
+    const d = renderModelDirective('security')
+    expect(d).toContain('model: "sonnet"')
+    expect(d).toContain("NOT the parent's max model")
+    expect(d).toContain('decent')
+    expect(d).not.toContain('model: "opus"')
   })
 })

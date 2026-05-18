@@ -111,13 +111,16 @@ class PathManager {
     await this.ensureGlobalStructure()
 
     const projectPath = this.getGlobalProjectPath(projectId)
-    const layers = ['core', 'progress', 'planning', 'analysis', 'memory']
+    // Legacy write-through dirs (core/, progress/, planning/) are gone:
+    // nothing read those .md/.json stubs and they orphaned as garbage.
+    // State lives in SQLite; analysis/ + memory/ have real consumers and
+    // sessions/ backs context-save.
+    const layers = ['analysis', 'memory']
 
     for (const layer of layers) {
       await fileHelper.ensureDir(path.join(projectPath, layer))
     }
 
-    await fileHelper.ensureDir(path.join(projectPath, 'planning', 'tasks'))
     await fileHelper.ensureDir(path.join(projectPath, 'sessions'))
 
     return projectPath
