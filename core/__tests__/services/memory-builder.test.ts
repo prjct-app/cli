@@ -55,29 +55,43 @@ describe('buildMemoryFiles — one note per entry', () => {
     expect(note).toMatch(/^# decision: /m)
   })
 
-  it('cross-ref renders as a legible alias link, never a bare key', () => {
+  it('cross-ref links the target NOTE by basename, not the mem_N alias', () => {
     const note = [...files.entries()].find(([k]) => k.startsWith('memory/decision/'))?.[1] ?? ''
-    // resolves=mem_3233 → [[mem_3233|<title of 3233>]] (feedback is per-entry)
     expect(note).toContain('## Relations')
-    expect(note).toMatch(/\[\[mem_3233\|[^\]]*opaque[^\]]*\]\]/i)
-    expect(note).not.toContain('|mem_3233]]') // label is the title, not the key
+    // resolves=mem_3233 → [[<slug-of-3233>|title]] — slug, NOT [[mem_3233|…]]
+    expect(note).not.toMatch(/\[\[mem_3233\b/) // alias-only link defeats the graph
+    expect(note).toMatch(/\[\[[a-z0-9-]+\|[^\]]*opaque[^\]]*\]\]/i)
   })
 
-  it('memory/<type>.md is a MOC that wikilinks every entry note', () => {
+  it('GRAPH INVARIANT: every [[target|label]] resolves to a real note basename', () => {
+    // The v2.23.3 regression: links resolved only via frontmatter alias,
+    // which Obsidian's graph ignores. Every link target must be an
+    // emitted note's basename (or a type MOC) so the edge is drawn.
+    const basenames = new Set<string>()
+    for (const k of keys) {
+      const m = k.match(/^memory\/[^/]+\/(.+)\.md$/)
+      if (m) basenames.add(m[1])
+      const moc = k.match(/^memory\/([^/]+)\.md$/)
+      if (moc) basenames.add(moc[1]) // type MOC, also block-anchor host
+    }
+    for (const body of files.values()) {
+      for (const [, target] of body.matchAll(/\[\[([^|\]#]+)(?:#[^|\]]+)?\|[^\]]+\]\]/g)) {
+        if (/^mem_\d+$/.test(target)) throw new Error(`alias-only link: [[${target}]]`)
+        expect(basenames.has(target)).toBe(true)
+      }
+    }
+  })
+
+  it('memory/<type>.md is a MOC that wikilinks each note by slug', () => {
     const moc = files.get('memory/decision.md') ?? ''
     expect(moc).toContain('# DECISION')
-    expect(moc).toMatch(/- \[\[mem_3264\|[^\]]+\]\]/)
-  })
-
-  it('no dangling [[mem_N]] for an id present in the full set', () => {
-    for (const body of files.values()) {
-      expect(body).not.toMatch(/\[\[mem_3233\]\]/) // must be the labelled alias form
-    }
+    expect(moc).not.toMatch(/\[\[mem_\d+\|/) // not alias links
+    expect(moc).toMatch(/- \[\[[a-z0-9-]+\|[^\]]+\]\]/)
   })
 })
 
 describe('buildMemoryFiles — Defect B: refs to non-rendered ids still resolve', () => {
-  it('an old referenced entry gets a note so [[mem_N|title]] is not dangling', () => {
+  it('an old referenced entry gets a note + a slug link the graph can draw', () => {
     const rendered = [
       mk({
         id: 'mem_3300',
@@ -87,14 +101,18 @@ describe('buildMemoryFiles — Defect B: refs to non-rendered ids still resolve'
     ]
     const all = [
       ...rendered,
-      mk({ id: 'mem_2609', content: 'Closed mem_2525 daemon restart follow-up shipped' }),
+      mk({ id: 'mem_2609', content: 'Closed an old daemon restart follow-up shipped' }),
     ]
     const files = buildMemoryFiles(all, all)
-    // mem_2609 must exist as a note carrying its alias
-    const has2609 = [...files.values()].some((b) => b.includes('aliases: ["mem_2609"]'))
-    expect(has2609).toBe(true)
+    // mem_2609 exists as a note (alias kept for CLI/click) AND its
+    // basename is the link target so the graph edge is drawn.
+    const note2609 = [...files.entries()].find(([, b]) => b.includes('aliases: ["mem_2609"]'))
+    expect(note2609).toBeDefined()
+    const slug2609 = note2609?.[0].match(/^memory\/[^/]+\/(.+)\.md$/)?.[1] ?? ''
+    expect(slug2609).not.toBe('')
     const newNote = [...files.entries()].find(([k]) => k.startsWith('memory/decision/'))?.[1] ?? ''
-    expect(newNote).toMatch(/\[\[mem_2609\|/) // legible, resolvable
+    expect(newNote).not.toMatch(/\[\[mem_2609\b/) // not alias-only
+    expect(newNote).toContain(`[[${slug2609}|`) // links the real note basename
   })
 })
 

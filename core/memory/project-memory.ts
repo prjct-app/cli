@@ -446,12 +446,22 @@ export interface FormatMemoryMdOptions {
    */
   idTitleIndex?: Map<string, string>
   /**
-   * Types rendered as their own per-entry note (carrying
-   * `aliases: [mem_N]`). Refs to these resolve via the stable alias
-   * `[[mem_N|title]]`; everything else uses the aggregated-file block
+   * Types rendered as their own per-entry note. Combined with
+   * {@link idSlugIndex}, refs to these link by the note's real basename
+   * `[[<slug>|title]]`; everything else uses the aggregated-file block
    * anchor `[[type#^mem-N|title]]`. Absent → legacy block-anchor form.
    */
   perEntryTypes?: ReadonlySet<string>
+  /**
+   * `mem_N → note basename (slug, no extension)` for per-entry notes.
+   * The link MUST target the real file, not the `mem_N` alias:
+   * Obsidian's GRAPH view resolves links by path/basename and ignores
+   * frontmatter `aliases` (backlinks/click honor aliases; the graph
+   * does not). With `hideUnresolved:true` an alias-only link is treated
+   * as unresolved and hidden → no edge. Linking by slug is what makes
+   * the relations actually appear in the graph (the v2.23.3 regression).
+   */
+  idSlugIndex?: Map<string, string>
 }
 
 const TITLE_MAX = 72
@@ -517,9 +527,12 @@ export function linkifyMemRefs(text: string, opts?: FormatMemoryMdOptions): stri
       const canonical = `mem_${n}`
       const type = opts?.idTypeIndex?.get(canonical)
       const title = opts?.idTitleIndex?.get(canonical)
+      const slug = opts?.idSlugIndex?.get(canonical)
       const display = title ? linkLabel(title) : canonical
-      if (type && opts?.perEntryTypes?.has(type)) {
-        return `[[${canonical}|${display}]]`
+      // Per-entry note → link the REAL basename so the graph draws the
+      // edge (alias-only links are invisible to Obsidian's graph).
+      if (slug && type && opts?.perEntryTypes?.has(type)) {
+        return `[[${slug}|${display}]]`
       }
       if (type) {
         return `[[${type}#^mem-${n}|${display}]]`

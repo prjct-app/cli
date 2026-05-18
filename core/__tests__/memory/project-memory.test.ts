@@ -316,17 +316,21 @@ describe('deriveTitle — deterministic, legible, no DB keys', () => {
   })
 })
 
-describe('linkifyMemRefs — legible labels + alias resolution (additive)', () => {
-  it('per-entry type → alias link [[mem_N|title]] (resolves via aliases:)', () => {
+describe('linkifyMemRefs — slug-targeted links (graph-visible) + legible labels', () => {
+  it('per-entry type → links the note BASENAME [[slug|title]] (graph draws it)', () => {
+    // The v2.23.3 regression: [[mem_N|title]] resolved only via alias,
+    // invisible to Obsidian's graph. Must target the real slug.
     const out = linkifyMemRefs('resolves=mem_3135', {
       idTypeIndex: new Map([['mem_3135', 'gotcha']]),
       idTitleIndex: new Map([['mem_3135', 'CHANGELOG Unreleased stranding']]),
+      idSlugIndex: new Map([['mem_3135', 'changelog-unreleased-stranding']]),
       perEntryTypes: new Set(['gotcha']),
     })
-    expect(out).toBe('resolves=[[mem_3135|CHANGELOG Unreleased stranding]]')
+    expect(out).toBe('resolves=[[changelog-unreleased-stranding|CHANGELOG Unreleased stranding]]')
+    expect(out).not.toContain('[[mem_3135') // never alias-only
   })
 
-  it('aggregated type → block-anchor link with legible label', () => {
+  it('aggregated type (no slug) → block-anchor link with legible label', () => {
     const out = linkifyMemRefs('see mem_42', {
       idTypeIndex: new Map([['mem_42', 'inbox']]),
       idTitleIndex: new Map([['mem_42', 'upgrade noise item']]),
@@ -344,14 +348,15 @@ describe('linkifyMemRefs — legible labels + alias resolution (additive)', () =
     expect(linkifyMemRefs('violates [[mem_2620]]', { idTypeIndex: new Map() })).toBe(
       'violates `mem_2620`'
     )
-    // known id → legible alias link
+    // known per-entry id → slug link, graph-visible
     expect(
       linkifyMemRefs('see [[mem_42]]', {
         idTypeIndex: new Map([['mem_42', 'gotcha']]),
         idTitleIndex: new Map([['mem_42', 'busy_timeout CAS retry']]),
+        idSlugIndex: new Map([['mem_42', 'busy-timeout-cas-retry']]),
         perEntryTypes: new Set(['gotcha']),
       })
-    ).toBe('see [[mem_42|busy_timeout CAS retry]]')
+    ).toBe('see [[busy-timeout-cas-retry|busy_timeout CAS retry]]')
   })
 
   it('backward compatible: no idTitleIndex → legacy mem_N label', () => {
