@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.23.3] - 2026-05-18
+
+### Bug Fixes
+
+- vault: one note per memory entry → reconnected, human-legible Obsidian graph; titles not mem_N keys; idTypeIndex from full set; relation tags no longer fragment into orphan stubs (fixes "todas las relaciones se perdieron")
+
 ## [2.23.2] - 2026-05-18
 
 ### Bug Fixes
