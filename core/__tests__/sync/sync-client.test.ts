@@ -110,6 +110,16 @@ describe('SyncClient.pushEvents', () => {
       message: 'malformed',
     })
   })
+
+  it('does NOT retry a 5xx POST /sync/batch (no duplicate-batch storm)', async () => {
+    // The batch may have applied server-side before the 500 — replaying it
+    // (old behavior: up to maxRetries+1 = 4 POSTs) duplicates data. POST is
+    // non-idempotent → exactly ONE attempt, error surfaced to the caller.
+    stubFetch(() => jsonResponse(503, { message: 'upstream down' }))
+    await expect(syncClient.pushEvents('proj-1', [])).rejects.toBeTruthy()
+    expect(calls).toHaveLength(1)
+    expect(calls[0].init?.method).toBe('POST')
+  })
 })
 
 describe('SyncClient.pullEvents', () => {
