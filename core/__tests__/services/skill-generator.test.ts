@@ -334,8 +334,11 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
       expect(content).toMatch(/Subagent A.*review/)
       expect(content).toMatch(/Subagent B.*security/)
       expect(content).toMatch(/Subagent C.*investigate/)
-      // The skill description must advertise the heavy-review workflows.
-      expect(content).toMatch(/Heavy reviews \(audit, review, security, investigate, audit-spec\)/)
+      // The skill description must advertise the heavy-review workflows —
+      // and (regression: perf-degradation from over-dispatch) scope them to
+      // "only when the diff/scope warrants", not unconditionally.
+      expect(content).toMatch(/heavy reviews \(audit\/review\/security\/investigate\)/i)
+      expect(content).toMatch(/parallel subagents ONLY when the diff\/scope warrants/i)
     })
 
     it('teaches the decision-brief format for non-trivial AskUserQuestion calls', async () => {
@@ -387,7 +390,14 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
       expect(content).toContain('## Verb intent map')
       expect(content).toContain("recognize the user's goal, then act")
       // Every routine verb gets its own intent description.
-      expect(content).toContain('### `task` — "I\'m starting a new piece of work"')
+      expect(content).toMatch(/### `task` — "I'm starting a piece of work"/)
+      // Regression lock (recurring [Triage before spec] / [Right-size
+      // ceremony]): the triage gate must be prominent and `task` (the
+      // default) must precede `spec`/`audit-spec` in the verb map, so the
+      // orchestrator doesn't funnel every action through specs+reviewers.
+      expect(content).toContain('## TRIAGE FIRST')
+      expect(content.indexOf('### `task`')).toBeLessThan(content.indexOf('### `spec`'))
+      expect(content.indexOf('### `task`')).toBeLessThan(content.indexOf('### `audit-spec`'))
       expect(content).toContain('### `capture` — "save this thought, don\'t decide anything yet"')
       expect(content).toContain('### `remember decision`')
       expect(content).toContain('### `remember learning`')
