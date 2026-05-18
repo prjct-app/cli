@@ -69,6 +69,24 @@ export class UpdateCommands extends PrjctCommandsBase {
     }
 
     try {
+      // ── Phase 0: stop any running daemon FIRST ──
+      // A daemon from a previous (now-stale) version keeps serving old code
+      // for its whole lifetime — it never learned new verbs/aliases (e.g.
+      // `upgrade`) and would mis-handle them (silently inbox-capturing the
+      // command). Tear it down before doing anything; phase 3 spawns a
+      // fresh one from the just-installed code.
+      if (!dryRun) {
+        try {
+          const { isDaemonRunning, stopDaemon, forceKillDaemon } = await import('../daemon/client')
+          if (await isDaemonRunning()) {
+            const ok = await stopDaemon()
+            if (!ok) forceKillDaemon()
+          }
+        } catch {
+          // best-effort — never block the update on daemon teardown
+        }
+      }
+
       // ── Phase 1: Package Update ──
       if (!md) out.step(1, 3, 'Updating package...')
       results.phase1 = await this.phasePackageUpdate(dryRun)
@@ -173,6 +191,19 @@ export class UpdateCommands extends PrjctCommandsBase {
         targets = [selectPackageManager()]
       }
 
+      // Resolve the TRUE latest from the npm registry and PIN it. `@latest`
+      // is resolved by each PM from its own metadata cache — pnpm's is
+      // frequently stale and silently resolves an OLD version, so a plain
+      // `pnpm add -g prjct-cli@latest` can *downgrade* the install. Pinning
+      // the exact registry version makes the upgrade deterministic.
+      let pinnedSpec: string | null = null
+      try {
+        const v = (await new UpdateChecker().getLatestVersion())?.trim()
+        if (v && /^\d+\.\d+\.\d+/.test(v)) pinnedSpec = `prjct-cli@${v}`
+      } catch {
+        // registry unreachable — fall back to each PM's @latest
+      }
+
       for (const pm of targets) {
         if (!isOnPath(pm.name)) {
           result.errors.push(
@@ -182,10 +213,13 @@ export class UpdateCommands extends PrjctCommandsBase {
           continue
         }
         try {
-          // Use install @latest (rather than `update`) to bypass semver range
-          // constraints and always fetch the true latest from the registry.
-          execSync([pm.name, ...pm.installArgs].join(' '), { stdio: 'pipe' })
-          result.details.push(`${pm.name} install complete`)
+          // Pin the exact registry latest (bypasses semver ranges AND each
+          // PM's stale @latest cache — see pinnedSpec above).
+          const args = pinnedSpec
+            ? pm.installArgs.map((a) => (a === 'prjct-cli@latest' ? pinnedSpec : a))
+            : pm.installArgs
+          execSync([pm.name, ...args].join(' '), { stdio: 'pipe' })
+          result.details.push(`${pm.name} install complete${pinnedSpec ? ` (${pinnedSpec})` : ''}`)
         } catch (err) {
           result.errors.push(`${pm.name}: ${getErrorMessage(err)}`)
         }

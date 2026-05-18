@@ -41,6 +41,24 @@ describe('e2e: unconfigured project fails LOUD (regression)', () => {
     expect(r.code).toBe(0)
     expect(r.stdout + r.stderr).toContain(REPO_VERSION)
   })
+
+  // A misrouted single command-shaped token (typo / stale parallel install
+  // or daemon that predates a verb like `upgrade`) must NOT be silently
+  // swallowed into the inbox — it has to say so, loudly + actionably.
+  test('an unknown command-shaped token is captured LOUDLY, not silently', async () => {
+    const r = await sb.cli(['definitelynotacommand'])
+    const out = (r.stdout + r.stderr).toLowerCase()
+    expect(out).toContain('not a known command')
+    expect(out).toContain('prjct update')
+  })
+
+  // Free-text GTD capture (multi-word, first token not a verb) stays silent
+  // — the advisory is only for a LONE command-shaped token, so quick notes
+  // aren't nagged.
+  test('multi-word free-text capture stays silent (GTD preserved)', async () => {
+    const r = await sb.cli(['buy', 'more', 'coffee', 'beans'])
+    expect((r.stdout + r.stderr).toLowerCase()).not.toContain('not a known command')
+  })
 })
 
 describe('e2e: CLI lifecycle (hermetic fake project)', () => {
