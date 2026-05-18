@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.23.2] - 2026-05-18
+
+### Bug Fixes
+
+- vault makes every mem_N navigable — Obsidian anchors + linkified cross-refs (mem_3233) (#356)
+
+
 ## [2.23.1] - 2026-05-18
 
 ### Bug Fixes
