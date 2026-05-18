@@ -41,6 +41,88 @@ const MIN_CLI_VERSIONS: Record<string, string> = {
 } as const
 
 // =============================================================================
+// Agent Model Policy — per-role model + effort for subagent dispatch
+// =============================================================================
+
+/**
+ * Which Claude model + how much reasoning effort each subagent ROLE gets.
+ *
+ * Perf rationale: every subagent used to inherit the parent session's max
+ * model + max effort. Orchestrators and reviewers don't implement — they
+ * route and judge — so running them on Opus-max made every task's agent
+ * fan-out crawl. Only the implementer needs full max.
+ *
+ *  - implementer   → opus  / max    (writes code, needs the best model)
+ *  - orchestrator  → haiku / decent (crew leader: decomposes & routes only)
+ *  - reviewer tier → sonnet / decent (audit-spec's 3 reviewers + audit/
+ *                                     review/security/investigate + crew
+ *                                     reviewer: judgment, strong reasoning
+ *                                     but not Opus-max)
+ *
+ * `effort` is GUIDANCE inlined into the dispatch prompt (the Agent tool has
+ * no per-call effort param) — "decent, not exhaustive: you orchestrate/
+ * review, return the verdict, don't over-deliberate". `model` is the
+ * concrete lever the orchestrator passes to the Agent tool.
+ */
+export type AgentRole =
+  | 'implementer'
+  | 'orchestrator'
+  | 'strategic-review'
+  | 'architecture-review'
+  | 'design-review'
+  | 'review'
+  | 'security'
+  | 'investigate'
+  | 'reviewer'
+
+export type AgentModelTier = 'opus' | 'sonnet' | 'haiku'
+export type AgentEffort = 'max' | 'decent'
+
+export interface AgentModelPolicy {
+  model: AgentModelTier
+  effort: AgentEffort
+}
+
+const IMPLEMENTER_POLICY: AgentModelPolicy = { model: 'opus', effort: 'max' }
+const ORCHESTRATOR_POLICY: AgentModelPolicy = { model: 'haiku', effort: 'decent' }
+const REVIEWER_POLICY: AgentModelPolicy = { model: 'sonnet', effort: 'decent' }
+
+export const AGENT_MODEL_POLICY: Record<AgentRole, AgentModelPolicy> = {
+  implementer: IMPLEMENTER_POLICY,
+  orchestrator: ORCHESTRATOR_POLICY,
+  'strategic-review': REVIEWER_POLICY,
+  'architecture-review': REVIEWER_POLICY,
+  'design-review': REVIEWER_POLICY,
+  review: REVIEWER_POLICY,
+  security: REVIEWER_POLICY,
+  investigate: REVIEWER_POLICY,
+  reviewer: REVIEWER_POLICY,
+}
+
+/**
+ * Policy for a role. Unknown roles default to the reviewer tier — never
+ * silently fall back to implementer/max (that is the regression we are
+ * fixing).
+ */
+export function getAgentModelPolicy(role: AgentRole): AgentModelPolicy {
+  return AGENT_MODEL_POLICY[role] ?? REVIEWER_POLICY
+}
+
+/**
+ * One-line directive to inline into a subagent dispatch prompt so the
+ * orchestrator passes the right `model:` to the Agent tool and the
+ * subagent calibrates its effort. Implementer keeps max; every other
+ * role is told, explicitly, to go smaller + decent.
+ */
+export function renderModelDirective(role: AgentRole): string {
+  const p = getAgentModelPolicy(role)
+  if (p.model === 'opus' && p.effort === 'max') {
+    return 'Dispatch with the Agent tool using `model: "opus"` and full reasoning effort — this is the IMPLEMENTER; it writes code and needs the best model.'
+  }
+  return `Dispatch with the Agent tool using \`model: "${p.model}"\` (NOT the parent's max model). Apply ${p.effort}, not exhaustive, effort — this is an orchestration/review role: return the verdict, don't over-deliberate. A smaller model at decent effort is correct here and far faster.`
+}
+
+// =============================================================================
 // Model Metadata - Recorded Per Operation
 // =============================================================================
 

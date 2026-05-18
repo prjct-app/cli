@@ -18,6 +18,7 @@
  */
 
 import configManager from '../infrastructure/config-manager'
+import { renderModelDirective } from '../schemas/model'
 import { specService } from '../services/spec-service'
 import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
@@ -594,8 +595,7 @@ function renderSpecMarkdown(spec: {
  * all in the same message), then writes each verdict back via
  * `prjct spec record-review`.
  */
-function renderAuditDispatch(id: string, title: string, content: SpecContent): string {
-  const summary = JSON.stringify(content)
+export function renderAuditDispatch(id: string, title: string, content: SpecContent): string {
   // Phase 1.6 / B-RVW: extract scope paths so each reviewer can read
   // the actual codebase via the Read tool instead of judging the spec
   // in isolation.
@@ -609,22 +609,23 @@ function renderAuditDispatch(id: string, title: string, content: SpecContent): s
     '',
     `Spec id: \`${id}\``,
     '',
-    'Run three review subagents IN PARALLEL via the Agent tool — one tool-use block per reviewer, all in the SAME message so they run concurrently. Each subagent reads the spec body, reads the relevant codebase paths, applies its rubric, then returns a structured verdict.',
+    'Run three review subagents IN PARALLEL via the Agent tool — one tool-use block per reviewer, all in the SAME message so they run concurrently. Each subagent reads the spec FROM prjct (command below), reads the relevant codebase paths, applies its rubric, then returns a structured verdict.',
+    '',
+    '## Where the spec lives — read it from prjct, it is NOT in this prompt',
+    `The plan lives in prjct (SQLite + regenerated vault), never duplicated into a dispatch payload. Each reviewer subagent runs \`prjct spec show ${id} --md\` itself, in its own fresh context window, to read the full spec. Do NOT paste the spec body into the subagent prompts — point them at that command. (Same rule for any memory the reviewer wants: \`prjct context memory <topic>\` — pulled by the subagent, not pre-pasted by you.)`,
+    '',
+    '## Model policy (perf — read before dispatching)',
+    `${renderModelDirective('strategic-review')} The SAME applies to all three reviewers (strategic, architecture, design) — they judge a spec, they do not implement, so they must NOT run on the parent's max model. Hand reviewers the spec-read COMMAND and the codebase PATHS + the Read tool — never paste spec body or file contents into their prompts.`,
     scopeBlock,
     '',
     '## Reviewer A — strategic (scope sanity)',
-    'Subagent prompt: "Review this spec for strategic soundness. Does it solve a real problem? Is the goal worth the cost? Is out_of_scope coherent with goal? Is the spec OVER- or UNDER-scoped? Cross-reference relevant prior memory if available (decisions tagged by domain). Return verdict (pass|fail) and 2-4 sentence notes."',
+    `Subagent prompt: "First run \`prjct spec show ${id} --md\` to read the spec. Review it for strategic soundness. Does it solve a real problem? Is the goal worth the cost? Is out_of_scope coherent with goal? Is the spec OVER- or UNDER-scoped? Cross-reference relevant prior memory via \`prjct context memory <topic>\` if useful. Return verdict (pass|fail) and 2-4 sentence notes."`,
     '',
     '## Reviewer B — architecture (eng feasibility)',
-    'Subagent prompt: "Review this spec for engineering feasibility. Read the codebase paths listed above (Read tool, cap 10 files). Can this be built ON TOP of what exists? Does the spec contradict an existing state machine, schema, or contract? What failure modes / dependencies / edge cases are missing? Include a short ASCII diagram + cite at least one concrete symbol from the codebase in notes when applicable. Return verdict (pass|fail) and 2-4 sentence notes."',
+    `Subagent prompt: "First run \`prjct spec show ${id} --md\` to read the spec. Then read the codebase paths listed above (Read tool, cap 10 files). Can this be built ON TOP of what exists? Does the spec contradict an existing state machine, schema, or contract? What failure modes / dependencies / edge cases are missing? Include a short ASCII diagram + cite at least one concrete symbol from the codebase in notes when applicable. Return verdict (pass|fail) and 2-4 sentence notes."`,
     '',
     '## Reviewer C — design (UX/DX)',
-    'Subagent prompt: "Review this spec for design quality. Rate 0-10 across {clarity, ergonomics, consistency, accessibility} for the user-facing or developer-facing surface. If scope touches existing UI/CLI patterns (read the listed paths), consistency must be judged against those — not against your priors. Return verdict (pass if all dimensions ≥6, fail otherwise) + the four scores."',
-    '',
-    '## Spec body (verbatim, pass to each reviewer)',
-    '```json',
-    summary,
-    '```',
+    `Subagent prompt: "First run \`prjct spec show ${id} --md\` to read the spec. Rate 0-10 across {clarity, ergonomics, consistency, accessibility} for the user-facing or developer-facing surface. If scope touches existing UI/CLI patterns (read the listed paths), consistency must be judged against those — not against your priors. Return verdict (pass if all dimensions ≥6, fail otherwise) + the four scores."`,
     '',
     '## After dispatch',
     'For each reviewer that returns:',

@@ -2,6 +2,7 @@
 name: reviewer
 description: Strict reviewer. Approves or rejects an implementer's work against the project checkpoints and conventions. Never edits code.
 tools: Read, Glob, Grep, Bash
+model: sonnet
 ---
 
 # Reviewer

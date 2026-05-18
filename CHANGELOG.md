@@ -62,6 +62,11 @@
 
 ## [Unreleased]
 
+## [2.23.5] - 2026-05-18
+
+### Added
+- perf: per-role subagent model policy + everything-in-prjct persistence
+
 ## [2.23.4] - 2026-05-18
 
 ### Added
