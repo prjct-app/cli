@@ -432,11 +432,23 @@ Codex is detected by the `codex` CLI on PATH (context file `AGENTS.md`). The
 sandbox is non-interactive/non-TTY, so prjct emits the same static, prompt-free
 status line as any agent; add `--md` for fully markdown-structured output.
 
-**How do I find the project's data directory?**
-Read `projectId` from `<repo>/.prjct/prjct.config.json`; the database is
-`~/.prjct-cli/projects/<projectId>/prjct.db` and the readable vault is
+**How do I quickly find the local `.prjct/` directory?**
+It's in your **project repo root** (created by `prjct init` / first `prjct`
+command) and is `.gitignore`d — that's why `git status` never shows it. Find it:
+
+```bash
+ls -la .prjct/                                    # from the repo root
+cat .prjct/prjct.config.json                      # projectId + persona
+ls -la "$(git rev-parse --show-toplevel)/.prjct/" # from any subdirectory
+git check-ignore -v .prjct                         # why git ignores it
+```
+
+The path is always `<repoRoot>/.prjct/` (strictly relative to the project — no
+env var, no global lookup). Read `projectId` from `prjct.config.json` to reach
+the *other* tiers: DB at `~/.prjct-cli/projects/<projectId>/prjct.db`, vault at
 `~/Documents/prjct/<slug>/_generated/` (`PRJCT_CLI_HOME` overrides the global
-base). The in-repo `.prjct/` holds only config, not state.
+base). The in-repo `.prjct/` holds only config, not state — full detail in
+[docs/storage-and-paths.md](./docs/storage-and-paths.md).
 
 **How does prjct detect its environment with no configuration?**
 Every signal is something the host sets itself — Claude exports env vars and
