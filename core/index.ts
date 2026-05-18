@@ -175,7 +175,7 @@ async function main(): Promise<void> {
       result = await commands.analyze(options)
     } else if (commandName === 'setup') {
       result = await commands.setup(options)
-    } else if (commandName === 'update') {
+    } else if (commandName === 'update' || commandName === 'upgrade') {
       result = await commands.update(options)
     } else {
       // Standard commands - type-safe invocation

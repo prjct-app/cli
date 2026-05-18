@@ -51,6 +51,7 @@ const _binCommands = new Set([
   'start',
   'setup',
   'update',
+  'upgrade',
   'context',
   'hooks',
   'doctor',
@@ -88,7 +89,15 @@ const { REGISTERED_VERBS_SET } = await import('../core/commands/verb-names')
 // machine-consumed paths (`hook`, `--md`/`--json`, `--quiet`) and for
 // the updater itself. Awaited at top-level so the exit handler is
 // installed BEFORE the daemon fast path's `process.exit` runs.
-const _updateSkipCommands = new Set(['update', 'daemon', 'hook', 'version', '-v', '--version'])
+const _updateSkipCommands = new Set([
+  'update',
+  'upgrade',
+  'daemon',
+  'hook',
+  'version',
+  '-v',
+  '--version',
+])
 if (
   _fastCommand &&
   !_updateSkipCommands.has(_fastCommand) &&
@@ -147,7 +156,7 @@ if (
 //   - `hook` (session-start fires its own self-heal; other hook events
 //     fire too often to pay even the fs-read cost)
 //   - PRJCT_NO_SELF_SYNC=1 (escape hatch)
-const _selfHealSkip = new Set(['daemon', 'update', 'version', '-v', '--version', 'hook'])
+const _selfHealSkip = new Set(['daemon', 'update', 'upgrade', 'version', '-v', '--version', 'hook'])
 if (_fastCommand && !_selfHealSkip.has(_fastCommand) && process.env.PRJCT_NO_SELF_SYNC !== '1') {
   try {
     const { VERSION } = await import('../core/utils/version')
