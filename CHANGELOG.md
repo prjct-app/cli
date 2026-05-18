@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.23.6] - 2026-05-18
+
+### Added
+- test: regression guards for per-role subagent model policy
+
 ## [2.23.4] - 2026-05-18
 
 ### Bug Fixes
