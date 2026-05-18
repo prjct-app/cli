@@ -422,15 +422,39 @@ In any git repo, run `prjct sync` (it auto-runs on the first prjct command) or
 the SQLite store at `~/.prjct-cli/projects/<projectId>/`, and generates the vault.
 
 **How do I add a development task?**
-`prjct task "add OAuth refresh"` — registers the task, creates a branch, and
-marks it active. Inside an agent: `p. task "…"` (Cursor/Windsurf: `/task`).
-Close it with `prjct status done`.
+Run `prjct task "<description>"` from the repo. It registers the task in SQLite,
+creates a branch, and marks it active — worked example:
+
+```bash
+$ prjct task "add OAuth refresh"
+⚡ prjct  ✓ Task started: add OAuth refresh
+         branch: task/add-oauth-refresh · status: active
+
+$ prjct tag type:feature domain:auth     # optional: categorize it
+$ prjct status done                       # close it when finished
+$ prjct ship                              # bump version, commit, PR
+```
+
+Inside an agent you don't type the command — say it: `p. task "add OAuth
+refresh"` in Claude Code, `/task "…"` in Cursor/Windsurf. `prjct task` with no
+argument prints the currently active task.
 
 **How do I get AI assistance for a coding problem?**
-Inside Claude Code (or any wired agent) just ask naturally — "review my
-changes", "investigate why tests flake", "security check this" — which activates
-the matching quality workflow (`review`/`investigate`/`security`/`qa`/`ship`)
-with its methodology, persisting findings back to memory.
+Inside Claude Code (or any wired agent) describe the problem in natural
+language — prjct maps the intent to a quality workflow and runs its methodology,
+persisting findings to memory. Concrete examples:
+
+| You say… | Workflow activated | What it does |
+|---|---|---|
+| "review my changes" | `review` | Production Bug Hunt + Completeness Gate over the diff |
+| "investigate why tests flake" | `investigate` | Iron Law — no fix without a root cause first |
+| "is this safe to ship?" | `security` | OWASP Top 10 + STRIDE, concrete exploit per finding |
+| "qa the checkout page" | `qa` | Real browser, atomic fixes, regression tests |
+
+You can also pull project knowledge directly: ask "what patterns does this
+project use?" and the agent reads `~/Documents/prjct/<slug>/_generated/patterns.md`
+instead of grepping source (the lookup-first protocol). Outside an agent, every
+command takes `--md` to emit agent-ready markdown.
 
 **What does prjct output look like in a normal terminal?**
 A branded, **animated** spinner with full colors and interactive prompts (the
@@ -442,11 +466,24 @@ the true registry-latest, consolidates parallel installs, restarts the daemon.
 A non-blocking 24h-cached banner tells you when one is available. See
 [Updating prjct](#updating-prjct-built-in).
 
-**How does prjct tailor output for Claude Code?**
-It detects the Claude environment (env vars / MCP / `CLAUDE.md` / `~/.claude/`)
-and, because stdio is piped (non-TTY), prints a **static** one-line status
-instead of an animated spinner, suppresses prompts, and keeps output agent-clean
-— no flag needed. Detail: [docs/environments.md](./docs/environments.md).
+**How does prjct tailor its output for Claude Code specifically?**
+Once it detects Claude (env vars / MCP / `CLAUDE.md` / `~/.claude/`) and sees
+piped stdio (non-TTY), it adapts on every axis, with no flag:
+
+- **Status line** — a single **static** `⚡ prjct …` line instead of the
+  animated, carriage-return-redrawn spinner, so the transcript stays clean.
+- **Prompts** — interactive confirmations are suppressed (nothing blocks on
+  stdin that the agent can't answer).
+- **`requiresLlm` commands** — run transparently (piped stdin means
+  `isLlmContext` is already true; in a raw human terminal they'd refuse without
+  `--md`).
+- **`--md`** — when passed, the branding header/footer is stripped and output is
+  structured markdown the model consumes directly.
+- **Context injection** — the installed hooks feed Claude persona + active task
+  + topical memory at `SessionStart`/`UserPromptSubmit`, and the lookup-first
+  protocol points it at the regenerated vault before it re-reads source.
+
+Full per-environment table: [docs/environments.md](./docs/environments.md).
 
 **What's the output in an OpenAI Codex sandbox?**
 Codex is detected by the `codex` CLI on PATH (context file `AGENTS.md`). The
