@@ -14,6 +14,7 @@
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { syncService } from '../services/sync-service'
+import { prjctDb } from '../storage/database'
 import { shippedStorage } from '../storage/shipped-storage'
 import { stateStorage } from '../storage/state-storage'
 import { workflowRuleStorage } from '../storage/workflow-rule-storage'
@@ -29,6 +30,18 @@ import out from '../utils/output'
 import { executeWorkflowRules } from '../workflow/workflow-engine'
 import { PrjctCommandsBase } from './base'
 import { requireProject } from './guards'
+
+// kv marker written before the shipped row is recorded and cleared after.
+// If a ship pushes a version (via the before-rules) but crashes before
+// `addShipped`, this marker survives → the NEXT ship reconciles it
+// idempotently, closing the version-divergence class (mem_2920).
+const SHIP_MARKER_KEY = 'ship:in_progress'
+
+interface ShipMarker {
+  feature: string
+  version: string
+  startedAt: string
+}
 
 type ShipIntent = 'register-only' | 'seed-code-workflow' | 'proceed'
 
@@ -50,6 +63,26 @@ export class ShippingCommands extends PrjctCommandsBase {
       const proj = await requireProject(projectPath)
       if (!proj.ok) return proj.result
       const projectId = proj.value
+
+      // Crash recovery: a prior ship that pushed a version but died before
+      // recording the shipped row left a marker. Reconcile it idempotently
+      // (skip if that version is already recorded) before doing anything.
+      try {
+        const stale = prjctDb.getDoc<ShipMarker>(projectId, SHIP_MARKER_KEY)
+        if (stale?.version) {
+          const already = await shippedStorage.getByVersion(projectId, stale.version)
+          if (!already) {
+            await shippedStorage.addShipped(projectId, {
+              name: stale.feature,
+              version: stale.version,
+            })
+            console.log(`ℹ️  Reconciled an interrupted ship: ${stale.feature} (v${stale.version})`)
+          }
+          prjctDb.deleteDoc(projectId, SHIP_MARKER_KEY)
+        }
+      } catch {
+        // Best-effort recovery — never block a ship on reconciliation.
+      }
 
       let featureName = feature
 
@@ -145,10 +178,30 @@ export class ShippingCommands extends PrjctCommandsBase {
 
       const newVersion = typeof runCtx.version === 'string' ? runCtx.version : 'unversioned'
 
+      // The before-rules have already pushed `newVersion`. Drop a marker so
+      // a crash between here and `addShipped` is recoverable on the next
+      // ship; clear it once the shipped row is durably recorded.
+      try {
+        prjctDb.setDoc<ShipMarker>(projectId, SHIP_MARKER_KEY, {
+          feature: featureName,
+          version: newVersion,
+          startedAt: dateHelper.getTimestamp(),
+        })
+      } catch {
+        // marker is best-effort — never block the ship
+      }
+
       await shippedStorage.addShipped(projectId, {
         name: featureName,
         version: newVersion,
       })
+
+      try {
+        prjctDb.deleteDoc(projectId, SHIP_MARKER_KEY)
+      } catch {
+        // stale marker is harmless — next ship reconciles it as a no-op
+        // (getByVersion finds the row we just wrote → skip)
+      }
 
       await this.logToMemory(projectPath, 'feature_shipped', {
         feature: featureName,

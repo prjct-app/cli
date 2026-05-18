@@ -41,6 +41,16 @@ let commands: PrjctCommands | null = null
 let state: DaemonState | null = null
 let ownVersion: string | null = null
 
+// Serializes command execution. handleRequestInner patches the GLOBAL
+// console.log/error to capture a command's output; with concurrent socket
+// connections (state.activeRequests can exceed 1) two requests would
+// cross-capture each other's output and whichever finishes first would
+// restore the real console while the other is still mid-command. Chaining
+// through one promise makes command execution strictly one-at-a-time —
+// SQLite is single-writer anyway and commands are short, so the throughput
+// cost is negligible next to the correctness win.
+let _requestChain: Promise<unknown> = Promise.resolve()
+
 export async function startDaemon(options: { foreground?: boolean }): Promise<void> {
   // Flag child services (wiki-generator etc.) can check to know they're
   // running under the long-lived daemon — lets them fire-and-forget safe
@@ -213,7 +223,17 @@ async function handleRequest(request: DaemonRequest): Promise<DaemonResponse> {
 
   state.activeRequests++
   try {
-    return await handleRequestInner(request)
+    // Run strictly after any in-flight command (see _requestChain). The
+    // catch arms keep the chain alive if a prior request rejected.
+    const run = _requestChain.then(
+      () => handleRequestInner(request),
+      () => handleRequestInner(request)
+    )
+    _requestChain = run.then(
+      () => undefined,
+      () => undefined
+    )
+    return await run
   } finally {
     state.activeRequests--
     if (state.restartPending && state.activeRequests === 0) {
