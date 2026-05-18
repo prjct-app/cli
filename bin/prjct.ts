@@ -177,8 +177,22 @@ if (_fastCommand && !_selfHealSkip.has(_fastCommand) && process.env.PRJCT_NO_SEL
 // wanted a task (branch/worktree), they type `prjct task "..."`
 // explicitly.
 if (_fastCommand && !_binCommands.has(_fastCommand) && !REGISTERED_VERBS_SET.has(_fastCommand)) {
-  const description = _fastArgs.filter((a) => !a.startsWith('-')).join(' ')
+  const positionals = _fastArgs.filter((a) => !a.startsWith('-'))
+  const description = positionals.join(' ')
   const flags = _fastArgs.filter((a) => a.startsWith('-'))
+  // A single command-shaped token (e.g. `prjct upgrade`) is almost never a
+  // GTD note — it's a MISROUTED command: a typo, or a stale parallel
+  // install / long-lived daemon that predates the verb. Silently turning it
+  // into an inbox capture buries it with zero feedback (same silent-no-op
+  // class as the WS1 exit-0 bug). Still capture (don't break free-text GTD)
+  // but make it LOUD + actionable so it's never a silent surprise.
+  if (positionals.length === 1 && /^[a-z][a-z0-9:-]+$/.test(positionals[0])) {
+    process.stderr.write(
+      `prjct: '${positionals[0]}' is not a known command in this install — ` +
+        'saving it to the inbox instead. If you meant the command, this prjct ' +
+        'may be stale: run `prjct update`.\n'
+    )
+  }
   _fastCommand = 'capture'
   _fastArgs = ['capture', description, ...flags]
 }
