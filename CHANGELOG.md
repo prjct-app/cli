@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.22.0] - 2026-05-18
+
+### Features
+
+- prjct update self-cleanup of parallel installs + prjct upgrade alias + one-command notify (WS4+WS5) (#347)
+
+### Bug Fixes
+
+- WS3b — ship-atomicity marker + serialized daemon request handling (#350)
+- WS2b SQLite hardening — BEGIN IMMEDIATE txns, statement-cache + daemon-cache gating (#349)
+- WS3 P2 reliability — timer leak, backup clobber, daemon-exit, WAL checkpoint, duplicate-POST (#348)
+
+
 ## [2.21.1] - 2026-05-18
 
 ### Bug Fixes
