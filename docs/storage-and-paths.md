@@ -5,6 +5,38 @@ A common misconception is that prjct keeps "all project data in a local
 deliberate three-tier layout that separates *committable identity* from
 *per-device state* from a *regenerated readable snapshot*.
 
+## Quickly find your project's `.prjct/` directory
+
+The `.prjct/` directory lives in the **root of your project repo** — it is
+created by `prjct init` (or automatically on the first `prjct` command in a git
+repo). It is **`.gitignore`d**, which is the usual reason it seems "hidden": it
+never shows up in `git status`. Locate it with one of these:
+
+```bash
+# From the project root (most common):
+ls -la .prjct/
+cat .prjct/prjct.config.json          # projectId + persona
+
+# From any subdirectory of the repo — resolve the repo root first:
+ls -la "$(git rev-parse --show-toplevel)/.prjct/"
+cat "$(git rev-parse --show-toplevel)/.prjct/prjct.config.json"
+
+# Confirm it exists / is initialized (doesn't print the path, just the status):
+prjct doctor                           # → "✓ prjct config   initialized"
+
+# Prove why it's invisible to git status:
+git check-ignore -v .prjct             # shows the .gitignore rule that hides it
+```
+
+Programmatically, the path is always `<repoRoot>/.prjct/` and the config file is
+`<repoRoot>/.prjct/prjct.config.json`. In code, prjct resolves it via
+`pathManager.getLocalConfigPath(projectPath)` →
+`path.join(projectPath, '.prjct', 'prjct.config.json')` (no env var, no global
+lookup — it is strictly relative to the project directory).
+
+Reading `prjct.config.json` gives you the `projectId`, which is the key to the
+*other* two tiers (global SQLite, vault) described below.
+
 ---
 
 ## The three tiers
