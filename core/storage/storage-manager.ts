@@ -157,10 +157,29 @@ export abstract class StorageManager<T> {
    * Update data with a transform function
    */
   async update(projectId: string, updater: (current: T) => T): Promise<T> {
-    const current = await this.read(projectId)
-    const updated = updater(current)
-    await this.write(projectId, updated)
-    return updated
+    // Optimistic CAS retry. The old read→transform→write was a lost-update
+    // race: the daemon and a concurrent CLI both read `state`, both wrote,
+    // the second blind-overwrote the first (a paused/completed task lost).
+    // WAL+busy_timeout does NOT prevent this — it's an application-level
+    // read-modify-write. We re-read the freshest COMMITTED doc (bypassing
+    // the 5s TTL cache, which can be cross-process stale) and only commit
+    // when the row is unchanged since our read; otherwise re-read & retry.
+    const key = this.getStoreKey()
+    const MAX_ATTEMPTS = 8
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      const snap = prjctDb.getDocWithStamp<T>(projectId, key)
+      const base = snap ? snap.data : this.getDefault()
+      const updated = updater(base)
+      if (prjctDb.casSetDoc(projectId, key, updated, snap?.updatedAt ?? null)) {
+        this.cache.set(projectId, updated) // keep cache coherent with the win
+        return updated
+      }
+      // Another writer committed between our read and write — loop re-reads
+      // the now-current state and re-applies the (pure) transform.
+    }
+    throw new Error(
+      `StorageManager.update: unresolved write contention after ${MAX_ATTEMPTS} attempts (key=${key})`
+    )
   }
 
   /**
