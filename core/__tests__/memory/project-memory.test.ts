@@ -166,3 +166,32 @@ describe('projectMemory.recall — dedupeByKey', () => {
     expect(entries[1].content).toBe('v1')
   })
 })
+
+describe('projectMemory.getById — resolve an opaque mem_N reference', () => {
+  it('resolves a mem_<id> (and bare numeric) to the full entry', async () => {
+    await writeMemoryEntry({
+      type: 'decision',
+      content: 'pick Bun over Node',
+      tags: { topic: 'rt' },
+    })
+    const [e] = projectMemory.recall(projectId, { types: ['decision'] })
+    expect(e.id).toMatch(/^mem_\d+$/)
+
+    const byMem = projectMemory.getById(projectId, e.id)
+    expect(byMem).not.toBeNull()
+    expect(byMem?.content).toBe('pick Bun over Node')
+    expect(byMem?.type).toBe('decision')
+    expect(byMem?.tags).toEqual({ topic: 'rt' })
+
+    // Bare numeric and mem- variants resolve the same row.
+    const bare = projectMemory.getById(projectId, e.id.replace('mem_', ''))
+    expect(bare?.id).toBe(e.id)
+    expect(projectMemory.getById(projectId, e.id.replace('_', '-'))?.id).toBe(e.id)
+  })
+
+  it('returns null for a non-existent / malformed id (no throw)', () => {
+    expect(projectMemory.getById(projectId, 'mem_999999')).toBeNull()
+    expect(projectMemory.getById(projectId, 'not-an-id')).toBeNull()
+    expect(projectMemory.getById(projectId, '')).toBeNull()
+  })
+})

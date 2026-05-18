@@ -164,6 +164,33 @@ async function runMemoryTool(
       .join(' ')
       .trim() || undefined
 
+  // Resolve-by-ID: `prjct context memory mem_3209` (or `--id mem_3209`)
+  // returns that exact entry. Makes every `mem_NNNN` reference (topical
+  // injection, `relates=`/`resolves=` cross-refs) resolvable instead of a
+  // dangling opaque pointer "nobody — including an LLM — can read".
+  const idArg = (() => {
+    const flag = args.find((a) => a.startsWith('--id'))
+    if (flag) {
+      const v = flag.includes('=') ? flag.split('=')[1] : args[args.indexOf(flag) + 1]
+      if (v) return v
+    }
+    return topic && /^mem[_-]?\d+$/i.test(topic) ? topic : undefined
+  })()
+
+  if (idArg) {
+    const entry = projectMemory.getById(projectId, idArg)
+    return {
+      tool: opts.kind,
+      result: {
+        markdown: entry
+          ? formatMemoryMd([entry])
+          : `> No memory entry with id \`${idArg}\` (it may have aged out or never existed).`,
+        entryCount: entry ? 1 : 0,
+        topic: idArg,
+      },
+    }
+  }
+
   // `learnings` is a typed slice of memory focused on what the project
   // has *learned* the hard way. Everything else comes through `memory`.
   const LEARNINGS_TYPES: MemoryType[] = ['learning', 'anti-pattern', 'gotcha']

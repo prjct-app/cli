@@ -341,6 +341,33 @@ export const projectMemory = {
   },
 
   /**
+   * Resolve a single memory entry by its `mem_<rowid>` id (or a bare
+   * numeric id). This is the legibility fix: every `mem_NNNN` reference
+   * the topical-memory injection / a memory body cites (`relates=mem_X`,
+   * `resolves=mem_Y`) is otherwise an opaque dangling pointer that
+   * neither a human (in Obsidian) nor an LLM can resolve. Returns null
+   * if the id doesn't exist or isn't a remember-event row.
+   */
+  getById(projectId: string, id: string): MemoryEntry | null {
+    const m = String(id)
+      .trim()
+      .match(/^(?:mem[_-])?(\d+)$/i)
+    if (!m) return null
+    const rowId = Number(m[1])
+    try {
+      const row = prjctDb.get<EventRow>(
+        projectId,
+        'SELECT id, type, data, timestamp FROM events WHERE id = ? AND type LIKE ?',
+        rowId,
+        `${REMEMBER_EVENT_PREFIX}%`
+      )
+      return row ? rowToEntry(row) : null
+    } catch {
+      return null
+    }
+  },
+
+  /**
    * Lightweight similarity: share any keyword from the description. Good
    * enough to surface "we already shipped this" nudges; Phase 5 can layer
    * embeddings on top without changing the API.
@@ -416,7 +443,11 @@ export function formatMemoryMd(entries: MemoryEntry[]): string {
         .join(' ')
       const tagSuffix = tags ? `  _(${tags})_` : ''
       const prov = PROV_PREFIX[e.provenance]
-      lines.push(`- \`${prov}\` [${e.id}] ${e.content}${tagSuffix}`)
+      // `[mem_N · type]` not bare `[mem_N]`: a reference now says WHAT it
+      // is at a glance, and `mem_N` stays plain text so Obsidian search /
+      // grep resolves it. The full entry is one command away:
+      // `prjct context memory mem_N`.
+      lines.push(`- \`${prov}\` [${e.id} · ${e.type}] ${e.content}${tagSuffix}`)
     }
     lines.push('')
   }
