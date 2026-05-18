@@ -11,11 +11,16 @@
  * stream alone wouldn't carry.
  */
 
+import { type FormatMemoryMdOptions, linkifyMemRefs } from '../../memory/project-memory'
 import type { QueueTask } from '../../schemas/state'
 import { SPEC_REVIEWERS, type Spec } from '../../types/spec'
 import { slugify } from './_shared'
 
-export function buildSpecFiles(specs: Spec[], queueTasks: QueueTask[] = []): Map<string, string> {
+export function buildSpecFiles(
+  specs: Spec[],
+  queueTasks: QueueTask[] = [],
+  vaultOpts?: FormatMemoryMdOptions
+): Map<string, string> {
   const files = new Map<string, string>()
 
   if (specs.length === 0) return files
@@ -30,7 +35,8 @@ export function buildSpecFiles(specs: Spec[], queueTasks: QueueTask[] = []): Map
   for (const spec of specs) {
     const slug = slugify(spec.title) || spec.id.slice(0, 8)
     const rel = `specs/${slug}.md`
-    files.set(rel, formatSpecBody(spec, taskById))
+    const body = formatSpecBody(spec, taskById)
+    files.set(rel, vaultOpts ? linkifyMemRefs(body, vaultOpts) : body)
     indexEntries.push({ slug, spec })
   }
 

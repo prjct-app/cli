@@ -57,7 +57,12 @@ import {
   sweepStaleFiles,
   writeFile,
 } from './wiki/manifest'
-import { buildMemoryFiles, buildTagFiles, formatShipBody } from './wiki/memory-builder'
+import {
+  buildMemoryFiles,
+  buildTagFiles,
+  buildVaultOpts,
+  formatShipBody,
+} from './wiki/memory-builder'
 import { buildReleasesFiles } from './wiki/release-builder'
 import { buildSpecFiles } from './wiki/spec-builder'
 import { buildWorkflowFiles } from './wiki/workflow-builder'
@@ -136,7 +141,11 @@ export async function generateWiki(
   const [ships, entries, analysis, llmAnalysis, workflowRules, specs, queueTasks] =
     await Promise.all([
       shippedStorage.getAll(projectId),
-      Promise.resolve(projectMemory.recall(projectId, { limit: 5000 })),
+      // Full set — no recall cap / latest-winner dedupe. The vault is a
+      // knowledge GRAPH: every entry a current one still references must
+      // exist as a navigable note, or its `[[mem_N|title]]` link rots to
+      // a dangling node (mem_3233, at graph scale).
+      Promise.resolve(projectMemory.allEntriesForIndex(projectId)),
       analysisStorage.getActive(projectId).catch(() => null),
       Promise.resolve(llmAnalysisStorage.getActive(projectId)).catch(() => null),
       Promise.resolve(workflowRuleStorage.getAllRules(projectId)).catch(() => [] as WorkflowRule[]),
@@ -165,9 +174,10 @@ export async function generateWiki(
   for (const ship of ships) {
     files.set(`ships/${slugify(ship.name)}.md`, formatShipBody(ship))
   }
-  for (const [rel, body] of buildMemoryFiles(declared)) files.set(rel, body)
-  for (const [rel, body] of buildTagFiles(declared)) files.set(rel, body)
-  for (const [rel, body] of buildSpecFiles(specs, queueTasks)) files.set(rel, body)
+  for (const [rel, body] of buildMemoryFiles(declared, entries)) files.set(rel, body)
+  for (const [rel, body] of buildTagFiles(declared, entries)) files.set(rel, body)
+  const vaultLinkOpts = buildVaultOpts(entries)
+  for (const [rel, body] of buildSpecFiles(specs, queueTasks, vaultLinkOpts)) files.set(rel, body)
 
   // crew-runs/<slug>-<ts>.md — one file per recorded crew session.
   // Isolated via runBuilder so a malformed run row doesn't take down

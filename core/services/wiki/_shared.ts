@@ -61,9 +61,18 @@ export type ReleaseEntry = {
   body: string
 }
 
+/**
+ * Strip diacritics so accented words slug cleanly:
+ * "función detección" → "funcion deteccion" (not "funci-n detecci-n").
+ * NFD splits a letter from its combining mark, then we drop the marks.
+ */
+export function deburr(value: string): string {
+  return value.normalize('NFD').replace(/[̀-ͯ]/g, '')
+}
+
 export function slugify(value: string): string {
   return (
-    value
+    deburr(value)
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '')
