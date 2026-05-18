@@ -77,3 +77,8 @@ CLAUDE.md
 
 # prjct: legacy wiki — vault moved to ~/Documents/prjct/ in 2.2.0
 .prjct/wiki/
+
+# Orphaned output of the static-context-generation system removed in #225/#234.
+# Regenerated artifacts, referenced nowhere, not shipped to npm — untracked
+# so it stops polluting Context7's repo-wide SKILL.md scan.
+output/
