@@ -17,9 +17,54 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Debounce: coalesce a burst of merges into ONE release.
+  #
+  # `concurrency` already serializes runs, but every push still queues a run;
+  # the superseded ones then collide on push/publish (main moved, version
+  # already published) and show up as red "failure"s. This gate waits a short
+  # window and bails if `main` advanced meanwhile — only the newest push's run
+  # survives to release the whole burst. It runs BEFORE any publish step, so
+  # (unlike `cancel-in-progress: true`) it can never cancel a release
+  # mid-`npm publish`/`git push`. Cheap: checkout + one sleep, no install/build.
+  debounce:
+    name: Debounce
+    runs-on: ubuntu-latest
+    outputs:
+      proceed: ${{ steps.guard.outputs.proceed }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Skip if superseded by a newer push
+        id: guard
+        run: |
+          # Manual runs (workflow_dispatch) are explicit — never debounce them.
+          if [ "${{ github.event_name }}" != "push" ]; then
+            echo "Manual trigger — proceeding without debounce."
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          TRIGGER_SHA="${{ github.sha }}"
+          # Window long enough to absorb a rapid merge sequence.
+          sleep 90
+          git fetch origin main --quiet
+          HEAD_SHA=$(git rev-parse origin/main)
+
+          if [ "$TRIGGER_SHA" != "$HEAD_SHA" ]; then
+            echo "main advanced ($TRIGGER_SHA → $HEAD_SHA) during debounce —"
+            echo "a newer run will release this burst. Skipping cleanly."
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "main stable at $TRIGGER_SHA — proceeding to release."
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          fi
+
   # Run CI checks first
   ci:
     name: CI Checks
+    needs: debounce
+    if: needs.debounce.outputs.proceed == 'true'
     runs-on: ubuntu-latest
     outputs:
       should_release: ${{ steps.check.outputs.should_release }}
