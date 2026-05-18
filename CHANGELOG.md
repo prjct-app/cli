@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.22.1] - 2026-05-18
+
+### Bug Fixes
+
+- changelog generator PROMOTES [Unreleased] instead of stranding it (mem_2895 root cause) (#352)
+
+
 ## [2.22.0] - 2026-05-18
 
 ### Features
