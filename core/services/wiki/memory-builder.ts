@@ -6,9 +6,24 @@
  * the on-disk manifest. No I/O.
  */
 
-import { formatMemoryMd, type MemoryEntry } from '../../memory/project-memory'
+import {
+  type FormatMemoryMdOptions,
+  formatMemoryMd,
+  type MemoryEntry,
+} from '../../memory/project-memory'
 import type { ShippedFeature } from '../../types/storage'
 import { chunkEntries, slugify } from './_shared'
+
+/**
+ * Global `mem_N → type` index across ALL entries so a cross-ref in
+ * one type's file (`resolves=mem_X` where mem_X is a gotcha) links to
+ * the correct per-type vault file. Built once per builder call.
+ */
+function vaultOpts(entries: MemoryEntry[]): FormatMemoryMdOptions {
+  const idTypeIndex = new Map<string, string>()
+  for (const e of entries) idTypeIndex.set(e.id, e.type)
+  return { vault: true, idTypeIndex }
+}
 
 export function formatShipBody(ship: ShippedFeature): string {
   const lines: string[] = []
@@ -49,6 +64,7 @@ export function buildMemoryFiles(entries: MemoryEntry[]): Map<string, string> {
   // a type bucket exceeds CHUNK_SIZE. Small buckets inline their entries
   // in the index file directly to save a hop.
   const files = new Map<string, string>()
+  const opts = vaultOpts(entries)
 
   const byType = new Map<string, MemoryEntry[]>()
   for (const e of entries) {
@@ -60,7 +76,7 @@ export function buildMemoryFiles(entries: MemoryEntry[]): Map<string, string> {
   for (const [type, items] of byType) {
     const chunks = chunkEntries(items)
     if (chunks.length === 1) {
-      const body = [`# ${type.toUpperCase()}`, '', formatMemoryMd(items), ''].join('\n')
+      const body = [`# ${type.toUpperCase()}`, '', formatMemoryMd(items, opts), ''].join('\n')
       files.set(`memory/${type}.md`, body)
       continue
     }
@@ -76,7 +92,7 @@ export function buildMemoryFiles(entries: MemoryEntry[]): Map<string, string> {
       const body = [
         `# ${type.toUpperCase()} — chunk ${i + 1}/${chunks.length}`,
         '',
-        formatMemoryMd(chunks[i]),
+        formatMemoryMd(chunks[i], opts),
         '',
       ].join('\n')
       files.set(`memory/${chunkRel}`, body)
@@ -92,6 +108,7 @@ export function buildTagFiles(entries: MemoryEntry[]): Map<string, string> {
   // One page per distinct tag pair (`tags/<key>/<value>.md`) + an index
   // per tag key (`tags/<key>.md`). Glob-discoverable by the agent.
   const files = new Map<string, string>()
+  const opts = vaultOpts(entries)
   const byPair = groupByTagPair(entries)
 
   for (const [key, byValue] of byPair) {
@@ -103,7 +120,7 @@ export function buildTagFiles(entries: MemoryEntry[]): Map<string, string> {
       const valueSlug = slugify(value)
       const chunks = chunkEntries(items)
       if (chunks.length === 1) {
-        const body = [`# ${key}: ${value}`, '', formatMemoryMd(items), ''].join('\n')
+        const body = [`# ${key}: ${value}`, '', formatMemoryMd(items, opts), ''].join('\n')
         files.set(`tags/${keySlug}/${valueSlug}.md`, body)
         indexLines.push(`- [${value}](${keySlug}/${valueSlug}.md) — ${items.length} entries`)
       } else {
@@ -111,7 +128,7 @@ export function buildTagFiles(entries: MemoryEntry[]): Map<string, string> {
           const body = [
             `# ${key}: ${value} — chunk ${i + 1}/${chunks.length}`,
             '',
-            formatMemoryMd(chunks[i]),
+            formatMemoryMd(chunks[i], opts),
             '',
           ].join('\n')
           files.set(`tags/${keySlug}/${valueSlug}-${i + 1}.md`, body)

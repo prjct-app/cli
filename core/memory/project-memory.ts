@@ -397,7 +397,31 @@ export const projectMemory = {
  * Render memory entries as compact markdown grouped by type.
  * Designed to be short enough for Claude to read without tripping budgets.
  */
-export function formatMemoryMd(entries: MemoryEntry[]): string {
+/**
+ * Render options. `vault: true` makes the output Obsidian-navigable:
+ * every entry gets a block anchor (`^mem-N`) so it is a real link
+ * target, and every `mem_N` token (cross-refs like `resolves=mem_X`
+ * AND inline mentions) becomes a wikilink — closing the dangling-
+ * pointer class (mem_3233). `idTypeIndex` maps `mem_N → type` across
+ * ALL entries so a link can point at the right per-type file; unknown
+ * ids fall back to a bare `[[mem_N]]` (still clickable, not dead text).
+ * Without opts the output is byte-identical to before (CLI/terminal).
+ */
+export interface FormatMemoryMdOptions {
+  vault?: boolean
+  idTypeIndex?: Map<string, string>
+}
+
+/** `mem_3135` / `mem-3135` → `[[decision#^mem-3135|mem_3135]]` (or `[[mem_3135]]` if type unknown). */
+function linkifyMemRefs(text: string, idTypeIndex?: Map<string, string>): string {
+  return text.replace(/\bmem[_-](\d+)\b/g, (_m, n: string) => {
+    const canonical = `mem_${n}`
+    const type = idTypeIndex?.get(canonical)
+    return type ? `[[${type}#^mem-${n}|${canonical}]]` : `[[${canonical}]]`
+  })
+}
+
+export function formatMemoryMd(entries: MemoryEntry[], opts?: FormatMemoryMdOptions): string {
   if (entries.length === 0) return '> No matching memory entries.'
 
   const groups = new Map<MemoryType, MemoryEntry[]>()
@@ -441,13 +465,22 @@ export function formatMemoryMd(entries: MemoryEntry[]): string {
       const tags = Object.entries(e.tags)
         .map(([k, v]) => `${k}=${v}`)
         .join(' ')
-      const tagSuffix = tags ? `  _(${tags})_` : ''
       const prov = PROV_PREFIX[e.provenance]
-      // `[mem_N · type]` not bare `[mem_N]`: a reference now says WHAT it
-      // is at a glance, and `mem_N` stays plain text so Obsidian search /
-      // grep resolves it. The full entry is one command away:
-      // `prjct context memory mem_N`.
-      lines.push(`- \`${prov}\` [${e.id} · ${e.type}] ${e.content}${tagSuffix}`)
+      // `[mem_N · type]` not bare `[mem_N]`: a reference says WHAT it is
+      // at a glance. CLI/terminal: `mem_N` stays plain text so grep
+      // resolves it, full entry one command away (`prjct context memory
+      // mem_N`). Vault: every `mem_N` (cross-refs + inline mentions)
+      // becomes a wikilink and the entry gets an Obsidian block anchor
+      // (`^mem-N`) so it is a real navigable target (mem_3233 — the
+      // dangling-pointer class is closed where the user actually reads:
+      // Obsidian).
+      const content = opts?.vault ? linkifyMemRefs(e.content, opts.idTypeIndex) : e.content
+      const tagSuffix = tags
+        ? `  _(${opts?.vault ? linkifyMemRefs(tags, opts.idTypeIndex) : tags})_`
+        : ''
+      const rowid = e.id.replace(/^mem[_-]/, '')
+      const anchor = opts?.vault ? ` ^mem-${rowid}` : ''
+      lines.push(`- \`${prov}\` [${e.id} · ${e.type}] ${content}${tagSuffix}${anchor}`)
     }
     lines.push('')
   }

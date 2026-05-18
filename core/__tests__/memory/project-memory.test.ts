@@ -13,7 +13,7 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import pathManager from '../../infrastructure/path-manager'
-import { projectMemory } from '../../memory/project-memory'
+import { formatMemoryMd, type MemoryEntry, projectMemory } from '../../memory/project-memory'
 import prjctDb from '../../storage/database'
 
 /**
@@ -193,5 +193,65 @@ describe('projectMemory.getById — resolve an opaque mem_N reference', () => {
     expect(projectMemory.getById(projectId, 'mem_999999')).toBeNull()
     expect(projectMemory.getById(projectId, 'not-an-id')).toBeNull()
     expect(projectMemory.getById(projectId, '')).toBeNull()
+  })
+})
+
+describe('formatMemoryMd — vault makes every mem_N navigable (mem_3233)', () => {
+  const mk = (over: Partial<MemoryEntry> & { id: string }): MemoryEntry => ({
+    type: 'decision',
+    content: '',
+    tags: {},
+    rememberedAt: '2026-05-18T00:00:00.000Z',
+    provenance: 'declared',
+    ...over,
+  })
+
+  it('CLI mode (no opts) is plain — no anchor, no wikilink', () => {
+    const out = formatMemoryMd([
+      mk({ id: 'mem_3247', content: 'fixed via resolves=mem_3135', tags: { pr: '355' } }),
+    ])
+    expect(out).toContain('[mem_3247 · decision]')
+    expect(out).not.toContain('^mem-3247') // no Obsidian block anchor in terminal
+    expect(out).not.toContain('[[') // no wikilink in terminal
+    expect(out).toContain('resolves=mem_3135') // stays plain text for grep
+  })
+
+  it('vault mode: every entry gets a ^mem-N block anchor', () => {
+    const out = formatMemoryMd([mk({ id: 'mem_3247', content: 'x' })], { vault: true })
+    // Anchor must be the LAST token on the bullet (Obsidian block-ref rule).
+    const line = out.split('\n').find((l) => l.includes('mem_3247'))
+    expect(line?.endsWith(' ^mem-3247')).toBe(true)
+  })
+
+  it('vault mode: cross-ref with KNOWN type → typed wikilink to its file', () => {
+    const idTypeIndex = new Map([['mem_3135', 'gotcha']])
+    const out = formatMemoryMd(
+      [mk({ id: 'mem_3247', content: 'done', tags: { resolves: 'mem_3135' } })],
+      { vault: true, idTypeIndex }
+    )
+    expect(out).toContain('resolves=[[gotcha#^mem-3135|mem_3135]]')
+  })
+
+  it('vault mode: UNKNOWN id → bare [[mem_N]] (clickable, not dead text)', () => {
+    const out = formatMemoryMd([mk({ id: 'mem_3247', content: 'see mem_999 for context' })], {
+      vault: true,
+      idTypeIndex: new Map(),
+    })
+    expect(out).toContain('see [[mem_999]] for context')
+  })
+
+  it('vault mode: inline content mentions are linkified too, not just the meta tail', () => {
+    const idTypeIndex = new Map([['mem_2895', 'feedback']])
+    const out = formatMemoryMd([mk({ id: 'mem_3247', content: 'supersedes mem_2895 entirely' })], {
+      vault: true,
+      idTypeIndex,
+    })
+    expect(out).toContain('supersedes [[feedback#^mem-2895|mem_2895]] entirely')
+  })
+
+  it('regression lock: vault syntax never leaks into the CLI/terminal path', () => {
+    const entries = [mk({ id: 'mem_3247', content: 'refs mem_1', tags: { relates: 'mem_2' } })]
+    const cli = formatMemoryMd(entries)
+    expect(cli).not.toMatch(/\^mem-|\[\[/)
   })
 })
