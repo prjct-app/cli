@@ -131,22 +131,43 @@ detail, worktrees, monorepos: **[docs/storage-and-paths.md](./docs/storage-and-p
 
 The same binary runs in a plain shell, inside Claude Code, in an OpenAI Codex
 sandbox, or in CI — and **detects which, with no configuration**, then adapts
-output accordingly.
+output accordingly. Here is the actual *how*.
 
-- **Claude Code / Desktop** — detected via `CLAUDE_AGENT`/`ANTHROPIC_CLAUDE`,
-  MCP availability (`global.mcp`/`MCP_AVAILABLE`), a `CLAUDE.md` in cwd, a
-  `~/.claude/` dir, or a `/.claude/` path. Output: rich text, **static** one-line
-  status (no animated spinner), prompts suppressed.
-- **OpenAI Codex** — detected via the `codex` CLI on PATH; context file
-  `AGENTS.md`, skills in `~/.codex/skills/`. Output in the sandbox: the same
-  non-interactive static line as any agent; add `--md` for fully markdown-
-  structured output.
-- **Plain terminal (TTY)** — the default fallback: branded **animated** spinner,
-  full colors, interactive prompts.
-- **`--md` / `--json` (any env)** — branding stripped, machine-structured output.
+**Mechanism 1 — agent detection** (`core/infrastructure/agent-detector.ts`,
+`isClaudeEnvironment()`). prjct concludes it's inside **Claude** if *any* of
+these is true, evaluated **in this order** (first match wins, result cached for
+the process):
 
-You never set a flag to tell prjct where it is. Exact signals, precedence, and
-per-environment output: **[docs/environments.md](./docs/environments.md)**.
+1. env var `CLAUDE_AGENT` or `ANTHROPIC_CLAUDE` is set (Claude's runtime sets it);
+2. `global.mcp` is present **or** `MCP_AVAILABLE` is set (MCP is available);
+3. a `CLAUDE.md` file exists in the current working directory;
+4. a `~/.claude/` directory exists;
+5. the cwd path contains `/.claude/` or `/claude-workspace/`.
+
+If **none** match, prjct falls back to the **Terminal/CLI** profile — that *is*
+the plain-terminal detection: it's the default when no Claude signal is present.
+**OpenAI Codex** is detected separately (`ai-provider.ts`, `detectCodex()`) by
+the **`codex` CLI binary being on `PATH`** (a stray `~/.codex/` alone is not
+enough); Codex's context file is `AGENTS.md`, skills under `~/.codex/skills/`.
+
+**Mechanism 2 — output adaptation** (no flag needed; three independent signals):
+
+- **TTY** (`core/utils/output.ts`, `spin()`): `process.stdout.isTTY` decides the
+  spinner — `true` (human terminal) → animated branded spinner redrawn with `\r`;
+  `false` (Claude Code, Codex, CI, a pipe) → a **single static** `⚡ prjct …`
+  line, no animation.
+- **LLM-context gate** (`core/index.ts`):
+  `isLlmContext = !process.stdin.isTTY || options.md === true || options.json === true`.
+  Commands declared `requiresLlm` refuse to run in a *raw human terminal* unless
+  `--md`/`--json` is passed — inside an agent `stdin.isTTY` is already false, so
+  they run transparently with no flag.
+- **`--md` / `--json`** (any env): an explicit override — strips the branding
+  header/footer, emits machine-structured markdown/JSON.
+
+Every signal (env var, `PATH`, TTY, piped stdio) is something the **host sets on
+its own** — prjct reads those ambient facts instead of asking you to declare
+anything. Full per-environment output table:
+**[docs/environments.md](./docs/environments.md)**.
 
 ### What it looks like
 
