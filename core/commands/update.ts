@@ -21,6 +21,7 @@ import { failFromError } from '../utils/md-aware'
 import out from '../utils/output'
 import { VERSION } from '../utils/version'
 import { PrjctCommandsBase } from './base'
+import { type CleanupMode, consolidateInstalls } from './update/cleanup-installs'
 import { formatMdOutput, formatTerminalOutput, type PhaseResult } from './update/output'
 import {
   getAllInstalledLocations,
@@ -34,6 +35,11 @@ import {
 interface UpdateOptions {
   'dry-run'?: boolean
   md?: boolean
+  /** --cleanup forces consolidation; --no-cleanup disables it (parsed as false) */
+  cleanup?: boolean
+  /** --yes / -y: skip the consolidation confirmation prompt */
+  yes?: boolean
+  y?: boolean
 }
 
 export class UpdateCommands extends PrjctCommandsBase {
@@ -51,6 +57,10 @@ export class UpdateCommands extends PrjctCommandsBase {
   ): Promise<CommandResult> {
     const dryRun = options['dry-run'] === true
     const md = options.md === true
+    // --no-cleanup → cleanup===false → 'off'; --cleanup → 'force'; default 'auto'
+    const cleanupMode: CleanupMode =
+      options.cleanup === false ? 'off' : options.cleanup === true ? 'force' : 'auto'
+    const assumeYes = options.yes === true || options.y === true
 
     const results = {
       phase1: { success: true, details: [], errors: [] } as PhaseResult,
@@ -74,7 +84,7 @@ export class UpdateCommands extends PrjctCommandsBase {
 
       // ── Phase 2: Global Cleanup ──
       if (!md) out.step(2, 3, 'Cleaning up all projects...')
-      results.phase2 = await this.phaseGlobalCleanup(dryRun)
+      results.phase2 = await this.phaseGlobalCleanup(dryRun, cleanupMode, assumeYes)
       if (!md) out.stop()
 
       // ── Phase 3: Daemon Restart ──
@@ -212,7 +222,11 @@ export class UpdateCommands extends PrjctCommandsBase {
 
   // ── Phase 2: Global Cleanup ──
 
-  private async phaseGlobalCleanup(dryRun: boolean): Promise<PhaseResult> {
+  private async phaseGlobalCleanup(
+    dryRun: boolean,
+    cleanupMode: CleanupMode = 'auto',
+    assumeYes = false
+  ): Promise<PhaseResult> {
     const result: PhaseResult = { success: true, details: [], errors: [] }
 
     // 2a. Migrate all projects
@@ -338,6 +352,17 @@ export class UpdateCommands extends PrjctCommandsBase {
       } catch {
         // Provider detection failed — non-critical
       }
+    }
+
+    // 2c. Consolidate parallel/stale installs (after redirect, before daemon
+    // restart). Folded into the Cleanup phase rather than a new top-level
+    // phase — keeps the 3-phase shape, no renumber churn.
+    try {
+      const cz = await consolidateInstalls(cleanupMode, dryRun, assumeYes)
+      result.details.push(...cz.details)
+      result.errors.push(...cz.errors)
+    } catch (e) {
+      result.errors.push(`install consolidation skipped: ${getErrorMessage(e)}`)
     }
 
     if (result.errors.length > 0) result.success = false

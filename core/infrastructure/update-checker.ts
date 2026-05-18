@@ -257,7 +257,10 @@ function readCacheSync(): { lastCheck: number; latestVersion: string } | null {
 
 function formatUpdateBanner(current: string, latest: string): string {
   const headline = `Update available! ${current} → ${latest}`
-  const cmd = 'npm install -g prjct-cli@latest'
+  // ONE command that updates every install AND consolidates parallel copies.
+  // The old hardcoded `npm install -g` ignored the user's actual package
+  // manager and is exactly what creates the multi-install footgun.
+  const cmd = 'prjct upgrade'
   // Pad to whatever length the longest visible line needs — do this
   // dynamically rather than baking widths into the literal so locale
   // changes don't cause misalignment.

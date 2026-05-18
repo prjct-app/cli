@@ -105,3 +105,26 @@ describe('e2e: install/upgrade onboarding contract', () => {
     expect(r.stdout + r.stderr).not.toMatch(/Cannot read|TypeError|unhandled|is not a function/i)
   })
 })
+
+describe('e2e: `prjct upgrade` is an alias of `prjct update` (WS5)', () => {
+  let sb: Sandbox
+  beforeAll(async () => {
+    sb = await makeSandbox()
+  })
+  afterAll(async () => {
+    await sb.cleanup()
+  })
+
+  // The alias must route to the update command, NOT fall through to the
+  // bare-capture path (which would silently inbox "upgrade" as a note).
+  test('`upgrade` behaves identically to `update`, not bare-capture', async () => {
+    const up = await sb.cli(['upgrade'])
+    const ud = await sb.cli(['update'])
+    expect(up.code).toBe(ud.code)
+    const upOut = (up.stdout + up.stderr).toLowerCase()
+    // Recognized as a real verb: it hits update's path (here: the
+    // not-configured guard), never "captured to inbox".
+    expect(upOut).not.toContain('captured')
+    expect(upOut).not.toContain('inbox')
+  })
+})
