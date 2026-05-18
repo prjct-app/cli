@@ -140,6 +140,21 @@ describe('safeRead', () => {
 
       expect(result).toBeNull()
     })
+
+    it('write-once: a second corrupt read does NOT clobber the first .backup', async () => {
+      const filePath = path.join(tmpDir, 'recurring.json')
+      const firstBad = '{ first corrupt evidence'
+      await fs.writeFile(filePath, firstBad)
+      await safeRead<TestData>(filePath, TestSchema)
+      expect(await fs.readFile(`${filePath}.backup`, 'utf-8')).toBe(firstBad)
+
+      // File gets corrupted differently and read again. The OLD code
+      // overwrote .backup, destroying the first forensic copy.
+      await fs.writeFile(filePath, '{ second DIFFERENT corruption')
+      await safeRead<TestData>(filePath, TestSchema)
+
+      expect(await fs.readFile(`${filePath}.backup`, 'utf-8')).toBe(firstBad)
+    })
   })
 
   describe('valid JSON with wrong schema', () => {

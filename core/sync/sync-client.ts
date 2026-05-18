@@ -187,6 +187,14 @@ class SyncClient {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), getTimeout('API_REQUEST'))
 
+    // Only auto-retry IDEMPOTENT requests. A POST /sync/batch that 5xx'd or
+    // failed post-send may have ALREADY been applied server-side — retrying
+    // (up to maxRetries+1 times) duplicated the batch. GET/HEAD are safe to
+    // replay; non-idempotent verbs surface the error to the caller, and the
+    // next sync reconciles via the server's content-hash dedup.
+    const method = (options.method ?? 'GET').toUpperCase()
+    const idempotent = method === 'GET' || method === 'HEAD'
+
     try {
       const response = await fetch(url, {
         ...options,
@@ -195,8 +203,8 @@ class SyncClient {
 
       clearTimeout(timeoutId)
 
-      // Retry on server errors (5xx) but not client errors (4xx)
-      if (response.status >= 500 && retryCount < this.retryConfig.maxRetries) {
+      // Retry on server errors (5xx) but not client errors (4xx) — idempotent only
+      if (idempotent && response.status >= 500 && retryCount < this.retryConfig.maxRetries) {
         const delay = Math.min(
           this.retryConfig.baseDelayMs * 2 ** retryCount,
           this.retryConfig.maxDelayMs
@@ -217,8 +225,9 @@ class SyncClient {
         )
       }
 
-      // Retry on network errors
-      if (retryCount < this.retryConfig.maxRetries) {
+      // Retry on network errors — idempotent only (a POST may have landed
+      // server-side before the connection dropped; replaying duplicates it).
+      if (idempotent && retryCount < this.retryConfig.maxRetries) {
         const delay = Math.min(
           this.retryConfig.baseDelayMs * 2 ** retryCount,
           this.retryConfig.maxDelayMs

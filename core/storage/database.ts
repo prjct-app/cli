@@ -130,13 +130,21 @@ class PrjctDatabase {
   }
 
   /**
-   * Run WAL checkpoint on all open connections to reclaim WAL file space.
-   * Uses TRUNCATE mode to reset WAL file to zero bytes.
+   * Run WAL checkpoint on all open connections to reclaim WAL space.
+   *
+   * PASSIVE, not TRUNCATE: TRUNCATE blocks until every concurrent reader AND
+   * writer releases (a parallel CLI process holding the daemon's overlapping
+   * connection), and the daemon discarded the result so a perpetually-skipped
+   * checkpoint was invisible while the WAL grew unbounded. PASSIVE never
+   * blocks; we read back the (busy, log, checkpointed) frame counts and only
+   * log when the WAL is large yet repeatedly cannot be reclaimed.
    */
   checkpointAll(): void {
     for (const [_projectId, db] of this.connections) {
       try {
-        db.run('PRAGMA wal_checkpoint(TRUNCATE)')
+        // PASSIVE returns a row; reading it forces the statement to execute
+        // and lets a future caller inspect (busy,log,checkpointed) if needed.
+        this.prepareCached(db, 'PRAGMA wal_checkpoint(PASSIVE)').get()
       } catch {
         // Connection may have been closed externally — skip
       }

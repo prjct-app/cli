@@ -60,15 +60,22 @@ import { syncVerifier } from './sync-verifier'
 const SYNC_PHASE_TIMEOUT_MS = Number(process.env.PRJCT_SYNC_PHASE_TIMEOUT_MS) || 60_000
 
 function withTimeout<T>(promise: Promise<T>, phase: string): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(
-        () => reject(new Error(`sync phase '${phase}' timed out after ${SYNC_PHASE_TIMEOUT_MS}ms`)),
-        SYNC_PHASE_TIMEOUT_MS
-      )
-    ),
-  ])
+  // The old version never cleared the timer: on the (common) success path a
+  // 60s timer dangled per phase, keeping the event loop alive and leaking one
+  // pending timer for every sync phase. Capture the id and clear it whichever
+  // side of the race settles first. (Inner-promise *cancellation* on timeout
+  // still needs an AbortSignal threaded through each phase fn — tracked as
+  // WS2b; this fixes the concrete timer leak.)
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<T>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`sync phase '${phase}' timed out after ${SYNC_PHASE_TIMEOUT_MS}ms`)),
+      SYNC_PHASE_TIMEOUT_MS
+    )
+  })
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timer) clearTimeout(timer)
+  })
 }
 
 async function phase<T>(name: string, fn: () => Promise<T>): Promise<T> {

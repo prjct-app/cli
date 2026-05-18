@@ -72,9 +72,13 @@ export async function safeRead<T>(filePath: string, schema: ValidationSchema): P
 async function createBackup(filePath: string, content: string): Promise<void> {
   const backupPath = `${filePath}.backup`
   try {
-    await fs.writeFile(backupPath, content, 'utf-8')
+    // Write-once: `wx` fails if the backup already exists. The OLD code
+    // unconditionally overwrote `.backup` on every corrupt read, so a
+    // repeatedly-corrupt file clobbered the first (most useful) forensic
+    // copy with successive corrupt ones. Preserve the earliest evidence.
+    await fs.writeFile(backupPath, content, { encoding: 'utf-8', flag: 'wx' })
   } catch {
-    // Best-effort backup — don't throw if it fails
+    // Backup already exists (kept) or write failed — best-effort, never throw.
   }
 }
 
