@@ -141,24 +141,83 @@ export class ChangelogService {
 
   /**
    * Insert an entry in Keep a Changelog format.
-   * Looks for the first ## heading (version entry) and inserts before it.
-   * If no version heading exists, appends after the header block.
+   *
+   * ROOT-CAUSE FIX (mem_2895): the old version inserted the new
+   * `## [version]` block ABOVE the first `## ` heading. When the file
+   * followed proper Keep-a-Changelog (`## [Unreleased]` on top), that
+   * stranded `[Unreleased]` *below* the new release with its accumulated
+   * content never promoted — so every ship re-stranded it and the blocks
+   * piled up (needed manual consolidation 3×).
+   *
+   * Correct Keep-a-Changelog release: PROMOTE `## [Unreleased]` → the new
+   * `## [version] - date` (carrying its accumulated content + folding in
+   * this ship's feature, deduped), then put a fresh empty `## [Unreleased]`
+   * back on top. When there is no `[Unreleased]`, self-heal by adding one
+   * so the *next* ship promotes correctly.
    */
   private insertKeepAChangelogEntry(content: string, entry: ChangelogEntry, date: string): string {
-    const entryText = this.formatKeepAChangelogEntry(entry, date)
+    const lines = content.split('\n')
+    const unrelIdx = lines.findIndex((l) => /^##\s*\[Unreleased\]\s*$/i.test(l))
 
-    // Find the first version heading (## [...] or ## Unreleased)
-    const versionHeadingIndex = content.search(/^## /m)
+    if (unrelIdx !== -1) {
+      // [Unreleased] body = everything until the next "## " heading (or EOF).
+      let endIdx = lines.length
+      for (let i = unrelIdx + 1; i < lines.length; i++) {
+        if (/^##\s/.test(lines[i])) {
+          endIdx = i
+          break
+        }
+      }
+      const body = lines
+        .slice(unrelIdx + 1, endIdx)
+        .join('\n')
+        .trim()
+      const promoted = this.promoteUnreleasedBody(body, entry, date)
 
-    if (versionHeadingIndex !== -1) {
-      // Insert before the first version heading
-      const before = content.slice(0, versionHeadingIndex)
-      const after = content.slice(versionHeadingIndex)
-      return `${before + entryText}\n${after}`
+      const rebuilt = [
+        ...lines.slice(0, unrelIdx),
+        '## [Unreleased]',
+        '',
+        promoted,
+        '',
+        ...lines.slice(endIdx),
+      ].join('\n')
+      return `${rebuilt.replace(/\n{3,}/g, '\n\n').trimEnd()}\n`
     }
 
-    // No version headings - append after header
-    return `${content.trimEnd()}\n\n${entryText}`
+    // No [Unreleased] — self-heal: add a fresh one AND the version block so
+    // the next ship has something to promote.
+    const entryText = this.formatKeepAChangelogEntry(entry, date)
+    const versionHeadingIndex = content.search(/^## /m)
+    if (versionHeadingIndex !== -1) {
+      const before = content.slice(0, versionHeadingIndex)
+      const after = content.slice(versionHeadingIndex)
+      return `${before}## [Unreleased]\n\n${entryText}\n${after}`
+    }
+    return `${content.trimEnd()}\n\n## [Unreleased]\n\n${entryText}\n`
+  }
+
+  /**
+   * Build the promoted release section from the accumulated `[Unreleased]`
+   * body. The body (rich, hand/process-written) IS the release notes; the
+   * ship's thin auto-feature is folded into `### Added` only if its text
+   * isn't already present (dedupe). Empty body ⇒ the ship feature is the
+   * whole release.
+   */
+  private promoteUnreleasedBody(body: string, entry: ChangelogEntry, date: string): string {
+    if (!body) return this.formatKeepAChangelogEntry(entry, date)
+
+    const head = `## [${entry.version}] - ${date}`
+    const featureItems = entry.sections?.Added ?? (entry.description ? [entry.description] : [])
+    const missing = featureItems.filter((f) => !body.includes(f))
+
+    if (missing.length === 0) return `${head}\n\n${body}`
+
+    const bullets = missing.map((f) => `- ${f}`).join('\n')
+    const merged = /^###\s+Added\s*$/im.test(body)
+      ? body.replace(/^###\s+Added\s*$/im, (m) => `${m}\n${bullets}`)
+      : `### Added\n${bullets}\n\n${body}`
+    return `${head}\n\n${merged}`
   }
 
   /**

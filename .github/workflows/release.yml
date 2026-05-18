@@ -304,8 +304,16 @@ jobs:
             const lines = changelog.split('\n');
             let insertIndex = 0;
 
+            // Insert the new release ABOVE the first RELEASED version but
+            // never above '## [Unreleased]' — putting it above Unreleased is
+            // the mem_2895 stranding bug (Unreleased ends up orphaned below
+            // every release). The primary writer (prjct ship's
+            // ChangelogService) PROMOTES Unreleased; this CI fallback at
+            // least keeps it correctly on top.
             for (let i = 0; i < lines.length; i++) {
-              if (lines[i].startsWith('## [') || lines[i].startsWith('## v')) {
+              const ln = lines[i].trim().toLowerCase();
+              const isUnreleased = ln === '## [unreleased]';
+              if (!isUnreleased && (lines[i].startsWith('## [') || lines[i].startsWith('## v'))) {
                 insertIndex = i;
                 break;
               }
