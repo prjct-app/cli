@@ -35,15 +35,39 @@ curl -sSL https://raw.githubusercontent.com/jlopezlira/prjct-cli/main/scripts/in
 
 The script auto-detects platform (mac arm64/intel + linux x64), downloads the right binary from GitHub Releases, sets up `~/.local/bin/prjct` on your PATH, runs `prjct setup` + `prjct sync`, and warns you if a stale package-manager install is shadowing the new binary.
 
-### After install — three upgrade paths
+### Updating prjct (built-in)
 
-| Method | Command | When |
-|---|---|---|
-| Re-paste the install prompt | (same prompt above) | Default. Claude re-runs `npm install -g prjct-cli@latest` and re-verifies. |
-| CLI shortcut | `prjct update` | Already in a terminal. Auto-detects npm/pnpm/bun/yarn/homebrew. |
-| Silent (set once) | `prjct config set auto-update on` | Background check 1/hour throttled, logs to `~/.prjct-cli/state/auto-update.log`. |
+prjct updates itself. The canonical command is **`prjct update`**, with
+**`prjct upgrade`** as an identical alias:
 
-Full install + upgrade paths documented in [INSTALL_PROMPT.md](./INSTALL_PROMPT.md).
+```bash
+prjct update            # = prjct upgrade
+prjct update --dry-run  # show exactly what would change, touch nothing
+prjct upgrade --yes     # non-interactive (skip the consolidation prompt)
+```
+
+What it does, in three phases (`core/commands/update.ts`):
+
+1. **Package update** — auto-detects the package manager that owns your install
+   (npm / pnpm / bun / yarn / homebrew), resolves the **true registry-latest**
+   version and pins it exactly (so a stale `@latest` cache can't downgrade you),
+   and migrates a homebrew install to your detected PM if needed.
+2. **Global cleanup & consolidation** — migrates legacy state to SQLite,
+   reinstalls editor commands/config, and **consolidates parallel installs** so
+   you don't end up with shadowing copies in different PM bin dirs.
+3. **Daemon restart** — stops the stale background daemon and respawns it from
+   the freshly installed code.
+
+Flags: `--dry-run`, `--yes`/`-y`, `--cleanup` / `--no-cleanup` (default `auto`),
+`--md` (machine-readable output for agents/CI).
+
+**Knowing an update exists:** prjct checks at most once every 24h (cached, fully
+non-blocking — never delays a command) and, after the command's own output,
+prints a one-line banner: `Update available! x.y.z → a.b.c — Run: prjct upgrade`.
+Or set it and forget it: `prjct config set auto-update on` (throttled background
+check, logs to `~/.prjct-cli/state/auto-update.log`).
+
+Full install + upgrade paths: [INSTALL_PROMPT.md](./INSTALL_PROMPT.md).
 
 ## What you get
 
@@ -85,6 +109,64 @@ Claude Code session                       prjct
 ```
 
 State is the source of truth; the vault is recall. New knowledge enters via `prjct remember <type>`, `prjct capture`, or — automatically — the Stop hook's transcript scan.
+
+### Where data actually lives
+
+Not "all in a local `.prjct/` folder" — that's the pre-v1.24.1 model. Three tiers:
+
+| Tier | Location | Commit it? |
+|---|---|---|
+| Config / identity | `<repo>/.prjct/prjct.config.json` (`projectId`, persona) | **Yes** — small, machine-independent |
+| State (source of truth) | `~/.prjct-cli/projects/<projectId>/prjct.db` (SQLite) | No — per-device |
+| Vault (recall snapshot) | `~/Documents/prjct/<slug>/_generated/` (Markdown) | No — regenerated |
+
+Find a project's data: read `projectId` from `.prjct/prjct.config.json`, then the
+DB is `~/.prjct-cli/projects/<projectId>/`, the vault is
+`~/Documents/prjct/<slug>/` (`<slug>` = repo dir name lowercased; `PRJCT_CLI_HOME`
+relocates the global store). Teammates share knowledge via optional cloud sync
+(`prjct login` + `prjct sync`), **not** git — git never carries state. Full
+detail, worktrees, monorepos: **[docs/storage-and-paths.md](./docs/storage-and-paths.md)**.
+
+## Execution environments (zero-config)
+
+The same binary runs in a plain shell, inside Claude Code, in an OpenAI Codex
+sandbox, or in CI — and **detects which, with no configuration**, then adapts
+output accordingly.
+
+- **Claude Code / Desktop** — detected via `CLAUDE_AGENT`/`ANTHROPIC_CLAUDE`,
+  MCP availability (`global.mcp`/`MCP_AVAILABLE`), a `CLAUDE.md` in cwd, a
+  `~/.claude/` dir, or a `/.claude/` path. Output: rich text, **static** one-line
+  status (no animated spinner), prompts suppressed.
+- **OpenAI Codex** — detected via the `codex` CLI on PATH; context file
+  `AGENTS.md`, skills in `~/.codex/skills/`. Output in the sandbox: the same
+  non-interactive static line as any agent; add `--md` for fully markdown-
+  structured output.
+- **Plain terminal (TTY)** — the default fallback: branded **animated** spinner,
+  full colors, interactive prompts.
+- **`--md` / `--json` (any env)** — branding stripped, machine-structured output.
+
+You never set a flag to tell prjct where it is. Exact signals, precedence, and
+per-environment output: **[docs/environments.md](./docs/environments.md)**.
+
+### What it looks like
+
+In a real terminal — branded, animated, colored:
+
+```text
+$ prjct task "add OAuth refresh"
+⚡ prjct  ✓ Task started: add OAuth refresh
+         branch: task/add-oauth-refresh · status: active
+```
+
+Inside Claude Code / Codex / CI (non-TTY) — the same line, **static** (no
+animation), so logs stay clean. With `--md`, output is plain markdown an agent
+can consume directly:
+
+```text
+$ prjct task "add OAuth refresh" --md
+> Task started: **add OAuth refresh**
+> branch `task/add-oauth-refresh` · status `active`
+```
 
 ## Quick start (post-install)
 
@@ -206,12 +288,12 @@ prjct regen              Full vault rebuild from SQLite
 prjct watch              Auto-sync on file changes
 prjct doctor             Check system health
 prjct hooks <install|uninstall|status>  Git hooks for auto-sync
-prjct context <files|signatures|imports|recent|summary>  Smart context filters
+prjct context <memory|learnings|wiki>  Recall memory / sync the vault
 prjct review-risk        Advisory change-size + delivery-geometry hint (read-only)
 prjct workflow ["config"]  Configure hooks via natural language
 prjct stop / restart     Background daemon control
 prjct login / logout / auth   Cloud sync authentication
-prjct update             Update CLI system-wide
+prjct update             Update CLI system-wide (alias: prjct upgrade)
 prjct --version / --help
 ```
 
@@ -311,12 +393,71 @@ prjct-cli/
 - Node.js 22.22.2+ or Bun 1.0+
 - One of: Claude Code, Gemini CLI, Cursor IDE, Windsurf, OpenAI Codex, Antigravity
 
+## Common questions
+
+**How do I initialize / register a new project?**
+In any git repo, run `prjct sync` (it auto-runs on the first prjct command) or
+`prjct init`. This creates `.prjct/prjct.config.json` with a `projectId`, builds
+the SQLite store at `~/.prjct-cli/projects/<projectId>/`, and generates the vault.
+
+**How do I add a development task?**
+`prjct task "add OAuth refresh"` — registers the task, creates a branch, and
+marks it active. Inside an agent: `p. task "…"` (Cursor/Windsurf: `/task`).
+Close it with `prjct status done`.
+
+**How do I get AI assistance for a coding problem?**
+Inside Claude Code (or any wired agent) just ask naturally — "review my
+changes", "investigate why tests flake", "security check this" — which activates
+the matching quality workflow (`review`/`investigate`/`security`/`qa`/`ship`)
+with its methodology, persisting findings back to memory.
+
+**What does prjct output look like in a normal terminal?**
+A branded, **animated** spinner with full colors and interactive prompts (the
+native human experience). See [What it looks like](#what-it-looks-like).
+
+**How do I check for and apply updates?**
+`prjct update` (alias `prjct upgrade`) — auto-detects your package manager, pins
+the true registry-latest, consolidates parallel installs, restarts the daemon.
+A non-blocking 24h-cached banner tells you when one is available. See
+[Updating prjct](#updating-prjct-built-in).
+
+**How does prjct tailor output for Claude Code?**
+It detects the Claude environment (env vars / MCP / `CLAUDE.md` / `~/.claude/`)
+and, because stdio is piped (non-TTY), prints a **static** one-line status
+instead of an animated spinner, suppresses prompts, and keeps output agent-clean
+— no flag needed. Detail: [docs/environments.md](./docs/environments.md).
+
+**What's the output in an OpenAI Codex sandbox?**
+Codex is detected by the `codex` CLI on PATH (context file `AGENTS.md`). The
+sandbox is non-interactive/non-TTY, so prjct emits the same static, prompt-free
+status line as any agent; add `--md` for fully markdown-structured output.
+
+**How do I find the project's data directory?**
+Read `projectId` from `<repo>/.prjct/prjct.config.json`; the database is
+`~/.prjct-cli/projects/<projectId>/prjct.db` and the readable vault is
+`~/Documents/prjct/<slug>/_generated/` (`PRJCT_CLI_HOME` overrides the global
+base). The in-repo `.prjct/` holds only config, not state.
+
+**How does prjct detect its environment with no configuration?**
+Every signal is something the host sets itself — Claude exports env vars and
+pipes stdio, Codex puts `codex` on PATH, a real terminal has a TTY, CI doesn't.
+prjct reads those ambient facts (precedence in
+[docs/environments.md](./docs/environments.md)) rather than asking you to declare
+anything.
+
+**Is all project data really in a local `.prjct/` directory? Team/VCS implications?**
+No — only `.prjct/prjct.config.json` (small, **committable** identity) is in the
+repo. State is per-device SQLite under `~/.prjct-cli` (never committed); the
+vault is regenerated. Teams coordinate via optional cloud sync, not git. Full
+tradeoffs: [docs/storage-and-paths.md](./docs/storage-and-paths.md).
+
 ## Links
 
 - [Website](https://prjct.app)
 - [GitHub](https://github.com/jlopezlira/prjct-cli)
 - [npm](https://www.npmjs.com/package/prjct-cli)
 - [Changelog](CHANGELOG.md)
+- [Architecture](./docs/architecture.md) · [Execution environments](./docs/environments.md) · [Storage & paths](./docs/storage-and-paths.md) · [SQLite migration](./docs/sqlite-migration.md)
 
 ## License
 

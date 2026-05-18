@@ -1,4 +1,28 @@
 {
   "url": "https://context7.com/jlopezlira/prjct-cli",
-  "public_key": "pk_SC4Izw8T9pMEgouCFeFWY"
+  "public_key": "pk_SC4Izw8T9pMEgouCFeFWY",
+  "projectTitle": "prjct-cli",
+  "description": "Project memory + spec-driven quality workflows for AI coding agents (Claude Code, Codex, Gemini, Cursor). Durable per-project memory in SQLite, an Obsidian-readable vault, and verbs like task / remember / ship — with zero-config detection of the execution environment.",
+  "folders": ["docs"],
+  "excludeFolders": [
+    "output",
+    "templates",
+    "website",
+    "design-notes",
+    "scripts",
+    "assets",
+    ".github",
+    "core/__tests__"
+  ],
+  "rules": [
+    "Install or upgrade with the package manager that already owns the existing `prjct` binary, then run `prjct setup` and (in a git repo) `prjct sync`. Built-in update path: `prjct update` (alias `prjct upgrade`) — it auto-detects the package manager (npm/pnpm/bun/yarn/homebrew), pins the exact registry-latest version, consolidates parallel installs, and restarts the daemon. Flags: `--dry-run`, `--yes`/`-y`, `--cleanup`/`--no-cleanup`, `--md`. A non-blocking banner advises `Run: prjct upgrade` when a new version is detected (24h-cached, never blocks).",
+    "prjct detects its execution environment automatically with NO user configuration. Claude Code/Desktop is detected when any of these is true (in order): env var `CLAUDE_AGENT` or `ANTHROPIC_CLAUDE`; `global.mcp` present or `MCP_AVAILABLE` set; a `CLAUDE.md` in the cwd; a `~/.claude/` directory; or the cwd path contains `/.claude/` or `/claude-workspace/`. Otherwise it falls back to the plain Terminal/CLI profile. See docs/environments.md.",
+    "OpenAI Codex is detected via the `codex` CLI binary on PATH (a leftover `~/.codex/` directory alone is NOT enough). Codex's project context file is `AGENTS.md` and its skills live in `.agents/skills/` (project) or `~/.codex/skills/` (global). In a Codex sandbox prjct emits the same non-interactive, machine-readable output as any non-TTY agent: static one-line status (no animated spinner), structured text, prompts suppressed; pass `--md` for fully markdown-structured output.",
+    "Output adapts in three tiers, no flags required: (1) TTY — animated branded spinner + colors for humans; (2) non-TTY (Claude Code, Codex, CI, pipes) — a single static `⚡ prjct …` line, no animation; (3) `--md` / `--json` — branding stripped, machine-structured output. Commands marked `requiresLlm` are blocked in a raw human terminal unless `--md`/`--json` is passed or they are run inside an agent (stdin not a TTY).",
+    "Data lives in three places, not one: (a) in-repo `.prjct/prjct.config.json` — small and COMMITTABLE (projectId + persona + optional `vaultPath`); the `.prjct/` directory itself is gitignored. (b) State (tasks, memory, events, analysis) — global SQLite at `~/.prjct-cli/projects/<projectId>/prjct.db`, per-device, override with `PRJCT_CLI_HOME`. (c) The human/agent-readable vault — `~/Documents/prjct/<slug>/_generated/` (v2.2.0+). SQLite is the source of truth; the vault is a regenerated snapshot — never hand-edit it.",
+    "To locate a project's data: read `.prjct/prjct.config.json` in the repo for its `projectId`, then the database is `~/.prjct-cli/projects/<projectId>/prjct.db` and the vault is `~/Documents/prjct/<slug>/_generated/` where `<slug>` is the repo directory name lowercased (a short projectId hash is appended on slug collision). `PRJCT_CLI_HOME` relocates the global store. See docs/storage-and-paths.md.",
+    "Team / version control: commit `.prjct/prjct.config.json` for a stable shared project identity; never commit state — it is not in the repo (it is per-device SQLite under `~/.prjct-cli`). Multi-developer/multi-device coordination is via optional cloud sync (`prjct login` then `prjct sync`, backend api.prjct.app) using monotonic event IDs; git never carries project state. Sibling git worktrees of one repo share a single vault.",
+    "Start work with `prjct task \"<description>\"`; initialize/register a project with `prjct sync` (auto-runs on the first prjct command in a git repo) or `prjct init`. Inside an agent the same verbs are `p. task`, `p. ship`, etc. (Cursor/Windsurf use `/task`). Lookup-first: an agent should read `~/Documents/prjct/<slug>/_generated/` (architecture, patterns, decisions, gotchas) BEFORE re-reading source.",
+    "Triage before ceremony: most work is SIMPLE — go direct (`prjct task` → implement → `qa`/`review` → `ship`), no spec. Reserve `prjct spec` + `audit-spec` for genuinely complex, multi-file, or irreversible work. Over-routing simple work through specs is the main failure mode."
+  ]
 }
