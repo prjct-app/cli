@@ -1,56 +1,31 @@
 # Changelog
 
+## [Unreleased]
+
 ## [2.21.0] - 2026-05-17
 
 ### Features
 
-- prjct review-risk verb — advisory size/delivery-geometry signal (#18/19/20, minimal cut) (v2.20.1) (#340)
-
+- **`prjct review-risk [--md]`** — advisory size/delivery-geometry signal (minimal cut of harnesses #18/19/20). Reads the committed changeset vs the merge-base with the default branch (`git diff --shortstat`), derives a size tier (trivial/normal/large) and suggests a delivery geometry (`direct`/`single`/`split`, with the touched top-level dirs as natural split lines). Read-only/Tier-1 (retro/health shape); never gates, never splits, never mutates git; graceful no-signal when there is no base or nothing committed. (#340)
 
 ## [2.20.2] - 2026-05-17
+
+### Added
+
+- **Architecture guard: SQLite connection factory is now an enforced invariant.** `openDatabase()` in `core/storage/database/sqlite-compat.ts` already baked the daemon-safety PRAGMAs (`journal_mode=WAL`, `busy_timeout=5000`) into every connection, but nothing stopped a future caller from doing a raw `new Database(...)` / `require('bun:sqlite')` / `require('better-sqlite3')` and silently bypassing them — the open half of the HIGH-severity daemon-vs-CLI write-lock anti-pattern. New `core/__tests__/storage/sqlite-factory-guard.test.ts` scans `core/` + `bin/` and fails CI if any file outside the sanctioned factory acquires a driver, and separately asserts the factory keeps both PRAGMAs. Closes the anti-pattern by moving it from convention to enforced. No runtime code change. (#342)
 
 ### Bug Fixes
 
 - skill routing triages complexity FIRST — spec is the exception, not the default (v2.20.1) (#341)
 
-
-## [Unreleased]
-
-### Added
-
-- **Architecture guard: SQLite connection factory is now an enforced invariant.** `openDatabase()` in `core/storage/database/sqlite-compat.ts` already baked the daemon-safety PRAGMAs (`journal_mode=WAL`, `busy_timeout=5000`) into every connection, but nothing stopped a future caller from doing a raw `new Database(...)` / `require('bun:sqlite')` / `require('better-sqlite3')` and silently bypassing them — the open half of the HIGH-severity daemon-vs-CLI write-lock anti-pattern. New `core/__tests__/storage/sqlite-factory-guard.test.ts` scans `core/` + `bin/` and fails CI if any file outside the sanctioned factory acquires a driver, and separately asserts the factory keeps both PRAGMAs. Closes the anti-pattern by moving it from convention to enforced. No runtime code change.
-- **`prjct review-risk [--md]`** — advisory size/delivery-geometry signal (minimal cut of harnesses #18/19/20). Reads the committed changeset vs the merge-base with the default branch (`git diff --shortstat`), derives a size tier (trivial/normal/large) and suggests a delivery geometry (`direct`/`single`/`split`, with the touched top-level dirs as natural split lines). Read-only/Tier-1 (retro/health shape); never gates, never splits, never mutates git; graceful no-signal when there is no base or nothing committed.
-
 ## [2.20.1] - 2026-05-17
-
-### Bug Fixes
-
-- skill-miss-detector — crew-isolation guard (no false nags after crew runs) (v2.19.10) (#339)
-
-
-## [Unreleased]
 
 ### Fixed
 
-- **skill-miss-detector no longer false-positives after a crew run (#16 follow-up).** Crew implementer/reviewer run as isolated subagents in the *shared* working tree, so at the leader's Stop hook `getModifiedFiles()` saw their edits and path-overlap relevance fired — but the leader transcript never carries the memory references the subagent made in its own isolated transcript, producing a false skill-miss nag for every crew-touched file. Fix: `detectSkillMisses` collects the `files_touched` of crew runs whose `ended_at` is within `CREW_RUN_RECENCY_MS` (6h) via `crewRunStorage.list` and excludes them from path-overlap relevance; token-overlap detection stays active so non-crew work in the same session is still covered. Crew itself is unchanged (it was architecturally correct). Best-effort — any failure degrades to prior behavior. Tests: `core/__tests__/services/skill-miss-detector.test.ts`.
+- **skill-miss-detector no longer false-positives after a crew run (#16 follow-up) (#339).** Crew implementer/reviewer run as isolated subagents in the *shared* working tree, so at the leader's Stop hook `getModifiedFiles()` saw their edits and path-overlap relevance fired — but the leader transcript never carries the memory references the subagent made in its own isolated transcript, producing a false skill-miss nag for every crew-touched file. Fix: `detectSkillMisses` collects the `files_touched` of crew runs whose `ended_at` is within `CREW_RUN_RECENCY_MS` (6h) via `crewRunStorage.list` and excludes them from path-overlap relevance; token-overlap detection stays active so non-crew work in the same session is still covered. Crew itself is unchanged (it was architecturally correct). Best-effort — any failure degrades to prior behavior. Tests: `core/__tests__/services/skill-miss-detector.test.ts`.
+
 
 ## [2.20.0] - 2026-05-17
-
-### Features
-
-- Skill Resolution Feedback (#16) — skill-miss detector + improvement-signals widening + prjct skill-adherence (v2.19.9) (#338)
-
-
-## [2.19.9] - 2026-05-16
-
-### Bug Fixes
-
-- strictly-monotonic updated_at so the CAS token can't collide (#337)
-
-
-## [Unreleased]
-
-## [2.19.9] - 2026-05-16
 
 ### Added
 
@@ -63,6 +38,12 @@
 
 ### Fixed
 - **`getProjectId` no longer silently mints a random orphan project.** Root cause: `ConfigManager.getProjectId()` fell through to `pathManager.generateProjectId()` (`crypto.randomUUID()`) whenever `readConfig()` returned null, so any path-resolution miss (daemon resolving the wrong cwd, config transiently unreadable, case-variant path) forked a brand-new project and scattered specs/memory across ghost projects with no error surfaced. Now returns `''` — the falsy sentinel 31/32 call sites already guard with `if (!projectId)` → callers fail loud ("run prjct init") instead of writing into a random new project. Only explicit `prjct init` (`createConfig`) mints. Regression test: `core/__tests__/infrastructure/config-manager-getprojectid.test.ts`.
+
+## [2.19.9] - 2026-05-16
+
+### Bug Fixes
+
+- strictly-monotonic updated_at so the CAS token can't collide (#337)
 
 ## [2.19.8] - 2026-05-14
 
@@ -180,15 +161,7 @@ Crew-mode persistence v7 (spec a50b32d1). SQLite becomes the single source of tr
 
 ## [2.15.0] - 2026-05-03
 
-### Features
-
-- prjct as a Spec-Driven Development system (#318)
-- self-heal prjct SKILL.md on every CLI invocation (#317)
-
-
-## [Unreleased]
-
-### Features — SDD: Spec-Driven Development
+### Features — SDD: Spec-Driven Development (#318)
 
 prjct now ships an end-to-end SDD primitive. The canonical sequence is `spec → audit-spec → task --spec → implement → ship (acceptance gate) → remember learning`.
 
@@ -200,6 +173,8 @@ prjct now ships an end-to-end SDD primitive. The canonical sequence is `spec →
 - **Vault rendering** — specs auto-render to `~/Documents/prjct/<slug>/_generated/specs/<slug>.md` on every regen, with a status-grouped index at `_generated/specs/_index.md`.
 - **Skill body** — Claude is taught the SDD canonical sequence and the `spec` / `audit-spec` verbs in the intent map. The skill body's verb intent map now leads with `spec` for substantive work; `task` is the right call for routine work that doesn't deserve a spec.
 - **Templates** — `templates/spec-template.md`, `templates/spec-reviewer-rubrics/{strategic,architecture,design}.md`, `templates/sdd-canonical-sequence.md`. Old `templates/planning-methodology.md` renamed to `planning-methodology-deep.md` (retained but de-defaulted).
+
+- self-heal prjct SKILL.md on every CLI invocation (#317)
 
 ### Schema
 
