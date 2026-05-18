@@ -70,31 +70,54 @@ const RELATION_KEYS: ReadonlySet<string> = new Set([
 export function buildIndexMaps(allEntries: MemoryEntry[]): {
   idTypeIndex: Map<string, string>
   idTitleIndex: Map<string, string>
+  idSlugIndex: Map<string, string>
 } {
   const idTypeIndex = new Map<string, string>()
   const idTitleIndex = new Map<string, string>()
+  const idSlugIndex = new Map<string, string>()
+  // SINGLE SOURCE OF TRUTH for per-entry note basenames. The link
+  // target (linkifyMemRefs) and the emitted filename
+  // (buildMemoryEntryNotes) MUST be byte-identical or the graph edge
+  // breaks. Slugs are made vault-UNIQUE (global seen-set, not per-type)
+  // so `[[<slug>|title]]` resolves unambiguously by basename. Order is
+  // deterministic (allEntriesForIndex → id DESC).
+  const usedSlugs = new Set<string>()
   for (const e of allEntries) {
     idTypeIndex.set(e.id, e.type)
-    idTitleIndex.set(e.id, deriveTitle(e))
+    const title = deriveTitle(e)
+    idTitleIndex.set(e.id, title)
+    if (PER_ENTRY_TYPES.has(e.type)) {
+      let slug = slugify(title)
+      if (usedSlugs.has(slug)) slug = `${slug}-${rowId(e.id)}`.slice(0, 80)
+      usedSlugs.add(slug)
+      idSlugIndex.set(e.id, slug)
+    }
   }
-  return { idTypeIndex, idTitleIndex }
+  return { idTypeIndex, idTitleIndex, idSlugIndex }
 }
 
 function vaultOpts(
   idTypeIndex: Map<string, string>,
-  idTitleIndex: Map<string, string>
+  idTitleIndex: Map<string, string>,
+  idSlugIndex: Map<string, string>
 ): FormatMemoryMdOptions {
-  return { vault: true, idTypeIndex, idTitleIndex, perEntryTypes: PER_ENTRY_TYPES }
+  return {
+    vault: true,
+    idTypeIndex,
+    idTitleIndex,
+    idSlugIndex,
+    perEntryTypes: PER_ENTRY_TYPES,
+  }
 }
 
 /**
  * Shared vault linkify options built once from the FULL entry set —
  * so every builder (memory, tags, specs) resolves `mem_N` refs to the
- * same legible alias links instead of dangling pointers.
+ * same slug-targeted, legible links (graph-visible, not alias-only).
  */
 export function buildVaultOpts(allEntries: MemoryEntry[]): FormatMemoryMdOptions {
-  const { idTypeIndex, idTitleIndex } = buildIndexMaps(allEntries)
-  return vaultOpts(idTypeIndex, idTitleIndex)
+  const { idTypeIndex, idTitleIndex, idSlugIndex } = buildIndexMaps(allEntries)
+  return vaultOpts(idTypeIndex, idTitleIndex, idSlugIndex)
 }
 
 export function formatShipBody(ship: ShippedFeature): string {
@@ -164,20 +187,18 @@ export function buildMemoryEntryNotes(
   opts: FormatMemoryMdOptions
 ): {
   files: Map<string, string>
-  titleByType: Map<string, Array<{ id: string; title: string }>>
+  titleByType: Map<string, Array<{ id: string; title: string; slug: string }>>
 } {
   const files = new Map<string, string>()
-  const titleByType = new Map<string, Array<{ id: string; title: string }>>()
-  const usedSlugs = new Map<string, Set<string>>() // type → slugs
+  const titleByType = new Map<string, Array<{ id: string; title: string; slug: string }>>()
 
   for (const e of entries) {
     if (!PER_ENTRY_TYPES.has(e.type)) continue
     const title = deriveTitle(e)
-    const seen = usedSlugs.get(e.type) ?? new Set<string>()
-    let slug = slugify(title)
-    if (seen.has(slug)) slug = `${slug}-${rowId(e.id)}`.slice(0, 80)
-    seen.add(slug)
-    usedSlugs.set(e.type, seen)
+    // Slug comes from the shared index (buildIndexMaps) so the filename
+    // is byte-identical to every link target. Fallback only if an entry
+    // somehow isn't in the index.
+    const slug = opts.idSlugIndex?.get(e.id) ?? `${slugify(title)}-${rowId(e.id)}`.slice(0, 80)
 
     const created = dateOnly(e.rememberedAt)
     const fm: string[] = ['---', `aliases: [${JSON.stringify(e.id)}]`, `type: ${e.type}`]
@@ -200,7 +221,7 @@ export function buildMemoryEntryNotes(
     files.set(`memory/${e.type}/${slug}.md`, `${body.join('\n')}\n`)
 
     const bucket = titleByType.get(e.type) ?? []
-    bucket.push({ id: e.id, title })
+    bucket.push({ id: e.id, title, slug })
     titleByType.set(e.type, bucket)
   }
 
@@ -235,8 +256,8 @@ export function buildMemoryFiles(
   // aggregated/chunked file. Index maps are built from the FULL entry
   // set so every cross-ref resolves (Defect B).
   const files = new Map<string, string>()
-  const { idTypeIndex, idTitleIndex } = buildIndexMaps(allEntries)
-  const opts = vaultOpts(idTypeIndex, idTitleIndex)
+  const { idTypeIndex, idTitleIndex, idSlugIndex } = buildIndexMaps(allEntries)
+  const opts = vaultOpts(idTypeIndex, idTitleIndex, idSlugIndex)
 
   const byType = new Map<string, MemoryEntry[]>()
   for (const e of entries) {
@@ -250,14 +271,15 @@ export function buildMemoryFiles(
 
   for (const [type, items] of byType) {
     if (PER_ENTRY_TYPES.has(type)) {
-      // MOC: links every entry note via its stable alias, legible label.
+      // MOC: links every entry note by its real basename (slug) so the
+      // graph draws the hub→note edge; label stays the legible title.
       const links = titleByType.get(type) ?? []
       const moc = [
         `# ${type.toUpperCase()}`,
         '',
         `_${links.length} ${links.length === 1 ? 'entry' : 'entries'} — newest first._`,
         '',
-        ...links.map(({ id, title }) => `- [[${id}|${title.replace(/[[\]|]/g, '')}]]`),
+        ...links.map(({ slug, title }) => `- [[${slug}|${title.replace(/[[\]|]/g, '')}]]`),
         '',
       ]
       files.set(`memory/${type}.md`, `${moc.join('\n')}\n`)
@@ -302,8 +324,8 @@ export function buildTagFiles(
   // per tag key (`tags/<key>.md`). Relation tags are excluded — they're
   // graph edges, not categories (Defect C).
   const files = new Map<string, string>()
-  const { idTypeIndex, idTitleIndex } = buildIndexMaps(allEntries)
-  const opts = vaultOpts(idTypeIndex, idTitleIndex)
+  const { idTypeIndex, idTitleIndex, idSlugIndex } = buildIndexMaps(allEntries)
+  const opts = vaultOpts(idTypeIndex, idTitleIndex, idSlugIndex)
   const byPair = groupByTagPair(entries)
 
   for (const [key, byValue] of byPair) {

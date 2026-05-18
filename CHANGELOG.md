@@ -56,6 +56,11 @@
 
 ## [Unreleased]
 
+## [2.23.4] - 2026-05-18
+
+### Added
+- vault: link by note slug not alias — fix Obsidian graph (alias links graph-invisible)
+
 ## [2.23.3] - 2026-05-18
 
 ### Added
