@@ -35,6 +35,19 @@ import {
 // Database Manager
 // =============================================================================
 
+/**
+ * Run `fn` inside a BEGIN IMMEDIATE transaction. The driver default
+ * (calling the wrapper directly) is BEGIN DEFERRED — the write lock is only
+ * acquired at the first write, so two concurrent writers both enter and the
+ * loser aborts MID-transaction on SQLITE_BUSY. IMMEDIATE acquires the write
+ * lock up front: contention waits out busy_timeout then fails predictably,
+ * never mid-write. Defensive fallback for any driver lacking the variant.
+ */
+function runImmediate<T>(db: SqliteDatabase, fn: (db: SqliteDatabase) => T): T {
+  const txn = db.transaction(fn)
+  return typeof txn.immediate === 'function' ? txn.immediate(db) : txn(db)
+}
+
 /** Max concurrent DB connections before evicting least-recently-used */
 const MAX_DB_CONNECTIONS = 3
 
@@ -101,12 +114,18 @@ class PrjctDatabase {
     if (projectId) {
       const db = this.connections.get(projectId)
       if (db) {
+        // Drop cached statements bound to this connection BEFORE closing it.
+        // The WeakMap auto-GCs only once the db object is unreachable; an
+        // explicit delete prevents a stale statement (bound to a now-closed
+        // connection) from being reused if a caller still holds the ref.
+        this.statementCache.delete(db)
         db.close()
         this.connections.delete(projectId)
         this.accessOrder = this.accessOrder.filter((id) => id !== projectId)
       }
     } else {
       this.connections.forEach((db) => {
+        this.statementCache.delete(db)
         db.close()
       })
       this.connections.clear()
@@ -124,6 +143,7 @@ class PrjctDatabase {
     const lruId = this.accessOrder.shift()!
     const db = this.connections.get(lruId)
     if (db) {
+      this.statementCache.delete(db) // see close(): drop bound statements first
       db.close()
       this.connections.delete(lruId)
     }
@@ -344,7 +364,7 @@ class PrjctDatabase {
 
   transaction<T>(projectId: string, fn: (db: SqliteDatabase) => T): T {
     const db = this.getDb(projectId)
-    return db.transaction(fn)(db)
+    return runImmediate(db, fn)
   }
 
   // ===========================================================================
@@ -369,14 +389,14 @@ class PrjctDatabase {
     for (const migration of migrations) {
       if (applied.has(migration.version)) continue
 
-      db.transaction(() => {
+      runImmediate(db, () => {
         migration.up(db)
         db.prepare('INSERT INTO _migrations (version, name, applied_at) VALUES (?, ?, ?)').run(
           migration.version,
           migration.name,
           new Date().toISOString()
         )
-      })()
+      })
     }
   }
 
