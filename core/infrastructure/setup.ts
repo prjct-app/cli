@@ -44,6 +44,7 @@ import {
 import installer from './command-installer'
 import editorsConfig from './editors-config'
 import { mergeWithMarkers } from './ide-project-installer'
+import pathManager from './path-manager'
 
 interface ProviderSetupResult {
   provider: AIProviderName
@@ -602,7 +603,7 @@ export async function verifyCodexPRouterReady(
  */
 async function migrateProjectsCliVersion(): Promise<void> {
   try {
-    const projectsDir = path.join(os.homedir(), '.prjct-cli', 'projects')
+    const projectsDir = pathManager.globalProjectsDir
 
     if (!(await fileExists(projectsDir))) {
       return
@@ -680,7 +681,7 @@ async function installStatusLine(): Promise<void> {
     const claudeStatusLinePath = path.join(claudeDir, 'prjct-statusline.sh')
 
     // Target location for the actual script
-    const prjctStatusLineDir = path.join(os.homedir(), '.prjct-cli', 'statusline')
+    const prjctStatusLineDir = pathManager.getStatusLinePath()
     const prjctStatusLinePath = path.join(prjctStatusLineDir, 'statusline.sh')
     const prjctThemesDir = path.join(prjctStatusLineDir, 'themes')
     const prjctLibDir = path.join(prjctStatusLineDir, 'lib')

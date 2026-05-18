@@ -255,6 +255,21 @@ class PathManager {
     return path.join(this.globalBaseDir, 'docs')
   }
 
+  /** Global cache dir (~/.prjct-cli/cache by default; honors PRJCT_CLI_HOME). */
+  getCachePath(): string {
+    return path.join(this.globalBaseDir, 'cache')
+  }
+
+  /** Global state dir (~/.prjct-cli/state by default; honors PRJCT_CLI_HOME). */
+  getStatePath(): string {
+    return path.join(this.globalBaseDir, 'state')
+  }
+
+  /** Global statusline dir (~/.prjct-cli/statusline; honors PRJCT_CLI_HOME). */
+  getStatusLinePath(): string {
+    return path.join(this.globalBaseDir, 'statusline')
+  }
+
   /**
    * Get the Claude/Gemini directory path (~/.claude or ~/.gemini)
    */

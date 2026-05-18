@@ -7,12 +7,12 @@
 import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import https from 'node:https'
-import os from 'node:os'
 import path from 'node:path'
 import chalk from 'chalk'
 import { getErrorMessage } from '../types/fs'
 import { fileExists, readJson, writeJson } from '../utils/file-helper'
 import { PACKAGE_ROOT } from '../utils/version'
+import pathManager from './path-manager'
 
 interface UpdateCache {
   lastCheck: number
@@ -33,7 +33,8 @@ class UpdateChecker {
 
   constructor() {
     this.packageName = 'prjct-cli'
-    this.cacheDir = path.join(os.homedir(), '.prjct-cli', 'config')
+    // Via pathManager so PRJCT_CLI_HOME is honored (prod === ~/.prjct-cli/config).
+    this.cacheDir = pathManager.globalConfigDir
     this.cacheFile = path.join(this.cacheDir, 'update-cache.json')
     this.checkInterval = 24 * 60 * 60 * 1000 // 24 hours in milliseconds
   }
@@ -227,8 +228,10 @@ export { UpdateChecker }
 // spawns an unref'd child process to do the network fetch without delaying
 // the user-visible command.
 
-const CACHE_DIR = path.join(os.homedir(), '.prjct-cli', 'config')
-const CACHE_FILE = path.join(CACHE_DIR, 'update-cache.json')
+// Lazy: resolve via pathManager at call time (honors PRJCT_CLI_HOME and
+// test-time setGlobalBaseDir). Production === ~/.prjct-cli/config, unchanged.
+const updateCacheDir = (): string => pathManager.globalConfigDir
+const updateCacheFile = (): string => path.join(updateCacheDir(), 'update-cache.json')
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000
 
 function compareSemver(a: string, b: string): number {
@@ -245,7 +248,7 @@ function compareSemver(a: string, b: string): number {
 
 function readCacheSync(): { lastCheck: number; latestVersion: string } | null {
   try {
-    const raw = fs.readFileSync(CACHE_FILE, 'utf-8')
+    const raw = fs.readFileSync(updateCacheFile(), 'utf-8')
     return JSON.parse(raw)
   } catch {
     return null
@@ -306,7 +309,7 @@ export function triggerBackgroundRefreshIfStale(): void {
   }
 
   try {
-    fs.mkdirSync(CACHE_DIR, { recursive: true })
+    fs.mkdirSync(updateCacheDir(), { recursive: true })
   } catch {
     return
   }
@@ -318,7 +321,7 @@ export function triggerBackgroundRefreshIfStale(): void {
   const scriptPath = path.join(PACKAGE_ROOT, 'assets', 'scripts', 'refresh-update.mjs')
   if (!fs.existsSync(scriptPath)) return
   try {
-    const child = spawn(process.execPath, [scriptPath, CACHE_FILE], {
+    const child = spawn(process.execPath, [scriptPath, updateCacheFile()], {
       detached: true,
       stdio: 'ignore',
     })

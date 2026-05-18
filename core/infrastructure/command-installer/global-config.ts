@@ -8,12 +8,12 @@
  */
 
 import fs from 'node:fs/promises'
-import os from 'node:os'
 import path from 'node:path'
 import { getTemplateContent, listTemplates } from '../../agentic/template-loader'
 import { getErrorMessage, isNotFoundError } from '../../types/fs'
 import type { GlobalConfigResult } from '../../types/infrastructure'
 import { mergeWithMarkers } from '../ide-project-installer'
+import pathManager from '../path-manager'
 
 const GLOBAL_CLAUDE_MD_CONTENT = `<!-- prjct:start - DO NOT REMOVE THIS MARKER -->
 # p/ — Project knowledge layer
@@ -66,7 +66,7 @@ The vault regenerates automatically on \`remember\`, \`capture\`, \`ship\`, \`sy
 
 export async function installDocs(): Promise<{ success: boolean; error?: string }> {
   try {
-    const docsDir = path.join(os.homedir(), '.prjct-cli', 'docs')
+    const docsDir = pathManager.getDocsPath()
     await fs.mkdir(docsDir, { recursive: true })
 
     // Try bundled templates first
