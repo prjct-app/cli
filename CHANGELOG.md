@@ -6,13 +6,11 @@
 
 - vault makes every mem_N navigable — Obsidian anchors + linkified cross-refs (mem_3233) (#356)
 
-
 ## [2.23.1] - 2026-05-18
 
 ### Bug Fixes
 
 - orchestrator triage-first — stop funneling every action through spec+reviewers (#355)
-
 
 ## [2.23.0] - 2026-05-18
 
@@ -24,13 +22,11 @@
 
 - make prjct upgrade bulletproof — no silent misroute, no stale-daemon, no downgrade (#353)
 
-
 ## [2.22.1] - 2026-05-18
 
 ### Bug Fixes
 
 - changelog generator PROMOTES [Unreleased] instead of stranding it (mem_2895 root cause) (#352)
-
 
 ## [2.22.0] - 2026-05-18
 
@@ -44,7 +40,6 @@
 - WS2b SQLite hardening — BEGIN IMMEDIATE txns, statement-cache + daemon-cache gating (#349)
 - WS3 P2 reliability — timer leak, backup clobber, daemon-exit, WAL checkpoint, duplicate-POST (#348)
 
-
 ## [2.21.1] - 2026-05-18
 
 ### Bug Fixes
@@ -53,8 +48,12 @@
 - optimistic CAS on StorageManager.update() — close the lost-update data race (#346)
 - gate workflow rules ingested from repo markdown (close clone-to-RCE) (#345)
 
-
 ## [Unreleased]
+
+## [2.23.3] - 2026-05-18
+
+### Added
+- vault: nota por entrada + grafo conectado legible (fix relaciones perdidas)
 
 ## [2.21.0] - 2026-05-17
 
@@ -77,7 +76,6 @@
 ### Fixed
 
 - **skill-miss-detector no longer false-positives after a crew run (#16 follow-up) (#339).** Crew implementer/reviewer run as isolated subagents in the *shared* working tree, so at the leader's Stop hook `getModifiedFiles()` saw their edits and path-overlap relevance fired — but the leader transcript never carries the memory references the subagent made in its own isolated transcript, producing a false skill-miss nag for every crew-touched file. Fix: `detectSkillMisses` collects the `files_touched` of crew runs whose `ended_at` is within `CREW_RUN_RECENCY_MS` (6h) via `crewRunStorage.list` and excludes them from path-overlap relevance; token-overlap detection stays active so non-crew work in the same session is still covered. Crew itself is unchanged (it was architecturally correct). Best-effort — any failure degrades to prior behavior. Tests: `core/__tests__/services/skill-miss-detector.test.ts`.
-
 
 ## [2.20.0] - 2026-05-17
 
@@ -180,13 +178,11 @@ Crew-mode persistence v7 (spec a50b32d1). SQLite becomes the single source of tr
 
 - Phase 1.6 — close the wire on Phase 1.5 (B1-B4) (#324)
 
-
 ## [2.18.1] - 2026-05-05
 
 ### Bug Fixes
 
 - make spec update --json a PATCH (shallow merge), not full replace (#323)
-
 
 ## [2.18.0] - 2026-05-05
 
@@ -194,13 +190,11 @@ Crew-mode persistence v7 (spec a50b32d1). SQLite becomes the single source of tr
 
 - auto-breakdown spec acceptance criteria into queue tasks on audit pass (#322)
 
-
 ## [2.17.0] - 2026-05-05
 
 ### Features
 
 - Phase 1.6 — brownfield-aware SDD (auto-context + codebase reviewers + inventory) (#321)
-
 
 ## [2.16.0] - 2026-05-04
 
@@ -211,7 +205,6 @@ Crew-mode persistence v7 (spec a50b32d1). SQLite becomes the single source of tr
 ### Bug Fixes
 
 - drop unused imports in entity-handlers (#320)
-
 
 ## [2.15.0] - 2026-05-03
 
@@ -259,13 +252,11 @@ prjct now ships an end-to-end SDD primitive. The canonical sequence is `spec →
 - split 1454-line wiki-generator into pure builders (#307)
 - introduce runHook<I> runner — DRY the hook quartet (#305)
 
-
 ## [2.14.0] - 2026-05-02
 
 ### Features
 
 - cleanup + friction-detection + proactive improvement loop (#302)
-
 
 ## [2.13.0] - 2026-05-02
 
@@ -273,13 +264,11 @@ prjct now ships an end-to-end SDD primitive. The canonical sequence is `spec →
 
 - project CLAUDE.md routing + onboarding rewrite (UX phase 4+5) (#301)
 
-
 ## [2.12.0] - 2026-05-02
 
 ### Features
 
 - inject project state per turn (UX phase 3) (#300)
-
 
 ## [2.11.0] - 2026-05-02
 
@@ -287,13 +276,11 @@ prjct now ships an end-to-end SDD primitive. The canonical sequence is `spec →
 
 - verb intent map + suggest/auto-execute protocol (UX phase 1+2) (#299)
 
-
 ## [2.10.1] - 2026-05-02
 
 ### Bug Fixes
 
 - zero-out every quality check (typecheck/lint/tests/knip) (#298)
-
 
 ## [2.10.0] - 2026-05-02
 
@@ -301,13 +288,11 @@ prjct now ships an end-to-end SDD primitive. The canonical sequence is `spec →
 
 - prjct context-save / context-restore (gstack Fase D) (#296)
 
-
 ## [2.9.0] - 2026-05-02
 
 ### Features
 
 - prjct health — composite quality dashboard (gstack Fase C/5) (#295)
-
 
 ## [2.8.0] - 2026-05-02
 
@@ -315,13 +300,11 @@ prjct now ships an end-to-end SDD primitive. The canonical sequence is `spec →
 
 - prjct retro — weekly engineering retrospective (gstack Fase C/6) (#294)
 
-
 ## [2.7.0] - 2026-05-02
 
 ### Features
 
 - gstack Fase B — question registry + 'stop asking me about X' (#293)
-
 
 ## [2.6.0] - 2026-05-02
 
@@ -329,13 +312,11 @@ prjct now ships an end-to-end SDD primitive. The canonical sequence is `spec →
 
 - gstack Fase A — ethos preamble + memory dedupe (#292)
 
-
 ## [2.5.0] - 2026-05-02
 
 ### Features
 
 - adopt gstack patterns — subagent dispatch + audit orchestrator + decision-brief (#291)
-
 
 ## [2.4.43] - 2026-05-02
 
@@ -562,13 +543,11 @@ prjct now ships an end-to-end SDD primitive. The canonical sequence is `spec →
 
 - feat(mcp): per-project MCP scoping — list, deny, allow
 
-
 ## [2.3.11] - 2026-05-02
 
 ### Bug Fixes
 
 - never silently re-run a command that may have partially run
-
 
 ## [2.3.10] - 2026-05-02
 
@@ -576,13 +555,11 @@ prjct now ships an end-to-end SDD primitive. The canonical sequence is `spec →
 
 - upgrade every detected global install, not just one
 
-
 ## [2.3.9] - 2026-05-02
 
 ### Bug Fixes
 
 - remove orphaned context/CLAUDE.md checks; gate auto-update banner
-
 
 ## [2.3.8] - 2026-05-02
 
@@ -592,13 +569,11 @@ prjct now ships an end-to-end SDD primitive. The canonical sequence is `spec →
 - collapse legacy unmanaged duplicates on install
 - runtime-agnostic package manager handling
 
-
 ## [2.3.7] - 2026-05-01
 
 ### Bug Fixes
 
 - regression tests for bugs surfaced in 2.3.5 → 2.3.6
-
 
 ## [2.3.6] - 2026-05-01
 
@@ -606,13 +581,11 @@ prjct now ships an end-to-end SDD primitive. The canonical sequence is `spec →
 
 - add `crew` to daemon-shim skip list
 
-
 ## [2.3.5] - 2026-05-01
 
 ### Refactoring
 
 - rename `harness` command to `crew` to avoid concept collision
-
 
 ## [2.3.4] - 2026-05-01
 
@@ -620,13 +593,11 @@ prjct now ships an end-to-end SDD primitive. The canonical sequence is `spec →
 
 - switch to OIDC trusted publishing for npm releases
 
-
 ## [2.3.3] - 2026-05-01
 
 ### Bug Fixes
 
 - bump to 2.3.3 to recover from npm publish outage
-
 
 ## [2.3.2] - 2026-05-01
 
@@ -638,20 +609,17 @@ prjct now ships an end-to-end SDD primitive. The canonical sequence is `spec →
 
 - drop dynamic node -e from update checker (scanner mitigation)
 
-
 ## [2.3.1] - 2026-05-01
 
 ### Bug Fixes
 
 - sync bun.lock with package.json (unblock --frozen-lockfile)
 
-
 ## [2.3.0] - 2026-04-30
 
 ### Features
 
 - opt-in multi-agent harness mode (#264)
-
 
 ## [2.2.18] - 2026-04-25
 
@@ -689,7 +657,6 @@ prjct now ships an end-to-end SDD primitive. The canonical sequence is `spec →
 
 - silence Stop nag + drop variable content from SessionStart (cache stability) (#261)
 
-
 ## [2.2.11] - 2026-04-25
 
 ### Added
@@ -706,13 +673,11 @@ prjct now ships an end-to-end SDD primitive. The canonical sequence is `spec →
 
 - replicate bare-verb auto-route to capture (#258)
 
-
 ## [2.2.8] - 2026-04-25
 
 ### Bug Fixes
 
 - re-export getActiveProvider (regression from #256) (#257)
-
 
 ## [2.2.7] - 2026-04-24
 
@@ -730,13 +695,11 @@ prjct now ships an end-to-end SDD primitive. The canonical sequence is `spec →
 
 - seed main-branch gate + trailing newline in writeJson (#255)
 
-
 ## [2.2.4] - 2026-04-24
 
 ### Bug Fixes
 
 - stop hook counts ships/captures/tags as checkpoints (#254)
-
 
 ## [2.2.3] - 2026-04-23
 
@@ -744,13 +707,11 @@ prjct now ships an end-to-end SDD primitive. The canonical sequence is `spec →
 
 - workflow-first dispatcher + ambiguity gate (#253)
 
-
 ## [2.2.2] - 2026-04-22
 
 ### Bug Fixes
 
 - sandboxable config resolver + stop leaking to real config
-
 
 ## [2.2.1] - 2026-04-22
 
@@ -1335,7 +1296,6 @@ usable, not just carved out.
 
 - exclude .worktrees from indexing (#248)
 
-
 ## [1.56.11] - 2026-04-13
 
 ### Fixed
@@ -1348,7 +1308,6 @@ usable, not just carved out.
 
 - prefer direct Glob/Grep over Explore subagent (#247)
 - chore: dead code purge + architecture docs (v1.56.8) (#246)
-
 
 ## [1.56.9] - 2026-04-11
 
@@ -1430,7 +1389,6 @@ usable, not just carved out.
 
 - obsidian status neutral message when not configured (#242)
 
-
 ## [1.56.1] - 2026-04-06
 
 ### Fixed
@@ -1447,7 +1405,6 @@ usable, not just carved out.
 
 - biome lint + typecheck errors for clean push
 - revert accent to neutral, sidebar/tabs cleanup
-
 
 ## [1.54.2] - 2026-04-06
 
@@ -1489,7 +1446,6 @@ usable, not just carved out.
 - security hardening — command injection, CORS, path traversal, error disclosure (#235)
 - security hardening — command injection, CORS, path traversal, error disclosure
 
-
 ## [1.52.2] - 2026-03-07
 
 ### Added
@@ -1529,7 +1485,6 @@ usable, not just carved out.
 
 - context health system + clean --md output (#231)
 
-
 ## [1.50.3] - 2026-03-03
 
 ### Added
@@ -1540,7 +1495,6 @@ usable, not just carved out.
 ### Bug Fixes
 
 - guard against undefined decision.contexts in pattern-store (#230)
-
 
 ## [1.50.1] - 2026-03-02
 
@@ -1553,13 +1507,11 @@ usable, not just carved out.
 
 - auth UX overhaul — out.* utilities, branded browser page, auto-sync (#229)
 
-
 ## [1.49.0] - 2026-02-27
 
 ### Features
 
 - prjct login — browser-based OTP auth (#228)
-
 
 ## [1.48.1] - 2026-02-27
 
@@ -1567,20 +1519,17 @@ usable, not just carved out.
 
 - wire auth command in registry and bypass setup check (#227)
 
-
 ## [1.48.0] - 2026-02-27
 
 ### Features
 
 - CLI↔Web bidirectional sync (#226)
 
-
 ## [1.47.4] - 2026-02-26
 
 ### Refactoring
 
 - remove static context generation system (#225)
-
 
 ## [1.47.3] - 2026-02-26
 
@@ -1598,7 +1547,6 @@ usable, not just carved out.
 
 - centralize type definitions to core/types/ (#224)
 
-
 ## [1.47.0] - 2026-02-21
 
 ### Features
@@ -1615,13 +1563,11 @@ usable, not just carved out.
 - consolidate scattered types into core/types/
 - remove duplicate sorting logic and dead markdown-builder
 
-
 ## [1.46.7] - 2026-02-21
 
 ### Refactoring
 
 - extract context contract builder from workflow.ts (#222)
-
 
 ## [1.46.6] - 2026-02-21
 
@@ -1693,7 +1639,6 @@ usable, not just carved out.
 
 - multi-provider MCP setup + OAuth status fix (v1.45.9) (#216)
 
-
 ## [1.45.11] - 2026-02-16
 
 ### Added
@@ -1743,13 +1688,11 @@ usable, not just carved out.
 
 - p. workflow agentic natural language parsing (#213)
 
-
 ## [1.45.2] - 2026-02-17
 
 ### Bug Fixes
 
 - Jira/Linear MCP OAuth setup - guides user through mcp-remote auth (#212)
-
 
 ## [1.45.2] - 2026-02-16
 
@@ -1761,7 +1704,6 @@ usable, not just carved out.
 ### Bug Fixes
 
 - prjct update - daemon restart and latest version detection (#211)
-
 
 ## [1.45.1] - 2026-02-17
 
@@ -1809,20 +1751,17 @@ usable, not just carved out.
 
 - analyze shows actual report path (PRJ-348) (#208)
 
-
 ## [1.44.3] - 2026-02-16
 
 ### Bug Fixes
 
 - widen retry test timing tolerances (PRJ-346) (#207)
 
-
 ## [1.44.2] - 2026-02-16
 
 ### Bug Fixes
 
 - legacy previousTask not migrated to pausedTasks (PRJ-345) (#206)
-
 
 ## [1.44.3] - 2026-02-16
 
@@ -1842,7 +1781,6 @@ usable, not just carved out.
 
 - migrate sessions from JSON files to SQLite (#204)
 
-
 ## [1.43.1] - 2026-02-15
 
 ### Added
@@ -1858,7 +1796,6 @@ usable, not just carved out.
 
 - context file suggestion reinforcement learning (#202)
 
-
 ## [1.42.4] - 2026-02-15
 
 ### Added
@@ -1869,7 +1806,6 @@ usable, not just carved out.
 ### Bug Fixes
 
 - state storage updates preserve existing state to prevent data loss (#201)
-
 
 ## [1.42.4] - 2026-02-15
 
@@ -1894,7 +1830,6 @@ usable, not just carved out.
 
 - daemon commands ignore request.cwd causing cross-project contamination (#199)
 - pass request.cwd to analyze/cleanup/design in daemon
-
 
 ## [1.42.1] - 2026-02-15
 
@@ -1936,7 +1871,6 @@ usable, not just carved out.
 
 - sanitize SQLite bindings in JSON migration (#196)
 
-
 ## [1.40.1] - 2026-02-15
 
 ### Fixed
@@ -1947,7 +1881,6 @@ usable, not just carved out.
 ### Features
 
 - redesign prjct update as 3-phase system updater (#195)
-
 
 ## [1.39.0] - 2026-02-15
 
@@ -1996,7 +1929,6 @@ usable, not just carved out.
 
 - reconcile queue with Linear status on sync (#190)
 
-
 ## [1.38.3] - 2026-02-14
 
 ### Bug Fixes
@@ -2017,7 +1949,6 @@ usable, not just carved out.
 
 - auto-repair Codex router metadata during sync (#187)
 
-
 ## [1.38.1] - 2026-02-14
 
 ### Bug Fixes
@@ -2035,7 +1966,6 @@ usable, not just carved out.
 ### Bug Fixes
 
 - neutral banner colors + add Codex to provider selection (#185)
-
 
 ## [1.37.1] - 2026-02-14
 
@@ -2069,7 +1999,6 @@ usable, not just carved out.
 
 - Custom workflows with agentic auto-configuration (#183)
 
-
 ## [1.36.0] - 2026-02-13
 
 ### Features
@@ -2091,7 +2020,6 @@ usable, not just carved out.
 ### Features
 
 - add analysis rollback to restore previous sealed version (PRJ-276) (#181)
-
 
 ## [1.33.1] - 2026-02-12
 
@@ -2121,7 +2049,6 @@ usable, not just carved out.
 
 - exquisite terminal UX — rich markdown formatters + branded output (#179)
 
-
 ## [1.30.2] - 2026-02-12
 
 ### Added
@@ -2143,7 +2070,6 @@ usable, not just carved out.
 ### Features
 
 - enrich AI formatters with analysis data + add Codex support (#176)
-
 
 ## [1.29.0] - 2026-02-12
 
@@ -2168,20 +2094,17 @@ usable, not just carved out.
 
 - agentic Linear template without MCP dependency
 
-
 ## [1.27.1] - 2026-02-11
 
 ### Bug Fixes
 
 - exclude router files (p.md/p.toml) from subcommand installation
 
-
 ## [1.27.0] - 2026-02-11
 
 ### Features
 
 - dual-runtime SQLite — bun:sqlite + better-sqlite3 (#174)
-
 
 ## [1.27.6] - 2026-02-11
 
@@ -2290,7 +2213,6 @@ usable, not just carved out.
 ### Bug Fixes
 
 - strip shebangs in build via esbuild plugin (#171)
-
 
 ## [1.24.2] - 2026-02-10
 
@@ -2546,7 +2468,6 @@ Bridges the outcomes system to semantic memory. Previously, patterns from comple
 - add task-to-analysis feedback loop (PRJ-272) (#165)
 - add task history array with FIFO eviction (PRJ-281) (#164)
 
-
 ## [1.22.0] - 2026-02-10
 
 ### Features
@@ -2642,13 +2563,11 @@ Replaced single previousTask field with bounded task history array to enable pat
 **How to use:** No action needed — task history is automatic on `p. done`
 **Breaking changes:** None — fully backward compatible
 
-
 ## [1.20.0] - 2026-02-10
 
 ### Features
 
 - add retry with exponential backoff for agent and tool operations (#162)
-
 
 ## [1.20.0] - 2026-02-09
 
@@ -2816,7 +2735,6 @@ Modified:
 
 - implement incremental sync with file hashing (PRJ-305) (#160)
 
-
 ## [1.18.0] - 2026-02-09
 
 ### Features
@@ -2866,7 +2784,6 @@ Modified:
 ### Features
 
 - implement BM25 + import graph + git co-change for zero-cost file selection (PRJ-304) (#159)
-
 
 ## [1.17.0] - 2026-02-08
 
@@ -2944,7 +2861,6 @@ Modified:
 
 - replace hardcoded memory domain tags with semantic matching (PRJ-300) (#157)
 
-
 ## [1.14.1] - 2026-02-09
 
 ### Improved
@@ -2984,7 +2900,6 @@ Modified:
 ### Features
 
 - add sprint-based velocity calculation with trend detection (PRJ-296) (#156)
-
 
 ## [1.14.0] - 2026-02-09
 
@@ -3034,7 +2949,6 @@ Key changes:
 
 - inject sealed analysis into task prompt context (PRJ-260) (#155)
 
-
 ## [1.13.0] - 2026-02-09
 
 ### Features
@@ -3073,7 +2987,6 @@ Key changes:
 ### Features
 
 - make subtask output and handoff mandatory (PRJ-262) (#154)
-
 
 ## [1.11.0] - 2026-02-09
 
@@ -3139,7 +3052,6 @@ Key changes:
 
 - redesign prompt assembly with correct section ordering + anti-hallucination (PRJ-301) (#152)
 - add coordinated global token budget (PRJ-266) (#151)
-
 
 ## [1.12.0] - 2026-02-07
 

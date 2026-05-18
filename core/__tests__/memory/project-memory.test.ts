@@ -13,7 +13,13 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import pathManager from '../../infrastructure/path-manager'
-import { formatMemoryMd, type MemoryEntry, projectMemory } from '../../memory/project-memory'
+import {
+  deriveTitle,
+  formatMemoryMd,
+  linkifyMemRefs,
+  type MemoryEntry,
+  projectMemory,
+} from '../../memory/project-memory'
 import prjctDb from '../../storage/database'
 
 /**
@@ -232,12 +238,16 @@ describe('formatMemoryMd — vault makes every mem_N navigable (mem_3233)', () =
     expect(out).toContain('resolves=[[gotcha#^mem-3135|mem_3135]]')
   })
 
-  it('vault mode: UNKNOWN id → bare [[mem_N]] (clickable, not dead text)', () => {
+  it('vault mode: UNKNOWN id → muted code, not a fake dangling node', () => {
+    // Supersedes the old mem_3233 "bare [[mem_N]] clickable" rule: at
+    // graph scale that produced the orphan-dot dust the user reported.
+    // A deleted id is not knowledge — render it as honest muted text.
     const out = formatMemoryMd([mk({ id: 'mem_3247', content: 'see mem_999 for context' })], {
       vault: true,
       idTypeIndex: new Map(),
     })
-    expect(out).toContain('see [[mem_999]] for context')
+    expect(out).toContain('see `mem_999` for context')
+    expect(out).not.toContain('[[mem_999]]')
   })
 
   it('vault mode: inline content mentions are linkified too, not just the meta tail', () => {
@@ -253,5 +263,101 @@ describe('formatMemoryMd — vault makes every mem_N navigable (mem_3233)', () =
     const entries = [mk({ id: 'mem_3247', content: 'refs mem_1', tags: { relates: 'mem_2' } })]
     const cli = formatMemoryMd(entries)
     expect(cli).not.toMatch(/\^mem-|\[\[/)
+  })
+})
+
+describe('deriveTitle — deterministic, legible, no DB keys', () => {
+  const mk = (over: Partial<MemoryEntry> & { id: string }): MemoryEntry => ({
+    type: 'decision',
+    content: '',
+    tags: {},
+    rememberedAt: '2026-05-17T00:00:00.000Z',
+    provenance: 'declared',
+    ...over,
+  })
+
+  it('cuts at the first strong clause boundary', () => {
+    const t = deriveTitle(
+      mk({ id: 'mem_3247', content: 'Triage-before-spec enforced in skill body: root cause was…' })
+    )
+    expect(t).toBe('Triage-before-spec enforced in skill body')
+  })
+
+  it('strips a leading mem ref / wikilink so the title starts on the statement', () => {
+    const t = deriveTitle(
+      mk({
+        id: 'mem_3264',
+        content: '[[feedback#^mem-3233|mem_3233]] opaque pointers FIXED. detail',
+      })
+    )
+    expect(t).toBe('opaque pointers FIXED')
+  })
+
+  it('appends (PR #N) from the pr tag when not already present', () => {
+    const t = deriveTitle(
+      mk({ id: 'mem_1', content: 'Release debounce job added to CI', tags: { pr: '351' } })
+    )
+    expect(t).toBe('Release debounce job added to CI (PR #351)')
+  })
+
+  it('truncates long titles on a word boundary with an ellipsis', () => {
+    const t = deriveTitle(mk({ id: 'mem_1', content: `${'a'.repeat(40)} ${'b'.repeat(40)}` }))
+    expect(t.length).toBeLessThanOrEqual(74)
+    expect(t.endsWith('…')).toBe(true)
+  })
+
+  it('falls back to "<type> <id>" when content yields no usable title', () => {
+    expect(deriveTitle(mk({ id: 'mem_9', type: 'gotcha', content: '...' }))).toBe('gotcha mem_9')
+  })
+
+  it('is pure: same entry → same title', () => {
+    const e = mk({ id: 'mem_5', content: 'Stable title here. body' })
+    expect(deriveTitle(e)).toBe(deriveTitle(e))
+  })
+})
+
+describe('linkifyMemRefs — legible labels + alias resolution (additive)', () => {
+  it('per-entry type → alias link [[mem_N|title]] (resolves via aliases:)', () => {
+    const out = linkifyMemRefs('resolves=mem_3135', {
+      idTypeIndex: new Map([['mem_3135', 'gotcha']]),
+      idTitleIndex: new Map([['mem_3135', 'CHANGELOG Unreleased stranding']]),
+      perEntryTypes: new Set(['gotcha']),
+    })
+    expect(out).toBe('resolves=[[mem_3135|CHANGELOG Unreleased stranding]]')
+  })
+
+  it('aggregated type → block-anchor link with legible label', () => {
+    const out = linkifyMemRefs('see mem_42', {
+      idTypeIndex: new Map([['mem_42', 'inbox']]),
+      idTitleIndex: new Map([['mem_42', 'upgrade noise item']]),
+      perEntryTypes: new Set(['decision']),
+    })
+    expect(out).toBe('see [[inbox#^mem-42|upgrade noise item]]')
+  })
+
+  it('unknown id with no title → muted `mem_N` code (no fake node)', () => {
+    expect(linkifyMemRefs('ref mem_999', { idTypeIndex: new Map() })).toBe('ref `mem_999`')
+  })
+
+  it('author-written [[mem_N]] is normalized through the same resolver', () => {
+    // deleted id → muted code, NOT the broken [[`mem_N`]]
+    expect(linkifyMemRefs('violates [[mem_2620]]', { idTypeIndex: new Map() })).toBe(
+      'violates `mem_2620`'
+    )
+    // known id → legible alias link
+    expect(
+      linkifyMemRefs('see [[mem_42]]', {
+        idTypeIndex: new Map([['mem_42', 'gotcha']]),
+        idTitleIndex: new Map([['mem_42', 'busy_timeout CAS retry']]),
+        perEntryTypes: new Set(['gotcha']),
+      })
+    ).toBe('see [[mem_42|busy_timeout CAS retry]]')
+  })
+
+  it('backward compatible: no idTitleIndex → legacy mem_N label', () => {
+    const out = linkifyMemRefs('resolves=mem_3135', {
+      idTypeIndex: new Map([['mem_3135', 'gotcha']]),
+    })
+    expect(out).toBe('resolves=[[gotcha#^mem-3135|mem_3135]]')
   })
 })

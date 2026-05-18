@@ -368,6 +368,33 @@ export const projectMemory = {
   },
 
   /**
+   * EVERY entry — no limit, no topic/type filter, no latest-winner
+   * dedupe. The vault link layer needs this: `recall()` collapses
+   * `(type, key)` duplicates and caps results, so an older entry that
+   * a current one still references (`resolves=mem_2609`) vanishes from
+   * the index and its links rot to a dangling `[[mem_2609]]`. Building
+   * the `mem_N → {type,title}` index from the full set is what keeps
+   * every cross-reference resolvable (the mem_3233 dangling class, at
+   * graph scale). Read-only, best-effort.
+   */
+  allEntriesForIndex(projectId: string): MemoryEntry[] {
+    try {
+      const rows = prjctDb.query<EventRow>(
+        projectId,
+        'SELECT id, type, data, timestamp FROM events WHERE type LIKE ? ORDER BY id DESC',
+        `${REMEMBER_EVENT_PREFIX}%`
+      )
+      const shipped = prjctDb.query<ShippedRow>(
+        projectId,
+        'SELECT id, name, type, shipped_at, data FROM shipped_features ORDER BY shipped_at DESC'
+      )
+      return [...rows.map(rowToEntry), ...shipped.map(shippedRowToEntry)]
+    } catch {
+      return []
+    }
+  },
+
+  /**
    * Lightweight similarity: share any keyword from the description. Good
    * enough to surface "we already shipped this" nudges; Phase 5 can layer
    * embeddings on top without changing the API.
@@ -409,16 +436,96 @@ export const projectMemory = {
  */
 export interface FormatMemoryMdOptions {
   vault?: boolean
+  /** `mem_N → type` so a cross-ref resolves to the right vault target. */
   idTypeIndex?: Map<string, string>
+  /**
+   * `mem_N → human title` (from {@link deriveTitle}). When present the
+   * wikilink display text is the title, not the opaque `mem_N` — the
+   * graph reads as knowledge for a human and an LLM, not DB keys.
+   * Additive: absent → legacy `mem_N` display (CLI lock unaffected).
+   */
+  idTitleIndex?: Map<string, string>
+  /**
+   * Types rendered as their own per-entry note (carrying
+   * `aliases: [mem_N]`). Refs to these resolve via the stable alias
+   * `[[mem_N|title]]`; everything else uses the aggregated-file block
+   * anchor `[[type#^mem-N|title]]`. Absent → legacy block-anchor form.
+   */
+  perEntryTypes?: ReadonlySet<string>
 }
 
-/** `mem_3135` / `mem-3135` → `[[decision#^mem-3135|mem_3135]]` (or `[[mem_3135]]` if type unknown). */
-function linkifyMemRefs(text: string, idTypeIndex?: Map<string, string>): string {
-  return text.replace(/\bmem[_-](\d+)\b/g, (_m, n: string) => {
-    const canonical = `mem_${n}`
-    const type = idTypeIndex?.get(canonical)
-    return type ? `[[${type}#^mem-${n}|${canonical}]]` : `[[${canonical}]]`
-  })
+const TITLE_MAX = 72
+
+/** Make a title safe as Obsidian wikilink display text. */
+function linkLabel(s: string): string {
+  return s
+    .replace(/[[\]|]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/**
+ * Deterministic, LLM-free human title for an entry, derived from its
+ * content. Used as the per-entry note filename slug, H1, and every
+ * wikilink's display text so the vault graph is legible knowledge, not
+ * `mem_3247` keys. Pure + stable: same entry → same title.
+ */
+export function deriveTitle(entry: Pick<MemoryEntry, 'content' | 'type' | 'id' | 'tags'>): string {
+  let raw = (entry.content ?? '').trim()
+  raw = raw.replace(/^(?:[-*•]\s+|\s+)+/, '')
+  raw = raw.replace(/^(?:\[\[[^\]]*\]\]|mem[_-]\d+)[\s:,-]*/i, '').trim()
+  let cut = raw.length
+  for (const b of [/\n/, /\.\s/, /:\s/, /;\s/, /\s—\s/, /\s\(/]) {
+    const m = raw.match(b)
+    if (m && m.index !== undefined && m.index > 4 && m.index < cut) cut = m.index
+  }
+  let title = raw.slice(0, cut).replace(/\s+/g, ' ').trim()
+  title = title
+    .replace(/\[\[[^\]|]*\|([^\]]*)\]\]/g, '$1')
+    .replace(/\[\[([^\]]*)\]\]/g, '$1')
+    .trim()
+  if (title.length > TITLE_MAX) {
+    const slice = title.slice(0, TITLE_MAX)
+    const sp = slice.lastIndexOf(' ')
+    title = `${(sp > 40 ? slice.slice(0, sp) : slice).trim()}…`
+  }
+  if (title.length < 6) title = `${entry.type} ${entry.id}`
+  const pr = entry.tags?.pr
+  if (pr && !new RegExp(`\\b#?${pr}\\b`).test(title)) title = `${title} (PR #${pr})`
+  return title
+}
+
+/**
+ * `mem_3135` → `[[mem_3135|<title>]]` (per-entry note, via alias) or
+ * `[[gotcha#^mem-3135|<title>]]` (aggregated file block anchor).
+ *
+ * When the id is NOT in the index it no longer exists (forgotten /
+ * pre-history). The old mem_3233 fix linked it anyway (`[[mem_N]]`,
+ * "clickable not dead text") — but at graph scale that IS the bug the
+ * user reported: every deleted ref became an orphan dangling node, a
+ * dust of `mem_N` dots. An unresolvable id is not knowledge; render it
+ * as muted inline-code text (honest, no fake node, no graph noise).
+ */
+export function linkifyMemRefs(text: string, opts?: FormatMemoryMdOptions): string {
+  // Author-written bare `[[mem_N]]` wikilinks (common in spec free-text)
+  // must go through the SAME resolver — otherwise an unresolvable one
+  // renders as the broken `[[\`mem_N\`]]`. Collapse the exact shape
+  // (no pipe, no #) back to a token first.
+  return text
+    .replace(/\[\[(mem[_-]\d+)\]\]/gi, '$1')
+    .replace(/\bmem[_-](\d+)\b/g, (_m, n: string) => {
+      const canonical = `mem_${n}`
+      const type = opts?.idTypeIndex?.get(canonical)
+      const title = opts?.idTitleIndex?.get(canonical)
+      const display = title ? linkLabel(title) : canonical
+      if (type && opts?.perEntryTypes?.has(type)) {
+        return `[[${canonical}|${display}]]`
+      }
+      if (type) {
+        return `[[${type}#^mem-${n}|${display}]]`
+      }
+      return title ? `[[${canonical}|${display}]]` : `\`${canonical}\``
+    })
 }
 
 export function formatMemoryMd(entries: MemoryEntry[], opts?: FormatMemoryMdOptions): string {
@@ -474,10 +581,8 @@ export function formatMemoryMd(entries: MemoryEntry[], opts?: FormatMemoryMdOpti
       // (`^mem-N`) so it is a real navigable target (mem_3233 — the
       // dangling-pointer class is closed where the user actually reads:
       // Obsidian).
-      const content = opts?.vault ? linkifyMemRefs(e.content, opts.idTypeIndex) : e.content
-      const tagSuffix = tags
-        ? `  _(${opts?.vault ? linkifyMemRefs(tags, opts.idTypeIndex) : tags})_`
-        : ''
+      const content = opts?.vault ? linkifyMemRefs(e.content, opts) : e.content
+      const tagSuffix = tags ? `  _(${opts?.vault ? linkifyMemRefs(tags, opts) : tags})_` : ''
       const rowid = e.id.replace(/^mem[_-]/, '')
       const anchor = opts?.vault ? ` ^mem-${rowid}` : ''
       lines.push(`- \`${prov}\` [${e.id} · ${e.type}] ${content}${tagSuffix}${anchor}`)
