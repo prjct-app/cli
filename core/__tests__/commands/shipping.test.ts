@@ -15,7 +15,12 @@ import path from 'node:path'
 import { ShippingCommands } from '../../commands/shipping'
 import configManager from '../../infrastructure/config-manager'
 import pathManager from '../../infrastructure/path-manager'
+import { prjctDb } from '../../storage/database'
+import { shippedStorage } from '../../storage/shipped-storage'
 import { workflowRuleStorage } from '../../storage/workflow-rule-storage'
+
+// Mirrors the (module-local) marker key in shipping.ts.
+const SHIP_MARKER_KEY = 'ship:in_progress'
 
 async function freshProject(): Promise<{ projectPath: string; projectId: string }> {
   const projectPath = await fs.mkdtemp(path.join(os.tmpdir(), 'prjct-ship-test-'))
@@ -89,6 +94,43 @@ describe('ship() — workflow-first', () => {
       .then(() => true)
       .catch(() => false)
     expect(pkgExists).toBe(false)
+  })
+
+  test('reconciles an interrupted ship (marker → shipped row) idempotently', async () => {
+    // Simulate a prior ship that pushed v9.9.9 but crashed before recording.
+    prjctDb.setDoc(projectId, SHIP_MARKER_KEY, {
+      feature: 'lost feature',
+      version: '9.9.9',
+      startedAt: new Date().toISOString(),
+    })
+
+    // The next ship must reconcile the marker BEFORE its own work.
+    const r = await cmd.ship('next thing', projectPath, { md: true, intent: 'register-only' })
+    expect(r.success).toBe(true)
+
+    // The interrupted ship's row was recovered…
+    expect(await shippedStorage.getByVersion(projectId, '9.9.9')).toBeTruthy()
+    // …the marker was cleared…
+    expect(prjctDb.getDoc(projectId, SHIP_MARKER_KEY)).toBeNull()
+    // …and the current ship still recorded its own row.
+    const all = await shippedStorage.read(projectId)
+    expect(all.shipped.some((s: { name: string }) => s.name === 'next thing')).toBe(true)
+  })
+
+  test('reconcile is a no-op when the marker version is already recorded', async () => {
+    await shippedStorage.addShipped(projectId, { name: 'already done', version: '5.0.0' })
+    prjctDb.setDoc(projectId, SHIP_MARKER_KEY, {
+      feature: 'already done',
+      version: '5.0.0',
+      startedAt: new Date().toISOString(),
+    })
+
+    await cmd.ship('another', projectPath, { md: true, intent: 'register-only' })
+
+    const all = await shippedStorage.read(projectId)
+    // No duplicate 5.0.0 row, and the stale marker is cleared.
+    expect(all.shipped.filter((s: { version: string }) => s.version === '5.0.0')).toHaveLength(1)
+    expect(prjctDb.getDoc(projectId, SHIP_MARKER_KEY)).toBeNull()
   })
 
   test('code project auto-seeds ship rules on first run (migration path)', async () => {
