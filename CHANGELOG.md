@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.23.1] - 2026-05-18
+
+### Bug Fixes
+
+- orchestrator triage-first — stop funneling every action through spec+reviewers (#355)
+
+
 ## [2.23.0] - 2026-05-18
 
 ### Features
