@@ -307,6 +307,60 @@ describe('StorageManager', () => {
       expect(persisted).toEqual(result)
     })
 
+    it('casSetDoc rejects a stale write (lost-update guard)', async () => {
+      await manager.write(testProjectId, { value: 'v0', count: 0, items: [] })
+      const key = 'test-data' // getStoreKey() strips '.json' from the filename
+
+      // Reader A snapshots the row + its stamp.
+      const a = prjctDb.getDocWithStamp<TestData>(testProjectId, key)
+      expect(a).not.toBeNull()
+
+      // Writer B commits first against that same stamp → succeeds.
+      const bOk = prjctDb.casSetDoc(
+        testProjectId,
+        key,
+        { value: 'B', count: 1, items: [] },
+        a?.updatedAt ?? null
+      )
+      expect(bOk).toBe(true)
+
+      // Writer A now tries to write against the now-stale stamp. Without
+      // CAS this blind-overwrites B (B's update lost). It MUST be rejected.
+      const aOk = prjctDb.casSetDoc(
+        testProjectId,
+        key,
+        { value: 'A', count: 0, items: [] },
+        a?.updatedAt ?? null
+      )
+      expect(aOk).toBe(false)
+
+      const final = prjctDb.getDocWithStamp<TestData>(testProjectId, key)
+      expect(final?.data.value).toBe('B') // B survived; A did not clobber it
+    })
+
+    it('concurrent update() calls do not lose each other (no lost update)', async () => {
+      await manager.write(testProjectId, { value: 'seed', count: 0, items: [] })
+
+      // 12 concurrent updaters each appending a distinct item. The old
+      // read→transform→write blind-overwrote; CAS-retry must land all 12.
+      const N = 12
+      await Promise.all(
+        Array.from({ length: N }, (_, i) =>
+          manager.update(testProjectId, (cur) => ({
+            ...cur,
+            count: cur.count + 1,
+            items: [...cur.items, `item-${i}`],
+          }))
+        )
+      )
+
+      manager.clearCache(testProjectId)
+      const result = await manager.read(testProjectId)
+      expect(result.count).toBe(N)
+      expect(result.items.length).toBe(N)
+      expect(new Set(result.items).size).toBe(N) // every concurrent write survived
+    })
+
     it('should handle multiple sequential updates', async () => {
       await manager.write(testProjectId, { value: 'start', count: 0, items: [] })
 

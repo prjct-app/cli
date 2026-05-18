@@ -170,6 +170,67 @@ class PrjctDatabase {
     ).run(key, json, now)
   }
 
+  /**
+   * Read a doc together with its `updated_at` stamp — the optimistic-
+   * concurrency token used by {@link casSetDoc}. `null` when absent.
+   */
+  getDocWithStamp<T>(projectId: string, key: string): { data: T; updatedAt: string } | null {
+    const db = this.getDb(projectId)
+    const row = this.prepareCached(db, 'SELECT data, updated_at FROM kv_store WHERE key = ?').get(
+      key
+    ) as { data: string; updated_at: string } | null
+    if (!row) return null
+    return { data: JSON.parse(row.data) as T, updatedAt: row.updated_at }
+  }
+
+  /**
+   * Strictly-monotonic kv_store stamp (mirrors spec-storage.nextUpdatedAt):
+   * two writes inside the same millisecond would otherwise produce an EQUAL
+   * token and a stale CAS read could silently win. ISO8601 sorts
+   * chronologically as a string so `>` stays correct.
+   */
+  private nextKvStamp(db: SqliteDatabase, key: string): string {
+    const row = this.prepareCached(db, 'SELECT updated_at FROM kv_store WHERE key = ?').get(
+      key
+    ) as {
+      updated_at: string
+    } | null
+    const now = new Date().toISOString()
+    const prev = row?.updated_at
+    if (!prev || now > prev) return now
+    return new Date(new Date(prev).getTime() + 1).toISOString()
+  }
+
+  /**
+   * Compare-and-set write for kv_store. `expected` is the `updated_at`
+   * the caller based its transform on (null ⇒ caller saw no row):
+   *   - expected === null  → INSERT, succeeds only if the key is still absent
+   *   - expected === stamp → UPDATE … WHERE updated_at = expected
+   * Returns false when another writer committed in between (caller must
+   * re-read and retry). This is the lost-update guard for the
+   * read-modify-write path (StorageManager.update) under daemon+CLI
+   * concurrency — WAL/busy_timeout alone does not prevent it.
+   */
+  casSetDoc<T>(projectId: string, key: string, data: T, expected: string | null): boolean {
+    const db = this.getDb(projectId)
+    const json = JSON.stringify(data)
+    const now = this.nextKvStamp(db, key)
+    if (expected === null) {
+      return (
+        this.prepareCached(
+          db,
+          'INSERT INTO kv_store (key, data, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO NOTHING'
+        ).run(key, json, now).changes === 1
+      )
+    }
+    return (
+      this.prepareCached(
+        db,
+        'UPDATE kv_store SET data = ?, updated_at = ? WHERE key = ? AND updated_at = ?'
+      ).run(json, now, key, expected).changes === 1
+    )
+  }
+
   deleteDoc(projectId: string, key: string): void {
     const db = this.getDb(projectId)
     this.prepareCached(db, 'DELETE FROM kv_store WHERE key = ?').run(key)
