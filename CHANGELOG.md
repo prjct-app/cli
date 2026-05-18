@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.23.4] - 2026-05-18
+
+### Bug Fixes
+
+- vault: link cross-references by the note's real slug/basename, not the `mem_N` frontmatter alias — Obsidian's Graph view resolves links by path/basename and ignores aliases, so v2.23.3's alias-only links were graph-invisible (with `hideUnresolved` the relations disappeared entirely). Relations now render as actual graph edges.
+
 ## [2.23.3] - 2026-05-18
 
 ### Bug Fixes
