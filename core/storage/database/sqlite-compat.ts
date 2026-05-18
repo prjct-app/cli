@@ -29,12 +29,28 @@ export interface SqliteStatement {
   run(...params: SqliteBindings[]): SqliteRunResult
 }
 
+/**
+ * A transaction wrapper. Both bun:sqlite and better-sqlite3 return a callable
+ * that ALSO carries `.deferred`/`.immediate`/`.exclusive` variants. Default
+ * (calling it directly) is DEFERRED — the write lock is only taken at the
+ * first write, so two concurrent writers can both enter and then collide,
+ * aborting one MID-transaction on SQLITE_BUSY. `.immediate` takes the write
+ * lock up front: contention fails fast/predictably (or waits out
+ * busy_timeout), never mid-write.
+ */
+export interface SqliteTransaction<T> {
+  (...args: SqliteDatabase[]): T
+  deferred: (...args: SqliteDatabase[]) => T
+  immediate: (...args: SqliteDatabase[]) => T
+  exclusive: (...args: SqliteDatabase[]) => T
+}
+
 /** Minimal database interface shared by bun:sqlite and better-sqlite3 */
 export interface SqliteDatabase {
   prepare(sql: string): SqliteStatement
   run(sql: string): void
   close(): void
-  transaction<T>(fn: (...args: SqliteDatabase[]) => T): (...args: SqliteDatabase[]) => T
+  transaction<T>(fn: (...args: SqliteDatabase[]) => T): SqliteTransaction<T>
 }
 
 /**

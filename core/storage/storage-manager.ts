@@ -121,10 +121,20 @@ export abstract class StorageManager<T> {
    * Path: cache → SQLite kv_store → default
    */
   async read(projectId: string): Promise<T> {
+    // Cross-process staleness gate: the daemon is long-lived, so its 5s TTL
+    // cache can serve a value a concurrent short-lived CLI process already
+    // overwrote in SQLite (the daemon never saw that write). Inside the
+    // daemon, always read SQLite — it's the source of truth and the per-op
+    // cost is a single indexed kv_store lookup. Short-lived CLI processes
+    // keep the cache (their lifetime rarely outlives a concurrent write).
+    const inDaemon = process.env.PRJCT_IN_DAEMON === '1' || process.env.PRJCT_DAEMON === '1'
+
     // Check cache first (with expiration)
-    const cached = this.cache.get(projectId)
-    if (cached !== null) {
-      return cached
+    if (!inDaemon) {
+      const cached = this.cache.get(projectId)
+      if (cached !== null) {
+        return cached
+      }
     }
 
     // Try SQLite kv_store (primary store)
