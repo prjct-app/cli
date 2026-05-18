@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.21.1] - 2026-05-18
+
+### Bug Fixes
+
+- route all remaining os.homedir()/.prjct-cli sites through pathManager (#344)
+- optimistic CAS on StorageManager.update() — close the lost-update data race (#346)
+- gate workflow rules ingested from repo markdown (close clone-to-RCE) (#345)
+
+
 ## [Unreleased]
 
 ## [2.21.0] - 2026-05-17
