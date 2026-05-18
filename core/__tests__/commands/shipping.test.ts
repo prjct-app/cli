@@ -7,7 +7,7 @@
  * `clarification` when the state is ambiguous.
  */
 
-import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, setDefaultTimeout, spyOn, test } from 'bun:test'
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs/promises'
 import os from 'node:os'
@@ -18,6 +18,12 @@ import pathManager from '../../infrastructure/path-manager'
 import { prjctDb } from '../../storage/database'
 import { shippedStorage } from '../../storage/shipped-storage'
 import { workflowRuleStorage } from '../../storage/workflow-rule-storage'
+
+// Each test does a REAL ship: temp project + DB init + workflow
+// dispatch + vault regen + cleanup. That exceeds bun's 5s default
+// under CI load (flaky timeout at exactly 5001ms). Match the repo
+// convention for heavy real-I/O command tests (update-cleanup.test.ts).
+setDefaultTimeout(60_000)
 
 // Mirrors the (module-local) marker key in shipping.ts.
 const SHIP_MARKER_KEY = 'ship:in_progress'
