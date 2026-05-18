@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.23.0] - 2026-05-18
+
+### Features
+
+- resolvable + legible memory references (no more opaque mem_NNNN) (#354)
+
+### Bug Fixes
+
+- make prjct upgrade bulletproof — no silent misroute, no stale-daemon, no downgrade (#353)
+
+
 ## [2.22.1] - 2026-05-18
 
 ### Bug Fixes
