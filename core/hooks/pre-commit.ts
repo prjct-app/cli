@@ -16,6 +16,7 @@ import { execSync } from 'node:child_process'
 import configManager from '../infrastructure/config-manager'
 import { formatMemoryMd, type MemoryEntry, projectMemory } from '../memory/project-memory'
 import { runHook } from './_runner'
+import { safeTruncate } from './_shared'
 
 const MAX_CHARS = 1200
 const MAX_ENTRIES = 3
@@ -100,7 +101,7 @@ async function buildPreCommitContext(projectPath: string): Promise<string | null
   lines.push('')
   lines.push('> Nudge, not block. Proceed if you think it still applies.')
   const body = lines.join('\n')
-  return body.length > MAX_CHARS ? `${body.slice(0, MAX_CHARS - 20)}\n… [truncated]` : body
+  return safeTruncate(body, MAX_CHARS)
 }
 
 export function runPreCommitHook(projectPath: string = process.cwd()): Promise<void> {

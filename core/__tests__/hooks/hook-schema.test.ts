@@ -13,7 +13,13 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import { buildHookOutput } from '../../hooks/_shared'
+import { buildHookOutput, safeTruncate, stripLoneSurrogates } from '../../hooks/_shared'
+
+/** True iff `s` round-trips through UTF-8 — i.e. contains no unpaired
+ *  surrogate. A lone surrogate encodes to U+FFFD, so the round-trip
+ *  differs. This is exactly the property the Anthropic API requires of
+ *  the request body; a string failing it triggers the 400 we fix here. */
+const isWellFormedUtf8 = (s: string): boolean => Buffer.from(s, 'utf8').toString('utf8') === s
 
 describe('buildHookOutput routes per Claude Code schema', () => {
   test('SessionStart uses hookSpecificOutput.additionalContext', () => {
@@ -73,6 +79,54 @@ describe('buildHookOutput routes per Claude Code schema', () => {
     ]) {
       expect(buildHookOutput(event, null)).toEqual({})
     }
+  })
+
+  // Regression: API 400 "no low surrogate in string" — hook output that
+  // ends in a lone UTF-16 high surrogate makes the model request body
+  // un-encodable. Root cause was `s.slice(0, n)` cutting between an
+  // emoji's surrogate pair during truncation.
+  test('buildHookOutput scrubs an unpaired surrogate from context', () => {
+    // U+1F916 🤖 = high D83E + low DD16. Keep only the high half.
+    const corrupted = `state line with a split emoji \uD83E`
+    expect(isWellFormedUtf8(corrupted)).toBe(false) // precondition: it IS broken
+    const out = buildHookOutput('UserPromptSubmit', corrupted)
+    expect(isWellFormedUtf8(out.hookSpecificOutput?.additionalContext ?? '')).toBe(true)
+  })
+
+  test('buildHookOutput scrubs an unpaired LOW surrogate too (systemMessage path)', () => {
+    const corrupted = `\uDD16 nudge with a leading orphan low surrogate`
+    const out = buildHookOutput('Stop', corrupted)
+    expect(isWellFormedUtf8(out.systemMessage ?? '')).toBe(true)
+  })
+
+  test('stripLoneSurrogates preserves valid astral pairs, kills only orphans', () => {
+    const ok = 'robot 🤖 fire 🔥 done'
+    expect(stripLoneSurrogates(ok)).toBe(ok)
+    expect(stripLoneSurrogates(`${ok}\uD83E`)).toBe(`${ok}�`)
+  })
+
+  test('safeTruncate never splits a surrogate pair at the cut boundary', () => {
+    // Build a string where an emoji straddles the truncation point for a
+    // range of caps — the naive slice would leave a lone high surrogate.
+    const head = 'x'.repeat(40)
+    const s = `${head}🤖${'y'.repeat(40)}`
+    for (let max = 30; max <= 60; max++) {
+      const t = safeTruncate(s, max, '…')
+      expect(isWellFormedUtf8(t)).toBe(true)
+      expect(t.length).toBeLessThanOrEqual(max)
+    }
+    // Naive slice at the splitting index really would be ill-formed —
+    // pins that the test is exercising the actual failure mode.
+    const splitAt = head.length + 1 // between high and low surrogate
+    expect(isWellFormedUtf8(s.slice(0, splitAt))).toBe(false)
+  })
+
+  test('safeTruncate is a no-op under budget and respects the marker', () => {
+    expect(safeTruncate('short', 100)).toBe('short')
+    const long = 'a'.repeat(500)
+    const out = safeTruncate(long, 50, '\n… [truncated]')
+    expect(out.endsWith('\n… [truncated]')).toBe(true)
+    expect(out.length).toBeLessThanOrEqual(50)
   })
 
   test('emitted JSON only contains top-level fields Claude Code accepts', () => {

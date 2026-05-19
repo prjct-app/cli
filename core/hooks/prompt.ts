@@ -22,7 +22,7 @@ import { stateStorage } from '../storage/state-storage'
 import { execFileAsync } from '../utils/exec'
 import { fileExists } from '../utils/file-helper'
 import { runHook } from './_runner'
-import { extractKeywords } from './_shared'
+import { extractKeywords, safeTruncate } from './_shared'
 
 const MAX_CHARS = 1800
 const MAX_ENTRIES = 4
@@ -75,7 +75,7 @@ async function buildPromptContext(projectPath: string, prompt: string): Promise<
   lines.push('')
   lines.push('> Exposed as state. Use if relevant; ignore if not.')
   const body = lines.join('\n')
-  return body.length > MAX_CHARS ? `${body.slice(0, MAX_CHARS - 20)}\n… [truncated]` : body
+  return safeTruncate(body, MAX_CHARS)
 }
 
 /**
@@ -306,9 +306,7 @@ export function runPromptHook(projectPath: string = process.cwd()): Promise<void
       const blocks = [state, signals, memory].filter((b): b is string => Boolean(b))
       if (blocks.length === 0) return null
       const context = blocks.join('\n\n')
-      return context.length > MAX_CHARS
-        ? `${context.slice(0, MAX_CHARS - 20)}\n… [truncated]`
-        : context
+      return safeTruncate(context, MAX_CHARS)
     },
   })
 }
