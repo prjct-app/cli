@@ -124,10 +124,47 @@ export function extractKeywords(text: string, maxCount = 8): string[] {
   return out
 }
 
+/**
+ * Replace any unpaired UTF-16 surrogate with U+FFFD.
+ *
+ * JS strings are UTF-16; an astral character (emoji, non-BMP CJK) is a
+ * high+low surrogate pair. A lone surrogate — a high not followed by a
+ * low, or a low not preceded by a high — is a well-formed JS string but
+ * NOT representable in UTF-8. When Claude Code forwards our injected
+ * context into the model request body, the Anthropic API rejects it
+ * with `400 ... no low surrogate in string`, killing the user's turn.
+ *
+ * Two ways a lone surrogate reaches us: (1) truncation cutting between a
+ * pair — handled at the source by `safeTruncate` — and (2) corrupted
+ * source content captured by a user. This scrub at the single emit
+ * choke point (`buildHookOutput`) defends against both, for every hook.
+ */
+export function stripLoneSurrogates(s: string): string {
+  // eslint-disable-next-line no-control-regex
+  return s.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '�')
+}
+
+/**
+ * Truncate `s` to at most `max` UTF-16 units, appending `marker`, WITHOUT
+ * ever splitting a surrogate pair. A naive `s.slice(0, n)` can land
+ * between a high and low surrogate, leaving a trailing lone high
+ * surrogate that makes the API request body invalid JSON (see
+ * `stripLoneSurrogates`). If the last retained unit is a high surrogate
+ * we drop it, so the cut always lands on a code-point boundary.
+ */
+export function safeTruncate(s: string, max: number, marker = '\n… [truncated]'): string {
+  if (s.length <= max) return s
+  let end = Math.max(0, max - marker.length)
+  const last = s.charCodeAt(end - 1)
+  if (last >= 0xd800 && last <= 0xdbff) end -= 1 // trailing high surrogate → drop it
+  return s.slice(0, Math.max(0, end)) + marker
+}
+
 export function buildHookOutput(event: string, context: string | null): HookOutput {
   if (!context) return {}
+  const safe = stripLoneSurrogates(context)
   if (ADDITIONAL_CONTEXT_EVENTS.has(event)) {
-    return { hookSpecificOutput: { hookEventName: event, additionalContext: context } }
+    return { hookSpecificOutput: { hookEventName: event, additionalContext: safe } }
   }
-  return { systemMessage: context }
+  return { systemMessage: safe }
 }
