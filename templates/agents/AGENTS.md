@@ -74,10 +74,10 @@ Projects that want a multi-agent workflow can run `prjct crew install` to drop a
 
 Each member has a stable name + color so you can identify who is acting at a glance, in any LLM. Source of truth: `templates/crew/registry.json`.
 
-| Emoji | Name | Role | Color |
-|---|---|---|---|
-| 🎯 | Leader | Orchestrator | cyan |
-| ⚙️ | Implementer | Worker | green |
-| ✓ | Reviewer | Strict auditor | red |
+| Name | Role | Color |
+|---|---|---|
+| Leader | Orchestrator | cyan |
+| Implementer | Worker | green |
+| Reviewer | Strict auditor | red |
 
-Crew SUBAGENT DISPATCH is Claude Code only (only Claude Code currently exposes an Agent tool that can spawn typed subagents). In Codex / Gemini / Cursor / Windsurf the roster above is informational — the same session plays whichever role the prompt names; identify it explicitly when you reply ("acting as ⚙️ Implementer").
+Crew SUBAGENT DISPATCH is Claude Code only (only Claude Code currently exposes an Agent tool that can spawn typed subagents). In Codex / Gemini / Cursor / Windsurf the roster above is informational — the same session plays whichever role the prompt names; identify it explicitly when you reply ("acting as Implementer").

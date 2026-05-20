@@ -1,6 +1,6 @@
 ---
 name: implementer
-description: "⚙️ Implementer (Worker, green). Implements exactly ONE prjct task end-to-end. Writes code, writes tests, self-verifies. Never approves its own work."
+description: "Implementer (Worker, green). Implements exactly ONE prjct task end-to-end. Writes code, writes tests, self-verifies. Never approves its own work."
 tools: Read, Write, Edit, Glob, Grep, Bash
 model: opus
 color: green
