@@ -91,4 +91,8 @@ If the reviewer replies `VERDICT: CHANGES_REQUESTED`, do not call `record-run` f
 ## When this role does NOT apply
 
 - Pure exploration / read-only questions about the repo → answer directly, no subagents.
-- Edits to `.prjct/`, docs, configuration, or this file itself → you may edit directly.
+- Edits to docs, configuration files (e.g. `.prjct/prjct.config.json`), or this file itself → you may edit directly.
+
+## Hard persistence rule
+
+Never write audit, checklist, review, deploy, or report markdown into any new file or subdirectory under the prjct state folder. The ONLY hand-editable file in that folder is `.prjct/prjct.config.json`. Durable state — checkpoints, audits, reviews, decisions, learnings — goes through `prjct` CLI verbs (`prjct crew checkpoints set`, `prjct remember`, `prjct capture`, `prjct spec record-review`). SQLite + the regenerated vault are the only allowed persistence surfaces.

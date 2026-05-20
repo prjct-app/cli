@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.23.8] - 2026-05-19
+
+### Bug Fixes
+- crew leader templates no longer grant blanket `.prjct/` write permission — the previous "Edits to `.prjct/` … you may edit directly" line let the leader create `.prjct/audits/`, `.prjct/CHECKPOINTS.md`, `.prjct/deploy/RAILWAY-CHECKLIST.md` in client repos, violating the absolute-persistence rule. Allowlist now scoped to `.prjct/prjct.config.json`; added explicit "Hard persistence rule" section in both `templates/crew/agents/leader.md` and `templates/crew/CLAUDE-leader-mode.md`. Guard test extended (`FORBIDDEN` += audits/deploy/CHECKPOINTS paths, plus positive assertion that the canonical config path is named as the only edit-allowed file under `.prjct/`).
+
 ## [2.23.7] - 2026-05-18
 
 ### Added
