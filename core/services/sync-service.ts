@@ -17,6 +17,7 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { setupMcpServers } from '../commands/setup/mcp'
 import { indexProject as indexBm25 } from '../domain/bm25'
 import { indexCoChanges } from '../domain/git-cochange'
 import { indexImports } from '../domain/import-graph'
@@ -159,6 +160,9 @@ class SyncService {
           log.warn(`Codex p. router not ready: ${codexRouter.message || 'verification failed'}`)
         }
       }
+
+      // Keep prjct-managed MCP defaults self-healing from sync as well as setup.
+      await phase('mcp-defaults', () => setupMcpServers({ silent: true, verifyContext7: false }))
 
       // Context7 is mandatory for deterministic coding workflows
       try {

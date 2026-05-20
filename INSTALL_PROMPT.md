@@ -22,9 +22,10 @@ Install or upgrade prjct (project memory + quality workflows for AI coding agent
    - npm:  `npm install -g prjct-cli@latest`
    - homebrew: `brew upgrade prjct-cli` (or `brew install prjct-cli`)
 
-3. Run `prjct setup` to install Claude Code hooks + the global CLAUDE.md lookup-first block.
-4. If the cwd is a git repo, run `prjct sync` to register it.
-5. Verify with `prjct -v` and tell me which package manager you used.
+3. Run `prjct install` to verify/repair required native dependencies (SQLite / better-sqlite3) and install hooks. This command must not block the setup if repair is deferred; daemon startup retries the repair.
+4. Run `prjct setup` to install provider config + the global CLAUDE.md lookup-first block.
+5. If the cwd is a git repo, run `prjct sync` to register it.
+6. Verify with `prjct -v` and tell me which package manager you used.
 
 After install, the prjct skill activates on requests like "review this branch", "qa the UI", "security check", or "investigate this bug" — each with a named methodology (Production Bug Hunt, OWASP+STRIDE, Iron Law, Coverage Gate). Stop hook auto-captures decisions/learnings/gotchas + detects hot files, recurring bugs, and tech-debt growth so the next session compounds.
 ```
@@ -32,7 +33,7 @@ After install, the prjct skill activates on requests like "review this branch", 
 ### Shorter version (one-liner)
 
 ```text
-Install or upgrade prjct: detect my package manager (pnpm > bun > yarn > npm in preference order; reuse the one that owns any existing prjct install), run the matching `<pm> install -g prjct-cli@latest` (or `yarn global add` / `brew upgrade prjct-cli`), then `prjct setup`, then `prjct sync` if cwd is git. Verify with `prjct -v`.
+Install or upgrade prjct: detect my package manager (pnpm > bun > yarn > npm in preference order; reuse the one that owns any existing prjct install), run the matching `<pm> install -g prjct-cli@latest` (or `yarn global add` / `brew upgrade prjct-cli`), then `prjct install`, then `prjct setup`, then `prjct sync` if cwd is git. Verify with `prjct -v`.
 ```
 
 ### Why detection matters
@@ -75,6 +76,7 @@ For users who want the npm path:
 
 ```bash
 npm install -g prjct-cli@latest
+prjct install # verifies native SQLite dependency + hooks
 prjct sync   # in any git repo
 ```
 
@@ -114,6 +116,7 @@ The `install-via-claude.sh` script's output explicitly distinguishes the path:
 - **Lookup-first block** between `<!-- prjct:start -->` markers in `~/.claude/CLAUDE.md`
 - **Config dir** at `~/.prjct-cli/` (per-project SQLite under `projects/<id>/`)
 - **Vault** at `~/Documents/prjct/<slug>/_generated/` (auto-regenerated, browsable in Obsidian)
+- **Native SQLite binding** (`better-sqlite3`) for Node installs; verified during package install, `prjct install`, and daemon startup
 
 Self-heal updates the CLAUDE.md block and hooks on every version bump — no manual `prjct setup` needed after upgrade.
 

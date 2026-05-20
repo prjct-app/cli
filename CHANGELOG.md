@@ -8,7 +8,11 @@
 ## [2.23.7] - 2026-05-18
 
 ### Added
-- current work
+- Repair required SQLite native dependencies during package install, `prjct install`, and daemon startup.
+- Configure only required MCP defaults (`context7` and `prjct`); Linear and Jira remain manual optional integrations.
+
+### Changed
+- Document native dependency repair in the README, install prompt, and SQLite migration guide.
 
 ## [2.23.6] - 2026-05-18
 
@@ -76,6 +80,20 @@
 - gate workflow rules ingested from repo markdown (close clone-to-RCE) (#345)
 
 ## [Unreleased]
+
+## [2.23.10] - 2026-05-20
+
+### Fixed
+- Retry native SQLite dependency repair before daemon startup and keep install flows non-blocking when repair is deferred.
+
+## [2.23.9] - 2026-05-20
+
+### Added
+- Repair required SQLite native dependencies during package install, `prjct install`, and daemon startup.
+- Configure only required MCP defaults (`context7` and `prjct`); Linear and Jira remain manual optional integrations.
+
+### Changed
+- Document native dependency repair in the README, install prompt, and SQLite migration guide.
 
 ## [2.23.5] - 2026-05-18
 

@@ -18,7 +18,7 @@ Install or upgrade prjct on this machine. First detect which package manager I u
 - yarn: `yarn global add prjct-cli@latest`
 - npm:  `npm install -g prjct-cli@latest`
 
-After install, run `prjct setup` to wire hooks, then `prjct sync` if the cwd is a git repo. Verify with `prjct -v` and tell me which package manager you used.
+After install, run `prjct install` to verify/repair required native dependencies and hooks, then `prjct setup` to wire providers, then `prjct sync` if the cwd is a git repo. Verify with `prjct -v` and tell me which package manager you used.
 ```
 
 ~30 seconds. Claude detects YOUR package manager (pnpm, bun, yarn, npm) and uses it — critical so we don't end up with parallel installs in different package managers' bin dirs. Re-pasting upgrades to the latest published version.
@@ -68,6 +68,14 @@ Or set it and forget it: `prjct config set auto-update on` (throttled background
 check, logs to `~/.prjct-cli/state/auto-update.log`).
 
 Full install + upgrade paths: [INSTALL_PROMPT.md](./INSTALL_PROMPT.md).
+
+### Native dependency repair
+
+prjct uses SQLite for local project memory. On Node installs, that requires the
+`better-sqlite3` native binding. The package install, `prjct install`, and
+daemon startup all verify the binding and retry `npm rebuild better-sqlite3`
+when needed. If a locked-down sandbox blocks the rebuild, install still
+continues and the daemon retries the repair the next time it starts.
 
 ## What you get
 

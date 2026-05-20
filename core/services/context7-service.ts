@@ -7,6 +7,7 @@ import { getErrorMessage, isNotFoundError } from '../types/fs'
 import type { Context7Status } from '../types/services.js'
 import { execFileAsync } from '../utils/exec'
 import { writeJson } from '../utils/file-helper'
+import { MCP_SERVER_PRESETS } from '../utils/mcp-config'
 
 // Persistent verify cache lives at ~/.prjct-cli/state/context7-verify.json so
 // the 5-min TTL survives across CLI invocations. Without this, every fresh
@@ -49,10 +50,7 @@ interface Context7TemplateConfig {
   }
 }
 
-const CONTEXT7_DEFAULT = {
-  command: 'npx',
-  args: ['-y', '@upstash/context7-mcp@latest'],
-}
+const CONTEXT7_DEFAULT = MCP_SERVER_PRESETS.context7
 let cachedVerify: { at: number; status: Context7Status } | null = null
 
 function parseTemplateConfig(): Context7TemplateConfig {

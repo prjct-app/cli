@@ -301,7 +301,7 @@ async function driftForSpec(
   }
 
   return {
-    drift: cosmeticOnly ? false : true,
+    drift: !cosmeticOnly,
     locChanged,
     cosmeticOnly,
   }

@@ -28,6 +28,7 @@
     },
   },
   "trustedDependencies": [
+    "better-sqlite3",
     "chalk",
   ],
   "overrides": {
