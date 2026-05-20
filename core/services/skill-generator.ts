@@ -77,6 +77,10 @@ function buildSkillContent(def: SkillDefinition, ctx: SkillContext): string {
   return `${buildFrontmatter(def, ctx)}\n\n${def.body(ctx)}`
 }
 
+function homeDir(): string {
+  return process.env.HOME || os.homedir()
+}
+
 // ============================================================================
 // SKILL GENERATOR
 // ============================================================================
@@ -128,7 +132,7 @@ class SkillGenerator {
       userPatterns: richContext?.userPatterns ?? [],
     }
 
-    const skillsDir = path.join(os.homedir(), '.claude', 'skills')
+    const skillsDir = path.join(homeDir(), '.claude', 'skills')
 
     for (const def of SKILL_DEFINITIONS) {
       if (!def.condition(conditionContext)) {
