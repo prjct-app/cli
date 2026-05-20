@@ -2,11 +2,13 @@
 
 ## Supported Versions
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 0.11.x  | :white_check_mark: |
-| 0.10.x  | :white_check_mark: |
-| < 0.10  | :x:                |
+The latest minor on `main` plus the previous minor receive security fixes. Older releases are not patched — upgrade with `bun install -g prjct-cli@latest` (or your installer of choice).
+
+| Version | Supported |
+| ------- | --------- |
+| Latest 2.x | :white_check_mark: |
+| Previous 2.x minor | :white_check_mark: |
+| 1.x and older | :x: |
 
 ## Security Model
 
@@ -19,20 +21,9 @@ prjct-cli is designed with privacy and security as core principles:
 - **No cloud sync** - your productivity data stays on your machine
 - **No external servers** - works entirely offline (except Claude integration)
 
-### What We Store
+### Data Policy
 
-| Data | Location | Purpose |
-|------|----------|---------|
-| Project config | `.prjct/prjct.config.json` | Project identification |
-| Task history | `~/.prjct-cli/projects/{id}/` | Progress tracking |
-| Session logs | `memory/context.jsonl` | Activity history |
-
-### What We DON'T Store
-
-- No credentials or API keys
-- No source code content (only file paths for analysis)
-- No personal information beyond git author name/email
-- No sensitive data from your codebase
+We store: project config (`.prjct/prjct.config.json`), task history (`~/.prjct-cli/projects/{id}/`), and session activity in SQLite. We do **not** store credentials, API keys, source code bodies (only paths for analysis), or personal info beyond the git author name/email already in your commits. `prjct remember` and `prjct capture` refuse content that looks like a secret or like a prompt-injection payload unless invoked with `--force`.
 
 ### Dependencies
 

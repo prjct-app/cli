@@ -38,15 +38,7 @@ Install or upgrade prjct: detect my package manager (pnpm > bun > yarn > npm in 
 
 ### Why detection matters
 
-If Claude assumes one package manager (say, npm) and you actually use pnpm, the install creates a SECOND prjct in your nvm bin dir while your existing pnpm install stays in `~/Library/pnpm/`. PATH resolution picks one — usually whichever is earlier — and you see a stale version. Aggressive cleanup of duplicates can leave your shell with NO working prjct.
-
-The detection-first prompt avoids this entirely. It's also why the standalone-binary script (Path 2) detects existing installs and upgrades in-place rather than blindly creating new ones.
-
-### Why detection in the prompt and not via npm?
-
-The standalone binary install (`curl | bash`) is the cleanest no-package-manager path, but **Claude Code's harness intentionally blocks remote `curl | bash` execution for safety** — that's a sandbox policy, not something a prompt can or should bypass. The package-manager path runs through Claude Code's allowed tool surface.
-
-If you want the standalone binary, see Path 2 (run yourself in a terminal).
+If Claude assumes one package manager and you actually use another, the install creates a SECOND prjct in a parallel bin dir while the existing install stays put — PATH resolution picks one and you see a stale version. The detection-first prompt and the standalone-binary script (Path 2) both upgrade in-place to avoid this.
 
 ---
 
@@ -92,19 +84,9 @@ prjct config set suggestions off   # mute proactive workflow nudges
 prjct team --enforce               # require prjct in this repo (pre-commit hook)
 ```
 
-## Upgrade (3 ways, all equivalent)
+## Upgrade
 
-| Method | Command | When to use |
-|---|---|---|
-| **Same paste prompt** | re-run Path 1 above | The default. Works whether prjct is installed or not. |
-| **CLI shortcut** | `prjct update` | If you're already in a terminal with prjct installed. Auto-detects npm/pnpm/bun/yarn/homebrew and upgrades. |
-| **Silent auto-update** | `prjct config set auto-update on` (one time) | Set and forget. Hook checks 1/hour throttled, upgrades in background, logs to `~/.prjct-cli/state/auto-update.log`. |
-
-The `install-via-claude.sh` script's output explicitly distinguishes the path:
-
-- `✓ prjct installed (via binary)` — fresh install
-- `✓ prjct upgraded 2.4.20 → v2.4.26 (via binary)` — actual upgrade
-- `✓ prjct re-verified at v2.4.26 (already current) (via binary)` — no-op (already latest)
+Re-run Path 1 (works whether installed or not), or `prjct update` from a terminal (auto-detects the package manager), or `prjct config set auto-update on` for silent background updates throttled to 1/hour. See README.md for the full upgrade table.
 
 ---
 
