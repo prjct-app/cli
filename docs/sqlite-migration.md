@@ -69,6 +69,25 @@ sqlite> .schema events
 The canonical schema lives in `core/storage/database.ts`. Migrations are
 applied on first connection via the same file.
 
+## Native dependency install
+
+When prjct runs on Node.js, SQLite access uses `better-sqlite3`, which needs a
+platform-specific native binding (`better_sqlite3.node`). Package managers can
+skip dependency lifecycle scripts in sandboxes or locked-down installs, leaving
+the package present but the native binding missing. That breaks the daemon when
+it first opens project memory.
+
+prjct repairs this in three places:
+
+- package `postinstall` runs `scripts/ensure-native-deps.js`;
+- `prjct install` runs the same repair before installing hooks;
+- daemon startup retries the repair immediately before spawning.
+
+The repair is best-effort. If the environment blocks `node-gyp` or npm cache
+writes, install continues and the next daemon startup retries. Bun installs also
+mark `better-sqlite3` as a trusted dependency so its native install script is
+allowed to run.
+
 ## Rules
 
 - **Never** `fs.readFile` or `fs.writeFile` against the legacy JSON paths.

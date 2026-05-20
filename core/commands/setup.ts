@@ -9,7 +9,6 @@ import chalk from 'chalk'
 import commandInstaller from '../infrastructure/command-installer'
 import configManager from '../infrastructure/config-manager'
 import pathManager from '../infrastructure/path-manager'
-import context7Service from '../services/context7-service'
 import authConfig from '../sync/auth-config'
 import { syncClient } from '../sync/sync-client'
 import syncManager from '../sync/sync-manager'
@@ -18,16 +17,11 @@ import type { CommandResult, SetupOptions } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import { execAsync } from '../utils/exec'
 import { fileExists, readJson, writeJson } from '../utils/file-helper'
-import {
-  getClaudeMcpConfigPath,
-  hasMcpServer,
-  MCP_SERVER_PRESETS,
-  upsertMcpServer,
-} from '../utils/mcp-config'
 import { failFromError } from '../utils/md-aware'
 import out from '../utils/output'
 import { VERSION } from '../utils/version'
 import { PrjctCommandsBase } from './base'
+import { setupMcpServers as configureDefaultMcpServers } from './setup/mcp'
 
 export class SetupCommands extends PrjctCommandsBase {
   /**
@@ -553,59 +547,13 @@ margin:1.25rem 0;font-size:.875rem;color:#f87171}
   }
 
   /**
-   * Configure all MCP servers supported by prjct.
+   * Configure MCP servers required by prjct.
    * - Context7: auto-installs and verifies (required for framework API lookups)
-   * - Linear/Jira: auto-adds to mcp.json if not present; OAuth happens inside the AI client
+   * - prjct: auto-installs the local project memory/workflow MCP
+   * - Linear/Jira: optional; configured manually through their setup commands
    */
   private async setupMcpServers(): Promise<void> {
-    console.log('\n🔌 Configuring MCP servers...')
-
-    // ── Context7 ──────────────────────────────────────────────────────────────
-    try {
-      await context7Service.install()
-      const status = await context7Service.verify()
-      if (status.verified) {
-        console.log('✅ Context7 MCP ready (framework API lookups)')
-      } else {
-        console.log(`⚠️  Context7 configured but not yet verified: ${status.message || ''}`)
-        console.log('   It will activate on the next time you open your AI client.')
-      }
-    } catch (error) {
-      console.log(`⚠️  Context7 MCP setup failed: ${getErrorMessage(error)}`)
-      console.log('   Run `prjct start` again to retry.')
-    }
-
-    // ── Linear ────────────────────────────────────────────────────────────────
-    try {
-      const configPath = getClaudeMcpConfigPath()
-      const linearConfigured = await hasMcpServer('linear', configPath)
-      if (linearConfigured) {
-        console.log('✅ Linear MCP already configured')
-      } else {
-        await upsertMcpServer('linear', MCP_SERVER_PRESETS.linear)
-        console.log('✅ Linear MCP added to mcp.json')
-        console.log('   → Open your AI client and run any Linear command to complete OAuth.')
-      }
-    } catch (error) {
-      console.log(`⚠️  Linear MCP setup failed: ${getErrorMessage(error)}`)
-      console.log('   Run `prjct linear setup` to configure manually.')
-    }
-
-    // ── Jira ──────────────────────────────────────────────────────────────────
-    try {
-      const configPath = getClaudeMcpConfigPath()
-      const jiraConfigured = await hasMcpServer('jira', configPath)
-      if (jiraConfigured) {
-        console.log('✅ Jira MCP already configured')
-      } else {
-        await upsertMcpServer('jira', MCP_SERVER_PRESETS.jira)
-        console.log('✅ Jira MCP added to mcp.json')
-        console.log('   → Open your AI client and run any Jira command to complete OAuth.')
-      }
-    } catch (error) {
-      console.log(`⚠️  Jira MCP setup failed: ${getErrorMessage(error)}`)
-      console.log('   Run `prjct jira setup` to configure manually.')
-    }
+    await configureDefaultMcpServers()
   }
 
   /**

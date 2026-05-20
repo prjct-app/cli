@@ -33,19 +33,25 @@ function getPrjctMcpConfig(): MCPServerConfig {
   }
 }
 
-export const MCP_SERVER_PRESETS: Record<'linear' | 'jira' | 'prjct', MCPServerConfig> = {
-  prjct: getPrjctMcpConfig(),
-  linear: {
-    command: 'npx',
-    args: ['-y', MCP_REMOTE_VERSION, 'https://mcp.linear.app/mcp'],
-    description: 'Linear MCP server (OAuth)',
-  },
-  jira: {
-    command: 'npx',
-    args: ['-y', MCP_REMOTE_VERSION, 'https://mcp.atlassian.com/v1/mcp'],
-    description: 'Atlassian MCP server for Jira (OAuth)',
-  },
-}
+export const MCP_SERVER_PRESETS: Record<'context7' | 'linear' | 'jira' | 'prjct', MCPServerConfig> =
+  {
+    context7: {
+      command: 'npx',
+      args: ['-y', '@upstash/context7-mcp@latest'],
+      description: 'Library documentation lookup',
+    },
+    prjct: getPrjctMcpConfig(),
+    linear: {
+      command: 'npx',
+      args: ['-y', MCP_REMOTE_VERSION, 'https://mcp.linear.app/mcp'],
+      description: 'Linear MCP server (OAuth)',
+    },
+    jira: {
+      command: 'npx',
+      args: ['-y', MCP_REMOTE_VERSION, 'https://mcp.atlassian.com/v1/mcp'],
+      description: 'Atlassian MCP server for Jira (OAuth)',
+    },
+  }
 
 export function getClaudeMcpConfigPath(): string {
   if (process.env.PRJCT_TEST_MODE === '1') {
