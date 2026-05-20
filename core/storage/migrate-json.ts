@@ -1,5 +1,11 @@
 /**
- * JSON → SQLite Migration (PRJ-303)
+ * JSON → SQLite Migration (PRJ-303).
+ *
+ * **DEPRECATED — scheduled removal in v3.0.** The JSON layout shipped
+ * pre-v1.24.1; every v2.x install has long since migrated. Skip the
+ * call entirely with `PRJCT_SKIP_JSON_MIGRATION=1` (honored in
+ * sync-service). When this file goes away in v3.0, the gate and the
+ * matching imports in update.ts / sync-service.ts go with it.
  *
  * One-time migration: reads existing JSON/JSONL files and inserts into SQLite.
  * Creates backup of original files before migration.

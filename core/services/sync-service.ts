@@ -188,22 +188,30 @@ class SyncService {
       // 2. Ensure directories exist (non-blocking)
       const ensureDirsPromise = ensureProjectDirectories(this.globalPath)
 
-      // 2b. Auto-migrate JSON → SQLite (idempotent, skips if already done)
+      // 2b. Auto-migrate JSON → SQLite (idempotent, skips if already done).
+      // Deprecation track: the JSON layout shipped pre-v1.24.1; every v2.x
+      // install has long since migrated. Set PRJCT_SKIP_JSON_MIGRATION=1 to
+      // skip this and the sweep below. v3.0 will remove migrate-json.ts.
       await ensureDirsPromise
-      await phase('migrate', () => withTimeout(migrateJsonToSqlite(this.projectId!), 'migrate'))
+      const skipJsonMigration = process.env.PRJCT_SKIP_JSON_MIGRATION === '1'
+      if (!skipJsonMigration) {
+        await phase('migrate', () => withTimeout(migrateJsonToSqlite(this.projectId!), 'migrate'))
 
-      // 2c. Sweep leftover JSON files → import to SQLite → delete
-      // Runs every sync to catch ghosts from old code or failed migrations
-      await phase('sweep', async () => {
-        try {
-          const swept = await sweepLegacyJson(this.projectId!)
-          if (swept > 0) {
-            log.info('Swept legacy JSON files into SQLite', { swept })
+        // 2c. Sweep leftover JSON files → import to SQLite → delete
+        // Runs every sync to catch ghosts from old code or failed migrations
+        await phase('sweep', async () => {
+          try {
+            const swept = await sweepLegacyJson(this.projectId!)
+            if (swept > 0) {
+              log.info('Swept legacy JSON files into SQLite', { swept })
+            }
+          } catch (error) {
+            log.debug('Legacy JSON sweep failed (non-critical)', {
+              error: getErrorMessage(error),
+            })
           }
-        } catch (error) {
-          log.debug('Legacy JSON sweep failed (non-critical)', { error: getErrorMessage(error) })
-        }
-      })
+        })
+      }
 
       // 2d. Legacy crew-disk sweep (spec a50b32d1 AC #10) — detect
       // pre-v2.19.7 `.prjct/CHECKPOINTS.md` and `.prjct/team.json`,
