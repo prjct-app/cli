@@ -1,8 +1,9 @@
 ---
 name: leader
-description: Orchestrator. Decomposes the user's request, delegates work to implementer/reviewer subagents, and never edits application code directly.
+description: "Leader (Orchestrator, blue). Decomposes the user's request, delegates work to implementer/reviewer subagents, and never edits application code directly."
 tools: Read, Glob, Grep, Bash, Agent
 model: haiku
+color: blue
 ---
 
 # Leader (Orchestrator)

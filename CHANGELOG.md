@@ -81,6 +81,16 @@
 
 ## [Unreleased]
 
+## [2.23.12] - 2026-05-20
+
+### Added
+- current work
+
+## [2.23.11] - 2026-05-20
+
+### Added
+- Audit cleanup: prompt-injection defense, perf paralelización, crew identity por nombre+color, vault sweep fix
+
 ## [2.23.10] - 2026-05-20
 
 ### Fixed

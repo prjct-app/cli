@@ -22,6 +22,7 @@ import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import { failHard } from '../utils/md-aware'
 import out from '../utils/output'
+import { scanForPromptInjection } from '../utils/prompt-injection'
 import { scanForSecrets } from '../utils/secret-scanner'
 import { PrjctCommandsBase } from './base'
 
@@ -52,6 +53,14 @@ export class CaptureCommands extends PrjctCommandsBase {
           `refusing to capture content that looks like a secret (${secretHits.join(', ')}). Re-run with --force if intentional.`
         )
         return { success: false, error: 'Secret-like content detected' }
+      }
+
+      const injectionHits = scanForPromptInjection(text)
+      if (injectionHits.length > 0 && !options.force) {
+        out.fail(
+          `refusing to capture content that looks like prompt injection (${injectionHits.join(', ')}). Captures are inlined into LLM context — re-run with --force if intentional.`
+        )
+        return { success: false, error: 'Prompt-injection-like content detected' }
       }
 
       const tags = parseFlagTags(options.tags)

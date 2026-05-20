@@ -29,6 +29,7 @@ import configManager from '../infrastructure/config-manager'
 import { MEMORY_TYPES, type MemoryType, projectMemory } from '../memory/project-memory'
 import { workflowRuleStorage } from '../storage/workflow-rule-storage'
 import type { WorkflowRule } from '../types/storage/extended'
+import { scanForPromptInjection } from '../utils/prompt-injection'
 import { scanForSecrets } from '../utils/secret-scanner'
 import { resolveVaultRoot } from './wiki-migration'
 
@@ -88,6 +89,15 @@ export async function ingestCapturedNotes(
         result.skipped.push({
           file: relName,
           reason: `secret-like content (${secretHits.join(', ')}). Remove or re-run with --force.`,
+        })
+        continue
+      }
+
+      const injectionHits = scanForPromptInjection(parsed.note.content)
+      if (injectionHits.length > 0 && !opts.force) {
+        result.skipped.push({
+          file: relName,
+          reason: `prompt-injection-like content (${injectionHits.join(', ')}). Notes are inlined into LLM context — refuse by default. Remove or re-run with --force.`,
         })
         continue
       }

@@ -19,6 +19,7 @@ import type { CommandResult } from '../types/commands'
 import { getErrorMessage } from '../types/fs'
 import { failHard } from '../utils/md-aware'
 import out from '../utils/output'
+import { scanForPromptInjection } from '../utils/prompt-injection'
 import { scanForSecrets } from '../utils/secret-scanner'
 import { PrjctCommandsBase } from './base'
 import { requireActiveTask, requireProject } from './guards'
@@ -224,6 +225,14 @@ export class PrimitiveCommands extends PrjctCommandsBase {
           `refusing to store memory that looks like a secret (${hit}). Re-run with --force if intentional.`
         )
         return { success: false, error: 'Secret-like content detected' }
+      }
+
+      const injectionHits = scanForPromptInjection(content)
+      if (injectionHits.length > 0 && !options.force) {
+        out.fail(
+          `refusing to store memory that looks like prompt injection (${injectionHits.join(', ')}). Entries are inlined into LLM context — re-run with --force if intentional.`
+        )
+        return { success: false, error: 'Prompt-injection-like content detected' }
       }
 
       const tags = parseFlagTags(options.tags)

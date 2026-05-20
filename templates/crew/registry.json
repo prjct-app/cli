@@ -1,0 +1,27 @@
+{
+  "$schema": "./registry.schema.json",
+  "version": 1,
+  "crew": [
+    {
+      "id": "leader",
+      "name": "Leader",
+      "role": "Orchestrator",
+      "color": "blue",
+      "summary": "Decomposes the user's request and delegates to implementer/reviewer subagents. Never edits application code."
+    },
+    {
+      "id": "implementer",
+      "name": "Implementer",
+      "role": "Worker",
+      "color": "purple",
+      "summary": "Takes one prjct task from active to ready-for-review. Writes code, writes tests, self-verifies. Never approves its own work."
+    },
+    {
+      "id": "reviewer",
+      "name": "Reviewer",
+      "role": "Strict auditor",
+      "color": "pink",
+      "summary": "Approves or rejects work against project checkpoints and conventions. Never edits code."
+    }
+  ]
+}

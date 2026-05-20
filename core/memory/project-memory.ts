@@ -24,6 +24,7 @@
 
 import { memoryService } from '../services/memory-service'
 import prjctDb from '../storage/database'
+import { escapeMarkdownInline } from '../utils/prompt-injection'
 import { REMEMBER_ACTION_PREFIX, REMEMBER_EVENT_PREFIX } from './events'
 
 /**
@@ -436,6 +437,12 @@ export const projectMemory = {
  */
 export interface FormatMemoryMdOptions {
   vault?: boolean
+  /**
+   * Wrap each entry in `<user_content>` tags and escape tag values.
+   * Set on surfaces that feed straight into an LLM (UserPromptSubmit hook,
+   * MCP memory tools) so the model sees a clear data/instruction boundary.
+   */
+  boundary?: 'llm'
   /** `mem_N → type` so a cross-ref resolves to the right vault target. */
   idTypeIndex?: Map<string, string>
   /**
@@ -578,12 +585,14 @@ export function formatMemoryMd(entries: MemoryEntry[], opts?: FormatMemoryMdOpti
     ambiguous: 'AMBG',
   }
 
+  const llmBoundary = opts?.boundary === 'llm'
+
   const renderGroup = (type: string, items: MemoryEntry[]) => {
     if (items.length === 0) return
     lines.push(`### ${type.toUpperCase()}`)
     for (const e of items) {
       const tags = Object.entries(e.tags)
-        .map(([k, v]) => `${k}=${v}`)
+        .map(([k, v]) => `${k}=${llmBoundary ? escapeMarkdownInline(v) : v}`)
         .join(' ')
       const prov = PROV_PREFIX[e.provenance]
       // `[mem_N · type]` not bare `[mem_N]`: a reference says WHAT it is
@@ -598,7 +607,17 @@ export function formatMemoryMd(entries: MemoryEntry[], opts?: FormatMemoryMdOpti
       const tagSuffix = tags ? `  _(${opts?.vault ? linkifyMemRefs(tags, opts) : tags})_` : ''
       const rowid = e.id.replace(/^mem[_-]/, '')
       const anchor = opts?.vault ? ` ^mem-${rowid}` : ''
-      lines.push(`- \`${prov}\` [${e.id} · ${e.type}] ${content}${tagSuffix}${anchor}`)
+      const row = `- \`${prov}\` [${e.id} · ${e.type}] ${content}${tagSuffix}${anchor}`
+      if (llmBoundary) {
+        // Wrap user-captured content in an explicit data boundary so the
+        // LLM treats it as data, not instructions, even if the body
+        // contains command-like text.
+        lines.push(`<user_content id="${e.id}" type="${e.type}">`)
+        lines.push(row)
+        lines.push('</user_content>')
+      } else {
+        lines.push(row)
+      }
     }
     lines.push('')
   }

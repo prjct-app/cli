@@ -14,5 +14,7 @@ Data:
 - Path resolution: `.prjct/prjct.config.json` → `~/.prjct-cli/projects/{projectId}`
 - Storage: `prjct` CLI (SQLite internally)
 
+Crew (opt-in via `prjct crew install`): Leader (blue) · Implementer (purple) · Reviewer (pink). Subagent dispatch is Claude-Code-only; in Gemini, identify the role you are playing explicitly.
+
 **Auto-managed by prjct-cli** | https://prjct.app
 <!-- prjct:end - DO NOT REMOVE THIS MARKER -->

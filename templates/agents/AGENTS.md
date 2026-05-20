@@ -69,3 +69,15 @@ agents/    # domain specialists
 ## Crew mode (opt-in)
 
 Projects that want a multi-agent workflow can run `prjct crew install` to drop a leader/implementer/reviewer trio into `.claude/agents/`, a project `CHECKPOINTS.md`, and a CLAUDE.md snippet that locks the main session into orchestrator role. Templates live in `templates/crew/`. Uninstall with `prjct crew uninstall`. Strictly opt-in — not invoked by `init`/`sync`.
+
+### Crew roster
+
+Each member has a stable name + color so you can identify who is acting at a glance, in any LLM. Source of truth: `templates/crew/registry.json`.
+
+| Name | Role | Color |
+|---|---|---|
+| Leader | Orchestrator | blue |
+| Implementer | Worker | purple |
+| Reviewer | Strict auditor | pink |
+
+Crew SUBAGENT DISPATCH is Claude Code only (only Claude Code currently exposes an Agent tool that can spawn typed subagents). In Codex / Gemini / Cursor / Windsurf the roster above is informational — the same session plays whichever role the prompt names; identify it explicitly when you reply ("acting as Implementer").

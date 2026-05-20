@@ -6,7 +6,7 @@
  * redirect PACKAGE_ROOT to the freshly installed copy after Phase 1.
  */
 
-import { execSync } from 'node:child_process'
+import { execFileSync, execSync } from 'node:child_process'
 import os from 'node:os'
 import path from 'node:path'
 import { resetPackageRoot } from '../../utils/version'
@@ -80,7 +80,10 @@ export const MANAGERS: Record<PkgManagerName, PkgManager> = {
 
 export function isHomebrewInstall(): boolean {
   try {
-    const result = execSync('brew list prjct-cli 2>/dev/null', { encoding: 'utf-8' })
+    const result = execFileSync('brew', ['list', 'prjct-cli'], {
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'ignore'],
+    })
     return !!result
   } catch {
     return false
@@ -90,7 +93,7 @@ export function isHomebrewInstall(): boolean {
 /** Whether `name` resolves to an executable in the current PATH. */
 export function isOnPath(name: PkgManagerName): boolean {
   try {
-    execSync(`command -v ${name}`, { stdio: 'pipe', shell: '/bin/sh' })
+    execFileSync('which', [name], { stdio: 'pipe' })
     return true
   } catch {
     return false
