@@ -6,21 +6,21 @@
       "id": "leader",
       "name": "Leader",
       "role": "Orchestrator",
-      "color": "cyan",
+      "color": "blue",
       "summary": "Decomposes the user's request and delegates to implementer/reviewer subagents. Never edits application code."
     },
     {
       "id": "implementer",
       "name": "Implementer",
       "role": "Worker",
-      "color": "green",
+      "color": "purple",
       "summary": "Takes one prjct task from active to ready-for-review. Writes code, writes tests, self-verifies. Never approves its own work."
     },
     {
       "id": "reviewer",
       "name": "Reviewer",
       "role": "Strict auditor",
-      "color": "red",
+      "color": "pink",
       "summary": "Approves or rejects work against project checkpoints and conventions. Never edits code."
     }
   ]

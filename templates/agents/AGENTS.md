@@ -76,8 +76,8 @@ Each member has a stable name + color so you can identify who is acting at a gla
 
 | Name | Role | Color |
 |---|---|---|
-| Leader | Orchestrator | cyan |
-| Implementer | Worker | green |
-| Reviewer | Strict auditor | red |
+| Leader | Orchestrator | blue |
+| Implementer | Worker | purple |
+| Reviewer | Strict auditor | pink |
 
 Crew SUBAGENT DISPATCH is Claude Code only (only Claude Code currently exposes an Agent tool that can spawn typed subagents). In Codex / Gemini / Cursor / Windsurf the roster above is informational — the same session plays whichever role the prompt names; identify it explicitly when you reply ("acting as Implementer").
