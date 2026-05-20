@@ -81,6 +81,11 @@
 
 ## [Unreleased]
 
+## [2.23.13] - 2026-05-20
+
+### Added
+- Audit followups: docs tightening, scripts orphans verified, CHANGELOG archive split, migrate-json deprecation track
+
 ## [2.23.12] - 2026-05-20
 
 ### Added
@@ -1354,7 +1359,6 @@ usable, not just carved out.
 - PR 2 — dispatcher auto-route (`prjct "fix bug"` → `prjct task`)
 - PR 3 — lazy context injection (`prjct task` < 50 tokens)
 - PR 4 — workflow engine upgrade: status-transitions as steps, conditionals, parallel hooks, cache, rich project-memory API
-
 
 ---
 
