@@ -1,6 +1,6 @@
-# prjct
+# prjct-cli
 
-**Project memory + quality workflows for AI coding agents.** prjct gives Claude Code (and any agent) durable memory of your projects: decisions, learnings, gotchas, hot files, recurring bugs. Plus 5 named quality workflows (review, qa, security, investigate, ship) that persist findings back to memory so the next session compounds.
+**Project memory + quality workflows for AI coding agents.** prjct-cli gives Claude Code (and any agent) durable memory of your projects: decisions, learnings, gotchas, hot files, recurring bugs. Plus 5 named quality workflows (review, qa, security, investigate, ship) that persist findings back to memory so the next session compounds.
 
 [![npm](https://img.shields.io/npm/v/prjct-cli)](https://www.npmjs.com/package/prjct-cli)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Ready-6366f1)]()
@@ -12,7 +12,7 @@
 Copy this prompt and paste it in Claude Code (works for fresh install AND upgrade — Claude picks YOUR package manager, doesn't force npm):
 
 ```text
-Install or upgrade prjct on this machine. First detect which package manager I use globally (check `command -v pnpm`, `command -v bun`, `command -v yarn`, `command -v npm` in that order; also check where any existing `prjct` install lives via `command -v prjct` and use the SAME package manager so we don't create parallel installs). Then run the matching install:
+Install or upgrade prjct-cli on this machine. First detect which package manager I use globally (check `command -v pnpm`, `command -v bun`, `command -v yarn`, `command -v npm` in that order; also check where any existing `prjct` install lives via `command -v prjct` and use the SAME package manager so we don't create parallel installs). Then run the matching install:
 - pnpm: `pnpm install -g prjct-cli@latest`
 - bun:  `bun install -g prjct-cli@latest`
 - yarn: `yarn global add prjct-cli@latest`
@@ -35,9 +35,9 @@ curl -sSL https://raw.githubusercontent.com/jlopezlira/prjct-cli/main/scripts/in
 
 The script auto-detects platform (mac arm64/intel + linux x64), downloads the right binary from GitHub Releases, sets up `~/.local/bin/prjct` on your PATH, runs `prjct setup` + `prjct sync`, and warns you if a stale package-manager install is shadowing the new binary.
 
-### Updating prjct (built-in)
+### Updating prjct-cli (built-in)
 
-prjct updates itself. The canonical command is **`prjct update`**, with
+prjct-cli updates itself. The canonical command is **`prjct update`**, with
 **`prjct upgrade`** as an identical alias:
 
 ```bash
@@ -61,7 +61,7 @@ What it does, in three phases (`core/commands/update.ts`):
 Flags: `--dry-run`, `--yes`/`-y`, `--cleanup` / `--no-cleanup` (default `auto`),
 `--md` (machine-readable output for agents/CI).
 
-**Knowing an update exists:** prjct checks at most once every 24h (cached, fully
+**Knowing an update exists:** prjct-cli checks at most once every 24h (cached, fully
 non-blocking — never delays a command) and, after the command's own output,
 prints a one-line banner: `Update available! x.y.z → a.b.c — Run: prjct upgrade`.
 Or set it and forget it: `prjct config set auto-update on` (throttled background
@@ -71,7 +71,7 @@ Full install + upgrade paths: [INSTALL_PROMPT.md](./INSTALL_PROMPT.md).
 
 ### Native dependency repair
 
-prjct uses SQLite for local project memory. On Node installs, that requires the
+prjct-cli uses SQLite for local project memory. On Node installs, that requires the
 `better-sqlite3` native binding. The package install, `prjct install`, and
 daemon startup all verify the binding and retry `npm rebuild better-sqlite3`
 when needed. If a locked-down sandbox blocks the rebuild, install still
@@ -79,7 +79,7 @@ continues and the daemon retries the repair the next time it starts.
 
 ## What you get
 
-After install, **next session in any prjct project**:
+After install, **next session in any prjct-cli project**:
 
 - **Lookup-first protocol**: Claude reads `~/Documents/prjct/<slug>/_generated/` (architecture, patterns, decisions, gotchas, recent ships) BEFORE re-exploring source. Cuts ~10K tokens of exploration per session.
 - **Auto-capture**: Stop hook scans the assistant transcript and persists durable insights (decisions/learnings/gotchas) tagged for dedup. The next session finds them in the vault.
@@ -97,7 +97,7 @@ After install, **next session in any prjct project**:
 State lives in **SQLite** at `~/.prjct-cli/projects/<id>/`. The vault at `~/Documents/prjct/<slug>/_generated/` is an auto-regenerated Markdown snapshot — agent-readable via `Read`/`Glob`, browsable in Obsidian.
 
 ```
-Claude Code session                       prjct
+Claude Code session                       prjct-cli
        |                                    |
        | SessionStart hook fires            |
        | --------------------------------> |  self-heal CLAUDE.md, regen vault
@@ -178,7 +178,7 @@ In Claude Code, ask naturally:
 Optional flags:
 ```bash
 prjct config set auto-update on    # silent self-update (1/hour throttled)
-prjct team --enforce               # pre-commit hook blocks commits without prjct
+prjct team --enforce               # pre-commit hook blocks commits without prjct-cli
 ```
 
 ## Inside Claude Code / Gemini CLI
@@ -255,7 +255,7 @@ Remove with `prjct claude uninstall` (hooks only) or `prjct uninstall` (everythi
 
 ## MCP Server
 
-prjct exposes an MCP server with 5 tool groups:
+prjct-cli exposes an MCP server with 5 tool groups:
 
 | Group | Tools |
 |---|---|
@@ -265,7 +265,7 @@ prjct exposes an MCP server with 5 tool groups:
 | **workflow** | list, run, log |
 | **code-intel** | related, impact, stale |
 
-The broker model: if you already have `linear`, `jira`, `posthog`, `gmail` MCPs wired, prjct **does not duplicate them** — it tells your agent they're available for the current persona and caches your insights locally.
+The broker model: if you already have `linear`, `jira`, `posthog`, `gmail` MCPs wired, prjct-cli **does not duplicate them** — it tells your agent they're available for the current persona and caches your insights locally.
 
 ## CLI
 
@@ -339,7 +339,7 @@ A combined ranker fuses the three signals (`core/domain/file-ranker.ts`) and pow
 
 ## Issue Tracker Integration
 
-Bring your own MCP — prjct doesn't duplicate trackers.
+Bring your own MCP — prjct-cli doesn't duplicate trackers.
 
 - **Linear**: configure the official Linear MCP in your agent and declare it in `persona.mcps`.
 - **Jira**: same — use the official Atlassian MCP.
@@ -387,7 +387,7 @@ prjct-cli/
 ## Common questions
 
 **How do I initialize / register a new project?**
-In any git repo, run `prjct sync` (it auto-runs on the first prjct command) or
+In any git repo, run `prjct sync` (it auto-runs on the first `prjct` command) or
 `prjct init`. This creates `.prjct/prjct.config.json` with a `projectId`, builds
 the SQLite store at `~/.prjct-cli/projects/<projectId>/`, and generates the vault.
 
@@ -411,7 +411,7 @@ argument prints the currently active task.
 
 **How do I get AI assistance for a coding problem?**
 Inside Claude Code (or any wired agent) describe the problem in natural
-language — prjct maps the intent to a quality workflow and runs its methodology,
+language — prjct-cli maps the intent to a quality workflow and runs its methodology,
 persisting findings to memory. Concrete examples:
 
 | You say… | Workflow activated | What it does |
@@ -426,7 +426,7 @@ project use?" and the agent reads `~/Documents/prjct/<slug>/_generated/patterns.
 instead of grepping source (the lookup-first protocol). Outside an agent, every
 command takes `--md` to emit agent-ready markdown.
 
-**What does prjct output look like in a normal terminal?**
+**What does prjct-cli output look like in a normal terminal?**
 A branded, **animated** spinner with full colors and interactive prompts (the
 native human experience). See [What it looks like](#what-it-looks-like).
 
@@ -434,9 +434,9 @@ native human experience). See [What it looks like](#what-it-looks-like).
 `prjct update` (alias `prjct upgrade`) — auto-detects your package manager, pins
 the true registry-latest, consolidates parallel installs, restarts the daemon.
 A non-blocking 24h-cached banner tells you when one is available. See
-[Updating prjct](#updating-prjct-built-in).
+[Updating prjct-cli](#updating-prjct-cli-built-in).
 
-**How does prjct tailor its output for Claude Code specifically?**
+**How does prjct-cli tailor its output for Claude Code specifically?**
 Once it detects Claude (env vars / MCP / `CLAUDE.md` / `~/.claude/`) and sees
 piped stdio (non-TTY), it adapts on every axis, with no flag:
 
@@ -457,7 +457,7 @@ Full per-environment table: [docs/environments.md](./docs/environments.md).
 
 **What's the output in an OpenAI Codex sandbox?**
 Codex is detected by the `codex` CLI on PATH (context file `AGENTS.md`). The
-sandbox is non-interactive/non-TTY, so prjct emits the same static, prompt-free
+sandbox is non-interactive/non-TTY, so prjct-cli emits the same static, prompt-free
 status line as any agent; add `--md` for fully markdown-structured output.
 
 **How do I quickly find the local `.prjct/` directory?**
@@ -478,10 +478,10 @@ the *other* tiers: DB at `~/.prjct-cli/projects/<projectId>/prjct.db`, vault at
 base). The in-repo `.prjct/` holds only config, not state — full detail in
 [docs/storage-and-paths.md](./docs/storage-and-paths.md).
 
-**How does prjct detect its environment with no configuration?**
+**How does prjct-cli detect its environment with no configuration?**
 Every signal is something the host sets itself — Claude exports env vars and
 pipes stdio, Codex puts `codex` on PATH, a real terminal has a TTY, CI doesn't.
-prjct reads those ambient facts (precedence in
+prjct-cli reads those ambient facts (precedence in
 [docs/environments.md](./docs/environments.md)) rather than asking you to declare
 anything.
 
