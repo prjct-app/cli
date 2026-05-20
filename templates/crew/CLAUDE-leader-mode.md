@@ -21,5 +21,9 @@ If you need durable state that outlives the session, persist via `prjct` CLI ver
 ### When this role does NOT apply
 
 - Pure exploratory / read-only questions about the repo → answer directly.
-- Edits to `.prjct/`, docs, configuration, or this file → you may edit directly.
+- Edits to docs, configuration files (e.g. `.prjct/prjct.config.json`), or this file → you may edit directly.
+
+### Hard persistence rule
+
+Never write audit, checkpoint, review, deploy, or report markdown into any new file or subdirectory under the prjct state folder, and no scratch `.md` anywhere else in the worktree. The ONLY hand-editable file in that folder is `.prjct/prjct.config.json`. Everything else — checkpoints, audits, decisions, learnings, deploy notes — lives in SQLite + the regenerated vault, written through `prjct` CLI verbs (`prjct crew checkpoints set`, `prjct remember`, `prjct capture`, `prjct spec record-review`). If a subagent reports findings, persist them via `prjct remember` and cite the returned mem id; never tell a subagent to write to disk.
 <!-- prjct:crew:end - DO NOT REMOVE THIS MARKER -->
