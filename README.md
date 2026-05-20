@@ -137,45 +137,7 @@ detail, worktrees, monorepos: **[docs/storage-and-paths.md](./docs/storage-and-p
 
 ## Execution environments (zero-config)
 
-The same binary runs in a plain shell, inside Claude Code, in an OpenAI Codex
-sandbox, or in CI — and **detects which, with no configuration**, then adapts
-output accordingly. Here is the actual *how*.
-
-**Mechanism 1 — agent detection** (`core/infrastructure/agent-detector.ts`,
-`isClaudeEnvironment()`). prjct concludes it's inside **Claude** if *any* of
-these is true, evaluated **in this order** (first match wins, result cached for
-the process):
-
-1. env var `CLAUDE_AGENT` or `ANTHROPIC_CLAUDE` is set (Claude's runtime sets it);
-2. `global.mcp` is present **or** `MCP_AVAILABLE` is set (MCP is available);
-3. a `CLAUDE.md` file exists in the current working directory;
-4. a `~/.claude/` directory exists;
-5. the cwd path contains `/.claude/` or `/claude-workspace/`.
-
-If **none** match, prjct falls back to the **Terminal/CLI** profile — that *is*
-the plain-terminal detection: it's the default when no Claude signal is present.
-**OpenAI Codex** is detected separately (`ai-provider.ts`, `detectCodex()`) by
-the **`codex` CLI binary being on `PATH`** (a stray `~/.codex/` alone is not
-enough); Codex's context file is `AGENTS.md`, skills under `~/.codex/skills/`.
-
-**Mechanism 2 — output adaptation** (no flag needed; three independent signals):
-
-- **TTY** (`core/utils/output.ts`, `spin()`): `process.stdout.isTTY` decides the
-  spinner — `true` (human terminal) → animated branded spinner redrawn with `\r`;
-  `false` (Claude Code, Codex, CI, a pipe) → a **single static** `⚡ prjct …`
-  line, no animation.
-- **LLM-context gate** (`core/index.ts`):
-  `isLlmContext = !process.stdin.isTTY || options.md === true || options.json === true`.
-  Commands declared `requiresLlm` refuse to run in a *raw human terminal* unless
-  `--md`/`--json` is passed — inside an agent `stdin.isTTY` is already false, so
-  they run transparently with no flag.
-- **`--md` / `--json`** (any env): an explicit override — strips the branding
-  header/footer, emits machine-structured markdown/JSON.
-
-Every signal (env var, `PATH`, TTY, piped stdio) is something the **host sets on
-its own** — prjct reads those ambient facts instead of asking you to declare
-anything. Full per-environment output table:
-**[docs/environments.md](./docs/environments.md)**.
+The same binary runs in a plain shell, inside Claude Code, in an OpenAI Codex sandbox, or in CI, and **adapts output automatically with no configuration**. Detection signals (env vars, MCP, `CLAUDE.md`, `~/.claude/`, the `codex` binary on PATH, `process.stdout.isTTY`) are read silently; `--md` / `--json` are the only overrides. Full per-environment table, source-file references, and the detection order: **[docs/environments.md](./docs/environments.md)**.
 
 ### What it looks like
 

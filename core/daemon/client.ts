@@ -314,7 +314,9 @@ export async function spawnDaemon(): Promise<boolean> {
   const child = spawn(runtime, [entryPath], {
     detached: true,
     stdio: ['ignore', logFd, logFd],
-    env: { ...process.env, PRJCT_DAEMON: '1' },
+    // The daemon entry sets PRJCT_IN_DAEMON itself before any consumer
+    // code runs, so we just inherit the parent env.
+    env: process.env,
   })
 
   child.unref()

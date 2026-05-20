@@ -1,25 +1,8 @@
 # SQLite Migration (v1.24.1+)
 
-## Why SQLite
+> **Status:** complete on every v2.x install. This page is historical reference for the one-shot JSON → SQLite migration. The `migrate-json.ts` subsystem is on a deprecation track and will be removed in v3.0.
 
-Before v1.24.1, project state lived in ~10 JSON files under
-`~/.prjct-cli/projects/{projectId}/storage/` (`state.json`, `queue.json`,
-`ideas.json`, `shipped.json`, `metrics.json`, `velocity.json`, `analysis.json`,
-`roadmap.json`, `session.json`, `issues.json`) plus JSONL event streams and
-several JSON index files.
-
-Problems with that layout:
-- **Partial writes.** A crash mid-`writeFile` left half-written JSON.
-- **Concurrency.** Two commands running in parallel could race.
-- **Query cost.** Reading `shipped.json` to find one entry meant parsing
-  the whole file.
-- **Integrity.** No schema enforcement at the storage layer.
-
-SQLite fixes all of these:
-- Atomic transactions and WAL mode for concurrent reads during writes.
-- Indexed queries instead of full-file scans.
-- Schema constraints at the storage layer.
-- One file per project: `~/.prjct-cli/projects/{projectId}/prjct.db`.
+Pre-v1.24.1, project state lived in ~10 JSON files (`state.json`, `queue.json`, `shipped.json`, etc.) plus JSONL event streams. Partial writes, concurrency races, full-file scans, and zero schema enforcement made it brittle. v1.24.1 replaced that with one SQLite file per project (`~/.prjct-cli/projects/{projectId}/prjct.db`) running in WAL mode — atomic transactions, indexed queries, schema constraints.
 
 ## What the migration does
 
