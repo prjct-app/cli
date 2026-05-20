@@ -165,8 +165,12 @@ register memory types, name workflow slots, and declare hook signals — but
 never ship bash pipelines. Scripts are authored on demand by the human or
 the agent, using `projectMemory` + MCP as signal sources.
 
-This is the "prjct exposes the WHAT, the agent decides the HOW" invariant:
-zero numbered steps, zero prescriptive pipelines, zero harness.
+This is the "prjct remembers and shows the path; the agent decides the HOW"
+invariant. prjct persists project state, emits signals, and exposes recall
+surfaces. Claude, GPT, and other agents use their own native tools and judgment
+to execute, then persist outcomes back through prjct. The compatibility target
+is semantic events and durable memory, not a prescriptive harness: zero numbered
+steps, zero fixed pipelines.
 
 ## Testing
 

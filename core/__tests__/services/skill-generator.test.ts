@@ -179,7 +179,16 @@ describe('SkillGenerator (alpha.11 single skill)', () => {
       const content = await fs.readFile(result.generated[0].path, 'utf-8')
       expect(content).toContain('## Use when')
       expect(content).toContain("## What's here")
+      expect(content).toContain('### Agent contract')
       expect(content).toContain('## Gotchas')
+    })
+
+    it('states the portable agent contract for Claude and GPT', async () => {
+      const result = await generator.generateAndInstall(makeSyncResult())
+      const content = await fs.readFile(result.generated[0].path, 'utf-8')
+      expect(content).toContain('prjct remembers project state and shows the path')
+      expect(content).toContain('Claude, GPT, and other agents decide the concrete HOW')
+      expect(content).toContain('Treat prjct output as durable signals')
     })
 
     it('exposes primitives (capture, remember, context, workflow, seed)', async () => {

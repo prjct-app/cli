@@ -14,7 +14,7 @@ import { formatProjectHeader, formatRichContext } from './formatters'
 import type { SkillContext } from './types'
 
 export const PRJCT_SKILL_DESCRIPTION =
-  'Project-memory + spec-driven runtime. TRIAGE FIRST, every turn — is this simple or complex? MOST work is SIMPLE (≈1 file, known cause, bug/config/copy/doc, reversible, or the user says fix/hoy/rápido/directo): go DIRECT — `prjct task` → implement → `qa`/`review` → `ship`. NO spec, NO audit-spec, NO reviewer subagents. Spec is the EXCEPTION, ONLY for genuinely complex / high-stakes work (multi-file + new behavior, ambiguous scope, irreversible, or the user frames goals/acceptance/risks): then `spec` → `audit-spec` → `task --spec` → `ship`. Over-routing simple work through spec+reviewers is THE failure mode (burns time/tokens, zero protection on a one-file fix) — when unsure prefer DIRECT and ask one line; never default to spec. Recognize intent in any language (es/en) and run the verb yourself — never make the user type commands. Routine captures (capture/remember/tag) auto-execute, one-line confirm; destructive verbs (ship, status done) suggest-and-confirm; heavy reviews (audit/review/security/investigate) dispatch parallel subagents ONLY when the diff/scope warrants. Lookup-first: vault before re-reading source.'
+  'Project-memory + spec-driven runtime. prjct remembers and shows the path; the agent decides how to execute with its own tools. TRIAGE FIRST, every turn — is this simple or complex? MOST work is SIMPLE (≈1 file, known cause, bug/config/copy/doc, reversible, or the user says fix/hoy/rápido/directo): go DIRECT — `prjct task` → implement → `qa`/`review` → `ship`. NO spec, NO audit-spec, NO reviewer subagents. Spec is the EXCEPTION, ONLY for genuinely complex / high-stakes work (multi-file + new behavior, ambiguous scope, irreversible, or the user frames goals/acceptance/risks): then `spec` → `audit-spec` → `task --spec` → `ship`. Over-routing simple work through spec+reviewers is THE failure mode (burns time/tokens, zero protection on a one-file fix) — when unsure prefer DIRECT and ask one line; never default to spec. Recognize intent in any language (es/en) and run the verb yourself — never make the user type commands. Routine captures (capture/remember/tag) auto-execute, one-line confirm; destructive verbs (ship, status done) suggest-and-confirm; heavy reviews (audit/review/security/investigate) dispatch parallel subagents ONLY when the diff/scope warrants. Lookup-first: vault before re-reading source.'
 
 export const PRJCT_SKILL_ALLOWED_TOOLS = [
   'Bash',
@@ -88,6 +88,13 @@ export function buildPrjctSkillBody(ctx: SkillContext): string {
     formatProjectHeader(ctx),
     '',
     formatRichContext(ctx),
+    '',
+    '### Agent contract',
+    '',
+    '- prjct remembers project state and shows the path; it does not own the execution.',
+    '- Treat prjct output as durable signals: active task, memories, workflows, specs, risks, and recent learnings.',
+    '- Claude, GPT, and other agents decide the concrete HOW with their own native tools and judgment.',
+    '- Persist meaningful outcomes back through `prjct remember`, `prjct capture`, `prjct task`, and `prjct ship` so the next interaction starts smarter.',
     '',
     '### Primitives',
     '',
