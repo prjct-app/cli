@@ -12,6 +12,14 @@ import type { Manifest } from './_shared'
 
 export const MANIFEST_FILE = '.manifest.json'
 
+/**
+ * Generator-owned state files at the vault root that the sweep must
+ * never delete — the regen writes them AFTER the sweep, but deleting
+ * them first would force a needless rewrite every run and leave a tiny
+ * window where the vault has no manifest.
+ */
+const SWEEP_PRESERVE: ReadonlySet<string> = new Set([MANIFEST_FILE, '.regen-fingerprint'])
+
 export async function readManifest(root: string): Promise<Manifest> {
   try {
     const raw = await fs.readFile(path.join(root, MANIFEST_FILE), 'utf-8')
@@ -67,9 +75,14 @@ export async function sweepStaleFiles(root: string, keep: Manifest): Promise<num
         }
         continue
       }
-      if (!entry.name.endsWith('.md')) continue
+      // `_generated/` is 100% generator-owned per the contract above.
+      // Anything inside that isn't in the manifest is cruft — including
+      // `.DS_Store`, stray `.json`, or copy-paste leftovers. Without
+      // this, Finder-created `.DS_Store` blocks the rmdir() that prunes
+      // empty " 2/" dirs (the regression behind mem_3247).
       const rel = path.relative(root, full)
       if (keep[rel]) continue
+      if (SWEEP_PRESERVE.has(rel)) continue
       try {
         await fs.rm(full, { force: true })
         removed++

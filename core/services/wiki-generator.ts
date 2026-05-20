@@ -276,6 +276,10 @@ export async function generateWiki(
   let filesSkipped = 0
   let filesRemoved = 0
 
+  // Hash + classify synchronously (CPU-bound), then write only what's
+  // actually changed in parallel (I/O-bound). On big vaults this drops
+  // regen from O(N) serial writes to O(N/chunk) round-trips.
+  const toWrite: Array<[string, string]> = []
   for (const [rel, body] of files) {
     const hash = sha256(body)
     newManifest[rel] = hash
@@ -283,15 +287,27 @@ export async function generateWiki(
       filesSkipped++
       continue
     }
-    await writeFile(generatedRoot, rel, body)
-    filesWritten++
+    toWrite.push([rel, body])
   }
 
-  // Remove files that existed last run but no longer should.
+  const WRITE_CHUNK = 64
+  for (let i = 0; i < toWrite.length; i += WRITE_CHUNK) {
+    const slice = toWrite.slice(i, i + WRITE_CHUNK)
+    await Promise.all(slice.map(([rel, body]) => writeFile(generatedRoot, rel, body)))
+    filesWritten += slice.length
+  }
+
+  // Remove files that existed last run but no longer should. Same
+  // chunked-parallel pattern.
+  const toRemove: string[] = []
   for (const oldRel of Object.keys(oldManifest)) {
     if (newManifest[oldRel]) continue
-    await removeFile(generatedRoot, oldRel)
-    filesRemoved++
+    toRemove.push(oldRel)
+  }
+  for (let i = 0; i < toRemove.length; i += WRITE_CHUNK) {
+    const slice = toRemove.slice(i, i + WRITE_CHUNK)
+    await Promise.all(slice.map((oldRel) => removeFile(generatedRoot, oldRel)))
+    filesRemoved += slice.length
   }
 
   // Filesystem-level sweep. The manifest-diff above only catches files
