@@ -127,7 +127,7 @@ export abstract class StorageManager<T> {
     // daemon, always read SQLite — it's the source of truth and the per-op
     // cost is a single indexed kv_store lookup. Short-lived CLI processes
     // keep the cache (their lifetime rarely outlives a concurrent write).
-    const inDaemon = process.env.PRJCT_IN_DAEMON === '1' || process.env.PRJCT_DAEMON === '1'
+    const inDaemon = process.env.PRJCT_IN_DAEMON === '1'
 
     // Check cache first (with expiration)
     if (!inDaemon) {

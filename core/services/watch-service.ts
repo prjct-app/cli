@@ -200,7 +200,7 @@ class WatchService {
     // instead of just stopping the watcher. Stopping the watcher above is
     // sufficient; the standalone `prjct watch` CLI still exits via its own
     // signal handlers.
-    if (process.env.PRJCT_IN_DAEMON === '1' || process.env.PRJCT_DAEMON === '1') return
+    if (process.env.PRJCT_IN_DAEMON === '1') return
     process.exit(0)
   }
 
