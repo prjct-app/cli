@@ -21,6 +21,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import { BASE_MEMORY_TYPES, formatMemoryMd, projectMemory } from '../../memory/project-memory'
+import { scanForPromptInjection } from '../../utils/prompt-injection'
 import { scanForSecrets } from '../../utils/secret-scanner'
 import { resolveProjectId } from '../resolve'
 import { safeMcpCall } from './error-handler'
@@ -87,6 +88,18 @@ export function registerMemoryTools(server: McpServer) {
           }
         }
 
+        const injectionHits = scanForPromptInjection(args.content)
+        if (injectionHits.length > 0 && !args.force) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Refused — content looks like prompt injection (${injectionHits.join(', ')}). Memory entries are inlined into LLM context. Re-call with force=true if intentional.`,
+              },
+            ],
+          }
+        }
+
         await projectMemory.remember(args.projectPath, {
           type: typeStr,
           content: args.content,
@@ -129,7 +142,7 @@ export function registerMemoryTools(server: McpServer) {
           tags: args.tags,
           limit: args.limit,
         })
-        return { content: [{ type: 'text', text: formatMemoryMd(entries) }] }
+        return { content: [{ type: 'text', text: formatMemoryMd(entries, { boundary: 'llm' }) }] }
       }
     )
   )
@@ -150,7 +163,7 @@ export function registerMemoryTools(server: McpServer) {
         if (entries.length === 0) {
           return { content: [{ type: 'text', text: 'No similar memories found.' }] }
         }
-        return { content: [{ type: 'text', text: formatMemoryMd(entries) }] }
+        return { content: [{ type: 'text', text: formatMemoryMd(entries, { boundary: 'llm' }) }] }
       }
     )
   )
