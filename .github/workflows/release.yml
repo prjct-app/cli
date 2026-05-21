@@ -124,14 +124,17 @@ jobs:
             exit 0
           fi
 
-          # (2) Conventional-commit path: look for feat/fix/perf/refactor/BREAKING
+          # (2) Conventional-commit path: any conventional prefix triggers a release.
+          # The mental model is "merge to main = release"; cleanup/refactor PRs ship
+          # their wins too. Pure docs commits are still gated out so doc-only churn
+          # doesn't cut version noise.
           COMMITS=$(git log $LAST_TAG..HEAD --pretty=format:"%s" 2>/dev/null || echo "")
 
-          if echo "$COMMITS" | grep -qE "^(feat|fix|perf|refactor)(\(.+\))?:|BREAKING CHANGE"; then
+          if echo "$COMMITS" | grep -qE "^(feat|fix|perf|refactor|chore|build|ci)(\(.+\))?:|BREAKING CHANGE"; then
             echo "Found releasable commits"
             echo "should_release=true" >> $GITHUB_OUTPUT
           else
-            echo "No releasable commits found (feat:, fix:, perf:, refactor:, or BREAKING CHANGE)"
+            echo "No releasable commits found (only docs/test/style commits since last tag)"
             echo "should_release=false" >> $GITHUB_OUTPUT
           fi
 
@@ -262,6 +265,7 @@ jobs:
           FIXES=$(git log $RANGE --pretty=format:"- %s" --grep="^fix" 2>/dev/null | sed 's/^- fix[^:]*: /- /' || echo "")
           PERF=$(git log $RANGE --pretty=format:"- %s" --grep="^perf" 2>/dev/null | sed 's/^- perf[^:]*: /- /' || echo "")
           REFACTOR=$(git log $RANGE --pretty=format:"- %s" --grep="^refactor" 2>/dev/null | sed 's/^- refactor[^:]*: /- /' || echo "")
+          CHORES=$(git log $RANGE --pretty=format:"- %s" --grep="^chore\|^build\|^ci" 2>/dev/null | sed -E 's/^- (chore|build|ci)[^:]*: /- /' || echo "")
 
           if [ -n "$FEATURES" ]; then
             ENTRY+="### Features"$'\n\n'"$FEATURES"$'\n\n'
@@ -277,6 +281,10 @@ jobs:
 
           if [ -n "$REFACTOR" ]; then
             ENTRY+="### Refactoring"$'\n\n'"$REFACTOR"$'\n\n'
+          fi
+
+          if [ -n "$CHORES" ]; then
+            ENTRY+="### Maintenance"$'\n\n'"$CHORES"$'\n\n'
           fi
 
           # Save for release notes
