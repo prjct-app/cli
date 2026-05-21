@@ -7,7 +7,7 @@
  * 3. Daemon restart
  */
 
-import { execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { CommandInstaller } from '../infrastructure/command-installer'
@@ -173,7 +173,9 @@ export class UpdateCommands extends PrjctCommandsBase {
 
       if (homebrew) {
         try {
-          execSync('brew uninstall prjct-cli 2>/dev/null', { stdio: 'pipe' })
+          execFileSync('brew', ['uninstall', 'prjct-cli'], {
+            stdio: ['pipe', 'pipe', 'ignore'],
+          })
           result.details.push('Uninstalled homebrew formula')
         } catch {
           result.details.push('Homebrew uninstall skipped (not found)')
@@ -218,7 +220,7 @@ export class UpdateCommands extends PrjctCommandsBase {
           const args = pinnedSpec
             ? pm.installArgs.map((a) => (a === 'prjct-cli@latest' ? pinnedSpec : a))
             : pm.installArgs
-          execSync([pm.name, ...args].join(' '), { stdio: 'pipe' })
+          execFileSync(pm.name, args, { stdio: 'pipe' })
           result.details.push(`${pm.name} install complete${pinnedSpec ? ` (${pinnedSpec})` : ''}`)
         } catch (err) {
           result.errors.push(`${pm.name}: ${getErrorMessage(err)}`)

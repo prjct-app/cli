@@ -264,6 +264,49 @@ describe('formatMemoryMd — vault makes every mem_N navigable (mem_3233)', () =
     const cli = formatMemoryMd(entries)
     expect(cli).not.toMatch(/\^mem-|\[\[/)
   })
+
+  describe('boundary:"llm" — data/instruction boundary for hook + MCP output', () => {
+    it('wraps each entry in <user_content> tags carrying id + type', () => {
+      const out = formatMemoryMd(
+        [mk({ id: 'mem_42', type: 'learning', content: 'memoize the regex pool' })],
+        { boundary: 'llm' }
+      )
+      expect(out).toContain('<user_content id="mem_42" type="learning">')
+      expect(out).toContain('</user_content>')
+      // The actual row stays between the tags
+      const between = out.slice(
+        out.indexOf('<user_content'),
+        out.indexOf('</user_content>') + '</user_content>'.length
+      )
+      expect(between).toContain('memoize the regex pool')
+    })
+
+    it('escapes markdown control chars in tag values so attackers cannot inject wikilinks', () => {
+      const out = formatMemoryMd(
+        [
+          mk({
+            id: 'mem_99',
+            content: 'innocent body',
+            tags: { resolves: '[[../escape]]', label: '`code`' },
+          }),
+        ],
+        { boundary: 'llm' }
+      )
+      // The raw `[[` and `` ` `` from tag values must NOT survive into output.
+      // (Backslash-escaped forms are fine — they render as literal characters.)
+      expect(out).not.toMatch(/(?:^|[^\\])\[\[\.\.\/escape\]\]/)
+      expect(out).not.toMatch(/(?:^|[^\\])`code`/)
+      // Escaped forms must be present
+      expect(out).toContain('\\[\\[')
+      expect(out).toContain('\\`code\\`')
+    })
+
+    it('does NOT wrap when boundary is omitted (CLI/vault paths stay byte-stable)', () => {
+      const entry = mk({ id: 'mem_1', content: 'plain' })
+      expect(formatMemoryMd([entry])).not.toContain('<user_content')
+      expect(formatMemoryMd([entry], { vault: true })).not.toContain('<user_content')
+    })
+  })
 })
 
 describe('deriveTitle — deterministic, legible, no DB keys', () => {

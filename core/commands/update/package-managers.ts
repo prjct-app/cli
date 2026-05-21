@@ -6,7 +6,7 @@
  * redirect PACKAGE_ROOT to the freshly installed copy after Phase 1.
  */
 
-import { execFileSync, execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import os from 'node:os'
 import path from 'node:path'
 import { resetPackageRoot } from '../../utils/version'
@@ -33,9 +33,9 @@ export const MANAGERS: Record<PkgManagerName, PkgManager> = {
     installArgs: ['install', '-g', 'prjct-cli@latest'],
     getInstallRoot: () => {
       try {
-        return execSync('npm root -g', {
+        return execFileSync('npm', ['root', '-g'], {
           encoding: 'utf-8',
-          stdio: ['pipe', 'pipe', 'pipe'],
+          stdio: 'pipe',
         }).trim()
       } catch {
         return null
@@ -47,9 +47,9 @@ export const MANAGERS: Record<PkgManagerName, PkgManager> = {
     installArgs: ['add', '-g', 'prjct-cli@latest'],
     getInstallRoot: () => {
       try {
-        return execSync('pnpm root -g', {
+        return execFileSync('pnpm', ['root', '-g'], {
           encoding: 'utf-8',
-          stdio: ['pipe', 'pipe', 'pipe'],
+          stdio: 'pipe',
         }).trim()
       } catch {
         return null
@@ -66,9 +66,9 @@ export const MANAGERS: Record<PkgManagerName, PkgManager> = {
     installArgs: ['global', 'add', 'prjct-cli@latest'],
     getInstallRoot: () => {
       try {
-        const dir = execSync('yarn global dir', {
+        const dir = execFileSync('yarn', ['global', 'dir'], {
           encoding: 'utf-8',
-          stdio: ['pipe', 'pipe', 'pipe'],
+          stdio: 'pipe',
         }).trim()
         return path.join(dir, 'node_modules')
       } catch {

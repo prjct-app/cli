@@ -3,7 +3,7 @@
  * actual deletes. Anything that touches disk lives here.
  */
 
-import { execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -114,7 +114,7 @@ export async function performUninstall(
     if (installation.homebrew && installation.homebrewFormula) {
       try {
         if (!options.dryRun) {
-          execSync(`brew uninstall ${installation.homebrewFormula}`, { stdio: 'pipe' })
+          execFileSync('brew', ['uninstall', installation.homebrewFormula], { stdio: 'pipe' })
         }
         deleted.push('Homebrew: prjct-cli')
       } catch (error) {
@@ -124,7 +124,9 @@ export async function performUninstall(
 
     if (installation.npm) {
       try {
-        if (!options.dryRun) execSync('npm uninstall -g prjct-cli', { stdio: 'pipe' })
+        if (!options.dryRun) {
+          execFileSync('npm', ['uninstall', '-g', 'prjct-cli'], { stdio: 'pipe' })
+        }
         deleted.push('npm: prjct-cli')
       } catch (error) {
         errors.push(`npm: ${getErrorMessage(error)}`)

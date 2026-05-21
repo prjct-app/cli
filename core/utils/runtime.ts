@@ -18,8 +18,8 @@ export function isBunAvailable(): boolean {
     return true
   }
   try {
-    const { execSync } = require('node:child_process')
-    execSync('bun --version', { stdio: 'ignore' })
+    const { execFileSync } = require('node:child_process')
+    execFileSync('bun', ['--version'], { stdio: 'ignore' })
     return true
   } catch (_error) {
     return false
