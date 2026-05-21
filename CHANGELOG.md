@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.24.1] - 2026-05-21
+
+### Bug Fixes
+
+- include chore/build/ci commits in auto-changelog Maintenance section (#378)
+
+### Maintenance
+
+- dead _-prefixed defs round 2 + iCloud conflict-dir sweep + knip in CI (#376)
+
+
 ## [2.24.0] - 2026-05-21
 
 ### Features
