@@ -26,6 +26,13 @@ import { extractKeywords, safeTruncate } from './_shared'
 
 const MAX_CHARS = 1800
 const MAX_ENTRIES = 4
+// Per-block budgets — added up they exceed MAX_CHARS, but blocks rarely
+// hit their ceiling simultaneously. Truncating per-block keeps a long
+// project-state block from starving the (usually higher-signal) memory
+// block; the joined output is also re-clamped to MAX_CHARS as a hard cap.
+const MEMORY_BUDGET = 1100
+const SIGNALS_BUDGET = 350
+const STATE_BUDGET = 600
 
 interface HookInput {
   prompt?: string
@@ -43,28 +50,44 @@ async function buildPromptContext(projectPath: string, prompt: string): Promise<
   const keywords = extractKeywords(prompt)
   if (keywords.length === 0) return null
 
-  // Single recall + in-memory filter on keyword union. The previous
-  // implementation called recall() once per keyword (up to 8 times),
-  // each re-running the same two SQL queries — a hot-path waste since
-  // recall ignores the `topic` filter at the SQL level (it filters
-  // post-fetch). One query, recency-sorted, take the first N hits.
-  const lowerKeywords = keywords.map((k) => k.toLowerCase())
-  let pool: MemoryEntry[] = []
+  // FTS5 BM25 first (best signal: relevance, not recency). Fallback to
+  // recency + in-JS keyword match when FTS returns nothing — e.g. a fresh
+  // DB where the backfill hasn't populated `memories` yet, or a prompt
+  // whose tokens don't appear in any indexed memory.
+  let matches: MemoryEntry[] = []
   try {
-    pool = projectMemory.recall(config.projectId, { limit: MAX_ENTRIES * 4 })
+    matches = projectMemory.searchFts(config.projectId, keywords, MAX_ENTRIES)
   } catch {
-    return null
+    matches = []
   }
-  const matches: MemoryEntry[] = []
-  for (const e of pool) {
-    const hay = `${e.content} ${Object.values(e.tags).join(' ')}`.toLowerCase()
-    if (!lowerKeywords.some((kw) => hay.includes(kw))) continue
-    matches.push(e)
-    if (matches.length >= MAX_ENTRIES) break
+
+  if (matches.length < MAX_ENTRIES) {
+    // Recency-window fallback. 8× overfetch when keywords are present so
+    // a relevant-but-older entry isn't dropped just because 32 newer
+    // unrelated entries happened to be written first (the "17th-entry
+    // miss" class).
+    const lowerKeywords = keywords.map((k) => k.toLowerCase())
+    let pool: MemoryEntry[] = []
+    try {
+      pool = projectMemory.recall(config.projectId, { limit: MAX_ENTRIES * 8 })
+    } catch {
+      return matches.length > 0 ? renderMemoryBlock(matches, keywords) : null
+    }
+    const seen = new Set(matches.map((m) => m.id))
+    for (const e of pool) {
+      if (seen.has(e.id)) continue
+      const hay = `${e.content} ${Object.values(e.tags).join(' ')}`.toLowerCase()
+      if (!lowerKeywords.some((kw) => hay.includes(kw))) continue
+      matches.push(e)
+      if (matches.length >= MAX_ENTRIES) break
+    }
   }
 
   if (matches.length === 0) return null
+  return renderMemoryBlock(matches, keywords)
+}
 
+function renderMemoryBlock(matches: MemoryEntry[], keywords: string[]): string {
   const lines = ['# prjct: topical memory']
   lines.push('')
   lines.push(
@@ -78,8 +101,7 @@ async function buildPromptContext(projectPath: string, prompt: string): Promise<
   lines.push(formatMemoryMd(matches, { boundary: 'llm' }))
   lines.push('')
   lines.push('> Exposed as state. Use if relevant; ignore if not.')
-  const body = lines.join('\n')
-  return safeTruncate(body, MAX_CHARS)
+  return safeTruncate(lines.join('\n'), MEMORY_BUDGET)
 }
 
 /**
@@ -177,10 +199,16 @@ async function captureGit(projectPath: string): Promise<GitSnapshot> {
     }
   }
 
-  const branch = await safe(['branch', '--show-current'])
+  // Hook fires on every prompt; 3 sequential git forks cost ~15-45ms.
+  // Running them in parallel collapses to a single round-trip (~5-15ms).
+  // `@{u}` returns empty when no upstream is set; treat as 0 unpushed.
+  const [branch, status, aheadStr] = await Promise.all([
+    safe(['branch', '--show-current']),
+    safe(['status', '--porcelain']),
+    safe(['rev-list', '--count', '@{u}..HEAD']),
+  ])
   if (!branch) return empty
 
-  const status = await safe(['status', '--porcelain'])
   let modified = 0
   let staged = 0
   let untracked = 0
@@ -194,9 +222,6 @@ async function captureGit(projectPath: string): Promise<GitSnapshot> {
     }
   }
 
-  // Unpushed commits vs upstream. `@{u}` returns empty when no upstream
-  // is configured (fresh local branch); treat as 0.
-  const aheadStr = await safe(['rev-list', '--count', '@{u}..HEAD'])
   const ahead = Number.parseInt(aheadStr, 10) || 0
 
   return { branch, modified, staged, untracked, ahead }
@@ -307,10 +332,16 @@ export function runPromptHook(projectPath: string = process.cwd()): Promise<void
         buildPromptContext(p, prompt),
         buildImprovementSignals(p),
       ])
-      const blocks = [state, signals, memory].filter((b): b is string => Boolean(b))
+      // Per-block budgets first (each builder already trims to its own
+      // ceiling; this is a defense-in-depth re-clamp), then MAX_CHARS as
+      // a hard cap on the joined output.
+      const blocks = [
+        state ? safeTruncate(state, STATE_BUDGET) : null,
+        signals ? safeTruncate(signals, SIGNALS_BUDGET) : null,
+        memory ? safeTruncate(memory, MEMORY_BUDGET) : null,
+      ].filter((b): b is string => Boolean(b))
       if (blocks.length === 0) return null
-      const context = blocks.join('\n\n')
-      return safeTruncate(context, MAX_CHARS)
+      return safeTruncate(blocks.join('\n\n'), MAX_CHARS)
     },
   })
 }
