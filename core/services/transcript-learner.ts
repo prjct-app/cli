@@ -142,9 +142,7 @@ export async function ingestTranscript(
   return result
 }
 
-// =============================================================================
 // Transcript parsing
-// =============================================================================
 
 interface TranscriptMessage {
   role: 'assistant' | 'user' | 'system'
@@ -226,9 +224,7 @@ function extractText(msg: Record<string, unknown>): string {
   return ''
 }
 
-// =============================================================================
 // Candidate extraction
-// =============================================================================
 
 /**
  * Walk assistant messages, return the substantive paragraphs that
@@ -276,9 +272,7 @@ function hashContent(content: string): string {
   return crypto.createHash('sha256').update(content.toLowerCase().trim()).digest('hex').slice(0, 16)
 }
 
-// =============================================================================
 // Dedup against previously ingested entries
-// =============================================================================
 
 interface AutoMemoryRow {
   data: string
@@ -315,9 +309,7 @@ function collectExistingAutoHashes(projectId: string): Set<string> {
   return out
 }
 
-// =============================================================================
 // Test exports
-// =============================================================================
 
 export const _internal = {
   parseTranscript,

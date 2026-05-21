@@ -20,7 +20,6 @@
  *
  * Auto-runs on first StorageManager access when prjct.db doesn't exist.
  *
- * @version 1.0.0
  */
 
 import fs from 'node:fs/promises'
@@ -217,9 +216,7 @@ async function cleanupJsonFiles(
   await deleteFile(path.join(memoryPath, 'learnings.jsonl'), 'cleanup:memory/learnings.jsonl')
 }
 
-// =============================================================================
 // Legacy JSON Sweep (runs every sync)
-// =============================================================================
 
 /**
  * Sweep & destroy any leftover JSON files that should be in SQLite.

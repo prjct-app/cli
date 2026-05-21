@@ -17,9 +17,7 @@ import type { ToolDefinition, ToolStatus } from '../types/services.js'
 import { isExpired } from '../utils/cache'
 import { createError } from '../utils/error-messages'
 
-// ============================================================================
 // TOOL DEFINITIONS
-// ============================================================================
 
 /**
  * Known tools that prjct depends on
@@ -82,9 +80,7 @@ export const TOOLS: Record<string, ToolDefinition> = {
   },
 }
 
-// ============================================================================
 // DEPENDENCY VALIDATOR
-// ============================================================================
 
 class DependencyValidator {
   private cache = new Map<string, ToolStatus>()
@@ -194,9 +190,7 @@ class DependencyValidator {
     this.cacheTimestamps.clear()
   }
 
-  // ==========================================================================
   // PRIVATE METHODS
-  // ==========================================================================
 
   private executeCheck(definition: ToolDefinition): ToolStatus {
     try {
@@ -286,9 +280,7 @@ class DependencyValidator {
   }
 }
 
-// ============================================================================
 // CUSTOM ERROR
-// ============================================================================
 
 /**
  * Error thrown when a required dependency is missing
@@ -305,9 +297,7 @@ export class DependencyError extends Error {
   }
 }
 
-// ============================================================================
 // EXPORTS
-// ============================================================================
 
 export const dependencyValidator = new DependencyValidator()
 export default dependencyValidator

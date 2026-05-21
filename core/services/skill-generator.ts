@@ -14,7 +14,6 @@
  * - Rich context lives in prjct-context (non-invocable): patterns, anti-patterns,
  *   velocity, gotchas, shipped, commands — workflow skills do NOT duplicate this
  *
- * @version 3.0.0
  */
 
 import fs from 'node:fs/promises'
@@ -31,9 +30,7 @@ import {
 } from './skill-generator/prjct-skill-body'
 import type { ConditionContext, SkillContext, SkillDefinition } from './skill-generator/types'
 
-// ============================================================================
 // SKILL DEFINITIONS
-// ============================================================================
 
 /**
  * Anti-harness skill template (canonical Anthropic shape).
@@ -52,9 +49,7 @@ const SKILL_DEFINITIONS: SkillDefinition[] = [
   },
 ]
 
-// ============================================================================
 // HELPERS
-// ============================================================================
 
 function buildFrontmatter(skill: SkillDefinition, ctx: SkillContext): string {
   const isUserInvocable = skill.userInvocable !== false
@@ -81,9 +76,7 @@ function homeDir(): string {
   return process.env.HOME || os.homedir()
 }
 
-// ============================================================================
 // SKILL GENERATOR
-// ============================================================================
 
 class SkillGenerator {
   /**

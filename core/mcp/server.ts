@@ -4,7 +4,6 @@
  * Exposes project data via Model Context Protocol (48 tools).
  * Wraps existing storage and context modules — no new logic.
  *
- * @module mcp/server
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'

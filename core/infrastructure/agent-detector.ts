@@ -2,7 +2,6 @@
  * Agent Detector
  * Detects Claude Code and Claude Desktop environments.
  *
- * @module infrastructure/agent-detector
  */
 
 import path from 'node:path'

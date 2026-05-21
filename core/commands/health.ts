@@ -82,9 +82,7 @@ export class HealthCommands extends PrjctCommandsBase {
   }
 }
 
-// ============================================================================
 // Detection
-// ============================================================================
 
 async function detectDimensions(projectPath: string): Promise<HealthDimension[]> {
   const pkgPath = path.join(projectPath, 'package.json')
@@ -105,9 +103,7 @@ async function detectDimensions(projectPath: string): Promise<HealthDimension[]>
   }))
 }
 
-// ============================================================================
 // Dimension execution
-// ============================================================================
 
 async function runDimension(projectPath: string, dim: HealthDimension): Promise<HealthResult> {
   if (!dim.command) {
@@ -148,9 +144,7 @@ async function runDimension(projectPath: string, dim: HealthDimension): Promise<
   }
 }
 
-// ============================================================================
 // Scoring
-// ============================================================================
 
 function computeScore(results: HealthResult[]): number {
   if (results.length === 0) return 0
@@ -167,9 +161,7 @@ function computeScore(results: HealthResult[]): number {
   return Math.round((pts / denom) * 100)
 }
 
-// ============================================================================
 // Output
-// ============================================================================
 
 function statusIcon(status: HealthResult['status']): string {
   if (status === 'pass') return '✓'

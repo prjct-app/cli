@@ -33,9 +33,7 @@ import {
   renderModelDirective,
 } from '../../schemas/model'
 
-// =============================================================================
 // Provider Model Configuration
-// =============================================================================
 
 describe('Provider model configuration', () => {
   it('should have model fields on Claude provider', () => {
@@ -57,9 +55,7 @@ describe('Provider model configuration', () => {
   })
 })
 
-// =============================================================================
 // Model Validation
-// =============================================================================
 
 describe('isValidModelForProvider', () => {
   it('should accept valid Claude models', () => {
@@ -94,9 +90,7 @@ describe('isValidModelForProvider', () => {
   })
 })
 
-// =============================================================================
 // Default Model Resolution
-// =============================================================================
 
 describe('getDefaultModel', () => {
   it('should return sonnet for Claude', () => {
@@ -113,9 +107,7 @@ describe('getDefaultModel', () => {
   })
 })
 
-// =============================================================================
 // Supported Models
-// =============================================================================
 
 describe('getSupportedModels', () => {
   it('should return Claude models', () => {
@@ -131,9 +123,7 @@ describe('getSupportedModels', () => {
   })
 })
 
-// =============================================================================
 // Semver Comparison
-// =============================================================================
 
 describe('compareSemver', () => {
   it('should return 0 for equal versions', () => {
@@ -158,9 +148,7 @@ describe('compareSemver', () => {
   })
 })
 
-// =============================================================================
 // Version Validation
-// =============================================================================
 
 describe('meetsMinVersion', () => {
   it('should pass when version meets minimum', () => {
@@ -200,9 +188,7 @@ describe('validateCliVersion', () => {
   })
 })
 
-// =============================================================================
 // Model Mismatch Detection
-// =============================================================================
 
 describe('checkModelMismatch', () => {
   const claudeOpus: ModelMetadata = {
@@ -251,9 +237,7 @@ describe('checkModelMismatch', () => {
   })
 })
 
-// =============================================================================
 // Backwards Compatibility
-// =============================================================================
 
 describe('backwards compatibility', () => {
   it('should handle configs without model field gracefully', () => {

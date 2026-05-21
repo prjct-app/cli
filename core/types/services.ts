@@ -3,9 +3,7 @@
  * Types for service layer modules.
  */
 
-// =============================================================================
 // Breakdown Service Types
-// =============================================================================
 
 export type Severity = 'critical' | 'high' | 'medium' | 'low'
 
@@ -16,9 +14,7 @@ export interface ComplexityEstimate {
   factors?: string[]
 }
 
-// =============================================================================
 // Skill Service Types
-// =============================================================================
 
 export interface SkillMetadata {
   name: string
@@ -54,9 +50,7 @@ export interface SkillSearchResult {
   matchedTerms?: string[]
 }
 
-// =============================================================================
 // AI Tools Registry Types
-// =============================================================================
 
 export interface AIToolConfig {
   id: string
@@ -68,9 +62,7 @@ export interface AIToolConfig {
   description: string
 }
 
-// =============================================================================
 // Memory Service Types
-// =============================================================================
 
 export interface MemoryServiceEntry {
   id?: string
@@ -83,9 +75,7 @@ export interface MemoryServiceEntry {
   metadata?: Record<string, unknown>
 }
 
-// =============================================================================
 // --- Extracted from core/services ---
-// =============================================================================
 
 // --- Pattern Extractor Types ---
 

@@ -10,13 +10,9 @@
 
 import { z } from 'zod'
 
-// =============================================================================
 // Provider-Specific Model Identifiers
-// =============================================================================
 
-// =============================================================================
 // Supported Models Per Provider
-// =============================================================================
 
 const SUPPORTED_MODELS: Record<string, readonly string[]> = {
   claude: ['opus', 'sonnet', 'haiku'],
@@ -31,18 +27,14 @@ const DEFAULT_MODELS: Record<string, string> = {
   gemini: '2.5-flash',
 } as const
 
-// =============================================================================
 // Minimum CLI Versions
-// =============================================================================
 
 const MIN_CLI_VERSIONS: Record<string, string> = {
   claude: '1.0.0',
   gemini: '1.0.0',
 } as const
 
-// =============================================================================
 // Agent Model Policy — per-role model + effort for subagent dispatch
-// =============================================================================
 
 /**
  * Which Claude model + how much reasoning effort each subagent ROLE gets.
@@ -122,9 +114,7 @@ export function renderModelDirective(role: AgentRole): string {
   return `Dispatch with the Agent tool using \`model: "${p.model}"\` (NOT the parent's max model). Apply ${p.effort}, not exhaustive, effort — this is an orchestration/review role: return the verdict, don't over-deliberate. A smaller model at decent effort is correct here and far faster.`
 }
 
-// =============================================================================
 // Model Metadata - Recorded Per Operation
-// =============================================================================
 
 /** Model metadata recorded with each analysis or task */
 export const ModelMetadataSchema = z.object({
@@ -138,19 +128,13 @@ export const ModelMetadataSchema = z.object({
   recordedAt: z.string(),
 })
 
-// =============================================================================
 // Model Configuration - Per Project
-// =============================================================================
 
-// =============================================================================
 // Inferred Types
-// =============================================================================
 
 export type ModelMetadata = z.infer<typeof ModelMetadataSchema>
 
-// =============================================================================
 // Validation Helpers
-// =============================================================================
 
 /** Check if a model is valid for a given provider */
 export function isValidModelForProvider(provider: string, model: string): boolean {

@@ -48,9 +48,7 @@ export class OnboardingWizard {
     this.projectPath = projectPath
   }
 
-  // ==========================================================================
   // Public API
-  // ==========================================================================
 
   async run(): Promise<WizardResult> {
     p.intro(chalk.cyan.bold('⚡ prjct-cli setup'))
@@ -90,9 +88,7 @@ export class OnboardingWizard {
     return this.buildResult(false)
   }
 
-  // ==========================================================================
   // Step Implementations
-  // ==========================================================================
 
   private async stepProjectType(): Promise<boolean> {
     this.detectedType = await detectProjectType(this.projectPath)
@@ -246,9 +242,7 @@ export class OnboardingWizard {
     return true
   }
 
-  // ==========================================================================
   // Helpers
-  // ==========================================================================
 
   private handleCancel(): void {
     this.aborted = true
@@ -283,9 +277,7 @@ export class OnboardingWizard {
     }
   }
 
-  // ==========================================================================
   // Getters for external access
-  // ==========================================================================
 
   getSelectedAgents(): AIAgent[] {
     return this.selectedAgents

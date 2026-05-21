@@ -133,9 +133,7 @@ export async function detectFriction(
   return { signalsRecorded: recorded, signalsSkipped: skipped }
 }
 
-// ============================================================================
 // Helpers — exported for tests via _internal.
-// ============================================================================
 
 function parseJsonl(raw: string): TranscriptLine[] {
   const out: TranscriptLine[] = []

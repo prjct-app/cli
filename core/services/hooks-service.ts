@@ -8,7 +8,6 @@
  * - direct .git/hooks/ scripts
  *
  * @see PRJ-128
- * @module services/hooks-service
  */
 
 import fs from 'node:fs/promises'
@@ -173,9 +172,7 @@ class HooksService {
     }
   }
 
-  // ==========================================================================
   // CLI SUBCOMMANDS
-  // ==========================================================================
 
   private async runInstall(projectPath: string): Promise<number> {
     out.start()
@@ -256,9 +253,7 @@ class HooksService {
     return 0
   }
 
-  // ==========================================================================
   // HELPERS
-  // ==========================================================================
 
   private async isHookInstalled(
     projectPath: string,

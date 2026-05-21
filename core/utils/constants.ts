@@ -5,9 +5,7 @@
 
 import type { TimeoutKey } from '../types/utils.js'
 
-// =============================================================================
 // Timeout Constants (PRJ-111)
-// =============================================================================
 
 /**
  * Timeout values in milliseconds for various operations.
@@ -49,9 +47,7 @@ export function getTimeout(key: TimeoutKey): number {
   return TIMEOUTS[key]
 }
 
-// =============================================================================
 // Output Limits (PRJ-71)
-// =============================================================================
 
 /**
  * Truncation lengths for CLI output messages.

@@ -3,9 +3,7 @@
  * Types for the event system and sync events.
  */
 
-// =============================================================================
 // Sync Event Types
-// =============================================================================
 
 /**
  * Event for synchronization with backend.

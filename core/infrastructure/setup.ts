@@ -348,9 +348,7 @@ async function installGeminiGlobalConfig(): Promise<{ success: boolean; action: 
   }
 }
 
-// =============================================================================
 // Antigravity Installation (Skills-based)
-// =============================================================================
 
 /**
  * Install prjct as a skill for Google Antigravity
@@ -401,9 +399,7 @@ async function _needsAntigravityInstallation(): Promise<boolean> {
   return detection.installed && !detection.skillInstalled
 }
 
-// =============================================================================
 // Codex Installation (Skills-based)
-// =============================================================================
 
 const CODEX_SKILL_META_MARKER = 'prjct-codex-router'
 

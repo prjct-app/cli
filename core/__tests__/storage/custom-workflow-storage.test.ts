@@ -16,9 +16,7 @@ import pathManager from '../../infrastructure/path-manager'
 import { customWorkflowStorage } from '../../storage/custom-workflow-storage'
 import { prjctDb } from '../../storage/database'
 
-// =============================================================================
 // Test Setup
-// =============================================================================
 
 let tmpRoot: string
 let testProjectId: string
@@ -48,9 +46,7 @@ describe('Custom Workflow Storage', () => {
     }
   })
 
-  // ===========================================================================
   // Built-in Workflows
-  // ===========================================================================
 
   describe('built-in workflows', () => {
     it('should seed 4 built-in workflows on first migration', () => {
@@ -84,9 +80,7 @@ describe('Custom Workflow Storage', () => {
     })
   })
 
-  // ===========================================================================
   // Custom Workflow CRUD
-  // ===========================================================================
 
   describe('create custom workflow', () => {
     it('should create a new custom workflow', () => {
@@ -281,9 +275,7 @@ describe('Custom Workflow Storage', () => {
     })
   })
 
-  // ===========================================================================
   // Utility Methods
-  // ===========================================================================
 
   describe('utility methods', () => {
     it('should check if workflow is built-in', () => {

@@ -16,9 +16,7 @@
 import path from 'node:path'
 import type { FileScore, FileStats, ScoringContext } from '../types/services.js'
 
-// ============================================================================
 // CONSTANTS
-// ============================================================================
 
 export const RELEVANCE_THRESHOLD = 30
 
@@ -65,9 +63,7 @@ const IMPORTANT_NAME_PATTERNS = [
   /CHANGELOG\.md$/i, // Changelog
 ]
 
-// ============================================================================
 // FILE SCORER
-// ============================================================================
 
 export class FileScorer {
   /**
@@ -112,9 +108,7 @@ export class FileScorer {
     return this.scoreAll(context).filter((f) => f.score >= threshold)
   }
 
-  // ==========================================================================
   // FACTOR CALCULATIONS
-  // ==========================================================================
 
   /**
    * Recency factor (0-20)

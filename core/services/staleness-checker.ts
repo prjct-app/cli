@@ -29,9 +29,7 @@ const DEFAULT_CONFIG: StalenessConfig = {
   ],
 }
 
-// =============================================================================
 // STALENESS CHECKER
-// =============================================================================
 
 class StalenessChecker {
   private projectPath: string
@@ -289,9 +287,7 @@ class StalenessChecker {
   }
 }
 
-// =============================================================================
 // EXPORTS
-// =============================================================================
 
 export const createStalenessChecker = (projectPath: string, config?: Partial<StalenessConfig>) =>
   new StalenessChecker(projectPath, config)

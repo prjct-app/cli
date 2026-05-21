@@ -17,9 +17,7 @@ import { getErrorMessage } from '../types/fs'
 import * as dateHelper from '../utils/date-helper'
 import { syncService } from './sync-service'
 
-// ============================================================================
 // TYPES
-// ============================================================================
 
 interface WatchOptions {
   debounceMs?: number // Debounce window (default: 2000ms)
@@ -33,9 +31,7 @@ interface WatchResult {
   error?: string
 }
 
-// ============================================================================
 // DEFAULT CONFIGURATION
-// ============================================================================
 
 // Files that trigger a sync when changed
 const TRIGGER_PATTERNS = [
@@ -83,9 +79,7 @@ const IGNORE_PATTERNS = [
   '**/.prjct-cli/**',
 ]
 
-// ============================================================================
 // WATCH SERVICE
-// ============================================================================
 
 class WatchService {
   private watcher: FSWatcher | null = null

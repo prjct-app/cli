@@ -1,15 +1,4 @@
-/**
- * Sync Analyzer — Analysis/stats functions extracted from SyncService.
- *
- * Standalone exported functions for:
- * - Git analysis
- * - Project stats gathering
- * - Command detection
- * - Source citation building
- * - Stack detection
- *
- * @version 1.0.0
- */
+/** Sync Analyzer — git analysis, project stats, command + stack detection for SyncService. */
 
 import path from 'node:path'
 import { getErrorMessage } from '../errors'
@@ -22,9 +11,7 @@ import { fileExists, readJson, walkDir } from '../utils/file-helper'
 import log from '../utils/logger'
 import { StackDetector } from './stack-detector'
 
-// ============================================================================
 // GIT ANALYSIS
-// ============================================================================
 
 export async function analyzeGit(projectPath: string): Promise<GitData> {
   const data: GitData = {
@@ -98,9 +85,7 @@ export async function analyzeGit(projectPath: string): Promise<GitData> {
   return data
 }
 
-// ============================================================================
 // PROJECT STATS
-// ============================================================================
 
 async function fileExistsInProject(projectPath: string, filename: string): Promise<boolean> {
   const exists = await fileExists(path.join(projectPath, filename))
@@ -180,9 +165,7 @@ export async function gatherStats(projectPath: string): Promise<ProjectStats> {
   return stats
 }
 
-// ============================================================================
 // COMMAND DETECTION
-// ============================================================================
 
 export async function detectCommands(projectPath: string): Promise<ProjectCommands> {
   const commands: ProjectCommands = {
@@ -249,9 +232,7 @@ export async function detectCommands(projectPath: string): Promise<ProjectComman
   return commands
 }
 
-// ============================================================================
 // SOURCE CITATIONS
-// ============================================================================
 
 function _buildSources(stats: ProjectStats, commands: ProjectCommands): ContextSources {
   const sources = defaultSources()
@@ -297,9 +278,7 @@ function _buildSources(stats: ProjectStats, commands: ProjectCommands): ContextS
   return sources
 }
 
-// ============================================================================
 // STACK DETECTION
-// ============================================================================
 
 export async function detectStack(projectPath: string): Promise<StackDetection> {
   const detector = new StackDetector(projectPath)

@@ -12,9 +12,7 @@ import { isNotFoundError } from '../types/fs'
 import { fileExists } from '../utils/file-helper'
 import { ModelMetadataSchema } from './model'
 
-// =============================================================================
 // Zod Schemas - Source of Truth
-// =============================================================================
 
 export const AnalysisStatusSchema = z.enum(['draft', 'verified', 'sealed'])
 
@@ -68,29 +66,21 @@ export const AnalysisItemSchema = z.object({
   verifiedAt: z.string().optional(), // ISO8601
 })
 
-// =============================================================================
 // Inferred Types - Backward Compatible
-// =============================================================================
 
 /** Use z.input so optional fields with defaults (like status) remain optional in creation */
 export type AnalysisSchema = z.input<typeof AnalysisItemSchema>
 
-// =============================================================================
 // Validation Helpers
-// =============================================================================
 
 /** Parse and validate analysis.json content */
 export const parseAnalysis = (data: unknown): z.infer<typeof AnalysisItemSchema> =>
   AnalysisItemSchema.parse(data)
 export const safeParseAnalysis = (data: unknown) => AnalysisItemSchema.safeParse(data)
 
-// =============================================================================
 // Defaults
-// =============================================================================
 
-// =============================================================================
 // Semantic Verification (PRJ-270)
-// =============================================================================
 
 export interface SemanticCheckResult {
   name: string
@@ -447,9 +437,7 @@ export async function semanticVerify(
   }
 }
 
-// =============================================================================
 // Helper Functions
-// =============================================================================
 
 /**
  * Get all file extensions in a project (excluding common ignore patterns)

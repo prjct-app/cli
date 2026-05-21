@@ -22,9 +22,7 @@ export interface HookResult {
   output?: string
 }
 
-// =============================================================================
 // State Machine Types
-// =============================================================================
 
 export type WorkflowState = 'idle' | 'working' | 'paused' | 'completed' | 'shipped'
 
@@ -35,9 +33,7 @@ export type WorkflowState = 'idle' | 'working' | 'paused' | 'completed' | 'shipp
 // completed task.
 export type WorkflowCommand = 'task' | 'done' | 'pause' | 'resume' | 'ship' | 'reopen'
 
-// =============================================================================
 // Workflow Engine Types
-// =============================================================================
 
 export interface WorkflowExecutionResult {
   success: boolean

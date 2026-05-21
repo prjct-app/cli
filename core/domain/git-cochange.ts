@@ -9,8 +9,6 @@
  *
  * Zero API calls — pure math on git log data.
  *
- * @module domain/git-cochange
- * @version 1.0.0
  */
 
 import {
@@ -22,9 +20,7 @@ import prjctDb from '../storage/database'
 import type { CoChangeIndex, CoChangeMatrix, CoChangeScore } from '../types/domain.js'
 import { execAsync } from '../utils/exec'
 
-// =============================================================================
 // Git Log Parsing
-// =============================================================================
 
 /**
  * Parse git log to extract commit → files mapping.
@@ -85,9 +81,7 @@ function isSourceFile(filePath: string): boolean {
   return sourceExtensions.test(filePath) && !filePath.includes('node_modules/')
 }
 
-// =============================================================================
 // Co-Change Matrix
-// =============================================================================
 
 /**
  * Build a co-change matrix from git history.
@@ -158,9 +152,7 @@ function pairKey(a: string, b: string): string {
   return a < b ? `${a}\0${b}` : `${b}\0${a}`
 }
 
-// =============================================================================
 // Scoring
-// =============================================================================
 
 /**
  * Given a set of seed files, find co-changed files and their scores.
@@ -193,9 +185,7 @@ export function scoreFromSeeds(seedFiles: string[], index: CoChangeIndex): CoCha
     .sort((a, b) => b.score - a.score)
 }
 
-// =============================================================================
 // SQLite Persistence
-// =============================================================================
 
 const INDEX_KEY = 'cochange-index'
 
@@ -224,9 +214,7 @@ export function loadMatrix(projectId: string): CoChangeIndex | null {
   return matrix
 }
 
-// =============================================================================
 // High-level API
-// =============================================================================
 
 /**
  * Build and persist the co-change matrix for a project.

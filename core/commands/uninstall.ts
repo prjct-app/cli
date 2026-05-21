@@ -4,7 +4,6 @@
  * Complete system removal of prjct-cli.
  * Handles cleanup of all prjct files, configurations, and installations.
  *
- * @version 1.0.0
  */
 
 import chalk from 'chalk'

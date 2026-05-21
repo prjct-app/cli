@@ -22,9 +22,7 @@ import out from '../utils/output'
 import { VERSION } from '../utils/version'
 import context7Service from './context7-service'
 
-// ============================================================================
 // DOCTOR SERVICE
-// ============================================================================
 
 class DoctorService {
   private projectPath: string = ''
@@ -79,9 +77,7 @@ class DoctorService {
     return result.hasErrors ? 1 : 0
   }
 
-  // ==========================================================================
   // TOOL CHECKS
-  // ==========================================================================
 
   private async checkTools(): Promise<CheckResult[]> {
     const checks: CheckResult[] = []
@@ -147,9 +143,7 @@ class DoctorService {
     }
   }
 
-  // ==========================================================================
   // PROJECT CHECKS
-  // ==========================================================================
 
   private async checkProject(): Promise<CheckResult[]> {
     const checks: CheckResult[] = []
@@ -326,9 +320,7 @@ class DoctorService {
     }
   }
 
-  // ==========================================================================
   // RECOMMENDATIONS
-  // ==========================================================================
 
   private generateRecommendations(tools: CheckResult[], project: CheckResult[]): string[] {
     const recommendations: string[] = []
@@ -370,9 +362,7 @@ class DoctorService {
     return recommendations
   }
 
-  // ==========================================================================
   // OUTPUT
-  // ==========================================================================
 
   private printHeader(): void {
     out.section(`prjct doctor v${VERSION}`)

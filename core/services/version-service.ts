@@ -20,9 +20,7 @@ import type { VersionInfo } from '../types/services/extracted'
 import { execAsync, execFileAsync } from '../utils/exec'
 import * as fileHelper from '../utils/file-helper'
 
-// =============================================================================
 // VersionService
-// =============================================================================
 
 export class VersionService {
   private projectPath: string
@@ -134,9 +132,7 @@ export class VersionService {
     return false
   }
 
-  // ===========================================================================
   // Source Detectors
-  // ===========================================================================
 
   private async fromPackageJson(): Promise<VersionInfo | null> {
     const filePath = path.join(this.projectPath, 'package.json')
@@ -243,9 +239,7 @@ export class VersionService {
     return null
   }
 
-  // ===========================================================================
   // Fallback
-  // ===========================================================================
 
   private async createFallbackVersion(): Promise<VersionInfo> {
     const filePath = path.join(this.projectPath, 'VERSION')
@@ -259,9 +253,7 @@ export class VersionService {
     }
   }
 
-  // ===========================================================================
   // Write version back to source
-  // ===========================================================================
 
   private async writeVersion(info: VersionInfo): Promise<void> {
     if (!info.file) {
@@ -315,9 +307,7 @@ export class VersionService {
   }
 }
 
-// =============================================================================
 // Helpers (pure functions)
-// =============================================================================
 
 /**
  * Validate that a string looks like a semver version (major.minor.patch).

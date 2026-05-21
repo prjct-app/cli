@@ -5,9 +5,7 @@
 
 import type { ContextDomain } from './agentic'
 
-// ============================================
 // Task Types
-// ============================================
 
 /**
  * Task type categories for agent routing.
@@ -76,9 +74,7 @@ export interface AgentPerformanceSummary {
   byTaskType: Record<TaskType, string | null>
 }
 
-// ============================================
 // Agent Types
-// ============================================
 
 /**
  * Agent representation - from simple file to full metadata.

@@ -5,7 +5,6 @@
  * Types and catalog live in core/types/errors.ts.
  *
  * @see PRJ-131
- * @module utils/error-messages
  */
 
 import type { ErrorCode, ErrorWithHint } from '../types/errors'

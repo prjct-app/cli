@@ -19,9 +19,7 @@ import { indexStorage } from '../../storage/index-storage'
 import { migrateJsonToSqlite } from '../../storage/migrate-json'
 import { StorageManager } from '../../storage/storage-manager'
 
-// =============================================================================
 // Test Setup
-// =============================================================================
 
 let tmpRoot: string | null = null
 let testProjectId: string
@@ -71,9 +69,7 @@ function restorePaths() {
   pathManager.getFilePath = originalGetFilePath
 }
 
-// =============================================================================
 // Migration Correctness Tests
-// =============================================================================
 
 describe('SQLite Migration', () => {
   beforeEach(async () => {
@@ -519,9 +515,7 @@ describe('SQLite Migration', () => {
     })
   })
 
-  // ===========================================================================
   // Concurrent Access Tests (WAL Mode)
-  // ===========================================================================
 
   describe('concurrent access', () => {
     it('should handle multiple concurrent reads', async () => {
@@ -577,9 +571,7 @@ describe('SQLite Migration', () => {
     })
   })
 
-  // ===========================================================================
   // Query Performance Tests
-  // ===========================================================================
 
   describe('query performance', () => {
     it('should perform SQLite reads efficiently', async () => {
@@ -652,9 +644,7 @@ describe('SQLite Migration', () => {
     })
   })
 
-  // ===========================================================================
   // StorageManager SQLite Integration
-  // ===========================================================================
 
   describe('StorageManager SQLite integration', () => {
     it('should write to SQLite only (no JSON file)', async () => {
@@ -691,9 +681,7 @@ describe('SQLite Migration', () => {
     })
   })
 
-  // ===========================================================================
   // IndexStorage SQLite Integration
-  // ===========================================================================
 
   describe('IndexStorage SQLite integration', () => {
     it('should write index to SQLite only (no JSON file)', async () => {
@@ -914,9 +902,7 @@ describe('SQLite Migration', () => {
     })
   })
 
-  // ===========================================================================
   // Database Manager Tests
-  // ===========================================================================
 
   describe('database manager', () => {
     it('should create tables on first access', async () => {

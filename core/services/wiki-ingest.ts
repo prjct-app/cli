@@ -170,9 +170,7 @@ ${MEMORY_TYPES.map((t) => `- \`${t}\``).join('\n')}
 - Files already in \`_ingested/\` are ignored.
 `
 
-// =============================================================================
 // Helpers
-// =============================================================================
 
 async function listNoteFiles(capturedRoot: string): Promise<string[]> {
   let entries: string[]
@@ -297,14 +295,12 @@ function stripQuotes(v: string): string {
   return v
 }
 
-// =============================================================================
 // Workflow ingest (M1b INPUT half) — bidirectional editing of workflows
 // from <vault>/workflows/<command>.md.
 //
 // Pattern mirrors captured/: user drops a .md, Stop hook ingests, file is
 // archived to workflows/_ingested/<timestamp>/. Difference: workflow
 // ingest REPLACES the SQLite rules for that command rather than appending.
-// =============================================================================
 
 interface ParsedWorkflow {
   command: string

@@ -22,9 +22,7 @@ import { getTimestamp } from '../utils/date-helper'
 import { sha256 } from '../utils/hash'
 import { StorageManager } from './storage-manager'
 
-// =============================================================================
 // Types
-// =============================================================================
 
 interface AnalysisStoreData {
   draft: AnalysisSchema | null
@@ -52,9 +50,7 @@ interface StalenessCheck {
   message: string
 }
 
-// =============================================================================
 // Analysis Storage
-// =============================================================================
 
 class AnalysisStorage extends StorageManager<AnalysisStoreData> {
   constructor() {
@@ -74,9 +70,7 @@ class AnalysisStorage extends StorageManager<AnalysisStoreData> {
     return `analysis.${action}d`
   }
 
-  // ===========================================================================
   // Domain Methods
-  // ===========================================================================
 
   /**
    * Save a new draft analysis (called by sync-service).
@@ -349,9 +343,7 @@ class AnalysisStorage extends StorageManager<AnalysisStoreData> {
     return await semanticVerify(analysis, projectPath)
   }
 
-  // ===========================================================================
   // Private Helpers
-  // ===========================================================================
 
   /**
    * Compute SHA-256 signature for analysis data.

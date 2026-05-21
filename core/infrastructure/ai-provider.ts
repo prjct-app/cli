@@ -33,9 +33,7 @@ import { execAsync } from '../utils/exec'
 import { fileExists } from '../utils/file-helper'
 import { readProviderCache, writeProviderCache } from '../utils/provider-cache'
 
-// =============================================================================
 // Provider Configurations
-// =============================================================================
 
 /**
  * Claude Code provider configuration
@@ -217,9 +215,7 @@ export const Providers: Record<AIProviderName, AIProviderConfig> = {
   codex: CodexProvider,
 }
 
-// =============================================================================
 // Provider Detection
-// =============================================================================
 
 /**
  * Check if a CLI command is available
@@ -358,9 +354,7 @@ export async function getActiveProvider(
   return ClaudeProvider
 }
 
-// =============================================================================
 // Provider Branding
-// =============================================================================
 
 /**
  * Get provider-specific branding
@@ -384,9 +378,7 @@ export function getProviderBranding(provider: AIProviderName): ProviderBranding 
   }
 }
 
-// =============================================================================
 // Cursor Project Detection
-// =============================================================================
 
 /**
  * Detect if a project is configured for Cursor IDE
@@ -395,9 +387,7 @@ export function getProviderBranding(provider: AIProviderName): ProviderBranding 
  * Detection is based on project-level .cursor/ directory.
  */
 
-// =============================================================================
 // Antigravity Detection
-// =============================================================================
 
 import type { AntigravityDetection, CodexDetection } from '../types/infrastructure.js'
 
@@ -428,9 +418,7 @@ export async function detectAntigravity(): Promise<AntigravityDetection> {
   }
 }
 
-// =============================================================================
 // Codex Detection
-// =============================================================================
 
 // CodexDetection type moved to core/types/infrastructure.ts
 
@@ -460,9 +448,7 @@ export async function detectCodex(): Promise<CodexDetection> {
   }
 }
 
-// =============================================================================
 // Provider Paths
-// =============================================================================
 
 /**
  * Get full path to global settings file.
@@ -477,9 +463,7 @@ function _getGlobalSettingsPath(provider: AIProviderName): string | null {
   return path.join(config.configDir, config.settingsFile)
 }
 
-// =============================================================================
 // Provider Selection (for setup)
-// =============================================================================
 
 /**
  * Determine which provider to use during setup

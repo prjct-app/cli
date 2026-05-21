@@ -157,9 +157,7 @@ export class ContextCheckpointCommands extends PrjctCommandsBase {
   }
 }
 
-// ============================================================================
 // Helpers
-// ============================================================================
 
 function checkpointDir(projectId: string): string {
   return path.join(pathManager.getGlobalProjectPath(projectId), 'checkpoints')

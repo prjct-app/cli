@@ -3,9 +3,7 @@
  * Types for domain layer modules.
  */
 
-// =============================================================================
 // Task Stack Types
-// =============================================================================
 
 /**
  * Task entry in the stack (JSONL format)
@@ -59,9 +57,7 @@ export interface TaskStackSummary {
   totalTasks: number
 }
 
-// =============================================================================
 // BM25 Types
-// =============================================================================
 
 export interface BM25Document {
   path: string
@@ -87,9 +83,7 @@ export interface BM25Score {
   score: number
 }
 
-// =============================================================================
 // File Hasher Types
-// =============================================================================
 
 export interface FileHash {
   path: string
@@ -110,9 +104,7 @@ export interface HashRegistry {
   builtAt: string
 }
 
-// =============================================================================
 // File Ranker Types
-// =============================================================================
 
 export interface RankedFile {
   path: string
@@ -137,9 +129,7 @@ export interface RankingConfig {
   importDepth?: number
 }
 
-// =============================================================================
 // Change Propagator Types
-// =============================================================================
 
 export interface PropagatedChanges {
   /** Files that changed directly (added + modified from hash diff) */
@@ -152,9 +142,7 @@ export interface PropagatedChanges {
   deleted: string[]
 }
 
-// =============================================================================
 // Import Graph Types
-// =============================================================================
 
 /** Adjacency list: file → list of files it imports (resolved paths) */
 export type ImportAdjacency = Record<string, string[]>
@@ -181,15 +169,11 @@ export interface ImportScore {
   depth: number
 }
 
-// =============================================================================
 // Fibonacci Types
-// =============================================================================
 
 export type FibonacciPoint = 1 | 2 | 3 | 5 | 8 | 13 | 21
 
-// =============================================================================
 // Git Co-Change Types
-// =============================================================================
 
 /** Co-change matrix: file → { related_file: similarity_score } */
 export type CoChangeMatrix = Record<string, Record<string, number>>

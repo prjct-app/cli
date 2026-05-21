@@ -1,21 +1,7 @@
 /**
- * SQLite Database Manager (PRJ-303)
- *
- * Single SQLite database per project replaces 7+ JSON files.
- * Uses bun:sqlite (native) on Bun, better-sqlite3 on Node.js.
- *
- * Benefits over JSON files:
- * - Atomic writes (WAL mode, no race conditions)
- * - Indexed queries (<1ms lookups vs 10-50ms JSON parse)
- * - Concurrent reads + single writer (WAL)
- * - No file locking needed
- *
- * Storage architecture:
- * - `kv_store` table: Document-style storage (drop-in replacement for JSON files)
- * - Normalized tables: For indexed queries on frequently accessed entities
- * - `events` table: Append-only event log (replaces events.jsonl)
- *
- * @version 2.0.0
+ * SQLite Database Manager. One DB per project (`prjct.db`) in WAL mode.
+ * Uses `bun:sqlite` on Bun, `better-sqlite3` on Node. Document-style
+ * `kv_store` + normalized tables for indexed reads + append-only `events`.
  */
 
 import fs from 'node:fs'
@@ -31,9 +17,7 @@ import {
   type SqliteStatement,
 } from './database/sqlite-compat'
 
-// =============================================================================
 // Database Manager
-// =============================================================================
 
 /**
  * Run `fn` inside a BEGIN IMMEDIATE transaction. The driver default
@@ -175,9 +159,7 @@ class PrjctDatabase {
     return fs.existsSync(this.getDbPath(projectId))
   }
 
-  // ===========================================================================
   // Document Storage (kv_store)
-  // ===========================================================================
 
   getDoc<T>(projectId: string, key: string): T | null {
     const db = this.getDb(projectId)
@@ -288,9 +270,7 @@ class PrjctDatabase {
     return rows.map((r) => ({ key: r.key, data: JSON.parse(r.data) as T }))
   }
 
-  // ===========================================================================
   // Event Log
-  // ===========================================================================
 
   appendEvent(
     projectId: string,
@@ -335,9 +315,7 @@ class PrjctDatabase {
     }>
   }
 
-  // ===========================================================================
   // Raw Query Access
-  // ===========================================================================
 
   query<T = Record<string, unknown>>(
     projectId: string,
@@ -367,9 +345,7 @@ class PrjctDatabase {
     return runImmediate(db, fn)
   }
 
-  // ===========================================================================
   // Migration System
-  // ===========================================================================
 
   private runMigrations(db: SqliteDatabase): void {
     db.run(`
@@ -414,9 +390,7 @@ class PrjctDatabase {
   }
 }
 
-// =============================================================================
 // Singleton Export
-// =============================================================================
 
 export const prjctDb = new PrjctDatabase()
 export default prjctDb

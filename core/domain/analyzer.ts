@@ -7,7 +7,6 @@
  * This class only provides I/O helpers. All analysis logic
  * is driven by Claude reading templates/analysis/analyze.md
  *
- * @version 0.6.0 - Fully agentic refactor
  */
 
 import fs from 'node:fs/promises'

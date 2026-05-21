@@ -23,9 +23,7 @@ import { shippedStorage } from '../../storage/shipped-storage'
 import { stateStorage } from '../../storage/state-storage'
 import { getTimestamp } from '../../utils/date-helper'
 
-// =============================================================================
 // Test Setup
-// =============================================================================
 
 let tmpRoot: string
 let testProjectId: string
@@ -72,9 +70,7 @@ describe('Archive Storage', () => {
     }
   })
 
-  // ===========================================================================
   // Archive Table Operations
-  // ===========================================================================
 
   describe('archive table', () => {
     it('should archive a single item', () => {
@@ -152,9 +148,7 @@ describe('Archive Storage', () => {
     })
   })
 
-  // ===========================================================================
   // Shipped Features Archival
-  // ===========================================================================
 
   describe('shipped archival', () => {
     it('should archive shipped features older than 90 days', async () => {
@@ -199,9 +193,7 @@ describe('Archive Storage', () => {
     })
   })
 
-  // ===========================================================================
   // Ideas Dormancy
-  // ===========================================================================
 
   describe('ideas dormancy', () => {
     it('should mark pending ideas older than 180 days as dormant', async () => {
@@ -290,9 +282,7 @@ describe('Archive Storage', () => {
     })
   })
 
-  // ===========================================================================
   // Queue Cleanup
-  // ===========================================================================
 
   describe('queue cleanup', () => {
     it('should remove completed tasks older than 7 days', async () => {
@@ -345,9 +335,7 @@ describe('Archive Storage', () => {
     })
   })
 
-  // ===========================================================================
   // Paused Task Archival
-  // ===========================================================================
 
   describe('paused task archival', () => {
     it('should archive paused tasks older than 30 days', async () => {
@@ -389,9 +377,7 @@ describe('Archive Storage', () => {
     })
   })
 
-  // ===========================================================================
   // Memory Log Capping
-  // ===========================================================================
 
   describe('memory log capping', () => {
     it('should cap memory entries at max limit', async () => {
@@ -433,9 +419,7 @@ describe('Archive Storage', () => {
     })
   })
 
-  // ===========================================================================
   // Archive Policies Constants
-  // ===========================================================================
 
   describe('archive policies', () => {
     it('should have correct default policy values', () => {

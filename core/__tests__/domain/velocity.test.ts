@@ -18,9 +18,7 @@ import {
 import type { VelocityConfig } from '../../schemas/velocity'
 import type { Outcome } from '../../types/outcomes'
 
-// =============================================================================
 // Test Helpers
-// =============================================================================
 
 function makeOutcome(overrides: Partial<Outcome> = {}): Outcome {
   return {
@@ -47,9 +45,7 @@ const DEFAULT_CONFIG: VelocityConfig = {
   accuracyTolerance: 20,
 }
 
-// =============================================================================
 // Sprint Boundary Tests
-// =============================================================================
 
 describe('Sprint Boundaries', () => {
   it('should align sprint start to configured start day', () => {
@@ -83,9 +79,7 @@ describe('Sprint Boundaries', () => {
   })
 })
 
-// =============================================================================
 // Empty Data (Graceful Degradation)
-// =============================================================================
 
 describe('Empty Data', () => {
   it('should return zero metrics for empty outcomes', () => {
@@ -111,9 +105,7 @@ describe('Empty Data', () => {
   })
 })
 
-// =============================================================================
 // Sprint Aggregation
-// =============================================================================
 
 describe('Sprint Aggregation', () => {
   it('should group outcomes into sprints', () => {
@@ -187,9 +179,7 @@ describe('Sprint Aggregation', () => {
   })
 })
 
-// =============================================================================
 // Trend Detection
-// =============================================================================
 
 describe('Trend Detection', () => {
   it('should detect stable trend with consistent velocity', () => {
@@ -343,9 +333,7 @@ describe('Trend Detection', () => {
   })
 })
 
-// =============================================================================
 // Estimation Accuracy
-// =============================================================================
 
 describe('Estimation Accuracy', () => {
   it('should calculate 100% accuracy when all estimates are exact', () => {
@@ -399,9 +387,7 @@ describe('Estimation Accuracy', () => {
   })
 })
 
-// =============================================================================
 // Estimation Pattern Detection
-// =============================================================================
 
 describe('Estimation Patterns', () => {
   it('should detect under-estimation patterns by category', () => {
@@ -464,9 +450,7 @@ describe('Estimation Patterns', () => {
   })
 })
 
-// =============================================================================
 // Completion Projection
-// =============================================================================
 
 describe('Completion Projection', () => {
   it('should project sprints based on velocity', () => {
@@ -498,9 +482,7 @@ describe('Completion Projection', () => {
   })
 })
 
-// =============================================================================
 // Duration Parsing
-// =============================================================================
 
 describe('Duration Parsing', () => {
   it('should parse hours', () => {
@@ -528,9 +510,7 @@ describe('Duration Parsing', () => {
   })
 })
 
-// =============================================================================
 // Velocity Context Formatting
-// =============================================================================
 
 describe('Velocity Context Formatting', () => {
   it('should format velocity summary for LLM injection', () => {
@@ -578,9 +558,7 @@ describe('Velocity Context Formatting', () => {
   })
 })
 
-// =============================================================================
 // Configuration
-// =============================================================================
 
 describe('Configuration', () => {
   it('should respect custom sprint length', () => {

@@ -8,7 +8,6 @@
  * - Resolve wiki vault paths (delegates to ./path-manager/wiki-paths)
  * - Detect monorepos (delegates to ./path-manager/monorepo)
  *
- * @version 0.2.1
  */
 
 import crypto from 'node:crypto'
@@ -63,9 +62,7 @@ class PathManager {
     return crypto.randomUUID()
   }
 
-  // ===========================================================================
   // Core paths
-  // ===========================================================================
 
   getGlobalBasePath(): string {
     return this.globalBaseDir
@@ -126,9 +123,7 @@ class PathManager {
     return projectPath
   }
 
-  // ===========================================================================
   // Sessions
-  // ===========================================================================
 
   /**
    * Creates hierarchical structure: sessions/YYYY/MM/DD/
@@ -204,9 +199,7 @@ class PathManager {
     return allSessions.filter((session) => session.date >= fromDate && session.date <= toDate)
   }
 
-  // ===========================================================================
   // Misc paths
-  // ===========================================================================
 
   getFilePath(projectId: string, layer: string, filename: string): string {
     return path.join(this.getGlobalProjectPath(projectId), layer, filename)
@@ -306,9 +299,7 @@ class PathManager {
     return path.join(this.getGlobalProjectPath(projectId), 'context')
   }
 
-  // ===========================================================================
   // Wiki vault (delegates to ./path-manager/wiki-paths)
-  // ===========================================================================
 
   async getWikiPath(projectPath: string, overrideVaultPath?: string): Promise<string> {
     return getWikiPath(projectPath, overrideVaultPath)
@@ -322,9 +313,7 @@ class PathManager {
     return getLegacyWikiPath(projectPath)
   }
 
-  // ===========================================================================
   // Monorepo (delegates to ./path-manager/monorepo)
-  // ===========================================================================
 
   async detectMonorepo(projectPath: string): Promise<MonorepoInfo> {
     return detectMonorepo(projectPath)

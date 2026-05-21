@@ -4,7 +4,6 @@
  * Standalone functions for sync result display, stats formatting,
  * session activity tracking, and analysis summary generation.
  *
- * @module commands/analysis-helpers
  */
 
 import path from 'node:path'
@@ -17,9 +16,7 @@ import * as dateHelper from '../utils/date-helper'
 import { showNextSteps } from '../utils/next-steps'
 import out from '../utils/output'
 
-// =============================================================================
 // Sync Result Display
-// =============================================================================
 
 export async function showSyncResult(
   result: Awaited<ReturnType<typeof syncService.sync>>,
@@ -110,9 +107,7 @@ export async function showSyncResult(
   }
 }
 
-// =============================================================================
 // Session Activity
-// =============================================================================
 
 export async function getSessionActivity(projectId: string): Promise<{
   sessionDuration: string | null
@@ -164,9 +159,7 @@ export async function getSessionActivity(projectId: string): Promise<{
   }
 }
 
-// =============================================================================
 // Stats Formatting
-// =============================================================================
 
 export function formatTokens(tokens: number): string {
   if (tokens >= 1_000_000) {
@@ -315,9 +308,7 @@ export function generateStatsMarkdown(
   return lines.join('\n')
 }
 
-// =============================================================================
 // Analysis Summary
-// =============================================================================
 
 export function generateAnalysisSummary(
   data: Record<string, unknown>,

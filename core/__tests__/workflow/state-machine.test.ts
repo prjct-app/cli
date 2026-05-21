@@ -14,9 +14,7 @@ import { WorkflowStateMachine } from '../../workflow/state-machine'
 
 const sm = new WorkflowStateMachine()
 
-// =============================================================================
 // getCurrentState
-// =============================================================================
 
 describe('getCurrentState', () => {
   it('returns idle when no task and no paused tasks', () => {
@@ -62,9 +60,7 @@ describe('getCurrentState', () => {
   })
 })
 
-// =============================================================================
 // canTransition - valid transitions
-// =============================================================================
 
 describe('canTransition - valid', () => {
   const validTransitions: [WorkflowState, WorkflowCommand][] = [
@@ -95,9 +91,7 @@ describe('canTransition - valid', () => {
   }
 })
 
-// =============================================================================
 // canTransition - invalid transitions
-// =============================================================================
 
 describe('canTransition - invalid', () => {
   const invalidTransitions: [WorkflowState, WorkflowCommand][] = [
@@ -130,9 +124,7 @@ describe('canTransition - invalid', () => {
   }
 })
 
-// =============================================================================
 // getNextState
-// =============================================================================
 
 describe('getNextState', () => {
   it('task → working', () => {
@@ -164,9 +156,7 @@ describe('getNextState', () => {
   })
 })
 
-// =============================================================================
 // getValidCommands
-// =============================================================================
 
 describe('getValidCommands', () => {
   it('idle allows task', () => {
@@ -190,9 +180,7 @@ describe('getValidCommands', () => {
   })
 })
 
-// =============================================================================
 // formatNextSteps
-// =============================================================================
 
 describe('formatNextSteps', () => {
   it('includes reopen (as prjct status active) in completed state steps', () => {

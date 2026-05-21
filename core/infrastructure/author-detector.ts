@@ -6,7 +6,6 @@
  * 2. Git config (user.name and user.email)
  * 3. Fallback to 'Unknown'
  *
- * @module infrastructure/author-detector
  */
 
 import type { DetectedAuthorInfo } from '../types/infrastructure'

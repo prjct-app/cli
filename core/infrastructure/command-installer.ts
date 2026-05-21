@@ -5,7 +5,6 @@
  * Simplified: No more router, templates, or module system.
  * prjct = data helper. Skills handle workflows natively.
  *
- * @version 1.0.0 - Post-template deprecation
  */
 
 import fs from 'node:fs/promises'

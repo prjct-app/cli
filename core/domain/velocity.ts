@@ -22,9 +22,7 @@ import {
 import type { Outcome } from '../types/outcomes'
 import { parseDurationMinutes } from '../utils/date-helper'
 
-// =============================================================================
 // Sprint Boundary Calculation
-// =============================================================================
 
 /**
  * Get the sprint start date for a given date based on config.
@@ -70,9 +68,7 @@ function getSprintNumber(date: Date, earliestDate: Date, config: VelocityConfig)
   return Math.floor(diffDays / resolved.sprintLengthDays) + 1
 }
 
-// =============================================================================
 // Core Engine
-// =============================================================================
 
 /**
  * Calculate velocity metrics from outcome data.
@@ -150,9 +146,7 @@ export function projectCompletion(
   }
 }
 
-// =============================================================================
 // Sprint Bucketing
-// =============================================================================
 
 interface SprintBucket {
   sprintNumber: number
@@ -224,9 +218,7 @@ function buildSprintVelocities(
   return sprints.sort((a, b) => a.sprintNumber - b.sprintNumber)
 }
 
-// =============================================================================
 // Trend Detection
-// =============================================================================
 
 /**
  * Detect velocity trend using simple linear regression on points per sprint.
@@ -264,9 +256,7 @@ export function detectTrend(sprints: SprintVelocity[]): VelocityTrend {
   return 'stable'
 }
 
-// =============================================================================
 // Estimation Accuracy
-// =============================================================================
 
 function calculateOverallAccuracy(outcomes: Outcome[], tolerance: number): number {
   const withEstimates = outcomes.filter((o) => o.variance)
@@ -286,9 +276,7 @@ function calculateAverageVelocity(sprints: SprintVelocity[]): number {
   return Math.round((total / sprints.length) * 10) / 10
 }
 
-// =============================================================================
 // Estimation Pattern Detection
-// =============================================================================
 
 function detectEstimationPatterns(outcomes: Outcome[]): {
   overEstimated: EstimationPattern[]
@@ -338,9 +326,7 @@ function detectEstimationPatterns(outcomes: Outcome[]): {
   return { overEstimated, underEstimated }
 }
 
-// =============================================================================
 // Helpers
-// =============================================================================
 
 /**
  * Parse variance from an outcome into a percentage.

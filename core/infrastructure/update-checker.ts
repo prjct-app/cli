@@ -1,7 +1,6 @@
 /**
  * UpdateChecker - Checks for package updates from npm registry
  *
- * @version 0.5.0
  */
 
 import { spawn } from 'node:child_process'

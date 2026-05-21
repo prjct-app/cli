@@ -3,9 +3,7 @@
  * Types for the command system.
  */
 
-// ============================================
 // Core Command Types
-// ============================================
 
 /**
  * Structured clarification surfaced when a command can't proceed
@@ -99,9 +97,7 @@ export interface CommandStats {
   byCategory: Record<string, number>
 }
 
-// ============================================
 // Command Options Types
-// ============================================
 
 /**
  * Author information
@@ -184,9 +180,7 @@ export interface InitOptions {
   persona?: string
 }
 
-// ============================================
 // Migration Types
-// ============================================
 
 /**
  * Result from project migration.
@@ -223,9 +217,7 @@ export interface MigrationConfig {
   migratedAt: string
 }
 
-// ============================================
 // Analysis Types
-// ============================================
 
 /**
  * Complexity analysis result
@@ -244,9 +236,7 @@ export interface HealthResult {
   message: string
 }
 
-// ============================================
 // Command Function Types
-// ============================================
 
 /**
  * Type-safe command method names (for dynamic invocation).
@@ -282,9 +272,7 @@ export type StandardCommandFn = (
   projectPath?: string
 ) => Promise<CommandResult>
 
-// ============================================
 // Registry Types
-// ============================================
 
 /**
  * Execution context passed to all command handlers
@@ -421,9 +409,7 @@ export interface ValidationResult {
 
 // Note: AgentInfo and AgentAssignmentResult moved to agents.ts
 
-// ============================================
 // Context Output Types
-// ============================================
 
 /**
  * Output of the context command
@@ -461,9 +447,7 @@ export interface ContextOutput {
   }
 }
 
-// ============================================
 // Global Config Types (command-related)
-// ============================================
 
 /**
  * Global configuration for prjct.

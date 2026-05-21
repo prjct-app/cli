@@ -99,9 +99,7 @@ export class RetroCommands extends PrjctCommandsBase {
   }
 }
 
-// ============================================================================
 // Window parsing
-// ============================================================================
 
 function parseWindow(arg: string | null): ParsedWindow | null {
   const raw = (arg ?? '7d').trim().toLowerCase()
@@ -131,9 +129,7 @@ function toLocalIso(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
 }
 
-// ============================================================================
 // Git ingestion
-// ============================================================================
 
 async function readCommits(projectPath: string, sinceIso: string): Promise<CommitRow[]> {
   // `--shortstat` would force a per-commit two-line block; we keep this
@@ -200,9 +196,7 @@ function groupByAuthor(commits: CommitRow[]): PerAuthor[] {
   return Array.from(map.values()).sort((a, b) => b.commits - a.commits)
 }
 
-// ============================================================================
 // Output formatters
-// ============================================================================
 
 function formatText(window: ParsedWindow, commits: CommitRow[], byAuthor: PerAuthor[]): string {
   if (commits.length === 0) {

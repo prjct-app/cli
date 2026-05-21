@@ -19,9 +19,7 @@ import type { SessionSnapshot } from '../../schemas/session-snapshot'
 import { sessionSnapshotManager } from '../../session/session-snapshot'
 import { prjctDb } from '../../storage/database'
 
-// =============================================================================
 // Test Setup
-// =============================================================================
 
 let tmpRoot: string | null = null
 
@@ -52,9 +50,7 @@ describe('SessionSnapshotManager', () => {
     }
   })
 
-  // ===========================================================================
   // Snapshot Capture
-  // ===========================================================================
 
   describe('capture', () => {
     it('captures a snapshot with all fields', async () => {
@@ -104,9 +100,7 @@ describe('SessionSnapshotManager', () => {
     })
   })
 
-  // ===========================================================================
   // Snapshot Retrieve & Clear
-  // ===========================================================================
 
   describe('getSnapshot / clearSnapshot', () => {
     it('retrieves a captured snapshot', async () => {
@@ -145,9 +139,7 @@ describe('SessionSnapshotManager', () => {
     })
   })
 
-  // ===========================================================================
   // Cross-Project Listing
-  // ===========================================================================
 
   describe('listAllSnapshots', () => {
     it('lists snapshots across multiple projects', async () => {
@@ -200,9 +192,7 @@ describe('SessionSnapshotManager', () => {
     })
   })
 
-  // ===========================================================================
   // Cleanup
-  // ===========================================================================
 
   describe('cleanup', () => {
     it('removes snapshots older than max age', async () => {
@@ -242,9 +232,7 @@ describe('SessionSnapshotManager', () => {
     })
   })
 
-  // ===========================================================================
   // Resume Hint Generation
-  // ===========================================================================
 
   describe('resume hint', () => {
     it('includes subtask progress', async () => {
@@ -274,9 +262,7 @@ describe('SessionSnapshotManager', () => {
     })
   })
 
-  // ===========================================================================
   // Continuity Context Formatting
-  // ===========================================================================
 
   describe('formatContinuityContext', () => {
     it('formats full context for LLM consumption', async () => {

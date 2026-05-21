@@ -8,7 +8,6 @@
  * data (not Zod-transformed) to preserve extra fields that may exist
  * in storage files but aren't in the schema yet (forward compatibility).
  *
- * @version 1.0.0
  */
 
 import fs from 'node:fs/promises'

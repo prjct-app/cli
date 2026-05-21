@@ -8,9 +8,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { buildIndex, score, tokenizeFile, tokenizeQuery } from '../../domain/bm25'
 
-// =============================================================================
 // Tokenization Tests
-// =============================================================================
 
 describe('BM25', () => {
   describe('tokenizeFile', () => {
@@ -110,9 +108,7 @@ describe('BM25', () => {
     })
   })
 
-  // =============================================================================
   // Index Building & Scoring Tests
-  // =============================================================================
 
   describe('buildIndex + score', () => {
     let testDir: string

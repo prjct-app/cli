@@ -18,8 +18,6 @@
  *
  * Performance target: <50ms per query (all indexes pre-loaded from SQLite).
  *
- * @module domain/file-ranker
- * @version 1.1.0
  */
 
 import type { RankedFile, RankingConfig } from '../types/domain.js'

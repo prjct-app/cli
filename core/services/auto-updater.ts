@@ -1,25 +1,10 @@
 /**
- * Auto-Updater — opt-in silent self-update for prjct.
+ * Auto-Updater — opt-in silent self-update for prjct (mem_899).
  *
- * Why: even after a release ships and the banner shows up, users have
- * to remember to run `npm install -g prjct-cli@latest`. The banner
- * solves discovery; this solves laziness. Both are bypassable.
- *
- * Design constraints (mem_899: efficiency contract + don't-be-creepy):
- *   - OPT-IN. Default off. User runs `prjct config set auto-update on`
- *     to turn it on. We never auto-modify someone's binary without
- *     consent.
- *   - Throttled to once/hour via a timestamp in global config so we
- *     don't hit the npm registry on every Claude turn.
- *   - Background spawn via detached child process. The Claude session
- *     never waits for the install to finish.
- *   - Network-failure-safe. Any error → swallow + log to update.log.
- *   - Detects how prjct was installed (binary in ~/.prjct-cli/bin/ vs
- *     npm global) and uses the right upgrade path:
- *       - Binary install → re-run install-via-claude.sh (handles
- *         platform detection + download)
- *       - npm install → `npm install -g prjct-cli@latest`
- *       - bun install → `bun install -g prjct-cli@latest`
+ * OPT-IN (default off, user enables via `prjct config set auto-update on`),
+ * throttled to 1/hour, runs as a detached child so the Claude session
+ * never waits. Any error is swallowed + logged to update.log. Upgrade
+ * path is picked by detecting how prjct was installed (binary, npm, bun).
  */
 
 import { execFile, spawn } from 'node:child_process'
@@ -86,9 +71,7 @@ export async function runBackgroundCheck(currentVersion: string): Promise<void> 
   }
 }
 
-// =============================================================================
 // Internals
-// =============================================================================
 
 async function fetchLatestVersion(): Promise<string | null> {
   try {

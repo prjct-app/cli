@@ -7,8 +7,6 @@
  * - 15% Git recency (recently modified files)
  * - 5% Import distance (proximity to entry points)
  *
- * @module context-tools/files-tool
- * @version 1.0.0
  */
 
 import fs from 'node:fs/promises'

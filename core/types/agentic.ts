@@ -6,9 +6,7 @@
 import type { Plan } from './agentic/plan-execution'
 import type { CommandParams, ContextPaths } from './core'
 
-// =============================================================================
 // Input Source Types (PRJ-102)
-// =============================================================================
 
 /**
  * Source of context data - tracks origin for traceability.
@@ -52,9 +50,7 @@ export interface SourcedItem {
   _source?: SourceMetadata
 }
 
-// =============================================================================
 // Tool Registry Types
-// =============================================================================
 
 export type ToolFunction = (...args: unknown[]) => Promise<unknown>
 
@@ -79,9 +75,7 @@ export interface ToolRegistry {
   has(name: string): boolean
 }
 
-// =============================================================================
 // Context Types
-// =============================================================================
 
 export type ContextDomain = string
 
@@ -146,9 +140,7 @@ export interface DomainAnalysis {
   confidence: number
 }
 
-// =============================================================================
 // Prompt Builder Types
-// =============================================================================
 
 export interface PromptProjectState {
   projectId: string
@@ -203,9 +195,7 @@ export interface PlanInfo {
   active?: Plan | null
 }
 
-// =============================================================================
 // Ground Truth Types
-// =============================================================================
 
 /**
  * Context for ground truth verification.

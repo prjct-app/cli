@@ -4,7 +4,6 @@
  * Provides consistent, well-formatted help text for all commands.
  *
  * @see PRJ-133
- * @module utils/help
  */
 
 import chalk from 'chalk'

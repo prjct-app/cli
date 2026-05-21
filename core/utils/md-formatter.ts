@@ -7,9 +7,7 @@
 
 import { getVersion } from './version'
 
-// =============================================================================
 // Branding & Layout
-// =============================================================================
 
 /** Branded header — single line, no emoji */
 function mdHeader(): string {
@@ -22,18 +20,14 @@ function mdFooter(): string {
   return `---\nprjct v${version}`
 }
 
-// =============================================================================
 // Output Wrapper
-// =============================================================================
 
 /** Wrap any --md output with header and footer */
 export function mdOutput(...sections: (string | null | undefined | false)[]): string {
   return mdJoin(mdHeader(), ...sections.filter(Boolean), mdFooter())
 }
 
-// =============================================================================
 // Generic Utilities
-// =============================================================================
 
 /** Build a markdown table from headers and rows */
 function mdTable(headers: string[], rows: string[][]): string {
@@ -53,9 +47,7 @@ export function mdBadge(label: string, value: string): string {
   return `**${label}**: \`${value}\``
 }
 
-// =============================================================================
 // Section Formatters
-// =============================================================================
 
 /** Format a section heading with content */
 export function mdSection(title: string, content: string, _level: 2 | 3 = 3): string {
@@ -67,9 +59,7 @@ export function mdList(items: string[], ordered = false): string {
   return items.map((item, i) => (ordered ? `${i + 1}. ${item}` : `- ${item}`)).join('\n')
 }
 
-// =============================================================================
 // Task Formatters
-// =============================================================================
 
 interface TaskInfo {
   description: string
@@ -101,13 +91,9 @@ export function mdTaskHeader(task: TaskInfo): string {
   return `## ${task.description}${meta}`
 }
 
-// =============================================================================
 // Context Formatters
-// =============================================================================
 
-// =============================================================================
 // Navigation Formatters
-// =============================================================================
 
 interface NextStep {
   label: string
@@ -121,9 +107,7 @@ export function mdNextSteps(steps: NextStep[]): string {
   return `### Next\n${mdTable(headers, rows)}`
 }
 
-// =============================================================================
 // Status Formatters
-// =============================================================================
 
 /** Format a key-value stats block as a table */
 export function mdStats(stats: Record<string, string | number | null | undefined>): string {
@@ -144,18 +128,14 @@ export function mdWarn(message: string): string {
   return `> **WARNING:** ${message}`
 }
 
-// =============================================================================
 // Composition Helper
-// =============================================================================
 
 /** Join multiple markdown sections with blank lines */
 export function mdJoin(...sections: (string | null | undefined | false)[]): string {
   return sections.filter(Boolean).join('\n\n')
 }
 
-// =============================================================================
 // Actionable Response (for LLM consumption)
-// =============================================================================
 
 interface MdOption {
   label: string

@@ -9,16 +9,12 @@
  * then `user-service.ts` is also marked as "affected" even though its
  * content hash didn't change.
  *
- * @module domain/change-propagator
- * @version 1.0.0
  */
 
 import type { FileDiff, PropagatedChanges } from '../types/domain.js'
 import { loadGraph } from './import-graph'
 
-// =============================================================================
 // Propagation
-// =============================================================================
 
 /**
  * Given a file diff, propagate changes through the import graph.

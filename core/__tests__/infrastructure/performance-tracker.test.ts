@@ -20,9 +20,7 @@ import pathManager from '../../infrastructure/path-manager'
 import { performanceTracker } from '../../infrastructure/performance-tracker'
 import prjctDb from '../../storage/database'
 
-// =============================================================================
 // Test Setup
-// =============================================================================
 
 let tmpRoot: string | null = null
 let testProjectId: string
@@ -51,9 +49,7 @@ describe('PerformanceTracker', () => {
     }
   })
 
-  // ===========================================================================
   // Timing Tests
-  // ===========================================================================
 
   describe('timing marks', () => {
     it('should measure elapsed time between start and end', async () => {
@@ -83,9 +79,7 @@ describe('PerformanceTracker', () => {
     })
   })
 
-  // ===========================================================================
   // Memory Tests
-  // ===========================================================================
 
   describe('memory snapshots', () => {
     it('should return valid memory snapshot', () => {
@@ -120,9 +114,7 @@ describe('PerformanceTracker', () => {
     })
   })
 
-  // ===========================================================================
   // Recording Tests
-  // ===========================================================================
 
   describe('metric recording', () => {
     it('should record timing metric to SQLite', () => {
@@ -168,9 +160,7 @@ describe('PerformanceTracker', () => {
     })
   })
 
-  // ===========================================================================
   // Context Correctness Tests
-  // ===========================================================================
 
   describe('context correctness', () => {
     it('should record context correctness entry', () => {
@@ -193,9 +183,7 @@ describe('PerformanceTracker', () => {
     })
   })
 
-  // ===========================================================================
   // Subtask Handoff Tests
-  // ===========================================================================
 
   describe('subtask handoff', () => {
     it('should record handoff entry', () => {
@@ -217,9 +205,7 @@ describe('PerformanceTracker', () => {
     })
   })
 
-  // ===========================================================================
   // Report Generation Tests
-  // ===========================================================================
 
   describe('report generation', () => {
     it('should return empty report when no data', () => {

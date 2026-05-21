@@ -22,9 +22,7 @@ interface TransitionResult {
   suggestion?: string
 }
 
-// =============================================================================
 // State Definitions
-// =============================================================================
 
 const WORKFLOW_STATES: Record<WorkflowState, StateDefinition> = {
   idle: {
@@ -56,9 +54,7 @@ const WORKFLOW_STATES: Record<WorkflowState, StateDefinition> = {
   },
 }
 
-// =============================================================================
 // State Machine
-// =============================================================================
 
 export class WorkflowStateMachine {
   /**

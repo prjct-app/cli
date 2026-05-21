@@ -3,9 +3,7 @@
  * Types for path management, configuration, and system infrastructure.
  */
 
-// =============================================================================
 // Path Management Types
-// =============================================================================
 
 export interface MonorepoPackage {
   name: string
@@ -46,9 +44,7 @@ export type LayerType =
   | 'storage'
   | 'context'
 
-// =============================================================================
 // Command Installer Types
-// =============================================================================
 
 /**
  * Result of command installation
@@ -103,9 +99,7 @@ export interface GlobalConfigResult {
   error?: string
 }
 
-// =============================================================================
 // Permission Types
-// =============================================================================
 
 /**
  * Permission level for operations
@@ -140,9 +134,7 @@ export interface PermissionsConfig {
   externalDirectories: string[]
 }
 
-// =============================================================================
 // Permission Manager Types
-// =============================================================================
 
 export interface PermissionCheckResult {
   allowed: boolean
@@ -151,9 +143,7 @@ export interface PermissionCheckResult {
   reason?: string
 }
 
-// =============================================================================
 // Agent Detector Types
-// =============================================================================
 
 export interface AgentCapabilities {
   mcp: boolean
@@ -189,9 +179,7 @@ export interface DetectedAgent {
   environment: AgentEnvironment
 }
 
-// =============================================================================
 // Author Detector Types
-// =============================================================================
 
 export interface DetectedAuthorInfo {
   name: string | null
@@ -207,9 +195,7 @@ export interface AuthorConfigStatus {
   recommendations: string[]
 }
 
-// =============================================================================
 // Setup Types
-// =============================================================================
 
 export interface CodexPRouterStatus {
   installed: boolean
@@ -221,9 +207,7 @@ export interface CodexPRouterStatus {
   fix?: string[]
 }
 
-// =============================================================================
 // AI Provider Types
-// =============================================================================
 
 export interface AntigravityDetection {
   /** Whether ~/.gemini/antigravity/ exists */

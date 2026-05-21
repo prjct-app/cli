@@ -7,9 +7,7 @@ import type { InputSource, SourcedItem } from '../agentic'
 import type { CommandParams } from '../core'
 import type { OrchestratorContext } from './templates-orchestration'
 
-// =============================================================================
 // Plan Mode Types
-// =============================================================================
 
 export interface PlanParams extends CommandParams {
   /** Skip approval prompt */
@@ -155,9 +153,7 @@ export type ApprovalOperation =
   | 'git_push'
   | 'run_command'
 
-// =============================================================================
 // Loop Detector Types
-// =============================================================================
 
 export interface ErrorEntry {
   message: string
@@ -222,9 +218,7 @@ export interface OutputAnalysis extends HallucinationResult {
   action?: string
 }
 
-// =============================================================================
 // Command Executor Types
-// =============================================================================
 
 export interface ExecutionResult {
   success: boolean

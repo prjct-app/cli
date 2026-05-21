@@ -7,9 +7,7 @@
 
 import { prjctDb } from './database'
 
-// =============================================================================
 // Types
-// =============================================================================
 
 interface ContextFeedbackRow {
   id: number
@@ -23,9 +21,7 @@ interface ContextFeedbackRow {
   completed_at: string | null
 }
 
-// =============================================================================
 // Context Feedback Storage
-// =============================================================================
 
 class ContextFeedbackStorage {
   /**
@@ -165,9 +161,7 @@ class ContextFeedbackStorage {
   }
 }
 
-// =============================================================================
 // Singleton Export
-// =============================================================================
 
 export const contextFeedbackStorage = new ContextFeedbackStorage()
 export { ContextFeedbackStorage }

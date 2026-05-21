@@ -18,9 +18,7 @@ import type { CurrentTask, StateJson } from '../../schemas/state'
 import { prjctDb } from '../../storage/database'
 import { stateStorage } from '../../storage/state-storage'
 
-// =============================================================================
 // Test Setup
-// =============================================================================
 
 let tmpRoot: string | null = null
 let testProjectId: string
@@ -72,9 +70,7 @@ afterEach(async () => {
   }
 })
 
-// =============================================================================
 // Helper Functions
-// =============================================================================
 
 /**
  * Create a mock task for testing
@@ -105,9 +101,7 @@ async function completeTaskAndGetState(projectId: string, task: CurrentTask): Pr
   return await stateStorage.read(projectId)
 }
 
-// =============================================================================
 // Tests: Task History Push on Completion
-// =============================================================================
 
 describe('Task History - Push on Completion', () => {
   it('should add completed task to taskHistory array', async () => {
@@ -199,9 +193,7 @@ describe('Task History - Push on Completion', () => {
   })
 })
 
-// =============================================================================
 // Tests: FIFO Eviction
-// =============================================================================
 
 describe('Task History - FIFO Eviction', () => {
   it('should enforce max 20 entries', async () => {
@@ -236,9 +228,7 @@ describe('Task History - FIFO Eviction', () => {
   })
 })
 
-// =============================================================================
 // Tests: Backward Compatibility
-// =============================================================================
 
 describe('Task History - Backward Compatibility', () => {
   it('should initialize taskHistory as empty array when undefined', async () => {
@@ -273,9 +263,7 @@ describe('Task History - Backward Compatibility', () => {
   })
 })
 
-// =============================================================================
 // Tests: Accessor Methods
-// =============================================================================
 
 describe('Task History - Accessor Methods', () => {
   beforeEach(async () => {

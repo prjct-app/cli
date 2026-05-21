@@ -7,7 +7,6 @@
  * - Create new configurations
  * - Update existing configurations
  *
- * @version 0.3.0
  */
 
 import fs from 'node:fs/promises'

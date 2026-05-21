@@ -50,10 +50,8 @@ describe('bumpPatch', () => {
   })
 })
 
-// =============================================================================
 // VersionService.bump idempotency — prevents the "double-bump on ship retry"
 // failure mode where v2.4.39 → v2.4.41 → v2.4.43 stacks across runs.
-// =============================================================================
 
 describe('VersionService.bump (idempotency)', () => {
   let dir: string
