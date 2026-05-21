@@ -647,4 +647,65 @@ export const migrations: Migration[] = [
       `)
     },
   },
+  {
+    version: 20,
+    name: 'events-type-timestamp-index',
+    up: (db: SqliteDatabase) => {
+      // Memory recall + memory-service do `WHERE type LIKE 'remember.%'`
+      // (or 'memory.%') and `ORDER BY id DESC` on the events table. Without
+      // a compound index, SQLite scans the whole table for every recall.
+      // With (type, timestamp DESC) the planner can do an index-only range
+      // scan + skip the sort entirely.
+      db.run('CREATE INDEX IF NOT EXISTS idx_events_type_ts ON events(type, timestamp DESC)')
+    },
+  },
+  {
+    version: 21,
+    name: 'memories-type-and-fts-backfill',
+    up: (db: SqliteDatabase) => {
+      // Migration 10 created `memories` + `memories_fts` (FTS5 BM25), but
+      // nothing ever wrote to it — memory entries live in the `events`
+      // table with type LIKE 'remember.%'. Result: the FTS index is dark
+      // and the UserPromptSubmit hook falls back to keyword substring
+      // matching over a recency window (the "17th-entry miss").
+      //
+      // Two-part fix: (1) extend `memories` so it can carry every field a
+      // MemoryEntry needs (type, provenance), (2) backfill from events so
+      // the FTS index is non-empty on first sync after upgrade. The
+      // trigger memories_ai keeps memories_fts in sync as new rows land.
+      try {
+        db.run('ALTER TABLE memories ADD COLUMN type TEXT')
+      } catch {
+        // already added
+      }
+      try {
+        db.run('ALTER TABLE memories ADD COLUMN provenance TEXT')
+      } catch {
+        // already added
+      }
+
+      // Backfill from events. NOT EXISTS keeps it idempotent across re-runs.
+      // We strip the 'remember.' prefix off `events.type` for the memory
+      // type. Tags + content come out of the JSON event payload.
+      db.run(`
+        INSERT INTO memories
+          (id, project_id, title, content, tags, type, provenance, user_triggered,
+           created_at, updated_at)
+        SELECT
+          'mem_' || e.id,
+          '_backfill',
+          substr(coalesce(json_extract(e.data, '$.content'), ''), 1, 80),
+          coalesce(json_extract(e.data, '$.content'), ''),
+          coalesce(json_extract(e.data, '$.tags'), '{}'),
+          substr(e.type, length('remember.') + 1),
+          coalesce(json_extract(e.data, '$.provenance'), 'declared'),
+          0,
+          e.timestamp,
+          e.timestamp
+        FROM events e
+        WHERE e.type LIKE 'remember.%'
+          AND NOT EXISTS (SELECT 1 FROM memories m WHERE m.id = 'mem_' || e.id)
+      `)
+    },
+  },
 ]

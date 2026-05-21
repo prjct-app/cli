@@ -409,3 +409,85 @@ describe('linkifyMemRefs — slug-targeted links (graph-visible) + legible label
     expect(out).toBe('resolves=[[gotcha#^mem-3135|mem_3135]]')
   })
 })
+
+describe('projectMemory.searchFts — BM25 relevance over recency', () => {
+  // Migration 21 backfills `memories` from `events`. To make the FTS5
+  // index hit, we have to write into `memories` directly here; the
+  // production path is `projectMemory.remember()` which dual-writes.
+  function writeMemoryRow(args: {
+    id: string
+    type: string
+    content: string
+    tags?: Record<string, string>
+    createdAt?: string
+  }): void {
+    const now = args.createdAt ?? new Date().toISOString()
+    const tags = args.tags ?? {}
+    prjctDb.run(
+      projectId,
+      `INSERT INTO memories
+         (id, project_id, title, content, tags, type, provenance, user_triggered,
+          created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      args.id,
+      projectId,
+      args.content.slice(0, 80),
+      args.content,
+      JSON.stringify(tags),
+      args.type,
+      'declared',
+      0,
+      now,
+      now
+    )
+  }
+
+  it('returns the topically-relevant entry even when it is older than recency-window misses', () => {
+    // 20 unrelated newer entries, then the relevant one. Without FTS,
+    // the recency window of 16 would never see the OAuth memory.
+    for (let i = 0; i < 20; i++) {
+      writeMemoryRow({
+        id: `mem_noise_${i}`,
+        type: 'fact',
+        content: `unrelated chatter number ${i}`,
+        createdAt: `2026-01-01T00:00:${String(i).padStart(2, '0')}Z`,
+      })
+    }
+    writeMemoryRow({
+      id: 'mem_oauth',
+      type: 'decision',
+      content: 'we chose OAuth with refresh-token rotation for the auth flow',
+      tags: { domain: 'auth' },
+      createdAt: '2025-12-15T00:00:00Z', // older than the noise
+    })
+
+    const hits = projectMemory.searchFts(projectId, ['oauth'], 4)
+    expect(hits.length).toBeGreaterThan(0)
+    expect(hits.some((e) => e.id === 'mem_oauth')).toBe(true)
+  })
+
+  it('returns an empty array for keywords with zero matches (graceful miss)', () => {
+    writeMemoryRow({
+      id: 'mem_a',
+      type: 'fact',
+      content: 'totally unrelated topic',
+    })
+    const hits = projectMemory.searchFts(projectId, ['nonexistentkeyword'], 4)
+    expect(hits).toEqual([])
+  })
+
+  it('returns an empty array when keywords is empty (no MATCH built)', () => {
+    expect(projectMemory.searchFts(projectId, [], 4)).toEqual([])
+  })
+
+  it('sanitizes FTS5 reserved tokens so a literal OR in the prompt does not blow up', () => {
+    writeMemoryRow({
+      id: 'mem_stripe',
+      type: 'decision',
+      content: 'we chose Stripe for billing',
+    })
+    // 'OR' is an FTS5 reserved operator; sanitization should strip it.
+    const hits = projectMemory.searchFts(projectId, ['stripe', 'OR', 'billing'], 4)
+    expect(hits.some((e) => e.id === 'mem_stripe')).toBe(true)
+  })
+})

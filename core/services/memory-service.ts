@@ -19,15 +19,17 @@ class MemoryService {
     action: string,
     data: Record<string, unknown>,
     author?: string
-  ): Promise<void> {
+  ): Promise<{ eventId: number | null; projectId: string } | null> {
     try {
       const projectId = await configManager.getProjectId(projectPath)
-      if (!projectId) return
+      if (!projectId) return null
 
-      prjctDb.appendEvent(projectId, `memory.${action}`, { ...data, author })
+      const eventId = prjctDb.appendEvent(projectId, `memory.${action}`, { ...data, author })
+      return { eventId, projectId }
     } catch (error) {
       // Non-critical - don't fail the command
       console.error(`Memory log error: ${error instanceof Error ? error.message : String(error)}`)
+      return null
     }
   }
 

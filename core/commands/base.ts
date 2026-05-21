@@ -63,7 +63,7 @@ export class PrjctCommandsBase {
     data: Record<string, unknown>
   ): Promise<void> {
     const author = await this.ensureAuthor()
-    return memoryService.log(projectPath, action, data, author.name)
+    await memoryService.log(projectPath, action, data, author.name)
   }
 
   async _detectEmptyDirectory(projectPath: string): Promise<boolean> {

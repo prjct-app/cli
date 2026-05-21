@@ -277,13 +277,15 @@ class PrjctDatabase {
     type: string,
     data: Record<string, unknown>,
     taskId?: string
-  ): void {
+  ): number | null {
     const db = this.getDb(projectId)
     const now = new Date().toISOString()
-    this.prepareCached(
+    const result = this.prepareCached(
       db,
       'INSERT INTO events (type, task_id, data, timestamp) VALUES (?, ?, ?, ?)'
     ).run(type, taskId ?? null, JSON.stringify(data), now)
+    const id = result.lastInsertRowid
+    return typeof id === 'bigint' ? Number(id) : (id ?? null)
   }
 
   getEvents(
